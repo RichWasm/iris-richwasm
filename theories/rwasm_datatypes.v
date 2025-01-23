@@ -55,7 +55,7 @@ Inductive pre_type : Type :=
 
 with value_type : Type := 
 | QualT: pre_type -> qual -> value_type
-                             
+
 with heap_type : Type :=
 (*| VariantType : list Typ -> HeapType*)
 | StructType  : list (value_type * size) -> heap_type
