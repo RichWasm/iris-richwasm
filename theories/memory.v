@@ -80,7 +80,7 @@ Record mixin_of (Mem_t : Type) : Type := Mixin {
 Set Primitive Projections.
 Record class_of (T : Type) : Type := Class {base : Equality.mixin_of T; mixin : mixin_of T}.
 Unset Primitive Projections.
-Local Coercion base : class_of >->  Equality.class_of.
+Local Coercion base : class_of >->  Equality.mixin_of.
 
 Structure type : Type := Pack {sort; _ : class_of sort; }.
 Local Coercion sort : type >-> Sortclass.
@@ -94,12 +94,12 @@ Notation xclass := (class : class_of xT).
 Definition pack m :=
   fun b bT & phant_id (Equality.class bT) b => Pack (@Class T b m).
 
-Definition eqType := @Equality.Pack cT xclass.
+Definition eqType := @Equality.Pack cT (Equality.Class xclass).
 
 End ClassDef.
 
 Module Import Exports.
-Coercion base : class_of >-> Equality.class_of.
+Coercion base : class_of >-> Equality.mixin_of.
 Coercion sort : type >-> Sortclass.
 Coercion eqType : type >-> Equality.type.
 Canonical eqType.

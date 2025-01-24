@@ -1,7 +1,7 @@
 (** Proof of progress **)
-
-From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 From Coq Require Import Program.Equality NArith.
+From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
+
 From Wasm Require Export operations typing datatypes_properties typing opsem properties type_preservation.
 
 Set Implicit Arguments.
@@ -714,14 +714,14 @@ Proof.
     + (* Load Some *)
       destruct p as [tp sx].
       simpl in H0. remove_bools_options.
-      destruct (load_packed sx m (Wasm_int.N_of_uint i32m s0) off (tp_length tp) (t_length t)) eqn:HLoadResult.
+      destruct (load_packed sx m (Wasm_int.N_of_uint i32m s0) off (length_tp tp) (length_t t)) eqn:HLoadResult.
       * exists [::AI_basic (BI_const (wasm_deserialise b t))].
         by eapply r_load_packed_success; eauto.
       * exists [::AI_trap].
         by eapply r_load_packed_failure; eauto.
     + (* Load None *)
       simpl in H0.
-      destruct (load m (Wasm_int.N_of_uint i32m s0) off (t_length t)) eqn:HLoadResult.
+      destruct (load m (Wasm_int.N_of_uint i32m s0) off (length_t t)) eqn:HLoadResult.
       * exists [::AI_basic (BI_const (wasm_deserialise b t))].
         by eapply r_load_success; eauto.
       * exists [::AI_trap].
@@ -737,7 +737,7 @@ Proof.
     destruct tp as [tp |].
     + (* Store Some *)
       simpl in H0. remove_bools_options.
-      destruct (store_packed m (Wasm_int.N_of_uint i32m s0) off (bits v0) (tp_length tp)) eqn:HStoreResult.
+      destruct (store_packed m (Wasm_int.N_of_uint i32m s0) off (bits v0) (length_tp tp)) eqn:HStoreResult.
       * exists (upd_s_mem s (update_list_at s.(s_mems) n m0)), f, [::].
         eapply r_store_packed_success; eauto.
         by unfold types_agree; apply/eqP.
@@ -746,7 +746,7 @@ Proof.
         by unfold types_agree; apply/eqP.
     + (* Store None *)
       simpl in H0.
-      destruct (store m (Wasm_int.N_of_uint i32m s0) off (bits v0) (t_length (typeof v0))) eqn:HStoreResult.
+      destruct (store m (Wasm_int.N_of_uint i32m s0) off (bits v0) (length_t (typeof v0))) eqn:HStoreResult.
       * exists (upd_s_mem s (update_list_at s.(s_mems) n m0)), f, [::].
         eapply r_store_success; eauto.
         by unfold types_agree; apply/eqP.
@@ -1098,12 +1098,12 @@ Proof.
     remember (const_list l) as b eqn:Hl ; destruct b => //. 
     move/eqP in Hfill. rewrite Hfill ; clear Hfill.
     rewrite (first_instr_const (es ++ l0) (Logic.eq_sym Hl)). 
-    induction es ; first by inversion Hstart. unfold addn, addn_rec. rewrite PeanoNat.Nat.add_0_r.
+    induction es ; first by inversion Hstart. unfold addn. rewrite PeanoNat.Nat.add_0_r.
     destruct a ; unfold first_instr ; simpl ; unfold first_instr in Hstart ;
       simpl in Hstart ; try done.
     destruct b ; unfold first_instr ; simpl ;
       unfold first_instr in Hstart ; simpl in Hstart ; eauto; try done.
-    all: unfold addn, addn_rec in IHes ; rewrite PeanoNat.Nat.add_0_r in IHes.
+    all: unfold addn in IHes ; rewrite PeanoNat.Nat.add_0_r in IHes.
     unfold first_instr in IHes. eauto. eauto.
     destruct (find_first_some _) => //=. destruct p; try done. eauto. eauto.
     destruct (find_first_some _) => //=;eauto. destruct p => //. }

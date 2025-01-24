@@ -2,10 +2,11 @@
 (* (C) J. Pichon, M. Bodin - see LICENSE.txt *)
 
 From Wasm Require Import common memory_list.
-From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
-From compcert Require lib.Floats.
-From Wasm Require Export datatypes_properties list_extra.
 From Coq Require Import BinNat Eqdep_dec.
+From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
+From compcert Require Import Floats.
+From Wasm Require Export datatypes_properties list_extra.
+
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -48,18 +49,18 @@ Definition upd_s_mem (s : store_record) (m : list memory) : store_record := {|
   s_globals := s.(s_globals);
 |}.
 
-Definition page_size : N := (64 % N) * (1024 % N).
+Definition page_size : N := (N.of_nat 64) * (N.of_nat 1024).
 
-Definition page_limit : N := 65536%N.
+Definition page_limit : N := N.of_nat 65536.
 
 Definition ml_valid (m: memory_list) : Prop :=
-  N.modulo (memory_list.mem_length m) page_size = 0%N.
+  N.modulo (memory_list.length_mem m) page_size = N.of_nat 0.
 
-Definition mem_length (m : memory) : N :=
-  mem_length m.(mem_data).
+Definition length_mem (m : memory) : N :=
+  length_mem m.(mem_data).
 
 Definition mem_size (m : memory) : N :=
-  N.div (mem_length m) page_size.
+  N.div (length_mem m) page_size.
 
 (** Grow the memory a given number of pages.
   * @param len_delta: the number of pages to grow the memory by
@@ -88,7 +89,7 @@ Definition mem_grow (m : memory) (len_delta : N) : option memory :=
 (* TODO: We crucially need documentation here. *)
 
 Definition load (m : memory) (n : N) (off : static_offset) (l : nat) : option bytes :=
-  if N.leb (N.add n (N.add off (N.of_nat l))) (mem_length m)
+  if N.leb (N.add n (N.add off (N.of_nat l))) (length_mem m)
   then read_bytes m (N.add n off) l
   else None.
 
@@ -104,7 +105,7 @@ Definition load_packed (s : sx) (m : memory) (n : N) (off : static_offset) (lp :
   option_map (sign_extend s l) (load m n off lp).
 
 Definition store (m : memory) (n : N) (off : static_offset) (bs : bytes) (l : nat) : option memory :=
-  if N.leb (n + off + N.of_nat l) (mem_length m)
+  if N.leb (n + off + N.of_nat l) (length_mem m)
   then write_bytes m (n + off) (bytes_takefill #00 l bs)
   else None.
 
@@ -133,7 +134,7 @@ Definition option_projl (A B : Type) (x : option (A * B)) : option A :=
 Definition option_projr (A B : Type) (x : option (A * B)) : option B :=
   option_map snd x.
 
-Definition t_length (t : value_type) : nat :=
+Definition length_t (t : value_type) : nat :=
   match t with
   | T_i32 => 4
   | T_i64 => 8
@@ -141,7 +142,7 @@ Definition t_length (t : value_type) : nat :=
   | T_f64 => 8
   end.
 
-Definition tp_length (tp : packed_type) : nat :=
+Definition length_tp (tp : packed_type) : nat :=
   match tp with
   | Tp_i8 => 1
   | Tp_i16 => 2
@@ -692,8 +693,8 @@ Definition result_types_agree (ts : result_type) r :=
 
 Definition load_store_t_bounds (a : alignment_exponent) (tp : option packed_type) (t : value_type) : bool :=
   match tp with
-  | None => Nat.pow 2 a <= t_length t
-  | Some tp' => (Nat.pow 2 a <= tp_length tp') && (tp_length tp' < t_length t) && (is_int_t t)
+  | None => Nat.pow 2 a <= length_t t
+  | Some tp' => (Nat.pow 2 a <= length_tp tp') && (length_tp tp' < length_t t) && (is_int_t t)
   end.
 
 Definition cvt_i32 (s : option sx) (v : value) : option i32 :=

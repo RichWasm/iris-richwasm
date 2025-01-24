@@ -9,7 +9,7 @@ Require Import Ascii.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
-
+Unset Automatic Proposition Inductives.
 
 Definition expr := list basic_instruction.
 
@@ -31,6 +31,7 @@ Record limits := Mk_limits { lim_min : nat; lim_max : option nat; }.
 
 Inductive elem_type : Type :=
 | elem_type_tt : elem_type (* TODO: am I interpreting the spec correctly? *).
+
 
 Record table_type : Type := Mk_table_type {
   tt_limits : limits;

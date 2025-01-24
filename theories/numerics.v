@@ -2,13 +2,15 @@
 (* (C) M. Bodin, J. Pichon - see LICENSE.txt *)
 
 Require Import common.
-From Coq Require ZArith.Int ZArith.BinInt.
+From Coq Require Import ZArith.Int ZArith.BinInt.
 From compcert Require Integers Floats.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
+
+Set Bullet Behavior "Strict Subproofs".
 
 (** Most of the content of this file follows the specification from
   https://webassembly.github.io/spec/core/exec/numerics.html **)
@@ -17,7 +19,6 @@ Unset Printing Implicit Defensive.
 
 Module Wasm_int.
 
-Import ZArith.BinInt.
 
 Coercion Z.of_nat : nat >-> Z.
 
@@ -87,10 +88,11 @@ Record mixin_of (int_t : Type) := Mixin {
   N_of_uint : int_t -> N ;
   Z_of_uint : int_t -> Z ;
   Z_of_sint : int_t -> Z ;
-}.
+                                    }.
 
-Record class_of T := Class { base : Equality.class_of T; mixin : mixin_of T }.
-Local Coercion base : class_of >-> Equality.class_of.
+
+Record class_of T := Class { base : Equality.mixin_of T; mixin : mixin_of T }.
+Local Coercion base : class_of >-> Equality.mixin_of. 
 
 Structure type := Pack {sort : Type; _ : class_of sort}.
 Local Coercion sort : type >-> Sortclass.
@@ -293,7 +295,7 @@ Qed.
 Fixpoint power_index_to_bits (c : nat) (l : seq Z) : seq bool :=
   match c with
   | 0 => [::]
-  | c.+1 => ((c : Z) \in l) :: power_index_to_bits c l
+  | S c => ((c : Z) \in l) :: power_index_to_bits c l
   end.
 
 Lemma power_index_to_bits_size : forall c x,
@@ -310,15 +312,15 @@ Proof.
   move=> c. elim: c; first by [].
   move=> c IH l A /=.
   rewrite (Bool.negb_involutive_reverse (_ \in l)) A //=.
-  rewrite IH //. move=> i I. apply: A. by apply: leq_trans I.
+  rewrite IH //. move=> i I. apply: A. lias. 
 Qed.
 
 Lemma power_index_to_bits_in : forall c l n,
   n < c ->
   seq.nth false (power_index_to_bits c l) (c - n - 1) = ((n : Z) \in l).
 Proof.
-  move=> c l n /leP I. move: l. elim: I.
-  - move=> l /=. by rewrite_by (n.+1 - n - 1 = 0).
+  move=> c l n /ssrnat.leP I. move: l. elim: I.
+  - move=> l /=. by rewrite_by (S n - n - 1 = 0).
   - move=> {} c I IH l. rewrite_by (c.+1 - n - 1 = 1 + (c - n - 1)). by apply: IH.
 Qed.
 
@@ -327,7 +329,10 @@ Lemma power_index_to_bits_nth : forall c l n,
   seq.nth false (power_index_to_bits c l) n = ((c - n - 1 : Z) \in l).
 Proof.
   move=> c l n I. have E: (n = c - (c - n - 1) - 1); first by lias.
-  rewrite {1} E. apply: power_index_to_bits_in. by lias.
+  rewrite {1} E.
+  rewrite (power_index_to_bits_in (c := c) l (n := c - n - 1)). 2: by lias.
+  assert (c - n - 1 >= 0); first lias.
+  f_equal. lias.
 Qed.
 
 (** Given a [T], return a sequence of bits representing the integer.
@@ -372,12 +377,20 @@ Proof.
     rewrite {} E Zbits.Z_one_bits_two_p /=.
     + rewrite nth_rcons nth_nseq size_nseq.
       case E: (i == wordsize - 1); move/ssrnat.eqnP: E => E.
-      * rewrite {} E. rewrite_by (wordsize - (wordsize - 1) - 1 = 0).
-        by rewrite_by (wordsize - 1 < wordsize - 1 = false).
+      * rewrite {} E.
+        rewrite_by (wordsize - 1 < wordsize - 1 = false).
+        rewrite_by (Z.sub (Z.sub (Z.of_nat wordsize)
+                             (Z.of_nat (subn wordsize (S O)))) (Zpos xH) = 0).
+        done.
       * rewrite_by (i < wordsize - 1 = true).
         rewrite in_cons in_nil Bool.orb_false_r.
-        rewrite_by (((wordsize - i - 1 : Z) == 0) = (wordsize - i - 1 == 0)).
-        apply gtn_eqF. move/leP: I E. move: WS.wordsize_not_zero. rewrite/wordsize. by lias.
+        assert (((wordsize - i - 1 : Z) == 0) = (wordsize - i - 1 == 0)) as H.
+        2:{ 
+          rewrite H. apply gtn_eqF. move/leP: I E. move: WS.wordsize_not_zero. rewrite/wordsize. by lias.
+        }
+        destruct (wordsize - i - 1 == 0) eqn:H.
+        -- move/eqP in H. apply/eqP. lias.
+        -- lias.
     + by lias.
 Qed.
 
@@ -966,7 +979,7 @@ Proof.
   move=> [i ?] /=. rewrite Coqlib.Z_to_nat_max. by rewrite Z.max_l; lias.
 Qed.
 
-Definition cT : type := Pack {| base := EqMixin eq_eqP; mixin := Tmixin |}.
+Definition cT : type := Pack {| base := Equality.Mixin eq_eqP; mixin := Tmixin |}.
 
 Definition class := let: Pack _ c as cT' := cT return class_of cT' in c.
 Definition clone c of phant_id class c := @Pack T c.
@@ -976,7 +989,7 @@ Notation xclass := (class : class_of xT).
 Definition pack m :=
   fun b bT & phant_id (Equality.class bT) b => Pack (@Class T b m).
 
-Definition eqType := @Equality.Pack cT xclass.
+Definition eqType := @Equality.Pack cT (Equality.Class xclass).
 
 End Make.
 
@@ -1062,8 +1075,8 @@ Record mixin_of (float_t : Type) := Mixin {
   float_convert_si64 : i64 -> float_t ;
 }.
 
-Record class_of T := Class { base : Equality.class_of T; mixin : mixin_of T }.
-Local Coercion base : class_of >-> Equality.class_of.
+Record class_of T := Class { base : Equality.mixin_of T; mixin : mixin_of T }.
+Local Coercion base : class_of >-> Equality.mixin_of.
 
 Structure type := Pack {sort; _ : class_of sort}.
 Local Coercion sort : type >-> Sortclass.
@@ -1087,7 +1100,7 @@ Import Integers.
 Import Raux.
 
 Import Floats.
-Import ZArith.BinInt.
+
 
 Parameters prec emax : Z.
 
@@ -1126,7 +1139,7 @@ Import Raux.
 Import Floats.
 
 Include Float32.
-Import ZArith.BinInt.
+
 
 Definition prec : BinNums.Z := 24.
 Definition emax : BinNums.Z := 128.
@@ -1153,7 +1166,7 @@ Import Raux.
 Import Floats.
 
 Include Float.
-Import ZArith.BinInt.
+
 
 Definition prec : BinNums.Z := 53.
 Definition emax : BinNums.Z := 1024.
@@ -1182,15 +1195,15 @@ Import Integers.
 Import Raux.
 
 Import Floats.
-Import ZArith.BinInt.
+
 
 Export FS.
 
 Definition eqb v1 v2 := is_left (eq_dec v1 v2).
 Definition eqbP : Equality.axiom eqb := eq_dec_Equality_axiom eq_dec.
 
-Canonical Structure T_eqMixin := EqMixin eqbP.
-Canonical Structure T_eqType := Eval hnf in EqType T T_eqMixin.
+Canonical Structure T_eqMixin := Equality.Mixin eqbP.
+Canonical Structure T_eqType := Eval hnf in Equality.Pack (sort := T) (Equality.Class T_eqMixin).
 
 (** State whether the given float is a [NaN]. **)
 Definition is_nan : T -> bool := Binary.is_nan _ _.
@@ -1782,7 +1795,7 @@ Notation xclass := (class : class_of xT).
 Definition pack m :=
   fun b bT & phant_id (Equality.class bT) b => Pack (@Class T b m).
 
-Definition eqType := @Equality.Pack cT xclass.
+Definition eqType := @Equality.Pack cT (Equality.Class xclass).
 
 End Make.
 

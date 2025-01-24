@@ -12,6 +12,7 @@ From compcert Require common.Memdata.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
+Unset Automatic Proposition Inductives. 
 
 
 (** * Basic Datatypes **)
@@ -136,9 +137,12 @@ Inductive function_type := (* tf *)
 (** std-doc:
 The element type funcref is the infinite union of all function types. A table
 of that type thus contains references to functions of heterogeneous type.
-*)
+ *)
+
 Inductive elem_type : Type :=
 | ELT_funcref : elem_type.
+
+
 
 (** std-doc:
 Table types classify tables over elements of element types within a size range.

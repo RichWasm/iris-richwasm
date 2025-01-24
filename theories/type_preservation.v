@@ -1,8 +1,9 @@
 (** Proof of preservation **)
 
 From Wasm Require Export common.
-From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 From Coq Require Import Program.Equality NArith ZArith_base.
+From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
+
 From Wasm Require Export operations datatypes_properties typing opsem properties.
 
 Set Implicit Arguments.
@@ -2242,7 +2243,7 @@ Definition mem_type_proj2_preserve (acc1 acc2: nat * option memory_list.memory_l
   (exists m1 m2,
       om1 = Some m1 /\
       om2 = Some m2 /\
-      memory_list.mem_length m1 = memory_list.mem_length m2).
+      memory_list.length_mem m1 = memory_list.length_mem m2).
 
 Lemma mem_type_proj2_preserve_trans: forall a1 a2 a3,
     proj2_some a1 ->
@@ -2286,9 +2287,9 @@ Proof.
     repeat eexists.
     injection HF. move => H1 H2. subst. clear HF.
     unfold memory_list.mem_update in H1.
-    destruct (pos + N.of_nat n1 <? N.of_nat (length (memory_list.ml_data m3)))%N eqn:HMemSize => //=.
+    destruct (pos + N.of_nat n1 <? N.of_nat (length (memory_list.ml_data m3)))%num eqn:HMemSize => //=.
     injection H1. move => H2. clear H1. subst.
-    unfold memory_list.mem_length => /=.
+    unfold memory_list.length_mem => /=.
     repeat rewrite length_is_size.
     repeat rewrite size_cat => /=.
     rewrite size_take. rewrite size_drop.
@@ -2311,7 +2312,7 @@ Proof.
     destruct HPreserve as [m1 [m2 [H1 [H2 HLen]]]].
     inversion H1; inversion H2; subst; clear H1; clear H2.
     split => //.
-    unfold mem_size, mem_length => /=.
+    unfold mem_size, length_mem => /=.
     by rewrite HLen.
 Qed.
   
@@ -2322,7 +2323,7 @@ Proof.
   move => m k off v tlen mem HStore.
   unfold mem_extension.
   unfold store in HStore.
-  destruct ((k + off + N.of_nat tlen <=? mem_length m)%N) eqn:HMemSize => //.
+  destruct ((k + off + N.of_nat tlen <=? length_mem m)%num) eqn:HMemSize => //.
   remove_bools_options.
   apply write_bytes_preserve_type in HStore; destruct HStore as [H1 H2]; rewrite H1; rewrite H2.
   apply/andP; split => //=.
@@ -2337,16 +2338,16 @@ Proof.
   move => m c mem HMGrow.
   unfold mem_extension.
   unfold mem_grow in HMGrow.
-  destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
+  destruct (mem_size m + c <=? page_limit)%num eqn:HLP => //.
   - destruct (mem_max_opt m) eqn:HLimMax => //=.
-    destruct ((mem_size m + c <=? n)%N) eqn:HLT => //.
+    destruct ((mem_size m + c <=? n)%num) eqn:HLT => //.
     move : HMGrow.
     case: mem => mem_data_ mem_max_opt_ H.
     inversion H. subst. clear H.
     simpl.
     apply/andP.
     split => //.
-    { unfold mem_size, mem_length, memory_list.mem_length in *.
+    { unfold mem_size, length_mem, memory_list.length_mem in *.
       simpl.
       repeat rewrite length_is_size.
       rewrite size_cat.
@@ -2355,7 +2356,7 @@ Proof.
       by lias.
       }
   - inversion HMGrow; subst; clear HMGrow.
-    unfold mem_size, mem_length, memory_list.mem_length.
+    unfold mem_size, length_mem, memory_list.length_mem.
     simpl.
     apply/andP; split => //.
     apply N.leb_le.
@@ -2468,7 +2469,7 @@ Proof.
     assert (length (take n l) = n).
     { rewrite length_is_size. rewrite length_is_size in H.
       rewrite size_take. by rewrite H. }
-    assert (List.nth_error (take n l ++ [:: x'] ++ List.skipn (n+1)%Nrec l) (length (take n l)) = Some x'); first by apply list_nth_prefix.
+    assert (List.nth_error (take n l ++ [:: x'] ++ List.skipn (n+1)%coq_nat l) (length (take n l)) = Some x'); first by apply list_nth_prefix.
     by rewrite H0 in H1.
 Qed.
 
@@ -2535,7 +2536,7 @@ Lemma store_mem_agree: forall s n m k off vs tl mem,
 Proof.
   move => s n m k off vs tl mem HST HN HStore HTL.
   unfold store in HStore.
-  destruct ((k+off+N.of_nat tl <=? mem_length m)%N) eqn:H => //=.
+  destruct ((k+off+N.of_nat tl <=? length_mem m)%num) eqn:H => //=.
   apply write_bytes_preserve_type in HStore.
   destruct HStore as [HMemSize HMemLim].
   assert (mem_agree m); first by eapply store_typed_mem_agree; eauto.
@@ -2556,12 +2557,12 @@ Proof.
   unfold mem_grow in HGrow.
   unfold mem_agree. simpl.
   unfold mem_agree in H.
-  destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
+  destruct (mem_size m + c <=? page_limit)%num eqn:HLP => //.
   - destruct (mem_max_opt m) eqn:HLimMax => //=.
-    destruct ((mem_size m + c <=? n0)%N) eqn:H1 => //.
-    inversion HGrow. unfold mem_size, mem_length, memory_list.mem_length in *. simpl in *. subst. clear HGrow.
+    destruct ((mem_size m + c <=? n0)%num) eqn:H1 => //.
+    inversion HGrow. unfold mem_size, length_mem, memory_list.length_mem in *. simpl in *. subst. clear HGrow.
     rewrite length_is_size. rewrite size_cat.
-    repeat rewrite - length_is_size. rewrite List.repeat_length.
+    repeat rewrite - length_is_size. rewrite length_repeat.
     rewrite - N.div_add in H1 => //.
     apply N.leb_le in H1.
     by lias.
