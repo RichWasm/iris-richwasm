@@ -1,8 +1,9 @@
 (** Wasm typing rules **)
 (* (C) J. Pichon, M. Bodin - see LICENSE.txt *)
+From Coq Require Import NArith.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 From Wasm Require Import operations.
-From Coq Require Import NArith.
+
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -13,7 +14,7 @@ Unset Printing Implicit Defensive.
 
 Definition convert_helper (sxo : option sx) t1 t2 : bool :=
   (sxo == None) ==
-  ((is_float_t t1 && is_float_t t2) || (is_int_t t1 && is_int_t t2 && (t_length t1 < t_length t2))).
+  ((is_float_t t1 && is_float_t t2) || (is_int_t t1 && is_int_t t2 && (length_t t1 < length_t t2))).
 
 Definition convert_cond t1 t2 (sxo : option sx) : bool :=
   (t1 != t2) && convert_helper sxo t1 t2.
@@ -70,7 +71,7 @@ Inductive be_typing : t_context -> seq basic_instruction -> function_type -> Pro
     relop_type_agree t op -> be_typing C [::BI_relop t op] (Tf [::t; t] [::T_i32])
 | bet_convert : forall C t1 t2 sx, t1 <> t2 -> convert_helper sx t1 t2 ->
   be_typing C [::BI_cvtop t1 CVO_convert t2 sx] (Tf [::t2] [::t1]) 
-| bet_reinterpret : forall C t1 t2, t1 <> t2 -> Nat.eqb (t_length t1) (t_length t2) ->
+| bet_reinterpret : forall C t1 t2, t1 <> t2 -> Nat.eqb (length_t t1) (length_t t2) ->
   be_typing C [::BI_cvtop t1 CVO_reinterpret t2 None] (Tf [::t2] [::t1])
 | bet_unreachable : forall C ts ts',
   be_typing C [::BI_unreachable] (Tf ts ts')

@@ -138,9 +138,9 @@ Definition hostfuncidx_eqb f1 f2 : bool := hostfuncidx_eq_dec f1 f2.
 Definition hostfuncidxP : Equality.axiom hostfuncidx_eqb :=
   eq_dec_Equality_axiom hostfuncidx_eq_dec. 
 
-Canonical Structure hostfuncidx_eqMixin := EqMixin hostfuncidxP.
+Canonical Structure hostfuncidx_eqMixin := Equality.Mixin hostfuncidxP.
 Canonical Structure host_function :=
-  Eval hnf in EqType _ hostfuncidx_eqMixin. 
+  Eval hnf in Equality.Pack (Equality.Class hostfuncidx_eqMixin). 
 (*
 Definition executable_host := executable_host H.host_function.
 Definition store_record := store_record H.host_function.

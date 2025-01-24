@@ -221,53 +221,53 @@ Inductive reduce : store_record -> frame -> list administrative_instruction ->
     forall s i f t bs k a off m,
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      load m (Wasm_int.N_of_uint i32m k) off (t_length t) = Some bs ->
+      load m (Wasm_int.N_of_uint i32m k) off (length_t t) = Some bs ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_load t None a off)] s f [::AI_basic (BI_const (wasm_deserialise bs t))]
   | r_load_failure :
     forall s i f t k a off m,
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      load m (Wasm_int.N_of_uint i32m k) off (t_length t) = None ->
+      load m (Wasm_int.N_of_uint i32m k) off (length_t t) = None ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_load t None a off)] s f [::AI_trap]
   | r_load_packed_success :
     forall s i f t tp k a off m bs sx,
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      load_packed sx m (Wasm_int.N_of_uint i32m k) off (tp_length tp) (t_length t) = Some bs ->
+      load_packed sx m (Wasm_int.N_of_uint i32m k) off (length_tp tp) (length_t t) = Some bs ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_load t (Some (tp, sx)) a off)] s f [::AI_basic (BI_const (wasm_deserialise bs t))]
   | r_load_packed_failure :
     forall s i f t tp k a off m sx,
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      load_packed sx m (Wasm_int.N_of_uint i32m k) off (tp_length tp) (t_length t) = None ->
+      load_packed sx m (Wasm_int.N_of_uint i32m k) off (length_tp tp) (length_t t) = None ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_load t (Some (tp, sx)) a off)] s f [::AI_trap]
   | r_store_success :
     forall t v s i f mem' k a off m,
       types_agree t v ->
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      store m (Wasm_int.N_of_uint i32m k) off (bits v) (t_length t) = Some mem' ->
+      store m (Wasm_int.N_of_uint i32m k) off (bits v) (length_t t) = Some mem' ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_const v); AI_basic (BI_store t None a off)] (upd_s_mem s (update_list_at s.(s_mems) i mem')) f [::]
   | r_store_failure :
     forall t v s i f m k off a,
       types_agree t v ->
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      store m (Wasm_int.N_of_uint i32m k) off (bits v) (t_length t) = None ->
+      store m (Wasm_int.N_of_uint i32m k) off (bits v) (length_t t) = None ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_const v); AI_basic (BI_store t None a off)] s f [::AI_trap]
   | r_store_packed_success :
     forall t v s i f m k off a mem' tp,
       types_agree t v ->
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      store_packed m (Wasm_int.N_of_uint i32m k) off (bits v) (tp_length tp) = Some mem' ->
+      store_packed m (Wasm_int.N_of_uint i32m k) off (bits v) (length_tp tp) = Some mem' ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_const v); AI_basic (BI_store t (Some tp) a off)] (upd_s_mem s (update_list_at s.(s_mems) i mem')) f [::]
   | r_store_packed_failure :
     forall t v s i f m k off a tp,
       types_agree t v ->
       smem_ind s f.(f_inst) = Some i ->
       List.nth_error s.(s_mems) i = Some m ->
-      store_packed m (Wasm_int.N_of_uint i32m k) off (bits v) (tp_length tp) = None ->
+      store_packed m (Wasm_int.N_of_uint i32m k) off (bits v) (length_tp tp) = None ->
       reduce s f [::AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_const v); AI_basic (BI_store t (Some tp) a off)] s f [::AI_trap]
 
   (** memory **)

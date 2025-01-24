@@ -79,8 +79,8 @@ Definition res_eqb (r1 r2 : res) : bool := res_eq_dec r1 r2.
 Definition eqresP : Equality.axiom res_eqb :=
   eq_dec_Equality_axiom res_eq_dec.
 
-Canonical Structure res_eqMixin := EqMixin eqresP.
-Canonical Structure res_eqType := Eval hnf in EqType res res_eqMixin.
+Canonical Structure res_eqMixin := Equality.Mixin eqresP.
+Canonical Structure res_eqType := Eval hnf in Equality.Pack (sort := res) (Equality.Class res_eqMixin).
 
 (*Let ret res_step := res_step host_function.*)
 (* Let res_tuple := res_tuple host_function.
@@ -304,7 +304,7 @@ Definition run_one_step (call : run_stepE ~> itree (run_stepE +' eff))
           (fun j =>
              if List.nth_error s.(s_mems) j is Some mem_s_j then
                expect
-                 (load (mem_s_j) (Wasm_int.N_of_uint i32m k) off (t_length t))
+                 (load (mem_s_j) (Wasm_int.N_of_uint i32m k) off (length_t t))
                  (fun bs => ret (s, f, RS_normal (vs_to_es (wasm_deserialise bs t :: ves'))))
                  (ret (s, f, RS_normal (vs_to_es ves' ++ [::AI_trap])))
              else ret (s, f, crash_error))
@@ -318,7 +318,7 @@ Definition run_one_step (call : run_stepE ~> itree (run_stepE +' eff))
           (fun j =>
              if List.nth_error s.(s_mems) j is Some mem_s_j then
                expect
-                 (load_packed sx (mem_s_j) (Wasm_int.N_of_uint i32m k) off (tp_length tp) (t_length t))
+                 (load_packed sx (mem_s_j) (Wasm_int.N_of_uint i32m k) off (length_tp tp) (length_t t))
                  (fun bs => ret (s, f, RS_normal (vs_to_es (wasm_deserialise bs t :: ves'))))
                  (ret (s, f, RS_normal (vs_to_es ves' ++ [::AI_trap])))
              else ret (s, f, crash_error))
@@ -334,7 +334,7 @@ Definition run_one_step (call : run_stepE ~> itree (run_stepE +' eff))
             (fun j =>
                if List.nth_error s.(s_mems) j is Some mem_s_j then
                  expect
-                   (store mem_s_j (Wasm_int.N_of_uint i32m k) off (bits v) (t_length t))
+                   (store mem_s_j (Wasm_int.N_of_uint i32m k) off (bits v) (length_t t))
                    (fun mem' =>
                       (ret (upd_s_mem s (update_list_at s.(s_mems) j mem'), f, RS_normal (vs_to_es ves'))))
                    (ret (s, f, RS_normal (vs_to_es ves' ++ [::AI_trap])))
@@ -352,7 +352,7 @@ Definition run_one_step (call : run_stepE ~> itree (run_stepE +' eff))
             (fun j =>
                if List.nth_error s.(s_mems) j is Some mem_s_j then
                  expect
-                   (store_packed mem_s_j (Wasm_int.N_of_uint i32m k) off (bits v) (tp_length tp))
+                   (store_packed mem_s_j (Wasm_int.N_of_uint i32m k) off (bits v) (length_tp tp))
                    (fun mem' =>
                       (ret (upd_s_mem s (update_list_at s.(s_mems) j mem'), f, RS_normal (vs_to_es ves'))))
                    (ret (s, f, RS_normal (vs_to_es ves' ++ [::AI_trap])))

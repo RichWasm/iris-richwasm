@@ -1,10 +1,10 @@
 (* Instantiation *)
 (* see https://webassembly.github.io/spec/core/exec/modules.html#exec-instantiation *)
-
-From mathcomp Require Import ssreflect ssrbool ssrnat eqtype seq.
+From Coq Require Import BinNat.
+From mathcomp Require Import ssreflect ssrfun ssrbool ssrnat eqtype seq.
 From Wasm Require Import list_extra datatypes datatypes_properties operations
                          typing opsem memory memory_list.
-From Coq Require Import BinNat.
+
 
 Definition addr := nat.
 Definition funaddr := addr.
@@ -500,8 +500,8 @@ Definition check_bounds_elem (inst : instance) (s : store_record) (m : module) (
       e_offs
       m.(mod_elem).
 
-Definition mem_length (m : memory) : N :=
-  mem_length m.(mem_data).
+Definition length_mem (m : memory) : N :=
+  length_mem m.(mem_data).
 
 Definition check_bounds_data (inst : instance) (s : store_record) (m : module) (d_offs : seq i32) : bool :=
   seq.all2
@@ -512,7 +512,7 @@ Definition check_bounds_data (inst : instance) (s : store_record) (m : module) (
         match List.nth_error s.(s_mems) i with
         | None => false
         | Some mem =>
-          N.leb (N.add (N_of_int d_off) (N.of_nat (List.length d.(moddata_init)))) (mem_length mem)
+          N.leb (N.add (N_of_int d_off) (N.of_nat (List.length d.(moddata_init)))) (length_mem mem)
         end
       end)
       d_offs

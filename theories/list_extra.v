@@ -15,6 +15,9 @@ Fixpoint those0 {A} (l : list (option A)) : option (list A) :=
     option_map (fun ys => y :: ys) (those0 xs)
   end.
 
+Lemma length_repeat {A} (x: A) n: length (repeat x n) = n.
+Proof. apply repeat_length. Qed. 
+
 Local Fixpoint those_aux {A} (acc : option (list A)) (l : list (option A)) : option (list A) :=
   match acc with
   | None => None

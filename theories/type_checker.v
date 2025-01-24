@@ -21,9 +21,9 @@ Definition checker_type_aux_eqb v1 v2 := is_left (checker_type_aux_eq_dec v1 v2)
 Definition eqchecker_type_auxP  : Equality.axiom checker_type_aux_eqb :=
   eq_dec_Equality_axiom checker_type_aux_eq_dec.
 
-Canonical Structure checker_type_aux_eqMixin := EqMixin eqchecker_type_auxP.
+Canonical Structure checker_type_aux_eqMixin := Equality.Mixin eqchecker_type_auxP.
 Canonical Structure checker_type_aux_eqType :=
-  Eval hnf in EqType checker_type_aux checker_type_aux_eqMixin.
+  Eval hnf in Equality.Pack (sort := checker_type_aux) (Equality.Class checker_type_aux_eqMixin).
 
 Inductive checker_type : Type :=
 | CT_top_type : seq checker_type_aux -> checker_type
@@ -37,8 +37,8 @@ Definition checker_type_eqb v1 v2 : bool := checker_type_eq_dec v1 v2.
 Definition eqchecker_typeP : Equality.axiom checker_type_eqb :=
   eq_dec_Equality_axiom checker_type_eq_dec.
 
-Canonical Structure checker_type_eqMixin := EqMixin eqchecker_typeP.
-Canonical Structure checker_type_eqType := Eval hnf in EqType checker_type checker_type_eqMixin.
+Canonical Structure checker_type_eqMixin := Equality.Mixin eqchecker_typeP.
+Canonical Structure checker_type_eqType := Eval hnf in Equality.Pack (sort := checker_type) (Equality.Class checker_type_eqMixin).
 
 Definition to_ct_list (ts : seq value_type) : seq checker_type_aux :=
   map CTA_some ts.
@@ -246,7 +246,7 @@ in
     then type_update ts [::CTA_some t2] (CT_type [::t1])
     else CT_bot
   | BI_cvtop t1 CVO_reinterpret t2 sxo =>
-    if (t1 != t2) && (t_length t1 == t_length t2) && (sxo == None)
+    if (t1 != t2) && (length_t t1 == length_t t2) && (sxo == None)
     then type_update ts [::CTA_some t2] (CT_type [::t1])
     else CT_bot
   | BI_unreachable => type_update ts [::] (CT_top_type [::])

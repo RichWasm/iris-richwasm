@@ -928,7 +928,9 @@ Proof with auto_rewrite_cond.
       replace (_ - _ + _ - _) with (size ts - size topt); last by lias.
       move/leP in Hsize_ct.
       destruct (size ts - size topt == size ts - size cons) eqn:Heq.
-      * replace (_ - _ < _ - _) with false => //=; last by lias.
+      * move/eqP in Heq.
+        
+        replace (_ - _ < _ - _) with false => //=; last by lias.
         replace (_ - _ - _) with 0; last by lias.
         rewrite drop0.
         assert (size topt = size cons); first by lias.
@@ -1544,7 +1546,8 @@ Proof with auto_rewrite_cond.
     replace ((size l).+3 - 3 < (size l).+2) with true in H0; last by lias.
     replace ((size l).+3 - 3 < (size l).+1) with true in H0; last by lias.
     replace ((size l).+3 - 3 < (size l)) with false in H0; last by lias.
-    replace ((size l).+3 - 3 == (size l)) with true in H0; last by lias.
+    replace ((size l).+3 - 3 == (size l)) with true in H0.
+    2:{ assert ((size l).+3 - 3 = size l). lias. rewrite H1. rewrite eq_refl. done. } 
     subst.
     repeat rewrite - cats1 in if_expr0.
     repeat rewrite - catA in if_expr0.
