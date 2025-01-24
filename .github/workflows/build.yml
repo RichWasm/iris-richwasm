@@ -16,7 +16,7 @@ jobs:
         with:
           opam_file: 'folder/iris-wasm.opam'
           coq_version: '8.20.1'
-          ocaml_version: '4.14.2'
+          ocaml_version: 'default'
   build-macos:
     runs-on: macos-latest
     steps:
@@ -25,4 +25,4 @@ jobs:
         with:
           opam_file: 'folder/iris-wasm.opam'
           coq_version: '8.20.1'
-          ocaml_version: '4.14.2'
+          ocaml_version: 'default'
