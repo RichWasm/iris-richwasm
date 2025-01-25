@@ -1,7 +1,12 @@
-
-
 (coq.theory
-  (name Wasm)
-  (package iris-wasm)
-  (flags -w -ambiguous-paths -w -notation-overridden -w -abstract-large-number -w -extraction-reserved-identifier))
-
+  (name RWasm)
+  (package iris-rwasm)
+  (theories
+    compcert
+    elpi
+    elpi_elpi
+    Flocq
+    HB
+    mathcomp.ssreflect
+    parseque
+    Wasm))

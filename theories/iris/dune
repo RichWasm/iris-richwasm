@@ -1,0 +1,13 @@
+(coq.theory
+  (name RWasm.iris)
+  (package iris-rwasm)
+  (theories
+    ExtLib.Core
+    ExtLib.Data
+    ExtLib.Structures
+    iris
+    ITree
+    Ltac2
+    Paco
+    RWasm
+    stdpp))
