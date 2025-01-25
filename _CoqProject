@@ -1,1 +1,2 @@
+-R _build/default/vendor/iriswasm/theories Wasm
 -R _build/default/theories RWasm
