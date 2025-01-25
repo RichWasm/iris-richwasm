@@ -1,5 +1,5 @@
-(lang dune 3.17)
-(using coq 0.10)
+(lang dune 3.16)
+(using coq 0.9)
 
 (name iris-rwasm)
 (version 0.1)

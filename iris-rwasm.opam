@@ -11,7 +11,7 @@ license: "MIT"
 homepage: "https://github.com/hackedy/iris-rwasm"
 bug-reports: "https://github.com/hackedy/iris-rwasm/issues"
 depends: [
-  "dune" {>= "3.17"}
+  "dune" {>= "3.16"}
   "iris-wasm" {>= "2.0"}
   "odoc" {with-doc}
 ]
