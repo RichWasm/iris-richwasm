@@ -11,6 +11,8 @@
   (name iris-rwasm)
   (synopsis "RichWasm formalization in Coq and Iris")
   (description "RichWasm formalization in Coq based on Iris-Wasm.")
+  (depends
+    (iris-wasm (>= 2.0)))
   (maintainers
     "Ryan Doenges"
     "Brianna Marshall")
