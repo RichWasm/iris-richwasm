@@ -1,7 +1,7 @@
 name: build
 on:
   push:
-    branches: [ main, ci-test ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -17,5 +17,3 @@ jobs:
           opam_file: 'iris-rwasm.opam'
           coq_version: '8.20.1'
           ocaml_version: 'default'
-          before_install: |
-            opam pin -ny add https://github.com/logsem/iriswasm.git

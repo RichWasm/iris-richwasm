@@ -1,0 +1,8 @@
+
+-arg -w -arg -notation-overridden
+-arg -w -arg -abstract-large-number
+-arg -w -arg -extraction-reserved-identifier
+-arg -w -arg -ambiguous-paths
+
+-R _build/default/theories Wasm
+

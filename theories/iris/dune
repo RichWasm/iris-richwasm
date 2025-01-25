@@ -10,4 +10,7 @@
     Ltac2
     Paco
     RWasm
-    stdpp))
+    stdpp
+    Wasm.iris.helpers
+    Wasm.iris.language
+    Wasm.iris.rules))
