@@ -15,6 +15,8 @@ Module R := RWasm.datatypes.
 
 Import uPred.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Section logrel.
   
   Context `{!wasmG Σ, !logrel_na_invs Σ}.
@@ -34,7 +36,7 @@ Section logrel.
 
   Definition interp_heap_value_struct
     (fs : list (R.value_type * R.size))
-    (iv : R.value_type -> WsR)
+    (iv : leibnizO R.value_type -n> WsR)
   : HR :=
     λne (bs : leibnizO bytes), (
       ∃ (bss : list bytes), ∃ (bs' : bytes),
@@ -42,10 +44,10 @@ Section logrel.
         [∗ list] f;bs'' ∈ fs;bss,
           let '(τ, sz) := f in
           ⌜R.eval_size sz = Some (length bs'')⌝ ∧
-          ∃ ws, ⌜R.read τ bs'' = ws⌝ ∗ iv τ (Stack ws)
+          ∃ ws, ⌜R.read τ bs'' = ws⌝ ∗ ▷ iv τ (Stack ws)
     )%I.
 
-  Definition interp_heap_value (Ψ : R.heap_type) (iv : R.value_type -> WsR) : HR :=
+  Definition interp_heap_value (Ψ : R.heap_type) (iv : leibnizO R.value_type -n> WsR) : HR :=
     match Ψ with
     | R.StructType fields => interp_heap_value_struct fields iv
     end.
@@ -74,7 +76,7 @@ Section logrel.
     (π : R.cap)
     (sz : R.size)
     (ψ : R.heap_type)
-    (iv : R.value_type -> WsR)
+    (iv : leibnizO R.value_type -n> WsR)
   : WsR :=
     λne ws, (
       ∃ bs, ∃ z,
@@ -86,7 +88,7 @@ Section logrel.
       interp_heap_value ψ iv bs
     )%I.
 
-  Definition interp_pre_value (p : R.pre_type) (iv : R.value_type -> WsR) : WsR :=
+  Definition interp_pre_value (p : R.pre_type) (iv : leibnizO R.value_type -n> WsR) : WsR :=
     match p with
     | R.Num np => interp_pre_value_num np
     | R.Unit => interp_pre_value_unit
@@ -96,7 +98,7 @@ Section logrel.
     end.
 
   (* TODO: Check qualifier. *)
-  Definition interp_value_0 (iv : leibnizO R.value_type -n> WsR) : (leibnizO R.value_type -n> WsR) :=
+  Definition interp_value_0 (iv : leibnizO R.value_type -n> WsR) : leibnizO R.value_type -n> WsR :=
     λne (τ : leibnizO R.value_type),
       match τ with
       | R.QualT p q => interp_pre_value p iv
@@ -106,7 +108,53 @@ Section logrel.
   Global Instance interp_value_contractive : Contractive interp_value_0.
   Proof.
     solve_proper_prepare.
-  Admitted.
+    destruct x0.
+    unfold interp_pre_value.
+    destruct p; repeat (apply exist_ne +
+                apply intuitionistically_ne +
+                apply or_ne +
+                apply sep_ne +
+                apply and_ne +
+                apply wp_ne +
+                auto +
+                (rewrite /pointwise_relation; intros) +
+                apply forall_ne + apply wand_ne).
+    unfold interp_heap_value.
+    destruct h.
+    unfold interp_heap_value_struct.
+    repeat (apply exist_ne +
+                apply intuitionistically_ne +
+                apply or_ne +
+                apply sep_ne +
+                apply and_ne +
+                apply wp_ne +
+                auto +
+                (rewrite /pointwise_relation; intros) +
+                apply forall_ne + apply wand_ne).
+    generalize dependent a1.
+    induction l.
+    - destruct a1; last done.
+      simpl.
+      done.
+    - intro a3.
+      destruct a3.
+      + done.
+      + simpl.
+        apply sep_ne.
+        * destruct a1.
+          repeat (apply exist_ne +
+            apply intuitionistically_ne +
+            apply or_ne +
+            apply sep_ne +
+            apply and_ne +
+            apply wp_ne +
+            auto +
+            (rewrite /pointwise_relation; intros) +
+            apply forall_ne + apply wand_ne).
+          f_contractive.
+          solve_contractive.
+        * apply IHl.
+  Qed.
 
   Definition interp_value : (leibnizO R.value_type -n> WsR) := fixpoint interp_value_0.
 
