@@ -76,22 +76,45 @@ Proof.
            interp_expr := λne _ _ _ _ _ _, ⌜true⌝%I |}.
 Qed.
 
+Definition interp_heap_value_variant (rs : relations) (τs : list R.value_type) : HR :=
+  λne (bs : leibnizO bytes), (
+    ∃ bs_tag bs_payload bs_rest,
+    ⌜bs = bs_tag ++ bs_payload ++ bs_rest⌝ ∗
+    let tag := R.read_tag bs_tag in
+    ∃ τ,
+    ⌜τs !! tag = Some τ⌝ ∗
+    let ws := R.read_value τ bs_payload in
+    rs.(interp_value) τ (Stack ws)
+  )%I.
+
 Definition interp_heap_value_struct
   (rs : relations)
   (fs : list (R.value_type * R.size))
 : HR :=
   λne (bs : leibnizO bytes), (
-    ∃ (bss : list bytes), ∃ (bs_rest : bytes),
+    ∃ (bss : list bytes) (bs_rest : bytes),
       ⌜bs = flatten bss ++ bs_rest⌝ ∗
       [∗ list] f;fbs ∈ fs;bss,
         let '(τ, sz) := f in
-        ⌜R.eval_size sz = Some (length fbs)⌝ ∧
-        ∃ ws, ⌜R.read τ fbs = ws⌝ ∗ ▷ rs.(interp_value) τ (Stack ws)
+        ⌜R.eval_size sz = Some (length fbs)⌝ ∗
+        let ws := R.read_value τ fbs in
+        ▷ rs.(interp_value) τ (Stack ws)
+  )%I.
+
+Definition interp_heap_value_array (rs : relations) (τ : R.value_type) : HR :=
+  λne (bs : leibnizO bytes), (∃ bss bs_rest,
+    ⌜bs = flatten bss ++ bs_rest⌝ ∗
+    [∗ list] ebs ∈ bss,
+      ⌜length ebs = R.size_of τ⌝ ∗
+      let ws := R.read_value τ ebs in
+      rs.(interp_value) τ (Stack ws)
   )%I.
 
 Definition interp_heap_value (rs : relations) (Ψ : R.heap_type) : HR :=
   match Ψ with
+  | R.VariantType τs => interp_heap_value_variant rs τs
   | R.StructType fields => interp_heap_value_struct rs fields
+  | R.ArrayType τ => interp_heap_value_array rs τ
   end.
 
 Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, head (stack_values ws) = Some (VAL_int32 z)⌝%I.

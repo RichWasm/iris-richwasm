@@ -57,9 +57,9 @@ with value_type : Type :=
 | QualT: pre_type -> qual -> value_type
 
 with heap_type : Type :=
-(*| VariantType : list Typ -> HeapType*)
+| VariantType : list value_type -> heap_type
 | StructType  : list (value_type * size) -> heap_type
-(*| ArrayType   : Typ -> HeapType*)
+| ArrayType   : value_type -> heap_type
 (*| Ex          : Size -> Qual -> Typ -> HeapType (* binding site *)*)
 
 with function_type := (* tf *)
@@ -80,6 +80,10 @@ Fixpoint eval_size (sz : size) : option nat :=
     end
   end.
 
+(* TODO *)
+Definition size_of (τ : value_type) : nat :=
+  0.
+
 (* TODO: PtrT, OwnR, CapT not defined yet. *)
 Definition subst_type_loc (ℓ : loc) (τ : value_type) : value_type :=
   τ.
@@ -93,5 +97,6 @@ Definition lower_locals (L : list (value_type * size)) : list Wasm.datatypes.val
   cons Wasm.datatypes.T_i32 nil.
 
 Class Read := {
-  read : value_type -> bytes -> list value;
+  read_value : value_type -> bytes -> list value;
+  read_tag : bytes -> nat;
 }.
