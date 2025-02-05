@@ -80,6 +80,14 @@ Fixpoint eval_size (sz : size) : option nat :=
     end
   end.
 
+(* TODO *)
+Definition lower_type (τ : value_type) : Wasm.datatypes.value_type :=
+  Wasm.datatypes.T_i32.
+
+(* TODO *)
+Definition lower_locals (L : list (value_type * size)) : list Wasm.datatypes.value_type :=
+  cons Wasm.datatypes.T_i32 nil.
+
 Class Read := {
   read : value_type -> bytes -> list value;
 }.

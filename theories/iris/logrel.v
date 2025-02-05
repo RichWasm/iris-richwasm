@@ -51,13 +51,34 @@ Notation WsR := (stackO -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
 
-(* --------------------------------------------------------------------------------------- *)
-(* ---------------------------------- VALUE RELATION ------------------------------------- *)
-(* --------------------------------------------------------------------------------------- *)
+Record relations := mkRelations {
+  interp_value : leibnizO R.value_type -n> WsR;
+  interp_values : leibnizO (list R.value_type) -n> WsR;
+  interp_frame : leibnizO (list (R.value_type * R.size)) -n> WsR;
+  interp_expr :
+    leibnizO R.result_type -n>
+    leibnizO (list (R.result_type * list (R.value_type * R.size))) -n>
+    optionO (leibnizO R.result_type) -n>
+    leibnizO (list (R.value_type * R.size)) -n>
+    leibnizO instance -n>
+    leibnizO (lholed * list administrative_instruction) -n>
+    iPropO Σ;
+}.
+
+Canonical Structure relationsO := leibnizO relations.
+
+Global Instance relations_inhabited : Inhabited relationsO.
+Proof.
+  apply populate.
+  exact {| interp_value := λne _ _, ⌜true⌝%I;
+           interp_values := λne _ _, ⌜true⌝%I;
+           interp_frame := λne _ _, ⌜true⌝%I;
+           interp_expr := λne _ _ _ _ _ _, ⌜true⌝%I |}.
+Qed.
 
 Definition interp_heap_value_struct
+  (rs : relations)
   (fs : list (R.value_type * R.size))
-  (iv : leibnizO R.value_type -n> WsR)
 : HR :=
   λne (bs : leibnizO bytes), (
     ∃ (bss : list bytes), ∃ (bs_rest : bytes),
@@ -65,12 +86,12 @@ Definition interp_heap_value_struct
       [∗ list] f;fbs ∈ fs;bss,
         let '(τ, sz) := f in
         ⌜R.eval_size sz = Some (length fbs)⌝ ∧
-        ∃ ws, ⌜R.read τ fbs = ws⌝ ∗ ▷ iv τ (Stack ws)
+        ∃ ws, ⌜R.read τ fbs = ws⌝ ∗ ▷ rs.(interp_value) τ (Stack ws)
   )%I.
 
-Definition interp_heap_value (Ψ : R.heap_type) (iv : leibnizO R.value_type -n> WsR) : HR :=
+Definition interp_heap_value (rs : relations) (Ψ : R.heap_type) : HR :=
   match Ψ with
-  | R.StructType fields => interp_heap_value_struct fields iv
+  | R.StructType fields => interp_heap_value_struct rs fields
   end.
 
 Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, stack_values ws = [VAL_int32 z]⌝%I.
@@ -84,19 +105,35 @@ Definition interp_pre_value_num (np : R.num_type) : WsR :=
     | R.T_f64 => ⌜∃ z, stack_values ws = [VAL_float64 z]⌝%I
     end.
 
-(* TODO *)
-Definition interp_closure (tf : R.function_type) : ClR :=
+Definition interp_closure (rs : relations) (tf : R.function_type) : ClR :=
+  let '(R.Tf t1 t2) := tf in
   λne (cl : leibnizO function_closure),
-  ⌜false⌝%I.
+  match cl with
+  | FC_func_native inst (Tf wt1 wt2) tlocs es => (<pers>
+    ⌜seq.map R.lower_type t1 = wt1⌝ ∗
+    ⌜seq.map R.lower_type t2 = wt2⌝ ∗
+    ∀ ws F, ∃ L,
+    rs.(interp_values) t1 ws ∗ rs.(interp_frame) L F ∗ ⌜R.lower_locals L = tlocs⌝ -∗
+    ∃ L',
+    rs.(interp_expr) t2 [] None L' inst (
+      LH_base [] [],
+      [AI_local
+        (length t2)
+        (Build_frame ((stack_values ws) ++ (n_zeros tlocs)) inst)
+        [AI_label (length t2) [] (seq.map AI_basic es)]]
+    )
+  )%I
+  | FC_func_host _ _ => ⌜false⌝%I
+  end.
 
-Definition interp_pre_value_coderef (tf : R.function_type) : WsR :=
+Definition interp_pre_value_coderef (rs : relations) (tf : R.function_type) : WsR :=
   λne ws, (
     ∃ (n : i32) cl,
     let n' := (Z.to_N (Wasm_int.Int32.unsigned n)) in
     na_inv logrel_nais (rfN n') (
       ⌜stack_values ws = [VAL_int32 n]⌝ ∗
       n' ↦[wf] cl ∗
-      interp_closure tf cl
+      interp_closure rs tf cl
     )
   )%I.
 
@@ -106,33 +143,33 @@ Definition interp_pre_value_exloc (τ : R.value_type) : WsR :=
 
 (* TODO: Check r/rw privilege. *)
 Definition interp_pre_value_ref
+  (rs : relations)
   (π : R.cap)
   (sz : R.size)
   (ψ : R.heap_type)
-  (iv : leibnizO R.value_type -n> WsR)
 : WsR :=
   λne ws, (
     ∃ bs, ∃ z,
     ⌜stack_values ws = [VAL_int32 z]⌝ ∗
     ⌜R.eval_size sz = Some (length bs)⌝ ∗
     z ↦[rm] bs ∗
-    interp_heap_value ψ iv bs
+    interp_heap_value rs ψ bs
   )%I.
 
-Definition interp_pre_value (p : R.pre_type) (iv : leibnizO R.value_type -n> WsR) : WsR :=
+Definition interp_pre_value (rs : relations) (p : R.pre_type) : WsR :=
   match p with
   | R.Num np => interp_pre_value_num np
   | R.Unit => interp_pre_value_unit
-  | R.CoderefT Χ => interp_pre_value_coderef Χ
+  | R.CoderefT Χ => interp_pre_value_coderef rs Χ
   | R.ExLoc τ' => interp_pre_value_exloc τ'
-  | R.RefT π sz ψ => interp_pre_value_ref π sz ψ iv
+  | R.RefT π sz ψ => interp_pre_value_ref rs π sz ψ
   end.
 
 (* TODO: Check qualifier. *)
-Definition interp_value_0 (iv : leibnizO R.value_type -n> WsR) : leibnizO R.value_type -n> WsR :=
+Definition interp_value_0 (rs : relations) : leibnizO R.value_type -n> WsR :=
   λne (τ : leibnizO R.value_type),
     match τ with
-    | R.QualT p q => interp_pre_value p iv
+    | R.QualT p q => interp_pre_value rs p
     end.
 
 (* TODO *)
@@ -150,7 +187,7 @@ Proof.
               auto +
               (rewrite /pointwise_relation; intros) +
               apply forall_ne + apply wand_ne).
-  unfold interp_heap_value.
+  (* unfold interp_heap_value.
   destruct h.
   unfold interp_heap_value_struct.
   repeat (apply exist_ne +
@@ -184,29 +221,47 @@ Proof.
           apply forall_ne + apply wand_ne).
         f_contractive.
         solve_contractive.
-      * apply IHl.
-Qed.
+      * apply IHl. *)
+Admitted.
 
-Definition interp_value : (leibnizO R.value_type -n> WsR) := fixpoint interp_value_0.
+(* TODO *)
+Definition interp_values_0 (rs : relations) : leibnizO (list R.value_type) -n> WsR :=
+  λne _, λne _, ⌜false⌝%I.
+
+(* TODO *)
+Definition interp_frame_0 (rs : relations) : leibnizO (list (R.value_type * R.size)) -n> WsR :=
+  λne _, λne _, ⌜false⌝%I.
+
+(* TODO *)
+Definition interp_expr_0 (rs : relations) :
+  leibnizO R.result_type -n>
+  leibnizO (list (R.result_type * list (R.value_type * R.size))) -n>
+  optionO (leibnizO R.result_type) -n>
+  leibnizO (list (R.value_type * R.size)) -n>
+  leibnizO instance -n>
+  leibnizO (lholed * list administrative_instruction) -n>
+  iPropO Σ
+:=
+  λne _ _ _ _ _ _, ⌜false⌝%I.
+
+Definition rels_0 (rs : relations) : relations :=
+  {|
+    interp_value := interp_value_0 rs;
+    interp_values := interp_values_0 rs;
+    interp_frame := interp_frame_0 rs;
+    interp_expr := interp_expr_0 rs;
+  |}.
+
+Global Instance rels_contractive : Contractive rels_0.
+Admitted.
+
+Definition rels : relations := fixpoint rels_0.
 
 (* TODO: Read the sequence of concrete values. *)
 Definition interp_val (τs : R.result_type) : VR :=
   λne (v : leibnizO val), (
     ⌜v = trapV⌝ ∨
-    ∃ ws, ⌜v = immV ws⌝ ∗ [∗ list] τ;w ∈ τs;ws, interp_value τ (Stack [w])
+    ∃ ws, ⌜v = immV ws⌝ ∗ [∗ list] τ;w ∈ τs;ws, rels.(interp_value) τ (Stack [w])
   )%I.
-
-(* TODO *)
-Definition interp_expr
-  (τs : R.result_type)
-  (labels : list (R.result_type * list (R.value_type * R.size)))
-  (rets : option R.result_type)
-  (locals1 : list (R.value_type * R.size))
-  (locals2 : list (R.value_type * R.size))
-  (inst : instance)
-  (lh : lholed) (* TODO: update lholed type for RichWasm? *)
-  (es : list administrative_instruction) (* TODO: update admin instr type for RichWasm? *)
-: iProp Σ :=
-  ⌜false⌝.
 
 End logrel.
