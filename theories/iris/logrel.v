@@ -94,15 +94,15 @@ Definition interp_heap_value (rs : relations) (Ψ : R.heap_type) : HR :=
   | R.StructType fields => interp_heap_value_struct rs fields
   end.
 
-Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, stack_values ws = [VAL_int32 z]⌝%I.
+Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, head (stack_values ws) = Some (VAL_int32 z)⌝%I.
 
 Definition interp_pre_value_num (np : R.num_type) : WsR :=
   λne ws,
     match np with
-    | R.T_i32 => ⌜∃ z, stack_values ws = [VAL_int32 z]⌝%I
-    | R.T_i64 => ⌜∃ z, stack_values ws = [VAL_int64 z]⌝%I
-    | R.T_f32 => ⌜∃ z, stack_values ws = [VAL_float32 z]⌝%I
-    | R.T_f64 => ⌜∃ z, stack_values ws = [VAL_float64 z]⌝%I
+    | R.T_i32 => ⌜∃ z, head (stack_values ws) = Some (VAL_int32 z)⌝%I
+    | R.T_i64 => ⌜∃ z, head (stack_values ws) = Some (VAL_int64 z)⌝%I
+    | R.T_f32 => ⌜∃ z, head (stack_values ws) = Some (VAL_float32 z)⌝%I
+    | R.T_f64 => ⌜∃ z, head (stack_values ws) = Some (VAL_float64 z)⌝%I
     end.
 
 Definition interp_closure (rs : relations) (tf : R.function_type) : ClR :=
@@ -131,7 +131,7 @@ Definition interp_pre_value_coderef (rs : relations) (tf : R.function_type) : Ws
     ∃ (n : i32) cl,
     let n' := (Z.to_N (Wasm_int.Int32.unsigned n)) in
     na_inv logrel_nais (rfN n') (
-      ⌜stack_values ws = [VAL_int32 n]⌝ ∗
+      ⌜head (stack_values ws) = Some (VAL_int32 n)⌝ ∗
       n' ↦[wf] cl ∗
       interp_closure rs tf cl
     )
@@ -160,7 +160,7 @@ Definition interp_pre_value_ref
   (ψ : R.heap_type)
 : WsR :=
   λne ws, (
-    ∃ z, ⌜stack_values ws = [VAL_int32 z]⌝ ∗
+    ∃ z, ⌜head (stack_values ws) = Some (VAL_int32 z)⌝ ∗
     match π with
     | R.R =>
       let n := Z.to_N (Wasm_int.Int32.unsigned z) in
