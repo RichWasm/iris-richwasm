@@ -80,6 +80,10 @@ Fixpoint eval_size (sz : size) : option nat :=
     end
   end.
 
+(* TODO: PtrT, OwnR, CapT not defined yet. *)
+Definition subst_type_loc (ℓ : loc) (τ : value_type) : value_type :=
+  τ.
+
 (* TODO *)
 Definition lower_type (τ : value_type) : Wasm.datatypes.value_type :=
   Wasm.datatypes.T_i32.

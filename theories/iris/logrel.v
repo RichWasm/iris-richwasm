@@ -137,11 +137,22 @@ Definition interp_pre_value_coderef (rs : relations) (tf : R.function_type) : Ws
     )
   )%I.
 
-(* TODO *)
-Definition interp_pre_value_exloc (τ : R.value_type) : WsR :=
-  λne ws, ⌜false⌝%I.
+Definition interp_pre_value_exloc (rs : relations) (τ : R.value_type) : WsR :=
+  λne ws, (∃ ℓ, rs.(interp_value) (R.subst_type_loc ℓ τ) ws)%I.
 
-(* TODO: Check r/rw privilege. *)
+Definition interp_pre_value_ref_own
+  (rs : relations)
+  (sz : R.size)
+  (ψ : R.heap_type)
+  (z : i32)
+: iPropO Σ :=
+  (
+    ∃ bs,
+    ⌜R.eval_size sz = Some (length bs)⌝ ∗
+    z ↦[rm] bs ∗
+    interp_heap_value rs ψ bs
+  )%I.
+
 Definition interp_pre_value_ref
   (rs : relations)
   (π : R.cap)
@@ -149,11 +160,13 @@ Definition interp_pre_value_ref
   (ψ : R.heap_type)
 : WsR :=
   λne ws, (
-    ∃ bs, ∃ z,
-    ⌜stack_values ws = [VAL_int32 z]⌝ ∗
-    ⌜R.eval_size sz = Some (length bs)⌝ ∗
-    z ↦[rm] bs ∗
-    interp_heap_value rs ψ bs
+    ∃ z, ⌜stack_values ws = [VAL_int32 z]⌝ ∗
+    match π with
+    | R.R =>
+      let n := Z.to_N (Wasm_int.Int32.unsigned z) in
+      na_inv logrel_nais (rmN n) (interp_pre_value_ref_own rs sz ψ z)
+    | R.W => interp_pre_value_ref_own rs sz ψ z
+    end
   )%I.
 
 Definition interp_pre_value (rs : relations) (p : R.pre_type) : WsR :=
@@ -161,7 +174,7 @@ Definition interp_pre_value (rs : relations) (p : R.pre_type) : WsR :=
   | R.Num np => interp_pre_value_num np
   | R.Unit => interp_pre_value_unit
   | R.CoderefT Χ => interp_pre_value_coderef rs Χ
-  | R.ExLoc τ' => interp_pre_value_exloc τ'
+  | R.ExLoc τ' => interp_pre_value_exloc rs τ'
   | R.RefT π sz ψ => interp_pre_value_ref rs π sz ψ
   end.
 
