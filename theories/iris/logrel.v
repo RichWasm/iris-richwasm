@@ -237,9 +237,11 @@ Proof.
       * apply IHl. *)
 Admitted.
 
-(* TODO *)
 Definition interp_values_0 (rs : relations) : leibnizO (list R.value_type) -n> WsR :=
-  λne _, λne _, ⌜false⌝%I.
+  λne (τs : leibnizO (list R.value_type)) ws, (∃ wss ws_rest,
+    ⌜stack_values ws = flatten wss ++ ws_rest⌝ ∗
+    [∗ list] τ;ws ∈ τs;wss, rs.(interp_value) τ (Stack ws)
+  )%I.
 
 (* TODO *)
 Definition interp_frame_0 (rs : relations) : leibnizO (list (R.value_type * R.size)) -n> WsR :=
@@ -270,11 +272,10 @@ Admitted.
 
 Definition rels : relations := fixpoint rels_0.
 
-(* TODO: Read the sequence of concrete values. *)
 Definition interp_val (τs : R.result_type) : VR :=
   λne (v : leibnizO val), (
     ⌜v = trapV⌝ ∨
-    ∃ ws, ⌜v = immV ws⌝ ∗ [∗ list] τ;w ∈ τs;ws, rels.(interp_value) τ (Stack [w])
+    ∃ ws, ⌜v = immV ws⌝ ∗ rels.(interp_values) τs (Stack ws)
   )%I.
 
 End logrel.
