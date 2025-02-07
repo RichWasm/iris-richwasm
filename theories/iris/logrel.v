@@ -373,7 +373,18 @@ Proof.
   split; [|split; [| split]].
   - intros [pty] vs.
     destruct pty; cbn; try reflexivity.
-    + admit.
+    + repeat (apply exist_ne +
+              apply intuitionistically_ne +
+              apply or_ne +
+              apply sep_ne +
+              apply and_ne +
+              apply wp_ne +
+              apply inv_ne +
+              auto +
+              (rewrite /pointwise_relation; intros) +
+              apply forall_ne + apply wand_ne).
+      unfold interp_closure.
+      admit.
     + constructor.
       intros.
       admit.
