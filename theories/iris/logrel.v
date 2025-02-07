@@ -51,105 +51,37 @@ Notation WsR := (stackO -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
 
-Record relations := mkRelations {
-  interp_value : leibnizO R.value_type -n> WsR;
-  interp_values : leibnizO (list R.value_type) -n> WsR;
-  interp_frame : leibnizO (list (R.value_type * R.size)) -n> WsR;
-  interp_expr :
-    leibnizO R.result_type -n>
-    leibnizO (list (R.result_type * list (R.value_type * R.size))) -n>
-    optionO (leibnizO R.result_type) -n>
-    leibnizO (list (R.value_type * R.size)) -n>
-    leibnizO instance -n>
-    leibnizO (lholed * list administrative_instruction) -n>
-    iPropO Σ;
-}.
+Definition relations : Type := 
+  (* interp_value *)
+  (leibnizO R.value_type -n> WsR) *
+  (* interp_frame *)
+  (leibnizO (list (R.value_type * R.size)) -n> WsR) * 
+  (* interp_expr *)
+  (leibnizO R.result_type -n>
+  leibnizO (list (R.result_type * list (R.value_type * R.size))) -n>
+  optionO (leibnizO R.result_type) -n>
+  leibnizO (list (R.value_type * R.size)) -n>
+  leibnizO instance -n>
+  leibnizO (lholed * list administrative_instruction) -n>
+  iPropO Σ).
 
-Instance relations_equiv : Equiv relations :=
-  fun r1 r2 =>
-    equiv r1.(interp_value) r2.(interp_value) /\
-    equiv r1.(interp_values) r2.(interp_values) /\
-    equiv r1.(interp_frame) r2.(interp_frame) /\
-    equiv r1.(interp_expr) r2.(interp_expr).
+Definition interp_value (r: relations) : leibnizO R.value_type -n> WsR :=
+  fst (fst r).
 
-Section RelationsOFESetup.
-    Local Instance relations_dist : Dist relations :=
-    fun n r1 r2 =>
-        dist n r1.(interp_value) r2.(interp_value) /\
-        dist n r1.(interp_values) r2.(interp_values) /\
-        dist n r1.(interp_frame) r2.(interp_frame) /\
-        dist n r1.(interp_expr) r2.(interp_expr).
+Definition interp_frame (r: relations) : leibnizO (list (R.value_type * R.size)) -n> WsR :=
+  snd (fst r).
 
-    Instance interp_value_nonexp : NonExpansive interp_value.
-    Proof.
-      by intros n x y [?[?[??]]].
-    Qed.
-    Instance interp_values_nonexp : NonExpansive interp_values.
-    Proof.
-      by intros n x y [?[?[??]]].
-    Qed.
-    Instance interp_frame_nonexp : NonExpansive interp_frame.
-    Proof.
-      by intros n x y [?[?[??]]].
-    Qed.
-    Instance interp_expr_nonexp : NonExpansive interp_expr.
-    Proof.
-      by intros n x y [?[?[??]]].
-    Qed.
+Definition interp_expr (r: relations) : _ :=
+  snd r.
 
-    Definition relations_ofe_mixin: OfeMixin relations.
-    Proof.
-    split.
-    - intros x y. unfold dist, relations_dist, equiv, relations_equiv.
-        rewrite !equiv_dist; naive_solver.
-    - intros n.
-        unfold dist, relations_dist; split.
-        + intros x. naive_solver.
-        + intros x y. naive_solver.
-        + intros x y z.
-        intros.
-        split; [|split; [|split ]].
-        * transitivity (interp_value y); naive_solver.
-        * transitivity (interp_values y); naive_solver.
-        * transitivity (interp_frame y); naive_solver.
-        * transitivity (interp_expr y); naive_solver.
-    - intros n m [v1 vs1 f1 e1] [v2 vs2 f2 e2] [?[?[??]]] ?.
-        split; [|split; [|split]]; cbn in *;
-        eauto using dist_le with si_solver.
-    Defined.
-
-  Canonical Structure relationsO : ofe := Ofe relations relations_ofe_mixin.
-  
-  Global Program Instance relations_cofe : Cofe relationsO :=
-    { compl c := {|
-                  interp_value := compl (chain_map interp_value c);
-                  interp_values := compl (chain_map interp_values c);
-                  interp_frame := compl (chain_map interp_frame c);
-                  interp_expr := compl (chain_map interp_expr c); |} }.
-  Next Obligation.
-    intros n c.
-    split; [|split; [|split]]; cbn in *; apply (conv_compl n).
-  Qed.
-  
-  Lemma relations_dist_conj n v1 vs1 f1 e1 v2 vs2 f2 e2 :
-    mkRelations v1 vs1 f1 e1 ≡{n}≡ mkRelations v2 vs2 f2 e2 <->
-    v1 ≡{n}≡ v2 /\
-    vs1 ≡{n}≡ vs2 /\
-    f1 ≡{n}≡ f2 /\
-    e1 ≡{n}≡ e2.
-  Proof.
-    reflexivity.
-  Qed.
-      
-End RelationsOFESetup.
+Canonical Structure relationsO : ofe := Ofe relations prod_ofe_mixin.
 
 Global Instance relations_inhabited : Inhabited relationsO.
 Proof.
   apply populate.
-  exact {| interp_value := λne _ _, ⌜true⌝%I;
-           interp_values := λne _ _, ⌜true⌝%I;
-           interp_frame := λne _ _, ⌜true⌝%I;
-           interp_expr := λne _ _ _ _ _ _, ⌜true⌝%I |}.
+  exact (λne _ _, ⌜true⌝%I,
+         λne _ _, ⌜true⌝%I,
+         λne _ _ _ _ _ _, ⌜true⌝%I).
 Qed.
 
 Definition interp_heap_value_variant (rs : relations) (τs : list R.value_type) : HR :=
@@ -160,7 +92,7 @@ Definition interp_heap_value_variant (rs : relations) (τs : list R.value_type) 
     ∃ τ,
     ⌜τs !! tag = Some τ⌝ ∗
     let ws := R.read_value τ bs_payload in
-    rs.(interp_value) τ (Stack ws)
+    interp_value rs τ (Stack ws)
   )%I.
 
 Definition interp_heap_value_struct
@@ -174,7 +106,7 @@ Definition interp_heap_value_struct
         let '(τ, sz) := f in
         ⌜R.eval_size sz = Some (length fbs)⌝ ∗
         let ws := R.read_value τ fbs in
-        ▷ rs.(interp_value) τ (Stack ws)
+        interp_value rs τ (Stack ws)
   )%I.
 
 Definition interp_heap_value_array (rs : relations) (τ : R.value_type) : HR :=
@@ -183,7 +115,7 @@ Definition interp_heap_value_array (rs : relations) (τ : R.value_type) : HR :=
     [∗ list] ebs ∈ bss,
       ⌜length ebs = R.size_of τ⌝ ∗
       let ws := R.read_value τ ebs in
-      rs.(interp_value) τ (Stack ws)
+      interp_value rs τ (Stack ws)
   )%I.
 
 Definition interp_heap_value (rs : relations) (Ψ : R.heap_type) : HR :=
@@ -194,6 +126,12 @@ Definition interp_heap_value (rs : relations) (Ψ : R.heap_type) : HR :=
   end.
 
 Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, head (stack_values ws) = Some (VAL_int32 z)⌝%I.
+
+Definition interp_values (rs : relations) : leibnizO (list R.value_type) -n> WsR :=
+  λne (τs : leibnizO (list R.value_type)) ws, (∃ wss ws_rest,
+    ⌜stack_values ws = flatten wss ++ ws_rest⌝ ∗
+    [∗ list] τ;ws ∈ τs;wss, interp_value rs τ (Stack ws)
+  )%I.
 
 Definition interp_pre_value_num (np : R.num_type) : WsR :=
   λne ws,
@@ -212,9 +150,9 @@ Definition interp_closure (rs : relations) (tf : R.function_type) : ClR :=
     ⌜seq.map R.lower_type t1 = wt1⌝ ∗
     ⌜seq.map R.lower_type t2 = wt2⌝ ∗
     ∀ ws F, ∃ L,
-    rs.(interp_values) t1 ws ∗ rs.(interp_frame) L F ∗ ⌜R.lower_locals L = tlocs⌝ -∗
+    interp_values rs t1 ws ∗ interp_frame rs L F ∗ ⌜R.lower_locals L = tlocs⌝ -∗
     ∃ L',
-    rs.(interp_expr) t2 [] None L' inst (
+    interp_expr rs t2 [] None L' inst (
       LH_base [] [],
       [AI_local
         (length t2)
@@ -232,12 +170,12 @@ Definition interp_pre_value_coderef (rs : relations) (tf : R.function_type) : Ws
     na_inv logrel_nais (rfN n') (
       ⌜head (stack_values ws) = Some (VAL_int32 n)⌝ ∗
       n' ↦[wf] cl ∗
-      interp_closure rs tf cl
+      ▷ interp_closure rs tf cl
     )
   )%I.
 
 Definition interp_pre_value_exloc (rs : relations) (τ : R.value_type) : WsR :=
-  λne ws, (∃ ℓ, rs.(interp_value) (R.subst_type_loc ℓ τ) ws)%I.
+  λne ws, (∃ ℓ, ▷ interp_value rs (R.subst_type_loc ℓ τ) ws)%I.
 
 Definition interp_pre_value_ref_own
   (rs : relations)
@@ -249,7 +187,7 @@ Definition interp_pre_value_ref_own
     ∃ bs,
     ⌜R.eval_size sz = Some (length bs)⌝ ∗
     z ↦[rm] bs ∗
-    interp_heap_value rs ψ bs
+    ▷interp_heap_value rs ψ bs
   )%I.
 
 Definition interp_pre_value_ref
@@ -284,63 +222,17 @@ Definition interp_value_0 (rs : relations) : leibnizO R.value_type -n> WsR :=
     | R.QualT p q => interp_pre_value rs p
     end.
 
-(* TODO *)
-Global Instance interp_value_contractive : Contractive interp_value_0.
-Proof.
-  solve_proper_prepare.
-  destruct x0.
-  unfold interp_pre_value.
-  destruct p; repeat (apply exist_ne +
+Ltac solve_iprop_ne :=
+ repeat (apply exist_ne +
               apply intuitionistically_ne +
               apply or_ne +
               apply sep_ne +
               apply and_ne +
               apply wp_ne +
+              apply inv_ne +
               auto +
               (rewrite /pointwise_relation; intros) +
               apply forall_ne + apply wand_ne).
-  (* unfold interp_heap_value.
-  destruct h.
-  unfold interp_heap_value_struct.
-  repeat (apply exist_ne +
-              apply intuitionistically_ne +
-              apply or_ne +
-              apply sep_ne +
-              apply and_ne +
-              apply wp_ne +
-              auto +
-              (rewrite /pointwise_relation; intros) +
-              apply forall_ne + apply wand_ne).
-  generalize dependent a1.
-  induction l.
-  - destruct a1; last done.
-    simpl.
-    done.
-  - intro a3.
-    destruct a3.
-    + done.
-    + simpl.
-      apply sep_ne.
-      * destruct a1.
-        repeat (apply exist_ne +
-          apply intuitionistically_ne +
-          apply or_ne +
-          apply sep_ne +
-          apply and_ne +
-          apply wp_ne +
-          auto +
-          (rewrite /pointwise_relation; intros) +
-          apply forall_ne + apply wand_ne).
-        f_contractive.
-        solve_contractive.
-      * apply IHl. *)
-Admitted.
-
-Definition interp_values_0 (rs : relations) : leibnizO (list R.value_type) -n> WsR :=
-  λne (τs : leibnizO (list R.value_type)) ws, (∃ wss ws_rest,
-    ⌜stack_values ws = flatten wss ++ ws_rest⌝ ∗
-    [∗ list] τ;ws ∈ τs;wss, rs.(interp_value) τ (Stack ws)
-  )%I.
 
 (* TODO *)
 Definition interp_frame_0 (rs : relations) : leibnizO (list (R.value_type * R.size)) -n> WsR :=
@@ -359,47 +251,129 @@ Definition interp_expr_0 (rs : relations) :
   λne _ _ _ _ _ _, ⌜false⌝%I.
 
 Definition rels_0 (rs : relations) : relations :=
-  {|
-    interp_value := interp_value_0 rs;
-    interp_values := interp_values_0 rs;
-    interp_frame := interp_frame_0 rs;
-    interp_expr := interp_expr_0 rs;
-  |}.
+  (interp_value_0 rs,
+   interp_frame_0 rs,
+   interp_expr_0 rs).
+
+Lemma interp_closure_ne :
+  forall n x y ty,
+    x ≡{n}≡ y ->
+    interp_closure x ty ≡{n}≡ interp_closure y ty.
+Proof.
+  intros.
+  destruct ty.
+  cbn.
+  intros cl; cbn.
+  destruct cl; destruct f;
+  solve_iprop_ne.
+  - eapply big_sepL2_ne.
+    intros.
+    apply H0.
+  - apply H0.
+  - apply H0.
+Qed.
+
+Lemma interp_heap_value_ne :
+  forall n x y hty,
+    x ≡{n}≡ y ->
+    interp_heap_value x hty ≡{n}≡ interp_heap_value y hty.
+Proof.
+  intros.
+  intros bs.
+  destruct hty; solve_iprop_ne; cbn.
+  - apply H0.
+  - apply big_sepL2_ne; intros.
+    destruct y1.
+    solve_iprop_ne.
+    apply H0.
+  - apply big_opL_ne; intros.
+    solve_iprop_ne.
+    apply H0.
+Qed.
+
+Lemma interp_value_0_contractive :
+  forall n x y,
+    dist_later n x y ->
+    interp_value_0 x ≡{n}≡ interp_value_0 y.
+Proof.
+  intros.
+  intros [pty] vs.
+  destruct pty; cbn; try reflexivity.
+  - solve_iprop_ne.
+    apply later_contractive.
+    constructor; intros m Hmn.
+    pose proof (dist_later_lt _ _ _ H0 _ Hmn) as Heqm.
+    apply interp_closure_ne; auto.
+  - solve_iprop_ne.
+    apply later_contractive.
+    constructor.
+    intros m Hmn.
+    pose proof (dist_later_lt _ _ _ H0 _ Hmn) as Heqm.
+    apply Heqm.
+  - solve_iprop_ne.
+    destruct c.
+    + solve_iprop_ne.
+      apply later_contractive.
+      constructor; intros m Hmn.
+      pose proof (dist_later_lt _ _ _ H0 _ Hmn) as Heqm.
+      now apply interp_heap_value_ne.
+    + solve_iprop_ne.
+      apply later_contractive.
+      constructor; intros m Hmn.
+      pose proof (dist_later_lt _ _ _ H0 _ Hmn) as Heqm.
+      now apply interp_heap_value_ne.
+Qed.
+
+(*
+Lemma interp_values_0_contractive :
+  forall n x y,
+    dist_later n x y ->
+    interp_values x ≡{n}≡ interp_values y.
+Proof.
+  intros.
+  intros tys.
+  unfold interp_values.
+  intros τs; cbn.
+  solve_iprop_ne.
+  apply big_sepL2_ne.
+  intros.
+  apply interp_value_0_ne.
+Admitted.
+*)
+
+Lemma interp_frame_0_contractive :
+  forall n x y,
+    dist_later n x y ->
+    interp_frame_0 x ≡{n}≡ interp_frame_0 y.
+Proof.
+  unfold interp_frame_0.
+  reflexivity.
+Qed.
+
+Lemma interp_expr_0_contractive :
+  forall n x y,
+    dist_later n x y ->
+    interp_expr_0 x ≡{n}≡ interp_expr_0 y.
+Proof.
+  reflexivity.
+Qed.
 
 Global Instance rels_contractive : Contractive rels_0.
 Proof.
   solve_proper_prepare.
-  rewrite relations_dist_conj.
-  split; [|split; [| split]].
-  - intros [pty] vs.
-    destruct pty; cbn; try reflexivity.
-    + repeat (apply exist_ne +
-              apply intuitionistically_ne +
-              apply or_ne +
-              apply sep_ne +
-              apply and_ne +
-              apply wp_ne +
-              apply inv_ne +
-              auto +
-              (rewrite /pointwise_relation; intros) +
-              apply forall_ne + apply wand_ne).
-      unfold interp_closure.
-      admit.
-    + constructor.
-      intros.
-      admit.
-    + admit.
-  - admit.
-  - admit.
-  - admit.
-Admitted.
+  rewrite !pair_dist.
+  split; [split|].
+  - by apply interp_value_0_contractive.
+  - by apply interp_frame_0_contractive.
+  - by apply interp_expr_0_contractive.
+Qed.
 
 Definition rels : relations := fixpoint rels_0.
 
 Definition interp_val (τs : R.result_type) : VR :=
   λne (v : leibnizO val), (
     ⌜v = trapV⌝ ∨
-    ∃ ws, ⌜v = immV ws⌝ ∗ rels.(interp_values) τs (Stack ws)
+    ∃ ws, ⌜v = immV ws⌝ ∗ interp_values rels τs (Stack ws)
   )%I.
 
 End logrel.
