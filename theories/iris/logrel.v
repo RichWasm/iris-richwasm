@@ -65,7 +65,83 @@ Record relations := mkRelations {
     iPropO Σ;
 }.
 
-Canonical Structure relationsO := leibnizO relations.
+Instance relations_equiv : Equiv relations :=
+  fun r1 r2 =>
+    equiv r1.(interp_value) r2.(interp_value) /\
+    equiv r1.(interp_values) r2.(interp_values) /\
+    equiv r1.(interp_frame) r2.(interp_frame) /\
+    equiv r1.(interp_expr) r2.(interp_expr).
+
+Section RelationsOFESetup.
+    Local Instance relations_dist : Dist relations :=
+    fun n r1 r2 =>
+        dist n r1.(interp_value) r2.(interp_value) /\
+        dist n r1.(interp_values) r2.(interp_values) /\
+        dist n r1.(interp_frame) r2.(interp_frame) /\
+        dist n r1.(interp_expr) r2.(interp_expr).
+
+    Instance interp_value_nonexp : NonExpansive interp_value.
+    Proof.
+      by intros n x y [?[?[??]]].
+    Qed.
+    Instance interp_values_nonexp : NonExpansive interp_values.
+    Proof.
+      by intros n x y [?[?[??]]].
+    Qed.
+    Instance interp_frame_nonexp : NonExpansive interp_frame.
+    Proof.
+      by intros n x y [?[?[??]]].
+    Qed.
+    Instance interp_expr_nonexp : NonExpansive interp_expr.
+    Proof.
+      by intros n x y [?[?[??]]].
+    Qed.
+
+    Definition relations_ofe_mixin: OfeMixin relations.
+    Proof.
+    split.
+    - intros x y. unfold dist, relations_dist, equiv, relations_equiv.
+        rewrite !equiv_dist; naive_solver.
+    - intros n.
+        unfold dist, relations_dist; split.
+        + intros x. naive_solver.
+        + intros x y. naive_solver.
+        + intros x y z.
+        intros.
+        split; [|split; [|split ]].
+        * transitivity (interp_value y); naive_solver.
+        * transitivity (interp_values y); naive_solver.
+        * transitivity (interp_frame y); naive_solver.
+        * transitivity (interp_expr y); naive_solver.
+    - intros n m [v1 vs1 f1 e1] [v2 vs2 f2 e2] [?[?[??]]] ?.
+        split; [|split; [|split]]; cbn in *;
+        eauto using dist_le with si_solver.
+    Defined.
+
+  Canonical Structure relationsO : ofe := Ofe relations relations_ofe_mixin.
+  
+  Global Program Instance relations_cofe : Cofe relationsO :=
+    { compl c := {|
+                  interp_value := compl (chain_map interp_value c);
+                  interp_values := compl (chain_map interp_values c);
+                  interp_frame := compl (chain_map interp_frame c);
+                  interp_expr := compl (chain_map interp_expr c); |} }.
+  Next Obligation.
+    intros n c.
+    split; [|split; [|split]]; cbn in *; apply (conv_compl n).
+  Qed.
+  
+  Lemma relations_dist_conj n v1 vs1 f1 e1 v2 vs2 f2 e2 :
+    mkRelations v1 vs1 f1 e1 ≡{n}≡ mkRelations v2 vs2 f2 e2 <->
+    v1 ≡{n}≡ v2 /\
+    vs1 ≡{n}≡ vs2 /\
+    f1 ≡{n}≡ f2 /\
+    e1 ≡{n}≡ e2.
+  Proof.
+    reflexivity.
+  Qed.
+      
+End RelationsOFESetup.
 
 Global Instance relations_inhabited : Inhabited relationsO.
 Proof.
@@ -291,6 +367,20 @@ Definition rels_0 (rs : relations) : relations :=
   |}.
 
 Global Instance rels_contractive : Contractive rels_0.
+Proof.
+  solve_proper_prepare.
+  rewrite relations_dist_conj.
+  split; [|split; [| split]].
+  - intros [pty] vs.
+    destruct pty; cbn; try reflexivity.
+    + admit.
+    + constructor.
+      intros.
+      admit.
+    + admit.
+  - admit.
+  - admit.
+  - admit.
 Admitted.
 
 Definition rels : relations := fixpoint rels_0.
