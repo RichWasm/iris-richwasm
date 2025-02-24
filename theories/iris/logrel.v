@@ -39,7 +39,6 @@ Ltac solve_iprop_ne :=
          apply forall_ne + apply wand_ne).
 Local Obligation Tactic := try solve_proper.
 
-
 Section logrel.
 
 Context `{!wasmG Σ, !logrel_na_invs Σ, !R.Read}.
@@ -69,32 +68,33 @@ Definition relations : Type :=
   (* interp_value *)
   (leibnizO R.value_type -n> WsR) *
   (* interp_frame *)
-  (leibnizO (list (R.value_type * R.size)) -n> WsR) * 
+  (R.locals_typeO -n> WsR) * 
   (* interp_expr *)
   (leibnizO R.result_type -n>
-  leibnizO (list (R.result_type * list (R.value_type * R.size))) -n>
-  optionO (leibnizO R.result_type) -n>
-  leibnizO (list (R.value_type * R.size)) -n>
-  leibnizO instance -n>
-  leibnizO (lholed * list administrative_instruction) -n>
-  iPropO Σ).
+   R.labels_typeO -n>
+   R.ret_typeO -n>
+   R.locals_typeO -n>
+   leibnizO instance -n>
+   leibnizO (lholed * list administrative_instruction) -n>
+   iPropO Σ).
 
 Canonical Structure relationsO : ofe := Ofe relations (@prod_ofe_mixin (prodO _ _) _ : OfeMixin relations).
 
-Program Definition interp_value : relationsO -n> _ :=
+Program Definition rels_value : relationsO -n> _ :=
   λne (r: relationsO), r.1.1.
 
-Program Definition interp_frame : relationsO -n> _ :=
+Program Definition rels_frame : relationsO -n> _ :=
   λne (r: relationsO), r.1.2.
 
-Definition interp_expr : relationsO -n>
-  (leibnizO R.result_type -n>
-  leibnizO (list (R.result_type * list (R.value_type * R.size))) -n>
-  optionO (leibnizO R.result_type) -n>
-  leibnizO (list (R.value_type * R.size)) -n>
+Definition rels_expr :
+  relationsO -n>
+  leibnizO R.result_type -n>
+  R.labels_typeO -n>
+  R.ret_typeO -n>
+  R.locals_typeO -n>
   leibnizO instance -n>
   leibnizO (lholed * list administrative_instruction) -n>
-  iPropO Σ) :=
+  iPropO Σ :=
   λne (r: relationsO), snd r.
 
 Global Instance relations_inhabited : Inhabited relationsO.
@@ -113,7 +113,7 @@ Program Definition interp_heap_value_variant : relationsO -n> leibnizO (list R.v
     ∃ τ,
     ⌜τs !! tag = Some τ⌝ ∗
     let ws := R.read_value τ bs_payload in
-    interp_value rs τ (Stack ws)
+    rels_value rs τ (Stack ws)
   )%I.
 
 Program Definition interp_heap_value_struct : relationsO -n> leibnizO (list (R.value_type * R.size)) -n> HR :=
@@ -124,7 +124,7 @@ Program Definition interp_heap_value_struct : relationsO -n> leibnizO (list (R.v
         let '(τ, sz) := f in
         ⌜R.eval_size sz = Some (length fbs)⌝ ∗
         let ws := R.read_value τ fbs in
-        interp_value rs τ (Stack ws)
+        rels_value rs τ (Stack ws)
   )%I.
 Next Obligation.
   solve_proper_prepare.
@@ -142,7 +142,7 @@ Program Definition interp_heap_value_array : relationsO -n> leibnizO R.value_typ
     [∗ list] ebs ∈ bss,
       ⌜length ebs = R.size_of τ⌝ ∗
       let ws := R.read_value τ ebs in
-      interp_value rs τ (Stack ws)
+      rels_value rs τ (Stack ws)
   )%I.
 
 Opaque interp_heap_value_array.
@@ -164,7 +164,7 @@ Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, head (stack_values 
 Definition interp_values (rs : relations) : leibnizO (list R.value_type) -n> WsR :=
   λne (τs : leibnizO (list R.value_type)) ws, (∃ wss ws_rest,
     ⌜stack_values ws = flatten wss ++ ws_rest⌝ ∗
-    [∗ list] τ;ws ∈ τs;wss, interp_value rs τ (Stack ws)
+    [∗ list] τ;ws ∈ τs;wss, rels_value rs τ (Stack ws)
   )%I.
 
 Definition interp_pre_value_num : leibnizO R.num_type -n> WsR :=
@@ -202,9 +202,9 @@ Definition interp_closure : relationsO -> leibnizO R.function_type -n> ClR :=
         ⌜seq.map R.lower_type t1 = wt1⌝ ∗
         ⌜seq.map R.lower_type t2 = wt2⌝ ∗
         ∀ ws F, ∃ L,
-        interp_values rs t1 ws ∗ interp_frame rs L F ∗ ⌜R.lower_locals L = tlocs⌝ -∗
+        interp_values rs t1 ws ∗ rels_frame rs L F ∗ ⌜R.lower_locals L = tlocs⌝ -∗
         ∃ L',
-        interp_expr rs t2 [] None L' inst (
+        rels_expr rs t2 [] None L' inst (
         LH_base [] [],
         [AI_local
             (length t2)
@@ -230,7 +230,7 @@ Instance interp_pre_value_coderef_contractive: Contractive interp_pre_value_code
   ltac:(solve_contractive).
 
 Definition interp_pre_value_exloc (rs : relationsO) : leibnizO R.value_type -n> WsR :=
-  λne (τ : leibnizO R.value_type) ws, (∃ ℓ, ▷ interp_value rs (R.subst_type_loc ℓ τ) ws)%I.
+  λne (τ : leibnizO R.value_type) ws, (∃ ℓ, ▷ rels_value rs (R.subst_type_loc ℓ τ) ws)%I.
 Instance interp_pre_value_exloc_contractive: Contractive interp_pre_value_exloc.
 Proof.
   solve_proper_prepare.
@@ -312,19 +312,18 @@ Definition interp_value_0 (rs : relations) : leibnizO R.value_type -n> WsR :=
     end.
 
 (* TODO *)
-Definition interp_frame_0 (rs : relations) : leibnizO (list (R.value_type * R.size)) -n> WsR :=
+Definition interp_frame_0 (rs : relations) : R.locals_typeO -n> WsR :=
   λne _, λne _, ⌜false⌝%I.
 
 (* TODO *)
 Definition interp_expr_0 (rs : relations) :
   leibnizO R.result_type -n>
-  leibnizO (list (R.result_type * list (R.value_type * R.size))) -n>
-  optionO (leibnizO R.result_type) -n>
-  leibnizO (list (R.value_type * R.size)) -n>
+  R.labels_typeO -n>
+  R.ret_typeO -n>
+  R.locals_typeO -n>
   leibnizO instance -n>
   leibnizO (lholed * list administrative_instruction) -n>
-  iPropO Σ
-:=
+  iPropO Σ :=
   λne _ _ _ _ _ _, ⌜false⌝%I.
 
 Definition rels_0 (rs : relations) : relations :=
@@ -360,10 +359,46 @@ Qed.
 
 Definition rels : relations := fixpoint rels_0.
 
+Definition interp_value := rels_value rels.
+Definition interp_frame := rels_frame rels.
+Definition interp_expr := rels_expr rels.
+
 Definition interp_val (τs : R.result_type) : VR :=
   λne (v : leibnizO val), (
     ⌜v = trapV⌝ ∨
     ∃ ws, ⌜v = immV ws⌝ ∗ interp_values rels τs (Stack ws)
   )%I.
+
+Definition interp_inst
+  (S: R.store_typing) 
+  (M: R.module_typing) 
+  (inst: instance)
+  : iProp Σ :=
+  ⌜true⌝%I.
+
+Definition interp_ctx
+  (L L': R.locals_type) 
+  (F: R.function_typing) 
+  (inst: instance)
+  (lh: lholed)
+  : iProp Σ :=
+  ⌜true⌝%I.
+
+Definition semantic_typing 
+  (S: R.store_typing) 
+  (M: R.module_typing) 
+  (F: R.function_typing) 
+  (L: R.locals_type) 
+  (es: list administrative_instruction) 
+  (τs1 τs2 : list R.value_type) 
+  (L': R.locals_type) 
+  : iProp Σ :=
+  ∀ inst lh,
+    interp_inst S M inst ∗ interp_ctx L L' F inst lh -∗
+    ∀ vls vs,
+      interp_val τs1 vs ∗ 
+      (* frame points to F ∗ *)
+      interp_frame L vls ∗
+      interp_expr τs2 F.(R.fn_label_type) F.(R.fn_ret_type) L' inst (lh, (of_val vs ++ es)).
 
 End logrel.

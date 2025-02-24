@@ -1,8 +1,10 @@
+From stdpp Require Import pmap.
 Require Import BinNat.
 From mathcomp Require Import seq.
 From Wasm Require Import bytes.
 From Wasm Require datatypes.
 From Wasm Require Import numerics.
+From iris.algebra Require Import ofe.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -99,4 +101,35 @@ Definition lower_locals (L : list (value_type * size)) : list Wasm.datatypes.val
 Class Read := {
   read_value : value_type -> bytes -> list value;
   read_tag : bytes -> nat;
+}.
+
+(* Typing contexts *)
+Definition mem_type : Type := Pmap heap_type.
+Record store_typing := {
+    lin_mem_type: mem_type;
+    unr_mem_type: mem_type;
+}.
+
+Definition locals_type : Type :=
+  list (value_type * size).
+
+Definition locals_typeO : ofe :=
+  discreteO locals_type.
+
+Definition labels_type : Type :=
+  list (result_type * list (value_type * size)).
+
+Definition labels_typeO : ofe :=
+  discreteO (list (result_type * list (value_type * size))).
+
+Definition ret_type : Type :=
+  option result_type.
+
+Definition ret_typeO : ofe :=
+  optionO (discreteO result_type).
+
+Definition module_typing : Type := unit (* TODO *).
+Record function_typing := {
+    fn_label_type: labels_type;
+    fn_ret_type: ret_type;
 }.

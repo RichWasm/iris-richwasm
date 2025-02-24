@@ -1,12 +1,4 @@
 (coq.theory
   (name RWasm)
   (package iris-rwasm)
-  (theories
-    compcert
-    elpi
-    elpi_elpi
-    Flocq
-    HB
-    mathcomp.ssreflect
-    parseque
-    Wasm))
+  (theories iris Wasm elpi_elpi elpi compcert Flocq parseque HB mathcomp stdpp))
