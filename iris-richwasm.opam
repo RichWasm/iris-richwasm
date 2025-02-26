@@ -5,8 +5,8 @@ synopsis: "RichWasm formalization in Coq and Iris"
 description: "RichWasm formalization in Coq based on Iris-Wasm."
 maintainer: ["Ryan Doenges" "Brianna Marshall"]
 authors: ["Ryan Doenges" "Brianna Marshall" "Maxime Legoupil" "Amal Ahmed"]
-homepage: "https://github.com/hackedy/iris-rwasm"
-bug-reports: "https://github.com/hackedy/iris-rwasm/issues"
+homepage: "https://github.com/RichWasm/iris-richwasm"
+bug-reports: "https://github.com/RichWasm/iris-richwasm/issues"
 depends: [
   "dune" {>= "3.16"}
   "odoc" {with-doc}
@@ -25,4 +25,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/hackedy/iris-rwasm.git"
+dev-repo: "git+https://github.com/RichWasm/iris-richwasm.git"

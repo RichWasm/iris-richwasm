@@ -1,6 +1,6 @@
 (coq.theory
   (name RWasm.iris)
-  (package iris-rwasm)
+  (package iris-richwasm)
   (theories
     ExtLib.Core
     ExtLib.Data

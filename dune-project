@@ -1,14 +1,14 @@
 (lang dune 3.16)
 (using coq 0.9)
 
-(name iris-rwasm)
+(name iris-richwasm)
 (version 0.1)
 
 (generate_opam_files true)
-(source (github hackedy/iris-rwasm))
+(source (github RichWasm/iris-richwasm))
 
 (package
-  (name iris-rwasm)
+  (name iris-richwasm)
   (synopsis "RichWasm formalization in Coq and Iris")
   (description "RichWasm formalization in Coq based on Iris-Wasm.")
   (maintainers

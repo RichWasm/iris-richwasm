@@ -1,4 +1,4 @@
 (coq.theory
   (name RWasm)
-  (package iris-rwasm)
+  (package iris-richwasm)
   (theories iris Wasm elpi_elpi elpi compcert Flocq parseque HB mathcomp stdpp))
