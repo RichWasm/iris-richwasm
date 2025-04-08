@@ -143,21 +143,16 @@ Proof.
   iSplitL "Hfr".
   { cbn. 
     unfold i32const.
-    iApply wp_set_local.
-    - lia.
-    - auto.
-    - auto.
+    iApply wp_set_local => //.
   }
   iIntros (w) "(%Htrap & Hfr)".
   subst w.
-  iApply (wp_loop_ctx with "[Hfr] []") => //; eauto.
-  instantiate (1:=[]).
-  - auto.
-  - instantiate (1:=nil).
-    auto.
-  - iModIntro.
-    iIntros "Hfr".
+
+  iApply (wp_loop with "[Hfr] [HΦ]") => //; eauto.
+  iIntros "!> Hfr".
+  (* unsure what to do here. *)
 Admitted.
+
 End specs.    
 End malloc.    
       
