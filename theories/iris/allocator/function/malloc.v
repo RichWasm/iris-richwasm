@@ -4,9 +4,9 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
-From Wasm.iris.examples.stack Require Export stack_common.
 From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
+From RWasm.iris.allocator Require Export allocator_common.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -20,6 +20,14 @@ Section malloc.
  Context `{!wasmG Σ}. 
 
 Section code.
+  
+(*
+
+
+[ free? ][ next ] .....  [ free? ][ next ] ...
+
+
+*)
 
 (* Given a pointer to a block in the free list, return its start (the
    address returned by malloc). *)
@@ -72,11 +80,6 @@ Definition get_block_size l :=
 
   Allocate a new block of memory of the requested size.
 
-  Can fail non-deterministically if grow_memory fails.
-
-  Returns a pointer to the newly allocated block at the start of stack
-  (0th cell), or -1 if allocation fails.
-
   Parameters/Locals:
   0     local variable, storing the requested size.
   1     local variable, storing the current candidate block of the free list.
@@ -103,7 +106,7 @@ Definition malloc :=
             BI_if (Tf [] []) (
                 (* it's free and it fits, mark block as not free and return start *)
                 BI_get_local 1 ::
-                mark_block_free ++
+                mark_block_used ++
                 BI_get_local 1 ::
                 get_block_start ++ 
                 [BI_return]
@@ -111,6 +114,8 @@ Definition malloc :=
             (get_block_next ++ [BI_set_local 1])
       ]) [
           (* address of block was null: trap *)
+          (* grow the free list *)
+          (* ultimately, decide we're out of space & return -1 *)
           BI_unreachable
       ]
     ]

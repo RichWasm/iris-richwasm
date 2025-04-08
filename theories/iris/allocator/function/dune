@@ -1,6 +1,4 @@
 (coq.theory
-  (name Wasm.iris.examples.allocator.function)
-   (package iris-wasm)
-  (flags -w -ambiguous-paths -w -notation-overridden -w -abstract-large-number -w -extraction-reserved-identifier)
-  (theories Wasm.iris.examples.stack Wasm.iris.logrel Wasm.iris.rules)
-  )
+  (name RWasm.iris.allocator.function)
+  (package iris-richwasm)
+  (theories iris stdpp Ltac2 compcert Flocq Wasm.iris.examples.stack Wasm.iris.logrel Wasm.iris.rules mathcomp HB elpi elpi_elpi parseque))

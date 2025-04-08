@@ -6,7 +6,7 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
 From Wasm.iris.host Require Export iris_host.
 From Wasm.iris.logrel Require Export iris_fundamental_helpers.
-From Wasm.iris.examples.allocator.function Require Export allocator_specs.
+From RWasm.iris.allocator.function Require Export allocator_specs.
 From Wasm Require Export type_checker_reflects_typing.
 
 Set Implicit Arguments.
@@ -29,7 +29,7 @@ Section StackModule.
 
 Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ}. 
 
-
+(*
 Definition stack_module :=
   {|
     mod_types := [
@@ -1285,4 +1285,5 @@ Proof.
 Qed.
   
 
+*)
 End StackModule.

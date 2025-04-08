@@ -4,7 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
-Require Export s
+Require Export allocator_instantiation.
 From Wasm Require Export type_checker_reflects_typing.
 
 Set Implicit Arguments.
@@ -126,6 +126,7 @@ Section Client.
                   ]
     |}.
 
+  (*
   Lemma module_typing_client :
     module_typing client_module expts [ET_glob {| tg_t := T_i32 ; tg_mut := MUT_mut |} ].
   Proof.
@@ -968,5 +969,6 @@ Proof.
       iFrame.
   Qed.
       
+*)
 End Client.
   
