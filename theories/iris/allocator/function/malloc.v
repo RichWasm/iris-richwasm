@@ -220,6 +220,25 @@ Fixpoint blk_rep blk memidx base_addr : iProp Σ :=
         blk_rep next memidx next_addr
   end%I.
 
+Lemma spec_mark_block_used E f memidx blk sz blk_addr :
+  ⊢ {{{{ blk_rep (BlkGo Free sz blk) memidx blk_addr ∗
+         ↪[frame] f }}}}
+    (AI_basic (BI_const (value_of_uint blk_addr)) :: (to_e_list mark_block_used)) @ E
+    {{{{ v, ⌜v = immV []⌝ ∗
+            blk_rep (BlkGo Used sz blk) memidx blk_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+  iIntros "!>" (Φ) "Hblk HΦ".
+  unfold mark_block_used.
+  iApply (wp_wand with "[Hblk]").
+  { 
+    unfold blk_rep.
+    iDestruct "Hblk" as "(Hblk & Hfr)".
+    fold blk_rep.
+    iDestruct "Hblk" as (next_addr) "(Hflag & Hsz & Hnext & Hdata & Hrest)".
+    iApply wp_store =>//.
+Abort.
+
 Lemma spec_malloc E f0 reqd_sz (memidx: memaddr) blk :
   ⊢ {{{{ ⌜f0.(f_inst).(inst_memory) !! 0 = Some memidx⌝ ∗
          ⌜f0.(f_locs) !! 0 = Some (VAL_int32 reqd_sz)⌝ ∗
@@ -270,7 +289,7 @@ Proof.
   subst w.
   take_drop_app_rewrite 2.
   iApply wp_seq; cbn.
-Admitted.
+Abort.
 
 End specs.    
 End malloc.    
