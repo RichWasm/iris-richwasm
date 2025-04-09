@@ -23,26 +23,9 @@ Section code.
   
 (*
 
-
-[ free? ][ next ] .....  [ free? ][ next ] ...
-
+[ free? ][ size ] [ next ] .....  [ free? ] [ size ] [ next ] ...
 
 *)
-
-(* Given a pointer to a block in the free list, return its start (the
-   address returned by malloc). *)
-Definition get_block_start :=
- [
-   i32const 8;
-   BI_binop T_i32 (Binop_i BOI_add)
- ].
-  
-(* Given a pointer to a block in the free list, return the (possibly
-   0, meaning null!) pointer to the next block. *)
-Definition get_block_next :=
-  [
-    BI_load T_i32 None 4%N 0%N
-  ].
 
 (* Given a pointer to a block in the free list, return the block's free flag. *)
 Definition get_block_free :=
@@ -62,17 +45,27 @@ Definition mark_block_used :=
     BI_store T_i32 None 0%N 0%N
   ].
 
-(* Given a pointer to a block in the free list in local index l, return its size.
-   If block.next is null, this will compute a meaningless value.
-   The size of a block is
-      block.next - block.start.
-*)
-Definition get_block_size l :=
-  BI_get_local l ::
-  get_block_start ++ 
-  BI_get_local l ::
-  get_block_next ++
-  [BI_binop T_i32 (Binop_i BOI_sub)].
+
+Definition get_block_size :=
+  [
+    BI_load T_i32 None 4%N 0%N
+  ].
+  
+Definition set_block_size :=
+  [
+    BI_store T_i32 None 4%N 0%N
+  ].
+  
+Definition get_block_next :=
+  [
+    BI_load T_i32 None 8%N 0%N
+  ].
+
+Definition get_block_start :=
+ [
+   i32const 12;
+   BI_binop T_i32 (Binop_i BOI_add)
+ ].
 
 (*
   malloc: [i32] -> [i32]
@@ -99,7 +92,8 @@ Definition malloc :=
            get_block_free ++
            (* Put a boolean representing whether the size is big enough at the top of the stack *)
            BI_get_local 0 ::
-           get_block_size 1 ++ 
+           BI_get_local 1 ::
+           get_block_size ++ 
            [BI_relop T_i32 (Relop_i (ROI_le SX_U));
             (* Compute free && fits *)
             BI_binop T_i32 (Binop_i BOI_and);
