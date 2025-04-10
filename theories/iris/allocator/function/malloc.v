@@ -22,16 +22,97 @@ Section malloc.
 Section code.
   
 (*
-enum state_t ::= FREE | USED | STOP
+IDEA
+We are given an entire WebAssembly memory to work with.
+[0   ......   mem_size - 1]
+
+This memory is partitioned into a circular linked list of blocks.
+
+enum state_t ::= FREE | USED | FINAL
 
 struct block {
   state_t   state;
-  // rest of this is only present if state != STOP
   i32       size; // must be nonzero
   i32       next;
-  i32[size] data;
+  i32[size] data; // user data
 }
-[ state ][ size ][ next ] .....  [ state ][ size ][ next ] ...
+
+INITIAL STATE
+If the memory has size mem_size,
+put a block at address 0:
+  { state = FINAL; next = 0; size = mem_size - 12 }
+
+INVARIANTS
+The first block is always at address 0.
+The last block has next = 0.
+If the last block is at address K, it occupies [ K ... mem_size - 1 ].
+The last block is the unique block marked FINAL and never contains user data.
+
+GROWING THE MEMORY
+pinch_block(final_block, reqd_sz):
+  new_size = final_block.size - reqd_sz
+  new_block = final_block + 12 + reqd_sz
+  final_block.state = FREE
+  final_block.size = reqd_sz
+  final_block.next = new_block
+  new_block.state = FINAL
+  new_block.size = new_size
+  new_block.next = 0
+  return new_block
+
+new_block(final_block, reqd_sz):
+  if final_block.sz > reqd_sz + ???:
+    return split_block(final_block, reqd_sz)
+  else:
+    final_block.state = FREE
+    final_block.next = mem_size
+    actual_sz = grow_mem(reqd_sz)
+    new_block = final_block.next
+    new_block.state = FINAL
+    new_block.size = actual_sz
+    return split_block(new_block, reqd_sz)
+
+MALLOC
+malloc(reqd_sz):
+  b = 0
+  while b.state != FINAL:
+    if b.sz > reqd_sz && b.state == FREE:
+       b.state = USED
+       return b.data
+    else:
+       b = b.next
+  // b is the final block
+  new_block(b, reqd_sz)
+  b.state = USED
+  return b.data
+
+FREE
+free(addr):
+  if addr < 12:
+    trap
+  reqd_block = addr - 12
+  b = 0
+  while b.state != STOP:
+    if b == reqd_block && b.state = USED:
+      b.state = FREE
+    else:
+      b = b.next
+  // address wasn't the address of a known allocation
+  trap
+
+
+
+
+
+
+A block contains some metadata and then the data (the memory given to the client).
+[ metadata ] [ data .... ]
+
+The metadata includs
+
+The free list is a linked list of blocks.
+The terminal block has -1 where its next pointer should be.
+[b1] --> [b2] --> [b3] --> -1
 
 *)
   
