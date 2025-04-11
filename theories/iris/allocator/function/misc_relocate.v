@@ -47,4 +47,39 @@ Proof.
   eapply wp_label_push; auto.
 Qed.
 
+Check wms_append.
+Locate "∗-∗".
+Check bi_wand_iff.
+Locate "⊣⊢".
+Check equiv.
+Lemma bimp_bient (P Q: iProp Σ) :
+  (⊢ P ∗-∗ Q)
+  <->
+  (P ⊣⊢ Q).
+Proof.
+  intros; split.
+  - intros Hwand.
+    iSplit.
+    + iIntros.
+      iApply Hwand.
+      iFrame.
+    + iIntros.
+      iApply Hwand.
+      iFrame.
+  - intros Hent.
+    iSplit; rewrite Hent; auto.
+Qed.
+
+Lemma wms_app n bs1 :
+  forall ℓ sz1 bs2,
+  sz1 = N.of_nat (length bs1) ->
+  n ↦[wms][ℓ] (bs1 ++ bs2) ⊣⊢ n ↦[wms][ℓ] bs1 ∗ n ↦[wms][ℓ + sz1] bs2.
+Proof.
+  Locate "↦[wms][".
+  unfold mem_block_at_pos.
+  intros.
+  rewrite big_opL_app.
+  repeat (f_equiv; try lia).
+Qed.
+
 End misc.

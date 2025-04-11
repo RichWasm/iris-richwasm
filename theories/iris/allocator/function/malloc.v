@@ -8,7 +8,7 @@ From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
 From RWasm.iris.allocator Require Export allocator_common.
 
-Require misc_relocate.
+Require Import misc_relocate.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -389,13 +389,25 @@ Definition block_repr (memidx: N) (blk: block) (base_addr next_addr: N) : iProp 
       state_repr memidx Used base_addr ∗
       size_repr memidx (blk_used_size + blk_leftover_size)%N base_addr ∗
       next_repr memidx next_addr base_addr ∗
-      own_vec memidx (base_addr + data_off) (blk_used_size + blk_leftover_size)%N
+      own_vec memidx (base_addr + data_off + blk_used_size) blk_leftover_size
   | FreeBlk blk_size =>
       state_repr memidx Free base_addr ∗
       size_repr memidx blk_size base_addr ∗
       next_repr memidx next_addr base_addr ∗
       own_vec memidx (base_addr + data_off) blk_size
   end.
+
+(* 
+EXTERNAL SPEC
+blks "allocator state"
+1. Allocator invariant   freelist_repr blks 0
+2. Allocation token      Allocated(blks, l, sz) <---> In (UsedBlk sz) blks
+
+
+                                    { AInv(st) } malloc(sz) { v. exists st'. v |-> bs * |bs| = sz * tok(st', v) * AInv(st') }
+{ AInv(st) * v |-> bs * |bs| = sz * tok(st, v) } free(v)    { (). exists st'. AInv(st') }
+own_block (N.of_nat memidx) ret_addr reqd_sz ∗
+*)
 
 Fixpoint blocks_repr (memidx: N) (blks: list block) (base_addr: N) (out_addr: N) : iProp Σ :=
   match blks with
@@ -422,6 +434,35 @@ Definition freelist_repr (memidx: N) (blks: list block * final_block) (base_addr
     blocks_repr memidx blks base_addr next_addr ∗
     final_block_repr memidx final next_addr.
 
+Lemma own_vec_split memidx ℓ sz1 sz2 :
+  own_vec memidx ℓ (sz1 + sz2) ⊣⊢ own_vec memidx ℓ sz1 ∗ own_vec memidx (ℓ + sz1) sz2.
+Proof.
+  unfold own_vec.
+  iSplit.
+  - iIntros "(%bs & %Hlen & Hbs)".
+    pose proof (take_drop (N.to_nat sz1) bs) as Hsplit.
+    rewrite <- Hsplit.
+    rewrite wms_app; [|eauto; lia].
+    iDestruct "Hbs" as "(Hbs1 & Hbs2)".
+    iSplitL "Hbs1".
+    + iExists _; iFrame.
+      iPureIntro.
+      rewrite length_take_le; lia.
+    + rewrite length_take_le; [|lia].
+      rewrite N2Nat.id.
+      iExists _; iFrame.
+      iPureIntro.
+      rewrite length_drop.
+      lia.
+  - iIntros "((%bs1 & (%Hlen1 & Hbs1)) & (%bs2 & (%Hlen2 & Hbs2)))".
+    iExists (bs1 ++ bs2).
+    erewrite (wms_app _ _ _ (sz1:=sz1)); [| lia].
+    iFrame.
+    iPureIntro.
+    rewrite length_app.
+    lia.
+Qed.
+
 Lemma spec_mark_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
   ⊢ {{{{ block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
          ⌜(sz = sz_u + sz_left)%N⌝ ∗
@@ -432,6 +473,7 @@ Lemma spec_mark_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_lef
     (to_e_list (mark_used blk)) @ E
     {{{{ v, ⌜v = immV []⌝ ∗
             ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+            own_vec memidx (blk_addr + data_off) sz_u ∗
             block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
             ↪[frame] f }}}}.
 Proof.
@@ -467,11 +509,13 @@ Proof.
     unfold block_repr, state_repr.
     rewrite Hsz.
     rewrite N2Nat.id.
+    iPoseProof (own_vec_split with "Hvec") as "(Hvec1 & Hvec2)".
     iFrame; auto.
 Qed.
 
 Lemma spec_mark_free E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
   ⊢ {{{{ block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
+         own_vec memidx (blk_addr + data_off) sz_u ∗
          ⌜(sz = sz_u + sz_left)%N⌝ ∗
          ⌜N_repr blk_addr blk_addr32 ⌝ ∗
          ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
@@ -483,7 +527,7 @@ Lemma spec_mark_free E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_lef
             block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
             ↪[frame] f }}}}.
 Proof.
-  iIntros "!>" (Φ) "(Hblk & %Hsz & %Hblkvar & %Hmem & %Hblk_addr_rep & Hfr) HΦ".
+  iIntros "!>" (Φ) "(Hblk & Hu & %Hsz & %Hblkvar & %Hmem & %Hblk_addr_rep & Hfr) HΦ".
   unfold mark_used.
   take_drop_app_rewrite 1.
   iApply wp_seq.
@@ -516,8 +560,11 @@ Proof.
     rewrite -Hsz.
     rewrite N2Nat.id.
     iFrame; auto.
+    repeat iSplit; auto.
+    rewrite Hsz.
+    iApply own_vec_split.
+    iFrame.
 Qed.
-
 
 (* Keeping these but commenting out since I broke the proofs
 Lemma spec_malloc E f0 reqd_sz (memidx: memaddr) blk :
