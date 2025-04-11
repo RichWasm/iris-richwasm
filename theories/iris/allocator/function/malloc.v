@@ -8,6 +8,8 @@ From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
 From RWasm.iris.allocator Require Export allocator_common.
 
+Require misc_relocate.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -332,78 +334,89 @@ End code.
 
 Section specs.
 
-Lemma wp_label_push_emp
-  (s : stuckness) (E : coPset) (Φ : val → iProp Σ)
-  (es : language.expr iris_wp_def.wasm_lang) 
-  (i : nat) (lh : lholed) (n : nat) 
-  (es' : seq.seq administrative_instruction) :
-  WP es @ s; E CTX S i; push_base lh n es' [] [] {{ v, Φ v }} ⊢ WP [AI_label n es' es] @ s; E CTX i; lh {{ v, Φ v }}.
-Proof.
-  replace [AI_label n es' es] 
-     with [AI_label n es' ([] ++ es ++ [])]
-    by (rewrite cats0; auto).
-  eapply wp_label_push; auto.
-Qed.
-
-Lemma wp_label_push_cons
-  (s : stuckness) (E : coPset) (Φ : val → iProp Σ)
-  (e : administrative_instruction)
-  (es : language.expr iris_wp_def.wasm_lang) 
-  (i : nat) (lh : lholed) (n : nat) 
-  (es' : seq.seq administrative_instruction) :
-  WP [e] @ s; E CTX S i; push_base lh n es' [] es {{ v, Φ v }} ⊢ WP [AI_label n es' (e::es)] @ s; E CTX i; lh {{ v, Φ v }}.
-Proof.
-  replace [AI_label n es' (e::es)] 
-     with [AI_label n es' ([] ++ [e] ++ es)]
-    by (simpl; auto).
-  eapply wp_label_push; auto.
-Qed.
-
 Inductive state_flag :=
 | Used
-| Free
-| Final.
+| Free.
 
-Definition state_repr (flag : state_flag) : value :=
+Inductive block : Type :=
+| UsedBlk
+    (blk_state: state_flag)
+    (blk_used_size: N)
+    (blk_leftover_size: N)
+    (*(blk_padding: iProp Σ)*)
+| FreeBlk
+    (blk_state: state_flag)
+    (blk_size: N).
+
+Inductive final_block : Type :=
+| FinalBlk
+    (blk_size: N).
+
+Definition blocks : Type :=
+  list block * final_block.
+
+Definition state_to_val (flag : state_flag) : value :=
   match flag with
   | Used => value_of_uint BLK_USED
   | Free => value_of_uint BLK_FREE
-  | Final => value_of_uint BLK_FINAL
   end.
 
-Inductive block :=
-| BlkFinal: block
-| BlkGo: 
-  state_flag -> 
-  i32 (* size *) ->
-  block (* next *) ->
-  block.
+Definition state_repr (memidx: N) (flag: state_flag) (base_addr: N) : iProp Σ :=
+  memidx ↦[wms][base_addr + state_off] bits (state_to_val flag).
+
+Definition final_state_repr (memidx: N) (base_addr: N) : iProp Σ :=
+  memidx ↦[wms][base_addr + state_off] bits (value_of_uint BLK_FINAL).
 
 Definition nat_repr (n: nat) (m: i32) : Prop :=
   Z.of_nat n = Wasm_int.Int32.unsigned m.
 
-Definition own_block (memidx: N) (base_addr: N) (sz: i32) : iProp Σ :=
-  ∃ bs: bytes, ⌜nat_repr (length bs) sz⌝ ∗ memidx ↦[wms][base_addr] bs.
+Definition own_vec (memidx: N) (base_addr: N) (sz: N) : iProp Σ :=
+  ∃ bs: bytes, ⌜N.of_nat (length bs) = sz⌝ ∗ memidx ↦[wms][base_addr] bs.
 
-Definition data_repr (flag: state_flag) (sz: i32) (memidx: N) (base_addr: N) : iProp Σ :=
-  match flag with
-  | Used => ⌜True⌝
-  | Free => own_block memidx base_addr sz
-  | Final => ⌜True⌝
-  end%I.
+Definition size_repr (memidx: N) (sz: N) (base_addr: N) : iProp Σ :=
+  memidx ↦[wms][base_addr + size_off] bits (value_of_uint sz).
 
-(* The block representation invariant *)
-Fixpoint blk_rep blk memidx base_addr : iProp Σ :=
+Definition next_repr (memidx: N) (next: N) (base_addr: N) : iProp Σ :=
+  memidx ↦[wms][base_addr + next_off] bits (value_of_uint next).
+
+Definition block_repr (memidx: N) (blk: block) (base_addr next_addr: N) : iProp Σ :=
   match blk with
-  | BlkFinal => ⌜True⌝
-  | BlkGo flag sz next =>
-      ∃ next_addr,
-        memidx ↦[wms][base_addr] bits (state_repr flag) ∗
-        memidx ↦[wms][base_addr + 4] bits (VAL_int32 sz) ∗
-        memidx ↦[wms][base_addr + 8] bits (value_of_uint next_addr) ∗
-        data_repr flag sz memidx (base_addr + 12)%N ∗
-        blk_rep next memidx next_addr
-  end%I.
+  | UsedBlk blk_state blk_used_size blk_leftover_size =>
+      state_repr memidx blk_state base_addr ∗
+      size_repr memidx (blk_used_size + blk_leftover_size)%N base_addr ∗
+      next_repr memidx next_addr base_addr ∗
+      own_vec memidx (base_addr + data_off) (blk_used_size + blk_leftover_size)%N
+  | FreeBlk blk_state blk_size =>
+      state_repr memidx blk_state base_addr ∗
+      size_repr memidx blk_size base_addr ∗
+      next_repr memidx next_addr base_addr ∗
+      own_vec memidx (base_addr + data_off) blk_size
+  end.
+
+Fixpoint blocks_repr (memidx: N) (blks: list block) (base_addr: N) (out_addr: N) : iProp Σ :=
+  match blks with
+  | blk :: blks =>
+      ∀ next_addr,
+        block_repr memidx blk base_addr next_addr ∗
+        blocks_repr memidx blks next_addr out_addr
+  | [] =>
+      ⌜base_addr = out_addr⌝
+  end.
+
+Definition final_block_repr (memidx: N) (blk: final_block) (base_addr: N) : iProp Σ :=
+  match blk with
+  | FinalBlk blk_size =>
+      final_state_repr memidx base_addr ∗
+      size_repr memidx blk_size base_addr ∗
+      next_repr memidx 0%N base_addr ∗
+      own_vec memidx (base_addr + data_off) blk_size
+  end.
+
+Definition freelist_repr (memidx: N) (blks: list block * final_block) (base_addr: N) : iProp Σ :=
+  let '(blks, final) := blks in
+  ∀ next_addr,
+    blocks_repr memidx blks base_addr next_addr ∗
+    final_block_repr memidx final next_addr.
 
 (* Keeping these but commenting out since I broke the proofs
 Lemma spec_mark_block_used E f memidx blk sz blk_addr :
