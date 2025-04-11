@@ -1,0 +1,50 @@
+(* Misc. lemmas that should be relocated to somewhere else *)
+From mathcomp Require Import ssreflect eqtype seq ssrbool.
+From iris.program_logic Require Import language.
+From iris.proofmode Require Import base tactics classes.
+From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
+From iris.base_logic.lib Require Export fancy_updates.
+From iris.bi Require Export weakestpre.
+From Wasm.iris.logrel Require Export iris_fundamental.
+From Wasm.iris.rules Require Export proofmode.
+From RWasm.iris.allocator Require Export allocator_common.
+
+Set Implicit Arguments.
+Unset Strict Implicit.
+Unset Printing Implicit Defensive.
+
+Set Bullet Behavior "Strict Subproofs".
+
+Section misc.
+
+
+Context `{!wasmG Σ}. 
+
+Lemma wp_label_push_emp
+  (s : stuckness) (E : coPset) (Φ : val → iProp Σ)
+  (es : language.expr iris_wp_def.wasm_lang) 
+  (i : nat) (lh : lholed) (n : nat) 
+  (es' : seq.seq administrative_instruction) :
+  WP es @ s; E CTX S i; push_base lh n es' [] [] {{ v, Φ v }} ⊢ WP [AI_label n es' es] @ s; E CTX i; lh {{ v, Φ v }}.
+Proof.
+  replace [AI_label n es' es] 
+     with [AI_label n es' ([] ++ es ++ [])]
+    by (rewrite cats0; auto).
+  eapply wp_label_push; auto.
+Qed.
+
+Lemma wp_label_push_cons
+  (s : stuckness) (E : coPset) (Φ : val → iProp Σ)
+  (e : administrative_instruction)
+  (es : language.expr iris_wp_def.wasm_lang) 
+  (i : nat) (lh : lholed) (n : nat) 
+  (es' : seq.seq administrative_instruction) :
+  WP [e] @ s; E CTX S i; push_base lh n es' [] es {{ v, Φ v }} ⊢ WP [AI_label n es' (e::es)] @ s; E CTX i; lh {{ v, Φ v }}.
+Proof.
+  replace [AI_label n es' (e::es)] 
+     with [AI_label n es' ([] ++ [e] ++ es)]
+    by (simpl; auto).
+  eapply wp_label_push; auto.
+Qed.
+
+End misc.
