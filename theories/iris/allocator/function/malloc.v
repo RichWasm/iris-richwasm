@@ -422,7 +422,7 @@ Definition freelist_repr (memidx: N) (blks: list block * final_block) (base_addr
     blocks_repr memidx blks base_addr next_addr ∗
     final_block_repr memidx final next_addr.
 
-Lemma spec_mark_block_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
+Lemma spec_mark_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
   ⊢ {{{{ block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
          ⌜(sz = sz_u + sz_left)%N⌝ ∗
          ⌜N_repr blk_addr blk_addr32 ⌝ ∗
@@ -469,6 +469,55 @@ Proof.
     rewrite N2Nat.id.
     iFrame; auto.
 Qed.
+
+Lemma spec_mark_free E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
+  ⊢ {{{{ block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
+         ⌜(sz = sz_u + sz_left)%N⌝ ∗
+         ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    (to_e_list (mark_free blk)) @ E
+    {{{{ v, ⌜v = immV []⌝ ∗
+            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+            block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+  iIntros "!>" (Φ) "(Hblk & %Hsz & %Hblkvar & %Hmem & %Hblk_addr_rep & Hfr) HΦ".
+  unfold mark_used.
+  take_drop_app_rewrite 1.
+  iApply wp_seq.
+  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+                           ↪[frame]f)%I).
+  iSplitR; [iIntros "(%H & ?)"; auto|].
+  iSplitL "Hfr".
+  { iApply wp_get_local; eauto. }
+  iIntros (w) "(%Hw & Hfr)".
+  subst w.
+  simpl block_repr at 1.
+  iDestruct "Hblk" as "(Hstate & Hsize & Hnext & Hvec)".
+  iSimpl.
+  iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
+  iApply (wp_wand with "[Hstfield Hfr]").
+  instantiate (1 := λ w, ((⌜w = immV [] ⌝ ∗ 
+                        N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_FREE)) ∗
+                        ↪[frame]f)%I).
+  - unfold state_off.
+    rewrite Hblkvar.
+    iApply wp_store;
+      eauto;
+      try rewrite N2Nat.id;
+      [| iFrame ];
+      auto.
+  - iIntros (w) "((%Hw & Hstfield) & Hfr)".
+    subst w.
+    iApply "HΦ".
+    unfold block_repr, state_repr.
+    rewrite -Hsz.
+    rewrite N2Nat.id.
+    iFrame; auto.
+Qed.
+
 
 (* Keeping these but commenting out since I broke the proofs
 Lemma spec_malloc E f0 reqd_sz (memidx: memaddr) blk :
