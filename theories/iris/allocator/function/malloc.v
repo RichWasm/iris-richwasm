@@ -265,15 +265,14 @@ Definition new_block final_block reqd_sz total_sz new_block actual_size :=
     (pinch_block final_block reqd_sz total_sz new_block)
     (* else *)
     (mark_free final_block ++
-
      BI_get_local final_block ::
-     BI_get_local reqd_sz ::
-     u32const Wasm.operations.page_size ::
-     BI_binop T_i32 (Binop_i (BOI_div SX_U)) ::
-     u32const 1%N ::
-     BI_tee_local actual_size ::
-     BI_binop T_i32 (Binop_i BOI_add) ::
-     BI_grow_memory ::
+        BI_get_local reqd_sz ::
+        u32const Wasm.operations.page_size ::
+        BI_binop T_i32 (Binop_i (BOI_div SX_U)) ::
+        u32const 1%N ::
+        BI_tee_local actual_size ::
+        BI_binop T_i32 (Binop_i BOI_add) ::
+        BI_grow_memory ::
      set_next ++
 
      BI_get_local final_block ::
@@ -283,7 +282,6 @@ Definition new_block final_block reqd_sz total_sz new_block actual_size :=
      set_size ++
      pinch_block final_block reqd_sz total_sz new_block) ::
     nil.
-
 
 Definition malloc_loop_body reqd_sz cur_block :=
   (* break out of the loop if the block is final. *)
@@ -336,16 +334,15 @@ Section specs.
 
 Inductive state_flag :=
 | Used
-| Free.
+| Free
+| Final.
 
 Inductive block : Type :=
 | UsedBlk
-    (blk_state: state_flag)
     (blk_used_size: N)
     (blk_leftover_size: N)
     (*(blk_padding: iProp Σ)*)
 | FreeBlk
-    (blk_state: state_flag)
     (blk_size: N).
 
 Inductive final_block : Type :=
@@ -355,39 +352,46 @@ Inductive final_block : Type :=
 Definition blocks : Type :=
   list block * final_block.
 
-Definition state_to_val (flag : state_flag) : value :=
+Definition nat_repr (n: nat) (m: i32) : Prop :=
+  Z.of_nat n = Wasm_int.Int32.unsigned m.
+
+Definition N_repr (n: N) (m: i32) : Prop :=
+  n = Wasm_int.N_of_uint i32m m.
+
+Definition state_to_N (flag : state_flag) : N :=
   match flag with
-  | Used => value_of_uint BLK_USED
-  | Free => value_of_uint BLK_FREE
+  | Used => BLK_USED
+  | Free => BLK_FREE
+  | Final => BLK_FINAL
   end.
 
 Definition state_repr (memidx: N) (flag: state_flag) (base_addr: N) : iProp Σ :=
-  memidx ↦[wms][base_addr + state_off] bits (state_to_val flag).
-
-Definition final_state_repr (memidx: N) (base_addr: N) : iProp Σ :=
-  memidx ↦[wms][base_addr + state_off] bits (value_of_uint BLK_FINAL).
-
-Definition nat_repr (n: nat) (m: i32) : Prop :=
-  Z.of_nat n = Wasm_int.Int32.unsigned m.
+  ∃ st,
+    ⌜N_repr (state_to_N flag) st⌝ ∗
+    memidx ↦[wms][base_addr + state_off] bits (VAL_int32 st).
 
 Definition own_vec (memidx: N) (base_addr: N) (sz: N) : iProp Σ :=
   ∃ bs: bytes, ⌜N.of_nat (length bs) = sz⌝ ∗ memidx ↦[wms][base_addr] bs.
 
 Definition size_repr (memidx: N) (sz: N) (base_addr: N) : iProp Σ :=
-  memidx ↦[wms][base_addr + size_off] bits (value_of_uint sz).
+  ∃ sz32,
+    ⌜N_repr sz sz32 ⌝ ∗
+    memidx ↦[wms][base_addr + size_off] bits (VAL_int32 sz32).
 
 Definition next_repr (memidx: N) (next: N) (base_addr: N) : iProp Σ :=
-  memidx ↦[wms][base_addr + next_off] bits (value_of_uint next).
+  ∃ next32,
+    ⌜N_repr next next32 ⌝ ∗
+  memidx ↦[wms][base_addr + next_off] bits (VAL_int32 next32).
 
 Definition block_repr (memidx: N) (blk: block) (base_addr next_addr: N) : iProp Σ :=
   match blk with
-  | UsedBlk blk_state blk_used_size blk_leftover_size =>
-      state_repr memidx blk_state base_addr ∗
+  | UsedBlk blk_used_size blk_leftover_size =>
+      state_repr memidx Used base_addr ∗
       size_repr memidx (blk_used_size + blk_leftover_size)%N base_addr ∗
       next_repr memidx next_addr base_addr ∗
       own_vec memidx (base_addr + data_off) (blk_used_size + blk_leftover_size)%N
-  | FreeBlk blk_state blk_size =>
-      state_repr memidx blk_state base_addr ∗
+  | FreeBlk blk_size =>
+      state_repr memidx Free base_addr ∗
       size_repr memidx blk_size base_addr ∗
       next_repr memidx next_addr base_addr ∗
       own_vec memidx (base_addr + data_off) blk_size
@@ -406,7 +410,7 @@ Fixpoint blocks_repr (memidx: N) (blks: list block) (base_addr: N) (out_addr: N)
 Definition final_block_repr (memidx: N) (blk: final_block) (base_addr: N) : iProp Σ :=
   match blk with
   | FinalBlk blk_size =>
-      final_state_repr memidx base_addr ∗
+      state_repr memidx Final base_addr ∗
       size_repr memidx blk_size base_addr ∗
       next_repr memidx 0%N base_addr ∗
       own_vec memidx (base_addr + data_off) blk_size
@@ -418,26 +422,55 @@ Definition freelist_repr (memidx: N) (blks: list block * final_block) (base_addr
     blocks_repr memidx blks base_addr next_addr ∗
     final_block_repr memidx final next_addr.
 
-(* Keeping these but commenting out since I broke the proofs
-Lemma spec_mark_block_used E f memidx blk sz blk_addr :
-  ⊢ {{{{ blk_rep (BlkGo Free sz blk) memidx blk_addr ∗
+Lemma spec_mark_block_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
+  ⊢ {{{{ block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
+         ⌜(sz = sz_u + sz_left)%N⌝ ∗
+         ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
          ↪[frame] f }}}}
-    (AI_basic (BI_const (value_of_uint blk_addr)) :: (to_e_list mark_block_used)) @ E
+    (to_e_list (mark_used blk)) @ E
     {{{{ v, ⌜v = immV []⌝ ∗
-            blk_rep (BlkGo Used sz blk) memidx blk_addr ∗
+            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+            block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
             ↪[frame] f }}}}.
 Proof.
-  iIntros "!>" (Φ) "Hblk HΦ".
-  unfold mark_block_used.
-  iApply (wp_wand with "[Hblk]").
-  { 
-    unfold blk_rep.
-    iDestruct "Hblk" as "(Hblk & Hfr)".
-    fold blk_rep.
-    iDestruct "Hblk" as (next_addr) "(Hflag & Hsz & Hnext & Hdata & Hrest)".
-    iApply wp_store =>//.
-Abort.
+  iIntros "!>" (Φ) "(Hblk & %Hsz & %Hblkvar & %Hmem & %Hblk_addr_rep & Hfr) HΦ".
+  unfold mark_used.
+  take_drop_app_rewrite 1.
+  iApply wp_seq.
+  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+                           ↪[frame]f)%I).
+  iSplitR; [iIntros "(%H & ?)"; auto|].
+  iSplitL "Hfr".
+  { iApply wp_get_local; eauto. }
+  iIntros (w) "(%Hw & Hfr)".
+  subst w.
+  simpl block_repr at 1.
+  iDestruct "Hblk" as "(Hstate & Hsize & Hnext & Hvec)".
+  iSimpl.
+  iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
+  iApply (wp_wand with "[Hstfield Hfr]").
+  instantiate (1 := λ w, ((⌜w = immV [] ⌝ ∗ 
+                        N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_USED)) ∗
+                        ↪[frame]f)%I).
+  - unfold state_off.
+    rewrite Hblkvar.
+    iApply wp_store;
+      eauto;
+      try rewrite N2Nat.id;
+      [| iFrame ];
+      auto.
+  - iIntros (w) "((%Hw & Hstfield) & Hfr)".
+    subst w.
+    iApply "HΦ".
+    unfold block_repr, state_repr.
+    rewrite Hsz.
+    rewrite N2Nat.id.
+    iFrame; auto.
+Qed.
 
+(* Keeping these but commenting out since I broke the proofs
 Lemma spec_malloc E f0 reqd_sz (memidx: memaddr) blk :
   ⊢ {{{{ ⌜f0.(f_inst).(inst_memory) !! 0 = Some memidx⌝ ∗
          ⌜f0.(f_locs) !! 0 = Some (VAL_int32 reqd_sz)⌝ ∗
