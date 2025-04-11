@@ -152,6 +152,11 @@ Definition add_hdr_sz :=
   BI_binop T_i32 (Binop_i BOI_add) ::
   nil.
 
+Definition sub_hdr_sz :=
+  u32const blk_hdr_sz ::
+  BI_binop T_i32 (Binop_i BOI_sub) ::
+  nil.
+
 (* this is the size of the whole block, including header! *)
 Definition get_total_size blk :=
   get_size blk ++
@@ -328,6 +333,17 @@ Definition malloc_body reqd_sz cur_block tmp1 tmp2 tmp3 :=
 Definition malloc :=
   malloc_body 0 1 2 3.
 
+Definition free_body data_ptr :=
+  BI_get_local data_ptr ::
+  sub_hdr_sz ++
+  BI_set_local data_ptr ::
+  mark_free data_ptr ++
+  BI_return ::
+  nil.
+
+Definition free :=
+  free_body 0.
+
 End code.
 
 Section specs.
@@ -357,6 +373,23 @@ Definition nat_repr (n: nat) (m: i32) : Prop :=
 
 Definition N_repr (n: N) (m: i32) : Prop :=
   n = Wasm_int.N_of_uint i32m m.
+
+Definition block_flag blk :=
+  match blk with
+  | UsedBlk _ _ => Used
+  | FreeBlk _ => Free
+  end.
+
+Definition final_block_flag blk :=
+  match blk with
+  | FinalBlk _ => Final
+  end.
+
+Definition block_size blk : N :=
+  match blk with
+  | UsedBlk sz_u sz_l => sz_u + sz_l
+  | FreeBlk sz => sz
+  end.
 
 Definition state_to_N (flag : state_flag) : N :=
   match flag with
@@ -463,55 +496,133 @@ Proof.
     lia.
 Qed.
 
-Lemma spec_mark_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
-  ⊢ {{{{ block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
-         ⌜(sz = sz_u + sz_left)%N⌝ ∗
+(* SPECS: block getters *)
+Lemma spec_get_state E memidx blk blk_addr next_addr blk_addr32 blk_var f st32 :
+  ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
          ⌜N_repr blk_addr blk_addr32 ⌝ ∗
-         ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
          ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
          ↪[frame] f }}}}
-    (to_e_list (mark_used blk)) @ E
-    {{{{ v, ⌜v = immV []⌝ ∗
-            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
-            own_vec memidx (blk_addr + data_off) sz_u ∗
-            block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
+    (to_e_list (get_state blk_var)) @ E
+    {{{{ v, ⌜v = (immV [VAL_int32 st32])⌝ ∗
+            ⌜N_repr (state_to_N (block_flag blk)) st32 ⌝ ∗
+            block_repr memidx blk blk_addr next_addr ∗
             ↪[frame] f }}}}.
 Proof.
-  iIntros "!>" (Φ) "(Hblk & %Hsz & %Hblkvar & %Hmem & %Hblk_addr_rep & Hfr) HΦ".
-  unfold mark_used.
-  take_drop_app_rewrite 1.
-  iApply wp_seq.
-  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
-                           ↪[frame]f)%I).
-  iSplitR; [iIntros "(%H & ?)"; auto|].
-  iSplitL "Hfr".
-  { iApply wp_get_local; eauto. }
-  iIntros (w) "(%Hw & Hfr)".
-  subst w.
-  simpl block_repr at 1.
-  iDestruct "Hblk" as "(Hstate & Hsize & Hnext & Hvec)".
-  iSimpl.
-  iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
-  iApply (wp_wand with "[Hstfield Hfr]").
-  instantiate (1 := λ w, ((⌜w = immV [] ⌝ ∗ 
-                        N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_USED)) ∗
-                        ↪[frame]f)%I).
-  - unfold state_off.
-    rewrite Hblkvar.
-    iApply wp_store;
-      eauto;
-      try rewrite N2Nat.id;
-      [| iFrame ];
-      auto.
-  - iIntros (w) "((%Hw & Hstfield) & Hfr)".
-    subst w.
-    iApply "HΦ".
-    unfold block_repr, state_repr.
-    rewrite Hsz.
-    rewrite N2Nat.id.
-    iPoseProof (own_vec_split with "Hvec") as "(Hvec1 & Hvec2)".
-    iFrame; auto.
-Qed.
+Admitted.
+
+Lemma spec_get_final_state E memidx blk blk_addr blk_addr32 blk_var f st32 :
+  ⊢ {{{{ final_block_repr memidx blk blk_addr ∗
+         ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    (to_e_list (get_state blk_var)) @ E
+    {{{{ v, ⌜v = (immV [VAL_int32 st32])⌝ ∗
+            ⌜N_repr (state_to_N (final_block_flag blk)) st32 ⌝ ∗
+            final_block_repr memidx blk blk_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+Admitted.
+
+Lemma spec_get_next E memidx blk blk_addr next_addr blk_addr32 next_addr32 f blk_var :
+  ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
+         ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         ⌜N_repr next_addr next_addr32 ⌝ ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    (to_e_list (get_next blk_var)) @ E
+    {{{{ v, ⌜v = (immV [VAL_int32 next_addr32])⌝ ∗
+            block_repr memidx blk blk_addr next_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+Admitted.
+
+Lemma spec_get_final_next E memidx blk blk_addr blk_addr32 f blk_var :
+  ⊢ {{{{ final_block_repr memidx blk blk_addr ∗
+         ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    (to_e_list (get_next blk_var)) @ E
+    {{{{ v, ⌜v = (immV [value_of_uint 0])⌝ ∗
+            final_block_repr memidx blk blk_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+Admitted.
+
+Lemma spec_get_data E memidx blk blk_addr next_addr blk_addr32 f blk_var data_addr32 : 
+  ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
+         ⌜N_repr blk_addr blk_addr32⌝ ∗
+         ⌜N_repr (blk_addr + data_off) data_addr32⌝ ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    (to_e_list (get_next blk_var)) @ E
+    {{{{ v, ⌜v = (immV [VAL_int32 data_addr32])⌝ ∗
+            block_repr memidx blk blk_addr next_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+Admitted.
+
+Lemma spec_get_size E memidx blk blk_addr next_addr blk_addr32 f blk_var sz32 : 
+  ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
+         ⌜N_repr blk_addr blk_addr32⌝ ∗
+         ⌜N_repr (block_size blk) sz32⌝ ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    (to_e_list (get_next blk_var)) @ E
+    {{{{ v, ⌜v = (immV [VAL_int32 sz32])⌝ ∗
+            block_repr memidx blk blk_addr next_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+Admitted.
+
+(* SPECS: block setters *)
+(*TODO
+Lemma spec_set_next
+Lemma spec_set_size
+Lemma spec_add_hdr_sz
+Lemma spec_get_total_size
+Lemma spec_mark_free <--- see below
+Lemma spec_mark_used <--- see below
+Lemma spec_mark_final
+*)
+
+(* SPECS: block tests *)
+(*TODO
+Lemma spec_is_block_nonfinal
+Lemma spec_is_block_free
+*)
+
+(* SPECS: memory resizing *)
+(*TODO
+Lemma spec_mem_size
+*)
+
+(* SPECS: block pinching *)
+(*TODO
+Lemma spec_pinch_block
+*)
+
+(* SPECS: block creation *)
+(*TODO
+Lemma spec_new_block
+*)
+
+(* SPECS: malloc *)
+(*TODO
+Lemma spec_malloc_loop_body
+Lemma spec_malloc_body
+Lemma spec_malloc
+*)
+
+(* SPECS: free *)
+(*TODO
+Lemma spec_free
+*)
 
 Lemma spec_mark_free E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
   ⊢ {{{{ block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
@@ -564,6 +675,56 @@ Proof.
     rewrite Hsz.
     iApply own_vec_split.
     iFrame.
+Qed.
+
+Lemma spec_mark_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_left :
+  ⊢ {{{{ block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
+         ⌜(sz = sz_u + sz_left)%N⌝ ∗
+         ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    (to_e_list (mark_used blk)) @ E
+    {{{{ v, ⌜v = immV []⌝ ∗
+            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+            own_vec memidx (blk_addr + data_off) sz_u ∗
+            block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+  iIntros "!>" (Φ) "(Hblk & %Hsz & %Hblkvar & %Hmem & %Hblk_addr_rep & Hfr) HΦ".
+  unfold mark_used.
+  take_drop_app_rewrite 1.
+  iApply wp_seq.
+  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+                           ↪[frame]f)%I).
+  iSplitR; [iIntros "(%H & ?)"; auto|].
+  iSplitL "Hfr".
+  { iApply wp_get_local; eauto. }
+  iIntros (w) "(%Hw & Hfr)".
+  subst w.
+  simpl block_repr at 1.
+  iDestruct "Hblk" as "(Hstate & Hsize & Hnext & Hvec)".
+  iSimpl.
+  iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
+  iApply (wp_wand with "[Hstfield Hfr]").
+  instantiate (1 := λ w, ((⌜w = immV [] ⌝ ∗ 
+                        N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_USED)) ∗
+                        ↪[frame]f)%I).
+  - unfold state_off.
+    rewrite Hblkvar.
+    iApply wp_store;
+      eauto;
+      try rewrite N2Nat.id;
+      [| iFrame ];
+      auto.
+  - iIntros (w) "((%Hw & Hstfield) & Hfr)".
+    subst w.
+    iApply "HΦ".
+    unfold block_repr, state_repr.
+    rewrite Hsz.
+    rewrite N2Nat.id.
+    iPoseProof (own_vec_split with "Hvec") as "(Hvec1 & Hvec2)".
+    iFrame; auto.
 Qed.
 
 (* Keeping these but commenting out since I broke the proofs
