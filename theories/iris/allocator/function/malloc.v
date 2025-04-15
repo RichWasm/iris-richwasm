@@ -130,9 +130,11 @@ Definition get_next blk :=
   BI_load T_i32 None 0%N next_off ::
   nil.
 
+(* compute data pointer *)
 Definition get_data blk :=
   BI_get_local blk ::
-  BI_load T_i32 None 0%N data_off ::
+  u32const data_off ::
+  BI_binop T_i32 (Binop_i BOI_add) ::
   nil.
 
 Definition set_next :=
@@ -386,6 +388,21 @@ Definition N_repr (n: N) (n32: i32) : Prop :=
   (-1 < Z.of_N n < Wasm_int.Int32.modulus)%Z /\
   n = Wasm_int.N_of_uint i32m n32.
 
+Lemma N_repr_i32repr: 
+  forall (n: N) (z: Z),
+    (-1 < Z.of_N n < Wasm_int.Int32.modulus)%Z ->
+    z = Z.of_N n ->
+    N_repr n (Wasm_int.Int32.repr z).
+Proof.
+  intros.
+  unfold Wasm_int.Int32.repr, N_repr, Wasm_int.N_of_uint; cbn.
+  split.
+  - lia.
+  - rewrite Wasm_int.Int32.Z_mod_modulus_id.
+    + subst. by rewrite N2Z.id.
+    + lia.
+Qed.
+
 Definition block_flag blk :=
   match blk with
   | UsedBlk _ _ => Used
@@ -436,7 +453,11 @@ Definition data_repr memidx blk base_addr :=
       own_vec memidx (base_addr + data_off) blk_size
   end.
 
+Definition block_inbounds (memidx: N) (blk: block) (base_addr: N) : iProp Σ :=
+  ⌜(Z.of_N (base_addr + blk_hdr_sz + block_size blk) < Wasm_int.Int32.modulus)%Z⌝.
+
 Definition block_repr (memidx: N) (blk: block) (base_addr next_addr: N) : iProp Σ :=
+  block_inbounds memidx blk base_addr ∗
   state_repr memidx (block_flag blk) base_addr ∗
   size_repr memidx (block_size blk) base_addr ∗
   next_repr memidx next_addr base_addr ∗
@@ -533,7 +554,7 @@ Proof.
   - iIntros (w) "(%Hw & Hfr)".
     subst w.
     simpl.
-    iDestruct "Hblk" as "((%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+    iDestruct "Hblk" as "(Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
     unfold state_off.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     iApply (wp_wand with "[Hstate Hfr]").
@@ -618,7 +639,7 @@ Proof.
   - iIntros (w) "(%Hw & Hfr)".
     subst w.
     simpl.
-    iDestruct "Hblk" as "(Hstate & Hsize & (%next_addr32 & ((%Hbdd' & %Hnext_addr) & Hnext)) & Hdata)".
+    iDestruct "Hblk" as "(Hbounds & Hstate & Hsize & (%next_addr32 & ((%Hbdd' & %Hnext_addr) & Hnext)) & Hdata)".
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     rewrite Haddr.
     iApply (wp_wand with "[Hnext Hfr]").
@@ -670,19 +691,55 @@ Proof.
       iFrame; auto.
 Qed.
 
-Lemma spec_get_data E memidx blk blk_addr next_addr blk_addr32 f blk_var data_addr32 : 
-  ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
-         ⌜N_repr blk_addr blk_addr32⌝ ∗
-         ⌜N_repr (blk_addr + data_off) data_addr32⌝ ∗
+Lemma spec_get_data E memidx blk blk_addr blk_addr32 next_addr f blk_var : 
+  ⊢ {{{{ ⌜N_repr blk_addr blk_addr32⌝ ∗
+         block_repr memidx blk blk_addr next_addr ∗
          ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
          ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
          ↪[frame] f }}}}
-    (to_e_list (get_next blk_var)) @ E
-    {{{{ v, ⌜v = (immV [VAL_int32 data_addr32])⌝ ∗
-            block_repr memidx blk blk_addr next_addr ∗
-            ↪[frame] f }}}}.
+    (to_e_list (get_data blk_var)) @ E
+    {{{{ v, block_repr memidx blk blk_addr next_addr ∗
+              ∃ data_addr32,
+                ⌜v = (immV [VAL_int32 data_addr32])⌝ ∗
+                ⌜N_repr (blk_addr + data_off) data_addr32⌝ ∗
+                ↪[frame] f }}}}.
 Proof.
-Admitted.
+  iIntros "!>" (Φ) "((%Hbdd & %Haddr) & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+  cbn.
+  take_drop_app_rewrite 1.
+  iApply wp_seq.
+  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
+  iSplitR; [iIntros "(%H & ?)"; auto|].
+  iSplitL "Hfr".
+  - iApply wp_get_local; eauto.
+  - iIntros (w) "(%Hw & Hfr)".
+    iAssert (block_inbounds memidx blk blk_addr) as "%Hbds".
+    {
+      by iDestruct "Hblk" as "(Hbds & Hblk')".
+    } 
+    iApply (wp_wand with "[Hfr]").
+    instantiate (1 := λ v, (⌜v = immV [VAL_int32 (Wasm_int.Int32.iadd blk_addr32 (Wasm_int.Int32.repr 12))]⌝ ∗ ↪[frame] f)%I).
+    + subst; cbn.
+      iApply (wp_binop with "[Hfr]"); auto.
+    + subst. 
+      iIntros (w) "(%Hw & Hfr)".
+      iApply "HΦ".
+      iFrame.
+      subst.
+      iExists _; iSplit; auto.
+      unfold data_off, blk_hdr_sz in *.
+      iPureIntro.
+      unfold Wasm_int.Int32.iadd.
+      eapply N_repr_i32repr.
+      * lia.
+      * rewrite Wasm_int.Int32.unsigned_repr_eq.
+        change ((12 `mod` Wasm_int.Int32.modulus)%Z) with 12%Z.
+        rewrite N2Z.inj_add.
+        f_equal.
+        cbn in *.
+        rewrite Z2N.id; auto.
+        apply Wasm_int.Int32.unsigned_range.
+Qed.
 
 Lemma spec_get_size E memidx blk blk_addr next_addr blk_addr32 f blk_var sz32 : 
   ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
