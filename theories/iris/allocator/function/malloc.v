@@ -741,19 +741,47 @@ Proof.
         apply Wasm_int.Int32.unsigned_range.
 Qed.
 
-Lemma spec_get_size E memidx blk blk_addr next_addr blk_addr32 f blk_var sz32 : 
+Lemma spec_get_size E memidx blk blk_addr next_addr blk_addr32 f blk_var : 
   ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
          ⌜N_repr blk_addr blk_addr32⌝ ∗
-         ⌜N_repr (block_size blk) sz32⌝ ∗
          ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
          ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
          ↪[frame] f }}}}
-    (to_e_list (get_next blk_var)) @ E
-    {{{{ v, ⌜v = (immV [VAL_int32 sz32])⌝ ∗
-            block_repr memidx blk blk_addr next_addr ∗
-            ↪[frame] f }}}}.
+    (to_e_list (get_size blk_var)) @ E
+    {{{{ v, ∃ sz32,
+              ⌜N_repr (block_size blk) sz32⌝ ∗
+              ⌜v = (immV [VAL_int32 sz32])⌝ ∗
+              block_repr memidx blk blk_addr next_addr ∗
+              ↪[frame] f }}}}.
 Proof.
-Admitted.
+  iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+  cbn.
+  take_drop_app_rewrite 1.
+  iApply wp_seq.
+  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
+  iSplitR; [iIntros "(%H & ?)"; auto|].
+  iSplitL "Hfr".
+  - iApply wp_get_local; eauto.
+  - iIntros (w) "(%Hw & Hfr)".
+    subst w.
+    simpl.
+    iDestruct "Hblk" as "(Hbounds & Hstate & (%sz32 & (%Hsz & Hsize)) & Hnext & Hdata)".
+    unfold state_off.
+    replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
+    iApply (wp_wand with "[Hsize Hfr]").
+    instantiate (1:=(λ w, 
+                       ((⌜w = immV [VAL_int32 sz32]⌝ ∗
+                         N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + size_off]bits (VAL_int32 sz32)) ∗ ↪[frame]f)%I)).
+    + subst blk_addr.
+      iApply wp_load; auto.
+      iFrame.
+      by iModIntro.
+    + iIntros (w) "((%Hw & Hptr) & Hfr)".
+      subst w blk_addr.
+      iApply "HΦ".
+      unfold block_repr, size_repr.
+      iExists sz32; iFrame; auto.
+Qed.
 
 (* SPECS: block setters *)
 (*TODO
@@ -825,7 +853,7 @@ Proof.
   iIntros (w) "(%Hw & Hfr)".
   subst w.
   simpl block_repr at 1.
-  iDestruct "Hblk" as "(Hstate & Hsize & Hnext & Hvec)".
+  iDestruct "Hblk" as "(Hbd & Hstate & Hsize & Hnext & Hvec)".
   iSimpl.
   iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
   iApply (wp_wand with "[Hstfield Hfr]").
@@ -877,7 +905,7 @@ Proof.
   iIntros (w) "(%Hw & Hfr)".
   subst w.
   simpl block_repr at 1.
-  iDestruct "Hblk" as "(Hstate & Hsize & Hnext & Hvec)".
+  iDestruct "Hblk" as "(Hbd & Hstate & Hsize & Hnext & Hvec)".
   iSimpl.
   iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
   iApply (wp_wand with "[Hstfield Hfr]").
