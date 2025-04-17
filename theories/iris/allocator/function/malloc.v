@@ -1059,10 +1059,53 @@ Proof.
     iFrame; auto.
 Qed.
 
-
-Lemma spec_mark_final
-(*TODO
-*)
+Lemma spec_mark_final E memidx blk_addr blk_addr32 blk f :
+  ⊢ {{{{ own_vec memidx (blk_addr + state_off) 4 ∗
+          ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+          ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
+          ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+          ↪[frame] f }}}}
+    (to_e_list (mark_final blk)) @ E
+    {{{{ v, ⌜v = immV []⌝ ∗
+            state_repr memidx Final blk_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+  iIntros "!>" (Φ) "((%bs & %Hbs & Hslot) & (%Haddrpf & %Hblk_addr_rep) & %Hblkvar & %Hmem & Hfr) HΦ".
+  take_drop_app_rewrite 1.
+  iApply wp_seq.
+  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+                           ↪[frame]f)%I).
+  iSplitR.
+  { iIntros "(%Htrap & Hfr)"; congruence. }
+  iSplitL "Hfr".
+  {
+    iApply wp_get_local; eauto.
+  }
+  iIntros (w) "(%Hw & Hfr)".
+  subst w; cbn.
+  iApply (wp_wand with "[Hslot Hfr]").
+  {
+    iApply wp_store; eauto.
+    all: swap 1 2.
+    rewrite <- Hblk_addr_rep.
+    rewrite N2Nat.id.
+    iFrame.
+    instantiate (1:= λ w, ⌜w = immV [] ⌝%I).
+    eauto.
+    cbn.
+    lia.
+  }
+  iIntros (w) "((%Hw & Hpts) & Hfr)".
+  iApply "HΦ".
+  subst.
+  iFrame; auto.
+  iSplit; auto.
+  unfold state_repr.
+  rewrite N2Nat.id.
+  iExists (Wasm_int.int_of_Z i32m (Z.of_N BLK_FINAL)).
+  iFrame.
+  auto.
+Qed.
 
 (* SPECS: block tests *)
 (*TODO
