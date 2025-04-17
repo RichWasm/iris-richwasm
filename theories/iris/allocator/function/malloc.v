@@ -55,12 +55,13 @@ pinch_block(final_block, reqd_sz):
   new_total_sz = reqd_sz + 12
   new_block = final_block + new_total_sz
 
+  final_block.size = reqd_sz
+  final_block.state = FREE
+  final_block.next = new_block
+
   new_block.state = FINAL
   new_block.size = final_block.size - new_total_sz
   new_block.next = 0
-  final_block.state = FREE
-  final_block.size = reqd_sz
-  final_block.next = new_block
   return final_block
 
 new_block(final_block, reqd_sz):
@@ -226,6 +227,14 @@ Definition pinch_block final_block reqd_sz total_sz new_block :=
    BI_get_local total_sz;
    BI_binop T_i32 (Binop_i BOI_add)]) ++
    (([BI_set_local new_block]) ++
+  (* set up pinched block *)
+  (BI_get_local final_block ::
+   BI_get_local reqd_sz ::
+   set_size ++
+   mark_free final_block ++
+   BI_get_local final_block ::
+   BI_get_local new_block ::
+   set_next)) ++
   (* set up new final block's header *)
   mark_final new_block ++
   (* set new block size *)
@@ -237,15 +246,7 @@ Definition pinch_block final_block reqd_sz total_sz new_block :=
    (* write top of stack to $3.size *)
    set_size) ++
   (* new_block.next = 0 *)
-  (u32const 0%N :: set_next) ++
-  (* set up pinched block *)
-  (mark_free final_block ++
-   BI_get_local final_block ::
-   BI_get_local reqd_sz ::
-   set_size ++
-   BI_get_local final_block ::
-   BI_get_local new_block ::
-   set_next)).
+  (u32const 0%N :: set_next).
 
 (*
   new_block: [i32; i32] -> [i32]
@@ -1431,9 +1432,9 @@ Proof.
   set (Φ2 := λ w, ((∃ new_addr32, ⌜w = immV [VAL_int32 new_addr32]⌝ ∗
                                   ⌜N_repr new_addr new_addr32⌝) ∗
                    ↪[frame] f2)%I).
-  iApply (wp_seq _ _ _ Φ2 (to_e_list [BI_get_local final_blk_var; BI_get_local total_sz_var; BI_binop T_i32 (Binop_i BOI_add)]) with "[Hfr]").
-  iSplitL "". { iIntros "((%new32 & %Hw & _) & _)"; congruence. }
-  iSplitL.
+  iApply (wp_seq _ _ _ Φ2 (to_e_list [BI_get_local final_blk_var; BI_get_local total_sz_var; BI_binop T_i32 (Binop_i BOI_add)])).
+  iSplitR. { iIntros "((%new32 & %Hw & _) & _)"; congruence. }
+  iSplitL "Hfr".
   {
     take_drop_app_rewrite 1.
     set (Φ2' := λ w, (⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f2)%I).
@@ -1458,9 +1459,9 @@ Proof.
   set (f3 := {| f_locs := set_nth (VAL_int32 new_addr32) (f_locs f2) new_blk_var (VAL_int32 new_addr32);
                 f_inst := f_inst f2 |}).
   set (Φ3 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
-  iApply (wp_seq _ _ _ Φ3 _ with "[Hfr]").
-  iSplitL "". { iIntros "(%Hw & _)"; congruence. }
-  iSplitL.
+  iApply (wp_seq _ _ _ Φ3 _).
+  iSplitR. { iIntros "(%Hw & _)"; congruence. }
+  iSplitL "Hfr".
   {
     iApply wp_set_local; auto.
     eapply lookup_lt_is_Some_1.
@@ -1478,10 +1479,30 @@ Proof.
   iIntros (w) "(%Hw & Hfr)".
   subst w.
   rewrite app_nil_l.
+  take_drop_app_rewrite 2.
+  set (Φ4 := λ w, (⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f3)%I).
+  iApply (wp_seq_ctx _ _ _ Φ4).
+  iSplitR. { iIntros "(%Hw & _)"; congruence. }
+  iSplitL "Hfr".
+  {
+    iApply wp_get_local; auto.
+    unfold f3, f2.
+    cbn.
+    admit.
+  }
+  iIntros (w) "(%Hw & Hfr)". subst w.
+  cbn.
   take_drop_app_rewrite 3.
-  change [AI_basic (BI_get_local new_blk_var); AI_basic (u32const BLK_FINAL);
-          AI_basic (BI_store T_i32 None 0%N 0%N)]
-    with (to_e_list (mark_final new_blk_var)).
+  set (Φ5 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
+  iApply (wp_seq_ctx _ _ _ Φ5).
+  iSplitR. { iIntros "(%Hw & _)"; congruence. }
+  iSplitL "Hfr".
+  {
+    Search wp_wasm_ctx.
+    take_drop_app_rewrite_twice 1 1.
+    iApply wp_base_push => //.
+    iApply wp_wasm_empty_ctx.
+  iSplitL "Hfr Hblk".
   admit.
   
 Admitted.
