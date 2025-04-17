@@ -21,7 +21,7 @@ Section malloc.
 
  Context `{!wasmG Σ}. 
 
-Section code.
+ Section code.
   
 (*
 IDEA
@@ -185,12 +185,6 @@ Definition mark_final blk :=
     BI_store T_i32 None 0%N 0%N
   ].
 
-Definition mem_size :=
-  [
-    BI_current_memory;
-    u32const Wasm.operations.page_size;
-    BI_binop T_i32 (Binop_i BOI_mul)
-  ].
 
 Definition is_block_nonfinal blk :=
   get_state blk ++
@@ -1108,15 +1102,242 @@ Proof.
 Qed.
 
 (* SPECS: block tests *)
-(*TODO
-Lemma spec_is_block_nonfinal
-Lemma spec_is_block_free
-*)
 
-(* SPECS: memory resizing *)
-(*TODO
-Lemma spec_mem_size
-*)
+Lemma spec_is_block_nonfinal_true E memidx blk blk_var blk_addr blk_addr32 next_addr f :
+  ⊢ {{{{ ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         block_repr memidx blk blk_addr next_addr ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    to_e_list (is_block_nonfinal blk_var) @ E
+    {{{{ w,⌜w = immV [VAL_int32 (wasm_bool true)]⌝ ∗
+         block_repr memidx blk blk_addr next_addr ∗
+         ↪[frame] f }}}}.
+Proof.
+  iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+  unfold is_block_nonfinal.
+  erewrite to_e_list_cat.
+  iApply wp_seq.
+  iSplitR.
+  all:swap 1 2.
+  iSplitL "Hblk Hfr".
+  - iApply (spec_get_state with "[Hblk Hfr]"); iFrame; eauto.
+  - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    subst w.
+    cbn.
+    iApply (wp_wand with "[Hfr]").
+    + iApply (wp_relop with "[Hfr]"); auto.
+      instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝%I).
+      iModIntro.
+      iPureIntro.
+      assert (st32 <> (Wasm_int.int_of_Z i32m (Z.of_N BLK_FINAL))).
+      {
+        intro; subst.
+        destruct blk; destruct Hst; cbn in *; discriminate.
+      }
+      cbn.
+      rewrite Wasm_int.Int32.eq_false; auto.
+    + iIntros (w) "(%Hw & Hfr)".
+      subst.
+      iApply "HΦ".
+      iFrame; auto.
+  - iIntros "(%st32 & %Htrap & _)".
+    congruence.
+Qed.
+
+Lemma spec_is_block_nonfinal_false E memidx blk blk_var blk_addr blk_addr32 f :
+  ⊢ {{{{ ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         final_block_repr memidx blk blk_addr ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    to_e_list (is_block_nonfinal blk_var) @ E
+    {{{{ w,⌜w = immV [VAL_int32 (wasm_bool false)]⌝ ∗
+         final_block_repr memidx blk blk_addr ∗
+         ↪[frame] f }}}}.
+Proof.
+  iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+  unfold is_block_nonfinal.
+  erewrite to_e_list_cat.
+  iApply wp_seq.
+  iSplitR.
+  all:swap 1 2.
+  iSplitL "Hblk Hfr".
+  - iApply (spec_get_final_state with "[Hblk Hfr]"); iFrame; eauto.
+  - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    subst w.
+    cbn.
+    iApply (wp_wand with "[Hfr]").
+    + iApply (wp_relop with "[Hfr]"); auto.
+      instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝%I).
+      iModIntro.
+      iPureIntro.
+      assert (st32 = (Wasm_int.int_of_Z i32m (Z.of_N BLK_FINAL))).
+      {
+        inversion Hst as [Hbd Hst'].
+        destruct blk.
+        rewrite <- (Wasm_int.Int32.repr_unsigned st32).
+        cbn in *.
+        rewrite <- (Z2N.id (Wasm_int.Int32.unsigned st32)).
+        rewrite <- Hst'.
+        reflexivity.
+        apply Wasm_int.Int32.size_interval_1.
+      }
+      cbn.
+      subst.
+      rewrite Wasm_int.Int32.eq_true; auto.
+    + iIntros (w) "(%Hw & Hfr)".
+      subst.
+      iApply "HΦ".
+      iFrame; auto.
+  - iIntros "(%st32 & %Htrap & _)".
+    congruence.
+Qed.
+
+Definition prop_repr (P : Prop) (b: bool) : Prop :=
+  is_true b <-> P.
+
+Lemma spec_is_block_free_true blk_addr blk_addr32 next_addr sz memidx blk_var f E:
+  ⊢ {{{{ ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    to_e_list (is_block_free blk_var) @ E
+    {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝ ∗
+            block_repr memidx (FreeBlk sz) blk_addr next_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+  iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+  unfold is_block_free.
+  erewrite to_e_list_cat.
+  iApply wp_seq.
+  iSplitR.
+  all:swap 1 2.
+  iSplitL "Hblk Hfr".
+  - iApply (spec_get_state with "[Hblk Hfr]"); iFrame; eauto.
+  - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    subst w.
+    cbn.
+    iApply (wp_wand with "[Hfr]").
+    + iApply (wp_relop with "[Hfr]"); auto.
+      instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝%I).
+      iModIntro.
+      iPureIntro.
+      assert (st32 = (Wasm_int.int_of_Z i32m (Z.of_N BLK_FREE))).
+      {
+        inversion Hst as [Hbd Hst'].
+        rewrite <- (Wasm_int.Int32.repr_unsigned st32).
+        cbn in *.
+        rewrite <- (Z2N.id (Wasm_int.Int32.unsigned st32)).
+        rewrite <- Hst'.
+        reflexivity.
+        apply Wasm_int.Int32.size_interval_1.
+      }
+      subst.
+      reflexivity.
+    + iIntros (w) "(%Hw & Hfr)".
+      subst.
+      iApply "HΦ".
+      iFrame; auto.
+  - iIntros "(%st32 & %Htrap & _)".
+    congruence.
+Qed.
+
+Lemma spec_is_block_free_false blk_addr blk_addr32 next_addr sz_u sz_l memidx blk_var f E:
+  ⊢ {{{{ ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         block_repr memidx (UsedBlk sz_u sz_l) blk_addr next_addr ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    to_e_list (is_block_free blk_var) @ E
+    {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝ ∗
+            block_repr memidx (UsedBlk sz_u sz_l) blk_addr next_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+  iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+  unfold is_block_free.
+  erewrite to_e_list_cat.
+  iApply wp_seq.
+  iSplitR.
+  all:swap 1 2.
+  iSplitL "Hblk Hfr".
+  - iApply (spec_get_state with "[Hblk Hfr]"); iFrame; eauto.
+  - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    subst w.
+    cbn.
+    iApply (wp_wand with "[Hfr]").
+    + iApply (wp_relop with "[Hfr]"); auto.
+      instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝%I).
+      iModIntro.
+      iPureIntro.
+      assert (st32 = (Wasm_int.int_of_Z i32m (Z.of_N BLK_USED))).
+      {
+        inversion Hst as [Hbd Hst'].
+        rewrite <- (Wasm_int.Int32.repr_unsigned st32).
+        cbn in *.
+        rewrite <- (Z2N.id (Wasm_int.Int32.unsigned st32)).
+        rewrite <- Hst'.
+        reflexivity.
+        apply Wasm_int.Int32.size_interval_1.
+      }
+      subst.
+      reflexivity.
+    + iIntros (w) "(%Hw & Hfr)".
+      subst.
+      iApply "HΦ".
+      iFrame; auto.
+  - iIntros "(%st32 & %Htrap & _)".
+    congruence.
+Qed.
+
+Lemma spec_is_block_free_final blk_addr blk_addr32 blk memidx blk_var f E:
+  ⊢ {{{{ ⌜N_repr blk_addr blk_addr32 ⌝ ∗
+         final_block_repr memidx blk blk_addr ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    to_e_list (is_block_free blk_var) @ E
+    {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝ ∗
+            final_block_repr memidx blk blk_addr ∗
+            ↪[frame] f }}}}.
+Proof.
+  iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+  destruct blk.
+  unfold is_block_free.
+  erewrite to_e_list_cat.
+  iApply wp_seq.
+  iSplitR.
+  all:swap 1 2.
+  iSplitL "Hblk Hfr".
+  - iApply (spec_get_final_state with "[Hblk Hfr]"); iFrame; eauto.
+  - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    subst w.
+    cbn.
+    iApply (wp_wand with "[Hfr]").
+    + iApply (wp_relop with "[Hfr]"); auto.
+      instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝%I).
+      iModIntro.
+      iPureIntro.
+      assert (st32 = (Wasm_int.int_of_Z i32m (Z.of_N BLK_FINAL))).
+      {
+        inversion Hst as [Hbd Hst'].
+        rewrite <- (Wasm_int.Int32.repr_unsigned st32).
+        cbn in *.
+        rewrite <- (Z2N.id (Wasm_int.Int32.unsigned st32)).
+        rewrite <- Hst'.
+        reflexivity.
+        apply Wasm_int.Int32.size_interval_1.
+      }
+      subst.
+      reflexivity.
+    + iIntros (w) "(%Hw & Hfr)".
+      subst.
+      iApply "HΦ".
+      iFrame; auto.
+  - iIntros "(%st32 & %Htrap & _)".
+    congruence.
+Qed.
 
 (* SPECS: block pinching *)
 (*TODO
