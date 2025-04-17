@@ -222,11 +222,10 @@ Definition pinch_block final_block reqd_sz total_sz new_block :=
    BI_set_local total_sz ::
    nil) ++ 
   (* compute address of new final block *)
-  (BI_get_local final_block ::
-   BI_get_local total_sz ::
-   BI_binop T_i32 (Binop_i BOI_add) ::
-   BI_set_local new_block ::
-   nil) ++
+  ([BI_get_local final_block;
+   BI_get_local total_sz;
+   BI_binop T_i32 (Binop_i BOI_add)]) ++
+   (([BI_set_local new_block]) ++
   (* set up new final block's header *)
   mark_final new_block ++
   (* set new block size *)
@@ -246,7 +245,7 @@ Definition pinch_block final_block reqd_sz total_sz new_block :=
    set_size ++
    BI_get_local final_block ::
    BI_get_local new_block ::
-   set_next).
+   set_next)).
 
 (*
   new_block: [i32; i32] -> [i32]
@@ -1339,10 +1338,153 @@ Proof.
     congruence.
 Qed.
 
+Lemma lt_ssrleq x y : 
+  x < y ->
+  ssrnat.leq (S x) y.
+Proof.
+  destruct (@ssrnat.ltP x y); auto.
+Qed.
+
 (* SPECS: block pinching *)
-(*TODO
-Lemma spec_pinch_block
-*)
+Lemma spec_pinch_block E f memidx final_blk blk_addr blk_addr32 reqd_sz reqd_sz32
+  total_sz_var total_sz0 reqd_sz_var new_blk_var new_blk0 final_blk_var :
+  ⊢
+  {{{{
+         final_block_repr memidx final_blk blk_addr ∗
+         ⌜N_repr blk_addr blk_addr32⌝ ∗
+         ⌜N_repr reqd_sz reqd_sz32⌝ ∗
+         ⌜NoDup [final_blk_var; reqd_sz_var; total_sz_var; new_blk_var]⌝ ∗
+         ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
+         ⌜f.(f_locs) !! total_sz_var = Some total_sz0⌝ ∗
+         ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f
+  }}}}
+  to_e_list (pinch_block final_blk_var reqd_sz_var total_sz_var new_blk_var) @ E
+  {{{{ w,
+          ⌜True⌝
+  }}}}.
+Proof.
+  iIntros (Φ) "!> (Hblk & %Haddr32 & %Hsz32 & %Hdisj & %Hblk_var & %Hsz_var & %Htotal_var & %Hnew_var & %Hmem & Hfr) HΦ".
+  unfold pinch_block.
+  erewrite !to_e_list_cat.
+  set (Φ1 := λ w, (⌜w = immV []⌝ ∗
+                  ∃ total32, 
+                    ⌜N_repr (reqd_sz + blk_hdr_sz) total32 ⌝ ∗
+                    ↪[frame] {| f_locs := set_nth (VAL_int32 total32) (f_locs f) total_sz_var (VAL_int32 total32);
+                               f_inst := f_inst f |})%I).
+  assert (total_sz_var < seq.size (f_locs f)).
+  { 
+    eapply lookup_lt_is_Some_1.
+    rewrite Htotal_var; auto.
+  }
+  iApply (wp_seq _ _ _ Φ1).
+  iSplitL "".
+  { iIntros "(%Htrap & _)"; congruence. }
+  iSplitL "Hfr".
+  {
+    set (Φ1' := λ w, (∃ total32, 
+                    ⌜w = immV [VAL_int32 total32]⌝ ∗
+                    ⌜N_repr (reqd_sz + blk_hdr_sz) total32 ⌝ ∗
+                    ↪[frame] f)%I).
+    rewrite app_comm_cons.
+    erewrite to_e_list_cat.
+    iApply (wp_seq _ _ _ Φ1').
+    iSplitL "".
+    { iIntros "(%tot & %Htrap & _)"; congruence. }
+    iSplitL "Hfr".
+    + set (Φ1'' := λ w, (⌜w = immV [VAL_int32 reqd_sz32]⌝ ∗
+                         ↪[frame] f)%I).
+      take_drop_app_rewrite 1.
+      iApply (wp_seq _ _ _ Φ1'').
+      iSplitL "".
+      { iIntros "(%Htrap & _)"; congruence. }
+      iSplitL "Hfr".
+      * iApply wp_get_local; eauto.
+      * iIntros (w) "(%Hw & Hfr)".
+        subst w.
+        iApply (spec_add_hdr_sz with "[Hfr]"); iFrame; try auto.
+        iSplitL "".
+        auto.
+        admit.
+    + iIntros (w) "(%total32 & %Hw & %Htotal & Hfr)".
+      subst.
+      cbn.
+      set (Φ1''' := λ w, ((⌜w = immV []⌝ ∗
+                          ⌜N_repr (reqd_sz + blk_hdr_sz) total32 ⌝) ∗
+                          ↪[frame] {| f_locs := set_nth (VAL_int32 total32) (f_locs f) total_sz_var (VAL_int32 total32);
+                                      f_inst := f_inst f |})%I).
+      iApply (wp_wand _ _ _ Φ1''' with "[Hfr]").
+      { iApply wp_set_local; try iFrame; auto using lookup_lt_is_Some_1. }
+      unfold Φ1, Φ1'''.
+      iIntros (w) "(%Hw & H)".
+      iFrame; auto.
+  }
+  iIntros (w) "(%Hw & (%total32 & %Htotal & Hfr))".
+  clear Φ1.
+  subst w.
+  rewrite app_nil_l.
+  set (new_addr := (blk_addr + reqd_sz + blk_hdr_sz)%N).
+  set (f2 := {| f_locs := set_nth (VAL_int32 total32) (f_locs f) total_sz_var (VAL_int32 total32);
+                f_inst := f_inst f |}).
+  set (Φ2 := λ w, ((∃ new_addr32, ⌜w = immV [VAL_int32 new_addr32]⌝ ∗
+                                  ⌜N_repr new_addr new_addr32⌝) ∗
+                   ↪[frame] f2)%I).
+  iApply (wp_seq _ _ _ Φ2 (to_e_list [BI_get_local final_blk_var; BI_get_local total_sz_var; BI_binop T_i32 (Binop_i BOI_add)]) with "[Hfr]").
+  iSplitL "". { iIntros "((%new32 & %Hw & _) & _)"; congruence. }
+  iSplitL.
+  {
+    take_drop_app_rewrite 1.
+    set (Φ2' := λ w, (⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f2)%I).
+    iApply (wp_seq _ _ _ Φ2').
+    iSplitL "". { iIntros "(%Hw & _)"; congruence. }
+    iSplitL.
+    + iApply wp_get_local; eauto.
+      cbn.
+      rewrite update_list_at_is_set_nth; [|auto using lt_ssrleq].
+      rewrite update_ne; auto.
+      intro Hbad; subst total_sz_var.
+      inversion Hdisj as [|x l Hnotin Hnodup].
+      apply Hnotin.
+      right.
+      left.
+    + admit.
+  }
+  iIntros (w) "((%new_addr32 & %Hw & %Hnew_addr32) & Hfr)".
+  subst w.
+  clear Φ2.
+  take_drop_app_rewrite 2.
+  set (f3 := {| f_locs := set_nth (VAL_int32 new_addr32) (f_locs f2) new_blk_var (VAL_int32 new_addr32);
+                f_inst := f_inst f2 |}).
+  set (Φ3 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
+  iApply (wp_seq _ _ _ Φ3 _ with "[Hfr]").
+  iSplitL "". { iIntros "(%Hw & _)"; congruence. }
+  iSplitL.
+  {
+    iApply wp_set_local; auto.
+    eapply lookup_lt_is_Some_1.
+    cbn.
+    rewrite update_list_at_is_set_nth; [|auto using lt_ssrleq].
+    rewrite update_ne; auto.
+    intro; subst.
+    inversion Hdisj as [|x l Hnotin Hdisj1].
+    inversion Hdisj1 as [|x1 l1 Hnotin1 Hdisj2].
+    inversion Hdisj2 as [|x2 l2 Hnotin2 Hdisj3].
+    subst.
+    eapply Hnotin2.
+    constructor.
+  }
+  iIntros (w) "(%Hw & Hfr)".
+  subst w.
+  rewrite app_nil_l.
+  take_drop_app_rewrite 3.
+  change [AI_basic (BI_get_local new_blk_var); AI_basic (u32const BLK_FINAL);
+          AI_basic (BI_store T_i32 None 0%N 0%N)]
+    with (to_e_list (mark_final new_blk_var)).
+  admit.
+  
+Admitted.
 
 (* SPECS: block creation *)
 (*TODO
