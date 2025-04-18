@@ -26,6 +26,8 @@ Definition rtN (a b: N) : namespace := nroot .@ rt .@ a .@ b.
 Definition rmN (a: N) : namespace := nroot .@ rm .@ a.
 Definition rgN (a: N) : namespace := nroot .@ rg .@ a.
 
+Definition rwmem := N.of_nat 0.
+
 Ltac solve_iprop_ne :=
  repeat (apply exist_ne +
          apply intuitionistically_ne +
@@ -42,18 +44,6 @@ Local Obligation Tactic := try solve_proper.
 Section logrel.
 
 Context `{!wasmG Σ, !logrel_na_invs Σ, !R.Read}.
-
-Fixpoint points_to_bytes_n n bs :=
-  match bs with
-  | [] => emp%I
-  | b :: bs' => (n ↦[wm][ N.of_nat 0 ] b ∗ points_to_bytes_n (n + 1)%N bs')%I
-  end.
-
-Definition points_to_bytes_i n bs :=
-  points_to_bytes_n (Z.to_N (Wasm_int.Int32.unsigned n)) bs.
-
-Notation "n ↦[rm] bs" := (points_to_bytes_i n bs)
-  (at level 20, format "n ↦[rm] bs").
 
 Record stack := Stack { stack_values : list value }.
 Canonical Structure stackO := leibnizO stack.
@@ -246,7 +236,7 @@ Definition interp_pre_value_ref_own
   (
     ∃ bs,
     ⌜R.eval_size sz = Some (length bs)⌝ ∗
-    z ↦[rm] bs ∗
+    rwmem ↦[wms][ Z.to_N (Wasm_int.Int32.unsigned z) ] bs ∗
     ▷ interp_heap_value rs ψ bs
   )%I.
 Instance interp_pre_value_ref_own_contractive: Contractive interp_pre_value_ref_own.
