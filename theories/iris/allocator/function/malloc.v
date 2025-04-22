@@ -1626,15 +1626,6 @@ Proof.
   set (Φ5 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
   iApply (wp_seq_ctx _ _ _ Φ5).
   iSplitR. { iIntros "(%Hw & _)"; congruence. }
-  iSplitL "Hfr".
-  {
-    Search wp_wasm_ctx.
-    take_drop_app_rewrite_twice 1 1.
-    iApply wp_base_push => //.
-    iApply wp_wasm_empty_ctx.
-  iSplitL "Hfr Hblk".
-  admit.
-  
 Admitted.
 
 (* SPECS: block creation *)
