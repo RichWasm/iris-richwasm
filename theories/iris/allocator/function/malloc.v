@@ -523,6 +523,8 @@ Proof.
     lia.
 Qed.
 
+Ltac wp_chomp := take_drop_app_rewrite.
+
 (* SPECS: block getters *)
 Lemma spec_get_state E memidx blk blk_addr next_addr blk_addr32 blk_var f :
   ⊢ {{{{ block_repr memidx blk blk_addr next_addr ∗
@@ -538,8 +540,7 @@ Lemma spec_get_state E memidx blk blk_addr next_addr blk_addr32 blk_var f :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  cbn.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
   iSplitR; [iIntros "(%H & ?)"; auto|].
@@ -580,8 +581,7 @@ Lemma spec_get_final_state E memidx blk blk_addr blk_addr32 blk_var f :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  cbn.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
   iSplitR; [iIntros "(%H & ?)"; auto|].
@@ -623,8 +623,7 @@ Lemma spec_get_next E memidx blk blk_addr next_addr blk_addr32 f blk_var :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  cbn.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
   iSplitR; [iIntros "(%H & ?)"; auto|].
@@ -661,8 +660,7 @@ Lemma spec_get_final_next E memidx blk blk_addr blk_addr32 f blk_var :
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
   destruct blk.
-  cbn.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
   iSplitR; [iIntros "(%H & ?)"; auto|].
@@ -699,8 +697,7 @@ Lemma spec_get_data E memidx blk blk_addr blk_addr32 next_addr f blk_var :
                 ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "((%Hbdd & %Haddr) & Hblk & %Hvar & %Hmem & Hfr) HΦ".
-  cbn.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
   iSplitR; [iIntros "(%H & ?)"; auto|].
@@ -749,8 +746,7 @@ Lemma spec_get_size E memidx blk blk_addr next_addr blk_addr32 f blk_var :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  cbn.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
   iSplitR; [iIntros "(%H & ?)"; auto|].
@@ -967,7 +963,7 @@ Lemma spec_mark_free E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_lef
 Proof.
   iIntros "!>" (Φ) "(Hblk & Hu & %Hsz & (%Haddrpf & %Haddr) & %Hblkvar & %Hmem & Hfr) HΦ".
   unfold mark_used.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
                            ↪[frame]f)%I).
@@ -1019,7 +1015,7 @@ Lemma spec_mark_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_lef
 Proof.
   iIntros "!>" (Φ) "(Hblk & %Hsz & (%Haddrpf & %Hblk_addr_rep) & %Hblkvar & %Hmem &  Hfr) HΦ".
   unfold mark_used.
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
                            ↪[frame]f)%I).
@@ -1065,7 +1061,7 @@ Lemma spec_mark_final E memidx blk_addr blk_addr32 blk f :
             ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "((%bs & %Hbs & Hslot) & (%Haddrpf & %Hblk_addr_rep) & %Hblkvar & %Hmem & Hfr) HΦ".
-  take_drop_app_rewrite 1.
+  wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
                            ↪[frame]f)%I).
@@ -1346,6 +1342,139 @@ Proof.
   destruct (@ssrnat.ltP x y); auto.
 Qed.
 
+Lemma example E f n32 :
+    ⊢ {{{{ 
+            ⌜f.(f_locs) !! 0 = Some (VAL_int32 n32)⌝ ∗
+            ↪[frame] f
+      }}}}
+      to_e_list ([BI_get_local 0; BI_get_local 0; BI_relop T_i32 (Relop_i ROI_eq)]) @ E
+      {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝ ∗ ↪[frame] f }}}}.
+Proof.
+  iIntros (Φ) "!> (%Hloc & Hfr) HΦ".
+  wp_chomp 1.
+  set (Φ' := (λ w, ⌜w = immV [VAL_int32 n32] ⌝ ∗ ↪[frame] f)%I).
+  iApply (wp_seq _ _ _ Φ').
+  iSplitR. { iIntros "(%Hw & _)" => //. }
+  iSplitL "Hfr".
+  {
+    iApply wp_get_local; auto.
+    assumption.
+  }
+  iIntros (w) "(%Hw & Hfr)".
+  subst w.
+  wp_chomp 2.
+  iApply (wp_wand _ _ _ (λ w, ⌜w = immV [VAL_int32 Wasm_int.Int32.one]⌝ ∗  ↪[frame]f)%I with "[Hfr] [HΦ]"); auto.
+  set (Φ'' := (λ w, ⌜w = immV [VAL_int32 n32; VAL_int32 n32] ⌝ ∗ ↪[frame] f)%I).
+  iApply (wp_seq _ _ _ Φ'').
+  iSplitR. { iIntros "(%Hw & _)" => //. }
+  iSplitL "Hfr".
+  {
+    wp_chomp 1.
+    iApply wp_val_app => //.
+    iSplitR. { iIntros "!> (%Hw & _)" => //. }
+    iApply wp_get_local; eauto.
+  }
+  iIntros (w) "(-> & Hfr)".
+  simpl.
+  iApply (wp_relop with "[Hfr]") =>//.
+  cbn.
+  rewrite Wasm_int.Int32.eq_true.
+  auto.
+Qed.
+
+Lemma wp_get_locals vars vals E f :
+  Forall2 (fun x v => f.(f_locs) !! x = Some v) vars vals ->
+  ⊢ {{{{ ↪[frame] f }}}}
+    to_e_list (List.map BI_get_local vars) @ E
+    {{{{ w, ⌜w = immV vals⌝ ∗ ↪[frame] f }}}}.
+Proof.
+  induction 1.
+  - iIntros (Φ) "!> Hfr HΦ".
+    rewrite wp_unfold /wp_pre /=.
+    iModIntro.
+    iApply "HΦ".
+    auto.
+  - iIntros (Φ) "!> Hfr HΦ".
+    wp_chomp 1.
+    set (Φ' := (λ w, ⌜w = immV [y]⌝ ∗ ↪[frame]f)%I).
+    iApply (wp_seq _ _ _ Φ').
+    iSplitR. { iIntros "(%Hw & _)" => //. }
+    iSplitL "Hfr".
+    {
+      iApply wp_get_local; auto.
+      assumption.
+    }
+    iIntros (w) "(%Hw & Hfr)".
+    subst w.
+    iApply (wp_wand _ _ _ (λ w, ⌜w = immV (y::l')⌝ ∗ ↪[frame] f)%I with "[Hfr]"); auto.
+    iApply wp_val_app; auto.
+    iSplitR.
+    { iIntros "!> (%Hw & _)" => //. }
+    iApply (wp_wand with "[Hfr]").
+    iApply (IHForall2 with "[Hfr]"); auto.
+    iIntros (w) "(%Hw & Hfr)".
+    iFrame.
+    subst w; auto.
+Qed.
+
+Lemma unsigned_is_N:
+  forall z: i32,
+  Wasm_int.Int32.unsigned z = Z.of_N (Wasm_int.N_of_uint i32m z).
+Proof.
+  intros.
+  cbn.
+  rewrite Z2N.id =>//.
+  apply Wasm_int.Int32.unsigned_range.
+Qed.
+
+Lemma unsigned_N_repr (z: i32) :
+  N_repr (Z.to_N (Wasm_int.Int32.unsigned z)) z.
+Proof.
+  unfold N_repr.
+  rewrite Z2N.id; [|apply Wasm_int.Int32.unsigned_range].
+  split.
+  - pose proof (Wasm_int.Int32.unsigned_range z).
+    lia.
+  - reflexivity.
+Qed.
+
+Lemma N_repr_inj (z: i32) (a b: N) :
+  N_repr a z ->
+  N_repr b z ->
+  a = b.
+Proof.
+  unfold N_repr.
+  intuition congruence.
+Qed.
+
+Lemma iadd_repr:
+  forall (x y z: N) x32 y32,
+    N_repr x x32 ->
+    N_repr y y32 ->
+    (Z.of_N z < Wasm_int.Int32.modulus)%Z ->
+    (x + y = z)%N ->
+    N_repr z (Wasm_int.Int32.iadd x32 y32).
+Proof.
+  intros ? ? ? ? ? [Hxbdd Hx] [Hybdd Hy] Hzbdd Hsum.
+  split.
+  - lia.
+  - unfold Wasm_int.Int32.iadd, Wasm_int.Int32.add.
+    rewrite !unsigned_is_N.
+    unfold Wasm_int.Int32.repr.
+    cbn.
+    rewrite Wasm_int.Int32.Z_mod_modulus_id.
+    rewrite Z2N.id; [|apply Wasm_int.Int32.unsigned_range].
+    rewrite Z2N.id; [|apply Wasm_int.Int32.unsigned_range].
+    rewrite Z2N.inj_add; try apply Wasm_int.Int32.unsigned_range.
+    rewrite !unsigned_is_N.
+    rewrite <- Hy.
+    rewrite <- Hx.
+    now rewrite !N2Z.id.
+    rewrite !Z2N.id; try apply Wasm_int.Int32.unsigned_range.
+    rewrite !unsigned_is_N.
+    lia.
+Qed.
+
 (* SPECS: block pinching *)
 Lemma spec_pinch_block E f memidx final_blk blk_addr blk_addr32 reqd_sz reqd_sz32
   total_sz_var total_sz0 reqd_sz_var new_blk_var new_blk0 final_blk_var :
@@ -1397,7 +1526,7 @@ Proof.
     iSplitL "Hfr".
     + set (Φ1'' := λ w, (⌜w = immV [VAL_int32 reqd_sz32]⌝ ∗
                          ↪[frame] f)%I).
-      take_drop_app_rewrite 1.
+      wp_chomp 1.
       iApply (wp_seq _ _ _ Φ1'').
       iSplitL "".
       { iIntros "(%Htrap & _)"; congruence. }
@@ -1436,26 +1565,28 @@ Proof.
   iSplitR. { iIntros "((%new32 & %Hw & _) & _)"; congruence. }
   iSplitL "Hfr".
   {
-    take_drop_app_rewrite 1.
-    set (Φ2' := λ w, (⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f2)%I).
+    wp_chomp 2.
+    set (Φ2' := λ w, (⌜w = immV [VAL_int32 blk_addr32; VAL_int32 total32]⌝ ∗ ↪[frame] f2)%I).
     iApply (wp_seq _ _ _ Φ2').
     iSplitL "". { iIntros "(%Hw & _)"; congruence. }
     iSplitL.
-    + iApply wp_get_local; eauto.
+    + iApply (@wp_get_locals [final_blk_var; total_sz_var] with "[Hfr]"); auto.
+      constructor.
+      * admit.
+      * admit.
+    + iIntros (w) "(-> & Hfr)".
+      iApply (wp_binop with "[Hfr]"); auto.
       cbn.
-      rewrite update_list_at_is_set_nth; [|auto using lt_ssrleq].
-      rewrite update_ne; auto.
-      intro Hbad; subst total_sz_var.
-      inversion Hdisj as [|x l Hnotin Hnodup].
-      apply Hnotin.
-      right.
-      left.
-    + admit.
+      iModIntro.
+      iExists _; iFrame.
+      iSplit; iPureIntro; auto.
+      eapply iadd_repr; lia || eauto.
+      admit.
   }
   iIntros (w) "((%new_addr32 & %Hw & %Hnew_addr32) & Hfr)".
   subst w.
   clear Φ2.
-  take_drop_app_rewrite 2.
+  wp_chomp 2.
   set (f3 := {| f_locs := set_nth (VAL_int32 new_addr32) (f_locs f2) new_blk_var (VAL_int32 new_addr32);
                 f_inst := f_inst f2 |}).
   set (Φ3 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
@@ -1479,9 +1610,9 @@ Proof.
   iIntros (w) "(%Hw & Hfr)".
   subst w.
   rewrite app_nil_l.
-  take_drop_app_rewrite 2.
+  wp_chomp 2.
   set (Φ4 := λ w, (⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f3)%I).
-  iApply (wp_seq_ctx _ _ _ Φ4).
+  iApply (wp_seq_ctx _ _ _ Φ4 with "[Hfr]").
   iSplitR. { iIntros "(%Hw & _)"; congruence. }
   iSplitL "Hfr".
   {
@@ -1491,8 +1622,7 @@ Proof.
     admit.
   }
   iIntros (w) "(%Hw & Hfr)". subst w.
-  cbn.
-  take_drop_app_rewrite 3.
+  wp_chomp 3.
   set (Φ5 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
   iApply (wp_seq_ctx _ _ _ Φ5).
   iSplitR. { iIntros "(%Hw & _)"; congruence. }
