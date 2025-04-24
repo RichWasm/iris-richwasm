@@ -216,16 +216,16 @@ Definition is_block_free blk :=
   2     rw, storing the total size (incl headers) of the pinched block.
   3     rw, storing the address of the new final block.
 *)
-Definition pinch_block final_block reqd_sz total_sz new_block :=
-  (* compute and save total size of reqd block *)
-  (BI_get_local reqd_sz ::
-   add_hdr_sz ++
-   BI_set_local total_sz ::
+Definition pinch_block final_block reqd_sz old_sz new_block :=
+  (* save size of entire block *)
+   (get_size final_block ++
+   BI_set_local old_sz ::
    nil) ++ 
   (* compute address of new final block *)
   ([BI_get_local final_block;
-   BI_get_local total_sz;
-   BI_binop T_i32 (Binop_i BOI_add)]) ++
+    BI_get_local reqd_sz] ++
+   add_hdr_sz ++
+   [BI_binop T_i32 (Binop_i BOI_add)]) ++
    (([BI_set_local new_block]) ++
   (* set up pinched block *)
   (BI_get_local final_block ::
@@ -235,12 +235,12 @@ Definition pinch_block final_block reqd_sz total_sz new_block :=
    BI_get_local final_block ::
    BI_get_local new_block ::
    set_next)) ++
-  (* set up new final block's header *)
+  (* set up new block's header *)
   mark_final new_block ++
   (* set new block size *)
   (BI_get_local new_block ::
    (* compute block size on top of stack *)
-   get_size final_block ++
+   BI_get_local old_sz ::
    BI_get_local reqd_sz :: 
    BI_binop T_i32 (Binop_i BOI_sub) ::
    (* write top of stack to $3.size *)
@@ -256,14 +256,14 @@ Definition pinch_block final_block reqd_sz total_sz new_block :=
   1     parameter, requested size
   2     local, actual size allocated
 *)
-Definition new_block final_block reqd_sz total_sz new_block actual_size :=
+Definition new_block final_block reqd_sz old_sz new_block actual_size :=
   BI_get_local reqd_sz ::
   add_hdr_sz ++
   get_size final_block ++
   BI_relop T_i32 (Relop_i (ROI_lt SX_U)) ::
   BI_if (Tf [] [])
     (* then *)
-    (pinch_block final_block reqd_sz total_sz new_block)
+    (pinch_block final_block reqd_sz old_sz new_block)
     (* else *)
     (mark_free final_block ++
      BI_get_local final_block ::
@@ -281,7 +281,7 @@ Definition new_block final_block reqd_sz total_sz new_block actual_size :=
      u32const Wasm.operations.page_size ::
      BI_binop T_i32 (Binop_i BOI_mul) ::
      set_size ++
-     pinch_block final_block reqd_sz total_sz new_block) ::
+     pinch_block final_block reqd_sz old_sz new_block) ::
     nil.
 
 Definition malloc_loop_body reqd_sz cur_block :=
@@ -382,6 +382,15 @@ Definition N_repr (n: N) (n32: i32) : Prop :=
   (-1 < Z.of_N n < Wasm_int.Int32.modulus)%Z /\
   n = Wasm_int.N_of_uint i32m n32.
 
+Lemma N_repr_uint:
+  forall n n32,
+    N_repr n n32 ->
+    n = Wasm_int.N_of_uint i32m n32.
+Proof.
+  unfold N_repr.
+  tauto.
+Qed.
+
 Lemma N_repr_i32repr: 
   forall (n: N) (z: Z),
     (-1 < Z.of_N n < Wasm_int.Int32.modulus)%Z ->
@@ -447,11 +456,11 @@ Definition data_repr memidx blk base_addr :=
       own_vec memidx (base_addr + data_off) blk_size
   end.
 
-Definition block_inbounds (memidx: N) (blk: block) (base_addr: N) : iProp Σ :=
-  ⌜(Z.of_N (base_addr + blk_hdr_sz + block_size blk) < Wasm_int.Int32.modulus)%Z⌝.
+Definition block_inbounds (memidx: N) (blk_size: N) (base_addr: N) : iProp Σ :=
+  ⌜(Z.of_N (base_addr + blk_hdr_sz + blk_size) < Wasm_int.Int32.modulus)%Z⌝.
 
 Definition block_repr (memidx: N) (blk: block) (base_addr next_addr: N) : iProp Σ :=
-  block_inbounds memidx blk base_addr ∗
+  block_inbounds memidx (block_size blk) base_addr ∗
   state_repr memidx (block_flag blk) base_addr ∗
   size_repr memidx (block_size blk) base_addr ∗
   next_repr memidx next_addr base_addr ∗
@@ -482,6 +491,7 @@ Fixpoint blocks_repr (memidx: N) (blks: list block) (base_addr: N) (out_addr: N)
 Definition final_block_repr (memidx: N) (blk: final_block) (base_addr: N) : iProp Σ :=
   match blk with
   | FinalBlk blk_size =>
+      block_inbounds memidx blk_size base_addr ∗
       state_repr memidx Final base_addr ∗
       size_repr memidx blk_size base_addr ∗
       next_repr memidx 0%N base_addr ∗
@@ -524,6 +534,7 @@ Proof.
 Qed.
 
 Ltac wp_chomp := take_drop_app_rewrite.
+Ltac wp_chomp2 := take_drop_app_rewrite_twice.
 
 (* SPECS: block getters *)
 Lemma spec_get_state E memidx blk blk_addr next_addr blk_addr32 blk_var f :
@@ -591,7 +602,7 @@ Proof.
     subst w.
     simpl.
     destruct blk.
-    iDestruct "Hblk" as "((%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+    iDestruct "Hblk" as "(Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
     unfold state_off.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     iApply (wp_wand with "[Hstate Hfr]").
@@ -669,7 +680,7 @@ Proof.
   - iIntros (w) "(%Hw & Hfr)".
     subst w.
     simpl.
-    iDestruct "Hblk" as "(Hstate & Hsize & (%next_addr32 & ((%Hbdd' & %Hnext_addr) & Hnext)) & Hdata)".
+    iDestruct "Hblk" as "(Hbounds & Hstate & Hsize & (%next_addr32 & ((%Hbdd' & %Hnext_addr) & Hnext)) & Hdata)".
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     rewrite Haddr.
     iApply (wp_wand with "[Hnext Hfr]").
@@ -704,7 +715,7 @@ Proof.
   iSplitL "Hfr".
   - iApply wp_get_local; eauto.
   - iIntros (w) "(%Hw & Hfr)".
-    iAssert (block_inbounds memidx blk blk_addr) as "%Hbds".
+    iAssert (block_inbounds memidx (block_size blk) blk_addr) as "%Hbds".
     {
       by iDestruct "Hblk" as "(Hbds & Hblk')".
     } 
@@ -756,7 +767,6 @@ Proof.
     subst w.
     simpl.
     iDestruct "Hblk" as "(Hbounds & Hstate & (%sz32 & (%Hsz & Hsize)) & Hnext & Hdata)".
-    unfold state_off.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     iApply (wp_wand with "[Hsize Hfr]").
     instantiate (1:=(λ w, 
@@ -771,6 +781,46 @@ Proof.
       iApply "HΦ".
       unfold block_repr, size_repr.
       iExists sz32; iFrame; auto.
+Qed.
+
+Lemma spec_get_final_size E memidx blk_addr blk_addr32 f sz blk_var : 
+  ⊢ {{{{ final_block_repr memidx (FinalBlk sz) blk_addr ∗
+         ⌜N_repr blk_addr blk_addr32⌝ ∗
+         ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
+    to_e_list (get_size blk_var) @ E
+    {{{{ v, ∃ sz32,
+              ⌜N_repr sz sz32⌝ ∗
+              ⌜v = (immV [VAL_int32 sz32])⌝ ∗
+              final_block_repr memidx (FinalBlk sz) blk_addr ∗
+              ↪[frame] f }}}}.
+Proof.
+  iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+  wp_chomp 1.
+  iApply wp_seq.
+  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
+  iSplitR; [iIntros "(%H & ?)"; auto|].
+  iSplitL "Hfr".
+  - iApply wp_get_local; eauto.
+  - iIntros (w) "(%Hw & Hfr)".
+    subst w.
+    simpl.
+    iDestruct "Hblk" as "(Hbounds & Hstate & (%sz32 & (%Hsz & Hsize)) & Hdata)".
+    replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
+    iApply (wp_wand with "[Hsize Hfr]").
+    instantiate (1:=(λ w, 
+                       ((⌜w = immV [VAL_int32 sz32]⌝ ∗
+                         N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + size_off]bits (VAL_int32 sz32)) ∗ ↪[frame]f)%I)).
+    + subst blk_addr.
+      iApply wp_load; auto.
+      iFrame.
+      by iModIntro.
+    + iIntros (w) "((%Hw & Hptr) & Hfr)".
+      subst w blk_addr.
+      iApply "HΦ".
+      iExists sz32.
+      by iFrame.
 Qed.
 
 (* SPECS: block setters *)
@@ -1475,114 +1525,161 @@ Proof.
     lia.
 Qed.
 
+Print NoDup.
+(* "Effective" or functional versions of NoDup and ∉ *)
+Fixpoint NotInEff {A} (x: A) (l: list A) : Prop :=
+  match l with
+  | [] => True
+  | y :: l => x <> y /\ NotInEff x l
+  end.
+
+Lemma equiv_NotInEff {A} (x: A) (l: list A) :
+  x ∉ l <-> NotInEff x l.
+Proof.
+  induction l.
+  - simpl.
+    cut (x ∉ []); [tauto|].
+    intros H.
+    inversion H.
+  - split; intros H.
+    + cbn.
+      split.
+      * intros Heq.
+        subst x.
+        apply H.
+        by constructor.
+      * apply IHl.
+        intros Hin.
+        apply H.
+        by constructor.
+    + intros Hin.
+      inversion Hin; clear Hin; subst.
+      * cbn in H.
+        tauto.
+      * cbn in H.
+        tauto.
+Qed.
+
+Fixpoint NoDupEff {A} (l: list A) : Prop := 
+  match l with
+  | [] => True
+  | x :: l => NotInEff x l /\ NoDupEff l
+  end.
+
+Lemma equiv_NoDupEff {A} (l: list A) :
+  NoDup l <-> NoDupEff l.
+Proof.
+  induction l; cbn.
+  - apply NoDup_nil.
+  - split; intros H.
+    + inversion H; clear H; subst.
+      apply equiv_NotInEff in H2.
+      tauto.
+    + destruct H as [Hnotin Hnodup].
+      apply equiv_NotInEff in Hnotin.
+      constructor; tauto.
+Qed.
+
+Lemma set_nth_length_eq {T} (x: T) (l: seq.seq T) (i: nat) (d: T) :
+    i < seq.size l ->
+    length (set_nth x l i d) = length l.
+Proof.
+  rewrite length_is_size.
+  intros.
+  by rewrite size_set_nth maxn_nat_max max_r.
+Qed.
+
 (* SPECS: block pinching *)
 Lemma spec_pinch_block E f memidx final_blk blk_addr blk_addr32 reqd_sz reqd_sz32
-  total_sz_var total_sz0 reqd_sz_var new_blk_var new_blk0 final_blk_var :
+  old_sz_var old_sz0 reqd_sz_var new_blk_var new_blk0 final_blk_var :
   ⊢
   {{{{
          final_block_repr memidx final_blk blk_addr ∗
+         ⌜(Z.of_N (blk_addr + reqd_sz + blk_hdr_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
          ⌜N_repr blk_addr blk_addr32⌝ ∗
          ⌜N_repr reqd_sz reqd_sz32⌝ ∗
-         ⌜NoDup [final_blk_var; reqd_sz_var; total_sz_var; new_blk_var]⌝ ∗
+         ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var]⌝ ∗
          ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
          ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
-         ⌜f.(f_locs) !! total_sz_var = Some total_sz0⌝ ∗
+         ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
          ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
          ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
          ↪[frame] f
   }}}}
-  to_e_list (pinch_block final_blk_var reqd_sz_var total_sz_var new_blk_var) @ E
+  to_e_list (pinch_block final_blk_var reqd_sz_var old_sz_var new_blk_var) @ E
   {{{{ w,
           ⌜True⌝
   }}}}.
 Proof.
-  iIntros (Φ) "!> (Hblk & %Haddr32 & %Hsz32 & %Hdisj & %Hblk_var & %Hsz_var & %Htotal_var & %Hnew_var & %Hmem & Hfr) HΦ".
+  iIntros (Φ) "!> (Hblk & %Hreqbdd & %Haddr32 & %Hsz32 & %Hdisj & %Hblk_var & %Hsz_var & %Hold_var & %Hnew_var & %Hmem & Hfr) HΦ".
+  assert (final_blk_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
+  assert (reqd_sz_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
+  assert (old_sz_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
+  assert (new_blk_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
   unfold pinch_block.
   erewrite !to_e_list_cat.
+  destruct final_blk as [old_sz].
   set (Φ1 := λ w, (⌜w = immV []⌝ ∗
-                  ∃ total32, 
-                    ⌜N_repr (reqd_sz + blk_hdr_sz) total32 ⌝ ∗
-                    ↪[frame] {| f_locs := set_nth (VAL_int32 total32) (f_locs f) total_sz_var (VAL_int32 total32);
+                  ∃ old32, 
+                    ⌜N_repr old_sz old32 ⌝ ∗
+                      final_block_repr memidx (FinalBlk old_sz) blk_addr ∗
+                    ↪[frame] {| f_locs := set_nth (VAL_int32 old32) (f_locs f) old_sz_var (VAL_int32 old32);
                                f_inst := f_inst f |})%I).
-  assert (total_sz_var < seq.size (f_locs f)).
-  { 
-    eapply lookup_lt_is_Some_1.
-    rewrite Htotal_var; auto.
-  }
   iApply (wp_seq _ _ _ Φ1).
   iSplitL "".
   { iIntros "(%Htrap & _)"; congruence. }
-  iSplitL "Hfr".
+  iSplitL "Hfr Hblk".
   {
-    set (Φ1' := λ w, (∃ total32, 
-                    ⌜w = immV [VAL_int32 total32]⌝ ∗
-                    ⌜N_repr (reqd_sz + blk_hdr_sz) total32 ⌝ ∗
+    set (Φ1' := λ w, (∃ old32, 
+                    ⌜w = immV [VAL_int32 old32]⌝ ∗
+                    ⌜N_repr old_sz old32 ⌝ ∗
+                      final_block_repr memidx (FinalBlk old_sz) blk_addr ∗
                     ↪[frame] f)%I).
-    rewrite app_comm_cons.
-    erewrite to_e_list_cat.
     iApply (wp_seq _ _ _ Φ1').
-    iSplitL "".
-    { iIntros "(%tot & %Htrap & _)"; congruence. }
-    iSplitL "Hfr".
-    + set (Φ1'' := λ w, (⌜w = immV [VAL_int32 reqd_sz32]⌝ ∗
-                         ↪[frame] f)%I).
-      wp_chomp 1.
-      iApply (wp_seq _ _ _ Φ1'').
-      iSplitL "".
-      { iIntros "(%Htrap & _)"; congruence. }
-      iSplitL "Hfr".
-      * iApply wp_get_local; eauto.
-      * iIntros (w) "(%Hw & Hfr)".
-        subst w.
-        iApply (spec_add_hdr_sz with "[Hfr]"); iFrame; try auto.
-        iSplitL "".
-        auto.
-        admit.
-    + iIntros (w) "(%total32 & %Hw & %Htotal & Hfr)".
-      subst.
-      cbn.
-      set (Φ1''' := λ w, ((⌜w = immV []⌝ ∗
-                          ⌜N_repr (reqd_sz + blk_hdr_sz) total32 ⌝) ∗
-                          ↪[frame] {| f_locs := set_nth (VAL_int32 total32) (f_locs f) total_sz_var (VAL_int32 total32);
-                                      f_inst := f_inst f |})%I).
-      iApply (wp_wand _ _ _ Φ1''' with "[Hfr]").
-      { iApply wp_set_local; try iFrame; auto using lookup_lt_is_Some_1. }
-      unfold Φ1, Φ1'''.
+    iSplitR. { iIntros "(%tot & %Htrap & _)"; congruence. }
+    iSplitL.
+    + iApply (spec_get_final_size with "[Hblk Hfr]"); iFrame; eauto.
+      unfold Φ1'.
+      iIntros (v) "(%sz32 & %Hrep & -> & Hblk)".
+      iExists sz32; auto.
+    + iIntros (w) "(%sz32 & -> & %Hrep & Hblk & Hfr)".
+      simpl app.
+      iApply (wp_wand with "[Hfr]").
+      {
+        iApply wp_set_local; try iFrame; eauto.
+        instantiate (1:= λ w, (⌜w = immV []⌝ ∗ ⌜N_repr old_sz sz32 ⌝)%I); auto.
+      }
       iIntros (w) "(%Hw & H)".
       iFrame; auto.
   }
-  iIntros (w) "(%Hw & (%total32 & %Htotal & Hfr))".
+  iIntros (w) "(%Hw & (%old_sz32 & %Hold_sz & Hblk & Hfr))".
   clear Φ1.
   subst w.
   rewrite app_nil_l.
   set (new_addr := (blk_addr + reqd_sz + blk_hdr_sz)%N).
-  set (f2 := {| f_locs := set_nth (VAL_int32 total32) (f_locs f) total_sz_var (VAL_int32 total32);
+  set (f2 := {| f_locs := set_nth (VAL_int32 old_sz32) (f_locs f) old_sz_var (VAL_int32 old_sz32);
                 f_inst := f_inst f |}).
-  set (Φ2 := λ w, ((∃ new_addr32, ⌜w = immV [VAL_int32 new_addr32]⌝ ∗
-                                  ⌜N_repr new_addr new_addr32⌝) ∗
-                   ↪[frame] f2)%I).
-  iApply (wp_seq _ _ _ Φ2 (to_e_list [BI_get_local final_blk_var; BI_get_local total_sz_var; BI_binop T_i32 (Binop_i BOI_add)])).
-  iSplitR. { iIntros "((%new32 & %Hw & _) & _)"; congruence. }
-  iSplitL "Hfr".
+  wp_chomp 1.
+HERE
+  set (Φ2 := λ w, (⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f2)%I).
+  iApply (wp_seq _ _ _ Φ2).
+  iSplitR. { iIntros "(%Hw & _)"; congruence. }
+  iSplitL.
   {
-    wp_chomp 2.
-    set (Φ2' := λ w, (⌜w = immV [VAL_int32 blk_addr32; VAL_int32 total32]⌝ ∗ ↪[frame] f2)%I).
-    iApply (wp_seq _ _ _ Φ2').
-    iSplitL "". { iIntros "(%Hw & _)"; congruence. }
-    iSplitL.
-    + iApply (@wp_get_locals [final_blk_var; total_sz_var] with "[Hfr]"); auto.
-      constructor.
-      * admit.
-      * admit.
-    + iIntros (w) "(-> & Hfr)".
-      iApply (wp_binop with "[Hfr]"); auto.
+    iApply (wp_get_local with "[] [Hfr]"); auto.
+    cbn.
+    rewrite update_list_at_is_set_nth; [|auto using lt_ssrleq].
+    rewrite update_ne; auto.
+    cbn in Hdisj.
+    intuition.
+  }
+  iIntros (w) "(-> & Hfr)".
+  iApply (wp_binop with "[Hfr]"); auto.
       cbn.
       iModIntro.
       iExists _; iFrame.
       iSplit; iPureIntro; auto.
       eapply iadd_repr; lia || eauto.
-      admit.
-  }
   iIntros (w) "((%new_addr32 & %Hw & %Hnew_addr32) & Hfr)".
   subst w.
   clear Φ2.
@@ -1599,33 +1696,166 @@ Proof.
     cbn.
     rewrite update_list_at_is_set_nth; [|auto using lt_ssrleq].
     rewrite update_ne; auto.
-    intro; subst.
-    inversion Hdisj as [|x l Hnotin Hdisj1].
-    inversion Hdisj1 as [|x1 l1 Hnotin1 Hdisj2].
-    inversion Hdisj2 as [|x2 l2 Hnotin2 Hdisj3].
-    subst.
-    eapply Hnotin2.
-    constructor.
+    cbn in Hdisj; intuition.
   }
   iIntros (w) "(%Hw & Hfr)".
   subst w.
   rewrite app_nil_l.
   wp_chomp 2.
-  set (Φ4 := λ w, (⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f3)%I).
-  iApply (wp_seq_ctx _ _ _ Φ4 with "[Hfr]").
-  iSplitR. { iIntros "(%Hw & _)"; congruence. }
+  destruct final_blk.
+  set (Φ4 := λ w, (⌜w = immV [VAL_int32 blk_addr32; VAL_int32 reqd_sz32]⌝ ∗ ↪[frame] f3)%I).
+  iApply (wp_seq _ _ _ Φ4).
+  iSplitR. { by iIntros "(%Hw & _)". }
   iSplitL "Hfr".
   {
-    iApply wp_get_local; auto.
-    unfold f3, f2.
-    cbn.
-    admit.
+    iApply (@wp_get_locals [final_blk_var; reqd_sz_var] with "[Hfr]"); [|eauto|].
+    - constructor.
+      + unfold f3.
+        cbn.
+        cbn in Hdisj.
+        rewrite <- fmap_insert_set_nth; [| by rewrite set_nth_length_eq].
+        rewrite list_lookup_insert_ne; [| intuition].
+        rewrite <- fmap_insert_set_nth; [| auto ].
+        rewrite list_lookup_insert_ne; [| intuition].
+        eauto.
+      + constructor; [| by constructor].
+        cbn.
+        cbn in Hdisj.
+        rewrite <- fmap_insert_set_nth; [| by rewrite set_nth_length_eq].
+        rewrite list_lookup_insert_ne; [| intuition].
+        rewrite <- fmap_insert_set_nth; [| auto ].
+        rewrite list_lookup_insert_ne; [| intuition].
+        eauto.
+    - iIntros (w) "(-> & Hfr)".
+      iFrame; auto.
   }
   iIntros (w) "(%Hw & Hfr)". subst w.
   wp_chomp 3.
-  set (Φ5 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
-  iApply (wp_seq_ctx _ _ _ Φ5).
+  set (Φ5 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3 ∗ final_block_repr memidx (FinalBlk reqd_sz) blk_addr)%I).
+  iApply (wp_seq _ _ _ Φ5).
   iSplitR. { iIntros "(%Hw & _)"; congruence. }
+  iSplitL "Hfr Hblk".
+  {
+    iDestruct "Hblk" as "(Hst & Hsz & Hnext & Hdata)".
+    destruct Haddr32.
+    iDestruct "Hsz" as "(%sz & %Hszrep & Hsz)".
+    rewrite <- (N2Nat.id memidx).
+    rewrite H5.
+    set (Φ5' := (λ w, ((λ w, ⌜w = immV []⌝ ∗  state_repr memidx Final blk_addr ∗ 
+                       next_repr memidx 0 blk_addr ∗ own_vec memidx (blk_addr + data_off) reqd_sz) w ∗ 
+                       N.of_nat (N.to_nat memidx) ↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + size_off]bits (VAL_int32 reqd_sz32)) ∗
+                       ↪[frame]f3)%I).
+    iApply (wp_wand _ _ _ Φ5' with "[Hfr Hst Hsz Hnext Hdata] []").
+    - iApply wp_store; try iFrame; auto.
+      iModIntro.
+      iSplit; auto.
+      rewrite (N2Nat.id memidx).
+      rewrite <- H5.
+      iFrame.
+      admit. (* need to change postcondition to avoid losing the end of the block *)
+    - unfold Φ5, Φ5'.
+      iIntros (w) "(((-> & Hst & Hnext & Hown) & Hptr) & Hfr)".
+      iFrame.
+      iSplit; auto.
+      iExists reqd_sz32.
+      rewrite -H5 N2Nat.id.
+      iFrame; auto.
+  }
+  (* mark_free *)
+  iIntros (w) "(-> & Hfr & Hblk)".
+  rewrite app_nil_l.
+  wp_chomp 3.
+  iApply wp_seq.
+  iSplitR; last first.
+  iSplitL "Hfr".
+  {
+    admit.
+  }
+  (* get locals for set_next *)
+  iIntros (w) "Hw".
+  assert (w = immV []) by admit; subst.
+  rewrite app_nil_l.
+  wp_chomp 2.
+  iApply wp_seq.
+  iSplitR; last first.
+  iSplitL.
+  {
+    admit.
+  }
+  (* set_next *)
+  iIntros (w) "Hw".
+  assert (w = immV [VAL_int32 blk_addr32; VAL_int32 new_addr32]) by admit; subst.
+  cbn.
+  wp_chomp 3.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
+    iApply spec_set_next.
+    - admit.
+    - admit.
+  }
+  (* mark_final *)
+  iIntros (w) "Hw".
+  assert (w = immV []) by admit; subst.
+  rewrite app_nil_l.
+  wp_chomp 3.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
+    iApply spec_mark_final.
+    - admit.
+    - admit.
+  }
+  (* get_local for computing block size *)
+  iIntros (w) "Hw".
+  assert (w = immV []) by admit; subst.
+  rewrite app_nil_l.
+  wp_chomp 1.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
+    (*iApply wp_get_locals.*)
+    admit.
+  }
+  (* get_size final_block*)
+  iIntros (w) "Hw".
+  assert (w = immV [new_blk0]) by admit; subst.
+  simpl app.
+  wp_chomp 1.
+  iApply wp_val_app; auto. iSplitR; last first.
+  wp_chomp 2.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
+    iApply spec_get_size.
+    - admit.
+    - admit.
+  }
+  (* get local reqd_size *)
+  iIntros (w) "Hw".
+  assert (w = immV [new_blk0; VAL_int32 reqd_sz32]) by admit; subst.
+  simpl app.
+  rewrite app_nil_l.
+  wp_chomp 3.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
+  (* subtract to compute remaining size *)
+  iIntros (w) "Hw".
+  assert (w = immV []) by admit; subst.
+  rewrite app_nil_l.
+  wp_chomp 3.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
+  (* set_size *)
+  iIntros (w) "Hw".
+  assert (w = immV []) by admit; subst.
+  rewrite app_nil_l.
+  wp_chomp 3.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
+  (* set_next *)
+  iIntros (w) "Hw".
+  assert (w = immV []) by admit; subst.
+  rewrite app_nil_l.
+  wp_chomp 3.
+  iApply wp_seq. iSplitR; last first. iSplitL.
+  {
 Admitted.
 
 (* SPECS: block creation *)
