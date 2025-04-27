@@ -1,10 +1,5 @@
 From Wasm.iris.rules Require Import iris_rules.
 
-(* TODO: Notation for:
-   - Store pointers: ℓ ↦vblk b
-   - Root pointers: a ↦root ℓ
- *)
-
 Notation vloc := nat (only parsing).
 
 Inductive vval :=
@@ -81,6 +76,16 @@ Class rwasm_gcG Σ := Rwasm_gcG {
   gcG_vstore : gname;
   gcG_roots : gname;
 }.
+
+Notation "ℓ ↦vblk{ dq } b" := (ℓ ↪[gcG_vstore]{dq} b)%I
+  (at level 20, format "ℓ ↦vblk{ dq } b") : bi_scope.
+Notation "ℓ ↦vblk b" := (ℓ ↪[gcG_vstore] b)%I
+  (at level 20, format "ℓ ↦vblk b") : bi_scope.
+
+Notation "a ↦root{ dq } u" := (a ↪[gcG_roots]{dq} u)%I
+  (at level 20, format "a ↦root{ dq } u") : bi_scope.
+Notation "a ↦root u" := (a ↪[gcG_roots] u)%I
+  (at level 20, format "a ↦root u") : bi_scope.
 
 Section GCtoken.
 
