@@ -34,19 +34,32 @@ Definition code_int (z : Z) : word :=
 Definition code_addr (a : addr) : word :=
   Wasm_int.int_of_Z i32m (Z.of_N a).
 
-Inductive repr_vval : addr_map -> vval -> word -> Prop :=
-  | repr_vint θ z :
-      repr_vval θ (Vint z) (code_int z)
-  | repr_vloc θ ℓ a :
-      θ !! ℓ = Some a ->
-      repr_vval θ (Vloc ℓ) (code_addr a).
-
 Definition serialize_word (w : word) : bytes :=
   serialise_i32 w.
 
-(* TODO *)
-Definition serialize_vblock (blk : vblock) : bytes :=
-  [].
+Definition serialize_nat_32 (n : nat) : bytes :=
+  serialise_i32 (Wasm_int.int_of_Z i32m (Z.of_nat n)).
+
+Definition serialize_vblock_tag (t : vblock_tag) : byte :=
+  match t with
+  | TagDefault => #00%byte
+  | TagNoScan => #01%byte
+  end.
+
+Inductive repr_vval : addr_map -> vval -> word -> Prop :=
+  | RVint θ z :
+      repr_vval θ (Vint z) (code_int z)
+  | RVloc θ ℓ a :
+      θ !! ℓ = Some a ->
+      repr_vval θ (Vloc ℓ) (code_addr a).
+
+Inductive repr_vblock : addr_map -> vblock -> bytes -> Prop :=
+  | RVblock θ blk ws tag_b length_bs data_bs :
+      Forall (curry (repr_vval θ)) (combine blk.(vals) ws) ->
+      tag_b = serialize_vblock_tag blk.(tag) ->
+      length_bs = serialize_nat_32 (length blk.(vals)) ->
+      data_bs = flat_map serialize_word ws ->
+      repr_vblock θ blk (tag_b :: take 31 length_bs ++ data_bs).
 
 Definition roots_are_live (θ : addr_map) (roots : gmap addr vval) : Prop :=
   ∀ a ℓ, roots !! a = Some (Vloc ℓ) -> ℓ ∈ dom θ.
@@ -78,7 +91,7 @@ Definition GC (θ : addr_map) : iProp Σ :=
   ∃ (ζ : vstore) (roots : gmap addr vval) (mem : N),
   ghost_map_auth gcG_vstore 1 ζ ∗
   ghost_map_auth gcG_roots 1 roots ∗
-  ([∗ map] ℓ ↦ a; blk ∈ θ; ζ, mem ↦[wms][a] serialize_vblock blk) ∗
+  ([∗ map] ℓ ↦ a; blk ∈ θ; ζ, ∃ bs, mem ↦[wms][a] bs ∗ ⌜repr_vblock θ blk bs⌝) ∗
   ([∗ map] a ↦ u ∈ roots, ∃ bs w, mem ↦[wms][a] bs ∗ ⌜bs = serialize_word w⌝ ∗ ⌜repr_vval θ u w⌝) ∗
   ⌜roots_are_live θ roots⌝ ∗
   ⌜GC_correct ζ θ⌝.
