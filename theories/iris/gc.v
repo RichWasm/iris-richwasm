@@ -1,6 +1,8 @@
 From iris.proofmode Require Import base tactics classes.
 From Wasm.iris.rules Require Import iris_rules.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Notation vloc := nat (only parsing).
 
 Inductive vval :=
@@ -36,29 +38,23 @@ Definition serialize_word (w : word) : bytes :=
 Definition serialize_nat_32 (n : nat) : bytes :=
   serialise_i32 (Wasm_int.int_of_Z i32m (Z.of_nat n)).
 
-Definition serialize_vblock_tag (t : vblock_tag) : byte :=
-  match t with
-  | TagDefault => #00%byte
-  | TagNoScan => #01%byte
-  end.
-
 Inductive repr_vval : addr_map -> vval -> word -> Prop :=
   | RVint θ z :
       repr_vval θ (Vint z) (code_int z)
   | RVloc θ ℓ a :
       θ !! ℓ = Some a ->
+      (Z.of_N a < Wasm_int.Int32.modulus)%Z ->
       repr_vval θ (Vloc ℓ) (code_addr a).
 
 Inductive repr_vblock : addr_map -> vblock -> bytes -> Prop :=
-  | RVblock θ blk ws tag_b length_bs data_bs :
+  | RVblock θ blk ws bs :
+      length ws = length blk.(vals) ->
       Forall (curry (repr_vval θ)) (combine blk.(vals) ws) ->
-      tag_b = serialize_vblock_tag blk.(tag) ->
-      length_bs = serialize_nat_32 (length blk.(vals)) ->
-      data_bs = flat_map serialize_word ws ->
-      repr_vblock θ blk (tag_b :: take 3 length_bs ++ data_bs).
+      bs = flat_map serialize_word ws ->
+      repr_vblock θ blk bs.
 
 Definition vblock_offset (i : nat) : static_offset :=
-  N.of_nat (4 + 4 * i).
+  N.of_nat (4 * i).
 
 Definition roots_are_live (θ : addr_map) (roots : gmap addr vval) : Prop :=
   ∀ a ℓ, roots !! a = Some (Vloc ℓ) -> ℓ ∈ dom θ.
@@ -112,6 +108,46 @@ Section GCrules.
 Context `{wasmG Σ}.
 Context `{rwasm_gcG Σ}.
 
+Lemma wms_app n bs1 :
+  forall ℓ sz1 bs2,
+  sz1 = N.of_nat (length bs1) ->
+  n ↦[wms][ℓ] (bs1 ++ bs2) ⊣⊢ n ↦[wms][ℓ] bs1 ∗ n ↦[wms][ℓ + sz1] bs2.
+Proof.
+  unfold mem_block_at_pos.
+  intros.
+  rewrite big_opL_app.
+  repeat (f_equiv; try lia).
+Qed.
+
+Lemma list_pluck : forall (A : Type) i (l : list A),
+  i < length l ->
+  exists l1 x l2, l !! i = Some x /\ length l1 = i /\ l = l1 ++ x :: l2.
+Admitted.
+
+Lemma repr_vblock_index_word : forall θ blk u bs ws w i,
+  blk.(vals) !! i = Some u ->
+  bs = flat_map serialize_word ws ->
+  repr_vblock θ blk bs ->
+  repr_vval θ u w ->
+  ws !! i = Some w.
+Admitted.
+
+Lemma flat_map_singleton : forall (A B : Type) (f : A -> list B) (x : A),
+  f x = flat_map f [x].
+Proof.
+  intros A B f x. simpl. rewrite app_nil_r. reflexivity.
+Qed.
+
+Lemma deserialise_serialise_i32 : forall n,
+  wasm_deserialise (serialise_i32 n) T_i32 = VAL_int32 n.
+Proof.
+  intros n. replace (serialise_i32 n) with (bits (VAL_int32 n)).
+  - rewrite deserialise_bits.
+    + reflexivity.
+    + reflexivity.
+  - unfold bits. reflexivity.
+Qed.
+
 Lemma wp_load_gc
     (Φ : iris.val -> iProp Σ) (s : stuckness) (E : coPset)
     (F : frame) (m : memaddr)
@@ -134,9 +170,54 @@ Lemma wp_load_gc
 Proof.
   iIntros (Em Hk Eu Hoff) "(HΦ & %Hw & HGC & Hℓ & HF)".
   iDestruct "HGC" as (ζ roots) "(Hζ & Hroots & Hζmem & Hrootsmem & %Hlive & %GCOK)".
-  inversion Hk as [|θ' ℓ' a Eθℓ Eθ' Eℓ' Ek]. subst.
+  inversion Hk as [|θ' ℓ' a Eθℓ Ha32 Eθ' Eℓ' Ek]. subst.
   iDestruct (ghost_map_lookup with "Hζ Hℓ") as "%Eζℓ".
   iDestruct (big_sepM2_lookup_acc _ _ _ _ _ _ Eθℓ Eζℓ with "Hζmem") as "[(%bs & Ha & %Hbs) Hζmem]".
-Admitted.
+  inversion Hbs as [θ' blk' ws vbs Hwslen Hvals Evbs Eθ' Eblk' Ebs]. subst.
+  pose proof (lookup_lt_Some _ _ _ Eu) as Hilt. rewrite <- Hwslen in Hilt.
+  destruct (list_pluck _ _ _ Hilt) as [ws1 [wsi [ws2 [Hwsi [Hws1len Ews]]]]]. rewrite Ews.
+  (* wsi = w *)
+  rewrite (repr_vblock_index_word θ blk u (flat_map serialize_word ws) ws w i) in Hwsi; first last.
+  { assumption. }
+  { assumption. }
+  { reflexivity. }
+  { assumption. }
+  injection Hwsi as Hwsi. rewrite <- Hwsi in *. clear Hwsi.
+  rewrite flat_map_app. rewrite (separate1 w). rewrite flat_map_app. simpl. rewrite app_nil_r.
+  rewrite (wms_app _ _ _ (vblock_offset i)). rewrite (wms_app _ (serialize_word w) _ 4).
+  iDestruct "Ha" as "(Ha1 & Hai & Ha2)".
+  (* add the loaded wms into the postcondition *)
+  iApply (wp_wand _ _ _ (λ w0, (Φ w0 ∗
+                               N.of_nat m ↦[wms][Wasm_int.N_of_uint i32m (code_addr a) + vblock_offset i] serialize_word w) ∗
+                               ↪[frame] F)%I
+          with "[HΦ HF Hai] [Hζ Hroots Hrootsmem Hℓ Ha1 Ha2 Hζmem]").
+  - iApply wp_load_deserialize.
+    + unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
+    + assumption.
+    + unfold code_addr. unfold serialize_word. rewrite deserialise_serialise_i32. cbn.
+      rewrite Wasm_int.Int32.Z_mod_modulus_id.
+      * rewrite N2Z.id. iFrame.
+      * lia.
+  - iIntros (v) "[[HΦ Hai] HF]". iFrame "∗ %". iCombine "Ha1 Hai" as "Ha1".
+    unfold code_addr. cbn. rewrite Wasm_int.Int32.Z_mod_modulus_id; last lia. rewrite N2Z.id.
+    rewrite <- wms_app; last first.
+    { rewrite (@flat_map_constant_length _ _ 4).
+      - rewrite Hws1len. unfold vblock_offset. lia.
+      - intros x Hx. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
+    iCombine "Ha1 Ha2" as "Ha". rewrite <- N.add_assoc. rewrite <- wms_app; last first.
+    { rewrite length_app. rewrite (@flat_map_constant_length _ _ 4).
+      - rewrite Hws1len. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. unfold vblock_offset. lia.
+      - intros x Hx. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
+    replace (serialize_word w) with (flat_map serialize_word [w]) by (rewrite <- flat_map_singleton; reflexivity).
+    rewrite <- !flat_map_app. rewrite <- app_assoc. rewrite <- separate1. rewrite <- Ews.
+    iAssert ⌜repr_vblock θ blk (flat_map serialize_word ws)⌝%I as "Hws".
+    { done. }
+    iCombine "Ha Hws" as "H". iClear "Hws".
+    iApply "Hζmem". by iExists _.
+  - unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
+  - unfold vblock_offset. rewrite (@flat_map_constant_length _ _ 4).
+    + rewrite Hws1len. lia.
+    + intros x Hx. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
+Qed.
 
 End GCrules.
