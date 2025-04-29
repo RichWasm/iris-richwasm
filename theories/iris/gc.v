@@ -1,3 +1,4 @@
+From mathcomp Require Import eqtype.
 From iris.proofmode Require Import base tactics classes.
 From Wasm.iris.rules Require Import iris_rules.
 
@@ -24,24 +25,19 @@ Notation addr := N (only parsing).
 
 Notation addr_map := (gmap vloc addr).
 
-Notation word := (eqtype.Equality.sort i32).
-
-Definition code_int (z : Z) : word :=
+Definition code_int (z : Z) : i32 :=
   Wasm_int.int_of_Z i32m (2 * z + 1).
 
-Definition code_addr (a : addr) : word :=
+Definition code_addr (a : addr) : i32 :=
   Wasm_int.int_of_Z i32m (Z.of_N a).
 
-Definition serialize_word (w : word) : bytes :=
-  serialise_i32 w.
-
-Definition serialize_words (ws : list word) : bytes :=
-  flat_map serialize_word ws.
+Definition serialize_i32s (l : list i32) : bytes :=
+  flat_map serialise_i32 l.
 
 Definition serialize_nat_32 (n : nat) : bytes :=
   serialise_i32 (Wasm_int.int_of_Z i32m (Z.of_nat n)).
 
-Inductive repr_vval : addr_map -> vval -> word -> Prop :=
+Inductive repr_vval : addr_map -> vval -> i32 -> Prop :=
   | RVint θ z :
       repr_vval θ (Vint z) (code_int z)
   | RVloc θ ℓ a :
@@ -49,11 +45,11 @@ Inductive repr_vval : addr_map -> vval -> word -> Prop :=
       (Z.of_N a < Wasm_int.Int32.modulus)%Z ->
       repr_vval θ (Vloc ℓ) (code_addr a).
 
-Inductive repr_vblock : addr_map -> vblock -> list word -> Prop :=
-  | RVblock θ blk ws :
-      length ws = length blk.(vals) ->
-      Forall (curry (repr_vval θ)) (combine blk.(vals) ws) ->
-      repr_vblock θ blk ws.
+Inductive repr_vblock : addr_map -> vblock -> list i32 -> Prop :=
+  | RVblock θ blk ks :
+      length ks = length blk.(vals) ->
+      Forall (curry (repr_vval θ)) (combine blk.(vals) ks) ->
+      repr_vblock θ blk ks.
 
 Definition vblock_offset (i : nat) : static_offset :=
   N.of_nat (4 * i).
@@ -98,8 +94,8 @@ Definition GC (m : memaddr) (θ : addr_map) : iProp Σ :=
   ∃ (ζ : vstore) (roots : gmap addr vval),
   ghost_map_auth gcG_vstore 1 ζ ∗
   ghost_map_auth gcG_roots 1 roots ∗
-  ([∗ map] ℓ ↦ a; blk ∈ θ; ζ, ∃ bs ws, N.of_nat m ↦[wms][a] bs ∗ ⌜bs = serialize_words ws⌝ ∗ ⌜repr_vblock θ blk ws⌝) ∗
-  ([∗ map] a ↦ u ∈ roots, ∃ bs w, N.of_nat m ↦[wms][a] bs ∗ ⌜bs = serialize_word w⌝ ∗ ⌜repr_vval θ u w⌝) ∗
+  ([∗ map] ℓ ↦ a; blk ∈ θ; ζ, ∃ bs ks, N.of_nat m ↦[wms][a] bs ∗ ⌜bs = serialize_i32s ks⌝ ∗ ⌜repr_vblock θ blk ks⌝) ∗
+  ([∗ map] a ↦ vv ∈ roots, ∃ bs k, N.of_nat m ↦[wms][a] bs ∗ ⌜bs = serialise_i32 k⌝ ∗ ⌜repr_vval θ vv k⌝) ∗
   ⌜roots_are_live θ roots⌝ ∗
   ⌜GC_correct ζ θ⌝.
 
@@ -149,10 +145,10 @@ Proof.
   intros A B f x. simpl. rewrite app_nil_r. reflexivity.
 Qed.
 
-Lemma deserialise_serialise_i32 : forall n,
-  wasm_deserialise (serialise_i32 n) T_i32 = VAL_int32 n.
+Lemma deserialise_serialise_i32 : forall i,
+  wasm_deserialise (serialise_i32 i) T_i32 = VAL_int32 i.
 Proof.
-  intros n. replace (serialise_i32 n) with (bits (VAL_int32 n)).
+  intros i. replace (serialise_i32 i) with (bits (VAL_int32 i)).
   - rewrite deserialise_bits.
     + reflexivity.
     + reflexivity.
@@ -160,22 +156,19 @@ Proof.
 Qed.
 
 Lemma wp_load_gc
-    (s : stuckness) (E : coPset)
-    (F : frame) (m : memaddr)
-    (k : eqtype.Equality.sort i32) (off : static_offset)
-    (i : nat) (u : vval)
-    (θ : addr_map) (ℓ : vloc) (blk : vblock) :
+    (s : stuckness) (E : coPset) (m : memaddr) (θ : addr_map)
+    (i : i32) (ℓ : vloc) (blk : vblock)
+    (j : nat) (off : static_offset) (vv : vval)
+    (F : frame) :
   F.(f_inst).(inst_memory) !! 0 = Some m ->
-  repr_vval θ (Vloc ℓ) k ->
-  blk.(vals) !! i = Some u ->
-  vblock_offset i = off ->
-  GC m θ ∗
-  ℓ ↦vblk blk ∗
-  ↪[frame] F ⊢
-  WP [AI_basic (BI_const (VAL_int32 k));
-      AI_basic (BI_load T_i32 None N.zero off)]
+  repr_vval θ (Vloc ℓ) i ->
+  blk.(vals) !! j = Some vv ->
+  vblock_offset j = off ->
+  GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
+  WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load T_i32 None N.zero off)]
      @ s; E
-     {{ v, (∃ w, ⌜v = immV [VAL_int32 w]⌝ ∗ ⌜repr_vval θ u w⌝) ∗ GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F }}.
+     {{ w, (∃ k, ⌜w = immV [VAL_int32 k]⌝ ∗ ⌜repr_vval θ vv k⌝) ∗
+           GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F }}.
 Proof.
   iIntros (Em Hk Eu Hoff) "(HGC & Hℓ & HF)".
   iDestruct "HGC" as (ζ roots) "(Hζ & Hroots & Hζmem & Hrootsmem & %Hlive & %GCOK)".
@@ -186,21 +179,21 @@ Proof.
   pose proof (lookup_lt_Some _ _ _ Eu) as Hilt. rewrite <- Hwslen in Hilt.
   destruct (list_pluck _ _ _ Hilt) as [ws1 [wsi [ws2 [Hwsi [Hws1len Ews]]]]]. rewrite Ews.
   (* wsi = w *)
-  destruct (repr_vblock_index_word θ blk u ws i Eu Hws) as [w [Huw Hwi]].
+  destruct (repr_vblock_index_word θ blk vv ws j Eu Hws) as [w [Huw Hwi]].
   assert (w = wsi) by congruence. subst wsi.
-  unfold serialize_words.
+  unfold serialize_i32s.
   rewrite flat_map_app. rewrite (separate1 w). rewrite flat_map_app. simpl. rewrite app_nil_r.
-  rewrite (wms_app _ _ _ (vblock_offset i)). rewrite (wms_app _ (serialize_word w) _ 4).
+  rewrite (wms_app _ _ _ (vblock_offset j)). rewrite (wms_app _ (serialise_i32 w) _ 4).
   iDestruct "Ha" as "(Ha1 & Hai & Ha2)".
   (* add the loaded wms into the postcondition *)
-  iApply (wp_wand _ _ _ (λ w0, ((∃ w', ⌜w0 = immV [VAL_int32 w']⌝ ∗ ⌜repr_vval θ u w'⌝) ∗
-                               N.of_nat m ↦[wms][Wasm_int.N_of_uint i32m (code_addr a) + vblock_offset i] serialize_word w) ∗
+  iApply (wp_wand _ _ _ (λ w0, ((∃ w', ⌜w0 = immV [VAL_int32 w']⌝ ∗ ⌜repr_vval θ vv w'⌝) ∗
+                               N.of_nat m ↦[wms][Wasm_int.N_of_uint i32m (code_addr a) + vblock_offset j] serialise_i32 w) ∗
                                ↪[frame] F)%I
           with "[HF Hai] [Hζ Hroots Hrootsmem Hℓ Ha1 Ha2 Hζmem]").
   - iApply wp_load_deserialize.
-    + unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
+    + unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
     + assumption.
-    + unfold code_addr. unfold serialize_word. rewrite deserialise_serialise_i32. cbn.
+    + unfold code_addr. rewrite deserialise_serialise_i32. cbn.
       rewrite Wasm_int.Int32.Z_mod_modulus_id.
       * rewrite N2Z.id. iFrame. by iExists w.
       * lia.
@@ -209,20 +202,20 @@ Proof.
     rewrite <- wms_app; last first.
     { rewrite (@flat_map_constant_length _ _ 4).
       - rewrite Hws1len. unfold vblock_offset. lia.
-      - intros x Hx. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
+      - intros x Hx. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
     iCombine "Ha1 Ha2" as "Ha". rewrite <- N.add_assoc. rewrite <- wms_app; last first.
     { rewrite length_app. rewrite (@flat_map_constant_length _ _ 4).
-      - rewrite Hws1len. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. unfold vblock_offset. lia.
-      - intros x Hx. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
-    replace (serialize_word w) with (flat_map serialize_word [w]) by (rewrite <- flat_map_singleton; reflexivity).
+      - rewrite Hws1len. unfold serialise_i32. rewrite Memdata.encode_int_length. unfold vblock_offset. lia.
+      - intros x Hx. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
+    replace (serialise_i32 w) with (flat_map serialise_i32 [w]) by (rewrite <- flat_map_singleton; reflexivity).
     rewrite <- !flat_map_app. rewrite <- app_assoc. rewrite <- separate1. rewrite <- Ews.
     iAssert ⌜repr_vblock θ blk ws⌝%I as "Hws".
     { done. }
-    iApply "Hζmem". iExists (flat_map serialize_word ws), _. iFrame. auto.
-  - unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
+    iApply "Hζmem". iExists (flat_map serialise_i32 ws), _. iFrame. auto.
+  - unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
   - unfold vblock_offset. rewrite (@flat_map_constant_length _ _ 4).
     + rewrite Hws1len. lia.
-    + intros x Hx. unfold serialize_word. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
+    + intros x Hx. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
 Qed.
 
 End GCrules.
