@@ -1665,6 +1665,14 @@ Proof.
   lia.
 Qed.
 
+Lemma ilt_repr :
+  forall x y x32 y32,
+    N_repr x x32 ->
+    N_repr y y32 ->
+    Wasm_int.Int32.ltu x32 y32 = (x <? y)%N.
+Proof.
+Admitted.
+
 Lemma ilt_repr_true:
   forall x y x32 y32,
     N_repr x x32 ->
@@ -1673,6 +1681,16 @@ Lemma ilt_repr_true:
     Wasm_int.Int32.ltu x32 y32 = true.
 Proof.
 Admitted.
+
+Lemma ilt_repr_false:
+  forall x y x32 y32,
+    N_repr x x32 ->
+    N_repr y y32 ->
+    ¬(x < y)%N ->
+    Wasm_int.Int32.ltu x32 y32 = false.
+Proof.
+Admitted.
+
 
 (* "Effective" or functional versions of NoDup and ∉ *)
 Fixpoint NotInEff {A} (x: A) (l: list A) : Prop :=
@@ -2151,31 +2169,25 @@ Qed.
 (* SPECS: block creation *)
 (*TODO
 *)
-Lemma spec_new_block_space memidx final_blk_var final_sz final_blk_addr final_blk_addr32 
-  reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
+Lemma spec_new_block_prelude memidx final_blk_var final_sz final_blk_addr final_blk_addr32 
+  reqd_sz reqd_sz_var reqd_sz32 f E  :
   ⊢ {{{{
       final_block_repr memidx (FinalBlk final_sz) final_blk_addr ∗
       ↪[frame] f ∗
-      ⌜(reqd_sz + blk_hdr_sz < final_sz)%N ⌝ ∗
+      ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
       ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
       ⌜N_repr reqd_sz reqd_sz32⌝ ∗
-      ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
+      ⌜NoDupEff [final_blk_var; reqd_sz_var]⌝ ∗
       ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
       ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
-      ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
-      ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
-      ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝ ∗
       ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
   }}}}
-  to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
-  {{{{ w, ⌜w = immV [] ⌝ ∗
-         block_repr memidx (FreeBlk reqd_sz) final_blk_addr (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-         final_block_repr memidx (FinalBlk (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-         ∃ f', ↪[frame] f'
-  }}}}.
+  to_e_list (BI_get_local reqd_sz_var :: (add_hdr_sz ++ get_size final_blk_var ++ [BI_relop T_i32 (Relop_i (ROI_lt SX_U))])) @ E
+  {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool (N.ltb (reqd_sz + blk_hdr_sz) final_sz)%N)]⌝ ∗
+          final_block_repr memidx (FinalBlk final_sz) final_blk_addr ∗
+          ↪[frame] f  }}}}.
 Proof.
-  iIntros (Φ) "!> (Hblk & Hfr & %Hspace & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hfinal_blk & %Hreqd_sz & %Hdisj & %Hold_sz & %Hnew_blk & %Hactual_sz & %Hmem) HΦ".
-  unfold new_block.
+  iIntros (Φ) "!> (Hblk & Hfr & %Hbdd & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk & %Hreqd_sz & %Hmem) HΦ".
   iPoseProof (final_block_inbounds with "Hblk") as "(%Hfbdd & Hblk)".
   cbn in Hfbdd.
   wp_chomp 1.
@@ -2211,15 +2223,65 @@ Proof.
   all:swap 1 2.
   iIntros (w) "(%sz32 & %Hszrep & -> & Hblk & Hfr)".
   wp_chomp 3.
-  iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-  {
-    iApply (wp_relop with "[$Hfr]"); auto.
-    instantiate (1:= λ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝%I).
-    iIntros "!> !%".
-    do 4 f_equal.
-    eauto using ilt_repr_true.
-  }
+  iApply (wp_wand with "[Hfr]").
+  iApply (wp_relop with "[$Hfr]"); auto.
+  instantiate (1:= λ w, ⌜w = immV [VAL_int32 (wasm_bool (app_relop (Relop_i (ROI_lt SX_U)) (VAL_int32 out32) (VAL_int32 sz32)))]⌝%I).
+  auto.
   iIntros (w) "(-> & Hfr)".
+  iApply "HΦ"; iFrame; auto.
+  iPureIntro.
+  setoid_rewrite ilt_repr; eauto.
+  all:try iIntros "!>".
+  all:try (iIntros "(%Hw & _)"; congruence).
+  all:try (iIntros "(%out & %Hw & _)"; congruence).
+  all:try (iIntros "(%sz & H & (%Hw & _))"; congruence).
+Qed.
+
+Lemma spec_new_block_space memidx final_blk_var final_sz final_blk_addr final_blk_addr32 
+  reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
+  ⊢ {{{{
+      final_block_repr memidx (FinalBlk final_sz) final_blk_addr ∗
+      ↪[frame] f ∗
+      ⌜(reqd_sz + blk_hdr_sz < final_sz)%N ⌝ ∗
+      ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
+      ⌜N_repr reqd_sz reqd_sz32⌝ ∗
+      ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
+      ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
+      ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
+      ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
+      ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
+      ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝ ∗
+      ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
+  }}}}
+  to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
+  {{{{ w, ⌜w = immV [] ⌝ ∗
+         block_repr memidx (FreeBlk reqd_sz) final_blk_addr (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+         final_block_repr memidx (FinalBlk (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+         ∃ f', ↪[frame] f'
+  }}}}.
+Proof.
+  iIntros (Φ) "!> (Hblk & Hfr & %Hspace & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk & %Hreqd_sz & %Hold_sz & %Hnew_blk & %Hactual_sz & %Hmem) HΦ".
+  unfold new_block.
+  iPoseProof (final_block_inbounds with "Hblk") as "(%Hfbdd & Hblk)".
+  cbn in Hfbdd.
+  wp_chomp 6.
+  iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+  {
+    assert (NoDupEff [final_blk_var; reqd_sz_var]).
+    {
+      cbn in Hdisj.
+      cbn.
+      tauto.
+    }
+    assert (Z.of_N (final_blk_addr + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z.
+    { lia. }
+    iApply (spec_new_block_prelude with "[$Hfr $Hblk //]").
+    auto.
+  }
+  iIntros (w) "(-> & Hblk & Hfr)".
+  pose proof Hspace as Hspaceb.
+  apply N.ltb_lt in Hspaceb.
+  rewrite Hspace.
   iApply (wp_if_true with "[$Hfr]"); auto.
   {
     iIntros "!> Hfr".
@@ -2230,13 +2292,12 @@ Proof.
     iIntros "!> Hfr".
     iApply wp_wasm_empty_ctx.
     iApply wp_label_push_emp; last first.
-    cbn.
     iApply wp_ctx_bind; [by cbn |].
     assert (NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var]).
     {
       cbn.
-      cbn in Hfinal_blk.
-      lia.
+      cbn in Hdisj.
+      tauto.
     }
     iApply (spec_pinch_block with "[$Hblk $Hfr //]").
     iIntros (w) "(-> & Hblk & Hfblk & (%new32 & %old32 & %Hnewrep & (%f' & Hfr & %Hfinst & %Hflocs)))".
@@ -2253,28 +2314,30 @@ Proof.
     iApply "HΦ".
     by iFrame.
   }
-  all:cbn.
-  all:try iIntros "!>".
-  all:try (iIntros "(%Hw & _)"; congruence).
-  all:try (iIntros "(%out & %Hw & _)"; congruence).
-  all:try (iIntros "(%sz & H & (%Hw & _))"; congruence).
+  iIntros "(%Hw & _)"; congruence.
 Qed.
 
 Lemma spec_new_block_no_space memidx final_blk_var final_sz final_blk_addr final_blk_addr32 
   reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
   ⊢ {{{{
       final_block_repr memidx (FinalBlk final_sz) final_blk_addr ∗
+      ↪[frame] f ∗
       ⌜(reqd_sz + blk_hdr_sz >= final_sz)%N ⌝ ∗
       ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
       ⌜N_repr reqd_sz reqd_sz32⌝ ∗
+      ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
       ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
       ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
       ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
       ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
-      ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝
+      ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝ ∗
+      ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
   }}}}
   to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
-  {{{{ w, ⌜w = immV [] ⌝ (* TODO good postcondition for this case *)
+  {{{{ w, ⌜w = immV [] ⌝ ∗
+         block_repr memidx (FreeBlk reqd_sz) final_blk_addr (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+         final_block_repr memidx (FinalBlk (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+         ∃ f', ↪[frame] f'
   }}}}.
 Proof.
 Abort.
