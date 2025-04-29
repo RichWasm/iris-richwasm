@@ -2245,15 +2245,20 @@ Proof.
     inversion Hfill; subst.
     inversion H9; subst.
     cbn.
-    (* ? *)
-    admit.
+    iApply (wp_wand with "[Hfr]").
+    iApply (wp_label_value with "[$Hfr]"); auto.
+    instantiate (1:= λ w, ⌜w = immV [] ⌝%I).
+    auto.
+    iIntros (w) "(-> & Hfr)".
+    iApply "HΦ".
+    by iFrame.
   }
   all:cbn.
   all:try iIntros "!>".
   all:try (iIntros "(%Hw & _)"; congruence).
   all:try (iIntros "(%out & %Hw & _)"; congruence).
   all:try (iIntros "(%sz & H & (%Hw & _))"; congruence).
-Admitted.
+Qed.
 
 Lemma spec_new_block_no_space memidx final_blk_var final_sz final_blk_addr final_blk_addr32 
   reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
