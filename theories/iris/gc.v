@@ -238,7 +238,7 @@ Lemma wp_store_gc
   vblock_offset off2 = off2b ->
   off1 + off2 < length blk.(vals) ->
   repr_vval θ vv k ->
-  blk' = Build_vblock blk.(tag) (update_list_at blk.(vals) (off1 + off2) vv) ->
+  blk' = Build_vblock blk.(tag) (<[ off1 + off2 := vv ]> blk.(vals)) ->
   GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
   WP [AI_basic (BI_const (VAL_int32 i));
       AI_basic (BI_const (VAL_int32 k));
