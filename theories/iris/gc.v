@@ -161,6 +161,8 @@ Proof.
   - unfold bits. reflexivity.
 Qed.
 
+(* TODO: wp_alloc_gc *)
+
 Lemma wp_load_gc
     (s : stuckness) (E : coPset) (m : memaddr) (θ : addr_map)
     (i : i32) (ℓ : vloc) (blk : vblock)
@@ -225,5 +227,27 @@ Proof.
     + rewrite Hws1len. lia.
     + intros x Hx. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
 Qed.
+
+Lemma wp_store_gc
+    (s : stuckness) (E : coPset) (m : memaddr) (θ : addr_map)
+    (i k : i32) (ℓ : vloc) (blk blk' : vblock)
+    (off1 off2 : nat) (off2b : static_offset) (vv : vval)
+    (F : frame) :
+  F.(f_inst).(inst_memory) !! 0 = Some m ->
+  repr_vloc_offset θ ℓ off1 i ->
+  vblock_offset off2 = off2b ->
+  off1 + off2 < length blk.(vals) ->
+  repr_vval θ vv k ->
+  blk' = Build_vblock blk.(tag) (update_list_at blk.(vals) (off1 + off2) vv) ->
+  GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
+  WP [AI_basic (BI_const (VAL_int32 i));
+      AI_basic (BI_const (VAL_int32 k));
+      AI_basic (BI_store T_i32 None N.zero off2b)]
+     @ s; E
+     {{ w, ⌜w = immV []⌝ ∗ GC m θ ∗ ℓ ↦vblk blk' ∗ ↪[frame] F }}.
+Admitted.
+
+(* TODO: wp_registerroot_gc *)
+(* TODO: wp_unregisterroot_gc *)
 
 End GCrules.
