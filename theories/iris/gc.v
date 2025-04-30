@@ -60,8 +60,8 @@ Inductive repr_vloc_offset : addr_map -> vloc -> nat -> i32 -> Prop :=
       (Z.of_N a' < Wasm_int.Int32.modulus)%Z ->
       repr_vloc_offset θ ℓ i (code_addr a').
 
-Definition roots_are_live (θ : addr_map) (roots : gmap addr vval) : Prop :=
-  ∀ a ℓ, roots !! a = Some (Vloc ℓ) -> ℓ ∈ dom θ.
+Definition roots_are_live (θ : addr_map) (roots : gmap addr vloc) : Prop :=
+  ∀ a ℓ, roots !! a = Some ℓ -> ℓ ∈ dom θ.
 
 Definition gmap_inj `{Countable K} {V} (m : gmap K V) :=
   ∀ k1 k2 v, m !! k1 = Some v -> m !! k2 = Some v -> k1 = k2.
@@ -76,7 +76,7 @@ Definition GC_correct (ζ : vstore) (θ : addr_map) : Prop :=
 
 Class rwasm_gcG Σ := Rwasm_gcG {
   gcG_vstoreG :: ghost_mapG Σ vloc vblock;
-  gcG_rootsG :: ghost_mapG Σ addr vval;
+  gcG_rootsG :: ghost_mapG Σ addr vloc;
   gcG_vstore : gname;
   gcG_roots : gname;
 }.
@@ -97,11 +97,11 @@ Context `{wasmG Σ}.
 Context `{rwasm_gcG Σ}.
 
 Definition GC (m : memaddr) (θ : addr_map) : iProp Σ :=
-  ∃ (ζ : vstore) (roots : gmap addr vval),
+  ∃ (ζ : vstore) (roots : gmap addr vloc),
   ghost_map_auth gcG_vstore 1 ζ ∗
   ghost_map_auth gcG_roots 1 roots ∗
   ([∗ map] ℓ ↦ a; blk ∈ θ; ζ, ∃ bs ks, N.of_nat m ↦[wms][a] bs ∗ ⌜bs = serialize_i32s ks⌝ ∗ ⌜repr_vblock θ blk ks⌝) ∗
-  ([∗ map] a ↦ vv ∈ roots, ∃ bs k, N.of_nat m ↦[wms][a] bs ∗ ⌜bs = serialise_i32 k⌝ ∗ ⌜repr_vval θ vv k⌝) ∗
+  ([∗ map] a ↦ ℓ ∈ roots, ∃ bs k, N.of_nat m ↦[wms][a] bs ∗ ⌜bs = serialise_i32 k⌝ ∗ ⌜repr_vloc_offset θ ℓ 0 k⌝) ∗
   ⌜roots_are_live θ roots⌝ ∗
   ⌜GC_correct ζ θ⌝.
 
@@ -161,13 +161,24 @@ Proof.
   - unfold bits. reflexivity.
 Qed.
 
-(* TODO: wp_alloc_gc *)
+Definition spec_alloc_gc
+    (E : coPset)
+    (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
+    : iProp Σ :=
+  □ ∀ (F : frame) (m : memaddr) (θ : addr_map) (n : i32),
+  GC m θ ∗ N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
+  WP [AI_basic (BI_const (VAL_int32 n)); AI_invoke fid]
+     @ E
+     {{ w, ∃ θ' ℓ i blk,
+        ⌜w = immV [VAL_int32 i]⌝ ∗ ⌜repr_vloc_offset θ' ℓ 0 i⌝ ∗
+        ⌜length blk.(vals) = Wasm_int.nat_of_uint i32m n⌝ ∗
+        GC m θ' ∗ ℓ ↦vblk blk ∗
+        N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
 
 Lemma wp_load_gc
-    (s : stuckness) (E : coPset) (m : memaddr) (θ : addr_map)
+    (s : stuckness) (E : coPset) (F : frame) (m : memaddr) (θ : addr_map)
     (i : i32) (ℓ : vloc) (blk : vblock)
-    (off1 off2 : nat) (off2b : static_offset) (vv : vval)
-    (F : frame) :
+    (off1 off2 : nat) (off2b : static_offset) (vv : vval) :
   F.(f_inst).(inst_memory) !! 0 = Some m ->
   repr_vloc_offset θ ℓ off1 i ->
   blk.(vals) !! (off1 + off2) = Some vv ->
@@ -229,10 +240,9 @@ Proof.
 Qed.
 
 Lemma wp_store_gc
-    (s : stuckness) (E : coPset) (m : memaddr) (θ : addr_map)
+    (s : stuckness) (E : coPset) (F : frame) (m : memaddr) (θ : addr_map)
     (i k : i32) (ℓ : vloc) (blk blk' : vblock)
-    (off1 off2 : nat) (off2b : static_offset) (vv : vval)
-    (F : frame) :
+    (off1 off2 : nat) (off2b : static_offset) (vv : vval) :
   F.(f_inst).(inst_memory) !! 0 = Some m ->
   repr_vloc_offset θ ℓ off1 i ->
   vblock_offset off2 = off2b ->
@@ -247,7 +257,28 @@ Lemma wp_store_gc
      {{ w, ⌜w = immV []⌝ ∗ GC m θ ∗ ℓ ↦vblk blk' ∗ ↪[frame] F }}.
 Admitted.
 
-(* TODO: wp_registerroot_gc *)
-(* TODO: wp_unregisterroot_gc *)
+Definition spec_registerroot_gc
+    (E : coPset)
+    (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
+    : iProp Σ :=
+  □ ∀ (F : frame) (m : memaddr) (θ : addr_map) (ℓ : vloc) (i : i32),
+  GC m θ ∗ ⌜repr_vloc_offset θ ℓ 0 i⌝ ∗
+  N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
+  WP [AI_basic (BI_const (VAL_int32 i)); AI_invoke fid]
+     @ E
+     {{ w, ∃ k, ⌜w = immV [VAL_int32 k]⌝ ∗ Wasm_int.N_of_uint i32m k ↦root ℓ ∗ GC m θ ∗
+                N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
+
+Definition spec_unregisterroot_gc
+    (E : coPset)
+    (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
+    : iProp Σ :=
+  □ ∀ (F : frame) (m : memaddr) (θ : addr_map) (k : i32) (ℓ : vloc),
+  GC m θ ∗ Wasm_int.N_of_uint i32m k ↦root ℓ ∗
+  N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
+  WP [AI_basic (BI_const (VAL_int32 k)); AI_invoke fid]
+     @ E
+     {{ w, ∃ i, ⌜w = immV [VAL_int32 i]⌝ ∗ ⌜repr_vloc_offset θ ℓ 0 i⌝ ∗ GC m θ ∗
+                N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
 
 End GCrules.
