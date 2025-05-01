@@ -267,14 +267,17 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
     (pinch_block final_block reqd_sz old_sz new_block)
     (* else *)
     (mark_free final_block ++
+
      BI_get_local final_block ::
+
      BI_get_local reqd_sz ::
      u32const Wasm.operations.page_size ::
      BI_binop T_i32 (Binop_i (BOI_div SX_U)) ::
      u32const 1%N ::
-     BI_tee_local actual_size ::
      BI_binop T_i32 (Binop_i BOI_add) ::
+     BI_tee_local actual_size ::
      BI_grow_memory ::
+
      set_next ++
 
      BI_get_local final_block ::
@@ -843,10 +846,10 @@ Qed.
 (* SPECS: block setters *)
 Lemma spec_set_next_basic E memidx blk_addr blk_addr32 next_addr next_addr32 f :
   ⊢ {{{{ ⌜N_repr blk_addr blk_addr32⌝ ∗
-          ⌜N_repr next_addr next_addr32⌝ ∗
-          own_vec memidx (blk_addr + next_off) 4 ∗
-          ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
-          ↪[frame] f }}}}
+         ⌜N_repr next_addr next_addr32⌝ ∗
+         own_vec memidx (blk_addr + next_off) 4 ∗
+         ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝ ∗
+         ↪[frame] f }}}}
     to_e_list (BI_const (VAL_int32 blk_addr32) :: BI_const (VAL_int32 next_addr32) :: set_next) @ E
     {{{{ w, ⌜w = immV [] ⌝ ∗
             next_repr memidx next_addr blk_addr ∗
@@ -1124,7 +1127,6 @@ Lemma spec_mark_free_final E f memidx blk sz blk_addr blk_addr32 :
          ↪[frame] f }}}}
     (to_e_list (mark_free blk)) @ E
     {{{{ v, ⌜v = immV []⌝ ∗
-            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
             block_repr memidx (FreeBlk sz) blk_addr 0 ∗
             ↪[frame] f }}}}.
 Proof.
@@ -2007,7 +2009,7 @@ Proof.
     - auto.
   }
   (* get locals for set_next *)
-  iIntros (w) "(-> & %Hfinal & Hblk & Hfr)".
+  iIntros (w) "(-> & Hblk & Hfr)".
   wp_chomp 2.
   iApply wp_seq.
   iSplitR; last first.
@@ -2281,7 +2283,7 @@ Proof.
   iIntros (w) "(-> & Hblk & Hfr)".
   pose proof Hspace as Hspaceb.
   apply N.ltb_lt in Hspaceb.
-  rewrite Hspace.
+  rewrite Hspaceb.
   iApply (wp_if_true with "[$Hfr]"); auto.
   {
     iIntros "!> Hfr".
@@ -2322,7 +2324,8 @@ Lemma spec_new_block_no_space memidx final_blk_var final_sz final_blk_addr final
   ⊢ {{{{
       final_block_repr memidx (FinalBlk final_sz) final_blk_addr ∗
       ↪[frame] f ∗
-      ⌜(reqd_sz + blk_hdr_sz >= final_sz)%N ⌝ ∗
+      ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
+      ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
       ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
       ⌜N_repr reqd_sz reqd_sz32⌝ ∗
       ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
@@ -2340,8 +2343,143 @@ Lemma spec_new_block_no_space memidx final_blk_var final_sz final_blk_addr final
          ∃ f', ↪[frame] f'
   }}}}.
 Proof.
+  iIntros (Φ) "!> (Hblk & Hfr & %Hnospace & %Hbdd & %Hfinal_blk_rep 
+                  & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk 
+                  & %Hreqd_sz & %Hold_sz & %Hnew_blk 
+                  & %Hactual_sz & %Hmem) HΦ".
+  unfold new_block.
+  iPoseProof (final_block_inbounds with "Hblk") as "(%Hfbdd & Hblk)".
+  cbn in Hfbdd.
+  wp_chomp 6.
+  iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+  {
+    assert (NoDupEff [final_blk_var; reqd_sz_var]).
+    {
+      cbn in Hdisj.
+      cbn.
+      tauto.
+    }
+    clear Hfbdd. (* will mess up evar resolution by getting confused with Hbdd *)
+    iApply (spec_new_block_prelude with "[$Hfr $Hblk //]").
+    auto.
+  }
+  iIntros (w) "(-> & Hblk & Hfr)".
+  pose proof Hnospace as Hnospaceb.
+  apply N.ltb_ge in Hnospaceb.
+  rewrite Hnospaceb.
+  iApply (wp_if_false with "[$Hfr]"); auto.
+  {
+    iIntros "!> Hfr".
+    wp_chomp 0.
+    iApply (wp_block with "[$Hfr]"); eauto.
+    iIntros "!> Hfr".
+    iApply wp_wasm_empty_ctx.
+    iApply wp_label_push_emp; last first.
+    iApply wp_ctx_bind; [by cbn |].
+    iApply (wp_wand with "[Hfr Hblk]").
+    {
+      wp_chomp (length (mark_free final_blk_var)).
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+      {
+        iApply (spec_mark_free_final with "[$Hblk $Hfr //]").
+        auto.
+      }
+      iIntros (w) "(-> & Hblk & Hfr)".
+      wp_chomp 2.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        iApply (@wp_get_locals [final_blk_var; reqd_sz_var] with "[$Hfr//]"); eauto.
+      }
+      iIntros (w) "(-> & Hfr)".
+      (* computing the number of pages to grow *)
+      wp_chomp 8.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        wp_chomp 1.
+        iApply wp_val_app =>//. iSplitR; last first.
+        {
+          wp_chomp 3.
+          iApply (wp_wand with "[Hfr]").
+          iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+          iApply (wp_binop with "[$Hfr //]").
+          auto.
+          match goal with 
+          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+          end.
+          iIntros (w) "(-> & Hfr)".
+          cbn.
+          (* prevent unfolding of huge number *)
+          remember (Z.of_N page_size) as page_size_z.
+          wp_chomp 3.
+          iApply (wp_wand with "[Hfr]").
+          iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+          iApply (wp_binop with "[$Hfr //]").
+          auto.
+          match goal with 
+          | |- context [?g (immV ?v)] => 
+              instantiate (1:=λ w, ⌜w = immV v⌝%I);
+              auto
+          end.
+          iIntros (w) "(-> & Hfr)".
+          cbn.
+            set (z := (Wasm_int.Int32.iadd
+                         (Wasm_int.Int32.divu reqd_sz32 (Wasm_int.Int32.repr page_size_z))
+                         (Wasm_int.Int32.repr 1))).
+            set (f' := {| f_locs := set_nth (VAL_int32 z) (f_locs f) actual_size_var (VAL_int32 z); f_inst := f_inst f |}).
+          wp_chomp 2.
+          iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+          {
+            iApply (wp_tee_local with "[$Hfr //]").
+            iIntros "!> Hfr".
+            wp_chomp 1.
+            iApply wp_val_app;auto.
+            iSplitR; last first.
+
+            iApply (wp_wand with "[Hfr]").
+            iApply (wp_set_local with "[] [$Hfr]");
+              auto using lookup_lt_is_Some_1.
+            match goal with 
+            | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+            end.
+            iIntros (w) "(-> & Hfr)".
+            match goal with 
+            | |- context [?g (val_combine ?v1 ?v2)] =>
+                instantiate (1:= λ w, (⌜w = val_combine v1 v2 ⌝ ∗ ↪[frame]f')%I);
+                iFrame =>//
+            end.
+            cbn.
+            iIntros "!> (%Hw & _)" =>//.
+          }
+          iIntros (w) "(-> & Hfr)".
+          cbn.
+          iApply (wp_grow_memory with "[$Hfr]");try  iFrame.
+          admit.
+          admit.
+          admit.
+          admit.
+          {
+            iIntros (w) "[[[[Hw [Hpage Hmemlen]] %Hmembdd] | H''] Hfr]".
+            - admit.
+            - admit.
+          }
+          admit.
+          admit.
+        }
+        admit.
+      }
+      (*
+      wp_chomp 2.
+      iApply spec_set_next.
+      wp_chomp 2.
+      iApply wp_get_locals
+      wp_chomp 3.
+      iApply wp_binop.
+      wp_chomp 2.
+      iApply spec_set_size.
+      iApply spec_pinch_block.
+      *)
 Abort.
-  
+
 (* This needs to have a freelist_repr postcondition *)
 Lemma spec_new_block memidx final_blk_var final_sz final_blk_addr final_blk_addr32 
   reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
@@ -2431,4 +2569,3 @@ Abort.
 *)
 End specs.    
 End malloc.    
-      
