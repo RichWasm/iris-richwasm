@@ -161,6 +161,19 @@ Proof.
   - unfold bits. reflexivity.
 Qed.
 
+Lemma vblock_offset_linear : forall n m,
+  vblock_offset (n + m) = (vblock_offset n + vblock_offset m)%N.
+Proof.
+  intros n m. unfold vblock_offset. lia.
+Qed.
+
+Ltac solve_i32_bytes_len len :=
+  rewrite -> flat_map_constant_length with (c := 4);
+  [ rewrite len; unfold vblock_offset; unfold serialise_i32;
+    try rewrite Memdata.encode_int_length;
+    lia
+  | auto ].
+
 Definition spec_alloc_gc
     (E : coPset)
     (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
@@ -189,54 +202,52 @@ Lemma wp_load_gc
      {{ w, (∃ k, ⌜w = immV [VAL_int32 k]⌝ ∗ ⌜repr_vval θ vv k⌝) ∗
            GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F }}.
 Proof.
-  iIntros (Em Hk Eu Hoff) "(HGC & Hℓ & HF)".
-  iDestruct "HGC" as (ζ roots) "(Hζ & Hroots & Hζmem & Hrootsmem & %Hlive & %GCOK)".
-  inversion Hk as [θ' ℓ' off1' a a' Eθℓ Ea' Ha32 Eθ' Eℓ' Eoff1' Ei]. subst.
-  iDestruct (ghost_map_lookup with "Hζ Hℓ") as "%Eζℓ".
-  iDestruct (big_sepM2_lookup_acc _ _ _ _ _ _ Eθℓ Eζℓ with "Hζmem") as "[(%bs & %ws & Ha & %Hbs & %Hws) Hζmem]".
-  inversion Hws as [θ' blk' vbs Hwslen Hvals Evbs Eθ' Ews]. subst.
-  pose proof (lookup_lt_Some _ _ _ Eu) as Hilt. rewrite <- Hwslen in Hilt.
-  destruct (list_pluck _ _ _ Hilt) as [ws1 [wsi [ws2 [Hwsi [Hws1len Ews]]]]]. rewrite Ews.
-  (* wsi = w *)
-  destruct (repr_vblock_index θ blk vv ws (off1 + off2) Eu Hws) as [w [Huw Hwi]].
-  assert (w = wsi) by congruence. subst wsi.
-  unfold serialize_i32s.
-  rewrite flat_map_app. rewrite (separate1 w). rewrite flat_map_app. simpl. rewrite app_nil_r.
-  rewrite (wms_app _ _ _ (vblock_offset (off1 + off2))). rewrite (wms_app _ (serialise_i32 w) _ 4).
-  iDestruct "Ha" as "(Ha1 & Hai & Ha2)".
-  (* add the loaded wms into the postcondition *)
-  iApply (wp_wand _ _ _ (λ w0, ((∃ w', ⌜w0 = immV [VAL_int32 w']⌝ ∗ ⌜repr_vval θ vv w'⌝) ∗
-  N.of_nat m ↦[wms][Wasm_int.N_of_uint i32m (code_addr (a + vblock_offset off1)) + vblock_offset off2] serialise_i32 w) ∗
-                               ↪[frame] F)%I
-          with "[HF Hai] [Hζ Hroots Hrootsmem Hℓ Ha1 Ha2 Hζmem]").
-  - iApply wp_load_deserialize.
-    + unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
-    + assumption.
-    + unfold code_addr. rewrite deserialise_serialise_i32. cbn.
-      rewrite Wasm_int.Int32.Z_mod_modulus_id.
-      * rewrite N2Z.id. replace (vblock_offset (off1 + off2)) with ((vblock_offset off1 + vblock_offset off2)%N).
-        -- rewrite N.add_assoc. iFrame. by iExists w.
-        -- unfold vblock_offset. lia.
-      * lia.
-  - iIntros (v) "[[HΦ Hai] HF]". iFrame "∗ %". iCombine "Ha1 Hai" as "Ha1".
-    unfold code_addr. cbn. rewrite Wasm_int.Int32.Z_mod_modulus_id; last lia. rewrite N2Z.id.
-    rewrite <- (N.add_assoc _ (vblock_offset off1) _). rewrite <- wms_app; last first.
-    { rewrite (@flat_map_constant_length _ _ 4).
-      - rewrite Hws1len. unfold vblock_offset. lia.
-      - intros x Hx. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
-    iCombine "Ha1 Ha2" as "Ha". rewrite <- N.add_assoc. rewrite <- wms_app; last first.
-    { rewrite length_app. rewrite (@flat_map_constant_length _ _ 4).
-      - rewrite Hws1len. unfold serialise_i32. rewrite Memdata.encode_int_length. unfold vblock_offset. lia.
-      - intros x Hx. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity. }
-    replace (serialise_i32 w) with (flat_map serialise_i32 [w]) by (rewrite <- flat_map_singleton; reflexivity).
-    rewrite <- !flat_map_app. rewrite <- app_assoc. rewrite <- separate1. rewrite <- Ews.
-    iAssert ⌜repr_vblock θ blk ws⌝%I as "Hws".
-    { done. }
-    iApply "Hζmem". iExists (flat_map serialise_i32 ws), _. iFrame. auto.
-  - unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
-  - unfold vblock_offset. rewrite (@flat_map_constant_length _ _ 4).
-    + rewrite Hws1len. lia.
-    + intros x Hx. unfold serialise_i32. rewrite Memdata.encode_int_length. reflexivity.
+  iIntros (Hmem Hrepr_loc Hvv Hoff)
+    "((%ζ & %roots & HGvstore & HGroots & Hvmem & Hrmem & %Hroots & %HGCC) & Hℓ & HF)".
+  inversion Hrepr_loc as [θ' ℓ' off1' a a' Hθℓ Ha' Hi32 Hθ' Hℓ' Hoff1' Hi]. subst.
+  iDestruct (ghost_map_lookup with "HGvstore Hℓ") as "%Hζℓ".
+  iDestruct (big_sepM2_lookup_acc _ _ _ _ _ _ Hθℓ Hζℓ with "Hvmem") as
+    "[(%bs & %ks & Ha & %Hbs & %Hrepr_blk) Hvmem]".
+  inversion Hrepr_blk as [θ' blk' ks' Hlen_ks' Hvals Hθ' Hblk' Hks']. subst.
+  pose proof (lookup_lt_Some _ _ _ Hvv) as Hoff. rewrite <- Hlen_ks' in Hoff.
+
+  (* Pull out the physical value in the vblock repr corresponding to the offset. *)
+  destruct (list_pluck _ _ _ Hoff) as [ks1 [ki [ks2 [Hki [Hlen_ks1 Hks]]]]]. rewrite Hks.
+  destruct (repr_vblock_index θ blk vv ks (off1 + off2) Hvv Hrepr_blk) as [k [Hrepr_vv' Hk']].
+  assert (k = ki) by congruence. subst ki.
+
+  (* Pull out the bytes in the vblock points-to corresponding to the offset. *)
+  unfold serialize_i32s. rewrite flat_map_app. rewrite (separate1 k). rewrite flat_map_app.
+  simpl. rewrite app_nil_r.
+  rewrite (wms_app _ _ _ (vblock_offset (off1 + off2))).
+  rewrite (wms_app _ (serialise_i32 k) _ 4).
+  iDestruct "Ha" as "(Ha & Ha_off & Ha_rest)".
+
+  set ptr := (Wasm_int.N_of_uint i32m (code_addr (a + vblock_offset off1)) + vblock_offset off2)%N.
+  set post := (λ w,
+    ((∃ k', ⌜w = immV [VAL_int32 k']⌝ ∗ ⌜repr_vval θ vv k'⌝) ∗
+     N.of_nat m ↦[wms][ptr] serialise_i32 k) ∗ ↪[frame] F
+  )%I.
+  iApply (wp_wand _ _ _ post with "[HF Ha_off] [HGvstore HGroots Hrmem Hℓ Ha Ha_rest Hvmem]").
+  - (* Load the value from memory. *)
+    iApply wp_load_deserialize; auto.
+    unfold code_addr. rewrite deserialise_serialise_i32. cbn.
+    rewrite Wasm_int.Int32.Z_mod_modulus_id; last lia. rewrite N2Z.id.
+    rewrite vblock_offset_linear. rewrite N.add_assoc.
+    iFrame. by iExists k.
+  - (* Show that the intermediate postcondition implies the original postcondition. *)
+    iIntros (v) "[[HΦ Ha_off] HF]". iFrame "∗ %". iCombine "Ha Ha_off" as "Ha".
+    unfold code_addr. unfold ptr. cbn.
+    rewrite Wasm_int.Int32.Z_mod_modulus_id; last lia. rewrite N2Z.id.
+    rewrite <- (N.add_assoc _ (vblock_offset off1)). unfold vblock_offset.
+    rewrite <- wms_app; last (solve_i32_bytes_len Hlen_ks1).
+    iCombine "Ha Ha_rest" as "Ha". rewrite <- N.add_assoc.
+    rewrite <- wms_app; last (rewrite length_app; solve_i32_bytes_len (Hlen_ks1)).
+    replace (serialise_i32 k) with (flat_map serialise_i32 [k]) by (by rewrite flat_map_singleton).
+    rewrite <- !flat_map_app. rewrite <- app_assoc. rewrite <- separate1. rewrite <- Hks.
+    iApply "Hvmem". iExists _, _. by iFrame.
+  - auto.
+  - solve_i32_bytes_len Hlen_ks1.
 Qed.
 
 Lemma wp_store_gc
