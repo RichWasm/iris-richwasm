@@ -12,7 +12,8 @@ Import blocks.
 
 Section reprs.
 
-Context `{!wasmG Σ}. 
+Context `{!wasmG Σ} `{!allocG Σ}.
+Variables (memidx: N).
 
 (* beware:
     The i32 type is a record {intval: Z; proof: -1 < z < 2^32}.
@@ -63,41 +64,38 @@ Definition state_to_N (flag : state_flag) : N :=
   | Final => BLK_FINAL
   end.
 
-Definition alloc_tok (memidx: N) (data_addr: N) : iProp Σ.
-Admitted.
-
-Definition state_repr (memidx: N) (flag: state_flag) (base_addr: N) : iProp Σ :=
+Definition state_repr (flag: state_flag) (base_addr: N) : iProp Σ :=
   ∃ st,
     ⌜N_repr (state_to_N flag) st⌝ ∗
     memidx ↦[wms][base_addr + state_off] bits (VAL_int32 st).
 
-Definition size_repr (memidx: N) (sz: N) (base_addr: N) : iProp Σ :=
+Definition size_repr (sz: N) (base_addr: N) : iProp Σ :=
   ∃ sz32,
     ⌜N_repr sz sz32 ⌝ ∗
     memidx ↦[wms][base_addr + size_off] bits (VAL_int32 sz32).
 
-Definition next_repr (memidx: N) (next: N) (base_addr: N) : iProp Σ :=
+Definition next_repr (next: N) (base_addr: N) : iProp Σ :=
   ∃ next32,
     ⌜N_repr next next32 ⌝ ∗
-  memidx ↦[wms][base_addr + next_off] bits (VAL_int32 next32).
+      memidx ↦[wms][base_addr + next_off] bits (VAL_int32 next32).
 
-Definition data_repr memidx blk base_addr :=
+Definition data_repr blk :=
   match blk with
-  | UsedBlk blk_used_size blk_leftover_size =>
+  | UsedBlk base_addr blk_used_size blk_leftover_size =>
       own_vec memidx (base_addr + data_off + blk_used_size) blk_leftover_size
-  | FreeBlk blk_size =>
+  | FreeBlk base_addr blk_size =>
       own_vec memidx (base_addr + data_off) blk_size
   end.
 
-Definition block_inbounds (memidx: N) (blk_size: N) (base_addr: N) : iProp Σ :=
+Definition block_inbounds (blk_size: N) (base_addr: N) : iProp Σ :=
   ⌜(Z.of_N (base_addr + blk_hdr_sz + blk_size) < Wasm_int.Int32.modulus)%Z⌝.
 
-Definition block_repr (memidx: N) (blk: block) (base_addr next_addr: N) : iProp Σ :=
-  block_inbounds memidx (block_size blk) base_addr ∗
-  state_repr memidx (block_flag blk) base_addr ∗
-  size_repr memidx (block_size blk) base_addr ∗
-  next_repr memidx next_addr base_addr ∗
-  data_repr memidx blk base_addr.
+Definition block_repr (blk: block) (next_addr: N) : iProp Σ :=
+  block_inbounds (block_size blk) (block_addr blk) ∗
+  state_repr (block_flag blk) (block_addr blk) ∗
+  size_repr (block_size blk) (block_addr blk) ∗
+  next_repr next_addr (block_addr blk) ∗
+  data_repr blk.
 
 (* 
 EXTERNAL SPEC
@@ -111,81 +109,70 @@ blks "allocator state"
 own_block (N.of_nat memidx) ret_addr reqd_sz ∗
 *)
 
-Fixpoint blocks_repr (memidx: N) (blks: list block) (base_addr: N) (out_addr: N) : iProp Σ :=
+Fixpoint blocks_repr (blks: list block) (base_addr: N) : iProp Σ :=
   match blks with
   | blk :: blks =>
-      ∀ next_addr,
-        block_repr memidx blk base_addr next_addr ∗
-        blocks_repr memidx blks next_addr out_addr
-  | [] =>
-      ⌜base_addr = out_addr⌝
+      ⌜base_addr = block_addr blk⌝ ∗
+      ∀ next_addr, block_repr blk next_addr ∗
+                   blocks_repr blks next_addr
+  | [] => ⌜True⌝
   end.
 
-Definition final_block_repr (memidx: N) (blk: final_block) (base_addr: N) : iProp Σ :=
+Definition final_block_repr (blk: final_block) (base_addr: N) : iProp Σ :=
   match blk with
-  | FinalBlk blk_size =>
-      block_inbounds memidx blk_size base_addr ∧
-      state_repr memidx Final base_addr ∗
-      size_repr memidx blk_size base_addr ∗
-      next_repr memidx 0%N base_addr ∗
+  | FinalBlk base_addr' blk_size =>
+      ⌜base_addr' = base_addr⌝ ∗
+      block_inbounds blk_size base_addr ∧
+      state_repr Final base_addr ∗
+      size_repr blk_size base_addr ∗
+      next_repr 0%N base_addr ∗
       own_vec memidx (base_addr + data_off) blk_size
   end.
 
-Definition final_block_sz (blk: final_block) : N :=
-  match blk with
-  | FinalBlk sz => sz
-  end.
-
-Lemma final_block_inbounds (memidx: N) (blk: final_block) (base_addr: N) :
-  ⊢ final_block_repr memidx blk base_addr -∗
-    ⌜(Z.of_N (base_addr + blk_hdr_sz + final_block_sz blk) < Wasm_int.Int32.modulus)%Z⌝ ∗
-    final_block_repr memidx blk base_addr.
+Lemma final_block_inbounds (blk: final_block) (base_addr: N) :
+  ⊢ final_block_repr blk base_addr -∗
+    ⌜(Z.of_N (base_addr  + blk_hdr_sz + final_block_sz blk) < Wasm_int.Int32.modulus)%Z⌝ ∗
+    final_block_repr blk base_addr.
 Proof.
   iIntros "H".
   destruct blk.
-  iDestruct "H" as "(%Hinbounds & H')".
+  iDestruct "H" as "(-> & %Hinbounds & H')".
   iFrame; auto.
 Qed.
 
-Definition freelist_repr (memidx: N) (blks: list block * final_block) (base_addr: N) : iProp Σ :=
+Definition freelist_repr (blks: list block * final_block) (base_addr: N) : iProp Σ :=
   let '(blks, final) := blks in
   ∀ next_addr,
-    blocks_repr memidx blks base_addr next_addr ∗
-    final_block_repr memidx final next_addr.
+    blocks_repr blks next_addr ∗
+    final_block_repr final next_addr.
 
-Lemma own_vec_split memidx ℓ sz1 sz2 :
-  own_vec memidx ℓ (sz1 + sz2) ⊣⊢ own_vec memidx ℓ sz1 ∗ own_vec memidx (ℓ + sz1) sz2.
-Proof.
-  unfold own_vec.
-  iSplit.
-  - iIntros "(%bs & %Hlen & Hbs)".
-    pose proof (take_drop (N.to_nat sz1) bs) as Hsplit.
-    rewrite <- Hsplit.
-    rewrite wms_app; [|eauto; lia].
-    iDestruct "Hbs" as "(Hbs1 & Hbs2)".
-    iSplitL "Hbs1".
-    + iExists _; iFrame.
-      iPureIntro.
-      rewrite length_take_le; lia.
-    + rewrite length_take_le; [|lia].
-      rewrite N2Nat.id.
-      iExists _; iFrame.
-      iPureIntro.
-      rewrite length_drop.
-      lia.
-  - iIntros "((%bs1 & (%Hlen1 & Hbs1)) & (%bs2 & (%Hlen2 & Hbs2)))".
-    iExists (bs1 ++ bs2).
-    erewrite (wms_app _ _ _ (sz1:=sz1)); [| lia].
-    iFrame.
-    iPureIntro.
-    rewrite length_app.
-    lia.
-Qed.
+Definition block_shp (blk: block) : gmap N N :=
+  {[block_addr blk := block_size blk]}.
 
-Lemma serialise_i32_inj:
-  forall i k,
-    serialise_i32 i = serialise_i32 k ->
-    i = k.
-Admitted.
+Definition final_block_shp (blk: final_block) : gmap N N :=
+  {[final_block_addr blk := final_block_sz blk]}.
+
+(* Note: this doesn't enforce disjointness of block addresses, but the
+   freelist_repr relation does. *)
+Fixpoint blocklist_shp (blks: list block) : gmap N N :=
+  match blks with
+  | [] => ∅
+  | blk :: blks => block_shp blk ∪ (blocklist_shp blks)
+  end.
+
+Definition freelist_shp (blks: list block * final_block) (shp: gmap N N) : Prop :=
+  let '(blks, final) := blks in
+  (blocklist_shp blks) ∪ (final_block_shp final) = shp.
+
+(* An allocator token. *)
+Definition alloc_tok (data_addr: N) (sz: N) : iProp Σ :=
+  (data_addr ↦[tok] sz)%I.
+
+(* The allocator invariant. *)
+Definition alloc_inv : iProp Σ := 
+  ∃ (shp: gmap N N) (blks: list block * final_block),
+    ↪[toks] shp ∗
+    ⌜freelist_shp blks shp⌝ ∗
+    freelist_repr blks 0.
 
 End reprs.

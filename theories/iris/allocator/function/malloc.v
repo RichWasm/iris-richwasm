@@ -22,7 +22,7 @@ Set Bullet Behavior "Strict Subproofs".
 Module M := malloc_impl.
 Section malloc.
 
-Context `{!wasmG Σ}. 
+Context `{!wasmG Σ} `{!mallocG Σ}.
 
 Locate "↦[wms][".
 
