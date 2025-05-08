@@ -267,8 +267,7 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
      BI_const (VAL_int32 int32_minus_one) ::
      BI_relop T_i32 (Relop_i ROI_eq) ::
      BI_if (Tf [] [])
-       [BI_const (VAL_int32 int32_minus_one);
-        BI_unreachable]
+       [BI_unreachable]
        (mark_free final_block ++
         (* convert from pages to bytes *)
         mul_var_page_sz new_block ++

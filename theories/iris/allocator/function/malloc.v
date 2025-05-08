@@ -2276,7 +2276,14 @@ Proof.
           - instantiate (1:= (memlen `div` page_size)%N).
             rewrite nat_bin.
             cut (N_repr (Z.to_N (Z.of_nat (N.to_nat (memlen `div` page_size)))) (Wasm_int.Int32.repr (Z.of_nat (N.to_nat (N.div memlen page_size))))).
-            admit.
+            {
+              intros H'.
+              Search (Z.of_nat (N.to_nat _)).
+              rewrite N_nat_Z in H'.
+              rewrite N_nat_Z.
+              rewrite N2Z.id in H'.
+              exact H'.
+            }
             apply N_repr_repr.
             split; try lia.
             pose proof (Nat2Z.is_nonneg (N.to_nat (memlen `div` page_size))).
@@ -2332,13 +2339,13 @@ Proof.
           - iSplit; auto.
             iSplit; auto.
             rewrite N2Nat.id.
-            admit. (* TODO HERE *)
+            admit. (* TODO HERE SECOND *)
           - auto.
         }
         iIntros (w) "(-> & Hsz & Hvec & Hfr)".
         iApply spec_pinch_block.
         {
-            admit.
+            admit. (* TODO HERE FIRST *)
         }
         iIntros (w) "(-> & H)".
         cbn.
@@ -2389,6 +2396,7 @@ Proof.
       - iIntros "(%Hw & _)"; congruence.
     }
     iIntros (w) "H".
+    simpl push_base.
     admit.
   }
   iIntros "(%Hw & _)"; congruence.
