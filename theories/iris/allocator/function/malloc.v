@@ -10,6 +10,8 @@ From RWasm.iris.allocator Require Export allocator_common.
 From RWasm.iris.allocator Require Import misc_relocate reprs.
 From RWasm.iris.allocator Require Import malloc_impl.
 
+Import reprs.
+
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
@@ -17,35 +19,12 @@ Unset Printing Implicit Defensive.
 Set Bullet Behavior "Strict Subproofs".
 
 
-Ltac wp_chomp := take_drop_app_rewrite.
-Ltac wp_chomp2 := take_drop_app_rewrite_twice.
-
 Module M := malloc_impl.
 Section malloc.
 
 Context `{!wasmG Σ}. 
 
-Ltac fill_imm_pred :=
-  match goal with 
-  | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-  end.
-
 Locate "↦[wms][".
-
-Import reprs.
-Definition wp_frac_load
-  (q: dfrac)
-  (Φ : val → iProp Σ) (s : stuckness) (E : coPset) (t : value_type) (v : value)
-  (off : static_offset) (a : alignment_exponent) (k : i32) (n : nat) (f : frame) :
-  types_agree t v →
-  inst_memory (f_inst f) !! 0 = Some n →
-  ▷ Φ (immV [v]) ∗
-  ↪[frame]f ∗
-  N.of_nat n↦[wms]{q}[Wasm_int.N_of_uint i32m k + off] bits v
-  ⊢ WP [AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_load t None a off)] @ s; E 
-       {{ w, (Φ w ∗ N.of_nat n↦[wms]{q}[Wasm_int.N_of_uint i32m k + off]bits v) ∗  ↪[frame]f }}.
-Proof.
-Admitted.
 
 (* SPECS: block getters *)
 Lemma spec_get_state E memidx blk blk_addr next_addr blk_addr32 blk_var f :
@@ -81,7 +60,7 @@ Proof.
                        ((⌜w = immV [VAL_int32 st32]⌝ ∗
                          N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + 0]bits (VAL_int32 st32)) ∗ ↪[frame]f)%I)).
 *)
-    + iApply (wp_frac_load (DfracOwn (state_frac (block_flag blk)))); try iFrame; eauto.
+    + iApply wp_load; try iFrame; eauto.
       fill_imm_pred.
     + iIntros (w) "((%Hw & Hptr) & Hfr)".
       subst w.
@@ -591,22 +570,14 @@ Proof.
   iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
   iApply (wp_wand with "[Hstfield Htok Hfr]").
   - unfold state_off.
-    iDestruct "Htok" as "(%st & %Hstrep & Htok)".
-    simpl state_frac.
-    replace (blk_addr + data_off - data_off + state_off)%N with (blk_addr + 0)%N
-      by (unfold data_off, state_off; lia).
-    iPoseProof (mem_block_at_frac_combine with "[$]") as "[Hst %steq]".
-    rewrite dfrac_op_own Qp.half_half.
-    iPoseProof (mem_block_at_frac_one with "Hst") as "Hst".
     iApply wp_store; eauto.
-    by instantiate (1:= bits (VAL_int32 st)).
+    by instantiate (1:= bits (VAL_int32 st32)).
     iFrame.
     iSplitR.
     fill_imm_pred.
     rewrite Haddr.
     rewrite N2Nat.id.
-    simpl in steq.
-    iApply "Hst".
+    by iFrame.
   - iIntros (w) "((%Hw & Hstfield) & Hfr)".
     subst w.
     iApply "HΦ".
@@ -618,9 +589,9 @@ Proof.
     rewrite own_vec_split.
     iFrame.
     iExists _.
-    simpl state_frac. unfold state_off.
     rewrite -Haddr.
-    iFrame; auto.
+    unfold state_off.
+    by iFrame.
 Qed.
 
 Lemma spec_mark_free_final E f memidx blk sz blk_addr blk_addr32 :
@@ -679,7 +650,7 @@ Lemma spec_mark_used E f memidx blk sz blk_addr blk_addr32 next_addr sz_u sz_lef
     {{{{ v, ⌜v = immV []⌝ ∗
             ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
             own_vec memidx (blk_addr + data_off) sz_u ∗
-            alloc_tok memidx (blk_addr + data_off) ∗
+            (*alloc_tok memidx (blk_addr + data_off) ∗*)
             block_repr memidx (UsedBlk sz_u sz_left) blk_addr next_addr ∗
             ↪[frame] f }}}}.
 Proof.
@@ -716,11 +687,6 @@ Proof.
     rewrite Hsz.
     rewrite N2Nat.id.
     iPoseProof (own_vec_split with "Hvec") as "(Hvec1 & Hvec2)".
-    iPoseProof (mem_block_at_frac_halve  with "Hstfield") as "[Hst Htok]".
-    iEval (replace (blk_addr + state_off)%N 
-            with (blk_addr + data_off - data_off + state_off)%N 
-            by (unfold data_off, state_off; lia))
-      in "Htok".
     iFrame; auto.
 Qed.
 

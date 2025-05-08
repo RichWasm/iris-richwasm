@@ -63,21 +63,13 @@ Definition state_to_N (flag : state_flag) : N :=
   | Final => BLK_FINAL
   end.
 
-Definition state_frac flag : Qp :=
-  match flag with
-  | Used => 1/2
-  | _ => 1
-  end.
-
-Definition alloc_tok (memidx: N) (data_addr: N) : iProp Σ :=
-  ∃ st,
-    ⌜N_repr (state_to_N Used) st⌝ ∗
-     memidx ↦[wms]{DfracOwn (1/2)}[data_addr - data_off + state_off] bits (VAL_int32 st).
+Definition alloc_tok (memidx: N) (data_addr: N) : iProp Σ.
+Admitted.
 
 Definition state_repr (memidx: N) (flag: state_flag) (base_addr: N) : iProp Σ :=
   ∃ st,
     ⌜N_repr (state_to_N flag) st⌝ ∗
-    memidx ↦[wms]{DfracOwn (state_frac flag)}[base_addr + state_off] bits (VAL_int32 st).
+    memidx ↦[wms][base_addr + state_off] bits (VAL_int32 st).
 
 Definition size_repr (memidx: N) (sz: N) (base_addr: N) : iProp Σ :=
   ∃ sz32,

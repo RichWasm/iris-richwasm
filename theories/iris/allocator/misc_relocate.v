@@ -83,3 +83,10 @@ Proof.
 Qed.
 
 End misc.
+
+Ltac wp_chomp := take_drop_app_rewrite.
+Ltac wp_chomp2 := take_drop_app_rewrite_twice.
+Ltac fill_imm_pred :=
+  match goal with 
+  | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+  end.
