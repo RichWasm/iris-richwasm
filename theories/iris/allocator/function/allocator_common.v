@@ -38,3 +38,18 @@ Definition points_to_i32 `{!wasmG Σ} n i v :=
                 ⌜ serialise_i32 v = [a ; b ; c ; d] ⌝)%I.
 
 Notation "n ↦[i32][ k ] v" := (points_to_i32 n k v) (at level 50).
+
+Definition BLK_FREE  : N := 0.
+Definition BLK_USED  : N := 1.
+Definition BLK_FINAL : N := 2.
+
+(* sizeof(state_t) *)
+Definition state_sz : N := 4.
+(* sizeof(block_t) sans data *)
+Definition blk_hdr_sz : N := 12.
+
+(* offsets for fields of block_t *)
+Definition state_off : N := 0.
+Definition size_off  : N := 4.
+Definition next_off  : N := 8.
+Definition data_off  : N := blk_hdr_sz.
