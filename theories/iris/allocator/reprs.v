@@ -147,10 +147,10 @@ Definition freelist_repr (blks: list block * final_block) (base_addr: N) : iProp
     final_block_repr final next_addr.
 
 Definition block_shp (blk: block) : gmap N N :=
-  {[block_addr blk := block_size blk]}.
+  {[(block_addr blk + data_off)%N := block_size blk]}.
 
 Definition final_block_shp (blk: final_block) : gmap N N :=
-  {[final_block_addr blk := final_block_sz blk]}.
+  {[(final_block_addr blk + data_off)%N := final_block_sz blk]}.
 
 (* Note: this doesn't enforce disjointness of block addresses, but the
    freelist_repr relation does. *)
