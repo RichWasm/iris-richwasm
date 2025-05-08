@@ -254,7 +254,7 @@ Definition pinch_block final_block reqd_sz old_sz new_block :=
 
 Definition mul_page_sz :=
   [u32const Wasm.operations.page_size;
-   BI_binop T_i32 (Binop_i (BOI_div SX_U))].
+   BI_binop T_i32 (Binop_i BOI_mul)].
 
 Definition mul_var_page_sz var :=
   BI_get_local var ::
@@ -1631,6 +1631,46 @@ Proof.
   intuition congruence.
 Qed.
 
+Lemma imul_repr:
+  forall (x y z: N) x32 y32,
+    N_repr x x32 ->
+    N_repr y y32 ->
+    (Z.of_N z < Wasm_int.Int32.modulus)%Z ->
+    (x * y = z)%N ->
+    N_repr z (Wasm_int.Int32.imul x32 y32).
+Proof.
+  intros ? ? ? ? ? [Hxbdd Hx] [Hybdd Hy] Hzbdd Hsum.
+  split.
+  - lia.
+  - unfold Wasm_int.Int32.imul, Wasm_int.Int32.mul.
+    rewrite !unsigned_is_N.
+    unfold Wasm_int.Int32.repr.
+    cbn.
+    rewrite Wasm_int.Int32.Z_mod_modulus_id.
+    rewrite Z2N.id; [|apply Wasm_int.Int32.unsigned_range].
+    rewrite Z2N.id; [|apply Wasm_int.Int32.unsigned_range].
+    rewrite Z2N.inj_mul; try apply Wasm_int.Int32.unsigned_range.
+    rewrite !unsigned_is_N.
+    rewrite <- Hy.
+    rewrite <- Hx.
+    now rewrite !N2Z.id.
+    rewrite !Z2N.id; try apply Wasm_int.Int32.unsigned_range.
+    rewrite !unsigned_is_N.
+    lia.
+Qed.
+
+Lemma N_repr_repr x: 
+  (-1 < x < Wasm_int.Int32.modulus)%Z ->
+  N_repr (Z.to_N x) (Wasm_int.Int32.repr x).
+Proof.
+  intros H.
+  unfold Wasm_int.Int32.repr.
+  split.
+  - lia.
+  - cbn. 
+    rewrite Wasm_int.Int32.Z_mod_modulus_id; lia.
+Qed.
+
 Lemma iadd_repr:
   forall (x y z: N) x32 y32,
     N_repr x x32 ->
@@ -1657,6 +1697,34 @@ Proof.
     rewrite !Z2N.id; try apply Wasm_int.Int32.unsigned_range.
     rewrite !unsigned_is_N.
     lia.
+Qed.
+
+Lemma divu_repr:
+  forall (x y z: N) x32 y32,
+    N_repr x x32 ->
+    N_repr y y32 ->
+    (Z.of_N z < Wasm_int.Int32.modulus)%Z ->
+    (x `div` y = z)%N ->
+    N_repr z (Wasm_int.Int32.divu x32 y32).
+Proof.
+  intros ? ? ? ? ? [Hxbdd Hx] [Hybdd Hy] Hzbdd Hsum.
+  split.
+  - lia.
+  - unfold Wasm_int.Int32.divu.
+    rewrite !unsigned_is_N.
+    cbn.
+    rewrite Wasm_int.Int32.Z_mod_modulus_id.
+    + rewrite Z2N.id; [|apply Wasm_int.Int32.unsigned_range].
+      rewrite Z2N.id; [|apply Wasm_int.Int32.unsigned_range].
+      rewrite Z2N.inj_div; try apply Wasm_int.Int32.unsigned_range.
+      rewrite !unsigned_is_N.
+      rewrite <- Hy.
+      rewrite <- Hx.
+      now rewrite !N2Z.id.
+    + rewrite !Z2N.id; try apply Wasm_int.Int32.unsigned_range.
+      rewrite !unsigned_is_N.
+      rewrite <- Hy, <- Hx.
+      lia.
 Qed.
 
 Lemma isub_repr:
@@ -2338,20 +2406,62 @@ Proof.
   iIntros "(%Hw & _)"; congruence.
 Qed.
 
-Lemma spec_mul_var_page_sz var pages bytes32 pages32 f E :
+Lemma spec_mul_var_page_sz var pages32 f E :
   ⊢ {{{{ ↪[frame] f ∗
-         ⌜N_repr pages pages32 ⌝ ∗
-         ⌜f.(f_locs) !! var = Some (VAL_int32 pages32)⌝ ∗
-         ⌜N_repr (pages * page_size) bytes32 ⌝ }}}}
+         ⌜f.(f_locs) !! var = Some (VAL_int32 pages32)⌝ }}}}
     to_e_list (mul_var_page_sz var) @ E
     {{{{ w, ⌜w = immV [] ⌝ ∗ 
-            ↪[frame] {| f_locs := set_nth (VAL_int32 bytes32) (f_locs f) var (VAL_int32 bytes32); f_inst := f_inst f |}
+            ↪[frame] {| 
+              f_locs := set_nth
+                          (VAL_int32 (Wasm_int.Int32.mul pages32 (Wasm_int.int_of_Z i32m (Z.of_N page_size))))
+                          (f_locs f) var
+                          (VAL_int32 (Wasm_int.Int32.mul pages32 (Wasm_int.int_of_Z i32m (Z.of_N page_size))));
+              f_inst := f_inst f
+            |}
     }}}}.
 Proof.
-  iIntros (Φ) "!> (Hfr & %Hpages & Hvar & Hbytes) HΦ".
+  iIntros (Φ) "!> (Hfr & %Hvar) HΦ".
   wp_chomp 1.
-  iApply wp_seq.
-Admitted.
+  iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+  {
+    iApply wp_get_local; eauto.
+    match goal with 
+    | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+    end.
+  }
+  iIntros (w) "(-> & Hfr)".
+  wp_chomp 3.
+  iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+  {
+    iApply (wp_binop with "[$Hfr]"); eauto.
+    match goal with 
+    | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+    end.
+  }
+  iIntros (w) "(-> & Hfr)".
+  iApply (wp_wand with "[Hfr]").
+  iApply (wp_set_local with "[] [$Hfr]").
+  apply lookup_lt_is_Some_1; auto.
+  match goal with 
+  | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+  end.
+  iIntros (w) "(-> & Hfr)".
+  iApply "HΦ"; iFrame; auto.
+  iIntros "(%Hcontra & _)"; congruence.
+  iIntros "(%Hcontra & _)"; congruence.
+Qed.
+
+Lemma N_div_contr (n m: N) :
+  (n `div` m <= n)%N.
+Proof.
+  destruct (N.eq_dec m 0)%N.
+  - subst.
+    rewrite N.div_0_r.
+    lia.
+  - apply N.Div0.div_le_upper_bound.
+    apply N.le_mul_l.
+    auto.
+Qed.
 
 Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_addr final_blk_addr32 
   reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
@@ -2359,6 +2469,7 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
       final_block_repr memidx (FinalBlk final_sz) final_blk_addr ∗
       ↪[frame] f ∗
       memidx ↦[wmlength] memlen ∗
+      ⌜(page_size | memlen)%N⌝ ∗
       ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
       ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
       ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
@@ -2378,7 +2489,7 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
          ∃ f', ↪[frame] f'
   }}}}.
 Proof.
-  iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hnospace & %Hbdd & %Hfinal_blk_rep 
+  iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hmemmod & %Hnospace & %Hbdd & %Hfinal_blk_rep 
                   & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk 
                   & %Hreqd_sz & %Hold_sz & %Hnew_blk 
                   & %Hactual_sz & %Hmem) HΦ".
@@ -2416,16 +2527,28 @@ Proof.
     iApply wp_ctx_bind; [by cbn |].
     (* need in order to prevent unfolding of huge number later *)
     remember (Z.of_N page_size) as page_size_z.
-    pose (reqd_pages :=
-            (Wasm_int.N_of_uint i32m
-               (Wasm_int.Int32.iadd
-                  (Wasm_int.Int32.divu reqd_sz32
-                     (Wasm_int.Int32.repr page_size_z))
-                  (Wasm_int.Int32.repr 1)))).
+    pose (reqd_pages := ((reqd_sz `div` page_size) + 1)%N).
     pose (reqd_mem := (reqd_pages * page_size)%N).
     set (reqd_pages32 := (Wasm_int.Int32.iadd
                             (Wasm_int.Int32.divu reqd_sz32 (Wasm_int.Int32.repr page_size_z))
                             (Wasm_int.Int32.repr 1))) in *.
+    assert (N_repr reqd_pages reqd_pages32).
+    {
+      unfold reqd_pages, reqd_pages32.
+      eapply iadd_repr.
+      - pose proof (@N_div_contr reqd_sz page_size).
+        eapply divu_repr; try reflexivity.
+        eauto.
+        instantiate (1:=page_size).
+        unfold Wasm_int.Int32.repr.
+        rewrite Heqpage_size_z.
+        split; done.
+        lia.
+      - instantiate (1:= 1%N).
+        by cbv.
+      - admit.
+      - reflexivity.
+    }
     set (f' := {| f_locs := set_nth (VAL_int32 reqd_pages32) (f_locs f) actual_size_var (VAL_int32 reqd_pages32); f_inst := f_inst f |}).
     iApply (wp_wand with "[Hfr Hblk Hmemlen]").
     {
@@ -2570,25 +2693,166 @@ Proof.
           - auto.
         }
         iIntros (w) "(-> & Hblock & Hfr)".
+        wp_chomp 4.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        {
+          cbn in Hdisj.
+          iApply (spec_mul_var_page_sz with "[$Hfr]").
+          - cbn.
+            by erewrite set_nth_read.
+          - auto.
+        }
+        iIntros (w) "(-> & Hfr)".
+        wp_chomp 4.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        {
+          cbn in Hdisj.
+          iApply (spec_mul_var_page_sz with "[$Hfr]").
+          - iPureIntro.
+            apply set_nth_read_neq. intuition.
+            apply set_nth_read_neq. intuition.
+            apply set_nth_read.
+          - auto.
+        }
+        iIntros (w) "(-> & Hfr)".
         wp_chomp 2.
         iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
         {
           iApply ((@wp_get_locals [final_blk_var; new_blk_var]) with "[Hfr]"); auto.
+          cbn in Hdisj.
           constructor.
           cbn. erewrite set_nth_read_neq; auto.
-          cbn in Hdisj; intuition.
+          intuition.
           cbn. erewrite set_nth_read_neq; auto.
-          cbn in Hdisj; intuition.
+          intuition.
+          cbn. erewrite set_nth_read_neq; auto.
+          intuition.
+          cbn. erewrite set_nth_read_neq; auto.
+          intuition.
           eauto.
           constructor.
+          cbn. erewrite set_nth_read_neq; eauto.
+          intuition.
           cbn. erewrite set_nth_read; eauto.
           constructor.
         }
+        fold f'.
+        match goal with
+        | |- context[ ↪[frame] ?f ] => set (f'' := f)
+        end.
         iIntros (w) "(-> & Hfr)".
+        rewrite <- Heqpage_size_z.
+        assert (Z.of_N page_size < Wasm_int.Int32.modulus)%Z.
+        {
+          apply Z.ltb_lt; reflexivity.
+        }
+        assert (N_repr (reqd_pages * page_size) (Wasm_int.Int32.mul reqd_pages32 (Wasm_int.Int32.repr page_size_z))).
+        {
+          clear f''.
+          eapply imul_repr; eauto.
+          - rewrite Heqpage_size_z.
+            constructor.
+            split; eauto.
+            unfold Wasm_int.Int32.repr.
+            cbn.
+            rewrite Wasm_int.Int32.Z_mod_modulus_id.
+            by rewrite N2Z.id.
+            split; eauto.
+          - admit.
+        }
+        assert (N_repr memlen
+                  (Wasm_int.Int32.mul (Wasm_int.Int32.repr
+                                         (ssrnat.nat_of_bin (memlen `div` page_size)))
+                     (Wasm_int.Int32.repr page_size_z))).
+        {
+          clear f''.
+          replace (N_repr memlen) with (N_repr ((memlen `div` page_size) * page_size)%N).
+          rewrite Heqpage_size_z.
+          eapply imul_repr.
+          - instantiate (1:= (memlen `div` page_size)%N).
+            admit.
+          - apply N_repr_repr.
+            by vm_compute.
+          - admit.
+          - by rewrite N2Z.id.
+          - f_equal.
+            admit.
+        } 
         wp_chomp 3.
         iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblock".
         {
           iApply (spec_set_next with "[$Hblock $Hfr]"); cbn; auto.
+        }
+        iIntros (w) "(-> & Hblk & Hfr)".
+        wp_chomp 2.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        {
+          cbn in Hdisj.
+          iApply ((@wp_get_locals [new_blk_var; actual_size_var]) with "[$Hfr]"); auto.
+          constructor.
+          cbn. apply set_nth_read_neq. intuition.
+          cbn. apply set_nth_read.
+          constructor.
+          cbn. apply set_nth_read.
+          constructor.
+        }
+        iIntros (w) "(-> & Hfr)".
+
+        rewrite <- Heqpage_size_z.
+        wp_chomp 3.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hvec".
+        {
+          iApply (spec_set_size_final_setup with "[$Hfr Hvec]").
+          - iSplit; auto.
+            iSplit; auto.
+            rewrite N2Nat.id.
+            admit. (* need to ask for an extra hdr_size bytes....? *)
+          - auto.
+        }
+        iIntros (w) "(-> & Hsz & Hvec & Hfr)".
+        iApply spec_pinch_block.
+        {
+            admit.
+        }
+        iIntros (w) "(-> & H)".
+        cbn.
+        admit.
+        admit.
+        admit.
+        admit.
+        admit.
+        admit.
+        admit.
+        admit.
+        admit.
+        admit.
+        admit.
+        (*
+          iApply spec_get_size.
+          cbn in Hdisj.
+          iApply (wp_get_local with "[] [$Hfr]").
+          cbn.
+          apply set_nth_read_neq. intuition.
+          apply set_nth_read_neq. intuition.
+          apply set_nth_read_neq. intuition.
+          apply set_nth_read_neq. intuition.
+          eauto.
+          match goal with 
+          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+          end.
+        }
+        iIntros (w) "(-> & Hfr)".
+
+              
+            iSplit.
+          
+          iPureIntro.
+          eauto.
+          auto.
+          i
+        apply set_nth_read_neq. intuition.
+          iA
+          
           iPureIntro.
           split; auto.
           split; auto.
@@ -2669,6 +2933,7 @@ Proof.
         {
         }
         admit.
+*)
       - iDestruct "Hfailure" as "(-> & Hmemlen)".
         wp_chomp 2.
         iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
@@ -2720,6 +2985,7 @@ Lemma spec_new_block memidx final_blk_var final_sz final_blk_addr final_blk_addr
   ⊢ {{{{
       final_block_repr memidx (FinalBlk final_sz) final_blk_addr ∗
       ⌜(reqd_sz + blk_hdr_sz >= final_sz)%N ⌝ ∗
+
       ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
       ⌜N_repr reqd_sz reqd_sz32⌝ ∗
       ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
