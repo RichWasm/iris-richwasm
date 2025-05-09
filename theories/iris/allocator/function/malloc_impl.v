@@ -252,7 +252,9 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
   BI_relop T_i32 (Relop_i (ROI_lt SX_U)) ::
   BI_if (Tf [] [])
     (* then *)
-    (pinch_block final_block reqd_sz old_sz new_block)
+    (BI_get_local final_block ::
+     BI_set_local new_block ::
+     pinch_block new_block reqd_sz old_sz final_block)
     (* else *)
     (BI_get_local reqd_sz ::
      add_hdr_sz ++
@@ -314,16 +316,16 @@ Definition malloc_loop_body reqd_sz cur_block :=
      [BI_set_local cur_block])]
   .
 
-Definition malloc_body reqd_sz cur_block tmp1 tmp2 tmp3 :=
+Definition malloc_body reqd_sz cur_block tmp1 new_blk tmp2 :=
   (* Location of first block in the free list. *)
   i32const 0 ::
   (* Store the current block. *)
   BI_set_local cur_block ::
   BI_loop (Tf [] []) (malloc_loop_body reqd_sz cur_block) ::
   (* OK, we are at the end of the list! *)
-  new_block cur_block reqd_sz tmp1 tmp2 tmp3 ++
-  mark_used cur_block ++
-  BI_get_local cur_block ::
+  new_block cur_block reqd_sz tmp1 new_blk tmp2 ++
+  mark_used new_blk ++
+  BI_get_local new_blk ::
   BI_return ::
   nil.
   

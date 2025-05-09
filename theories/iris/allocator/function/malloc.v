@@ -1838,10 +1838,13 @@ Lemma spec_new_block_space memidx final_blk_var final_sz final_blk_addr final_bl
   }}}}
   to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
   {{{{ w, ⌜w = immV [] ⌝ ∗
-         block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz)%N ∗
-         final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-         ∃ f', ↪[frame] f' ∗
-               ⌜f_inst f' = f_inst f⌝
+          ∃ f' new_addr32,
+            block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz)%N ∗
+            final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+            ↪[frame] f' ∗
+            ⌜f_inst f' = f_inst f⌝ ∗
+            ⌜N_repr (final_blk_addr + reqd_sz + blk_hdr_sz)%N new_addr32⌝ ∗
+            ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝
   }}}}.
 Proof.
   iIntros (Φ) "!> (Hblk & Hfr & %Hspace & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk & %Hreqd_sz & %Hold_sz & %Hnew_blk & %Hactual_sz & %Hmem) HΦ".
@@ -1883,7 +1886,37 @@ Proof.
       cbn in Hdisj.
       tauto.
     }
-    iApply (spec_pinch_block with "[$Hblk $Hfr //]").
+    wp_chomp 1. iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_get_local with "[] [$Hfr]").
+      eauto.
+      iModIntro.
+      fill_imm_pred.
+    }
+    iIntros (w) "(-> & Hfr)".
+    wp_chomp 2. iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_set_local with "[] [$Hfr]").
+      - auto using lookup_lt_is_Some_1.
+      - fill_imm_pred.
+    }
+    iIntros (w) "(-> & Hfr)".
+    iApply (spec_pinch_block with "[$Hblk $Hfr]").
+    {
+      cbn in Hdisj.
+      simpl f_locs.
+      iPureIntro.
+      repeat match goal with
+             | |- _ /\ _ => split
+             end;
+        repeat match goal with
+          | |- _ !! _ = Some _ => eassumption
+          | |- _ !! _ = Some _ => eapply set_nth_read_neq; [by intuition |]
+          | |- _ !! _ = Some _ => by (eapply set_nth_read; eauto)
+          end;
+        eauto.
+      cbn. intuition.
+    }
     iIntros (w) "(-> & Hblk & Hfblk & (%new32 & %old32 & %Hnewrep & (%f' & Hfr & %Hfinst & %Hflocs)))".
     iIntros (x) "%Hfill".
     move /lfilledP in Hfill.
@@ -1896,7 +1929,14 @@ Proof.
     auto.
     iIntros (w) "(-> & Hfr)".
     iApply "HΦ".
-    by iFrame.
+    iSplit; [by auto|].
+    iExists f', new32.
+    try iFrame.
+    iPureIntro.
+    intuition.
+    rewrite Hflocs.
+    apply set_nth_read.
+    all:iIntros "(%Hw & _)"; congruence.
   }
   iIntros "(%Hw & _)"; congruence.
 Qed.
@@ -1978,9 +2018,13 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
   }}}}
   to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
   {{{{ w, ⌜w = immV [] ⌝ ∗
-         block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-         final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-         ∃ f', ↪[frame] f' ∗ ⌜f_inst f' = f_inst f⌝
+          ∃ f' new_addr32,
+            block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+            final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+            ↪[frame] f' ∗
+            ⌜f_inst f' = f_inst f⌝ ∗
+            ⌜N_repr (final_blk_addr + reqd_sz + blk_hdr_sz)%N new_addr32⌝ ∗
+            ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝
   }}}}.
 Proof.
   iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hmemmod & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep 
@@ -2494,7 +2538,8 @@ Proof.
           eauto.
         }
         iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & (%f''' & Hfr & %Hfinst & %Hflocs)))".
-        admit. 
+        cbn.
+        admit.
         all:try (iIntros "(%Hw & _)"; congruence).
         all:try (iIntros "(%out32 & %Hw & _)"; cbn in *; congruence).
       (* FAILURE CASE *)
