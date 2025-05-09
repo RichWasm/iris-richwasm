@@ -279,6 +279,7 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
 
         BI_get_local new_block ::
         BI_get_local actual_size ::
+        sub_hdr_sz ++
         set_size ++
 
         pinch_block final_block reqd_sz old_sz new_block) :: nil) :: nil.

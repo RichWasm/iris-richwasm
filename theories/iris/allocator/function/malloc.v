@@ -497,6 +497,39 @@ Proof.
   iApply "HΦ"; iFrame.
 Qed.
 
+Lemma spec_sub_hdr_sz E f base32 base : 
+  ⊢ {{{{ ⌜N_repr base base32⌝ ∗
+         ⌜(base > blk_hdr_sz)%N⌝ ∗
+          ↪[frame] f}}}}
+     to_e_list (BI_const (VAL_int32 base32) :: sub_hdr_sz) @ E
+     {{{{ w, ∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗ ⌜N_repr (base - blk_hdr_sz) out32⌝ ∗↪[frame] f}}}}.
+Proof.
+  iIntros "!>" (Φ) "(%Hbase & %Hbdd & Hfr) HΦ".
+  cbn.
+  iApply (wp_wand with "[Hfr]").
+  instantiate (1:= λ w, ((∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗
+                                          ⌜N_repr (base - blk_hdr_sz) out32⌝)
+                           ∗ ↪[frame] f)%I).
+  {
+    iApply (wp_binop with "[Hfr]"); auto.
+    iModIntro.
+    iExists _; iSplit; eauto.
+    iPureIntro.
+    destruct Hbase as [[Hpos Hbd] Hconv].
+    apply N_repr_i32repr.
+    - lia.
+    - subst.
+      cbn in *.
+      revert Hbdd.
+      replace blk_hdr_sz with (Z.to_N 12%Z) by reflexivity.
+      rewrite !Z2N.id in Hpos.
+      rewrite <- Z2N.inj_sub; lia.
+      apply Wasm_int.Int32.size_interval_1.
+  }
+  iIntros (w) "(Hw & Hfr)".
+  iApply "HΦ"; iFrame.
+Qed.
+
 Lemma block_repr_inbounds memidx blk next_addr :
   block_repr memidx blk next_addr ⊢
   block_repr memidx blk next_addr ∗
@@ -2332,20 +2365,59 @@ Proof.
         }
         iIntros (w) "(-> & Hfr)".
         rewrite <- Heqpage_size_z.
-        wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hvec".
+        wp_chomp 4.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
         {
-          iApply (spec_set_size_final_setup with "[$Hfr Hvec]").
-          - iSplit; auto.
-            iSplit; auto.
+          wp_chomp 1.
+          iApply wp_val_app; auto.
+          iSplitR; last first.
+          fold sub_hdr_sz.
+          iApply (wp_wand with "[Hfr]").
+          iApply (spec_sub_hdr_sz with "[$Hfr]").
+          iSplit; eauto.
+          iPureIntro.
+          admit.
+          eauto.
+          auto.
+          instantiate (1 := (λ w : val,
+                                (∃ out32 : i32,
+                                    ⌜w =
+                                      val_combine
+                                        (immV
+                                           [VAL_int32
+                                              (Wasm_int.Int32.mul (Wasm_int.Int32.repr (ssrnat.nat_of_bin (memlen `div` page_size)))
+                                                 (Wasm_int.Int32.repr page_size_z))]) (immV [VAL_int32 out32])⌝ ∗
+                                    ⌜ N_repr (reqd_pages * page_size - blk_hdr_sz) out32⌝ ∗
+                                    ↪[frame]f'')%I)).
+          iIntros (w) "(%out32 & -> & %Hrep & Hfr)".
+          iExists out32; by iFrame.
+          by iIntros "!> (%out32 & %Hcontra & _)".
+        }
+        iIntros (w) "(%out32 & -> & %Houtrep & Hfr)".
+        iPoseProof (repeat_own_vec with "[$Hvec]") as "Hvec".
+        erewrite <- N_repr_uint by eassumption.
+        set (new_mem_size := (reqd_pages * page_size)%N).
+        assert (new_mem_size - blk_hdr_sz > reqd_sz)%N.
+        { admit. }
+        assert (Hsplitsz : (new_mem_size = blk_hdr_sz + (new_mem_size - blk_hdr_sz))%N) by lia.
+        rewrite Hsplitsz.
+        iPoseProof (own_vec_split with "Hvec") as "[Hnewhd Hnewdata]".
+        iEval (change blk_hdr_sz with (4 + (4 + 4))%N) in "Hnewhd".
+        iPoseProof (own_vec_split with "Hnewhd") as "[Hstate Hsznext]".
+        iPoseProof (own_vec_split with "Hsznext") as "[Hsz Hnext]".
+        wp_chomp 3.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hsz Hnewdata".
+        {
+          iApply (spec_set_size_final_setup with "[$Hfr $Hsz $Hnewdata]").
+          - iPureIntro.
             rewrite N2Nat.id.
-            admit. (* TODO HERE SECOND *)
-          - auto.
+            intuition eauto.
+          - eauto.
         }
         iIntros (w) "(-> & Hsz & Hvec & Hfr)".
         iApply spec_pinch_block.
         {
-            admit. (* TODO HERE FIRST *)
+          admit. (* TODO HERE FIRST *)
         }
         iIntros (w) "(-> & H)".
         cbn.

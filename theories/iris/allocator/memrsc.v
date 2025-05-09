@@ -43,6 +43,17 @@ Proof.
     lia.
 Qed.
 
+Lemma repeat_own_vec (memidx: N) (addr: N) b (k: N) :
+  memidx ↦[wms][addr] (repeat b (N.to_nat k)) ⊢
+  own_vec memidx addr k.
+Proof.
+  iIntros.
+  iExists (repeat b (N.to_nat k)).
+  iFrame.
+  iPureIntro.
+  by rewrite length_repeat N2Nat.id.
+Qed.
+
 Class allocG Σ := {
   (* maps locs returned by malloc to their size *)
   allocG_shapeG :: ghost_mapG Σ N N;
