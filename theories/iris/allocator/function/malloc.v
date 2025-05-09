@@ -2415,14 +2415,88 @@ Proof.
           - eauto.
         }
         iIntros (w) "(-> & Hsz & Hvec & Hfr)".
-        iApply spec_pinch_block.
+        wp_chomp 1.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
         {
-          admit. (* TODO HERE FIRST *)
+          cbn in Hdisj.
+          iApply (wp_get_local with "[] [$]").
+          apply set_nth_read_neq.
+          intuition.
+          apply set_nth_read.
+          fill_imm_pred.
         }
-        iIntros (w) "(-> & H)".
+        iIntros (w) "(-> & Hfr)".
+        rewrite <- Heqpage_size_z.
+        wp_chomp 3.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hnext".
+        {
+          replace (memlen + 4 + 4)%N with (memlen + next_off)%N 
+            by (unfold next_off; lia).
+          iApply (spec_set_next_basic with "[$Hfr $Hnext]").
+          iPureIntro.
+          instantiate (1:= 0%N).
+          intuition.
+          split; by vm_compute.
+          by rewrite N2Nat.id.
+          auto.
+        }
+        iIntros (w) "(-> & Hnext & Hfr)".
+        wp_chomp 3.
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hstate".
+        {
+          cbn in Hdisj.
+          iApply (spec_mark_final with "[$Hfr Hstate]").
+          iSplitL.
+          {
+            unfold state_off.
+            rewrite N.add_0_r.
+            iFrame.
+          }
+          iPureIntro.
+          intuition.
+          eauto.
+          cbn.
+          eapply set_nth_read_neq.
+          auto.
+          cbn.
+          rewrite Heqpage_size_z.
+          by apply set_nth_read.
+          by rewrite N2Nat.id.
+          eauto.
+        }
+        iIntros (w) "(-> & Hstate & Hfr)".
         cbn.
+        cbn in Hdisj.
+        iApply (spec_pinch_block with "[$Hstate $Hsz $Hnext $Hfr $Hvec]").
+        {
+          iPureIntro.
+          repeat match goal with
+                 | |- _ /\ _ => split
+                 end;
+            repeat match goal with
+              | |- _ !! _ = Some _ => eassumption
+              | |- _ !! _ = Some _ => eapply set_nth_read_neq; [by intuition |]
+              | |- _ !! _ = Some _ => by (eapply set_nth_read; eauto)
+              end.
+          reflexivity.
+          rewrite Hsplitsz.
+          unfold new_mem_size.
+          unfold mem_in_bound in Hmembdd.
+          admit. (* BORING ARITHMETIC *)
+          instantiate (1:= reqd_sz).
+          unfold new_mem_size, reqd_pages.
+          admit. (* BORING ARITHMETIC *)
+          rewrite -Heqpage_size_z.
+          eauto.
+          eassumption.
+          cbn. intuition.
+          rewrite N2Nat.id.
+          eauto.
+        }
+        iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & (%f''' & Hfr & %Hfinst & %Hflocs)))".
+        admit. 
         all:try (iIntros "(%Hw & _)"; congruence).
-        admit.
+        all:try (iIntros "(%out32 & %Hw & _)"; cbn in *; congruence).
       (* FAILURE CASE *)
       - iDestruct "Hfailure" as "(-> & Hmemlen)".
         wp_chomp 2.

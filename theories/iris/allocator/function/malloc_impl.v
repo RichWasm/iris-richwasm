@@ -277,12 +277,19 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
         BI_get_local new_block ::
         set_next ++
 
+        (* Set up new block *)
         BI_get_local new_block ::
         BI_get_local actual_size ::
         sub_hdr_sz ++
         set_size ++
 
-        pinch_block final_block reqd_sz old_sz new_block) :: nil) :: nil.
+        BI_get_local new_block ::
+        u32const 0 ::
+        set_next ++
+
+        mark_final new_block ++
+
+        pinch_block new_block reqd_sz old_sz final_block) :: nil) :: nil.
 
 Definition malloc_loop_body reqd_sz cur_block :=
   (* break out of the loop if the block is final. *)
