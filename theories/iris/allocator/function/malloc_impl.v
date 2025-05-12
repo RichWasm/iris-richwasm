@@ -258,6 +258,9 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
     (* else *)
     (BI_get_local reqd_sz ::
      add_hdr_sz ++
+     u32const DEFAULT_SZ ::
+     BI_binop T_i32 (Binop_i BOI_add) ::
+     add_hdr_sz ++
      u32const Wasm.operations.page_size ::
      BI_binop T_i32 (Binop_i (BOI_div SX_U)) ::
      u32const 1%N ::

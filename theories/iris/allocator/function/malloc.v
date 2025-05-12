@@ -2004,8 +2004,8 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
       memidx ↦[wmlength] memlen ∗
       ⌜(page_size | memlen)%N⌝ ∗
       ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
-      ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
-      ⌜(Z.of_N (1 + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
+      ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
+      ⌜(Z.of_N (memlen + ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size + 1) * page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
       ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
       ⌜N_repr reqd_sz reqd_sz32⌝ ∗
       ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
@@ -2018,13 +2018,15 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
   }}}}
   to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
   {{{{ w, ⌜w = immV [] ⌝ ∗
-          ∃ f' new_addr32,
+          ∃ f' new_addr32 memlen',
             block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
             final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+            memidx ↦[wmlength] memlen' ∗
             ↪[frame] f' ∗
             ⌜f_inst f' = f_inst f⌝ ∗
             ⌜N_repr (final_blk_addr + reqd_sz + blk_hdr_sz)%N new_addr32⌝ ∗
-            ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝
+            ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝ ∗
+            ⌜(page_size | memlen')%N⌝
   }}}}.
 Proof.
   iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hmemmod & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep 
@@ -2047,7 +2049,10 @@ Proof.
       tauto.
     }
     clear Hfbdd. (* will mess up evar resolution by getting confused with Hbdd *)
-    iApply (spec_new_block_prelude with "[$Hfr $Hblk //]").
+    iApply (spec_new_block_prelude with "[$Hfr $Hblk]").
+    iSplit; try eauto.
+    iPureIntro.
+    lia.
     auto.
   }
   iIntros (w) "(-> & Hblk & Hfr)".
@@ -2065,26 +2070,20 @@ Proof.
     iApply wp_ctx_bind; [by cbn |].
     (* need in order to prevent unfolding of huge number later *)
     remember (Z.of_N page_size) as page_size_z.
-    pose (reqd_pages := (((reqd_sz + blk_hdr_sz) `div` page_size) + 1)%N).
+    remember (Z.of_N DEFAULT_SZ) as default_sz_z.
+    pose (reqd_pages := (((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size) + 1)%N).
     pose (reqd_mem := (reqd_pages * page_size)%N).
     set (reqd_pages32 := (Wasm_int.Int32.iadd
-                            (Wasm_int.Int32.divu 
-                               (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12))
-                               (Wasm_int.Int32.repr page_size_z))
-                            (Wasm_int.Int32.repr 1))) in *.
-    assert (Z.of_N ((reqd_sz + 12) `div` page_size + 1) < Wasm_int.Int32.modulus)%Z.
-    { 
-      cut (Z.of_N ((reqd_sz + 12) `div` page_size) < Wasm_int.Int32.modulus - 1)%Z; [lia|].
-      rewrite N2Z.inj_div.
-      rewrite N2Z.inj_add.
-      assert ((1 < Z.of_N page_size)%Z) by done.
-      assert ((1 < Wasm_int.Int32.modulus - 1)%Z) by done.
-      apply Z.div_lt_upper_bound; auto.
-      unfold blk_hdr_sz in Hbdd'.
-      transitivity (Wasm_int.Int32.modulus - 1)%Z.
-      - lia.
-      - rewrite <- (Z.mul_1_l (_ - _)).
-        by apply Z.mul_lt_mono_pos_r.
+                               (Wasm_int.Int32.divu
+                                  (Wasm_int.Int32.iadd
+                                     (Wasm_int.Int32.iadd (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12))
+                                        (Wasm_int.Int32.repr default_sz_z))
+                                     (Wasm_int.Int32.repr 12))
+                                  (Wasm_int.Int32.repr page_size_z))
+                               (Wasm_int.Int32.repr 1))) in *.
+    assert (Z.of_N reqd_mem < Wasm_int.Int32.modulus)%Z as Hreqdmem.
+    {
+      unfold reqd_mem, reqd_pages. lia.
     }
     assert (N_repr reqd_pages reqd_pages32).
     {
@@ -2116,6 +2115,26 @@ Proof.
         iApply (wp_get_local with "[] [$Hfr]").
         - apply Hreqd_sz.
         - by instantiate (1:= λ w, ⌜w = immV [VAL_int32 reqd_sz32]⌝%I).
+      }
+      iIntros (w) "(-> & Hfr)".
+      wp_chomp 3.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        iApply (wp_binop with "[$Hfr]").
+        auto.
+        match goal with 
+        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+        end.
+      }
+      iIntros (w) "(-> & Hfr)".
+      wp_chomp 3.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        iApply (wp_binop with "[$Hfr]").
+        auto.
+        match goal with 
+        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+        end.
       }
       iIntros (w) "(-> & Hfr)".
       wp_chomp 3.
@@ -2170,8 +2189,13 @@ Proof.
         cbn.
         fold f'.
         match goal with 
-        | |- context [?g (immV ?v)] => instantiate (1:= (λ w, ⌜w = immV v⌝ ∗ ↪[frame] f' )%I); by iFrame
+        | |- context [?g (immV ?v)] => instantiate (1:= (λ w, ⌜w = immV v⌝ ∗ ↪[frame] f' )%I)
         end.
+        cbn.
+        iSplit.
+        iPureIntro.
+        reflexivity.
+        eauto.
         cbn.
         iIntros "!> (%Hw & _)" =>//.
       }
@@ -2526,10 +2550,34 @@ Proof.
           rewrite Hsplitsz.
           unfold new_mem_size.
           unfold mem_in_bound in Hmembdd.
-          admit. (* BORING ARITHMETIC *)
-          instantiate (1:= reqd_sz).
-          unfold new_mem_size, reqd_pages.
-          admit. (* BORING ARITHMETIC *)
+          {
+            rewrite (N.add_comm blk_hdr_sz).
+            rewrite N.add_sub.
+            rewrite N.add_sub_assoc.
+            lia.
+            eapply (N.le_trans _ page_size).
+            - by vm_compute.
+            - unfold reqd_pages.
+              rewrite N.mul_add_distr_r.
+              rewrite <- (N.add_0_l page_size) at 1.
+              apply N.add_le_mono.
+              + apply N.le_0_l.
+              + lia.
+          }
+          {
+            instantiate (1:= reqd_sz).
+            unfold new_mem_size, reqd_pages.
+            rewrite N.mul_add_distr_r.
+            rewrite N.mul_1_l.
+            set (k := (reqd_sz + blk_hdr_sz)%N).
+            rewrite -(N.mul_comm page_size).
+            rewrite -> (N.div_mod k page_size) at 1.
+            Search (_ * (_ `div` _))%N.
+            Search N.div_mul_le.
+
+            rewrite N
+            lia.
+          }
           rewrite -Heqpage_size_z.
           eauto.
           eassumption.

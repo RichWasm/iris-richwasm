@@ -53,3 +53,6 @@ Definition state_off : N := 0.
 Definition size_off  : N := 4.
 Definition next_off  : N := 8.
 Definition data_off  : N := blk_hdr_sz.
+
+(* default block size *)
+Definition DEFAULT_SZ : N := 128%N.
