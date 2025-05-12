@@ -4,6 +4,7 @@ Require Import stdpp.option.
 Import ListNotations.
 From RWasm Require term.
 From Wasm Require datatypes.
+Require Import Wasm.numerics.
 Require Import BinNat.
 
 Module rwasm := term.
@@ -43,15 +44,17 @@ with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
        end
 with compile_fun_type (typ: rwasm.FunType) : option unit := None. (* What to do about generics? *)
 
-Fixpoint compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value.
-  (* match (num_type, num) with
-  | () => VAL_int32 (Z.of_nat )
-  end. *)
-Admitted.
-
+Definition compile_num (num_type : rwasm.NumType) (num : nat) : option wasm.value :=
+  match (num_type, num) with
+  | (rwasm.Int rwasm.S rwasm.i32, n) => (* numerics.int *) None
+  | (rwasm.Int rwasm.S rwasm.i64, n) => None
+  | (rwasm.Int rwasm.U int_type, n) => None
+  | (rwasm.Float float_type, n) => None
+  end.
+  
 Fixpoint compile_value (value : rwasm.Value) : option wasm.value :=
   match value with 
-  | rwasm.NumConst num_type num => Some (compile_num num_type num)
+  | rwasm.NumConst num_type num => compile_num num_type num
   | rwasm.Tt => None
   | rwasm.Coderef module_idx table_idx idxs => None
   | rwasm.Fold val => None
@@ -154,4 +157,4 @@ with compile_func (func : rwasm.Func) : option wasm.module_func :=
 
 with compile_glob (glob : rwasm.Glob) : option wasm.module_glob
 with compile_table (table : rwasm.Table) : option wasm.module_table.
-
+Admitted.
