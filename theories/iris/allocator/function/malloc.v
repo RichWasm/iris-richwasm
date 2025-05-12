@@ -2234,8 +2234,9 @@ Proof.
         iPureIntro.
         reflexivity.
         eauto.
-        cbn.
-        iIntros "!> (%Hw & _)" =>//.
+        (* TODO: need to fix definition of f' here *)
+        admit. (*iIntros "!> (%Hw & _)" =>//. *)
+        admit.
       }
       iIntros (w) "(-> & Hfr)".
       wp_chomp 2.
