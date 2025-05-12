@@ -2089,9 +2089,35 @@ Proof.
     {
       unfold reqd_pages, reqd_pages32, blk_hdr_sz.
       eapply iadd_repr; eauto.
-      - pose proof (@N_div_contr (reqd_sz + 12) page_size).
-        eapply divu_repr.
-        + eapply iadd_repr.
+      - pose proof (@N_div_contr (reqd_sz + 12 + 12 + DEFAULT_SZ) page_size).
+        eapply divu_repr; eauto.
+        + replace (reqd_sz + 12 + 12 + DEFAULT_SZ)%N with (reqd_sz + 12 + DEFAULT_SZ + 12)%N.
+          eapply iadd_repr; eauto.
+          * eapply iadd_repr; eauto.
+            -- eapply iadd_repr; eauto.
+               split; done.
+               fold blk_hdr_sz.
+               lia.
+            -- split; try done.
+               rewrite Heqdefault_sz_z.
+               by vm_compute.
+            -- fold blk_hdr_sz.
+               lia.
+          * split; done.
+          * fold blk_hdr_sz; lia.
+          * lia.
+        + rewrite Heqpage_size_z.
+          apply N_repr_i32repr; eauto.
+          by vm_compute.
+        + lia.
+          eauto.
+          * 
+               cbv.
+               reflexivity.
+               lia.
+               k
+               eauto.
+               lia.
           eassumption.
           by instantiate (1:=12%N).
           instantiate (1:=(reqd_sz + 12)%N).
