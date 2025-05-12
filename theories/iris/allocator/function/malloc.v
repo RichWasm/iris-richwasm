@@ -2109,28 +2109,40 @@ Proof.
         + rewrite Heqpage_size_z.
           apply N_repr_i32repr; eauto.
           by vm_compute.
-        + lia.
-          eauto.
-          * 
-               cbv.
-               reflexivity.
-               lia.
-               k
-               eauto.
-               lia.
-          eassumption.
-          by instantiate (1:=12%N).
-          instantiate (1:=(reqd_sz + 12)%N).
-          fold blk_hdr_sz.
-          lia.
-          auto.
-        + rewrite Heqpage_size_z.
-          instantiate (1:=page_size).
-          unfold Wasm_int.Int32.repr.
-          split; done.
-        + lia.
-        + auto.
+        + fold blk_hdr_sz.
+          eapply Z.lt_trans; [|apply Hbdd'].
+          set (k := ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size)%N).
+          assert (page_size > 2)%N by (now vm_compute).
+          pose proof (N2Z.is_nonneg k).
+          pose proof (N2Z.is_nonneg memlen).
+          rewrite N2Z.inj_add.
+          rewrite N2Z.inj_mul.
+          rewrite N2Z.inj_add.
+          destruct (N.eq_dec k 0%N).
+          * rewrite !e.
+            lia.
+          * eapply (Z.lt_le_trans _ (Z.of_N ((k + 1) * page_size))); [|lia].
+            rewrite N.mul_add_distr_r.
+            rewrite N.mul_1_l.
+            rewrite <- N.add_0_r at 1.
+            rewrite !N2Z.inj_add.
+            apply Z.add_le_lt_mono; [|by vm_compute].
+            rewrite N2Z.inj_mul.
+            rewrite <- Z.mul_1_r at 1.
+            apply Z.mul_le_mono_nonneg_l; lia.
       - done.
+      - eapply Z.le_lt_trans; try apply Hbdd'.
+        fold blk_hdr_sz.
+        set (k := ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size)%N).
+        pose proof (N2Z.is_nonneg memlen).
+        pose proof (N2Z.is_nonneg k).
+        rewrite !N2Z.inj_add.
+        rewrite N2Z.inj_mul.
+        rewrite N2Z.inj_add.
+        rewrite <- Z.add_0_l at 1.
+        apply Z.add_le_mono; auto.
+        rewrite <- Z.mul_1_r at 1.
+        apply Z.mul_le_mono_nonneg_l; [lia | done].
     }
     set (f' := {| f_locs := set_nth (VAL_int32 reqd_pages32) (f_locs f) actual_size_var (VAL_int32 reqd_pages32); f_inst := f_inst f |}).
     iApply (wp_wand with "[Hfr Hblk Hmemlen]").
