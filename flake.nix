@@ -129,6 +129,7 @@
       devShells = eachSystem (pkgs: {
         default = pkgs.mkShell {
           packages = [
+            pkgs.git # TODO: figure out how to use system git
             self.packages.${pkgs.system}.vscoq-language-server
           ];
 
