@@ -109,13 +109,12 @@ blks "allocator state"
 own_block (N.of_nat memidx) ret_addr reqd_sz ∗
 *)
 
-Fixpoint blocks_repr (blks: list block) (base_addr: N) : iProp Σ :=
+Fixpoint blocks_repr (blks: list block) (base_addr next_addr: N) : iProp Σ :=
   match blks with
   | blk :: blks =>
       ⌜base_addr = block_addr blk⌝ ∗
-      ∀ next_addr, block_repr blk next_addr ∗
-                   blocks_repr blks next_addr
-  | [] => ⌜True⌝
+      ∃ addr, block_repr blk addr ∗ blocks_repr blks addr next_addr
+  | [] => ⌜base_addr = next_addr⌝
   end.
 
 Definition final_block_repr (blk: final_block) (base_addr: N) : iProp Σ :=
@@ -142,8 +141,8 @@ Qed.
 
 Definition freelist_repr (blks: list block * final_block) (base_addr: N) : iProp Σ :=
   let '(blks, final) := blks in
-  ∀ next_addr,
-    blocks_repr blks next_addr ∗
+  ∃ next_addr,
+    blocks_repr blks base_addr next_addr ∗
     final_block_repr final next_addr.
 
 Definition block_shp (blk: block) : gmap N N :=
@@ -174,5 +173,34 @@ Definition alloc_inv : iProp Σ :=
     ↪[toks] shp ∗
     ⌜freelist_shp blks shp⌝ ∗
     freelist_repr blks 0.
+
+Lemma final_blk_repr_addr_eq :
+  forall addr addr' sz,
+    final_block_repr (FinalBlk addr sz) addr' ⊢
+    final_block_repr (FinalBlk addr sz) addr' ∗ ⌜addr' = addr⌝.
+Proof.
+  iIntros (a a' sz) "[%Heq ?]".
+  by iFrame.
+Qed.
+
+Lemma blocks_repr_app blks1 : forall base1 next1 blks2 base2 next2,
+  ⌜next1 = base2⌝ ∗
+  blocks_repr blks1 base1 next1 ∗
+  blocks_repr blks2 base2 next2 ⊢
+  blocks_repr (blks1 ++ blks2) base1 next2.
+Proof.
+  induction blks1; iIntros "*".
+  - iIntros "(%Heq & %Heq' & Hblks2)".
+    by subst.
+  - iIntros "(%Heq & (%Heq' & %addr & Hblk & Hblks1) & Hblks2)".
+    rewrite <- app_comm_cons.
+    simpl blocks_repr.
+    fold blocks_repr.
+    iSplitR; auto.
+    iExists addr.
+    iFrame.
+    iApply IHblks1.
+    by iFrame.
+Qed.
 
 End reprs.

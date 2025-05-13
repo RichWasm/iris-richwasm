@@ -1751,8 +1751,6 @@ Proof.
 Qed.
 
 (* SPECS: block creation *)
-(*TODO
-*)
 Lemma spec_new_block_prelude memidx final_blk_var final_sz final_blk_addr final_blk_addr32 reqd_sz reqd_sz_var reqd_sz32 f E :
   ⊢ {{{{
       final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗
@@ -2043,45 +2041,47 @@ Proof.
   lia.
 Qed.
 
-Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_addr final_blk_addr32 
-  reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
+Lemma spec_new_block_no_space memidx memlen blks final_blk_var final_sz final_blk_addr final_blk_addr32 
+  base_addr reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
   ⊢ {{{{
-            final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗
-              ↪[frame] f ∗
-              memidx ↦[wmlength] memlen ∗
-              ⌜(page_size | memlen)%N⌝ ∗
-              ⌜(reqd_sz > 0)%N⌝ ∗
-              ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
-              ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ + reqd_sz + page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
-              ⌜(Z.of_N (memlen + ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size + 1) * page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
-              ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
-              ⌜N_repr reqd_sz reqd_sz32⌝ ∗
-              ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
-              ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
-                                               ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
-                                                                              ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
-                                                                                                            ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
-                                                                                                                                           ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝ ∗
-                                                                                                                                                                              ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
+            freelist_repr memidx (blks, FinalBlk final_blk_addr final_sz) base_addr ∗
+            ↪[frame] f ∗
+            memidx ↦[wmlength] memlen ∗
+            ⌜(page_size | memlen)%N⌝ ∗
+            ⌜(reqd_sz > 0)%N⌝ ∗
+            ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
+            ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ + reqd_sz + page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
+            ⌜(Z.of_N (memlen + ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size + 1) * page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
+            ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
+            ⌜N_repr reqd_sz reqd_sz32⌝ ∗
+            ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
+            ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
+            ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
+            ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
+            ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
+            ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝ ∗
+            ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
     }}}}
     to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
-    {{{{ w, ⌜w = trapV⌝ ∨ ⌜w = immV [] ⌝ ∗
-                                 ∃ f' new_addr32 memlen',
-                                   block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-                                     final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-                                     memidx ↦[wmlength] memlen' ∗
-                                     ↪[frame] f' ∗
-                                     ⌜f_inst f' = f_inst f⌝ ∗
-                                                    ⌜N_repr (final_blk_addr + reqd_sz + blk_hdr_sz)%N new_addr32⌝ ∗
-                                                    ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝ ∗
-                                                                                    ⌜(page_size | memlen')%N⌝
+    {{{{ w, ⌜w = trapV⌝ ∨
+            ⌜w = immV [] ⌝ ∗
+            ∃ blks' final_blk' f' new_addr new_addr32 memlen',
+              ↪[frame] f' ∗
+              ⌜f_inst f' = f_inst f⌝ ∗
+              ⌜f_locs f' !! new_blk_var = Some (VAL_int32 new_addr32)⌝ ∗
+              freelist_repr memidx (blks ++ blks', final_blk') base_addr ∗
+              ⌜In (FreeBlk new_addr reqd_sz) blks'⌝ ∗
+              ⌜N_repr new_addr new_addr32⌝ ∗
+              memidx ↦[wmlength] memlen' ∗
+              ⌜(page_size | memlen')%N⌝
     }}}}.
 Proof.
-  iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep 
-                  & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk 
-                  & %Hreqd_sz & %Hold_sz & %Hnew_blk 
+  iIntros (Φ) "!> (Hfreelist & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep
+                  & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk
+                  & %Hreqd_sz & %Hold_sz & %Hnew_blk
                   & %Hactual_sz & %Hmem) HΦ".
-  unfold new_block.
+  iDestruct "Hfreelist" as "(%final_blk_addr' & Hblks & Hblk)".
+  iPoseProof (final_blk_repr_addr_eq with "Hblk") as "(Hblk & ->)".
   replace ((memidx↦[wmlength]memlen)%I)
     with (((N.of_nat (N.to_nat memidx)) ↦[wmlength]memlen)%I)
     by (rewrite (N2Nat.id memidx); done).
@@ -2690,8 +2690,6 @@ Proof.
         eauto.
       }
       iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & (%f''' & Hfr & %Hfinst & %Hflocs)))".
-      cbn.
-      Search wp_wasm_ctx.
       iApply (wp_wand_ctx with "[Hfr]").
       iApply wp_nil_nested; try iFrame.
       fill_imm_pred.
@@ -2701,12 +2699,43 @@ Proof.
       fill_imm_pred.
       iIntros (w) "(-> & Hfr)".
       iApply "HΦ".
-      iRight.
-      iSplit; [done |].
-      iExists f''', _, (memlen + new_mem_size)%N.
-      rewrite N2Nat.id.
-      iFrame.
-      admit.
+      {
+        iRight.
+        iSplit; [done |].
+        iExists [FreeBlk final_blk_addr final_sz; FreeBlk memlen reqd_sz].
+        iExists (FinalBlk (memlen + reqd_sz + blk_hdr_sz) (new_mem_size - blk_hdr_sz - reqd_sz - blk_hdr_sz)).
+        iExists f''', _, _, (memlen + new_mem_size)%N.
+        rewrite N2Nat.id.
+        rewrite -Hsplitsz.
+        iFrame.
+        rewrite Hfinst.
+        simpl f_inst.
+        iSplit; auto.
+        iSplitR.
+        - iPureIntro.
+          cbn in Hdisj.
+          rewrite Hflocs.
+          apply set_nth_read_neq.
+          intuition.
+          apply set_nth_read_neq.
+          intuition.
+          apply set_nth_read_neq.
+          intuition.
+          apply set_nth_read.
+        - iSplit.
+          {
+            iApply blocks_repr_app; iFrame.
+            iPureIntro; eauto.
+          }
+          iPureIntro.
+          split; [|split].
+          + right. left. reflexivity.
+          + rewrite -Heqpage_size_z.
+            eauto.
+          + apply N.divide_add_r.
+            eauto.
+            apply N.divide_factor_r.
+      }
       all:try (iIntros "(%Hw & _)"; congruence).
       all:try (iIntros "(%out32 & %Hw & _)"; cbn in *; congruence).
     (* FAILURE CASE *)
@@ -2791,7 +2820,7 @@ Proof.
     - iIntros "(%Hw & _)"; congruence.
   }
   iIntros "(%Hw & _)"; congruence.
-Abort.
+Qed.
 
 (* This needs to have a freelist_repr postcondition *)
 Lemma spec_new_block memidx final_blk_var final_sz final_blk_addr final_blk_addr32 
