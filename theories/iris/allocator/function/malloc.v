@@ -1996,6 +1996,27 @@ Proof.
     auto.
 Qed.
 
+Lemma wp_nil_nested E F:
+  forall Φ: val -> iProp Σ,
+    Φ (immV []) ∗ ↪[frame]F ⊢ WP [] @ E CTX 1; LH_rec [] 0 [] (LH_base [] []) [] {{ w, Φ w ∗ ↪[frame]F }}.
+Proof.
+  iIntros (Φ) "[HΦ Hfr]".
+  unfold wp_wasm_ctx.
+  iIntros (LI) "%Hfill".
+  apply lfilled_Ind_Equivalent in Hfill.
+  inversion Hfill; subst.
+  inversion H8; subst.
+  cbn.
+  iApply (wp_wand with "[Hfr]").
+  {
+    iApply (wp_label_value with "[$Hfr]").
+    - reflexivity.
+    - fill_imm_pred.
+  }
+  iIntros (w) "(-> & Hfr)".
+  iFrame.
+Qed.
+
 Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_addr final_blk_addr32 
   reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
   ⊢ {{{{
@@ -2017,7 +2038,7 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
       ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
   }}}}
   to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
-  {{{{ w, ⌜w = immV [] ⌝ ∗
+  {{{{ w, ⌜w = trapV⌝ ∨ ⌜w = immV [] ⌝ ∗
           ∃ f' new_addr32 memlen',
             block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
             final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
@@ -2145,8 +2166,6 @@ Proof.
         apply Z.mul_le_mono_nonneg_l; [lia | done].
     }
     set (f' := {| f_locs := set_nth (VAL_int32 reqd_pages32) (f_locs f) actual_size_var (VAL_int32 reqd_pages32); f_inst := f_inst f |}).
-    iApply (wp_wand with "[Hfr Hblk Hmemlen]").
-    {
       wp_chomp 1. 
       iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
       {
@@ -2501,6 +2520,8 @@ Proof.
           by iIntros "!> (%out32 & %Hcontra & _)".
         }
         iIntros (w) "(%out32 & -> & %Houtrep & Hfr)".
+        replace 128%Z with default_sz_z
+          by (rewrite Heqdefault_sz_z; by vm_compute).
         iPoseProof (repeat_own_vec with "[$Hvec]") as "Hvec".
         erewrite <- N_repr_uint by eassumption.
         set (new_mem_size := (reqd_pages * page_size)%N).
@@ -2610,12 +2631,8 @@ Proof.
             rewrite N.mul_1_l.
             set (k := (reqd_sz + blk_hdr_sz)%N).
             rewrite -(N.mul_comm page_size).
-            rewrite -> (N.div_mod k page_size) at 1.
-            Search (_ * (_ `div` _))%N.
-            Search N.div_mul_le.
-
-            rewrite N
-            lia.
+            rewrite -> (N.div_mod k page_size) at 1; [| by vm_compute].
+            admit.
           }
           rewrite -Heqpage_size_z.
           eauto.
@@ -2626,6 +2643,21 @@ Proof.
         }
         iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & (%f''' & Hfr & %Hfinst & %Hflocs)))".
         cbn.
+        Search wp_wasm_ctx.
+        iApply (wp_wand_ctx with "[Hfr]").
+        iApply wp_nil_nested; try iFrame.
+        fill_imm_pred.
+        iIntros (w) "(-> & Hfr)".
+        iApply (wp_wand_ctx with "[Hfr]").
+        iApply wp_nil_nested; try iFrame.
+        fill_imm_pred.
+        iIntros (w) "(-> & Hfr)".
+        iApply "HΦ".
+        iRight.
+        iSplit; [done |].
+        iExists f''', _, (memlen + new_mem_size)%N.
+        rewrite N2Nat.id.
+        iFrame.
         admit.
         all:try (iIntros "(%Hw & _)"; congruence).
         all:try (iIntros "(%out32 & %Hw & _)"; cbn in *; congruence).
@@ -2664,7 +2696,42 @@ Proof.
         rewrite Wasm_int.Int32.eq_true.
         iApply (wp_if_true with "[$Hfr]"); auto using Wasm_int.Int32.one_not_zero.
         iIntros "!> Hfr".
-        admit.
+        wp_chomp 0.
+        iApply (wp_block with "[$Hfr]"); cbn; auto.
+        iIntros "!> Hfr".
+        Search wp_wasm AI_label.
+        Search wp_wasm_ctx wp_wasm.
+        iApply wp_build_ctx.
+        constructor.
+        apply lfilled_Ind_Equivalent.
+        rewrite <- app_nil_r.
+        rewrite <- app_nil_l.
+        apply LfilledRec; auto.
+        rewrite <- app_nil_r.
+        rewrite <- app_nil_l.
+        apply LfilledBase; auto.
+        iApply wp_ctx_bind; [done |].
+        iApply (wp_wand with "[Hfr]").
+        iApply (wp_unreachable with "[$Hfr]").
+        instantiate (1:=λ w, ⌜w = trapV⌝%I).
+        auto.
+        iIntros (w) "(-> & Hfr)".
+        cbn.
+        rewrite <- (app_nil_r [AI_trap]).
+        rewrite <- (app_nil_l [AI_trap]).
+        rewrite -app_assoc.
+        iApply (wp_wand_ctx with "[Hfr]").
+        iApply wp_trap_ctx; auto.
+        iIntros (w) "(-> & Hfr)".
+        cbn.
+        rewrite <- (app_nil_r [AI_trap]).
+        rewrite <- (app_nil_l [AI_trap]).
+        rewrite -app_assoc.
+        iApply (wp_wand_ctx with "[Hfr]").
+        iApply wp_trap_ctx; auto.
+        iIntros (w) "(-> & Hfr)".
+        iApply "HΦ".
+        by iLeft.
         all:iIntros "(%Hw & _)"; congruence.
       - iIntros "[[((%Hw & Hvec & Hmemlen) & Hbdd) | [%Hw _]] _]"; congruence.
       - iIntros "(%Hw & _)"; congruence.
@@ -2672,10 +2739,8 @@ Proof.
       - iIntros "(%Hw & _)"; congruence.
       - iIntros "(%Hw & _)"; congruence.
       - iIntros "(%Hw & _)"; congruence.
-    }
-    iIntros (w) "H".
-    simpl push_base.
-    admit.
+      - iIntros "(%Hw & _)"; congruence.
+      - iIntros "(%Hw & _)"; congruence.
   }
   iIntros "(%Hw & _)"; congruence.
 Abort.
