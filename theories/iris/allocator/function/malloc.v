@@ -2017,6 +2017,32 @@ Proof.
   iFrame.
 Qed.
 
+Lemma div_succ_gt:
+  forall (x y: N),
+    y <> 0%N ->
+    (x <= (x `div` y + 1) * y)%N.
+Proof.
+  intros x y H.
+  pose proof (N.div_mod x y H).
+  rewrite N.mul_comm.
+  rewrite N.mul_add_distr_l.
+  rewrite N.mul_1_r.
+  assert (x `mod` y < y)%N.
+  by apply N.mod_upper_bound.
+  lia.
+Qed.
+
+Lemma div_succ_le:
+  forall (x y: N),
+    y <> 0%N ->
+    ((x `div` y + 1) * y <= x + y)%N.
+Proof.
+  intros x y H.
+  pose proof (N.div_mod x y H).
+  assert (0 <= x `mod` y)%N by apply N.le_0_l.
+  lia.
+Qed.
+
 Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_addr final_blk_addr32 
   reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
   ⊢ {{{{
@@ -2024,8 +2050,9 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
       ↪[frame] f ∗
       memidx ↦[wmlength] memlen ∗
       ⌜(page_size | memlen)%N⌝ ∗
+      ⌜(reqd_sz > 0)%N⌝ ∗
       ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
-      ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
+      ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ + reqd_sz + page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
       ⌜(Z.of_N (memlen + ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size + 1) * page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
       ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
       ⌜N_repr reqd_sz reqd_sz32⌝ ∗
@@ -2050,7 +2077,7 @@ Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_add
             ⌜(page_size | memlen')%N⌝
   }}}}.
 Proof.
-  iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hmemmod & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep 
+  iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep 
                   & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk 
                   & %Hreqd_sz & %Hold_sz & %Hnew_blk 
                   & %Hactual_sz & %Hmem) HΦ".
@@ -2399,16 +2426,12 @@ Proof.
         assert (Z.of_N (reqd_pages * page_size) < Wasm_int.Int32.modulus)%Z.
         {
           unfold reqd_pages.
-          rewrite N.mul_add_distr_r.
-          zify.
-          set (k := Z.of_N page_size).
-          rewrite Z.mul_1_l.
-          rewrite Z.lt_add_lt_sub_r.
-          eapply Z.le_lt_trans.
-          rewrite Z.mul_comm.
-          eapply Z.mul_div_le.
-          done.
-          admit.
+          rewrite <- (Z2N.id Wasm_int.Int32.modulus).
+          apply N2Z.inj_lt.
+          eapply N.le_lt_trans.
+          eapply div_succ_le; done.
+          lia.
+          lia.
         }
         assert (N_repr (reqd_pages * page_size) (Wasm_int.Int32.mul reqd_pages32 (Wasm_int.Int32.repr page_size_z))).
         {
@@ -2449,27 +2472,19 @@ Proof.
             lia.
           - apply N_repr_repr.
             by vm_compute.
-          - eapply Z.le_lt_trans.
-            zify.
-            rewrite Z.mul_comm.
-            eapply Z.mul_div_le.
-            by vm_compute.
-            auto.
-            eapply Z.lt_le_trans.
-            instantiate (1:= (Z.of_N page_limit)).
-            unfold mem_in_bound.
-            admit.
+          - replace ((memlen `div` page_size) * page_size)%N with (page_size * (memlen `div` page_size) + memlen `mod` page_size)%N
+              by (apply N.Lcm0.mod_divide in Hmemmod; rewrite Hmemmod; lia).
+            rewrite <- N.div_mod.
+            lia.
             by vm_compute.
           - by rewrite N2Z.id.
           - f_equal.
-            Locate "`mod`".
             rewrite - (N.add_0_r (_ * _)).
             apply  N.Lcm0.mod_divide in Hmemmod.
             rewrite -Hmemmod.
             rewrite N.mul_comm.
             symmetry.
-            apply N.div_mod.
-            done.
+            by apply N.div_mod.
         }
         wp_chomp 3.
         iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblock".
@@ -2502,7 +2517,13 @@ Proof.
           iApply (spec_sub_hdr_sz with "[$Hfr]").
           iSplit; eauto.
           iPureIntro.
-          admit.
+          {
+            unfold reqd_pages.
+            apply N.lt_gt.
+            eapply N.lt_le_trans;
+              [|by apply div_succ_gt].
+            lia.
+          }
           eauto.
           auto.
           instantiate (1 := (λ w : val,
@@ -2526,7 +2547,15 @@ Proof.
         erewrite <- N_repr_uint by eassumption.
         set (new_mem_size := (reqd_pages * page_size)%N).
         assert (new_mem_size - blk_hdr_sz > reqd_sz)%N.
-        { admit. }
+        { unfold new_mem_size, reqd_pages.
+          set (k:= (reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ)%N).
+          apply N.lt_gt.
+          eapply (N.lt_le_trans _ (k - blk_hdr_sz)).
+          unfold k. unfold blk_hdr_sz. lia.
+          apply N.sub_le_mono_r.
+          apply div_succ_gt.
+          by vm_compute.
+        }
         assert (Hsplitsz : (new_mem_size = blk_hdr_sz + (new_mem_size - blk_hdr_sz))%N) by lia.
         rewrite Hsplitsz.
         iPoseProof (own_vec_split with "Hvec") as "[Hnewhd Hnewdata]".
@@ -2627,12 +2656,12 @@ Proof.
           {
             instantiate (1:= reqd_sz).
             unfold new_mem_size, reqd_pages.
-            rewrite N.mul_add_distr_r.
-            rewrite N.mul_1_l.
-            set (k := (reqd_sz + blk_hdr_sz)%N).
-            rewrite -(N.mul_comm page_size).
-            rewrite -> (N.div_mod k page_size) at 1; [| by vm_compute].
-            admit.
+            eapply N.lt_le_trans; first last.
+            - apply N.sub_le_mono_r.
+              apply div_succ_gt.
+              by vm_compute.
+            - unfold blk_hdr_sz, DEFAULT_SZ.
+              lia.
           }
           rewrite -Heqpage_size_z.
           eauto.
