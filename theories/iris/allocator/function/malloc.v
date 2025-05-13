@@ -2046,36 +2046,36 @@ Qed.
 Lemma spec_new_block_no_space memidx memlen final_blk_var final_sz final_blk_addr final_blk_addr32 
   reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
   ⊢ {{{{
-      final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗
-      ↪[frame] f ∗
-      memidx ↦[wmlength] memlen ∗
-      ⌜(page_size | memlen)%N⌝ ∗
-      ⌜(reqd_sz > 0)%N⌝ ∗
-      ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
-      ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ + reqd_sz + page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
-      ⌜(Z.of_N (memlen + ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size + 1) * page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
-      ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
-      ⌜N_repr reqd_sz reqd_sz32⌝ ∗
-      ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
-      ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
-      ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
-      ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
-      ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
-      ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝ ∗
-      ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
-  }}}}
-  to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
-  {{{{ w, ⌜w = trapV⌝ ∨ ⌜w = immV [] ⌝ ∗
-          ∃ f' new_addr32 memlen',
-            block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-            final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
-            memidx ↦[wmlength] memlen' ∗
-            ↪[frame] f' ∗
-            ⌜f_inst f' = f_inst f⌝ ∗
-            ⌜N_repr (final_blk_addr + reqd_sz + blk_hdr_sz)%N new_addr32⌝ ∗
-            ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝ ∗
-            ⌜(page_size | memlen')%N⌝
-  }}}}.
+            final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗
+              ↪[frame] f ∗
+              memidx ↦[wmlength] memlen ∗
+              ⌜(page_size | memlen)%N⌝ ∗
+              ⌜(reqd_sz > 0)%N⌝ ∗
+              ⌜(final_sz <= reqd_sz + blk_hdr_sz)%N ⌝ ∗
+              ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ + reqd_sz + page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
+              ⌜(Z.of_N (memlen + ((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size + 1) * page_size) < Wasm_int.Int32.modulus)%Z⌝ ∗
+              ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
+              ⌜N_repr reqd_sz reqd_sz32⌝ ∗
+              ⌜NoDupEff [final_blk_var; reqd_sz_var; old_sz_var; new_blk_var; actual_size_var]⌝ ∗
+              ⌜f.(f_locs) !! final_blk_var = Some (VAL_int32 final_blk_addr32)⌝ ∗
+                                               ⌜f.(f_locs) !! reqd_sz_var = Some (VAL_int32 reqd_sz32)⌝ ∗
+                                                                              ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
+                                                                                                            ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
+                                                                                                                                           ⌜f.(f_locs) !! actual_size_var = Some actual_sz0 ⌝ ∗
+                                                                                                                                                                              ⌜f.(f_inst).(inst_memory) !! 0 = Some (N.to_nat memidx)⌝
+    }}}}
+    to_e_list (new_block final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
+    {{{{ w, ⌜w = trapV⌝ ∨ ⌜w = immV [] ⌝ ∗
+                                 ∃ f' new_addr32 memlen',
+                                   block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+                                     final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+                                     memidx ↦[wmlength] memlen' ∗
+                                     ↪[frame] f' ∗
+                                     ⌜f_inst f' = f_inst f⌝ ∗
+                                                    ⌜N_repr (final_blk_addr + reqd_sz + blk_hdr_sz)%N new_addr32⌝ ∗
+                                                    ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝ ∗
+                                                                                    ⌜(page_size | memlen')%N⌝
+    }}}}.
 Proof.
   iIntros (Φ) "!> (Hblk & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep 
                   & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk 
@@ -2122,13 +2122,13 @@ Proof.
     pose (reqd_pages := (((reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ) `div` page_size) + 1)%N).
     pose (reqd_mem := (reqd_pages * page_size)%N).
     set (reqd_pages32 := (Wasm_int.Int32.iadd
-                               (Wasm_int.Int32.divu
-                                  (Wasm_int.Int32.iadd
-                                     (Wasm_int.Int32.iadd (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12))
-                                        (Wasm_int.Int32.repr default_sz_z))
-                                     (Wasm_int.Int32.repr 12))
-                                  (Wasm_int.Int32.repr page_size_z))
-                               (Wasm_int.Int32.repr 1))) in *.
+                            (Wasm_int.Int32.divu
+                               (Wasm_int.Int32.iadd
+                                  (Wasm_int.Int32.iadd (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12))
+                                     (Wasm_int.Int32.repr default_sz_z))
+                                  (Wasm_int.Int32.repr 12))
+                               (Wasm_int.Int32.repr page_size_z))
+                            (Wasm_int.Int32.repr 1))) in *.
     assert (Z.of_N reqd_mem < Wasm_int.Int32.modulus)%Z as Hreqdmem.
     {
       unfold reqd_mem, reqd_pages. lia.
@@ -2192,584 +2192,603 @@ Proof.
         rewrite <- Z.mul_1_r at 1.
         apply Z.mul_le_mono_nonneg_l; [lia | done].
     }
-    set (f' := {| f_locs := set_nth (VAL_int32 reqd_pages32) (f_locs f) actual_size_var (VAL_int32 reqd_pages32); f_inst := f_inst f |}).
-      wp_chomp 1. 
+    set (f' := {| f_locs :=
+                   set_nth
+                     (VAL_int32
+                        (Wasm_int.Int32.iadd
+                           (Wasm_int.Int32.divu
+                              (Wasm_int.Int32.iadd
+                                 (Wasm_int.Int32.iadd (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12)) (Wasm_int.Int32.repr 128))
+                                 (Wasm_int.Int32.repr 12)) (Wasm_int.Int32.repr page_size_z)) (Wasm_int.Int32.repr 1))) (f_locs f) actual_size_var
+                     (VAL_int32
+                        (Wasm_int.Int32.iadd
+                           (Wasm_int.Int32.divu
+                              (Wasm_int.Int32.iadd
+                                 (Wasm_int.Int32.iadd (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12)) (Wasm_int.Int32.repr 128))
+                                 (Wasm_int.Int32.repr 12)) (Wasm_int.Int32.repr page_size_z)) (Wasm_int.Int32.repr 1)));
+                 f_inst := f_inst f
+               |}).
+    wp_chomp 1. 
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_get_local with "[] [$Hfr]").
+      - apply Hreqd_sz.
+      - by instantiate (1:= λ w, ⌜w = immV [VAL_int32 reqd_sz32]⌝%I).
+    }
+    iIntros (w) "(-> & Hfr)".
+    wp_chomp 3.
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_binop with "[$Hfr]").
+      auto.
+      match goal with 
+      | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+      end.
+    }
+    iIntros (w) "(-> & Hfr)".
+    wp_chomp 3.
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_binop with "[$Hfr]").
+      auto.
+      match goal with 
+      | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+      end.
+    }
+    iIntros (w) "(-> & Hfr)".
+    wp_chomp 3.
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_binop with "[$Hfr]").
+      auto.
+      match goal with 
+      | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+      end.
+    }
+    iIntros (w) "(-> & Hfr)".
+    wp_chomp 3.
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_binop with "[$Hfr]").
+      auto.
+      match goal with 
+      | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+      end.
+    }
+    iIntros (w) "(-> & Hfr)".
+    (* prevent unfolding of huge number since wp_chomp will call simpl *)
+    rewrite <- Heqpage_size_z.
+    wp_chomp 3.
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_binop with "[$Hfr]").
+      cbn.
+      fold reqd_pages32.
+      auto.
+      match goal with 
+      | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+      end.
+    }
+    iIntros (w) "(-> & Hfr)".
+    wp_chomp 2.
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    {
+      iApply (wp_tee_local with "[$Hfr]").
+      iIntros "!> Hfr".
+      wp_chomp 1.
+      iApply wp_val_app;auto.
+      iSplitR; last first.
+      iApply (wp_wand with "[Hfr]").
+      iApply (wp_set_local with "[] [$Hfr]");
+        auto using lookup_lt_is_Some_1.
+      match goal with 
+      | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+      end.
+      iIntros (w) "(-> & Hfr)".
+      cbn.
+      fold f'.
+      match goal with 
+      | |- context [?g (immV ?v)] => instantiate (1:= (λ w, ⌜w = immV v⌝ ∗ ↪[frame] f' )%I)
+      end.
+      cbn.
+      iSplit.
+      iPureIntro.
+      reflexivity.
+      iFrame.
+      iIntros "!> (%Hw & _)" =>//.
+    }
+    iIntros (w) "(-> & Hfr)".
+    wp_chomp 2.
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hmemlen".
+    {
+      iApply (wp_grow_memory with "[$Hfr $Hmemlen]") =>//.
+      iSplitL; match goal with 
+               | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+               end.
+    }
+    iIntros (w) "[[Hsuccess | Hfailure] Hfr]".
+    - iDestruct "Hsuccess" as "((-> & Hvec & Hmemlen) & %Hmembdd)".
+      wp_chomp 2.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        iApply (wp_set_local with "[] [$Hfr]").
+        - rewrite set_nth_length_eq; auto using lookup_lt_is_Some_1.
+        - match goal with 
+          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+          end.
+      }
+      iIntros (w) "(-> & Hfr)".
+      wp_chomp 1.
       iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
       {
         iApply (wp_get_local with "[] [$Hfr]").
-        - apply Hreqd_sz.
-        - by instantiate (1:= λ w, ⌜w = immV [VAL_int32 reqd_sz32]⌝%I).
+        - apply set_nth_read.
+        - match goal with 
+          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+          end.
       }
       iIntros (w) "(-> & Hfr)".
       wp_chomp 3.
       iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
-        auto.
+        iApply (wp_relop with "[$Hfr]"); auto.
         match goal with 
         | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
       }
       iIntros (w) "(-> & Hfr)".
-      wp_chomp 3.
+      simpl app_relop.
+      assert ((memlen `div` page_size < page_limit + 1)%N).
+      {
+        unfold mem_in_bound in Hmembdd.
+        lia.
+      }
+      assert ((Z.of_N (memlen `div` page_size) < Wasm_int.Int32.modulus - 1)%Z).
+      {
+        transitivity (Z.of_N (page_limit + 1)).
+        lia.
+        apply Z.ltb_lt; reflexivity.
+      }
+      rewrite Wasm_int.Int32.eq_false; swap 1 2.
+      {
+        intros Hcontra.
+        apply (f_equal Wasm_int.Int32.unsigned) in Hcontra.
+        revert Hcontra.
+        cbn.
+        rewrite nat_bin.
+        rewrite N_nat_Z.
+        pose proof (N2Z.is_nonneg (memlen `div` page_size)).
+        cut ((Z.of_N (memlen `div` page_size) < Wasm_int.Int32.modulus - 1)%Z); [|by auto].
+        intros Hmodbd.
+        rewrite Wasm_int.Int32.Z_mod_modulus_id; lia.
+      }
+      iApply (wp_if_false with "[$Hfr]"); auto using Wasm_int.Int32.one_not_zero.
+      iIntros "!> Hfr".
+      wp_chomp 0.
+      iApply (wp_block with "[$Hfr]"); eauto.
+      iIntros "!> Hfr".
+      iApply wp_wasm_empty_ctx.
+      iApply wp_label_push_emp; last first.
+      iApply wp_ctx_bind; [by cbn |].
+      wp_chomp (length (mark_free final_blk_var)).
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+      {
+        iApply (spec_mark_free_final with "[$Hblk $Hfr]").
+        - iSplit; iPureIntro; cbn; eauto.
+          split; auto.
+          cbn. erewrite set_nth_read_neq; auto.
+          cbn in Hdisj; intuition.
+          cbn. erewrite set_nth_read_neq; auto.
+          cbn in Hdisj; intuition.
+        - auto.
+      }
+      iIntros (w) "(-> & Hblock & Hfr)".
+      wp_chomp 4.
       iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
-        auto.
-        match goal with 
-        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-        end.
+        cbn in Hdisj.
+        iApply (spec_mul_var_page_sz with "[$Hfr]").
+        - cbn.
+          by erewrite set_nth_read.
+        - auto.
       }
       iIntros (w) "(-> & Hfr)".
-      wp_chomp 3.
+      wp_chomp 4.
       iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
-        auto.
-        match goal with 
-        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-        end.
+        cbn in Hdisj.
+        iApply (spec_mul_var_page_sz with "[$Hfr]").
+        - iPureIntro.
+          apply set_nth_read_neq. intuition.
+          apply set_nth_read_neq. intuition.
+          apply set_nth_read.
+        - auto.
       }
       iIntros (w) "(-> & Hfr)".
-      wp_chomp 3.
+      wp_chomp 2.
       iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
-        auto.
-        match goal with 
-        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-        end.
+        iApply ((@wp_get_locals [final_blk_var; new_blk_var]) with "[Hfr]"); auto.
+        cbn in Hdisj.
+        constructor.
+        cbn. erewrite set_nth_read_neq; auto.
+        intuition.
+        cbn. erewrite set_nth_read_neq; auto.
+        intuition.
+        cbn. erewrite set_nth_read_neq; auto.
+        intuition.
+        cbn. erewrite set_nth_read_neq; auto.
+        intuition.
+        eauto.
+        constructor.
+        cbn. erewrite set_nth_read_neq; eauto.
+        intuition.
+        cbn. erewrite set_nth_read; eauto.
+        constructor.
+      }
+      fold f'.
+      match goal with
+      | |- context[ ↪[frame] ?f ] => set (f'' := f)
+      end.
+      iIntros (w) "(-> & Hfr)".
+      rewrite <- Heqpage_size_z.
+      assert (Z.of_N page_size < Wasm_int.Int32.modulus)%Z.
+      {
+        apply Z.ltb_lt; reflexivity.
+      }
+      assert (Z.of_N (reqd_pages * page_size) < Wasm_int.Int32.modulus)%Z.
+      {
+        unfold reqd_pages.
+        rewrite <- (Z2N.id Wasm_int.Int32.modulus).
+        apply N2Z.inj_lt.
+        eapply N.le_lt_trans.
+        eapply div_succ_le; done.
+        lia.
+        lia.
+      }
+      assert (N_repr (reqd_pages * page_size) (Wasm_int.Int32.mul reqd_pages32 (Wasm_int.Int32.repr page_size_z))).
+      {
+        clear f''.
+        eapply imul_repr; eauto.
+        rewrite Heqpage_size_z.
+        constructor.
+        split; eauto.
+        unfold Wasm_int.Int32.repr.
+        cbn.
+        rewrite Wasm_int.Int32.Z_mod_modulus_id.
+        by rewrite N2Z.id.
+        split; eauto.
+      }
+      assert (N_repr memlen
+                (Wasm_int.Int32.mul (Wasm_int.Int32.repr
+                                       (ssrnat.nat_of_bin (memlen `div` page_size)))
+                   (Wasm_int.Int32.repr page_size_z))).
+      {
+        clear f''.
+        replace (N_repr memlen) with (N_repr ((memlen `div` page_size) * page_size)%N).
+        rewrite Heqpage_size_z.
+        eapply imul_repr.
+        - instantiate (1:= (memlen `div` page_size)%N).
+          rewrite nat_bin.
+          cut (N_repr (Z.to_N (Z.of_nat (N.to_nat (memlen `div` page_size)))) (Wasm_int.Int32.repr (Z.of_nat (N.to_nat (N.div memlen page_size))))).
+          {
+            intros H'.
+            Search (Z.of_nat (N.to_nat _)).
+            rewrite N_nat_Z in H'.
+            rewrite N_nat_Z.
+            rewrite N2Z.id in H'.
+            exact H'.
+          }
+          apply N_repr_repr.
+          split; try lia.
+          pose proof (Nat2Z.is_nonneg (N.to_nat (memlen `div` page_size))).
+          lia.
+        - apply N_repr_repr.
+          by vm_compute.
+        - replace ((memlen `div` page_size) * page_size)%N with (page_size * (memlen `div` page_size) + memlen `mod` page_size)%N
+            by (apply N.Lcm0.mod_divide in Hmemmod; rewrite Hmemmod; lia).
+          rewrite <- N.div_mod.
+          lia.
+          by vm_compute.
+        - by rewrite N2Z.id.
+        - f_equal.
+          rewrite - (N.add_0_r (_ * _)).
+          apply  N.Lcm0.mod_divide in Hmemmod.
+          rewrite -Hmemmod.
+          rewrite N.mul_comm.
+          symmetry.
+          by apply N.div_mod.
+      }
+      wp_chomp 3.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblock".
+      {
+        iApply (spec_set_next with "[$Hblock $Hfr]"); cbn; auto.
+      }
+      iIntros (w) "(-> & Hblk & Hfr)".
+      wp_chomp 2.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        cbn in Hdisj.
+        iApply ((@wp_get_locals [new_blk_var; actual_size_var]) with "[$Hfr]"); auto.
+        constructor.
+        cbn. apply set_nth_read_neq. intuition.
+        cbn. apply set_nth_read.
+        constructor.
+        cbn. apply set_nth_read.
+        constructor.
       }
       iIntros (w) "(-> & Hfr)".
-      (* prevent unfolding of huge number since wp_chomp will call simpl *)
+      rewrite <- Heqpage_size_z.
+      wp_chomp 4.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        wp_chomp 1.
+        iApply wp_val_app; auto.
+        iSplitR; last first.
+        fold sub_hdr_sz.
+        iApply (wp_wand with "[Hfr]").
+        iApply (spec_sub_hdr_sz with "[$Hfr]").
+        iSplit; eauto.
+        iPureIntro.
+        {
+          replace (Wasm_int.Int32.iadd _ _) with reqd_pages32
+            by (unfold reqd_pages32; by rewrite Heqdefault_sz_z).
+          eassumption.
+        }
+        {
+          iPureIntro.
+          unfold reqd_pages.
+          apply N.lt_gt.
+          eapply N.lt_le_trans;
+            [|by apply div_succ_gt].
+          lia.
+        }
+        eauto.
+        auto.
+        instantiate (1 := (λ w : val,
+                              (∃ out32 : i32,
+                                  ⌜w =
+                                    val_combine
+                                      (immV
+                                         [VAL_int32
+                                            (Wasm_int.Int32.mul (Wasm_int.Int32.repr (ssrnat.nat_of_bin (memlen `div` page_size)))
+                                               (Wasm_int.Int32.repr page_size_z))]) (immV [VAL_int32 out32])⌝ ∗
+                                      ⌜ N_repr (reqd_pages * page_size - blk_hdr_sz) out32⌝ ∗
+                                      ↪[frame]f'')%I)).
+        iIntros (w) "(%out32 & -> & %Hrep & Hfr)".
+        iExists out32; by iFrame.
+        by iIntros "!> (%out32 & %Hcontra & _)".
+      }
+      iIntros (w) "(%out32 & -> & %Houtrep & Hfr)".
+      replace 128%Z with default_sz_z
+        by (rewrite Heqdefault_sz_z; by vm_compute).
+      iPoseProof (repeat_own_vec with "[$Hvec]") as "Hvec".
+      erewrite <- N_repr_uint by eassumption.
+      set (new_mem_size := (reqd_pages * page_size)%N).
+      assert (new_mem_size - blk_hdr_sz > reqd_sz)%N.
+      { unfold new_mem_size, reqd_pages.
+        set (k:= (reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ)%N).
+        apply N.lt_gt.
+        eapply (N.lt_le_trans _ (k - blk_hdr_sz)).
+        unfold k. unfold blk_hdr_sz. lia.
+        apply N.sub_le_mono_r.
+        apply div_succ_gt.
+        by vm_compute.
+      }
+      assert (Hsplitsz : (new_mem_size = blk_hdr_sz + (new_mem_size - blk_hdr_sz))%N) by lia.
+      rewrite Hsplitsz.
+      iPoseProof (own_vec_split with "Hvec") as "[Hnewhd Hnewdata]".
+      iEval (change blk_hdr_sz with (4 + (4 + 4))%N) in "Hnewhd".
+      iPoseProof (own_vec_split with "Hnewhd") as "[Hstate Hsznext]".
+      iPoseProof (own_vec_split with "Hsznext") as "[Hsz Hnext]".
+      wp_chomp 3.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hsz Hnewdata".
+      {
+        iApply (spec_set_size_final_setup with "[$Hfr $Hsz $Hnewdata]").
+        - iPureIntro.
+          rewrite N2Nat.id.
+          intuition eauto.
+        - eauto.
+      }
+      iIntros (w) "(-> & Hsz & Hvec & Hfr)".
+      wp_chomp 1.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        cbn in Hdisj.
+        iApply (wp_get_local with "[] [$]").
+        apply set_nth_read_neq.
+        intuition.
+        apply set_nth_read.
+        fill_imm_pred.
+      }
+      iIntros (w) "(-> & Hfr)".
       rewrite <- Heqpage_size_z.
       wp_chomp 3.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hnext".
       {
-        iApply (wp_binop with "[$Hfr]").
-        cbn.
-        fold reqd_pages32.
-        auto.
-        match goal with 
-        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-        end.
-      }
-      iIntros (w) "(-> & Hfr)".
-      wp_chomp 2.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-      {
-        iApply (wp_tee_local with "[$Hfr]").
-        iIntros "!> Hfr".
-        wp_chomp 1.
-        iApply wp_val_app;auto.
-        iSplitR; last first.
-        iApply (wp_wand with "[Hfr]").
-        iApply (wp_set_local with "[] [$Hfr]");
-          auto using lookup_lt_is_Some_1.
-        match goal with 
-        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-        end.
-        iIntros (w) "(-> & Hfr)".
-        cbn.
-        fold f'.
-        match goal with 
-        | |- context [?g (immV ?v)] => instantiate (1:= (λ w, ⌜w = immV v⌝ ∗ ↪[frame] f' )%I)
-        end.
-        cbn.
-        iSplit.
+        replace (memlen + 4 + 4)%N with (memlen + next_off)%N 
+          by (unfold next_off; lia).
+        iApply (spec_set_next_basic with "[$Hfr $Hnext]").
         iPureIntro.
-        reflexivity.
+        instantiate (1:= 0%N).
+        intuition.
+        split; by vm_compute.
+        by rewrite N2Nat.id.
+        auto.
+      }
+      iIntros (w) "(-> & Hnext & Hfr)".
+      wp_chomp 3.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hstate".
+      {
+        cbn in Hdisj.
+        iApply (spec_mark_final with "[$Hfr Hstate]").
+        iSplitL.
+        {
+          unfold state_off.
+          rewrite N.add_0_r.
+          iFrame.
+        }
+        iPureIntro.
+        intuition.
         eauto.
-        (* TODO: need to fix definition of f' here *)
-        admit. (*iIntros "!> (%Hw & _)" =>//. *)
-        admit.
+        cbn.
+        eapply set_nth_read_neq.
+        auto.
+        cbn.
+        rewrite Heqpage_size_z.
+        by apply set_nth_read.
+        by rewrite N2Nat.id.
+        eauto.
+      }
+      iIntros (w) "(-> & Hstate & Hfr)".
+      cbn.
+      cbn in Hdisj.
+      iApply (spec_pinch_block with "[$Hstate $Hsz $Hnext $Hfr $Hvec]").
+      {
+        iPureIntro.
+        repeat match goal with
+               | |- _ /\ _ => split
+               end;
+          repeat match goal with
+            | |- _ !! _ = Some _ => eassumption
+            | |- _ !! _ = Some _ => eapply set_nth_read_neq; [by intuition |]
+            | |- _ !! _ = Some _ => by (eapply set_nth_read; eauto)
+            end.
+        reflexivity.
+        rewrite Hsplitsz.
+        unfold new_mem_size.
+        unfold mem_in_bound in Hmembdd.
+        {
+          rewrite (N.add_comm blk_hdr_sz).
+          rewrite N.add_sub.
+          rewrite N.add_sub_assoc.
+          lia.
+          eapply (N.le_trans _ page_size).
+          - by vm_compute.
+          - unfold reqd_pages.
+            rewrite N.mul_add_distr_r.
+            rewrite <- (N.add_0_l page_size) at 1.
+            apply N.add_le_mono.
+            + apply N.le_0_l.
+            + lia.
+        }
+        {
+          instantiate (1:= reqd_sz).
+          unfold new_mem_size, reqd_pages.
+          eapply N.lt_le_trans; first last.
+          - apply N.sub_le_mono_r.
+            apply div_succ_gt.
+            by vm_compute.
+          - unfold blk_hdr_sz, DEFAULT_SZ.
+            lia.
+        }
+        rewrite -Heqpage_size_z.
+        eauto.
+        eassumption.
+        cbn. intuition.
+        rewrite N2Nat.id.
+        eauto.
+      }
+      iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & (%f''' & Hfr & %Hfinst & %Hflocs)))".
+      cbn.
+      Search wp_wasm_ctx.
+      iApply (wp_wand_ctx with "[Hfr]").
+      iApply wp_nil_nested; try iFrame.
+      fill_imm_pred.
+      iIntros (w) "(-> & Hfr)".
+      iApply (wp_wand_ctx with "[Hfr]").
+      iApply wp_nil_nested; try iFrame.
+      fill_imm_pred.
+      iIntros (w) "(-> & Hfr)".
+      iApply "HΦ".
+      iRight.
+      iSplit; [done |].
+      iExists f''', _, (memlen + new_mem_size)%N.
+      rewrite N2Nat.id.
+      iFrame.
+      admit.
+      all:try (iIntros "(%Hw & _)"; congruence).
+      all:try (iIntros "(%out32 & %Hw & _)"; cbn in *; congruence).
+    (* FAILURE CASE *)
+    - iDestruct "Hfailure" as "(-> & Hmemlen)".
+      wp_chomp 2.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        iApply (wp_set_local with "[] [$Hfr]").
+        - rewrite set_nth_length_eq; auto using lookup_lt_is_Some_1.
+        - match goal with 
+          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+          end.
       }
       iIntros (w) "(-> & Hfr)".
-      wp_chomp 2.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hmemlen".
+      wp_chomp 1.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
       {
-        iApply (wp_grow_memory with "[$Hfr $Hmemlen]") =>//.
-        iSplitL; match goal with 
-                 | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-                 end.
+        iApply (wp_get_local with "[] [$Hfr]").
+        - apply set_nth_read.
+        - match goal with 
+          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+          end.
       }
-      iIntros (w) "[[Hsuccess | Hfailure] Hfr]".
-      - iDestruct "Hsuccess" as "((-> & Hvec & Hmemlen) & %Hmembdd)".
-        wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          iApply (wp_set_local with "[] [$Hfr]").
-          - rewrite set_nth_length_eq; auto using lookup_lt_is_Some_1.
-          - match goal with 
-            | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-            end.
-        }
-        iIntros (w) "(-> & Hfr)".
-        wp_chomp 1.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          iApply (wp_get_local with "[] [$Hfr]").
-          - apply set_nth_read.
-          - match goal with 
-            | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-            end.
-        }
-        iIntros (w) "(-> & Hfr)".
-        wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          iApply (wp_relop with "[$Hfr]"); auto.
-          match goal with 
-          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-          end.
-        }
-        iIntros (w) "(-> & Hfr)".
-        simpl app_relop.
-        assert ((memlen `div` page_size < page_limit + 1)%N).
-        {
-          unfold mem_in_bound in Hmembdd.
-          lia.
-        }
-        assert ((Z.of_N (memlen `div` page_size) < Wasm_int.Int32.modulus - 1)%Z).
-        {
-          transitivity (Z.of_N (page_limit + 1)).
-          lia.
-          apply Z.ltb_lt; reflexivity.
-        }
-        rewrite Wasm_int.Int32.eq_false; swap 1 2.
-        {
-          intros Hcontra.
-          apply (f_equal Wasm_int.Int32.unsigned) in Hcontra.
-          revert Hcontra.
-          cbn.
-          rewrite nat_bin.
-          rewrite N_nat_Z.
-          pose proof (N2Z.is_nonneg (memlen `div` page_size)).
-          cut ((Z.of_N (memlen `div` page_size) < Wasm_int.Int32.modulus - 1)%Z); [|by auto].
-          intros Hmodbd.
-          rewrite Wasm_int.Int32.Z_mod_modulus_id; lia.
-        }
-        iApply (wp_if_false with "[$Hfr]"); auto using Wasm_int.Int32.one_not_zero.
-        iIntros "!> Hfr".
-        wp_chomp 0.
-        iApply (wp_block with "[$Hfr]"); eauto.
-        iIntros "!> Hfr".
-        iApply wp_wasm_empty_ctx.
-        iApply wp_label_push_emp; last first.
-        iApply wp_ctx_bind; [by cbn |].
-        wp_chomp (length (mark_free final_blk_var)).
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
-        {
-          iApply (spec_mark_free_final with "[$Hblk $Hfr]").
-          - iSplit; iPureIntro; cbn; eauto.
-            split; auto.
-            cbn. erewrite set_nth_read_neq; auto.
-            cbn in Hdisj; intuition.
-            cbn. erewrite set_nth_read_neq; auto.
-            cbn in Hdisj; intuition.
-          - auto.
-        }
-        iIntros (w) "(-> & Hblock & Hfr)".
-        wp_chomp 4.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          cbn in Hdisj.
-          iApply (spec_mul_var_page_sz with "[$Hfr]").
-          - cbn.
-            by erewrite set_nth_read.
-          - auto.
-        }
-        iIntros (w) "(-> & Hfr)".
-        wp_chomp 4.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          cbn in Hdisj.
-          iApply (spec_mul_var_page_sz with "[$Hfr]").
-          - iPureIntro.
-            apply set_nth_read_neq. intuition.
-            apply set_nth_read_neq. intuition.
-            apply set_nth_read.
-          - auto.
-        }
-        iIntros (w) "(-> & Hfr)".
-        wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          iApply ((@wp_get_locals [final_blk_var; new_blk_var]) with "[Hfr]"); auto.
-          cbn in Hdisj.
-          constructor.
-          cbn. erewrite set_nth_read_neq; auto.
-          intuition.
-          cbn. erewrite set_nth_read_neq; auto.
-          intuition.
-          cbn. erewrite set_nth_read_neq; auto.
-          intuition.
-          cbn. erewrite set_nth_read_neq; auto.
-          intuition.
-          eauto.
-          constructor.
-          cbn. erewrite set_nth_read_neq; eauto.
-          intuition.
-          cbn. erewrite set_nth_read; eauto.
-          constructor.
-        }
-        fold f'.
-        match goal with
-        | |- context[ ↪[frame] ?f ] => set (f'' := f)
+      iIntros (w) "(-> & Hfr)".
+      wp_chomp 3.
+      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      {
+        iApply (wp_relop with "[$Hfr]"); auto.
+        match goal with 
+        | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
-        iIntros (w) "(-> & Hfr)".
-        rewrite <- Heqpage_size_z.
-        assert (Z.of_N page_size < Wasm_int.Int32.modulus)%Z.
-        {
-          apply Z.ltb_lt; reflexivity.
-        }
-        assert (Z.of_N (reqd_pages * page_size) < Wasm_int.Int32.modulus)%Z.
-        {
-          unfold reqd_pages.
-          rewrite <- (Z2N.id Wasm_int.Int32.modulus).
-          apply N2Z.inj_lt.
-          eapply N.le_lt_trans.
-          eapply div_succ_le; done.
-          lia.
-          lia.
-        }
-        assert (N_repr (reqd_pages * page_size) (Wasm_int.Int32.mul reqd_pages32 (Wasm_int.Int32.repr page_size_z))).
-        {
-          clear f''.
-          eapply imul_repr; eauto.
-          rewrite Heqpage_size_z.
-          constructor.
-          split; eauto.
-          unfold Wasm_int.Int32.repr.
-          cbn.
-          rewrite Wasm_int.Int32.Z_mod_modulus_id.
-          by rewrite N2Z.id.
-          split; eauto.
-        }
-        assert (N_repr memlen
-                  (Wasm_int.Int32.mul (Wasm_int.Int32.repr
-                                         (ssrnat.nat_of_bin (memlen `div` page_size)))
-                     (Wasm_int.Int32.repr page_size_z))).
-        {
-          clear f''.
-          replace (N_repr memlen) with (N_repr ((memlen `div` page_size) * page_size)%N).
-          rewrite Heqpage_size_z.
-          eapply imul_repr.
-          - instantiate (1:= (memlen `div` page_size)%N).
-            rewrite nat_bin.
-            cut (N_repr (Z.to_N (Z.of_nat (N.to_nat (memlen `div` page_size)))) (Wasm_int.Int32.repr (Z.of_nat (N.to_nat (N.div memlen page_size))))).
-            {
-              intros H'.
-              Search (Z.of_nat (N.to_nat _)).
-              rewrite N_nat_Z in H'.
-              rewrite N_nat_Z.
-              rewrite N2Z.id in H'.
-              exact H'.
-            }
-            apply N_repr_repr.
-            split; try lia.
-            pose proof (Nat2Z.is_nonneg (N.to_nat (memlen `div` page_size))).
-            lia.
-          - apply N_repr_repr.
-            by vm_compute.
-          - replace ((memlen `div` page_size) * page_size)%N with (page_size * (memlen `div` page_size) + memlen `mod` page_size)%N
-              by (apply N.Lcm0.mod_divide in Hmemmod; rewrite Hmemmod; lia).
-            rewrite <- N.div_mod.
-            lia.
-            by vm_compute.
-          - by rewrite N2Z.id.
-          - f_equal.
-            rewrite - (N.add_0_r (_ * _)).
-            apply  N.Lcm0.mod_divide in Hmemmod.
-            rewrite -Hmemmod.
-            rewrite N.mul_comm.
-            symmetry.
-            by apply N.div_mod.
-        }
-        wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblock".
-        {
-          iApply (spec_set_next with "[$Hblock $Hfr]"); cbn; auto.
-        }
-        iIntros (w) "(-> & Hblk & Hfr)".
-        wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          cbn in Hdisj.
-          iApply ((@wp_get_locals [new_blk_var; actual_size_var]) with "[$Hfr]"); auto.
-          constructor.
-          cbn. apply set_nth_read_neq. intuition.
-          cbn. apply set_nth_read.
-          constructor.
-          cbn. apply set_nth_read.
-          constructor.
-        }
-        iIntros (w) "(-> & Hfr)".
-        rewrite <- Heqpage_size_z.
-        wp_chomp 4.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          wp_chomp 1.
-          iApply wp_val_app; auto.
-          iSplitR; last first.
-          fold sub_hdr_sz.
-          iApply (wp_wand with "[Hfr]").
-          iApply (spec_sub_hdr_sz with "[$Hfr]").
-          iSplit; eauto.
-          iPureIntro.
-          {
-            unfold reqd_pages.
-            apply N.lt_gt.
-            eapply N.lt_le_trans;
-              [|by apply div_succ_gt].
-            lia.
-          }
-          eauto.
-          auto.
-          instantiate (1 := (λ w : val,
-                                (∃ out32 : i32,
-                                    ⌜w =
-                                      val_combine
-                                        (immV
-                                           [VAL_int32
-                                              (Wasm_int.Int32.mul (Wasm_int.Int32.repr (ssrnat.nat_of_bin (memlen `div` page_size)))
-                                                 (Wasm_int.Int32.repr page_size_z))]) (immV [VAL_int32 out32])⌝ ∗
-                                    ⌜ N_repr (reqd_pages * page_size - blk_hdr_sz) out32⌝ ∗
-                                    ↪[frame]f'')%I)).
-          iIntros (w) "(%out32 & -> & %Hrep & Hfr)".
-          iExists out32; by iFrame.
-          by iIntros "!> (%out32 & %Hcontra & _)".
-        }
-        iIntros (w) "(%out32 & -> & %Houtrep & Hfr)".
-        replace 128%Z with default_sz_z
-          by (rewrite Heqdefault_sz_z; by vm_compute).
-        iPoseProof (repeat_own_vec with "[$Hvec]") as "Hvec".
-        erewrite <- N_repr_uint by eassumption.
-        set (new_mem_size := (reqd_pages * page_size)%N).
-        assert (new_mem_size - blk_hdr_sz > reqd_sz)%N.
-        { unfold new_mem_size, reqd_pages.
-          set (k:= (reqd_sz + blk_hdr_sz + blk_hdr_sz + DEFAULT_SZ)%N).
-          apply N.lt_gt.
-          eapply (N.lt_le_trans _ (k - blk_hdr_sz)).
-          unfold k. unfold blk_hdr_sz. lia.
-          apply N.sub_le_mono_r.
-          apply div_succ_gt.
-          by vm_compute.
-        }
-        assert (Hsplitsz : (new_mem_size = blk_hdr_sz + (new_mem_size - blk_hdr_sz))%N) by lia.
-        rewrite Hsplitsz.
-        iPoseProof (own_vec_split with "Hvec") as "[Hnewhd Hnewdata]".
-        iEval (change blk_hdr_sz with (4 + (4 + 4))%N) in "Hnewhd".
-        iPoseProof (own_vec_split with "Hnewhd") as "[Hstate Hsznext]".
-        iPoseProof (own_vec_split with "Hsznext") as "[Hsz Hnext]".
-        wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hsz Hnewdata".
-        {
-          iApply (spec_set_size_final_setup with "[$Hfr $Hsz $Hnewdata]").
-          - iPureIntro.
-            rewrite N2Nat.id.
-            intuition eauto.
-          - eauto.
-        }
-        iIntros (w) "(-> & Hsz & Hvec & Hfr)".
-        wp_chomp 1.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          cbn in Hdisj.
-          iApply (wp_get_local with "[] [$]").
-          apply set_nth_read_neq.
-          intuition.
-          apply set_nth_read.
-          fill_imm_pred.
-        }
-        iIntros (w) "(-> & Hfr)".
-        rewrite <- Heqpage_size_z.
-        wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hnext".
-        {
-          replace (memlen + 4 + 4)%N with (memlen + next_off)%N 
-            by (unfold next_off; lia).
-          iApply (spec_set_next_basic with "[$Hfr $Hnext]").
-          iPureIntro.
-          instantiate (1:= 0%N).
-          intuition.
-          split; by vm_compute.
-          by rewrite N2Nat.id.
-          auto.
-        }
-        iIntros (w) "(-> & Hnext & Hfr)".
-        wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hstate".
-        {
-          cbn in Hdisj.
-          iApply (spec_mark_final with "[$Hfr Hstate]").
-          iSplitL.
-          {
-            unfold state_off.
-            rewrite N.add_0_r.
-            iFrame.
-          }
-          iPureIntro.
-          intuition.
-          eauto.
-          cbn.
-          eapply set_nth_read_neq.
-          auto.
-          cbn.
-          rewrite Heqpage_size_z.
-          by apply set_nth_read.
-          by rewrite N2Nat.id.
-          eauto.
-        }
-        iIntros (w) "(-> & Hstate & Hfr)".
-        cbn.
-        cbn in Hdisj.
-        iApply (spec_pinch_block with "[$Hstate $Hsz $Hnext $Hfr $Hvec]").
-        {
-          iPureIntro.
-          repeat match goal with
-                 | |- _ /\ _ => split
-                 end;
-            repeat match goal with
-              | |- _ !! _ = Some _ => eassumption
-              | |- _ !! _ = Some _ => eapply set_nth_read_neq; [by intuition |]
-              | |- _ !! _ = Some _ => by (eapply set_nth_read; eauto)
-              end.
-          reflexivity.
-          rewrite Hsplitsz.
-          unfold new_mem_size.
-          unfold mem_in_bound in Hmembdd.
-          {
-            rewrite (N.add_comm blk_hdr_sz).
-            rewrite N.add_sub.
-            rewrite N.add_sub_assoc.
-            lia.
-            eapply (N.le_trans _ page_size).
-            - by vm_compute.
-            - unfold reqd_pages.
-              rewrite N.mul_add_distr_r.
-              rewrite <- (N.add_0_l page_size) at 1.
-              apply N.add_le_mono.
-              + apply N.le_0_l.
-              + lia.
-          }
-          {
-            instantiate (1:= reqd_sz).
-            unfold new_mem_size, reqd_pages.
-            eapply N.lt_le_trans; first last.
-            - apply N.sub_le_mono_r.
-              apply div_succ_gt.
-              by vm_compute.
-            - unfold blk_hdr_sz, DEFAULT_SZ.
-              lia.
-          }
-          rewrite -Heqpage_size_z.
-          eauto.
-          eassumption.
-          cbn. intuition.
-          rewrite N2Nat.id.
-          eauto.
-        }
-        iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & (%f''' & Hfr & %Hfinst & %Hflocs)))".
-        cbn.
-        Search wp_wasm_ctx.
-        iApply (wp_wand_ctx with "[Hfr]").
-        iApply wp_nil_nested; try iFrame.
-        fill_imm_pred.
-        iIntros (w) "(-> & Hfr)".
-        iApply (wp_wand_ctx with "[Hfr]").
-        iApply wp_nil_nested; try iFrame.
-        fill_imm_pred.
-        iIntros (w) "(-> & Hfr)".
-        iApply "HΦ".
-        iRight.
-        iSplit; [done |].
-        iExists f''', _, (memlen + new_mem_size)%N.
-        rewrite N2Nat.id.
-        iFrame.
-        admit.
-        all:try (iIntros "(%Hw & _)"; congruence).
-        all:try (iIntros "(%out32 & %Hw & _)"; cbn in *; congruence).
-      (* FAILURE CASE *)
-      - iDestruct "Hfailure" as "(-> & Hmemlen)".
-        wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          iApply (wp_set_local with "[] [$Hfr]").
-          - rewrite set_nth_length_eq; auto using lookup_lt_is_Some_1.
-          - match goal with 
-            | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-            end.
-        }
-        iIntros (w) "(-> & Hfr)".
-        wp_chomp 1.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          iApply (wp_get_local with "[] [$Hfr]").
-          - apply set_nth_read.
-          - match goal with 
-            | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-            end.
-        }
-        iIntros (w) "(-> & Hfr)".
-        wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
-        {
-          iApply (wp_relop with "[$Hfr]"); auto.
-          match goal with 
-          | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
-          end.
-        }
-        iIntros (w) "(-> & Hfr)".
-        simpl app_relop.
-        rewrite Wasm_int.Int32.eq_true.
-        iApply (wp_if_true with "[$Hfr]"); auto using Wasm_int.Int32.one_not_zero.
-        iIntros "!> Hfr".
-        wp_chomp 0.
-        iApply (wp_block with "[$Hfr]"); cbn; auto.
-        iIntros "!> Hfr".
-        Search wp_wasm AI_label.
-        Search wp_wasm_ctx wp_wasm.
-        iApply wp_build_ctx.
-        constructor.
-        apply lfilled_Ind_Equivalent.
-        rewrite <- app_nil_r.
-        rewrite <- app_nil_l.
-        apply LfilledRec; auto.
-        rewrite <- app_nil_r.
-        rewrite <- app_nil_l.
-        apply LfilledBase; auto.
-        iApply wp_ctx_bind; [done |].
-        iApply (wp_wand with "[Hfr]").
-        iApply (wp_unreachable with "[$Hfr]").
-        instantiate (1:=λ w, ⌜w = trapV⌝%I).
-        auto.
-        iIntros (w) "(-> & Hfr)".
-        cbn.
-        rewrite <- (app_nil_r [AI_trap]).
-        rewrite <- (app_nil_l [AI_trap]).
-        rewrite -app_assoc.
-        iApply (wp_wand_ctx with "[Hfr]").
-        iApply wp_trap_ctx; auto.
-        iIntros (w) "(-> & Hfr)".
-        cbn.
-        rewrite <- (app_nil_r [AI_trap]).
-        rewrite <- (app_nil_l [AI_trap]).
-        rewrite -app_assoc.
-        iApply (wp_wand_ctx with "[Hfr]").
-        iApply wp_trap_ctx; auto.
-        iIntros (w) "(-> & Hfr)".
-        iApply "HΦ".
-        by iLeft.
-        all:iIntros "(%Hw & _)"; congruence.
-      - iIntros "[[((%Hw & Hvec & Hmemlen) & Hbdd) | [%Hw _]] _]"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
+      }
+      iIntros (w) "(-> & Hfr)".
+      simpl app_relop.
+      rewrite Wasm_int.Int32.eq_true.
+      iApply (wp_if_true with "[$Hfr]"); auto using Wasm_int.Int32.one_not_zero.
+      iIntros "!> Hfr".
+      wp_chomp 0.
+      iApply (wp_block with "[$Hfr]"); cbn; auto.
+      iIntros "!> Hfr".
+      Search wp_wasm AI_label.
+      Search wp_wasm_ctx wp_wasm.
+      iApply wp_build_ctx.
+      constructor.
+      apply lfilled_Ind_Equivalent.
+      rewrite <- app_nil_r.
+      rewrite <- app_nil_l.
+      apply LfilledRec; auto.
+      rewrite <- app_nil_r.
+      rewrite <- app_nil_l.
+      apply LfilledBase; auto.
+      iApply wp_ctx_bind; [done |].
+      iApply (wp_wand with "[Hfr]").
+      iApply (wp_unreachable with "[$Hfr]").
+      instantiate (1:=λ w, ⌜w = trapV⌝%I).
+      auto.
+      iIntros (w) "(-> & Hfr)".
+      cbn.
+      rewrite <- (app_nil_r [AI_trap]).
+      rewrite <- (app_nil_l [AI_trap]).
+      rewrite -app_assoc.
+      iApply (wp_wand_ctx with "[Hfr]").
+      iApply wp_trap_ctx; auto.
+      iIntros (w) "(-> & Hfr)".
+      cbn.
+      rewrite <- (app_nil_r [AI_trap]).
+      rewrite <- (app_nil_l [AI_trap]).
+      rewrite -app_assoc.
+      iApply (wp_wand_ctx with "[Hfr]").
+      iApply wp_trap_ctx; auto.
+      iIntros (w) "(-> & Hfr)".
+      iApply "HΦ".
+      by iLeft.
+      all:iIntros "(%Hw & _)"; congruence.
+    - iIntros "[[((%Hw & Hvec & Hmemlen) & Hbdd) | [%Hw _]] _]"; congruence.
+    - iIntros "(%Hw & _)"; congruence.
+    - iIntros "(%Hw & _)"; congruence.
+    - iIntros "(%Hw & _)"; congruence.
+    - iIntros "(%Hw & _)"; congruence.
+    - iIntros "(%Hw & _)"; congruence.
+    - iIntros "(%Hw & _)"; congruence.
+    - iIntros "(%Hw & _)"; congruence.
   }
   iIntros "(%Hw & _)"; congruence.
 Abort.
