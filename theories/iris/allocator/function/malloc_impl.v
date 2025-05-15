@@ -98,15 +98,17 @@ free(addr):
   trap
 
 *)
+Section malloc_impl.
+Variables (memidx: immediate).
   
 Definition get_state blk :=
   BI_get_local blk ::
-  BI_load T_i32 None 0%N state_off ::
+  BI_load memidx T_i32 None 0%N state_off ::
   nil.
-
+  
 Definition get_next blk :=
   BI_get_local blk ::
-  BI_load T_i32 None 0%N next_off ::
+  BI_load memidx T_i32 None 0%N next_off ::
   nil.
 
 (* compute data pointer *)
@@ -117,16 +119,16 @@ Definition get_data blk :=
   nil.
 
 Definition set_next :=
-  [BI_store T_i32 None 0%N next_off].
+  [BI_store memidx T_i32 None 0%N next_off].
 
 (* this is the size of the data segment of the block *)
 Definition get_size blk :=
   BI_get_local blk ::
-  BI_load T_i32 None 0%N size_off ::
+  BI_load memidx T_i32 None 0%N size_off ::
   nil.
   
 Definition set_size :=
-  [BI_store T_i32 None 0%N size_off].
+  [BI_store memidx T_i32 None 0%N size_off].
 
 Definition add_hdr_sz :=
   u32const blk_hdr_sz ::
@@ -147,21 +149,21 @@ Definition mark_free blk :=
   [
     BI_get_local blk;
     u32const BLK_FREE;
-    BI_store T_i32 None 0%N 0%N
+    BI_store memidx T_i32 None 0%N 0%N
   ].
 
 Definition mark_used blk :=
   [
     BI_get_local blk;
     u32const BLK_USED;
-    BI_store T_i32 None 0%N 0%N
+    BI_store memidx T_i32 None 0%N 0%N
   ].
 
 Definition mark_final blk :=
   [
     BI_get_local blk;
     u32const BLK_FINAL;
-    BI_store T_i32 None 0%N 0%N
+    BI_store memidx T_i32 None 0%N 0%N
   ].
 
 
@@ -266,7 +268,7 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
      u32const 1%N ::
      BI_binop T_i32 (Binop_i BOI_add) ::
      BI_tee_local actual_size ::
-     BI_grow_memory ::
+     BI_grow_memory memidx ::
      BI_set_local new_block ::
      BI_get_local new_block ::
      BI_const (VAL_int32 int32_minus_one) ::
@@ -351,3 +353,5 @@ Definition free_body data_ptr :=
 
 Definition free :=
   free_body 0.
+
+End malloc_impl.
