@@ -189,14 +189,14 @@ Definition spec_alloc_gc
         N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
 
 Lemma wp_load_gc
-    (s : stuckness) (E : coPset) (F : frame) (m : memaddr) (θ : addr_map)
+    (s : stuckness) (E : coPset) (F : frame) (memidx: immediate) (m : memaddr) (θ : addr_map)
     (i : i32) (ℓ : vloc) (blk : vblock)
     (j : nat) (off : static_offset) (vv : vval) :
-  F.(f_inst).(inst_memory) !! 0 = Some m ->
+  F.(f_inst).(inst_memory) !! memidx = Some m ->
   repr_vloc_offset θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
   blk.(vals) !! j = Some vv ->
   GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
-  WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load T_i32 None N.zero off)]
+  WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i32 None N.zero off)]
      @ s; E
      {{ w, (∃ k, ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m k)]⌝ ∗ ⌜repr_vval θ vv k⌝) ∗
            GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F }}.
@@ -244,7 +244,7 @@ Proof.
 Qed.
 
 Lemma wp_store_gc
-    (s : stuckness) (E : coPset) (F : frame) (m : memaddr) (θ : addr_map)
+    (s : stuckness) (E : coPset) (F : frame) (memidx: immediate) (m : memaddr) (θ : addr_map)
     (i k : i32) (ℓ : vloc) (blk blk' : vblock)
     (j : nat) (off : static_offset) (vv : vval) :
   F.(f_inst).(inst_memory) !! 0 = Some m ->
@@ -255,7 +255,7 @@ Lemma wp_store_gc
   GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
   WP [AI_basic (BI_const (VAL_int32 i));
       AI_basic (BI_const (VAL_int32 k));
-      AI_basic (BI_store T_i32 None N.zero off)]
+      AI_basic (BI_store memidx T_i32 None N.zero off)]
      @ s; E
      {{ w, ⌜w = immV []⌝ ∗ GC m θ ∗ ℓ ↦vblk blk' ∗ ↪[frame] F }}.
 Admitted.
