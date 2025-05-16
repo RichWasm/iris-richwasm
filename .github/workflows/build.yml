@@ -17,5 +17,3 @@ jobs:
           opam_file: 'iris-richwasm.opam'
           coq_version: '8.20.1'
           ocaml_version: 'default'
-          before_install: |
-            opam install -y --deps-only vendor/iriswasm
