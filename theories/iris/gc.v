@@ -249,7 +249,7 @@ Lemma wp_store_gc
     (s : stuckness) (E : coPset) (F : frame) (memidx: immediate) (m : memaddr) (θ : addr_map)
     (i k : i32) (ℓ : vloc) (blk blk' : vblock)
     (j : nat) (off : static_offset) (vv : vval) :
-  F.(f_inst).(inst_memory) !! 0 = Some m ->
+  F.(f_inst).(inst_memory) !! memidx = Some m ->
   repr_vloc_offset θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
   j < length blk.(vals) ->
   repr_vval θ vv (Wasm_int.Z_of_uint i32m k) ->
