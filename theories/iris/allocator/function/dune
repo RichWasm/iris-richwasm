@@ -1,6 +1,8 @@
 (coq.theory
   (name RWasm.iris.allocator.function)
   (package iris-richwasm)
-  (theories iris stdpp Ltac2 compcert Flocq Wasm.iris.examples.stack
+  (theories iris stdpp Ltac2 compcert Flocq Wasm.iris.examples.stack ITree
+            ExtLib
+            Paco
             Wasm.iris.logrel Wasm.iris.rules mathcomp HB elpi elpi_elpi parseque
             RWasm.iris.allocator))

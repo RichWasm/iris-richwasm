@@ -6,10 +6,10 @@
     ExtLib.Data
     ExtLib.Structures
     iris
-    ITree
     Ltac2
     Paco
     RWasm
+    ITree
     stdpp
     Wasm.iris.helpers
     Wasm.iris.language
