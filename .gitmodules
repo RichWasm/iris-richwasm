@@ -1,0 +1,4 @@
+[submodule "vendor/iriswasm"]
+	path = vendor/iriswasm
+	url = git@github.com:logsem/iriswasm
+	branch = multiple-memories
