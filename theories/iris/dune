@@ -12,5 +12,6 @@
     RWasm
     stdpp
     Wasm.iris.helpers
+    Wasm.iris.host
     Wasm.iris.language
     Wasm.iris.rules))

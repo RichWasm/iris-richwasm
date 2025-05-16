@@ -1,5 +1,6 @@
 From mathcomp Require Import eqtype.
 From iris.proofmode Require Import base tactics classes.
+From Wasm.iris.host Require Import iris_host.
 From Wasm.iris.rules Require Import iris_rules.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -174,6 +175,7 @@ Ltac solve_i32_bytes_len len :=
     cbn; lia
   | auto ].
 
+(* TODO: tag *)
 Definition spec_alloc_gc
     (E : coPset)
     (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
@@ -286,3 +288,268 @@ Definition spec_unregisterroot_gc
                 N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
 
 End GCrules.
+
+Section GCexample.
+
+Context `{!wasmG Σ, !rwasm_gcG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ, !logrel_na_invs Σ}.
+
+Definition i32const (n:Z) := BI_const (VAL_int32 (Wasm_int.int_of_Z i32m n)).
+Definition value_of_int (n:Z) := VAL_int32 (Wasm_int.int_of_Z i32m n).
+
+Definition gc_alloc :=
+  [ i32const 0 ].
+
+Definition gc_registerroot :=
+  [ i32const 0 ].
+
+Definition gc_unregisterroot :=
+  [ i32const 0 ].
+
+Definition gc_module :=
+  {| mod_types := [
+       Tf [T_i32] [T_i32]
+     ];
+     mod_funcs := [
+      {| modfunc_type := Mk_typeidx 0;
+         modfunc_locals := [];
+         modfunc_body := gc_alloc |};
+      {| modfunc_type := Mk_typeidx 0;
+         modfunc_locals := [];
+         modfunc_body := gc_registerroot |};
+      {| modfunc_type := Mk_typeidx 0;
+         modfunc_locals := [];
+         modfunc_body := gc_unregisterroot |}
+    ];
+    mod_tables := [ ];
+    mod_mems := [
+      {| lim_min := 0%N; lim_max := None |}
+    ];
+    mod_globals := [];
+    mod_elem := [];
+    mod_data := [];
+    mod_start := None;
+    mod_imports := [];
+    mod_exports := [
+      {| modexp_name := String.list_byte_of_string "gc_alloc";
+         modexp_desc := MED_func (Mk_funcidx 0) |};
+      {| modexp_name := String.list_byte_of_string "gc_registerroot";
+         modexp_desc := MED_func (Mk_funcidx 1) |};
+      {| modexp_name := String.list_byte_of_string "gc_unregisterroot";
+         modexp_desc := MED_func (Mk_funcidx 2) |}
+    ]
+  |}.
+
+Definition main :=
+  [ i32const 1;
+    BI_call 0 ].
+
+Definition client_module :=
+  {| mod_types := [
+       Tf [] [];
+       Tf [T_i32] [T_i32]
+    ];
+    mod_funcs := [
+      {| modfunc_type := Mk_typeidx 0;
+         modfunc_locals := [T_i32];
+         modfunc_body := main |}
+    ];
+    mod_tables := [];
+    mod_mems := [];
+    mod_globals := [
+      {| modglob_type := {| tg_t := T_i32; tg_mut := MUT_mut |};
+         modglob_init := [i32const 0] |}
+    ];
+    mod_elem := [];
+    mod_data := [];
+    mod_start := Some {| modstart_func := Mk_funcidx 3 |};
+    mod_imports := [
+      {| imp_module := String.list_byte_of_string "RichWasm";
+         imp_name := String.list_byte_of_string "gc_alloc";
+         imp_desc := ID_func 1 |};
+      {| imp_module := String.list_byte_of_string "RichWasm";
+         imp_name := String.list_byte_of_string "gc_registerroot";
+         imp_desc := ID_func 1 |};
+      {| imp_module := String.list_byte_of_string "RichWasm";
+         imp_name := String.list_byte_of_string "gc_unregisterroot";
+         imp_desc := ID_func 1 |}
+    ];
+    mod_exports := [
+      {| modexp_name := String.list_byte_of_string "answer";
+         modexp_desc := MED_global (Mk_globalidx 0) |}
+    ]
+  |}.
+
+Definition gc_instantiate (vis_addrs : list N) (stack_mod_addr client_mod_addr : N) :=
+  [ ID_instantiate (take 3 vis_addrs) stack_mod_addr [];
+    ID_instantiate (drop 3 vis_addrs) client_mod_addr (take 3 vis_addrs) ].
+
+Definition own_vis_pointers (exp_addrs : list N) : iProp Σ :=
+   [∗ list] exp_addr ∈ exp_addrs, (∃ mexp, exp_addr ↪[vis] mexp).
+
+Definition func_types :=
+  [Tf [T_i32] [T_i32];
+   Tf [T_i32] [T_i32];
+   Tf [T_i32] [T_i32]].
+
+Definition expts := fmap ET_func func_types.
+
+Definition gc_instantiate_para (exp_addrs : list N) (stack_mod_addr : N) :=
+  [ ID_instantiate exp_addrs stack_mod_addr [] ].
+
+Lemma instantiate_gc_spec `{!logrel_na_invs Σ} (s : stuckness) (E : coPset) (exp_addrs : list N) (gc_mod_addr : N) :
+  length exp_addrs = 3 ->
+  gc_mod_addr ↪[mods] gc_module -∗
+  own_vis_pointers exp_addrs -∗
+  WP ((gc_instantiate_para exp_addrs gc_mod_addr, []) : host_expr)
+     @ s; E
+     {{ λ v : host_val,
+        ⌜v = immHV []⌝ ∗
+        gc_mod_addr ↪[mods] gc_module ∗
+        ∃ (idf0 idf1 idf2 : nat)
+        (name0 name1 name2 : name)
+        (f0 f1 f2 : list basic_instruction)
+        (i0 : instance)
+        (l0 l1 l2 : list value_type),
+        let inst_vis :=
+          map (λ '(name, idf), {| modexp_name := name; modexp_desc := MED_func (Mk_funcidx idf) |})
+              [(name0, idf0); (name1, idf1); (name2, idf2)] in
+        let inst_map :=
+          list_to_map (zip (fmap N.of_nat [idf0; idf1; idf2])
+                           [FC_func_native i0 (Tf [T_i32] [T_i32]) l0 f0;
+                            FC_func_native i0 (Tf [T_i32] [T_i32]) l1 f1;
+                            FC_func_native i0 (Tf [T_i32] [T_i32]) l2 f2]) in
+        import_resources_host exp_addrs inst_vis ∗
+        import_resources_wasm_typecheck_sepL2 inst_vis expts inst_map ∅ ∅ ∅ ∗
+        ⌜NoDup (modexp_desc <$> inst_vis)⌝ ∗
+        ⌜NoDup [idf0; idf1; idf2]⌝ ∗
+        spec_alloc_gc E i0 idf0 l0 f0 ∗
+        spec_registerroot_gc E i0 idf1 l1 f1 ∗
+        spec_unregisterroot_gc E i0 idf2 l2 f2
+     }}.
+Admitted.
+
+
+Lemma module_typing_client :
+  module_typing client_module expts [ET_glob {| tg_t := T_i32; tg_mut := MUT_mut |}].
+Admitted.
+
+Lemma module_restrictions_client : module_restrictions client_module.
+Admitted.
+
+Lemma instantiate_client_spec E (vis_addrs : list N) (gc_mod_addr client_mod_addr : N) :
+  length vis_addrs = 4 ->
+  ↪[frame] empty_frame -∗
+  gc_mod_addr ↪[mods] gc_module -∗
+  client_mod_addr ↪[mods] client_module -∗
+  own_vis_pointers vis_addrs -∗
+  WP ((gc_instantiate vis_addrs gc_mod_addr client_mod_addr, []) : host_expr)
+     @ E
+     {{ v, ⌜v = immHV []⌝ ∗
+           ↪[frame] empty_frame ∗
+           gc_mod_addr ↪[mods] gc_module ∗
+           client_mod_addr ↪[mods] client_module ∗
+           ∃ idg name,
+           (vis_addrs !!! 3) ↪[vis] {| modexp_name := name; modexp_desc := MED_global (Mk_globalidx idg) |} }}.
+Proof.
+  iIntros (Hvisaddrlen) "Hemptyframe Hmod0 Hmod1 Hvis".
+  do 5 (destruct vis_addrs => //); clear Hvisaddrlen.
+
+  rewrite separate3.
+  iDestruct (big_sepL_app with "Hvis") as "(Hvis & (Hvis4 & _))".
+  iApply (wp_seq_host_nostart NotStuck with "[] [$Hmod0] [Hvis]") => //.
+  2: {
+    iIntros "Hmod0".
+    iApply weakestpre.wp_mono;
+    last iApply (instantiate_gc_spec with "Hmod0 [Hvis]") => //.
+    iIntros (v) "[Hvsucc [? H]]".
+    iFrame.
+    iCombine "Hvsucc H" as "H".
+    by iApply "H".
+  }
+  { by iIntros "(% & _)". }
+
+  - iIntros (w) "Hes1 Hmod0".
+    iDestruct "Hes1" as "(-> & Hes1)".
+    iDestruct "Hes1" as (idf0 idf1 idf2) "Hes1".
+    iDestruct "Hes1" as (name0 name1 name2) "Hes1".
+    iDestruct "Hes1" as (f0 f1 f2) "Hes1".
+    iDestruct "Hes1" as (i0) "Hes1".
+    iDestruct "Hes1" as (l0 l1 l2) "Hes1".
+    iDestruct "Hes1" as "(Himport & Himp_type & %Hnodup & %Hfnodup & #Hspec0 & #Hspec1 & #Hspec2)".
+    iFrame "Hmod0".
+    iApply (instantiation_spec_operational_start with "[$Hemptyframe] [Hmod1 Himport Himp_type Hvis4]");
+    try exact module_typing_client.
+    + by unfold client_module.
+    + by apply module_restrictions_client.
+    + unfold instantiation_resources_pre. iFrame.
+      * Opaque list_to_map.
+        Opaque zip_with.
+        unfold export_ownership_host => /=.
+        unfold instantiation_resources_pre_wasm.
+        rewrite irwt_nodup_equiv => //.
+        iFrame "Himp_type".
+        repeat iSplit.
+        -- iPureIntro; unfold module_elem_bound_check_gmap; simpl.
+           by apply Forall_nil.
+        -- iPureIntro; unfold module_data_bound_check_gmap; simpl; done.
+        -- done.
+        -- done.
+    + iIntros (idnstart) "Hf Hres".
+      unfold instantiation_resources_post.
+      iDestruct "Hres" as "(Hmod1 & Himphost & Hres)".
+      iDestruct "Hres" as (inst) "[Hres Hexphost]".
+      iDestruct "Hres" as (g_inits t_inits m_inits gms wts wms) "(Himpwasm & %Hinst & -> & -> & %Hbound & -> & -> & %Hbound' & Hginit & -> & Hexpwasm)".
+      destruct Hinst as (Hinsttype & Hinstfunc & Hinsttab & Hinstmem & Hinstglob & Hstart).
+      unfold module_inst_resources_wasm, module_export_resources_host => /=.
+      destruct inst => /=.
+      iDestruct "Hexpwasm" as "(Hexpwf & Hexpwt & Hexpwm & Hexpwg)".
+      unfold module_inst_resources_func, module_inst_resources_tab,
+        module_inst_resources_mem, module_inst_resources_glob => /=.
+      unfold big_sepL2 => /=.
+      do 4 (destruct inst_funcs as [| ? inst_funcs]; first by iExFalso; iExact "Hexpwf").
+      simpl.
+      iDestruct "Hexpwf" as "[Hwfcl Hexpwf]".
+      destruct inst_funcs; last by iExFalso.
+      destruct inst_memory; last by iExFalso; iExact "Hexpwm".
+
+      destruct inst_globs as [| g inst_globs];
+        first by destruct g_inits; iExFalso; iExact "Hexpwg".
+      destruct inst_globs ;
+        last by destruct g_inits; iExFalso; iDestruct "Hexpwg" as "[_ Habs]";
+        iExact "Habs".
+      iApply wp_lift_wasm.
+      cbn in Hstart.
+      destruct (PeanoNat.Nat.eq_dec f5 idnstart); last done.
+      subst f5.
+      rewrite -(app_nil_l [AI_invoke idnstart]).
+      iApply (wp_invoke_native with "Hf [Hwfcl]").
+      * done.
+      * instantiate (1 := []). reflexivity.
+      * done.
+      * simpl in Hinsttype. subst inst_types. done.
+      * iIntros "!> [Hf Hwfcl]".
+        iApply (wp_frame_bind with "Hf"); first done.
+        iIntros "Hf".
+        iApply (wp_wand with "[-]").
+        -- rewrite -(app_nil_l [AI_basic _]).
+           iApply (wp_block with "Hf"); try done.
+           iIntros "!> Hf".
+           iApply (wp_label_bind with "[-]"); last first.
+           ++ iPureIntro. unfold lfilled, lfill.
+              instantiate (6 := []). simpl.
+              rewrite app_nil_r. done.
+           ++ rewrite (separate1 (AI_basic _)).
+              rewrite - (app_nil_r [AI_basic (BI_call 0)]).
+              iApply wp_wasm_empty_ctx.
+              iApply wp_base_push => //.
+              iApply (wp_call_ctx with "Hf") => //=.
+              iIntros "!> Hf".
+              iApply wp_base_pull.
+              rewrite app_nil_r.
+              iApply wp_wasm_empty_ctx.
+
+              (* look for ->[wf] for call 0 *)
+              iApply (wp_invoke_native with "Hf").
+Admitted.
+
+End GCexample.
