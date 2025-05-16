@@ -1,4 +1,4 @@
-(lang dune 3.17)
+(lang dune 3.18)
 (using coq 0.9)
 
 (name iris-richwasm)
@@ -20,6 +20,7 @@
     "Maxime Legoupil"
     "Amal Ahmed")
   (depends
+    (dune (>= 3.18))
     (coq (>= 8.20.1))
     (coq-iris (>= 4.3.0))
     (coq-stdpp (>= 1.11.0)) 
