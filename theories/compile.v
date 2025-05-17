@@ -47,6 +47,7 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
     wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))
   | rwasm.Int _ rwasm.i64 => 
     wasm.VAL_int64 (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))
+  (* is the signed converter the right thing to use here? *)
   | rwasm.Float rwasm.f32 =>
     wasm.VAL_float32 
       ((Wasm_float.float_convert_si32
