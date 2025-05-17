@@ -9,10 +9,7 @@ Require Import BinNat.
 
 Module rwasm := term.
 Module wasm := datatypes.
-Print wasm.function_type .
-Print wasm.result_type .
 Require Import stdpp.list.
-Search (list (_ _) -> _ (list _)).
 
 Fixpoint compile_typ (typ: rwasm.Typ) : option wasm.value_type :=
   match typ with
@@ -44,17 +41,25 @@ with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
        end
 with compile_fun_type (typ: rwasm.FunType) : option unit := None. (* What to do about generics? *)
 
-Definition compile_num (num_type : rwasm.NumType) (num : nat) : option wasm.value :=
-  match (num_type, num) with
-  | (rwasm.Int rwasm.S rwasm.i32, n) => (* numerics.int *) None
-  | (rwasm.Int rwasm.S rwasm.i64, n) => None
-  | (rwasm.Int rwasm.U int_type, n) => None
-  | (rwasm.Float float_type, n) => None
+Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
+  match num_type with
+  | rwasm.Int _ rwasm.i32 => 
+    wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))
+  | rwasm.Int _ rwasm.i64 => 
+    wasm.VAL_int64 (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))
+  | rwasm.Float rwasm.f32 =>
+    wasm.VAL_float32 
+      ((Wasm_float.float_convert_si32
+        numerics.f32m (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))))
+  | rwasm.Float rwasm.f64 =>
+    wasm.VAL_float64
+      ((Wasm_float.float_convert_si64
+        numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
   end.
-  
+
 Fixpoint compile_value (value : rwasm.Value) : option wasm.value :=
   match value with 
-  | rwasm.NumConst num_type num => compile_num num_type num
+  | rwasm.NumConst num_type num => Some (compile_num num_type num)
   | rwasm.Tt => None
   | rwasm.Coderef module_idx table_idx idxs => None
   | rwasm.Fold val => None
@@ -124,10 +129,8 @@ Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_inst
   end.
 (* ... *)
 
-
 Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
 Admitted.
-
 
 Fixpoint compile_module (module : rwasm.module) : option wasm.module :=
   let '(funcs, globs, table) := module return option wasm.module in
