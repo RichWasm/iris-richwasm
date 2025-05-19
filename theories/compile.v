@@ -72,6 +72,24 @@ Fixpoint compile_value (value : rwasm.Value) : option wasm.value :=
   | rwasm.Mempack loc val => None
   end.
 
+Print rwasm.Instruction.
+Print wasm.basic_instruction.
+
+Fixpoint option_of_list {A} (l : list (option A)) : option (list A) :=
+  match l with
+  | [] => Some []
+  | None :: _ => None
+  | Some x :: xs =>
+    rest ← option_of_list xs;
+    mret (x :: rest)
+  end.
+
+Fixpoint list_flatten {A} (l : list (list A)) : list A :=
+  match l with
+  | [] => []
+  | x :: xs => x ++ (list_flatten xs)
+  end.
+
 Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_instruction) :=
   match instr with
   | rwasm.Val x => option_map (fun y => [wasm.BI_const y]) (compile_value x)
@@ -82,7 +100,11 @@ Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_inst
   | rwasm.Select => Some [wasm.BI_select]
   | rwasm.Block x x0 x1 => None
   | rwasm.Loop x x0 => None
-  | rwasm.ITE x x0 x1 x2 => None
+  | rwasm.ITE arrow _ t e =>
+    ft ← compile_arrow_type arrow;
+    t' ← option_of_list (map compile_instr t);
+    e' ← option_of_list (map compile_instr e);
+    mret [wasm.BI_if ft (list_flatten t') (list_flatten e')]
   | rwasm.Br x => Some [wasm.BI_br x]
   | rwasm.Br_if x => Some [wasm.BI_br_if x]
   | rwasm.Br_table x x0 => Some [wasm.BI_br_table x x0]
