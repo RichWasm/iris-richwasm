@@ -74,12 +74,12 @@ Fixpoint compile_value (value : rwasm.Value) : option wasm.value :=
 
 Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_instruction) :=
   match instr with
-  | rwasm.Val x => None
+  | rwasm.Val x => option_map (fun y => [wasm.BI_const y]) (compile_value x)
   | rwasm.Ne x => None
-  | rwasm.Unreachable => None
-  | rwasm.Nop => None
-  | rwasm.Drop => None
-  | rwasm.Select => None
+  | rwasm.Unreachable => Some [wasm.BI_unreachable]
+  | rwasm.Nop => Some [wasm.BI_nop]
+  | rwasm.Drop => Some [wasm.BI_drop]
+  | rwasm.Select => Some [wasm.BI_select]
   | rwasm.Block x x0 x1 => None
   | rwasm.Loop x x0 => None
   | rwasm.ITE x x0 x1 x2 => None
