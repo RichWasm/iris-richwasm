@@ -97,13 +97,13 @@ Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_inst
   | rwasm.Drop => Some [wasm.BI_drop]
   | rwasm.Select => Some [wasm.BI_select]
   | rwasm.Block arrow _ i =>
-      ft ← compile_arrow_type arrow;
-      i' ← option_of_list (map compile_instr i);
-      mret [wasm.BI_block ft (list_flatten i')]
+    ft ← compile_arrow_type arrow;
+    i' ← option_of_list (map compile_instr i);
+    mret [wasm.BI_block ft (list_flatten i')]
   | rwasm.Loop arrow i =>
-      ft ← compile_arrow_type arrow;
-      i' ← option_of_list (map compile_instr i);
-      mret [wasm.BI_block ft (list_flatten i')]
+    ft ← compile_arrow_type arrow;
+    i' ← option_of_list (map compile_instr i);
+    mret [wasm.BI_block ft (list_flatten i')]
   | rwasm.ITE arrow _ t e =>
     ft ← compile_arrow_type arrow;
     t' ← option_of_list (map compile_instr t);
@@ -120,8 +120,8 @@ Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_inst
   | rwasm.Set_global x => Some [wasm.BI_set_global x]
   | rwasm.CoderefI x => None
   | rwasm.Inst x => None
-  | rwasm.Call_indirect => None
-  | rwasm.Call x x0 => None
+  | rwasm.Call_indirect => None (* TODO: why doesn't rwasm take an immediate? *)
+  | rwasm.Call x x0 => None     (* TODO: what to do with list of indexes? *)
   | rwasm.RecFold x => None
   | rwasm.RecUnfold => None
   | rwasm.Group x x0 => None
