@@ -7,28 +7,27 @@ Set Bullet Behavior "Strict Subproofs".
 
 Notation vloc := nat (only parsing).
 
+Inductive vkind :=
+  | VKint
+  | VKloc.
+
 Inductive vval :=
   | Vint : Z -> vval
   | Vloc : vloc -> vval.
 
-Inductive vblock_tag :=
-  | TagDefault
-  | TagNoScan.
+Definition vval_kind (vv : vval) :=
+  match vv with
+  | Vint _ => VKint
+  | Vloc _ => VKloc
+  end.
 
-Record vblock := {
-  tag : vblock_tag;
-  vals : list vval;
-}.
+Notation vblock := (list vval).
 
 Notation vstore := (gmap vloc vblock).
 
 Notation addr := N (only parsing).
 
 Notation addr_map := (gmap vloc addr).
-
-Definition code_int (i : Z) : Z := 2 * i + 1.
-
-Definition code_addr (a : addr) : Z := Z.of_N a.
 
 Definition serialize_z (i : Z) : bytes :=
   serialise_i32 (Wasm_int.int_of_Z i32m i).
@@ -38,15 +37,15 @@ Definition serialize_zs (l : list Z) : bytes :=
 
 Inductive repr_vval : addr_map -> vval -> Z -> Prop :=
   | RVint θ z :
-      repr_vval θ (Vint z) (code_int z)
+      repr_vval θ (Vint z) z
   | RVloc θ ℓ a :
       θ !! ℓ = Some a ->
-      repr_vval θ (Vloc ℓ) (code_addr a).
+      repr_vval θ (Vloc ℓ) (Z.of_N a).
 
 Inductive repr_vblock : addr_map -> vblock -> list Z -> Prop :=
   | RVblock θ blk ks :
-      length ks = length blk.(vals) ->
-      Forall (curry (repr_vval θ)) (combine blk.(vals) ks) ->
+      length ks = length blk ->
+      Forall (curry (repr_vval θ)) (combine blk ks) ->
       repr_vblock θ blk ks.
 
 Definition vblock_offset (i : nat) : N := N.of_nat (4 * i).
@@ -55,7 +54,7 @@ Inductive repr_vloc_offset : addr_map -> vloc -> nat -> Z -> Prop :=
   | RVloc_offset θ ℓ i a a' :
       θ !! ℓ = Some a ->
       a' = (a + vblock_offset i)%N ->
-      repr_vloc_offset θ ℓ i (code_addr a').
+      repr_vloc_offset θ ℓ i (Z.of_N a').
 
 Definition roots_are_live (θ : addr_map) (roots : gmap addr vloc) : Prop :=
   ∀ a ℓ, roots !! a = Some ℓ -> ℓ ∈ dom θ.
@@ -68,7 +67,7 @@ Definition GC_correct (ζ : vstore) (θ : addr_map) : Prop :=
   ∀ ℓ blk ℓ',
   ℓ ∈ dom θ ->
   ζ !! ℓ = Some blk ->
-  Vloc ℓ' ∈ blk.(vals) ->
+  Vloc ℓ' ∈ blk ->
   ℓ' ∈ dom θ.
 
 Class rwasm_gcG Σ := Rwasm_gcG {
@@ -126,12 +125,12 @@ Lemma list_pluck : forall (A : Type) i (l : list A),
 Admitted.
 
 Lemma repr_vblock_index : forall θ blk u ks i,
-  blk.(vals) !! i = Some u ->
+  blk !! i = Some u ->
   repr_vblock θ blk ks ->
   exists w, repr_vval θ u w /\ ks !! i = Some w.
 Proof.
   intros θ blk u ks i Hi Hblk. inversion Hblk. subst.
-  assert (exists w, In (u, w) (combine (vals blk) ks)).
+  assert (exists w, In (u, w) (combine blk ks)).
   - admit.
   - destruct H1 as [w Hw].
     exists w. split.
@@ -175,7 +174,6 @@ Ltac solve_i32_bytes_len len :=
     cbn; lia
   | auto ].
 
-(* TODO: tag *)
 Definition spec_alloc_gc
     (E : coPset)
     (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
@@ -186,7 +184,7 @@ Definition spec_alloc_gc
      @ E
      {{ w, ∃ θ' ℓ z blk,
         ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m z)]⌝ ∗ ⌜repr_vloc_offset θ' ℓ 0 z⌝ ∗
-        ⌜length blk.(vals) = Wasm_int.nat_of_uint i32m n⌝ ∗
+        ⌜length blk = Wasm_int.nat_of_uint i32m n⌝ ∗
         GC m θ' ∗ ℓ ↦vblk blk ∗
         N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
 
@@ -196,7 +194,7 @@ Lemma wp_load_gc
     (j : nat) (off : static_offset) (vv : vval) :
   F.(f_inst).(inst_memory) !! memidx = Some m ->
   repr_vloc_offset θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
-  blk.(vals) !! j = Some vv ->
+  blk !! j = Some vv ->
   GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
   WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i32 None N.zero off)]
      @ s; E
@@ -245,21 +243,39 @@ Proof.
   - solve_i32_bytes_len Hlen_ks1.
 Qed.
 
+Definition spec_store_gc
+    (E : coPset)
+    (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
+    : iProp Σ :=
+  □ ∀ (F : frame) (m : memaddr) (θ : addr_map) (i k t : i32) (ℓ : vloc) (blk : vblock) (j : nat) (vv0 vv : vval),
+  ⌜repr_vloc_offset θ ℓ j (Wasm_int.Z_of_uint i32m i)⌝ -∗
+  ⌜blk !! j = Some vv0⌝ -∗
+  ⌜repr_vval θ vv (Wasm_int.Z_of_uint i32m k)⌝ -∗
+  GC m θ -∗
+  N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32; T_i32; T_i32] [T_i32]) fts fes -∗
+  ↪[frame] F -∗
+  WP [AI_basic (BI_const (VAL_int32 i));
+      AI_basic (BI_const (VAL_int32 k));
+      AI_basic (BI_const (VAL_int32 t));
+      AI_invoke fid]
+     @ E
+     {{ w, ⌜w = immV []⌝ ∗ GC m θ ∗ ℓ ↦vblk <[ j := vv ]> blk ∗ ↪[frame] F }}.
+
 Lemma wp_store_gc
     (s : stuckness) (E : coPset) (F : frame) (memidx: immediate) (m : memaddr) (θ : addr_map)
-    (i k : i32) (ℓ : vloc) (blk blk' : vblock)
-    (j : nat) (off : static_offset) (vv : vval) :
+    (i k : i32) (ℓ : vloc) (blk : vblock)
+    (j : nat) (off : static_offset) (vv0 vv : vval) :
   F.(f_inst).(inst_memory) !! memidx = Some m ->
   repr_vloc_offset θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
-  j < length blk.(vals) ->
+  blk !! j = Some vv0 ->
+  vval_kind vv0 = vval_kind vv ->
   repr_vval θ vv (Wasm_int.Z_of_uint i32m k) ->
-  blk' = Build_vblock blk.(tag) (<[ j := vv ]> blk.(vals)) ->
   GC m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
   WP [AI_basic (BI_const (VAL_int32 i));
       AI_basic (BI_const (VAL_int32 k));
       AI_basic (BI_store memidx T_i32 None N.zero off)]
      @ s; E
-     {{ w, ⌜w = immV []⌝ ∗ GC m θ ∗ ℓ ↦vblk blk' ∗ ↪[frame] F }}.
+     {{ w, ⌜w = immV []⌝ ∗ GC m θ ∗ ℓ ↦vblk <[ j := vv ]> blk ∗ ↪[frame] F }}.
 Admitted.
 
 Definition spec_registerroot_gc
@@ -299,6 +315,9 @@ Definition value_of_int (n:Z) := VAL_int32 (Wasm_int.int_of_Z i32m n).
 Definition gc_alloc :=
   [ i32const 0 ].
 
+Definition gc_store :=
+  [ i32const 0 ].
+
 Definition gc_registerroot :=
   [ i32const 0 ].
 
@@ -307,12 +326,16 @@ Definition gc_unregisterroot :=
 
 Definition gc_module :=
   {| mod_types := [
-       Tf [T_i32] [T_i32]
+       Tf [T_i32] [T_i32];
+       Tf [T_i32; T_i32; T_i32] [T_i32]
      ];
      mod_funcs := [
       {| modfunc_type := Mk_typeidx 0;
          modfunc_locals := [];
          modfunc_body := gc_alloc |};
+      {| modfunc_type := Mk_typeidx 1;
+         modfunc_locals := [];
+         modfunc_body := gc_store |};
       {| modfunc_type := Mk_typeidx 0;
          modfunc_locals := [];
          modfunc_body := gc_registerroot |};
@@ -332,10 +355,12 @@ Definition gc_module :=
     mod_exports := [
       {| modexp_name := String.list_byte_of_string "gc_alloc";
          modexp_desc := MED_func (Mk_funcidx 0) |};
-      {| modexp_name := String.list_byte_of_string "gc_registerroot";
+      {| modexp_name := String.list_byte_of_string "gc_store";
          modexp_desc := MED_func (Mk_funcidx 1) |};
+      {| modexp_name := String.list_byte_of_string "gc_registerroot";
+         modexp_desc := MED_func (Mk_funcidx 2) |};
       {| modexp_name := String.list_byte_of_string "gc_unregisterroot";
-         modexp_desc := MED_func (Mk_funcidx 2) |}
+         modexp_desc := MED_func (Mk_funcidx 3) |}
     ]
   |}.
 
@@ -361,10 +386,13 @@ Definition client_module :=
     ];
     mod_elem := [];
     mod_data := [];
-    mod_start := Some {| modstart_func := Mk_funcidx 3 |};
+    mod_start := Some {| modstart_func := Mk_funcidx 4 |};
     mod_imports := [
       {| imp_module := String.list_byte_of_string "RichWasm";
          imp_name := String.list_byte_of_string "gc_alloc";
+         imp_desc := ID_func 1 |};
+      {| imp_module := String.list_byte_of_string "RichWasm";
+         imp_name := String.list_byte_of_string "gc_store";
          imp_desc := ID_func 1 |};
       {| imp_module := String.list_byte_of_string "RichWasm";
          imp_name := String.list_byte_of_string "gc_registerroot";
@@ -380,14 +408,15 @@ Definition client_module :=
   |}.
 
 Definition gc_instantiate (vis_addrs : list N) (stack_mod_addr client_mod_addr : N) :=
-  [ ID_instantiate (take 3 vis_addrs) stack_mod_addr [];
-    ID_instantiate (drop 3 vis_addrs) client_mod_addr (take 3 vis_addrs) ].
+  [ ID_instantiate (take 4 vis_addrs) stack_mod_addr [];
+    ID_instantiate (drop 4 vis_addrs) client_mod_addr (take 4 vis_addrs) ].
 
 Definition own_vis_pointers (exp_addrs : list N) : iProp Σ :=
    [∗ list] exp_addr ∈ exp_addrs, (∃ mexp, exp_addr ↪[vis] mexp).
 
 Definition func_types :=
   [Tf [T_i32] [T_i32];
+   Tf [T_i32; T_i32; T_i32] [T_i32];
    Tf [T_i32] [T_i32];
    Tf [T_i32] [T_i32]].
 
@@ -397,7 +426,7 @@ Definition gc_instantiate_para (exp_addrs : list N) (stack_mod_addr : N) :=
   [ ID_instantiate exp_addrs stack_mod_addr [] ].
 
 Lemma instantiate_gc_spec `{!logrel_na_invs Σ} (s : stuckness) (E : coPset) (exp_addrs : list N) (gc_mod_addr : N) :
-  length exp_addrs = 3 ->
+  length exp_addrs = 4 ->
   gc_mod_addr ↪[mods] gc_module -∗
   own_vis_pointers exp_addrs -∗
   WP ((gc_instantiate_para exp_addrs gc_mod_addr, []) : host_expr)
@@ -405,29 +434,30 @@ Lemma instantiate_gc_spec `{!logrel_na_invs Σ} (s : stuckness) (E : coPset) (ex
      {{ λ v : host_val,
         ⌜v = immHV []⌝ ∗
         gc_mod_addr ↪[mods] gc_module ∗
-        ∃ (idf0 idf1 idf2 : nat)
-        (name0 name1 name2 : name)
-        (f0 f1 f2 : list basic_instruction)
+        ∃ (idf0 idf1 idf2 idf3 : nat)
+        (name0 name1 name2 name3 : name)
+        (f0 f1 f2 f3 : list basic_instruction)
         (i0 : instance)
-        (l0 l1 l2 : list value_type),
+        (l0 l1 l2 l3 : list value_type),
         let inst_vis :=
           map (λ '(name, idf), {| modexp_name := name; modexp_desc := MED_func (Mk_funcidx idf) |})
-              [(name0, idf0); (name1, idf1); (name2, idf2)] in
+              [(name0, idf0); (name1, idf1); (name2, idf2); (name3, idf3)] in
         let inst_map :=
-          list_to_map (zip (fmap N.of_nat [idf0; idf1; idf2])
+          list_to_map (zip (fmap N.of_nat [idf0; idf1; idf2; idf3])
                            [FC_func_native i0 (Tf [T_i32] [T_i32]) l0 f0;
-                            FC_func_native i0 (Tf [T_i32] [T_i32]) l1 f1;
-                            FC_func_native i0 (Tf [T_i32] [T_i32]) l2 f2]) in
+                            FC_func_native i0 (Tf [T_i32; T_i32; T_i32] [T_i32]) l1 f1;
+                            FC_func_native i0 (Tf [T_i32] [T_i32]) l2 f2;
+                            FC_func_native i0 (Tf [T_i32] [T_i32]) l3 f3]) in
         import_resources_host exp_addrs inst_vis ∗
         import_resources_wasm_typecheck_sepL2 inst_vis expts inst_map ∅ ∅ ∅ ∗
         ⌜NoDup (modexp_desc <$> inst_vis)⌝ ∗
-        ⌜NoDup [idf0; idf1; idf2]⌝ ∗
+        ⌜NoDup [idf0; idf1; idf2; idf3]⌝ ∗
         spec_alloc_gc E i0 idf0 l0 f0 ∗
-        spec_registerroot_gc E i0 idf1 l1 f1 ∗
-        spec_unregisterroot_gc E i0 idf2 l2 f2
+        spec_store_gc E i0 idf1 l1 f1 ∗
+        spec_registerroot_gc E i0 idf2 l2 f2 ∗
+        spec_unregisterroot_gc E i0 idf3 l3 f3
      }}.
 Admitted.
-
 
 Lemma module_typing_client :
   module_typing client_module expts [ET_glob {| tg_t := T_i32; tg_mut := MUT_mut |}].
@@ -437,7 +467,7 @@ Lemma module_restrictions_client : module_restrictions client_module.
 Admitted.
 
 Lemma instantiate_client_spec E (vis_addrs : list N) (gc_mod_addr client_mod_addr : N) :
-  length vis_addrs = 4 ->
+  length vis_addrs = 5 ->
   ↪[frame] empty_frame -∗
   gc_mod_addr ↪[mods] gc_module -∗
   client_mod_addr ↪[mods] client_module -∗
@@ -449,13 +479,13 @@ Lemma instantiate_client_spec E (vis_addrs : list N) (gc_mod_addr client_mod_add
            gc_mod_addr ↪[mods] gc_module ∗
            client_mod_addr ↪[mods] client_module ∗
            ∃ idg name,
-           (vis_addrs !!! 3) ↪[vis] {| modexp_name := name; modexp_desc := MED_global (Mk_globalidx idg) |} }}.
+           (vis_addrs !!! 4) ↪[vis] {| modexp_name := name; modexp_desc := MED_global (Mk_globalidx idg) |} }}.
 Proof.
   iIntros (Hvisaddrlen) "Hemptyframe Hmod0 Hmod1 Hvis".
-  do 5 (destruct vis_addrs => //); clear Hvisaddrlen.
+  do 6 (destruct vis_addrs => //); clear Hvisaddrlen.
 
-  rewrite separate3.
-  iDestruct (big_sepL_app with "Hvis") as "(Hvis & (Hvis4 & _))".
+  rewrite separate4.
+  iDestruct (big_sepL_app with "Hvis") as "(Hvis & (Hvis5 & _))".
   iApply (wp_seq_host_nostart NotStuck with "[] [$Hmod0] [Hvis]") => //.
   2: {
     iIntros "Hmod0".
@@ -470,14 +500,14 @@ Proof.
 
   - iIntros (w) "Hes1 Hmod0".
     iDestruct "Hes1" as "(-> & Hes1)".
-    iDestruct "Hes1" as (idf0 idf1 idf2) "Hes1".
-    iDestruct "Hes1" as (name0 name1 name2) "Hes1".
-    iDestruct "Hes1" as (f0 f1 f2) "Hes1".
+    iDestruct "Hes1" as (idf0 idf1 idf2 idf3) "Hes1".
+    iDestruct "Hes1" as (name0 name1 name2 name3) "Hes1".
+    iDestruct "Hes1" as (f0 f1 f2 f3) "Hes1".
     iDestruct "Hes1" as (i0) "Hes1".
-    iDestruct "Hes1" as (l0 l1 l2) "Hes1".
-    iDestruct "Hes1" as "(Himport & Himp_type & %Hnodup & %Hfnodup & #Hspec0 & #Hspec1 & #Hspec2)".
+    iDestruct "Hes1" as (l0 l1 l2 l3) "Hes1".
+    iDestruct "Hes1" as "(Himport & Himp_type & %Hnodup & %Hfnodup & #Hspec0 & #Hspec1 & #Hspec2 & #Hspec3)".
     iFrame "Hmod0".
-    iApply (instantiation_spec_operational_start with "[$Hemptyframe] [Hmod1 Himport Himp_type Hvis4]");
+    iApply (instantiation_spec_operational_start with "[$Hemptyframe] [Hmod1 Himport Himp_type Hvis5]");
     try exact module_typing_client.
     + by unfold client_module.
     + by apply module_restrictions_client.
@@ -506,7 +536,7 @@ Proof.
       unfold module_inst_resources_func, module_inst_resources_tab,
         module_inst_resources_mem, module_inst_resources_glob => /=.
       unfold big_sepL2 => /=.
-      do 4 (destruct inst_funcs as [| ? inst_funcs]; first by iExFalso; iExact "Hexpwf").
+      do 5 (destruct inst_funcs as [| ? inst_funcs]; first by iExFalso; iExact "Hexpwf").
       simpl.
       iDestruct "Hexpwf" as "[Hwfcl Hexpwf]".
       destruct inst_funcs; last by iExFalso.
@@ -519,8 +549,8 @@ Proof.
         iExact "Habs".
       iApply wp_lift_wasm.
       cbn in Hstart.
-      destruct (PeanoNat.Nat.eq_dec f5 idnstart); last done.
-      subst f5.
+      destruct (PeanoNat.Nat.eq_dec f7 idnstart); last done.
+      subst f7.
       rewrite -(app_nil_l [AI_invoke idnstart]).
       iApply (wp_invoke_native with "Hf [Hwfcl]").
       * done.
