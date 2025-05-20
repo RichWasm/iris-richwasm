@@ -26,19 +26,19 @@ Fixpoint compile_typ (typ: rwasm.Typ) : option wasm.value_type :=
   | rwasm.RefT x x0 x1 => None
   end
 with compile_heap_type (typ: rwasm.HeapType) : option unit :=
-       match typ with
-       | rwasm.VariantType typs => None
-       | rwasm.StructType fields => None
-       | rwasm.ArrayType elt_typ => None
-       | rwasm.Ex sz qual typ => None
-       end
+  match typ with
+  | rwasm.VariantType typs => None
+  | rwasm.StructType fields => None
+  | rwasm.ArrayType elt_typ => None
+  | rwasm.Ex sz qual typ => None
+  end
 with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
-       match typ with
-       | rwasm.Arrow tys1 tys2 =>
-           tys1' ← mapM compile_typ tys1;
-           tys2' ← mapM compile_typ tys2;
-           mret (wasm.Tf tys1' tys2')
-       end
+  match typ with
+  | rwasm.Arrow tys1 tys2 =>
+    tys1' ← mapM compile_typ tys1;
+    tys2' ← mapM compile_typ tys2;
+    mret (wasm.Tf tys1' tys2')
+  end
 with compile_fun_type (typ: rwasm.FunType) : option unit := None. (* What to do about generics? *)
 
 Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=

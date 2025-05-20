@@ -21,3 +21,26 @@ be used?
 
 I thought that the signed version should be used so that we would be able to
 have negative values as well — Ari
+
+
+## Good To know
+
+- in old system:
+	- size is measured in bits for the type system
+	- even locations
+- would like this to be changed for the new system
+
+## Polymorphism
+
+1. $\forall \alpha \times \rightarrow bool$
+2. $i64 \times i32 \rightarrow bool$
+
+coderef (1) [i64/\alpha] : i64\times i32 \times bool but more like (ref i64) \times i32 \rightarrow bool
+coderef (2) []
+
+
+## Memory
+
+Need to link to a known module which manages memory.
+
+Getlocal etc needs to account for fun sizes
