@@ -146,10 +146,10 @@ Definition freelist_repr (blks: list block * final_block) (base_addr: N) : iProp
     final_block_repr final next_addr.
 
 Definition block_shp (blk: block) : gmap N N :=
-  {[(block_addr blk + data_off)%N := block_size blk]}.
-
-Definition final_block_shp (blk: final_block) : gmap N N :=
-  {[(final_block_addr blk + data_off)%N := final_block_sz blk]}.
+  match blk with
+  | UsedBlk base_addr blk_used_size blk_leftover_size => {[(base_addr + data_off)%N := blk_used_size]}
+  | _ => ∅
+  end.
 
 (* Note: this doesn't enforce disjointness of block addresses, but the
    freelist_repr relation does. *)
@@ -160,8 +160,7 @@ Fixpoint blocklist_shp (blks: list block) : gmap N N :=
   end.
 
 Definition freelist_shp (blks: list block * final_block) (shp: gmap N N) : Prop :=
-  let '(blks, final) := blks in
-  (blocklist_shp blks) ∪ (final_block_shp final) = shp.
+  blocklist_shp (fst blks) = shp.
 
 (* An allocator token. *)
 Definition alloc_tok (data_addr: N) (sz: N) : iProp Σ :=
@@ -200,6 +199,25 @@ Proof.
     iExists addr.
     iFrame.
     iApply IHblks1.
+    by iFrame.
+Qed.
+
+Lemma app_blocks_repr blks1 : forall blks2 base1 next2,
+    blocks_repr (blks1 ++ blks2) base1 next2 ⊢
+    ∃ next1, blocks_repr blks1 base1 next1 ∗
+             blocks_repr blks2 next1 next2.
+Proof.
+  induction blks1.
+  iIntros "* Hrep".
+  - iExists base1.
+    by iFrame.
+  - iIntros "* Hrep".
+    cbn.
+    iDestruct "Hrep" as "(%Hbase & (%addr & Hrep & Hreps))".
+    rewrite Hbase.
+    iPoseProof (IHblks1 with "[$]") as "(%addr' & Hxs & Hys)".
+    iExists addr'.
+    rewrite <- bi.sep_assoc.
     by iFrame.
 Qed.
 
