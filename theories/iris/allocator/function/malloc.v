@@ -2953,9 +2953,13 @@ Proof.
   iMod "Hshp'".
   set (shp' := delete (base_addr + data_off)%N shp).
   set (blks' := (xs ++ (FreeBlk base_addr (sz + sz_l)) :: ys, final_blk)).
-  assert (freelist_shp blks' shp').
+  iAssert (⌜freelist_shp blks' shp'⌝%I) as "%H".
   {
-    admit.
+    iApply freed_blocklist_shp.
+    iSplit; last by auto.
+    iApply blocks_repr_app.
+    cbn.
+    by iFrame.
   }
   iApply (spec_mark_free with "[$Hblk $Hvec $Hfr]").
   iPureIntro; try intuition eauto using set_nth_read.
@@ -2971,6 +2975,6 @@ Proof.
     iApply blocks_repr_app; by iFrame.
   }
   all: iIntros "(%Heq & _)" + iIntros "(%out & %Heq & _)"; congruence.
-Admitted.
+Qed.
 
 End malloc.
