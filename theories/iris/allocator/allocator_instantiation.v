@@ -29,6 +29,24 @@ Section StackModule.
 
 Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ}. 
 
+Definition alloc_module :=
+  {|
+    mod_types := [
+      Tf [T_i32] [T_i32];
+      Tf [T_i32] []
+    ];
+    mod_funcs := [
+      {|
+        modfunc_type := Mk_typeidx 0;
+        modfunc_locals := [T_i32; T_i32; T_i32; T_i32];
+        modfunc_body := malloc
+      |};
+      {|
+        modfunc_type := Mk_typeidx 1;
+        modfunc_locals := [];
+        modfunc_body := free
+      |};
+    ]
 (*
 Definition stack_module :=
   {|
