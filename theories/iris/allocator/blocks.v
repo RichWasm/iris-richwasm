@@ -55,3 +55,5 @@ Definition final_block_addr (blk: final_block) : N :=
   match blk with
   | FinalBlk addr _ => addr
   end.
+
+Definition blocks := gmap 

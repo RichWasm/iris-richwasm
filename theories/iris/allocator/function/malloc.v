@@ -44,7 +44,7 @@ Proof.
   wp_chomp 1.
   iApply wp_seq.
   instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-  iSplitR; [iIntros "(%H & ?)"; auto|].
+  iSplitR; first (iIntros "(%H & ?)"; done).
   iSplitL "Hfr".
   - iApply wp_get_local; eauto.
   - iIntros (w) "(%Hw & Hfr)".
@@ -2948,17 +2948,29 @@ Proof.
     fill_imm_pred.
   }
   iIntros (w) "(-> & Hfr)".
-  wp_chomp 3.
-  iApply wp_seq. iSplitR; last first. iSplitL "Hblk Hvec Hfr".
+  (* set up some viewshifts etc before the last wp step *)
+  iPoseProof (ghost_map_delete with "[$Htoks] Htok") as "Hshp'".
+  iMod "Hshp'".
+  set (shp' := delete (base_addr + data_off)%N shp).
+  set (blks' := (xs ++ (FreeBlk base_addr (sz + sz_l)) :: ys, final_blk)).
+  assert (freelist_shp blks' shp').
   {
-    iApply (spec_mark_free with "[$Hblk $Hvec $Hfr]").
-    iPureIntro; try intuition eauto using set_nth_read.
-    eauto.
+    admit.
   }
-  iIntros (w) "(-> & %Hfm & Hblk & Hf)".
-  cbn.
-  admit.
+  iApply (spec_mark_free with "[$Hblk $Hvec $Hfr]").
+  iPureIntro; try intuition eauto using set_nth_read.
+  {
+    Search bupd.
+    iIntros (w) "(-> & %Hget & Hblock & Hf)".
+    iApply "HΦ".
+    iSplit; first done.
+    iExists shp'.
+    iExists blks'.
+    iFrame.
+    iSplitR; first auto.
+    iApply blocks_repr_app; by iFrame.
+  }
   all: iIntros "(%Heq & _)" + iIntros "(%out & %Heq & _)"; congruence.
 Admitted.
 
-End malloc.    
+End malloc.
