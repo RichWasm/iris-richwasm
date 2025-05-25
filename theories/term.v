@@ -162,11 +162,11 @@ Inductive IUnOp :=
 | clz | ctz | popcnt.
 
 Inductive IBinOp :=
-| add | sub | div : Sign -> IBinOp | rem : Sign -> IBinOp
+| add | sub | mul | div : Sign -> IBinOp | rem : Sign -> IBinOp
 | and | or | xor | shl | shr : Sign -> IBinOp | rotl | rotr.
 
 Inductive FUnOp :=
-| abs | neg | sqrt | ceil | floor | trunc | nearest.
+| neg | abs | ceil | floor | trunc | nearest | sqrt.
 
 Inductive FBinOp :=
 | addf | subf | mulf | divf | min | max | copysign.
@@ -194,15 +194,15 @@ Inductive CvtOp :=
 | Reinterpret : IntType -> CvtOp.
 
 Inductive NumInstr :=
-| Iu   : IntType -> NumInstr
-| Ib   : IntType -> NumInstr
-| Fu   : FloatType -> NumInstr
-| Fb   : FloatType -> NumInstr
-| It   : IntType -> NumInstr
-| Ir   : IntType -> NumInstr
-| Fr   : FloatType -> NumInstr
-| CvtI : IntType -> NumInstr
-| CvtF : FloatType -> NumInstr.
+| Iu   : IntType -> IUnOp -> NumInstr
+| Ib   : IntType -> IBinOp -> NumInstr
+| Fu   : FloatType -> FUnOp -> NumInstr
+| Fb   : FloatType -> FBinOp -> NumInstr
+| It   : IntType -> ITestOp -> NumInstr
+| Ir   : IntType -> IRelOp -> NumInstr
+| Fr   : FloatType -> FRelOp -> NumInstr
+| CvtI : IntType -> CvtOp -> NumInstr
+| CvtF : FloatType -> CvtOp -> NumInstr.
 
 (* exports *)
 Definition ex := positive.
