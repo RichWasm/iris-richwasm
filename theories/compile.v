@@ -99,7 +99,6 @@ Definition compile_float_type (typ : rwasm.FloatType) : wasm.value_type :=
   | rwasm.f64 => wasm.T_f64
   end.
 
-Print wasm.sx.
 Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
   match s with
   | rwasm.U => wasm.SX_U
