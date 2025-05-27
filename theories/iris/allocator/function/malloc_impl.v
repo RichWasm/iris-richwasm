@@ -298,16 +298,11 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
 
         pinch_block new_block reqd_sz old_sz final_block) :: nil) :: nil.
 
-Definition malloc_loop_body reqd_sz cur_block tmp1 new_blk tmp2 :=
+
+Definition malloc_loop_body (reqd_sz cur_block: immediate) :=
   (* break out of the loop if the block is final. *)
   is_block_nonfinal cur_block ++
-  BI_if (Tf [] []) 
-    (new_block cur_block reqd_sz tmp1 new_blk tmp2 ++
-     mark_used new_blk ++
-     get_data new_blk ++
-     [BI_br 2])
-    [BI_nop] ::
-  BI_br_if 1 ::
+  BI_br_if 0 ::
   (* Check if the block fits and is free. *)
   (* put the free flag at the top of the stack*)
   is_block_free cur_block ++
@@ -321,7 +316,7 @@ Definition malloc_loop_body reqd_sz cur_block tmp1 new_blk tmp2 :=
     (* it's free and it fits, mark block as not free and return start *)
     (mark_used cur_block ++
      get_data cur_block ++ 
-     [BI_br 2]) 
+     [BI_return]) 
     (* if it isn't free or doesn't fit, try the next block *)
     (get_next cur_block ++
      [BI_set_local cur_block])]
@@ -332,7 +327,12 @@ Definition malloc_body reqd_sz cur_block tmp1 new_blk tmp2 :=
   i32const 0 ::
   (* Store the current block. *)
   BI_set_local cur_block ::
-  BI_loop (Tf [] []) (malloc_loop_body reqd_sz cur_block tmp1 new_blk tmp2) ::
+  BI_loop (Tf [] []) (malloc_loop_body reqd_sz cur_block) ::
+  (* OK, we are at the end of the list! *)
+  new_block cur_block reqd_sz tmp1 new_blk tmp2 ++
+  mark_used new_blk ++
+  BI_get_local new_blk ::
+  BI_return ::
   nil.
   
 (*
@@ -342,8 +342,7 @@ Definition malloc_body reqd_sz cur_block tmp1 new_blk tmp2 :=
   Allocate a new block of memory of the requested size.
 *)
 Definition malloc :=
-  malloc_body 0 1 2 3 4 ++
-  [BI_return].
+  malloc_body 0 1 2 3 4.
 
 Definition free_body data_ptr :=
   BI_get_local data_ptr ::
