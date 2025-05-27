@@ -2964,7 +2964,6 @@ Proof.
   iApply (spec_mark_free with "[$Hblk $Hvec $Hfr]").
   iPureIntro; try intuition eauto using set_nth_read.
   {
-    Search bupd.
     iIntros (w) "(-> & %Hget & Hblock & Hf)".
     iApply "HΦ".
     iSplit; first done.

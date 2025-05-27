@@ -7,7 +7,7 @@ From iris.bi Require Export weakestpre.
 From Wasm.iris.host Require Export iris_host.
 From Wasm.iris.logrel Require Export iris_fundamental_helpers.
 From RWasm.iris.allocator.function Require Export allocator_specs.
-From RWasm.iris.allocator Require Export malloc_impl.
+From RWasm.iris.allocator Require Export malloc_impl spec.
 From Wasm Require Export type_checker_reflects_typing.
 
 Set Implicit Arguments.
@@ -29,9 +29,6 @@ Set Bullet Behavior "Strict Subproofs".
 Section AllocModule.
 
 Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ}. 
-
-Definition malloc_typ := Tf [T_i32] [T_i32].
-Definition free_typ := Tf [T_i32] [].
 
 Definition alloc_module :=
   {|
@@ -163,7 +160,28 @@ Section instantiation.
     ⌜NoDup exp_addrs⌝ ∗
     mod_addr ↪[mods] alloc_module ∗
     own_vis_pointers exp_addrs
-    ⊢ WP alloc_instantiate @ s;E {{λ w, ⌜w = immHV []⌝ ∗ mod_addr ↪[mods] alloc_module }}.
+    ⊢ WP alloc_instantiate @ s;E
+         {{λ w, ⌜w = immHV []⌝ ∗ mod_addr ↪[mods] alloc_module ∗
+                ∃ (fid0 fid1: nat) (name0 name1: name) (body0 body1: seq.seq basic_instruction)
+                  (mem: N)
+                  (inst: instance)
+                  (local_typs0 local_typs1 : list value_type)
+                  (alloc_tok: N -> N -> iProp Σ)
+                  (alloc_inv: N -> iProp Σ),
+                  let inst_vis : seq.seq module_export := map (λ '(name, fid),
+                                         {| modexp_name := name;
+                                            modexp_desc := MED_func (Mk_funcidx fid) |})
+                                      [(name0, fid0); (name1, fid1)] in
+                  let inst_map := list_to_map (zip (map N.of_nat [fid0; fid1])
+                                                 [(FC_func_native inst malloc_typ local_typs0 body0) ;
+                                                  (FC_func_native inst free_typ local_typs1 body1)]) in
+                  ⌜NoDup [fid0; fid1]⌝ ∗
+                  alloc_inv mem ∗
+                  import_resources_host exp_addrs inst_vis ∗
+                  import_resources_wasm_typecheck_sepL2 inst_vis alloc_exports inst_map ∅ ∅ ∅ ∗
+                  spec_malloc alloc_tok alloc_inv E fid0 inst local_typs0 body0 ∗
+                  spec_free alloc_tok alloc_inv E fid0 inst local_typs0 body0
+         }}.
   Proof.
     iIntros "(%Hexplen & %Hdisj & Hmod & Hvis)".
     iApply (weakestpre.wp_strong_mono s _ E with "[Hmod Hvis]") => //.
