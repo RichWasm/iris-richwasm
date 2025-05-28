@@ -30,9 +30,12 @@ Section AllocModule.
 
 Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ}. 
 
+
+Definition init_typ := Tf [] [].
+
 Definition alloc_module :=
   {|
-    mod_types := [malloc_typ; free_typ];
+    mod_types := [malloc_typ; free_typ; init_typ];
     mod_funcs := [
       {|
         modfunc_type := Mk_typeidx 0; (* i32 -> i32 *)
@@ -43,6 +46,11 @@ Definition alloc_module :=
         modfunc_type := Mk_typeidx 1; (* i32 -> [] *)
         modfunc_locals := [];
         modfunc_body := free 0
+      |};
+      {|
+        modfunc_type := Mk_typeidx 2; (* [] -> [] *)
+        modfunc_locals := [];
+        modfunc_body := init 0;
       |}
     ];
     mod_tables := [];
@@ -50,7 +58,7 @@ Definition alloc_module :=
     mod_globals := [];
     mod_elem := [];
     mod_data := [];
-    mod_start := None;
+    mod_start := Some {| modstart_func := Mk_funcidx 2 |};
     mod_imports := [];
     mod_exports := [
       {|
@@ -74,7 +82,7 @@ Proposition alloc_module_typed:
   module_typing alloc_module alloc_imports alloc_exports.
 Proof.
   unfold alloc_imports, alloc_exports, alloc_module.
-  exists [malloc_typ; free_typ].
+  exists [malloc_typ; free_typ; init_typ].
   exists nil.
   simpl.
   repeat match goal with 
@@ -94,6 +102,11 @@ Proof.
     unfold malloc, malloc_body.
     by apply/b_e_type_checker_reflects_typing.
   - (* function typing: free *) 
+    cbn.
+    split; first done.
+    split; first done.
+    by apply/b_e_type_checker_reflects_typing.
+  - (* function typing: init *) 
     cbn.
     split; first done.
     split; first done.
@@ -159,6 +172,7 @@ Section instantiation.
     ⌜length exp_addrs = 2⌝ ∗
     ⌜NoDup exp_addrs⌝ ∗
     mod_addr ↪[mods] alloc_module ∗
+    ↪[frame] empty_frame ∗
     own_vis_pointers exp_addrs
     ⊢ WP alloc_instantiate @ s;E
          {{λ w, ⌜w = immHV []⌝ ∗ mod_addr ↪[mods] alloc_module ∗
@@ -180,15 +194,15 @@ Section instantiation.
                   import_resources_host exp_addrs inst_vis ∗
                   import_resources_wasm_typecheck_sepL2 inst_vis alloc_exports inst_map ∅ ∅ ∅ ∗
                   spec_malloc alloc_tok alloc_inv E fid0 inst local_typs0 body0 ∗
-                  spec_free alloc_tok alloc_inv E fid0 inst local_typs0 body0
+                  spec_free alloc_tok alloc_inv E fid1 inst local_typs1 body1
          }}.
   Proof.
-    iIntros "(%Hexplen & %Hdisj & Hmod & Hvis)".
-    iApply (weakestpre.wp_strong_mono s _ E with "[Hmod Hvis]") => //.
-    iApply instantiation_spec_operational_no_start; try iFrame; auto.
+    iIntros "(%Hexplen & %Hdisj & Hmod & Hfr & Hvis)".
+    iApply (weakestpre.wp_strong_mono s _ E with "[Hmod Hfr Hvis]") => //.
+    iApply (instantiation_spec_operational_start with "[Hfr] [Hmod Hvis]"); try iFrame; auto.
     - apply alloc_module_typed.
     - admit.
-    - iSplit.
+    - iSplitL.
       eauto.
       unfold import_resources_host. auto.
       unfold alloc_imports.
@@ -197,11 +211,95 @@ Section instantiation.
         unfold import_func_resources, import_tab_resources, import_mem_resources, import_glob_resources;
         try done;
         try by constructor.
-    - unfold instantiation_resources_post.
+    - iIntros (idnstart) "Hfr".
+      unfold instantiation_resources_post.
       unfold instantiation_resources_post_wasm.
-      iIntros (w) "(-> & Hmod & Himp & %inst & Hexp)".
-      cbn.
+      iIntros "(Hmod & Himp & %inst & Hinst & Hhost)".
+      iDestruct "Hinst" as "(%g_inits & %tab_allocs & %mem_allocs & %glob_allocs & %wts' & %wms' & Hinst)".
+      iDestruct "Hinst" as "(Htype & %Himports & %Htaballoc & %Hwts' & %Hmodbound & %Hmemalloc & H')".
+      iDestruct "H'" as "(%Hwms' & %Hmodbound' & %Hglobinit & %Hgloballoc & Hinstrsc)".
+      iDestruct "Hinstrsc" as "(Hfuncs & Hrest)".
+      destruct Himports as (Himp_types & Himp_ext_func & Himp_ext_tab & Himp_ext_mem & Himp_ext_glob & Himp_check_start).
+      subst.
+      rewrite drop_0.
+      iPoseProof (big_sepL2_length with "[$Hfuncs]") as "%Hfuncslen".
+      cbn in Hfuncslen.
+      unfold check_start in Himp_check_start.
+      destruct (inst_funcs inst) as [| f0 [| f1 [| f2 [| ?]]]]; try (vm_compute in Hfuncslen; discriminate).
+      iEval (cbn) in "Hfuncs".
+      iDestruct "Hfuncs" as "(Hfmalloc & Hffree & Hfstart & _)".
+      rewrite !Himp_types.
+      simpl mod_types; simpl nth.
+      simpl in Himp_check_start.
+      move/eqP in Himp_check_start.
+      replace idnstart with f2 by congruence.
+      iApply wp_lift_wasm.
+      change [AI_invoke f2]
+      with ([] ++ [AI_invoke f2])%list.
+      {
+        iApply (wp_invoke_native with "[$Hfr] [$Hfstart]") =>//.
+        iIntros "!> (Hfr & Hfstart)".
+        cbn.
+        iApply (wp_frame_bind with "[$Hfr]") =>//.
+        iIntros "Hfr".
+        rewrite <- (app_nil_l [AI_basic _]).
+        iApply (wp_block with "[$Hfr]") =>//.
+        iIntros "!> Hfr".
+        iApply wp_build_ctx.
+        {
+          constructor.
+          apply/lfilledP.
+          rewrite <- (app_nil_l [AI_label _ _ _]).
+          econstructor =>//.
+          rewrite <- (app_nil_r (to_e_list _)).
+          eapply LfilledBase =>//.
+        }
+        Search wp_wasm_ctx const_list.
+        admit. (* proof about init() goes here *)
+      }
+    -
+      (*iIntros (w) "(-> & Hinv) !>".
+      iSplit; eauto.
+      iApply wp_invoke_native.
+      Set Printing All.
+      unfold wp.
+      iApply wp_invoke_native.
+      iApply instantiation_spec_operational_no_start.
+      iModIntro.
+      iFrame.
+      iSplit; first done.
+      iExists 0, 1.
+      iExists (String.list_byte_of_string "malloc"), (String.list_byte_of_string "free").
+      iExists (malloc 0), (free 0).
+      iExists 0%N.
+      iExists _.
+      iExists [T_i32; T_i32; T_i32; T_i32].
+      iExists [].
+      iExists alloc_tok.
+      iExists alloc_inv.
+      iSplitR.
+      { iPureIntro.
+        rewrite equiv_NoDupEff.
+        vm_compute.
+        intuition discriminate.
+      }
+      iSplitR.
+      {
+        unfold alloc_inv.
+        iExists ∅ ([], []).
+        
+
+        auto.
+      unfold module_inst_resources_wasm.
+      iDestruct "Hinstrsc" as "(Hfuncs & Htabs & Hmems & Hglobs)".
+      simpl mod_funcs.
+      unfold module_inst_resources_func.
+      simpl.
+      unfold alloc_module.
+      cbn delta [mod_exports].
+      subst.
       admit.
+*)
   Admitted.
 End instantiation.
 

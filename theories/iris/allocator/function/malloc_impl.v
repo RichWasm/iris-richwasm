@@ -354,4 +354,20 @@ Definition free_body data_ptr :=
 Definition free :=
   free_body 0 ++ [BI_return].
 
+Definition init :=
+  u32const 0 ::
+  u32const BLK_FINAL ::
+  BI_store memidx T_i32 None 0%N 0%N ::
+  u32const 0 ::
+  u32const 0 ::
+  set_next ++
+  u32const 0 ::
+  BI_current_memory memidx ::
+  mul_page_sz ++
+  sub_hdr_sz ++
+  set_size.
+
+
+
+
 End malloc_impl.
