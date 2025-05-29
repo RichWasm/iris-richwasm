@@ -30,6 +30,11 @@ Defined.
 
 Inductive MemConstant := GCMem | LinMem.
 
+Definition mem_const_eq_dec: forall x y: MemConstant, {x = y} + {x <> y}.
+Proof.
+  decide equality.
+Defined.
+
 Inductive Loc :=
 | LocV   : var -> Loc
 | LocP   : Ptr -> MemConstant -> Loc.
@@ -98,21 +103,6 @@ Definition loc_qual (loc_quals: qual_ctx) (loc: Loc) : option Qual :=
   match loc with
   | LocV ρ => loc_quals !! ρ
   | LocP ℓ mem => mret $ mem_qual mem
-  end.
-
-Fixpoint typ_qual (loc_quals: qual_ctx) (ty_quals: qual_ctx) (ty: Typ) : option Qual :=
-  match ty with
-  | Num _
-  | Unit
-  | CoderefT _
-  | PtrT _ => mret (Unrestricted: Qual)
-  | TVar α => ty_quals !! α
-  | ProdT tys => quals ← (mapM (typ_qual loc_quals ty_quals) tys); mret (QualJoin quals)
-  | Rec q ty => mret q
-  | ExLoc q ty => typ_qual (q :: loc_quals) ty_quals ty
-  | OwnR loc => loc_qual loc_quals loc
-  | CapT _ loc _ 
-  | RefT _ loc _ => loc_qual loc_quals loc
   end.
 
 Definition Mut := bool.
