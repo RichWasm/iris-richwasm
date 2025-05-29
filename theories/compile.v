@@ -26,16 +26,26 @@ Fixpoint list_flatten {A} (l : list (list A)) : list A :=
   | x :: xs => x ++ (list_flatten xs)
   end.
 
-Fixpoint compile_typ (typ: rwasm.Typ) : option wasm.value_type :=
+Fixpoint compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
   match typ with
-  | rwasm.Num x => None
+  | rwasm.Int rwasm.U rwasm.i32 => Some wasm.T_i32
+  | rwasm.Int rwasm.U rwasm.i64 => Some wasm.T_i64
+  | rwasm.Int rwasm.S rwasm.i32 => Some wasm.T_i32
+  | rwasm.Int rwasm.S rwasm.i64 => Some wasm.T_i64
+  | rwasm.Float rwasm.f32 => Some wasm.T_f32
+  | rwasm.Float rwasm.f64 => Some wasm.T_f64
+  end.
+
+Fixpoint compile_typ (typ: rwasm.Typ) : option (list wasm.value_type) :=
+  match typ with
+  | rwasm.Num ntyp => wty ← compile_numtyp ntyp; mret [wty]
   | rwasm.TVar x => None
   | rwasm.Unit => None
   | rwasm.ProdT x => None
   | rwasm.CoderefT x => None
   | rwasm.Rec _ typ => compile_typ typ
   | rwasm.PtrT x => None
-  | rwasm.ExLoc x => None
+  | rwasm.ExLoc q x => None
   | rwasm.OwnR x => None
   | rwasm.CapT x x0 x1 => None
   | rwasm.RefT x x0 x1 => None
@@ -52,7 +62,7 @@ with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
   | rwasm.Arrow tys1 tys2 =>
     tys1' ← mapM compile_typ tys1;
     tys2' ← mapM compile_typ tys2;
-    mret (wasm.Tf tys1' tys2')
+    mret (wasm.Tf (list_flatten tys1') (list_flatten tys2'))
   end
 with compile_fun_type (typ: rwasm.FunType) : option unit := None. (* What to do about generics? *)
 
@@ -222,6 +232,44 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instructio
     end
   end.
 
+Definition expect_concrete_size (sz: rwasm.Size) : option nat :=
+  match sz with
+  | rwasm.SizeConst c => mret c
+  | _ => None
+  end.
+
+(* Mapping from size variables to indices of locals of type i32 *)
+Definition size_ctx := 
+  list wasm.immediate.
+Section compile_instr.
+Variable (sz_locs: size_ctx).
+
+(* n.b. this is polymorphic :( *)
+Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : option rwasm.Size :=
+  match idx with
+  | 0 => mret $ rwasm.SizeConst 0
+  | S idx' =>
+      match fields with
+      | (_, sz) :: fields' => rwasm.SizePlus sz <$> (struct_field_offset fields' idx')
+      | [] => None
+      end
+  end.
+
+(* Produces code that given a frame with sizes according to size_ctx
+   computes one i32, which is the concrete value of sz at run time. *)
+Fixpoint compile_size_expr (sz: rwasm.Size) : option (list wasm.basic_instruction) :=
+  match sz with
+  | rwasm.SizeVar σ =>
+      l_idx ← sz_locs !! σ;
+      mret [wasm.BI_get_local l_idx]
+  | rwasm.SizePlus sz sz' =>
+      e ← compile_size_expr sz;
+      e' ← compile_size_expr sz';
+      mret (e ++ e' ++ [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add)])
+  | rwasm.SizeConst n =>
+      mret [wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n)))]
+  end.
+
 Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_instruction) :=
   match instr with
   | rwasm.Val x => option_map (fun y => [wasm.BI_const y]) (compile_value x)
@@ -267,7 +315,13 @@ Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_inst
   | rwasm.MemUnpack x x0 x1 => None
   | rwasm.StructMalloc x x0 => None
   | rwasm.StructFree => None
-  | rwasm.StructGet x => None
+  | rwasm.StructGet idx =>
+      None
+      (*
+      off_exp ← struct_field_offset fields idx;
+      off ← expect_concrete_size off_exp;
+      mret [wasm.BI_load wasm.T_i32 None 0%N (N.of_nat off)]
+*)
   | rwasm.StructSet x => None
   | rwasm.StructSwap x => None
   | rwasm.VariantMalloc x x0 x1 => None
@@ -289,6 +343,8 @@ Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_inst
   | rwasm.Free => None
   end.
 (* ... *)
+  
+End compile_instr.
 
 Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
 Admitted.

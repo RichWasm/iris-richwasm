@@ -11,4 +11,6 @@
   HB
   mathcomp
   mathcomp.ssreflect
+  elpi
+  elpi_elpi
   stdpp))
