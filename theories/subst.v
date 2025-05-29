@@ -221,8 +221,7 @@ Lemma subst'_typ_mut_ok
     subst'_ok subst'_arrowtype /\
     subst'_ok subst'_heaptype.
 Proof.
-  (*
-  apply Pre_Typ_Fun_Arrow_Heap_ind.
+  apply Typ_Fun_Arrow_Heap_ind.
   all: intros; intros_ok_at; elim_ok_at; cbn; try now simpl_ok.
   Local Ltac Forall_fst :=
     match goal with
@@ -248,8 +247,7 @@ Proof.
                (fun s => subst'_size f (subst'_size g s))).
     f_equal; [|feql; now simpl_ok].
     Forall_fst. rewrite <- map_map. now simpl_ok.
-*)
-Admitted.
+Qed.
 
 Corollary subst'_typ_ok : subst'_ok subst'_typ. Proof. apply subst'_typ_mut_ok. Qed.
 Corollary subst'_funtype_ok : subst'_ok subst'_funtype. Proof. apply subst'_typ_mut_ok. Qed.
@@ -521,11 +519,9 @@ Lemma subst'_insn_mut_ok :
   (forall f : Func, True) /\
   (forall c : Closure, True).
 Proof.
-  (*
   apply Instruction_Func_Closure_ind;
   intros; intros_ok_at; elim_ok_at; cbn; simpl_ok; try reflexivity.
-*)
-Admitted.
+Qed.
 
 Corollary subst'_instruction_ok : subst'_ok subst'_instruction.
 Proof. apply subst'_insn_mut_ok. Qed.

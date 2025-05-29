@@ -725,6 +725,37 @@ Section QualLt.
 
   (* Zoe: If more axioms are needed we could have a separate interface for that at some point *)
 
+ 
+  Definition qual_ctx : Type :=
+    list (list Qual * list Qual).
+  Section qual_leq.
+    Variable (bounds: qual_ctx).
+
+    Inductive qual_leq : Qual -> Qual -> Prop :=
+    | QualLeqBot: forall q, qual_leq Unrestricted q
+    | QualLeqTop: forall q, qual_leq q Linear
+    | QualLeqJoinL: forall q qs,
+        (forall q0, In q0 qs -> qual_leq q0 q) ->
+        qual_leq (QualJoin qs) q
+    | QualLeqJoinR: forall q q0 qs,
+        In q0 qs ->
+        qual_leq q q0 ->
+        qual_leq q (QualJoin qs)
+    | QualLeqRefl: forall q, qual_leq q q
+    | QualLeqTrans: forall q1 q2 q3, qual_leq q1 q2 -> qual_leq q2 q3 -> qual_leq q1 q3
+    | QualLeqUB: forall q1 q1' lbs ubs q2,
+        bounds !! q1 = Some (lbs, ubs) ->
+        List.In q1' ubs ->
+        qual_leq q1' q2 ->
+        qual_leq (QualVar q1) q2
+    | QualLeqLB: forall q1 lbs ubs q2' q2,
+        bounds !! q2 = Some (lbs, ubs) ->
+        List.In q2' lbs ->
+        qual_leq q1 q2' ->
+        qual_leq q1 (QualVar q2).
+
+  End qual_leq.
+
   Axiom QualLeq : list (list Qual * list Qual) -> Qual -> Qual -> option bool.
 
   Definition le_qualconst qc1 qc2 :=
@@ -750,6 +781,12 @@ Section QualLt.
   Axiom QualLeq_desc : forall C q1 q2,
       QualLeq C q1 q2 = Some true <->
       ctx_imp_leq le_qualconst interp_qual C q1 q2.
+
+  Theorem qual_leq_sound_and_complete: forall C q1 q2,
+      qual_leq C q1 q2 <->
+      ctx_imp_leq le_qualconst interp_qual C q1 q2.
+  Proof.
+  Admitted.
 
   Theorem QualLeq_Top : forall C q, QualLeq C q Linear = Some true.
   Proof.
@@ -800,107 +837,6 @@ Section QualLt.
     specialize (OrderedTypeEx.Nat_as_OT.eq_dec a b).
     intros.
     case H; eauto.
-  Qed.
-
-  Theorem QualLeq_Empty_Ctx : forall q1 q2,
-      QualLeq [] q1 q2 = Some true ->
-      q1 = q2 \/
-      q1 = Unrestricted \/
-      q2 = Linear.
-  Proof.
-    do 2 intro.
-    rewrite QualLeq_desc.
-    unfold ctx_imp_leq.
-    intros.
-    destruct q1; destruct q2; simpl.
-    - left.
-      assert (Heq : v = v0 \/ v <> v0) by apply eq_dec_nat.
-      case Heq; auto.
-      intros.
-      specialize
-        (H
-           (fun v' =>
-              if OrderedTypeEx.Nat_as_OT.eq_dec v v'
-              then Linear
-              else Unrestricted)).
-      match goal with
-      | [ H : ?A -> _ |- _ ] =>
-        let H' := fresh "H" in
-        assert (H' : A); [ | specialize (H H') ]
-      end.
-      { constructor. }
-      simpl in *.
-      remember (OrderedTypeEx.Nat_as_OT.eq_dec v v) as obj.
-      destruct obj; [ | exfalso; eauto ].
-      remember (OrderedTypeEx.Nat_as_OT.eq_dec v v0) as obj2.
-      destruct obj2; [ subst; exfalso; eauto | ].
-      simpl in *.
-      exfalso; auto.
-    - admit. 
-    - destruct q; [ | right; right; auto ].
-      specialize (H (fun _ => Linear)).
-      match goal with
-      | [ H : ?A -> _ |- _ ] =>
-        let H' := fresh "H" in
-        assert (H' : A); [ | specialize (H H') ]
-      end.
-      { constructor. }
-      simpl in *.
-      exfalso; auto.
-    - admit. 
-(*destruct q; [ right; left; auto | ].
-      specialize (H (fun _ => Unrestricted)).
-      match goal with
-      | [ H : ?A -> _ |- _ ] =>
-        let H' := fresh "H" in
-        assert (H' : A); [ | specialize (H H') ]
-      end.
-      { constructor. }
-      simpl in *.
-      exfalso; auto.*)
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-      (*
-    - destruct q; [ right; left; auto | ].
-      destruct q0; [ | right; right; auto ].
-      specialize (H (fun _ => Unrestricted)).
-      match goal with
-      | [ H : ?A -> _ |- _ ] =>
-        let H' := fresh "H" in
-        assert (H' : A); [ | specialize (H H') ]
-      end.
-      { constructor. }
-      simpl in *.
-      exfalso; auto.
-       *)
-  Admitted.
-
-  Theorem QualLeq_Const_False : QualLeq [] Linear Unrestricted = Some true -> False.
-  Proof.
-    intros.
-    apply QualLeq_Empty_Ctx in H.
-    case H; [ | intro H'; case H' ]; intro H''; inversion H''.
-  Qed.
-
-  Theorem QualLeq_Top_Const : forall q, QualLeq [] Linear q = Some true -> q = Linear.
-  Proof.
-    intros.
-    apply QualLeq_Empty_Ctx in H.
-    case H; auto.
-    intro H'; case H'; auto.
-    intro H''; inversion H''.
-  Qed.
-
-  Theorem QualLeq_Bottom_Const : forall q, QualLeq [] q Unrestricted = Some true -> q = Unrestricted.
-  Proof.
-    intros.
-    apply QualLeq_Empty_Ctx in H.
-    case H; auto.
-    intro H'; case H'; auto.
-    intro H''; inversion H''.
   Qed.
 
 End QualLt.
@@ -1040,6 +976,31 @@ End QualLt.
 
   Definition add_constraints (C : Function_Ctx) (quants : list KindVar) : Function_Ctx :=
     fold_left add_constraint quants C.
+
+  Definition LocQual (C: Function_Ctx) (loc: Loc) : option Qual :=
+    match loc with
+    | LocV ρ => loc_var_qual C ρ
+    | LocP _ mem => mret $ mem_qual mem
+    end.
+
+  Fixpoint TypQual (C: Function_Ctx) (ty: Typ) : option Qual :=
+    match ty with
+    | Num _
+    | Unit
+    | CoderefT _
+    | PtrT _ => mret (Unrestricted: Qual)
+    | TVar α => typ_var_qual C α
+    | ProdT tys => quals ← (mapM (TypQual C) tys); mret (QualJoin quals)
+    | Rec q _ => mret q
+    | ExLoc q ty => TypQual (add_constraint C (LOC q)) ty
+    | OwnR loc
+    | CapT _ loc _ 
+    | RefT _ loc _ => LocQual C loc
+    end.
+
+  Definition TypQualLeq (C : Function_Ctx) (t : Typ) (q : Qual) :=
+    q' ← (TypQual C t);
+    QualLeq (qual C) q' q.
   
 Section Validity.
 
@@ -1091,76 +1052,74 @@ Section Validity.
                                  KindVarsValid (add_constraint C kv) kvs ->
                                  KindVarsValid C (kv :: kvs).
   
-  Definition TypeValid: Function_Ctx -> Typ -> Prop.
-  Admitted.
-  (* TODO...
+  (* Presupposes the Function_Ctx argument is valid *)
+  Inductive TypeValid: Function_Ctx -> Typ -> Prop :=
   | TNumValid :
-      forall C q n,
-        QualValid (qual C) q ->
-        TypeValid C (Num n) q)
+      forall C n,
+        TypeValid C (Num n)
   | TVarValid :
-      forall C q a qa sz hc,
-        QualValid (qual C) q ->
-        QualValid (qual C) qa ->
-        nth_error (type C) a = Some (sz, qa, hc) ->
-        QualLeq (qual C) qa q = Some true ->
-        TypeValid C (QualT (TVar a) q)
+      forall C q a sz hc,
+        nth_error (type C) a = Some (sz, q, hc) ->
+        TypeValid C (TVar a)
   | TRecValid :
-      forall C qa q qp p sz,
-        QualValid (qual C) q ->
+      forall C qa q p sz,
         QualValid (qual C) qa ->
-        QualValid (qual C) qp ->
-        QualLeq (qual C) qp q = Some true ->
-        QualLeq (qual C) qp qa = Some true ->
-        RecVarUnderRefTyp p 0 true ->
-        sizeOfTyp (type C) (Rec qa (QualT p qp)) = Some sz ->
+        TypQualLeq C p q = Some true ->
+        sizeOfType (type C) (Rec qa p) = Some sz ->
         SizeValid (size C) sz ->
-        TypeValid (subst_ext (weak STyp) (update_type_ctx ((sz, qa, Heapable) :: type C) C)) (QualT p qp) ->
-        TypeValid C (QualT (Rec qa (QualT p qp)) q)
+        RecVarUnderRefTyp p 0 true ->
+        TypeValid (subst_ext (weak STyp) (add_constraint C (TYPE sz qa Heapable))) p ->
+        TypeValid C (Rec qa p)
   | TUnitValid :
-      forall C q,
-        QualValid (qual C) q ->
-        TypeValid C (QualT Unit q)
+      forall C,
+        TypeValid C Unit
   | TProdValid :
-      forall C taus q,
-        QualValid (qual C) q ->
-        Forall (fun '(QualT _ qi) => QualLeq (qual C) qi q = Some true) taus ->
+      forall C taus,
         Forall (TypeValid C) taus ->
-        TypeValid C (QualT (ProdT taus) q)
+        TypeValid C (ProdT taus)
   | TCoderefValid :
-      forall C ft q,
-        QualValid (qual C) q ->
+      forall C ft,
         FunTypeValid C ft ->
-        TypeValid C (QualT (CoderefT ft) q)
+        TypeValid C (CoderefT ft)
   | TPtrValid :
-      forall C q l,
-        QualValid (qual C) q ->
+      forall C l,
         LocValid (location C) l ->
-        TypeValid C (QualT (PtrT l) q)
+        TypeValid C (PtrT l)
   | TCapValid :
-      forall C q c l psi,
-        QualValid (qual C) q ->
+      forall C c l psi,
         LocValid (location C) l ->
         HeapTypeValid C psi ->
-        TypeValid C (QualT (CapT c l psi) q)
+        TypeValid C (CapT c l psi)
   | TRefValid :
       forall C q c l psi,
         QualValid (qual C) q ->
         LocValid (location C) l ->
         HeapTypeValid C psi ->
-        TypeValid C (QualT (RefT c l psi) q)
+        TypeValid C (RefT c l psi)
   | TExLocValid :
-      forall C qp p q,
+      forall C ty q,
         QualValid (qual C) q ->
-        QualLeq (qual C) qp q = Some true ->
-        TypeValid (subst_ext (weak SLoc) (update_location_ctx (location C + 1) C)) (QualT p qp) ->
-        TypeValid C (QualT (ExLoc (QualT p qp)) q)
+        TypQualLeq C ty q = Some true ->
+        TypeValid (subst_ext (weak SLoc) (add_constraint C (LOC q))) ty ->
+        TypeValid C (ExLoc q ty)
   | TOwnValid :
       forall C l q,
         QualValid (qual C) q ->
         QualLeq (qual C) Linear q  = Some true ->
         LocValid (location C) l ->
-        TypeValid C (QualT (OwnR l) q)
+        TypeValid C (OwnR l)
+  with FunTypeValid : Function_Ctx -> FunType -> Prop :=
+  | FunTValid :
+      forall C quants arr,
+        KindVarsValid C quants ->
+        ArrowTypeValid (add_constraints C quants) arr ->
+        FunTypeValid C (FunT quants arr)
+  with ArrowTypeValid : Function_Ctx -> ArrowType -> Prop :=
+  | ArrowValid :
+      forall C ts1 ts2,
+        Forall (TypeValid C) ts1 ->
+        Forall (TypeValid C) ts2 ->
+        ArrowTypeValid C (Arrow ts1 ts2)
   with HeapTypeValid : Function_Ctx -> HeapType -> Prop :=
   | VariantValid :
       forall taus C,
@@ -1169,39 +1128,25 @@ Section Validity.
   | StructValid :
       forall tausizes C,
         Forall (fun tausize => exists sz, sizeOfType (type C) (fst tausize) = Some sz /\
-                                          SizeValid (size C) (snd tausize) /\
-                                          SizeValid (size C) sz /\
-                                          TypeValid C (fst tausize) /\
-                                          SizeLeq (size C) sz (snd tausize) = Some true) tausizes ->
+                                   SizeValid (size C) (snd tausize) /\
+                                   SizeValid (size C) sz /\
+                                   TypeValid C (fst tausize) /\
+                                   SizeLeq (size C) sz (snd tausize) = Some true) tausizes ->
         HeapTypeValid C (StructType tausizes)
   | ArrayValid :
       forall qp p C,
-        TypeValid C (QualT p qp) ->
+        TypeValid C p ->
         QualLeq (qual C) qp Unrestricted = Some true ->
-        HeapTypeValid C (ArrayType (QualT p qp))
+        HeapTypeValid C (ArrayType p)
   | ExValid :
       forall C qα sz tau,
-         SizeValid (size C) sz ->
-         QualValid (qual C) qα ->
+        SizeValid (size C) sz ->
+        QualValid (qual C) qα ->
         TypeValid (subst_ext (weak STyp) (update_type_ctx ((sz, qα, Heapable) :: type C) C)) tau ->
-        HeapTypeValid C (Ex sz qα tau)
-  with ArrowTypeValid : Function_Ctx -> ArrowType -> Prop :=
-  | ArrowValid :
-      forall C ts1 ts2,
-        Forall (TypeValid C) ts1 ->
-        Forall (TypeValid C) ts2 ->
-        ArrowTypeValid C (Arrow ts1 ts2)
-  with FunTypeValid : Function_Ctx -> FunType -> Prop :=
-  | FunTValid :
-      forall C quants arr,
-        KindVarsValid C quants ->
-        ArrowTypeValid (add_constraints C quants) arr ->
-        FunTypeValid C (FunT quants arr).
-*)
+        HeapTypeValid C (Ex sz qα tau).
 
-  Definition HeapTypeUnrestricted: Function_Ctx -> HeapType -> Prop.
-  Admitted.
-  (* TODO ...
+  (*
+  Definition HeapTypeUnrestricted: Function_Ctx -> HeapType -> Prop :=
   | VariantUnrestricted :
       forall taus C,
         Forall (fun '(QualT _ q) => QualValid (qual C) q /\ QualLeq (qual C) q Unrestricted = Some true) taus ->
@@ -1222,6 +1167,8 @@ Section Validity.
         QualLeq (qual C) qα Unrestricted = Some true ->
         QualLeq (qual C) q Unrestricted = Some true ->
         HeapTypeUnrestricted C (Ex sz qα (QualT p q)).
+*)
+  (*
 
   Section ValidInd.
     
@@ -1408,31 +1355,6 @@ Section Typing.
     | Int _ i32 | Float f32 => 2 ^ 32
     | Int _ i64 | Float f64 => 2 ^ 64
     end.
-
-  Definition LocQual (C: Function_Ctx) (loc: Loc) : option Qual :=
-    match loc with
-    | LocV ρ => loc_var_qual C ρ
-    | LocP _ mem => mret $ mem_qual mem
-    end.
-
-  Fixpoint TypQual (C: Function_Ctx) (ty: Typ) : option Qual :=
-    match ty with
-    | Num _
-    | Unit
-    | CoderefT _
-    | PtrT _ => mret (Unrestricted: Qual)
-    | TVar α => typ_var_qual C α
-    | ProdT tys => quals ← (mapM (TypQual C) tys); mret (QualJoin quals)
-    | Rec q _ => mret q
-    | ExLoc q ty => TypQual (add_constraint C (LOC q)) ty
-    | OwnR loc
-    | CapT _ loc _ 
-    | RefT _ loc _ => LocQual C loc
-    end.
-
-  Definition TypQualLeq (C : Function_Ctx) (t : Typ) (q : Qual) :=
-    q' ← (TypQual C t);
-    QualLeq (qual C) q' q.
 
   Fixpoint NoCapsTyp (F : list HeapableConstant) (tau : Typ) : bool :=
     match tau with

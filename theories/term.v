@@ -363,3 +363,238 @@ Proof.
   - now constructor.
   - constructor. eapply IHv. eassumption.
 Qed.
+
+Section TypeInd.
+
+  Context
+    (P : Typ -> Prop)
+    (F : FunType -> Prop)
+    (H : HeapType -> Prop)
+    (A : ArrowType -> Prop)
+    (HNum : forall n : NumType, P (Num n))
+    (HVar : forall v : var, P (TVar v))
+    (HUnit : P Unit)
+    (HProd : forall l : list Typ, Forall P l -> P (ProdT l))
+    (HCoderef : forall f : FunType, F f -> P (CoderefT f))
+    (HRec : forall q (t : Typ), P t -> P (Rec q t))
+    (HPtr : forall l : Loc, P (PtrT l))
+    (HExLoc : forall q (t : Typ), P t -> P (ExLoc q t))
+    (HOwn : forall l : Loc, P (OwnR l))
+    (HCap : forall (c : cap) (l : Loc) (h : HeapType), H h -> P (CapT c l h))
+    (HRef : forall (c : cap) (l : Loc) (h : HeapType), H h -> P (RefT c l h))
+    (HFun : forall (l : list KindVar) (a : ArrowType), A a -> F (FunT l a))
+    (HArrow : forall (l1 l2 : list Typ), Forall P l1 -> Forall P l2 -> A (Arrow l1 l2))
+    (HVariant : forall l : list Typ, Forall P l -> H (VariantType l))
+    (HStruct : forall l : list (Typ * Size), Forall (fun '(t, s) => P t) l -> H (StructType l))
+    (HArray : forall t : Typ, P t -> H (ArrayType t))
+    (HEx : forall (s : Size) q (t : Typ), P t -> H (Ex s q t)).
+
+  Fixpoint Typ_ind' (t : Typ) {struct t} : P t
+  with FunType_ind' (f : FunType) {struct f} : F f
+  with ArrowType_ind' (a : ArrowType) {struct a} : A a
+  with HeapType_ind' (h : HeapType) {struct h} : H h.
+  Proof.
+    - destruct t.
+      + apply HNum.
+      + apply HVar.
+      + apply HUnit.
+      + apply HProd.
+        induction l; [constructor|constructor].
+        * apply Typ_ind'.
+        * apply IHl.
+      + apply HCoderef, FunType_ind'.
+      + apply HRec, Typ_ind'.
+      + apply HPtr.
+      + apply HExLoc, Typ_ind'.
+      + apply HOwn.
+      + apply HCap, HeapType_ind'.
+      + apply HRef, HeapType_ind'.
+    - destruct f. apply HFun, ArrowType_ind'.
+    - destruct a as [l1 l2].
+      apply HArrow; ((induction l1 + induction l2); constructor;
+                     [apply Typ_ind'|apply IHl1+apply IHl2]).
+    - destruct h.
+      + apply HVariant. induction l; constructor; [apply Typ_ind'|apply IHl].
+      + apply HStruct. induction l; constructor; [destruct a; apply Typ_ind'|apply IHl].
+      + apply HArray, Typ_ind'.
+      + apply HEx, Typ_ind'.
+  Defined.
+
+  Corollary Typ_Fun_Arrow_Heap_ind :
+    (forall p, P p) /\ (forall f, F f) /\ (forall a, A a) /\ (forall h, H h).
+  Proof.
+    repeat split;
+      (apply Typ_ind'||apply FunType_ind'||apply ArrowType_ind'||apply HeapType_ind').
+  Qed.
+  
+End TypeInd.
+
+Section TypeRect.
+
+  Context
+    (P : Typ -> Type)
+    (F : FunType -> Type)
+    (H : HeapType -> Type)
+    (A : ArrowType -> Type)
+    (HNum : forall n : NumType, P (Num n))
+    (HVar : forall v : var, P (TVar v))
+    (HUnit : P Unit)
+    (HProd : forall l : list Typ, Forall_type P l -> P (ProdT l))
+    (HCoderef : forall f : FunType, F f -> P (CoderefT f))
+    (HRec : forall q (t : Typ), P t -> P (Rec q t))
+    (HPtr : forall l : Loc, P (PtrT l))
+    (HExLoc : forall q (t : Typ), P t -> P (ExLoc q t))
+    (HOwn : forall l : Loc, P (OwnR l))
+    (HCap : forall (c : cap) (l : Loc) (h : HeapType), H h -> P (CapT c l h))
+    (HRef : forall (c : cap) (l : Loc) (h : HeapType), H h -> P (RefT c l h))
+    (HFun : forall (l : list KindVar) (a : ArrowType), A a -> F (FunT l a))
+    (HArrow : forall (l1 l2 : list Typ), Forall_type P l1 -> Forall_type P l2 -> A (Arrow l1 l2))
+    (HVariant : forall l : list Typ, Forall_type P l -> H (VariantType l))
+    (HStruct : forall l : list (Typ * Size), Forall_type (fun '(t, s) => P t) l -> H (StructType l))
+    (HArray : forall t : Typ, P t -> H (ArrayType t))
+    (HEx : forall (s : Size) q (t : Typ), P t -> H (Ex s q t)).
+
+  Fixpoint Typ_rect' (t : Typ) {struct t} : P t
+  with FunType_rect' (f : FunType) {struct f} : F f
+  with ArrowType_rect' (a : ArrowType) {struct a} : A a
+  with HeapType_rect' (h : HeapType) {struct h} : H h.
+  Proof.
+    - destruct t.
+      + apply HNum.
+      + apply HVar.
+      + apply HUnit.
+      + apply HProd.
+        induction l; [constructor|constructor].
+        * apply Typ_rect'.
+        * apply IHl.
+      + apply HCoderef, FunType_rect'.
+      + apply HRec, Typ_rect'.
+      + apply HPtr.
+      + apply HExLoc, Typ_rect'.
+      + apply HOwn.
+      + apply HCap, HeapType_rect'.
+      + apply HRef, HeapType_rect'.
+    - destruct f. apply HFun, ArrowType_rect'.
+    - destruct a as [l1 l2].
+      apply HArrow; ((induction l1 + induction l2); constructor;
+                     [apply Typ_rect'|apply IHl1+apply IHl2]).
+    - destruct h.
+      + apply HVariant. induction l; constructor; [apply Typ_rect'|apply IHl].
+      + apply HStruct. induction l; constructor; [destruct a; apply Typ_rect'|apply IHl].
+      + apply HArray, Typ_rect'.
+      + apply HEx, Typ_rect'.
+  Defined.
+
+  Corollary Typ_Fun_Arrow_Heap_rect :
+    (forall p, P p) * (forall f, F f) * (forall a, A a) * (forall h, H h).
+  Proof.
+    repeat split;
+      (apply Typ_rect'||apply FunType_rect'
+       ||apply ArrowType_rect'||apply HeapType_rect').
+  Qed.
+  
+End TypeRect.
+
+Section InstructionInd.
+  Context
+    (I : Instruction -> Prop)
+    (F : Func -> Prop)
+    (C : Closure -> Prop).
+
+  Context
+    (HVal : forall v, I (Val v))
+    (HNe : forall ninstr, I (Ne ninstr))
+    (HUnreachable : I Unreachable)
+    (HNop : I Nop)
+    (HDrop : I Drop)
+    (HSelect : I Select)
+    (HBlock : forall arty leff insns, Forall I insns -> I (Block arty leff insns))
+    (HLoop  : forall arty insns, Forall I insns -> I (Loop arty insns))
+    (HITE   : forall arty leff insns1 insns2,
+        Forall I insns1 ->
+        Forall I insns2 ->
+        I (ITE arty leff insns1 insns2))
+    (HBr    : forall n, I (Br n))
+    (HBr_if : forall n, I (Br_if n))
+    (HBr_table : forall ns n, I (Br_table ns n))
+    (HRet : I Ret)
+    (HGet_local  : forall n qual, I (Get_local n qual))
+    (HSet_local  : forall n, I (Set_local n))
+    (HTee_local  : forall n, I (Tee_local n))
+    (HGet_global : forall n, I (Get_global n))
+    (HSet_global : forall n, I (Set_global n))
+    (HCoderefI   : forall n, I (CoderefI n))
+    (HInst       : forall ixs, I (Inst ixs))
+    (HCall_indirect : I Call_indirect)
+    (HCall : forall n ixs, I (Call n ixs))
+    (HRecFold : forall pt, I (RecFold pt))
+    (HRecUnfold : I RecUnfold)
+    (HGroup : forall n qual, I (Group n qual))
+    (HUngroup : I Ungroup)
+    (HCapSplit : I CapSplit)
+    (HCapJoin : I CapJoin)
+    (HRefDemote  : I RefDemote)
+    (HMemPack   : forall l, I (MemPack l))
+    (HMemUnpack : forall arty leff insns, Forall I insns -> I (MemUnpack arty leff insns))
+    (HStructMalloc : forall szs qual, I (StructMalloc szs qual))
+    (HStructFree : I StructFree)
+    (HStructGet : forall n, I (StructGet n))
+    (HStructSet : forall n, I (StructSet n))
+    (HStructSwap : forall n, I (StructSwap n))
+    (HVariantMalloc : forall n typs qual, I (VariantMalloc n typs qual))
+    (HVariantCase   : forall qual arty leff insnss tausv,
+        Forall (Forall I) insnss ->
+        I (VariantCase qual tausv arty leff insnss))
+    (HArrayMalloc : forall qual, I (ArrayMalloc qual))
+    (HArrayGet : I ArrayGet)
+    (HArraySet : I ArraySet)
+    (HArrayFree : I ArrayFree)
+    (HExistPack   : forall pt ht qual, I (ExistPack pt ht qual))
+    (HExistUnpack : forall qual arty leff insns ex , Forall I insns -> I (ExistUnpack qual ex arty leff insns))
+    (HRefSplit  : I RefSplit)
+    (HRefJoin : I RefJoin)
+    (HQualify : forall qual, I (Qualify qual))
+    (HTrap : I Trap)
+    (HCallAdm : forall clo ixs, C clo -> I (CallAdm clo ixs))
+    (HLabel : forall n arty insns1 insns2,
+        Forall I insns1 ->
+        Forall I insns2 ->
+        I (Label n arty insns1 insns2))
+    (HLocal : forall n1 n2 vs ns insns, Forall I insns -> I (Local n1 n2 vs ns insns))
+    (HMalloc : forall sz hv qual, I (Malloc sz hv qual))
+    (HFree : I Free).
+
+  Context (HFun : forall exs fty szs insns, Forall I insns -> F (Fun exs fty szs insns)).
+
+  Context (HClo : forall n func, F func -> C (Clo n func)).
+
+  Local Ltac clear_ihs :=
+    try match goal with
+    | HI : forall x, I x, HF : forall x, F x, HC : forall x, C x |- _ => clear HI HF HC
+    end.
+  
+  Local Ltac list_ind :=
+    match goal with
+    | IH : forall _, ?P _ |- Forall (Forall ?P) ?l =>
+      clear - IH; induction l; constructor; try assumption; list_ind
+    | IH : forall _, ?P _ |- Forall ?P ?l =>
+      clear - IH; induction l; constructor; auto
+    end.
+  
+  Fixpoint Instruction_ind' (insn : Instruction) {struct insn} : I insn
+  with Func_ind' (func : Func) {struct func} : F func
+  with Closure_ind' (clo : Closure) {struct clo} : C clo.
+  Proof.
+    - destruct insn;
+      multimatch goal with
+      | HI : forall x, I x, HF : forall x, F x, HC : forall x, C x, H : _ |- _ => apply H
+      end; solve [list_ind|clear_ihs; eauto|eauto].
+    - destruct func; apply HFun; list_ind.
+    - destruct clo; apply HClo; apply Func_ind'.
+  Qed.
+
+  Corollary Instruction_Func_Closure_ind :
+    (forall i, I i) /\ (forall f, F f) /\ (forall c, C c).
+  Proof. repeat split; (apply Instruction_ind'||apply Func_ind'||apply Closure_ind'). Qed.
+  
+End InstructionInd.
