@@ -2,12 +2,13 @@ From Coq Require Import List.
 Require Import stdpp.base.
 Require Import stdpp.option.
 Import ListNotations.
-From RWasm Require term.
+From RWasm Require term typed_term.
 From Wasm Require datatypes.
 Require Import Wasm.numerics.
 Require Import BinNat.
 
 Module rwasm := term.
+Module TR := typed_term.
 Module wasm := datatypes.
 Require Import stdpp.list.
 
@@ -243,6 +244,8 @@ Definition size_ctx :=
   list wasm.immediate.
 Section compile_instr.
 Variable (sz_locs: size_ctx).
+(* i32 local for hanging on to linear references during stores/loads *)
+Variable (ref_tmp: wasm.immediate).
 
 (* n.b. this is polymorphic :( *)
 Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : option rwasm.Size :=
@@ -270,77 +273,108 @@ Fixpoint compile_size_expr (sz: rwasm.Size) : option (list wasm.basic_instructio
       mret [wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n)))]
   end.
 
-Fixpoint compile_instr (instr: rwasm.Instruction) : option (list wasm.basic_instruction) :=
+Definition if_gc_bit_set ref_tmp ins outs gc_branch lin_branch :=
+  [wasm.BI_get_local ref_tmp;
+   wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
+   wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_and);
+   wasm.BI_testop wasm.T_i32 wasm.TO_eqz;
+   wasm.BI_if (wasm.Tf ins outs) lin_branch gc_branch].
+
+Definition unset_gc_bit :=
+  [wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
+   wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub)].
+
+Definition tagged_load ref_tmp offset_instrs :=
+  offset_instrs ++ 
+  [wasm.BI_get_local ref_tmp] ++
+  if_gc_bit_set ref_tmp [wasm.T_i32 (* offset *)] [wasm.T_i32 (* loaded value *)]
+  ([wasm.BI_get_local ref_tmp] ++
+     unset_gc_bit ++
+     [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+      wasm.BI_load wasm.T_i32 None 0%N 0%N])
+  [wasm.BI_get_local ref_tmp;
+   wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+   wasm.BI_load wasm.T_i32 None 0%N 0%N].
+
+Fixpoint compile_instr (instr: TR.Instruction) : option (list wasm.basic_instruction) :=
   match instr with
-  | rwasm.Val x => option_map (fun y => [wasm.BI_const y]) (compile_value x)
-  | rwasm.Ne x => None
-  | rwasm.Unreachable => Some [wasm.BI_unreachable]
-  | rwasm.Nop => Some [wasm.BI_nop]
-  | rwasm.Drop => Some [wasm.BI_drop]
-  | rwasm.Select => Some [wasm.BI_select]
-  | rwasm.Block arrow _ i =>
+  | TR.Instr instr' (rwasm.Arrow targs trets) => compile_pre_instr instr' targs trets
+  end
+with compile_pre_instr (instr: TR.PreInstruction) (targs trets: list rwasm.Typ) : option (list wasm.basic_instruction) :=
+  match instr with
+  | TR.Val x => option_map (fun y => [wasm.BI_const y]) (compile_value x)
+  | TR.Ne x => None
+  | TR.Unreachable => Some [wasm.BI_unreachable]
+  | TR.Nop => Some [wasm.BI_nop]
+  | TR.Drop => Some [wasm.BI_drop]
+  | TR.Select => Some [wasm.BI_select]
+  | TR.Block arrow _ i =>
     ft ← compile_arrow_type arrow;
     i' ← option_of_list (map compile_instr i);
     mret [wasm.BI_block ft (list_flatten i')]
-  | rwasm.Loop arrow i =>
+  | TR.Loop arrow i =>
     ft ← compile_arrow_type arrow;
     i' ← option_of_list (map compile_instr i);
     mret [wasm.BI_block ft (list_flatten i')]
-  | rwasm.ITE arrow _ t e =>
+  | TR.ITE arrow _ t e =>
     ft ← compile_arrow_type arrow;
     t' ← option_of_list (map compile_instr t);
     e' ← option_of_list (map compile_instr e);
     mret [wasm.BI_if ft (list_flatten t') (list_flatten e')]
-  | rwasm.Br x => Some [wasm.BI_br x]
-  | rwasm.Br_if x => Some [wasm.BI_br_if x]
-  | rwasm.Br_table x x0 => Some [wasm.BI_br_table x x0]
-  | rwasm.Ret => Some [wasm.BI_return]
-  | rwasm.Get_local x x0 => Some [wasm.BI_get_local x]
-  | rwasm.Set_local x => Some [wasm.BI_set_local x]
-  | rwasm.Tee_local x => Some [wasm.BI_tee_local x]
-  | rwasm.Get_global x => Some [wasm.BI_get_global x]
-  | rwasm.Set_global x => Some [wasm.BI_set_global x]
-  | rwasm.CoderefI x => None
-  | rwasm.Inst x => None
-  | rwasm.Call_indirect => None (* TODO: why doesn't rwasm take an immediate? *)
-  | rwasm.Call x x0 => None     (* TODO: what to do with list of indexes? *)
-  | rwasm.RecFold x => None
-  | rwasm.RecUnfold => None
-  | rwasm.Group x x0 => None
-  | rwasm.Ungroup => None
-  | rwasm.CapSplit => None
-  | rwasm.CapJoin => None
-  | rwasm.RefDemote => None
-  | rwasm.MemPack x => None
-  | rwasm.MemUnpack x x0 x1 => None
-  | rwasm.StructMalloc x x0 => None
-  | rwasm.StructFree => None
-  | rwasm.StructGet idx =>
-      None
-      (*
-      off_exp ← struct_field_offset fields idx;
-      off ← expect_concrete_size off_exp;
-      mret [wasm.BI_load wasm.T_i32 None 0%N (N.of_nat off)]
-*)
-  | rwasm.StructSet x => None
-  | rwasm.StructSwap x => None
-  | rwasm.VariantMalloc x x0 x1 => None
-  | rwasm.VariantCase x x0 x1 x2 x3 => None
-  | rwasm.ArrayMalloc x => None
-  | rwasm.ArrayGet => None
-  | rwasm.ArraySet => None
-  | rwasm.ArrayFree => None
-  | rwasm.ExistPack x x0 x1 => None
-  | rwasm.ExistUnpack x x0 x1 x2 x3 => None
-  | rwasm.RefSplit => None
-  | rwasm.RefJoin => None
-  | rwasm.Qualify x => None
-  | rwasm.Trap => None
-  | rwasm.CallAdm x x0 => None
-  | rwasm.Label x x0 x1 x2 => None
-  | rwasm.Local x x0 x1 x2 x3 => None
-  | rwasm.Malloc x x0 x1 => None
-  | rwasm.Free => None
+  | TR.Br x => Some [wasm.BI_br x]
+  | TR.Br_if x => Some [wasm.BI_br_if x]
+  | TR.Br_table x x0 => Some [wasm.BI_br_table x x0]
+  | TR.Ret => Some [wasm.BI_return]
+  | TR.Get_local x x0 => Some [wasm.BI_get_local x]
+  | TR.Set_local x => Some [wasm.BI_set_local x]
+  | TR.Tee_local x => Some [wasm.BI_tee_local x]
+  | TR.Get_global x => Some [wasm.BI_get_global x]
+  | TR.Set_global x => Some [wasm.BI_set_global x]
+  | TR.CoderefI x => None
+  | TR.Inst x => None
+  | TR.Call_indirect => None (* TODO: why doesn't rwasm take an immediate? *)
+  | TR.Call x x0 => None     (* TODO: what to do with list of indexes? *)
+  | TR.RecFold x => None
+  | TR.RecUnfold => None
+  | TR.Group x x0 => None
+  | TR.Ungroup => None
+  | TR.CapSplit => None
+  | TR.CapJoin => None
+  | TR.RefDemote => None
+  | TR.MemPack x => None
+  | TR.MemUnpack x x0 x1 => None
+  | TR.StructMalloc x x0 => None
+  | TR.StructFree => None
+  | TR.StructGet idx =>
+      (* Save the argument *)
+      (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
+      fields ← match targs with
+                | [rwasm.RefT _ _ (rwasm.StructType fields)] => Some fields
+                | _ => None
+                end;
+      off_sz ← struct_field_offset fields idx;
+      off_instrs ← compile_size_expr off_sz;
+      mret $ wasm.BI_tee_local ref_tmp ::
+             tagged_load ref_tmp off_instrs
+  | TR.StructSet x => None
+  | TR.StructSwap x => None
+  | TR.VariantMalloc x x0 x1 => None
+  | TR.VariantCase x x0 x1 x2 x3 => None
+  | TR.ArrayMalloc x => None
+  | TR.ArrayGet => None
+  | TR.ArraySet => None
+  | TR.ArrayFree => None
+  | TR.ExistPack x x0 x1 => None
+  | TR.ExistUnpack x x0 x1 x2 x3 => None
+  | TR.RefSplit => None
+  | TR.RefJoin => None
+  | TR.Qualify x => None
+  | TR.Trap => None
+  | TR.CallAdm x x0 => None
+  | TR.Label x x0 x1 x2 => None
+  | TR.Local x x0 x1 x2 x3 => None
+  | TR.Malloc x x0 x1 => None
+  | TR.Free => None
   end.
 (* ... *)
   
