@@ -1,0 +1,32 @@
+Invariant AInv = [phi]_{m}
+Spec for alloc module
+exists phi gn
+       ((-alloc->) : val -> nat -> iProp)
+       ((-alloc->) : val -> nat -> iProp)
+.
+ AInv = [phi]_{gn} *
+               
+Spec for functions
+{ AInv } malloc sz {v. exists vs. v |-[sz]-> vs * v -alloc-> sz }
+{ AInv * v |-[sz]-> vs * v -alloc-> sz } free v { tt. True }
+
+Possible implementation
+BUMP ALLOCATOR
+[x                      ]
+at address 0 keep a pointer x for the next allocation
+v -alloc-> sz means [](x > v + sz)
+
+FREE LIST ALLOCATOR
+[R    A0             A1    ]
+Block layout
+[next_block | sz | free space... ]
+
+v -alloc-> sz <---> v - 4 |-> sz
+{ } free v { }
+[ ... ] [ sz | [                ] ] [...]
+               v starts
+
+Handle v <==> exists sz. v - 4 |--> sz
+Handle v * v |-[sz]-> vs  -|/|- v-alloc->sz  * v |-[sz]->vs
+[ 4 | b2 ]
+[ 4 | b2 ]

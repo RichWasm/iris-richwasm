@@ -1,0 +1,4 @@
+(coq.theory
+  (name RWasm.iris.allocator)
+  (package iris-richwasm)
+  (theories RWasm Wasm Wasm.iris.logrel Wasm.iris.rules Wasm.iris.host))
