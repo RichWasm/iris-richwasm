@@ -298,10 +298,11 @@ Definition new_block final_block reqd_sz old_sz new_block actual_size :=
 
         pinch_block new_block reqd_sz old_sz final_block) :: nil) :: nil.
 
-Definition malloc_loop_body reqd_sz cur_block :=
+
+Definition malloc_loop_body (reqd_sz cur_block: immediate) :=
   (* break out of the loop if the block is final. *)
   is_block_nonfinal cur_block ++
-  BI_br_if 1 ::
+  BI_br_if 0 ::
   (* Check if the block fits and is free. *)
   (* put the free flag at the top of the stack*)
   is_block_free cur_block ++
@@ -341,17 +342,32 @@ Definition malloc_body reqd_sz cur_block tmp1 new_blk tmp2 :=
   Allocate a new block of memory of the requested size.
 *)
 Definition malloc :=
-  malloc_body 0 1 2 3.
+  malloc_body 0 1 2 3 4.
 
 Definition free_body data_ptr :=
   BI_get_local data_ptr ::
   sub_hdr_sz ++
   BI_set_local data_ptr ::
   mark_free data_ptr ++
-  BI_return ::
   nil.
 
 Definition free :=
-  free_body 0.
+  free_body 0 ++ [BI_return].
+
+Definition init :=
+  u32const 0 ::
+  u32const BLK_FINAL ::
+  BI_store memidx T_i32 None 0%N 0%N ::
+  u32const 0 ::
+  u32const 0 ::
+  set_next ++
+  u32const 0 ::
+  BI_current_memory memidx ::
+  mul_page_sz ++
+  sub_hdr_sz ++
+  set_size.
+
+
+
 
 End malloc_impl.

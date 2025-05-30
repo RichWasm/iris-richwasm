@@ -10,6 +10,8 @@ From RWasm.iris.allocator Require Import allocator_common misc_relocate.
 From RWasm.iris.allocator Require Export blocks memrsc.
 Import blocks.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Section reprs.
 
 Context `{!wasmG Σ} `{!allocG Σ}.
@@ -146,22 +148,18 @@ Definition freelist_repr (blks: list block * final_block) (base_addr: N) : iProp
     final_block_repr final next_addr.
 
 Definition block_shp (blk: block) : gmap N N :=
-  {[(block_addr blk + data_off)%N := block_size blk]}.
-
-Definition final_block_shp (blk: final_block) : gmap N N :=
-  {[(final_block_addr blk + data_off)%N := final_block_sz blk]}.
+  match blk with
+  | UsedBlk base_addr blk_used_size blk_leftover_size => {[(base_addr + data_off)%N := blk_used_size]}
+  | _ => ∅
+  end.
 
 (* Note: this doesn't enforce disjointness of block addresses, but the
    freelist_repr relation does. *)
-Fixpoint blocklist_shp (blks: list block) : gmap N N :=
-  match blks with
-  | [] => ∅
-  | blk :: blks => block_shp blk ∪ (blocklist_shp blks)
-  end.
+Definition blocklist_shp (blks: list block) : gmap N N :=
+  ⋃ (map block_shp blks).
 
 Definition freelist_shp (blks: list block * final_block) (shp: gmap N N) : Prop :=
-  let '(blks, final) := blks in
-  (blocklist_shp blks) ∪ (final_block_shp final) = shp.
+  blocklist_shp (fst blks) = shp.
 
 (* An allocator token. *)
 Definition alloc_tok (data_addr: N) (sz: N) : iProp Σ :=
@@ -201,6 +199,115 @@ Proof.
     iFrame.
     iApply IHblks1.
     by iFrame.
+Qed.
+
+Lemma app_blocks_repr blks1 : forall blks2 base1 next2,
+    blocks_repr (blks1 ++ blks2) base1 next2 ⊢
+    ∃ next1, blocks_repr blks1 base1 next1 ∗
+             blocks_repr blks2 next1 next2.
+Proof.
+  induction blks1.
+  iIntros "* Hrep".
+  - iExists base1.
+    by iFrame.
+  - iIntros "* Hrep".
+    cbn.
+    iDestruct "Hrep" as "(%Hbase & (%addr & Hrep & Hreps))".
+    rewrite Hbase.
+    iPoseProof (IHblks1 with "[$]") as "(%addr' & Hxs & Hys)".
+    iExists addr'.
+    rewrite <- bi.sep_assoc.
+    by iFrame.
+Qed.
+
+Lemma i32_has_4_bytes i:
+  exists b0 b1 b2 b3, 
+    bits (VAL_int32 i) = [b0; b1; b2; b3].
+Proof.
+  cbn.
+  remember (serialise_i32 i) as l eqn:Hl.
+  apply (f_equal length) in Hl.
+  unfold serialise_i32 in *.
+  rewrite Memdata.encode_int_length in Hl.
+  repeat (destruct l; (cbn in Hl; try congruence)).
+  eauto.
+Qed.
+
+Lemma block_repr_addr_ne blk1 blk2 next1 next2 :
+  block_repr blk1 next1 ∗ block_repr blk2 next2 ⊢ ⌜block_addr blk1 ≠ block_addr blk2⌝.
+Proof.
+  iIntros "((_ & (%st1 & _ & Hst1) & _) & (_ & (%st2 & _ & Hst2) & _))".
+  destruct (i32_has_4_bytes st1) as (b10 & b11 & b12 & b13 & Hbs1).
+  destruct (i32_has_4_bytes st2) as (b20 & b21 & b22 & b23 & Hbs2).
+  rewrite Hbs1 Hbs2.
+  iDestruct "Hst1" as "[Hst1 _]".
+  iDestruct "Hst2" as "[Hst2 _]".
+  cbn.
+  unfold state_off.
+  rewrite !Nat.add_0_r !N.add_0_r.
+  rewrite !N2Nat.id.
+  iPoseProof (@pointsto_ne with "[$Hst1] [$Hst2]") as "%Hneq".
+  iPureIntro.
+  congruence.
+Qed.
+
+Lemma two_block_shp_disjoint blk1 next1 blk2 next2 :
+    block_repr blk1 next1 ∗
+    block_repr blk2 next2 ⊢
+    ⌜block_shp blk1 !! (block_addr blk2 + data_off)%N = None⌝.
+Proof.
+  iIntros "[Hblk1 Hblk2]".
+  destruct blk1; cbn.
+  - iPoseProof (block_repr_addr_ne with "[$]") as "%Hneq".
+    iPureIntro.
+    apply not_elem_of_dom.
+    rewrite dom_singleton.
+    apply not_elem_of_singleton_2.
+    cbn in Hneq.
+    lia.
+  - done.
+Qed.
+
+Lemma blocks_shp_disjoint blks : forall blk next0 base next,
+    block_repr blk next0 ∗ blocks_repr blks base next ⊢
+    ⌜blocklist_shp blks !! (block_addr blk + data_off)%N = None⌝.
+Proof.
+  induction blks as [|blk' blks]; intros.
+  - by iIntros "_ !%".
+  - iIntros "(Hblk & Hblks)".
+    rewrite lookup_union.
+    fold blocklist_shp.
+    rewrite union_None.
+    iDestruct "Hblks" as "(%Hbase & %addr & H1 & H2)".
+    fold blocks_repr.
+    iSplit.
+    + iApply two_block_shp_disjoint; by iFrame.
+    + iApply IHblks.
+      iFrame.
+Qed.
+
+Lemma freed_blocklist_shp xs : forall base start final ys sz_u sz_l sz' shp,
+  blocks_repr (xs ++ UsedBlk base sz_u sz_l :: ys) start final ∗
+  ⌜blocklist_shp (xs ++ UsedBlk base sz_u sz_l :: ys) = shp⌝ ⊢
+  ⌜blocklist_shp (xs ++ FreeBlk base sz' :: ys) = delete (base + data_off)%N shp⌝.
+Proof.
+  induction xs; intros; cbn; iIntros "((-> & %addr & Hblk & Hblks) & <-)".
+  - rewrite delete_union.
+    rewrite delete_singleton.
+    iPoseProof (blocks_shp_disjoint with "[$]") as "%Hdisj".
+    by rewrite delete_notin.
+  - iPoseProof ((IHxs _ _ _ _ _ _ sz') with "[$Hblks //]") as "%IH".
+    iPoseProof (app_blocks_repr with "[$]") as "(%next1 & Hblks1 & Hblks2)".
+    iDestruct "Hblks2" as "(%Hbase & %next2 & Hblk' & Hblks)".
+    fold blocks_repr.
+    iPoseProof (two_block_shp_disjoint with "[$Hblk $Hblk']") as "%Hdisj".
+    (*iPoseProof (blocks_shp_disjoint with "[$Hblk $Hblks]") as "%Hdisj2".*)
+    rewrite delete_union.
+    unfold blocklist_shp in IH.
+    erewrite IH.
+    iPureIntro.
+    f_equal.
+    by rewrite delete_notin.
 Qed.
 
 End reprs.
