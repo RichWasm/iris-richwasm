@@ -246,6 +246,8 @@ Section compile_instr.
 Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
 Variable (ref_tmp: wasm.immediate).
+Variable (GC_MEM: wasm.immediate).
+Variable (LIN_MEM: wasm.immediate).
 
 (* n.b. this is polymorphic :( *)
 Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : option rwasm.Size :=
@@ -291,10 +293,10 @@ Definition tagged_load ref_tmp offset_instrs :=
   ([wasm.BI_get_local ref_tmp] ++
      unset_gc_bit ++
      [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-      wasm.BI_load wasm.T_i32 None 0%N 0%N])
+      wasm.BI_load GC_MEM wasm.T_i32 None 0%N 0%N])
   [wasm.BI_get_local ref_tmp;
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-   wasm.BI_load wasm.T_i32 None 0%N 0%N].
+   wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N].
 
 Fixpoint compile_instr (instr: TR.Instruction) : option (list wasm.basic_instruction) :=
   match instr with
