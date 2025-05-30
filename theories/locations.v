@@ -237,10 +237,10 @@ Module Location (M : Memory).
             | [ |- Decidable (Empty_set _) ] =>
               apply Decidable_Empty_set
             end.
-      - revert H.
+      - revert X.
         induction l; intros; simpl in *; auto.
         -- apply Decidable_Empty_set.
-        -- inversion H; subst; simpl in *.
+        -- inversion X; subst; simpl in *.
            apply Decidable_Union; auto.
       - apply Decidable_locs_Loc.
     Qed.

@@ -1,3 +1,4 @@
+Set Universe Polymorphism.
 Require Export term.
 
 Inductive Instruction :=

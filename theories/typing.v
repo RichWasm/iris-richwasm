@@ -1,3 +1,4 @@
+Set Universe Polymorphism.
 From Coq Require Import Numbers.BinNums ZArith List FSets.FMapPositive.
 From stdpp Require Import base option list.
 

@@ -1,3 +1,4 @@
+Set Universe Polymorphism.
 From stdpp Require Import base list list_numbers.
 From Coq Require Import Numbers.BinNums List NArith.
 

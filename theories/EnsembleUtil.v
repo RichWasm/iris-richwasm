@@ -2,6 +2,7 @@
  * Author: Zoe Paraskevopoulou, 2016
  *)
 
+Set Universe Polymorphism.
 From Coq Require Import Classes.Morphisms Classes.CRelationClasses Classes.EquivDec Lists.List.
 From Coq Require Import Sets.Ensembles.
 
