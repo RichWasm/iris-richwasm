@@ -1821,24 +1821,29 @@ Admitted.
   Definition LocalCtxValid (F : Function_Ctx) (L : Local_Ctx) :=
     Forall (fun '(tau, sz) => TypeValid F tau /\ SizeValid (size F) sz) L.
 
-  Inductive HasTypeInstruction :
+  Inductive HasTypeInstr :
+    StoreTyping -> Module_Ctx -> Function_Ctx ->
+    Local_Ctx -> Instruction -> ArrowType -> Local_Ctx -> Prop :=
+  | TStructGet : forall S C F L n taus szs tau l cap,
+      M.is_empty (LinTyp S) = true ->
+      let psi := StructType (combine taus szs) in
+      length taus = length szs ->
+      nth_error taus n = Some tau ->
+      TypQualLeq F tau Unrestricted = Some true ->
+      LocalCtxValid F L ->
+      TypeValid F (RefT cap l psi) ->
+      TypeValid F tau ->
+      QualValid (qual F) (get_hd (linear F)) ->
+      HasTypeInstr S C F L (StructGet n)
+        (Arrow [RefT cap l psi]
+           [RefT cap l psi; tau])
+        L
+  with HasTypeInstrs :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
     Local_Ctx -> list Instruction -> ArrowType -> Local_Ctx -> Prop :=
-  | StructGetTyp : 
-      forall S C F L n taus szs tau l cap,
-        M.is_empty (LinTyp S) = true ->
-        let psi := StructType (combine taus szs) in
-        length taus = length szs ->
-        nth_error taus n = Some tau ->
-        TypQualLeq F tau Unrestricted = Some true ->
-        LocalCtxValid F L ->
-        TypeValid F (RefT cap l psi) ->
-        TypeValid F tau ->
-        QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstruction S C F L [StructGet n]
-                           (Arrow [RefT cap l psi]
-                                  [RefT cap l psi; tau])
-                           L.
+  | TSOne: forall S C F L e τ L',
+      HasTypeInstr S C F L e τ L' ->
+      HasTypeInstrs S C F L [e] τ L'.
 
   (*
   Section HasType_Instruction_Closure_Func_Conf_mind'.
@@ -2771,16 +2776,15 @@ Admitted.
   Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob -> GlobalType -> list ex -> Prop :=
   | GlobMutTyp :
       forall C pt es,
-        HasTypeInstruction S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
+        HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
         HasTypeGlob S C (GlobMut pt es) (GT true pt) []
   | GlobTyp :
       forall C ex pt es,
-        HasTypeInstruction S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
+        HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
         HasTypeGlob S C (GlobEx ex pt es) (GT false pt) ex
   | GlobIm :
       forall C ex pt im,
         HasTypeGlob S C (GlobIm ex pt im) (GT false pt) ex.
-
 
   Definition combine_i {A} (xs : list A) : list (A * nat) :=
     (fix aux (xs : list A) (i : nat) :=
