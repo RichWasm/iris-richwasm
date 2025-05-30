@@ -293,8 +293,8 @@ Fixpoint compile_instr (instr: AR.Instruction) : M (list wasm.basic_instruction)
   end
 with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : M (list wasm.basic_instruction) :=
   match instr with
-  | AR.Val x => fmap (fun y => [wasm.BI_const y]) (compile_value x)
-  | AR.Ne x => mthrow (err "todo msg")
+  | AR.Val v => fmap (fun x => [wasm.BI_const x]) (compile_value v)
+  | AR.Ne ni => fmap (fun x => [x]) (compile_num_intr ni)
   | AR.Unreachable => mret [wasm.BI_unreachable]
   | AR.Nop => mret [wasm.BI_nop]
   | AR.Drop => mret [wasm.BI_drop]
