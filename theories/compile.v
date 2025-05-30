@@ -1,71 +1,60 @@
-From Coq Require Import List.
-Require Import stdpp.base.
-Require Import stdpp.option.
-Import ListNotations.
+From Coq Require Import List NArith.BinNat.
+From stdpp Require Import base option strings list.
 From RWasm Require term annotated_term.
+From RWasm Require Import exn.
 From Wasm Require datatypes.
-Require Import Wasm.numerics.
-Require Import BinNat.
+From Wasm Require Import datatypes numerics.
+
+(* Not great but ok for now *)
+Inductive Err :=
+| err (msg: string).
+
+(* The compiler monad. *)
+Definition M := exn Err.
 
 Module rwasm := term.
 Module AR := annotated_term.
 Module wasm := datatypes.
-Require Import stdpp.list.
 
-Fixpoint option_of_list {A} (l : list (option A)) : option (list A) :=
-  match l with
-  | [] => Some []
-  | None :: _ => None
-  | Some x :: xs =>
-    rest ← option_of_list xs;
-    mret (x :: rest)
-  end.
-
-Fixpoint list_flatten {A} (l : list (list A)) : list A :=
-  match l with
-  | [] => []
-  | x :: xs => x ++ (list_flatten xs)
-  end.
-
-Fixpoint compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
+Fixpoint compile_numtyp (typ: rwasm.NumType) : M (wasm.value_type) :=
   match typ with
-  | rwasm.Int rwasm.U rwasm.i32 => Some wasm.T_i32
-  | rwasm.Int rwasm.U rwasm.i64 => Some wasm.T_i64
-  | rwasm.Int rwasm.S rwasm.i32 => Some wasm.T_i32
-  | rwasm.Int rwasm.S rwasm.i64 => Some wasm.T_i64
-  | rwasm.Float rwasm.f32 => Some wasm.T_f32
-  | rwasm.Float rwasm.f64 => Some wasm.T_f64
+  | rwasm.Int rwasm.U rwasm.i32 => mret wasm.T_i32
+  | rwasm.Int rwasm.U rwasm.i64 => mret wasm.T_i64
+  | rwasm.Int rwasm.S rwasm.i32 => mret wasm.T_i32
+  | rwasm.Int rwasm.S rwasm.i64 => mret wasm.T_i64
+  | rwasm.Float rwasm.f32 => mret wasm.T_f32
+  | rwasm.Float rwasm.f64 => mret wasm.T_f64
   end.
 
-Fixpoint compile_typ (typ: rwasm.Typ) : option (list wasm.value_type) :=
+Fixpoint compile_typ (typ: rwasm.Typ) : M (list wasm.value_type) :=
   match typ with
   | rwasm.Num ntyp => wty ← compile_numtyp ntyp; mret [wty]
-  | rwasm.TVar x => None
-  | rwasm.Unit => None
-  | rwasm.ProdT x => None
-  | rwasm.CoderefT x => None
+  | rwasm.TVar x => mthrow (err "todo")
+  | rwasm.Unit => mthrow (err "todo")
+  | rwasm.ProdT x => mthrow (err "todo")
+  | rwasm.CoderefT x => mthrow (err "todo")
   | rwasm.Rec _ typ => compile_typ typ
-  | rwasm.PtrT x => None
-  | rwasm.ExLoc q x => None
-  | rwasm.OwnR x => None
-  | rwasm.CapT x x0 x1 => None
-  | rwasm.RefT x x0 x1 => None
+  | rwasm.PtrT x => mthrow (err "todo")
+  | rwasm.ExLoc q x => mthrow (err "todo")
+  | rwasm.OwnR x => mthrow (err "todo")
+  | rwasm.CapT x x0 x1 => mthrow (err "todo")
+  | rwasm.RefT x x0 x1 => mthrow (err "todo")
   end
-with compile_heap_type (typ: rwasm.HeapType) : option unit :=
+with compile_heap_type (typ: rwasm.HeapType) : M unit :=
   match typ with
-  | rwasm.VariantType typs => None
-  | rwasm.StructType fields => None
-  | rwasm.ArrayType elt_typ => None
-  | rwasm.Ex sz qual typ => None
+  | rwasm.VariantType typs => mthrow (err "todo")
+  | rwasm.StructType fields => mthrow (err "todo")
+  | rwasm.ArrayType elt_typ => mthrow (err "todo")
+  | rwasm.Ex sz qual typ => mthrow (err "todo")
   end
-with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
+with compile_arrow_type (typ: rwasm.ArrowType) : M wasm.function_type :=
   match typ with
   | rwasm.Arrow tys1 tys2 =>
     tys1' ← mapM compile_typ tys1;
     tys2' ← mapM compile_typ tys2;
-    mret (wasm.Tf (list_flatten tys1') (list_flatten tys2'))
+    mret (wasm.Tf (mjoin tys1') (mjoin tys2'))
   end
-with compile_fun_type (typ: rwasm.FunType) : option unit := None. (* What to do about generics? *)
+with compile_fun_type (typ: rwasm.FunType) : M unit := mthrow (err "todo"). (* What to do about generics? *)
 
 Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   match num_type with
@@ -84,18 +73,18 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
         numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
   end.
 
-Fixpoint compile_value (value : rwasm.Value) : option wasm.value :=
+Fixpoint compile_value (value : rwasm.Value) : M wasm.value :=
   match value with 
-  | rwasm.NumConst num_type num => Some (compile_num num_type num)
-  | rwasm.Tt => None
-  | rwasm.Coderef module_idx table_idx idxs => None
-  | rwasm.Fold val => None
-  | rwasm.Prod vals => None
-  | rwasm.Ref loc => None
-  | rwasm.PtrV loc => None
-  | rwasm.Cap => None
-  | rwasm.Own => None
-  | rwasm.Mempack loc val => None
+  | rwasm.NumConst num_type num => mret (compile_num num_type num)
+  | rwasm.Tt => mthrow (err "todo")
+  | rwasm.Coderef module_idx table_idx idxs => mthrow (err "todo")
+  | rwasm.Fold val => mthrow (err "todo")
+  | rwasm.Prod vals => mthrow (err "todo")
+  | rwasm.Ref loc => mthrow (err "todo")
+  | rwasm.PtrV loc => mthrow (err "todo")
+  | rwasm.Cap => mthrow (err "todo")
+  | rwasm.Own => mthrow (err "todo")
+  | rwasm.Mempack loc val => mthrow (err "todo")
   end.
 
 Definition compile_int_type (typ : rwasm.IntType) : wasm.value_type :=
@@ -116,7 +105,7 @@ Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
   | rwasm.S => wasm.SX_S
   end.
 
-Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instruction :=
+Definition compile_num_intr (ni : rwasm.NumInstr) : M wasm.basic_instruction :=
   match ni with
   | rwasm.Iu typ op =>
     let typ' := compile_int_type typ in
@@ -125,7 +114,7 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instructio
     | rwasm.ctz => wasm.UOI_ctz
     | rwasm.popcnt => wasm.UOI_popcnt
     end in
-    Some (wasm.BI_unop typ' op')
+    mret $ wasm.BI_unop typ' op'
   | rwasm.Ib typ op =>
     let typ' := compile_int_type typ in
     let op' := wasm.Binop_i match op with
@@ -142,7 +131,7 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instructio
     | rwasm.rotl => wasm.BOI_rotl
     | rwasm.rotr => wasm.BOI_rotr
     end in
-    Some (wasm.BI_binop typ' op')
+    mret $ wasm.BI_binop typ' op'
   | rwasm.Fu typ op =>
     let typ' := compile_float_type typ in
     let op' := wasm.Unop_f match op with
@@ -154,7 +143,7 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instructio
     | rwasm.nearest => wasm.UOF_nearest
     | rwasm.sqrt => wasm.UOF_sqrt
     end in
-    Some (wasm.BI_unop typ' op')
+    mret $ wasm.BI_unop typ' op'
   | rwasm.Fb typ op =>
     let typ' := compile_float_type typ in
     let op' := wasm.Binop_f match op with
@@ -166,13 +155,13 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instructio
     | rwasm.max => wasm.BOF_max
     | rwasm.copysign => wasm.BOF_copysign
     end in
-    Some (wasm.BI_binop typ' op')
+    mret $ wasm.BI_binop typ' op'
   | rwasm.It typ op =>
     let typ' := compile_int_type typ in
     let op' := match op with
     | rwasm.eqz => wasm.TO_eqz
     end in
-    Some (wasm.BI_testop typ' op')
+    mret $ wasm.BI_testop typ' op'
   | rwasm.Ir typ op =>
     let typ' := compile_int_type typ in
     let op' := wasm.Relop_i match op with
@@ -183,7 +172,7 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instructio
     | rwasm.le s => wasm.ROI_le (compile_sign s)
     | rwasm.ge s => wasm.ROI_ge (compile_sign s)
     end in
-    Some (wasm.BI_relop typ' op')
+    mret $ wasm.BI_relop typ' op'
   | rwasm.Fr typ op =>
     let typ' := compile_float_type typ in
     let op' := wasm.Relop_f match op with
@@ -194,49 +183,49 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instructio
     | rwasm.lef => wasm.ROF_le
     | rwasm.gef => wasm.ROF_ge
     end in
-    Some (wasm.BI_relop typ' op')
+    mret $ wasm.BI_relop typ' op'
   | rwasm.CvtI typ op =>
     let typ' := compile_int_type typ in
     match op with
     (* FIXME: missing wasm types *)
-    | rwasm.Wrap typ2 => None
-    | rwasm.Extend typ2 s => None
-    | rwasm.Trunc typ2 s => None
-    | rwasm.TruncSat typ2 s => None
+    | rwasm.Wrap typ2 => mthrow (err "todo")
+    | rwasm.Extend typ2 s => mthrow (err "todo")
+    | rwasm.Trunc typ2 s => mthrow (err "todo")
+    | rwasm.TruncSat typ2 s => mthrow (err "todo")
     | rwasm.Convert typ2 s =>
         let typ2' := compile_int_type typ2 in
         let s' := compile_sign s in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s'))
-    | rwasm.Demote typ2 => None
-    | rwasm.Promote typ2 => None
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s')
+    | rwasm.Demote typ2 => mthrow (err "todo")
+    | rwasm.Promote typ2 => mthrow (err "todo")
     | rwasm.Reinterpret typ2 =>
         let typ2' := compile_int_type typ2 in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' None)
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' None
     end
   | rwasm.CvtF typ op =>
     let typ' := compile_float_type typ in
     match op with
     (* FIXME: missing wasm types *)
-    | rwasm.Wrap typ2 => None
-    | rwasm.Extend typ2 s => None
-    | rwasm.Trunc typ2 s => None
-    | rwasm.TruncSat typ2 s => None
+    | rwasm.Wrap typ2 => mthrow (err "todo")
+    | rwasm.Extend typ2 s => mthrow (err "todo")
+    | rwasm.Trunc typ2 s => mthrow (err "todo")
+    | rwasm.TruncSat typ2 s => mthrow (err "todo")
     | rwasm.Convert typ2 s =>
         let typ2' := compile_int_type typ2 in
         let s' := compile_sign s in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s'))
-    | rwasm.Demote typ2 => None
-    | rwasm.Promote typ2 => None
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s')
+    | rwasm.Demote typ2 => mthrow (err "todo")
+    | rwasm.Promote typ2 => mthrow (err "todo")
     | rwasm.Reinterpret typ2 =>
         let typ2' := compile_int_type typ2 in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' None)
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' None
     end
   end.
 
-Definition expect_concrete_size (sz: rwasm.Size) : option nat :=
+Definition expect_concrete_size (sz: rwasm.Size) : M nat :=
   match sz with
   | rwasm.SizeConst c => mret c
-  | _ => None
+  | _ => mthrow (err "todo")
   end.
 
 (* Mapping from size variables to indices of locals of type i32 *)
@@ -250,22 +239,22 @@ Variable (GC_MEM: wasm.immediate).
 Variable (LIN_MEM: wasm.immediate).
 
 (* n.b. this is polymorphic :( *)
-Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : option rwasm.Size :=
+Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : M rwasm.Size :=
   match idx with
   | 0 => mret $ rwasm.SizeConst 0
   | S idx' =>
       match fields with
       | (_, sz) :: fields' => rwasm.SizePlus sz <$> (struct_field_offset fields' idx')
-      | [] => None
+      | [] => mthrow (err "todo msg")
       end
   end.
 
 (* Produces code that given a frame with sizes according to size_ctx
    computes one i32, which is the concrete value of sz at run time. *)
-Fixpoint compile_size_expr (sz: rwasm.Size) : option (list wasm.basic_instruction) :=
+Fixpoint compile_size_expr (sz: rwasm.Size) : M (list wasm.basic_instruction) :=
   match sz with
   | rwasm.SizeVar σ =>
-      l_idx ← sz_locs !! σ;
+      l_idx ← guard_opt (err "sz not found in sz_locs") $ sz_locs !! σ;
       mret [wasm.BI_get_local l_idx]
   | rwasm.SizePlus sz sz' =>
       e ← compile_size_expr sz;
@@ -298,85 +287,85 @@ Definition tagged_load ref_tmp offset_instrs :=
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
    wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N].
 
-Fixpoint compile_instr (instr: AR.Instruction) : option (list wasm.basic_instruction) :=
+Fixpoint compile_instr (instr: AR.Instruction) : M (list wasm.basic_instruction) :=
   match instr with
   | AR.Instr instr' (rwasm.Arrow targs trets) => compile_pre_instr instr' targs trets
   end
-with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : option (list wasm.basic_instruction) :=
+with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : M (list wasm.basic_instruction) :=
   match instr with
-  | AR.Val x => option_map (fun y => [wasm.BI_const y]) (compile_value x)
-  | AR.Ne x => None
-  | AR.Unreachable => Some [wasm.BI_unreachable]
-  | AR.Nop => Some [wasm.BI_nop]
-  | AR.Drop => Some [wasm.BI_drop]
-  | AR.Select => Some [wasm.BI_select]
+  | AR.Val x => fmap (fun y => [wasm.BI_const y]) (compile_value x)
+  | AR.Ne x => mthrow (err "todo msg")
+  | AR.Unreachable => mret [wasm.BI_unreachable]
+  | AR.Nop => mret [wasm.BI_nop]
+  | AR.Drop => mret [wasm.BI_drop]
+  | AR.Select => mret [wasm.BI_select]
   | AR.Block arrow _ i =>
     ft ← compile_arrow_type arrow;
-    i' ← option_of_list (map compile_instr i);
-    mret [wasm.BI_block ft (list_flatten i')]
+    i' ← mapM compile_instr i;
+    mret [wasm.BI_block ft (mjoin i')]
   | AR.Loop arrow i =>
     ft ← compile_arrow_type arrow;
-    i' ← option_of_list (map compile_instr i);
-    mret [wasm.BI_block ft (list_flatten i')]
+    i' ← mapM compile_instr i;
+    mret [wasm.BI_block ft (mjoin i')]
   | AR.ITE arrow _ t e =>
     ft ← compile_arrow_type arrow;
-    t' ← option_of_list (map compile_instr t);
-    e' ← option_of_list (map compile_instr e);
-    mret [wasm.BI_if ft (list_flatten t') (list_flatten e')]
-  | AR.Br x => Some [wasm.BI_br x]
-  | AR.Br_if x => Some [wasm.BI_br_if x]
-  | AR.Br_table x x0 => Some [wasm.BI_br_table x x0]
-  | AR.Ret => Some [wasm.BI_return]
-  | AR.Get_local x x0 => Some [wasm.BI_get_local x]
-  | AR.Set_local x => Some [wasm.BI_set_local x]
-  | AR.Tee_local x => Some [wasm.BI_tee_local x]
-  | AR.Get_global x => Some [wasm.BI_get_global x]
-  | AR.Set_global x => Some [wasm.BI_set_global x]
-  | AR.CoderefI x => None
-  | AR.Inst x => None
-  | AR.Call_indirect => None (* TODO: why doesn't rwasm take an immediate? *)
-  | AR.Call x x0 => None     (* TODO: what to do with list of indexes? *)
-  | AR.RecFold x => None
-  | AR.RecUnfold => None
-  | AR.Group x x0 => None
-  | AR.Ungroup => None
-  | AR.CapSplit => None
-  | AR.CapJoin => None
-  | AR.RefDemote => None
-  | AR.MemPack x => None
-  | AR.MemUnpack x x0 x1 => None
-  | AR.StructMalloc x x0 => None
-  | AR.StructFree => None
+    t' ← mapM compile_instr t;
+    e' ← mapM compile_instr e;
+    mret [wasm.BI_if ft (mjoin t') (mjoin e')]
+  | AR.Br x => mret [wasm.BI_br x]
+  | AR.Br_if x => mret [wasm.BI_br_if x]
+  | AR.Br_table x x0 => mret [wasm.BI_br_table x x0]
+  | AR.Ret => mret [wasm.BI_return]
+  | AR.Get_local x x0 => mret [wasm.BI_get_local x]
+  | AR.Set_local x => mret [wasm.BI_set_local x]
+  | AR.Tee_local x => mret [wasm.BI_tee_local x]
+  | AR.Get_global x => mret [wasm.BI_get_global x]
+  | AR.Set_global x => mret [wasm.BI_set_global x]
+  | AR.CoderefI x => mthrow (err "todo msg")
+  | AR.Inst x => mthrow (err "todo msg")
+  | AR.Call_indirect => mthrow (err "todo msg") (* TODO: why doesn't rwasm take an immediate? *)
+  | AR.Call x x0 => mthrow (err "todo msg")     (* TODO: what to do with list of indexes? *)
+  | AR.RecFold x => mthrow (err "todo msg")
+  | AR.RecUnfold => mthrow (err "todo msg")
+  | AR.Group x x0 => mthrow (err "todo msg")
+  | AR.Ungroup => mthrow (err "todo msg")
+  | AR.CapSplit => mthrow (err "todo msg")
+  | AR.CapJoin => mthrow (err "todo msg")
+  | AR.RefDemote => mthrow (err "todo msg")
+  | AR.MemPack x => mthrow (err "todo msg")
+  | AR.MemUnpack x x0 x1 => mthrow (err "todo msg")
+  | AR.StructMalloc x x0 => mthrow (err "todo msg")
+  | AR.StructFree => mthrow (err "todo msg")
   | AR.StructGet idx =>
       (* Save the argument *)
       (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
       fields ← match targs with
-                | [rwasm.RefT _ _ (rwasm.StructType fields)] => Some fields
-                | _ => None
+                | [rwasm.RefT _ _ (rwasm.StructType fields)] => mret fields
+                | _ => mthrow (err "todo msg")
                 end;
       off_sz ← struct_field_offset fields idx;
       off_instrs ← compile_size_expr off_sz;
       mret $ wasm.BI_tee_local ref_tmp ::
              tagged_load ref_tmp off_instrs
-  | AR.StructSet x => None
-  | AR.StructSwap x => None
-  | AR.VariantMalloc x x0 x1 => None
-  | AR.VariantCase x x0 x1 x2 x3 => None
-  | AR.ArrayMalloc x => None
-  | AR.ArrayGet => None
-  | AR.ArraySet => None
-  | AR.ArrayFree => None
-  | AR.ExistPack x x0 x1 => None
-  | AR.ExistUnpack x x0 x1 x2 x3 => None
-  | AR.RefSplit => None
-  | AR.RefJoin => None
-  | AR.Qualify x => None
-  | AR.Trap => None
-  | AR.CallAdm x x0 => None
-  | AR.Label x x0 x1 x2 => None
-  | AR.Local x x0 x1 x2 x3 => None
-  | AR.Malloc x x0 x1 => None
-  | AR.Free => None
+  | AR.StructSet x => mthrow (err "todo msg")
+  | AR.StructSwap x => mthrow (err "todo msg")
+  | AR.VariantMalloc x x0 x1 => mthrow (err "todo msg")
+  | AR.VariantCase x x0 x1 x2 x3 => mthrow (err "todo msg")
+  | AR.ArrayMalloc x => mthrow (err "todo msg")
+  | AR.ArrayGet => mthrow (err "todo msg")
+  | AR.ArraySet => mthrow (err "todo msg")
+  | AR.ArrayFree => mthrow (err "todo msg")
+  | AR.ExistPack x x0 x1 => mthrow (err "todo msg")
+  | AR.ExistUnpack x x0 x1 x2 x3 => mthrow (err "todo msg")
+  | AR.RefSplit => mthrow (err "todo msg")
+  | AR.RefJoin => mthrow (err "todo msg")
+  | AR.Qualify x => mthrow (err "todo msg")
+  | AR.Trap => mthrow (err "todo msg")
+  | AR.CallAdm x x0 => mthrow (err "todo msg")
+  | AR.Label x x0 x1 x2 => mthrow (err "todo msg")
+  | AR.Local x x0 x1 x2 x3 => mthrow (err "todo msg")
+  | AR.Malloc x x0 x1 => mthrow (err "todo msg")
+  | AR.Free => mthrow (err "todo msg")
   end.
 (* ... *)
   
@@ -385,9 +374,9 @@ End compile_instr.
 Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
 Admitted.
 
-Fixpoint compile_module (module : rwasm.module) : option wasm.module :=
-  let '(funcs, globs, table) := module return option wasm.module in
-  Some {|
+Fixpoint compile_module (module : rwasm.module) : M wasm.module :=
+  let '(funcs, globs, table) := module return M wasm.module in
+  mret {|
     wasm.mod_types := []; (* TODO *)
     wasm.mod_funcs := []; (* TODO *)
     wasm.mod_tables := []; (* TODO *)
@@ -401,16 +390,16 @@ Fixpoint compile_module (module : rwasm.module) : option wasm.module :=
   |}
 
 (* TODO: modfunc_type expects a typeidx while rwasm does this inline *)
-with compile_func (func : rwasm.Func) : option wasm.module_func := 
+with compile_func (func : rwasm.Func) : M wasm.module_func := 
   match func with 
   | rwasm.Fun exports fun_type sizes intrs =>
-    Some {|
+    mret {|
       wasm.modfunc_type := compile_fun_type_idx fun_type;
       wasm.modfunc_locals := []; (* TODO *)
       wasm.modfunc_body := []; (* TODO *)
     |}
   end
 
-with compile_glob (glob : rwasm.Glob) : option wasm.module_glob
-with compile_table (table : rwasm.Table) : option wasm.module_table.
+with compile_glob (glob : rwasm.Glob) : M wasm.module_glob
+with compile_table (table : rwasm.Table) : M wasm.module_table.
 Admitted.
