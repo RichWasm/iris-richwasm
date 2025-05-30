@@ -28,3 +28,6 @@
 
 /wasm_interpreter
 /history.txt
+
+.direnv
+result
