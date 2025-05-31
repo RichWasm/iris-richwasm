@@ -1,5 +1,5 @@
 From Coq Require Import List NArith.BinNat.
-From stdpp Require Import base option strings list.
+From stdpp Require Import base option strings list pretty.
 From RWasm Require term annotated_term.
 From RWasm Require Import exn.
 From Wasm Require datatypes.
@@ -18,10 +18,8 @@ Module wasm := datatypes.
 
 Fixpoint compile_numtyp (typ: rwasm.NumType) : M (wasm.value_type) :=
   match typ with
-  | rwasm.Int rwasm.U rwasm.i32 => mret wasm.T_i32
-  | rwasm.Int rwasm.U rwasm.i64 => mret wasm.T_i64
-  | rwasm.Int rwasm.S rwasm.i32 => mret wasm.T_i32
-  | rwasm.Int rwasm.S rwasm.i64 => mret wasm.T_i64
+  | rwasm.Int _ rwasm.i32 => mret wasm.T_i32
+  | rwasm.Int _ rwasm.i64 => mret wasm.T_i64
   | rwasm.Float rwasm.f32 => mret wasm.T_f32
   | rwasm.Float rwasm.f64 => mret wasm.T_f64
   end.
@@ -54,23 +52,31 @@ with compile_arrow_type (typ: rwasm.ArrowType) : M wasm.function_type :=
     tys2' ← mapM compile_typ tys2;
     mret (wasm.Tf (mjoin tys1') (mjoin tys2'))
   end
-with compile_fun_type (typ: rwasm.FunType) : M unit := mthrow (err "todo"). (* What to do about generics? *)
+with compile_fun_type (typ: rwasm.FunType) : M unit :=
+ match typ with
+ | rwasm.FunT kinds arrow => mthrow (err "todo")
+ end. (* What to do about generics? *)
+
+Definition compile_num_from_Z (num_type : wasm.value_type) (num : Z) : wasm.value :=
+  match num_type with
+  | wasm.T_i32 => wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m num)
+  | wasm.T_i64 => wasm.VAL_int64 (Wasm_int.int_of_Z numerics.i64m num)
+  (* TODO: is the signed converter the right thing to use here? *)
+  | wasm.T_f32 =>
+    let i := Wasm_int.int_of_Z numerics.i32m num in
+    wasm.VAL_float32 (Wasm_float.float_convert_si32 numerics.f32m i)
+  | wasm.T_f64 =>
+    let i := Wasm_int.int_of_Z numerics.i64m num in
+    wasm.VAL_float64 (Wasm_float.float_convert_si64 numerics.f64m i)
+  end.
 
 Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   match num_type with
-  | rwasm.Int _ rwasm.i32 => 
-    wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))
-  | rwasm.Int _ rwasm.i64 => 
-    wasm.VAL_int64 (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))
-  (* is the signed converter the right thing to use here? *)
-  | rwasm.Float rwasm.f32 =>
-    wasm.VAL_float32 
-      ((Wasm_float.float_convert_si32
-        numerics.f32m (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))))
-  | rwasm.Float rwasm.f64 =>
-    wasm.VAL_float64
-      ((Wasm_float.float_convert_si64
-        numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
+  (* TODO?: signs *)
+  | rwasm.Int _ rwasm.i32 => compile_num_from_Z wasm.T_i32 (Z.of_nat num)
+  | rwasm.Int _ rwasm.i64 => compile_num_from_Z wasm.T_i64 (Z.of_nat num)
+  | rwasm.Float rwasm.f32 => compile_num_from_Z wasm.T_f32 (Z.of_nat num)
+  | rwasm.Float rwasm.f64 => compile_num_from_Z wasm.T_f64 (Z.of_nat num)
   end.
 
 Fixpoint compile_value (value : rwasm.Value) : M wasm.value :=
@@ -82,8 +88,8 @@ Fixpoint compile_value (value : rwasm.Value) : M wasm.value :=
   | rwasm.Prod vals => mthrow (err "todo")
   | rwasm.Ref loc => mthrow (err "todo")
   | rwasm.PtrV loc => mthrow (err "todo")
-  | rwasm.Cap => mthrow (err "todo")
-  | rwasm.Own => mthrow (err "todo")
+  | rwasm.Cap
+  | rwasm.Own => mret []
   | rwasm.Mempack loc val => mthrow (err "todo")
   end.
 
@@ -245,7 +251,7 @@ Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) 
   | S idx' =>
       match fields with
       | (_, sz) :: fields' => rwasm.SizePlus sz <$> (struct_field_offset fields' idx')
-      | [] => mthrow (err "todo msg")
+      | [] => mthrow (err ("not enough fields in struct type to find field offset of index " ++ pretty idx))
       end
   end.
 
@@ -261,18 +267,18 @@ Fixpoint compile_size_expr (sz: rwasm.Size) : M (list wasm.basic_instruction) :=
       e' ← compile_size_expr sz';
       mret (e ++ e' ++ [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add)])
   | rwasm.SizeConst n =>
-      mret [wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n)))]
+      mret [wasm.BI_const (compile_num_from_Z wasm.T_i32 (Z.of_nat n))]
   end.
 
 Definition if_gc_bit_set ref_tmp ins outs gc_branch lin_branch :=
   [wasm.BI_get_local ref_tmp;
-   wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
+   wasm.BI_const (compile_num_from_Z wasm.T_i32 1%Z);
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_and);
    wasm.BI_testop wasm.T_i32 wasm.TO_eqz;
    wasm.BI_if (wasm.Tf ins outs) lin_branch gc_branch].
 
 Definition unset_gc_bit :=
-  [wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
+  [wasm.BI_const (compile_num_from_Z wasm.T_i32 1%Z);
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub)].
 
 Definition tagged_load ref_tmp offset_instrs :=
@@ -312,9 +318,9 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
     t' ← mapM compile_instr t;
     e' ← mapM compile_instr e;
     mret [wasm.BI_if ft (mjoin t') (mjoin e')]
-  | AR.Br x => mret [wasm.BI_br x]
-  | AR.Br_if x => mret [wasm.BI_br_if x]
-  | AR.Br_table x x0 => mret [wasm.BI_br_table x x0]
+  | AR.Br i => mret [wasm.BI_br i]
+  | AR.Br_if i => mret [wasm.BI_br_if i]
+  | AR.Br_table i j => mret [wasm.BI_br_table i j]
   | AR.Ret => mret [wasm.BI_return]
   | AR.Get_local x x0 => mret [wasm.BI_get_local x] (* TODO: fix *)
   | AR.Set_local x => mret [wasm.BI_set_local x] (* TODO: fix *)
@@ -325,15 +331,15 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.Inst _ => mret []
   | AR.Call_indirect => mthrow (err "todo msg")
   | AR.Call x x0 => mthrow (err "todo msg")
-  | AR.RecFold _ => mret []
-  | AR.RecUnfold => mret []
-  | AR.Group _ _ => mret []
-  | AR.Ungroup => mret []
-  | AR.CapSplit => mret []
-  | AR.CapJoin => mret []
-  | AR.RefDemote => mret []
+  | AR.RecFold _
+  | AR.RecUnfold
+  | AR.Group _ _
+  | AR.Ungroup
+  | AR.CapSplit
+  | AR.CapJoin
+  | AR.RefDemote
   | AR.MemPack _ => mret []
-  | AR.MemUnpack x x0 x1 => mthrow (err "todo msg")
+  | AR.MemUnpack bt _ body => mthrow (err "todo msg")
   | AR.StructMalloc x x0 => mthrow (err "todo msg")
   | AR.StructFree => mthrow (err "todo msg")
   | AR.StructGet idx =>
@@ -357,8 +363,8 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.ArrayFree => mthrow (err "todo msg")
   | AR.ExistPack x x0 x1 => mthrow (err "todo msg")
   | AR.ExistUnpack x x0 x1 x2 x3 => mthrow (err "todo msg")
-  | AR.RefSplit => mret []
-  | AR.RefJoin => mret []
+  | AR.RefSplit
+  | AR.RefJoin
   | AR.Qualify _ => mret []
   | AR.Trap => mthrow (err "todo msg")
   | AR.CallAdm x x0 => mthrow (err "todo msg")
