@@ -4,13 +4,18 @@ From RWasm Require term annotated_term.
 From RWasm Require Import exn.
 From Wasm Require datatypes.
 From Wasm Require Import datatypes numerics.
-
 (* Not great but ok for now *)
 Inductive Err :=
 | err (msg: string).
 
 (* The compiler monad. *)
 Definition M := exn Err.
+
+Definition mlookup_with_msg {A} (idx: nat) (lst: list A) (msg: string) : M A :=
+  match list_lookup idx lst with
+  | Some x => mret x
+  | None => mthrow (err msg)
+  end.
 
 Module rwasm := term.
 Module AR := annotated_term.
@@ -243,8 +248,17 @@ Section compile_instr.
 Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
 Variable (ref_tmp: wasm.immediate).
+Variable (scratch : wasm.immediate).
 Variable (GC_MEM: wasm.immediate).
 Variable (LIN_MEM: wasm.immediate).
+
+Definition size_of_wasm_typ_offset (typ : wasm.value_type) : Z :=
+  match typ with
+  | wasm.T_i32 => 32%Z
+  | wasm.T_i64 => 64%Z
+  | wasm.T_f32 => 32%Z
+  | wasm.T_f64 => 64%Z
+  end.
 
 (* n.b. this is polymorphic :( *)
 Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : M rwasm.Size :=
@@ -283,17 +297,53 @@ Definition unset_gc_bit :=
   [wasm.BI_const (compile_num_from_Z wasm.T_i32 1%Z);
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub)].
 
-Definition tagged_load ref_tmp offset_instrs :=
-  offset_instrs ++ 
+Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : M (list (rwasm.Typ * rwasm.Size)) :=
+  match (list_lookup idx targs) with
+  | Some (rwasm.RefT _ _ (rwasm.StructType fields)) => mret fields
+  | _ => mthrow (err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
+  end.
+
+(* TODO: validate ordering *)
+Fixpoint tagged_load_all (memory : nat) (wasm_typs : list wasm.value_type) : list wasm.basic_instruction :=
+  match wasm_typs with
+  | [] => []
+  | typ :: rst =>
+    let typ_size := size_of_wasm_typ_offset typ in
+    [wasm.BI_get_local scratch;
+     wasm.BI_load memory typ None 0%N 0%N;
+
+     (* update scratch reg *)
+     wasm.BI_const (compile_num_from_Z typ typ_size);
+     wasm.BI_get_local scratch;
+     wasm.BI_binop typ (wasm.Binop_i wasm.BOI_add);
+     wasm.BI_set_local scratch
+    ] ++ (tagged_load_all memory rst)
+  end.
+Definition struct_setup_gc_scratch :=
   [wasm.BI_get_local ref_tmp] ++
-  if_gc_bit_set ref_tmp [wasm.T_i32 (* offset *)] [wasm.T_i32 (* loaded value *)]
-  ([wasm.BI_get_local ref_tmp] ++
-     unset_gc_bit ++
-     [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-      wasm.BI_load GC_MEM wasm.T_i32 None 0%N 0%N])
+    unset_gc_bit ++
+    [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+     wasm.BI_tee_local scratch].
+
+Definition struct_setup_lin_scratch :=
   [wasm.BI_get_local ref_tmp;
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-   wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N].
+   wasm.BI_tee_local scratch].
+
+Definition tagged_load offset_instrs field_typ :=
+  wasm_field_typ ← compile_typ field_typ;
+  mret $ offset_instrs ++
+    [wasm.BI_get_local ref_tmp] ++
+    if_gc_bit_set ref_tmp [wasm.T_i32 (* offset *)] wasm_field_typ
+      (struct_setup_gc_scratch  ++ tagged_load_all GC_MEM wasm_field_typ)
+      (struct_setup_lin_scratch ++ tagged_load_all LIN_MEM wasm_field_typ).
+
+Definition get_struct_ctx (targs : list rwasm.Typ) (targ_idx : nat) (idx : nat) :=
+  fields ← get_struct_field_types targs targ_idx;
+  off_sz ← struct_field_offset fields idx;
+  off_instrs ← compile_size_expr off_sz;
+  '(field_typ, _) ← mlookup_with_msg targ_idx fields "cannot get field type";
+  mret (fields, off_sz, off_instrs, field_typ).
 
 Fixpoint compile_instr (instr: AR.Instruction) : M (list wasm.basic_instruction) :=
   match instr with
@@ -349,15 +399,10 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.StructGet idx =>
       (* Save the argument *)
       (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
-      fields ← match targs with
-                | [rwasm.RefT _ _ (rwasm.StructType fields)] => mret fields
-                | _ => mthrow (err "todo msg")
-                end;
-      off_sz ← struct_field_offset fields idx;
-      off_instrs ← compile_size_expr off_sz;
-      mret $ wasm.BI_tee_local ref_tmp ::
-             tagged_load ref_tmp off_instrs
-  | AR.StructSet x => mthrow (err "todo msg")
+      '(fields, off_sz, off_instrs, field_typ) ← get_struct_ctx targs 0 idx;
+      load_instrs ← tagged_load off_instrs field_typ;
+      mret $ wasm.BI_tee_local ref_tmp :: load_instrs
+  | AR.StructSet idx => mthrow (err "todo")
   | AR.StructSwap x => mthrow (err "todo msg")
   | AR.VariantMalloc x x0 x1 => mthrow (err "todo msg")
   | AR.VariantCase x x0 x1 x2 x3 => mthrow (err "todo msg")
