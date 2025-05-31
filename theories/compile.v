@@ -28,15 +28,17 @@ Fixpoint compile_typ (typ: rwasm.Typ) : M (list wasm.value_type) :=
   match typ with
   | rwasm.Num ntyp => wty ← compile_numtyp ntyp; mret [wty]
   | rwasm.TVar x => mthrow (err "todo")
-  | rwasm.Unit => mthrow (err "todo")
-  | rwasm.ProdT x => mthrow (err "todo")
-  | rwasm.CoderefT x => mthrow (err "todo")
+  | rwasm.ProdT typs =>
+      typs' ← mapM (fun x => compile_typ x) typs;
+      mret (concat typs')
+  | rwasm.PtrT _
+  | rwasm.RefT _ _ _
+  | rwasm.CoderefT _ => mret [wasm.T_i32]
   | rwasm.Rec _ typ => compile_typ typ
-  | rwasm.PtrT x => mthrow (err "todo")
   | rwasm.ExLoc q x => mthrow (err "todo")
-  | rwasm.OwnR x => mthrow (err "todo")
-  | rwasm.CapT x x0 x1 => mthrow (err "todo")
-  | rwasm.RefT x x0 x1 => mthrow (err "todo")
+  | rwasm.Unit
+  | rwasm.OwnR _
+  | rwasm.CapT _ _ _ => mret []
   end
 with compile_heap_type (typ: rwasm.HeapType) : M unit :=
   match typ with
@@ -79,9 +81,9 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   | rwasm.Float rwasm.f64 => compile_num_from_Z wasm.T_f64 (Z.of_nat num)
   end.
 
-Fixpoint compile_value (value : rwasm.Value) : M wasm.value :=
+Fixpoint compile_value (value : rwasm.Value) : M (list wasm.value) :=
   match value with 
-  | rwasm.NumConst num_type num => mret (compile_num num_type num)
+  | rwasm.NumConst num_type num => mret [(compile_num num_type num)]
   | rwasm.Tt => mthrow (err "todo")
   | rwasm.Coderef module_idx table_idx idxs => mthrow (err "todo")
   | rwasm.Fold val => mthrow (err "todo")
@@ -299,7 +301,9 @@ Fixpoint compile_instr (instr: AR.Instruction) : M (list wasm.basic_instruction)
   end
 with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : M (list wasm.basic_instruction) :=
   match instr with
-  | AR.Val v => fmap (fun x => [wasm.BI_const x]) (compile_value v)
+  | AR.Val v =>
+    vals ← (compile_value v);
+    mret (map (fun x => wasm.BI_const x) vals)
   | AR.Ne ni => fmap (fun x => [x]) (compile_num_intr ni)
   | AR.Unreachable => mret [wasm.BI_unreachable]
   | AR.Nop => mret [wasm.BI_nop]
@@ -381,7 +385,7 @@ Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
 Admitted.
 
 Fixpoint compile_module (module : rwasm.module) : M wasm.module :=
-  let '(funcs, globs, table) := module return M wasm.module in
+  let '(funcs, globs, table) := module in
   mret {|
     wasm.mod_types := []; (* TODO *)
     wasm.mod_funcs := []; (* TODO *)
