@@ -64,15 +64,19 @@ Notation WsR := (stackO -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
 
+(* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
+Definition wlocal_ctx := seq.seq value_type.
+
 Definition relations : Type := 
   (* interp_value *)
   (leibnizO RT.Typ -n> WsR) *
   (* interp_frame *)
-  (leibnizO T.Local_Ctx -n> WsR) * 
+  (leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> WsR) * 
   (* interp_expr *)
   (leibnizO (list RT.Typ) -n>
    leibnizO T.Function_Ctx -n>
    leibnizO T.Local_Ctx -n>
+   leibnizO wlocal_ctx -n>
    leibnizO instance -n>
    leibnizO (lholed * list administrative_instruction) -n>
    iPropO Σ).
@@ -90,6 +94,7 @@ Definition rels_expr :
   leibnizO (list RT.Typ) -n>
   leibnizO T.Function_Ctx -n>
   leibnizO T.Local_Ctx -n>
+  leibnizO wlocal_ctx -n>
   leibnizO instance -n>
   leibnizO (lholed * list administrative_instruction) -n>
   iPropO Σ :=
@@ -100,8 +105,8 @@ Proof.
   apply populate.
   unfold relationsO, relations.
   exact (λne _ _, ⌜true⌝%I,
-         λne _ _, ⌜true⌝%I,
-         λne _ _ _ _ _, ⌜true⌝%I).
+         λne _ _ _, ⌜true⌝%I,
+         λne _ _ _ _ _ _, ⌜true⌝%I).
 Qed.
 
 Program Definition interp_heap_value_variant : relationsO -n> leibnizO (list RT.Typ) -n> HR :=
@@ -226,17 +231,18 @@ Definition interp_pre_value_ref_own
 Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
   λne τ, λne vs, ⌜true⌝%I.
 
-Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> WsR :=
-  λne _ _, ⌜false⌝%I.
+Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> WsR :=
+  λne _ _ _, ⌜false⌝%I.
 
 Definition interp_expr_0 (rs : relations) :
   leibnizO (list RT.Typ) -n>
-  leibnizO (T.Function_Ctx) -n>
-  leibnizO (T.Local_Ctx) -n>
+  leibnizO T.Function_Ctx -n>
+  leibnizO T.Local_Ctx -n>
+  leibnizO wlocal_ctx -n>
   leibnizO instance -n>
   leibnizO (lholed * list administrative_instruction) -n>
   iPropO Σ :=
-  λne _ _ _ _ _, ⌜false⌝%I.
+  λne _ _ _ _ _ _, ⌜false⌝%I.
 
 Definition rels_0 (rs : relations) : relations :=
   (interp_value_0 rs,
@@ -276,17 +282,27 @@ Definition interp_ctx
   ⌜true⌝%I.
 
 Definition semantic_typing  :
-  T.StoreTyping -> T.Module_Ctx -> T.Function_Ctx -> T.Local_Ctx ->
+  T.StoreTyping -> T.Module_Ctx -> T.Function_Ctx ->
+  T.Local_Ctx -> wlocal_ctx ->
   list administrative_instruction ->
   RT.ArrowType -> T.Local_Ctx ->
   iProp Σ :=
-  (λ S C F L es '(Arrow τs1 τs2) L',
+  (λ S C F L WL es '(Arrow τs1 τs2) L',
     ∀ inst lh,
       interp_inst S C inst ∗ interp_ctx L L' F inst lh -∗
       ∀ vls vs,
       interp_val τs1 vs ∗ 
       (* frame points to F ∗ *)
-      interp_frame L vls ∗
-      interp_expr τs2 F L' inst (lh, (of_val vs ++ es)))%I.
+      interp_frame L WL vls ∗
+      interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
 
+Require Import compile.
+Lemma sniff_test :
+  forall S C F L n cap l sgn τ eff es,
+    τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
+    eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
+    compile_instr [] 0 0 1 (Instr (StructGet n) eff) = Some es ->
+    ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
+Proof.
+Admitted.
 End logrel.
