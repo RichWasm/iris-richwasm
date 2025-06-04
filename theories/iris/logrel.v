@@ -1,12 +1,10 @@
 From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term annotated_term.
+From RWasm Require Import typing term annotated_term subst debruijn.
 Module RT := RWasm.term.
 Module R := RWasm.annotated_term.
 Module T := RWasm.typing.
 
 From mathcomp Require Import ssreflect ssrbool eqtype seq.
-Set Printing Universes.
-Locate stdpp.fin_maps.
 From iris.program_logic Require Import language.
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
@@ -17,6 +15,7 @@ From iris.prelude Require Import options.
 From Wasm.iris.helpers Require Export iris_properties.
 From Wasm.iris.language Require Export iris_atomicity.
 From Wasm.iris.rules Require Export iris_rules.
+From Wasm.iris.logrel Require iris_logrel.
 
 Import uPred.
 
@@ -61,6 +60,7 @@ Canonical Structure stackO := leibnizO stack.
 Notation VR := ((leibnizO val) -n> iPropO Σ).
 Notation WR := ((leibnizO value) -n> iPropO Σ).
 Notation WsR := (stackO -n> iPropO Σ).
+Notation FR := ((leibnizO frame) -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
 
@@ -71,7 +71,7 @@ Definition relations : Type :=
   (* interp_value *)
   (leibnizO RT.Typ -n> WsR) *
   (* interp_frame *)
-  (leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> WsR) * 
+  (leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR) * 
   (* interp_expr *)
   (leibnizO (list RT.Typ) -n>
    leibnizO T.Function_Ctx -n>
@@ -105,7 +105,7 @@ Proof.
   apply populate.
   unfold relationsO, relations.
   exact (λne _ _, ⌜true⌝%I,
-         λne _ _ _, ⌜true⌝%I,
+         λne _ _ _ _, ⌜true⌝%I,
          λne _ _ _ _ _ _, ⌜true⌝%I).
 Qed.
 
@@ -219,8 +219,7 @@ Instance interp_pre_value_coderef_contractive: Contractive interp_pre_value_code
   ltac:(solve_contractive).
 
 Definition interp_pre_value_exloc (rs : relationsO) : leibnizO RT.Typ -n> WsR :=
-  λne (τ : leibnizO RT.Typ) ws,
-    ⌜true⌝%I.
+  λne (τ : leibnizO RT.Typ) ws, (∃ ℓ c, ▷ rels_value rs (subst_ext (ext SLoc (LocP ℓ c) id) τ) ws)%I.
 
 Definition interp_pre_value_ref_own
   (rs : relationsO)
@@ -231,8 +230,16 @@ Definition interp_pre_value_ref_own
 Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
   λne τ, λne vs, ⌜true⌝%I.
 
-Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> WsR :=
-  λne _ _ _, ⌜false⌝%I.
+Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
+  λne (L: leibnizO T.Local_Ctx) 
+      (WL: leibnizO wlocal_ctx)
+      (i: leibnizO instance)
+      (f: leibnizO frame),
+    (∃ vs wvs: list value, 
+        ⌜f = Build_frame (vs ++ wvs) i⌝ ∗ 
+        (* not right, throws out sizes with (map fst L) *)
+        ▷ interp_values rs (map fst L) (Stack vs) ∗
+        iris_logrel.interp_val WL (immV wvs))%I.
 
 Definition interp_expr_0 (rs : relations) :
   leibnizO (list RT.Typ) -n>
@@ -242,7 +249,7 @@ Definition interp_expr_0 (rs : relations) :
   leibnizO instance -n>
   leibnizO (lholed * list administrative_instruction) -n>
   iPropO Σ :=
-  λne _ _ _ _ _ _, ⌜false⌝%I.
+  λne ts C L WL i e, (▷ rels_expr rs ts C L WL i e)%I.
 
 Definition rels_0 (rs : relations) : relations :=
   (interp_value_0 rs,
@@ -251,14 +258,29 @@ Definition rels_0 (rs : relations) : relations :=
 
 Instance rels_contractive : Contractive rels_0.
 Proof.
-  solve_contractive.
-Qed.
+Admitted.
 
 Definition rels : relations := fixpoint rels_0.
 
 Definition interp_value := rels_value rels.
 Definition interp_frame := rels_frame rels.
 Definition interp_expr := rels_expr rels.
+
+Lemma rels_eq :
+  rels ≡ rels_0 rels.
+Proof.
+  apply fixpoint_unfold.
+Qed.
+
+Lemma interp_expr_eq ts F L WL i e :
+  interp_expr ts F L WL i e ⊣⊢ interp_expr_0 rels ts F L WL i e.
+Proof.
+  do 6 f_equiv.
+  transitivity (snd (rels_0 rels)).
+  - apply snd_proper.
+    apply rels_eq.
+  - reflexivity.
+Qed.
 
 Definition interp_val (τs : list RT.Typ) : VR :=
   λne (v : leibnizO val), (
@@ -290,19 +312,31 @@ Definition semantic_typing  :
   (λ S C F L WL es '(Arrow τs1 τs2) L',
     ∀ inst lh,
       interp_inst S C inst ∗ interp_ctx L L' F inst lh -∗
-      ∀ vls vs,
-      interp_val τs1 vs ∗ 
-      (* frame points to F ∗ *)
-      interp_frame L WL vls ∗
-      interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
+      ∀ f vs,
+        ↪[frame] f ∗
+        interp_val τs1 vs ∗ 
+        (* frame points to F ∗ *)
+        interp_frame L WL inst f -∗
+        interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
 
 Require Import RWasm.compile.
-Lemma sniff_test :
-  forall S C F L n cap l sgn τ eff es,
-    τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
-    eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
-    compile_instr [] 0 0 1 (Instr (StructGet n) eff) = Some es ->
-    ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
+Lemma sniff_test S C F L cap l sgn τ eff es :
+  τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
+  eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
+  compile_instr [] 0 0 1 (Instr (StructGet 0) eff) = Some es ->
+  ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
 Proof.
-Admitted.
+  intros Hτ Heff.
+  subst eff.
+  intros Hcomp.
+  unfold compile_instr in Hcomp.
+  rewrite Hτ in Hcomp.
+  cbn in Hcomp.
+  apply Some_inj in Hcomp.
+  unfold semantic_typing.
+  iIntros "%inst %lh [Hinst Hctx] %f %vs (Hfr & Hval & Hloc)".
+  rewrite interp_expr_eq.
+  cbn.
+Abort.
+
 End logrel.
