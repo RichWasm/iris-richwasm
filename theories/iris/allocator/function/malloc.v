@@ -25,8 +25,6 @@ Section malloc.
 
 Context `{!wasmG Σ} `{!allocG Σ}.
 
-Locate "↦[wms][".
-
 (* SPECS: block getters *)
 Lemma spec_get_state E mem memidx blk next_addr blk_addr32 blk_var f :
   ⊢ {{{{ block_repr memidx blk next_addr ∗
@@ -44,14 +42,13 @@ Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
   next_wp.
   {
-    instantiate (2 := λ vs, (⌜vs = [VAL_int32 blk_addr32]⌝)%I).
-    iApply (wp_wand with "[Hfr]").
-    - iApply wp_get_local; eauto.
-      fill_imm_pred.
-    - iIntros (w) "(%Hw & Hfr)".
-      instantiate (1:= block_repr memidx blk next_addr).
-      iExists _; by iFrame.
+    iApply (wp_get_local with "[Hblk] [$]"); eauto.
+    iExists [VAL_int32 blk_addr32]. 
+    instantiate (1:= (λ vs, ⌜vs = [VAL_int32 blk_addr32]⌝ ∗
+                            block_repr memidx blk next_addr)%I).
+    by iFrame.
   }
+  cbn.
   iDestruct select (_ ∗ _)%I as "[%Hv Hblk]".
   iRename select (↪[frame] _)%I into "Hfr".
   inversion Hv; subst.
@@ -61,13 +58,12 @@ Proof.
   iApply (wp_wand with "[Hfr Hstate]").
   - iApply wp_load; try iFrame; eauto.
     fill_imm_pred.
-  - iIntros (w) "((%Hw & Hptr) & Hfr)".
-    subst w.
+  - iIntros (w) "((-> & Hptr) & Hfr)".
     iApply "HΦ".
     unfold block_repr, state_repr.
     rewrite Haddr.
-    iExists st32; by iFrame.
-  - iIntros "(%st & %contra & H)"; congruence.
+    iExists _; by iFrame.
+  - iIntros "((%st & %contra & H) & _)"; congruence.
 Qed.
 
 Lemma spec_get_final_state E mem memidx blk blk_addr blk_addr32 blk_var f :
@@ -84,32 +80,32 @@ Lemma spec_get_final_state E mem memidx blk blk_addr blk_addr32 blk_var f :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  wp_chomp 1.
-  iApply wp_seq.
-  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-  iSplitR; [iIntros "(%H & ?)"; auto|].
-  iSplitL "Hfr".
-  - iApply wp_get_local; eauto.
-  - iIntros (w) "(%Hw & Hfr)".
+  next_wp.
+  {
+    iApply (wp_get_local with "[Hblk] [$]"); eauto.
+    iExists [VAL_int32 blk_addr32]. 
+    instantiate (1:= (λ vs, ⌜vs = [VAL_int32 blk_addr32]⌝ ∗
+                            final_block_repr memidx blk blk_addr)%I).
+    by iFrame.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "[%Hv Hblk]".
+  inversion Hv; subst.
+  destruct blk.
+  iDestruct "Hblk" as "(-> & Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+  unfold state_off.
+  replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
+  iApply (wp_wand with "[Hstate Hfr]").
+  - iApply wp_load; eauto; first last.
+    iFrame.
+    fill_imm_pred.
+    done.
+  - iIntros (w) "((%Hw & Hptr) & Hfr)".
     subst w.
-    simpl.
-    destruct blk.
-    iDestruct "Hblk" as "(-> & Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
-    unfold state_off.
-    replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
-    iApply (wp_wand with "[Hstate Hfr]").
-    instantiate (1:=(λ w, 
-                       ((⌜w = immV [VAL_int32 st32]⌝ ∗
-                         N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + 0]bits (VAL_int32 st32)) ∗ ↪[frame]f)%I)).
-    + subst blk_addr.
-      iApply wp_load; auto.
-      iFrame.
-      by iModIntro.
-    + iIntros (w) "((%Hw & Hptr) & Hfr)".
-      subst w blk_addr.
-      iApply "HΦ".
-      unfold block_repr, state_repr.
-      iExists st32; iFrame; auto.
+    iApply "HΦ".
+    unfold block_repr, state_repr.
+    iExists st32; by iFrame.
+  - iIntros "((% & %contra & _) & _)"; discriminate contra.
 Qed.
 
 Lemma spec_get_next E mem memidx blk next_addr blk_addr32 f blk_var :

@@ -76,7 +76,7 @@ Ltac fill_imm_pred :=
 
 Ltac seq_sz n m := 
   wp_chomp n;
-  iApply (wp_seq _ _ _ (λ w, ∃ vs, ⌜w = immV vs⌝ ∗ ⌜length vs = m⌝ ∗ ↪[frame] _ ∗ _ vs ∗ _)%I); 
+  iApply (wp_seq _ _ _ (λ w, (∃ vs, ⌜w = immV vs⌝ ∗ ⌜length vs = m⌝ ∗ _ vs) ∗ ↪[frame] _)%I); 
   iSplitR; first last.
 
 Ltac skip_sz n := 
@@ -126,7 +126,7 @@ Ltac next_wp :=
       seq_sz use outs; 
       [iRename select (↪[frame] _)%I into "Hfr";
        iSplitR "HΦ"|];
-      [|iIntros (w) "(%vs & -> & % & ? & ?)";
+      [|iIntros (w) "((%vs & -> & % & ?) & Hfr)";
         destruct_length_eqn'
       |]
   | Shape ?to_skip ?use ?outs (S ?rest) =>

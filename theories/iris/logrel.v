@@ -296,7 +296,7 @@ Definition semantic_typing  :
       interp_frame L WL vls ∗
       interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
 
-Require Import compile.
+Require Import RWasm.compile.
 Lemma sniff_test :
   forall S C F L n cap l sgn τ eff es,
     τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
