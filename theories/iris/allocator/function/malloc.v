@@ -9,6 +9,7 @@ From Wasm.iris.rules Require Export proofmode.
 From RWasm.iris.allocator Require Export allocator_common.
 From RWasm.iris.allocator Require Import misc_relocate reprs.
 From RWasm.iris.allocator Require Import malloc_impl.
+Require Import RWasm.autowp.
 
 Import reprs.
 
@@ -41,33 +42,32 @@ Lemma spec_get_state E mem memidx blk next_addr blk_addr32 blk_var f :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  wp_chomp 1.
-  iApply wp_seq.
-  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-  iSplitR; first (iIntros "(%H & ?)"; done).
-  iSplitL "Hfr".
-  - iApply wp_get_local; eauto.
-  - iIntros (w) "(%Hw & Hfr)".
-    subst w.
-    simpl.
-    iDestruct "Hblk" as "(Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
-    unfold state_off.
-    replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
-    rewrite Haddr.
-    iApply (wp_wand with "[Hstate Hfr]").
-    (*
-    instantiate (1:=(λ w, 
-                       ((⌜w = immV [VAL_int32 st32]⌝ ∗
-                         N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + 0]bits (VAL_int32 st32)) ∗ ↪[frame]f)%I)).
-*)
-    + iApply wp_load; try iFrame; eauto.
+  next_wp.
+  {
+    instantiate (2 := λ vs, (⌜vs = [VAL_int32 blk_addr32]⌝)%I).
+    iApply (wp_wand with "[Hfr]").
+    - iApply wp_get_local; eauto.
       fill_imm_pred.
-    + iIntros (w) "((%Hw & Hptr) & Hfr)".
-      subst w.
-      iApply "HΦ".
-      unfold block_repr, state_repr.
-      rewrite Haddr.
-      iExists st32; iFrame; auto.
+    - iIntros (w) "(%Hw & Hfr)".
+      instantiate (1:= block_repr memidx blk next_addr).
+      iExists _; by iFrame.
+  }
+  iDestruct select (_ ∗ _)%I as "[%Hv Hblk]".
+  iRename select (↪[frame] _)%I into "Hfr".
+  inversion Hv; subst.
+  iDestruct "Hblk" as "(Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+  replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
+  rewrite Haddr.
+  iApply (wp_wand with "[Hfr Hstate]").
+  - iApply wp_load; try iFrame; eauto.
+    fill_imm_pred.
+  - iIntros (w) "((%Hw & Hptr) & Hfr)".
+    subst w.
+    iApply "HΦ".
+    unfold block_repr, state_repr.
+    rewrite Haddr.
+    iExists st32; by iFrame.
+  - iIntros "(%st & %contra & H)"; congruence.
 Qed.
 
 Lemma spec_get_final_state E mem memidx blk blk_addr blk_addr32 blk_var f :
