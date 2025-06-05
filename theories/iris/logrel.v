@@ -53,6 +53,9 @@ Class Read := {
 Section logrel.
 
 Context `{!wasmG Σ, !logrel_na_invs Σ, !Read}.
+Variable (GC_MEM: immediate).
+Variable (LIN_MEM: immediate).
+Variable (mems_diff: GC_MEM <> LIN_MEM).
 
 Record stack := Stack { stack_values : list value }.
 Canonical Structure stackO := leibnizO stack.
@@ -137,7 +140,6 @@ Next Obligation.
   solve_iprop_ne.
   apply H0.
 Qed.
-Opaque interp_heap_value_struct.
 
 Program Definition interp_heap_value_array : relationsO -n> leibnizO RT.Typ -n> HR :=
   (λne (rs : relationsO) (τ : leibnizO RT.Typ) (bs : leibnizO bytes), ∃ bss bs_rest,
@@ -157,8 +159,10 @@ Definition interp_heap_value : relationsO -> leibnizO RT.HeapType -n> HR :=
   end.
 Instance interp_heap_value_ne : NonExpansive interp_heap_value.
 Proof.
+  Opaque interp_heap_value_struct.
   intros n rs rs' Hrs Ψ bs.
   destruct Ψ; solve_proper.
+  Transparent interp_heap_value_struct.
 Qed.
 
 Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, head (stack_values ws) = Some (VAL_int32 z)⌝%I.
@@ -228,7 +232,24 @@ Definition interp_pre_value_ref_own
     ⌜true⌝%I.
 
 Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
-  λne τ, λne vs, ⌜true⌝%I.
+  λne (τ: leibnizO RT.Typ), λne vs,
+    match τ with
+    | RT.Num _ => ⌜False⌝
+    | RT.TVar _ => ⌜False⌝
+    | RT.Unit => ⌜False⌝
+    | RT.ProdT _ => ⌜False⌝
+    | RT.CoderefT _ => ⌜False⌝
+    | RT.Rec _ _ => ⌜False⌝
+    | RT.PtrT _ => ⌜False⌝
+    | RT.ExLoc _ _ => ⌜False⌝
+    | RT.OwnR _ => ⌜False⌝
+    | RT.CapT _ _ _ => ⌜False⌝
+    | RT.RefT cap (LocP ℓ LinMem) ψ =>
+        ∃ bs,
+          N.of_nat LIN_MEM ↦[wms][ℓ] bs ∗
+          interp_heap_value rs ψ bs
+    | RT.RefT _ _ _ => ⌜False⌝
+    end%I.
 
 Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
   λne (L: leibnizO T.Local_Ctx) 
@@ -244,20 +265,24 @@ Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO w
 
 Locate "WP".
 
-Definition interp_expr_0 (rs : relations) (int: i32) :
+
+Search wp Proper.
+Check wp_ne.
+Locate "λne".
+Check OfeMor.
+
+Program Definition interp_expr_0 (rs : relations) :
   leibnizO (list RT.Typ) -n>
   leibnizO T.Function_Ctx -n>
   leibnizO T.Local_Ctx -n>
   leibnizO wlocal_ctx -n>
   leibnizO instance -n>
-  prodO (leibnizO lholed) (leibnizO (seq.seq administrative_instruction)) -n>
+  leibnizO (lholed * (seq.seq administrative_instruction)) -n>
   iPropO Σ :=
-  λne ts C L WL i lhe,
-    (WP lhe.2 {{ w, ⌜True ⌝ }})%I.
-    (WP (snd lhe) {{ w, ⌜True ⌝ }})%I.
-           ∃ vs, ⌜w = immV vs⌝ ∗
-                 interp_values rs ts (Stack vs) ∗
-                 ∃ f, rels_frame rs L WL i f }})%I.
+  λne ts C L WL i '(lh, e),
+    (WP e {{ w, ∃ vs, ⌜w = immV vs⌝ ∗
+                      interp_values rs ts (Stack vs) ∗
+                      ∃ f, rels_frame rs L WL i f }})%I.
 
 Definition rels_0 (rs : relations) : relations :=
   (interp_value_0 rs,
@@ -270,9 +295,9 @@ Admitted.
 
 Definition rels : relations := fixpoint rels_0.
 
-Definition interp_value := rels_value rels.
-Definition interp_frame := rels_frame rels.
-Definition interp_expr := rels_expr rels.
+Notation interp_value := (rels_value rels).
+Notation interp_frame := (rels_frame rels).
+Notation interp_expr := (rels_expr rels).
 
 Lemma rels_eq :
   rels ≡ rels_0 rels.
@@ -280,20 +305,39 @@ Proof.
   apply fixpoint_unfold.
 Qed.
 
+Lemma interp_value_eq τs vs :
+  interp_value τs vs ⊣⊢ interp_value_0 rels τs vs.
+Proof.
+  do 2 f_equiv.
+  transitivity (rels_0 rels).1.1.
+  - apply rels_eq.
+  - reflexivity.
+Qed.
+Opaque rels_value.
+
 Lemma interp_expr_eq ts F L WL i e :
   interp_expr ts F L WL i e ⊣⊢ interp_expr_0 rels ts F L WL i e.
 Proof.
   do 6 f_equiv.
   transitivity (snd (rels_0 rels)).
-  - apply snd_proper.
-    apply rels_eq.
+  - apply rels_eq.
   - reflexivity.
 Qed.
+Opaque rels_expr.
+
+Lemma interp_frame_eq L WL i f :
+  interp_frame L WL i f ⊣⊢ interp_frame_0 rels L WL i f.
+Proof.
+  do 4 f_equiv.
+  transitivity (rels_0 rels).1.2.
+  - apply rels_eq.
+  - reflexivity.
+Qed.
+Opaque rels_frame.
 
 Definition interp_val (τs : list RT.Typ) : VR :=
   λne (v : leibnizO val), (
-    ⌜v = trapV⌝ ∨
-    ∃ ws, ⌜v = immV ws⌝ (*∗ interp_values rels τs (Stack ws) *)
+    ⌜v = trapV⌝ ∨ ∃ ws, ⌜v = immV ws⌝ ∗ interp_values rels τs (Stack ws)
   )%I.
 
 Definition interp_inst
@@ -328,14 +372,15 @@ Definition semantic_typing  :
         interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
 
 Require Import RWasm.compile.
-Lemma sniff_test S C F L cap l sgn τ eff es :
+Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
+  l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
   eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
   compile_instr [] 0 0 1 (Instr (StructGet 0) eff) = Some es ->
   ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
 Proof.
-  intros Hτ Heff.
-  subst eff.
+  intros Hl Hτ Heff.
+  subst eff l.
   intros Hcomp.
   unfold compile_instr in Hcomp.
   rewrite Hτ in Hcomp.
@@ -344,7 +389,28 @@ Proof.
   unfold semantic_typing.
   iIntros "%inst %lh [Hinst Hctx] %f %vs (Hfr & Hval & Hloc)".
   rewrite interp_expr_eq.
-  cbn.
+  rewrite interp_frame_eq.
+  unfold interp_val.
+  iClear "Hloc".
+  iDestruct "Hval" as "[Htrap | (%vs' & %Hvs'eq & Hval)]".
+  - admit.
+  - rewrite -> Hτ.
+    cbn.
+    iDestruct "Hval" as "(%wss & %ws_rest & %Hvs' & Hval)".
+    Locate "[∗".
+    iPoseProof (big_sepL2_length with "[$Hval]") as "%Hlens".
+    destruct wss as [|ws wss]; cbn in Hlens; try discriminate Hlens.
+    destruct wss; cbn in Hlens; try discriminate Hlens.
+    rewrite big_sepL2_singleton.
+    setoid_rewrite interp_value_eq.
+    iEval (cbn) in "Hval".
+    iDestruct "Hval" as "(%bs & Hptr & %bss & %bs_rest & %Hconcat & Hfields)".
+    iPoseProof (big_sepL2_length with "[$Hfields]") as "%Hflens".
+    destruct bss as [|bs' bss]; try discriminate Hflens.
+    destruct bss; try discriminate Hflens.
+    rewrite big_sepL2_singleton.
+    setoid_rewrite interp_value_eq.
+    admit.
 Abort.
 
 End logrel.
