@@ -129,12 +129,14 @@ Ltac next_wp :=
       [|iIntros (w) "((%vs & -> & % & ?) & Hfr)";
         destruct_length_eqn'
       |]
+  | Shape ?to_skip ?use ?outs 0 =>
+      skip_sz to_skip
   | Shape ?to_skip ?use ?outs (S ?rest) =>
       seq_sz use outs; 
       [iRename select (↪[frame] _)%I into "Hfr";
-       iSplitL "HΦ"
+       iSplitR "HΦ"
       |];
-      [|iIntros (w) "(%vs & -> & % & ? & ?)";
+      [|iIntros (w) "((%vs & -> & % & ?) & Hfr)";
         destruct_length_eqn'
       |];
       first (skip_sz to_skip)

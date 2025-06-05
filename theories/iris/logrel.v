@@ -1,5 +1,5 @@
 From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term annotated_term subst debruijn.
+From RWasm Require Import typing term annotated_term subst debruijn num_repr autowp.
 Module RT := RWasm.term.
 Module R := RWasm.annotated_term.
 Module T := RWasm.typing.
@@ -20,6 +20,7 @@ From Wasm.iris.logrel Require iris_logrel.
 Import uPred.
 
 Set Bullet Behavior "Strict Subproofs".
+Set Default Goal Selector "1".
 
 Definition rf : string := "rfN".
 Definition rt : string := "rtN".
@@ -44,6 +45,27 @@ Ltac solve_iprop_ne :=
          (rewrite /pointwise_relation; intros) +
          apply forall_ne + apply wand_ne).
 Local Obligation Tactic := try solve_proper.
+
+Ltac fill_vals_pred' vs :=
+  instantiate ( 1 := (λ w, ⌜w = vs⌝ ∗ _)%I).
+
+Ltac curry_hyps :=
+  iRevert "∗";
+  rewrite ? wand_curry.
+
+Ltac fill_goal :=
+  match goal with
+  | |- environments.envs_entails _ ?E =>
+      is_evar E;
+      curry_hyps;
+      iApply wand_refl
+  end.
+
+Ltac fill_vals_pred :=
+  match goal with
+  | |- environments.envs_entails _ (?g ?vs) =>
+      fill_vals_pred' vs; iSplitR; [done | fill_goal]
+  end.
 
 Class Read := {
   read_value : RT.Typ -> bytes -> list value;
@@ -168,8 +190,8 @@ Qed.
 Definition interp_pre_value_unit : WsR := λne ws, ⌜∃ z, head (stack_values ws) = Some (VAL_int32 z)⌝%I.
 
 Definition interp_values (rs : relations) : leibnizO (list RT.Typ) -n> WsR :=
-  λne (τs : leibnizO (list RT.Typ)) ws, (∃ wss ws_rest,
-    ⌜stack_values ws = flatten wss ++ ws_rest⌝ ∗
+  λne (τs : leibnizO (list RT.Typ)) ws, (∃ wss,
+    ⌜stack_values ws = flatten wss⌝ ∗
     [∗ list] τ;ws ∈ τs;wss, rels_value rs τ (Stack ws)
   )%I.
 
@@ -231,10 +253,23 @@ Definition interp_pre_value_ref_own
   λne (sz : leibnizO RT.Size) (ψ : leibnizO RT.HeapType) (z : leibnizO i32),
     ⌜true⌝%I.
 
+Definition ptr_repr (l: RT.Loc) (i: i32) : Prop :=
+  match l with
+  | RT.LocV v => False
+  | RT.LocP ℓ GCMem =>
+      N_repr (ℓ+1) i
+  | RT.LocP ℓ LinMem =>
+      N_repr ℓ i
+  end.
+
 Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
   λne (τ: leibnizO RT.Typ), λne vs,
+    let 'Stack vs := vs in
     match τ with
-    | RT.Num _ => ⌜False⌝
+    | RT.Num (RT.Int _ RT.i32) => ⌜∃ i, vs = [VAL_int32 i]⌝
+    | RT.Num (RT.Int _ RT.i64) => ⌜∃ i, vs = [VAL_int64 i]⌝
+    | RT.Num (RT.Float RT.f32) => ⌜∃ f, vs = [VAL_float32 f]⌝
+    | RT.Num (RT.Float RT.f64) => ⌜∃ f, vs = [VAL_float64 f]⌝
     | RT.TVar _ => ⌜False⌝
     | RT.Unit => ⌜False⌝
     | RT.ProdT _ => ⌜False⌝
@@ -245,7 +280,9 @@ Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
     | RT.OwnR _ => ⌜False⌝
     | RT.CapT _ _ _ => ⌜False⌝
     | RT.RefT cap (LocP ℓ LinMem) ψ =>
-        ∃ bs,
+        ∃ bs l32,
+          ⌜vs = [VAL_int32 l32]⌝ ∗
+          ⌜ptr_repr (LocP ℓ LinMem) l32⌝ ∗
           N.of_nat LIN_MEM ↦[wms][ℓ] bs ∗
           interp_heap_value rs ψ bs
     | RT.RefT _ _ _ => ⌜False⌝
@@ -396,20 +433,90 @@ Proof.
   - admit.
   - rewrite -> Hτ.
     cbn.
-    iDestruct "Hval" as "(%wss & %ws_rest & %Hvs' & Hval)".
-    Locate "[∗".
+    (* First we collect the facts we need from the context. *)
+    iDestruct "Hval" as "(%wss & %Hvs' & Hval)".
     iPoseProof (big_sepL2_length with "[$Hval]") as "%Hlens".
     destruct wss as [|ws wss]; cbn in Hlens; try discriminate Hlens.
     destruct wss; cbn in Hlens; try discriminate Hlens.
     rewrite big_sepL2_singleton.
     setoid_rewrite interp_value_eq.
     iEval (cbn) in "Hval".
-    iDestruct "Hval" as "(%bs & Hptr & %bss & %bs_rest & %Hconcat & Hfields)".
+    iDestruct "Hval" as "(%bs & %l32 & -> & %Hlrep & Hptr & %bss & %bs_rest & %Hconcat & Hfields)".
+    subst vs' vs.
+    simpl flatten.
+    simpl of_val.
+    rewrite <- Hcomp.
+    simpl to_e_list. simpl app.
     iPoseProof (big_sepL2_length with "[$Hfields]") as "%Hflens".
-    destruct bss as [|bs' bss]; try discriminate Hflens.
-    destruct bss; try discriminate Hflens.
+    destruct_length_eqn Hflens.
     rewrite big_sepL2_singleton.
     setoid_rewrite interp_value_eq.
+    iEval (cbn) in "Hfields".
+    iDestruct "Hfields" as "(%i & %Hi)".
+
+    (* Now we analyze the behavior of the compiled code. *)
+    iAssert (⌜True⌝)%I as "HΦ". (* work around a bug in next_wp *)
+    { done. }
+    next_wp.
+    {
+      iApply (wp_tee_local with "[$Hfr]").
+      iIntros "!> Hfr".
+      let e := get_shp in idtac e.
+      Print next_wp.
+      next_wp.
+      {
+        iApply (wp_wand with "[Hfr]").
+        - iApply (wp_set_local with "[] [$Hfr]").
+          + admit.
+          + fill_imm_pred.
+        - iIntros (v) "(-> & Hfr)".
+          iFrame.
+          iExists _.
+          iSplit; [|iSplit]; try done.
+          fill_vals_pred.
+      }
+      - iIntros "!> ((%vs & %contra & _) & _)". discriminate.
+    }
+    cbn beta.
+    iRename select (_ ∗ _)%I into "H".
+    iDestruct "H" as "(%Hv & (Hinst & Hctx) & Hptr)".
+    inversion Hv. subst v.
+    next_wp.
+    {
+      iApply (wp_wand with "[Hfr]").
+      iApply (wp_get_local with "[] [$Hfr]"); eauto.
+      by rewrite set_nth_read.
+      fill_imm_pred.
+      iIntros (w) "(-> & Hfr)".
+      iFrame.
+      iExists _.
+      iSplit; [|iSplit]; try done.
+      fill_vals_pred.
+    }
+    iIntros "!> ((%vs & %contra & _) & _)"; discriminate contra.
+    next_wp.
+    {
+      iApply (wp_wand with "[Hfr]").
+      iApply (wp_get_local with "[] [$Hfr]"); eauto.
+      by rewrite set_nth_read.
+      fill_imm_pred.
+      iIntros (w) "(-> & Hfr)".
+      iFrame.
+      iExists _.
+      iSplit; [|iSplit]; try done.
+      cbn.
+      fill_vals_pred.
+    }
+    iIntros "!> ((%vs & %contra & _) & _)". discriminate.
+    cbn beta.
+    iRename select (_ ∗ _)%I into "H".
+    iDestruct "H" as "(%Hv1 & %Hv2 & (Hinst & Hctx) & Hptr)".
+    inversion Hv1; subst.
+    inversion Hv2; subst.
+    clear Hv1 Hv2 H1 H2 H0 Hv.
+    cbn.
+    next_wp.
+    admit.
     admit.
 Abort.
 
