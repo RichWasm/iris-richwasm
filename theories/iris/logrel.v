@@ -241,15 +241,23 @@ Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO w
         ▷ interp_values rs (map fst L) (Stack vs) ∗
         iris_logrel.interp_val WL (immV wvs))%I.
 
-Definition interp_expr_0 (rs : relations) :
+
+Locate "WP".
+
+Definition interp_expr_0 (rs : relations) (int: i32) :
   leibnizO (list RT.Typ) -n>
   leibnizO T.Function_Ctx -n>
   leibnizO T.Local_Ctx -n>
   leibnizO wlocal_ctx -n>
   leibnizO instance -n>
-  leibnizO (lholed * list administrative_instruction) -n>
+  prodO (leibnizO lholed) (leibnizO (seq.seq administrative_instruction)) -n>
   iPropO Σ :=
-  λne ts C L WL i e, (▷ rels_expr rs ts C L WL i e)%I.
+  λne ts C L WL i lhe,
+    (WP lhe.2 {{ w, ⌜True ⌝ }})%I.
+    (WP (snd lhe) {{ w, ⌜True ⌝ }})%I.
+           ∃ vs, ⌜w = immV vs⌝ ∗
+                 interp_values rs ts (Stack vs) ∗
+                 ∃ f, rels_frame rs L WL i f }})%I.
 
 Definition rels_0 (rs : relations) : relations :=
   (interp_value_0 rs,
