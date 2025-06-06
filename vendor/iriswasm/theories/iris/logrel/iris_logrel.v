@@ -461,7 +461,7 @@ Section logrel.
   (* --------------------------------- CONTEXT RELATION ------------------------------------ *)
   (* --------------------------------------------------------------------------------------- *)
 
-  Fixpoint lholed_valid lh : Prop :=
+  Fixpoint lholed_valid (lh: lholed) : Prop :=
     match lh with
     | LH_base vs es => const_list vs
     | LH_rec vs n es' lh' es'' => const_list vs ∧ lholed_valid lh'
