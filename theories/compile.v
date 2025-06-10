@@ -1,9 +1,14 @@
 From Coq Require Import List NArith.BinNat.
-From stdpp Require Import base option strings list pretty.
+From stdpp Require Import base option strings list pretty gmap gmultiset fin_sets.
 From RWasm Require term annotated_term.
-From RWasm Require Import exn.
+From RWasm Require Import exn state.
 From Wasm Require datatypes.
 From Wasm Require Import datatypes numerics.
+
+
+(* ExtLib has its own state monad but it doens't play nicely with stdpp *)
+Definition state (S A : Type) : Type := S -> (S * A).
+
 (* Not great but ok for now *)
 Inductive Err :=
 | err (msg: string).
@@ -59,7 +64,7 @@ with compile_arrow_type (typ: rwasm.ArrowType) : M wasm.function_type :=
     tys2' ← mapM compile_typ tys2;
     mret (wasm.Tf (mjoin tys1') (mjoin tys2'))
   end
-with compile_fun_type (typ: rwasm.FunType) : M unit :=
+with compile_fun_type (typ: rwasm.FunType) : M wasm.function_type :=
  match typ with
  | rwasm.FunT kinds arrow => mthrow (err "todo")
  end. (* What to do about generics? *)
