@@ -250,10 +250,40 @@ Definition expect_concrete_size (sz: rwasm.Size) : M nat :=
 Definition size_ctx := 
   list wasm.immediate.
 Section compile_instr.
+Definition modify_st (f : TempLocals → TempLocals)  : InstM unit := mmodify f.
+Definition lift_M {A} (m : M A) : InstM A :=
+  λ st,
+    x ← m;
+    mret (st, x).
+Definition fresh_local (ty : wasm.value_type) : InstM wasm.immediate :=
+  st ← get_st;
+  match elements (tl_free st) with
+  | i :: _ =>
+    let st' :=
+      {| tl_start := tl_start st;
+         tl_next  := tl_next st;
+         tl_types := <[ i := ty ]> (tl_types st);
+         tl_free  := tl_free st ∖ {[ i ]} |} in
+    put_st st';;
+    mret i
+  | [] =>
+    let i := tl_next st in
+    let st' :=
+      {| tl_start := tl_start st;
+         tl_next  := S i;
+         tl_types := <[ i := ty ]> (tl_types st);
+         tl_free  := tl_free st |} in
+    put_st st';;
+    mret i
+  end.
+Definition free_local (i : wasm.immediate) : InstM unit :=
+  modify_st (λ st, {| tl_start := tl_start st;
+                      tl_next  := tl_next  st;
+                      tl_types := tl_types st;
+                      tl_free  := tl_free  st ∪ {[ i ]} |}).
+
 Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
-Variable (ref_tmp: wasm.immediate).
-Variable (scratch : wasm.immediate).
 Variable (GC_MEM: wasm.immediate).
 Variable (LIN_MEM: wasm.immediate).
 
@@ -266,7 +296,7 @@ Definition size_of_wasm_typ_offset (typ : wasm.value_type) : Z :=
   end.
 
 (* n.b. this is polymorphic :( *)
-Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : M rwasm.Size :=
+Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : InstM rwasm.Size :=
   match idx with
   | 0 => mret $ rwasm.SizeConst 0
   | S idx' =>
@@ -278,10 +308,10 @@ Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) 
 
 (* Produces code that given a frame with sizes according to size_ctx
    computes one i32, which is the concrete value of sz at run time. *)
-Fixpoint compile_size_expr (sz: rwasm.Size) : M (list wasm.basic_instruction) :=
+Fixpoint compile_size_expr (sz: rwasm.Size) : InstM (list wasm.basic_instruction) :=
   match sz with
   | rwasm.SizeVar σ =>
-      l_idx ← guard_opt (err "sz not found in sz_locs") $ sz_locs !! σ;
+      l_idx ← lift_M (guard_opt (err "sz not found in sz_locs") $ sz_locs !! σ);
       mret [wasm.BI_get_local l_idx]
   | rwasm.SizePlus sz sz' =>
       e ← compile_size_expr sz;
@@ -309,7 +339,7 @@ Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : M (list
   end.
 
 (* TODO: validate ordering *)
-Fixpoint tagged_load_all (memory : nat) (wasm_typs : list wasm.value_type) : list wasm.basic_instruction :=
+Fixpoint tagged_load_all (memory : nat) (wasm_typs : list wasm.value_type) (scratch : wasm.immediate) : list wasm.basic_instruction :=
   match wasm_typs with
   | [] => []
   | typ :: rst =>
@@ -321,59 +351,64 @@ Fixpoint tagged_load_all (memory : nat) (wasm_typs : list wasm.value_type) : lis
      wasm.BI_const (compile_num_from_Z typ typ_size);
      wasm.BI_get_local scratch;
      wasm.BI_binop typ (wasm.Binop_i wasm.BOI_add);
-     wasm.BI_set_local scratch
-    ] ++ (tagged_load_all memory rst)
+     wasm.BI_set_local scratch] ++ (tagged_load_all memory rst scratch)
   end.
-Definition struct_setup_gc_scratch :=
+Definition struct_setup_gc_scratch ref_tmp scratch : (list wasm.basic_instruction) :=
   [wasm.BI_get_local ref_tmp] ++
     unset_gc_bit ++
     [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
      wasm.BI_tee_local scratch].
 
-Definition struct_setup_lin_scratch :=
+Definition struct_setup_lin_scratch ref_tmp scratch : (list wasm.basic_instruction) :=
   [wasm.BI_get_local ref_tmp;
-   wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-   wasm.BI_tee_local scratch].
+  wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+  wasm.BI_tee_local scratch].
 
-Definition tagged_load offset_instrs field_typ :=
-  wasm_field_typ ← compile_typ field_typ;
-  mret $ offset_instrs ++
+Print struct_setup_lin_scratch.
+
+Definition tagged_load (offset_instrs : list wasm.basic_instruction) field_typ (ref_tmp : wasm.immediate) : InstM (list wasm.basic_instruction) :=
+  wasm_field_typ ← lift_M (compile_typ field_typ);
+  scratch ← fresh_local wasm.T_i32;
+  instrs ← mret $ offset_instrs ++
     [wasm.BI_get_local ref_tmp] ++
     if_gc_bit_set ref_tmp [wasm.T_i32 (* offset *)] wasm_field_typ
-      (struct_setup_gc_scratch  ++ tagged_load_all GC_MEM wasm_field_typ)
-      (struct_setup_lin_scratch ++ tagged_load_all LIN_MEM wasm_field_typ).
+      (struct_setup_gc_scratch ref_tmp scratch ++ tagged_load_all GC_MEM wasm_field_typ scratch)
+      (struct_setup_lin_scratch ref_tmp scratch ++ tagged_load_all LIN_MEM wasm_field_typ scratch);
+  free_local scratch;;
 
-Definition get_struct_ctx (targs : list rwasm.Typ) (targ_idx : nat) (idx : nat) :=
-  fields ← get_struct_field_types targs targ_idx;
+  mret instrs.
+
+Definition get_struct_ctx (targs : list rwasm.Typ) (targ_idx : nat) (idx : nat) : InstM _ :=
+  fields ← lift_M $ get_struct_field_types targs targ_idx;
   off_sz ← struct_field_offset fields idx;
   off_instrs ← compile_size_expr off_sz;
-  '(field_typ, _) ← mlookup_with_msg targ_idx fields "cannot get field type";
+  '(field_typ, _) ← lift_M $ mlookup_with_msg targ_idx fields "cannot get field type";
   mret (fields, off_sz, off_instrs, field_typ).
 
-Fixpoint compile_instr (instr: AR.Instruction) : M (list wasm.basic_instruction) :=
+Fixpoint compile_instr (instr: AR.Instruction) : InstM (list wasm.basic_instruction) :=
   match instr with
   | AR.Instr instr' (rwasm.Arrow targs trets) => compile_pre_instr instr' targs trets
   end
-with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : M (list wasm.basic_instruction) :=
+with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : InstM (list wasm.basic_instruction) :=
   match instr with
   | AR.Val v =>
-    vals ← (compile_value v);
+    vals ← lift_M (compile_value v);
     mret (map (fun x => wasm.BI_const x) vals)
-  | AR.Ne ni => fmap (fun x => [x]) (compile_num_intr ni)
+  | AR.Ne ni => (fun x => [x]) <$> (lift_M $ compile_num_intr ni)
   | AR.Unreachable => mret [wasm.BI_unreachable]
   | AR.Nop => mret [wasm.BI_nop]
   | AR.Drop => mret [wasm.BI_drop]
   | AR.Select => mret [wasm.BI_select]
   | AR.Block arrow _ i =>
-    ft ← compile_arrow_type arrow;
+    ft ← lift_M $ compile_arrow_type arrow;
     i' ← mapM compile_instr i;
     mret [wasm.BI_block ft (mjoin i')]
   | AR.Loop arrow i =>
-    ft ← compile_arrow_type arrow;
+    ft ← lift_M $ compile_arrow_type arrow;
     i' ← mapM compile_instr i;
     mret [wasm.BI_block ft (mjoin i')]
   | AR.ITE arrow _ t e =>
-    ft ← compile_arrow_type arrow;
+    ft ← lift_M $ compile_arrow_type arrow;
     t' ← mapM compile_instr t;
     e' ← mapM compile_instr e;
     mret [wasm.BI_if ft (mjoin t') (mjoin e')]
@@ -404,9 +439,12 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.StructGet idx =>
       (* Save the argument *)
       (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
+      ref_tmp ← fresh_local wasm.T_i32;
       '(fields, off_sz, off_instrs, field_typ) ← get_struct_ctx targs 0 idx;
-      load_instrs ← tagged_load off_instrs field_typ;
-      mret $ wasm.BI_tee_local ref_tmp :: load_instrs
+      load_instrs ← tagged_load off_instrs field_typ ref_tmp;
+      instrs ← mret $ wasm.BI_tee_local ref_tmp :: load_instrs;
+      free_local ref_tmp;;
+      mret instrs
   | AR.StructSet idx => mthrow (err "todo")
   | AR.StructSwap x => mthrow (err "todo msg")
   | AR.VariantMalloc x x0 x1 => mthrow (err "todo msg")
