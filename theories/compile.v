@@ -5,7 +5,6 @@ From RWasm Require Import exn state.
 From Wasm Require datatypes.
 From Wasm Require Import datatypes numerics.
 
-
 (* ExtLib has its own state monad but it doens't play nicely with stdpp *)
 Definition state (S A : Type) : Type := S -> (S * A).
 
@@ -250,6 +249,19 @@ Definition expect_concrete_size (sz: rwasm.Size) : M nat :=
 Definition size_ctx := 
   list wasm.immediate.
 Section compile_instr.
+
+Record TempLocals := {
+  tl_start : nat;
+  tl_next  : nat;
+  tl_types : gmap nat wasm.value_type;
+  tl_free  : gset nat
+}.
+
+Definition new_tl (start : nat) : TempLocals :=
+  {| tl_start := start; tl_next := start; tl_types := ∅; tl_free := ∅ |}.
+Definition InstM := stateT TempLocals M.
+Definition get_st  : InstM TempLocals               := mget.
+Definition put_st  : TempLocals → InstM unit        := mput.
 Definition modify_st (f : TempLocals → TempLocals)  : InstM unit := mmodify f.
 Definition lift_M {A} (m : M A) : InstM A :=
   λ st,
@@ -281,6 +293,7 @@ Definition free_local (i : wasm.immediate) : InstM unit :=
                       tl_next  := tl_next  st;
                       tl_types := tl_types st;
                       tl_free  := tl_free  st ∪ {[ i ]} |}).
+
 
 Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
@@ -469,14 +482,58 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   
 End compile_instr.
 
-Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
+(* TODO: this feels like it should already exist in stdpp *)
+Section monadic_fold.
+  Context {M : Type → Type}.
+  Context `{!MBind M, !MRet M}.
+
+  Fixpoint foldrM {A B} (f : A → B → M B) (init : B) (l : list A) : M B :=
+    match l with
+    | [] => mret init
+    | x :: xs => foldrM f init xs ≫= fun acc => f x acc
+    end.
+
+  Fixpoint foldlM {A B} (f : A → B → M B) (init : B) (l : list A) : M B :=
+    match l with
+    | [] => mret init
+    | x :: xs => f x init ≫= fun acc => foldlM f acc xs
+    end.
+End monadic_fold.
+
+Definition annotate_instr (instr : rwasm.Instruction) : AR.Instruction.
 Admitted.
+
+Definition compile_func (idx : nat) (func : rwasm.Func) : M _ :=
+  match func with
+  | rwasm.Fun exports fun_type sizes instrs =>
+    let sz_locs := [] in (* FIXME: deal with sizes *)
+    let GC_MEM := 0 in
+    let LIN_MEM := 1 in
+    let ann_instrs := map annotate_instr instrs in
+    (* TODO: do exports need to be propogated out? *)
+    let instrs' := mapM (compile_instr sz_locs GC_MEM LIN_MEM) ann_instrs in
+    let init_tl := new_tl 0 in
+    '(st, instrs_ll) ← instrs' init_tl;
+    let locals := map snd (map_to_list (tl_types st)) in
+    let body   := concat instrs_ll in
+    wasm_func ← mret {|
+      wasm.modfunc_type := wasm.Mk_typeidx idx;
+      wasm.modfunc_locals := locals;
+      wasm.modfunc_body := body;
+    |};
+    fun_type' ← compile_fun_type fun_type;
+    mret (wasm_func, fun_type')
+  end.
 
 Fixpoint compile_module (module : rwasm.module) : M wasm.module :=
   let '(funcs, globs, table) := module in
+
+  '(fns, _) ← foldlM (fun func '(acc, idx) => func' ← compile_func idx func; mret (func' :: acc, S idx)) ([], 0) funcs;
+  '(wasm_funcs, wasm_func_types) ← mret $ split fns;
+
   mret {|
-    wasm.mod_types := []; (* TODO *)
-    wasm.mod_funcs := []; (* TODO *)
+    wasm.mod_types := wasm_func_types;
+    wasm.mod_funcs := wasm_funcs;
     wasm.mod_tables := []; (* TODO *)
     wasm.mod_mems := []; (* TODO *)
     wasm.mod_globals := []; (* TODO *)
@@ -486,18 +543,6 @@ Fixpoint compile_module (module : rwasm.module) : M wasm.module :=
     wasm.mod_imports := []; (* TODO *)
     wasm.mod_exports := [] (* TODO *)
   |}
-
-(* TODO: modfunc_type expects a typeidx while rwasm does this inline *)
-with compile_func (func : rwasm.Func) : M wasm.module_func := 
-  match func with 
-  | rwasm.Fun exports fun_type sizes intrs =>
-    mret {|
-      wasm.modfunc_type := compile_fun_type_idx fun_type;
-      wasm.modfunc_locals := []; (* TODO *)
-      wasm.modfunc_body := []; (* TODO *)
-    |}
-  end
-
 with compile_glob (glob : rwasm.Glob) : M wasm.module_glob
 with compile_table (table : rwasm.Table) : M wasm.module_table.
 Admitted.
