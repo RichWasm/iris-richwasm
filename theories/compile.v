@@ -1,5 +1,5 @@
 From Coq Require Import List NArith.BinNat.
-From stdpp Require Import base option strings list pretty gmap gmultiset fin_sets.
+From stdpp Require Import base option strings list pretty gmap gmultiset fin_sets decidable.
 From RWasm Require term annotated_term.
 From RWasm Require Import exn state.
 From Wasm Require datatypes.
@@ -248,52 +248,57 @@ Definition expect_concrete_size (sz: rwasm.Size) : M nat :=
 (* Mapping from size variables to indices of locals of type i32 *)
 Definition size_ctx := 
   list wasm.immediate.
+
+Section TempLocals.
+  Context `{!EqDecision wasm.value_type}.
+  Record TempLocals := {
+    tl_start : nat;
+    tl_next  : nat;
+    tl_types : gmap nat wasm.value_type;
+    tl_free  : gset nat
+  }.
+
+  Definition new_tl (start : nat) : TempLocals :=
+    {| tl_start := start; tl_next := start; tl_types := ∅; tl_free := ∅ |}.
+  Definition InstM := stateT TempLocals M.
+  Definition get_st  : InstM TempLocals               := mget.
+  Definition put_st  : TempLocals → InstM unit        := mput.
+  Definition modify_st (f : TempLocals → TempLocals)  : InstM unit := mmodify f.
+  Definition lift_M {A} (m : M A) : InstM A :=
+    λ st,
+      x ← m;
+      mret (st, x).
+  Definition fresh_local (ty : wasm.value_type) : InstM wasm.immediate :=
+    st ← get_st;
+    let reusable := filter (λ i, tl_types st !! i = Some ty) (elements (tl_free st)) in
+    match reusable with
+    | i :: _ =>
+      let st' :=
+        {| tl_start := tl_start st;
+           tl_next  := tl_next st;
+           tl_types := tl_types st;
+           tl_free  := tl_free st ∖ {[ i ]} |} in
+      put_st st';;
+      mret i
+    | [] =>
+      let i := tl_next st in
+      let st' :=
+        {| tl_start := tl_start st;
+           tl_next  := S i;
+           tl_types := <[ i := ty ]> (tl_types st);
+           tl_free  := tl_free st |} in
+      put_st st';;
+      mret i
+    end.
+  Definition free_local (i : wasm.immediate) : InstM unit :=
+    modify_st (λ st, {| tl_start := tl_start st;
+                        tl_next  := tl_next  st;
+                        tl_types := tl_types st;
+                        tl_free  := tl_free  st ∪ {[ i ]} |}).
+End TempLocals.
+
+
 Section compile_instr.
-
-Record TempLocals := {
-  tl_start : nat;
-  tl_next  : nat;
-  tl_types : gmap nat wasm.value_type;
-  tl_free  : gset nat
-}.
-
-Definition new_tl (start : nat) : TempLocals :=
-  {| tl_start := start; tl_next := start; tl_types := ∅; tl_free := ∅ |}.
-Definition InstM := stateT TempLocals M.
-Definition get_st  : InstM TempLocals               := mget.
-Definition put_st  : TempLocals → InstM unit        := mput.
-Definition modify_st (f : TempLocals → TempLocals)  : InstM unit := mmodify f.
-Definition lift_M {A} (m : M A) : InstM A :=
-  λ st,
-    x ← m;
-    mret (st, x).
-Definition fresh_local (ty : wasm.value_type) : InstM wasm.immediate :=
-  st ← get_st;
-  match elements (tl_free st) with
-  | i :: _ =>
-    let st' :=
-      {| tl_start := tl_start st;
-         tl_next  := tl_next st;
-         tl_types := <[ i := ty ]> (tl_types st);
-         tl_free  := tl_free st ∖ {[ i ]} |} in
-    put_st st';;
-    mret i
-  | [] =>
-    let i := tl_next st in
-    let st' :=
-      {| tl_start := tl_start st;
-         tl_next  := S i;
-         tl_types := <[ i := ty ]> (tl_types st);
-         tl_free  := tl_free st |} in
-    put_st st';;
-    mret i
-  end.
-Definition free_local (i : wasm.immediate) : InstM unit :=
-  modify_st (λ st, {| tl_start := tl_start st;
-                      tl_next  := tl_next  st;
-                      tl_types := tl_types st;
-                      tl_free  := tl_free  st ∪ {[ i ]} |}).
-
 
 Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
