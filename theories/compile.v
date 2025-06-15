@@ -378,6 +378,8 @@ Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
 Variable (GC_MEM: wasm.immediate).
 Variable (LIN_MEM: wasm.immediate).
+Variable (MALLOC_FUNC: wasm.immediate).
+Variable (FREE_FUNC: wasm.immediate).
 
 Definition size_of_wasm_typ_offset (typ : wasm.value_type) : Z :=
   match typ with
@@ -385,6 +387,12 @@ Definition size_of_wasm_typ_offset (typ : wasm.value_type) : Z :=
   | wasm.T_i64 => 64%Z
   | wasm.T_f32 => 32%Z
   | wasm.T_f64 => 64%Z
+  end.
+
+Fixpoint fold_sizes (sizes : list rwasm.Size) : rwasm.Size :=
+  match sizes with
+  | [] => rwasm.SizeConst 0
+  | sz :: rst => rwasm.SizePlus sz (fold_sizes rst)
   end.
 
 (* n.b. this is polymorphic :( *)
@@ -456,8 +464,6 @@ Definition struct_setup_lin_scratch ref_tmp scratch : (list wasm.basic_instructi
   wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
   wasm.BI_tee_local scratch].
 
-Print struct_setup_lin_scratch.
-
 Definition tagged_load (offset_instrs : list wasm.basic_instruction) field_typ (ref_tmp : wasm.immediate) : InstM (list wasm.basic_instruction) :=
   wasm_field_typ ← lift_M (compile_typ field_typ);
   scratch ← fresh_local wasm.T_i32;
@@ -479,7 +485,67 @@ Definition get_struct_ctx (targs : list rwasm.Typ) (targ_idx : nat) (idx : nat) 
 
 Fixpoint compile_instr (instr: AR.Instruction) : InstM (list wasm.basic_instruction) :=
   match instr with
-  | AR.Instr instr' (rwasm.Arrow targs trets) => compile_pre_instr instr' targs trets
+  | AR.Instr instr' (rwasm.Arrow targs trets) =>
+    reduced ← reduce_to_admin instr' targs trets;
+    compile_pre_instr reduced targs trets
+  end
+with reduce_to_admin (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : InstM AR.PreInstruction :=
+  match instr with
+  | AR.Val _
+  | AR.Ne _
+  | AR.Unreachable
+  | AR.Nop
+  | AR.Drop
+  | AR.Select
+  | AR.Block _ _ _
+  | AR.Loop _ _
+  | AR.ITE _ _ _ _
+  | AR.Br _
+  | AR.Br_if _
+  | AR.Br_table _ _
+  | AR.Ret => mret instr
+  | AR.Get_local x x0 => mret instr
+  | AR.Set_local x => mret instr
+  | AR.Tee_local x => mret instr
+  | AR.Get_global x => mret instr
+  | AR.Set_global x => mret instr
+  | AR.CoderefI x => mret instr
+  | AR.Inst x => mret instr
+  | AR.Call_indirect => mret instr
+  | AR.Call x x0 => mret instr
+  | AR.RecFold _
+  | AR.RecUnfold
+  | AR.Group _ _
+  | AR.Ungroup
+  | AR.CapSplit
+  | AR.CapJoin
+  | AR.RefDemote
+  | AR.MemPack _
+  | AR.MemUnpack _ _ _ => mret instr
+  (* | AR.StructMalloc field_szs qual => mret AR.Malloc (fold_sizes field_szs) rwasm.Struct *)
+  | AR.StructMalloc field_szs qual => mthrow "how do get HeapVal?"
+  | AR.StructFree => mret AR.Free
+  | AR.StructGet x => mret instr
+  | AR.StructSet x => mret instr
+  | AR.StructSwap x => mret instr
+  | AR.VariantMalloc x x0 x1 => mret instr
+  | AR.VariantCase x x0 x1 x2 x3 => mret instr
+  | AR.ArrayMalloc x => mret instr
+  | AR.ArrayGet => mret instr
+  | AR.ArraySet => mret instr
+  | AR.ArrayFree => mret AR.Free
+  | AR.ExistPack x x0 x1 => mret instr
+  | AR.ExistUnpack x x0 x1 x2 x3 => mret instr
+  | AR.RefSplit => mret instr
+  | AR.RefJoin => mret instr
+  | AR.Qualify x => mret instr
+
+  | AR.Trap
+  | AR.CallAdm _ _
+  | AR.Label _ _ _ _
+  | AR.Local _ _ _ _ _
+  | AR.Malloc _ _ _
+  | AR.Free => mthrow (err "unexpected admin instr in reduce_to_admin")
   end
 with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : InstM (list wasm.basic_instruction) :=
   match instr with
@@ -526,8 +592,8 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.RefDemote
   | AR.MemPack _ => mret []
   | AR.MemUnpack bt _ body => mthrow (err "todo msg")
-  | AR.StructMalloc x x0 => mthrow (err "todo msg")
-  | AR.StructFree => mthrow (err "todo msg")
+  | AR.StructMalloc _ _
+  | AR.StructFree => mthrow (err "became admin")
   | AR.StructGet idx =>
       (* Save the argument *)
       (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
@@ -539,23 +605,23 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
       mret instrs
   | AR.StructSet idx => mthrow (err "todo")
   | AR.StructSwap x => mthrow (err "todo msg")
-  | AR.VariantMalloc x x0 x1 => mthrow (err "todo msg")
-  | AR.VariantCase x x0 x1 x2 x3 => mthrow (err "todo msg")
-  | AR.ArrayMalloc x => mthrow (err "todo msg")
+  | AR.VariantMalloc _ _ _ => mthrow (err "became admin")
+  | AR.VariantCase x x0 x1 x2 x3 => mthrow (err "todo msg") (* FIXME: is it possible to rewrite in term of AR?*)
   | AR.ArrayGet => mthrow (err "todo msg")
   | AR.ArraySet => mthrow (err "todo msg")
-  | AR.ArrayFree => mthrow (err "todo msg")
+  | AR.ArrayMalloc _
+  | AR.ArrayFree => mthrow (err "became admin")
   | AR.ExistPack x x0 x1 => mthrow (err "todo msg")
   | AR.ExistUnpack x x0 x1 x2 x3 => mthrow (err "todo msg")
   | AR.RefSplit
   | AR.RefJoin
   | AR.Qualify _ => mret []
-  | AR.Trap => mthrow (err "todo msg")
+  | AR.Trap => mret [rwasm.unreachable]
   | AR.CallAdm x x0 => mthrow (err "todo msg")
   | AR.Label x x0 x1 x2 => mthrow (err "todo msg")
   | AR.Local x x0 x1 x2 x3 => mthrow (err "todo msg")
-  | AR.Malloc x x0 x1 => mthrow (err "todo msg")
-  | AR.Free => mthrow (err "todo msg")
+  | AR.Malloc sz hv qual => mret [wasm.BI_call MALLOC_FUNC]
+  | AR.Free => mret [wasm.BI_call FREE_FUNC]
   end.
 (* ... *)
   
@@ -590,7 +656,7 @@ Definition compile_func (idx : nat) (func : rwasm.Func) : M _ :=
     let LIN_MEM := 1 in
     let ann_instrs := map annotate_instr instrs in
     (* TODO: do exports need to be propogated out? *)
-    let instrs' := mapM (compile_instr sz_locs GC_MEM LIN_MEM) ann_instrs in
+    let instrs' := mapM (compile_instr sz_locs GC_MEM LIN_MEM 0 1) ann_instrs in
     let init_tl := new_tl 0 in
     '(st, instrs_ll) ← instrs' init_tl;
     let locals := map snd (map_to_list (tl_types st)) in
