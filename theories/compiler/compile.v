@@ -149,6 +149,34 @@ Fixpoint tagged_load_all (memory : nat) (wasm_typs : list wasm.value_type) (scra
      wasm.BI_binop typ (wasm.Binop_i wasm.BOI_add);
      wasm.BI_set_local scratch] ++ (tagged_load_all memory rst scratch)
   end.
+
+Fixpoint save_field_vals (tys : list wasm.value_type) : InstM (list wasm.immediate * list wasm.basic_instruction) :=
+  match tys with
+  | [] => mret ([], [])
+  | ty :: tys =>
+      '(ls, is) ← save_field_vals tys;
+      l ← fresh_local ty;
+      mret (l :: ls, is ++ [wasm.BI_set_local l])
+  end.
+
+(* NOTE: currently this is using locals to preserve order, if we really wanted to decrease the number of locals need,
+         we can have either load or store go from high to low addresses. *)
+Fixpoint tagged_store_all (mem : nat) rev_tys (scratch : wasm.immediate) : list wasm.basic_instruction :=
+  match rev_tys with
+  | [] => []
+  | (ty, loc) :: rest =>
+      let typ_size := size_of_wasm_typ_offset ty in
+      [ wasm.BI_get_local scratch;
+        wasm.BI_const (compile_num_from_Z wasm.T_i32 typ_size);
+        wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub);
+        wasm.BI_set_local scratch;
+
+        wasm.BI_get_local scratch;
+        wasm.BI_get_local loc;
+        wasm.BI_store mem ty None 0%N 0%N
+      ] ++ tagged_store_all mem rest scratch
+  end.
+
 Definition struct_setup_gc_scratch ref_tmp scratch : (list wasm.basic_instruction) :=
   [wasm.BI_get_local ref_tmp] ++
     unset_gc_bit ++
@@ -168,6 +196,27 @@ Definition tagged_load (offset_instrs : list wasm.basic_instruction) field_typ (
     if_gc_bit_set ref_tmp [wasm.T_i32 (* offset *)] wasm_field_typ
       (struct_setup_gc_scratch ref_tmp scratch ++ tagged_load_all GC_MEM wasm_field_typ scratch)
       (struct_setup_lin_scratch ref_tmp scratch ++ tagged_load_all LIN_MEM wasm_field_typ scratch);
+  free_local scratch;;
+
+  mret instrs.
+
+(* TODO: reverse order? *)
+Definition tagged_store (offset_instrs : list wasm.basic_instruction) field_typ ref_tmp :=
+  wasm_field_typ ← lift_M (compile_typ field_typ);
+  '(locals, save_instrs) ← save_field_vals (rev wasm_field_typ);
+  scratch ← fresh_local wasm.T_i32;
+
+  let store_branch mem :=
+    struct_setup_gc_scratch ref_tmp scratch ++
+    tagged_store_all mem (combine (rev wasm_field_typ) locals) scratch in
+
+  instrs ← mret $ save_instrs ++ offset_instrs ++
+    [wasm.BI_get_local ref_tmp] ++
+    if_gc_bit_set ref_tmp (wasm_field_typ ++ [wasm.T_i32]) wasm_field_typ
+      (store_branch GC_MEM)
+      (store_branch LIN_MEM);
+
+  mapM free_local locals;;
   free_local scratch;;
 
   mret instrs.
@@ -278,7 +327,7 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.Tee_local x => mret [wasm.BI_tee_local x] (* TODO: fix *)
   | AR.Get_global x => mret [wasm.BI_get_global x] (* TODO: fix *)
   | AR.Set_global x => mret [wasm.BI_set_global x] (* TODO: fix *)
-  | AR.CoderefI x => mthrow (err "todo msg")
+  | AR.CoderefI idx => mret [wasm.BI_const (compile_num_from_Z wasm.T_i32 (Z.of_nat idx))]
   | AR.Inst _ => mret []
   | AR.Call_indirect => mthrow (err "todo msg")
   | AR.Call x x0 => mthrow (err "todo msg")
@@ -302,7 +351,15 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
       instrs ← mret $ wasm.BI_tee_local ref_tmp :: load_instrs;
       free_local ref_tmp;;
       mret instrs
-  | AR.StructSet idx => mthrow (err "todo")
+  | AR.StructSet idx =>
+      (* stack: [ptr; t*] -> [ptr]
+         typ:   [ref l (structtype fields); val*] -> [ref l (structtype fields)] *)
+      ref_tmp ← fresh_local wasm.T_i32;
+      '(fields, off_sz, off_instrs, field_typ) ← get_struct_ctx targs 0 idx;
+      store_instrs ← tagged_store off_instrs field_typ ref_tmp;
+      instrs ← mret $ wasm.BI_tee_local ref_tmp :: store_instrs;
+      free_local ref_tmp;;
+      mret instrs
   | AR.StructSwap x => mthrow (err "todo msg")
   | AR.VariantMalloc _ _ _ => mthrow (err "became admin")
   | AR.VariantCase x x0 x1 x2 x3 => mthrow (err "todo msg") (* FIXME: is it possible to rewrite in term of AR?*)
