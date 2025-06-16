@@ -434,7 +434,6 @@ Definition main :=
     i64const 0;
     BI_call 1;
     BI_drop ].
-    (*BI_set_global 0 ].*)
 
 Definition client_module :=
   {| mod_types := [
@@ -708,7 +707,6 @@ Proof.
     iExists _. iFrame.
     iIntros "Hf".
     simpl.
-    rewrite <- (app_nil_r [AI_trap]). rewrite <- (app_nil_l [AI_trap]). rewrite <- app_assoc.
     iApply (wp_wand_ctx _ _ ([] ++ [AI_trap] ++ []) with "[Hf]").
     - by iApply (wp_trap_ctx with "Hf").
     - iIntros (v) "[-> Hf]". simpl.
