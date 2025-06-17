@@ -41,16 +41,16 @@ Inductive Loc :=
 | LocP   : Ptr -> MemConstant -> Loc.
 
 Inductive Qual :=
-| QualVar : var -> Qual
-| QualJoin : list Qual -> Qual
-| QualConst : QualConstant -> Qual.
+| QualVar (δ : var)
+| QualJoin (q__s : list Qual)
+| QualConst (c : QualConstant).
 
 Coercion QualConst : QualConstant >-> Qual.
 
 Inductive Size :=
-| SizeVar : var -> Size
-| SizePlus : Size -> Size -> Size
-| SizeConst : nat -> Size.
+| SizeVar (σ : var)
+| SizePlus (sz1 : Size) (sz2 : Size)
+| SizeConst (c : nat).
 
 (* Numeric Types *)
 
@@ -59,39 +59,39 @@ Inductive IntType := i32 | i64.
 Inductive FloatType := f32 | f64.
 
 Inductive NumType :=
-| Int : Sign -> IntType -> NumType
-| Float : FloatType -> NumType.
+| Int (s : Sign) (i : IntType)
+| Float (f : FloatType).
 
 Inductive KindVar := (* Binding sites for kind variables *)
-| LOC  : Qual -> KindVar
+| LOC (q : Qual)
 | QUAL : list Qual -> list Qual -> KindVar
 | SIZE : list Size -> list Size -> KindVar
-| TYPE : Size -> Qual -> HeapableConstant -> KindVar.
+| TYPE (sz : Size) (q : Qual) (hc : HeapableConstant).
 
 Inductive Typ :=
-| Num      : NumType -> Typ
-| TVar     : var -> Typ
-| Unit     : Typ
-| ProdT    : list Typ -> Typ
-| CoderefT : FunType -> Typ
-| Rec      : Qual -> Typ -> Typ (* binding site *)
-| PtrT     : Loc -> Typ
-| ExLoc    : Qual -> Typ -> Typ (* binding site *)
-| OwnR     : Loc -> Typ
-| CapT     : cap -> Loc -> HeapType -> Typ
-| RefT     : cap -> Loc -> HeapType -> Typ
+| Num (nτ : NumType)
+| TVar (α : var)
+| Unit
+| ProdT (τ__s : list Typ)
+| CoderefT (χ : FunType)
+| Rec (q : Qual) (τ : Typ) (* binding site *)
+| PtrT (ℓ : Loc)
+| ExLoc (q : Qual) (τ : Typ) (* binding site *)
+| OwnR (ℓ : Loc)
+| CapT (cap : cap) (ℓ : Loc) (ψ : HeapType)
+| RefT (cap : cap) (ℓ : Loc) (ψ : HeapType)
 
 with HeapType :=
-| VariantType : list Typ -> HeapType
-| StructType  : list (Typ * Size) -> HeapType
-| ArrayType   : Typ -> HeapType
-| Ex          : Size -> Qual -> Typ -> HeapType (* binding site *)
+| VariantType (τ__s : list Typ)
+| StructType (fields : list (Typ * Size))
+| ArrayType (τ : Typ)
+| Ex (sz : Size) (q : Qual) (τ : Typ) (* binding site *)
 
 with ArrowType :=
-| Arrow : list Typ -> list Typ -> ArrowType
+| Arrow (τ__s1 : list Typ) (τ__s2 : list Typ)
 
 with FunType :=
-| FunT : list KindVar -> ArrowType -> FunType.
+| FunT (κ : list KindVar) (tf : ArrowType).
 
 Definition qual_ctx := list Qual.
 Definition mem_qual (mem: MemConstant) : Qual :=
@@ -129,16 +129,16 @@ Coercion TypI  : Typ >-> Index.
 (** ** Terms *)
 
 Inductive Value :=
-| NumConst  : NumType -> nat -> Value
-| Tt        : Value (* Unit value *)
-| Coderef   : nat(* module index *) -> nat (* table index *) -> list Index -> Value
-| Fold      : Value -> Value
-| Prod      : list Value -> Value
-| Ref       : Loc -> Value
-| PtrV      : Loc -> Value
-| Cap       : Value
-| Own       : Value
-| Mempack   : Loc -> Value -> Value.
+| NumConst (nτ : NumType) (val : nat)
+| Tt (* Unit value *)
+| Coderef (module_index : nat) (table_index : nat) (z__s : list Index)
+| Fold (v : Value)
+| Prod (v__s : list Value)
+| Ref (ℓ : Loc)
+| PtrV (ℓ : Loc)
+| Cap
+| Own
+| Mempack (ℓ : Loc) (v : Value).
 
 Inductive HeapValue :=
 | Variant : nat -> Value -> HeapValue
@@ -176,8 +176,8 @@ Inductive IUnOp :=
 | clz | ctz | popcnt.
 
 Inductive IBinOp :=
-| add | sub | mul | div : Sign -> IBinOp | rem : Sign -> IBinOp
-| and | or | xor | shl | shr : Sign -> IBinOp | rotl | rotr.
+| add | sub | mul | div (s : Sign) | rem (s : Sign)
+| and | or | xor | shl | shr (s : Sign) | rotl | rotr.
 
 Inductive FUnOp :=
 | neg | abs | ceil | floor | trunc | nearest | sqrt.
@@ -189,8 +189,8 @@ Inductive ITestOp := eqz.
 
 Inductive IRelOp :=
 | eq | ne
-| lt : Sign -> IRelOp | gt : Sign -> IRelOp
-| le : Sign -> IRelOp | ge : Sign -> IRelOp.
+| lt (s : Sign) | gt (s : Sign)
+| le (s : Sign) | ge (s : Sign).
 
 Inductive FRelOp :=
 | eqf | nef
@@ -198,25 +198,25 @@ Inductive FRelOp :=
 | lef | gef.
 
 Inductive CvtOp :=
-| Wrap        : IntType -> CvtOp
-| Extend      : IntType -> Sign -> CvtOp
-| Trunc       : FloatType -> Sign -> CvtOp
-| TruncSat    : FloatType -> Sign -> CvtOp
-| Convert     : IntType -> Sign -> CvtOp
-| Demote      : FloatType -> CvtOp
-| Promote     : FloatType -> CvtOp
-| Reinterpret : IntType -> CvtOp.
+| Wrap        (i : IntType)
+| Extend      (i : IntType)   (s : Sign)
+| Trunc       (f : FloatType) (s : Sign)
+| TruncSat    (f : FloatType) (s : Sign)
+| Convert     (i : IntType)   (s : Sign)
+| Demote      (f : FloatType)
+| Promote     (f : FloatType)
+| Reinterpret (i : IntType).
 
 Inductive NumInstr :=
-| Iu   : IntType -> IUnOp -> NumInstr
-| Ib   : IntType -> IBinOp -> NumInstr
-| Fu   : FloatType -> FUnOp -> NumInstr
-| Fb   : FloatType -> FBinOp -> NumInstr
-| It   : IntType -> ITestOp -> NumInstr
-| Ir   : IntType -> IRelOp -> NumInstr
-| Fr   : FloatType -> FRelOp -> NumInstr
-| CvtI : IntType -> CvtOp -> NumInstr
-| CvtF : FloatType -> CvtOp -> NumInstr.
+| Iu   (i : IntType)   (op : IUnOp)
+| Ib   (i : IntType)   (op : IBinOp)
+| Fu   (f : FloatType) (op : FUnOp)
+| Fb   (f : FloatType) (op : FBinOp)
+| It   (i : IntType)   (op : ITestOp)
+| Ir   (i : IntType)   (op : IRelOp)
+| Fr   (f : FloatType) (op : FRelOp)
+| CvtI (i : IntType)   (op : CvtOp)
+| CvtF (f : FloatType) (op : CvtOp).
 
 (* exports *)
 Definition ex := positive.
@@ -225,62 +225,62 @@ Definition im := positive.
 
 Inductive Instruction :=
 (* Values are instructions *)
-| Val : Value -> Instruction
+| Val (v : Value)
 
-| Ne : NumInstr -> Instruction
+| Ne (ni : NumInstr)
 | Unreachable
 | Nop
 | Drop
 | Select
-| Block : ArrowType -> LocalEffect -> list Instruction -> Instruction
-| Loop  : ArrowType -> list Instruction -> Instruction
-| ITE   : ArrowType -> LocalEffect -> list Instruction -> list Instruction -> Instruction
-| Br    : nat -> Instruction
-| Br_if : nat -> Instruction
-| Br_table : list nat -> nat -> Instruction
+| Block (tf : ArrowType) (le : LocalEffect) (e__s : list Instruction)
+| Loop (tf : ArrowType) (e : list Instruction)
+| ITE (tf : ArrowType) (le : LocalEffect) (e__thn : list Instruction) (e__els : list Instruction)
+| Br (i : nat)
+| Br_if (i : nat)
+| Br_table (i__s : list nat) (j : nat)
 | Ret
-| Get_local  : nat -> Qual -> Instruction
-| Set_local  : nat -> Instruction
-| Tee_local  : nat -> Instruction
-| Get_global : nat -> Instruction
-| Set_global : nat -> Instruction
-| CoderefI   : nat -> Instruction
-| Inst       : list Index -> Instruction
+| Get_local (i : nat) (q : Qual)
+| Set_local (i : nat)
+| Tee_local (i : nat)
+| Get_global (i : nat)
+| Set_global (i : nat)
+| CoderefI (i : nat)
+| Inst (z__s : list Index)
 | Call_indirect
-| Call : nat -> list Index -> Instruction
+| Call (i : nat) (z__s : list Index)
 (* Rec *)
-| RecFold : Typ -> Instruction
+| RecFold (τ : Typ)
 | RecUnfold
 (* Seq *)
-| Group : nat -> Qual -> Instruction
-| Ungroup : Instruction
+| Group (i : nat) (q : Qual)
+| Ungroup
 (* Cap Instructions *)
 | CapSplit
 | CapJoin
 | RefDemote
-| MemPack   : Loc -> Instruction (* XXX Loc or not? *)
-| MemUnpack : ArrowType -> LocalEffect -> list Instruction -> Instruction (* binding site *)
+| MemPack (ℓ : Loc) (* XXX Loc or not? *)
+| MemUnpack (tf : ArrowType) (le : LocalEffect) (e__s : list Instruction) (* binding site *)
 (* Struct Instructions *)
-| StructMalloc : list Size -> Qual -> Instruction
+| StructMalloc (sz__s : list Size) (q : Qual)
 | StructFree
-| StructGet : nat -> Instruction
-| StructSet : nat -> Instruction
-| StructSwap : nat -> Instruction
+| StructGet (i : nat)
+| StructSet (i : nat)
+| StructSwap (i : nat)
 (* Variant Instructions *)
-| VariantMalloc : nat -> list Typ -> Qual -> Instruction
-| VariantCase   : Qual -> HeapType -> ArrowType -> LocalEffect -> list (list Instruction) -> Instruction
+| VariantMalloc (i : nat) (τ__s : list Typ) (q : Qual)
+| VariantCase (q : Qual) (ψ : HeapType) (tf : ArrowType) (le : LocalEffect) (e__ss : list (list Instruction))
 (* Array Instructions *)
-| ArrayMalloc : Qual -> Instruction
+| ArrayMalloc (q : Qual)
 | ArrayGet
 | ArraySet
 | ArrayFree
 (* Existsential Instructions *)
-| ExistPack   : Typ -> HeapType -> Qual -> Instruction
-| ExistUnpack : Qual -> HeapType -> ArrowType -> LocalEffect -> list Instruction -> Instruction (* binding site *)
+| ExistPack (τ : Typ) (ψ : HeapType) (q : Qual)
+| ExistUnpack (q : Qual) (ψ : HeapType) (tf : ArrowType) (le : LocalEffect) (e__s : list Instruction)
 (* Ref operations *)
 | RefSplit
 | RefJoin
-| Qualify : Qual -> Instruction
+| Qualify (q : Qual)
 (* Administrative Instructions *)
 | Trap
 | CallAdm :  Closure -> list Index -> Instruction
@@ -299,9 +299,9 @@ with Closure :=
 Coercion Val : Value >-> Instruction.
 
 Inductive Glob :=
-| GlobMut : Typ -> list Instruction -> Glob
-| GlobEx : list ex -> Typ -> list Instruction -> Glob
-| GlobIm : list ex -> Typ -> im -> Glob.
+| GlobMut(τ : Typ) (i__s : list Instruction)
+| GlobEx (ex__s : list ex) (τ : Typ) (i__s : list Instruction)
+| GlobIm (ex__s : list ex) (τ : Typ) (im : im).
 
 Definition module :=
   (list Func *
@@ -333,7 +333,7 @@ Proof.
   intros P H1 H2 H3 H4 H5 H6 H7 H8 H9 H10.
   fix IHv 1. induction v; try (now clear IHv; eauto).
   eapply H5.
-  induction l.
+  induction v__s.
   - now constructor.
   - constructor. eapply IHv. eassumption.
 Qed.
@@ -360,7 +360,7 @@ Proof.
   intros P H1 H2 H3 H4 H5 H6 H7 H8 H9 H10.
   fix IHv 1. induction v; try (now clear IHv; eauto).
   eapply H5.
-  induction l.
+  induction v__s.
   - now constructor.
   - constructor. eapply IHv. eassumption.
 Qed.
@@ -400,9 +400,9 @@ Section TypeInd.
       + apply HVar.
       + apply HUnit.
       + apply HProd.
-        induction l; [constructor|constructor].
+        induction τ__s; [constructor|constructor].
         * apply Typ_ind'.
-        * apply IHl.
+        * apply IHτ__s.
       + apply HCoderef, FunType_ind'.
       + apply HRec, Typ_ind'.
       + apply HPtr.
@@ -415,8 +415,8 @@ Section TypeInd.
       apply HArrow; ((induction l1 + induction l2); constructor;
                      [apply Typ_ind'|apply IHl1+apply IHl2]).
     - destruct h.
-      + apply HVariant. induction l; constructor; [apply Typ_ind'|apply IHl].
-      + apply HStruct. induction l; constructor; [destruct a; apply Typ_ind'|apply IHl].
+      + apply HVariant. induction τ__s; constructor; [apply Typ_ind'|apply IHτ__s].
+      + apply HStruct. induction fields; constructor; [destruct a; apply Typ_ind'|apply IHfields].
       + apply HArray, Typ_ind'.
       + apply HEx, Typ_ind'.
   Defined.
@@ -465,9 +465,9 @@ Section TypeRect.
       + apply HVar.
       + apply HUnit.
       + apply HProd.
-        induction l; [constructor|constructor].
+        induction τ__s; [constructor|constructor].
         * apply Typ_rect'.
-        * apply IHl.
+        * apply IHτ__s.
       + apply HCoderef, FunType_rect'.
       + apply HRec, Typ_rect'.
       + apply HPtr.
@@ -480,8 +480,8 @@ Section TypeRect.
       apply HArrow; ((induction l1 + induction l2); constructor;
                      [apply Typ_rect'|apply IHl1+apply IHl2]).
     - destruct h.
-      + apply HVariant. induction l; constructor; [apply Typ_rect'|apply IHl].
-      + apply HStruct. induction l; constructor; [destruct a; apply Typ_rect'|apply IHl].
+      + apply HVariant. induction τ__s; constructor; [apply Typ_rect'|apply IHτ__s].
+      + apply HStruct. induction fields; constructor; [destruct a; apply Typ_rect'|apply IHfields].
       + apply HArray, Typ_rect'.
       + apply HEx, Typ_rect'.
   Defined.

@@ -22,7 +22,7 @@ Definition to_size (s : Size) (H : size_closed s) : nat.
   induction s.
   - inversion H.
   - inversion H. exact (IHs1 H0 + IHs2 H1).
-  - exact n.
+  - exact c.
 Defined.
 
 
@@ -958,8 +958,8 @@ End QualLt.
     destruct t; cbn; try (split; [reflexivity|intros[]]); try solve [constructor].
     + split; [inversion 1; subst; reflexivity|intros <-; constructor].
     + rewrite RecVarUnderRefTypProd_iff.
-      induction l; [cbn; split; [reflexivity|constructor] |].
-      cbn; rewrite Forall_cons_iff, Bool.andb_true_iff, IHl, RecVarUnderRefTyp_spec.
+      induction τ__s; [cbn; split; [reflexivity|constructor] |].
+      cbn; rewrite Forall_cons_iff, Bool.andb_true_iff, IHτ__s, RecVarUnderRefTyp_spec.
       reflexivity.
     + split; [inversion 1; subst|constructor]; apply RecVarUnderRefTyp_spec; assumption.
     + split; [inversion 1; subst|constructor]; apply RecVarUnderRefTyp_spec; assumption.
