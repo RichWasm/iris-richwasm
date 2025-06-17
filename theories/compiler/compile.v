@@ -1,11 +1,9 @@
 From Coq Require Import List NArith.BinNat.
 From stdpp Require Import base option strings list pretty gmap gmultiset fin_sets decidable.
+From Wasm Require datatypes.
 From RWasm Require term annotated_term.
 From RWasm Require Import exn state.
-From Wasm Require datatypes.
-From Wasm Require Import datatypes numerics .
-From RWasm.compiler Require Import numbers monads.
-
+From RWasm.compiler Require Import numbers layout monads.
 
 Module rwasm := term.
 Module AR := annotated_term.
@@ -53,8 +51,6 @@ with compile_fun_type (typ: rwasm.FunType) : M wasm.function_type :=
  match typ with
  | rwasm.FunT kinds arrow => mthrow (err "todo")
  end. (* What to do about generics? *)
-
-
 
 Definition expect_concrete_size (sz: rwasm.Size) : M nat :=
   match sz with

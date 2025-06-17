@@ -4,6 +4,7 @@ From RWasm Require term annotated_term.
 From Wasm Require datatypes numerics.
 From RWasm.compiler Require Import monads.
 
+(* TODO: this is a pretty bad place to declare this *)
 Module rwasm := term.
 Module AR := annotated_term.
 Module wasm := datatypes.
@@ -28,20 +29,6 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   | rwasm.Int _ rwasm.i64 => compile_num_from_Z wasm.T_i64 (Z.of_nat num)
   | rwasm.Float rwasm.f32 => compile_num_from_Z wasm.T_f32 (Z.of_nat num)
   | rwasm.Float rwasm.f64 => compile_num_from_Z wasm.T_f64 (Z.of_nat num)
-  end.
-
-Fixpoint compile_value (value : rwasm.Value) : M (list wasm.value) :=
-  match value with 
-  | rwasm.NumConst num_type num => mret [(compile_num num_type num)]
-  | rwasm.Tt => mthrow (err "todo")
-  | rwasm.Coderef module_idx table_idx idxs => mthrow (err "todo")
-  | rwasm.Fold val => mthrow (err "todo")
-  | rwasm.Prod vals => mthrow (err "todo")
-  | rwasm.Ref loc => mthrow (err "todo")
-  | rwasm.PtrV loc => mthrow (err "todo")
-  | rwasm.Cap
-  | rwasm.Own => mret []
-  | rwasm.Mempack loc val => mthrow (err "todo")
   end.
 
 Definition compile_int_type (typ : rwasm.IntType) : wasm.value_type :=
