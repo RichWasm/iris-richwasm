@@ -67,7 +67,17 @@ Ltac destruct_length_eqn' :=
       destruct_length_eqn H
   end.
 
-Ltac wp_chomp := take_drop_app_rewrite.
+Ltac wp_chomp n :=
+  match goal with
+  | |- context [ @wp_wasm_ctx _ _ _ _ ?e _ _ _ ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  | |- context [ @wp _ _ _ _ _ _ _ ?e _ ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  | |- context [ @wp_wasm_ctx_frame _ _ _ _ ?e _ _ _ _ _ ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  | |- context [ @wp_wasm_frame _ _ _ _ ?e _ _ _ ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  end.
 
 Ltac fill_imm_pred :=
   match goal with 
