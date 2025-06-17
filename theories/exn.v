@@ -5,12 +5,12 @@ Set Universe Polymorphism.
 Section exceptions.
   Variables (E: Type).
 
-  Inductive exn (A : Type) : Type := 
+  Inductive exn (A : Type) : Type :=
   | Err (e: E)
   | OK (a: A).
   Arguments Err {A} e.
   Arguments OK {A} a.
-  
+
   Definition exn_to_opt {A: Type} (c: exn A) : option A :=
     match c with
     | Err _ => None
