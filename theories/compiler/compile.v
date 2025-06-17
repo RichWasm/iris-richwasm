@@ -62,8 +62,6 @@ Definition expect_concrete_size (sz: rwasm.Size) : M nat :=
 Definition size_ctx :=
   list wasm.immediate.
 
-(* FIXME: *)
-Unset Guard Checking.
 Section compile_instr.
 
 Variable (sz_locs: size_ctx).
@@ -225,69 +223,10 @@ Definition get_struct_ctx (targs : list rwasm.Typ) (targ_idx : nat) (idx : nat) 
 
 
 
-Definition reduce_to_admin (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : InstM AR.PreInstruction :=
-  match instr with
-  | AR.Val _
-  | AR.Ne _
-  | AR.Unreachable
-  | AR.Nop
-  | AR.Drop
-  | AR.Select
-  | AR.Block _ _ _
-  | AR.Loop _ _
-  | AR.ITE _ _ _ _
-  | AR.Br _
-  | AR.Br_if _
-  | AR.Br_table _ _
-  | AR.Ret => mret instr
-  | AR.Get_local x x0 => mret instr
-  | AR.Set_local x => mret instr
-  | AR.Tee_local x => mret instr
-  | AR.Get_global x => mret instr
-  | AR.Set_global x => mret instr
-  | AR.CoderefI x => mret instr
-  | AR.Inst x => mret instr
-  | AR.Call_indirect => mret instr
-  | AR.Call x x0 => mret instr
-  | AR.RecFold _
-  | AR.RecUnfold
-  | AR.Group _ _
-  | AR.Ungroup
-  | AR.CapSplit
-  | AR.CapJoin
-  | AR.RefDemote
-  | AR.MemPack _
-  | AR.MemUnpack _ _ _ => mret instr
-  (* | AR.StructMalloc field_szs qual => mret AR.Malloc (fold_sizes field_szs) rwasm.Struct *)
-  | AR.StructMalloc field_szs qual => mthrow (err "how do get HeapVal?")
-  | AR.StructFree => mret AR.Free
-  | AR.StructGet x => mret instr
-  | AR.StructSet x => mret instr
-  | AR.StructSwap x => mret instr
-  | AR.VariantMalloc x x0 x1 => mret instr
-  | AR.VariantCase x x0 x1 x2 x3 => mret instr
-  | AR.ArrayMalloc x => mret instr
-  | AR.ArrayGet => mret instr
-  | AR.ArraySet => mret instr
-  | AR.ArrayFree => mret AR.Free
-  | AR.ExistPack x x0 x1 => mret instr
-  | AR.ExistUnpack x x0 x1 x2 x3 => mret instr
-  | AR.RefSplit => mret instr
-  | AR.RefJoin => mret instr
-  | AR.Qualify x => mret instr
-
-  | AR.Trap
-  | AR.CallAdm _ _
-  | AR.Label _ _ _ _
-  | AR.Local _ _ _ _ _
-  | AR.Malloc _ _ _
-  | AR.Free => mthrow (err "unexpected admin instr in reduce_to_admin")
-  end.
 Fixpoint compile_instr (instr: AR.Instruction) {struct instr} : InstM (list wasm.basic_instruction) :=
   match instr with
   | AR.Instr instr' (rwasm.Arrow targs trets) =>
-    reduced ← reduce_to_admin instr' targs trets;
-    compile_pre_instr reduced targs trets
+    compile_pre_instr instr' targs trets
   end
 with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) {struct instr} : InstM (list wasm.basic_instruction) :=
   match instr with
@@ -375,7 +314,6 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.Free => mret [wasm.BI_call FREE_FUNC]
   end.
 End compile_instr.
-Set Guard Checking.
 
 Definition annotate_instr (instr : rwasm.Instruction) : AR.Instruction.
 Admitted.
