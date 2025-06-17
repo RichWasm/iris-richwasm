@@ -261,7 +261,7 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
   | AR.Tee_local x => mret [wasm.BI_tee_local x] (* TODO: fix *)
   | AR.Get_global x => mret [wasm.BI_get_global x] (* TODO: fix *)
   | AR.Set_global x => mret [wasm.BI_set_global x] (* TODO: fix *)
-  | AR.CoderefI idx => mret [wasm.BI_const (compile_num_from_Z wasm.T_i32 (Z.of_nat idx))]
+  | AR.CoderefI idx => mret [wasm.BI_const (compile_num_from_Z wasm.T_i32 (Z.of_nat idx))] (* FIXME: this should be a proper code ref, see layout *)
   | AR.Inst _ => mret []
   | AR.Call_indirect => mthrow (err "todo msg")
   | AR.Call x x0 => mthrow (err "todo msg")

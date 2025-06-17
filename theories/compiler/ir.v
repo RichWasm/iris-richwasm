@@ -204,3 +204,51 @@ Module BoxPolymorphicIR.
     | AR.Free => mthrow (err "unexpected admin instr")
     end.
 End BoxPolymorphicIR.
+Module LayoutIR.
+
+  From RWasm.compiler Require Import layout.
+
+  Definition shape := LayoutShape.
+  Definition value := LayoutValue.
+
+  Inductive ArrowShape :=
+  | Arrow (shapes1 : list shape) (shapes2 : list shape).
+
+  Definition LocalEffect := list (nat * shape).
+
+  (* TODO: need to see if this is actually enough to stop worrying about annotated types *)
+  Inductive Instruction :=
+  | Const (v : value)
+  | Ne (ni : rwasm.NumInstr)
+
+  | Unreachable
+  | Nop
+  | Drop
+  | Select
+  | Block (tf : ArrowShape) (le : LocalEffect) (e__s : list Instruction)
+  | Loop (tf : ArrowShape) (e : list Instruction)
+  | ITE (tf : ArrowShape) (le : LocalEffect) (e__thn : list Instruction) (e__els : list Instruction)
+  | Br (i : nat)
+  | Br_if (i : nat)
+  | Br_table (i__s : list nat) (j : nat)
+  | Ret
+
+  | GetLocal (i : nat)
+  | SetLocal (i : nat)
+  | TeeLocal (i : nat)
+  | GetGlobal (i : nat)
+  | SetGlobal (i : nat)
+
+  | CallIndirect (tf : ArrowShape)        (* TODO: is this correct? *)
+  | Call (i : nat)
+
+  | LoadOffset (offset : nat)
+  | StoreOffset (offset : nat) (* takes ptr from tos, then loads shape from below it *)
+  | SwapOffset (offset : nat)
+  | Malloc (shape : shape)
+  | Free
+
+  | VariantCase (q : rwasm.Qual) (ψ : rwasm.HeapType) (tf : ArrowShape) (le : LocalEffect) (e__ss : list (list Instruction)) (* FIXME *)
+  .
+  
+End Layout.

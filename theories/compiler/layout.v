@@ -6,28 +6,44 @@ From RWasm.compiler Require Import numbers monads.
 
 Section Layout.
 
-Inductive LayoutShape :=
-| LS_int32
-| LS_int64
-| LS_float32
-| LS_float64
-| LS_tuple (fields : list LayoutShape).
+  Inductive LayoutShape :=
+  | LS_int32
+  | LS_int64
+  | LS_float32
+  | LS_float64
+  | LS_tuple (fields : list LayoutShape).
 
-Inductive LayoutValue :=
-| LV_int32 (i : nat)
-| LV_int64 (i : nat)
-| LV_float32 (f : nat)
-| LV_float64 (f : nat)
-| LV_tuple (fields : list LayoutValue).
+  Inductive LayoutValue :=
+  | LV_int32 (i : nat)
+  | LV_int64 (i : nat)
+  | LV_float32 (f : nat)
+  | LV_float64 (f : nat)
+  | LV_tuple (fields : list LayoutValue).
 
-Fixpoint layout_value_to_shape (lv : LayoutValue) : LayoutShape :=
-  match lv with
-  | LV_int32 i => LS_int32
-  | LV_int64 i => LS_int64
-  | LV_float32 f => LS_float32
-  | LV_float64 f => LS_float64
-  | LV_tuple fields => LS_tuple (map layout_value_to_shape fields)
-  end.
+  Fixpoint layout_value_to_shape (lv : LayoutValue) : LayoutShape :=
+    match lv with
+    | LV_int32 i => LS_int32
+    | LV_int64 i => LS_int64
+    | LV_float32 f => LS_float32
+    | LV_float64 f => LS_float64
+    | LV_tuple fields => LS_tuple (map layout_value_to_shape fields)
+    end.
+
+  Fixpoint shape_size_words (sh : LayoutShape) : nat :=
+    match sh with
+    | LS_int32 | LS_float32 => 1
+    | LS_int64 | LS_float64 => 2
+    | LS_tuple fields => foldr (fun s n => shape_size_words s + n) 0 fields
+    end.
+
+  Fixpoint shape_to_wasm_types (ls : LayoutShape) : list wasm.value_type :=
+    match ls with
+    | LS_int32 => [wasm.T_i32]
+    | LS_int64 => [wasm.T_i64]
+    | LS_float32 => [wasm.T_f32]
+    | LS_float64 => [wasm.T_f64]
+    | LS_tuple fields => concat (map shape_to_wasm_types fields)
+    end.
 
 End Layout.
 
