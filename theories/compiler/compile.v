@@ -67,7 +67,6 @@ Unset Guard Checking.
 Section compile_instr.
 
 Variable (sz_locs: size_ctx).
-(* i32 local for hanging on to linear references during stores/loads *)
 Variable (GC_MEM: wasm.immediate).
 Variable (LIN_MEM: wasm.immediate).
 Variable (MALLOC_FUNC: wasm.immediate).

@@ -290,10 +290,10 @@ Inductive Instruction :=
 | Free
 
 with Func :=
-| Fun : list ex -> FunType -> list Size -> list Instruction -> Func
+| Fun (ex__s : list ex) (χ : FunType) (sz__s : list Size) (e__s : list Instruction)
 
 with Closure :=
-| Clo : nat -> Func -> Closure.
+| Clo (i : nat) (f : Func).
 
 
 Coercion Val : Value >-> Instruction.
