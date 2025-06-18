@@ -58,7 +58,8 @@ Ltac fill_goal :=
   | |- environments.envs_entails _ ?E =>
       is_evar E;
       curry_hyps;
-      iApply wand_refl
+      try (iApply wand_refl; solve_constraints);
+      instantiate (1:= ⌜True⌝%I); done
   end.
 
 Ltac fill_vals_pred :=
@@ -451,6 +452,77 @@ Proof.
   by rewrite (take_drop n es).
 Qed.
 
+Search Pos.divide.
+Lemma even_iff_land1:
+  forall p: positive,
+    ((2 | p) <-> Pos.land p 1 = 0%N)%positive.
+Proof using.
+  clear H GC_MEM LIN_MEM mems_diff.
+  induction p; (split; [intros Hdiv| intros Hand]).
+  - destruct Hdiv as [p' Hp'].
+    lia.
+  - unfold Pos.land in Hand.
+    lia.
+  - reflexivity.
+  - exists p.
+    lia.
+  - inversion Hdiv.
+    lia.
+  - inversion Hand.
+Qed.
+
+Lemma odd_iff_land1:
+  forall p: positive,
+    (¬(2 | p) <-> Pos.land p 1 = 1%N)%positive.
+Proof using.
+  clear H GC_MEM LIN_MEM mems_diff.
+  induction p; (split; [intros Hdiv| intros Hand]).
+  - reflexivity.
+  - intros [d Hdiv].
+    lia.
+  - exfalso; apply Hdiv.
+    exists p; lia.
+  - inversion Hand.
+  - reflexivity.
+  - intros [d Hdiv].
+    lia.
+Qed.
+
+Lemma gc_ptr_parity ℓ l32:
+  ptr_repr (LocP ℓ GCMem) l32 ->
+  wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) = Wasm_int.int_zero i32m.
+Proof.
+  clear GC_MEM LIN_MEM mems_diff.
+  unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
+  intros [Hrepr Hdiv].
+  cbn.
+  assert (¬ (2 | Wasm_int.Int32.unsigned l32))%Z.
+  {
+    destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    rewrite -(Z2N.id intval); [| lia].
+    rewrite -Hconv.
+    rewrite N2Z.inj_add.
+    cbn.
+    intros [ℓ' Hev].
+    destruct Hdiv; subst ℓ.
+    lia.
+  }
+  destruct (Wasm_int.Int32.unsigned l32) as [|p32|q32] eqn:Hl32.
+  - destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    rewrite Hl32 in Hconv.
+    lia.
+  - replace (Pos.land p32 1) with 1%N; [done |].
+    symmetry.
+    eapply odd_iff_land1.
+    by rewrite Z.divide_Zpos in H0.
+  - destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    rewrite Hl32 in Hconv.
+    lia.
+Qed.
+
 Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch φ ψ f ℓ l32 :
   f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
   ptr_repr (LocP ℓ GCMem) l32 ->
@@ -464,40 +536,59 @@ Proof.
   cbn.
   next_wp.
   {
-    iApply wp_get_local; eauto.
-    iIntros "!>".
+    iApply (wp_wand with "[Hfr]").
+    {
+      iApply (wp_get_local with "[] [$Hfr]"); eauto.
+      fill_imm_pred.
+    }
+    iIntros (v) "(%Hv & Hfr)".
+    iFrame.
     iExists [VAL_int32 l32].
-    iSplit; auto.
-    iSplit; auto.
-    fill_vals_pred' [VAL_int32 l32].
-    instantiate (1:=emp%I).
-    done.
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
   }
   cbn.
-  iDestruct select (_ ∗ emp)%I as "(%Hv & _)".
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
   inversion Hv; clear Hv; subst v.
   next_wp.
   {
-    iApply (wp_binop with "[$Hfr]"); auto.
+    iApply (wp_binop with "[$Hfr]").
+    eauto.
     iIntros "!>".
     iExists _.
-    iSplit; eauto.
-    iSplit; eauto.
-    fill_vals_pred' [VAL_int32 (Wasm_int.int_and Wasm_int.Int32.Tmixin l32 (Wasm_int.Int32.repr 1))].
-    instantiate (1:= emp%I).
-    done.
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
   }
   cbn.
-  iDestruct select (_ ∗ emp)%I as "(%Hv & _)".
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
   inversion Hv; clear Hv; subst v.
   next_wp.
   { 
-    admit.
+    iApply (wp_testop_i32 with "[$Hfr]").
+    eauto.
+    iIntros "!>".
+    iExists _.
+    iSplit; [eauto|].
+    iSplit; [eauto|].
+    fill_vals_pred.
   }
-  cbn.
-  admit.
-  all:admit.
-Admitted.
+  {
+    cbn.
+    iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+    inversion Hv; subst v; clear Hv.
+    apply gc_ptr_parity in Hrepr.
+    rewrite Hrepr.
+    iApply (wp_if_false with "[$Hfr]").
+    auto.
+    iIntros "!> Hfr".
+    iApply ("Hgc" with "[$] [$]").
+  }
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+Qed.
 
 Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
   l = LocP ℓ LinMem ->

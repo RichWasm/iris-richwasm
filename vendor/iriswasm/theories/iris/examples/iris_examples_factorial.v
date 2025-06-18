@@ -908,19 +908,19 @@ Section FactorialHost.
   Ltac type_next_rewrite :=
   match goal with
   | |- context [ be_typing _ ?e _  ] =>
-      rewrite -(list.take_drop (length e - 1) e);simpl take; simpl drop
+      rewrite -(take_drop (length e - 1) e);simpl take; simpl drop
   end.
   Ltac type_next :=
   match goal with
   | |- context [ be_typing _ ?e _  ] =>
-      rewrite -(list.take_drop (length e - 1) e);simpl take; simpl drop;
+      rewrite -(take_drop (length e - 1) e);simpl take; simpl drop;
       eapply bet_composition;[|econstructor;eauto];simpl
   end.
   Ltac weaken :=
   match goal with
   | |- context [ be_typing _ ?e (Tf ?t1 ?t)  ] =>
       try rewrite <- (app_nil_r t1);
-      rewrite -(list.take_drop (length t - 1) t);simpl take; simpl drop;
+      rewrite -(take_drop (length t - 1) t);simpl take; simpl drop;
       eapply bet_weakening;constructor;auto
   end.
   Ltac type_go := repeat (constructor || type_next || weaken || (type_next_rewrite; eapply bet_composition; [constructor|])).
@@ -948,7 +948,7 @@ Section FactorialHost.
         type_next_rewrite.
         eapply bet_composition. instantiate (1:=[T_i32;T_i32]).
         type_go. rewrite <- (app_nil_r [T_i32]).
-        rewrite -(list.take_drop (1) [T_i32;T_i32]);simpl take; simpl drop.
+        rewrite -(take_drop (1) [T_i32;T_i32]);simpl take; simpl drop.
         eapply bet_weakening.
         type_go.
         weaken. }

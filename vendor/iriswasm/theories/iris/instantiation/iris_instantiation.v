@@ -2532,7 +2532,7 @@ Proof.
       simpl in Hupd1.
       inversion Hupd1; subst; clear Hupd1.
       replace (off+1) with (S off); last by lias.
-      rewrite <- list.insert_take_drop.
+      rewrite <- insert_take_drop.
       + rewrite Nat2N.id.
         by rewrite Nat.add_0_r.
       + rewrite -> PeanoNat.Nat.leb_le in Hlen.
@@ -3170,7 +3170,7 @@ Proof.
       inversion Hupd1; subst; clear Hupd1.
       replace (off+1) with (S off); last by lias.
       rewrite Nat2N.id.
-      rewrite <- (list.insert_take_drop (ml_data (mem_data m))) => //.
+      rewrite <- (insert_take_drop (ml_data (mem_data m))) => //.
       move/Nat.leb_le in Hmlen.
       by lias.
     - rewrite Nat2N.id.
@@ -3184,7 +3184,7 @@ Proof.
         by lias.
       }
       do 2 f_equal.
-      rewrite list.insert_take_drop; last by lias.
+      rewrite insert_take_drop; last by lias.
       rewrite firstn_is_take_n.
       rewrite skipn_is_drop_n.
       simpl.
