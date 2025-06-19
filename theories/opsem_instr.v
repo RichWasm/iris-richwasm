@@ -160,7 +160,7 @@ Inductive reduce : obs -> store_record -> frame -> list administrative_instructi
 
   (** calling operations **)
   | r_call :
-      forall Run s f i a,
+      forall s f i a,
         List.nth_error f.(f_inst).(inst_funcs) i = Some a ->
         reduce Run s f [::AI_basic (BI_call i)] Run s f [::AI_invoke a]
   | r_call_indirect_success :
