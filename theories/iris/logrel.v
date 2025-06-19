@@ -1,8 +1,9 @@
 From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term annotated_term subst debruijn num_repr autowp.
+From RWasm Require Import typing term subst debruijn num_repr autowp.
 Module RT := RWasm.term.
-Module R := RWasm.annotated_term.
 Module T := RWasm.typing.
+
+Unset Universe Checking.
 
 From mathcomp Require Import ssreflect ssrbool eqtype seq.
 From iris.program_logic Require Import language.
@@ -303,15 +304,6 @@ Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO w
         ▷ interp_values rs (map fst L) (Stack vs) ∗
         iris_logrel.interp_val WL (immV wvs))%I.
 
-
-Locate "WP".
-
-
-Search wp Proper.
-Check wp_ne.
-Locate "λne".
-Check OfeMor.
-
 Program Definition interp_expr_0 (rs : relations) :
   leibnizO (list RT.Typ) -n>
   leibnizO T.Function_Ctx -n>
@@ -414,15 +406,38 @@ Definition semantic_typing  :
 
 Require Import RWasm.compile.
 
-Check if_gc_bit_set.
-Search BI_if.
+(* TODO *)
+Theorem fundamental_property S C F L e tf L' :
+  HasTypeInstr S C F L e tf L' ->
+  compile_instr [] 0 GC_MEM LIN_MEM e.
+Admitted.
+
+Lemma sniff_tuple Ss S C F L WL vs ves es τs :
+  SplitStoreTypings Ss S ->
+  Forall3 (fun v τ ve => compile_instr [] 0 GC_MEM LIN_MEM (RT.Val (Arrow [] [τ]) v) = Some ve) vs τs ves ->
+  compile_instr [] 0 GC_MEM LIN_MEM (RT.Val (Arrow [] τs) (Prod vs)) = Some es ->
+  ([∗ list] '(ve, τ); Si ∈ zip ves τs; Ss, semantic_typing Si C F L WL (map AI_basic ve) (Arrow [] [τ]) L)%I ⊢
+  semantic_typing S C F L WL (to_e_list es) (Arrow [] τs) L.
+Proof.
+  intros HSs HCv HCvs.
+  iIntros "HSv %inst %lh HI %f %vs0 (Hf & Hvs0 & HIf)".
+  rewrite interp_expr_eq.
+  induction vs.
+  - inversion HCv. subst.
+    cbn.
+    unfold compile_instr in HCvs.
+    unfold compile_value in HCvs.
+    cbn in HCvs. injection HCvs. intros Hes. subst es.
+    cbn. rewrite app_nil_r. Search (of_val _)%I.
+    iDestruct "Hvs0" as "[-> | Hfoo]".
+    + cbn.
+Admitted.
 
 Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
-  (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ WP (es : iris.expr) @ NotStuck ; ⊤ {{ v, Φ v }})%I (at level 50).   
-   
+  (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ WP (es : iris.expr) @ NotStuck ; ⊤ {{ v, Φ v }})%I (at level 50).
+
 Notation "{{{{ P }}}} es @ E {{{{ v , Q }}}}" :=
   (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ (WP (es : iris.expr) @ NotStuck ; E {{ v, Φ v }}))%I (at level 50).
-
 
 Definition if_spec tf e_then e_else k φ ψ f : ⊢
   {{{{ ⌜k ≠ Wasm_int.int_zero i32m⌝ ∗ φ ∗ ↪[frame] f }}}}
@@ -594,7 +609,7 @@ Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
   eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
-  compile_instr [] 0 0 1 (Instr (StructGet 0) eff) = Some es ->
+  compile_instr [] 0 0 1 (RT.StructGet eff 0) = Some es ->
   ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
 Proof.
   intros Hl Hτ Heff.

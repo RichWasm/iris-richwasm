@@ -104,78 +104,69 @@ Module Location (M : Memory).
       | TypI ty => TypI (rename_Typ ty)
       end.
 
-
-    Fixpoint rename_Instruction (i : Instruction) :=
+    Fixpoint rename_Instruction {A : Type} (i : basic_instr A) :=
       match i with
-      | term.Val v => term.Val (rename_Value v)
-      | Ne _
-      | Unreachable
-      | Nop
-      | Drop
-      | Select
-      | Br_if _
-      | Br_table _ _
-      | Ret
-      | Get_local _ _
-      | Set_local _
-      | Tee_local _
-      | Get_global _
-      | Set_global _
-      | CoderefI _
-      | Call_indirect
-      | RecUnfold
-      | Group _ _
-      | Ungroup
-      | CapSplit
-      | CapJoin
-      | RefDemote
-      | StructMalloc _ _
-      | StructFree
-      | StructGet _
-      | StructSet _ 
-      | StructSwap _ 
-      | ArrayMalloc _
-      | ArrayGet
-      | ArraySet
-      | ArrayFree
-      | RefSplit
-      | RefJoin
-      | Qualify _
-      | Trap
-      | Br _ 
-      | Free => i
-      | Block tf tl i => Block (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i)
-      | Loop tf i => Loop (rename_ArrowType tf) (map rename_Instruction i)
-      | ITE tf tl i1 i2 => ITE (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i1) (map rename_Instruction i2)
-      | Inst i => Inst (map rename_Index i)
-      | Call n i => Call n (map rename_Index i)
-      | RecFold ty => RecFold (rename_Typ ty)
-      | MemPack l => MemPack (rename_Loc l) (* XXX not sure *)
-      | MemUnpack tf tl i => MemUnpack (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i)
+      | term.Val ann v => term.Val ann (rename_Value v)
+      | Ne _ _
+      | Unreachable _
+      | Nop _
+      | Drop _
+      | Select _
+      | Br_if _ _
+      | Br_table _ _ _
+      | Ret _
+      | Get_local _ _ _
+      | Set_local _ _
+      | Tee_local _ _
+      | Get_global _ _
+      | Set_global _ _
+      | CoderefI _ _
+      | Call_indirect _
+      | RecUnfold _
+      | Group _ _ _
+      | Ungroup _
+      | CapSplit _
+      | CapJoin _
+      | RefDemote _
+      | StructMalloc _ _ _
+      | StructFree _
+      | StructGet _ _
+      | StructSet _ _
+      | StructSwap _ _
+      | ArrayMalloc _ _
+      | ArrayGet _
+      | ArraySet _
+      | ArrayFree _
+      | RefSplit _
+      | RefJoin _
+      | Qualify _ _
+      | Br _ _ => i
+      | Block ann tf tl i => Block ann (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i)
+      | Loop ann tf i => Loop ann (rename_ArrowType tf) (map rename_Instruction i)
+      | ITE ann tf tl i1 i2 => ITE ann (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i1) (map rename_Instruction i2)
+      | Inst ann i => Inst ann (map rename_Index i)
+      | Call ann n i => Call ann n (map rename_Index i)
+      | RecFold ann ty => RecFold ann (rename_Typ ty)
+      | MemPack ann l => MemPack ann (rename_Loc l) (* XXX not sure *)
+      | MemUnpack ann tf tl i => MemUnpack ann (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i)
+      | VariantMalloc ann n ts q => VariantMalloc ann n (map rename_Typ ts) q
+      | VariantCase ann q tausv tf tl iss => VariantCase ann q (rename_HeapType tausv) (rename_ArrowType tf) (rename_LocalEffect tl)
+                                                         (map (map (rename_Instruction)) iss)
+      | ExistPack ann ty ht a => ExistPack ann (rename_Typ ty) (rename_HeapType ht) a
+      | ExistUnpack ann q ex tf tl i => ExistUnpack ann q (rename_HeapType ex) (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i)
+      end.
 
-      | VariantMalloc n ts q => VariantMalloc n (map rename_Typ ts) q
-      | VariantCase q tausv tf tl iss => VariantCase q (rename_HeapType tausv) (rename_ArrowType tf) (rename_LocalEffect tl)
-                                               (map (map (rename_Instruction)) iss)
-          
-      | ExistPack ty ht a => ExistPack (rename_Typ ty) (rename_HeapType ht) a
-      | ExistUnpack q ex tf tl i => ExistUnpack q (rename_HeapType ex) (rename_ArrowType tf) (rename_LocalEffect tl) (map rename_Instruction i)
-
-      | CallAdm cl i => CallAdm (rename_Closure cl) (map rename_Index i)
-      | Label i tf i1 i2 => Label i (rename_ArrowType tf) (map rename_Instruction i1) (map rename_Instruction i2)
-      | Local n m vs ss i => Local n m (map rename_Value vs) ss (map rename_Instruction i)
-      | Malloc sz hv q => Malloc sz (rename_HeapValue hv) q
-      end
-    with rename_Func (f : Func) :=
+    Definition rename_Func {A : Type} (f : Func A) :=
            match f with
            | Fun exs ft s i => Fun exs (rename_FunType ft) s (map rename_Instruction i)
-           end
-    with rename_Closure (cl : Closure) :=
+           end.
+
+    Definition rename_Closure {A : Type} (cl : Closure A) :=
            match cl with
            | Clo n fn => Clo n (rename_Func fn)
            end.
 
-
-    Definition rename_MInst (i : MInst) :=
+    Definition rename_MInst {A : Type} (i : MInst A) :=
       match i with
       | Build_MInst func glob tab =>
         Build_MInst (map rename_Closure func)
@@ -263,80 +254,74 @@ Module Location (M : Memory).
       | LocI l => locs_Loc l (* because potentially can instantiate a Ref loc. But it's an overapprox *)
       | _ => Empty_set _
       end.
-    
-    Fixpoint locs_Instruction (i : Instruction) : Ensemble Loc :=
+
+    Fixpoint locs_Instruction {A : Type} (i : basic_instr A) : Ensemble Loc :=
       match i with
-      | term.Val v => locs_Value v
-      | Ne _
-      | Unreachable
-      | Nop
-      | Drop
-      | Select
-      | Br_if _
-      | Br_table _ _
-      | Ret
-      | Get_local _ _
-      | Set_local _
-      | Tee_local _
-      | Get_global _
-      | Set_global _
-      | CoderefI _
-      | Call_indirect
-      | RecUnfold
-      | Group _ _
-      | Ungroup
-      | CapSplit
-      | CapJoin
-      | RefDemote
-      | StructMalloc _ _
-      | StructFree
-      | StructGet _
-      | StructSet _ 
-      | StructSwap _ 
-      | ArrayMalloc _
-      | ArrayGet
-      | ArraySet
-      | ArrayFree
-      | RefSplit
-      | RefJoin
-      | Qualify _
-      | Trap
-      | Br _ 
-      | Free => Empty_set _
-      | Block tf tl i => Union_list (map locs_Instruction i)
-      | Loop tf i => Union_list (map locs_Instruction i)
-      | ITE tf tl i1 i2 => (Union_list (map locs_Instruction i1)) :|: (Union_list (map locs_Instruction i2))
-      | Inst i => Union_list (map locs_Index i)
-      | Call n i => Union_list (map locs_Index i)
-      | RecFold pt => Empty_set _
-      | MemPack l => Empty_set _ (* locs_Loc l (* XXX not sure *) *)
-      | MemUnpack tf tl i => Union_list (map locs_Instruction i)
-      | VariantMalloc n ts q => Empty_set _
-      | VariantCase q tausv tf tl iss =>
+      | term.Val _ v => locs_Value v
+      | Ne _ _
+      | Unreachable _
+      | Nop _
+      | Drop _
+      | Select _
+      | Br_if _ _
+      | Br_table _ _ _
+      | Ret _
+      | Get_local _ _ _
+      | Set_local _ _
+      | Tee_local _ _
+      | Get_global _ _
+      | Set_global _ _
+      | CoderefI _ _
+      | Call_indirect _
+      | RecUnfold _
+      | Group _ _ _
+      | Ungroup _
+      | CapSplit _
+      | CapJoin _
+      | RefDemote _
+      | StructMalloc _ _ _
+      | StructFree _
+      | StructGet _ _
+      | StructSet _ _
+      | StructSwap _ _
+      | ArrayMalloc _ _
+      | ArrayGet _
+      | ArraySet _
+      | ArrayFree _
+      | RefSplit _
+      | RefJoin _
+      | Qualify _ _
+      | Br _ _ => Empty_set _
+      | Block _ tf tl i => Union_list (map locs_Instruction i)
+      | Loop _ tf i => Union_list (map locs_Instruction i)
+      | ITE _ tf tl i1 i2 => (Union_list (map locs_Instruction i1)) :|: (Union_list (map locs_Instruction i2))
+      | Inst _ i => Union_list (map locs_Index i)
+      | Call _ n i => Union_list (map locs_Index i)
+      | RecFold _ pt => Empty_set _
+      | MemPack _ l => Empty_set _ (* locs_Loc l (* XXX not sure *) *)
+      | MemUnpack _ tf tl i => Union_list (map locs_Instruction i)
+      | VariantMalloc _ n ts q => Empty_set _
+      | VariantCase _ q tausv tf tl iss =>
         Union_list (map (fun i => Union_list (map locs_Instruction i)) iss)
-      | ExistPack pt ht a => Empty_set _
-      | ExistUnpack q ex tf tl i => Union_list (map locs_Instruction i)
-      | CallAdm cl i => locs_Closure cl :|: Union_list (map locs_Index i)
-      | Label i tf i1 i2 => (Union_list (map locs_Instruction i1)) :|: (Union_list (map locs_Instruction i2))
-      | Local n m vs ss i => (Union_list (map locs_Value vs)) :|: (Union_list (map locs_Instruction i))
-      | Malloc sz hv q => locs_HeapValue hv
-      end
-    with locs_Func (f : Func) :=
+      | ExistPack _ pt ht a => Empty_set _
+      | ExistUnpack _ q ex tf tl i => Union_list (map locs_Instruction i)
+      end.
+
+    Definition locs_Func {A : Type} (f : Func A) :=
            match f with
            | Fun exs ft s i => (Union_list (map locs_Instruction i))
-           end
-    with locs_Closure (cl : Closure) :=
+           end.
+
+    Definition locs_Closure {A : Type} (cl : Closure A) :=
            match cl with
            | Clo n fn => locs_Func fn
            end.
 
-
-    Definition locs_MInst (i : MInst) :=
+    Definition locs_MInst {A : Type} (i : MInst A) :=
       match i with
       | Build_MInst func glob tab =>
         (Union_list (map locs_Closure func)) :|: (Union_list (map (fun '(_, glob) => locs_Value glob) glob)) :|: (Union_list (map locs_Closure tab))
       end.
-        
 
   End Locs.
   

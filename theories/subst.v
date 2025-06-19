@@ -409,103 +409,90 @@ Instance BindExtHeapValue : BindExt Kind HeapValue := ltac:(mkBindExt).
 Definition kindvars_of_funtype (ft : FunType) : list KindVar :=
   let 'FunT kvs _ := ft in kvs.
 
-Fixpoint subst'_instruction (su : Subst' Kind) (i : Instruction) {struct i} : Instruction :=
+Fixpoint subst'_instruction {A : Type} (su : Subst' Kind) (i : basic_instr A) {struct i} : basic_instr A :=
   match i with
-  | Val v => Val (subst'_value su v)
-  | Ne _ => i
-  | Unreachable => i
-  | Nop => i
-  | Drop => i
-  | Select => i
-  | Block arr leffs insns =>
-    Block (subst'_arrowtype su arr)
+  | Val ann v => Val ann (subst'_value su v)
+  | Ne _ _ => i
+  | Unreachable _ => i
+  | Nop _ => i
+  | Drop _ => i
+  | Select _ => i
+  | Block ann arr leffs insns =>
+    Block ann
+          (subst'_arrowtype su arr)
           (subst'_localeffect su leffs)
           (map (subst'_instruction su) insns)
-  | Loop arr insns =>
-    Loop (subst'_arrowtype su arr)
+  | Loop ann arr insns =>
+    Loop ann
+         (subst'_arrowtype su arr)
          (map (subst'_instruction su) insns)
-  | ITE arr leffs insns1 insns2 =>
-    ITE (subst'_arrowtype su arr)
+  | ITE ann arr leffs insns1 insns2 =>
+    ITE ann
+        (subst'_arrowtype su arr)
         (subst'_localeffect su leffs)
         (map (subst'_instruction su) insns1)
         (map (subst'_instruction su) insns2)
-  | Br _ => i
-  | Br_if _ => i
-  | Br_table _ _ => i
-  | Ret => i
-  | Get_local n q => Get_local n (subst'_qual su q)
-  | Set_local _ => i
-  | Tee_local _ => i
-  | Get_global _ => i
-  | Set_global _ => i
-  | CoderefI _ => i
-  | Inst insts => Inst (subst'_indices su insts)
-  | Call_indirect => i
-  | Call n insts => Call n (subst'_indices su insts)
-  | RecFold t => RecFold (subst'_typ su t)
-  | RecUnfold => i
-  | Group n q => Group n (subst'_qual su q)
-  | Ungroup => i
-  | CapSplit => i
-  | CapJoin => i
-  | RefDemote => i
-  | MemPack l => MemPack (subst'_loc su l)
-  | MemUnpack arr leff l_insns =>
+  | Br _ _ => i
+  | Br_if _ _ => i
+  | Br_table _ _ _ => i
+  | Ret _ => i
+  | Get_local ann n q => Get_local ann n (subst'_qual su q)
+  | Set_local _ _ => i
+  | Tee_local _ _ => i
+  | Get_global _ _ => i
+  | Set_global _ _ => i
+  | CoderefI _ _ => i
+  | Inst ann insts => Inst ann (subst'_indices su insts)
+  | Call_indirect _ => i
+  | Call ann n insts => Call ann n (subst'_indices su insts)
+  | RecFold ann t => RecFold ann (subst'_typ su t)
+  | RecUnfold _ => i
+  | Group ann n q => Group ann n (subst'_qual su q)
+  | Ungroup _ => i
+  | CapSplit _ => i
+  | CapJoin _ => i
+  | RefDemote _ => i
+  | MemPack ann l => MemPack ann (subst'_loc su l)
+  | MemUnpack ann arr leff l_insns =>
     (* l_insns binds a new location *)
-    MemUnpack (subst'_arrowtype su arr)
+    MemUnpack ann
+              (subst'_arrowtype su arr)
               (subst'_localeffect su leff)
               (map (subst'_instruction (under' SLoc su)) l_insns)
-  | StructMalloc ss q => StructMalloc (subst'_sizes su ss) (subst'_qual su q)
-  | StructFree => i
-  | StructGet _ => i
-  | StructSet _ => i
-  | StructSwap _ => i
-  | VariantMalloc n ts q =>
-    VariantMalloc n (subst'_typs su ts) (subst'_qual su q)
-  | VariantCase q tausv arr leff insnss =>
-    VariantCase (subst'_qual su q)
+  | StructMalloc ann ss q => StructMalloc ann (subst'_sizes su ss) (subst'_qual su q)
+  | StructFree _ => i
+  | StructGet _ _ => i
+  | StructSet _ _ => i
+  | StructSwap _ _ => i
+  | VariantMalloc ann n ts q =>
+    VariantMalloc ann n (subst'_typs su ts) (subst'_qual su q)
+  | VariantCase ann q tausv arr leff insnss =>
+    VariantCase ann
+                (subst'_qual su q)
                 (subst'_heaptype su tausv)
                 (subst'_arrowtype su arr)
                 (subst'_localeffect su leff)
                 (map (map (subst'_instruction su)) insnss)
-  | ArrayMalloc q => ArrayMalloc (subst'_qual su q)
-  | ArrayGet => i
-  | ArraySet => i
-  | ArrayFree => i
-  | ExistPack t ht q =>
-    ExistPack (subst'_typ su t)
+  | ArrayMalloc ann q => ArrayMalloc ann (subst'_qual su q)
+  | ArrayGet _ => i
+  | ArraySet _ => i
+  | ArrayFree _ => i
+  | ExistPack ann t ht q =>
+    ExistPack ann
+              (subst'_typ su t)
               (subst'_heaptype su ht)
               (subst'_qual su q)
-  | ExistUnpack q ex arr leff α_insns =>
+  | ExistUnpack ann q ex arr leff α_insns =>
     (* α_insns binds a new type variable *)
-    ExistUnpack (subst'_qual su q)
+    ExistUnpack ann
+                (subst'_qual su q)
                 (subst'_heaptype su ex)
                 (subst'_arrowtype su arr)
                 (subst'_localeffect su leff)
                 (map (subst'_instruction (under' STyp su)) α_insns)
-  | RefSplit => i
-  | RefJoin => i
-  | Qualify q => Qualify (subst'_qual su q)
-  | Trap => i
-  (* We don't substitute into clo
-     because HasTypeClosure requires clo to be closed *)
-  | CallAdm clo insts =>
-    CallAdm clo
-            (subst'_indices su insts)
-  | Label n arr insns1 insns2 =>
-    Label n (subst'_arrowtype su arr)
-          (map (subst'_instruction su) insns1)
-          (map (subst'_instruction su) insns2)
-  (* We don't substitute into vs and insns
-     because HasTypeConf requires vs and insns to be closed *)
-  | Local m n vs ss insns =>
-    Local m n vs ss insns
-  (* We don't substitute into Malloc
-     because Malloc is not a surface instruction
-     and MallocTyp requires s, hv, q to be closed *)
-  | Malloc s hv q =>
-    Malloc s hv q
-  | Free => i
+  | RefSplit _ => i
+  | RefJoin _ => i
+  | Qualify ann q => Qualify ann (subst'_qual su q)
   end.
 
 Lemma under_kindvars'_kindvars_of_funtype_subst'_funtype s fty t :
@@ -513,26 +500,6 @@ Lemma under_kindvars'_kindvars_of_funtype_subst'_funtype s fty t :
   = under_kindvars' (kindvars_of_funtype fty) t.
 Proof. destruct fty; unfold kindvars_of_funtype; cbn; now autorewrite with SubstDB. Qed.
 Hint Rewrite under_kindvars'_kindvars_of_funtype_subst'_funtype : SubstDB.
-
-Lemma subst'_insn_mut_ok :
-  subst'_ok subst'_instruction /\
-  (forall f : Func, True) /\
-  (forall c : Closure, True).
-Proof.
-  apply Instruction_Func_Closure_ind;
-  intros; intros_ok_at; elim_ok_at; cbn; simpl_ok; try reflexivity.
-Qed.
-
-Corollary subst'_instruction_ok : subst'_ok subst'_instruction.
-Proof. apply subst'_insn_mut_ok. Qed.
-Global Hint Resolve subst'_instruction_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" :=
-  pose_ok_proofs';
-  pose proof subst'_instruction_ok.
-Ltac pose_ok_proofs ::= pose_ok_proofs'.
-
-#[global]
-Instance BindExtInstruction : BindExt Kind Instruction := ltac:(mkBindExt).
 
 Definition subst_index {A} `{BindExt _ Kind A} (i : Index) : A -> A :=
   match i with

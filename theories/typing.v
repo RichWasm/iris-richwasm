@@ -1822,10 +1822,10 @@ Admitted.
   Definition LocalCtxValid (F : Function_Ctx) (L : Local_Ctx) :=
     Forall (fun '(tau, sz) => TypeValid F tau /\ SizeValid (size F) sz) L.
 
-  Inductive HasTypeInstr :
+  Inductive HasTypeInstr {A} :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> Instruction -> ArrowType -> Local_Ctx -> Prop :=
-  | TStructGet : forall S C F L n taus szs tau l cap,
+    Local_Ctx -> basic_instr A -> ArrowType -> Local_Ctx -> Prop :=
+  | TStructGet : forall S C F L ann n taus szs tau l cap,
       M.is_empty (LinTyp S) = true ->
       let psi := StructType (combine taus szs) in
       length taus = length szs ->
@@ -1835,13 +1835,13 @@ Admitted.
       TypeValid F (RefT cap l psi) ->
       TypeValid F tau ->
       QualValid (qual F) (get_hd (linear F)) ->
-      HasTypeInstr S C F L (StructGet n)
+      HasTypeInstr S C F L (StructGet ann n)
         (Arrow [RefT cap l psi]
            [RefT cap l psi; tau])
         L
-  with HasTypeInstrs :
+  with HasTypeInstrs {A} :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> list Instruction -> ArrowType -> Local_Ctx -> Prop :=
+    Local_Ctx -> list (basic_instr A) -> ArrowType -> Local_Ctx -> Prop :=
   | TSOne: forall S C F L e τ L',
       HasTypeInstr S C F L e τ L' ->
       HasTypeInstrs S C F L [e] τ L'.
@@ -2774,7 +2774,7 @@ Admitted.
   End HasType_Instruction_Closure_Func_Conf_mind'.
 *)
 
-  Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob -> GlobalType -> list ex -> Prop :=
+  Inductive HasTypeGlob {A} (S : StoreTyping) : Module_Ctx -> Glob A -> GlobalType -> list ex -> Prop :=
   | GlobMutTyp :
       forall C pt es,
         HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
@@ -2794,14 +2794,14 @@ Admitted.
          | cons x xs => (x, i) :: aux xs (i + 1)
          end) xs 0.
 
-  Definition glob_typ (g : Glob) :=
+  Definition glob_typ {A} (g : Glob A) :=
     match g with
     | GlobMut pt es => GT true pt
     | GlobEx ex pt es => GT false pt
     | term.GlobIm ex pt im => GT false pt
     end.
 
-  Definition fun_typ (f : Func) : FunType :=
+  Definition fun_typ {A} (f : Func A) : FunType :=
     match f with
     | Fun x_ ft _ _ => ft
     end.
