@@ -100,7 +100,7 @@ Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) 
 Fixpoint compile_size_expr (sz: rwasm.Size) : InstM (list wasm.basic_instruction) :=
   match sz with
   | rwasm.SizeVar σ =>
-      l_idx ← lift_M (guard_opt (err "sz not found in sz_locs") $ sz_locs !! σ);
+      l_idx ← liftM (guard_opt (err "sz not found in sz_locs") $ sz_locs !! σ);
       mret [wasm.BI_get_local l_idx]
   | rwasm.SizePlus sz sz' =>
       e ← compile_size_expr sz;
@@ -182,7 +182,7 @@ Definition struct_setup_lin_scratch ref_tmp scratch : (list wasm.basic_instructi
   wasm.BI_tee_local scratch].
 
 Definition tagged_load (offset_instrs : list wasm.basic_instruction) field_typ (ref_tmp : wasm.immediate) : InstM (list wasm.basic_instruction) :=
-  wasm_field_typ ← lift_M (compile_typ field_typ);
+  wasm_field_typ ← liftM (compile_typ field_typ);
   scratch ← fresh_local wasm.T_i32;
   instrs ← mret $ offset_instrs ++
     [wasm.BI_get_local ref_tmp] ++
@@ -195,7 +195,7 @@ Definition tagged_load (offset_instrs : list wasm.basic_instruction) field_typ (
 
 (* TODO: reverse order? *)
 Definition tagged_store (offset_instrs : list wasm.basic_instruction) field_typ ref_tmp :=
-  wasm_field_typ ← lift_M (compile_typ field_typ);
+  wasm_field_typ ← liftM (compile_typ field_typ);
   '(locals, save_instrs) ← save_field_vals (rev wasm_field_typ);
   scratch ← fresh_local wasm.T_i32;
 
@@ -215,12 +215,11 @@ Definition tagged_store (offset_instrs : list wasm.basic_instruction) field_typ 
   mret instrs.
 
 Definition get_struct_ctx (targs : list rwasm.Typ) (targ_idx : nat) (idx : nat) : InstM _ :=
-  fields ← lift_M $ get_struct_field_types targs targ_idx;
+  fields ← liftM $ get_struct_field_types targs targ_idx;
   off_sz ← struct_field_offset fields idx;
   off_instrs ← compile_size_expr off_sz;
-  '(field_typ, _) ← lift_M $ mlookup_with_msg targ_idx fields "cannot get field type";
+  '(field_typ, _) ← liftM $ mlookup_with_msg targ_idx fields "cannot get field type";
   mret (fields, off_sz, off_instrs, field_typ).
-
 
 
 Fixpoint compile_instr (instr: AR.Instruction) {struct instr} : InstM (list wasm.basic_instruction) :=
@@ -231,23 +230,23 @@ Fixpoint compile_instr (instr: AR.Instruction) {struct instr} : InstM (list wasm
 with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) {struct instr} : InstM (list wasm.basic_instruction) :=
   match instr with
   | AR.Val v =>
-    vals ← lift_M (compile_value v);
+    vals ← liftM (compile_value v);
     mret (map (fun x => wasm.BI_const x) vals)
-  | AR.Ne ni => (fun x => [x]) <$> (lift_M $ compile_num_intr ni)
+  | AR.Ne ni => (fun x => [x]) <$> (liftM $ compile_num_intr ni)
   | AR.Unreachable => mret [wasm.BI_unreachable]
   | AR.Nop => mret [wasm.BI_nop]
   | AR.Drop => mret [wasm.BI_drop]
   | AR.Select => mret [wasm.BI_select]
   | AR.Block arrow _ i =>
-    ft ← lift_M $ compile_arrow_type arrow;
+    ft ← liftM $ compile_arrow_type arrow;
     i' ← mapM compile_instr i;
     mret [wasm.BI_block ft (mjoin i')]
   | AR.Loop arrow i =>
-    ft ← lift_M $ compile_arrow_type arrow;
+    ft ← liftM $ compile_arrow_type arrow;
     i' ← mapM compile_instr i;
     mret [wasm.BI_block ft (mjoin i')]
   | AR.ITE arrow _ t e =>
-    ft ← lift_M $ compile_arrow_type arrow;
+    ft ← liftM $ compile_arrow_type arrow;
     t' ← mapM compile_instr t;
     e' ← mapM compile_instr e;
     mret [wasm.BI_if ft (mjoin t') (mjoin e')]

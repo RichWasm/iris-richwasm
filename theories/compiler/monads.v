@@ -43,13 +43,13 @@ Section TempLocals.
   Definition new_tl (start : nat) : TempLocals :=
     {| tl_start := start; tl_next := start; tl_types := ∅; tl_free := ∅ |}.
   Definition InstM := stateT TempLocals M.
-  Definition get_st  : InstM TempLocals               := mget.
-  Definition put_st  : TempLocals → InstM unit        := mput.
-  Definition modify_st (f : TempLocals → TempLocals)  : InstM unit := mmodify f.
-  Definition lift_M {A} (m : M A) : InstM A :=
+  Definition liftM {A} (m : M A) : InstM A :=
     λ st,
       x ← m;
       mret (st, x).
+  Definition modify_st (f : TempLocals → TempLocals) : InstM unit := mmodify f.
+  Definition get_st : InstM TempLocals               := mget.
+  Definition put_st : TempLocals → InstM unit        := mput.
   Definition fresh_local (ty : wasm.value_type) : InstM wasm.immediate :=
     st ← get_st;
     let reusable := filter (λ i, tl_types st !! i = Some ty) (elements (tl_free st)) in
