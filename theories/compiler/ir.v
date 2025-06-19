@@ -187,104 +187,95 @@ Module AnnotatedToBoxed.
 
   Print AR.PreInstruction.
   Print term.Index.
-  Print concat_map.
 
   Fixpoint compile_instruction (instr : AR.Instruction) : M (list Instruction) :=
+    let compile_le := fun '(n, t) => (n, box_vars t) in
     match instr with
     | AR.Instr pre tf =>
       let tf' := compile_arrow tf in
-      pre' ← compile_pre_instruction pre tf';
-      (* mret $ Instr pre' tf' *)
-      mthrow (err "FIXME: do we really need to be returning list of instrs?")
-    end
-  with compile_pre_instruction (pre : AR.PreInstruction) (arrow : ArrowType) : M (list PreInstruction) :=
-    let compile_le := fun '(n, t) => (n, box_vars t) in
-    match pre with
-    | AR.Val v => mret $ [Val (compile_val v)]
-    | AR.Ne ni => mret $ [Ne ni]
-    | AR.Unreachable => mret $ [Unreachable]
-    | AR.Nop => mret $ [Nop]
-    | AR.Drop => mret $ [Drop]
-    | AR.Select => mret $ [Select]
-    | AR.Block tf le e__s =>
-      e__s' ← flat_mapM compile_instruction e__s;
-      mret $ [Block (compile_arrow tf) (map compile_le le) e__s']
-    | AR.Loop tf e__s =>
-      e__s' ← flat_mapM compile_instruction e__s;
-      mret $ [Loop (compile_arrow tf) e__s']
-    | AR.ITE tf le e__thn e__els =>
-      e__thn' ← flat_mapM compile_instruction e__thn;
-      e__els' ← flat_mapM compile_instruction e__els;
-      mret $ [ITE (compile_arrow tf) (map compile_le le) e__thn' e__els']
-    | AR.Br i => mret $ [Br i]
-    | AR.Br_if i => mret $ [Br_if i]
-    | AR.Br_table i__s j => mret $ [Br_table i__s j]
-    | AR.Ret => mret $ [Ret]
-    | AR.Get_local i q => mret $ [Get_local i q]
-    | AR.Set_local i => mret $ [Set_local i]
-    | AR.Tee_local i => mret $ [Tee_local i]
-    | AR.Get_global i => mret $ [Get_global i]
-    | AR.Set_global i => mret $ [Set_global i]
-    | AR.CoderefI i => mret $ [CoderefI i]
-    | AR.Inst z__s => mret $ [Inst z__s]
-    | AR.Call_indirect => mthrow (err "TODO")
-    | AR.Call i z__s =>
-      match arrow with
-      | Arrow from to =>
-        let types_vals := combine from z__s in
-        (* let box_instrs := concat_map (fun '(t, v) => *)
-        (*   match t with *)
-        (*   | BoxedT t => [Box 0] *)
-        (*   | _ => [] *)
-        (*   end) types_vals in *)
-        (* mret $ [ *)
-        (*   Block ... ...  *)
-        (* ] *)
-        mthrow (err "TODO")
-        end
-    | AR.RecFold τ => mret $ [RecFold $ box_vars τ]
-    | AR.RecUnfold => mret $ [RecUnfold]
-    | AR.Group i q => mret $ [Group i q]
-    | AR.Ungroup => mret $ [Ungroup]
-    | AR.CapSplit => mret $ [CapSplit]
-    | AR.CapJoin => mret $ [CapJoin]
-    | AR.RefDemote => mret $ [RefDemote]
-    | AR.MemPack ℓ => mret $ [MemPack ℓ]
-    | AR.MemUnpack tf le e__s =>
-       e__s' ← flat_mapM compile_instruction e__s;
-       mret $ [MemUnpack (compile_arrow tf) (map compile_le le) e__s']
-    | AR.StructMalloc sz__s q => mret $ [StructMalloc sz__s q]
-    | AR.StructFree => mret $ [StructFree]
-    | AR.StructGet i => mret $ [StructGet i]
-    | AR.StructSet i => mret $ [StructSet i]
-    | AR.StructSwap i => mret $ [StructSwap i]
-    | AR.VariantMalloc i τ__s q => mret $ [VariantMalloc i (map box_vars τ__s) q]
-    | AR.VariantCase q ψ tf le e__ss =>
-      ψ' ← mret $ compile_heap ψ;
-      tf' ← mret $ compile_arrow tf;
-      le' ← mret $ map compile_le le;
-      e__ss' ← flat_mapM (mapM compile_instruction) e__ss;
-      mret $ [VariantCase q ψ' tf' le' e__ss']
-    | AR.ArrayMalloc q => mret $ [ArrayMalloc q]
-    | AR.ArrayGet => mret $ [ArrayGet]
-    | AR.ArraySet => mret $ [ArraySet]
-    | AR.ArrayFree => mret $ [ArrayFree]
-    | AR.ExistPack τ ψ q => mret $ [ExistPack (box_vars τ) (compile_heap ψ) q]
-    | AR.ExistUnpack q ψ tf le e__s =>
-      ψ' ← mret $ compile_heap ψ;
-      tf' ← mret $ compile_arrow tf;
-      le' ← mret $ map compile_le le;
-      e__s' ← flat_mapM compile_instruction e__s;
-      mret $ [ExistUnpack q ψ' tf' le' e__s']
-    | AR.RefSplit => mret $ [RefSplit]
-    | AR.RefJoin => mret $ [RefJoin]
-    | AR.Qualify q => mret $ [Qualify q]
-    | AR.Trap
-    | AR.CallAdm _ _
-    | AR.Label _ _ _ _
-    | AR.Local _ _ _ _ _
-    | AR.Malloc _ _ _
-    | AR.Free => mthrow (err "unexpected admin instr")
+      match pre with
+      | AR.Val v => mret $ [Instr (Val V) tf']
+      | AR.Ne ni => mret $ [Instr (Ne ni) tf']
+      | AR.Unreachable => mret $ [Instr (Unreachable) tf']
+      | AR.Nop => mret $ [Instr (Nop) tf']
+      | AR.Drop => mret $ [Instr (Drop) tf']
+      | AR.Select => mret $ [Instr (Select) tf']
+      | AR.Block tf le e__s => 
+        e__s' ← mapM compile_instruction e__S;
+        mret $ [Instr (Block (box_vars tf) (map compile_le le) e__s') tf']
+      | AR.Loop tf e => Loop (box_vars tf) e
+      | AR.ITE tf le e__thn e__els =>
+        e__thn' ← mapM compile_instruction e__thn;
+        e__els' ← mapM compile_instruction e__els;
+        mret $ [Instr (ITE (box_vars tf) (map compile_le le)) tf']
+      | AR.Br i => mret $ [Instr (Br i) tf']
+      | AR.Br_if i => mret $ [Instr (Br_if i) tf']
+      | AR.Br_table i__s j => mret $ [Instr (Br_table i__s j) tf']
+      | AR.Ret => mret $ [Instr (Ret) tf']
+      | AR.Get_local i q => mret $ [Instr (Get_local i q) tf']
+      | AR.Set_local i => mret $ [Instr (Set_local i) tf']
+      | AR.Tee_local i => mret $ [Instr (Tee_local i) tf']
+      | AR.Get_global i => mret $ [Instr (Get_global i) tf']
+      | AR.Set_global i => mret $ [Instr (Set_global i) tf']
+      | AR.CoderefI i => mret $ [Instr (CoderefI i) tf']
+      | AR.Inst z__s => mret $ [Instr (Inst z__s) tf']
+      | AR.Call_indirect => mthrow (err "TODO")
+      | AR.Call i z__s =>
+        match arrow with
+        | Arrow from to =>
+          let types_vals := combine from z__s in
+          let box_instrs := concat_map (fun '(t, v) => 
+            match t with
+            | BoxedT t => [Box 0]
+            | _ => []
+            end) types_vals in
+          mret $ [
+            Block ... ... 
+          ]
+      | AR.RecFold τ => mret $ [Instr (RecFold τ) tf']
+      | AR.RecUnfold => mret $ [Instr (RecUnfold) tf']
+      | AR.Group i q => mret $ [Instr (Group i q) tf']
+      | AR.Ungroup => mret $ [Instr (Ungroup) tf']
+      | AR.CapSplit => mret $ [Instr (CapSplit) tf']
+      | AR.CapJoin => mret $ [Instr (CapJoin) tf']
+      | AR.RefDemote => mret $ [Instr (RefDemote) tf']
+      | AR.MemPack ℓ => mret $ [Instr (MemPack ℓ) tf']
+      | AR.MemUnpack tf le e__s =>      
+        e__s' ← mapM compile_instruction e__S;
+        mret $ [Instr (MemUnpack (box_vars tf) (map compile_le le) e__s') tf']
+      | AR.StructMalloc sz__s q => mret $ [Instr (StructMalloc sz__s q) tf']
+      | AR.StructFree => mret $ [Instr (StructFree) tf']
+      | AR.StructGet i => mret $ [Instr (StructGet i) tf']
+      | AR.StructSet i => mret $ [Instr (StructSet i) tf']
+      | AR.StructSwap i => mret $ [Instr (StructSwap i) tf']
+      | AR.VariantMalloc i τ__s q => mret $ [Instr (VariantMalloc i (map box_vars τ__s) q) tf']
+      | AR.VariantCase q ψ tf le e__ss =>
+        let ψ' := compile_heap ψ in
+        let tf' := compile_arrow tf in
+        let le' := map compile_le le in
+        let e__ss' := mapM (mapM compile_instruction) e__ss in
+        mret $ [Instr (VariantCase q ψ' tf' le' e__ss') tf']
+      | AR.ArrayMalloc q => mret $ [Instr (ArrayMalloc q) tf']
+      | AR.ArrayGet => mret $ [Instr (ArrayGet) tf']
+      | AR.ArraySet => mret $ [Instr (ArraySet) tf']
+      | AR.ArrayFree => mret $ [Instr (ArrayFree) tf']
+      | AR.ExistPack τ ψ q => mret $ [Instr (ExistPack (box_vars τ) (compile_heap ψ) q) tf']
+      | AR.ExistUnpack q ψ tf le e__s =>
+        let ψ' := compile_heap ψ in
+        let tf'' := compile_arrow tf in
+        let le' := map compile_le le in
+        let e__s' := map compile_instruction e__s in
+        mret $ [Instr (ExistUnpack q ψ' tf'' le' e__s') tf']
+      | AR.RefSplit => mret $ [Instr (RefSplit) tf']
+      | AR.RefJoin => mret $ [Instr (RefJoin) tf']
+      | AR.Qualify q => mret $ [Instr (Qualify q) tf']
+      | AR.Trap
+      | AR.CallAdm _ _
+      | AR.Label _ _ _ _
+      | AR.Local _ _ _ _ _
+      | AR.Malloc _ _ _
+      | AR.Free => mthrow (err "unexpected admin instr")
+      end
     end.
 
   (* TODO: compile module *)
