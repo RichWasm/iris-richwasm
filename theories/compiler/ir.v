@@ -5,7 +5,6 @@ From RWasm Require term annotated_term.
 From RWasm.compiler Require Import numbers monads utils.
 
 Module BoxPolymorphicIR.
-
   Inductive Typ :=
   | Num (nτ : rwasm.NumType)
   | BoxedT (τ : Typ)
@@ -48,10 +47,12 @@ Module BoxPolymorphicIR.
   (* boxed polymorphic value *)
   | Boxed (v : Value).
 
-
   Inductive Instruction :=
   | Instr (pre : PreInstruction) (tf : ArrowType)
   with PreInstruction :=
+  (* IR-specific instructions: box and unbox the i-th value from the top of the stack *)
+  | Box (i : nat)
+  | Unbox (i : nat)
   (* Values are instructions *)
   | Val (v : Value)
   | Ne (ni : rwasm.NumInstr)
@@ -134,19 +135,47 @@ Module BoxPolymorphicIR.
    | rwasm.Mempack ℓ v => Mempack ℓ (compile_val v)
    end.
 
-  Fixpoint compile_arrow (tf : rwasm.ArrowType) : M ArrowType :=
+  Fixpoint box_vars (t : rwasm.Typ) : Typ :=
+    match t with
+    | rwasm.Num nτ => Num nτ
+    | rwasm.TVar α => BoxedT (TVar α)
+    | rwasm.Unit => Unit
+    | rwasm.ProdT τ__s => ProdT (map box_vars τ__s)
+    | rwasm.CoderefT χ => CoderefT (compile_fun χ)
+    | rwasm.Rec q τ => Rec q (box_vars τ)
+    | rwasm.PtrT ℓ => PtrT ℓ
+    | rwasm.ExLoc q τ => ExLoc q (box_vars τ)
+    | rwasm.OwnR ℓ => OwnR ℓ
+    | rwasm.CapT cap ℓ ψ => CapT cap ℓ (compile_heap ψ)
+    | rwasm.RefT cap ℓ ψ => RefT cap ℓ (compile_heap ψ)
+    end
+  with compile_fun (t : rwasm.FunType) : FunType :=
+    match t with
+    | rwasm.FunT vs arrow => FunT vs (compile_arrow arrow)
+    end
+  with compile_heap (t : rwasm.HeapType) : HeapType :=
+    match t with
+    | rwasm.VariantType ts => VariantType (map box_vars ts)
+    | rwasm.StructType ts => StructType (map (fun '(t, s) => (box_vars t, s)) ts)
+    | rwasm.ArrayType t => ArrayType (box_vars t)
+    | rwasm.Ex sz q t => Ex sz q (box_vars t)
+    end
+  with compile_arrow (tf : rwasm.ArrowType) : ArrowType :=
    match tf with
-   | rwasm.Arrow τ__s1 τ__s2 => mthrow (err "TODO")
+   | rwasm.Arrow τ__s1 τ__s2 => Arrow (map box_vars τ__s1) (map box_vars τ__s2)
    end.
+
+  Print AR.PreInstruction.
+  Print term.Index.
 
   Fixpoint compile_instruction (instr : AR.Instruction) : M Instruction :=
     match instr with
     | AR.Instr pre tf =>
-        pre' ← compile_pre_instruction pre;
-        tf' ← compile_arrow tf;
-        mret $ Instr pre' tf'
+      let tf' := compile_arrow tf in
+      pre' ← compile_pre_instruction pre tf';
+      mret $ Instr pre' tf'
     end
-  with compile_pre_instruction (pre : AR.PreInstruction) : M PreInstruction :=
+  with compile_pre_instruction (pre : AR.PreInstruction) (arrow : ArrowType) : M (list PreInstruction) :=
     match pre with
     | AR.Val v => mthrow (err "TODO")
     | AR.Ne ni => mthrow (err "TODO")
