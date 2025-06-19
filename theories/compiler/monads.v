@@ -1,6 +1,6 @@
 From stdpp Require Import base strings gmap gmultiset fin_sets decidable list.
 From Wasm Require datatypes.
-From RWasm Require Import exn state.
+From RWasm Require Import utils.
 From RWasm Require Export exn state.
 
 Module wasm := datatypes.
@@ -149,7 +149,7 @@ Proof.
 Admitted.
 
 (* TODO: this feels like it should already exist in stdpp *)
-Section monadic_fold.
+Section monadic_list_abtractions.
   Context {M : Type → Type}.
   Context `{!MBind M, !MRet M}.
 
@@ -164,11 +164,13 @@ Section monadic_fold.
     | [] => mret init
     | x :: xs => f x init ≫= fun acc => foldlM f acc xs
     end.
-End monadic_fold.
 
-(* built-in has reversed args *)
-Fixpoint foldl' {A B} (f : A -> B -> B) (init : B) (l : list A) : B :=
-  match l with
-  | [] => init
-  | x :: xs => let acc := f x init in foldl' f acc xs
-  end.
+  Fixpoint flat_mapM {A B} (f : A → M (list B)) (l : list A) : M (list B) :=
+      match l with
+      | [] => mret []
+      | x :: xs =>
+          f x ≫= fun bs =>
+          flat_mapM f xs ≫= fun rest =>
+          mret (bs ++ rest)
+      end.
+End monadic_list_abtractions.
