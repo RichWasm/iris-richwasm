@@ -206,6 +206,7 @@ Inductive CvtOp :=
 | Demote      (f : FloatType)
 | Promote     (f : FloatType)
 | Reinterpret (i : IntType).
+(* FIXME: you can reinterpret floats too *)
 
 Inductive NumInstr :=
 | Iu   (i : IntType)   (op : IUnOp)

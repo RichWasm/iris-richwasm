@@ -1,7 +1,23 @@
-From stdpp Require Import base strings gmap gmultiset fin_sets decidable.
+From stdpp Require Import base strings gmap gmultiset fin_sets decidable list.
 From Wasm Require datatypes.
 From RWasm Require Import exn state.
 From RWasm Require Export exn state.
+
+Module wasm := datatypes.
+
+(* TODO: these need a better home. *)
+Global Instance wasm_value_type_eq_dec : EqDecision wasm.value_type.
+Proof. solve_decision. Defined.
+
+Global Instance wasm_result_type_eq_dec : EqDecision wasm.result_type.
+Proof. solve_decision. Defined.
+
+Global Instance wasm_function_type_eq_dec : EqDecision wasm.function_type.
+Proof. solve_decision. Defined.
+
+Global Instance option_wasm_value_type_eq_dec : EqDecision (option wasm.value_type).
+Proof. solve_decision. Defined.
+
 (* ExtLib has its own state monad but it doens't play nicely with stdpp *)
 Definition state (S A : Type) : Type := S -> (S * A).
 
@@ -19,24 +35,18 @@ Definition mlookup_with_msg {A} (idx: nat) (lst: list A) (msg: string) : M A :=
   | None => mthrow (err msg)
   end.
 
-Module wasm := datatypes.
+Definition lift_optionM `{!MRet M, !MRet M} {A} (oa : option A) (error : string) : M A :=
+  match oa with
+  | Some x => mret x
+  | None => mthrow (err error)
+  end.
+
 Section TempLocals.
-
-  Context `{!EqDecision wasm.value_type}.
-
-  #[global]
-  Instance wasm_value_type_eq_dec : EqDecision wasm.value_type.
-  Proof.
-    unfold EqDecision.
-    intros x y.
-    destruct x; destruct y;
-      (left; reflexivity) || (right; discriminate).
-  Defined.
 
   Record TempLocals := {
     tl_start : nat;
     tl_next  : nat;
-    tl_types : gmap nat datatypes.value_type;
+    tl_types : gmap nat wasm.value_type;
     tl_free  : gset nat
   }.
 
@@ -80,36 +90,31 @@ Section TempLocals.
 End TempLocals.
 
 Section Example.
-  Context `{!EqDecision wasm.value_type}.
 
-  Let st0 : TempLocals :=
-    {| tl_start := 5;
-       tl_next := 5;
-       tl_types := ∅;
-       tl_free := ∅ |}.
+  Definition example_computation : InstM (nat * nat * nat) :=
+    i1 ← fresh_local wasm.T_i32;
+    i2 ← fresh_local wasm.T_f64;
+    free_local i1;;
+    i3 ← fresh_local wasm.T_i32;
+    mret (i1, i2, i3).
 
-  Let tmp1 := match fresh_local wasm.T_i32 st0 with | OK (st1, i1) => (st1, i1) | _ => (st0, 0) end.
-  Let st1 := fst tmp1.
-  Let i1 := snd tmp1.
+  Definition run_example :=
+    match example_computation (new_tl 5) with
+    | OK (st, (i1, i2, i3)) => Some (st, i1, i2, i3)
+    | _ => None
+    end.
 
-  Let tmp2 := match fresh_local wasm.T_f64 st1 with | OK (st2, i2) => (st2, i2) | _ => (st1, 0) end.
-  Let st2 := fst tmp2.
-  Let i2 := snd tmp2.
-
-  Let tmp3 := match free_local i1 st2 with | OK (s,_) => s | _ => st2 end.
-  Let st3 := tmp3.
-
-  Let tmp4 := match fresh_local wasm.T_i32 st3 with | OK (st4, i3) => (st4, i3) | _ => (st3, 0) end.
-  Let st4 := fst tmp4.
-  Let i3 := snd tmp4.
-
-  Goal True.
-    assert (tl_types st4 !! i1 = Some wasm.T_i32) by (cbn; reflexivity).
-    assert (tl_types st4 !! i2 = Some wasm.T_f64) by (cbn; reflexivity).
-    assert (tl_types st4 !! i3 = Some wasm.T_i32)by (cbn; reflexivity).
-    assert (i3 = i1) by reflexivity.
-
-    exact I.
+  Lemma example_properties :
+    match run_example with
+    | Some (st, i1, i2, i3) =>
+        tl_types st !! i1 = Some wasm.T_i32 /\
+        tl_types st !! i2 = Some wasm.T_f64 /\
+        i3 = i1
+    | None => False
+    end.
+  Proof.
+    unfold run_example, example_computation.
+    repeat split.
   Qed.
 
 End Example.
@@ -161,3 +166,9 @@ Section monadic_fold.
     end.
 End monadic_fold.
 
+(* built-in has reversed args *)
+Fixpoint foldl' {A B} (f : A -> B -> B) (init : B) (l : list A) : B :=
+  match l with
+  | [] => init
+  | x :: xs => let acc := f x init in foldl' f acc xs
+  end.
