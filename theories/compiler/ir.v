@@ -2,7 +2,7 @@ From Coq Require Import List NArith.BinNat Lists.List.
 From stdpp Require Import base option strings list pretty decidable gmap.
 From Wasm Require datatypes.
 From RWasm Require term annotated_term.
-From RWasm.compiler Require Import numbers monads.
+From RWasm.compiler Require Import numbers monads utils.
 
 Module BoxPolymorphicIR.
 
@@ -217,7 +217,7 @@ Module LayoutIR.
 
   (* TODO: need to see if this is actually enough to stop worrying about annotated types *)
   Inductive Instruction :=
-  | Const (v : value)
+  | Val (v : value)
   | Ne (ni : rwasm.NumInstr)
 
   | Unreachable
@@ -262,9 +262,20 @@ Module LayoutIR.
     table : rwasm.Table
   }.
 
+  Inductive LocalShape :=
+  | LS_orig (shape : shape)
+  | LS_updated (orignal_shape : shape) (expected_shape : shape).
+
+  Definition effective_current_local_shape (local_shape : LocalShape) :=
+    match local_shape with
+    | LS_orig shape => shape
+    | LS_updated orignal_shape expected_shape => expected_shape
+    end.
+
+
   Record TypeEnv := {
-    te_locals  : gmap nat shape;
-    te_globals : gmap nat (bool * shape);
+    te_locals  : gmap nat LocalShape;
+    te_globals : gmap nat (shape * bool); (* TODO: this assumes that globals can't get strong updates, is this correct? *)
     (* TODO: this might need to keep track of tables too *)
     te_stack   : list shape
   }.
@@ -274,7 +285,7 @@ Module LayoutIR.
        te_globals := Γ.(te_globals);
        te_stack := s :: Γ.(te_stack) |}.
 
-  Definition te_pop (Γ : TypeEnv) : option (LayoutShape * TypeEnv) :=
+   Definition te_pop (Γ : TypeEnv) : option (LayoutShape * TypeEnv) :=
     match Γ.(te_stack) with
     | [] => None
     | s :: stk' =>
@@ -283,6 +294,25 @@ Module LayoutIR.
                   te_stack := stk' |})
     end.
 
+   Definition te_peek (Γ : TypeEnv) : option LayoutShape :=
+    match Γ.(te_stack) with
+    | [] => None
+    | s :: stk' => Some s
+    end.
+
+  Definition te_set_local (idx : nat) (shape : shape) (Γ : TypeEnv) : M TypeEnv :=
+    local ← lift_optionM (Γ.(te_locals) !! idx) ("ICE: cannot find local with index " ++ (pretty idx));
+    let '(needs_update, orig) := match local with
+    | LS_orig orig_shape => ((compatible_shapes shape orig_shape), orig_shape)
+    | LS_updated orig_shape _ => (true, orig_shape)
+    end in
+    let new_local := if needs_update then
+       LS_updated orig shape
+    else
+       LS_orig orig in
+    mret {| te_locals := <[idx := new_local]> Γ.(te_locals);
+            te_globals := Γ.(te_globals);
+            te_stack := Γ.(te_stack) |}.
 
   Definition either_layout_num (sz : LayoutPrimSize) (lt : LayoutPrimType) :=
     match lt with
@@ -320,9 +350,13 @@ Module LayoutIR.
     Γ2 ← mret $ foldl' te_push Γ1 shapes__out;
     mret Γ2.
 
+  Definition apply_le (le : LocalEffect) (Γ : TypeEnv) : M TypeEnv :=
+    Γ' ← foldlM (fun '(idx, shape) (acc : TypeEnv) => te_set_local idx shape acc) Γ le;
+    mret Γ'.
+
   Fixpoint type_instr (instr : Instruction) (Γ : TypeEnv) : M TypeEnv :=
     match instr with
-    | Const v => mret $ te_push (layout_value_to_shape v) Γ
+    | Val v => mret $ te_push (layout_value_to_shape v) Γ
     | Ne ni =>
       let szi := layout_size_of_int in
       let szf := layout_size_of_float in
@@ -401,14 +435,27 @@ Module LayoutIR.
       Γ__arrow ← apply_tf tf Γ;
       Γ__locals ← apply_le le Γ__arrow;
       mret Γ__locals
-    | Br i
-    | Br_if i
+    | Br i=> mthrow (err "TODO: deal with labels")
+    | Br_if i=> mthrow (err "TODO: deal with labels")
     | Br_table i__s j => mthrow (err "TODO: deal with labels")
     | Ret => mthrow (err "TODO:")
-    (* | GetLocal i => _ *)
-    (* | SetLocal i => _ *)
-    (* | TeeLocal i => _ *)
-    (* | GetGlobal i => _ *)
+    | GetLocal i =>
+      local ← lift_optionM (Γ.(te_locals) !! i) ("expected rwasn local at index " ++ (pretty i));
+      shape ← mret $ effective_current_local_shape local;
+      Γ' ← mret $ te_push shape Γ;
+      mret Γ'
+    | SetLocal i =>
+      '(shape, Γ1) ← lift_optionM (te_pop Γ) ("cannot set local with nothing on TOS");
+      Γ2 ← te_set_local i shape Γ1;
+      mret Γ2
+    | TeeLocal i =>
+      shape ← lift_optionM (te_peek Γ) "cannot tee local with nothing on TOS";
+      Γ' ← te_set_local i shape Γ;
+      mret Γ'
+    | GetGlobal i =>
+      '(shape, mut) ← lift_optionM (Γ.(te_globals) !! i) ("expected global at index " ++ (pretty i));
+      Γ' ← mret $ te_push shape Γ;
+      mret Γ'
     (* | SetGlobal i => _ *)
     (* | CallIndirect tf => _ *)
     (* | Call i => _ *)
@@ -421,15 +468,106 @@ Module LayoutIR.
     | _ => mthrow (err "TODO")   (*  *)
    end.
 
-
 End LayoutIR.
 
-Section AddIfNotIn.
-  Context `{EqDecision A}.
+Module BoxPolymorphicToLayout.
+  From RWasm.compiler Require Import layout.
+  Module boxed := BoxPolymorphicIR.
+  Module layout := LayoutIR.
 
-  Fixpoint add_if_not_in (x : A) (l : list A) : list A :=
-    if bool_decide (x ∈ l) then l else x :: l.
-End AddIfNotIn.
+
+  Fixpoint compile_tf (tf : boxed.ArrowType) : layout.ArrowShape.
+  Admitted.
+  Fixpoint compile_le (le : boxed.LocalEffect) : layout.LocalEffect.
+  Admitted.
+
+  (* FIXME: this is duplicated from layout.v *)
+  Fixpoint boxed_value_to_layout (value : boxed.Value) : option LayoutValue :=
+    match value with
+    | boxed.NumConst (rwasm.Int _ rwasm.i32) num => mret $ LV_int32 num
+    | boxed.NumConst (rwasm.Int _ rwasm.i64) num => mret $ LV_int64 num
+    | boxed.NumConst (rwasm.Float rwasm.f32) num => mret $ LV_float32 num
+    | boxed.NumConst (rwasm.Float rwasm.f64) num => mret $ LV_float64 num
+    | boxed.Tt => None
+    | boxed.Coderef module_idx table_idx concrete =>
+        mret $ LV_tuple [LV_int32 module_idx; LV_int32 table_idx] (* TODO: confirm this is ok *)
+    | boxed.Fold v => boxed_value_to_layout v
+    | boxed.Prod v__s => mret $ LV_tuple (omap boxed_value_to_layout v__s)
+    | boxed.Ref ℓ => mret $ loc_to_layout ℓ
+    | boxed.PtrV ℓ => mret $ loc_to_layout ℓ
+    | boxed.Cap
+    | boxed.Own => None
+    | boxed.Mempack ℓ v => boxed_value_to_layout v
+    | boxed.Boxed v => None      (* FIXME: this is wrong, but need to finalize IR first *)
+    end.
+
+  Fixpoint compile_instr (instr : boxed.Instruction) : M (list layout.Instruction) :=
+    match instr with
+    | boxed.Instr pre tf => compile_pre_instr pre tf
+    end
+  with compile_pre_instr (pre : boxed.PreInstruction) tf : M (list layout.Instruction) :=
+    let '(boxed.Arrow tf__from tf__to) := tf in
+    match pre with
+    | boxed.Val v =>
+      mret $ match boxed_value_to_layout v with
+      | Some v' => [layout.Val v']
+      | None => []
+      end
+    | boxed.Ne ni => mret [layout.Ne ni]
+    | boxed.Unreachable => mret [layout.Unreachable]
+    | boxed.Nop => mret [layout.Nop]
+    | boxed.Drop => mret [layout.Drop]
+    | boxed.Select => mret [layout.Select]
+    | boxed.Block tf le e__s =>
+      e__s' ← flat_mapM compile_instr e__s;
+      mret [layout.Block (compile_tf tf) (compile_le le) e__s']
+    | boxed.Loop tf e__s => mthrow (err "TODO:")
+    | boxed.ITE tf le e__thn e__els => mthrow (err "TODO:")
+    | boxed.Br i => mret [layout.Br i]
+    | boxed.Br_if i => mret [layout.Br_if i]
+    | boxed.Br_table i__s j => mret [layout.Br_table i__s j]
+    | boxed.Ret => mret [layout.Ret]
+    | boxed.Get_local i _ => mret [layout.GetLocal i]
+    | boxed.Set_local i => mret [layout.SetLocal i]
+    | boxed.Tee_local i => mret [layout.TeeLocal i]
+    | boxed.Get_global i => mret [layout.GetGlobal i]
+    | boxed.Set_global i => mret [layout.SetGlobal i]
+    | boxed.CoderefI i => mthrow (err "TODO: keep track of module idx")
+    | boxed.Inst z__s => mthrow (err "TODO:")
+    | boxed.Call_indirect => mthrow (err "TODO:")
+    | boxed.Call i z__s => mthrow (err "TODO:")
+
+    | boxed.RecFold _
+    | boxed.RecUnfold
+    | boxed.Group _ _
+    | boxed.Ungroup
+    | boxed.CapSplit
+    | boxed.CapJoin
+    | boxed.RefDemote
+    | boxed.MemPack _ => mret []
+
+    | boxed.MemUnpack tf le e__s =>
+      e__s' ← flat_mapM compile_instr e__s;
+      mret [layout.Block (compile_tf tf) (compile_le le) e__s']
+    | boxed.StructMalloc sz__s q => mthrow (err "TODO:")
+    | boxed.StructFree => mret [layout.Free]
+    | boxed.StructGet i => mthrow (err "TODO:")
+    | boxed.StructSet i => mthrow (err "TODO:")
+    | boxed.StructSwap i => mthrow (err "TODO:")
+    | boxed.VariantMalloc i τ__s q => mthrow (err "TODO:")
+    | boxed.VariantCase q ψ tf le e__ss => mthrow (err "TODO:")
+    | boxed.ArrayMalloc q => mthrow (err "TODO:")
+    | boxed.ArrayGet => mthrow (err "TODO:")
+    | boxed.ArraySet => mthrow (err "TODO:")
+    | boxed.ArrayFree => mret [layout.Free]
+    | boxed.ExistPack τ ψ q => mthrow (err "TODO:")
+    | boxed.ExistUnpack q ψ tf le e__s => mthrow (err "TODO:")
+    | boxed.RefSplit => mthrow (err "TODO:")
+    | boxed.RefJoin => mthrow (err "TODO:")
+    | boxed.Qualify q => mthrow (err "TODO:")
+   end.
+
+End BoxPolymorphicToLayout.
 
 Module LayoutToWasm.
   Import LayoutIR.
@@ -456,18 +594,26 @@ Module LayoutToWasm.
       | LV_tuple fields => flat_map compile_val fields
       end.
 
+    Definition lift_peek (Γ : TypeEnv) (msg : string) : InstM shape :=
+      liftM $ lift_optionM (te_peek Γ) msg.
+
     Definition compile_instr (instr : Instruction) (Γ : TypeEnv) : InstM (list wasm.basic_instruction) :=
       match instr with
-      | Const v =>
-          let wasm_vals := compile_val v in
-          mret $ map wasm.BI_const wasm_vals
+      | Val v =>
+        let wasm_vals := compile_val v in
+        mret $ map wasm.BI_const wasm_vals
       | Ne ni =>
-          instr ← liftM (compile_num_intr ni);
-          mret [instr]
+        instr ← liftM (compile_num_intr ni);
+        mret [instr]
       | Unreachable => mret [wasm.BI_unreachable]
       | Nop => mret [wasm.BI_nop]
-      (* | Drop => _ *)
-      (* | Select => _ *)
+      | Drop =>
+        shape ← lift_peek Γ "expected element to drop";
+        wasm_stack ← mret $ shape_to_wasm_stack shape;
+        mret $ map (fun _ => wasm.BI_drop) wasm_stack
+      | Select =>
+        shape ← lift_peek Γ "expected element to drop";
+        mthrow (err "TODO")
       (* | Block tf le e__s => _ *)
       (* | Loop tf e => _ *)
       (* | ITE tf le e__thn e__els => _ *)
@@ -491,10 +637,6 @@ Module LayoutToWasm.
       | _ => mthrow (err "TODO")
       end.
 
-
-
-
-
   End Instrs.
 
 
@@ -511,7 +653,8 @@ Module LayoutToWasm.
 
   Definition layout_compile_module (module : module) : M wasm.module :=
     let 'Build_module functions globals table := module in
-    '(functions, function_types) ← foldlM ;
+    (* res ← foldlM compile_function [] functions; *)
+    (* '(functions, function_types) ← split res; *)
 
     mret {|
         wasm.mod_types := [];

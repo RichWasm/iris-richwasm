@@ -2,7 +2,7 @@ From Coq Require Import List NArith.BinNat Lists.List.
 From stdpp Require Import base option strings list pretty decidable.
 From Wasm Require datatypes.
 From RWasm Require term annotated_term.
-From RWasm.compiler Require Import numbers monads.
+From RWasm.compiler Require Import numbers monads utils.
 
 Section Layout.
   Inductive LayoutPrimType :=
@@ -100,6 +100,7 @@ Section Layout.
     | LS_tuple fields => foldr (fun s n => shape_size_words s + n) 0 fields
     end.
 
+  (* bottom to top *)
   Fixpoint shape_to_wasm_types (ls : LayoutShape) : list wasm.value_type :=
     match ls with
     | LS_int32 => [wasm.T_i32]
@@ -107,6 +108,21 @@ Section Layout.
     | LS_float32 => [wasm.T_f32]
     | LS_float64 => [wasm.T_f64]
     | LS_tuple fields => concat (map shape_to_wasm_types fields)
+    end.
+
+  (* top to bottom *)
+  Definition shape_to_wasm_stack (ls : LayoutShape) : list wasm.value_type :=
+    reverse (shape_to_wasm_types ls).
+
+  (* ls1 can fit into ls2 without any additional caluclations, ls2 can be larger than ls1 *)
+  Fixpoint compatible_shapes (ls1 : LayoutShape) (ls2 : LayoutShape) : bool :=
+    match (ls1, ls2) with
+    | (LS_int32, LS_int32) => true
+    | (LS_int64, LS_int64) => true
+    | (LS_float32, LS_float32) => true
+    | (LS_float64, LS_float64) => true
+    | (LS_tuple fields1, LS_tuple fields2) => list_prefix compatible_shapes fields1 fields2
+    | _ => false
     end.
 
 End Layout.
@@ -134,6 +150,7 @@ Fixpoint value_to_layout (value : rwasm.Value) : option LayoutValue :=
   end.
 
 
+(* TODO: remove *)
 Fixpoint compile_value (value : rwasm.Value) : M (list wasm.value) :=
   match value with
   | rwasm.NumConst num_type num => mret [(compile_num num_type num)]
