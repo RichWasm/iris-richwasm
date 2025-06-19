@@ -18,6 +18,25 @@ Proof. solve_decision. Defined.
 Global Instance option_wasm_value_type_eq_dec : EqDecision (option wasm.value_type).
 Proof. solve_decision. Defined.
 
+Global Instance wasm_value_type_countable : Countable wasm.value_type.
+Proof.
+  refine
+    (inj_countable'
+       (λ vt, match vt with | wasm.T_i32 => 0 | wasm.T_i64 => 1 | wasm.T_f32 => 2 | wasm.T_f64 => 3 end)
+       (λ n, match n with | 0 => wasm.T_i32 | 1 => wasm.T_i64 | 2 => wasm.T_f32 | _ => wasm.T_f64 (* keeps surjective *) end)
+       _).
+  by intros []; simpl.
+Qed.
+Global Instance wasm_function_type_countable : Countable wasm.function_type.
+Proof.
+  refine
+    (inj_countable'
+       (λ ft : wasm.function_type, match ft with wasm.Tf ins outs => (ins, outs) end)
+       (λ p, let (ins, outs) := p in wasm.Tf ins outs)
+       _).
+  by intros []; simpl.
+Qed.
+
 (* ExtLib has its own state monad but it doens't play nicely with stdpp *)
 Definition state (S A : Type) : Type := S -> (S * A).
 

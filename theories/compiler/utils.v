@@ -1,5 +1,5 @@
 From Coq Require Import List Lists.List.
-From stdpp Require Import base list decidable.
+From stdpp Require Import base list decidable gmap.
 
 Section AddIfNotIn.
   Context `{EqDecision A}.
@@ -22,3 +22,7 @@ Fixpoint foldl' {A B} (f : A -> B -> B) (init : B) (l : list A) : B :=
   | [] => init
   | x :: xs => let acc := f x init in foldl' f acc xs
   end.
+
+Definition invert_map {A} `{!EqDecision A, !Countable A}
+           (m : gmap nat A) : gmap A nat :=
+  map_fold (K := nat) (A := A) (M := gmap nat A) (B := gmap A nat) (λ (k : nat) (v : A) (acc : gmap A nat), <[ v := k ]> acc) (∅ : gmap A nat) m.

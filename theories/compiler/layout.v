@@ -125,6 +125,12 @@ Section Layout.
     | _ => false
     end.
 
+  Definition prepend_opt_shape (prepend : LayoutShape) (existing : option LayoutShape) :=
+    match existing with
+    | Some (shape) => LS_tuple [prepend; shape]
+    | None => prepend
+    end.
+
 End Layout.
 
 (* TODO: *)
