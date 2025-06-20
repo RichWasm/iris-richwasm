@@ -189,12 +189,13 @@ Module AnnotatedToBoxed.
   Print term.Index.
   Print concat_map.
 
-  Fixpoint compile_instruction (instr : AR.Instruction) : M Instruction :=
+  Fixpoint compile_instruction (instr : AR.Instruction) : M (list Instruction) :=
     match instr with
     | AR.Instr pre tf =>
       let tf' := compile_arrow tf in
       pre' ← compile_pre_instruction pre tf';
-      mret $ Instr pre' tf'
+      (* mret $ Instr pre' tf' *)
+      mthrow (err "FIXME: do we really need to be returning list of instrs?")
     end
   with compile_pre_instruction (pre : AR.PreInstruction) (arrow : ArrowType) : M (list PreInstruction) :=
     let compile_le := fun '(n, t) => (n, box_vars t) in
@@ -206,13 +207,15 @@ Module AnnotatedToBoxed.
     | AR.Drop => mret $ [Drop]
     | AR.Select => mret $ [Select]
     | AR.Block tf le e__s =>
-      e__s' ← mapM compile_instruction e__s;
-      mret $ [Block (box_vars tf) (map compile_le le) e__s']
-    | AR.Loop tf e => Loop (box_vars tf) e
+      e__s' ← flat_mapM compile_instruction e__s;
+      mret $ [Block (compile_arrow tf) (map compile_le le) e__s']
+    | AR.Loop tf e__s =>
+      e__s' ← flat_mapM compile_instruction e__s;
+      mret $ [Loop (compile_arrow tf) e__s']
     | AR.ITE tf le e__thn e__els =>
-      e__thn' ← mapM compile_instruction e__thn;
-      e__els' ← mapM compile_instruction e__els;
-      mret $ [ITE (box_vars tf) (map compile_le le)]
+      e__thn' ← flat_mapM compile_instruction e__thn;
+      e__els' ← flat_mapM compile_instruction e__els;
+      mret $ [ITE (compile_arrow tf) (map compile_le le) e__thn' e__els']
     | AR.Br i => mret $ [Br i]
     | AR.Br_if i => mret $ [Br_if i]
     | AR.Br_table i__s j => mret $ [Br_table i__s j]
@@ -229,17 +232,17 @@ Module AnnotatedToBoxed.
       match arrow with
       | Arrow from to =>
         let types_vals := combine from z__s in
-        let box_instrs := concat_map (fun '(t, v) =>
-          match t with
-          | BoxedT t => [Box 0]
-          | _ => []
-          end) types_vals in
+        (* let box_instrs := concat_map (fun '(t, v) => *)
+        (*   match t with *)
+        (*   | BoxedT t => [Box 0] *)
+        (*   | _ => [] *)
+        (*   end) types_vals in *)
         (* mret $ [ *)
         (*   Block ... ...  *)
         (* ] *)
         mthrow (err "TODO")
         end
-    | AR.RecFold τ => mret $ [RecFold τ]
+    | AR.RecFold τ => mret $ [RecFold $ box_vars τ]
     | AR.RecUnfold => mret $ [RecUnfold]
     | AR.Group i q => mret $ [Group i q]
     | AR.Ungroup => mret $ [Ungroup]
@@ -248,8 +251,8 @@ Module AnnotatedToBoxed.
     | AR.RefDemote => mret $ [RefDemote]
     | AR.MemPack ℓ => mret $ [MemPack ℓ]
     | AR.MemUnpack tf le e__s =>
-       e__s' ← mapM compile_instruction e__s;
-      mret $ [MemUnpack (box_vars tf) (map compile_le le) e__s']
+       e__s' ← flat_mapM compile_instruction e__s;
+       mret $ [MemUnpack (compile_arrow tf) (map compile_le le) e__s']
     | AR.StructMalloc sz__s q => mret $ [StructMalloc sz__s q]
     | AR.StructFree => mret $ [StructFree]
     | AR.StructGet i => mret $ [StructGet i]
@@ -257,10 +260,10 @@ Module AnnotatedToBoxed.
     | AR.StructSwap i => mret $ [StructSwap i]
     | AR.VariantMalloc i τ__s q => mret $ [VariantMalloc i (map box_vars τ__s) q]
     | AR.VariantCase q ψ tf le e__ss =>
-      let ψ' := compile_heap ψ in
-      let tf' := compile_arrow tf in
-      let le' := map compile_le le in
-      let e__ss' := mapM (mapM compile_instruction) e__ss in
+      ψ' ← mret $ compile_heap ψ;
+      tf' ← mret $ compile_arrow tf;
+      le' ← mret $ map compile_le le;
+      e__ss' ← flat_mapM (mapM compile_instruction) e__ss;
       mret $ [VariantCase q ψ' tf' le' e__ss']
     | AR.ArrayMalloc q => mret $ [ArrayMalloc q]
     | AR.ArrayGet => mret $ [ArrayGet]
@@ -268,10 +271,10 @@ Module AnnotatedToBoxed.
     | AR.ArrayFree => mret $ [ArrayFree]
     | AR.ExistPack τ ψ q => mret $ [ExistPack (box_vars τ) (compile_heap ψ) q]
     | AR.ExistUnpack q ψ tf le e__s =>
-      let ψ' := compile_heap ψ in
-      let tf' := compile_arrow tf in
-      let le' := map compile_le le in
-      let e__s' := map compile_instruction e__s in
+      ψ' ← mret $ compile_heap ψ;
+      tf' ← mret $ compile_arrow tf;
+      le' ← mret $ map compile_le le;
+      e__s' ← flat_mapM compile_instruction e__s;
       mret $ [ExistUnpack q ψ' tf' le' e__s']
     | AR.RefSplit => mret $ [RefSplit]
     | AR.RefJoin => mret $ [RefJoin]
