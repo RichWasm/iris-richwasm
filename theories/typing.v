@@ -1822,9 +1822,15 @@ Admitted.
   Definition LocalCtxValid (F : Function_Ctx) (L : Local_Ctx) :=
     Forall (fun '(tau, sz) => TypeValid F tau /\ SizeValid (size F) sz) L.
 
-  Inductive HasTypeInstr {A} :
+  Inductive HasTypeInstr :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> basic_instr A -> ArrowType -> Local_Ctx -> Prop :=
+    Local_Ctx -> basic_instr ArrowType -> ArrowType -> Local_Ctx -> Prop :=
+  | ValTyp :
+      forall S C F L (v: Value) t,
+        HasTypeValue S F v t ->
+        LocalCtxValid F L ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr S C F L (Val (EmptyArrow t) v) (EmptyArrow t) L
   | TStructGet : forall S C F L ann n taus szs tau l cap,
       M.is_empty (LinTyp S) = true ->
       let psi := StructType (combine taus szs) in
@@ -1839,9 +1845,9 @@ Admitted.
         (Arrow [RefT cap l psi]
            [RefT cap l psi; tau])
         L
-  with HasTypeInstrs {A} :
+  with HasTypeInstrs :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> list (basic_instr A) -> ArrowType -> Local_Ctx -> Prop :=
+    Local_Ctx -> list (basic_instr ArrowType) -> ArrowType -> Local_Ctx -> Prop :=
   | TSOne: forall S C F L e τ L',
       HasTypeInstr S C F L e τ L' ->
       HasTypeInstrs S C F L [e] τ L'.
@@ -2774,7 +2780,7 @@ Admitted.
   End HasType_Instruction_Closure_Func_Conf_mind'.
 *)
 
-  Inductive HasTypeGlob {A} (S : StoreTyping) : Module_Ctx -> Glob A -> GlobalType -> list ex -> Prop :=
+  Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob ArrowType -> GlobalType -> list ex -> Prop :=
   | GlobMutTyp :
       forall C pt es,
         HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->

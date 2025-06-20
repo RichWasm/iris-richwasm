@@ -407,9 +407,14 @@ Definition semantic_typing  :
 Require Import RWasm.compile.
 
 (* TODO *)
-Theorem fundamental_property S C F L e tf L' :
+Theorem fundamental_property S C F L e es tf L' :
   HasTypeInstr S C F L e tf L' ->
-  compile_instr [] 0 GC_MEM LIN_MEM e.
+  compile_instr [] 0 GC_MEM LIN_MEM e = Some es ->
+  ⊢ semantic_typing S C F L [] (to_e_list es) tf L'.
+Proof.
+  intros Htyp Hcomp.
+  induction Htyp.
+
 Admitted.
 
 Lemma sniff_tuple Ss S C F L WL vs ves es τs :
