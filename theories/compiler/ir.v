@@ -2,7 +2,7 @@ From Coq Require Import List NArith.BinNat Lists.List.
 From stdpp Require Import base option strings list pretty decidable gmap.
 From Wasm Require datatypes.
 From RWasm Require term annotated_term.
-From RWasm.compiler Require Import numbers monads utils.
+From RWasm.compiler Require Import numbers monads utils layout.
 
 Module BoxPolymorphicIR.
   Inductive Typ :=
@@ -108,7 +108,7 @@ Module BoxPolymorphicIR.
   (* Ref operations *)
   | RefSplit
   | RefJoin
-  | Qualify (q : rwasm.Qual).
+  | Qualify (q : rwasm.Qual)
   (* Administrative Instructions *)
   (* | Trap *)
   (* | CallAdm : Closure -> list rwasm.Index -> PreInstruction *)
@@ -116,12 +116,32 @@ Module BoxPolymorphicIR.
   (* | Local : nat -> nat -> list Value -> list nat (* sizes of local slots (args + locals) *) -> list Instruction -> PreInstruction *)
   (* | Malloc : Size -> HeapValue -> Qual -> PreInstruction *)
   (* | Free *)
-  (* withFunc := *)
-  (* | Fun : list wasm.ex -> FunType -> list Size -> list Instruction -> Func *)
+  with Func :=
+  | Fun (ex__s : list rwasm.ex) (χ : FunType) (sz__s : list rwasm.Size) (e__s : list Instruction).
   (* with Closure := *)
   (* | Clo : nat -> Func -> Closure. *)
 
-  Fixpoint compile_val (val : rwasm.Value) : Value :=
+  Inductive Glob :=
+  | GlobMut (τ : Typ) (i__s : list Instruction)
+  | GlobEx (ex__s : list rwasm.ex) (τ : Typ) (i__s : list Instruction)
+  | GlobIm (ex__s : list rwasm.ex) (τ : Typ) (im : rwasm.im).
+
+  Record module := {
+    functions : list Func;
+    globals : list Glob;
+    table : rwasm.Table
+  }.
+
+End BoxPolymorphicIR.
+
+Module AnnotatedToBoxed.
+
+  Module ann := AR.
+  Module box := BoxPolymorphicIR.
+
+  Import box.
+
+  Fixpoint compile_val (val : rwasm.Value) : box.Value :=
    match val with
    | rwasm.NumConst nτ val => NumConst nτ val
    | rwasm.Tt => Tt
@@ -179,14 +199,14 @@ Module BoxPolymorphicIR.
   with compile_pre_instruction (pre : AR.PreInstruction) (arrow : ArrowType) : M (list PreInstruction) :=
     let compile_le := fun '(n, t) => (n, box_vars t) in
     match pre with
-    | AR.Val v => mret $ [Val V]
+    | AR.Val v => mret $ [Val (compile_val v)]
     | AR.Ne ni => mret $ [Ne ni]
     | AR.Unreachable => mret $ [Unreachable]
     | AR.Nop => mret $ [Nop]
     | AR.Drop => mret $ [Drop]
     | AR.Select => mret $ [Select]
-    | AR.Block tf le e__s => 
-      e__s' ← mapM compile_instruction e__S;
+    | AR.Block tf le e__s =>
+      e__s' ← mapM compile_instruction e__s;
       mret $ [Block (box_vars tf) (map compile_le le) e__s']
     | AR.Loop tf e => Loop (box_vars tf) e
     | AR.ITE tf le e__thn e__els =>
@@ -209,14 +229,16 @@ Module BoxPolymorphicIR.
       match arrow with
       | Arrow from to =>
         let types_vals := combine from z__s in
-        let box_instrs := concat_map (fun '(t, v) => 
+        let box_instrs := concat_map (fun '(t, v) =>
           match t with
           | BoxedT t => [Box 0]
           | _ => []
           end) types_vals in
-        mret $ [
-          Block ... ... 
-        ]
+        (* mret $ [ *)
+        (*   Block ... ...  *)
+        (* ] *)
+        mthrow (err "TODO")
+        end
     | AR.RecFold τ => mret $ [RecFold τ]
     | AR.RecUnfold => mret $ [RecUnfold]
     | AR.Group i q => mret $ [Group i q]
@@ -225,8 +247,8 @@ Module BoxPolymorphicIR.
     | AR.CapJoin => mret $ [CapJoin]
     | AR.RefDemote => mret $ [RefDemote]
     | AR.MemPack ℓ => mret $ [MemPack ℓ]
-    | AR.MemUnpack tf le e__s =>      
-       e__s' ← mapM compile_instruction e__S;
+    | AR.MemUnpack tf le e__s =>
+       e__s' ← mapM compile_instruction e__s;
       mret $ [MemUnpack (box_vars tf) (map compile_le le) e__s']
     | AR.StructMalloc sz__s q => mret $ [StructMalloc sz__s q]
     | AR.StructFree => mret $ [StructFree]
@@ -261,11 +283,14 @@ Module BoxPolymorphicIR.
     | AR.Malloc _ _ _
     | AR.Free => mthrow (err "unexpected admin instr")
     end.
-End BoxPolymorphicIR.
+
+  (* TODO: compile module *)
+
+End AnnotatedToBoxed.
 
 Module LayoutIR.
 
-  From RWasm.compiler Require Export layout.
+  Import layout.
   Definition shape := LayoutShape.
   Definition value := LayoutValue.
 
@@ -291,6 +316,12 @@ Module LayoutIR.
   | Br_table (i__s : list nat) (j : nat)
   | Ret
 
+  | NewTmp (name : string)
+  | SetTmp (name : string)
+  | TeeTmp (name : string)
+  | GetTmp (name : string)
+  | FreeTmp (name : string)
+
   | GetLocal (i : nat)
   | SetLocal (i : nat)
   | TeeLocal (i : nat)
@@ -300,13 +331,13 @@ Module LayoutIR.
   | CallIndirect (tf : ArrowShape)        (* TODO: is this correct? *)
   | Call (i : nat)
 
+  | Init (shape : list shape)        (* [val; ptr] → ptr *)
+  | RepeatInit (shape : shape)  (* [val; len; ptr] → ptr *)
   | LoadOffset (offset : nat)
   | StoreOffset (offset : nat) (* takes ptr from tos, then loads shape from below it *)
   | SwapOffset (offset : nat)
-  | Malloc (shape : shape)
+  | Malloc (shape : list shape)
   | Free
-
-  | VariantCase (q : rwasm.Qual) (ψ : rwasm.HeapType) (tf : ArrowShape) (le : LocalEffect) (e__ss : list (list Instruction)) (* FIXME *)
   with Func :=
   | Fun (ex__s : list rwasm.ex) (tf : ArrowShape) (locals : list shape) (e__s : list Instruction).
 
@@ -315,10 +346,15 @@ Module LayoutIR.
   | GlobEx (ex__s : list rwasm.ex) (shape : shape) (i__s : list Instruction)
   | GlobIm (ex__s : list rwasm.ex) (shape : shape) (im : rwasm.im).
 
+  Record module := {
+    functions : list Func;
+    globals : list Glob;
+    table : rwasm.Table
+  }.
 End LayoutIR.
 
 Module BoxPolymorphicToLayout.
-  From RWasm.compiler Require Import layout.
+  Import layout.
   Module boxed := BoxPolymorphicIR.
   Module layout := LayoutIR.
 
@@ -372,6 +408,26 @@ Module BoxPolymorphicToLayout.
     | boxed.RefT cap ℓ ψ => mret $ Some LS_int32
     end.
 
+  Fixpoint fold_sizes (sizes : list rwasm.Size) : rwasm.Size :=
+    match sizes with
+    | [] => rwasm.SizeConst 0
+    | sz :: rst => rwasm.SizePlus sz (fold_sizes rst)
+    end.
+
+  (* n.b. this is polymorphic :( *)
+  Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : InstM rwasm.Size :=
+    match idx with
+    | 0 => mret $ rwasm.SizeConst 0
+    | S idx' =>
+        match fields with
+        | (_, sz) :: fields' => rwasm.SizePlus sz <$> (struct_field_offset fields' idx')
+        | [] => mthrow (err ("not enough fields in struct type to find field offset of index " ++ pretty idx))
+        end
+    end.
+
+  Section Instrs.
+  Variable size_ctx : gmap nat nat.
+
   Fixpoint compile_instr (instr : boxed.Instruction) : M (list layout.Instruction) :=
     match instr with
     | boxed.Instr pre tf => compile_pre_instr pre tf
@@ -379,6 +435,9 @@ Module BoxPolymorphicToLayout.
   with compile_pre_instr (pre : boxed.PreInstruction) tf : M (list layout.Instruction) := (* TODO: function ctx *)
     let '(boxed.Arrow tf__from tf__to) := tf in
     match pre with
+    | boxed.Box _
+    | boxed.Unbox _ => mthrow (err "TODO")
+
     | boxed.Val v =>
       mret $ match boxed_value_to_layout v with
       | Some v' => [layout.Val v']
@@ -408,7 +467,7 @@ Module BoxPolymorphicToLayout.
     | boxed.Tee_local i => mret [layout.TeeLocal i]
     | boxed.Get_global i => mret [layout.GetGlobal i]
     | boxed.Set_global i => mret [layout.SetGlobal i]
-    | boxed.CoderefI i => mthrow (err "TODO:")      (* TODO: need to confirm this is correct, this is how the rust compiler does it *)
+    | boxed.CoderefI i => mret [layout.Val $ LV_int32 i]      (* TODO: need to confirm this is correct, this is how the rust compiler does it *)
     | boxed.Inst z__s => mret []
     | boxed.Call_indirect => mthrow (err "TODO:")
     | boxed.Call i z__s => mthrow (err "TODO:")
@@ -425,19 +484,47 @@ Module BoxPolymorphicToLayout.
     | boxed.MemUnpack tf le e__s =>
       e__s' ← flat_mapM compile_instr e__s;
       mret [layout.Block (compile_tf tf) (compile_le le) e__s']
-    | boxed.StructMalloc sz__s q => mthrow (err "TODO:")
+
+    (* [f1 ... f__n init] → [ptr]
+       [τ1 ... τ__n     ] → [i32] *)
+    | boxed.StructMalloc sz__s q =>
+      (* field_shapes ← *)
+      mthrow (err "TODO:")
+
+    (* [ptr] → []
+       [i32] → [] *)
     | boxed.StructFree => mret [layout.Free]
     | boxed.StructGet i => mthrow (err "TODO:")
     | boxed.StructSet i => mthrow (err "TODO:")
     | boxed.StructSwap i => mthrow (err "TODO:")
     | boxed.VariantMalloc i τ__s q =>
-      typ ← lift_optionM (list_lookup i τ__s) ("invalid variant malloc, to type corresponds with index " ++ (pretty i));
+      (* FIXME: needs init and correct vals on stack before malloc *)
+
+      typ ← lift_optionM (list_lookup i τ__s) ("invalid variant malloc, no type corresponds with index " ++ (pretty i));
       opt_shape ← boxed_type_to_shape typ;
       (* memory layout is [ind, τ*] so we just add prepend *)
-      let full_shape := prepend_opt_shape LS_int32 opt_shape in
+      let full_shape := LS_int32 :: match opt_shape with
+      | Some s => [s]
+      | None => []
+      end in
       mret [layout.Malloc full_shape]
     | boxed.VariantCase q ψ tf le e__ss => mthrow (err "TODO:")
-    | boxed.ArrayMalloc q => mthrow (err "TODO:")
+
+    (* [init val; len] → [ptr]
+       [τ       ; i32] → [i32] *)
+    | boxed.ArrayMalloc q =>
+      let arr_init_typ_opt := head tf__from in (* XXX: clarify order of tf *)
+      arr_init_typ ← lift_optionM arr_init_typ_opt "empty tffrom";
+      shape_opt ← boxed_type_to_shape arr_init_typ;
+      shape ← lift_optionM shape_opt "cannot make an array of size zero";
+      mret [
+        layout.NewTmp "len";
+        layout.TeeTmp "len"; (* exisitng length at TOS, consumed by Malloc, but also needed for repeat Init *)
+        layout.Malloc [shape];
+        layout.GetTmp "len";
+        layout.FreeTmp "len";
+        layout.RepeatInit shape]
+
     | boxed.ArrayGet => mthrow (err "TODO:")
     | boxed.ArraySet => mthrow (err "TODO:")
     | boxed.ArrayFree => mret [layout.Free]
@@ -446,19 +533,35 @@ Module BoxPolymorphicToLayout.
     | boxed.RefSplit
     | boxed.RefJoin
     | boxed.Qualify _ => mret []
-   end.
+    end.
+  End Instrs.
+
+  Definition try_find_optimal_local_shape (instrs : boxed.Instruction) : option LayoutShape.
+    Admitted.
+
+  Definition compile_func (func : boxed.Func) : M layout.Func.
+    (* match func with *)
+    (* | boxed.Fun ex__s χ sz__s e__s => _ *)
+    (* end *)
+    Admitted.
+
+  Definition compile_global (global : boxed.Glob) : M (option layout.Glob).
+  Admitted.                     (* FIXME: what to do about 0 sized types? *)
+    (* match global with *)
+    (* | boxed.GlobMut τ i__s => mret $ layout.GlobMut (boxed_type_to_shape τ) (compile_instr i__s) *)
+    (* | boxed.GlobEx ex__s τ i__s => mret $ layout.GlobEx ex__s (boxed_type_to_shape τ) (compile_instr i__s) *)
+    (* | boxed.GlobIm ex__s τ im =>  mret $ layout.GlobEx ex__s (boxed_type_to_shape τ) im  *)
+    (* end. *)
+
+  Definition compile_module (module : boxed.module) : M layout.module :=
+    let 'boxed.Build_module functions globals table := module in
+    mthrow (err "TODO").
 
 End BoxPolymorphicToLayout.
 
 Module LayoutToWasm.
   Import LayoutIR.
-  From RWasm.compiler Require Import numbers monads.
-
-  Record module := {
-    functions : list Func;
-    globals : list Glob;
-    table : rwasm.Table
-  }.
+  Import numbers monads.
 
   Inductive LocalShape :=
   | LS_orig (shape : shape)
@@ -660,9 +763,15 @@ Module LayoutToWasm.
     (* | LoadOffset offset => _ *)
     (* | StoreOffset offset => _ *)
     (* | SwapOffset offset => _ *)
-    (* | Malloc shape => _ *)
-    (* | Free => _ *)
-    | VariantCase q ψ tf le e__ss => mthrow (err "NEEDED?")
+    (* | Malloc shapes => *)
+
+    | Free =>
+      '(shape, Γ') ← lift_optionM (te_pop Γ) "Free: expected non-empty stack";
+      _ ← match shape with
+      | LS_int32 => mret ()
+      | _ => mthrow (err ("Free expected i32 at TOS but got " ++ (pretty shape)))
+      end;
+      mret Γ'
     | _ => mthrow (err "TODO")   (*  *)
     end.
 
@@ -737,7 +846,6 @@ Module LayoutToWasm.
       (* | SwapOffset offset => _ *)
       (* | Malloc shape => _ *)
       (* | Free => _ *)
-      | VariantCase q ψ tf le e__ss => mthrow (err "TODO: is this needed?")
       | _ => mthrow (err "TODO")
       end.
 
