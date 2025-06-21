@@ -203,10 +203,18 @@ Module AnnotatedToBoxed.
   Definition foldli {A B : Type} (f : B → A → nat → B) (base : B) (l : list A) : B :=
     foldli' f base l 0.
 
-  Print Instruction.
+  
+  Print Typ.
+  Print rwasm.var.
 
-  Fixpoint compile_instruction (instr : AR.Instruction) : M (list Instruction) :=
+  Fixpoint compile_instruction (next : nat) (instr : AR.Instruction) : M (nat * list Instruction) :=
     let compile_le := fun '(n, t) => (n, compile_type true t) in
+    let compile_instructions :=
+      fun is =>
+        foldlM (fun '(n, acc) i =>
+          '(n', instrs) ← compile_instruction n i;
+          mret (n', acc ++ [instrs])) (next, [])
+    in
     match instr with
     | AR.Instr pre tf__i =>
       let tf__i' := compile_arrow true tf__i in
