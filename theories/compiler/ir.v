@@ -1,4 +1,4 @@
-From Coq Require Import List NArith.BinNat Lists.List.
+From Coq Require Import List NArith.BinNat Lists.List FSets.FMapInterface.
 From stdpp Require Import base option strings list pretty decidable gmap.
 From Wasm Require datatypes.
 From RWasm Require term annotated_term.
@@ -386,16 +386,12 @@ End LayoutIR.
 
 Module BoxPolymorphicToLayout.
   Import layout.
+  Import List Lists.List ListNotations FSets.FMapInterface.
   Module boxed := BoxPolymorphicIR.
   Module layout := LayoutIR.
 
-  Fixpoint compile_tf (tf : boxed.ArrowType) : layout.ArrowShape.
-  Admitted.
-  Fixpoint compile_le (le : boxed.LocalEffect) : layout.LocalEffect.
-  Admitted.
-
   (* FIXME: this is duplicated from layout.v *)
-  Fixpoint boxed_value_to_layout (value : boxed.Value) : option LayoutValue :=
+  Fixpoint compile_val (value : boxed.Value) : option LayoutValue :=
     match value with
     | boxed.NumConst (rwasm.Int _ rwasm.i32) num => mret $ LV_int32 num
     | boxed.NumConst (rwasm.Int _ rwasm.i64) num => mret $ LV_int64 num
@@ -404,17 +400,21 @@ Module BoxPolymorphicToLayout.
     | boxed.Tt => None
     | boxed.Coderef module_idx table_idx concrete =>
         mret $ LV_tuple [LV_int32 module_idx; LV_int32 table_idx] (* TODO: confirm this is ok *)
-    | boxed.Fold v => boxed_value_to_layout v
-    | boxed.Prod v__s => mret $ LV_tuple (omap boxed_value_to_layout v__s)
+    | boxed.Fold v => compile_val v
+    | boxed.Prod v__s => mret $ LV_tuple (omap compile_val v__s)
     | boxed.Ref ℓ => mret $ loc_to_layout ℓ
     | boxed.PtrV ℓ => mret $ loc_to_layout ℓ
     | boxed.Cap
     | boxed.Own => None
-    | boxed.Mempack ℓ v => boxed_value_to_layout v
+    | boxed.Mempack ℓ v => compile_val v
     | boxed.Boxed v => None      (* FIXME: this is wrong, but need to finalize IR first *)
     end.
 
-  Fixpoint boxed_type_to_shape (τ : boxed.Typ) : M (option LayoutShape) := (* TODO: function ctx *)
+  Section Typ.
+
+  Variable env : gmap rwasm.var LayoutShape.
+
+  Fixpoint compile_typ (τ : boxed.Typ) : M (option LayoutShape) := (* TODO: function ctx *)
     match τ with
     | boxed.Num nτ =>
       mret $ Some (match nτ with
@@ -423,21 +423,32 @@ Module BoxPolymorphicToLayout.
       | rwasm.Float rwasm.f32 => LS_float32
       | rwasm.Float rwasm.f64 => LS_float64
       end)
-    | boxed.BoxedT τ => mthrow (err "FIXME when IR is finalized")
-    | boxed.TVar α => mthrow (err "TODO: need ctx")
+    | boxed.BoxedT τ => mret $ Some LS_int32
+    | boxed.TVar α =>
+      typ ← lift_optionM (env !! α) ("cannot find type var with index " ++ (pretty α));  (* FIXME: this is unboxed, is that correct? *)
+      mret $ Some typ
     | boxed.Unit => mret None
     | boxed.ProdT τ__s =>
-      opt_shapes ← (mapM boxed_type_to_shape τ__s);
+      opt_shapes ← (mapM compile_typ τ__s);
       let shapes := omap id opt_shapes in
       mret $ Some $ LS_tuple shapes
     | boxed.CoderefT χ => mthrow (err "TODO")
-    | boxed.Rec q τ => boxed_type_to_shape τ
+    | boxed.Rec q τ => compile_typ τ
     | boxed.PtrT ℓ => mret $ Some LS_int32
     | boxed.ExLoc q τ => mthrow (err "TODO")
     | boxed.OwnR _
     | boxed.CapT _ _ _ => mret None
     | boxed.RefT cap ℓ ψ => mret $ Some LS_int32
     end.
+
+  Fixpoint compile_tf (tf : boxed.ArrowType) : M layout.ArrowShape :=
+    let 'boxed.Arrow τ__s1 τ__s2 := tf in
+    τ__s1' ← mapM compile_typ τ__s1;
+    τ__s2' ← mapM compile_typ τ__s2;
+    mret $ layout.Arrow (omap id τ__s1') (omap id τ__s2'). (* use omap to filter zero sized *)
+
+
+  End Typ.
 
   Fixpoint fold_sizes (sizes : list rwasm.Size) : rwasm.Size :=
     match sizes with
@@ -457,20 +468,40 @@ Module BoxPolymorphicToLayout.
     end.
 
   Section Instrs.
-  Variable size_ctx : gmap nat nat.
 
-  Fixpoint compile_instr (instr : boxed.Instruction) : M (list layout.Instruction) :=
+  Variable sz_local_map : gmap nat nat.
+  Variable transform_local_idx : nat → nat.
+
+  Fixpoint compile_le (env : gmap rwasm.var LayoutShape) (le : boxed.LocalEffect) : M layout.LocalEffect :=
+    opt_shapes ← mapM (fun '(i, τ) =>
+                        shape ← compile_typ env τ;
+                        mret (transform_local_idx i, shape)) le;
+    mret $ omap (fun '(i, shape) => match shape with | Some x => Some (i, x) | None => None end) opt_shapes.
+
+  Fixpoint compile_sz (sz : rwasm.Size) : M (list layout.Instruction) :=
+    match sz with
+    | rwasm.SizeVar σ =>
+      local_idx ← lift_optionM (sz_local_map !! σ) ("sz " ++ (pretty σ) ++ " not found in sz_local_map");
+      mret [layout.GetLocal local_idx]
+    | rwasm.SizePlus sz1 sz2 =>
+      e1 ← compile_sz sz1;
+      e2 ← compile_sz sz2;
+      mret $ e1 ++ e2 ++ [layout.Ne $ rwasm.Ib rwasm.i32 rwasm.add]
+    | rwasm.SizeConst c => mret [layout.Val $ LV_int32 c]
+    end.
+
+  Fixpoint compile_instr (env : gmap rwasm.var LayoutShape) (instr : boxed.Instruction) : M (list layout.Instruction) :=
     match instr with
-    | boxed.Instr pre tf => compile_pre_instr pre tf
+    | boxed.Instr pre tf => compile_pre_instr env pre tf
     end
-  with compile_pre_instr (pre : boxed.PreInstruction) tf : M (list layout.Instruction) := (* TODO: function ctx *)
+  with compile_pre_instr (env : gmap rwasm.var LayoutShape )(pre : boxed.PreInstruction) tf : M (list layout.Instruction) := (* TODO: function ctx *)
     let '(boxed.Arrow tf__from tf__to) := tf in
     match pre with
     | boxed.Box _
-    | boxed.Unbox _ => mthrow (err "TODO")
+    | boxed.Unbox _ => mthrow (err "TODO: add some sort of IR form to modify ith stack element")
 
     | boxed.Val v =>
-      mret $ match boxed_value_to_layout v with
+      mret $ match compile_val v with
       | Some v' => [layout.Val v']
       | None => []
       end
@@ -480,29 +511,38 @@ Module BoxPolymorphicToLayout.
     | boxed.Drop => mret [layout.Drop]
     | boxed.Select => mret [layout.Select]
     | boxed.Block tf le e__s =>
-      e__s' ← flat_mapM compile_instr e__s;
-      mret [layout.Block (compile_tf tf) (compile_le le) e__s']
+      tf' ← compile_tf env tf;
+      le' ← compile_le env le;
+      e__s' ← flat_mapM (compile_instr env) e__s;
+      mret [layout.Block tf' le' e__s']
     | boxed.Loop tf e__s =>
-      e__s' ← flat_mapM compile_instr e__s;
-      mret [layout.Loop (compile_tf tf) e__s']
+      tf' ← compile_tf env tf;
+      e__s' ← flat_mapM (compile_instr env) e__s;
+      mret [layout.Loop tf' e__s']
     | boxed.ITE tf le e__thn e__els =>
-      e__thn' ← flat_mapM compile_instr e__thn;
-      e__els' ← flat_mapM compile_instr e__els;
-      mret [layout.ITE (compile_tf tf) (compile_le le) e__thn' e__els']
+      tf' ← compile_tf env tf;
+      le' ← compile_le env le;
+      e__thn' ← flat_mapM (compile_instr env) e__thn;
+      e__els' ← flat_mapM (compile_instr env) e__els;
+      mret [layout.ITE tf' le' e__thn' e__els']
     | boxed.Br i => mret [layout.Br i]
     | boxed.Br_if i => mret [layout.Br_if i]
     | boxed.Br_table i__s j => mret [layout.Br_table i__s j]
     | boxed.Ret => mret [layout.Ret]
-    | boxed.Get_local i _ => mret [layout.GetLocal i]
-    | boxed.Set_local i => mret [layout.SetLocal i]
-    | boxed.Tee_local i => mret [layout.TeeLocal i]
-    | boxed.Get_global i => mret [layout.GetGlobal i]
-    | boxed.Set_global i => mret [layout.SetGlobal i]
+    | boxed.Get_local i _ => mret [layout.GetLocal (transform_local_idx i)]
+    | boxed.Set_local i => mret [layout.SetLocal (transform_local_idx i)]
+    | boxed.Tee_local i => mret [layout.TeeLocal (transform_local_idx i)]
+    | boxed.Get_global i => mret [layout.GetGlobal (transform_local_idx i)]
+    | boxed.Set_global i => mret [layout.SetGlobal (transform_local_idx i)]
     | boxed.CoderefI i => mret [layout.Val $ LV_int32 i]      (* TODO: need to confirm this is correct, this is how the rust compiler does it *)
     | boxed.Inst z__s => mret []
     | boxed.Call_indirect => mthrow (err "TODO:")
-    | boxed.Call i z__s => mthrow (err "TODO:")
-
+    | boxed.Call i z__s =>
+      z__sizes ← mret $ omap (fun idx => match idx with
+                                    | rwasm.SizeI sz => Some sz
+                                    | rwasm.LocI _ | rwasm.QualI _ | rwasm.TypI _ => None end) z__s;
+      size_instrs ← flat_mapM compile_sz z__sizes;
+      mret $ size_instrs ++ [layout.Call i]
     | boxed.RecFold _
     | boxed.RecUnfold
     | boxed.Group _ _
@@ -513,12 +553,16 @@ Module BoxPolymorphicToLayout.
     | boxed.MemPack _ => mret []
 
     | boxed.MemUnpack tf le e__s =>
-      e__s' ← flat_mapM compile_instr e__s;
-      mret [layout.Block (compile_tf tf) (compile_le le) e__s']
+      tf' ← compile_tf env tf;
+      le' ← compile_le env le;
+      e__s' ← flat_mapM (compile_instr env) e__s;
+      mret [layout.Block tf' le' e__s']
 
     (* [f1 ... f__n init] → [ptr]
        [τ1 ... τ__n     ] → [i32] *)
     | boxed.StructMalloc sz__s q =>
+      flat_sz ← mret $ fold_sizes sz__s;
+
       (* field_shapes ← *)
       mthrow (err "TODO:")
 
@@ -532,7 +576,7 @@ Module BoxPolymorphicToLayout.
       (* FIXME: needs init and correct vals on stack before malloc *)
 
       typ ← lift_optionM (list_lookup i τ__s) ("invalid variant malloc, no type corresponds with index " ++ (pretty i));
-      opt_shape ← boxed_type_to_shape typ;
+      opt_shape ← compile_typ env typ;
       (* memory layout is [ind, τ*] so we just add prepend *)
       let full_shape := LS_int32 :: match opt_shape with
       | Some s => [s]
@@ -546,7 +590,7 @@ Module BoxPolymorphicToLayout.
     | boxed.ArrayMalloc q =>
       let arr_init_typ_opt := head tf__from in (* XXX: clarify order of tf *)
       arr_init_typ ← lift_optionM arr_init_typ_opt "empty tffrom";
-      shape_opt ← boxed_type_to_shape arr_init_typ;
+      shape_opt ← compile_typ env arr_init_typ;
       shape ← lift_optionM shape_opt "cannot make an array of size zero";
       mret [
         layout.NewTmp "len";
@@ -567,14 +611,30 @@ Module BoxPolymorphicToLayout.
     end.
   End Instrs.
 
-  Definition try_find_optimal_local_shape (instrs : boxed.Instruction) : option LayoutShape.
-    Admitted.
+  Print compile_instr.
 
-  Definition compile_func (func : boxed.Func) : M layout.Func.
-    (* match func with *)
-    (* | boxed.Fun ex__s χ sz__s e__s => _ *)
-    (* end *)
-    Admitted.
+  Definition resolve_locals_layout_shape (sz__s : list rwasm.Size) (instrs : list boxed.Instruction) : M (list LayoutShape) :=
+    (* TODO: need to see what type the first local.store is, and use that. otherwise fallback to a sequence of i64s *)
+    mthrow (err "TODO").
+
+  Definition compile_func (func : boxed.Func) : M layout.Func :=
+    let 'boxed.Fun ex__s χ sz__s e__s := func in
+    let 'boxed.FunT κ tf := χ in
+    (* let 'boxed.Arrow τ__from τ__to := tf in  *)
+    '(layout.Arrow shape__from shape__to) ← compile_tf ∅ tf;      (* FIXME: previous stage should ensure this doesn't contain TVar *)
+    let loc_params := omap (fun k => match k with
+      | rwasm.SIZE sz__upper sz__lower => Some LS_int32
+      | rwasm.LOC _ | rwasm.QUAL _ _ | rwasm.TYPE _ _ _ => None end) κ in
+
+    locals ← resolve_locals_layout_shape sz__s e__s;
+    let num_rwasm_params := length shape__from in
+
+    let sz_locals := map_seq num_rwasm_params (seq 0 num_rwasm_params) in
+    let idx_transformer i := if Nat.ltb i num_rwasm_params then i + num_rwasm_params else i in
+
+    e__s' ← flat_mapM (compile_instr sz_locals idx_transformer ∅) e__s;
+
+    mret $ layout.Fun ex__s (layout.Arrow (shape__from ++ loc_params) shape__to) locals e__s'.
 
   Definition compile_global (global : boxed.Glob) : M (option layout.Glob).
   Admitted.                     (* FIXME: what to do about 0 sized types? *)

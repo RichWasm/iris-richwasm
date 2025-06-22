@@ -64,8 +64,8 @@ Inductive NumType :=
 
 Inductive KindVar := (* Binding sites for kind variables *)
 | LOC (q : Qual)
-| QUAL : list Qual -> list Qual -> KindVar
-| SIZE : list Size -> list Size -> KindVar
+| QUAL (q__upper : list Qual) (q__lower : list Qual)
+| SIZE (sz__upper : list Size) (sz__lower : list Size)
 | TYPE (sz : Size) (q : Qual) (hc : HeapableConstant).
 
 Inductive Typ :=
@@ -116,10 +116,10 @@ Definition Table := list nat.
 Definition LocalEffect := list (nat * Typ).
 
 Inductive Index :=
-| LocI  : Loc -> Index
-| SizeI : Size -> Index
-| QualI : Qual -> Index
-| TypI  : Typ -> Index.
+| LocI (ℓ : Loc)
+| SizeI (sz : Size)
+| QualI (q : Qual)
+| TypI (τ : Typ).
 
 Coercion LocI  : Loc >-> Index.
 Coercion SizeI : Size >-> Index.
