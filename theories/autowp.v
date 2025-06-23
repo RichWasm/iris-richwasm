@@ -69,13 +69,13 @@ Ltac destruct_length_eqn' :=
 
 Ltac wp_chomp n :=
   match goal with
-  | |- context [ @wp_wasm_ctx _ _ _ _ ?e _ _ _ ] =>
+  | |- context [ environments.envs_entails _ (@wp_wasm_ctx _ _ _ _ ?e _ _ _) ] =>
       iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
-  | |- context [ @wp _ _ _ _ _ _ _ ?e _ ] =>
+  | |- context [ environments.envs_entails _ (@wp _ _ _ _ _ _ _ ?e _) ] =>
       iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
-  | |- context [ @wp_wasm_ctx_frame _ _ _ _ ?e _ _ _ _ _ ] =>
+  | |- context [ environments.envs_entails _ (@wp_wasm_ctx_frame _ _ _ _ ?e _ _ _ _ _) ] =>
       iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
-  | |- context [ @wp_wasm_frame _ _ _ _ ?e _ _ _ ] =>
+  | |- context [ environments.envs_entails _ (@wp_wasm_frame _ _ _ _ ?e _ _ _) ] =>
       iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
   end.
 
@@ -125,7 +125,7 @@ Fixpoint ai_shp (ais: list administrative_instruction) : shape :=
 
 Ltac get_shp :=
   match goal with
-  | |- context[ wp NotStuck ?E ?e ?P ] =>
+  | |- context[ environments.envs_entails _ (wp NotStuck ?E ?e ?P) ] =>
       eval vm_compute in (ai_shp e)
   end.
 

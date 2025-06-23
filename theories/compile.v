@@ -1,5 +1,6 @@
 From Coq Require Import List.
 Require Import stdpp.base.
+Require Import stdpp.list.
 Require Import stdpp.option.
 Import ListNotations.
 From RWasm Require term.
@@ -36,19 +37,28 @@ Definition compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
   | rwasm.Float rwasm.f64 => Some wasm.T_f64
   end.
 
+Definition compile_kindvar (κ: rwasm.KindVar) : list wasm.value_type :=
+  match κ with
+  | rwasm.SIZE _ _ => [wasm.T_i32]
+  | _ => []
+  end.
+
+Definition compile_kindvars (κs: list rwasm.KindVar) : list wasm.value_type :=
+  list_flatten (map compile_kindvar κs).
+
 Fixpoint compile_typ (typ: rwasm.Typ) : option (list wasm.value_type) :=
   match typ with
   | rwasm.Num ntyp => wty ← compile_numtyp ntyp; mret [wty]
-  | rwasm.TVar x => None
-  | rwasm.Unit => None
-  | rwasm.ProdT x => None
-  | rwasm.CoderefT x => None
+  | rwasm.TVar _ => mret [wasm.T_i32]
+  | rwasm.Unit => mret []
+  | rwasm.ProdT typs => list_flatten <$> mapM compile_typ typs
+  | rwasm.CoderefT _ => None
   | rwasm.Rec _ typ => compile_typ typ
-  | rwasm.PtrT x => None
-  | rwasm.ExLoc q x => None
-  | rwasm.OwnR x => None
-  | rwasm.CapT x x0 x1 => None
-  | rwasm.RefT x x0 x1 => None
+  | rwasm.PtrT _ => mret [wasm.T_i32]
+  | rwasm.ExLoc q typ => compile_typ typ
+  | rwasm.OwnR _ => mret []
+  | rwasm.CapT _ _ _ => mret []
+  | rwasm.RefT _ _ _  => mret [wasm.T_i32]
   end
 with compile_heap_type (typ: rwasm.HeapType) : option unit :=
   match typ with
@@ -64,7 +74,14 @@ with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
     tys2' ← mapM compile_typ tys2;
     mret (wasm.Tf (list_flatten tys1') (list_flatten tys2'))
   end
-with compile_fun_type (typ: rwasm.FunType) : option unit := None. (* What to do about generics? *)
+with compile_fun_type (ft: rwasm.FunType) : option wasm.function_type :=
+  match ft with
+  | rwasm.FunT κs (rwasm.Arrow tys1 tys2) =>
+    let κvs := compile_kindvars κs in
+    tys1' ← list_flatten <$> mapM compile_typ tys1;
+    tys2' ← list_flatten <$> mapM compile_typ tys2;
+    mret (wasm.Tf (κvs ++ tys1') tys2')
+  end.
 
 Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   match num_type with
@@ -286,16 +303,17 @@ Definition unset_gc_bit :=
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub)].
 
 Definition tagged_load ref_tmp offset_instrs :=
-  offset_instrs ++ 
-  [wasm.BI_get_local ref_tmp] ++
-  if_gc_bit_set ref_tmp [wasm.T_i32 (* offset *)] [wasm.T_i32 (* loaded value *)]
+  wasm.BI_get_local ref_tmp :: (* save ref *)
+  if_gc_bit_set ref_tmp [] [wasm.T_i32 (* loaded value *)]
   ([wasm.BI_get_local ref_tmp] ++
-     unset_gc_bit ++
-     [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-      wasm.BI_load GC_MEM wasm.T_i32 None 0%N 0%N])
-  [wasm.BI_get_local ref_tmp;
-   wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-   wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N].
+   unset_gc_bit ++
+   offset_instrs ++ 
+   [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+    wasm.BI_load GC_MEM wasm.T_i32 None 0%N 0%N])
+  ([wasm.BI_get_local ref_tmp] ++
+   offset_instrs ++ 
+   [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+    wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N]).
 
 Fixpoint compile_instr (instr: rwasm.basic_instr rwasm.ArrowType) : option (list wasm.basic_instruction) :=
   match instr with

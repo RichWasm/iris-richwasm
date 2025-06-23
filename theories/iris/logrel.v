@@ -1,5 +1,5 @@
 From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term subst debruijn num_repr autowp.
+From RWasm Require Import typing term subst debruijn num_repr autowp compile.
 Module RT := RWasm.term.
 Module T := RWasm.typing.
 
@@ -69,8 +69,28 @@ Ltac fill_vals_pred :=
       fill_vals_pred' vs; iSplitR; [done | fill_goal]
   end.
 
+Definition typ_size (t: value_type) : nat := 
+  match t with
+  | T_i32
+  | T_f32 => 4
+  | T_i64
+  | T_f64 => 8
+  end.
+  
+Fixpoint wasm_deser_list (bs: bytes) (vt: list value_type) : list value :=
+  match vt with
+  | vt :: vts => 
+      wasm_deserialise (take (typ_size vt) bs) vt :: wasm_deser_list (drop (typ_size vt) bs) vts
+  | [] => []
+  end.
+  
+Definition read_value (τ: RT.Typ) (bs: bytes) : list value :=
+  match compile_typ τ with
+  | Some vt => wasm_deser_list bs vt
+  | None => []
+  end.
+
 Class Read := {
-  read_value : RT.Typ -> bytes -> list value;
   read_tag : bytes -> nat;
 }.
 
@@ -543,17 +563,43 @@ Proof.
     lia.
 Qed.
 
-Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch φ ψ f ℓ l32 :
+Lemma lin_ptr_parity ℓ l32:
+  ptr_repr (LocP ℓ LinMem) l32 ->
+  wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) <> Wasm_int.int_zero i32m.
+Proof.
+  clear GC_MEM LIN_MEM mems_diff.
+  unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
+  intros [Hrepr Hdiv].
+  cbn.
+  assert (2 | Wasm_int.Int32.unsigned l32)%Z.
+  {
+    destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    destruct Hdiv as [d Hdiv].
+    exists (Z.of_N d * 2)%Z.
+    lia.
+  }
+  destruct (Wasm_int.Int32.unsigned l32) as [|p32|q32] eqn:Hl32.
+  - done.
+  - replace (Pos.land p32 1) with 0%N; [done |].
+    symmetry.
+    eapply even_iff_land1.
+    by rewrite Z.divide_Zpos in H0.
+  - destruct l32; cbn in *; lia.
+Qed.
+
+Check wp_if_true.
+Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 :
   f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
   ptr_repr (LocP ℓ GCMem) l32 ->
-  ⊢ {{{{ φ ∗ ↪[frame] f }}}} [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{{{ w, ψ w }}}} -∗
-    {{{{ φ ∗ ↪[frame] f }}}}
-    to_e_list (if_gc_bit_set ref_tmp ins outs gc_branch lin_branch) @ E
-    {{{{ w, ψ w }}}}.
+  ⊢ ↪[frame] f -∗
+    ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{ w, ψ w }}) -∗
+    WP to_e_list (if_gc_bit_set ref_tmp ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
 Proof.
   intros Href Hrepr.
-  iIntros "#Hgc !> %Φ [Hφ Hf] HΦ".
-  cbn.
+  iIntros "Hfr Hbranch".
+  Print next_wp.
+  iAssert emp%I as "HΦ";[done|].
   next_wp.
   {
     iApply (wp_wand with "[Hfr]").
@@ -603,7 +649,79 @@ Proof.
     iApply (wp_if_false with "[$Hfr]").
     auto.
     iIntros "!> Hfr".
-    iApply ("Hgc" with "[$] [$]").
+    iApply ("Hφ" with "[$]").
+  }
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+Qed.
+
+Lemma read_value_deserialize_i32 sgn b i:
+  read_value (Num (Int sgn RT.i32)) b = [VAL_int32 i] ->
+  wasm_deserialise b T_i32 = VAL_int32 i.
+Proof.
+Admitted.
+
+Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 :
+  f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
+  ptr_repr (LocP ℓ LinMem) l32 ->
+  ⊢ ↪[frame] f -∗
+    ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) lin_branch)] @ E {{ w, ψ w }}) -∗
+    WP to_e_list (if_gc_bit_set ref_tmp ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
+Proof.
+  intros Href Hrepr.
+  iIntros "Hfr Hφ".
+  cbn.
+  iAssert emp%I as "HΦ"; [done|].
+  next_wp.
+  {
+    iApply (wp_wand with "[Hfr]").
+    {
+      iApply (wp_get_local with "[] [$Hfr]"); eauto.
+      fill_imm_pred.
+    }
+    iIntros (v) "(%Hv & Hfr)".
+    iFrame.
+    iExists [VAL_int32 l32].
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+  inversion Hv; clear Hv; subst v.
+  next_wp.
+  {
+    iApply (wp_binop with "[$Hfr]").
+    eauto.
+    iIntros "!>".
+    iExists _.
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+  inversion Hv; clear Hv; subst v.
+  next_wp.
+  { 
+    iApply (wp_testop_i32 with "[$Hfr]").
+    eauto.
+    iIntros "!>".
+    iExists _.
+    iSplit; [eauto|].
+    iSplit; [eauto|].
+    fill_vals_pred.
+  }
+  {
+    cbn.
+    iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+    inversion Hv; subst v; clear Hv.
+    pose proof (lin_ptr_parity _ _ Hrepr) as Hnz.
+    iApply (wp_if_true with "[$Hfr]").
+    apply Hnz.
+    iIntros "!> Hfr".
+    iApply ("Hφ" with "[$]").
   }
   - iIntros "((%vs & %Heq & _) & _)"; congruence.
   - iIntros "((%vs & %Heq & _) & _)"; congruence.
@@ -644,7 +762,9 @@ Proof.
     rewrite big_sepL2_singleton.
     setoid_rewrite interp_value_eq.
     iEval (cbn) in "Hval".
-    iDestruct "Hval" as "(%bs & %l32 & -> & (%Hlrep & %HLalign) & Hptr & %bss & %bs_rest & %Hconcat & Hfields)".
+    iDestruct "Hval" as "(%bs & %l32 & -> & %Hrep & Hptr & %bss & %bs_rest & %Hconcat & Hfields)".
+    pose proof Hrep as Hrep'.
+    destruct Hrep' as [Hlrep Hlalign].
     simpl flatten.
     simpl of_val.
     rewrite <- Hcomp.
@@ -696,68 +816,53 @@ Proof.
       fill_vals_pred.
     }
     iIntros "!> ((%vs & %contra & _) & _)"; discriminate contra.
-    next_wp.
-    {
-      iApply (wp_wand with "[Hfr]").
-      iApply (wp_get_local with "[] [$Hfr]"); eauto.
-      by rewrite set_nth_read.
-      fill_imm_pred.
-      iIntros (w) "(-> & Hfr)".
-      iFrame.
-      iExists _.
-      iSplit; [|iSplit]; try done.
-      cbn.
-      fill_vals_pred.
-    }
-    iIntros "!> ((%vs & %contra & _) & _)". discriminate.
     cbn beta.
-    iRename select (_ ∗ _)%I into "H".
-    iDestruct "H" as "(%Hv1 & %Hv2 & (Hinst & Hctx) & Hptr)".
-    inversion Hv1; subst.
-    inversion Hv2; subst.
-    clear Hv1 Hv2 H1 H2 H0 Hv.
-    next_wp.
+    iDestruct select (_ ∗ _)%I as "(%Hvs & (Hinst & Hctx) & Hbs)".
+    inversion Hvs; subst.
+    skip_sz 2.
+    iApply (gc_bit_not_set_spec with "[$Hfr] [Hbs]");
+      [by rewrite set_nth_read | eauto |].
     {
-      iApply (wp_wand with "[Hfr]").
-      - iApply (wp_binop with "[$Hfr]").
-        cbn.
-        done.
-        fill_imm_pred.
-      - iIntros (v) "(-> & Hfr)".
-        iFrame.
+      iIntros "!> Hfr".
+      rewrite -(app_nil_l [AI_basic _]).
+      iApply (wp_block with "[$Hfr]") => //.
+      iIntros "!> Hfr".
+      Locate "CTX_EMPTY".
+      iApply wp_wasm_empty_ctx.
+      iApply wp_label_push_nil.
+      iApply wp_ctx_bind; [done|].
+      next_wp.
+      { 
+        iApply (wp_get_local with "[Hbs]"); eauto.
+        by rewrite set_nth_read.
+        iIntros "!>".
         iExists _.
-        iSplit; try done.
-        iSplit; try done.
+        iSplit; auto.
+        iSplit; auto.
         fill_vals_pred.
-    }
-    admit. (* boring trap side condition, this can be automated *)
-    iRename select ((λ _, _) _)%I into "H".
-    iDestruct "H" as "(%Hres & (Hinst & Hctx) & Hptr)".
-    inversion Hres; subst; clear Hres.
-
-    next_wp.
-    {
-      iApply (wp_wand with "[Hfr]").
-      iApply (wp_testop_i32 with "[$Hfr]"); eauto.
-      fill_imm_pred.
-      iIntros (w) "(-> & ?)".
-      iFrame.
-      iExists _.
-      iSplit; eauto.
-      iSplit; eauto.
-      fill_vals_pred.
-    }
-    admit. (* boring trap condition *)
-    iRename select ((λ _, _) _)%I into "H".
-    iDestruct "H" as "(%Hres & (Hinst & Hctx) & Hptr)".
-    inversion Hres; subst; clear Hres H0 H1.
-
-    (* Here the right thing to do is prove a Hoare triple about the if_gc_bit_set thing... *)
-    next_wp.
-    {
+      }
+      cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & Hbs)".
+      inversion Hv'; subst v; clear Hv'.
+      next_wp.
+      { 
+        iApply (wp_binop with "[$Hfr] [Hbs]").
+        eauto.
+        iIntros "!>". iExists _.
+        iSplit; auto.
+        iSplit; auto.
+        fill_vals_pred.
+      }
+      cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & Hbs)".
+      inversion Hv'; subst v; clear Hv'.
+      iApply (wp_wand with "[Hbs]").
+      admit.
+      admit.
+      admit.
       admit.
     }
-    all:admit.
+    admit.
+    admit.
+    admit.
 Abort.
 
 End logrel.
