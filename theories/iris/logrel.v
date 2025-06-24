@@ -820,7 +820,31 @@ Proof.
     iAssert (⌜True⌝)%I as "HΦ". (* work around a bug in next_wp *)
     { done. }
     iDestruct "Hfi" as "[Hfr Hfi]".
-    next_wp.
+
+Tactic Notation "seq_sz" constr(Hs) constr(n) constr(m) :=
+  autowp.wp_chomp n; iApply
+   (wp_seq _ _ _ (λ w, ((∃ vs, ⌜w = immV vs⌝ ∗ ⌜length vs = m⌝ ∗ _ vs) ∗  ↪[frame]_)%I));
+   iSplitR
+  ;
+  first 
+  last.
+
+Tactic Notation "next_wp'" constr(Hs) :=
+  match get_shp with
+  | Shape _ _ _ 0 => fail
+  | Shape 0 ?use ?outs (Datatypes.S ?rest) =>
+      seq_sz Hs use outs; [ iRename select ( ↪[frame]_) into "Hfr"; iSplitR Hs |  ];
+       [  | iIntros ( w ) "((%vs & -> & % & ?) & Hfr)"; destruct_length_eqn' |  ]
+  | Shape ?to_skip ?use ?outs 0 =>
+      skip_sz to_skip
+  | Shape ?to_skip ?use ?outs (Datatypes.S ?rest) =>
+      seq_sz Hs use outs; [ iRename select ( ↪[frame]_) into "Hfr"; iSplitR Hs |  ];
+       [  | iIntros ( w ) "((%vs & -> & % & ?) & Hfr)"; destruct_length_eqn' |  ] ; first 
+  skip_sz to_skip
+  | Unknown => fail
+  end.
+
+    next_wp' "HΦ Hinst Hctx Hfi".
     {
       iApply (wp_tee_local with "[$Hfr]").
       iIntros "!> Hfr".
@@ -842,9 +866,9 @@ Proof.
     }
     cbn beta.
     iRename select (_ ∗ _)%I into "H".
-    iDestruct "H" as "(%Hv & (Hinst & Hctx) & Hptr)".
+    iDestruct "H" as "(%Hv & Hptr)".
     inversion Hv. subst v.
-    next_wp.
+    next_wp' "Hfi Hinst Hctx".
     {
       iApply (wp_wand with "[Hfr]").
       iApply (wp_get_local with "[] [$Hfr]"); eauto.
@@ -858,10 +882,10 @@ Proof.
     }
     iIntros "!> ((%vs & %contra & _) & _)"; discriminate contra.
     cbn beta.
-    iDestruct select (_ ∗ _)%I as "(%Hvs & ((Hinst & Hctx) & Hbs) & Hfi)".
+    iDestruct select (_ ∗ _)%I as "(%Hvs & Hbs)".
     inversion Hvs; subst.
     skip_sz 2.
-    iApply (gc_bit_not_set_spec with "[$Hfr] [Hbs]");
+    iApply (gc_bit_not_set_spec with "[$Hfr]");
       [by rewrite set_nth_read | eauto |].
     {
       iIntros "!> Hfr".
@@ -872,7 +896,7 @@ Proof.
       iApply wp_wasm_empty_ctx.
       iApply wp_label_push_nil.
       iApply wp_ctx_bind; [done|].
-      next_wp.
+      next_wp' "Hinst Hctx Hfi".
       { 
         iApply (wp_get_local with "[Hbs]"); eauto.
         by rewrite set_nth_read.
@@ -884,7 +908,7 @@ Proof.
       }
       cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & Hbs)".
       inversion Hv'; subst v; clear Hv'.
-      next_wp.
+      next_wp' "Hinst Hctx Hfi".
       { 
         iApply (wp_binop with "[$Hfr] [Hbs]").
         eauto.
@@ -943,14 +967,17 @@ Proof.
       iExists _.
       iSplit; auto.
       {
-      iSplitR "Hfr".
+      iSplitR "Hfr Hfi".
       - admit.
-      - iExists _.
+      - iDestruct "Hfi" as "(%vs & %ws & -> & Hfi)".
+        iExists _.
         rewrite interp_frame_eq.
         cbn.
         iFrame.
         iExists _. iExists _.
         iSplit; eauto.
+        iPureIntro.
+        f_equal.
         admit.
         admit.
       }
