@@ -1,4 +1,3 @@
-(* Misc. lemmas that should be relocated to somewhere else *)
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
 From iris.proofmode Require Import base tactics classes.

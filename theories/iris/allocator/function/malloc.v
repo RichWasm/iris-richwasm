@@ -7,8 +7,8 @@ From iris.bi Require Export weakestpre.
 From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
 From RWasm.iris.allocator Require Export allocator_common.
-From RWasm.iris.allocator Require Import misc_relocate reprs.
-From RWasm.iris.allocator Require Import malloc_impl.
+From RWasm.iris Require Import util.
+From RWasm.iris.allocator Require Import reprs malloc_impl.
 Require Import RWasm.autowp.
 
 Import reprs.

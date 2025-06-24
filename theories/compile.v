@@ -29,10 +29,8 @@ Fixpoint list_flatten {A} (l : list (list A)) : list A :=
 
 Definition compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
   match typ with
-  | rwasm.Int rwasm.U rwasm.i32 => Some wasm.T_i32
-  | rwasm.Int rwasm.U rwasm.i64 => Some wasm.T_i64
-  | rwasm.Int rwasm.S rwasm.i32 => Some wasm.T_i32
-  | rwasm.Int rwasm.S rwasm.i64 => Some wasm.T_i64
+  | rwasm.Int _ rwasm.i32 => Some wasm.T_i32
+  | rwasm.Int _ rwasm.i64 => Some wasm.T_i64
   | rwasm.Float rwasm.f32 => Some wasm.T_f32
   | rwasm.Float rwasm.f64 => Some wasm.T_f64
   end.

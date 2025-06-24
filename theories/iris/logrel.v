@@ -1,5 +1,5 @@
 From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term subst debruijn num_repr autowp compile.
+From RWasm Require Import typing term subst debruijn num_repr autowp compile iris.util.
 Module RT := RWasm.term.
 Module T := RWasm.typing.
 
@@ -174,7 +174,10 @@ Program Definition interp_heap_value_struct : relationsO -n> leibnizO (list (RT.
       [∗ list] f;fbs ∈ fs;bss,
         let '(τ, sz) := f in
         let ws := read_value τ fbs in
-        rels_value rs τ (Stack ws)
+        ∃ sz',
+          ⌜sz = SizeConst sz'⌝ ∗
+          ⌜length fbs = (4 * sz')%nat⌝ ∗
+          rels_value rs τ (Stack ws)
   )%I.
 Next Obligation.
   solve_proper_prepare.
@@ -182,6 +185,7 @@ Next Obligation.
   apply big_sepL2_ne; intros.
   destruct y1.
   solve_iprop_ne.
+  do 4 Morphisms.f_equiv.
   apply H0.
 Qed.
 
@@ -314,15 +318,16 @@ Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
     end%I.
 
 Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
-  λne (L: leibnizO T.Local_Ctx) 
-      (WL: leibnizO wlocal_ctx)
-      (i: leibnizO instance)
-      (f: leibnizO frame),
-    (∃ vs wvs: list value, 
-        ⌜f = Build_frame (vs ++ wvs) i⌝ ∗ 
-        (* not right, throws out sizes with (map fst L) *)
-        ▷ interp_values rs (map fst L) (Stack vs) ∗
-        iris_logrel.interp_val WL (immV wvs))%I.
+  (λne (L: leibnizO T.Local_Ctx) 
+       (WL: leibnizO wlocal_ctx)
+       (i: leibnizO instance)
+       (f: leibnizO frame),
+     ↪[frame] f ∗
+     ∃ vs wvs: list value, 
+         ⌜f = Build_frame (vs ++ wvs) i⌝ ∗ 
+         (* not right, throws out sizes with (map fst L) *)
+         ▷ interp_values rs (map fst L) (Stack vs) ∗
+         iris_logrel.interp_val WL (immV wvs))%I.
 
 Program Definition interp_expr_0 (rs : relations) :
   leibnizO (list RT.Typ) -n>
@@ -416,9 +421,9 @@ Definition semantic_typing  :
   iProp Σ :=
   (λ S C F L WL es '(Arrow τs1 τs2) L',
     ∀ inst lh,
-      interp_inst S C inst ∗ interp_ctx L L' F inst lh -∗
+      interp_inst S C inst ∗
+      interp_ctx L L' F inst lh -∗
       ∀ f vs,
-        ↪[frame] f ∗
         interp_val τs1 vs ∗ 
         (* frame points to F ∗ *)
         interp_frame L WL inst f -∗
@@ -445,7 +450,7 @@ Lemma sniff_tuple Ss S C F L WL vs ves es τs :
   semantic_typing S C F L WL (to_e_list es) (Arrow [] τs) L.
 Proof.
   intros HSs HCv HCvs.
-  iIntros "HSv %inst %lh HI %f %vs0 (Hf & Hvs0 & HIf)".
+  iIntros "HSv %inst %lh HI %f %vs0 (Hvs0 & Hif)".
   rewrite interp_expr_eq.
   induction vs.
   - inversion HCv. subst.
@@ -727,6 +732,42 @@ Proof.
   - iIntros "((%vs & %Heq & _) & _)"; congruence.
   - iIntros "((%vs & %Heq & _) & _)"; congruence.
 Qed.
+Search Memdata.encode_int.
+
+Lemma byte_div_repr b bs:
+  Integers.Byte.repr (Integers.Byte.unsigned b + Memdata.int_of_bytes bs * 256) = b.
+Proof.
+Admitted.
+
+Lemma byte_div_skip b bs:
+  ((Integers.Byte.unsigned b + Memdata.int_of_bytes bs * 256) `div` 256)%Z = Memdata.int_of_bytes bs.
+Proof.
+Admitted.
+
+Lemma encode_decode_int :
+  forall sz bs,
+    length bs = sz ->
+    Memdata.encode_int sz (Memdata.decode_int bs) = bs.
+Proof.
+  clear GC_MEM LIN_MEM mems_diff.
+  induction sz; intros bs Hlen.
+  - destruct bs; simpl in Hlen; try lia.
+    reflexivity.
+  - destruct bs as [| b bs]; inversion Hlen.
+    revert IHsz.
+    unfold Memdata.encode_int, Memdata.decode_int.
+    unfold Memdata.rev_if_be.
+    Transparent Archi.big_endian.
+    unfold Archi.big_endian.
+    Opaque Archi.big_endian.
+    intros IH.
+    cbn.
+    f_equal.
+    + apply byte_div_repr.
+    + rewrite <- IH by auto.
+      rewrite byte_div_skip.
+      congruence.
+Qed.
 
 Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
   l = LocP ℓ LinMem ->
@@ -743,11 +784,10 @@ Proof.
   cbn in Hcomp.
   apply Some_inj in Hcomp.
   unfold semantic_typing.
-  iIntros "%inst %lh [Hinst Hctx] %f %vs (Hfr & Hval & Hloc)".
+  iIntros "%inst %lh [Hinst Hctx] %f %vs (Hval & Hfi)".
   rewrite interp_expr_eq.
   rewrite interp_frame_eq.
   unfold interp_val.
-  iClear "Hloc".
   iDestruct "Hval" as "[Htrap | (%vs' & %Hvs'eq & Hval)]".
   - admit.
   - rewrite -> Hτ.
@@ -774,11 +814,12 @@ Proof.
     rewrite big_sepL2_singleton.
     setoid_rewrite interp_value_eq.
     iEval (cbn) in "Hfields".
-    iDestruct "Hfields" as "(%i & %Hi)".
-
+    iDestruct "Hfields" as "(%sz' & %Hsz' & %Hlenbs & %i & %Hi)".
+    inversion Hsz'; subst sz'.
     (* Now we analyze the behavior of the compiled code. *)
     iAssert (⌜True⌝)%I as "HΦ". (* work around a bug in next_wp *)
     { done. }
+    iDestruct "Hfi" as "[Hfr Hfi]".
     next_wp.
     {
       iApply (wp_tee_local with "[$Hfr]").
@@ -789,7 +830,7 @@ Proof.
       {
         iApply (wp_wand with "[Hfr]").
         - iApply (wp_set_local with "[] [$Hfr]").
-          + admit.
+          + admit. (* need frame relation to say there's a slot *)
           + fill_imm_pred.
         - iIntros (v) "(-> & Hfr)".
           iFrame.
@@ -817,7 +858,7 @@ Proof.
     }
     iIntros "!> ((%vs & %contra & _) & _)"; discriminate contra.
     cbn beta.
-    iDestruct select (_ ∗ _)%I as "(%Hvs & (Hinst & Hctx) & Hbs)".
+    iDestruct select (_ ∗ _)%I as "(%Hvs & ((Hinst & Hctx) & Hbs) & Hfi)".
     inversion Hvs; subst.
     skip_sz 2.
     iApply (gc_bit_not_set_spec with "[$Hfr] [Hbs]");
@@ -854,9 +895,65 @@ Proof.
       }
       cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & Hbs)".
       inversion Hv'; subst v; clear Hv'.
-      iApply (wp_wand with "[Hbs]").
-      admit.
-      admit.
+      assert (i = Wasm_int.Int32.repr (Memdata.decode_int (take 4 b))).
+      {
+        by inversion Hi.
+      }
+      replace (flatten [b]) with b by (cbn; by rewrite seq.cats0).
+      rewrite wms_app; [|eauto].
+      iDestruct "Hbs" as "[Hb Hbs]".
+      destruct b as [| b0 [| b1 [| b2 [| b3 [| b4]]]]]; cbn in Hlenbs; try lia.
+      assert (Hbits: bits (VAL_int32 i) = [b0; b1; b2; b3]).
+      {
+        unfold bits.
+        subst.
+        unfold serialise_i32.
+        rewrite Wasm_int.Int32.unsigned_repr_eq.
+        rewrite OrdersEx.Z_as_OT.mod_small.
+        simpl take.
+        by rewrite encode_decode_int.
+        simpl take.
+        unfold Memdata.decode_int.
+        apply Memdata.int_of_bytes_range.
+      }
+      iApply (wp_wand with "[Hb Hfr]").
+      {
+        iApply wp_load.
+        - admit.
+        - admit.
+        - rewrite N.add_0_r.
+          unfold Wasm_int.Int32.iadd; rewrite Wasm_int.Int32.add_zero.
+          erewrite <- N_repr_uint by done.
+          rewrite -Hbits.
+          iFrame.
+          fill_imm_pred.
+      }
+      cbn beta.
+      iIntros (v) "[[-> Hb] Hfr]".
+      simpl of_val.
+      unfold wp_wasm_ctx.
+      iIntros (LI) "%Hfill".
+      cbn in Hfill.
+      move/eqseqP in Hfill.
+      subst LI.
+      iApply (wp_wand with "[Hfr]").
+      iApply (wp_label_value with "[$Hfr]"); eauto.
+      fill_imm_pred.
+      iIntros (v) "[-> Hfr]".
+      iExists _.
+      iSplit; auto.
+      {
+      iSplitR "Hfr".
+      - admit.
+      - iExists _.
+        rewrite interp_frame_eq.
+        cbn.
+        iFrame.
+        iExists _. iExists _.
+        iSplit; eauto.
+        admit.
+        admit.
+      }
       admit.
       admit.
     }
