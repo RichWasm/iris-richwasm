@@ -434,6 +434,32 @@ Require Import RWasm.compile.
 Lemma seq_map_map {A B} (f : A -> B) (l : list A) : seq.map f l = map f l.
 Admitted.
 
+Lemma Forall3_to_zip12
+  {X Y Z: Type}
+  (R: X -> Y -> Z -> Prop)
+  xs ys zs :
+  Forall3 R xs ys zs ->
+  Forall2 (fun '(x, y) z => R x y z) (zip xs ys) zs.
+Admitted.
+
+Lemma Forall3_to_zip23
+  {X Y Z: Type}
+  (R: X -> Y -> Z -> Prop)
+  xs ys zs :
+  Forall3 R xs ys zs ->
+  Forall2 (fun x '(y, z) => R x y z) xs (zip ys zs).
+Admitted.
+
+Lemma Forall3_from_zip12
+  {X Y Z: Type}
+  (R: X -> Y -> Z -> Prop)
+  xs ys zs :
+  length xs = length ys ->
+  Forall2 (fun '(x, y) z => R x y z) (zip xs ys) zs ->
+  Forall3 R xs ys zs.
+Proof.
+Admitted.
+
 Lemma Forall2_Forall3_mp2
   {A B C D : Type}
   (R : A -> B -> Prop)
@@ -486,6 +512,20 @@ Proof.
       apply (Forall2_Forall3_mp2 _ _ _ _ _ _ Hcomp) in Hsem.
       clear Hcomp.
       cbn beta in Hsem.
+      assert (Hwt: length wess = length τs).
+      {
+        rewrite -(Forall3_length_lm _ _ _ _ Hsem).
+        rewrite -(Forall3_length_lr _ _ _ _ Hsem).
+        done.
+      }
+      rewrite big_sepL2_flip.
+      rewrite big_sepL2_alt.
+      iSplit; [done|].
+      apply Forall3_to_zip23 in Hsem.
+      replace wess with (fst <$> (zip wess τs))
+        by (rewrite fst_zip; [done | lia]).
+      admit.
+
 Admitted.
 
 Theorem fundamental_property_value S C F L v vs τ ta :
