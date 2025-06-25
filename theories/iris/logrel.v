@@ -474,6 +474,16 @@ Lemma Forall2_Forall3_mp2
 Proof.
 Admitted.
 
+Lemma sniff_pair S1 S2 S C F L v1 v2 we1 we2 τ1 τ2 :
+  SplitStoreTypings [S1; S2] S ->
+  HasTypeValue S1 F v1 τ1 ->
+  HasTypeValue S2 F v2 τ2 ->
+  (⊢ semantic_typing S1 C F L [] (to_e_list (map BI_const we1)) (rwasm.Arrow [] [τ1]) L) ->
+  (⊢ semantic_typing S2 C F L [] (to_e_list (map BI_const we2)) (rwasm.Arrow [] [τ2]) L) ->
+  ⊢ interp_value τ1 {| stack_values := we1 |} ∗ interp_value τ1 (Stack we2).
+Proof.
+Admitted.
+
 Lemma sniff_tuple Ss S C F L WL vs wes τs :
   compile_value (Prod vs) = Some wes ->
   SplitStoreTypings Ss S ->
