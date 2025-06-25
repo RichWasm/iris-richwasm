@@ -1,8 +1,9 @@
 From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term annotated_term subst debruijn num_repr autowp.
+From RWasm Require Import typing term subst debruijn num_repr autowp compile iris.util.
 Module RT := RWasm.term.
-Module R := RWasm.annotated_term.
 Module T := RWasm.typing.
+
+Unset Universe Checking.
 
 From mathcomp Require Import ssreflect ssrbool eqtype seq.
 From iris.program_logic Require Import language.
@@ -58,7 +59,8 @@ Ltac fill_goal :=
   | |- environments.envs_entails _ ?E =>
       is_evar E;
       curry_hyps;
-      iApply wand_refl
+      try (iApply wand_refl; solve_constraints);
+      instantiate (1:= ⌜True⌝%I); done
   end.
 
 Ltac fill_vals_pred :=
@@ -67,8 +69,28 @@ Ltac fill_vals_pred :=
       fill_vals_pred' vs; iSplitR; [done | fill_goal]
   end.
 
+Definition typ_size (t: value_type) : nat := 
+  match t with
+  | T_i32
+  | T_f32 => 4
+  | T_i64
+  | T_f64 => 8
+  end.
+  
+Fixpoint wasm_deser_list (bs: bytes) (vt: list value_type) : list value :=
+  match vt with
+  | vt :: vts => 
+      wasm_deserialise (take (typ_size vt) bs) vt :: wasm_deser_list (drop (typ_size vt) bs) vts
+  | [] => []
+  end.
+  
+Definition read_value (τ: RT.Typ) (bs: bytes) : list value :=
+  match compile_typ τ with
+  | Some vt => wasm_deser_list bs vt
+  | None => []
+  end.
+
 Class Read := {
-  read_value : RT.Typ -> bytes -> list value;
   read_tag : bytes -> nat;
 }.
 
@@ -152,7 +174,10 @@ Program Definition interp_heap_value_struct : relationsO -n> leibnizO (list (RT.
       [∗ list] f;fbs ∈ fs;bss,
         let '(τ, sz) := f in
         let ws := read_value τ fbs in
-        rels_value rs τ (Stack ws)
+        ∃ sz',
+          ⌜sz = SizeConst sz'⌝ ∗
+          ⌜length fbs = (4 * sz')%nat⌝ ∗
+          rels_value rs τ (Stack ws)
   )%I.
 Next Obligation.
   solve_proper_prepare.
@@ -160,6 +185,7 @@ Next Obligation.
   apply big_sepL2_ne; intros.
   destruct y1.
   solve_iprop_ne.
+  do 4 Morphisms.f_equiv.
   apply H0.
 Qed.
 
@@ -253,13 +279,16 @@ Definition interp_pre_value_ref_own
   λne (sz : leibnizO RT.Size) (ψ : leibnizO RT.HeapType) (z : leibnizO i32),
     ⌜true⌝%I.
 
+Definition word_aligned (n: N) : Prop :=
+  (4 | n)%N.
+
 Definition ptr_repr (l: RT.Loc) (i: i32) : Prop :=
   match l with
   | RT.LocV v => False
   | RT.LocP ℓ GCMem =>
-      N_repr (ℓ+1) i
+      N_repr (ℓ+1) i /\ word_aligned ℓ
   | RT.LocP ℓ LinMem =>
-      N_repr ℓ i
+      N_repr ℓ i /\ word_aligned ℓ
   end.
 
 Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
@@ -272,7 +301,7 @@ Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
     | RT.Num (RT.Float RT.f64) => ⌜∃ f, vs = [VAL_float64 f]⌝
     | RT.TVar _ => ⌜False⌝
     | RT.Unit => ⌜False⌝
-    | RT.ProdT _ => ⌜False⌝
+    | RT.ProdT τs => ∃ vss, ⌜vs = flatten vss⌝ ∗ [∗ list] τ;vs ∈ τs;vss, rels_value rs τ (Stack vs)
     | RT.CoderefT _ => ⌜False⌝
     | RT.Rec _ _ => ⌜False⌝
     | RT.PtrT _ => ⌜False⌝
@@ -289,24 +318,16 @@ Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
     end%I.
 
 Definition interp_frame_0 (rs : relations) : leibnizO T.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
-  λne (L: leibnizO T.Local_Ctx) 
-      (WL: leibnizO wlocal_ctx)
-      (i: leibnizO instance)
-      (f: leibnizO frame),
-    (∃ vs wvs: list value, 
-        ⌜f = Build_frame (vs ++ wvs) i⌝ ∗ 
-        (* not right, throws out sizes with (map fst L) *)
-        ▷ interp_values rs (map fst L) (Stack vs) ∗
-        iris_logrel.interp_val WL (immV wvs))%I.
-
-
-Locate "WP".
-
-
-Search wp Proper.
-Check wp_ne.
-Locate "λne".
-Check OfeMor.
+  (λne (L: leibnizO T.Local_Ctx) 
+       (WL: leibnizO wlocal_ctx)
+       (i: leibnizO instance)
+       (f: leibnizO frame),
+     ↪[frame] f ∗
+     ∃ vs wvs: list value, 
+         ⌜f = Build_frame (vs ++ wvs) i⌝ ∗ 
+         (* not right, throws out sizes with (map fst L) *)
+         ▷ interp_values rs (map fst L) (Stack vs) ∗
+         iris_logrel.interp_val WL (immV wvs))%I.
 
 Program Definition interp_expr_0 (rs : relations) :
   leibnizO (list RT.Typ) -n>
@@ -400,20 +421,477 @@ Definition semantic_typing  :
   iProp Σ :=
   (λ S C F L WL es '(Arrow τs1 τs2) L',
     ∀ inst lh,
-      interp_inst S C inst ∗ interp_ctx L L' F inst lh -∗
+      interp_inst S C inst ∗
+      interp_ctx L L' F inst lh -∗
       ∀ f vs,
-        ↪[frame] f ∗
         interp_val τs1 vs ∗ 
         (* frame points to F ∗ *)
         interp_frame L WL inst f -∗
         interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
 
 Require Import RWasm.compile.
+
+Lemma seq_map_map {A B} (f : A -> B) (l : list A) : seq.map f l = map f l.
+Admitted.
+
+Lemma Forall3_to_zip12
+  {X Y Z: Type}
+  (R: X -> Y -> Z -> Prop)
+  xs ys zs :
+  Forall3 R xs ys zs ->
+  Forall2 (fun '(x, y) z => R x y z) (zip xs ys) zs.
+Admitted.
+
+Lemma Forall3_to_zip23
+  {X Y Z: Type}
+  (R: X -> Y -> Z -> Prop)
+  xs ys zs :
+  Forall3 R xs ys zs ->
+  Forall2 (fun x '(y, z) => R x y z) xs (zip ys zs).
+Admitted.
+
+Lemma Forall3_from_zip12
+  {X Y Z: Type}
+  (R: X -> Y -> Z -> Prop)
+  xs ys zs :
+  length xs = length ys ->
+  Forall2 (fun '(x, y) z => R x y z) (zip xs ys) zs ->
+  Forall3 R xs ys zs.
+Proof.
+Admitted.
+
+Lemma Forall2_Forall3_mp2
+  {A B C D : Type}
+  (R : A -> B -> Prop)
+  (P : C -> B -> D -> Prop)
+  (l1 : list A)
+  (l2 : list B)
+  (l3 : list C)
+  (l4 : list D) :
+  Forall2 R l1 l2 ->
+  Forall3 (fun x y z => forall a, R y a -> P x a z) l3 l1 l4 ->
+  Forall3 (fun x a z => P x a z) l3 l2 l4.
+Proof.
+Admitted.
+
+Lemma sniff_pair S1 S2 S C F L v1 v2 we1 we2 τ1 τ2 :
+  SplitStoreTypings [S1; S2] S ->
+  HasTypeValue S1 F v1 τ1 ->
+  HasTypeValue S2 F v2 τ2 ->
+  (⊢ semantic_typing S1 C F L [] (to_e_list (map BI_const we1)) (rwasm.Arrow [] [τ1]) L) ->
+  (⊢ semantic_typing S2 C F L [] (to_e_list (map BI_const we2)) (rwasm.Arrow [] [τ2]) L) ->
+  ⊢ interp_value τ1 {| stack_values := we1 |} ∗ interp_value τ1 (Stack we2).
+Proof.
+Admitted.
+
+Lemma sniff_tuple Ss S C F L WL vs wes τs :
+  compile_value (Prod vs) = Some wes ->
+  SplitStoreTypings Ss S ->
+  Forall3 (fun S' 'v t =>
+             forall ve, compile_value v = Some ve ->
+             ⊢ semantic_typing S' C F L [] (to_e_list (map BI_const ve)) (rwasm.Arrow [] [t]) L)
+          Ss vs τs ->
+  ⊢ semantic_typing S C F L WL (to_e_list (map BI_const wes)) (Arrow [] [ProdT τs]) L.
+Proof.
+  intros Hcomp HSs Hsem.
+  iIntros.
+  iIntros (inst lh) "[Hinst Hctx] %f %vs' (Hval & Hframe)".
+  rewrite interp_expr_eq.
+  unfold interp_expr_0.
+  cbn.
+  iDestruct "Hval" as "[-> | (%ws & -> & %wss & -> & Hvalue)]".
+  - admit.
+  - cbn.
+    rewrite big_sepL2_nil_inv_l. iDestruct "Hvalue" as "->".
+    cbn.
+    unfold compile_value in Hcomp. apply fmap_Some in Hcomp.
+    destruct Hcomp as [wess [Hcomp ->]].
+    fold compile_value in Hcomp.
+    apply mapM_Some in Hcomp.
+    iApply wp_value.
+    + instantiate (1 := immV (flatten wess)). unfold IntoVal. cbn.
+      unfold v_to_e_list. unfold to_e_list.
+      rewrite !seq_map_map. by rewrite map_map.
+    + iFrame.
+      iExists (flatten wess). iSplitR; first done.
+      iExists [flatten wess]. iSplitR.
+      { cbn. by rewrite cats0. }
+      cbn. iFrame.
+      rewrite interp_value_eq. cbn.
+      iExists wess. iSplitR; first done.
+      apply (Forall2_Forall3_mp2 _ _ _ _ _ _ Hcomp) in Hsem.
+      clear Hcomp.
+      cbn beta in Hsem.
+      assert (Hwt: length wess = length τs).
+      {
+        rewrite -(Forall3_length_lm _ _ _ _ Hsem).
+        rewrite -(Forall3_length_lr _ _ _ _ Hsem).
+        done.
+      }
+      rewrite big_sepL2_flip.
+      rewrite big_sepL2_alt.
+      iSplit; [done|].
+      apply Forall3_to_zip23 in Hsem.
+      replace wess with (fst <$> (zip wess τs))
+        by (rewrite fst_zip; [done | lia]).
+      unfold semantic_typing in  Hsem.
+      eapply Forall2_impl in Hsem.
+      instantiate (1 := λ S '(wes, τ), ⊢ (interp_inst S C inst ∗ interp_ctx L L F inst (LH_base [] []) -∗ ?[Q'])%I) in Hsem.
+      2:intros S0 [wes τ] P; iApply P.
+      admit.
+
+Admitted.
+
+Theorem fundamental_property_value S C F L v vs τ ta :
+  HasTypeValue S F v τ ->
+  ta = rwasm.Arrow [] [τ] ->
+  compile_value v = Some vs ->
+  ⊢ semantic_typing S C F L [] (to_e_list (map BI_const vs)) ta L.
+Proof.
+  intros Htyp Hta Hcomp.
+  subst ta.
+  generalize dependent vs.
+  induction Htyp using HasTypeValue_ind'.
+  - admit.
+  - admit.
+  - intros vs' Hcomp.
+    apply fmap_Some in Hcomp.
+    fold compile_value in Hcomp.
+    destruct Hcomp as [vs'' [Hcomp ->]].
+    apply sniff_tuple with (Ss := Ss) (vs := vs).
+    3: assumption.
+    + cbn. by rewrite Hcomp.
+    + assumption.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
+Theorem fundamental_property S C F L e es tf L' :
+  HasTypeInstr S C F L e tf L' ->
+  compile_instr [] 0 GC_MEM LIN_MEM e = Some es ->
+  ⊢ semantic_typing S C F L [] (to_e_list es) tf L'.
+Proof.
+  intros Htyp Hcomp.
+  induction Htyp.
+  - cbn in Hcomp. apply fmap_Some in Hcomp.
+    destruct Hcomp as [vs' [Hcomp ->]].
+    by apply fundamental_property_value with (v := v) (τ := t).
+  - admit.
+Admitted.
+
+Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
+  (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ WP (es : iris.expr) @ NotStuck ; ⊤ {{ v, Φ v }})%I (at level 50).
+
+Notation "{{{{ P }}}} es @ E {{{{ v , Q }}}}" :=
+  (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ (WP (es : iris.expr) @ NotStuck ; E {{ v, Φ v }}))%I (at level 50).
+
+Definition if_spec tf e_then e_else k φ ψ f : ⊢
+  {{{{ ⌜k ≠ Wasm_int.int_zero i32m⌝ ∗ φ ∗ ↪[frame] f }}}}
+    [AI_basic (BI_block tf e_then)] 
+  {{{{ w, ψ w }}}} -∗
+  {{{{ ⌜k = Wasm_int.int_zero i32m⌝ ∗ φ ∗ ↪[frame] f }}}}
+    [AI_basic (BI_block tf e_else)]
+  {{{{ w, ψ w }}}} -∗
+  {{{{ φ ∗ ↪[frame] f }}}} 
+    to_e_list [BI_const (VAL_int32 k); BI_if tf e_then e_else]
+  {{{{ w, ψ w }}}}.
+Proof.
+  iIntros "#Hthen #Helse !>" (Φ) "[Hφ Hfr] HΦ".
+  destruct (k == Wasm_int.int_zero i32m) eqn:Heq; move/eqP in Heq.
+  - iApply (wp_if_false with "[$Hfr]") => //.
+    iIntros "!> Hfr".
+    iApply ("Helse" with "[$Hfr $Hφ //] [$]").
+  - iApply (wp_if_true with "[$Hfr]") => //.
+    iIntros "!> Hfr".
+    iApply ("Hthen" with "[$Hfr $Hφ //] [$]").
+Qed.
+
+Lemma wp_take_drop {E ϕ es} n:
+  WP es @ E {{ w, ϕ w }} ⊣⊢
+  WP (take n es) ++ (drop n es) @ E {{ w, ϕ w }}.
+Proof.
+  by rewrite (take_drop n es).
+Qed.
+
+Lemma even_iff_land1:
+  forall p: positive,
+    ((2 | p) <-> Pos.land p 1 = 0%N)%positive.
+Proof using.
+  clear H GC_MEM LIN_MEM mems_diff.
+  induction p; (split; [intros Hdiv| intros Hand]).
+  - destruct Hdiv as [p' Hp'].
+    lia.
+  - unfold Pos.land in Hand.
+    lia.
+  - reflexivity.
+  - exists p.
+    lia.
+  - inversion Hdiv.
+    lia.
+  - inversion Hand.
+Qed.
+
+Lemma odd_iff_land1:
+  forall p: positive,
+    (¬(2 | p) <-> Pos.land p 1 = 1%N)%positive.
+Proof using.
+  clear H GC_MEM LIN_MEM mems_diff.
+  induction p; (split; [intros Hdiv| intros Hand]).
+  - reflexivity.
+  - intros [d Hdiv].
+    lia.
+  - exfalso; apply Hdiv.
+    exists p; lia.
+  - inversion Hand.
+  - reflexivity.
+  - intros [d Hdiv].
+    lia.
+Qed.
+
+Lemma gc_ptr_parity ℓ l32:
+  ptr_repr (LocP ℓ GCMem) l32 ->
+  wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) = Wasm_int.int_zero i32m.
+Proof.
+  clear GC_MEM LIN_MEM mems_diff.
+  unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
+  intros [Hrepr Hdiv].
+  cbn.
+  assert (¬ (2 | Wasm_int.Int32.unsigned l32))%Z.
+  {
+    destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    rewrite -(Z2N.id intval); [| lia].
+    rewrite -Hconv.
+    rewrite N2Z.inj_add.
+    cbn.
+    intros [ℓ' Hev].
+    destruct Hdiv; subst ℓ.
+    lia.
+  }
+  destruct (Wasm_int.Int32.unsigned l32) as [|p32|q32] eqn:Hl32.
+  - destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    rewrite Hl32 in Hconv.
+    lia.
+  - replace (Pos.land p32 1) with 1%N; [done |].
+    symmetry.
+    eapply odd_iff_land1.
+    by rewrite Z.divide_Zpos in H0.
+  - destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    rewrite Hl32 in Hconv.
+    lia.
+Qed.
+
+Lemma lin_ptr_parity ℓ l32:
+  ptr_repr (LocP ℓ LinMem) l32 ->
+  wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) <> Wasm_int.int_zero i32m.
+Proof.
+  clear GC_MEM LIN_MEM mems_diff.
+  unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
+  intros [Hrepr Hdiv].
+  cbn.
+  assert (2 | Wasm_int.Int32.unsigned l32)%Z.
+  {
+    destruct Hrepr as [Hbdd Hconv].
+    destruct l32; cbn in *.
+    destruct Hdiv as [d Hdiv].
+    exists (Z.of_N d * 2)%Z.
+    lia.
+  }
+  destruct (Wasm_int.Int32.unsigned l32) as [|p32|q32] eqn:Hl32.
+  - done.
+  - replace (Pos.land p32 1) with 0%N; [done |].
+    symmetry.
+    eapply even_iff_land1.
+    by rewrite Z.divide_Zpos in H0.
+  - destruct l32; cbn in *; lia.
+Qed.
+
+Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 :
+  f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
+  ptr_repr (LocP ℓ GCMem) l32 ->
+  ⊢ ↪[frame] f -∗
+    ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{ w, ψ w }}) -∗
+    WP to_e_list (if_gc_bit_set ref_tmp ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
+Proof.
+  intros Href Hrepr.
+  iIntros "Hfr Hbranch".
+  iAssert emp%I as "HΦ";[done|].
+  next_wp.
+  {
+    iApply (wp_wand with "[Hfr]").
+    {
+      iApply (wp_get_local with "[] [$Hfr]"); eauto.
+      fill_imm_pred.
+    }
+    iIntros (v) "(%Hv & Hfr)".
+    iFrame.
+    iExists [VAL_int32 l32].
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+  inversion Hv; clear Hv; subst v.
+  next_wp.
+  {
+    iApply (wp_binop with "[$Hfr]").
+    eauto.
+    iIntros "!>".
+    iExists _.
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+  inversion Hv; clear Hv; subst v.
+  next_wp.
+  { 
+    iApply (wp_testop_i32 with "[$Hfr]").
+    eauto.
+    iIntros "!>".
+    iExists _.
+    iSplit; [eauto|].
+    iSplit; [eauto|].
+    fill_vals_pred.
+  }
+  {
+    cbn.
+    iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+    inversion Hv; subst v; clear Hv.
+    apply gc_ptr_parity in Hrepr.
+    rewrite Hrepr.
+    iApply (wp_if_false with "[$Hfr]").
+    auto.
+    iIntros "!> Hfr".
+    iApply ("Hφ" with "[$]").
+  }
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+Qed.
+
+Lemma read_value_deserialize_i32 sgn b i:
+  read_value (Num (Int sgn RT.i32)) b = [VAL_int32 i] ->
+  wasm_deserialise b T_i32 = VAL_int32 i.
+Proof.
+Admitted.
+
+Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 :
+  f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
+  ptr_repr (LocP ℓ LinMem) l32 ->
+  ⊢ ↪[frame] f -∗
+    ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) lin_branch)] @ E {{ w, ψ w }}) -∗
+    WP to_e_list (if_gc_bit_set ref_tmp ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
+Proof.
+  intros Href Hrepr.
+  iIntros "Hfr Hφ".
+  cbn.
+  iAssert emp%I as "HΦ"; [done|].
+  next_wp.
+  {
+    iApply (wp_wand with "[Hfr]").
+    {
+      iApply (wp_get_local with "[] [$Hfr]"); eauto.
+      fill_imm_pred.
+    }
+    iIntros (v) "(%Hv & Hfr)".
+    iFrame.
+    iExists [VAL_int32 l32].
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+  inversion Hv; clear Hv; subst v.
+  next_wp.
+  {
+    iApply (wp_binop with "[$Hfr]").
+    eauto.
+    iIntros "!>".
+    iExists _.
+    iSplit; [auto|].
+    iSplit; [auto|].
+    fill_vals_pred.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+  inversion Hv; clear Hv; subst v.
+  next_wp.
+  { 
+    iApply (wp_testop_i32 with "[$Hfr]").
+    eauto.
+    iIntros "!>".
+    iExists _.
+    iSplit; [eauto|].
+    iSplit; [eauto|].
+    fill_vals_pred.
+  }
+  {
+    cbn.
+    iDestruct select (_ ∗ _)%I as "(%Hv & Hφ)".
+    inversion Hv; subst v; clear Hv.
+    pose proof (lin_ptr_parity _ _ Hrepr) as Hnz.
+    iApply (wp_if_true with "[$Hfr]").
+    apply Hnz.
+    iIntros "!> Hfr".
+    iApply ("Hφ" with "[$]").
+  }
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+  - iIntros "((%vs & %Heq & _) & _)"; congruence.
+Qed.
+
+Lemma byte_div_repr b bs:
+  Integers.Byte.repr (Integers.Byte.unsigned b + Memdata.int_of_bytes bs * 256) = b.
+Proof.
+Admitted.
+
+Lemma byte_div_skip b bs:
+  ((Integers.Byte.unsigned b + Memdata.int_of_bytes bs * 256) `div` 256)%Z = Memdata.int_of_bytes bs.
+Proof.
+Admitted.
+
+Lemma encode_decode_int :
+  forall sz bs,
+    length bs = sz ->
+    Memdata.encode_int sz (Memdata.decode_int bs) = bs.
+Proof.
+  clear GC_MEM LIN_MEM mems_diff.
+  induction sz; intros bs Hlen.
+  - destruct bs; simpl in Hlen; try lia.
+    reflexivity.
+  - destruct bs as [| b bs]; inversion Hlen.
+    revert IHsz.
+    unfold Memdata.encode_int, Memdata.decode_int.
+    unfold Memdata.rev_if_be.
+    Transparent Archi.big_endian.
+    unfold Archi.big_endian.
+    Opaque Archi.big_endian.
+    intros IH.
+    cbn.
+    f_equal.
+    + apply byte_div_repr.
+    + rewrite <- IH by auto.
+      rewrite byte_div_skip.
+      congruence.
+Qed.
+
 Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
   eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
-  compile_instr [] 0 0 1 (Instr (StructGet 0) eff) = Some es ->
+  compile_instr [] 0 0 1 (RT.StructGet eff 0) = Some es ->
   ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
 Proof.
   intros Hl Hτ Heff.
@@ -424,13 +902,12 @@ Proof.
   cbn in Hcomp.
   apply Some_inj in Hcomp.
   unfold semantic_typing.
-  iIntros "%inst %lh [Hinst Hctx] %f %vs (Hfr & Hval & Hloc)".
+  iIntros "%inst %lh [Hinst Hctx] %f %vs (Hval & Hfi)".
   rewrite interp_expr_eq.
   rewrite interp_frame_eq.
   unfold interp_val.
-  iClear "Hloc".
   iDestruct "Hval" as "[Htrap | (%vs' & %Hvs'eq & Hval)]".
-  - admit.
+  - admit. (* Should prove a lemma about traps being in interp_expr. *)
   - rewrite -> Hτ.
     cbn.
     (* First we collect the facts we need from the context. *)
@@ -438,11 +915,14 @@ Proof.
     iPoseProof (big_sepL2_length with "[$Hval]") as "%Hlens".
     destruct wss as [|ws wss]; cbn in Hlens; try discriminate Hlens.
     destruct wss; cbn in Hlens; try discriminate Hlens.
+    clear Hlens.
+    subst vs vs'.
     rewrite big_sepL2_singleton.
     setoid_rewrite interp_value_eq.
     iEval (cbn) in "Hval".
-    iDestruct "Hval" as "(%bs & %l32 & -> & %Hlrep & Hptr & %bss & %bs_rest & %Hconcat & Hfields)".
-    subst vs' vs.
+    iDestruct "Hval" as "(%bs & %l32 & -> & %Hrep & Hbs & %bss & %bs_rest & %Hconcat & Hfields)".
+    pose proof Hrep as Hrep'.
+    destruct Hrep' as [Hlrep Hlalign].
     simpl flatten.
     simpl of_val.
     rewrite <- Hcomp.
@@ -452,22 +932,45 @@ Proof.
     rewrite big_sepL2_singleton.
     setoid_rewrite interp_value_eq.
     iEval (cbn) in "Hfields".
-    iDestruct "Hfields" as "(%i & %Hi)".
-
+    iDestruct "Hfields" as "(%sz' & %Hsz' & %Hlenbs & %i & %Hi)".
+    inversion Hsz'; subst sz'.
     (* Now we analyze the behavior of the compiled code. *)
     iAssert (⌜True⌝)%I as "HΦ". (* work around a bug in next_wp *)
     { done. }
-    next_wp.
+    iDestruct "Hfi" as "[Hfr Hfi]".
+
+Tactic Notation "seq_sz" constr(Hs) constr(n) constr(m) :=
+  autowp.wp_chomp n; iApply
+   (wp_seq _ _ _ (λ w, ((∃ vs, ⌜w = immV vs⌝ ∗ ⌜length vs = m⌝ ∗ _ vs) ∗  ↪[frame]_)%I));
+   iSplitR
+  ;
+  first 
+  last.
+
+Tactic Notation "next_wp'" constr(Hs) :=
+  match get_shp with
+  | Shape _ _ _ 0 => fail
+  | Shape 0 ?use ?outs (Datatypes.S ?rest) =>
+      seq_sz Hs use outs; [ iRename select ( ↪[frame]_) into "Hfr"; iSplitR Hs |  ];
+       [  | iIntros ( w ) "((%vs & -> & % & ?) & Hfr)"; destruct_length_eqn' |  ]
+  | Shape ?to_skip ?use ?outs 0 =>
+      skip_sz to_skip
+  | Shape ?to_skip ?use ?outs (Datatypes.S ?rest) =>
+      seq_sz Hs use outs; [ iRename select ( ↪[frame]_) into "Hfr"; iSplitR Hs |  ];
+       [  | iIntros ( w ) "((%vs & -> & % & ?) & Hfr)"; destruct_length_eqn' |  ] ; first 
+  skip_sz to_skip
+  | Unknown => fail
+  end.
+
+    next_wp' "HΦ Hinst Hctx Hfi Hbs".
     {
       iApply (wp_tee_local with "[$Hfr]").
       iIntros "!> Hfr".
-      let e := get_shp in idtac e.
-      Print next_wp.
       next_wp.
       {
         iApply (wp_wand with "[Hfr]").
         - iApply (wp_set_local with "[] [$Hfr]").
-          + admit.
+          + admit. (* need frame relation to say there's a slot *)
           + fill_imm_pred.
         - iIntros (v) "(-> & Hfr)".
           iFrame.
@@ -478,46 +981,138 @@ Proof.
       - iIntros "!> ((%vs & %contra & _) & _)". discriminate.
     }
     cbn beta.
-    iRename select (_ ∗ _)%I into "H".
-    iDestruct "H" as "(%Hv & (Hinst & Hctx) & Hptr)".
+    iDestruct select (_ ∗ _)%I as "(%Hv & Hptr)".
     inversion Hv. subst v.
-    next_wp.
+    skip_sz 1.
+    iApply (gc_bit_not_set_spec with "[$Hfr]");
+      [by rewrite set_nth_read | eauto |].
     {
+      iIntros "!> Hfr".
+      rewrite -(app_nil_l [AI_basic _]).
+      iApply (wp_block with "[$Hfr]") => //.
+      iIntros "!> Hfr".
+      iApply wp_wasm_empty_ctx.
+      iApply wp_label_push_nil.
+      iApply wp_ctx_bind; [done|].
+      iClear "Hptr".
+      next_wp' "Hinst Hctx Hfi Hbs".
+      { 
+        iApply wp_get_local; eauto.
+        by rewrite set_nth_read.
+        iIntros "!>".
+        iExists _.
+        iSplit; auto.
+        iSplit; auto.
+        fill_vals_pred.
+      }
+      cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & _)".
+      inversion Hv'; subst v; clear Hv'.
+      next_wp' "Hinst Hctx Hfi".
+      { 
+        iApply (wp_binop with "[$Hfr] [Hbs]").
+        eauto.
+        iIntros "!>". iExists _.
+        iSplit; auto.
+        iSplit; auto.
+        fill_vals_pred.
+      }
+      cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & Hbs)".
+      inversion Hv'; subst v; clear Hv'.
+      assert (i = Wasm_int.Int32.repr (Memdata.decode_int (take 4 b))).
+      {
+        by inversion Hi.
+      }
+
+      assert (Hℓ: ℓ = (Wasm_int.N_of_uint i32m (Wasm_int.Int32.iadd l32 (Wasm_int.Int32.repr 0%nat)) + 0)%N).
+      {
+        rewrite N.add_0_r.
+        unfold Wasm_int.Int32.iadd; rewrite Wasm_int.Int32.add_zero.
+        erewrite <- N_repr_uint; done.
+      }
+      subst bs.
+      replace (flatten [b]) with b by (cbn; by rewrite seq.cats0).
+      rewrite wms_app; [|eauto].
+      iDestruct "Hbs" as "[Hb Hbs]".
+      destruct b as [| b0 [| b1 [| b2 [| b3 [| b4]]]]]; cbn in Hlenbs; try lia.
+      assert (Hbits: bits (VAL_int32 i) = [b0; b1; b2; b3]).
+      {
+        unfold bits.
+        subst.
+        unfold serialise_i32.
+        rewrite Wasm_int.Int32.unsigned_repr_eq.
+        rewrite OrdersEx.Z_as_OT.mod_small.
+        simpl take.
+        by rewrite encode_decode_int.
+        simpl take.
+        unfold Memdata.decode_int.
+        apply Memdata.int_of_bytes_range.
+      }
+      simpl flatten.
+      iEval (rewrite Hℓ -Hbits) in "Hb".
+      iApply (wp_wand with "[Hb Hfr]").
+      {
+        iApply wp_load; try iFrame.
+        - done.
+        - cbn.
+          admit. (* need interp_frame to say where LIN_MEM and GC_MEM are! or interp_inst? *)
+        - fill_imm_pred.
+      }
+      cbn beta.
+      iIntros (v) "[[-> Hb] Hfr]".
+      iEval (rewrite -Hℓ) in "Hb".
+      simpl of_val.
+      unfold wp_wasm_ctx.
+      iIntros (LI) "%Hfill".
+      cbn in Hfill.
+      move/eqseqP in Hfill.
+      subst LI.
       iApply (wp_wand with "[Hfr]").
-      iApply (wp_get_local with "[] [$Hfr]"); eauto.
-      by rewrite set_nth_read.
+      iApply (wp_label_value with "[$Hfr]"); eauto.
       fill_imm_pred.
-      iIntros (w) "(-> & Hfr)".
-      iFrame.
+      iIntros (v) "[-> Hfr]".
       iExists _.
-      iSplit; [|iSplit]; try done.
-      fill_vals_pred.
+      iCombine "Hb" "Hbs" as "Hbs".
+      iEval (rewrite Hbits) in "Hbs".
+      rewrite -wms_app.
+      iSplit; auto.
+      {
+        iSplitR "Hfr Hfi".
+        - iExists [[VAL_int32 l32]; [VAL_int32 i]].
+          iSplit =>//.
+          rewrite !big_sepL2_cons.
+          iSplitL; [| by eauto].
+          iEval (cbn).
+          iExists _.
+          iExists _.
+          iFrame.
+          iSplit; eauto.
+          iSplit; eauto.
+          iExists _. iExists _. iSplit;
+            [iPureIntro; f_equal; by instantiate (1:= [[b0;b1;b2;b3]])|].
+          cbn.
+          iFrame.
+          iExists _.
+          iSplit; [by eauto|].
+          iSplit; [done|].
+          rewrite Hi interp_value_eq; eauto.
+        - iDestruct "Hfi" as "(%vs & %ws & -> & Hfi)".
+          iExists _.
+          rewrite interp_frame_eq.
+          cbn.
+          iFrame.
+          iExists _. iExists _.
+          iSplit; eauto.
+          + iPureIntro.
+            f_equal.
+            admit. (* frame stuff *)
+          + admit. (* more frame stuff *)
+      }
+      reflexivity.
+      admit. (* trap condition *)
+      admit. (* trap condition *)
     }
-    iIntros "!> ((%vs & %contra & _) & _)"; discriminate contra.
-    next_wp.
-    {
-      iApply (wp_wand with "[Hfr]").
-      iApply (wp_get_local with "[] [$Hfr]"); eauto.
-      by rewrite set_nth_read.
-      fill_imm_pred.
-      iIntros (w) "(-> & Hfr)".
-      iFrame.
-      iExists _.
-      iSplit; [|iSplit]; try done.
-      cbn.
-      fill_vals_pred.
-    }
-    iIntros "!> ((%vs & %contra & _) & _)". discriminate.
-    cbn beta.
-    iRename select (_ ∗ _)%I into "H".
-    iDestruct "H" as "(%Hv1 & %Hv2 & (Hinst & Hctx) & Hptr)".
-    inversion Hv1; subst.
-    inversion Hv2; subst.
-    clear Hv1 Hv2 H1 H2 H0 Hv.
-    cbn.
-    next_wp.
-    admit.
-    admit.
-Abort.
+    admit. (* trap condition *)
+    admit. (* trap condition *)
+Admitted.
 
 End logrel.

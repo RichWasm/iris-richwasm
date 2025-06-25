@@ -8,6 +8,8 @@ From Coq Require Import Lists.List Relations.Relations Classes.RelationClasses
          Lists.SetoidList ZArith Arith Sorting.Permutation SetoidPermutation
          FunInd.
 
+From stdpp Require list.
+
 Require Import RWasm.EnsembleUtil RWasm.tactics RWasm.functions. 
 
 Import ListNotations.
@@ -43,14 +45,8 @@ Fixpoint mapopt {A} (al: list (option A)) : option (list A) :=
 
 (* Forall3 *)
 
-Inductive Forall3 {A B C : Type} (R : A -> B -> C -> Prop) :
-  list A -> list B -> list C -> Prop :=
-    Forall3_nil : Forall3 R [] [] []
-  | Forall3_cons :
-      forall (x : A) (y : B) (z : C) (l : list A) (l' : list B) (l'' : list C),
-        R x y z ->
-        Forall3 R l l' l'' -> Forall3 R (x :: l) (y :: l') (z :: l'').
-
+Definition Forall3 {A B C : Type} (R : A -> B -> C -> Prop) :=
+  stdpp.list.Forall3 R.
 
 
 Lemma Forall3_length {A B C : Type} (R : A -> B -> C -> Prop) l1 l2 l3 :

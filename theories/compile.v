@@ -1,55 +1,48 @@
 From Coq Require Import List.
+Require Import mathcomp.ssreflect.seq.
 Require Import stdpp.base.
+Require Import stdpp.list.
 Require Import stdpp.option.
 Import ListNotations.
-From RWasm Require term annotated_term.
+From RWasm Require term.
 From Wasm Require datatypes.
 Require Import Wasm.numerics.
 Require Import BinNat.
 
 Module rwasm := term.
-Module AR := annotated_term.
 Module wasm := datatypes.
 Require Import stdpp.list.
 
-Fixpoint option_of_list {A} (l : list (option A)) : option (list A) :=
-  match l with
-  | [] => Some []
-  | None :: _ => None
-  | Some x :: xs =>
-    rest ← option_of_list xs;
-    mret (x :: rest)
-  end.
-
-Fixpoint list_flatten {A} (l : list (list A)) : list A :=
-  match l with
-  | [] => []
-  | x :: xs => x ++ (list_flatten xs)
-  end.
-
-Fixpoint compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
+Definition compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
   match typ with
-  | rwasm.Int rwasm.U rwasm.i32 => Some wasm.T_i32
-  | rwasm.Int rwasm.U rwasm.i64 => Some wasm.T_i64
-  | rwasm.Int rwasm.S rwasm.i32 => Some wasm.T_i32
-  | rwasm.Int rwasm.S rwasm.i64 => Some wasm.T_i64
+  | rwasm.Int _ rwasm.i32 => Some wasm.T_i32
+  | rwasm.Int _ rwasm.i64 => Some wasm.T_i64
   | rwasm.Float rwasm.f32 => Some wasm.T_f32
   | rwasm.Float rwasm.f64 => Some wasm.T_f64
   end.
 
+Definition compile_kindvar (κ: rwasm.KindVar) : list wasm.value_type :=
+  match κ with
+  | rwasm.SIZE _ _ => [wasm.T_i32]
+  | _ => []
+  end.
+
+Definition compile_kindvars (κs: list rwasm.KindVar) : list wasm.value_type :=
+  flatten (map compile_kindvar κs).
+
 Fixpoint compile_typ (typ: rwasm.Typ) : option (list wasm.value_type) :=
   match typ with
   | rwasm.Num ntyp => wty ← compile_numtyp ntyp; mret [wty]
-  | rwasm.TVar x => None
-  | rwasm.Unit => None
-  | rwasm.ProdT x => None
-  | rwasm.CoderefT x => None
+  | rwasm.TVar _ => mret [wasm.T_i32]
+  | rwasm.Unit => mret []
+  | rwasm.ProdT typs => flatten <$> mapM compile_typ typs
+  | rwasm.CoderefT _ => None
   | rwasm.Rec _ typ => compile_typ typ
-  | rwasm.PtrT x => None
-  | rwasm.ExLoc q x => None
-  | rwasm.OwnR x => None
-  | rwasm.CapT x x0 x1 => None
-  | rwasm.RefT x x0 x1 => None
+  | rwasm.PtrT _ => mret [wasm.T_i32]
+  | rwasm.ExLoc q typ => compile_typ typ
+  | rwasm.OwnR _ => mret []
+  | rwasm.CapT _ _ _ => mret []
+  | rwasm.RefT _ _ _  => mret [wasm.T_i32]
   end
 with compile_heap_type (typ: rwasm.HeapType) : option unit :=
   match typ with
@@ -63,9 +56,16 @@ with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
   | rwasm.Arrow tys1 tys2 =>
     tys1' ← mapM compile_typ tys1;
     tys2' ← mapM compile_typ tys2;
-    mret (wasm.Tf (list_flatten tys1') (list_flatten tys2'))
+    mret (wasm.Tf (flatten tys1') (flatten tys2'))
   end
-with compile_fun_type (typ: rwasm.FunType) : option unit := None. (* What to do about generics? *)
+with compile_fun_type (ft: rwasm.FunType) : option wasm.function_type :=
+  match ft with
+  | rwasm.FunT κs (rwasm.Arrow tys1 tys2) =>
+    let κvs := compile_kindvars κs in
+    tys1' ← flatten <$> mapM compile_typ tys1;
+    tys2' ← flatten <$> mapM compile_typ tys2;
+    mret (wasm.Tf (κvs ++ tys1') tys2')
+  end.
 
 Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   match num_type with
@@ -84,13 +84,13 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
         numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
   end.
 
-Fixpoint compile_value (value : rwasm.Value) : option wasm.value :=
+Fixpoint compile_value (value : rwasm.Value) : option (list wasm.value) :=
   match value with 
-  | rwasm.NumConst num_type num => Some (compile_num num_type num)
+  | rwasm.NumConst num_type num => Some [compile_num num_type num]
   | rwasm.Tt => None
   | rwasm.Coderef module_idx table_idx idxs => None
   | rwasm.Fold val => None
-  | rwasm.Prod vals => None
+  | rwasm.Prod vals => flatten <$> mapM compile_value vals
   | rwasm.Ref loc => None
   | rwasm.PtrV loc => None
   | rwasm.Cap => None
@@ -287,67 +287,63 @@ Definition unset_gc_bit :=
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub)].
 
 Definition tagged_load ref_tmp offset_instrs :=
-  offset_instrs ++ 
-  [wasm.BI_get_local ref_tmp] ++
-  if_gc_bit_set ref_tmp [wasm.T_i32 (* offset *)] [wasm.T_i32 (* loaded value *)]
+  if_gc_bit_set ref_tmp [] [wasm.T_i32 (* loaded value *)]
   ([wasm.BI_get_local ref_tmp] ++
-     unset_gc_bit ++
-     [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-      wasm.BI_load GC_MEM wasm.T_i32 None 0%N 0%N])
-  [wasm.BI_get_local ref_tmp;
-   wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-   wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N].
+   unset_gc_bit ++
+   offset_instrs ++ 
+   [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+    wasm.BI_load GC_MEM wasm.T_i32 None 0%N 0%N])
+  ([wasm.BI_get_local ref_tmp] ++
+   offset_instrs ++ 
+   [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+    wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N]).
 
-Fixpoint compile_instr (instr: AR.Instruction) : option (list wasm.basic_instruction) :=
+Fixpoint compile_instr (instr: rwasm.basic_instr rwasm.ArrowType) : option (list wasm.basic_instruction) :=
   match instr with
-  | AR.Instr instr' (rwasm.Arrow targs trets) => compile_pre_instr instr' targs trets
-  end
-with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) : option (list wasm.basic_instruction) :=
-  match instr with
-  | AR.Val x => option_map (fun y => [wasm.BI_const y]) (compile_value x)
-  | AR.Ne x => None
-  | AR.Unreachable => Some [wasm.BI_unreachable]
-  | AR.Nop => Some [wasm.BI_nop]
-  | AR.Drop => Some [wasm.BI_drop]
-  | AR.Select => Some [wasm.BI_select]
-  | AR.Block arrow _ i =>
+  | rwasm.Val (rwasm.Arrow targs trets) x => option_map (map (fun y => wasm.BI_const y)) (compile_value x)
+  | rwasm.Ne (rwasm.Arrow targs trets) x => None
+  | rwasm.Unreachable (rwasm.Arrow targs trets) => Some [wasm.BI_unreachable]
+  | rwasm.Nop (rwasm.Arrow targs trets) => Some [wasm.BI_nop]
+  | rwasm.Drop (rwasm.Arrow targs trets) => Some [wasm.BI_drop]
+  | rwasm.Select (rwasm.Arrow targs trets) => Some [wasm.BI_select]
+  | rwasm.Block (rwasm.Arrow targs trets) arrow _ i =>
     ft ← compile_arrow_type arrow;
-    i' ← option_of_list (map compile_instr i);
-    mret [wasm.BI_block ft (list_flatten i')]
-  | AR.Loop arrow i =>
+    i' ← mapM compile_instr i;
+    mret [wasm.BI_block ft (flatten i')]
+  | rwasm.Loop (rwasm.Arrow targs trets) arrow i =>
     ft ← compile_arrow_type arrow;
-    i' ← option_of_list (map compile_instr i);
-    mret [wasm.BI_block ft (list_flatten i')]
-  | AR.ITE arrow _ t e =>
+    i' ← mapM compile_instr i;
+    mret [wasm.BI_block ft (flatten i')]
+  | rwasm.ITE (rwasm.Arrow targs trets) arrow _ t e =>
     ft ← compile_arrow_type arrow;
-    t' ← option_of_list (map compile_instr t);
-    e' ← option_of_list (map compile_instr e);
-    mret [wasm.BI_if ft (list_flatten t') (list_flatten e')]
-  | AR.Br x => Some [wasm.BI_br x]
-  | AR.Br_if x => Some [wasm.BI_br_if x]
-  | AR.Br_table x x0 => Some [wasm.BI_br_table x x0]
-  | AR.Ret => Some [wasm.BI_return]
-  | AR.Get_local x x0 => Some [wasm.BI_get_local x]
-  | AR.Set_local x => Some [wasm.BI_set_local x]
-  | AR.Tee_local x => Some [wasm.BI_tee_local x]
-  | AR.Get_global x => Some [wasm.BI_get_global x]
-  | AR.Set_global x => Some [wasm.BI_set_global x]
-  | AR.CoderefI x => None
-  | AR.Inst x => None
-  | AR.Call_indirect => None (* TODO: why doesn't rwasm take an immediate? *)
-  | AR.Call x x0 => None     (* TODO: what to do with list of indexes? *)
-  | AR.RecFold x => None
-  | AR.RecUnfold => None
-  | AR.Group x x0 => None
-  | AR.Ungroup => None
-  | AR.CapSplit => None
-  | AR.CapJoin => None
-  | AR.RefDemote => None
-  | AR.MemPack x => None
-  | AR.MemUnpack x x0 x1 => None
-  | AR.StructMalloc x x0 => None
-  | AR.StructFree => None
-  | AR.StructGet idx =>
+    t' ← mapM compile_instr t;
+    e' ← mapM compile_instr e;
+    mret [wasm.BI_if ft (flatten t') (flatten e')]
+  | rwasm.Br (rwasm.Arrow targs trets) x => Some [wasm.BI_br x]
+  | rwasm.Br_if (rwasm.Arrow targs trets) x => Some [wasm.BI_br_if x]
+  | rwasm.Br_table (rwasm.Arrow targs trets) x x0 => Some [wasm.BI_br_table x x0]
+  | rwasm.Ret (rwasm.Arrow targs trets) => Some [wasm.BI_return]
+  | rwasm.Get_local (rwasm.Arrow targs trets) x x0 => Some [wasm.BI_get_local x]
+  | rwasm.Set_local (rwasm.Arrow targs trets) x => Some [wasm.BI_set_local x]
+  | rwasm.Tee_local (rwasm.Arrow targs trets) x => Some [wasm.BI_tee_local x]
+  | rwasm.Get_global (rwasm.Arrow targs trets) x => Some [wasm.BI_get_global x]
+  | rwasm.Set_global (rwasm.Arrow targs trets) x => Some [wasm.BI_set_global x]
+  | rwasm.CoderefI (rwasm.Arrow targs trets) x => None
+  | rwasm.Inst (rwasm.Arrow targs trets) x => None
+  | rwasm.Call_indirect (rwasm.Arrow targs trets) => None (* TODO: why doesn't rwasm take an immediate? *)
+  | rwasm.Call (rwasm.Arrow targs trets) x x0 => None     (* TODO: what to do with list of indexes? *)
+  | rwasm.RecFold (rwasm.Arrow targs trets) x => None
+  | rwasm.RecUnfold (rwasm.Arrow targs trets) => None
+  | rwasm.Group (rwasm.Arrow targs trets) x x0 => None
+  | rwasm.Ungroup (rwasm.Arrow targs trets) => None
+  | rwasm.CapSplit (rwasm.Arrow targs trets) => None
+  | rwasm.CapJoin (rwasm.Arrow targs trets) => None
+  | rwasm.RefDemote (rwasm.Arrow targs trets) => None
+  | rwasm.MemPack (rwasm.Arrow targs trets) x => None
+  | rwasm.MemUnpack (rwasm.Arrow targs trets) x x0 x1 => None
+  | rwasm.StructMalloc (rwasm.Arrow targs trets) x x0 => None
+  | rwasm.StructFree (rwasm.Arrow targs trets) => None
+  | rwasm.StructGet (rwasm.Arrow targs trets) idx =>
       (* Save the argument *)
       (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
       fields ← match targs with
@@ -358,34 +354,28 @@ with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) 
       off_instrs ← compile_size_expr off_sz;
       mret $ wasm.BI_tee_local ref_tmp ::
              tagged_load ref_tmp off_instrs
-  | AR.StructSet x => None
-  | AR.StructSwap x => None
-  | AR.VariantMalloc x x0 x1 => None
-  | AR.VariantCase x x0 x1 x2 x3 => None
-  | AR.ArrayMalloc x => None
-  | AR.ArrayGet => None
-  | AR.ArraySet => None
-  | AR.ArrayFree => None
-  | AR.ExistPack x x0 x1 => None
-  | AR.ExistUnpack x x0 x1 x2 x3 => None
-  | AR.RefSplit => None
-  | AR.RefJoin => None
-  | AR.Qualify x => None
-  | AR.Trap => None
-  | AR.CallAdm x x0 => None
-  | AR.Label x x0 x1 x2 => None
-  | AR.Local x x0 x1 x2 x3 => None
-  | AR.Malloc x x0 x1 => None
-  | AR.Free => None
+  | rwasm.StructSet (rwasm.Arrow targs trets) x => None
+  | rwasm.StructSwap (rwasm.Arrow targs trets) x => None
+  | rwasm.VariantMalloc (rwasm.Arrow targs trets) x x0 x1 => None
+  | rwasm.VariantCase (rwasm.Arrow targs trets) x x0 x1 x2 x3 => None
+  | rwasm.ArrayMalloc (rwasm.Arrow targs trets) x => None
+  | rwasm.ArrayGet (rwasm.Arrow targs trets) => None
+  | rwasm.ArraySet (rwasm.Arrow targs trets) => None
+  | rwasm.ArrayFree (rwasm.Arrow targs trets) => None
+  | rwasm.ExistPack (rwasm.Arrow targs trets) x x0 x1 => None
+  | rwasm.ExistUnpack (rwasm.Arrow targs trets) x x0 x1 x2 x3 => None
+  | rwasm.RefSplit (rwasm.Arrow targs trets) => None
+  | rwasm.RefJoin (rwasm.Arrow targs trets) => None
+  | rwasm.Qualify (rwasm.Arrow targs trets) x => None
   end.
 (* ... *)
-  
+
 End compile_instr.
 
 Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
 Admitted.
 
-Fixpoint compile_module (module : rwasm.module) : option wasm.module :=
+Fixpoint compile_module (module : rwasm.module rwasm.ArrowType) : option wasm.module :=
   let '(funcs, globs, table) := module return option wasm.module in
   Some {|
     wasm.mod_types := []; (* TODO *)
@@ -401,7 +391,7 @@ Fixpoint compile_module (module : rwasm.module) : option wasm.module :=
   |}
 
 (* TODO: modfunc_type expects a typeidx while rwasm does this inline *)
-with compile_func (func : rwasm.Func) : option wasm.module_func := 
+with compile_func (func : rwasm.Func rwasm.ArrowType) : option wasm.module_func := 
   match func with 
   | rwasm.Fun exports fun_type sizes intrs =>
     Some {|
@@ -411,6 +401,6 @@ with compile_func (func : rwasm.Func) : option wasm.module_func :=
     |}
   end
 
-with compile_glob (glob : rwasm.Glob) : option wasm.module_glob
+with compile_glob (glob : rwasm.Glob rwasm.ArrowType) : option wasm.module_glob
 with compile_table (table : rwasm.Table) : option wasm.module_table.
 Admitted.

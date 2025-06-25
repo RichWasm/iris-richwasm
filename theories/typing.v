@@ -1491,6 +1491,7 @@ Admitted.
         M.is_empty (LinTyp S) = true ->
         get_heaptype l (UnrTyp S) = Some ht ->
         (* Values which depend on S having LinTyp / UnrTyp can not be from surface instructions, so must be valid under empty function context *)
+        (* TODO: Use TypQual *)
         QualLeq [] q Unrestricted = Some true ->
         TypeValid empty_Function_Ctx (RefT rw (LocP l GCMem) ht) ->
         HasTypeValue S C (Ref (LocP l GCMem)) (RefT rw (LocP l GCMem) ht)
@@ -1537,80 +1538,79 @@ Admitted.
         TypeValid empty_Function_Ctx (CoderefT ftinst) ->
         HasTypeValue S C (Coderef modi tabi is) (CoderefT ftinst).
 
-  (*
   Section HasTypeValueInd.
 
     Context
       (P : StoreTyping -> Function_Ctx -> Value -> Typ -> Prop)
       (HNumConstTyp :
-          forall S C nt i q,
+          forall S C nt i,
             M.is_empty (LinTyp S) = true ->
             i <= NumLen nt ->
-            TypeValid C (QualT (Num nt) q) ->
-            P S C (NumConst nt i)  (QualT (Num nt) q))
+            TypeValid C (Num nt) ->
+            P S C (NumConst nt i) (Num nt))
       (HUnitTyp :
-          forall S C q,
+          forall S C,
             M.is_empty (LinTyp S) = true ->
-            TypeValid C (QualT Unit q) ->
-            P S C Tt  (QualT Unit q))
+            TypeValid C Unit ->
+            P S C Tt Unit)
       (HProdTyp :
-          forall S Ss C vs taus q,
+          forall S Ss C vs taus,
             SplitStoreTypings Ss S ->
             Forall3 (fun S' v t => P S' C v t)
                     Ss vs taus ->
-            TypeValid C (QualT (ProdT taus) q) ->
-            P S C (Prod vs) (QualT (ProdT taus) q))
+            TypeValid C (ProdT taus) ->
+            P S C (term.Prod vs) (ProdT taus))
       (HPtrTyp :
-          forall S C l q,
+          forall S C l,
             M.is_empty (LinTyp S) = true ->
-            TypeValid C (QualT (PtrT l) q) ->
-            P S C (PtrV l)  (QualT (PtrT l) q))
+            TypeValid C (PtrT l) ->
+            P S C (PtrV l) (PtrT l))
       (HRefTypUnr :
           forall S C rw l ht q,
             M.is_empty (LinTyp S) = true ->
             get_heaptype l (UnrTyp S) = Some ht ->
             QualLeq [] q Unrestricted = Some true ->
-            TypeValid empty_Function_Ctx (QualT (RefT rw (LocP l Unrestricted) ht) q) ->
-            P S C (Ref (LocP l Unrestricted)) (QualT (RefT rw (LocP l Unrestricted) ht) q))
+            TypeValid empty_Function_Ctx (RefT rw (LocP l GCMem) ht) ->
+            P S C (Ref (LocP l GCMem)) (RefT rw (LocP l GCMem) ht))
       (HRefTypLin :
           forall S C rw l ht q,
             map_util.eq_map (LinTyp S)
                             (M.add (N.succ_pos l) ht (M.empty HeapType)) ->
             QualLeq [] Linear q = Some true ->
-            TypeValid empty_Function_Ctx (QualT (RefT rw (LocP l Linear) ht) q) ->
-            P S C (Ref (LocP l Linear)) (QualT (RefT rw (LocP l Linear) ht) q))
+            TypeValid empty_Function_Ctx (RefT rw (LocP l LinMem) ht) ->
+            P S C (Ref (LocP l LinMem)) (RefT rw (LocP l LinMem) ht))
       (HCapTypLin :
           forall S C rw l ht q,
             map_util.eq_map (LinTyp S)
                             (M.add (N.succ_pos l) ht (M.empty HeapType)) ->
             QualLeq [] Linear q = Some true ->
-            TypeValid empty_Function_Ctx (QualT (CapT rw (LocP l Linear) ht) q) ->
-            P S C Cap (QualT (CapT rw (LocP l Linear) ht) q))
-      (HOwnTyp : forall S C l q,
+            TypeValid empty_Function_Ctx (CapT rw (LocP l LinMem) ht) ->
+            P S C Cap (CapT rw (LocP l LinMem) ht))
+      (HOwnTyp : forall S C l,
             M.is_empty (LinTyp S) = true ->
-            TypeValid C (QualT (OwnR l) q) ->
-            P S C Own (QualT (OwnR l) q))
+            TypeValid C (OwnR l) ->
+            P S C Own (OwnR l))
       (HRecTyp :
-         forall S C v qa q q' pt,
-           let r := Rec qa (QualT pt q) in
-           TypeValid C (QualT r q') ->
-           P S C v (QualT (subst (Kind:=Kind) STyp (ext STyp r id) pt) q) ->
-           P S C (Fold v) (QualT r q'))
+         forall S C v qa pt,
+           let r := Rec qa pt in
+           TypeValid C r ->
+           P S C v (subst (Kind:=Kind) STyp (ext STyp r id) pt) ->
+           P S C (Fold v) r)
       (HMempackTyp :
           forall S C l v t q,
             LocValid (location C) l ->
-            TypeValid C (QualT (ExLoc t) q) ->
+            TypeValid C (ExLoc q t) ->
             P S C v (subst_ext (Kind:=Kind) (ext SLoc l id) t) ->
-            P S C (Mempack l v)  (QualT (ExLoc t) q))
+            P S C (Mempack l v) (ExLoc q t))
       (CoderefTyp :
-          forall S C modi tabi is ft C' ftinst q,
+          forall S C modi tabi is ft C' ftinst,
             M.is_empty (LinTyp S) = true ->
             nth_error (InstTyp S) modi = Some C' ->
             nth_error (table C') tabi = Some ft ->
             InstInds ft is = Some ftinst ->
             InstIndsValid empty_Function_Ctx ft is ->
-            TypeValid empty_Function_Ctx (QualT (CoderefT ftinst) q) ->
-            P S C (Coderef modi tabi is) (QualT (CoderefT ftinst) q))
+            TypeValid empty_Function_Ctx (CoderefT ftinst) ->
+            P S C (Coderef modi tabi is) (CoderefT ftinst))
     .
 
     Fixpoint HasTypeValue_ind' S C v t (Hty : HasTypeValue S C v t) {struct Hty} :
@@ -1625,9 +1625,12 @@ Admitted.
         + apply HasTypeValue_ind'; assumption.
         + apply IHForall3.
       - apply HPtrTyp; assumption.
-      - apply HRefTypUnr; assumption.
-      - apply HRefTypLin; assumption.
-      - apply HCapTypLin; assumption.
+      - apply HRefTypUnr with (q := Unrestricted); try assumption.
+        + apply QualLeq_Refl.
+      - apply HRefTypLin with (q := Linear); try assumption.
+        + apply QualLeq_Refl.
+      - apply HCapTypLin with (q := Linear); try assumption.
+        + apply QualLeq_Refl.
       - apply HOwnTyp; assumption.
       - apply HRecTyp; try assumption. apply HasTypeValue_ind'. assumption.
       - apply HMempackTyp; try assumption. apply HasTypeValue_ind'; assumption.
@@ -1635,7 +1638,6 @@ Admitted.
     Qed.
 
   End HasTypeValueInd.
-*)
 
   Inductive HasHeapType : StoreTyping -> Function_Ctx -> HeapValue -> HeapType -> Prop :=
   | VariantHT :
@@ -1824,8 +1826,14 @@ Admitted.
 
   Inductive HasTypeInstr :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> Instruction -> ArrowType -> Local_Ctx -> Prop :=
-  | TStructGet : forall S C F L n taus szs tau l cap,
+    Local_Ctx -> basic_instr ArrowType -> ArrowType -> Local_Ctx -> Prop :=
+  | ValTyp :
+      forall S C F L (v: Value) t,
+        HasTypeValue S F v t ->
+        LocalCtxValid F L ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr S C F L (Val (EmptyArrow t) v) (EmptyArrow t) L
+  | TStructGet : forall S C F L ann n taus szs tau l cap,
       M.is_empty (LinTyp S) = true ->
       let psi := StructType (combine taus szs) in
       length taus = length szs ->
@@ -1835,13 +1843,13 @@ Admitted.
       TypeValid F (RefT cap l psi) ->
       TypeValid F tau ->
       QualValid (qual F) (get_hd (linear F)) ->
-      HasTypeInstr S C F L (StructGet n)
+      HasTypeInstr S C F L (StructGet ann n)
         (Arrow [RefT cap l psi]
            [RefT cap l psi; tau])
         L
   with HasTypeInstrs :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> list Instruction -> ArrowType -> Local_Ctx -> Prop :=
+    Local_Ctx -> list (basic_instr ArrowType) -> ArrowType -> Local_Ctx -> Prop :=
   | TSOne: forall S C F L e τ L',
       HasTypeInstr S C F L e τ L' ->
       HasTypeInstrs S C F L [e] τ L'.
@@ -2774,7 +2782,7 @@ Admitted.
   End HasType_Instruction_Closure_Func_Conf_mind'.
 *)
 
-  Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob -> GlobalType -> list ex -> Prop :=
+  Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob ArrowType -> GlobalType -> list ex -> Prop :=
   | GlobMutTyp :
       forall C pt es,
         HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
@@ -2794,14 +2802,14 @@ Admitted.
          | cons x xs => (x, i) :: aux xs (i + 1)
          end) xs 0.
 
-  Definition glob_typ (g : Glob) :=
+  Definition glob_typ {A} (g : Glob A) :=
     match g with
     | GlobMut pt es => GT true pt
     | GlobEx ex pt es => GT false pt
     | term.GlobIm ex pt im => GT false pt
     end.
 
-  Definition fun_typ (f : Func) : FunType :=
+  Definition fun_typ {A} (f : Func A) : FunType :=
     match f with
     | Fun x_ ft _ _ => ft
     end.

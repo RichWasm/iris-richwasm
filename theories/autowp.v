@@ -67,7 +67,17 @@ Ltac destruct_length_eqn' :=
       destruct_length_eqn H
   end.
 
-Ltac wp_chomp := take_drop_app_rewrite.
+Ltac wp_chomp n :=
+  match goal with
+  | |- context [ environments.envs_entails _ (@wp_wasm_ctx _ _ _ _ ?e _ _ _) ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  | |- context [ environments.envs_entails _ (@wp _ _ _ _ _ _ _ ?e _) ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  | |- context [ environments.envs_entails _ (@wp_wasm_ctx_frame _ _ _ _ ?e _ _ _ _ _) ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  | |- context [ environments.envs_entails _ (@wp_wasm_frame _ _ _ _ ?e _ _ _) ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
+  end.
 
 Ltac fill_imm_pred :=
   match goal with 
@@ -99,7 +109,7 @@ Inductive shape :=
 | Shape (to_skip: nat) (to_use: nat) (output: nat) (rest: nat)
 | Unknown.
 
-Fixpoint ai_shp (ais: list administrative_instruction) : shape :=
+Definition ai_shp (ais: list administrative_instruction) : shape :=
   let '(sz, rest) := stack_size ais in
   match rest with
   | ai :: ais => 
@@ -115,7 +125,7 @@ Fixpoint ai_shp (ais: list administrative_instruction) : shape :=
 
 Ltac get_shp :=
   match goal with
-  | |- context[ wp NotStuck ?E ?e ?P ] =>
+  | |- context[ environments.envs_entails _ (wp NotStuck ?E ?e ?P) ] =>
       eval vm_compute in (ai_shp e)
   end.
 

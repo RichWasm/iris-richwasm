@@ -223,96 +223,151 @@ Definition ex := positive.
 (* imports *)
 Definition im := positive.
 
-Inductive Instruction :=
-(* Values are instructions *)
-| Val : Value -> Instruction
+Inductive basic_instr A :=
+  | Val : A -> Value -> basic_instr A
+  | Ne : A -> NumInstr -> basic_instr A
+  | Unreachable : A -> basic_instr A
+  | Nop : A -> basic_instr A
+  | Drop : A -> basic_instr A
+  | Select : A -> basic_instr A
+  | Block : A -> ArrowType -> LocalEffect -> list (basic_instr A) -> basic_instr A
+  | Loop : A -> ArrowType -> list (basic_instr A) -> basic_instr A
+  | ITE : A -> ArrowType -> LocalEffect -> list (basic_instr A) -> list (basic_instr A) -> basic_instr A
+  | Br : A -> nat -> basic_instr A
+  | Br_if : A -> nat -> basic_instr A
+  | Br_table : A -> list nat -> nat -> basic_instr A
+  | Ret : A -> basic_instr A
+  | Get_local : A -> nat -> Qual -> basic_instr A
+  | Set_local : A -> nat -> basic_instr A
+  | Tee_local : A -> nat -> basic_instr A
+  | Get_global : A -> nat -> basic_instr A
+  | Set_global : A -> nat -> basic_instr A
+  | CoderefI : A -> nat -> basic_instr A
+  | Inst : A -> list Index -> basic_instr A
+  | Call_indirect : A -> basic_instr A
+  | Call : A -> nat -> list Index -> basic_instr A
+  | RecFold : A -> Typ -> basic_instr A
+  | RecUnfold : A -> basic_instr A
+  | Group : A -> nat -> Qual -> basic_instr A
+  | Ungroup : A -> basic_instr A
+  | CapSplit : A -> basic_instr A
+  | CapJoin : A -> basic_instr A
+  | RefDemote : A -> basic_instr A
+  | MemPack : A -> Loc -> basic_instr A (* XXX Loc or not? *)
+  | MemUnpack : A -> ArrowType -> LocalEffect -> list (basic_instr A) -> basic_instr A (* binding site *)
+  | StructMalloc : A -> list Size -> Qual -> basic_instr A
+  | StructFree : A -> basic_instr A
+  | StructGet : A -> nat -> basic_instr A
+  | StructSet: A -> nat -> basic_instr A
+  | StructSwap : A -> nat -> basic_instr A
+  | VariantMalloc : A -> nat -> list Typ -> Qual -> basic_instr A
+  | VariantCase : A -> Qual -> HeapType -> ArrowType -> LocalEffect -> list (list (basic_instr A)) -> basic_instr A
+  | ArrayMalloc : A -> Qual -> basic_instr A
+  | ArrayGet : A -> basic_instr A
+  | ArraySet : A -> basic_instr A
+  | ArrayFree : A -> basic_instr A
+  | ExistPack : A -> Typ -> HeapType -> Qual -> basic_instr A
+  | ExistUnpack : A -> Qual -> HeapType -> ArrowType -> LocalEffect -> list (basic_instr A) -> basic_instr A (* binding site *)
+  | RefSplit : A -> basic_instr A
+  | RefJoin : A -> basic_instr A
+  | Qualify : A -> Qual -> basic_instr A.
 
-| Ne : NumInstr -> Instruction
-| Unreachable
-| Nop
-| Drop
-| Select
-| Block : ArrowType -> LocalEffect -> list Instruction -> Instruction
-| Loop  : ArrowType -> list Instruction -> Instruction
-| ITE   : ArrowType -> LocalEffect -> list Instruction -> list Instruction -> Instruction
-| Br    : nat -> Instruction
-| Br_if : nat -> Instruction
-| Br_table : list nat -> nat -> Instruction
-| Ret
-| Get_local  : nat -> Qual -> Instruction
-| Set_local  : nat -> Instruction
-| Tee_local  : nat -> Instruction
-| Get_global : nat -> Instruction
-| Set_global : nat -> Instruction
-| CoderefI   : nat -> Instruction
-| Inst       : list Index -> Instruction
-| Call_indirect
-| Call : nat -> list Index -> Instruction
-(* Rec *)
-| RecFold : Typ -> Instruction
-| RecUnfold
-(* Seq *)
-| Group : nat -> Qual -> Instruction
-| Ungroup : Instruction
-(* Cap Instructions *)
-| CapSplit
-| CapJoin
-| RefDemote
-| MemPack   : Loc -> Instruction (* XXX Loc or not? *)
-| MemUnpack : ArrowType -> LocalEffect -> list Instruction -> Instruction (* binding site *)
-(* Struct Instructions *)
-| StructMalloc : list Size -> Qual -> Instruction
-| StructFree
-| StructGet : nat -> Instruction
-| StructSet : nat -> Instruction
-| StructSwap : nat -> Instruction
-(* Variant Instructions *)
-| VariantMalloc : nat -> list Typ -> Qual -> Instruction
-| VariantCase   : Qual -> HeapType -> ArrowType -> LocalEffect -> list (list Instruction) -> Instruction
-(* Array Instructions *)
-| ArrayMalloc : Qual -> Instruction
-| ArrayGet
-| ArraySet
-| ArrayFree
-(* Existsential Instructions *)
-| ExistPack   : Typ -> HeapType -> Qual -> Instruction
-| ExistUnpack : Qual -> HeapType -> ArrowType -> LocalEffect -> list Instruction -> Instruction (* binding site *)
-(* Ref operations *)
-| RefSplit
-| RefJoin
-| Qualify : Qual -> Instruction
-(* Administrative Instructions *)
-| Trap
-| CallAdm :  Closure -> list Index -> Instruction
-| Label : nat -> ArrowType -> list Instruction -> list Instruction -> Instruction
-| Local : nat -> nat -> list Value -> list nat (* sizes of local slots (args + locals) *) -> list Instruction -> Instruction
-| Malloc : Size -> HeapValue -> Qual -> Instruction
-| Free
+Arguments Val {_} _ _.
+Arguments Ne {_} _ _.
+Arguments Unreachable {_} _.
+Arguments Nop {_} _.
+Arguments Drop {_} _.
+Arguments Select {_} _.
+Arguments Block {_} _ _ _ _.
+Arguments Loop {_} _ _ _.
+Arguments ITE {_} _ _ _ _.
+Arguments Br {_} _ _.
+Arguments Br_if {_} _ _.
+Arguments Br_table {_} _ _ _.
+Arguments Ret {_} _.
+Arguments Get_local {_} _ _ _.
+Arguments Set_local {_} _ _.
+Arguments Tee_local {_} _ _.
+Arguments Get_global {_} _ _.
+Arguments Set_global {_} _ _.
+Arguments CoderefI {_} _ _.
+Arguments Inst {_} _ _.
+Arguments Call_indirect {_} _.
+Arguments Call {_} _ _ _.
+Arguments RecFold {_} _ _.
+Arguments RecUnfold {_} _.
+Arguments Group {_} _ _ _.
+Arguments Ungroup {_} _.
+Arguments CapSplit {_} _.
+Arguments CapJoin {_} _.
+Arguments RefDemote {_} _.
+Arguments MemPack {_} _ _.
+Arguments MemUnpack {_} _ _ _ _.
+Arguments StructMalloc {_} _ _ _.
+Arguments StructFree {_} _.
+Arguments StructGet {_} _ _.
+Arguments StructSet {_} _ _.
+Arguments StructSwap {_} _ _.
+Arguments VariantMalloc {_} _ _ _ _.
+Arguments VariantCase {_} _ _ _ _ _ _.
+Arguments ArrayMalloc {_} _ _.
+Arguments ArrayGet {_} _.
+Arguments ArraySet {_} _.
+Arguments ArrayFree {_} _.
+Arguments ExistPack {_} _ _ _ _.
+Arguments ExistUnpack {_} _ _ _ _ _ _.
+Arguments RefSplit {_} _.
+Arguments RefJoin {_} _.
+Arguments Qualify {_} _ _.
 
-with Func :=
-| Fun : list ex -> FunType -> list Size -> list Instruction -> Func
+Inductive Func A :=
+  | Fun : list ex -> FunType -> list Size -> list (basic_instr A) -> Func A.
 
-with Closure :=
-| Clo : nat -> Func -> Closure.
+Arguments Fun {_} _ _ _ _.
 
+Inductive Closure A :=
+  | Clo : nat -> Func A -> Closure A.
 
-Coercion Val : Value >-> Instruction.
+Arguments Clo {_} _ _.
 
-Inductive Glob :=
-| GlobMut : Typ -> list Instruction -> Glob
-| GlobEx : list ex -> Typ -> list Instruction -> Glob
-| GlobIm : list ex -> Typ -> im -> Glob.
+Inductive admin_instr A :=
+  | Basic : basic_instr A -> admin_instr A
+  | Trap
+  | CallAdm : Closure A -> list Index -> admin_instr A
+  | Label : nat -> ArrowType -> list (admin_instr A) -> list (admin_instr A) -> admin_instr A
+  | Local : nat -> nat -> list Value -> list nat (* sizes of local slots (args + locals) *) -> list (admin_instr A) -> admin_instr A
+  | Malloc : Size -> HeapValue -> Qual -> admin_instr A
+  | Free.
 
-Definition module :=
-  (list Func *
-   list Glob *
+Arguments Basic {_} _.
+Arguments Trap {_}.
+Arguments CallAdm {_} _ _.
+Arguments Label {_} _ _ _ _.
+Arguments Local {_} _ _ _ _ _.
+Arguments Malloc {_} _ _ _.
+Arguments Free {_}.
+
+Inductive Glob A :=
+| GlobMut : Typ -> list (basic_instr A) -> Glob A
+| GlobEx : list ex -> Typ -> list (basic_instr A) -> Glob A
+| GlobIm : list ex -> Typ -> im -> Glob A.
+
+Arguments GlobMut {_} _ _.
+Arguments GlobEx {_} _ _ _.
+Arguments GlobIm {_} _ _ _.
+
+Definition module A :=
+  (list (Func A) *
+   list (Glob A) *
    Table)%type.
 
-Record MInst :=
-  { func : list Closure;
+Record MInst A :=
+  { func : list (Closure A);
     glob : list (Mut * Value);
-    tab  : list Closure;
+    tab  : list (Closure A);
   }.
+
+Arguments Build_MInst {_} _ _ _.
 
 (** Useful properties *)
 
@@ -427,7 +482,7 @@ Section TypeInd.
     repeat split;
       (apply Typ_ind'||apply FunType_ind'||apply ArrowType_ind'||apply HeapType_ind').
   Qed.
-  
+
 End TypeInd.
 
 Section TypeRect.
@@ -498,72 +553,64 @@ End TypeRect.
 
 Section InstructionInd.
   Context
-    (I : Instruction -> Prop)
-    (F : Func -> Prop)
-    (C : Closure -> Prop).
+    (A : Type)
+    (I : basic_instr A -> Prop)
+    (F : Func A -> Prop)
+    (C : Closure A -> Prop).
 
   Context
-    (HVal : forall v, I (Val v))
-    (HNe : forall ninstr, I (Ne ninstr))
-    (HUnreachable : I Unreachable)
-    (HNop : I Nop)
-    (HDrop : I Drop)
-    (HSelect : I Select)
-    (HBlock : forall arty leff insns, Forall I insns -> I (Block arty leff insns))
-    (HLoop  : forall arty insns, Forall I insns -> I (Loop arty insns))
-    (HITE   : forall arty leff insns1 insns2,
+    (HVal : forall x v, I (Val x v))
+    (HNe : forall x ninstr, I (Ne x ninstr))
+    (HUnreachable : forall x, I (Unreachable x))
+    (HNop : forall x, I (Nop x))
+    (HDrop : forall x, I (Drop x))
+    (HSelect : forall x, I (Select x))
+    (HBlock : forall x arty leff insns, Forall I insns -> I (Block x arty leff insns))
+    (HLoop : forall x arty insns, Forall I insns -> I (Loop x arty insns))
+    (HITE : forall x arty leff insns1 insns2,
         Forall I insns1 ->
         Forall I insns2 ->
-        I (ITE arty leff insns1 insns2))
-    (HBr    : forall n, I (Br n))
-    (HBr_if : forall n, I (Br_if n))
-    (HBr_table : forall ns n, I (Br_table ns n))
-    (HRet : I Ret)
-    (HGet_local  : forall n qual, I (Get_local n qual))
-    (HSet_local  : forall n, I (Set_local n))
-    (HTee_local  : forall n, I (Tee_local n))
-    (HGet_global : forall n, I (Get_global n))
-    (HSet_global : forall n, I (Set_global n))
-    (HCoderefI   : forall n, I (CoderefI n))
-    (HInst       : forall ixs, I (Inst ixs))
-    (HCall_indirect : I Call_indirect)
-    (HCall : forall n ixs, I (Call n ixs))
-    (HRecFold : forall pt, I (RecFold pt))
-    (HRecUnfold : I RecUnfold)
-    (HGroup : forall n qual, I (Group n qual))
-    (HUngroup : I Ungroup)
-    (HCapSplit : I CapSplit)
-    (HCapJoin : I CapJoin)
-    (HRefDemote  : I RefDemote)
-    (HMemPack   : forall l, I (MemPack l))
-    (HMemUnpack : forall arty leff insns, Forall I insns -> I (MemUnpack arty leff insns))
-    (HStructMalloc : forall szs qual, I (StructMalloc szs qual))
-    (HStructFree : I StructFree)
-    (HStructGet : forall n, I (StructGet n))
-    (HStructSet : forall n, I (StructSet n))
-    (HStructSwap : forall n, I (StructSwap n))
-    (HVariantMalloc : forall n typs qual, I (VariantMalloc n typs qual))
-    (HVariantCase   : forall qual arty leff insnss tausv,
+        I (ITE x arty leff insns1 insns2))
+    (HBr : forall x n, I (Br x n))
+    (HBr_if : forall x n, I (Br_if x n))
+    (HBr_table : forall x ns n, I (Br_table x ns n))
+    (HRet : forall x, I (Ret x))
+    (HGet_local : forall x n qual, I (Get_local x n qual))
+    (HSet_local : forall x n, I (Set_local x n))
+    (HTee_local : forall x n, I (Tee_local x n))
+    (HGet_global : forall x n, I (Get_global x n))
+    (HSet_global : forall x n, I (Set_global x n))
+    (HCoderefI : forall x n, I (CoderefI x n))
+    (HInst : forall x ixs, I (Inst x ixs))
+    (HCall_indirect : forall x, I (Call_indirect x))
+    (HCall : forall x n ixs, I (Call x n ixs))
+    (HRecFold : forall x pt, I (RecFold x pt))
+    (HRecUnfold : forall x, I (RecUnfold x))
+    (HGroup : forall x n qual, I (Group x n qual))
+    (HUngroup : forall x, I (Ungroup x))
+    (HCapSplit : forall x, I (CapSplit x))
+    (HCapJoin : forall x, I (CapJoin x))
+    (HRefDemote  : forall x, I (RefDemote x))
+    (HMemPack   : forall x l, I (MemPack x l))
+    (HMemUnpack : forall x arty leff insns, Forall I insns -> I (MemUnpack x arty leff insns))
+    (HStructMalloc : forall x szs qual, I (StructMalloc x szs qual))
+    (HStructFree : forall x, I (StructFree x))
+    (HStructGet : forall x n, I (StructGet x n))
+    (HStructSet : forall x n, I (StructSet x n))
+    (HStructSwap : forall x n, I (StructSwap x n))
+    (HVariantMalloc : forall x n typs qual, I (VariantMalloc x n typs qual))
+    (HVariantCase : forall x qual arty leff insnss tausv,
         Forall (Forall I) insnss ->
-        I (VariantCase qual tausv arty leff insnss))
-    (HArrayMalloc : forall qual, I (ArrayMalloc qual))
-    (HArrayGet : I ArrayGet)
-    (HArraySet : I ArraySet)
-    (HArrayFree : I ArrayFree)
-    (HExistPack   : forall pt ht qual, I (ExistPack pt ht qual))
-    (HExistUnpack : forall qual arty leff insns ex , Forall I insns -> I (ExistUnpack qual ex arty leff insns))
-    (HRefSplit  : I RefSplit)
-    (HRefJoin : I RefJoin)
-    (HQualify : forall qual, I (Qualify qual))
-    (HTrap : I Trap)
-    (HCallAdm : forall clo ixs, C clo -> I (CallAdm clo ixs))
-    (HLabel : forall n arty insns1 insns2,
-        Forall I insns1 ->
-        Forall I insns2 ->
-        I (Label n arty insns1 insns2))
-    (HLocal : forall n1 n2 vs ns insns, Forall I insns -> I (Local n1 n2 vs ns insns))
-    (HMalloc : forall sz hv qual, I (Malloc sz hv qual))
-    (HFree : I Free).
+        I (VariantCase x qual tausv arty leff insnss))
+    (HArrayMalloc : forall x qual, I (ArrayMalloc x qual))
+    (HArrayGet : forall x, I (ArrayGet x))
+    (HArraySet : forall x, I (ArraySet x))
+    (HArrayFree : forall x, I (ArrayFree x))
+    (HExistPack : forall x pt ht qual, I (ExistPack x pt ht qual))
+    (HExistUnpack : forall x qual arty leff insns ex , Forall I insns -> I (ExistUnpack x qual ex arty leff insns))
+    (HRefSplit : forall x, I (RefSplit x))
+    (HRefJoin : forall x, I (RefJoin x))
+    (HQualify : forall x qual, I (Qualify x qual)).
 
   Context (HFun : forall exs fty szs insns, Forall I insns -> F (Fun exs fty szs insns)).
 
@@ -573,7 +620,7 @@ Section InstructionInd.
     try match goal with
     | HI : forall x, I x, HF : forall x, F x, HC : forall x, C x |- _ => clear HI HF HC
     end.
-  
+
   Local Ltac list_ind :=
     match goal with
     | IH : forall _, ?P _ |- Forall (Forall ?P) ?l =>
@@ -581,21 +628,5 @@ Section InstructionInd.
     | IH : forall _, ?P _ |- Forall ?P ?l =>
       clear - IH; induction l; constructor; auto
     end.
-  
-  Fixpoint Instruction_ind' (insn : Instruction) {struct insn} : I insn
-  with Func_ind' (func : Func) {struct func} : F func
-  with Closure_ind' (clo : Closure) {struct clo} : C clo.
-  Proof.
-    - destruct insn;
-      multimatch goal with
-      | HI : forall x, I x, HF : forall x, F x, HC : forall x, C x, H : _ |- _ => apply H
-      end; solve [list_ind|clear_ihs; eauto|eauto].
-    - destruct func; apply HFun; list_ind.
-    - destruct clo; apply HClo; apply Func_ind'.
-  Qed.
 
-  Corollary Instruction_Func_Closure_ind :
-    (forall i, I i) /\ (forall f, F f) /\ (forall c, C c).
-  Proof. repeat split; (apply Instruction_ind'||apply Func_ind'||apply Closure_ind'). Qed.
-  
 End InstructionInd.

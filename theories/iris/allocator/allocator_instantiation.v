@@ -254,7 +254,6 @@ Section instantiation.
           rewrite <- (app_nil_r (to_e_list _)).
           eapply LfilledBase =>//.
         }
-        Search wp_wasm_ctx const_list.
         admit. (* proof about init() goes here *)
       }
     -

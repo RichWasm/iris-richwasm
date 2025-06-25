@@ -253,7 +253,7 @@ Section Examples_host.
   Ltac type_next :=
   match goal with
   | |- context [ be_typing _ ?e _  ] =>
-      rewrite -(list.take_drop (length e - 1) e);simpl take; simpl drop;
+      rewrite -(take_drop (length e - 1) e);simpl take; simpl drop;
       eapply bet_composition;[|econstructor;eauto];simpl
   end.
   
