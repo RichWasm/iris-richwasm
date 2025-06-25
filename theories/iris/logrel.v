@@ -714,7 +714,6 @@ Proof.
   - destruct l32; cbn in *; lia.
 Qed.
 
-Check wp_if_true.
 Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 :
   f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
   ptr_repr (LocP ℓ GCMem) l32 ->
@@ -724,7 +723,6 @@ Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 
 Proof.
   intros Href Hrepr.
   iIntros "Hfr Hbranch".
-  Print next_wp.
   iAssert emp%I as "HΦ";[done|].
   next_wp.
   {
@@ -853,7 +851,6 @@ Proof.
   - iIntros "((%vs & %Heq & _) & _)"; congruence.
   - iIntros "((%vs & %Heq & _) & _)"; congruence.
 Qed.
-Search Memdata.encode_int.
 
 Lemma byte_div_repr b bs:
   Integers.Byte.repr (Integers.Byte.unsigned b + Memdata.int_of_bytes bs * 256) = b.

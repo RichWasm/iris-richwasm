@@ -1,7 +1,9 @@
 (coq.theory
   (name RWasm.iris)
   (package iris-richwasm)
-  (flags -w -ambiguous-paths)
+  (flags
+    -w -ambiguous-paths
+    -w -redundant-canonical-projection)
   (theories
     ExtLib.Core
     ExtLib.Data

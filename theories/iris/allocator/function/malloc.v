@@ -2852,7 +2852,6 @@ Lemma spec_malloc
 *)
 
 (* SPECS: free *)
-Check free.
 Lemma blocklist_tok_means_used blks sz data_addr :
   blocklist_shp blks !! data_addr = Some sz ->
   exists base_addr sz_l: N, (base_addr + data_off)%N = data_addr /\ In (UsedBlk base_addr sz sz_l) blks.
