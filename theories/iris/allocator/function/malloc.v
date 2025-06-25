@@ -2845,9 +2845,29 @@ Proof.
 Qed.
 
 (* SPECS: malloc *)
+
+Lemma spec_malloc_body E f memidx mem sz reqd_sz_var cur_block_var tmp1 new_blk_var tmp2:
+  ⊢ {{{{
+            ↪[frame] f ∗
+            alloc_inv memidx ∗
+            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+            ⌜f.(f_inst).(inst_memory) !! reqd_sz_var = Some (N.to_nat sz)⌝
+    }}}}
+    to_e_list (malloc_body mem reqd_sz_var cur_block_var tmp1 new_blk_var tmp2) @ E
+    {{{{ w, ∃ data_addr32 data_addr,
+              ⌜w = immV [VAL_int32 data_addr32]⌝ ∗ 
+              ⌜N_repr data_addr data_addr32⌝ ∗
+              alloc_tok data_addr sz ∗
+              own_vec memidx data_addr sz ∗
+              alloc_inv memidx }}}}.
+Proof.
+  unfold malloc_body.
+  iIntros "!> %Φ (Hf & Hinv & Hmem & Hreqd_sz) HΦ".
+  next_wp.
+Admitted.
+
 (*TODO
 Lemma spec_malloc_loop_body
-Lemma spec_malloc_body
 Lemma spec_malloc
 *)
 
