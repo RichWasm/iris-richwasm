@@ -28,14 +28,14 @@ Definition compile_kindvar (κ: rwasm.KindVar) : list wasm.value_type :=
   end.
 
 Definition compile_kindvars (κs: list rwasm.KindVar) : list wasm.value_type :=
-  list_flatten (map compile_kindvar κs).
+  flatten (map compile_kindvar κs).
 
 Fixpoint compile_typ (typ: rwasm.Typ) : option (list wasm.value_type) :=
   match typ with
   | rwasm.Num ntyp => wty ← compile_numtyp ntyp; mret [wty]
   | rwasm.TVar _ => mret [wasm.T_i32]
   | rwasm.Unit => mret []
-  | rwasm.ProdT typs => list_flatten <$> mapM compile_typ typs
+  | rwasm.ProdT typs => flatten <$> mapM compile_typ typs
   | rwasm.CoderefT _ => None
   | rwasm.Rec _ typ => compile_typ typ
   | rwasm.PtrT _ => mret [wasm.T_i32]
@@ -62,8 +62,8 @@ with compile_fun_type (ft: rwasm.FunType) : option wasm.function_type :=
   match ft with
   | rwasm.FunT κs (rwasm.Arrow tys1 tys2) =>
     let κvs := compile_kindvars κs in
-    tys1' ← list_flatten <$> mapM compile_typ tys1;
-    tys2' ← list_flatten <$> mapM compile_typ tys2;
+    tys1' ← flatten <$> mapM compile_typ tys1;
+    tys2' ← flatten <$> mapM compile_typ tys2;
     mret (wasm.Tf (κvs ++ tys1') tys2')
   end.
 

@@ -301,7 +301,7 @@ Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
     | RT.Num (RT.Float RT.f64) => ⌜∃ f, vs = [VAL_float64 f]⌝
     | RT.TVar _ => ⌜False⌝
     | RT.Unit => ⌜False⌝
-    | RT.ProdT _ => ⌜False⌝
+    | RT.ProdT τs => ∃ vss, ⌜vs = flatten vss⌝ ∗ [∗ list] τ;vs ∈ τs;vss, rels_value rs τ (Stack vs)
     | RT.CoderefT _ => ⌜False⌝
     | RT.Rec _ _ => ⌜False⌝
     | RT.PtrT _ => ⌜False⌝
@@ -431,7 +431,93 @@ Definition semantic_typing  :
 
 Require Import RWasm.compile.
 
-(* TODO *)
+Lemma seq_map_map {A B} (f : A -> B) (l : list A) : seq.map f l = map f l.
+Admitted.
+
+Lemma Forall2_Forall3_mp2
+  {A B C D : Type}
+  (R : A -> B -> Prop)
+  (P : C -> B -> D -> Prop)
+  (l1 : list A)
+  (l2 : list B)
+  (l3 : list C)
+  (l4 : list D) :
+  Forall2 R l1 l2 ->
+  Forall3 (fun x y z => forall a, R y a -> P x a z) l3 l1 l4 ->
+  Forall3 (fun x a z => P x a z) l3 l2 l4.
+Proof.
+Admitted.
+
+Lemma sniff_tuple Ss S C F L WL vs wes τs :
+  compile_value (Prod vs) = Some wes ->
+  SplitStoreTypings Ss S ->
+  Forall3 (fun S' 'v t =>
+             forall ve, compile_value v = Some ve ->
+             ⊢ semantic_typing S' C F L [] (to_e_list (map BI_const ve)) (rwasm.Arrow [] [t]) L)
+          Ss vs τs ->
+  ⊢ semantic_typing S C F L WL (to_e_list (map BI_const wes)) (Arrow [] [ProdT τs]) L.
+Proof.
+  intros Hcomp HSs Hsem.
+  iIntros.
+  iIntros (inst lh) "[Hinst Hctx] %f %vs' (Hval & Hframe)".
+  rewrite interp_expr_eq.
+  unfold interp_expr_0.
+  cbn.
+  iDestruct "Hval" as "[-> | (%ws & -> & %wss & -> & Hvalue)]".
+  - admit.
+  - cbn.
+    rewrite big_sepL2_nil_inv_l. iDestruct "Hvalue" as "->".
+    cbn.
+    unfold compile_value in Hcomp. apply fmap_Some in Hcomp.
+    destruct Hcomp as [wess [Hcomp ->]].
+    fold compile_value in Hcomp.
+    apply mapM_Some in Hcomp.
+    iApply wp_value.
+    + instantiate (1 := immV (flatten wess)). unfold IntoVal. cbn.
+      unfold v_to_e_list. unfold to_e_list.
+      rewrite !seq_map_map. by rewrite map_map.
+    + iFrame.
+      iExists (flatten wess). iSplitR; first done.
+      iExists [flatten wess]. iSplitR.
+      { cbn. by rewrite cats0. }
+      cbn. iFrame.
+      rewrite interp_value_eq. cbn.
+      iExists wess. iSplitR; first done.
+      apply (Forall2_Forall3_mp2 _ _ _ _ _ _ Hcomp) in Hsem.
+      clear Hcomp.
+      cbn beta in Hsem.
+Admitted.
+
+Theorem fundamental_property_value S C F L v vs τ ta :
+  HasTypeValue S F v τ ->
+  ta = rwasm.Arrow [] [τ] ->
+  compile_value v = Some vs ->
+  ⊢ semantic_typing S C F L [] (to_e_list (map BI_const vs)) ta L.
+Proof.
+  intros Htyp Hta Hcomp.
+  subst ta.
+  generalize dependent vs.
+  induction Htyp using HasTypeValue_ind'.
+  - admit.
+  - admit.
+  - intros vs' Hcomp.
+    apply fmap_Some in Hcomp.
+    fold compile_value in Hcomp.
+    destruct Hcomp as [vs'' [Hcomp ->]].
+    apply sniff_tuple with (Ss := Ss) (vs := vs).
+    3: assumption.
+    + cbn. by rewrite Hcomp.
+    + assumption.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
 Theorem fundamental_property S C F L e es tf L' :
   HasTypeInstr S C F L e tf L' ->
   compile_instr [] 0 GC_MEM LIN_MEM e = Some es ->
@@ -439,28 +525,10 @@ Theorem fundamental_property S C F L e es tf L' :
 Proof.
   intros Htyp Hcomp.
   induction Htyp.
-
-Admitted.
-
-Lemma sniff_tuple Ss S C F L WL vs ves es τs :
-  SplitStoreTypings Ss S ->
-  Forall3 (fun v τ ve => compile_instr [] 0 GC_MEM LIN_MEM (RT.Val (Arrow [] [τ]) v) = Some ve) vs τs ves ->
-  compile_instr [] 0 GC_MEM LIN_MEM (RT.Val (Arrow [] τs) (Prod vs)) = Some es ->
-  ([∗ list] '(ve, τ); Si ∈ zip ves τs; Ss, semantic_typing Si C F L WL (map AI_basic ve) (Arrow [] [τ]) L)%I ⊢
-  semantic_typing S C F L WL (to_e_list es) (Arrow [] τs) L.
-Proof.
-  intros HSs HCv HCvs.
-  iIntros "HSv %inst %lh HI %f %vs0 (Hvs0 & Hif)".
-  rewrite interp_expr_eq.
-  induction vs.
-  - inversion HCv. subst.
-    cbn.
-    unfold compile_instr in HCvs.
-    unfold compile_value in HCvs.
-    cbn in HCvs. injection HCvs. intros Hes. subst es.
-    cbn. rewrite app_nil_r. Search (of_val _)%I.
-    iDestruct "Hvs0" as "[-> | Hfoo]".
-    + cbn.
+  - cbn in Hcomp. apply fmap_Some in Hcomp.
+    destruct Hcomp as [vs' [Hcomp ->]].
+    by apply fundamental_property_value with (v := v) (τ := t).
+  - admit.
 Admitted.
 
 Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
