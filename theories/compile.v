@@ -1,4 +1,5 @@
 From Coq Require Import List.
+Require Import mathcomp.ssreflect.seq.
 Require Import stdpp.base.
 Require Import stdpp.list.
 Require Import stdpp.option.
@@ -11,21 +12,6 @@ Require Import BinNat.
 Module rwasm := term.
 Module wasm := datatypes.
 Require Import stdpp.list.
-
-Fixpoint option_of_list {A} (l : list (option A)) : option (list A) :=
-  match l with
-  | [] => Some []
-  | None :: _ => None
-  | Some x :: xs =>
-    rest ← option_of_list xs;
-    mret (x :: rest)
-  end.
-
-Fixpoint list_flatten {A} (l : list (list A)) : list A :=
-  match l with
-  | [] => []
-  | x :: xs => x ++ (list_flatten xs)
-  end.
 
 Definition compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
   match typ with
@@ -70,7 +56,7 @@ with compile_arrow_type (typ: rwasm.ArrowType) : option wasm.function_type :=
   | rwasm.Arrow tys1 tys2 =>
     tys1' ← mapM compile_typ tys1;
     tys2' ← mapM compile_typ tys2;
-    mret (wasm.Tf (list_flatten tys1') (list_flatten tys2'))
+    mret (wasm.Tf (flatten tys1') (flatten tys2'))
   end
 with compile_fun_type (ft: rwasm.FunType) : option wasm.function_type :=
   match ft with
@@ -104,7 +90,7 @@ Fixpoint compile_value (value : rwasm.Value) : option (list wasm.value) :=
   | rwasm.Tt => None
   | rwasm.Coderef module_idx table_idx idxs => None
   | rwasm.Fold val => None
-  | rwasm.Prod vals => list_flatten <$> mapM compile_value vals
+  | rwasm.Prod vals => flatten <$> mapM compile_value vals
   | rwasm.Ref loc => None
   | rwasm.PtrV loc => None
   | rwasm.Cap => None
@@ -322,17 +308,17 @@ Fixpoint compile_instr (instr: rwasm.basic_instr rwasm.ArrowType) : option (list
   | rwasm.Select (rwasm.Arrow targs trets) => Some [wasm.BI_select]
   | rwasm.Block (rwasm.Arrow targs trets) arrow _ i =>
     ft ← compile_arrow_type arrow;
-    i' ← option_of_list (map compile_instr i);
-    mret [wasm.BI_block ft (list_flatten i')]
+    i' ← mapM compile_instr i;
+    mret [wasm.BI_block ft (flatten i')]
   | rwasm.Loop (rwasm.Arrow targs trets) arrow i =>
     ft ← compile_arrow_type arrow;
-    i' ← option_of_list (map compile_instr i);
-    mret [wasm.BI_block ft (list_flatten i')]
+    i' ← mapM compile_instr i;
+    mret [wasm.BI_block ft (flatten i')]
   | rwasm.ITE (rwasm.Arrow targs trets) arrow _ t e =>
     ft ← compile_arrow_type arrow;
-    t' ← option_of_list (map compile_instr t);
-    e' ← option_of_list (map compile_instr e);
-    mret [wasm.BI_if ft (list_flatten t') (list_flatten e')]
+    t' ← mapM compile_instr t;
+    e' ← mapM compile_instr e;
+    mret [wasm.BI_if ft (flatten t') (flatten e')]
   | rwasm.Br (rwasm.Arrow targs trets) x => Some [wasm.BI_br x]
   | rwasm.Br_if (rwasm.Arrow targs trets) x => Some [wasm.BI_br_if x]
   | rwasm.Br_table (rwasm.Arrow targs trets) x x0 => Some [wasm.BI_br_table x x0]
