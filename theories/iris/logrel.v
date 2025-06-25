@@ -969,7 +969,6 @@ Tactic Notation "next_wp'" constr(Hs) :=
     {
       iApply (wp_tee_local with "[$Hfr]").
       iIntros "!> Hfr".
-      let e := get_shp in idtac e.
       next_wp.
       {
         iApply (wp_wand with "[Hfr]").
