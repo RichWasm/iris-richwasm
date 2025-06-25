@@ -301,7 +301,6 @@ Definition unset_gc_bit :=
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub)].
 
 Definition tagged_load ref_tmp offset_instrs :=
-  wasm.BI_get_local ref_tmp :: (* save ref *)
   if_gc_bit_set ref_tmp [] [wasm.T_i32 (* loaded value *)]
   ([wasm.BI_get_local ref_tmp] ++
    unset_gc_bit ++

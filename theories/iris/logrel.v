@@ -789,7 +789,7 @@ Proof.
   rewrite interp_frame_eq.
   unfold interp_val.
   iDestruct "Hval" as "[Htrap | (%vs' & %Hvs'eq & Hval)]".
-  - admit.
+  - admit. (* Should prove a lemma about traps being in interp_expr. *)
   - rewrite -> Hτ.
     cbn.
     (* First we collect the facts we need from the context. *)
@@ -802,7 +802,7 @@ Proof.
     rewrite big_sepL2_singleton.
     setoid_rewrite interp_value_eq.
     iEval (cbn) in "Hval".
-    iDestruct "Hval" as "(%bs & %l32 & -> & %Hrep & Hptr & %bss & %bs_rest & %Hconcat & Hfields)".
+    iDestruct "Hval" as "(%bs & %l32 & -> & %Hrep & Hbs & %bss & %bs_rest & %Hconcat & Hfields)".
     pose proof Hrep as Hrep'.
     destruct Hrep' as [Hlrep Hlalign].
     simpl flatten.
@@ -844,12 +844,10 @@ Tactic Notation "next_wp'" constr(Hs) :=
   | Unknown => fail
   end.
 
-    next_wp' "HΦ Hinst Hctx Hfi".
+    next_wp' "HΦ Hinst Hctx Hfi Hbs".
     {
       iApply (wp_tee_local with "[$Hfr]").
       iIntros "!> Hfr".
-      let e := get_shp in idtac e.
-      Print next_wp.
       next_wp.
       {
         iApply (wp_wand with "[Hfr]").
@@ -865,26 +863,9 @@ Tactic Notation "next_wp'" constr(Hs) :=
       - iIntros "!> ((%vs & %contra & _) & _)". discriminate.
     }
     cbn beta.
-    iRename select (_ ∗ _)%I into "H".
-    iDestruct "H" as "(%Hv & Hptr)".
+    iDestruct select (_ ∗ _)%I as "(%Hv & Hptr)".
     inversion Hv. subst v.
-    next_wp' "Hfi Hinst Hctx".
-    {
-      iApply (wp_wand with "[Hfr]").
-      iApply (wp_get_local with "[] [$Hfr]"); eauto.
-      by rewrite set_nth_read.
-      fill_imm_pred.
-      iIntros (w) "(-> & Hfr)".
-      iFrame.
-      iExists _.
-      iSplit; [|iSplit]; try done.
-      fill_vals_pred.
-    }
-    iIntros "!> ((%vs & %contra & _) & _)"; discriminate contra.
-    cbn beta.
-    iDestruct select (_ ∗ _)%I as "(%Hvs & Hbs)".
-    inversion Hvs; subst.
-    skip_sz 2.
+    skip_sz 1.
     iApply (gc_bit_not_set_spec with "[$Hfr]");
       [by rewrite set_nth_read | eauto |].
     {
@@ -892,13 +873,13 @@ Tactic Notation "next_wp'" constr(Hs) :=
       rewrite -(app_nil_l [AI_basic _]).
       iApply (wp_block with "[$Hfr]") => //.
       iIntros "!> Hfr".
-      Locate "CTX_EMPTY".
       iApply wp_wasm_empty_ctx.
       iApply wp_label_push_nil.
       iApply wp_ctx_bind; [done|].
-      next_wp' "Hinst Hctx Hfi".
+      iClear "Hptr".
+      next_wp' "Hinst Hctx Hfi Hbs".
       { 
-        iApply (wp_get_local with "[Hbs]"); eauto.
+        iApply wp_get_local; eauto.
         by rewrite set_nth_read.
         iIntros "!>".
         iExists _.
@@ -906,7 +887,7 @@ Tactic Notation "next_wp'" constr(Hs) :=
         iSplit; auto.
         fill_vals_pred.
       }
-      cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & Hbs)".
+      cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & _)".
       inversion Hv'; subst v; clear Hv'.
       next_wp' "Hinst Hctx Hfi".
       { 
@@ -923,6 +904,14 @@ Tactic Notation "next_wp'" constr(Hs) :=
       {
         by inversion Hi.
       }
+
+      assert (Hℓ: ℓ = (Wasm_int.N_of_uint i32m (Wasm_int.Int32.iadd l32 (Wasm_int.Int32.repr 0%nat)) + 0)%N).
+      {
+        rewrite N.add_0_r.
+        unfold Wasm_int.Int32.iadd; rewrite Wasm_int.Int32.add_zero.
+        erewrite <- N_repr_uint; done.
+      }
+      subst bs.
       replace (flatten [b]) with b by (cbn; by rewrite seq.cats0).
       rewrite wms_app; [|eauto].
       iDestruct "Hbs" as "[Hb Hbs]".
@@ -940,20 +929,19 @@ Tactic Notation "next_wp'" constr(Hs) :=
         unfold Memdata.decode_int.
         apply Memdata.int_of_bytes_range.
       }
+      simpl flatten.
+      iEval (rewrite Hℓ -Hbits) in "Hb".
       iApply (wp_wand with "[Hb Hfr]").
       {
-        iApply wp_load.
-        - admit.
-        - admit.
-        - rewrite N.add_0_r.
-          unfold Wasm_int.Int32.iadd; rewrite Wasm_int.Int32.add_zero.
-          erewrite <- N_repr_uint by done.
-          rewrite -Hbits.
-          iFrame.
-          fill_imm_pred.
+        iApply wp_load; try iFrame.
+        - done.
+        - cbn.
+          admit. (* need interp_frame to say where LIN_MEM and GC_MEM are! or interp_inst? *)
+        - fill_imm_pred.
       }
       cbn beta.
       iIntros (v) "[[-> Hb] Hfr]".
+      iEval (rewrite -Hℓ) in "Hb".
       simpl of_val.
       unfold wp_wasm_ctx.
       iIntros (LI) "%Hfill".
@@ -965,28 +953,48 @@ Tactic Notation "next_wp'" constr(Hs) :=
       fill_imm_pred.
       iIntros (v) "[-> Hfr]".
       iExists _.
+      iCombine "Hb" "Hbs" as "Hbs".
+      iEval (rewrite Hbits) in "Hbs".
+      rewrite -wms_app.
       iSplit; auto.
       {
-      iSplitR "Hfr Hfi".
-      - admit.
-      - iDestruct "Hfi" as "(%vs & %ws & -> & Hfi)".
-        iExists _.
-        rewrite interp_frame_eq.
-        cbn.
-        iFrame.
-        iExists _. iExists _.
-        iSplit; eauto.
-        iPureIntro.
-        f_equal.
-        admit.
-        admit.
+        iSplitR "Hfr Hfi".
+        - iExists [[VAL_int32 l32]; [VAL_int32 i]].
+          iSplit =>//.
+          rewrite !big_sepL2_cons.
+          iSplitL; [| by eauto].
+          iEval (cbn).
+          iExists _.
+          iExists _.
+          iFrame.
+          iSplit; eauto.
+          iSplit; eauto.
+          iExists _. iExists _. iSplit;
+            [iPureIntro; f_equal; by instantiate (1:= [[b0;b1;b2;b3]])|].
+          cbn.
+          iFrame.
+          iExists _.
+          iSplit; [by eauto|].
+          iSplit; [done|].
+          rewrite Hi interp_value_eq; eauto.
+        - iDestruct "Hfi" as "(%vs & %ws & -> & Hfi)".
+          iExists _.
+          rewrite interp_frame_eq.
+          cbn.
+          iFrame.
+          iExists _. iExists _.
+          iSplit; eauto.
+          + iPureIntro.
+            f_equal.
+            admit. (* frame stuff *)
+          + admit. (* more frame stuff *)
       }
-      admit.
-      admit.
+      reflexivity.
+      admit. (* trap condition *)
+      admit. (* trap condition *)
     }
-    admit.
-    admit.
-    admit.
-Abort.
+    admit. (* trap condition *)
+    admit. (* trap condition *)
+Admitted.
 
 End logrel.
