@@ -524,6 +524,10 @@ Proof.
       apply Forall3_to_zip23 in Hsem.
       replace wess with (fst <$> (zip wess τs))
         by (rewrite fst_zip; [done | lia]).
+      unfold semantic_typing in  Hsem.
+      eapply Forall2_impl in Hsem.
+      instantiate (1 := λ S '(wes, τ), ⊢ (interp_inst S C inst ∗ interp_ctx L L F inst (LH_base [] []) -∗ ?[Q'])%I) in Hsem.
+      2:intros S0 [wes τ] P; iApply P.
       admit.
 
 Admitted.
