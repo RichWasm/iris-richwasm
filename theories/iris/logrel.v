@@ -497,7 +497,6 @@ Proof.
   by rewrite (take_drop n es).
 Qed.
 
-Search Pos.divide.
 Lemma even_iff_land1:
   forall p: positive,
     ((2 | p) <-> Pos.land p 1 = 0%N)%positive.
@@ -848,6 +847,7 @@ Tactic Notation "next_wp'" constr(Hs) :=
     {
       iApply (wp_tee_local with "[$Hfr]").
       iIntros "!> Hfr".
+      let e := get_shp in idtac e.
       next_wp.
       {
         iApply (wp_wand with "[Hfr]").

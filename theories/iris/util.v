@@ -46,11 +46,6 @@ Proof.
   eapply wp_label_push; auto.
 Qed.
 
-Check wms_append.
-Locate "∗-∗".
-Check bi_wand_iff.
-Locate "⊣⊢".
-Check equiv.
 Lemma bimp_bient (P Q: iProp Σ) :
   (⊢ P ∗-∗ Q)
   <->
@@ -74,7 +69,6 @@ Lemma wms_app n bs1 :
   sz1 = N.of_nat (length bs1) ->
   n ↦[wms][ℓ] (bs1 ++ bs2) ⊣⊢ n ↦[wms][ℓ] bs1 ∗ n ↦[wms][ℓ + sz1] bs2.
 Proof.
-  Locate "↦[wms][".
   unfold mem_block_at_pos.
   intros.
   rewrite big_opL_app.

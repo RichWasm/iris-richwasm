@@ -109,7 +109,7 @@ Inductive shape :=
 | Shape (to_skip: nat) (to_use: nat) (output: nat) (rest: nat)
 | Unknown.
 
-Fixpoint ai_shp (ais: list administrative_instruction) : shape :=
+Definition ai_shp (ais: list administrative_instruction) : shape :=
   let '(sz, rest) := stack_size ais in
   match rest with
   | ai :: ais => 

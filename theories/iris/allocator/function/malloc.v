@@ -1828,8 +1828,6 @@ Proof.
     iIntros "!> Hfr".
     wp_chomp 0.
     iApply (wp_block with "[$Hfr]"); eauto.
-    Locate "WP".
-    Search wp_wasm_ctx wp.
     iIntros "!> Hfr".
     iApply wp_wasm_empty_ctx.
     iApply wp_label_push_emp; last first.
@@ -2436,7 +2434,6 @@ Proof.
           cut (N_repr (Z.to_N (Z.of_nat (N.to_nat (memlen `div` page_size)))) (Wasm_int.Int32.repr (Z.of_nat (N.to_nat (N.div memlen page_size))))).
           {
             intros H'.
-            Search (Z.of_nat (N.to_nat _)).
             rewrite N_nat_Z in H'.
             rewrite N_nat_Z.
             rewrite N2Z.id in H'.
@@ -2740,8 +2737,6 @@ Proof.
       wp_chomp 0.
       iApply (wp_block with "[$Hfr]"); cbn; auto.
       iIntros "!> Hfr".
-      Search wp_wasm AI_label.
-      Search wp_wasm_ctx wp_wasm.
       iApply wp_build_ctx.
       constructor.
       apply lfilled_Ind_Equivalent.
@@ -2858,7 +2853,6 @@ Lemma spec_malloc
 
 (* SPECS: free *)
 Check free.
-Search BI_return.
 Lemma blocklist_tok_means_used blks sz data_addr :
   blocklist_shp blks !! data_addr = Some sz ->
   exists base_addr sz_l: N, (base_addr + data_off)%N = data_addr /\ In (UsedBlk base_addr sz sz_l) blks.
