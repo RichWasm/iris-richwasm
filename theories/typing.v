@@ -1481,40 +1481,6 @@ Admitted.
         Forall3 (fun S' v t => HasTypeValue S' C v t) Ss vs taus ->
         TypeValid C (ProdT taus) ->
         HasTypeValue S C (term.Prod vs) (ProdT taus)
-  | PtrTyp :
-      forall S C l,
-        M.is_empty (LinTyp S) = true ->
-        TypeValid C (PtrT l) ->
-        HasTypeValue S C (PtrV l) (PtrT l)
-  | RefTypUnr :
-      forall S C rw l ht q,
-        M.is_empty (LinTyp S) = true ->
-        get_heaptype l (UnrTyp S) = Some ht ->
-        (* Values which depend on S having LinTyp / UnrTyp can not be from surface instructions, so must be valid under empty function context *)
-        (* TODO: Use TypQual *)
-        QualLeq [] q Unrestricted = Some true ->
-        TypeValid empty_Function_Ctx (RefT rw (LocP l GCMem) ht) ->
-        HasTypeValue S C (Ref (LocP l GCMem)) (RefT rw (LocP l GCMem) ht)
-  | RefTypLin :
-      forall S C rw l ht q,
-        map_util.eq_map (LinTyp S)
-                        (M.add (N.succ_pos l) ht (M.empty HeapType)) ->
-        (* Values which depend on S having LinTyp / UnrTyp can not be from surface instructions, so must be valid under empty function context *)
-        QualLeq [] Linear q = Some true ->
-        TypeValid empty_Function_Ctx (RefT rw (LocP l LinMem) ht) ->
-        HasTypeValue S C (Ref (LocP l LinMem)) (RefT rw (LocP l LinMem) ht)
-  | CapTypLin :
-      forall S C rw l ht q,
-        map_util.eq_map (LinTyp S)
-                        (M.add (N.succ_pos l) ht (M.empty HeapType)) ->
-        (* Values which depend on S having LinTyp / UnrTyp can not be from surface instructions, so must be valid under empty function context *)
-        QualLeq [] Linear q = Some true ->
-        TypeValid empty_Function_Ctx (CapT rw (LocP l LinMem) ht) ->
-        HasTypeValue S C Cap (CapT rw (LocP l LinMem) ht)
-  | OwnTyp : forall S C l,
-        M.is_empty (LinTyp S) = true ->
-        TypeValid C (OwnR l) ->
-        HasTypeValue S C Own (OwnR l)
   | RecTyp :
       forall S C v qa pt,
         let r := Rec qa pt in
@@ -1526,17 +1492,7 @@ Admitted.
         LocValid (location C) l ->
         TypeValid C (ExLoc q t) ->
         HasTypeValue S C v (subst_ext (Kind:=Kind) (ext SLoc l id) t) ->
-        HasTypeValue S C (Mempack l v) (ExLoc q t)
-  | CoderefTyp :
-      forall S C modi tabi is ft C' ftinst,
-        M.is_empty (LinTyp S) = true ->
-        nth_error (InstTyp S) modi = Some C' ->
-        nth_error (table C') tabi = Some ft ->
-        InstInds ft is = Some ftinst ->
-        (* Coderef values can not be from surface instructions, so must be valid under empty function context *)
-        InstIndsValid empty_Function_Ctx ft is ->
-        TypeValid empty_Function_Ctx (CoderefT ftinst) ->
-        HasTypeValue S C (Coderef modi tabi is) (CoderefT ftinst).
+        HasTypeValue S C (Mempack l v) (ExLoc q t).
 
   Section HasTypeValueInd.
 
@@ -1560,36 +1516,6 @@ Admitted.
                     Ss vs taus ->
             TypeValid C (ProdT taus) ->
             P S C (term.Prod vs) (ProdT taus))
-      (HPtrTyp :
-          forall S C l,
-            M.is_empty (LinTyp S) = true ->
-            TypeValid C (PtrT l) ->
-            P S C (PtrV l) (PtrT l))
-      (HRefTypUnr :
-          forall S C rw l ht q,
-            M.is_empty (LinTyp S) = true ->
-            get_heaptype l (UnrTyp S) = Some ht ->
-            QualLeq [] q Unrestricted = Some true ->
-            TypeValid empty_Function_Ctx (RefT rw (LocP l GCMem) ht) ->
-            P S C (Ref (LocP l GCMem)) (RefT rw (LocP l GCMem) ht))
-      (HRefTypLin :
-          forall S C rw l ht q,
-            map_util.eq_map (LinTyp S)
-                            (M.add (N.succ_pos l) ht (M.empty HeapType)) ->
-            QualLeq [] Linear q = Some true ->
-            TypeValid empty_Function_Ctx (RefT rw (LocP l LinMem) ht) ->
-            P S C (Ref (LocP l LinMem)) (RefT rw (LocP l LinMem) ht))
-      (HCapTypLin :
-          forall S C rw l ht q,
-            map_util.eq_map (LinTyp S)
-                            (M.add (N.succ_pos l) ht (M.empty HeapType)) ->
-            QualLeq [] Linear q = Some true ->
-            TypeValid empty_Function_Ctx (CapT rw (LocP l LinMem) ht) ->
-            P S C Cap (CapT rw (LocP l LinMem) ht))
-      (HOwnTyp : forall S C l,
-            M.is_empty (LinTyp S) = true ->
-            TypeValid C (OwnR l) ->
-            P S C Own (OwnR l))
       (HRecTyp :
          forall S C v qa pt,
            let r := Rec qa pt in
@@ -1602,15 +1528,6 @@ Admitted.
             TypeValid C (ExLoc q t) ->
             P S C v (subst_ext (Kind:=Kind) (ext SLoc l id) t) ->
             P S C (Mempack l v) (ExLoc q t))
-      (CoderefTyp :
-          forall S C modi tabi is ft C' ftinst,
-            M.is_empty (LinTyp S) = true ->
-            nth_error (InstTyp S) modi = Some C' ->
-            nth_error (table C') tabi = Some ft ->
-            InstInds ft is = Some ftinst ->
-            InstIndsValid empty_Function_Ctx ft is ->
-            TypeValid empty_Function_Ctx (CoderefT ftinst) ->
-            P S C (Coderef modi tabi is) (CoderefT ftinst))
     .
 
     Fixpoint HasTypeValue_ind' S C v t (Hty : HasTypeValue S C v t) {struct Hty} :
@@ -1624,17 +1541,8 @@ Admitted.
         induction H0; [constructor|constructor].
         + apply HasTypeValue_ind'; assumption.
         + apply IHForall3.
-      - apply HPtrTyp; assumption.
-      - apply HRefTypUnr with (q := Unrestricted); try assumption.
-        + apply QualLeq_Refl.
-      - apply HRefTypLin with (q := Linear); try assumption.
-        + apply QualLeq_Refl.
-      - apply HCapTypLin with (q := Linear); try assumption.
-        + apply QualLeq_Refl.
-      - apply HOwnTyp; assumption.
       - apply HRecTyp; try assumption. apply HasTypeValue_ind'. assumption.
       - apply HMempackTyp; try assumption. apply HasTypeValue_ind'; assumption.
-      - eapply CoderefTyp; eassumption.
     Qed.
 
   End HasTypeValueInd.

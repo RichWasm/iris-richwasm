@@ -564,12 +564,6 @@ Proof.
     + assumption.
   - admit.
   - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
 Admitted.
 
 Theorem fundamental_property S C F L e es tf L' :
