@@ -208,104 +208,107 @@ Module AnnotatedToBoxed.
   Fixpoint compile_instruction (instr : AR.Instruction) : M (list Instruction) :=
     let compile_le := fun '(n, t) => (n, compile_type true t) in
     match instr with
-    | AR.Instr pre tf =>
-      let tf' := compile_arrow true tf in
+    | AR.Instr pre tf__i =>
+      let tf__i' := compile_arrow true tf__i in
       match pre with
-      | AR.Val v => mret $ [Instr (Val V) tf']
-      | AR.Ne ni => mret $ [Instr (Ne ni) tf']
-      | AR.Unreachable => mret $ [Instr (Unreachable) tf']
-      | AR.Nop => mret $ [Instr (Nop) tf']
-      | AR.Drop => mret $ [Instr (Drop) tf']
-      | AR.Select => mret $ [Instr (Select) tf']
+      | AR.Val v => mret $ [Instr (Val (compile_val v)) tf__i']
+      | AR.Ne ni => mret $ [Instr (Ne ni) tf__i']
+      | AR.Unreachable => mret $ [Instr (Unreachable) tf__i']
+      | AR.Nop => mret $ [Instr (Nop) tf__i']
+      | AR.Drop => mret $ [Instr (Drop) tf__i']
+      | AR.Select => mret $ [Instr (Select) tf__i']
       | AR.Block tf le e__s => 
-        e__s' ← mapM compile_instruction e__S;
-        mret $ [Instr (Block (compile_type true tf) (map compile_le le) e__s') tf']
-      | AR.Loop tf e => Loop (compile_type true tf) e
+        e__s' ← flat_mapM compile_instruction e__s;
+        mret $ [Instr (Block (compile_arrow true tf) (map compile_le le) e__s') tf__i']
+      | AR.Loop tf e =>
+        e' ← flat_mapM compile_instruction e;
+        mret [Instr (Loop (compile_arrow true tf) e') tf__i']
       | AR.ITE tf le e__thn e__els =>
-        e__thn' ← mapM compile_instruction e__thn;
-        e__els' ← mapM compile_instruction e__els;
-        mret $ [Instr (ITE (compile_type true tf) (map compile_le le)) tf']
-      | AR.Br i => mret $ [Instr (Br i) tf']
-      | AR.Br_if i => mret $ [Instr (Br_if i) tf']
-      | AR.Br_table i__s j => mret $ [Instr (Br_table i__s j) tf']
-      | AR.Ret => mret $ [Instr (Ret) tf']
-      | AR.Get_local i q => mret $ [Instr (Get_local i q) tf']
-      | AR.Set_local i => mret $ [Instr (Set_local i) tf']
-      | AR.Tee_local i => mret $ [Instr (Tee_local i) tf']
-      | AR.Get_global i => mret $ [Instr (Get_global i) tf']
-      | AR.Set_global i => mret $ [Instr (Set_global i) tf']
-      | AR.CoderefI i => mret $ [Instr (CoderefI i) tf']
-      | AR.Inst z__s => mret $ [Instr (Inst z__s) tf']
+        e__thn' ← flat_mapM compile_instruction e__thn;
+        e__els' ← flat_mapM compile_instruction e__els;
+        mret $ [Instr (ITE (compile_arrow true tf) (map compile_le le) e__thn' e__els') tf__i']
+      | AR.Br i => mret $ [Instr (Br i) tf__i']
+      | AR.Br_if i => mret $ [Instr (Br_if i) tf__i']
+      | AR.Br_table i__s j => mret $ [Instr (Br_table i__s j) tf__i']
+      | AR.Ret => mret $ [Instr (Ret) tf__i']
+      | AR.Get_local i q => mret $ [Instr (Get_local i q) tf__i']
+      | AR.Set_local i => mret $ [Instr (Set_local i) tf__i']
+      | AR.Tee_local i => mret $ [Instr (Tee_local i) tf__i']
+      | AR.Get_global i => mret $ [Instr (Get_global i) tf__i']
+      | AR.Set_global i => mret $ [Instr (Set_global i) tf__i']
+      | AR.CoderefI i => mret $ [Instr (CoderefI i) tf__i']
+      | AR.Inst z__s => mret $ [Instr (Inst z__s) tf__i']
       | AR.Call_indirect => mthrow (err "TODO")
       | AR.Call i z__s =>
-          let for_boxes f :=
-            foldli (fun acc t i =>
+        let for_boxes f :=
+          foldli (fun acc t i =>
             match t with
-            | BoxedT _ => f i :: acc
+            | BoxedT _ => (f i) :: acc
             | _ => acc
             end) []
-          in
-          let type_box pre :=
-            match pre with
-            (* a, b, ..., i => a, b, ..., BoxedT i *)
-            | Box i => mthrow (err "TODO")
-            | _ => mthrow (err "expected Box pre-instr")
-            end
-          in
-          let type_unbox pre :=
-            match pre with
-            | Unbox i => mthrow (err "TODO")
-            | _ => mthrow (err "expected Unbox pre-instr")
-            end
-          in
-          match tf' with
-          | Arrow from to =>
-            let boxes := for_boxes Box from in
-            let unboxes := for_boxes Unbox to in
-            boxes' ← mapM type_box boxes;
-            unboxes' ← mapM type_unbox unboxes;
-            mret $ [
-              (* notably not tf' here *)
-              Instr (Block (compile_type false tf) [] (boxes' ++ [Call i z__s] ++ unboxes'))
-            ]
+        in
+        let type_box (pre : PreInstruction) : M PreInstruction :=
+          match pre with
+          (* a, b, ..., i => a, b, ..., BoxedT i *)
+          | Box i => mthrow (err "TODO")
+          | _ => mthrow (err "expected Box pre-instr")
           end
-      | AR.RecFold τ => mret $ [Instr (RecFold τ) tf']
-      | AR.RecUnfold => mret $ [Instr (RecUnfold) tf']
-      | AR.Group i q => mret $ [Instr (Group i q) tf']
-      | AR.Ungroup => mret $ [Instr (Ungroup) tf']
-      | AR.CapSplit => mret $ [Instr (CapSplit) tf']
-      | AR.CapJoin => mret $ [Instr (CapJoin) tf']
-      | AR.RefDemote => mret $ [Instr (RefDemote) tf']
-      | AR.MemPack ℓ => mret $ [Instr (MemPack ℓ) tf']
+        in
+        let type_unbox (pre : PreInstruction) : M PreInstruction:=
+          match pre with
+          | Unbox i => mthrow (err "TODO")
+          | _ => mthrow (err "expected Unbox pre-instr")
+          end
+        in
+        match tf__i' with
+        | Arrow from to =>
+          let boxes := for_boxes Box from in
+          let unboxes := for_boxes Unbox to in
+          boxes' ← mapM type_box boxes;
+          unboxes' ← mapM type_unbox unboxes;
+          mthrow (err "TODO(ari) arrow types for call itself")
+          (* mret $ [ *)
+          (*   (* notably not tf' here *) *)
+          (*   Instr (Block (compile_arrow false tf) [] (boxes' ++ [Call i z__s] ++ unboxes')) *)
+          (* ] *)
+        end
+      | AR.RecFold τ => mret $ [Instr (RecFold (compile_type false τ)) tf__i'] (* FIXME(ari): should this be boxed? *)
+      | AR.RecUnfold => mret $ [Instr (RecUnfold) tf__i']
+      | AR.Group i q => mret $ [Instr (Group i q) tf__i']
+      | AR.Ungroup => mret $ [Instr (Ungroup) tf__i']
+      | AR.CapSplit => mret $ [Instr (CapSplit) tf__i']
+      | AR.CapJoin => mret $ [Instr (CapJoin) tf__i']
+      | AR.RefDemote => mret $ [Instr (RefDemote) tf__i']
+      | AR.MemPack ℓ => mret $ [Instr (MemPack ℓ) tf__i']
       | AR.MemUnpack tf le e__s =>      
-        e__s' ← mapM compile_instruction e__S;
-        mret $ [Instr (MemUnpack (compile_type false tf) (map compile_le le) e__s') tf']
-      | AR.StructMalloc sz__s q => mret $ [Instr (StructMalloc sz__s q) tf']
-      | AR.StructFree => mret $ [Instr (StructFree) tf']
-      | AR.StructGet i => mret $ [Instr (StructGet i) tf']
-      | AR.StructSet i => mret $ [Instr (StructSet i) tf']
-      | AR.StructSwap i => mret $ [Instr (StructSwap i) tf']
-      | AR.VariantMalloc i τ__s q => mret $ [Instr (VariantMalloc i (map (compile_type true) τ__s) q) tf']
+        e__s' ← flat_mapM compile_instruction e__s;
+        mret $ [Instr (MemUnpack (compile_arrow false tf) (map compile_le le) e__s') tf__i']
+      | AR.StructMalloc sz__s q => mret $ [Instr (StructMalloc sz__s q) tf__i']
+      | AR.StructFree => mret $ [Instr (StructFree) tf__i']
+      | AR.StructGet i => mret $ [Instr (StructGet i) tf__i']
+      | AR.StructSet i => mret $ [Instr (StructSet i) tf__i']
+      | AR.StructSwap i => mret $ [Instr (StructSwap i) tf__i']
+      | AR.VariantMalloc i τ__s q => mret $ [Instr (VariantMalloc i (map (compile_type true) τ__s) q) tf__i']
       | AR.VariantCase q ψ tf le e__ss =>
+        let ψ' := compile_heap true ψ in
+        let tf':= compile_arrow true tf in
+        let le' := map compile_le le in
+        e__ss' ← flat_mapM (mapM compile_instruction) e__ss;
+        mret $ [Instr (VariantCase q ψ' tf' le' e__ss') tf__i']
+      | AR.ArrayMalloc q => mret $ [Instr (ArrayMalloc q) tf__i']
+      | AR.ArrayGet => mret $ [Instr (ArrayGet) tf__i']
+      | AR.ArraySet => mret $ [Instr (ArraySet) tf__i']
+      | AR.ArrayFree => mret $ [Instr (ArrayFree) tf__i']
+      | AR.ExistPack τ ψ q => mret $ [Instr (ExistPack (compile_type true τ) (compile_heap true ψ) q) tf__i']
+      | AR.ExistUnpack q ψ tf le e__s =>
         let ψ' := compile_heap true ψ in
         let tf' := compile_arrow true tf in
         let le' := map compile_le le in
-        let e__ss' := mapM (mapM compile_instruction) e__ss in
-        mret $ [Instr (VariantCase q ψ' tf' le' e__ss') tf']
-      | AR.ArrayMalloc q => mret $ [Instr (ArrayMalloc q) tf']
-      | AR.ArrayGet => mret $ [Instr (ArrayGet) tf']
-      | AR.ArraySet => mret $ [Instr (ArraySet) tf']
-      | AR.ArrayFree => mret $ [Instr (ArrayFree) tf']
-      | AR.ExistPack τ ψ q => mret $ [Instr (ExistPack (compile_type true τ) (compile_heap true ψ) q) tf']
-      | AR.ExistUnpack q ψ tf le e__s =>
-        let ψ' := compile_heap true ψ in
-        let tf'' := compile_arrow true tf in
-        let le' := map compile_le true le in
-        let e__s' := map compile_instruction e__s in
-        mret $ [Instr (ExistUnpack q ψ' tf'' le' e__s') tf']
-      | AR.RefSplit => mret $ [Instr (RefSplit) tf']
-      | AR.RefJoin => mret $ [Instr (RefJoin) tf']
-      | AR.Qualify q => mret $ [Instr (Qualify q) tf']
+        e__s' ← flat_mapM compile_instruction e__s;
+        mret $ [Instr (ExistUnpack q ψ' tf' le' e__s') tf__i']
+      | AR.RefSplit => mret $ [Instr (RefSplit) tf__i']
+      | AR.RefJoin => mret $ [Instr (RefJoin) tf__i']
+      | AR.Qualify q => mret $ [Instr (Qualify q) tf__i']
       | AR.Trap
       | AR.CallAdm _ _
       | AR.Label _ _ _ _
