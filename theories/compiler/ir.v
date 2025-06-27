@@ -211,7 +211,7 @@ Module AnnotatedToBoxed.
     let compile_le := fun '(n, t) => (n, compile_type true t) in
     let compile_instructions :=
       fun is =>
-        foldlM (fun '(n, acc) i =>
+        foldlM (fun i '(n, acc) =>
           '(n', instrs) ← compile_instruction n i;
           mret (n', acc ++ [instrs])) (next, [])
     in
