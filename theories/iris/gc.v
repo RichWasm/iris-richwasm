@@ -1,7 +1,7 @@
 From mathcomp Require Import eqtype.
 From iris.proofmode Require Import base tactics classes.
 From Wasm.iris.host Require Import iris_host.
-From Wasm.iris.rules Require Import iris_rules.
+From Wasm.iris.rules Require Import iris_rules proofmode.
 
 Set Bullet Behavior "Strict Subproofs".
 
@@ -253,10 +253,12 @@ Definition spec_alloc_gc
       AI_basic (BI_const (VAL_int64 ptrmap));
       AI_invoke fid]
      @ E
-     {{ w, ∃ θ' ℓ z blk,
-        ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m z)]⌝ ∗ ⌜repr_vloc θ' ℓ 0 z⌝ ∗
-        GC I m θ' ∗ ℓ ↦vhdr hdr ∗ ℓ ↦vblk blk ∗
-        N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗
+     {{ w,
+        (⌜w = trapV⌝ ∨
+         ∃ θ' ℓ z blk,
+         ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m z)]⌝ ∗ ⌜repr_vloc θ' ℓ 0 z⌝ ∗
+         GC I m θ' ∗ ℓ ↦vhdr hdr ∗ ℓ ↦vblk blk ∗
+         N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes) ∗
         ↪[frame] F }}%I.
 
 Lemma wp_load_gc
@@ -341,8 +343,12 @@ Definition spec_registerroot_gc
   N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
   WP [AI_basic (BI_const (VAL_int32 i)); AI_invoke fid]
      @ E
-     {{ w, ∃ k, ⌜w = immV [VAL_int32 k]⌝ ∗ Wasm_int.N_of_uint i32m k ↦root ℓ ∗ GC I m θ ∗
-                N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
+     {{ w,
+        (⌜w = trapV⌝ ∨
+         ∃ k,
+         ⌜w = immV [VAL_int32 k]⌝ ∗ Wasm_int.N_of_uint i32m k ↦root ℓ ∗ GC I m θ ∗
+         N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes) ∗
+        ↪[frame] F }}%I.
 
 (* TODO: wp_loadroot_gc *)
 
@@ -355,9 +361,10 @@ Definition spec_unregisterroot_gc
   N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
   WP [AI_basic (BI_const (VAL_int32 k)); AI_invoke fid]
      @ E
-     {{ w, ∃ n, ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_vloc θ ℓ 0 n⌝ ∗
-                GC I m θ ∗
-                N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
+     {{ w, ∃ n,
+        ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_vloc θ ℓ 0 n⌝ ∗
+        GC I m θ ∗
+        N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
 
 End GCrules.
 
@@ -425,7 +432,8 @@ Definition main :=
   [ i32const 1;
     i32const 2;
     i64const 0;
-    BI_call 0 ].
+    BI_call 1;
+    BI_drop ].
 
 Definition client_module :=
   {| mod_types := [
@@ -536,12 +544,7 @@ Lemma instantiate_client_spec E (vis_addrs : list N) (gc_mod_addr client_mod_add
   own_vis_pointers vis_addrs -∗
   WP (client_instantiate_para vis_addrs gc_mod_addr client_mod_addr, []) : host_expr
      @ E
-     {{ v, ⌜v = immHV []⌝ ∗
-           ↪[frame] empty_frame ∗
-           gc_mod_addr ↪[mods] gc_module ∗
-           client_mod_addr ↪[mods] client_module ∗
-           ∃ idg name,
-           vis_addrs !!! 5 ↪[vis] {| modexp_name := name; modexp_desc := MED_global (Mk_globalidx idg) |} }}.
+     {{ v, ⌜v = trapHV⌝ ∨ ⌜v = immHV []⌝ }}.
 Proof.
   iIntros (Hvisaddrlen) "Hf Hmodgc Hmodcl Hvis".
   do 7 (destruct vis_addrs => //); clear Hvisaddrlen.
@@ -604,46 +607,119 @@ Proof.
   iIntros "!> [Hf Hwfcl]".
   iApply (wp_frame_bind with "Hf"); first done.
   iIntros "Hf".
-  iApply (wp_wand with "[-]").
+  rewrite -(app_nil_l [AI_basic _]).
+  iApply (wp_block with "Hf"); try done.
+
+  iIntros "!> Hf".
+  iApply (wp_label_bind with "[-]"); last first.
   {
-    rewrite -(app_nil_l [AI_basic _]).
-    iApply (wp_block with "Hf"); try done.
-    iIntros "!> Hf".
-    iApply (wp_label_bind with "[-]"); last first.
-    - iPureIntro. unfold lfilled, lfill.
-      instantiate (6 := []). simpl.
-      rewrite app_nil_r. done.
-    - rewrite (separate3 (AI_basic _)).
-      rewrite -(app_nil_r [AI_basic (BI_call 0)]).
-      iApply wp_wasm_empty_ctx.
-      iApply wp_base_push => //.
-      iApply (wp_call_ctx with "Hf") => //=.
-      iIntros "!> Hf".
-      iApply wp_base_pull.
-      rewrite app_nil_r.
-      iApply wp_wasm_empty_ctx.
+    iPureIntro. unfold lfilled, lfill.
+    instantiate (6 := []). simpl.
+    rewrite app_nil_r. done.
+  }
 
-      unfold import_resources_host, import_resources_wasm_typecheck, import_func_wasm_check, import_func_resources.
-      iDestruct "Himpwasm" as "[[Himpwf %Hfunc_check] (Himptab & Himpmem & Himpglob)]".
-      rewrite big_sepM_insert; last first.
+  set inst := {| inst_types := inst_types;
+                 inst_funcs := [f; f4; f5; idnstart];
+                 inst_tab := inst_tab;
+                 inst_memory := [];
+                 inst_globs := [g] |} in Hinstglob, Hinstmem, Hinsttab, Hinstfunc.
+
+  (* Split the function resources. *)
+  unfold import_resources_host, import_resources_wasm_typecheck, import_func_wasm_check, import_func_resources.
+  iDestruct "Himpwasm" as "[[Himpwf %Hfunc_check] (Himptab & Himpmem & Himpglob)]".
+  rewrite !NoDup_cons in Hfnodup.
+  rewrite !not_elem_of_cons in Hfnodup.
+  rewrite !big_sepM_insert.
+  2: auto.
+  2, 3, 4: rewrite !lookup_insert_None; rewrite !Nat2N.inj_iff; intuition.
+  iDestruct "Himpwf" as "(Hf0 & Hf1 & Hf2 & Hf3 & _)".
+  cbn in Hinstfunc. apply prefix_length_eq in Hinstfunc; last auto.
+  replace f4 with idf1 by congruence.
+
+  cbn in *.
+  rewrite (separate1 (AI_basic (BI_call 1))).
+  iApply (wp_wand with "[Hf Hf1 HGC]").
+  {
+    set fr := {|
+                  f_locs := [VAL_int32 Wasm_int.Int32.zero];
+                  f_inst :=
+                    {|
+                      inst_types := inst_types;
+                      inst_funcs := [f; idf1; f5; idnstart];
+                      inst_tab := inst_tab;
+                      inst_memory := [];
+                      inst_globs := [g]
+                    |}
+                |}.
+    set post1 := (∃ θ' ℓ blk, GC I idm0 θ' ∗ ℓ ↦vhdr {|
+                    count := Z.to_nat 1;
+                    elem :=
+                      ptrmap_to_vkinds (Wasm_int.Int64.repr 0) (Z.to_nat 2) |} ∗
+                                      ℓ ↦vblk blk ∗
+                    N.of_nat idf1 ↦[wf] FC_func_native inst0 (Tf [T_i32] [T_i32]) l1 f1)%I.
+    iApply (wp_seq_can_trap_same_empty_ctx
+      (λ w, ⌜w = trapV⌝ ∨ post1)%I (λ w, ∃ c, ⌜w = immV [c]⌝ ∗ post1)%I _ _
+      ([AI_basic (i32const 1); AI_basic (i32const 2); AI_basic (i64const 0); AI_basic (BI_call 1)])
+      [AI_basic BI_drop]
+      fr
+    ).
+    iSplitR "Hf Hf1 HGC"; last iSplitR "Hf Hf1 HGC"; last iSplitR "Hf1 HGC"; last iSplitL "Hf1 HGC".
+    4: {
+      iIntros "Hf".
+      iApply (wp_wand with "[Hf1 HGC Hf]").
       {
-        rewrite !lookup_insert_None.
-        (* TODO: Use NoDup to prove that the idf's are all not equal to each other. *)
-        admit.
+        build_ctx [AI_basic (BI_call 1)].
+        iApply (wp_call_ctx with "[$]").
+        2: {
+          iIntros "!> Hf".
+          deconstruct_ctx.
+          iApply "Hspec0".
+          iFrame.
+        }
+        done.
       }
+      iIntros (v) "[[-> | (% & % & % & % & -> & %Hℓz & HGC & Hℓhdr & Hℓblk & Hf1)] Hf]".
+      - iFrame. by iLeft.
+      - iFrame. iRight. iExists (VAL_int32 (Wasm_int.Int32.repr z)). iFrame. done.
+    }
+    3: done.
+    {
+      iIntros "(% & %contra & Hpost)". congruence.
+    }
+    2: {
+      iIntros (w) "[(% & -> & Hpost) Hf]". simpl.
+      iApply (wp_drop with "Hf").
+      iModIntro.
+      by iRight.
+    }
+    simpl. by iLeft.
+  }
 
-      rewrite !big_sepM_insert. rewrite big_sepM_empty.
-      iDestruct "Himpwf" as "(Hidf0 & Hidf1 & Hidf2 & Hidf3 & _)".
+  iIntros (v) "[[-> | (% & % & % & HGC & Hℓhdr & Hℓblk & Hf1)] Hf]".
+  {
+    iApply (wp_wand_ctx with "[Hf]").
+    {
+      simpl. rewrite <- (app_nil_r [AI_trap]). rewrite <- (app_nil_l [AI_trap]). rewrite <- app_assoc.
+      by iApply (wp_trap_ctx with "Hf").
+    }
 
-      iApply (wp_invoke_native with "Hf").
-      + done.
-      + by instantiate (1 := [T_i32; T_i32; T_i64]).
-      + done.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
+    iIntros (v) "[-> Hf]".
+    iExists _. iFrame.
+    iIntros "Hf".
+    simpl.
+    iApply (wp_wand_ctx _ _ ([] ++ [AI_trap] ++ []) with "[Hf]").
+    - by iApply (wp_trap_ctx with "Hf").
+    - iIntros (v) "[-> Hf]". simpl.
+      admit.
+    - iPureIntro.
+      admit.
+  }
+
+  iApply (wp_val_return with "[Hf]").
+  - admit.
+  - done.
+  - iIntros "Hf".
+    admit.
 Admitted.
 
 End GCexample.

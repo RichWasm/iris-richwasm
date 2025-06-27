@@ -7,8 +7,9 @@ From iris.bi Require Export weakestpre.
 From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
 From RWasm.iris.allocator Require Export allocator_common.
-From RWasm.iris.allocator Require Import misc_relocate reprs.
-From RWasm.iris.allocator Require Import malloc_impl.
+From RWasm.iris Require Import util.
+From RWasm.iris.allocator Require Import reprs malloc_impl.
+Require Import RWasm.autowp.
 
 Import reprs.
 
@@ -23,8 +24,6 @@ Module M := malloc_impl.
 Section malloc.
 
 Context `{!wasmG Σ} `{!allocG Σ}.
-
-Locate "↦[wms][".
 
 (* SPECS: block getters *)
 Lemma spec_get_state E mem memidx blk next_addr blk_addr32 blk_var f :
@@ -41,33 +40,30 @@ Lemma spec_get_state E mem memidx blk next_addr blk_addr32 blk_var f :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  wp_chomp 1.
-  iApply wp_seq.
-  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-  iSplitR; first (iIntros "(%H & ?)"; done).
-  iSplitL "Hfr".
-  - iApply wp_get_local; eauto.
-  - iIntros (w) "(%Hw & Hfr)".
-    subst w.
-    simpl.
-    iDestruct "Hblk" as "(Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
-    unfold state_off.
-    replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
+  next_wp.
+  {
+    iApply (wp_get_local with "[Hblk] [$]"); eauto.
+    iExists [VAL_int32 blk_addr32]. 
+    instantiate (1:= (λ vs, ⌜vs = [VAL_int32 blk_addr32]⌝ ∗
+                            block_repr memidx blk next_addr)%I).
+    by iFrame.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "[%Hv Hblk]".
+  iRename select (↪[frame] _)%I into "Hfr".
+  inversion Hv; subst.
+  iDestruct "Hblk" as "(Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+  replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
+  rewrite Haddr.
+  iApply (wp_wand with "[Hfr Hstate]").
+  - iApply wp_load; try iFrame; eauto.
+    fill_imm_pred.
+  - iIntros (w) "((-> & Hptr) & Hfr)".
+    iApply "HΦ".
+    unfold block_repr, state_repr.
     rewrite Haddr.
-    iApply (wp_wand with "[Hstate Hfr]").
-    (*
-    instantiate (1:=(λ w, 
-                       ((⌜w = immV [VAL_int32 st32]⌝ ∗
-                         N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + 0]bits (VAL_int32 st32)) ∗ ↪[frame]f)%I)).
-*)
-    + iApply wp_load; try iFrame; eauto.
-      fill_imm_pred.
-    + iIntros (w) "((%Hw & Hptr) & Hfr)".
-      subst w.
-      iApply "HΦ".
-      unfold block_repr, state_repr.
-      rewrite Haddr.
-      iExists st32; iFrame; auto.
+    iExists _; by iFrame.
+  - iIntros "((%st & %contra & H) & _)"; congruence.
 Qed.
 
 Lemma spec_get_final_state E mem memidx blk blk_addr blk_addr32 blk_var f :
@@ -84,32 +80,32 @@ Lemma spec_get_final_state E mem memidx blk blk_addr blk_addr32 blk_var f :
               ↪[frame] f }}}}.
 Proof.
   iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
-  wp_chomp 1.
-  iApply wp_seq.
-  instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-  iSplitR; [iIntros "(%H & ?)"; auto|].
-  iSplitL "Hfr".
-  - iApply wp_get_local; eauto.
-  - iIntros (w) "(%Hw & Hfr)".
+  next_wp.
+  {
+    iApply (wp_get_local with "[Hblk] [$]"); eauto.
+    iExists [VAL_int32 blk_addr32]. 
+    instantiate (1:= (λ vs, ⌜vs = [VAL_int32 blk_addr32]⌝ ∗
+                            final_block_repr memidx blk blk_addr)%I).
+    by iFrame.
+  }
+  cbn.
+  iDestruct select (_ ∗ _)%I as "[%Hv Hblk]".
+  inversion Hv; subst.
+  destruct blk.
+  iDestruct "Hblk" as "(-> & Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+  unfold state_off.
+  replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
+  iApply (wp_wand with "[Hstate Hfr]").
+  - iApply wp_load; eauto; first last.
+    iFrame.
+    fill_imm_pred.
+    done.
+  - iIntros (w) "((%Hw & Hptr) & Hfr)".
     subst w.
-    simpl.
-    destruct blk.
-    iDestruct "Hblk" as "(-> & Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
-    unfold state_off.
-    replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
-    iApply (wp_wand with "[Hstate Hfr]").
-    instantiate (1:=(λ w, 
-                       ((⌜w = immV [VAL_int32 st32]⌝ ∗
-                         N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + 0]bits (VAL_int32 st32)) ∗ ↪[frame]f)%I)).
-    + subst blk_addr.
-      iApply wp_load; auto.
-      iFrame.
-      by iModIntro.
-    + iIntros (w) "((%Hw & Hptr) & Hfr)".
-      subst w blk_addr.
-      iApply "HΦ".
-      unfold block_repr, state_repr.
-      iExists st32; iFrame; auto.
+    iApply "HΦ".
+    unfold block_repr, state_repr.
+    iExists st32; by iFrame.
+  - iIntros "((% & %contra & _) & _)"; discriminate contra.
 Qed.
 
 Lemma spec_get_next E mem memidx blk next_addr blk_addr32 f blk_var :
@@ -1832,8 +1828,6 @@ Proof.
     iIntros "!> Hfr".
     wp_chomp 0.
     iApply (wp_block with "[$Hfr]"); eauto.
-    Locate "WP".
-    Search wp_wasm_ctx wp.
     iIntros "!> Hfr".
     iApply wp_wasm_empty_ctx.
     iApply wp_label_push_emp; last first.
@@ -2440,7 +2434,6 @@ Proof.
           cut (N_repr (Z.to_N (Z.of_nat (N.to_nat (memlen `div` page_size)))) (Wasm_int.Int32.repr (Z.of_nat (N.to_nat (N.div memlen page_size))))).
           {
             intros H'.
-            Search (Z.of_nat (N.to_nat _)).
             rewrite N_nat_Z in H'.
             rewrite N_nat_Z.
             rewrite N2Z.id in H'.
@@ -2744,8 +2737,6 @@ Proof.
       wp_chomp 0.
       iApply (wp_block with "[$Hfr]"); cbn; auto.
       iIntros "!> Hfr".
-      Search wp_wasm AI_label.
-      Search wp_wasm_ctx wp_wasm.
       iApply wp_build_ctx.
       constructor.
       apply lfilled_Ind_Equivalent.
@@ -2854,15 +2845,33 @@ Proof.
 Qed.
 
 (* SPECS: malloc *)
+
+Lemma spec_malloc_body E f memidx mem sz reqd_sz_var cur_block_var tmp1 new_blk_var tmp2:
+  ⊢ {{{{
+            ↪[frame] f ∗
+            alloc_inv memidx ∗
+            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+            ⌜f.(f_inst).(inst_memory) !! reqd_sz_var = Some (N.to_nat sz)⌝
+    }}}}
+    to_e_list (malloc_body mem reqd_sz_var cur_block_var tmp1 new_blk_var tmp2) @ E
+    {{{{ w, ∃ data_addr32 data_addr,
+              ⌜w = immV [VAL_int32 data_addr32]⌝ ∗ 
+              ⌜N_repr data_addr data_addr32⌝ ∗
+              alloc_tok data_addr sz ∗
+              own_vec memidx data_addr sz ∗
+              alloc_inv memidx }}}}.
+Proof.
+  unfold malloc_body.
+  iIntros "!> %Φ (Hf & Hinv & Hmem & Hreqd_sz) HΦ".
+  next_wp.
+Admitted.
+
 (*TODO
 Lemma spec_malloc_loop_body
-Lemma spec_malloc_body
 Lemma spec_malloc
 *)
 
 (* SPECS: free *)
-Check free.
-Search BI_return.
 Lemma blocklist_tok_means_used blks sz data_addr :
   blocklist_shp blks !! data_addr = Some sz ->
   exists base_addr sz_l: N, (base_addr + data_off)%N = data_addr /\ In (UsedBlk base_addr sz sz_l) blks.

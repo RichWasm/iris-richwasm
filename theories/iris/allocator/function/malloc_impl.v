@@ -6,7 +6,8 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
 From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
-From RWasm.iris.allocator Require Export allocator_common misc_relocate.
+From RWasm.iris Require Export util.
+From RWasm.iris.allocator Require Export allocator_common.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

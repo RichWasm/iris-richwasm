@@ -6,8 +6,10 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
 From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
-From RWasm.iris.allocator Require Import allocator_common misc_relocate.
+From RWasm.iris Require Import util.
+From RWasm.iris.allocator Require Import allocator_common.
 From RWasm.iris.allocator Require Export blocks memrsc.
+From RWasm Require Export num_repr.
 Import blocks.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -16,48 +18,6 @@ Section reprs.
 
 Context `{!wasmG Σ} `{!allocG Σ}.
 Variables (memidx: N).
-
-(* beware:
-    The i32 type is a record {intval: Z; proof: -1 < z < 2^32}.
-    This means that nat_repr is not a functional relation
-    (unless you assume propositional extensionality).
-*)
-Definition nat_repr (n: nat) (n32: i32) : Prop :=
-  (-1 < Z.of_nat n < Wasm_int.Int32.modulus)%Z /\
-  n = Wasm_int.nat_of_uint i32m n32.
-
-(* beware:
-    The i32 type is a record {intval: Z; proof: -1 < z < 2^32}.
-    This means that N_repr is not a functional relation
-    (unless you assume propositional extensionality).
-*)
-Definition N_repr (n: N) (n32: i32) : Prop :=
-  (-1 < Z.of_N n < Wasm_int.Int32.modulus)%Z /\
-  n = Wasm_int.N_of_uint i32m n32.
-
-Lemma N_repr_uint:
-  forall n n32,
-    N_repr n n32 ->
-    n = Wasm_int.N_of_uint i32m n32.
-Proof.
-  unfold N_repr.
-  tauto.
-Qed.
-
-Lemma N_repr_i32repr: 
-  forall (n: N) (z: Z),
-    (-1 < Z.of_N n < Wasm_int.Int32.modulus)%Z ->
-    z = Z.of_N n ->
-    N_repr n (Wasm_int.Int32.repr z).
-Proof.
-  intros.
-  unfold Wasm_int.Int32.repr, N_repr, Wasm_int.N_of_uint; cbn.
-  split.
-  - lia.
-  - rewrite Wasm_int.Int32.Z_mod_modulus_id.
-    + subst. by rewrite N2Z.id.
-    + lia.
-Qed.
 
 Definition state_to_N (flag : state_flag) : N :=
   match flag with

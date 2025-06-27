@@ -29,7 +29,6 @@ Proof.
     + move=> T. by inversion_clear T.
   - apply: Bool.ReflectT. by constructor.
 Qed.
-Print result_typingP.
 
 Lemma nth_error_ssr: forall {T: Type} (l: list T) n (x x0:T),
   List.nth_error l n = Some x -> nth x0 l n = x.
