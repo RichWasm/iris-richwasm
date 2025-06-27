@@ -743,6 +743,40 @@ Section reduce_properties_lemmas.
         by apply AI_trap_irreducible in HReduce.
   Qed.
 
+  Lemma AI_trap_reduce_vs_det vs obs ws f obs' ws' f' es':
+    const_list vs ->
+    reduce obs ws f (vs ++ [AI_trap]) obs' ws' f' es' ->
+    (obs', ws', f', es') = (obs, ws, f, [AI_trap]).
+  Proof.
+    move => Hconst.
+    revert obs ws f obs' ws' f' es'.
+    induction vs; intros * Hred.
+    - cbn in *.
+      by apply AI_trap_irreducible in Hred.
+    - cbn in Hred.
+      inversion Hred => //=; subst.
+      + admit. (* reduce_simple cases *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* good *)
+      + admit. (* BAD *)
+  Admitted.
   
   Lemma prepend_reducible (es1 es2: list administrative_instruction) σ :
     (const_list es1 \/ es1 = [AI_trap]) ->

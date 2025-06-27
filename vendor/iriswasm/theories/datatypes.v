@@ -552,7 +552,7 @@ Record module_func : Type := {
 WebAssembly programs are organized into modules, which are the unit of deployment, loading, and compilation. A module collects definitions for types, functions, tables, memories, and globals. In addition, it can declare imports and exports and provide initialization logic in the form of data and element segments or a start function.
 [https://webassembly.github.io/spec/core/syntax/modules.html]
 *)
-Record module : Type := {
+Record module : Type := MkModule {
   mod_types : list function_type;
   mod_funcs : list module_func;
   mod_tables : list module_table;

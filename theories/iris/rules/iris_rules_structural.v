@@ -42,22 +42,86 @@ Proof.
   rewrite wp_unfold /wp_pre /=. iFrame. eauto.
 Qed.
 
-Lemma wp_val (s : stuckness) (E : coPset) (Φ : val -> iProp Σ) (v0 : value) (es : language.expr wasm_lang) :
-  ((¬ Φ trapV) ∗
+Lemma fill_trap_to_val vs es w:
+  const_list vs ->
+  to_val (vs ++ AI_trap :: es)%SEQ = Some w ->
+  w = trapV.
+Proof.
+  intros Hvs Hw.
+  assert (es = []).
+  {
+    apply mk_is_Some in Hw.
+    replace (vs ++ AI_trap :: es)%SEQ with (vs ++ (AI_trap :: es) ++ [])%SEQ in Hw;
+      [|by rewrite seq.cats0].
+    eapply app_to_val in Hw; auto.
+    destruct Hw.
+    cbn.
+    by eapply to_val_AI_trap_Some_nil.
+  }
+  subst es.
+  Search to_val.
+  destruct vs.
+  - cbn in *.
+    congruence.
+  - cbn in *.
+    cut (to_val (a :: vs ++ [AI_trap])%SEQ = None); [congruence|].
+    replace (a :: vs ++ [AI_trap])%SEQ  with ((a :: vs) ++ [AI_trap] ++ [])%SEQ.
+    eapply to_val_not_trap_interweave.
+    + apply Hvs.
+    + left.
+      done.
+    + reflexivity.
+Qed.
+
+Lemma to_val_trap_none_nonempty vs es:
+  to_val (vs ++ AI_trap :: es)%SEQ = None ->
+  vs != [] \/ es != [].
+Proof.
+  revert es.
+  induction vs.
+  - intros es H.
+    right.
+    cbn in H.
+    destruct es; auto.
+    inversion H.
+  - intros es H.
+    by left.
+Qed.
+
+Lemma wp_val_strong (s : stuckness) (E : coPset) (Φ : val -> iProp Σ) (v0 : value) (es : language.expr wasm_lang) :
+  ((*(¬ Φ trapV) ∗*)
   WP es @ NotStuck ; E {{ v, (Φ (val_combine (immV [v0]) v))  }}
   ⊢ WP ((AI_basic (BI_const v0)) :: es) @ s ; E {{ v, Φ v }})%I.
 Proof.
   iLöb as "IH" forall (v0 es Φ).
-  iIntros "(Hntrap & H)".
+  (*iIntros "(Hntrap & H)".*)
+  iIntros "H".
   iApply wp_unfold.               
   repeat rewrite wp_unfold /wp_pre /=.
   destruct (iris.to_val es) as [vs|] eqn:Hes.
   { destruct vs.
     { apply of_to_val in Hes as <-. rewrite to_val_cons_immV. auto. }
-    apply to_val_trap_is_singleton in Hes as ->. simpl.
-    iIntros (?????) "?".
-    iMod "H".
-    by iSpecialize ("Hntrap" with "H").
+    { apply to_val_trap_is_singleton in Hes as ->. simpl.
+      iIntros (?????) "?".
+      iMod "H".
+      iApply fupd_mask_intro; [by apply empty_subseteq|].
+      iIntros "Hemp".
+      iSplit.
+      - admit. (* looks true *)
+      - iIntros (? ? ? Hstep).
+        destruct σ1 as [[[o1 c1] vs1] i1].
+        destruct σ2 as [[[o2 c2] vs2] i2].
+        destruct Hstep as (Hstep & _ & _).
+        apply AI_trap_reduce_det in Hstep.
+        inversion Hstep; subst.
+        repeat iModIntro.
+        iMod "Hemp".
+        iModIntro.
+        iFrame.
+        iExists _.
+        (* No frame? *)
+        admit. (* probably not provable. *)
+    }
     erewrite to_val_cons_brV;eauto.
     erewrite to_val_cons_retV;eauto.
     erewrite to_val_cons_callHostV;eauto.
@@ -105,6 +169,20 @@ Proof.
           - apply/lfilledP.
             by apply LfilledBase.
         }
+        assert (prim_step ([AI_basic (BI_const v0)] ++ vs0 ++ [AI_trap] ++ es'0)%SEQ σ2 [] [AI_trap] σ2 []) as HStep'.
+        {
+          change ([AI_basic (BI_const v0)] ++ vs0 ++ [AI_trap] ++ es'0)%SEQ
+            with ((AI_basic (BI_const v0) :: vs0) ++ [AI_trap] ++ es'0)%SEQ.
+          destruct σ2 as [[[??]?]?].
+          repeat split => //.
+          apply r_simple; eapply rs_trap => //.
+          apply/lfilledP.
+          by apply LfilledBase.
+        }
+        (* I think this is true by staring at HStep. *)
+        assert (es' = []) by admit. subst es'.
+        assert (vs = []) by admit. subst vs.
+        cbn.
         iSpecialize ("H" $! [AI_trap] σ2 [] HStep2).
         iMod "H".
         repeat iModIntro.
@@ -116,15 +194,10 @@ Proof.
         iSplit => //.
         iIntros "?"; iSpecialize ("Hes" with "[$]").
         repeat rewrite wp_unfold /wp_pre /=.
-        destruct (iris.to_val (vs ++ AI_trap :: es')%SEQ) eqn:Hx.
-        * iMod "Hes".
-          by iSpecialize ("Hntrap" with "Hes").
-        * iIntros (?????) "?".
-          iMod "Hes".
-          by iSpecialize ("Hntrap" with "Hes").
-          auto.
+        done.
+    - auto.
   }
-Qed.
+Admitted.
 
 Lemma wp_val_app' (s : stuckness) (E : coPset) (Φ : val -> iProp Σ) vs (es : language.expr wasm_lang) :
   (□ (¬ Φ trapV )) ∗
@@ -595,7 +668,6 @@ Proof.
   iSpecialize ("Hwp" $! LI HLI).
   iApply (wp_wand with "Hwp"). auto.
 Qed.
-
 
 Lemma wp_frame_seq es1 es2 n (f0 f f': frame) E s Ψ Φ :
   (iris.to_val [AI_local n f (es1 ++ es2)] = None) ->
