@@ -1,12 +1,11 @@
 From Coq Require Import List NArith.BinNat.
 From stdpp Require Import base option strings list pretty.
-From RWasm Require term annotated_term.
+From RWasm Require term.
 From Wasm Require datatypes numerics.
 From RWasm.compiler Require Import monads.
 
 (* TODO: this is a pretty bad place to declare this *)
 Module rwasm := term.
-Module AR := annotated_term.
 Module wasm := datatypes.
 
 Definition compile_num_from_Z (num_type : wasm.value_type) (num : Z) : wasm.value :=
@@ -24,7 +23,6 @@ Definition compile_num_from_Z (num_type : wasm.value_type) (num : Z) : wasm.valu
 
 Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   match num_type with
-  (* TODO?: signs *)
   | rwasm.Int _ rwasm.i32 => compile_num_from_Z wasm.T_i32 (Z.of_nat num)
   | rwasm.Int _ rwasm.i64 => compile_num_from_Z wasm.T_i64 (Z.of_nat num)
   | rwasm.Float rwasm.f32 => compile_num_from_Z wasm.T_f32 (Z.of_nat num)
@@ -48,6 +46,9 @@ Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
   | rwasm.U => wasm.SX_U
   | rwasm.S => wasm.SX_S
   end.
+
+Definition throw_missing (instr_name : string) : M wasm.basic_instruction :=
+  mthrow (err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
 
 Definition compile_num_intr (ni : rwasm.NumInstr) : M wasm.basic_instruction :=
   match ni with
@@ -132,16 +133,16 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : M wasm.basic_instruction :=
     let typ' := compile_int_type typ in
     match op with
     (* FIXME: missing wasm types *)
-    | rwasm.Wrap typ2 => mthrow (err "todo")
-    | rwasm.Extend typ2 s => mthrow (err "todo")
-    | rwasm.Trunc typ2 s => mthrow (err "todo")
-    | rwasm.TruncSat typ2 s => mthrow (err "todo")
+    | rwasm.Wrap typ2 => throw_missing "wrap"
+    | rwasm.Extend typ2 s => throw_missing "extend"
+    | rwasm.Trunc typ2 s => throw_missing "trunc"
+    | rwasm.TruncSat typ2 s => throw_missing "trunc_sat"
     | rwasm.Convert typ2 s =>
         let typ2' := compile_int_type typ2 in
         let s' := compile_sign s in
         mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s')
-    | rwasm.Demote typ2 => mthrow (err "todo")
-    | rwasm.Promote typ2 => mthrow (err "todo")
+    | rwasm.Demote typ2 => throw_missing "demote"
+    | rwasm.Promote typ2 => throw_missing "promote"
     | rwasm.Reinterpret typ2 =>
         let typ2' := compile_int_type typ2 in
         mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' None
@@ -150,16 +151,16 @@ Definition compile_num_intr (ni : rwasm.NumInstr) : M wasm.basic_instruction :=
     let typ' := compile_float_type typ in
     match op with
     (* FIXME: missing wasm types *)
-    | rwasm.Wrap typ2 => mthrow (err "todo")
-    | rwasm.Extend typ2 s => mthrow (err "todo")
-    | rwasm.Trunc typ2 s => mthrow (err "todo")
-    | rwasm.TruncSat typ2 s => mthrow (err "todo")
+    | rwasm.Wrap typ2 => throw_missing "wrap"
+    | rwasm.Extend typ2 s => throw_missing "extend"
+    | rwasm.Trunc typ2 s => throw_missing "trunc"
+    | rwasm.TruncSat typ2 s => throw_missing "trunc_sat"
     | rwasm.Convert typ2 s =>
         let typ2' := compile_int_type typ2 in
         let s' := compile_sign s in
         mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s')
-    | rwasm.Demote typ2 => mthrow (err "todo")
-    | rwasm.Promote typ2 => mthrow (err "todo")
+    | rwasm.Demote typ2 => throw_missing "demote"
+    | rwasm.Promote typ2 => throw_missing "promote"
     | rwasm.Reinterpret typ2 =>
         let typ2' := compile_int_type typ2 in
         mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' None

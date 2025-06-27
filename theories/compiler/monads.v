@@ -42,7 +42,8 @@ Definition state (S A : Type) : Type := S -> (S * A).
 
 (* Not great but ok for now *)
 Inductive Err :=
-| err (msg: string).
+| err (msg : string)
+| todo.
 
 (* The compiler monad. *)
 #[global]
