@@ -224,11 +224,6 @@ Definition get_struct_ctx (targs : list rwasm.Typ) (targ_idx : nat) (idx : nat) 
 
 Fixpoint compile_instr (instr: AR.Instruction) {struct instr} : InstM (list wasm.basic_instruction) :=
   match instr with
-  | AR.Instr instr' (rwasm.Arrow targs trets) =>
-    compile_pre_instr instr' targs trets
-  end
-with compile_pre_instr (instr: AR.PreInstruction) (targs trets: list rwasm.Typ) {struct instr} : InstM (list wasm.basic_instruction) :=
-  match instr with
   | AR.Val v =>
     vals ← liftM (compile_value v);
     mret (map (fun x => wasm.BI_const x) vals)

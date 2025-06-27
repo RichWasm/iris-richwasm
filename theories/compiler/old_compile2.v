@@ -13,14 +13,6 @@ Module rwasm := term.
 Module wasm := datatypes.
 Require Import stdpp.list.
 
-Definition compile_numtyp (typ: rwasm.NumType) : option (wasm.value_type) :=
-  match typ with
-  | rwasm.Int _ rwasm.i32 => Some wasm.T_i32
-  | rwasm.Int _ rwasm.i64 => Some wasm.T_i64
-  | rwasm.Float rwasm.f32 => Some wasm.T_f32
-  | rwasm.Float rwasm.f64 => Some wasm.T_f64
-  end.
-
 Definition compile_kindvar (κ: rwasm.KindVar) : list wasm.value_type :=
   match κ with
   | rwasm.SIZE _ _ => [wasm.T_i32]
@@ -65,158 +57,6 @@ with compile_fun_type (ft: rwasm.FunType) : option wasm.function_type :=
     tys1' ← flatten <$> mapM compile_typ tys1;
     tys2' ← flatten <$> mapM compile_typ tys2;
     mret (wasm.Tf (κvs ++ tys1') tys2')
-  end.
-
-Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
-  match num_type with
-  | rwasm.Int _ rwasm.i32 => 
-    wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))
-  | rwasm.Int _ rwasm.i64 => 
-    wasm.VAL_int64 (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))
-  (* is the signed converter the right thing to use here? *)
-  | rwasm.Float rwasm.f32 =>
-    wasm.VAL_float32 
-      ((Wasm_float.float_convert_si32
-        numerics.f32m (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))))
-  | rwasm.Float rwasm.f64 =>
-    wasm.VAL_float64
-      ((Wasm_float.float_convert_si64
-        numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
-  end.
-
-Definition compile_int_type (typ : rwasm.IntType) : wasm.value_type :=
-  match typ with
-  | rwasm.i32 => wasm.T_i32
-  | rwasm.i64 => wasm.T_i64
-  end.
-
-Definition compile_float_type (typ : rwasm.FloatType) : wasm.value_type :=
-  match typ with
-  | rwasm.f32 => wasm.T_f32
-  | rwasm.f64 => wasm.T_f64
-  end.
-
-Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
-  match s with
-  | rwasm.U => wasm.SX_U
-  | rwasm.S => wasm.SX_S
-  end.
-
-Definition compile_num_intr (ni : rwasm.NumInstr) : option wasm.basic_instruction :=
-  match ni with
-  | rwasm.Iu typ op =>
-    let typ' := compile_int_type typ in
-    let op' := wasm.Unop_i match op with
-    | rwasm.clz => wasm.UOI_clz
-    | rwasm.ctz => wasm.UOI_ctz
-    | rwasm.popcnt => wasm.UOI_popcnt
-    end in
-    Some (wasm.BI_unop typ' op')
-  | rwasm.Ib typ op =>
-    let typ' := compile_int_type typ in
-    let op' := wasm.Binop_i match op with
-    | rwasm.add => wasm.BOI_add
-    | rwasm.sub => wasm.BOI_sub
-    | rwasm.mul => wasm.BOI_mul
-    | rwasm.div s => wasm.BOI_div (compile_sign s)
-    | rwasm.rem s => wasm.BOI_rem (compile_sign s)
-    | rwasm.and => wasm.BOI_and
-    | rwasm.or => wasm.BOI_or
-    | rwasm.xor => wasm.BOI_xor
-    | rwasm.shl => wasm.BOI_shl
-    | rwasm.shr s => wasm.BOI_shr (compile_sign s)
-    | rwasm.rotl => wasm.BOI_rotl
-    | rwasm.rotr => wasm.BOI_rotr
-    end in
-    Some (wasm.BI_binop typ' op')
-  | rwasm.Fu typ op =>
-    let typ' := compile_float_type typ in
-    let op' := wasm.Unop_f match op with
-    | rwasm.neg => wasm.UOF_neg
-    | rwasm.abs => wasm.UOF_abs
-    | rwasm.ceil => wasm.UOF_ceil
-    | rwasm.floor => wasm.UOF_floor
-    | rwasm.trunc => wasm.UOF_trunc
-    | rwasm.nearest => wasm.UOF_nearest
-    | rwasm.sqrt => wasm.UOF_sqrt
-    end in
-    Some (wasm.BI_unop typ' op')
-  | rwasm.Fb typ op =>
-    let typ' := compile_float_type typ in
-    let op' := wasm.Binop_f match op with
-    | rwasm.addf => wasm.BOF_add
-    | rwasm.subf => wasm.BOF_sub
-    | rwasm.mulf => wasm.BOF_mul
-    | rwasm.divf => wasm.BOF_div
-    | rwasm.min => wasm.BOF_min
-    | rwasm.max => wasm.BOF_max
-    | rwasm.copysign => wasm.BOF_copysign
-    end in
-    Some (wasm.BI_binop typ' op')
-  | rwasm.It typ op =>
-    let typ' := compile_int_type typ in
-    let op' := match op with
-    | rwasm.eqz => wasm.TO_eqz
-    end in
-    Some (wasm.BI_testop typ' op')
-  | rwasm.Ir typ op =>
-    let typ' := compile_int_type typ in
-    let op' := wasm.Relop_i match op with
-    | rwasm.eq => wasm.ROI_eq
-    | rwasm.ne => wasm.ROI_ne
-    | rwasm.lt s => wasm.ROI_lt (compile_sign s)
-    | rwasm.gt s => wasm.ROI_gt (compile_sign s)
-    | rwasm.le s => wasm.ROI_le (compile_sign s)
-    | rwasm.ge s => wasm.ROI_ge (compile_sign s)
-    end in
-    Some (wasm.BI_relop typ' op')
-  | rwasm.Fr typ op =>
-    let typ' := compile_float_type typ in
-    let op' := wasm.Relop_f match op with
-    | rwasm.eqf => wasm.ROF_eq
-    | rwasm.nef => wasm.ROF_ne
-    | rwasm.ltf => wasm.ROF_lt
-    | rwasm.gtf => wasm.ROF_gt
-    | rwasm.lef => wasm.ROF_le
-    | rwasm.gef => wasm.ROF_ge
-    end in
-    Some (wasm.BI_relop typ' op')
-  | rwasm.CvtI typ op =>
-    let typ' := compile_int_type typ in
-    match op with
-    (* FIXME: missing wasm types *)
-    | rwasm.Wrap typ2 => None
-    | rwasm.Extend typ2 s => None
-    | rwasm.Trunc typ2 s => None
-    | rwasm.TruncSat typ2 s => None
-    | rwasm.Convert typ2 s =>
-        let typ2' := compile_int_type typ2 in
-        let s' := compile_sign s in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s'))
-    | rwasm.Demote typ2 => None
-    | rwasm.Promote typ2 => None
-    | rwasm.Reinterpret typ2 =>
-        let typ2' := compile_int_type typ2 in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' None)
-    end
-  | rwasm.CvtF typ op =>
-    let typ' := compile_float_type typ in
-    match op with
-    (* FIXME: missing wasm types *)
-    | rwasm.Wrap typ2 => None
-    | rwasm.Extend typ2 s => None
-    | rwasm.Trunc typ2 s => None
-    | rwasm.TruncSat typ2 s => None
-    | rwasm.Convert typ2 s =>
-        let typ2' := compile_int_type typ2 in
-        let s' := compile_sign s in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s'))
-    | rwasm.Demote typ2 => None
-    | rwasm.Promote typ2 => None
-    | rwasm.Reinterpret typ2 =>
-        let typ2' := compile_int_type typ2 in
-        Some (wasm.BI_cvtop typ' wasm.CVO_convert typ2' None)
-    end
   end.
 
 Definition expect_concrete_size (sz: rwasm.Size) : option nat :=
@@ -318,7 +158,7 @@ Fixpoint compile_instr (instr: rwasm.instr rwasm.ArrowType) : option (list wasm.
   | rwasm.ICoderef (rwasm.Arrow targs trets) x => None
   | rwasm.IInst (rwasm.Arrow targs trets) x => None
   | rwasm.ICallIndirect (rwasm.Arrow targs trets) => None (* TODO: why doesn't rwasm take an immediate? *)
-  | rwasm.ICall (rwasm.Arrow targs trets) x x0 => None     (* TODO: what to do with list of indexes? *)
+  | rwasm.ICall (rwasm.Arrow targs trets) x x0 => None
   | rwasm.IRecFold (rwasm.Arrow targs trets) x => None
   | rwasm.IRecUnfold (rwasm.Arrow targs trets) => None
   | rwasm.IGroup (rwasm.Arrow targs trets) x x0 => None
