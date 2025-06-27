@@ -96,7 +96,7 @@ Class Read := {
 
 Section logrel.
 
-Context `{!wasmG Σ, !logrel_na_invs Σ, !Read}.
+Context `{!wasmG Σ, !logrel_na_invs Σ, Read0 : !Read}.
 Variable (GC_MEM: immediate).
 Variable (LIN_MEM: immediate).
 Variable (mems_diff: GC_MEM <> LIN_MEM).
@@ -186,7 +186,7 @@ Next Obligation.
   destruct y1.
   solve_iprop_ne.
   do 4 Morphisms.f_equiv.
-  apply H0.
+  apply H.
 Qed.
 
 Program Definition interp_heap_value_array : relationsO -n> leibnizO RT.Typ -n> HR :=
@@ -474,110 +474,34 @@ Lemma Forall2_Forall3_mp2
 Proof.
 Admitted.
 
-Lemma sniff_pair S1 S2 S C F L v1 v2 we1 we2 τ1 τ2 :
-  SplitStoreTypings [S1; S2] S ->
-  HasTypeValue S1 F v1 τ1 ->
-  HasTypeValue S2 F v2 τ2 ->
-  (⊢ semantic_typing S1 C F L [] (to_e_list (map BI_const we1)) (rwasm.Arrow [] [τ1]) L) ->
-  (⊢ semantic_typing S2 C F L [] (to_e_list (map BI_const we2)) (rwasm.Arrow [] [τ2]) L) ->
-  ⊢ interp_value τ1 {| stack_values := we1 |} ∗ interp_value τ1 (Stack we2).
-Proof.
-Admitted.
-
-Lemma sniff_tuple Ss S C F L WL vs wes τs :
-  compile_value (Prod vs) = Some wes ->
-  SplitStoreTypings Ss S ->
-  Forall3 (fun S' 'v t =>
-             forall ve, compile_value v = Some ve ->
-             ⊢ semantic_typing S' C F L [] (to_e_list (map BI_const ve)) (rwasm.Arrow [] [t]) L)
-          Ss vs τs ->
-  ⊢ semantic_typing S C F L WL (to_e_list (map BI_const wes)) (Arrow [] [ProdT τs]) L.
-Proof.
-  intros Hcomp HSs Hsem.
-  iIntros.
-  iIntros (inst lh) "[Hinst Hctx] %f %vs' (Hval & Hframe)".
-  rewrite interp_expr_eq.
-  unfold interp_expr_0.
-  cbn.
-  iDestruct "Hval" as "[-> | (%ws & -> & %wss & -> & Hvalue)]".
-  - admit.
-  - cbn.
-    rewrite big_sepL2_nil_inv_l. iDestruct "Hvalue" as "->".
-    cbn.
-    unfold compile_value in Hcomp. apply fmap_Some in Hcomp.
-    destruct Hcomp as [wess [Hcomp ->]].
-    fold compile_value in Hcomp.
-    apply mapM_Some in Hcomp.
-    iApply wp_value.
-    + instantiate (1 := immV (flatten wess)). unfold IntoVal. cbn.
-      unfold v_to_e_list. unfold to_e_list.
-      rewrite !seq_map_map. by rewrite map_map.
-    + iFrame.
-      iExists (flatten wess). iSplitR; first done.
-      iExists [flatten wess]. iSplitR.
-      { cbn. by rewrite cats0. }
-      cbn. iFrame.
-      rewrite interp_value_eq. cbn.
-      iExists wess. iSplitR; first done.
-      apply (Forall2_Forall3_mp2 _ _ _ _ _ _ Hcomp) in Hsem.
-      clear Hcomp.
-      cbn beta in Hsem.
-      assert (Hwt: length wess = length τs).
-      {
-        rewrite -(Forall3_length_lm _ _ _ _ Hsem).
-        rewrite -(Forall3_length_lr _ _ _ _ Hsem).
-        done.
-      }
-      rewrite big_sepL2_flip.
-      rewrite big_sepL2_alt.
-      iSplit; [done|].
-      apply Forall3_to_zip23 in Hsem.
-      replace wess with (fst <$> (zip wess τs))
-        by (rewrite fst_zip; [done | lia]).
-      unfold semantic_typing in  Hsem.
-      eapply Forall2_impl in Hsem.
-      instantiate (1 := λ S '(wes, τ), ⊢ (interp_inst S C inst ∗ interp_ctx L L F inst (LH_base [] []) -∗ ?[Q'])%I) in Hsem.
-      2:intros S0 [wes τ] P; iApply P.
-      admit.
-
-Admitted.
-
-Theorem fundamental_property_value S C F L v vs τ ta :
-  HasTypeValue S F v τ ->
-  ta = rwasm.Arrow [] [τ] ->
-  compile_value v = Some vs ->
-  ⊢ semantic_typing S C F L [] (to_e_list (map BI_const vs)) ta L.
-Proof.
-  intros Htyp Hta Hcomp.
-  subst ta.
-  generalize dependent vs.
-  induction Htyp using HasTypeValue_ind'.
-  - admit.
-  - admit.
-  - intros vs' Hcomp.
-    apply fmap_Some in Hcomp.
-    fold compile_value in Hcomp.
-    destruct Hcomp as [vs'' [Hcomp ->]].
-    apply sniff_tuple with (Ss := Ss) (vs := vs).
-    3: assumption.
-    + cbn. by rewrite Hcomp.
-    + assumption.
-  - admit.
-  - admit.
-Admitted.
-
-Theorem fundamental_property S C F L e es tf L' :
-  HasTypeInstr S C F L e tf L' ->
-  compile_instr [] 0 GC_MEM LIN_MEM e = Some es ->
-  ⊢ semantic_typing S C F L [] (to_e_list es) tf L'.
+Theorem fundamental_property S C F L es es' tf L' :
+  HasTypeInstrs S C F L es tf L' ->
+  compile_instrs [] 0 GC_MEM LIN_MEM es = Some es' ->
+  ⊢ semantic_typing S C F L [] (to_e_list es') tf L'.
 Proof.
   intros Htyp Hcomp.
-  induction Htyp.
-  - cbn in Hcomp. apply fmap_Some in Hcomp.
-    destruct Hcomp as [vs' [Hcomp ->]].
-    by apply fundamental_property_value with (v := v) (τ := t).
+  generalize dependent es'.
+  induction Htyp using HasTypeInstrs_mind with (P := fun S C F L e ta L' _ => forall es', compile_instr [] 0 GC_MEM LIN_MEM e = Some es' -> ⊢ semantic_typing S C F L [] (to_e_list es') ta L').
   - admit.
+  - admit.
+  - intros es' Hcomp.
+    unfold compile_instrs in Hcomp.
+    apply fmap_Some in Hcomp.
+    destruct Hcomp as [x [Hcomp Hflat]].
+    apply mapM_Some in Hcomp.
+    (*pose proof (Forall2_length_l _ _ _ 1 Hcomp Logic.eq_refl) as Hlen.*)
+    (*inversion Hcomp.*)
+    (*destruct l'.*)
+    admit.
 Admitted.
+
+(*Lemma sniff_cons S C F L1 L2 L3 e es es'  :*)
+(*  compile_instrs [] 0 GC_MEM LIN_MEM (es ++ [e])%list = Some es' ->*)
+(*  (compile_instrs [] 0 GC_MEM LIN_MEM es = Some es' ->*)
+(*   ⊢ semantic_typing S1 C F L1 [] (to_e_list es') (Arrow tau1 tau2) L2) ->*)
+(*  (compile_instrs [] 0 GC_MEM LIN_MEM [e] = Some es' ->*)
+(*   ⊢ semantic_typing S2 C F L2 [] (to_e_list es') (Arrow tau2 tau3) L3)*)
+(*  ⊢ semantic_typing S C F L1 [] (to_e_list es') (Arrow tau1 tau3) L3.*)
 
 Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
   (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ WP (es : iris.expr) @ NotStuck ; ⊤ {{ v, Φ v }})%I (at level 50).
@@ -617,7 +541,7 @@ Lemma even_iff_land1:
   forall p: positive,
     ((2 | p) <-> Pos.land p 1 = 0%N)%positive.
 Proof using.
-  clear H GC_MEM LIN_MEM mems_diff.
+  clear Read0 GC_MEM LIN_MEM mems_diff.
   induction p; (split; [intros Hdiv| intros Hand]).
   - destruct Hdiv as [p' Hp'].
     lia.
@@ -635,7 +559,7 @@ Lemma odd_iff_land1:
   forall p: positive,
     (¬(2 | p) <-> Pos.land p 1 = 1%N)%positive.
 Proof using.
-  clear H GC_MEM LIN_MEM mems_diff.
+  clear Read0 GC_MEM LIN_MEM mems_diff.
   induction p; (split; [intros Hdiv| intros Hand]).
   - reflexivity.
   - intros [d Hdiv].
@@ -676,7 +600,7 @@ Proof.
   - replace (Pos.land p32 1) with 1%N; [done |].
     symmetry.
     eapply odd_iff_land1.
-    by rewrite Z.divide_Zpos in H0.
+    by rewrite Z.divide_Zpos in H.
   - destruct Hrepr as [Hbdd Hconv].
     destruct l32; cbn in *.
     rewrite Hl32 in Hconv.
@@ -704,7 +628,7 @@ Proof.
   - replace (Pos.land p32 1) with 0%N; [done |].
     symmetry.
     eapply even_iff_land1.
-    by rewrite Z.divide_Zpos in H0.
+    by rewrite Z.divide_Zpos in H.
   - destruct l32; cbn in *; lia.
 Qed.
 
@@ -885,7 +809,7 @@ Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
   eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
-  compile_instr [] 0 0 1 (RT.StructGet eff 0) = Some es ->
+  compile_instr [] 0 0 1 (RT.IStructGet eff 0) = Some es ->
   ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
 Proof.
   intros Hl Hτ Heff.

@@ -84,20 +84,6 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
         numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
   end.
 
-Fixpoint compile_value (value : rwasm.Value) : option (list wasm.value) :=
-  match value with 
-  | rwasm.NumConst num_type num => Some [compile_num num_type num]
-  | rwasm.Tt => None
-  | rwasm.Coderef module_idx table_idx idxs => None
-  | rwasm.Fold val => None
-  | rwasm.Prod vals => flatten <$> mapM compile_value vals
-  | rwasm.Ref loc => None
-  | rwasm.PtrV loc => None
-  | rwasm.Cap => None
-  | rwasm.Own => None
-  | rwasm.Mempack loc val => None
-  end.
-
 Definition compile_int_type (typ : rwasm.IntType) : wasm.value_type :=
   match typ with
   | rwasm.i32 => wasm.T_i32
@@ -298,52 +284,53 @@ Definition tagged_load ref_tmp offset_instrs :=
    [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
     wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N]).
 
-Fixpoint compile_instr (instr: rwasm.basic_instr rwasm.ArrowType) : option (list wasm.basic_instruction) :=
+Fixpoint compile_instr (instr: rwasm.instr rwasm.ArrowType) : option (list wasm.basic_instruction) :=
   match instr with
-  | rwasm.Val (rwasm.Arrow targs trets) x => option_map (map (fun y => wasm.BI_const y)) (compile_value x)
-  | rwasm.Ne (rwasm.Arrow targs trets) x => None
-  | rwasm.Unreachable (rwasm.Arrow targs trets) => Some [wasm.BI_unreachable]
-  | rwasm.Nop (rwasm.Arrow targs trets) => Some [wasm.BI_nop]
-  | rwasm.Drop (rwasm.Arrow targs trets) => Some [wasm.BI_drop]
-  | rwasm.Select (rwasm.Arrow targs trets) => Some [wasm.BI_select]
-  | rwasm.Block (rwasm.Arrow targs trets) arrow _ i =>
+  | rwasm.INumConst _ num_type num => Some [wasm.BI_const $ compile_num num_type num]
+  | rwasm.IUnit _ => None
+  | rwasm.INum (rwasm.Arrow targs trets) x => None
+  | rwasm.IUnreachable (rwasm.Arrow targs trets) => Some [wasm.BI_unreachable]
+  | rwasm.INop (rwasm.Arrow targs trets) => Some [wasm.BI_nop]
+  | rwasm.IDrop (rwasm.Arrow targs trets) => Some [wasm.BI_drop]
+  | rwasm.ISelect (rwasm.Arrow targs trets) => Some [wasm.BI_select]
+  | rwasm.IBlock (rwasm.Arrow targs trets) arrow _ i =>
     ft ← compile_arrow_type arrow;
     i' ← mapM compile_instr i;
     mret [wasm.BI_block ft (flatten i')]
-  | rwasm.Loop (rwasm.Arrow targs trets) arrow i =>
+  | rwasm.ILoop (rwasm.Arrow targs trets) arrow i =>
     ft ← compile_arrow_type arrow;
     i' ← mapM compile_instr i;
     mret [wasm.BI_block ft (flatten i')]
-  | rwasm.ITE (rwasm.Arrow targs trets) arrow _ t e =>
+  | rwasm.IIte (rwasm.Arrow targs trets) arrow _ t e =>
     ft ← compile_arrow_type arrow;
     t' ← mapM compile_instr t;
     e' ← mapM compile_instr e;
     mret [wasm.BI_if ft (flatten t') (flatten e')]
-  | rwasm.Br (rwasm.Arrow targs trets) x => Some [wasm.BI_br x]
-  | rwasm.Br_if (rwasm.Arrow targs trets) x => Some [wasm.BI_br_if x]
-  | rwasm.Br_table (rwasm.Arrow targs trets) x x0 => Some [wasm.BI_br_table x x0]
-  | rwasm.Ret (rwasm.Arrow targs trets) => Some [wasm.BI_return]
-  | rwasm.Get_local (rwasm.Arrow targs trets) x x0 => Some [wasm.BI_get_local x]
-  | rwasm.Set_local (rwasm.Arrow targs trets) x => Some [wasm.BI_set_local x]
-  | rwasm.Tee_local (rwasm.Arrow targs trets) x => Some [wasm.BI_tee_local x]
-  | rwasm.Get_global (rwasm.Arrow targs trets) x => Some [wasm.BI_get_global x]
-  | rwasm.Set_global (rwasm.Arrow targs trets) x => Some [wasm.BI_set_global x]
-  | rwasm.CoderefI (rwasm.Arrow targs trets) x => None
-  | rwasm.Inst (rwasm.Arrow targs trets) x => None
-  | rwasm.Call_indirect (rwasm.Arrow targs trets) => None (* TODO: why doesn't rwasm take an immediate? *)
-  | rwasm.Call (rwasm.Arrow targs trets) x x0 => None     (* TODO: what to do with list of indexes? *)
-  | rwasm.RecFold (rwasm.Arrow targs trets) x => None
-  | rwasm.RecUnfold (rwasm.Arrow targs trets) => None
-  | rwasm.Group (rwasm.Arrow targs trets) x x0 => None
-  | rwasm.Ungroup (rwasm.Arrow targs trets) => None
-  | rwasm.CapSplit (rwasm.Arrow targs trets) => None
-  | rwasm.CapJoin (rwasm.Arrow targs trets) => None
-  | rwasm.RefDemote (rwasm.Arrow targs trets) => None
-  | rwasm.MemPack (rwasm.Arrow targs trets) x => None
-  | rwasm.MemUnpack (rwasm.Arrow targs trets) x x0 x1 => None
-  | rwasm.StructMalloc (rwasm.Arrow targs trets) x x0 => None
-  | rwasm.StructFree (rwasm.Arrow targs trets) => None
-  | rwasm.StructGet (rwasm.Arrow targs trets) idx =>
+  | rwasm.IBr (rwasm.Arrow targs trets) x => Some [wasm.BI_br x]
+  | rwasm.IBrIf (rwasm.Arrow targs trets) x => Some [wasm.BI_br_if x]
+  | rwasm.IBrTable (rwasm.Arrow targs trets) x x0 => Some [wasm.BI_br_table x x0]
+  | rwasm.IRet (rwasm.Arrow targs trets) => Some [wasm.BI_return]
+  | rwasm.IGetLocal (rwasm.Arrow targs trets) x x0 => Some [wasm.BI_get_local x]
+  | rwasm.ISetLocal (rwasm.Arrow targs trets) x => Some [wasm.BI_set_local x]
+  | rwasm.ITeeLocal (rwasm.Arrow targs trets) x => Some [wasm.BI_tee_local x]
+  | rwasm.IGetGlobal (rwasm.Arrow targs trets) x => Some [wasm.BI_get_global x]
+  | rwasm.ISetGlobal (rwasm.Arrow targs trets) x => Some [wasm.BI_set_global x]
+  | rwasm.ICoderef (rwasm.Arrow targs trets) x => None
+  | rwasm.IInst (rwasm.Arrow targs trets) x => None
+  | rwasm.ICallIndirect (rwasm.Arrow targs trets) => None (* TODO: why doesn't rwasm take an immediate? *)
+  | rwasm.ICall (rwasm.Arrow targs trets) x x0 => None     (* TODO: what to do with list of indexes? *)
+  | rwasm.IRecFold (rwasm.Arrow targs trets) x => None
+  | rwasm.IRecUnfold (rwasm.Arrow targs trets) => None
+  | rwasm.IGroup (rwasm.Arrow targs trets) x x0 => None
+  | rwasm.IUngroup (rwasm.Arrow targs trets) => None
+  | rwasm.ICapSplit (rwasm.Arrow targs trets) => None
+  | rwasm.ICapJoin (rwasm.Arrow targs trets) => None
+  | rwasm.IRefDemote (rwasm.Arrow targs trets) => None
+  | rwasm.IMemPack (rwasm.Arrow targs trets) x => None
+  | rwasm.IMemUnpack (rwasm.Arrow targs trets) x x0 x1 => None
+  | rwasm.IStructMalloc (rwasm.Arrow targs trets) x x0 => None
+  | rwasm.IStructFree (rwasm.Arrow targs trets) => None
+  | rwasm.IStructGet (rwasm.Arrow targs trets) idx =>
       (* Save the argument *)
       (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
       fields ← match targs with
@@ -354,21 +341,22 @@ Fixpoint compile_instr (instr: rwasm.basic_instr rwasm.ArrowType) : option (list
       off_instrs ← compile_size_expr off_sz;
       mret $ wasm.BI_tee_local ref_tmp ::
              tagged_load ref_tmp off_instrs
-  | rwasm.StructSet (rwasm.Arrow targs trets) x => None
-  | rwasm.StructSwap (rwasm.Arrow targs trets) x => None
-  | rwasm.VariantMalloc (rwasm.Arrow targs trets) x x0 x1 => None
-  | rwasm.VariantCase (rwasm.Arrow targs trets) x x0 x1 x2 x3 => None
-  | rwasm.ArrayMalloc (rwasm.Arrow targs trets) x => None
-  | rwasm.ArrayGet (rwasm.Arrow targs trets) => None
-  | rwasm.ArraySet (rwasm.Arrow targs trets) => None
-  | rwasm.ArrayFree (rwasm.Arrow targs trets) => None
-  | rwasm.ExistPack (rwasm.Arrow targs trets) x x0 x1 => None
-  | rwasm.ExistUnpack (rwasm.Arrow targs trets) x x0 x1 x2 x3 => None
-  | rwasm.RefSplit (rwasm.Arrow targs trets) => None
-  | rwasm.RefJoin (rwasm.Arrow targs trets) => None
-  | rwasm.Qualify (rwasm.Arrow targs trets) x => None
+  | rwasm.IStructSet (rwasm.Arrow targs trets) x => None
+  | rwasm.IStructSwap (rwasm.Arrow targs trets) x => None
+  | rwasm.IVariantMalloc (rwasm.Arrow targs trets) x x0 x1 => None
+  | rwasm.IVariantCase (rwasm.Arrow targs trets) x x0 x1 x2 x3 => None
+  | rwasm.IArrayMalloc (rwasm.Arrow targs trets) x => None
+  | rwasm.IArrayGet (rwasm.Arrow targs trets) => None
+  | rwasm.IArraySet (rwasm.Arrow targs trets) => None
+  | rwasm.IArrayFree (rwasm.Arrow targs trets) => None
+  | rwasm.IExistPack (rwasm.Arrow targs trets) x x0 x1 => None
+  | rwasm.IExistUnpack (rwasm.Arrow targs trets) x x0 x1 x2 x3 => None
+  | rwasm.IRefSplit (rwasm.Arrow targs trets) => None
+  | rwasm.IRefJoin (rwasm.Arrow targs trets) => None
+  | rwasm.IQualify (rwasm.Arrow targs trets) x => None
   end.
-(* ... *)
+
+Definition compile_instrs instrs := flatten <$> mapM compile_instr instrs.
 
 End compile_instr.
 

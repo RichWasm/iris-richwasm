@@ -337,43 +337,6 @@ Ltac pose_ok_proofs ::= pose_ok_proofs'.
 #[global]
 Instance BindExtIndices : BindExt Kind (list Index) := ltac:(mkBindExt).
 
-Fixpoint subst'_value (su : Subst' Kind) (v : Value) {struct v} : Value :=
-  match v with
-  | NumConst _ _ => v
-  | Tt => v
-  (* We don't substitute into Coderef
-     because Coderef can not show up in surface instructions
-     and CoderefTyp ensures ixs is closed *)
-  | Coderef modi tabi ixs => Coderef modi tabi ixs
-  | Fold v => Fold (subst'_value su v)
-  | Prod vs => Prod (map (subst'_value su) vs)
-  | Ref l => Ref (subst'_loc su l)
-  | PtrV l => PtrV (subst'_loc su l)
-  | Cap => v
-  | Own => v
-  | Mempack l v => Mempack (subst'_loc su l) (subst'_value su v)
-  end.
-
-Lemma subst'_value_ok : subst'_ok subst'_value.
-Proof. intros v; apply Value_ind'; intros; intros_ok_at; cbn; now simpl_ok. Qed.
-Global Hint Resolve subst'_value_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_value_ok.
-Ltac pose_ok_proofs ::= pose_ok_proofs'.
-
-#[global]
-Instance BindExtValue : BindExt Kind Value := ltac:(mkBindExt).
-
-Definition subst'_values s := map (subst'_value s).
-
-Lemma subst'_values_ok : subst'_ok subst'_values.
-Proof. unfold subst'_values; auto with OKDB. Defined.
-Global Hint Resolve subst'_values_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_values_ok.
-Ltac pose_ok_proofs ::= pose_ok_proofs'.
-
-#[global]
-Instance BindExtValues : BindExt Kind (list Value) := ltac:(mkBindExt).
-
 Definition subst'_localeffect su : LocalEffect -> LocalEffect :=
   map (fun '(n, t) => (n, subst'_typ su t)).
 
@@ -386,113 +349,94 @@ Ltac pose_ok_proofs ::= pose_ok_proofs'.
 #[global]
 Instance BindExtLocalEffect : BindExt Kind LocalEffect := ltac:(mkBindExt).
 
-Definition subst'_heapvalue su (hv : HeapValue) : HeapValue :=
-  match hv with
-  | Variant n v => Variant n (subst'_value su v)
-  | Struct vs => Struct (subst'_values su vs)
-  | Array n vs => Array n (subst'_values su vs)
-  | Pack t v ht =>
-    Pack (subst'_typ su t)
-         (subst'_value su v)
-         (subst'_heaptype su ht)
-  end.
-
-Lemma subst'_heapvalue_ok : subst'_ok subst'_heapvalue.
-Proof. intros []; split; cbn; intros; now simpl_ok. Qed.
-Global Hint Resolve subst'_heapvalue_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_heapvalue_ok.
-Ltac pose_ok_proofs ::= pose_ok_proofs'.
-
-#[global]
-Instance BindExtHeapValue : BindExt Kind HeapValue := ltac:(mkBindExt).
-
 Definition kindvars_of_funtype (ft : FunType) : list KindVar :=
   let 'FunT kvs _ := ft in kvs.
 
-Fixpoint subst'_instruction {A : Type} (su : Subst' Kind) (i : basic_instr A) {struct i} : basic_instr A :=
+Fixpoint subst'_instruction {A : Type} (su : Subst' Kind) (i : instr A) {struct i} : instr A :=
   match i with
-  | Val ann v => Val ann (subst'_value su v)
-  | Ne _ _ => i
-  | Unreachable _ => i
-  | Nop _ => i
-  | Drop _ => i
-  | Select _ => i
-  | Block ann arr leffs insns =>
-    Block ann
+  | INumConst _ _ _ => i
+  | IUnit _ => i
+  | INum _ _ => i
+  | IUnreachable _ => i
+  | INop _ => i
+  | IDrop _ => i
+  | ISelect _ => i
+  | IBlock ann arr leffs insns =>
+    IBlock ann
+           (subst'_arrowtype su arr)
+           (subst'_localeffect su leffs)
+           (map (subst'_instruction su) insns)
+  | ILoop ann arr insns =>
+    ILoop ann
           (subst'_arrowtype su arr)
-          (subst'_localeffect su leffs)
           (map (subst'_instruction su) insns)
-  | Loop ann arr insns =>
-    Loop ann
+  | IIte ann arr leffs insns1 insns2 =>
+    IIte ann
          (subst'_arrowtype su arr)
-         (map (subst'_instruction su) insns)
-  | ITE ann arr leffs insns1 insns2 =>
-    ITE ann
-        (subst'_arrowtype su arr)
-        (subst'_localeffect su leffs)
-        (map (subst'_instruction su) insns1)
-        (map (subst'_instruction su) insns2)
-  | Br _ _ => i
-  | Br_if _ _ => i
-  | Br_table _ _ _ => i
-  | Ret _ => i
-  | Get_local ann n q => Get_local ann n (subst'_qual su q)
-  | Set_local _ _ => i
-  | Tee_local _ _ => i
-  | Get_global _ _ => i
-  | Set_global _ _ => i
-  | CoderefI _ _ => i
-  | Inst ann insts => Inst ann (subst'_indices su insts)
-  | Call_indirect _ => i
-  | Call ann n insts => Call ann n (subst'_indices su insts)
-  | RecFold ann t => RecFold ann (subst'_typ su t)
-  | RecUnfold _ => i
-  | Group ann n q => Group ann n (subst'_qual su q)
-  | Ungroup _ => i
-  | CapSplit _ => i
-  | CapJoin _ => i
-  | RefDemote _ => i
-  | MemPack ann l => MemPack ann (subst'_loc su l)
-  | MemUnpack ann arr leff l_insns =>
+         (subst'_localeffect su leffs)
+         (map (subst'_instruction su) insns1)
+         (map (subst'_instruction su) insns2)
+  | IBr _ _ => i
+  | IBrIf _ _ => i
+  | IBrTable _ _ _ => i
+  | IRet _ => i
+  | IGetLocal ann n q => IGetLocal ann n (subst'_qual su q)
+  | ISetLocal _ _ => i
+  | ITeeLocal _ _ => i
+  | IGetGlobal _ _ => i
+  | ISetGlobal _ _ => i
+  | ICoderef _ _ => i
+  | IInst ann insts => IInst ann (subst'_indices su insts)
+  | ICallIndirect _ => i
+  | ICall ann n insts => ICall ann n (subst'_indices su insts)
+  | IRecFold ann t => IRecFold ann (subst'_typ su t)
+  | IRecUnfold _ => i
+  | IGroup ann n q => IGroup ann n (subst'_qual su q)
+  | IUngroup _ => i
+  | ICapSplit _ => i
+  | ICapJoin _ => i
+  | IRefDemote _ => i
+  | IMemPack ann l => IMemPack ann (subst'_loc su l)
+  | IMemUnpack ann arr leff l_insns =>
     (* l_insns binds a new location *)
-    MemUnpack ann
-              (subst'_arrowtype su arr)
-              (subst'_localeffect su leff)
-              (map (subst'_instruction (under' SLoc su)) l_insns)
-  | StructMalloc ann ss q => StructMalloc ann (subst'_sizes su ss) (subst'_qual su q)
-  | StructFree _ => i
-  | StructGet _ _ => i
-  | StructSet _ _ => i
-  | StructSwap _ _ => i
-  | VariantMalloc ann n ts q =>
-    VariantMalloc ann n (subst'_typs su ts) (subst'_qual su q)
-  | VariantCase ann q tausv arr leff insnss =>
-    VariantCase ann
-                (subst'_qual su q)
-                (subst'_heaptype su tausv)
-                (subst'_arrowtype su arr)
-                (subst'_localeffect su leff)
-                (map (map (subst'_instruction su)) insnss)
-  | ArrayMalloc ann q => ArrayMalloc ann (subst'_qual su q)
-  | ArrayGet _ => i
-  | ArraySet _ => i
-  | ArrayFree _ => i
-  | ExistPack ann t ht q =>
-    ExistPack ann
-              (subst'_typ su t)
-              (subst'_heaptype su ht)
-              (subst'_qual su q)
-  | ExistUnpack ann q ex arr leff α_insns =>
+    IMemUnpack ann
+               (subst'_arrowtype su arr)
+               (subst'_localeffect su leff)
+               (map (subst'_instruction (under' SLoc su)) l_insns)
+  | IStructMalloc ann ss q => IStructMalloc ann (subst'_sizes su ss) (subst'_qual su q)
+  | IStructFree _ => i
+  | IStructGet _ _ => i
+  | IStructSet _ _ => i
+  | IStructSwap _ _ => i
+  | IVariantMalloc ann n ts q =>
+    IVariantMalloc ann n (subst'_typs su ts) (subst'_qual su q)
+  | IVariantCase ann q tausv arr leff insnss =>
+    IVariantCase ann
+                 (subst'_qual su q)
+                 (subst'_heaptype su tausv)
+                 (subst'_arrowtype su arr)
+                 (subst'_localeffect su leff)
+                 (map (map (subst'_instruction su)) insnss)
+  | IArrayMalloc ann q => IArrayMalloc ann (subst'_qual su q)
+  | IArrayGet _ => i
+  | IArraySet _ => i
+  | IArrayFree _ => i
+  | IExistPack ann t ht q =>
+    IExistPack ann
+               (subst'_typ su t)
+               (subst'_heaptype su ht)
+               (subst'_qual su q)
+  | IExistUnpack ann q ex arr leff α_insns =>
     (* α_insns binds a new type variable *)
-    ExistUnpack ann
-                (subst'_qual su q)
-                (subst'_heaptype su ex)
-                (subst'_arrowtype su arr)
-                (subst'_localeffect su leff)
-                (map (subst'_instruction (under' STyp su)) α_insns)
-  | RefSplit _ => i
-  | RefJoin _ => i
-  | Qualify ann q => Qualify ann (subst'_qual su q)
+    IExistUnpack ann
+                 (subst'_qual su q)
+                 (subst'_heaptype su ex)
+                 (subst'_arrowtype su arr)
+                 (subst'_localeffect su leff)
+                 (map (subst'_instruction (under' STyp su)) α_insns)
+  | IRefSplit _ => i
+  | IRefJoin _ => i
+  | IQualify ann q => IQualify ann (subst'_qual su q)
   end.
 
 Lemma under_kindvars'_kindvars_of_funtype_subst'_funtype s fty t :
@@ -617,64 +561,3 @@ Lemma subst_FunT (su : Subst Kind) kvs ft :
 Proof. cbn; autorewrite with SubstDB; reflexivity. Qed.
 Hint Rewrite subst_FunT : SubstDB.
 
-Lemma subst_Coderef (su : Subst Kind) n m is :
-  subst_ext su (Coderef n m is) = Coderef n m is.
-Proof eq_refl.
-Hint Rewrite subst_Coderef : SubstDB.
-
-Lemma subst_Fold (su : Subst Kind) v0 : subst_ext su (Fold v0) = Fold (subst_ext su v0).
-Proof eq_refl.
-Hint Rewrite subst_Fold : SubstDB.
-
-Lemma subst_Prod (su : Subst Kind) vs :
-  subst_ext su (term.Prod vs) = term.Prod (map (subst_ext su) vs).
-Proof eq_refl.
-Hint Rewrite subst_Prod : SubstDB.
-
-Lemma subst_Ref (su : Subst Kind) loc : subst_ext su (Ref loc) = Ref (subst SLoc su loc).
-Proof eq_refl.
-Hint Rewrite subst_Ref : SubstDB.
-
-Lemma subst_PtrV (su : Subst Kind) loc :
-  subst_ext su (PtrV loc) = PtrV (subst SLoc su loc).
-Proof eq_refl.
-Hint Rewrite subst_PtrV : SubstDB.
-
-Lemma subst_Mempack (su : Subst Kind) loc v0 :
-  subst_ext su (Mempack loc v0)
-  = Mempack (subst SLoc su loc) (subst_ext su v0).
-Proof eq_refl.
-Hint Rewrite subst_Mempack : SubstDB.
-
-Lemma subst_NumConst (su : Subst Kind) nt i : subst_ext su (NumConst nt i) = NumConst nt i.
-Proof eq_refl.
-Hint Rewrite subst_NumConst : SubstDB.
-
-Lemma subst_Tt (su : Subst Kind) : subst_ext su Tt = Tt.
-Proof eq_refl.
-Hint Rewrite subst_Tt : SubstDB.
-
-Lemma subst_Cap (su : Subst Kind) : subst_ext su Cap = Cap.
-Proof eq_refl.
-Hint Rewrite subst_Tt : SubstDB.
-
-Lemma subst_Own (su : Subst Kind) : subst_ext su Own = Own.
-Proof eq_refl.
-Hint Rewrite subst_Own : SubstDB.
-
-Lemma subst_Variant (su : Subst Kind) n v : subst_ext su (Variant n v) = Variant n (subst_ext su v).
-Proof eq_refl.
-Hint Rewrite subst_Variant : SubstDB.
-
-Lemma subst_Struct (su : Subst Kind) vs : subst_ext su (Struct vs) = Struct (map (subst_ext su) vs).
-Proof eq_refl.
-Hint Rewrite subst_Struct : SubstDB.
-
-Lemma subst_Array (su : Subst Kind) n vs : subst_ext su (Array n vs) = Array n (map (subst_ext su) vs).
-Proof eq_refl.
-Hint Rewrite subst_Array : SubstDB.
-
-Lemma subst_Pack (su : Subst Kind) pt v ht :
-  subst_ext su (Pack pt v ht) = Pack (subst STyp su pt) (subst_ext su v) (subst_ext su ht).
-Proof eq_refl.
-Hint Rewrite subst_Pack : SubstDB.
