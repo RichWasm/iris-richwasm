@@ -37,6 +37,7 @@ Module LayoutIR.
   | GetTmp (name : string)
   | FreeTmp (name : string)
 
+  (* TODO: remove and use monad *)
   | GetLocal (i : nat)
   | SetLocal (i : nat)
   | TeeLocal (i : nat)
@@ -148,7 +149,7 @@ Module RWasmToLayout.
     | rwasm.SizeConst c => mret [layout.Val $ LV_int32 c]
     end.
 
-  Fixpoint compile_instr (* (env : gmap rwasm.var LayoutShape) *) (instr : rwasm.instr rwasm.ArrowType) : M (list layout.Instruction) :=
+  Fixpoint compile_instr (* (env : gmap rwasm.var LayoutShape) *) (instr : rwasm.instr rwasm.ArrowType) : InstM (list layout.Instruction) :=
     match instr with
     | rwasm.INumConst ann nt n =>
       mret [layout.Val $ match nt with
@@ -164,17 +165,17 @@ Module RWasmToLayout.
     | rwasm.IDrop ann => mret [layout.Drop]
     | rwasm.ISelect ann => mret [layout.Select]
     | rwasm.IBlock ann ta tl es =>
-      ta' ← compile_ta (* env *) ta;
-      tl' ← compile_tl (* env *) tl;
+      ta' ← liftM $ compile_ta (* env *) ta;
+      tl' ← liftM $ compile_tl (* env *) tl;
       e__s' ← flat_mapM (compile_instr (* env *)) es;
       mret [layout.Block ta' tl' e__s']
     | rwasm.ILoop ann ta es =>
-      ta' ← compile_ta (* env *) ta;
+      ta' ← liftM $ compile_ta (* env *) ta;
       e__s' ← flat_mapM (compile_instr (* env *)) es;
       mret [layout.Loop ta' e__s']
     | rwasm.IIte ann ta tl es1 es2 =>
-      ta' ← compile_ta (* env *) ta;
-      tl' ← compile_tl (* env *) tl;
+      ta' ← liftM $ compile_ta (* env *) ta;
+      tl' ← liftM $ compile_tl (* env *) tl;
       e__thn' ← flat_mapM (compile_instr (* env *)) es1;
       e__els' ← flat_mapM (compile_instr (* env *)) es2;
       mret [layout.ITE ta' tl' e__thn' e__els']
@@ -197,7 +198,7 @@ Module RWasmToLayout.
       z__sizes ← mret $ omap (fun idx => match idx with
                                     | rwasm.SizeI sz => Some sz
                                     | rwasm.LocI _ | rwasm.QualI _ | rwasm.TypI _ => None end) idxs;
-      size_instrs ← flat_mapM compile_sz z__sizes;
+      size_instrs ← liftM $ flat_mapM compile_sz z__sizes;
       mret $ size_instrs ++ [layout.Call i]
 
     | rwasm.IRecFold _ _
@@ -209,8 +210,8 @@ Module RWasmToLayout.
     | rwasm.IRefDemote _
     | rwasm.IMemPack _ _ => mret []
     | rwasm.IMemUnpack _ ta tl es =>
-      ta' ← compile_ta (* env *) ta;
-      tl' ← compile_tl (* env *) tl;
+      ta' ← liftM $ compile_ta (* env *) ta;
+      tl' ← liftM $ compile_tl (* env *) tl;
       e__s' ← flat_mapM (compile_instr (* env *)) es;
       mret [layout.Block ta' tl' e__s']
 
@@ -242,8 +243,8 @@ Module RWasmToLayout.
     (* [val__init] → [ptr] *)
     (* [τ      ] → [i32] *)
     | rwasm.IVariantMalloc ann i ts q =>
-      typ ← lift_optionM (list_lookup i ts) ("invalid variant malloc, no type corresponds with index " ++ (pretty i));
-      shape ← compile_typ (* env *) typ;
+      typ ← liftM $ lift_optionM (list_lookup i ts) ("invalid variant malloc, no type corresponds with index " ++ (pretty i));
+      shape ← liftM $ compile_typ (* env *) typ;
       (* memory layout is [ind, τ*] so we just add prepend *)
       let full_shape := LS_tuple [LS_int32; shape] in
       mret $ [
@@ -308,19 +309,23 @@ Module RWasmToLayout.
     let 'rwasm.FunT κ ta := χ in
     (* let 'rwasm.Arrow τ__from τ__to := tf in  *)
     '(layout.Arrow shape__from shape__to) ← compile_ta (* ∅ *) ta;      (* FIXME: previous stage should ensure this doesn't contain TVar *)
-    let loc_params := omap (fun k => match k with
-      | rwasm.SIZE sz__upper sz__lower => Some LS_int32
-      | rwasm.LOC _ | rwasm.QUAL _ _ | rwasm.TYPE _ _ _ => None end) κ in
+    mthrow (err "FIXME").
+    (* let loc_params := omap (fun k => match k with *)
+    (*   | rwasm.SIZE sz__upper sz__lower => Some LS_int32 *)
+    (*   | rwasm.LOC _ | rwasm.QUAL _ _ | rwasm.TYPE _ _ _ => None end) κ in *)
 
-    locals ← resolve_locals_layout_shape sz__s e__s;
-    let num_rwasm_params := length shape__from in
+    (* locals ← resolve_locals_layout_shape sz__s e__s; *)
+    (* let num_rwasm_params := length shape__from in *)
 
-    let sz_locals := map_seq num_rwasm_params (seq 0 num_rwasm_params) in
-    let idx_transformer i := if Nat.ltb i num_rwasm_params then i + num_rwasm_params else i in
+    (* let sz_locals := map_seq num_rwasm_params (seq 0 num_rwasm_params) in *)
+    (* let idx_transformer i := if Nat.ltb i num_rwasm_params then i + num_rwasm_params else i in *)
 
-    e__s' ← flat_mapM (compile_instr sz_locals idx_transformer (* ∅ *)) e__s;
+    (* let es_m := flat_mapM (compile_instr sz_locals idx_transformer (* ∅ *)) e__s in *)
+    (* let init_tl := new_tl 0 in *)
+    (* '(tl, (e__s', _)) ← es_m init_tl; *)
+    (* let locals := map snd (map_to_list (tl_types tl)) in *)
 
-    mret $ layout.Fun ex__s (layout.Arrow (shape__from ++ loc_params) shape__to) locals e__s'.
+    (* mret $ layout.Fun ex__s (layout.Arrow (shape__from ++ loc_params) shape__to) locals e__s'. *)
 
   Definition compile_global (global : rwasm.Glob rwasm.ArrowType) : M (option layout.Glob).
   Admitted.                     (* FIXME: what to do about 0 sized types? *)

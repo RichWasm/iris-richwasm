@@ -1,8 +1,10 @@
 From Coq Require Import List NArith.BinNat Lists.List.
-From stdpp Require Import base option strings list pretty decidable.
+From stdpp Require Import base option strings list pretty decidable gmap countable numbers options.
 From Wasm Require datatypes.
 From RWasm Require term.
 From RWasm.compiler Require Import numbers monads utils.
+
+Set Bullet Behavior "Strict Subproofs".
 
 Section Layout.
   Inductive LayoutPrimType :=
@@ -56,6 +58,76 @@ Section Layout.
       | LS_tuple fields =>
           String.app (String.app "(" (String.concat ", " (map go fields))) ")"
       end.
+
+  Fixpoint LayoutShape_to_tree (ls : LayoutShape) : gen_tree nat :=
+    match ls with
+    | LS_empty => GenLeaf 0
+    | LS_int32 => GenLeaf 1
+    | LS_int64 => GenLeaf 2
+    | LS_float32 => GenLeaf 3
+    | LS_float64 => GenLeaf 4
+    | LS_tuple fields => GenNode 5 (map LayoutShape_to_tree fields)
+    end.
+
+  Fixpoint tree_to_LayoutShape (t : gen_tree nat) : option LayoutShape :=
+    match t with
+    | GenLeaf 0 => Some LS_empty
+    | GenLeaf 1 => Some LS_int32
+    | GenLeaf 2 => Some LS_int64
+    | GenLeaf 3 => Some LS_float32
+    | GenLeaf 4 => Some LS_float64
+    | GenNode 5 trees =>
+      match mapM tree_to_LayoutShape trees with
+      | Some fields => Some (LS_tuple fields)
+      | None => None
+      end  | _ => None
+    end.
+
+  Lemma LayoutShape_ind_strong :
+    forall P : LayoutShape -> Prop,
+    P LS_empty ->
+    P LS_int32 ->
+    P LS_int64 ->
+    P LS_float32 ->
+    P LS_float64 ->
+    (forall fields, Forall P fields -> P (LS_tuple fields)) ->
+    forall ls, P ls.
+  Proof.
+    intros P H0 H1 H2 H3 H4 Htuple.
+    fix IH 1.
+    destruct ls.
+    - exact H0.
+    - exact H1.
+    - exact H2.
+    - exact H3.
+    - exact H4.
+    - apply Htuple.
+      induction fields.
+      + constructor.
+      + constructor; [apply IH | assumption].
+  Qed.
+
+  Lemma tree_to_LayoutShape_to_tree (ls : LayoutShape) :
+    tree_to_LayoutShape (LayoutShape_to_tree ls) = Some ls.
+  Proof.
+    induction ls using LayoutShape_ind_strong; try reflexivity.
+    cbn.
+    rewrite mapM_fmap_Forall_Some.
+    - reflexivity.
+    - exact H.
+  Qed.
+
+  Instance LayoutShape_countable : Countable LayoutShape.
+  Proof.
+    apply (inj_countable LayoutShape_to_tree tree_to_LayoutShape).
+    - apply tree_to_LayoutShape_to_tree.
+  Qed.
+
+  Instance SlotType_layout_shape : SlotType := {
+    slot_typ := LayoutShape;
+    slot_eq_dec := _;
+    slot_countable := _
+  }.
 
   Definition layout_prim_size (ls : LayoutShape) : option LayoutPrimSize :=
     match ls with

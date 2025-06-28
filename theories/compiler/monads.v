@@ -61,12 +61,20 @@ Definition lift_optionM `{!MRet M, !MRet M} {A} (oa : option A) (error : string)
   | None => mthrow (err error)
   end.
 
+Class SlotType := {
+  slot_typ : Type;
+  slot_eq_dec : EqDecision slot_typ;
+  slot_countable : Countable slot_typ
+}.
+Existing Instance slot_eq_dec.
+Existing Instance option_eq_dec.
 Section TempLocals.
+  Context `{SlotType}.
 
   Record TempLocals := {
     tl_start : nat;
     tl_next  : nat;
-    tl_types : gmap nat wasm.value_type;
+    tl_types : gmap nat slot_typ;
     tl_free  : gset nat
   }.
 
@@ -80,9 +88,9 @@ Section TempLocals.
   Definition modify_st (f : TempLocals → TempLocals) : InstM unit := mmodify f.
   Definition get_st : InstM TempLocals               := mget.
   Definition put_st : TempLocals → InstM unit        := mput.
-  Definition fresh_local (ty : wasm.value_type) : InstM wasm.immediate :=
+  Definition fresh_local (ty : slot_typ) : InstM nat :=
     st ← get_st;
-    let reusable := filter (λ i, tl_types st !! i = Some ty) (elements (tl_free st)) in
+    let reusable := filter (λ i, bool_decide (tl_types st !! i = Some ty)) (elements (tl_free st)) in
     match reusable with
     | i :: _ =>
       let st' :=
@@ -102,12 +110,18 @@ Section TempLocals.
       put_st st';;
       mret i
     end.
-  Definition free_local (i : wasm.immediate) : InstM unit :=
+  Definition free_local (i : nat) : InstM unit :=
     modify_st (λ st, {| tl_start := tl_start st;
                         tl_next  := tl_next  st;
                         tl_types := tl_types st;
                         tl_free  := tl_free  st ∪ {[ i ]} |}).
 End TempLocals.
+
+Instance SlotType_value_type : SlotType := {
+  slot_typ := wasm.value_type;
+  slot_eq_dec := _;
+  slot_countable := _
+}.
 
 Section Example.
 

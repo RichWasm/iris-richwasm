@@ -5,7 +5,6 @@ From RWasm Require term.
 From RWasm Require Import exn state.
 From RWasm.compiler Require Import numbers layout monads ir.
 
-
 Definition compile_typ (typ : rwasm.Typ) : M (list wasm.value_type) :=
   shape ← RWasmToLayout.compile_typ typ;
   mret $ shape_to_wasm_types shape.
