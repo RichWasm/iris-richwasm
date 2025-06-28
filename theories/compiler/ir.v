@@ -42,7 +42,7 @@ Module LayoutIR.
   | Call (i : nat)
 
   | Init (shape : list shape)              (* [val; ptr] → [ptr] *) (* FIXME: is this really needed? surely we can just use store-offset*)
-  | RepeatInit (shape : shape)        (* [val; len; ptr] → [ptr] *)  (* FIXME: improve stack shape *)
+  | RepeatInit (shape : shape)        (* [val; ptr; len] → [ptr] *)
   | LoadOffset (shape : shape)          (* [ptr; offset] → [ptr; offset; val] *)
   | StoreOffset (shape : shape)    (* [ptr; offset; val] → [ptr; offset] *)
   | SwapOffset (shape : shape)  (* [ptr; offset; val__new] → [ptr; offset; val__old] *)
@@ -143,8 +143,11 @@ Module RWasmToLayout.
     | rwasm.SizeConst c => mret [layout.Val $ LV_int32 c]
     end.
 
+
+  (* NOTE: using the InstM moad here doesn't allow for the variabel to be reused by the layout to wasm
+           compiler. if this is ever an issue, creating explicit IR forms in LayoutIR would reduce any
+           waste, however the tradeoff is not currenlty worth it for a few "wasted" local slots *)
   Fixpoint compile_instr (* (env : gmap rwasm.var LayoutShape) *)
-  (* `{SlotType}  *)
       (instr : rwasm.instr rwasm.ArrowType) : @InstM SlotType_layout_shape (list layout.Instruction) :=
     match instr with
     | rwasm.INumConst ann nt n =>
@@ -216,6 +219,12 @@ Module RWasmToLayout.
     (* where n is known by the number of szs *)
     | rwasm.IStructMalloc ann szs q =>
       flat_sz ← mret $ fold_sizes szs;
+      layout_instrs ← liftM $ compile_sz flat_sz;
+
+      instrs ← mret $ layout_instrs ++ [
+        layout.Malloc          (* [i32] → [ptr] *)
+
+      ];
 
       (* field_shapes ← *)
       mthrow todo
@@ -245,29 +254,38 @@ Module RWasmToLayout.
       let full_shape := LS_tuple [LS_int32; shape] in
 
       init_tmp ← fresh_local shape;
-
       instrs ← mret $ [
         layout.SetLocal init_tmp;
-
         layout.Val $ LV_int32 (shape_size_words full_shape);
         layout.Malloc;          (* [i32] → [ptr] *)
-
         layout.Val $ LV_int32 i;
         layout.Val $ LV_int32 0;
         layout.StoreOffset LS_int32; (* [ptr; offset; val] → [ptr; offset] *)
         layout.GetLocal init_tmp;
         layout.StoreOffset shape; (* [ptr; offset; val] → [ptr; offset] *)
         layout.Drop];
-
       free_local init_tmp;;
-
       mret instrs
 
     | rwasm.IVariantCase ann q th ta tl es => mthrow todo
 
     (* [val__init; len] → [ptr] *)
     (* [τ      ; i32] → [i32] *)
-    | rwasm.IArrayMalloc ann q => mthrow todo
+    | rwasm.IArrayMalloc (rwasm.Arrow from to) q =>
+      let arr_init_typ_opt := head from in (* XXX: clarify order of arrow *)
+      arr_init_typ ← liftM $ lift_optionM arr_init_typ_opt "empty arrow from";
+      shape ← liftM $ compile_typ (* env *) arr_init_typ;
+
+      len_tmp ← fresh_local shape;
+      instrs ← mret [
+        layout.TeeLocal len_tmp; (* exisitng length at TOS, consumed by Malloc, but also needed for RepeatInit *)
+        layout.Val $ LV_int32 (shape_size_words shape);
+        layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul;
+        layout.Malloc;          (* [i32] → [ptr] *)
+        layout.GetLocal len_tmp;
+        layout.RepeatInit shape (* [val; ptr; len] → [ptr] *)];
+      free_local len_tmp;;
+      mret instrs
 
     (* [ptr; idx] → [ptr; val] *)
     (* [i32; i32] → [i32; τ  ] *)
