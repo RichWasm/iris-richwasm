@@ -1,4 +1,5 @@
-From Coq Require Import List NArith.BinNat Lists.List FSets.FMapInterface.
+From Coq Require Import List NArith.BinNat Lists.List.
+Import ListNotations.
 From stdpp Require Import base option strings list pretty decidable gmap.
 From Wasm Require datatypes.
 From RWasm Require term.
@@ -31,13 +32,6 @@ Module LayoutIR.
   | BrTable (i__s : list nat) (j : nat)
   | Ret
 
-  | NewTmp (name : string) (shape : shape)
-  | SetTmp (name : string)
-  | TeeTmp (name : string)
-  | GetTmp (name : string)
-  | FreeTmp (name : string)
-
-  (* TODO: remove and use monad *)
   | GetLocal (i : nat)
   | SetLocal (i : nat)
   | TeeLocal (i : nat)
@@ -71,7 +65,7 @@ End LayoutIR.
 
 Module RWasmToLayout.
   Import layout.
-  Import List Lists.List ListNotations FSets.FMapInterface.
+  Import List Lists.List ListNotations.
   Module layout := LayoutIR.
 
   Section Typ.
@@ -149,7 +143,9 @@ Module RWasmToLayout.
     | rwasm.SizeConst c => mret [layout.Val $ LV_int32 c]
     end.
 
-  Fixpoint compile_instr (* (env : gmap rwasm.var LayoutShape) *) (instr : rwasm.instr rwasm.ArrowType) : InstM (list layout.Instruction) :=
+  Fixpoint compile_instr (* (env : gmap rwasm.var LayoutShape) *)
+  (* `{SlotType}  *)
+      (instr : rwasm.instr rwasm.ArrowType) : @InstM SlotType_layout_shape (list layout.Instruction) :=
     match instr with
     | rwasm.INumConst ann nt n =>
       mret [layout.Val $ match nt with
@@ -247,9 +243,11 @@ Module RWasmToLayout.
       shape ← liftM $ compile_typ (* env *) typ;
       (* memory layout is [ind, τ*] so we just add prepend *)
       let full_shape := LS_tuple [LS_int32; shape] in
-      mret $ [
-        layout.NewTmp "init" shape;
-        layout.SetTmp "init";
+
+      init_tmp ← fresh_local shape;
+
+      instrs ← mret $ [
+        layout.SetLocal init_tmp;
 
         layout.Val $ LV_int32 (shape_size_words full_shape);
         layout.Malloc;          (* [i32] → [ptr] *)
@@ -257,10 +255,13 @@ Module RWasmToLayout.
         layout.Val $ LV_int32 i;
         layout.Val $ LV_int32 0;
         layout.StoreOffset LS_int32; (* [ptr; offset; val] → [ptr; offset] *)
-        layout.GetTmp "init";
-        layout.FreeTmp "init";
+        layout.GetLocal init_tmp;
         layout.StoreOffset shape; (* [ptr; offset; val] → [ptr; offset] *)
-        layout.Drop]
+        layout.Drop];
+
+      free_local init_tmp;;
+
+      mret instrs
 
     | rwasm.IVariantCase ann q th ta tl es => mthrow todo
 
@@ -298,34 +299,35 @@ Module RWasmToLayout.
     | rwasm.IRefJoin _
     | rwasm.IQualify _ _ => mret []
     end.
+
   End Instrs.
 
   Definition resolve_locals_layout_shape (sz__s : list rwasm.Size) (instrs : list (rwasm.instr rwasm.ArrowType)) : M (list LayoutShape) :=
     (* TODO: need to see what type the first local.store is, and use that. otherwise fallback to a sequence of i64s *)
     mthrow todo.
 
-  Definition compile_func (func : rwasm.Func rwasm.ArrowType) : M layout.Func :=
+  Definition compile_func `{! MBind M, ! MRet M, ! MThrow Err M}
+             (func : rwasm.Func rwasm.ArrowType) : M layout.Func :=
     let 'rwasm.Fun ex__s χ sz__s e__s := func in
     let 'rwasm.FunT κ ta := χ in
     (* let 'rwasm.Arrow τ__from τ__to := tf in  *)
     '(layout.Arrow shape__from shape__to) ← compile_ta (* ∅ *) ta;      (* FIXME: previous stage should ensure this doesn't contain TVar *)
-    mthrow (err "FIXME").
-    (* let loc_params := omap (fun k => match k with *)
-    (*   | rwasm.SIZE sz__upper sz__lower => Some LS_int32 *)
-    (*   | rwasm.LOC _ | rwasm.QUAL _ _ | rwasm.TYPE _ _ _ => None end) κ in *)
+    let loc_params : list LayoutShape := omap (fun k => match k with
+      | rwasm.SIZE sz__upper sz__lower => Some LS_int32
+      | rwasm.LOC _ | rwasm.QUAL _ _ | rwasm.TYPE _ _ _ => None end) κ in
 
-    (* locals ← resolve_locals_layout_shape sz__s e__s; *)
-    (* let num_rwasm_params := length shape__from in *)
+    locals ← resolve_locals_layout_shape sz__s e__s;
+    let num_rwasm_params := length shape__from in
 
-    (* let sz_locals := map_seq num_rwasm_params (seq 0 num_rwasm_params) in *)
-    (* let idx_transformer i := if Nat.ltb i num_rwasm_params then i + num_rwasm_params else i in *)
+    let sz_locals := map_seq num_rwasm_params (seq 0 num_rwasm_params) in
+    let idx_transformer i := if Nat.ltb i num_rwasm_params then i + num_rwasm_params else i in
 
-    (* let es_m := flat_mapM (compile_instr sz_locals idx_transformer (* ∅ *)) e__s in *)
-    (* let init_tl := new_tl 0 in *)
-    (* '(tl, (e__s', _)) ← es_m init_tl; *)
-    (* let locals := map snd (map_to_list (tl_types tl)) in *)
+    let es_m := flat_mapM (compile_instr sz_locals idx_transformer (* ∅ *)) e__s in
+    let init_tl := new_tl 0 in
+    '(tl, e__s') ← es_m init_tl;
+    let locals := map snd (map_to_list (tl_types tl)) in
 
-    (* mret $ layout.Fun ex__s (layout.Arrow (shape__from ++ loc_params) shape__to) locals e__s'. *)
+    mret $ layout.Fun ex__s (layout.Arrow (shape__from ++ loc_params) shape__to) locals e__s'.
 
   Definition compile_global (global : rwasm.Glob rwasm.ArrowType) : M (option layout.Glob).
   Admitted.                     (* FIXME: what to do about 0 sized types? *)
@@ -593,10 +595,10 @@ Module LayoutToWasm.
       | LV_tuple fields => flat_map compile_val fields
       end.
 
-    Definition lift_peek (Γ : TypeEnv) (msg : string) : InstM shape :=
+    Definition lift_peek (Γ : TypeEnv) (msg : string) : @InstM SlotType_value_type shape :=
       liftM $ lift_optionM (te_peek Γ) msg.
 
-    Definition peek_ensure_i32 (Γ : TypeEnv) (prefix : string) : InstM shape :=
+    Definition peek_ensure_i32 (Γ : TypeEnv) (prefix : string) : @InstM SlotType_value_type shape :=
       shape ← lift_peek Γ (prefix ++ "expected i32 to be on stack but is typed as empty");
       _ ← match shape with
       | LS_int32 => mret ()
@@ -604,7 +606,7 @@ Module LayoutToWasm.
       end;
       mret shape.
 
-    Definition compile_instr (instr : Instruction) (Γ : TypeEnv) : InstM (list wasm.basic_instruction) :=
+    Definition compile_instr (instr : Instruction) (Γ : TypeEnv) : @InstM SlotType_value_type (list wasm.basic_instruction) :=
       match instr with
       | Val v =>
         let wasm_vals := compile_val v in

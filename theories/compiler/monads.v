@@ -123,6 +123,8 @@ Instance SlotType_value_type : SlotType := {
   slot_countable := _
 }.
 
+Coercion value_type_to_slot_typ (ls : wasm.value_type) : @slot_typ SlotType_value_type := ls.
+
 Section Example.
 
   Definition example_computation : InstM (nat * nat * nat) :=

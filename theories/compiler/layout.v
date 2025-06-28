@@ -117,17 +117,19 @@ Section Layout.
     - exact H.
   Qed.
 
-  Instance LayoutShape_countable : Countable LayoutShape.
+  Global Instance LayoutShape_countable : Countable LayoutShape.
   Proof.
     apply (inj_countable LayoutShape_to_tree tree_to_LayoutShape).
     - apply tree_to_LayoutShape_to_tree.
   Qed.
 
-  Instance SlotType_layout_shape : SlotType := {
+  Global Instance SlotType_layout_shape : SlotType := {
     slot_typ := LayoutShape;
     slot_eq_dec := _;
     slot_countable := _
   }.
+
+  Coercion LayoutShape_to_slot_typ (ls : LayoutShape) : @slot_typ SlotType_layout_shape := ls.
 
   Definition layout_prim_size (ls : LayoutShape) : option LayoutPrimSize :=
     match ls with
