@@ -42,12 +42,27 @@ Module LayoutIR.
   | Call (i : nat)
 
   | Init (shape : list shape)              (* [val; ptr] → [ptr] *) (* FIXME: is this really needed? surely we can just use store-offset*)
-  | RepeatInit (shape : shape)        (* [val; ptr; len] → [ptr] *)
+  | RepeatInit (shape : shape)        (* [val; len; ptr] → [ptr] *)
   | LoadOffset (shape : shape)          (* [ptr; offset] → [ptr; offset; val] *)
-  | StoreOffset (shape : shape)    (* [ptr; offset; val] → [ptr; offset] *)
+  | StoreOffset                    (* [ptr; offset; val] → [ptr; offset] *) (* FIXME: maybe stores should be done in *reverse* order and the updates offset with be *lower* *)
   | SwapOffset (shape : shape)  (* [ptr; offset; val__new] → [ptr; offset; val__old] *)
   | Malloc                                    (* [words] → [ptr] *)
   | Free                                        (* [ptr] → [] *)
+
+  | Dup                                   (* [x] → [x; x] *)
+  | Swap                               (* [x; y] → [y; x] *)
+  | Peek (n : nat)                (* [xₙ; ...; x1] → [xₙ; ...; x1; xₙ] *)
+  | Pluck (n : nat)               (* [xₙ; ...; x1] → [xₙ₋₁; ...; x1; xₙ] *)
+  | Insert (n : nat)        (* [xₙ₋₁; ...; x2; x1] → [x1; xₙ₋₁; ...; x2] *)
+
+  (* Explanation:
+               ↓ bottom    ↓ top
+      stack: [ x5 x4 x3 x2 x1 ]
+    Examples:
+    - Peek 3:   [1 2 3] → [1 2 3 1]
+    - Pluck 2:  [1 2 3] → [1 3 2]
+    - Insert 2: [1 3 2] → [1 2 3] *)
+
   with Func :=
   | Fun (ex__s : list rwasm.ex) (ta : ArrowShape) (locals : list shape) (e__s : list Instruction).
 
@@ -111,7 +126,7 @@ Module RWasmToLayout.
     end.
 
   (* n.b. this is polymorphic :( *)
-  Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : InstM rwasm.Size :=
+  Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : M rwasm.Size :=
     match idx with
     | 0 => mret $ rwasm.SizeConst 0
     | S idx' =>
@@ -126,7 +141,7 @@ Module RWasmToLayout.
   Variable sz_local_map : gmap nat nat.
   Variable transform_local_idx : nat → nat.
 
-  Fixpoint compile_tl (* (env : gmap rwasm.var LayoutShape) *) (tl : rwasm.LocalEffect) : M layout.LocalEffect :=
+  Definition compile_tl (* (env : gmap rwasm.var LayoutShape) *) (tl : rwasm.LocalEffect) : M layout.LocalEffect :=
      mapM (fun '(i, τ) =>
             shape ← compile_typ (* env *) τ;
             mret (transform_local_idx i, shape)) tl.
@@ -143,10 +158,19 @@ Module RWasmToLayout.
     | rwasm.SizeConst c => mret [layout.Val $ LV_int32 c]
     end.
 
+  Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : M (list (rwasm.Typ * rwasm.Size)) :=
+    match targs !! idx with
+    | Some (rwasm.RefT _ _ (rwasm.StructType fields)) => mret fields
+    | _ => mthrow (err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
+    end.
+
 
   (* NOTE: using the InstM moad here doesn't allow for the variabel to be reused by the layout to wasm
            compiler. if this is ever an issue, creating explicit IR forms in LayoutIR would reduce any
            waste, however the tradeoff is not currenlty worth it for a few "wasted" local slots *)
+  (* NOTE: a fair bit of redundant code will be generated, for example, StoreOffset places the new offset
+           on the top of the stack, and is often immediatly dropped, this should be trivial to remove with
+           a peephole optiomization. *)
   Fixpoint compile_instr (* (env : gmap rwasm.var LayoutShape) *)
       (instr : rwasm.instr rwasm.ArrowType) : @InstM SlotType_layout_shape (list layout.Instruction) :=
     match instr with
@@ -224,6 +248,10 @@ Module RWasmToLayout.
       instrs ← mret $ layout_instrs ++ [
         layout.Malloc          (* [i32] → [ptr] *)
 
+        (* in order to presrve order, we need to work backwards
+           values on stack are [τ1; τ2; τ3] which should end up on the heap as:
+           [τ1; τ2; τ3] *)
+
       ];
 
       (* field_shapes ← *)
@@ -235,57 +263,77 @@ Module RWasmToLayout.
 
     (* [ptr] → [ptr; val] *)
     (* [i32] → [i32; τ  ] *)
-    | rwasm.IStructGet ann n => mthrow todo
+    | rwasm.IStructGet (rwasm.Arrow from to) n =>
+      fields ← liftM $ get_struct_field_types from 0;
+      field_typ ← liftM $ lift_optionM (list_lookup 0 to) "struct.get: cannot find output val type";
+      field_shape ← liftM $ compile_typ field_typ;
+      offset_sz ← liftM $ struct_field_offset fields n;
+      offset_e ← liftM $ compile_sz offset_sz;
+
+      mret $ offset_e ++                     (* [] → [offset] *)
+             [layout.LoadOffset field_shape; (* [ptr; offset] → [ptr; offset; val] *)
+              layout.Swap;                   (* [offset; val] → [val; offset] *)
+              layout.Drop]                   (* [offset] → [] *)
 
     (* [ptr; val] → [ptr] *)
     (* [i32; τ  ] → [i32] *)
-    | rwasm.IStructSet ann n => mthrow todo
+    | rwasm.IStructSet (rwasm.Arrow from to) n =>
+      fields ← liftM $ get_struct_field_types from 1;
+      field_typ ← liftM $ lift_optionM (list_lookup 0 from) "struct.set: cannot find input val type";
+      field_shape ← liftM $ compile_typ field_typ;
+      offset_sz ← liftM $ struct_field_offset fields n;
+      offset_e ← liftM $ compile_sz offset_sz;
+
+      mret $ offset_e ++          (* [] → [offset] *)
+             [layout.StoreOffset; (* [ptr; offset; val] → [ptr; offset] *)
+              layout.Drop]        (* [offset] → [] *)
 
     (* [ptr; val__new] → [ptr; val__old] *)
     (* [i32; τ     ] → [i32; τ     ] *)
-    | rwasm.IStructSwap ann n => mthrow todo
+    | rwasm.IStructSwap (rwasm.Arrow from to) n =>
+      fields ← liftM $ get_struct_field_types from 1;
+      field_typ ← liftM $ lift_optionM (list_lookup 0 from) "struct.swap: cannot find input val type";
+      field_shape ← liftM $ compile_typ field_typ;
+      offset_sz ← liftM $ struct_field_offset fields n;
+      offset_e ← liftM $ compile_sz offset_sz;
+
+      mret $ offset_e ++                     (* [] → [offset] *)
+             [layout.SwapOffset field_shape; (* [ptr; offset; val__new] → [ptr; offset; val__old] *)
+              layout.Swap;                   (* [offset; val] → [val; offset] *)
+              layout.Drop]                   (* [offset] → [] *)
 
     (* [val__init] → [ptr] *)
     (* [τ      ] → [i32] *)
-    | rwasm.IVariantMalloc ann i ts q =>
-      typ ← liftM $ lift_optionM (list_lookup i ts) ("invalid variant malloc, no type corresponds with index " ++ (pretty i));
+    | rwasm.IVariantMalloc (rwasm.Arrow from to) i ta q =>
+      typ ← liftM $ lift_optionM (list_lookup 0 from) "variant.malloc: cannot find val type";
       shape ← liftM $ compile_typ (* env *) typ;
       (* memory layout is [ind, τ*] so we just add prepend *)
       let full_shape := LS_tuple [LS_int32; shape] in
 
-      init_tmp ← fresh_local shape;
-      instrs ← mret $ [
-        layout.SetLocal init_tmp;
+      mret $ [
         layout.Val $ LV_int32 (shape_size_words full_shape);
         layout.Malloc;          (* [i32] → [ptr] *)
         layout.Val $ LV_int32 i;
         layout.Val $ LV_int32 0;
-        layout.StoreOffset LS_int32; (* [ptr; offset; val] → [ptr; offset] *)
-        layout.GetLocal init_tmp;
-        layout.StoreOffset shape; (* [ptr; offset; val] → [ptr; offset] *)
-        layout.Drop];
-      free_local init_tmp;;
-      mret instrs
+        layout.StoreOffset;     (* [ptr; offset; val] → [ptr; offset] *)
+        layout.Pluck 3;         (* [val; ptr; offset] → [ptr; offsetl val] *)
+        layout.StoreOffset;     (* [ptr; offset; val] → [ptr; offset] *)
+        layout.Drop]
 
     | rwasm.IVariantCase ann q th ta tl es => mthrow todo
 
     (* [val__init; len] → [ptr] *)
     (* [τ      ; i32] → [i32] *)
     | rwasm.IArrayMalloc (rwasm.Arrow from to) q =>
-      let arr_init_typ_opt := head from in (* XXX: clarify order of arrow *)
-      arr_init_typ ← liftM $ lift_optionM arr_init_typ_opt "empty arrow from";
+      arr_init_typ ← liftM $ lift_optionM (list_lookup 1 from) "array.malloc: cannot find val type";
       shape ← liftM $ compile_typ (* env *) arr_init_typ;
 
-      len_tmp ← fresh_local shape;
-      instrs ← mret [
-        layout.TeeLocal len_tmp; (* exisitng length at TOS, consumed by Malloc, but also needed for RepeatInit *)
+      mret [
+        layout.Dup;             (* [len] → [len; len] *)
         layout.Val $ LV_int32 (shape_size_words shape);
-        layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul;
-        layout.Malloc;          (* [i32] → [ptr] *)
-        layout.GetLocal len_tmp;
-        layout.RepeatInit shape (* [val; ptr; len] → [ptr] *)];
-      free_local len_tmp;;
-      mret instrs
+        layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [len; i32] → [size] *)
+        layout.Malloc;                            (* [size] → [ptr] *)
+        layout.RepeatInit shape]                  (* [val; len; ptr] → [ptr] *)
 
     (* [ptr; idx] → [ptr; val] *)
     (* [i32; i32] → [i32; τ  ] *)
@@ -657,7 +705,7 @@ Module LayoutToWasm.
       | CallIndirect ta => mret [wasm.BI_call_indirect 0] (* FIXME: what immediate is supposed to go here? is it the index of the ta?*)
       | Call i => mret [wasm.BI_call i]
       | LoadOffset offset => mthrow todo
-      | StoreOffset offset => mthrow todo
+      | StoreOffset => mthrow todo
       | SwapOffset offset => mthrow todo
       | Malloc =>
         _ ← peek_ensure_i32 Γ "Malloc: ";
