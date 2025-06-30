@@ -506,6 +506,8 @@ Module LayoutToWasm.
   Import LayoutIR.
   Import numbers monads.
 
+  Section Mod.
+
   Inductive LocalShape :=
   | LS_orig (shape : shape)
   | LS_updated (orignal_shape : shape) (expected_shape : shape).
@@ -516,43 +518,56 @@ Module LayoutToWasm.
     | LS_updated orignal_shape expected_shape => expected_shape
     end.
 
-  Record TypeEnv := {
-    te_locals  : gmap nat LocalShape;
-    te_globals : gmap nat (shape * bool); (* TODO: this assumes that globals can't get strong updates, is this correct? *)
-    (* TODO: this might need to keep track of tables too *)
-    te_stack   : list shape
+  Record ModEnv := {
+    me_module_id      : nat;
+    me_globals        : gmap nat (shape * bool);
+    me_globals_wasm   : gmap nat wasm.global_type;
+    me_globals_map    : gmap nat nat;  (* from richwasm to wasm *)
+    me_function_types : gmap nat wasm.function_type;
+    me_malloc         : wasm.immediate;
+    me_free           : wasm.immediate;
+    me_mem_gc         : wasm.immediate;
+    me_mem_lin        : wasm.immediate;
   }.
 
-  Definition te_push (s : LayoutShape) (Γ : TypeEnv) : TypeEnv :=
-    {| te_locals := Γ.(te_locals);
-       te_globals := Γ.(te_globals);
-       te_stack := s :: Γ.(te_stack) |}.
+  Variable Σ : ModEnv.
 
-  Definition te_pop (Γ : TypeEnv) : option (LayoutShape * TypeEnv) :=
-    match Γ.(te_stack) with
+  Record FunEnv := {
+    fe_locals : gmap nat LocalShape;
+    fe_stack  : list shape;
+    fe_labels : list (list LayoutShape) (* map of labels to what they return *)
+  }.
+
+  Definition fe_push (s : LayoutShape) (Γ : FunEnv) : FunEnv :=
+    {| fe_locals := Γ.(fe_locals);
+       fe_stack  := s :: Γ.(fe_stack);
+       fe_labels := Γ.(fe_labels) |}.
+
+  Definition fe_pop (Γ : FunEnv) : option (LayoutShape * FunEnv) :=
+    match Γ.(fe_stack) with
     | [] => None
     | s :: stk' =>
-      Some (s, {| te_locals := Γ.(te_locals);
-                  te_globals := Γ.(te_globals);
-                  te_stack := stk' |})
+      Some (s, {| fe_locals := Γ.(fe_locals);
+                  fe_stack  := stk';
+                  fe_labels := Γ.(fe_labels) |})
     end.
 
-  Definition te_peek (Γ : TypeEnv) : option LayoutShape :=
-    match Γ.(te_stack) with
+  Definition fe_peek (Γ : FunEnv) : option LayoutShape :=
+    match Γ.(fe_stack) with
     | [] => None
     | s :: stk' => Some s
     end.
 
-  Definition te_pop_i32 (prefix : string) (Γ : TypeEnv) : M TypeEnv :=
-    '(shape, Γ') ← lift_optionM (te_pop Γ) (prefix ++ "expected non-empty stack");
+  Definition fe_pop_i32 (prefix : string) (Γ : FunEnv) : M FunEnv :=
+    '(shape, Γ') ← lift_optionM (fe_pop Γ) (prefix ++ "expected non-empty stack");
     _ ← match shape with
     | LS_int32 => mret ()
     | _ => mthrow (err (prefix ++ "expected i32 at TOS but got " ++ (pretty shape)))
     end;
     mret Γ'.
 
-  Definition te_set_local (idx : nat) (shape : shape) (Γ : TypeEnv) : M TypeEnv :=
-    local ← lift_optionM (Γ.(te_locals) !! idx) ("ICE: cannot find local with index " ++ (pretty idx));
+  Definition fe_set_local (idx : nat) (shape : shape) (Γ : FunEnv) : M FunEnv :=
+    local ← lift_optionM (Γ.(fe_locals) !! idx) ("ICE: cannot find local with index " ++ (pretty idx));
     let '(needs_update, orig) := match local with
     | LS_orig orig_shape => ((compatible_shapes shape orig_shape), orig_shape)
     | LS_updated orig_shape _ => (true, orig_shape)
@@ -561,9 +576,9 @@ Module LayoutToWasm.
        LS_updated orig shape
     else
        LS_orig orig in
-    mret {| te_locals := <[idx := new_local]> Γ.(te_locals);
-            te_globals := Γ.(te_globals);
-            te_stack := Γ.(te_stack) |}.
+    mret {| fe_locals := <[idx := new_local]> Γ.(fe_locals);
+            fe_stack := Γ.(fe_stack);
+            fe_labels := Γ.(fe_labels) |}.
 
   Definition either_layout_num (sz : LayoutPrimSize) (lt : LayoutPrimType) :=
     match lt with
@@ -590,24 +605,24 @@ Module LayoutToWasm.
     | rwasm.f64 => LS_float64
     end.
 
-  Definition apply_ta (ta : ArrowShape) (Γ : TypeEnv) : M TypeEnv :=
+  Definition apply_ta (ta : ArrowShape) (Γ : FunEnv) : M FunEnv :=
     let 'Arrow shapes__in shapes__out := ta in
-    Γ1 ← foldlM (fun (shape : LayoutShape) (acc : TypeEnv) =>
-          '(shape', acc') ← lift_optionM (te_pop acc) "expected non-empty stack when applying arrow shape";
+    Γ1 ← foldlM (fun (shape : LayoutShape) (acc : FunEnv) =>
+          '(shape', acc') ← lift_optionM (fe_pop acc) "expected non-empty stack when applying arrow shape";
           match decide (shape = shape') with
           | left _ => mret acc'
           | right _ => mthrow (err ("Based on arrow shape, expected " ++ (pretty shape) ++ " but got " ++ (pretty shape') ++ " at TOS."))
           end) Γ shapes__in;
-    Γ2 ← mret $ foldl' te_push Γ1 shapes__out;
+    Γ2 ← mret $ foldl' fe_push Γ1 shapes__out;
     mret Γ2.
 
-  Definition apply_tl (tl : LocalEffect) (Γ : TypeEnv) : M TypeEnv :=
-    Γ' ← foldlM (fun '(idx, shape) (acc : TypeEnv) => te_set_local idx shape acc) Γ tl;
+  Definition apply_tl (tl : LocalEffect) (Γ : FunEnv) : M FunEnv :=
+    Γ' ← foldlM (fun '(idx, shape) (acc : FunEnv) => fe_set_local idx shape acc) Γ tl;
     mret Γ'.
 
-  Fixpoint type_instr (instr : Instruction) (Γ : TypeEnv) : M TypeEnv :=
+  Fixpoint type_instr (instr : Instruction) (Γ : FunEnv) : M FunEnv :=
     match instr with
-    | Val v => mret $ te_push (layout_value_to_shape v) Γ
+    | Val v => mret $ fe_push (layout_value_to_shape v) Γ
     | Ne ni =>
       let szi := layout_size_of_int in
       let szf := layout_size_of_float in
@@ -646,25 +661,25 @@ Module LayoutToWasm.
         end
       end in
 
-      Γ1 ← foldlM (fun (shape : LayoutShape) (acc : TypeEnv) =>
-             '(shape', acc') ← lift_optionM (te_pop acc) "expected non-empty stack";
+      Γ1 ← foldlM (fun (shape : LayoutShape) (acc : FunEnv) =>
+             '(shape', acc') ← lift_optionM (fe_pop acc) "expected non-empty stack";
              match decide (shape = shape') with
              | left _ => mret acc'
              | right _ => mthrow (err ("Expected " ++ (pretty shape) ++ " but got " ++ (pretty shape') ++ " at TOS."))
              end) Γ tin;
-      Γ2 ← mret $ foldl' te_push Γ1 tout;
+      Γ2 ← mret $ foldl' fe_push Γ1 tout;
       mret Γ2
     | Unreachable => mret Γ
     | Nop => mret Γ
     | Drop =>
-      '(shape, Γ') ← lift_optionM (te_pop Γ) "Drop: expected non-empty stack";
+      '(shape, Γ') ← lift_optionM (fe_pop Γ) "Drop: expected non-empty stack";
       mret Γ'
     | Select =>
-      Γ1 ← te_pop_i32 "Select1: " Γ;
-      '(shape2, Γ2) ← lift_optionM (te_pop Γ1) "Select: expected non-empty stack 2";
-      '(shape3, Γ3) ← lift_optionM (te_pop Γ2) "Select: expected non-empty stack 3";
+      Γ1 ← fe_pop_i32 "Select1: " Γ;
+      '(shape2, Γ2) ← lift_optionM (fe_pop Γ1) "Select: expected non-empty stack 2";
+      '(shape3, Γ3) ← lift_optionM (fe_pop Γ2) "Select: expected non-empty stack 3";
       Γ4 ← match decide (shape2 = shape3) with
-      | left _ => mret (te_push shape2 Γ3)
+      | left _ => mret (fe_push shape2 Γ3)
       | right _ => mthrow (err ("Expected equal shapes for select but got " ++ (pretty shape2) ++ " and " ++ (pretty shape3) ++ "."))
       end;
       mret Γ3
@@ -682,26 +697,28 @@ Module LayoutToWasm.
       Γ__arrow ← apply_ta ta Γ;
       Γ__locals ← apply_tl tl Γ__arrow;
       mret Γ__locals
-    | Br i=> mthrow (err "TODO: deal with labels")
-    | BrIf i=> mthrow (err "TODO: deal with labels")
+    | Br i =>
+      label_ret ← lift_optionM (Γ.(fe_labels) !! i) ("br: expected label corresponding to index " ++ pretty i);
+      mthrow (err "TODO: deal with labels")
+    | BrIf i => mthrow (err "TODO: deal with labels")
     | BrTable i__s j => mthrow (err "TODO: deal with labels")
     | Ret => mthrow todo
     | GetLocal i =>
-      local ← lift_optionM (Γ.(te_locals) !! i) ("expected rwasn local at index " ++ (pretty i));
+      local ← lift_optionM (Γ.(fe_locals) !! i) ("expected rwasm local at index " ++ pretty i);
       shape ← mret $ effective_current_local_shape local;
-      Γ' ← mret $ te_push shape Γ;
+      Γ' ← mret $ fe_push shape Γ;
       mret Γ'
     | SetLocal i =>
-      '(shape, Γ1) ← lift_optionM (te_pop Γ) ("cannot set local with nothing on TOS");
-      Γ2 ← te_set_local i shape Γ1;
+      '(shape, Γ1) ← lift_optionM (fe_pop Γ) ("cannot set local with nothing on TOS");
+      Γ2 ← fe_set_local i shape Γ1;
       mret Γ2
     | TeeLocal i =>
-      shape ← lift_optionM (te_peek Γ) "cannot tee local with nothing on TOS";
-      Γ' ← te_set_local i shape Γ;
+      shape ← lift_optionM (fe_peek Γ) "cannot tee local with nothing on TOS";
+      Γ' ← fe_set_local i shape Γ;
       mret Γ'
     | GetGlobal i =>
-      '(shape, mut) ← lift_optionM (Γ.(te_globals) !! i) ("expected global at index " ++ (pretty i));
-      Γ' ← mret $ te_push shape Γ;
+      '(shape, mut) ← lift_optionM (Σ.(me_globals) !! i) ("expected global at index " ++ (pretty i));
+      Γ' ← mret $ fe_push shape Γ;
       mret Γ'
     (* | SetGlobal i => _ *)
     (* | CallIndirect tf => _ *)
@@ -711,11 +728,11 @@ Module LayoutToWasm.
 
     (* | SwapOffset offset => _ *)
     | Malloc =>
-      Γ1 ← te_pop_i32 "Malloc: " Γ;
-      Γ2 ← mret $ te_push LS_int32 Γ1;
+      Γ1 ← fe_pop_i32 "Malloc: " Γ;
+      Γ2 ← mret $ fe_push LS_int32 Γ1;
       mret Γ2
     | Free =>
-      Γ' ← te_pop_i32 "Free: " Γ;
+      Γ' ← fe_pop_i32 "Free: " Γ;
       mret Γ'
     | _ => mthrow todo
     end.
@@ -736,124 +753,106 @@ Module LayoutToWasm.
        wasm.Tf s1' s2'
     end.
 
-  Section Instrs.
-    Variable (MEM_GC: wasm.immediate).
-    Variable (MEM_LIN: wasm.immediate).
-    Variable (FUNC_MALLOC: wasm.immediate).
-    Variable (FUNC_FREE: wasm.immediate).
+  Fixpoint compile_val (value : LayoutValue) : list wasm.value :=
+    match value with
+    | LV_unit => []
+    | LV_int32 i => [compile_num_from_Z wasm.T_i32 (Z.of_nat i)]
+    | LV_int64 i => [compile_num_from_Z wasm.T_i64 (Z.of_nat i)]
+    | LV_float32 f => [compile_num_from_Z wasm.T_f32 (Z.of_nat f)]
+    | LV_float64 f => [compile_num_from_Z wasm.T_f64 (Z.of_nat f)]
+    | LV_tuple fields => flat_map compile_val fields
+    end.
 
-    Variable function_types : list wasm.function_type.
+  Definition lift_peek (Γ : FunEnv) (msg : string) : @InstM SlotType_value_type shape :=
+    liftM $ lift_optionM (fe_peek Γ) msg.
 
-    Fixpoint compile_val (value : LayoutValue) : list wasm.value :=
-      match value with
-      | LV_unit => []
-      | LV_int32 i => [compile_num_from_Z wasm.T_i32 (Z.of_nat i)]
-      | LV_int64 i => [compile_num_from_Z wasm.T_i64 (Z.of_nat i)]
-      | LV_float32 f => [compile_num_from_Z wasm.T_f32 (Z.of_nat f)]
-      | LV_float64 f => [compile_num_from_Z wasm.T_f64 (Z.of_nat f)]
-      | LV_tuple fields => flat_map compile_val fields
-      end.
+  Definition peek_ensure_i32 (Γ : FunEnv) (prefix : string) : @InstM SlotType_value_type shape :=
+    shape ← lift_peek Γ (prefix ++ "expected i32 to be on stack but is typed as empty");
+    _ ← match shape with
+    | LS_int32 => mret ()
+    | _ => mthrow (err (prefix ++  "expected i32 at TOS but got " ++ (pretty shape)))
+    end;
+    mret shape.
 
-    Definition lift_peek (Γ : TypeEnv) (msg : string) : @InstM SlotType_value_type shape :=
-      liftM $ lift_optionM (te_peek Γ) msg.
+  Definition compile_instr (instr : Instruction) (Γ : FunEnv) : @InstM SlotType_value_type (list wasm.basic_instruction) :=
+    match instr with
+    | Val v =>
+      let wasm_vals := compile_val v in
+      mret $ map wasm.BI_const wasm_vals
+    | Ne ni =>
+      instr ← liftM (compile_num_intr ni);
+      mret [instr]
+    | Unreachable => mret [wasm.BI_unreachable]
+    | Nop => mret [wasm.BI_nop]
+    | Drop =>
+      shape ← lift_peek Γ "expected element to drop";
+      wasm_stack ← mret $ shape_to_wasm_stack shape;
+      mret $ map (fun _ => wasm.BI_drop) wasm_stack
+    | Select =>
+      shape ← lift_peek Γ "expected element to select";
 
-    Definition peek_ensure_i32 (Γ : TypeEnv) (prefix : string) : @InstM SlotType_value_type shape :=
-      shape ← lift_peek Γ (prefix ++ "expected i32 to be on stack but is typed as empty");
-      _ ← match shape with
-      | LS_int32 => mret ()
-      | _ => mthrow (err (prefix ++  "expected i32 at TOS but got " ++ (pretty shape)))
-      end;
-      mret shape.
+      mthrow todo
+    | Block ta le e__s => mthrow todo
+    | Loop ta e => mthrow todo
+    | ITE tf le e__thn e__els => mthrow todo
+    | Br i => mthrow todo
+    | BrIf i => mthrow todo
+    | BrTable i__s j => mthrow todo
+    | Ret => mret [wasm.BI_return]
+    | GetLocal i => mthrow todo
+    | SetLocal i => mthrow todo
+    | TeeLocal i => mthrow todo
+    | GetGlobal i => mthrow todo
+    | SetGlobal i => mthrow todo
+    | CallIndirect ta => mret [wasm.BI_call_indirect 0] (* FIXME: what immediate is supposed to go here? is it the index of the ta?*)
+    | Call i => mret [wasm.BI_call i]
+    | LoadOffset offset => mthrow todo
+    | StoreOffset => mthrow todo
+    | SwapOffset offset => mthrow todo
+    | Malloc =>
+      _ ← peek_ensure_i32 Γ "Malloc: ";
+      mret $ [wasm.BI_call Σ.(me_malloc)]
+    | Free =>
+      _ ← peek_ensure_i32 Γ "Free: ";
+      mret $ [wasm.BI_call Σ.(me_free)]
+    | _ => mthrow todo
+    end.
 
-    Definition compile_instr (instr : Instruction) (Γ : TypeEnv) : @InstM SlotType_value_type (list wasm.basic_instruction) :=
-      match instr with
-      | Val v =>
-        let wasm_vals := compile_val v in
-        mret $ map wasm.BI_const wasm_vals
-      | Ne ni =>
-        instr ← liftM (compile_num_intr ni);
-        mret [instr]
-      | Unreachable => mret [wasm.BI_unreachable]
-      | Nop => mret [wasm.BI_nop]
-      | Drop =>
-        shape ← lift_peek Γ "expected element to drop";
-        wasm_stack ← mret $ shape_to_wasm_stack shape;
-        mret $ map (fun _ => wasm.BI_drop) wasm_stack
-      | Select =>
-        shape ← lift_peek Γ "expected element to select";
+  Definition compile_function_types (tf : ArrowShape) (function_types : list wasm.function_type)
+    : list wasm.function_type :=
 
-        mthrow todo
-      | Block ta le e__s => mthrow todo
-      | Loop ta e => mthrow todo
-      | ITE tf le e__thn e__els => mthrow todo
-      | Br i => mthrow todo
-      | BrIf i => mthrow todo
-      | BrTable i__s j => mthrow todo
-      | Ret => mret [wasm.BI_return]
-      | GetLocal i => mthrow todo
-      | SetLocal i => mthrow todo
-      | TeeLocal i => mthrow todo
-      | GetGlobal i => mthrow todo
-      | SetGlobal i => mthrow todo
-      | CallIndirect ta => mret [wasm.BI_call_indirect 0] (* FIXME: what immediate is supposed to go here? is it the index of the ta?*)
-      | Call i => mret [wasm.BI_call i]
-      | LoadOffset offset => mthrow todo
-      | StoreOffset => mthrow todo
-      | SwapOffset offset => mthrow todo
-      | Malloc =>
-        _ ← peek_ensure_i32 Γ "Malloc: ";
-        mret $ [wasm.BI_call FUNC_MALLOC]
-      | Free =>
-        _ ← peek_ensure_i32 Γ "Free: ";
-        mret $ [wasm.BI_call FUNC_FREE]
-      | _ => mthrow todo
-      end.
+  let function_type := translate_function_type tf in
+  add_if_not_in function_type function_types.
 
-
-    Definition compile_function_types (tf : ArrowShape) (function_types : list wasm.function_type)
-      : list wasm.function_type :=
-
-    let function_type := translate_function_type tf in
-    add_if_not_in function_type function_types.
-
-    Definition collect_function_types (function : Func) (function_types : list wasm.function_type) :=
-      let '(Fun ex__s tf locals e__s) := function in
-      compile_function_types tf function_types.
+  Definition collect_function_types (function : Func) (function_types : list wasm.function_type) :=
+    let '(Fun ex__s tf locals e__s) := function in
+    compile_function_types tf function_types.
 
 
-    Record FunctionContext := {
-      fc_function_types : gmap wasm.function_type nat;
-      fc_globals : gmap nat (shape * bool);
-      fc_globals_layout : gmap nat nat; (* from rwasm idx to first wasm idx *)
-      fc_module_idx : nat;
-    }.
+  Definition compile_function (function : Func) : M wasm.module_func :=
+    match function with
+    | Fun ex__s tf locals e__s =>
+      let tf' := translate_function_type tf in
+      typ_idx ← lift_optionM ((invert_map Σ.(me_function_types)) !! tf') "ICE: not corresponding ft index";
+      let Γ__orig := {|
+        fe_locals := todo_magic ();
+        fe_stack  := [];
+        fe_labels := []
+      |} in
+      let instrs_m := foldlM (fun instr '(instrs, Γ) =>
+          Γ' ← liftM $ type_instr instr Γ;
+          instrs' ← compile_instr instr Γ;     (* NOTE: we use the previous type env *)
+          mret (instrs ++ instrs', Γ')) ([], Γ__orig) e__s in
+      let init_tl := new_tl 0 in
+      '(tl, (body, _)) ← instrs_m init_tl;
+      let locals := map snd (map_to_list (tl_types tl)) in
 
-    Definition compile_function (ctx : FunctionContext) (function : Func) : M wasm.module_func :=
-      match function with
-      | Fun ex__s tf locals e__s =>
-        let tf' := translate_function_type tf in
-        typ_idx ← lift_optionM (ctx.(fc_function_types) !! tf') "ICE: not corresponding ft index";
-        let Γ__orig := {|
-          te_locals  := ∅; (* FIXME: compile locals *)
-          te_globals := ctx.(fc_globals);
-          te_stack := []
-        |} in
-        let instrs_m := foldlM (fun instr '(instrs, Γ) =>
-            Γ' ← liftM $ type_instr instr Γ;
-            instrs' ← compile_instr instr Γ;     (* NOTE: we use the previous type env *)
-            mret (instrs ++ instrs', Γ')) ([], Γ__orig) e__s in
-        let init_tl := new_tl 0 in
-        '(tl, (body, _)) ← instrs_m init_tl;
-        let locals := map snd (map_to_list (tl_types tl)) in
-
-        mret {|
-          wasm.modfunc_type := wasm.Mk_typeidx typ_idx;
-          wasm.modfunc_locals := locals;
-          wasm.modfunc_body := body
-        |}
-      end.
-
-  End Instrs.
+      mret {|
+        wasm.modfunc_type := wasm.Mk_typeidx typ_idx;
+        wasm.modfunc_locals := locals;
+        wasm.modfunc_body := body
+      |}
+    end.
 
   (* TODO: deal with exports *)
   (* Definition compile_glob (glob : Glob) : wasm.global :=  *)
@@ -863,41 +862,40 @@ Module LayoutToWasm.
   (*   | GlobIm ex__s shape im => _ *)
   (*   end  *)
 
-  Section Mod.
-
-    Variable (mod_idx : nat).
-
-    Definition compile_module (module : module) : M wasm.module :=
-      let 'Build_module functions globals table := module in
-      let function_types := foldl' collect_function_types [] functions in
-      let ctx := {|
-        fc_function_types := invert_map (map_seq 0 function_types);
-        fc_globals := map_seq 0 (map shape_of_glob globals);
-        fc_globals_layout := ∅;         (* FIXME *)
-        fc_module_idx := mod_idx;
-      |} in
-
-      let func_malloc := 0 in
-      let func_free := 1 in
-
-      functions' ← mapM (compile_function func_malloc func_free ctx) functions;
-
-      mret {|
-        wasm.mod_types := function_types;
-        wasm.mod_funcs := functions';
-        wasm.mod_tables := []; (* TODO *)
-        wasm.mod_mems := [
-          {| wasm.lim_min := 0%N; wasm.lim_max := None |}; (* gc mem *)
-          {| wasm.lim_min := 0%N; wasm.lim_max := None |}  (* lin mem *)
-        ];
-        wasm.mod_globals := []; (* TODO *)
-        wasm.mod_elem := []; (* TODO *)
-        wasm.mod_data := []; (* TODO *)
-        wasm.mod_start := None;
-        wasm.mod_imports := []; (* TODO *)
-        wasm.mod_exports := [] (* TODO *)
-      |}.
-
   End Mod.
+
+  Definition compile_module (mod_idx : nat) (module : module) : M wasm.module :=
+    let 'Build_module functions globals table := module in
+    let function_types := foldl' collect_function_types [] functions in
+    '(globals_wasm, globals_map) ← todo_magic ();     (* TODO: compile globals *)
+    let Σ := {|
+      me_module_id      := mod_idx;
+      me_globals        := map_seq 0 (map shape_of_glob globals);
+      me_globals_wasm   := globals_wasm;
+      me_globals_map    := globals_map;
+      me_function_types := map_seq 0 function_types;
+      me_malloc         := 0;
+      me_free           := 1;
+      me_mem_gc         := 0;
+      me_mem_lin        := 1;
+    |} in
+
+    functions' ← mapM (compile_function Σ) functions;
+
+    mret {|
+      wasm.mod_types := function_types;
+      wasm.mod_funcs := functions';
+      wasm.mod_tables := todo_magic ();    (* TODO *)
+      wasm.mod_mems := [
+        {| wasm.lim_min := 0%N; wasm.lim_max := None |}; (* gc mem *)
+        {| wasm.lim_min := 0%N; wasm.lim_max := None |}  (* lin mem *)
+      ];
+      wasm.mod_globals := todo_magic ();   (* TODO *)
+      wasm.mod_elem := todo_magic ();      (* TODO *)
+      wasm.mod_data := [];
+      wasm.mod_start := None;
+      wasm.mod_imports := todo_magic ();   (* TODO *)
+      wasm.mod_exports := todo_magic ()    (* TODO *)
+    |}.
 
 End LayoutToWasm.
