@@ -9,6 +9,10 @@ Definition compile_typ (typ : rwasm.Typ) : M (list wasm.value_type) :=
   shape ← RWasmToLayout.compile_typ typ;
   mret $ shape_to_wasm_types shape.
 
+Definition compile_instrs (sz_local_map : gmap nat nat) (transform_local_idx: nat -> nat) :=
+  RWasmToLayout.compile_instrs _ _ 
+  LayoutToWasm.compile_instrs.
+
 Section Mod.
   Variable (mod_idx : nat).
 

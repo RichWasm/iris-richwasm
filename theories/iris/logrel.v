@@ -1,5 +1,5 @@
-From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term subst debruijn num_repr autowp compile iris.util.
+From stdpp Require Import base fin_maps option list.
+From RWasm Require Import typing term subst debruijn num_repr autowp compile iris.util exn.
 Module RT := RWasm.term.
 Module T := RWasm.typing.
 
@@ -428,8 +428,6 @@ Definition semantic_typing  :
         (* frame points to F ∗ *)
         interp_frame L WL inst f -∗
         interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
-
-Require Import RWasm.compile.
 
 Lemma seq_map_map {A B} (f : A -> B) (l : list A) : seq.map f l = map f l.
 Admitted.
