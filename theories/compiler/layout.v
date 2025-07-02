@@ -122,6 +122,11 @@ Section Layout.
     apply (inj_countable LayoutShape_to_tree tree_to_LayoutShape).
     - apply tree_to_LayoutShape_to_tree.
   Qed.
+  Class SlotType := {
+      slot_typ : Type;
+      slot_eq_dec : EqDecision slot_typ;
+      slot_countable : Countable slot_typ
+    }.
 
   Global Instance SlotType_layout_shape : SlotType := {
     slot_typ := LayoutShape;

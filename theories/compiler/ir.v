@@ -95,7 +95,7 @@ Module RWasmToLayout.
   Variable env : gmap rwasm.var LayoutShape.
 
   (* TODO: deal with boxing and unboxing, does tvar need to be touched?? *)
-  Fixpoint compile_typ (τ : rwasm.Typ) : M LayoutShape := (* TODO: function ctx *)
+  Fixpoint compile_typ (τ : rwasm.Typ) : exn err LayoutShape := (* TODO: function ctx *)
     match τ with
     | rwasm.Num nτ =>
       mret $ match nτ with
@@ -109,16 +109,16 @@ Module RWasmToLayout.
     | rwasm.ProdT τ__s =>
       shapes ← (mapM compile_typ τ__s);
       mret $ LS_tuple shapes
-    | rwasm.CoderefT χ => mthrow todo
+    | rwasm.CoderefT χ => mthrow Todo
     | rwasm.Rec q τ => compile_typ τ
     | rwasm.PtrT ℓ => mret LS_int32
-    | rwasm.ExLoc q τ => mthrow todo
+    | rwasm.ExLoc q τ => mthrow Todo
     | rwasm.OwnR _
     | rwasm.CapT _ _ _ => mret LS_empty
     | rwasm.RefT cap ℓ ψ => mret LS_int32
     end.
 
-  Fixpoint compile_arrow_type (ta : rwasm.ArrowType) : M layout.ArrowShape :=
+  Fixpoint compile_arrow_type (ta : rwasm.ArrowType) : exn err layout.ArrowShape :=
     let 'rwasm.Arrow τ__s1 τ__s2 := ta in
     τ__s1' ← mapM compile_typ τ__s1;
     τ__s2' ← mapM compile_typ τ__s2;
@@ -133,13 +133,13 @@ Module RWasmToLayout.
     end.
 
   (* n.b. this is polymorphic :( *)
-  Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : M rwasm.Size :=
+  Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : exn err rwasm.Size :=
     match idx with
     | 0 => mret $ rwasm.SizeConst 0
     | S idx' =>
         match fields with
         | (_, sz) :: fields' => rwasm.SizePlus sz <$> (struct_field_offset fields' idx')
-        | [] => mthrow (err ("not enough fields in struct type to find field offset of index " ++ pretty idx))
+        | [] => mthrow (Err ("not enough fields in struct type to find field offset of index " ++ pretty idx))
         end
     end.
 
@@ -148,12 +148,12 @@ Module RWasmToLayout.
   Variable sz_local_map : gmap nat nat.
   Variable transform_local_idx : nat → nat.
 
-  Definition compile_local_effect (* (env : gmap rwasm.var LayoutShape) *) (tl : rwasm.LocalEffect) : M layout.LocalEffect :=
+  Definition compile_local_effect (* (env : gmap rwasm.var LayoutShape) *) (tl : rwasm.LocalEffect) : exn err layout.LocalEffect :=
      mapM (fun '(i, τ) =>
             shape ← compile_typ (* env *) τ;
             mret (transform_local_idx i, shape)) tl.
 
-  Fixpoint compile_sz (sz : rwasm.Size) : M (list layout.Instruction) :=
+  Fixpoint compile_sz (sz : rwasm.Size) : exn err (list layout.Instruction) :=
     match sz with
     | rwasm.SizeVar σ =>
       local_idx ← lift_optionM (sz_local_map !! σ) ("sz " ++ (pretty σ) ++ " not found in sz_local_map");
@@ -176,7 +176,6 @@ Module RWasmToLayout.
     | Some (rwasm.RefT _ _ (rwasm.ArrayType typ)) => mret typ
     | _ => mthrow (err ("array instruction expected a ref to an array type at index " ++ pretty idx))
     end.
-
 
   (* TODO: Box and unbox *)
   (** Boxes all polymorphic paramters on the stack, stack_offset
@@ -439,12 +438,12 @@ Module RWasmToLayout.
 
   End Instrs.
 
-  Definition resolve_locals_layout_shape (sz__s : list rwasm.Size) (instrs : list (rwasm.instr rwasm.ArrowType)) : M (list LayoutShape) :=
+  Definition resolve_locals_layout_shape (sz__s : list rwasm.Size) (instrs : list (rwasm.instr rwasm.ArrowType)) : exn err (list LayoutShape) :=
     (* TODO: need to see what type the first local.store is, and use that. otherwise fallback to a sequence of i64s *)
     mthrow todo.
 
   Definition compile_func `{! MBind M, ! MRet M, ! MThrow Err M}
-             (func : rwasm.Func rwasm.ArrowType) : M layout.Func :=
+             (func : rwasm.Func rwasm.ArrowType) : exn err layout.Func :=
     let 'rwasm.Fun ex__s χ sz__s e__s := func in
     let 'rwasm.FunT κ ta := χ in
     (* let 'rwasm.Arrow τ__from τ__to := tf in  *)
@@ -466,7 +465,7 @@ Module RWasmToLayout.
 
     mret $ layout.Fun ex__s (layout.Arrow (shape__from ++ loc_params) shape__to) locals e__s'.
 
-  Definition compile_global (global : rwasm.Glob rwasm.ArrowType) : M (option layout.Glob).
+  Definition compile_global (global : rwasm.Glob rwasm.ArrowType) : exn err (option layout.Glob).
   Admitted.                     (* FIXME: what to do about 0 sized types? *)
     (* match global with *)
     (* | boxed.GlobMut τ i__s => mret $ layout.GlobMut (boxed_type_to_shape τ) (compile_instr i__s) *)

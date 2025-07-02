@@ -1,4 +1,4 @@
-From stdpp Require Import base option.
+From stdpp Require Import base option list.
 
 Set Universe Polymorphism.
 
@@ -38,6 +38,8 @@ Section exceptions.
 
 End exceptions.
 
+Arguments OK {E A} _.
+Arguments Err {E A} _.
 
 #[export]
 Instance exn_FMap {E} : FMap (exn E) := @exn_map E.
@@ -59,3 +61,15 @@ Definition guard_opt {E A} (err: E) (c: option A) : exn E A :=
   | Some a => mret a
   | None => mthrow err
   end.
+
+Lemma fmap_OK {E A B} :
+  forall (f: A -> B) (c: exn E A) (b: B),
+    f <$> c = OK b <-> exists a: A, c = OK a /\ f a = b.
+Proof.
+Admitted.
+
+Lemma mapM_OK {E A B} :
+  ∀ (f : A → exn E B) (l: list A) (k: list B),
+    mapM f l = OK k ↔ Forall2 (λ a b, f a = OK b) l k.
+Proof.
+Admitted.
