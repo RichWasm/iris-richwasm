@@ -75,7 +75,7 @@ Inductive repr_vval_wide : addr_map -> vval -> vval -> Z -> Prop :=
   | intWR θ i1 i2 i :
       repr_vval θ (intVV i1) i1 ->
       repr_vval θ (intVV i2) i2 ->
-      (i1 + i2 ≪ 32)%Z = i ->
+      (Wasm_int.Int32.Z_mod_modulus i1 + i2 ≪ 32)%Z = i ->
       repr_vval_wide θ (intVV i1) (intVV i2) i.
 
 Inductive repr_vblock : addr_map -> vblock -> list Z -> Prop :=
@@ -179,11 +179,185 @@ Section GCrules.
 Context `{wasm : wasmG Σ}.
 Context `{rwasm : rwasm_gcG Σ}.
 
+Lemma byte_eqm_mod (x : Z) (y : Z) :
+  (x `mod` 256 = y `mod` 256)%Z ->
+  Integers.Byte.eqm x y.
+Admitted.
+
 Lemma serialise_split_i64 k1 k2 :
   serialise_i32 (Wasm_int.int_of_Z i32m k1) ++
   serialise_i32 (Wasm_int.int_of_Z i32m k2) =
-  serialise_i64 (Wasm_int.int_of_Z i64m (k1 + k2 ≪ 32)).
-Admitted.
+  serialise_i64 (Wasm_int.int_of_Z i64m (Wasm_int.Int32.Z_mod_modulus k1 + k2 ≪ 32)).
+Proof.
+  unfold serialise_i32, serialise_i64, Memdata.encode_int.
+  Transparent Archi.big_endian.
+  cbn.
+
+  rewrite !Wasm_int.Int32.Z_mod_modulus_eq.
+  rewrite !Wasm_int.Int64.Z_mod_modulus_eq.
+  f_equal; last f_equal; last f_equal; last f_equal; last f_equal; last f_equal; last f_equal; last f_equal.
+  all: apply Integers.Byte.eqm_samerepr; apply byte_eqm_mod.
+  - rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 8)).
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 8)).
+    rewrite Z.add_mod; last done.
+    rewrite Z.shiftl_mul_pow2; last done.
+    rewrite Z.mul_mod; last done.
+    rewrite (Znumtheory.Zdivide_mod (2 ^ 32)); last by exists (two_power_nat (32 - 8)).
+    rewrite Z.mul_0_r.
+    rewrite Z.mod_0_l; last done.
+    rewrite Z.add_0_r.
+    rewrite Z.mod_mod; last done.
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 8)).
+  - replace Wasm_int.Int32.modulus with (256 * 2 ^ 24)%Z; last done.
+    replace Wasm_int.Int64.modulus with (256 * 2 ^ 56)%Z; last done.
+    rewrite !Zaux.Zdiv_mod_mult; try done.
+
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 2 * 8)).
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 2 * 8)).
+    rewrite Z.shiftl_mul_pow2; last done.
+    replace (k2 * 2 ^ 32)%Z with ((k2 * 2 ^ 24) * 256)%Z; last lia.
+    rewrite Z_div_plus; last done.
+
+    rewrite Z.add_mod; last done.
+    rewrite Z.mul_mod; last done.
+    rewrite (Znumtheory.Zdivide_mod (2 ^ 24)); last by exists (two_power_nat (32 - 2 * 8)).
+    rewrite Z.mul_0_r.
+    rewrite Z.mod_0_l; last done.
+    rewrite Z.add_0_r.
+    rewrite <- Znumtheory.Zmod_div_mod; try done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 2 * 8)).
+  - replace Wasm_int.Int32.modulus with (256 * (256 * 2 ^ 16))%Z; last done.
+    replace Wasm_int.Int64.modulus with (256 * (256 * 2 ^ 48))%Z; last done.
+    rewrite !Zaux.Zdiv_mod_mult; try done.
+
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 3 * 8)).
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 3 * 8)).
+    rewrite Z.shiftl_mul_pow2; last done.
+    replace (k2 * 2 ^ 32)%Z with (((k2 * 2 ^ 16) * 256) * 256)%Z; last lia.
+    rewrite !Z_div_plus; try done.
+
+    rewrite Z.add_mod; last done.
+    rewrite Z.mul_mod; last done.
+    rewrite (Znumtheory.Zdivide_mod (2 ^ 16)); last by exists (two_power_nat (32 - 3 * 8)).
+    rewrite Z.mul_0_r.
+    rewrite Z.mod_0_l; last done.
+    rewrite Z.add_0_r.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite <- Znumtheory.Zmod_div_mod; try done.
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (16 - 8)).
+  - replace Wasm_int.Int32.modulus with (256 * (256 * (256 * 2 ^ 8)))%Z; last done.
+    replace Wasm_int.Int64.modulus with (256 * (256 * (256 * 2 ^ 40)))%Z; last done.
+    rewrite !Zaux.Zdiv_mod_mult; try done.
+
+    rewrite <- Znumtheory.Zmod_div_mod; try done.
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 4 * 8)).
+    rewrite Z.shiftl_mul_pow2; last done.
+    replace (k2 * 2 ^ 32)%Z with ((((k2 * 2 ^ 8) * 256) * 256) * 256)%Z; last lia.
+    rewrite !Z_div_plus; try done.
+
+    rewrite Z.add_mod; last done.
+    rewrite Z.mul_mod; last done.
+    rewrite (Znumtheory.Zdivide_mod (2 ^ 8)); last by exists (two_power_nat (32 - 4 * 8)).
+    rewrite Z.mul_0_r.
+    rewrite Z.mod_0_l; last done.
+    rewrite Z.add_0_r.
+    rewrite Z.mod_mod; last done.
+
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    by rewrite Z.mod_mod; last done.
+  - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+    rewrite !Zaux.Zdiv_mod_mult; try done.
+
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 8)).
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 5 * 8)).
+    rewrite Z.shiftl_mul_pow2; try done.
+    replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+    rewrite !Z_div_plus; try done.
+
+    rewrite Z.add_mod; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.mod_div; last done.
+    rewrite Z.mod_0_l; last done.
+    rewrite Z.add_0_l.
+    rewrite Z.mod_mod; done.
+  - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+    rewrite !Zaux.Zdiv_mod_mult; try done.
+
+    replace (2 ^ 32)%Z with (256 * 2 ^ 24)%Z; last reflexivity.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 2 * 8)).
+    rewrite Z.shiftl_mul_pow2; try done.
+    replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+    rewrite !Z_div_plus; try done.
+
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.mod_div; last done.
+    rewrite Z.add_0_l.
+
+    replace Wasm_int.Int32.modulus with (256 * 2 ^ 24)%Z; last done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (24 - 8)).
+  - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+    rewrite !Zaux.Zdiv_mod_mult; try done.
+
+    replace (2 ^ 32)%Z with (256 * (256 * 2 ^ 16))%Z; last reflexivity.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 3 * 8)).
+    rewrite Z.shiftl_mul_pow2; try done.
+    replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+    rewrite !Z_div_plus; try done.
+
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.mod_div; last done.
+    rewrite Z.add_0_l.
+
+    replace Wasm_int.Int32.modulus with ((256 * 256) * 2 ^ 16)%Z; last done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (24 - 2 * 8)).
+  - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+    rewrite !Zaux.Zdiv_mod_mult; try done.
+
+    replace (2 ^ 32)%Z with (256 * (256 * (256 * 256)))%Z; last reflexivity.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+
+    rewrite <- Znumtheory.Zmod_div_mod; try done.
+    rewrite Z.shiftl_mul_pow2; try done.
+    replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+    rewrite !Z_div_plus; try done.
+
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.div_div; try done.
+    rewrite Z.mod_div; last done.
+    rewrite Z.add_0_l.
+
+    replace Wasm_int.Int32.modulus with ((256 * (256 * 256)) * 256)%Z; last done.
+    rewrite Zaux.Zdiv_mod_mult; try done.
+    rewrite Z.mod_mod; done.
+
+  Opaque Archi.big_endian.
+Qed.
 
 Lemma wms_app n bs1 :
   forall ℓ sz1 bs2,
@@ -306,6 +480,8 @@ Definition spec_alloc_gc
          N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes) ∗
         ↪[frame] F }}%I.
 
+(* TODO: What would happen if the ∃ k was pulled up to a lemma parameter, and
+* repr_vval θ vv k was an assumption? *)
 Lemma wp_load_gc
     (s : stuckness) (E : coPset) (F : frame) (memidx: immediate)
     (m : memaddr) (θ : addr_map) (I : gc_inv Σ)
