@@ -16,7 +16,7 @@ Import ListNotations.
 
 
 (* returns [n, n+m[ *)
- Fixpoint fromN (n:N) (m:nat): list N :=
+Fixpoint fromN (n:N) (m:nat): list N :=
   match m with
   | 0 => nil
   | S m'  => n::(fromN (BinNat.N.succ n)  m')
