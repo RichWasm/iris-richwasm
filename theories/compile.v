@@ -6,14 +6,35 @@ Require Import stdpp.pretty.
 Require Import stdpp.list.
 Import ListNotations.
 From RWasm Require term.
+From RWasm Require Import typing.
 From Wasm Require datatypes.
 Require Import Wasm.numerics.
 Require Import BinNat.
 Require Import compiler.monads.
+Require Import compiler.numbers.
 
 Module rwasm := term.
 Module wasm := datatypes.
 Require Import stdpp.list.
+
+(* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
+Definition wlocal_ctx := seq.seq wasm.value_type.
+
+Record wlayout :=
+  { w_offset: nat;
+    w_ctx: wlocal_ctx }.
+
+Definition wextend (w: wlayout) (t: wasm.value_type) :=
+  {| w_offset := w.(w_offset);
+     w_ctx := w.(w_ctx) ++ [t]; |}.
+
+Definition next_idx (w: wlayout) : wasm.immediate :=
+  w.(w_offset) + length w.(w_ctx).
+
+Definition wst (A: Type) : Type := stateT wlayout (exn err) A.
+
+Definition walloc (t: wasm.value_type) : wst wasm.immediate :=
+  λ w, OK (wextend w t, next_idx w).
 
 Definition compile_int_type (typ : rwasm.IntType) : wasm.value_type :=
   match typ with
@@ -228,10 +249,10 @@ Definition expect_concrete_size (sz: rwasm.Size) : exn err nat :=
 (* Mapping from size variables to indices of locals of type i32 *)
 Definition size_ctx := 
   list wasm.immediate.
+
 Section compile_instr.
 Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
-Variable (ref_tmp: wasm.immediate).
 Variable (GC_MEM: wasm.immediate).
 Variable (LIN_MEM: wasm.immediate).
 
@@ -250,6 +271,12 @@ Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : exn err
   match targs !! idx with
   | Some (rwasm.RefT _ _ (rwasm.StructType fields)) => mret fields
   | _ => mthrow (Err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
+  end.
+
+Definition get_array_elem_type (targs : list rwasm.Typ) (idx : nat) : exn err rwasm.Typ :=
+  match targs !! idx with
+  | Some (rwasm.RefT _ _ (rwasm.ArrayType typ)) => mret typ
+  | _ => mthrow (Err ("array instruction expected a ref to an array type at index " ++ pretty idx))
   end.
 
 Fixpoint compile_sz (sz : rwasm.Size) : exn err (list wasm.basic_instruction) :=
@@ -288,76 +315,196 @@ Definition tagged_load ref_tmp offset_instrs :=
    [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
     wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N]).
 
-Fixpoint compile_instr (instr: rwasm.instr rwasm.ArrowType) : exn err (list wasm.basic_instruction) :=
+Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruction) :=
   match instr with
-  | rwasm.INumConst _ num_type num => mret [wasm.BI_const $ compile_num num_type num]
-  | rwasm.IUnit _ => mthrow Todo
-  | rwasm.INum (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.IUnreachable (rwasm.Arrow targs trets) => mret [wasm.BI_unreachable]
-  | rwasm.INop (rwasm.Arrow targs trets) => mret [wasm.BI_nop]
-  | rwasm.IDrop (rwasm.Arrow targs trets) => mret [wasm.BI_drop]
-  | rwasm.ISelect (rwasm.Arrow targs trets) => mret [wasm.BI_select]
-  | rwasm.IBlock (rwasm.Arrow targs trets) arrow _ i =>
-    ft ← compile_arrow_type arrow;
+  | rwasm.INumConst _ num_type num =>
+      mret [wasm.BI_const $ compile_num num_type num]
+  | rwasm.IUnit _ =>
+      mret []
+  | rwasm.INum ann ni =>
+      instr ← liftM $ compile_num_instr ni;
+      mret [instr]
+  | rwasm.IUnreachable (rwasm.Arrow targs trets, _) =>
+      mret [wasm.BI_unreachable]
+  | rwasm.INop (rwasm.Arrow targs trets, _) =>
+      mret [wasm.BI_nop]
+  | rwasm.IDrop (rwasm.Arrow targs trets, _) =>
+      mret [wasm.BI_drop]
+  | rwasm.ISelect (rwasm.Arrow targs trets, _) =>
+      mret [wasm.BI_select]
+  | rwasm.IBlock (rwasm.Arrow targs trets, _) ta _ i =>
+    ta' ← liftM $ compile_arrow_type ta;
+    i' ← mapM compile_instr i;
+    mret [wasm.BI_block ta' (flatten i')]
+  | rwasm.ILoop (rwasm.Arrow targs trets, _) arrow i =>
+    ft ← liftM $ compile_arrow_type arrow;
     i' ← mapM compile_instr i;
     mret [wasm.BI_block ft (flatten i')]
-  | rwasm.ILoop (rwasm.Arrow targs trets) arrow i =>
-    ft ← compile_arrow_type arrow;
-    i' ← mapM compile_instr i;
-    mret [wasm.BI_block ft (flatten i')]
-  | rwasm.IIte (rwasm.Arrow targs trets) arrow _ t e =>
-    ft ← compile_arrow_type arrow;
+  | rwasm.IIte (rwasm.Arrow targs trets, _) arrow _ t e =>
+    ft ← liftM $ compile_arrow_type arrow;
     t' ← mapM compile_instr t;
     e' ← mapM compile_instr e;
     mret [wasm.BI_if ft (flatten t') (flatten e')]
-  | rwasm.IBr (rwasm.Arrow targs trets) x => mret [wasm.BI_br x]
-  | rwasm.IBrIf (rwasm.Arrow targs trets) x => mret [wasm.BI_br_if x]
-  | rwasm.IBrTable (rwasm.Arrow targs trets) x x0 => mret [wasm.BI_br_table x x0]
-  | rwasm.IRet (rwasm.Arrow targs trets) => mret [wasm.BI_return]
-  | rwasm.IGetLocal (rwasm.Arrow targs trets) x x0 => mret [wasm.BI_get_local x]
-  | rwasm.ISetLocal (rwasm.Arrow targs trets) x => mret [wasm.BI_set_local x]
-  | rwasm.ITeeLocal (rwasm.Arrow targs trets) x => mret [wasm.BI_tee_local x]
-  | rwasm.IGetGlobal (rwasm.Arrow targs trets) x => mret [wasm.BI_get_global x]
-  | rwasm.ISetGlobal (rwasm.Arrow targs trets) x => mret [wasm.BI_set_global x]
-  | rwasm.ICoderef (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.IInst (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.ICallIndirect (rwasm.Arrow targs trets) => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
-  | rwasm.ICall (rwasm.Arrow targs trets) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)
-  | rwasm.IRecFold (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.IRecUnfold (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IGroup (rwasm.Arrow targs trets) x x0 => mthrow Todo
-  | rwasm.IUngroup (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.ICapSplit (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.ICapJoin (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IRefDemote (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IMemPack (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.IMemUnpack (rwasm.Arrow targs trets) x x0 x1 => mthrow Todo
-  | rwasm.IStructMalloc (rwasm.Arrow targs trets) x x0 => mthrow Todo
-  | rwasm.IStructFree (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IStructGet (rwasm.Arrow targs trets) idx =>
+  | rwasm.IBr (rwasm.Arrow targs trets, _) x => mret [wasm.BI_br x]
+  | rwasm.IBrIf (rwasm.Arrow targs trets, _) x => mret [wasm.BI_br_if x]
+  | rwasm.IBrTable (rwasm.Arrow targs trets, _) x x0 => mret [wasm.BI_br_table x x0]
+  | rwasm.IRet (rwasm.Arrow targs trets, _) => mret [wasm.BI_return]
+  | rwasm.IGetLocal (rwasm.Arrow targs trets, _) x x0 => mret [wasm.BI_get_local x]
+  | rwasm.ISetLocal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_set_local x]
+  | rwasm.ITeeLocal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_tee_local x]
+  | rwasm.IGetGlobal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_get_global x]
+  | rwasm.ISetGlobal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_set_global x]
+  | rwasm.ICoderef (rwasm.Arrow targs trets, _) x => mthrow Todo
+  | rwasm.IInst (rwasm.Arrow targs trets, _) x => mthrow Todo
+  | rwasm.ICallIndirect (rwasm.Arrow targs trets, _) => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
+  | rwasm.ICall (rwasm.Arrow targs trets, _) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)
+  | rwasm.IMemUnpack _ ta tl es =>
+      ta' ← liftM $ compile_arrow_type ta;
+      e__s' ← flatten <$> mapM compile_instr es;
+      mret [wasm.BI_block ta' e__s']
+  | rwasm.IStructMalloc (rwasm.Arrow targs trets, _) szs q =>
+      mthrow Todo
+  | rwasm.IStructFree (rwasm.Arrow targs trets, _) =>
+      mthrow Todo
+             (* mret $ [wasm.BI_call Σ.(me_free)]*)
+  | rwasm.IStructGet (rwasm.Arrow from to, _) n =>
       (* Save the argument *)
       (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
-      fields ← match targs with
-                | [rwasm.RefT _ _ (rwasm.StructType fields)] => mret fields
-                | _ => mthrow Todo
-                end;
-      off_sz ← struct_field_offset fields idx;
-      off_instrs ← compile_sz off_sz;
-      mret $ wasm.BI_tee_local ref_tmp ::
-             tagged_load ref_tmp off_instrs
-  | rwasm.IStructSet (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.IStructSwap (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.IVariantMalloc (rwasm.Arrow targs trets) x x0 x1 => mthrow Todo
-  | rwasm.IVariantCase (rwasm.Arrow targs trets) x x0 x1 x2 x3 => mthrow Todo
-  | rwasm.IArrayMalloc (rwasm.Arrow targs trets) x => mthrow Todo
-  | rwasm.IArrayGet (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IArraySet (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IArrayFree (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IExistPack (rwasm.Arrow targs trets) x x0 x1 => mthrow Todo
-  | rwasm.IExistUnpack (rwasm.Arrow targs trets) x x0 x1 x2 x3 => mthrow Todo
-  | rwasm.IRefSplit (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IRefJoin (rwasm.Arrow targs trets) => mthrow Todo
-  | rwasm.IQualify (rwasm.Arrow targs trets) x => mthrow Todo
+      fields ← liftM $ get_struct_field_types from 0;
+      field_typ ← liftM $ err_opt (list_lookup 0 to) "struct.get: cannot find output val type";
+      field_shape ← liftM $ compile_typ field_typ;
+      offset_sz ← liftM $ struct_field_offset fields n;
+      offset_e ← liftM $ compile_sz offset_sz;
+      mthrow Todo
+(*
+      mret $ offset_e ++                     (* [] → [offset] *)
+             [layout.LoadOffset field_shape; (* [ptr; offset] → [ptr; offset; val] *)
+              layout.Swap;                   (* [offset; val] → [val; offset] *)
+              layout.Drop]                   (* [offset] → [] *)
+*)
+  | rwasm.IStructSet (rwasm.Arrow from to, _) n =>
+      fields ← liftM $ get_struct_field_types from 1;
+      val_typ ← liftM $ err_opt (list_lookup 0 from) "struct.set: fcannot find input val type";
+      val_shape ← liftM $ compile_typ val_typ;
+      offset_sz ← liftM $ struct_field_offset fields n;
+      offset_e ← liftM $ compile_sz offset_sz;
+  
+      mthrow Todo
+           (*
+      mret $ [layout.Swap] ++ (* [ptr; val] → [val; ptr]*)
+             offset_e ++      (* [] → [offset] *)
+             (* NOTE: its important that we use the val_shape, not the
+                size of the field here *)
+             [layout.Val $ LV_int32 (shape_size_words val_shape);
+              layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [offset__low; i32] → [offset__high] *)
+              layout.StoreOffset;                       (* [ptr; offset; val] → [ptr; offset] *)
+              layout.Drop]                              (* [offset] → [] *)
+*)
+  | rwasm.IStructSwap (rwasm.Arrow from to, _) n =>
+      fields ← liftM $ get_struct_field_types from 1;
+      field_typ ← liftM $ err_opt (list_lookup 0 from) "struct.swap: cannot find input val type";
+      field_shape ← liftM $ compile_typ field_typ;
+      offset_sz ← liftM $ struct_field_offset fields n;
+      offset_e ← liftM $ compile_sz offset_sz;
+      mthrow Todo
+(*
+      mret $ [layout.Swap] ++                (* [ptr; val] → [val; ptr]*)
+             offset_e ++                     (* [] → [offset] *)
+             [layout.SwapOffset field_shape; (* [ptr; offset; val__new] → [ptr; offset; val__old] *)
+              layout.Swap;                   (* [offset; val] → [val; offset] *)
+              layout.Drop]                   (* [offset] → [] *)
+*)
+  | rwasm.IVariantMalloc (rwasm.Arrow from to, _) sz tys q =>
+      typ ← liftM $ err_opt (list_lookup 0 from) "variant.malloc: cannot find val type";
+      shape ← liftM $ compile_typ  typ;
+      (* memory layout is [ind, τ*] so we just add prepend *)
+      (*let full_shape := LS_tuple [LS_int32; shape] in*)
+      mthrow Todo (*
+      mret $ [
+        layout.Val $ LV_int32 (shape_size_words full_shape);
+        layout.Malloc;                                       (* [i32] → [ptr] *)
+        layout.Val $ LV_int32 (shape_size_words full_shape); (* [] → [offset__end] *)
+        layout.Pluck 3;          (* [val; ptr; offset] → [ptr; offset; val] *)
+        layout.StoreOffset;      (* [ptr; offset; val] → [ptr; offset] *)
+        layout.Val $ LV_int32 i; (* [] → [val] *)
+        layout.StoreOffset;      (* [ptr; offset; val] → [ptr; offset] *)
+        layout.Drop]             (* [ptr; offset] → [ptr] *)
+    *)
+    | rwasm.IVariantCase ann q th ta tl es => mthrow Todo
+    (* [val__init; len] → [ptr] *)
+    (* [τ      ; i32] → [i32] *)
+    | rwasm.IArrayMalloc (rwasm.Arrow from to, _) q =>
+      arr_init_typ ← liftM $ err_opt (list_lookup 1 from) "array.malloc: cannot find val type";
+      shape ← liftM $ compile_typ arr_init_typ;
+      mthrow Todo
+             (*
+      mret [
+        layout.Dup;             (* [len] → [len; len] *)
+        layout.Val $ LV_int32 (shape_size_words shape);
+        layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [len; i32] → [size] *)
+        layout.Malloc;                            (* [size] → [ptr] *)
+        layout.RepeatInit shape]                  (* [val; len; ptr] → [ptr] *)
+*)
+    (* [ptr; idx] → [ptr; val] *)
+    (* [i32; i32] → [i32; τ  ] *)
+    | rwasm.IArrayGet (rwasm.Arrow from to, _) =>
+      elem_typ ← liftM $ get_array_elem_type from 1;
+      elem_shape ← liftM $ compile_typ elem_typ;
+      (*  ex: i64[i]
+         | idx | offset |
+         |-----|--------|
+         | 0   | 0      |
+         | 1   | 1 * 2  |
+         ...
+         | i   | i * 2  | *)
+      mthrow Todo
+(*
+      mret [
+        layout.Val $ LV_int32 (shape_size_words elem_shape);
+        layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [idx; sz] → [offset] *)
+        layout.LoadOffset elem_shape; (* [ptr; offset] → [ptr; offset; val] *)
+        layout.Swap;                  (* [offset; val] → [val; offset]*)
+        layout.Drop]                  (* [offset]; → [] *)
+    (* [ptr; idx; val] → [ptr] *)
+    (* [i32; i32; τ  ] → [i32] *)
+*)
+    | rwasm.IArraySet (rwasm.Arrow from to, _) =>
+      elem_typ ← liftM $ get_array_elem_type from 2;
+      elem_shape ← liftM $ compile_typ elem_typ;
+      (*  ex: [i]
+         | idx | offset      |
+         |-----|-------------|
+         | 0   | 2           |
+         | 1   | 2 * 2       |
+         ...
+         | i   | (i + 1) * 2 | *)
+      mthrow Todo
+             (*
+      mret [
+        layout.Val $ LV_int32 1;
+        layout.Ne $ rwasm.Ib rwasm.i32 rwasm.add;
+        layout.Val $ LV_int32 (shape_size_words elem_shape);
+        layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [idx; sz] → [offset] *)
+        layout.LoadOffset elem_shape; (* [ptr; offset] → [ptr; offset; val] *)
+        layout.Swap;                  (* [offset; val] → [val; offset]*)
+        layout.Drop]                  (* [offset]; → [] *)
+*)
+    (* [ptr] → [] *)
+    (* [i32] → [] *)
+  | rwasm.IArrayFree ann => mthrow Todo (*mret $ [wasm.BI_call Σ.(me_free)]*)
+  | rwasm.IExistPack (rwasm.Arrow targs trets, _) x x0 x1 => mthrow Todo
+  | rwasm.IExistUnpack (rwasm.Arrow targs trets, _) x x0 x1 x2 x3 => mthrow Todo
+  | rwasm.IRefSplit _ 
+  | rwasm.IRefJoin _ 
+  | rwasm.IRecFold _ _
+  | rwasm.IRecUnfold  _
+  | rwasm.IGroup _ _ _ 
+  | rwasm.IUngroup _
+  | rwasm.ICapSplit _
+  | rwasm.ICapJoin _
+  | rwasm.IRefDemote _
+  | rwasm.IMemPack _ _
+  | rwasm.IQualify _ _ => mret []
   end.
 
 Definition compile_instrs instrs := flatten <$> mapM compile_instr instrs.
@@ -367,7 +514,7 @@ End compile_instr.
 Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
 Admitted.
 
-Fixpoint compile_module (module : rwasm.module rwasm.ArrowType) : exn err wasm.module :=
+Fixpoint compile_module (module : rwasm.module TyAnn) : exn err wasm.module :=
   let '(funcs, globs, table) := module return exn err wasm.module in
   mret {|
     wasm.mod_types := []; (* TODO *)
@@ -383,7 +530,7 @@ Fixpoint compile_module (module : rwasm.module rwasm.ArrowType) : exn err wasm.m
   |}
 
 (* TODO: modfunc_type expects a typeidx while rwasm does this inline *)
-with compile_func (func : rwasm.Func rwasm.ArrowType) : option wasm.module_func := 
+with compile_func (func : rwasm.Func TyAnn) : option wasm.module_func := 
   match func with 
   | rwasm.Fun exports fun_type sizes intrs =>
     Some {|
@@ -393,6 +540,6 @@ with compile_func (func : rwasm.Func rwasm.ArrowType) : option wasm.module_func 
     |}
   end
 
-with compile_glob (glob : rwasm.Glob rwasm.ArrowType) : exn err wasm.module_glob
+with compile_glob (glob : rwasm.Glob TyAnn) : exn err wasm.module_glob
 with compile_table (table : rwasm.Table) : exn err wasm.module_table.
 Admitted.

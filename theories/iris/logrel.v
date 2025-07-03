@@ -111,8 +111,6 @@ Notation FR := ((leibnizO frame) -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
 
-(* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
-Definition wlocal_ctx := seq.seq value_type.
 
 Definition relations : Type := 
   (* interp_value *)
