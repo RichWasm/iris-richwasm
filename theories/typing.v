@@ -22,7 +22,7 @@ Definition to_size (s : Size) (H : size_closed s) : nat.
   induction s.
   - inversion H.
   - inversion H. exact (IHs1 H0 + IHs2 H1).
-  - exact n.
+  - exact c.
 Defined.
 
 
@@ -956,8 +956,8 @@ End QualLt.
     destruct t; cbn; try (split; [reflexivity|intros[]]); try solve [constructor].
     + split; [inversion 1; subst; reflexivity|intros <-; constructor].
     + rewrite RecVarUnderRefTypProd_iff.
-      induction l; [cbn; split; [reflexivity|constructor] |].
-      cbn; rewrite Forall_cons_iff, Bool.andb_true_iff, IHl, RecVarUnderRefTyp_spec.
+      induction τ__s; [cbn; split; [reflexivity|constructor] |].
+      cbn; rewrite Forall_cons_iff, Bool.andb_true_iff, IHτ__s, RecVarUnderRefTyp_spec.
       reflexivity.
     + split; [inversion 1; subst|constructor]; apply RecVarUnderRefTyp_spec; assumption.
     + split; [inversion 1; subst|constructor]; apply RecVarUnderRefTyp_spec; assumption.
@@ -1598,9 +1598,15 @@ Admitted.
   Definition LocalCtxValid (F : Function_Ctx) (L : Local_Ctx) :=
     Forall (fun '(tau, sz) => TypeValid F tau /\ SizeValid (size F) sz) L.
 
+  Inductive LocalSig : Type :=
+  | LSig (L: Local_Ctx) (L': Local_Ctx).
+
+  Definition TyAnn : Type :=
+    ArrowType * LocalSig.
+
   Inductive HasTypeInstr :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> instr ArrowType -> ArrowType -> Local_Ctx -> Prop :=
+    Local_Ctx -> instr TyAnn -> ArrowType -> Local_Ctx -> Prop :=
   | TStructGet : forall S C F L ann n taus szs tau l cap,
       M.is_empty (LinTyp S) = true ->
       let psi := StructType (combine taus szs) in
@@ -1617,7 +1623,7 @@ Admitted.
         L
   with HasTypeInstrs :
     StoreTyping -> Module_Ctx -> Function_Ctx ->
-    Local_Ctx -> list (instr ArrowType) -> ArrowType -> Local_Ctx -> Prop :=
+    Local_Ctx -> list (instr TyAnn) -> ArrowType -> Local_Ctx -> Prop :=
   | TSOne: forall S C F L e τ L',
       HasTypeInstr S C F L e τ L' ->
       HasTypeInstrs S C F L [e] τ L'
@@ -1632,7 +1638,7 @@ Admitted.
   Scheme HasTypeInstr_mind := Induction for HasTypeInstr Sort Prop
     with HasTypeInstrs_mind := Induction for HasTypeInstrs Sort Prop.
 
-  Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob ArrowType -> GlobalType -> list ex -> Prop :=
+  Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob TyAnn -> GlobalType -> list ex -> Prop :=
   | GlobMutTyp :
       forall C pt es,
         HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->

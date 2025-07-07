@@ -1,5 +1,5 @@
-From stdpp Require Import base fin_maps.
-From RWasm Require Import typing term subst debruijn num_repr autowp compile iris.util.
+From stdpp Require Import base fin_maps option list.
+From RWasm Require Import typing term subst debruijn num_repr autowp compile iris.util exn.
 Module RT := RWasm.term.
 Module T := RWasm.typing.
 
@@ -86,8 +86,8 @@ Fixpoint wasm_deser_list (bs: bytes) (vt: list value_type) : list value :=
   
 Definition read_value (τ: RT.Typ) (bs: bytes) : list value :=
   match compile_typ τ with
-  | Some vt => wasm_deser_list bs vt
-  | None => []
+  | OK vt => wasm_deser_list bs vt
+  | Exn _ => []
   end.
 
 Class Read := {
@@ -111,8 +111,6 @@ Notation FR := ((leibnizO frame) -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
 
-(* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
-Definition wlocal_ctx := seq.seq value_type.
 
 Definition relations : Type := 
   (* interp_value *)
@@ -429,8 +427,6 @@ Definition semantic_typing  :
         interp_frame L WL inst f -∗
         interp_expr τs2 F L' WL inst (lh, (of_val vs ++ es)))%I.
 
-Require Import RWasm.compile.
-
 Lemma seq_map_map {A B} (f : A -> B) (l : list A) : seq.map f l = map f l.
 Admitted.
 
@@ -474,21 +470,52 @@ Lemma Forall2_Forall3_mp2
 Proof.
 Admitted.
 
-Theorem fundamental_property S C F L es es' tf L' :
+Definition wlayout_le (w w': wlayout) :=
+  w.(w_offset) = w'.(w_offset) ∧
+  w.(w_ctx) `prefix_of` w'.(w_ctx).
+
+Instance wlayout_po: PartialOrder wlayout_le.
+Proof.
+  split; [split|].
+  - intros x. unfold wlayout_le. 
+    split; reflexivity.
+  - intros x y z.
+    unfold wlayout_le.
+    intros [Heqxy Hxy] [Heqyz Hyz].
+    split.
+    + congruence.
+    + by etransitivity.
+  - intros [x_off x_ctx] [y_off y_ctx] [Heqxy Hxy] [Heqyx Hyx].
+    cbn in *.
+    f_equal.
+    + congruence.
+    + eapply partial_order_anti_symm; eauto.
+      Unshelve.
+      typeclasses eauto.
+Qed.
+
+Lemma compiler_wctx_mono es wl wl' es':
+  compile_instrs [] GC_MEM LIN_MEM es wl = OK (wl', es') ->
+  wlayout_le wl wl'.
+Proof.
+Admitted.
+
+Theorem fundamental_property S C F L es es' tf wl wl' L' :
   HasTypeInstrs S C F L es tf L' ->
-  compile_instrs [] 0 GC_MEM LIN_MEM es = Some es' ->
-  ⊢ semantic_typing S C F L [] (to_e_list es') tf L'.
+  compile_instrs [] GC_MEM LIN_MEM es wl = OK (wl', es') ->
+  ⊢ semantic_typing S C F L (w_ctx wl') (to_e_list es') tf L'.
 Proof.
   intros Htyp Hcomp.
   generalize dependent es'.
-  induction Htyp using HasTypeInstrs_mind with (P := fun S C F L e ta L' _ => forall es', compile_instr [] 0 GC_MEM LIN_MEM e = Some es' -> ⊢ semantic_typing S C F L [] (to_e_list es') ta L').
+  induction Htyp using HasTypeInstrs_mind with (P := fun S C F L e ta L' _ => forall es', compile_instr [] GC_MEM LIN_MEM e wl = OK (wl', es') -> ⊢ semantic_typing S C F L [] (to_e_list es') ta L').
   - admit.
   - admit.
   - intros es' Hcomp.
     unfold compile_instrs in Hcomp.
-    apply fmap_Some in Hcomp.
-    destruct Hcomp as [x [Hcomp Hflat]].
-    apply mapM_Some in Hcomp.
+    unfold fmap in Hcomp. 
+    apply fmap_OK in Hcomp.
+    destruct Hcomp as [[wl'' es''] [Hcomp Hflat]].
+    inversion Hflat; subst; clear Hflat.
     (*pose proof (Forall2_length_l _ _ _ 1 Hcomp Logic.eq_refl) as Hlen.*)
     (*inversion Hcomp.*)
     (*destruct l'.*)
@@ -805,20 +832,24 @@ Proof.
       congruence.
 Qed.
 
-Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
+Lemma sniff_test S C F L cap l ℓ sgn τ eff es wl wl':
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
-  eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
-  compile_instr [] 0 0 1 (RT.IStructGet eff 0) = Some es ->
-  ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
+  fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
+  snd eff = LSig L L ->
+  compile_instr [] 0 0 (RT.IStructGet eff 0) wl = OK (wl', es) ->
+  ⊢ semantic_typing S C F L [T_i32] (to_e_list es) (fst eff) L.
 Proof.
-  intros Hl Hτ Heff.
-  subst eff l.
+  intros Hl Hτ Heff Hloceff.
+  destruct eff as [x y]. cbn in Heff, Hloceff. subst x y.
+  subst l.
   intros Hcomp.
   unfold compile_instr in Hcomp.
   rewrite Hτ in Hcomp.
   cbn in Hcomp.
-  apply Some_inj in Hcomp.
+  inversion Hcomp as [Hcomp'].
+  clear Hcomp.
+  rename Hcomp' into Hcomp.
   unfold semantic_typing.
   iIntros "%inst %lh [Hinst Hctx] %f %vs (Hval & Hfi)".
   rewrite interp_expr_eq.
@@ -843,7 +874,7 @@ Proof.
     destruct Hrep' as [Hlrep Hlalign].
     simpl flatten.
     simpl of_val.
-    rewrite <- Hcomp.
+    subst es.
     simpl to_e_list. simpl app.
     iPoseProof (big_sepL2_length with "[$Hfields]") as "%Hflens".
     destruct_length_eqn Hflens.
@@ -925,6 +956,8 @@ Tactic Notation "next_wp'" constr(Hs) :=
       }
       cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & _)".
       inversion Hv'; subst v; clear Hv'.
+      admit.
+      (*
       next_wp' "Hinst Hctx Hfi".
       { 
         iApply (wp_binop with "[$Hfr] [Hbs]").
@@ -1024,10 +1057,11 @@ Tactic Notation "next_wp'" constr(Hs) :=
             f_equal.
             admit. (* frame stuff *)
           + admit. (* more frame stuff *)
-      }
       reflexivity.
       admit. (* trap condition *)
       admit. (* trap condition *)
+       *)
+      admit.
     }
     admit. (* trap condition *)
     admit. (* trap condition *)

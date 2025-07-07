@@ -134,11 +134,19 @@ Definition option_projl (A B : Type) (x : option (A * B)) : option A :=
 Definition option_projr (A B : Type) (x : option (A * B)) : option B :=
   option_map snd x.
 
+Definition words_t (t : value_type) : nat :=
+  match t with
+  | T_f32
+  | T_i32 => 1
+  | T_i64
+  | T_f64 => 2
+  end.
+
 Definition length_t (t : value_type) : nat :=
   match t with
+  | T_f32
   | T_i32 => 4
-  | T_i64 => 8
-  | T_f32 => 4
+  | T_i64
   | T_f64 => 8
   end.
 
@@ -849,5 +857,3 @@ Proof.
   - by apply Bool.andb_true_iff in Hvs1 as [ _ Hvs1 ].
   - by apply Bool.andb_true_iff in Hvs2 as [ _ Hvs2 ].  
 Qed.
-
-
