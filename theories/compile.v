@@ -76,7 +76,8 @@ Fixpoint compile_typ (typ: rwasm.Typ) : exn err (list wasm.value_type) :=
   | rwasm.OwnR _ => mret []
   | rwasm.CapT _ _ _ => mret []
   | rwasm.RefT _ _ _  => mret [wasm.T_i32]
-  end
+  end.
+    (*
 with compile_heap_type (typ: rwasm.HeapType) : exn err unit :=
   match typ with
   | rwasm.VariantType typs => mthrow Todo
@@ -84,14 +85,15 @@ with compile_heap_type (typ: rwasm.HeapType) : exn err unit :=
   | rwasm.ArrayType elt_typ => mthrow Todo
   | rwasm.Ex sz qual typ => mthrow Todo
   end
-with compile_arrow_type (typ: rwasm.ArrowType) : exn err wasm.function_type :=
+*)
+Definition compile_arrow_type (typ: rwasm.ArrowType) : exn err wasm.function_type :=
   match typ with
   | rwasm.Arrow tys1 tys2 =>
     tys1' ← mapM compile_typ tys1;
     tys2' ← mapM compile_typ tys2;
     mret (wasm.Tf (flatten tys1') (flatten tys2'))
-  end
-with compile_fun_type (ft: rwasm.FunType) : exn err wasm.function_type :=
+  end.
+Definition compile_fun_type (ft: rwasm.FunType) : exn err wasm.function_type :=
   match ft with
   | rwasm.FunT κs (rwasm.Arrow tys1 tys2) =>
     let κvs := compile_kindvars κs in
@@ -198,7 +200,7 @@ Fixpoint loads'
 Definition loads mem base_ptr_var tys :=
   loads' mem base_ptr_var 0%N tys.
 
-Fixpoint gc_loads
+Definition gc_loads
   (ref_var: wasm.immediate)
   (offset_instrs: list wasm.basic_instruction) 
   (tys: list wasm.value_type) :=
@@ -298,10 +300,10 @@ Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruc
       mret [wasm.BI_unreachable]
   | rwasm.INop (rwasm.Arrow targs trets, _) =>
       mret [wasm.BI_nop]
-  | rwasm.IDrop (rwasm.Arrow targs  trets) =>
+  | rwasm.IDrop (rwasm.Arrow targs trets, _) =>
       match targs with
       | (t_drop :: targs) =>
-        wasm_typ ← compile_typ t_drop;
+        wasm_typ ← liftM $ compile_typ t_drop;
         mret $ map (const wasm.BI_drop) wasm_typ
       | [] => 
         mthrow (Err "rwasm.IDrop should have a nonempty stack type annotation")

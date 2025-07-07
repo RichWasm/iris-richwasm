@@ -470,10 +470,40 @@ Lemma Forall2_Forall3_mp2
 Proof.
 Admitted.
 
+Definition wlayout_le (w w': wlayout) :=
+  w.(w_offset) = w'.(w_offset) ∧
+  w.(w_ctx) `prefix_of` w'.(w_ctx).
+
+Instance wlayout_po: PartialOrder wlayout_le.
+Proof.
+  split; [split|].
+  - intros x. unfold wlayout_le. 
+    split; reflexivity.
+  - intros x y z.
+    unfold wlayout_le.
+    intros [Heqxy Hxy] [Heqyz Hyz].
+    split.
+    + congruence.
+    + by etransitivity.
+  - intros [x_off x_ctx] [y_off y_ctx] [Heqxy Hxy] [Heqyx Hyx].
+    cbn in *.
+    f_equal.
+    + congruence.
+    + eapply partial_order_anti_symm; eauto.
+      Unshelve.
+      typeclasses eauto.
+Qed.
+
+Lemma compiler_wctx_mono es wl wl' es':
+  compile_instrs [] GC_MEM LIN_MEM es wl = OK (wl', es') ->
+  wlayout_le wl wl'.
+Proof.
+Admitted.
+
 Theorem fundamental_property S C F L es es' tf wl wl' L' :
   HasTypeInstrs S C F L es tf L' ->
   compile_instrs [] GC_MEM LIN_MEM es wl = OK (wl', es') ->
-  ⊢ semantic_typing S C F L [] (to_e_list es') tf L'.
+  ⊢ semantic_typing S C F L (w_ctx wl') (to_e_list es') tf L'.
 Proof.
   intros Htyp Hcomp.
   generalize dependent es'.
@@ -802,15 +832,17 @@ Proof.
       congruence.
 Qed.
 
-Lemma sniff_test S C F L cap l ℓ sgn τ eff es :
+Lemma sniff_test S C F L cap l ℓ sgn τ eff es wl wl':
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
-  eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
-  compile_instr [] 0 0 1 (RT.IStructGet eff 0) = OK es ->
-  ⊢ semantic_typing S C F L [T_i32] (to_e_list es) eff L.
+  fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
+  snd eff = LSig L L ->
+  compile_instr [] 0 0 (RT.IStructGet eff 0) wl = OK (wl', es) ->
+  ⊢ semantic_typing S C F L [T_i32] (to_e_list es) (fst eff) L.
 Proof.
-  intros Hl Hτ Heff.
-  subst eff l.
+  intros Hl Hτ Heff Hloceff.
+  destruct eff as [x y]. cbn in Heff, Hloceff. subst x y.
+  subst l.
   intros Hcomp.
   unfold compile_instr in Hcomp.
   rewrite Hτ in Hcomp.
@@ -924,6 +956,8 @@ Tactic Notation "next_wp'" constr(Hs) :=
       }
       cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & _)".
       inversion Hv'; subst v; clear Hv'.
+      admit.
+      (*
       next_wp' "Hinst Hctx Hfi".
       { 
         iApply (wp_binop with "[$Hfr] [Hbs]").
@@ -1023,10 +1057,11 @@ Tactic Notation "next_wp'" constr(Hs) :=
             f_equal.
             admit. (* frame stuff *)
           + admit. (* more frame stuff *)
-      }
       reflexivity.
       admit. (* trap condition *)
       admit. (* trap condition *)
+       *)
+      admit.
     }
     admit. (* trap condition *)
     admit. (* trap condition *)

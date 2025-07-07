@@ -118,7 +118,7 @@ Module RWasmToLayout.
     | rwasm.RefT cap ℓ ψ => mret LS_int32
     end.
 
-  Fixpoint compile_arrow_type (ta : rwasm.ArrowType) : exn err layout.ArrowShape :=
+  Definition compile_arrow_type (ta : rwasm.ArrowType) : exn err layout.ArrowShape :=
     let 'rwasm.Arrow τ__s1 τ__s2 := ta in
     τ__s1' ← mapM compile_typ τ__s1;
     τ__s2' ← mapM compile_typ τ__s2;
@@ -156,7 +156,7 @@ Module RWasmToLayout.
   Fixpoint compile_sz (sz : rwasm.Size) : exn err (list layout.Instruction) :=
     match sz with
     | rwasm.SizeVar σ =>
-      local_idx ← lift_optionM (sz_local_map !! σ) ("sz " ++ (pretty σ) ++ " not found in sz_local_map");
+      local_idx ← err_opt (sz_local_map !! σ) ("sz " ++ (pretty σ) ++ " not found in sz_local_map");
       mret [layout.GetLocal local_idx]
     | rwasm.SizePlus sz1 sz2 =>
       e1 ← compile_sz sz1;
@@ -165,16 +165,16 @@ Module RWasmToLayout.
     | rwasm.SizeConst c => mret [layout.Val $ LV_int32 c]
     end.
 
-  Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : M (list (rwasm.Typ * rwasm.Size)) :=
+  Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : exn err (list (rwasm.Typ * rwasm.Size)) :=
     match targs !! idx with
     | Some (rwasm.RefT _ _ (rwasm.StructType fields)) => mret fields
-    | _ => mthrow (err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
+    | _ => mthrow (Err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
     end.
 
-  Definition get_array_elem_type (targs : list rwasm.Typ) (idx : nat) : M rwasm.Typ :=
+  Definition get_array_elem_type (targs : list rwasm.Typ) (idx : nat) : exn err rwasm.Typ :=
     match targs !! idx with
     | Some (rwasm.RefT _ _ (rwasm.ArrayType typ)) => mret typ
-    | _ => mthrow (err ("array instruction expected a ref to an array type at index " ++ pretty idx))
+    | _ => mthrow (Err ("array instruction expected a ref to an array type at index " ++ pretty idx))
     end.
 
   (* TODO: Box and unbox *)
@@ -197,6 +197,7 @@ Module RWasmToLayout.
   example, StoreOffset places the new offset on the top of the stack,
   and is often immediatly dropped, this should be trivial to remove
   with a peephole optiomization. *)
+  (*
   Fixpoint compile_instr (instr : rwasm.instr rwasm.ArrowType) 
     : @InstM SlotType_layout_shape (list layout.Instruction) :=
     match instr with
@@ -435,8 +436,10 @@ Module RWasmToLayout.
     end.
   
   Definition compile_instrs := flat_mapM compile_instr.
-
+*)
   End Instrs.
+
+  (*
 
   Definition resolve_locals_layout_shape (sz__s : list rwasm.Size) (instrs : list (rwasm.instr rwasm.ArrowType)) : exn err (list LayoutShape) :=
     (* TODO: need to see what type the first local.store is, and use that. otherwise fallback to a sequence of i64s *)
@@ -477,6 +480,7 @@ Module RWasmToLayout.
     let '(functions, globals, table) := module in
     mthrow todo.
 
+*)
 End RWasmToLayout.
 
 Module LayoutToWasm.
@@ -535,16 +539,16 @@ Module LayoutToWasm.
     | s :: stk' => Some s
     end.
 
-  Definition fe_pop_i32 (prefix : string) (Γ : FunEnv) : M FunEnv :=
-    '(shape, Γ') ← lift_optionM (fe_pop Γ) (prefix ++ "expected non-empty stack");
+  Definition fe_pop_i32 (prefix : string) (Γ : FunEnv) : exn err FunEnv :=
+    '(shape, Γ') ← err_opt (fe_pop Γ) (prefix ++ "expected non-empty stack");
     _ ← match shape with
     | LS_int32 => mret ()
-    | _ => mthrow (err (prefix ++ "expected i32 at TOS but got " ++ (pretty shape)))
+    | _ => mthrow (Err (prefix ++ "expected i32 at TOS but got " ++ (pretty shape)))
     end;
     mret Γ'.
 
-  Definition fe_set_local (idx : nat) (shape : shape) (Γ : FunEnv) : M FunEnv :=
-    local ← lift_optionM (Γ.(fe_locals) !! idx) ("ICE: cannot find local with index " ++ (pretty idx));
+  Definition fe_set_local (idx : nat) (shape : shape) (Γ : FunEnv) : exn err FunEnv :=
+    local ← err_opt (Γ.(fe_locals) !! idx) ("ICE: cannot find local with index " ++ (pretty idx));
     let '(needs_update, orig) := match local with
     | LS_orig orig_shape => ((compatible_shapes shape orig_shape), orig_shape)
     | LS_updated orig_shape _ => (true, orig_shape)
@@ -582,7 +586,8 @@ Module LayoutToWasm.
     | rwasm.f64 => LS_float64
     end.
 
-  Definition apply_ta (ta : ArrowShape) (Γ : FunEnv) : M FunEnv :=
+  (*
+  Definition apply_ta (ta : ArrowShape) (Γ : FunEnv) : exn err FunEnv :=
     let 'Arrow shapes__in shapes__out := ta in
     Γ1 ← foldlM (fun (shape : LayoutShape) (acc : FunEnv) =>
           '(shape', acc') ← lift_optionM (fe_pop acc) "expected non-empty stack when applying arrow shape";
@@ -592,12 +597,14 @@ Module LayoutToWasm.
           end) Γ shapes__in;
     Γ2 ← mret $ foldl' fe_push Γ1 shapes__out;
     mret Γ2.
+*)
 
-  Definition apply_tl (tl : LocalEffect) (Γ : FunEnv) : M FunEnv :=
-    Γ' ← foldlM (fun '(idx, shape) (acc : FunEnv) => fe_set_local idx shape acc) Γ tl;
+  (*
+  Definition apply_tl (tl : LocalEffect) (Γ : FunEnv) : exn err FunEnv :=
+    Γ' ← fold_mkk (fun '(idx, shape) (acc : FunEnv) => fe_set_local idx shape acc) Γ tl;
     mret Γ'.
 
-  Fixpoint type_instr (instr : Instruction) (Γ : FunEnv) : M FunEnv :=
+  Fixpoint type_instr (instr : Instruction) (Γ : FunEnv) : exn err FunEnv :=
     match instr with
     | Val v => mret $ fe_push (layout_value_to_shape v) Γ
     | Ne ni =>
@@ -838,8 +845,10 @@ Module LayoutToWasm.
   (*   | GlobIm ex__s shape im => _ *)
   (*   end  *)
 
+*)
   End Mod.
 
+  (*
   Definition compile_module (mod_idx : nat) (module : module) : M wasm.module :=
     let 'Build_module functions globals table := module in
     let function_types := foldl' collect_function_types [] functions in
@@ -873,5 +882,6 @@ Module LayoutToWasm.
       wasm.mod_imports := todo_magic ();   (* TODO *)
       wasm.mod_exports := todo_magic ()    (* TODO *)
     |}.
+*)
 
 End LayoutToWasm.
