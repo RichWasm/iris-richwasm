@@ -143,7 +143,12 @@ Definition words_t (t : value_type) : nat :=
   end.
 
 Definition length_t (t : value_type) : nat :=
-  4 * words_t t.
+  match t with
+  | T_f32
+  | T_i32 => 4
+  | T_i64
+  | T_f64 => 8
+  end.
 
 Definition length_tp (tp : packed_type) : nat :=
   match tp with
