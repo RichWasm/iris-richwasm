@@ -1,9 +1,10 @@
 From Coq Require Import List.
 Require Import mathcomp.ssreflect.seq.
+From stdpp Require Import list list_numbers.
 Require Import stdpp.base.
 Require Import stdpp.strings.
 Require Import stdpp.pretty.
-Require Import stdpp.list.
+Require Import stdpp.list_numbers.
 Import ListNotations.
 From RWasm Require term.
 From RWasm Require Import typing.
@@ -102,6 +103,9 @@ Definition compile_fun_type (ft: rwasm.FunType) : exn err wasm.function_type :=
     mret (wasm.Tf (κvs ++ tys1') tys2')
   end.
 
+Definition words_typ (typ: rwasm.Typ) : exn err nat :=
+  sum_list_with operations.words_t <$> compile_typ typ.
+
 Definition throw_missing (instr_name : string) : exn err wasm.basic_instruction :=
   mthrow (Err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
 
@@ -122,9 +126,13 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
         numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
   end.
 
-Definition expect_concrete_size (sz: rwasm.Size) : exn err nat :=
+Fixpoint expect_concrete_size (sz: rwasm.Size) : exn err nat :=
   match sz with
   | rwasm.SizeConst c => mret c
+  | rwasm.SizePlus sz1 sz2 =>
+      c1 ← expect_concrete_size sz1;
+      c2 ← expect_concrete_size sz2;
+      mret (c1 + c2)
   | _ => mthrow (Err "expected concrete size")
   end.
 
@@ -287,6 +295,75 @@ Definition tagged_store
          offset_instrs ++
          stores base_ptr_var LIN_MEM arg_vars tys).
 
+Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * rwasm.Typ) :=
+  match L, i with
+  | (τ, sz) :: L, 0 =>
+      mret (base, τ)
+  | (τ, sz) :: L, S i =>
+      sz_const ← expect_concrete_size sz;
+      local_layout L (base + sz_const) i
+  | [], _ => mthrow (Err "local_layout given out of bounds index")
+  end.
+
+Print wasm.BI_cvtop.
+
+Definition get_i64_local loc :=
+      [wasm.BI_get_local loc;
+       wasm.BI_cvtop wasm.T_i32 wasm.CVO_reinterpret wasm.T_i64 None;
+       wasm.BI_const (wasm.VAL_int64 (Wasm_int.int_of_Z i64m 32%Z));
+       wasm.BI_binop wasm.T_i64 (wasm.Binop_i wasm.BOI_rotl);
+       wasm.BI_get_local (loc + 1);
+       wasm.BI_cvtop wasm.T_i32 wasm.CVO_reinterpret wasm.T_i64 None;
+       wasm.BI_binop wasm.T_i64 (wasm.Binop_i wasm.BOI_or)].
+
+Fixpoint numtyp_gets (nτ: rwasm.NumType) (loc: nat) : list wasm.basic_instruction :=
+  match nτ with
+  | rwasm.Int s rwasm.i32 =>
+      [wasm.BI_get_local loc]
+  | rwasm.Float rwasm.f32 =>
+      [wasm.BI_get_local loc;
+       wasm.BI_cvtop wasm.T_i32 wasm.CVO_reinterpret wasm.T_f32 None]
+  | rwasm.Int s rwasm.i64 =>
+      get_i64_local loc
+  | rwasm.Float rwasm.f64 =>
+      get_i64_local loc ++ 
+      [wasm.BI_cvtop wasm.T_i64 wasm.CVO_reinterpret wasm.T_f64 None]
+  end.
+  
+Fixpoint local_gets (τ: rwasm.Typ) (loc: nat) : exn err (list wasm.basic_instruction) :=
+  match τ with
+  | rwasm.Num nτ =>
+      mret (numtyp_gets nτ loc)
+  | rwasm.TVar α =>
+      mret [wasm.BI_get_local loc]
+  | rwasm.Unit =>
+      mret []
+  | rwasm.ProdT τs =>
+      let fix loop τs0 sz :=
+        match τs0 with
+        | τ0 :: τs0' =>
+            sz ← words_typ τ0;
+            es ← local_gets τ0 loc;
+            es' ← loop τs0' (loc + sz);
+            mret $ es ++ es'
+        | [] => mret []
+        end in
+      loop τs loc
+  | rwasm.CoderefT χ => mthrow Todo
+  | rwasm.Rec q τ =>
+      local_gets τ loc
+  | rwasm.PtrT ℓ =>
+      mret [wasm.BI_get_local loc]
+  | rwasm.ExLoc q τ =>
+      local_gets τ loc
+  | rwasm.OwnR ℓ =>
+      mret []
+  | rwasm.CapT cap ℓ ψ =>
+      mret []
+  | rwasm.RefT cap ℓ ψ =>
+      mret [wasm.BI_get_local loc]
+  end.
+
 Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruction) :=
   match instr with
   | rwasm.INumConst _ num_type num =>
@@ -327,8 +404,11 @@ Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruc
   | rwasm.IBrIf (rwasm.Arrow targs trets, _) x => mret [wasm.BI_br_if x]
   | rwasm.IBrTable (rwasm.Arrow targs trets, _) x x0 => mret [wasm.BI_br_table x x0]
   | rwasm.IRet (rwasm.Arrow targs trets, _) => mret [wasm.BI_return]
-  | rwasm.IGetLocal (rwasm.Arrow targs trets, _) x x0 => mret [wasm.BI_get_local x]
-  | rwasm.ISetLocal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_set_local x]
+  | rwasm.IGetLocal (rwasm.Arrow targs trets, LSig L _) idx _ =>
+      '(base, τ) ← liftM $ local_layout L 0 idx;
+      liftM $ local_gets τ base
+  | rwasm.ISetLocal (rwasm.Arrow targs trets, _) x =>
+    mret [wasm.BI_set_local x]
   | rwasm.ITeeLocal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_tee_local x]
   | rwasm.IGetGlobal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_get_global x]
   | rwasm.ISetGlobal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_set_global x]
