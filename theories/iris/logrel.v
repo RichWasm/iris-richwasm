@@ -87,7 +87,7 @@ Fixpoint wasm_deser_list (bs: bytes) (vt: list value_type) : list value :=
 Definition read_value (τ: RT.Typ) (bs: bytes) : list value :=
   match compile_typ τ with
   | OK vt => wasm_deser_list bs vt
-  | Err _ => []
+  | Exn _ => []
   end.
 
 Class Read := {
@@ -111,8 +111,6 @@ Notation FR := ((leibnizO frame) -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
 
-(* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
-Definition wlocal_ctx := seq.seq value_type.
 
 Definition relations : Type := 
   (* interp_value *)
@@ -472,22 +470,22 @@ Lemma Forall2_Forall3_mp2
 Proof.
 Admitted.
 
-Theorem fundamental_property S C F L es es' tf L' :
+Theorem fundamental_property S C F L es es' tf wl wl' L' :
   HasTypeInstrs S C F L es tf L' ->
-  compile_instrs [] 0 GC_MEM LIN_MEM es = mret es' ->
+  compile_instrs [] GC_MEM LIN_MEM es wl = OK (wl', es') ->
   ⊢ semantic_typing S C F L [] (to_e_list es') tf L'.
 Proof.
   intros Htyp Hcomp.
   generalize dependent es'.
-  induction Htyp using HasTypeInstrs_mind with (P := fun S C F L e ta L' _ => forall es', compile_instr [] 0 GC_MEM LIN_MEM e = mret es' -> ⊢ semantic_typing S C F L [] (to_e_list es') ta L').
+  induction Htyp using HasTypeInstrs_mind with (P := fun S C F L e ta L' _ => forall es', compile_instr [] GC_MEM LIN_MEM e wl = OK (wl', es') -> ⊢ semantic_typing S C F L [] (to_e_list es') ta L').
   - admit.
   - admit.
   - intros es' Hcomp.
     unfold compile_instrs in Hcomp.
     unfold fmap in Hcomp. 
     apply fmap_OK in Hcomp.
-    destruct Hcomp as [x [Hcomp Hflat]].
-    apply mapM_OK in Hcomp.
+    destruct Hcomp as [[wl'' es''] [Hcomp Hflat]].
+    inversion Hflat; subst; clear Hflat.
     (*pose proof (Forall2_length_l _ _ _ 1 Hcomp Logic.eq_refl) as Hlen.*)
     (*inversion Hcomp.*)
     (*destruct l'.*)

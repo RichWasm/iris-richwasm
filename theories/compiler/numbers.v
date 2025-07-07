@@ -8,6 +8,12 @@ From RWasm.compiler Require Import monads.
 Module rwasm := term.
 Module wasm := datatypes.
 
+Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
+  match s with
+  | rwasm.U => wasm.SX_U
+  | rwasm.S => wasm.SX_S
+  end.
+
 Definition compile_num_from_Z (num_type : wasm.value_type) (num : Z) : wasm.value :=
   match num_type with
   | wasm.T_i32 => wasm.VAL_int32 (numerics.Wasm_int.int_of_Z numerics.i32m num)
@@ -160,4 +166,3 @@ Definition compile_num_instr (ni : rwasm.NumInstr) : exn err wasm.basic_instruct
         mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' None
     end
   end.
-

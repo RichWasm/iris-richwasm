@@ -53,4 +53,10 @@ Section stateT_ops.
 
   Definition mmodify (f : S → S) : stateT S M unit :=
     λ s, mret (f s, tt).
+
+  Definition liftM {A} (m : M A) : stateT S M A :=
+    λ st,
+      x ← m;
+      mret (st, x).
 End stateT_ops.
+
