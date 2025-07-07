@@ -7,7 +7,7 @@ Require Import stdpp.list.
 Import ListNotations.
 From RWasm Require term.
 From RWasm Require Import typing.
-From Wasm Require datatypes.
+From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 Require Import BinNat.
 Require Import compiler.monads.
@@ -303,17 +303,108 @@ Definition unset_gc_bit :=
   [wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_sub)].
 
-Definition tagged_load ref_tmp offset_instrs :=
-  if_gc_bit_set ref_tmp [] [wasm.T_i32 (* loaded value *)]
-  ([wasm.BI_get_local ref_tmp] ++
-   unset_gc_bit ++
-   offset_instrs ++ 
-   [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-    wasm.BI_load GC_MEM wasm.T_i32 None 0%N 0%N])
-  ([wasm.BI_get_local ref_tmp] ++
-   offset_instrs ++ 
-   [wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
-    wasm.BI_load LIN_MEM wasm.T_i32 None 0%N 0%N]).
+Fixpoint loads'
+  (mem: wasm.immediate)
+  (base_ptr_var: wasm.immediate)
+  (off: wasm.static_offset)
+  (tys: list wasm.value_type) :=
+  match tys with
+  | [] => []
+  | ty :: tys =>
+      wasm.BI_get_local base_ptr_var ::
+      wasm.BI_load mem ty None 0%N off ::
+      loads' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N tys
+  end.
+
+Definition loads mem base_ptr_var tys :=
+  loads' mem base_ptr_var 0%N tys.
+
+Fixpoint gc_loads
+  (ref_var: wasm.immediate)
+  (offset_instrs: list wasm.basic_instruction) 
+  (tys: list wasm.value_type) :=
+  base_ptr_var ← walloc wasm.T_i32;
+  mret $ wasm.BI_get_local ref_var ::
+         unset_gc_bit ++ 
+         offset_instrs ++
+         wasm.BI_set_local base_ptr_var ::
+         loads GC_MEM base_ptr_var tys.
+        
+Definition lin_loads
+  (ref_var: wasm.immediate)
+  (offset_instrs: list wasm.basic_instruction) 
+  (tys: list wasm.value_type) :=
+  base_ptr_var ← walloc wasm.T_i32;
+  mret $ wasm.BI_get_local ref_var ::
+         offset_instrs ++
+         wasm.BI_set_local base_ptr_var ::
+         loads LIN_MEM base_ptr_var tys.
+
+Definition tagged_loads
+  (base_ptr: wasm.immediate)
+  (offset_instrs: list wasm.basic_instruction) 
+  (tys: list wasm.value_type) :=
+  gc_instrs ← gc_loads base_ptr offset_instrs tys;
+  lin_instrs ← lin_loads base_ptr offset_instrs tys;
+  mret $ if_gc_bit_set base_ptr [] tys gc_instrs lin_instrs.
+
+Definition tagged_load
+  (base_ptr: wasm.immediate)
+  (offset_instrs: list wasm.basic_instruction) 
+  (ty: rwasm.Typ) 
+  : wst (list wasm.basic_instruction) :=
+  tys ← liftM $ compile_typ ty;
+  tagged_loads base_ptr offset_instrs tys.
+
+Fixpoint loc_stores'
+  (base_ptr_var: wasm.immediate)
+  (mem: wasm.immediate)
+  (off: wasm.static_offset)
+  (val_var_tys: list (wasm.immediate * wasm.value_type)) :=
+  match val_var_tys with
+  | [] => []
+  | (val_var, ty) :: val_var_tys =>
+      wasm.BI_get_local base_ptr_var ::
+      wasm.BI_get_local val_var ::
+      wasm.BI_store mem ty None 0%N off ::
+      loc_stores' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N val_var_tys
+  end.
+
+Definition loc_stores base_ptr_var mem val_var_tys : list wasm.basic_instruction :=
+  loc_stores' base_ptr_var mem 0%N val_var_tys.
+
+Definition stores base_ptr_var mem (val_vars: list wasm.immediate) (tys: list wasm.value_type) 
+  : list wasm.basic_instruction :=
+  loc_stores base_ptr_var mem (zip val_vars tys).
+
+Definition wallocs (tys: list wasm.value_type) : wst (list wasm.immediate) :=
+  mapM walloc tys.
+
+Definition walloc_args (tys: list wasm.value_type) 
+  : wst (list wasm.immediate * 
+         list wasm.basic_instruction) :=
+  vars ← wallocs tys;
+  mret $ (vars, map wasm.BI_set_local vars).
+
+Definition tagged_store
+  (offset_instrs: list wasm.basic_instruction) 
+  (ty: rwasm.Typ) 
+  : wst (list wasm.basic_instruction) :=
+  tys ← liftM $ compile_typ ty;
+  '(arg_vars, save_args) ← walloc_args tys;
+  base_ptr_var ← walloc wasm.T_i32;
+  mret $
+    save_args ++
+    wasm.BI_tee_local base_ptr_var ::
+    if_gc_bit_set base_ptr_var [] []
+        (wasm.BI_get_local base_ptr_var ::
+         unset_gc_bit ++
+         offset_instrs ++
+         wasm.BI_set_local base_ptr_var ::
+         stores base_ptr_var GC_MEM arg_vars tys)
+        (wasm.BI_get_local base_ptr_var ::
+         offset_instrs ++
+         stores base_ptr_var LIN_MEM arg_vars tys).
 
 Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruction) :=
   match instr with
@@ -368,38 +459,19 @@ Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruc
       mthrow Todo
              (* mret $ [wasm.BI_call Σ.(me_free)]*)
   | rwasm.IStructGet (rwasm.Arrow from to, _) n =>
-      (* Save the argument *)
-      (* typ should be [ref l (structtype fields)] -> [ref l (structtype fields); tau_field] *)
+      base_ref ← walloc wasm.T_i32;
       fields ← liftM $ get_struct_field_types from 0;
       field_typ ← liftM $ err_opt (list_lookup 0 to) "struct.get: cannot find output val type";
-      field_shape ← liftM $ compile_typ field_typ;
       offset_sz ← liftM $ struct_field_offset fields n;
-      offset_e ← liftM $ compile_sz offset_sz;
-      mthrow Todo
-(*
-      mret $ offset_e ++                     (* [] → [offset] *)
-             [layout.LoadOffset field_shape; (* [ptr; offset] → [ptr; offset; val] *)
-              layout.Swap;                   (* [offset; val] → [val; offset] *)
-              layout.Drop]                   (* [offset] → [] *)
-*)
+      offset_instrs ← liftM $ compile_sz offset_sz;
+      load_instrs ← tagged_load base_ref offset_instrs field_typ;
+      mret $ wasm.BI_tee_local base_ref :: load_instrs
   | rwasm.IStructSet (rwasm.Arrow from to, _) n =>
       fields ← liftM $ get_struct_field_types from 1;
-      val_typ ← liftM $ err_opt (list_lookup 0 from) "struct.set: fcannot find input val type";
-      val_shape ← liftM $ compile_typ val_typ;
+      val_typ ← liftM $ err_opt (list_lookup 0 from) "struct.set: cannot find input val type";
       offset_sz ← liftM $ struct_field_offset fields n;
       offset_e ← liftM $ compile_sz offset_sz;
-  
-      mthrow Todo
-           (*
-      mret $ [layout.Swap] ++ (* [ptr; val] → [val; ptr]*)
-             offset_e ++      (* [] → [offset] *)
-             (* NOTE: its important that we use the val_shape, not the
-                size of the field here *)
-             [layout.Val $ LV_int32 (shape_size_words val_shape);
-              layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [offset__low; i32] → [offset__high] *)
-              layout.StoreOffset;                       (* [ptr; offset; val] → [ptr; offset] *)
-              layout.Drop]                              (* [offset] → [] *)
-*)
+      tagged_store offset_e val_typ
   | rwasm.IStructSwap (rwasm.Arrow from to, _) n =>
       fields ← liftM $ get_struct_field_types from 1;
       field_typ ← liftM $ err_opt (list_lookup 0 from) "struct.swap: cannot find input val type";
