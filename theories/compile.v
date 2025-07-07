@@ -79,6 +79,132 @@ with compile_fun_type (ft: rwasm.FunType) : exn err wasm.function_type :=
     mret (wasm.Tf (κvs ++ tys1') tys2')
   end.
 
+Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
+  match s with
+  | rwasm.U => wasm.SX_U
+  | rwasm.S => wasm.SX_S
+  end.
+
+Definition throw_missing (instr_name : string) : exn err wasm.basic_instruction :=
+  mthrow (Err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
+
+Definition compile_num_instr (ni : rwasm.NumInstr) : exn err wasm.basic_instruction :=
+  match ni with
+  | rwasm.Iu typ op =>
+    let typ' := compile_int_type typ in
+    let op' := wasm.Unop_i match op with
+    | rwasm.clz => wasm.UOI_clz
+    | rwasm.ctz => wasm.UOI_ctz
+    | rwasm.popcnt => wasm.UOI_popcnt
+    end in
+    mret $ wasm.BI_unop typ' op'
+  | rwasm.Ib typ op =>
+    let typ' := compile_int_type typ in
+    let op' := wasm.Binop_i match op with
+    | rwasm.add => wasm.BOI_add
+    | rwasm.sub => wasm.BOI_sub
+    | rwasm.mul => wasm.BOI_mul
+    | rwasm.div s => wasm.BOI_div (compile_sign s)
+    | rwasm.rem s => wasm.BOI_rem (compile_sign s)
+    | rwasm.and => wasm.BOI_and
+    | rwasm.or => wasm.BOI_or
+    | rwasm.xor => wasm.BOI_xor
+    | rwasm.shl => wasm.BOI_shl
+    | rwasm.shr s => wasm.BOI_shr (compile_sign s)
+    | rwasm.rotl => wasm.BOI_rotl
+    | rwasm.rotr => wasm.BOI_rotr
+    end in
+    mret $ wasm.BI_binop typ' op'
+  | rwasm.Fu typ op =>
+    let typ' := compile_float_type typ in
+    let op' := wasm.Unop_f match op with
+    | rwasm.neg => wasm.UOF_neg
+    | rwasm.abs => wasm.UOF_abs
+    | rwasm.ceil => wasm.UOF_ceil
+    | rwasm.floor => wasm.UOF_floor
+    | rwasm.trunc => wasm.UOF_trunc
+    | rwasm.nearest => wasm.UOF_nearest
+    | rwasm.sqrt => wasm.UOF_sqrt
+    end in
+    mret $ wasm.BI_unop typ' op'
+  | rwasm.Fb typ op =>
+    let typ' := compile_float_type typ in
+    let op' := wasm.Binop_f match op with
+    | rwasm.addf => wasm.BOF_add
+    | rwasm.subf => wasm.BOF_sub
+    | rwasm.mulf => wasm.BOF_mul
+    | rwasm.divf => wasm.BOF_div
+    | rwasm.min => wasm.BOF_min
+    | rwasm.max => wasm.BOF_max
+    | rwasm.copysign => wasm.BOF_copysign
+    end in
+    mret $ wasm.BI_binop typ' op'
+  | rwasm.It typ op =>
+    let typ' := compile_int_type typ in
+    let op' := match op with
+    | rwasm.eqz => wasm.TO_eqz
+    end in
+    mret $ wasm.BI_testop typ' op'
+  | rwasm.Ir typ op =>
+    let typ' := compile_int_type typ in
+    let op' := wasm.Relop_i match op with
+    | rwasm.eq => wasm.ROI_eq
+    | rwasm.ne => wasm.ROI_ne
+    | rwasm.lt s => wasm.ROI_lt (compile_sign s)
+    | rwasm.gt s => wasm.ROI_gt (compile_sign s)
+    | rwasm.le s => wasm.ROI_le (compile_sign s)
+    | rwasm.ge s => wasm.ROI_ge (compile_sign s)
+    end in
+    mret $ wasm.BI_relop typ' op'
+  | rwasm.Fr typ op =>
+    let typ' := compile_float_type typ in
+    let op' := wasm.Relop_f match op with
+    | rwasm.eqf => wasm.ROF_eq
+    | rwasm.nef => wasm.ROF_ne
+    | rwasm.ltf => wasm.ROF_lt
+    | rwasm.gtf => wasm.ROF_gt
+    | rwasm.lef => wasm.ROF_le
+    | rwasm.gef => wasm.ROF_ge
+    end in
+    mret $ wasm.BI_relop typ' op'
+  | rwasm.CvtI typ op =>
+    let typ' := compile_int_type typ in
+    match op with
+    (* FIXME: missing wasm types *)
+    | rwasm.Wrap typ2 => throw_missing "wrap"
+    | rwasm.Extend typ2 s => throw_missing "extend"
+    | rwasm.Trunc typ2 s => throw_missing "trunc"
+    | rwasm.TruncSat typ2 s => throw_missing "trunc_sat"
+    | rwasm.Convert typ2 s =>
+        let typ2' := compile_int_type typ2 in
+        let s' := compile_sign s in
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s')
+    | rwasm.Demote typ2 => throw_missing "demote"
+    | rwasm.Promote typ2 => throw_missing "promote"
+    | rwasm.Reinterpret typ2 =>
+        let typ2' := compile_int_type typ2 in
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' None
+    end
+  | rwasm.CvtF typ op =>
+    let typ' := compile_float_type typ in
+    match op with
+    (* FIXME: missing wasm types *)
+    | rwasm.Wrap typ2 => throw_missing "wrap"
+    | rwasm.Extend typ2 s => throw_missing "extend"
+    | rwasm.Trunc typ2 s => throw_missing "trunc"
+    | rwasm.TruncSat typ2 s => throw_missing "trunc_sat"
+    | rwasm.Convert typ2 s =>
+        let typ2' := compile_int_type typ2 in
+        let s' := compile_sign s in
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' (Some s')
+    | rwasm.Demote typ2 => throw_missing "demote"
+    | rwasm.Promote typ2 => throw_missing "promote"
+    | rwasm.Reinterpret typ2 =>
+        let typ2' := compile_int_type typ2 in
+        mret $ wasm.BI_cvtop typ' wasm.CVO_convert typ2' None
+    end
+  end.
+
 Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
   match num_type with
   | rwasm.Int _ rwasm.i32 => 
@@ -94,12 +220,6 @@ Definition compile_num (num_type : rwasm.NumType) (num : nat) : wasm.value :=
     wasm.VAL_float64
       ((Wasm_float.float_convert_si64
         numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
-  end.
-
-Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
-  match s with
-  | rwasm.U => wasm.SX_U
-  | rwasm.S => wasm.SX_S
   end.
 
 Definition compile_num_intr (ni : rwasm.NumInstr) : exn err wasm.basic_instruction :=
@@ -235,7 +355,6 @@ Variable (ref_tmp: wasm.immediate).
 Variable (GC_MEM: wasm.immediate).
 Variable (LIN_MEM: wasm.immediate).
 
-(* n.b. this is polymorphic :( *)
 Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) : exn err rwasm.Size :=
   match idx with
   | 0 => mret $ rwasm.SizeConst 0
@@ -244,12 +363,6 @@ Fixpoint struct_field_offset (fields: list (rwasm.Typ * rwasm.Size)) (idx: nat) 
       | (_, sz) :: fields' => rwasm.SizePlus sz <$> (struct_field_offset fields' idx')
       | [] => mthrow Todo
       end
-  end.
-
-Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : exn err (list (rwasm.Typ * rwasm.Size)) :=
-  match targs !! idx with
-  | Some (rwasm.RefT _ _ (rwasm.StructType fields)) => mret fields
-  | _ => mthrow (Err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
   end.
 
 Fixpoint compile_sz (sz : rwasm.Size) : exn err (list wasm.basic_instruction) :=
@@ -264,6 +377,18 @@ Fixpoint compile_sz (sz : rwasm.Size) : exn err (list wasm.basic_instruction) :=
   | rwasm.SizeConst c =>
     mret [wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c)))]
   end.
+
+Definition get_struct_field_types (targs : list rwasm.Typ) (idx : nat) : exn err (list (rwasm.Typ * rwasm.Size)) :=
+  match targs !! idx with
+  | Some (rwasm.RefT _ _ (rwasm.StructType fields)) => mret fields
+  | _ => mthrow (Err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
+  end.
+
+  Definition get_array_elem_type (targs : list rwasm.Typ) (idx : nat) : exn err rwasm.Typ :=
+    match targs !! idx with
+    | Some (rwasm.RefT _ _ (rwasm.ArrayType typ)) => mret typ
+    | _ => mthrow (Err ("array instruction expected a ref to an array type at index " ++ pretty idx))
+    end.
 
 Definition if_gc_bit_set ref_tmp ins outs gc_branch lin_branch :=
   [wasm.BI_get_local ref_tmp;
@@ -291,11 +416,19 @@ Definition tagged_load ref_tmp offset_instrs :=
 Fixpoint compile_instr (instr: rwasm.instr rwasm.ArrowType) : exn err (list wasm.basic_instruction) :=
   match instr with
   | rwasm.INumConst _ num_type num => mret [wasm.BI_const $ compile_num num_type num]
-  | rwasm.IUnit _ => mthrow Todo
-  | rwasm.INum (rwasm.Arrow targs trets) x => mthrow Todo
+  | rwasm.IUnit _ => mret []
+  | rwasm.INum (rwasm.Arrow targs trets) num_instr =>
+      e ← compile_num_instr num_instr; mret [e]
   | rwasm.IUnreachable (rwasm.Arrow targs trets) => mret [wasm.BI_unreachable]
   | rwasm.INop (rwasm.Arrow targs trets) => mret [wasm.BI_nop]
-  | rwasm.IDrop (rwasm.Arrow targs trets) => mret [wasm.BI_drop]
+  | rwasm.IDrop (rwasm.Arrow targs  trets) =>
+      match targs with
+      | (t_drop :: targs) =>
+        wasm_typ ← compile_typ t_drop;
+        mret $ map (const wasm.BI_drop) wasm_typ
+      | [] => 
+        mthrow (Err "rwasm.IDrop should have a nonempty stack type annotation")
+      end
   | rwasm.ISelect (rwasm.Arrow targs trets) => mret [wasm.BI_select]
   | rwasm.IBlock (rwasm.Arrow targs trets) arrow _ i =>
     ft ← compile_arrow_type arrow;

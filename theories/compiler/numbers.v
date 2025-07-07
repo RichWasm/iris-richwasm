@@ -41,16 +41,10 @@ Definition compile_float_type (typ : rwasm.FloatType) : wasm.value_type :=
   | rwasm.f64 => wasm.T_f64
   end.
 
-Definition compile_sign (s : rwasm.Sign) : wasm.sx :=
-  match s with
-  | rwasm.U => wasm.SX_U
-  | rwasm.S => wasm.SX_S
-  end.
-
 Definition throw_missing (instr_name : string) : exn err wasm.basic_instruction :=
   mthrow (Err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
 
-Definition compile_num_intr (ni : rwasm.NumInstr) : exn err wasm.basic_instruction :=
+Definition compile_num_instr (ni : rwasm.NumInstr) : exn err wasm.basic_instruction :=
   match ni with
   | rwasm.Iu typ op =>
     let typ' := compile_int_type typ in
