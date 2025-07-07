@@ -364,6 +364,40 @@ Fixpoint local_gets (τ: rwasm.Typ) (loc: nat) : exn err (list wasm.basic_instru
       mret [wasm.BI_get_local loc]
   end.
 
+Fixpoint local_sets (τ: rwasm.Typ) (loc: nat) : exn err (list wasm.basic_instruction) :=
+  match τ with
+  | rwasm.Num nτ =>
+      mret (numtyp_gets nτ loc)
+  | rwasm.TVar α =>
+      mret [wasm.BI_set_local loc]
+  | rwasm.Unit =>
+      mret []
+  | rwasm.ProdT τs =>
+      let fix loop τs0 sz :=
+        match τs0 with
+        | τ0 :: τs0' =>
+            sz ← words_typ τ0;
+            es ← local_gets τ0 loc;
+            es' ← loop τs0' (loc + sz);
+            mret $ es ++ es'
+        | [] => mret []
+        end in
+      loop τs loc
+  | rwasm.CoderefT χ => mthrow Todo
+  | rwasm.Rec q τ =>
+      local_gets τ loc
+  | rwasm.PtrT ℓ =>
+      mret [wasm.BI_set_local loc]
+  | rwasm.ExLoc q τ =>
+      local_gets τ loc
+  | rwasm.OwnR ℓ =>
+      mret []
+  | rwasm.CapT cap ℓ ψ =>
+      mret []
+  | rwasm.RefT cap ℓ ψ =>
+      mret [wasm.BI_set_local loc]
+  end.
+
 Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruction) :=
   match instr with
   | rwasm.INumConst _ num_type num =>
@@ -407,9 +441,14 @@ Fixpoint compile_instr (instr: rwasm.instr TyAnn) : wst (list wasm.basic_instruc
   | rwasm.IGetLocal (rwasm.Arrow targs trets, LSig L _) idx _ =>
       '(base, τ) ← liftM $ local_layout L 0 idx;
       liftM $ local_gets τ base
-  | rwasm.ISetLocal (rwasm.Arrow targs trets, _) x =>
-    mret [wasm.BI_set_local x]
-  | rwasm.ITeeLocal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_tee_local x]
+  | rwasm.ISetLocal (rwasm.Arrow targs trets, LSig L _) idx =>
+      '(base, τ) ← liftM $ local_layout L 0 idx;
+      liftM $ local_sets τ base
+  | rwasm.ITeeLocal (rwasm.Arrow targs trets, LSig L _) idx =>
+      '(base, τ) ← liftM $ local_layout L 0 idx;
+      sets ← liftM $ local_sets τ base;
+      gets ← liftM $ local_gets τ base;
+      mret $ sets ++ gets
   | rwasm.IGetGlobal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_get_global x]
   | rwasm.ISetGlobal (rwasm.Arrow targs trets, _) x => mret [wasm.BI_set_global x]
   | rwasm.ICoderef (rwasm.Arrow targs trets, _) x => mthrow Todo
