@@ -599,6 +599,9 @@ Admitted.
 Definition typeidx_table_write : W.immediate.
 Admitted.
 
+Definition globidx_table_next : W.immediate.
+Admitted.
+
 Definition globidx_table_offset : W.immediate.
 Admitted.
 
@@ -611,16 +614,16 @@ Definition compile_table_elem (start : W.immediate) (i funcidx : nat) : W.expr :
 
 Definition compile_start (table : R.Table) : W.module_func :=
   {| W.modfunc_type := W.Mk_typeidx typeidx_start;
-     W.modfunc_locals := [ W.T_i32 ];
+     W.modfunc_locals := [];
      W.modfunc_body :=
-       [ (* Save the beginning table offset. *)
-         W.BI_get_global globidx_table_offset;
-         W.BI_set_local 0;
+       [ (* Remember the starting index of our section in the table. *)
+         W.BI_get_global globidx_table_next;
+         W.BI_set_global globidx_table_offset;
          (* Increment the index for the next module to use the table. *)
-         W.BI_get_local 0;
+         W.BI_get_global globidx_table_offset;
          W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat (length table))));
          W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
-         W.BI_set_global globidx_table_offset ] ++
+         W.BI_set_global globidx_table_next ] ++
        flatten (imap (compile_table_elem 0) table) |}.
 
 Fixpoint compile_module (module : R.module TyAnn) : exn err W.module :=
@@ -630,7 +633,10 @@ Fixpoint compile_module (module : R.module TyAnn) : exn err W.module :=
     W.mod_funcs := []; (* TODO *)
     W.mod_tables := []; (* TODO *)
     W.mod_mems := []; (* TODO *)
-    W.mod_globals := []; (* TODO *)
+    W.mod_globals := (* TODO *)
+      [ W.Build_module_glob
+          (W.Build_global_type W.MUT_mut W.T_i32)
+          [ W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0)) ] ];
     W.mod_elem := []; (* TODO *)
     W.mod_data := []; (* TODO *)
     W.mod_start := Some (W.Build_module_start (W.Mk_funcidx 0)); (* TODO *)
