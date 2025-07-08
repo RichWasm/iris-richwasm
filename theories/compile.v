@@ -305,8 +305,6 @@ Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * rwasm
   | [], _ => mthrow (Err "local_layout given out of bounds index")
   end.
 
-Print wasm.BI_cvtop.
-
 Definition get_i64_local loc :=
       [wasm.BI_get_local loc;
        wasm.BI_cvtop wasm.T_i32 wasm.CVO_reinterpret wasm.T_i64 None;
@@ -592,6 +590,39 @@ End compile_instr.
 Definition compile_fun_type_idx (fun_type : rwasm.FunType) : wasm.typeidx.
 Admitted.
 
+Definition funcidx_table_write : wasm.immediate.
+Admitted.
+
+Definition typeidx_start : wasm.immediate.
+Admitted.
+
+Definition typeidx_table_write : wasm.immediate.
+Admitted.
+
+Definition globidx_table_offset : wasm.immediate.
+Admitted.
+
+Definition compile_table_elem (start : wasm.immediate) (i funcidx : nat) : wasm.expr :=
+  [ wasm.BI_get_local start;
+    wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i)));
+    wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+    wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat funcidx)));
+    wasm.BI_call funcidx_table_write ].
+
+Definition compile_start (table : rwasm.Table) : wasm.module_func :=
+  {| wasm.modfunc_type := wasm.Mk_typeidx typeidx_start;
+     wasm.modfunc_locals := [ wasm.T_i32 ];
+     wasm.modfunc_body :=
+       [ (* Save the beginning table offset. *)
+         wasm.BI_get_global globidx_table_offset;
+         wasm.BI_set_local 0;
+         (* Increment the index for the next module to use the table. *)
+         wasm.BI_get_local 0;
+         wasm.BI_const (wasm.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat (length table))));
+         wasm.BI_binop wasm.T_i32 (wasm.Binop_i wasm.BOI_add);
+         wasm.BI_set_global globidx_table_offset ] ++
+       flatten (imap (compile_table_elem 0) table) |}.
+
 Fixpoint compile_module (module : rwasm.module TyAnn) : exn err wasm.module :=
   let '(funcs, globs, table) := module return exn err wasm.module in
   mret {|
@@ -602,8 +633,12 @@ Fixpoint compile_module (module : rwasm.module TyAnn) : exn err wasm.module :=
     wasm.mod_globals := []; (* TODO *)
     wasm.mod_elem := []; (* TODO *)
     wasm.mod_data := []; (* TODO *)
-    wasm.mod_start := None; (* TODO *)
-    wasm.mod_imports := []; (* TODO *)
+    wasm.mod_start := Some (wasm.Build_module_start (wasm.Mk_funcidx 0)); (* TODO *)
+    wasm.mod_imports := (* TODO *)
+      [ wasm.Build_module_import
+          (String.list_byte_of_string "RichWasm")
+          (String.list_byte_of_string "modify_table")
+          (wasm.ID_func typeidx_table_write) ];
     wasm.mod_exports := [] (* TODO *)
   |}
 
