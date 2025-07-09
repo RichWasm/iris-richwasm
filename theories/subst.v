@@ -386,12 +386,11 @@ Fixpoint subst'_instruction {A : Type} (su : Subst' Kind) (i : instr A) {struct 
   | IGetGlobal _ _ => i
   | ISetGlobal _ _ => i
   | ICoderef _ _ => i
-  | IInst ann insts => IInst ann (subst'_indices su insts)
-  | ICallIndirect _ => i
+  | ICallIndirect ann insts => ICallIndirect ann (subst'_indices su insts)
   | ICall ann n insts => ICall ann n (subst'_indices su insts)
   | IRecFold ann t => IRecFold ann (subst'_typ su t)
   | IRecUnfold _ => i
-  | IGroup ann n q => IGroup ann n (subst'_qual su q)
+  | IGroup _ _ => i
   | IUngroup _ => i
   | ICapSplit _ => i
   | ICapJoin _ => i

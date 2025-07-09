@@ -450,8 +450,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IGetGlobal (R.Arrow targs trets, _) x => mret [W.BI_get_global x]
   | R.ISetGlobal (R.Arrow targs trets, _) x => mret [W.BI_set_global x]
   | R.ICoderef (R.Arrow targs trets, _) x => mthrow Todo
-  | R.IInst (R.Arrow targs trets, _) x => mthrow Todo
-  | R.ICallIndirect (R.Arrow targs trets, _) => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
+  | R.ICallIndirect (R.Arrow targs trets, _) inds => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
   | R.ICall (R.Arrow targs trets, _) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)
   | R.IMemUnpack _ ta tl es =>
       ta' ← liftM $ compile_arrow_type ta;
@@ -574,7 +573,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IRefJoin _
   | R.IRecFold _ _
   | R.IRecUnfold  _
-  | R.IGroup _ _ _
+  | R.IGroup _ _
   | R.IUngroup _
   | R.ICapSplit _
   | R.ICapJoin _

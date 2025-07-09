@@ -522,6 +522,21 @@ Proof.
   - admit.
   - admit.
   - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
   - intros es' Hcomp.
     unfold compile_instrs in Hcomp.
     unfold fmap in Hcomp. 
