@@ -1676,11 +1676,6 @@ Admitted.
         LocalCtxValid F L ->
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (IUnit (Arrow [] [], LSig L L)) (Arrow [] []) L
-  | NopTyp :
-      forall C F L,
-        LocalCtxValid F L ->
-        QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstr C F L (INop (Arrow [] [], LSig L L)) (Arrow [] []) L
   | UnreachableType :
       forall S C F L L' taus1 taus2 tl,
         M.is_empty (LinTyp S) = true ->
@@ -1691,6 +1686,115 @@ Admitted.
         Forall (TypeValid F) taus2 ->
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (IUnreachable (Arrow taus1 taus2, LSig L L')) (Arrow taus1 taus2) L'
+  | NopTyp :
+      forall C F L,
+        LocalCtxValid F L ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (INop (Arrow [] [], LSig L L)) (Arrow [] []) L
+  | DropTyp :
+      forall C F L t,
+        LocalCtxValid F L ->
+        TypeValid F t ->
+        TypQualLeq F t Unrestricted = Some true ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IDrop (Arrow [t] [], LSig L L)) (Arrow [t] []) L
+  | SelectTyp :
+      forall C F L t,
+        LocalCtxValid F L ->
+        TypeValid F t ->
+        TypQualLeq F t Unrestricted = Some true ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (ISelect (Arrow [t; t; uint32T] [t], LSig L L))
+          (Arrow [t; t; uint32T] [t]) L
+  | BlockTyp :
+      forall C F L tl taus1 taus2 es L'',
+        let tf := Arrow taus1 taus2 in
+        let L' := add_local_effects L tl in
+        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
+        HasTypeInstrs C F2 L es tf L' ->
+        LCEffEqual (size F) L' L'' ->
+        LocalCtxValid F L'' ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IBlock (tf, LSig L L') tf tl es) tf L'
+  | LoopTyp :
+      forall C F L taus1 taus2 es,
+        let tf := Arrow taus1 taus2 in
+        (* let L' := add_local_effects L tl in *)
+        let F1 := update_label_ctx ((taus1, L) :: (label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
+        HasTypeInstrs C F2 L es tf L ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (ILoop (tf, LSig L L) tf es) tf L
+  | ITETyp :
+      forall C F L tl taus1 taus2 es1 es2 L'',
+        let tf := Arrow taus1 taus2 in
+        let L' := add_local_effects L tl in
+        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
+        HasTypeInstrs C F2 L es1 tf L' ->
+        HasTypeInstrs C F2 L es2 tf L' ->
+        LCEffEqual (size F) L' L'' ->
+        LocalCtxValid F L'' ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IIte (Arrow (taus1 ++ [uint32T]) taus2, LSig L L') tf tl es1 es2) (Arrow (taus1 ++ [uint32T]) taus2) L'
+  | BrTyp :
+      forall C F L i taus1 taus1' taus2 tl,
+        nth_error (label F) i = Some (taus1', L) ->
+        Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus1 ->                
+        (forall j, j <= i ->
+                   exists q, nth_error_plist (linear F) j = Some q /\
+                        QualValid (qual F) q /\
+                        QualLeq (qual F) q Unrestricted = Some true) ->
+        LocalCtxValid F L ->
+        Forall (TypeValid F) (taus1 ++ taus1') ->
+        Forall (TypeValid F) taus2 ->
+        LocalCtxValid F (add_local_effects L tl) ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IBr (Arrow (taus1 ++ taus1') taus2,
+                                LSig L (add_local_effects L tl)) i)
+          (Arrow (taus1 ++ taus1') taus2) (add_local_effects L tl)
+  | Br_ifTyp :
+      forall C F L i taus,
+        nth_error (label F) i = Some (taus, L) ->
+        (* Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus ->                 *)
+        (forall j, j <= i ->
+                   exists q, nth_error_plist (linear F) j = Some q /\
+                        QualValid (qual F) q /\
+                        QualLeq (qual F) q Unrestricted = Some true) ->
+        LocalCtxValid F L ->
+        Forall (TypeValid F) taus ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IBrIf (Arrow (taus ++ [uint32T]) taus, LSig L L) i) (Arrow (taus ++ [uint32T]) taus) L
+  | Br_tableTyp :
+      forall C F L is taus1 taus1' taus2 tl k,
+        Forall (fun i => nth_error (label F) i = Some (taus1', L)) (is ++ [k]) ->
+        Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus1 ->
+        let i := list_max (is ++ [k]) in
+        (forall j, j <= i ->
+                   exists q, nth_error_plist  (linear F) j = Some q /\
+                        QualValid (qual F) q /\
+                        QualLeq (qual F) q Unrestricted = Some true) ->
+        LocalCtxValid F L ->
+        Forall (TypeValid F) (taus1 ++ taus1' ++ [uint32T]) ->
+        Forall (TypeValid F) taus2 ->
+        LocalCtxValid F (add_local_effects L tl) ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IBrTable (Arrow (taus1 ++ taus1' ++ [uint32T]) taus2,
+                                LSig L (add_local_effects L tl)) is k) (Arrow (taus1 ++ taus1' ++ [uint32T]) taus2) (add_local_effects L tl)
+  | RetTyp :
+      forall C F L taus1 taus1' taus2 tl,
+        ret F = Some taus1' ->
+        Forall (fun '(t, sz) => TypQualLeq F t Unrestricted = Some true) L ->
+        Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus1 ->
+        Forall_plist (fun q => QualValid (qual F) q /\ QualLeq (qual F) q Unrestricted = Some true) (linear F) ->
+        LocalCtxValid F L ->
+        Forall (TypeValid F) (taus1 ++ taus1') ->
+        Forall (TypeValid F) taus2 ->
+        LocalCtxValid F (add_local_effects L tl) ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IRet (Arrow (taus1 ++ taus1') taus2, LSig L (add_local_effects L tl)))
+          (Arrow (taus1 ++ taus1') taus2) (add_local_effects L tl)
   | TStructGet : forall C F L n taus szs tau l cap,
       let psi := StructType (combine taus szs) in
       length taus = length szs ->
@@ -1747,18 +1851,18 @@ Admitted.
   Scheme HasTypeInstr_mind := Induction for HasTypeInstr Sort Prop
     with HasTypeInstrs_mind := Induction for HasTypeInstrs Sort Prop.
 
-  Inductive TypeGlob (C: Module_Ctx) : Glob TyAnn -> GlobalType -> list ex -> Prop :=
+  Inductive HasTypeGlob (C: Module_Ctx) : Glob TyAnn -> GlobalType -> list ex -> Prop :=
   | GlobMutTyp :
       forall pt es,
         HasTypeInstrs C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
-        TypeGlob C (GlobMut pt es) (GT true pt) []
+        HasTypeGlob C (GlobMut pt es) (GT true pt) []
   | GlobTyp :
       forall ex pt es,
         HasTypeInstrs C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
-        TypeGlob C (GlobEx ex pt es) (GT false pt) ex
+        HasTypeGlob C (GlobEx ex pt es) (GT false pt) ex
   | GlobIm :
       forall ex pt im,
-        TypeGlob C (GlobIm ex pt im) (GT false pt) ex.
+        HasTypeGlob C (GlobIm ex pt im) (GT false pt) ex.
 
   Definition combine_i {A} (xs : list A) : list (A * nat) :=
     (fix aux (xs : list A) (i : nat) :=

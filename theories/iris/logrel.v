@@ -512,6 +512,16 @@ Proof.
   - admit.
   - admit.
   - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
   - intros es' Hcomp.
     unfold compile_instrs in Hcomp.
     unfold fmap in Hcomp. 
@@ -522,10 +532,6 @@ Proof.
     (*inversion Hcomp.*)
     (*destruct l'.*)
     admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
 Admitted.
 
 (*Lemma sniff_cons C F L1 L2 L3 e es es'  :*)
