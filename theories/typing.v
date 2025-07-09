@@ -1604,11 +1604,94 @@ Admitted.
   Definition TyAnn : Type :=
     ArrowType * LocalSig.
 
+  Definition instr_ann {A: Type} (inst: instr A) : A :=
+    match inst with
+    | INumConst ann _ _
+    | IUnit ann
+    | INum ann _
+    | IUnreachable ann
+    | INop ann
+    | IDrop ann
+    | ISelect ann
+    | IBlock ann _ _ _
+    | ILoop ann _ _
+    | IIte ann _ _ _ _
+    | IBr ann _
+    | IBrIf ann _
+    | IBrTable ann _ _
+    | IRet ann
+    | IGetLocal ann _ _
+    | ISetLocal ann _
+    | ITeeLocal ann _
+    | IGetGlobal ann _
+    | ISetGlobal ann _
+    | ICoderef ann _
+    | IInst ann _
+    | ICallIndirect ann
+    | ICall ann _ _
+    | IRecFold ann _
+    | IRecUnfold ann
+    | IGroup ann _ _ 
+    | IUngroup ann
+    | ICapSplit ann
+    | ICapJoin ann
+    | IRefDemote ann
+    | IMemPack ann _
+    | IMemUnpack ann _ _ _
+    | IStructMalloc ann _ _
+    | IStructFree ann
+    | IStructGet ann _
+    | IStructSet ann _
+    | IStructSwap ann _
+    | IVariantMalloc ann _ _ _
+    | IVariantCase ann _ _ _ _ _
+    | IArrayMalloc ann _
+    | IArrayGet ann
+    | IArraySet ann
+    | IArrayFree ann
+    | IExistPack ann _ _ _
+    | IExistUnpack ann _ _ _ _ _
+    | IRefSplit ann
+    | IRefJoin ann
+    | IQualify ann _ =>
+        ann
+    end.
+
+  Definition instr_type (i: instr TyAnn) : ArrowType :=
+    (instr_ann i).1.
+    
+  Definition instr_lsig (i: instr TyAnn) : LocalSig :=
+    (instr_ann i).2.
+
   Inductive HasTypeInstr :
-    StoreTyping -> Module_Ctx -> Function_Ctx ->
+    Module_Ctx -> Function_Ctx ->
     Local_Ctx -> instr TyAnn -> ArrowType -> Local_Ctx -> Prop :=
-  | TStructGet : forall S C F L ann n taus szs tau l cap,
-      M.is_empty (LinTyp S) = true ->
+  | NumConstTyp :
+      forall C F L nt c,
+        LocalCtxValid F L ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (INumConst (EmptyArrow (Num nt), LSig L L) nt c) (EmptyArrow (Num nt)) L
+  | UnitTyp :
+      forall C F L,
+        LocalCtxValid F L ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IUnit (Arrow [] [], LSig L L)) (Arrow [] []) L
+  | NopTyp :
+      forall C F L,
+        LocalCtxValid F L ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (INop (Arrow [] [], LSig L L)) (Arrow [] []) L
+  | UnreachableType :
+      forall S C F L L' taus1 taus2 tl,
+        M.is_empty (LinTyp S) = true ->
+        LocalCtxValid F L ->
+        L' = add_local_effects L tl ->
+        LocalCtxValid F L' ->
+        Forall (TypeValid F) taus1 ->
+        Forall (TypeValid F) taus2 ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        HasTypeInstr C F L (IUnreachable (Arrow taus1 taus2, LSig L L')) (Arrow taus1 taus2) L'
+  | TStructGet : forall C F L n taus szs tau l cap,
       let psi := StructType (combine taus szs) in
       length taus = length szs ->
       nth_error taus n = Some tau ->
@@ -1617,39 +1700,65 @@ Admitted.
       TypeValid F (RefT cap l psi) ->
       TypeValid F tau ->
       QualValid (qual F) (get_hd (linear F)) ->
-      HasTypeInstr S C F L (IStructGet ann n)
-        (Arrow [RefT cap l psi]
-           [RefT cap l psi; tau])
+      HasTypeInstr C F L (IStructGet (Arrow [RefT cap l psi] [RefT cap l psi; tau], LSig L L) n)
+        (Arrow [RefT cap l psi] [RefT cap l psi; tau])
         L
+
   with HasTypeInstrs :
-    StoreTyping -> Module_Ctx -> Function_Ctx ->
+    Module_Ctx -> Function_Ctx ->
     Local_Ctx -> list (instr TyAnn) -> ArrowType -> Local_Ctx -> Prop :=
-  | TSOne: forall S C F L e τ L',
-      HasTypeInstr S C F L e τ L' ->
-      HasTypeInstrs S C F L [e] τ L'
+  | EmptyTyp: forall C F L ts,
+      LocalCtxValid F L ->
+      Forall (TypeValid F) ts ->
+      QualValid (qual F) (get_hd (linear F)) ->
+      HasTypeInstrs C F L [] (Arrow ts ts) L
   | ConsTyp :
-      forall S S1 S2 C F L1 L2 L3 es e tau1 tau2 tau3,
-      SplitStoreTypings [S1; S2] S ->
-      HasTypeInstr S1 C F L1 e (Arrow tau1 tau2) L2 ->
-      HasTypeInstrs S2 C F L2 es (Arrow tau2 tau3) L3 ->
-      HasTypeInstrs S C F L1 (e :: es) (Arrow tau1 tau3) L3
+      forall C F L1 L2 L3 es e tau1 tau2 tau3,
+      HasTypeInstr C F L1 e (Arrow tau1 tau2) L2 ->
+      HasTypeInstrs C F L2 es (Arrow tau2 tau3) L3 ->
+      HasTypeInstrs C F L1 (e :: es) (Arrow tau1 tau3) L3
+  | FrameTyp : 
+      forall C F L L' qf es taus taus1 taus2 Flin_hd,
+        get_hd (linear F) = Flin_hd ->
+        Forall (fun t => exists q,
+          TypQual F t = Some q /\
+          QualLeq (qual F) q qf = Some true) taus ->
+        QualLeq (qual F) Flin_hd qf = Some true ->
+        let F' := update_linear_ctx (set_hd qf (linear F)) F in
+        HasTypeInstrs C F' L es (Arrow taus1 taus2) L' ->
+        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (qual F) qf ->
+        Forall (TypeValid F) taus ->
+        HasTypeInstrs C F L es (Arrow (taus ++ taus1) (taus ++ taus2)) L'
+  | ChangeBegLocalTyp :  (* typeset *)
+      forall C F L L1 es taus1 taus2 L',
+        LocalCtxValid F L1 ->
+        LCEffEqual (size F) L L1 ->
+        HasTypeInstrs C F L es (Arrow taus1 taus2) L' ->
+        HasTypeInstrs C F L1 es (Arrow taus1 taus2) L'
+  | ChangeEndLocalTyp :  (* typeset *)
+      forall C F L es taus1 taus2 L' L1,
+        LocalCtxValid F L1 ->
+        LCEffEqual (size F) L' L1 ->
+        HasTypeInstrs C F L es (Arrow taus1 taus2) L' ->
+        HasTypeInstrs C F L es (Arrow taus1 taus2) L1
   .
 
   Scheme HasTypeInstr_mind := Induction for HasTypeInstr Sort Prop
     with HasTypeInstrs_mind := Induction for HasTypeInstrs Sort Prop.
 
-  Inductive HasTypeGlob (S : StoreTyping) : Module_Ctx -> Glob TyAnn -> GlobalType -> list ex -> Prop :=
+  Inductive TypeGlob (C: Module_Ctx) : Glob TyAnn -> GlobalType -> list ex -> Prop :=
   | GlobMutTyp :
-      forall C pt es,
-        HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
-        HasTypeGlob S C (GlobMut pt es) (GT true pt) []
+      forall pt es,
+        HasTypeInstrs C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
+        TypeGlob C (GlobMut pt es) (GT true pt) []
   | GlobTyp :
-      forall C ex pt es,
-        HasTypeInstrs S C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
-        HasTypeGlob S C (GlobEx ex pt es) (GT false pt) ex
+      forall ex pt es,
+        HasTypeInstrs C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
+        TypeGlob C (GlobEx ex pt es) (GT false pt) ex
   | GlobIm :
-      forall C ex pt im,
-        HasTypeGlob S C (GlobIm ex pt im) (GT false pt) ex.
+      forall ex pt im,
+        TypeGlob C (GlobIm ex pt im) (GT false pt) ex.
 
   Definition combine_i {A} (xs : list A) : list (A * nat) :=
     (fix aux (xs : list A) (i : nat) :=
@@ -1683,9 +1792,6 @@ Admitted.
          in tf :: aux tb
        end) tb.
   
-
-  Definition EmptyStoreTyping (I : InstanceTyping) : StoreTyping :=
-    Build_StoreTyping I (M.empty _) (M.empty _).
       
   (* Module Instances are typed in the empty store typing *)
   (*

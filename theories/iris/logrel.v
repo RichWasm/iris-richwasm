@@ -397,7 +397,6 @@ Definition interp_val (τs : list RT.Typ) : VR :=
   )%I.
 
 Definition interp_inst
-  (S: T.StoreTyping) 
   (C: T.Module_Ctx) 
   (inst: instance)
   : iProp Σ :=
@@ -412,14 +411,14 @@ Definition interp_ctx
   ⌜true⌝%I.
 
 Definition semantic_typing  :
-  T.StoreTyping -> T.Module_Ctx -> T.Function_Ctx ->
+  T.Module_Ctx -> T.Function_Ctx ->
   T.Local_Ctx -> wlocal_ctx ->
   list administrative_instruction ->
   RT.ArrowType -> T.Local_Ctx ->
   iProp Σ :=
-  (λ S C F L WL es '(Arrow τs1 τs2) L',
+  (λ C F L WL es '(Arrow τs1 τs2) L',
     ∀ inst lh,
-      interp_inst S C inst ∗
+      interp_inst C inst ∗
       interp_ctx L L' F inst lh -∗
       ∀ f vs,
         interp_val τs1 vs ∗ 
@@ -500,14 +499,17 @@ Lemma compiler_wctx_mono es wl wl' es':
 Proof.
 Admitted.
 
-Theorem fundamental_property S C F L es es' tf wl wl' L' :
-  HasTypeInstrs S C F L es tf L' ->
+Theorem fundamental_property C F L es es' tf wl wl' L' :
+  HasTypeInstrs C F L es tf L' ->
   compile_instrs [] GC_MEM LIN_MEM es wl = OK (wl', es') ->
-  ⊢ semantic_typing S C F L (w_ctx wl') (to_e_list es') tf L'.
+  ⊢ semantic_typing C F L (w_ctx wl') (to_e_list es') tf L'.
 Proof.
   intros Htyp Hcomp.
   generalize dependent es'.
-  induction Htyp using HasTypeInstrs_mind with (P := fun S C F L e ta L' _ => forall es', compile_instr [] GC_MEM LIN_MEM e wl = OK (wl', es') -> ⊢ semantic_typing S C F L [] (to_e_list es') ta L').
+  induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ => forall es', compile_instr [] GC_MEM LIN_MEM e wl = OK (wl', es') -> ⊢ semantic_typing C F L [] (to_e_list es') ta L').
+  - admit.
+  - admit.
+  - admit.
   - admit.
   - admit.
   - intros es' Hcomp.
@@ -520,15 +522,19 @@ Proof.
     (*inversion Hcomp.*)
     (*destruct l'.*)
     admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
 Admitted.
 
-(*Lemma sniff_cons S C F L1 L2 L3 e es es'  :*)
+(*Lemma sniff_cons C F L1 L2 L3 e es es'  :*)
 (*  compile_instrs [] 0 GC_MEM LIN_MEM (es ++ [e])%list = Some es' ->*)
 (*  (compile_instrs [] 0 GC_MEM LIN_MEM es = Some es' ->*)
 (*   ⊢ semantic_typing S1 C F L1 [] (to_e_list es') (Arrow tau1 tau2) L2) ->*)
 (*  (compile_instrs [] 0 GC_MEM LIN_MEM [e] = Some es' ->*)
 (*   ⊢ semantic_typing S2 C F L2 [] (to_e_list es') (Arrow tau2 tau3) L3)*)
-(*  ⊢ semantic_typing S C F L1 [] (to_e_list es') (Arrow tau1 tau3) L3.*)
+(*  ⊢ semantic_typing C F L1 [] (to_e_list es') (Arrow tau1 tau3) L3.*)
 
 Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
   (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ WP (es : iris.expr) @ NotStuck ; ⊤ {{ v, Φ v }})%I (at level 50).
@@ -832,13 +838,13 @@ Proof.
       congruence.
 Qed.
 
-Lemma sniff_test S C F L cap l ℓ sgn τ eff es wl wl':
+Lemma sniff_test C F L cap l ℓ sgn τ eff es wl wl':
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
   fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
   snd eff = LSig L L ->
   compile_instr [] 0 0 (RT.IStructGet eff 0) wl = OK (wl', es) ->
-  ⊢ semantic_typing S C F L [T_i32] (to_e_list es) (fst eff) L.
+  ⊢ semantic_typing C F L [T_i32] (to_e_list es) (fst eff) L.
 Proof.
   intros Hl Hτ Heff Hloceff.
   destruct eff as [x y]. cbn in Heff, Hloceff. subst x y.
