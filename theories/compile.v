@@ -305,27 +305,49 @@ Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * R.Typ
   | [], _ => mthrow (Err "local_layout given out of bounds index")
   end.
 
-Definition get_i64_local loc :=
-      [W.BI_get_local loc;
-       W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
-       W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32%Z));
-       W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl);
-       W.BI_get_local (loc + 1);
-       W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
-       W.BI_binop W.T_i64 (W.Binop_i W.BOI_or)].
+Definition get_i64_local (loc : W.immediate) : list W.basic_instruction :=
+  [ W.BI_get_local loc;
+    W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
+    W.BI_get_local (loc + 1);
+    W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
+    W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl);
+    W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
+    W.BI_binop W.T_i64 (W.Binop_i W.BOI_or) ].
+
+Definition set_i64_local (loc : W.immediate) : wst (list W.basic_instruction) :=
+  tmp ← walloc W.T_i64;
+  mret [ W.BI_tee_local tmp;
+         W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one));
+         W.BI_binop W.T_i64 (W.Binop_i W.BOI_and);
+         W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None;
+         W.BI_set_local loc;
+         W.BI_get_local tmp;
+         W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
+         W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr);
+         W.BI_set_local (loc + 1) ].
 
 Fixpoint numtyp_gets (nτ: R.NumType) (loc: nat) : list W.basic_instruction :=
   match nτ with
-  | R.Int s R.i32 =>
-      [W.BI_get_local loc]
+  | R.Int s R.i32 => [ W.BI_get_local loc ]
   | R.Float R.f32 =>
-      [W.BI_get_local loc;
-       W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None]
-  | R.Int s R.i64 =>
-      get_i64_local loc
+      [ W.BI_get_local loc;
+        W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None ]
+  | R.Int s R.i64 => get_i64_local loc
   | R.Float R.f64 =>
-      get_i64_local loc ++ 
-      [W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None]
+      get_i64_local loc ++
+      [ W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None ]
+  end.
+
+Fixpoint numtyp_sets (nτ: R.NumType) (loc: nat) : wst (list W.basic_instruction) :=
+  match nτ with
+  | R.Int s R.i32 => mret [ W.BI_set_local loc ]
+  | R.Float R.f32 =>
+      mret [ W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None;
+             W.BI_set_local loc ]
+  | R.Int s R.i64 => set_i64_local loc
+  | R.Float R.f64 =>
+      es ← set_i64_local loc;
+      mret $ W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None :: es
   end.
 
 Fixpoint local_gets (τ: R.Typ) (loc: nat) : exn err (list W.basic_instruction) :=
@@ -362,10 +384,10 @@ Fixpoint local_gets (τ: R.Typ) (loc: nat) : exn err (list W.basic_instruction) 
       mret [W.BI_get_local loc]
   end.
 
-Fixpoint local_sets (τ: R.Typ) (loc: nat) : exn err (list W.basic_instruction) :=
+Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
   match τ with
   | R.Num nτ =>
-      mret (numtyp_gets nτ loc)
+      numtyp_sets nτ loc
   | R.TVar α =>
       mret [W.BI_set_local loc]
   | R.Unit =>
@@ -374,8 +396,8 @@ Fixpoint local_sets (τ: R.Typ) (loc: nat) : exn err (list W.basic_instruction) 
       let fix loop τs0 sz :=
         match τs0 with
         | τ0 :: τs0' =>
-            sz ← words_typ τ0;
-            es ← local_gets τ0 loc;
+            sz ← liftM $ words_typ τ0;
+            es ← local_sets τ0 loc;
             es' ← loop τs0' (loc + sz);
             mret $ es ++ es'
         | [] => mret []
@@ -383,17 +405,61 @@ Fixpoint local_sets (τ: R.Typ) (loc: nat) : exn err (list W.basic_instruction) 
       loop τs loc
   | R.CoderefT χ => mthrow Todo
   | R.Rec q τ =>
-      local_gets τ loc
+      local_sets τ loc
   | R.PtrT ℓ =>
       mret [W.BI_set_local loc]
   | R.ExLoc q τ =>
-      local_gets τ loc
+      local_sets τ loc
   | R.OwnR ℓ =>
       mret []
   | R.CapT cap ℓ ψ =>
       mret []
   | R.RefT cap ℓ ψ =>
       mret [W.BI_set_local loc]
+  end.
+
+Definition funcidx_unregisterroot : W.immediate.
+Admitted.
+
+Fixpoint typ_word_size (ty : R.Typ) : nat :=
+  match ty with
+  | R.Num (R.Int _ R.i32) => 1
+  | R.Num (R.Int _ R.i64) => 2
+  | R.Num (R.Float R.f32) => 1
+  | R.Num (R.Float R.f64) => 2
+  | R.TVar _ => 1
+  | R.Unit => 0
+  | R.ProdT tys => list_sum $ map typ_word_size tys
+  | R.CoderefT _ => 1
+  | R.Rec _ ty' => typ_word_size ty'
+  | R.PtrT _ => 1
+  | R.ExLoc _ ty' => typ_word_size ty'
+  | R.OwnR _ => 0
+  | R.CapT _ _ _ => 0
+  | R.RefT _ _ _ => 1
+  end.
+
+Fixpoint try_unregisterroot (ty : R.Typ) (i : W.immediate) : list W.basic_instruction :=
+  match ty with
+  | R.Num _
+  | R.Unit
+  | R.CoderefT _
+  | R.PtrT _
+  | R.OwnR _
+  | R.CapT _ _ _ => []
+  | R.ProdT tys =>
+      snd $ foldl
+        (fun '(j, es) ty' => (j + typ_word_size ty', es ++ try_unregisterroot ty' j))
+        (i, [])
+        tys
+  | R.Rec _ ty'
+  | R.ExLoc _ ty' => try_unregisterroot ty' i
+  | R.TVar _
+  | R.RefT _ _ _ =>
+      if_gc_bit_set i [W.T_i32] [W.T_i32]
+        [W.BI_call funcidx_unregisterroot]
+        [] ++
+      [W.BI_set_local i]
   end.
 
 Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
@@ -411,14 +477,13 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       mret [W.BI_nop]
   | R.IDrop (R.Arrow targs trets, _) =>
       match targs with
-      | (t_drop :: targs) =>
-        wasm_typ ← liftM $ compile_typ t_drop;
-        mret $ map (const W.BI_drop) wasm_typ
-      | [] => 
-        mthrow (Err "rwasm.IDrop should have a nonempty stack type annotation")
+      | [t_drop] =>
+          wasm_typ ← liftM $ compile_typ t_drop;
+          tmp ← walloc W.T_i32;
+          mret $ try_unregisterroot t_drop tmp ++
+                 map (const W.BI_drop) wasm_typ
+      | _ => mthrow (Err "drop should consume exactly one value")
       end
-  | R.ISelect (R.Arrow targs trets, _) =>
-      mret [W.BI_select]
   | R.IBlock (R.Arrow targs trets, _) ta _ i =>
     ta' ← liftM $ compile_arrow_type ta;
     i' ← mapM compile_instr i;
@@ -435,20 +500,23 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IBr (R.Arrow targs trets, _) x => mret [W.BI_br x]
   | R.IBrIf (R.Arrow targs trets, _) x => mret [W.BI_br_if x]
   | R.IBrTable (R.Arrow targs trets, _) x x0 => mret [W.BI_br_table x x0]
-  | R.IRet (R.Arrow targs trets, _) => mret [W.BI_return]
+  | R.IRet (R.Arrow targs trets, _) =>
+      (* TODO: unregisterroot the implicitly dropped values *)
+      mret [W.BI_return]
   | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
+      (* TODO: duproot *)
       '(base, τ) ← liftM $ local_layout L 0 idx;
       liftM $ local_gets τ base
   | R.ISetLocal (R.Arrow targs trets, LSig L _) idx =>
+      (* TODO: unregisterroot the old local value *)
       '(base, τ) ← liftM $ local_layout L 0 idx;
-      liftM $ local_sets τ base
-  | R.ITeeLocal (R.Arrow targs trets, LSig L _) idx =>
-      '(base, τ) ← liftM $ local_layout L 0 idx;
-      sets ← liftM $ local_sets τ base;
-      gets ← liftM $ local_gets τ base;
-      mret $ sets ++ gets
-  | R.IGetGlobal (R.Arrow targs trets, _) x => mret [W.BI_get_global x]
-  | R.ISetGlobal (R.Arrow targs trets, _) x => mret [W.BI_set_global x]
+      local_sets τ base
+  | R.IGetGlobal (R.Arrow targs trets, _) x =>
+      (* TODO: duproot *)
+      mret [W.BI_get_global x]
+  | R.ISetGlobal (R.Arrow targs trets, _) x =>
+      (* TODO: unregisterroot the old global value *)
+      mret [W.BI_set_global x]
   | R.ICoderef (R.Arrow targs trets, _) x => mthrow Todo
   | R.ICallIndirect (R.Arrow targs trets, _) inds => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
   | R.ICall (R.Arrow targs trets, _) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)
@@ -457,11 +525,16 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       e__s' ← flatten <$> mapM compile_instr es;
       mret [W.BI_block ta' e__s']
   | R.IStructMalloc (R.Arrow targs trets, _) szs q =>
+      (* TODO: registerroot on the new address;
+               unregisterroot if any field is GC ref being put into GC struct *)
       mthrow Todo
   | R.IStructFree (R.Arrow targs trets, _) =>
+      (* TODO: unregisterroot fields that may be refs to GC if this struct is MM *)
       mthrow Todo
              (* mret $ [wasm.BI_call Σ.(me_free)]*)
   | R.IStructGet (R.Arrow from to, _) n =>
+      (* TODO: registerroot if loading from GC struct;
+               duproot if loading from MM struct *)
       base_ref ← walloc W.T_i32;
       fields ← liftM $ get_struct_field_types from 0;
       field_typ ← liftM $ err_opt (list_lookup 0 to) "struct.get: cannot find output val type";
@@ -470,12 +543,14 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       load_instrs ← tagged_load base_ref offset_instrs field_typ;
       mret $ W.BI_tee_local base_ref :: load_instrs
   | R.IStructSet (R.Arrow from to, _) n =>
+      (* TODO: unregisterroot if MM struct *)
       fields ← liftM $ get_struct_field_types from 1;
       val_typ ← liftM $ err_opt (list_lookup 0 from) "struct.set: cannot find input val type";
       offset_sz ← liftM $ struct_field_offset fields n;
       offset_e ← liftM $ compile_sz offset_sz;
       tagged_store offset_e val_typ
   | R.IStructSwap (R.Arrow from to, _) n =>
+      (* TODO: registerroot if GC struct *)
       fields ← liftM $ get_struct_field_types from 1;
       field_typ ← liftM $ err_opt (list_lookup 0 from) "struct.swap: cannot find input val type";
       field_shape ← liftM $ compile_typ field_typ;
@@ -490,6 +565,8 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
               layout.Drop]                   (* [offset] → [] *)
 *)
   | R.IVariantMalloc (R.Arrow from to, _) sz tys q =>
+      (* TODO: registerroot on the new address;
+               unregisterroot if payload is GC ref being put into GC variant *)
       typ ← liftM $ err_opt (list_lookup 0 from) "variant.malloc: cannot find val type";
       shape ← liftM $ compile_typ  typ;
       (* memory layout is [ind, τ*] so we just add prepend *)
@@ -505,10 +582,14 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
         layout.StoreOffset;      (* [ptr; offset; val] → [ptr; offset] *)
         layout.Drop]             (* [ptr; offset] → [ptr] *)
     *)
-    | R.IVariantCase ann q th ta tl es => mthrow Todo
+    | R.IVariantCase ann q th ta tl es =>
+        (* TODO: duproot if unrestricted *)
+        mthrow Todo
     (* [val__init; len] → [ptr] *)
     (* [τ      ; i32] → [i32] *)
     | R.IArrayMalloc (R.Arrow from to, _) q =>
+      (* TODO: unregisterroot the initial value if GC array;
+               duproot a bunch of times if MM array *)
       arr_init_typ ← liftM $ err_opt (list_lookup 1 from) "array.malloc: cannot find val type";
       shape ← liftM $ compile_typ arr_init_typ;
       mthrow Todo
@@ -523,6 +604,8 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
     (* [ptr; idx] → [ptr; val] *)
     (* [i32; i32] → [i32; τ  ] *)
     | R.IArrayGet (R.Arrow from to, _) =>
+      (* TODO: registerroot if GC array;
+               duproot if MM array *)
       elem_typ ← liftM $ get_array_elem_type from 1;
       elem_shape ← liftM $ compile_typ elem_typ;
       (*  ex: i64[i]
@@ -544,6 +627,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
     (* [i32; i32; τ  ] → [i32] *)
 *)
     | R.IArraySet (R.Arrow from to, _) =>
+      (* TODO: unregisterroot if GC array *)
       elem_typ ← liftM $ get_array_elem_type from 2;
       elem_shape ← liftM $ compile_typ elem_typ;
       (*  ex: [i]
@@ -566,9 +650,15 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
 *)
     (* [ptr] → [] *)
     (* [i32] → [] *)
-  | R.IArrayFree ann => mthrow Todo (*mret $ [wasm.BI_call Σ.(me_free)]*)
-  | R.IExistPack (R.Arrow targs trets, _) x x0 x1 => mthrow Todo
-  | R.IExistUnpack (R.Arrow targs trets, _) x x0 x1 x2 x3 => mthrow Todo
+  | R.IArrayFree ann =>
+      (* TODO: unregisterroot a bunch of times, since this is an MM array *)
+      mthrow Todo (*mret $ [wasm.BI_call Σ.(me_free)]*)
+  | R.IExistPack (R.Arrow targs trets, _) x x0 x1 =>
+      (* TODO: unregisterroot if GC package *)
+      mthrow Todo
+  | R.IExistUnpack (R.Arrow targs trets, _) x x0 x1 x2 x3 =>
+      (* TODO: registerroot if GC package *)
+      mthrow Todo
   | R.IRefSplit _
   | R.IRefJoin _
   | R.IRecFold _ _

@@ -360,7 +360,6 @@ Fixpoint subst'_instruction {A : Type} (su : Subst' Kind) (i : instr A) {struct 
   | IUnreachable _ => i
   | INop _ => i
   | IDrop _ => i
-  | ISelect _ => i
   | IBlock ann arr leffs insns =>
     IBlock ann
            (subst'_arrowtype su arr)
@@ -382,7 +381,6 @@ Fixpoint subst'_instruction {A : Type} (su : Subst' Kind) (i : instr A) {struct 
   | IRet _ => i
   | IGetLocal ann n q => IGetLocal ann n (subst'_qual su q)
   | ISetLocal _ _ => i
-  | ITeeLocal _ _ => i
   | IGetGlobal _ _ => i
   | ISetGlobal _ _ => i
   | ICoderef _ _ => i

@@ -1616,7 +1616,6 @@ Admitted.
     | IUnreachable ann
     | INop ann
     | IDrop ann
-    | ISelect ann
     | IBlock ann _ _ _
     | ILoop ann _ _
     | IIte ann _ _ _ _
@@ -1626,7 +1625,6 @@ Admitted.
     | IRet ann
     | IGetLocal ann _ _
     | ISetLocal ann _
-    | ITeeLocal ann _
     | IGetGlobal ann _
     | ISetGlobal ann _
     | ICoderef ann _
@@ -1701,14 +1699,6 @@ Admitted.
         TypQualLeq F t Unrestricted = Some true ->
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (IDrop (Arrow [t] [], LSig L L)) (Arrow [t] []) L
-  | SelectTyp :
-      forall C F L t,
-        LocalCtxValid F L ->
-        TypeValid F t ->
-        TypQualLeq F t Unrestricted = Some true ->
-        QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstr C F L (ISelect (Arrow [t; t; uint32T] [t], LSig L L))
-          (Arrow [t; t; uint32T] [t]) L
   | BlockTyp :
       forall C F L tl taus1 taus2 es L'',
         let tf := Arrow taus1 taus2 in
@@ -1823,18 +1813,6 @@ Admitted.
         TypeValid F tau ->
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (ISetLocal (EmptyRes tau, LSig L (set_localtype i tau sz L)) i) (EmptyRes tau) (set_localtype i tau sz L)
-  | TeelocalTyp :
-      forall C F L i tau_orig tau sz szn,
-        nth_error L i = Some (tau_orig, sz) ->
-        TypQualLeq F tau_orig Unrestricted = Some true ->
-        TypQualLeq F tau Unrestricted = Some true ->
-        Some szn = sizeOfType (type F) tau ->
-        SizeValid (size F) szn ->
-        SizeLeq (size F) szn sz = Some true ->
-        LocalCtxValid F L ->
-        TypeValid F tau ->
-        QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstr C F L (ITeeLocal (Arrow [tau] [tau], LSig L (set_localtype i tau sz L)) i) (Arrow [tau] [tau]) (set_localtype i tau sz L)
   | GetglobalTyp :
       forall C F L i mut tau,
         nth_error (global C) i = Some (GT mut tau) ->
