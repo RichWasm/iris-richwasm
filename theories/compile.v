@@ -458,10 +458,13 @@ Definition save_stack (tys : list R.Typ) : wst (W.immediate * list W.basic_instr
 Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : list W.basic_instruction :=
   local_gets (R.ProdT tys) idx.
 
+Definition funcidx_duproot : W.immediate.
+Admitted.
+
 Definition funcidx_unregisterroot : W.immediate.
 Admitted.
 
-Fixpoint try_unregisterroot (ty : R.Typ) (i : W.immediate) : list W.basic_instruction :=
+Fixpoint ty_map_refs (funcidx : W.immediate) (ty : R.Typ) (i : W.immediate) : list W.basic_instruction :=
   match ty with
   | R.Num _
   | R.Unit
@@ -471,21 +474,21 @@ Fixpoint try_unregisterroot (ty : R.Typ) (i : W.immediate) : list W.basic_instru
   | R.CapT _ _ _ => []
   | R.ProdT tys =>
       snd $ foldl
-        (fun '(j, es) ty' => (j + typ_word_size ty', es ++ try_unregisterroot ty' j))
+        (fun '(j, es) ty' => (j + typ_word_size ty', es ++ ty_map_refs funcidx ty' j))
         (i, [])
         tys
   | R.Rec _ ty'
-  | R.ExLoc _ ty' => try_unregisterroot ty' i
+  | R.ExLoc _ ty' => ty_map_refs funcidx ty' i
   | R.TVar _
   | R.RefT _ _ _ =>
       if_gc_bit_set i [W.T_i32] [W.T_i32]
-        [W.BI_call funcidx_unregisterroot]
+        [W.BI_call funcidx]
         [] ++
       [W.BI_set_local i]
   end.
 
-Definition try_unregisterroots (tys : list R.Typ) (i : W.immediate) : list W.basic_instruction :=
-  try_unregisterroot (R.ProdT tys) i.
+Definition tys_map_refs (funcidx : W.immediate) (tys : list R.Typ) (i : W.immediate) : list W.basic_instruction :=
+  ty_map_refs funcidx (R.ProdT tys) i.
 
 Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
   match instr with
@@ -505,7 +508,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       | [t_drop] =>
           let wasm_typ := compile_typ t_drop in
           '(base, es) ← save_stack [t_drop];
-          mret $ try_unregisterroot t_drop base ++
+          mret $ ty_map_refs funcidx_unregisterroot t_drop base ++
                  restore_stack [t_drop] base ++
                  map (const W.BI_drop) wasm_typ
       | _ => mthrow (Err "drop should consume exactly one value")
@@ -534,17 +537,21 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       '(idx_dropped, dropped_es) ← save_stack rdropped;
       mret $ ret_set_es ++
              dropped_es ++
-             try_unregisterroots rdropped idx_dropped ++
+             tys_map_refs funcidx_unregisterroot rdropped idx_dropped ++
              restore_stack ret_ty' idx_ret ++
              [W.BI_return]
   | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
-      (* TODO: duproot *)
       '(base, τ) ← liftM $ local_layout L 0 idx;
-      mret $ local_gets τ base
+      let es1 := local_gets τ base in
+      '(i, es2) ← save_stack [τ];
+      let es3 := ty_map_refs funcidx_duproot τ i in
+      let es4 := restore_stack [τ] i in
+      mret $ es1 ++ es2 ++ es3 ++ es4
   | R.ISetLocal (R.Arrow targs trets, LSig L _) idx =>
-      (* TODO: unregisterroot the old local value *)
       '(base, τ) ← liftM $ local_layout L 0 idx;
-      local_sets τ base
+      let es1 := ty_map_refs funcidx_unregisterroot τ base in
+      es2 ← local_sets τ base;
+      mret $ es1 ++ es2
   | R.IGetGlobal (R.Arrow targs trets, _) x =>
       (* TODO: duproot *)
       mret [W.BI_get_global x]
@@ -661,7 +668,8 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
     (* [i32; i32; τ  ] → [i32] *)
 *)
     | R.IArraySet (R.Arrow from to, _) =>
-      (* TODO: unregisterroot if GC array *)
+      (* TODO: unregisterroot if GC array;
+               duproot a bunch of times if MM array *)
       elem_typ ← liftM $ get_array_elem_type from 2;
       let elem_shape := compile_typ elem_typ in
       (*  ex: [i]
