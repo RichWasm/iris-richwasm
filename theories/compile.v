@@ -416,9 +416,6 @@ Fixpoint local_gets (τ: R.Typ) (loc: nat) : list W.basic_instruction :=
       [W.BI_get_local loc]
   end.
 
-Definition local_getss (tys : list R.Typ) (loc : nat) : list W.basic_instruction :=
-  local_gets (R.ProdT tys) loc.
-
 Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
   match τ with
   | R.Num nτ =>
@@ -453,8 +450,13 @@ Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
       mret [W.BI_set_local loc]
   end.
 
-Definition local_setss (tys : list R.Typ) (loc : nat) : wst (list W.basic_instruction) :=
-  local_sets (R.ProdT tys) loc.
+Definition save_stack (tys : list R.Typ) : wst (W.immediate * list W.basic_instruction) :=
+  idx ← walloc_rvalues tys;
+  es ← local_sets (R.ProdT tys) idx;
+  mret (idx, es).
+
+Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : list W.basic_instruction :=
+  local_gets (R.ProdT tys) idx.
 
 Definition funcidx_unregisterroot : W.immediate.
 Admitted.
@@ -502,10 +504,9 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       match targs with
       | [t_drop] =>
           let wasm_typ := compile_typ t_drop in
-          base ← walloc_rvalue t_drop;
-          local_es ← local_sets t_drop base;
+          '(base, es) ← save_stack [t_drop];
           mret $ try_unregisterroot t_drop base ++
-                 local_gets t_drop base ++
+                 restore_stack [t_drop] base ++
                  map (const W.BI_drop) wasm_typ
       | _ => mthrow (Err "drop should consume exactly one value")
       end
@@ -529,15 +530,12 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       let ret_ty' := ssrfun.Option.default [] ret_ty in
       let rdropped := take (length targs - length ret_ty') targs in
       let wdropped := flat_map compile_typ rdropped in
-      idx_ret ← walloc_rvalues ret_ty';
-      idx_dropped ← walloc_rvalues rdropped;
-      ret_set_es ← local_setss ret_ty' idx_ret;
-      let ret_get_es := local_getss ret_ty' idx_ret in
-      dropped_es ← local_setss rdropped idx_dropped;
+      '(idx_ret, ret_set_es) ← save_stack ret_ty';
+      '(idx_dropped, dropped_es) ← save_stack rdropped;
       mret $ ret_set_es ++
              dropped_es ++
              try_unregisterroots rdropped idx_dropped ++
-             ret_get_es ++
+             restore_stack ret_ty' idx_ret ++
              [W.BI_return]
   | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
       (* TODO: duproot *)
