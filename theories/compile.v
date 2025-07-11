@@ -37,6 +37,9 @@ Definition wst (A: Type) : Type := stateT wlayout (exn err) A.
 Definition walloc (t: W.value_type) : wst W.immediate :=
   λ w, OK (wextend w t, next_idx w).
 
+Definition wnext_idx : wst W.immediate :=
+  λ w, OK (w, next_idx w).
+
 Definition compile_int_type (typ : R.IntType) : W.value_type :=
   match typ with
   | R.i32 => W.T_i32
@@ -145,6 +148,7 @@ Variable (sz_locs: size_ctx).
 (* i32 local for hanging on to linear references during stores/loads *)
 Variable (GC_MEM: W.immediate).
 Variable (LIN_MEM: W.immediate).
+Variable (ret_ty : option (list R.Typ)).
 
 Fixpoint struct_field_offset (fields: list (R.Typ * R.Size)) (idx: nat) : exn err R.Size :=
   match idx with
@@ -293,9 +297,15 @@ Definition walloc_args (tys: list W.value_type)
   vars ← wallocs tys;
   mret $ (vars, map W.BI_set_local vars).
 
-Definition walloc_rvalue (ty : R.Typ) : wst (option W.immediate) :=
-  vars ← mapM walloc $ repeat W.T_i32 $ typ_word_size ty;
-  mret $ head vars.
+Definition walloc_rvalue (ty : R.Typ) : wst W.immediate :=
+  next_idx ← wnext_idx;
+  _ ← mapM walloc $ repeat W.T_i32 $ typ_word_size ty;
+  mret next_idx.
+
+Definition walloc_rvalues (tys : list R.Typ) : wst W.immediate :=
+  next_idx ← wnext_idx;
+  _ ← mapM walloc_rvalue tys;
+  mret next_idx.
 
 Definition tagged_store
   (offset_instrs: list W.basic_instruction)
@@ -406,6 +416,9 @@ Fixpoint local_gets (τ: R.Typ) (loc: nat) : list W.basic_instruction :=
       [W.BI_get_local loc]
   end.
 
+Definition local_getss (tys : list R.Typ) (loc : nat) : list W.basic_instruction :=
+  local_gets (R.ProdT tys) loc.
+
 Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
   match τ with
   | R.Num nτ =>
@@ -440,6 +453,9 @@ Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
       mret [W.BI_set_local loc]
   end.
 
+Definition local_setss (tys : list R.Typ) (loc : nat) : wst (list W.basic_instruction) :=
+  local_sets (R.ProdT tys) loc.
+
 Definition funcidx_unregisterroot : W.immediate.
 Admitted.
 
@@ -466,6 +482,9 @@ Fixpoint try_unregisterroot (ty : R.Typ) (i : W.immediate) : list W.basic_instru
       [W.BI_set_local i]
   end.
 
+Definition try_unregisterroots (tys : list R.Typ) (i : W.immediate) : list W.basic_instruction :=
+  try_unregisterroot (R.ProdT tys) i.
+
 Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
   match instr with
   | R.INumConst _ num_type num =>
@@ -484,14 +503,10 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       | [t_drop] =>
           let wasm_typ := compile_typ t_drop in
           base ← walloc_rvalue t_drop;
-          match base with
-          | None => mret []
-          | Some base' =>
-              local_es ← local_sets t_drop base';
-              mret $ try_unregisterroot t_drop base' ++
-                     local_gets t_drop base' ++
-                     map (const W.BI_drop) wasm_typ
-          end
+          local_es ← local_sets t_drop base;
+          mret $ try_unregisterroot t_drop base ++
+                 local_gets t_drop base ++
+                 map (const W.BI_drop) wasm_typ
       | _ => mthrow (Err "drop should consume exactly one value")
       end
   | R.IBlock (R.Arrow targs trets, _) ta _ i =>
@@ -511,8 +526,19 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IBrIf (R.Arrow targs trets, _) x => mret [W.BI_br_if x]
   | R.IBrTable (R.Arrow targs trets, _) x x0 => mret [W.BI_br_table x x0]
   | R.IRet (R.Arrow targs trets, _) =>
-      (* TODO: unregisterroot the implicitly dropped values *)
-      mret [W.BI_return]
+      let ret_ty' := ssrfun.Option.default [] ret_ty in
+      let rdropped := take (length targs - length ret_ty') targs in
+      let wdropped := flat_map compile_typ rdropped in
+      idx_ret ← walloc_rvalues ret_ty';
+      idx_dropped ← walloc_rvalues rdropped;
+      ret_set_es ← local_setss ret_ty' idx_ret;
+      let ret_get_es := local_getss ret_ty' idx_ret in
+      dropped_es ← local_setss rdropped idx_dropped;
+      mret $ ret_set_es ++
+             dropped_es ++
+             try_unregisterroots rdropped idx_dropped ++
+             ret_get_es ++
+             [W.BI_return]
   | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
       (* TODO: duproot *)
       '(base, τ) ← liftM $ local_layout L 0 idx;
