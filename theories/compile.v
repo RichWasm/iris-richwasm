@@ -64,19 +64,19 @@ Definition compile_kindvar (κ: R.KindVar) : list W.value_type :=
 Definition compile_kindvars (κs: list R.KindVar) : list W.value_type :=
   flat_map compile_kindvar κs.
 
-Fixpoint compile_typ (typ: R.Typ) : exn err (list W.value_type) :=
+Fixpoint compile_typ (typ: R.Typ) : list W.value_type :=
   match typ with
-  | R.Num ntyp => mret [compile_numtyp ntyp]
-  | R.TVar _ => mret [W.T_i32]
-  | R.Unit => mret []
-  | R.ProdT typs => flatten <$> mapM compile_typ typs
-  | R.CoderefT _ => mthrow Todo
+  | R.Num ntyp => [compile_numtyp ntyp]
+  | R.TVar _ => [W.T_i32]
+  | R.Unit => []
+  | R.ProdT typs => flatten $ map compile_typ typs
+  | R.CoderefT _ => [] (* TODO *)
   | R.Rec _ typ => compile_typ typ
-  | R.PtrT _ => mret [W.T_i32]
+  | R.PtrT _ => [W.T_i32]
   | R.ExLoc q typ => compile_typ typ
-  | R.OwnR _ => mret []
-  | R.CapT _ _ _ => mret []
-  | R.RefT _ _ _  => mret [W.T_i32]
+  | R.OwnR _ => []
+  | R.CapT _ _ _ => []
+  | R.RefT _ _ _  => [W.T_i32]
   end.
     (*
 with compile_heap_type (typ: rwasm.HeapType) : exn err unit :=
@@ -87,24 +87,24 @@ with compile_heap_type (typ: rwasm.HeapType) : exn err unit :=
   | rwasm.Ex sz qual typ => mthrow Todo
   end
 *)
-Definition compile_arrow_type (typ: R.ArrowType) : exn err W.function_type :=
+Definition compile_arrow_type (typ: R.ArrowType) : W.function_type :=
   match typ with
   | R.Arrow tys1 tys2 =>
-    tys1' ← mapM compile_typ tys1;
-    tys2' ← mapM compile_typ tys2;
-    mret (W.Tf (flatten tys1') (flatten tys2'))
+    let tys1' := mapM compile_typ tys1 in
+    let tys2' := mapM compile_typ tys2 in
+    W.Tf (flatten tys1') (flatten tys2')
   end.
-Definition compile_fun_type (ft: R.FunType) : exn err W.function_type :=
+Definition compile_fun_type (ft: R.FunType) : W.function_type :=
   match ft with
   | R.FunT κs (R.Arrow tys1 tys2) =>
     let κvs := compile_kindvars κs in
-    tys1' ← flatten <$> mapM compile_typ tys1;
-    tys2' ← flatten <$> mapM compile_typ tys2;
-    mret (W.Tf (κvs ++ tys1') tys2')
+    let tys1' := flatten $ mapM compile_typ tys1 in
+    let tys2' := flatten $ mapM compile_typ tys2 in
+    W.Tf (κvs ++ tys1') tys2'
   end.
 
-Definition words_typ (typ: R.Typ) : exn err nat :=
-  sum_list_with operations.words_t <$> compile_typ typ.
+Definition words_typ (typ: R.Typ) : nat :=
+  sum_list_with operations.words_t $ compile_typ typ.
 
 Definition throw_missing (instr_name : string) : exn err W.basic_instruction :=
   mthrow (Err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
@@ -242,7 +242,7 @@ Definition tagged_load
   (offset_instrs: list W.basic_instruction)
   (ty: R.Typ)
   : wst (list W.basic_instruction) :=
-  tys ← liftM $ compile_typ ty;
+  let tys := compile_typ ty in
   tagged_loads base_ptr offset_instrs tys.
 
 Fixpoint loc_stores'
@@ -301,7 +301,7 @@ Definition tagged_store
   (offset_instrs: list W.basic_instruction)
   (ty: R.Typ)
   : wst (list W.basic_instruction) :=
-  tys ← liftM $ compile_typ ty;
+  let tys := compile_typ ty in
   '(arg_vars, save_args) ← walloc_args tys;
   base_ptr_var ← walloc W.T_i32;
   mret $
@@ -372,38 +372,38 @@ Fixpoint numtyp_sets (nτ: R.NumType) (loc: nat) : wst (list W.basic_instruction
       mret $ W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None :: es
   end.
 
-Fixpoint local_gets (τ: R.Typ) (loc: nat) : exn err (list W.basic_instruction) :=
+Fixpoint local_gets (τ: R.Typ) (loc: nat) : list W.basic_instruction :=
   match τ with
   | R.Num nτ =>
-      mret (numtyp_gets nτ loc)
+      numtyp_gets nτ loc
   | R.TVar α =>
-      mret [W.BI_get_local loc]
+      [W.BI_get_local loc]
   | R.Unit =>
-      mret []
+      []
   | R.ProdT τs =>
       let fix loop τs0 sz :=
         match τs0 with
         | τ0 :: τs0' =>
-            sz ← words_typ τ0;
-            es ← local_gets τ0 loc;
-            es' ← loop τs0' (loc + sz);
-            mret $ es ++ es'
-        | [] => mret []
+            let sz := words_typ τ0 in
+            let es := local_gets τ0 loc in
+            let es' := loop τs0' (loc + sz) in
+            es ++ es'
+        | [] => []
         end in
       loop τs loc
-  | R.CoderefT χ => mthrow Todo
+  | R.CoderefT χ => [] (* TODO *)
   | R.Rec q τ =>
       local_gets τ loc
   | R.PtrT ℓ =>
-      mret [W.BI_get_local loc]
+      [W.BI_get_local loc]
   | R.ExLoc q τ =>
       local_gets τ loc
   | R.OwnR ℓ =>
-      mret []
+      []
   | R.CapT cap ℓ ψ =>
-      mret []
+      []
   | R.RefT cap ℓ ψ =>
-      mret [W.BI_get_local loc]
+      [W.BI_get_local loc]
   end.
 
 Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
@@ -418,7 +418,7 @@ Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
       let fix loop τs0 sz :=
         match τs0 with
         | τ0 :: τs0' =>
-            sz ← liftM $ words_typ τ0;
+            let sz := words_typ τ0 in
             es ← local_sets τ0 loc;
             es' ← loop τs0' (loc + sz);
             mret $ es ++ es'
@@ -482,27 +482,28 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IDrop (R.Arrow targs trets, LSig L _) =>
       match targs with
       | [t_drop] =>
-          wasm_typ ← liftM $ compile_typ t_drop;
+          let wasm_typ := compile_typ t_drop in
           base ← walloc_rvalue t_drop;
           match base with
           | None => mret []
           | Some base' =>
               local_es ← local_sets t_drop base';
               mret $ try_unregisterroot t_drop base' ++
+                     local_gets t_drop base' ++
                      map (const W.BI_drop) wasm_typ
           end
       | _ => mthrow (Err "drop should consume exactly one value")
       end
   | R.IBlock (R.Arrow targs trets, _) ta _ i =>
-    ta' ← liftM $ compile_arrow_type ta;
+    let ta' := compile_arrow_type ta in
     i' ← mapM compile_instr i;
     mret [W.BI_block ta' (flatten i')]
   | R.ILoop (R.Arrow targs trets, _) arrow i =>
-    ft ← liftM $ compile_arrow_type arrow;
+    let ft := compile_arrow_type arrow in
     i' ← mapM compile_instr i;
     mret [W.BI_block ft (flatten i')]
   | R.IIte (R.Arrow targs trets, _) arrow _ t e =>
-    ft ← liftM $ compile_arrow_type arrow;
+    let ft := compile_arrow_type arrow in
     t' ← mapM compile_instr t;
     e' ← mapM compile_instr e;
     mret [W.BI_if ft (flatten t') (flatten e')]
@@ -515,7 +516,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
       (* TODO: duproot *)
       '(base, τ) ← liftM $ local_layout L 0 idx;
-      liftM $ local_gets τ base
+      mret $ local_gets τ base
   | R.ISetLocal (R.Arrow targs trets, LSig L _) idx =>
       (* TODO: unregisterroot the old local value *)
       '(base, τ) ← liftM $ local_layout L 0 idx;
@@ -530,7 +531,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.ICallIndirect (R.Arrow targs trets, _) inds => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
   | R.ICall (R.Arrow targs trets, _) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)
   | R.IMemUnpack _ ta tl es =>
-      ta' ← liftM $ compile_arrow_type ta;
+      let ta' := compile_arrow_type ta in
       e__s' ← flatten <$> mapM compile_instr es;
       mret [W.BI_block ta' e__s']
   | R.IStructMalloc (R.Arrow targs trets, _) szs q =>
@@ -562,7 +563,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       (* TODO: registerroot if GC struct *)
       fields ← liftM $ get_struct_field_types from 1;
       field_typ ← liftM $ err_opt (list_lookup 0 from) "struct.swap: cannot find input val type";
-      field_shape ← liftM $ compile_typ field_typ;
+      let field_shape := compile_typ field_typ in
       offset_sz ← liftM $ struct_field_offset fields n;
       offset_e ← liftM $ compile_sz offset_sz;
       mthrow Todo
@@ -577,7 +578,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       (* TODO: registerroot on the new address;
                unregisterroot if payload is GC ref being put into GC variant *)
       typ ← liftM $ err_opt (list_lookup 0 from) "variant.malloc: cannot find val type";
-      shape ← liftM $ compile_typ  typ;
+      let shape := compile_typ typ in
       (* memory layout is [ind, τ*] so we just add prepend *)
       (*let full_shape := LS_tuple [LS_int32; shape] in*)
       mthrow Todo (*
@@ -600,7 +601,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       (* TODO: unregisterroot the initial value if GC array;
                duproot a bunch of times if MM array *)
       arr_init_typ ← liftM $ err_opt (list_lookup 1 from) "array.malloc: cannot find val type";
-      shape ← liftM $ compile_typ arr_init_typ;
+      let shape := compile_typ arr_init_typ in
       mthrow Todo
              (*
       mret [
@@ -616,7 +617,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       (* TODO: registerroot if GC array;
                duproot if MM array *)
       elem_typ ← liftM $ get_array_elem_type from 1;
-      elem_shape ← liftM $ compile_typ elem_typ;
+      let elem_shape := compile_typ elem_typ in
       (*  ex: i64[i]
          | idx | offset |
          |-----|--------|
@@ -638,7 +639,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
     | R.IArraySet (R.Arrow from to, _) =>
       (* TODO: unregisterroot if GC array *)
       elem_typ ← liftM $ get_array_elem_type from 2;
-      elem_shape ← liftM $ compile_typ elem_typ;
+      let elem_shape := compile_typ elem_typ in
       (*  ex: [i]
          | idx | offset      |
          |-----|-------------|

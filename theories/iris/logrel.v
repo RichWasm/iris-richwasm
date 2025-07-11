@@ -85,10 +85,8 @@ Fixpoint wasm_deser_list (bs: bytes) (vt: list value_type) : list value :=
   end.
   
 Definition read_value (τ: RT.Typ) (bs: bytes) : list value :=
-  match compile_typ τ with
-  | OK vt => wasm_deser_list bs vt
-  | Exn _ => []
-  end.
+  let vt := compile_typ τ in
+  wasm_deser_list bs vt.
 
 Class Read := {
   read_tag : bytes -> nat;
