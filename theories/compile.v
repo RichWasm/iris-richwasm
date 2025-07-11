@@ -266,6 +266,24 @@ Definition stores base_ptr_var mem (val_vars: list W.immediate) (tys: list W.val
   : list W.basic_instruction :=
   loc_stores base_ptr_var mem (zip val_vars tys).
 
+Fixpoint typ_word_size (ty : R.Typ) : nat :=
+  match ty with
+  | R.Num (R.Int _ R.i32) => 1
+  | R.Num (R.Int _ R.i64) => 2
+  | R.Num (R.Float R.f32) => 1
+  | R.Num (R.Float R.f64) => 2
+  | R.TVar _ => 1
+  | R.Unit => 0
+  | R.ProdT tys => list_sum $ map typ_word_size tys
+  | R.CoderefT _ => 1
+  | R.Rec _ ty' => typ_word_size ty'
+  | R.PtrT _ => 1
+  | R.ExLoc _ ty' => typ_word_size ty'
+  | R.OwnR _ => 0
+  | R.CapT _ _ _ => 0
+  | R.RefT _ _ _ => 1
+  end.
+
 Definition wallocs (tys: list W.value_type) : wst (list W.immediate) :=
   mapM walloc tys.
 
@@ -274,6 +292,10 @@ Definition walloc_args (tys: list W.value_type)
          list W.basic_instruction) :=
   vars ← wallocs tys;
   mret $ (vars, map W.BI_set_local vars).
+
+Definition walloc_rvalue (ty : R.Typ) : wst (option W.immediate) :=
+  vars ← mapM walloc $ repeat W.T_i32 $ typ_word_size ty;
+  mret $ head vars.
 
 Definition tagged_store
   (offset_instrs: list W.basic_instruction)
@@ -421,24 +443,6 @@ Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
 Definition funcidx_unregisterroot : W.immediate.
 Admitted.
 
-Fixpoint typ_word_size (ty : R.Typ) : nat :=
-  match ty with
-  | R.Num (R.Int _ R.i32) => 1
-  | R.Num (R.Int _ R.i64) => 2
-  | R.Num (R.Float R.f32) => 1
-  | R.Num (R.Float R.f64) => 2
-  | R.TVar _ => 1
-  | R.Unit => 0
-  | R.ProdT tys => list_sum $ map typ_word_size tys
-  | R.CoderefT _ => 1
-  | R.Rec _ ty' => typ_word_size ty'
-  | R.PtrT _ => 1
-  | R.ExLoc _ ty' => typ_word_size ty'
-  | R.OwnR _ => 0
-  | R.CapT _ _ _ => 0
-  | R.RefT _ _ _ => 1
-  end.
-
 Fixpoint try_unregisterroot (ty : R.Typ) (i : W.immediate) : list W.basic_instruction :=
   match ty with
   | R.Num _
@@ -475,13 +479,18 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       mret [W.BI_unreachable]
   | R.INop (R.Arrow targs trets, _) =>
       mret [W.BI_nop]
-  | R.IDrop (R.Arrow targs trets, _) =>
+  | R.IDrop (R.Arrow targs trets, LSig L _) =>
       match targs with
       | [t_drop] =>
           wasm_typ ← liftM $ compile_typ t_drop;
-          tmp ← walloc W.T_i32;
-          mret $ try_unregisterroot t_drop tmp ++
-                 map (const W.BI_drop) wasm_typ
+          base ← walloc_rvalue t_drop;
+          match base with
+          | None => mret []
+          | Some base' =>
+              local_es ← local_sets t_drop base';
+              mret $ try_unregisterroot t_drop base' ++
+                     map (const W.BI_drop) wasm_typ
+          end
       | _ => mthrow (Err "drop should consume exactly one value")
       end
   | R.IBlock (R.Arrow targs trets, _) ta _ i =>
