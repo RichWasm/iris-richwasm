@@ -1952,11 +1952,8 @@ Admitted.
         LocalCtxValid F L' ->
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (IMemUnpack (tf', LSig L L') tf tl es) tf' L'
-
-(*TODO: memory operations.
   | StructMallocTyp : (* typeset *)
-      forall S C F L szs q taus,
-        M.is_empty (LinTyp S) = true ->
+      forall C F L szs q taus,
         Forall2 (fun tau sz => exists tausz, sizeOfType (type F) tau = Some tausz /\
                    SizeValid (size F) tausz /\
                    SizeLeq (size F) tausz sz = Some true) taus szs ->
@@ -1964,24 +1961,22 @@ Admitted.
         forallb (NoCapsTyp (heapable F)) taus = true ->
         QualValid (qual F) q ->
         let psi := StructType (combine (subst_ext (Kind:=Kind) (weak SLoc) taus) szs) in
+        let tf := Arrow taus [ExLoc q (RefT W (LocV 0) psi)] in
         LocalCtxValid F L ->
         Forall (TypeValid F) taus ->
-        TypeValid F (QualT (ExLoc (QualT (RefT W (LocV 0) psi) q)) q) ->
+        TypeValid F (ExLoc q (RefT W (LocV 0) psi)) ->
         QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstr C F L [StructMalloc szs q]
-                           (Arrow taus
-                                  [QualT (ExLoc (QualT (RefT W (LocV 0) psi) q)) q])
-                           L
+        HasTypeInstr C F L (IStructMalloc (tf, LSig L L) szs q) tf L
   | StructFreeTyp : (* typeset *)
-      forall S C F L q tauszs l,
-        M.is_empty (LinTyp S) = true ->
+      forall C F L q tauszs l,
         QualValid (qual F) q ->
         QualLeq (qual F) Linear q = Some true ->
-        Forall (fun '(QualT _ q, _) => QualLeq (qual F) q Unrestricted = Some true) tauszs ->
+        Forall (fun '(tau, _) => TypQualLeq F tau Unrestricted = Some true) tauszs ->
         LocalCtxValid F L ->
-        TypeValid F (QualT (RefT W l (StructType tauszs)) q) ->
+        TypeValid F (RefT W l (StructType tauszs)) ->
         QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstr C F L [StructFree] (Arrow [QualT (RefT W l (StructType tauszs)) q] []) L
+        let tf := Arrow [RefT W l (StructType tauszs)] [] in 
+        HasTypeInstr C F L (IStructFree (tf, LSig L L)) tf L
   | TStructGet : forall C F L n taus szs tau l cap,
       let psi := StructType (combine taus szs) in
       length taus = length szs ->
@@ -1995,53 +1990,52 @@ Admitted.
         (Arrow [RefT cap l psi] [RefT cap l psi; tau])
         L
   | StructSetTyp :
-      forall S C F L taus szs tau q taus' l n q_old p_old sz tau_sz,
-        M.is_empty (LinTyp S) = true ->
+      forall C F L taus szs tau taus' l n tau_old sz tau_sz,
         let psi := StructType (combine taus szs) in
         length taus = length szs ->
-        ReplaceAtIdx n taus tau = Some (taus', (QualT p_old q_old)) ->
-        QualLeq (qual F) q_old Unrestricted = Some true ->
+        ReplaceAtIdx n taus tau = Some (taus', tau_old) ->
+        TypQualLeq F tau_old Unrestricted = Some true ->
         nth_error szs n = Some sz ->
         sizeOfType (type F) tau = Some tau_sz ->
         SizeValid (size F) tau_sz ->
         SizeLeq (size F) tau_sz sz = Some true ->
         TypeValid F tau ->
         NoCapsTyp (heapable F) tau = true ->
-        (QualLeq (qual F) Linear q = Some true \/
-         tau = QualT p_old q_old) ->
+        (TypQualGeq F tau Linear = Some true \/
+         tau = tau_old) ->
         let psi' := StructType (combine taus' szs) in
         LocalCtxValid F L ->
-        TypeValid F (QualT (RefT W l psi) q) ->
-        TypeValid F (QualT (RefT W l psi') q) ->
+        TypeValid F (RefT W l psi) ->
+        TypeValid F (RefT W l psi') ->
         QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstr C F L [StructSet n]
-                           (Arrow [QualT (RefT W l psi) q; tau]
-                                  [QualT (RefT W l psi') q])
-                           L
+        let tf := Arrow [RefT W l psi; tau]
+                        [RefT W l psi'] in
+        HasTypeInstr C F L (IStructSet (tf, LSig L L) n) tf L
   | StructSwapTyp :
-      forall S C F L taus szs tau q taus' l n tau_old sz tau_sz,
-        M.is_empty (LinTyp S) = true ->
+      forall C F L taus szs tau taus' l n tau_old sz tau_sz,
         let psi := StructType (combine taus szs) in
         length taus = length szs ->
         ReplaceAtIdx n taus tau = Some (taus', tau_old) ->
         nth_error szs n = Some sz ->
         sizeOfType (type F) tau = Some tau_sz ->
         SizeValid (size F) tau_sz ->
-        SizeLeq (size F) tau_sz sz = Some true->
+        SizeLeq (size F) tau_sz sz = Some true ->
         TypeValid F tau ->
         NoCapsTyp (heapable F) tau = true ->
-        (QualLeq (qual F) Linear q = Some true \/
+        (TypQualGeq F tau Linear = Some true \/
          tau = tau_old) ->
         let psi' := StructType (combine taus' szs) in
         LocalCtxValid F L ->
-        TypeValid F (QualT (RefT W l psi) q) ->
-        TypeValid F (QualT (RefT W l psi') q) ->
+        TypeValid F (RefT W l psi) ->
+        TypeValid F (RefT W l psi') ->
         TypeValid F tau_old ->
         QualValid (qual F) (get_hd (linear F)) ->
-        HasTypeInstr C F L [StructSwap n]
-                           (Arrow [QualT (RefT W l psi) q; tau]
-                                  [QualT (RefT W l psi') q; tau_old])
+        let tf := Arrow [RefT W l psi; tau] [RefT W l psi'; tau_old] in
+        HasTypeInstr C F L (IStructSwap (tf, LSig L L) n)
+                           tf 
                            L
+
+(*TODO: memory operations.
   | VariantMallocTyp : (* typeset *)
       forall S C F L n taus q p qp,
         M.is_empty (LinTyp S) = true ->
