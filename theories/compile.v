@@ -186,9 +186,8 @@ Fixpoint compile_sz (sz : R.Size) : exn err (list W.basic_instruction) :=
     mret [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c)))]
   end.
 
-Definition if_gc_bit_set ref_tmp ins outs gc_branch lin_branch :=
-  [W.BI_get_local ref_tmp;
-   W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
+Definition if_gc_bit_set ins outs gc_branch lin_branch :=
+  [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
    W.BI_binop W.T_i32 (W.Binop_i W.BOI_and);
    W.BI_testop W.T_i32 W.TO_eqz;
    W.BI_if (W.Tf ins outs) lin_branch gc_branch].
@@ -240,7 +239,8 @@ Definition tagged_loads
   (tys: list W.value_type) :=
   gc_instrs ← gc_loads base_ptr offset_instrs tys;
   lin_instrs ← lin_loads base_ptr offset_instrs tys;
-  mret $ if_gc_bit_set base_ptr [] tys gc_instrs lin_instrs.
+  mret $ W.BI_get_local base_ptr ::
+         if_gc_bit_set [] tys gc_instrs lin_instrs.
 
 Definition tagged_load
   (base_ptr: W.immediate)
@@ -300,7 +300,8 @@ Definition tagged_store
   mret $
     save_args ++
     W.BI_tee_local base_ptr_var ::
-    if_gc_bit_set base_ptr_var [] []
+    W.BI_get_local base_ptr_var ::
+    if_gc_bit_set [] []
         (W.BI_get_local base_ptr_var ::
          unset_gc_bit ++
          offset_instrs ++
@@ -454,7 +455,35 @@ Admitted.
 Definition funcidx_unregisterroot : W.immediate.
 Admitted.
 
-Fixpoint ty_map_refs (funcidx : W.immediate) (ty : R.Typ) (i : W.immediate) : list W.basic_instruction :=
+Inductive VarScope :=
+  | VSGlobal
+  | VSLocal.
+
+Definition scope_get_set (scope : VarScope) :
+  (W.immediate -> W.basic_instruction) *
+  (W.immediate -> W.basic_instruction) :=
+  match scope with
+  | VSGlobal => (W.BI_get_global, W.BI_set_global)
+  | VSLocal => (W.BI_get_local, W.BI_set_local)
+  end.
+
+Inductive LayoutMode :=
+  | LMWords
+  | LMNative.
+
+Definition layout_ty_length (layout : LayoutMode) (ty : R.Typ) :=
+  match layout with
+  | LMWords => words_typ ty
+  | LMNative => length $ compile_typ ty
+  end.
+
+Fixpoint ty_map_refs
+    (scope : VarScope)
+    (layout : LayoutMode)
+    (funcidx : W.immediate)
+    (ty : R.Typ)
+    (i : W.immediate) :
+    list W.basic_instruction :=
   match ty with
   | R.Num _
   | R.Unit
@@ -464,21 +493,28 @@ Fixpoint ty_map_refs (funcidx : W.immediate) (ty : R.Typ) (i : W.immediate) : li
   | R.CapT _ _ _ => []
   | R.ProdT tys =>
       snd $ foldl
-        (fun '(j, es) ty' => (j + length (compile_typ ty'), es ++ ty_map_refs funcidx ty' j))
+        (fun '(j, es) ty' => (j + layout_ty_length layout ty',
+                              es ++ ty_map_refs scope layout funcidx ty' j))
         (i, [])
         tys
   | R.Rec _ ty'
-  | R.ExLoc _ ty' => ty_map_refs funcidx ty' i
+  | R.ExLoc _ ty' => ty_map_refs scope layout funcidx ty' i
   | R.TVar _
   | R.RefT _ _ _ =>
-      if_gc_bit_set i [W.T_i32] [W.T_i32]
-        [W.BI_call funcidx]
-        [] ++
-      [W.BI_set_local i]
+      let '(get, set) := scope_get_set scope in
+      get i ::
+      if_gc_bit_set [W.T_i32] [W.T_i32] [W.BI_call funcidx] [] ++
+      [set i]
   end.
 
-Definition tys_map_refs (funcidx : W.immediate) (tys : list R.Typ) (i : W.immediate) : list W.basic_instruction :=
-  ty_map_refs funcidx (R.ProdT tys) i.
+Definition tys_map_refs
+    (scope : VarScope)
+    (layout : LayoutMode)
+    (funcidx : W.immediate)
+    (tys : list R.Typ)
+    (i : W.immediate) :
+    list W.basic_instruction :=
+  ty_map_refs scope layout funcidx (R.ProdT tys) i.
 
 Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
   match instr with
@@ -498,7 +534,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       | [t_drop] =>
           let wasm_typ := compile_typ t_drop in
           '(base, es) ← save_stack [t_drop];
-          mret $ ty_map_refs funcidx_unregisterroot t_drop base ++
+          mret $ ty_map_refs VSLocal LMNative funcidx_unregisterroot t_drop base ++
                  restore_stack [t_drop] base ++
                  map (const W.BI_drop) wasm_typ
       | _ => mthrow (Err "drop should consume exactly one value")
@@ -527,29 +563,33 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       '(idx_dropped, dropped_es) ← save_stack rdropped;
       mret $ ret_set_es ++
              dropped_es ++
-             tys_map_refs funcidx_unregisterroot rdropped idx_dropped ++
+             tys_map_refs VSLocal LMNative funcidx_unregisterroot rdropped idx_dropped ++
              restore_stack ret_ty' idx_ret ++
              [W.BI_return]
   | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
       '(base, τ) ← liftM $ local_layout L 0 idx;
       let es1 := local_gets τ base in
       '(i, es2) ← save_stack [τ];
-      let es3 := ty_map_refs funcidx_duproot τ i in
+      let es3 := ty_map_refs VSLocal LMNative funcidx_duproot τ i in
       let es4 := restore_stack [τ] i in
       mret $ es1 ++ es2 ++ es3 ++ es4
   | R.ISetLocal (R.Arrow targs trets, LSig L _) idx =>
       '(base, τ) ← liftM $ local_layout L 0 idx;
-      let es1 := ty_map_refs funcidx_unregisterroot τ base in
+      let es1 := ty_map_refs VSLocal LMWords funcidx_unregisterroot τ base in
       es2 ← local_sets τ base;
       mret $ es1 ++ es2
   | R.IGetGlobal _ i =>
-      (* TODO: duproot *)
       '(i', ty) ← liftM $ guard_opt (Err "invalid global index") $ global_layout C.(global) i;
-      mret $ imap (fun j _ => W.BI_get_global (i' + j)) $ compile_typ ty
+      let es1 := imap (fun j _ => W.BI_get_global $ i' + j) $ compile_typ ty in
+      '(j, es2) ← save_stack [ty];
+      let es3 := ty_map_refs VSLocal LMNative funcidx_duproot ty j in
+      let es4 := restore_stack [ty] i in
+      mret $ es1 ++ es2 ++ es3 ++ es4
   | R.ISetGlobal _ i =>
-      (* TODO: unregisterroot the old global value *)
       '(i', ty) ← liftM $ guard_opt (Err "invalid global index") $ global_layout C.(global) i;
-      mret $ imap (fun j _ => W.BI_set_global (i' + j)) $ compile_typ ty
+      let es1 := ty_map_refs VSGlobal LMNative funcidx_unregisterroot ty i' in
+      let es2 := imap (fun j _ => W.BI_set_global (i' + j)) $ compile_typ ty in
+      mret $ es1 ++ es2
   | R.ICoderef (R.Arrow targs trets, _) x => mthrow Todo
   | R.ICallIndirect (R.Arrow targs trets, _) inds => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
   | R.ICall (R.Arrow targs trets, _) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)

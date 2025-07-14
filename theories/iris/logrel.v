@@ -707,7 +707,7 @@ Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 
   ptr_repr (LocP ℓ GCMem) l32 ->
   ⊢ ↪[frame] f -∗
     ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{ w, ψ w }}) -∗
-    WP to_e_list (if_gc_bit_set ref_tmp ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
+    WP to_e_list (BI_get_local ref_tmp :: if_gc_bit_set ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
 Proof.
   intros Href Hrepr.
   iIntros "Hfr Hbranch".
@@ -779,7 +779,7 @@ Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ 
   ptr_repr (LocP ℓ LinMem) l32 ->
   ⊢ ↪[frame] f -∗
     ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) lin_branch)] @ E {{ w, ψ w }}) -∗
-    WP to_e_list (if_gc_bit_set ref_tmp ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
+    WP to_e_list (BI_get_local ref_tmp :: if_gc_bit_set ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
 Proof.
   intros Href Hrepr.
   iIntros "Hfr Hφ".
