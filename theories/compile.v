@@ -144,11 +144,12 @@ Definition size_ctx :=
   list W.immediate.
 
 Section compile_instr.
+
 Variable (sz_locs: size_ctx).
-(* i32 local for hanging on to linear references during stores/loads *)
 Variable (GC_MEM: W.immediate).
 Variable (LIN_MEM: W.immediate).
-Variable (ret_ty : option (list R.Typ)).
+Variable (C : Module_Ctx).
+Variable (F : Function_Ctx).
 
 Fixpoint struct_field_offset (fields: list (R.Typ * R.Size)) (idx: nat) : exn err R.Size :=
   match idx with
@@ -335,6 +336,13 @@ Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * R.Typ
       sz_const ← expect_concrete_size sz;
       local_layout L (base + sz_const) i
   | [], _ => mthrow (Err "local_layout given out of bounds index")
+  end.
+
+Fixpoint global_layout (globs : list R.GlobalType) (idx : nat) : option (nat * R.Typ) :=
+  match globs, idx with
+  | [R.GT _ ty], 0 => Some (0, ty)
+  | R.GT _ ty :: globs', S idx' => global_layout globs' (length (compile_typ ty) + idx')
+  | _, _ => None
   end.
 
 Definition get_i64_local (loc : W.immediate) : list W.basic_instruction :=
@@ -530,7 +538,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IBrIf (R.Arrow targs trets, _) x => mret [W.BI_br_if x]
   | R.IBrTable (R.Arrow targs trets, _) x x0 => mret [W.BI_br_table x x0]
   | R.IRet (R.Arrow targs trets, _) =>
-      let ret_ty' := ssrfun.Option.default [] ret_ty in
+      let ret_ty' := ssrfun.Option.default [] F.(ret) in
       let rdropped := take (length targs - length ret_ty') targs in
       let wdropped := flat_map compile_typ rdropped in
       '(idx_ret, ret_set_es) ← save_stack ret_ty';
@@ -552,12 +560,14 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       let es1 := ty_map_refs funcidx_unregisterroot τ base in
       es2 ← local_sets τ base;
       mret $ es1 ++ es2
-  | R.IGetGlobal (R.Arrow targs trets, _) x =>
+  | R.IGetGlobal _ i =>
       (* TODO: duproot *)
-      mret [W.BI_get_global x]
-  | R.ISetGlobal (R.Arrow targs trets, _) x =>
+      '(i', ty) ← liftM $ guard_opt (Err "invalid global index") $ global_layout C.(global) i;
+      mret $ imap (fun j _ => W.BI_get_global (i' + j)) $ compile_typ ty
+  | R.ISetGlobal _ i =>
       (* TODO: unregisterroot the old global value *)
-      mret [W.BI_set_global x]
+      '(i', ty) ← liftM $ guard_opt (Err "invalid global index") $ global_layout C.(global) i;
+      mret $ imap (fun j _ => W.BI_set_global (i' + j)) $ compile_typ ty
   | R.ICoderef (R.Arrow targs trets, _) x => mthrow Todo
   | R.ICallIndirect (R.Arrow targs trets, _) inds => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
   | R.ICall (R.Arrow targs trets, _) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)
