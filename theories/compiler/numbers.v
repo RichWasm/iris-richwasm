@@ -50,6 +50,42 @@ Definition compile_float_type (typ : R.FloatType) : W.value_type :=
 Definition throw_missing (instr_name : string) : exn err W.basic_instruction :=
   mthrow (Err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
 
+Definition compile_cvt_op (op: R.CvtOp) : W.basic_instruction :=
+  match op with
+  | R.Wrap =>
+      W.BI_cvtop W.T_i32 W.CVO_convert W.T_i64 None
+  | R.Extend s =>
+      W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 (Some $ compile_sign s)
+  | R.Trunc i f s =>
+      let wi := compile_int_type i in
+      let wf := compile_float_type f in
+      W.BI_cvtop wi W.CVO_convert wf (Some $ compile_sign s)
+  | R.TruncSat i f s =>
+      (* XXX this case shouldn't be the same as the Trunc case, but I
+         don't see what else it could be in the wasmcert syntax. Is
+         this a Wasm 1.0 vs current day Wasm issue ? *)
+      let wi := compile_int_type i in
+      let wf := compile_float_type f in
+      W.BI_cvtop wi W.CVO_convert wf (Some $ compile_sign s)
+  | R.Demote =>
+      W.BI_cvtop W.T_f64 W.CVO_convert W.T_f32 None 
+  | R.Promote =>
+      W.BI_cvtop W.T_f32 W.CVO_convert W.T_f64 None
+  | R.Convert f i s =>
+      let wi := compile_int_type i in
+      let wf := compile_float_type f in
+      W.BI_cvtop wf W.CVO_convert wf (Some $ compile_sign s)
+  | R.ReinterpretFI f i =>
+      let wi := compile_int_type i in
+      let wf := compile_float_type f in
+      W.BI_cvtop wf W.CVO_reinterpret wi None
+  | R.ReinterpretIF i f =>
+      let wi := compile_int_type i in
+      let wf := compile_float_type f in
+      W.BI_cvtop wi W.CVO_reinterpret wf None
+  | R.ReinterpretII i s s' => W.BI_nop
+  end.
+
 Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
   match ni with
   | R.Iu typ op =>
@@ -129,40 +165,5 @@ Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
     | R.gef => W.ROF_ge
     end in
     mret $ W.BI_relop typ' op'
-  | R.CvtI typ op =>
-    let typ' := compile_int_type typ in
-    match op with
-    (* FIXME: missing wasm types *)
-    | R.Wrap typ2 => throw_missing "wrap"
-    | R.Extend typ2 s => throw_missing "extend"
-    | R.Trunc typ2 s => throw_missing "trunc"
-    | R.TruncSat typ2 s => throw_missing "trunc_sat"
-    | R.Convert typ2 s =>
-        let typ2' := compile_int_type typ2 in
-        let s' := compile_sign s in
-        mret $ W.BI_cvtop typ' W.CVO_convert typ2' (Some s')
-    | R.Demote typ2 => throw_missing "demote"
-    | R.Promote typ2 => throw_missing "promote"
-    | R.Reinterpret typ2 =>
-        let typ2' := compile_int_type typ2 in
-        mret $ W.BI_cvtop typ' W.CVO_convert typ2' None
-    end
-  | R.CvtF typ op =>
-    let typ' := compile_float_type typ in
-    match op with
-    (* FIXME: missing wasm types *)
-    | R.Wrap typ2 => throw_missing "wrap"
-    | R.Extend typ2 s => throw_missing "extend"
-    | R.Trunc typ2 s => throw_missing "trunc"
-    | R.TruncSat typ2 s => throw_missing "trunc_sat"
-    | R.Convert typ2 s =>
-        let typ2' := compile_int_type typ2 in
-        let s' := compile_sign s in
-        mret $ W.BI_cvtop typ' W.CVO_convert typ2' (Some s')
-    | R.Demote typ2 => throw_missing "demote"
-    | R.Promote typ2 => throw_missing "promote"
-    | R.Reinterpret typ2 =>
-        let typ2' := compile_int_type typ2 in
-        mret $ W.BI_cvtop typ' W.CVO_convert typ2' None
-    end
+  | R.Cvt op => mret $ compile_cvt_op op
   end.

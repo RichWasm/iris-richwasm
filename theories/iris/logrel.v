@@ -187,6 +187,7 @@ Qed.
 
 Program Definition interp_heap_value_array : relationsO -n> leibnizO RT.Typ -n> HR :=
   (λne (rs : relationsO) (τ : leibnizO RT.Typ) (bs : leibnizO bytes), ∃ bss bs_rest,
+      (* needs size here *)
     ⌜bs = flatten bss ++ bs_rest⌝ ∗
     [∗ list] ebs ∈ bss,
       let ws := read_value τ ebs in
@@ -536,6 +537,32 @@ Proof.
   - admit.
   - admit.
   - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - intros es' Hcomp.
+    unfold compile_instrs in Hcomp.
+    unfold fmap in Hcomp. 
+    apply fmap_OK in Hcomp.
+    destruct Hcomp as [[wl'' es''] [Hcomp Hflat]].
+    inversion Hflat; subst; clear Hflat.
+    (*pose proof (Forall2_length_l _ _ _ 1 Hcomp Logic.eq_refl) as Hlen.*)
+    (*inversion Hcomp.*)
+    (*destruct l'.*)
+    admit.
 Admitted.
 
 (*Lemma sniff_cons C F L1 L2 L3 e es es'  :*)

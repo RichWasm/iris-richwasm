@@ -154,15 +154,16 @@ Inductive FRelOp :=
 | lef | gef.
 
 Inductive CvtOp :=
-| Wrap        (i : IntType)
-| Extend      (i : IntType)   (s : Sign)
-| Trunc       (f : FloatType) (s : Sign)
-| TruncSat    (f : FloatType) (s : Sign)
-| Convert     (i : IntType)   (s : Sign)
-| Demote      (f : FloatType)
-| Promote     (f : FloatType)
-| Reinterpret (i : IntType).
-(* FIXME: you can reinterpret floats too *)
+| Wrap
+| Extend (s : Sign)
+| Trunc (i: IntType) (f : FloatType) (s : Sign)
+| TruncSat (i: IntType) (f : FloatType) (s : Sign)
+| Demote
+| Promote
+| Convert (f: FloatType) (i : IntType) (s : Sign)
+| ReinterpretFI (f: FloatType) (i : IntType)
+| ReinterpretIF (i : IntType) (f: FloatType)
+| ReinterpretII (i : IntType) (s s': Sign).
 
 Inductive NumInstr :=
 | Iu   (i : IntType)   (op : IUnOp)
@@ -172,8 +173,7 @@ Inductive NumInstr :=
 | It   (i : IntType)   (op : ITestOp)
 | Ir   (i : IntType)   (op : IRelOp)
 | Fr   (f : FloatType) (op : FRelOp)
-| CvtI (i : IntType)   (op : CvtOp)
-| CvtF (f : FloatType) (op : CvtOp).
+| Cvt  (op : CvtOp).
 
 (* exports *)
 Definition ex := positive.

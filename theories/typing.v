@@ -1664,6 +1664,48 @@ Admitted.
   Definition instr_lsig (i: instr TyAnn) : LocalSig :=
     (instr_ann i).2.
 
+  Definition float_type_width : FloatType -> nat.
+  Admitted.
+
+  Definition int_type_width : IntType -> nat.
+  Admitted.
+
+  Inductive cvt_typ : CvtOp -> NumType -> NumType -> Prop :=
+  | TWrap: forall s, cvt_typ Wrap (Int s i64) (Int s i32)
+  | TExtend: forall s, cvt_typ (Extend s) (Int s i32) (Int s i64)
+  | TTrunc: forall i f s, cvt_typ (Trunc i f s) (Float f) (Int s i)
+  | TTruncSat: forall i f s, cvt_typ (TruncSat i f s) (Float f) (Int s i)
+  | TDemote: cvt_typ Demote (Float f64) (Float f32)
+  | TPromote: cvt_typ Promote (Float f32) (Float f64)
+  | TConvert: forall f i s, cvt_typ (Convert f i s) (Int s i) (Float f)
+  | TReinterpretFI: forall s f i,
+      float_type_width f = int_type_width i ->
+      cvt_typ (ReinterpretFI f i) (Float f) (Int s i)
+  | TReinterpretIF: forall s f i,
+      float_type_width f = int_type_width i ->
+      cvt_typ (ReinterpretIF i f) (Int s i) (Float f)
+  | TReinterpretII: forall s s' i,
+      cvt_typ (ReinterpretII i s s') (Int s i) (Int s' i).
+
+  Inductive HasTypeNumInstr : NumInstr -> ArrowType -> Prop :=
+  | IuTyp: forall s i op,
+      HasTypeNumInstr (Iu i op) (Arrow [Num (Int s i)] [Num (Int s i)])
+  | IbTyp: forall s i op,
+      HasTypeNumInstr (Ib i op) (Arrow [Num (Int s i); Num (Int s i)] [Num (Int s i)])
+  | FuTyp: forall f op,
+      HasTypeNumInstr (Fu f op) (Arrow [Num (Float f)] [Num (Float f)])
+  | FbTyp: forall f op,
+      HasTypeNumInstr (Fb f op) (Arrow [Num (Float f); Num (Float f)] [Num (Float f)])
+  | ItTyp: forall s i op,
+      HasTypeNumInstr (It i op) (Arrow [Num (Int s i)] [Num (Int U i32)])
+  | IrTyp: forall s i op,
+      HasTypeNumInstr (It i op) (Arrow [Num (Int s i); Num (Int s i)] [Num (Int U i32)])
+  | FrTyp: forall f op,
+      HasTypeNumInstr (Fr f op) (Arrow [Num (Float f); Num (Float f)] [Num (Int U i32)])
+  | CvtITyp: forall op t t',
+      cvt_typ op t t' ->
+      HasTypeNumInstr (Cvt op) (Arrow [Num t] [Num t']).
+
   Inductive HasTypeInstr :
     Module_Ctx -> Function_Ctx ->
     Local_Ctx -> instr TyAnn -> ArrowType -> Local_Ctx -> Prop :=
@@ -1677,6 +1719,10 @@ Admitted.
         LocalCtxValid F L ->
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (IUnit (Arrow [] [], LSig L L)) (Arrow [] []) L
+  | NumInstrTyp:
+    forall C F L ni tf,
+      HasTypeNumInstr ni tf ->
+      HasTypeInstr C F L (INum (tf, LSig L L) ni) tf L
   | UnreachableType :
       forall S C F L L' taus1 taus2 tl,
         M.is_empty (LinTyp S) = true ->
