@@ -271,24 +271,6 @@ Definition stores base_ptr_var mem (val_vars: list W.immediate) (tys: list W.val
   : list W.basic_instruction :=
   loc_stores base_ptr_var mem (zip val_vars tys).
 
-Fixpoint typ_word_size (ty : R.Typ) : nat :=
-  match ty with
-  | R.Num (R.Int _ R.i32) => 1
-  | R.Num (R.Int _ R.i64) => 2
-  | R.Num (R.Float R.f32) => 1
-  | R.Num (R.Float R.f64) => 2
-  | R.TVar _ => 1
-  | R.Unit => 0
-  | R.ProdT tys => list_sum $ map typ_word_size tys
-  | R.CoderefT _ => 1
-  | R.Rec _ ty' => typ_word_size ty'
-  | R.PtrT _ => 1
-  | R.ExLoc _ ty' => typ_word_size ty'
-  | R.OwnR _ => 0
-  | R.CapT _ _ _ => 0
-  | R.RefT _ _ _ => 1
-  end.
-
 Definition wallocs (tys: list W.value_type) : wst (list W.immediate) :=
   mapM walloc tys.
 
@@ -300,7 +282,7 @@ Definition walloc_args (tys: list W.value_type)
 
 Definition walloc_rvalue (ty : R.Typ) : wst W.immediate :=
   next_idx ← wnext_idx;
-  _ ← mapM walloc $ repeat W.T_i32 $ typ_word_size ty;
+  _ ← mapM walloc $ compile_typ ty;
   mret next_idx.
 
 Definition walloc_rvalues (tys : list R.Typ) : wst W.immediate :=
@@ -482,7 +464,7 @@ Fixpoint ty_map_refs (funcidx : W.immediate) (ty : R.Typ) (i : W.immediate) : li
   | R.CapT _ _ _ => []
   | R.ProdT tys =>
       snd $ foldl
-        (fun '(j, es) ty' => (j + typ_word_size ty', es ++ ty_map_refs funcidx ty' j))
+        (fun '(j, es) ty' => (j + length (compile_typ ty'), es ++ ty_map_refs funcidx ty' j))
         (i, [])
         tys
   | R.Rec _ ty'
