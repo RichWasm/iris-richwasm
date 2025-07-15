@@ -1387,22 +1387,16 @@ Section Typing.
     | Ex s q tau => NoCapsTyp (Heapable :: F) tau
     end.
     
-  Definition InstIndValid : Function_Ctx -> FunType -> Index -> Prop.
-    Admitted.
-(*
+  Inductive InstIndValid : Function_Ctx -> FunType -> Index -> Prop :=
   | LocIndValid :
       forall l F rest tf q,
         LocValid (location F) l ->
+        LocQual F l = Some q ->
         InstIndValid F (FunT (LOC q :: rest) tf) (LocI l)
   | TypeInstValid : 
-      forall ty sz' sz q F rest tf hc,
-        sizeOfType (type F) ty = Some sz' ->
-        SizeValid (size F) sz' ->
-        SizeValid (size F) sz ->
-        SizeLeq (size F) sz' sz = Some true ->
-        TypeValid F  ->
-        (hc = Heapable -> NoCapsTyp (heapable F) pt = true) ->
-        InstIndValid F (FunT ((TYPE sz q hc) :: rest) tf) (TypI pt)
+      forall c l sz psi q F rest tf hc,
+        TypeValid F (RefT c l psi) ->
+        InstIndValid F (FunT ((TYPE sz q hc) :: rest) tf) (TypI (RefT c l psi))
   | QualInstValid :
       forall q qs1 qs2 F rest tf,
         QualValid (qual F) q ->
@@ -1415,23 +1409,17 @@ Section Typing.
         Forall (fun sz' => SizeValid (size F) sz' /\ SizeLeq (size F) sz' sz = Some true) szs1 ->
         Forall (fun sz' => SizeValid (size F) sz' /\ SizeLeq (size F) sz sz' = Some true) szs2 ->
         InstIndValid F (FunT ((SIZE szs1 szs2) :: rest) tf) (SizeI sz).
-*)
 
-  Definition InstInd (ft : FunType) (i : Index) : option FunType.
-  Admitted.
-  (*
+  Definition InstInd (ft : FunType) (i : Index) : option FunType :=
     match ft, i with
-    | FunT (LOC :: rest) tf, (LocI l) => Some (subst_ext (ext subst.SLoc l id) (FunT rest tf))
+    | FunT (LOC q :: rest) tf, (LocI l) => Some (subst_ext (ext subst.SLoc l id) (FunT rest tf))
     | FunT ((QUAL q1s q2s) :: rest) tf, (QualI q) => Some (subst_ext (ext subst.SQual q id) (FunT rest tf))
     | FunT ((SIZE sz1s sz2s) :: rest) tf, (SizeI s) => Some (subst_ext (ext subst.SSize s id) (FunT rest tf))
     | FunT ((TYPE size q hc) :: rest) tf, (TypI p) => Some (subst_ext (ext subst.STyp p id) (FunT rest tf))
     | _, _ => None
     end.
-*)
 
-  Definition InstIndsValid : Function_Ctx -> FunType -> list Index -> Prop.
-Admitted.
-(*
+  Inductive InstIndsValid : Function_Ctx -> FunType -> list Index -> Prop :=
   | InstIndsValidNil :
       forall F chi,
         InstIndsValid F chi []
@@ -1441,29 +1429,22 @@ Admitted.
         InstInd chi f = Some chi' ->
         InstIndsValid F chi' r ->
         InstIndsValid F chi (f :: r).
-*)
 
-  Definition InstInds (ft : FunType) (is : list Index) : option FunType.
-  Admitted.
-    (*
+  Definition InstInds (ft : FunType) (is : list Index) : option FunType :=
     fold_left (fun ft i =>
                  match ft with
                  | None => None
                  | Some ft => InstInd ft i
               end) is (Some ft).
-
-*)
   
-  Definition ReplaceAtIdx {A : Type} (i : nat) (l : list A) (new : A) : option (list A * A).
-  Admitted.
-(*
+  Fixpoint ReplaceAtIdx {A : Type} (i : nat) (l : list A) (new : A) : option (list A * A) :=
     match i, l with
       | 0, old :: rest => Some (new :: rest, old)
       | Datatypes.S _, first :: rest =>
-        bind (ReplaceAtIdx (i - 1) rest new) (fun '(rest, old) => Some (first :: rest, old))
+          '(rest, old) ← (ReplaceAtIdx (i - 1) rest new);
+          mret (first :: rest, old)
       | _, _ => None
     end.
-*)  
 
   Definition uint32T : Typ := Num (Int U i32).
   Definition uint64T : Typ := Num (Int U i64).
@@ -2014,9 +1995,8 @@ Admitted.
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (IStructMalloc (tf, LSig L L) szs q) tf L
   | StructFreeTyp : (* typeset *)
-      forall C F L q tauszs l,
-        QualValid (qual F) q ->
-        QualLeq (qual F) Linear q = Some true ->
+      forall C F L tauszs l,
+        TypQualGeq F (RefT W l (StructType tauszs)) Linear = Some true ->
         Forall (fun '(tau, _) => TypQualLeq F tau Unrestricted = Some true) tauszs ->
         LocalCtxValid F L ->
         TypeValid F (RefT W l (StructType tauszs)) ->

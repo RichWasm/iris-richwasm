@@ -565,14 +565,6 @@ Proof.
     admit.
 Admitted.
 
-(*Lemma sniff_cons C F L1 L2 L3 e es es'  :*)
-(*  compile_instrs [] 0 GC_MEM LIN_MEM (es ++ [e])%list = Some es' ->*)
-(*  (compile_instrs [] 0 GC_MEM LIN_MEM es = Some es' ->*)
-(*   ⊢ semantic_typing S1 C F L1 [] (to_e_list es') (Arrow tau1 tau2) L2) ->*)
-(*  (compile_instrs [] 0 GC_MEM LIN_MEM [e] = Some es' ->*)
-(*   ⊢ semantic_typing S2 C F L2 [] (to_e_list es') (Arrow tau2 tau3) L3)*)
-(*  ⊢ semantic_typing C F L1 [] (to_e_list es') (Arrow tau1 tau3) L3.*)
-
 Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
   (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ WP (es : iris.expr) @ NotStuck ; ⊤ {{ v, Φ v }})%I (at level 50).
 
