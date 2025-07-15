@@ -492,20 +492,20 @@ Proof.
       typeclasses eauto.
 Qed.
 
-Lemma compiler_wctx_mono C F es wl wl' es':
-  compile_instrs [] GC_MEM LIN_MEM C F es wl = OK (wl', es') ->
+Lemma compiler_wctx_mono C F mctx sz_locs es wl wl' es':
+  compile_instrs mctx C sz_locs F es wl = OK (wl', es') ->
   wlayout_le wl wl'.
 Proof.
 Admitted.
 
-Theorem fundamental_property C F L es es' tf wl wl' L' :
+Theorem fundamental_property C F L mctx sz_locs es es' tf wl wl' L' :
   HasTypeInstrs C F L es tf L' ->
-  compile_instrs [] GC_MEM LIN_MEM C F es wl = OK (wl', es') ->
+  compile_instrs mctx C sz_locs F es wl = OK (wl', es') ->
   ⊢ semantic_typing C F L (w_ctx wl') (to_e_list es') tf L'.
 Proof.
   intros Htyp Hcomp.
   generalize dependent es'.
-  induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ => forall es', compile_instr [] GC_MEM LIN_MEM C F e wl = OK (wl', es') -> ⊢ semantic_typing C F L [] (to_e_list es') ta L').
+  induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ => forall es', compile_instr mctx C sz_locs F e wl = OK (wl', es') -> ⊢ semantic_typing C F L [] (to_e_list es') ta L').
   - admit.
   - admit.
   - admit.
@@ -875,12 +875,12 @@ Proof.
       congruence.
 Qed.
 
-Lemma sniff_test C F L cap l ℓ sgn τ eff es wl wl':
+Lemma sniff_test C F L mctx sz_locs cap l ℓ sgn τ eff es wl wl':
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
   fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
   snd eff = LSig L L ->
-  compile_instr [] 0 0 C F (RT.IStructGet eff 0) wl = OK (wl', es) ->
+  compile_instr mctx C sz_locs F (RT.IStructGet eff 0) wl = OK (wl', es) ->
   ⊢ semantic_typing C F L [T_i32] (to_e_list es) (fst eff) L.
 Proof.
   intros Hl Hτ Heff Hloceff.
