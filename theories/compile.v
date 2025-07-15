@@ -143,13 +143,18 @@ Fixpoint expect_concrete_size (sz: R.Size) : exn err nat :=
 Definition size_ctx := 
   list W.immediate.
 
-Section compile_instr.
+Section Mod.
 
-Variable (sz_locs: size_ctx).
-Variable (GC_MEM: W.immediate).
-Variable (LIN_MEM: W.immediate).
+Record compiler_mod_ctx := {
+  mem_gc : W.immediate;
+  mem_lin : W.immediate;
+  free : W.immediate;
+  alloc : W.immediate;
+}.
+
+(* TODO: should these be combined? *)
+Variable mctx : compiler_mod_ctx.
 Variable (C : Module_Ctx).
-Variable (F : Function_Ctx).
 
 Fixpoint struct_field_offset (fields: list (R.Typ * R.Size)) (idx: nat) : exn err R.Size :=
   match idx with
@@ -171,19 +176,6 @@ Definition get_array_elem_type (targs : list R.Typ) (idx : nat) : exn err R.Typ 
   match targs !! idx with
   | Some (R.RefT _ _ (R.ArrayType typ)) => mret typ
   | _ => mthrow (Err ("array instruction expected a ref to an array type at index " ++ pretty idx))
-  end.
-
-Fixpoint compile_sz (sz : R.Size) : exn err (list W.basic_instruction) :=
-  match sz with
-  | R.SizeVar σ =>
-    local_idx ← err_opt (sz_locs !! σ) ("sz " ++ (pretty σ) ++ " not found in sz_local_map");
-    mret [W.BI_get_local local_idx]
-  | R.SizePlus sz1 sz2 =>
-    e1 ← compile_sz sz1;
-    e2 ← compile_sz sz2;
-    mret $ e1 ++ e2 ++ [W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)]
-  | R.SizeConst c =>
-    mret [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c)))]
   end.
 
 Definition if_gc_bit_set ins outs gc_branch lin_branch :=
@@ -221,7 +213,7 @@ Definition gc_loads
          unset_gc_bit ++ 
          offset_instrs ++
          W.BI_set_local base_ptr_var ::
-         loads GC_MEM base_ptr_var tys.
+         loads mctx.(mem_gc) base_ptr_var tys.
 
 Definition lin_loads
   (ref_var: W.immediate)
@@ -231,7 +223,7 @@ Definition lin_loads
   mret $ W.BI_get_local ref_var ::
          offset_instrs ++
          W.BI_set_local base_ptr_var ::
-         loads LIN_MEM base_ptr_var tys.
+         loads mctx.(mem_lin) base_ptr_var tys.
 
 Definition tagged_loads
   (base_ptr: W.immediate)
@@ -306,10 +298,10 @@ Definition tagged_store
          unset_gc_bit ++
          offset_instrs ++
          W.BI_set_local base_ptr_var ::
-         stores base_ptr_var GC_MEM arg_vars tys)
+         stores base_ptr_var mctx.(mem_gc) arg_vars tys)
         (W.BI_get_local base_ptr_var ::
          offset_instrs ++
-         stores base_ptr_var LIN_MEM arg_vars tys).
+         stores base_ptr_var mctx.(mem_lin) arg_vars tys).
 
 Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * R.Typ) :=
   match L, i with
@@ -515,6 +507,24 @@ Definition tys_map_refs
     (i : W.immediate) :
     list W.basic_instruction :=
   ty_map_refs scope layout funcidx (R.ProdT tys) i.
+
+Section Fun.
+
+Variable (sz_locs: size_ctx).
+Variable (F : Function_Ctx).
+
+Fixpoint compile_sz (sz : R.Size) : exn err (list W.basic_instruction) :=
+  match sz with
+  | R.SizeVar σ =>
+    local_idx ← err_opt (sz_locs !! σ) ("sz " ++ (pretty σ) ++ " not found in sz_local_map");
+    mret [W.BI_get_local local_idx]
+  | R.SizePlus sz1 sz2 =>
+    e1 ← compile_sz sz1;
+    e2 ← compile_sz sz2;
+    mret $ e1 ++ e2 ++ [W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)]
+  | R.SizeConst c =>
+    mret [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c)))]
+  end.
 
 Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
   match instr with
@@ -727,10 +737,10 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.IArrayFree ann =>
       (* TODO: unregisterroot a bunch of times, since this is an MM array *)
       mthrow Todo (*mret $ [wasm.BI_call Σ.(me_free)]*)
-  | R.IExistPack (R.Arrow targs trets, _) x x0 x1 =>
+  | R.IExistPack (R.Arrow targs trets, _) t th q =>
       (* TODO: unregisterroot if GC package *)
       mthrow Todo
-  | R.IExistUnpack (R.Arrow targs trets, _) x x0 x1 x2 x3 =>
+  | R.IExistUnpack (R.Arrow targs trets, _) q th ta tl es =>
       (* TODO: registerroot if GC package *)
       mthrow Todo
   | R.IRefSplit _
@@ -748,7 +758,9 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
 
 Definition compile_instrs instrs := flatten <$> mapM compile_instr instrs.
 
-End compile_instr.
+End Fun.
+
+End Mod.
 
 Definition compile_fun_type_idx (fun_type : R.FunType) : W.typeidx.
 Admitted.
@@ -789,8 +801,15 @@ Definition compile_start (table : R.Table) : W.module_func :=
          W.BI_set_global globidx_table_next ] ++
        flatten (imap (compile_table_elem 0) table) |}.
 
+
 Fixpoint compile_module (module : R.module TyAnn) : exn err W.module :=
   let '(funcs, globs, table) := module return exn err W.module in
+  let mctx := {|
+    mem_gc := 0;
+    mem_lin := 1;
+    free := 0;
+    alloc := 1;
+  |} in
   mret {|
     W.mod_types := []; (* TODO *)
     W.mod_funcs := []; (* TODO *)
