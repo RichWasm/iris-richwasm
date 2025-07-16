@@ -81,15 +81,7 @@ Fixpoint compile_typ (typ: R.Typ) : list W.value_type :=
   | R.CapT _ _ _ => []
   | R.RefT _ _ _  => [W.T_i32]
   end.
-    (*
-with compile_heap_type (typ: rwasm.HeapType) : exn err unit :=
-  match typ with
-  | rwasm.VariantType typs => mthrow Todo
-  | rwasm.StructType fields => mthrow Todo
-  | rwasm.ArrayType elt_typ => mthrow Todo
-  | rwasm.Ex sz qual typ => mthrow Todo
-  end
-*)
+
 Definition compile_arrow_type (typ: R.ArrowType) : W.function_type :=
   match typ with
   | R.Arrow tys1 tys2 =>
@@ -121,12 +113,12 @@ Definition compile_num (num_type : R.NumType) (num : nat) : W.value :=
   (* is the signed converter the right thing to use here? *)
   | R.Float R.f32 =>
     W.VAL_float32
-      ((Wasm_float.float_convert_si32
-        numerics.f32m (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num))))
+      (Wasm_float.float_convert_si32
+         numerics.f32m (Wasm_int.int_of_Z numerics.i32m (Z.of_nat num)))
   | R.Float R.f64 =>
     W.VAL_float64
-      ((Wasm_float.float_convert_si64
-        numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num))))
+      (Wasm_float.float_convert_si64
+         numerics.f64m (Wasm_int.int_of_Z numerics.i64m (Z.of_nat num)))
   end.
 
 Fixpoint expect_concrete_size (sz: R.Size) : exn err nat :=
