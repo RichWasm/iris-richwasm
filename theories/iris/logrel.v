@@ -83,21 +83,16 @@ Fixpoint wasm_deser_list (bs: bytes) (vt: list value_type) : list value :=
       wasm_deserialise (take (typ_size vt) bs) vt :: wasm_deser_list (drop (typ_size vt) bs) vts
   | [] => []
   end.
-  
+
 Definition read_value (τ: RT.Typ) (bs: bytes) : list value :=
   let vt := compile_typ τ in
   wasm_deser_list bs vt.
 
-Class Read := {
-  read_tag : bytes -> nat;
-}.
-
 Section logrel.
 
-Context `{!wasmG Σ, !logrel_na_invs Σ, Read0 : !Read}.
-Variable (GC_MEM: immediate).
-Variable (LIN_MEM: immediate).
-Variable (mems_diff: GC_MEM <> LIN_MEM).
+Context `{!logrel_na_invs Σ}.
+Context `{!wasmG Σ}.
+Context `{mctx : compiler_mod_ctx}.
 
 Record stack := Stack { stack_values : list value }.
 Canonical Structure stackO := leibnizO stack.
@@ -108,7 +103,6 @@ Notation WsR := (stackO -n> iPropO Σ).
 Notation FR := ((leibnizO frame) -n> iPropO Σ).
 Notation HR := ((leibnizO bytes) -n> iPropO Σ).
 Notation ClR := ((leibnizO function_closure) -n> iPropO Σ).
-
 
 Definition relations : Type := 
   (* interp_value *)
@@ -154,12 +148,14 @@ Qed.
 
 Program Definition interp_heap_value_variant : relationsO -n> leibnizO (list RT.Typ) -n> HR :=
   λne (rs : relationsO) (τs : leibnizO (list RT.Typ)) (bs : leibnizO bytes), (
-    ∃ bs_tag bs_payload bs_rest,
-    ⌜bs = bs_tag ++ bs_payload ++ bs_rest⌝ ∗
-    let tag := read_tag bs_tag in
-    ∃ τ,
+    ∃ bs_tag bs_data bs',
+    ⌜bs = bs_tag ++ bs_data ++ bs'⌝ ∗
+    let tagv := wasm_deserialise bs_tag T_i32 in
+    ∃ tag tagi τ,
+    ⌜tagv = VAL_int32 tagi⌝ ∗
+    ⌜nat_repr tag tagi⌝ ∗
     ⌜τs !! tag = Some τ⌝ ∗
-    let ws := read_value τ bs_payload in
+    let ws := read_value τ bs_data in
     rels_value rs τ (Stack ws)
   )%I.
 
@@ -309,7 +305,7 @@ Definition interp_value_0 (rs : relations) : leibnizO RT.Typ -n> WsR :=
         ∃ bs l32,
           ⌜vs = [VAL_int32 l32]⌝ ∗
           ⌜ptr_repr (LocP ℓ LinMem) l32⌝ ∗
-          N.of_nat LIN_MEM ↦[wms][ℓ] bs ∗
+          N.of_nat mctx.(mem_lin) ↦[wms][ℓ] bs ∗
           interp_heap_value rs ψ bs
     | RT.RefT _ _ _ => ⌜False⌝
     end%I.
@@ -492,20 +488,24 @@ Proof.
       typeclasses eauto.
 Qed.
 
-Lemma compiler_wctx_mono C F mctx sz_locs es wl wl' es':
+Lemma compiler_wctx_mono C F sz_locs es wl wl' es':
   compile_instrs mctx C sz_locs F es wl = OK (wl', es') ->
   wlayout_le wl wl'.
 Proof.
 Admitted.
 
-Theorem fundamental_property C F L mctx sz_locs es es' tf wl wl' L' :
+Theorem fundamental_property C F L sz_locs es es' tf wl wl' L' :
   HasTypeInstrs C F L es tf L' ->
   compile_instrs mctx C sz_locs F es wl = OK (wl', es') ->
   ⊢ semantic_typing C F L (w_ctx wl') (to_e_list es') tf L'.
 Proof.
   intros Htyp Hcomp.
   generalize dependent es'.
-  induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ => forall es', compile_instr mctx C sz_locs F e wl = OK (wl', es') -> ⊢ semantic_typing C F L [] (to_e_list es') ta L').
+  induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ =>
+    forall es',
+    compile_instr mctx C sz_locs F e wl = OK (wl', es') ->
+    ⊢ semantic_typing C F L [] (to_e_list es') ta L');
+  intros es' Hcomp.
   - (* INumConst *)
     admit.
   - (* IUnit *)
@@ -601,7 +601,6 @@ Proof.
   - (* Empty *)
     admit.
   - (* Cons *)
-    intros es' Hcomp.
     unfold compile_instrs in Hcomp.
     unfold fmap in Hcomp. 
     apply fmap_OK in Hcomp.
@@ -651,7 +650,7 @@ Lemma even_iff_land1:
   forall p: positive,
     ((2 | p) <-> Pos.land p 1 = 0%N)%positive.
 Proof using.
-  clear Read0 GC_MEM LIN_MEM mems_diff.
+  clear Σ logrel_na_invs0 wasmG0 mctx.
   induction p; (split; [intros Hdiv| intros Hand]).
   - destruct Hdiv as [p' Hp'].
     lia.
@@ -669,7 +668,7 @@ Lemma odd_iff_land1:
   forall p: positive,
     (¬(2 | p) <-> Pos.land p 1 = 1%N)%positive.
 Proof using.
-  clear Read0 GC_MEM LIN_MEM mems_diff.
+  clear Σ logrel_na_invs0 wasmG0 mctx.
   induction p; (split; [intros Hdiv| intros Hand]).
   - reflexivity.
   - intros [d Hdiv].
@@ -686,7 +685,7 @@ Lemma gc_ptr_parity ℓ l32:
   ptr_repr (LocP ℓ GCMem) l32 ->
   wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) = Wasm_int.int_zero i32m.
 Proof.
-  clear GC_MEM LIN_MEM mems_diff.
+  clear Σ logrel_na_invs0 wasmG0 mctx.
   unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
   intros [Hrepr Hdiv].
   cbn.
@@ -721,7 +720,7 @@ Lemma lin_ptr_parity ℓ l32:
   ptr_repr (LocP ℓ LinMem) l32 ->
   wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) <> Wasm_int.int_zero i32m.
 Proof.
-  clear GC_MEM LIN_MEM mems_diff.
+  clear Σ logrel_na_invs0 wasmG0 mctx.
   unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
   intros [Hrepr Hdiv].
   cbn.
@@ -895,7 +894,7 @@ Lemma encode_decode_int :
     length bs = sz ->
     Memdata.encode_int sz (Memdata.decode_int bs) = bs.
 Proof.
-  clear GC_MEM LIN_MEM mems_diff.
+  clear Σ logrel_na_invs0 wasmG0 mctx.
   induction sz; intros bs Hlen.
   - destruct bs; simpl in Hlen; try lia.
     reflexivity.
@@ -915,7 +914,7 @@ Proof.
       congruence.
 Qed.
 
-Lemma sniff_test C F L mctx sz_locs cap l ℓ sgn τ eff es wl wl':
+Lemma sniff_test C F L sz_locs cap l ℓ sgn τ eff es wl wl':
   l = LocP ℓ LinMem ->
   τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
   fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
