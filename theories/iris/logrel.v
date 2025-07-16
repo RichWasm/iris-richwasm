@@ -1016,7 +1016,10 @@ Tactic Notation "next_wp'" constr(Hs) :=
     iDestruct select (_ ∗ _)%I as "(%Hv & Hptr)".
     inversion Hv. subst v.
     skip_sz 1.
-    (*
+    wp_chomp 5.
+    iApply wp_seq.
+    iSplitR; last first.
+    iSplitL.
     iApply (gc_bit_not_set_spec with "[$Hfr]");
       [by rewrite set_nth_read | eauto |].
     {
@@ -1029,7 +1032,7 @@ Tactic Notation "next_wp'" constr(Hs) :=
       iApply wp_ctx_bind; [done|].
       iClear "Hptr".
       next_wp' "Hinst Hctx Hfi Hbs".
-      { 
+      {
         iApply wp_get_local; eauto.
         by rewrite set_nth_read.
         iIntros "!>".
@@ -1040,9 +1043,8 @@ Tactic Notation "next_wp'" constr(Hs) :=
       }
       cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & _)".
       inversion Hv'; subst v; clear Hv'.
-      admit.
       next_wp' "Hinst Hctx Hfi".
-      { 
+      {
         iApply (wp_binop with "[$Hfr] [Hbs]").
         eauto.
         iIntros "!>". iExists _.
@@ -1085,13 +1087,17 @@ Tactic Notation "next_wp'" constr(Hs) :=
       iEval (rewrite Hℓ -Hbits) in "Hb".
       iApply (wp_wand with "[Hb Hfr]").
       {
+        admit.
+        (*
         iApply wp_load; try iFrame.
         - done.
         - cbn.
           admit. (* need interp_frame to say where LIN_MEM and GC_MEM are! or interp_inst? *)
         - fill_imm_pred.
+        *)
       }
       cbn beta.
+      (*
       iIntros (v) "[[-> Hb] Hfr]".
       iEval (rewrite -Hℓ) in "Hb".
       simpl of_val.
@@ -1141,12 +1147,13 @@ Tactic Notation "next_wp'" constr(Hs) :=
             admit. (* frame stuff *)
           + admit. (* more frame stuff *)
       reflexivity.
+      *)
       admit. (* trap condition *)
       admit. (* trap condition *)
       admit.
     }
-    *)
     admit.
+    admit. (* trap condition *)
     admit. (* trap condition *)
     admit. (* trap condition *)
 Admitted.
