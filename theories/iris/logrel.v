@@ -968,6 +968,7 @@ Tactic Notation "next_wp'" constr(Hs) :=
     iDestruct select (_ ∗ _)%I as "(%Hv & Hptr)".
     inversion Hv. subst v.
     skip_sz 1.
+    (*
     iApply (gc_bit_not_set_spec with "[$Hfr]");
       [by rewrite set_nth_read | eauto |].
     {
@@ -992,7 +993,6 @@ Tactic Notation "next_wp'" constr(Hs) :=
       cbn beta; iDestruct select (_ ∗ _)%I as "(%Hv' & _)".
       inversion Hv'; subst v; clear Hv'.
       admit.
-      (*
       next_wp' "Hinst Hctx Hfi".
       { 
         iApply (wp_binop with "[$Hfr] [Hbs]").
@@ -1095,9 +1095,10 @@ Tactic Notation "next_wp'" constr(Hs) :=
       reflexivity.
       admit. (* trap condition *)
       admit. (* trap condition *)
-       *)
       admit.
     }
+    *)
+    admit.
     admit. (* trap condition *)
     admit. (* trap condition *)
 Admitted.

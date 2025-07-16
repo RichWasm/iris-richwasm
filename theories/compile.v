@@ -341,7 +341,7 @@ Definition set_i64_local (loc : W.immediate) : wst (list W.basic_instruction) :=
          W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr);
          W.BI_set_local (loc + 1) ].
 
-Fixpoint numtyp_gets (nτ: R.NumType) (loc: nat) : list W.basic_instruction :=
+Definition numtyp_gets (nτ: R.NumType) (loc: nat) : list W.basic_instruction :=
   match nτ with
   | R.Int s R.i32 => [ W.BI_get_local loc ]
   | R.Float R.f32 =>
@@ -353,7 +353,7 @@ Fixpoint numtyp_gets (nτ: R.NumType) (loc: nat) : list W.basic_instruction :=
       [ W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None ]
   end.
 
-Fixpoint numtyp_sets (nτ: R.NumType) (loc: nat) : wst (list W.basic_instruction) :=
+Definition numtyp_sets (nτ: R.NumType) (loc: nat) : wst (list W.basic_instruction) :=
   match nτ with
   | R.Int s R.i32 => mret [ W.BI_set_local loc ]
   | R.Float R.f32 =>
@@ -441,6 +441,9 @@ Definition save_stack (tys : list R.Typ) : wst (W.immediate * list W.basic_instr
 Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : list W.basic_instruction :=
   local_gets (R.ProdT tys) idx.
 
+Definition funcidx_registerroot : W.immediate.
+Admitted.
+
 Definition funcidx_duproot : W.immediate.
 Admitted.
 
@@ -469,7 +472,7 @@ Definition layout_ty_length (layout : LayoutMode) (ty : R.Typ) :=
   | LMNative => length $ compile_typ ty
   end.
 
-Fixpoint ref_indices (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
+Definition ref_indices (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
   let fix go ty i :=
     match ty with
     | R.Num _
@@ -490,11 +493,12 @@ Fixpoint ref_indices (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
     end in
   go ty 0.
 
-Fixpoint map_gc_ref_vars (scope : VarScope) (func : W.immediate) : list W.immediate -> list W.basic_instruction :=
+Definition map_gc_ref_vars (scope : VarScope) (es : list W.basic_instruction)
+  : list W.immediate -> list W.basic_instruction :=
   flat_map (fun i =>
     let '(get, set) := scope_get_set scope in
     get i ::
-    if_gc_bit_set [W.T_i32] [W.T_i32] [W.BI_call func] [] ++
+    if_gc_bit_set [W.T_i32] [W.T_i32] es [] ++
     [set i]).
 
 Section Fun.
@@ -534,7 +538,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
           let wasm_typ := compile_typ t_drop in
           '(base, es) ← save_stack [t_drop];
           let ref_vars := map (Nat.add base) $ ref_indices LMNative t_drop in
-          mret $ map_gc_ref_vars VSLocal funcidx_unregisterroot ref_vars ++
+          mret $ map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] ref_vars ++
                  restore_stack [t_drop] base ++
                  map (const W.BI_drop) wasm_typ
       | _ => mthrow (Err "drop should consume exactly one value")
@@ -564,7 +568,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       let ref_vars := map (Nat.add idx_dropped) $ flat_map (ref_indices LMNative) rdropped in
       mret $ ret_set_es ++
              dropped_es ++
-             map_gc_ref_vars VSLocal funcidx_unregisterroot ref_vars ++
+             map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] ref_vars ++
              restore_stack ret_ty' idx_ret ++
              [W.BI_return]
   | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
@@ -572,13 +576,13 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       let es1 := local_gets τ base in
       '(i, es2) ← save_stack [τ];
       let ref_vars := map (Nat.add i) $ ref_indices LMNative τ in
-      let es3 := map_gc_ref_vars VSLocal funcidx_duproot ref_vars in
+      let es3 := map_gc_ref_vars VSLocal [W.BI_call funcidx_duproot] ref_vars in
       let es4 := restore_stack [τ] i in
       mret $ es1 ++ es2 ++ es3 ++ es4
   | R.ISetLocal (R.Arrow targs trets, LSig L _) idx =>
       '(base, τ) ← liftM $ local_layout L 0 idx;
       let ref_vars := map (Nat.add base) $ ref_indices LMWords τ in
-      let es1 := map_gc_ref_vars VSLocal funcidx_unregisterroot ref_vars in
+      let es1 := map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] ref_vars in
       es2 ← local_sets τ base;
       mret $ es1 ++ es2
   | R.IGetGlobal _ i =>
@@ -586,13 +590,13 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       let es1 := imap (fun j _ => W.BI_get_global $ i' + j) $ compile_typ ty in
       '(j, es2) ← save_stack [ty];
       let ref_vars := map (Nat.add j) $ ref_indices LMNative ty in
-      let es3 := map_gc_ref_vars VSLocal funcidx_duproot ref_vars in
+      let es3 := map_gc_ref_vars VSLocal [W.BI_call funcidx_duproot] ref_vars in
       let es4 := restore_stack [ty] i in
       mret $ es1 ++ es2 ++ es3 ++ es4
   | R.ISetGlobal _ i =>
       '(i', ty) ← liftM $ guard_opt (Err "invalid global index") $ global_layout C.(global) i;
       let ref_vars := map (Nat.add i') $ ref_indices LMNative ty in
-      let es1 := map_gc_ref_vars VSGlobal funcidx_unregisterroot ref_vars in
+      let es1 := map_gc_ref_vars VSGlobal [W.BI_call funcidx_unregisterroot] ref_vars in
       let es2 := imap (fun j _ => W.BI_set_global (i' + j)) $ compile_typ ty in
       mret $ es1 ++ es2
   | R.ICoderef (R.Arrow targs trets, _) x => mthrow Todo
@@ -611,22 +615,54 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       mthrow Todo
              (* mret $ [wasm.BI_call Σ.(me_free)]*)
   | R.IStructGet (R.Arrow from to, _) n =>
-      (* TODO: registerroot if loading from GC struct;
-               duproot if loading from MM struct *)
       base_ref ← walloc W.T_i32;
       fields ← liftM $ get_struct_field_types from 0;
       field_typ ← liftM $ err_opt (list_lookup 0 to) "struct.get: cannot find output val type";
       offset_sz ← liftM $ struct_field_offset fields n;
-      offset_instrs ← liftM $ compile_sz offset_sz;
-      load_instrs ← tagged_load base_ref offset_instrs field_typ;
-      mret $ W.BI_tee_local base_ref :: load_instrs
+      offset_es ← liftM $ compile_sz offset_sz;
+      load_es ← tagged_load base_ref offset_es field_typ;
+      '(stk, save_es) ← save_stack [field_typ];
+      let ref_vars := map (Nat.add stk) $ ref_indices LMNative field_typ in
+      mret $ W.BI_tee_local base_ref ::
+             load_es ++
+             save_es ++
+             W.BI_get_local base_ref ::
+             if_gc_bit_set [] []
+               (map_gc_ref_vars VSLocal [W.BI_call funcidx_registerroot] ref_vars)
+               (map_gc_ref_vars VSLocal [W.BI_call funcidx_duproot] ref_vars) ++
+             restore_stack [field_typ] stk
   | R.IStructSet (R.Arrow from to, _) n =>
-      (* TODO: unregisterroot if MM struct *)
+      base_ref ← walloc W.T_i32;
       fields ← liftM $ get_struct_field_types from 1;
+      field_typ ← liftM $ err_opt (list_lookup 0 to) "struct.get: cannot find output val type";
       val_typ ← liftM $ err_opt (list_lookup 0 from) "struct.set: cannot find input val type";
       offset_sz ← liftM $ struct_field_offset fields n;
-      offset_e ← liftM $ compile_sz offset_sz;
-      tagged_store offset_e val_typ
+      offset_es ← liftM $ compile_sz offset_sz;
+      let tys := compile_typ field_typ in
+      load_es ← gc_loads base_ref offset_es tys;
+      store_es ← tagged_store offset_es val_typ;
+      '(old_stk_var, old_save_es) ← save_stack [field_typ];
+      '(new_stk_var, new_save_es) ← save_stack [val_typ];
+      let old_ref_vars := map (Nat.add old_stk_var) $ ref_indices LMNative field_typ in
+      let new_ref_vars := map (Nat.add new_stk_var) $ ref_indices LMNative val_typ in
+      let unreg_es :=
+        if_gc_bit_set [] []
+          []
+          (load_es ++
+           new_save_es ++
+           map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] old_ref_vars) in
+      let loadroot_es :=
+        if_gc_bit_set [] []
+          (new_save_es ++
+           map_gc_ref_vars VSLocal [W.BI_load mctx.(mem_gc) W.T_i32 None 0%N 0%N] new_ref_vars ++
+           restore_stack [val_typ] new_stk_var)
+          [] in
+      mret $ W.BI_tee_local base_ref ::
+             unreg_es ++
+             W.BI_get_local base_ref ::
+             loadroot_es ++
+             W.BI_get_local base_ref ::
+             store_es
   | R.IStructSwap (R.Arrow from to, _) n =>
       (* TODO: registerroot if GC struct *)
       fields ← liftM $ get_struct_field_types from 1;
