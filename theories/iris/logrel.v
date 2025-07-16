@@ -506,54 +506,102 @@ Proof.
   intros Htyp Hcomp.
   generalize dependent es'.
   induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ => forall es', compile_instr mctx C sz_locs F e wl = OK (wl', es') -> ⊢ semantic_typing C F L [] (to_e_list es') ta L').
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - intros es' Hcomp.
+  - (* INumConst *)
+    admit.
+  - (* IUnit *)
+    admit.
+  - (* INum *)
+    admit.
+  - (* IUnreachable *)
+    admit.
+  - (* INop *)
+    admit.
+  - (* IDrop *)
+    admit.
+  - (* IBlock *)
+    admit.
+  - (* ILoop *)
+    admit.
+  - (* IIte *)
+    admit.
+  - (* IBr *)
+    admit.
+  - (* IBrIf *)
+    admit.
+  - (* IBrTable *)
+    admit.
+  - (* IRet *)
+    admit.
+  - (* IGetLocal *)
+    admit.
+  - (* ISetLocal *)
+    admit.
+  - (* IGetGlobal *)
+    admit.
+  - (* ISetGlobal *)
+    admit.
+  - (* ICoderef *)
+    admit.
+  - (* ICallIndirect *)
+    admit.
+  - (* ICall *)
+    admit.
+  - (* IRecFold *)
+    admit.
+  - (* IRecUnfold *)
+    admit.
+  - (* IGroup *)
+    admit.
+  - (* IUngroup *)
+    admit.
+  - (* ICapSplit *)
+    admit.
+  - (* ICapJoin *)
+    admit.
+  - (* IRefDemote *)
+    admit.
+  - (* IMemPack *)
+    admit.
+  - (* IMemUnpack *)
+    admit.
+  - (* IStructMalloc *)
+    admit.
+  - (* IStructFree *)
+    admit.
+  - (* IStructGet *)
+    admit.
+  - (* IStructSet *)
+    admit.
+  - (* IStructSwap *)
+    admit.
+  - (* IVariantMalloc *)
+    admit.
+  - (* IVariantCase - Unrestricted *)
+    admit.
+  - (* IVariantCase - Linear *)
+    admit.
+  - (* IArrayMalloc *)
+    admit.
+  - (* IArrayGet *)
+    admit.
+  - (* IArraySet *)
+    admit.
+  - (* IArrayFree *)
+    admit.
+  - (* IExistPack *)
+    admit.
+  - (* IExistUnpack - Unrestricted *)
+    admit.
+  - (* IExistUnpack - Linear *)
+    admit.
+  - (* IRefSplit *)
+    admit.
+  - (* IRefJoin *)
+    admit.
+  - (* Empty *)
+    admit.
+  - (* Cons *)
+    intros es' Hcomp.
     unfold compile_instrs in Hcomp.
     unfold fmap in Hcomp. 
     apply fmap_OK in Hcomp.
