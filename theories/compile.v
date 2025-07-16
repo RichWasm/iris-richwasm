@@ -73,7 +73,7 @@ Fixpoint compile_typ (typ: R.Typ) : list W.value_type :=
   | R.TVar _ => [W.T_i32]
   | R.Unit => []
   | R.ProdT typs => flatten $ map compile_typ typs
-  | R.CoderefT _ => [] (* TODO *)
+  | R.CoderefT _ => [W.T_i32]
   | R.Rec _ typ => compile_typ typ
   | R.PtrT _ => [W.T_i32]
   | R.ExLoc q typ => compile_typ typ
@@ -150,6 +150,7 @@ Record compiler_mod_ctx := {
   mem_lin : W.immediate;
   free : W.immediate;
   alloc : W.immediate;
+  coderef_offset : W.immediate;
 }.
 
 (* TODO: should these be combined? *)
@@ -384,7 +385,8 @@ Fixpoint local_gets (τ: R.Typ) (loc: nat) : list W.basic_instruction :=
         | [] => []
         end in
       loop τs loc
-  | R.CoderefT χ => [] (* TODO *)
+  | R.CoderefT χ =>
+    [W.BI_get_local loc]
   | R.Rec q τ =>
       local_gets τ loc
   | R.PtrT ℓ =>
@@ -418,7 +420,8 @@ Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
         | [] => mret []
         end in
       loop τs loc
-  | R.CoderefT χ => mthrow Todo
+  | R.CoderefT χ =>
+      mret [W.BI_set_local loc]
   | R.Rec q τ =>
       local_sets τ loc
   | R.PtrT ℓ =>
@@ -599,9 +602,14 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
       let es1 := map_gc_ref_vars VSGlobal [W.BI_call funcidx_unregisterroot] ref_vars in
       let es2 := imap (fun j _ => W.BI_set_global (i' + j)) $ compile_typ ty in
       mret $ es1 ++ es2
-  | R.ICoderef (R.Arrow targs trets, _) x => mthrow Todo
-  | R.ICallIndirect (R.Arrow targs trets, _) inds => mthrow Todo (* TODO: why doesn't rwasm take an immediate? *)
-  | R.ICall (R.Arrow targs trets, _) x x0 => mthrow Todo     (* TODO: what to do with list of indexes? *)
+  | R.ICoderef (R.Arrow targs trets, _) idx =>
+    mret [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat idx)));
+          W.BI_get_global mctx.(coderef_offset);
+          W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)]
+  | R.ICallIndirect (R.Arrow targs trets, _) inds => 
+      mthrow Todo
+  | R.ICall (R.Arrow targs trets, _) fidx inds => 
+      mthrow Todo (* TODO: what to do with list of indexes? *)
   | R.IMemUnpack _ ta tl es =>
       let ta' := compile_arrow_type ta in
       e__s' ← flatten <$> mapM compile_instr es;
@@ -840,6 +848,7 @@ Fixpoint compile_module (module : R.module TyAnn) : exn err W.module :=
     mem_lin := 1;
     free := 0;
     alloc := 1;
+    coderef_offset := 0;
   |} in
   mret {|
     W.mod_types := []; (* TODO *)
