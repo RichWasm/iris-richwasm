@@ -29,19 +29,23 @@ Section stateT_instances.
   Instance stateT_MJoin : MJoin (stateT S M) :=
     λ A mm s,
       mbind (λ '(s', m), m s') (mm s).
+
 End stateT_instances.
 
 Section stateT_throw.
+
   Context {S : Type} {E : Type} {M : Type → Type}.
   Context `{!MBind M, !MRet M, !MThrow E M}.
 
   #[export]
   Instance stateT_MThrow : MThrow E (stateT S M) :=
     λ A e _s, mthrow e.
+
 End stateT_throw.
 
 (** * Basic state primitives **)
 Section stateT_ops.
+
   Context {S : Type} {M : Type → Type}.
   Context `{!MBind M, !MRet M}.
 
@@ -58,5 +62,5 @@ Section stateT_ops.
     λ st,
       x ← m;
       mret (st, x).
-End stateT_ops.
 
+End stateT_ops.

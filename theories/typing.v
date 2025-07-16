@@ -727,7 +727,9 @@ Section QualLt.
  
   Definition qual_ctx : Type :=
     list (list Qual * list Qual).
+
   Section qual_leq.
+
     Variable (bounds: qual_ctx).
 
     Inductive qual_leq : Qual -> Qual -> Prop :=

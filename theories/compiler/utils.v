@@ -2,10 +2,12 @@ From Coq Require Import List Lists.List.
 From stdpp Require Import base list decidable gmap.
 
 Section AddIfNotIn.
+
   Context `{EqDecision A}.
 
   Fixpoint add_if_not_in (x : A) (l : list A) : list A :=
     if bool_decide (x ∈ l) then l else x :: l.
+
 End AddIfNotIn.
 
 Fixpoint list_prefix {A} (rel : A → A → bool) (l1 l2 : list A) : bool :=

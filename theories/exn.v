@@ -3,6 +3,7 @@ From stdpp Require Import base option list.
 Set Universe Polymorphism.
 
 Section exceptions.
+
   Variables (E: Type).
 
   Inductive exn (A : Type) : Type :=
