@@ -143,6 +143,7 @@ Record compiler_mod_ctx := {
   free : W.immediate;
   alloc : W.immediate;
   coderef_offset : W.immediate;
+  fn_tab : W.immediate;
 }.
 
 (* TODO: should these be combined? *)
@@ -614,7 +615,7 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
   | R.ICallIndirect (R.Arrow targs trets, _) inds => 
       '(stk, save_args) ← save_stack targs;
       sz_args ← liftM $ compile_inds inds;
-      mret $ save_args ++ sz_args ++ restore_stack targs stk ++ [W.BI_call_indirect mctx.fn_tab]
+      mret $ save_args ++ sz_args ++ restore_stack targs stk ++ [W.BI_call_indirect mctx.(fn_tab)]
   | R.ICall (R.Arrow targs trets, _) fidx inds => 
       '(stk, save_args) ← save_stack targs;
       sz_args ← liftM $ compile_inds inds;
@@ -858,6 +859,7 @@ Fixpoint compile_module (module : R.module TyAnn) : exn err W.module :=
     free := 0;
     alloc := 1;
     coderef_offset := 0;
+    fn_tab := 0;
   |} in
   mret {|
     W.mod_types := []; (* TODO *)
