@@ -211,8 +211,9 @@ Definition gc_loads
   (tys: list W.value_type) :=
   base_ptr_var ← walloc W.T_i32;
   mret $ W.BI_get_local ref_var ::
-         unset_gc_bit ++ 
+         unset_gc_bit ++
          offset_instrs ++
+         W.BI_binop W.T_i32 (W.Binop_i W.BOI_add) ::
          W.BI_set_local base_ptr_var ::
          loads mctx.(mem_gc) base_ptr_var tys.
 
@@ -223,6 +224,7 @@ Definition lin_loads
   base_ptr_var ← walloc W.T_i32;
   mret $ W.BI_get_local ref_var ::
          offset_instrs ++
+         W.BI_binop W.T_i32 (W.Binop_i W.BOI_add) ::
          W.BI_set_local base_ptr_var ::
          loads mctx.(mem_lin) base_ptr_var tys.
 
