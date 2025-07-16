@@ -1849,9 +1849,9 @@ Section Typing.
         QualValid (qual F) (get_hd (linear F)) ->
         HasTypeInstr C F L (IGetGlobal (EmptyArrow tau, LSig L L) i) (EmptyArrow tau) L
   | SetglobalTyp :
-      forall C F L i q tau,
+      forall C F L i tau,
         nth_error (global C) i = Some (GT true tau) ->
-        QualLeq (qual F) q Unrestricted = Some true ->
+        TypQualLeq F tau Unrestricted = Some true ->
         LocalCtxValid F L ->
         (* Since this comes from the module context, the type should be valid under an empty function context *)
         TypeValid empty_Function_Ctx tau ->
