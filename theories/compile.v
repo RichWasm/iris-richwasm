@@ -516,6 +516,17 @@ Fixpoint compile_sz (sz : R.Size) : exn err (list W.basic_instruction) :=
     mret [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c)))]
   end.
 
+Definition compile_ind (ind: R.Index) : exn err (list W.basic_instruction) :=
+  match ind with
+  | R.SizeI sz => compile_sz sz
+  | R.LocI _
+  | R.QualI _
+  | R.TypI _ => mret []
+  end.
+
+Definition compile_inds (inds: list R.Index) : exn err (list W.basic_instruction) :=
+  flatten <$> mapM compile_ind inds.
+
 Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
   match instr with
   | R.INumConst _ num_type num =>
@@ -601,9 +612,13 @@ Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :
           W.BI_get_global mctx.(coderef_offset);
           W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)]
   | R.ICallIndirect (R.Arrow targs trets, _) inds => 
-      mthrow Todo
+      '(stk, save_args) ← save_stack targs;
+      sz_args ← liftM $ compile_inds inds;
+      mret $ save_args ++ sz_args ++ restore_stack targs stk ++ [W.BI_call_indirect mctx.fn_tab]
   | R.ICall (R.Arrow targs trets, _) fidx inds => 
-      mthrow Todo (* TODO: what to do with list of indexes? *)
+      '(stk, save_args) ← save_stack targs;
+      sz_args ← liftM $ compile_inds inds;
+      mret $ save_args ++ sz_args ++ restore_stack targs stk ++ [W.BI_call fidx]
   | R.IMemUnpack _ ta tl es =>
       let ta' := compile_arrow_type ta in
       e__s' ← flatten <$> mapM compile_instr es;
