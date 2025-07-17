@@ -497,6 +497,39 @@ Section logrel.
   Proof.
   Admitted.
 
+  Lemma compat_struct_get C F L sz_locs ty cap l hty n es wl wl' :
+    HasTypeInstr C F L
+      (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)
+      (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
+    compile_instr mctx C sz_locs F
+      (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n) wl =
+      OK (wl', es) ->
+    ⊢ semantic_typing C F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
+  Proof.
+    intros Htype Hcomp.
+    iIntros "%inst %lh [Hinst Hctx] %f %vs [Hval Hfr]".
+    rewrite interp_expr_eq.
+    rewrite interp_frame_eq.
+    iDestruct "Hval" as "[-> | (%vs' & -> & Hval)]".
+    - (* trap *)
+      admit.
+    - iDestruct "Hval" as "(%vss & %Hvs' & Hval)".
+      simpl in Hvs'. subst vs'.
+      iPoseProof (big_sepL2_length with "[$Hval]") as "%Hlens".
+      destruct vss as [|vs vss]; cbn in Hlens; first discriminate Hlens.
+      destruct vss; cbn in Hlens; try discriminate Hlens. clear Hlens.
+      rewrite big_sepL2_singleton.
+      setoid_rewrite interp_value_eq.
+      cbn.
+      setoid_rewrite app_nil_r.
+      destruct l; first by iExFalso.
+      destruct m.
+      + (* GC *)
+        admit.
+      + (* MM *)
+        admit.
+  Admitted.
+
   Theorem fundamental_property C F L sz_locs es es' tf wl wl' L' :
     HasTypeInstrs C F L es tf L' ->
     compile_instrs mctx C sz_locs F es wl = OK (wl', es') ->
@@ -572,7 +605,9 @@ Section logrel.
     - (* IStructFree *)
       admit.
     - (* IStructGet *)
-      admit.
+      eapply compat_struct_get with (n := n).
+      + apply TStructGet; assumption.
+      + exact Hcomp.
     - (* IStructSet *)
       admit.
     - (* IStructSwap *)
