@@ -738,26 +738,41 @@ Section Mod.
         | R.IArrayGet (R.Arrow from to, _) =>
           (* TODO: registerroot if GC array;
                    duproot if MM array *)
+          (*  ex: i64[i]
+            | idx | offset |
+            |-----|--------|
+            | 0   | 0      |
+            | 1   | 1 * 2  |
+            ...
+            | i   | i * 2  | *)
           elem_typ ← liftM $ get_array_elem_type from 1;
           let elem_shape := compile_typ elem_typ in
-          (*  ex: i64[i]
-             | idx | offset |
-             |-----|--------|
-             | 0   | 0      |
-             | 1   | 1 * 2  |
-             ...
-             | i   | i * 2  | *)
-          mthrow Todo
-    (*
-          mret [
-            layout.Val $ LV_int32 (shape_size_words elem_shape);
-            layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [idx; sz] → [offset] *)
-            layout.LoadOffset elem_shape; (* [ptr; offset] → [ptr; offset; val] *)
-            layout.Swap;                  (* [offset; val] → [val; offset]*)
-            layout.Drop]                  (* [offset]; → [] *)
-        (* [ptr; idx; val] → [ptr] *)
-        (* [i32; i32; τ  ] → [i32] *)
-    *)
+          idx_local ← walloc W.T_i32;
+          base_local ← walloc W.T_i32;
+          let words := words_typ elem_typ in
+          let local_setup := [
+            W.BI_set_local idx_local;
+            W.BI_set_local base_local
+          ]
+          in
+          let bounds_check := 
+            tagged_load base_local [W.BI_const $ compile_num W.T_i32 0] W.T_i32
+            ++ [
+              W.BI_get_local idx_local;
+              W.BI_relop W.T_i32 (W.relop_i W.ROI_lt)
+            ]
+          in
+          let compute_offset := [
+            W.BI_get_local idx_local;
+            W.BI_const $ compile_num W.T_i32 words;
+            W.BI_binop W.T_i32 (W.binop_i W.BOI_mul);
+            W.BI_const $ compile_num W.T_i32 4; (* skip header length word *)
+            W.BI_binop W.T_i32 (W.binop_i W.BOI_add)
+          ]
+          in
+          let read := tagged_load base_local compute_offset elem_typ in
+          mret $ local_setup ++ bounds_check
+            ++ W.BI_if (W.Tf [] elem_shape) read [W.BI_unreachable]
         | R.IArraySet (R.Arrow from to, _) =>
           (* TODO: unregisterroot if GC array;
                    duproot a bunch of times if MM array *)
