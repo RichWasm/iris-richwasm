@@ -19,27 +19,25 @@ Module R := term.
 Module W := datatypes.
 Require Import stdpp.list.
 
+(* Mapping from size variables to indices of locals of type i32 *)
+Definition size_ctx := list W.immediate.
+
 (* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
-Definition wlocal_ctx := seq.seq W.value_type.
+Definition wlocal_ctx := list W.value_type.
 
-Record wlayout :=
-  { w_offset: nat;
-    w_ctx: wlocal_ctx }.
+Definition wst (A: Type) : Type := stateT wlocal_ctx (exn err) A.
 
-Definition wextend (w: wlayout) (t: W.value_type) :=
-  {| w_offset := w.(w_offset);
-     w_ctx := w.(w_ctx) ++ [t]; |}.
-
-Definition next_idx (w: wlayout) : W.immediate :=
-  w.(w_offset) + length w.(w_ctx).
-
-Definition wst (A: Type) : Type := stateT wlayout (exn err) A.
-
-Definition walloc (t: W.value_type) : wst W.immediate :=
-  λ w, OK (wextend w t, next_idx w).
-
-Definition wnext_idx : wst W.immediate :=
-  λ w, OK (w, next_idx w).
+Record compiler_mod_ctx := {
+  mem_gc : W.immediate;
+  mem_lin : W.immediate;
+  free : W.immediate;
+  alloc : W.immediate;
+  registerroot : W.immediate;
+  unregisterroot : W.immediate;
+  duproot : W.immediate;
+  coderef_offset : W.immediate;
+  fn_tab : W.immediate;
+}.
 
 Definition compile_int_type (typ : R.IntType) : W.value_type :=
   match typ with
@@ -132,152 +130,131 @@ Fixpoint expect_concrete_size (sz: R.Size) : exn err nat :=
   | _ => mthrow (Err "expected concrete size")
   end.
 
-(* Mapping from size variables to indices of locals of type i32 *)
-Definition size_ctx := 
-  list W.immediate.
+Fixpoint struct_field_offset (fields: list (R.Typ * R.Size)) (idx: nat) : exn err R.Size :=
+  match idx with
+  | 0 => mret $ R.SizeConst 0
+  | S idx' =>
+      match fields with
+      | (_, sz) :: fields' => R.SizePlus sz <$> (struct_field_offset fields' idx')
+      | [] => mthrow Todo
+      end
+  end.
+
+Definition get_struct_field_types (targs : list R.Typ) (idx : nat) : exn err (list (R.Typ * R.Size)) :=
+  match targs !! idx with
+  | Some (R.RefT _ _ (R.StructType fields)) => mret fields
+  | _ => mthrow (Err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
+  end.
+
+Definition get_array_elem_type (targs : list R.Typ) (idx : nat) : exn err R.Typ :=
+  match targs !! idx with
+  | Some (R.RefT _ _ (R.ArrayType typ)) => mret typ
+  | _ => mthrow (Err ("array instruction expected a ref to an array type at index " ++ pretty idx))
+  end.
+
+Definition if_gc_bit_set ins outs gc_branch lin_branch :=
+  [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
+   W.BI_binop W.T_i32 (W.Binop_i W.BOI_and);
+   W.BI_testop W.T_i32 W.TO_eqz;
+   W.BI_if (W.Tf ins outs) lin_branch gc_branch].
+
+Definition unset_gc_bit :=
+  [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
+   W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)].
+
+Fixpoint loads'
+  (mem: W.immediate)
+  (base_ptr_var: W.immediate)
+  (off: W.static_offset)
+  (tys: list W.value_type) :=
+  match tys with
+  | [] => []
+  | ty :: tys =>
+      W.BI_get_local base_ptr_var ::
+      W.BI_load mem ty None 0%N off ::
+      loads' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N tys
+  end.
+
+Definition loads mem base_ptr_var tys :=
+  loads' mem base_ptr_var 0%N tys.
+
+Fixpoint loc_stores'
+  (base_ptr_var: W.immediate)
+  (mem: W.immediate)
+  (off: W.static_offset)
+  (val_var_tys: list (W.immediate * W.value_type)) :=
+  match val_var_tys with
+  | [] => []
+  | (val_var, ty) :: val_var_tys =>
+      W.BI_get_local base_ptr_var ::
+      W.BI_get_local val_var ::
+      W.BI_store mem ty None 0%N off ::
+      loc_stores' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N val_var_tys
+  end.
+
+Definition loc_stores base_ptr_var mem val_var_tys : list W.basic_instruction :=
+  loc_stores' base_ptr_var mem 0%N val_var_tys.
+
+Definition stores base_ptr_var mem (val_vars: list W.immediate) (tys: list W.value_type)
+  : list W.basic_instruction :=
+  loc_stores base_ptr_var mem (zip val_vars tys).
+
+Inductive VarScope :=
+  | VSGlobal
+  | VSLocal.
+
+Definition scope_get_set (scope : VarScope) :
+  (W.immediate -> W.basic_instruction) *
+  (W.immediate -> W.basic_instruction) :=
+  match scope with
+  | VSGlobal => (W.BI_get_global, W.BI_set_global)
+  | VSLocal => (W.BI_get_local, W.BI_set_local)
+  end.
+
+Inductive LayoutMode :=
+  | LMWords
+  | LMNative.
+
+Definition layout_ty_length (layout : LayoutMode) (ty : R.Typ) :=
+  match layout with
+  | LMWords => words_typ ty
+  | LMNative => length $ compile_typ ty
+  end.
+
+Definition ref_indices (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
+  let fix go ty i :=
+    match ty with
+    | R.Num _
+    | R.Unit
+    | R.CoderefT _
+    | R.PtrT _
+    | R.OwnR _
+    | R.CapT _ _ _ => []
+    | R.ProdT tys =>
+        snd $ foldl
+          (fun '(j, is) ty' => (j + layout_ty_length layout ty', is ++ go ty' j))
+          (i, [])
+          tys
+    | R.Rec _ ty'
+    | R.ExLoc _ ty' => go ty' i
+    | R.TVar _
+    | R.RefT _ _ _ => [i]
+    end in
+  go ty 0.
+
+Definition map_gc_ref_vars (scope : VarScope) (es : list W.basic_instruction)
+  : list W.immediate -> list W.basic_instruction :=
+  flat_map (fun i =>
+    let '(get, set) := scope_get_set scope in
+    get i ::
+    if_gc_bit_set [W.T_i32] [W.T_i32] es [] ++
+    [set i]).
 
 Section Mod.
 
-  Record compiler_mod_ctx := {
-    mem_gc : W.immediate;
-    mem_lin : W.immediate;
-    free : W.immediate;
-    alloc : W.immediate;
-    coderef_offset : W.immediate;
-    fn_tab : W.immediate;
-  }.
-
   (* TODO: should these be combined? *)
   Variable mctx : compiler_mod_ctx.
-  Variable (C : Module_Ctx).
-
-  Fixpoint struct_field_offset (fields: list (R.Typ * R.Size)) (idx: nat) : exn err R.Size :=
-    match idx with
-    | 0 => mret $ R.SizeConst 0
-    | S idx' =>
-        match fields with
-        | (_, sz) :: fields' => R.SizePlus sz <$> (struct_field_offset fields' idx')
-        | [] => mthrow Todo
-        end
-    end.
-
-  Definition get_struct_field_types (targs : list R.Typ) (idx : nat) : exn err (list (R.Typ * R.Size)) :=
-    match targs !! idx with
-    | Some (R.RefT _ _ (R.StructType fields)) => mret fields
-    | _ => mthrow (Err ("struct instruction expected type-args to be a ref to a struct at index " ++ pretty idx))
-    end.
-
-  Definition get_array_elem_type (targs : list R.Typ) (idx : nat) : exn err R.Typ :=
-    match targs !! idx with
-    | Some (R.RefT _ _ (R.ArrayType typ)) => mret typ
-    | _ => mthrow (Err ("array instruction expected a ref to an array type at index " ++ pretty idx))
-    end.
-
-  Definition if_gc_bit_set ins outs gc_branch lin_branch :=
-    [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
-     W.BI_binop W.T_i32 (W.Binop_i W.BOI_and);
-     W.BI_testop W.T_i32 W.TO_eqz;
-     W.BI_if (W.Tf ins outs) lin_branch gc_branch].
-
-  Definition unset_gc_bit :=
-    [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
-     W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)].
-
-  Fixpoint loads'
-    (mem: W.immediate)
-    (base_ptr_var: W.immediate)
-    (off: W.static_offset)
-    (tys: list W.value_type) :=
-    match tys with
-    | [] => []
-    | ty :: tys =>
-        W.BI_get_local base_ptr_var ::
-        W.BI_load mem ty None 0%N off ::
-        loads' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N tys
-    end.
-
-  Definition loads mem base_ptr_var tys :=
-    loads' mem base_ptr_var 0%N tys.
-
-  Definition gc_loads
-    (ref_var: W.immediate)
-    (offset_instrs: list W.basic_instruction)
-    (tys: list W.value_type) :=
-    base_ptr_var ← walloc W.T_i32;
-    mret $ W.BI_get_local ref_var ::
-           unset_gc_bit ++
-           offset_instrs ++
-           W.BI_binop W.T_i32 (W.Binop_i W.BOI_add) ::
-           W.BI_set_local base_ptr_var ::
-           loads mctx.(mem_gc) base_ptr_var tys.
-
-  Definition lin_loads
-    (ref_var: W.immediate)
-    (offset_instrs: list W.basic_instruction)
-    (tys: list W.value_type) :=
-    base_ptr_var ← walloc W.T_i32;
-    mret $ W.BI_get_local ref_var ::
-           offset_instrs ++
-           W.BI_binop W.T_i32 (W.Binop_i W.BOI_add) ::
-           W.BI_set_local base_ptr_var ::
-           loads mctx.(mem_lin) base_ptr_var tys.
-
-  Definition tagged_loads
-    (base_ptr: W.immediate)
-    (offset_instrs: list W.basic_instruction)
-    (tys: list W.value_type) :=
-    gc_instrs ← gc_loads base_ptr offset_instrs tys;
-    lin_instrs ← lin_loads base_ptr offset_instrs tys;
-    mret $ W.BI_get_local base_ptr ::
-           if_gc_bit_set [] tys gc_instrs lin_instrs.
-
-  Definition tagged_load
-    (base_ptr: W.immediate)
-    (offset_instrs: list W.basic_instruction)
-    (ty: R.Typ)
-    : wst (list W.basic_instruction) :=
-    let tys := compile_typ ty in
-    tagged_loads base_ptr offset_instrs tys.
-
-  Fixpoint loc_stores'
-    (base_ptr_var: W.immediate)
-    (mem: W.immediate)
-    (off: W.static_offset)
-    (val_var_tys: list (W.immediate * W.value_type)) :=
-    match val_var_tys with
-    | [] => []
-    | (val_var, ty) :: val_var_tys =>
-        W.BI_get_local base_ptr_var ::
-        W.BI_get_local val_var ::
-        W.BI_store mem ty None 0%N off ::
-        loc_stores' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N val_var_tys
-    end.
-
-  Definition loc_stores base_ptr_var mem val_var_tys : list W.basic_instruction :=
-    loc_stores' base_ptr_var mem 0%N val_var_tys.
-
-  Definition stores base_ptr_var mem (val_vars: list W.immediate) (tys: list W.value_type)
-    : list W.basic_instruction :=
-    loc_stores base_ptr_var mem (zip val_vars tys).
-
-  Definition wallocs (tys: list W.value_type) : wst (list W.immediate) :=
-    mapM walloc tys.
-
-  Definition walloc_args (tys: list W.value_type)
-    : wst (list W.immediate *
-           list W.basic_instruction) :=
-    vars ← wallocs tys;
-    mret $ (vars, map W.BI_set_local vars).
-
-  Definition walloc_rvalue (ty : R.Typ) : wst W.immediate :=
-    next_idx ← wnext_idx;
-    _ ← mapM walloc $ compile_typ ty;
-    mret next_idx.
-
-  Definition walloc_rvalues (tys : list R.Typ) : wst W.immediate :=
-    next_idx ← wnext_idx;
-    _ ← mapM walloc_rvalue tys;
-    mret next_idx.
+  Variable C : Module_Ctx.
 
   Definition tagged_store
     (base_ptr: W.immediate)
@@ -299,26 +276,6 @@ Section Mod.
            offset_instrs ++
            stores base_ptr mctx.(mem_lin) arg_vars tys).
 
-  Definition tagged_store'
-    (offset_instrs: list W.basic_instruction)
-    (ty: R.Typ)
-    : wst (list W.basic_instruction) :=
-    let tys := compile_typ ty in
-    '(arg_vars, save_args) ← walloc_args tys;
-    base_ptr_var ← walloc W.T_i32;
-    do_store ← tagged_store base_ptr_var arg_vars offset_instrs ty;
-    mret $ save_args ++ do_store.
-
-  Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * R.Typ) :=
-    match L, i with
-    | (τ, sz) :: L, 0 =>
-        mret (base, τ)
-    | (τ, sz) :: L, S i =>
-        sz_const ← expect_concrete_size sz;
-        local_layout L (base + sz_const) i
-    | [], _ => mthrow (Err "local_layout given out of bounds index")
-    end.
-
   Fixpoint global_layout (globs : list R.GlobalType) (idx : nat) : option (nat * R.Typ) :=
     match globs, idx with
     | [R.GT _ ty], 0 => Some (0, ty)
@@ -326,193 +283,222 @@ Section Mod.
     | _, _ => None
     end.
 
-  Definition get_i64_local (loc : W.immediate) : list W.basic_instruction :=
-    [ W.BI_get_local loc;
-      W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
-      W.BI_get_local (loc + 1);
-      W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
-      W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl);
-      W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
-      W.BI_binop W.T_i64 (W.Binop_i W.BOI_or) ].
-
-  Definition set_i64_local (loc : W.immediate) : wst (list W.basic_instruction) :=
-    tmp ← walloc W.T_i64;
-    mret [ W.BI_tee_local tmp;
-           W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one));
-           W.BI_binop W.T_i64 (W.Binop_i W.BOI_and);
-           W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None;
-           W.BI_set_local loc;
-           W.BI_get_local tmp;
-           W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
-           W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr);
-           W.BI_set_local (loc + 1) ].
-
-  Definition numtyp_gets (nτ: R.NumType) (loc: nat) : list W.basic_instruction :=
-    match nτ with
-    | R.Int s R.i32 => [ W.BI_get_local loc ]
-    | R.Float R.f32 =>
-        [ W.BI_get_local loc;
-          W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None ]
-    | R.Int s R.i64 => get_i64_local loc
-    | R.Float R.f64 =>
-        get_i64_local loc ++
-        [ W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None ]
-    end.
-
-  Definition numtyp_sets (nτ: R.NumType) (loc: nat) : wst (list W.basic_instruction) :=
-    match nτ with
-    | R.Int s R.i32 => mret [ W.BI_set_local loc ]
-    | R.Float R.f32 =>
-        mret [ W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None;
-               W.BI_set_local loc ]
-    | R.Int s R.i64 => set_i64_local loc
-    | R.Float R.f64 =>
-        es ← set_i64_local loc;
-        mret $ W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None :: es
-    end.
-
-  Fixpoint local_gets (τ: R.Typ) (loc: nat) : list W.basic_instruction :=
-    match τ with
-    | R.Num nτ =>
-        numtyp_gets nτ loc
-    | R.TVar α =>
-        [W.BI_get_local loc]
-    | R.Unit =>
-        []
-    | R.ProdT τs =>
-        let fix loop τs0 sz :=
-          match τs0 with
-          | τ0 :: τs0' =>
-              let sz := words_typ τ0 in
-              let es := local_gets τ0 loc in
-              let es' := loop τs0' (loc + sz) in
-              es ++ es'
-          | [] => []
-          end in
-        loop τs loc
-    | R.CoderefT χ =>
-      [W.BI_get_local loc]
-    | R.Rec q τ =>
-        local_gets τ loc
-    | R.PtrT ℓ =>
-        [W.BI_get_local loc]
-    | R.ExLoc q τ =>
-        local_gets τ loc
-    | R.OwnR ℓ =>
-        []
-    | R.CapT cap ℓ ψ =>
-        []
-    | R.RefT cap ℓ ψ =>
-        [W.BI_get_local loc]
-    end.
-
-  Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
-    match τ with
-    | R.Num nτ =>
-        numtyp_sets nτ loc
-    | R.TVar α =>
-        mret [W.BI_set_local loc]
-    | R.Unit =>
-        mret []
-    | R.ProdT τs =>
-        let fix loop τs0 sz :=
-          match τs0 with
-          | τ0 :: τs0' =>
-              let sz := words_typ τ0 in
-              es ← local_sets τ0 loc;
-              es' ← loop τs0' (loc + sz);
-              mret $ es ++ es'
-          | [] => mret []
-          end in
-        loop τs loc
-    | R.CoderefT χ =>
-        mret [W.BI_set_local loc]
-    | R.Rec q τ =>
-        local_sets τ loc
-    | R.PtrT ℓ =>
-        mret [W.BI_set_local loc]
-    | R.ExLoc q τ =>
-        local_sets τ loc
-    | R.OwnR ℓ =>
-        mret []
-    | R.CapT cap ℓ ψ =>
-        mret []
-    | R.RefT cap ℓ ψ =>
-        mret [W.BI_set_local loc]
-    end.
-
-  Definition save_stack (tys : list R.Typ) : wst (W.immediate * list W.basic_instruction) :=
-    idx ← walloc_rvalues tys;
-    es ← local_sets (R.ProdT tys) idx;
-    mret (idx, es).
-
-  Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : list W.basic_instruction :=
-    local_gets (R.ProdT tys) idx.
-
-  Definition funcidx_registerroot : W.immediate.
-  Admitted.
-
-  Definition funcidx_duproot : W.immediate.
-  Admitted.
-
-  Definition funcidx_unregisterroot : W.immediate.
-  Admitted.
-
-  Inductive VarScope :=
-    | VSGlobal
-    | VSLocal.
-
-  Definition scope_get_set (scope : VarScope) :
-    (W.immediate -> W.basic_instruction) *
-    (W.immediate -> W.basic_instruction) :=
-    match scope with
-    | VSGlobal => (W.BI_get_global, W.BI_set_global)
-    | VSLocal => (W.BI_get_local, W.BI_set_local)
-    end.
-
-  Inductive LayoutMode :=
-    | LMWords
-    | LMNative.
-
-  Definition layout_ty_length (layout : LayoutMode) (ty : R.Typ) :=
-    match layout with
-    | LMWords => words_typ ty
-    | LMNative => length $ compile_typ ty
-    end.
-
-  Definition ref_indices (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
-    let fix go ty i :=
-      match ty with
-      | R.Num _
-      | R.Unit
-      | R.CoderefT _
-      | R.PtrT _
-      | R.OwnR _
-      | R.CapT _ _ _ => []
-      | R.ProdT tys =>
-          snd $ foldl
-            (fun '(j, is) ty' => (j + layout_ty_length layout ty', is ++ go ty' j))
-            (i, [])
-            tys
-      | R.Rec _ ty'
-      | R.ExLoc _ ty' => go ty' i
-      | R.TVar _
-      | R.RefT _ _ _ => [i]
-      end in
-    go ty 0.
-
-  Definition map_gc_ref_vars (scope : VarScope) (es : list W.basic_instruction)
-    : list W.immediate -> list W.basic_instruction :=
-    flat_map (fun i =>
-      let '(get, set) := scope_get_set scope in
-      get i ::
-      if_gc_bit_set [W.T_i32] [W.T_i32] es [] ++
-      [set i]).
-
   Section Fun.
 
     Variable (sz_locs: size_ctx).
     Variable (F : Function_Ctx).
+    Variable (temps_off : nat).
+
+    Definition wnext : wst W.immediate :=
+      temps ← mget;
+      mret $ temps_off + length temps.
+
+    Definition walloc (t: W.value_type) : wst W.immediate :=
+      temps ← mget;
+      mput $ temps ++ [t];;
+      mret $ temps_off + length temps.
+
+    Definition wallocs (tys: list W.value_type) : wst (list W.immediate) :=
+      mapM walloc tys.
+
+    Definition walloc_args (tys: list W.value_type)
+      : wst (list W.immediate *
+      list W.basic_instruction) :=
+      vars ← wallocs tys;
+      mret $ (vars, map W.BI_set_local vars).
+
+    Definition walloc_rvalue (ty : R.Typ) : wst W.immediate :=
+      i ← wnext;
+      _ ← mapM walloc $ compile_typ ty;
+      mret i.
+
+    Definition walloc_rvalues (tys : list R.Typ) : wst W.immediate :=
+      i ← wnext;
+      _ ← mapM walloc_rvalue tys;
+      mret i.
+
+    Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * R.Typ) :=
+      match L, i with
+      | (τ, sz) :: L, 0 =>
+          mret (base, τ)
+      | (τ, sz) :: L, S i =>
+          sz_const ← expect_concrete_size sz;
+          local_layout L (base + sz_const) i
+      | [], _ => mthrow (Err "local_layout given out of bounds index")
+      end.
+
+    Definition gc_loads
+      (ref_var: W.immediate)
+      (offset_instrs: list W.basic_instruction)
+      (tys: list W.value_type) :=
+      base_ptr_var ← walloc W.T_i32;
+      mret $ W.BI_get_local ref_var ::
+             unset_gc_bit ++
+             offset_instrs ++
+             W.BI_binop W.T_i32 (W.Binop_i W.BOI_add) ::
+             W.BI_set_local base_ptr_var ::
+             loads mctx.(mem_gc) base_ptr_var tys.
+
+    Definition lin_loads
+      (ref_var: W.immediate)
+      (offset_instrs: list W.basic_instruction)
+      (tys: list W.value_type) :=
+      base_ptr_var ← walloc W.T_i32;
+      mret $ W.BI_get_local ref_var ::
+             offset_instrs ++
+             W.BI_binop W.T_i32 (W.Binop_i W.BOI_add) ::
+             W.BI_set_local base_ptr_var ::
+             loads mctx.(mem_lin) base_ptr_var tys.
+
+    Definition tagged_loads
+      (base_ptr: W.immediate)
+      (offset_instrs: list W.basic_instruction)
+      (tys: list W.value_type) :=
+      gc_instrs ← gc_loads base_ptr offset_instrs tys;
+      lin_instrs ← lin_loads base_ptr offset_instrs tys;
+      mret $ W.BI_get_local base_ptr ::
+             if_gc_bit_set [] tys gc_instrs lin_instrs.
+
+    Definition tagged_load
+      (base_ptr: W.immediate)
+      (offset_instrs: list W.basic_instruction)
+      (ty: R.Typ)
+      : wst (list W.basic_instruction) :=
+      let tys := compile_typ ty in
+      tagged_loads base_ptr offset_instrs tys.
+
+    Definition tagged_store'
+      (offset_instrs: list W.basic_instruction)
+      (ty: R.Typ)
+      : wst (list W.basic_instruction) :=
+      let tys := compile_typ ty in
+      '(arg_vars, save_args) ← walloc_args tys;
+      base_ptr_var ← walloc W.T_i32;
+      do_store ← tagged_store base_ptr_var arg_vars offset_instrs ty;
+      mret $ save_args ++ do_store.
+
+    Definition get_i64_local (loc : W.immediate) : list W.basic_instruction :=
+      [ W.BI_get_local loc;
+        W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
+        W.BI_get_local (loc + 1);
+        W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
+        W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl);
+        W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
+        W.BI_binop W.T_i64 (W.Binop_i W.BOI_or) ].
+
+    Definition set_i64_local (loc : W.immediate) : wst (list W.basic_instruction) :=
+      tmp ← walloc W.T_i64;
+      mret [ W.BI_tee_local tmp;
+             W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one));
+             W.BI_binop W.T_i64 (W.Binop_i W.BOI_and);
+             W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None;
+             W.BI_set_local loc;
+             W.BI_get_local tmp;
+             W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
+             W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr);
+             W.BI_set_local (loc + 1) ].
+
+    Definition numtyp_gets (nτ: R.NumType) (loc: nat) : list W.basic_instruction :=
+      match nτ with
+      | R.Int s R.i32 => [ W.BI_get_local loc ]
+      | R.Float R.f32 =>
+          [ W.BI_get_local loc;
+            W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None ]
+      | R.Int s R.i64 => get_i64_local loc
+      | R.Float R.f64 =>
+          get_i64_local loc ++
+          [ W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None ]
+      end.
+
+    Definition numtyp_sets (nτ: R.NumType) (loc: nat) : wst (list W.basic_instruction) :=
+      match nτ with
+      | R.Int s R.i32 => mret [ W.BI_set_local loc ]
+      | R.Float R.f32 =>
+          mret [ W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None;
+                 W.BI_set_local loc ]
+      | R.Int s R.i64 => set_i64_local loc
+      | R.Float R.f64 =>
+          es ← set_i64_local loc;
+          mret $ W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None :: es
+      end.
+
+    Fixpoint local_gets (τ: R.Typ) (loc: nat) : list W.basic_instruction :=
+      match τ with
+      | R.Num nτ =>
+          numtyp_gets nτ loc
+      | R.TVar α =>
+          [W.BI_get_local loc]
+      | R.Unit =>
+          []
+      | R.ProdT τs =>
+          let fix loop τs0 sz :=
+            match τs0 with
+            | τ0 :: τs0' =>
+                let sz := words_typ τ0 in
+                let es := local_gets τ0 loc in
+                let es' := loop τs0' (loc + sz) in
+                es ++ es'
+            | [] => []
+            end in
+          loop τs loc
+      | R.CoderefT χ =>
+        [W.BI_get_local loc]
+      | R.Rec q τ =>
+          local_gets τ loc
+      | R.PtrT ℓ =>
+          [W.BI_get_local loc]
+      | R.ExLoc q τ =>
+          local_gets τ loc
+      | R.OwnR ℓ =>
+          []
+      | R.CapT cap ℓ ψ =>
+          []
+      | R.RefT cap ℓ ψ =>
+          [W.BI_get_local loc]
+      end.
+
+    Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst (list W.basic_instruction) :=
+      match τ with
+      | R.Num nτ =>
+          numtyp_sets nτ loc
+      | R.TVar α =>
+          mret [W.BI_set_local loc]
+      | R.Unit =>
+          mret []
+      | R.ProdT τs =>
+          let fix loop τs0 sz :=
+            match τs0 with
+            | τ0 :: τs0' =>
+                let sz := words_typ τ0 in
+                es ← local_sets τ0 loc;
+                es' ← loop τs0' (loc + sz);
+                mret $ es ++ es'
+            | [] => mret []
+            end in
+          loop τs loc
+      | R.CoderefT χ =>
+          mret [W.BI_set_local loc]
+      | R.Rec q τ =>
+          local_sets τ loc
+      | R.PtrT ℓ =>
+          mret [W.BI_set_local loc]
+      | R.ExLoc q τ =>
+          local_sets τ loc
+      | R.OwnR ℓ =>
+          mret []
+      | R.CapT cap ℓ ψ =>
+          mret []
+      | R.RefT cap ℓ ψ =>
+          mret [W.BI_set_local loc]
+      end.
+
+    Definition save_stack (tys : list R.Typ) : wst (W.immediate * list W.basic_instruction) :=
+      idx ← walloc_rvalues tys;
+      es ← local_sets (R.ProdT tys) idx;
+      mret (idx, es).
+
+    Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : list W.basic_instruction :=
+      local_gets (R.ProdT tys) idx.
 
     Fixpoint compile_sz (sz : R.Size) : exn err (list W.basic_instruction) :=
       match sz with
@@ -557,7 +543,7 @@ Section Mod.
               let wasm_typ := compile_typ t_drop in
               '(base, es) ← save_stack [t_drop];
               let ref_vars := map (Nat.add base) $ ref_indices LMNative t_drop in
-              mret $ map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] ref_vars ++
+              mret $ map_gc_ref_vars VSLocal [W.BI_call mctx.(unregisterroot)] ref_vars ++
                      restore_stack [t_drop] base ++
                      map (const W.BI_drop) wasm_typ
           | _ => mthrow (Err "drop should consume exactly one value")
@@ -587,7 +573,7 @@ Section Mod.
           let ref_vars := map (Nat.add idx_dropped) $ flat_map (ref_indices LMNative) rdropped in
           mret $ ret_set_es ++
                  dropped_es ++
-                 map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] ref_vars ++
+                 map_gc_ref_vars VSLocal [W.BI_call mctx.(unregisterroot)] ref_vars ++
                  restore_stack ret_ty' idx_ret ++
                  [W.BI_return]
       | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
@@ -595,13 +581,13 @@ Section Mod.
           let es1 := local_gets τ base in
           '(i, es2) ← save_stack [τ];
           let ref_vars := map (Nat.add i) $ ref_indices LMNative τ in
-          let es3 := map_gc_ref_vars VSLocal [W.BI_call funcidx_duproot] ref_vars in
+          let es3 := map_gc_ref_vars VSLocal [W.BI_call mctx.(duproot)] ref_vars in
           let es4 := restore_stack [τ] i in
           mret $ es1 ++ es2 ++ es3 ++ es4
       | R.ISetLocal (R.Arrow targs trets, LSig L _) idx =>
           '(base, τ) ← liftM $ local_layout L 0 idx;
           let ref_vars := map (Nat.add base) $ ref_indices LMWords τ in
-          let es1 := map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] ref_vars in
+          let es1 := map_gc_ref_vars VSLocal [W.BI_call mctx.(unregisterroot)] ref_vars in
           es2 ← local_sets τ base;
           mret $ es1 ++ es2
       | R.IGetGlobal _ i =>
@@ -609,13 +595,13 @@ Section Mod.
           let es1 := imap (fun j _ => W.BI_get_global $ i' + j) $ compile_typ ty in
           '(j, es2) ← save_stack [ty];
           let ref_vars := map (Nat.add j) $ ref_indices LMNative ty in
-          let es3 := map_gc_ref_vars VSLocal [W.BI_call funcidx_duproot] ref_vars in
+          let es3 := map_gc_ref_vars VSLocal [W.BI_call mctx.(duproot)] ref_vars in
           let es4 := restore_stack [ty] i in
           mret $ es1 ++ es2 ++ es3 ++ es4
       | R.ISetGlobal _ i =>
           '(i', ty) ← liftM $ guard_opt (Err "invalid global index") $ global_layout C.(global) i;
           let ref_vars := map (Nat.add i') $ ref_indices LMNative ty in
-          let es1 := map_gc_ref_vars VSGlobal [W.BI_call funcidx_unregisterroot] ref_vars in
+          let es1 := map_gc_ref_vars VSGlobal [W.BI_call mctx.(unregisterroot)] ref_vars in
           let es2 := imap (fun j _ => W.BI_set_global (i' + j)) $ compile_typ ty in
           mret $ es1 ++ es2
       | R.ICoderef (R.Arrow targs trets, _) idx =>
@@ -660,8 +646,8 @@ Section Mod.
                  save_es ++
                  W.BI_get_local base_ref ::
                  if_gc_bit_set [] []
-                   (map_gc_ref_vars VSLocal [W.BI_call funcidx_registerroot] ref_vars)
-                   (map_gc_ref_vars VSLocal [W.BI_call funcidx_duproot] ref_vars) ++
+                   (map_gc_ref_vars VSLocal [W.BI_call mctx.(registerroot)] ref_vars)
+                   (map_gc_ref_vars VSLocal [W.BI_call mctx.(duproot)] ref_vars) ++
                  restore_stack [field_typ] stk
       | R.IStructSet (R.Arrow from to, _) n =>
           base_ref ← walloc W.T_i32;
@@ -682,7 +668,7 @@ Section Mod.
               []
               (load_es ++
                new_save_es ++
-               map_gc_ref_vars VSLocal [W.BI_call funcidx_unregisterroot] old_ref_vars) in
+               map_gc_ref_vars VSLocal [W.BI_call mctx.(unregisterroot)] old_ref_vars) in
           let loadroot_es :=
             if_gc_bit_set [] []
               (new_save_es ++
@@ -828,20 +814,15 @@ End Mod.
 Definition compile_fun_type_idx (fun_type : R.FunType) : W.typeidx.
 Admitted.
 
-Definition funcidx_table_write : W.immediate.
-Admitted.
+Definition funcidx_table_write : W.immediate := 0.
 
-Definition typeidx_start : W.immediate.
-Admitted.
+Definition typeidx_start : W.immediate := 0.
 
-Definition typeidx_table_write : W.immediate.
-Admitted.
+Definition typeidx_table_write : W.immediate := 1.
 
-Definition globidx_table_next : W.immediate.
-Admitted.
+Definition globidx_table_next : W.immediate := 0.
 
-Definition globidx_table_offset : W.immediate.
-Admitted.
+Definition globidx_table_offset : W.immediate := 1.
 
 Definition compile_table_elem (start : W.immediate) (i funcidx : nat) : W.expr :=
   [ W.BI_get_local start;
@@ -864,14 +845,16 @@ Definition compile_start (table : R.Table) : W.module_func :=
          W.BI_set_global globidx_table_next ] ++
        flatten (imap (compile_table_elem 0) table) |}.
 
-
 Fixpoint compile_module (module : R.module TyAnn) : exn err W.module :=
   let '(funcs, globs, table) := module return exn err W.module in
   let mctx := {|
     mem_gc := 0;
     mem_lin := 1;
-    free := 0;
-    alloc := 1;
+    free := 1;
+    alloc := 2;
+    registerroot := 3;
+    unregisterroot := 4;
+    duproot := 5;
     coderef_offset := 0;
     fn_tab := 0;
   |} in
