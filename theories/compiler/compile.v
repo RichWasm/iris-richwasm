@@ -628,11 +628,15 @@ Section Mod.
       | R.IStructMalloc (R.Arrow targs trets, _) szs q =>
           (* TODO: registerroot on the new address;
                    unregisterroot if any field is GC ref being put into GC struct *)
+          (* compute size for malloc *)
+          (* call malloc and save result *)
+          (* load args into locals *)
+          (* do an IStructSet on each arg *)
+          (* return the base pointer *)
           mthrow Todo
       | R.IStructFree (R.Arrow targs trets, _) =>
           (* TODO: unregisterroot fields that may be refs to GC if this struct is MM *)
-          mthrow Todo
-                 (* mret $ [wasm.BI_call Σ.(me_free)]*)
+          mret $ [W.BI_call mctx.(free)]
       | R.IStructGet (R.Arrow from to, _) n =>
           base_ref ← walloc W.T_i32;
           fields ← liftM $ get_struct_field_types from 0;
