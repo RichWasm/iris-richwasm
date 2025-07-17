@@ -9,56 +9,57 @@ From Wasm.iris.rules Require Export proofmode.
 Require Import RichWasm.iris.util.
 
 Section memrsc.
-Context `{!wasmG Σ}. 
 
-Definition own_vec (memidx: N) (base_addr: N) (sz: N) : iProp Σ :=
-  ∃ bs: bytes, ⌜N.of_nat (length bs) = sz⌝ ∗ memidx ↦[wms][base_addr] bs.
+  Context `{!wasmG Σ}.
 
-Lemma own_vec_split memidx ℓ sz1 sz2 :
-  own_vec memidx ℓ (sz1 + sz2) ⊣⊢ own_vec memidx ℓ sz1 ∗ own_vec memidx (ℓ + sz1) sz2.
-Proof.
-  unfold own_vec.
-  iSplit.
-  - iIntros "(%bs & %Hlen & Hbs)".
-    pose proof (take_drop (N.to_nat sz1) bs) as Hsplit.
-    rewrite <- Hsplit.
-    rewrite wms_app; [|eauto; lia].
-    iDestruct "Hbs" as "(Hbs1 & Hbs2)".
-    iSplitL "Hbs1".
-    + iExists _; iFrame.
+  Definition own_vec (memidx: N) (base_addr: N) (sz: N) : iProp Σ :=
+    ∃ bs: bytes, ⌜N.of_nat (length bs) = sz⌝ ∗ memidx ↦[wms][base_addr] bs.
+
+  Lemma own_vec_split memidx ℓ sz1 sz2 :
+    own_vec memidx ℓ (sz1 + sz2) ⊣⊢ own_vec memidx ℓ sz1 ∗ own_vec memidx (ℓ + sz1) sz2.
+  Proof.
+    unfold own_vec.
+    iSplit.
+    - iIntros "(%bs & %Hlen & Hbs)".
+      pose proof (take_drop (N.to_nat sz1) bs) as Hsplit.
+      rewrite <- Hsplit.
+      rewrite wms_app; [|eauto; lia].
+      iDestruct "Hbs" as "(Hbs1 & Hbs2)".
+      iSplitL "Hbs1".
+      + iExists _; iFrame.
+        iPureIntro.
+        rewrite length_take_le; lia.
+      + rewrite length_take_le; [|lia].
+        rewrite N2Nat.id.
+        iExists _; iFrame.
+        iPureIntro.
+        rewrite length_drop.
+        lia.
+    - iIntros "((%bs1 & (%Hlen1 & Hbs1)) & (%bs2 & (%Hlen2 & Hbs2)))".
+      iExists (bs1 ++ bs2).
+      erewrite (wms_app _ _ _ (sz1:=sz1)); [| lia].
+      iFrame.
       iPureIntro.
-      rewrite length_take_le; lia.
-    + rewrite length_take_le; [|lia].
-      rewrite N2Nat.id.
-      iExists _; iFrame.
-      iPureIntro.
-      rewrite length_drop.
+      rewrite length_app.
       lia.
-  - iIntros "((%bs1 & (%Hlen1 & Hbs1)) & (%bs2 & (%Hlen2 & Hbs2)))".
-    iExists (bs1 ++ bs2).
-    erewrite (wms_app _ _ _ (sz1:=sz1)); [| lia].
+  Qed.
+
+  Lemma repeat_own_vec (memidx: N) (addr: N) b (k: N) :
+    memidx ↦[wms][addr] (repeat b (N.to_nat k)) ⊢
+    own_vec memidx addr k.
+  Proof.
+    iIntros.
+    iExists (repeat b (N.to_nat k)).
     iFrame.
     iPureIntro.
-    rewrite length_app.
-    lia.
-Qed.
+    by rewrite length_repeat N2Nat.id.
+  Qed.
 
-Lemma repeat_own_vec (memidx: N) (addr: N) b (k: N) :
-  memidx ↦[wms][addr] (repeat b (N.to_nat k)) ⊢
-  own_vec memidx addr k.
-Proof.
-  iIntros.
-  iExists (repeat b (N.to_nat k)).
-  iFrame.
-  iPureIntro.
-  by rewrite length_repeat N2Nat.id.
-Qed.
-
-Class allocG Σ := {
-  (* maps locs returned by malloc to their size *)
-  allocG_shapeG :: ghost_mapG Σ N N;
-  allocG_shape : gname
-}.
+  Class allocG Σ := {
+    (* maps locs returned by malloc to their size *)
+    allocG_shapeG :: ghost_mapG Σ N N;
+    allocG_shape : gname
+  }.
 
 End memrsc.
 

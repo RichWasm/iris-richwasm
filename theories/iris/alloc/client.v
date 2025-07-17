@@ -14,9 +14,9 @@ Unset Printing Implicit Defensive.
 
 Section Client.
 
- Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ, !logrel_na_invs Σ}. 
+  Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ, !logrel_na_invs Σ}.
 
-(* Functions from the stack module are : 
+  (* Functions from the stack module are :
      0 - new_stack
      1 - is_empty
      2 - is_full
@@ -968,7 +968,6 @@ Proof.
       iSplit => //.
       iFrame.
   Qed.
-      
 *)
+
 End Client.
-  
