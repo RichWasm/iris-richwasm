@@ -9,10 +9,10 @@ Import ListNotations.
 From Wasm Require datatypes operations.
 From RichWasm Require term.
 From RichWasm Require Import typing.
+From RichWasm.compiler Require Import util.
 From RichWasm.util Require Import exn state.
 Require Import Wasm.numerics.
 Require Import BinNat.
-Require Import util.
 Require Import numerics.
 
 Module R := term.
