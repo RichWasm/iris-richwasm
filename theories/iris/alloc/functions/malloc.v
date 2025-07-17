@@ -6,10 +6,10 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
 From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
-From RWasm.iris.allocator Require Export allocator_common.
-From RWasm.iris Require Import util.
-From RWasm.iris.allocator Require Import reprs malloc_impl.
-Require Import RWasm.autowp.
+From RichWasm.iris.alloc Require Export util.
+From RichWasm.iris Require Import util.
+From RichWasm.iris.alloc Require Import reprs malloc_impl.
+Require Import RichWasm.iris.autowp.
 
 Import reprs.
 

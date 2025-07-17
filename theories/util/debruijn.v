@@ -215,7 +215,7 @@ From Coq Require Import Logic.FunctionalExtensionality.
 Notation fext := functional_extensionality_dep.
 Ltac fext x := apply fext; intros x.
 
-Require Import Lia List RWasm.list_util.
+Require Import Lia List RichWasm.util.list.
 Import ListNotations.
 
 Class Eq A := dec_eq : forall x y : A, {x = y} + {x <> y}.

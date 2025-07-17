@@ -10,7 +10,7 @@ From Coq Require Import Lists.List Relations.Relations Classes.RelationClasses
 
 From stdpp Require list.
 
-Require Import RWasm.EnsembleUtil RWasm.tactics RWasm.functions. 
+From RichWasm.util Require Import ensemble functions tactics.
 
 Import ListNotations.
 

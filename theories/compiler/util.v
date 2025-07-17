@@ -1,7 +1,6 @@
 From stdpp Require Import base strings gmap gmultiset fin_sets decidable list.
 From Wasm Require datatypes.
-From RWasm Require Import utils.
-From RWasm Require Export exn state.
+From RichWasm.util Require Import exn state.
 
 Module W := datatypes.
 

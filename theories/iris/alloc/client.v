@@ -4,7 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
-Require Export allocator_instantiation.
+Require Export inst.
 From Wasm Require Export type_checker_reflects_typing.
 
 Set Implicit Arguments.

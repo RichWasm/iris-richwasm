@@ -1,5 +1,5 @@
 (coq.theory
- (name RWasm.compiler)
+ (name RichWasm.compiler)
  (package iris-richwasm)
  (theories
   iris
@@ -14,4 +14,4 @@
   elpi
   elpi_elpi
   stdpp
-  RWasm))
+  RichWasm))

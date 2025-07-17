@@ -1,5 +1,5 @@
 (coq.theory
- (name RWasm)
+ (name RichWasm)
  (package iris-richwasm)
  (flags -w -ambiguous-paths)
  (theories

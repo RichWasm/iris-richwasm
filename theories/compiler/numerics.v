@@ -1,8 +1,9 @@
 From Coq Require Import List NArith.BinNat.
 From stdpp Require Import base option strings list pretty.
-From RWasm Require term.
 From Wasm Require datatypes numerics.
-From RWasm.compiler Require Import monads.
+From RichWasm Require term.
+From RichWasm.compiler Require Import util.
+From RichWasm.util Require Import exn.
 
 (* TODO: this is a pretty bad place to declare this *)
 Module R := term.

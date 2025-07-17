@@ -1,6 +1,6 @@
 From Coq Require Import Numbers.BinNums NArith List.
 
-Require Import RWasm.term RWasm.debruijn.
+Require Import RichWasm.term RichWasm.util.debruijn.
 
 Import ListNotations.
 

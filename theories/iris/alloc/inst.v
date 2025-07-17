@@ -6,8 +6,8 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
 From Wasm.iris.host Require Export iris_host.
 From Wasm.iris.logrel Require Export iris_fundamental_helpers.
-From RWasm.iris.allocator.function Require Export allocator_specs.
-From RWasm.iris.allocator Require Export malloc_impl spec.
+From RichWasm.iris.alloc.functions Require Export specs.
+From RichWasm.iris.alloc Require Export malloc_impl specs.
 From Wasm Require Export type_checker_reflects_typing.
 
 Set Implicit Arguments.

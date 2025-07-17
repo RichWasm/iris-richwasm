@@ -1,7 +1,10 @@
 From stdpp Require Import base fin_maps option list.
-From RWasm Require Import typing term subst debruijn num_repr autowp compile iris.util exn.
-Module RT := RWasm.term.
-Module T := RWasm.typing.
+From RichWasm Require Import subst term typing.
+From RichWasm.compiler Require Import compile.
+From RichWasm.iris Require Import autowp num_reprs util.
+From RichWasm.util Require Import debruijn exn.
+Module RT := RichWasm.term.
+Module T := RichWasm.typing.
 
 Unset Universe Checking.
 

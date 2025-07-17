@@ -6,13 +6,14 @@ Require Import stdpp.strings.
 Require Import stdpp.pretty.
 Require Import stdpp.list_numbers.
 Import ListNotations.
-From RWasm Require term.
-From RWasm Require Import typing.
 From Wasm Require datatypes operations.
+From RichWasm Require term.
+From RichWasm Require Import typing.
+From RichWasm.util Require Import exn state.
 Require Import Wasm.numerics.
 Require Import BinNat.
-Require Import compiler.monads.
-Require Import compiler.numbers.
+Require Import util.
+Require Import numerics.
 
 Module R := term.
 Module W := datatypes.

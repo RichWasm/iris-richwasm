@@ -2,7 +2,8 @@ Set Universe Polymorphism.
 From Coq Require Import Numbers.BinNums ZArith List FSets.FMapPositive.
 From stdpp Require Import base option list.
 
-From RWasm Require Import term tactics list_util debruijn subst EnsembleUtil map_util.
+From RichWasm.util Require Import tactics list debruijn ensemble map.
+From RichWasm Require Import subst term.
 
 Module M := PositiveMap.
 
