@@ -280,25 +280,34 @@ Section Mod.
     mret next_idx.
 
   Definition tagged_store
+    (base_ptr: W.immediate)
+    (arg_vars: list W.immediate)
+    (offset_instrs: list W.basic_instruction)
+    (ty: R.Typ)
+    : wst (list W.basic_instruction) :=
+    let tys := compile_typ ty in
+    mret $
+      W.BI_tee_local base_ptr ::
+      W.BI_get_local base_ptr ::
+      if_gc_bit_set [] []
+          (W.BI_get_local base_ptr ::
+           unset_gc_bit ++
+           offset_instrs ++
+           W.BI_set_local base_ptr ::
+           stores base_ptr mctx.(mem_gc) arg_vars tys)
+          (W.BI_get_local base_ptr ::
+           offset_instrs ++
+           stores base_ptr mctx.(mem_lin) arg_vars tys).
+
+  Definition tagged_store'
     (offset_instrs: list W.basic_instruction)
     (ty: R.Typ)
     : wst (list W.basic_instruction) :=
     let tys := compile_typ ty in
     '(arg_vars, save_args) ← walloc_args tys;
     base_ptr_var ← walloc W.T_i32;
-    mret $
-      save_args ++
-      W.BI_tee_local base_ptr_var ::
-      W.BI_get_local base_ptr_var ::
-      if_gc_bit_set [] []
-          (W.BI_get_local base_ptr_var ::
-           unset_gc_bit ++
-           offset_instrs ++
-           W.BI_set_local base_ptr_var ::
-           stores base_ptr_var mctx.(mem_gc) arg_vars tys)
-          (W.BI_get_local base_ptr_var ::
-           offset_instrs ++
-           stores base_ptr_var mctx.(mem_lin) arg_vars tys).
+    do_store ← tagged_store base_ptr_var arg_vars offset_instrs ty;
+    mret $ save_args ++ do_store.
 
   Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : exn err (nat * R.Typ) :=
     match L, i with
@@ -657,13 +666,13 @@ Section Mod.
       | R.IStructSet (R.Arrow from to, _) n =>
           base_ref ← walloc W.T_i32;
           fields ← liftM $ get_struct_field_types from 1;
-          field_typ ← liftM $ err_opt (list_lookup 0 to) "struct.get: cannot find output val type";
+          field_typ ← liftM $ err_opt (list_lookup 0 to) "struct.set: cannot find output val type";
           val_typ ← liftM $ err_opt (list_lookup 0 from) "struct.set: cannot find input val type";
           offset_sz ← liftM $ struct_field_offset fields n;
           offset_es ← liftM $ compile_sz offset_sz;
           let tys := compile_typ field_typ in
           load_es ← gc_loads base_ref offset_es tys;
-          store_es ← tagged_store offset_es val_typ;
+          store_es ← tagged_store' offset_es val_typ;
           '(old_stk_var, old_save_es) ← save_stack [field_typ];
           '(new_stk_var, new_save_es) ← save_stack [val_typ];
           let old_ref_vars := map (Nat.add old_stk_var) $ ref_indices LMNative field_typ in
