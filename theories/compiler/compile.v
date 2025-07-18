@@ -530,6 +530,39 @@ Section Mod.
     Definition compile_inds (inds: list R.Index) : err + list W.basic_instruction :=
       flatten <$> mapT compile_ind inds.
 
+    Definition array_bounds_check (base idx : W.immediate) : list W.basic_instruction :=
+      tagged_load base [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))] W.T_i32
+        ++ [
+          W.BI_get_local idx;
+          W.BI_relop W.T_i32 (W.relop_i W.ROI_lt)
+        ].
+
+    Definition array_offset (idx : W.immediate) : list W.basic_instruction := [
+      W.BI_get_local idx_local;
+      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat words)));
+      W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul);
+      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 4)); (* skip header length word *)
+      W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)
+    ].
+
+    Definition array_bounds_check (base idx : W.immediate) : wst (list W.basic_instruction) :=
+      load_len_es <-
+        tagged_load
+          base
+          [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))]
+          (R.Num (R.Int R.U R.i32));;
+      ret (load_len_es ++ [
+            W.BI_get_local idx;
+            W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U)))]).
+
+    Definition array_offset (idx : W.immediate) (size : nat) : list W.basic_instruction := [
+      W.BI_get_local idx_local;
+      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m size));
+      W.BI_binop W.T_i32 (W.binop_i W.BOI_mul);
+      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32 4)); (* skip header length word *)
+      W.BI_binop W.T_i32 (W.binop_i W.BOI_add)
+    ].
+
     Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
       match instr with
       | R.INumConst _ num_type num =>
@@ -758,29 +791,11 @@ Section Mod.
           let words := words_typ elem_typ in
           let local_setup := [
             W.BI_set_local idx_local;
-            W.BI_set_local base_local
+            W.BI_tee_local base_local
           ]
           in
-          load_len_es <-
-            tagged_load
-              base_local
-              [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))]
-              (R.Num (R.Int R.U R.i32));;
-          let bounds_check :=
-            load_len_es
-            ++ [
-              W.BI_get_local idx_local;
-              W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U)))
-            ]
-          in
-          let compute_offset := [
-            W.BI_get_local idx_local;
-            W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat words)));
-            W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul);
-            W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 4)); (* skip header length word *)
-            W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)
-          ]
-          in
+          bounds_check <- array_bounds_check base_local idx_local;;
+          let compute_offset := array_offset idx_local words in
           read_es <- tagged_load base_local compute_offset elem_typ;;
           ret (local_setup
                ++ bounds_check
@@ -790,6 +805,19 @@ Section Mod.
                    duproot a bunch of times if MM array *)
           elem_typ <- lift (get_array_elem_type from 2);;
           let elem_shape := compile_typ elem_typ in
+          idx_local <- walloc W.T_i32;;
+          base_local <- walloc W.T_i32;;
+          '(val_save_idx, val_save_es) <- save_stack [elem_typ];;
+          let words := words_typ elem_typ in
+          let local_setup :=
+            val_save_es ++ [
+              W.BI_set_local idx_local;
+              W.BI_tee_local base_local
+            ]
+          in
+          bounds_check <- array_bounds_check base_local idx_local;;
+          let compute_offset := array_offset idx_local words in
+          store_es <- tagged_store' compute_offset elem_typ;;
           (*  ex: [i]
              | idx | offset      |
              |-----|-------------|
@@ -797,17 +825,11 @@ Section Mod.
              | 1   | 2 * 2       |
              ...
              | i   | (i + 1) * 2 | *)
-          raise Todo
-                 (*
-          mret [
-            layout.Val $ LV_int32 1;
-            layout.Ne $ rwasm.Ib rwasm.i32 rwasm.add;
-            layout.Val $ LV_int32 (shape_size_words elem_shape);
-            layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [idx; sz] → [offset] *)
-            layout.LoadOffset elem_shape; (* [ptr; offset] → [ptr; offset; val] *)
-            layout.Swap;                  (* [offset; val] → [val; offset]*)
-            layout.Drop]                  (* [offset]; → [] *)
-    *)
+          ret (local_setup ++
+               bounds_check ++
+               [W.BI_if (W.Tf [] [])
+                  (W.BI_get_local base_local :: store_es)
+                  [W.BI_unreachable]])
         (* [ptr] → [] *)
         (* [i32] → [] *)
       | R.IArrayFree ann =>
