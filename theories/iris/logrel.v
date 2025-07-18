@@ -1,8 +1,9 @@
 From stdpp Require Import base fin_maps option list.
+From ExtLib.Data.Monads Require Import StateMonad.
 From RichWasm Require Import subst term typing.
 From RichWasm.compiler Require Import compile.
 From RichWasm.iris Require Import autowp num_reprs util.
-From RichWasm.util Require Import debruijn exn.
+From RichWasm.util Require Import debruijn.
 Module RT := RichWasm.term.
 Module T := RichWasm.typing.
 
@@ -468,7 +469,7 @@ Section logrel.
   Admitted.
 
   Lemma compiler_wctx_mono C F sz_locs wloff es wl wl' es' :
-    compile_instrs mctx C sz_locs F wloff es wl = OK (wl', es') ->
+    runStateT (compile_instrs mctx C sz_locs F wloff es) wl = inr (es', wl') ->
     wl `prefix_of` wl'.
   Proof.
   Admitted.
@@ -477,9 +478,9 @@ Section logrel.
     HasTypeInstr C F L
       (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)
       (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
-    compile_instr mctx C sz_locs F wloff
-      (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n) wl =
-      OK (wl', es) ->
+    runStateT (compile_instr mctx C sz_locs F wloff
+                 (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)) wl =
+    inr (es, wl') ->
     ⊢ semantic_typing C F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
   Proof.
     intros Htype Hcomp.
@@ -508,14 +509,14 @@ Section logrel.
 
   Theorem fundamental_property C F L sz_locs wloff es es' tf wl wl' L' :
     HasTypeInstrs C F L es tf L' ->
-    compile_instrs mctx C sz_locs F wloff es wl = OK (wl', es') ->
+    runStateT (compile_instrs mctx C sz_locs F wloff es) wl = inr (es', wl') ->
     ⊢ semantic_typing C F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
     induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ =>
       forall es',
-      compile_instr mctx C sz_locs F wloff e wl = OK (wl', es') ->
+      runStateT (compile_instr mctx C sz_locs F wloff e) wl = inr (es', wl') ->
       ⊢ semantic_typing C F L [] (to_e_list es') ta L');
     intros es' Hcomp.
     - (* INumConst *)
@@ -615,14 +616,6 @@ Section logrel.
     - (* Empty *)
       admit.
     - (* Cons *)
-      unfold compile_instrs in Hcomp.
-      unfold fmap in Hcomp.
-      apply fmap_OK in Hcomp.
-      destruct Hcomp as [[wl'' es''] [Hcomp Hflat]].
-      inversion Hflat; subst; clear Hflat.
-      (*pose proof (Forall2_length_l _ _ _ 1 Hcomp Logic.eq_refl) as Hlen.*)
-      (*inversion Hcomp.*)
-      (*destruct l'.*)
       admit.
   Admitted.
 
@@ -933,7 +926,7 @@ Section logrel.
     τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
     fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
     snd eff = LSig L L ->
-    compile_instr mctx C sz_locs F wloff (RT.IStructGet eff 0) wl = OK (wl', es) ->
+    runStateT (compile_instr mctx C sz_locs F wloff (RT.IStructGet eff 0)) wl = inr (es, wl') ->
     ⊢ semantic_typing C F L [T_i32] (to_e_list es) (fst eff) L.
   Proof.
     intros Hl Hτ Heff Hloceff.

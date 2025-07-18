@@ -1,9 +1,11 @@
 From Coq Require Import List NArith.BinNat.
-From stdpp Require Import base option strings list pretty.
+Require Import Coq.Strings.String.
+Require Import Coq.ZArith.BinInt.
+
 From Wasm Require datatypes numerics.
+
 From RichWasm Require term.
 From RichWasm.compiler Require Import util.
-From RichWasm.util Require Import exn.
 
 (* TODO: this is a pretty bad place to declare this *)
 Module R := term.
@@ -48,26 +50,26 @@ Definition compile_float_type (typ : R.FloatType) : W.value_type :=
   | R.f64 => W.T_f64
   end.
 
-Definition throw_missing (instr_name : string) : exn err W.basic_instruction :=
-  mthrow (Err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
+Definition throw_missing (instr_name : string) : err + W.basic_instruction :=
+  inl (Err ("missing iris-wasm " ++ instr_name ++ " wrap instruction")).
 
 Definition compile_cvt_op (op: R.CvtOp) : W.basic_instruction :=
   match op with
   | R.Wrap =>
       W.BI_cvtop W.T_i32 W.CVO_convert W.T_i64 None
   | R.Extend s =>
-      W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 (Some $ compile_sign s)
+      W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 (Some (compile_sign s))
   | R.Trunc i f s =>
       let wi := compile_int_type i in
       let wf := compile_float_type f in
-      W.BI_cvtop wi W.CVO_convert wf (Some $ compile_sign s)
+      W.BI_cvtop wi W.CVO_convert wf (Some (compile_sign s))
   | R.TruncSat i f s =>
       (* XXX this case shouldn't be the same as the Trunc case, but I
          don't see what else it could be in the wasmcert syntax. Is
          this a Wasm 1.0 vs current day Wasm issue ? *)
       let wi := compile_int_type i in
       let wf := compile_float_type f in
-      W.BI_cvtop wi W.CVO_convert wf (Some $ compile_sign s)
+      W.BI_cvtop wi W.CVO_convert wf (Some (compile_sign s))
   | R.Demote =>
       W.BI_cvtop W.T_f64 W.CVO_convert W.T_f32 None 
   | R.Promote =>
@@ -75,7 +77,7 @@ Definition compile_cvt_op (op: R.CvtOp) : W.basic_instruction :=
   | R.Convert f i s =>
       let wi := compile_int_type i in
       let wf := compile_float_type f in
-      W.BI_cvtop wf W.CVO_convert wf (Some $ compile_sign s)
+      W.BI_cvtop wf W.CVO_convert wf (Some (compile_sign s))
   | R.ReinterpretFI f i =>
       let wi := compile_int_type i in
       let wf := compile_float_type f in
@@ -87,7 +89,7 @@ Definition compile_cvt_op (op: R.CvtOp) : W.basic_instruction :=
   | R.ReinterpretII i s s' => W.BI_nop
   end.
 
-Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
+Definition compile_num_instr (ni : R.NumInstr) : err + W.basic_instruction :=
   match ni with
   | R.Iu typ op =>
     let typ' := compile_int_type typ in
@@ -96,7 +98,7 @@ Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
     | R.ctz => W.UOI_ctz
     | R.popcnt => W.UOI_popcnt
     end in
-    mret $ W.BI_unop typ' op'
+    inr (W.BI_unop typ' op')
   | R.Ib typ op =>
     let typ' := compile_int_type typ in
     let op' := W.Binop_i match op with
@@ -113,7 +115,7 @@ Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
     | R.rotl => W.BOI_rotl
     | R.rotr => W.BOI_rotr
     end in
-    mret $ W.BI_binop typ' op'
+    inr (W.BI_binop typ' op')
   | R.Fu typ op =>
     let typ' := compile_float_type typ in
     let op' := W.Unop_f match op with
@@ -125,7 +127,7 @@ Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
     | R.nearest => W.UOF_nearest
     | R.sqrt => W.UOF_sqrt
     end in
-    mret $ W.BI_unop typ' op'
+    inr (W.BI_unop typ' op')
   | R.Fb typ op =>
     let typ' := compile_float_type typ in
     let op' := W.Binop_f match op with
@@ -137,13 +139,13 @@ Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
     | R.max => W.BOF_max
     | R.copysign => W.BOF_copysign
     end in
-    mret $ W.BI_binop typ' op'
+    inr (W.BI_binop typ' op')
   | R.It typ op =>
     let typ' := compile_int_type typ in
     let op' := match op with
     | R.eqz => W.TO_eqz
     end in
-    mret $ W.BI_testop typ' op'
+    inr (W.BI_testop typ' op')
   | R.Ir typ op =>
     let typ' := compile_int_type typ in
     let op' := W.Relop_i match op with
@@ -154,7 +156,7 @@ Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
     | R.le s => W.ROI_le (compile_sign s)
     | R.ge s => W.ROI_ge (compile_sign s)
     end in
-    mret $ W.BI_relop typ' op'
+    inr (W.BI_relop typ' op')
   | R.Fr typ op =>
     let typ' := compile_float_type typ in
     let op' := W.Relop_f match op with
@@ -165,6 +167,6 @@ Definition compile_num_instr (ni : R.NumInstr) : exn err W.basic_instruction :=
     | R.lef => W.ROF_le
     | R.gef => W.ROF_ge
     end in
-    mret $ W.BI_relop typ' op'
-  | R.Cvt op => mret $ compile_cvt_op op
+    inr (W.BI_relop typ' op')
+  | R.Cvt op => inr (compile_cvt_op op)
   end.

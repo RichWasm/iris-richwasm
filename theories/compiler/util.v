@@ -1,6 +1,6 @@
-From stdpp Require Import base strings gmap gmultiset fin_sets decidable list.
+Require Import Coq.Strings.String.
+From stdpp Require Import countable decidable.
 From Wasm Require datatypes.
-From RichWasm.util Require Import exn state.
 
 Module W := datatypes.
 
@@ -41,11 +41,8 @@ Inductive err :=
 | Err (msg : string)
 | Todo.
 
-Definition mlookup_with_msg {A} (idx: nat) (lst: list A) (msg: string) : exn err A :=
-  match list_lookup idx lst with
-  | Some x => mret x
-  | None => mthrow (Err msg)
+Definition err_opt {A} (oa : option A) (error : string) : err + A :=
+  match oa with
+  | Some a => inr a
+  | None => inl (Err error)
   end.
-
-Definition err_opt {A} (oa : option A) (error : string) : exn err A :=
-  guard_opt (Err error) oa.

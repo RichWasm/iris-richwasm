@@ -1,6 +1,6 @@
 Set Universe Polymorphism.
 From Coq Require Import Numbers.BinNums ZArith List FSets.FMapPositive.
-From stdpp Require Import base option list.
+From stdpp Require Import list.
 
 From RichWasm.util Require Import tactics list debruijn ensemble map.
 From RichWasm Require Import subst term.
@@ -420,7 +420,7 @@ Definition Local_Ctx := list (Typ * Size).
 
 Record Function_Ctx :=
   { label  : list (list Typ * Local_Ctx);
-    ret    : option (list Typ);
+    rettyp : option (list Typ);
     (* Type variables and their constraints *)
     qual   : list (list Qual * list Qual);
     size   : list (list Size * list Size);
@@ -457,7 +457,7 @@ Instance BindExtLocalCtx : BindExt Kind Local_Ctx := ltac:(mkBindExt).
 Definition subst'_function_ctx (su : Subst' Kind) (ctx : Function_Ctx) : Function_Ctx :=
   {| label :=
        map (fun '(ts, lctx) => (subst'_typs su ts, subst'_local_ctx su lctx)) (label ctx);
-     ret := option_map (subst'_typs su) (ret ctx);
+     rettyp := option_map (subst'_typs su) (rettyp ctx);
      qual := map (fun '(qs1, qs2) => (subst'_quals su qs1, subst'_quals su qs2)) (qual ctx);
      size := map (fun '(ss1, ss2) => (subst'_sizes su ss1, subst'_sizes su ss2)) (size ctx);
      type := map (fun '(s, q, hc) => (subst'_size su s, subst'_qual su q, hc)) (type ctx);
@@ -467,7 +467,7 @@ Definition subst'_function_ctx (su : Subst' Kind) (ctx : Function_Ctx) : Functio
 
 Lemma function_ctx_eq : forall {F F'},
     label F = label F' ->
-    ret F = ret F' ->
+    rettyp F = rettyp F' ->
     qual F = qual F' ->
     size F = size F' ->
     type F = type F' ->
@@ -1807,7 +1807,7 @@ Section Typing.
                                 LSig L (add_local_effects L tl)) is k) (Arrow (taus1 ++ taus1' ++ [uint32T]) taus2) (add_local_effects L tl)
   | RetTyp :
       forall C F L taus1 taus1' taus2 tl,
-        ret F = Some taus1' ->
+        rettyp F = Some taus1' ->
         Forall (fun '(t, sz) => TypQualLeq F t Unrestricted = Some true) L ->
         Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus1 ->
         Forall_plist (fun q => QualValid (qual F) q /\ QualLeq (qual F) q Unrestricted = Some true) (linear F) ->
