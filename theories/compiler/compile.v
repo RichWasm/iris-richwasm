@@ -530,37 +530,22 @@ Section Mod.
     Definition compile_inds (inds: list R.Index) : err + list W.basic_instruction :=
       flatten <$> mapT compile_ind inds.
 
-    Definition array_bounds_check (base idx : W.immediate) : list W.basic_instruction :=
-      tagged_load base [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))] W.T_i32
-        ++ [
-          W.BI_get_local idx;
-          W.BI_relop W.T_i32 (W.relop_i W.ROI_lt)
-        ].
-
-    Definition array_offset (idx : W.immediate) : list W.basic_instruction := [
-      W.BI_get_local idx_local;
-      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat words)));
-      W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul);
-      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 4)); (* skip header length word *)
-      W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)
-    ].
-
     Definition array_bounds_check (base idx : W.immediate) : wst (list W.basic_instruction) :=
       load_len_es <-
         tagged_load
           base
-          [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))]
+          [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 0)))]
           (R.Num (R.Int R.U R.i32));;
       ret (load_len_es ++ [
             W.BI_get_local idx;
             W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U)))]).
 
     Definition array_offset (idx : W.immediate) (size : nat) : list W.basic_instruction := [
-      W.BI_get_local idx_local;
-      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m size));
-      W.BI_binop W.T_i32 (W.binop_i W.BOI_mul);
-      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32 4)); (* skip header length word *)
-      W.BI_binop W.T_i32 (W.binop_i W.BOI_add)
+      W.BI_get_local idx;
+      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat size)));
+      W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul);
+      W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 4))); (* skip header length word *)
+      W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)
     ].
 
     Fixpoint compile_instr (instr: R.instr TyAnn) : wst (list W.basic_instruction) :=
