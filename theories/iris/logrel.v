@@ -20,7 +20,8 @@ From Wasm.iris.logrel Require iris_logrel.
 From RichWasm Require Import subst term typing.
 From RichWasm.compiler Require Import compile.
 From RichWasm.iris Require Import autowp num_reprs util.
-From RichWasm.util Require Import debruijn.
+From RichWasm.util Require Import debruijn dlist.
+Import dlist.Notation.
 
 Module RT := RichWasm.term.
 Module T := RichWasm.typing.
@@ -756,8 +757,8 @@ Section logrel.
   Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ GCMem) l32 ->
-    run_compiler (bind (tell [BI_get_local ref_tmp]) (fun _ =>
-                  bind (if_gc_bit_set ins outs (tell gc_branch) (tell lin_branch)) (fun _ =>
+    run_compiler (bind (tell [BI_get_local ref_tmp]%DL) (fun _ =>
+                  bind (if_gc_bit_set ins outs (tell (dlist.of_list gc_branch)) (tell (dlist.of_list lin_branch))) (fun _ =>
                   ret tt)))
                  wl = inr (wl', es) ->
     ⊢ ↪[frame] f -∗
@@ -836,24 +837,26 @@ Section logrel.
   Proof.
   Admitted.
 
-  Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es ψ f ℓ l32 :
+  Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es es' ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ LinMem) l32 ->
-    run_compiler (bind (tell [BI_get_local ref_tmp]) (fun _ =>
-                  bind (if_gc_bit_set ins outs (tell gc_branch) (tell lin_branch)) (fun _ =>
+    run_compiler (bind (tell [BI_get_local ref_tmp]%DL) (fun _ =>
+                  bind (if_gc_bit_set ins outs (tell (dlist.of_list gc_branch)) (tell (dlist.of_list lin_branch))) (fun _ =>
                   ret tt)))
                  wl = inr (wl', es) ->
+    to_e_list es = es' ->
     ⊢ ↪[frame] f -∗
       ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) lin_branch)] @ E {{ w, ψ w }}) -∗
-      WP to_e_list es @ E {{ w, ψ w }}.
+      WP es' @ E {{ w, ψ w }}.
   Proof.
-    intros Href Hrepr Hcomp.
+    intros Href Hrepr Hcomp Hes.
     iIntros "Hfr Hφ".
 
     cbn in Hcomp.
     inversion Hcomp.
     subst wl' es.
     clear Hcomp.
+    subst es'.
     rewrite !app_nil_r.
 
     cbn.
@@ -1054,7 +1057,7 @@ Section logrel.
       iSplitR; last first.
       iSplitL.
       iApply (gc_bit_not_set_spec with "[$Hfr]");
-        [by rewrite set_nth_read | eauto |].
+        [by setoid_rewrite set_nth_read | eauto | by cbn | by rewrite !app_nil_r |].
       {
         iIntros "!> Hfr".
         rewrite -(app_nil_l [AI_basic _]).

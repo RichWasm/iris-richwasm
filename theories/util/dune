@@ -2,4 +2,5 @@
  (name RichWasm.util)
  (package iris-richwasm)
  (theories
+   ExtLib
    stdpp))
