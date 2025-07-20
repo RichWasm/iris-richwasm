@@ -1,15 +1,10 @@
-From stdpp Require Import base fin_maps option list.
-From ExtLib.Data.Monads Require Import StateMonad.
-From RichWasm Require Import subst term typing.
-From RichWasm.compiler Require Import compile.
-From RichWasm.iris Require Import autowp num_reprs util.
-From RichWasm.util Require Import debruijn.
-Module RT := RichWasm.term.
-Module T := RichWasm.typing.
-
-Unset Universe Checking.
-
 From mathcomp Require Import ssreflect ssrbool eqtype seq.
+
+From stdpp Require Import base fin_maps option list.
+
+From ExtLib.Structures Require Import Monads.
+From ExtLib.Data.Monads Require Import StateMonad.
+
 From iris.program_logic Require Import language.
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
@@ -21,6 +16,16 @@ From Wasm.iris.helpers Require Export iris_properties.
 From Wasm.iris.language Require Export iris_atomicity.
 From Wasm.iris.rules Require Export iris_rules.
 From Wasm.iris.logrel Require iris_logrel.
+
+From RichWasm Require Import subst term typing.
+From RichWasm.compiler Require Import compile.
+From RichWasm.iris Require Import autowp num_reprs util.
+From RichWasm.util Require Import debruijn.
+
+Module RT := RichWasm.term.
+Module T := RichWasm.typing.
+
+Unset Universe Checking.
 
 Import uPred.
 
@@ -469,7 +474,7 @@ Section logrel.
   Admitted.
 
   Lemma compiler_wctx_mono C F sz_locs wloff es wl wl' es' :
-    runStateT (compile_instrs mctx C sz_locs F wloff es) wl = inr (es', wl') ->
+    run_compiler (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
     wl `prefix_of` wl'.
   Proof.
   Admitted.
@@ -478,9 +483,9 @@ Section logrel.
     HasTypeInstr C F L
       (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)
       (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
-    runStateT (compile_instr mctx C sz_locs F wloff
-                 (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)) wl =
-    inr (es, wl') ->
+    run_compiler (compile_instr mctx C sz_locs F wloff
+                    (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)) wl =
+    inr (wl', es) ->
     ⊢ semantic_typing C F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
   Proof.
     intros Htype Hcomp.
@@ -509,14 +514,14 @@ Section logrel.
 
   Theorem fundamental_property C F L sz_locs wloff es es' tf wl wl' L' :
     HasTypeInstrs C F L es tf L' ->
-    runStateT (compile_instrs mctx C sz_locs F wloff es) wl = inr (es', wl') ->
+    run_compiler (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
     ⊢ semantic_typing C F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
     induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ =>
       forall es',
-      runStateT (compile_instr mctx C sz_locs F wloff e) wl = inr (es', wl') ->
+      run_compiler (compile_instr mctx C sz_locs F wloff e) wl = inr (wl', es') ->
       ⊢ semantic_typing C F L [] (to_e_list es') ta L');
     intros es' Hcomp.
     - (* INumConst *)
@@ -748,15 +753,26 @@ Section logrel.
     - destruct l32; cbn in *; lia.
   Qed.
 
-  Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 :
+  Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ GCMem) l32 ->
+    run_compiler (bind (tell [BI_get_local ref_tmp]) (fun _ =>
+                  bind (if_gc_bit_set ins outs (tell gc_branch) (tell lin_branch)) (fun _ =>
+                  ret tt)))
+                 wl = inr (wl', es) ->
     ⊢ ↪[frame] f -∗
-      ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{ w, ψ w }}) -∗
-      WP to_e_list (BI_get_local ref_tmp :: if_gc_bit_set ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
+      ▷ (↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{ w, ψ w }}) -∗
+      WP to_e_list es @ E {{ w, ψ w }}.
   Proof.
-    intros Href Hrepr.
+    intros Href Hrepr Hcomp.
     iIntros "Hfr Hbranch".
+
+    cbn in Hcomp.
+    inversion Hcomp.
+    subst wl' es.
+    clear Hcomp.
+    rewrite !app_nil_r.
+
     iAssert emp%I as "HΦ";[done|].
     next_wp.
     {
@@ -820,15 +836,26 @@ Section logrel.
   Proof.
   Admitted.
 
-  Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch ψ f ℓ l32 :
+  Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ LinMem) l32 ->
+    run_compiler (bind (tell [BI_get_local ref_tmp]) (fun _ =>
+                  bind (if_gc_bit_set ins outs (tell gc_branch) (tell lin_branch)) (fun _ =>
+                  ret tt)))
+                 wl = inr (wl', es) ->
     ⊢ ↪[frame] f -∗
       ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) lin_branch)] @ E {{ w, ψ w }}) -∗
-      WP to_e_list (BI_get_local ref_tmp :: if_gc_bit_set ins outs gc_branch lin_branch) @ E {{ w, ψ w }}.
+      WP to_e_list es @ E {{ w, ψ w }}.
   Proof.
-    intros Href Hrepr.
+    intros Href Hrepr Hcomp.
     iIntros "Hfr Hφ".
+
+    cbn in Hcomp.
+    inversion Hcomp.
+    subst wl' es.
+    clear Hcomp.
+    rewrite !app_nil_r.
+
     cbn.
     iAssert emp%I as "HΦ"; [done|].
     next_wp.
@@ -926,7 +953,7 @@ Section logrel.
     τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
     fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
     snd eff = LSig L L ->
-    runStateT (compile_instr mctx C sz_locs F wloff (RT.IStructGet eff 0)) wl = inr (es, wl') ->
+    run_compiler (compile_instr mctx C sz_locs F wloff (RT.IStructGet eff 0)) wl = inr (wl', es) ->
     ⊢ semantic_typing C F L [T_i32] (to_e_list es) (fst eff) L.
   Proof.
     intros Hl Hτ Heff Hloceff.
