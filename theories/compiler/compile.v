@@ -585,6 +585,21 @@ Section Mod.
       | R.TypI _ => ret tt
       end.
 
+    Definition array_bounds_check (base idx : W.immediate) : wst unit :=
+      tagged_load
+        base
+        (emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 0)))))
+        (R.Num (R.Int R.U R.i32));;
+      emit (W.BI_get_local idx);;
+      emit (W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U)))).
+
+    Definition array_offset (idx : W.immediate) (size : nat) : wst unit :=
+      emit (W.BI_get_local idx);;
+      emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat size))));;
+      emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul));;
+      emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 4))));; (* skip header length word *)
+      emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
+
     Fixpoint compile_instr (instr: R.instr TyAnn) : wst unit :=
       match instr with
       | R.INumConst _ num_type num => emit (W.BI_const (compile_num num_type num))
@@ -814,8 +829,6 @@ Section Mod.
       | R.IArraySet (R.Arrow from to, _) =>
           (* TODO: unregisterroot if GC array;
                    duproot a bunch of times if MM array *)
-          elem_typ <- lift_err (get_array_elem_type from 2);;
-          let elem_shape := compile_typ elem_typ in
           (*  ex: [i]
              | idx | offset      |
              |-----|-------------|
@@ -823,19 +836,21 @@ Section Mod.
              | 1   | 2 * 2       |
              ...
              | i   | (i + 1) * 2 | *)
-          raise Todo
-                 (*
-          mret [
-            layout.Val $ LV_int32 1;
-            layout.Ne $ rwasm.Ib rwasm.i32 rwasm.add;
-            layout.Val $ LV_int32 (shape_size_words elem_shape);
-            layout.Ne $ rwasm.Ib rwasm.i32 rwasm.mul; (* [idx; sz] → [offset] *)
-            layout.LoadOffset elem_shape; (* [ptr; offset] → [ptr; offset; val] *)
-            layout.Swap;                  (* [offset; val] → [val; offset]*)
-            layout.Drop]                  (* [offset]; → [] *)
-    *)
-        (* [ptr] → [] *)
-        (* [i32] → [] *)
+          elem_typ <- lift_err (get_array_elem_type from 2);;
+          let elem_shape := compile_typ elem_typ in
+          idx_local <- walloc W.T_i32;;
+          base_local <- walloc W.T_i32;;
+          val_save_idx <- save_stack [elem_typ];;
+          emit (W.BI_set_local idx_local);;
+          emit (W.BI_tee_local base_local);;
+          array_bounds_check base_local idx_local;;
+          if_c (W.Tf [] [])
+            (emit (W.BI_get_local base_local);;
+             let words := words_typ elem_typ in
+             let compute_offset := array_offset idx_local words in
+             tagged_store' compute_offset elem_typ)
+            (emit W.BI_unreachable);;
+          ret tt
       | R.IArrayFree ann =>
           (* TODO: unregisterroot a bunch of times, since this is an MM array *)
           raise Todo (*mret $ [wasm.BI_call Σ.(me_free)]*)
