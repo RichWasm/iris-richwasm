@@ -1,5 +1,6 @@
+Require Coq.Lists.List.
 Require Import Coq.Program.Basics.
-Require Import Coq.Lists.List.
+Local Open Scope program_scope.
 
 Require Import ExtLib.Structures.Monoid.
 
@@ -8,30 +9,34 @@ Record dlist A := { apply_dlist : list A -> list A }.
 Arguments Build_dlist {A} _.
 Arguments apply_dlist {A} _.
 
-Definition empty {A} : dlist A :=
-  Build_dlist id.
+Module DList.
 
-Definition singleton {A} (x : A) : dlist A :=
-  Build_dlist (cons x).
+  Definition nil {A} : dlist A :=
+    Build_dlist id.
 
-Definition cons {A} (x : A) (xs : dlist A) : dlist A :=
-  Build_dlist (compose (cons x) (apply_dlist xs)).
+  Definition cons {A} (x : A) (xs : dlist A) : dlist A :=
+    Build_dlist (cons x ∘ apply_dlist xs).
 
-Definition append {A} (xs : dlist A) (ys : dlist A) : dlist A :=
-  Build_dlist (compose (apply_dlist xs) (apply_dlist ys)).
+  Definition singleton {A} (x : A) : dlist A :=
+    cons x nil.
 
-Definition concat {A} (xs : list (dlist A)) : dlist A :=
-  fold_right append empty xs.
+  Definition append {A} (xs : dlist A) (ys : dlist A) : dlist A :=
+    Build_dlist (apply_dlist xs ∘ apply_dlist ys).
 
-Definition of_list {A} (xs : list A) : dlist A :=
-  Build_dlist (app xs).
+  Definition flatten {A} (xs : list (dlist A)) : dlist A :=
+    List.fold_right append nil xs.
 
-Definition to_list {A} (xs : dlist A) : list A :=
-  apply_dlist xs nil.
+  Definition of_list {A} (xs : list A) : dlist A :=
+    Build_dlist (app xs).
 
-Definition Monoid_dlist {A} : Monoid (dlist A) :=
-  {| monoid_plus := append;
-     monoid_unit := empty |}.
+  Definition to_list {A} (xs : dlist A) : list A :=
+    apply_dlist xs List.nil.
+
+  Definition Monoid_dlist {A} : Monoid (dlist A) :=
+    {| monoid_plus := append;
+      monoid_unit := nil |}.
+
+End DList.
 
 Module Notation.
 
@@ -40,11 +45,11 @@ Module Notation.
   Bind Scope dlist_scope with dlist.
   Local Open Scope dlist_scope.
 
-  Infix "::" := cons : dlist_scope.
+  Infix "::" := DList.cons : dlist_scope.
 
-  Infix "++" := append : dlist_scope.
+  Infix "++" := DList.append : dlist_scope.
 
-  Notation "[ ]" := empty : dlist_scope.
+  Notation "[ ]" := DList.nil : dlist_scope.
 
   Notation "[ x ]" := (x :: []) : dlist_scope.
 

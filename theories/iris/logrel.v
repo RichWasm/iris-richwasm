@@ -21,7 +21,6 @@ From RichWasm Require Import subst term typing.
 From RichWasm.compiler Require Import compile.
 From RichWasm.iris Require Import autowp num_reprs util.
 From RichWasm.util Require Import debruijn dlist.
-Import dlist.Notation.
 
 Module RT := RichWasm.term.
 Module T := RichWasm.typing.
@@ -757,8 +756,10 @@ Section logrel.
   Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ GCMem) l32 ->
-    run_compiler (bind (tell [BI_get_local ref_tmp]%DL) (fun _ =>
-                  bind (if_gc_bit_set ins outs (tell (dlist.of_list gc_branch)) (tell (dlist.of_list lin_branch))) (fun _ =>
+    run_compiler (bind (emit (BI_get_local ref_tmp)) (fun _ =>
+                  bind (if_gc_bit_set (W.Tf ins outs)
+                          (tell (DList.of_list gc_branch))
+                          (tell (DList.of_list lin_branch))) (fun _ =>
                   ret tt)))
                  wl = inr (wl', es) ->
     ⊢ ↪[frame] f -∗
@@ -840,8 +841,10 @@ Section logrel.
   Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es es' ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ LinMem) l32 ->
-    run_compiler (bind (tell [BI_get_local ref_tmp]%DL) (fun _ =>
-                  bind (if_gc_bit_set ins outs (tell (dlist.of_list gc_branch)) (tell (dlist.of_list lin_branch))) (fun _ =>
+    run_compiler (bind (emit (BI_get_local ref_tmp)) (fun _ =>
+                  bind (if_gc_bit_set (W.Tf ins outs)
+                          (tell (DList.of_list gc_branch))
+                          (tell (DList.of_list lin_branch))) (fun _ =>
                   ret tt)))
                  wl = inr (wl', es) ->
     to_e_list es = es' ->

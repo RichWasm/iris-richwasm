@@ -1,8 +1,10 @@
 From Coq Require Import List.
+Require Import Coq.Program.Basics.
 Require Import Coq.Strings.String.
 Import Coq.Lists.List.ListNotations.
 Require Import Coq.NArith.BinNat.
 Require Import Coq.ZArith.BinInt.
+Local Open Scope program_scope.
 
 Require Import mathcomp.ssreflect.seq.
 
@@ -20,8 +22,8 @@ Require Import Wasm.numerics.
 
 From RichWasm Require term.
 From RichWasm Require Import typing.
-Require RichWasm.util.dlist.
-Import dlist.Notation.
+Require Import RichWasm.util.dlist.
+Import RichWasm.util.dlist.Notation.
 From RichWasm.compiler Require Import numerics util.
 
 Module R := term.
@@ -33,8 +35,10 @@ Definition size_ctx := list W.immediate.
 (* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
 Definition wlocal_ctx := list W.value_type.
 
+Notation instr_list := (dlist W.basic_instruction).
+
 Record wst (A : Type) :=
-  { un_wst : stateT wlocal_ctx (writerT (@dlist.Monoid_dlist W.basic_instruction) (sum err)) A }.
+  { un_wst : stateT wlocal_ctx (writerT (@DList.Monoid_dlist W.basic_instruction) (sum err)) A }.
 
 Arguments Build_wst {A} _.
 Arguments un_wst {A} _.
@@ -53,7 +57,7 @@ Global Instance MonadState_wst : MonadState wlocal_ctx wst :=
   { get := Build_wst get;
     put := fun x => Build_wst (put x) }.
 
-Global Instance MonadWriter_wst : MonadWriter (@dlist.Monoid_dlist W.basic_instruction) wst :=
+Global Instance MonadWriter_wst : MonadWriter (@DList.Monoid_dlist W.basic_instruction) wst :=
   { tell := fun x => Build_wst (tell x);
     listen := fun _ c => Build_wst (listen (un_wst c));
     (* Work around broken implementation of `pass` in ExtLib.
@@ -68,11 +72,30 @@ Definition lift_err {A} (c : err + A) : wst A :=
 Definition run_compiler (c : wst unit) (wl : wlocal_ctx) : err + wlocal_ctx * list W.basic_instruction :=
   match runWriterT (runStateT (un_wst c) wl) with
   | inl e => inl e
-  | inr x => inr (snd (PPair.pfst x), dlist.to_list (PPair.psnd x))
+  | inr x => inr (snd (PPair.pfst x), DList.to_list (PPair.psnd x))
   end.
 
-Definition capture {A} (c : wst A) : wst (A * dlist.dlist W.basic_instruction) :=
+Definition emit (e : W.basic_instruction) : wst unit :=
+  tell (DList.singleton e).
+
+Definition capture {A} (c : wst A) : wst (A * instr_list) :=
   censor (const []%DL) (listen c).
+
+Definition block_c {A} (tf : W.function_type) (c : wst A) : wst A :=
+  '(x, es) <- capture c;;
+  emit (W.BI_block tf (DList.to_list es));;
+  ret x.
+
+Definition loop_c {A} (tf : W.function_type) (c : wst A) : wst A :=
+  '(x, es) <- capture c;;
+  emit (W.BI_loop tf (DList.to_list es));;
+  ret x.
+
+Definition if_c {A B} (tf : W.function_type) (thn : wst A) (els : wst B) : wst (A * B) :=
+  '(x1, es1) <- capture thn;;
+  '(x2, es2) <- capture els;;
+  emit (W.BI_if tf (DList.to_list es1) (DList.to_list es2));;
+  ret (x1, x2).
 
 Record compiler_mod_ctx := {
   mem_gc : W.immediate;
@@ -201,38 +224,34 @@ Definition get_array_elem_type (targs : list R.Typ) (idx : nat) : err + R.Typ :=
   end.
 
 Definition if_gc_bit_set {A} {B}
-  (ins : W.result_type)
-  (outs : W.result_type)
+  (tf : W.function_type)
   (gc_branch : wst B)
   (lin_branch : wst A)
 : wst (A * B) :=
-  tell [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
-        W.BI_binop W.T_i32 (W.Binop_i W.BOI_and);
-        W.BI_testop W.T_i32 W.TO_eqz]%DL;;
-  '(x, lin_es) <- capture (lin_branch);;
-  '(y, gc_es) <- capture (gc_branch);;
-  tell [W.BI_if (W.Tf ins outs) (dlist.to_list lin_es) (dlist.to_list gc_es)]%DL;;
-  ret (x, y).
+  emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
+  emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
+  emit (W.BI_testop W.T_i32 W.TO_eqz);;
+  if_c tf lin_branch gc_branch.
 
-Definition unset_gc_bit : dlist.dlist W.basic_instruction :=
-  [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z));
-   W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)].
+Definition unset_gc_bit : wst unit :=
+  emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
+  emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)).
 
 Fixpoint loads'
   (mem: W.immediate)
   (base_ptr_var: W.immediate)
   (off: W.static_offset)
   (tys: list W.value_type)
-: dlist.dlist W.basic_instruction :=
+: wst unit :=
   match tys with
-  | [] => []
+  | [] => ret tt
   | ty :: tys =>
-      W.BI_get_local base_ptr_var ::
-      W.BI_load mem ty None 0%N off ::
+      emit (W.BI_get_local base_ptr_var);;
+      emit (W.BI_load mem ty None 0%N off);;
       loads' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N tys
   end.
 
-Definition loads mem base_ptr_var tys : dlist.dlist W.basic_instruction :=
+Definition loads mem base_ptr_var tys : wst unit :=
   loads' mem base_ptr_var 0%N tys.
 
 Fixpoint loc_stores'
@@ -240,21 +259,21 @@ Fixpoint loc_stores'
   (mem: W.immediate)
   (off: W.static_offset)
   (val_var_tys: list (W.immediate * W.value_type))
-: dlist.dlist W.basic_instruction :=
+: wst unit :=
   match val_var_tys with
-  | [] => []
+  | [] => ret tt
   | (val_var, ty) :: val_var_tys =>
-      W.BI_get_local base_ptr_var ::
-      W.BI_get_local val_var ::
-      W.BI_store mem ty None 0%N off ::
+      emit (W.BI_get_local base_ptr_var);;
+      emit (W.BI_get_local val_var);;
+      emit (W.BI_store mem ty None 0%N off);;
       loc_stores' base_ptr_var mem (off + N.of_nat (operations.length_t ty))%N val_var_tys
   end.
 
-Definition loc_stores base_ptr_var mem val_var_tys : dlist.dlist W.basic_instruction :=
+Definition loc_stores base_ptr_var mem val_var_tys : wst unit :=
   loc_stores' base_ptr_var mem 0%N val_var_tys.
 
 Definition stores base_ptr_var mem (val_vars: list W.immediate) (tys: list W.value_type)
-  : dlist.dlist W.basic_instruction :=
+  : wst unit :=
   loc_stores base_ptr_var mem (zip val_vars tys).
 
 Inductive VarScope :=
@@ -303,9 +322,9 @@ Definition for_gc_ref_vars (scope : VarScope) (vars : list W.immediate) (m : wst
   iterM
     (fun var =>
        let '(get, set) := scope_get_set scope in
-       tell [get var]%DL;;
-       if_gc_bit_set [W.T_i32] [W.T_i32] m (ret tt);;
-       tell [set var]%DL)
+       emit (get var);;
+       if_gc_bit_set (W.Tf [W.T_i32] [W.T_i32]) m (ret tt);;
+       emit (set var))
     vars.
 
 Section Mod.
@@ -317,21 +336,21 @@ Section Mod.
   Definition tagged_store
     (base_ptr: W.immediate)
     (arg_vars: list W.immediate)
-    (offset_instrs: dlist.dlist W.basic_instruction)
+    (get_offset: wst unit)
     (ty: R.Typ)
     : wst unit :=
-    tell [W.BI_tee_local base_ptr;
-          W.BI_get_local base_ptr]%DL;;
+    emit (W.BI_tee_local base_ptr);;
+    emit (W.BI_get_local base_ptr);;
     let tys := compile_typ ty in
-    if_gc_bit_set [] []
-      (tell [W.BI_get_local base_ptr]%DL;;
-       tell unset_gc_bit;;
-       tell offset_instrs;;
-       tell [W.BI_set_local base_ptr]%DL;;
-       tell (stores base_ptr mctx.(mem_gc) arg_vars tys))
-      (tell [W.BI_get_local base_ptr]%DL;;
-       tell offset_instrs;;
-       tell (stores base_ptr mctx.(mem_lin) arg_vars tys));;
+    if_gc_bit_set (W.Tf [] [])
+      (emit (W.BI_get_local base_ptr);;
+       unset_gc_bit;;
+       get_offset;;
+       emit (W.BI_set_local base_ptr);;
+       stores base_ptr mctx.(mem_gc) arg_vars tys)
+      (emit (W.BI_get_local base_ptr);;
+       get_offset;;
+       stores base_ptr mctx.(mem_lin) arg_vars tys);;
     ret tt.
 
   Fixpoint global_layout (globs : list R.GlobalType) (idx : nat) : option (nat * R.Typ) :=
@@ -361,17 +380,17 @@ Section Mod.
 
     Definition walloc_args (tys: list W.value_type) : wst (list W.immediate) :=
       vars <- wallocs tys;;
-      tell (dlist.of_list (map W.BI_set_local vars));;
+      @forT list _ _ _ _ _ vars (fun var => emit (W.BI_set_local var));;
       ret vars.
 
     Definition walloc_rvalue (ty : R.Typ) : wst W.immediate :=
       i <- wnext;;
-      _ <- mapT walloc (compile_typ ty);;
+      forT (compile_typ ty) walloc;;
       ret i.
 
     Definition walloc_rvalues (tys : list R.Typ) : wst W.immediate :=
       i <- wnext;;
-      _ <- mapT walloc_rvalue tys;;
+      forT tys walloc_rvalue;;
       ret i.
 
     Fixpoint local_layout (L: Local_Ctx) (base: nat) (i: nat) : err + (nat * R.Typ) :=
@@ -385,132 +404,121 @@ Section Mod.
 
     Definition gc_loads
       (ref_var: W.immediate)
-      (offset_instrs: dlist.dlist W.basic_instruction)
+      (get_offset: wst unit)
       (tys: list W.value_type)
     : wst unit :=
       base_ptr_var <- walloc W.T_i32;;
-      tell [W.BI_get_local ref_var]%DL;;
-      tell unset_gc_bit;;
-      tell offset_instrs;;
-      tell [W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
-            W.BI_set_local base_ptr_var]%DL;;
-      tell (loads mctx.(mem_gc) base_ptr_var tys).
+      emit (W.BI_get_local ref_var);;
+      unset_gc_bit;;
+      get_offset;;
+      emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
+      emit (W.BI_set_local base_ptr_var);;
+      loads mctx.(mem_gc) base_ptr_var tys.
 
     Definition lin_loads
       (ref_var: W.immediate)
-      (offset_instrs: dlist.dlist W.basic_instruction)
+      (get_offset: wst unit)
       (tys: list W.value_type)
     : wst unit :=
       base_ptr_var <- walloc W.T_i32;;
-      tell [W.BI_get_local ref_var]%DL;;
-      tell offset_instrs;;
-      tell [W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
-            W.BI_set_local base_ptr_var]%DL;;
-      tell (loads mctx.(mem_lin) base_ptr_var tys).
+      emit (W.BI_get_local ref_var);;
+      get_offset;;
+      emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
+      emit (W.BI_set_local base_ptr_var);;
+      loads mctx.(mem_lin) base_ptr_var tys.
 
     Definition tagged_loads
       (base_ptr: W.immediate)
-      (offset_instrs: dlist.dlist W.basic_instruction)
+      (get_offset: wst unit)
       (tys: list W.value_type)
       : wst unit :=
-      tell [W.BI_get_local base_ptr]%DL;;
-      if_gc_bit_set [] tys
-        (gc_loads base_ptr offset_instrs tys)
-        (lin_loads base_ptr offset_instrs tys);;
+      emit (W.BI_get_local base_ptr);;
+      if_gc_bit_set (W.Tf [] tys)
+        (gc_loads base_ptr get_offset tys)
+        (lin_loads base_ptr get_offset tys);;
       ret tt.
 
     Definition tagged_load
       (base_ptr: W.immediate)
-      (offset_instrs: dlist.dlist W.basic_instruction)
+      (get_offset: wst unit)
       (ty: R.Typ)
     : wst unit :=
       let tys := compile_typ ty in
-      tagged_loads base_ptr offset_instrs tys.
+      tagged_loads base_ptr get_offset tys.
 
-    Definition tagged_store' (offset_instrs : dlist.dlist W.basic_instruction) (ty : R.Typ) : wst unit :=
+    Definition tagged_store' (get_offset : wst unit) (ty : R.Typ) : wst unit :=
       let tys := compile_typ ty in
       arg_vars <- walloc_args tys;;
       base_ptr_var <- walloc W.T_i32;;
-      tagged_store base_ptr_var arg_vars offset_instrs ty.
+      tagged_store base_ptr_var arg_vars get_offset ty.
 
-    Definition get_i64_local (loc : W.immediate) : dlist.dlist W.basic_instruction :=
-      [ W.BI_get_local loc;
-        W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
-        W.BI_get_local (loc + 1);
-        W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
-        W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl);
-        W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None;
-        W.BI_binop W.T_i64 (W.Binop_i W.BOI_or) ].
+    Definition get_i64_local (loc : W.immediate) : wst unit :=
+      emit (W.BI_get_local loc);;
+      emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
+      emit (W.BI_get_local (loc + 1));;
+      emit (W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32)));;
+      emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl));;
+      emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
+      emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_or)).
 
     Definition set_i64_local (loc : W.immediate) : wst unit :=
       tmp <- walloc W.T_i64;;
-      tell [ W.BI_tee_local tmp;
-             W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one));
-             W.BI_binop W.T_i64 (W.Binop_i W.BOI_and);
-             W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None;
-             W.BI_set_local loc;
-             W.BI_get_local tmp;
-             W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32));
-             W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr);
-             W.BI_set_local (loc + 1) ]%DL.
+      emit (W.BI_tee_local tmp);;
+      emit (W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one)));;
+      emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_and));;
+      emit (W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None);;
+      emit (W.BI_set_local loc);;
+      emit (W.BI_get_local tmp);;
+      emit (W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32)));;
+      emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr));;
+      emit (W.BI_set_local (loc + 1)).
 
-    Definition numtyp_gets (nτ: R.NumType) (loc: nat) : dlist.dlist W.basic_instruction :=
+    Definition numtyp_gets (nτ: R.NumType) (loc: nat) : wst unit :=
       match nτ with
-      | R.Int s R.i32 => [ W.BI_get_local loc ]
+      | R.Int s R.i32 => emit (W.BI_get_local loc)
       | R.Float R.f32 =>
-          [ W.BI_get_local loc;
-            W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None ]
+          emit (W.BI_get_local loc);;
+          emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None)
       | R.Int s R.i64 => get_i64_local loc
       | R.Float R.f64 =>
-          get_i64_local loc ++
-          [ W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None ]
+          get_i64_local loc;;
+          emit (W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None)
       end.
 
     Definition numtyp_sets (nτ: R.NumType) (loc: nat) : wst unit :=
       match nτ with
-      | R.Int s R.i32 => tell [W.BI_set_local loc]%DL
+      | R.Int s R.i32 => emit (W.BI_set_local loc)
       | R.Float R.f32 =>
-          tell [W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None;
-                W.BI_set_local loc]%DL
+          emit (W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None);;
+          emit (W.BI_set_local loc)
       | R.Int s R.i64 => set_i64_local loc
       | R.Float R.f64 =>
-          tell [W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None]%DL;;
+          emit (W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None);;
           set_i64_local loc
       end.
 
-    Fixpoint local_gets (τ: R.Typ) (loc: nat) : dlist.dlist W.basic_instruction :=
+    Fixpoint local_gets (τ: R.Typ) (loc: nat) : wst unit :=
       match τ with
-      | R.Num nτ =>
-          numtyp_gets nτ loc
-      | R.TVar α =>
-          [W.BI_get_local loc]
-      | R.Unit =>
-          []
+      | R.Num nτ => numtyp_gets nτ loc
+      | R.TVar α => emit (W.BI_get_local loc)
+      | R.Unit => ret tt
       | R.ProdT τs =>
           let fix loop τs0 sz :=
             match τs0 with
             | τ0 :: τs0' =>
                 let sz := words_typ τ0 in
-                let es := local_gets τ0 loc in
-                let es' := loop τs0' (loc + sz) in
-                (es ++ es')%DL
-            | [] => []%DL
+                local_gets τ0 loc;;
+                loop τs0' (loc + sz)
+            | [] => ret tt
             end in
           loop τs loc
-      | R.CoderefT χ =>
-        [W.BI_get_local loc]
-      | R.Rec q τ =>
-          local_gets τ loc
-      | R.PtrT ℓ =>
-          [W.BI_get_local loc]
-      | R.ExLoc q τ =>
-          local_gets τ loc
-      | R.OwnR ℓ =>
-          []
-      | R.CapT cap ℓ ψ =>
-          []
-      | R.RefT cap ℓ ψ =>
-          [W.BI_get_local loc]
+      | R.CoderefT χ => emit (W.BI_get_local loc)
+      | R.Rec q τ => local_gets τ loc
+      | R.PtrT ℓ => emit (W.BI_get_local loc)
+      | R.ExLoc q τ => local_gets τ loc
+      | R.OwnR ℓ => ret tt
+      | R.CapT cap ℓ ψ => ret tt
+      | R.RefT cap ℓ ψ => emit (W.BI_get_local loc)
       end.
 
     Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst unit :=
@@ -518,7 +526,7 @@ Section Mod.
       | R.Num nτ =>
           numtyp_sets nτ loc
       | R.TVar α =>
-          tell [W.BI_set_local loc]%DL
+          emit (W.BI_set_local loc)
       | R.Unit =>
           ret tt
       | R.ProdT τs =>
@@ -532,11 +540,11 @@ Section Mod.
             end in
           loop τs loc
       | R.CoderefT χ =>
-          tell [W.BI_set_local loc]%DL
+          emit (W.BI_set_local loc)
       | R.Rec q τ =>
           local_sets τ loc
       | R.PtrT ℓ =>
-          tell [W.BI_set_local loc]%DL
+          emit (W.BI_set_local loc)
       | R.ExLoc q τ =>
           local_sets τ loc
       | R.OwnR ℓ =>
@@ -544,7 +552,7 @@ Section Mod.
       | R.CapT cap ℓ ψ =>
           ret tt
       | R.RefT cap ℓ ψ =>
-          tell [W.BI_set_local loc]%DL
+          emit (W.BI_set_local loc)
       end.
 
     Definition save_stack (tys : list R.Typ) : wst W.immediate :=
@@ -552,69 +560,63 @@ Section Mod.
       local_sets (R.ProdT tys) idx;;
       ret idx.
 
-    Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : dlist.dlist W.basic_instruction :=
+    Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : wst unit :=
       local_gets (R.ProdT tys) idx.
 
-    Fixpoint compile_sz (sz : R.Size) : err + dlist.dlist W.basic_instruction :=
+    Fixpoint compile_sz (sz : R.Size) : wst unit :=
       match sz with
       | R.SizeVar σ =>
-        local_idx <- err_opt (lookup σ sz_locs) ("sz " ++ pretty σ ++ " not found in sz_local_map");;
-        inr [W.BI_get_local local_idx]%DL
+        local_idx <- lift_err (err_opt (lookup σ sz_locs)
+                                       ("sz " ++ pretty σ ++ " not found in sz_local_map"));;
+        emit (W.BI_get_local local_idx)
       | R.SizePlus sz1 sz2 =>
-        e1 <- compile_sz sz1;;
-        e2 <- compile_sz sz2;;
-        inr (e1 ++ e2 ++ [W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)])%DL
+        compile_sz sz1;;
+        compile_sz sz2;;
+        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add))
       | R.SizeConst c =>
-        inr [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c)))]%DL
+        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c))))
       end.
 
-    Definition compile_ind (ind: R.Index) : err + dlist.dlist W.basic_instruction :=
+    Definition compile_ind (ind: R.Index) : wst unit :=
       match ind with
       | R.SizeI sz => compile_sz sz
       | R.LocI _
       | R.QualI _
-      | R.TypI _ => inr []%DL
+      | R.TypI _ => ret tt
       end.
-
-    Definition compile_inds (inds: list R.Index) : err + dlist.dlist W.basic_instruction :=
-      dlist.concat <$> mapT compile_ind inds.
 
     Fixpoint compile_instr (instr: R.instr TyAnn) : wst unit :=
       match instr with
-      | R.INumConst _ num_type num => tell [W.BI_const (compile_num num_type num)]%DL
+      | R.INumConst _ num_type num => emit (W.BI_const (compile_num num_type num))
       | R.IUnit _ => ret tt
-      | R.INum ann ni =>
-          e <- lift_err (compile_num_instr ni);;
-          tell [e]%DL
-      | R.IUnreachable (R.Arrow targs trets, _) => tell [W.BI_unreachable]%DL
-      | R.INop (R.Arrow targs trets, _) => tell [W.BI_nop]%DL
+      | R.INum ann ni => lift_err (compile_num_instr ni) >>= emit
+      | R.IUnreachable (R.Arrow targs trets, _) => emit (W.BI_unreachable)
+      | R.INop (R.Arrow targs trets, _) => emit (W.BI_nop)
       | R.IDrop (R.Arrow targs trets, LSig L _) =>
           match targs with
           | [t_drop] =>
               let wasm_typ := compile_typ t_drop in
               base <- save_stack [t_drop];;
               let ref_vars := map (Nat.add base) (ref_indices LMNative t_drop) in
-              for_gc_ref_vars VSLocal ref_vars (tell [W.BI_call mctx.(unregisterroot)]%DL);;
-              tell (restore_stack [t_drop] base);;
-              tell (dlist.of_list (map (const W.BI_drop) wasm_typ))
+              for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
+              restore_stack [t_drop] base;;
+              forT wasm_typ (const (emit W.BI_drop));;
+              ret tt
           | _ => raise (Err "drop should consume exactly one value")
           end
       | R.IBlock (R.Arrow targs trets, _) ta _ es =>
-          let ta' := compile_arrow_type ta in
-          '(_, es') <- capture (forT es compile_instr);;
-          tell [W.BI_block ta' (dlist.to_list es')]%DL
+          block_c (compile_arrow_type ta) (forT es compile_instr);;
+          ret tt
       | R.ILoop (R.Arrow targs trets, _) arrow es =>
-          let ft := compile_arrow_type arrow in
-          '(_, es') <- capture (forT es compile_instr);;
-          tell [W.BI_loop ft (dlist.to_list es')]%DL
+          loop_c (compile_arrow_type arrow) (forT es compile_instr);;
+          ret tt
       | R.IIte (R.Arrow targs trets, _) arrow _ ets efs =>
-          let ft := compile_arrow_type arrow in
-          '(_, ets') <- capture (forT ets compile_instr);;
-          '(_, efs') <- capture (forT efs compile_instr);;
-          tell [W.BI_if ft (dlist.to_list ets') (dlist.to_list efs')]%DL
-      | R.IBr (R.Arrow targs trets, _) x => tell [W.BI_br x]%DL
-      | R.IBrIf (R.Arrow targs trets, _) x => tell [W.BI_br_if x]%DL
-      | R.IBrTable (R.Arrow targs trets, _) x x0 => tell [W.BI_br_table x x0]%DL
+          let tf := compile_arrow_type arrow in
+          if_c tf (forT ets compile_instr) (forT efs compile_instr);;
+          ret tt
+      | R.IBr (R.Arrow targs trets, _) x => emit (W.BI_br x)
+      | R.IBrIf (R.Arrow targs trets, _) x => emit (W.BI_br_if x)
+      | R.IBrTable (R.Arrow targs trets, _) x x0 => emit (W.BI_br_table x x0)
       | R.IRet (R.Arrow targs trets, _) =>
           let ret_ty' := ssrfun.Option.default [] F.(rettyp) in
           let rdropped := take (length targs - length ret_ty') targs in
@@ -622,53 +624,51 @@ Section Mod.
           idx_ret <- save_stack ret_ty';;
           idx_dropped <- save_stack rdropped;;
           let ref_vars := map (Nat.add idx_dropped) (flat_map (ref_indices LMNative) rdropped) in
-          for_gc_ref_vars VSLocal ref_vars (tell [W.BI_call mctx.(unregisterroot)]%DL);;
-          tell (restore_stack ret_ty' idx_ret);;
-          tell [W.BI_return]%DL
+          for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
+          restore_stack ret_ty' idx_ret;;
+          emit W.BI_return
       | R.IGetLocal (R.Arrow targs trets, LSig L _) idx _ =>
           '(base, τ) <- lift_err (local_layout L 0 idx);;
-          tell (local_gets τ base);;
+          local_gets τ base;;
           'i <- save_stack [τ];;
           let ref_vars := map (Nat.add i) (ref_indices LMNative τ) in
-          for_gc_ref_vars VSLocal ref_vars (tell [W.BI_call mctx.(duproot)]%DL);;
-          tell (restore_stack [τ] i)
+          for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(duproot)));;
+          restore_stack [τ] i
       | R.ISetLocal (R.Arrow targs trets, LSig L _) idx =>
           '(base, τ) <- lift_err (local_layout L 0 idx);;
           let ref_vars := map (Nat.add base) (ref_indices LMWords τ) in
-          for_gc_ref_vars VSLocal ref_vars (tell [W.BI_call mctx.(unregisterroot)]%DL);;
+          for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
           local_sets τ base
       | R.IGetGlobal _ i =>
           '(i', ty) <- lift_err (err_opt (global_layout C.(global) i) "invalid global index");;
-          tell (dlist.of_list (imap (fun j _ => W.BI_get_global (i' + j)) (compile_typ ty)));;
+          forT (imap (fun j _ => i' + j) (compile_typ ty)) (emit ∘ W.BI_get_global);;
           j <- save_stack [ty];;
           let ref_vars := map (Nat.add j) (ref_indices LMNative ty) in
-          for_gc_ref_vars VSLocal ref_vars (tell [W.BI_call mctx.(duproot)]%DL);;
-          tell (restore_stack [ty] i)
+          for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(duproot)));;
+          restore_stack [ty] i
       | R.ISetGlobal _ i =>
           '(i', ty) <- lift_err (err_opt (global_layout C.(global) i) "invalid global index");;
           let ref_vars := map (Nat.add i') (ref_indices LMNative ty) in
-          for_gc_ref_vars VSGlobal ref_vars (tell [W.BI_call mctx.(unregisterroot)]%DL);;
-          tell (dlist.of_list (imap (fun j _ => W.BI_set_global (i' + j)) (compile_typ ty)))
+          for_gc_ref_vars VSGlobal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
+          forT (imap (fun j _ => i' + j) (compile_typ ty)) (emit ∘ W.BI_set_global);;
+          ret tt
       | R.ICoderef (R.Arrow targs trets, _) idx =>
-          tell [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat idx)));
-                W.BI_get_global mctx.(coderef_offset);
-                W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)]%DL
+          emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat idx))));;
+          emit (W.BI_get_global mctx.(coderef_offset));;
+          emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add))
       | R.ICallIndirect (R.Arrow targs trets, _) inds =>
           stk <- save_stack targs;;
-          es <- lift_err (compile_inds inds);;
-          tell es;;
-          tell (restore_stack targs stk);;
-          tell [W.BI_call_indirect mctx.(fn_tab)]%DL
+          forT inds compile_ind;;
+          restore_stack targs stk;;
+          emit (W.BI_call_indirect mctx.(fn_tab))
       | R.ICall (R.Arrow targs trets, _) fidx inds =>
           stk <- save_stack targs;;
-          es <- lift_err (compile_inds inds);;
-          tell es;;
-          tell (restore_stack targs stk);;
-          tell [W.BI_call fidx]%DL
+          forT inds compile_ind;;
+          restore_stack targs stk;;
+          emit (W.BI_call fidx)
       | R.IMemUnpack _ ta tl es =>
-          let ta' := compile_arrow_type ta in
-          '(_, es') <- capture (forT es compile_instr);;
-          tell [W.BI_block ta' (dlist.to_list es')]%DL
+          block_c (compile_arrow_type ta) (forT es compile_instr);;
+          ret tt
       | R.IStructMalloc (R.Arrow targs trets, _) szs q =>
           (* TODO: registerroot on the new address;
                    unregisterroot if any field is GC ref being put into GC struct *)
@@ -680,58 +680,56 @@ Section Mod.
           raise Todo
       | R.IStructFree (R.Arrow targs trets, _) =>
           (* TODO: unregisterroot fields that may be refs to GC if this struct is MM *)
-          tell [W.BI_call mctx.(free)]%DL
+          emit (W.BI_call mctx.(free))
       | R.IStructGet (R.Arrow from to, _) n =>
           base_ref <- walloc W.T_i32;;
           fields <- lift_err (get_struct_field_types from 0);;
           field_typ <- lift_err (err_opt (list_lookup 0 to) "struct.get: cannot find output val type");;
           offset_sz <- lift_err (struct_field_offset fields n);;
-          offset_es <- lift_err (compile_sz offset_sz);;
-          tell [W.BI_tee_local base_ref]%DL;;
-          tagged_load base_ref offset_es field_typ;;
+          emit (W.BI_tee_local base_ref);;
+          tagged_load base_ref (compile_sz offset_sz) field_typ;;
           stk <- save_stack [field_typ];;
-          tell [W.BI_get_local base_ref]%DL;;
+          emit (W.BI_get_local base_ref);;
           let ref_vars := map (Nat.add stk) (ref_indices LMNative field_typ) in
-          if_gc_bit_set [] []
-            (for_gc_ref_vars VSLocal ref_vars (tell [W.BI_call mctx.(registerroot)]%DL))
-            (for_gc_ref_vars VSLocal ref_vars (tell [W.BI_call mctx.(duproot)]%DL));;
-          tell (restore_stack [field_typ] stk)
+          if_gc_bit_set (W.Tf [] [])
+            (for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(registerroot))))
+            (for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(duproot))));;
+          restore_stack [field_typ] stk
       | R.IStructSet (R.Arrow from to, _) n =>
           base_ref <- walloc W.T_i32;;
           fields <- lift_err (get_struct_field_types from 1);;
           field_typ <- lift_err (err_opt (list_lookup 0 to) "struct.set: cannot find output val type");;
           val_typ <- lift_err (err_opt (list_lookup 0 from) "struct.set: cannot find input val type");;
           offset_sz <- lift_err (struct_field_offset fields n);;
-          offset_es <- lift_err (compile_sz offset_sz);;
 
-          tell [W.BI_tee_local base_ref]%DL;;
-          if_gc_bit_set [] []
+          emit (W.BI_tee_local base_ref);;
+          if_gc_bit_set (W.Tf [] [])
             (ret tt)
             (let tys := compile_typ field_typ in
-             gc_loads base_ref offset_es tys;;
+             gc_loads base_ref (compile_sz offset_sz) tys;;
              old_stk_var <- save_stack [field_typ];;
              let old_ref_vars := map (Nat.add old_stk_var) (ref_indices LMNative field_typ) in
              for_gc_ref_vars VSLocal old_ref_vars
-               (tell [W.BI_call mctx.(unregisterroot)]%DL));;
+               (emit (W.BI_call mctx.(unregisterroot))));;
 
-          tell [W.BI_get_local base_ref]%DL;;
-          if_gc_bit_set [] []
+          emit (W.BI_get_local base_ref);;
+          if_gc_bit_set (W.Tf [] [])
             (new_stk_var <- save_stack [val_typ];;
              let new_ref_vars := map (Nat.add new_stk_var) (ref_indices LMNative val_typ) in
              for_gc_ref_vars VSLocal new_ref_vars
-               (tell [W.BI_load mctx.(mem_gc) W.T_i32 None 0%N 0%N]%DL);;
-             tell (restore_stack [val_typ] new_stk_var))
+               (emit (W.BI_load mctx.(mem_gc) W.T_i32 None 0%N 0%N));;
+             restore_stack [val_typ] new_stk_var)
             (ret tt);;
 
-          tell [W.BI_get_local base_ref]%DL;;
-          tagged_store' offset_es val_typ
+          emit (W.BI_get_local base_ref);;
+          tagged_store' (compile_sz offset_sz) val_typ
       | R.IStructSwap (R.Arrow from to, _) n =>
           (* TODO: registerroot if GC struct *)
           fields <- lift_err (get_struct_field_types from 1);;
           field_typ <- lift_err (err_opt (list_lookup 0 from) "struct.swap: cannot find input val type");;
           let field_shape := compile_typ field_typ in
           offset_sz <- lift_err (struct_field_offset fields n);;
-          offset_e <- lift_err (compile_sz offset_sz);;
+          offset_e <- compile_sz offset_sz;;
           raise Todo
     (*
           mret $ [layout.Swap] ++                (* [ptr; val] → [val; ptr]*)
@@ -794,23 +792,25 @@ Section Mod.
           idx_local <- walloc W.T_i32;;
           base_local <- walloc W.T_i32;;
           let words := words_typ elem_typ in
-          tell [W.BI_set_local idx_local;
-                W.BI_set_local base_local]%DL;;
+          emit (W.BI_set_local idx_local);;
+          emit (W.BI_set_local base_local);;
           tagged_load
             base_local
-            [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))]
+            (emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))))
             (R.Num (R.Int R.U R.i32));;
-          tell [W.BI_get_local idx_local;
-                W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U)))]%DL;;
-          let compute_offset :=
-            [W.BI_get_local idx_local;
-             W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat words)));
-             W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul);
-             W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 4)); (* skip header length word *)
-             W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)]%DL in
-          '(_, read_es) <- capture (tagged_load base_local compute_offset elem_typ);;
-          let e := W.BI_if (W.Tf [] elem_shape) (dlist.to_list read_es) [W.BI_unreachable] in
-          tell [e]%DL
+          emit (W.BI_get_local idx_local);;
+          emit (W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U))));;
+          let get_offset :=
+            emit (W.BI_get_local idx_local);;
+            emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat words))));;
+            emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul));;
+            emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 4)));; (* skip header length word *)
+            emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add))
+          in
+          if_c (W.Tf [] elem_shape)
+            (tagged_load base_local get_offset elem_typ)
+            (emit W.BI_unreachable);;
+          ret tt
       | R.IArraySet (R.Arrow from to, _) =>
           (* TODO: unregisterroot if GC array;
                    duproot a bunch of times if MM array *)
