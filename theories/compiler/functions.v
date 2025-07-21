@@ -192,7 +192,7 @@ Definition for_gc_ref_vars (scope : VarScope) (vars : list W.immediate) (m : wst
 Fixpoint global_layout (globs : list R.GlobalType) (idx : nat) : option (nat * R.Typ) :=
   match globs, idx with
   | [R.GT _ ty], 0 => Some (0, ty)
-  | R.GT _ ty :: globs', S idx' => global_layout globs' (length (compile_typ ty) + idx')
+  | R.GT _ ty :: globs', S idx' => global_layout globs' (length (translate_type ty) + idx')
   | _, _ => None
   end.
 
@@ -224,7 +224,7 @@ Section Functions.
 
   Definition walloc_rvalue (ty : R.Typ) : wst W.immediate :=
     i <- wnext;;
-    forT (compile_typ ty) walloc;;
+    forT (translate_type ty) walloc;;
     ret i.
 
   Definition walloc_rvalues (tys : list R.Typ) : wst W.immediate :=
@@ -240,7 +240,7 @@ Section Functions.
     : wst unit :=
     emit (W.BI_tee_local base_ptr);;
     emit (W.BI_get_local base_ptr);;
-    let tys := compile_typ ty in
+    let tys := translate_type ty in
     if_gc_bit_set (W.Tf [] [])
       (emit (W.BI_get_local base_ptr);;
        unset_gc_bit;;
@@ -259,7 +259,7 @@ Section Functions.
       | (τ, sz) :: L, S i =>
           sz_const <- size_upper_bound F.(R.size) sz;;
           go L (base + sz_const) i
-      | [], _ => inl (ELocalIndexOutOfBounds idx)
+      | [], _ => inl (EIndexOutOfBounds idx)
       end
     in
     go L 0 idx.
@@ -305,11 +305,11 @@ Section Functions.
     (get_offset: wst unit)
     (ty: R.Typ)
   : wst unit :=
-    let tys := compile_typ ty in
+    let tys := translate_type ty in
     tagged_loads base_ptr get_offset tys.
 
   Definition tagged_store' (get_offset : wst unit) (ty : R.Typ) : wst unit :=
-    let tys := compile_typ ty in
+    let tys := translate_type ty in
     arg_vars <- walloc_args tys;;
     base_ptr_var <- walloc W.T_i32;;
     tagged_store base_ptr_var arg_vars get_offset ty.
@@ -368,7 +368,7 @@ Section Functions.
         let fix loop τs0 sz :=
           match τs0 with
           | τ0 :: τs0' =>
-              let sz := words_typ τ0 in
+              let sz := type_words τ0 in
               local_gets τ0 loc;;
               loop τs0' (loc + sz)
           | [] => ret tt
@@ -395,7 +395,7 @@ Section Functions.
         let fix loop τs0 sz :=
           match τs0 with
           | τ0 :: τs0' =>
-              let sz := words_typ τ0 in
+              let sz := type_words τ0 in
               local_sets τ0 loc;;
               loop τs0' (loc + sz)
           | [] => ret tt
@@ -428,7 +428,7 @@ Section Functions.
   Fixpoint compile_sz (sz : R.Size) : wst unit :=
     match sz with
     | R.SizeVar σ =>
-      local_idx <- try_option (ESizeIndexOutOfBounds σ) (lookup σ sz_locs);;
+      local_idx <- try_option (EIndexOutOfBounds σ) (lookup σ sz_locs);;
       emit (W.BI_get_local local_idx)
     | R.SizePlus sz1 sz2 =>
       compile_sz sz1;;
@@ -471,9 +471,9 @@ Section Functions.
     | R.IDrop (R.Arrow targs trets, R.LSig L _) =>
         match targs with
         | [t_drop] =>
-            let wasm_typ := compile_typ t_drop in
+            let wasm_typ := translate_type t_drop in
             base <- save_stack [t_drop];;
-            let ref_vars := map (Nat.add base) (ref_indices LMNative t_drop) in
+            let ref_vars := map (Nat.add base) (find_refs LMNative t_drop) in
             for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
             restore_stack [t_drop] base;;
             forT wasm_typ (const (emit W.BI_drop));;
@@ -481,13 +481,13 @@ Section Functions.
         | _ => raise EWrongTypeAnn
         end
     | R.IBlock (R.Arrow targs trets, _) ta _ es =>
-        block_c (compile_arrow_type ta) (forT es compile_instr);;
+        block_c (translate_arrow_type ta) (forT es compile_instr);;
         ret tt
     | R.ILoop (R.Arrow targs trets, _) arrow es =>
-        loop_c (compile_arrow_type arrow) (forT es compile_instr);;
+        loop_c (translate_arrow_type arrow) (forT es compile_instr);;
         ret tt
     | R.IIte (R.Arrow targs trets, _) arrow _ ets efs =>
-        let tf := compile_arrow_type arrow in
+        let tf := translate_arrow_type arrow in
         if_c tf (forT ets compile_instr) (forT efs compile_instr);;
         ret tt
     | R.IBr (R.Arrow targs trets, _) x => emit (W.BI_br x)
@@ -496,10 +496,10 @@ Section Functions.
     | R.IRet (R.Arrow targs trets, _) =>
         let ret_ty' := ssrfun.Option.default [] F.(R.rettyp) in
         let rdropped := take (length targs - length ret_ty') targs in
-        let wdropped := flat_map compile_typ rdropped in
+        let wdropped := flat_map translate_type rdropped in
         idx_ret <- save_stack ret_ty';;
         idx_dropped <- save_stack rdropped;;
-        let ref_vars := map (Nat.add idx_dropped) (flat_map (ref_indices LMNative) rdropped) in
+        let ref_vars := map (Nat.add idx_dropped) (flat_map (find_refs LMNative) rdropped) in
         for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
         restore_stack ret_ty' idx_ret;;
         emit W.BI_return
@@ -507,26 +507,26 @@ Section Functions.
         '(base, τ) <- lift_error (local_layout L idx);;
         local_gets τ base;;
         'i <- save_stack [τ];;
-        let ref_vars := map (Nat.add i) (ref_indices LMNative τ) in
+        let ref_vars := map (Nat.add i) (find_refs LMNative τ) in
         for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(duproot)));;
         restore_stack [τ] i
     | R.ISetLocal (R.Arrow targs trets, R.LSig L _) idx =>
         '(base, τ) <- lift_error (local_layout L idx);;
-        let ref_vars := map (Nat.add base) (ref_indices LMWords τ) in
+        let ref_vars := map (Nat.add base) (find_refs LMWords τ) in
         for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
         local_sets τ base
     | R.IGetGlobal _ i =>
-        '(i', ty) <- try_option (EGlobalIndexOutOfBounds i) (global_layout C.(R.global) i);;
-        forT (imap (fun j _ => i' + j) (compile_typ ty)) (emit ∘ W.BI_get_global);;
+        '(i', ty) <- try_option (EIndexOutOfBounds i) (global_layout C.(R.global) i);;
+        forT (imap (fun j _ => i' + j) (translate_type ty)) (emit ∘ W.BI_get_global);;
         j <- save_stack [ty];;
-        let ref_vars := map (Nat.add j) (ref_indices LMNative ty) in
+        let ref_vars := map (Nat.add j) (find_refs LMNative ty) in
         for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(duproot)));;
         restore_stack [ty] i
     | R.ISetGlobal _ i =>
-        '(i', ty) <- try_option (EGlobalIndexOutOfBounds i) (global_layout C.(R.global) i);;
-        let ref_vars := map (Nat.add i') (ref_indices LMNative ty) in
+        '(i', ty) <- try_option (EIndexOutOfBounds i) (global_layout C.(R.global) i);;
+        let ref_vars := map (Nat.add i') (find_refs LMNative ty) in
         for_gc_ref_vars VSGlobal ref_vars (emit (W.BI_call mctx.(unregisterroot)));;
-        forT (imap (fun j _ => i' + j) (compile_typ ty)) (emit ∘ W.BI_set_global);;
+        forT (imap (fun j _ => i' + j) (translate_type ty)) (emit ∘ W.BI_set_global);;
         ret tt
     | R.ICoderef (R.Arrow targs trets, _) idx =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat idx))));;
@@ -543,7 +543,7 @@ Section Functions.
         restore_stack targs stk;;
         emit (W.BI_call fidx)
     | R.IMemUnpack _ ta tl es =>
-        block_c (compile_arrow_type ta) (forT es compile_instr);;
+        block_c (translate_arrow_type ta) (forT es compile_instr);;
         ret tt
     | R.IStructMalloc (R.Arrow targs trets, _) szs q =>
         (* TODO: registerroot on the new address;
@@ -559,39 +559,39 @@ Section Functions.
         emit (W.BI_call mctx.(free))
     | R.IStructGet (R.Arrow from to, _) n =>
         base_ref <- walloc W.T_i32;;
-        fields <- lift_error (get_struct_field_types from 0);;
-        field_typ <- try_option EWrongTypeAnn (lookup 0 to);;
+        fields <- try_option EWrongTypeAnn (head from >>= struct_fields);;
+        field_typ <- try_option EWrongTypeAnn (head to);;
         offset_sz <- lift_error (struct_field_offset fields n);;
         emit (W.BI_tee_local base_ref);;
         tagged_load base_ref (compile_sz offset_sz) field_typ;;
         stk <- save_stack [field_typ];;
         emit (W.BI_get_local base_ref);;
-        let ref_vars := map (Nat.add stk) (ref_indices LMNative field_typ) in
+        let ref_vars := map (Nat.add stk) (find_refs LMNative field_typ) in
         if_gc_bit_set (W.Tf [] [])
           (for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(registerroot))))
           (for_gc_ref_vars VSLocal ref_vars (emit (W.BI_call mctx.(duproot))));;
         restore_stack [field_typ] stk
     | R.IStructSet (R.Arrow from to, _) n =>
         base_ref <- walloc W.T_i32;;
-        fields <- lift_error (get_struct_field_types from 1);;
-        field_typ <- try_option EWrongTypeAnn (lookup 0 to);;
-        val_typ <- try_option EWrongTypeAnn (lookup 0 from);;
+        fields <- try_option EWrongTypeAnn (head from >>= struct_fields);;
+        field_typ <- try_option EWrongTypeAnn (head to);;
+        val_typ <- try_option EWrongTypeAnn (head from);;
         offset_sz <- lift_error (struct_field_offset fields n);;
 
         emit (W.BI_tee_local base_ref);;
         if_gc_bit_set (W.Tf [] [])
           (ret tt)
-          (let tys := compile_typ field_typ in
+          (let tys := translate_type field_typ in
            gc_loads base_ref (compile_sz offset_sz) tys;;
            old_stk_var <- save_stack [field_typ];;
-           let old_ref_vars := map (Nat.add old_stk_var) (ref_indices LMNative field_typ) in
+           let old_ref_vars := map (Nat.add old_stk_var) (find_refs LMNative field_typ) in
            for_gc_ref_vars VSLocal old_ref_vars
              (emit (W.BI_call mctx.(unregisterroot))));;
 
         emit (W.BI_get_local base_ref);;
         if_gc_bit_set (W.Tf [] [])
           (new_stk_var <- save_stack [val_typ];;
-           let new_ref_vars := map (Nat.add new_stk_var) (ref_indices LMNative val_typ) in
+           let new_ref_vars := map (Nat.add new_stk_var) (find_refs LMNative val_typ) in
            for_gc_ref_vars VSLocal new_ref_vars
              (emit (W.BI_load mctx.(mem_gc) W.T_i32 None 0%N 0%N));;
            restore_stack [val_typ] new_stk_var)
@@ -606,7 +606,7 @@ Section Functions.
         (* TODO: registerroot on the new address;
                  unregisterroot if payload is GC ref being put into GC variant *)
         typ <- try_option EWrongTypeAnn (lookup 0 from);;
-        let shape := compile_typ typ in
+        let shape := translate_type typ in
         (* memory layout is [ind, τ*] so we just add prepend *)
         (*let full_shape := LS_tuple [LS_int32; shape] in*)
         raise ETodo (*
@@ -629,7 +629,7 @@ Section Functions.
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
         arr_init_typ <- try_option EWrongTypeAnn (list_lookup 1 from);;
-        let shape := compile_typ arr_init_typ in
+        let shape := translate_type arr_init_typ in
         raise ETodo
                (*
         mret [
@@ -651,11 +651,11 @@ Section Functions.
           | 1   | 1 * 2  |
           ...
           | i   | i * 2  | *)
-        elem_typ <- lift_error (get_array_elem_type from 1);;
-        let elem_shape := compile_typ elem_typ in
+        elem_typ <- try_option EWrongTypeAnn (head from >>= array_elem);;
+        let elem_shape := translate_type elem_typ in
         idx_local <- walloc W.T_i32;;
         base_local <- walloc W.T_i32;;
-        let words := words_typ elem_typ in
+        let words := type_words elem_typ in
         emit (W.BI_set_local idx_local);;
         emit (W.BI_set_local base_local);;
         tagged_load
@@ -685,8 +685,8 @@ Section Functions.
            | 1   | 2 * 2       |
            ...
            | i   | (i + 1) * 2 | *)
-        elem_typ <- lift_error (get_array_elem_type from 2);;
-        let elem_shape := compile_typ elem_typ in
+        elem_typ <- try_option EWrongTypeAnn (head from >>= array_elem);;
+        let elem_shape := translate_type elem_typ in
         idx_local <- walloc W.T_i32;;
         base_local <- walloc W.T_i32;;
         val_save_idx <- save_stack [elem_typ];;
@@ -695,7 +695,7 @@ Section Functions.
         array_bounds_check base_local idx_local;;
         if_c (W.Tf [] [])
           (emit (W.BI_get_local base_local);;
-           let words := words_typ elem_typ in
+           let words := type_words elem_typ in
            let compute_offset := array_offset idx_local words in
            tagged_store' compute_offset elem_typ)
           (emit W.BI_unreachable);;

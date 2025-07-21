@@ -16,78 +16,71 @@ From RichWasm Require term.
 From RichWasm.compiler Require Import error.
 
 Module R := RichWasm.term.
-Module W := Wasm.datatypes.
+Module W. Include datatypes <+ operations. End W.
 
 Inductive LayoutMode :=
   | LMWords
   | LMNative.
 
-Definition compile_int_type (typ : R.IntType) : W.value_type :=
-  match typ with
+Definition translate_int_type (ty : R.IntType) : W.value_type :=
+  match ty with
   | R.i32 => W.T_i32
   | R.i64 => W.T_i64
   end.
 
-Definition compile_float_type (typ : R.FloatType) : W.value_type :=
-  match typ with
+Definition translate_float_type (ty : R.FloatType) : W.value_type :=
+  match ty with
   | R.f32 => W.T_f32
   | R.f64 => W.T_f64
   end.
 
-Definition compile_numtyp (typ: R.NumType) : W.value_type :=
-  match typ with
-  | R.Int _ inttyp => compile_int_type inttyp
-  | R.Float floattyp => compile_float_type floattyp
+Definition translate_num_type (ty : R.NumType) : W.value_type :=
+  match ty with
+  | R.Int _ int_ty => translate_int_type int_ty
+  | R.Float float_ty => translate_float_type float_ty
   end.
 
-Definition compile_kindvar (κ: R.KindVar) : list W.value_type :=
-  match κ with
+Definition translate_kind_var (k : R.KindVar) : list W.value_type :=
+  match k with
   | R.SIZE _ _ => [W.T_i32]
   | _ => []
   end.
 
-Definition compile_kindvars (κs: list R.KindVar) : list W.value_type :=
-  flat_map compile_kindvar κs.
-
-Fixpoint compile_typ (typ: R.Typ) : list W.value_type :=
-  match typ with
-  | R.Num ntyp => [compile_numtyp ntyp]
+Fixpoint translate_type (ty : R.Typ) : list W.value_type :=
+  match ty with
+  | R.Num num_ty => [translate_num_type num_ty]
   | R.TVar _ => [W.T_i32]
   | R.Unit => []
-  | R.ProdT typs => flatten (map compile_typ typs)
+  | R.ProdT tys => flat_map translate_type tys
   | R.CoderefT _ => [W.T_i32]
-  | R.Rec _ typ => compile_typ typ
+  | R.Rec _ ty' => translate_type ty'
   | R.PtrT _ => [W.T_i32]
-  | R.ExLoc q typ => compile_typ typ
+  | R.ExLoc _ ty' => translate_type ty'
   | R.OwnR _ => []
   | R.CapT _ _ _ => []
   | R.RefT _ _ _  => [W.T_i32]
   end.
 
-Definition compile_arrow_type (typ: R.ArrowType) : W.function_type :=
-  match typ with
-  | R.Arrow tys1 tys2 =>
-    let tys1' := mapT compile_typ tys1 in
-    let tys2' := mapT compile_typ tys2 in
-    W.Tf (flatten tys1') (flatten tys2')
-  end.
+Definition translate_arrow_type (ty : R.ArrowType) : W.function_type :=
+  let '(R.Arrow tys1 tys2) := ty in
+  let tys1' := flat_map translate_type tys1 in
+  let tys2' := flat_map translate_type tys2 in
+  W.Tf tys1' tys2'.
 
-Definition compile_fun_type (ft: R.FunType) : W.function_type :=
-  match ft with
-  | R.FunT κs (R.Arrow tys1 tys2) =>
-    let κvs := compile_kindvars κs in
-    let tys1' := flatten (mapT compile_typ tys1) in
-    let tys2' := flatten (mapT compile_typ tys2) in
-    W.Tf (κvs ++ tys1') tys2'
-  end.
+Definition translate_fun_type (ty : R.FunType) : W.function_type :=
+  let '(R.FunT ks (R.Arrow tys1 tys2)) := ty in
+  let ks' := flat_map translate_kind_var ks in
+  let tys1' := flat_map translate_type tys1 in
+  let tys2' := flat_map translate_type tys2 in
+  W.Tf (ks' ++ tys1') tys2'.
 
-Definition words_typ (typ: R.Typ) : nat :=
-  sum_list_with operations.words_t (compile_typ typ).
+Definition type_words (ty : R.Typ) : nat :=
+  sum_list_with W.words_t (translate_type ty).
 
-Definition layout_ty_length (layout : LayoutMode) (ty : R.Typ) :=
+Definition type_layout_length (layout : LayoutMode) (ty : R.Typ) :=
   match layout with
-  | LMWords => words_typ ty
-  | LMNative => length (compile_typ ty)
+  | LMWords => type_words ty
+  | LMNative => length (translate_type ty)
   end.
 
 Fixpoint size_upper_bound (ctx : list (list R.Size * list R.Size)) (sz : R.Size) : error + nat :=
@@ -100,29 +93,29 @@ Fixpoint size_upper_bound (ctx : list (list R.Size * list R.Size)) (sz : R.Size)
   | R.SizeVar _ => inl ETodo
   end.
 
-Fixpoint struct_field_offset (fields: list (R.Typ * R.Size)) (idx: nat) : error + R.Size :=
-  match idx with
-  | 0 => inr (R.SizeConst 0)
-  | S idx' =>
-      match fields with
-      | (_, sz) :: fields' => R.SizePlus sz <$> struct_field_offset fields' idx'
-      | [] => inl ETodo
-      end
+Definition struct_field_offset (fields : list (R.Typ * R.Size)) (idx : nat) : error + R.Size :=
+  let fix go fs i :=
+    match fs, i with
+    | _, 0 => inr (R.SizeConst 0)
+    | (_, sz) :: fs', i' => R.SizePlus sz <$> go fs' i'
+    | [], _ => inl (EIndexOutOfBounds idx)
+    end
+  in
+  go fields idx.
+
+Definition struct_fields (ty : R.Typ) : option (list (R.Typ * R.Size)) :=
+  match ty with
+  | R.RefT _ _ (R.StructType fields) => Some fields
+  | _ => None
   end.
 
-Definition get_struct_field_types (targs : list R.Typ) (idx : nat) : error + list (R.Typ * R.Size) :=
-  match lookup idx targs with
-  | Some (R.RefT _ _ (R.StructType fields)) => inr fields
-  | _ => inl EWrongTypeAnn
+Definition array_elem (ty : R.Typ) : option R.Typ :=
+  match ty with
+  | R.RefT _ _ (R.ArrayType ty') => Some ty'
+  | _ => None
   end.
 
-Definition get_array_elem_type (targs : list R.Typ) (idx : nat) : error + R.Typ :=
-  match lookup idx targs with
-  | Some (R.RefT _ _ (R.ArrayType typ)) => inr typ
-  | _ => inl EWrongTypeAnn
-  end.
-
-Definition ref_indices (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
+Definition find_refs (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
   let fix go ty i :=
     match ty with
     | R.Num _
@@ -132,7 +125,7 @@ Definition ref_indices (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
     | R.OwnR _
     | R.CapT _ _ _ => []
     | R.ProdT tys =>
-        snd (foldl (fun '(j, is) ty' => (j + layout_ty_length layout ty', is ++ go ty' j))
+        snd (foldl (fun '(j, idxs) ty' => (j + type_layout_length layout ty', idxs ++ go ty' j))
                    (i, [])
                    tys)
     | R.Rec _ ty'

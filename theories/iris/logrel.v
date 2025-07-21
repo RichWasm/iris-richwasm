@@ -94,7 +94,7 @@ Fixpoint wasm_deser_list (bs: bytes) (vt: list value_type) : list value :=
   end.
 
 Definition read_value (τ: RT.Typ) (bs: bytes) : list value :=
-  let vt := compile_typ τ in
+  let vt := translate_type τ in
   wasm_deser_list bs vt.
 
 Section logrel.

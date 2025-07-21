@@ -3,10 +3,12 @@ Require Import Coq.Strings.String.
 Require Import Coq.ZArith.BinInt.
 
 From Wasm Require datatypes numerics.
-Module W := Wasm.datatypes.
 
 From RichWasm Require term.
+From RichWasm.compiler Require Import types.
+
 Module R := RichWasm.term.
+Module W := Wasm.datatypes.
 
 Definition compile_sign (s : R.Sign) : W.sx :=
   match s with
@@ -35,18 +37,6 @@ Definition compile_num (num_type : R.NumType) (num : nat) : W.value :=
   | R.Float R.f64 => compile_num_from_Z W.T_f64 (Z.of_nat num)
   end.
 
-Definition compile_int_type (typ : R.IntType) : W.value_type :=
-  match typ with
-  | R.i32 => W.T_i32
-  | R.i64 => W.T_i64
-  end.
-
-Definition compile_float_type (typ : R.FloatType) : W.value_type :=
-  match typ with
-  | R.f32 => W.T_f32
-  | R.f64 => W.T_f64
-  end.
-
 Definition compile_cvt_op (op: R.CvtOp) : W.basic_instruction :=
   match op with
   | R.Wrap =>
@@ -54,31 +44,31 @@ Definition compile_cvt_op (op: R.CvtOp) : W.basic_instruction :=
   | R.Extend s =>
       W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 (Some (compile_sign s))
   | R.Trunc i f s =>
-      let wi := compile_int_type i in
-      let wf := compile_float_type f in
+      let wi := translate_int_type i in
+      let wf := translate_float_type f in
       W.BI_cvtop wi W.CVO_convert wf (Some (compile_sign s))
   | R.TruncSat i f s =>
       (* XXX this case shouldn't be the same as the Trunc case, but I
          don't see what else it could be in the wasmcert syntax. Is
          this a Wasm 1.0 vs current day Wasm issue ? *)
-      let wi := compile_int_type i in
-      let wf := compile_float_type f in
+      let wi := translate_int_type i in
+      let wf := translate_float_type f in
       W.BI_cvtop wi W.CVO_convert wf (Some (compile_sign s))
   | R.Demote =>
       W.BI_cvtop W.T_f64 W.CVO_convert W.T_f32 None 
   | R.Promote =>
       W.BI_cvtop W.T_f32 W.CVO_convert W.T_f64 None
   | R.Convert f i s =>
-      let wi := compile_int_type i in
-      let wf := compile_float_type f in
+      let wi := translate_int_type i in
+      let wf := translate_float_type f in
       W.BI_cvtop wf W.CVO_convert wf (Some (compile_sign s))
   | R.ReinterpretFI f i =>
-      let wi := compile_int_type i in
-      let wf := compile_float_type f in
+      let wi := translate_int_type i in
+      let wf := translate_float_type f in
       W.BI_cvtop wf W.CVO_reinterpret wi None
   | R.ReinterpretIF i f =>
-      let wi := compile_int_type i in
-      let wf := compile_float_type f in
+      let wi := translate_int_type i in
+      let wf := translate_float_type f in
       W.BI_cvtop wi W.CVO_reinterpret wf None
   | R.ReinterpretII i s s' => W.BI_nop
   end.
@@ -86,7 +76,7 @@ Definition compile_cvt_op (op: R.CvtOp) : W.basic_instruction :=
 Definition compile_num_instr (ni : R.NumInstr) : W.basic_instruction :=
   match ni with
   | R.Iu typ op =>
-    let typ' := compile_int_type typ in
+    let typ' := translate_int_type typ in
     let op' := W.Unop_i match op with
     | R.clz => W.UOI_clz
     | R.ctz => W.UOI_ctz
@@ -94,7 +84,7 @@ Definition compile_num_instr (ni : R.NumInstr) : W.basic_instruction :=
     end in
     W.BI_unop typ' op'
   | R.Ib typ op =>
-    let typ' := compile_int_type typ in
+    let typ' := translate_int_type typ in
     let op' := W.Binop_i match op with
     | R.add => W.BOI_add
     | R.sub => W.BOI_sub
@@ -111,7 +101,7 @@ Definition compile_num_instr (ni : R.NumInstr) : W.basic_instruction :=
     end in
     W.BI_binop typ' op'
   | R.Fu typ op =>
-    let typ' := compile_float_type typ in
+    let typ' := translate_float_type typ in
     let op' := W.Unop_f match op with
     | R.neg => W.UOF_neg
     | R.abs => W.UOF_abs
@@ -123,7 +113,7 @@ Definition compile_num_instr (ni : R.NumInstr) : W.basic_instruction :=
     end in
     W.BI_unop typ' op'
   | R.Fb typ op =>
-    let typ' := compile_float_type typ in
+    let typ' := translate_float_type typ in
     let op' := W.Binop_f match op with
     | R.addf => W.BOF_add
     | R.subf => W.BOF_sub
@@ -135,13 +125,13 @@ Definition compile_num_instr (ni : R.NumInstr) : W.basic_instruction :=
     end in
     W.BI_binop typ' op'
   | R.It typ op =>
-    let typ' := compile_int_type typ in
+    let typ' := translate_int_type typ in
     let op' := match op with
     | R.eqz => W.TO_eqz
     end in
     W.BI_testop typ' op'
   | R.Ir typ op =>
-    let typ' := compile_int_type typ in
+    let typ' := translate_int_type typ in
     let op' := W.Relop_i match op with
     | R.eq => W.ROI_eq
     | R.ne => W.ROI_ne
@@ -152,7 +142,7 @@ Definition compile_num_instr (ni : R.NumInstr) : W.basic_instruction :=
     end in
     W.BI_relop typ' op'
   | R.Fr typ op =>
-    let typ' := compile_float_type typ in
+    let typ' := translate_float_type typ in
     let op' := W.Relop_f match op with
     | R.eqf => W.ROF_eq
     | R.nef => W.ROF_ne
