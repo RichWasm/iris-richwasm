@@ -93,14 +93,13 @@ with ArrowType :=
 with FunType :=
 | FunT (κ : list KindVar) (tf : ArrowType).
 
-Definition qual_ctx := list Qual.
 Definition mem_qual (mem: MemConstant) : Qual :=
   match mem with
   | GCMem => Unrestricted
   | LinMem => Linear
   end.
 
-Definition loc_qual (loc_quals: qual_ctx) (loc: Loc) : option Qual :=
+Definition loc_qual (loc_quals: list Qual) (loc: Loc) : option Qual :=
   match loc with
   | LocV ρ => loc_quals !! ρ
   | LocP ℓ mem => mret $ mem_qual mem

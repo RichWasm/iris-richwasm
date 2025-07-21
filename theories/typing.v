@@ -725,13 +725,9 @@ Section QualLt.
 
   (* Zoe: If more axioms are needed we could have a separate interface for that at some point *)
 
- 
-  Definition qual_ctx : Type :=
-    list (list Qual * list Qual).
-
   Section qual_leq.
 
-    Variable (bounds: qual_ctx).
+    Variable (bounds: list (list Qual * list Qual)).
 
     Inductive qual_leq : Qual -> Qual -> Prop :=
     | QualLeqBot: forall q, qual_leq Unrestricted q
@@ -2313,11 +2309,11 @@ Section Typing.
       forall pt es,
         HasTypeInstrs C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
         HasTypeGlob C (GlobMut pt es) (GT true pt) []
-  | GlobTyp :
+  | GlobExTyp :
       forall ex pt es,
         HasTypeInstrs C empty_Function_Ctx [] es (Arrow [] [pt]) [] ->
         HasTypeGlob C (GlobEx ex pt es) (GT false pt) ex
-  | GlobIm :
+  | GlobImTyp :
       forall ex pt im,
         HasTypeGlob C (GlobIm ex pt im) (GT false pt) ex.
 
