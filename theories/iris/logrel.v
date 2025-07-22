@@ -18,7 +18,7 @@ From Wasm.iris.rules Require Export iris_rules.
 From Wasm.iris.logrel Require iris_logrel.
 
 From RichWasm Require Import subst term typing.
-From RichWasm.compiler Require Import functions types.
+From RichWasm.compiler Require Import instrs types.
 From RichWasm.iris Require Import autowp num_reprs util.
 From RichWasm.util Require Import debruijn dlist.
 

@@ -196,7 +196,7 @@ Fixpoint global_layout (globs : list R.GlobalType) (idx : nat) : option (nat * R
   | _, _ => None
   end.
 
-Section Functions.
+Section Instrs.
 
   (* TODO: should these be combined? *)
   Variable mctx : compiler_mod_ctx.
@@ -724,7 +724,7 @@ Section Functions.
     | R.IQualify _ _ => ret tt
     end.
 
-    Definition compile_instrs : list (R.instr R.TyAnn) -> wst unit :=
-      iterM compile_instr.
+  Definition compile_instrs : list (R.instr R.TyAnn) -> wst unit :=
+    iterM compile_instr.
 
-End Functions.
+End Instrs.
