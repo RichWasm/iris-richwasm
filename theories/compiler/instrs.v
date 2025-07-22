@@ -28,41 +28,39 @@ Module W. Include datatypes <+ operations. End W.
 (* locals exclusive to webassembly (compiler-generated temporaries, etc) *)
 Notation wlocal_ctx := (list W.value_type).
 
-Notation instr_list := (dlist W.basic_instruction).
+Notation dexpr := (dlist W.basic_instruction).
 
-Record wst (A : Type) :=
-  { un_wst : stateT
-               wlocal_ctx
-               (writerT
-                  (@DList.Monoid_dlist W.basic_instruction)
-                  (sum error))
-               A }.
+Record codegen (A : Type) :=
+  { uncodegen : stateT wlocal_ctx
+                       (writerT (@DList.Monoid_dlist W.basic_instruction)
+                                (sum error))
+                       A }.
 
-Arguments Build_wst {A} _.
-Arguments un_wst {A} _.
+Arguments Build_codegen {A} _.
+Arguments uncodegen {A} _.
 
 Existing Instance Monad_stateT.
 
-Global Instance Monad_wst : Monad wst :=
-  { ret := fun _ x => Build_wst (ret x);
-    bind := fun _ _ c f => Build_wst (bind (un_wst c) (fun x => un_wst (f x))) }.
+Global Instance Monad_codegen : Monad codegen :=
+  { ret := fun _ => Build_codegen ∘ ret;
+    bind := fun _ _ c f => Build_codegen (uncodegen c >>= uncodegen ∘ f) }.
 
-Global Instance MonadExc_wst : MonadExc error wst :=
-  { raise := fun _ e => Build_wst (raise e);
-    catch := fun _ body hnd => Build_wst (catch (un_wst body) (fun e => un_wst (hnd e))) }.
+Global Instance MonadExc_codegen : MonadExc error codegen :=
+  { raise := fun _ => Build_codegen ∘ raise;
+    catch := fun _ b h => Build_codegen (catch (uncodegen b) (uncodegen ∘ h)) }.
 
-Global Instance MonadState_wst : MonadState wlocal_ctx wst :=
-  { get := Build_wst get;
-    put := fun x => Build_wst (put x) }.
+Global Instance MonadState_codegen : MonadState wlocal_ctx codegen :=
+  { get := Build_codegen get;
+    put := Build_codegen ∘ put }.
 
-Global Instance MonadWriter_wst : MonadWriter (@DList.Monoid_dlist W.basic_instruction) wst :=
-  { tell := fun x => Build_wst (tell x);
-    listen := fun _ c => Build_wst (listen (un_wst c));
+Global Instance MonadWriter_codegen : MonadWriter (@DList.Monoid_dlist W.basic_instruction) codegen :=
+  { tell := Build_codegen ∘ tell;
+    listen := fun _ => Build_codegen ∘ listen ∘ uncodegen;
     (* Work around broken implementation of `pass` in ExtLib.
        https://github.com/rocq-community/coq-ext-lib/issues/153 *)
-    pass := fun _ c => Build_wst (mkStateT (fun s =>
-      pass ('(a, t, s) <- runStateT (un_wst c) s;;
-            ret (a, s, t)))) }.
+    pass := fun _ c => Build_codegen (mkStateT (fun s =>
+      pass ('(x, f, s) <- runStateT (uncodegen c) s;;
+            ret (x, s, f)))) }.
 
 Record compiler_mod_ctx :=
   { mem_gc : W.immediate;
@@ -75,38 +73,38 @@ Record compiler_mod_ctx :=
     coderef_offset : W.immediate;
     fn_tab : W.immediate }.
 
-Definition lift_error {A} (c : error + A) : wst A :=
-  Build_wst (lift (lift c)).
+Definition lift_error {A} (c : error + A) : codegen A :=
+  Build_codegen (lift (lift c)).
 
-Definition try_option {A} (e : error) (x : option A) : wst A :=
+Definition try_option {A} (e : error) (x : option A) : codegen A :=
   match x with
   | None => raise e
   | Some x' => ret x'
   end.
 
-Definition run_compiler (c : wst unit) (wl : wlocal_ctx) : error + wlocal_ctx * list W.basic_instruction :=
-  match runWriterT (runStateT (un_wst c) wl) with
+Definition run_codegen (c : codegen unit) (wl : wlocal_ctx) : error + wlocal_ctx * W.expr :=
+  match runWriterT (runStateT (uncodegen c) wl) with
   | inl e => inl e
   | inr x => inr (snd (PPair.pfst x), DList.to_list (PPair.psnd x))
   end.
 
-Definition emit (e : W.basic_instruction) : wst unit :=
+Definition emit (e : W.basic_instruction) : codegen unit :=
   tell (DList.singleton e).
 
-Definition capture {A} (c : wst A) : wst (A * instr_list) :=
+Definition capture {A} (c : codegen A) : codegen (A * dexpr) :=
   censor (const []%DL) (listen c).
 
-Definition block_c {A} (tf : W.function_type) (c : wst A) : wst A :=
+Definition block_c {A} (tf : W.function_type) (c : codegen A) : codegen A :=
   '(x, es) <- capture c;;
   emit (W.BI_block tf (DList.to_list es));;
   ret x.
 
-Definition loop_c {A} (tf : W.function_type) (c : wst A) : wst A :=
+Definition loop_c {A} (tf : W.function_type) (c : codegen A) : codegen A :=
   '(x, es) <- capture c;;
   emit (W.BI_loop tf (DList.to_list es));;
   ret x.
 
-Definition if_c {A B} (tf : W.function_type) (thn : wst A) (els : wst B) : wst (A * B) :=
+Definition if_c {A B} (tf : W.function_type) (thn : codegen A) (els : codegen B) : codegen (A * B) :=
   '(x1, es1) <- capture thn;;
   '(x2, es2) <- capture els;;
   emit (W.BI_if tf (DList.to_list es1) (DList.to_list es2));;
@@ -115,17 +113,14 @@ Definition if_c {A B} (tf : W.function_type) (thn : wst A) (els : wst B) : wst (
 (* Mapping from size variables to indices of locals of type i32 *)
 Definition size_ctx := list W.immediate.
 
-Definition if_gc_bit_set {A} {B}
-  (tf : W.function_type)
-  (gc_branch : wst B)
-  (lin_branch : wst A)
-: wst (A * B) :=
+Definition if_gc_bit_set {A B} (tf : W.function_type) (gc : codegen B) (mm : codegen A)
+  : codegen (A * B) :=
   emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
   emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
   emit (W.BI_testop W.T_i32 W.TO_eqz);;
-  if_c tf lin_branch gc_branch.
+  if_c tf mm gc.
 
-Definition unset_gc_bit : wst unit :=
+Definition unset_gc_bit : codegen unit :=
   emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
   emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)).
 
@@ -134,7 +129,7 @@ Fixpoint loads'
   (base_ptr_var: W.immediate)
   (off: W.static_offset)
   (tys: list W.value_type)
-: wst unit :=
+  : codegen unit :=
   match tys with
   | [] => ret tt
   | ty :: tys =>
@@ -143,7 +138,7 @@ Fixpoint loads'
       loads' base_ptr_var mem (off + N.of_nat (W.length_t ty))%N tys
   end.
 
-Definition loads mem base_ptr_var tys : wst unit :=
+Definition loads mem base_ptr_var tys : codegen unit :=
   loads' mem base_ptr_var 0%N tys.
 
 Fixpoint loc_stores'
@@ -151,7 +146,7 @@ Fixpoint loc_stores'
   (mem: W.immediate)
   (off: W.static_offset)
   (val_var_tys: list (W.immediate * W.value_type))
-: wst unit :=
+  : codegen unit :=
   match val_var_tys with
   | [] => ret tt
   | (val_var, ty) :: val_var_tys =>
@@ -161,11 +156,11 @@ Fixpoint loc_stores'
       loc_stores' base_ptr_var mem (off + N.of_nat (W.length_t ty))%N val_var_tys
   end.
 
-Definition loc_stores base_ptr_var mem val_var_tys : wst unit :=
+Definition loc_stores base_ptr_var mem val_var_tys : codegen unit :=
   loc_stores' base_ptr_var mem 0%N val_var_tys.
 
 Definition stores base_ptr_var mem (val_vars: list W.immediate) (tys: list W.value_type)
-  : wst unit :=
+  : codegen unit :=
   loc_stores base_ptr_var mem (zip val_vars tys).
 
 Inductive VarScope :=
@@ -180,7 +175,7 @@ Definition scope_get_set (scope : VarScope) :
   | VSLocal => (W.BI_get_local, W.BI_set_local)
   end.
 
-Definition for_gc_ref_vars (scope : VarScope) (vars : list W.immediate) (m : wst unit) : wst unit :=
+Definition for_gc_ref_vars (scope : VarScope) (vars : list W.immediate) (m : codegen unit) : codegen unit :=
   iterM
     (fun var =>
        let '(get, set) := scope_get_set scope in
@@ -205,29 +200,29 @@ Section Instrs.
   Variable F : R.Function_Ctx.
   Variable temps_off : nat.
 
-  Definition wnext : wst W.immediate :=
+  Definition wnext : codegen W.immediate :=
     temps <- get;;
     ret (temps_off + length temps).
 
-  Definition walloc (t: W.value_type) : wst W.immediate :=
+  Definition walloc (t: W.value_type) : codegen W.immediate :=
     temps <- get;;
     put (temps ++ [t]);;
     ret (temps_off + length temps).
 
-  Definition wallocs (tys: list W.value_type) : wst (list W.immediate) :=
+  Definition wallocs (tys: list W.value_type) : codegen (list W.immediate) :=
     mapT walloc tys.
 
-  Definition walloc_args (tys: list W.value_type) : wst (list W.immediate) :=
+  Definition walloc_args (tys: list W.value_type) : codegen (list W.immediate) :=
     vars <- wallocs tys;;
     @forT list _ _ _ _ _ vars (fun var => emit (W.BI_set_local var));;
     ret vars.
 
-  Definition walloc_rvalue (ty : R.Typ) : wst W.immediate :=
+  Definition walloc_rvalue (ty : R.Typ) : codegen W.immediate :=
     i <- wnext;;
     forT (translate_type ty) walloc;;
     ret i.
 
-  Definition walloc_rvalues (tys : list R.Typ) : wst W.immediate :=
+  Definition walloc_rvalues (tys : list R.Typ) : codegen W.immediate :=
     i <- wnext;;
     forT tys walloc_rvalue;;
     ret i.
@@ -235,9 +230,9 @@ Section Instrs.
   Definition tagged_store
     (base_ptr: W.immediate)
     (arg_vars: list W.immediate)
-    (get_offset: wst unit)
+    (get_offset: codegen unit)
     (ty: R.Typ)
-    : wst unit :=
+    : codegen unit :=
     emit (W.BI_tee_local base_ptr);;
     emit (W.BI_get_local base_ptr);;
     let tys := translate_type ty in
@@ -266,9 +261,9 @@ Section Instrs.
 
   Definition gc_loads
     (ref_var: W.immediate)
-    (get_offset: wst unit)
+    (get_offset: codegen unit)
     (tys: list W.value_type)
-  : wst unit :=
+  : codegen unit :=
     base_ptr_var <- walloc W.T_i32;;
     emit (W.BI_get_local ref_var);;
     unset_gc_bit;;
@@ -279,9 +274,9 @@ Section Instrs.
 
   Definition lin_loads
     (ref_var: W.immediate)
-    (get_offset: wst unit)
+    (get_offset: codegen unit)
     (tys: list W.value_type)
-  : wst unit :=
+  : codegen unit :=
     base_ptr_var <- walloc W.T_i32;;
     emit (W.BI_get_local ref_var);;
     get_offset;;
@@ -291,9 +286,9 @@ Section Instrs.
 
   Definition tagged_loads
     (base_ptr: W.immediate)
-    (get_offset: wst unit)
+    (get_offset: codegen unit)
     (tys: list W.value_type)
-    : wst unit :=
+    : codegen unit :=
     emit (W.BI_get_local base_ptr);;
     if_gc_bit_set (W.Tf [] tys)
       (gc_loads base_ptr get_offset tys)
@@ -302,19 +297,19 @@ Section Instrs.
 
   Definition tagged_load
     (base_ptr: W.immediate)
-    (get_offset: wst unit)
+    (get_offset: codegen unit)
     (ty: R.Typ)
-  : wst unit :=
+  : codegen unit :=
     let tys := translate_type ty in
     tagged_loads base_ptr get_offset tys.
 
-  Definition tagged_store' (get_offset : wst unit) (ty : R.Typ) : wst unit :=
+  Definition tagged_store' (get_offset : codegen unit) (ty : R.Typ) : codegen unit :=
     let tys := translate_type ty in
     arg_vars <- walloc_args tys;;
     base_ptr_var <- walloc W.T_i32;;
     tagged_store base_ptr_var arg_vars get_offset ty.
 
-  Definition get_i64_local (loc : W.immediate) : wst unit :=
+  Definition get_i64_local (loc : W.immediate) : codegen unit :=
     emit (W.BI_get_local loc);;
     emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
     emit (W.BI_get_local (loc + 1));;
@@ -323,7 +318,7 @@ Section Instrs.
     emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_or)).
 
-  Definition set_i64_local (loc : W.immediate) : wst unit :=
+  Definition set_i64_local (loc : W.immediate) : codegen unit :=
     tmp <- walloc W.T_i64;;
     emit (W.BI_tee_local tmp);;
     emit (W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one)));;
@@ -335,7 +330,7 @@ Section Instrs.
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr));;
     emit (W.BI_set_local (loc + 1)).
 
-  Definition numtyp_gets (nτ: R.NumType) (loc: nat) : wst unit :=
+  Definition numtyp_gets (nτ: R.NumType) (loc: nat) : codegen unit :=
     match nτ with
     | R.Int s R.i32 => emit (W.BI_get_local loc)
     | R.Float R.f32 =>
@@ -347,7 +342,7 @@ Section Instrs.
         emit (W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None)
     end.
 
-  Definition numtyp_sets (nτ: R.NumType) (loc: nat) : wst unit :=
+  Definition numtyp_sets (nτ: R.NumType) (loc: nat) : codegen unit :=
     match nτ with
     | R.Int s R.i32 => emit (W.BI_set_local loc)
     | R.Float R.f32 =>
@@ -359,7 +354,7 @@ Section Instrs.
         set_i64_local loc
     end.
 
-  Fixpoint local_gets (τ: R.Typ) (loc: nat) : wst unit :=
+  Fixpoint local_gets (τ: R.Typ) (loc: nat) : codegen unit :=
     match τ with
     | R.Num nτ => numtyp_gets nτ loc
     | R.TVar α => emit (W.BI_get_local loc)
@@ -383,7 +378,7 @@ Section Instrs.
     | R.RefT cap ℓ ψ => emit (W.BI_get_local loc)
     end.
 
-  Fixpoint local_sets (τ: R.Typ) (loc: nat) : wst unit :=
+  Fixpoint local_sets (τ: R.Typ) (loc: nat) : codegen unit :=
     match τ with
     | R.Num nτ =>
         numtyp_sets nτ loc
@@ -417,15 +412,15 @@ Section Instrs.
         emit (W.BI_set_local loc)
     end.
 
-  Definition save_stack (tys : list R.Typ) : wst W.immediate :=
+  Definition save_stack (tys : list R.Typ) : codegen W.immediate :=
     idx <- walloc_rvalues tys;;
     local_sets (R.ProdT tys) idx;;
     ret idx.
 
-  Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : wst unit :=
+  Definition restore_stack (tys : list R.Typ) (idx : W.immediate) : codegen unit :=
     local_gets (R.ProdT tys) idx.
 
-  Fixpoint compile_sz (sz : R.Size) : wst unit :=
+  Fixpoint compile_sz (sz : R.Size) : codegen unit :=
     match sz with
     | R.SizeVar σ =>
       local_idx <- try_option (EIndexOutOfBounds σ) (lookup σ sz_locs);;
@@ -438,7 +433,7 @@ Section Instrs.
       emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c))))
     end.
 
-  Definition compile_ind (ind: R.Index) : wst unit :=
+  Definition compile_ind (ind: R.Index) : codegen unit :=
     match ind with
     | R.SizeI sz => compile_sz sz
     | R.LocI _
@@ -446,7 +441,7 @@ Section Instrs.
     | R.TypI _ => ret tt
     end.
 
-  Definition array_bounds_check (base idx : W.immediate) : wst unit :=
+  Definition array_bounds_check (base idx : W.immediate) : codegen unit :=
     tagged_load
       base
       (emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 0)))))
@@ -454,14 +449,14 @@ Section Instrs.
     emit (W.BI_get_local idx);;
     emit (W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U)))).
 
-  Definition array_offset (idx : W.immediate) (size : nat) : wst unit :=
+  Definition array_offset (idx : W.immediate) (size : nat) : codegen unit :=
     emit (W.BI_get_local idx);;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat size))));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 4))));; (* skip header length word *)
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
-  Fixpoint compile_instr (e : R.instr R.TyAnn) : wst unit :=
+  Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with
     | R.INumConst _ ty n =>
         let ty' := translate_num_type ty in
@@ -724,7 +719,7 @@ Section Instrs.
     | R.IQualify _ _ => ret tt
     end.
 
-  Definition compile_instrs : list (R.instr R.TyAnn) -> wst unit :=
+  Definition compile_instrs : list (R.instr R.TyAnn) -> codegen unit :=
     iterM compile_instr.
 
 End Instrs.

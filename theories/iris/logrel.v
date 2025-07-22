@@ -474,7 +474,7 @@ Section logrel.
   Admitted.
 
   Lemma compiler_wctx_mono C F sz_locs wloff es wl wl' es' :
-    run_compiler (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
+    run_codegen (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
     wl `prefix_of` wl'.
   Proof.
   Admitted.
@@ -483,8 +483,8 @@ Section logrel.
     HasTypeInstr C F L
       (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)
       (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
-    run_compiler (compile_instr mctx C sz_locs F wloff
-                    (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)) wl =
+    run_codegen (compile_instr mctx C sz_locs F wloff
+                   (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)) wl =
     inr (wl', es) ->
     ⊢ semantic_typing C F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
   Proof.
@@ -514,14 +514,14 @@ Section logrel.
 
   Theorem fundamental_property C F L sz_locs wloff es es' tf wl wl' L' :
     HasTypeInstrs C F L es tf L' ->
-    run_compiler (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
+    run_codegen (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
     ⊢ semantic_typing C F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
     induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ =>
       forall es',
-      run_compiler (compile_instr mctx C sz_locs F wloff e) wl = inr (wl', es') ->
+      run_codegen (compile_instr mctx C sz_locs F wloff e) wl = inr (wl', es') ->
       ⊢ semantic_typing C F L [] (to_e_list es') ta L');
     intros es' Hcomp.
     - (* INumConst *)
@@ -756,12 +756,12 @@ Section logrel.
   Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ GCMem) l32 ->
-    run_compiler (bind (emit (BI_get_local ref_tmp)) (fun _ =>
-                  bind (if_gc_bit_set (W.Tf ins outs)
-                          (tell (DList.of_list gc_branch))
-                          (tell (DList.of_list lin_branch))) (fun _ =>
-                  ret tt)))
-                 wl = inr (wl', es) ->
+    run_codegen (bind (emit (BI_get_local ref_tmp)) (fun _ =>
+                 bind (if_gc_bit_set (W.Tf ins outs)
+                         (tell (DList.of_list gc_branch))
+                         (tell (DList.of_list lin_branch))) (fun _ =>
+                 ret tt)))
+                wl = inr (wl', es) ->
     ⊢ ↪[frame] f -∗
       ▷ (↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{ w, ψ w }}) -∗
       WP to_e_list es @ E {{ w, ψ w }}.
@@ -841,12 +841,12 @@ Section logrel.
   Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es es' ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ LinMem) l32 ->
-    run_compiler (bind (emit (BI_get_local ref_tmp)) (fun _ =>
-                  bind (if_gc_bit_set (W.Tf ins outs)
-                          (tell (DList.of_list gc_branch))
-                          (tell (DList.of_list lin_branch))) (fun _ =>
-                  ret tt)))
-                 wl = inr (wl', es) ->
+    run_codegen (bind (emit (BI_get_local ref_tmp)) (fun _ =>
+                 bind (if_gc_bit_set (W.Tf ins outs)
+                         (tell (DList.of_list gc_branch))
+                         (tell (DList.of_list lin_branch))) (fun _ =>
+                 ret tt)))
+                wl = inr (wl', es) ->
     to_e_list es = es' ->
     ⊢ ↪[frame] f -∗
       ▷(↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) lin_branch)] @ E {{ w, ψ w }}) -∗
@@ -959,7 +959,7 @@ Section logrel.
     τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
     fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
     snd eff = LSig L L ->
-    run_compiler (compile_instr mctx C sz_locs F wloff (RT.IStructGet eff 0)) wl = inr (wl', es) ->
+    run_codegen (compile_instr mctx C sz_locs F wloff (RT.IStructGet eff 0)) wl = inr (wl', es) ->
     ⊢ semantic_typing C F L [T_i32] (to_e_list es) (fst eff) L.
   Proof.
     intros Hl Hτ Heff Hloceff.
