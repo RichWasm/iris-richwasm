@@ -18,7 +18,7 @@ From Wasm.iris.rules Require Export iris_rules.
 From Wasm.iris.logrel Require iris_logrel.
 
 From RichWasm Require Import subst term typing.
-From RichWasm.compiler Require Import instrs types.
+From RichWasm.compiler Require Import instrs modules types util.
 From RichWasm.iris Require Import autowp num_reprs util.
 From RichWasm.util Require Import debruijn dlist.
 
@@ -101,7 +101,8 @@ Section logrel.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
-  Context `{mctx : compiler_mod_ctx}.
+
+  Variable sr : store_runtime.
 
   Record stack := Stack { stack_values : list value }.
   Canonical Structure stackO := leibnizO stack.
@@ -314,7 +315,7 @@ Section logrel.
           ∃ bs l32,
             ⌜vs = [VAL_int32 l32]⌝ ∗
             ⌜ptr_repr (LocP ℓ LinMem) l32⌝ ∗
-            N.of_nat mctx.(mem_lin) ↦[wms][ℓ] bs ∗
+            N.of_nat sr.(sr_mem_mm) ↦[wms][ℓ] bs ∗
             interp_heap_value rs ψ bs
       | RT.RefT _ _ _ => ⌜False⌝
       end%I.
@@ -473,20 +474,20 @@ Section logrel.
   Proof.
   Admitted.
 
-  Lemma compiler_wctx_mono C F sz_locs wloff es wl wl' es' :
-    run_codegen (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
+  Lemma compiler_wctx_mono M F es wl wl' es' :
+    run_codegen (compile_instrs M F es) wl = inr (wl', es') ->
     wl `prefix_of` wl'.
   Proof.
   Admitted.
 
-  Lemma compat_struct_get C F L sz_locs wloff ty cap l hty n es wl wl' :
-    HasTypeInstr C F L
+  Lemma compat_struct_get M F L me fe ty cap l hty n es wl wl' :
+    HasTypeInstr M F L
       (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)
       (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
-    run_codegen (compile_instr mctx C sz_locs F wloff
+    run_codegen (compile_instr me fe
                    (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)) wl =
     inr (wl', es) ->
-    ⊢ semantic_typing C F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
+    ⊢ semantic_typing M F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
   Proof.
     intros Htype Hcomp.
     iIntros "%inst %lh [Hinst Hctx] %f %vs [Hval Hfr]".
@@ -512,16 +513,16 @@ Section logrel.
         admit.
   Admitted.
 
-  Theorem fundamental_property C F L sz_locs wloff es es' tf wl wl' L' :
-    HasTypeInstrs C F L es tf L' ->
-    run_codegen (compile_instrs mctx C sz_locs F wloff es) wl = inr (wl', es') ->
-    ⊢ semantic_typing C F L wl' (to_e_list es') tf L'.
+  Theorem fundamental_property M F L me fe es es' tf wl wl' L' :
+    HasTypeInstrs M F L es tf L' ->
+    run_codegen (compile_instrs me fe es) wl = inr (wl', es') ->
+    ⊢ semantic_typing M F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
     induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ =>
       forall es',
-      run_codegen (compile_instr mctx C sz_locs F wloff e) wl = inr (wl', es') ->
+      run_codegen (compile_instr me fe e) wl = inr (wl', es') ->
       ⊢ semantic_typing C F L [] (to_e_list es') ta L');
     intros es' Hcomp.
     - (* INumConst *)
@@ -662,7 +663,7 @@ Section logrel.
     forall p: positive,
       ((2 | p) <-> Pos.land p 1 = 0%N)%positive.
   Proof using.
-    clear Σ logrel_na_invs0 wasmG0 mctx.
+    clear Σ logrel_na_invs0 wasmG0 sr.
     induction p; (split; [intros Hdiv| intros Hand]).
     - destruct Hdiv as [p' Hp'].
       lia.
@@ -680,7 +681,7 @@ Section logrel.
     forall p: positive,
       (¬(2 | p) <-> Pos.land p 1 = 1%N)%positive.
   Proof using.
-    clear Σ logrel_na_invs0 wasmG0 mctx.
+    clear Σ logrel_na_invs0 wasmG0 sr.
     induction p; (split; [intros Hdiv| intros Hand]).
     - reflexivity.
     - intros [d Hdiv].
@@ -697,7 +698,7 @@ Section logrel.
     ptr_repr (LocP ℓ GCMem) l32 ->
     wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) = Wasm_int.int_zero i32m.
   Proof.
-    clear Σ logrel_na_invs0 wasmG0 mctx.
+    clear Σ logrel_na_invs0 wasmG0 sr.
     unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
     intros [Hrepr Hdiv].
     cbn.
@@ -732,7 +733,7 @@ Section logrel.
     ptr_repr (LocP ℓ LinMem) l32 ->
     wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) <> Wasm_int.int_zero i32m.
   Proof.
-    clear Σ logrel_na_invs0 wasmG0 mctx.
+    clear Σ logrel_na_invs0 wasmG0 sr.
     unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
     intros [Hrepr Hdiv].
     cbn.
@@ -934,7 +935,7 @@ Section logrel.
       length bs = sz ->
       Memdata.encode_int sz (Memdata.decode_int bs) = bs.
   Proof.
-    clear Σ logrel_na_invs0 wasmG0 mctx.
+    clear Σ logrel_na_invs0 wasmG0 sr.
     induction sz; intros bs Hlen.
     - destruct bs; simpl in Hlen; try lia.
       reflexivity.
@@ -954,13 +955,13 @@ Section logrel.
         congruence.
   Qed.
 
-  Lemma sniff_test C F L sz_locs wloff cap l ℓ sgn τ eff es wl wl':
+  Lemma sniff_test M F L me fe cap l ℓ sgn τ eff es wl wl':
     l = LocP ℓ LinMem ->
     τ = RefT cap l (StructType [(Num (Int sgn RT.i32), SizeConst 1)]) ->
     fst eff = Arrow [τ] [τ; Num (Int sgn RT.i32)] ->
     snd eff = LSig L L ->
-    run_codegen (compile_instr mctx C sz_locs F wloff (RT.IStructGet eff 0)) wl = inr (wl', es) ->
-    ⊢ semantic_typing C F L [T_i32] (to_e_list es) (fst eff) L.
+    run_codegen (compile_instr me fe (RT.IStructGet eff 0)) wl = inr (wl', es) ->
+    ⊢ semantic_typing M F L [T_i32] (to_e_list es) (fst eff) L.
   Proof.
     intros Hl Hτ Heff Hloceff.
     destruct eff as [x y]. cbn in Heff, Hloceff. subst x y.

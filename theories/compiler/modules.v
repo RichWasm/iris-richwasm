@@ -11,7 +11,7 @@ Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
 From RichWasm Require term typing.
-From RichWasm.compiler Require Import error.
+From RichWasm.compiler Require Import util.
 
 Module R. Include term <+ typing. End R.
 Module W := Wasm.datatypes.

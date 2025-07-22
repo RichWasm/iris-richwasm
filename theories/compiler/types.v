@@ -13,7 +13,7 @@ Local Open Scope monad.
 From Wasm Require datatypes operations.
 
 From RichWasm Require term.
-From RichWasm.compiler Require Import error.
+From RichWasm.compiler Require Import util.
 
 Module R := RichWasm.term.
 Module W. Include datatypes <+ operations. End W.
