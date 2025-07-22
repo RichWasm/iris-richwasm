@@ -461,9 +461,11 @@ Section Functions.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 4))));; (* skip header length word *)
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
-  Fixpoint compile_instr (instr: R.instr R.TyAnn) : wst unit :=
-    match instr with
-    | R.INumConst _ num_type num => emit (W.BI_const (compile_num num_type num))
+  Fixpoint compile_instr (e : R.instr R.TyAnn) : wst unit :=
+    match e with
+    | R.INumConst _ ty n =>
+        let ty' := translate_num_type ty in
+        emit (W.BI_const (compile_Z ty' (Z.of_nat n)))
     | R.IUnit _ => ret tt
     | R.INum ann ni => emit (compile_num_instr ni)
     | R.IUnreachable (R.Arrow targs trets, _) => emit (W.BI_unreachable)
