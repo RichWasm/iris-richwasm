@@ -35,6 +35,10 @@ Record function_env :=
     fe_size_locals : list W.localidx;
     fe_wlocal_offset : nat }.
 
+Inductive VarScope :=
+  | VSGlobal
+  | VSLocal.
+
 Definition funcimm (idx : W.funcidx) : W.immediate :=
   let '(W.Mk_funcidx i) := idx in i.
 
@@ -49,3 +53,11 @@ Definition localimm (idx : W.localidx) : W.immediate :=
 
 Definition globalimm (idx : W.globalidx) : W.immediate :=
   let '(W.Mk_globalidx i) := idx in i.
+
+Definition scope_get_set (scope : VarScope) :
+  (W.immediate -> W.basic_instruction) *
+  (W.immediate -> W.basic_instruction) :=
+  match scope with
+  | VSGlobal => (W.BI_get_global, W.BI_set_global)
+  | VSLocal => (W.BI_get_local, W.BI_set_local)
+  end.
