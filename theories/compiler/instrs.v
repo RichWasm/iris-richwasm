@@ -9,18 +9,15 @@ Local Open Scope program_scope.
 From ExtLib.Data Require Import List.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
 From ExtLib.Structures Require Import Functor Monads Reducible Traversable.
-Import FunctorNotation.
-Import MonadNotation.
-Local Open Scope monad.
 
-From stdpp Require Import -(notations) list_numbers.
+From stdpp Require Import list_numbers.
 
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
 From RichWasm Require term typing.
 From RichWasm.compiler Require Import codegen numerics types util.
-Require Import RichWasm.util.dlist.
+From RichWasm.util Require Import dlist stdpp_extlib.
 Import RichWasm.util.dlist.Notation.
 
 Module R. Include term <+ typing. End R.
@@ -32,7 +29,7 @@ Section Instrs.
   Variable fe : function_env.
 
   Definition wlalloc (ty : W.value_type) : codegen W.localidx :=
-    wl <- get;;
+    wl ← get;
     put (wl ++ [ty]);;
     ret (W.Mk_localidx (fe.(fe_wlocal_offset) + length wl)).
 
@@ -46,7 +43,7 @@ Section Instrs.
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_or)).
 
   Definition set_local_i64 (x : W.localidx) : codegen unit :=
-    y <- wlalloc W.T_i64;;
+    y ← wlalloc W.T_i64;
     emit (W.BI_tee_local (localimm y));;
     emit (W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one)));;
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_and));;
@@ -102,7 +99,7 @@ Section Instrs.
     set_locals_w x ∘ translate_type.
 
   Definition save_stack_w (ty : W.result_type) : codegen W.localidx :=
-    xs <- forT ty wlalloc;;
+    xs ← forT ty wlalloc;
     ret (ssrfun.Option.default (W.Mk_localidx 0) (head xs)).
 
   Definition save_stack : list R.Typ -> codegen W.localidx :=
@@ -138,7 +135,7 @@ Section Instrs.
     load_values_w mem ptr off ∘ translate_type.
 
   Definition load_value_tagged_w (get_offset : codegen unit) (ty : W.value_type) : codegen unit :=
-    ptr <- wlalloc W.T_i32;;
+    ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
@@ -157,7 +154,7 @@ Section Instrs.
     emit (W.BI_set_local (localimm ptr)).
 
   Definition load_value_tagged (get_offset : codegen unit) (ty : R.Typ) : codegen unit :=
-    ptr <- wlalloc W.T_i32;;
+    ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
@@ -191,8 +188,8 @@ Section Instrs.
     store_values_w mem ptr off vals.
 
   Definition store_value_tagged (get_offset : codegen unit) (ty : R.Typ) : codegen unit :=
-    val <- save_stack [ty];;
-    ptr <- wlalloc W.T_i32;;
+    val ← save_stack [ty];
+    ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
@@ -218,7 +215,7 @@ Section Instrs.
       match L, j with
       | (ty, sz) :: _, 0 => inr (W.Mk_localidx i, ty)
       | (ty, sz) :: L', S j' =>
-          real_sz <- size_upper_bound fe.(fe_size_bounds) sz;;
+          real_sz ← size_upper_bound fe.(fe_size_bounds) sz;
           go L' (i + real_sz) j'
       | [], _ => inl (EIndexOutOfBounds idx)
       end
@@ -240,7 +237,7 @@ Section Instrs.
   Fixpoint compile_size (sz : R.Size) : codegen unit :=
     match sz with
     | R.SizeVar σ =>
-        x <- try_option (EIndexOutOfBounds σ) (lookup σ fe.(fe_size_locals));;
+        x ← try_option (EIndexOutOfBounds σ) (lookup σ fe.(fe_size_locals));
         emit (W.BI_get_local (localimm x))
     | R.SizePlus sz1 sz2 =>
         compile_size sz1;;
@@ -276,7 +273,7 @@ Section Instrs.
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
   Definition compile_drop (ty : R.Typ) : codegen unit :=
-    val <- save_stack [ty];;
+    val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
     foreach_if_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
@@ -288,8 +285,8 @@ Section Instrs.
   Definition compile_return (ty : list R.Typ) : codegen unit :=
     let return_ty := ssrfun.Option.default [] fe.(fe_return_type) in
     let drop_ty := take (length ty - length return_ty) ty in
-    r <- save_stack return_ty;;
-    d <- save_stack drop_ty;;
+    r ← save_stack return_ty;
+    d ← save_stack drop_ty;
     let refs := map (fun i => localimm d + i) (flat_map (find_refs LMNative) drop_ty) in
     foreach_if_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
@@ -297,33 +294,33 @@ Section Instrs.
     emit W.BI_return.
 
   Definition compile_get_local (L : R.Local_Ctx) (x : nat) : codegen unit :=
-    '(x', ty) <- lift_error (lookup_local L x);;
+    '(x', ty) ← lift_error (lookup_local L x);
     get_local x' ty;;
-    val <- save_stack [ty];;
+    val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
     foreach_if_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))));;
     restore_stack val [ty].
 
   Definition compile_set_local (L : R.Local_Ctx) (x : nat) : codegen unit :=
-    '(x', ty) <- lift_error (lookup_local L x);;
+    '(x', ty) ← lift_error (lookup_local L x);
     let refs := map (fun i => localimm x' + i) (find_refs LMWords ty) in
     foreach_if_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
     set_local x' ty.
 
   Definition compile_get_global (x : nat) : codegen unit :=
-    '(x', ty) <- try_option (EIndexOutOfBounds x) (lookup_global x);;
+    '(x', ty) ← try_option (EIndexOutOfBounds x) (lookup_global x);
     forT (imap (fun i _ => globalimm x' + i) (translate_type ty))
       (emit ∘ W.BI_get_global);;
-    val <- save_stack [ty];;
+    val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
     foreach_if_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))));;
     restore_stack val [ty].
 
   Definition compile_set_global (x : nat) : codegen unit :=
-    '(x', ty) <- try_option (EIndexOutOfBounds x) (lookup_global x);;
+    '(x', ty) ← try_option (EIndexOutOfBounds x) (lookup_global x);
     let refs := map (fun i => globalimm x' + i) (find_refs LMNative ty) in
     foreach_if_gc_bit VSGlobal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
@@ -337,24 +334,24 @@ Section Instrs.
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
   Definition compile_call_indirect (arg_ty : list R.Typ) (idxs : list R.Index) : codegen unit :=
-    arg <- save_stack arg_ty;;
+    arg ← save_stack arg_ty;
     forT idxs compile_index;;
     restore_stack arg arg_ty;;
     emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table))).
 
   Definition compile_call (arg_ty : list R.Typ) (x : nat) (idxs : list R.Index) : codegen unit :=
-    arg <- save_stack arg_ty;;
+    arg ← save_stack arg_ty;
     forT idxs compile_index;;
     restore_stack arg arg_ty;;
     (* TODO: Translate function index. *)
     emit (W.BI_call x).
 
   Definition compile_struct_get (fields : list (R.Typ * R.Size)) (i : nat) : codegen unit :=
-    field_ty <- try_option EWrongTypeAnn (fst <$> lookup i fields);;
-    offset <- lift_error (struct_field_offset fields i);;
-    ref <- wlalloc W.T_i32;;
+    field_ty ← try_option EWrongTypeAnn (fst <$> lookup i fields);
+    offset ← lift_error (struct_field_offset fields i);
+    ref ← wlalloc W.T_i32;
     load_value_tagged (compile_size offset) field_ty;;
-    val <- save_stack [field_ty];;
+    val ← save_stack [field_ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative field_ty) in
     emit (W.BI_get_local (localimm ref));;
     if_gc_bit (W.Tf [] [])
@@ -365,21 +362,21 @@ Section Instrs.
     restore_stack val [field_ty].
 
   Definition compile_struct_set (fields : list (R.Typ * R.Size)) (val_ty : R.Typ) (i : nat) : codegen unit :=
-    field_ty <- try_option EWrongTypeAnn (fst <$> lookup i fields);;
-    offset <- lift_error (struct_field_offset fields i);;
+    field_ty ← try_option EWrongTypeAnn (fst <$> lookup i fields);
+    offset ← lift_error (struct_field_offset fields i);
 
-    val <- save_stack [val_ty];;
-    ptr <- wlalloc W.T_i32;;
+    val ← save_stack [val_ty];
+    ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
       (let refs := map (fun i => localimm val + i) (find_refs LMNative val_ty) in
        foreach_if_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot)))))
       (emit (W.BI_get_local (localimm ptr));;
-       ptr' <- wlalloc W.T_i32;;
+       ptr' ← wlalloc W.T_i32;
        set_offset ptr' (compile_size offset);;
        load_value me.(me_runtime).(mr_mem_mm) ptr' 0%N field_ty;;
-       old_val <- save_stack [field_ty];;
+       old_val ← save_stack [field_ty];
        let refs := map (fun i => localimm val + i) (find_refs LMNative field_ty) in
        foreach_if_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot)))));;
@@ -389,8 +386,8 @@ Section Instrs.
 
   Definition compile_array_get (elem_ty : R.Typ) : codegen unit :=
     (* TODO: registerroot if GC array; duproot if MM array. *)
-    idx <- wlalloc W.T_i32;;
-    ptr <- wlalloc W.T_i32;;
+    idx ← wlalloc W.T_i32;
+    ptr ← wlalloc W.T_i32;
     emit (W.BI_set_local (localimm idx));;
     emit (W.BI_tee_local (localimm ptr));;
     let elem_tys := translate_type elem_ty in
@@ -400,9 +397,9 @@ Section Instrs.
 
   Definition compile_array_set (elem_ty : R.Typ) : codegen unit :=
     (* TODO: unregisterroot if GC array; duproot a bunch of times if MM array. *)
-    val <- save_stack [elem_ty];;
-    idx <- wlalloc W.T_i32;;
-    ptr <- wlalloc W.T_i32;;
+    val ← save_stack [elem_ty];
+    idx ← wlalloc W.T_i32;
+    ptr ← wlalloc W.T_i32;
     emit (W.BI_set_local (localimm idx));;
     emit (W.BI_tee_local (localimm ptr));;
     if_index_in_bounds (W.Tf [] []) idx
@@ -417,7 +414,7 @@ Section Instrs.
     | R.INum _ e' => emit (compile_num_instr e')
     | R.IUnreachable _ => emit (W.BI_unreachable)
     | R.INop _ => emit W.BI_nop
-    | R.IDrop (R.Arrow ty _, _) => try_option EWrongTypeAnn (head ty) >>= compile_drop
+    | R.IDrop (R.Arrow ty _, _) => try_option EWrongTypeAnn (head ty) ≫= compile_drop
     | R.IBlock _ ty _ es => ignore (block_c (translate_arrow_type ty) (forT es compile_instr))
     | R.ILoop _ ty es => ignore (loop_c (translate_arrow_type ty) (forT es compile_instr))
     | R.IIte _ ty _ es1 es2 =>
@@ -447,11 +444,11 @@ Section Instrs.
         (* TODO: unregisterroot fields that may be refs to GC if this struct is MM. *)
         emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
     | R.IStructGet (R.Arrow in_ty _, _) i =>
-        fields <- try_option EWrongTypeAnn (head in_ty >>= struct_fields);;
+        fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
         compile_struct_get fields i
     | R.IStructSet (R.Arrow in_ty _, _) i =>
-        fields <- try_option EWrongTypeAnn (head in_ty >>= struct_fields);;
-        val_ty <- try_option EWrongTypeAnn (lookup 1 in_ty);;
+        fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
+        val_ty ← try_option EWrongTypeAnn (lookup 1 in_ty);
         compile_struct_set fields val_ty i
     | R.IStructSwap _ _ =>
         (* TODO: registerroot if GC struct *)
@@ -468,9 +465,9 @@ Section Instrs.
                  duproot a bunch of times if MM array *)
         raise ETodo
     | R.IArrayGet (R.Arrow in_ty _, _) =>
-        try_option EWrongTypeAnn (head in_ty >>= array_elem) >>= compile_array_get
+        try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_get
     | R.IArraySet (R.Arrow in_ty _, _) =>
-        try_option EWrongTypeAnn (head in_ty >>= array_elem) >>= compile_array_set
+        try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_set
     | R.IArrayFree ann =>
         (* TODO: unregisterroot a bunch of times, since this is an MM array *)
         emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))

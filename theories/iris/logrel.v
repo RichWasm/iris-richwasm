@@ -20,12 +20,10 @@ From Wasm.iris.logrel Require iris_logrel.
 From RichWasm Require Import subst term typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
 From RichWasm.iris Require Import autowp num_reprs util.
-From RichWasm.util Require Import debruijn dlist.
+From RichWasm.util Require Import debruijn dlist stdpp_extlib.
 
 Module RT := RichWasm.term.
 Module T := RichWasm.typing.
-
-Unset Universe Checking.
 
 Import uPred.
 
@@ -480,16 +478,17 @@ Section logrel.
   Proof.
   Admitted.
 
-  Lemma compat_struct_get M F L me fe ty cap l hty n es wl wl' :
+  Lemma compat_struct_get M F L me fe ty cap l hty taus szs i es wl wl' :
+    hty = StructType (combine taus szs) ->
     HasTypeInstr M F L
-      (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)
+      (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) i)
       (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
     run_codegen (compile_instr me fe
-                   (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) n)) wl =
+                   (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) i)) wl =
     inr (wl', es) ->
     ⊢ semantic_typing M F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
   Proof.
-    intros Htype Hcomp.
+    intros -> Htype Hcomp.
     iIntros "%inst %lh [Hinst Hctx] %f %vs [Hval Hfr]".
     rewrite interp_expr_eq.
     rewrite interp_frame_eq.
@@ -588,7 +587,8 @@ Section logrel.
     - (* IStructFree *)
       admit.
     - (* IStructGet *)
-      eapply compat_struct_get with (n := n).
+      eapply compat_struct_get with (i := n).
+      + reflexivity.
       + apply TStructGet; assumption.
       + exact Hcomp.
     - (* IStructSet *)
@@ -757,11 +757,11 @@ Section logrel.
   Definition gc_bit_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ GCMem) l32 ->
-    run_codegen (bind (emit (BI_get_local ref_tmp)) (fun _ =>
-                 bind (if_gc_bit (W.Tf ins outs)
-                         (tell (DList.of_list gc_branch))
-                         (tell (DList.of_list lin_branch))) (fun _ =>
-                 ret tt)))
+    run_codegen (emit (BI_get_local ref_tmp);;
+                 if_gc_bit (W.Tf ins outs)
+                   (tell (DList.of_list gc_branch))
+                   (tell (DList.of_list lin_branch));;
+                 ret tt)
                 wl = inr (wl', es) ->
     ⊢ ↪[frame] f -∗
       ▷ (↪[frame] f -∗ WP [AI_basic (BI_block (Tf ins outs) gc_branch)] @ E {{ w, ψ w }}) -∗
@@ -842,11 +842,11 @@ Section logrel.
   Definition gc_bit_not_set_spec E ref_tmp ins outs gc_branch lin_branch wl wl' es es' ψ f ℓ l32 :
     f.(f_locs) !! ref_tmp = Some (VAL_int32 l32) ->
     ptr_repr (LocP ℓ LinMem) l32 ->
-    run_codegen (bind (emit (BI_get_local ref_tmp)) (fun _ =>
-                 bind (if_gc_bit (W.Tf ins outs)
-                         (tell (DList.of_list gc_branch))
-                         (tell (DList.of_list lin_branch))) (fun _ =>
-                 ret tt)))
+    run_codegen (emit (BI_get_local ref_tmp);;
+                 if_gc_bit (W.Tf ins outs)
+                   (tell (DList.of_list gc_branch))
+                   (tell (DList.of_list lin_branch));;
+                 ret tt)
                 wl = inr (wl', es) ->
     to_e_list es = es' ->
     ⊢ ↪[frame] f -∗

@@ -5,7 +5,7 @@ Require Import Coq.ZArith.BinInt.
 
 Require Import mathcomp.ssreflect.seq.
 
-From stdpp Require Import -(notations) list_numbers.
+From stdpp Require Import list_numbers.
 
 Require Wasm.datatypes.
 Require Import Wasm.numerics.

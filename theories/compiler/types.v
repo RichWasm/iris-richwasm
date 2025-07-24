@@ -3,17 +3,16 @@ Import ListNotations.
 
 Require Import mathcomp.ssreflect.seq.
 
-From stdpp Require Import -(notations) list_numbers.
+From stdpp Require Import list_numbers.
 
 From ExtLib.Data Require Import List.
 From ExtLib.Structures Require Import Functor Monads Traversable.
-Import FunctorNotation MonadNotation.
-Local Open Scope monad.
 
 From Wasm Require datatypes operations.
 
-From RichWasm Require term.
-From RichWasm.compiler Require Import util.
+Require RichWasm.term.
+Require Import RichWasm.util.stdpp_extlib.
+Require Import RichWasm.compiler.util.
 
 Module R := RichWasm.term.
 Module W. Include datatypes <+ operations. End W.
@@ -87,8 +86,8 @@ Fixpoint size_upper_bound (ctx : list (list R.Size * list R.Size)) (sz : R.Size)
   match sz with
   | R.SizeConst c => inr c
   | R.SizePlus sz1 sz2 =>
-      ub1 <- size_upper_bound ctx sz1;;
-      ub2 <- size_upper_bound ctx sz2;;
+      ub1 ← size_upper_bound ctx sz1;
+      ub2 ← size_upper_bound ctx sz2;
       inr (ub1 + ub2)
   | R.SizeVar _ => inl ETodo
   end.
