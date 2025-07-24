@@ -20,7 +20,7 @@ From Wasm.iris.logrel Require iris_logrel.
 From RichWasm Require Import subst term typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
 From RichWasm.iris Require Import autowp num_reprs util.
-From RichWasm.util Require Import debruijn dlist stdpp_extlib.
+From RichWasm.util Require Import debruijn stdpp_extlib.
 
 Module RT := RichWasm.term.
 Module T := RichWasm.typing.
@@ -472,8 +472,8 @@ Section logrel.
   Proof.
   Admitted.
 
-  Lemma compiler_wctx_mono M F es wl wl' es' :
-    run_codegen (compile_instrs M F es) wl = inr (wl', es') ->
+  Lemma compiler_wctx_mono M F es es' wl wl' x :
+    run_codegen (compile_instrs M F es) wl = inr (x, wl', es') ->
     wl `prefix_of` wl'.
   Proof.
   Admitted.
@@ -485,7 +485,7 @@ Section logrel.
       (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
     run_codegen (compile_instr me fe
                    (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) i)) wl =
-    inr (wl', es) ->
+    inr (tt, wl', es) ->
     ⊢ semantic_typing M F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
   Proof.
     intros -> Htype Hcomp.
@@ -505,6 +505,36 @@ Section logrel.
       cbn.
       setoid_rewrite app_nil_r.
       destruct l; first by iExFalso.
+
+      (* Break the compiler apart. *)
+      unfold compile_instr, compile_struct_get in Hcomp.
+      apply run_codegen_bind_dist in Hcomp.
+      destruct Hcomp as (x1 & wl1 & es1 & es2 & Hcomp1 & Hcomp2 & Hes).
+      cbn in Hcomp1.
+      inversion Hcomp1.
+      apply run_codegen_bind_dist in Hcomp2.
+      destruct Hcomp2 as (field_ty & wl2 & es3 & es4 & Hcomp2 & Hcomp3 & Hes2).
+      apply run_codegen_bind_dist in Hcomp3.
+      destruct Hcomp3 as (offset & wl3 & es5 & es6 & Hcomp3 & Hcomp4 & Hes4).
+      apply run_codegen_bind_dist in Hcomp4.
+      destruct Hcomp4 as (x4 & wl4 & es7 & es8 & Hcomp4 & Hcomp5 & Hes6).
+      cbn in Hcomp4.
+      inversion Hcomp4.
+      apply run_codegen_bind_dist in Hcomp5.
+      destruct Hcomp5 as (x5 & wl5 & es9 & es10 & Hcomp5 & Hcomp6 & Hes8).
+      apply run_codegen_bind_dist in Hcomp6.
+      destruct Hcomp6 as (val & wl6 & es11 & es12 & Hcomp6 & Hcomp7 & Hes10).
+      apply run_codegen_bind_dist in Hcomp7.
+      destruct Hcomp7 as (x7 & wl7 & es13 & es14 & Hcomp7 & Hcomp8 & Hes12).
+      cbn in Hcomp7.
+      inversion Hcomp7.
+      apply run_codegen_bind_dist in Hcomp8.
+      destruct Hcomp8 as (x8 & wl8 & es15 & es16 & Hcomp8 & Hcomp9 & Hes14).
+      subst x1 x4 x7 wl1 wl4 wl7 es es1 es2 es4 es6 es7 es8 es10 es12 es13 es14.
+      destruct x5, x8 as [[] []].
+      clear Hcomp4 Hcomp7.
+      iSimpl.
+
       destruct m.
       + (* GC *)
         admit.
@@ -512,16 +542,16 @@ Section logrel.
         admit.
   Admitted.
 
-  Theorem fundamental_property M F L me fe es es' tf wl wl' L' :
+  Theorem fundamental_property M F L L' me fe es es' tf wl wl' :
     HasTypeInstrs M F L es tf L' ->
-    run_codegen (compile_instrs me fe es) wl = inr (wl', es') ->
+    run_codegen (compile_instrs me fe es) wl = inr (tt, wl', es') ->
     ⊢ semantic_typing M F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
     induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ =>
       forall es',
-      run_codegen (compile_instr me fe e) wl = inr (wl', es') ->
+      run_codegen (compile_instr me fe e) wl = inr (tt, wl', es') ->
       ⊢ semantic_typing C F L [] (to_e_list es') ta L');
     intros es' Hcomp.
     - (* INumConst *)
@@ -759,8 +789,8 @@ Section logrel.
     ptr_repr (LocP ℓ GCMem) l32 ->
     run_codegen (emit (BI_get_local ref_tmp);;
                  if_gc_bit (W.Tf ins outs)
-                   (tell (DList.of_list gc_branch))
-                   (tell (DList.of_list lin_branch));;
+                   (tell gc_branch)
+                   (tell lin_branch);;
                  ret tt)
                 wl = inr (wl', es) ->
     ⊢ ↪[frame] f -∗
@@ -844,8 +874,8 @@ Section logrel.
     ptr_repr (LocP ℓ LinMem) l32 ->
     run_codegen (emit (BI_get_local ref_tmp);;
                  if_gc_bit (W.Tf ins outs)
-                   (tell (DList.of_list gc_branch))
-                   (tell (DList.of_list lin_branch));;
+                   (tell gc_branch)
+                   (tell lin_branch);;
                  ret tt)
                 wl = inr (wl', es) ->
     to_e_list es = es' ->

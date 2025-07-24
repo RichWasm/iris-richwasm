@@ -17,8 +17,7 @@ Require Import Wasm.numerics.
 
 From RichWasm Require term typing.
 From RichWasm.compiler Require Import codegen numerics types util.
-From RichWasm.util Require Import dlist stdpp_extlib.
-Import RichWasm.util.dlist.Notation.
+Require Import RichWasm.util.stdpp_extlib.
 
 Module R. Include term <+ typing. End R.
 Module W. Include datatypes <+ operations. End W.
