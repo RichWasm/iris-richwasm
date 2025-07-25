@@ -345,9 +345,9 @@ Section Instrs.
     (* TODO: Translate function index. *)
     emit (W.BI_call x).
 
-  Definition compile_struct_get (fields : list (R.Typ * R.Size)) (i : nat) : codegen unit :=
-    field_ty ← try_option EWrongTypeAnn (fst <$> lookup i fields);
-    offset ← lift_error (struct_field_offset fields i);
+  Definition compile_struct_get (tys : list R.Typ) (sizes : list R.Size) (i : nat) : codegen unit :=
+    field_ty ← try_option EWrongTypeAnn (tys !! i);
+    offset ← lift_error (struct_field_offset sizes i);
     ref ← wlalloc W.T_i32;
     load_value_tagged (compile_size offset) field_ty;;
     val ← save_stack [field_ty];
@@ -360,9 +360,9 @@ Section Instrs.
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot)))));;
     restore_stack val [field_ty].
 
-  Definition compile_struct_set (fields : list (R.Typ * R.Size)) (val_ty : R.Typ) (i : nat) : codegen unit :=
-    field_ty ← try_option EWrongTypeAnn (fst <$> lookup i fields);
-    offset ← lift_error (struct_field_offset fields i);
+  Definition compile_struct_set (tys : list R.Typ) (sizes : list R.Size) (val_ty : R.Typ) (i : nat) : codegen unit :=
+    field_ty ← try_option EWrongTypeAnn (tys !! i);
+    offset ← lift_error (struct_field_offset sizes i);
 
     val ← save_stack [val_ty];
     ptr ← wlalloc W.T_i32;
@@ -444,11 +444,13 @@ Section Instrs.
         emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
     | R.IStructGet (R.Arrow in_ty _, _) i =>
         fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
-        compile_struct_get fields i
+        let (tys, sizes) := split fields in
+        compile_struct_get tys sizes i
     | R.IStructSet (R.Arrow in_ty _, _) i =>
         fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
         val_ty ← try_option EWrongTypeAnn (lookup 1 in_ty);
-        compile_struct_set fields val_ty i
+        let (tys, sizes) := split fields in
+        compile_struct_set tys sizes val_ty i
     | R.IStructSwap _ _ =>
         (* TODO: registerroot if GC struct *)
         raise ETodo

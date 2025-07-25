@@ -506,34 +506,61 @@ Section logrel.
       setoid_rewrite app_nil_r.
       destruct l; first by iExFalso.
 
+      (* Break the typing judgment apart. *)
+      inversion Htype.
+      subst C F0 L0 psi cap0 l tau n.
+      rewrite <- H1 in *.
+      clear taus szs Htype H1 H3 H2 H4 H11.
+      rename taus0 into tys, szs0 into szs, H9 into Htys_szs_len, H12 into Htys_i, H13 into Hunr,
+             H14 into HL_valid, H15 into Hhty_valid, H16 into Hty_valid, H17 into Hqual_valid.
+
       (* Break the compiler apart. *)
       unfold compile_instr, compile_struct_get in Hcomp.
       apply run_codegen_bind_dist in Hcomp.
       destruct Hcomp as (x1 & wl1 & es1 & es2 & Hcomp1 & Hcomp2 & Hes).
       cbn in Hcomp1.
       inversion Hcomp1.
+      subst x1 wl1 es es1.
+      clear Hcomp1.
+      rewrite combine_split in Hcomp2; last assumption.
+      rewrite <- nth_error_lookup in Hcomp2.
+      rewrite Htys_i in Hcomp2.
+      unfold try_option in Hcomp2.
       apply run_codegen_bind_dist in Hcomp2.
       destruct Hcomp2 as (field_ty & wl2 & es3 & es4 & Hcomp2 & Hcomp3 & Hes2).
+      cbn in Hcomp2.
+      inversion Hcomp2.
+      subst field_ty wl2 es2 es3.
+      clear Hcomp2.
       apply run_codegen_bind_dist in Hcomp3.
       destruct Hcomp3 as (offset & wl3 & es5 & es6 & Hcomp3 & Hcomp4 & Hes4).
+      subst es4.
       apply run_codegen_bind_dist in Hcomp4.
       destruct Hcomp4 as (x4 & wl4 & es7 & es8 & Hcomp4 & Hcomp5 & Hes6).
       cbn in Hcomp4.
       inversion Hcomp4.
+      subst x4 wl4 es6 es7.
+      clear Hcomp4.
       apply run_codegen_bind_dist in Hcomp5.
       destruct Hcomp5 as (x5 & wl5 & es9 & es10 & Hcomp5 & Hcomp6 & Hes8).
+      subst es8.
       apply run_codegen_bind_dist in Hcomp6.
       destruct Hcomp6 as (val & wl6 & es11 & es12 & Hcomp6 & Hcomp7 & Hes10).
+      subst es10.
       apply run_codegen_bind_dist in Hcomp7.
       destruct Hcomp7 as (x7 & wl7 & es13 & es14 & Hcomp7 & Hcomp8 & Hes12).
       cbn in Hcomp7.
       inversion Hcomp7.
+      subst x7 wl7 es12 es13.
+      clear Hcomp7.
       apply run_codegen_bind_dist in Hcomp8.
       destruct Hcomp8 as (x8 & wl8 & es15 & es16 & Hcomp8 & Hcomp9 & Hes14).
-      subst x1 x4 x7 wl1 wl4 wl7 es es1 es2 es4 es6 es7 es8 es10 es12 es13 es14.
+      subst es14.
       destruct x5, x8 as [[] []].
-      clear Hcomp4 Hcomp7.
       iSimpl.
+      rename Hcomp3 into Hcomp1, Hcomp5 into Hcomp2, Hcomp6 into Hcomp3, Hcomp8 into Hcomp4,
+             Hcomp9 into Hcomp5, wl3 into wl1, wl5 into wl2, wl6 into wl3, wl8 into wl4,
+             es5 into es1, es9 into es2, es11 into es3, es15 into es4, es16 into es5.
 
       destruct m.
       + (* GC *)

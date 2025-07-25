@@ -92,15 +92,15 @@ Fixpoint size_upper_bound (ctx : list (list R.Size * list R.Size)) (sz : R.Size)
   | R.SizeVar _ => inl ETodo
   end.
 
-Definition struct_field_offset (fields : list (R.Typ * R.Size)) (idx : nat) : error + R.Size :=
-  let fix go fs i :=
-    match fs, i with
+Definition struct_field_offset (sizes : list R.Size) (idx : nat) : error + R.Size :=
+  let fix go szs i :=
+    match szs, i with
     | _, 0 => inr (R.SizeConst 0)
-    | (_, sz) :: fs', i' => R.SizePlus sz <$> go fs' i'
+    | sz :: szs', i' => R.SizePlus sz <$> go szs' i'
     | [], _ => inl (EIndexOutOfBounds idx)
     end
   in
-  go fields idx.
+  go sizes idx.
 
 Definition struct_fields (ty : R.Typ) : option (list (R.Typ * R.Size)) :=
   match ty with
