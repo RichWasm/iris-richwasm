@@ -123,32 +123,6 @@ Proof.
   - congruence.
 Qed.
 
-Lemma runState_bind_dist {A B S} (c : state S A) (f : A -> state S B) s s' x :
-  runState (c ≫= f) s = (x, s') <->
-  exists x1 s1,
-  runState c s = (x1, s1) /\
-  runState (f x1) s1 = (x, s').
-Proof.
-  split.
-  {
-    intros H.
-    unfold mbind, stdpp_extlib.MBind_Monad, flip, bind, Monad_state, runState in H.
-    unfold runState.
-    destruct c.
-    destruct (runState s).
-    exists a, s0.
-    split; first reflexivity.
-    assumption.
-  }
-  {
-    intros (x1 & s1 & H1 & H2).
-    unfold mbind, stdpp_extlib.MBind_Monad, flip, bind, Monad_state.
-    cbn.
-    rewrite H1.
-    assumption.
-  }
-Qed.
-
 Lemma runWriterT_runStateT_sum_bind_dist {E L S A B}
   (m : Monoid L)
   (c : stateT S (writerT m (sum E)) A)
