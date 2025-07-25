@@ -535,6 +535,9 @@ Section logrel.
       apply run_codegen_bind_dist in Hcomp3.
       destruct Hcomp3 as (offset & wl3 & es5 & es6 & Hcomp3 & Hcomp4 & Hes4).
       subst es4.
+      apply run_codegen_lift_error_inr in Hcomp3.
+      destruct Hcomp3 as (Hoffset & Hwl & Hes5).
+      subst wl3 es5.
       apply run_codegen_bind_dist in Hcomp4.
       destruct Hcomp4 as (x4 & wl4 & es7 & es8 & Hcomp4 & Hcomp5 & Hes6).
       cbn in Hcomp4.
@@ -558,9 +561,9 @@ Section logrel.
       subst es14.
       destruct x5, x8 as [[] []].
       iSimpl.
-      rename Hcomp3 into Hcomp1, Hcomp5 into Hcomp2, Hcomp6 into Hcomp3, Hcomp8 into Hcomp4,
-             Hcomp9 into Hcomp5, wl3 into wl1, wl5 into wl2, wl6 into wl3, wl8 into wl4,
-             es5 into es1, es9 into es2, es11 into es3, es15 into es4, es16 into es5.
+      rename Hcomp5 into Hcomp1, Hcomp6 into Hcomp2, Hcomp8 into Hcomp3, Hcomp9 into Hcomp4,
+             wl5 into wl1, wl6 into wl2, wl8 into wl3, es9 into es1, es11 into es2, es15 into es3,
+             es16 into es4.
 
       destruct m.
       + (* GC *)

@@ -191,3 +191,14 @@ Proof.
     + unfold monoid_plus, Monoid_list_app in H3.
       assumption.
 Qed.
+
+Lemma run_codegen_lift_error_inr {A} c wl wl' es (x : A) :
+  run_codegen (lift_error c) wl = inr (x, wl', es) ->
+  c = inr x /\ wl' = wl /\ es = [].
+Proof.
+  intros H.
+  destruct c; cbn in H; first congruence.
+  inversion H.
+  split; first reflexivity.
+  split; reflexivity.
+Qed.
