@@ -202,3 +202,22 @@ Proof.
   split; first reflexivity.
   split; reflexivity.
 Qed.
+
+Lemma run_codegen_capture {A} (c : codegen A) wl wl' es es' x :
+  run_codegen (capture c) wl = inr (x, es', wl', es) ->
+  run_codegen c wl = inr (x, wl', es') /\ es = [].
+Proof.
+  intros H.
+  unfold run_codegen in *.
+  cbn in H.
+  destruct (runWriterT (runStateT (uncodegen c) wl)); first congruence.
+  cbn in H.
+  destruct p.
+  cbn in *.
+  destruct pfst.
+  cbn in H.
+  inversion H.
+  subst a psnd l es.
+  clear H.
+  split; reflexivity.
+Qed.
