@@ -3,7 +3,7 @@ Require Import iris.proofmode.tactics.
 Require Import Wasm.iris.rules.iris_rules.
 
 Require Import RichWasm.term.
-Require Import RichWasm.iris.logrel.
+Require Import RichWasm.iris.logrel.relations.
 From RichWasm.compiler Require Import codegen instrs util.
 
 Set Bullet Behavior "Strict Subproofs".
