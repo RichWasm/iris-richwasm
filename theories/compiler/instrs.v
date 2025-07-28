@@ -199,7 +199,7 @@ Section Instrs.
        store_value me.(me_runtime).(mr_mem_mm) ptr 0%N val ty);;
     ret tt.
 
-  Definition foreach_if_gc_bit (scope : VarScope) (refs : list W.immediate) (c : codegen unit)
+  Definition foreach_when_gc_bit (scope : VarScope) (refs : list W.immediate) (c : codegen unit)
     : codegen unit :=
     iterM
       (fun var =>
@@ -274,7 +274,7 @@ Section Instrs.
   Definition compile_drop (ty : R.Typ) : codegen unit :=
     val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
-    foreach_if_gc_bit VSLocal refs
+    foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
     restore_stack val [ty];;
     let tys := translate_type ty in
@@ -287,7 +287,7 @@ Section Instrs.
     r ← save_stack return_ty;
     d ← save_stack drop_ty;
     let refs := map (fun i => localimm d + i) (flat_map (find_refs LMNative) drop_ty) in
-    foreach_if_gc_bit VSLocal refs
+    foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
     restore_stack r return_ty;;
     emit W.BI_return.
@@ -297,14 +297,14 @@ Section Instrs.
     get_local x' ty;;
     val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
-    foreach_if_gc_bit VSLocal refs
+    foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))));;
     restore_stack val [ty].
 
   Definition compile_set_local (L : R.Local_Ctx) (x : nat) : codegen unit :=
     '(x', ty) ← lift_error (lookup_local L x);
     let refs := map (fun i => localimm x' + i) (find_refs LMWords ty) in
-    foreach_if_gc_bit VSLocal refs
+    foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
     set_local x' ty.
 
@@ -314,14 +314,14 @@ Section Instrs.
       (emit ∘ W.BI_get_global);;
     val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
-    foreach_if_gc_bit VSLocal refs
+    foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))));;
     restore_stack val [ty].
 
   Definition compile_set_global (x : nat) : codegen unit :=
     '(x', ty) ← try_option (EIndexOutOfBounds x) (lookup_global x);
     let refs := map (fun i => globalimm x' + i) (find_refs LMNative ty) in
-    foreach_if_gc_bit VSGlobal refs
+    foreach_when_gc_bit VSGlobal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
     forT (imap (fun i _ => globalimm x' + i) (translate_type ty))
       (emit ∘ W.BI_set_global);;
@@ -354,9 +354,9 @@ Section Instrs.
     let refs := map (fun i => localimm val + i) (find_refs LMNative field_ty) in
     emit (W.BI_get_local (localimm ref));;
     if_gc_bit (W.Tf [] [])
-      (foreach_if_gc_bit VSLocal refs
+      (foreach_when_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot)))))
-      (foreach_if_gc_bit VSLocal refs
+      (foreach_when_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot)))));;
     restore_stack val [field_ty].
 
@@ -369,7 +369,7 @@ Section Instrs.
     emit (W.BI_tee_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
       (let refs := map (fun i => localimm val + i) (find_refs LMNative val_ty) in
-       foreach_if_gc_bit VSLocal refs
+       foreach_when_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot)))))
       (emit (W.BI_get_local (localimm ptr));;
        ptr' ← wlalloc W.T_i32;
@@ -377,7 +377,7 @@ Section Instrs.
        load_value me.(me_runtime).(mr_mem_mm) ptr' 0%N field_ty;;
        old_val ← save_stack [field_ty];
        let refs := map (fun i => localimm val + i) (find_refs LMNative field_ty) in
-       foreach_if_gc_bit VSLocal refs
+       foreach_when_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot)))));;
 
     emit (W.BI_get_local (localimm ptr));;
