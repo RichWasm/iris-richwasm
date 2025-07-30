@@ -99,6 +99,7 @@ Section Instrs.
 
   Definition save_stack_w (ty : W.result_type) : codegen W.localidx :=
     xs ← forT ty wlalloc;
+    forT (reverse xs) (emit ∘ W.BI_set_local ∘ localimm);;
     ret (ssrfun.Option.default (W.Mk_localidx 0) (head xs)).
 
   Definition save_stack : list R.Typ -> codegen W.localidx :=
