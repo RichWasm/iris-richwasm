@@ -18,16 +18,19 @@ Section Relations.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
+  Context `{!rwasm_gcG Σ}.
 
   Variable sr : store_runtime.
 
   Definition ns_func (x : N) : namespace := nroot .@ "rwf" .@ x.
+  Definition ns_ref (x : N) : namespace := nroot .@ "rwr" .@ x.
 
   Notation VR := (leibnizO val -n> iPropO Σ).
   Notation WsR := (leibnizO (list value) -n> iPropO Σ).
+  Notation VVsR := (leibnizO vblock -n> iPropO Σ).
   Notation FR := (leibnizO frame -n> iPropO Σ).
-  Notation HVmmR := (leibnizO bytes -n> iPropO Σ).
-  Notation HVgcR := (leibnizO (list vval) -n> iPropO Σ).
+  Notation HVR_mm := (leibnizO bytes -n> iPropO Σ).
+  Notation HVR_gc := (leibnizO vblock -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
   Notation ER := (leibnizO (lholed * list administrative_instruction) -n> iPropO Σ).
 
@@ -36,6 +39,7 @@ Section Relations.
 
   Implicit Type v : leibnizO val.
   Implicit Type ws : leibnizO (list value).
+  Implicit Type vvs : leibnizO vblock.
   Implicit Type bs : leibnizO bytes.
   Implicit Type f : leibnizO frame.
   Implicit Type cl : leibnizO function_closure.
@@ -49,6 +53,8 @@ Section Relations.
   Definition relations : Type :=
     (* Physical Value *)
     (leibnizO R.Typ -n> WsR) *
+    (* Virtual Value *)
+    (leibnizO R.Typ -n> VVsR) *
     (* Frame *)
     (leibnizO R.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR) *
     (* Expression *)
@@ -56,7 +62,10 @@ Section Relations.
        leibnizO wlocal_ctx -n> leibnizO instance -n> ER).
 
   Definition relations_value_phys (rs : relations) : leibnizO R.Typ -n> WsR :=
-    rs.1.1.
+    rs.1.1.1.
+
+  Definition relations_value_virt (rs : relations) : leibnizO R.Typ -n> VVsR :=
+    rs.1.1.2.
 
   Definition relations_frame (rs : relations) :
     leibnizO R.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
@@ -67,7 +76,7 @@ Section Relations.
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
     rs.2.
 
-  Definition interp_heap_value_mm_variant (rs : relations) (τs : list R.Typ) : HVmmR :=
+  Definition interp_heap_value_mm_variant (rs : relations) (τs : list R.Typ) : HVR_mm :=
     λne bs,
       (∃ bs_tag bs_data,
        ⌜bs = bs_tag ++ bs_data⌝ ∗
@@ -75,9 +84,10 @@ Section Relations.
        ⌜wasm_deserialise bs_tag T_i32 = VAL_int32 tag_i32⌝ ∗
        ⌜nat_repr tag tag_i32⌝ ∗
        ⌜nth_error τs tag = Some τ⌝ ∗
+       ⌜length bs_data = (4 * type_words τ)%nat⌝ ∗
        relations_value_phys rs τ (deserialize_values bs_data τ))%I.
 
-  Definition interp_heap_value_mm_struct (rs : relations) (fs : list (R.Typ * R.Size)) : HVmmR :=
+  Definition interp_heap_value_mm_struct (rs : relations) (fs : list (R.Typ * R.Size)) : HVR_mm :=
     λne bs,
       (∃ bss,
        ⌜bs = flatten bss⌝ ∗
@@ -85,7 +95,7 @@ Section Relations.
        ⌜length bs' = (4 * R.interp_size (const 0) sz)%nat⌝ ∗
        relations_value_phys rs τ (deserialize_values bs' τ))%I.
 
-  Definition interp_heap_value_mm_array (rs : relations) (τ : R.Typ) : HVmmR :=
+  Definition interp_heap_value_mm_array (rs : relations) (τ : R.Typ) : HVR_mm :=
     λne bs,
       (∃ bs_len bs_elems,
        ⌜bs = bs_len ++ flatten bs_elems⌝ ∗
@@ -94,18 +104,55 @@ Section Relations.
        ⌜nat_repr len len_i32⌝ ∗
        ⌜len = length bs_elems⌝ ∗
        [∗ list] bs_elem ∈ bs_elems,
+       ⌜length bs_elem = (4 * type_words τ)%nat⌝ ∗
        relations_value_phys rs τ (deserialize_values bs_elem τ))%I.
 
-  Definition interp_heap_value_mm_ex (rs : relations) :
-    leibnizO R.Size -n> leibnizO R.Qual -n> leibnizO R.Typ -n> HVmmR :=
-    λne sz q τ bs, False%I.
+  Definition interp_heap_value_mm_ex (rs : relations) (sz : R.Size) (q : R.Qual) (τ : R.Typ) :
+    HVR_mm :=
+    λne bs, False%I.
 
-  Definition interp_heap_value_mm (rs : relations) (Ψ : R.HeapType) : HVmmR :=
+  Definition interp_heap_value_mm (rs : relations) (Ψ : R.HeapType) : HVR_mm :=
     match Ψ with
     | R.VariantType τs => interp_heap_value_mm_variant rs τs
     | R.StructType fs => interp_heap_value_mm_struct rs fs
     | R.ArrayType τ => interp_heap_value_mm_array rs τ
     | R.Ex sz q τ => interp_heap_value_mm_ex rs sz q τ
+    end.
+
+  Definition interp_heap_value_gc_variant (rs : relations) (τs : list R.Typ) : HVR_gc :=
+    λne vvs,
+      (∃ n vvs' τ,
+       ⌜vvs = intVV n :: vvs'⌝ ∗
+       ⌜nth_error τs (Z.to_nat n) = Some τ⌝ ∗
+       relations_value_virt rs τ vvs')%I.
+
+  Definition interp_heap_value_gc_struct (rs : relations) (fs : list (R.Typ * R.Size)) : HVR_gc :=
+    λne vvs,
+      (∃ vvss,
+       ⌜vvs = flatten vvss⌝ ∗
+       [∗ list] '(τ, sz); vvs' ∈ fs; vvss,
+       ⌜length vvs' = R.interp_size (const 0) sz⌝ ∗
+       relations_value_virt rs τ vvs')%I.
+
+  Definition interp_heap_value_gc_array (rs : relations) (τ : R.Typ) : HVR_gc :=
+    λne vvs,
+      (∃ n vvs_elems,
+       ⌜vvs = intVV n :: flatten vvs_elems⌝ ∗
+       ⌜n = length vvs_elems⌝ ∗
+       [∗ list] vvs_elem ∈ vvs_elems,
+       ⌜length vvs_elem = type_words τ⌝ ∗
+       relations_value_virt rs τ vvs_elem)%I.
+
+  Definition interp_heap_value_gc_ex (rs : relations) (sz : R.Size) (q : R.Qual) (τ : R.Typ) :
+    HVR_gc :=
+    λne vvs, False%I.
+
+  Definition interp_heap_value_gc (rs : relations) (Ψ : R.HeapType) : HVR_gc :=
+    match Ψ with
+    | R.VariantType τs => interp_heap_value_gc_variant rs τs
+    | R.StructType fs => interp_heap_value_gc_struct rs fs
+    | R.ArrayType τ => interp_heap_value_gc_array rs τ
+    | R.Ex sz q τ => interp_heap_value_gc_ex rs sz q τ
     end.
 
   Definition interp_closure (rs : relations) (τf : R.FunType) : ClR :=
@@ -137,11 +184,39 @@ Section Relations.
        N.of_nat sr.(sr_mem_mm) ↦[wms][p] bs ∗
        interp_heap_value_mm rs Ψ bs)%I.
 
+  Definition interp_value_phys_ref_gc (rs : relations) (p : R.Ptr) (Ψ : R.HeapType) : WsR :=
+    λne ws,
+      (∃ a a',
+       ⌜ws = [VAL_int32 a']⌝ ∗
+       ⌜a = Z.to_N (Wasm_int.Int32.unsigned a')⌝ ∗
+       (* TODO: Why is the rhs of ↦root a nat instead of an N? *)
+       a ↦root N.to_nat p ∗
+       na_inv logrel_nais (ns_ref p)
+         (∃ blk, N.to_nat p ↦vblk blk ∗ interp_heap_value_gc rs Ψ blk))%I.
+
   Definition interp_values_phys (rs : relations) (τs : list R.Typ) : WsR :=
     λne ws,
       (∃ wss,
-       ⌜ws = (flatten wss)⌝ ∗
+       ⌜ws = flatten wss⌝ ∗
        [∗ list] τ; ws' ∈ τs; wss, relations_value_phys rs τ ws')%I.
+
+  Definition interp_value_virt_coderef (rs : relations) (τf : R.FunType) : VVsR :=
+    λne vvs, False%I.
+
+  Definition interp_value_virt_exloc (rs : relations) (τ : R.Typ) : VVsR :=
+    λne vvs, False%I.
+
+  Definition interp_value_virt_ref_mm (rs : relations) (p : R.Ptr) (Ψ : R.HeapType) : VVsR :=
+    λne vvs, False%I.
+
+  Definition interp_value_virt_ref_gc (rs : relations) (p : R.Ptr) (Ψ : R.HeapType) : VVsR :=
+    λne vvs, False%I.
+
+  Definition interp_values_virt (rs : relations) (τs : list R.Typ) : VVsR :=
+    λne vvs,
+      (∃ vvss,
+       ⌜vvs = flatten vvss⌝ ∗
+       [∗ list] τ; vvs' ∈ τs; vvss, relations_value_virt rs τ vvs')%I.
 
   Definition interp_value_phys_0 (rs : relations) : leibnizO R.Typ -n> WsR :=
     λne τ ws,
@@ -151,7 +226,7 @@ Section Relations.
       | R.Num (R.Float R.f32) => ∃ n, ⌜ws = [VAL_float32 n]⌝
       | R.Num (R.Float R.f64) => ∃ n, ⌜ws = [VAL_float64 n]⌝
       | R.TVar _ => False
-      | R.Unit => ∃ n, ⌜ws = [VAL_int32 n]⌝
+      | R.Unit => ⌜nilp ws⌝
       | R.ProdT τs => interp_values_phys rs τs ws
       | R.CoderefT tf => interp_value_phys_coderef rs tf ws
       | R.Rec _ _ => False
@@ -159,8 +234,29 @@ Section Relations.
       | R.ExLoc _ τ => interp_value_phys_exloc rs τ ws
       | R.OwnR _ => ⌜nilp ws⌝
       | R.CapT _ _ _ => ⌜nilp ws⌝
-      | R.RefT _ (R.LocP p R.LinMem) ψ => interp_value_phys_ref_mm rs p ψ ws
-      | R.RefT _ (R.LocP p R.GCMem) ψ => False
+      | R.RefT _ (R.LocP p R.LinMem) Ψ => interp_value_phys_ref_mm rs p Ψ ws
+      | R.RefT _ (R.LocP p R.GCMem) Ψ => interp_value_phys_ref_gc rs p Ψ ws
+      | R.RefT _ (R.LocV _) _ => False
+      end%I.
+
+  Definition interp_value_virt_0 (rs : relations) : leibnizO R.Typ -n> VVsR :=
+    λne τ vvs,
+      match τ with
+      | R.Num (R.Int _ R.i32) => ∃ n, ⌜vvs = [intVV n]⌝
+      | R.Num (R.Int _ R.i64) => ∃ n1 n2, ⌜vvs = [intVV n1; intVV n2]⌝
+      | R.Num (R.Float R.f32) => ∃ n, ⌜vvs = [intVV n]⌝
+      | R.Num (R.Float R.f64) => ∃ n1 n2, ⌜vvs = [intVV n1; intVV n2]⌝
+      | R.TVar _ => False
+      | R.Unit => ⌜nilp vvs⌝
+      | R.ProdT τs => interp_values_virt rs τs vvs
+      | R.CoderefT tf => interp_value_virt_coderef rs tf vvs
+      | R.Rec _ _ => False
+      | R.PtrT _ => False
+      | R.ExLoc _ τ => interp_value_virt_exloc rs τ vvs
+      | R.OwnR _ => ⌜nilp vvs⌝
+      | R.CapT _ _ _ => ⌜nilp vvs⌝
+      | R.RefT _ (R.LocP p R.LinMem) Ψ => interp_value_virt_ref_mm rs p Ψ vvs
+      | R.RefT _ (R.LocP p R.GCMem) Ψ => interp_value_virt_ref_gc rs p Ψ vvs
       | R.RefT _ (R.LocV _) _ => False
       end%I.
 
@@ -185,7 +281,7 @@ Section Relations.
                 ∃ f, relations_frame rs L WL i f }})%I.
 
   Definition rels_0 (rs : relations) : relations :=
-    (interp_value_phys_0 rs, interp_frame_0 rs, interp_expr_0 rs).
+    (interp_value_phys_0 rs, interp_value_virt_0 rs, interp_frame_0 rs, interp_expr_0 rs).
 
   Instance Contractive_rels_0 : Contractive rels_0.
   Admitted.
@@ -203,7 +299,7 @@ Section Relations.
     interp_value_phys τ vs ⊣⊢ interp_value_phys_0 rels τ vs.
   Proof.
     do 2 f_equiv.
-    transitivity (rels_0 rels).1.1.
+    transitivity (rels_0 rels).1.1.1.
     - apply rels_eq.
     - reflexivity.
   Qed.

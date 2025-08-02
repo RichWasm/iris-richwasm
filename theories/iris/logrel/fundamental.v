@@ -19,7 +19,7 @@ From Wasm.iris.logrel Require iris_logrel.
 
 From RichWasm Require Import subst term typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
-From RichWasm.iris Require Import autowp num_reprs util.
+From RichWasm.iris Require Import autowp gc num_reprs util.
 From RichWasm.iris.logrel Require Import relations util.
 From RichWasm.util Require Import debruijn stdpp_extlib.
 
@@ -57,6 +57,7 @@ Section Fundamental.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
+  Context `{!rwasm_gcG Σ}.
 
   Variable sr : store_runtime.
 
@@ -354,7 +355,7 @@ Section Fundamental.
     forall p: positive,
       ((2 | p) <-> Pos.land p 1 = 0%N)%positive.
   Proof using.
-    clear Σ logrel_na_invs0 wasmG0 sr.
+    clear Σ logrel_na_invs0 wasmG0 rwasm_gcG0 sr.
     induction p; (split; [intros Hdiv| intros Hand]).
     - destruct Hdiv as [p' Hp'].
       lia.
@@ -372,7 +373,7 @@ Section Fundamental.
     forall p: positive,
       (¬(2 | p) <-> Pos.land p 1 = 1%N)%positive.
   Proof using.
-    clear Σ logrel_na_invs0 wasmG0 sr.
+    clear Σ logrel_na_invs0 wasmG0 rwasm_gcG0 sr.
     induction p; (split; [intros Hdiv| intros Hand]).
     - reflexivity.
     - intros [d Hdiv].
@@ -389,7 +390,7 @@ Section Fundamental.
     ptr_repr (LocP ℓ GCMem) l32 ->
     wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) = Wasm_int.int_zero i32m.
   Proof.
-    clear Σ logrel_na_invs0 wasmG0 sr.
+    clear Σ logrel_na_invs0 wasmG0 rwasm_gcG0 sr.
     unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
     intros [Hrepr Hdiv].
     cbn.
@@ -424,7 +425,7 @@ Section Fundamental.
     ptr_repr (LocP ℓ LinMem) l32 ->
     wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) <> Wasm_int.int_zero i32m.
   Proof.
-    clear Σ logrel_na_invs0 wasmG0 sr.
+    clear Σ logrel_na_invs0 wasmG0 rwasm_gcG0 sr.
     unfold ptr_repr, word_aligned, Wasm_int.Int32.iand, Wasm_int.Int32.and, Z.land.
     intros [Hrepr Hdiv].
     cbn.
@@ -626,7 +627,7 @@ Section Fundamental.
       length bs = sz ->
       Memdata.encode_int sz (Memdata.decode_int bs) = bs.
   Proof.
-    clear Σ logrel_na_invs0 wasmG0 sr.
+    clear Σ logrel_na_invs0 wasmG0 rwasm_gcG0 sr.
     induction sz; intros bs Hlen.
     - destruct bs; simpl in Hlen; try lia.
       reflexivity.

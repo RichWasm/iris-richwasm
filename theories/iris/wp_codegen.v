@@ -3,6 +3,7 @@ Require Import iris.proofmode.tactics.
 Require Import Wasm.iris.rules.iris_rules.
 
 Require Import RichWasm.term.
+Require Import RichWasm.iris.gc.
 Require Import RichWasm.iris.logrel.relations.
 From RichWasm.compiler Require Import codegen instrs util.
 
@@ -13,6 +14,7 @@ Section CodeGen.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
+  Context `{!rwasm_gcG Σ}.
 
   Variable sr : store_runtime.
   Variable me : module_env.
