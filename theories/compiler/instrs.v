@@ -134,34 +134,29 @@ Section Instrs.
     : R.Typ -> codegen unit :=
     load_values_w mem ptr off ∘ translate_type.
 
-  Definition load_value_tagged_w (get_offset : codegen unit) (ty : W.value_type) : codegen unit :=
+  Definition load_value_tagged_w (ty : W.value_type) : codegen unit :=
     ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
       (clear_gc_bit;;
-       get_offset;;
-       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
        emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) ty None 0%N 0%N))
-      (get_offset;;
-       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
-       emit (W.BI_load (memimm me.(me_runtime).(mr_mem_mm)) ty None 0%N 0%N));;
+      (emit (W.BI_load (memimm me.(me_runtime).(mr_mem_mm)) ty None 0%N 0%N));;
     ret tt.
 
-  Definition set_offset (ptr : W.localidx) (get_offset : codegen unit) : codegen unit :=
-    get_offset;;
-    emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
-    emit (W.BI_set_local (localimm ptr)).
-
-  Definition load_value_tagged (get_offset : codegen unit) (ty : R.Typ) : codegen unit :=
+  Definition load_value_tagged (offset : W.localidx) (ty : R.Typ) : codegen unit :=
     ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
       (clear_gc_bit;;
-       set_offset ptr get_offset;;
+       emit (W.BI_get_local (localimm offset));;
+       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
+       emit (W.BI_set_local (localimm ptr));;
        load_value me.(me_runtime).(mr_mem_gc) ptr 0%N ty)
-      (set_offset ptr get_offset;;
+      (emit (W.BI_get_local (localimm offset));;
+       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
+       emit (W.BI_set_local (localimm ptr));;
        load_value me.(me_runtime).(mr_mem_mm) ptr 0%N ty);;
     ret tt.
 
@@ -187,16 +182,20 @@ Section Instrs.
     let vals := zip (map W.Mk_localidx (seq (localimm val) (length ty'))) ty' in
     store_values_w mem ptr off vals.
 
-  Definition store_value_tagged (get_offset : codegen unit) (ty : R.Typ) : codegen unit :=
+  Definition store_value_tagged (offset : W.localidx) (ty : R.Typ) : codegen unit :=
     val ← save_stack [ty];
     ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
       (clear_gc_bit;;
-       set_offset ptr get_offset;;
+       emit (W.BI_get_local (localimm offset));;
+       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
+       emit (W.BI_set_local (localimm ptr));;
        store_value me.(me_runtime).(mr_mem_gc) ptr 0%N val ty)
-      (set_offset ptr get_offset;;
+      (emit (W.BI_get_local (localimm offset));;
+       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
+       emit (W.BI_set_local (localimm ptr));;
        store_value me.(me_runtime).(mr_mem_mm) ptr 0%N val ty);;
     ret tt.
 
@@ -255,17 +254,13 @@ Section Instrs.
     | R.TypI _ => ret tt
     end.
 
-  Definition if_index_in_bounds {A} (tf : W.function_type) (idx : W.localidx) (c : codegen A)
-    : codegen A :=
-    load_value_tagged_w
-      (emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 0)))))
-      (W.T_i32);;
+  Definition trap_if_index_out_of_bounds (idx : W.localidx) : codegen unit :=
+    load_value_tagged_w W.T_i32;;
     emit (W.BI_get_local (localimm idx));;
     emit (W.BI_relop W.T_i32 (W.Relop_i (W.ROI_lt (W.SX_U))));;
-    fst <$> if_c tf c (emit W.BI_unreachable).
+    fst <$> if_c (W.Tf [] []) (ret tt) (emit W.BI_unreachable).
 
-  Definition get_elem_offset (idx : W.localidx) (size : nat) : codegen unit :=
-    emit (W.BI_get_local (localimm idx));;
+  Definition get_elem_offset (size : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat size))));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_mul));;
     (* Skip 4 bytes for the array length. *)
@@ -347,13 +342,20 @@ Section Instrs.
     emit (W.BI_call x).
 
   Definition compile_struct_get (tys : list R.Typ) (sizes : list R.Size) (i : nat) : codegen unit :=
+    ptr ← wlalloc W.T_i32;
+    emit (W.BI_tee_local (localimm ptr));;
+
+    offset_sz ← lift_error (struct_field_offset sizes i);
+    compile_size offset_sz;;
+    offset ← wlalloc W.T_i32;
+    emit (W.BI_set_local (localimm offset));;
+
     field_ty ← try_option EWrongTypeAnn (tys !! i);
-    offset ← lift_error (struct_field_offset sizes i);
-    ref ← wlalloc W.T_i32;
-    load_value_tagged (compile_size offset) field_ty;;
+    load_value_tagged offset field_ty;;
+
     val ← save_stack [field_ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative field_ty) in
-    emit (W.BI_get_local (localimm ref));;
+    emit (W.BI_get_local (localimm ptr));;
     if_gc_bit (W.Tf [] [])
       (foreach_when_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot)))))
@@ -361,9 +363,12 @@ Section Instrs.
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot)))));;
     restore_stack val [field_ty].
 
-  Definition compile_struct_set (tys : list R.Typ) (sizes : list R.Size) (val_ty : R.Typ) (i : nat) : codegen unit :=
-    field_ty ← try_option EWrongTypeAnn (tys !! i);
-    offset ← lift_error (struct_field_offset sizes i);
+  Definition compile_struct_set (tys : list R.Typ) (sizes : list R.Size) (val_ty : R.Typ) (i : nat) :
+    codegen unit :=
+    offset_sz ← lift_error (struct_field_offset sizes i);
+    compile_size offset_sz;;
+    offset ← wlalloc W.T_i32;
+    emit (W.BI_set_local (localimm offset));;
 
     val ← save_stack [val_ty];
     ptr ← wlalloc W.T_i32;
@@ -374,7 +379,11 @@ Section Instrs.
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot)))))
       (emit (W.BI_get_local (localimm ptr));;
        ptr' ← wlalloc W.T_i32;
-       set_offset ptr' (compile_size offset);;
+       emit (W.BI_get_local (localimm offset));;
+       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
+       emit (W.BI_set_local (localimm ptr'));;
+
+       field_ty ← try_option EWrongTypeAnn (tys !! i);
        load_value me.(me_runtime).(mr_mem_mm) ptr' 0%N field_ty;;
        old_val ← save_stack [field_ty];
        let refs := map (fun i => localimm val + i) (find_refs LMNative field_ty) in
@@ -382,30 +391,35 @@ Section Instrs.
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot)))));;
 
     emit (W.BI_get_local (localimm ptr));;
-    store_value_tagged (compile_size offset) val_ty.
+    store_value_tagged offset val_ty.
 
   Definition compile_array_get (elem_ty : R.Typ) : codegen unit :=
     (* TODO: registerroot if GC array; duproot if MM array. *)
     idx ← wlalloc W.T_i32;
+    emit (W.BI_tee_local (localimm idx));;
+    get_elem_offset (type_words elem_ty);;
+    offset ← wlalloc W.T_i32;
+    emit (W.BI_set_local (localimm offset));;
     ptr ← wlalloc W.T_i32;
-    emit (W.BI_set_local (localimm idx));;
     emit (W.BI_tee_local (localimm ptr));;
-    let elem_tys := translate_type elem_ty in
-    if_index_in_bounds (W.Tf [] elem_tys) idx
-      (emit (W.BI_get_local (localimm ptr));;
-       load_value_tagged (get_elem_offset idx (type_words elem_ty)) elem_ty).
+    emit (W.BI_get_local (localimm ptr));;
+    trap_if_index_out_of_bounds idx;;
+    load_value_tagged offset elem_ty.
 
   Definition compile_array_set (elem_ty : R.Typ) : codegen unit :=
     (* TODO: unregisterroot if GC array; duproot a bunch of times if MM array. *)
     val ← save_stack [elem_ty];
     idx ← wlalloc W.T_i32;
+    emit (W.BI_tee_local (localimm idx));;
+    get_elem_offset (type_words elem_ty);;
+    offset ← wlalloc W.T_i32;
+    emit (W.BI_set_local (localimm offset));;
     ptr ← wlalloc W.T_i32;
-    emit (W.BI_set_local (localimm idx));;
     emit (W.BI_tee_local (localimm ptr));;
-    if_index_in_bounds (W.Tf [] []) idx
-      (emit (W.BI_get_local (localimm ptr));;
-       restore_stack val [elem_ty];;
-       store_value_tagged (get_elem_offset idx (type_words elem_ty)) elem_ty).
+    trap_if_index_out_of_bounds idx;;
+    emit (W.BI_get_local (localimm ptr));;
+    restore_stack val [elem_ty];;
+    store_value_tagged offset elem_ty.
 
   Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with

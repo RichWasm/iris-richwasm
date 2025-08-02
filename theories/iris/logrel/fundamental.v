@@ -155,53 +155,64 @@ Section Fundamental.
       subst x1 wl1 es es1.
       clear Hcomp1.
       rewrite combine_split in Hcomp2; last assumption.
-      rewrite <- nth_error_lookup in Hcomp2.
-      rewrite Htys_i in Hcomp2.
-      unfold try_option in Hcomp2.
       apply run_codegen_bind_dist in Hcomp2.
-      destruct Hcomp2 as (field_ty & wl2 & es3 & es4 & Hcomp2 & Hcomp3 & Hes2).
+      destruct Hcomp2 as (x2 & wl2 & es3 & es4 & Hcomp2 & Hcomp3 & Hes2).
       cbn in Hcomp2.
       inversion Hcomp2.
-      subst field_ty wl2 es2 es3.
+      subst x2 wl2 es2 es3.
       clear Hcomp2.
       apply run_codegen_bind_dist in Hcomp3.
-      destruct Hcomp3 as (offset & wl3 & es5 & es6 & Hcomp3 & Hcomp4 & Hes4).
-      subst es4.
-      apply run_codegen_lift_error_inr in Hcomp3.
-      destruct Hcomp3 as (Hoffset & Hwl & Hes5).
-      subst wl3 es5.
+      destruct Hcomp3 as ([] & wl3 & es5 & es6 & Hcomp3 & Hcomp4 & Hes4).
+      cbn in Hcomp3.
+      inversion Hcomp3.
+      subst wl3 es4 es5.
+      clear Hcomp3.
       apply run_codegen_bind_dist in Hcomp4.
-      destruct Hcomp4 as (x4 & wl4 & es7 & es8 & Hcomp4 & Hcomp5 & Hes6).
-      cbn in Hcomp4.
-      inversion Hcomp4.
-      subst x4 wl4 es6 es7.
-      clear Hcomp4.
+      destruct Hcomp4 as (offset & wl4 & es7 & es8 & Hcomp4 & Hcomp5 & Hes6).
+      apply run_codegen_lift_error_inr in Hcomp4.
+      destruct Hcomp4 as (Hoffset & Hwl & Hes7).
+      subst wl4 es6 es7.
       apply run_codegen_bind_dist in Hcomp5.
-      destruct Hcomp5 as (x5 & wl5 & es9 & es10 & Hcomp5 & Hcomp6 & Hes8).
+      destruct Hcomp5 as ([] & wl5 & es9 & es10 & Hcomp5 & Hcomp6 & Hes8).
       subst es8.
       apply run_codegen_bind_dist in Hcomp6.
-      destruct Hcomp6 as (val & wl6 & es11 & es12 & Hcomp6 & Hcomp7 & Hes10).
-      subst es10.
+      destruct Hcomp6 as (x6 & wl6 & es11 & es12 & Hcomp6 & Hcomp7 & Hes10).
+      cbn in Hcomp6.
+      inversion Hcomp6.
+      subst x6 wl6 es10 es11.
+      clear Hcomp6.
       apply run_codegen_bind_dist in Hcomp7.
-      destruct Hcomp7 as (x7 & wl7 & es13 & es14 & Hcomp7 & Hcomp8 & Hes12).
+      destruct Hcomp7 as ([] & wl7 & es13 & es14 & Hcomp7 & Hcomp8 & Hes12).
       cbn in Hcomp7.
       inversion Hcomp7.
-      subst x7 wl7 es12 es13.
+      subst wl7 es12 es13.
       clear Hcomp7.
       apply run_codegen_bind_dist in Hcomp8.
       destruct Hcomp8 as (x8 & wl8 & es15 & es16 & Hcomp8 & Hcomp9 & Hes14).
-      subst es14.
-      destruct x5, x8 as [[] []].
-      iSimpl.
-      rename Hcomp5 into Hcomp1, Hcomp6 into Hcomp2, Hcomp8 into Hcomp3, Hcomp9 into Hcomp4,
-             wl5 into wl1, wl6 into wl2, wl8 into wl3, es9 into es1, es11 into es2, es15 into es3,
-             es16 into es4.
-
-      destruct m.
-      + (* GC *)
-        admit.
-      + (* MM *)
-        admit.
+      rewrite <- nth_error_lookup in Hcomp8.
+      rewrite Htys_i in Hcomp8.
+      cbn in Hcomp8.
+      inversion Hcomp8.
+      subst x8 wl8 es14 es15.
+      clear Hcomp8.
+      apply run_codegen_bind_dist in Hcomp9.
+      destruct Hcomp9 as ([] & wl9 & es17 & es18 & Hcomp9 & Hcomp10 & Hes16).
+      subst es16.
+      apply run_codegen_bind_dist in Hcomp10.
+      destruct Hcomp10 as (field_val & wl10 & es19 & es20 & Hcomp10 & Hcomp11 & Hes18).
+      subst es18.
+      apply run_codegen_bind_dist in Hcomp11.
+      destruct Hcomp11 as (x11 & wl11 & es21 & es22 & Hcomp11 & Hcomp12 & Hes20).
+      cbn in Hcomp11.
+      inversion Hcomp11.
+      subst x11 wl11 es20 es21.
+      clear Hcomp11.
+      apply run_codegen_bind_dist in Hcomp12.
+      destruct Hcomp12 as ([[] []] & wl12 & es23 & es24 & Hcomp12 & Hcomp13 & Hes22).
+      subst es22.
+      rename Hcomp5 into Hcomp1, Hcomp9 into Hcomp2, Hcomp10 into Hcomp3, Hcomp12 into Hcomp4,
+        Hcomp13 into Hcomp5, wl5 into wl1, wl9 into wl2, wl10 into wl3, wl12 into wl4, es9 into es1,
+        es17 into es2, es19 into es3, es23 into es4, es24 into es5.
   Admitted.
 
   Theorem fundamental_property M F L L' me fe es es' tf wl wl' :

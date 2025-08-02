@@ -14,8 +14,7 @@ Definition wasm_deserialize_values (bs : bytes) (tys : list value_type) : list v
 Definition deserialize_values (bs : bytes) : Typ -> list value :=
   wasm_deserialize_values bs ∘ translate_type.
 
-Definition word_aligned (n : N) : Prop :=
-  (4 | n)%N.
+Definition word_aligned (n : N) : Prop := (4 | n)%N.
 
 Definition ptr_repr (l : R.Loc) (i : i32) : Prop :=
   match l with
@@ -31,17 +30,25 @@ Definition ptr_repr' (l : R.Loc) (n : N) : Prop :=
   | R.LocP ℓ R.LinMem => ℓ = n /\ word_aligned ℓ
   end.
 
+Fixpoint eval_closed_size (sz : R.Size) : option nat :=
+  match sz with
+  | R.SizeVar _ => None
+  | R.SizeConst c => Some c
+  | R.SizePlus sz1 sz2 =>
+      n1 ← eval_closed_size sz1;
+      n2 ← eval_closed_size sz2;
+      Some (n1 + n2)
+  end.
+
 Ltac solve_iprop_ne :=
-  repeat (
-    apply exist_ne +
-    apply intuitionistically_ne +
-    apply or_ne +
-    apply sep_ne +
-    apply and_ne +
-    apply wp_ne +
-    apply inv_ne +
-    auto +
-    (rewrite /pointwise_relation; intros) +
-    apply forall_ne +
-    apply wand_ne
-  ).
+  repeat (apply exist_ne +
+            apply intuitionistically_ne +
+            apply or_ne +
+            apply sep_ne +
+            apply and_ne +
+            apply wp_ne +
+            apply inv_ne +
+            auto +
+            (rewrite /pointwise_relation; intros) +
+            apply forall_ne +
+            apply wand_ne).
