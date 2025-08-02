@@ -306,14 +306,15 @@ Section Relations.
   Definition rels : relations := fixpoint rels_0.
 
   Notation interp_value_phys := (relations_value_phys rels).
+  Notation interp_value_virt := (relations_value_virt rels).
   Notation interp_frame := (relations_frame rels).
   Notation interp_expr := (relations_expr rels).
 
   Lemma rels_eq : rels ≡ rels_0 rels.
   Proof. apply fixpoint_unfold. Qed.
 
-  Lemma interp_value_phys_eq τ vs :
-    interp_value_phys τ vs ⊣⊢ interp_value_phys_0 rels τ vs.
+  Lemma interp_value_phys_eq τ ws :
+    interp_value_phys τ ws ⊣⊢ interp_value_phys_0 rels τ ws.
   Proof.
     do 2 f_equiv.
     transitivity (rels_0 rels).1.1.1.
@@ -321,18 +322,23 @@ Section Relations.
     - reflexivity.
   Qed.
 
-  Opaque relations_value_phys.
+  Lemma interp_value_virt_eq τ vvs :
+    interp_value_virt τ vvs ⊣⊢ interp_value_virt_0 rels τ vvs.
+  Proof.
+    do 2 f_equiv.
+    transitivity (rels_0 rels).1.1.2.
+    - apply rels_eq.
+    - reflexivity.
+  Qed.
 
   Lemma interp_expr_eq τs F L WL i e :
     interp_expr τs F L WL i e ⊣⊢ interp_expr_0 rels τs F L WL i e.
   Proof.
     do 6 f_equiv.
-    transitivity (snd (rels_0 rels)).
+    transitivity (rels_0 rels).2.
     - apply rels_eq.
     - reflexivity.
   Qed.
-
-  Opaque relations_expr.
 
   Lemma interp_frame_eq L WL i f :
     interp_frame L WL i f ⊣⊢ interp_frame_0 rels L WL i f.
@@ -343,7 +349,10 @@ Section Relations.
     - reflexivity.
   Qed.
 
+  Opaque relations_value_phys.
+  Opaque relations_value_virt.
   Opaque relations_frame.
+  Opaque relations_expr.
 
   Definition interp_val (τs : list R.Typ) : VR :=
     λne v, (⌜v = trapV⌝ ∨ ∃ ws, ⌜v = immV ws⌝ ∗ interp_values_phys rels τs ws)%I.
