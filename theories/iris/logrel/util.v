@@ -24,6 +24,13 @@ Definition ptr_repr (l : R.Loc) (i : i32) : Prop :=
   | R.LocP ℓ R.LinMem => N_repr ℓ i /\ word_aligned ℓ
   end.
 
+Definition ptr_repr' (l : R.Loc) (n : N) : Prop :=
+  match l with
+  | R.LocV v => False
+  | R.LocP ℓ R.GCMem => (ℓ + 1)%N = n /\ word_aligned ℓ
+  | R.LocP ℓ R.LinMem => ℓ = n /\ word_aligned ℓ
+  end.
+
 Ltac solve_iprop_ne :=
   repeat (
     apply exist_ne +

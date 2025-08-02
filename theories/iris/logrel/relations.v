@@ -182,13 +182,14 @@ Section Relations.
        ⌜ws = [VAL_int32 l32]⌝ ∗
        ⌜ptr_repr (R.LocP p R.LinMem) l32⌝ ∗
        N.of_nat sr.(sr_mem_mm) ↦[wms][p] bs ∗
+       (* TODO: Allocation token. *)
        interp_heap_value_mm rs Ψ bs)%I.
 
   Definition interp_value_phys_ref_gc (rs : relations) (p : R.Ptr) (Ψ : R.HeapType) : WsR :=
     λne ws,
-      (∃ a a',
+      (∃ a',
        ⌜ws = [VAL_int32 a']⌝ ∗
-       ⌜a = Z.to_N (Wasm_int.Int32.unsigned a')⌝ ∗
+       let a := Z.to_N (Wasm_int.Int32.unsigned a') in
        (* TODO: Why is the rhs of ↦root a nat instead of an N? *)
        a ↦root N.to_nat p ∗
        na_inv logrel_nais (ns_ref p)
@@ -201,16 +202,32 @@ Section Relations.
        [∗ list] τ; ws' ∈ τs; wss, relations_value_phys rs τ ws')%I.
 
   Definition interp_value_virt_coderef (rs : relations) (τf : R.FunType) : VVsR :=
-    λne vvs, False%I.
+    λne vvs,
+      (∃ n,
+       ⌜vvs = [intVV n]⌝ ∗
+       ∃ cl,
+       ▷ interp_closure rs τf cl ∗
+       let n' := Z.to_N n in
+       na_inv logrel_nais (ns_func n') (n' ↦[wf] cl))%I.
 
   Definition interp_value_virt_exloc (rs : relations) (τ : R.Typ) : VVsR :=
     λne vvs, False%I.
 
   Definition interp_value_virt_ref_mm (rs : relations) (p : R.Ptr) (Ψ : R.HeapType) : VVsR :=
-    λne vvs, False%I.
+    λne vvs,
+      (∃ bs a,
+       ⌜vvs = [ptrVV (mmVP a)]⌝ ∗
+       ⌜ptr_repr' (R.LocP p R.LinMem) a⌝ ∗
+       N.of_nat sr.(sr_mem_mm) ↦[wms][p] bs ∗
+       (* TODO: Allocation token. *)
+       interp_heap_value_mm rs Ψ bs)%I.
 
   Definition interp_value_virt_ref_gc (rs : relations) (p : R.Ptr) (Ψ : R.HeapType) : VVsR :=
-    λne vvs, False%I.
+    λne vvs,
+      (∃ l,
+       ⌜vvs = [ptrVV (gcVP l)]⌝ ∗
+       na_inv logrel_nais (ns_ref p)
+         (∃ blk, l ↦vblk blk ∗ interp_heap_value_gc rs Ψ blk))%I.
 
   Definition interp_values_virt (rs : relations) (τs : list R.Typ) : VVsR :=
     λne vvs,
