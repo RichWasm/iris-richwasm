@@ -3,9 +3,9 @@ Require Import iris.proofmode.tactics.
 Require Import Wasm.iris.rules.iris_rules.
 
 From RichWasm Require Import term typing.
-Require Import RichWasm.iris.gc.
-From RichWasm.iris.logrel Require Import relations util.
 From RichWasm.compiler Require Import codegen instrs types util.
+From RichWasm.iris Require Import autowp gc.
+From RichWasm.iris.logrel Require Import relations util.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -120,18 +120,18 @@ Section CodeGen.
   Admitted.
 
   (* TODO *)
-  Lemma wp_load_value_tagged_struct s E cap ptr szs tys offset sz_off n_off ty wl wl' es idx a f :
+  Lemma wp_load_value_tagged_struct L inst f s E cap ptr szs tys offset sz_off n_off ty wl wl' es idx a :
     tys !! idx = Some ty ->
     struct_field_offset szs idx = inr sz_off ->
     (* TODO: Are the sizes closed?
              If so, how is it related to the Wasm args that get_offset uses? *)
     eval_closed_size sz_off = Some (Wasm_int.nat_of_uint i32m n_off) ->
-    f.(f_locs) !! (localimm offset) = Some (VAL_int32 n_off) ->
+    f.(f_locs) !! localimm offset = Some (VAL_int32 n_off) ->
     run_codegen (load_value_tagged me fe offset ty) wl = inr (tt, wl', es) ->
-    ⊢ ↪[frame] f -∗
+    ⊢ interp_frame sr L wl' inst f -∗
       interp_val sr [RefT cap (LocP ptr GCMem) (StructType (zip tys szs))] (immV [VAL_int32 a]) ∨
       interp_val sr [RefT cap (LocP ptr LinMem) (StructType (zip tys szs))] (immV [VAL_int32 a]) -∗
-      WP to_e_list es @ s; E {{ v, interp_val sr [ty] v }}.
+      WP to_e_list (BI_const (VAL_int32 a) :: es) @ s; E {{ v, interp_val sr [ty] v }}.
   Proof.
     intros Hty Hsz_off Hn_off Hoffset Hcomp.
     unfold load_value_tagged in Hcomp.
@@ -169,7 +169,19 @@ Section CodeGen.
       in Hcomp4.
     destruct Hcomp4 as (wl5 & es9 & es10 & Hcomp5 & Hcomp6 & Hwp).
 
-    iIntros "Hf Href".
+    rewrite interp_frame_eq.
+    iIntros "[Hf (%ns_L & %ws_WL & %szs_L & -> & %Hszs_L & HL & HWL)] Href".
+    wp_chomp 2.
+    iApply wp_seq.
+    iSplitR; first last; first iSplitL "Hf".
+    - iApply (wp_tee_local with "Hf").
+      iIntros "!> Hf".
+      wp_chomp 1.
+      iApply wp_val_app; first done.
+      iSplitR; first last.
+      + iApply (wp_wand with "[Hf]").
+        * iApply wp_set_local; last done.
+          -- simpl.
   Abort.
 
 End CodeGen.

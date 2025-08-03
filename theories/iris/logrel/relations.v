@@ -281,11 +281,13 @@ Section Relations.
     leibnizO R.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
     λne L WL i f,
       (↪[frame] f ∗
-       ∃ ws_l ws_wl,
-       ⌜f = Build_frame (ws_l ++ ws_wl) i⌝ ∗
-       (* TODO: not right, throws out sizes with (map fst L) *)
-       ▷ interp_values_phys rs (map fst L) ws_l ∗
-       iris_logrel.interp_val WL (immV ws_wl))%I.
+       ∃ ns ws szs,
+       ⌜f = Build_frame (map VAL_int32 ns ++ ws) i⌝ ∗
+       (* TODO: What is the right way to evaluate the sizes here? *)
+       ⌜mapM (eval_closed_size ∘ snd) L = Some szs⌝ ∗
+       ([∗ list] τ; ns' ∈ map fst L; reshape szs ns,
+          relations_value_phys rs τ (deserialize_values (flat_map serialise_i32 ns') τ)) ∗
+       iris_logrel.interp_val WL (immV ws))%I.
 
   Definition interp_expr_0 (rs : relations) :
     leibnizO (list R.Typ) -n> leibnizO R.Function_Ctx -n> leibnizO R.Local_Ctx -n>
@@ -305,10 +307,18 @@ Section Relations.
 
   Definition rels : relations := fixpoint rels_0.
 
-  Notation interp_value_phys := (relations_value_phys rels).
-  Notation interp_value_virt := (relations_value_virt rels).
-  Notation interp_frame := (relations_frame rels).
-  Notation interp_expr := (relations_expr rels).
+  Definition interp_value_phys : leibnizO R.Typ -n> WsR := relations_value_phys rels.
+
+  Definition interp_value_virt : leibnizO R.Typ -n> VVsR := relations_value_virt rels.
+
+  Definition interp_frame :
+    leibnizO R.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
+    relations_frame rels.
+
+  Definition interp_expr :
+    leibnizO (list R.Typ) -n> leibnizO R.Function_Ctx -n> leibnizO R.Local_Ctx -n>
+      leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
+    relations_expr rels.
 
   Lemma rels_eq : rels ≡ rels_0 rels.
   Proof. apply fixpoint_unfold. Qed.
