@@ -434,14 +434,14 @@ Section Instrs.
 
   Program Fixpoint compile_variant_cases'
     (ann : W.function_type)
-    (cases : list (R.Typ * list (R.instr R.TyAnn)))
+    (tys : list R.Typ)
+    (cases : list (list (R.instr R.TyAnn)))
     (ptr : W.localidx)
     (len : nat)
     (idx : nat)
-    {measure cases}
   : codegen unit :=
-    match cases with
-    | [] => 
+    match tys, cases with
+    | [], [] =>
         block_c ann (
           offset ← wlalloc W.T_i32;
           emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 0)));;
@@ -450,16 +450,18 @@ Section Instrs.
           load_value_tagged offset (R.Num (R.Int R.S R.i32));;
           emit (W.BI_br_table (seq 0 len) 0)
         )
-    | (ty, body) :: cases' =>
+    | ty :: tys', body :: cases' =>
         block_c ann (
-          compile_variant_cases' ann cases' ptr len (idx + 1);;
+          compile_variant_cases' ann tys' cases' ptr len (idx + 1);;
           offset ← wlalloc W.T_i32;
           emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 4)));; (* skip length *)
           emit (W.BI_set_local (localimm offset));;
           load_value_tagged offset ty;;
           compile_instrs body
         )
+    | _, _ => ret tt
     end
+
   with compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with
     | R.INumConst _ ty n => emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n)))
@@ -512,9 +514,14 @@ Section Instrs.
         (* TODO: registerroot on the new address;
                  unregisterroot if payload is GC ref being put into GC variant *)
         raise ETodo
-    | R.IVariantCase _ _ _ _ _ _ =>
+    | R.IVariantCase (ta, _) q Ψ ta' eff ess =>
         (* TODO: duproot if unrestricted *)
-        raise ETodo
+        match Ψ with
+        | R.VariantType tys =>
+            ptr ← wlalloc W.T_i32;
+            compile_variant_cases' (translate_arrow_type ta) tys ess ptr (length ess) 0
+        | _ => raise ETodo
+        end
     | R.IArrayMalloc _ _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
@@ -544,7 +551,23 @@ Section Instrs.
     | R.IMemPack _ _
     | R.IQualify _ _ => ret tt
     end
-    with compile_instrs (l : list (R.instr R.TyAnn)) : codegen unit :=
-      ret tt.
+
+  with compile_instrs (l : list (R.instr R.TyAnn)) : codegen unit :=
+    iterM compile_instr l.
+
+  Next Obligation.
+  Admitted.
+
+  Next Obligation.
+  Admitted.
+
+  Next Obligation.
+  Admitted.
+
+  Next Obligation.
+  Admitted.
+
+  Final Obligation.
+  Admitted.
 
 End Instrs.
