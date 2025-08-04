@@ -283,7 +283,8 @@ Section Relations.
       (↪[frame] f ∗
        ∃ ns ws szs,
        ⌜f = Build_frame (map VAL_int32 ns ++ ws) i⌝ ∗
-       (* TODO: What is the right way to evaluate the sizes here? *)
+       (* TODO: This should be the upper bound of the sizes, but we need the size context.
+                Are size expressions open or closed here? *)
        ⌜mapM (eval_closed_size ∘ snd) L = Some szs⌝ ∗
        ([∗ list] τ; ns' ∈ map fst L; reshape szs ns,
           relations_value_phys rs τ (deserialize_values (flat_map serialise_i32 ns') τ)) ∗

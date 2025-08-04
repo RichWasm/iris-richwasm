@@ -5,15 +5,15 @@ Require Import Coq.ZArith.BinInt.
 
 Require Import mathcomp.ssreflect.seq.
 
-From stdpp Require Import list_numbers.
+Require Import stdpp.list_numbers.
 
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
 From RichWasm Require term typing.
-From RichWasm.compiler Require Import util.
+From RichWasm.compiler Require Import types util.
 
-Module R. Include term <+ typing. End R.
+Module R. Include RichWasm.term <+ RichWasm.typing. End R.
 Module W := Wasm.datatypes.
 
 Definition funcidx_table_set : W.immediate := 0.
@@ -23,6 +23,13 @@ Definition typeidx_i32_i32_to_nil : W.immediate := 1.
 
 Definition globidx_table_next : W.immediate := 0.
 Definition globidx_table_offset : W.immediate := 1.
+
+Definition fe_of_contexts (F : R.Function_Ctx) (L : R.Local_Ctx) : function_env :=
+  {| fe_return_type := F.(R.fc_ret);
+     fe_size_bounds := F.(R.fc_size);
+     (* TODO: Size locals come after the normal arguments, but before non-argument locals. *)
+     fe_size_locals := List.map W.Mk_localidx (List.seq 0 (length F.(R.fc_size)));
+     fe_wlocal_offset := sum_list_with (type_words ∘ fst) L + length F.(R.fc_size) |}.
 
 Definition set_table_elem (start : W.immediate) (i f : nat) : W.expr :=
   [W.BI_get_local start;

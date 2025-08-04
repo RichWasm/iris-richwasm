@@ -3,7 +3,7 @@ Require Import iris.proofmode.tactics.
 Require Import Wasm.iris.rules.iris_rules.
 
 From RichWasm Require Import term typing.
-From RichWasm.compiler Require Import codegen instrs types util.
+From RichWasm.compiler Require Import codegen instrs modules types util.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.logrel Require Import relations util.
 
@@ -18,7 +18,11 @@ Section CodeGen.
 
   Variable sr : store_runtime.
   Variable me : module_env.
-  Variable fe : function_env.
+  Variable F : Function_Ctx.
+  Variable L : Local_Ctx.
+  Variable WL : wlocal_ctx.
+
+  Definition fe : function_env := fe_of_contexts F L.
 
   Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wl wl' es x y Φ f :
     run_codegen (if_c tf c1 c2) wl = inr (x, y, wl', es) ->
@@ -120,7 +124,7 @@ Section CodeGen.
   Admitted.
 
   (* TODO *)
-  Lemma wp_load_value_tagged_struct L inst f s E cap ptr szs tys offset sz_off n_off ty wl wl' es idx a :
+  Lemma wp_load_value_tagged_struct inst f s E cap ptr szs tys offset sz_off n_off ty wl wl' es idx a :
     tys !! idx = Some ty ->
     struct_field_offset szs idx = inr sz_off ->
     (* TODO: Are the sizes closed?
@@ -128,7 +132,7 @@ Section CodeGen.
     eval_closed_size sz_off = Some (Wasm_int.nat_of_uint i32m n_off) ->
     f.(f_locs) !! localimm offset = Some (VAL_int32 n_off) ->
     run_codegen (load_value_tagged me fe offset ty) wl = inr (tt, wl', es) ->
-    ⊢ interp_frame sr L wl' inst f -∗
+    ⊢ interp_frame sr L WL inst f -∗
       interp_val sr [RefT cap (LocP ptr GCMem) (StructType (zip tys szs))] (immV [VAL_int32 a]) ∨
       interp_val sr [RefT cap (LocP ptr LinMem) (StructType (zip tys szs))] (immV [VAL_int32 a]) -∗
       WP to_e_list (BI_const (VAL_int32 a) :: es) @ s; E {{ v, interp_val sr [ty] v }}.

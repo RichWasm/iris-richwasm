@@ -419,25 +419,25 @@ Record Module_Ctx :=
 Definition Local_Ctx := list (Typ * Size).
 
 Record Function_Ctx :=
-  { label  : list (list Typ * Local_Ctx);
-    rettyp : option (list Typ);
+  { fc_label : list (list Typ * Local_Ctx);
+    fc_ret : option (list Typ);
     (* Type variables and their constraints *)
-    qual   : list (list Qual * list Qual);
-    size   : list (list Size * list Size);
-    type   : list (Size * Qual * HeapableConstant);
-    location : list Qual;
-    linear : plist Qual;
+    fc_qual : list (list Qual * list Qual);
+    fc_size : list (list Size * list Size);
+    fc_type : list (Size * Qual * HeapableConstant);
+    fc_location : list Qual;
+    fc_linear : plist Qual;
   }.
 
 Definition typ_var_qual (C: Function_Ctx) (α: term.var) :=
-  '(_, q, _) ← C.(type) !! α;
+  '(_, q, _) ← C.(fc_type) !! α;
   mret q.
 
 Definition loc_var_qual (C: Function_Ctx) (ρ: term.var) :=
-  C.(location) !! ρ.
+  C.(fc_location) !! ρ.
 
 Definition heapable (f : Function_Ctx) :=
-  map (fun '(_, _, hc) => hc) (type f).
+  map (fun '(_, _, hc) => hc) (fc_type f).
 
 (* Shifting in environments *)
 
@@ -455,24 +455,24 @@ Ltac pose_ok_proofs ::= pose_ok_proofs'.
 Instance BindExtLocalCtx : BindExt Kind Local_Ctx := ltac:(mkBindExt).
 
 Definition subst'_function_ctx (su : Subst' Kind) (ctx : Function_Ctx) : Function_Ctx :=
-  {| label :=
-       map (fun '(ts, lctx) => (subst'_typs su ts, subst'_local_ctx su lctx)) (label ctx);
-     rettyp := option_map (subst'_typs su) (rettyp ctx);
-     qual := map (fun '(qs1, qs2) => (subst'_quals su qs1, subst'_quals su qs2)) (qual ctx);
-     size := map (fun '(ss1, ss2) => (subst'_sizes su ss1, subst'_sizes su ss2)) (size ctx);
-     type := map (fun '(s, q, hc) => (subst'_size su s, subst'_qual su q, hc)) (type ctx);
-     location := location ctx;
-     linear := pmap (subst'_qual su) (linear ctx) |}.
+  {| fc_label :=
+       map (fun '(ts, lctx) => (subst'_typs su ts, subst'_local_ctx su lctx)) (fc_label ctx);
+     fc_ret := option_map (subst'_typs su) (fc_ret ctx);
+     fc_qual := map (fun '(qs1, qs2) => (subst'_quals su qs1, subst'_quals su qs2)) (fc_qual ctx);
+     fc_size := map (fun '(ss1, ss2) => (subst'_sizes su ss1, subst'_sizes su ss2)) (fc_size ctx);
+     fc_type := map (fun '(s, q, hc) => (subst'_size su s, subst'_qual su q, hc)) (fc_type ctx);
+     fc_location := fc_location ctx;
+     fc_linear := pmap (subst'_qual su) (fc_linear ctx) |}.
 
 
 Lemma function_ctx_eq : forall {F F'},
-    label F = label F' ->
-    rettyp F = rettyp F' ->
-    qual F = qual F' ->
-    size F = size F' ->
-    type F = type F' ->
-    location F = location F' ->
-    linear F = linear F' ->
+    fc_label F = fc_label F' ->
+    fc_ret F = fc_ret F' ->
+    fc_qual F = fc_qual F' ->
+    fc_size F = fc_size F' ->
+    fc_type F = fc_type F' ->
+    fc_location F = fc_location F' ->
+    fc_linear F = fc_linear F' ->
     F = F'.
 Proof.
   intros.
@@ -966,10 +966,10 @@ End QualLt.
   (* adds variables and constraints and shifts appropriately *)
   Definition add_constraint (C : Function_Ctx) (quant : KindVar) : Function_Ctx :=
     match quant with
-    | LOC q => subst_ext (weak SLoc) (update_location_ctx (q :: location C) C)
-    | QUAL qs qs' => subst_ext (weak SQual) (update_qual_ctx ((qs, qs') :: qual C) C)
-    | SIZE sz sz' => subst_ext (weak SSize) (update_size_ctx ((sz, sz') :: size C) C)
-    | TYPE sz q hc => subst_ext (weak STyp) (update_type_ctx ((sz, q, hc) :: type C) C)
+    | LOC q => subst_ext (weak SLoc) (update_location_ctx (q :: fc_location C) C)
+    | QUAL qs qs' => subst_ext (weak SQual) (update_qual_ctx ((qs, qs') :: fc_qual C) C)
+    | SIZE sz sz' => subst_ext (weak SSize) (update_size_ctx ((sz, sz') :: fc_size C) C)
+    | TYPE sz q hc => subst_ext (weak STyp) (update_type_ctx ((sz, q, hc) :: fc_type C) C)
     end.
 
   Definition add_constraints (C : Function_Ctx) (quants : list KindVar) : Function_Ctx :=
@@ -998,11 +998,11 @@ End QualLt.
 
   Definition TypQualLeq (C : Function_Ctx) (t : Typ) (q : Qual) :=
     q' ← (TypQual C t);
-    QualLeq (qual C) q' q.
+    QualLeq (fc_qual C) q' q.
 
   Definition TypQualGeq (C : Function_Ctx) (t : Typ) (q : Qual) :=
     q' ← (TypQual C t);
-    QualLeq (qual C) q q'.
+    QualLeq (fc_qual C) q q'.
   
 Section Validity.
 
@@ -1043,9 +1043,9 @@ Section Validity.
   Definition KindVarValid C kv :=
     match kv with
     | LOC q => True
-    | QUAL qs1 qs2 => Forall (QualValid (qual C)) qs1 /\ Forall (QualValid (qual C)) qs2
-    | SIZE ss1 ss2 => Forall (SizeValid (size C)) ss1 /\ Forall (SizeValid (size C)) ss2
-    | TYPE s q hc => SizeValid (size C) s /\ QualValid (qual C) q
+    | QUAL qs1 qs2 => Forall (QualValid (fc_qual C)) qs1 /\ Forall (QualValid (fc_qual C)) qs2
+    | SIZE ss1 ss2 => Forall (SizeValid (fc_size C)) ss1 /\ Forall (SizeValid (fc_size C)) ss2
+    | TYPE s q hc => SizeValid (fc_size C) s /\ QualValid (fc_qual C) q
     end.
   
   Inductive KindVarsValid : Function_Ctx -> list KindVar -> Prop :=
@@ -1061,14 +1061,14 @@ Section Validity.
         TypeValid C (Num n)
   | TVarValid :
       forall C q a sz hc,
-        nth_error (type C) a = Some (sz, q, hc) ->
+        nth_error (fc_type C) a = Some (sz, q, hc) ->
         TypeValid C (TVar a)
   | TRecValid :
       forall C qa q p sz,
-        QualValid (qual C) qa ->
+        QualValid (fc_qual C) qa ->
         TypQualLeq C p q = Some true ->
-        sizeOfType (type C) (Rec qa p) = Some sz ->
-        SizeValid (size C) sz ->
+        sizeOfType (fc_type C) (Rec qa p) = Some sz ->
+        SizeValid (fc_size C) sz ->
         RecVarUnderRefTyp p 0 true ->
         TypeValid (subst_ext (weak STyp) (add_constraint C (TYPE sz qa Heapable))) p ->
         TypeValid C (Rec qa p)
@@ -1085,30 +1085,30 @@ Section Validity.
         TypeValid C (CoderefT ft)
   | TPtrValid :
       forall C l,
-        LocValid (location C) l ->
+        LocValid (fc_location C) l ->
         TypeValid C (PtrT l)
   | TCapValid :
       forall C c l psi,
-        LocValid (location C) l ->
+        LocValid (fc_location C) l ->
         HeapTypeValid C psi ->
         TypeValid C (CapT c l psi)
   | TRefValid :
       forall C q c l psi,
-        QualValid (qual C) q ->
-        LocValid (location C) l ->
+        QualValid (fc_qual C) q ->
+        LocValid (fc_location C) l ->
         HeapTypeValid C psi ->
         TypeValid C (RefT c l psi)
   | TExLocValid :
       forall C ty q,
-        QualValid (qual C) q ->
+        QualValid (fc_qual C) q ->
         TypQualLeq C ty q = Some true ->
         TypeValid (subst_ext (weak SLoc) (add_constraint C (LOC q))) ty ->
         TypeValid C (ExLoc q ty)
   | TOwnValid :
       forall C l q,
-        QualValid (qual C) q ->
-        QualLeq (qual C) Linear q  = Some true ->
-        LocValid (location C) l ->
+        QualValid (fc_qual C) q ->
+        QualLeq (fc_qual C) Linear q  = Some true ->
+        LocValid (fc_location C) l ->
         TypeValid C (OwnR l)
   with FunTypeValid : Function_Ctx -> FunType -> Prop :=
   | FunTValid :
@@ -1129,22 +1129,22 @@ Section Validity.
         HeapTypeValid C (VariantType taus)
   | StructValid :
       forall tausizes C,
-        Forall (fun tausize => exists sz, sizeOfType (type C) (fst tausize) = Some sz /\
-                                   SizeValid (size C) (snd tausize) /\
-                                   SizeValid (size C) sz /\
+        Forall (fun tausize => exists sz, sizeOfType (fc_type C) (fst tausize) = Some sz /\
+                                   SizeValid (fc_size C) (snd tausize) /\
+                                   SizeValid (fc_size C) sz /\
                                    TypeValid C (fst tausize) /\
-                                   SizeLeq (size C) sz (snd tausize) = Some true) tausizes ->
+                                   SizeLeq (fc_size C) sz (snd tausize) = Some true) tausizes ->
         HeapTypeValid C (StructType tausizes)
   | ArrayValid :
       forall qp p C,
         TypeValid C p ->
-        QualLeq (qual C) qp Unrestricted = Some true ->
+        QualLeq (fc_qual C) qp Unrestricted = Some true ->
         HeapTypeValid C (ArrayType p)
   | ExValid :
       forall C qα sz tau,
-        SizeValid (size C) sz ->
-        QualValid (qual C) qα ->
-        TypeValid (subst_ext (weak STyp) (update_type_ctx ((sz, qα, Heapable) :: type C) C)) tau ->
+        SizeValid (fc_size C) sz ->
+        QualValid (fc_qual C) qα ->
+        TypeValid (subst_ext (weak STyp) (update_type_ctx ((sz, qα, Heapable) :: fc_type C) C)) tau ->
         HeapTypeValid C (Ex sz qα tau).
 
   (*
@@ -1389,7 +1389,7 @@ Section Typing.
   Inductive InstIndValid : Function_Ctx -> FunType -> Index -> Prop :=
   | LocIndValid :
       forall l F rest tf q,
-        LocValid (location F) l ->
+        LocValid (fc_location F) l ->
         LocQual F l = Some q ->
         InstIndValid F (FunT (LOC q :: rest) tf) (LocI l)
   | TypeInstValid : 
@@ -1398,15 +1398,15 @@ Section Typing.
         InstIndValid F (FunT ((TYPE sz q hc) :: rest) tf) (TypI (RefT c l psi))
   | QualInstValid :
       forall q qs1 qs2 F rest tf,
-        QualValid (qual F) q ->
-        Forall (fun q' => QualValid (qual F) q' /\ QualLeq (qual F) q' q = Some true) qs1 ->
-        Forall (fun q' => QualValid (qual F) q' /\ QualLeq (qual F) q q' = Some true) qs2 ->
+        QualValid (fc_qual F) q ->
+        Forall (fun q' => QualValid (fc_qual F) q' /\ QualLeq (fc_qual F) q' q = Some true) qs1 ->
+        Forall (fun q' => QualValid (fc_qual F) q' /\ QualLeq (fc_qual F) q q' = Some true) qs2 ->
         InstIndValid F (FunT ((QUAL qs1 qs2) :: rest) tf) (QualI q)
   | SizeInstValid :
       forall sz szs1 szs2 F rest tf,
-        SizeValid (size F) sz ->
-        Forall (fun sz' => SizeValid (size F) sz' /\ SizeLeq (size F) sz' sz = Some true) szs1 ->
-        Forall (fun sz' => SizeValid (size F) sz' /\ SizeLeq (size F) sz sz' = Some true) szs2 ->
+        SizeValid (fc_size F) sz ->
+        Forall (fun sz' => SizeValid (fc_size F) sz' /\ SizeLeq (fc_size F) sz' sz = Some true) szs1 ->
+        Forall (fun sz' => SizeValid (fc_size F) sz' /\ SizeLeq (fc_size F) sz sz' = Some true) szs2 ->
         InstIndValid F (FunT ((SIZE szs1 szs2) :: rest) tf) (SizeI sz).
 
   Definition InstInd (ft : FunType) (i : Index) : option FunType :=
@@ -1580,7 +1580,7 @@ Section Typing.
   Qed.
 
   Definition LocalCtxValid (F : Function_Ctx) (L : Local_Ctx) :=
-    Forall (fun '(tau, sz) => TypeValid F tau /\ SizeValid (size F) sz) L.
+    Forall (fun '(tau, sz) => TypeValid F tau /\ SizeValid (fc_size F) sz) L.
 
   Inductive LocalSig : Type :=
   | LSig (L: Local_Ctx) (L': Local_Ctx).
@@ -1692,12 +1692,12 @@ Section Typing.
   | NumConstTyp :
       forall C F L nt c,
         LocalCtxValid F L ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (INumConst (EmptyArrow (Num nt), LSig L L) nt c) (EmptyArrow (Num nt)) L
   | UnitTyp :
       forall C F L,
         LocalCtxValid F L ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IUnit (Arrow [] [], LSig L L)) (Arrow [] []) L
   | NumInstrTyp:
     forall C F L ni tf,
@@ -1711,107 +1711,107 @@ Section Typing.
         LocalCtxValid F L' ->
         Forall (TypeValid F) taus1 ->
         Forall (TypeValid F) taus2 ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IUnreachable (Arrow taus1 taus2, LSig L L')) (Arrow taus1 taus2) L'
   | NopTyp :
       forall C F L,
         LocalCtxValid F L ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (INop (Arrow [] [], LSig L L)) (Arrow [] []) L
   | DropTyp :
       forall C F L t,
         LocalCtxValid F L ->
         TypeValid F t ->
         TypQualLeq F t Unrestricted = Some true ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IDrop (Arrow [t] [], LSig L L)) (Arrow [t] []) L
   | BlockTyp :
       forall C F L tl taus1 taus2 es L'',
         let tf := Arrow taus1 taus2 in
         let L' := add_local_effects L tl in
-        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
+        let F1 := update_label_ctx ((taus2, L'') :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (fc_linear F)) F1 in
         HasTypeInstrs C F2 L es tf L' ->
-        LCEffEqual (size F) L' L'' ->
+        LCEffEqual (fc_size F) L' L'' ->
         LocalCtxValid F L'' ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IBlock (tf, LSig L L') tf tl es) tf L'
   | LoopTyp :
       forall C F L taus1 taus2 es,
         let tf := Arrow taus1 taus2 in
         (* let L' := add_local_effects L tl in *)
-        let F1 := update_label_ctx ((taus1, L) :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
+        let F1 := update_label_ctx ((taus1, L) :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (fc_linear F)) F1 in
         HasTypeInstrs C F2 L es tf L ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ILoop (tf, LSig L L) tf es) tf L
   | ITETyp :
       forall C F L tl taus1 taus2 es1 es2 L'',
         let tf := Arrow taus1 taus2 in
         let L' := add_local_effects L tl in
-        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
+        let F1 := update_label_ctx ((taus2, L'') :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (fc_linear F)) F1 in
         HasTypeInstrs C F2 L es1 tf L' ->
         HasTypeInstrs C F2 L es2 tf L' ->
-        LCEffEqual (size F) L' L'' ->
+        LCEffEqual (fc_size F) L' L'' ->
         LocalCtxValid F L'' ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IIte (Arrow (taus1 ++ [uint32T]) taus2, LSig L L') tf tl es1 es2) (Arrow (taus1 ++ [uint32T]) taus2) L'
   | BrTyp :
       forall C F L i taus1 taus1' taus2 tl,
-        nth_error (label F) i = Some (taus1', L) ->
+        nth_error (fc_label F) i = Some (taus1', L) ->
         Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus1 ->                
         (forall j, j <= i ->
-                   exists q, nth_error_plist (linear F) j = Some q /\
-                        QualValid (qual F) q /\
-                        QualLeq (qual F) q Unrestricted = Some true) ->
+                   exists q, nth_error_plist (fc_linear F) j = Some q /\
+                        QualValid (fc_qual F) q /\
+                        QualLeq (fc_qual F) q Unrestricted = Some true) ->
         LocalCtxValid F L ->
         Forall (TypeValid F) (taus1 ++ taus1') ->
         Forall (TypeValid F) taus2 ->
         LocalCtxValid F (add_local_effects L tl) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IBr (Arrow (taus1 ++ taus1') taus2,
                                 LSig L (add_local_effects L tl)) i)
           (Arrow (taus1 ++ taus1') taus2) (add_local_effects L tl)
   | Br_ifTyp :
       forall C F L i taus,
-        nth_error (label F) i = Some (taus, L) ->
+        nth_error (fc_label F) i = Some (taus, L) ->
         (* Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus ->                 *)
         (forall j, j <= i ->
-                   exists q, nth_error_plist (linear F) j = Some q /\
-                        QualValid (qual F) q /\
-                        QualLeq (qual F) q Unrestricted = Some true) ->
+                   exists q, nth_error_plist (fc_linear F) j = Some q /\
+                        QualValid (fc_qual F) q /\
+                        QualLeq (fc_qual F) q Unrestricted = Some true) ->
         LocalCtxValid F L ->
         Forall (TypeValid F) taus ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IBrIf (Arrow (taus ++ [uint32T]) taus, LSig L L) i) (Arrow (taus ++ [uint32T]) taus) L
   | Br_tableTyp :
       forall C F L is taus1 taus1' taus2 tl k,
-        Forall (fun i => nth_error (label F) i = Some (taus1', L)) (is ++ [k]) ->
+        Forall (fun i => nth_error (fc_label F) i = Some (taus1', L)) (is ++ [k]) ->
         Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus1 ->
         let i := list_max (is ++ [k]) in
         (forall j, j <= i ->
-                   exists q, nth_error_plist  (linear F) j = Some q /\
-                        QualValid (qual F) q /\
-                        QualLeq (qual F) q Unrestricted = Some true) ->
+                   exists q, nth_error_plist  (fc_linear F) j = Some q /\
+                        QualValid (fc_qual F) q /\
+                        QualLeq (fc_qual F) q Unrestricted = Some true) ->
         LocalCtxValid F L ->
         Forall (TypeValid F) (taus1 ++ taus1' ++ [uint32T]) ->
         Forall (TypeValid F) taus2 ->
         LocalCtxValid F (add_local_effects L tl) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IBrTable (Arrow (taus1 ++ taus1' ++ [uint32T]) taus2,
                                 LSig L (add_local_effects L tl)) is k) (Arrow (taus1 ++ taus1' ++ [uint32T]) taus2) (add_local_effects L tl)
   | RetTyp :
       forall C F L taus1 taus1' taus2 tl,
-        rettyp F = Some taus1' ->
+        fc_ret F = Some taus1' ->
         Forall (fun '(t, sz) => TypQualLeq F t Unrestricted = Some true) L ->
         Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) taus1 ->
-        Forall_plist (fun q => QualValid (qual F) q /\ QualLeq (qual F) q Unrestricted = Some true) (linear F) ->
+        Forall_plist (fun q => QualValid (fc_qual F) q /\ QualLeq (fc_qual F) q Unrestricted = Some true) (fc_linear F) ->
         LocalCtxValid F L ->
         Forall (TypeValid F) (taus1 ++ taus1') ->
         Forall (TypeValid F) taus2 ->
         LocalCtxValid F (add_local_effects L tl) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IRet (Arrow (taus1 ++ taus1') taus2, LSig L (add_local_effects L tl)))
           (Arrow (taus1 ++ taus1') taus2) (add_local_effects L tl)
   | GetlocalTyp :
@@ -1825,19 +1825,19 @@ Section Typing.
         LocalCtxValid F L ->
         TypeValid F taunew ->
         TypeValid F t ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IGetLocal (EmptyArrow t, LSig L (set_localtype i taunew sz L)) i q)
           (EmptyArrow t) (set_localtype i taunew sz L)
   | SetlocalTyp :
       forall C F L i t sz tau tausz,
         nth_error L i = Some (t, sz) ->
         TypQualLeq F t Unrestricted = Some true ->
-        Some tausz = sizeOfType (type F) tau ->
-        SizeValid (size F) tausz ->
-        SizeLeq (size F) tausz sz = Some true ->
+        Some tausz = sizeOfType (fc_type F) tau ->
+        SizeValid (fc_size F) tausz ->
+        SizeLeq (fc_size F) tausz sz = Some true ->
         LocalCtxValid F L ->
         TypeValid F tau ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ISetLocal (EmptyRes tau, LSig L (set_localtype i tau sz L)) i) (EmptyRes tau) (set_localtype i tau sz L)
   | GetglobalTyp :
       forall C F L i mut tau,
@@ -1845,7 +1845,7 @@ Section Typing.
         LocalCtxValid F L ->
         (* Since this comes from the module context, the type should be valid under an empty function context *)
         TypeValid empty_Function_Ctx tau ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IGetGlobal (EmptyArrow tau, LSig L L) i) (EmptyArrow tau) L
   | SetglobalTyp :
       forall C F L i tau,
@@ -1854,7 +1854,7 @@ Section Typing.
         LocalCtxValid F L ->
         (* Since this comes from the module context, the type should be valid under an empty function context *)
         TypeValid empty_Function_Ctx tau ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ISetGlobal (EmptyRes tau, LSig L L) i) (EmptyRes tau) L
   | CoderefTTyp :
       forall C F L i chi,
@@ -1862,7 +1862,7 @@ Section Typing.
         LocalCtxValid F L ->
         (* Since this comes from the module context, the type should be valid under an empty function context *)
         TypeValid empty_Function_Ctx (CoderefT chi) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ICoderef (EmptyArrow (CoderefT chi), LSig L L) i) (EmptyArrow (CoderefT chi)) L
   | Call_indirectTyp : (* typeset *)
       forall C F L chi is taus1 taus2,
@@ -1871,7 +1871,7 @@ Section Typing.
         Forall (TypeValid F) taus1 ->
         TypeValid F (CoderefT chi) ->
         Forall (TypeValid F) taus2 ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ICallIndirect (Arrow (taus1 ++ [CoderefT chi]) taus2, LSig L L) is) (Arrow (taus1 ++ [CoderefT chi]) taus2) L
   | Call : (* typeset *)
       forall C F L i is chi taus1 taus2,
@@ -1883,14 +1883,14 @@ Section Typing.
         LocalCtxValid F L ->
         Forall (TypeValid F) taus1 ->
         Forall (TypeValid F) taus2 ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ICall (Arrow taus1 taus2, LSig L L) i is) (Arrow taus1 taus2) L
   | RecFoldType : (* typeset *)
       forall C F L tau rec,
         LocalCtxValid F L ->
         TypeValid F rec ->
         TypeValid F (subst_ext (Kind:=Kind) (ext STyp rec id) tau) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IRecFold (Arrow [subst_ext (Kind:=Kind) (ext STyp rec id) tau] [rec], LSig L L) rec)
                            (Arrow [subst_ext (Kind:=Kind) (ext STyp rec id) tau] [rec]) L
   | RecUnfoldType : (* typeset *)
@@ -1898,7 +1898,7 @@ Section Typing.
         LocalCtxValid F L ->
         TypeValid F rec ->
         TypeValid F (subst_ext (Kind:=Kind) (ext STyp rec id) tau) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IRecUnfold (Arrow [rec] [subst_ext (Kind:=Kind) (ext STyp rec id) tau], LSig L L))
                            (Arrow [rec] [subst_ext (Kind:=Kind) (ext STyp rec id) tau]) L
   | GroupType : (* typeset *)
@@ -1906,14 +1906,14 @@ Section Typing.
         length taus = i ->
         LocalCtxValid F L ->
         TypeValid F (ProdT taus) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IGroup (Arrow taus [ProdT taus], LSig L L) i)
                            (Arrow taus [ProdT taus]) L
   | UngroupTyp : (* typeset *)
       forall C F L taus,
         LocalCtxValid F L ->
         TypeValid F (ProdT taus) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IUngroup (Arrow [ProdT taus] taus, LSig L L)) (Arrow [ProdT taus] taus) L
   | CapSplitTyp :
       forall C F L l ht,
@@ -1921,7 +1921,7 @@ Section Typing.
         LocQual F l = Some (QualConst Linear) ->
         TypeValid F (CapT W l ht) ->
         TypeValid F (OwnR l) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ICapSplit (Arrow [CapT W l ht] [CapT R l ht; OwnR l], LSig L L))
                            (Arrow [CapT W l ht] [CapT R l ht; OwnR l])
                            L
@@ -1931,7 +1931,7 @@ Section Typing.
         LocQual F l = Some (QualConst Linear) ->
         TypeValid F (CapT W l ht) ->
         TypeValid F (OwnR l) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (ICapJoin (Arrow [CapT R l ht; OwnR l] [CapT W l ht], LSig L L))
                            (Arrow [CapT R l ht; OwnR l] [CapT W l ht])
                            L
@@ -1940,7 +1940,7 @@ Section Typing.
         LocalCtxValid F L ->
         LocQual F l = Some (QualConst Unrestricted) ->
         TypeValid F (RefT W l ht) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IRefDemote (Arrow [RefT W l ht] [RefT R l ht], LSig L L))
                            (Arrow [RefT W l ht] [RefT R l ht])
                            L
@@ -1950,8 +1950,8 @@ Section Typing.
         LocalCtxValid F L ->
         TypeValid F tau ->
         TypeValid F (ExLoc q taurho) ->
-        LocValid (location F) l ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        LocValid (fc_location F) l ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IMemPack (Arrow [tau] [ExLoc q taurho], LSig L L) l)
                            (Arrow [tau] [ExLoc q taurho])
                            L
@@ -1960,38 +1960,38 @@ Section Typing.
         let tf := Arrow taus1 taus2 in
         let tf' := Arrow (taus1 ++ [ExLoc qrho taurho]) taus2 in
         let L' := add_local_effects L tl in
-        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
-        let F3 := subst_ext (weak SLoc) (update_location_ctx (qrho :: location F) F2) in
+        let F1 := update_label_ctx ((taus2, L'') :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (fc_linear F)) F1 in
+        let F3 := subst_ext (weak SLoc) (update_location_ctx (qrho :: fc_location F) F2) in
         HasTypeInstrs
           C F3
           (subst_ext (weak SLoc) L)
           es
           (Arrow (subst_ext (weak SLoc) taus1 ++ [taurho]) (subst_ext (weak SLoc) taus2))
           (subst_ext (weak SLoc) L') ->
-        LCEffEqual (size F) L' L'' ->
+        LCEffEqual (fc_size F) L' L'' ->
         LocalCtxValid F L'' ->
         LocalCtxValid F L ->
         Forall (TypeValid F) taus1 ->
         TypeValid F (ExLoc qrho taurho) ->
         Forall (TypeValid F) taus2 ->
         LocalCtxValid F L' ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IMemUnpack (tf', LSig L L') tf tl es) tf' L'
   | StructMallocTyp : (* typeset *)
       forall C F L szs q taus,
-        Forall2 (fun tau sz => exists tausz, sizeOfType (type F) tau = Some tausz /\
-                   SizeValid (size F) tausz /\
-                   SizeLeq (size F) tausz sz = Some true) taus szs ->
-        Forall (SizeValid (size F)) szs ->
+        Forall2 (fun tau sz => exists tausz, sizeOfType (fc_type F) tau = Some tausz /\
+                   SizeValid (fc_size F) tausz /\
+                   SizeLeq (fc_size F) tausz sz = Some true) taus szs ->
+        Forall (SizeValid (fc_size F)) szs ->
         forallb (NoCapsTyp (heapable F)) taus = true ->
-        QualValid (qual F) q ->
+        QualValid (fc_qual F) q ->
         let psi := StructType (combine (subst_ext (Kind:=Kind) (weak SLoc) taus) szs) in
         let tf := Arrow taus [ExLoc q (RefT W (LocV 0) psi)] in
         LocalCtxValid F L ->
         Forall (TypeValid F) taus ->
         TypeValid F (ExLoc q (RefT W (LocV 0) psi)) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         HasTypeInstr C F L (IStructMalloc (tf, LSig L L) szs q) tf L
   | StructFreeTyp : (* typeset *)
       forall C F L tauszs l,
@@ -1999,7 +1999,7 @@ Section Typing.
         Forall (fun '(tau, _) => TypQualLeq F tau Unrestricted = Some true) tauszs ->
         LocalCtxValid F L ->
         TypeValid F (RefT W l (StructType tauszs)) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [RefT W l (StructType tauszs)] [] in 
         HasTypeInstr C F L (IStructFree (tf, LSig L L)) tf L
   | TStructGet : forall C F L n taus szs tau l cap,
@@ -2010,7 +2010,7 @@ Section Typing.
       LocalCtxValid F L ->
       TypeValid F (RefT cap l psi) ->
       TypeValid F tau ->
-      QualValid (qual F) (get_hd (linear F)) ->
+      QualValid (fc_qual F) (get_hd (fc_linear F)) ->
       HasTypeInstr C F L (IStructGet (Arrow [RefT cap l psi] [RefT cap l psi; tau], LSig L L) n)
         (Arrow [RefT cap l psi] [RefT cap l psi; tau])
         L
@@ -2021,9 +2021,9 @@ Section Typing.
         ReplaceAtIdx n taus tau = Some (taus', tau_old) ->
         TypQualLeq F tau_old Unrestricted = Some true ->
         nth_error szs n = Some sz ->
-        sizeOfType (type F) tau = Some tau_sz ->
-        SizeValid (size F) tau_sz ->
-        SizeLeq (size F) tau_sz sz = Some true ->
+        sizeOfType (fc_type F) tau = Some tau_sz ->
+        SizeValid (fc_size F) tau_sz ->
+        SizeLeq (fc_size F) tau_sz sz = Some true ->
         TypeValid F tau ->
         NoCapsTyp (heapable F) tau = true ->
         (TypQualGeq F tau Linear = Some true \/
@@ -2032,7 +2032,7 @@ Section Typing.
         LocalCtxValid F L ->
         TypeValid F (RefT W l psi) ->
         TypeValid F (RefT W l psi') ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [RefT W l psi; tau]
                         [RefT W l psi'] in
         HasTypeInstr C F L (IStructSet (tf, LSig L L) n) tf L
@@ -2042,9 +2042,9 @@ Section Typing.
         length taus = length szs ->
         ReplaceAtIdx n taus tau = Some (taus', tau_old) ->
         nth_error szs n = Some sz ->
-        sizeOfType (type F) tau = Some tau_sz ->
-        SizeValid (size F) tau_sz ->
-        SizeLeq (size F) tau_sz sz = Some true ->
+        sizeOfType (fc_type F) tau = Some tau_sz ->
+        SizeValid (fc_size F) tau_sz ->
+        SizeLeq (fc_size F) tau_sz sz = Some true ->
         TypeValid F tau ->
         NoCapsTyp (heapable F) tau = true ->
         (TypQualGeq F tau Linear = Some true \/
@@ -2054,7 +2054,7 @@ Section Typing.
         TypeValid F (RefT W l psi) ->
         TypeValid F (RefT W l psi') ->
         TypeValid F tau_old ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [RefT W l psi; tau] [RefT W l psi'; tau_old] in
         HasTypeInstr C F L (IStructSwap (tf, LSig L L) n)
                            tf 
@@ -2062,34 +2062,34 @@ Section Typing.
   | VariantMallocTyp : (* typeset *)
       forall C F L n taus q tau,
         Forall (TypeValid F) taus ->
-        QualValid (qual F) q ->
+        QualValid (fc_qual F) q ->
         nth_error taus n = Some tau ->
         TypQualLeq F tau q = Some true ->
         forallb (NoCapsTyp (heapable F)) taus = true ->
         let psi := VariantType (subst_ext (Kind:=Kind) (weak SLoc) taus) in
         LocalCtxValid F L ->
         TypeValid F (ExLoc q (RefT W (LocV 0) psi)) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
                            let tf := (Arrow [tau] [ExLoc q (RefT W (LocV 0) psi)]) in 
         HasTypeInstr C F L (IVariantMalloc (tf, LSig L L) n taus q)
                      tf
                            L
   | VariantCaseTypUnr : 
       forall C F L taus1 taus2 tausv q' q qv cap l es tl L'',
-        QualLeq (qual F) qv q' = Some true ->
-        QualLeq (qual F) (get_hd (linear F)) q' = Some true ->
+        QualLeq (fc_qual F) qv q' = Some true ->
+        QualLeq (fc_qual F) (get_hd (fc_linear F)) q' = Some true ->
         let tf := Arrow taus1 taus2 in
         let L' := add_local_effects L tl in
-        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (set_hd q' (linear F))) F1 in
+        let F1 := update_label_ctx ((taus2, L'') :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (set_hd q' (fc_linear F))) F1 in
         Forall2 (fun es tau => HasTypeInstrs C F2 L es (Arrow (taus1 ++ [tau]) taus2) L') es tausv ->
         Forall (fun tau => TypQualLeq F tau Unrestricted = Some true) tausv ->
-        QualLeq (qual F) q Unrestricted = Some true ->
-        QualValid (qual F) q ->
-        QualValid (qual F) qv ->
-        QualValid (qual F) q' ->
-        QualValid (qual F) (get_hd (linear F)) ->
-        LCEffEqual (size F) L' L'' ->
+        QualLeq (fc_qual F) q Unrestricted = Some true ->
+        QualValid (fc_qual F) q ->
+        QualValid (fc_qual F) qv ->
+        QualValid (fc_qual F) q' ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
+        LCEffEqual (fc_size F) L' L'' ->
         LocalCtxValid F L ->
         LocalCtxValid F L'' ->
         Forall (TypeValid F) taus1 ->
@@ -2097,7 +2097,7 @@ Section Typing.
         LocQual F l = Some qv ->
         TypeValid F (RefT cap l (VariantType tausv)) ->
         LocalCtxValid F L' ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf' := Arrow (taus1 ++ [RefT cap l (VariantType tausv)])
                ([RefT cap l (VariantType tausv)] ++ taus2) in
         HasTypeInstr C F L (IVariantCase (tf', LSig L L') q (VariantType tausv) tf tl es) tf' L'
@@ -2105,14 +2105,14 @@ Section Typing.
       forall C F L taus1 taus2 tausv q qv l es tl L'',
         let tf := Arrow taus1 taus2 in
         let L' := add_local_effects L tl in
-        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
+        let F1 := update_label_ctx ((taus2, L'') :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (fc_linear F)) F1 in
         Forall2 (fun es tau => HasTypeInstrs C F2 L es (Arrow (taus1 ++ [tau]) taus2) L') es tausv ->
-        QualLeq (qual F) Linear q = Some true ->
-        QualLeq (qual F) Linear qv = Some true ->
-        QualValid (qual F) q ->
-        QualValid (qual F) qv ->
-        LCEffEqual (size F) L' L'' ->
+        QualLeq (fc_qual F) Linear q = Some true ->
+        QualLeq (fc_qual F) Linear qv = Some true ->
+        QualValid (fc_qual F) q ->
+        QualValid (fc_qual F) qv ->
+        LCEffEqual (fc_size F) L' L'' ->
         LocalCtxValid F L ->
         LocalCtxValid F L'' ->
         Forall (TypeValid F) taus1 ->
@@ -2120,20 +2120,20 @@ Section Typing.
         TypeValid F (RefT W l (VariantType tausv)) ->
         Forall (TypeValid F) taus2 ->
         LocalCtxValid F L' ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf' := Arrow (taus1 ++ [RefT W l (VariantType tausv)]) taus2 in 
         HasTypeInstr C F L (IVariantCase (tf', LSig L L') q (VariantType tausv) tf tl es) tf' L'
   | ArrayMallocTyp : (* typeset *)
       forall C F L tau q,
         let psi := (ArrayType (subst_ext (Kind:=Kind) (weak SLoc) tau)) in
-        QualValid (qual F) q ->
+        QualValid (fc_qual F) q ->
         NoCapsTyp (heapable F) tau = true ->
         TypQualLeq F tau Unrestricted = Some true ->
         LocalCtxValid F L ->
         TypeValid F tau ->
         TypeValid F uint32T  ->
         TypeValid F (ExLoc q (RefT W (LocV 0) psi)) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [tau; uint32T] [ExLoc q (RefT W (LocV 0) psi)] in
         HasTypeInstr C F L (IArrayMalloc (tf, LSig L L) q) tf L
   | ArrayGetTyp : (* typeset *)
@@ -2142,7 +2142,7 @@ Section Typing.
         LocalCtxValid F L ->
         TypeValid F (RefT cap l (ArrayType tau)) ->
         TypeValid F tau ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [RefT cap l (ArrayType tau); uint32T] [RefT cap l (ArrayType tau); tau] in
         HasTypeInstr C F L (IArrayGet (tf, LSig L L)) tf L
   | ArraySetTyp : (* typeset *)
@@ -2152,61 +2152,61 @@ Section Typing.
         LocalCtxValid F L ->
         TypeValid F (RefT W l (ArrayType tau)) ->
         TypeValid F tau ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [RefT W l (ArrayType tau); uint32T; tau] [RefT W l (ArrayType tau)] in
         HasTypeInstr C F L (IArraySet (tf, LSig L L)) tf L
   | ArrayFreeTyp : (* typeset *)
       forall C F L tau q l,
         TypQualLeq F tau Unrestricted = Some true ->
         LocQual F l = Some q ->
-        QualValid (qual F) q ->
-        QualLeq (qual F) Linear q = Some true ->
+        QualValid (fc_qual F) q ->
+        QualLeq (fc_qual F) Linear q = Some true ->
         LocalCtxValid F L ->
         TypeValid F (RefT W l (ArrayType tau)) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [RefT W l (ArrayType tau)] [] in 
         HasTypeInstr C F L (IArrayFree (tf, LSig L L)) tf L
   | ExistPackTyp :
       forall C F L tau htau sz q szp,
         TypQual F tau = Some q ->
         TypQualLeq F htau q = Some true ->
-        QualValid (qual F) q ->
-        sizeOfType (type F) tau = Some szp ->
-        SizeLeq (size F) szp sz = Some true ->
-        SizeValid (size F) szp ->
-        SizeValid (size F) sz ->
+        QualValid (fc_qual F) q ->
+        sizeOfType (fc_type F) tau = Some szp ->
+        SizeLeq (fc_size F) szp sz = Some true ->
+        SizeValid (fc_size F) szp ->
+        SizeValid (fc_size F) sz ->
         TypeValid F tau ->
-        TypeValid (subst_ext (weak subst.STyp) (update_type_ctx ((sz, q, Heapable) :: (type F)) F)) htau ->
+        TypeValid (subst_ext (weak subst.STyp) (update_type_ctx ((sz, q, Heapable) :: (fc_type F)) F)) htau ->
         NoCapsTyp (heapable F) tau = true ->
-        NoCapsTyp (heapable (update_type_ctx ((sz, q, Heapable) :: (type F)) F)) htau = true ->
+        NoCapsTyp (heapable (update_type_ctx ((sz, q, Heapable) :: (fc_type F)) F)) htau = true ->
         let tau' := subst_ext (Kind:=Kind) (ext STyp tau id) htau in
         let psi := Ex sz q (subst_ext (Kind:=Kind) (weak SLoc) htau) in
         LocalCtxValid F L ->
         TypeValid F tau' ->
         TypeValid F (ExLoc q (RefT W (LocV 0) psi)) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [tau'] [ExLoc q (RefT W (LocV 0) psi)] in 
         HasTypeInstr C F L (IExistPack (tf, LSig L L) tau (Ex sz q htau) q) tf L
   | ExistUnpackTypUnr : (* typeset *)
       forall C F L cap taus1 taus2 tau q' q qv l es tl sz qα q_ex L'',
         let tf := Arrow taus1 taus2 in
         let L' := add_local_effects L tl in
-        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (set_hd q' (linear F))) F1 in
-        let F3 := subst_ext (weak STyp) (update_type_ctx ((sz, qα, Heapable) :: (type F2)) F2) in
+        let F1 := update_label_ctx ((taus2, L'') :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (set_hd q' (fc_linear F))) F1 in
+        let F3 := subst_ext (weak STyp) (update_type_ctx ((sz, qα, Heapable) :: (fc_type F2)) F2) in
         HasTypeInstrs C F3 (subst_ext (weak STyp) L) es
                            (Arrow (subst_ext (weak STyp) taus1 ++ [tau])
                                   (subst_ext (weak STyp) taus2)) (subst_ext (weak STyp) L') ->
         TypQual F tau = Some q_ex ->
-        QualLeq (qual F) q_ex Unrestricted = Some true ->
-        QualLeq (qual F) q Unrestricted = Some true ->
-        QualLeq (qual F) qv q' = Some true ->
-        QualLeq (qual F) (get_hd (linear F)) q' = Some true ->
-        QualValid (qual F) q ->
-        QualValid (qual F) qv ->
-        QualValid (qual F) q' ->
-        QualValid (qual F) (get_hd (linear F)) ->
-        LCEffEqual (size F) L' L'' ->
+        QualLeq (fc_qual F) q_ex Unrestricted = Some true ->
+        QualLeq (fc_qual F) q Unrestricted = Some true ->
+        QualLeq (fc_qual F) qv q' = Some true ->
+        QualLeq (fc_qual F) (get_hd (fc_linear F)) q' = Some true ->
+        QualValid (fc_qual F) q ->
+        QualValid (fc_qual F) qv ->
+        QualValid (fc_qual F) q' ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
+        LCEffEqual (fc_size F) L' L'' ->
         LocalCtxValid F L ->
         LocalCtxValid F L'' ->
         Forall (TypeValid F) taus1 ->
@@ -2214,24 +2214,24 @@ Section Typing.
         LocQual F l = Some qv ->
         TypeValid F (RefT cap l (Ex sz qα tau)) ->
         LocalCtxValid F L' ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf' := Arrow (taus1 ++ [RefT cap l (Ex sz qα tau)]) ([RefT cap l (Ex sz qα tau)] ++ taus2) in
         HasTypeInstr C F L (IExistUnpack (tf', LSig L L') q (Ex sz qα tau) tf tl es) tf' L'
   | ExistUnpackTypLin : (* typeset *)
       forall C F L taus1 taus2 tau q qv l es tl sz qα L'',
         let tf := Arrow taus1 taus2 in
         let L' := add_local_effects L tl in
-        let F1 := update_label_ctx ((taus2, L'') :: (label F)) F in
-        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (linear F)) F1 in
-        let F3 := subst_ext (weak STyp)  (update_type_ctx ((sz, qα, Heapable) :: (type F2)) F2) in
+        let F1 := update_label_ctx ((taus2, L'') :: (fc_label F)) F in
+        let F2 := update_linear_ctx (Cons_p (QualConst Unrestricted) (fc_linear F)) F1 in
+        let F3 := subst_ext (weak STyp)  (update_type_ctx ((sz, qα, Heapable) :: (fc_type F2)) F2) in
         HasTypeInstrs C F3 (subst_ext (weak STyp) L) es
                            (Arrow (subst_ext (weak STyp) taus1 ++ [tau])
                                   (subst_ext (weak STyp) taus2)) (subst_ext (weak STyp) L') ->
-        QualLeq (qual F) Linear q = Some true ->
-        QualLeq (qual F) Linear qv = Some true ->
-        QualValid (qual F) q ->
-        QualValid (qual F) qv ->
-        LCEffEqual (size F) L' L'' ->
+        QualLeq (fc_qual F) Linear q = Some true ->
+        QualLeq (fc_qual F) Linear qv = Some true ->
+        QualValid (fc_qual F) q ->
+        QualValid (fc_qual F) qv ->
+        LCEffEqual (fc_size F) L' L'' ->
         LocalCtxValid F L ->
         LocalCtxValid F L'' ->
         Forall (TypeValid F) taus1 ->
@@ -2239,7 +2239,7 @@ Section Typing.
         LocQual F l = Some qv ->
         TypeValid F (RefT W l (Ex sz qα tau)) ->
         LocalCtxValid F L' ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow (taus1 ++ [RefT W l (Ex sz qα tau)]) taus2 in
         HasTypeInstr C F L (IExistUnpack (tf, LSig L L') q (Ex sz qα tau) tf tl es) tf L'
   | RefSplitTyp : (* typeset *)
@@ -2249,7 +2249,7 @@ Section Typing.
         TypeValid F (RefT cap l ht) ->
         TypeValid F (CapT cap l ht) ->
         TypeValid F (PtrT l) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [RefT cap l ht] [CapT cap l ht; PtrT l] in
         HasTypeInstr C F L (IRefSplit (tf, LSig L L)) tf L
   | RefJoinTyp : (* typeset *)
@@ -2258,7 +2258,7 @@ Section Typing.
         TypeValid F (RefT cap l ht) ->
         TypeValid F (CapT cap l ht) ->
         TypeValid F (PtrT l) ->
-        QualValid (qual F) (get_hd (linear F)) ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [CapT cap l ht; PtrT l] [RefT cap l ht] in
         HasTypeInstr C F L (IRefJoin (tf, LSig L L)) tf L
   with HasTypeInstrs :
@@ -2267,7 +2267,7 @@ Section Typing.
   | EmptyTyp: forall C F L ts,
       LocalCtxValid F L ->
       Forall (TypeValid F) ts ->
-      QualValid (qual F) (get_hd (linear F)) ->
+      QualValid (fc_qual F) (get_hd (fc_linear F)) ->
       HasTypeInstrs C F L [] (Arrow ts ts) L
   | ConsTyp :
       forall C F L1 L2 L3 es e tau1 tau2 tau3,
@@ -2276,27 +2276,27 @@ Section Typing.
       HasTypeInstrs C F L1 (e :: es) (Arrow tau1 tau3) L3
   | FrameTyp : 
       forall C F L L' qf es taus taus1 taus2 Flin_hd,
-        get_hd (linear F) = Flin_hd ->
+        get_hd (fc_linear F) = Flin_hd ->
         Forall (fun t => exists q,
           TypQual F t = Some q /\
-          QualLeq (qual F) q qf = Some true) taus ->
-        QualLeq (qual F) Flin_hd qf = Some true ->
-        let F' := update_linear_ctx (set_hd qf (linear F)) F in
+          QualLeq (fc_qual F) q qf = Some true) taus ->
+        QualLeq (fc_qual F) Flin_hd qf = Some true ->
+        let F' := update_linear_ctx (set_hd qf (fc_linear F)) F in
         HasTypeInstrs C F' L es (Arrow taus1 taus2) L' ->
-        QualValid (qual F) (get_hd (linear F)) ->
-        QualValid (qual F) qf ->
+        QualValid (fc_qual F) (get_hd (fc_linear F)) ->
+        QualValid (fc_qual F) qf ->
         Forall (TypeValid F) taus ->
         HasTypeInstrs C F L es (Arrow (taus ++ taus1) (taus ++ taus2)) L'
   | ChangeBegLocalTyp :  (* typeset *)
       forall C F L L1 es taus1 taus2 L',
         LocalCtxValid F L1 ->
-        LCEffEqual (size F) L L1 ->
+        LCEffEqual (fc_size F) L L1 ->
         HasTypeInstrs C F L es (Arrow taus1 taus2) L' ->
         HasTypeInstrs C F L1 es (Arrow taus1 taus2) L'
   | ChangeEndLocalTyp :  (* typeset *)
       forall C F L es taus1 taus2 L' L1,
         LocalCtxValid F L1 ->
-        LCEffEqual (size F) L' L1 ->
+        LCEffEqual (fc_size F) L' L1 ->
         HasTypeInstrs C F L es (Arrow taus1 taus2) L' ->
         HasTypeInstrs C F L es (Arrow taus1 taus2) L1
   .
