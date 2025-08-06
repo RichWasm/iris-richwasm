@@ -488,8 +488,23 @@ Section Instrs.
         (* TODO: unregisterroot a bunch of times, since this is an MM array *)
         emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
     | R.IExistPack (R.Arrow targs trets, _) t th q =>
-        (* TODO: unregisterroot if GC package *)
-        raise ETodo
+        match th with
+        | R.Ex sz q htau =>
+            (* TODO: unregisterroot if GC package *)
+            (* compute size (for generic existential) *)
+            let hsz_bytes := 4 * type_words htau in
+            emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat hsz_bytes))));;
+            (* allocate *)
+            (* this is wrong, this needs to branch on the qualifier of
+               the ref being returned! *)
+            emit (W.BI_call (funcimm me.(me_runtime).(mr_func_alloc)));;
+            ptr_idx ← wlalloc W.T_i32;
+            emit (W.BI_get_local (localimm ptr_idx));;
+            emit (W.BI_store (memimm me.(me_runtime).(mr_mem_mm)) W.T_i32 None 0%N 0%N)
+            (* initialize *)
+            
+        | _ => raise EWrongTypeAnn
+        end
     | R.IExistUnpack (R.Arrow targs trets, _) q th ta tl es =>
         (* TODO: registerroot if GC package *)
         raise ETodo

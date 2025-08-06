@@ -2167,26 +2167,26 @@ Section Typing.
         let tf := Arrow [RefT W l (ArrayType tau)] [] in 
         HasTypeInstr C F L (IArrayFree (tf, LSig L L)) tf L
   | ExistPackTyp :
-      forall C F L tau htau sz q szp,
-        TypQual F tau = Some q ->
+      forall C F L c l psi htau sz q szp,
+        TypQual F (RefT c l psi) = Some q ->
         TypQualLeq F htau q = Some true ->
         QualValid (fc_qual F) q ->
-        sizeOfType (fc_type F) tau = Some szp ->
+        sizeOfType (fc_type F) (RefT c l psi) = Some szp ->
         SizeLeq (fc_size F) szp sz = Some true ->
         SizeValid (fc_size F) szp ->
         SizeValid (fc_size F) sz ->
-        TypeValid F tau ->
+        TypeValid F (RefT c l psi) ->
         TypeValid (subst_ext (weak subst.STyp) (update_type_ctx ((sz, q, Heapable) :: (fc_type F)) F)) htau ->
-        NoCapsTyp (heapable F) tau = true ->
+        NoCapsTyp (heapable F) (RefT c l psi) = true ->
         NoCapsTyp (heapable (update_type_ctx ((sz, q, Heapable) :: (fc_type F)) F)) htau = true ->
-        let tau' := subst_ext (Kind:=Kind) (ext STyp tau id) htau in
+        let tau' := subst_ext (Kind:=Kind) (ext STyp (RefT c l psi) id) htau in
         let psi := Ex sz q (subst_ext (Kind:=Kind) (weak SLoc) htau) in
         LocalCtxValid F L ->
         TypeValid F tau' ->
         TypeValid F (ExLoc q (RefT W (LocV 0) psi)) ->
         QualValid (fc_qual F) (get_hd (fc_linear F)) ->
         let tf := Arrow [tau'] [ExLoc q (RefT W (LocV 0) psi)] in 
-        HasTypeInstr C F L (IExistPack (tf, LSig L L) tau (Ex sz q htau) q) tf L
+        HasTypeInstr C F L (IExistPack (tf, LSig L L) (RefT c l psi) (Ex sz q htau) q) tf L
   | ExistUnpackTypUnr : (* typeset *)
       forall C F L cap taus1 taus2 tau q' q qv l es tl sz qα q_ex L'',
         let tf := Arrow taus1 taus2 in
