@@ -22,6 +22,63 @@ Require Import RichWasm.util.stdpp_extlib.
 Module R. Include term <+ typing. End R.
 Module W. Include datatypes <+ operations. End W.
 
+(* Attempts at reproducing the termination checker problem...  *)
+
+Class MyMonadWriter (M : Type -> Type) : Type :=
+  { my_fmap : forall {A B}, (A -> B) -> M A -> M B;
+    my_ret : forall {A}, A -> M A;
+    my_bind : forall {A B}, M A -> (A -> M B) -> M B;
+    my_listen : forall {A}, M A -> M (A * list nat)%type;
+    my_pass : forall {A}, M (A * (list nat -> list nat))%type -> M A }.
+
+Instance MyMonadWriter_pairlist : MyMonadWriter (fun A => (list nat * A)%type) :=
+  { my_fmap := fun _ _ f m => (fst m, f (snd m));
+    my_ret := fun _ x => ([], x);
+    my_bind := fun _ _ m f => let '(l, x) := f (snd m) in (fst m ++ l, x);
+    my_listen := fun _ m => (fst m, (snd m, fst m));
+    my_pass := fun _ m => let '(l, (x, f)) := m in (f l, x) }.
+
+Definition my_capture' {A} (c : list nat * A) : list nat * (A * list nat) :=
+  my_pass (my_fmap (fun x => (x, const [])) (my_listen c)).
+
+Definition my_capture {A} (c : writer Monoid_list_app A) : writer Monoid_list_app (A * W.expr) :=
+  pass (liftM (fun x => (x, const [])) (listen c)).
+
+Inductive my_type :=
+| MTFoo (l1 : list nat) (l2 : list my_type).
+
+(* The terminatinon checker fails quickly. *)
+Fail Fixpoint foo (e : my_type) : list nat * unit :=
+  let '(MTFoo l1 l2) := e in
+  let fix f l :=
+    my_bind
+      (my_capture'
+         (match l with
+          | [] => my_ret tt
+          | (_, x) :: l' => my_bind (f l') (fun _ => foo x)
+          end))
+      (fun '(y, _) => my_ret y)
+  in
+  f (zip l1 l2).
+
+(* The termination checker hangs. *)
+(*
+Fixpoint foo (e : my_type) : writer Monoid_list_app unit :=
+  let '(MTFoo l1 l2) := e in
+  let fix f l :=
+    bind
+      (my_capture
+         (match l with
+          | [] => ret tt
+          | (_, x) :: l' => bind (f l') (fun _ => foo x)
+          end))
+      (fun '(y, _) => ret y)
+  in
+  f (zip l1 l2).
+*)
+
+(* ...End of attempts *)
+
 Section Instrs.
 
   Variable me : module_env.
@@ -421,48 +478,38 @@ Section Instrs.
     restore_stack val [elem_ty];;
     store_value_tagged offset elem_ty.
 
-  Print R.Typ.
-  Print R.IntType.
-  Print R.instr.
-  Print W.BI_br_table.
+  Definition compile_case_table (ptr : W.localidx) (n : nat) : codegen unit :=
+    offset ← wlalloc W.T_i32;
+    emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 0)));;
+    emit (W.BI_set_local (localimm offset));;
+    emit (W.BI_get_local (localimm ptr));;
+    load_value_tagged offset (R.Num (R.Int R.S R.i32));;
+    emit (W.BI_br_table (seq 0 n) 0).
 
-  Definition compile_variant_cases (ann : R.TyAnn) (cases : list (R.Typ * list (R.instr R.TyAnn))) : codegen unit :=
-    match cases with
-    | [] => ret tt
-    | (ty, body) :: cases' => ret tt
-    end.
+  Definition compile_case_load (ty : R.Typ) : codegen unit :=
+    offset ← wlalloc W.T_i32;
+    emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 4)));; (* skip tag *)
+    emit (W.BI_set_local (localimm offset));;
+    load_value_tagged offset ty.
 
-  Program Fixpoint compile_variant_cases'
-    (ann : W.function_type)
-    (tys : list R.Typ)
-    (cases : list (list (R.instr R.TyAnn)))
-    (ptr : W.localidx)
-    (len : nat)
-    (idx : nat)
-  : codegen unit :=
-    match tys, cases with
-    | [], [] =>
-        block_c ann (
-          offset ← wlalloc W.T_i32;
-          emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 0)));;
-          emit (W.BI_set_local (localimm offset));;
-          emit (W.BI_get_local (localimm ptr));;
-          load_value_tagged offset (R.Num (R.Int R.S R.i32));;
-          emit (W.BI_br_table (seq 0 len) 0)
-        )
-    | ty :: tys', body :: cases' =>
-        block_c ann (
-          compile_variant_cases' ann tys' cases' ptr len (idx + 1);;
-          offset ← wlalloc W.T_i32;
-          emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 4)));; (* skip length *)
-          emit (W.BI_set_local (localimm offset));;
-          load_value_tagged offset ty;;
-          compile_instrs body
-        )
-    | _, _ => ret tt
-    end
+  Fixpoint compile_cases
+    (do_case : R.Typ * list (R.instr R.TyAnn) -> codegen unit)
+    (cases : list (R.Typ * list (R.instr R.TyAnn)))
+    (idx : nat) :
+    codegen unit :=
+    block_c (W.Tf [] [])
+      (match cases with
+        | [] => ret tt
+        | case :: cases' =>
+            compile_cases do_case cases' (idx + 1);;
+            do_case case;;
+            ret tt
+        end).
 
-  with compile_instr (e : R.instr R.TyAnn) : codegen unit :=
+  Definition other_foo (e : R.instr R.TyAnn) : codegen unit :=
+    ret tt.
+
+  Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with
     | R.INumConst _ ty n => emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n)))
     | R.IUnit _ => ret tt
@@ -514,14 +561,29 @@ Section Instrs.
         (* TODO: registerroot on the new address;
                  unregisterroot if payload is GC ref being put into GC variant *)
         raise ETodo
-    | R.IVariantCase (ta, _) q Ψ ta' eff ess =>
-        (* TODO: duproot if unrestricted *)
-        match Ψ with
-        | R.VariantType tys =>
-            ptr ← wlalloc W.T_i32;
-            compile_variant_cases' (translate_arrow_type ta) tys ess ptr (length ess) 0
-        | _ => raise ETodo
-        end
+    | R.IVariantCase _ q Ψ ta _ ess =>
+        (* TODO: duproot if unrestricted. *)
+        (* TODO: Check if qualifier is linear or unrestricted. *)
+        let tf := translate_arrow_type ta in
+        ptr ← wlalloc W.T_i32;
+
+        (* This takes forever to check. *)
+        (*
+        let fix compile_cases cases idx :=
+          block_c tf
+            (match cases with
+             | [] => compile_case_table ptr (length ess)
+             | (ty, es) :: cases' =>
+                 compile_cases cases' (idx + 1);;
+                 compile_case_load ty;;
+                 forT es compile_instr;;
+                 ret tt
+             end)
+        in
+        tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
+        compile_cases (zip tys ess) 0
+        *)
+        ret tt
     | R.IArrayMalloc _ _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
@@ -550,24 +612,9 @@ Section Instrs.
     | R.IRefDemote _
     | R.IMemPack _ _
     | R.IQualify _ _ => ret tt
-    end
+    end.
 
-  with compile_instrs (l : list (R.instr R.TyAnn)) : codegen unit :=
-    iterM compile_instr l.
-
-  Next Obligation.
-  Admitted.
-
-  Next Obligation.
-  Admitted.
-
-  Next Obligation.
-  Admitted.
-
-  Next Obligation.
-  Admitted.
-
-  Final Obligation.
-  Admitted.
+  Definition compile_instrs : list (R.instr R.TyAnn) -> codegen unit :=
+    iterM compile_instr.
 
 End Instrs.

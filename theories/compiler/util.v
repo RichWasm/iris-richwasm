@@ -8,6 +8,7 @@ Module W := Wasm.datatypes.
 Inductive error :=
   | EWrongTypeAnn
   | EIndexOutOfBounds (index : nat)
+  | ECaseNotOnVariant
   | ETodo.
 
 Record store_runtime :=

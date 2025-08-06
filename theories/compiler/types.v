@@ -114,6 +114,12 @@ Definition array_elem (ty : R.Typ) : option R.Typ :=
   | _ => None
   end.
 
+Definition variant_cases (ty : R.HeapType) : option (list R.Typ) :=
+  match ty with
+  | R.VariantType tys => Some tys
+  | _ => None
+  end.
+
 Definition find_refs (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
   let fix go ty i :=
     match ty with
