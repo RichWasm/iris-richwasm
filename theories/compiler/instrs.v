@@ -421,49 +421,30 @@ Section Instrs.
     restore_stack val [elem_ty];;
     store_value_tagged offset elem_ty.
 
-  Print R.Typ.
-  Print R.IntType.
-  Print R.instr.
-  Print W.BI_br_table.
-
-  Definition compile_variant_cases (ann : R.TyAnn) (cases : list (R.Typ * list (R.instr R.TyAnn))) : codegen unit :=
+  Fixpoint compile_variant_case
+    (ptr : W.localidx) (n : nat) (i : nat) (tf : W.function_type) (cases : list (R.Typ * W.expr)) :
+    codegen unit :=
     match cases with
-    | [] => ret tt
-    | (ty, body) :: cases' => ret tt
+    | [] =>
+        block_c tf
+          (offset ← wlalloc W.T_i32;
+           emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 0)));;
+           emit (W.BI_set_local (localimm offset));;
+           emit (W.BI_get_local (localimm ptr));;
+           load_value_tagged offset (R.Num (R.Int R.S R.i32));;
+           emit (W.BI_br_table (seq 0 n) 0)) (* default value should never happen *)
+    | (ty, es) :: cases' =>
+        block_c tf
+          (compile_variant_case ptr n (i + 1) tf cases';;
+           offset ← wlalloc W.T_i32;
+           emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 4)));; (* skip length *)
+           emit (W.BI_set_local (localimm offset));;
+           load_value_tagged offset ty;;
+           emit_all es;;
+           emit (W.BI_br (n - i + 1))) (* TODO: make sure this is right *)
     end.
 
-  Program Fixpoint compile_variant_cases'
-    (ann : W.function_type)
-    (tys : list R.Typ)
-    (cases : list (list (R.instr R.TyAnn)))
-    (ptr : W.localidx)
-    (len : nat)
-    (idx : nat)
-  : codegen unit :=
-    match tys, cases with
-    | [], [] =>
-        block_c ann (
-          offset ← wlalloc W.T_i32;
-          emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 0)));;
-          emit (W.BI_set_local (localimm offset));;
-          emit (W.BI_get_local (localimm ptr));;
-          load_value_tagged offset (R.Num (R.Int R.S R.i32));;
-          emit (W.BI_br_table (seq 0 len) 0) (* default value should never happen *)
-        )
-    | ty :: tys', body :: cases' =>
-        block_c ann (
-          compile_variant_cases' ann tys' cases' ptr len (idx + 1);;
-          offset ← wlalloc W.T_i32;
-          emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 4)));; (* skip length *)
-          emit (W.BI_set_local (localimm offset));;
-          load_value_tagged offset ty;;
-          compile_instrs body;;
-          emit (W.BI_br (len - idx + 1)) (* TODO: make sure this is right *)
-        )
-    | _, _ => ret tt
-    end
-
-  with compile_instr (e : R.instr R.TyAnn) : codegen unit :=
+  Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with
     | R.INumConst _ ty n => emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n)))
     | R.IUnit _ => ret tt
@@ -517,12 +498,12 @@ Section Instrs.
         raise ETodo
     | R.IVariantCase (ta, _) q Ψ ta' eff ess =>
         (* TODO: duproot if unrestricted *)
-        match Ψ with
-        | R.VariantType tys =>
-            ptr ← wlalloc W.T_i32;
-            compile_variant_cases' (translate_arrow_type ta) tys ess ptr (length ess) 0
-        | _ => raise ETodo
-        end
+        (* TODO: Consume the ref if the qualifier is linear; preserve the ref if it's unrestricted. *)
+        ptr ← wlalloc W.T_i32;
+        let tf := translate_arrow_type ta in
+        tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
+        ess' ← forT ess (fun es => snd <$> capture (forT es compile_instr));
+        compile_variant_case ptr (length tys) 0 tf (zip tys ess')
     | R.IArrayMalloc _ _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
@@ -551,24 +532,8 @@ Section Instrs.
     | R.IRefDemote _
     | R.IMemPack _ _
     | R.IQualify _ _ => ret tt
-    end
+    end.
 
-  with compile_instrs (l : list (R.instr R.TyAnn)) : codegen unit :=
-    iterM compile_instr l.
-
-  Next Obligation.
-  Admitted.
-
-  Next Obligation.
-  Admitted.
-
-  Next Obligation.
-  Admitted.
-
-  Next Obligation.
-  Admitted.
-
-  Final Obligation.
-  Admitted.
+  Definition compile_instrs : list (R.instr R.TyAnn) -> codegen unit := iterM compile_instr.
 
 End Instrs.
