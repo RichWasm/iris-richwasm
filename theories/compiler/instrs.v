@@ -448,7 +448,7 @@ Section Instrs.
           emit (W.BI_set_local (localimm offset));;
           emit (W.BI_get_local (localimm ptr));;
           load_value_tagged offset (R.Num (R.Int R.S R.i32));;
-          emit (W.BI_br_table (seq 0 len) 0)
+          emit (W.BI_br_table (seq 0 len) 0) (* default value should never happen *)
         )
     | ty :: tys', body :: cases' =>
         block_c ann (
@@ -457,7 +457,8 @@ Section Instrs.
           emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 4)));; (* skip length *)
           emit (W.BI_set_local (localimm offset));;
           load_value_tagged offset ty;;
-          compile_instrs body
+          compile_instrs body;;
+          emit (W.BI_br (len - idx + 1)) (* TODO: make sure this is right *)
         )
     | _, _ => ret tt
     end
