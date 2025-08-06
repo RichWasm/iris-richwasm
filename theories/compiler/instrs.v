@@ -509,6 +509,8 @@ Section Instrs.
   Definition other_foo (e : R.instr R.TyAnn) : codegen unit :=
     ret tt.
 
+  Definition emit_all : W.expr -> codegen unit := tell.
+
   Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with
     | R.INumConst _ ty n => emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n)))
@@ -567,23 +569,19 @@ Section Instrs.
         let tf := translate_arrow_type ta in
         ptr ← wlalloc W.T_i32;
 
-        (* This takes forever to check. *)
-        (*
-        let fix compile_cases cases idx :=
+        let fix compile_cases cases :=
           block_c tf
             (match cases with
              | [] => compile_case_table ptr (length ess)
              | (ty, es) :: cases' =>
-                 compile_cases cases' (idx + 1);;
+                 compile_cases cases';;
                  compile_case_load ty;;
-                 forT es compile_instr;;
-                 ret tt
+                 emit_all es
              end)
         in
         tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
-        compile_cases (zip tys ess) 0
-        *)
-        ret tt
+        ess' ← mapT (fun es => snd <$> capture (forT es compile_instr)) ess;
+        compile_cases (zip tys ess')
     | R.IArrayMalloc _ _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
