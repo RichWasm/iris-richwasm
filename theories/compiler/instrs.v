@@ -421,6 +421,29 @@ Section Instrs.
     restore_stack val [elem_ty];;
     store_value_tagged offset elem_ty.
 
+  Fixpoint compile_variant_case
+    (ptr : W.localidx) (n : nat) (i : nat) (tf : W.function_type) (cases : list (R.Typ * W.expr)) :
+    codegen unit :=
+    match cases with
+    | [] =>
+        block_c tf
+          (offset ← wlalloc W.T_i32;
+           emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 0)));;
+           emit (W.BI_set_local (localimm offset));;
+           emit (W.BI_get_local (localimm ptr));;
+           load_value_tagged offset (R.Num (R.Int R.S R.i32));;
+           emit (W.BI_br_table (seq 0 n) 0)) (* default value should never happen *)
+    | (ty, es) :: cases' =>
+        block_c tf
+          (compile_variant_case ptr n (i + 1) tf cases';;
+           offset ← wlalloc W.T_i32;
+           emit (W.BI_const (compile_Z W.T_i32 (Z.of_nat 4)));; (* skip length *)
+           emit (W.BI_set_local (localimm offset));;
+           load_value_tagged offset ty;;
+           emit_all es;;
+           emit (W.BI_br (n - i + 1))) (* TODO: make sure this is right *)
+    end.
+
   Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with
     | R.INumConst _ ty n => emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n)))
@@ -473,9 +496,14 @@ Section Instrs.
         (* TODO: registerroot on the new address;
                  unregisterroot if payload is GC ref being put into GC variant *)
         raise ETodo
-    | R.IVariantCase _ _ _ _ _ _ =>
+    | R.IVariantCase (ta, _) q Ψ ta' eff ess =>
         (* TODO: duproot if unrestricted *)
-        raise ETodo
+        (* TODO: Consume the ref if the qualifier is linear; preserve the ref if it's unrestricted. *)
+        ptr ← wlalloc W.T_i32;
+        let tf := translate_arrow_type ta in
+        tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
+        ess' ← forT ess (fun es => snd <$> capture (forT es compile_instr));
+        compile_variant_case ptr (length tys) 0 tf (zip tys ess')
     | R.IArrayMalloc _ _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
@@ -521,7 +549,6 @@ Section Instrs.
     | R.IQualify _ _ => ret tt
     end.
 
-  Definition compile_instrs : list (R.instr R.TyAnn) -> codegen unit :=
-    iterM compile_instr.
+  Definition compile_instrs : list (R.instr R.TyAnn) -> codegen unit := iterM compile_instr.
 
 End Instrs.

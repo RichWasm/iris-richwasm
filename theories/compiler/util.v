@@ -7,6 +7,7 @@ Module W := Wasm.datatypes.
 
 Inductive error :=
   | EWrongTypeAnn
+  | ECaseNotOnVariant
   | EIndexOutOfBounds (index : nat)
   | ETodo.
 

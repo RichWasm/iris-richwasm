@@ -71,8 +71,9 @@ Definition run_codegen {A} (c : codegen A) (wl : wlocal_ctx) : error + A * wloca
   | inr x => inr (PPair.pfst x, PPair.psnd x)
   end.
 
-Definition emit (e : W.basic_instruction) : codegen unit :=
-  tell [e].
+Definition emit (e : W.basic_instruction) : codegen unit := tell [e].
+
+Definition emit_all : W.expr -> codegen unit := tell.
 
 Definition capture {A} (c : codegen A) : codegen (A * W.expr) :=
   censor (const []) (listen c).
