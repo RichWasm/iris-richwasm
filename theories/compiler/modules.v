@@ -27,6 +27,7 @@ Definition globidx_table_offset : W.immediate := 1.
 Definition fe_of_contexts (F : R.Function_Ctx) (L : R.Local_Ctx) : function_env :=
   {| fe_return_type := F.(R.fc_ret);
      fe_size_bounds := F.(R.fc_size);
+     fe_qual_bounds := F.(R.fc_qual);
      (* TODO: Size locals come after the normal arguments, but before non-argument locals. *)
      fe_size_locals := List.map W.Mk_localidx (List.seq 0 (length F.(R.fc_size)));
      fe_wlocal_offset := sum_list_with (type_words ∘ fst) L + length F.(R.fc_size) |}.
