@@ -19,8 +19,9 @@ Record store_runtime :=
 Record module_runtime :=
   { mr_mem_gc : W.memidx;
     mr_mem_mm : W.memidx;
-    mr_func_alloc : W.funcidx;
+    mr_func_lin_alloc : W.funcidx;
     mr_func_free : W.funcidx;
+    mr_func_gc_alloc : W.funcidx;
     mr_func_registerroot : W.funcidx;
     mr_func_duproot : W.funcidx;
     mr_func_unregisterroot : W.funcidx;
@@ -36,7 +37,10 @@ Record function_env :=
     fe_size_bounds : list (list R.Size * list R.Size);
     fe_size_locals : list W.localidx;
     fe_wlocal_offset : nat;
-    fe_qual_bounds : list (list R.Qual * list R.Qual); }.
+    fe_qual_bounds : list (list R.Qual * list R.Qual); 
+    fe_qual_locals : list W.localidx; }.
+
+Definition fe_qual_offset fe := length fe.(fe_size_locals).
 
 Inductive VarScope :=
   | VSGlobal

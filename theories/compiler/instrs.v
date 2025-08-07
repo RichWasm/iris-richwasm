@@ -237,14 +237,29 @@ Section Instrs.
   Fixpoint compile_size (sz : R.Size) : codegen unit :=
     match sz with
     | R.SizeVar σ =>
-        x ← try_option (EIndexOutOfBounds σ) (lookup σ fe.(fe_size_locals));
-        emit (W.BI_get_local (localimm x))
+        lidx ← try_option (EIndexOutOfBounds σ) (lookup σ fe.(fe_size_locals));
+        emit (W.BI_get_local (localimm lidx))
     | R.SizePlus sz1 sz2 =>
         compile_size sz1;;
         compile_size sz2;;
         emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add))
     | R.SizeConst c =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c))))
+    end.
+
+  Fixpoint compile_qual (q : R.Qual) : codegen unit :=
+    match q with
+    | R.QualVar δ => 
+        lidx ← try_option (EIndexOutOfBounds δ) (lookup δ fe.(fe_qual_locals));
+        emit (W.BI_get_local (localimm lidx))
+    | R.QualJoin q1 q2 =>
+        compile_qual q1;;
+        compile_qual q2;;
+        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_or))
+    | R.QualConst R.Unrestricted =>
+        emit (W.BI_const (W.VAL_int32 (wasm_bool false)))
+    | R.QualConst R.Linear =>
+        emit (W.BI_const (W.VAL_int32 (wasm_bool true)))
     end.
 
   Definition compile_index (idx: R.Index) : codegen unit :=
@@ -445,6 +460,13 @@ Section Instrs.
            emit (W.BI_br (n - i + 1))) (* TODO: make sure this is right *)
     end.
 
+  (* Produces code that consumes a size on the top of the stack and returns a ref *) 
+  Definition compile_malloc (q: R.Qual) : codegen unit :=
+    compile_qual q;;
+    emit (W.BI_if (W.Tf [W.T_i32] [W.T_i32])
+            [W.BI_call (funcimm me.(me_runtime).(mr_func_lin_alloc))]
+            [W.BI_call (funcimm me.(me_runtime).(mr_func_gc_alloc))]).
+
   Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
     match e with
     | R.INumConst _ ty n => emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n)))
@@ -527,24 +549,30 @@ Section Instrs.
     | R.IArrayFree ann =>
         (* TODO: unregisterroot a bunch of times, since this is an MM array *)
         emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
-    | R.IExistPack (R.Arrow targs trets, _) t th q =>
+    | R.IExistPack (R.Arrow [tau] trets, _) t th q =>
         match th with
-        | R.Ex sz q htau =>
+        | R.Ex _ _ htau =>
+            contents_idx ← save_stack [tau];
             (* TODO: unregisterroot if GC package *)
-            (* compute size (for generic existential) *)
             let hsz_bytes := 4 * type_words htau in
             emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat hsz_bytes))));;
-            (* allocate *)
-            (* this is wrong, this needs to branch on the qualifier of
-               the ref being returned! *)
-            emit (W.BI_call (funcimm me.(me_runtime).(mr_func_alloc)));;
+            compile_malloc q;;
+            (* save the tagged pointer returned by malloc *)
             ptr_idx ← wlalloc W.T_i32;
+            emit (W.BI_set_local (localimm ptr_idx));;
+            (* set up a local for the offset (it's zero...) *)
+            zero_idx ← wlalloc W.T_i32;
+            emit (W.BI_const (compile_Z W.T_i32 0%Z));;
+            (* do the tagged store to initialize the newly allocated region *)
             emit (W.BI_get_local (localimm ptr_idx));;
-            emit (W.BI_store (memimm me.(me_runtime).(mr_mem_mm)) W.T_i32 None 0%N 0%N)
-            (* initialize *)
-            
+            restore_stack contents_idx [tau];;
+            store_value_tagged zero_idx t;;
+            (* put the tagged pointer on the top of the stack *)
+            emit (W.BI_get_local (localimm ptr_idx))
         | _ => raise EWrongTypeAnn
         end
+    | R.IExistPack (R.Arrow [] _, _) _ _ _ 
+    | R.IExistPack (R.Arrow (_ :: _ :: _) _, _) _ _ _ => raise EWrongTypeAnn
     | R.IExistUnpack (R.Arrow targs trets, _) q th ta tl es =>
         (* TODO: registerroot if GC package *)
         raise ETodo

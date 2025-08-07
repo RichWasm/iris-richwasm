@@ -30,7 +30,10 @@ Definition fe_of_contexts (F : R.Function_Ctx) (L : R.Local_Ctx) : function_env 
      fe_qual_bounds := F.(R.fc_qual);
      (* TODO: Size locals come after the normal arguments, but before non-argument locals. *)
      fe_size_locals := List.map W.Mk_localidx (List.seq 0 (length F.(R.fc_size)));
-     fe_wlocal_offset := sum_list_with (type_words ∘ fst) L + length F.(R.fc_size) |}.
+     fe_qual_locals := List.map W.Mk_localidx (List.seq (length F.(R.fc_size)) (length F.(R.fc_qual)));
+     fe_wlocal_offset := sum_list_with (type_words ∘ fst) L +
+                           length F.(R.fc_size) +
+                           length F.(R.fc_qual) |}.
 
 Definition set_table_elem (start : W.immediate) (i f : nat) : W.expr :=
   [W.BI_get_local start;

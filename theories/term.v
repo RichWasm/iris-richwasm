@@ -42,7 +42,7 @@ Inductive Loc :=
 
 Inductive Qual :=
 | QualVar (δ : var)
-| QualJoin (q__s : list Qual)
+| QualJoin (q1 q2 : Qual)
 | QualConst (c : QualConstant).
 
 Coercion QualConst : QualConstant >-> Qual.

@@ -732,13 +732,16 @@ Section QualLt.
     Inductive qual_leq : Qual -> Qual -> Prop :=
     | QualLeqBot: forall q, qual_leq Unrestricted q
     | QualLeqTop: forall q, qual_leq q Linear
-    | QualLeqJoinL: forall q qs,
-        (forall q0, In q0 qs -> qual_leq q0 q) ->
-        qual_leq (QualJoin qs) q
-    | QualLeqJoinR: forall q q0 qs,
-        In q0 qs ->
-        qual_leq q q0 ->
-        qual_leq q (QualJoin qs)
+    | QualLeqJoinL: forall q q1 q2,
+        qual_leq q1 q ->
+        qual_leq q2 q ->
+        qual_leq (QualJoin q1 q2) q
+    | QualLeqJoinR1: forall q q1 q2,
+        qual_leq q q1 ->
+        qual_leq q (QualJoin q1 q2)
+    | QualLeqJoinR2: forall q q1 q2,
+        qual_leq q q2 ->
+        qual_leq q (QualJoin q1 q2)
     | QualLeqRefl: forall q, qual_leq q q
     | QualLeqTrans: forall q1 q2 q3, qual_leq q1 q2 -> qual_leq q2 q3 -> qual_leq q1 q3
     | QualLeqUB: forall q1 q1' lbs ubs q2,
@@ -772,7 +775,7 @@ Section QualLt.
   Fixpoint interp_qual (model : nat -> QualConstant) (q : Qual) :=
     match q with
     | QualVar v => model v
-    | QualJoin qs => fold_left qual_const_join (map (interp_qual model) qs) Unrestricted
+    | QualJoin q1 q2 => qual_const_join (interp_qual model q1) (interp_qual model q2)
     | QualConst c => c
     end.
 
@@ -980,6 +983,9 @@ End QualLt.
     | LocV ρ => loc_var_qual C ρ
     | LocP _ mem => mret $ mem_qual mem
     end.
+  
+  Definition QualJoins (qs: list Qual) : Qual :=
+    foldl QualJoin Unrestricted qs.
 
   Fixpoint TypQual (C: Function_Ctx) (ty: Typ) : option Qual :=
     match ty with
@@ -988,7 +994,7 @@ End QualLt.
     | CoderefT _
     | PtrT _ => mret (Unrestricted: Qual)
     | TVar α => typ_var_qual C α
-    | ProdT tys => quals ← (mapM (TypQual C) tys); mret (QualJoin quals)
+    | ProdT tys => QualJoins <$> mapM (TypQual C) tys
     | Rec q _ => mret q
     | ExLoc q ty => TypQual (add_constraint C (LOC q)) ty
     | OwnR loc
