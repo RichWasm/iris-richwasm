@@ -271,7 +271,9 @@ Section Fundamental.
     - (* IUnreachable *)
       admit.
     - (* INop *)
-      admit.
+      eapply compat_nop.
+      + assumption.
+      + exact Hcomp.
     - (* IDrop *)
       admit.
     - (* IBlock *)
