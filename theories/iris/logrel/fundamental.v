@@ -110,6 +110,41 @@ Section Fundamental.
   Proof.
   Admitted.
 
+  Lemma compat_nop me fe wl wl' C F L es :
+    QualValid (fc_qual F) (list.get_hd (fc_linear F)) ->
+    run_codegen (compile_instr me fe (INop (Arrow [] [], LSig L L))) wl =
+    inr ((), wl', es) ->
+    ⊢ semantic_typing sr C F L [] (to_e_list es) (Arrow [] []) L.
+  Proof.
+    intros Hqual Hcomp.
+    cbn in Hcomp.
+    inversion Hcomp; subst es.
+    unfold semantic_typing.
+    iIntros (inst lh) "[Hinst Hctx] %f %vs [Hvs Hfr]".
+    rewrite interp_expr_eq interp_frame_eq.
+    cbn.
+    iDestruct "Hvs" as "[%Htrap | (%ws & -> & %wss & -> & Hvs)]". 
+    - (* trap case *)
+      admit.
+    - iApply wp_val_app; [|iSplitR].
+      + rewrite to_of_val.
+        reflexivity.
+      + iIntros "!> (%ws & %Htrap & B)".
+        congruence.
+      + iDestruct "Hfr" as "[Hf Hfrel]".
+        iApply (wp_wand with "[Hf]").
+        * iApply (wp_nop with "[$]").
+          fill_imm_pred.
+        * iIntros (vs) "[-> Hf]".
+          cbn.
+          iExists (flatten wss).
+          iSplitR; [by rewrite cats0|].
+          iSplitL "Hvs"; [iExists _; eauto|].
+          iExists f.
+          rewrite interp_frame_eq.
+          iFrame.
+  Admitted.
+
   Lemma compat_struct_get M F L me fe ty cap l hty taus szs i es wl wl' :
     hty = StructType (combine taus szs) ->
     HasTypeInstr M F L
