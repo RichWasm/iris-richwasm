@@ -5,6 +5,7 @@ Require Import Coq.Strings.String.
 Require Import Coq.NArith.BinNat.
 Require Import Coq.ZArith.BinInt.
 Local Open Scope program_scope.
+Require Import RichWasm.prelude.
 
 From ExtLib.Data Require Import List.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
@@ -502,8 +503,19 @@ Section Instrs.
         ptr ← wlalloc W.T_i32;
         let tf := translate_arrow_type ta in
         tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
-        ess' ← forT ess (fun es => snd <$> capture (forT es compile_instr));
-        compile_variant_case ptr (length tys) 0 tf (zip tys ess')
+        ess' ← forT (B := W.expr) ess (fun es => snd <$> capture (forT es compile_instr));
+        b ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) q (R.QualConst R.Unrestricted));
+        b' ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) (R.QualConst R.Linear) q);
+        match b, b' with
+        | true, _ =>
+            emit (W.BI_get_local (localimm ptr));;
+            compile_variant_case ptr (length tys) 0 tf (zip tys ess')
+        | _, true =>
+            compile_variant_case ptr (length tys) 0 tf (zip tys ess');;
+            emit (W.BI_get_local (localimm ptr));;
+            emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
+        | _, _ => raise EWrongTypeAnn
+        end
     | R.IArrayMalloc _ _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)

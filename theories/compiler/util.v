@@ -9,6 +9,7 @@ Inductive error :=
   | EWrongTypeAnn
   | ECaseNotOnVariant
   | EIndexOutOfBounds (index : nat)
+  | EUnboundQual
   | ETodo.
 
 Record store_runtime :=
@@ -34,7 +35,8 @@ Record function_env :=
   { fe_return_type : option (list R.Typ);
     fe_size_bounds : list (list R.Size * list R.Size);
     fe_size_locals : list W.localidx;
-    fe_wlocal_offset : nat }.
+    fe_wlocal_offset : nat;
+    fe_qual_bounds : list (list R.Qual * list R.Qual); }.
 
 Inductive VarScope :=
   | VSGlobal
