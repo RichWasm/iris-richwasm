@@ -549,33 +549,30 @@ Section Instrs.
     | R.IArrayFree ann =>
         (* TODO: unregisterroot a bunch of times, since this is an MM array *)
         emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
-    | R.IExistPack (R.Arrow [tau] trets, _) t th q =>
-        match th with
-        | R.Ex _ _ htau =>
-            contents_idx ← save_stack [tau];
-            (* TODO: unregisterroot if GC package *)
-            let hsz_bytes := 4 * type_words htau in
-            emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat hsz_bytes))));;
-            compile_malloc q;;
-            (* save the tagged pointer returned by malloc *)
-            ptr_idx ← wlalloc W.T_i32;
-            emit (W.BI_set_local (localimm ptr_idx));;
-            (* set up a local for the offset (it's zero...) *)
-            zero_idx ← wlalloc W.T_i32;
-            emit (W.BI_const (compile_Z W.T_i32 0%Z));;
-            (* do the tagged store to initialize the newly allocated region *)
-            emit (W.BI_get_local (localimm ptr_idx));;
-            restore_stack contents_idx [tau];;
-            store_value_tagged zero_idx t;;
-            (* put the tagged pointer on the top of the stack *)
-            emit (W.BI_get_local (localimm ptr_idx))
-        | _ => raise EWrongTypeAnn
-        end
+    | R.IExistPack (R.Arrow [tau] trets, _) t (R.Ex _ _ htau) q =>
+        contents_idx ← save_stack [tau];
+        (* TODO: unregisterroot if GC package *)
+        let hsz_bytes := 4 * type_words htau in
+        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat hsz_bytes))));;
+        compile_malloc q;;
+        (* save the tagged pointer returned by malloc *)
+        ptr_idx ← wlalloc W.T_i32;
+        emit (W.BI_set_local (localimm ptr_idx));;
+        (* set up a local for the offset (it's zero...) *)
+        zero_idx ← wlalloc W.T_i32;
+        emit (W.BI_const (compile_Z W.T_i32 0%Z));;
+        (* do the tagged store to initialize the newly allocated region *)
+        emit (W.BI_get_local (localimm ptr_idx));;
+        restore_stack contents_idx [tau];;
+        store_value_tagged zero_idx t;;
+        (* put the tagged pointer on the top of the stack *)
+        emit (W.BI_get_local (localimm ptr_idx))
+    | R.IExistPack (R.Arrow [_] _, _) _ _ _
     | R.IExistPack (R.Arrow [] _, _) _ _ _ 
     | R.IExistPack (R.Arrow (_ :: _ :: _) _, _) _ _ _ => raise EWrongTypeAnn
     | R.IExistUnpack (R.Arrow targs trets, _) q th ta tl es =>
         (* TODO: registerroot if GC package *)
-        raise ETodo
+        ignore (block_c (translate_arrow_type ta) (forT es compile_instr))
     | R.IRefSplit _
     | R.IRefJoin _
     | R.IRecFold _ _
