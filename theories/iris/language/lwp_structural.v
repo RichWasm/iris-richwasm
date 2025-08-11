@@ -1,0 +1,68 @@
+From RWasm.iris.rules Require Import iris_rules_structural iris_rules_trap.
+From RWasm.iris.language Require Import iris_wp_def logpred lenient_wp.
+Import iris.algebra.list.
+From iris.proofmode Require Import base tactics classes.
+Set Bullet Behavior "Strict Subproofs".
+
+Section lwp_structural.
+  Context `{!wasmG Σ}.
+  Open Scope bi_scope.
+  Lemma lenient_wp_val_cons s E (Φ: logpred) v es :
+    lenient_wp NotStuck E es (lp_combine Φ [v])
+    ⊢ lenient_wp s E (AI_basic (BI_const v) :: es) Φ.
+  Proof.
+    iIntros "Hcomb".
+    iApply (wp_wand with "[Hcomb]").
+    - iApply (wp_val_can_trap_precise _ _ (lp_notrap Φ) _ _ (lp_fr Φ) (lp_trap Φ ∗ ↪[BAIL])).
+      iSplitR; [done|].
+      unfold lenient_wp.
+      iApply (wp_wand with "[Hcomb]").
+      iApply "Hcomb".
+      iIntros (w) "Hden".
+      setoid_rewrite <- lp_combine_val at 1.
+      setoid_rewrite -> lp_expand at 1.
+      iDestruct "Hden" as "[[(%Hcomb & Hbail & Htrap) | Hnotrap] Hfr]";
+        iFrame.
+      iLeft.
+      iFrame.
+      iPureIntro.
+      destruct w; vm_compute in Hcomb; congruence.
+    - iIntros (w) "[[(%Hcomb & Hbail & Htrap) | Hnotrap] Hfr]";
+        rewrite lp_expand; iFrame.
+      iLeft; by iFrame.
+  Qed.
+
+  Lemma lenient_wp_val_app s E (Φ: logpred) vs es vs' :
+    iris.to_val vs = Some (immV vs') ->
+    lenient_wp NotStuck E es (lp_combine Φ vs')
+    ⊢ lenient_wp s E (vs ++ es) Φ.
+  Proof.
+  Admitted.
+
+  Lemma lenient_wp_val_app' s  E (Φ: logpred) vs es :
+    lenient_wp NotStuck E es (lp_combine Φ vs)
+    ⊢ lenient_wp s E (v_to_e_list vs ++ es) Φ.
+  Proof.
+  Admitted.
+      
+  Lemma lenient_wp_nil s E Φ :
+    denote_logpred Φ (immV []) ⊢ lenient_wp s E [] Φ.
+  Proof.
+    iIntros "HΦ".
+    rewrite /lenient_wp wp_unfold /wp_pre /=.
+    by iFrame.
+  Qed.
+
+  Lemma lenient_wp_wand s E es Φ Ψ :
+    lp_entails Φ Ψ ->
+    lenient_wp s E es Φ ⊢ lenient_wp s E es Ψ.
+  Proof.
+    unfold lp_entails, lenient_wp.
+    intros Himp.
+    iIntros "HΦ".
+    iApply (wp_wand with "[$]").
+    iIntros (v) "HΦv".
+    by iApply Himp.
+  Qed.
+
+End lwp_structural.

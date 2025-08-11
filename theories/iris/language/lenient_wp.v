@@ -134,29 +134,5 @@ Section lenient_wp.
     - by iDestruct "Hpost" as "[[%Hcontra _] | Hpost]".
   Qed.
 
-  Lemma lenient_wp_val_cons s E (Φ: logpred) v es :
-    lenient_wp NotStuck E es (lp_combine Φ [v])
-    ⊢ lenient_wp s E (AI_basic (BI_const v) :: es) Φ.
-  Proof.
-    iIntros "Hcomb".
-    iApply (wp_wand with "[Hcomb]").
-    - iApply (wp_val_can_trap_precise _ _ (lp_notrap Φ) _ _ (lp_fr Φ) (lp_trap Φ ∗ ↪[BAIL])).
-      iSplitR; [done|].
-      unfold lenient_wp.
-      iApply (wp_wand with "[Hcomb]").
-      iApply "Hcomb".
-      iIntros (w) "Hden".
-      setoid_rewrite <- lp_combine_val at 1.
-      setoid_rewrite -> lp_expand at 1.
-      iDestruct "Hden" as "[[(%Hcomb & Hbail & Htrap) | Hnotrap] Hfr]";
-        iFrame.
-      iLeft.
-      iFrame.
-      iPureIntro.
-      destruct w; vm_compute in Hcomb; congruence.
-    - iIntros (w) "[[(%Hcomb & Hbail & Htrap) | Hnotrap] Hfr]";
-        rewrite lp_expand; iFrame.
-      iLeft; by iFrame.
-  Qed.
 
 End lenient_wp.
