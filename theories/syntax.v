@@ -14,9 +14,12 @@ Inductive mutability := Mut | Imm.
 
 Inductive heapability := Heapable | Unheapable.
 
-Inductive linearity := Linear | Unrestricted.
+Inductive linearity := Lin | Unr.
 
-Inductive acuity := Sharp | Dull.
+Inductive acuity :=
+| AcuVar (ℵ : var)
+| Sharp
+| Dull.
 
 Inductive location :=
 | LocVar (ρ : var)
@@ -27,7 +30,7 @@ Inductive size :=
 | SizePlus (sz1 : size) (sz2 : size)
 | SizeConst (c : nat).
 
-Inductive atomic_representation :=
+Inductive base_representation :=
 | I32R (a : acuity)
 | I64R
 | F32R
@@ -35,7 +38,7 @@ Inductive atomic_representation :=
 
 Inductive representation :=
 | RepVar (ϱ : var)
-| RepAtoms (rs : list atomic_representation).
+| RepList (bs : list base_representation).
 
 Inductive kind :=
 | TYPE (r : representation) (l : linearity) (h : heapability)
