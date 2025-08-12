@@ -7,7 +7,7 @@ Set Bullet Behavior "Strict Subproofs".
 Section lwp_structural.
   Context `{!wasmG Σ}.
   Open Scope bi_scope.
-      
+
   Lemma lenient_wp_nil s E Φ :
     denote_logpred Φ (immV []) ⊢ lenient_wp s E [] Φ.
   Proof.
@@ -26,6 +26,13 @@ Section lwp_structural.
     iApply (wp_wand with "[$]").
     iIntros (v) "HΦv".
     by iApply Himp.
+  Qed.
+
+  Lemma lenient_wp_value s E Φ e v :
+    IntoVal e v ->
+    denote_logpred Φ v ⊢ lenient_wp s E e Φ.
+  Proof.
+    apply wp_value.
   Qed.
 
   Lemma lenient_wp_val_cons s E (Φ: logpred) v es :
@@ -94,6 +101,28 @@ Section lwp_structural.
     - fold (iris.of_val (immV vs)).
       by apply iris.to_of_val.
     - done.
+  Qed.
+
+  Lemma lenient_wp_if_true s E Φ c tf (f: datatypes.frame) es1 es2:
+    c <> Wasm_int.int_zero i32m ->
+    ↪[frame] f ∗
+    ↪[RUN] ∗
+    ▷(↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E [AI_basic (BI_block tf es1)] Φ)
+    ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_if tf es1 es2)] Φ.
+  Proof.
+    iIntros (Hc) "(Hf & Hrun & Hwp)".
+    by iApply (wp_if_true with "[$] [$] [$]").
+  Qed.
+
+  Lemma lenient_wp_if_false s E Φ c tf (f: datatypes.frame) es1 es2:
+    c = Wasm_int.int_zero i32m ->
+    ↪[frame] f ∗
+    ↪[RUN] ∗
+    ▷(↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E [AI_basic (BI_block tf es2)] Φ)
+    ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_if tf es1 es2)] Φ.
+  Proof.
+    iIntros (Hc) "(Hf & Hrun & Hwp)".
+    by iApply (wp_if_false with "[$] [$] [$]").
   Qed.
 
 End lwp_structural.
