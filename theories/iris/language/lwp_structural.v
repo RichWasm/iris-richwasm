@@ -7,6 +7,27 @@ Set Bullet Behavior "Strict Subproofs".
 Section lwp_structural.
   Context `{!wasmG Σ}.
   Open Scope bi_scope.
+      
+  Lemma lenient_wp_nil s E Φ :
+    denote_logpred Φ (immV []) ⊢ lenient_wp s E [] Φ.
+  Proof.
+    iIntros "HΦ".
+    rewrite /lenient_wp wp_unfold /wp_pre /=.
+    by iFrame.
+  Qed.
+
+  Lemma lenient_wp_wand s E es Φ Ψ :
+    lp_entails Φ Ψ ->
+    lenient_wp s E es Φ ⊢ lenient_wp s E es Ψ.
+  Proof.
+    unfold lp_entails, lenient_wp.
+    intros Himp.
+    iIntros "HΦ".
+    iApply (wp_wand with "[$]").
+    iIntros (v) "HΦv".
+    by iApply Himp.
+  Qed.
+
   Lemma lenient_wp_val_cons s E (Φ: logpred) v es :
     lenient_wp NotStuck E es (lp_combine Φ [v])
     ⊢ lenient_wp s E (AI_basic (BI_const v) :: es) Φ.
@@ -32,37 +53,47 @@ Section lwp_structural.
       iLeft; by iFrame.
   Qed.
 
-  Lemma lenient_wp_val_app s E (Φ: logpred) vs es vs' :
+  Lemma lenient_wp_val_app E (Φ: logpred) vs es vs' :
     iris.to_val vs = Some (immV vs') ->
     lenient_wp NotStuck E es (lp_combine Φ vs')
-    ⊢ lenient_wp s E (vs ++ es) Φ.
+    ⊢ lenient_wp NotStuck E (vs ++ es) Φ.
   Proof.
-  Admitted.
-
-  Lemma lenient_wp_val_app' s  E (Φ: logpred) vs es :
-    lenient_wp NotStuck E es (lp_combine Φ vs)
-    ⊢ lenient_wp s E (v_to_e_list vs ++ es) Φ.
-  Proof.
-  Admitted.
-      
-  Lemma lenient_wp_nil s E Φ :
-    denote_logpred Φ (immV []) ⊢ lenient_wp s E [] Φ.
-  Proof.
-    iIntros "HΦ".
-    rewrite /lenient_wp wp_unfold /wp_pre /=.
-    by iFrame.
+    revert vs' es Φ.
+    induction vs; intros vs' es Φ.
+    - iIntros (Hvs) "Hcomb".
+      cbn in Hvs; inversion Hvs; subst vs'.
+      rewrite app_nil_l.
+      iApply (lenient_wp_wand with "[$]").
+      unfold lp_entails; intros; cbn.
+      by rewrite lp_combine_nil.
+    - iIntros (Hvs) "Hcomb".
+      apply to_val_is_immV in Hvs.
+      cbn in *.
+      symmetry in Hvs.
+      apply map_eq_cons in Hvs.
+      destruct Hvs as (a' & vs'' & Hvs' & Ha & Hxs).
+      subst.
+      iApply lenient_wp_val_cons.
+      iApply IHvs.
+      instantiate (1:= vs'').
+      + replace @map with @seq.map by reflexivity.
+        fold (v_to_e_list vs'').
+        fold (iris.of_val (immV vs'')).
+        apply iris.to_of_val.
+      + iApply (lenient_wp_wand with "[$]").
+        unfold lp_entails; intros lv.
+        by rewrite lp_combine_cons.
   Qed.
 
-  Lemma lenient_wp_wand s E es Φ Ψ :
-    lp_entails Φ Ψ ->
-    lenient_wp s E es Φ ⊢ lenient_wp s E es Ψ.
+  Lemma lenient_wp_val_app' E (Φ: logpred) vs es :
+    lenient_wp NotStuck E es (lp_combine Φ vs)
+    ⊢ lenient_wp NotStuck E (v_to_e_list vs ++ es) Φ.
   Proof.
-    unfold lp_entails, lenient_wp.
-    intros Himp.
-    iIntros "HΦ".
-    iApply (wp_wand with "[$]").
-    iIntros (v) "HΦv".
-    by iApply Himp.
+    iIntros "Hcomb".
+    iApply lenient_wp_val_app.
+    - fold (iris.of_val (immV vs)).
+      by apply iris.to_of_val.
+    - done.
   Qed.
 
 End lwp_structural.

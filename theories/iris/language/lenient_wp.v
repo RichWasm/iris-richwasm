@@ -107,6 +107,37 @@ Section lenient_wp.
       lp_host tf h cvs sh := lp_host l tf h cvs (llh_push_const sh vs);
     |}.
 
+  Lemma lp_combine_nil Φ lv :
+    denote_logpred (lp_combine Φ []) lv ⊣⊢ denote_logpred Φ lv.
+  Proof.
+    destruct Φ.
+    unfold denote_logpred, lp_combine; cbn.
+    destruct lv; cbn; auto.
+    - f_equiv.
+      f_equiv.
+      unfold sigT_apply.
+      by rewrite vh_push_const_nil.
+    - f_equiv.
+      by rewrite sh_push_const_nil.
+    - f_equiv.
+      by rewrite llh_push_const_nil.
+  Qed.
+
+  Lemma lp_combine_cons Φ v vs lv :
+    denote_logpred (lp_combine Φ (v :: vs)) lv ⊣⊢ denote_logpred (lp_combine (lp_combine Φ [v]) vs) lv.
+  Proof.
+    destruct Φ.
+    unfold denote_logpred, lp_combine, sigT_apply; cbn.
+    destruct lv; cbn; auto.
+    - f_equiv.
+      f_equiv.
+      by rewrite -vh_push_const_app.
+    - f_equiv.
+      by rewrite -sh_push_const_app.
+    - f_equiv.
+      by rewrite -llh_push_const_app.
+  Qed.
+
   Lemma lp_combine_val:
     forall (Φ: logpred) vs w,
       (denote_logpred Φ) (val_combine (immV vs) w) ⊣⊢ denote_logpred (lp_combine Φ vs) w.
