@@ -18,13 +18,20 @@ Locate Wasm.iris.language.iris.iris.val.
     (f_locs f) !! i = Some v ->
     ▷Φ.(lp_val) [v] ∗
     ▷Φ.(lp_fr) f ∗
-    ↪[frame] f
+    ↪[frame] f ∗
+    ↪[RUN]
     ⊢ lenient_wp s E [AI_basic (BI_get_local i)] Φ.
   Proof.
-    iIntros "%Hi (Hval & Hfr & Hf)".
+    iIntros "%Hi (Hval & Hfr & Hf & Hrun)".
     unfold lenient_wp.
-    iApply wp_wand.
-    Fail iApply (wp_get_local _ _ _ _ (λ w : val, lp_notrap Φ w) f).
-  Abort.
+    iApply (wp_wand with "[Hfr Hf Hrun Hval]").
+    iApply (wp_get_local with "[Hfr Hval] [$] [$]").
+    - by apply Hi.
+    - instantiate (1:=(fun v: iris.val => (lp_noframe Φ v ∗ lp_fr Φ f)%I)).
+      iFrame.
+    - iIntros (v0) "[[Hq Hrun] Hf]".
+      unfold denote_logpred.
+      iFrame.
+  Qed.
 
 End lwp_resources.
