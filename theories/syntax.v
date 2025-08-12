@@ -33,10 +33,12 @@ Inductive atomic_representation :=
 | F32R
 | F64R.
 
-Definition representation := list atomic_representation.
+Inductive representation :=
+| RepVar (ϱ : var)
+| RepAtoms (rs : list atomic_representation).
 
 Inductive kind :=
-| TYPE (rs : list representation) (l : linearity) (h : heapability)
+| TYPE (r : representation) (l : linearity) (h : heapability)
 | SIZE
 | REP
 | ACU
