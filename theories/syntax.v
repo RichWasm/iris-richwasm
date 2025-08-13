@@ -2,11 +2,9 @@ From Coq Require Import List.
 Require Import Coq.Numbers.BinNums.
 Require Import Coq.Strings.String.
 
-Definition var := nat.
+Definition variable := nat.
 
 Inductive sign := SignU | SignS.
-
-Inductive privilege := PrivRW | PrivR.
 
 Inductive ownership := OwnUniq | OwnGC.
 
@@ -17,16 +15,16 @@ Inductive heapability := Heapable | Unheapable.
 Inductive linearity := Lin | Unr.
 
 Inductive acuity :=
-| AcuVar (ℵ : var)
+| AcuVar (ℵ : variable)
 | Sharp
 | Dull.
 
 Inductive location :=
-| LocVar (ρ : var)
+| LocVar (ρ : variable)
 | LocConst (c : N).
 
 Inductive size :=
-| SizeVar (σ : var)
+| SizeVar (σ : variable)
 | SizePlus (sz1 : size) (sz2 : size)
 | SizeConst (c : nat).
 
@@ -37,20 +35,24 @@ Inductive base_representation :=
 | F64R.
 
 Inductive representation :=
-| RepVar (ϱ : var)
-| RepList (bs : list base_representation).
+| RepVar (ϱ : variable)
+| RepList (bs : list base_representation)
+| RepPad (sz : size) (r : representation)
+| RepDyn.
 
 Inductive kind :=
-| TYPE (r : representation) (l : linearity) (h : heapability)
-| SIZE
-| REP
-| ACU
-| LOC.
+| TYPE (r : representation) (l : linearity) (h : heapability).
 
-Inductive constraint :=
-| SizeAtLeastC (sz__min : size)
-| SizeAtMostC (sz__max : size)
-| RepAtMostC (sz__max : size).
+Inductive ubinder :=
+| ULoc
+| USize (szs__min : list size) (szs__max : list size)
+| UAcu
+| URep (sz__max : option size)
+| UType (κ : kind).
+
+Inductive ebinder :=
+| ELoc
+| EType (κ : kind).
 
 Inductive int_type := I32T | I64T.
 
@@ -62,27 +64,24 @@ Inductive num_type :=
 
 Inductive type :=
 | UnitT
+| VarT (α : variable)
 | NumT (τn : num_type)
-| VarT (α : var)
+| SumT (τs : list type)
 | ProdT (τs : list type)
-| CoderefT (χ : function_type)
+| ArrayT (τ : type) (n : option nat)
+| ExT (b : ebinder) (τ : type)
 | RecT (τ : type)
 | PtrT (ℓ : location)
-| ExT (κ : kind) (τ : type)
-| OwnT (ℓ : location)
-| CapT (π : privilege) (ℓ : location) (ψ : heap_type)
-| RefT (o : ownership) (π : privilege) (ℓ : location) (ψ : heap_type)
-
-with heap_type :=
-| VariantT (τs : list type)
-| StructT (fs : list (type * size))
-| ArrayT (τ : type)
+| CapT (ℓ : location) (τ : type)
+| RefT (o : ownership) (ℓ : location) (τ : type)
+| CoderefT (χ : function_type)
+| RepTT (r : representation) (τ : type)
 
 with arrow_type :=
 | ArrowT (τs1 : list type) (τs2 : list type)
 
 with function_type :=
-| FunT (κs : list kind) (cs : list constraint) (τa : arrow_type).
+| FunT (bs : list ubinder) (τa : arrow_type).
 
 Inductive global_type :=
 | GlobalT (m : mutability) (τ : type).
@@ -90,11 +89,11 @@ Inductive global_type :=
 Definition local_effects := list (nat * type).
 
 Inductive index :=
-| TypeI (τ : type)
+| LocI (ℓ : location)
 | SizeI (sz : size)
-| RepI (r : representation)
 | AcuI (a : acuity)
-| LocI (ℓ : location).
+| RepI (r : representation)
+| TypeI (τ : type).
 
 Inductive int_unop := ClzI | CtzI | PopcntI.
 
@@ -175,8 +174,6 @@ Inductive instr {A : Type} :=
 | IUnfold (ann : A)
 | IGroup (ann : A) (n : nat)
 | IUngroup (ann : A)
-| ICapSplit (ann : A)
-| ICapJoin (ann : A)
 | IPack (ann : A) (κ : kind) (idx : index)
 | IUnpack (ann : A) (τa : arrow_type) (effs : local_effects) (es : list instr)
 | IStructNew (ann : A) (szs : list size) (o : ownership)
@@ -192,8 +189,7 @@ Inductive instr {A : Type} :=
 | IArrayGet (ann : A)
 | IArraySet (ann : A)
 | IRefSplit (ann : A)
-| IRefJoin (ann : A)
-| IRefDemote (ann : A).
+| IRefJoin (ann : A).
 
 Arguments instr : clear implicits.
 
@@ -211,7 +207,7 @@ Arguments module_global : clear implicits.
 
 Inductive module_import_desc :=
 | ImFunction (τf : function_type)
-| ImGlobal (τ : type)
+| ImGlobal (τg : global_type)
 | ImTable.
 
 Record module_import :=
@@ -228,75 +224,10 @@ Record module_export :=
     me_desc : module_export_desc }.
 
 Record module {A : Type} :=
-  { m_funcs : list (module_function A);
+  { m_imports : list module_import;
+    m_funcs : list (module_function A);
     m_globals : list (module_global A);
     m_table : list nat;
-    m_imports : list module_import;
     m_exports : list module_export }.
 
 Arguments module : clear implicits.
-
-Section TypeInd.
-
-  Context (P : type -> Prop)
-    (F : function_type -> Prop)
-    (H : heap_type -> Prop)
-    (A : arrow_type -> Prop)
-    (HUnit : P UnitT)
-    (HNum : forall τn : num_type, P (NumT τn))
-    (HVar : forall α : var, P (VarT α))
-    (HProd : forall τs : list type, Forall P τs -> P (ProdT τs))
-    (HCoderef : forall χ : function_type, F χ -> P (CoderefT χ))
-    (HRec : forall τ : type, P τ -> P (RecT τ))
-    (HPtr : forall ℓ : location, P (PtrT ℓ))
-    (HEx : forall (κ : kind) (τ : type), P τ -> P (ExT κ τ))
-    (HOwn : forall ℓ : location, P (OwnT ℓ))
-    (HCap : forall (π : privilege) (ℓ : location) (Ψ : heap_type), H Ψ -> P (CapT π ℓ Ψ))
-    (HRef : forall (o : ownership) (π : privilege) (ℓ : location) (Ψ : heap_type), H Ψ -> P (RefT o π ℓ Ψ))
-    (HVariant : forall τs : list type, Forall P τs -> H (VariantT τs))
-    (HStruct : forall fs : list (type * size), Forall (fun '(τ, sz) => P τ) fs -> H (StructT fs))
-    (HArray : forall τ : type, P τ -> H (ArrayT τ))
-    (HArrow : forall τs1 τs2 : list type, Forall P τs1 -> Forall P τs2 -> A (ArrowT τs1 τs2))
-    (HFun : forall (κs : list kind) (cs : list constraint) (τa : arrow_type), A τa -> F (FunT κs cs τa)).
-
-  Fixpoint type_ind' (τ : type) {struct τ} : P τ
-  with function_type_ind' (τf : function_type) {struct τf} : F τf
-  with arrow_type_ind' (τa : arrow_type) {struct τa} : A τa
-  with heap_type_ind' (Ψ : heap_type) {struct Ψ} : H Ψ.
-  Proof.
-    - destruct τ.
-      + exact HUnit.
-      + apply HNum.
-      + apply HVar.
-      + apply HProd. induction τs; constructor.
-        * apply type_ind'.
-        * exact IHτs.
-      + apply HCoderef, function_type_ind'.
-      + apply HRec, type_ind'.
-      + apply HPtr.
-      + apply HEx, type_ind'.
-      + apply HOwn.
-      + apply HCap, heap_type_ind'.
-      + apply HRef, heap_type_ind'.
-    - destruct τf. apply HFun, arrow_type_ind'.
-    - destruct τa as [τs1 τs2]. apply HArrow; (induction τs1 + induction τs2); constructor.
-      1, 3: apply type_ind'.
-      + exact IHτs1.
-      + exact IHτs2.
-    - destruct Ψ.
-      + apply HVariant. induction τs; constructor.
-        * apply type_ind'.
-        * exact IHτs.
-      + apply HStruct. induction fs; constructor.
-        * destruct a. apply type_ind'.
-        * exact IHfs.
-      + apply HArray, type_ind'.
-  Defined.
-
-  Corollary type_function_arrow_heap_ind : (forall τ, P τ) /\ (forall τf, F τf) /\ (forall τa, A τa) /\ (forall Ψ, H Ψ).
-  Proof.
-    repeat split;
-      (apply type_ind' || apply function_type_ind' || apply arrow_type_ind' || apply heap_type_ind').
-  Qed.
-
-End TypeInd.
