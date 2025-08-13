@@ -6,17 +6,8 @@ Require Import RichWasm.syntax.
 Record function_context :=
   { fc_loc_vars : nat;
     fc_size_vars : list (list size * list size);
-    fc_acuity_vars : nat;
     fc_rep_vars : list (option size);
     fc_type_vars : list kind }.
-
-Inductive acu_ok : function_context -> acuity -> Prop :=
-| AcuVarOK (F : function_context) (ℵ : variable) :
-  ℵ < F.(fc_acuity_vars) -> acu_ok F (AcuVar ℵ)
-| SharpOK (F : function_context) :
-  acu_ok F Sharp
-| DullOK (F : function_context) :
-  acu_ok F Dull.
 
 Inductive size_ok : function_context -> size -> Prop :=
 | SizeVarOK (F : function_context) (σ : variable) :
@@ -26,25 +17,17 @@ Inductive size_ok : function_context -> size -> Prop :=
 | SizeConstOK (F : function_context) (c : nat) :
   size_ok F (SizeConst c).
 
-Inductive base_rep_ok : function_context -> base_representation -> Prop :=
-| I32R_OK (F : function_context) (a : acuity) :
-  acu_ok F a -> base_rep_ok F (I32R a)
-| I64R_OK (F : function_context) :
-  base_rep_ok F I64R
-| F32R_OK (F : function_context) :
-  base_rep_ok F F32R
-| F64R_OK (F : function_context) :
-  base_rep_ok F F64R.
-
 Inductive rep_ok : function_context -> representation -> Prop :=
-| RepVarOK (F : function_context) (ϱ : variable) :
-  ϱ < length F.(fc_rep_vars) -> rep_ok F (RepVar ϱ)
-| RepListOK (F : function_context) (bs : list base_representation) :
-  Forall (base_rep_ok F) bs -> rep_ok F (RepList bs)
-| RepPadOK (F : function_context) (sz : size) (r : representation) :
-  size_ok F sz -> rep_ok F r -> rep_ok F (RepPad sz r)
-| RepDynOK (F : function_context) :
-  rep_ok F RepDyn.
+| VarR_OK (F : function_context) (ϱ : variable) :
+  ϱ < length F.(fc_rep_vars) -> rep_ok F (VarR ϱ)
+| SumR_OK (F : function_context) (rs : list representation) :
+  Forall (rep_ok F) rs -> rep_ok F (SumR rs)
+| ProdR_OK (F : function_context) (rs : list representation) :
+  Forall (rep_ok F) rs -> rep_ok F (ProdR rs)
+| PrimR_OK (F : function_context) (p : primitive_rep) :
+  rep_ok F (PrimR p)
+| DynR_OK (F : function_context) :
+  rep_ok F DynR.
 
 Inductive kind_ok : function_context -> kind -> Prop :=
 | TYPE_OK (F : function_context) (r : representation) (l : linearity) (h : heapability) :
@@ -52,14 +35,27 @@ Inductive kind_ok : function_context -> kind -> Prop :=
 
 Inductive has_kind : function_context -> type -> kind -> Prop :=
 | KUnit (F : function_context) :
-  has_kind F UnitT (TYPE (RepList []) Unr Heapable)
+  has_kind F UnitT (TYPE (ProdR []) Unr Heapable)
 | KVar (F : function_context) (α : variable) (κ : kind) :
   nth_error F.(fc_type_vars) α = Some κ -> kind_ok F κ -> has_kind F (VarT α) κ
 | KI32 (F : function_context) :
-  has_kind F (NumT (IntT I32T)) (TYPE (RepList [I32R Dull]) Unr Heapable)
+  has_kind F (NumT (IntT I32T)) (TYPE (PrimR I32R) Unr Heapable)
 | KI64 (F : function_context) :
-  has_kind F (NumT (IntT I64T)) (TYPE (RepList [I64R]) Unr Heapable)
+  has_kind F (NumT (IntT I64T)) (TYPE (PrimR I64R) Unr Heapable)
 | KF32 (F : function_context) :
-  has_kind F (NumT (FloatT F32T)) (TYPE (RepList [F32R]) Unr Heapable)
+  has_kind F (NumT (FloatT F32T)) (TYPE (PrimR F32R) Unr Heapable)
 | KF64 (F : function_context) :
-  has_kind F (NumT (FloatT F64T)) (TYPE (RepList [F64R]) Unr Heapable).
+  has_kind F (NumT (FloatT F64T)) (TYPE (PrimR F64R) Unr Heapable)
+| KSum
+    (F : function_context) (τs : list type) (rs : list representation) (l : linearity)
+    (h : heapability) :
+  Forall2 (fun τ r => has_kind F τ (TYPE r l h)) τs rs ->
+  has_kind F (SumT τs) (TYPE (SumR rs) l h)
+| KProd
+    (F : function_context) (τs : list type) (rs : list representation) (l : linearity)
+    (h : heapability) :
+  Forall2 (fun τ r => has_kind F τ (TYPE r l h)) τs rs ->
+  has_kind F (ProdT τs) (TYPE (ProdR rs) l h)
+| KArray (F : function_context) (τ : type) (r : representation) :
+  has_kind F τ (TYPE r Unr Heapable) ->
+  has_kind F (ArrayT τ) (TYPE DynR Unr Heapable).

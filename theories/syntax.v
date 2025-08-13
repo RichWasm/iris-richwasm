@@ -14,11 +14,6 @@ Inductive heapability := Heapable | Unheapable.
 
 Inductive linearity := Lin | Unr.
 
-Inductive acuity :=
-| AcuVar (ℵ : variable)
-| Sharp
-| Dull.
-
 Inductive location :=
 | LocVar (ρ : variable)
 | LocConst (c : N).
@@ -28,17 +23,19 @@ Inductive size :=
 | SizePlus (sz1 : size) (sz2 : size)
 | SizeConst (c : nat).
 
-Inductive base_representation :=
-| I32R (a : acuity)
+Inductive primitive_rep :=
+| PtrR
+| I32R
 | I64R
 | F32R
 | F64R.
 
 Inductive representation :=
-| RepVar (ϱ : variable)
-| RepList (bs : list base_representation)
-| RepPad (sz : size) (r : representation)
-| RepDyn.
+| VarR (ϱ : variable)
+| SumR (rs : list representation)
+| ProdR (rs : list representation)
+| PrimR (p : primitive_rep)
+| DynR.
 
 Inductive kind :=
 | TYPE (r : representation) (l : linearity) (h : heapability).
@@ -46,8 +43,7 @@ Inductive kind :=
 Inductive ubinder :=
 | ULoc
 | USize (szs__min : list size) (szs__max : list size)
-| UAcu
-| URep (sz__max : option size)
+| URep
 | UType (κ : kind).
 
 Inductive ebinder :=
@@ -68,7 +64,7 @@ Inductive type :=
 | NumT (τn : num_type)
 | SumT (τs : list type)
 | ProdT (τs : list type)
-| ArrayT (τ : type) (n : option nat)
+| ArrayT (τ : type)
 | ExT (b : ebinder) (τ : type)
 | RecT (τ : type)
 | PtrT (ℓ : location)
@@ -91,7 +87,6 @@ Definition local_effects := list (nat * type).
 Inductive index :=
 | LocI (ℓ : location)
 | SizeI (sz : size)
-| AcuI (a : acuity)
 | RepI (r : representation)
 | TypeI (τ : type).
 
