@@ -49,8 +49,6 @@ Inductive has_size : representation -> nat -> Prop :=
   has_size (PrimR F64R) 2.
 
 Inductive has_kind : function_context -> type -> kind -> Prop :=
-| KUnit (F : function_context) :
-  has_kind F UnitT (TYPE (ProdR []) Unr Heapable)
 | KVar (F : function_context) (α : variable) (κ : kind) :
   nth_error F.(fc_type_vars) α = Some κ ->
   kind_ok F κ ->

@@ -53,7 +53,6 @@ Inductive num_type :=
 | FloatT (τF : float_type).
 
 Inductive type :=
-| UnitT
 | VarT (α : variable)
 | NumT (τn : num_type)
 | SumT (τs : list type)
@@ -139,7 +138,6 @@ Inductive num_instr :=
 
 Inductive instr {A : Type} :=
 | INop (ann : A)
-| IUnit (ann : A)
 | IDrop (ann : A)
 | IUnreachable (ann : A)
 | INum (ann : A) (en : num_instr)
