@@ -101,4 +101,4 @@ Inductive has_kind : function_context -> type -> kind -> Prop :=
   has_size r0 sz0 ->
   has_size r sz ->
   has_kind F τ (TYPE r0 l h) ->
-  has_kind F (RepTT r τ) (TYPE r l h).
+  has_kind F (RepT r τ) (TYPE r l h).

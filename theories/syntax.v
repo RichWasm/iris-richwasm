@@ -64,7 +64,7 @@ Inductive type :=
 | CapT (ℓ : location) (τ : type)
 | RefT (o : ownership) (ℓ : location) (τ : type)
 | CoderefT (χ : function_type)
-| RepTT (r : representation) (τ : type)
+| RepT (r : representation) (τ : type)
 
 with arrow_type :=
 | ArrowT (τs1 : list type) (τs2 : list type)
