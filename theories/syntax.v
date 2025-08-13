@@ -18,11 +18,6 @@ Inductive location :=
 | LocVar (ρ : variable)
 | LocConst (c : N).
 
-Inductive size :=
-| SizeVar (σ : variable)
-| SizePlus (sz1 : size) (sz2 : size)
-| SizeConst (c : nat).
-
 Inductive primitive_rep :=
 | PtrR
 | I32R
@@ -42,7 +37,6 @@ Inductive kind :=
 
 Inductive ubinder :=
 | ULoc
-| USize (szs__min : list size) (szs__max : list size)
 | URep
 | UType (κ : kind).
 
@@ -86,7 +80,6 @@ Definition local_effects := list (nat * type).
 
 Inductive index :=
 | LocI (ℓ : location)
-| SizeI (sz : size)
 | RepI (r : representation)
 | TypeI (τ : type).
 
@@ -171,7 +164,7 @@ Inductive instr {A : Type} :=
 | IUngroup (ann : A)
 | IPack (ann : A) (κ : kind) (idx : index)
 | IUnpack (ann : A) (τa : arrow_type) (effs : local_effects) (es : list instr)
-| IStructNew (ann : A) (szs : list size) (o : ownership)
+| IStructNew (ann : A) (o : ownership)
 | IStructFree (ann : A)
 | IStructGet (ann : A) (n : nat)
 | IStructSet (ann : A) (n : nat)

@@ -1,25 +1,21 @@
 From Coq Require Import List.
 Import ListNotations.
 
+Require Import RecordUpdate.RecordUpdate.
+
 Require Import RichWasm.syntax.
 
 Record function_context :=
   { fc_loc_vars : nat;
-    fc_size_vars : list (list size * list size);
-    fc_rep_vars : list (option size);
+    fc_rep_vars : nat;
     fc_type_vars : list kind }.
 
-Inductive size_ok : function_context -> size -> Prop :=
-| SizeVarOK (F : function_context) (σ : variable) :
-  σ < length F.(fc_size_vars) -> size_ok F (SizeVar σ)
-| SizePlusOK (F : function_context) (sz1 sz2 : size) :
-  size_ok F sz1 -> size_ok F sz2 -> size_ok F (SizePlus sz1 sz2)
-| SizeConstOK (F : function_context) (c : nat) :
-  size_ok F (SizeConst c).
+Global Instance eta_function_context : Settable _ :=
+  settable! Build_function_context <fc_loc_vars; fc_rep_vars; fc_type_vars>.
 
 Inductive rep_ok : function_context -> representation -> Prop :=
 | VarR_OK (F : function_context) (ϱ : variable) :
-  ϱ < length F.(fc_rep_vars) -> rep_ok F (VarR ϱ)
+  ϱ < F.(fc_rep_vars) -> rep_ok F (VarR ϱ)
 | SumR_OK (F : function_context) (rs : list representation) :
   Forall (rep_ok F) rs -> rep_ok F (SumR rs)
 | ProdR_OK (F : function_context) (rs : list representation) :
@@ -33,11 +29,32 @@ Inductive kind_ok : function_context -> kind -> Prop :=
 | TYPE_OK (F : function_context) (r : representation) (l : linearity) (h : heapability) :
   rep_ok F r -> kind_ok F (TYPE r l h).
 
+Inductive has_size : representation -> nat -> Prop :=
+| SizeSumR (rs : list representation) (szs : list nat) :
+  Forall2 has_size rs szs ->
+  (* TODO: Use the efficient packing size. *)
+  has_size (SumR rs) (list_sum szs)
+| SizeProdR (rs : list representation) (szs : list nat) :
+  Forall2 has_size rs szs ->
+  has_size (ProdR rs) (list_sum szs)
+| SizePtrR :
+  has_size (PrimR PtrR) 1
+| SizeI32R :
+  has_size (PrimR I32R) 1
+| SizeI64R :
+  has_size (PrimR I64R) 2
+| SizeF32R :
+  has_size (PrimR F32R) 1
+| SizeF64R :
+  has_size (PrimR F64R) 2.
+
 Inductive has_kind : function_context -> type -> kind -> Prop :=
 | KUnit (F : function_context) :
   has_kind F UnitT (TYPE (ProdR []) Unr Heapable)
 | KVar (F : function_context) (α : variable) (κ : kind) :
-  nth_error F.(fc_type_vars) α = Some κ -> kind_ok F κ -> has_kind F (VarT α) κ
+  nth_error F.(fc_type_vars) α = Some κ ->
+  kind_ok F κ ->
+  has_kind F (VarT α) κ
 | KI32 (F : function_context) :
   has_kind F (NumT (IntT I32T)) (TYPE (PrimR I32R) Unr Heapable)
 | KI64 (F : function_context) :
@@ -58,4 +75,32 @@ Inductive has_kind : function_context -> type -> kind -> Prop :=
   has_kind F (ProdT τs) (TYPE (ProdR rs) l h)
 | KArray (F : function_context) (τ : type) (r : representation) :
   has_kind F τ (TYPE r Unr Heapable) ->
-  has_kind F (ArrayT τ) (TYPE DynR Unr Heapable).
+  has_kind F (ArrayT τ) (TYPE DynR Unr Heapable)
+| KExLoc (F : function_context) (τ : type) (κ : kind) :
+  has_kind (set fc_loc_vars S F) τ κ ->
+  has_kind F (ExT ELoc τ) κ
+| KExType (F : function_context) (τ : type) (κ0 κ : kind) :
+  has_kind (set fc_type_vars (cons κ0) F) τ κ ->
+  has_kind F (ExT (EType κ0) τ) κ
+| KRec (F : function_context) (τ : type) (κ : kind) :
+  (* TODO: Unfold. *)
+  has_kind F τ κ ->
+  has_kind F (RecT τ) κ
+| KPtr (F : function_context) (ℓ : location) :
+  has_kind F (PtrT ℓ) (TYPE (PrimR PtrR) Unr Heapable)
+| KCap (F : function_context) (ℓ : location) (τ : type) :
+  has_kind F (CapT ℓ τ) (TYPE (ProdR []) Lin Unheapable)
+| KRefUniq (F : function_context) (ℓ : location) (τ : type) :
+  has_kind F (RefT OwnUniq ℓ τ) (TYPE (PrimR PtrR) Lin Heapable)
+| KRefGC (F : function_context) (ℓ : location) (τ : type) :
+  has_kind F (RefT OwnGC ℓ τ) (TYPE (PrimR PtrR) Unr Heapable)
+| KCoderef (F : function_context) (χ : function_type) :
+  has_kind F (CoderefT χ) (TYPE (PrimR I32R) Unr Heapable)
+| KRepT
+    (F : function_context) (r0 r : representation) (sz0 sz : nat) (τ : type) (l : linearity)
+    (h : heapability) :
+  sz0 <= sz ->
+  has_size r0 sz0 ->
+  has_size r sz ->
+  has_kind F τ (TYPE r0 l h) ->
+  has_kind F (RepTT r τ) (TYPE r l h).
