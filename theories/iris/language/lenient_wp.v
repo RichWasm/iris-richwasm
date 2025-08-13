@@ -165,5 +165,38 @@ Section lenient_wp.
     - by iDestruct "Hpost" as "[[%Hcontra _] | Hpost]".
   Qed.
 
+  Definition lp_fr_set f i v (Φ : @logpred Σ) : logpred :=
+    {|
+      lp_fr := λ f', ⌜f' = {| f_locs := seq.set_nth v (f_locs f) i v; f_inst := f_inst f |}⌝;
+      lp_val := lp_val Φ;
+      lp_trap := lp_trap Φ;
+      lp_br := lp_br Φ;
+      lp_ret := lp_ret Φ;
+      lp_host := lp_host Φ;
+    |}.
+
+  Definition lp_with (Ψ: iProp Σ) Φ :=
+    {|
+      lp_fr := lp_fr Φ;
+      lp_val := λ vs, lp_val Φ vs ∗ Ψ;
+      lp_trap := lp_trap Φ ∗ Ψ;
+      lp_br := λ x, lp_br Φ x ∗ Ψ;
+      lp_ret := λ x, lp_ret Φ x ∗ Ψ;
+      lp_host := λ ft hf vs lh, lp_host Φ ft hf vs lh ∗ Ψ;
+    |}.
+
+  Definition lp_run Φ := lp_with (↪[RUN])%I Φ.
+
+  Lemma lp_with_sep Ψ Φ w :
+    denote_logpred Φ w ∗ Ψ ⊣⊢ denote_logpred (lp_with Ψ Φ) w.
+  Proof.
+    unfold lp_run, denote_logpred.
+    cbn.
+    iSplit.
+    - destruct w; cbn; iIntros "[HΦ Hrun]"; iFrame.
+    - destruct w; cbn; try by (iIntros "[HΦ Hrun]"; iFrame).
+      iIntros "[[HΦ [Htrap HΨ]] Hf]".
+      iFrame.
+  Qed.
 
 End lenient_wp.
