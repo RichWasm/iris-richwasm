@@ -55,7 +55,7 @@
 
           vscoq-language-server = ocamlPackages.buildDunePackage rec {
             pname = "vscoq-language-server";
-            version = "2.2.5";
+            version = "2.2.6";
 
             src =
               let
@@ -63,7 +63,7 @@
                   owner = "coq-community";
                   repo = "vscoq";
                   rev = "v${version}";
-                  hash = "sha256-XyIjwem/yS7UIpQATNixgKkrMOHHs74nkAOvpU5WG1k=";
+                  hash = "sha256-J8nRTAwN6GBEYgqlXa2kkkrHPatXsSObQg9QUQoZhgE=";
                 };
               in
               "${fetched}/language-server";

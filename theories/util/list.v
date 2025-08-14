@@ -10,13 +10,13 @@ From Coq Require Import Lists.List Relations.Relations Classes.RelationClasses
 
 From stdpp Require list.
 
-Require Import RWasm.EnsembleUtil RWasm.tactics RWasm.functions. 
+From RichWasm.util Require Import ensemble functions tactics.
 
 Import ListNotations.
 
 
 (* returns [n, n+m[ *)
- Fixpoint fromN (n:N) (m:nat): list N :=
+Fixpoint fromN (n:N) (m:nat): list N :=
   match m with
   | 0 => nil
   | S m'  => n::(fromN (BinNat.N.succ n)  m')

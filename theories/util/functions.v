@@ -3,7 +3,7 @@
  *)
 
 From stdpp Require Import base.
-Require Import RWasm.EnsembleUtil RWasm.tactics.
+From RichWasm.util Require Import ensemble tactics.
 From Coq Require Import Numbers.BinNums NArith.BinNat PArith.BinPos Relations.Relations
      Classes.Morphisms Lists.List Sets.Ensembles micromega.Lia Ensembles.
 

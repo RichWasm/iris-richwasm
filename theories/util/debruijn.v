@@ -215,7 +215,7 @@ From Coq Require Import Logic.FunctionalExtensionality.
 Notation fext := functional_extensionality_dep.
 Ltac fext x := apply fext; intros x.
 
-Require Import Lia List RWasm.list_util.
+Require Import Lia List RichWasm.util.list.
 Import ListNotations.
 
 Class Eq A := dec_eq : forall x y : A, {x = y} + {x <> y}.
@@ -245,27 +245,27 @@ Ltac hedberg :=
 
 Section Depths.
 
-Definition zero {A} : A -> nat := fun _ => 0.
-Definition plus {A} (f g : A -> nat) : A -> nat := fun x => f x + g x.
+  Definition zero {A} : A -> nat := fun _ => 0.
+  Definition plus {A} (f g : A -> nat) : A -> nat := fun x => f x + g x.
 
-Definition sing {I} `{Eq I} i (n : nat) : I -> nat :=
-  fun j => if dec_eq i j then n else 0.
+  Definition sing {I} `{Eq I} i (n : nat) : I -> nat :=
+    fun j => if dec_eq i j then n else 0.
 
-Definition plus_id {A} ks : @plus A zero ks = ks. Proof. reflexivity. Qed.
+  Definition plus_id {A} ks : @plus A zero ks = ks. Proof. reflexivity. Qed.
 
-Definition plus_zero {A} ks : @plus A ks zero = ks.
-Proof.
-  unfold plus.
-  unfold zero.
-  apply FunctionalExtensionality.functional_extensionality.
-  lia.
-Qed.
+  Definition plus_zero {A} ks : @plus A ks zero = ks.
+  Proof.
+    unfold plus.
+    unfold zero.
+    apply FunctionalExtensionality.functional_extensionality.
+    lia.
+  Qed.
 
-Definition plus_comm {A} ks ls : @plus A ks ls = plus ls ks.
-Proof. fext i; unfold plus; lia. Qed.
+  Definition plus_comm {A} ks ls : @plus A ks ls = plus ls ks.
+  Proof. fext i; unfold plus; lia. Qed.
 
-Definition plus_assoc {A} ks ls ms : @plus A ks (plus ls ms) = plus (plus ks ls) ms.
-Proof. fext i; unfold plus; lia. Qed.
+  Definition plus_assoc {A} ks ls ms : @plus A ks (plus ls ms) = plus (plus ks ls) ms.
+  Proof. fext i; unfold plus; lia. Qed.
 
 End Depths.
 

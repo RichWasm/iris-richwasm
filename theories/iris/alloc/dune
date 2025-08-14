@@ -1,0 +1,10 @@
+(coq.theory
+  (name RichWasm.iris.alloc)
+  (package iris-richwasm)
+  (flags -w -ambiguous-paths)
+  (theories
+    RichWasm
+    Wasm
+    Wasm.iris.logrel
+    Wasm.iris.rules
+    Wasm.iris.host))

@@ -4,7 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
-Require Export allocator_instantiation.
+Require Export inst.
 From Wasm Require Export type_checker_reflects_typing.
 
 Set Implicit Arguments.
@@ -14,9 +14,9 @@ Unset Printing Implicit Defensive.
 
 Section Client.
 
- Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ, !logrel_na_invs Σ}. 
+  Context `{!wasmG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ, !logrel_na_invs Σ}.
 
-(* Functions from the stack module are : 
+  (* Functions from the stack module are :
      0 - new_stack
      1 - is_empty
      2 - is_full
@@ -968,7 +968,6 @@ Proof.
       iSplit => //.
       iFrame.
   Qed.
-      
 *)
+
 End Client.
-  

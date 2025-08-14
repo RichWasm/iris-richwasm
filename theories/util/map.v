@@ -5,7 +5,7 @@
 From Coq Require Import NArith.BinNat Relations.Relations MSets.MSets
          MSets.MSetRBT Lists.List micromega.Lia Sets.Ensembles Relations.Relations
          Classes.Morphisms FSets.FMapPositive.
-Require Import RWasm.EnsembleUtil RWasm.functions RWasm.list_util RWasm.tactics.
+From RichWasm.util Require Import ensemble functions list tactics.
 
 Module M := PositiveMap. 
 

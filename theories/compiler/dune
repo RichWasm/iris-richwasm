@@ -1,7 +1,6 @@
 (coq.theory
- (name RichWasm)
+ (name RichWasm.compiler)
  (package iris-richwasm)
- (flags -w -ambiguous-paths)
  (theories
   iris
   Wasm
@@ -14,4 +13,5 @@
   mathcomp.ssreflect
   elpi
   elpi_elpi
-  stdpp))
+  stdpp
+  RichWasm))

@@ -1,0 +1,8 @@
+(coq.theory
+  (name RichWasm.iris.logrel)
+  (package iris-richwasm)
+  (flags
+    -w -ambiguous-paths
+    -w -redundant-canonical-projection)
+  (theories
+    RichWasm.compiler))

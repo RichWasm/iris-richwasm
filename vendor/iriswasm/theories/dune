@@ -8,6 +8,7 @@
     compcert
     Flocq
     mathcomp 
+    mathcomp.ssreflect
     HB 
     elpi 
     elpi_elpi 

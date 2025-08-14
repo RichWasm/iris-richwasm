@@ -1,5 +1,5 @@
 (coq.theory
-  (name RWasm.iris)
+  (name RichWasm.iris)
   (package iris-richwasm)
   (flags
     -w -ambiguous-paths
@@ -12,7 +12,10 @@
     ITree
     Ltac2
     Paco
-    RWasm
+    RichWasm
+    RichWasm.compiler
+    RichWasm.iris.logrel
+    RichWasm.util
     stdpp
     Wasm.iris.helpers
     Wasm.iris.host
