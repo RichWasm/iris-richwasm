@@ -27,7 +27,9 @@ Inductive rep_ok : function_context -> representation -> Prop :=
 
 Inductive kind_ok : function_context -> kind -> Prop :=
 | TYPE_OK (F : function_context) (r : representation) (l : linearity) (h : heapability) :
-  rep_ok F r -> kind_ok F (TYPE r l h).
+  rep_ok F r -> kind_ok F (TYPE r l h)
+| CONSTRAINT_OK (F : function_context) (r : representation) :
+  rep_ok F r -> kind_ok F (CONSTRAINT r).
 
 Inductive has_mono_size : representation -> nat -> Prop :=
 | SizeSumR (rs : list representation) (szs : list nat) :
