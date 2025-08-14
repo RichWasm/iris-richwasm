@@ -77,7 +77,7 @@ with function_type :=
 Inductive global_type :=
 | GlobalT (m : mutability) (τ : type).
 
-Definition local_effects := list (nat * type).
+Definition local_effect := list (nat * type).
 
 Inductive index :=
 | LocI (ℓ : location)
@@ -144,13 +144,13 @@ Inductive instr {A : Type} :=
 | IUnreachable (ann : A)
 | INum (ann : A) (en : num_instr)
 | INumConst (ann : A) (τn : num_type) (n : nat)
-| IBlock (ann : A) (τa : arrow_type) (effs : local_effects) (es : list instr)
+| IBlock (ann : A) (τa : arrow_type) (le : local_effect) (es : list instr)
 | ILoop (ann : A) (τa : arrow_type) (es : list instr)
-| IIte (ann : A) (τa : arrow_type) (effs : local_effects) (es1 : list instr) (es2 : list instr)
+| IIte (ann : A) (τa : arrow_type) (le : local_effect) (es1 es2 : list instr)
 | IBr (ann : A) (n : nat)
 | IBrIf (ann : A) (n : nat)
 | IBrTable (ann : A) (ns : list nat) (n : nat)
-| IRet (ann : A)
+| IReturn (ann : A)
 | ILocalGet (ann : A) (i : nat) (l : linearity)
 | ILocalSet (ann : A) (i : nat)
 | IGlobalGet (ann : A) (i : nat)
@@ -163,7 +163,7 @@ Inductive instr {A : Type} :=
 | IGroup (ann : A) (n : nat)
 | IUngroup (ann : A)
 | IPack (ann : A) (κ : kind) (idx : index)
-| IUnpack (ann : A) (τa : arrow_type) (effs : local_effects) (es : list instr)
+| IUnpack (ann : A) (τa : arrow_type) (le : local_effect) (es : list instr)
 | IStructNew (ann : A) (o : ownership)
 | IStructFree (ann : A)
 | IStructGet (ann : A) (n : nat)
@@ -171,7 +171,7 @@ Inductive instr {A : Type} :=
 | IStructSwap (ann : A) (n : nat)
 | IVariantNew (ann : A) (i : nat) (τs : list type) (o : ownership)
 | IVariantCase
-    (ann : A) (l : linearity) (τa : arrow_type) (effs : local_effects) (ess : list (list instr))
+    (ann : A) (l : linearity) (τa : arrow_type) (le : local_effect) (ess : list (list instr))
 | IArrayNew (ann : A) (o : ownership)
 | IArrayFree (ann : A)
 | IArrayGet (ann : A)
@@ -180,6 +180,8 @@ Inductive instr {A : Type} :=
 | IRefJoin (ann : A).
 
 Arguments instr : clear implicits.
+
+Definition expr A := list (instr A).
 
 Record module_function {A : Type} :=
   { mf_type : function_type;
