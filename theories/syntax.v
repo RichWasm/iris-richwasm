@@ -14,6 +14,8 @@ Inductive heapability := Heapable | Unheapable.
 
 Inductive linearity := Lin | Unr.
 
+Inductive sized := Sized | Unsized.
+
 Inductive location :=
 | LocVar (ρ : variable)
 | LocConst (c : N).
@@ -37,7 +39,7 @@ Inductive kind :=
 
 Inductive ubinder :=
 | ULoc
-| URep
+| URep (s : sized)
 | UType (κ : kind).
 
 Inductive ebinder :=

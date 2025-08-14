@@ -29,24 +29,24 @@ Inductive kind_ok : function_context -> kind -> Prop :=
 | TYPE_OK (F : function_context) (r : representation) (l : linearity) (h : heapability) :
   rep_ok F r -> kind_ok F (TYPE r l h).
 
-Inductive has_size : representation -> nat -> Prop :=
+Inductive has_mono_size : representation -> nat -> Prop :=
 | SizeSumR (rs : list representation) (szs : list nat) :
-  Forall2 has_size rs szs ->
+  Forall2 has_mono_size rs szs ->
   (* TODO: Use the efficient packing size. *)
-  has_size (SumR rs) (list_sum szs)
+  has_mono_size (SumR rs) (list_sum szs)
 | SizeProdR (rs : list representation) (szs : list nat) :
-  Forall2 has_size rs szs ->
-  has_size (ProdR rs) (list_sum szs)
+  Forall2 has_mono_size rs szs ->
+  has_mono_size (ProdR rs) (list_sum szs)
 | SizePtrR :
-  has_size (PrimR PtrR) 1
+  has_mono_size (PrimR PtrR) 1
 | SizeI32R :
-  has_size (PrimR I32R) 1
+  has_mono_size (PrimR I32R) 1
 | SizeI64R :
-  has_size (PrimR I64R) 2
+  has_mono_size (PrimR I64R) 2
 | SizeF32R :
-  has_size (PrimR F32R) 1
+  has_mono_size (PrimR F32R) 1
 | SizeF64R :
-  has_size (PrimR F64R) 2.
+  has_mono_size (PrimR F64R) 2.
 
 Inductive has_kind : function_context -> type -> kind -> Prop :=
 | KVar (F : function_context) (α : variable) (κ : kind) :
@@ -98,7 +98,7 @@ Inductive has_kind : function_context -> type -> kind -> Prop :=
     (F : function_context) (r0 r : representation) (sz0 sz : nat) (τ : type) (l : linearity)
     (h : heapability) :
   sz0 <= sz ->
-  has_size r0 sz0 ->
-  has_size r sz ->
+  has_mono_size r0 sz0 ->
+  has_mono_size r sz ->
   has_kind F τ (TYPE r0 l h) ->
   has_kind F (RepT r τ) (TYPE r l h).
