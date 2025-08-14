@@ -37,9 +37,7 @@ Inductive rep_ok : function_context -> representation -> Prop :=
 
 Inductive kind_ok : function_context -> kind -> Prop :=
 | TYPE_OK (F : function_context) (r : representation) (l : linearity) (h : heapability) :
-  rep_ok F r -> kind_ok F (TYPE r l h)
-| CONSTRAINT_OK (F : function_context) (r : representation) :
-  rep_ok F r -> kind_ok F (CONSTRAINT r).
+  rep_ok F r -> kind_ok F (TYPE r l h).
 
 Inductive has_mono_size : representation -> nat -> Prop :=
 | SizeSumR (rs : list representation) (szs : list nat) :
@@ -68,7 +66,7 @@ Inductive has_kind : function_context -> type -> kind -> Prop :=
   has_kind F τ (TYPE r l Heapable) ->
   has_kind F τ (TYPE r l Unheapable)
 | KVar (F : function_context) (α : variable) (κ : kind) :
-  nth_error F.(fc_type_vars) α = Some κ ->
+  F.(fc_type_vars) !! α = Some κ ->
   kind_ok F κ ->
   has_kind F (VarT α) κ
 | KI32 (F : function_context) :
@@ -120,15 +118,17 @@ Inductive has_kind : function_context -> type -> kind -> Prop :=
   has_mono_size r sz ->
   has_kind F τ (TYPE r0 l h) ->
   has_kind F (RepT r τ) (TYPE r l h)
-| KSized (F : function_context) (r : representation) :
-  has_kind F (SizedT r) (CONSTRAINT (PrimR I32R)).
+| KSize (F : function_context) (r : representation) :
+  has_kind F (SizeT r) (TYPE (PrimR I32R) Unr Heapable).
+
+Inductive has_rep : function_context -> type -> representation -> Prop :=
+| RepTYPE (F : function_context) (τ : type) (r : representation) (l : linearity) (h : heapability) :
+  has_kind F τ (TYPE r l h) ->
+  has_rep F τ r.
 
 Inductive is_unrestricted : function_context -> type -> Prop :=
 | UnrTYPE (F : function_context) (τ : type) (r : representation) (h : heapability) :
   has_kind F τ (TYPE r Unr h) ->
-  is_unrestricted F τ
-| UnrCONSTRAINT (F : function_context) (τ : type) (r : representation) :
-  has_kind F τ (CONSTRAINT r) ->
   is_unrestricted F τ.
 
 (* TODO *)
@@ -173,16 +173,16 @@ Inductive instr_has_type {A : Type} :
     (F : function_context) (L L' : local_context) (ann : A) (n : nat) (τs τs1 τs2 : list type)
     (le : local_effect) :
   L' = update_locals le L ->
-  nth_error F.(fc_labels) n = Some (τs, L) ->
+  F.(fc_labels) !! n = Some (τs, L) ->
   Forall (is_unrestricted F) τs1 ->
   instr_has_type F L (IBr ann n) (ArrowT (τs1 ++ τs) τs2) L'
 | TBrIf (F : function_context) (L : local_context) (ann : A) (n : nat) (τs : list type) :
-  nth_error F.(fc_labels) n = Some (τs, L) ->
+  F.(fc_labels) !! n = Some (τs, L) ->
   instr_has_type F L (IBrIf ann n) (ArrowT (τs ++ [NumT (IntT I32T)]) τs) L
 | TBrTable
     (F : function_context) (L L' : local_context) (ann : A) (ns : list nat) (n : nat)
     (τs τs1 τs2 : list type) :
-  Forall (fun i => nth_error F.(fc_labels) i = Some (τs, L)) (n :: ns) ->
+  Forall (fun i => F.(fc_labels) !! i = Some (τs, L)) (n :: ns) ->
   Forall (is_unrestricted F) τs1 ->
   instr_has_type F L (IBrTable ann ns n) (ArrowT (τs1 ++ τs ++ [NumT (IntT I32T)]) τs2) L'
 | TReturn
@@ -192,6 +192,24 @@ Inductive instr_has_type {A : Type} :
   L' = update_locals le L ->
   Forall (is_unrestricted F) τs1 ->
   instr_has_type F L (IReturn ann) (ArrowT (τs1 ++ τs) τs2) L'
+| TLocalGet
+    (F : function_context) (L L' : local_context) (ann : A) (n : nat) (τ : type) (r : representation) :
+  L !! n = Some τ ->
+  has_rep F τ r ->
+  L' = <[ n := RepT r (ProdT []) ]> L ->
+  instr_has_type F L (ILocalGet ann n) (ArrowT [] [τ]) L'
+| TLocalGetUnr (F : function_context) (L : local_context) (ann : A) (n : nat) (τ : type) :
+  L !! n = Some τ ->
+  is_unrestricted F τ ->
+  instr_has_type F L (ILocalGet ann n) (ArrowT [] [τ]) L
+| TLocalSet
+    (F : function_context) (L L' : local_context) (ann : A) (n : nat) (τ τ' : type) (r : representation) :
+  L' = <[ n := τ' ]> L ->
+  L !! n = Some τ ->
+  is_unrestricted F τ ->
+  has_rep F τ r ->
+  has_rep F τ' r ->
+  instr_has_type F L (ILocalSet ann n) (ArrowT [τ'] []) L'
 
 with expr_has_type {A : Type} :
   function_context -> local_context -> expr A -> arrow_type -> local_context -> Prop :=

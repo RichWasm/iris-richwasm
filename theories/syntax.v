@@ -33,8 +33,7 @@ Inductive representation :=
 | DynR.
 
 Inductive kind :=
-| TYPE (r : representation) (l : linearity) (h : heapability)
-| CONSTRAINT (r : representation).
+| TYPE (r : representation) (l : linearity) (h : heapability).
 
 Inductive ubinder :=
 | ULoc
@@ -66,7 +65,7 @@ Inductive type :=
 | BoxT (o : ownership) (ℓ : location) (τ : type)
 | CoderefT (χ : function_type)
 | RepT (r : representation) (τ : type)
-| SizedT (r : representation)
+| SizeT (r : representation)
 
 with arrow_type :=
 | ArrowT (τs1 : list type) (τs2 : list type)
@@ -151,12 +150,12 @@ Inductive instr {A : Type} :=
 | IBrIf (ann : A) (n : nat)
 | IBrTable (ann : A) (ns : list nat) (n : nat)
 | IReturn (ann : A)
-| ILocalGet (ann : A) (i : nat) (l : linearity)
-| ILocalSet (ann : A) (i : nat)
-| IGlobalGet (ann : A) (i : nat)
-| IGlobalSet (ann : A) (i : nat)
-| ICoderef (ann : A) (i : nat)
-| ICall (ann : A) (i : nat) (idxs : list index)
+| ILocalGet (ann : A) (n : nat)
+| ILocalSet (ann : A) (n : nat)
+| IGlobalGet (ann : A) (n : nat)
+| IGlobalSet (ann : A) (n : nat)
+| ICoderef (ann : A) (n : nat)
+| ICall (ann : A) (n : nat) (idxs : list index)
 | ICallIndirect (ann : A) (idxs : list index)
 | IFold (ann : A) (τ : type)
 | IUnfold (ann : A)
@@ -169,7 +168,7 @@ Inductive instr {A : Type} :=
 | IStructGet (ann : A) (n : nat)
 | IStructSet (ann : A) (n : nat)
 | IStructSwap (ann : A) (n : nat)
-| IVariantNew (ann : A) (i : nat) (τs : list type) (o : ownership)
+| IVariantNew (ann : A) (n : nat) (τs : list type) (o : ownership)
 | IVariantCase
     (ann : A) (l : linearity) (τa : arrow_type) (le : local_effect) (ess : list (list instr))
 | IArrayNew (ann : A) (o : ownership)
