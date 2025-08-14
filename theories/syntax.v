@@ -14,8 +14,6 @@ Inductive heapability := Heapable | Unheapable.
 
 Inductive linearity := Lin | Unr.
 
-Inductive sized := Sized | Unsized.
-
 Inductive location :=
 | LocVar (ρ : variable)
 | LocConst (c : N).
@@ -35,11 +33,12 @@ Inductive representation :=
 | DynR.
 
 Inductive kind :=
-| TYPE (r : representation) (l : linearity) (h : heapability).
+| TYPE (r : representation) (l : linearity) (h : heapability)
+| CONSTRAINT (r : representation).
 
 Inductive ubinder :=
 | ULoc
-| URep (s : sized)
+| URep
 | UType (κ : kind).
 
 Inductive ebinder :=
@@ -64,9 +63,10 @@ Inductive type :=
 | RecT (τ : type)
 | PtrT (ℓ : location)
 | CapT (ℓ : location) (τ : type)
-| RefT (o : ownership) (ℓ : location) (τ : type)
+| BoxT (o : ownership) (ℓ : location) (τ : type)
 | CoderefT (χ : function_type)
 | RepT (r : representation) (τ : type)
+| SizedT (r : representation)
 
 with arrow_type :=
 | ArrowT (τs1 : list type) (τs2 : list type)

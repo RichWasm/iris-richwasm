@@ -88,10 +88,10 @@ Inductive has_kind : function_context -> type -> kind -> Prop :=
   has_kind F (PtrT ℓ) (TYPE (PrimR PtrR) Unr Heapable)
 | KCap (F : function_context) (ℓ : location) (τ : type) :
   has_kind F (CapT ℓ τ) (TYPE (ProdR []) Lin Unheapable)
-| KRefUniq (F : function_context) (ℓ : location) (τ : type) :
-  has_kind F (RefT OwnUniq ℓ τ) (TYPE (PrimR PtrR) Lin Heapable)
-| KRefGC (F : function_context) (ℓ : location) (τ : type) :
-  has_kind F (RefT OwnGC ℓ τ) (TYPE (PrimR PtrR) Unr Heapable)
+| KBoxUniq (F : function_context) (ℓ : location) (τ : type) :
+  has_kind F (BoxT OwnUniq ℓ τ) (TYPE (PrimR PtrR) Lin Heapable)
+| KBoxGC (F : function_context) (ℓ : location) (τ : type) :
+  has_kind F (BoxT OwnGC ℓ τ) (TYPE (PrimR PtrR) Unr Heapable)
 | KCoderef (F : function_context) (χ : function_type) :
   has_kind F (CoderefT χ) (TYPE (PrimR I32R) Unr Heapable)
 | KRepT
@@ -101,4 +101,6 @@ Inductive has_kind : function_context -> type -> kind -> Prop :=
   has_mono_size r0 sz0 ->
   has_mono_size r sz ->
   has_kind F τ (TYPE r0 l h) ->
-  has_kind F (RepT r τ) (TYPE r l h).
+  has_kind F (RepT r τ) (TYPE r l h)
+| KSized (F : function_context) (r : representation) :
+  has_kind F (SizedT r) (CONSTRAINT (PrimR I32R)).
