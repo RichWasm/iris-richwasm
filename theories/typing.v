@@ -131,9 +131,11 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (PtrT ℓ) (VALTYPE (PrimR PtrR) Unr Heapable)
 | KCap F ℓ τ :
   has_kind F (CapT ℓ τ) (VALTYPE (ProdR []) Lin Unheapable)
-| KRefUniq F ℓ τ :
+| KRefUniq F ℓ τ sz :
+  has_kind F τ (MEMTYPE sz) ->
   has_kind F (RefT OwnUniq ℓ τ) (VALTYPE (PrimR PtrR) Lin Heapable)
-| KRefGC F ℓ τ :
+| KRefGC F ℓ τ sz :
+  has_kind F τ (MEMTYPE sz) ->
   has_kind F (RefT OwnGC ℓ τ) (VALTYPE (PrimR PtrR) Unr Heapable)
 | KCodeRef F χ :
   has_kind F (CodeRefT χ) (VALTYPE (PrimR I32R) Unr Heapable)
