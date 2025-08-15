@@ -44,8 +44,10 @@ Inductive rep_ok : function_ctx -> representation -> Prop :=
   rep_ok F (PrimR p).
 
 Inductive kind_ok : function_ctx -> kind -> Prop :=
-| TYPE_OK (F : function_ctx) (r : representation) (l : linearity) (h : heapability) :
-  rep_ok F r -> kind_ok F (TYPE r l h).
+| VALTYPE_OK (F : function_ctx) (r : representation) (l : linearity) (h : heapability) :
+  rep_ok F r -> kind_ok F (VALTYPE r l h)
+| MEMTYPE_OK (F : function_ctx) (sz : option nat) :
+  kind_ok F (MEMTYPE sz).
 
 Inductive mono_rep : representation -> list primitive_rep -> Prop :=
 | MonoSumR (rs : list representation) (pss : list (list primitive_rep)) :
@@ -81,68 +83,82 @@ Inductive has_mono_size : representation -> nat -> Prop :=
   has_mono_size r (list_sum (map primitive_size ps)).
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
-| KSubLin (F : function_ctx) (τ : type) (r : representation) (h : heapability) :
-  has_kind F τ (TYPE r Unr h) ->
-  has_kind F τ (TYPE r Lin h)
-| KSubHeap (F : function_ctx) (τ : type) (r : representation) (l : linearity) :
-  has_kind F τ (TYPE r l Heapable) ->
-  has_kind F τ (TYPE r l Unheapable)
-| KVar (F : function_ctx) (α : variable) (κ : kind) :
+| KSubLin F τ r h :
+  has_kind F τ (VALTYPE r Unr h) ->
+  has_kind F τ (VALTYPE r Lin h)
+| KSubHeap F τ r l :
+  has_kind F τ (VALTYPE r l Heapable) ->
+  has_kind F τ (VALTYPE r l Unheapable)
+| KVar F α κ :
   F.(fc_type_vars) !! α = Some κ ->
   kind_ok F κ ->
   has_kind F (VarT α) κ
-| KI32 (F : function_ctx) :
-  has_kind F (NumT (IntT I32T)) (TYPE (PrimR I32R) Unr Heapable)
-| KI64 (F : function_ctx) :
-  has_kind F (NumT (IntT I64T)) (TYPE (PrimR I64R) Unr Heapable)
-| KF32 (F : function_ctx) :
-  has_kind F (NumT (FloatT F32T)) (TYPE (PrimR F32R) Unr Heapable)
-| KF64 (F : function_ctx) :
-  has_kind F (NumT (FloatT F64T)) (TYPE (PrimR F64R) Unr Heapable)
-| KSum
-    (F : function_ctx) (τs : list type) (rs : list representation) (l : linearity)
-    (h : heapability) :
-  Forall2 (fun τ r => has_kind F τ (TYPE r l h)) τs rs ->
-  has_kind F (SumT τs) (TYPE (SumR rs) l h)
-| KProd
-    (F : function_ctx) (τs : list type) (rs : list representation) (l : linearity)
-    (h : heapability) :
-  Forall2 (fun τ r => has_kind F τ (TYPE r l h)) τs rs ->
-  has_kind F (ProdT τs) (TYPE (ProdR rs) l h)
-| KExLoc (F : function_ctx) (τ : type) (κ : kind) :
+| KI32 F :
+  has_kind F (NumT (IntT I32T)) (VALTYPE (PrimR I32R) Unr Heapable)
+| KI64 F :
+  has_kind F (NumT (IntT I64T)) (VALTYPE (PrimR I64R) Unr Heapable)
+| KF32 F :
+  has_kind F (NumT (FloatT F32T)) (VALTYPE (PrimR F32R) Unr Heapable)
+| KF64 F :
+  has_kind F (NumT (FloatT F64T)) (VALTYPE (PrimR F64R) Unr Heapable)
+| KSumVal F τs rs l h :
+  Forall2 (fun τ r => has_kind F τ (VALTYPE r l h)) τs rs ->
+  has_kind F (SumT τs) (VALTYPE (SumR rs) l h)
+| KSumMem F τs szs :
+  Forall2 (fun τ sz => has_kind F τ (MEMTYPE (Some sz))) τs szs ->
+  has_kind F (SumT τs) (MEMTYPE (Some (S (list_max szs))))
+| KProdVal F τs rs l h :
+  Forall2 (fun τ r => has_kind F τ (VALTYPE r l h)) τs rs ->
+  has_kind F (ProdT τs) (VALTYPE (ProdR rs) l h)
+| KProdMem F τs τ0 szs sz0 :
+  Forall2 (fun τ sz => has_kind F τ (MEMTYPE (Some sz))) τs szs ->
+  has_kind F τ0 (MEMTYPE sz0) ->
+  has_kind F (ProdT τs) (MEMTYPE (Nat.add (list_sum szs) <$> sz0))
+| KArray F τ sz :
+  has_kind F τ (MEMTYPE (Some sz)) ->
+  has_kind F (ArrayT τ) (MEMTYPE None)
+| KExLoc F τ κ :
   has_kind (set fc_location_vars S F) τ κ ->
   has_kind F (ExT ELoc τ) κ
-| KExType (F : function_ctx) (τ : type) (κ0 κ : kind) :
+| KExType F τ κ0 κ :
   has_kind (set fc_type_vars (cons κ0) F) τ κ ->
   has_kind F (ExT (EType κ0) τ) κ
-| KRec (F : function_ctx) (τ : type) (κ : kind) :
+| KRec F τ κ :
   (* TODO: Unfold. *)
   has_kind F τ κ ->
   has_kind F (RecT τ) κ
-| KPtr (F : function_ctx) (ℓ : location) :
-  has_kind F (PtrT ℓ) (TYPE (PrimR PtrR) Unr Heapable)
-| KCap (F : function_ctx) (ℓ : location) (τ : type) :
-  has_kind F (CapT ℓ τ) (TYPE (ProdR []) Lin Unheapable)
-| KBoxUniq (F : function_ctx) (ℓ : location) (ψ : boxed_type) :
-  has_kind F (BoxT OwnUniq ℓ ψ) (TYPE (PrimR PtrR) Lin Heapable)
-| KBoxGC (F : function_ctx) (ℓ : location) (ψ : boxed_type) :
-  has_kind F (BoxT OwnGC ℓ ψ) (TYPE (PrimR PtrR) Unr Heapable)
-| KCoderef (F : function_ctx) (χ : function_type) :
-  has_kind F (CoderefT χ) (TYPE (PrimR I32R) Unr Heapable)
-| KRepT (F : function_ctx) (r0 r : representation) (τ : type) (l : linearity) (h : heapability) :
-  has_kind F τ (TYPE r0 l h) ->
-  has_kind F (RepT r τ) (TYPE r l h)
-| KSize (F : function_ctx) (r : representation) :
-  has_kind F (SizeT r) (TYPE (PrimR I32R) Unr Heapable).
+| KPtr F ℓ :
+  has_kind F (PtrT ℓ) (VALTYPE (PrimR PtrR) Unr Heapable)
+| KCap F ℓ τ :
+  has_kind F (CapT ℓ τ) (VALTYPE (ProdR []) Lin Unheapable)
+| KRefUniq F ℓ τ :
+  has_kind F (RefT OwnUniq ℓ τ) (VALTYPE (PrimR PtrR) Lin Heapable)
+| KRefGC F ℓ τ :
+  has_kind F (RefT OwnGC ℓ τ) (VALTYPE (PrimR PtrR) Unr Heapable)
+| KCodeRef F χ :
+  has_kind F (CodeRefT χ) (VALTYPE (PrimR I32R) Unr Heapable)
+| KRep F r0 r τ l h :
+  has_kind F τ (VALTYPE r0 l h) ->
+  has_kind F (RepT r τ) (VALTYPE r l h)
+| KPad F sz0 sz τ :
+  sz0 <= sz ->
+  has_kind F τ (MEMTYPE (Some sz0)) ->
+  has_kind F (PadT sz τ) (MEMTYPE (Some sz))
+| KSize F r :
+  has_kind F (SizeT r) (VALTYPE (PrimR I32R) Unr Heapable)
+| KSer F τ r sz l h :
+  has_mono_size r sz ->
+  has_kind F τ (VALTYPE r l h) ->
+  has_kind F (SerT τ) (MEMTYPE (Some sz)).
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
-| RepTYPE (F : function_ctx) (τ : type) (r : representation) (l : linearity) (h : heapability) :
-  has_kind F τ (TYPE r l h) ->
+| RepVALTYPE (F : function_ctx) (τ : type) (r : representation) (l : linearity) (h : heapability) :
+  has_kind F τ (VALTYPE r l h) ->
   has_rep F τ r.
 
 Inductive is_unrestricted : function_ctx -> type -> Prop :=
-| UnrTYPE (F : function_ctx) (τ : type) (r : representation) (h : heapability) :
-  has_kind F τ (TYPE r Unr h) ->
+| UnrVALTYPE (F : function_ctx) (τ : type) (r : representation) (h : heapability) :
+  has_kind F τ (VALTYPE r Unr h) ->
   is_unrestricted F τ.
 
 Inductive module_ctx_ok : module_ctx -> Prop :=
