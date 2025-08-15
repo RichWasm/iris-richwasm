@@ -148,9 +148,9 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (PadT sz τ) (MEMTYPE (Some sz))
 | KSize F r :
   has_kind F (SizeT r) (VALTYPE (PrimR I32R) Unr Heapable)
-| KSer F τ r sz l h :
+| KSer F τ r sz l :
   has_mono_size r sz ->
-  has_kind F τ (VALTYPE r l h) ->
+  has_kind F τ (VALTYPE r l Heapable) ->
   has_kind F (SerT τ) (MEMTYPE (Some sz)).
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
