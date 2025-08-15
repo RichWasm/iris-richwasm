@@ -129,12 +129,7 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (BoxT OwnGC ℓ ψ) (TYPE (PrimR PtrR) Unr Heapable)
 | KCoderef (F : function_ctx) (χ : function_type) :
   has_kind F (CoderefT χ) (TYPE (PrimR I32R) Unr Heapable)
-| KRepT
-    (F : function_ctx) (r0 r : representation) (sz0 sz : nat) (τ : type) (l : linearity)
-    (h : heapability) :
-  sz0 <= sz ->
-  has_mono_size r0 sz0 ->
-  has_mono_size r sz ->
+| KRepT (F : function_ctx) (r0 r : representation) (τ : type) (l : linearity) (h : heapability) :
   has_kind F τ (TYPE r0 l h) ->
   has_kind F (RepT r τ) (TYPE r l h)
 | KSize (F : function_ctx) (r : representation) :
