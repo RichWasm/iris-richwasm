@@ -29,8 +29,7 @@ Inductive representation :=
 | VarR (ϱ : variable)
 | SumR (rs : list representation)
 | ProdR (rs : list representation)
-| PrimR (p : primitive_rep)
-| DynR.
+| PrimR (p : primitive_rep).
 
 Inductive kind :=
 | TYPE (r : representation) (l : linearity) (h : heapability).
@@ -57,15 +56,19 @@ Inductive type :=
 | NumT (τn : num_type)
 | SumT (τs : list type)
 | ProdT (τs : list type)
-| ArrayT (τ : type)
 | ExT (b : ebinder) (τ : type)
 | RecT (τ : type)
 | PtrT (ℓ : location)
 | CapT (ℓ : location) (τ : type)
-| BoxT (o : ownership) (ℓ : location) (τ : type)
+| BoxT (ω : ownership) (ℓ : location) (ψ : boxed_type)
 | CoderefT (χ : function_type)
 | RepT (r : representation) (τ : type)
 | SizeT (r : representation)
+
+with boxed_type :=
+| BArrayT (τ : type)
+| BSumT (τs : list type)
+| BoxedT (τ : type)
 
 with arrow_type :=
 | ArrowT (τs1 : list type) (τs2 : list type)

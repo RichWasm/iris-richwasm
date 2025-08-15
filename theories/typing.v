@@ -41,32 +41,44 @@ Inductive rep_ok : function_ctx -> representation -> Prop :=
 | ProdR_OK (F : function_ctx) (rs : list representation) :
   Forall (rep_ok F) rs -> rep_ok F (ProdR rs)
 | PrimR_OK (F : function_ctx) (p : primitive_rep) :
-  rep_ok F (PrimR p)
-| DynR_OK (F : function_ctx) :
-  rep_ok F DynR.
+  rep_ok F (PrimR p).
 
 Inductive kind_ok : function_ctx -> kind -> Prop :=
 | TYPE_OK (F : function_ctx) (r : representation) (l : linearity) (h : heapability) :
   rep_ok F r -> kind_ok F (TYPE r l h).
 
+Inductive mono_rep : representation -> list primitive_rep -> Prop :=
+| MonoSumR (rs : list representation) (pss : list (list primitive_rep)) :
+  Forall2 mono_rep rs pss ->
+  (* TODO: Use an efficient packing. *)
+  mono_rep (SumR rs) (concat pss)
+| MonoProdR (rs : list representation) (pss : list (list primitive_rep)) :
+  Forall2 mono_rep rs pss ->
+  mono_rep (ProdR rs) (concat pss)
+| MonoPtrR :
+  mono_rep (PrimR PtrR) [PtrR]
+| MonoI32R :
+  mono_rep (PrimR I32R) [I32R]
+| MonoI64R :
+  mono_rep (PrimR I64R) [I64R]
+| MonoF32R :
+  mono_rep (PrimR F32R) [F32R]
+| MonoF64R :
+  mono_rep (PrimR F64R) [F64R].
+
+Definition primitive_size (p : primitive_rep) : nat :=
+  match p with
+  | PtrR => 1
+  | I32R => 1
+  | I64R => 2
+  | F32R => 1
+  | F64R => 2
+  end.
+
 Inductive has_mono_size : representation -> nat -> Prop :=
-| SizeSumR (rs : list representation) (szs : list nat) :
-  Forall2 has_mono_size rs szs ->
-  (* TODO: Use the efficient packing size. *)
-  has_mono_size (SumR rs) (list_sum szs)
-| SizeProdR (rs : list representation) (szs : list nat) :
-  Forall2 has_mono_size rs szs ->
-  has_mono_size (ProdR rs) (list_sum szs)
-| SizePtrR :
-  has_mono_size (PrimR PtrR) 1
-| SizeI32R :
-  has_mono_size (PrimR I32R) 1
-| SizeI64R :
-  has_mono_size (PrimR I64R) 2
-| SizeF32R :
-  has_mono_size (PrimR F32R) 1
-| SizeF64R :
-  has_mono_size (PrimR F64R) 2.
+| MonoSize (r : representation) (ps : list primitive_rep) :
+  mono_rep r ps ->
+  has_mono_size r (list_sum (map primitive_size ps)).
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSubLin (F : function_ctx) (τ : type) (r : representation) (h : heapability) :
@@ -97,9 +109,6 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
     (h : heapability) :
   Forall2 (fun τ r => has_kind F τ (TYPE r l h)) τs rs ->
   has_kind F (ProdT τs) (TYPE (ProdR rs) l h)
-| KArray (F : function_ctx) (τ : type) (r : representation) :
-  has_kind F τ (TYPE r Unr Heapable) ->
-  has_kind F (ArrayT τ) (TYPE DynR Unr Heapable)
 | KExLoc (F : function_ctx) (τ : type) (κ : kind) :
   has_kind (set fc_location_vars S F) τ κ ->
   has_kind F (ExT ELoc τ) κ
@@ -114,10 +123,10 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (PtrT ℓ) (TYPE (PrimR PtrR) Unr Heapable)
 | KCap (F : function_ctx) (ℓ : location) (τ : type) :
   has_kind F (CapT ℓ τ) (TYPE (ProdR []) Lin Unheapable)
-| KBoxUniq (F : function_ctx) (ℓ : location) (τ : type) :
-  has_kind F (BoxT OwnUniq ℓ τ) (TYPE (PrimR PtrR) Lin Heapable)
-| KBoxGC (F : function_ctx) (ℓ : location) (τ : type) :
-  has_kind F (BoxT OwnGC ℓ τ) (TYPE (PrimR PtrR) Unr Heapable)
+| KBoxUniq (F : function_ctx) (ℓ : location) (ψ : boxed_type) :
+  has_kind F (BoxT OwnUniq ℓ ψ) (TYPE (PrimR PtrR) Lin Heapable)
+| KBoxGC (F : function_ctx) (ℓ : location) (ψ : boxed_type) :
+  has_kind F (BoxT OwnGC ℓ ψ) (TYPE (PrimR PtrR) Unr Heapable)
 | KCoderef (F : function_ctx) (χ : function_type) :
   has_kind F (CoderefT χ) (TYPE (PrimR I32R) Unr Heapable)
 | KRepT
