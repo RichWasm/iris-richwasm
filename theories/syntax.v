@@ -31,14 +31,26 @@ Inductive representation :=
 | ProdR (rs : list representation)
 | PrimR (p : primitive_rep).
 
+Inductive size :=
+| VarS (σ : variable)
+| RepS (r : representation)
+| SumS (szs : list size)
+| ProdS (szs : list size)
+| ConstS (c : nat).
+
+Inductive sizity :=
+| Sized (sz : size)
+| Unsized.
+
 Inductive kind :=
 | VALTYPE (r : representation) (l : linearity) (h : heapability)
-| MEMTYPE (sz : option nat).
+| MEMTYPE (sy : sizity).
 
 Inductive ubinder :=
 | ULoc
 | URep
-| USize (min : nat)
+| USizity
+| USize
 | UType (κ : kind).
 
 Inductive ebinder :=
@@ -66,8 +78,7 @@ Inductive type :=
 | RefT (ω : ownership) (ℓ : location) (τ : type)
 | CodeRefT (χ : function_type)
 | RepT (r : representation) (τ : type)
-| PadT (sz : nat) (τ : type)
-| SizeT (r : representation)
+| PadT (sz : size) (τ : type)
 | SerT (τ : type)
 
 with arrow_type :=

@@ -46,8 +46,8 @@ Inductive rep_ok : function_ctx -> representation -> Prop :=
 Inductive kind_ok : function_ctx -> kind -> Prop :=
 | VALTYPE_OK (F : function_ctx) (r : representation) (l : linearity) (h : heapability) :
   rep_ok F r -> kind_ok F (VALTYPE r l h)
-| MEMTYPE_OK (F : function_ctx) (sz : option nat) :
-  kind_ok F (MEMTYPE sz).
+| MEMTYPE_OK (F : function_ctx) (sy : sizity) :
+  kind_ok F (MEMTYPE sy).
 
 Inductive mono_rep : representation -> list primitive_rep -> Prop :=
 | MonoSumR (rs : list representation) (pss : list (list primitive_rep)) :
@@ -105,18 +105,21 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   Forall2 (fun τ r => has_kind F τ (VALTYPE r l h)) τs rs ->
   has_kind F (SumT τs) (VALTYPE (SumR rs) l h)
 | KSumMem F τs szs :
-  Forall2 (fun τ sz => has_kind F τ (MEMTYPE (Some sz))) τs szs ->
-  has_kind F (SumT τs) (MEMTYPE (Some (S (list_max szs))))
+  Forall2 (fun τ sz => has_kind F τ (MEMTYPE (Sized sz))) τs szs ->
+  has_kind F (SumT τs) (MEMTYPE (Sized (SumS szs)))
 | KProdVal F τs rs l h :
   Forall2 (fun τ r => has_kind F τ (VALTYPE r l h)) τs rs ->
   has_kind F (ProdT τs) (VALTYPE (ProdR rs) l h)
-| KProdMem F τs τ0 szs sz0 :
-  Forall2 (fun τ sz => has_kind F τ (MEMTYPE (Some sz))) τs szs ->
-  has_kind F τ0 (MEMTYPE sz0) ->
-  has_kind F (ProdT τs) (MEMTYPE (Nat.add (list_sum szs) <$> sz0))
+| KProdMemSized F τs szs :
+  Forall2 (fun τ sz => has_kind F τ (MEMTYPE (Sized sz))) τs szs ->
+  has_kind F (ProdT τs) (MEMTYPE (Sized (ProdS szs)))
+| KProdMemUnsized F τs τ0 szs :
+  Forall2 (fun τ sz => has_kind F τ (MEMTYPE (Sized sz))) τs szs ->
+  has_kind F τ0 (MEMTYPE Unsized) ->
+  has_kind F (ProdT τs) (MEMTYPE Unsized)
 | KArray F τ sz :
-  has_kind F τ (MEMTYPE (Some sz)) ->
-  has_kind F (ArrayT τ) (MEMTYPE None)
+  has_kind F τ (MEMTYPE (Sized sz)) ->
+  has_kind F (ArrayT τ) (MEMTYPE Unsized)
 | KExLoc F τ κ :
   has_kind (set fc_location_vars S F) τ κ ->
   has_kind F (ExT ELoc τ) κ
@@ -143,15 +146,11 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F τ (VALTYPE r0 l h) ->
   has_kind F (RepT r τ) (VALTYPE r l h)
 | KPad F sz0 sz τ :
-  sz0 <= sz ->
-  has_kind F τ (MEMTYPE (Some sz0)) ->
-  has_kind F (PadT sz τ) (MEMTYPE (Some sz))
-| KSize F r :
-  has_kind F (SizeT r) (VALTYPE (PrimR I32R) Unr Heapable)
-| KSer F τ r sz l :
-  has_mono_size r sz ->
+  has_kind F τ (MEMTYPE (Sized sz0)) ->
+  has_kind F (PadT sz τ) (MEMTYPE (Sized sz))
+| KSer F τ r l :
   has_kind F τ (VALTYPE r l Heapable) ->
-  has_kind F (SerT τ) (MEMTYPE (Some sz)).
+  has_kind F (SerT τ) (MEMTYPE (Sized (RepS r))).
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
 | RepVALTYPE (F : function_ctx) (τ : type) (r : representation) (l : linearity) (h : heapability) :
