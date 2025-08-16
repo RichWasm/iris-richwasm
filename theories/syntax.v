@@ -46,16 +46,12 @@ Inductive kind :=
 | VALTYPE (r : representation) (l : linearity) (h : heapability)
 | MEMTYPE (sy : sizity).
 
-Inductive ubinder :=
-| ULoc
-| URep
-| USizity
-| USize
-| UType (κ : kind).
-
-Inductive ebinder :=
-| ELoc
-| EType (κ : kind).
+Inductive quantifier :=
+| QLoc
+| QRep
+| QSizity
+| QSize
+| QType (κ : kind).
 
 Inductive int_type := I32T | I64T.
 
@@ -71,7 +67,7 @@ Inductive type :=
 | SumT (τs : list type)
 | ProdT (τs : list type)
 | ArrayT (τ : type)
-| ExT (b : ebinder) (τ : type)
+| ExT (q : quantifier) (τ : type)
 | RecT (τ : type)
 | PtrT (ℓ : location)
 | CapT (ℓ : location) (τ : type)
@@ -85,7 +81,7 @@ with arrow_type :=
 | ArrowT (τs1 : list type) (τs2 : list type)
 
 with function_type :=
-| FunT (bs : list ubinder) (τa : arrow_type).
+| FunT (qs : list quantifier) (τa : arrow_type).
 
 Inductive global_type :=
 | GlobalT (m : mutability) (τ : type).
