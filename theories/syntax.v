@@ -38,6 +38,7 @@ Inductive kind :=
 Inductive ubinder :=
 | ULoc
 | URep
+| USize (min : nat)
 | UType (κ : kind).
 
 Inductive ebinder :=
