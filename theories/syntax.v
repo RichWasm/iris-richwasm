@@ -18,8 +18,8 @@ Inductive ownership :=
 | OwnGC.
 
 Inductive location :=
-| LocVar (ρ : variable)
-| LocConst (c : N).
+| LocVar (l : variable)
+| LocConst (n : N).
 
 Inductive primitive_rep :=
 | PtrR
@@ -29,32 +29,31 @@ Inductive primitive_rep :=
 | F64R.
 
 Inductive representation :=
-| VarR (ϱ : variable)
-| SumR (rs : list representation)
-| ProdR (rs : list representation)
-| PrimR (p : primitive_rep).
+| VarR (r : variable)
+| SumR (ρs : list representation)
+| ProdR (ρs : list representation)
+| PrimR (ι : primitive_rep).
 
 Inductive size :=
-| VarS (σ : variable)
-| RepS (r : representation)
-| SumS (szs : list size)
-| ProdS (szs : list size)
-| ConstS (c : nat).
+| VarS (s : variable)
+| SumS (σs : list size)
+| ProdS (σs : list size)
+| RepS (ρ : representation)
+| ConstS (n : nat).
 
 Inductive sizity :=
-| Sized (sz : size)
+| Sized (σ : size)
 | Unsized.
 
 Inductive kind :=
-| VALTYPE (r : representation) (h : heapability) (l : linearity)
-| MEMTYPE (sy : sizity).
+| VALTYPE (ρ : representation) (η : heapability) (γ : linearity)
+| MEMTYPE (ζ : sizity).
 
 Inductive quantifier :=
 | QLoc
 | QOwn
 | QRep
 | QSize
-| QSizity
 | QType (κ : kind).
 
 Inductive int_type := I32T | I64T.
@@ -62,39 +61,38 @@ Inductive int_type := I32T | I64T.
 Inductive float_type := F32T | F64T.
 
 Inductive num_type :=
-| IntT (τI : int_type)
-| FloatT (τF : float_type).
+| IntT (ν__i : int_type)
+| FloatT (ν__f : float_type).
 
 Inductive type :=
-| VarT (α : variable)
-| NumT (τn : num_type)
+| VarT (t : variable)
+| NumT (ν : num_type)
 | SumT (τs : list type)
 | ProdT (τs : list type)
 | ArrayT (τ : type)
-| ExT (q : quantifier) (τ : type)
-| RecT (τ : type)
-| PtrT (ℓ : location)
-| CapT (ℓ : location) (τ : type)
 | RefT (ω : ownership) (ℓ : location) (τ : type)
-| CodeRefT (χ : function_type)
-| RepT (r : representation) (τ : type)
-| PadT (sz : size) (τ : type)
+| CapT (ℓ : location) (τ : type)
+| PtrT (ℓ : location)
+| CodeRefT (ϕ : function_type)
+| RepT (ρ : representation) (τ : type)
+| PadT (σ : size) (τ : type)
 | SerT (τ : type)
+| ExT (δ : quantifier) (τ : type)
+| RecT (τ : type)
 
 with arrow_type :=
 | ArrowT (τs1 : list type) (τs2 : list type)
 
 with function_type :=
-| FunT (qs : list quantifier) (τa : arrow_type).
-
-Inductive global_type :=
-| GlobalT (m : mutability) (τ : type).
+| FunT (δs : list quantifier) (χ : arrow_type).
 
 Definition local_effect := list (nat * type).
 
 Inductive index :=
 | LocI (ℓ : location)
-| RepI (r : representation)
+| OwnI (ω : ownership)
+| RepI (ρ : representation)
+| SizeI (σ : size)
 | TypeI (τ : type).
 
 Inductive int_unop := ClzI | CtzI | PopcntI.
@@ -132,23 +130,23 @@ Inductive float_relop := EqF | NeF | LtF | GtF | LeF | GeF.
 Inductive cvtop :=
 | CWrap
 | CExtend (s : sign)
-| CTrunc (τI : int_type) (τF : float_type) (s : sign)
-| CTruncSat (τI : int_type) (τF : float_type) (s : sign)
+| CTrunc (ν__i : int_type) (ν__f : float_type) (s : sign)
+| CTruncSat (ν__i : int_type) (ν__f : float_type) (s : sign)
 | CDemote
 | CPromote
-| CConvert (τF : float_type) (τI : int_type) (s : sign)
-| CReinterpretFI (τF : float_type) (τI : int_type)
-| CReinterpretIF (τI : int_type) (τF : float_type)
-| CReinterpretII (τI : int_type) (s1 s2 : sign).
+| CConvert (ν__f : float_type) (ν__i : int_type) (s : sign)
+| CReinterpretFI (ν__f : float_type) (ν__i : int_type)
+| CReinterpretIF (ν__i : int_type) (ν__f : float_type)
+| CReinterpretII (ν__i : int_type) (s1 s2 : sign).
 
 Inductive num_instr :=
-| IInt1 (τI : int_type) (op : int_unop)
-| IInt2 (τI : int_type) (op : int_binop)
-| IIntTest (τI : int_type) (op : int_testop)
-| IIntRel (τI : int_type) (op : int_relop)
-| IFloat1 (τF : float_type) (op : float_unop)
-| IFloat2 (τF : float_type) (op : float_binop)
-| IFloatRel (τF : float_type) (op : float_relop)
+| IInt1 (ν__i : int_type) (op : int_unop)
+| IInt2 (ν__i : int_type) (op : int_binop)
+| IIntTest (ν__i : int_type) (op : int_testop)
+| IIntRel (ν__i : int_type) (op : int_relop)
+| IFloat1 (ν__f : float_type) (op : float_unop)
+| IFloat2 (ν__f : float_type) (op : float_binop)
+| IFloatRel (ν__f : float_type) (op : float_relop)
 | ICvt (op : cvtop).
 
 Inductive instr {A : Type} :=
@@ -156,10 +154,10 @@ Inductive instr {A : Type} :=
 | IDrop (ann : A)
 | IUnreachable (ann : A)
 | INum (ann : A) (en : num_instr)
-| INumConst (ann : A) (τn : num_type) (n : nat)
-| IBlock (ann : A) (τa : arrow_type) (le : local_effect) (es : list instr)
-| ILoop (ann : A) (τa : arrow_type) (es : list instr)
-| IIte (ann : A) (τa : arrow_type) (le : local_effect) (es1 es2 : list instr)
+| INumConst (ann : A) (ν : num_type) (n : nat)
+| IBlock (ann : A) (χ : arrow_type) (le : local_effect) (es : list instr)
+| ILoop (ann : A) (χ : arrow_type) (es : list instr)
+| IIte (ann : A) (χ : arrow_type) (le : local_effect) (es1 es2 : list instr)
 | IBr (ann : A) (n : nat)
 | IBrIf (ann : A) (n : nat)
 | IBrTable (ann : A) (ns : list nat) (n : nat)
@@ -169,14 +167,14 @@ Inductive instr {A : Type} :=
 | IGlobalGet (ann : A) (n : nat)
 | IGlobalSet (ann : A) (n : nat)
 | ICoderef (ann : A) (n : nat)
-| ICall (ann : A) (n : nat) (idxs : list index)
-| ICallIndirect (ann : A) (idxs : list index)
+| ICall (ann : A) (n : nat) (ixs : list index)
+| ICallIndirect (ann : A) (ixs : list index)
 | IGroup (ann : A) (n : nat)
 | IUngroup (ann : A)
 | IFold (ann : A) (τ : type)
 | IUnfold (ann : A)
-| IPack (ann : A) (κ : kind) (idx : index)
-| IUnpack (ann : A) (τa : arrow_type) (le : local_effect) (es : list instr)
+| IPack (ann : A) (κ : kind) (ix : index)
+| IUnpack (ann : A) (χ : arrow_type) (le : local_effect) (es : list instr)
 | IStructNew (ann : A) (ω : ownership)
 | IStructFree (ann : A)
 | IStructGet (ann : A) (n : nat)
@@ -184,7 +182,7 @@ Inductive instr {A : Type} :=
 | IStructSwap (ann : A) (n : nat)
 | IVariantNew (ann : A) (n : nat) (τs : list type) (ω : ownership)
 | IVariantCase
-    (ann : A) (l : linearity) (τa : arrow_type) (le : local_effect) (ess : list (list instr))
+    (ann : A) (γ : linearity) (χ : arrow_type) (le : local_effect) (ess : list (list instr))
 | IArrayNew (ann : A) (ω : ownership)
 | IArrayFree (ann : A)
 | IArrayGet (ann : A)
@@ -209,8 +207,8 @@ Record module_global {A : Type} :=
 Arguments module_global : clear implicits.
 
 Inductive module_import_desc :=
-| ImFunction (τf : function_type)
-| ImGlobal (τg : global_type)
+| ImFunction (ϕ : function_type)
+| ImGlobal (μ : mutability) (τ : type)
 | ImTable.
 
 Record module_import :=
@@ -218,8 +216,8 @@ Record module_import :=
     mi_desc : module_import_desc }.
 
 Inductive module_export_desc :=
-| ExFunction (i : nat)
-| ExGlobal (i : nat)
+| ExFunction (n : nat)
+| ExGlobal (n : nat)
 | ExTable.
 
 Record module_export :=
