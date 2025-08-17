@@ -46,7 +46,7 @@ Inductive sizity :=
 | Unsized.
 
 Inductive kind :=
-| VALTYPE (r : representation) (l : linearity) (h : heapability)
+| VALTYPE (r : representation) (h : heapability) (l : linearity)
 | MEMTYPE (sy : sizity).
 
 Inductive quantifier :=
