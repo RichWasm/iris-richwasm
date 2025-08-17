@@ -6,13 +6,16 @@ Definition variable := nat.
 
 Inductive sign := SignU | SignS.
 
-Inductive ownership := OwnUniq | OwnGC.
-
 Inductive mutability := Mut | Imm.
 
 Inductive heapability := Heapable | Unheapable.
 
 Inductive linearity := Lin | Unr.
+
+Inductive ownership :=
+| OwnVar (o : variable)
+| OwnUniq
+| OwnGC.
 
 Inductive location :=
 | LocVar (ρ : variable)
@@ -48,9 +51,10 @@ Inductive kind :=
 
 Inductive quantifier :=
 | QLoc
+| QOwn
 | QRep
-| QSizity
 | QSize
+| QSizity
 | QType (κ : kind).
 
 Inductive int_type := I32T | I64T.
@@ -173,15 +177,15 @@ Inductive instr {A : Type} :=
 | IUnfold (ann : A)
 | IPack (ann : A) (κ : kind) (idx : index)
 | IUnpack (ann : A) (τa : arrow_type) (le : local_effect) (es : list instr)
-| IStructNew (ann : A) (o : ownership)
+| IStructNew (ann : A) (ω : ownership)
 | IStructFree (ann : A)
 | IStructGet (ann : A) (n : nat)
 | IStructSet (ann : A) (n : nat)
 | IStructSwap (ann : A) (n : nat)
-| IVariantNew (ann : A) (n : nat) (τs : list type) (o : ownership)
+| IVariantNew (ann : A) (n : nat) (τs : list type) (ω : ownership)
 | IVariantCase
     (ann : A) (l : linearity) (τa : arrow_type) (le : local_effect) (ess : list (list instr))
-| IArrayNew (ann : A) (o : ownership)
+| IArrayNew (ann : A) (ω : ownership)
 | IArrayFree (ann : A)
 | IArrayGet (ann : A)
 | IArraySet (ann : A)

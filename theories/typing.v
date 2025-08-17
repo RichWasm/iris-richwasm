@@ -16,19 +16,26 @@ Record function_ctx :=
   { fc_result_type : list type;
     fc_labels : list (list type * local_ctx);
     fc_location_vars : nat;
+    fc_own_vars : nat;
     fc_rep_vars : nat;
+    fc_sizity_vars : nat;
+    fc_size_vars : nat;
     fc_type_vars : list kind }.
 
 Definition fc_empty : function_ctx :=
   {| fc_result_type := [];
      fc_labels := [];
      fc_location_vars := 0;
+     fc_own_vars := 0;
      fc_rep_vars := 0;
+     fc_sizity_vars := 0;
+     fc_size_vars := 0;
      fc_type_vars := [] |}.
 
 Global Instance eta_function_ctx : Settable _ :=
   settable! Build_function_ctx
-  <fc_result_type; fc_labels; fc_location_vars; fc_rep_vars; fc_type_vars>.
+  <fc_result_type; fc_labels; fc_location_vars; fc_own_vars; fc_rep_vars; fc_sizity_vars;
+   fc_size_vars; fc_type_vars>.
 
 Definition update_locals (le : local_effect) (L : local_ctx) : local_ctx :=
   fold_left (fun acc '(i, τ) => <[ i := τ ]> acc) le L.
@@ -122,10 +129,22 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (ArrayT τ) (MEMTYPE Unsized)
 | KExLoc F τ κ :
   has_kind (set fc_location_vars S F) τ κ ->
-  has_kind F (ExT ELoc τ) κ
+  has_kind F (ExT QLoc τ) κ
+| KExOwn F τ κ :
+  has_kind (set fc_own_vars S F) τ κ ->
+  has_kind F (ExT QOwn τ) κ
+| KExRep F τ κ :
+  has_kind (set fc_rep_vars S F) τ κ ->
+  has_kind F (ExT QRep τ) κ
+| KExSize F τ κ :
+  has_kind (set fc_size_vars S F) τ κ ->
+  has_kind F (ExT QSize τ) κ
+| KExSizity F τ κ :
+  has_kind (set fc_sizity_vars S F) τ κ ->
+  has_kind F (ExT QSizity τ) κ
 | KExType F τ κ0 κ :
   has_kind (set fc_type_vars (cons κ0) F) τ κ ->
-  has_kind F (ExT (EType κ0) τ) κ
+  has_kind F (ExT (QType κ0) τ) κ
 | KRec F τ κ :
   (* TODO: Unfold. *)
   has_kind F τ κ ->
@@ -134,9 +153,9 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (PtrT ℓ) (VALTYPE (PrimR PtrR) Unr Heapable)
 | KCap F ℓ τ :
   has_kind F (CapT ℓ τ) (VALTYPE (ProdR []) Lin Unheapable)
-| KRefUniq F ℓ τ sz :
+| KRef F ℓ ω τ sz :
   has_kind F τ (MEMTYPE sz) ->
-  has_kind F (RefT OwnUniq ℓ τ) (VALTYPE (PrimR PtrR) Lin Heapable)
+  has_kind F (RefT ω ℓ τ) (VALTYPE (PrimR PtrR) Lin Heapable)
 | KRefGC F ℓ τ sz :
   has_kind F τ (MEMTYPE sz) ->
   has_kind F (RefT OwnGC ℓ τ) (VALTYPE (PrimR PtrR) Unr Heapable)
