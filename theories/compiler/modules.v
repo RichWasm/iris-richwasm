@@ -11,7 +11,7 @@ Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
 From RichWasm Require term typing.
-From RichWasm.compiler Require Import types util.
+From RichWasm.compiler Require Import types util instrs codegen.
 
 Module R. Include RichWasm.term <+ RichWasm.typing. End R.
 Module W := Wasm.datatypes.
@@ -58,14 +58,29 @@ Definition start_func (table : R.Table) : W.module_func :=
        ] ++
        flatten (imap (set_table_elem 0) table) |}.
 
+Definition todo {A B} : (A -> B).
+Admitted.
+
 (* TODO: modfunc_type expects a typeidx while rwasm does this inline *)
-Definition compile_func (func : R.Func R.TyAnn) : error + W.module_func :=
+Definition compile_func (me : module_env) (func : R.Func R.TyAnn) : error + W.module_func :=
   let '(R.Fun exs ty szs es) := func in
-  inr {|
-    W.modfunc_type := W.Mk_typeidx 0; (* TODO *)
-    W.modfunc_locals := []; (* TODO *)
-    W.modfunc_body := []; (* TODO *)
-  |}.
+  (* TODO: *)
+  let fe := {|
+    fe_return_type := todo ();
+    fe_size_bounds := todo ();
+    fe_size_locals := todo ();
+    fe_wlocal_offset := todo ();
+    fe_qual_bounds := todo ();
+    fe_qual_locals := todo ();
+  |} in
+  match run_codegen (compile_instrs me fe es) [] with
+  | inl e => inl e
+  | inr (_, _, body) => inr {|
+      W.modfunc_type := W.Mk_typeidx 0; (* TODO *)
+      W.modfunc_locals := []; (* TODO *)
+      W.modfunc_body := body; (* TODO *)
+    |}
+  end.
 
 Definition compile_glob (glob : R.Glob R.TyAnn) : error + W.module_glob :=
   inl ETodo.
