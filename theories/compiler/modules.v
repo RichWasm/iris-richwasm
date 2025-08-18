@@ -76,9 +76,9 @@ Definition compile_func (me : module_env) (func : R.Func R.TyAnn) : error + W.mo
   match run_codegen (compile_instrs me fe es) [] with
   | inl e => inl e
   | inr (_, _, body) => inr {|
-      W.modfunc_type := W.Mk_typeidx 0; (* TODO *)
-      W.modfunc_locals := []; (* TODO *)
-      W.modfunc_body := body; (* TODO *)
+      W.modfunc_type := todo ();
+      W.modfunc_locals := todo ();
+      W.modfunc_body := body;
     |}
   end.
 
@@ -91,27 +91,25 @@ Definition compile_table (table : R.Table) : error + W.module_table :=
 Definition compile_module (module : R.module R.TyAnn) : error + W.module :=
   let '(funcs, globs, table) := module in
   let globals :=
-    (* TODO *)
     [W.Build_module_glob
        (W.Build_global_type W.MUT_mut W.T_i32)
-       [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))]]
+       [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))]] ++ todo ()
   in
   let imports :=
-    (* TODO *)
     [W.Build_module_import
        (String.list_byte_of_string "RichWasm")
        (String.list_byte_of_string "table_set")
-       (W.ID_func typeidx_i32_i32_to_nil)]
+       (W.ID_func typeidx_i32_i32_to_nil)] ++ todo ()
   in
   inr {|
-    W.mod_types := []; (* TODO *)
-    W.mod_funcs := []; (* TODO *)
-    W.mod_tables := []; (* TODO *)
-    W.mod_mems := []; (* TODO *)
+    W.mod_types := todo ();
+    W.mod_funcs := todo ();
+    W.mod_tables := todo ();
+    W.mod_mems := todo ();
     W.mod_globals := globals;
-    W.mod_elem := []; (* TODO *)
-    W.mod_data := []; (* TODO *)
+    W.mod_elem := todo ();
+    W.mod_data := todo ();
     W.mod_start := Some (W.Build_module_start (W.Mk_funcidx 0));
     W.mod_imports := imports;
-    W.mod_exports := [] (* TODO *)
+    W.mod_exports := todo ()
   |}.
