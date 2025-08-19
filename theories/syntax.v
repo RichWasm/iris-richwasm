@@ -47,7 +47,7 @@ Inductive sizity :=
 
 Inductive kind :=
 | VALTYPE (ρ : representation) (η : heapability) (γ : linearity)
-| MEMTYPE (ζ : sizity).
+| MEMTYPE (ζ : sizity) (γ : linearity).
 
 Inductive quantifier :=
 | QLoc
@@ -185,11 +185,13 @@ Inductive instr {A : Type} :=
 | IUnwrap (ann : A)
 | IRefNew (ann : A) (ω : ownership)
 | IRefFree (ann : A)
+| IRefDup (ann : A)
+| IRefForget (ann : A)
+| IRefSplit (ann : A)
+| IRefJoin (ann : A)
 | IRefLoad (ann : A) (π : path)
 | IRefStore (ann : A) (π : path)
 | IRefSwap (ann : A) (π : path)
-| IRefSplit (ann : A)
-| IRefJoin (ann : A)
 | IVariantNew (ann : A) (n : nat) (τs : list type) (ω : ownership)
 | IVariantCase
     (ann : A) (γ : linearity) (χ : arrow_type) (le : local_effect) (ess : list (list instr))

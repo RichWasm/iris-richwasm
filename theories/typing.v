@@ -39,20 +39,20 @@ Definition update_locals (le : local_effect) (L : local_ctx) : local_ctx :=
   fold_left (fun acc '(i, τ) => <[ i := τ ]> acc) le L.
 
 Inductive rep_ok : function_ctx -> representation -> Prop :=
-| VarR_OK (F : function_ctx) (r : variable) :
+| VarROK (F : function_ctx) (r : variable) :
   r < F.(fc_rep_vars) -> rep_ok F (VarR r)
-| SumR_OK (F : function_ctx) (ρs : list representation) :
+| SumROK (F : function_ctx) (ρs : list representation) :
   Forall (rep_ok F) ρs -> rep_ok F (SumR ρs)
-| ProdR_OK (F : function_ctx) (ρs : list representation) :
+| ProdROK (F : function_ctx) (ρs : list representation) :
   Forall (rep_ok F) ρs -> rep_ok F (ProdR ρs)
-| PrimR_OK (F : function_ctx) (ι : primitive_rep) :
+| PrimROK (F : function_ctx) (ι : primitive_rep) :
   rep_ok F (PrimR ι).
 
 Inductive kind_ok : function_ctx -> kind -> Prop :=
-| VALTYPE_OK (F : function_ctx) (ρ : representation) (η : heapability) (γ : linearity) :
+| VALTYPEOK (F : function_ctx) (ρ : representation) (η : heapability) (γ : linearity) :
   rep_ok F ρ -> kind_ok F (VALTYPE ρ η γ)
-| MEMTYPE_OK (F : function_ctx) (ζ : sizity) :
-  kind_ok F (MEMTYPE ζ).
+| MEMTYPEOK (F : function_ctx) (ζ : sizity) (γ : linearity) :
+  kind_ok F (MEMTYPE ζ γ).
 
 Inductive mono_rep : representation -> list primitive_rep -> Prop :=
 | MonoSumR (ρs : list representation) (ιss : list (list primitive_rep)) :
@@ -83,15 +83,18 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   end.
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
-| KSubLin F τ ρ η :
+| KSubValLin F τ ρ η :
   has_kind F τ (VALTYPE ρ η Unr) ->
   has_kind F τ (VALTYPE ρ η Lin)
+| KSubMemLin F τ ζ :
+  has_kind F τ (MEMTYPE ζ Unr) ->
+  has_kind F τ (MEMTYPE ζ Lin)
 | KSubUnheapable F τ ρ γ :
   has_kind F τ (VALTYPE ρ Heapable γ) ->
   has_kind F τ (VALTYPE ρ Unheapable γ)
-| KSubUnsized F τ σ :
-  has_kind F τ (MEMTYPE (Sized σ)) ->
-  has_kind F τ (MEMTYPE Unsized)
+| KSubUnsized F τ σ γ :
+  has_kind F τ (MEMTYPE (Sized σ) γ) ->
+  has_kind F τ (MEMTYPE Unsized γ)
 | KVar F t κ :
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F κ ->
@@ -107,25 +110,25 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSumVal F τs ρs η γ :
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ η γ)) τs ρs ->
   has_kind F (SumT τs) (VALTYPE (SumR ρs) η γ)
-| KSumMem F τs ζs :
-  Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ)) τs ζs ->
-  has_kind F (SumT τs) (MEMTYPE Unsized)
-| KSumMemSized F τs σs :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ))) τs σs ->
-  has_kind F (SumT τs) (MEMTYPE (Sized (SumS σs)))
+| KSumMem F τs ζs γ :
+  Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ γ)) τs ζs ->
+  has_kind F (SumT τs) (MEMTYPE Unsized γ)
+| KSumMemSized F τs σs γ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) γ)) τs σs ->
+  has_kind F (SumT τs) (MEMTYPE (Sized (SumS σs)) γ)
 | KProdVal F τs ρs η γ :
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ η γ)) τs ρs ->
   has_kind F (ProdT τs) (VALTYPE (ProdR ρs) η γ)
-| KProdMem F τs τn σs ζ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ))) τs σs ->
-  has_kind F τn (MEMTYPE ζ) ->
-  has_kind F (ProdT (τs ++ [τn])) (MEMTYPE Unsized)
-| KProdMemSized F τs σs :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ))) τs σs ->
-  has_kind F (ProdT τs) (MEMTYPE (Sized (ProdS σs)))
+| KProdMem F τs τn σs ζ γ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) γ)) τs σs ->
+  has_kind F τn (MEMTYPE ζ γ) ->
+  has_kind F (ProdT (τs ++ [τn])) (MEMTYPE Unsized γ)
+| KProdMemSized F τs σs γ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) γ)) τs σs ->
+  has_kind F (ProdT τs) (MEMTYPE (Sized (ProdS σs)) γ)
 | KArray F τ σ :
-  has_kind F τ (MEMTYPE (Sized σ)) ->
-  has_kind F (ArrayT τ) (MEMTYPE Unsized)
+  has_kind F τ (MEMTYPE (Sized σ) Unr) ->
+  has_kind F (ArrayT τ) (MEMTYPE Unsized Unr)
 | KExLoc F τ κ :
   has_kind (set fc_location_vars S F) τ κ ->
   has_kind F (ExT QLoc τ) κ
@@ -149,23 +152,20 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (PtrT ℓ) (VALTYPE (PrimR PtrR) Heapable Unr)
 | KCap F ℓ τ :
   has_kind F (CapT ℓ τ) (VALTYPE (ProdR []) Unheapable Lin)
-| KRef F ℓ ω τ ζ :
-  has_kind F τ (MEMTYPE ζ) ->
+| KRef F ℓ ω τ ζ γ :
+  has_kind F τ (MEMTYPE ζ γ) ->
   has_kind F (RefT ω ℓ τ) (VALTYPE (PrimR PtrR) Heapable Lin)
-| KRefGC F ℓ τ ζ :
-  has_kind F τ (MEMTYPE ζ) ->
-  has_kind F (RefT OwnGC ℓ τ) (VALTYPE (PrimR PtrR) Heapable Unr)
 | KCodeRef F ϕ :
   has_kind F (CodeRefT ϕ) (VALTYPE (PrimR I32R) Heapable Unr)
 | KRep F ρ0 ρ τ η γ :
   has_kind F τ (VALTYPE ρ0 η γ) ->
   has_kind F (RepT ρ τ) (VALTYPE ρ η γ)
-| KPad F σ0 σ τ :
-  has_kind F τ (MEMTYPE (Sized σ0)) ->
-  has_kind F (PadT σ τ) (MEMTYPE (Sized σ))
+| KPad F σ0 σ τ γ :
+  has_kind F τ (MEMTYPE (Sized σ0) γ) ->
+  has_kind F (PadT σ τ) (MEMTYPE (Sized σ) γ)
 | KSer F τ ρ γ :
   has_kind F τ (VALTYPE ρ Heapable γ) ->
-  has_kind F (SerT τ) (MEMTYPE (Sized (RepS ρ))).
+  has_kind F (SerT τ) (MEMTYPE (Sized (RepS ρ)) γ).
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
 | RepVALTYPE (F : function_ctx) (τ : type) (ρ : representation) (η : heapability) (γ : linearity) :
@@ -179,8 +179,11 @@ Inductive mono_sized : function_ctx -> type -> Prop :=
   mono_sized F τ.
 
 Inductive is_unrestricted : function_ctx -> type -> Prop :=
-| IsUnr (F : function_ctx) (τ : type) (ρ : representation) (η : heapability) :
+| UnrVALTYPE (F : function_ctx) (τ : type) (ρ : representation) (η : heapability) :
   has_kind F τ (VALTYPE ρ η Unr) ->
+  is_unrestricted F τ
+| UnrMEMTYPE (F : function_ctx) (τ : type) (ζ : sizity) :
+  has_kind F τ (MEMTYPE ζ Unr) ->
   is_unrestricted F τ.
 
 Inductive is_heapable : function_ctx -> type -> Prop :=
@@ -364,9 +367,12 @@ Inductive instr_has_type {A : Type} :
   (* TODO: weaken τ' *)
   instr_has_type M F L (IRefNew ann ω) (ArrowT [τ] [ExT QLoc (RefT ω (LocVar 0) τ')]) L
 | TRefFree M F L ann ℓ τ :
-  (* TODO: MEMTYPEs can't be unrestricted *)
   is_unrestricted F τ ->
   instr_has_type M F L (IRefFree ann) (ArrowT [RefT OwnUniq ℓ τ] []) L
+| TRefDup M F L ann ℓ τ :
+  instr_has_type M F L (IRefDup ann) (ArrowT [RefT OwnGC ℓ τ] [RefT OwnGC ℓ τ; RefT OwnGC ℓ τ]) L
+| TRefForget M F L ann ℓ τ :
+  instr_has_type M F L (IRefForget ann) (ArrowT [RefT OwnGC ℓ τ] []) L
 | TRefLoad M F L ann π ω ℓ τ τs0 τ' ρ ιs :
   path_to π τ τs0 τ' ->
   Forall (mono_sized F) τs0 ->
@@ -377,12 +383,12 @@ Inductive instr_has_type {A : Type} :
   path_to π τ τs τ__π ->
   stores_as F τᵥ τ__π ->
   instr_has_type M F L (IRefStore ann π) (ArrowT [RefT ω ℓ τ; τᵥ] [RefT ω ℓ τ]) L
-| TRefStoreUniq M F L ann π ℓ τ τ' τᵥ τᵥ' τ0 σᵥ σ0 n :
+| TRefStoreUniq M F L ann π ℓ τ τ' τᵥ τᵥ' τ0 σᵥ σ0 γ n :
   is_heapable F τᵥ ->
   stores_as F τᵥ τᵥ' ->
   update_at π τ τᵥ' τ0 τ' ->
-  has_kind F τᵥ' (MEMTYPE (Sized σᵥ)) ->
-  has_kind F τ0 (MEMTYPE (Sized σ0)) ->
+  has_kind F τᵥ' (MEMTYPE (Sized σᵥ) γ) ->
+  has_kind F τ0 (MEMTYPE (Sized σ0) Unr) ->
   mono_size σᵥ n ->
   mono_size σ0 n ->
   instr_has_type M F L (IRefStore ann π) (ArrowT [RefT OwnUniq ℓ τ; τᵥ] [RefT OwnUniq ℓ τ']) L
