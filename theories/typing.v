@@ -82,11 +82,6 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   | F64R => 2
   end.
 
-Inductive has_mono_size : representation -> nat -> Prop :=
-| MonoSize (ρ : representation) (ιs : list primitive_rep) :
-  mono_rep ρ ιs ->
-  has_mono_size ρ (list_sum (map primitive_size ιs)).
-
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSubLin F τ ρ η :
   has_kind F τ (VALTYPE ρ η Unr) ->
@@ -177,10 +172,105 @@ Inductive has_rep : function_ctx -> type -> representation -> Prop :=
   has_kind F τ (VALTYPE ρ η γ) ->
   has_rep F τ ρ.
 
+Inductive mono_sized : function_ctx -> type -> Prop :=
+| MonoSized (F : function_ctx) (τ : type) (ρ : representation) (ιs : list primitive_rep) :
+  has_rep F τ ρ ->
+  mono_rep ρ ιs ->
+  mono_sized F τ.
+
 Inductive is_unrestricted : function_ctx -> type -> Prop :=
-| UnrVALTYPE (F : function_ctx) (τ : type) (ρ : representation) (η : heapability) :
+| IsUnr (F : function_ctx) (τ : type) (ρ : representation) (η : heapability) :
   has_kind F τ (VALTYPE ρ η Unr) ->
   is_unrestricted F τ.
+
+Inductive is_heapable : function_ctx -> type -> Prop :=
+| IsHeapable (F : function_ctx) (τ : type) (ρ : representation) (γ : linearity) :
+  has_kind F τ (VALTYPE ρ Heapable γ) ->
+  is_heapable F τ.
+
+Inductive convertible_to : list primitive_rep -> list primitive_rep -> Prop :=
+| ConvertPad ιs2 :
+  convertible_to [] ιs2
+| ConvertNoPtrs ιs1 ιs1' ιs2 ιs2' :
+  PtrR ∉ ιs1 ->
+  list_sum (map primitive_size ιs1) = list_sum (map primitive_size ιs2) ->
+  convertible_to ιs1' ιs2' ->
+  convertible_to (ιs1 ++ ιs1') (ιs2 ++ ιs2')
+| ConvertPtr ιs1 ιs2 :
+  convertible_to (PtrR :: ιs1) (PtrR :: ιs2).
+
+Inductive path_to : path -> type -> list type -> type -> Prop :=
+| PathToNil τ :
+  path_to [] τ [] τ
+| PathToRep π ρ τ τs τ' :
+  path_to π τ τs τ' ->
+  path_to (PCUnwrap :: π) (RepT ρ τ) τs τ'
+| PathToPad π σ τ τs τ' :
+  path_to (PCUnwrap :: π) τ τs τ' ->
+  path_to π (PadT σ τ) τs τ'
+| PathToSer π τ τs τ' :
+  path_to π τ τs τ' ->
+  path_to (PCUnwrap :: π) (SerT τ) τs τ'
+| PathToEx π δ τ τs τ' :
+  path_to π τ τs τ' ->
+  path_to (PCUnwrap :: π) (ExT δ τ) τs τ'
+| PathToRec π τ τs τ' :
+  path_to π τ τs τ' ->
+  path_to (PCUnwrap :: π) (RecT τ) τs τ'
+| PathToProd n π τs τs0 τs' τ τ0 :
+  length τs0 = n ->
+  path_to π τ0 τs τ ->
+  path_to (PCProj n :: π) (ProdT (τs0 ++ τ0 :: τs')) (τs0 ++ τs) τ.
+
+Inductive update_at : path -> type -> type -> type -> type -> Prop :=
+| UpdateAtNil τ τ__π :
+  update_at [] τ τ__π τ τ__π
+| UpdateAtRep π ρ τ τ' τ0 τ__π :
+  update_at π τ τ__π τ0 τ' ->
+  update_at (PCUnwrap :: π) (RepT ρ τ) τ__π τ0 (RepT ρ τ')
+| UpdateAtPad π σ τ τ' τ__π τ0 :
+  update_at π τ τ__π τ0 τ' ->
+  update_at (PCUnwrap :: π) (PadT σ τ) τ__π τ0 (PadT σ τ')
+| UpdateAtSer π τ τ' τ__π τ0 :
+  update_at π τ τ__π τ0 τ' ->
+  update_at (PCUnwrap :: π) (SerT τ) τ__π τ0 (SerT τ')
+| UpdateAtEx π δ τ τ' τ__π τ0 :
+  update_at π τ τ__π τ0 τ' ->
+  update_at (PCUnwrap :: π) (ExT δ τ) τ__π τ0 (ExT δ τ')
+| UpdateAtRec π τ τ' τ__π τ0 :
+  update_at π τ τ__π τ0 τ' ->
+  update_at (PCUnwrap :: π) (RecT τ) τ__π τ0 (RecT τ')
+| UpdateAtProd π τ τ' τ__π τ0 τs τs' n :
+  length τs = n ->
+  update_at π τ τ__π τ0 τ' ->
+  update_at (PCProj n :: π) (ProdT (τs ++ τ :: τs')) τ__π τ0 (ProdT (τs ++ τ' :: τs')).
+
+Inductive mono_size : size -> nat -> Prop :=
+| MonoSizeSum σs ns :
+  Forall2 mono_size σs ns ->
+  mono_size (SumS σs) (S (list_max ns))
+| MonoSizeProd σs ns :
+  Forall2 mono_size σs ns ->
+  mono_size (ProdS σs) (list_sum ns)
+| MonoSizeRep ρ ιs :
+  mono_rep ρ ιs ->
+  mono_size (RepS ρ) (list_sum (map primitive_size ιs))
+| MonoSizeConst n :
+  mono_size (ConstS n) n.
+
+Inductive stores_as : function_ctx -> type -> type -> Prop :=
+| SASer F τ :
+  stores_as F τ (SerT τ)
+| SAPad F τ τ' ρ ιs σ n :
+  has_rep F τ ρ ->
+  mono_rep ρ ιs ->
+  mono_size σ n ->
+  list_sum (map primitive_size ιs) <= n ->
+  stores_as F τ τ' ->
+  stores_as F τ (PadT σ τ')
+| SAProd F τs τs' :
+  Forall2 (stores_as F) τs τs' ->
+  stores_as F (ProdT τs) (ProdT τs').
 
 Inductive module_ctx_ok : module_ctx -> Prop :=
 | MC_OK (gs : list (mutability * type)) :
@@ -258,6 +348,44 @@ Inductive instr_has_type {A : Type} :
 | TGlobalSet M F L ann n m τ :
   M.(mc_globals) !! n = Some (m, τ) ->
   instr_has_type M F L (IGlobalSet ann n) (ArrowT [τ] []) L
+| TWrap M F L ann ρ0 ρ ιs0 ιs τ :
+  mono_rep ρ0 ιs0 ->
+  mono_rep ρ ιs ->
+  convertible_to ιs0 ιs ->
+  instr_has_type M F L (IWrap ann) (ArrowT [τ] [RepT ρ τ]) L
+| TUnwrap M F L ann ρ0 ρ ιs0 ιs τ :
+  mono_rep ρ0 ιs0 ->
+  mono_rep ρ ιs ->
+  convertible_to ιs0 ιs ->
+  instr_has_type M F L (IUnwrap ann) (ArrowT [RepT ρ τ] [τ]) L
+| TRefNew M F L ann ω τ τ' :
+  is_heapable F τ ->
+  stores_as F τ τ' ->
+  (* TODO: weaken τ' *)
+  instr_has_type M F L (IRefNew ann ω) (ArrowT [τ] [ExT QLoc (RefT ω (LocVar 0) τ')]) L
+| TRefFree M F L ann ℓ τ :
+  (* TODO: MEMTYPEs can't be unrestricted *)
+  is_unrestricted F τ ->
+  instr_has_type M F L (IRefFree ann) (ArrowT [RefT OwnUniq ℓ τ] []) L
+| TRefLoad M F L ann π ω ℓ τ τs0 τ' ρ ιs :
+  path_to π τ τs0 τ' ->
+  Forall (mono_sized F) τs0 ->
+  has_kind F τ' (VALTYPE ρ Heapable Unr) ->
+  mono_rep ρ ιs ->
+  instr_has_type M F L (IRefLoad ann π) (ArrowT [RefT ω ℓ τ] [RefT ω ℓ τ; τ']) L
+| TRefStore M F L ann π ω ℓ τ τs τᵥ τ__π :
+  path_to π τ τs τ__π ->
+  stores_as F τᵥ τ__π ->
+  instr_has_type M F L (IRefStore ann π) (ArrowT [RefT ω ℓ τ; τᵥ] [RefT ω ℓ τ]) L
+| TRefStoreUniq M F L ann π ℓ τ τ' τᵥ τᵥ' τ0 σᵥ σ0 n :
+  is_heapable F τᵥ ->
+  stores_as F τᵥ τᵥ' ->
+  update_at π τ τᵥ' τ0 τ' ->
+  has_kind F τᵥ' (MEMTYPE (Sized σᵥ)) ->
+  has_kind F τ0 (MEMTYPE (Sized σ0)) ->
+  mono_size σᵥ n ->
+  mono_size σ0 n ->
+  instr_has_type M F L (IRefStore ann π) (ArrowT [RefT OwnUniq ℓ τ; τᵥ] [RefT OwnUniq ℓ τ']) L
 
 with expr_has_type {A : Type} :
   module_ctx -> function_ctx -> local_ctx -> expr A -> arrow_type -> local_ctx -> Prop :=

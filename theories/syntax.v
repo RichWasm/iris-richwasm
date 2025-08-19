@@ -95,6 +95,12 @@ Inductive index :=
 | SizeI (σ : size)
 | TypeI (τ : type).
 
+Inductive path_component :=
+| PCProj (n : nat)
+| PCUnwrap.
+
+Definition path := list path_component.
+
 Inductive int_unop := ClzI | CtzI | PopcntI.
 
 Inductive int_binop :=
@@ -175,20 +181,22 @@ Inductive instr {A : Type} :=
 | IUnfold (ann : A)
 | IPack (ann : A) (κ : kind) (ix : index)
 | IUnpack (ann : A) (χ : arrow_type) (le : local_effect) (es : list instr)
-| IStructNew (ann : A) (ω : ownership)
-| IStructFree (ann : A)
-| IStructGet (ann : A) (n : nat)
-| IStructSet (ann : A) (n : nat)
-| IStructSwap (ann : A) (n : nat)
+| IWrap (ann : A)
+| IUnwrap (ann : A)
+| IRefNew (ann : A) (ω : ownership)
+| IRefFree (ann : A)
+| IRefLoad (ann : A) (π : path)
+| IRefStore (ann : A) (π : path)
+| IRefSwap (ann : A) (π : path)
+| IRefSplit (ann : A)
+| IRefJoin (ann : A)
 | IVariantNew (ann : A) (n : nat) (τs : list type) (ω : ownership)
 | IVariantCase
     (ann : A) (γ : linearity) (χ : arrow_type) (le : local_effect) (ess : list (list instr))
 | IArrayNew (ann : A) (ω : ownership)
 | IArrayFree (ann : A)
 | IArrayGet (ann : A)
-| IArraySet (ann : A)
-| IRefSplit (ann : A)
-| IRefJoin (ann : A).
+| IArraySet (ann : A).
 
 Arguments instr : clear implicits.
 
