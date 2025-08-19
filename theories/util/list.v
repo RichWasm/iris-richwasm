@@ -46,7 +46,7 @@ Fixpoint mapopt {A} (al: list (option A)) : option (list A) :=
 (* Forall3 *)
 
 Definition Forall3 {A B C : Type} (R : A -> B -> C -> Prop) :=
-  stdpp.list.Forall3 R.
+  stdpp.list_relations.Forall3 R.
 
 
 Lemma Forall3_length {A B C : Type} (R : A -> B -> C -> Prop) l1 l2 l3 :
