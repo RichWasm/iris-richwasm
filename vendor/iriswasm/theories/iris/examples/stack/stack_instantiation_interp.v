@@ -273,12 +273,10 @@ Section StackModule.
         { iNext; iModIntro. iSplit.
           - iIntros "H". iDestruct (stackModuleInvIff with "H") as "H";[|iExact "H"].
             intros. simpl. 
-            apply class_instances.as_emp_valid_equiv.
-            iSplit;iIntros "H";iExact "H".
+            eapply class_instances.as_emp_valid_equiv; eauto.
           - iIntros "H". iDestruct (stackModuleInvIff with "H") as "H";[|iExact "H"].
             intros. simpl.
-            apply class_instances.as_emp_valid_equiv.
-            iSplit;iIntros "H";iExact "H". }
+            eapply class_instances.as_emp_valid_equiv; eauto. }
 
         iApply big_opM_map_to_list.
         rewrite map_to_list_to_map; last first.

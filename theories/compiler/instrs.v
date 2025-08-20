@@ -409,6 +409,20 @@ Section Instrs.
     emit (W.BI_get_local (localimm ptr));;
     store_value_tagged offset val_ty.
 
+  Definition compile_struct_swap
+    (ptr : W.localidx)
+    (tys : list R.Typ)
+    (sizes : list R.Size)
+    (val_ty : R.Typ)
+    (i : nat)
+  : codegen unit :=
+    field_ty ← try_option EWrongTypeAnn (tys !! i);
+    emit (W.BI_get_local (localimm ptr));;
+    compile_struct_get tys sizes i;;
+    old ← save_stack [field_ty];
+    compile_struct_set tys sizes val_ty i;;
+    restore_stack old [field_ty].
+
   Definition compile_array_get (elem_ty : R.Typ) : codegen unit :=
     (* TODO: registerroot if GC array; duproot if MM array. *)
     idx ← wlalloc W.T_i32;
@@ -512,9 +526,13 @@ Section Instrs.
         val_ty ← try_option EWrongTypeAnn (lookup 1 in_ty);
         let (tys, sizes) := split fields in
         compile_struct_set tys sizes val_ty i
-    | R.IStructSwap _ _ =>
+    | R.IStructSwap (R.Arrow in_ty _, _) i =>
         (* TODO: registerroot if GC struct *)
-        raise ETodo
+        fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
+        val_ty ← try_option EWrongTypeAnn (lookup 1 in_ty);
+        let (tys, sizes) := split fields in
+        ptr ← wlalloc W.T_i32;
+        compile_struct_swap ptr tys sizes val_ty i
     | R.IVariantMalloc _ _ _ _ =>
         (* TODO: registerroot on the new address;
                  unregisterroot if payload is GC ref being put into GC variant *)
