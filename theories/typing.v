@@ -401,10 +401,10 @@ Inductive instr_has_type {A : Type} :
   mono_rep ρ ιs ->
   has_kind F τₘ (MEMTYPE (Sized σ) Unr) ->
   has_kind F τₘ' (MEMTYPE (Sized σ') γ) ->
+  path_to π τ τs__off τₘ ->
   loads_as F τᵥ τₘ ->
   stores_as F τᵥ' τₘ' ->
   update_at π τ τₘ τ' τₘ' ->
-  path_to π τ' τs__off τₘ ->
   Forall (mono_sized F) τs__off ->
   instr_has_type M F L (IRefSwap ann π) (ArrowT [RefT OwnUniq ℓ τ; τᵥ'] [RefT OwnUniq ℓ τ'; τᵥ]) L
 | TRefSplit M F L ann ω ℓ τ ζ γ :
