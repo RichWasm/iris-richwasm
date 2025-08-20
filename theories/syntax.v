@@ -186,7 +186,7 @@ Inductive instr {A : Type} :=
 | IRefNew (ann : A) (ω : ownership)
 | IRefFree (ann : A)
 | IRefDup (ann : A)
-| IRefForget (ann : A)
+| IRefDrop (ann : A)
 | IRefSplit (ann : A)
 | IRefJoin (ann : A)
 | IRefLoad (ann : A) (π : path)

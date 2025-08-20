@@ -371,8 +371,8 @@ Inductive instr_has_type {A : Type} :
   instr_has_type M F L (IRefFree ann) (ArrowT [RefT OwnUniq ℓ τ] []) L
 | TRefDup M F L ann ℓ τ :
   instr_has_type M F L (IRefDup ann) (ArrowT [RefT OwnGC ℓ τ] [RefT OwnGC ℓ τ; RefT OwnGC ℓ τ]) L
-| TRefForget M F L ann ℓ τ :
-  instr_has_type M F L (IRefForget ann) (ArrowT [RefT OwnGC ℓ τ] []) L
+| TRefDrop M F L ann ℓ τ :
+  instr_has_type M F L (IRefDrop ann) (ArrowT [RefT OwnGC ℓ τ] []) L
 | TRefLoad M F L ann π ω ℓ τ τs0 τ' ρ ιs :
   path_to π τ τs0 τ' ->
   Forall (mono_sized F) τs0 ->
