@@ -150,8 +150,8 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (RecT τ) κ
 | KPtr F ℓ :
   has_kind F (PtrT ℓ) (VALTYPE (PrimR PtrR) Heapable Unr)
-| KCap F ℓ τ :
-  has_kind F (CapT ℓ τ) (VALTYPE (ProdR []) Unheapable Lin)
+| KCap F ω ℓ τ :
+  has_kind F (CapT ω ℓ τ) (VALTYPE (ProdR []) Unheapable Lin)
 | KRef F ℓ ω τ ζ γ :
   has_kind F τ (MEMTYPE ζ γ) ->
   has_kind F (RefT ω ℓ τ) (VALTYPE (PrimR PtrR) Heapable Lin)
@@ -226,27 +226,27 @@ Inductive path_to : path -> type -> list type -> type -> Prop :=
   path_to (PCProj n :: π) (ProdT (τs0 ++ τ0 :: τs')) (τs0 ++ τs) τ.
 
 Inductive update_at : path -> type -> type -> type -> type -> Prop :=
-| UpdateAtNil τ τ__π :
-  update_at [] τ τ__π τ τ__π
-| UpdateAtRep π ρ τ τ' τ0 τ__π :
-  update_at π τ τ__π τ0 τ' ->
-  update_at (PCUnwrap :: π) (RepT ρ τ) τ__π τ0 (RepT ρ τ')
-| UpdateAtPad π σ τ τ' τ__π τ0 :
-  update_at π τ τ__π τ0 τ' ->
-  update_at (PCUnwrap :: π) (PadT σ τ) τ__π τ0 (PadT σ τ')
-| UpdateAtSer π τ τ' τ__π τ0 :
-  update_at π τ τ__π τ0 τ' ->
-  update_at (PCUnwrap :: π) (SerT τ) τ__π τ0 (SerT τ')
-| UpdateAtEx π δ τ τ' τ__π τ0 :
-  update_at π τ τ__π τ0 τ' ->
-  update_at (PCUnwrap :: π) (ExT δ τ) τ__π τ0 (ExT δ τ')
-| UpdateAtRec π τ τ' τ__π τ0 :
-  update_at π τ τ__π τ0 τ' ->
-  update_at (PCUnwrap :: π) (RecT τ) τ__π τ0 (RecT τ')
-| UpdateAtProd π τ τ' τ__π τ0 τs τs' n :
+| UpdateAtNil τ τ' :
+  update_at [] τ τ τ' τ'
+| UpdateAtRep π ρ τ τ' τ__π τ__π' :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (RepT ρ τ) τ__π (RepT ρ τ') τ__π'
+| UpdateAtPad π σ τ τ' τ__π τ__π' :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (PadT σ τ) τ__π (PadT σ τ') τ__π'
+| UpdateAtSer π τ τ' τ__π τ__π' :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (SerT τ) τ__π (SerT τ') τ__π'
+| UpdateAtEx π δ τ τ' τ__π τ__π'  :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (ExT δ τ) τ__π (ExT δ τ') τ__π'
+| UpdateAtRec π τ τ' τ__π τ__π' :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (RecT τ) τ__π (RecT τ') τ__π'
+| UpdateAtProd π τ τ' τ__π τ__π' τs τs' n :
   length τs = n ->
-  update_at π τ τ__π τ0 τ' ->
-  update_at (PCProj n :: π) (ProdT (τs ++ τ :: τs')) τ__π τ0 (ProdT (τs ++ τ' :: τs')).
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCProj n :: π) (ProdT (τs ++ τ :: τs')) τ__π (ProdT (τs ++ τ' :: τs')) τ__π'.
 
 Inductive mono_size : size -> nat -> Prop :=
 | MonoSizeSum σs ns :
@@ -274,6 +274,9 @@ Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SAProd F τs τs' :
   Forall2 (stores_as F) τs τs' ->
   stores_as F (ProdT τs) (ProdT τs').
+
+(* Handy name for the converse of stores_as. *)
+Definition loads_as F τ τ' := stores_as F τ' τ.
 
 Inductive module_ctx_ok : module_ctx -> Prop :=
 | MC_OK (gs : list (mutability * type)) :
@@ -373,9 +376,9 @@ Inductive instr_has_type {A : Type} :
   instr_has_type M F L (IRefDup ann) (ArrowT [RefT OwnGC ℓ τ] [RefT OwnGC ℓ τ; RefT OwnGC ℓ τ]) L
 | TRefDrop M F L ann ℓ τ :
   instr_has_type M F L (IRefDrop ann) (ArrowT [RefT OwnGC ℓ τ] []) L
-| TRefLoad M F L ann π ω ℓ τ τs0 τ' ρ ιs :
-  path_to π τ τs0 τ' ->
-  Forall (mono_sized F) τs0 ->
+| TRefLoad M F L ann π ω ℓ τ τs__off τ' ρ ιs :
+  path_to π τ τs__off τ' ->
+  Forall (mono_sized F) τs__off ->
   has_kind F τ' (VALTYPE ρ Heapable Unr) ->
   mono_rep ρ ιs ->
   instr_has_type M F L (IRefLoad ann π) (ArrowT [RefT ω ℓ τ] [RefT ω ℓ τ; τ']) L
@@ -383,15 +386,33 @@ Inductive instr_has_type {A : Type} :
   path_to π τ τs τ__π ->
   stores_as F τᵥ τ__π ->
   instr_has_type M F L (IRefStore ann π) (ArrowT [RefT ω ℓ τ; τᵥ] [RefT ω ℓ τ]) L
-| TRefStoreUniq M F L ann π ℓ τ τ' τᵥ τᵥ' τ0 σᵥ σ0 γ n :
-  is_heapable F τᵥ ->
-  stores_as F τᵥ τᵥ' ->
-  update_at π τ τᵥ' τ0 τ' ->
-  has_kind F τᵥ' (MEMTYPE (Sized σᵥ) γ) ->
-  has_kind F τ0 (MEMTYPE (Sized σ0) Unr) ->
-  mono_size σᵥ n ->
-  mono_size σ0 n ->
-  instr_has_type M F L (IRefStore ann π) (ArrowT [RefT OwnUniq ℓ τ; τᵥ] [RefT OwnUniq ℓ τ']) L
+| TRefStoreUniq M F L ann π ℓ τ τ' τᵥ τᵥ' τₘ τₘ' σ σ' γ n :
+  is_heapable F τᵥ' ->
+  stores_as F τᵥ τₘ' ->
+  update_at π τ τₘ τ' τₘ' ->
+  has_kind F τₘ (MEMTYPE (Sized σ) Unr) ->
+  has_kind F τₘ' (MEMTYPE (Sized σ') γ) ->
+  mono_size σ n ->
+  mono_size σ' n ->
+  instr_has_type M F L (IRefStore ann π) (ArrowT [RefT OwnUniq ℓ τ; τᵥ'] [RefT OwnUniq ℓ τ']) L
+| TRefSwap M F L ann π ℓ γ ρ ιs τ τ' τᵥ τᵥ' τₘ τₘ' σ σ' τs__off :
+  is_heapable F τᵥ' ->
+  has_kind F τᵥ (VALTYPE ρ Heapable γ) ->
+  mono_rep ρ ιs ->
+  has_kind F τₘ (MEMTYPE (Sized σ) Unr) ->
+  has_kind F τₘ' (MEMTYPE (Sized σ') γ) ->
+  loads_as F τᵥ τₘ ->
+  stores_as F τᵥ' τₘ' ->
+  update_at π τ τₘ τ' τₘ' ->
+  path_to π τ' τs__off τₘ ->
+  Forall (mono_sized F) τs__off ->
+  instr_has_type M F L (IRefSwap ann π) (ArrowT [RefT OwnUniq ℓ τ; τᵥ'] [RefT OwnUniq ℓ τ'; τᵥ]) L
+| TRefSplit M F L ann ω ℓ τ ζ γ :
+  has_kind F τ (MEMTYPE ζ γ) ->
+  instr_has_type M F L (IRefSplit ann) (ArrowT [RefT ω ℓ τ] [ProdT [PtrT ℓ; CapT ω ℓ τ]]) L
+| TRefJoin M F L ann ω ℓ τ ζ γ :
+  has_kind F τ (MEMTYPE ζ γ) ->
+  instr_has_type M F L (IRefSplit ann) (ArrowT [ProdT [PtrT ℓ; CapT ω ℓ τ]] [RefT ω ℓ τ]) L
 
 with expr_has_type {A : Type} :
   module_ctx -> function_ctx -> local_ctx -> expr A -> arrow_type -> local_ctx -> Prop :=

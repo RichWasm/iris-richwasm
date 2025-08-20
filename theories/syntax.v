@@ -71,7 +71,7 @@ Inductive type :=
 | ProdT (τs : list type)
 | ArrayT (τ : type)
 | RefT (ω : ownership) (ℓ : location) (τ : type)
-| CapT (ℓ : location) (τ : type)
+| CapT (ω : ownership) (ℓ : location) (τ : type)
 | PtrT (ℓ : location)
 | CodeRefT (ϕ : function_type)
 | RepT (ρ : representation) (τ : type)
