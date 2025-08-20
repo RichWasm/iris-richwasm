@@ -8,7 +8,8 @@ Require Import RecordUpdate.RecordUpdate.
 Require Import RichWasm.syntax.
 
 Record module_ctx :=
-  { mc_globals : list (mutability * type) }.
+  { mc_globals : list (mutability * type);
+    mc_table : list function_type }.
 
 Definition local_ctx := list type.
 
@@ -279,9 +280,9 @@ Inductive stores_as : function_ctx -> type -> type -> Prop :=
 Definition loads_as F τ τ' := stores_as F τ' τ.
 
 Inductive module_ctx_ok : module_ctx -> Prop :=
-| MC_OK (gs : list (mutability * type)) :
+| MC_OK (gs : list (mutability * type)) ts :
   Forall (fun '(_, τ) => is_unrestricted fc_empty τ) gs ->
-  module_ctx_ok {| mc_globals := gs |}.
+  module_ctx_ok {| mc_globals := gs; mc_table := ts |}.
 
 (* TODO *)
 Inductive num_instr_has_type : num_instr -> arrow_type -> Prop :=.
@@ -354,6 +355,32 @@ Inductive instr_has_type {A : Type} :
 | TGlobalSet M F L ann n m τ :
   M.(mc_globals) !! n = Some (m, τ) ->
   instr_has_type M F L (IGlobalSet ann n) (ArrowT [τ] []) L
+| TCoderef M F L ann n ϕ :
+  (mc_table M) !! n = Some ϕ ->
+  instr_has_type M F L (ICoderef ann n) (ArrowT [] [CodeRefT ϕ]) L
+(*
+| TCall M F L ann n ixs :
+  instr_has_type M F L (ICall ann n ixs) (ArrowT [] []) L
+| TCallIndirect M F L ann ixs :
+  instr_has_type M F L (ICallIndirect ann ixs) (ArrowT [] []) L
+*)
+| TGroup M F L ann n τs ρs η γ :
+  length τs = n ->
+  Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ η γ)) τs ρs ->
+  instr_has_type M F L (IGroup ann n) (ArrowT τs [ProdT τs]) L
+| TUngroup M F L ann τs ρ η γ :
+  has_kind F (ProdT τs) (VALTYPE ρ η γ) ->
+  instr_has_type M F L (IUngroup ann) (ArrowT [ProdT τs] τs) L
+(* These require setting up substitution.
+| TFold M F L ann τ :
+  instr_has_type M F L (IFold ann τ) (ArrowT [] []) L
+| TUnfold M F L ann :
+  instr_has_type M F L (IUnfold ann) (ArrowT [] []) L
+| TPack M F L ann κ ix :
+  instr_has_type M F L (IPack ann κ ix) (ArrowT [] []) L
+| TUnpack M F L ann χ le es :
+  instr_has_type M F L (IUnpack ann χ le es) (ArrowT [] []) L
+*)
 | TWrap M F L ann ρ0 ρ ιs0 ιs τ :
   mono_rep ρ0 ιs0 ->
   mono_rep ρ ιs ->
