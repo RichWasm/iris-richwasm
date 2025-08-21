@@ -412,6 +412,7 @@ Inductive instr_has_type {A : Type} :
 | TRefStore M F L ann π ω ℓ τ τs τᵥ τ__π :
   path_to π τ τs τ__π ->
   stores_as F τᵥ τ__π ->
+  is_unrestricted F τ__π ->
   instr_has_type M F L (IRefStore ann π) (ArrowT [RefT ω ℓ τ; τᵥ] [RefT ω ℓ τ]) L
 | TRefStoreUniq M F L ann π ℓ τ τ' τᵥ τᵥ' τₘ τₘ' σ σ' γ n :
   is_heapable F τᵥ' ->
@@ -422,12 +423,17 @@ Inductive instr_has_type {A : Type} :
   mono_size σ n ->
   mono_size σ' n ->
   instr_has_type M F L (IRefStore ann π) (ArrowT [RefT OwnUniq ℓ τ; τᵥ'] [RefT OwnUniq ℓ τ']) L
-| TRefSwap M F L ann π ℓ γ ρ ιs τ τ' τᵥ τᵥ' τₘ τₘ' σ σ' τs__off :
+| TRefSwap M F L ann π ℓ γ ρ ιs ω τ τᵥ τₘ τs__off :
+  has_kind F τᵥ (VALTYPE ρ Heapable γ) ->
+  mono_rep ρ ιs ->
+  path_to π τ τs__off τₘ ->
+  loads_as F τᵥ τₘ ->
+  Forall (mono_sized F) τs__off ->
+  instr_has_type M F L (IRefSwap ann π) (ArrowT [RefT ω ℓ τ; τᵥ] [RefT ω ℓ τ; τᵥ]) L
+| TRefSwapUniq M F L ann π ℓ γ ρ ιs τ τ' τᵥ τᵥ' τₘ τₘ' τs__off :
   is_heapable F τᵥ' ->
   has_kind F τᵥ (VALTYPE ρ Heapable γ) ->
   mono_rep ρ ιs ->
-  has_kind F τₘ (MEMTYPE (Sized σ) Unr) ->
-  has_kind F τₘ' (MEMTYPE (Sized σ') γ) ->
   path_to π τ τs__off τₘ ->
   loads_as F τᵥ τₘ ->
   stores_as F τᵥ' τₘ' ->
