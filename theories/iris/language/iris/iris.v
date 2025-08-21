@@ -1,8 +1,8 @@
 From mathcomp Require Import ssreflect ssrbool eqtype seq.
 From iris.program_logic Require Import language.
 From Coq Require Import Eqdep_dec.
-From RWasm.iris.helpers Require Export lfill_prelude.
-From RWasm Require Export obs.
+From RichWasm.iris.helpers Require Export lfill_prelude.
+From RichWasm Require Export obs.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

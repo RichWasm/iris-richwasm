@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From RWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude.
+From RichWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude.
 
 Lemma cvtop_convert_det v v' t1 t2 sx obs s f obs' s' f' es:
   types_agree t1 v ->

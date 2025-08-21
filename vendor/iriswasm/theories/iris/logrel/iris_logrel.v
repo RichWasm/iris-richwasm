@@ -454,7 +454,8 @@ Section logrel.
     (WP es {{ vs, (interp_val τs vs
                    ∨ interp_br τl i τto host_list vs lh τc
                    ∨ interp_return_option τto τl i vs
-                   ∨ interp_call_host τl i τto host_list vs lh τc τs) ∗ ∃ f, ↪[frame] f ∗ interp_frame τl i f }})%I.
+                   ∨ interp_call_host τl i τto host_list vs lh τc τs) ∗
+                  ∃ f, ↪[frame] f ∗ interp_frame τl i f }})%I.
   
   
   (* --------------------------------------------------------------------------------------- *)
@@ -506,11 +507,13 @@ Section logrel.
 
   Definition semantic_typing (τctx : t_context) (es : iris.expr) (tf : function_type) : iProp Σ :=
     match tf with
-    | Tf τ1 τ2 => ∀ i lh hl, interp_instance τctx hl i -∗
-                         interp_ctx (tc_label τctx) (tc_return τctx) hl (tc_local τctx) i lh -∗
-                         ∀ f vs, ↪[frame] f ∗ interp_frame (tc_local τctx) i f -∗
-                                  interp_val τ1 vs -∗
-                                  interp_expression (tc_label τctx) (tc_return τctx) hl τ2 lh (tc_local τctx) i ((of_val vs) ++ es)
+    | Tf τ1 τ2 => 
+        ∀ i lh hl,
+          interp_instance τctx hl i -∗
+          interp_ctx (tc_label τctx) (tc_return τctx) hl (tc_local τctx) i lh -∗
+          ∀ f vs, ↪[frame] f ∗ interp_frame (tc_local τctx) i f -∗
+                  interp_val τ1 vs -∗
+                  interp_expression (tc_label τctx) (tc_return τctx) hl τ2 lh (tc_local τctx) i ((of_val vs) ++ es)
     end.
 
   (* --------------------------------------------------------------------------------------- *)

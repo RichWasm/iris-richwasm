@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From RWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude.
+From RichWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude.
 
 Lemma select_false_det v1 v2 n obs s f obs' s' f' es:
   n = Wasm_int.int_zero i32m ->

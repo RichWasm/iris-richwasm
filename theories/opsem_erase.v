@@ -1,15 +1,15 @@
 From stdpp Require Import base option.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 From Wasm Require Import datatypes operations logrel.iris_logrel.
-From RWasm Require Import obs obs_properties.
-Require RWasm.opsem_instr.
+From RichWasm Require Import obs obs_properties.
+Require RichWasm.opsem_instr.
 Require Wasm.opsem.
 Set Bullet Behavior "Strict Subproofs".
 
 (** [R]eduction semantics *)
 Module R := Wasm.opsem.
 (** [I]nstrumented reduction semantics *)
-Module I := RWasm.opsem_instr.
+Module I := RichWasm.opsem_instr.
 
 (** ERASURE *)
 Definition erase : obs * store_record * frame * seq.seq administrative_instruction -> store_record * frame * seq.seq administrative_instruction :=

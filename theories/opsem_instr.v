@@ -5,7 +5,7 @@
 From Wasm Require Import opsem.
 From Coq Require Import ZArith.BinInt.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
-From RWasm Require Import obs.
+From RichWasm Require Import obs.
 Require Export Wasm.operations (* host *).
 
 Set Bullet Behavior "Strict Subproofs".

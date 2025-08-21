@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From RWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude.
+From RichWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude.
 
 Lemma testop_i32_det c obs s f obs' s' f' es testop:
   reduce obs s f [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_testop T_i32 testop)] obs' s' f' es ->

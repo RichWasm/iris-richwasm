@@ -1,8 +1,8 @@
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 Import iris.algebra.list.
-From RWasm.iris.rules Require Import iris_rules_resources.
-From RWasm.iris.language Require Import iris_wp_def logpred lenient_wp.
+From RichWasm.iris.rules Require Import iris_rules_resources.
+From RichWasm.iris.language Require Import iris_wp_def logpred lenient_wp.
 
 Set Bullet Behavior "Strict Subproofs".
 

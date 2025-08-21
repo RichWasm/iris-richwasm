@@ -270,7 +270,7 @@ Tactic Notation "pose_ok_proofs'" :=
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 #[global]
-Instance BindRWasm : Bind Kind. Proof. apply mkBind; destruct i; auto with OKDB. Defined.
+Instance BindRichWasm : Bind Kind. Proof. apply mkBind; destruct i; auto with OKDB. Defined.
 
 Ltac mkBindExt := eapply mkBindExt; eauto with OKDB.
 

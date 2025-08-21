@@ -4,8 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
-From Wasm.iris.logrel Require Export iris_fundamental.
-From Wasm.iris.rules Require Export proofmode.
+From RichWasm.iris.rules Require Export proofmode.
 From RichWasm.iris.alloc Require Export util.
 From RichWasm.iris Require Import util.
 From RichWasm.iris.alloc Require Import reprs malloc_impl.
@@ -26,39 +25,49 @@ Section malloc.
   Context `{!wasmG Σ} `{!allocG Σ}.
 
   (* SPECS: block getters *)
-  Lemma spec_get_state E mem memidx blk next_addr blk_addr32 blk_var f :
+  Lemma spec_get_state E mem memidx blk next_addr blk_addr32 blk_var (f: datatypes.frame) :
     ⊢ {{{{ block_repr memidx blk next_addr ∗
            ⌜N_repr (block_addr blk) blk_addr32 ⌝ ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
-      (to_e_list (get_state mem blk_var)) @ E
+      to_e_list (get_state mem blk_var) @ E
       {{{{ v, ∃ st32,
                 ⌜v = (immV [VAL_int32 st32])⌝ ∗
                 ⌜N_repr (state_to_N (block_flag blk)) st32 ⌝ ∗
                 block_repr memidx blk next_addr ∗
+                ↪[RUN] ∗
                 ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     next_wp.
     {
-      iApply (wp_get_local with "[Hblk] [$]"); eauto.
-      iExists [VAL_int32 blk_addr32].
-      instantiate (1:= (λ vs, ⌜vs = [VAL_int32 blk_addr32]⌝ ∗
+      instantiate (2:= (λ vs, ⌜vs = [VAL_int32 blk_addr32]⌝ ∗
+                              ↪[RUN] ∗
                               block_repr memidx blk next_addr)%I).
-      by iFrame.
+      instantiate (1:= f).
+      iApply (wp_wand with "[Hblk Hrun Hfr]").
+      { iApply (wp_get_local with "[Hblk] [$]"); eauto.
+        instantiate (1:= (λ w, ⌜w = immV [VAL_int32 blk_addr32]⌝ ∗
+                               block_repr memidx blk next_addr)%I).
+        by iFrame.
+      } 
+      iIntros (w') "[[[-> Hblk] Hrun] Hf]".
+      iFrame.
+      by iExists _.
     }
     cbn.
     iDestruct select (_ ∗ _)%I as "[%Hv Hblk]".
     iRename select (↪[frame] _)%I into "Hfr".
     inversion Hv; subst.
-    iDestruct "Hblk" as "(Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+    iDestruct "Hblk" as "(Hrun & Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     rewrite Haddr.
-    iApply (wp_wand with "[Hfr Hstate]").
+    iApply (wp_wand with "[Hfr Hrun Hstate]").
     - iApply wp_load; try iFrame; eauto.
       fill_imm_pred.
-    - iIntros (w) "((-> & Hptr) & Hfr)".
+    - iIntros (w) "((-> & Hptr & Hrun) & Hfr)".
       iApply "HΦ".
       unfold block_repr, state_repr.
       rewrite Haddr.
@@ -71,20 +80,30 @@ Section malloc.
            ⌜N_repr blk_addr blk_addr32 ⌝ ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       (to_e_list (get_state mem blk_var)) @ E
       {{{{ v, ∃ st32,
                 ⌜v = (immV [VAL_int32 st32])⌝ ∗
                 ⌜N_repr (state_to_N (final_block_flag blk)) st32 ⌝ ∗
                 final_block_repr memidx blk blk_addr ∗
+                ↪[RUN] ∗
                 ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     next_wp.
     {
-      iApply (wp_get_local with "[Hblk] [$]"); eauto.
+      iApply (wp_wand with "[Hblk Hfr Hrun]").
+      {
+        iApply (wp_get_local with "[Hblk] [$]"); eauto.
+        instantiate (1:= (λ w, ⌜w = immV [VAL_int32 blk_addr32]⌝ ∗ final_block_repr memidx blk blk_addr)%I).
+        auto.
+      }
+      iIntros (w) "[[[-> Hblk] Hrun] Hf]".
+      iFrame.
       iExists [VAL_int32 blk_addr32].
       instantiate (1:= (λ vs, ⌜vs = [VAL_int32 blk_addr32]⌝ ∗
+                              ↪[RUN] ∗
                               final_block_repr memidx blk blk_addr)%I).
       by iFrame.
     }
@@ -92,15 +111,15 @@ Section malloc.
     iDestruct select (_ ∗ _)%I as "[%Hv Hblk]".
     inversion Hv; subst.
     destruct blk.
-    iDestruct "Hblk" as "(-> & Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
+    iDestruct "Hblk" as "(Hrun & -> & Hbounds & (%st32 & (%Hst & Hstate)) & Hsize & Hnext & Hdata)".
     unfold state_off.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
-    iApply (wp_wand with "[Hstate Hfr]").
+    iApply (wp_wand with "[Hstate Hrun Hfr]").
     - iApply wp_load; eauto; first last.
       iFrame.
       fill_imm_pred.
       done.
-    - iIntros (w) "((%Hw & Hptr) & Hfr)".
+    - iIntros (w) "((%Hw & Hptr & Hrun) & Hfr)".
       subst w.
       iApply "HΦ".
       unfold block_repr, state_repr.
@@ -113,31 +132,33 @@ Section malloc.
            ⌜N_repr (block_addr blk) blk_addr32 ⌝ ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       (to_e_list (get_next mem blk_var)) @ E
       {{{{ v, ∃ next_addr32,
                 ⌜v = (immV [VAL_int32 next_addr32])⌝ ∗
                 ⌜N_repr next_addr next_addr32 ⌝ ∗
                 block_repr memidx blk next_addr ∗
+                ↪[RUN] ∗
                 ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    - iApply wp_get_local; eauto.
-    - iIntros (w) "(%Hw & Hfr)".
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I).
+    iSplitR; [iIntros "[[%H ?] ?]"; auto|].
+    iSplitL "Hfr Hrun".
+    - iApply (wp_get_local with "[] [$] [$]"); eauto.
+    - iIntros (w) "((%Hw & Hrun) & Hfr)".
       subst w.
       simpl.
       iDestruct "Hblk" as "(Hbounds & Hstate & Hsize & (%next_addr32 & ((%Hbdd' & %Hnext_addr) & Hnext)) & Hdata)".
       replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
       rewrite Haddr.
-      iApply (wp_wand with "[Hnext Hfr]").
+      iApply (wp_wand with "[Hnext Hfr Hrun]").
       instantiate (1:= λ w, ((⌜w = immV [VAL_int32 next_addr32]⌝ ∗ _) ∗ ↪[frame] f)%I).
       + iApply wp_load; try iFrame; auto.
-      + iIntros (w) "((%Hw & Hptr) & Hfr)".
+      + iIntros (w) "((%Hw & Hptr & Hrun) & Hfr)".
         subst w.
         iApply "HΦ".
         rewrite -Haddr.
@@ -150,32 +171,34 @@ Section malloc.
            ⌜N_repr blk_addr blk_addr32 ⌝ ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       (to_e_list (get_next mem blk_var)) @ E
       {{{{ v, ∃ next_addr32,
               ⌜v = (immV [VAL_int32 next_addr32])⌝ ∗
               ⌜N_repr 0%N next_addr32 ⌝ ∗
               final_block_repr memidx blk blk_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     destruct blk.
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    - iApply wp_get_local; eauto.
-    - iIntros (w) "(%Hw & Hfr)".
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I).
+    iSplitR; [iIntros "((%H & Hrun) & ?)"; auto|].
+    iSplitL "Hfr Hrun".
+    - iApply (wp_get_local with "[] [$] [$]"); eauto.
+    - iIntros (w) "((%Hw & Hrun) & Hfr)".
       subst w.
       simpl.
       iDestruct "Hblk" as "(-> & Hbounds & Hstate & Hsize & (%next_addr32 & ((%Hbdd' & %Hnext_addr) & Hnext)) & Hdata)".
       replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
       rewrite Haddr.
-      iApply (wp_wand with "[Hnext Hfr]").
+      iApply (wp_wand with "[Hnext Hrun Hfr]").
       instantiate (1:= λ w, ((⌜w = immV [VAL_int32 next_addr32]⌝ ∗ _) ∗ ↪[frame] f)%I).
       + iApply wp_load; try iFrame; auto.
-      + iIntros (w) "((%Hw & Hptr) & Hfr)".
+      + iIntros (w) "((%Hw & Hptr & Hrun) & Hfr)".
         subst w blk_addr.
         iApply "HΦ".
         unfold final_block_repr, next_repr.
@@ -188,32 +211,34 @@ Section malloc.
            block_repr memidx blk next_addr ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       (to_e_list (get_data blk_var)) @ E
       {{{{ v, block_repr memidx blk next_addr ∗
                 ∃ data_addr32,
                   ⌜v = (immV [VAL_int32 data_addr32])⌝ ∗
                   ⌜N_repr (block_addr blk + data_off) data_addr32⌝ ∗
+                  ↪[RUN] ∗
                   ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "((%Hbdd & %Haddr) & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "((%Hbdd & %Haddr) & Hblk & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    - iApply wp_get_local; eauto.
-    - iIntros (w) "(%Hw & Hfr)".
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I).
+    iSplitR; [iIntros "((%H & ?) & ?)"; auto|].
+    iSplitL "Hfr Hrun".
+    - iApply (wp_get_local with "[] [$] [$]"); eauto.
+    - iIntros (w) "((%Hw & Hrun) & Hfr)".
       iAssert (block_inbounds (block_size blk) (block_addr blk)) as "%Hbds".
       {
         by iDestruct "Hblk" as "(Hbds & Hblk')".
       }
-      iApply (wp_wand with "[Hfr]").
-      instantiate (1 := λ v, (⌜v = immV [VAL_int32 (Wasm_int.Int32.iadd blk_addr32 (Wasm_int.Int32.repr 12))]⌝ ∗ ↪[frame] f)%I).
+      iApply (wp_wand with "[Hfr Hrun]").
+      instantiate (1 := λ v, ((⌜v = immV [VAL_int32 (Wasm_int.Int32.iadd blk_addr32 (Wasm_int.Int32.repr 12))]⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I).
       + subst; cbn.
-        iApply (wp_binop with "[Hfr]"); auto.
+        iApply (wp_binop with "[Hfr] [Hrun]"); auto.
       + subst.
-        iIntros (w) "(%Hw & Hfr)".
+        iIntros (w) "((%Hw & Hrun) & Hfr)".
         iApply "HΦ".
         iFrame.
         subst.
@@ -238,35 +263,37 @@ Section malloc.
            ⌜N_repr (block_addr blk) blk_addr32⌝ ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (get_size mem blk_var) @ E
       {{{{ v, ∃ sz32,
                 ⌜N_repr (block_size blk) sz32⌝ ∗
                 ⌜v = (immV [VAL_int32 sz32])⌝ ∗
                 block_repr memidx blk next_addr ∗
+                ↪[RUN] ∗
                 ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    - iApply wp_get_local; eauto.
-    - iIntros (w) "(%Hw & Hfr)".
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I).
+    iSplitR; [iIntros "((%H & ?) & ?)"; auto|].
+    iSplitL "Hfr Hrun".
+    - iApply (wp_get_local with "[] [$] [$]"); eauto.
+    - iIntros (w) "((%Hw & Hrun) & Hfr)".
       subst w.
       simpl.
       iDestruct "Hblk" as "(Hbounds & Hstate & (%sz32 & (%Hsz & Hsize)) & Hnext & Hdata)".
       replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
-      iApply (wp_wand with "[Hsize Hfr]").
+      iApply (wp_wand with "[Hsize Hrun Hfr]").
       instantiate (1:=(λ w,
                          ((⌜w = immV [VAL_int32 sz32]⌝ ∗
-                           N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + size_off]bits (VAL_int32 sz32)) ∗ ↪[frame]f)%I)).
+                           N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + size_off]bits (VAL_int32 sz32) ∗ ↪[RUN]) ∗ ↪[frame]f)%I)).
       + rewrite Haddr.
         iApply wp_load; auto.
         iFrame.
         by iModIntro.
-      + iIntros (w) "((%Hw & Hptr) & Hfr)".
+      + iIntros (w) "((%Hw & Hptr & Hrun) & Hfr)".
         subst w.
         rewrite -Haddr.
         iApply "HΦ".
@@ -279,36 +306,38 @@ Section malloc.
            ⌜N_repr blk_addr blk_addr32⌝ ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (get_size mem blk_var) @ E
       {{{{ v, ∃ sz32,
                 ⌜N_repr (final_block_sz blk) sz32⌝ ∗
                 ⌜v = (immV [VAL_int32 sz32])⌝ ∗
                 final_block_repr memidx blk blk_addr ∗
+                ↪[RUN] ∗
                 ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & (%Hbdd & %Haddr) & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[frame] f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    - iApply wp_get_local; eauto.
-    - iIntros (w) "(%Hw & Hfr)".
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I).
+    iSplitR; [iIntros "((%H & ?) & ?)"; auto|].
+    iSplitL "Hrun Hfr".
+    - iApply (wp_get_local with "[] [$] [$]"); eauto.
+    - iIntros (w) "((%Hw & Hrun) & Hfr)".
       subst w.
       simpl.
       destruct blk.
       iDestruct "Hblk" as "(-> & Hbounds & Hstate & (%sz32 & (%Hsz & Hsize)) & Hdata)".
       replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
-      iApply (wp_wand with "[Hsize Hfr]").
+      iApply (wp_wand with "[Hsize Hrun Hfr]").
       instantiate (1:=(λ w,
                          ((⌜w = immV [VAL_int32 sz32]⌝ ∗
-                           N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + size_off]bits (VAL_int32 sz32)) ∗ ↪[frame]f)%I)).
+                           N.of_nat (N.to_nat memidx)↦[wms][Wasm_int.N_of_uint i32m blk_addr32 + size_off]bits (VAL_int32 sz32) ∗ ↪[RUN]) ∗ ↪[frame]f)%I)).
       + subst blk_addr.
         iApply wp_load; auto.
         iFrame.
         by iModIntro.
-      + iIntros (w) "((%Hw & Hptr) & Hfr)".
+      + iIntros (w) "((%Hw & Hptr & Hrun) & Hfr)".
         subst w blk_addr.
         iApply "HΦ".
         iExists sz32.
@@ -321,24 +350,26 @@ Section malloc.
            ⌜N_repr next_addr next_addr32⌝ ∗
            own_vec memidx (blk_addr + next_off) 4 ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (BI_const (VAL_int32 blk_addr32) :: BI_const (VAL_int32 next_addr32) :: set_next mem) @ E
       {{{{ w, ⌜w = immV [] ⌝ ∗
               next_repr memidx next_addr blk_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(%Hblk & %Hnext & Hvec & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(%Hblk & %Hnext & Hvec & %Hmem & Hrun & Hfr) HΦ".
     cbn.
     unfold own_vec.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     rewrite (N_repr_uint _ _ Hblk).
-    iApply (wp_wand with "[Hfr Hvec]").
+    iApply (wp_wand with "[Hfr Hrun Hvec]").
     {
       iDestruct "Hvec" as "(%next32 & %Hlen & Hnext')".
       iApply (wp_store (λ w, (⌜w = immV []⌝)%I)); try iFrame; auto.
       cbn; lia.
     }
-    iIntros (v) "((Hv & Hnext) & Hfr)".
+    iIntros (v) "((Hv & Hnext & Hrun) & Hfr)".
     iApply "HΦ".
     iFrame; auto.
   Qed.
@@ -348,15 +379,17 @@ Section malloc.
             ⌜N_repr next_addr next_addr32⌝ ∗
             block_repr memidx blk next_addr0 ∗
             ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
             ↪[frame] f }}}}
       to_e_list (BI_const (VAL_int32 blk_addr32) :: BI_const (VAL_int32 next_addr32) :: set_next mem) @ E
       {{{{ w, ⌜w = immV [] ⌝ ∗
               block_repr memidx blk next_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(%Hblk & %Hnext & (Hbdd & Hst & Hsz & Hnext & Hdata) & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(%Hblk & %Hnext & (Hbdd & Hst & Hsz & Hnext & Hdata) & %Hmem & Hrun & Hfr) HΦ".
     iDestruct "Hnext" as "(%next32 & %Hrepr & Hvec)".
-    iApply (spec_set_next_basic with "[$Hfr Hvec]").
+    iApply (spec_set_next_basic with "[$Hfr $Hrun Hvec]").
     {
       iSplit; auto.
       iSplit; auto.
@@ -365,7 +398,7 @@ Section malloc.
       iFrame.
       rewrite (length_bits _ T_i32); eauto.
     }
-    iIntros (w) "(-> & Hnext & Hfr)".
+    iIntros (w) "(-> & Hnext & Hrun & Hfr)".
     unfold block_repr.
     iApply "HΦ"; iFrame; auto.
   Qed.
@@ -380,23 +413,25 @@ Section malloc.
             ⌜(sz > sz')%N⌝ ∗
             block_repr memidx (FreeBlk blk_addr sz) next_addr ∗
             ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
             ↪[frame] f }}}}
       to_e_list (BI_const (VAL_int32 blk_addr32) :: BI_const (VAL_int32 sz32') :: M.set_size mem) @ E
       {{{{ w, block_repr memidx (FreeBlk blk_addr sz') next_addr ∗
               own_vec memidx (blk_addr + data_off + sz') (sz - sz') ∗
+           ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(%Hblk & %Hsz' & %Hdecr & (Hbdd & Hst & Hsz & Hnext & Hdata) & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(%Hblk & %Hsz' & %Hdecr & (Hbdd & Hst & Hsz & Hnext & Hdata) & %Hmem & Hrun & Hfr) HΦ".
     cbn.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     destruct Hblk as [Hblkbd Hblk].
     subst blk_addr.
-    iApply (wp_wand with "[Hfr Hsz]").
+    iApply (wp_wand with "[Hfr Hrun Hsz]").
     {
       iDestruct "Hsz" as "(%sz32 & (Hszr & Hsz))".
       iApply (wp_store (λ w, (⌜w = immV []⌝)%I)); try iFrame; auto.
     }
-    iIntros (v) "((%Hv & Hsz) & Hfr)".
+    iIntros (v) "((%Hv & Hsz & Hrun) & Hfr)".
     cbn.
     iApply "HΦ".
     remember (sz - sz')%N as δ.
@@ -417,25 +452,27 @@ Section malloc.
             own_vec memidx (blk_addr + size_off) 4 ∗
             own_vec memidx (blk_addr + data_off) sz' ∗
             ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
             ↪[frame] f }}}}
       to_e_list (BI_const (VAL_int32 blk_addr32) :: BI_const (VAL_int32 sz32') :: M.set_size mem) @ E
       {{{{ w, ⌜w = immV [] ⌝ ∗
               size_repr memidx sz' blk_addr ∗
               own_vec memidx (blk_addr + data_off) sz' ∗
+           ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(%Hblk & %Hsz' & Hszr & Hdata & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(%Hblk & %Hsz' & Hszr & Hdata & %Hmem & Hrun & Hfr) HΦ".
     cbn.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
     destruct Hblk as [Hblkbd Hblk].
     subst blk_addr.
-    iApply (wp_wand with "[Hfr Hszr]").
+    iApply (wp_wand with "[Hfr Hrun Hszr]").
     {
       iDestruct "Hszr" as "(%bs & (%Hbslen & Hsz))".
       iApply (wp_store (λ w, (⌜w = immV []⌝)%I)); try iFrame; auto.
       cbn; lia.
     }
-    iIntros (v) "((%Hv & Hsz) & Hfr)".
+    iIntros (v) "((%Hv & Hsz & Hrun) & Hfr)".
     cbn.
     iApply "HΦ".
     iFrame; auto.
@@ -447,34 +484,38 @@ Section malloc.
             size_repr memidx sz blk_addr ∗
             own_vec memidx (blk_addr + data_off) sz' ∗
             ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
             ↪[frame] f }}}}
       to_e_list (BI_const (VAL_int32 blk_addr32) :: BI_const (VAL_int32 sz32') :: M.set_size mem) @ E
       {{{{ w, ⌜w = immV [] ⌝ ∗
               size_repr memidx sz' blk_addr ∗
               own_vec memidx (blk_addr + data_off) sz' ∗
+           ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(%Hblk & %Hsz' & (%sz32 & %Hszr & Hpts) & Hdata & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(%Hblk & %Hsz' & (%sz32 & %Hszr & Hpts) & Hdata & %Hmem & Hrun & Hfr) HΦ".
     cbn.
-    iApply (spec_set_size_final_setup with "[$Hpts $Hdata $Hfr //]").
+    iApply (spec_set_size_final_setup with "[$Hpts $Hdata $Hfr $Hrun //]").
     auto.
   Qed.
 
-  Lemma spec_add_hdr_sz E f base32 base :
+  Lemma spec_add_hdr_sz E (f: frame) base32 base :
     ⊢ {{{{ ⌜N_repr base base32⌝ ∗
             ⌜(Z.of_N (base+blk_hdr_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
+           ↪[RUN] ∗
             ↪[frame] f}}}}
        to_e_list (BI_const (VAL_int32 base32) :: add_hdr_sz) @ E
-       {{{{ w, ∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗ ⌜N_repr (base + blk_hdr_sz) out32⌝ ∗↪[frame] f}}}}.
+       {{{{ w, ∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗ ⌜N_repr (base + blk_hdr_sz) out32⌝ ∗ ↪[RUN] ∗ ↪[frame] f}}}}.
   Proof.
-    iIntros "!>" (Φ) "(%Hbase & %Hbdd & Hfr) HΦ".
+    iIntros "!>" (Φ) "(%Hbase & %Hbdd & Hrun & Hfr) HΦ".
     cbn.
-    iApply (wp_wand with "[Hfr]").
-    instantiate (1:= λ w, ((∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗
-                                            ⌜N_repr (base + blk_hdr_sz) out32⌝)
-                             ∗ ↪[frame] f)%I).
+    iApply (wp_wand with "[Hfr Hrun]").
+    instantiate (1:= λ w, (((∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗
+                                            ⌜N_repr (base + blk_hdr_sz) out32⌝) ∗
+                             ↪[RUN]) ∗
+                             ↪[frame] f)%I).
     {
-      iApply (wp_binop with "[Hfr]"); auto.
+      iApply (wp_binop with "[Hfr] [Hrun]"); eauto.
       iModIntro.
       iExists _; iSplit; eauto.
       iPureIntro.
@@ -489,25 +530,27 @@ Section malloc.
         rewrite <- Z2N.inj_add; lia.
         apply Wasm_int.Int32.size_interval_1.
     }
-    iIntros (w) "(Hw & Hfr)".
+    iIntros (w) "((Hw & Hrun) & Hfr)".
     iApply "HΦ"; iFrame.
   Qed.
 
-  Lemma spec_sub_hdr_sz E f base32 base :
+  Lemma spec_sub_hdr_sz E (f: frame) base32 base :
     ⊢ {{{{ ⌜N_repr base base32⌝ ∗
            ⌜(base >= blk_hdr_sz)%N⌝ ∗
+           ↪[RUN] ∗
             ↪[frame] f}}}}
        to_e_list (BI_const (VAL_int32 base32) :: sub_hdr_sz) @ E
-       {{{{ w, ∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗ ⌜N_repr (base - blk_hdr_sz) out32⌝ ∗↪[frame] f}}}}.
+       {{{{ w, ∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗ ⌜N_repr (base - blk_hdr_sz) out32⌝ ∗ ↪[RUN] ∗ ↪[frame] f}}}}.
   Proof.
-    iIntros "!>" (Φ) "(%Hbase & %Hbdd & Hfr) HΦ".
+    iIntros "!>" (Φ) "(%Hbase & %Hbdd & Hrun & Hfr) HΦ".
     cbn.
-    iApply (wp_wand with "[Hfr]").
-    instantiate (1:= λ w, ((∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗
-                                            ⌜N_repr (base - blk_hdr_sz) out32⌝)
-                             ∗ ↪[frame] f)%I).
+    iApply (wp_wand with "[Hfr Hrun]").
+    instantiate (1:= λ w, (((∃ out32, ⌜w = immV [VAL_int32 out32]⌝ ∗
+                                      ⌜N_repr (base - blk_hdr_sz) out32⌝) ∗
+                             ↪[RUN]) ∗
+                            ↪[frame] f)%I).
     {
-      iApply (wp_binop with "[Hfr]"); auto.
+      iApply (wp_binop with "[Hfr] [Hrun]"); auto.
       iModIntro.
       iExists _; iSplit; eauto.
       iPureIntro.
@@ -522,7 +565,7 @@ Section malloc.
         rewrite <- Z2N.inj_sub; lia.
         apply Wasm_int.Int32.size_interval_1.
     }
-    iIntros (w) "(Hw & Hfr)".
+    iIntros (w) "((Hw & Hrun) & Hfr)".
     iApply "HΦ"; iFrame.
   Qed.
 
@@ -540,12 +583,14 @@ Section malloc.
            ⌜N_repr (block_addr blk) blk_addr32⌝ ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (get_total_size mem blk_var) @ E
       {{{{ v, ∃ sz32,
                 ⌜N_repr (block_size blk + blk_hdr_sz) sz32⌝ ∗
                 ⌜v = (immV [VAL_int32 sz32])⌝ ∗
                 block_repr memidx blk next_addr ∗
+                ↪[RUN] ∗
                 ↪[frame] f }}}}.
   Proof.
     iIntros "!>" (Φ) "(Hblk & %Haddr & %Hvar & %Hmem & Hfr) HΦ".
@@ -579,29 +624,32 @@ Section malloc.
            ⌜N_repr blk_addr blk_addr32 ⌝ ∗
            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       (to_e_list (mark_free mem blk)) @ E
       {{{{ v, ⌜v = immV []⌝ ∗
               ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
               block_repr memidx (FreeBlk blk_addr sz) next_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk &  Hu & %Hsz & (%Haddrpf & %Haddr) & %Hblkvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk &  Hu & %Hsz & (%Haddrpf & %Haddr) & %Hblkvar & %Hmem & Hrun & Hfr) HΦ".
     unfold mark_used.
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+                                      ↪[RUN]) ∗
                              ↪[frame]f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    { iApply wp_get_local; eauto. }
-    iIntros (w) "(%Hw & Hfr)".
+    iSplitR; [iIntros "((%H & ?) & ?)"; auto|].
+    iSplitL "Hfr Hrun".
+    { iApply (wp_get_local with "[] [$] [$]"); eauto. }
+    iIntros (w) "((%Hw & Hrun) & Hfr)".
     subst w.
     simpl block_repr at 1.
     iDestruct "Hblk" as "(Hbd & Hstate & Hsize & Hnext & Hvec)".
     iSimpl.
     iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
-    iApply (wp_wand with "[Hstfield Hfr]").
+    iApply (wp_wand with "[Hstfield Hrun Hfr]").
     - unfold state_off.
       iApply wp_store; eauto.
       by instantiate (1:= bits (VAL_int32 st32)).
@@ -611,7 +659,7 @@ Section malloc.
       rewrite Haddr.
       rewrite N2Nat.id.
       by iFrame.
-    - iIntros (w) "((%Hw & Hstfield) & Hfr)".
+    - iIntros (w) "((%Hw & Hstfield & Hrun) & Hfr)".
       subst w.
       iApply "HΦ".
       unfold block_repr, data_repr.
@@ -632,30 +680,32 @@ Section malloc.
            ⌜N_repr blk_addr blk_addr32 ⌝ ∗
            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       (to_e_list (mark_free mem blk)) @ E
       {{{{ v, ⌜v = immV []⌝ ∗
               block_repr memidx (FreeBlk blk_addr sz) 0 ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & (%Haddrpf & %Haddr) & %Hblkvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & (%Haddrpf & %Haddr) & %Hblkvar & %Hmem & Hrun & Hfr) HΦ".
     unfold mark_used.
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
-                             ↪[frame]f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    { iApply wp_get_local; eauto. }
-    iIntros (w) "(%Hw & Hfr)".
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗ ↪[RUN]) ∗
+                            ↪[frame]f)%I).
+    iSplitR; [iIntros "((%H & ?) & ?)"; auto|].
+    iSplitL "Hfr Hrun".
+    { iApply (wp_get_local with "[] [$] [$]"); eauto. }
+    iIntros (w) "((%Hw & Hrun) & Hfr)".
     subst w.
     simpl block_repr at 1.
     iDestruct "Hblk" as "(_ & Hbd & Hstate & Hsize & Hnext & Hvec)".
     iSimpl.
     iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
-    iApply (wp_wand with "[Hstfield Hfr]").
+    iApply (wp_wand with "[Hstfield Hrun Hfr]").
     instantiate (1 := λ w, ((⌜w = immV [] ⌝ ∗
-                          N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_FREE)) ∗
+                          N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_FREE) ∗ ↪[RUN]) ∗
                           ↪[frame]f)%I).
     - unfold state_off.
       rewrite Haddr.
@@ -664,7 +714,7 @@ Section malloc.
         try rewrite N2Nat.id;
         [| iFrame ];
         auto.
-    - iIntros (w) "((%Hw & Hstfield) & Hfr)".
+    - iIntros (w) "((%Hw & Hstfield & Hrun) & Hfr)".
       subst w.
       iApply "HΦ".
       unfold block_repr, data_repr.
@@ -678,6 +728,7 @@ Section malloc.
            ⌜N_repr blk_addr blk_addr32 ⌝ ∗
            ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       (to_e_list (mark_used mem blk)) @ E
       {{{{ v, ⌜v = immV []⌝ ∗
@@ -685,26 +736,29 @@ Section malloc.
               own_vec memidx (blk_addr + data_off) sz_u ∗
               (*alloc_tok memidx (blk_addr + data_off) ∗*)
               block_repr memidx (UsedBlk blk_addr sz_u sz_left) next_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "(Hblk & %Hsz & (%Haddrpf & %Hblk_addr_rep) & %Hblkvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "(Hblk & %Hsz & (%Haddrpf & %Hblk_addr_rep) & %Hblkvar & %Hmem & Hrun & Hfr) HΦ".
     unfold mark_used.
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
-                             ↪[frame]f)%I).
-    iSplitR; [iIntros "(%H & ?)"; auto|].
-    iSplitL "Hfr".
-    { iApply wp_get_local; eauto. }
-    iIntros (w) "(%Hw & Hfr)".
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+                            ↪[RUN]) ∗
+                            ↪[frame]f)%I).
+    iSplitR; [iIntros "((%H & ?) & ?)"; auto|].
+    iSplitL "Hfr Hrun".
+    { iApply (wp_get_local with "[] [$] [$]"); eauto. }
+    iIntros (w) "((%Hw & Hrun) & Hfr)".
     subst w.
     simpl block_repr at 1.
     iDestruct "Hblk" as "(Hbd & Hstate & Hsize & Hnext & Hvec)".
     iSimpl.
     iDestruct "Hstate" as (st32) "(%Hst32 & Hstfield)".
-    iApply (wp_wand with "[Hstfield Hfr]").
+    iApply (wp_wand with "[Hstfield Hrun Hfr]").
     instantiate (1 := λ w, ((⌜w = immV [] ⌝ ∗
-                          N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_USED)) ∗
+                          N.of_nat (N.to_nat memidx) ↦[wms][blk_addr + state_off]bits (value_of_uint BLK_USED) ∗
+                          ↪[RUN]) ∗
                           ↪[frame]f)%I).
     - unfold state_off.
       rewrite Hblk_addr_rep.
@@ -713,7 +767,7 @@ Section malloc.
         try rewrite N2Nat.id;
         [| iFrame ];
         auto.
-    - iIntros (w) "((%Hw & Hstfield) & Hfr)".
+    - iIntros (w) "((%Hw & Hstfield & Hrun) & Hfr)".
       subst w.
       iApply "HΦ".
       unfold block_repr, state_repr.
@@ -728,26 +782,29 @@ Section malloc.
             ⌜N_repr blk_addr blk_addr32 ⌝ ∗
             ⌜f.(f_locs) !! blk = Some (VAL_int32 blk_addr32)⌝ ∗
             ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+            ↪[RUN] ∗
             ↪[frame] f }}}}
       (to_e_list (mark_final mem blk)) @ E
       {{{{ v, ⌜v = immV []⌝ ∗
               state_repr memidx Final blk_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros "!>" (Φ) "((%bs & %Hbs & Hslot) & (%Haddrpf & %Hblk_addr_rep) & %Hblkvar & %Hmem & Hfr) HΦ".
+    iIntros "!>" (Φ) "((%bs & %Hbs & Hslot) & (%Haddrpf & %Hblk_addr_rep) & %Hblkvar & %Hmem & Hrun & Hfr) HΦ".
     wp_chomp 1.
     iApply wp_seq.
-    instantiate (1 := λ v, (⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+    instantiate (1 := λ v, ((⌜v = immV [VAL_int32 blk_addr32]⌝ ∗
+                             ↪[RUN]) ∗
                              ↪[frame]f)%I).
     iSplitR.
-    { iIntros "(%Htrap & Hfr)"; congruence. }
-    iSplitL "Hfr".
+    { iIntros "([%Htrap Hrun] & Hfr)"; congruence. }
+    iSplitL "Hfr Hrun".
     {
-      iApply wp_get_local; eauto.
+      iApply (wp_get_local with "[] [$] [$]"); eauto.
     }
-    iIntros (w) "(%Hw & Hfr)".
+    iIntros (w) "((%Hw & Hrun) & Hfr)".
     subst w; cbn.
-    iApply (wp_wand with "[Hslot Hfr]").
+    iApply (wp_wand with "[Hslot Hrun Hfr]").
     {
       iApply wp_store; eauto.
       all: swap 1 2.
@@ -759,7 +816,7 @@ Section malloc.
       cbn.
       lia.
     }
-    iIntros (w) "((%Hw & Hpts) & Hfr)".
+    iIntros (w) "((%Hw & Hpts & Hrun) & Hfr)".
     iApply "HΦ".
     subst.
     iFrame; auto.
@@ -778,10 +835,12 @@ Section malloc.
            block_repr memidx blk next_addr ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (is_block_nonfinal mem blk_var) @ E
       {{{{ w,⌜w = immV [VAL_int32 (wasm_bool true)]⌝ ∗
            block_repr memidx blk next_addr ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}.
   Proof.
     iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
@@ -792,12 +851,12 @@ Section malloc.
     all:swap 1 2.
     iSplitL "Hblk Hfr".
     - iApply (spec_get_state with "[Hblk Hfr]"); iFrame; eauto.
-    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hrun & Hfr)".
       subst w.
       cbn.
-      iApply (wp_wand with "[Hfr]").
-      + iApply (wp_relop with "[Hfr]"); auto.
-        instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝%I).
+      iApply (wp_wand with "[Hrun Hfr]").
+      + iApply (wp_relop with "[Hfr] [Hrun]"); auto.
+        instantiate (1:=λ w, (⌜w = immV [VAL_int32 (wasm_bool true)]⌝)%I).
         iModIntro.
         iPureIntro.
         assert (st32 <> (Wasm_int.int_of_Z i32m (Z.of_N BLK_FINAL))).
@@ -807,7 +866,7 @@ Section malloc.
         }
         cbn.
         rewrite Wasm_int.Int32.eq_false; auto.
-      + iIntros (w) "(%Hw & Hfr)".
+      + iIntros (w) "((%Hw & Hrun) & Hfr)".
         subst.
         iApply "HΦ".
         iFrame; auto.
@@ -820,25 +879,27 @@ Section malloc.
            final_block_repr memidx blk blk_addr ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (is_block_nonfinal mem blk_var) @ E
       {{{{ w,⌜w = immV [VAL_int32 (wasm_bool false)]⌝ ∗
            final_block_repr memidx blk blk_addr ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}.
   Proof.
-    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     unfold is_block_nonfinal.
     erewrite to_e_list_cat.
     iApply wp_seq.
     iSplitR.
     all:swap 1 2.
-    iSplitL "Hblk Hfr".
-    - iApply (spec_get_final_state with "[Hblk Hfr]"); iFrame; eauto.
-    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    iSplitL "Hblk Hfr Hrun".
+    - iApply (spec_get_final_state with "[Hblk Hrun Hfr]"); iFrame; eauto.
+    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hrun & Hfr)".
       subst w.
       cbn.
-      iApply (wp_wand with "[Hfr]").
-      + iApply (wp_relop with "[Hfr]"); auto.
+      iApply (wp_wand with "[Hrun Hfr]").
+      + iApply (wp_relop with "[Hfr] [Hrun]"); auto.
         instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝%I).
         iModIntro.
         iPureIntro.
@@ -856,7 +917,7 @@ Section malloc.
         cbn.
         subst.
         rewrite Wasm_int.Int32.eq_true; auto.
-      + iIntros (w) "(%Hw & Hfr)".
+      + iIntros (w) "((%Hw & Hrun) & Hfr)".
         subst.
         iApply "HΦ".
         iFrame; auto.
@@ -872,25 +933,27 @@ Section malloc.
            block_repr memidx (FreeBlk blk_addr sz) next_addr ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (is_block_free mem blk_var) @ E
       {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝ ∗
               block_repr memidx (FreeBlk blk_addr sz) next_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     unfold is_block_free.
     erewrite to_e_list_cat.
     iApply wp_seq.
     iSplitR.
     all:swap 1 2.
-    iSplitL "Hblk Hfr".
-    - iApply (spec_get_state with "[Hblk Hfr]"); iFrame; eauto.
-    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    iSplitL "Hblk Hrun Hfr".
+    - iApply (spec_get_state with "[Hblk Hrun Hfr]"); iFrame; eauto.
+    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hrun & Hfr)".
       subst w.
       cbn.
-      iApply (wp_wand with "[Hfr]").
-      + iApply (wp_relop with "[Hfr]"); auto.
+      iApply (wp_wand with "[Hrun Hfr]").
+      + iApply (wp_relop with "[$] [$]"); auto.
         instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool true)]⌝%I).
         iModIntro.
         iPureIntro.
@@ -906,7 +969,7 @@ Section malloc.
         }
         subst.
         reflexivity.
-      + iIntros (w) "(%Hw & Hfr)".
+      + iIntros (w) "((%Hw & Hrun) & Hfr)".
         subst.
         iApply "HΦ".
         iFrame; auto.
@@ -919,25 +982,27 @@ Section malloc.
            block_repr memidx (UsedBlk blk_addr sz_u sz_l) next_addr ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (is_block_free mem blk_var) @ E
       {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝ ∗
               block_repr memidx (UsedBlk blk_addr sz_u sz_l) next_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     unfold is_block_free.
     erewrite to_e_list_cat.
     iApply wp_seq.
     iSplitR.
     all:swap 1 2.
-    iSplitL "Hblk Hfr".
-    - iApply (spec_get_state with "[Hblk Hfr]"); iFrame; eauto.
-    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    iSplitL "Hblk Hrun Hfr".
+    - iApply (spec_get_state with "[Hblk Hrun Hfr]"); iFrame; eauto.
+    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hrun & Hfr)".
       subst w.
       cbn.
-      iApply (wp_wand with "[Hfr]").
-      + iApply (wp_relop with "[Hfr]"); auto.
+      iApply (wp_wand with "[Hrun Hfr]").
+      + iApply (wp_relop with "[$] [$]"); auto.
         instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝%I).
         iModIntro.
         iPureIntro.
@@ -953,7 +1018,7 @@ Section malloc.
         }
         subst.
         reflexivity.
-      + iIntros (w) "(%Hw & Hfr)".
+      + iIntros (w) "((%Hw & Hrun) & Hfr)".
         subst.
         iApply "HΦ".
         iFrame; auto.
@@ -966,26 +1031,28 @@ Section malloc.
            final_block_repr memidx blk blk_addr ∗
            ⌜f.(f_locs) !! blk_var = Some (VAL_int32 blk_addr32)⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f }}}}
       to_e_list (is_block_free mem blk_var) @ E
       {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝ ∗
               final_block_repr memidx blk blk_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f }}}}.
   Proof.
-    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hfr) HΦ".
+    iIntros (Φ) "!> (%Hblk_addr & Hblk & %Hvar & %Hmem & Hrun & Hfr) HΦ".
     destruct blk.
     unfold is_block_free.
     erewrite to_e_list_cat.
     iApply wp_seq.
     iSplitR.
     all:swap 1 2.
-    iSplitL "Hblk Hfr".
-    - iApply (spec_get_final_state with "[Hblk Hfr]"); iFrame; eauto.
-    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hfr)".
+    iSplitL "Hblk Hrun Hfr".
+    - iApply (spec_get_final_state with "[Hblk Hrun Hfr]"); iFrame; eauto.
+    - iIntros (w) "(%st32 & %Hw & %Hst & Hblk & Hrun & Hfr)".
       subst w.
       cbn.
-      iApply (wp_wand with "[Hfr]").
-      + iApply (wp_relop with "[Hfr]"); auto.
+      iApply (wp_wand with "[Hrun Hfr]").
+      + iApply (wp_relop with "[$] [$]"); auto.
         instantiate (1:=λ w, ⌜w = immV [VAL_int32 (wasm_bool false)]⌝%I).
         iModIntro.
         iPureIntro.
@@ -1001,7 +1068,7 @@ Section malloc.
         }
         subst.
         reflexivity.
-      + iIntros (w) "(%Hw & Hfr)".
+      + iIntros (w) "((%Hw & Hrun) & Hfr)".
         subst.
         iApply "HΦ".
         iFrame; auto.
@@ -1018,37 +1085,38 @@ Section malloc.
 
   Lemma wp_get_locals vars vals E f :
     Forall2 (fun x v => f.(f_locs) !! x = Some v) vars vals ->
-    ⊢ {{{{ ↪[frame] f }}}}
+    ⊢ {{{{ ↪[RUN] ∗ ↪[frame] f }}}}
       to_e_list (List.map BI_get_local vars) @ E
-      {{{{ w, ⌜w = immV vals⌝ ∗ ↪[frame] f }}}}.
+      {{{{ w, ⌜w = immV vals⌝ ∗ ↪[RUN] ∗ ↪[frame] f }}}}.
   Proof.
     induction 1.
-    - iIntros (Φ) "!> Hfr HΦ".
+    - iIntros (Φ) "!> (Hrun & Hfr) HΦ".
       rewrite wp_unfold /wp_pre /=.
       iModIntro.
       iApply "HΦ".
-      auto.
-    - iIntros (Φ) "!> Hfr HΦ".
+      by iFrame.
+    - iIntros (Φ) "!> (Hrun & Hfr) HΦ".
       wp_chomp 1.
-      set (Φ' := (λ w, ⌜w = immV [y]⌝ ∗ ↪[frame]f)%I).
+      set (Φ' := (λ w, (⌜w = immV [y]⌝ ∗ ↪[RUN]) ∗ ↪[frame]f)%I).
       iApply (wp_seq _ _ _ Φ').
-      iSplitR. { iIntros "(%Hw & _)" => //. }
-      iSplitL "Hfr".
+      iSplitR. { iIntros "((%Hw & _) & _)" => //. }
+      iSplitL "Hrun Hfr".
       {
-        iApply wp_get_local; auto.
+        iApply (wp_get_local with "[] [$] [$]"); auto.
         assumption.
       }
-      iIntros (w) "(%Hw & Hfr)".
+      iIntros (w) "((%Hw & Hrun) & Hfr)".
       subst w.
-      iApply (wp_wand _ _ _ (λ w, ⌜w = immV (y::l')⌝ ∗ ↪[frame] f)%I with "[Hfr]"); auto.
+      iApply (wp_wand _ _ _ (λ w, (⌜w = immV (y::l')⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I with "[Hfr Hrun]"); auto.
       iApply wp_val_app; auto.
       iSplitR.
-      { iIntros "!> (%Hw & _)" => //. }
-      iApply (wp_wand with "[Hfr]").
-      iApply (IHForall2 with "[Hfr]"); auto.
-      iIntros (w) "(%Hw & Hfr)".
+      { iIntros "!> ((%Hw & _) & _)" => //. }
+      iApply (wp_wand with "[Hrun Hfr]").
+      iApply (IHForall2 with "[Hrun Hfr]"); [by iFrame|]; eauto.
+      iIntros (w) "(%Hw & Hrun & Hfr)".
       iFrame.
       subst w; auto.
+      by setoid_rewrite bi.sep_assoc.
   Qed.
 
   Lemma unsigned_is_N:
@@ -1343,6 +1411,7 @@ Section malloc.
            ⌜f.(f_locs) !! old_sz_var = Some old_sz0⌝ ∗
            ⌜f.(f_locs) !! new_blk_var = Some new_blk0 ⌝ ∗
            ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
+           ↪[RUN] ∗
            ↪[frame] f
     }}}}
     to_e_list (pinch_block mem final_blk_var reqd_sz_var old_sz_var new_blk_var) @ E
@@ -1351,6 +1420,7 @@ Section malloc.
            final_block_repr memidx (FinalBlk (blk_addr + reqd_sz + blk_hdr_sz) (old_sz - reqd_sz - blk_hdr_sz)) (blk_addr + reqd_sz + blk_hdr_sz) ∗
            ∃ new_addr32 old_sz32,
              ⌜N_repr (blk_addr + reqd_sz + blk_hdr_sz) new_addr32⌝ ∗
+             ↪[RUN] ∗
              ∃ f', ↪[frame] f' ∗
                    ⌜f'.(f_inst) = f.(f_inst)⌝ ∗
                    ⌜f'.(f_locs) = set_nth (VAL_int32 new_addr32)
@@ -1359,7 +1429,7 @@ Section malloc.
                                     new_blk_var (VAL_int32 new_addr32)⌝
     }}}}.
   Proof.
-    iIntros (Φ) "!> (Hblk & %Hspace & %Haddr32 & %Hsz32 & %Hdisj & %Hblk_var & %Hsz_var & %Hold_var & %Hnew_var & %Hmem & Hfr) HΦ".
+    iIntros (Φ) "!> (Hblk & %Hspace & %Haddr32 & %Hsz32 & %Hdisj & %Hblk_var & %Hsz_var & %Hold_var & %Hnew_var & %Hmem & Hrun & Hfr) HΦ".
     assert (final_blk_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
     assert (reqd_sz_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
     assert (old_sz_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
@@ -1369,39 +1439,42 @@ Section malloc.
     unfold pinch_block.
     erewrite !to_e_list_cat.
     set (Φ1 := λ w, (⌜w = immV []⌝ ∗
-                    ∃ old32,
-                      ⌜N_repr old_sz old32 ⌝ ∗
-                        final_block_repr memidx (FinalBlk blk_addr old_sz) blk_addr ∗
-                      ↪[frame] {| f_locs := set_nth (VAL_int32 old32) (f_locs f) old_sz_var (VAL_int32 old32);
+                     ↪[RUN] ∗
+                     ∃ old32,
+                       ⌜N_repr old_sz old32 ⌝ ∗
+                         final_block_repr memidx (FinalBlk blk_addr old_sz) blk_addr ∗
+                       ↪[frame] {| f_locs := set_nth (VAL_int32 old32) (f_locs f) old_sz_var (VAL_int32 old32);
                                  f_inst := f_inst f |})%I).
     iApply (wp_seq _ _ _ Φ1).
     iSplitL "".
     { iIntros "(%Htrap & _)"; congruence. }
-    iSplitL "Hfr Hblk".
+    iSplitL "Hrun Hfr Hblk".
     {
       set (Φ1' := λ w, (∃ old32,
                       ⌜w = immV [VAL_int32 old32]⌝ ∗
+                      ↪[RUN] ∗
                       ⌜N_repr old_sz old32 ⌝ ∗
                         final_block_repr memidx (FinalBlk blk_addr old_sz) blk_addr ∗
                       ↪[frame] f)%I).
       iApply (wp_seq _ _ _ Φ1').
       iSplitR. { iIntros "(%tot & %Htrap & _)"; congruence. }
       iSplitL.
-      + iApply (spec_get_final_size with "[Hblk Hfr]"); iFrame; eauto.
+      + iApply (spec_get_final_size with "[Hrun Hblk Hfr]"); iFrame; eauto.
         unfold Φ1'.
-        iIntros (v) "(%sz32 & %Hrep & -> & Hblk)".
+        iIntros (v) "(%sz32 & %Hrep & -> & Hblk & Hrun & Hfr)".
         iExists sz32; auto.
-      + iIntros (w) "(%sz32 & -> & %Hrep & Hblk & Hfr)".
+        by iFrame.
+      + iIntros (w) "(%sz32 & -> & Hrun & %Hrep & Hblk & Hfr)".
         simpl app.
-        iApply (wp_wand with "[Hfr]").
+        iApply (wp_wand with "[Hrun Hfr]").
         {
-          iApply wp_set_local; try iFrame; eauto.
+          iApply (wp_set_local with "[] [$] [$]"); try iFrame; eauto.
           instantiate (1:= λ w, (⌜w = immV []⌝ ∗ ⌜N_repr old_sz sz32 ⌝)%I); auto.
         }
-        iIntros (w) "(%Hw & H)".
+        iIntros (w) "((%Hw & H') & H)".
         iFrame; auto.
     }
-    iIntros (w) "(%Hw & (%old_sz32 & %Hold_sz & Hblk & Hfr))".
+    iIntros (w) "(%Hw & Hrun & %old_sz32 & %Hold_sz & Hblk & Hfr)".
     clear Φ1.
     subst w.
     rewrite app_nil_l.
@@ -1409,12 +1482,12 @@ Section malloc.
     set (f2 := {| f_locs := set_nth (VAL_int32 old_sz32) (f_locs f) old_sz_var (VAL_int32 old_sz32);
                   f_inst := f_inst f |}).
     wp_chomp 2.
-    set (Φ2 := λ w, (⌜w = immV [VAL_int32 blk_addr32; VAL_int32 reqd_sz32]⌝ ∗ ↪[frame] f2)%I).
+    set (Φ2 := λ w, (⌜w = immV [VAL_int32 blk_addr32; VAL_int32 reqd_sz32]⌝ ∗ ↪[RUN] ∗ ↪[frame] f2)%I).
     iApply (wp_seq _ _ _ Φ2).
     iSplitR. { iIntros "(%Hw & _)"; congruence. }
-    iSplitL "Hfr".
+    iSplitL "Hrun Hfr".
     {
-      iApply ((@wp_get_locals [final_blk_var; reqd_sz_var]) with "[Hfr]"); auto.
+      iApply ((@wp_get_locals [final_blk_var; reqd_sz_var]) with "[Hrun Hfr]"); auto.
       repeat constructor.
       - cbn.
         rewrite update_list_at_is_set_nth; [|auto using lt_ssrleq].
@@ -1426,18 +1499,19 @@ Section malloc.
         rewrite update_ne; auto.
         cbn in Hdisj.
         intuition.
+      - iFrame.
     }
-    iIntros (w) "(-> & Hfr)".
-    set (Φ3 := λ w, (∃ tot32, ⌜w = immV [VAL_int32 blk_addr32; VAL_int32 tot32]⌝ ∗ ⌜N_repr (reqd_sz + blk_hdr_sz) tot32 ⌝ ∗ ↪[frame] f2)%I).
+    iIntros (w) "(-> & Hrun & Hfr)".
+    set (Φ3 := λ w, (∃ tot32, ⌜w = immV [VAL_int32 blk_addr32; VAL_int32 tot32]⌝ ∗ ⌜N_repr (reqd_sz + blk_hdr_sz) tot32 ⌝ ∗ ↪[RUN] ∗ ↪[frame] f2)%I).
     wp_chomp 4.
     iApply (wp_seq _ _ _ Φ3).
     iSplitR. { iIntros "(%v & (%Hw & _))"; congruence. }
-    iSplitL "Hfr".
+    iSplitL "Hrun Hfr".
     {
       wp_chomp 1.
       iApply wp_val_app =>//.
       iSplit. { iIntros "!> (%v & (%Hw & _))"; congruence. }
-      iApply (spec_add_hdr_sz with "[Hfr]").
+      iApply (spec_add_hdr_sz with "[Hrun Hfr]").
       + iFrame.
         iSplit; auto.
         iPureIntro.
@@ -1446,14 +1520,14 @@ Section malloc.
         cbn.
         iExists _; iFrame; iSplit; auto.
     }
-    iIntros (w) "(%out32 & (-> & %Hout & Hfr))".
+    iIntros (w) "(%out32 & (-> & %Hout & Hrun & Hfr))".
     wp_chomp 3.
-    set (Φ4 := λ w, ((∃ new_addr32, ⌜w = immV [VAL_int32 new_addr32]⌝ ∗ ⌜N_repr new_addr new_addr32 ⌝) ∗ ↪[frame]f2)%I).
+    set (Φ4 := λ w, (((∃ new_addr32, ⌜w = immV [VAL_int32 new_addr32]⌝ ∗ ⌜N_repr new_addr new_addr32 ⌝) ∗ ↪[RUN]) ∗ ↪[frame]f2)%I).
     iApply (wp_seq _ _ _ Φ4).
-    iSplitR. { iIntros "((%v & (%Hw & _)) & _)". congruence. }
-    iSplitL "Hfr".
+    iSplitR. { iIntros "(((%v & (%Hw & _)) & _) & _)". congruence. }
+    iSplitL "Hrun Hfr".
     {
-      iApply (wp_binop with "[Hfr]"); auto.
+      iApply (wp_binop with "[Hfr] [Hrun]"); auto.
       iModIntro.
       iExists _.
       cbn.
@@ -1461,34 +1535,34 @@ Section malloc.
       iPureIntro.
       eapply iadd_repr; eauto || lia.
     }
-    iIntros (w) "((%new_addr32 & %Hw & %Hnew_addr32) & Hfr)".
+    iIntros (w) "(((%new_addr32 & %Hw & %Hnew_addr32) & Hrun) & Hfr)".
     subst w.
     clear Φ2.
     wp_chomp 2.
     set (f3 := {| f_locs := set_nth (VAL_int32 new_addr32) (f_locs f2) new_blk_var (VAL_int32 new_addr32);
                   f_inst := f_inst f2 |}).
-    set (Φ5 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3)%I).
+    set (Φ5 := λ w, ((⌜w = immV []⌝ ∗ ↪[RUN]) ∗ ↪[frame] f3)%I).
     iApply (wp_seq _ _ _ Φ5 _).
-    iSplitR. { iIntros "(%Hw & _)"; congruence. }
-    iSplitL "Hfr".
+    iSplitR. { iIntros "((%Hw & _) & _)"; congruence. }
+    iSplitL "Hrun Hfr".
     {
-      iApply wp_set_local; auto.
+      iApply (wp_set_local with "[] [$] [$]"); auto.
       eapply lookup_lt_is_Some_1.
       cbn.
       rewrite update_list_at_is_set_nth; [|auto using lt_ssrleq].
       rewrite update_ne; auto.
       cbn in Hdisj; intuition.
     }
-    iIntros (w) "(%Hw & Hfr)".
+    iIntros (w) "((%Hw & Hrun) & Hfr)".
     subst w.
     rewrite app_nil_l.
     wp_chomp 2.
-    set (Φ6 := λ w, (⌜w = immV [VAL_int32 blk_addr32; VAL_int32 reqd_sz32]⌝ ∗ ↪[frame] f3)%I).
+    set (Φ6 := λ w, ((⌜w = immV [VAL_int32 blk_addr32; VAL_int32 reqd_sz32]⌝ ∗ ↪[RUN]) ∗ ↪[frame] f3)%I).
     iApply (wp_seq _ _ _ Φ6).
-    iSplitR. { by iIntros "(%Hw & _)". }
-    iSplitL "Hfr".
+    iSplitR. { by iIntros "((%Hw & _) & _)". }
+    iSplitL "Hrun Hfr".
     {
-      iApply (@wp_get_locals [final_blk_var; reqd_sz_var] with "[Hfr]"); [|eauto|].
+      iApply (@wp_get_locals [final_blk_var; reqd_sz_var] with "[$]"); [eauto|].
       - constructor.
         + unfold f3.
           cbn.
@@ -1506,38 +1580,38 @@ Section malloc.
           rewrite <- fmap_insert_set_nth; [| auto ].
           rewrite list_lookup_insert_ne; [| intuition].
           eauto.
-      - iIntros (w) "(-> & Hfr)".
+      - iIntros (w) "(-> & Hrun & Hfr)".
         iFrame; auto.
     }
-    iIntros (w) "(%Hw & Hfr)". subst w.
+    iIntros (w) "((%Hw & Hrun) & Hfr)". subst w.
     wp_chomp 3.
-    set (Φ7 := λ w, (⌜w = immV []⌝ ∗ ↪[frame] f3 ∗ final_block_repr memidx (FinalBlk blk_addr reqd_sz) blk_addr ∗
+    set (Φ7 := λ w, (⌜w = immV []⌝ ∗ ↪[RUN] ∗ ↪[frame] f3 ∗ final_block_repr memidx (FinalBlk blk_addr reqd_sz) blk_addr ∗
                       own_vec memidx (blk_addr + data_off + reqd_sz) (blk_hdr_sz + (old_sz - reqd_sz - blk_hdr_sz)))%I).
     iApply (wp_seq _ _ _ Φ7).
     iSplitR. { iIntros "(%Hw & _)"; congruence. }
-    iSplitL "Hfr Hblk".
+    iSplitL "Hrun Hfr Hblk".
     {
       iDestruct "Hblk" as "(_ & %Hbds & Hst & Hsz & Hnext & Hdata)".
       assert (Hszsplit: (old_sz = reqd_sz + (blk_hdr_sz + (old_sz - reqd_sz - blk_hdr_sz)))%N) by lia.
       rewrite Hszsplit.
       setoid_rewrite own_vec_split.
       iDestruct "Hdata" as "(Hdata & Hrest)".
-      iApply (spec_set_size_final with "[Hfr Hsz Hdata]"); iFrame; auto.
-      iIntros (w) "(-> & Hsz & Hdata & Hfr)".
+      iApply (spec_set_size_final with "[Hrun Hfr Hsz Hdata]"); iFrame; auto.
+      iIntros (w) "(-> & Hsz & Hdata & Hrun & Hfr)".
       iFrame; auto.
       iSplit; auto.
       iPureIntro.
       lia.
     }
     (* mark_free *)
-    iIntros (w) "(-> & Hfr & Hblk & Hrest)".
+    iIntros (w) "(-> & Hrun & Hfr & Hblk & Hrest)".
     rewrite app_nil_l.
     wp_chomp 3.
     iApply wp_seq.
     iSplitR; last first.
-    iSplitL "Hfr Hblk".
+    iSplitL "Hrun Hfr Hblk".
     {
-      iApply (spec_mark_free_final with "[Hfr Hblk]"); iFrame => //.
+      iApply (spec_mark_free_final with "[Hrun Hfr Hblk]"); iFrame => //.
       - iSplit =>//.
         iSplit; iPureIntro; auto.
         cbn in Hdisj.
@@ -1546,13 +1620,13 @@ Section malloc.
       - auto.
     }
     (* get locals for set_next *)
-    iIntros (w) "(-> & Hblk & Hfr)".
+    iIntros (w) "(-> & Hblk & Hrun & Hfr)".
     wp_chomp 2.
     iApply wp_seq.
     iSplitR; last first.
-    iSplitL "Hfr".
+    iSplitL "Hrun Hfr".
     {
-      iApply (@wp_get_locals [final_blk_var; new_blk_var] with "[Hfr]"); try iFrame; auto.
+      iApply (@wp_get_locals [final_blk_var; new_blk_var] with "[Hrun Hfr]"); try iFrame; auto.
       constructor.
       cbn in Hdisj.
       apply set_nth_read_neq; [intuition|].
@@ -1561,12 +1635,12 @@ Section malloc.
       apply set_nth_read.
     }
     (* set_next *)
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "(-> & Hrun & Hfr)".
     wp_chomp 3.
     iApply wp_seq. iSplitR; last first.
-    iSplitL "Hfr Hblk".
+    iSplitL "Hrun Hfr Hblk".
     {
-      iApply (spec_set_next with "[Hfr Hblk]"); iFrame; auto.
+      iApply (spec_set_next with "[Hrun Hfr Hblk]"); iFrame; auto.
     }
     (* subdivide remaining space into header fields + data *)
     iPoseProof (own_vec_split with "Hrest") as "(Hhdr & Hdata')".
@@ -1578,11 +1652,11 @@ Section malloc.
       reflexivity.
     }
     (* mark_final *)
-    iIntros (w) "(-> & Hblk & Hfr)".
+    iIntros (w) "(-> & Hblk & Hrun & Hfr)".
     wp_chomp 3.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hst".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr Hst".
     {
-      iApply (spec_mark_final with "[Hfr Hst]").
+      iApply (spec_mark_final with "[Hrun Hfr Hst]").
       - unfold state_off.
         rewrite N.add_0_r.
         iFrame.
@@ -1594,11 +1668,11 @@ Section malloc.
       - auto.
     }
     (* get_locals for computing block size *)
-    iIntros (w) "(-> & Hst & Hfr)".
+    iIntros (w) "(-> & Hst & Hrun & Hfr)".
     wp_chomp 3.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply (@wp_get_locals [new_blk_var; old_sz_var; reqd_sz_var] with "[Hfr]"); try iFrame; auto.
+      iApply (@wp_get_locals [new_blk_var; old_sz_var; reqd_sz_var] with "[Hrun Hfr]"); try iFrame; auto.
       cbn in Hdisj.
       repeat constructor.
       - by rewrite set_nth_read.
@@ -1610,40 +1684,40 @@ Section malloc.
         apply set_nth_read_neq; intuition eauto.
     }
     (* subtract reqd - old - hdr to compute remaining size *)
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "(-> & Hrun & Hfr)".
     wp_chomp 5.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
       wp_chomp 2.
       iApply wp_val_app =>//.
       iSplitR; last first.
-      iApply (wp_wand with "[Hfr]").
-      iApply (wp_binop with "[Hfr]"); eauto.
-      instantiate (1:= λ w, ⌜w= (immV [VAL_int32 (Wasm_int.int_add Wasm_int.Int32.Tmixin reqd_sz32 (Wasm_int.int_of_Z i32m (Z.of_N blk_hdr_sz)))])⌝%I).
+      iApply (wp_wand with "[Hrun Hfr]").
+      iApply (wp_binop with "[Hfr] [Hrun]"); eauto.
+      instantiate (1:= λ w, ⌜w = (immV [VAL_int32 (Wasm_int.int_add Wasm_int.Int32.Tmixin reqd_sz32 (Wasm_int.int_of_Z i32m (Z.of_N blk_hdr_sz)))])⌝%I).
       auto.
       iIntros (w).
-      instantiate (1:= λ w, (⌜w= (immV [VAL_int32 new_addr32; VAL_int32 old_sz32; VAL_int32 (Wasm_int.int_add Wasm_int.Int32.Tmixin reqd_sz32 (Wasm_int.int_of_Z i32m (Z.of_N blk_hdr_sz)))])⌝ ∗ ↪[frame] f3)%I).
-      iIntros "(-> & Hfr)".
+      instantiate (1:= λ w, (⌜w= (immV [VAL_int32 new_addr32; VAL_int32 old_sz32; VAL_int32 (Wasm_int.int_add Wasm_int.Int32.Tmixin reqd_sz32 (Wasm_int.int_of_Z i32m (Z.of_N blk_hdr_sz)))])⌝ ∗ ↪[RUN] ∗ ↪[frame] f3)%I).
+      iIntros "((-> & Hrun) & Hfr)".
       iFrame; auto.
       iIntros "!> (%Hw & _)". congruence.
     }
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "(-> & Hrun & Hfr)".
     wp_chomp 4.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
       wp_chomp 1.
       iApply wp_val_app =>//.
       iSplitR; last first.
-      iApply (wp_wand with "[Hfr]").
-      iApply (wp_binop with "[Hfr]"); eauto.
+      iApply (wp_wand with "[Hrun Hfr]").
+      iApply (wp_binop with "[Hfr] [Hrun]"); eauto.
       instantiate (1:= λ w, ⌜w= (immV [VAL_int32
               (Wasm_int.int_sub Wasm_int.Int32.Tmixin old_sz32
                  (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12)))])⌝%I).
       auto.
       iIntros (w).
       instantiate (1:= λ w, (⌜w= (immV [VAL_int32 new_addr32; VAL_int32
-          (Wasm_int.int_sub Wasm_int.Int32.Tmixin old_sz32 (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12)))])⌝ ∗ ↪[frame] f3)%I).
-      iIntros "(-> & Hfr)".
+          (Wasm_int.int_sub Wasm_int.Int32.Tmixin old_sz32 (Wasm_int.Int32.iadd reqd_sz32 (Wasm_int.Int32.repr 12)))])⌝ ∗ ↪[RUN] ∗ ↪[frame] f3)%I).
+      iIntros "((-> & Hrun) & Hfr)".
       iFrame; auto.
       iIntros "!> (%Hw & _)". congruence.
     }
@@ -1667,27 +1741,27 @@ Section malloc.
       - auto.
     }
     (* get_local for set_next *)
-    iIntros (w) "(-> & (Hsz & Hdata & Hfr))".
+    iIntros (w) "(-> & (Hsz & Hdata & Hrun & Hfr))".
     wp_chomp 1.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply (wp_get_local with "[] [$Hfr //]").
+      iApply (wp_get_local with "[] [$Hfr //] [$]").
       - apply set_nth_read.
       - instantiate (1 := (λ w, ⌜w = immV [VAL_int32 new_addr32]⌝)%I).
         auto.
     }
     (* set_next *)
-    iIntros (w) "(-> & Hfr)".
-    iApply (spec_set_next_basic with "[$Hfr $Hnext]").
+    iIntros (w) "((-> & Hrun) & Hfr)".
+    iApply (spec_set_next_basic with "[$Hfr $Hnext $Hrun]").
     {
       replace (blk_addr + data_off + reqd_sz)%N with new_addr
         by (unfold data_off; lia).
       instantiate (1:= 0%N).
       auto.
     }
-    iIntros (w) "(-> & Hnext & Hfr)".
+    iIntros (w) "(-> & Hnext & Hrun & Hfr)".
     unfold final_block_repr.
-    iApply ("HΦ" with "[$Hblk Hdata Hsz Hst Hnext Hfr]").
+    iApply ("HΦ" with "[$Hblk Hdata Hsz Hst Hnext Hrun Hfr]").
     {
       unfold new_addr.
       unfold data_off.
@@ -1702,13 +1776,15 @@ Section malloc.
         lia.
       - iExists _, _; auto.
     }
-    all:iIntros "(%Hw & _)"; congruence.
+    iIntros "[[%Hw _] _]"; congruence.
+    all:iIntros "[%Hw _]"; congruence.
   Qed.
 
   (* SPECS: block creation *)
   Lemma spec_new_block_prelude mem memidx final_blk_var final_sz final_blk_addr final_blk_addr32 reqd_sz reqd_sz_var reqd_sz32 f E :
     ⊢ {{{{
         final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗
+        ↪[RUN] ∗
         ↪[frame] f ∗
         ⌜(Z.of_N (final_blk_addr + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z⌝ ∗
         ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
@@ -1721,53 +1797,56 @@ Section malloc.
     to_e_list (BI_get_local reqd_sz_var :: (add_hdr_sz ++ get_size mem final_blk_var ++ [BI_relop T_i32 (Relop_i (ROI_lt SX_U))])) @ E
     {{{{ w, ⌜w = immV [VAL_int32 (wasm_bool (N.ltb (reqd_sz + blk_hdr_sz) final_sz)%N)]⌝ ∗
             final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗
+            ↪[RUN] ∗
             ↪[frame] f  }}}}.
   Proof.
-    iIntros (Φ) "!> (Hblk & Hfr & %Hbdd & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk & %Hreqd_sz & %Hmem) HΦ".
+    iIntros (Φ) "!> (Hblk & Hrun & Hfr & %Hbdd & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk & %Hreqd_sz & %Hmem) HΦ".
     iPoseProof (final_block_inbounds with "Hblk") as "(%Hfbdd & Hblk)".
     cbn in Hfbdd.
     wp_chomp 1.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply (wp_get_local with "[] [$Hfr //]"); eauto.
+      iApply (wp_get_local with "[] [$Hfr //] [$]"); eauto.
       by instantiate (1 := λ w, ⌜w = immV [VAL_int32 reqd_sz32]⌝%I).
     }
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "((-> & Hrun) & Hfr)".
     wp_chomp 3.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply (spec_add_hdr_sz with "[$Hfr]"); eauto.
+      iApply (spec_add_hdr_sz with "[$Hfr Hrun]"); eauto.
+      iFrame.
       iSplit; auto.
       iPureIntro.
       lia.
     }
-    iIntros (w) "(%out32 & -> & %Houtrep & Hfr)".
+    iIntros (w) "(%out32 & -> & %Houtrep & Hrun & Hfr)".
     wp_chomp 3.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr Hblk".
     wp_chomp 1.
     iApply wp_val_app; eauto.
     iSplitR; last first.
     {
-      iApply (wp_wand with "[Hfr Hblk]").
-      iApply (spec_get_final_size _ _ _ _ _ _ _ final_blk_var with "[$Hblk $Hfr //]").
+      iApply (wp_wand with "[Hrun Hfr Hblk]").
+      iApply (spec_get_final_size _ _ _ _ _ _ _ final_blk_var with "[$Hblk $Hfr $Hrun //]").
       eauto.
-      iIntros (w) "(%sz32 & %Hszrep & -> & Hblk & Hfr)".
-      instantiate (1 := λ w, (∃ sz32 : i32, ⌜N_repr final_sz sz32⌝ ∗ ⌜w = immV [VAL_int32 out32; VAL_int32 sz32]⌝ ∗ final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗  ↪[frame]f)%I).
+      iIntros (w) "(%sz32 & %Hszrep & -> & Hblk & Hrun & Hfr)".
+      instantiate (1 := λ w, (∃ sz32 : i32, ⌜N_repr final_sz sz32⌝ ∗ ⌜w = immV [VAL_int32 out32; VAL_int32 sz32]⌝ ∗ final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗  ↪[RUN] ∗ ↪[frame]f)%I).
       cbn.
       iExists _; iFrame; auto.
     }
     all:swap 1 2.
-    iIntros (w) "(%sz32 & %Hszrep & -> & Hblk & Hfr)".
+    iIntros (w) "(%sz32 & %Hszrep & -> & Hblk & Hrun & Hfr)".
     wp_chomp 3.
-    iApply (wp_wand with "[Hfr]").
-    iApply (wp_relop with "[$Hfr]"); auto.
+    iApply (wp_wand with "[Hrun Hfr]").
+    iApply (wp_relop with "[$Hfr] [$Hrun]"); auto.
     instantiate (1:= λ w, ⌜w = immV [VAL_int32 (wasm_bool (app_relop (Relop_i (ROI_lt SX_U)) (VAL_int32 out32) (VAL_int32 sz32)))]⌝%I).
     auto.
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "((-> & Hrun) & Hfr)".
     iApply "HΦ"; iFrame; auto.
     iPureIntro.
     setoid_rewrite ilt_repr; eauto.
     all:try iIntros "!>".
+    all:try (iIntros "((%Hw & _) & _)"; congruence).
     all:try (iIntros "(%Hw & _)"; congruence).
     all:try (iIntros "(%out & %Hw & _)"; congruence).
     all:try (iIntros "(%sz & H & (%Hw & _))"; congruence).
@@ -1777,6 +1856,7 @@ Section malloc.
     reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
     ⊢ {{{{
         final_block_repr memidx (FinalBlk final_blk_addr final_sz) final_blk_addr ∗
+        ↪[RUN] ∗
         ↪[frame] f ∗
         ⌜(reqd_sz + blk_hdr_sz < final_sz)%N ⌝ ∗
         ⌜N_repr final_blk_addr final_blk_addr32⌝ ∗
@@ -1794,6 +1874,7 @@ Section malloc.
             ∃ f' new_addr32,
               block_repr memidx (FreeBlk final_blk_addr reqd_sz) (final_blk_addr + reqd_sz + blk_hdr_sz)%N ∗
               final_block_repr memidx (FinalBlk (final_blk_addr + reqd_sz + blk_hdr_sz) (final_sz - reqd_sz - blk_hdr_sz)) (final_blk_addr + reqd_sz + blk_hdr_sz) ∗
+              ↪[RUN] ∗
               ↪[frame] f' ∗
               ⌜f_inst f' = f_inst f⌝ ∗
               ⌜N_repr (final_blk_addr + reqd_sz + blk_hdr_sz)%N new_addr32⌝ ∗
@@ -1801,12 +1882,12 @@ Section malloc.
               ⌜f_locs f' !! final_blk_var = Some (VAL_int32 new_addr32)⌝
     }}}}.
   Proof.
-    iIntros (Φ) "!> (Hblk & Hfr & %Hspace & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk & %Hreqd_sz & %Hold_sz & %Hnew_blk & %Hactual_sz & %Hmem) HΦ".
+    iIntros (Φ) "!> (Hblk & Hrun & Hfr & %Hspace & %Hfinal_blk_rep & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk & %Hreqd_sz & %Hold_sz & %Hnew_blk & %Hactual_sz & %Hmem) HΦ".
     unfold new_block.
     iPoseProof (final_block_inbounds with "Hblk") as "(%Hfbdd & Hblk)".
     cbn in Hfbdd.
     wp_chomp 6.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr Hblk".
     {
       assert (NoDupEff [final_blk_var; reqd_sz_var]).
       {
@@ -1816,19 +1897,19 @@ Section malloc.
       }
       assert (Z.of_N (final_blk_addr + blk_hdr_sz + reqd_sz) < Wasm_int.Int32.modulus)%Z.
       { lia. }
-      iApply (spec_new_block_prelude with "[$Hfr $Hblk //]").
+      iApply (spec_new_block_prelude with "[$Hfr $Hblk $Hrun //]").
       auto.
     }
-    iIntros (w) "(-> & Hblk & Hfr)".
+    iIntros (w) "(-> & Hblk & Hrun & Hfr)".
     pose proof Hspace as Hspaceb.
     apply N.ltb_lt in Hspaceb.
     rewrite Hspaceb.
-    iApply (wp_if_true with "[$Hfr]"); auto.
+    iApply (wp_if_true with "[$Hfr] [$Hrun]"); auto.
     {
-      iIntros "!> Hfr".
+      iIntros "!> Hfr Hrun".
       wp_chomp 0.
-      iApply (wp_block with "[$Hfr]"); eauto.
-      iIntros "!> Hfr".
+      iApply (wp_block with "[$Hfr] [$Hrun]"); eauto.
+      iIntros "!> Hfr Hrun".
       iApply wp_wasm_empty_ctx.
       iApply wp_label_push_emp; last first.
       iApply wp_ctx_bind; [by cbn |].
@@ -1838,22 +1919,22 @@ Section malloc.
         cbn in Hdisj.
         tauto.
       }
-      wp_chomp 1. iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      wp_chomp 1. iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_get_local with "[] [$Hfr]").
+        iApply (wp_get_local with "[] [$] [$]").
         eauto.
         iModIntro.
         fill_imm_pred.
       }
-      iIntros (w) "(-> & Hfr)".
-      wp_chomp 2. iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iIntros (w) "((-> & Hrun) & Hfr)".
+      wp_chomp 2. iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_set_local with "[] [$Hfr]").
+        iApply (wp_set_local with "[] [$Hfr] [$]").
         - auto using lookup_lt_is_Some_1.
         - fill_imm_pred.
       }
-      iIntros (w) "(-> & Hfr)".
-      iApply (spec_pinch_block with "[$Hblk $Hfr]").
+      iIntros (w) "((-> & Hrun) & Hfr)".
+      iApply (spec_pinch_block with "[$Hblk $Hfr $Hrun]").
       {
         cbn in Hdisj.
         simpl f_locs.
@@ -1869,17 +1950,17 @@ Section malloc.
           eauto.
         cbn. intuition.
       }
-      iIntros (w) "(-> & Hblk & Hfblk & (%new32 & %old32 & %Hnewrep & (%f' & Hfr & %Hfinst & %Hflocs)))".
+      iIntros (w) "(-> & Hblk & Hfblk & (%new32 & %old32 & %Hnewrep & Hrun & (%f' & Hfr & %Hfinst & %Hflocs)))".
       iIntros (x) "%Hfill".
       move /lfilledP in Hfill.
       inversion Hfill; subst.
       inversion H9; subst.
       cbn.
-      iApply (wp_wand with "[Hfr]").
-      iApply (wp_label_value with "[$Hfr]"); auto.
+      iApply (wp_wand with "[Hrun  Hfr]").
+      iApply (wp_label_value with "[$] [$]"); auto.
       instantiate (1:= λ w, ⌜w = immV [] ⌝%I).
       auto.
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "((-> & Hrun) & Hfr)".
       iApply "HΦ".
       iSplit; [by auto|].
       iExists f', new32.
@@ -1895,16 +1976,18 @@ Section malloc.
       by apply set_nth_read.
       rewrite Hflocs.
       by apply set_nth_read.
-      all:iIntros "(%Hw & _)"; congruence.
+      all:iIntros "((%Hw & _) & _)"; congruence.
     }
     iIntros "(%Hw & _)"; congruence.
   Qed.
 
   Lemma spec_mul_var_page_sz var pages32 f E :
     ⊢ {{{{ ↪[frame] f ∗
+           ↪[RUN] ∗
            ⌜f.(f_locs) !! var = Some (VAL_int32 pages32)⌝ }}}}
       to_e_list (mul_var_page_sz var) @ E
       {{{{ w, ⌜w = immV [] ⌝ ∗
+              ↪[RUN] ∗
               ↪[frame] {|
                 f_locs := set_nth
                             (VAL_int32 (Wasm_int.Int32.mul pages32 (Wasm_int.int_of_Z i32m (Z.of_N page_size))))
@@ -1914,33 +1997,32 @@ Section malloc.
               |}
       }}}}.
   Proof.
-    iIntros (Φ) "!> (Hfr & %Hvar) HΦ".
+    iIntros (Φ) "!> (Hfr & Hrun & %Hvar) HΦ".
     wp_chomp 1.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply wp_get_local; eauto.
+      iApply (wp_get_local with "[] [$] [$]"); eauto.
       fill_imm_pred.
     }
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "((-> & Hrun) & Hfr)".
     wp_chomp 3.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply (wp_binop with "[$Hfr]"); eauto.
+      iApply (wp_binop with "[$Hfr] [$]"); eauto.
       match goal with
       | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
       end.
     }
-    iIntros (w) "(-> & Hfr)".
-    iApply (wp_wand with "[Hfr]").
-    iApply (wp_set_local with "[] [$Hfr]").
+    iIntros (w) "((-> & Hrun) & Hfr)".
+    iApply (wp_wand with "[Hrun Hfr]").
+    iApply (wp_set_local with "[] [$] [$]").
     apply lookup_lt_is_Some_1; auto.
     match goal with
     | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
     end.
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "((-> & Hrun) & Hfr)".
     iApply "HΦ"; iFrame; auto.
-    iIntros "(%Hcontra & _)"; congruence.
-    iIntros "(%Hcontra & _)"; congruence.
+    all:iIntros "((%Hcontra & _) & _)"; congruence.
   Qed.
 
   Lemma N_div_contr (n m: N) :
@@ -1955,25 +2037,25 @@ Section malloc.
       auto.
   Qed.
 
-  Lemma wp_nil_nested E F:
+  Lemma wp_nil_nested E (F: frame):
     forall Φ: val -> iProp Σ,
-      Φ (immV []) ∗ ↪[frame]F ⊢ WP [] @ E CTX 1; LH_rec [] 0 [] (LH_base [] []) [] {{ w, Φ w ∗ ↪[frame]F }}.
+      Φ (immV []) ∗ ↪[RUN] ∗ ↪[frame]F
+      ⊢ WP [] @ E CTX 1; LH_rec [] 0 [] (LH_base [] []) [] {{ w, Φ w ∗ ↪[RUN] ∗ ↪[frame]F }}.
   Proof.
-    iIntros (Φ) "[HΦ Hfr]".
+    iIntros (Φ) "(HΦ & Hrun & Hfr)".
     unfold wp_wasm_ctx.
     iIntros (LI) "%Hfill".
     apply lfilled_Ind_Equivalent in Hfill.
     inversion Hfill; subst.
     inversion H8; subst.
     cbn.
-    iApply (wp_wand with "[Hfr]").
+    iApply (wp_wand with "[Hrun Hfr]").
     {
-      iApply (wp_label_value with "[$Hfr]").
+      iApply (wp_label_value with "[$] [$]").
       - reflexivity.
       - fill_imm_pred.
     }
-    iIntros (w) "(-> & Hfr)".
-    iFrame.
+    iIntros (w) "((-> & ?) & ?)"; iFrame.
   Qed.
 
   Lemma div_succ_gt:
@@ -2006,6 +2088,7 @@ Section malloc.
     base_addr reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
     ⊢ {{{{
               freelist_repr memidx (blks, FinalBlk final_blk_addr final_sz) base_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f ∗
               memidx ↦[wmlength] memlen ∗
               ⌜(page_size | memlen)%N⌝ ∗
@@ -2024,9 +2107,10 @@ Section malloc.
               ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝
       }}}}
       to_e_list (new_block mem final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
-      {{{{ w, ⌜w = trapV⌝ ∨
+      {{{{ w, ⌜w = trapV⌝ ∗ ↪[BAIL] ∨
               ⌜w = immV [] ⌝ ∗
               ∃ blks' final_blk' f' new_addr new_addr32 memlen',
+                ↪[RUN] ∗
                 ↪[frame] f' ∗
                 ⌜f_inst f' = f_inst f⌝ ∗
                 ⌜f_locs f' !! new_blk_var = Some (VAL_int32 new_addr32)⌝ ∗
@@ -2037,7 +2121,7 @@ Section malloc.
                 ⌜(page_size | memlen')%N⌝
       }}}}.
   Proof.
-    iIntros (Φ) "!> (Hfreelist & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep
+    iIntros (Φ) "!> (Hfreelist & Hrun & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hnospace & %Hbdd & %Hbdd' & %Hfinal_blk_rep
                     & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk
                     & %Hreqd_sz & %Hold_sz & %Hnew_blk
                     & %Hactual_sz & %Hmem) HΦ".
@@ -2049,7 +2133,7 @@ Section malloc.
     iPoseProof (final_block_inbounds with "Hblk") as "(%Hfbdd & Hblk)".
     cbn in Hfbdd.
     wp_chomp 6.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hrun Hblk".
     {
       assert (NoDupEff [final_blk_var; reqd_sz_var]).
       {
@@ -2058,22 +2142,22 @@ Section malloc.
         tauto.
       }
       clear Hfbdd. (* will mess up evar resolution by getting confused with Hbdd *)
-      iApply (spec_new_block_prelude with "[$Hfr $Hblk]").
+      iApply (spec_new_block_prelude with "[$Hfr $Hrun $Hblk]").
       iSplit; try eauto.
       iPureIntro.
       lia.
       auto.
     }
-    iIntros (w) "(-> & Hblk & Hfr)".
+    iIntros (w) "(-> & Hblk & Hrun & Hfr)".
     pose proof Hnospace as Hnospaceb.
     apply N.ltb_ge in Hnospaceb.
     rewrite Hnospaceb.
-    iApply (wp_if_false with "[$Hfr]"); auto.
+    iApply (wp_if_false with "[$Hfr] [$Hrun]"); auto.
     {
-      iIntros "!> Hfr".
+      iIntros "!> Hfr Hrun".
       wp_chomp 0.
-      iApply (wp_block with "[$Hfr]"); eauto.
-      iIntros "!> Hfr".
+      iApply (wp_block with "[$Hfr] [$]"); eauto.
+      iIntros "!> Hfr Hrun".
       iApply wp_wasm_empty_ctx.
       iApply wp_label_push_emp; last first.
       iApply wp_ctx_bind; [by cbn |].
@@ -2170,59 +2254,59 @@ Section malloc.
                    f_inst := f_inst f
                  |}).
       wp_chomp 1.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_get_local with "[] [$Hfr]").
+        iApply (wp_get_local with "[] [$Hfr] [$]").
         - apply Hreqd_sz.
         - by instantiate (1:= λ w, ⌜w = immV [VAL_int32 reqd_sz32]⌝%I).
       }
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "((-> & Hrun) & Hfr)".
       wp_chomp 3.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
+        iApply (wp_binop with "[$Hfr] [$]").
         auto.
         match goal with
         | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
       }
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "((-> & Hrun) & Hfr)".
       wp_chomp 3.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
+        iApply (wp_binop with "[$Hfr] [$]").
         auto.
         match goal with
         | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
       }
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "((-> & Hrun) & Hfr)".
       wp_chomp 3.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
+        iApply (wp_binop with "[$Hfr] [$]").
         auto.
         match goal with
         | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
       }
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "((-> & Hrun) & Hfr)".
       wp_chomp 3.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
+        iApply (wp_binop with "[$Hfr] [$]").
         auto.
         match goal with
         | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
       }
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "((-> & Hrun) & Hfr)".
       (* prevent unfolding of huge number since wp_chomp will call simpl *)
       rewrite <- Heqpage_size_z.
       wp_chomp 3.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_binop with "[$Hfr]").
+        iApply (wp_binop with "[$Hfr] [$]").
         cbn.
         fold reqd_pages32.
         auto.
@@ -2230,26 +2314,26 @@ Section malloc.
         | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
       }
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "((-> & Hrun) & Hfr)".
       wp_chomp 2.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
       {
-        iApply (wp_tee_local with "[$Hfr]").
-        iIntros "!> Hfr".
+        iApply (wp_tee_local with "[$Hfr] [$]").
+        iIntros "!> Hfr Hrun".
         wp_chomp 1.
         iApply wp_val_app;auto.
         iSplitR; last first.
-        iApply (wp_wand with "[Hfr]").
-        iApply (wp_set_local with "[] [$Hfr]");
+        iApply (wp_wand with "[Hrun Hfr]").
+        iApply (wp_set_local with "[] [$Hfr] [$]");
           auto using lookup_lt_is_Some_1.
         match goal with
         | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
         end.
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         cbn.
         fold f'.
         match goal with
-        | |- context [?g (immV ?v)] => instantiate (1:= (λ w, ⌜w = immV v⌝ ∗ ↪[frame] f' )%I)
+        | |- context [?g (immV ?v)] => instantiate (1:= (λ w, ⌜w = immV v⌝ ∗ ↪[RUN] ∗ ↪[frame] f' )%I)
         end.
         cbn.
         iSplit.
@@ -2258,46 +2342,46 @@ Section malloc.
         iFrame.
         iIntros "!> (%Hw & _)" =>//.
       }
-      iIntros (w) "(-> & Hfr)".
+      iIntros (w) "(-> & Hrun & Hfr)".
       wp_chomp 2.
-      iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hmemlen".
+      iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr Hmemlen".
       {
-        iApply (wp_grow_memory with "[$Hfr $Hmemlen]") =>//.
+        iApply (wp_grow_memory with "[$Hfr $Hmemlen $Hrun]") =>//.
         iSplitL; match goal with
                  | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
                  end.
       }
-      iIntros (w) "[[Hsuccess | Hfailure] Hfr]".
+      iIntros (w) "(([Hsuccess | Hfailure] & Hrun) & Hfr)".
       - iDestruct "Hsuccess" as "((-> & Hvec & Hmemlen) & %Hmembdd)".
         wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
-          iApply (wp_set_local with "[] [$Hfr]").
+          iApply (wp_set_local with "[] [$Hfr] [$]").
           - rewrite set_nth_length_eq; auto using lookup_lt_is_Some_1.
           - match goal with
             | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
             end.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         wp_chomp 1.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
-          iApply (wp_get_local with "[] [$Hfr]").
+          iApply (wp_get_local with "[] [$Hfr] [$]").
           - apply set_nth_read.
           - match goal with
             | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
             end.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
-          iApply (wp_relop with "[$Hfr]"); auto.
+          iApply (wp_relop with "[$] [$]"); auto.
           match goal with
           | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
           end.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         simpl app_relop.
         assert ((memlen `div` page_size < page_limit + 1)%N).
         {
@@ -2323,18 +2407,18 @@ Section malloc.
           intros Hmodbd.
           rewrite Wasm_int.Int32.Z_mod_modulus_id; lia.
         }
-        iApply (wp_if_false with "[$Hfr]"); auto using Wasm_int.Int32.one_not_zero.
-        iIntros "!> Hfr".
+        iApply (wp_if_false with "[$Hfr] [$Hrun]"); auto using Wasm_int.Int32.one_not_zero.
+        iIntros "!> Hfr Hrun".
         wp_chomp 0.
-        iApply (wp_block with "[$Hfr]"); eauto.
-        iIntros "!> Hfr".
+        iApply (wp_block with "[$Hfr] [$Hrun]"); eauto.
+        iIntros "!> Hfr Hrun".
         iApply wp_wasm_empty_ctx.
         iApply wp_label_push_emp; last first.
         iApply wp_ctx_bind; [by cbn |].
         wp_chomp (length (mark_free mem final_blk_var)).
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblk".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hrun Hblk".
         {
-          iApply (spec_mark_free_final with "[$Hblk $Hfr]").
+          iApply (spec_mark_free_final with "[$Hblk $Hfr $Hrun]").
           - iSplit; iPureIntro; cbn; eauto.
             split; auto.
             cbn. erewrite set_nth_read_neq; auto.
@@ -2343,33 +2427,33 @@ Section malloc.
             cbn in Hdisj; intuition.
           - auto.
         }
-        iIntros (w) "(-> & Hblock & Hfr)".
+        iIntros (w) "(-> & Hblock & Hrun & Hfr)".
         wp_chomp 4.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
           cbn in Hdisj.
-          iApply (spec_mul_var_page_sz with "[$Hfr]").
+          iApply (spec_mul_var_page_sz with "[$Hfr $Hrun]").
           - cbn.
             by erewrite set_nth_read.
           - auto.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "(-> & Hfr & Hrun)".
         wp_chomp 4.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hrun".
         {
           cbn in Hdisj.
-          iApply (spec_mul_var_page_sz with "[$Hfr]").
+          iApply (spec_mul_var_page_sz with "[$Hfr $Hrun]").
           - iPureIntro.
             apply set_nth_read_neq. intuition.
             apply set_nth_read_neq. intuition.
             apply set_nth_read.
           - auto.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "(-> & Hrun & Hfr)".
         wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
-          iApply ((@wp_get_locals [final_blk_var; new_blk_var]) with "[Hfr]"); auto.
+          iApply ((@wp_get_locals [final_blk_var; new_blk_var]) with "[$Hrun $Hfr]"); auto.
           cbn in Hdisj.
           constructor.
           cbn. erewrite set_nth_read_neq; auto.
@@ -2391,7 +2475,7 @@ Section malloc.
         match goal with
         | |- context[ ↪[frame] ?f ] => set (f'' := f)
         end.
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "(-> & Hrun & Hfr)".
         rewrite <- Heqpage_size_z.
         assert (Z.of_N page_size < Wasm_int.Int32.modulus)%Z.
         {
@@ -2460,16 +2544,16 @@ Section malloc.
             by apply N.div_mod.
         }
         wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hblock".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr Hblock".
         {
-          iApply (spec_set_next with "[$Hblock $Hfr]"); cbn; auto.
+          iApply (spec_set_next with "[$Hblock $Hfr $Hrun]"); cbn; auto.
         }
-        iIntros (w) "(-> & Hblk & Hfr)".
+        iIntros (w) "(-> & Hblk & Hrun & Hfr)".
         wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
           cbn in Hdisj.
-          iApply ((@wp_get_locals [new_blk_var; actual_size_var]) with "[$Hfr]"); auto.
+          iApply ((@wp_get_locals [new_blk_var; actual_size_var]) with "[$Hfr $Hrun]"); auto.
           constructor.
           cbn. apply set_nth_read_neq. intuition.
           cbn. apply set_nth_read.
@@ -2477,17 +2561,17 @@ Section malloc.
           cbn. apply set_nth_read.
           constructor.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "(-> & Hrun & Hfr)".
         rewrite <- Heqpage_size_z.
         wp_chomp 4.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
           wp_chomp 1.
           iApply wp_val_app; auto.
           iSplitR; last first.
           fold sub_hdr_sz.
-          iApply (wp_wand with "[Hfr]").
-          iApply (spec_sub_hdr_sz with "[$Hfr]").
+          iApply (wp_wand with "[Hrun Hfr]").
+          iApply (spec_sub_hdr_sz with "[$Hrun $Hfr]").
           iSplit; eauto.
           iPureIntro.
           {
@@ -2515,8 +2599,9 @@ Section malloc.
                                               (Wasm_int.Int32.mul (Wasm_int.Int32.repr (ssrnat.nat_of_bin (memlen `div` page_size)))
                                                  (Wasm_int.Int32.repr page_size_z))]) (immV [VAL_int32 out32])⌝ ∗
                                         ⌜ N_repr (reqd_pages * page_size - blk_hdr_sz) out32⌝ ∗
+                                        ↪[RUN] ∗
                                         ↪[frame]f'')%I)).
-          iIntros (w) "(%out32 & -> & %Hrep & Hfr)".
+          iIntros (w) "(%out32 & -> & %Hrep & Hrun & Hfr)".
           iExists out32; by iFrame.
           by iIntros "!> (%out32 & %Hcontra & _)".
         }
@@ -2551,25 +2636,25 @@ Section malloc.
             intuition eauto.
           - eauto.
         }
-        iIntros (w) "(-> & Hsz & Hvec & Hfr)".
+        iIntros (w) "(-> & Hsz & Hvec & Hrun & Hfr)".
         wp_chomp 1.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
           cbn in Hdisj.
-          iApply (wp_get_local with "[] [$]").
+          iApply (wp_get_local with "[] [$] [$]").
           apply set_nth_read_neq.
           intuition.
           apply set_nth_read.
           fill_imm_pred.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         rewrite <- Heqpage_size_z.
         wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hnext".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr Hnext".
         {
           replace (memlen + 4 + 4)%N with (memlen + next_off)%N
             by (unfold next_off; lia).
-          iApply (spec_set_next_basic with "[$Hfr $Hnext]").
+          iApply (spec_set_next_basic with "[$Hfr $Hrun $Hnext]").
           iPureIntro.
           instantiate (1:= 0%N).
           intuition.
@@ -2577,12 +2662,12 @@ Section malloc.
           by rewrite N2Nat.id.
           auto.
         }
-        iIntros (w) "(-> & Hnext & Hfr)".
+        iIntros (w) "(-> & Hnext & Hrun & Hfr)".
         wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hstate".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hfr Hrun Hstate".
         {
           cbn in Hdisj.
-          iApply (spec_mark_final with "[$Hfr Hstate]").
+          iApply (spec_mark_final with "[$Hfr $Hrun Hstate]").
           iSplitL.
           {
             unfold state_off.
@@ -2601,10 +2686,10 @@ Section malloc.
           by rewrite N2Nat.id.
           eauto.
         }
-        iIntros (w) "(-> & Hstate & Hfr)".
+        iIntros (w) "(-> & Hstate & Hrun & Hfr)".
         cbn.
         cbn in Hdisj.
-        iApply (spec_pinch_block with "[$Hstate $Hsz $Hnext $Hfr $Hvec]").
+        iApply (spec_pinch_block with "[$Hstate $Hsz $Hnext $Hrun $Hfr $Hvec]").
         {
           iPureIntro.
           repeat match goal with
@@ -2650,15 +2735,15 @@ Section malloc.
           rewrite N2Nat.id.
           eauto.
         }
-        iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & (%f''' & Hfr & %Hfinst & %Hflocs)))".
-        iApply (wp_wand_ctx with "[Hfr]").
+        iIntros (w) "(-> & Hblk' & Hfinal & (%new32 & %old32 & %Hrep & Hrun & (%f''' & Hfr & %Hfinst & %Hflocs)))".
+        iApply (wp_wand_ctx with "[Hrun Hfr]").
         iApply wp_nil_nested; try iFrame.
         fill_imm_pred.
-        iIntros (w) "(-> & Hfr)".
-        iApply (wp_wand_ctx with "[Hfr]").
+        iIntros (w) "(-> & Hrun & Hfr)".
+        iApply (wp_wand_ctx with "[Hrun Hfr]").
         iApply wp_nil_nested; try iFrame.
         fill_imm_pred.
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "(-> & Hrun & Hfr)".
         iApply "HΦ".
         {
           iRight.
@@ -2698,45 +2783,46 @@ Section malloc.
               apply N.divide_factor_r.
         }
         all:try (iIntros "(%Hw & _)"; congruence).
+        all:try (iIntros "((%Hw & _) & _)"; cbn in *; congruence).
         all:try (iIntros "(%out32 & %Hw & _)"; cbn in *; congruence).
       (* FAILURE CASE *)
       - iDestruct "Hfailure" as "(-> & Hmemlen)".
         wp_chomp 2.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
-          iApply (wp_set_local with "[] [$Hfr]").
+          iApply (wp_set_local with "[] [$Hfr] [$Hrun]").
           - rewrite set_nth_length_eq; auto using lookup_lt_is_Some_1.
           - match goal with
             | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
             end.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         wp_chomp 1.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
-          iApply (wp_get_local with "[] [$Hfr]").
+          iApply (wp_get_local with "[] [$Hfr] [$]").
           - apply set_nth_read.
           - match goal with
             | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
             end.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         wp_chomp 3.
-        iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+        iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
         {
-          iApply (wp_relop with "[$Hfr]"); auto.
+          iApply (wp_relop with "[$Hfr] [$Hrun]"); auto.
           match goal with
           | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
           end.
         }
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hrun) & Hfr)".
         simpl app_relop.
         rewrite Wasm_int.Int32.eq_true.
-        iApply (wp_if_true with "[$Hfr]"); auto using Wasm_int.Int32.one_not_zero.
-        iIntros "!> Hfr".
+        iApply (wp_if_true with "[$Hfr] [$Hrun]"); auto using Wasm_int.Int32.one_not_zero.
+        iIntros "!> Hfr Hrun".
         wp_chomp 0.
-        iApply (wp_block with "[$Hfr]"); cbn; auto.
-        iIntros "!> Hfr".
+        iApply (wp_block with "[$Hfr] [$Hrun]"); cbn; auto.
+        iIntros "!> Hfr Hrun".
         iApply wp_build_ctx.
         constructor.
         apply lfilled_Ind_Equivalent.
@@ -2747,11 +2833,11 @@ Section malloc.
         rewrite <- app_nil_l.
         apply LfilledBase; auto.
         iApply wp_ctx_bind; [done |].
-        iApply (wp_wand with "[Hfr]").
-        iApply (wp_unreachable with "[$Hfr]").
+        iApply (wp_wand with "[Hfr Hrun]").
+        iApply (wp_unreachable with "[$Hfr] [$Hrun]").
         instantiate (1:=λ w, ⌜w = trapV⌝%I).
         auto.
-        iIntros (w) "(-> & Hfr)".
+        iIntros (w) "((-> & Hbail) & Hfr)".
         cbn.
         rewrite <- (app_nil_r [AI_trap]).
         rewrite <- (app_nil_l [AI_trap]).
@@ -2767,16 +2853,19 @@ Section malloc.
         iApply wp_trap_ctx; auto.
         iIntros (w) "(-> & Hfr)".
         iApply "HΦ".
-        by iLeft.
-        all:iIntros "(%Hw & _)"; congruence.
-      - iIntros "[[((%Hw & Hvec & Hmemlen) & Hbdd) | [%Hw _]] _]"; congruence.
+        iLeft.
+        iFrame.
+        by auto.
+        all:iIntros "((%Hw & _) & _)"; congruence.
+      - cbn.
+        iIntros "(([((%Hw & _) & _) | (%Hw & _)] & _) & _)"; congruence.
       - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
-      - iIntros "(%Hw & _)"; congruence.
+      - iIntros "((%Hw & _) & _)"; congruence.
+      - iIntros "((%Hw & _) & _)"; congruence.
+      - iIntros "((%Hw & _) & _)"; congruence.
+      - iIntros "((%Hw & _) & _)"; congruence.
+      - iIntros "((%Hw & _) & _)"; congruence.
+      - iIntros "((%Hw & _) & _)"; congruence.
     }
     iIntros "(%Hw & _)"; congruence.
   Qed.
@@ -2785,6 +2874,7 @@ Section malloc.
     base_addr reqd_sz reqd_sz_var reqd_sz32 old_sz_var old_sz0 new_blk_var new_blk0 actual_size_var actual_sz0 f E  :
     ⊢ {{{{
               freelist_repr memidx (blks, FinalBlk final_blk_addr final_sz) base_addr ∗
+              ↪[RUN] ∗
               ↪[frame] f ∗
               memidx ↦[wmlength] memlen ∗
               ⌜(page_size | memlen)%N⌝ ∗
@@ -2802,9 +2892,10 @@ Section malloc.
               ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝
       }}}}
       to_e_list (new_block mem final_blk_var reqd_sz_var old_sz_var new_blk_var actual_size_var) @ E
-      {{{{ w, ⌜w = trapV⌝ ∨
+      {{{{ w, ⌜w = trapV⌝ ∗ ↪[BAIL] ∨
               ⌜w = immV [] ⌝ ∗
               ∃ blks' final_blk' f' new_addr new_addr32 memlen',
+                ↪[RUN] ∗
                 ↪[frame] f' ∗
                 ⌜f_inst f' = f_inst f⌝ ∗
                 ⌜f_locs f' !! new_blk_var = Some (VAL_int32 new_addr32)⌝ ∗
@@ -2815,21 +2906,21 @@ Section malloc.
                 ⌜(page_size | memlen')%N⌝
       }}}}.
   Proof.
-    iIntros (Φ) "!> (Hfreelist & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hbdd & %Hbdd' & %Hfinal_blk_rep
+    iIntros (Φ) "!> (Hfreelist & Hrun & Hfr & Hmemlen & %Hmemmod & %Hnonzero & %Hbdd & %Hbdd' & %Hfinal_blk_rep
                     & %Hreqd_sz_rep & %Hdisj & %Hfinal_blk
                     & %Hreqd_sz & %Hold_sz & %Hnew_blk
                     & %Hactual_sz & %Hmem) HΦ".
     iIntros.
     destruct (N.le_dec final_sz (reqd_sz + blk_hdr_sz)%N).
-    - iApply (spec_new_block_no_space with "[$Hfreelist $Hfr $Hmemlen]").
+    - iApply (spec_new_block_no_space with "[$Hfreelist $Hrun $Hfr $Hmemlen]").
       iPureIntro; intuition eauto.
       eauto.
     - iDestruct "Hfreelist" as "(%next & Hblocks & Hfinal)".
       iPoseProof (final_blk_repr_addr_eq with "[$]") as "(Hfinal & ->)".
-      iApply (spec_new_block_space with "[$Hfr $Hfinal]").
+      iApply (spec_new_block_space with "[$Hrun $Hfr $Hfinal]").
       iPureIntro; intuition eauto.
       lia.
-      iIntros (w) "(-> & %f' & %new32 & Hblk & Hfinal & Hfinst & Hnew32 & %Hlocs & %Hnewvar & %Hfinalvar)".
+      iIntros (w) "(-> & %f' & %new32 & Hblk & Hfinal & Hrun & Hfinst & Hnew32 & %Hlocs & %Hnewvar & %Hfinalvar)".
       iApply "HΦ".
       iRight.
       iSplit; auto.
@@ -2849,6 +2940,7 @@ Section malloc.
   Lemma spec_malloc_body E f memidx mem sz reqd_sz_var cur_block_var tmp1 new_blk_var tmp2:
     ⊢ {{{{
               ↪[frame] f ∗
+              ↪[RUN] ∗
               alloc_inv memidx ∗
               ⌜f.(f_inst).(inst_memory) !! mem = Some (N.to_nat memidx)⌝ ∗
               ⌜f.(f_inst).(inst_memory) !! reqd_sz_var = Some (N.to_nat sz)⌝
@@ -2907,6 +2999,7 @@ Section malloc.
   Lemma spec_free_body mem memidx f sz data_addr data_addr32 data_ptr_var E :
     ⊢ {{{{
               ↪[frame] f ∗
+              ↪[RUN] ∗
               alloc_inv memidx ∗
               alloc_tok data_addr sz ∗
               own_vec memidx data_addr sz ∗
@@ -2917,7 +3010,7 @@ Section malloc.
       to_e_list (free_body mem data_ptr_var) @ E
       {{{{ w, ⌜w = immV []⌝ ∗ alloc_inv memidx }}}}.
   Proof.
-    iIntros (Φ) "!> (Hfr & Hinv & Htok & Hvec & %Hmem & %Haddr & %Hdata) HΦ".
+    iIntros (Φ) "!> (Hfr & Hrun & Hinv & Htok & Hvec & %Hmem & %Haddr & %Hdata) HΦ".
     iDestruct "Hinv" as "(%shp & %blks & Htoks & %Hblk_shp & Hblk_rep)".
     (* setting up some true facts for later use *)
     assert (Hvarbdd: data_ptr_var < length f.(f_locs)) by auto using lookup_lt_is_Some_1.
@@ -2932,31 +3025,31 @@ Section malloc.
     fold (blocks_repr memidx ys next next_addr).
     (* start of actual wp reasoning *)
     wp_chomp 1.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply wp_get_local; eauto.
+      iApply (wp_get_local with "[] [$] [$]"); eauto.
       fill_imm_pred.
     }
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "((-> & Hrun) &Hfr)".
     wp_chomp 3.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply (spec_sub_hdr_sz with "[$Hfr]").
+      iApply (spec_sub_hdr_sz with "[$Hfr $Hrun]").
       - iSplit; first by eauto.
         iPureIntro.
         unfold data_off, blk_hdr_sz.
         lia.
       - auto.
     }
-    iIntros (w) "(%out32 & -> & %Hout & Hfr)".
+    iIntros (w) "(%out32 & -> & %Hout & Hrun & Hfr)".
     rewrite N.add_sub in Hout.
     wp_chomp 2.
-    iApply wp_seq. iSplitR; last first. iSplitL "Hfr".
+    iApply wp_seq. iSplitR; last first. iSplitL "Hrun Hfr".
     {
-      iApply wp_set_local; eauto.
+      iApply (wp_set_local with "[] [$] [$]"); eauto.
       fill_imm_pred.
     }
-    iIntros (w) "(-> & Hfr)".
+    iIntros (w) "((-> & Hrun) & Hfr)".
     (* set up some viewshifts etc before the last wp step *)
     iPoseProof (ghost_map_delete with "[$Htoks] Htok") as "Hshp'".
     iMod "Hshp'".
@@ -2970,10 +3063,10 @@ Section malloc.
       cbn.
       by iFrame.
     }
-    iApply (spec_mark_free with "[$Hblk $Hvec $Hfr]").
+    iApply (spec_mark_free with "[$Hblk $Hvec $Hrun $Hfr]").
     iPureIntro; try intuition eauto using set_nth_read.
     {
-      iIntros (w) "(-> & %Hget & Hblock & Hf)".
+      iIntros (w) "(-> & %Hget & Hblock & Hrun & Hf)".
       iApply "HΦ".
       iSplit; first done.
       iExists shp'.
@@ -2982,7 +3075,9 @@ Section malloc.
       iSplitR; first auto.
       iApply blocks_repr_app; by iFrame.
     }
-    all: iIntros "(%Heq & _)" + iIntros "(%out & %Heq & _)"; congruence.
+    iIntros "((%Heq & _) & _)"; congruence.
+    iIntros "(%out & %Heq & _)"; congruence.
+    iIntros "((%Heq & _) & _)"; congruence.
   Qed.
 
 End malloc.

@@ -3,9 +3,9 @@ From iris.program_logic Require Import language.
 From iris.proofmode Require Import tactics.
 From iris.base_logic Require Export gen_heap proph_map.
 Require Export iris iris_locations.
-From RWasm.iris.helpers Require Export iris_properties.
+From RichWasm.iris.helpers Require Export iris_properties.
 From Wasm Require Export datatypes operations.
-From RWasm Require Export properties opsem_instr.
+From RichWasm Require Export properties opsem_instr.
 
 
 Local Definition reducible := @reducible wasm_lang.

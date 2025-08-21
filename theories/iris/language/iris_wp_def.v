@@ -3,10 +3,10 @@ From iris.program_logic Require Import language.
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
-From RWasm.iris.helpers Require Import iris_properties.
+From RichWasm.iris.helpers Require Import iris_properties.
 From Wasm Require Import stdpp_aux (* datatypes common operations properties memory_list *).
-From RWasm.iris.language.iris Require Export iris_locations iris.
-From RWasm.iris.language Require Export iris_wp.
+From RichWasm.iris.language.iris Require Export iris_locations iris.
+From RichWasm.iris.language Require Export iris_wp.
 
 
 Import uPred.
@@ -84,7 +84,7 @@ Definition gen_heap_wasm_store `{!wasmG Σ} (s: store_record) : iProp Σ :=
 
 
 Definition state_interp `{!wasmG Σ} (σ: (obs * store_record * list value * instance)) :=
-  let: (o,s, locs, inst) := σ in
+  let: (o, s, locs, inst) := σ in
      ((@gen_heap_interp _ _ _ _ _ func_gen_hsG (gmap_of_list s.(s_funcs))) ∗
       (@gen_heap_interp _ _ _ _ _ tab_gen_hsG (gmap_of_table s.(s_tables))) ∗
       (gen_heap_interp (gmap_of_memory s.(s_mems))) ∗

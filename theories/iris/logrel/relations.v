@@ -7,6 +7,9 @@ From RichWasm.compiler Require Import codegen types util.
 From RichWasm.iris Require Import gc num_reprs util.
 Require Import RichWasm.iris.logrel.util.
 Require Import RichWasm.util.debruijn.
+Require Import RichWasm.iris.language.lenient_wp.
+Require Import RichWasm.iris.language.logpred.
+Require Wasm.iris.logrel.iris_logrel.
 Import uPred.
 
 Module R. Include RichWasm.subst <+ RichWasm.term <+ RichWasm.typing. End R.
@@ -288,9 +291,9 @@ Section Relations.
        ⌜mapM (eval_closed_size ∘ snd) L = Some szs⌝ ∗
        ([∗ list] τ; ns' ∈ map fst L; reshape szs ns,
           relations_value_phys rs τ (deserialize_values (flat_map serialise_i32 ns') τ)) ∗
-       iris_logrel.interp_val WL (immV ws))%I.
+       iris_logrel.interp_val WL (iris.immV ws))%I.
 
-  Definition interp_expr_0 (rs : relations) :
+  Program Definition interp_expr_0 (rs : relations) :
     leibnizO (list R.Typ) -n> leibnizO R.Function_Ctx -n> leibnizO R.Local_Ctx -n>
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
     λne τs C L WL i lh_es,
@@ -299,6 +302,16 @@ Section Relations.
                 ⌜v = immV ws⌝ ∗
                 interp_values_phys rs τs ws ∗
                 ∃ f, relations_frame rs L WL i f }})%I.
+       (*
+       @lenient_wp _ wasmG0 NotStuck top es
+                  {| lp_val := interp_values_phys rs τs;
+                     lp_trap := ⌜ True ⌝;
+                     lp_br := fun _ => ⌜ True ⌝;
+                     lp_ret := fun _ => ⌜ True ⌝;
+                     lp_host := fun _ _ _ _ => ⌜ True ⌝;
+                     lp_fr := relations_frame rs L WL i;
+                  |}%I).
+*)
 
   Definition rels_0 (rs : relations) : relations :=
     (interp_value_phys_0 rs, interp_value_virt_0 rs, interp_frame_0 rs, interp_expr_0 rs).

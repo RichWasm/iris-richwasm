@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From RWasm.iris.helpers.prelude Require Export iris_reduce_properties iris_reduce_det_prelude.
+From RichWasm.iris.helpers.prelude Require Export iris_reduce_properties iris_reduce_det_prelude.
 
 Lemma invoke_native_det obs2 ws2 f2 es2 obs s a f f' t1s t2s ts es vcs:
   nth_error (s_funcs s) a = Some (FC_func_native (f_inst f') (Tf t1s t2s) ts es) ->

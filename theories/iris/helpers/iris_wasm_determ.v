@@ -1,7 +1,7 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From RWasm.iris.helpers.prelude Require Export iris_reduce_properties first_instr.
-From RWasm.iris.helpers.reduce_det Require Export reduce_det_invoke_native reduce_det_unop reduce_det_binop
+From RichWasm.iris.helpers.prelude Require Export iris_reduce_properties first_instr.
+From RichWasm.iris.helpers.reduce_det Require Export reduce_det_invoke_native reduce_det_unop reduce_det_binop
         reduce_det_testop reduce_det_relop reduce_det_cvtop reduce_det_select
         reduce_det_block reduce_det_loop reduce_det_return reduce_det_label reduce_det_local.
 

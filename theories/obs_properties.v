@@ -1,4 +1,4 @@
-From RWasm Require Import obs.
+From RichWasm Require Import obs.
 From stdpp Require Import base orders.
 Inductive obs_le : obs -> obs -> Prop :=
 | RunBot: forall o, obs_le Run o

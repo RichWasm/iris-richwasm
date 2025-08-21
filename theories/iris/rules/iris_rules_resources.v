@@ -4,8 +4,8 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 Require Import Coq.Program.Equality.
-From RWasm.iris.language Require Export iris_wp_def.
-From RWasm.iris.helpers Require Export iris_properties.
+From RichWasm.iris.language Require Export iris_wp_def.
+From RichWasm.iris.helpers Require Export iris_properties.
 
 Import uPred.
 

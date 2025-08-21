@@ -1,7 +1,8 @@
 From iris.proofmode Require Import base tactics classes.
 From iris.bi Require Export weakestpre.
-From Wasm.iris.logrel Require Export iris_fundamental.
-From Wasm.iris.rules Require Export proofmode.
+From Wasm Require Import datatypes.
+From RichWasm.iris.rules Require Export proofmode iris_rules.
+From RichWasm.iris.language Require Export iris_wp_def.
 
 Inductive arity :=
 | Ar (i: nat) (o: nat)
@@ -86,7 +87,7 @@ Ltac fill_imm_pred :=
 
 Ltac seq_sz n m := 
   wp_chomp n;
-  iApply (wp_seq _ _ _ (λ w, (∃ vs, ⌜w = immV vs⌝ ∗ ⌜length vs = m⌝ ∗ _ vs) ∗ ↪[frame] _)%I); 
+  iApply (wp_seq _ _ _ (λ w, (∃ vs, ⌜w = immV vs⌝ ∗ ⌜length vs = m⌝ ∗ _ vs) ∗ ↪[frame] (_: frame))%I); 
   iSplitR; first last.
 
 Ltac skip_sz n := 
@@ -134,7 +135,7 @@ Ltac next_wp :=
   | Shape _ _ _ 0 => fail 0
   | Shape 0 ?use ?outs (S ?rest) =>
       seq_sz use outs; 
-      [iRename select (↪[frame] _)%I into "Hfr";
+      [iRename select (↪[frame] (_: datatypes.frame))%I into "Hfr";
        iSplitR "HΦ"|];
       [|iIntros (w) "((%vs & -> & % & ?) & Hfr)";
         destruct_length_eqn'
@@ -143,7 +144,7 @@ Ltac next_wp :=
       skip_sz to_skip
   | Shape ?to_skip ?use ?outs (S ?rest) =>
       seq_sz use outs; 
-      [iRename select (↪[frame] _)%I into "Hfr";
+      [iRename select (↪[frame] (_: datatypes.frame))%I into "Hfr";
        iSplitR "HΦ"
       |];
       [|iIntros (w) "((%vs & -> & % & ?) & Hfr)";

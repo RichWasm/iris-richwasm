@@ -1,7 +1,7 @@
 
 (coq.theory
-  (name RWasm.iris.helpers)
+  (name RichWasm.iris.helpers)
    (package iris-richwasm)
   (flags -w -ambiguous-paths -w -notation-overridden -w -abstract-large-number -w -extraction-reserved-identifier)
-  (theories RWasm RWasm.iris.language.iris RWasm.iris.helpers.reduce_det RWasm.iris.helpers.prelude)
+  (theories RichWasm RichWasm.iris.language.iris RichWasm.iris.helpers.reduce_det RichWasm.iris.helpers.prelude)
 )

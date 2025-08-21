@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From RWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude iris_split_reduce.
+From RichWasm.iris.helpers.prelude Require Export iris_reduce_det_prelude iris_split_reduce.
 
 Lemma local_det obs s f es obs' s' f' es' obs2 ws2 n f0 f2 es2 nnn:
   (∀ (f f2 f1 : frame) (es2 es1 es : seq.seq administrative_instruction),

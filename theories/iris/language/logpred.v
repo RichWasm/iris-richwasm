@@ -1,4 +1,4 @@
-From RWasm.iris.language Require Import iris_wp_def.
+From RichWasm.iris.language Require Import iris_wp_def.
 Import iris.algebra.list.
 Section logpred.
   Context `{!wasmG Σ}.

@@ -1,7 +1,7 @@
 (** Miscellaneous properties about Wasm operations **)
 
 From Wasm Require Export datatypes_properties operations typing common.
-From RWasm Require Export opsem_instr.
+From RichWasm Require Export opsem_instr.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 (* From StrongInduction Require Import StrongInduction. *) 
 From Coq Require Import Bool Program.Equality.
