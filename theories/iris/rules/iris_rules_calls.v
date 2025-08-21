@@ -327,25 +327,28 @@ Qed.
     (N.of_nat a) ↦[wf] cl -∗
     ↪[frame] f0 -∗ ↪[RUN] -∗
     ▷ (Φ trapV) -∗
-    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E {{ v, (Φ v ∗ (N.of_nat j) ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] (Some a)
-                                                                                          ∗ (N.of_nat a) ↦[wf] cl ∗ ↪[RUN])
-                                                                                          ∗ ↪[frame] f0 }}.
+    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E 
+      {{ v, (Φ v ∗ (N.of_nat j) ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] (Some a)
+                 ∗ (N.of_nat a) ↦[wf] cl ∗ ↪[CRASH])
+                 ∗ ↪[frame] f0 }}.
   Proof.
     iIntros (Htype Hc) "Ha Hcl Hf Hrun Hcont".
     iApply wp_lift_atomic_step;[auto|].
     iIntros ([[ [? ?] ?] ?] ns κ κs nt) "(Hσ1&Hσ2&Hσ3&Hσ4&Hσ5&Hσ6&?&?&?&Hobs)".
-     iDestruct (ghost_map_lookup with "Hobs Hrun") as "%Hrun".
-  rewrite lookup_insert in Hrun.
-  inversion Hrun; subst o.
+    iDestruct (ghost_map_lookup with "Hobs Hrun") as "%Hrun".
+    rewrite lookup_insert in Hrun.
+    inversion Hrun; subst o.
+    iMod (ghost_map_update with "Hobs Hrun") as "[Hobs Hrun]".
+    rewrite insert_insert.
     iApply fupd_frame_l.
     iDestruct (gen_heap_valid with "Hσ2 Ha") as %Hlook.
     iDestruct (gen_heap_valid with "Hσ1 Hcl") as %Hlook2.
     iDestruct (ghost_map_lookup with "Hσ5 Hf") as %Hf. simplify_map_eq.
     simplify_lookup.
     rewrite gmap_of_list_lookup Nat2N.id in Hlook2. 
-    set (σ := (Run,s0,l,i0)).
+    set (σ := (Crash,s0,l,i0)).
     assert (reduce Run s0 {| f_locs := l; f_inst := i0 |}
-           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Run s0 {| f_locs := l; f_inst := i0 |}
+           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Crash s0 {| f_locs := l; f_inst := i0 |}
            [AI_trap]) as Hred.
     { eapply r_call_indirect_failure1.
       { unfold stab_addr. instantiate (1:=a). destruct i0. simpl in *. destruct inst_tab;[done|]. inversion Hc.
@@ -370,7 +373,9 @@ Qed.
       destruct HStep as (H & -> & ->).
       eapply reduce_det in H as HH;[|apply Hred].
       destruct HH as [HH | [(?&?& Hstart) |  (?&?&? & Hstart & Hstart1 & Hstart2 & Hσ) ]]; try done; try congruence.
-      simplify_eq. iFrame. done.
+      inversion HH; subst.
+      simplify_eq. 
+      by iFrame.
   Qed.
 
 
@@ -378,20 +383,21 @@ Qed.
     (inst_tab (f_inst f0)) !! 0 = None -> (* no function table *)
     ↪[frame] f0 -∗ ↪[RUN] -∗
     ▷ (Φ trapV) -∗
-    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E {{ v, (Φ v ∗ ↪[RUN]) ∗ ↪[frame] f0 }}.
+    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E {{ v, (Φ v ∗ ↪[CRASH]) ∗ ↪[frame] f0 }}.
   Proof.
     iIntros (Hc) "Hf Hrun Hcont".
     iApply wp_lift_atomic_step;[auto|].
     iIntros ([[[??] ?] ?] ns κ κs nt) "(Hσ1&Hσ2&Hσ3&Hσ4&Hσ5&Hσ6&?&?&?&Hobs)".
-     iDestruct (ghost_map_lookup with "Hobs Hrun") as "%Hrun".
-  rewrite lookup_insert in Hrun.
-  inversion Hrun; subst o.
+    iDestruct (ghost_map_lookup with "Hobs Hrun") as "%Hrun".
+    rewrite lookup_insert in Hrun.
+    inversion Hrun; subst o.
+    iMod (ghost_map_update with "Hobs Hrun") as "[Hobs Hrun]".
     iApply fupd_frame_l.
     iDestruct (ghost_map_lookup with "Hσ5 Hf") as %Hf. simplify_map_eq.
     simplify_lookup.
-    set (σ := (Run,s0,l,i0)).
+    set (σ := (Crash,s0,l,i0)).
     assert (reduce Run s0 {| f_locs := l; f_inst := i0 |}
-           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Run s0 {| f_locs := l; f_inst := i0 |}
+           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Crash s0 {| f_locs := l; f_inst := i0 |}
            [AI_trap]) as Hred.
     { eapply r_call_indirect_failure2.
       unfold stab_addr. destruct i0. simpl in *. destruct inst_tab;[done|]. inversion Hc. }
@@ -417,22 +423,23 @@ Qed.
     (N.of_nat j) ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] None -∗ (* but no index i *)
     ↪[frame] f0 -∗ ↪[RUN] -∗
     ▷ (Φ trapV) -∗
-    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E {{ v, (Φ v ∗ (N.of_nat j) ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] None ∗ ↪[RUN])
+    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E {{ v, (Φ v ∗ (N.of_nat j) ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] None ∗ ↪[CRASH])
                                                                                           ∗ ↪[frame] f0 }}.
   Proof.
     iIntros (Hc) "Ha Hf Hrun Hcont".
     iApply wp_lift_atomic_step;[auto|].
     iIntros ([[[? ?] ?] ?] ns κ κs nt) "(Hσ1&Hσ2&Hσ3&Hσ4&Hσ5&Hσ6& ?&?&?& Hobs)".
-     iDestruct (ghost_map_lookup with "Hobs Hrun") as "%Hrun".
-  rewrite lookup_insert in Hrun.
-  inversion Hrun; subst o.
+    iDestruct (ghost_map_lookup with "Hobs Hrun") as "%Hrun".
+    rewrite lookup_insert in Hrun.
+    inversion Hrun; subst o.
+    iMod (ghost_map_update with "Hobs Hrun") as "[Hobs Hrun]".
     iApply fupd_frame_l.
     iDestruct (gen_heap_valid with "Hσ2 Ha") as %Hlook.
     iDestruct (ghost_map_lookup with "Hσ5 Hf") as %Hf. simplify_map_eq.
     simplify_lookup.
-    set (σ := (Run,s0,l,i0)).
+    set (σ := (Crash,s0,l,i0)).
     assert (reduce Run s0 {| f_locs := l; f_inst := i0 |}
-           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Run s0 {| f_locs := l; f_inst := i0 |}
+           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Crash s0 {| f_locs := l; f_inst := i0 |}
            [AI_trap]) as Hred.
     { eapply r_call_indirect_failure2.
       { unfold stab_addr. destruct i0. simpl in *. destruct inst_tab;[done|]. inversion Hc.
@@ -463,7 +470,7 @@ Qed.
     (N.of_nat j) ↪[wtsize] max -∗ (* but is out of bounds *)
     ↪[frame] f0 -∗ ↪[RUN] -∗
     ▷ (Φ trapV) -∗
-    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E {{ v, (Φ v ∗ ↪[RUN]) ∗ ↪[frame] f0 }}.
+    WP [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] @ s; E {{ v, (Φ v ∗ ↪[CRASH]) ∗ ↪[frame] f0 }}.
   Proof.
     iIntros (Hc Hge) "#Ha Hf Hrun Hcont".
     iApply wp_lift_atomic_step;[auto|].
@@ -471,6 +478,7 @@ Qed.
      iDestruct (ghost_map_lookup with "Hobs Hrun") as "%Hrun".
   rewrite lookup_insert in Hrun.
   inversion Hrun; subst o.
+    iMod (ghost_map_update with "Hobs Hrun") as "[Hobs Hrun]".
     iApply fupd_frame_l.
     iDestruct (gen_heap_valid with "Hσ7 Ha") as %Hlook.
     rewrite gmap_of_list_lookup Nat2N.id in Hlook.
@@ -481,9 +489,9 @@ Qed.
     apply lookup_ge_None_2 in Hge.
     
     
-    set (σ := (Run,s0,l,i0)).
+    set (σ := (Crash,s0,l,i0)).
     assert (reduce Run s0 {| f_locs := l; f_inst := i0 |}
-           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Run s0 {| f_locs := l; f_inst := i0 |}
+           [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Crash s0 {| f_locs := l; f_inst := i0 |}
            [AI_trap]) as Hred.
     { eapply r_call_indirect_failure2.
       { unfold stab_addr. destruct i0. simpl in *. destruct inst_tab;[done|]. inversion Hc.

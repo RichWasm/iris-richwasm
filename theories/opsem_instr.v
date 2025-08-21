@@ -174,11 +174,11 @@ Inductive reduce : obs -> store_record -> frame -> list administrative_instructi
         stab_addr s f (Wasm_int.nat_of_uint i32m c) = Some a ->
         List.nth_error s.(s_funcs) a = Some cl ->
         stypes s f.(f_inst) i <> Some (cl_type cl) ->
-        reduce Run s f [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Run s f [::AI_trap]
+        reduce Run s f [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Crash s f [::AI_trap]
   | r_call_indirect_failure2 :
       forall s f i c,
         stab_addr s f (Wasm_int.nat_of_uint i32m c) = None ->
-        reduce Run s f [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Run s f [::AI_trap]
+        reduce Run s f [::AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_call_indirect i)] Crash s f [::AI_trap]
   | r_invoke_native :
       forall a cl t1s t2s ts es ves vcs n m k zs s f f' i,
         List.nth_error s.(s_funcs) a = Some cl ->

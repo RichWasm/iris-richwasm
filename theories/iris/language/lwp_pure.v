@@ -46,4 +46,19 @@ Section lwp_pure.
       iFrame.
   Qed.
 
+  Lemma lenient_wp_nop s E Φ :
+    ↪[RUN] ∗
+    denote_logpred Φ (immV [])
+    ⊢ lenient_wp s E [AI_basic BI_nop] (lp_run Φ).
+  Proof.
+    iIntros "(HR & HΦ & %f & Hf & Hfpred)".
+    unfold lp_run.
+    iApply (wp_wand with "[HR HΦ Hf]").
+    iApply (wp_nop with "[$] [$]").
+    iApply "HΦ".
+    iIntros (w) "[[Hnof HR] Hf]".
+    iEval (rewrite -lp_with_sep).
+    iFrame.
+  Qed.
+
 End lwp_pure.

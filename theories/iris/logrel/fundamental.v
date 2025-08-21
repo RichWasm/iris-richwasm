@@ -12,10 +12,9 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.algebra Require Import list.
 From iris.prelude Require Import options.
 
-From Wasm.iris.helpers Require Export iris_properties.
-From Wasm.iris.language Require Export iris_atomicity.
-From Wasm.iris.rules Require Export iris_rules.
-From Wasm.iris.logrel Require iris_logrel.
+From RichWasm.iris.helpers Require Export iris_properties.
+From RichWasm.iris.language Require Export iris_atomicity lenient_wp lwp_pure lwp_structural lwp_resources lwp_trap.
+From RichWasm.iris.rules Require Export iris_rules.
 
 From RichWasm Require Import subst term typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
@@ -120,30 +119,45 @@ Section Fundamental.
     cbn in Hcomp.
     inversion Hcomp; subst es.
     unfold semantic_typing.
-    iIntros (inst lh) "[Hinst Hctx] %f %vs [Hvs Hfr]".
-    rewrite interp_expr_eq interp_frame_eq.
-    cbn.
-    iDestruct "Hvs" as "[%Htrap | (%ws & -> & %wss & -> & Hvs)]". 
-    - (* trap case *)
-      admit.
-    - iApply wp_val_app; [|iSplitR].
+    iIntros (inst lh) "[Hinst Hctx] %f %vs [Hvs [Hfr Hf]]".
+    rewrite interp_expr_eq.
+    iEval (cbn) in "Hvs".
+    iDestruct "Hvs" as "[[%Htrap Hbail] | (%ws & -> & (%wss & -> & Hvs) & Hrun)]". 
+    - subst.
+      simpl of_val.
+      change ([AI_trap] ++ to_e_list [instrs.W.BI_nop]) with ([] ++ [AI_trap] ++ to_e_list [instrs.W.BI_nop]).
+      iApply lwp_trap; auto.
+      iFrame.
+    - iApply lenient_wp_val_app. 
       + rewrite to_of_val.
         reflexivity.
-      + iIntros "!> (%ws & %Htrap & B)".
-        congruence.
-      + iDestruct "Hfr" as "[Hf Hfrel]".
-        iApply (wp_wand with "[Hf]").
-        * iApply (wp_nop with "[$]").
-          fill_imm_pred.
-        * iIntros (vs) "[-> Hf]".
+      + iApply lenient_wp_wand; [|iApply lenient_wp_nop].
+        * iIntros (lv).
+          rewrite /lp_combine; cbn.
+          rewrite -lp_with_sep.
+          instantiate (1:=
+                         {|
+                           logpred.lp_fr :=
+                             λ f0 : leibnizO frame, relations_frame (rels sr) L [] inst f0;
+                           logpred.lp_val :=
+                             λ vs' : seq.seq value,
+                               (∃ wss0 : seq.seq (seq.seq value),
+                                   ⌜(flatten wss ++ vs')%SEQ = flatten wss0⌝ ∗
+                                   ([∗ list] τ;ws' ∈ [];wss0, relations_value_phys (rels sr) τ ws'))%I;
+                           logpred.lp_trap := ⌜True⌝%I;
+                           logpred.lp_br := λ _ : {x : nat & valid_holed x},  ⌜True⌝%I;
+                           logpred.lp_ret := λ _ : simple_valid_holed,  ⌜True⌝%I;
+                           logpred.lp_host :=
+                             λ (_ : function_type) (_ : hostfuncidx) (_ : seq.seq value) 
+                               (_ : llholed), ⌜True⌝%I
+                         |}).
+          rewrite /logpred.denote_logpred /logpred.lp_noframe.
           cbn.
-          iExists (flatten wss).
-          iSplitR; [by rewrite cats0|].
-          iSplitL "Hvs"; [iExists _; eauto|].
-          iExists f.
-          rewrite interp_frame_eq.
-          iFrame.
-  Admitted.
+          iIntros "((Hno & %f' & Hf & Hfpred) & Hrun)".
+          destruct lv; cbn; iFrame.
+        * cbn; iFrame.
+          by rewrite seq.cats0.
+  Qed.
 
   Lemma compat_struct_get M F L me fe ty cap l hty taus szs i es wl wl' :
     hty = StructType (combine taus szs) ->
@@ -155,6 +169,7 @@ Section Fundamental.
     inr (tt, wl', es) ->
     ⊢ semantic_typing sr M F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
   Proof.
+    (*
     intros -> Htype Hcomp.
     iIntros "%inst %lh [Hinst Hctx] %f %vs [Hval Hfr]".
     rewrite interp_expr_eq.
@@ -248,6 +263,7 @@ Section Fundamental.
       rename Hcomp5 into Hcomp1, Hcomp9 into Hcomp2, Hcomp10 into Hcomp3, Hcomp12 into Hcomp4,
         Hcomp13 into Hcomp5, wl5 into wl1, wl9 into wl2, wl10 into wl3, wl12 into wl4, es9 into es1,
         es17 into es2, es19 into es3, es23 into es4, es24 into es5.
+*)
   Admitted.
 
   Theorem fundamental_property M F L L' me fe es es' tf wl wl' :
@@ -371,6 +387,7 @@ Section Fundamental.
   Notation "{{{{ P }}}} es @ E {{{{ v , Q }}}}" :=
     (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ (WP (es : iris.expr) @ NotStuck ; E {{ v, Φ v }}))%I (at level 50).
 
+  (*
   Definition if_spec tf e_then e_else k φ ψ f : ⊢
     {{{{ ⌜k ≠ Wasm_int.int_zero i32m⌝ ∗ φ ∗ ↪[frame] f }}}}
       [AI_basic (BI_block tf e_then)]
@@ -694,5 +711,6 @@ Section Fundamental.
         rewrite byte_div_skip.
         congruence.
   Qed.
+*)
 
 End Fundamental.

@@ -283,8 +283,7 @@ Section Relations.
   Definition interp_frame_0 (rs : relations) :
     leibnizO R.Local_Ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
     λne L WL i f,
-      (↪[frame] f ∗
-       ∃ ns ws szs,
+      (∃ ns ws szs,
        ⌜f = Build_frame (map VAL_int32 ns ++ ws) i⌝ ∗
        (* TODO: This should be the upper bound of the sizes, but we need the size context.
                 Are size expressions open or closed here? *)
@@ -297,22 +296,16 @@ Section Relations.
     leibnizO (list R.Typ) -n> leibnizO R.Function_Ctx -n> leibnizO R.Local_Ctx -n>
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
     λne τs C L WL i lh_es,
-      (let '(lh, es) := lh_es in
-       WP es {{ v, ∃ ws,
-                ⌜v = immV ws⌝ ∗
-                interp_values_phys rs τs ws ∗
-                ∃ f, relations_frame rs L WL i f }})%I.
-       (*
-       @lenient_wp _ wasmG0 NotStuck top es
-                  {| lp_val := interp_values_phys rs τs;
-                     lp_trap := ⌜ True ⌝;
-                     lp_br := fun _ => ⌜ True ⌝;
-                     lp_ret := fun _ => ⌜ True ⌝;
-                     lp_host := fun _ _ _ _ => ⌜ True ⌝;
-                     lp_fr := relations_frame rs L WL i;
-                  |}%I).
-*)
-
+      let '(lh, es) := lh_es in
+      @lenient_wp _ wasmG0 NotStuck top es
+        ({| lp_val := λ vs, interp_values_phys rs τs vs ∗ ↪[RUN];
+           lp_trap := ⌜True⌝%I;
+           lp_br := fun _ => ↪[RUN];
+           lp_ret := fun _ => ↪[RUN];
+           lp_host := fun _ _ _ _ => ↪[RUN];
+           lp_fr := λ f, relations_frame rs L WL i f;
+         |})%I.
+  
   Definition rels_0 (rs : relations) : relations :=
     (interp_value_phys_0 rs, interp_value_virt_0 rs, interp_frame_0 rs, interp_expr_0 rs).
 
@@ -379,7 +372,12 @@ Section Relations.
   Opaque relations_expr.
 
   Definition interp_val (τs : list R.Typ) : VR :=
-    λne v, (⌜v = trapV⌝ ∨ ∃ ws, ⌜v = immV ws⌝ ∗ interp_values_phys rels τs ws)%I.
+    λne v, (⌜v = trapV⌝ ∗ ↪[BAIL] ∨ 
+            ∃ ws, ⌜v = immV ws⌝ ∗ interp_values_phys rels τs ws)%I.
+
+  Definition interp_stack (τs : list R.Typ) : VR :=
+    λne v, ((⌜v = trapV⌝ ∗ ↪[BAIL]) ∨ 
+            (∃ ws, ⌜v = immV ws⌝ ∗ interp_values_phys rels τs ws ∗ ↪[RUN]))%I.
 
   Definition interp_inst (M : R.Module_Ctx) (inst : instance) : iProp Σ :=
     True.
@@ -401,7 +399,7 @@ Section Relations.
     ∀ inst lh,
     interp_inst M inst ∗ interp_ctx L L' F inst lh -∗
     ∀ f vs,
-    interp_val τs1 vs ∗ interp_frame L WL inst f -∗
+    interp_stack τs1 vs ∗ interp_frame L WL inst f ∗ ↪[frame] f -∗
     interp_expr τs2 F L' WL inst (lh, of_val vs ++ es).
 
 End Relations.
