@@ -24,16 +24,17 @@ Section CodeGen.
 
   Definition fe : function_env := fe_of_contexts F L.
 
-  Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wl wl' es x y Φ f :
+  Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wl wl' es x y Φ (f: frame) :
     run_codegen (if_c tf c1 c2) wl = inr (x, y, wl', es) ->
     exists wl1 es1 es2,
     run_codegen c1 wl = inr (x, wl1, es1) /\
     run_codegen c2 wl1 = inr (y, wl', es2) /\
     ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
       ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
-        ▷ (↪[frame] f -∗ WP [AI_basic (BI_block tf es1)] @ s; E {{ v, Φ v }})) ∨
+        ▷ (↪[frame] f -∗ ↪[RUN] -∗ WP [AI_basic (BI_block tf es1)] @ s; E {{ v, Φ v }})) ∨
        (⌜i = Wasm_int.int_zero i32m⌝ ∧
-        ▷ (↪[frame] f -∗ WP [AI_basic (BI_block tf es2)] @ s; E {{ v, Φ v }}))) -∗
+        ▷ (↪[frame] f -∗ ↪[RUN] -∗ WP [AI_basic (BI_block tf es2)] @ s; E {{ v, Φ v }}))) -∗
       WP to_e_list (BI_const (VAL_int32 i) :: es) @ s; E {{ v, Φ v }}.
   Proof.
     intros Hcomp.
@@ -64,26 +65,29 @@ Section CodeGen.
     split; first assumption.
     split; first assumption.
 
-    iIntros "Hfr Hbl".
+    iIntros "Hfr Hrun Hbl".
     iSimpl.
     iDestruct "Hbl" as "[[%Hi Hbl] | [%Hi Hbl]]".
-    - by iApply (wp_if_true with "Hfr"); first assumption.
-    - by iApply (wp_if_false with "Hfr"); first assumption.
+    - by iApply (wp_if_true with "[Hfr] [Hrun]"); auto.
+    - by iApply (wp_if_false with "[Hfr] [Hrun]"); auto.
   Qed.
 
   (* TODO *)
-  Lemma wp_if_gc_bit {A B} s E cap ptr ht tf (gc : codegen B) (mm : codegen A) wl wl' es x y i Φ f :
+  Lemma wp_if_gc_bit {A B} s E cap ptr ht tf (gc : codegen B) (mm : codegen A) wl wl' es x y i Φ (f: frame) :
     run_codegen (if_gc_bit tf gc mm) wl = inr (y, x, wl', es) ->
     exists wl1 es1 es2,
     run_codegen mm wl = inr (y, wl1, es1) /\
     run_codegen gc wl1 = inr (x, wl', es2) /\
     ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
       interp_val sr [RefT cap (LocP ptr GCMem) ht] (immV [VAL_int32 i]) ∨
       interp_val sr [RefT cap (LocP ptr LinMem) ht] (immV [VAL_int32 i]) -∗
       ▷ (↪[frame] f -∗
+         ↪[RUN] -∗
          interp_val sr [RefT cap (LocP ptr GCMem) ht] (immV [VAL_int32 i]) -∗
          WP [AI_basic (BI_block tf es2)] @ s; E {{ v, Φ v }}) ∧
       ▷ (↪[frame] f -∗
+         ↪[RUN] -∗
          interp_val sr [RefT cap (LocP ptr LinMem) ht] (immV [VAL_int32 i]) -∗
          WP [AI_basic (BI_block tf es1)] @ s; E {{ v, Φ v }}) -∗
       WP to_e_list (BI_const (VAL_int32 i) :: es) @ s; E {{ v, Φ v }}.
@@ -120,7 +124,7 @@ Section CodeGen.
     split; first assumption.
     split; first assumption.
 
-    iIntros "Hfr [Href | Href] Hif".
+    iIntros "Hfr Hrun [Href | Href] Hif".
   Admitted.
 
   (* TODO *)
@@ -133,6 +137,8 @@ Section CodeGen.
     f.(f_locs) !! localimm offset = Some (VAL_int32 n_off) ->
     run_codegen (load_value_tagged me fe offset ty) wl = inr (tt, wl', es) ->
     ⊢ interp_frame sr L WL inst f -∗
+      ↪[frame] f -∗
+      ↪[RUN] -∗
       interp_val sr [RefT cap (LocP ptr GCMem) (StructType (zip tys szs))] (immV [VAL_int32 a]) ∨
       interp_val sr [RefT cap (LocP ptr LinMem) (StructType (zip tys szs))] (immV [VAL_int32 a]) -∗
       WP to_e_list (BI_const (VAL_int32 a) :: es) @ s; E {{ v, interp_val sr [ty] v }}.
@@ -174,16 +180,16 @@ Section CodeGen.
     destruct Hcomp4 as (wl5 & es9 & es10 & Hcomp5 & Hcomp6 & Hwp).
 
     rewrite interp_frame_eq.
-    iIntros "[Hf (%ns_L & %ws_WL & %szs_L & -> & %Hszs_L & HL & HWL)] Href".
+    iIntros "(%ns_L & %ws_WL & %szs_L & -> & %Hszs_L & HL & HWL) Hf Hrun Href".
     wp_chomp 2.
     iApply wp_seq.
-    iSplitR; first last; first iSplitL "Hf".
-    - iApply (wp_tee_local with "Hf").
-      iIntros "!> Hf".
+    iSplitR; first last; first iSplitL "Hf Hrun".
+    - iApply (wp_tee_local with "[Hf] [Hrun]"); auto.
+      iIntros "!> Hf Hrun".
       wp_chomp 1.
       iApply wp_val_app; first done.
       iSplitR; first last.
-      + iApply (wp_wand with "[Hf]").
+      + iApply (wp_wand with "[Hf Hrun]").
         * iApply wp_set_local; last done.
           -- simpl.
   Abort.
