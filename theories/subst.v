@@ -1,130 +1,141 @@
+From stdpp Require Import base decidable.
 From Coq Require Import Numbers.BinNums NArith List.
 
-Require Import RichWasm.term RichWasm.util.debruijn.
+Require Import RichWasm.syntax RichWasm.util.debruijn.
 
 Import ListNotations.
 
-Inductive Ind := SLoc | SQual | SSize | STyp.
+Inductive ind : Set :=
+| SMem
+| SRep
+| SSize
+| SType.
 
-#[global]
-Instance EqI : Eq Ind := ltac:(intros i j; decide equality).
+Instance ind_eq_dec : EqDecision ind := ltac:(solve_decision).
 
-Definition Kind i :=
+Definition skind (i: ind) :=
   match i with
-  | SLoc => Loc
-  | SQual => Qual
-  | SSize => Size
-  | STyp => Typ
+  | SMem => memory
+  | SRep => representation
+  | SSize => size
+  | SType => type
   end.
 
 #[global]
-Instance VarKind : Var Kind :=
+Instance Varskind : Var skind :=
   fun i =>
   match i with
-  | SLoc => LocV
-  | SQual => QualVar
-  | SSize => SizeVar
-  | STyp => TVar
+  | SMem => MemVar
+  | SRep => VarR
+  | SSize => VarS
+  | SType => VarT
   end.
 
-Definition subst'_loc (su : Subst' Kind) (l : Loc) : Loc :=
+Definition subst'_memory (su : Subst' skind) (l : memory) : memory :=
   match l with
-  | LocV x => get_var' SLoc x su
+  | MemVar x => get_var' SMem x su
   | _ => l
   end.
 
-Definition subst'_qual (su : Subst' Kind) (q : Qual) : Qual :=
-  match q with 
-  | QualVar x => get_var' SQual x su
-  | _ => q
+Fixpoint subst'_representation (su : Subst' skind) (ρ : representation) : representation :=
+  match ρ with 
+  | VarR x => get_var' SRep x su
+  | SumR ρs => SumR (map (subst'_representation su) ρs)
+  | ProdR ρs => ProdR (map (subst'_representation su) ρs)
+  | PrimR rep => PrimR rep
   end.
 
-Fixpoint subst'_size (su : Subst' Kind) (s : Size) : Size :=
-  match s with
-  | SizeVar x => get_var' SSize x su
-  | SizePlus s1 s2 => SizePlus (subst'_size su s1) (subst'_size su s2)
-  | SizeConst _ => s
+Fixpoint subst'_size (su : Subst' skind) (σ : size) : size :=
+  match σ with
+  | VarS x => get_var' SSize x su
+  | SumS σs => SumS (map (subst'_size su) σs)
+  | ProdS σs => ProdS (map (subst'_size su) σs)
+  | RepS ρ => RepS (subst'_representation su ρ)
+  | ConstS c => ConstS c
   end.
 
-Definition subst'_quals (su : Subst' Kind) := map (subst'_qual su).
-Definition subst'_sizes (su : Subst' Kind) := map (subst'_size su).
-
-Definition subst'_kindvar (su : Subst' Kind) (kv : KindVar) : KindVar :=
-  match kv with
-  | LOC q => LOC (subst'_qual su q)
-  | QUAL qs rs => QUAL (subst'_quals su qs) (subst'_quals su rs)
-  | SIZE ss ts => SIZE (subst'_sizes su ss) (subst'_sizes su ts)
-  | TYPE s q hc => TYPE (subst'_size su s) (subst'_qual su q) hc
+Definition subst'_sizity (su: Subst' skind) (ζ: sizity) : sizity :=
+  match ζ with
+  | Sized σ => Sized (subst'_size su σ)
+  | Unsized => Unsized
   end.
 
-Definition kind_of_kindvar kv :=
-  match kv with
-  | LOC _ => SLoc
-  | QUAL _ _ => SQual
-  | SIZE _ _ => SSize
-  | TYPE _ _ _ => STyp
+Definition subst'_kind (su : Subst' skind) (κ: kind) : kind :=
+  match κ with
+  | VALTYPE ρ γ => VALTYPE (subst'_representation su ρ) γ
+  | MEMTYPE ζ μ γ => MEMTYPE (subst'_sizity su ζ) (subst'_memory su μ) γ
   end.
 
-Definition under_kindvar' (kv : KindVar) : Subst' Kind -> Subst' Kind :=
-  under' (kind_of_kindvar kv).
+Definition subst'_quant (su : Subst' skind) (q : quantifier) : quantifier :=
+  match q with
+  | QMem => QMem
+  | QRep => QRep
+  | QSize => QSize
+  | QType κ => QType (subst'_kind su κ)
+  end.
 
-Fixpoint subst'_kindvars (su : Subst' Kind) (kvs : list KindVar) : list KindVar :=
+Definition skind_of_quant q :=
+  match q with
+  | QMem => SMem
+  | QRep => SRep
+  | QSize => SSize
+  | QType κ => SType
+  end.
+
+Definition under_quant' (q : quantifier) : Subst' skind -> Subst' skind :=
+  under' (skind_of_quant q).
+
+Fixpoint subst'_quants (su : Subst' skind) (kvs : list quantifier) : list quantifier :=
   match kvs with
   | [] => []
-  (** KindVars is a telescope, not parallel binding: each var is in
+  (** quantifiers is a telescope, not parallel binding: each var is in
        scope for all kinds that occur later in the list *)
-  | kv :: kvs => subst'_kindvar su kv :: subst'_kindvars (under_kindvar' kv su) kvs
+  | kv :: kvs => subst'_quant su kv :: subst'_quants (under_quant' kv su) kvs
   end.
 
 (* foldl and foldr are equivalent here; see debruijn.under_comm *)
-Fixpoint under_kindvars' (kvs : list KindVar) (su : Subst' Kind) :=
+Fixpoint under_quants' (kvs : list quantifier) (su : Subst' skind) :=
   match kvs with
   | [] => su
-  | kv :: kvs => under_kindvar' kv (under_kindvars' kvs su)
+  | kv :: kvs => under_quant' kv (under_quants' kvs su)
   end.
 
-Fixpoint subst'_typ (su : Subst' Kind) (t : Typ) {struct t} : Typ :=
+Fixpoint subst'_type (su : Subst' skind) (t : type) {struct t} : type :=
   match t with
-  | Num _ => t
-  | TVar x => get_var' STyp x su
-  | Unit => t
-  | ProdT ts => ProdT (map (subst'_typ su) ts)
-  | CoderefT ft => CoderefT (subst'_funtype su ft)
-  | Rec q t => Rec (subst'_qual su q) (subst'_typ (under' STyp su) t)
-  | PtrT l => PtrT (subst'_loc su l)
-  | ExLoc q t => ExLoc (subst'_qual su q) (subst'_typ (under' SLoc su) t)
-  | OwnR l => OwnR (subst'_loc su l)
-  | CapT c l ht => CapT c (subst'_loc su l) (subst'_heaptype su ht)
-  | RefT c l ht => RefT c (subst'_loc su l) (subst'_heaptype su ht)
+  | VarT x => get_var' SType x su
+  | NumT ν => NumT ν
+  | SumT τs => SumT (map (subst'_type su) τs)
+  | ProdT τs => ProdT (map (subst'_type su) τs)
+  | ArrayT τ => ArrayT (subst'_type su τ)
+  | RefT μ τ => RefT (subst'_memory su μ) (subst'_type su τ)
+  | GCPtrT τ => GCPtrT (subst'_type su τ)
+  | CodeRefT ϕ => CodeRefT (subst'_function_type su ϕ)
+  | RepT ρ τ => RepT (subst'_representation su ρ) (subst'_type su τ)
+  | PadT σ τ => PadT (subst'_size su σ) (subst'_type su τ)
+  | SerT τ => SerT (subst'_type su τ)
+  | ExT δ τ => ExT (subst'_quant su δ) (subst'_type (under' (skind_of_quant δ) su) τ)
+  | RecT τ => RecT (subst'_type (under' SType su) τ)
   end
-with subst'_heaptype (su : Subst' Kind) (ht : HeapType) {struct ht} : HeapType :=
-  match ht with
-  | VariantType ts => VariantType (map (subst'_typ su) ts)
-  | StructType tss =>
-    StructType (map (fun '(t, s) => (subst'_typ su t, subst'_size su s)) tss)
-  | ArrayType t => ArrayType (subst'_typ su t)
-  | Ex s q t => Ex (subst'_size su s) (subst'_qual su q) (subst'_typ (under' STyp su) t)
+with subst'_arrow_type (su : Subst' skind) (χ : arrow_type) {struct χ} : arrow_type :=
+  match χ with
+  | ArrowT ts1 ts2 =>
+    ArrowT
+      (map (subst'_type su) ts1)
+      (map (subst'_type su) ts2)
   end
-with subst'_arrowtype (su : Subst' Kind) (t : ArrowType) {struct t} : ArrowType :=
-  match t with
-  | Arrow ts1 ts2 =>
-    Arrow
-      (map (subst'_typ su) ts1)
-      (map (subst'_typ su) ts2)
-  end
-with subst'_funtype (su : Subst' Kind) (t : FunType) {struct t} : FunType :=
-  match t with
-  | FunT kvs arrow =>
-    FunT (subst'_kindvars su kvs)
-         (subst'_arrowtype (under_kindvars' kvs su) arrow)
+with subst'_function_type (su : Subst' skind) (ϕ : function_type) {struct ϕ} : function_type :=
+  match ϕ with
+  | FunT δs χ =>
+    FunT (subst'_quants su δs)
+         (subst'_arrow_type (under_quants' δs su) χ)
   end.
 
-Definition subst'_rwasm (i : Ind) : Subst' Kind -> Kind i -> Kind i :=
+Definition subst'_rwasm (i : ind) : Subst' skind -> skind i -> skind i :=
   match i with
-  | SLoc => subst'_loc
-  | SQual => subst'_qual
+  | SMem => subst'_memory
+  | SRep => subst'_representation
   | SSize => subst'_size
-  | STyp => subst'_typ
+  | SType => subst'_type
   end.
 
 (** Solves easy subst'_ok obligations
@@ -134,17 +145,31 @@ Ltac subst'_ok n :=
   intros e; split; [|intros f g]; induction e; cbn; crush n.
 
 #[global]
-Instance BindVar_rwasm : BindVar Kind.
+Instance BindVar_rwasm : BindVar skind.
 Proof. refine {| subst' := subst'_rwasm |}; abstract (intros []; reflexivity). Defined.
 
-Lemma subst'_loc_ok : subst'_ok subst'_loc. Proof. subst'_ok 5. Qed.
-Lemma subst'_qual_ok : subst'_ok subst'_qual. Proof. subst'_ok 5. Qed.
-Lemma subst'_size_ok : subst'_ok subst'_size. Proof. subst'_ok 5. Qed.
-Global Hint Resolve subst'_loc_ok subst'_qual_ok subst'_size_ok : OKDB.
+Lemma subst'_memory_ok : subst'_ok subst'_memory. 
+Proof. subst'_ok 5. Qed.
+
+Lemma subst'_representation_ok : subst'_ok subst'_representation.
+Proof. 
+  (* TODO: Need nested induction scheme to deal with [list representation] subgoals. *)
+  intros e.
+  split; [|intros f g]; induction e; cbn; try crush 15; auto.
+Admitted.
+
+Lemma subst'_size_ok : subst'_ok subst'_size. 
+Proof. 
+  (* TODO: Need nested/mutual induction scheme to deal with [list size] and [representation] subgoals. *)
+  intros e.
+  split; [|intros f g]; induction e; cbn; try crush 15; auto.
+Admitted.
+
+Global Hint Resolve subst'_memory_ok subst'_representation_ok subst'_size_ok : OKDB.
 Tactic Notation "pose_ok_proofs'" :=
   pose_ok_proofs';
-  pose proof subst'_loc_ok;
-  pose proof subst'_qual_ok;
+  pose proof subst'_memory_ok;
+  pose proof subst'_representation_ok;
   pose proof subst'_size_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
@@ -160,67 +185,71 @@ Lemma Forall_comp_map {A B} (P : B -> Prop) (f : A -> B) xs :
   Forall P (map f xs).
 Proof. induction xs; cbn; auto; inversion 1; intuition eauto. Qed.
 
-Lemma subst'_quals_ok : subst'_ok subst'_quals.
-Proof. intros qs; intros_ok_at; induction qs; cbn; now simpl_ok. Qed.
-Global Hint Resolve subst'_quals_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_quals_ok.
+Lemma subst'_sizity_ok : subst'_ok subst'_sizity.
+Proof.
+Admitted.
+Global Hint Resolve subst'_sizity_ok : OKDB.
+Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_sizity_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
-Lemma subst'_sizes_ok : subst'_ok subst'_sizes.
-Proof. intros qs; intros_ok_at; induction qs; cbn; now simpl_ok. Qed.
-Global Hint Resolve subst'_sizes_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_sizes_ok.
+Lemma subst'_kind_ok : subst'_ok subst'_kind.
+Proof.
+  intros k1; intros_ok_at; destruct k1; cbn; now simpl_ok.
+Qed.
+Global Hint Resolve subst'_kind_ok : OKDB.
+Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_kind_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
-Lemma subst'_kindvar_ok : subst'_ok subst'_kindvar.
+Lemma subst'_quant_ok : subst'_ok subst'_quant.
 Proof. intros kv; intros_ok_at; destruct kv; cbn; now simpl_ok. Qed.
-Global Hint Resolve subst'_kindvar_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_kindvar_ok.
+Global Hint Resolve subst'_quant_ok : OKDB.
+Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_quant_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
-Lemma under_kindvar'_var' kv : under_kindvar' kv var' = var'.
-Proof. destruct kv; cbn; unfold under_kindvar'; cbn; now autorewrite with SubstDB. Qed.
+Lemma under_quant'_var' kv : under_quant' kv var' = var'.
+Proof. destruct kv; cbn; unfold under_quant'; cbn; now autorewrite with SubstDB. Qed.
 
-Lemma under_kindvars'_var' kvs : under_kindvars' kvs var' = var'.
-Proof. induction kvs; cbn; auto. now rewrite IHkvs, under_kindvar'_var'. Qed.
+Lemma under_quants'_var' kvs : under_quants' kvs var' = var'.
+Proof. induction kvs; cbn; auto. now rewrite IHkvs, under_quant'_var'. Qed.
 
-Lemma under_kindvar'_comp' kv f g :
-  under_kindvar' kv (f ∙' g) = under_kindvar' kv f ∙' under_kindvar' kv g.
-Proof. destruct kv; unfold under_kindvar'; cbn; now autorewrite with SubstDB. Qed.
+Lemma under_quant'_comp' kv f g :
+  under_quant' kv (f ∙' g) = under_quant' kv f ∙' under_quant' kv g.
+Proof. destruct kv; unfold under_quant'; cbn; now autorewrite with SubstDB. Qed.
 
-Lemma under_kindvars'_comp' kvs f g :
-  under_kindvars' kvs (f ∙' g) = under_kindvars' kvs f ∙' under_kindvars' kvs g.
-Proof. induction kvs; cbn; [auto|now rewrite IHkvs, under_kindvar'_comp']. Qed.
+Lemma under_quants'_comp' kvs f g :
+  under_quants' kvs (f ∙' g) = under_quants' kvs f ∙' under_quants' kvs g.
+Proof. induction kvs; cbn; [auto|now rewrite IHkvs, under_quant'_comp']. Qed.
 
-Lemma under_kindvar'_subst'_kindvar s kv t :
-  under_kindvar' (subst'_kindvar s kv) t = under_kindvar' kv t.
+Lemma under_quant'_subst'_quant s kv t :
+  under_quant' (subst'_quant s kv) t = under_quant' kv t.
 Proof. destruct kv; reflexivity. Qed.
 
-Lemma under_kindvars'_subst'_kindvars s kvs t :
-  under_kindvars' (subst'_kindvars s kvs) t = under_kindvars' kvs t.
+Lemma under_quants'_subst'_quants s kvs t :
+  under_quants' (subst'_quants s kvs) t = under_quants' kvs t.
 Proof.
   revert s; induction kvs; intros s; [easy|].
-  cbn; now rewrite !IHkvs, under_kindvar'_subst'_kindvar.
+  cbn; now rewrite !IHkvs, under_quant'_subst'_quant.
 Qed.
 
 Hint Rewrite
-     under_kindvars'_var' under_kindvar'_var'
-     under_kindvar'_comp' under_kindvars'_comp'
-     under_kindvar'_subst'_kindvar under_kindvars'_subst'_kindvars
+     under_quants'_var' under_quant'_var'
+     under_quant'_comp' under_quants'_comp'
+     under_quant'_subst'_quant under_quants'_subst'_quants
   : SubstDB.
 
-Lemma subst'_kindvars_ok : subst'_ok subst'_kindvars.
+Lemma subst'_quants_ok : subst'_ok subst'_quants.
 Proof. intros qs; split; induction qs; intros; cbn; now simpl_ok. Qed.
-Global Hint Resolve subst'_kindvars_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_kindvars_ok.
+Global Hint Resolve subst'_quants_ok : OKDB.
+Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_quants_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
-Lemma subst'_typ_mut_ok
-  : subst'_ok subst'_typ /\
-    subst'_ok subst'_funtype /\
-    subst'_ok subst'_arrowtype /\
-    subst'_ok subst'_heaptype.
+Lemma subst'_type_mut_ok
+  : subst'_ok subst'_type /\
+    subst'_ok subst'_function_type /\
+    subst'_ok subst'_arrow_type.
 Proof.
+  (* TODO : mutual induction principle. *)
+  (*
   apply Typ_Fun_Arrow_Heap_ind.
   all: intros; intros_ok_at; elim_ok_at; cbn; try now simpl_ok.
   Local Ltac Forall_fst :=
@@ -247,74 +276,64 @@ Proof.
                (fun s => subst'_size f (subst'_size g s))).
     f_equal; [|feql; now simpl_ok].
     Forall_fst. rewrite <- map_map. now simpl_ok.
-Qed.
+*)
+Admitted.
 
-Corollary subst'_typ_ok : subst'_ok subst'_typ. Proof. apply subst'_typ_mut_ok. Qed.
-Corollary subst'_funtype_ok : subst'_ok subst'_funtype. Proof. apply subst'_typ_mut_ok. Qed.
-Corollary subst'_arrowtype_ok : subst'_ok subst'_arrowtype. Proof. apply subst'_typ_mut_ok. Qed.
-Corollary subst'_heaptype_ok : subst'_ok subst'_heaptype. Proof. apply subst'_typ_mut_ok. Qed.
+Corollary subst'_type_ok : subst'_ok subst'_type. Proof. apply subst'_type_mut_ok. Qed.
+Corollary subst'_function_type_ok : subst'_ok subst'_function_type. Proof. apply subst'_type_mut_ok. Qed.
+Corollary subst'_arrow_type_ok : subst'_ok subst'_arrow_type. Proof. apply subst'_type_mut_ok. Qed.
 Global Hint Resolve
-     subst'_typ_ok
-     subst'_typ_ok
-     subst'_funtype_ok
-     subst'_arrowtype_ok
-     subst'_heaptype_ok
+     subst'_type_ok
+     subst'_function_type_ok
+     subst'_arrow_type_ok
   : OKDB.
 Tactic Notation "pose_ok_proofs'" :=
   pose_ok_proofs';
-  pose proof subst'_typ_ok;
-  pose proof subst'_typ_ok;
-  pose proof subst'_funtype_ok;
-  pose proof subst'_arrowtype_ok;
-  pose proof subst'_heaptype_ok.
+  pose proof subst'_type_ok;
+  pose proof subst'_function_type_ok;
+  pose proof subst'_arrow_type_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 #[global]
-Instance BindRWasm : Bind Kind. Proof. apply mkBind; destruct i; auto with OKDB. Defined.
+Instance BindRWasm : Bind skind. Proof. apply mkBind; destruct i; auto with OKDB. Defined.
 
 Ltac mkBindExt := eapply mkBindExt; eauto with OKDB.
 
 #[global]
-Instance BindExtLoc : BindExt Kind Loc := ltac:(mkBindExt).
+Instance BindExtMem : BindExt skind memory := ltac:(mkBindExt).
 #[global]
-Instance BindExtQual : BindExt Kind Qual := ltac:(mkBindExt).
+Instance BindExtRep : BindExt skind representation := ltac:(mkBindExt).
 #[global]
-Instance BindExtQuals : BindExt Kind (list Qual) := ltac:(mkBindExt).
+Instance BindExtSize : BindExt skind size := ltac:(mkBindExt).
 #[global]
-Instance BindExtSize : BindExt Kind Size := ltac:(mkBindExt).
+Instance BindExtType : BindExt skind type := ltac:(mkBindExt).
 #[global]
-Instance BindExtSizes : BindExt Kind (list Size) := ltac:(mkBindExt).
+Instance BindExtQuant : BindExt skind quantifier := ltac:(mkBindExt).
 #[global]
-Instance BindExtKindVar : BindExt Kind KindVar := ltac:(mkBindExt).
-#[global]
-Instance BindExtKindVars : BindExt Kind (list KindVar) := ltac:(mkBindExt).
+Instance BindExtQuants : BindExt skind (list quantifier) := ltac:(mkBindExt).
 
 #[global]
-Instance BindExtTyp : BindExt Kind Typ := ltac:(mkBindExt).
+Instance BindExtFunType : BindExt skind function_type := ltac:(mkBindExt).
 #[global]
-Instance BindExtFunType : BindExt Kind FunType := ltac:(mkBindExt).
-#[global]
-Instance BindExtArrowType : BindExt Kind ArrowType := ltac:(mkBindExt).
-#[global]
-Instance BindExtHeapType : BindExt Kind HeapType := ltac:(mkBindExt).
+Instance BindExtArrowType : BindExt skind arrow_type := ltac:(mkBindExt).
 
-Definition subst'_typs s := map (subst'_typ s).
+Definition subst'_types s := map (subst'_type s).
 
-Lemma subst'_typs_ok : subst'_ok subst'_typs.
-Proof. unfold subst'_typs. auto with OKDB. Qed.
-Global Hint Resolve subst'_typs_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_typs_ok.
+Lemma subst'_types_ok : subst'_ok subst'_types.
+Proof. unfold subst'_types. auto with OKDB. Qed.
+Global Hint Resolve subst'_types_ok : OKDB.
+Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_types_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 #[global]
-Instance BindExtTypes : BindExt Kind (list Typ) := ltac:(mkBindExt).
+Instance BindExtTypes : BindExt skind (list type) := ltac:(mkBindExt).
 
-Definition subst'_index (su : Subst' Kind) (ix : Index) : Index :=
+Definition subst'_index (su : Subst' skind) (ix : index) : index :=
   match ix with
-  | LocI l => LocI (subst'_loc su l)
-  | SizeI s => SizeI (subst'_size su s)
-  | QualI q => QualI (subst'_qual su q)
-  | TypI p => TypI (subst'_typ su p)
+  | MemI μ => MemI (subst'_memory su μ)
+  | RepI ρ => RepI (subst'_representation su ρ)
+  | SizeI σ => SizeI (subst'_size su σ)
+  | TypeI τ => TypeI (subst'_type su τ)
   end.
 
 Lemma subst'_index_ok : subst'_ok subst'_index.
@@ -324,7 +343,7 @@ Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_index_ok
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 #[global]
-Instance BindExtIndex : BindExt Kind Index := ltac:(mkBindExt).
+Instance BindExtIndex : BindExt skind index := ltac:(mkBindExt).
 
 Definition subst'_indices s := map (subst'_index s).
 
@@ -335,122 +354,41 @@ Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_indices_
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 #[global]
-Instance BindExtIndices : BindExt Kind (list Index) := ltac:(mkBindExt).
+Instance BindExtIndices : BindExt skind (list index) := ltac:(mkBindExt).
 
-Definition subst'_localeffect su : LocalEffect -> LocalEffect :=
-  map (fun '(n, t) => (n, subst'_typ su t)).
+Definition subst'_local_effect su : local_effect -> local_effect :=
+  map (fun '(n, t) => (n, subst'_type su t)).
 
-Lemma subst'_localeffect_ok : subst'_ok subst'_localeffect.
+Lemma subst'_local_effect_ok : subst'_ok subst'_local_effect.
 Proof. intros nts; split; (induction nts as [|[??]??]; [easy|cbn; intros; now simpl_ok]). Qed.
-Global Hint Resolve subst'_localeffect_ok : OKDB.
-Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_localeffect_ok.
+Global Hint Resolve subst'_local_effect_ok : OKDB.
+Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_local_effect_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 #[global]
-Instance BindExtLocalEffect : BindExt Kind LocalEffect := ltac:(mkBindExt).
+Instance BindExtLocal_Effect : BindExt skind local_effect := ltac:(mkBindExt).
 
-Definition kindvars_of_funtype (ft : FunType) : list KindVar :=
-  let 'FunT kvs _ := ft in kvs.
+Definition quants_of_function_type (ft : function_type) : list quantifier :=
+  let 'FunT qs _ := ft in qs.
 
-Fixpoint subst'_instruction {A : Type} (su : Subst' Kind) (i : instr A) {struct i} : instr A :=
+Fixpoint subst'_instr {A : Type} (su : Subst' skind) (i : instr A) {struct i} : instr A :=
+  i.
+
+Lemma under_quants'_quants_of_function_type_subst'_function_type s fty t :
+  under_quants' (quants_of_function_type (subst'_function_type s fty)) t
+  = under_quants' (quants_of_function_type fty) t.
+Proof. destruct fty; unfold quants_of_function_type; cbn; now autorewrite with SubstDB. Qed.
+Hint Rewrite under_quants'_quants_of_function_type_subst'_function_type : SubstDB.
+
+Definition subst_index {A} `{BindExt _ skind A} (i : index) : A -> A :=
   match i with
-  | INumConst _ _ _ => i
-  | IUnit _ => i
-  | INum _ _ => i
-  | IUnreachable _ => i
-  | INop _ => i
-  | IDrop _ => i
-  | IBlock ann arr leffs insns =>
-    IBlock ann
-           (subst'_arrowtype su arr)
-           (subst'_localeffect su leffs)
-           (map (subst'_instruction su) insns)
-  | ILoop ann arr insns =>
-    ILoop ann
-          (subst'_arrowtype su arr)
-          (map (subst'_instruction su) insns)
-  | IIte ann arr leffs insns1 insns2 =>
-    IIte ann
-         (subst'_arrowtype su arr)
-         (subst'_localeffect su leffs)
-         (map (subst'_instruction su) insns1)
-         (map (subst'_instruction su) insns2)
-  | IBr _ _ => i
-  | IBrIf _ _ => i
-  | IBrTable _ _ _ => i
-  | IRet _ => i
-  | IGetLocal ann n q => IGetLocal ann n (subst'_qual su q)
-  | ISetLocal _ _ => i
-  | IGetGlobal _ _ => i
-  | ISetGlobal _ _ => i
-  | ICoderef _ _ => i
-  | ICallIndirect ann insts => ICallIndirect ann (subst'_indices su insts)
-  | ICall ann n insts => ICall ann n (subst'_indices su insts)
-  | IRecFold ann t => IRecFold ann (subst'_typ su t)
-  | IRecUnfold _ => i
-  | IGroup _ _ => i
-  | IUngroup _ => i
-  | ICapSplit _ => i
-  | ICapJoin _ => i
-  | IRefDemote _ => i
-  | IMemPack ann l => IMemPack ann (subst'_loc su l)
-  | IMemUnpack ann arr leff l_insns =>
-    (* l_insns binds a new location *)
-    IMemUnpack ann
-               (subst'_arrowtype su arr)
-               (subst'_localeffect su leff)
-               (map (subst'_instruction (under' SLoc su)) l_insns)
-  | IStructMalloc ann ss q => IStructMalloc ann (subst'_sizes su ss) (subst'_qual su q)
-  | IStructFree _ => i
-  | IStructGet _ _ => i
-  | IStructSet _ _ => i
-  | IStructSwap _ _ => i
-  | IVariantMalloc ann n ts q =>
-    IVariantMalloc ann n (subst'_typs su ts) (subst'_qual su q)
-  | IVariantCase ann q tausv arr leff insnss =>
-    IVariantCase ann
-                 (subst'_qual su q)
-                 (subst'_heaptype su tausv)
-                 (subst'_arrowtype su arr)
-                 (subst'_localeffect su leff)
-                 (map (map (subst'_instruction su)) insnss)
-  | IArrayMalloc ann q => IArrayMalloc ann (subst'_qual su q)
-  | IArrayGet _ => i
-  | IArraySet _ => i
-  | IArrayFree _ => i
-  | IExistPack ann t ht q =>
-    IExistPack ann
-               (subst'_typ su t)
-               (subst'_heaptype su ht)
-               (subst'_qual su q)
-  | IExistUnpack ann q ex arr leff α_insns =>
-    (* α_insns binds a new type variable *)
-    IExistUnpack ann
-                 (subst'_qual su q)
-                 (subst'_heaptype su ex)
-                 (subst'_arrowtype su arr)
-                 (subst'_localeffect su leff)
-                 (map (subst'_instruction (under' STyp su)) α_insns)
-  | IRefSplit _ => i
-  | IRefJoin _ => i
-  | IQualify ann q => IQualify ann (subst'_qual su q)
+  | MemI l => subst_ext (Kind:=skind) (ext SMem l id)
+  | RepI s => subst_ext (Kind:=skind) (ext SRep s id)
+  | SizeI q => subst_ext (Kind:=skind) (ext SSize q id)
+  | TypeI pt => subst_ext (Kind:=skind) (ext SType pt id)
   end.
 
-Lemma under_kindvars'_kindvars_of_funtype_subst'_funtype s fty t :
-  under_kindvars' (kindvars_of_funtype (subst'_funtype s fty)) t
-  = under_kindvars' (kindvars_of_funtype fty) t.
-Proof. destruct fty; unfold kindvars_of_funtype; cbn; now autorewrite with SubstDB. Qed.
-Hint Rewrite under_kindvars'_kindvars_of_funtype_subst'_funtype : SubstDB.
-
-Definition subst_index {A} `{BindExt _ Kind A} (i : Index) : A -> A :=
-  match i with
-  | LocI l => subst_ext (Kind:=Kind) (ext SLoc l id)
-  | SizeI s => subst_ext (Kind:=Kind) (ext SSize s id)
-  | QualI q => subst_ext (Kind:=Kind) (ext SQual q id)
-  | TypI pt => subst_ext (Kind:=Kind) (ext STyp pt id)
-  end.
-
-Fixpoint subst_indices {A} `{BindExt _ Kind A} (ixs : list Index) (e : A) : A :=
+Fixpoint subst_indices {A} `{BindExt _ skind A} (ixs : list index) (e : A) : A :=
   match ixs with
   | [] => e
   | ix :: ixs => subst_index ix (subst_indices ixs e)
@@ -458,103 +396,103 @@ Fixpoint subst_indices {A} `{BindExt _ Kind A} (ixs : list Index) (e : A) : A :=
 
 (** Reasoning about subst *)
 
-Definition under_kindvar (kv : KindVar) : Subst Kind -> Subst Kind :=
-  under (kind_of_kindvar kv).
+Definition under_quant (kv : quantifier) : Subst skind -> Subst skind :=
+  under (skind_of_quant kv).
 
-Fixpoint under_kindvars (kvs : list KindVar) (su : Subst Kind) :=
+Fixpoint under_quants (kvs : list quantifier) (su : Subst skind) :=
   match kvs with
   | [] => su
-  | kv :: kvs => under_kindvar kv (under_kindvars kvs su)
+  | kv :: kvs => under_quant kv (under_quants kvs su)
   end.
 
-Lemma under_kindvar'_under_kindvar kv s :
-  under_kindvar' kv (subst'_of s) = subst'_of (under_kindvar kv s).
+Lemma under_quant'_under_quant kv s :
+  under_quant' kv (subst'_of s) = subst'_of (under_quant kv s).
 Proof.
-  unfold under_kindvar', under_kindvar.
+  unfold under_quant', under_quant.
   destruct kv; cbn; autorewrite with SubstDB; try reflexivity; typeclasses eauto.
 Qed.
-Hint Rewrite under_kindvar'_under_kindvar : SubstDB.
+Hint Rewrite under_quant'_under_quant : SubstDB.
 
-Lemma under_kindvars'_under_kindvars kvs s :
-  under_kindvars' kvs (subst'_of s) = subst'_of (under_kindvars kvs s).
+Lemma under_quants'_under_quants kvs s :
+  under_quants' kvs (subst'_of s) = subst'_of (under_quants kvs s).
 Proof.
   induction kvs; cbn; autorewrite with SubstDB; [easy|].
   rewrite IHkvs; autorewrite with SubstDB; reflexivity.
 Qed.
-Hint Rewrite under_kindvars'_under_kindvars : SubstDB.
+Hint Rewrite under_quants'_under_quants : SubstDB.
 
-Lemma subst_ProdT (su : Subst Kind) ts :
-  subst STyp su (ProdT ts) = ProdT (map (subst_ext su) ts).
+Lemma subst_ProdT (su : Subst skind) ts :
+  subst SType su (ProdT ts) = ProdT (map (subst_ext su) ts).
 Proof eq_refl.
 Hint Rewrite subst_ProdT : SubstDB.
 
-Lemma subst_CoderefT (su : Subst Kind) ft :
-  subst STyp su (CoderefT ft) = CoderefT (subst_ext su ft).
+Lemma subst_CodeRefT (su : Subst skind) ft :
+  subst SType su (CodeRefT ft) = CodeRefT (subst_ext su ft).
 Proof eq_refl.
-Hint Rewrite subst_CoderefT : SubstDB.
+Hint Rewrite subst_CodeRefT : SubstDB.
 
-Lemma subst_Rec (su : Subst Kind) q t0 :
-  subst STyp su (Rec q t0) = Rec (subst SQual su q) (subst_ext (under STyp su) t0).
+Lemma subst_Rec (su : Subst skind) τ :
+  subst SType su (RecT τ) = RecT (subst_ext (under SType su) τ).
 Proof. cbn; autorewrite with SubstDB; [reflexivity|typeclasses eauto]. Qed.
 Hint Rewrite subst_Rec : SubstDB.
 
-Lemma subst_PtrT (su : Subst Kind) l :
-  subst STyp su (PtrT l) = PtrT (subst SLoc su l).
+Lemma subst_RefT (su : Subst skind) μ τ:
+  subst SType su (RefT μ τ) = RefT (subst SMem su μ) (subst SType su τ).
 Proof eq_refl.
-Hint Rewrite subst_PtrT : SubstDB.
+Hint Rewrite subst_RefT : SubstDB.
 
-Lemma subst_ExLoc (su : Subst Kind) q t0 :
-  subst STyp su (ExLoc q t0) = ExLoc (subst SQual su q) (subst_ext (under SLoc su) t0).
+Lemma subst_ExLoc (su : Subst skind) q t0 :
+  subst SType su (ExLoc q t0) = ExLoc (subst SQual su q) (subst_ext (under SLoc su) t0).
 Proof. cbn; autorewrite with SubstDB; [reflexivity | typeclasses eauto]. Qed.
 Hint Rewrite subst_ExLoc : SubstDB.
 
-Lemma subst_OwnR (su : Subst Kind) l :
-  subst STyp su (OwnR l) = OwnR (subst SLoc su l).
+Lemma subst_OwnR (su : Subst skind) l :
+  subst SType su (OwnR l) = OwnR (subst SLoc su l).
 Proof eq_refl.
 Hint Rewrite subst_OwnR : SubstDB.
 
-Lemma subst_CapT (su : Subst Kind) c loc ht :
+Lemma subst_CapT (su : Subst skind) c loc ht :
   subst STyp su (CapT c loc ht)
   = CapT c (subst SLoc su loc) (subst_ext su ht).
 Proof eq_refl.
 Hint Rewrite subst_CapT : SubstDB.
 
-Lemma subst_RefT (su : Subst Kind) c loc ht :
+Lemma subst_RefT (su : Subst skind) c loc ht :
   subst STyp su (RefT c loc ht)
   = RefT c (subst SLoc su loc) (subst_ext su ht).
 Proof eq_refl.
 Hint Rewrite subst_RefT : SubstDB.
 
-Lemma subst_VariantType (su : Subst Kind) ts :
+Lemma subst_VariantType (su : Subst skind) ts :
   subst_ext su (VariantType ts)
   = VariantType (map (subst_ext su) ts).
 Proof eq_refl.
 Hint Rewrite subst_VariantType : SubstDB.
 
-Lemma subst_StructType (su : Subst Kind) tss :
+Lemma subst_StructType (su : Subst skind) tss :
   subst_ext su (StructType tss)
   = StructType (map (fun '(t, s) => (subst_ext su t, subst SSize su s)) tss).
 Proof eq_refl.
 Hint Rewrite subst_StructType : SubstDB.
 
-Lemma subst_ArrayType (su : Subst Kind) t :
+Lemma subst_ArrayType (su : Subst skind) t :
   subst_ext su (ArrayType t)
   = ArrayType (subst_ext su t).
 Proof eq_refl.
 Hint Rewrite subst_ArrayType : SubstDB.
 
-Lemma subst_Ex (su : Subst Kind) s q t :
+Lemma subst_Ex (su : Subst skind) s q t :
   subst_ext su (Ex s q t) = Ex (subst SSize su s) (subst SQual su q) (subst_ext (under STyp su) t).
 Proof. cbn; autorewrite with SubstDB; [reflexivity|typeclasses eauto]. Qed.
 Hint Rewrite subst_Ex : SubstDB.
 
-Lemma subst_Arrow (su : Subst Kind) ts ts' :
+Lemma subst_Arrow (su : Subst skind) ts ts' :
   subst_ext su (Arrow ts ts') = Arrow (map (subst_ext su) ts) (map (subst_ext su) ts').
 Proof eq_refl.
 Hint Rewrite subst_Arrow : SubstDB.
 
-Lemma subst_FunT (su : Subst Kind) kvs ft :
-  subst_ext su (FunT kvs ft) = FunT (subst_ext su kvs) (subst_ext (under_kindvars kvs su) ft).
+Lemma subst_FunT (su : Subst skind) kvs ft :
+  subst_ext su (FunT kvs ft) = FunT (subst_ext su kvs) (subst_ext (under_quants kvs su) ft).
 Proof. cbn; autorewrite with SubstDB; reflexivity. Qed.
 Hint Rewrite subst_FunT : SubstDB.
 

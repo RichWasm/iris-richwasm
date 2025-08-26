@@ -1,19 +1,49 @@
-From Coq Require Import List.
+From stdpp Require Import base decidable numbers list.
 Require Import Coq.Numbers.BinNums.
 Require Import Coq.Strings.String.
 
 Definition variable := nat.
 
+#[global]
+Instance Eq_variable : EqDecision variable := ltac:(solve_decision).
+
 Inductive sign := SignU | SignS.
+
+#[global]
+Instance Eq_sign : EqDecision sign := ltac:(solve_decision).
 
 Inductive mutability := Mut | Imm.
 
+#[global]
+Instance Eq_mutability : EqDecision mutability := ltac:(solve_decision).
+
 Inductive linearity := Lin | Unr.
+
+#[global]
+Instance Eq_linearity : EqDecision linearity := ltac:(solve_decision).
 
 Inductive memory :=
 | MemVar (m : variable)
 | MemMM
 | MemGC.
+
+#[global]
+Instance Eq_memory : EqDecision memory := ltac:(solve_decision).
+
+Inductive ownership :=
+| OwnVar (o : variable)
+| OwnUniq
+| OwnGC.
+
+#[global]
+Instance Eq_ownership : EqDecision ownership := ltac:(solve_decision).
+
+Inductive location :=
+| LocVar (l : variable)
+| LocConst (n : N).
+
+#[global]
+Instance Eq_location : EqDecision location := ltac:(solve_decision).
 
 Inductive primitive_rep :=
 | PtrR
@@ -22,11 +52,28 @@ Inductive primitive_rep :=
 | F32R
 | F64R.
 
+#[global]
+Instance Eq_primitive_rep : EqDecision primitive_rep := ltac:(solve_decision).
+
 Inductive representation :=
 | VarR (r : variable)
 | SumR (ρs : list representation)
 | ProdR (ρs : list representation)
 | PrimR (ι : primitive_rep).
+
+#[global]
+Instance Eq_representation : EqDecision representation.
+unfold EqDecision, Decision.
+Eval cbv in Eq_primitive_rep.
+refine (fix eqr r1 r2 := 
+          match r1, r2 with
+          | VarR v1, VarR v2 => cast_if (decide (v1 = v2))
+          | SumR ρs1, SumR ρs2 => cast_if (@list_eq_dec _ eqr ρs1 ρs2)
+          | ProdR ρs1, ProdR ρs2 => cast_if (@list_eq_dec _ eqr ρs1 ρs2)
+          | PrimR ι1, PrimR ι2 => cast_if (decide (ι1 = ι2))
+          | _, _ => right _
+          end); congruence.
+Defined.
 
 Inductive size :=
 | VarS (s : variable)
@@ -35,19 +82,41 @@ Inductive size :=
 | RepS (ρ : representation)
 | ConstS (n : nat).
 
+#[global]
+Instance Eq_size : EqDecision size.
+refine (fix eqs σ1 σ2 :=
+          match σ1, σ2 with
+          | VarS s1, VarS s2 => cast_if (decide (s1 = s2))
+          | SumS σs1, SumS σs2 => cast_if (@list_eq_dec _ eqs σs1 σs2)
+          | ProdS σs1, ProdS σs2 => cast_if (@list_eq_dec _ eqs σs1 σs2)
+          | RepS ρ1, RepS ρ2 => cast_if (decide (ρ1 = ρ2))
+          | ConstS n1, ConstS n2 => cast_if (decide (n1 = n2))
+          | _, _ => right _
+          end); congruence.
+Defined.
+
 Inductive sizity :=
 | Sized (σ : size)
 | Unsized.
 
+#[global]
+Instance Eq_sizity : EqDecision sizity := ltac:(solve_decision).
+
 Inductive kind :=
 | VALTYPE (ρ : representation) (γ : linearity)
 | MEMTYPE (ζ : sizity) (μ : memory) (γ : linearity).
+
+#[global]
+Instance Eq_kind : EqDecision kind := ltac:(solve_decision).
 
 Inductive quantifier :=
 | QMem
 | QRep
 | QSize
 | QType (κ : kind).
+
+#[global]
+Instance Eq_quantifier : EqDecision quantifier := ltac:(solve_decision).
 
 Inductive int_type := I32T | I64T.
 
