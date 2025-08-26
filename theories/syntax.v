@@ -8,18 +8,12 @@ Inductive sign := SignU | SignS.
 
 Inductive mutability := Mut | Imm.
 
-Inductive heapability := Heapable | Unheapable.
-
 Inductive linearity := Lin | Unr.
 
-Inductive ownership :=
-| OwnVar (o : variable)
-| OwnUniq
-| OwnGC.
-
-Inductive location :=
-| LocVar (l : variable)
-| LocConst (n : N).
+Inductive memory :=
+| MemVar (m : variable)
+| MemMM
+| MemGC.
 
 Inductive primitive_rep :=
 | PtrR
@@ -46,12 +40,11 @@ Inductive sizity :=
 | Unsized.
 
 Inductive kind :=
-| VALTYPE (ρ : representation) (η : heapability) (γ : linearity)
-| MEMTYPE (ζ : sizity) (γ : linearity).
+| VALTYPE (ρ : representation) (γ : linearity)
+| MEMTYPE (ζ : sizity) (μ : memory) (γ : linearity).
 
 Inductive quantifier :=
-| QLoc
-| QOwn
+| QMem
 | QRep
 | QSize
 | QType (κ : kind).
@@ -70,9 +63,8 @@ Inductive type :=
 | SumT (τs : list type)
 | ProdT (τs : list type)
 | ArrayT (τ : type)
-| RefT (ω : ownership) (ℓ : location) (τ : type)
-| CapT (ω : ownership) (ℓ : location) (τ : type)
-| PtrT (ℓ : location)
+| RefT (μ : memory) (τ : type)
+| GCPtrT (τ : type)
 | CodeRefT (ϕ : function_type)
 | RepT (ρ : representation) (τ : type)
 | PadT (σ : size) (τ : type)
@@ -89,8 +81,7 @@ with function_type :=
 Definition local_effect := list (nat * type).
 
 Inductive index :=
-| LocI (ℓ : location)
-| OwnI (ω : ownership)
+| MemI (μ : memory)
 | RepI (ρ : representation)
 | SizeI (σ : size)
 | TypeI (τ : type).
@@ -172,7 +163,7 @@ Inductive instr {A : Type} :=
 | ILocalSet (ann : A) (n : nat)
 | IGlobalGet (ann : A) (n : nat)
 | IGlobalSet (ann : A) (n : nat)
-| ICoderef (ann : A) (n : nat)
+| ICodeRef (ann : A) (n : nat)
 | ICall (ann : A) (n : nat) (ixs : list index)
 | ICallIndirect (ann : A) (ixs : list index)
 | IGroup (ann : A) (n : nat)
@@ -183,19 +174,17 @@ Inductive instr {A : Type} :=
 | IUnpack (ann : A) (χ : arrow_type) (le : local_effect) (es : list instr)
 | IWrap (ann : A)
 | IUnwrap (ann : A)
-| IRefNew (ann : A) (ω : ownership)
+| IRefNew (ann : A) (μ : memory)
 | IRefFree (ann : A)
 | IRefDup (ann : A)
 | IRefDrop (ann : A)
-| IRefSplit (ann : A)
-| IRefJoin (ann : A)
 | IRefLoad (ann : A) (π : path)
 | IRefStore (ann : A) (π : path)
 | IRefSwap (ann : A) (π : path)
-| IVariantNew (ann : A) (n : nat) (τs : list type) (ω : ownership)
+| IVariantNew (ann : A) (n : nat) (τs : list type) (μ : memory)
 | IVariantCase
     (ann : A) (γ : linearity) (χ : arrow_type) (le : local_effect) (ess : list (list instr))
-| IArrayNew (ann : A) (ω : ownership)
+| IArrayNew (ann : A) (μ : memory)
 | IArrayFree (ann : A)
 | IArrayGet (ann : A)
 | IArraySet (ann : A).
@@ -218,8 +207,7 @@ Arguments module_global : clear implicits.
 
 Inductive module_import_desc :=
 | ImFunction (ϕ : function_type)
-| ImGlobal (μ : mutability) (τ : type)
-| ImTable.
+| ImGlobal (ω : mutability) (τ : type).
 
 Record module_import :=
   { mi_name : string;
@@ -227,8 +215,7 @@ Record module_import :=
 
 Inductive module_export_desc :=
 | ExFunction (n : nat)
-| ExGlobal (n : nat)
-| ExTable.
+| ExGlobal (n : nat).
 
 Record module_export :=
   { me_name : string;
