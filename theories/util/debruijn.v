@@ -218,13 +218,10 @@ Ltac fext x := apply fext; intros x.
 Require Import Lia List RichWasm.util.list.
 Import ListNotations.
 
-Class Eq A := dec_eq : forall x y : A, {x = y} + {x <> y}.
-
-Instance dec_eq_nat : Eq nat := ltac:(intros m n; decide equality).
-
-Lemma hedberg : forall {A} `{Eq A} {x : A} (p : x = x), p = eq_refl.
+Lemma hedberg : forall {A} `{EqDecision A} {x : A} (p : x = x), p = eq_refl.
 Proof.
   intros.
+  (* this can be proved without this axiom. *)
   apply ProofIrrelevance.proof_irrelevance.
 Qed.
 
@@ -248,8 +245,8 @@ Section Depths.
   Definition zero {A} : A -> nat := fun _ => 0.
   Definition plus {A} (f g : A -> nat) : A -> nat := fun x => f x + g x.
 
-  Definition sing {I} `{Eq I} i (n : nat) : I -> nat :=
-    fun j => if dec_eq i j then n else 0.
+  Definition sing {I} `{EqDecision I} i (n : nat) : I -> nat :=
+    fun j => if decide (i = j) then n else 0.
 
   Definition plus_id {A} ks : @plus A zero ks = ks. Proof. reflexivity. Qed.
 
@@ -339,16 +336,16 @@ Ltac destruct_ltb :=
 
 Ltac destruct_dec_eq :=
   match goal with
-  | |- context [if dec_eq ?x ?y then _ else _] =>
-    destruct (dec_eq x y)
-  | |- context [match dec_eq ?x ?y with left _ => _ | right _ => _ end] =>
-    destruct (dec_eq x y)
+  | |- context [if decide (?x = ?y) then _ else _] =>
+    destruct (decide (x = y))
+  | |- context [match decide (?x = ?y) with left _ => _ | right _ => _ end] =>
+    destruct (decide (x = y))
   end.
 
 Ltac destruct_dec_eq_refl :=
   match goal with
-  | |- context [match dec_eq ?x ?x with left _ => _ | right _ => _ end] =>
-    destruct (dec_eq x x); [hedberg|congruence]
+  | |- context [match decide (?x = ?x) with left _ => _ | right _ => _ end] =>
+    destruct (decide (x = x)); [hedberg|congruence]
   end.
 
 Ltac crush n :=
@@ -361,7 +358,7 @@ Ltac crush n :=
               + ltb_false
               + feql
               + destruct_ltb
-              + (destruct_dec_eq; [subst; unfold eq_rect|])
+              + (destruct_dec_eq; subst; [unfold eq_rect|])
               + destruct_dec_eq_refl
               + hedberg
              );
@@ -370,7 +367,7 @@ Ltac crush n :=
 
 Section BindDerivedOperators.
 
-  Context {I} `{Eq I} {Kind : I -> Type} `{bind : Bind _ Kind}.
+  Context {I} `{EqDecision I} {Kind : I -> Type} `{bind : Bind _ Kind}.
 
   (** Shifting' *)
 
@@ -432,9 +429,9 @@ Section BindDerivedOperators.
   
   Definition ext : forall i, Kind i -> Subst Kind -> Subst Kind :=
     fun i e s j n =>
-    match dec_eq i j with
+    match decide (i = j) with
     | left p =>
-      if dec_eq n 0
+      if decide (n = 0)
       then eq_rect i Kind e j p
       else s j (n - 1)
     | right _ => s j n
@@ -454,8 +451,8 @@ Section BindDerivedOperators.
   Proof.
     (* crush 12 solves this, but the proof goes faster if we help it along *)
     unfold subst'_of, under', under_ks'; fext j; fext n; fext ks.
-    unfold under, ext, sing; destruct (dec_eq i j); [subst; unfold eq_rect|].
-    - destruct (dec_eq n 0); [subst; unfold eq_rect|]; crush 8.
+    unfold under, ext, sing; destruct (decide (i = j)); [subst; unfold eq_rect|].
+    - destruct (decide (n = 0)); [subst; unfold eq_rect|]; crush 8.
     - ltb_false; crush 7.
   Qed.
 
@@ -498,7 +495,7 @@ Hint Rewrite @under_under' @ext_var_hd @ext_var_tl @ext_weak : SubstDB.
 
 Section BindExtDerivedOperators.
 
-  Context {I} `{Eq I} {A} {Kind : I -> Type} `{bind_ext : BindExt _ Kind A}.
+  Context {I} `{EqDecision I} {A} {Kind : I -> Type} `{bind_ext : BindExt _ Kind A}.
   
   Definition subst_ext : Subst Kind -> A -> A :=
     fun s => subst_ext' (subst'_of s).
@@ -515,7 +512,7 @@ Global Hint Unfold subst subst_ext : CrushDB.
 (** Other operators useful for defining and verifying subst' *)
 Section Subst'Helpers.
 
-  Context {I} `{Eq I} {Kind : I -> Type}
+  Context {I} `{EqDecision I} {Kind : I -> Type}
           (** var_e and associativity are the proof obligations that will require induction,
               so we'll assume f_var has been proved already *)
           `{bindvar : BindVar _ Kind}.
