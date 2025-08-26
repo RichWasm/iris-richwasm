@@ -426,73 +426,63 @@ Lemma subst_ProdT (su : Subst skind) ts :
 Proof eq_refl.
 Hint Rewrite subst_ProdT : SubstDB.
 
-Lemma subst_CodeRefT (su : Subst skind) ft :
-  subst SType su (CodeRefT ft) = CodeRefT (subst_ext su ft).
+Lemma subst_SumT (su : Subst skind) ts :
+  subst SType su (SumT ts) = SumT (map (subst_ext su) ts).
 Proof eq_refl.
-Hint Rewrite subst_CodeRefT : SubstDB.
+Hint Rewrite subst_SumT : SubstDB.
 
-Lemma subst_Rec (su : Subst skind) τ :
-  subst SType su (RecT τ) = RecT (subst_ext (under SType su) τ).
-Proof. cbn; autorewrite with SubstDB; [reflexivity|typeclasses eauto]. Qed.
-Hint Rewrite subst_Rec : SubstDB.
+Lemma subst_ArrayT (su : Subst skind) τ :
+  subst SType su (ArrayT τ) = ArrayT (subst SType su τ).
+Proof eq_refl.
+Hint Rewrite subst_ArrayT : SubstDB.
 
 Lemma subst_RefT (su : Subst skind) μ τ:
   subst SType su (RefT μ τ) = RefT (subst SMem su μ) (subst SType su τ).
 Proof eq_refl.
 Hint Rewrite subst_RefT : SubstDB.
 
-Lemma subst_ExLoc (su : Subst skind) q t0 :
-  subst SType su (ExLoc q t0) = ExLoc (subst SQual su q) (subst_ext (under SLoc su) t0).
-Proof. cbn; autorewrite with SubstDB; [reflexivity | typeclasses eauto]. Qed.
-Hint Rewrite subst_ExLoc : SubstDB.
-
-Lemma subst_OwnR (su : Subst skind) l :
-  subst SType su (OwnR l) = OwnR (subst SLoc su l).
+Lemma subst_GCPtrT (su : Subst skind) τ:
+  subst SType su (GCPtrT τ) = GCPtrT (subst SType su τ).
 Proof eq_refl.
-Hint Rewrite subst_OwnR : SubstDB.
+Hint Rewrite subst_GCPtrT : SubstDB.
 
-Lemma subst_CapT (su : Subst skind) c loc ht :
-  subst STyp su (CapT c loc ht)
-  = CapT c (subst SLoc su loc) (subst_ext su ht).
+Lemma subst_CodeRefT (su : Subst skind) ft :
+  subst SType su (CodeRefT ft) = CodeRefT (subst_ext su ft).
 Proof eq_refl.
-Hint Rewrite subst_CapT : SubstDB.
+Hint Rewrite subst_CodeRefT : SubstDB.
 
-Lemma subst_RefT (su : Subst skind) c loc ht :
-  subst STyp su (RefT c loc ht)
-  = RefT c (subst SLoc su loc) (subst_ext su ht).
+Lemma subst_RepT (su : Subst skind) ρ τ:
+  subst SType su (RepT ρ τ) = RepT (subst SRep su ρ) (subst SType su τ).
 Proof eq_refl.
-Hint Rewrite subst_RefT : SubstDB.
+Hint Rewrite subst_RepT : SubstDB.
 
-Lemma subst_VariantType (su : Subst skind) ts :
-  subst_ext su (VariantType ts)
-  = VariantType (map (subst_ext su) ts).
+Lemma subst_PadT (su : Subst skind) σ τ:
+  subst SType su (PadT σ τ) = PadT (subst SSize su σ) (subst SType su τ).
 Proof eq_refl.
-Hint Rewrite subst_VariantType : SubstDB.
+Hint Rewrite subst_PadT : SubstDB.
 
-Lemma subst_StructType (su : Subst skind) tss :
-  subst_ext su (StructType tss)
-  = StructType (map (fun '(t, s) => (subst_ext su t, subst SSize su s)) tss).
+Lemma subst_SerT (su : Subst skind) τ:
+  subst SType su (SerT τ) = SerT (subst SType su τ).
 Proof eq_refl.
-Hint Rewrite subst_StructType : SubstDB.
+Hint Rewrite subst_SerT : SubstDB.
 
-Lemma subst_ArrayType (su : Subst skind) t :
-  subst_ext su (ArrayType t)
-  = ArrayType (subst_ext su t).
-Proof eq_refl.
-Hint Rewrite subst_ArrayType : SubstDB.
-
-Lemma subst_Ex (su : Subst skind) s q t :
-  subst_ext su (Ex s q t) = Ex (subst SSize su s) (subst SQual su q) (subst_ext (under STyp su) t).
+Lemma subst_RecT (su : Subst skind) τ :
+  subst SType su (RecT τ) = RecT (subst_ext (under SType su) τ).
 Proof. cbn; autorewrite with SubstDB; [reflexivity|typeclasses eauto]. Qed.
-Hint Rewrite subst_Ex : SubstDB.
+Hint Rewrite subst_RecT : SubstDB.
 
-Lemma subst_Arrow (su : Subst skind) ts ts' :
-  subst_ext su (Arrow ts ts') = Arrow (map (subst_ext su) ts) (map (subst_ext su) ts').
+Lemma subst_ExT (su : Subst skind) δ τ :
+  subst SType su (ExT δ τ) = ExT (subst_ext su δ) (subst_ext (under (skind_of_quant δ) su) τ).
+Proof. cbn; autorewrite with SubstDB; [reflexivity | typeclasses eauto]. Qed.
+Hint Rewrite subst_ExT : SubstDB.
+
+Lemma subst_ArrowT (su : Subst skind) ts ts' :
+  subst_ext su (ArrowT ts ts') = ArrowT (map (subst_ext su) ts) (map (subst_ext su) ts').
 Proof eq_refl.
-Hint Rewrite subst_Arrow : SubstDB.
+Hint Rewrite subst_ArrowT : SubstDB.
 
-Lemma subst_FunT (su : Subst skind) kvs ft :
-  subst_ext su (FunT kvs ft) = FunT (subst_ext su kvs) (subst_ext (under_quants kvs su) ft).
+Lemma subst_FunT (su : Subst skind) δs χ :
+  subst_ext su (FunT δs χ) = FunT (subst_ext su δs) (subst_ext (under_quants δs su) χ).
 Proof. cbn; autorewrite with SubstDB; reflexivity. Qed.
 Hint Rewrite subst_FunT : SubstDB.
 
