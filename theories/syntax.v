@@ -311,15 +311,16 @@ Arguments module : clear implicits.
 Section InductionPrinciples.
   
   Section RepInd.
-    Variables
-      (P: representation -> Prop)
-      (HVarR: ∀ r, P (VarR r))
-      (HSumR: ∀ ρs, Forall P ρs -> P (SumR ρs))
-      (HProdR: ∀ ρs, Forall P ρs -> P (ProdR ρs))
-      (HPrimR: ∀ ι, P (PrimR ι)).
 
-    Fixpoint representation_ind' (ρ: representation) : P ρ :=
-      let fix reps_ind (ρs: list representation) : Forall P ρs :=
+    Variables
+      (P : representation -> Prop)
+      (HVarR : ∀ r, P (VarR r))
+      (HSumR : ∀ ρs, Forall P ρs -> P (SumR ρs))
+      (HProdR : ∀ ρs, Forall P ρs -> P (ProdR ρs))
+      (HPrimR : ∀ ι, P (PrimR ι)).
+
+    Fixpoint representation_ind' (ρ : representation) : P ρ :=
+      let fix reps_ind (ρs : list representation) : Forall P ρs :=
         match ρs as ρs return Forall P ρs with
         | [] => List.Forall_nil _
         | ρ :: ρs => List.Forall_cons _ _ _ (representation_ind' ρ) (reps_ind ρs)
@@ -335,6 +336,7 @@ Section InductionPrinciples.
   End RepInd.
 
   Section SizeInd.
+
     Variables
       (P : size -> Prop)
       (HVarS : ∀ s, P (VarS s))
@@ -343,8 +345,8 @@ Section InductionPrinciples.
       (HRepS : ∀ ρ, P (RepS ρ))
       (HConstS : ∀ n, P (ConstS n)).
     
-    Fixpoint size_ind' (σ: size) : P σ :=
-      let fix sizes_ind (σs: list size) : Forall P σs :=
+    Fixpoint size_ind' (σ : size) : P σ :=
+      let fix sizes_ind (σs : list size) : Forall P σs :=
         match σs as σs return Forall P σs with
         | [] => List.Forall_nil _
         | σ :: σs => List.Forall_cons _ _ _ (size_ind' σ) (sizes_ind σs)
@@ -361,55 +363,58 @@ Section InductionPrinciples.
   End SizeInd.
 
   Section TypeInd.
+
+    Context {K : Type}.
+
     Variables
-      (P_type : type -> Prop)
-      (P_arrow_type : arrow_type -> Prop)
-      (P_function_type : function_type -> Prop)
-      (HVarT: ∀ t, P_type (VarT t))
-      (HNumT: ∀ ν, P_type (NumT ν))
-      (HSumT: ∀ τs, Forall P_type τs -> P_type (SumT τs))
-      (HProdT: ∀ τs, Forall P_type τs -> P_type (ProdT τs))
-      (HArrayT: ∀ τ, P_type τ -> P_type (ArrayT τ))
-      (HRefT: ∀ μ τ, P_type τ -> P_type (RefT μ τ))
-      (HGCPtrT: ∀ τ, P_type τ -> P_type (GCPtrT τ))
-      (HCodeRefT: ∀ ϕ, P_function_type ϕ -> P_type (CodeRefT ϕ))
-      (HRepT: ∀ ρ τ, P_type τ -> P_type (RepT ρ τ))
-      (HPadT: ∀ σ τ, P_type τ -> P_type (PadT σ τ))
-      (HSerT: ∀ τ, P_type τ -> P_type (SerT τ))
-      (HExT: ∀ δ τ, P_type τ -> P_type (ExT δ τ))
-      (HRecT: ∀ τ, P_type τ -> P_type (RecT τ))
-      (HArrowT: ∀ τs1 τs2,
+      (P_type : type K -> Prop)
+      (P_arrow_type : arrow_type K -> Prop)
+      (P_function_type : function_type K -> Prop)
+      (HVarT : ∀ ann t, P_type (VarT ann t))
+      (HNumT : ∀ ann ν, P_type (NumT ann ν))
+      (HSumT : ∀ ann τs, Forall P_type τs -> P_type (SumT ann τs))
+      (HProdT : ∀ ann τs, Forall P_type τs -> P_type (ProdT ann τs))
+      (HArrayT : ∀ ann τ, P_type τ -> P_type (ArrayT ann τ))
+      (HRefT : ∀ ann μ τ, P_type τ -> P_type (RefT ann μ τ))
+      (HGCPtrT : ∀ ann τ, P_type τ -> P_type (GCPtrT ann τ))
+      (HCodeRefT : ∀ ann ϕ, P_function_type ϕ -> P_type (CodeRefT ann ϕ))
+      (HRepT : ∀ ann ρ τ, P_type τ -> P_type (RepT ann ρ τ))
+      (HPadT : ∀ ann σ τ, P_type τ -> P_type (PadT ann σ τ))
+      (HSerT : ∀ ann τ, P_type τ -> P_type (SerT ann τ))
+      (HExT : ∀ ann δ τ, P_type τ -> P_type (ExT ann δ τ))
+      (HRecT : ∀ ann τ, P_type τ -> P_type (RecT ann τ))
+      (HArrowT : ∀ τs1 τs2,
           Forall P_type τs1 ->
           Forall P_type τs2 ->
           P_arrow_type (ArrowT τs1 τs2))
-      (HFunT: ∀ δs χ,
+      (HFunT : ∀ δs χ,
           P_arrow_type χ ->
           P_function_type (FunT δs χ)).
 
-    Fixpoint type_ind' (τ: type) {struct τ} : P_type τ :=
-      let fix types_ind' (τs: list type) {struct τs} : Forall P_type τs :=
+    Fixpoint type_ind' (τ : type K) {struct τ} : P_type τ :=
+      let fix types_ind' (τs : list (type K)) {struct τs} : Forall P_type τs :=
         match τs as τs return Forall P_type τs with
         | [] => List.Forall_nil _
         | τ :: τs => List.Forall_cons _ _ _ (type_ind' τ) (types_ind' τs)
         end
       in
       match τ as τ return P_type τ with
-      | VarT t => HVarT t
-      | NumT ν => HNumT ν
-      | SumT τs => HSumT τs (types_ind' τs)
-      | ProdT τs => HProdT τs (types_ind' τs)
-      | ArrayT τ => HArrayT τ (type_ind' τ)
-      | RefT μ τ => HRefT μ τ (type_ind' τ)
-      | GCPtrT τ => HGCPtrT τ (type_ind' τ)
-      | CodeRefT ϕ => HCodeRefT ϕ (function_type_ind' ϕ)
-      | RepT ρ τ => HRepT ρ τ (type_ind' τ)
-      | PadT σ τ => HPadT σ τ (type_ind' τ)
-      | SerT τ => HSerT τ (type_ind' τ)
-      | ExT δ τ => HExT δ τ (type_ind' τ)
-      | RecT τ => HRecT τ (type_ind' τ)
+      | VarT ann t => HVarT ann t
+      | NumT ann ν => HNumT ann ν
+      | SumT ann τs => HSumT ann τs (types_ind' τs)
+      | ProdT ann τs => HProdT ann τs (types_ind' τs)
+      | ArrayT ann τ => HArrayT ann τ (type_ind' τ)
+      | RefT ann μ τ => HRefT ann μ τ (type_ind' τ)
+      | GCPtrT ann τ => HGCPtrT ann τ (type_ind' τ)
+      | CodeRefT ann ϕ => HCodeRefT ann ϕ (function_type_ind' ϕ)
+      | RepT ann ρ τ => HRepT ann ρ τ (type_ind' τ)
+      | PadT ann σ τ => HPadT ann σ τ (type_ind' τ)
+      | SerT ann τ => HSerT ann τ (type_ind' τ)
+      | ExT ann δ τ => HExT ann δ τ (type_ind' τ)
+      | RecT ann τ => HRecT ann τ (type_ind' τ)
       end
-    with arrow_type_ind' (χ: arrow_type) {struct χ} : P_arrow_type χ :=
-      let fix types_ind' (τs: list type) {struct τs} : Forall P_type τs :=
+    with arrow_type_ind' (χ : arrow_type K) {struct χ} : P_arrow_type χ :=
+      let fix types_ind' (τs : list (type K)) {struct τs} : Forall P_type τs :=
         match τs as τs return Forall P_type τs with
         | [] => List.Forall_nil _
         | τ :: τs => List.Forall_cons _ _ _ (type_ind' τ) (types_ind' τs)
@@ -418,7 +423,7 @@ Section InductionPrinciples.
       match χ as χ return P_arrow_type χ with
       | ArrowT τs1 τs2 => HArrowT _ _ (types_ind' τs1) (types_ind' τs2)
       end
-    with function_type_ind' (ϕ: function_type) {struct ϕ} : P_function_type ϕ :=
+    with function_type_ind' (ϕ : function_type K) {struct ϕ} : P_function_type ϕ :=
       match ϕ as ϕ return P_function_type ϕ with
       | FunT δs χ => HFunT _ _ (arrow_type_ind' χ)
       end.
@@ -430,21 +435,23 @@ Section InductionPrinciples.
   End TypeInd.
   
   Section InstrInd.
-    Context {A: Type}.
+
+    Context {T K : Type}.
+
     Variables
-        (P: instr A -> Prop)
-        (HNop: forall ann, P (INop ann))
-        (HDrop: forall ann, P (IDrop ann))
-        (HUnreachable: forall ann, P (IUnreachable ann))
-        (HNum: forall ann en, P (INum ann en))
-        (HNumConst: forall ann ν n, P (INumConst ann ν n))
-        (HBlock: forall ann χ le es, 
+        (P : instr T K -> Prop)
+        (HNop : forall ann, P (INop ann))
+        (HDrop : forall ann, P (IDrop ann))
+        (HUnreachable : forall ann, P (IUnreachable ann))
+        (HNum : forall ann en, P (INum ann en))
+        (HNumConst : forall ann ν n, P (INumConst ann ν n))
+        (HBlock : forall ann χ le es,
             Forall P es ->
             P (IBlock ann χ le es))
-        (HLoop: forall ann χ es,
+        (HLoop : forall ann χ es,
             Forall P es ->
             P (ILoop ann χ es))
-        (HIte: forall ann χ le es1 es2,
+        (HIte : forall ann χ le es1 es2,
             Forall P es1 ->
             Forall P es2 ->
             P (IIte ann χ le es1 es2))
@@ -452,45 +459,45 @@ Section InductionPrinciples.
         (HBrIf : forall ann n, P (IBrIf ann n))
         (HBrTable : forall ann ns n, P (IBrTable ann ns n))
         (HReturn : forall ann, P (IReturn ann))
-        (HLocalGet: forall ann n, P (ILocalGet ann n))
+        (HLocalGet : forall ann n, P (ILocalGet ann n))
         (HLocalSet : forall ann n, P (ILocalSet ann n))
-        (HGlobalGet: forall ann n, P (IGlobalGet ann n))
-        (HGlobalSet: forall ann n, P (IGlobalSet ann n))
-        (HCodeRef: forall ann n, P (ICodeRef ann n))
-        (HCall: forall ann n ixs, P (ICall ann n ixs))
-        (HCallIndirect: forall ann ixs, P (ICallIndirect ann ixs))
-        (HGroup: forall ann n, P (IGroup ann n))
-        (HUngroup: forall ann, P (IUngroup ann))
-        (HFold: forall ann τ, P (IFold ann τ))
-        (HUnfold: forall ann, P (IUnfold ann))
-        (HPack: forall ann κ ix, P (IPack ann κ ix))
-        (HUnpack: forall ann χ le es, Forall P es -> P (IUnpack ann χ le es))
-        (HWrap: forall ann, P (IWrap ann))
-        (HUnwrap:  forall ann, P (IUnwrap ann))
+        (HGlobalGet : forall ann n, P (IGlobalGet ann n))
+        (HGlobalSet : forall ann n, P (IGlobalSet ann n))
+        (HCodeRef : forall ann n, P (ICodeRef ann n))
+        (HCall : forall ann n ixs, P (ICall ann n ixs))
+        (HCallIndirect : forall ann ixs, P (ICallIndirect ann ixs))
+        (HGroup : forall ann n, P (IGroup ann n))
+        (HUngroup : forall ann, P (IUngroup ann))
+        (HFold : forall ann τ, P (IFold ann τ))
+        (HUnfold : forall ann, P (IUnfold ann))
+        (HPack : forall ann κ ix, P (IPack ann κ ix))
+        (HUnpack : forall ann χ le es, Forall P es -> P (IUnpack ann χ le es))
+        (HWrap : forall ann, P (IWrap ann))
+        (HUnwrap :  forall ann, P (IUnwrap ann))
         (HRefNew : forall ann μ, P (IRefNew ann μ))
-        (HRefFree: forall ann, P (IRefFree ann))
-        (HRefDup: forall ann, P (IRefDup ann))
-        (HRefDrop: forall ann, P (IRefDrop ann))
-        (HRefLoad: forall ann π, P (IRefLoad ann π))
-        (HRefStore: forall ann π, P (IRefStore ann π))
-        (HRefSwap: forall ann π, P (IRefSwap ann π))
-        (HVariantNew: forall ann n τs μ, P (IVariantNew ann n τs μ))
-        (HVariantCase: forall ann γ χ le ess, 
+        (HRefFree : forall ann, P (IRefFree ann))
+        (HRefDup : forall ann, P (IRefDup ann))
+        (HRefDrop : forall ann, P (IRefDrop ann))
+        (HRefLoad : forall ann π, P (IRefLoad ann π))
+        (HRefStore : forall ann π, P (IRefStore ann π))
+        (HRefSwap : forall ann π, P (IRefSwap ann π))
+        (HVariantNew : forall ann n τs μ, P (IVariantNew ann n τs μ))
+        (HVariantCase : forall ann γ χ le ess,
             Forall (Forall P) ess ->
             P (IVariantCase ann γ χ le ess))
-        (HArrayNew: forall ann μ, P (IArrayNew ann μ))
-        (HArrayFree: forall ann, P (IArrayFree ann))
-        (HArrayGet: forall ann, P (IArrayGet ann))
-        (HArraySet: forall ann, P (IArraySet ann)).
+        (HArrayNew : forall ann μ, P (IArrayNew ann μ))
+        (HArrayFree : forall ann, P (IArrayFree ann))
+        (HArrayGet : forall ann, P (IArrayGet ann))
+        (HArraySet : forall ann, P (IArraySet ann)).
     
-    Fixpoint instr_ind' (i: instr A) : P i :=
-      let fix instrs_ind (i: list (instr A)) : Forall P i :=
+    Fixpoint instr_ind' (i : instr T K) : P i :=
+      let fix instrs_ind (i : list (instr T K)) : Forall P i :=
         match i with
         | [] => List.Forall_nil _
         | ins :: i => List.Forall_cons _ _ _ (instr_ind' ins) (instrs_ind i)
         end 
       in
-      let fix instrss_ind (i: list (list (instr A))) : Forall (Forall P) i :=
+      let fix instrss_ind (i : list (list (instr T K))) : Forall (Forall P) i :=
         match i with
         | [] => List.Forall_nil _
         | i :: i' => List.Forall_cons _ _ _ (instrs_ind i) (instrss_ind i')
