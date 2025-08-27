@@ -245,39 +245,13 @@ Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 Lemma subst'_type_mut_ok
   : subst'_ok subst'_type /\
-    subst'_ok subst'_function_type /\
-    subst'_ok subst'_arrow_type.
+    subst'_ok subst'_arrow_type /\
+    subst'_ok subst'_function_type.
 Proof.
-  (* TODO : mutual induction principle. *)
-  (*
-  apply Typ_Fun_Arrow_Heap_ind.
+  apply type_arr_fun_ind.
   all: intros; intros_ok_at; elim_ok_at; cbn; try now simpl_ok.
-  Local Ltac Forall_fst :=
-    match goal with
-    | H : Forall ?P _ |- _ =>
-      replace P with (fun ts => subst'_ok_at subst'_typ (@fst _ Size ts)) in H
-        by (apply fext; intros [??]; reflexivity);
-      apply Forall_comp_map in H
-    end.
-  (* TODO clean up the reasoning in these proofs *)
-  - rewrite (map_pair_eta l), map_combine.
-    replace (subst'_size var') with (fun s : Size => s) by (feql; now simpl_ok).
-    rewrite map_id; repeat feql.
-    Forall_fst. now simpl_ok.
-  - rewrite map_map; cbn; f_equal.
-    rewrite (map_pair_eta l), map_combine.
-    match goal with
-    | |- context [map ?fn (combine _ _)] =>
-      replace fn with (fun '(x, y) => (subst'_typ f (subst'_typ g x), subst'_size f (subst'_size g y)))
-        by (let xy := fresh in fext xy; now destruct xy)
-    end.
-    rewrite (map_combine
-               (fun t => subst'_typ f (subst'_typ g t))
-               (fun s => subst'_size f (subst'_size g s))).
-    f_equal; [|feql; now simpl_ok].
-    Forall_fst. rewrite <- map_map. now simpl_ok.
-*)
-Admitted.
+  destruct δ; elim_ok_at; cbn; try now simpl_ok.
+Qed.
 
 Corollary subst'_type_ok : subst'_ok subst'_type. Proof. apply subst'_type_mut_ok. Qed.
 Corollary subst'_function_type_ok : subst'_ok subst'_function_type. Proof. apply subst'_type_mut_ok. Qed.

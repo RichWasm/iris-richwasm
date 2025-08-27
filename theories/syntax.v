@@ -326,6 +326,7 @@ Section InductionPrinciples.
       (HFunT: ∀ δs χ,
           P_arrow_type χ ->
           P_function_type (FunT δs χ)).
+
     Fixpoint type_ind' (τ: type) {struct τ} : P_type τ :=
       let fix types_ind' (τs: list type) {struct τs} : Forall P_type τs :=
         match τs as τs return Forall P_type τs with
@@ -362,6 +363,11 @@ Section InductionPrinciples.
       match ϕ as ϕ return P_function_type ϕ with
       | FunT δs χ => HFunT _ _ (arrow_type_ind' χ)
       end.
+    
+    Definition type_arr_fun_ind :
+      (∀ τ, P_type τ) /\ (∀ χ, P_arrow_type χ) /\ (∀ ϕ, P_function_type ϕ) :=
+      conj type_ind' (conj arrow_type_ind' function_type_ind').
+
   End TypeInd.
 
 End InductionPrinciples.
