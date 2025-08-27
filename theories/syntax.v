@@ -300,6 +300,57 @@ Record module {A : Type} :=
 Arguments module : clear implicits.
 
 Section InductionPrinciples.
+  
+  Section RepInd.
+    Variables
+      (P: representation -> Prop)
+      (HVarR: ∀ r, P (VarR r))
+      (HSumR: ∀ ρs, Forall P ρs -> P (SumR ρs))
+      (HProdR: ∀ ρs, Forall P ρs -> P (ProdR ρs))
+      (HPrimR: ∀ ι, P (PrimR ι)).
+
+    Fixpoint representation_ind' (ρ: representation) : P ρ :=
+      let fix reps_ind (ρs: list representation) : Forall P ρs :=
+        match ρs as ρs return Forall P ρs with
+        | [] => List.Forall_nil _
+        | ρ :: ρs => List.Forall_cons _ _ _ (representation_ind' ρ) (reps_ind ρs)
+        end
+      in
+      match ρ as ρ return P ρ with
+      | VarR r => HVarR r
+      | SumR ρs => HSumR _ (reps_ind ρs)
+      | ProdR ρs => HProdR _ (reps_ind ρs)
+      | PrimR ι => HPrimR ι
+      end.
+
+  End RepInd.
+
+  Section SizeInd.
+    Print size.
+    Variables
+      (P : size -> Prop)
+      (HVarS : ∀ s, P (VarS s))
+      (HSumS : ∀ σs, Forall P σs -> P (SumS σs))
+      (HProdS : ∀ σs, Forall P σs -> P (ProdS σs))
+      (HRepS : ∀ ρ, P (RepS ρ))
+      (HConstS : ∀ n, P (ConstS n)).
+    
+    Fixpoint size_ind' (σ: size) : P σ :=
+      let fix sizes_ind (σs: list size) : Forall P σs :=
+        match σs as σs return Forall P σs with
+        | [] => List.Forall_nil _
+        | σ :: σs => List.Forall_cons _ _ _ (size_ind' σ) (sizes_ind σs)
+        end
+      in
+      match σ as σ return P σ with
+      | VarS s => HVarS s
+      | SumS σs => HSumS σs (sizes_ind σs)
+      | ProdS σs => HProdS σs (sizes_ind σs)
+      | RepS ρ => HRepS ρ
+      | ConstS n => HConstS n
+      end.
+
+  End SizeInd.
 
   Section TypeInd.
     Variables
