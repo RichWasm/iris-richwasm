@@ -298,3 +298,70 @@ Record module {A : Type} :=
     m_exports : list module_export }.
 
 Arguments module : clear implicits.
+
+Section InductionPrinciples.
+
+  Section TypeInd.
+    Variables
+      (P_type : type -> Prop)
+      (P_arrow_type : arrow_type -> Prop)
+      (P_function_type : function_type -> Prop)
+      (HVarT: ∀ t, P_type (VarT t))
+      (HNumT: ∀ ν, P_type (NumT ν))
+      (HSumT: ∀ τs, Forall P_type τs -> P_type (SumT τs))
+      (HProdT: ∀ τs, Forall P_type τs -> P_type (ProdT τs))
+      (HArrayT: ∀ τ, P_type τ -> P_type (ArrayT τ))
+      (HRefT: ∀ μ τ, P_type τ -> P_type (RefT μ τ))
+      (HGCPtrT: ∀ τ, P_type τ -> P_type (GCPtrT τ))
+      (HCodeRefT: ∀ ϕ, P_function_type ϕ -> P_type (CodeRefT ϕ))
+      (HRepT: ∀ ρ τ, P_type τ -> P_type (RepT ρ τ))
+      (HPadT: ∀ σ τ, P_type τ -> P_type (PadT σ τ))
+      (HSerT: ∀ τ, P_type τ -> P_type (SerT τ))
+      (HExT: ∀ δ τ, P_type τ -> P_type (ExT δ τ))
+      (HRecT: ∀ τ, P_type τ -> P_type (RecT τ))
+      (HArrowT: ∀ τs1 τs2,
+          Forall P_type τs1 ->
+          Forall P_type τs2 ->
+          P_arrow_type (ArrowT τs1 τs2))
+      (HFunT: ∀ δs χ,
+          P_arrow_type χ ->
+          P_function_type (FunT δs χ)).
+    Fixpoint type_ind' (τ: type) {struct τ} : P_type τ :=
+      let fix types_ind' (τs: list type) {struct τs} : Forall P_type τs :=
+        match τs as τs return Forall P_type τs with
+        | [] => List.Forall_nil _
+        | τ :: τs => List.Forall_cons _ _ _ (type_ind' τ) (types_ind' τs)
+        end
+      in
+      match τ as τ return P_type τ with
+      | VarT t => HVarT t
+      | NumT ν => HNumT ν
+      | SumT τs => HSumT τs (types_ind' τs)
+      | ProdT τs => HProdT τs (types_ind' τs)
+      | ArrayT τ => HArrayT τ (type_ind' τ)
+      | RefT μ τ => HRefT μ τ (type_ind' τ)
+      | GCPtrT τ => HGCPtrT τ (type_ind' τ)
+      | CodeRefT ϕ => HCodeRefT ϕ (function_type_ind' ϕ)
+      | RepT ρ τ => HRepT ρ τ (type_ind' τ)
+      | PadT σ τ => HPadT σ τ (type_ind' τ)
+      | SerT τ => HSerT τ (type_ind' τ)
+      | ExT δ τ => HExT δ τ (type_ind' τ)
+      | RecT τ => HRecT τ (type_ind' τ)
+      end
+    with arrow_type_ind' (χ: arrow_type) {struct χ} : P_arrow_type χ :=
+      let fix types_ind' (τs: list type) {struct τs} : Forall P_type τs :=
+        match τs as τs return Forall P_type τs with
+        | [] => List.Forall_nil _
+        | τ :: τs => List.Forall_cons _ _ _ (type_ind' τ) (types_ind' τs)
+        end
+      in
+      match χ as χ return P_arrow_type χ with
+      | ArrowT τs1 τs2 => HArrowT _ _ (types_ind' τs1) (types_ind' τs2)
+      end
+    with function_type_ind' (ϕ: function_type) {struct ϕ} : P_function_type ϕ :=
+      match ϕ as ϕ return P_function_type ϕ with
+      | FunT δs χ => HFunT _ _ (arrow_type_ind' χ)
+      end.
+  End TypeInd.
+
+End InductionPrinciples.
