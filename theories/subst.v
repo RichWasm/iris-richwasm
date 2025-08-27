@@ -38,7 +38,7 @@ Definition subst'_memory (su : Subst' skind) (l : memory) : memory :=
   end.
 
 Fixpoint subst'_representation (su : Subst' skind) (ρ : representation) : representation :=
-  match ρ with 
+  match ρ with
   | VarR x => get_var' SRep x su
   | SumR ρs => SumR (map (subst'_representation su) ρs)
   | ProdR ρs => ProdR (map (subst'_representation su) ρs)
@@ -148,22 +148,47 @@ Ltac subst'_ok n :=
 Instance BindVar_rwasm : BindVar skind.
 Proof. refine {| subst' := subst'_rwasm |}; abstract (intros []; reflexivity). Defined.
 
-Lemma subst'_memory_ok : subst'_ok subst'_memory. 
+Lemma subst'_memory_ok : subst'_ok subst'_memory.
 Proof. subst'_ok 5. Qed.
 
 Lemma subst'_representation_ok : subst'_ok subst'_representation.
-Proof. 
+Proof.
   (* TODO: Need nested induction scheme to deal with [list representation] subgoals. *)
   intros e.
-  split; [|intros f g]; induction e; cbn; try crush 15; auto.
-Admitted.
+  split; [|intros f g];
+    induction e using representation_ind'; cbn; try crush 10.
+  - apply map_ext_Forall in H.
+    rewrite map_id in H.
+    congruence.
+  - apply map_ext_Forall in H.
+    rewrite map_id in H.
+    congruence.
+  - apply map_ext_Forall in H.
+    now rewrite map_map, <- H.
+  - apply map_ext_Forall in H.
+    now rewrite map_map, <- H.
+Qed.
 
-Lemma subst'_size_ok : subst'_ok subst'_size. 
-Proof. 
+Lemma subst'_size_ok : subst'_ok subst'_size.
+Proof.
   (* TODO: Need nested/mutual induction scheme to deal with [list size] and [representation] subgoals. *)
   intros e.
-  split; [|intros f g]; induction e; cbn; try crush 15; auto.
-Admitted.
+  split; [|intros f g]; induction e using size_ind'; cbn; try crush 15; auto.
+  - apply map_ext_Forall in H.
+    rewrite map_id in H.
+    congruence.
+  - apply map_ext_Forall in H.
+    rewrite map_id in H.
+    congruence.
+  - f_equal.
+    apply subst'_representation_ok.
+  - apply map_ext_Forall in H.
+    now rewrite map_map, <- H.
+  - apply map_ext_Forall in H.
+    now rewrite map_map, <- H.
+  - f_equal.
+    apply subst'_representation_ok.
+Qed.
 
 Global Hint Resolve subst'_memory_ok subst'_representation_ok subst'_size_ok : OKDB.
 Tactic Notation "pose_ok_proofs'" :=
@@ -187,7 +212,12 @@ Proof. induction xs; cbn; auto; inversion 1; intuition eauto. Qed.
 
 Lemma subst'_sizity_ok : subst'_ok subst'_sizity.
 Proof.
-Admitted.
+  intros a.
+  pose_ok_proofs.
+  split; [|intros b c]; induction a; cbn; eauto;
+    f_equal;
+    apply subst'_size_ok.
+Qed.
 Global Hint Resolve subst'_sizity_ok : OKDB.
 Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_sizity_ok.
 Ltac pose_ok_proofs ::= pose_ok_proofs'.
@@ -459,4 +489,3 @@ Lemma subst_FunT (su : Subst skind) δs χ :
   subst_ext su (FunT δs χ) = FunT (subst_ext su δs) (subst_ext (under_quants δs su) χ).
 Proof. cbn; autorewrite with SubstDB; reflexivity. Qed.
 Hint Rewrite subst_FunT : SubstDB.
-
