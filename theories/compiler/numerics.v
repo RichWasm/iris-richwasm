@@ -5,16 +5,28 @@ Require Import Coq.ZArith.BinInt.
 From Wasm Require datatypes.
 From Wasm Require Import numerics.
 
-From RichWasm Require term.
+From RichWasm Require syntax.
 From RichWasm.compiler Require Import types.
 
-Module R := RichWasm.term.
+Module R := RichWasm.syntax.
 Module W := Wasm.datatypes.
 
-Definition translate_sign (s : R.Sign) : W.sx :=
+Definition translate_sign (s : R.sign) : W.sx :=
   match s with
-  | R.U => W.SX_U
-  | R.S => W.SX_S
+  | R.SignU => W.SX_U
+  | R.SignS => W.SX_S
+  end.
+
+Definition translate_int_type (νᵢ : R.int_type) : W.value_type :=
+  match νᵢ with
+  | R.I32T => W.T_i32
+  | R.I64T => W.T_i64
+  end.
+
+Definition translate_float_type (ν__f : R.float_type) : W.value_type :=
+  match ν__f with
+  | R.F32T => W.T_f32
+  | R.F64T => W.T_f64
   end.
 
 Definition compile_Z (ty : W.value_type) (n : Z) : W.value :=
@@ -30,134 +42,134 @@ Definition compile_Z (ty : W.value_type) (n : Z) : W.value :=
     W.VAL_float64 (Wasm_float.float_convert_si64 f64m i)
   end.
 
-Definition compile_cvt_op (op : R.CvtOp) : W.basic_instruction :=
+Definition compile_cvt_op (op : R.cvtop) : W.basic_instruction :=
   match op with
-  | R.Wrap =>
+  | R.CWrap =>
       W.BI_cvtop W.T_i32 W.CVO_convert W.T_i64 None
-  | R.Extend s =>
+  | R.CExtend s =>
       W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 (Some (translate_sign s))
-  | R.Trunc i f s =>
+  | R.CTrunc i f s =>
       let wi := translate_int_type i in
       let wf := translate_float_type f in
       W.BI_cvtop wi W.CVO_convert wf (Some (translate_sign s))
-  | R.TruncSat i f s =>
+  | R.CTruncSat i f s =>
       (* XXX this case shouldn't be the same as the Trunc case, but I
          don't see what else it could be in the wasmcert syntax. Is
          this a Wasm 1.0 vs current day Wasm issue ? *)
       let wi := translate_int_type i in
       let wf := translate_float_type f in
       W.BI_cvtop wi W.CVO_convert wf (Some (translate_sign s))
-  | R.Demote =>
+  | R.CDemote =>
       W.BI_cvtop W.T_f64 W.CVO_convert W.T_f32 None 
-  | R.Promote =>
+  | R.CPromote =>
       W.BI_cvtop W.T_f32 W.CVO_convert W.T_f64 None
-  | R.Convert f i s =>
+  | R.CConvert f i s =>
       let wi := translate_int_type i in
       let wf := translate_float_type f in
       W.BI_cvtop wf W.CVO_convert wf (Some (translate_sign s))
-  | R.ReinterpretFI f i =>
+  | R.CReinterpretFI f i =>
       let wi := translate_int_type i in
       let wf := translate_float_type f in
       W.BI_cvtop wf W.CVO_reinterpret wi None
-  | R.ReinterpretIF i f =>
+  | R.CReinterpretIF i f =>
       let wi := translate_int_type i in
       let wf := translate_float_type f in
       W.BI_cvtop wi W.CVO_reinterpret wf None
-  | R.ReinterpretII i s s' => W.BI_nop
+  | R.CReinterpretII i s s' => W.BI_nop
   end.
 
-Definition compile_num_instr (e : R.NumInstr) : W.basic_instruction :=
+Definition compile_num_instr (e : R.num_instr) : W.basic_instruction :=
   match e with
-  | R.Iu ty op =>
-    let ty' := translate_int_type ty in
+  | R.IInt1 νᵢ op =>
+    let νᵢ' := translate_int_type νᵢ in
     let op' :=
       match op with
-      | R.clz => W.UOI_clz
-      | R.ctz => W.UOI_ctz
-      | R.popcnt => W.UOI_popcnt
+      | R.ClzI => W.UOI_clz
+      | R.CtzI => W.UOI_ctz
+      | R.PopcntI => W.UOI_popcnt
       end
     in
-    W.BI_unop ty' (W.Unop_i op')
-  | R.Ib ty op =>
-    let ty' := translate_int_type ty in
+    W.BI_unop νᵢ' (W.Unop_i op')
+  | R.IInt2 νᵢ op =>
+    let νᵢ' := translate_int_type νᵢ in
     let op' :=
       match op with
-      | R.add => W.BOI_add
-      | R.sub => W.BOI_sub
-      | R.mul => W.BOI_mul
-      | R.div s => W.BOI_div (translate_sign s)
-      | R.rem s => W.BOI_rem (translate_sign s)
-      | R.and => W.BOI_and
-      | R.or => W.BOI_or
-      | R.xor => W.BOI_xor
-      | R.shl => W.BOI_shl
-      | R.shr s => W.BOI_shr (translate_sign s)
-      | R.rotl => W.BOI_rotl
-      | R.rotr => W.BOI_rotr
+      | R.AddI => W.BOI_add
+      | R.SubI => W.BOI_sub
+      | R.MulI => W.BOI_mul
+      | R.DivI s => W.BOI_div (translate_sign s)
+      | R.RemI s => W.BOI_rem (translate_sign s)
+      | R.AndI => W.BOI_and
+      | R.OrI => W.BOI_or
+      | R.XorI => W.BOI_xor
+      | R.ShlI => W.BOI_shl
+      | R.ShrI s => W.BOI_shr (translate_sign s)
+      | R.RotlI => W.BOI_rotl
+      | R.RotrI => W.BOI_rotr
       end
     in
-    W.BI_binop ty' (W.Binop_i op')
-  | R.Fu ty op =>
-    let ty' := translate_float_type ty in
+    W.BI_binop νᵢ' (W.Binop_i op')
+  | R.IIntTest νᵢ op =>
+    let νᵢ' := translate_int_type νᵢ in
     let op' :=
       match op with
-      | R.neg => W.UOF_neg
-      | R.abs => W.UOF_abs
-      | R.ceil => W.UOF_ceil
-      | R.floor => W.UOF_floor
-      | R.trunc => W.UOF_trunc
-      | R.nearest => W.UOF_nearest
-      | R.sqrt => W.UOF_sqrt
+      | R.EqzI => W.TO_eqz
       end
     in
-    W.BI_unop ty' (W.Unop_f op')
-  | R.Fb ty op =>
-    let ty' := translate_float_type ty in
+    W.BI_testop νᵢ' op'
+  | R.IIntRel νᵢ op =>
+    let νᵢ' := translate_int_type νᵢ in
     let op' :=
       match op with
-      | R.addf => W.BOF_add
-      | R.subf => W.BOF_sub
-      | R.mulf => W.BOF_mul
-      | R.divf => W.BOF_div
-      | R.min => W.BOF_min
-      | R.max => W.BOF_max
-      | R.copysign => W.BOF_copysign
+      | R.EqI => W.ROI_eq
+      | R.NeI => W.ROI_ne
+      | R.LtI s => W.ROI_lt (translate_sign s)
+      | R.GtI s => W.ROI_gt (translate_sign s)
+      | R.LeI s => W.ROI_le (translate_sign s)
+      | R.GeI s => W.ROI_ge (translate_sign s)
       end
     in
-    W.BI_binop ty' (W.Binop_f op')
-  | R.It ty op =>
-    let ty' := translate_int_type ty in
+    W.BI_relop νᵢ' (W.Relop_i op')
+  | R.IFloat1 ν__f op =>
+    let ν__f' := translate_float_type ν__f in
     let op' :=
       match op with
-      | R.eqz => W.TO_eqz
+      | R.NegF => W.UOF_neg
+      | R.AbsF => W.UOF_abs
+      | R.CeilF => W.UOF_ceil
+      | R.FloorF => W.UOF_floor
+      | R.TruncF => W.UOF_trunc
+      | R.NearestF => W.UOF_nearest
+      | R.SqrtF => W.UOF_sqrt
       end
     in
-    W.BI_testop ty' op'
-  | R.Ir ty op =>
-    let ty' := translate_int_type ty in
+    W.BI_unop ν__f' (W.Unop_f op')
+  | R.IFloat2 ν__f op =>
+    let ν__f' := translate_float_type ν__f in
     let op' :=
       match op with
-      | R.eq => W.ROI_eq
-      | R.ne => W.ROI_ne
-      | R.lt s => W.ROI_lt (translate_sign s)
-      | R.gt s => W.ROI_gt (translate_sign s)
-      | R.le s => W.ROI_le (translate_sign s)
-      | R.ge s => W.ROI_ge (translate_sign s)
+      | R.AddF => W.BOF_add
+      | R.SubF => W.BOF_sub
+      | R.MulF => W.BOF_mul
+      | R.DivF => W.BOF_div
+      | R.MinF => W.BOF_min
+      | R.MaxF => W.BOF_max
+      | R.CopySignF => W.BOF_copysign
       end
     in
-    W.BI_relop ty' (W.Relop_i op')
-  | R.Fr ty op =>
-    let ty' := translate_float_type ty in
+    W.BI_binop ν__f' (W.Binop_f op')
+  | R.IFloatRel ν__f op =>
+    let ν__f' := translate_float_type ν__f in
     let op' :=
       match op with
-      | R.eqf => W.ROF_eq
-      | R.nef => W.ROF_ne
-      | R.ltf => W.ROF_lt
-      | R.gtf => W.ROF_gt
-      | R.lef => W.ROF_le
-      | R.gef => W.ROF_ge
+      | R.EqF => W.ROF_eq
+      | R.NeF => W.ROF_ne
+      | R.LtF => W.ROF_lt
+      | R.GtF => W.ROF_gt
+      | R.LeF => W.ROF_le
+      | R.GeF => W.ROF_ge
       end
     in
-    W.BI_relop ty' (W.Relop_f op')
-  | R.Cvt op => compile_cvt_op op
+    W.BI_relop ν__f' (W.Relop_f op')
+  | R.ICvt op => compile_cvt_op op
   end.

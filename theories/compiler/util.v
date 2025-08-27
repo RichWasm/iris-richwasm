@@ -1,8 +1,8 @@
 Require Wasm.datatypes.
 
-Require RichWasm.term.
+Require RichWasm.syntax.
 
-Module R := RichWasm.term.
+Module R := RichWasm.syntax.
 Module W := Wasm.datatypes.
 
 Inductive error :=
@@ -19,9 +19,9 @@ Record store_runtime :=
 Record module_runtime :=
   { mr_mem_gc : W.memidx;
     mr_mem_mm : W.memidx;
-    mr_func_lin_alloc : W.funcidx;
+    mr_func_alloc_mm : W.funcidx;
+    mr_func_alloc_gc : W.funcidx;
     mr_func_free : W.funcidx;
-    mr_func_gc_alloc : W.funcidx;
     mr_func_registerroot : W.funcidx;
     mr_func_duproot : W.funcidx;
     mr_func_unregisterroot : W.funcidx;
@@ -29,37 +29,31 @@ Record module_runtime :=
     mr_table : W.tableidx }.
 
 Record module_env :=
-  { me_globals : list R.GlobalType;
+  { me_globals : list R.type;
     me_runtime : module_runtime }.
 
 Record function_env :=
-  { fe_return_type : option (list R.Typ);
-    fe_size_bounds : list (list R.Size * list R.Size);
-    fe_size_locals : list W.localidx;
-    fe_wlocal_offset : nat;
-    fe_qual_bounds : list (list R.Qual * list R.Qual); 
-    fe_qual_locals : list W.localidx; }.
-
-Definition fe_qual_offset fe := length fe.(fe_size_locals).
+  { fe_return_type : list R.type;
+    fe_wlocal_offset : nat }.
 
 Inductive VarScope :=
   | VSGlobal
   | VSLocal.
 
-Definition funcimm (idx : W.funcidx) : W.immediate :=
-  let '(W.Mk_funcidx i) := idx in i.
+Definition funcimm (ix : W.funcidx) : W.immediate :=
+  let '(W.Mk_funcidx i) := ix in i.
 
-Definition tableimm (idx : W.tableidx) : W.immediate :=
-  let '(W.Mk_tableidx i) := idx in i.
+Definition tableimm (ix : W.tableidx) : W.immediate :=
+  let '(W.Mk_tableidx i) := ix in i.
 
-Definition memimm (idx : W.memidx) : W.immediate :=
-  let '(W.Mk_memidx i) := idx in i.
+Definition memimm (ix : W.memidx) : W.immediate :=
+  let '(W.Mk_memidx i) := ix in i.
 
-Definition localimm (idx : W.localidx) : W.immediate :=
-  let '(W.Mk_localidx i) := idx in i.
+Definition localimm (ix : W.localidx) : W.immediate :=
+  let '(W.Mk_localidx i) := ix in i.
 
-Definition globalimm (idx : W.globalidx) : W.immediate :=
-  let '(W.Mk_globalidx i) := idx in i.
+Definition globalimm (ix : W.globalidx) : W.immediate :=
+  let '(W.Mk_globalidx i) := ix in i.
 
 Definition scope_get_set (scope : VarScope) :
   (W.immediate -> W.basic_instruction) *

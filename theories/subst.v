@@ -5,7 +5,7 @@ Require Import RichWasm.syntax RichWasm.util.debruijn.
 
 Import ListNotations.
 
-Inductive ind : Set :=
+Inductive ind :=
 | SMem
 | SRep
 | SSize
@@ -13,18 +13,18 @@ Inductive ind : Set :=
 
 Instance ind_eq_dec : EqDecision ind := ltac:(solve_decision).
 
-Definition skind (i: ind) :=
+Definition skind (i : ind) : Type :=
   match i with
   | SMem => memory
   | SRep => representation
   | SSize => size
-  | SType => type
+  | SType => type kind
   end.
 
 #[global]
 Instance Varskind : Var skind :=
   fun i =>
-  match i with
+  match i as i' return variable -> skind i' with
   | SMem => MemVar
   | SRep => VarR
   | SSize => VarS

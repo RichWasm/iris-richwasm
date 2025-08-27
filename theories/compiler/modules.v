@@ -10,10 +10,10 @@ Require Import stdpp.list_numbers.
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
-From RichWasm Require term typing.
+From RichWasm Require syntax typing.
 From RichWasm.compiler Require Import types util.
 
-Module R. Include RichWasm.term <+ RichWasm.typing. End R.
+Module R. Include RichWasm.syntax <+ RichWasm.typing. End R.
 Module W := Wasm.datatypes.
 
 Definition funcidx_table_set : W.immediate := 0.
@@ -24,16 +24,10 @@ Definition typeidx_i32_i32_to_nil : W.immediate := 1.
 Definition globidx_table_next : W.immediate := 0.
 Definition globidx_table_offset : W.immediate := 1.
 
-Definition fe_of_contexts (F : R.Function_Ctx) (L : R.Local_Ctx) : function_env :=
-  {| fe_return_type := F.(R.fc_ret);
-     fe_size_bounds := F.(R.fc_size);
-     fe_qual_bounds := F.(R.fc_qual);
-     (* TODO: Size locals come after the normal arguments, but before non-argument locals. *)
-     fe_size_locals := List.map W.Mk_localidx (List.seq 0 (length F.(R.fc_size)));
-     fe_qual_locals := List.map W.Mk_localidx (List.seq (length F.(R.fc_size)) (length F.(R.fc_qual)));
-     fe_wlocal_offset := sum_list_with (type_words ∘ fst) L +
-                           length F.(R.fc_size) +
-                           length F.(R.fc_qual) |}.
+Definition fe_of_contexts (F : R.function_ctx) (L : R.local_ctx) : option function_env :=
+  ts ← mapM (translate_rep ∘ fst) L;
+  mret {| fe_return_type := F.(R.fc_result_type);
+          fe_wlocal_offset := sum_list_with length ts |}.
 
 Definition set_table_elem (start : W.immediate) (i f : nat) : W.expr :=
   [W.BI_get_local start;
@@ -42,7 +36,7 @@ Definition set_table_elem (start : W.immediate) (i f : nat) : W.expr :=
    W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat f)));
    W.BI_call funcidx_table_set].
 
-Definition start_func (table : R.Table) : W.module_func :=
+Definition start_func (table : list nat) : W.module_func :=
   {| W.modfunc_type := W.Mk_typeidx typeidx_nil_to_nil;
      W.modfunc_locals := [];
      W.modfunc_body :=
@@ -59,22 +53,14 @@ Definition start_func (table : R.Table) : W.module_func :=
        flatten (imap (set_table_elem 0) table) |}.
 
 (* TODO: modfunc_type expects a typeidx while rwasm does this inline *)
-Definition compile_func (func : R.Func R.TyAnn) : error + W.module_func :=
-  let '(R.Fun exs ty szs es) := func in
+Definition compile_func (func : R.module_function R.type) : error + W.module_func :=
   inr {|
     W.modfunc_type := W.Mk_typeidx 0; (* TODO *)
     W.modfunc_locals := []; (* TODO *)
     W.modfunc_body := []; (* TODO *)
   |}.
 
-Definition compile_glob (glob : R.Glob R.TyAnn) : error + W.module_glob :=
-  inl ETodo.
-
-Definition compile_table (table : R.Table) : error + W.module_table :=
-  inl ETodo.
-
-Definition compile_module (module : R.module R.TyAnn) : error + W.module :=
-  let '(funcs, globs, table) := module in
+Definition compile_module (module : R.module R.type) : error + W.module :=
   let globals :=
     (* TODO *)
     [W.Build_module_glob

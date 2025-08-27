@@ -11,11 +11,11 @@ From ExtLib.Structures Require Import Monoid Monads.
 
 From Wasm Require datatypes.
 
-Require RichWasm.term.
+Require RichWasm.syntax.
 From RichWasm.compiler Require Import types util.
 Require Import RichWasm.util.stdpp_extlib.
 
-Module R := RichWasm.term.
+Module R := RichWasm.syntax.
 Module W := Wasm.datatypes.
 
 Notation wlocal_ctx := (list W.value_type) (only parsing).

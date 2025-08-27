@@ -16,11 +16,11 @@ From stdpp Require Import list_numbers.
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
-From RichWasm Require term typing.
+From RichWasm Require syntax typing.
 From RichWasm.compiler Require Import codegen numerics types util.
 Require Import RichWasm.util.stdpp_extlib.
 
-Module R. Include term <+ typing. End R.
+Module R. Include syntax <+ typing. End R.
 Module W. Include datatypes <+ operations. End W.
 
 Section Instrs.
@@ -92,7 +92,7 @@ Section Instrs.
         ret (x + W.words_t ty))
       (ret (localimm x)).
 
-  Definition get_local (x : W.localidx) : R.Typ -> codegen unit :=
+  Definition get_local (x : W.localidx) : R.type -> codegen unit :=
     get_locals_w x ∘ translate_type.
 
   Definition set_local (x : W.localidx) : R.Typ -> codegen unit :=

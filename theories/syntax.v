@@ -64,8 +64,7 @@ Inductive representation :=
 #[global]
 Instance Eq_representation : EqDecision representation.
 unfold EqDecision, Decision.
-Eval cbv in Eq_primitive_rep.
-refine (fix eqr r1 r2 := 
+refine (fix eqr r1 r2 :=
           match r1, r2 with
           | VarR v1, VarR v2 => cast_if (decide (v1 = v2))
           | SumR ρs1, SumR ρs2 => cast_if (@list_eq_dec _ eqr ρs1 ρs2)
@@ -123,37 +122,43 @@ Inductive int_type := I32T | I64T.
 Inductive float_type := F32T | F64T.
 
 Inductive num_type :=
-| IntT (ν__i : int_type)
+| IntT (νᵢ : int_type)
 | FloatT (ν__f : float_type).
 
-Inductive type :=
-| VarT (t : variable)
-| NumT (ν : num_type)
-| SumT (τs : list type)
-| ProdT (τs : list type)
-| ArrayT (τ : type)
-| RefT (μ : memory) (τ : type)
-| GCPtrT (τ : type)
-| CodeRefT (ϕ : function_type)
-| RepT (ρ : representation) (τ : type)
-| PadT (σ : size) (τ : type)
-| SerT (τ : type)
-| ExT (δ : quantifier) (τ : type)
-| RecT (τ : type)
+Inductive type {K : Type} :=
+| VarT (ann : K) (t : variable)
+| NumT (ann : K) (ν : num_type)
+| SumT (ann : K) (τs : list type)
+| ProdT (ann : K) (τs : list type)
+| ArrayT (ann : K) (τ : type)
+| RefT (ann : K) (μ : memory) (τ : type)
+| GCPtrT (ann : K) (τ : type)
+| CodeRefT (ann : K) (ϕ : function_type)
+| RepT (ann : K) (ρ : representation) (τ : type)
+| PadT (ann : K) (σ : size) (τ : type)
+| SerT (ann : K) (τ : type)
+| ExT (ann : K) (δ : quantifier) (τ : type)
+| RecT (ann : K) (τ : type)
 
-with arrow_type :=
+with arrow_type {K : Type} :=
 | ArrowT (τs1 : list type) (τs2 : list type)
 
-with function_type :=
+with function_type {K : Type} :=
 | FunT (δs : list quantifier) (χ : arrow_type).
 
-Definition local_effect := list (nat * type).
+Arguments type : clear implicits.
+Arguments arrow_type : clear implicits.
+Arguments function_type : clear implicits.
 
-Inductive index :=
+Definition local_effect (K : Type) := list (nat * type K).
+
+Inductive index {K : Type} :=
 | MemI (μ : memory)
 | RepI (ρ : representation)
 | SizeI (σ : size)
-| TypeI (τ : type).
+| TypeI (τ : type K).
+
+Arguments index : clear implicits.
 
 Inductive path_component :=
 | PCProj (n : nat)
@@ -196,91 +201,95 @@ Inductive float_relop := EqF | NeF | LtF | GtF | LeF | GeF.
 Inductive cvtop :=
 | CWrap
 | CExtend (s : sign)
-| CTrunc (ν__i : int_type) (ν__f : float_type) (s : sign)
-| CTruncSat (ν__i : int_type) (ν__f : float_type) (s : sign)
+| CTrunc (νᵢ : int_type) (ν__f : float_type) (s : sign)
+| CTruncSat (νᵢ : int_type) (ν__f : float_type) (s : sign)
 | CDemote
 | CPromote
-| CConvert (ν__f : float_type) (ν__i : int_type) (s : sign)
-| CReinterpretFI (ν__f : float_type) (ν__i : int_type)
-| CReinterpretIF (ν__i : int_type) (ν__f : float_type)
-| CReinterpretII (ν__i : int_type) (s1 s2 : sign).
+| CConvert (ν__f : float_type) (νᵢ : int_type) (s : sign)
+| CReinterpretFI (ν__f : float_type) (νᵢ : int_type)
+| CReinterpretIF (νᵢ : int_type) (ν__f : float_type)
+| CReinterpretII (νᵢ : int_type) (s1 s2 : sign).
 
 Inductive num_instr :=
-| IInt1 (ν__i : int_type) (op : int_unop)
-| IInt2 (ν__i : int_type) (op : int_binop)
-| IIntTest (ν__i : int_type) (op : int_testop)
-| IIntRel (ν__i : int_type) (op : int_relop)
+| IInt1 (νᵢ : int_type) (op : int_unop)
+| IInt2 (νᵢ : int_type) (op : int_binop)
+| IIntTest (νᵢ : int_type) (op : int_testop)
+| IIntRel (νᵢ : int_type) (op : int_relop)
 | IFloat1 (ν__f : float_type) (op : float_unop)
 | IFloat2 (ν__f : float_type) (op : float_binop)
 | IFloatRel (ν__f : float_type) (op : float_relop)
 | ICvt (op : cvtop).
 
-Inductive instr {A : Type} :=
-| INop (ann : A)
-| IDrop (ann : A)
-| IUnreachable (ann : A)
-| INum (ann : A) (en : num_instr)
-| INumConst (ann : A) (ν : num_type) (n : nat)
-| IBlock (ann : A) (χ : arrow_type) (le : local_effect) (es : list instr)
-| ILoop (ann : A) (χ : arrow_type) (es : list instr)
-| IIte (ann : A) (χ : arrow_type) (le : local_effect) (es1 es2 : list instr)
-| IBr (ann : A) (n : nat)
-| IBrIf (ann : A) (n : nat)
-| IBrTable (ann : A) (ns : list nat) (n : nat)
-| IReturn (ann : A)
-| ILocalGet (ann : A) (n : nat)
-| ILocalSet (ann : A) (n : nat)
-| IGlobalGet (ann : A) (n : nat)
-| IGlobalSet (ann : A) (n : nat)
-| ICodeRef (ann : A) (n : nat)
-| ICall (ann : A) (n : nat) (ixs : list index)
-| ICallIndirect (ann : A) (ixs : list index)
-| IGroup (ann : A) (n : nat)
-| IUngroup (ann : A)
-| IFold (ann : A) (τ : type)
-| IUnfold (ann : A)
-| IPack (ann : A) (κ : kind) (ix : index)
-| IUnpack (ann : A) (χ : arrow_type) (le : local_effect) (es : list instr)
-| IWrap (ann : A)
-| IUnwrap (ann : A)
-| IRefNew (ann : A) (μ : memory)
-| IRefFree (ann : A)
-| IRefDup (ann : A)
-| IRefDrop (ann : A)
-| IRefLoad (ann : A) (π : path)
-| IRefStore (ann : A) (π : path)
-| IRefSwap (ann : A) (π : path)
-| IVariantNew (ann : A) (n : nat) (τs : list type) (μ : memory)
+Inductive instr {T K : Type} :=
+| INop (ann : T)
+| IDrop (ann : T)
+| IUnreachable (ann : T)
+| INum (ann : T) (en : num_instr)
+| INumConst (ann : T) (ν : num_type) (n : nat)
+| IBlock (ann : T) (χ : arrow_type K) (le : local_effect K) (es : list instr)
+| ILoop (ann : T) (χ : arrow_type K) (es : list instr)
+| IIte (ann : T) (χ : arrow_type K) (le : local_effect K) (es1 es2 : list instr)
+| IBr (ann : T) (n : nat)
+| IBrIf (ann : T) (n : nat)
+| IBrTable (ann : T) (ns : list nat) (n : nat)
+| IReturn (ann : T)
+| ILocalGet (ann : T) (n : nat)
+| ILocalSet (ann : T) (n : nat)
+| IGlobalGet (ann : T) (n : nat)
+| IGlobalSet (ann : T) (n : nat)
+| ICodeRef (ann : T) (n : nat)
+| ICall (ann : T) (n : nat) (ixs : list (index K))
+| ICallIndirect (ann : T) (ixs : list (index K))
+| IGroup (ann : T) (n : nat)
+| IUngroup (ann : T)
+| IFold (ann : T) (τ : type K)
+| IUnfold (ann : T)
+| IPack (ann : T) (κ : kind) (ix : index K)
+| IUnpack (ann : T) (χ : arrow_type K) (le : local_effect K) (es : list instr)
+| IWrap (ann : T)
+| IUnwrap (ann : T)
+| IRefNew (ann : T) (μ : memory)
+| IRefFree (ann : T)
+| IRefDup (ann : T)
+| IRefDrop (ann : T)
+| IRefLoad (ann : T) (π : path)
+| IRefStore (ann : T) (π : path)
+| IRefSwap (ann : T) (π : path)
+| IVariantNew (ann : T) (n : nat) (τs : list (type K)) (μ : memory)
 | IVariantCase
-    (ann : A) (γ : linearity) (χ : arrow_type) (le : local_effect) (ess : list (list instr))
-| IArrayNew (ann : A) (μ : memory)
-| IArrayFree (ann : A)
-| IArrayGet (ann : A)
-| IArraySet (ann : A).
+    (ann : T) (γ : linearity) (χ : arrow_type K) (le : local_effect K) (ess : list (list instr))
+| IArrayNew (ann : T) (μ : memory)
+| IArrayFree (ann : T)
+| IArrayGet (ann : T)
+| IArraySet (ann : T).
 
 Arguments instr : clear implicits.
 
-Definition expr A := list (instr A).
+Definition expr (T K : Type) := list (instr T K).
 
-Record module_function {A : Type} :=
-  { mf_type : function_type;
-    mf_body : list (instr A) }.
+Record module_function {T K : Type} :=
+  { mf_type : function_type K;
+    mf_body : list (instr T K) }.
 
 Arguments module_function : clear implicits.
 
-Record module_global {A : Type} :=
-  { mg_type : type;
-    mg_init : list (instr A) }.
+Record module_global {T K : Type} :=
+  { mg_type : type K;
+    mg_init : list (instr T K) }.
 
 Arguments module_global : clear implicits.
 
-Inductive module_import_desc :=
-| ImFunction (ϕ : function_type)
-| ImGlobal (ω : mutability) (τ : type).
+Inductive module_import_desc {K : Type} :=
+| ImFunction (ϕ : function_type K)
+| ImGlobal (ω : mutability) (τ : type K).
 
-Record module_import :=
+Arguments module_import_desc : clear implicits.
+
+Record module_import {K : Type} :=
   { mi_name : string;
-    mi_desc : module_import_desc }.
+    mi_desc : module_import_desc K }.
+
+Arguments module_import : clear implicits.
 
 Inductive module_export_desc :=
 | ExFunction (n : nat)
@@ -290,10 +299,10 @@ Record module_export :=
   { me_name : string;
     me_desc : module_export_desc }.
 
-Record module {A : Type} :=
-  { m_imports : list module_import;
-    m_funcs : list (module_function A);
-    m_globals : list (module_global A);
+Record module {T K : Type} :=
+  { m_imports : list (module_import K);
+    m_funcs : list (module_function T K);
+    m_globals : list (module_global T K);
     m_table : list nat;
     m_exports : list module_export }.
 
