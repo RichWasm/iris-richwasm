@@ -376,13 +376,86 @@ Definition quants_of_function_type (ft : function_type) : list quantifier :=
   let 'FunT qs _ := ft in qs.
 
 Fixpoint subst'_instr {A : Type} (su : Subst' skind) (i : instr A) {struct i} : instr A :=
-  i.
-
+  match i with
+  | INop ann => i
+  | IDrop ann => i
+  | IUnreachable ann => i
+  | INum ann en => i
+  | INumConst ann ν n => i
+  | IBlock ann χ le es =>
+      IBlock ann
+             (subst'_arrow_type su χ)
+             (subst'_local_effect su le)
+             (map (subst'_instr su) es)
+  | ILoop ann χ es =>
+      ILoop ann
+            (subst'_arrow_type su χ)
+            (map (subst'_instr su) es)
+  | IIte ann χ le es1 es2 =>
+      IIte ann
+           (subst'_arrow_type su χ)
+           (subst'_local_effect su le)
+           (map (subst'_instr su) es1)
+           (map (subst'_instr su) es2)
+  | IBr ann n => i
+  | IBrIf ann n => i
+  | IBrTable ann ns n => i
+  | IReturn ann => i
+  | ILocalGet ann n => i
+  | ILocalSet ann n => i
+  | IGlobalGet ann n => i
+  | IGlobalSet ann n => i
+  | ICodeRef ann n => i
+  | ICall ann n ixs => ICall ann n (subst'_indices su ixs)
+  | ICallIndirect ann ixs => ICallIndirect ann (subst'_indices su ixs)
+  | IGroup ann n => i
+  | IUngroup ann => i
+  | IFold ann τ => IFold ann (subst'_type su τ)
+  | IUnfold ann => i
+  | IPack ann κ ix => IPack ann (subst'_kind su κ) (subst'_index su ix)
+  | IUnpack ann χ le es =>
+      (* unpack binds a type in es *)
+      (* n.b., there should probably be a δ argment to IUnpack so it
+         can bind things besides types *)
+      IUnpack ann 
+              (subst'_arrow_type su χ)
+              (subst'_local_effect su le)
+              (map (subst'_instr (under' SType su)) es)
+  | IWrap ann => i
+  | IUnwrap ann => i
+  | IRefNew ann μ => IRefNew ann (subst'_memory su μ)
+  | IRefFree ann => i
+  | IRefDup ann => i
+  | IRefDrop ann => i
+  | IRefLoad ann π => i
+  | IRefStore ann π => i
+  | IRefSwap ann π => i
+  | IVariantNew ann n τs μ => IVariantNew ann n (subst'_types su τs) (subst'_memory su μ)
+  | IVariantCase ann γ χ le ess =>
+      IVariantCase ann γ
+        (subst'_arrow_type su χ)
+        (subst'_local_effect su le)
+        (map (map (subst'_instr su)) ess)
+  | IArrayNew ann μ => IArrayNew ann (subst'_memory su μ)
+  | IArrayFree ann => i
+  | IArrayGet ann => i
+  | IArraySet ann => i
+  end.
+  
 Lemma under_quants'_quants_of_function_type_subst'_function_type s fty t :
   under_quants' (quants_of_function_type (subst'_function_type s fty)) t
   = under_quants' (quants_of_function_type fty) t.
 Proof. destruct fty; unfold quants_of_function_type; cbn; now autorewrite with SubstDB. Qed.
 Hint Rewrite under_quants'_quants_of_function_type_subst'_function_type : SubstDB.
+
+Lemma subst'_instr_ok {A: Type} : subst'_ok (@subst'_instr A).
+Proof.
+  intros e; induction e using instr_ind'.
+  all: intros; intros_ok_at; elim_ok_at; cbn; try now simpl_ok.
+Qed.
+Global Hint Resolve subst'_instr_ok : OKDB.
+Tactic Notation "pose_ok_proofs'" := pose_ok_proofs'; pose proof subst'_instr_ok.
+Ltac pose_ok_proofs ::= pose_ok_proofs'.
 
 Definition subst_index {A} `{BindExt _ skind A} (i : index) : A -> A :=
   match i with

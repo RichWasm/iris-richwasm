@@ -326,7 +326,6 @@ Section InductionPrinciples.
   End RepInd.
 
   Section SizeInd.
-    Print size.
     Variables
       (P : size -> Prop)
       (HVarS : ∀ s, P (VarS s))
@@ -420,5 +419,117 @@ Section InductionPrinciples.
       conj type_ind' (conj arrow_type_ind' function_type_ind').
 
   End TypeInd.
+  
+  Section InstrInd.
+    Context {A: Type}.
+    Variables
+        (P: instr A -> Prop)
+        (HNop: forall ann, P (INop ann))
+        (HDrop: forall ann, P (IDrop ann))
+        (HUnreachable: forall ann, P (IUnreachable ann))
+        (HNum: forall ann en, P (INum ann en))
+        (HNumConst: forall ann ν n, P (INumConst ann ν n))
+        (HBlock: forall ann χ le es, 
+            Forall P es ->
+            P (IBlock ann χ le es))
+        (HLoop: forall ann χ es,
+            Forall P es ->
+            P (ILoop ann χ es))
+        (HIte: forall ann χ le es1 es2,
+            Forall P es1 ->
+            Forall P es2 ->
+            P (IIte ann χ le es1 es2))
+        (HBr : forall ann n, P (IBr ann n))
+        (HBrIf : forall ann n, P (IBrIf ann n))
+        (HBrTable : forall ann ns n, P (IBrTable ann ns n))
+        (HReturn : forall ann, P (IReturn ann))
+        (HLocalGet: forall ann n, P (ILocalGet ann n))
+        (HLocalSet : forall ann n, P (ILocalSet ann n))
+        (HGlobalGet: forall ann n, P (IGlobalGet ann n))
+        (HGlobalSet: forall ann n, P (IGlobalSet ann n))
+        (HCodeRef: forall ann n, P (ICodeRef ann n))
+        (HCall: forall ann n ixs, P (ICall ann n ixs))
+        (HCallIndirect: forall ann ixs, P (ICallIndirect ann ixs))
+        (HGroup: forall ann n, P (IGroup ann n))
+        (HUngroup: forall ann, P (IUngroup ann))
+        (HFold: forall ann τ, P (IFold ann τ))
+        (HUnfold: forall ann, P (IUnfold ann))
+        (HPack: forall ann κ ix, P (IPack ann κ ix))
+        (HUnpack: forall ann χ le es, Forall P es -> P (IUnpack ann χ le es))
+        (HWrap: forall ann, P (IWrap ann))
+        (HUnwrap:  forall ann, P (IUnwrap ann))
+        (HRefNew : forall ann μ, P (IRefNew ann μ))
+        (HRefFree: forall ann, P (IRefFree ann))
+        (HRefDup: forall ann, P (IRefDup ann))
+        (HRefDrop: forall ann, P (IRefDrop ann))
+        (HRefLoad: forall ann π, P (IRefLoad ann π))
+        (HRefStore: forall ann π, P (IRefStore ann π))
+        (HRefSwap: forall ann π, P (IRefSwap ann π))
+        (HVariantNew: forall ann n τs μ, P (IVariantNew ann n τs μ))
+        (HVariantCase: forall ann γ χ le ess, 
+            Forall (Forall P) ess ->
+            P (IVariantCase ann γ χ le ess))
+        (HArrayNew: forall ann μ, P (IArrayNew ann μ))
+        (HArrayFree: forall ann, P (IArrayFree ann))
+        (HArrayGet: forall ann, P (IArrayGet ann))
+        (HArraySet: forall ann, P (IArraySet ann)).
+    
+    Fixpoint instr_ind' (i: instr A) : P i :=
+      let fix instrs_ind (i: list (instr A)) : Forall P i :=
+        match i with
+        | [] => List.Forall_nil _
+        | ins :: i => List.Forall_cons _ _ _ (instr_ind' ins) (instrs_ind i)
+        end 
+      in
+      let fix instrss_ind (i: list (list (instr A))) : Forall (Forall P) i :=
+        match i with
+        | [] => List.Forall_nil _
+        | i :: i' => List.Forall_cons _ _ _ (instrs_ind i) (instrss_ind i')
+        end 
+      in
+      match i with
+      | INop ann => HNop ann
+      | IDrop ann => HDrop ann
+      | IUnreachable ann => HUnreachable ann
+      | INum ann en => HNum ann en
+      | INumConst ann ν n => HNumConst ann ν n
+      | IBlock ann χ le es => HBlock ann χ le es (instrs_ind es)
+      | ILoop ann χ es => HLoop ann χ es (instrs_ind es)
+      | IIte ann χ le es1 es2 => HIte ann χ le es1 es2 (instrs_ind es1) (instrs_ind es2)
+      | IBr ann n => HBr ann n
+      | IBrIf ann n => HBrIf ann n
+      | IBrTable ann ns n => HBrTable ann ns n
+      | IReturn ann => HReturn ann
+      | ILocalGet ann n => HLocalGet ann n
+      | ILocalSet ann n => HLocalSet ann n
+      | IGlobalGet ann n => HGlobalGet ann n
+      | IGlobalSet ann n => HGlobalSet ann n
+      | ICodeRef ann n => HCodeRef ann n
+      | ICall ann n ixs => HCall ann n ixs
+      | ICallIndirect ann ixs => HCallIndirect ann ixs
+      | IGroup ann n => HGroup ann n
+      | IUngroup ann => HUngroup ann
+      | IFold ann τ => HFold ann τ
+      | IUnfold ann => HUnfold ann
+      | IPack ann κ ix => HPack ann κ ix
+      | IUnpack ann χ le es => HUnpack ann χ le es (instrs_ind es)
+      | IWrap ann => HWrap ann
+      | IUnwrap ann => HUnwrap ann
+      | IRefNew ann μ => HRefNew ann μ
+      | IRefFree ann => HRefFree ann
+      | IRefDup ann => HRefDup ann
+      | IRefDrop ann => HRefDrop ann
+      | IRefLoad ann π => HRefLoad ann π
+      | IRefStore ann π => HRefStore ann π
+      | IRefSwap ann π => HRefSwap ann π
+      | IVariantNew ann n τs μ => HVariantNew ann n τs μ
+      | IVariantCase ann γ χ le ess => HVariantCase ann γ χ le ess (instrss_ind ess)
+      | IArrayNew ann μ => HArrayNew ann μ
+      | IArrayFree ann => HArrayFree ann
+      | IArrayGet ann => HArrayGet ann
+      | IArraySet ann => HArraySet ann
+      end.
+    
+  End InstrInd.
 
 End InductionPrinciples.
