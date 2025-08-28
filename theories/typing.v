@@ -5,7 +5,7 @@ Require Import stdpp.list.
 
 Require Import RecordUpdate.RecordUpdate.
 
-Require Import RichWasm.syntax.
+Require Import RichWasm.syntax.rw.
 
 Record module_ctx {K : Type} :=
   { mc_globals : list (mutability * type K);
