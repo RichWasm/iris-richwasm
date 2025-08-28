@@ -9,6 +9,7 @@ homepage: "https://github.com/RichWasm/iris-richwasm"
 bug-reports: "https://github.com/RichWasm/iris-richwasm/issues"
 depends: [
   "dune" {>= "3.16"}
+  "coq-autosubst-ocaml" {>= "1.1+8.20"}
   "coq-record-update" {>= "0.3.4"}
   "odoc" {with-doc}
 ]
