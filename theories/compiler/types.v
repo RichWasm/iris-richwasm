@@ -61,3 +61,6 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
   | ExSizeT κ _
   | ExTypeT κ _ _ => kind_rep κ
   end.
+
+Definition translate_type (κs : list kind) (τ : type) : option (list W.value_type) :=
+  type_rep κs τ ≫= translate_rep.

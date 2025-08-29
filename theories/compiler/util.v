@@ -33,6 +33,7 @@ Record module_env :=
 
 Record function_env :=
   { fe_return_type : list type;
+    fe_type_vars : list kind;
     fe_wlocal_offset : nat }.
 
 Inductive VarScope :=
@@ -60,4 +61,10 @@ Definition scope_get_set (scope : VarScope) :
   match scope with
   | VSGlobal => (W.BI_get_global, W.BI_set_global)
   | VSLocal => (W.BI_get_local, W.BI_set_local)
+  end.
+
+Definition option_sum {A E : Type} (e : E) (x : option A) : E + A :=
+  match x with
+  | None => inl e
+  | Some x' => inr x'
   end.

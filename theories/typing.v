@@ -16,7 +16,7 @@ Arguments module_ctx : clear implicits.
 Definition local_ctx := list type.
 
 Record function_ctx :=
-  { fc_result_type : list type;
+  { fc_return_type : list type;
     fc_labels : list (list type * local_ctx);
     fc_location_vars : nat;
     fc_own_vars : nat;
@@ -27,7 +27,7 @@ Record function_ctx :=
 Arguments function_ctx : clear implicits.
 
 Definition fc_empty : function_ctx :=
-  {| fc_result_type := [];
+  {| fc_return_type := [];
      fc_labels := [];
      fc_location_vars := 0;
      fc_own_vars := 0;
@@ -37,7 +37,7 @@ Definition fc_empty : function_ctx :=
 
 Global Instance eta_function_ctx : Settable _ :=
   settable! Build_function_ctx
-  <fc_result_type; fc_labels; fc_location_vars; fc_own_vars; fc_rep_vars; fc_size_vars;
+  <fc_return_type; fc_labels; fc_location_vars; fc_own_vars; fc_rep_vars; fc_size_vars;
    fc_type_vars>.
 
 Definition update_locals (ξ : local_fx) (L : local_ctx) : local_ctx :=
@@ -369,7 +369,7 @@ Inductive instr_has_type :
   let χ := ArrowT (τs1 ++ τs ++ [τ]) τs2 in
   instr_has_type M F L (IBrTable χ ns n) χ L'
 | TReturn M F L L' τs τs1 τs2 :
-  F.(fc_result_type) = τs ->
+  F.(fc_return_type) = τs ->
   Forall (is_unrestricted F) τs1 ->
   let χ := ArrowT (τs1 ++ τs) τs2 in
   instr_has_type M F L (IReturn χ) χ L'
