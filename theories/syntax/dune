@@ -1,0 +1,11 @@
+(coq.theory
+ (name RichWasm.syntax)
+ (package iris-richwasm)
+ (flags -w -argument-scope-delimiter
+        -w -automatic-prop-lowering))
+
+(rule
+  (target rw.v)
+  (deps prelude.v rw.sig)
+  (action
+    (run autosubst -o %{target} -f -no-static -p %{deps})))

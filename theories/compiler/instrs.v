@@ -5,7 +5,6 @@ Require Import Coq.Strings.String.
 Require Import Coq.NArith.BinNat.
 Require Import Coq.ZArith.BinInt.
 Local Open Scope program_scope.
-Require Import RichWasm.prelude.
 
 From ExtLib.Data Require Import List.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
@@ -16,17 +15,19 @@ From stdpp Require Import list_numbers.
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
-From RichWasm Require term typing.
+From RichWasm Require Import prelude syntax typing.
 From RichWasm.compiler Require Import codegen numerics types util.
 Require Import RichWasm.util.stdpp_extlib.
 
-Module R. Include term <+ typing. End R.
 Module W. Include datatypes <+ operations. End W.
 
 Section Instrs.
 
   Variable me : module_env.
   Variable fe : function_env.
+
+  Definition translate_type : type -> option (list W.value_type) :=
+    translate_type fe.(fe_type_vars).
 
   Definition wlalloc (ty : W.value_type) : codegen W.localidx :=
     wl ← get;
@@ -92,25 +93,29 @@ Section Instrs.
         ret (x + W.words_t ty))
       (ret (localimm x)).
 
-  Definition get_local (x : W.localidx) : R.Typ -> codegen unit :=
-    get_locals_w x ∘ translate_type.
+  Definition get_local (x : W.localidx) (τ : type) : codegen unit :=
+    ty ← try_option EWrongTypeAnn (translate_type τ);
+    get_locals_w x ty.
 
-  Definition set_local (x : W.localidx) : R.Typ -> codegen unit :=
-    set_locals_w x ∘ translate_type.
+  Definition set_local (x : W.localidx) (τ : type) : codegen unit :=
+    ty ← try_option EWrongTypeAnn (translate_type τ);
+    set_locals_w x ty.
 
   Definition save_stack_w (ty : W.result_type) : codegen W.localidx :=
     xs ← forT ty wlalloc;
     forT (reverse xs) (emit ∘ W.BI_set_local ∘ localimm);;
     ret (ssrfun.Option.default (W.Mk_localidx 0) (head xs)).
 
-  Definition save_stack : list R.Typ -> codegen W.localidx :=
-    save_stack_w ∘ flat_map translate_type.
+  Definition save_stack (τs : list type) : codegen W.localidx :=
+    tys ← try_option EWrongTypeAnn (mapM translate_type τs);
+    save_stack_w (concat tys).
 
   Definition restore_stack_w (x : W.localidx) (ty : W.result_type) : codegen unit :=
     ignore (forT (seq (localimm x) (length ty)) (emit ∘ W.BI_get_local)).
 
-  Definition restore_stack (x : W.localidx) : list R.Typ -> codegen unit :=
-    restore_stack_w x ∘ flat_map translate_type.
+  Definition restore_stack (x : W.localidx) (τs : list type) : codegen unit :=
+    tys ← try_option EWrongTypeAnn (mapM translate_type τs);
+    restore_stack_w x (concat tys).
 
   Definition if_gc_bit {A B} (tf : W.function_type) (gc : codegen B) (mm : codegen A) : codegen (A * B) :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
@@ -122,8 +127,8 @@ Section Instrs.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)).
 
-  Definition load_values_w (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset)
-    : W.result_type -> codegen unit :=
+  Definition load_values_w (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset) :
+    W.result_type -> codegen unit :=
     ignore ∘ foldM
       (fun ty off =>
         emit (W.BI_get_local (localimm ptr));;
@@ -131,9 +136,10 @@ Section Instrs.
         ret (off + N.of_nat (W.length_t ty))%N)
       (ret off).
 
-  Definition load_value (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset)
-    : R.Typ -> codegen unit :=
-    load_values_w mem ptr off ∘ translate_type.
+  Definition load_value (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset) (τ : type) :
+    codegen unit :=
+    tys ← try_option EWrongTypeAnn (translate_type τ);
+    load_values_w mem ptr off tys.
 
   Definition load_value_tagged_w (ty : W.value_type) : codegen unit :=
     ptr ← wlalloc W.T_i32;
@@ -145,7 +151,7 @@ Section Instrs.
       (emit (W.BI_load (memimm me.(me_runtime).(mr_mem_mm)) ty None 0%N 0%N));;
     ret tt.
 
-  Definition load_value_tagged (offset : W.localidx) (ty : R.Typ) : codegen unit :=
+  Definition load_value_tagged (offset : W.localidx) (τ : type) : codegen unit :=
     ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
@@ -154,37 +160,38 @@ Section Instrs.
        emit (W.BI_get_local (localimm offset));;
        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
        emit (W.BI_set_local (localimm ptr));;
-       load_value me.(me_runtime).(mr_mem_gc) ptr 0%N ty)
+       load_value me.(me_runtime).(mr_mem_gc) ptr 0%N τ)
       (emit (W.BI_get_local (localimm offset));;
        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
        emit (W.BI_set_local (localimm ptr));;
-       load_value me.(me_runtime).(mr_mem_mm) ptr 0%N ty);;
+       load_value me.(me_runtime).(mr_mem_mm) ptr 0%N τ);;
     ret tt.
 
   Definition store_value_w
     (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset)
-    (val : W.localidx) (ty : W.value_type)
-    : codegen unit :=
+    (val : W.localidx) (ty : W.value_type) :
+    codegen unit :=
     emit (W.BI_get_local (localimm ptr));;
     emit (W.BI_get_local (localimm val));;
     emit (W.BI_store (memimm mem) ty None 0%N off).
 
-  Definition store_values_w (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset)
-    : list (W.localidx * W.value_type) -> codegen unit :=
+  Definition store_values_w (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset) :
+    list (W.localidx * W.value_type) -> codegen unit :=
     ignore ∘ foldM
       (fun '(val, ty) off =>
         store_value_w mem ptr off val ty;;
         ret (off + N.of_nat (W.length_t ty))%N)
       (ret off).
 
-  Definition store_value (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset) (val : W.localidx) (ty : R.Typ)
-    : codegen unit :=
-    let ty' := translate_type ty in
-    let vals := zip (map W.Mk_localidx (seq (localimm val) (length ty'))) ty' in
+  Definition store_value
+    (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset) (val : W.localidx) (τ : type) :
+    codegen unit :=
+    ty ← try_option EWrongTypeAnn (translate_type τ);
+    let vals := zip (map W.Mk_localidx (seq (localimm val) (length ty))) ty in
     store_values_w mem ptr off vals.
 
-  Definition store_value_tagged (offset : W.localidx) (ty : R.Typ) : codegen unit :=
-    val ← save_stack [ty];
+  Definition store_value_tagged (offset : W.localidx) (τ : type) : codegen unit :=
+    val ← save_stack [τ];
     ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
@@ -193,15 +200,15 @@ Section Instrs.
        emit (W.BI_get_local (localimm offset));;
        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
        emit (W.BI_set_local (localimm ptr));;
-       store_value me.(me_runtime).(mr_mem_gc) ptr 0%N val ty)
+       store_value me.(me_runtime).(mr_mem_gc) ptr 0%N val τ)
       (emit (W.BI_get_local (localimm offset));;
        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add));;
        emit (W.BI_set_local (localimm ptr));;
-       store_value me.(me_runtime).(mr_mem_mm) ptr 0%N val ty);;
+       store_value me.(me_runtime).(mr_mem_mm) ptr 0%N val τ);;
     ret tt.
 
-  Definition foreach_when_gc_bit (scope : VarScope) (refs : list W.immediate) (c : codegen unit)
-    : codegen unit :=
+  Definition foreach_when_gc_bit (scope : VarScope) (refs : list W.immediate) (c : codegen unit) :
+    codegen unit :=
     iterM
       (fun var =>
         let '(get, set) := scope_get_set scope in
@@ -210,65 +217,30 @@ Section Instrs.
         emit (set var))
       refs.
 
-  Definition lookup_local (L : R.Local_Ctx) (idx : nat) : error + (W.localidx * R.Typ) :=
+  Definition lookup_local (L : local_ctx) (x : nat) : error + (W.localidx * type) :=
     let fix go L i j :=
       match L, j with
-      | (ty, sz) :: _, 0 => inr (W.Mk_localidx i, ty)
-      | (ty, sz) :: L', S j' =>
-          real_sz ← size_upper_bound fe.(fe_size_bounds) sz;
-          go L' (i + real_sz) j'
-      | [], _ => inl (EIndexOutOfBounds idx)
+      | τ :: _, 0 => inr (W.Mk_localidx i, τ)
+      | τ :: L', S j' =>
+          ty ← option_sum EWrongTypeAnn (translate_type τ);
+          go L' (i + length ty) j'
+      | [], _ => inl (EIndexOutOfBounds x)
       end
     in
-    go L 0 idx.
+    go L 0 x.
 
-  Definition lookup_global (idx : nat) : option (W.globalidx * R.Typ) :=
-    let fix go globals idx :=
-      match globals, idx with
-      | R.GT _ ty :: _, 0 => Some (W.Mk_globalidx 0, ty)
-      | R.GT _ ty :: globals', S idx' =>
-          let width := length (translate_type ty) in
-          go globals' (width + idx')
+  Definition lookup_global (x : nat) : option (W.globalidx * type) :=
+    let fix go globals i :=
+      match globals, i with
+      | τ :: _, 0 => Some (W.Mk_globalidx 0, τ)
+      | τ :: globals', S i' =>
+          ty ← translate_type τ;
+          let width := length ty in
+          go globals' (width + i')
       | [], _ => None
       end
     in
-    go me.(me_globals) idx.
-
-  Fixpoint compile_size (sz : R.Size) : codegen unit :=
-    match sz with
-    | R.SizeVar σ =>
-        lidx ← try_option (EIndexOutOfBounds σ) (lookup σ fe.(fe_size_locals));
-        emit (W.BI_get_local (localimm lidx))
-    | R.SizePlus sz1 sz2 =>
-        compile_size sz1;;
-        compile_size sz2;;
-        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add))
-    | R.SizeConst c =>
-        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat c))))
-    end.
-
-  Fixpoint compile_qual (q : R.Qual) : codegen unit :=
-    match q with
-    | R.QualVar δ => 
-        lidx ← try_option (EIndexOutOfBounds δ) (lookup δ fe.(fe_qual_locals));
-        emit (W.BI_get_local (localimm lidx))
-    | R.QualJoin q1 q2 =>
-        compile_qual q1;;
-        compile_qual q2;;
-        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_or))
-    | R.QualConst R.Unrestricted =>
-        emit (W.BI_const (W.VAL_int32 (wasm_bool false)))
-    | R.QualConst R.Linear =>
-        emit (W.BI_const (W.VAL_int32 (wasm_bool true)))
-    end.
-
-  Definition compile_index (idx: R.Index) : codegen unit :=
-    match idx with
-    | R.SizeI sz => compile_size sz
-    | R.LocI _
-    | R.QualI _
-    | R.TypI _ => ret tt
-    end.
+    go me.(me_globals) x.
 
   Definition trap_if_index_out_of_bounds (idx : W.localidx) : codegen unit :=
     load_value_tagged_w W.T_i32;;
@@ -283,7 +255,8 @@ Section Instrs.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 4))));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
-  Definition compile_drop (ty : R.Typ) : codegen unit :=
+  Definition compile_drop (τ : type) : codegen unit :=
+    (* TODO:
     val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
     foreach_when_gc_bit VSLocal refs
@@ -291,9 +264,11 @@ Section Instrs.
     restore_stack val [ty];;
     let tys := translate_type ty in
     forT tys (const (emit W.BI_drop));;
+    *)
     ret tt.
 
-  Definition compile_return (ty : list R.Typ) : codegen unit :=
+  Definition compile_return (τs : list type) : codegen unit :=
+    (* TODO:
     let return_ty := ssrfun.Option.default [] fe.(fe_return_type) in
     let drop_ty := take (length ty - length return_ty) ty in
     r ← save_stack return_ty;
@@ -302,25 +277,33 @@ Section Instrs.
     foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
     restore_stack r return_ty;;
+    *)
     emit W.BI_return.
 
-  Definition compile_get_local (L : R.Local_Ctx) (x : nat) : codegen unit :=
+  Definition compile_get_local (L : local_ctx) (x : nat) : codegen unit :=
+    (* TODO:
     '(x', ty) ← lift_error (lookup_local L x);
     get_local x' ty;;
     val ← save_stack [ty];
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
     foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))));;
-    restore_stack val [ty].
+    restore_stack val [ty]
+    *)
+    ret tt.
 
-  Definition compile_set_local (L : R.Local_Ctx) (x : nat) : codegen unit :=
+  Definition compile_set_local (L : local_ctx) (x : nat) : codegen unit :=
+    (* TODO:
     '(x', ty) ← lift_error (lookup_local L x);
     let refs := map (fun i => localimm x' + i) (find_refs LMWords ty) in
     foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
-    set_local x' ty.
+    set_local x' ty
+    *)
+    ret tt.
 
   Definition compile_get_global (x : nat) : codegen unit :=
+    (* TODO:
     '(x', ty) ← try_option (EIndexOutOfBounds x) (lookup_global x);
     forT (imap (fun i _ => globalimm x' + i) (translate_type ty))
       (emit ∘ W.BI_get_global);;
@@ -328,15 +311,19 @@ Section Instrs.
     let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
     foreach_when_gc_bit VSLocal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))));;
-    restore_stack val [ty].
+    restore_stack val [ty]
+    *)
+    ret tt.
 
   Definition compile_set_global (x : nat) : codegen unit :=
+    (* TODO:
     '(x', ty) ← try_option (EIndexOutOfBounds x) (lookup_global x);
     let refs := map (fun i => globalimm x' + i) (find_refs LMNative ty) in
     foreach_when_gc_bit VSGlobal refs
       (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
     forT (imap (fun i _ => globalimm x' + i) (translate_type ty))
       (emit ∘ W.BI_set_global);;
+    *)
     ret tt.
 
   Definition compile_coderef (x : nat) : codegen unit :=
@@ -344,19 +331,26 @@ Section Instrs.
     emit (W.BI_get_global (globalimm me.(me_runtime).(mr_global_table_offset)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
-  Definition compile_call_indirect (arg_ty : list R.Typ) (idxs : list R.Index) : codegen unit :=
+  Definition compile_call_indirect (τs : list type) : codegen unit :=
+    (* TODO:
     arg ← save_stack arg_ty;
     forT idxs compile_index;;
     restore_stack arg arg_ty;;
-    emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table))).
+    emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
+    *)
+    ret tt.
 
-  Definition compile_call (arg_ty : list R.Typ) (x : nat) (idxs : list R.Index) : codegen unit :=
+  Definition compile_call (τs : list type) (x : nat) (ixs : list index) : codegen unit :=
+    (* TODO:
     arg ← save_stack arg_ty;
     forT idxs compile_index;;
     restore_stack arg arg_ty;;
     (* TODO: Translate function index. *)
     emit (W.BI_call x).
+    *)
+    ret tt.
 
+  (* TODO: Struct replaced by product type.
   Definition compile_struct_get (tys : list R.Typ) (sizes : list R.Size) (i : nat) : codegen unit :=
     ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
@@ -378,7 +372,9 @@ Section Instrs.
       (foreach_when_gc_bit VSLocal refs
          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot)))));;
     restore_stack val [field_ty].
+  *)
 
+  (* TODO: Struct replaced by product type.
   Definition compile_struct_set (tys : list R.Typ) (sizes : list R.Size) (val_ty : R.Typ) (i : nat) :
     codegen unit :=
     offset_sz ← lift_error (struct_field_offset sizes i);
@@ -408,7 +404,9 @@ Section Instrs.
 
     emit (W.BI_get_local (localimm ptr));;
     store_value_tagged offset val_ty.
+  *)
 
+  (* TODO: Struct replaced by product type.
   Definition compile_struct_swap
     (ptr : W.localidx)
     (tys : list R.Typ)
@@ -422,9 +420,11 @@ Section Instrs.
     old ← save_stack [field_ty];
     compile_struct_set tys sizes val_ty i;;
     restore_stack old [field_ty].
+  *)
 
-  Definition compile_array_get (elem_ty : R.Typ) : codegen unit :=
+  Definition compile_array_get (π : path) (τ : type) : codegen unit :=
     (* TODO: registerroot if GC array; duproot if MM array. *)
+    (* TODO:
     idx ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm idx));;
     get_elem_offset (type_words elem_ty);;
@@ -434,10 +434,13 @@ Section Instrs.
     emit (W.BI_tee_local (localimm ptr));;
     emit (W.BI_get_local (localimm ptr));;
     trap_if_index_out_of_bounds idx;;
-    load_value_tagged offset elem_ty.
+    load_value_tagged offset elem_ty
+    *)
+    ret tt.
 
-  Definition compile_array_set (elem_ty : R.Typ) : codegen unit :=
+  Definition compile_array_set (π : path) (τ : type) : codegen unit :=
     (* TODO: unregisterroot if GC array; duproot a bunch of times if MM array. *)
+    (* TODO:
     val ← save_stack [elem_ty];
     idx ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm idx));;
@@ -450,10 +453,13 @@ Section Instrs.
     emit (W.BI_get_local (localimm ptr));;
     restore_stack val [elem_ty];;
     store_value_tagged offset elem_ty.
+    *)
+    ret tt.
 
   Fixpoint compile_variant_case
-    (ptr : W.localidx) (n : nat) (i : nat) (tf : W.function_type) (cases : list (R.Typ * W.expr)) :
+    (ptr : W.localidx) (n : nat) (i : nat) (tf : W.function_type) (cases : list (type * W.expr)) :
     codegen unit :=
+    (* TODO:
     match cases with
     | [] =>
         block_c tf
@@ -472,102 +478,60 @@ Section Instrs.
            load_value_tagged offset ty;;
            emit_all es;;
            emit (W.BI_br (n - i + 1))) (* TODO: make sure this is right *)
-    end.
+    end
+    *)
+    ret tt.
 
   (* Produces code that consumes a size on the top of the stack and returns a ref *) 
-  Definition compile_malloc (q: R.Qual) : codegen unit :=
+  Definition compile_malloc (μ : memory) : codegen unit :=
+    (* TODO:
     compile_qual q;;
     emit (W.BI_if (W.Tf [W.T_i32] [W.T_i32])
             [W.BI_call (funcimm me.(me_runtime).(mr_func_lin_alloc))]
-            [W.BI_call (funcimm me.(me_runtime).(mr_func_gc_alloc))]).
+            [W.BI_call (funcimm me.(me_runtime).(mr_func_gc_alloc))])
+    *)
+    ret tt.
 
-  Fixpoint compile_instr (e : R.instr R.TyAnn) : codegen unit :=
+  Fixpoint compile_instr (e : instruction) : codegen unit :=
     match e with
-    | R.INumConst _ ty n => emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n)))
-    | R.IUnit _ => ret tt
-    | R.INum _ e' => emit (compile_num_instr e')
-    | R.IUnreachable _ => emit (W.BI_unreachable)
-    | R.INop _ => emit W.BI_nop
-    | R.IDrop (R.Arrow ty _, _) => try_option EWrongTypeAnn (head ty) ≫= compile_drop
-    | R.IBlock _ ty _ es => ignore (block_c (translate_arrow_type ty) (forT es compile_instr))
-    | R.ILoop _ ty es => ignore (loop_c (translate_arrow_type ty) (forT es compile_instr))
-    | R.IIte _ ty _ es1 es2 =>
-        ignore (if_c (translate_arrow_type ty) (forT es1 compile_instr) (forT es2 compile_instr))
-    | R.IBr _ l => emit (W.BI_br l)
-    | R.IBrIf _ l => emit (W.BI_br_if l)
-    | R.IBrTable _ ls l => emit (W.BI_br_table ls l)
-    | R.IRet (R.Arrow ty _, _) => compile_return ty
-    | R.IGetLocal (_, R.LSig L _) x _ => compile_get_local L x
-    | R.ISetLocal (_, R.LSig L _) x => compile_set_local L x
-    | R.IGetGlobal _ x => compile_get_global x
-    | R.ISetGlobal _ x => compile_set_global x
-    | R.ICoderef _ x => compile_coderef x
-    | R.ICallIndirect (R.Arrow arg_ty _, _) idxs => compile_call_indirect arg_ty idxs
-    | R.ICall (R.Arrow arg_ty _, _) x idxs => compile_call arg_ty x idxs
-    | R.IMemUnpack _ ty _ es => ignore (block_c (translate_arrow_type ty) (forT es compile_instr))
-    | R.IStructMalloc _ _ _ =>
-        (* TODO: registerroot on the new address;
-                 unregisterroot if any field is GC ref being put into GC struct. *)
-        (* compute size for malloc *)
-        (* call malloc and save result *)
-        (* load args into locals *)
-        (* do an IStructSet on each arg *)
-        (* return the base pointer *)
+    | INop _ => emit W.BI_nop
+    | IDrop (ArrowT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
+    | IUnreachable _ => emit (W.BI_unreachable)
+    | INum _ e' => emit (compile_num_instr e')
+    | INumConst _ ν n =>
+        (* TODO: emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n))) *)
         raise ETodo
-    | R.IStructFree _ =>
-        (* TODO: unregisterroot fields that may be refs to GC if this struct is MM. *)
-        emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
-    | R.IStructGet (R.Arrow in_ty _, _) i =>
-        fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
-        let (tys, sizes) := split fields in
-        compile_struct_get tys sizes i
-    | R.IStructSet (R.Arrow in_ty _, _) i =>
-        fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
-        val_ty ← try_option EWrongTypeAnn (lookup 1 in_ty);
-        let (tys, sizes) := split fields in
-        compile_struct_set tys sizes val_ty i
-    | R.IStructSwap (R.Arrow in_ty _, _) i =>
-        (* TODO: registerroot if GC struct *)
-        fields ← try_option EWrongTypeAnn (head in_ty ≫= struct_fields);
-        val_ty ← try_option EWrongTypeAnn (lookup 1 in_ty);
-        let (tys, sizes) := split fields in
-        ptr ← wlalloc W.T_i32;
-        compile_struct_swap ptr tys sizes val_ty i
-    | R.IVariantMalloc _ _ _ _ =>
-        (* TODO: registerroot on the new address;
-                 unregisterroot if payload is GC ref being put into GC variant *)
+    | IBlock _ _ _ =>
+        (* TODO: ignore (block_c (translate_arrow_type ty) (forT es compile_instr)) *)
         raise ETodo
-    | R.IVariantCase (ta, _) q Ψ ta' eff ess =>
-        (* TODO: duproot if unrestricted *)
-        (* TODO: Consume the ref if the qualifier is linear; preserve the ref if it's unrestricted. *)
-        ptr ← wlalloc W.T_i32;
-        let tf := translate_arrow_type ta in
-        tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
-        ess' ← forT (B := W.expr) ess (fun es => snd <$> capture (forT es compile_instr));
-        b ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) q (R.QualConst R.Unrestricted));
-        b' ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) (R.QualConst R.Linear) q);
-        match b, b' with
-        | true, _ =>
-            emit (W.BI_get_local (localimm ptr));;
-            compile_variant_case ptr (length tys) 0 tf (zip tys ess')
-        | _, true =>
-            compile_variant_case ptr (length tys) 0 tf (zip tys ess');;
-            emit (W.BI_get_local (localimm ptr));;
-            emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
-        | _, _ => raise EWrongTypeAnn
-        end
-    | R.IArrayMalloc _ _ =>
-        (* TODO: unregisterroot the initial value if GC array;
-                 duproot a bunch of times if MM array *)
+    | ILoop _ _ =>
+        (* TODO: ignore (loop_c (translate_arrow_type ty) (forT es compile_instr)) *)
         raise ETodo
-    | R.IArrayGet (R.Arrow in_ty _, _) =>
-        try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_get
-    | R.IArraySet (R.Arrow in_ty _, _) =>
-        try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_set
-    | R.IArrayFree ann =>
-        (* TODO: unregisterroot a bunch of times, since this is an MM array *)
-        emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
-    | R.IExistPack (R.Arrow [tau] trets, _) t (R.Ex _ _ htau) q =>
+    | IIte _ _ _ _ =>
+        (* TODO: ignore (if_c (translate_arrow_type ty) (forT es1 compile_instr) (forT es2 compile_instr)) *)
+        raise ETodo
+    | IBr _ n => emit (W.BI_br n)
+    | IBrIf _ n => emit (W.BI_br_if n)
+    | IBrTable _ ns n => emit (W.BI_br_table ns n)
+    | IReturn (ArrowT τs _) => compile_return τs
+    | ILocalGet _ _ =>
+        (* TODO: compile_get_local L x *)
+        raise ETodo
+    | ILocalSet _ x =>
+        (* TODO: compile_set_local L x *)
+        raise ETodo
+    | IGlobalGet _ x => compile_get_global x
+    | IGlobalSet _ x => compile_set_global x
+    | ICodeRef _ x => compile_coderef x
+    | IInst _ _ => raise ETodo
+    | ICall (ArrowT τs _) x ixs => compile_call τs x ixs
+    | ICallIndirect (ArrowT τs _) => compile_call_indirect τs
+    | IGroup _ _ => raise ETodo
+    | IUngroup _ => raise ETodo
+    | IFold _ _ => raise ETodo
+    | IUnfold  _ => raise ETodo
+    | IPack _ _ _ =>
+        (* TODO:
         contents_idx ← save_stack [tau];
         (* TODO: unregisterroot if GC package *)
         let hsz_bytes := 4 * type_words htau in
@@ -585,25 +549,61 @@ Section Instrs.
         store_value_tagged zero_idx t;;
         (* put the tagged pointer on the top of the stack *)
         emit (W.BI_get_local (localimm ptr_idx))
-    | R.IExistPack (R.Arrow [_] _, _) _ _ _
-    | R.IExistPack (R.Arrow [] _, _) _ _ _ 
-    | R.IExistPack (R.Arrow (_ :: _ :: _) _, _) _ _ _ => raise EWrongTypeAnn
-    | R.IExistUnpack (R.Arrow targs trets, _) q th ta tl es =>
+        *)
+        raise ETodo
+    | IUnpack _ _ _ _ =>
         (* TODO: registerroot if GC package *)
-        ignore (block_c (translate_arrow_type ta) (forT es compile_instr))
-    | R.IRefSplit _
-    | R.IRefJoin _
-    | R.IRecFold _ _
-    | R.IRecUnfold  _
-    | R.IGroup _ _
-    | R.IUngroup _
-    | R.ICapSplit _
-    | R.ICapJoin _
-    | R.IRefDemote _
-    | R.IMemPack _ _
-    | R.IQualify _ _ => ret tt
+        (* TODO: ignore (block_c (translate_arrow_type ty) (forT es compile_instr)) *)
+        raise ETodo
+    | IWrap _ => raise ETodo
+    | IUnwrap _ => raise ETodo
+    | IRefNew _ _ => raise ETodo
+    | IRefFree _ => raise ETodo
+    | IRefDup _ => raise ETodo
+    | IRefDrop _ => raise ETodo
+    | IRefLoad _ _ => raise ETodo
+    | IRefStore _ _ => raise ETodo
+    | IRefSwap _ _ => raise ETodo
+    | IVariantNew _ _ _ _ =>
+        (* TODO: registerroot on the new address;
+                 unregisterroot if payload is GC ref being put into GC variant *)
+        raise ETodo
+    | IVariantCase _ _ _ _ _ =>
+        (* TODO: duproot if unrestricted *)
+        (* TODO: Consume the ref if the qualifier is linear; preserve the ref if it's unrestricted. *)
+        (* TODO:
+        ptr ← wlalloc W.T_i32;
+        let tf := translate_arrow_type ta in
+        tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
+        ess' ← forT (B := W.expr) ess (fun es => snd <$> capture (forT es compile_instr));
+        b ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) q (R.QualConst R.Unrestricted));
+        b' ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) (R.QualConst R.Linear) q);
+        match b, b' with
+        | true, _ =>
+            emit (W.BI_get_local (localimm ptr));;
+            compile_variant_case ptr (length tys) 0 tf (zip tys ess')
+        | _, true =>
+            compile_variant_case ptr (length tys) 0 tf (zip tys ess');;
+            emit (W.BI_get_local (localimm ptr));;
+            emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
+        | _, _ => raise EWrongTypeAnn
+        end *)
+        raise ETodo
+    | IArrayNew _ _ =>
+        (* TODO: unregisterroot the initial value if GC array;
+                 duproot a bunch of times if MM array *)
+        raise ETodo
+    | IArrayFree _ =>
+        (* TODO: unregisterroot a bunch of times, since this is an MM array *)
+        emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
+    | IArrayGet _ =>
+        (* TODO: try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_get *)
+        raise ETodo
+    | IArraySet _ =>
+        (* TODO: try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_set *)
+        raise ETodo
     end.
 
-  Definition compile_instrs : list (R.instr R.TyAnn) -> codegen unit := iterM compile_instr.
+  Definition compile_instrs : list instruction -> codegen unit := iterM compile_instr.
 
 End Instrs.
