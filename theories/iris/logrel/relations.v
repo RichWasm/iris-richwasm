@@ -2,14 +2,12 @@ From mathcomp Require Import eqtype seq.
 
 Require Import iris.proofmode.tactics.
 
-From RichWasm Require syntax typing.
+From RichWasm Require Import syntax typing.
 From RichWasm.compiler Require Import codegen types util.
 From RichWasm.iris Require Import gc num_reprs util.
 Require Import RichWasm.iris.logrel.util.
 Require Import RichWasm.util.debruijn.
 Import uPred.
-
-Module R. Include RichWasm.syntax <+ RichWasm.syntax.rw.Core <+ RichWasm.typing. End R.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -40,7 +38,7 @@ Section Relations.
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
   Notation ER := (leibnizO (lholed * list administrative_instruction) -n> iPropO Σ).
 
-  Implicit Type L : leibnizO R.local_ctx.
+  Implicit Type L : leibnizO local_ctx.
   Implicit Type WL : leibnizO wlocal_ctx.
 
   Implicit Type sv : leibnizO sem_val.
@@ -53,10 +51,10 @@ Section Relations.
   Implicit Type lh_es : leibnizO (lholed * list administrative_instruction).
   Implicit Type i : leibnizO instance.
 
-  Implicit Type τ : leibnizO R.type.
-  Implicit Type τs : leibnizO (list R.type).
-  Implicit Type ϕ : leibnizO R.function_type.
-  Implicit Type χ : leibnizO R.arrow_type.
+  Implicit Type τ : leibnizO type.
+  Implicit Type τs : leibnizO (list type).
+  Implicit Type ϕ : leibnizO function_type.
+  Implicit Type χ : leibnizO arrow_type.
   
   Definition sem_kind := sem_type -> iProp Σ.
   Notation KR := (sem_typeO -n> iPropO Σ).
@@ -65,36 +63,36 @@ Section Relations.
 
   Definition relations : Type :=
     (* Physical Value *)
-    (leibnizO R.type -n> WsR) *
+    (leibnizO type -n> WsR) *
     (* Virtual Value *)
-    (leibnizO R.type -n> VVsR) *
+    (leibnizO type -n> VVsR) *
     (* Frame *)
-    (leibnizO R.local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR) *
+    (leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR) *
     (* Expression *)
-    (leibnizO (list R.type) -n> leibnizO R.function_ctx -n> leibnizO R.local_ctx -n>
+    (leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
        leibnizO wlocal_ctx -n> leibnizO instance -n> ER).
 
-  Definition relations_value_phys (rs : relations) : leibnizO R.type -n> WsR :=
+  Definition relations_value_phys (rs : relations) : leibnizO type -n> WsR :=
     rs.1.1.1.
 
-  Definition relations_value_virt (rs : relations) : leibnizO R.type -n> VVsR :=
+  Definition relations_value_virt (rs : relations) : leibnizO type -n> VVsR :=
     rs.1.1.2.
 
   Definition relations_frame (rs : relations) :
-    leibnizO R.local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
     rs.1.2.
 
   Definition relations_expr (rs : relations) :
-    leibnizO (list R.type) -n> leibnizO R.function_ctx -n> leibnizO R.local_ctx -n>
+    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
     rs.2.
 
   Definition interp_frame_0 (rs : relations) :
-    leibnizO R.local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR.
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR.
   Admitted.
 
   Definition interp_expr_0 (rs : relations) :
-    leibnizO (list R.type) -n> leibnizO R.function_ctx -n> leibnizO R.local_ctx -n>
+    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER.
   Admitted.
 
@@ -106,16 +104,16 @@ Section Relations.
 
   Definition rels : relations := fixpoint rels_0.
 
-  Definition interp_value_phys : leibnizO R.type -n> WsR := relations_value_phys rels.
+  Definition interp_value_phys : leibnizO type -n> WsR := relations_value_phys rels.
 
-  Definition interp_value_virt : leibnizO R.type -n> VVsR := relations_value_virt rels.
+  Definition interp_value_virt : leibnizO type -n> VVsR := relations_value_virt rels.
 
   Definition interp_frame :
-    leibnizO R.local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
     relations_frame rels.
 
   Definition interp_expr :
-    leibnizO (list R.type) -n> leibnizO R.function_ctx -n> leibnizO R.local_ctx -n>
+    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
     relations_expr rels.
 
@@ -165,25 +163,25 @@ Section Relations.
   Opaque relations_frame.
   Opaque relations_expr.
 
-  Definition interp_val (τs : list R.type) : VR. Admitted.
+  Definition interp_val (τs : list type) : VR. Admitted.
 
-  Definition interp_inst (M : R.module_ctx) (inst : instance) : iProp Σ :=
+  Definition interp_inst (M : module_ctx) (inst : instance) : iProp Σ :=
     True.
 
-  Definition interp_ctx (L L' : R.local_ctx) (F : R.function_ctx) (inst : instance) (lh : lholed) :
+  Definition interp_ctx (L L' : local_ctx) (F : function_ctx) (inst : instance) (lh : lholed) :
     iProp Σ :=
     True.
 
   Definition semantic_typing
-    (M : R.module_ctx)
-    (F : R.function_ctx)
-    (L : R.local_ctx)
+    (M : module_ctx)
+    (F : function_ctx)
+    (L : local_ctx)
     (WL : wlocal_ctx)
     (es : list administrative_instruction)
-    (τa : R.arrow_type)
-    (L' : R.local_ctx) :
+    (τa : arrow_type)
+    (L' : local_ctx) :
     iProp Σ :=
-    let '(R.ArrowT τs1 τs2) := τa in
+    let '(ArrowT τs1 τs2) := τa in
     ∀ inst lh,
     interp_inst M inst ∗ interp_ctx L L' F inst lh -∗
     ∀ f vs,
