@@ -6,6 +6,6 @@
 
 (rule
   (target rw.v)
-  (deps rw.sig)
+  (deps prelude.v rw.sig)
   (action
-    (run autosubst -o %{target} -v ge813 -f -no-static %{deps})))
+    (run autosubst -o %{target} -f -no-static -p %{deps})))

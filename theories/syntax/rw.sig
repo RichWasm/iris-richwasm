@@ -1,6 +1,8 @@
-list : Functor
-
 nat : Type
+path : Type
+
+list : Functor
+prod : Functor
 
 linearity : Type
 Lin : linearity
@@ -53,7 +55,7 @@ NumT : kind -> num_type -> type
 SumT : kind -> "list" (type) -> type
 ProdT : kind -> "list" (type) -> type
 ArrayT : kind -> type -> type
-RefT : kind -> memory -> type
+RefT : kind -> memory -> type -> type
 GCPtrT : kind -> type -> type
 CodeRefT : kind -> function_type -> type
 RepT : kind -> representation -> type -> type
@@ -63,7 +65,7 @@ RecT : kind -> (bind type in type) -> type
 ExMemT : kind -> (bind memory in type) -> type
 ExRepT : kind -> (bind representation in type) -> type
 ExSizeT : kind -> (bind size in type) -> type
-ExTypeT : kind -> (bind type in type) -> type
+ExTypeT : kind -> kind -> (bind type in type) -> type
 
 arrow_type : Type
 ArrowT : "list" (type) -> "list" (type) -> arrow_type
@@ -75,9 +77,6 @@ FaSizeT : (bind size in function_type) -> function_type
 FaTypeT : kind -> (bind type in function_type) -> function_type
 FunT : arrow_type -> function_type
 
-local_ctx : Type
-LocalCtx : "list" (type) -> local_ctx
-
 index : Type
 MemI : memory -> index
 RepI : representation -> index
@@ -88,12 +87,8 @@ sign : Type
 SignU : sign
 SignS : sign
 
-path_component : Type
-PCProj : nat -> path_component
-PCUnwrap : path_component
-
-path : Type
-Path : "list" (path_component) -> path
+local_fx : Type
+LocalFx : "list" ("prod" (nat, type)) -> local_fx
 
 int_unop : Type
 ClzI : int_unop
@@ -174,43 +169,44 @@ IFloatRel : float_type -> float_relop -> num_instruction
 ICvt : conversion_op -> num_instruction
 
 instruction : Type
-INop : type -> instruction
-IDrop : type -> instruction
-IUnreachable : type -> instruction
-INum : type -> num_instruction -> instruction
-INumConst : type -> num_type -> nat -> instruction
-IBlock : type -> arrow_type -> local_ctx -> "list" (instruction) -> instruction
-ILoop : type -> arrow_type -> "list" (instruction) -> instruction
-IIte : type -> arrow_type -> local_ctx -> "list" (instruction) -> "list" (instruction) -> instruction
-IBr : type -> nat -> instruction
-IBrIf : type -> nat -> instruction
-IReturn : type -> instruction
-ILocalGet : type -> nat -> instruction
-ILocalSet : type -> nat -> instruction
-IGlobalGet : type -> nat -> instruction
-IGlobalSet : type -> nat -> instruction
-ICodeRef : type -> nat -> instruction
-IInst : type -> index -> instruction
-ICall : type -> nat -> "list" (index) -> instruction
-ICallIndirect : type -> instruction
-IGroup : type -> nat -> instruction
-IUngroup : type -> instruction
-IFold : type -> type -> instruction
-IUnfold : type -> instruction
-IPack : type -> kind -> index -> instruction
-IUnpack : type -> arrow_type -> local_ctx -> "list" (instruction) -> instruction
-IWrap : type -> instruction
-IUnwrap : type -> instruction
-IRefNew : type -> memory -> instruction
-IRefFree : type -> instruction
-IRefDup : type -> instruction
-IRefDrop : type -> instruction
-IRefLoad : type -> path -> instruction
-IRefStore : type -> path -> instruction
-IRefSwap : type -> path -> instruction
-IVariantNew : type -> nat -> "list" (type) -> memory -> instruction
-IVariantCase : type -> linearity -> arrow_type -> local_ctx -> "list" ("list" (instruction)) -> instruction
-IArrayNew : type -> memory -> instruction
-IArrayFree : type -> instruction
-IArrayGet : type -> instruction
-IArraySet : type -> instruction
+INop : arrow_type -> instruction
+IDrop : arrow_type -> instruction
+IUnreachable : arrow_type -> instruction
+INum : arrow_type -> num_instruction -> instruction
+INumConst : arrow_type -> num_type -> nat -> instruction
+IBlock : arrow_type -> local_fx -> "list" (instruction) -> instruction
+ILoop : arrow_type -> "list" (instruction) -> instruction
+IIte : arrow_type -> local_fx -> "list" (instruction) -> "list" (instruction) -> instruction
+IBr : arrow_type -> nat -> instruction
+IBrIf : arrow_type -> nat -> instruction
+IBrTable : arrow_type -> "list" (nat) -> nat -> instruction
+IReturn : arrow_type -> instruction
+ILocalGet : arrow_type -> nat -> instruction
+ILocalSet : arrow_type -> nat -> instruction
+IGlobalGet : arrow_type -> nat -> instruction
+IGlobalSet : arrow_type -> nat -> instruction
+ICodeRef : arrow_type -> nat -> instruction
+IInst : arrow_type -> index -> instruction
+ICall : arrow_type -> nat -> "list" (index) -> instruction
+ICallIndirect : arrow_type -> instruction
+IGroup : arrow_type -> nat -> instruction
+IUngroup : arrow_type -> instruction
+IFold : arrow_type -> type -> instruction
+IUnfold : arrow_type -> instruction
+IPack : arrow_type -> kind -> index -> instruction
+IUnpack : arrow_type -> arrow_type -> local_fx -> "list" (instruction) -> instruction
+IWrap : arrow_type -> instruction
+IUnwrap : arrow_type -> instruction
+IRefNew : arrow_type -> memory -> instruction
+IRefFree : arrow_type -> instruction
+IRefDup : arrow_type -> instruction
+IRefDrop : arrow_type -> instruction
+IRefLoad : arrow_type -> path -> instruction
+IRefStore : arrow_type -> path -> instruction
+IRefSwap : arrow_type -> path -> instruction
+IVariantNew : arrow_type -> nat -> "list" (type) -> memory -> instruction
+IVariantCase : arrow_type -> linearity -> arrow_type -> local_fx -> "list" ("list" (instruction)) -> instruction
+IArrayNew : arrow_type -> memory -> instruction
+IArrayFree : arrow_type -> instruction
+IArrayGet : arrow_type -> instruction
+IArraySet : arrow_type -> instruction

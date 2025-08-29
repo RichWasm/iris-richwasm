@@ -5,19 +5,19 @@ Require Import stdpp.list.
 
 Require Import RecordUpdate.RecordUpdate.
 
-Require Import RichWasm.syntax.rw.
+From RichWasm.syntax Require Import modules rw.
 
-Record module_ctx {K : Type} :=
-  { mc_globals : list (mutability * type K);
-    mc_table : list (function_type K) }.
+Record module_ctx :=
+  { mc_globals : list (mutability * type);
+    mc_table : list function_type }.
 
 Arguments module_ctx : clear implicits.
 
-Definition local_ctx (K : Type) := list (type K).
+Definition local_ctx := list type.
 
-Record function_ctx {K : Type} :=
-  { fc_result_type : list (type K);
-    fc_labels : list (list (type K) * local_ctx K);
+Record function_ctx :=
+  { fc_result_type : list type;
+    fc_labels : list (list type * local_ctx);
     fc_location_vars : nat;
     fc_own_vars : nat;
     fc_rep_vars : nat;
@@ -26,7 +26,7 @@ Record function_ctx {K : Type} :=
 
 Arguments function_ctx : clear implicits.
 
-Definition fc_empty {K : Type} : function_ctx K :=
+Definition fc_empty : function_ctx :=
   {| fc_result_type := [];
      fc_labels := [];
      fc_location_vars := 0;
@@ -35,28 +35,29 @@ Definition fc_empty {K : Type} : function_ctx K :=
      fc_size_vars := 0;
      fc_type_vars := [] |}.
 
-Global Instance eta_function_ctx {K : Type} : Settable _ :=
-  settable! (@Build_function_ctx K)
+Global Instance eta_function_ctx : Settable _ :=
+  settable! Build_function_ctx
   <fc_result_type; fc_labels; fc_location_vars; fc_own_vars; fc_rep_vars; fc_size_vars;
    fc_type_vars>.
 
-Definition update_locals {K : Type} (le : local_effect K) (L : local_ctx K) : local_ctx K :=
-  fold_left (fun acc '(i, τ) => <[ i := τ ]> acc) le L.
+Definition update_locals (ξ : local_fx) (L : local_ctx) : local_ctx :=
+  let 'LocalFx l := ξ in
+  fold_left (fun acc '(i, τ) => <[ i := τ ]> acc) l L.
 
-Inductive rep_ok {K : Type} : function_ctx K -> representation -> Prop :=
-| VarROK (F : function_ctx K) (r : variable) :
+Inductive rep_ok : function_ctx -> representation -> Prop :=
+| VarROK (F : function_ctx) (r : nat) :
   r < F.(fc_rep_vars) -> rep_ok F (VarR r)
-| SumROK (F : function_ctx K) (ρs : list representation) :
+| SumROK (F : function_ctx) (ρs : list representation) :
   Forall (rep_ok F) ρs -> rep_ok F (SumR ρs)
-| ProdROK (F : function_ctx K) (ρs : list representation) :
+| ProdROK (F : function_ctx) (ρs : list representation) :
   Forall (rep_ok F) ρs -> rep_ok F (ProdR ρs)
-| PrimROK (F : function_ctx K) (ι : primitive_rep) :
+| PrimROK (F : function_ctx) (ι : primitive_rep) :
   rep_ok F (PrimR ι).
 
-Inductive kind_ok {K : Type} : function_ctx K -> kind -> Prop :=
-| VALTYPEOK (F : function_ctx K) (ρ : representation) (γ : linearity) :
+Inductive kind_ok : function_ctx -> kind -> Prop :=
+| VALTYPEOK (F : function_ctx) (ρ : representation) (γ : linearity) :
   rep_ok F ρ -> kind_ok F (VALTYPE ρ γ)
-| MEMTYPEOK (F : function_ctx K) (ζ : sizity) (μ : memory) (γ : linearity) :
+| MEMTYPEOK (F : function_ctx) (ζ : sizity) (μ : memory) (γ : linearity) :
   kind_ok F (MEMTYPE ζ μ γ).
 
 Inductive mono_rep : representation -> list primitive_rep -> Prop :=
@@ -87,7 +88,7 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   | F64R => 2
   end.
 
-Inductive has_kind : function_ctx kind -> type kind -> kind -> Prop :=
+Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSubValLin F τ ρ :
   has_kind F τ (VALTYPE ρ Unr) ->
   has_kind F τ (VALTYPE ρ Lin)
@@ -100,7 +101,7 @@ Inductive has_kind : function_ctx kind -> type kind -> kind -> Prop :=
 | KVar F t κ :
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F κ ->
-  has_kind F (VarT κ t) κ
+  has_kind F (VarT t) κ
 | KI32 F :
   let κ := VALTYPE (PrimR I32R) Unr in
   has_kind F (NumT κ (IntT I32T)) κ
@@ -146,16 +147,16 @@ Inductive has_kind : function_ctx kind -> type kind -> kind -> Prop :=
   has_kind F (ArrayT κ τ) κ
 | KExMem F τ κ :
   has_kind (set fc_own_vars S F) τ κ ->
-  has_kind F (ExT κ QMem τ) κ
+  has_kind F (ExMemT κ τ) κ
 | KExRep F τ κ :
   has_kind (set fc_rep_vars S F) τ κ ->
-  has_kind F (ExT κ QRep τ) κ
+  has_kind F (ExRepT κ τ) κ
 | KExSize F τ κ :
   has_kind (set fc_size_vars S F) τ κ ->
-  has_kind F (ExT κ QSize τ) κ
+  has_kind F (ExSizeT κ τ) κ
 | KExType F τ κ0 κ :
   has_kind (set fc_type_vars (cons κ0) F) τ κ ->
-  has_kind F (ExT κ (QType κ0) τ) κ
+  has_kind F (ExTypeT κ κ0 τ) κ
 | KRec F τ κ :
   (* TODO: Unfold. *)
   has_kind F τ κ ->
@@ -180,22 +181,22 @@ Inductive has_kind : function_ctx kind -> type kind -> kind -> Prop :=
   let κ := MEMTYPE (Sized (RepS ρ)) μ γ in
   has_kind F (SerT κ τ) κ.
 
-Inductive has_rep : function_ctx kind -> type kind -> representation -> Prop :=
-| RepVALTYPE (F : function_ctx kind) (τ : type kind) (ρ : representation) (γ : linearity) :
+Inductive has_rep : function_ctx -> type -> representation -> Prop :=
+| RepVALTYPE (F : function_ctx) (τ : type) (ρ : representation) (γ : linearity) :
   has_kind F τ (VALTYPE ρ γ) ->
   has_rep F τ ρ.
 
-Inductive mono_sized : function_ctx kind -> type kind -> Prop :=
-| MonoSized (F : function_ctx kind) (τ : type kind) (ρ : representation) (ιs : list primitive_rep) :
+Inductive mono_sized : function_ctx -> type -> Prop :=
+| MonoSized (F : function_ctx) (τ : type) (ρ : representation) (ιs : list primitive_rep) :
   has_rep F τ ρ ->
   mono_rep ρ ιs ->
   mono_sized F τ.
 
-Inductive is_unrestricted : function_ctx kind -> type kind -> Prop :=
-| UnrVALTYPE (F : function_ctx kind) (τ : type kind) (ρ : representation) :
+Inductive is_unrestricted : function_ctx -> type -> Prop :=
+| UnrVALTYPE (F : function_ctx) (τ : type) (ρ : representation) :
   has_kind F τ (VALTYPE ρ Unr) ->
   is_unrestricted F τ
-| UnrMEMTYPE (F : function_ctx kind) (τ : type kind) (ζ : sizity) (μ : memory) :
+| UnrMEMTYPE (F : function_ctx) (τ : type) (ζ : sizity) (μ : memory) :
   has_kind F τ (MEMTYPE ζ μ Unr) ->
   is_unrestricted F τ.
 
@@ -210,21 +211,30 @@ Inductive convertible_to : list primitive_rep -> list primitive_rep -> Prop :=
 | ConvertPtr ιs1 ιs2 :
   convertible_to (PtrR :: ιs1) (PtrR :: ιs2).
 
-Inductive path_to {K : Type} : path -> type K -> list (type K) -> type K -> Prop :=
+Inductive path_to : path -> type -> list type -> type -> Prop :=
 | PathToNil τ :
   path_to [] τ [] τ
-| PathToRep ann π ρ τ τs τ' :
+| PathToRep κ π ρ τ τs τ' :
   path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (RepT ann ρ τ) τs τ'
-| PathToPad ann π σ τ τs τ' :
+  path_to (PCUnwrap :: π) (RepT κ ρ τ) τs τ'
+| PathToPad κ π σ τ τs τ' :
   path_to (PCUnwrap :: π) τ τs τ' ->
-  path_to π (PadT ann σ τ) τs τ'
-| PathToSer ann π τ τs τ' :
+  path_to π (PadT κ σ τ) τs τ'
+| PathToSer κ π τ τs τ' :
   path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (SerT ann τ) τs τ'
-| PathToEx ann π δ τ τs τ' :
+  path_to (PCUnwrap :: π) (SerT κ τ) τs τ'
+| PathToExMem π κ τ τs τ' :
   path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (ExT ann δ τ) τs τ'
+  path_to (PCUnwrap :: π) (ExMemT κ τ) τs τ'
+| PathToExRep π κ τ τs τ' :
+  path_to π τ τs τ' ->
+  path_to (PCUnwrap :: π) (ExRepT κ τ) τs τ'
+| PathToExSize π κ τ τs τ' :
+  path_to π τ τs τ' ->
+  path_to (PCUnwrap :: π) (ExSizeT κ τ) τs τ'
+| PathToExType π κ κ0 τ τs τ' :
+  path_to π τ τs τ' ->
+  path_to (PCUnwrap :: π) (ExTypeT κ κ0 τ) τs τ'
 | PathToRec ann π τ τs τ' :
   path_to π τ τs τ' ->
   path_to (PCUnwrap :: π) (RecT ann τ) τs τ'
@@ -233,28 +243,38 @@ Inductive path_to {K : Type} : path -> type K -> list (type K) -> type K -> Prop
   path_to π τ0 τs τ ->
   path_to (PCProj n :: π) (ProdT ann (τs0 ++ τ0 :: τs')) (τs0 ++ τs) τ.
 
-Inductive update_at {K : Type} : path -> type K -> type K -> type K -> type K -> Prop :=
+(* TODO: Merge this with path_to. *)
+Inductive update_at : path -> type -> type -> type -> type -> Prop :=
 | UpdateAtNil τ τ' :
   update_at [] τ τ τ' τ'
-| UpdateAtRep ann π ρ τ τ' τ__π τ__π' :
+| UpdateAtRep κ π ρ τ τ' τ__π τ__π' :
   update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (RepT ann ρ τ) τ__π (RepT ann ρ τ') τ__π'
-| UpdateAtPad ann π σ τ τ' τ__π τ__π' :
+  update_at (PCUnwrap :: π) (RepT κ ρ τ) τ__π (RepT κ ρ τ') τ__π'
+| UpdateAtPad κ π σ τ τ' τ__π τ__π' :
   update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (PadT ann σ τ) τ__π (PadT ann σ τ') τ__π'
-| UpdateAtSer ann π τ τ' τ__π τ__π' :
+  update_at (PCUnwrap :: π) (PadT κ σ τ) τ__π (PadT κ σ τ') τ__π'
+| UpdateAtSer κ π τ τ' τ__π τ__π' :
   update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (SerT ann τ) τ__π (SerT ann τ') τ__π'
-| UpdateAtEx ann π δ τ τ' τ__π τ__π'  :
+  update_at (PCUnwrap :: π) (SerT κ τ) τ__π (SerT κ τ') τ__π'
+| UpdateAtExMem κ π τ τ' τ__π τ__π'  :
   update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (ExT ann δ τ) τ__π (ExT ann δ τ') τ__π'
-| UpdateAtRec ann π τ τ' τ__π τ__π' :
+  update_at (PCUnwrap :: π) (ExMemT κ τ) τ__π (ExMemT κ τ') τ__π'
+| UpdateAtExRep κ π τ τ' τ__π τ__π'  :
   update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (RecT ann τ) τ__π (RecT ann τ') τ__π'
-| UpdateAtProd ann π τ τ' τ__π τ__π' τs τs' n :
+  update_at (PCUnwrap :: π) (ExRepT κ τ) τ__π (ExRepT κ τ') τ__π'
+| UpdateAtExSize κ π τ τ' τ__π τ__π'  :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (ExSizeT κ τ) τ__π (ExSizeT κ τ') τ__π'
+| UpdateAtExType κ κ0 π τ τ' τ__π τ__π'  :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (ExTypeT κ κ0 τ) τ__π (ExTypeT κ κ0 τ') τ__π'
+| UpdateAtRec κ π τ τ' τ__π τ__π' :
+  update_at π τ τ__π τ' τ__π' ->
+  update_at (PCUnwrap :: π) (RecT κ τ) τ__π (RecT κ τ') τ__π'
+| UpdateAtProd κ π τ τ' τ__π τ__π' τs τs' n :
   length τs = n ->
   update_at π τ τ__π τ' τ__π' ->
-  update_at (PCProj n :: π) (ProdT ann (τs ++ τ :: τs')) τ__π (ProdT ann (τs ++ τ' :: τs')) τ__π'.
+  update_at (PCProj n :: π) (ProdT κ (τs ++ τ :: τs')) τ__π (ProdT κ (τs ++ τ' :: τs')) τ__π'.
 
 Inductive mono_size : size -> nat -> Prop :=
 | MonoSizeSum σs ns :
@@ -269,7 +289,7 @@ Inductive mono_size : size -> nat -> Prop :=
 | MonoSizeConst n :
   mono_size (ConstS n) n.
 
-Inductive stores_as : function_ctx kind -> type kind -> type kind -> Prop :=
+Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SASer F κ τ :
   stores_as F τ (SerT κ τ)
 | SAPad F κ τ τ' ρ ιs σ n :
@@ -286,22 +306,16 @@ Inductive stores_as : function_ctx kind -> type kind -> type kind -> Prop :=
 (* Handy name for the converse of stores_as. *)
 Definition loads_as F τ τ' := stores_as F τ' τ.
 
-Inductive module_ctx_ok : module_ctx kind -> Prop :=
-| MC_OK (gs : list (mutability * type kind)) ts :
+Inductive module_ctx_ok : module_ctx -> Prop :=
+| MC_OK (gs : list (mutability * type)) ts :
   Forall (fun '(_, τ) => is_unrestricted fc_empty τ) gs ->
   module_ctx_ok {| mc_globals := gs; mc_table := ts |}.
 
 (* TODO *)
-Inductive num_instr_has_type : num_instr -> arrow_type kind -> Prop :=.
+Inductive num_instr_has_type : num_instruction -> arrow_type -> Prop :=.
 
 Inductive instr_has_type :
-  module_ctx kind ->
-  function_ctx kind ->
-  local_ctx kind ->
-  instr (arrow_type kind) kind ->
-  arrow_type kind ->
-  local_ctx kind ->
-  Prop :=
+  module_ctx -> function_ctx -> local_ctx -> instruction -> arrow_type -> local_ctx -> Prop :=
 | TNop M F L :
   let χ := ArrowT [] [] in
   instr_has_type M F L (INop χ) χ L
@@ -309,38 +323,37 @@ Inductive instr_has_type :
   is_unrestricted F τ ->
   let χ := ArrowT [τ] [] in
   instr_has_type M F L (IDrop χ) χ L
-| TUnreachable M F L τs1 τs2 le :
-  let L' := update_locals le L in
+| TUnreachable M F L L' τs1 τs2 :
   let χ := ArrowT τs1 τs2 in
   instr_has_type M F L (IUnreachable χ) χ L'
-| TNum M F L en χ :
-  num_instr_has_type en χ ->
-  instr_has_type M F L (INum χ en) χ L
+| TNum M F L eₙ χ :
+  num_instr_has_type eₙ χ ->
+  instr_has_type M F L (INum χ eₙ) χ L
 | TNumConst M F L κ ν n :
   has_kind F (NumT κ ν) κ ->
   let χ := ArrowT [] [NumT κ ν] in
   instr_has_type M F L (INumConst χ ν n) χ L
-| TBlock M F L τs1 τs2 le es :
-  let L' := update_locals le L in
+| TBlock M F L τs1 τs2 ξ es :
+  let L' := update_locals ξ L in
   let F' := set fc_labels (cons (τs2, L')) F in
   let χ := ArrowT τs1 τs2 in
-  expr_has_type M F' L es χ L' ->
-  instr_has_type M F L (IBlock χ (ArrowT τs1 τs2) le es) χ L'
+  instrs_have_type M F' L es χ L' ->
+  instr_has_type M F L (IBlock χ ξ es) χ L'
 | TLoop M F L τs1 τs2 es :
   let F' := set fc_labels (cons (τs1, L)) F in
   let χ := ArrowT τs1 τs2 in
-  expr_has_type M F' L es χ L ->
-  instr_has_type M F L (ILoop χ χ es) χ L
-| TIte M F L χ le es1 es2 :
-  let L' := update_locals le L in
-  expr_has_type M F L es1 χ L' ->
-  expr_has_type M F L es2 χ L' ->
-  instr_has_type M F L (IIte χ χ le es1 es2) χ L'
-| TBr M F L n τs τs1 τs2 le :
+  instrs_have_type M F' L es χ L ->
+  instr_has_type M F L (ILoop χ es) χ L
+| TIte M F L χ ξ es1 es2 :
+  let L' := update_locals ξ L in
+  instrs_have_type M F L es1 χ L' ->
+  instrs_have_type M F L es2 χ L' ->
+  instr_has_type M F L (IIte χ ξ es1 es2) χ L'
+| TBr M F L n τs τs1 τs2 ξ :
   F.(fc_labels) !! n = Some (τs, L) ->
   Forall (is_unrestricted F) τs1 ->
   let χ := ArrowT (τs1 ++ τs) τs2 in
-  let L' := update_locals le L in
+  let L' := update_locals ξ L in
   instr_has_type M F L (IBr χ n) χ L'
 | TBrIf M F L n τs κ :
   F.(fc_labels) !! n = Some (τs, L) ->
@@ -355,10 +368,9 @@ Inductive instr_has_type :
   has_kind F τ κ ->
   let χ := ArrowT (τs1 ++ τs ++ [τ]) τs2 in
   instr_has_type M F L (IBrTable χ ns n) χ L'
-| TReturn M F L le τs τs1 τs2 :
+| TReturn M F L L' τs τs1 τs2 :
   F.(fc_result_type) = τs ->
   Forall (is_unrestricted F) τs1 ->
-  let L' := update_locals le L in
   let χ := ArrowT (τs1 ++ τs) τs2 in
   instr_has_type M F L (IReturn χ) χ L'
 | TLocalGet M F L n τ ρ κ0 κ :
@@ -517,17 +529,11 @@ Inductive instr_has_type :
   let χ := ArrowT [τ; τᵥ'] [τ'; τᵥ] in
   instr_has_type M F L (IRefSwap χ π) χ L
 
-with expr_has_type :
-  module_ctx kind ->
-  function_ctx kind ->
-  local_ctx kind ->
-  expr (arrow_type kind) kind ->
-  arrow_type kind ->
-  local_ctx kind ->
-  Prop :=
+with instrs_have_type :
+  module_ctx -> function_ctx -> local_ctx -> list instruction -> arrow_type -> local_ctx -> Prop :=
 | TNil M F L :
-  expr_has_type M F L [] (ArrowT [] []) L
+  instrs_have_type M F L [] (ArrowT [] []) L
 | TCons M F L1 L2 L3 e es τs1 τs2 τs3 :
   instr_has_type M F L1 e (ArrowT τs1 τs2) L2 ->
-  expr_has_type M F L2 es (ArrowT τs2 τs3) L3 ->
-  expr_has_type M F L1 (e :: es) (ArrowT τs1 τs3) L3.
+  instrs_have_type M F L2 es (ArrowT τs2 τs3) L3 ->
+  instrs_have_type M F L1 (e :: es) (ArrowT τs1 τs3) L3.
