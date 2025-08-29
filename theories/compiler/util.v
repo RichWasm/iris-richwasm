@@ -1,8 +1,7 @@
 Require Wasm.datatypes.
 
-Require RichWasm.syntax.
+Require Import RichWasm.syntax.
 
-Module R := RichWasm.syntax.
 Module W := Wasm.datatypes.
 
 Inductive error :=
@@ -29,11 +28,11 @@ Record module_runtime :=
     mr_table : W.tableidx }.
 
 Record module_env :=
-  { me_globals : list R.type;
+  { me_globals : list type;
     me_runtime : module_runtime }.
 
 Record function_env :=
-  { fe_return_type : list R.type;
+  { fe_return_type : list type;
     fe_wlocal_offset : nat }.
 
 Inductive VarScope :=

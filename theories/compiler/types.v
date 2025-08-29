@@ -10,29 +10,54 @@ From ExtLib.Structures Require Import Functor Monads Traversable.
 
 From Wasm Require datatypes operations.
 
-Require RichWasm.syntax.
+Require Import RichWasm.syntax.
 Require Import RichWasm.util.stdpp_extlib.
 Require Import RichWasm.compiler.util.
 
-Module R := RichWasm.syntax.
 Module W. Include datatypes <+ operations. End W.
 
-Definition translate_prim_rep (ι : R.primitive_rep) : W.value_type :=
+Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=
   match ι with
-  | R.PtrR => W.T_i32
-  | R.I32R => W.T_i32
-  | R.I64R => W.T_i64
-  | R.F32R => W.T_f32
-  | R.F64R => W.T_f64
+  | PtrR => W.T_i32
+  | I32R => W.T_i32
+  | I64R => W.T_i64
+  | F32R => W.T_f32
+  | F64R => W.T_f64
   end.
 
-Definition translate_sum_rep (ρs : list R.representation) : option (list W.value_type).
+Definition translate_sum_rep (ρs : list representation) : option (list W.value_type).
 Admitted.
 
-Fixpoint translate_rep (ρ : R.representation) : option (list W.value_type) :=
+Fixpoint translate_rep (ρ : representation) : option (list W.value_type) :=
   match ρ with
-  | R.VarR _ => None
-  | R.SumR ρs => translate_sum_rep ρs
-  | R.ProdR ρs => flatten <$> mapM translate_rep ρs
-  | R.PrimR ι => Some [translate_prim_rep ι]
+  | VarR _ => None
+  | SumR ρs => translate_sum_rep ρs
+  | ProdR ρs => flatten <$> mapM translate_rep ρs
+  | PrimR ι => Some [translate_prim_rep ι]
+  end.
+
+Definition kind_rep (κ : kind) : option representation :=
+  match κ with
+  | VALTYPE ρ _ => Some ρ
+  | MEMTYPE _ _ _ => None
+  end.
+
+Definition type_rep (κs : list kind) (τ : type) : option representation :=
+  match τ with
+  | VarT t => κs !! t ≫= kind_rep
+  | NumT κ _
+  | SumT κ _
+  | ProdT κ _
+  | ArrayT κ _
+  | RefT κ _ _
+  | GCPtrT κ _
+  | CodeRefT κ _
+  | RepT κ _ _
+  | PadT κ _ _
+  | SerT κ _
+  | RecT κ _
+  | ExMemT κ _
+  | ExRepT κ _
+  | ExSizeT κ _
+  | ExTypeT κ _ _ => kind_rep κ
   end.
