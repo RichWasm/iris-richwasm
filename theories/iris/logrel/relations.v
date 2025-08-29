@@ -49,7 +49,6 @@ Section Relations.
   Implicit Type f : leibnizO frame.
   Implicit Type cl : leibnizO function_closure.
   Implicit Type lh_es : leibnizO (lholed * list administrative_instruction).
-  Implicit Type i : leibnizO instance.
 
   Implicit Type τ : leibnizO type.
   Implicit Type τs : leibnizO (list type).
@@ -59,7 +58,50 @@ Section Relations.
   Definition sem_kind := sem_type -> iProp Σ.
   Notation KR := (sem_typeO -n> iPropO Σ).
   
-  
+  Definition prim_repr_interp (ι : primitive_rep) (w: value) : Prop :=
+    match ι with
+    | PtrR => ∃ i, w = VAL_int32 i
+    | I32R => ∃ i, w = VAL_int32 i
+    | I64R => ∃ i, w = VAL_int64 i
+    | F32R => ∃ f: f32, w = VAL_float32 f
+    | F64R => ∃ f: f64, w = VAL_float64 f
+    end.
+    
+  (*
+  Fixpoint repr_val_interp (ρ: representation) (ws: list value) {struct ρ} : Prop :=
+    match ρ with
+    | VarR n => False
+    | SumR ρs => False
+    | ProdR ρs => ∃ wss, ws = flatten wss /\ reprs_vals_interp ρs wss
+    | PrimR ι => ∃ w, ws = [w] /\ prim_repr_interp ι w
+    end
+  with reprs_vals_interp (ρs: list representation) (wss : list (list value)) {struct ρs} : Prop :=
+    match ρs with
+    | [], [] => True
+    | ρ::ρs', ws::wss' => repr_val_interp ρ ws /\ reprs_vals_interp ρs' wss'
+    | _, _ => False
+    end.
+    | cons ρ ρs => repr_val_interp ρ
+    end
+    Forall2 repr_val_interp ρs.
+
+
+  Definition repr_interp (ρ : representation) : sem_kind :=
+    match ρ with
+    | VarR n => _
+    | SumR ρs => _
+    | ProdR ρs => λ T, ∀ v, T v -> ∃ vs, v = flatten vs /\ Forall2 (repr_interp) ρs 
+    | PrimR ι => λ T, ∀ v, T v -> ∃v0, v = [v0] /\ prim_repr_interp v0
+    end
+    
+
+  Definition kind_interp (κ : kind) : sem_kind := 
+    match κ with
+    | VALTYPE ρ γ =>
+        λ T, ∀ v, 
+    | MEMTYPE ζ μ γ => 
+        λ T, 
+*)  
 
   Definition relations : Type :=
     (* Physical Value *)
