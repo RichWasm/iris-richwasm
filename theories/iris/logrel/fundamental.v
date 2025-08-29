@@ -17,13 +17,13 @@ From Wasm.iris.language Require Export iris_atomicity.
 From Wasm.iris.rules Require Export iris_rules.
 From Wasm.iris.logrel Require iris_logrel.
 
-From RichWasm Require Import subst term typing.
+From RichWasm Require Import syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
 From RichWasm.iris Require Import autowp gc num_reprs util.
 From RichWasm.iris.logrel Require Import relations util.
 From RichWasm.util Require Import debruijn stdpp_extlib.
 
-Module RT := RichWasm.term.
+Module RT := RichWasm.syntax.
 Module T := RichWasm.typing.
 
 Import uPred.
@@ -104,265 +104,24 @@ Section Fundamental.
   Proof.
   Admitted.
 
-  Lemma compiler_wctx_mono M F es es' wl wl' x :
-    run_codegen (compile_instrs M F es) wl = inr (x, wl', es') ->
+  Lemma compiler_wctx_mono M es es' wl wl' x :
+    run_codegen (compile_instrs M es) wl = inr (x, wl', es') ->
     wl `prefix_of` wl'.
   Proof.
   Admitted.
 
-  Lemma compat_nop me fe wl wl' C F L es :
-    QualValid (fc_qual F) (list.get_hd (fc_linear F)) ->
-    run_codegen (compile_instr me fe (INop (Arrow [] [], LSig L L))) wl =
-    inr ((), wl', es) ->
-    ⊢ semantic_typing sr C F L [] (to_e_list es) (Arrow [] []) L.
-  Proof.
-    intros Hqual Hcomp.
-    cbn in Hcomp.
-    inversion Hcomp; subst es.
-    unfold semantic_typing.
-    iIntros (inst lh) "[Hinst Hctx] %f %vs [Hvs Hfr]".
-    rewrite interp_expr_eq interp_frame_eq.
-    cbn.
-    iDestruct "Hvs" as "[%Htrap | (%ws & -> & %wss & -> & Hvs)]". 
-    - (* trap case *)
-      admit.
-    - iApply wp_val_app; [|iSplitR].
-      + rewrite to_of_val.
-        reflexivity.
-      + iIntros "!> (%ws & %Htrap & B)".
-        congruence.
-      + iDestruct "Hfr" as "[Hf Hfrel]".
-        iApply (wp_wand with "[Hf]").
-        * iApply (wp_nop with "[$]").
-          fill_imm_pred.
-        * iIntros (vs) "[-> Hf]".
-          cbn.
-          iExists (flatten wss).
-          iSplitR; [by rewrite cats0|].
-          iSplitL "Hvs"; [iExists _; eauto|].
-          iExists f.
-          rewrite interp_frame_eq.
-          iFrame.
-  Admitted.
-
-  Lemma compat_struct_get M F L me fe ty cap l hty taus szs i es wl wl' :
-    hty = StructType (combine taus szs) ->
-    HasTypeInstr M F L
-      (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) i)
-      (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L ->
-    run_codegen (compile_instr me fe
-                   (IStructGet (Arrow [RefT cap l hty] [RefT cap l hty; ty], LSig L L) i)) wl =
-    inr (tt, wl', es) ->
-    ⊢ semantic_typing sr M F L [] (to_e_list es) (Arrow [RefT cap l hty] [RefT cap l hty; ty]) L.
-  Proof.
-    intros -> Htype Hcomp.
-    iIntros "%inst %lh [Hinst Hctx] %f %vs [Hval Hfr]".
-    rewrite interp_expr_eq.
-    rewrite interp_frame_eq.
-    iDestruct "Hval" as "[-> | (%vs' & -> & Hval)]".
-    - (* trap *)
-      admit.
-    - iDestruct "Hval" as "(%vss & %Hvs' & Hval)".
-      simpl in Hvs'. subst vs'.
-      iPoseProof (big_sepL2_length with "[$Hval]") as "%Hlens".
-      destruct vss as [|vs vss]; cbn in Hlens; first discriminate Hlens.
-      destruct vss; cbn in Hlens; try discriminate Hlens. clear Hlens.
-      rewrite big_sepL2_singleton.
-      setoid_rewrite interp_value_phys_eq.
-      cbn.
-      setoid_rewrite app_nil_r.
-      destruct l; first by iExFalso.
-
-      (* Break the typing judgment apart. *)
-      inversion Htype.
-      subst C F0 L0 psi cap0 l tau n.
-      rewrite <- H1 in *.
-      clear taus szs Htype H1 H3 H2 H4 H11.
-      rename taus0 into tys, szs0 into szs, H9 into Htys_szs_len, H12 into Htys_i, H13 into Hunr,
-             H14 into HL_valid, H15 into Hhty_valid, H16 into Hty_valid, H17 into Hqual_valid.
-
-      (* Break the compiler apart. *)
-      unfold compile_instr, compile_struct_get in Hcomp.
-      apply run_codegen_bind_dist in Hcomp.
-      destruct Hcomp as (x1 & wl1 & es1 & es2 & Hcomp1 & Hcomp2 & Hes).
-      cbn in Hcomp1.
-      inversion Hcomp1.
-      subst x1 wl1 es es1.
-      clear Hcomp1.
-      rewrite combine_split in Hcomp2; last assumption.
-      apply run_codegen_bind_dist in Hcomp2.
-      destruct Hcomp2 as (x2 & wl2 & es3 & es4 & Hcomp2 & Hcomp3 & Hes2).
-      cbn in Hcomp2.
-      inversion Hcomp2.
-      subst x2 wl2 es2 es3.
-      clear Hcomp2.
-      apply run_codegen_bind_dist in Hcomp3.
-      destruct Hcomp3 as ([] & wl3 & es5 & es6 & Hcomp3 & Hcomp4 & Hes4).
-      cbn in Hcomp3.
-      inversion Hcomp3.
-      subst wl3 es4 es5.
-      clear Hcomp3.
-      apply run_codegen_bind_dist in Hcomp4.
-      destruct Hcomp4 as (offset & wl4 & es7 & es8 & Hcomp4 & Hcomp5 & Hes6).
-      apply run_codegen_lift_error_inr in Hcomp4.
-      destruct Hcomp4 as (Hoffset & Hwl & Hes7).
-      subst wl4 es6 es7.
-      apply run_codegen_bind_dist in Hcomp5.
-      destruct Hcomp5 as ([] & wl5 & es9 & es10 & Hcomp5 & Hcomp6 & Hes8).
-      subst es8.
-      apply run_codegen_bind_dist in Hcomp6.
-      destruct Hcomp6 as (x6 & wl6 & es11 & es12 & Hcomp6 & Hcomp7 & Hes10).
-      cbn in Hcomp6.
-      inversion Hcomp6.
-      subst x6 wl6 es10 es11.
-      clear Hcomp6.
-      apply run_codegen_bind_dist in Hcomp7.
-      destruct Hcomp7 as ([] & wl7 & es13 & es14 & Hcomp7 & Hcomp8 & Hes12).
-      cbn in Hcomp7.
-      inversion Hcomp7.
-      subst wl7 es12 es13.
-      clear Hcomp7.
-      apply run_codegen_bind_dist in Hcomp8.
-      destruct Hcomp8 as (x8 & wl8 & es15 & es16 & Hcomp8 & Hcomp9 & Hes14).
-      rewrite <- nth_error_lookup in Hcomp8.
-      rewrite Htys_i in Hcomp8.
-      cbn in Hcomp8.
-      inversion Hcomp8.
-      subst x8 wl8 es14 es15.
-      clear Hcomp8.
-      apply run_codegen_bind_dist in Hcomp9.
-      destruct Hcomp9 as ([] & wl9 & es17 & es18 & Hcomp9 & Hcomp10 & Hes16).
-      subst es16.
-      apply run_codegen_bind_dist in Hcomp10.
-      destruct Hcomp10 as (field_val & wl10 & es19 & es20 & Hcomp10 & Hcomp11 & Hes18).
-      subst es18.
-      apply run_codegen_bind_dist in Hcomp11.
-      destruct Hcomp11 as (x11 & wl11 & es21 & es22 & Hcomp11 & Hcomp12 & Hes20).
-      cbn in Hcomp11.
-      inversion Hcomp11.
-      subst x11 wl11 es20 es21.
-      clear Hcomp11.
-      apply run_codegen_bind_dist in Hcomp12.
-      destruct Hcomp12 as ([[] []] & wl12 & es23 & es24 & Hcomp12 & Hcomp13 & Hes22).
-      subst es22.
-      rename Hcomp5 into Hcomp1, Hcomp9 into Hcomp2, Hcomp10 into Hcomp3, Hcomp12 into Hcomp4,
-        Hcomp13 into Hcomp5, wl5 into wl1, wl9 into wl2, wl10 into wl3, wl12 into wl4, es9 into es1,
-        es17 into es2, es19 into es3, es23 into es4, es24 into es5.
-  Admitted.
-
-  Theorem fundamental_property M F L L' me fe es es' tf wl wl' :
-    HasTypeInstrs M F L es tf L' ->
-    run_codegen (compile_instrs me fe es) wl = inr (tt, wl', es') ->
+  Theorem fundamental_property M F L L' me es es' tf wl wl' :
+    instrs_have_type M F L es tf L' ->
+    run_codegen (compile_instrs me es) wl = inr (tt, wl', es') ->
     ⊢ semantic_typing sr M F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
-    induction Htyp using HasTypeInstrs_mind with (P := fun C F L e ta L' _ =>
-      forall es',
-      run_codegen (compile_instr me fe e) wl = inr (tt, wl', es') ->
+    induction Htyp using instrs_have_type_mind with
+      (P := fun C F L e ta L' _ => forall es',
+      run_codegen (compile_instr me e) wl = inr (tt, wl', es') ->
       ⊢ semantic_typing sr C F L [] (to_e_list es') ta L');
-    intros es' Hcomp.
-    - (* INumConst *)
-      admit.
-    - (* IUnit *)
-      admit.
-    - (* INum *)
-      admit.
-    - (* IUnreachable *)
-      admit.
-    - (* INop *)
-      eapply compat_nop.
-      + assumption.
-      + exact Hcomp.
-    - (* IDrop *)
-      admit.
-    - (* IBlock *)
-      admit.
-    - (* ILoop *)
-      admit.
-    - (* IIte *)
-      admit.
-    - (* IBr *)
-      admit.
-    - (* IBrIf *)
-      admit.
-    - (* IBrTable *)
-      admit.
-    - (* IRet *)
-      admit.
-    - (* IGetLocal *)
-      admit.
-    - (* ISetLocal *)
-      admit.
-    - (* IGetGlobal *)
-      admit.
-    - (* ISetGlobal *)
-      admit.
-    - (* ICoderef *)
-      admit.
-    - (* ICallIndirect *)
-      admit.
-    - (* ICall *)
-      admit.
-    - (* IRecFold *)
-      admit.
-    - (* IRecUnfold *)
-      admit.
-    - (* IGroup *)
-      admit.
-    - (* IUngroup *)
-      admit.
-    - (* ICapSplit *)
-      admit.
-    - (* ICapJoin *)
-      admit.
-    - (* IRefDemote *)
-      admit.
-    - (* IMemPack *)
-      admit.
-    - (* IMemUnpack *)
-      admit.
-    - (* IStructMalloc *)
-      admit.
-    - (* IStructFree *)
-      admit.
-    - (* IStructGet *)
-      eapply compat_struct_get with (i := n).
-      + reflexivity.
-      + apply TStructGet; assumption.
-      + exact Hcomp.
-    - (* IStructSet *)
-      admit.
-    - (* IStructSwap *)
-      admit.
-    - (* IVariantMalloc *)
-      admit.
-    - (* IVariantCase - Unrestricted *)
-      admit.
-    - (* IVariantCase - Linear *)
-      admit.
-    - (* IArrayMalloc *)
-      admit.
-    - (* IArrayGet *)
-      admit.
-    - (* IArraySet *)
-      admit.
-    - (* IArrayFree *)
-      admit.
-    - (* IExistPack *)
-      admit.
-    - (* IExistUnpack - Unrestricted *)
-      admit.
-    - (* IExistUnpack - Linear *)
-      admit.
-    - (* IRefSplit *)
-      admit.
-    - (* IRefJoin *)
-      admit.
-    - (* Empty *)
-      admit.
-    - (* Cons *)
-      admit.
+    intros es' Hcomp; admit.
   Admitted.
 
   Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
@@ -434,6 +193,7 @@ Section Fundamental.
       lia.
   Qed.
 
+  (*
   Lemma gc_ptr_parity ℓ l32:
     ptr_repr (LocP ℓ GCMem) l32 ->
     wasm_bool (Wasm_int.Int32.eq Wasm_int.Int32.zero (Wasm_int.Int32.iand l32 (Wasm_int.Int32.repr 1))) = Wasm_int.int_zero i32m.
@@ -695,4 +455,5 @@ Section Fundamental.
         congruence.
   Qed.
 
+*)
 End Fundamental.

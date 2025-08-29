@@ -537,3 +537,6 @@ with instrs_have_type :
   instr_has_type M F L1 e (ArrowT τs1 τs2) L2 ->
   instrs_have_type M F L2 es (ArrowT τs2 τs3) L3 ->
   instrs_have_type M F L1 (e :: es) (ArrowT τs1 τs3) L3.
+
+Scheme instr_has_type_mind := Induction for instr_has_type Sort Prop
+  with instrs_have_type_mind := Induction for instrs_have_type Sort Prop.

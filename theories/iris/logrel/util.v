@@ -2,7 +2,7 @@ From mathcomp Require Import eqtype seq.
 
 Require Import iris.proofmode.tactics.
 
-Require Import RichWasm.term.
+Require Import RichWasm.syntax.
 Require Import RichWasm.compiler.types.
 From RichWasm.iris Require Import num_reprs util.
 Import uPred.
@@ -11,11 +11,13 @@ Definition wasm_deserialize_values (bs : bytes) (tys : list value_type) : list v
   let bs' := reshape (map length_t tys) bs in
   zip_with wasm_deserialise bs' tys.
 
-Definition deserialize_values (bs : bytes) : Typ -> list value :=
-  wasm_deserialize_values bs ∘ translate_type.
+Definition deserialize_values (bs : bytes) (κs : seq.seq kind) (τ: type) : option (list value) :=
+  τ' ← translate_type κs τ;
+  mret (wasm_deserialize_values bs τ').
 
 Definition word_aligned (n : N) : Prop := (4 | n)%N.
 
+(*
 Definition ptr_repr (l : R.Loc) (i : i32) : Prop :=
   match l with
   | R.LocV v => False
@@ -39,7 +41,7 @@ Fixpoint eval_closed_size (sz : R.Size) : option nat :=
       n2 ← eval_closed_size sz2;
       Some (n1 + n2)
   end.
-
+*)
 Ltac solve_iprop_ne :=
   repeat (apply exist_ne +
             apply intuitionistically_ne +
