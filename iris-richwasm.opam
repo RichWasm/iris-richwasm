@@ -28,3 +28,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/RichWasm/iris-richwasm.git"
+pin-depends: [
+  ["coq-autosubst-ocaml.0.2" "git+https://github.com/uds-psl/autosubst-ocaml#coq-8.20"]
+]
