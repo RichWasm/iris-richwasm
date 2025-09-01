@@ -53,6 +53,34 @@
             };
           };
 
+          autosubst-ocaml = ocamlPackages.buildDunePackage {
+            pname = "coq-autosubst-ocaml";
+            version = "0.2";
+
+            src = pkgs.fetchFromGitHub {
+              owner = "uds-psl";
+              repo = "autosubst-ocaml";
+              rev = "d26c0d70fc6a80e31558337690c86c3cc5fa760b";
+              hash = "sha256-nRipTaiqhzU3xJCiApZwyN6gu8dazmfxyLjXcYx96cc=";
+            };
+
+            nativeBuildInputs = [ coq ];
+
+            buildInputs =
+              with ocamlPackages;
+              [
+                findlib
+                ocamlgraph
+                angstrom
+                ppx_deriving
+                ppxlib
+              ]
+              ++ [
+                coqPackages.stdlib
+                coq
+              ];
+          };
+
           vscoq-language-server = ocamlPackages.buildDunePackage rec {
             pname = "vscoq-language-server";
             version = "2.2.6";
@@ -117,9 +145,11 @@
               coqPackages.ITree
               pkgs.compcert
               self.packages.${pkgs.system}.parseque
+              self.packages.${pkgs.system}.autosubst-ocaml
               coqPackages.hierarchy-builder
               coqPackages.mathcomp
               coqPackages.mathcomp-ssreflect
+              coqPackages.coq-record-update
               ocamlPackages.zarith
             ];
           };
