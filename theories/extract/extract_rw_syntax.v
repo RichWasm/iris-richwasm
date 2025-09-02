@@ -1,6 +1,9 @@
 From Coq Require Import Extraction.
 Require Import ExtrOcamlBasic.
 Require Import ExtrOcamlZBigInt.
+
+Set Warnings "-extraction-default-directory".
+
 Extraction Language OCaml.
 Set Extraction AutoInline.
 Set Extraction Optimize.
