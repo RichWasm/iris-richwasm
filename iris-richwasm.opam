@@ -11,6 +11,7 @@ depends: [
   "dune" {>= "3.16"}
   "coq-autosubst-ocaml" {= "0.2"}
   "coq-record-update" {>= "0.3.4"}
+  "zarith" {>= "1.14"}
   "odoc" {with-doc}
 ]
 build: [

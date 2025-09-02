@@ -11,7 +11,8 @@
   (name iris-richwasm)
   (depends
     (coq-autosubst-ocaml (= 0.2))
-    (coq-record-update (>= 0.3.4)))
+    (coq-record-update (>= 0.3.4))
+    (zarith (>= 1.14)))
   (synopsis "RichWasm formalization in Coq and Iris")
   (description "RichWasm formalization in Coq based on Iris-Wasm.")
   (maintainers

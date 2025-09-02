@@ -1,0 +1,5 @@
+(library
+ (name richwasm_common)
+ (public_name iris-richwasm.common)
+ (modules main :standard)
+ (libraries iris-richwasm.extract))
