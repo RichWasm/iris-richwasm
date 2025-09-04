@@ -9,7 +9,6 @@ From Wasm Require Import numerics.
     This means that nat_repr is not a functional relation
     (unless you assume propositional extensionality).
 *)
-Locate "<".
 Definition nat_repr (n: nat) (n32: i32) : Prop :=
   (-1 < Z.of_nat n < Wasm_int.Int32.modulus)%Z /\
   n = Wasm_int.nat_of_uint i32m n32.

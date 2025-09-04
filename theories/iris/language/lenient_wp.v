@@ -44,8 +44,6 @@ Section lenient_wp.
         iApply wp_wasm_empty_ctx.
         iApply wp_seq_can_trap_ctx_precise; iFrame.
         iIntros (w f0) "(Hw & Hf0 & HΦf)".
-        Locate "CTX_EMPTY".
-        Search (LH_base nil nil) wp_wasm_ctx.
         unfold wp_wasm_ctx.
         iIntros (LI Hfill).
         assert (LI = (iris.of_val w ++ es2)).

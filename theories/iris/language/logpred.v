@@ -4,8 +4,6 @@ Section logpred.
   Context `{!wasmG Σ}.
   Open Scope bi_scope.
 
-  Search ((_ + _ -> _) -> _).
-
   Record logpredO :=
     MkLPO {
         lpo_fr: leibnizO datatypes.frame -n> iProp Σ;
