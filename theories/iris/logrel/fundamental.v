@@ -12,10 +12,9 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.algebra Require Import list.
 From iris.prelude Require Import options.
 
-From Wasm.iris.helpers Require Export iris_properties.
-From Wasm.iris.language Require Export iris_atomicity.
-From Wasm.iris.rules Require Export iris_rules.
-From Wasm.iris.logrel Require iris_logrel.
+From RichWasm.iris.helpers Require Export iris_properties.
+From RichWasm.iris.language Require Export iris_atomicity lenient_wp lwp_pure lwp_structural lwp_resources lwp_trap.
+From RichWasm.iris.rules Require Export iris_rules.
 
 From RichWasm Require Import syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
@@ -130,6 +129,7 @@ Section Fundamental.
   Notation "{{{{ P }}}} es @ E {{{{ v , Q }}}}" :=
     (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ (WP (es : iris.expr) @ NotStuck ; E {{ v, Φ v }}))%I (at level 50).
 
+  (*
   Definition if_spec tf e_then e_else k φ ψ f : ⊢
     {{{{ ⌜k ≠ Wasm_int.int_zero i32m⌝ ∗ φ ∗ ↪[frame] f }}}}
       [AI_basic (BI_block tf e_then)]
@@ -454,6 +454,7 @@ Section Fundamental.
         rewrite byte_div_skip.
         congruence.
   Qed.
+*)
 
 *)
 End Fundamental.

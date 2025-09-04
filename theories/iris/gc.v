@@ -1,7 +1,7 @@
 From mathcomp Require Import eqtype.
+From stdpp Require Import gmap.
 From iris.proofmode Require Import base tactics classes.
-From Wasm.iris.host Require Import iris_host.
-From Wasm.iris.rules Require Import iris_rules proofmode.
+From RichWasm.iris.rules Require Import iris_rules proofmode.
 
 Set Bullet Behavior "Strict Subproofs".
 
@@ -490,14 +490,14 @@ Section GCrules.
     F.(f_inst).(inst_memory) !! memidx = Some m ->
     repr_vloc θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     blk !! j = Some vv ->
-    GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
+    GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ∗ ↪[RUN] ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i32 None N.zero off)]
        @ s; E
        {{ w, (∃ k, ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m k)]⌝ ∗ ⌜repr_vval θ vv k⌝) ∗
-             GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F }}.
+             GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[RUN] ∗ ↪[frame] F }}.
   Proof.
     iIntros (Hmem Hrepr_loc Hvv)
-      "((%info & %ζ & %roots & HGCI & HGvinfo & HGvstore & HGroots & Hvmem & Hrmem & %Hheaders & %Hroots & %Hreach) & Hℓ & HF)".
+      "((%info & %ζ & %roots & HGCI & HGvinfo & HGvstore & HGroots & Hvmem & Hrmem & %Hheaders & %Hroots & %Hreach) & Hℓ & HF & Hrun)".
     inversion Hrepr_loc as [θ' ℓ' off' a a' Hθℓ Hi Hθ' Hℓ' Hoff' Ha']. subst.
     symmetry in Hi. apply pointer_offset_eqn_Z2N in Hi.
     iDestruct (ghost_map_lookup with "HGvstore Hℓ") as "%Hζℓ".
@@ -521,13 +521,13 @@ Section GCrules.
     set ptr := (Wasm_int.N_of_uint i32m i + off)%N.
     set post := (λ w,
       ((∃ k', ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m k')]⌝ ∗ ⌜repr_vval θ vv k'⌝) ∗
-       N.of_nat m ↦[wms][ptr] serialize_z k) ∗ ↪[frame] F
+       N.of_nat m ↦[wms][ptr] serialize_z k ∗ ↪[RUN]) ∗ ↪[frame] F
     )%I.
-    iApply (wp_wand _ _ _ post with "[HF Ha_off] [HGCI HGvinfo HGvstore HGroots Hrmem Hℓ Ha Ha_rest Hvmem]").
+    iApply (wp_wand _ _ _ post with "[HF Hrun Ha_off] [HGCI HGvinfo HGvstore HGroots Hrmem Hℓ Ha Ha_rest Hvmem]").
     - (* Load the value from memory. *)
       iApply wp_load_deserialize; auto. rewrite deserialise_serialise_i32. iFrame. by iExists k.
     - (* Show that the intermediate postcondition implies the original postcondition. *)
-      iIntros (v) "[[HΦ Ha_off] HF]". iFrame "∗ %". iCombine "Ha Ha_off" as "Ha".
+      iIntros (v) "[[HΦ [Ha_off Hrun]] HF]". iFrame "∗ %". iCombine "Ha Ha_off" as "Ha".
       unfold ptr. rewrite <- Hi. rewrite <- wms_app; last (solve_i32_bytes_len Hlen_ks1).
       replace (serialize_z k) with (flat_map serialize_z [k]) by (by rewrite flat_map_singleton).
       iCombine "Ha Ha_rest" as "Ha". rewrite <- N.add_assoc.
@@ -547,15 +547,15 @@ Section GCrules.
     repr_vloc θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     blk !! j = Some (intVV k1) ->
     blk !! (j + 1) = Some (intVV k2) ->
-    GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
+    GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i64 None N.zero off)]
        @ s; E
        {{ w, (∃ k, ⌜w = immV [VAL_int64 (Wasm_int.int_of_Z i64m k)]⌝ ∗
                    ⌜repr_vval_wide θ (intVV k1) (intVV k2) k⌝) ∗
-             GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F }}.
+             GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[RUN] ∗ ↪[frame] F }}.
   Proof.
     iIntros (Hmem Hrepr_loc Hvv1 Hvv2)
-      "((%info & %ζ & %roots & HGCI & HGvinfo & HGvstore & HGroots & Hvmem & Hrmem & %Hheaders & %Hroots & %Hreach) & Hℓ & HF)".
+      "((%info & %ζ & %roots & HGCI & HGvinfo & HGvstore & HGroots & Hvmem & Hrmem & %Hheaders & %Hroots & %Hreach) & Hℓ & Hrun & HF)".
     inversion Hrepr_loc as [θ' ℓ' off' a a' Hθℓ Hi Hθ' Hℓ' Hoff' Ha']. subst.
     symmetry in Hi. apply pointer_offset_eqn_Z2N in Hi.
     iDestruct (ghost_map_lookup with "HGvstore Hℓ") as "%Hζℓ".
@@ -584,14 +584,14 @@ Section GCrules.
     set ptr := (Wasm_int.N_of_uint i32m i + off)%N.
     set post := (λ w,
       ((∃ k', ⌜w = immV [VAL_int64 (Wasm_int.int_of_Z i64m k')]⌝ ∗ ⌜repr_vval_wide θ (intVV k1) (intVV k2) k'⌝) ∗
-              N.of_nat m ↦[wms][ptr] (serialize_z k1 ++ serialize_z k2)) ∗ ↪[frame] F
+              N.of_nat m ↦[wms][ptr] (serialize_z k1 ++ serialize_z k2) ∗ ↪[RUN]) ∗ ↪[frame] F
     )%I.
-    iApply (wp_wand _ _ _ post with "[HF Ha_off] [HGCI HGvinfo HGvstore HGroots Hrmem Hℓ Ha Ha_rest Hvmem]").
+    iApply (wp_wand _ _ _ post with "[HF Hrun Ha_off] [HGCI HGvinfo HGvstore HGroots Hrmem Hℓ Ha Ha_rest Hvmem]").
     - (* Load the value from memory. *)
       iApply wp_load_deserialize; auto. rewrite serialise_split_i64. rewrite deserialise_serialise_i64.
       iFrame. iExists k. by subst k.
     - (* Show that the intermediate postcondition implies the original postcondition. *)
-      iIntros (v) "[[HΦ Ha_off] HF]". iFrame "∗ %". iCombine "Ha Ha_off" as "Ha".
+      iIntros (v) "[[HΦ [Ha_off Hrun]] HF]". iFrame "∗ %". iCombine "Ha Ha_off" as "Ha".
       unfold ptr. rewrite <- Hi. rewrite <- wms_app; last (solve_i32_bytes_len Hlen_ks1).
       replace (serialize_z k) with (flat_map serialize_z [k]) by (by rewrite flat_map_singleton).
       iCombine "Ha Ha_rest" as "Ha". rewrite <- N.add_assoc.
@@ -616,12 +616,12 @@ Section GCrules.
     repr_vloc θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     j < length blk ->
     repr_vval θ vv (Wasm_int.Z_of_uint i32m k) ->
-    GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[frame] F ⊢
+    GC I m θ ∗ ℓ ↦vblk blk ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i));
         AI_basic (BI_const (VAL_int32 k));
         AI_basic (BI_store memidx T_i32 None N.zero off)]
        @ s; E
-       {{ w, ⌜w = immV []⌝ ∗ GC I m θ ∗ ℓ ↦vblk <[ j := vv ]> blk ∗ ↪[frame] F }}.
+       {{ w, ⌜w = immV []⌝ ∗ GC I m θ ∗ ↪[RUN] ∗ ℓ ↦vblk <[ j := vv ]> blk ∗ ↪[frame] F }}.
   Admitted.
 
   Definition spec_registerroot_gc
@@ -630,7 +630,7 @@ Section GCrules.
       : iProp Σ :=
     □ ∀ (F : frame) (θ : addr_map) (ℓ : vloc) (i : i32),
     GC I m θ ∗ ⌜repr_vloc θ ℓ 0 (Wasm_int.Z_of_uint i32m i)⌝ ∗
-    N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
+    N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[RUN] ∗ ↪[frame] F -∗
     WP [AI_basic (BI_const (VAL_int32 i)); AI_invoke fid]
        @ E
        {{ w,
@@ -638,7 +638,8 @@ Section GCrules.
            ∃ k,
            ⌜w = immV [VAL_int32 k]⌝ ∗ Wasm_int.N_of_uint i32m k ↦root ℓ ∗ GC I m θ ∗
            N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes) ∗
-          ↪[frame] F }}%I.
+           ↪[RUN] ∗
+           ↪[frame] F }}%I.
 
   (* TODO: wp_loadroot_gc *)
 
@@ -654,10 +655,13 @@ Section GCrules.
        {{ w, ∃ n,
           ⌜w = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_vloc θ ℓ 0 n⌝ ∗
           GC I m θ ∗
-          N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F }}%I.
+          N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗
+          ↪[RUN] ∗
+          ↪[frame] F }}%I.
 
 End GCrules.
 
+(*
 Section GCexample.
 
   Context `{!wasmG Σ, !rwasm_gcG Σ, !hvisG Σ, !hmsG Σ, !hasG Σ, !logrel_na_invs Σ}.
@@ -772,6 +776,7 @@ Section GCexample.
 
   Definition expts := fmap ET_func func_types.
 
+  Set Printing All.
   Definition gc_spec (E : coPset) (exp_addrs : list N) (gc_mod_addr : N) : iProp Σ :=
     gc_mod_addr ↪[mods] gc_module ∗
     ∃ (I : gc_inv Σ)
@@ -1013,3 +1018,5 @@ Section GCexample.
   Admitted.
 
 End GCexample.
+
+*)

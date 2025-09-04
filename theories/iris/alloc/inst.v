@@ -4,10 +4,10 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
-From Wasm.iris.host Require Export iris_host.
-From Wasm.iris.logrel Require Export iris_fundamental_helpers.
 From RichWasm.iris.alloc.functions Require Export specs.
 From RichWasm.iris.alloc Require Export malloc_impl specs.
+From RichWasm.iris.instantiation Require Export iris_instantiation.
+From RichWasm.iris.host Require Export iris_host.
 From Wasm Require Export type_checker_reflects_typing.
 
 Set Implicit Arguments.
@@ -198,8 +198,9 @@ Section AllocModule.
     Proof.
       iIntros "(%Hexplen & %Hdisj & Hmod & Hfr & Hvis)".
       iApply (weakestpre.wp_strong_mono s _ E with "[Hmod Hfr Hvis]") => //.
-      iApply (instantiation_spec_operational_start with "[Hfr] [Hmod Hvis]"); try iFrame; auto.
+      iApply (instantiation_spec_operational_start with "[Hfr] [] [Hmod Hvis]"); try iFrame; eauto.
       - apply alloc_module_typed.
+      - admit.
       - admit.
       - iSplitL.
         eauto.
@@ -213,7 +214,7 @@ Section AllocModule.
       - iIntros (idnstart) "Hfr".
         unfold instantiation_resources_post.
         unfold instantiation_resources_post_wasm.
-        iIntros "(Hmod & Himp & %inst & Hinst & Hhost)".
+        iIntros "Hrun (Hmod & Himp & %inst & Hinst & Hhost)".
         iDestruct "Hinst" as "(%g_inits & %tab_allocs & %mem_allocs & %glob_allocs & %wts' & %wms' & Hinst)".
         iDestruct "Hinst" as "(Htype & %Himports & %Htaballoc & %Hwts' & %Hmodbound & %Hmemalloc & H')".
         iDestruct "H'" as "(%Hwms' & %Hmodbound' & %Hglobinit & %Hgloballoc & Hinstrsc)".
@@ -236,14 +237,14 @@ Section AllocModule.
         change [AI_invoke f2]
         with ([] ++ [AI_invoke f2])%list.
         {
-          iApply (wp_invoke_native with "[$Hfr] [$Hfstart]") =>//.
-          iIntros "!> (Hfr & Hfstart)".
+          iApply (wp_invoke_native with "[$Hfr] [$Hrun] [$Hfstart]") =>//.
+          iIntros "!> (Hfr & Hrun & Hfstart)".
           cbn.
           iApply (wp_frame_bind with "[$Hfr]") =>//.
           iIntros "Hfr".
           rewrite <- (app_nil_l [AI_basic _]).
-          iApply (wp_block with "[$Hfr]") =>//.
-          iIntros "!> Hfr".
+          iApply (wp_block with "[$Hfr] [$Hrun]") =>//.
+          iIntros "!> Hfr Hrun".
           iApply wp_build_ctx.
           {
             constructor.

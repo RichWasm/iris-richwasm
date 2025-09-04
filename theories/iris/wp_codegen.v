@@ -22,16 +22,17 @@ Section CodeGen.
   Variable L : local_ctx.
   Variable WL : wlocal_ctx.
 
-  Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wl wl' es x y Φ f :
+  Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wl wl' es x y Φ (f: frame) :
     run_codegen (if_c tf c1 c2) wl = inr (x, y, wl', es) ->
     exists wl1 es1 es2,
     run_codegen c1 wl = inr (x, wl1, es1) /\
     run_codegen c2 wl1 = inr (y, wl', es2) /\
     ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
       ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
-        ▷ (↪[frame] f -∗ WP [AI_basic (BI_block tf es1)] @ s; E {{ v, Φ v }})) ∨
+        ▷ (↪[frame] f -∗ ↪[RUN] -∗ WP [AI_basic (BI_block tf es1)] @ s; E {{ v, Φ v }})) ∨
        (⌜i = Wasm_int.int_zero i32m⌝ ∧
-        ▷ (↪[frame] f -∗ WP [AI_basic (BI_block tf es2)] @ s; E {{ v, Φ v }}))) -∗
+        ▷ (↪[frame] f -∗ ↪[RUN] -∗ WP [AI_basic (BI_block tf es2)] @ s; E {{ v, Φ v }}))) -∗
       WP to_e_list (BI_const (VAL_int32 i) :: es) @ s; E {{ v, Φ v }}.
   Proof.
     intros Hcomp.
@@ -62,13 +63,11 @@ Section CodeGen.
     split; first assumption.
     split; first assumption.
 
-    iIntros "Hfr Hbl".
+    iIntros "Hfr Hrun Hbl".
     iSimpl.
     iDestruct "Hbl" as "[[%Hi Hbl] | [%Hi Hbl]]".
-    - by iApply (wp_if_true with "Hfr"); first assumption.
-    - by iApply (wp_if_false with "Hfr"); first assumption.
+    - by iApply (wp_if_true with "[Hfr] [Hrun]"); auto.
+    - by iApply (wp_if_false with "[Hfr] [Hrun]"); auto.
   Qed.
-
-  (* TODO *)
 
 End CodeGen.

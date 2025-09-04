@@ -7,6 +7,9 @@ From RichWasm.compiler Require Import codegen types util.
 From RichWasm.iris Require Import gc num_reprs util.
 Require Import RichWasm.iris.logrel.util.
 Require Import RichWasm.util.debruijn.
+Require Import RichWasm.iris.language.lenient_wp.
+Require Import RichWasm.iris.language.logpred.
+Require Wasm.iris.logrel.iris_logrel.
 Import uPred.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -207,6 +210,8 @@ Section Relations.
 
   Definition interp_val (τs : list type) : VR. Admitted.
 
+  Definition interp_stack (τs : list type) : VR. Admitted.
+
   Definition interp_inst (M : module_ctx) (inst : instance) : iProp Σ :=
     True.
 
@@ -227,7 +232,7 @@ Section Relations.
     ∀ inst lh,
     interp_inst M inst ∗ interp_ctx L L' F inst lh -∗
     ∀ f vs,
-    interp_val τs1 vs ∗ interp_frame L WL inst f -∗
+    interp_stack τs1 vs ∗ interp_frame L WL inst f ∗ ↪[frame] f -∗
     interp_expr τs2 F L' WL inst (lh, of_val vs ++ es).
 
 End Relations.

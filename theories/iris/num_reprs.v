@@ -1,6 +1,9 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
-From Wasm.iris.logrel Require Import iris_fundamental.
+Require Import stdpp.base.
+From Coq.ZArith Require Import ZArith.
+From Coq.micromega Require Import Lia.
 From Wasm Require Import numerics.
+
 (* beware:
     The i32 type is a record {intval: Z; proof: -1 < z < 2^32}.
     This means that nat_repr is not a functional relation
@@ -37,7 +40,7 @@ Proof.
   intros.
   unfold Wasm_int.Int32.repr, N_repr, Wasm_int.N_of_uint; cbn.
   split.
-  - lia.
+  - assumption.
   - rewrite Wasm_int.Int32.Z_mod_modulus_id.
     + subst. by rewrite N2Z.id.
     + lia.
