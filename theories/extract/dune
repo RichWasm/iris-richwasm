@@ -1,0 +1,10 @@
+(coq.extraction
+ (prelude extract_rw_syntax)
+ (extracted_modules RwSyntax)
+ (theories RichWasm.syntax))
+
+(library
+ (name richwasm_extract)
+ (public_name iris-richwasm.extract)
+ (modules :standard)
+ (libraries zarith))

@@ -3,15 +3,15 @@
  (package iris-richwasm)
  (flags -w -ambiguous-paths)
  (theories
-  iris
-  Wasm
-  elpi
-  compcert
-  Flocq
-  parseque
-  HB
-  mathcomp
-  mathcomp.ssreflect
-  elpi
-  elpi_elpi
-  stdpp))
+   compcert
+   elpi
+   elpi_elpi
+   Flocq
+   HB
+   iris
+   mathcomp
+   mathcomp.ssreflect
+   parseque
+   RecordUpdate
+   stdpp
+   Wasm))

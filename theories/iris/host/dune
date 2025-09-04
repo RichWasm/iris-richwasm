@@ -2,5 +2,6 @@
   (name RichWasm.iris.host)
    (package iris-richwasm)
   (flags -w -ambiguous-paths -w -notation-overridden -w -abstract-large-number -w -extraction-reserved-identifier)
-  (theories Wasm.iris.language Wasm.iris.helpers Wasm Wasm.iris.rules Wasm.iris.instantiation)
+  (theories Wasm.iris.language Wasm.iris.helpers Wasm Wasm.iris.rules
+            Wasm.iris.instantiation RichWasm.iris.language)
 )

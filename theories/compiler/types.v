@@ -10,132 +10,57 @@ From ExtLib.Structures Require Import Functor Monads Traversable.
 
 From Wasm Require datatypes operations.
 
-Require RichWasm.term.
+Require Import RichWasm.syntax.
 Require Import RichWasm.util.stdpp_extlib.
 Require Import RichWasm.compiler.util.
 
-Module R := RichWasm.term.
 Module W. Include datatypes <+ operations. End W.
 
-Inductive LayoutMode :=
-  | LMWords
-  | LMNative.
-
-Definition translate_int_type (ty : R.IntType) : W.value_type :=
-  match ty with
-  | R.i32 => W.T_i32
-  | R.i64 => W.T_i64
+Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=
+  match ι with
+  | PtrR => W.T_i32
+  | I32R => W.T_i32
+  | I64R => W.T_i64
+  | F32R => W.T_f32
+  | F64R => W.T_f64
   end.
 
-Definition translate_float_type (ty : R.FloatType) : W.value_type :=
-  match ty with
-  | R.f32 => W.T_f32
-  | R.f64 => W.T_f64
+Definition translate_sum_rep (ρs : list representation) : option (list W.value_type).
+Admitted.
+
+Fixpoint translate_rep (ρ : representation) : option (list W.value_type) :=
+  match ρ with
+  | VarR _ => None
+  | SumR ρs => translate_sum_rep ρs
+  | ProdR ρs => flatten <$> mapM translate_rep ρs
+  | PrimR ι => Some [translate_prim_rep ι]
   end.
 
-Definition translate_num_type (ty : R.NumType) : W.value_type :=
-  match ty with
-  | R.Int _ int_ty => translate_int_type int_ty
-  | R.Float float_ty => translate_float_type float_ty
+Definition kind_rep (κ : kind) : option representation :=
+  match κ with
+  | VALTYPE ρ _ => Some ρ
+  | MEMTYPE _ _ _ => None
   end.
 
-Definition translate_kind_var (k : R.KindVar) : list W.value_type :=
-  match k with
-  | R.SIZE _ _ => [W.T_i32]
-  | _ => []
+Definition type_rep (κs : list kind) (τ : type) : option representation :=
+  match τ with
+  | VarT t => κs !! t ≫= kind_rep
+  | NumT κ _
+  | SumT κ _
+  | ProdT κ _
+  | ArrayT κ _
+  | RefT κ _ _
+  | GCPtrT κ _
+  | CodeRefT κ _
+  | RepT κ _ _
+  | PadT κ _ _
+  | SerT κ _
+  | RecT κ _
+  | ExMemT κ _
+  | ExRepT κ _
+  | ExSizeT κ _
+  | ExTypeT κ _ _ => kind_rep κ
   end.
 
-Fixpoint translate_type (ty : R.Typ) : list W.value_type :=
-  match ty with
-  | R.Num num_ty => [translate_num_type num_ty]
-  | R.TVar _ => [W.T_i32]
-  | R.Unit => []
-  | R.ProdT tys => flat_map translate_type tys
-  | R.CoderefT _ => [W.T_i32]
-  | R.Rec _ ty' => translate_type ty'
-  | R.PtrT _ => [W.T_i32]
-  | R.ExLoc _ ty' => translate_type ty'
-  | R.OwnR _ => []
-  | R.CapT _ _ _ => []
-  | R.RefT _ _ _  => [W.T_i32]
-  end.
-
-Definition translate_arrow_type (ty : R.ArrowType) : W.function_type :=
-  let '(R.Arrow tys1 tys2) := ty in
-  let tys1' := flat_map translate_type tys1 in
-  let tys2' := flat_map translate_type tys2 in
-  W.Tf tys1' tys2'.
-
-Definition translate_fun_type (ty : R.FunType) : W.function_type :=
-  let '(R.FunT ks (R.Arrow tys1 tys2)) := ty in
-  let ks' := flat_map translate_kind_var ks in
-  let tys1' := flat_map translate_type tys1 in
-  let tys2' := flat_map translate_type tys2 in
-  W.Tf (ks' ++ tys1') tys2'.
-
-Definition type_words (ty : R.Typ) : nat :=
-  sum_list_with W.words_t (translate_type ty).
-
-Definition type_layout_length (layout : LayoutMode) (ty : R.Typ) :=
-  match layout with
-  | LMWords => type_words ty
-  | LMNative => length (translate_type ty)
-  end.
-
-Fixpoint size_upper_bound (ctx : list (list R.Size * list R.Size)) (sz : R.Size) : error + nat :=
-  match sz with
-  | R.SizeConst c => inr c
-  | R.SizePlus sz1 sz2 =>
-      ub1 ← size_upper_bound ctx sz1;
-      ub2 ← size_upper_bound ctx sz2;
-      inr (ub1 + ub2)
-  | R.SizeVar _ => inl ETodo
-  end.
-
-Definition struct_field_offset (sizes : list R.Size) (idx : nat) : error + R.Size :=
-  let fix go szs i :=
-    match szs, i with
-    | _, 0 => inr (R.SizeConst 0)
-    | sz :: szs', i' => R.SizePlus sz <$> go szs' i'
-    | [], _ => inl (EIndexOutOfBounds idx)
-    end
-  in
-  go sizes idx.
-
-Definition struct_fields (ty : R.Typ) : option (list (R.Typ * R.Size)) :=
-  match ty with
-  | R.RefT _ _ (R.StructType fields) => Some fields
-  | _ => None
-  end.
-
-Definition array_elem (ty : R.Typ) : option R.Typ :=
-  match ty with
-  | R.RefT _ _ (R.ArrayType ty') => Some ty'
-  | _ => None
-  end.
-
-Definition variant_cases (ty : R.HeapType) : option (list R.Typ) :=
-  match ty with
-  | R.VariantType tys => Some tys
-  | _ => None
-  end.
-
-Definition find_refs (layout : LayoutMode) (ty : R.Typ) : list W.immediate :=
-  let fix go ty i :=
-    match ty with
-    | R.Num _
-    | R.Unit
-    | R.CoderefT _
-    | R.PtrT _
-    | R.OwnR _
-    | R.CapT _ _ _ => []
-    | R.ProdT tys =>
-        snd (foldl (fun '(j, idxs) ty' => (j + type_layout_length layout ty', idxs ++ go ty' j))
-                   (i, [])
-                   tys)
-    | R.Rec _ ty'
-    | R.ExLoc _ ty' => go ty' i
-    | R.TVar _
-    | R.RefT _ _ _ => [i]
-    end in
-  go ty 0.
+Definition translate_type (κs : list kind) (τ : type) : option (list W.value_type) :=
+  type_rep κs τ ≫= translate_rep.

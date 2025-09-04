@@ -9,6 +9,9 @@ homepage: "https://github.com/RichWasm/iris-richwasm"
 bug-reports: "https://github.com/RichWasm/iris-richwasm/issues"
 depends: [
   "dune" {>= "3.16"}
+  "coq-autosubst-ocaml" {= "0.2"}
+  "coq-record-update" {>= "0.3.4"}
+  "zarith" {>= "1.14"}
   "odoc" {with-doc}
 ]
 build: [
@@ -26,3 +29,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/RichWasm/iris-richwasm.git"
+pin-depends: [
+  ["coq-autosubst-ocaml.0.2" "git+https://github.com/uds-psl/autosubst-ocaml#coq-8.20"]
+]

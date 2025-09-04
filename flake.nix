@@ -33,7 +33,7 @@
           coq = pkgs.coq_8_20;
           coqPackages = pkgs.coqPackages_8_20;
         in
-        {
+        rec {
           default = self.packages.${pkgs.system}.${project};
 
           parseque = coqPackages.mkCoqDerivation {
@@ -51,6 +51,29 @@
               rev = "v0.2.2";
               hash = "sha256-O50Rs7Yf1H4wgwb7ltRxW+7IF0b04zpfs+mR83rxT+E=";
             };
+          };
+
+          autosubst-ocaml = ocamlPackages.buildDunePackage {
+            pname = "coq-autosubst-ocaml";
+            version = "0.2";
+
+            src = pkgs.fetchFromGitHub {
+              owner = "uds-psl";
+              repo = "autosubst-ocaml";
+              rev = "d26c0d70fc6a80e31558337690c86c3cc5fa760b";
+              hash = "sha256-nRipTaiqhzU3xJCiApZwyN6gu8dazmfxyLjXcYx96cc=";
+            };
+
+            buildInputs =
+              [
+                coq
+              ]
+              ++ (with ocamlPackages; [
+                findlib
+                ocamlgraph
+                angstrom
+                ppx_deriving
+              ]);
           };
 
           vscoq-language-server = ocamlPackages.buildDunePackage rec {
@@ -71,10 +94,12 @@
             buildInputs =
               [
                 coq
-                pkgs.glib
-                pkgs.adwaita-icon-theme
-                pkgs.wrapGAppsHook3
               ]
+              ++ (with pkgs; [
+                glib
+                adwaita-icon-theme
+                wrapGAppsHook3
+              ])
               ++ (with ocamlPackages; [
                 findlib
                 lablgtk3-sourceview3
@@ -110,18 +135,25 @@
               coq
             ];
 
-            buildInputs = [
-              coqPackages.iris
-              coqPackages.coq-elpi
-              coqPackages.ExtLib
-              coqPackages.ITree
-              pkgs.compcert
-              self.packages.${pkgs.system}.parseque
-              coqPackages.hierarchy-builder
-              coqPackages.mathcomp
-              coqPackages.mathcomp-ssreflect
-              ocamlPackages.zarith
-            ];
+            buildInputs =
+              [
+                parseque
+                autosubst-ocaml
+              ]
+              ++ (with pkgs; [ compcert ])
+              ++ (with coqPackages; [
+                iris
+                coq-elpi
+                ExtLib
+                ITree
+                hierarchy-builder
+                mathcomp
+                mathcomp-ssreflect
+                coq-record-update
+              ])
+              ++ (with ocamlPackages; [
+                zarith
+              ]);
           };
         }
       );

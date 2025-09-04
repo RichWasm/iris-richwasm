@@ -85,7 +85,7 @@ Section fundamental.
       unfold update_list_range. iSimpl in "Hm".
       iDestruct "Hm" as "[Hm _]". rewrite PeanoNat.Nat.add_0_r N2Nat.id.
       iDestruct ("Hcls" with "[Hm]") as "HH";[iIntros (_);iFrame|].
-      rewrite list.insert_take_drop;[|lia].
+      rewrite list_basics.insert_take_drop;[|lia].
       rewrite separate1 Nat.add_1_r. iFrame. }    
 
     iDestruct (big_sepL_delete' with "Hm") as "[Hm Hcls]";[apply Hx|].

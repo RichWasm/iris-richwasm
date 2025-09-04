@@ -374,8 +374,8 @@ Section logrel.
     dist_later n o o1 ∧ dist_later n o0 o2.
   Proof.
     intros Hdist.
-    destruct n;auto.
-    { split; by constructor; intros n Hn; lia. }
+    destruct n;
+      [split; by apply dist_later_0|].
     split.
     { constructor; intros m Hn. destruct Hdist. apply dist_later_lt in Hn.
       inversion Hn. done. }
