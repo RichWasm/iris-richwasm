@@ -3,7 +3,8 @@ From iris.program_logic Require Import language weakestpre lifting.
 From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
-From RichWasm.iris.language Require Export iris_locations iris_wp_def iris.
+From RichWasm.iris.language Require Export iris_wp_def iris.
+From RichWasm.iris.language.iris Require Export iris_locations.
 From RichWasm.iris.helpers Require Export iris_properties.
 From RichWasm.iris.rules Require Export iris_rules_resources.
 From Wasm Require Export stdpp_aux.
@@ -28,7 +29,6 @@ Definition module_decl := module.
 (* an import is specified by giving the index of the instance to the module_export and a second index in the list*)
 Definition vimp : Type := vi.
 
-
 Inductive host_e: Type :=
 | ID_instantiate: list vi -> N -> list vimp -> host_e
 | H_get_global: globaladdr -> host_e.
@@ -41,9 +41,6 @@ Inductive host_action : Type :=
 | HA_call_wasm : host_action
 | HA_modify_table : host_action
 .
-
-
-
 
 Definition map_start (start: option nat) : list administrative_instruction :=
   match start with
@@ -610,7 +607,7 @@ Proof.
     repeat split => //.
     apply HR_get_global;eauto. apply v_to_e_is_const_list.
   - iIntros "!>" (es σ2 efs HStep) "Hpound !>".
-    destruct σ2 as [[[[[? s1] vis1] ms1] fs1] f1] => // /=.
+    destruct σ2 as [[[[[o1 s1] vis1] ms1] fs1] f1] => // /=.
     destruct es as [? ?].
     simpl in HStep. destruct HStep as [H [-> ->]].
     eapply get_global_host_det in H;[..|apply HR_get_global;eauto];[|apply v_to_e_is_const_list..].
@@ -789,9 +786,6 @@ Proof.
 Qed.
 
 Definition reducible := @reducible wasm_host_lang.
-
-
-
 
 Lemma wp_value s E (e : host_expr) v Φ :
   to_val e = Some v ->

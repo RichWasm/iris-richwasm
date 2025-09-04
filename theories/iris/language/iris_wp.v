@@ -112,7 +112,9 @@ Section wp.
     
     induction num_laters_per_step as [|k IHk]; simpl; last by rewrite IHk.
     do 5 (f_contractive || f_equiv).
-    rewrite IH; [done|lia|]. intros v. eapply dist_lt. { eapply HΦ. } done.
+    rewrite IH; first done.
+    - auto.
+    - intros v. eapply dist_lt. { eapply HΦ. } done.
   Qed.
   Global Instance wp_proper s E e :
     Proper (pointwise_relation _ (≡) ==> (≡)) (wp (PROP:=iProp Σ) s E e).
