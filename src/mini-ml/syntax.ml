@@ -1,10 +1,22 @@
+module Tag = struct
+  type t = int [@@deriving sexp, equal]
+
+  let new_counter () : unit -> t =
+    let x = ref 0 in
+    fun () ->
+      let y = !x in
+      x := x + 1;
+      y
+  ;;
+end
+
 module Source = struct
   module Variable = struct
-    type t = string
+    type t = string [@@deriving sexp]
   end
 
   module TypeVar = struct
-    type t = string
+    type t = string [@@deriving sexp]
   end
 
   module rec Type = struct
@@ -17,12 +29,14 @@ module Source = struct
       | Ref of t
       | Rec of TypeVar.t * t
       | LL of t (* TODO: should this be an LL type? *)
+    [@@deriving sexp]
   end
   and FunType = struct
     type t =
       { foralls : TypeVar.t list
       ; args : Type.t list
       ; ret : Type.t }
+    [@@deriving sexp]
   end
 
   module rec Value = struct
@@ -35,6 +49,7 @@ module Source = struct
           ; body : t }
       | Prod of t list
       | Inj of int * t
+    [@@deriving sexp]
   end
   and Computation = struct
     type t =
@@ -49,10 +64,12 @@ module Source = struct
       | Project of int * Value.t
       | Fold of Type.t * Value.t
       | Unfold of Value.t
+    [@@deriving sexp]
   end
   and Expr = struct
     type t =
       | Value of Value.t
       | Computation of Computation.t
+    [@@deriving sexp]
   end
 end
