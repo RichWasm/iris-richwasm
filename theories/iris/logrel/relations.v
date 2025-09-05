@@ -27,7 +27,7 @@ Section Relations.
   Definition ns_ref (x : N) : namespace := nroot .@ "rwr" .@ x.
   Inductive sem_val :=
   | SVMem (bs: bytes)
-  | SVVal (v: val).
+  | SVVal (v: seq.seq value).
 
   Definition sem_type := sem_val -> iProp Σ.
   Notation SVR := (leibnizO sem_val -n> iPropO Σ).
@@ -69,42 +69,48 @@ Section Relations.
     | F32R => ∃ f: f32, w = VAL_float32 f
     | F64R => ∃ f: f64, w = VAL_float64 f
     end.
-    
-  (*
-  Fixpoint repr_val_interp (ρ: representation) (ws: list value) {struct ρ} : Prop :=
-    match ρ with
-    | VarR n => False
-    | SumR ρs => False
-    | ProdR ρs => ∃ wss, ws = flatten wss /\ reprs_vals_interp ρs wss
-    | PrimR ι => ∃ w, ws = [w] /\ prim_repr_interp ι w
-    end
-  with reprs_vals_interp (ρs: list representation) (wss : list (list value)) {struct ρs} : Prop :=
-    match ρs with
-    | [], [] => True
-    | ρ::ρs', ws::wss' => repr_val_interp ρ ws /\ reprs_vals_interp ρs' wss'
-    | _, _ => False
-    end.
-    | cons ρ ρs => repr_val_interp ρ
-    end
-    Forall2 repr_val_interp ρs.
+  
+  (* Interpretation of _closed_ representations *)
+  Fixpoint repr_interp_prop (ρ : representation) (v : list value) : Prop :=
+      match ρ with
+      | VarR n => False
+      | SumR ρs => 
+          let fix repr_sum_interp ρs vs :=
+            match ρs with
+            | [] => True
+            | ρ :: ρs => repr_interp_prop ρ vs /\ repr_sum_interp ρs vs
+            end in
+          ∃ tag vs, v = VAL_int32 tag :: vs /\ repr_sum_interp ρs vs
+      | ProdR ρs => 
+          let fix repr_prod_interp ρs vs :=
+            match ρs, vs with
+            | [], [] => True
+            | ρ :: ρs, v :: vs => repr_interp_prop ρ v /\ repr_prod_interp ρs vs
+            | _, _ => False
+            end in
+          ∃ vs, v = flatten vs /\ repr_prod_interp ρs vs
+      | PrimR ι => ∃ v0: value, v = [v0] /\ prim_repr_interp ι v0
+      end.
+  
+  Definition repr_interp (ρ : representation) : sem_type :=
+    λ v: sem_val, (∃ vs, ⌜v = SVVal vs⌝ ∗ ⌜repr_interp_prop ρ vs⌝)%I.
+  
+  (* S refines T, written S ⊑ T *)
+  Definition sem_type_le (S T: sem_type) :=
+    ∀ v: sem_val, S v -∗ T v.
+  Instance sem_type_sqsubseteq : SqSubsetEq sem_type := sem_type_le.
 
-
-  Definition repr_interp (ρ : representation) : sem_kind :=
-    match ρ with
-    | VarR n => _
-    | SumR ρs => _
-    | ProdR ρs => λ T, ∀ v, T v -> ∃ vs, v = flatten vs /\ Forall2 (repr_interp) ρs 
-    | PrimR ι => λ T, ∀ v, T v -> ∃v0, v = [v0] /\ prim_repr_interp v0
-    end
-    
+  Definition vmem_type : sem_type :=
+    λ v: sem_val,
+        (∃ bs, ⌜v = SVMem bs⌝)%I.
 
   Definition kind_interp (κ : kind) : sem_kind := 
     match κ with
     | VALTYPE ρ γ =>
-        λ T, ∀ v, 
+        λ T, ⌜T ⊑ repr_interp ρ⌝%I
     | MEMTYPE ζ μ γ => 
-        λ T, 
-*)  
+        λ T, ⌜T ⊑ vmem_type⌝%I
+    end.
 
   Definition relations : Type :=
     (* Physical Value *)
