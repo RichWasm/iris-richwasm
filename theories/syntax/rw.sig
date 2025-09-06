@@ -54,7 +54,7 @@ type (VarT) : Type
 NumT : kind -> num_type -> type
 SumT : kind -> "list" (type) -> type
 ProdT : kind -> "list" (type) -> type
-ArrayT : kind -> type -> type
+ArrT : kind -> type -> type
 RefT : kind -> memory -> type -> type
 GCPtrT : kind -> type -> type
 CodeRefT : kind -> function_type -> type
@@ -189,12 +189,14 @@ ICodeRef : arrow_type -> nat -> instruction
 IInst : arrow_type -> index -> instruction
 ICall : arrow_type -> nat -> "list" (index) -> instruction
 ICallIndirect : arrow_type -> instruction
+IInject : arrow_type -> nat -> instruction
+ICase : arrow_type -> local_fx -> "list" ("list" (instruction)) -> instruction
 IGroup : arrow_type -> nat -> instruction
 IUngroup : arrow_type -> instruction
 IFold : arrow_type -> type -> instruction
 IUnfold : arrow_type -> instruction
 IPack : arrow_type -> kind -> index -> instruction
-IUnpack : arrow_type -> arrow_type -> local_fx -> "list" (instruction) -> instruction
+IUnpack : arrow_type -> local_fx -> "list" (instruction) -> instruction
 IWrap : arrow_type -> instruction
 IUnwrap : arrow_type -> instruction
 IRefNew : arrow_type -> memory -> instruction
@@ -204,8 +206,6 @@ IRefDrop : arrow_type -> instruction
 IRefLoad : arrow_type -> path -> instruction
 IRefStore : arrow_type -> path -> instruction
 IRefSwap : arrow_type -> path -> instruction
-IVariantNew : arrow_type -> nat -> "list" (type) -> memory -> instruction
-IVariantCase : arrow_type -> linearity -> arrow_type -> local_fx -> "list" ("list" (instruction)) -> instruction
 IArrayNew : arrow_type -> memory -> instruction
 IArrayFree : arrow_type -> instruction
 IArrayGet : arrow_type -> instruction

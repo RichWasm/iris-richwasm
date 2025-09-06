@@ -526,6 +526,11 @@ Section Instrs.
     | IInst _ _ => raise ETodo
     | ICall (ArrowT τs _) x ixs => compile_call τs x ixs
     | ICallIndirect (ArrowT τs _) => compile_call_indirect τs
+    | IInject _ _ =>
+        (* TODO: registerroot on the new address;
+                 unregisterroot if payload is GC ref being put into GC variant *)
+        raise ETodo
+    | ICase _ _ _ => raise ETodo
     | IGroup _ _ => raise ETodo
     | IUngroup _ => raise ETodo
     | IFold _ _ => raise ETodo
@@ -551,7 +556,7 @@ Section Instrs.
         emit (W.BI_get_local (localimm ptr_idx))
         *)
         raise ETodo
-    | IUnpack _ _ _ _ =>
+    | IUnpack _ _ _ =>
         (* TODO: registerroot if GC package *)
         (* TODO: ignore (block_c (translate_arrow_type ty) (forT es compile_instr)) *)
         raise ETodo
@@ -564,31 +569,6 @@ Section Instrs.
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
     | IRefSwap _ _ => raise ETodo
-    | IVariantNew _ _ _ _ =>
-        (* TODO: registerroot on the new address;
-                 unregisterroot if payload is GC ref being put into GC variant *)
-        raise ETodo
-    | IVariantCase _ _ _ _ _ =>
-        (* TODO: duproot if unrestricted *)
-        (* TODO: Consume the ref if the qualifier is linear; preserve the ref if it's unrestricted. *)
-        (* TODO:
-        ptr ← wlalloc W.T_i32;
-        let tf := translate_arrow_type ta in
-        tys ← try_option ECaseNotOnVariant (variant_cases Ψ);
-        ess' ← forT (B := W.expr) ess (fun es => snd <$> capture (forT es compile_instr));
-        b ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) q (R.QualConst R.Unrestricted));
-        b' ← try_option EUnboundQual (R.QualLeq fe.(fe_qual_bounds) (R.QualConst R.Linear) q);
-        match b, b' with
-        | true, _ =>
-            emit (W.BI_get_local (localimm ptr));;
-            compile_variant_case ptr (length tys) 0 tf (zip tys ess')
-        | _, true =>
-            compile_variant_case ptr (length tys) 0 tf (zip tys ess');;
-            emit (W.BI_get_local (localimm ptr));;
-            emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
-        | _, _ => raise EWrongTypeAnn
-        end *)
-        raise ETodo
     | IArrayNew _ _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)

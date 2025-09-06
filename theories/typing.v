@@ -141,10 +141,10 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ γ)) τs σs ->
   let κ := MEMTYPE (Sized (ProdS σs)) μ γ in
   has_kind F (ProdT κ τs) κ
-| KArray F τ σ μ :
+| KArr F τ σ μ :
   has_kind F τ (MEMTYPE (Sized σ) μ Unr) ->
   let κ := MEMTYPE Unsized μ Unr in
-  has_kind F (ArrayT κ τ) κ
+  has_kind F (ArrT κ τ) κ
 | KExMem F τ κ :
   has_kind (set fc_own_vars S F) τ κ ->
   has_kind F (ExMemT κ τ) κ

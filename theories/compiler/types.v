@@ -48,7 +48,7 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
   | NumT κ _
   | SumT κ _
   | ProdT κ _
-  | ArrayT κ _
+  | ArrT κ _
   | RefT κ _ _
   | GCPtrT κ _
   | CodeRefT κ _
