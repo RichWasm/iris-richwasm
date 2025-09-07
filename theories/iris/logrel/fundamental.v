@@ -56,7 +56,7 @@ Section Fundamental.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
-  Context `{!rwasm_gcG Σ}.
+  Context `{!RichWasmGCG Σ}.
 
   Variable sr : store_runtime.
 
