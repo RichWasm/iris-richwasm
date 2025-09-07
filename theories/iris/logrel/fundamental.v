@@ -112,14 +112,14 @@ Section Fundamental.
   Theorem fundamental_property M F L L' me es es' tf wl wl' :
     instrs_have_type M F L es tf L' ->
     run_codegen (compile_instrs me es) wl = inr (tt, wl', es') ->
-    ⊢ semantic_typing sr M F L wl' (to_e_list es') tf L'.
+    ⊢ has_type_semantic sr M F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
     induction Htyp using instrs_have_type_mind with
       (P := fun C F L e ta L' _ => forall es',
       run_codegen (compile_instr me e) wl = inr (tt, wl', es') ->
-      ⊢ semantic_typing sr C F L [] (to_e_list es') ta L');
+      ⊢ has_type_semantic sr C F L [] (to_e_list es') ta L');
     intros es' Hcomp; admit.
   Admitted.
 

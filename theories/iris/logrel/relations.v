@@ -2,15 +2,16 @@ From mathcomp Require Import eqtype seq.
 
 Require Import iris.proofmode.tactics.
 
-From RichWasm Require Import syntax typing.
+Require Wasm.iris.logrel.iris_logrel.
+
 From RichWasm.compiler Require Import codegen types util.
 From RichWasm.iris Require Import gc num_reprs util.
 Require Import RichWasm.iris.logrel.util.
 Require Import RichWasm.util.debruijn.
 Require Import RichWasm.iris.language.lenient_wp.
 Require Import RichWasm.iris.language.logpred.
-Require Wasm.iris.logrel.iris_logrel.
 Import uPred.
+From RichWasm Require Import syntax typing.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -26,31 +27,25 @@ Section Relations.
   Definition ns_func (x : N) : namespace := nroot .@ "rwf" .@ x.
   Definition ns_ref (x : N) : namespace := nroot .@ "rwr" .@ x.
 
-  Inductive sem_val :=
-  | SVMem (bs: bytes)
-  | SVVal (v: seq.seq value).
+  Inductive semantic_value :=
+  | SValues (vs : list value)
+  | SWords (ws : list word).
 
-  Definition sem_type := sem_val -> iProp Σ.
-  Notation SVR := (leibnizO sem_val -n> iPropO Σ).
-  Definition sem_typeO := SVR.
-  Notation VR := (leibnizO val -n> iPropO Σ).
-  Notation WsR := (leibnizO (list value) -n> iPropO Σ).
-  Notation VVsR := (leibnizO (list word) -n> iPropO Σ).
-  Notation FR := (leibnizO frame -n> iPropO Σ).
-  Notation HVR_mm := (leibnizO bytes -n> iPropO Σ).
-  Notation HVR_gc := (leibnizO (list word) -n> iPropO Σ).
+  Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
+  Notation LVR := (leibnizO val -n> iPropO Σ).
+  Notation FrR := (leibnizO frame -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
   Notation ER := (leibnizO (lholed * list administrative_instruction) -n> iPropO Σ).
 
   Implicit Type L : leibnizO local_ctx.
   Implicit Type WL : leibnizO wlocal_ctx.
 
-  Implicit Type sv : leibnizO sem_val.
-  Implicit Type v : leibnizO val.
-  Implicit Type ws : leibnizO (list value).
-  Implicit Type vvs : leibnizO (list word).
+  Implicit Type sv : leibnizO semantic_value.
+  Implicit Type lv : leibnizO val.
+  Implicit Type vs : leibnizO (list value).
+  Implicit Type ws : leibnizO (list word).
   Implicit Type bs : leibnizO bytes.
-  Implicit Type f : leibnizO frame.
+  Implicit Type fr : leibnizO frame.
   Implicit Type cl : leibnizO function_closure.
   Implicit Type lh_es : leibnizO (lholed * list administrative_instruction).
 
@@ -58,188 +53,132 @@ Section Relations.
   Implicit Type τs : leibnizO (list type).
   Implicit Type ϕ : leibnizO function_type.
   Implicit Type χ : leibnizO arrow_type.
-  
-  Definition sem_kind := sem_type -> iProp Σ.
-  Notation KR := (sem_typeO -n> iPropO Σ).
-  
-  Definition prim_repr_interp (ι : primitive_rep) (w: value) : Prop :=
-    match ι with
-    | PtrR => ∃ i, w = VAL_int32 i
-    | I32R => ∃ i, w = VAL_int32 i
-    | I64R => ∃ i, w = VAL_int64 i
-    | F32R => ∃ f: f32, w = VAL_float32 f
-    | F64R => ∃ f: f64, w = VAL_float64 f
-    end.
-  
-  (* Interpretation of _closed_ representations *)
-  Fixpoint repr_interp_prop (ρ : representation) (v : list value) : Prop :=
-      match ρ with
-      | VarR n => False
-      | SumR ρs => 
-          let fix repr_sum_interp ρs vs :=
-            match ρs with
-            | [] => True
-            | ρ :: ρs => repr_interp_prop ρ vs /\ repr_sum_interp ρs vs
-            end in
-          ∃ tag vs, v = VAL_int32 tag :: vs /\ repr_sum_interp ρs vs
-      | ProdR ρs => 
-          let fix repr_prod_interp ρs vs :=
-            match ρs, vs with
-            | [], [] => True
-            | ρ :: ρs, v :: vs => repr_interp_prop ρ v /\ repr_prod_interp ρs vs
-            | _, _ => False
-            end in
-          ∃ vs, v = flatten vs /\ repr_prod_interp ρs vs
-      | PrimR ι => ∃ v0: value, v = [v0] /\ prim_repr_interp ι v0
-      end.
-  
-  Definition repr_interp (ρ : representation) : sem_type :=
-    λ v: sem_val, (∃ vs, ⌜v = SVVal vs⌝ ∗ ⌜repr_interp_prop ρ vs⌝)%I.
-  
-  (* S refines T, written S ⊑ T *)
-  Definition sem_type_le (S T: sem_type) :=
-    ∀ v: sem_val, S v -∗ T v.
-  Instance sem_type_sqsubseteq : SqSubsetEq sem_type := sem_type_le.
 
-  Definition vmem_type : sem_type :=
-    λ v: sem_val,
-        (∃ bs, ⌜v = SVMem bs⌝)%I.
-
-  Definition kind_interp (κ : kind) : sem_kind := 
-    match κ with
-    | VALTYPE ρ γ =>
-        λ T, ⌜T ⊑ repr_interp ρ⌝%I
-    | MEMTYPE ζ μ γ => 
-        λ T, ⌜T ⊑ vmem_type⌝%I
-    end.
-
-  Definition relations : Type :=
-    (* Physical Value *)
-    (leibnizO type -n> WsR) *
-    (* Virtual Value *)
-    (leibnizO type -n> VVsR) *
+  Definition relation_bundle : Type :=
+    (* Value *)
+    (leibnizO type -n> SVR) *
     (* Frame *)
-    (leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR) *
+    (leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR) *
     (* Expression *)
     (leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
        leibnizO wlocal_ctx -n> leibnizO instance -n> ER).
 
-  Definition relations_value_phys (rs : relations) : leibnizO type -n> WsR :=
-    rs.1.1.1.
+  Definition relations_value : relation_bundle -> leibnizO type -n> SVR :=
+    fst ∘ fst.
 
-  Definition relations_value_virt (rs : relations) : leibnizO type -n> VVsR :=
-    rs.1.1.2.
+  Definition relations_frame :
+    relation_bundle ->
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
+    snd ∘ fst.
 
-  Definition relations_frame (rs : relations) :
-    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
-    rs.1.2.
-
-  Definition relations_expr (rs : relations) :
+  Definition relations_expr :
+    relation_bundle ->
     leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
-    rs.2.
+    snd.
 
-  Definition interp_frame_0 (rs : relations) :
-    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR.
+  Definition semantic_type : Type := semantic_value -> iProp Σ.
+
+  Definition semantic_kind : Type := semantic_type -> iProp Σ.
+
+  Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
+    match ι with
+    | PtrR => exists n, v = VAL_int32 n
+    | I32R => exists n, v = VAL_int32 n
+    | I64R => exists n, v = VAL_int64 n
+    | F32R => exists n, v = VAL_float32 n
+    | F64R => exists n, v = VAL_float64 n
+    end.
+
+  (* TODO: Returns (Some ιs) for closed representations, None for open representations. *)
+  Definition eval_representation (ρ : representation) : option (list primitive_rep).
   Admitted.
 
-  Definition interp_expr_0 (rs : relations) :
-    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
-      leibnizO wlocal_ctx -n> leibnizO instance -n> ER.
+  (* TODO: Returns (Some n) for closed sizes, None for open sizes. *)
+  Definition eval_size (σ : size) : option nat.
   Admitted.
 
-  Definition rels_0 (rs : relations) : relations.
+  Definition representation_interp0 (ρ : representation) (vs : list value) : Prop :=
+    exists ιs, eval_representation ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
+
+  Definition representation_interp (ρ : representation) : semantic_type :=
+    fun sv => (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
+
+  Definition linearity_interp (γ : linearity) (T : semantic_type) : Prop :=
+    γ = Unr -> forall sv, Persistent (T sv).
+
+  Definition size_interp (σ : size) (ws : list word) : Prop :=
+    eval_size σ = Some (length ws).
+
+  Definition sizity_interp (ζ : sizity) : semantic_type :=
+    fun sv => (∃ ws, ⌜sv = SWords ws⌝ ∗ ∀ σ, ⌜ζ = Sized σ⌝ -∗ ⌜size_interp σ ws⌝)%I.
+
+  (* S refines T, written S ⊑ T. *)
+  Definition semantic_type_le (S T : semantic_type) : Prop :=
+    forall sv, S sv -∗ T sv.
+
+  Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type :=
+    semantic_type_le.
+
+  Definition kind_interp (κ : kind) : semantic_kind :=
+    match κ with
+    | VALTYPE ρ γ => fun T => (⌜T ⊑ representation_interp ρ⌝ ∗ ⌜linearity_interp γ T⌝)%I
+    | MEMTYPE ζ _ γ => fun T => (⌜T ⊑ sizity_interp ζ⌝ ∗ ⌜linearity_interp γ T⌝)%I
+    end.
+
+  Definition frame_interp0 :
+    relation_bundle ->
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR.
   Admitted.
 
-  Instance Contractive_rels_0 : Contractive rels_0.
+  Definition expr_interp0 :
+    relation_bundle ->
+    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
+      leibnizO instance -n> ER.
   Admitted.
 
-  Definition rels : relations := fixpoint rels_0.
+  Definition relations0 : relation_bundle -> relation_bundle.
+  Admitted.
 
-  Definition interp_value_phys : leibnizO type -n> WsR := relations_value_phys rels.
+  Instance Contractive_relations0 : Contractive relations0.
+  Admitted.
 
-  Definition interp_value_virt : leibnizO type -n> VVsR := relations_value_virt rels.
+  Definition relations : relation_bundle := fixpoint relations0.
 
-  Definition interp_frame :
-    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FR :=
-    relations_frame rels.
+  Definition value_interp : leibnizO type -n> SVR := relations_value relations.
 
-  Definition interp_expr :
-    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
-      leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
-    relations_expr rels.
+  Definition frame_interp :
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
+    relations_frame relations.
 
-  Lemma rels_eq : rels ≡ rels_0 rels.
+  Definition expr_interp :
+    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
+      leibnizO instance -n> ER :=
+    relations_expr relations.
+
+  Lemma relations_eq : relations ≡ relations0 relations.
   Proof. apply fixpoint_unfold. Qed.
 
-  (*
-  Lemma interp_value_phys_eq τ ws :
-    interp_value_phys τ ws ⊣⊢ interp_value_phys_0 rels τ ws.
-  Proof.
-    do 2 f_equiv.
-    transitivity (rels_0 rels).1.1.1.
-    - apply rels_eq.
-    - reflexivity.
-  Qed.
+  Definition stack_interp (τs : list type) : LVR.
+  Admitted.
 
-  Lemma interp_value_virt_eq τ vvs :
-    interp_value_virt τ vvs ⊣⊢ interp_value_virt_0 rels τ vvs.
-  Proof.
-    do 2 f_equiv.
-    transitivity (rels_0 rels).1.1.2.
-    - apply rels_eq.
-    - reflexivity.
-  Qed.
-
-  Lemma interp_expr_eq τs F L WL i e :
-    interp_expr τs F L WL i e ⊣⊢ interp_expr_0 rels τs F L WL i e.
-  Proof.
-    do 6 f_equiv.
-    transitivity (rels_0 rels).2.
-    - apply rels_eq.
-    - reflexivity.
-  Qed.
-
-  Lemma interp_frame_eq L WL i f :
-    interp_frame L WL i f ⊣⊢ interp_frame_0 rels L WL i f.
-  Proof.
-    do 4 f_equiv.
-    transitivity (rels_0 rels).1.2.
-    - apply rels_eq.
-    - reflexivity.
-  Qed.
-  *)
-
-  Opaque relations_value_phys.
-  Opaque relations_value_virt.
-  Opaque relations_frame.
-  Opaque relations_expr.
-
-  Definition interp_val (τs : list type) : VR. Admitted.
-
-  Definition interp_stack (τs : list type) : VR. Admitted.
-
-  Definition interp_inst (M : module_ctx) (inst : instance) : iProp Σ :=
+  Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
     True.
 
-  Definition interp_ctx (L L' : local_ctx) (F : function_ctx) (inst : instance) (lh : lholed) :
+  Definition context_interp (L L' : local_ctx) (F : function_ctx) (inst : instance) (lh : lholed) :
     iProp Σ :=
     True.
 
-  Definition semantic_typing
-    (M : module_ctx)
-    (F : function_ctx)
-    (L : local_ctx)
-    (WL : wlocal_ctx)
+  Definition has_type_semantic
+    (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
     (es : list administrative_instruction)
-    (τa : arrow_type)
-    (L' : local_ctx) :
+    (χ : arrow_type) (L' : local_ctx) :
     iProp Σ :=
-    let '(ArrowT τs1 τs2) := τa in
+    let '(ArrowT τs1 τs2) := χ in
     ∀ inst lh,
-    interp_inst M inst ∗ interp_ctx L L' F inst lh -∗
-    ∀ f vs,
-    interp_stack τs1 vs ∗ interp_frame L WL inst f ∗ ↪[frame] f -∗
-    interp_expr τs2 F L' WL inst (lh, of_val vs ++ es).
+    instance_interp M inst ∗ context_interp L L' F inst lh -∗
+    ∀ fr lv,
+    stack_interp τs1 lv ∗ frame_interp L WL inst fr ∗ ↪[frame] fr -∗
+    expr_interp τs2 F L' WL inst (lh, of_val lv ++ es).
 
 End Relations.
