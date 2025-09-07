@@ -4,6 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
 
 Set Bullet Behavior "Strict Subproofs".
+Set Default Goal Selector "!".
 
 Definition gmap_injective `{Countable K} {V} (m : gmap K V) :=
   ∀ k1 k2 v, m !! k1 = Some v -> m !! k2 = Some v -> k1 = k2.
@@ -17,6 +18,7 @@ Section Model.
   Definition address := N.
 
   Inductive pointer :=
+  | PtrInt (n : Z)
   | PtrMM (δ : address)
   | PtrGC (ℓ : location)
   | PtrRoot (δ : address).
@@ -29,22 +31,20 @@ Section Model.
   | IntWord
   | PtrWord.
 
-  Record object_signature :=
-    { os_prefix : list word_kind;
-      os_element : list word_kind;
-      os_count : nat }.
+  Record object_layout :=
+    { ol_prefix : list word_kind;
+      ol_element : list word_kind;
+      ol_count : nat }.
 
-  Definition signature_map : Type := gmap location object_signature.
-
-  Definition object : Type := list word.
-
-  Definition object_map : Type := gmap location object.
+  Definition layout_map : Type := gmap location object_layout.
 
   Definition address_map : Type := gmap location address.
 
   Definition root_map : Type := gmap address location.
 
-  Definition gc_invariant (Σ : gFunctors) : Type := signature_map -> object_map -> root_map -> iProp Σ.
+  Definition object_map : Type := gmap location (list word).
+
+  Definition gc_invariant (Σ : gFunctors) : Type := layout_map -> object_map -> root_map -> iProp Σ.
 
   Definition word_has_kind (k : word_kind) (w : word) : bool :=
     match k, w with
@@ -63,18 +63,20 @@ Section Model.
   Definition index_address (i : nat) : N := N.of_nat (4 * i).
 
   Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
+  | ReprPtrInt θ n :
+    repr_pointer θ (PtrInt n) (2 * n + 1)
   | ReprPtrMM θ δ :
-    (δ `mod` 2 = 0)%N ->
+    (δ `mod` 4 = 0)%N ->
     repr_pointer θ (PtrMM δ) (Z.of_N δ)
   | ReprPtrGC θ ℓ δ :
     θ !! ℓ = Some δ ->
-    (δ `mod` 2 = 1)%N ->
+    (δ `mod` 4 = 0)%N ->
     (δ >= heap_start)%N ->
-    repr_pointer θ (PtrGC ℓ) (Z.of_N (δ - 1))
+    repr_pointer θ (PtrGC ℓ) (Z.of_N (δ + 2))
   | ReprPtrRoot θ δ :
-    (δ `mod` 2 = 1)%N ->
+    (δ `mod` 4 = 0)%N ->
     (δ < heap_start)%N ->
-    repr_pointer θ (PtrRoot δ) (Z.of_N δ).
+    repr_pointer θ (PtrRoot δ) (Z.of_N (δ + 2)).
 
   Inductive repr_word : address_map -> word -> Z -> Prop :=
   | ReprWordInt θ n :
@@ -90,8 +92,8 @@ Section Model.
     (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = m ->
     repr_double_word θ (WordInt n1) (WordInt n2) m.
 
-  Definition repr_object (θ : address_map) (o : object) (ns : list Z) : Prop :=
-    Forall2 (repr_word θ) o ns.
+  Definition repr_list_word (θ : address_map) (ws : list word) (ns : list Z) : Prop :=
+    Forall2 (repr_word θ) ws ns.
 
   Inductive repr_location_index : address_map -> location -> nat -> Z -> Prop :=
   | ReprLocElem θ ℓ i δ0 δ :
@@ -100,8 +102,8 @@ Section Model.
     repr_location_index θ ℓ i δ.
 
   Class RichWasmGCG (Σ : gFunctors) :=
-    { gc_signatures : gname;
-      gc_signatures_G :: ghost_mapG Σ location object_signature;
+    { gc_layouts : gname;
+      gc_layouts_G :: ghost_mapG Σ location object_layout;
       gc_objects : gname;
       gc_objects_G :: ghost_mapG Σ location (list word);
       gc_roots : gname;
@@ -109,20 +111,20 @@ Section Model.
 
 End Model.
 
-Notation "ℓ ↦sig{ q } s" :=
-  (ℓ ↪[gc_signatures]{q} s)%I (at level 20, format "ℓ  ↦sig{ q }  s") : bi_scope.
+Notation "ℓ ↦gcl{ q } l" :=
+  (ℓ ↪[gc_layouts]{q} l)%I (at level 20, format "ℓ  ↦gcl{ q }  l") : bi_scope.
 
-Notation "ℓ ↦sig s" := (ℓ ↪[gc_signatures] s)%I (at level 20, format "ℓ  ↦sig  s") : bi_scope.
+Notation "ℓ ↦gcl l" := (ℓ ↪[gc_layouts] l)%I (at level 20, format "ℓ  ↦gcl  l") : bi_scope.
 
-Notation "ℓ ↦obj{ q } o" :=
-  (ℓ ↪[gc_objects]{q} o)%I (at level 20, format "ℓ  ↦obj{ q }  o") : bi_scope.
+Notation "ℓ ↦gco{ q } ws" :=
+  (ℓ ↪[gc_objects]{q} ws)%I (at level 20, format "ℓ  ↦gco{ q }  ws") : bi_scope.
 
-Notation "ℓ ↦obj o" := (ℓ ↪[gc_objects] o)%I (at level 20, format "ℓ  ↦obj  o") : bi_scope.
+Notation "ℓ ↦gco ws" := (ℓ ↪[gc_objects] ws)%I (at level 20, format "ℓ  ↦gco  ws") : bi_scope.
 
-Notation "δ ↦root{ q } ℓ" :=
-  (δ ↪[gc_roots]{q} ℓ)%I (at level 20, format "δ  ↦root{ q }  ℓ") : bi_scope.
+Notation "δ ↦gcr{ q } ℓ" :=
+  (δ ↪[gc_roots]{q} ℓ)%I (at level 20, format "δ  ↦gcr{ q }  ℓ") : bi_scope.
 
-Notation "δ ↦root ℓ" := (δ ↪[gc_roots] ℓ)%I (at level 20, format "δ  ↦root  ℓ") : bi_scope.
+Notation "δ ↦gcr ℓ" := (δ ↪[gc_roots] ℓ)%I (at level 20, format "δ  ↦gcr  ℓ") : bi_scope.
 
 Section Token.
 
@@ -131,12 +133,12 @@ Section Token.
 
   Variable heap_start : N.
 
-  Definition consistent_objects_memory (m : memaddr) (θ : address_map) (os : object_map) : iProp Σ :=
-    [∗ map] ℓ ↦ δ; o ∈ θ; os,
+  Definition consistent_objects_memory (m : memaddr) (θ : address_map) (wss : object_map) : iProp Σ :=
+    [∗ map] ℓ ↦ δ; ws ∈ θ; wss,
     ∃ bs ns,
     N.of_nat m ↦[wms][δ] bs ∗
     ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-    ⌜repr_object heap_start θ o ns⌝.
+    ⌜repr_list_word heap_start θ ws ns⌝.
 
   Definition consistent_roots_memory (m : memaddr) (θ : address_map) (rs : root_map) : iProp Σ :=
     [∗ map] δ ↦ ℓ ∈ rs,
@@ -145,34 +147,34 @@ Section Token.
     ⌜bs = serialize_Z_i32 n⌝ ∗
     ⌜repr_location_index θ ℓ 0 n⌝.
 
-  Definition consistent_objects_signatures (ss : signature_map) (os : object_map) : Prop :=
+  Definition consistent_objects_layouts (ls : layout_map) (wss : object_map) : Prop :=
     map_Forall
-      (fun ℓ '(s, o) =>
-         length o =? length s.(os_prefix) + s.(os_count) * length s.(os_element) /\
-           Forall (curry word_has_kind) (combine (concat (repeat s.(os_element) s.(os_count))) o))
-      (map_zip ss os).
+      (fun ℓ '(l, ws) =>
+         length ws =? length l.(ol_prefix) + l.(ol_count) * length l.(ol_element) /\
+           Forall (curry word_has_kind) (combine (concat (repeat l.(ol_element) l.(ol_count))) ws))
+      (map_zip ls wss).
 
-  Definition consistent_reachable_addresses (os : object_map) (θ : address_map) : Prop :=
+  Definition consistent_reachable_addresses (wss : object_map) (θ : address_map) : Prop :=
     gmap_injective θ /\
-    ∀ ℓ ℓ' o,
+    ∀ ℓ ℓ' ws,
     ℓ ∈ dom θ ->
-    os !! ℓ = Some o ->
-    WordPtr (PtrGC ℓ') ∈ o ->
+    wss !! ℓ = Some ws ->
+    WordPtr (PtrGC ℓ') ∈ ws ->
     ℓ' ∈ dom θ.
 
   Definition live_roots (θ : address_map) (rs : root_map) : Prop :=
     ∀ δ ℓ, rs !! δ = Some ℓ -> ℓ ∈ dom θ.
 
   Definition gc_token (inv : gc_invariant Σ) (m : memaddr) (θ : address_map) : iProp Σ :=
-    ∃ (ss : signature_map) (os : object_map) (rs : root_map),
-    inv ss os rs ∗
-    ghost_map_auth gc_signatures (1/2) ss ∗
-    ghost_map_auth gc_objects 1 os ∗
+    ∃ (ls : layout_map) (wss : object_map) (rs : root_map),
+    inv ls wss rs ∗
+    ghost_map_auth gc_layouts (1/2) ls ∗
+    ghost_map_auth gc_objects 1 wss ∗
     ghost_map_auth gc_roots (1/2) rs ∗
-    consistent_objects_memory m θ os ∗
+    consistent_objects_memory m θ wss ∗
     consistent_roots_memory m θ rs ∗
-    ⌜consistent_objects_signatures ss os⌝ ∗
-    ⌜consistent_reachable_addresses os θ⌝ ∗
+    ⌜consistent_objects_layouts ls wss⌝ ∗
+    ⌜consistent_reachable_addresses wss θ⌝ ∗
     ⌜live_roots θ rs⌝.
 
 End Token.
@@ -427,22 +429,6 @@ Section Rules.
     rewrite <- N2Z.inj_add. apply N2Z.inj.
   Qed.
 
-  Lemma repr_object_index : forall θ o w ns i,
-    o !! i = Some w ->
-    repr_object heap_start θ o ns ->
-    exists n, repr_word heap_start θ w n /\ ns !! i = Some n.
-  Admitted.
-
-  Lemma repr_object_index_double : forall θ o n1 n2 ns i,
-    o !! i = Some (WordInt n1) ->
-    o !! (i + 1) = Some (WordInt n2) ->
-    repr_object heap_start θ o ns ->
-    exists n,
-    repr_double_word heap_start θ (WordInt n1) (WordInt n2) n /\
-    ns !! i = Some n1 /\
-    ns !! (i + 1) = Some n2.
-  Admitted.
-
   Ltac solve_i32_bytes_len len :=
     try rewrite <- flat_map_app;
     rewrite -> flat_map_constant_length with (c := 4);
@@ -459,10 +445,10 @@ Section Rules.
     let alloc_gc_func :=
       N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32; T_i64; T_i32; T_i32; T_i64] [T_i32]) fts fes
     in
-    let sig :=
-      {| os_prefix := kinds_of_pointer_map prefix_map (Wasm_int.nat_of_uint i32m prefix_sz);
-         os_count := Wasm_int.nat_of_uint i32m count;
-         os_element := kinds_of_pointer_map elem_map (Wasm_int.nat_of_uint i32m elem_sz) |}
+    let l :=
+      {| ol_prefix := kinds_of_pointer_map prefix_map (Wasm_int.nat_of_uint i32m prefix_sz);
+         ol_count := Wasm_int.nat_of_uint i32m count;
+         ol_element := kinds_of_pointer_map elem_map (Wasm_int.nat_of_uint i32m elem_sz) |}
     in
     gc_token heap_start inv m θ ∗
     alloc_gc_func ∗
@@ -475,9 +461,9 @@ Section Rules.
         AI_invoke fid]
        @ E
        {{ v, (⌜v = trapV⌝ ∨
-              ∃ θ' ℓ n obj,
+              ∃ θ' ℓ n ws,
               ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_location_index θ' ℓ 0 n⌝ ∗
-              gc_token heap_start inv m θ' ∗ ℓ ↦sig sig ∗ ℓ ↦obj obj ∗
+              gc_token heap_start inv m θ' ∗ ℓ ↦gcl l ∗ ℓ ↦gco ws ∗
               alloc_gc_func) ∗
              ↪[frame] F }}%I.
 
@@ -486,52 +472,52 @@ Section Rules.
   Lemma wp_load_i32_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
       (m : memaddr) (θ : address_map) (inv : gc_invariant Σ)
-      (i : i32) (ℓ : location) (obj : object)
+      (i : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (w : word) :
     F.(f_inst).(inst_memory) !! memidx = Some m ->
     repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
-    obj !! j = Some w ->
-    gc_token heap_start inv m θ ∗ ℓ ↦obj obj ∗ ↪[frame] F ∗ ↪[RUN] ⊢
+    ws !! j = Some w ->
+    gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[frame] F ∗ ↪[RUN] ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i32 None N.zero off)]
        @ s; E
        {{ v, (∃ n, ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_word heap_start θ w n⌝) ∗
-             gc_token heap_start inv m θ ∗ ℓ ↦obj obj ∗ ↪[RUN] ∗ ↪[frame] F }}.
+             gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F }}.
   Admitted.
 
   Lemma wp_load_i64_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
       (m : memaddr) (θ : address_map) (inv : gc_invariant Σ)
-      (i : i32) (ℓ : location) (obj : object)
+      (i : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (n1 n2 : Z) :
     F.(f_inst).(inst_memory) !! memidx = Some m ->
     repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
-    obj !! j = Some (WordInt n1) ->
-    obj !! (j + 1) = Some (WordInt n2) ->
-    gc_token heap_start inv m θ ∗ ℓ ↦obj obj ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    ws !! j = Some (WordInt n1) ->
+    ws !! (j + 1) = Some (WordInt n2) ->
+    gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i64 None N.zero off)]
        @ s; E
        {{ v, (∃ n, ⌜v = immV [VAL_int64 (Wasm_int.int_of_Z i64m n)]⌝ ∗
                    ⌜repr_double_word heap_start θ (WordInt n1) (WordInt n2) n⌝) ∗
-             gc_token heap_start inv m θ ∗ ℓ ↦obj obj ∗ ↪[RUN] ∗ ↪[frame] F }}.
+             gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F }}.
   Admitted.
 
   Lemma wp_store_i32_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
       (m : memaddr) (θ : address_map) (inv : gc_invariant Σ)
-      (i k : i32) (ℓ : location) (obj : object)
+      (i k : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (w : word) :
     F.(f_inst).(inst_memory) !! memidx = Some m ->
     repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
-    j < length obj ->
+    j < length ws ->
     repr_word heap_start θ w (Wasm_int.Z_of_uint i32m k) ->
-    gc_token heap_start inv m θ ∗ ℓ ↦obj obj ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i));
         AI_basic (BI_const (VAL_int32 k));
         AI_basic (BI_store memidx T_i32 None N.zero off)]
        @ s; E
        {{ v, ⌜v = immV []⌝ ∗
              gc_token heap_start inv m θ ∗
-             ℓ ↦obj <[ j := w ]> obj ∗
+             ℓ ↦gco <[ j := w ]> ws ∗
              ↪[RUN] ∗ ↪[frame] F }}.
   Admitted.
 
@@ -547,7 +533,7 @@ Section Rules.
        {{ v, (⌜v = trapV⌝ ∨
               ∃ n,
               ⌜v = immV [VAL_int32 n]⌝ ∗
-              Wasm_int.N_of_uint i32m n ↦root ℓ ∗
+              Wasm_int.N_of_uint i32m n ↦gcr ℓ ∗
               gc_token heap_start inv m θ ∗
               N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes) ∗
              ↪[RUN] ∗ ↪[frame] F }}%I.
@@ -557,7 +543,7 @@ Section Rules.
       (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
       : iProp Σ :=
     □ ∀ (F : frame) (θ : address_map) (n : i32) (ℓ : location),
-    gc_token heap_start inv m θ ∗ Wasm_int.N_of_uint i32m n ↦root ℓ ∗
+    gc_token heap_start inv m θ ∗ Wasm_int.N_of_uint i32m n ↦gcr ℓ ∗
     N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
     WP [AI_basic (BI_const (VAL_int32 n)); AI_invoke fid]
        @ E

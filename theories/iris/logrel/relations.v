@@ -35,10 +35,10 @@ Section Relations.
   Definition sem_typeO := SVR.
   Notation VR := (leibnizO val -n> iPropO Σ).
   Notation WsR := (leibnizO (list value) -n> iPropO Σ).
-  Notation VVsR := (leibnizO object -n> iPropO Σ).
+  Notation VVsR := (leibnizO (list word) -n> iPropO Σ).
   Notation FR := (leibnizO frame -n> iPropO Σ).
   Notation HVR_mm := (leibnizO bytes -n> iPropO Σ).
-  Notation HVR_gc := (leibnizO object -n> iPropO Σ).
+  Notation HVR_gc := (leibnizO (list word) -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
   Notation ER := (leibnizO (lholed * list administrative_instruction) -n> iPropO Σ).
 
@@ -48,7 +48,7 @@ Section Relations.
   Implicit Type sv : leibnizO sem_val.
   Implicit Type v : leibnizO val.
   Implicit Type ws : leibnizO (list value).
-  Implicit Type vvs : leibnizO object.
+  Implicit Type vvs : leibnizO (list word).
   Implicit Type bs : leibnizO bytes.
   Implicit Type f : leibnizO frame.
   Implicit Type cl : leibnizO function_closure.
