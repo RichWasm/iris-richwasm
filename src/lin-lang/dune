@@ -1,5 +1,0 @@
-(library
- (name richwasm_lin_lang)
- (public_name iris-richwasm.lin-lang)
- (modules main :standard)
- (libraries iris-richwasm.common))
