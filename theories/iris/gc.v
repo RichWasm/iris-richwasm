@@ -13,7 +13,7 @@ Section Model.
 
   Variable heap_start : N.
 
-  Definition location := nat.
+  Definition location := N.
 
   Definition address := N.
 

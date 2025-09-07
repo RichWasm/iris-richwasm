@@ -63,15 +63,15 @@ Section Relations.
     (leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
        leibnizO wlocal_ctx -n> leibnizO instance -n> ER).
 
-  Definition relations_value : relation_bundle -> leibnizO type -n> SVR :=
+  Definition rb_value : relation_bundle -> leibnizO type -n> SVR :=
     fst ∘ fst.
 
-  Definition relations_frame :
+  Definition rb_frame :
     relation_bundle ->
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
     snd ∘ fst.
 
-  Definition relations_expr :
+  Definition rb_expr :
     relation_bundle ->
     leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
       leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
@@ -126,6 +126,46 @@ Section Relations.
     | MEMTYPE ζ _ γ => fun T => (⌜T ⊑ sizity_interp ζ⌝ ∗ ⌜linearity_interp γ T⌝)%I
     end.
 
+  Definition value_interp0 (rb : relation_bundle) : leibnizO type -n> SVR :=
+    λne τ sv,
+      match τ with
+      | VarT _ => False
+      | NumT _ (IntT I32T) => ∃ n, ⌜sv = SValues [VAL_int32 n]⌝
+      | NumT _ (IntT I64T) => ∃ n, ⌜sv = SValues [VAL_int64 n]⌝
+      | NumT _ (FloatT F32T) => ∃ n, ⌜sv = SValues [VAL_float32 n]⌝
+      | NumT _ (FloatT F64T) => ∃ n, ⌜sv = SValues [VAL_float64 n]⌝
+      | SumT _ τs => True (* TODO *)
+      | ProdT _ τs => True (* TODO *)
+      | ArrT _ τ =>
+          ∃ wₙ wss, ⌜sv = SWords (wₙ :: concat wss)⌝ ∗
+                      ∃ bsₙ n, ⌜bsₙ = serialize_Z_i32 n⌝ ∗
+                                 ⌜repr_word sr.(sr_gc_heap_start) ∅ wₙ n⌝ ∗
+                                 [∗ list] ws ∈ wss, rb_value rb τ (SWords ws)
+      | RefT _ (MemVar _) _ => False
+      | RefT _ MemMM τ =>
+          ∃ δ, ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N δ))]⌝ ∗
+                 ∃ ws ns bs, N.of_nat sr.(sr_mem_mm) ↦[wms][δ] bs ∗
+                               ⌜repr_list_word sr.(sr_gc_heap_start) ∅ ws ns⌝ ∗
+                               ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
+                               rb_value rb τ (SWords ws)
+      | RefT _ MemGC τ =>
+          ∃ δ ℓ, ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N δ))]⌝ ∗
+                   δ ↦gcr ℓ ∗
+                   na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
+      | GCPtrT _ τ =>
+          ∃ ℓ, ⌜sv = SWords [WordPtr (PtrGC ℓ)]⌝ ∗
+                 na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
+      | CodeRefT _ ϕ => True (* TODO *)
+      | RepT _ ρ τ => True (* TODO *)
+      | PadT _ σ τ => True (* TODO *)
+      | SerT _ τ => True (* TODO *)
+      | RecT _ τ => True (* TODO *)
+      | ExMemT _ τ => True (* TODO *)
+      | ExRepT _ τ => True (* TODO *)
+      | ExSizeT _ τ => True (* TODO *)
+      | ExTypeT _ κ τ => True (* TODO *)
+      end%I.
+
   Definition frame_interp0 :
     relation_bundle ->
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR.
@@ -137,24 +177,24 @@ Section Relations.
       leibnizO instance -n> ER.
   Admitted.
 
-  Definition relations0 : relation_bundle -> relation_bundle.
-  Admitted.
+  Definition relations0 (rb : relation_bundle) : relation_bundle :=
+    (value_interp0 rb, frame_interp0 rb, expr_interp0 rb).
 
   Instance Contractive_relations0 : Contractive relations0.
   Admitted.
 
   Definition relations : relation_bundle := fixpoint relations0.
 
-  Definition value_interp : leibnizO type -n> SVR := relations_value relations.
+  Definition value_interp : leibnizO type -n> SVR := rb_value relations.
 
   Definition frame_interp :
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
-    relations_frame relations.
+    rb_frame relations.
 
   Definition expr_interp :
     leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
       leibnizO instance -n> ER :=
-    relations_expr relations.
+    rb_expr relations.
 
   Lemma relations_eq : relations ≡ relations0 relations.
   Proof. apply fixpoint_unfold. Qed.

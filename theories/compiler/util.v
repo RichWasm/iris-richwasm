@@ -1,3 +1,5 @@
+Require Import Coq.Numbers.BinNums.
+
 Require Wasm.datatypes.
 
 Require Import RichWasm.syntax.
@@ -13,7 +15,8 @@ Inductive error :=
 
 Record store_runtime :=
   { sr_mem_gc : W.memaddr;
-    sr_mem_mm : W.memaddr }.
+    sr_mem_mm : W.memaddr;
+    sr_gc_heap_start : N }.
 
 Record module_runtime :=
   { mr_mem_gc : W.memidx;
