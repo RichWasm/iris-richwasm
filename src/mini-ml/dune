@@ -1,0 +1,5 @@
+(library
+ (name richwasm_mini_ml)
+ (public_name iris-richwasm.mini-ml)
+ (modules main :standard)
+ (libraries iris-richwasm.common))
