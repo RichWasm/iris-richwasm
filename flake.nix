@@ -153,6 +153,7 @@
               ])
               ++ (with ocamlPackages; [
                 zarith
+                base
               ]);
           };
         }
@@ -160,10 +161,16 @@
 
       devShells = eachSystem (pkgs: {
         default = pkgs.mkShell {
-          packages = [
-            pkgs.git # TODO: figure out how to use system git
-            self.packages.${pkgs.system}.vscoq-language-server
-          ];
+          packages =
+            [
+              pkgs.git # TODO: figure out how to use system git
+              self.packages.${pkgs.system}.vscoq-language-server
+            ]
+            ++ (with pkgs.ocaml-ng.ocamlPackages_4_14; [
+              merlin
+              ocp-indent
+              ocamlformat
+            ]);
 
           inputsFrom = [
             self.packages.${pkgs.system}.${project}

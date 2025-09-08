@@ -12,6 +12,7 @@ depends: [
   "coq-autosubst-ocaml" {= "0.2"}
   "coq-record-update" {>= "0.3.4"}
   "zarith" {>= "1.14"}
+  "base" {>= "0.15.1"}
   "odoc" {with-doc}
 ]
 build: [
