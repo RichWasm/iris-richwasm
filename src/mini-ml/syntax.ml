@@ -27,7 +27,7 @@ module Source = struct
 
   module rec Value = struct
     type t =
-      | Int of int (** Will be an int31 *)
+      | Int of int (** FIXME: make this an int31 *)
       | Var of Variable.t
       | Lambda of
           { foralls : TypeVar.t list
@@ -137,6 +137,27 @@ module Debruijned = struct
       | Value of Value.t
       | Computation of Computation.t
     and t = Tag.t * t_base [@@deriving sexp]
+
+  module Module = struct
+    type import =
+      { typ : FunType.t
+      ; mod_name : Variable.t
+      ; fun_name : Variable.t }
+    [@@deriving sexp]
+
+    type func =
+      { foralls : TypeVar.t list
+      ; args : (Variable.t * Type.t) list
+      ; body : Expr.t }
+    [@@deriving sexp]
+
+    type t =
+      | LetIm of import * t
+      | LetEx of Variable.t * func * t
+      | Global of Variable.t * Expr.t * t
+      | Body of Expr.t
+    [@@deriving sexp]
+  end
 
   module Module = struct
     type import =
