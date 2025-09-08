@@ -13,8 +13,8 @@ From iris.algebra Require Import list.
 From iris.prelude Require Import options.
 
 From RichWasm.iris.helpers Require Export iris_properties.
-From RichWasm.iris.language Require Export iris_atomicity lenient_wp lwp_pure lwp_structural lwp_resources lwp_trap.
-From RichWasm.iris.rules Require Export iris_rules.
+From RichWasm.iris.language Require Export iris_atomicity lenient_wp.
+From RichWasm.iris.rules Require Export iris_rules lwp_rules.
 
 From RichWasm Require Import syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
