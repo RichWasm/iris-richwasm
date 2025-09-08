@@ -5,7 +5,7 @@ From iris.base_logic Require Export gen_heap proph_map.
 Require Export iris iris_locations.
 From RichWasm.iris.helpers Require Export iris_properties.
 From Wasm Require Export datatypes operations.
-From RichWasm Require Export properties opsem_instr.
+From RichWasm.opsem Require Export properties instr.
 
 
 Local Definition reducible := @reducible wasm_lang.

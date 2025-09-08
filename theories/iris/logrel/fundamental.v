@@ -123,12 +123,6 @@ Section Fundamental.
     intros es' Hcomp; admit.
   Admitted.
 
-  Notation "{{{{ P }}}} es {{{{ v , Q }}}}" :=
-    (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ WP (es : iris.expr) @ NotStuck ; ⊤ {{ v, Φ v }})%I (at level 50).
-
-  Notation "{{{{ P }}}} es @ E {{{{ v , Q }}}}" :=
-    (□ ∀ Φ, P -∗ (∀ v : iris.val, Q -∗ Φ v) -∗ (WP (es : iris.expr) @ NotStuck ; E {{ v, Φ v }}))%I (at level 50).
-
   (*
   Definition if_spec tf e_then e_else k φ ψ f : ⊢
     {{{{ ⌜k ≠ Wasm_int.int_zero i32m⌝ ∗ φ ∗ ↪[frame] f }}}}

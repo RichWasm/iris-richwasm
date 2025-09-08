@@ -10,7 +10,7 @@ From RichWasm.iris.rules Require Export iris_rules_resources.
 From Wasm Require Export stdpp_aux.
 From RichWasm.iris.instantiation Require Export iris_instantiation.
 From RichWasm.iris.language Require Export iris_wp.
-From RichWasm Require Export properties opsem_instr. 
+From RichWasm.opsem Require Export properties instr.
 From Wasm Require Export datatypes operations properties instantiation.
 From Wasm Require Export type_preservation.
 
@@ -162,7 +162,7 @@ Inductive host_reduce:
     llfill lh [] = LI' ->
     host_reduce Run s vis ms idecs fs f0 LI Run s vis ms (f :: idecs) fs f0 LI' 
 | HR_wasm_step: forall o o' s vis ms idecs s' es es' f1 f2 fs,
-    opsem_instr.reduce o s f1 es o' s' f2 es' ->
+    opsem.instr.reduce o s f1 es o' s' f2 es' ->
     host_reduce o s vis ms idecs fs f1 es o' s' vis ms idecs fs f2 es'
 | HR_get_global: ∀ s f vis ms g v_glob fs vs,
     (s_globals s) !! g = Some v_glob ->
@@ -247,7 +247,7 @@ Qed.
 
 Lemma call_host_no_reduce tf h vcs o s0 f o' s'0 f' es' llh LI:
   llfill llh [AI_call_host tf h vcs] = LI ->
-  opsem_instr.reduce o s0 f LI o' s'0 f' es' -> False.
+  opsem.instr.reduce o s0 f LI o' s'0 f' es' -> False.
 Proof.
   intros HLI Hred.
   apply val_head_stuck_reduce in Hred.

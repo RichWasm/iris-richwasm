@@ -1,18 +1,19 @@
 (** Miscellaneous properties about Wasm operations **)
 
-From Wasm Require Export datatypes_properties operations typing common.
-From RichWasm Require Export opsem_instr.
-From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
-(* From StrongInduction Require Import StrongInduction. *) 
 From Coq Require Import Bool Program.Equality.
+Require Import Lia.
+
+From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
+
+From Wasm Require Export datatypes_properties operations typing common.
+
+From RichWasm.opsem Require Export instr.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
-Require Import Lia.
 
 (** * Basic Lemmas **)
-
 
 Lemma app_app (es1 es2 es3 es4: list administrative_instruction) :
   es1 ++ es2 = es3 ++ es4 ->

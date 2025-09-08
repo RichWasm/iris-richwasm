@@ -2,7 +2,7 @@ From mathcomp Require Import ssreflect ssrbool eqtype seq.
 From Coq Require Import Eqdep_dec.
 From stdpp Require Import base list.
 From Wasm Require Export common operations list_extra.
-From RichWasm Require Export opsem_instr properties.
+From RichWasm.opsem Require Export instr properties.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

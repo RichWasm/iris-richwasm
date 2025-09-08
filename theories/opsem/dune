@@ -1,0 +1,9 @@
+(coq.theory
+ (name RichWasm.opsem)
+ (package iris-richwasm)
+ (flags
+   -w -ambiguous-paths
+   -w -notation-incompatible-prefix
+   -w -notation-overridden)
+ (theories
+   Wasm))

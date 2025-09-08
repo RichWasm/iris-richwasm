@@ -1899,9 +1899,9 @@ Section reduce_properties_lemmas.
 
   Lemma reduce_det_local obs ws f obs' ws' f' es1 es2 n f0 :
     iris.to_val es1 = None ->
-    opsem_instr.reduce obs ws f [AI_local n f0 es1] obs' ws' f' es2 ->
+    opsem.instr.reduce obs ws f [AI_local n f0 es1] obs' ws' f' es2 ->
     ∃ es2' f1, es2 = [AI_local n f1 es2'] ∧ f = f' ∧
-                 opsem_instr.reduce obs ws f0 es1 obs' ws' f1 es2'.
+                 opsem.instr.reduce obs ws f0 es1 obs' ws' f1 es2'.
   Proof.
     intros Hes1.
     remember [AI_local n f0 es1] as es.
@@ -1940,12 +1940,12 @@ Section reduce_properties_lemmas.
   Qed.
 
   Lemma reduce_det_label obs ws f obs' ws' f' es1 n es es'' es2 :
-    opsem_instr.reduce obs ws f es'' obs' ws' f' es2 ->
+    opsem.instr.reduce obs ws f es'' obs' ws' f' es2 ->
     ∀ l1 l2, es'' = (l1 ++ [AI_label n es es1] ++ l2) ->
     const_list l1 ->
     iris.to_val es1 = None ->
     ∃ es2', es2 = l1 ++ [AI_label n es es2'] ++ l2 ∧
-              opsem_instr.reduce obs ws f es1 obs' ws' f' es2'.
+              opsem.instr.reduce obs ws f es1 obs' ws' f' es2'.
   Proof.
     revert es2. induction 1.
     2-24:intros l1 l2 Heqes'' Hconst Hes1; simplify_eq.
@@ -2012,9 +2012,9 @@ Section reduce_properties_lemmas.
 
   Lemma reduce_det_label_nil obs ws f obs' ws' f' es1 es2 n es :
     iris.to_val es1 = None ->
-    opsem_instr.reduce obs ws f [AI_label n es es1] obs' ws' f' es2 ->
+    opsem.instr.reduce obs ws f [AI_label n es es1] obs' ws' f' es2 ->
     ∃ es2', es2 = [AI_label n es es2'] ∧
-              opsem_instr.reduce obs ws f es1 obs' ws' f' es2'.
+              opsem.instr.reduce obs ws f es1 obs' ws' f' es2'.
   Proof.
     intros Hes1.
     remember [AI_label n es es1] as es''.

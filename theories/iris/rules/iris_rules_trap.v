@@ -381,7 +381,7 @@ Section trap_rules.
   Qed.
 
   Lemma reduce_det_local_trap obs ws f obs' ws' f' es2 n f0 :
-    opsem_instr.reduce obs ws f [AI_local n f0 [AI_trap]] obs' ws' f' es2 ->
+    opsem.instr.reduce obs ws f [AI_local n f0 [AI_trap]] obs' ws' f' es2 ->
     es2 = [AI_trap] ∧ ws = ws' ∧ f = f' /\ obs = obs'.
   Proof.
     remember [AI_local n f0 [AI_trap]] as es.

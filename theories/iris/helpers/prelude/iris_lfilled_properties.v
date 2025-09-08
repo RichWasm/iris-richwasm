@@ -2,7 +2,7 @@ From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From Coq Require Import List.
 From stdpp Require Import base list.
 From Wasm Require Export stdpp_aux datatypes operations.
-From RichWasm Require Export opsem_instr properties.
+From RichWasm.opsem Require Export instr properties.
 From RichWasm.iris.helpers.lfill_prelude Require Export lfill_prelude.
 
 Ltac false_assumption := exfalso ; apply ssrbool.not_false_is_true ; assumption.

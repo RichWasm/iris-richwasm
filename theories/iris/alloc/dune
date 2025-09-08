@@ -1,7 +1,7 @@
 (coq.theory
   (name RichWasm.iris.alloc)
   (package iris-richwasm)
-  (flags -w -ambiguous-paths)
+  (flags -w -ambiguous-paths -w -notation-overridden)
   (theories
     RichWasm
     Wasm
