@@ -11,7 +11,7 @@
   (name iris-richwasm)
   (depends
     (rocq-autosubst-ocaml (>= 1.1+9.0))
-    (coq-record-update (>= 0.3.4))
+    (coq-record-update (>= 0.3.6))
     (zarith (>= 1.14))
     (base (>= 0.15.1)))
   (synopsis "RichWasm formalization in Coq and Iris")

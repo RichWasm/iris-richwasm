@@ -13,7 +13,7 @@
   (synopsis "Wasm formalisation in Coq and Iris")
   (description "Wasm formalisation in Coq, following the AFP formalisation of Conrad Watt, and program logic for Wasm using Iris")
   (depends
-    (coq (>= 8.20.1))
+    (rocq-prover (>= 9.0.0))
     (coq-iris (>= 4.3.0))
     (coq-stdpp (>= 1.11.0))
     (coq-compcert (>= 3.15))
