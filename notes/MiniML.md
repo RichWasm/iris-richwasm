@@ -18,6 +18,6 @@ Combine both big and little lambda into one syntactic form.
 
 Review Existing OCaml implementation and see what can be reused
 
-Read System F to tau paper (target for closure conversion must have existentials)
+Read System F to tal paper (target for closure conversion must have existentials)
 
 Read Linking types

@@ -64,16 +64,15 @@
               hash = "sha256-nRipTaiqhzU3xJCiApZwyN6gu8dazmfxyLjXcYx96cc=";
             };
 
-            buildInputs =
-              [
-                coq
-              ]
-              ++ (with ocamlPackages; [
-                findlib
-                ocamlgraph
-                angstrom
-                ppx_deriving
-              ]);
+            buildInputs = [
+              coq
+            ]
+            ++ (with ocamlPackages; [
+              findlib
+              ocamlgraph
+              angstrom
+              ppx_deriving
+            ]);
           };
 
           vscoq-language-server = ocamlPackages.buildDunePackage rec {
@@ -91,31 +90,30 @@
               in
               "${fetched}/language-server";
             nativeBuildInputs = [ coq ];
-            buildInputs =
-              [
-                coq
-              ]
-              ++ (with pkgs; [
-                glib
-                adwaita-icon-theme
-                wrapGAppsHook3
-              ])
-              ++ (with ocamlPackages; [
-                findlib
-                lablgtk3-sourceview3
-                yojson
-                zarith
-                ppx_inline_test
-                ppx_assert
-                ppx_sexp_conv
-                ppx_deriving
-                ppx_import
-                sexplib
-                ppx_yojson_conv
-                lsp
-                sel
-                ppx_optcomp
-              ]);
+            buildInputs = [
+              coq
+            ]
+            ++ (with pkgs; [
+              glib
+              adwaita-icon-theme
+              wrapGAppsHook3
+            ])
+            ++ (with ocamlPackages; [
+              findlib
+              lablgtk3-sourceview3
+              yojson
+              zarith
+              ppx_inline_test
+              ppx_assert
+              ppx_sexp_conv
+              ppx_deriving
+              ppx_import
+              sexplib
+              ppx_yojson_conv
+              lsp
+              sel
+              ppx_optcomp
+            ]);
           };
 
           ${project} = coqPackages.mkCoqDerivation {
@@ -135,40 +133,47 @@
               coq
             ];
 
-            buildInputs =
-              [
-                parseque
-                autosubst-ocaml
-              ]
-              ++ (with pkgs; [ compcert ])
-              ++ (with coqPackages; [
-                iris
-                coq-elpi
-                ExtLib
-                ITree
-                hierarchy-builder
-                mathcomp
-                mathcomp-ssreflect
-                coq-record-update
-              ])
-              ++ (with ocamlPackages; [
-                zarith
-              ]);
+            buildInputs = [
+              parseque
+              autosubst-ocaml
+            ]
+            ++ (with pkgs; [ compcert ])
+            ++ (with coqPackages; [
+              iris
+              coq-elpi
+              ExtLib
+              ITree
+              hierarchy-builder
+              mathcomp
+              mathcomp-ssreflect
+              coq-record-update
+            ])
+            ++ (with ocamlPackages; [
+              zarith
+            ]);
           };
         }
       );
 
-      devShells = eachSystem (pkgs: {
-        default = pkgs.mkShell {
-          packages = [
-            pkgs.git # TODO: figure out how to use system git
-            self.packages.${pkgs.system}.vscoq-language-server
-          ];
+      devShells = eachSystem (
+        pkgs:
+        let
+          ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
+        in
+        {
+          default = pkgs.mkShell {
+            packages = [
+              pkgs.git # TODO: figure out how to use system git
+              self.packages.${pkgs.system}.vscoq-language-server
+              ocamlPackages.ocaml-lsp
+              ocamlPackages.ocamlformat_0_26_1
+            ];
 
-          inputsFrom = [
-            self.packages.${pkgs.system}.${project}
-          ];
-        };
-      });
+            inputsFrom = [
+              self.packages.${pkgs.system}.${project}
+            ];
+          };
+        }
+      );
     };
 }
