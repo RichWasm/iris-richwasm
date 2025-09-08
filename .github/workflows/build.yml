@@ -14,8 +14,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: coq-community/docker-coq-action@v1
         with:
-          opam_file: 'iris-richwasm.opam'
-          coq_version: '8.20.1'
-          ocaml_version: 'default'
-          before_install: |
-            opam install -y --deps-only vendor/iriswasm
+          opam_file: iris-richwasm.opam
+          coq_version: 9.0.0
+          ocaml_version: default
+          before_install: opam install -y --deps-only vendor/iriswasm
