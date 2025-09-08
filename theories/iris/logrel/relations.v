@@ -7,7 +7,6 @@ Require Wasm.iris.logrel.iris_logrel.
 From RichWasm.compiler Require Import codegen types util.
 From RichWasm.iris Require Import gc num_reprs util.
 Require Import RichWasm.iris.logrel.util.
-Require Import RichWasm.util.debruijn.
 Require Import RichWasm.iris.language.lenient_wp.
 Require Import RichWasm.iris.language.logpred.
 Import uPred.

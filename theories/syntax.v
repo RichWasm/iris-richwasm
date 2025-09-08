@@ -1,3 +1,1 @@
-From RichWasm.syntax Require modules rw.
-Export modules.
-Export rw.
+From RichWasm.syntax Require Export modules rw.

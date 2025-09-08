@@ -1,5 +1,5 @@
 From Flocq Require Import Bits.
-From Coq.Strings Require Import Byte.
+From Stdlib.Strings Require Import Byte.
 Require Import BinNums ZArith.BinInt.
 
 (* TODO: this to circumvent Flocq's "binary" representation of floats *)

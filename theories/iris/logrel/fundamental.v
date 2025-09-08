@@ -20,7 +20,7 @@ From RichWasm Require Import syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules types util.
 From RichWasm.iris Require Import autowp gc num_reprs util.
 From RichWasm.iris.logrel Require Import relations util.
-From RichWasm.util Require Import debruijn stdpp_extlib.
+From RichWasm.util Require Import stdpp_extlib.
 
 Module RT := RichWasm.syntax.
 Module T := RichWasm.typing.

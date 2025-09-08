@@ -1,5 +1,5 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
-From Coq Require Import List.
+From Stdlib Require Import List.
 From stdpp Require Import base list.
 From Wasm Require Export stdpp_aux datatypes operations.
 From RichWasm.opsem Require Export instr properties.

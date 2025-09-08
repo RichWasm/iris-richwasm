@@ -10,7 +10,7 @@
 (package
   (name iris-richwasm)
   (depends
-    (coq-autosubst-ocaml (= 0.2))
+    (rocq-autosubst-ocaml (>= 1.1+9.0))
     (coq-record-update (>= 0.3.4))
     (zarith (>= 1.14))
     (base (>= 0.15.1)))

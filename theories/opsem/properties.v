@@ -1,7 +1,6 @@
 (** Miscellaneous properties about Wasm operations **)
 
-From Coq Require Import Bool Program.Equality.
-Require Import Lia.
+From Stdlib Require Import Bool Program.Equality Lia.
 
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 

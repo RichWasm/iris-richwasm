@@ -1,6 +1,6 @@
-From Coq Require Import List NArith.BinNat.
-Require Import Coq.Strings.String.
-Require Import Coq.ZArith.BinInt.
+From Stdlib Require Import List NArith.BinNat.
+Require Import Stdlib.Strings.String.
+Require Import Stdlib.ZArith.BinInt.
 
 From Wasm Require datatypes.
 From Wasm Require Import numerics.

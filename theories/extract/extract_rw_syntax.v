@@ -1,6 +1,4 @@
-From Coq Require Import Extraction.
-Require Import ExtrOcamlBasic.
-Require Import ExtrOcamlZBigInt.
+From Stdlib Require Import Extraction ExtrOcamlBasic ExtrOcamlZBigInt.
 
 Set Warnings "-extraction-default-directory".
 

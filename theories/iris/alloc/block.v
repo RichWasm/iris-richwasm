@@ -1,4 +1,4 @@
-Require Import Coq.NArith.BinNat.
+Require Import Stdlib.NArith.BinNat.
 
 Inductive state_flag :=
 | Used

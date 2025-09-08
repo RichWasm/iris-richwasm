@@ -4,7 +4,7 @@
 From mathcomp Require Import ssreflect ssrbool ssrnat eqtype seq.
 From Wasm Require Import common.
 From compcert Require Import Integers.
-Require Import PeanoNat (*Coq.Arith.Le*) .
+From Stdlib Require Import PeanoNat.
 From parseque Require Import Char.
 
 Definition byte := Integers.byte.

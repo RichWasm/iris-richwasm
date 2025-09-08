@@ -10,7 +10,7 @@ From RichWasm.iris.language Require Export iris_wp_def.
 From Wasm Require Export stdpp_aux.
 From Wasm Require Export instantiation.
 Require Export instantiation_properties.
-Require Import Coq.Program.Equality.
+Require Import Stdlib.Program.Equality.
 From Wasm Require Export type_preservation.
 
 Close Scope byte.

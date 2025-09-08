@@ -3,7 +3,7 @@
 (* TODO: size bound *)
 Require Import Numbers.BinNums.
 Require Import NArith.BinNat.
-Require Import Coq.Init.Byte.
+Require Import Stdlib.Init.Byte.
 From parseque Require Import Parseque.
 
 (** expects 7 bits, with MSB at head *)

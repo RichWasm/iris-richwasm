@@ -1,6 +1,6 @@
-From Coq Require Import List.
+From Stdlib Require Import List.
 Import ListNotations.
-Require Import Coq.Program.Basics.
+Require Import Stdlib.Program.Basics.
 Local Open Scope program_scope.
 
 Require Import stdpp.base.

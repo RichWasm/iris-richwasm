@@ -1,6 +1,6 @@
 (* General purpose tactics *)
 
-Require Import Coq.Arith.Arith. 
+Require Import Stdlib.Arith.Arith.
 
 Ltac inv H := inversion H; clear H; subst.
 

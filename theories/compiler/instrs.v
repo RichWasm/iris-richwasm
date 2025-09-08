@@ -1,9 +1,9 @@
-From Coq Require Import List.
-Import Coq.Lists.List.ListNotations.
-Require Import Coq.Program.Basics.
-Require Import Coq.Strings.String.
-Require Import Coq.NArith.BinNat.
-Require Import Coq.ZArith.BinInt.
+From Stdlib Require Import List.
+Import Stdlib.Lists.List.ListNotations.
+Require Import Stdlib.Program.Basics.
+Require Import Stdlib.Strings.String.
+Require Import Stdlib.NArith.BinNat.
+Require Import Stdlib.ZArith.BinInt.
 Local Open Scope program_scope.
 
 From ExtLib.Data Require Import List.

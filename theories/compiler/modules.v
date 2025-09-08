@@ -1,7 +1,7 @@
-From Coq Require Import List.
+From Stdlib Require Import List.
 Import ListNotations.
-Require Import Coq.Strings.String.
-Require Import Coq.ZArith.BinInt.
+Require Import Stdlib.Strings.String.
+Require Import Stdlib.ZArith.BinInt.
 
 Require Import mathcomp.ssreflect.seq.
 

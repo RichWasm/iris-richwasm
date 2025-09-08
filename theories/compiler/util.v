@@ -1,4 +1,4 @@
-Require Import Coq.Numbers.BinNums.
+Require Import Stdlib.Numbers.BinNums.
 
 Require Wasm.datatypes.
 

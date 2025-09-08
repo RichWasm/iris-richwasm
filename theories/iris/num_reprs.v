@@ -1,7 +1,7 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 Require Import stdpp.base.
-From Coq.ZArith Require Import ZArith.
-From Coq.micromega Require Import Lia.
+From Stdlib.ZArith Require Import ZArith.
+From Stdlib.micromega Require Import Lia.
 From Wasm Require Import numerics.
 
 (* beware:

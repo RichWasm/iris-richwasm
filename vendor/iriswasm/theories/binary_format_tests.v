@@ -1,5 +1,5 @@
 (** Tests for the binary parser. **)
-From Coq.Strings Require Import Byte.
+From Stdlib.Strings Require Import Byte.
 From parseque Require Import Parseque.
 From Wasm Require Import binary_format_parser binary_format_printer bytes_pp
                          datatypes_properties check_toks pp.

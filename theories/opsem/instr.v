@@ -3,7 +3,7 @@
     small-step semantics from opsem.v in order to classify traps. *)
 
 From Wasm Require Import opsem.
-From Coq Require Import ZArith.BinInt.
+From Stdlib Require Import ZArith.BinInt.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 From RichWasm Require Import obs.
 Require Export Wasm.operations (* host *).

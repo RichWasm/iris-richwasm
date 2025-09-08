@@ -1,7 +1,7 @@
 (coq.extraction
  (prelude extract_rw_syntax)
  (extracted_modules RwSyntax)
- (theories RichWasm.syntax))
+ (theories Stdlib RichWasm.syntax))
 
 (library
  (name richwasm_extract)

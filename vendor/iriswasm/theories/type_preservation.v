@@ -1,7 +1,7 @@
 (** Proof of preservation **)
 
 From Wasm Require Export common.
-From Coq Require Import Program.Equality NArith ZArith_base.
+From Stdlib Require Import Program.Equality NArith ZArith.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 
 From Wasm Require Export operations datatypes_properties typing opsem properties.

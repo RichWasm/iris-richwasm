@@ -1,11 +1,11 @@
-From Coq Require Import List.
+From Stdlib Require Import List.
 Import ListNotations.
 
 Require Import stdpp.list.
 
 Require Import RecordUpdate.RecordUpdate.
 
-From RichWasm.syntax Require Import modules rw.
+Require Import RichWasm.syntax.
 
 Record module_ctx :=
   { mc_globals : list (mutability * type);

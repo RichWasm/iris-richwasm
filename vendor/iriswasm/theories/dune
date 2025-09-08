@@ -2,19 +2,19 @@
   (name Wasm)
   (package iris-wasm)
   (theories
-    iris 
+    Stdlib
+    iris
     stdpp
     Ltac2
     compcert
     Flocq
-    mathcomp 
+    mathcomp
     mathcomp.ssreflect
-    HB 
-    elpi 
-    elpi_elpi 
+    HB
+    elpi
+    elpi_elpi
     ITree
     ExtLib
     Paco
     parseque)
   (flags -w -ambiguous-paths -w -notation-overridden -w -abstract-large-number -w -extraction-reserved-identifier))
-
