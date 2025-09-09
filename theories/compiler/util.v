@@ -11,6 +11,8 @@ Inductive error :=
   | ECaseNotOnVariant
   | EIndexOutOfBounds (index : nat)
   | EUnboundQual
+  | EUnboundTypeVar
+  | ERepNotMono
   | ETodo.
 
 Record store_runtime :=

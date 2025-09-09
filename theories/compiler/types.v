@@ -64,3 +64,23 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
 
 Definition translate_type (κs : list kind) (τ : type) : option (list W.value_type) :=
   type_rep κs τ ≫= translate_rep.
+
+Definition translate_types (κs : list kind) (τs : list type) : option (list W.value_type) :=
+  flatten <$> mapM (translate_type κs) τs.
+
+(* Fact:
+   If |- NumT nt : kappa then
+   Some [translate_num_type nt] = type_rep (NumT nt) >>= translate_rep *)
+Definition translate_num_type (nt: num_type) :=
+  match nt with
+  | IntT I32T   => W.T_i32
+  | IntT I64T   => W.T_i64
+  | FloatT F32T => W.T_f32
+  | FloatT F64T => W.T_f64
+  end.
+
+Definition translate_arrow_type (κs: list kind) (χ: arrow_type) : option W.function_type :=
+  let 'ArrowT τs1 τs2 := χ in
+  tys1 ← translate_types κs τs1;
+  tys2 ← translate_types κs τs2;
+  mret (W.Tf tys1 tys2).

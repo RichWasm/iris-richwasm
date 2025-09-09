@@ -106,6 +106,9 @@ Section Instrs.
     forT (reverse xs) (emit ∘ W.BI_set_local ∘ localimm);;
     ret (ssrfun.Option.default (W.Mk_localidx 0) (head xs)).
 
+  Definition save_stack_r (ρ : representation) : codegen W.localidx :=
+    try_option EWrongTypeAnn (translate_rep ρ) ≫= save_stack_w.
+
   Definition save_stack (τs : list type) : codegen W.localidx :=
     tys ← try_option EWrongTypeAnn (mapM translate_type τs);
     save_stack_w (concat tys).
@@ -255,17 +258,30 @@ Section Instrs.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 4))));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
+  Definition compile_drop_prim_rep (ι : primitive_rep) : codegen unit :=
+    match ι with
+    | PtrR =>
+        ignore $
+          if_gc_bit (W.Tf [W.T_i32] [W.T_i32])
+          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))))
+          (emit W.BI_drop)
+    | I32R
+    | I64R
+    | F32R
+    | F64R => emit W.BI_drop
+    end.
+
+  Fixpoint compile_drop_rep (ρ : representation) : codegen unit :=
+    match ρ with
+    | VarR r => raise ERepNotMono
+    | SumR ρs => raise ETodo
+    | ProdR ρs => ignore $ mapM compile_drop_rep ρs
+    | PrimR ι => compile_drop_prim_rep ι
+    end.
+
   Definition compile_drop (τ : type) : codegen unit :=
-    (* TODO:
-    val ← save_stack [ty];
-    let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
-    foreach_when_gc_bit VSLocal refs
-      (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
-    restore_stack val [ty];;
-    let tys := translate_type ty in
-    forT tys (const (emit W.BI_drop));;
-    *)
-    ret tt.
+    ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
+    compile_drop_rep ρ.
 
   Definition compile_return (τs : list type) : codegen unit :=
     (* TODO:
@@ -498,12 +514,12 @@ Section Instrs.
     | IDrop (ArrowT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | IUnreachable _ => emit (W.BI_unreachable)
     | INum _ e' => emit (compile_num_instr e')
-    | INumConst ν n =>
-        (* TODO: emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n))) *)
-        raise ETodo
-    | IBlock _ _ _ =>
-        (* TODO: ignore (block_c (translate_arrow_type ty) (forT es compile_instr)) *)
-        raise ETodo
+    | INumConst (ArrowT [] [NumT _ nt]) n =>
+        emit (W.BI_const (compile_Z (translate_num_type nt) (Z.of_nat n)))
+    | INumConst _ _ => raise EWrongTypeAnn
+    | IBlock χ _ es =>
+        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+        ignore (block_c tf (forT es compile_instr))
     | ILoop _ _ =>
         (* TODO: ignore (loop_c (translate_arrow_type ty) (forT es compile_instr)) *)
         raise ETodo
