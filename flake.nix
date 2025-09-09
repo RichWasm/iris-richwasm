@@ -188,6 +188,10 @@
               ++ (with ocamlPackages; [
                 zarith
                 base
+                ppx_import
+                ppx_deriving
+                janeStreet.ppx_sexp_conv
+                janeStreet.sexplib
               ]);
           };
         }
@@ -206,6 +210,7 @@
               merlin
               ocp-indent
               ocamlformat
+              ocaml-lsp
             ]);
 
           inputsFrom = [

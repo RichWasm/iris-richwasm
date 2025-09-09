@@ -13,6 +13,7 @@ depends: [
   "coq-record-update" {>= "0.3.6"}
   "zarith" {>= "1.14"}
   "base" {>= "0.15.1"}
+  "ppx_import" {>= "1.11.0"}
   "odoc" {with-doc}
 ]
 build: [

@@ -1,0 +1,4 @@
+(test
+ (name main)
+ (modules main :standard)
+ (libraries iris-richwasm.common iris-richwasm.lin-lang))

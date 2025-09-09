@@ -1,1 +1,7 @@
 (vendored_dirs vendor)
+
+
+(env
+ (dev
+  (flags (:standard -warn-error -37))))
+

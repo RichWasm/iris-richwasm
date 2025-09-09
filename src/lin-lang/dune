@@ -2,4 +2,6 @@
  (name richwasm_lin_lang)
  (public_name iris-richwasm.lin-lang)
  (modules main :standard)
- (libraries iris-richwasm.common))
+ (libraries iris-richwasm.common sexplib)
+ (preprocess
+  (pps ppx_import ppx_deriving.show ppx_deriving.eq ppx_sexp_conv)))
