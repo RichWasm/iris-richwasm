@@ -283,17 +283,15 @@ Section Instrs.
     ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
     compile_drop_rep ρ.
 
+  Definition compile_drops (τs : list type) : codegen unit :=
+    ignore $ mapM compile_drop τs.
+
   Definition compile_return (τs : list type) : codegen unit :=
-    (* TODO:
-    let return_ty := ssrfun.Option.default [] fe.(fe_return_type) in
-    let drop_ty := take (length ty - length return_ty) ty in
+    let return_ty := fe.(fe_return_type) in
+    let drop_ty := take (length τs - length return_ty) τs in
     r ← save_stack return_ty;
-    d ← save_stack drop_ty;
-    let refs := map (fun i => localimm d + i) (flat_map (find_refs LMNative) drop_ty) in
-    foreach_when_gc_bit VSLocal refs
-      (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
+    compile_drops drop_ty;;
     restore_stack r return_ty;;
-    *)
     emit W.BI_return.
 
   Definition compile_get_local (L : local_ctx) (x : nat) : codegen unit :=
@@ -520,22 +518,26 @@ Section Instrs.
     | IBlock χ _ es =>
         tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
         ignore (block_c tf (forT es compile_instr))
-    | ILoop _ _ =>
-        (* TODO: ignore (loop_c (translate_arrow_type ty) (forT es compile_instr)) *)
-        raise ETodo
-    | IIte _ _ _ _ =>
-        (* TODO: ignore (if_c (translate_arrow_type ty) (forT es1 compile_instr) (forT es2 compile_instr)) *)
-        raise ETodo
+    | ILoop χ es =>
+        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+        ignore (loop_c tf (forT es compile_instr))
+    | IIte χ _ es1 es2 =>
+        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+        ignore (if_c tf (forT es1 compile_instr) (forT es2 compile_instr))
     | IBr _ n => emit (W.BI_br n)
     | IBrIf _ n => emit (W.BI_br_if n)
     | IBrTable _ ns n => emit (W.BI_br_table ns n)
     | IReturn (ArrowT τs _) => compile_return τs
-    | ILocalGet _ _ =>
+    | ILocalGet (ArrowT [] [τ]) i =>
         (* TODO: compile_get_local L x *)
         raise ETodo
-    | ILocalSet _ x =>
+    | ILocalGet _ _ =>
+        raise EWrongTypeAnn
+    | ILocalSet (ArrowT [τ] []) i =>
         (* TODO: compile_set_local L x *)
         raise ETodo
+    | ILocalSet _ _ =>
+        raise EWrongTypeAnn
     | IGlobalGet _ x => compile_get_global x
     | IGlobalSet _ x => compile_set_global x
     | ICodeRef _ x => compile_coderef x

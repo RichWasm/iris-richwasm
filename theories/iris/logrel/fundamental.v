@@ -103,22 +103,22 @@ Section Fundamental.
   Proof.
   Admitted.
 
-  Lemma compiler_wctx_mono M es es' wl wl' x :
-    run_codegen (compile_instrs M es) wl = inr (x, wl', es') ->
+  Lemma compiler_wctx_mono M F es es' wl wl' x :
+    run_codegen (compile_instrs M F es) wl = inr (x, wl', es') ->
     wl `prefix_of` wl'.
   Proof.
   Admitted.
 
-  Theorem fundamental_property M F L L' me es es' tf wl wl' :
+  Theorem fundamental_property M F L L' me fe es es' tf wl wl' :
     instrs_have_type M F L es tf L' ->
-    run_codegen (compile_instrs me es) wl = inr (tt, wl', es') ->
+    run_codegen (compile_instrs me fe es) wl = inr (tt, wl', es') ->
     ⊢ has_type_semantic sr M F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htyp Hcomp.
     generalize dependent es'.
     induction Htyp using instrs_have_type_mind with
       (P := fun C F L e ta L' _ => forall es',
-      run_codegen (compile_instr me e) wl = inr (tt, wl', es') ->
+      run_codegen (compile_instr me fe e) wl = inr (tt, wl', es') ->
       ⊢ has_type_semantic sr C F L [] (to_e_list es') ta L');
     intros es' Hcomp; admit.
   Admitted.
