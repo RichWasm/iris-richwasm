@@ -18,8 +18,7 @@ Definition local_ctx := list type.
 Record function_ctx :=
   { fc_return_type : list type;
     fc_labels : list (list type * local_ctx);
-    fc_location_vars : nat;
-    fc_own_vars : nat;
+    fc_mem_vars : nat;
     fc_rep_vars : nat;
     fc_size_vars : nat;
     fc_type_vars : list kind }.
@@ -29,16 +28,14 @@ Arguments function_ctx : clear implicits.
 Definition fc_empty : function_ctx :=
   {| fc_return_type := [];
      fc_labels := [];
-     fc_location_vars := 0;
-     fc_own_vars := 0;
+     fc_mem_vars := 0;
      fc_rep_vars := 0;
      fc_size_vars := 0;
      fc_type_vars := [] |}.
 
 Global Instance eta_function_ctx : Settable _ :=
   settable! Build_function_ctx
-  <fc_return_type; fc_labels; fc_location_vars; fc_own_vars; fc_rep_vars; fc_size_vars;
-   fc_type_vars>.
+  <fc_return_type; fc_labels; fc_mem_vars; fc_rep_vars; fc_size_vars; fc_type_vars>.
 
 Definition update_locals (ξ : local_fx) (L : local_ctx) : local_ctx :=
   let 'LocalFx l := ξ in
@@ -146,7 +143,7 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   let κ := MEMTYPE Unsized μ Unr in
   has_kind F (ArrT κ τ) κ
 | KExMem F τ κ :
-  has_kind (set fc_own_vars S F) τ κ ->
+  has_kind (set fc_mem_vars S F) τ κ ->
   has_kind F (ExMemT κ τ) κ
 | KExRep F τ κ :
   has_kind (set fc_rep_vars S F) τ κ ->
