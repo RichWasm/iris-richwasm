@@ -7,8 +7,7 @@ From compcert Require Import Integers.
 From parseque Require Import Parseque.
 From Stdlib.Strings Require Import Byte.
 From Wasm Require Import leb128.
-Require Import PeanoNat.
-Require Import BinNat.
+From Stdlib Require Import PeanoNat BinNat.
 
 Notation "p $> b" := (cmap b p) (at level 59, right associativity).
 

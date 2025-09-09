@@ -4,7 +4,7 @@ From compcert Require Import Integers.
 From parseque Require Import Parseque.
 From Stdlib.Strings Require Import Byte.
 Require Import leb128.
-Require Import PeanoNat.
+From Stdlib Require Import PeanoNat.
 
 Inductive repr_unsigned : list byte -> module -> Prop :=
 .

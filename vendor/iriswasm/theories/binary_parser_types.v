@@ -4,12 +4,11 @@
 Require Import common.
 Require Export numerics datatypes.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
-Require Import Ascii.
+From Stdlib Require Import Ascii.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
-Unset Automatic Proposition Inductives.
 
 Definition expr := list basic_instruction.
 

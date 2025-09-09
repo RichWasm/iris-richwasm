@@ -5,7 +5,7 @@ From compcert Require Import Floats.
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 Require Import Stdlib.Init.Decimal.
 Require Import bytes_pp datatypes interpreter.
-Require BinNatDef.
+From Stdlib Require BinNatDef.
 Require Import ansi list_extra.
 
 Open Scope string_scope.
