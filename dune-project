@@ -14,7 +14,9 @@
     (coq-record-update (>= 0.3.6))
     (zarith (>= 1.14))
     (base (>= 0.15.1))
-    (ppx_import (>= 1.11.0)))
+    (ppx_import (>= 1.11.0))
+    (sexplib (>= 0.17.0))
+    (ppx_sexp_conv (>= 0.17.1)))
   (synopsis "RichWasm formalization in Coq and Iris")
   (description "RichWasm formalization in Coq based on Iris-Wasm.")
   (maintainers
