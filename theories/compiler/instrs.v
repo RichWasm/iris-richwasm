@@ -531,7 +531,7 @@ Section Instrs.
                  unregisterroot if payload is GC ref being put into GC variant *)
         raise ETodo
     | ICase _ _ _ => raise ETodo
-    | IGroup _ _ => raise ETodo
+    | IGroup _ => raise ETodo
     | IUngroup _ => raise ETodo
     | IFold _ => raise ETodo
     | IUnfold  _ => raise ETodo
@@ -562,14 +562,14 @@ Section Instrs.
         raise ETodo
     | IWrap _ => raise ETodo
     | IUnwrap _ => raise ETodo
-    | IRefNew _ _ => raise ETodo
+    | IRefNew _ => raise ETodo
     | IRefFree _ => raise ETodo
     | IRefDup _ => raise ETodo
     | IRefDrop _ => raise ETodo
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
     | IRefSwap _ _ => raise ETodo
-    | IArrayNew _ _ =>
+    | IArrayNew _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
         raise ETodo
