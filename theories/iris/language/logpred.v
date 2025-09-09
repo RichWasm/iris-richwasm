@@ -33,6 +33,15 @@ Section logpred.
 
   Definition logpred := logp (iProp Σ).
 
+  Definition lp_nobail (Φ: logpred) : val -> iProp Σ :=
+    λ w, match w with
+         | immV vs => False
+         | trapV => Φ.(lp_trap)
+         | brV i lh => False
+         | retV lh => False
+         | callHostV ft hidx vs lh => False
+         end.
+
   Definition lp_noframe (Φ: logpred) : val -> iProp Σ :=
     λ w, match w with
          | immV vs => Φ.(lp_val) vs
