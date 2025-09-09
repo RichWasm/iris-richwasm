@@ -57,6 +57,10 @@ Inductive kind_ok : function_ctx -> kind -> Prop :=
 | MEMTYPEOK (F : function_ctx) (ζ : sizity) (μ : memory) (γ : linearity) :
   kind_ok F (MEMTYPE ζ μ γ).
 
+Inductive mono_mem : memory -> Prop :=
+| MonoMemMM MemMM : mono_mem MemMM
+| MonoMemGC MemGC : mono_mem MemGC.
+
 Inductive mono_rep : representation -> list primitive_rep -> Prop :=
 | MonoSumR (ρs : list representation) (ιss : list (list primitive_rep)) :
   Forall2 mono_rep ρs ιss ->
@@ -329,7 +333,7 @@ Inductive instr_has_type :
 | TNumConst M F L κ ν n :
   has_kind F (NumT κ ν) κ ->
   let χ := ArrowT [] [NumT κ ν] in
-  instr_has_type M F L (INumConst χ ν n) χ L
+  instr_has_type M F L (INumConst χ n) χ L
 | TBlock M F L τs1 τs2 ξ es :
   let L' := update_locals ξ L in
   let F' := set fc_labels (cons (τs2, L')) F in
@@ -411,24 +415,28 @@ Inductive instr_has_type :
 | TCallIndirect M F L ann ixs :
   instr_has_type M F L (ICallIndirect ann ixs) (ArrowT [] []) L
 *)
-| TGroup M F L n κ τs ρs γ :
-  length τs = n ->
+| TGroup M F L κ τs ρs γ :
   Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ γ)) τs ρs ->
   let τ := ProdT κ τs in
   has_kind F τ κ ->
   let χ := ArrowT τs [τ] in
-  instr_has_type M F L (IGroup χ n) χ L
+  instr_has_type M F L (IGroup χ) χ L
 | TUngroup M F L τs ρ γ :
   let κ := VALTYPE ρ γ in
   let τ := ProdT κ τs in
   has_kind F τ κ ->
   let χ := ArrowT [τ] τs in
   instr_has_type M F L (IUngroup χ) χ L
+| TFold M F L τ κ :
+  has_kind F τ κ ->
+  let τ0 := subst_type MemVar VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+  let χ := ArrowT [τ0] [RecT κ τ] in
+  instr_has_type M F L (IFold χ) χ L
+| TUnfold M F L τ κ :
+  let τ0 := subst_type MemVar VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+  let χ := ArrowT [RecT κ τ] [τ0] in
+  instr_has_type M F L (IUnfold χ) χ L
 (* These require setting up substitution.
-| TFold M F L ann τ :
-  instr_has_type M F L (IFold ann τ) (ArrowT [] []) L
-| TUnfold M F L ann :
-  instr_has_type M F L (IUnfold ann) (ArrowT [] []) L
 | TPack M F L ann κ ix :
   instr_has_type M F L (IPack ann κ ix) (ArrowT [] []) L
 | TUnpack M F L ann χ le es :
@@ -451,11 +459,12 @@ Inductive instr_has_type :
   let χ := ArrowT [τ] [τ0] in
   instr_has_type M F L (IUnwrap χ) χ L
 | TRefNew M F L μ τ0 τ0' κ :
+  mono_mem μ ->
   stores_as F τ0 τ0' ->
   let τ := RefT κ μ τ0' in
   has_kind F τ κ ->
   let χ := ArrowT [τ0] [τ] in
-  instr_has_type M F L (IRefNew χ μ) χ L
+  instr_has_type M F L (IRefNew χ) χ L
 | TRefFree M F L τ0 κ :
   is_unrestricted F τ0 ->
   let τ := RefT κ MemMM τ0 in
@@ -536,4 +545,4 @@ with instrs_have_type :
   instrs_have_type M F L1 (e :: es) (ArrowT τs1 τs3) L3.
 
 Scheme instr_has_type_mind := Induction for instr_has_type Sort Prop
-  with instrs_have_type_mind := Induction for instrs_have_type Sort Prop.
+with instrs_have_type_mind := Induction for instrs_have_type Sort Prop.

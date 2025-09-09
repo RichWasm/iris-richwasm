@@ -173,7 +173,7 @@ INop : arrow_type -> instruction
 IDrop : arrow_type -> instruction
 IUnreachable : arrow_type -> instruction
 INum : arrow_type -> num_instruction -> instruction
-INumConst : arrow_type -> num_type -> nat -> instruction
+INumConst : arrow_type -> nat -> instruction
 IBlock : arrow_type -> local_fx -> "list" (instruction) -> instruction
 ILoop : arrow_type -> "list" (instruction) -> instruction
 IIte : arrow_type -> local_fx -> "list" (instruction) -> "list" (instruction) -> instruction
@@ -191,22 +191,22 @@ ICall : arrow_type -> nat -> "list" (index) -> instruction
 ICallIndirect : arrow_type -> instruction
 IInject : arrow_type -> nat -> instruction
 ICase : arrow_type -> local_fx -> "list" ("list" (instruction)) -> instruction
-IGroup : arrow_type -> nat -> instruction
+IGroup : arrow_type -> instruction
 IUngroup : arrow_type -> instruction
-IFold : arrow_type -> type -> instruction
+IFold : arrow_type -> instruction
 IUnfold : arrow_type -> instruction
 IPack : arrow_type -> kind -> index -> instruction
 IUnpack : arrow_type -> local_fx -> "list" (instruction) -> instruction
 IWrap : arrow_type -> instruction
 IUnwrap : arrow_type -> instruction
-IRefNew : arrow_type -> memory -> instruction
+IRefNew : arrow_type -> instruction
 IRefFree : arrow_type -> instruction
 IRefDup : arrow_type -> instruction
 IRefDrop : arrow_type -> instruction
 IRefLoad : arrow_type -> path -> instruction
 IRefStore : arrow_type -> path -> instruction
 IRefSwap : arrow_type -> path -> instruction
-IArrayNew : arrow_type -> memory -> instruction
+IArrayNew : arrow_type -> instruction
 IArrayFree : arrow_type -> instruction
 IArrayGet : arrow_type -> instruction
 IArraySet : arrow_type -> instruction

@@ -498,7 +498,7 @@ Section Instrs.
     | IDrop (ArrowT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | IUnreachable _ => emit (W.BI_unreachable)
     | INum _ e' => emit (compile_num_instr e')
-    | INumConst _ ν n =>
+    | INumConst ν n =>
         (* TODO: emit (W.BI_const (compile_Z (translate_num_type ty) (Z.of_nat n))) *)
         raise ETodo
     | IBlock _ _ _ =>
@@ -533,7 +533,7 @@ Section Instrs.
     | ICase _ _ _ => raise ETodo
     | IGroup _ _ => raise ETodo
     | IUngroup _ => raise ETodo
-    | IFold _ _ => raise ETodo
+    | IFold _ => raise ETodo
     | IUnfold  _ => raise ETodo
     | IPack _ _ _ =>
         (* TODO:
