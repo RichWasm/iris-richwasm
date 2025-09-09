@@ -29,39 +29,37 @@
       packages = eachSystem (
         pkgs:
         let
-          ocamlPackages = pkgs.ocaml-ng.ocamlPackages_4_14;
-          coq = pkgs.coq_8_20;
-          coqPackages = pkgs.coqPackages_8_20;
+          coq = pkgs.coq_9_0;
+          coqPackages = pkgs.coqPackages_9_0;
+          ocamlPackages = coq.ocamlPackages;
+
+          # for compcert
+          targets = {
+            x86_64-linux = "x86_64-linux";
+            aarch64-linux = "aarch64-linux";
+            x86_64-darwin = "x86_64-macos";
+            aarch64-darwin = "aarch64-macos";
+            riscv32-linux = "rv32-linux";
+            riscv64-linux = "rv64-linux";
+          };
+
+          target =
+            targets.${pkgs.stdenv.hostPlatform.system}
+              or (throw "Unsupported system: ${pkgs.stdenv.hostPlatform.system}");
+
         in
         rec {
           default = self.packages.${pkgs.system}.${project};
 
-          parseque = coqPackages.mkCoqDerivation {
-            pname = "parseque";
-
-            version = "0.2.2";
-            release = {
-              broken = false;
-            };
-            enableParallelBuilding = true;
-
-            src = pkgs.fetchFromGitHub {
-              owner = "rocq-community";
-              repo = "parseque";
-              rev = "v0.2.2";
-              hash = "sha256-O50Rs7Yf1H4wgwb7ltRxW+7IF0b04zpfs+mR83rxT+E=";
-            };
-          };
-
           autosubst-ocaml = ocamlPackages.buildDunePackage {
-            pname = "coq-autosubst-ocaml";
-            version = "0.2";
+            pname = "rocq-autosubst-ocaml";
+            version = "1.1+9.0";
 
             src = pkgs.fetchFromGitHub {
               owner = "uds-psl";
               repo = "autosubst-ocaml";
-              rev = "d26c0d70fc6a80e31558337690c86c3cc5fa760b";
-              hash = "sha256-nRipTaiqhzU3xJCiApZwyN6gu8dazmfxyLjXcYx96cc=";
+              rev = "d289f1d0ee409a6839b39936a682008a883c53c0";
+              hash = "sha256-Jru1iu3wZ8OTtdJ1WmVVgkF4/L3PMwgF7c7GkSZCQ/g=";
             };
 
             buildInputs =
@@ -76,48 +74,84 @@
               ]);
           };
 
-          vscoq-language-server = ocamlPackages.buildDunePackage rec {
-            pname = "vscoq-language-server";
-            version = "2.2.6";
+          # TODO(owen): remove when 3.16 is supported by nixpkgs
+          # below is adapted from nixpkgs
+          compcert = coqPackages.mkCoqDerivation {
 
-            src =
-              let
-                fetched = pkgs.fetchFromGitHub {
-                  owner = "coq-community";
-                  repo = "vscoq";
-                  rev = "v${version}";
-                  hash = "sha256-J8nRTAwN6GBEYgqlXa2kkkrHPatXsSObQg9QUQoZhgE=";
-                };
-              in
-              "${fetched}/language-server";
-            nativeBuildInputs = [ coq ];
-            buildInputs =
+            pname = "compcert";
+            owner = "AbsInt";
+
+            version = "3.16";
+            releaseRev = v: "v${v}";
+
+            release."3.16".sha256 = "sha256-Ep8bcSFs3Cu+lV5qgo89JJU2vh4TTq66Or0c4evo3gM=";
+
+            strictDeps = true;
+
+            nativeBuildInputs =
+              with pkgs;
+              with ocamlPackages;
               [
-                coq
-              ]
-              ++ (with pkgs; [
-                glib
-                adwaita-icon-theme
-                wrapGAppsHook3
-              ])
-              ++ (with ocamlPackages; [
+                makeWrapper
+                ocaml
                 findlib
-                lablgtk3-sourceview3
-                yojson
-                zarith
-                ppx_inline_test
-                ppx_assert
-                ppx_sexp_conv
-                ppx_deriving
-                ppx_import
-                sexplib
-                ppx_yojson_conv
-                lsp
-                sel
-                ppx_optcomp
-              ]);
-          };
+                menhir
+                coq
+                coq2html
+              ];
+            buildInputs = with ocamlPackages; [ menhirLib ];
+            propagatedBuildInputs = with coqPackages; [
+              flocq
+              MenhirLib
+            ];
 
+            enableParallelBuilding = true;
+
+            postPatch = ''
+              substituteInPlace ./configure \
+                --replace \$\{toolprefix\}ar 'ar' \
+                --replace '{toolprefix}gcc' '{toolprefix}cc'
+            '';
+
+            configurePhase = ''
+              ./configure -clightgen \
+              -prefix $out \
+              -coqdevdir $lib/lib/coq/${coq.coq-version}/user-contrib/compcert/ \
+              -toolprefix ${pkgs.stdenv.cc}/bin/ \
+              -use-external-Flocq \
+              -use-external-MenhirLib \
+              ${target} \
+            ''; # don't remove the \ above, the command gets appended in override below
+
+            installTargets = "documentation install";
+            installFlags = [ ]; # trust ./configure
+            preInstall = ''
+              mkdir -p $out/share/man
+              mkdir -p $man/share
+            '';
+            postInstall = ''
+              # move man into place
+              mv $out/share/man/ $man/share/
+
+              # move docs into place
+              mkdir -p $doc/share/doc/compcert
+              mv doc/html $doc/share/doc/compcert/
+
+              # wrap ccomp to undefine _FORTIFY_SOURCE; ccomp invokes cc1 which sets
+              # _FORTIFY_SOURCE=2 by default, but undefines __GNUC__ (as it should),
+              # which causes a warning in libc. this suppresses it.
+              for x in ccomp clightgen; do
+                wrapProgram $out/bin/$x --add-flags "-U_FORTIFY_SOURCE"
+              done
+            '';
+
+            outputs = [
+              "out"
+              "lib"
+              "doc"
+              "man"
+            ];
+          };
           ${project} = coqPackages.mkCoqDerivation {
             pname = project;
             version = version;
@@ -137,11 +171,11 @@
 
             buildInputs =
               [
-                parseque
                 autosubst-ocaml
+                compcert
               ]
-              ++ (with pkgs; [ compcert ])
               ++ (with coqPackages; [
+                parseque
                 iris
                 coq-elpi
                 ExtLib
@@ -163,10 +197,12 @@
         default = pkgs.mkShell {
           packages =
             [
-              pkgs.git # TODO: figure out how to use system git
-              self.packages.${pkgs.system}.vscoq-language-server
+              pkgs.git # TODO(ari): figure out how to use system git
             ]
-            ++ (with pkgs.ocaml-ng.ocamlPackages_4_14; [
+            ++ (with pkgs.coqPackages; [
+              vscoq-language-server
+            ])
+            ++ (with pkgs.coq.ocamlPackages; [
               merlin
               ocp-indent
               ocamlformat
