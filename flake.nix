@@ -211,6 +211,7 @@
               ocp-indent
               ocamlformat
               ocaml-lsp
+              utop
             ]);
 
           inputsFrom = [
