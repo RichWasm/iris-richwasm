@@ -97,6 +97,9 @@ Section Relations.
   Definition eval_size (σ : size) : option nat.
   Admitted.
 
+  Definition project_sum_value (τs : list type) (τ : type) (vs : list value) : list value.
+  Admitted.
+
   Definition representation_interp0 (ρ : representation) (vs : list value) : Prop :=
     exists ιs, eval_representation ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
 
@@ -133,27 +136,46 @@ Section Relations.
       | NumT _ (IntT I64T) => ∃ n, ⌜sv = SValues [VAL_int64 n]⌝
       | NumT _ (FloatT F32T) => ∃ n, ⌜sv = SValues [VAL_float32 n]⌝
       | NumT _ (FloatT F64T) => ∃ n, ⌜sv = SValues [VAL_float64 n]⌝
-      | SumT _ τs => True (* TODO *)
-      | ProdT _ τs => True (* TODO *)
+      | SumT (VALTYPE ρ _) τs =>
+          ∃ i vs vs0 τ,
+            ⌜sv = SValues (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: vs)⌝ ∗
+              ⌜τs !! i = Some τ⌝ ∗
+              ⌜project_sum_value τs τ vs = vs0⌝ ∗
+              rb_value rb τ (SValues vs0)
+      | SumT (MEMTYPE _ _ _) τs =>
+          ∃ wᵢ ws bsᵢ i τ,
+            ⌜sv = SWords (wᵢ :: ws)⌝ ∗
+              ⌜bsᵢ = serialize_Z_i32 (Z.of_nat i)⌝ ∗
+              ⌜repr_word sr.(sr_gc_heap_start) ∅ wᵢ i⌝ ∗
+              ⌜τs !! i = Some τ⌝ ∗
+              rb_value rb τ (SWords ws)
+      | ProdT (VALTYPE _ _) τs =>
+          ∃ vss, ⌜sv = SValues (concat vss)⌝ ∗ [∗ list] vs; τ ∈ vss; τs, rb_value rb τ (SValues vs)
+      | ProdT (MEMTYPE _ _ _) τs =>
+          ∃ wss, ⌜sv = SWords (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, rb_value rb τ (SWords ws)
       | ArrT _ τ =>
-          ∃ wₙ wss, ⌜sv = SWords (wₙ :: concat wss)⌝ ∗
-                      ∃ bsₙ n, ⌜bsₙ = serialize_Z_i32 n⌝ ∗
-                                 ⌜repr_word sr.(sr_gc_heap_start) ∅ wₙ n⌝ ∗
-                                 [∗ list] ws ∈ wss, rb_value rb τ (SWords ws)
+          ∃ wₙ wss bsₙ n,
+            ⌜sv = SWords (wₙ :: concat wss)⌝ ∗
+              ⌜bsₙ = serialize_Z_i32 n⌝ ∗
+              ⌜repr_word sr.(sr_gc_heap_start) ∅ wₙ n⌝ ∗
+              [∗ list] ws ∈ wss, rb_value rb τ (SWords ws)
       | RefT _ (MemVar _) _ => False
       | RefT _ MemMM τ =>
-          ∃ δ, ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N δ))]⌝ ∗
-                 ∃ ws ns bs, N.of_nat sr.(sr_mem_mm) ↦[wms][δ] bs ∗
-                               ⌜repr_list_word sr.(sr_gc_heap_start) ∅ ws ns⌝ ∗
-                               ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-                               rb_value rb τ (SWords ws)
+          ∃ δ ws ns bs,
+            ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N δ))]⌝ ∗
+              N.of_nat sr.(sr_mem_mm) ↦[wms][δ] bs ∗
+              ⌜repr_list_word sr.(sr_gc_heap_start) ∅ ws ns⌝ ∗
+              ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
+              rb_value rb τ (SWords ws)
       | RefT _ MemGC τ =>
-          ∃ δ ℓ, ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N δ))]⌝ ∗
-                   δ ↦gcr ℓ ∗
-                   na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
+          ∃ δ ℓ,
+            ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N δ))]⌝ ∗
+              δ ↦gcr ℓ ∗
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
       | GCPtrT _ τ =>
-          ∃ ℓ, ⌜sv = SWords [WordPtr (PtrGC ℓ)]⌝ ∗
-                 na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
+          ∃ ℓ,
+            ⌜sv = SWords [WordPtr (PtrGC ℓ)]⌝ ∗
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
       | CodeRefT _ ϕ => True (* TODO *)
       | RepT _ ρ τ => True (* TODO *)
       | PadT _ σ τ => True (* TODO *)
