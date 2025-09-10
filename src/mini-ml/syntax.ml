@@ -7,9 +7,8 @@ module Tag = struct
     let x = ref 0 in
     fun () ->
       let y = !x in
-      x := !x + 1;
+      x := !x + 1 ;
       y
-  ;;
 end
 
 module Source = struct
@@ -43,16 +42,11 @@ module Source = struct
       | LL of t (* TODO: should this be an LL type? *)
     [@@deriving sexp]
   end
+
   and FunType : sig
-    type t =
-      { foralls : TypeVar.t list
-      ; args : Type.t list
-      ; ret : Type.t }
+    type t = {foralls: TypeVar.t list; args: Type.t list; ret: Type.t}
   end = struct
-    type t =
-      { foralls : TypeVar.t list
-      ; args : Type.t list
-      ; ret : Type.t }
+    type t = {foralls: TypeVar.t list; args: Type.t list; ret: Type.t}
     [@@deriving sexp]
   end
 
@@ -61,29 +55,30 @@ module Source = struct
       | Int of int
       | Var of Variable.t
       | Lambda of
-          { foralls : TypeVar.t list
-          ; args : (Variable.t * Type.t) list
-          ; body : Expr.t }
+          { foralls: TypeVar.t list
+          ; args: (Variable.t * Type.t) list
+          ; body: Expr.t }
       | Prod of t list
       | Inj of int * t
   end = struct
     type t =
-      | Int of int (** FIXME: make this an int31 *)
+      | Int of int  (** FIXME: make this an int31 *)
       | Var of Variable.t
       | Lambda of
-          { foralls : TypeVar.t list
-          ; args : (Variable.t * Type.t) list
-          ; body : Expr.t }
+          { foralls: TypeVar.t list
+          ; args: (Variable.t * Type.t) list
+          ; body: Expr.t }
       | Prod of t list
       | Inj of int * t
     [@@deriving sexp]
   end
+
   and Computation : sig
     type t =
       | Apply of Value.t * Type.t list * Value.t list
       | Let of Variable.t * Expr.t * Expr.t
       | If0 of Value.t * Expr.t * Expr.t
-      | Op of [ `Add | `Sub | `Mul | `Div ] * Value.t * Value.t
+      | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | Cases of Value.t * (int * Variable.t * Expr.t) list
       | New of Value.t
       | Deref of Value.t
@@ -96,7 +91,7 @@ module Source = struct
       | Apply of Value.t * Type.t list * Value.t list
       | Let of Variable.t * Expr.t * Expr.t
       | If0 of Value.t * Expr.t * Expr.t
-      | Op of [ `Add | `Sub | `Mul | `Div ] * Value.t * Value.t
+      | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | Cases of Value.t * (int * Variable.t * Expr.t) list
       | New of Value.t
       | Deref of Value.t
@@ -106,20 +101,16 @@ module Source = struct
       | Unfold of Value.t
     [@@deriving sexp]
   end
+
   and Expr : sig
-    type t =
-      | Value of Value.t
-      | Computation of Computation.t
+    type t = Value of Value.t | Computation of Computation.t
   end = struct
-    type t =
-      | Value of Value.t
-      | Computation of Computation.t
-    [@@deriving sexp]
+    type t = Value of Value.t | Computation of Computation.t [@@deriving sexp]
   end
+
   and Module : sig
     type t
   end = struct
     type t
   end
 end
-

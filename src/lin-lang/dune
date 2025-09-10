@@ -4,4 +4,11 @@
  (modules main :standard)
  (libraries iris-richwasm.common sexplib)
  (preprocess
-  (pps ppx_import ppx_deriving.show ppx_deriving.eq ppx_sexp_conv)))
+  (staged_pps
+   ppx_deriving.show
+   ppx_deriving.eq
+   ppx_deriving.iter
+   ppx_deriving.map
+   ppx_deriving.fold
+   ppx_import
+   ppx_sexp_conv)))
