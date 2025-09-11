@@ -70,3 +70,22 @@ and pp_expr ff e =
   | Fold (t, v) -> fprintf ff "@[<hov 2>(fold@ [%a]@ %a)@]" pp_type t pp_value v
   | Unfold v -> fprintf ff "@[<hov 2>(unfold@ %a)@]" pp_value v
 ;;
+
+let pp_import ff (Source.Module.Import (v, t)) =
+  fprintf ff "@[<hov 2>(import@ %s@ %a)@]" v pp_type t
+;;
+
+let pp_item ff (Source.Module.Item (exporting, v, t, e)) =
+  let kw = if exporting then "export" else "fn" in
+  fprintf ff "@[<hov 2>(%s@ %s@ [%a]@,@[<v 2>%a@])@]" kw v pp_type t pp_expr e
+;;
+
+let pp_module ff (Source.Module.Module (imps, items, maybe_main)) =
+  let body ff maybe_main =
+    match maybe_main with
+    | None -> pp_print_string ff ""
+    | Some e -> pp_expr ff e
+  in
+  fprintf ff "@[<hov 2>(%a@,%a@,%a)@]" (pp_print_list pp_import) imps
+    (pp_print_list pp_item) items body maybe_main
+;;

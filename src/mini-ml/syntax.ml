@@ -92,4 +92,13 @@ module Source = struct
       | Unfold of Value.t
     [@@deriving sexp]
   end
+
+  module Module = struct
+    type import = Import of Variable.t * Type.t [@@deriving sexp]
+
+    type item = Item of bool * Variable.t * Type.t * Expr.t [@@deriving sexp]
+
+    type t = Module of import list * item list * Expr.t option
+    [@@deriving sexp]
+  end
 end
