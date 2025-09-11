@@ -12,6 +12,8 @@ depends: [
   "coq-autosubst-ocaml" {= "0.2"}
   "coq-record-update" {>= "0.3.4"}
   "zarith" {>= "1.14"}
+  "pprint" {= "20230830"}
+  "core" {= "v0.16.2"}
   "odoc" {with-doc}
 ]
 build: [

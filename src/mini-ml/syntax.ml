@@ -15,7 +15,7 @@ module Source = struct
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
-    [@@deriving sexp]
+    [@@deriving sexp, equal]
   end = struct
     type t =
       | Int
@@ -28,17 +28,13 @@ module Source = struct
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
-    [@@deriving sexp]
+    [@@deriving sexp, equal]
   end
 
   and Type : sig
-    type t =
-      | Lin of PreType.t
-      | Unr of PreType.t
+    type t = PreType.t [@@deriving sexp, equal]
   end = struct
-    type t =
-      | Lin of PreType.t
-      | Unr of PreType.t
+    type t = PreType.t [@@deriving sexp, equal]
   end
 
   module rec Value : sig
@@ -46,7 +42,7 @@ module Source = struct
       | Int of int
       | Var of Variable.t
       | Tuple of t list
-      | Inj of int * t * Type.t list (* declare the other cases of the sum *)
+      | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
             args: (Variable.t * Type.t) list;
@@ -57,7 +53,7 @@ module Source = struct
       | Int of int
       | Var of Variable.t
       | Tuple of t list
-      | Inj of int * t * Type.t list (* declare the other cases of the sum *)
+      | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
             args: (Variable.t * Type.t) list;

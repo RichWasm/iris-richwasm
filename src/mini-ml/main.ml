@@ -1,1 +1,1 @@
-open Syntax
+open! Syntax

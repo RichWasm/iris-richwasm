@@ -149,6 +149,7 @@
               coq-record-update
             ])
             ++ (with ocamlPackages; [
+              core
               zarith
             ]);
           };
