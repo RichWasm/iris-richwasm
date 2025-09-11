@@ -40,9 +40,10 @@ Record module_export :=
 
 Record module :=
   { m_imports : list module_import;
-    m_funcs : list module_function;
     m_globals : list module_global;
+    m_funcs : list module_function;
     m_table : list nat;
+    m_start : nat;
     m_exports : list module_export }.
 
 Arguments module : clear implicits.
