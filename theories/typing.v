@@ -52,10 +52,10 @@ Inductive rep_ok : function_ctx -> representation -> Prop :=
   rep_ok F (PrimR ι).
 
 Inductive kind_ok : function_ctx -> kind -> Prop :=
-| VALTYPEOK (F : function_ctx) (ρ : representation) (γ : linearity) :
-  rep_ok F ρ -> kind_ok F (VALTYPE ρ γ)
-| MEMTYPEOK (F : function_ctx) (ζ : sizity) (μ : memory) (γ : linearity) :
-  kind_ok F (MEMTYPE ζ μ γ).
+| VALTYPEOK (F : function_ctx) (ρ : representation) (γ : copyability) (δ : dropability) :
+  rep_ok F ρ -> kind_ok F (VALTYPE ρ γ δ)
+| MEMTYPEOK (F : function_ctx) (ζ : sizity) (μ : memory) (δ : dropability) :
+  kind_ok F (MEMTYPE ζ μ δ).
 
 Inductive mono_mem : memory -> Prop :=
 | MonoMemMM MemMM : mono_mem MemMM
@@ -90,13 +90,16 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   end.
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
-| KSubValLin F τ ρ :
-  has_kind F τ (VALTYPE ρ Unr) ->
-  has_kind F τ (VALTYPE ρ Lin)
-| KSubMemLin F τ ζ μ :
-  has_kind F τ (MEMTYPE ζ μ Unr) ->
-  has_kind F τ (MEMTYPE ζ μ Lin)
-| KSubUnsized F τ σ μ γ :
+| KSubValCopy F τ ρ δ :
+  has_kind F τ (VALTYPE ρ ImCopy δ) ->
+  has_kind F τ (VALTYPE ρ ExCopy δ)
+| KSubValDrop F τ ρ γ :
+  has_kind F τ (VALTYPE ρ γ ImDrop) ->
+  has_kind F τ (VALTYPE ρ γ ExDrop)
+| KSubMemDrop F τ ζ μ :
+  has_kind F τ (MEMTYPE ζ μ ImDrop) ->
+  has_kind F τ (MEMTYPE ζ μ ExDrop)
+| KSubSizity F τ σ μ γ :
   has_kind F τ (MEMTYPE (Sized σ) μ γ) ->
   has_kind F τ (MEMTYPE Unsized μ γ)
 | KVar F t κ :
@@ -104,47 +107,47 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   kind_ok F κ ->
   has_kind F (VarT t) κ
 | KI32 F :
-  let κ := VALTYPE (PrimR I32R) Unr in
+  let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   has_kind F (NumT κ (IntT I32T)) κ
 | KI64 F :
-  let κ := VALTYPE (PrimR I64R) Unr in
+  let κ := VALTYPE (PrimR I64R) ImCopy ImDrop in
   has_kind F (NumT κ (IntT I64T)) κ
 | KF32 F :
-  let κ := VALTYPE (PrimR F32R) Unr in
+  let κ := VALTYPE (PrimR F32R) ImCopy ImDrop in
   has_kind F (NumT κ (FloatT F32T)) κ
 | KF64 F :
-  let κ := VALTYPE (PrimR F64R) Unr in
+  let κ := VALTYPE (PrimR F64R) ImCopy ImDrop in
   has_kind F (NumT κ (FloatT F64T)) κ
-| KSumVal F τs ρs γ :
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ γ)) τs ρs ->
-  let κ := VALTYPE (SumR ρs) γ in
+| KSumVal F τs ρs γ δ :
+  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ γ δ)) τs ρs ->
+  let κ := VALTYPE (SumR ρs) γ δ in
   has_kind F (SumT κ τs) κ
-| KSumMem F τs ζs μ γ :
-  Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ μ γ)) τs ζs ->
-  let κ := MEMTYPE Unsized μ γ in
+| KSumMem F τs ζs μ δ :
+  Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ μ δ)) τs ζs ->
+  let κ := MEMTYPE Unsized μ δ in
   has_kind F (SumT κ τs) κ
-| KSumMemSized F τs σs μ γ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ γ)) τs σs ->
-  let κ := MEMTYPE (Sized (SumS σs)) μ γ in
+| KSumMemSized F τs σs μ δ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
+  let κ := MEMTYPE (Sized (SumS σs)) μ δ in
   has_kind F (SumT κ τs) κ
-| KProdVal F τs ρs γ :
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ γ)) τs ρs ->
-  let κ := VALTYPE (ProdR ρs) γ in
+| KProdVal F τs ρs γ δ :
+  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ γ δ)) τs ρs ->
+  let κ := VALTYPE (ProdR ρs) γ δ in
   has_kind F (ProdT κ τs) κ
-| KProdMem F τs τn σs ζ μ γ :
+| KProdMem F τs τn σs ζ μ δ :
   (* TODO: Maybe the requirement that all preceding components are sized should be in the typing
            rule for load instead. *)
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ γ)) τs σs ->
-  has_kind F τn (MEMTYPE ζ μ γ) ->
-  let κ := MEMTYPE Unsized μ γ in
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
+  has_kind F τn (MEMTYPE ζ μ δ) ->
+  let κ := MEMTYPE Unsized μ δ in
   has_kind F (ProdT κ (τs ++ [τn])) κ
-| KProdMemSized F τs σs μ γ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ γ)) τs σs ->
-  let κ := MEMTYPE (Sized (ProdS σs)) μ γ in
+| KProdMemSized F τs σs μ δ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
+  let κ := MEMTYPE (Sized (ProdS σs)) μ δ in
   has_kind F (ProdT κ τs) κ
-| KArr F τ σ μ :
-  has_kind F τ (MEMTYPE (Sized σ) μ Unr) ->
-  let κ := MEMTYPE Unsized μ Unr in
+| KArr F τ σ μ δ :
+  has_kind F τ (MEMTYPE (Sized σ) μ δ) ->
+  let κ := MEMTYPE Unsized μ δ in
   has_kind F (ArrT κ τ) κ
 | KExMem F τ κ :
   has_kind (set fc_mem_vars S F) τ κ ->
@@ -162,29 +165,41 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   (* TODO: Unfold. *)
   has_kind F τ κ ->
   has_kind F (RecT κ τ) κ
-| KRef F ω τ ζ μ γ :
-  has_kind F τ (MEMTYPE ζ μ γ) ->
-  let κ := VALTYPE (PrimR PtrR) Lin in
-  has_kind F (RefT κ ω τ) κ
+| KRef F (μ : memory) τ ζ μ δ :
+  has_kind F τ (MEMTYPE ζ μ δ) ->
+  let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in
+  has_kind F (RefT κ μ τ) κ
+| KRefMMDrop F τ ζ :
+  has_kind F τ (MEMTYPE ζ MemMM ImDrop) ->
+  let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
+  has_kind F (RefT κ MemMM τ) κ
+| KRefGC F τ ζ δ :
+  has_kind F τ (MEMTYPE ζ MemGC δ) ->
+  let κ := VALTYPE (PrimR PtrR) ExCopy ExDrop in
+  has_kind F (RefT κ MemGC τ) κ
+| KGCPtr F τ ζ δ :
+  has_kind F τ (MEMTYPE ζ MemGC δ) ->
+  let κ := MEMTYPE (Sized (ConstS 1)) MemGC ImDrop in
+  has_kind F (GCPtrT κ τ) κ
 | KCodeRef F ϕ :
-  let κ := VALTYPE (PrimR I32R) Unr in
+  let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   has_kind F (CodeRefT κ ϕ) κ
-| KRep F ρ0 ρ τ γ :
-  has_kind F τ (VALTYPE ρ0 γ) ->
-  let κ := VALTYPE ρ γ in
+| KRep F ρ0 ρ τ γ δ :
+  has_kind F τ (VALTYPE ρ0 γ δ) ->
+  let κ := VALTYPE ρ γ δ in
   has_kind F (RepT κ ρ τ) κ
-| KPad F σ0 σ τ μ γ :
-  has_kind F τ (MEMTYPE (Sized σ0) μ γ) ->
-  let κ := MEMTYPE (Sized σ) μ γ in
+| KPad F σ0 σ τ μ δ :
+  has_kind F τ (MEMTYPE (Sized σ0) μ δ) ->
+  let κ := MEMTYPE (Sized σ) μ δ in
   has_kind F (PadT κ σ τ) κ
-| KSer F τ ρ μ γ :
-  has_kind F τ (VALTYPE ρ γ) ->
-  let κ := MEMTYPE (Sized (RepS ρ)) μ γ in
+| KSer F τ ρ μ γ δ :
+  has_kind F τ (VALTYPE ρ γ δ) ->
+  let κ := MEMTYPE (Sized (RepS ρ)) μ δ in
   has_kind F (SerT κ τ) κ.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
-| RepVALTYPE (F : function_ctx) (τ : type) (ρ : representation) (γ : linearity) :
-  has_kind F τ (VALTYPE ρ γ) ->
+| RepVALTYPE F τ ρ γ δ :
+  has_kind F τ (VALTYPE ρ γ δ) ->
   has_rep F τ ρ.
 
 Inductive mono_sized : function_ctx -> type -> Prop :=
@@ -193,13 +208,18 @@ Inductive mono_sized : function_ctx -> type -> Prop :=
   mono_rep ρ ιs ->
   mono_sized F τ.
 
-Inductive is_unrestricted : function_ctx -> type -> Prop :=
-| UnrVALTYPE (F : function_ctx) (τ : type) (ρ : representation) :
-  has_kind F τ (VALTYPE ρ Unr) ->
-  is_unrestricted F τ
-| UnrMEMTYPE (F : function_ctx) (τ : type) (ζ : sizity) (μ : memory) :
-  has_kind F τ (MEMTYPE ζ μ Unr) ->
-  is_unrestricted F τ.
+Inductive has_copyability : function_ctx -> type -> copyability -> Prop :=
+| CopyVALTYPE F τ ρ γ δ :
+  has_kind F τ (VALTYPE ρ γ δ) ->
+  has_copyability F τ γ.
+
+Inductive has_dropability : function_ctx -> type -> dropability -> Prop :=
+| DropVALTYPE F τ ρ γ δ :
+  has_kind F τ (VALTYPE ρ γ δ) ->
+  has_dropability F τ δ
+| DropMEMTYPE F τ ζ μ δ :
+  has_kind F τ (MEMTYPE ζ μ δ) ->
+  has_dropability F τ δ.
 
 Inductive convertible_to : list primitive_rep -> list primitive_rep -> Prop :=
 | ConvertPad ιs2 :
@@ -309,7 +329,7 @@ Definition loads_as F τ τ' := stores_as F τ' τ.
 
 Inductive module_ctx_ok : module_ctx -> Prop :=
 | MC_OK (gs : list (mutability * type)) ts :
-  Forall (fun '(_, τ) => is_unrestricted fc_empty τ) gs ->
+  Forall (fun '(_, τ) => exists ρ γ, has_kind fc_empty τ (VALTYPE ρ γ ImDrop)) gs ->
   module_ctx_ok {| mc_globals := gs; mc_table := ts |}.
 
 (* TODO *)
@@ -320,13 +340,17 @@ Inductive instr_has_type :
 | TNop M F L :
   let χ := ArrowT [] [] in
   instr_has_type M F L (INop χ) χ L
-| TDrop M F L τ :
-  is_unrestricted F τ ->
-  let χ := ArrowT [τ] [] in
-  instr_has_type M F L (IDrop χ) χ L
 | TUnreachable M F L L' τs1 τs2 :
   let χ := ArrowT τs1 τs2 in
   instr_has_type M F L (IUnreachable χ) χ L'
+| TCopy M F L τ :
+  has_copyability F τ ExCopy ->
+  let χ := ArrowT [τ] [] in
+  instr_has_type M F L (ICopy χ) χ L
+| TDrop M F L τ :
+  has_dropability F τ ExDrop ->
+  let χ := ArrowT [τ] [] in
+  instr_has_type M F L (IDrop χ) χ L
 | TNum M F L eₙ χ :
   num_instr_has_type eₙ χ ->
   instr_has_type M F L (INum χ eₙ) χ L
@@ -352,7 +376,7 @@ Inductive instr_has_type :
   instr_has_type M F L (IIte χ ξ es1 es2) χ L'
 | TBr M F L n τs τs1 τs2 ξ :
   F.(fc_labels) !! n = Some (τs, L) ->
-  Forall (is_unrestricted F) τs1 ->
+  Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let χ := ArrowT (τs1 ++ τs) τs2 in
   let L' := update_locals ξ L in
   instr_has_type M F L (IBr χ n) χ L'
@@ -364,14 +388,14 @@ Inductive instr_has_type :
   instr_has_type M F L (IBrIf χ n) χ L
 | TBrTable M F L L' ns n τs τs1 τs2 κ :
   Forall (fun i => F.(fc_labels) !! i = Some (τs, L)) (n :: ns) ->
-  Forall (is_unrestricted F) τs1 ->
+  Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let τ := NumT κ (IntT I32T) in
   has_kind F τ κ ->
   let χ := ArrowT (τs1 ++ τs ++ [τ]) τs2 in
   instr_has_type M F L (IBrTable χ ns n) χ L'
 | TReturn M F L L' τs τs1 τs2 :
   F.(fc_return_type) = τs ->
-  Forall (is_unrestricted F) τs1 ->
+  Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let χ := ArrowT (τs1 ++ τs) τs2 in
   instr_has_type M F L (IReturn χ) χ L'
 | TLocalGet M F L n τ ρ κ0 κ :
@@ -382,14 +406,14 @@ Inductive instr_has_type :
   let L' := <[ n := τ' ]> L in
   let χ := ArrowT [] [τ] in
   instr_has_type M F L (ILocalGet χ n) χ L'
-| TLocalGetUnr M F L n τ :
+| TLocalGetCopy M F L n τ :
   L !! n = Some τ ->
-  is_unrestricted F τ ->
+  has_copyability F τ ImCopy ->
   let χ := ArrowT [] [τ] in
   instr_has_type M F L (ILocalGet χ n) χ L
 | TLocalSet M F L n τ τ' ρ :
   L !! n = Some τ ->
-  is_unrestricted F τ ->
+  has_dropability F τ ImDrop ->
   has_rep F τ ρ ->
   has_rep F τ' ρ ->
   let L' := <[ n := τ' ]> L in
@@ -397,14 +421,19 @@ Inductive instr_has_type :
   instr_has_type M F L (ILocalSet χ n) χ L'
 | TGlobalGet M F L n m τ :
   M.(mc_globals) !! n = Some (m, τ) ->
+  has_copyability F τ ImCopy ->
   let χ := ArrowT [] [τ] in
   instr_has_type M F L (IGlobalGet χ n) χ L
-| TGlobalSet M F L n m τ :
-  M.(mc_globals) !! n = Some (m, τ) ->
+| TGlobalSet M F L n τ :
+  M.(mc_globals) !! n = Some (Mut, τ) ->
   let χ := ArrowT [τ] [] in
   instr_has_type M F L (IGlobalSet χ n) χ L
+| TGlobalSwap M F L n τ :
+  M.(mc_globals) !! n = Some (Mut, τ) ->
+  let χ := ArrowT [τ] [τ] in
+  instr_has_type M F L (IGlobalSwap χ n) χ L
 | TCodeRef M F L n ϕ κ :
-  (mc_table M) !! n = Some ϕ ->
+  M.(mc_table) !! n = Some ϕ ->
   let τ := CodeRefT κ ϕ in
   has_kind F τ κ ->
   let χ := ArrowT [] [τ] in
@@ -415,14 +444,14 @@ Inductive instr_has_type :
 | TCallIndirect M F L ann ixs :
   instr_has_type M F L (ICallIndirect ann ixs) (ArrowT [] []) L
 *)
-| TGroup M F L κ τs ρs γ :
-  Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ γ)) τs ρs ->
+| TGroup M F L κ τs ρs γ δ :
+  Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ γ δ)) τs ρs ->
   let τ := ProdT κ τs in
   has_kind F τ κ ->
   let χ := ArrowT τs [τ] in
   instr_has_type M F L (IGroup χ) χ L
-| TUngroup M F L τs ρ γ :
-  let κ := VALTYPE ρ γ in
+| TUngroup M F L τs ρ γ δ :
+  let κ := VALTYPE ρ γ δ in
   let τ := ProdT κ τs in
   has_kind F τ κ ->
   let χ := ArrowT [τ] τs in
@@ -465,26 +494,10 @@ Inductive instr_has_type :
   has_kind F τ κ ->
   let χ := ArrowT [τ0] [τ] in
   instr_has_type M F L (IRefNew χ) χ L
-| TRefFree M F L τ0 κ :
-  is_unrestricted F τ0 ->
-  let τ := RefT κ MemMM τ0 in
-  has_kind F τ κ ->
-  let χ := ArrowT [τ] [] in
-  instr_has_type M F L (IRefFree χ) χ L
-| TRefDup M F L τ0 κ :
-  let τ := RefT κ MemGC τ0 in
-  has_kind F τ κ ->
-  let χ := ArrowT [τ] [τ; τ] in
-  instr_has_type M F L (IRefDup χ) χ L
-| TRefDrop M F L τ0 κ :
-  let τ := RefT κ MemGC τ0 in
-  has_kind F τ κ ->
-  let χ := ArrowT [τ] [] in
-  instr_has_type M F L (IRefDrop χ) χ L
-| TRefLoad M F L π μ τ0 τs__off τ0' ρ ιs κ :
+| TRefLoad M F L π μ τ0 τs__off τ0' ρ ιs δ κ :
   path_to π τ0 τs__off τ0' ->
   Forall (mono_sized F) τs__off ->
-  has_kind F τ0' (VALTYPE ρ Unr) ->
+  has_kind F τ0' (VALTYPE ρ ImCopy δ) ->
   mono_rep ρ ιs ->
   let τ := RefT κ μ τ0 in
   has_kind F τ κ ->
@@ -493,41 +506,38 @@ Inductive instr_has_type :
 | TRefStore M F L π μ τ0 τs τᵥ τ__π κ :
   path_to π τ0 τs τ__π ->
   stores_as F τᵥ τ__π ->
-  is_unrestricted F τ__π ->
+  has_dropability F τ__π ImDrop ->
   let τ := RefT κ μ τ0 in
   has_kind F τ κ ->
   let χ := ArrowT [τ; τᵥ] [τ] in
   instr_has_type M F L (IRefStore χ π) χ L
-| TRefStoreUniq M F L ann π μ τ0 τ0' τᵥ τᵥ' τₘ τₘ' κ κ' σ σ' γ n :
+| TRefMMStore M F L ann π τ0 τ0' τᵥ τᵥ' τₘ τₘ' κ κ' σ δ n :
   stores_as F τᵥ τₘ' ->
   update_at π τ0 τₘ τ0' τₘ' ->
-  has_kind F τₘ (MEMTYPE (Sized σ) μ Unr) ->
-  has_kind F τₘ' (MEMTYPE (Sized σ') μ γ) ->
+  has_kind F τₘ (MEMTYPE (Sized σ) MemMM ImDrop) ->
+  has_kind F τₘ' (MEMTYPE (Sized σ) MemMM δ) ->
   mono_size σ n ->
-  mono_size σ' n ->
   let τ := RefT κ MemMM τ0 in
   let τ' := RefT κ' MemMM τ0' in
   has_kind F τ κ ->
   has_kind F τ' κ' ->
   instr_has_type M F L (IRefStore ann π) (ArrowT [τ; τᵥ'] [τ']) L
-| TRefSwap M F L π γ ρ ιs μ τ0 τᵥ τₘ τs__off κ :
-  has_kind F τᵥ (VALTYPE ρ γ) ->
+| TRefSwap M F L π ρ ιs μ τ0 τᵥ τₘ τs__prefix κ :
   mono_rep ρ ιs ->
-  path_to π τ0 τs__off τₘ ->
+  path_to π τ0 τs__prefix τₘ ->
   loads_as F τᵥ τₘ ->
-  Forall (mono_sized F) τs__off ->
+  Forall (mono_sized F) τs__prefix ->
   let τ := RefT κ μ τ0 in
   has_kind F τ κ ->
   let χ := ArrowT [τ; τᵥ] [τ; τᵥ] in
   instr_has_type M F L (IRefSwap χ π) χ L
-| TRefSwapUniq M F L π γ ρ ιs τ0 τ0' τᵥ τᵥ' τₘ τₘ' τs__off κ κ' :
-  has_kind F τᵥ (VALTYPE ρ γ) ->
+| TRefMMSwap M F L π ρ ιs τ0 τ0' τᵥ τᵥ' τₘ τₘ' τs__prefix κ κ' :
   mono_rep ρ ιs ->
-  path_to π τ0 τs__off τₘ ->
+  path_to π τ0 τs__prefix τₘ ->
   loads_as F τᵥ τₘ ->
   stores_as F τᵥ' τₘ' ->
   update_at π τ0 τₘ τ0' τₘ' ->
-  Forall (mono_sized F) τs__off ->
+  Forall (mono_sized F) τs__prefix ->
   let τ := RefT κ MemMM τ0 in
   let τ' := RefT κ' MemMM τ0' in
   has_kind F τ κ ->

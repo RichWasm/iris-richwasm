@@ -38,7 +38,7 @@ Fixpoint translate_rep (ρ : representation) : option (list W.value_type) :=
 
 Definition kind_rep (κ : kind) : option representation :=
   match κ with
-  | VALTYPE ρ _ => Some ρ
+  | VALTYPE ρ _ _ => Some ρ
   | MEMTYPE _ _ _ => None
   end.
 

@@ -19,9 +19,9 @@ Section Model.
 
   Inductive pointer :=
   | PtrInt (n : Z)
-  | PtrMM (δ : address)
+  | PtrMM (a : address)
   | PtrGC (ℓ : location)
-  | PtrRoot (δ : address).
+  | PtrRoot (a : address).
 
   Inductive word :=
   | WordInt (n : Z)
@@ -65,18 +65,18 @@ Section Model.
   Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
   | ReprPtrInt θ n :
     repr_pointer θ (PtrInt n) (2 * n + 1)
-  | ReprPtrMM θ δ :
-    (δ `mod` 4 = 0)%N ->
-    repr_pointer θ (PtrMM δ) (Z.of_N δ)
-  | ReprPtrGC θ ℓ δ :
-    θ !! ℓ = Some δ ->
-    (δ `mod` 4 = 0)%N ->
-    (δ >= heap_start)%N ->
-    repr_pointer θ (PtrGC ℓ) (Z.of_N (δ + 2))
-  | ReprPtrRoot θ δ :
-    (δ `mod` 4 = 0)%N ->
-    (δ < heap_start)%N ->
-    repr_pointer θ (PtrRoot δ) (Z.of_N (δ + 2)).
+  | ReprPtrMM θ a :
+    (a `mod` 4 = 0)%N ->
+    repr_pointer θ (PtrMM a) (Z.of_N a)
+  | ReprPtrGC θ ℓ a :
+    θ !! ℓ = Some a ->
+    (a `mod` 4 = 0)%N ->
+    (a >= heap_start)%N ->
+    repr_pointer θ (PtrGC ℓ) (Z.of_N (a + 2))
+  | ReprPtrRoot θ a :
+    (a `mod` 4 = 0)%N ->
+    (a < heap_start)%N ->
+    repr_pointer θ (PtrRoot a) (Z.of_N (a + 2)).
 
   Inductive repr_word : address_map -> word -> Z -> Prop :=
   | ReprWordInt θ n :
@@ -96,10 +96,10 @@ Section Model.
     Forall2 (repr_word θ) ws ns.
 
   Inductive repr_location_index : address_map -> location -> nat -> Z -> Prop :=
-  | ReprLocElem θ ℓ i δ0 δ :
-    θ !! ℓ = Some δ0 ->
-    δ = Z.of_N (δ0 + index_address i) ->
-    repr_location_index θ ℓ i δ.
+  | ReprLocElem θ ℓ i a0 a :
+    θ !! ℓ = Some a0 ->
+    a = Z.of_N (a0 + index_address i) ->
+    repr_location_index θ ℓ i a.
 
   Class RichWasmGCG (Σ : gFunctors) :=
     { gc_layouts : gname;
@@ -121,10 +121,10 @@ Notation "ℓ ↦gco{ q } ws" :=
 
 Notation "ℓ ↦gco ws" := (ℓ ↪[gc_objects] ws)%I (at level 20, format "ℓ  ↦gco  ws") : bi_scope.
 
-Notation "δ ↦gcr{ q } ℓ" :=
-  (δ ↪[gc_roots]{q} ℓ)%I (at level 20, format "δ  ↦gcr{ q }  ℓ") : bi_scope.
+Notation "a ↦gcr{ q } ℓ" :=
+  (a ↪[gc_roots]{q} ℓ)%I (at level 20, format "a  ↦gcr{ q }  ℓ") : bi_scope.
 
-Notation "δ ↦gcr ℓ" := (δ ↪[gc_roots] ℓ)%I (at level 20, format "δ  ↦gcr  ℓ") : bi_scope.
+Notation "a ↦gcr ℓ" := (a ↪[gc_roots] ℓ)%I (at level 20, format "a  ↦gcr  ℓ") : bi_scope.
 
 Section Token.
 
@@ -134,16 +134,16 @@ Section Token.
   Variable heap_start : N.
 
   Definition consistent_objects_memory (m : memaddr) (θ : address_map) (wss : object_map) : iProp Σ :=
-    [∗ map] ℓ ↦ δ; ws ∈ θ; wss,
+    [∗ map] ℓ ↦ a; ws ∈ θ; wss,
     ∃ bs ns,
-    N.of_nat m ↦[wms][δ] bs ∗
+    N.of_nat m ↦[wms][a] bs ∗
     ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
     ⌜repr_list_word heap_start θ ws ns⌝.
 
   Definition consistent_roots_memory (m : memaddr) (θ : address_map) (rs : root_map) : iProp Σ :=
-    [∗ map] δ ↦ ℓ ∈ rs,
+    [∗ map] a ↦ ℓ ∈ rs,
     ∃ bs n,
-    N.of_nat m ↦[wms][δ] bs ∗
+    N.of_nat m ↦[wms][a] bs ∗
     ⌜bs = serialize_Z_i32 n⌝ ∗
     ⌜repr_location_index θ ℓ 0 n⌝.
 
@@ -163,7 +163,7 @@ Section Token.
     ℓ' ∈ dom θ.
 
   Definition live_roots (θ : address_map) (rs : root_map) : Prop :=
-    ∀ δ ℓ, rs !! δ = Some ℓ -> ℓ ∈ dom θ.
+    ∀ a ℓ, rs !! a = Some ℓ -> ℓ ∈ dom θ.
 
   Definition gc_token (inv : gc_invariant Σ) (m : memaddr) (θ : address_map) : iProp Σ :=
     ∃ (ls : layout_map) (wss : object_map) (rs : root_map),

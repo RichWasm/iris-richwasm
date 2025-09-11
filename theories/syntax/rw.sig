@@ -4,9 +4,15 @@ path : Type
 list : Functor
 prod : Functor
 
-linearity : Type
-Lin : linearity
-Unr : linearity
+copyability : Type
+NoCopy : copyability
+ExCopy : copyability
+ImCopy : copyability
+
+dropability : Type
+NoDrop : dropability
+ExDrop : dropability
+ImDrop : dropability
 
 memory (MemVar) : Type
 MemMM : memory
@@ -35,8 +41,8 @@ Sized : size -> sizity
 Unsized : sizity
 
 kind : Type
-VALTYPE : representation -> linearity -> kind
-MEMTYPE : sizity -> memory -> linearity -> kind
+VALTYPE : representation -> copyability -> dropability -> kind
+MEMTYPE : sizity -> memory -> dropability -> kind
 
 int_type : Type
 I32T : int_type
@@ -170,8 +176,9 @@ ICvt : conversion_op -> num_instruction
 
 instruction : Type
 INop : arrow_type -> instruction
-IDrop : arrow_type -> instruction
 IUnreachable : arrow_type -> instruction
+ICopy : arrow_type -> instruction
+IDrop : arrow_type -> instruction
 INum : arrow_type -> num_instruction -> instruction
 INumConst : arrow_type -> nat -> instruction
 IBlock : arrow_type -> local_fx -> "list" (instruction) -> instruction
@@ -185,6 +192,7 @@ ILocalGet : arrow_type -> nat -> instruction
 ILocalSet : arrow_type -> nat -> instruction
 IGlobalGet : arrow_type -> nat -> instruction
 IGlobalSet : arrow_type -> nat -> instruction
+IGlobalSwap : arrow_type -> nat -> instruction
 ICodeRef : arrow_type -> nat -> instruction
 IInst : arrow_type -> index -> instruction
 ICall : arrow_type -> nat -> "list" (index) -> instruction
@@ -200,13 +208,9 @@ IUnpack : arrow_type -> local_fx -> "list" (instruction) -> instruction
 IWrap : arrow_type -> instruction
 IUnwrap : arrow_type -> instruction
 IRefNew : arrow_type -> instruction
-IRefFree : arrow_type -> instruction
-IRefDup : arrow_type -> instruction
-IRefDrop : arrow_type -> instruction
 IRefLoad : arrow_type -> path -> instruction
 IRefStore : arrow_type -> path -> instruction
 IRefSwap : arrow_type -> path -> instruction
 IArrayNew : arrow_type -> instruction
-IArrayFree : arrow_type -> instruction
 IArrayGet : arrow_type -> instruction
 IArraySet : arrow_type -> instruction

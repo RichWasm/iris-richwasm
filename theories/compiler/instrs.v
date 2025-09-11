@@ -509,8 +509,9 @@ Section Instrs.
   Fixpoint compile_instr (e : instruction) : codegen unit :=
     match e with
     | INop _ => emit W.BI_nop
-    | IDrop (ArrowT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | IUnreachable _ => emit (W.BI_unreachable)
+    | ICopy _ => raise ETodo
+    | IDrop (ArrowT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | INum _ e' => emit (compile_num_instr e')
     | INumConst (ArrowT [] [NumT _ nt]) n =>
         emit (W.BI_const (compile_Z (translate_num_type nt) (Z.of_nat n)))
@@ -540,6 +541,7 @@ Section Instrs.
         raise EWrongTypeAnn
     | IGlobalGet _ x => compile_get_global x
     | IGlobalSet _ x => compile_set_global x
+    | IGlobalSwap _ _ => raise ETodo
     | ICodeRef _ x => compile_coderef x
     | IInst _ _ => raise ETodo
     | ICall (ArrowT τs _) x ixs => compile_call τs x ixs
@@ -581,9 +583,6 @@ Section Instrs.
     | IWrap _ => raise ETodo
     | IUnwrap _ => raise ETodo
     | IRefNew _ => raise ETodo
-    | IRefFree _ => raise ETodo
-    | IRefDup _ => raise ETodo
-    | IRefDrop _ => raise ETodo
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
     | IRefSwap _ _ => raise ETodo
@@ -591,9 +590,6 @@ Section Instrs.
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)
         raise ETodo
-    | IArrayFree _ =>
-        (* TODO: unregisterroot a bunch of times, since this is an MM array *)
-        emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free)))
     | IArrayGet _ =>
         (* TODO: try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_get *)
         raise ETodo
