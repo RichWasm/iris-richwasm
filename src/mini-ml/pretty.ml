@@ -36,12 +36,12 @@ let rec pp_value ff v =
   | Tuple vs -> fprintf ff "@[<hov 2>(tuple@ %a)@]" (pp_print_list pp_value) vs
   | Inj (case, v, t) ->
       fprintf ff "@[<hov 2>(inj@ %i@ %a@ %a)@]" case pp_value v pp_type t
-  | Fun {foralls; args; body} ->
-      fprintf ff "@[<hov 2>(λ@ [%a]@ (%a)@,@[<v 2>%a@])]"
+  | Fun {foralls; args; ret_type; body} ->
+      fprintf ff "@[<hov 2>(λ@ [%a]@ @[<hov 2>(:@ (%a)@ %a)@]@,@[<v 2>%a@])]"
         (pp_print_list pp_print_string)
         foralls
         (pp_print_list (fun ff (v, t) -> fprintf ff "[:@ %s@ %a]" v pp_type t))
-        args pp_expr body
+        args pp_type ret_type pp_expr body
 
 and pp_expr ff e =
   let open Source.Expr in
@@ -56,17 +56,18 @@ and pp_expr ff e =
   | If0 (c, thn, els) ->
       fprintf ff "@[<hov 2>(if0@ %a@,@[<v 2>%a@]@,@[<v 2>%a@])@]" pp_value c
         pp_expr thn pp_expr els
-  | Cases (v, branches) ->
-      fprintf ff "@[<hov 2>(cases@ %a%a)@]" pp_value v
-        (pp_print_list (fun ff (v, e) ->
-             fprintf ff "@,@[<v 2>[%s@ %a]@]" v pp_expr e ) )
-        branches
+  | Cases (v, branches, t) ->
+      fprintf ff "@[<hov 2>(cases@ %a%a@,%a)@]" pp_value v
+        (pp_print_list (fun ff ((v, t), e) ->
+             fprintf ff "@,@[<v 2>[@[<hov 2>(:@ %s@ %a)@]@ %a]@]" v pp_type t
+               pp_expr e ) )
+        branches pp_type t
   | New v -> fprintf ff "@[<hov 2>(new@ %a)@]" pp_value v
   | Deref v -> fprintf ff "@[<hov 2>(!@ %a)@]" pp_value v
   | Assign (r, v) -> fprintf ff "@[<hov 2>(:=@ %a@  %a)@]" pp_value r pp_value v
-  | Let (name, v, body) ->
-      fprintf ff "@[<hov 2>(let@ (%s@ %a)@,@[<v 2>%a@])@]" name pp_expr v
-        pp_expr body
+  | Let ((name, ty), v, body) ->
+      fprintf ff "@[<hov 2>(let@ @[<hov 2>([:@ %s@ %a]@ %a)@]@,@[<v 2>%a@])@]"
+        name pp_type ty pp_expr v pp_expr body
   | Fold (t, v) -> fprintf ff "@[<hov 2>(fold@ [%a]@ %a)@]" pp_type t pp_value v
   | Unfold v -> fprintf ff "@[<hov 2>(unfold@ %a)@]" pp_value v
 ;;
@@ -75,8 +76,13 @@ let pp_import ff (Source.Module.Import (v, t)) =
   fprintf ff "@[<hov 2>(import@ %s@ %a)@]" v pp_type t
 ;;
 
-let pp_item ff (Source.Module.Item (exporting, v, t, e)) =
-  let kw = if exporting then "export" else "fn" in
+let pp_item ff item =
+  let open Source.Module in
+  let kw, v, t, e =
+    match item with
+    | Private ((v, t), e) -> ("fn", v, t, e)
+    | Export ((v, t), e) -> ("export", v, t, e)
+  in
   fprintf ff "@[<hov 2>(%s@ %s@ [%a]@,@[<v 2>%a@])@]" kw v pp_type t pp_expr e
 ;;
 

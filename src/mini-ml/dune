@@ -2,4 +2,4 @@
  (name richwasm_mini_ml)
  (public_name iris-richwasm.mini-ml)
  (modules main :standard syntax)
- (libraries iris-richwasm.common pprint core))
+ (libraries iris-richwasm.common core))

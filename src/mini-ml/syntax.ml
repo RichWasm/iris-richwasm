@@ -37,6 +37,10 @@ module Source = struct
     type t = PreType.t [@@deriving sexp, equal]
   end
 
+  module Binding = struct
+    type t = Variable.t * Type.t [@@deriving sexp]
+  end
+
   module rec Value : sig
     type t =
       | Int of int
@@ -45,7 +49,8 @@ module Source = struct
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
-            args: (Variable.t * Type.t) list;
+            args: Binding.t list;
+            ret_type: Type.t;
             body: Expr.t }
     [@@deriving sexp]
   end = struct
@@ -56,7 +61,8 @@ module Source = struct
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
-            args: (Variable.t * Type.t) list;
+            args: Binding.t list;
+            ret_type: Type.t;
             body: Expr.t }
     [@@deriving sexp]
   end
@@ -68,11 +74,11 @@ module Source = struct
       | Project of int * Value.t
       | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | If0 of Value.t * Expr.t * Expr.t
-      | Cases of Value.t * (Variable.t * Expr.t) list
+      | Cases of Value.t * (Binding.t * Expr.t) list * Type.t
       | New of Value.t
       | Deref of Value.t
       | Assign of Value.t * Value.t
-      | Let of Variable.t * Expr.t * Expr.t
+      | Let of Binding.t * Expr.t * Expr.t
       | Fold of Type.t * Value.t
       | Unfold of Value.t
     [@@deriving sexp]
@@ -83,20 +89,23 @@ module Source = struct
       | Project of int * Value.t
       | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | If0 of Value.t * Expr.t * Expr.t
-      | Cases of Value.t * (Variable.t * Expr.t) list
+      | Cases of Value.t * (Binding.t * Expr.t) list * Type.t
       | New of Value.t
       | Deref of Value.t
       | Assign of Value.t * Value.t
-      | Let of Variable.t * Expr.t * Expr.t
+      | Let of Binding.t * Expr.t * Expr.t
       | Fold of Type.t * Value.t
       | Unfold of Value.t
     [@@deriving sexp]
   end
 
   module Module = struct
-    type import = Import of Variable.t * Type.t [@@deriving sexp]
+    type import = Import of Binding.t [@@deriving sexp]
 
-    type item = Item of bool * Variable.t * Type.t * Expr.t [@@deriving sexp]
+    type item =
+      | Export of Binding.t * Expr.t
+      | Private of Binding.t * Expr.t
+    [@@deriving sexp]
 
     type t = Module of import list * item list * Expr.t option
     [@@deriving sexp]
