@@ -24,10 +24,10 @@ Definition globidx_table_next : W.immediate := 0.
 Definition globidx_table_offset : W.immediate := 1.
 
 Definition fe_of_contexts (F : function_ctx) (L : local_ctx) : option function_env :=
-  ts ← mapM (fun τ => type_rep F.(fc_type_vars) τ ≫= translate_rep) L;
+  ρs ← mapM (fun τ => type_rep F.(fc_type_vars) τ) L;
   mret {| fe_return_type := F.(fc_return_type);
           fe_type_vars := F.(fc_type_vars);
-          fe_wlocal_offset := sum_list_with length ts |}.
+          fe_local_reprs := ρs |}.
 
 Definition set_table_elem (start : W.immediate) (i f : nat) : W.expr :=
   [W.BI_get_local start;

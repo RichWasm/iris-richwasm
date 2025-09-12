@@ -84,3 +84,7 @@ Definition translate_arrow_type (κs: list kind) (χ: arrow_type) : option W.fun
   tys1 ← translate_types κs τs1;
   tys2 ← translate_types κs τs2;
   mret (W.Tf tys1 tys2).
+
+Definition fe_wlocal_offset (fe: function_env) : nat :=
+  default 0 (ts ← mapM translate_rep fe.(fe_local_reprs);
+             mret $ sum_list_with length ts).

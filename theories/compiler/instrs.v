@@ -32,7 +32,7 @@ Section Instrs.
   Definition wlalloc (ty : W.value_type) : codegen W.localidx :=
     wl ← get;
     put (wl ++ [ty]);;
-    ret (W.Mk_localidx (fe.(fe_wlocal_offset) + length wl)).
+    ret (W.Mk_localidx (fe_wlocal_offset fe + length wl)).
 
   Definition get_local_i64 (x : W.localidx) : codegen unit :=
     emit (W.BI_get_local (localimm x));;
@@ -67,39 +67,29 @@ Section Instrs.
         emit (W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None)
     end.
 
-  Definition get_locals_w (x : W.localidx) : W.result_type -> codegen unit :=
-    ignore ∘ foldM
-      (fun ty x =>
-        get_local_w (W.Mk_localidx x) ty;;
-        ret (x + W.words_t ty))
-      (ret (localimm x)).
-
-  Definition set_local_w (x : W.localidx) (ty : W.value_type) : codegen unit :=
-    match ty with
-    | W.T_i32 => emit (W.BI_set_local (localimm x))
-    | W.T_i64 => set_local_i64 x
-    | W.T_f32 =>
-        emit (W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None);;
-        emit (W.BI_set_local (localimm x))
-    | W.T_f64 =>
-        emit (W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None);;
-        set_local_i64 x
+  Fixpoint get_locals_w (base_idx : W.localidx) (count : nat) : codegen unit :=
+    match count with
+    | 0 => mret ()
+    | S count =>
+        emit (W.BI_get_local $ localimm base_idx);;
+        get_locals_w base_idx count
+    end.
+        
+  Fixpoint set_locals_w (base_idx : W.localidx) (count : nat) : codegen unit :=
+    match count with
+    | 0 => mret ()
+    | S count =>
+        emit (W.BI_set_local $ localimm base_idx);;
+        set_locals_w base_idx count
     end.
 
-  Definition set_locals_w (x : W.localidx) : W.result_type -> codegen unit :=
-    ignore ∘ foldM
-      (fun ty x =>
-        set_local_w (W.Mk_localidx x) ty;;
-        ret (x + W.words_t ty))
-      (ret (localimm x)).
+  Definition get_local (x : W.localidx) (ρ : representation) : codegen unit :=
+    tys ← try_option EWrongTypeAnn (translate_rep ρ);
+    get_locals_w x (length tys).
 
-  Definition get_local (x : W.localidx) (τ : type) : codegen unit :=
-    ty ← try_option EWrongTypeAnn (translate_type τ);
-    get_locals_w x ty.
-
-  Definition set_local (x : W.localidx) (τ : type) : codegen unit :=
-    ty ← try_option EWrongTypeAnn (translate_type τ);
-    set_locals_w x ty.
+  Definition set_local (x : W.localidx) (ρ: representation) : codegen unit :=
+    tys ← try_option EWrongTypeAnn (translate_rep ρ);
+    set_locals_w x (length tys).
 
   Definition save_stack_w (ty : W.result_type) : codegen W.localidx :=
     xs ← forT ty wlalloc;
@@ -115,19 +105,40 @@ Section Instrs.
 
   Definition restore_stack_w (x : W.localidx) (ty : W.result_type) : codegen unit :=
     ignore (forT (seq (localimm x) (length ty)) (emit ∘ W.BI_get_local)).
+  
+  Definition restore_stack_r (x: W.localidx) (ρ: representation) : codegen unit :=
+    tys ← try_option EWrongTypeAnn (translate_rep ρ);
+    restore_stack_w x tys.
 
   Definition restore_stack (x : W.localidx) (τs : list type) : codegen unit :=
     tys ← try_option EWrongTypeAnn (mapM translate_type τs);
     restore_stack_w x (concat tys).
 
-  Definition if_gc_bit {A B} (tf : W.function_type) (gc : codegen B) (mm : codegen A) : codegen (A * B) :=
+(* Remember the pointer encoding is
+   x0 31-bit number, not actually a pointer
+   01 word-aligned ptr to manually managed memory
+   11 word-aligned ptr to gc memory
+*)
+  Definition ptr_case {A B C}
+    (tf : W.function_type)
+    (idx: W.localidx) 
+    (num : codegen A)
+    (mm : codegen B) 
+    (gc : codegen C)
+     : codegen (A * (B * C)) :=
+    emit (W.BI_get_local $ localimm idx);;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
     emit (W.BI_testop W.T_i32 W.TO_eqz);;
-    if_c tf mm gc.
+    if_c tf num (
+        emit (W.BI_get_local $ localimm idx);;
+        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 2%Z)));;
+        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
+        emit (W.BI_testop W.T_i32 W.TO_eqz);;
+        if_c tf mm gc).
 
   Definition clear_gc_bit : codegen unit :=
-    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 1%Z)));;
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 3%Z)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)).
 
   Definition load_values_w (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset) :
@@ -144,6 +155,7 @@ Section Instrs.
     tys ← try_option EWrongTypeAnn (translate_type τ);
     load_values_w mem ptr off tys.
 
+  (*
   Definition load_value_tagged_w (ty : W.value_type) : codegen unit :=
     ptr ← wlalloc W.T_i32;
     emit (W.BI_tee_local (localimm ptr));;
@@ -170,6 +182,7 @@ Section Instrs.
        load_value me.(me_runtime).(mr_mem_mm) ptr 0%N τ);;
     ret tt.
 
+*)
   Definition store_value_w
     (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset)
     (val : W.localidx) (ty : W.value_type) :
@@ -193,6 +206,7 @@ Section Instrs.
     let vals := zip (map W.Mk_localidx (seq (localimm val) (length ty))) ty in
     store_values_w mem ptr off vals.
 
+  (*
   Definition store_value_tagged (offset : W.localidx) (τ : type) : codegen unit :=
     val ← save_stack [τ];
     ptr ← wlalloc W.T_i32;
@@ -209,28 +223,7 @@ Section Instrs.
        emit (W.BI_set_local (localimm ptr));;
        store_value me.(me_runtime).(mr_mem_mm) ptr 0%N val τ);;
     ret tt.
-
-  Definition foreach_when_gc_bit (scope : VarScope) (refs : list W.immediate) (c : codegen unit) :
-    codegen unit :=
-    iterM
-      (fun var =>
-        let '(get, set) := scope_get_set scope in
-        emit (get var);;
-        if_gc_bit (W.Tf [W.T_i32] [W.T_i32]) c (ret tt);;
-        emit (set var))
-      refs.
-
-  Definition lookup_local (L : local_ctx) (x : nat) : error + (W.localidx * type) :=
-    let fix go L i j :=
-      match L, j with
-      | τ :: _, 0 => inr (W.Mk_localidx i, τ)
-      | τ :: L', S j' =>
-          ty ← option_sum EWrongTypeAnn (translate_type τ);
-          go L' (i + length ty) j'
-      | [], _ => inl (EIndexOutOfBounds x)
-      end
-    in
-    go L 0 x.
+*)
 
   Definition lookup_global (x : nat) : option (W.globalidx * type) :=
     let fix go globals i :=
@@ -245,6 +238,7 @@ Section Instrs.
     in
     go me.(me_globals) x.
 
+  (*
   Definition trap_if_index_out_of_bounds (idx : W.localidx) : codegen unit :=
     load_value_tagged_w W.T_i32;;
     emit (W.BI_get_local (localimm idx));;
@@ -257,18 +251,19 @@ Section Instrs.
     (* Skip 4 bytes for the array length. *)
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat 4))));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
+*)
 
   Definition compile_drop_prim_rep (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>
-        ignore $
-          if_gc_bit (W.Tf [W.T_i32] [W.T_i32])
-          (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))))
-          (emit W.BI_drop)
-    | I32R
-    | I64R
-    | F32R
-    | F64R => emit W.BI_drop
+        idx ← save_stack_w [W.T_i32];
+        ignore $ ptr_case
+                   (W.Tf [] [])
+                   idx
+                   (emit W.BI_drop)
+                   (emit W.BI_drop)
+                   (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))))
+    | _ => emit W.BI_drop
     end.
 
   Fixpoint compile_drop_rep (ρ : representation) : codegen unit :=
@@ -294,27 +289,54 @@ Section Instrs.
     restore_stack r return_ty;;
     emit W.BI_return.
 
-  Definition compile_get_local (L : local_ctx) (x : nat) : codegen unit :=
-    (* TODO:
-    '(x', ty) ← lift_error (lookup_local L x);
-    get_local x' ty;;
-    val ← save_stack [ty];
-    let refs := map (fun i => localimm val + i) (find_refs LMNative ty) in
-    foreach_when_gc_bit VSLocal refs
-      (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))));;
-    restore_stack val [ty]
-    *)
-    ret tt.
+  Definition local_index (x: nat) (ρs: list representation) : option W.localidx :=
+    ts ← mapM translate_rep ρs;
+    mret $ W.Mk_localidx $ sum_list_with length (take x ts).
 
-  Definition compile_set_local (L : local_ctx) (x : nat) : codegen unit :=
-    (* TODO:
-    '(x', ty) ← lift_error (lookup_local L x);
-    let refs := map (fun i => localimm x' + i) (find_refs LMWords ty) in
-    foreach_when_gc_bit VSLocal refs
-      (emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))));;
-    set_local x' ty
-    *)
-    ret tt.
+  Definition lookup_local (x: nat) : option (W.localidx * representation) :=
+    idx ← local_index x fe.(fe_local_reprs);
+    ρ ← fe.(fe_local_reprs) !! x;
+    mret (idx, ρ).
+
+  Fixpoint foreach_gc_ptr (idx: W.localidx) (ρ: representation) (op: codegen unit) : codegen unit :=
+    let fix do_prod (idx: W.localidx) ρs : codegen unit :=
+      let 'W.Mk_localidx idx_nat := idx in
+      match ρs with
+      | [] => mret ()
+      | ρ :: ρs =>
+          foreach_gc_ptr idx ρ op;;
+          do_prod (W.Mk_localidx (S idx_nat)) ρs
+      end
+    in
+    match ρ with
+    | VarR v => raise ERepNotMono
+    | SumR ρs => raise ETodo
+    | ProdR ρs => do_prod idx ρs
+    | PrimR PtrR =>
+        ignore $ ptr_case (W.Tf [] []) idx (mret ()) (mret ())
+          (emit $ W.BI_get_local (localimm idx);;
+           clear_gc_bit;;
+           op)
+    | PrimR _ => mret ()
+    end.
+  
+  Definition dup_roots_local (idx: W.localidx) (ρ: representation) : codegen unit :=
+    foreach_gc_ptr idx ρ $ 
+      emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))).
+
+  Definition unregister_roots_local (idx: W.localidx) (ρ: representation) : codegen unit :=
+    foreach_gc_ptr idx ρ $ 
+      emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
+
+  Definition compile_get_local (idx : nat) : codegen unit :=
+    '(idx', ρ) ← try_option EUnboundLocal (lookup_local idx);
+    dup_roots_local idx' ρ;;
+    get_local idx' ρ.
+
+  Definition compile_set_local (x : nat) : codegen unit :=
+    '(x', ρ) ← try_option EUnboundLocal (lookup_local x);
+    unregister_roots_local x' ρ;;
+    set_local x' ρ.
 
   Definition compile_get_global (x : nat) : codegen unit :=
     (* TODO:
@@ -470,7 +492,7 @@ Section Instrs.
     *)
     ret tt.
 
-  Fixpoint compile_variant_case
+  Definition compile_variant_case
     (ptr : W.localidx) (n : nat) (i : nat) (tf : W.function_type) (cases : list (type * W.expr)) :
     codegen unit :=
     (* TODO:
@@ -529,16 +551,10 @@ Section Instrs.
     | IBrIf _ n => emit (W.BI_br_if n)
     | IBrTable _ ns n => emit (W.BI_br_table ns n)
     | IReturn (ArrowT τs _) => compile_return τs
-    | ILocalGet (ArrowT [] [τ]) i =>
-        (* TODO: compile_get_local L x *)
-        raise ETodo
-    | ILocalGet _ _ =>
-        raise EWrongTypeAnn
-    | ILocalSet (ArrowT [τ] []) i =>
-        (* TODO: compile_set_local L x *)
-        raise ETodo
-    | ILocalSet _ _ =>
-        raise EWrongTypeAnn
+    | ILocalGet (ArrowT [] [τ]) i => compile_get_local i
+    | ILocalGet _ _ => raise EWrongTypeAnn
+    | ILocalSet (ArrowT [τ] []) i => compile_set_local i
+    | ILocalSet _ _ => raise EWrongTypeAnn
     | IGlobalGet _ x => compile_get_global x
     | IGlobalSet _ x => compile_set_global x
     | IGlobalSwap _ _ => raise ETodo

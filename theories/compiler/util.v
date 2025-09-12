@@ -13,6 +13,7 @@ Inductive error :=
   | EUnboundQual
   | EUnboundTypeVar
   | ERepNotMono
+  | EUnboundLocal
   | ETodo.
 
 Record store_runtime :=
@@ -39,7 +40,7 @@ Record module_env :=
 Record function_env :=
   { fe_return_type : list type;
     fe_type_vars : list kind;
-    fe_wlocal_offset : nat }.
+    fe_local_reprs : list representation }.
 
 Inductive VarScope :=
   | VSGlobal
