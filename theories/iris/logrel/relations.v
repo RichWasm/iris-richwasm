@@ -89,19 +89,11 @@ Section Relations.
     | F64R => exists n, v = VAL_float64 n
     end.
 
-  (* TODO: Returns (Some ιs) for closed representations, None for open representations. *)
-  Definition eval_representation (ρ : representation) : option (list primitive_rep).
-  Admitted.
-
-  (* TODO: Returns (Some n) for closed sizes, None for open sizes. *)
-  Definition eval_size (σ : size) : option nat.
-  Admitted.
-
   Definition project_sum_value (τs : list type) (τ : type) (vs : list value) : list value.
   Admitted.
 
   Definition representation_interp0 (ρ : representation) (vs : list value) : Prop :=
-    exists ιs, eval_representation ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
+    exists ιs, eval_rep ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
 
   Definition representation_interp (ρ : representation) : semantic_type :=
     fun sv => (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.

@@ -10,7 +10,7 @@ From ExtLib.Structures Require Import Functor Monads Traversable.
 
 From Wasm Require datatypes operations.
 
-Require Import RichWasm.syntax.
+From RichWasm Require Import syntax typing.
 Require Import RichWasm.util.stdpp_extlib.
 Require Import RichWasm.compiler.util.
 
@@ -25,16 +25,8 @@ Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=
   | F64R => W.T_f64
   end.
 
-Definition translate_sum_rep (ρs : list representation) : option (list W.value_type).
-Admitted.
-
 Fixpoint translate_rep (ρ : representation) : option (list W.value_type) :=
-  match ρ with
-  | VarR _ => None
-  | SumR ρs => translate_sum_rep ρs
-  | ProdR ρs => flatten <$> mapM translate_rep ρs
-  | PrimR ι => Some [translate_prim_rep ι]
-  end.
+  map translate_prim_rep <$> eval_rep ρ.
 
 Definition kind_rep (κ : kind) : option representation :=
   match κ with
