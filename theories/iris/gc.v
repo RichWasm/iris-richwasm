@@ -5,143 +5,34 @@ From mathcomp Require Import eqtype.
 From iris.proofmode Require Import base tactics classes.
 
 From RichWasm Require Import syntax util.
+Require Import RichWasm.iris.memory.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section Model.
+Definition layout_map : Type := gmap location object_layout.
 
-  Variable heap_start : N.
+Definition root_map : Type := gmap address location.
 
-  Definition location := N.
+Definition object_map : Type := gmap location (list word).
 
-  Definition address := N.
+Class RichWasmGCG (Σ : gFunctors) :=
+  { gc_layouts : gname;
+    gc_layouts_G :: ghost_mapG Σ location object_layout;
+    gc_objects : gname;
+    gc_objects_G :: ghost_mapG Σ location (list word);
+    gc_roots : gname;
+    gc_roots_G :: ghost_mapG Σ address location }.
 
-  Inductive pointer :=
-  | PtrInt (n : Z)
-  | PtrMM (a : address)
-  | PtrGC (ℓ : location)
-  | PtrRoot (a : address).
+Definition gc_invariant (Σ : gFunctors) : Type := layout_map -> object_map -> root_map -> iProp Σ.
 
-  Inductive word :=
-  | WordInt (n : Z)
-  | WordPtr (p : pointer).
+Definition kinds_of_pointer_map (m : i64) (n : nat) : list word_kind :=
+  map
+    (fun b : bool => if b then PtrWord else IntWord)
+    (take n (reverse (Wasm_int.Int64.convert_to_bits m))).
 
-  Inductive word_kind :=
-  | IntWord
-  | PtrWord.
-
-  Record object_layout :=
-    { ol_prefix : list word_kind;
-      ol_element : list word_kind;
-      ol_count : nat }.
-
-  Definition layout_map : Type := gmap location object_layout.
-
-  Definition address_map : Type := gmap location address.
-
-  Definition root_map : Type := gmap address location.
-
-  Definition object_map : Type := gmap location (list word).
-
-  Definition gc_invariant (Σ : gFunctors) : Type := layout_map -> object_map -> root_map -> iProp Σ.
-
-  Definition word_has_kind (k : word_kind) (w : word) : bool :=
-    match k, w with
-    | IntWord, WordInt _ => true
-    | PtrWord, WordPtr _ => true
-    | _, _ => false
-    end.
-
-  Definition kinds_of_pointer_map (m : i64) (n : nat) : list word_kind :=
-    map
-      (fun b : bool => if b then PtrWord else IntWord)
-      (take n (reverse (Wasm_int.Int64.convert_to_bits m))).
-
-  Definition serialize_Z_i32 : Z -> bytes := serialise_i32 ∘ Wasm_int.int_of_Z i32m.
-
-  Definition index_address (i : nat) : N := N.of_nat (4 * i).
-
-  Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
-  | ReprPtrInt θ n :
-    n `mod` 2 = 0 ->
-    repr_pointer θ (PtrInt n) (2 * n + 1)
-  | ReprPtrMM θ a :
-    (a `mod` 4 = 0)%N ->
-    repr_pointer θ (PtrMM a) (Z.of_N a)
-  | ReprPtrGC θ ℓ a :
-    θ !! ℓ = Some a ->
-    (a `mod` 4 = 0)%N ->
-    (a >= heap_start)%N ->
-    repr_pointer θ (PtrGC ℓ) (Z.of_N (a + 2))
-  | ReprPtrRoot θ a :
-    (a `mod` 4 = 0)%N ->
-    (a < heap_start)%N ->
-    repr_pointer θ (PtrRoot a) (Z.of_N (a + 2)).
-
-  Inductive repr_word : address_map -> word -> Z -> Prop :=
-  | ReprWordInt θ n :
-    repr_word θ (WordInt n) n
-  | ReprWordPtr θ p n :
-    repr_pointer θ p n ->
-    repr_word θ (WordPtr p) n.
-
-  Inductive repr_double_word : address_map -> word -> word -> Z -> Prop :=
-  | ReprDoubleWordInt θ n1 n2 m :
-    repr_word θ (WordInt n1) n1 ->
-    repr_word θ (WordInt n2) n2 ->
-    (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = m ->
-    repr_double_word θ (WordInt n1) (WordInt n2) m.
-
-  Definition repr_list_word (θ : address_map) (ws : list word) (ns : list Z) : Prop :=
-    Forall2 (repr_word θ) ws ns.
-
-  Inductive repr_location_index : address_map -> location -> nat -> Z -> Prop :=
-  | ReprLocElem θ ℓ i a0 a :
-    θ !! ℓ = Some a0 ->
-    a = Z.of_N (a0 + index_address i) ->
-    repr_location_index θ ℓ i a.
-
-  Inductive ser_value : primitive_rep -> value -> list word -> Prop :=
-  | SerPtrInt i n :
-    n `mod` 2 = 0 ->
-    i = Wasm_int.int_of_Z i32m (2 * n + 1) ->
-    ser_value PtrR (VAL_int32 i) [WordPtr (PtrInt n)]
-  | SerPtrMM i a :
-    (a `mod` 4 = 0)%N ->
-    i = Wasm_int.int_of_Z i32m (Z.of_N a) ->
-    ser_value PtrR (VAL_int32 i) [WordPtr (PtrMM a)]
-  | SerPtrRoot i a :
-    (a `mod` 4 = 0)%N ->
-    (a < heap_start)%N ->
-    i = Wasm_int.int_of_Z i32m (Z.of_N (a + 2)) ->
-    ser_value PtrR (VAL_int32 i) [WordPtr (PtrRoot a)]
-  | SerI32 i n :
-    i = Wasm_int.int_of_Z i32m n ->
-    ser_value I32R (VAL_int32 i) [WordInt n]
-  | SerI64 i n n1 n2 :
-    (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = n ->
-    i = Wasm_int.int_of_Z i64m n ->
-    ser_value I64R (VAL_int64 i) [WordInt n1; WordInt n2]
-  | SerF32 i f n :
-    ser_value I32R (VAL_int32 i) [WordInt n] ->
-    serialise_i32 i = serialise_f32 f ->
-    ser_value F32R (VAL_float32 f) [WordInt n]
-  | SerF64 i f n1 n2 :
-    ser_value I64R (VAL_int64 i) [WordInt n1; WordInt n2] ->
-    serialise_i64 i = serialise_f64 f ->
-    ser_value F64R (VAL_float64 f) [WordInt n1; WordInt n2].
-
-  Class RichWasmGCG (Σ : gFunctors) :=
-    { gc_layouts : gname;
-      gc_layouts_G :: ghost_mapG Σ location object_layout;
-      gc_objects : gname;
-      gc_objects_G :: ghost_mapG Σ location (list word);
-      gc_roots : gname;
-      gc_roots_G :: ghost_mapG Σ address location }.
-
-End Model.
+Definition serialize_Z_i32 : Z -> bytes := serialise_i32 ∘ Wasm_int.int_of_Z i32m.
 
 Notation "ℓ ↦gcl{ q } l" :=
   (ℓ ↪[gc_layouts]{q} l)%I (at level 20, format "ℓ  ↦gcl{ q }  l") : bi_scope.

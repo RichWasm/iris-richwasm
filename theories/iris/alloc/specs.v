@@ -6,6 +6,7 @@ From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
 From Wasm.iris.logrel Require Export iris_fundamental.
 From Wasm.iris.rules Require Export proofmode.
+Require Import RichWasm.iris.util.
 From RichWasm.iris.alloc Require Export util memrsc reprs.
 
 Set Implicit Arguments.

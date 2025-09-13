@@ -5,11 +5,8 @@ Require Import iris.proofmode.tactics.
 Require Wasm.iris.logrel.iris_logrel.
 
 From RichWasm.compiler Require Import codegen util.
-From RichWasm.iris Require Import gc num_reprs util.
-Require Import RichWasm.iris.logrel.util.
-Require Import RichWasm.iris.language.lenient_wp.
-Require Import RichWasm.iris.language.logpred.
-Import uPred.
+From RichWasm.iris Require Import gc memory.
+From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 From RichWasm Require Import syntax typing layout util.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -177,22 +174,25 @@ Section Relations.
               ▷ closure_interp0 rb ϕ cl ∗
               na_inv logrel_nais (ns_func n) (n ↦[wf] cl)
       | RepT _ ρ' τ =>
-          ∃ ρ ιs ιs' vs vs' wss wss' ws,
+          ∃ ρ ιs ιs' vs vs' rvs rvs' wss wss' ws,
             ⌜sv = SValues vs'⌝ ∗
               ⌜type_rep [] τ = Some ρ⌝ ∗
               ⌜eval_rep ρ = Some ιs⌝ ∗
               ⌜eval_rep ρ' = Some ιs'⌝ ∗
-              ⌜Forall3 (ser_value sr.(sr_gc_heap_start)) ιs vs wss⌝ ∗
-              ⌜Forall3 (ser_value sr.(sr_gc_heap_start)) ιs' vs' wss'⌝ ∗
+              ⌜to_rep_values ιs vs = Some rvs⌝ ∗
+              ⌜to_rep_values ιs' vs' = Some rvs'⌝ ∗
+              ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
+              ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs' wss'⌝ ∗
               ⌜concat wss ++ ws = concat wss'⌝ ∗
               ▷ rb_value rb τ (SValues vs)
       | PadT _ _ τ => ∃ ws wsₚ, ⌜sv = SWords (ws ++ wsₚ)⌝ ∗ ▷ rb_value rb τ (SWords ws)
       | SerT _ τ =>
-          ∃ ρ ιs vs ws wss,
+          ∃ ρ ιs vs rvs ws wss,
             ⌜sv = SWords ws⌝ ∗
               ⌜type_rep [] τ = Some ρ⌝ ∗
               ⌜eval_rep ρ = Some ιs⌝ ∗
-              ⌜Forall3 (ser_value sr.(sr_gc_heap_start)) ιs vs wss⌝ ∗
+              ⌜to_rep_values ιs vs = Some rvs⌝ ∗
+              ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
               ⌜ws = concat wss⌝ ∗
               ▷ rb_value rb τ (SWords ws)
       | RecT _ τ => True (* TODO *)

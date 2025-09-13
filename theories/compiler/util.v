@@ -86,7 +86,7 @@ Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=
   | F64R => W.T_f64
   end.
 
-Fixpoint translate_rep (ρ : representation) : option (list W.value_type) :=
+Definition translate_rep (ρ : representation) : option (list W.value_type) :=
   map translate_prim_rep <$> eval_rep ρ.
 
 Definition translate_type (κs : list kind) (τ : type) : option (list W.value_type) :=

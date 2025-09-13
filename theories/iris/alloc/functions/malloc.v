@@ -362,7 +362,7 @@ Section malloc.
     cbn.
     unfold own_vec.
     replace memidx with (N.of_nat (N.to_nat memidx)) by lia.
-    rewrite (N_repr_uint _ _ Hblk).
+    rewrite (N_repr_uint Hblk).
     iApply (wp_wand with "[Hfr Hrun Hvec]").
     {
       iDestruct "Hvec" as "(%next32 & %Hlen & Hnext')".
