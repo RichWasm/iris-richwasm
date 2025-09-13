@@ -3,7 +3,7 @@ From mathcomp Require Import eqtype seq.
 Require Import iris.proofmode.tactics.
 
 Require Import RichWasm.syntax.
-Require Import RichWasm.compiler.types.
+Require Import RichWasm.compiler.util.
 From RichWasm.iris Require Import num_reprs util.
 Import uPred.
 

@@ -6,13 +6,13 @@ Local Open Scope program_scope.
 Require Import stdpp.base.
 
 From ExtLib.Data Require Import List.
-From ExtLib.Data.Monads Require Import StateMonad WriterMonad.
+From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
 From ExtLib.Structures Require Import Monoid Monads.
 
 From Wasm Require datatypes.
 
-From RichWasm.compiler Require Import types util.
-Require Import RichWasm.util.stdpp_extlib.
+Require Import RichWasm.compiler.util.
+Require Import RichWasm.util.
 
 Module W := Wasm.datatypes.
 
@@ -105,7 +105,7 @@ Lemma runWriterT_sum_bind_dist {A B L E}
   l = m.(monoid_plus) l1 l2.
 Proof.
   intros H.
-  unfold runWriterT, mbind, stdpp_extlib.MBind_Monad, flip, bind, Monad_writerT, bind, EitherMonad.Monad_either in H.
+  unfold runWriterT, mbind, MBind_Monad, flip, bind, Monad_writerT, bind, EitherMonad.Monad_either in H.
   destruct c.
   cbn in H.
   destruct runWriterT; first congruence.
@@ -136,7 +136,7 @@ Lemma runWriterT_runStateT_sum_bind_dist {E L S A B}
   l = m.(monoid_plus) l1 l2.
 Proof.
   intros H.
-  unfold mbind, stdpp_extlib.MBind_Monad, runStateT, flip, bind, Monad_stateT in H.
+  unfold mbind, MBind_Monad, runStateT, flip, bind, Monad_stateT in H.
   apply runWriterT_sum_bind_dist in H.
   destruct H as (x1 & l1 & l2 & H1 & H2 & H3).
   - destruct x1 as [x1 s1].

@@ -1,8 +1,10 @@
 Require Import Stdlib.Numbers.BinNums.
 
+Require Import stdpp.list_numbers.
+
 Require Wasm.datatypes.
 
-Require Import RichWasm.syntax.
+From RichWasm Require Import syntax layout.
 
 Module W := Wasm.datatypes.
 
@@ -74,3 +76,33 @@ Definition option_sum {A E : Type} (e : E) (x : option A) : E + A :=
   | None => inl e
   | Some x' => inr x'
   end.
+
+Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=
+  match ι with
+  | PtrR => W.T_i32
+  | I32R => W.T_i32
+  | I64R => W.T_i64
+  | F32R => W.T_f32
+  | F64R => W.T_f64
+  end.
+
+Fixpoint translate_rep (ρ : representation) : option (list W.value_type) :=
+  map translate_prim_rep <$> eval_rep ρ.
+
+Definition translate_type (κs : list kind) (τ : type) : option (list W.value_type) :=
+  type_rep κs τ ≫= translate_rep.
+
+Definition translate_types (κs : list kind) (τs : list type) : option (list W.value_type) :=
+  @concat _ <$> mapM (translate_type κs) τs.
+
+Definition translate_num_type (ν : num_type) : W.value_type :=
+  translate_prim_rep (num_type_rep ν).
+
+Definition translate_arrow_type (κs : list kind) (χ : arrow_type) : option W.function_type :=
+  let 'ArrowT τs1 τs2 := χ in
+  tys1 ← translate_types κs τs1;
+  tys2 ← translate_types κs τs2;
+  mret (W.Tf tys1 tys2).
+
+Definition fe_wlocal_offset (fe : function_env) : nat :=
+  default 0 (sum_list_with length <$> mapM translate_rep fe.(fe_local_reprs)).

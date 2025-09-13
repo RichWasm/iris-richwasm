@@ -1,7 +1,7 @@
 Require Import iris.proofmode.tactics.
 
 From RichWasm Require Import syntax typing.
-From RichWasm.compiler Require Import codegen instrs modules types util.
+From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.logrel Require Import relations util.
 

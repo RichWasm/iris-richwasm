@@ -2,11 +2,11 @@ From Stdlib Require Import List NArith.BinNat.
 Require Import Stdlib.Strings.String.
 Require Import Stdlib.ZArith.BinInt.
 
-From Wasm Require datatypes.
-From Wasm Require Import numerics.
+Require Wasm.datatypes.
+Require Import Wasm.numerics.
 
 Require Import RichWasm.syntax.
-From RichWasm.compiler Require Import types.
+Require Import RichWasm.compiler.util.
 
 Module W := Wasm.datatypes.
 

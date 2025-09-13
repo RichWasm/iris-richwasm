@@ -15,9 +15,9 @@ From stdpp Require Import list_numbers.
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import prelude syntax typing.
-From RichWasm.compiler Require Import codegen numerics types util.
-Require Import RichWasm.util.stdpp_extlib.
+From RichWasm Require Import prelude syntax layout.
+From RichWasm.compiler Require Import codegen numerics util.
+Require Import RichWasm.util.
 
 Module W. Include datatypes <+ operations. End W.
 

@@ -89,44 +89,6 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   | F64R => 2
   end.
 
-Definition max_prim_rep_count (ιss : list (list primitive_rep)) (ι : primitive_rep) : nat :=
-  list_max (map (fun ιs => count_occ primitive_rep_eq_dec ιs ι) ιss).
-
-Fixpoint eval_rep (ρ : representation) : option (list primitive_rep) :=
-  match ρ with
-  | VarR _ => None
-  | SumR ρs =>
-      ιss ← mapM eval_rep ρs;
-      let n__ptr := max_prim_rep_count ιss PtrR in
-      let n__i32 := max_prim_rep_count ιss I32R in
-      let n__i64 := max_prim_rep_count ιss I64R in
-      let n__f32 := max_prim_rep_count ιss F32R in
-      let n__f64 := max_prim_rep_count ιss F64R in
-      Some (I32R ::
-              repeat PtrR n__ptr ++
-              repeat I32R n__i32 ++
-              repeat I64R n__i64 ++
-              repeat F32R n__f32 ++
-              repeat F64R n__f64)
-  | ProdR ρs => @concat _ <$> mapM eval_rep ρs
-  | PrimR ι => Some [ι]
-  end.
-
-Fixpoint eval_size (σ : size) : option nat :=
-  match σ with
-  | VarS _ => None
-  | SumS σs =>
-      ns ← mapM eval_size σs;
-      Some (1 + list_max ns)
-  | ProdS σs =>
-      ns ← mapM eval_size σs;
-      Some (list_sum ns)
-  | RepS ρ =>
-      ιs ← eval_rep ρ;
-      Some (list_sum (map primitive_size ιs))
-  | ConstS n => Some n
-  end.
-
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSubValCopy F τ ρ δ :
   has_kind F τ (VALTYPE ρ ImCopy δ) ->

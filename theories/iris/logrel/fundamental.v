@@ -17,10 +17,10 @@ From RichWasm.iris.language Require Export iris_atomicity lenient_wp lwp_pure lw
 From RichWasm.iris.rules Require Export iris_rules.
 
 From RichWasm Require Import syntax typing.
-From RichWasm.compiler Require Import codegen instrs modules types util.
+From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc num_reprs util.
 From RichWasm.iris.logrel Require Import relations util.
-From RichWasm.util Require Import stdpp_extlib.
+Require Import RichWasm.util.
 
 Module RT := RichWasm.syntax.
 Module T := RichWasm.typing.

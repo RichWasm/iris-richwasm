@@ -10,8 +10,8 @@ Require Import stdpp.list_numbers.
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import syntax typing.
-From RichWasm.compiler Require Import types util.
+From RichWasm Require Import syntax typing layout.
+Require Import RichWasm.compiler.util.
 
 Module W := Wasm.datatypes.
 

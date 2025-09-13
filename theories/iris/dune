@@ -15,7 +15,6 @@
     RichWasm
     RichWasm.compiler
     RichWasm.iris.logrel
-    RichWasm.util
     stdpp
     Wasm.iris.helpers
     Wasm.iris.host

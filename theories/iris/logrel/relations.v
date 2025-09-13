@@ -4,13 +4,13 @@ Require Import iris.proofmode.tactics.
 
 Require Wasm.iris.logrel.iris_logrel.
 
-From RichWasm.compiler Require Import codegen types util.
+From RichWasm.compiler Require Import codegen util.
 From RichWasm.iris Require Import gc num_reprs util.
 Require Import RichWasm.iris.logrel.util.
 Require Import RichWasm.iris.language.lenient_wp.
 Require Import RichWasm.iris.language.logpred.
 Import uPred.
-From RichWasm Require Import syntax typing.
+From RichWasm Require Import syntax typing layout util.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -89,9 +89,6 @@ Section Relations.
     | F64R => exists n, v = VAL_float64 n
     end.
 
-  Definition project_sum_value (τs : list type) (τ : type) (vs : list value) : list value.
-  Admitted.
-
   Definition representation_interp0 (ρ : representation) (vs : list value) : Prop :=
     exists ιs, eval_rep ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
 
@@ -129,10 +126,13 @@ Section Relations.
       | NumT _ (FloatT F32T) => ∃ n, ⌜sv = SValues [VAL_float32 n]⌝
       | NumT _ (FloatT F64T) => ∃ n, ⌜sv = SValues [VAL_float64 n]⌝
       | SumT (VALTYPE ρ _ _) τs =>
-          ∃ i vs vs0 τ,
+          ∃ i vs vs0 τ ρs ρ0 ixs,
             ⌜sv = SValues (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: vs)⌝ ∗
+              ⌜ρ = SumR ρs⌝ ∗
               ⌜τs !! i = Some τ⌝ ∗
-              ⌜project_sum_value τs τ vs = vs0⌝ ∗
+              ⌜type_rep [] τ = Some ρ0⌝ ∗
+              ⌜inject_sum_rep ρs ρ = Some ixs⌝ ∗
+              ⌜nths_error vs ixs = Some vs0⌝ ∗
               rb_value rb τ (SValues vs0)
       | SumT (MEMTYPE _ _ _) τs =>
           ∃ wᵢ ws bsᵢ i τ,

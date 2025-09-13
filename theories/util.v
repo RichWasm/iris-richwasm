@@ -1,4 +1,4 @@
-Require Import stdpp.base.
+Require Import stdpp.list.
 
 From ExtLib.Structures Require Import Functor Monads.
 
@@ -13,3 +13,6 @@ Global Instance MJoin_Monad (M : Type -> Type) `(Monad M) : MJoin M :=
 
 Global Instance FMap_Functor (F : Type -> Type) `(Functor F) : FMap F :=
   { fmap := fun _ _ => fmap }.
+
+Definition nths_error {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
+  mapM (nth_error l) ixs.
