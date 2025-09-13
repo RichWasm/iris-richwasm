@@ -1,4 +1,4 @@
-Require Import stdpp.list.
+From stdpp Require Import gmap list.
 
 From ExtLib.Structures Require Import Functor Monads.
 
@@ -16,3 +16,6 @@ Global Instance FMap_Functor (F : Type -> Type) `(Functor F) : FMap F :=
 
 Definition nths_error {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
   mapM (nth_error l) ixs.
+
+Definition gmap_injective `{Countable K} {V} (m : gmap K V) :=
+  ∀ k1 k2 v, m !! k1 = Some v -> m !! k2 = Some v -> k1 = k2.

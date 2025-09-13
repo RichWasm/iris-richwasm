@@ -4,14 +4,11 @@ From mathcomp Require Import eqtype.
 
 From iris.proofmode Require Import base tactics classes.
 
-Require Import RichWasm.syntax.
+From RichWasm Require Import syntax util.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
-
-Definition gmap_injective `{Countable K} {V} (m : gmap K V) :=
-  ∀ k1 k2 v, m !! k1 = Some v -> m !! k2 = Some v -> k1 = k2.
 
 Section Model.
 
