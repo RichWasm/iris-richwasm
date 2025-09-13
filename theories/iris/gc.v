@@ -1,6 +1,10 @@
-From mathcomp Require Import eqtype.
 From stdpp Require Import gmap.
+
+From mathcomp Require Import eqtype.
+
 From iris.proofmode Require Import base tactics classes.
+
+Require Import RichWasm.syntax.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -64,6 +68,7 @@ Section Model.
 
   Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
   | ReprPtrInt θ n :
+    n `mod` 2 = 0 ->
     repr_pointer θ (PtrInt n) (2 * n + 1)
   | ReprPtrMM θ a :
     (a `mod` 4 = 0)%N ->
@@ -100,6 +105,36 @@ Section Model.
     θ !! ℓ = Some a0 ->
     a = Z.of_N (a0 + index_address i) ->
     repr_location_index θ ℓ i a.
+
+  Inductive ser_value : primitive_rep -> value -> list word -> Prop :=
+  | SerPtrInt i n :
+    n `mod` 2 = 0 ->
+    i = Wasm_int.int_of_Z i32m (2 * n + 1) ->
+    ser_value PtrR (VAL_int32 i) [WordPtr (PtrInt n)]
+  | SerPtrMM i a :
+    (a `mod` 4 = 0)%N ->
+    i = Wasm_int.int_of_Z i32m (Z.of_N a) ->
+    ser_value PtrR (VAL_int32 i) [WordPtr (PtrMM a)]
+  | SerPtrRoot i a :
+    (a `mod` 4 = 0)%N ->
+    (a < heap_start)%N ->
+    i = Wasm_int.int_of_Z i32m (Z.of_N (a + 2)) ->
+    ser_value PtrR (VAL_int32 i) [WordPtr (PtrRoot a)]
+  | SerI32 i n :
+    i = Wasm_int.int_of_Z i32m n ->
+    ser_value I32R (VAL_int32 i) [WordInt n]
+  | SerI64 i n n1 n2 :
+    (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = n ->
+    i = Wasm_int.int_of_Z i64m n ->
+    ser_value I64R (VAL_int64 i) [WordInt n1; WordInt n2]
+  | SerF32 i f n :
+    ser_value I32R (VAL_int32 i) [WordInt n] ->
+    serialise_i32 i = serialise_f32 f ->
+    ser_value F32R (VAL_float32 f) [WordInt n]
+  | SerF64 i f n1 n2 :
+    ser_value I64R (VAL_int64 i) [WordInt n1; WordInt n2] ->
+    serialise_i64 i = serialise_f64 f ->
+    ser_value F64R (VAL_float64 f) [WordInt n1; WordInt n2].
 
   Class RichWasmGCG (Σ : gFunctors) :=
     { gc_layouts : gname;

@@ -117,6 +117,9 @@ Section Relations.
     | MEMTYPE ζ _ _ => fun T => ⌜T ⊑ sizity_interp ζ⌝%I
     end.
 
+  Definition closure_interp0 (rb : relation_bundle) : leibnizO function_type -n> ClR.
+  Admitted.
+
   Definition value_interp0 (rb : relation_bundle) : leibnizO type -n> SVR :=
     λne τ sv,
       match τ with
@@ -126,31 +129,31 @@ Section Relations.
       | NumT _ (FloatT F32T) => ∃ n, ⌜sv = SValues [VAL_float32 n]⌝
       | NumT _ (FloatT F64T) => ∃ n, ⌜sv = SValues [VAL_float64 n]⌝
       | SumT (VALTYPE ρ _ _) τs =>
-          ∃ i vs vs0 τ ρs ρ0 ixs,
+          ∃ i vs vs0 τ0 ρs ρ0 ixs,
             ⌜sv = SValues (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: vs)⌝ ∗
               ⌜ρ = SumR ρs⌝ ∗
               ⌜τs !! i = Some τ⌝ ∗
-              ⌜type_rep [] τ = Some ρ0⌝ ∗
+              ⌜type_rep [] τ0 = Some ρ0⌝ ∗
               ⌜inject_sum_rep ρs ρ = Some ixs⌝ ∗
               ⌜nths_error vs ixs = Some vs0⌝ ∗
-              rb_value rb τ (SValues vs0)
+              ▷ rb_value rb τ0 (SValues vs0)
       | SumT (MEMTYPE _ _ _) τs =>
           ∃ wᵢ ws bsᵢ i τ,
             ⌜sv = SWords (wᵢ :: ws)⌝ ∗
               ⌜bsᵢ = serialize_Z_i32 (Z.of_nat i)⌝ ∗
               ⌜repr_word sr.(sr_gc_heap_start) ∅ wᵢ i⌝ ∗
               ⌜τs !! i = Some τ⌝ ∗
-              rb_value rb τ (SWords ws)
+              ▷ rb_value rb τ (SWords ws)
       | ProdT (VALTYPE _ _ _) τs =>
-          ∃ vss, ⌜sv = SValues (concat vss)⌝ ∗ [∗ list] vs; τ ∈ vss; τs, rb_value rb τ (SValues vs)
+          ∃ vss, ⌜sv = SValues (concat vss)⌝ ∗ [∗ list] vs; τ ∈ vss; τs, ▷ rb_value rb τ (SValues vs)
       | ProdT (MEMTYPE _ _ _) τs =>
-          ∃ wss, ⌜sv = SWords (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, rb_value rb τ (SWords ws)
+          ∃ wss, ⌜sv = SWords (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ rb_value rb τ (SWords ws)
       | ArrT _ τ =>
           ∃ wₙ wss bsₙ n,
             ⌜sv = SWords (wₙ :: concat wss)⌝ ∗
               ⌜bsₙ = serialize_Z_i32 n⌝ ∗
               ⌜repr_word sr.(sr_gc_heap_start) ∅ wₙ n⌝ ∗
-              [∗ list] ws ∈ wss, rb_value rb τ (SWords ws)
+              [∗ list] ws ∈ wss, ▷ rb_value rb τ (SWords ws)
       | RefT _ (MemVar _) _ => False
       | RefT _ MemMM τ =>
           ∃ a ws ns bs,
@@ -158,20 +161,40 @@ Section Relations.
               N.of_nat sr.(sr_mem_mm) ↦[wms][a] bs ∗
               ⌜repr_list_word sr.(sr_gc_heap_start) ∅ ws ns⌝ ∗
               ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-              rb_value rb τ (SWords ws)
+              ▷ rb_value rb τ (SWords ws)
       | RefT _ MemGC τ =>
           ∃ a ℓ,
             ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
               a ↦gcr ℓ ∗
-              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ rb_value rb τ (SWords ws))
       | GCPtrT _ τ =>
           ∃ ℓ,
             ⌜sv = SWords [WordPtr (PtrGC ℓ)]⌝ ∗
-              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ rb_value rb τ (SWords ws))
-      | CodeRefT _ ϕ => True (* TODO *)
-      | RepT _ ρ τ => True (* TODO *)
-      | PadT _ σ τ => True (* TODO *)
-      | SerT _ τ => True (* TODO *)
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ rb_value rb τ (SWords ws))
+      | CodeRefT _ ϕ =>
+          ∃ n cl,
+            ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N n))]⌝ ∗
+              ▷ closure_interp0 rb ϕ cl ∗
+              na_inv logrel_nais (ns_func n) (n ↦[wf] cl)
+      | RepT _ ρ' τ =>
+          ∃ ρ ιs ιs' vs vs' wss wss' ws,
+            ⌜sv = SValues vs'⌝ ∗
+              ⌜type_rep [] τ = Some ρ⌝ ∗
+              ⌜eval_rep ρ = Some ιs⌝ ∗
+              ⌜eval_rep ρ' = Some ιs'⌝ ∗
+              ⌜Forall3 (ser_value sr.(sr_gc_heap_start)) ιs vs wss⌝ ∗
+              ⌜Forall3 (ser_value sr.(sr_gc_heap_start)) ιs' vs' wss'⌝ ∗
+              ⌜concat wss ++ ws = concat wss'⌝ ∗
+              ▷ rb_value rb τ (SValues vs)
+      | PadT _ _ τ => ∃ ws wsₚ, ⌜sv = SWords (ws ++ wsₚ)⌝ ∗ ▷ rb_value rb τ (SWords ws)
+      | SerT _ τ =>
+          ∃ ρ ιs vs ws wss,
+            ⌜sv = SWords ws⌝ ∗
+              ⌜type_rep [] τ = Some ρ⌝ ∗
+              ⌜eval_rep ρ = Some ιs⌝ ∗
+              ⌜Forall3 (ser_value sr.(sr_gc_heap_start)) ιs vs wss⌝ ∗
+              ⌜ws = concat wss⌝ ∗
+              ▷ rb_value rb τ (SWords ws)
       | RecT _ τ => True (* TODO *)
       | ExMemT _ τ => True (* TODO *)
       | ExRepT _ τ => True (* TODO *)
