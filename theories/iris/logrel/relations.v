@@ -222,6 +222,7 @@ Section Relations.
             ▷ rb_value rb τ' sv
       | ExTypeT _ κ τ =>
           ∃ τ0,
+            ▷ kind_interp κ (rb_value rb τ0) ∗
             let τ' := subst_type MemVar VarR VarS (unscoped.scons τ0 VarT) τ in
             ▷ rb_value rb τ' sv
       end%I.
