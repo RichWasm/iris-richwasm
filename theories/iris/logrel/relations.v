@@ -1,8 +1,4 @@
-From mathcomp Require Import eqtype seq.
-
 Require Import iris.proofmode.tactics.
-
-Require Wasm.iris.logrel.iris_logrel.
 
 From RichWasm.compiler Require Import codegen util.
 From RichWasm.iris Require Import gc memory.
@@ -44,6 +40,7 @@ Section Relations.
   Implicit Type fr : leibnizO frame.
   Implicit Type cl : leibnizO function_closure.
   Implicit Type lh_es : leibnizO (lholed * list administrative_instruction).
+  Implicit Type inst : leibnizO instance.
 
   Implicit Type τ : leibnizO type.
   Implicit Type τs : leibnizO (list type).
@@ -76,6 +73,17 @@ Section Relations.
   Definition semantic_type : Type := semantic_value -> iProp Σ.
 
   Definition semantic_kind : Type := semantic_type -> iProp Σ.
+
+  Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
+    match ty with
+    | T_i32 => exists n, v = VAL_int32 n
+    | T_i64 => exists n, v = VAL_int64 n
+    | T_f32 => exists n, v = VAL_float32 n
+    | T_f64 => exists n, v = VAL_float64 n
+    end.
+
+  Definition result_type_interp (tys : W.result_type) (vs : list value) : Prop :=
+    Forall2 value_type_interp tys vs.
 
   Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
     match ι with
@@ -216,10 +224,21 @@ Section Relations.
             ▷ rb_value rb τ' sv
       end%I.
 
-  Definition frame_interp0 :
-    relation_bundle ->
-    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR.
-  Admitted.
+  Definition logical_value_interp0 (rb : relation_bundle) : leibnizO (list type) -n> LVR :=
+    λne τs lv,
+      ((⌜lv = trapV⌝ ∗ ↪[BAIL]) ∨
+         ∃ vss,
+           ⌜lv = immV (concat vss)⌝ ∗
+             [∗ list] τ; vs ∈ τs; vss, rb_value rb τ (SValues vs))%I.
+
+  Definition frame_interp0 (rb : relation_bundle) :
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
+    λne L WL inst fr,
+      (∃ vs__L vs__WL,
+         ⌜fr = Build_frame (vs__L ++ vs__WL) inst⌝ ∗
+           logical_value_interp0 rb L (immV vs__L) ∗
+           ⌜result_type_interp WL vs__WL⌝ ∗
+           na_own logrel_nais ⊤)%I.
 
   Definition expr_interp0 :
     relation_bundle ->
@@ -237,6 +256,9 @@ Section Relations.
 
   Definition value_interp : leibnizO type -n> SVR := rb_value relations.
 
+  Definition logical_value_interp : leibnizO (list type) -n> LVR :=
+    logical_value_interp0 relations.
+
   Definition frame_interp :
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
     rb_frame relations.
@@ -249,26 +271,22 @@ Section Relations.
   Lemma relations_eq : relations ≡ relations0 relations.
   Proof. apply fixpoint_unfold. Qed.
 
-  Definition stack_interp (τs : list type) : LVR.
-  Admitted.
-
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
     True.
 
-  Definition context_interp (L L' : local_ctx) (F : function_ctx) (inst : instance) (lh : lholed) :
+  Definition context_interp (F : function_ctx) (L L' : local_ctx) (inst : instance) (lh : lholed) :
     iProp Σ :=
     True.
 
   Definition has_type_semantic
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
     (es : list administrative_instruction)
-    (χ : arrow_type) (L' : local_ctx) :
+    '(ArrowT τs1 τs2 : arrow_type) (L' : local_ctx) :
     iProp Σ :=
-    let '(ArrowT τs1 τs2) := χ in
-    ∀ inst lh,
-    instance_interp M inst ∗ context_interp L L' F inst lh -∗
-    ∀ fr lv,
-    stack_interp τs1 lv ∗ frame_interp L WL inst fr ∗ ↪[frame] fr -∗
-    expr_interp τs2 F L' WL inst (lh, of_val lv ++ es).
+    (∀ inst lh,
+       instance_interp M inst ∗ context_interp F L L' inst lh -∗
+       ∀ fr lv,
+         logical_value_interp τs1 lv ∗ frame_interp L WL inst fr ∗ ↪[frame] fr -∗
+         expr_interp τs2 F L' WL inst (lh, of_val lv ++ es))%I.
 
 End Relations.
