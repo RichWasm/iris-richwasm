@@ -125,6 +125,8 @@ Section Relations.
   Definition closure_interp0 (rb : relation_bundle) : leibnizO function_type -n> ClR.
   Admitted.
 
+  (* Fact: If |- τ : κ, then kind_interp κ (value_interp τ).
+     TODO: Some of the definitions in value_interp0 may be too permissive. *)
   Definition value_interp0 (rb : relation_bundle) : leibnizO type -n> SVR :=
     λne τ sv,
       match τ with
