@@ -195,11 +195,25 @@ Section Relations.
               ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
               ⌜ws = concat wss⌝ ∗
               ▷ rb_value rb τ (SWords ws)
-      | RecT _ τ => True (* TODO *)
-      | ExMemT _ τ => True (* TODO *)
-      | ExRepT _ τ => True (* TODO *)
-      | ExSizeT _ τ => True (* TODO *)
-      | ExTypeT _ κ τ => True (* TODO *)
+      | RecT κ τ =>
+          let τ' := subst_type MemVar VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+          ▷ rb_value rb τ' sv
+      | ExMemT _ τ =>
+          ∃ μ,
+            let τ' := subst_type (unscoped.scons μ MemVar) VarR VarS VarT τ in
+            ▷ rb_value rb τ' sv
+      | ExRepT _ τ =>
+          ∃ ρ,
+            let τ' := subst_type MemVar (unscoped.scons ρ VarR) VarS VarT τ in
+            ▷ rb_value rb τ' sv
+      | ExSizeT _ τ =>
+          ∃ σ,
+            let τ' := subst_type MemVar VarR (unscoped.scons σ VarS) VarT τ in
+            ▷ rb_value rb τ' sv
+      | ExTypeT _ κ τ =>
+          ∃ τ0,
+            let τ' := subst_type MemVar VarR VarS (unscoped.scons τ0 VarT) τ in
+            ▷ rb_value rb τ' sv
       end%I.
 
   Definition frame_interp0 :
