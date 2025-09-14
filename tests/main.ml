@@ -18,4 +18,6 @@ let () =
   let fmt = Format.std_formatter in
   Format.pp_set_margin fmt 120;
   Format.pp_set_max_indent fmt 80;
-  List.iter (fun (n, m) -> printf "%s\n----------\n%a\n\n" n Module.pp m) examples
+  List.iter
+    (fun (n, m) -> printf "%s\n----------\n%a\n\n" n Module.pp m)
+    examples

@@ -3,31 +3,32 @@ open Format
 
 module Types = struct
   type variable = string
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type typ =
     | Int
     | Lolipop of typ * typ
     | Prod of typ * typ
     | Ref of typ
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type binding = variable * typ
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type binop =
     [ `Add
     | `Sub
     | `Mul
-    | `Div ]
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+    | `Div
+    ]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type value =
     | Var of variable
     | Int of int
     | Lam of binding * typ * expr
     | Prod of value * value
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   and expr =
     | Val of value
@@ -39,16 +40,16 @@ module Types = struct
     | New of value
     | Swap of value * value
     | Free of value
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type import = Import of typ * variable
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type toplevel = TopLevel of bool * binding * expr (* export *)
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type modul = Module of import list * toplevel list * expr option
-  [@@deriving show {with_path= false}, eq, iter, map, fold, sexp]
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 end
 
 module Printers = struct
@@ -114,27 +115,23 @@ module Printers = struct
       List.iteri
         (fun i x ->
           if i > 0 then fprintf ff "@;";
-          pp ff x )
+          pp ff x)
         xs
     in
     fprintf ff "@[<v 0>";
     if imports <> [] then (
       pp_list pp_import ff imports;
-      fprintf ff "@,@," );
+      fprintf ff "@,@,");
     if toplevels <> [] then (
       pp_list pp_toplevel ff toplevels;
-      fprintf ff "@,@," );
+      fprintf ff "@,@,");
     Option.iter (fun e -> fprintf ff "%a" pp_expr e) main_expr;
     fprintf ff "@]"
 
   let string_of_var x = asprintf "%a" pp_var x
-
   let string_of_typ t = asprintf "%a" pp_typ t
-
   let string_of_val v = asprintf "%a" pp_val v
-
   let string_of_expr e = asprintf "%a" pp_expr e
-
   let string_of_modul m = asprintf "%a" pp_modul m
 end
 
@@ -142,7 +139,6 @@ module Var = struct
   type t = Types.variable [@@deriving show, eq, iter, map, fold, sexp]
 
   let pp = Printers.pp_var
-
   let string_of = Printers.string_of_var
 end
 
@@ -150,7 +146,6 @@ module Val = struct
   type t = Types.value [@@deriving show, eq, iter, map, fold, sexp]
 
   let pp = Printers.pp_val
-
   let string_of = Printers.string_of_val
 end
 
@@ -158,7 +153,6 @@ module Expr = struct
   type t = Types.expr [@@deriving show, eq, iter, map, fold, sexp]
 
   let pp = Printers.pp_expr
-
   let string_of = Printers.string_of_expr
 end
 
@@ -166,7 +160,6 @@ module Type = struct
   type t = Types.typ [@@deriving show, eq, iter, map, fold, sexp]
 
   let pp = Printers.pp_typ
-
   let string_of = Printers.string_of_typ
 end
 
@@ -174,6 +167,5 @@ module Module = struct
   type t = Types.modul [@@deriving show, eq, iter, map, fold, sexp]
 
   let pp = Printers.pp_modul
-
   let string_of = Printers.string_of_modul
 end

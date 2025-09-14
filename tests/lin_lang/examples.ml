@@ -137,23 +137,56 @@ let module_with_imports =
       Some (App (Var "double_inc", Int 5)) )
 
 let complex_example =
-  Module (
-    [],
-    [TopLevel (true, ("process_pair", Lolipop (Prod (Int, Int), Int)),
-               Val (Lam (("input", Prod (Int, Int)), Int,
-                        LetPair (("a", Int), ("b", Int), (Val (Var "input")),
-                                Let (("sum", Int), Binop (`Add, Var "a", Var "b"),
-                                    Let (("r1", Ref Int), New (Var "sum"),
-                                        Let (("product", Int), Binop (`Mul, Var "a", Var "b"),
-                                            Let (("r2", Ref Int), New (Var "product"),
-                                                Let (("sum_val", Int), Swap (Var "r1", Int 0),
-                                                    Let (("prod_val", Int), Swap (Var "r2", Int 0),
-                                                        Let (("_1", Int), Free (Var "r1"),
-                                                            Let (("_2", Int), Free (Var "r2"),
-                                                                Let (("final_result", Int), Binop (`Add, Var "sum_val", Var "prod_val"),
-                                                                    Val (Var "final_result"))))))))))))))],
-    Some (App (Var "process_pair", Prod (Int 3, Int 4)))
-  )
+  Module
+    ( [],
+      [
+        TopLevel
+          ( true,
+            ("process_pair", Lolipop (Prod (Int, Int), Int)),
+            Val
+              (Lam
+                 ( ("input", Prod (Int, Int)),
+                   Int,
+                   LetPair
+                     ( ("a", Int),
+                       ("b", Int),
+                       Val (Var "input"),
+                       Let
+                         ( ("sum", Int),
+                           Binop (`Add, Var "a", Var "b"),
+                           Let
+                             ( ("r1", Ref Int),
+                               New (Var "sum"),
+                               Let
+                                 ( ("product", Int),
+                                   Binop (`Mul, Var "a", Var "b"),
+                                   Let
+                                     ( ("r2", Ref Int),
+                                       New (Var "product"),
+                                       Let
+                                         ( ("sum_val", Int),
+                                           Swap (Var "r1", Int 0),
+                                           Let
+                                             ( ("prod_val", Int),
+                                               Swap (Var "r2", Int 0),
+                                               Let
+                                                 ( ("_1", Int),
+                                                   Free (Var "r1"),
+                                                   Let
+                                                     ( ("_2", Int),
+                                                       Free (Var "r2"),
+                                                       Let
+                                                         ( ("final_result", Int),
+                                                           Binop
+                                                             ( `Add,
+                                                               Var "sum_val",
+                                                               Var "prod_val" ),
+                                                           Val
+                                                             (Var "final_result")
+                                                         ) ) ) ) ) ) ) ) ) ) ))
+          );
+      ],
+      Some (App (Var "process_pair", Prod (Int 3, Int 4))) )
 
 let closure_example =
   Module
