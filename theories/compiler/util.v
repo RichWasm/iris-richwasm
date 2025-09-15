@@ -16,6 +16,7 @@ Inductive error :=
   | EUnboundTypeVar
   | ERepNotMono
   | EUnboundLocal
+  | EUnboundGlobal
   | ETodo.
 
 Record store_runtime :=
