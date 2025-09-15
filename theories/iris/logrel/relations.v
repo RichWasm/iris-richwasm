@@ -25,13 +25,15 @@ Section Relations.
 
   Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
   Notation LVR := (leibnizO val -n> iPropO Σ).
+  Notation VsR := (leibnizO (list value) -n> iPropO Σ).
   Notation FrR := (leibnizO frame -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
-  Notation ER := (leibnizO (lholed * list administrative_instruction) -n> iPropO Σ).
+  Notation ER := (leibnizO (list administrative_instruction) -n> iPropO Σ).
 
   Implicit Type L : leibnizO local_ctx.
   Implicit Type WL : leibnizO wlocal_ctx.
 
+  Implicit Type es : leibnizO (list administrative_instruction).
   Implicit Type sv : leibnizO semantic_value.
   Implicit Type lv : leibnizO val.
   Implicit Type vs : leibnizO (list value).
@@ -39,7 +41,6 @@ Section Relations.
   Implicit Type bs : leibnizO bytes.
   Implicit Type fr : leibnizO frame.
   Implicit Type cl : leibnizO function_closure.
-  Implicit Type lh_es : leibnizO (lholed * list administrative_instruction).
   Implicit Type inst : leibnizO instance.
 
   Implicit Type τ : leibnizO type.
@@ -54,7 +55,7 @@ Section Relations.
     (leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR) *
     (* Expression *)
     (leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
-       leibnizO wlocal_ctx -n> leibnizO instance -n> ER).
+       leibnizO wlocal_ctx -n> leibnizO instance -n> leibnizO lholed -n> ER).
 
   Definition rb_value : relation_bundle -> leibnizO type -n> SVR :=
     fst ∘ fst.
@@ -67,7 +68,7 @@ Section Relations.
   Definition rb_expr :
     relation_bundle ->
     leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
-      leibnizO wlocal_ctx -n> leibnizO instance -n> ER :=
+      leibnizO wlocal_ctx -n> leibnizO instance -n> leibnizO lholed -n> ER :=
     snd.
 
   Definition semantic_type : Type := semantic_value -> iProp Σ.
@@ -227,27 +228,30 @@ Section Relations.
             ▷ rb_value rb τ' sv
       end%I.
 
-  Definition logical_value_interp0 (rb : relation_bundle) : leibnizO (list type) -n> LVR :=
-    λne τs lv,
-      ((⌜lv = trapV⌝ ∗ ↪[BAIL]) ∨
-         ∃ vss,
-           ⌜lv = immV (concat vss)⌝ ∗
-             [∗ list] τ; vs ∈ τs; vss, rb_value rb τ (SValues vs))%I.
+  Definition values_interp0 (rb : relation_bundle) : leibnizO (list type) -n> VsR :=
+    λne τs vs,
+      (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, rb_value rb τ (SValues vs))%I.
 
   Definition frame_interp0 (rb : relation_bundle) :
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
     λne L WL inst fr,
       (∃ vs__L vs__WL,
          ⌜fr = Build_frame (vs__L ++ vs__WL) inst⌝ ∗
-           logical_value_interp0 rb L (immV vs__L) ∗
+           values_interp0 rb L vs__L ∗
            ⌜result_type_interp WL vs__WL⌝ ∗
            na_own logrel_nais ⊤)%I.
 
-  Definition expr_interp0 :
-    relation_bundle ->
+  Definition expr_interp0 (rb : relation_bundle) :
     leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
-      leibnizO instance -n> ER.
-  Admitted.
+      leibnizO instance -n> leibnizO lholed -n> ER :=
+    λne τs F L WL inst lh es,
+      lenient_wp NotStuck top es
+                 {| lp_fr := frame_interp0 rb L WL inst;
+                    lp_val := fun vs => values_interp0 rb τs vs ∗ ↪[RUN];
+                    lp_trap := True;
+                    lp_br := fun _ => True; (* TODO *)
+                    lp_ret := fun _ => True; (* TODO *)
+                    lp_host := fun _ _ _ _ => True (* TODO *) |}%I.
 
   Definition relations0 (rb : relation_bundle) : relation_bundle :=
     (value_interp0 rb, frame_interp0 rb, expr_interp0 rb).
@@ -259,20 +263,20 @@ Section Relations.
 
   Definition value_interp : leibnizO type -n> SVR := rb_value relations.
 
-  Definition logical_value_interp : leibnizO (list type) -n> LVR :=
-    logical_value_interp0 relations.
-
   Definition frame_interp :
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
     rb_frame relations.
 
   Definition expr_interp :
     leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
-      leibnizO instance -n> ER :=
+      leibnizO instance -n> leibnizO lholed -n> ER :=
     rb_expr relations.
 
   Lemma relations_eq : relations ≡ relations0 relations.
   Proof. apply fixpoint_unfold. Qed.
+
+  Definition logical_value_interp : leibnizO (list type) -n> LVR.
+  Admitted.
 
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
     True.
@@ -290,6 +294,6 @@ Section Relations.
        instance_interp M inst ∗ context_interp F L L' inst lh -∗
        ∀ fr lv,
          logical_value_interp τs1 lv ∗ frame_interp L WL inst fr ∗ ↪[frame] fr -∗
-         expr_interp τs2 F L' WL inst (lh, of_val lv ++ es))%I.
+         expr_interp τs2 F L' WL inst lh (of_val lv ++ es))%I.
 
 End Relations.
