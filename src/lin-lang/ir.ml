@@ -1,6 +1,6 @@
-open Sexplib.Std
-
 module Types = struct
+  open Sexplib.Std
+
   type variable = string
   [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 

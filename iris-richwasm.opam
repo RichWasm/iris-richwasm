@@ -16,6 +16,7 @@ depends: [
   "ppx_import" {>= "1.11.0"}
   "sexplib" {>= "0.17.0"}
   "ppx_sexp_conv" {>= "0.17.1"}
+  "ppx_let" {>= "0.17.0"}
   "odoc" {with-doc}
 ]
 build: [

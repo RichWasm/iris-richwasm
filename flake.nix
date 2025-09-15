@@ -192,6 +192,7 @@
                 ppx_deriving
                 janeStreet.ppx_sexp_conv
                 janeStreet.sexplib
+                janeStreet.ppx_let
               ]);
           };
         }

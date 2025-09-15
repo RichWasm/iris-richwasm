@@ -1,5 +1,5 @@
-open Syntax
-open Ir
+open! Syntax
+open! Ir
 module AlphaRename = struct end
 module LiftExports = struct end
 
