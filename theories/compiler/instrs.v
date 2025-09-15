@@ -532,7 +532,13 @@ Section Instrs.
     match e with
     | INop _ => emit W.BI_nop
     | IUnreachable _ => emit (W.BI_unreachable)
-    | ICopy _ => raise ETodo
+    | ICopy (ArrowT [τ] [_; _]) =>
+        ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
+        idx ← save_stack_r ρ;
+        dup_roots_local idx ρ;;
+        restore_stack_r idx ρ;;
+        restore_stack_r idx ρ
+    | ICopy _ => raise EWrongTypeAnn
     | IDrop (ArrowT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | INum _ e' => emit (compile_num_instr e')
     | INumConst (ArrowT [] [NumT _ nt]) n =>
@@ -555,22 +561,29 @@ Section Instrs.
     | ILocalGet _ _ => raise EWrongTypeAnn
     | ILocalSet (ArrowT [τ] []) i => compile_set_local i
     | ILocalSet _ _ => raise EWrongTypeAnn
-    | IGlobalGet _ x => compile_get_global x
-    | IGlobalSet _ x => compile_set_global x
+
+    | IGlobalGet _ x => raise ETodo
+    | IGlobalSet _ x => raise ETodo
     | IGlobalSwap _ _ => raise ETodo
+
     | ICodeRef _ x => compile_coderef x
-    | IInst _ _ => raise ETodo
+
+    | IInst _ _ => mret tt
+
     | ICall (ArrowT τs _) x ixs => compile_call τs x ixs
     | ICallIndirect (ArrowT τs _) => compile_call_indirect τs
+
     | IInject _ _ =>
         (* TODO: registerroot on the new address;
                  unregisterroot if payload is GC ref being put into GC variant *)
         raise ETodo
     | ICase _ _ _ => raise ETodo
-    | IGroup _ => raise ETodo
-    | IUngroup _ => raise ETodo
-    | IFold _ => raise ETodo
-    | IUnfold  _ => raise ETodo
+
+    | IGroup _ => mret tt
+    | IUngroup _ => mret tt
+    | IFold _ => mret tt
+    | IUnfold  _ => mret tt
+
     | IPack _ _ _ =>
         (* TODO:
         contents_idx ← save_stack [tau];
@@ -596,12 +609,15 @@ Section Instrs.
         (* TODO: registerroot if GC package *)
         (* TODO: ignore (block_c (translate_arrow_type ty) (forT es compile_instr)) *)
         raise ETodo
+
     | IWrap _ => raise ETodo
     | IUnwrap _ => raise ETodo
+
     | IRefNew _ => raise ETodo
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
     | IRefSwap _ _ => raise ETodo
+
     | IArrayNew _ =>
         (* TODO: unregisterroot the initial value if GC array;
                  duproot a bunch of times if MM array *)

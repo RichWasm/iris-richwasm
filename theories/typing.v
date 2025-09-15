@@ -345,7 +345,7 @@ Inductive instr_has_type :
   instr_has_type M F L (IUnreachable χ) χ L'
 | TCopy M F L τ :
   has_copyability F τ ExCopy ->
-  let χ := ArrowT [τ] [] in
+  let χ := ArrowT [τ] [τ; τ] in
   instr_has_type M F L (ICopy χ) χ L
 | TDrop M F L τ :
   has_dropability F τ ExDrop ->
