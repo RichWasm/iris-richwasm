@@ -144,8 +144,8 @@ Section Instrs.
 
   (** Saving and restoring the stack. *)
   Definition save_stack_w (ty : W.result_type) : codegen W.localidx :=
-    xs ← forT ty wlalloc;
-    forT (reverse xs) (emit ∘ W.BI_set_local ∘ localimm);;
+    xs ← mapM wlalloc ty;
+    mapM (emit ∘ W.BI_set_local ∘ localimm) (reverse xs);;
     ret (ssrfun.Option.default (W.Mk_localidx 0) (head xs)).
 
   Definition save_stack_r (ρ : representation) : codegen W.localidx :=
@@ -156,7 +156,7 @@ Section Instrs.
     save_stack_w (concat tys).
 
   Definition restore_stack_w (x : W.localidx) (ty : W.result_type) : codegen unit :=
-    ignore (forT (seq (localimm x) (length ty)) (emit ∘ W.BI_get_local)).
+    ignore (mapM (emit ∘ W.BI_get_local) (seq (localimm x) (length ty)) ).
   
   Definition restore_stack_r (x: W.localidx) (ρ: representation) : codegen unit :=
     tys ← try_option EWrongTypeAnn (translate_rep ρ);
@@ -405,25 +405,6 @@ Section Instrs.
     emit (W.BI_get_global (globalimm me.(me_runtime).(mr_global_table_offset)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
-  Definition compile_call_indirect (τs : list type) : codegen unit :=
-    (* TODO:
-    arg ← save_stack arg_ty;
-    forT idxs compile_index;;
-    restore_stack arg arg_ty;;
-    emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
-    *)
-    ret tt.
-
-  Definition compile_call (τs : list type) (x : nat) (ixs : list index) : codegen unit :=
-    (* TODO:
-    arg ← save_stack arg_ty;
-    forT idxs compile_index;;
-    restore_stack arg arg_ty;;
-    (* TODO: Translate function index. *)
-    emit (W.BI_call x).
-    *)
-    ret tt.
-
   (* TODO: Struct replaced by product type.
   Definition compile_struct_get (tys : list R.Typ) (sizes : list R.Size) (i : nat) : codegen unit :=
     ptr ← wlalloc W.T_i32;
@@ -566,6 +547,80 @@ Section Instrs.
     *)
     ret tt.
 
+  (** Operatiosn on mono representations *)
+  (* This is the computational analogue of mono_rep *)
+  Fixpoint flatten_rep (ρ : representation) : option (list primitive_rep) :=
+    match ρ with
+    | VarR _ => None
+    | SumR ρs => seq.flatten <$> mapM flatten_rep ρs
+    | ProdR ρs => seq.flatten <$> mapM flatten_rep ρs
+    | PrimR ι => mret [ι]
+    end.
+
+  (** Conversions between types of the same size and ptr layout *)
+  Definition to_words_i64 : codegen unit :=
+    idx ← save_stack_r (PrimR I64R);
+    (* low half *)
+    restore_stack_r idx (PrimR I64R);;
+    emit (W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one)));;
+    emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_and));;
+    emit (W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None);;
+    (* high half *)
+    restore_stack_r idx (PrimR I64R);;
+    emit (W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32)));;
+    emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr));;
+    emit (W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None).
+
+  Definition to_words_one (ι : primitive_rep) : codegen unit :=
+    match ι with
+    | PtrR => mret tt (* no op *)
+    | I32R => mret tt (* no op *)
+    | I64R => to_words_i64
+    | F32R =>
+        emit (W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None)
+    | F64R =>
+        emit (W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None);;
+        to_words_i64
+    end.
+
+  Definition to_words (ιs : list primitive_rep) : codegen unit :=
+    ignore $ mapM to_words_one ιs.
+
+  Definition from_words_i64 : codegen unit :=
+    idx ← save_stack_w [W.T_i32; W.T_i32];
+    let idx_hi := localimm idx + 1 in 
+    let idx_lo := localimm idx + 1 in 
+    emit (W.BI_get_local idx_hi);;
+    emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
+    emit (W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32)));;
+    emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl));;
+    emit (W.BI_get_local idx_lo);;
+    emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
+    emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_or)).
+
+  Definition from_words_one (ι : primitive_rep) : codegen unit :=
+    match ι with
+    | PtrR => mret tt (* no op *)
+    | I32R => mret tt (* no op *)
+    | I64R => from_words_i64
+    | F32R =>
+        emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None)
+    | F64R =>
+        from_words_i64;;
+        emit (W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None)
+    end.
+
+  Definition from_words (ιs : list primitive_rep) : codegen unit :=
+    ignore $ mapM from_words_one ιs.
+
+  Definition conv_rep (ρ ρ' : representation) : codegen unit :=
+    ιs ← try_option ERepNotMono $ flatten_rep ρ;
+    ιs' ← try_option ERepNotMono $ flatten_rep ρ';
+    to_words ιs;;
+    from_words ιs'.
+
+  Definition erased_in_wasm : codegen unit := mret tt.
+  
   Fixpoint compile_instr (e : instruction) : codegen unit :=
     match e with
     | INop _ => emit W.BI_nop
@@ -584,13 +639,13 @@ Section Instrs.
     | INumConst _ _ => raise EWrongTypeAnn
     | IBlock χ _ es =>
         tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
-        ignore (block_c tf (forT es compile_instr))
+        ignore (block_c tf (mapM compile_instr es))
     | ILoop χ es =>
         tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
-        ignore (loop_c tf (forT es compile_instr))
+        ignore (loop_c tf (mapM compile_instr es))
     | IIte χ _ es1 es2 =>
         tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
-        ignore (if_c tf (forT es1 compile_instr) (forT es2 compile_instr))
+        ignore (if_c tf (mapM compile_instr es1) (mapM compile_instr es2))
     | IBr _ n => emit (W.BI_br n)
     | IBrIf _ n => emit (W.BI_br_if n)
     | IBrTable _ ns n => emit (W.BI_br_table ns n)
@@ -600,53 +655,34 @@ Section Instrs.
     | IGlobalGet _ idx => compile_get_global idx
     | IGlobalSet _ idx => compile_set_global idx
     | IGlobalSwap _ idx => compile_swap_global idx
-
     | ICodeRef _ x => compile_coderef x
-
-    | IInst _ _ => mret tt
-
-    | ICall (ArrowT τs _) x ixs => compile_call τs x ixs
-    | ICallIndirect (ArrowT τs _) => compile_call_indirect τs
-
-    | IInject _ _ =>
+    | IInst _ _ => erased_in_wasm
+    | ICall _ fidx _ => emit (W.BI_call fidx)
+    | ICallIndirect _ => emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
+    | IInject _ k =>
         (* TODO: registerroot on the new address;
                  unregisterroot if payload is GC ref being put into GC variant *)
         raise ETodo
     | ICase _ _ _ => raise ETodo
 
-    | IGroup _ => mret tt
-    | IUngroup _ => mret tt
-    | IFold _ => mret tt
-    | IUnfold  _ => mret tt
+    | IGroup _ => erased_in_wasm
+    | IUngroup _ => erased_in_wasm
+    | IFold _ => erased_in_wasm
+    | IUnfold  _ => erased_in_wasm
 
-    | IPack _ _ _ =>
-        (* TODO:
-        contents_idx ← save_stack [tau];
-        (* TODO: unregisterroot if GC package *)
-        let hsz_bytes := 4 * type_words htau in
-        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat hsz_bytes))));;
-        compile_malloc q;;
-        (* save the tagged pointer returned by malloc *)
-        ptr_idx ← wlalloc W.T_i32;
-        emit (W.BI_set_local (localimm ptr_idx));;
-        (* set up a local for the offset (it's zero...) *)
-        zero_idx ← wlalloc W.T_i32;
-        emit (W.BI_const (compile_Z W.T_i32 0%Z));;
-        (* do the tagged store to initialize the newly allocated region *)
-        emit (W.BI_get_local (localimm ptr_idx));;
-        restore_stack contents_idx [tau];;
-        store_value_tagged zero_idx t;;
-        (* put the tagged pointer on the top of the stack *)
-        emit (W.BI_get_local (localimm ptr_idx))
-        *)
-        raise ETodo
-    | IUnpack _ _ _ =>
-        (* TODO: registerroot if GC package *)
-        (* TODO: ignore (block_c (translate_arrow_type ty) (forT es compile_instr)) *)
-        raise ETodo
+    | IPack _ _ _ => erased_in_wasm
+    | IUnpack χ _ es => 
+        tys ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+        ignore $ block_c tys $ mapM compile_instr es
 
-    | IWrap _ => raise ETodo
-    | IUnwrap _ => raise ETodo
+    | IWrap (ArrowT [τ0] [RepT κ ρ τ0']) =>
+        ρ0 ← try_option EUnboundTypeVar $ type_rep fe.(fe_type_vars) τ0;
+        conv_rep ρ0 ρ
+    | IWrap _ => raise EWrongTypeAnn
+    | IUnwrap (ArrowT [RepT κ ρ τ0'] [τ0]) => raise ETodo
+        ρ0 ← try_option EUnboundTypeVar $ type_rep fe.(fe_type_vars) τ0;
+        conv_rep ρ ρ0
+    | IUnwrap _ => raise EWrongTypeAnn
 
     | IRefNew _ => raise ETodo
     | IRefLoad _ _ => raise ETodo
