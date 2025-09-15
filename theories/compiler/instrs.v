@@ -679,7 +679,7 @@ Section Instrs.
         ρ0 ← try_option EUnboundTypeVar $ type_rep fe.(fe_type_vars) τ0;
         conv_rep ρ0 ρ
     | IWrap _ => raise EWrongTypeAnn
-    | IUnwrap (ArrowT [RepT κ ρ τ0'] [τ0]) => raise ETodo
+    | IUnwrap (ArrowT [RepT κ ρ τ0'] [τ0]) =>
         ρ0 ← try_option EUnboundTypeVar $ type_rep fe.(fe_type_vars) τ0;
         conv_rep ρ ρ0
     | IUnwrap _ => raise EWrongTypeAnn

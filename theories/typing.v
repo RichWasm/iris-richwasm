@@ -69,7 +69,7 @@ Inductive mono_rep : representation -> list primitive_rep -> Prop :=
 | MonoProdR (ρs : list representation) (ιss : list (list primitive_rep)) :
   Forall2 mono_rep ρs ιss ->
   mono_rep (ProdR ρs) (concat ιss)
-| MonoPrim :
+| MonoPrim : forall ι,
   mono_rep (PrimR ι) [ι].
 
 Definition primitive_size (ι : primitive_rep) : nat :=
