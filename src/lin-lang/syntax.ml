@@ -53,20 +53,17 @@ module Types = struct
 end
 
 module Printers = struct
-  (* open Types *)
-
-  let pp_var ff x = fprintf ff "%s" x
+  let pp_var ff x = fprintf ff "@[%s@]" x
 
   let rec pp_typ ff (t : Types.typ) =
     match t with
-    | Int -> fprintf ff "int"
-    | Lolipop (t1, t2) ->
-        fprintf ff "@[<hov 2>(%a@ ⊸@ %a)@]" pp_typ t1 pp_typ t2
-    | Prod (t1, t2) -> fprintf ff "@[<hov 2>(%a@ ⊗@ %a)@]" pp_typ t1 pp_typ t2
-    | Ref t -> fprintf ff "@[<hov 2>(ref@ %a)@]" pp_typ t
+    | Int -> fprintf ff "@[int@]"
+    | Lolipop (t1, t2) -> fprintf ff "@[<2>(%a@ ⊸@ %a)@]" pp_typ t1 pp_typ t2
+    | Prod (t1, t2) -> fprintf ff "@[<2>(%a@ ⊗@ %a)@]" pp_typ t1 pp_typ t2
+    | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp_typ t
 
   let pp_binding ff ((x, t) : Types.binding) =
-    Format.fprintf ff "(@[<hov 1>%a@ :@ %a@])" pp_var x pp_typ t
+    Format.fprintf ff "@[(%a@ :@ %a)@]" pp_var x pp_typ t
 
   let pp_binop ff = function
     | `Add -> fprintf ff "+"
@@ -79,52 +76,51 @@ module Printers = struct
     | Var x -> pp_var ff x
     | Int n -> fprintf ff "%d" n
     | Lam (bind, ret, body) ->
-        fprintf ff "@[<hov 2>(λ@ %a@ :@ %a@ .@\n@[<v 2>%a@])@]" pp_binding bind
-          pp_typ ret pp_expr body
-    | Prod (l, r) -> fprintf ff "@[<hov 2>(%a,@ %a)@]" pp_val l pp_val r
+        fprintf ff "@[<2>(λ@ %a@ :@ %a .@;%a)@]" pp_binding bind pp_typ ret
+          pp_expr body
+    | Prod (l, r) -> fprintf ff "@[<2>(%a,@ %a)@]" pp_val l pp_val r
 
   and pp_expr ff (e : Types.expr) =
     match e with
     | Val v -> pp_val ff v
-    | App (l, r) -> fprintf ff "@[<hov 2>(app@ %a@ %a)@]" pp_val l pp_val r
+    | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" pp_val l pp_val r
     | Let (bind, e, body) ->
-        fprintf ff "@[<hv 0>let@ %a@ =@ @[<hv 2>%a@]@ in@ @[<hv 0>%a@]@]"
-          pp_binding bind pp_expr e pp_expr body
+        fprintf ff "@[<2>let@ %a@ =@ %a@ in@;%a@]" pp_binding bind pp_expr e
+          pp_expr body
     | If0 (v, e1, e2) ->
-        fprintf ff "@[<hv 0>if0@ %a@ then@,@[<hv 2>%a@]@,else@,@[<hv 2>%a@]@]"
-          pp_val v pp_expr e1 pp_expr e2
+        fprintf ff "@[<2>if %a@;then %a@;else@ %a@]" pp_val v pp_expr e1 pp_expr
+          e2
     | Binop (op, l, r) ->
-        fprintf ff "@[<hov 2>(%a@ %a@ %a)@]" pp_val l pp_binop op pp_val r
+        fprintf ff "@[<2>(%a@ %a@ %a)@]" pp_val l pp_binop op pp_val r
     | LetPair (b1, b2, e, b) ->
-        fprintf ff "@[<hv 0>let@ (%a,@ %a)@ =@ @[<hv 2>%a@]@ in@ @[<hv 0>%a@]@]"
-          pp_binding b1 pp_binding b2 pp_expr e pp_expr b
-    | New v -> fprintf ff "@[<hov 2>(new@ %a)@]" pp_val v
-    | Swap (l, r) -> fprintf ff "@[<hov 2>(swap@ %a@ %a)@]" pp_val l pp_val r
-    | Free v -> fprintf ff "@[<hov 2>(free@ %a)@]" pp_val v
+        fprintf ff "@[<2>let@ (%a,@ %a)@ =@ %a@ in@;%a@]" pp_binding b1
+          pp_binding b2 pp_expr e pp_expr b
+    | New v -> fprintf ff "@[<2>(new@ %a)@]" pp_val v
+    | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp_val l pp_val r
+    | Free v -> fprintf ff "@[<2>(free@ %a)@]" pp_val v
 
   let pp_import ff (Types.Import (t, x)) =
-    fprintf ff "@[<hov 2>(import@ %a@ :@ %a)@]" pp_var x pp_typ t
+    fprintf ff "@[<2>(import@ %a@ :@ %a)@]" pp_var x pp_typ t
 
   let pp_toplevel ff (Types.TopLevel (export, b, e)) =
     let export_str = if export then "export " else "" in
-    fprintf ff "@[<hov 2>%slet@ %a@ =@ @[<hv 2>%a@]@]" export_str pp_binding b
-      pp_expr e
+    fprintf ff "@[<2>%slet@ %a@ =@ %a@;@]" export_str pp_binding b pp_expr e
 
   let pp_modul ff (Types.Module (imports, toplevels, main_expr)) =
     let pp_list pp ff xs =
       List.iteri
         (fun i x ->
-          if i > 0 then fprintf ff "@;";
+          if i > 0 then fprintf ff "@.";
           pp ff x)
         xs
     in
     fprintf ff "@[<v 0>";
     if imports <> [] then (
       pp_list pp_import ff imports;
-      fprintf ff "@,@,");
+      fprintf ff "@.@.");
     if toplevels <> [] then (
       pp_list pp_toplevel ff toplevels;
-      fprintf ff "@,@,");
+      fprintf ff "@.@.");
     Option.iter (fun e -> fprintf ff "%a" pp_expr e) main_expr;
     fprintf ff "@]"
 

@@ -17,7 +17,8 @@
     (ppx_import (>= 1.11.0))
     (sexplib (>= 0.17.0))
     (ppx_sexp_conv (>= 0.17.1))
-    (ppx_let (>= 0.17.0)))
+    (ppx_let (>= 0.17.0))
+    (ppx_expect (>= 0.17.3)))
   (synopsis "RichWasm formalization in Coq and Iris")
   (description "RichWasm formalization in Coq based on Iris-Wasm.")
   (maintainers
