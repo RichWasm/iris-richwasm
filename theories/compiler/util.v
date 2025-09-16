@@ -99,8 +99,8 @@ Definition translate_types (κs : list kind) (τs : list type) : option (list W.
 Definition translate_num_type (ν : num_type) : W.value_type :=
   translate_prim_rep (num_type_rep ν).
 
-Definition translate_arrow_type (κs : list kind) (χ : arrow_type) : option W.function_type :=
-  let 'ArrowT τs1 τs2 := χ in
+Definition translate_arrow_type (κs : list kind) (ψ : arrow_type) : option W.function_type :=
+  let 'ArrowT τs1 τs2 := ψ in
   tys1 ← translate_types κs τs1;
   tys2 ← translate_types κs τs2;
   mret (W.Tf tys1 tys2).

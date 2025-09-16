@@ -637,14 +637,14 @@ Section Instrs.
     | INumConst (ArrowT [] [NumT _ nt]) n =>
         emit (W.BI_const (compile_Z (translate_num_type nt) (Z.of_nat n)))
     | INumConst _ _ => raise EWrongTypeAnn
-    | IBlock χ _ es =>
-        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+    | IBlock ψ _ es =>
+        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
         ignore (block_c tf (mapM compile_instr es))
-    | ILoop χ es =>
-        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+    | ILoop ψ es =>
+        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
         ignore (loop_c tf (mapM compile_instr es))
-    | IIte χ _ es1 es2 =>
-        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+    | IIte ψ _ es1 es2 =>
+        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
         ignore (if_c tf (mapM compile_instr es1) (mapM compile_instr es2))
     | IBr _ n => emit (W.BI_br n)
     | IBrIf _ n => emit (W.BI_br_if n)
@@ -671,8 +671,8 @@ Section Instrs.
     | IUnfold  _ => erased_in_wasm
 
     | IPack _ _ _ => erased_in_wasm
-    | IUnpack χ _ es => 
-        tys ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) χ);
+    | IUnpack ψ _ es =>
+        tys ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
         ignore $ block_c tys $ mapM compile_instr es
 
     | IWrap (ArrowT [τ0] [RepT κ ρ τ0']) =>

@@ -46,7 +46,7 @@ Section Relations.
   Implicit Type τ : leibnizO type.
   Implicit Type τs : leibnizO (list type).
   Implicit Type ϕ : leibnizO function_type.
-  Implicit Type χ : leibnizO arrow_type.
+  Implicit Type ψ : leibnizO arrow_type.
 
   Definition relation_bundle : Type :=
     (* Value *)
@@ -101,8 +101,8 @@ Section Relations.
   Definition representation_interp (ρ : representation) : semantic_type :=
     fun sv => (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
 
-  Definition copyability_interp (γ : copyability) (T : semantic_type) : Prop :=
-    match γ with
+  Definition copyability_interp (χ : copyability) (T : semantic_type) : Prop :=
+    match χ with
     | NoCopy => True
     | ExCopy => False (* TODO *)
     | ImCopy => forall sv, Persistent (T sv)
@@ -126,7 +126,7 @@ Section Relations.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
     match κ with
-    | VALTYPE ρ γ _ => fun T => (⌜T ⊑ representation_interp ρ⌝ ∗ ⌜copyability_interp γ T⌝)%I
+    | VALTYPE ρ χ _ => fun T => (⌜T ⊑ representation_interp ρ⌝ ∗ ⌜copyability_interp χ T⌝)%I
     | MEMTYPE ζ μ _ => fun T => (⌜T ⊑ sizity_interp ζ⌝ ∗ ⌜T ⊑ memory_interp μ⌝)%I
     end.
 
