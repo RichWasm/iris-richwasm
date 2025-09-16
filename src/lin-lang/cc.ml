@@ -6,7 +6,7 @@ module Declosure = struct
     | Int
     | Prod of typ * typ
     | Ref of typ
-    | Lolipop of typ list * typ (* no closures *)
+    | Lollipop of typ list * typ (* no closures *)
     | Var of int (* type de Bruijn *)
     | Exists of typ
   [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]

@@ -46,7 +46,7 @@ module Indexed = struct
 end
 
 module IndexErr = struct
-  type t
+  type t = UnknownGlobal of string
 end
 
 module Index = struct
@@ -119,16 +119,15 @@ module Index = struct
     let%bind init' = compile_expr [] init in
     return @@ B.TopLevel (exported, binding, init')
 
-  let compile_module (modul : A.modul) : B.modul index_res =
-    match modul with
-    | Module (imports, toplevels, main) ->
-        let%bind toplevels' =
-          List.map ~f:compile_toplevel toplevels |> Result.all
-        in
-        let%bind main' =
-          match main with
-          | Some e -> compile_expr [] e >>| Option.some
-          | None -> return None
-        in
-        return @@ Indexed.Module (imports, toplevels', main')
+  let compile_module (Module (imports, toplevels, main) : A.modul) :
+      B.modul index_res =
+    let%bind toplevels' =
+      List.map ~f:compile_toplevel toplevels |> Result.all
+    in
+    let%bind main' =
+      match main with
+      | Some e -> compile_expr [] e >>| Option.some
+      | None -> return None
+    in
+    return @@ B.Module (imports, toplevels', main')
 end

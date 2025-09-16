@@ -21,7 +21,8 @@ let%expect_test "pretty prints examples" =
   List.iter
     (fun (n, m) -> printf "-----------%s-----------@.%a@." n Module.pp m)
     examples;
-  [%expect {|
+  [%expect
+    {|
     -----------add_one_program-----------
     export let (add_one : (int ⊸ int)) = (λ (x : int) : int . (x + 1))
 

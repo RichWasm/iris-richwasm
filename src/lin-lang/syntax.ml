@@ -7,7 +7,7 @@ module Types = struct
 
   type typ =
     | Int
-    | Lolipop of typ * typ
+    | Lollipop of typ * typ
     | Prod of typ * typ
     | Ref of typ
   [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
@@ -58,7 +58,7 @@ module Printers = struct
   let rec pp_typ ff (t : Types.typ) =
     match t with
     | Int -> fprintf ff "@[int@]"
-    | Lolipop (t1, t2) -> fprintf ff "@[<2>(%a@ ⊸@ %a)@]" pp_typ t1 pp_typ t2
+    | Lollipop (t1, t2) -> fprintf ff "@[<2>(%a@ ⊸@ %a)@]" pp_typ t1 pp_typ t2
     | Prod (t1, t2) -> fprintf ff "@[<2>(%a@ ⊗@ %a)@]" pp_typ t1 pp_typ t2
     | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp_typ t
 

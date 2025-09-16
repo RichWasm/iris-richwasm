@@ -2,7 +2,7 @@ open Richwasm_lin_lang.Syntax
 
 let example1 : Module.t =
   Module
-    ( [ Import (Lolipop (Int, Prod (Int, Int)), "dup-int") ],
+    ( [ Import (Lollipop (Int, Prod (Int, Int)), "dup-int") ],
       [],
       Some (App (Lam (("x", Int), Int, Val (Var "x")), Int 10)) )
 
@@ -16,7 +16,7 @@ let add_one_program =
       [
         TopLevel
           ( true,
-            ("add_one", Lolipop (Int, Int)),
+            ("add_one", Lollipop (Int, Int)),
             Val (Lam (("x", Int), Int, Binop (`Add, Var "x", Int 1))) );
       ],
       Some (App (Var "add_one", Int 42)) )
@@ -27,7 +27,7 @@ let swap_pair_program =
       [
         TopLevel
           ( true,
-            ("swap", Lolipop (Prod (Int, Int), Prod (Int, Int))),
+            ("swap", Lollipop (Prod (Int, Int), Prod (Int, Int))),
             Val
               (Lam
                  ( ("p", Prod (Int, Int)),
@@ -42,8 +42,8 @@ let swap_pair_program =
 
 let compose_program =
   let f_to_g_to_h =
-    Lolipop
-      (Lolipop (Int, Int), Lolipop (Lolipop (Int, Int), Lolipop (Int, Int)))
+    Lollipop
+      (Lollipop (Int, Int), Lollipop (Lollipop (Int, Int), Lollipop (Int, Int)))
   in
   Module
     ( [],
@@ -53,12 +53,12 @@ let compose_program =
             ("compose", f_to_g_to_h),
             Val
               (Lam
-                 ( ("f", Lolipop (Int, Int)),
-                   Lolipop (Lolipop (Int, Int), Lolipop (Int, Int)),
+                 ( ("f", Lollipop (Int, Int)),
+                   Lollipop (Lollipop (Int, Int), Lollipop (Int, Int)),
                    Val
                      (Lam
-                        ( ("g", Lolipop (Int, Int)),
-                          Lolipop (Int, Int),
+                        ( ("g", Lollipop (Int, Int)),
+                          Lollipop (Int, Int),
                           Val
                             (Lam
                                ( ("x", Int),
@@ -88,7 +88,7 @@ let reference_example =
       Some (Val (Var "test_ref")) )
 
 let factorial_program =
-  let fact_type = Lolipop (Int, Int) in
+  let fact_type = Lollipop (Int, Int) in
   Module
     ( [],
       [
@@ -118,13 +118,13 @@ let factorial_program =
 let module_with_imports =
   Module
     ( [
-        Import (Lolipop (Int, Int), "external_inc");
-        Import (Lolipop (Prod (Int, Int), Int), "external_add");
+        Import (Lollipop (Int, Int), "external_inc");
+        Import (Lollipop (Prod (Int, Int), Int), "external_add");
       ],
       [
         TopLevel
           ( true,
-            ("double_inc", Lolipop (Int, Int)),
+            ("double_inc", Lollipop (Int, Int)),
             Val
               (Lam
                  ( ("x", Int),
@@ -142,7 +142,7 @@ let complex_example =
       [
         TopLevel
           ( true,
-            ("process_pair", Lolipop (Prod (Int, Int), Int)),
+            ("process_pair", Lollipop (Prod (Int, Int), Int)),
             Val
               (Lam
                  ( ("input", Prod (Int, Int)),
@@ -194,16 +194,16 @@ let closure_example =
       [
         TopLevel
           ( true,
-            ("make_adder", Lolipop (Int, Lolipop (Int, Int))),
+            ("make_adder", Lollipop (Int, Lollipop (Int, Int))),
             Val
               (Lam
                  ( ("n", Int),
-                   Lolipop (Int, Int),
+                   Lollipop (Int, Int),
                    Val (Lam (("x", Int), Int, Binop (`Add, Var "n", Var "x")))
                  )) );
       ],
       Some
         (Let
-           ( ("add5", Lolipop (Int, Int)),
+           ( ("add5", Lollipop (Int, Int)),
              App (Var "make_adder", Int 5),
              App (Var "add5", Int 10) )) )
