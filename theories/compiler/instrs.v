@@ -673,6 +673,7 @@ Section Instrs.
     | IPack _ _ _ => erased_in_wasm
     | IUnpack ψ _ es =>
         tys ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
+        (* bug? fe.(fe_type_vars) needs to be extended *)
         ignore $ block_c tys $ mapM compile_instr es
 
     | IWrap (ArrowT [τ0] [RepT κ ρ τ0']) =>
@@ -684,6 +685,8 @@ Section Instrs.
         conv_rep ρ ρ0
     | IUnwrap _ => raise EWrongTypeAnn
 
+    | IRefNew (ArrowT [τ] [RefT κ MemMM τ']) => raise ETodo
+    | IRefNew (ArrowT [τ] [RefT κ MemGC τ']) => raise ETodo
     | IRefNew _ => raise ETodo
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
