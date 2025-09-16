@@ -206,7 +206,7 @@ IGroup : arrow_type -> instruction
 IUngroup : arrow_type -> instruction
 IFold : arrow_type -> instruction
 IUnfold : arrow_type -> instruction
-IPack : arrow_type -> kind -> index -> instruction
+IPack : arrow_type -> instruction
 IUnpack : arrow_type -> local_fx -> "list" (instruction) -> instruction
 IWrap : arrow_type -> instruction
 IUnwrap : arrow_type -> instruction

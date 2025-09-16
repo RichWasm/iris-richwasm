@@ -670,7 +670,7 @@ Section Instrs.
     | IFold _ => erased_in_wasm
     | IUnfold  _ => erased_in_wasm
 
-    | IPack _ _ _ => erased_in_wasm
+    | IPack _ => erased_in_wasm
     | IUnpack ψ _ es =>
         tys ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
         (* bug? fe.(fe_type_vars) needs to be extended *)
