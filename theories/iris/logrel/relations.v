@@ -21,7 +21,7 @@ Section Relations.
 
   Inductive semantic_value :=
   | SValues (vs : list value)
-  | SWords (ws : list word).
+  | SWords (cm : concrete_memory) (ws : list word).
 
   Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
   Notation LVR := (leibnizO val -n> iPropO Σ).
@@ -102,13 +102,20 @@ Section Relations.
     fun sv => (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
 
   Definition copyability_interp (γ : copyability) (T : semantic_type) : Prop :=
-    γ = ImCopy -> forall sv, Persistent (T sv).
+    match γ with
+    | NoCopy => True
+    | ExCopy => False (* TODO *)
+    | ImCopy => forall sv, Persistent (T sv)
+    end.
 
   Definition size_interp (σ : size) (ws : list word) : Prop :=
     eval_size σ = Some (length ws).
 
   Definition sizity_interp (ζ : sizity) : semantic_type :=
-    fun sv => (∃ ws, ⌜sv = SWords ws⌝ ∗ ∀ σ, ⌜ζ = Sized σ⌝ -∗ ⌜size_interp σ ws⌝)%I.
+    fun sv => (∃ μ ws, ⌜sv = SWords μ ws⌝ ∗ ∀ σ, ⌜ζ = Sized σ⌝ -∗ ⌜size_interp σ ws⌝)%I.
+
+  Definition memory_interp (μ : memory) : semantic_type :=
+    fun sv => (∃ cm ws, ⌜μ = ConstM cm⌝ ∗ ⌜sv = SWords cm ws⌝)%I.
 
   (* S refines T, written S ⊑ T. *)
   Definition semantic_type_le (S T : semantic_type) : Prop :=
@@ -120,22 +127,20 @@ Section Relations.
   Definition kind_interp (κ : kind) : semantic_kind :=
     match κ with
     | VALTYPE ρ γ _ => fun T => (⌜T ⊑ representation_interp ρ⌝ ∗ ⌜copyability_interp γ T⌝)%I
-    | MEMTYPE ζ _ _ => fun T => ⌜T ⊑ sizity_interp ζ⌝%I
+    | MEMTYPE ζ μ _ => fun T => (⌜T ⊑ sizity_interp ζ⌝ ∗ ⌜T ⊑ memory_interp μ⌝)%I
     end.
 
   Definition closure_interp0 (rb : relation_bundle) : leibnizO function_type -n> ClR.
   Admitted.
 
   (* Fact: If |- τ : κ, then kind_interp κ (value_interp τ).
-     TODO: Some of the definitions in value_interp0 may be too permissive. *)
+     TODO: Some of the definitions in value_interp0 may be too permissive.
+           Incorpoate kind_interp into this definition? *)
   Definition value_interp0 (rb : relation_bundle) : leibnizO type -n> SVR :=
     λne τ sv,
       match τ with
       | VarT _ => False
-      | NumT _ (IntT I32T) => ∃ n, ⌜sv = SValues [VAL_int32 n]⌝
-      | NumT _ (IntT I64T) => ∃ n, ⌜sv = SValues [VAL_int64 n]⌝
-      | NumT _ (FloatT F32T) => ∃ n, ⌜sv = SValues [VAL_float32 n]⌝
-      | NumT _ (FloatT F64T) => ∃ n, ⌜sv = SValues [VAL_float64 n]⌝
+      | NumT _ _ => True
       | SumT (VALTYPE ρ _ _) τs =>
           ∃ i vs vs0 τ0 ρs ρ0 ixs,
             ⌜sv = SValues (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: vs)⌝ ∗
@@ -145,40 +150,45 @@ Section Relations.
               ⌜inject_sum_rep ρs ρ = Some ixs⌝ ∗
               ⌜nths_error vs ixs = Some vs0⌝ ∗
               ▷ rb_value rb τ0 (SValues vs0)
-      | SumT (MEMTYPE _ _ _) τs =>
-          ∃ wᵢ ws bsᵢ i τ,
-            ⌜sv = SWords (wᵢ :: ws)⌝ ∗
+      | SumT (MEMTYPE _ (VarM _) _) _ => False
+      | SumT (MEMTYPE _ (ConstM cm) _) τs =>
+          ∃ wᵢ ws ws' bsᵢ i τ,
+            ⌜sv = SWords cm (wᵢ :: ws ++ ws')⌝ ∗
               ⌜bsᵢ = serialize_Z_i32 (Z.of_nat i)⌝ ∗
               ⌜repr_word sr.(sr_gc_heap_start) ∅ wᵢ i⌝ ∗
               ⌜τs !! i = Some τ⌝ ∗
-              ▷ rb_value rb τ (SWords ws)
+              ▷ rb_value rb τ (SWords cm ws)
       | ProdT (VALTYPE _ _ _) τs =>
           ∃ vss, ⌜sv = SValues (concat vss)⌝ ∗ [∗ list] vs; τ ∈ vss; τs, ▷ rb_value rb τ (SValues vs)
-      | ProdT (MEMTYPE _ _ _) τs =>
-          ∃ wss, ⌜sv = SWords (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ rb_value rb τ (SWords ws)
-      | ArrT _ τ =>
+      | ProdT (MEMTYPE _ (VarM _) _) _ => False
+      | ProdT (MEMTYPE _ (ConstM cm) _) τs =>
+          ∃ wss,
+            ⌜sv = SWords cm (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ rb_value rb τ (SWords cm ws)
+      | ArrT (VALTYPE _ _ _) _ => False
+      | ArrT (MEMTYPE _ (VarM _) _) _ => False
+      | ArrT (MEMTYPE _ (ConstM cm) _) τ =>
           ∃ wₙ wss bsₙ n,
-            ⌜sv = SWords (wₙ :: concat wss)⌝ ∗
+            ⌜sv = SWords cm (wₙ :: concat wss)⌝ ∗
               ⌜bsₙ = serialize_Z_i32 n⌝ ∗
               ⌜repr_word sr.(sr_gc_heap_start) ∅ wₙ n⌝ ∗
-              [∗ list] ws ∈ wss, ▷ rb_value rb τ (SWords ws)
-      | RefT _ (MemVar _) _ => False
-      | RefT _ MemMM τ =>
+              [∗ list] ws ∈ wss, ▷ rb_value rb τ (SWords cm ws)
+      | RefT _ (VarM _) _ => False
+      | RefT _ (ConstM MemMM) τ =>
           ∃ a ws ns bs,
             ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
               N.of_nat sr.(sr_mem_mm) ↦[wms][a] bs ∗
               ⌜repr_list_word sr.(sr_gc_heap_start) ∅ ws ns⌝ ∗
               ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-              ▷ rb_value rb τ (SWords ws)
-      | RefT _ MemGC τ =>
+              ▷ rb_value rb τ (SWords MemMM ws)
+      | RefT _ (ConstM MemGC) τ =>
           ∃ a ℓ,
             ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
               a ↦gcr ℓ ∗
-              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ rb_value rb τ (SWords ws))
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ rb_value rb τ (SWords MemGC ws))
       | GCPtrT _ τ =>
           ∃ ℓ,
-            ⌜sv = SWords [WordPtr (PtrGC ℓ)]⌝ ∗
-              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ rb_value rb τ (SWords ws))
+            ⌜sv = SWords MemGC [WordPtr (PtrGC ℓ)]⌝ ∗
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ rb_value rb τ (SWords MemGC ws))
       | CodeRefT _ ϕ =>
           ∃ n cl,
             ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N n))]⌝ ∗
@@ -196,35 +206,40 @@ Section Relations.
               ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs' wss'⌝ ∗
               ⌜concat wss ++ ws = concat wss'⌝ ∗
               ▷ rb_value rb τ (SValues vs)
-      | PadT _ _ τ => ∃ ws wsₚ, ⌜sv = SWords (ws ++ wsₚ)⌝ ∗ ▷ rb_value rb τ (SWords ws)
-      | SerT _ τ =>
+      | PadT (VALTYPE _ _ _) _ _ => False
+      | PadT (MEMTYPE _ (VarM _) _) _ _ => False
+      | PadT (MEMTYPE _ (ConstM cm) _) _ τ =>
+          ∃ ws wsₚ, ⌜sv = SWords cm (ws ++ wsₚ)⌝ ∗ ▷ rb_value rb τ (SWords cm ws)
+      | SerT (VALTYPE _ _ _) _ => False
+      | SerT (MEMTYPE _ (VarM _) _) _ => False
+      | SerT (MEMTYPE _ (ConstM cm) _) τ =>
           ∃ ρ ιs vs rvs ws wss,
-            ⌜sv = SWords ws⌝ ∗
+            ⌜sv = SWords cm ws⌝ ∗
               ⌜type_rep [] τ = Some ρ⌝ ∗
               ⌜eval_rep ρ = Some ιs⌝ ∗
               ⌜to_rep_values ιs vs = Some rvs⌝ ∗
               ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
               ⌜ws = concat wss⌝ ∗
-              ▷ rb_value rb τ (SWords ws)
+              ▷ rb_value rb τ (SValues vs)
       | RecT κ τ =>
-          let τ' := subst_type MemVar VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+          let τ' := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
           ▷ rb_value rb τ' sv
       | ExMemT _ τ =>
           ∃ μ,
-            let τ' := subst_type (unscoped.scons μ MemVar) VarR VarS VarT τ in
+            let τ' := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ in
             ▷ rb_value rb τ' sv
       | ExRepT _ τ =>
           ∃ ρ,
-            let τ' := subst_type MemVar (unscoped.scons ρ VarR) VarS VarT τ in
+            let τ' := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ in
             ▷ rb_value rb τ' sv
       | ExSizeT _ τ =>
           ∃ σ,
-            let τ' := subst_type MemVar VarR (unscoped.scons σ VarS) VarT τ in
+            let τ' := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ in
             ▷ rb_value rb τ' sv
       | ExTypeT _ κ τ =>
           ∃ τ0,
             ▷ kind_interp κ (rb_value rb τ0) ∗
-            let τ' := subst_type MemVar VarR VarS (unscoped.scons τ0 VarT) τ in
+            let τ' := subst_type VarM VarR VarS (unscoped.scons τ0 VarT) τ in
             ▷ rb_value rb τ' sv
       end%I.
 

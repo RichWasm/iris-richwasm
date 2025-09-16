@@ -14,9 +14,12 @@ NoDrop : dropability
 ExDrop : dropability
 ImDrop : dropability
 
-memory (MemVar) : Type
-MemMM : memory
-MemGC : memory
+concrete_memory : Type
+MemMM : concrete_memory
+MemGC : concrete_memory
+
+memory (VarM) : Type
+ConstM : concrete_memory -> memory
 
 primitive_rep : Type
 PtrR : primitive_rep

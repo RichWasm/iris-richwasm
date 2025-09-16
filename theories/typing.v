@@ -162,16 +162,16 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in
   has_kind F (RefT κ μ τ) κ
 | KRefMMDrop F τ ζ :
-  has_kind F τ (MEMTYPE ζ MemMM ImDrop) ->
+  has_kind F τ (MEMTYPE ζ (ConstM MemMM) ImDrop) ->
   let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
-  has_kind F (RefT κ MemMM τ) κ
+  has_kind F (RefT κ (ConstM MemMM) τ) κ
 | KRefGC F τ ζ δ :
-  has_kind F τ (MEMTYPE ζ MemGC δ) ->
+  has_kind F τ (MEMTYPE ζ (ConstM MemGC) δ) ->
   let κ := VALTYPE (PrimR PtrR) ExCopy ExDrop in
-  has_kind F (RefT κ MemGC τ) κ
+  has_kind F (RefT κ (ConstM MemGC) τ) κ
 | KGCPtr F τ ζ δ :
-  has_kind F τ (MEMTYPE ζ MemGC δ) ->
-  let κ := MEMTYPE (Sized (ConstS 1)) MemGC ImDrop in
+  has_kind F τ (MEMTYPE ζ (ConstM MemGC) δ) ->
+  let κ := MEMTYPE (Sized (ConstS 1)) (ConstM MemGC) ImDrop in
   has_kind F (GCPtrT κ τ) κ
 | KCodeRef F ϕ :
   let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
@@ -450,11 +450,11 @@ Inductive instr_has_type :
   instr_has_type M F L (IUngroup χ) χ L
 | TFold M F L τ κ :
   has_kind F τ κ ->
-  let τ0 := subst_type MemVar VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+  let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
   let χ := ArrowT [τ0] [RecT κ τ] in
   instr_has_type M F L (IFold χ) χ L
 | TUnfold M F L τ κ :
-  let τ0 := subst_type MemVar VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+  let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
   let χ := ArrowT [RecT κ τ] [τ0] in
   instr_has_type M F L (IUnfold χ) χ L
 (* These require setting up substitution.
@@ -506,11 +506,11 @@ Inductive instr_has_type :
 | TRefMMStore M F L ann π τ0 τ0' τᵥ τᵥ' τₘ τₘ' κ κ' σ δ n :
   stores_as F τᵥ τₘ' ->
   update_at π τ0 τₘ τ0' τₘ' ->
-  has_kind F τₘ (MEMTYPE (Sized σ) MemMM ImDrop) ->
-  has_kind F τₘ' (MEMTYPE (Sized σ) MemMM δ) ->
+  has_kind F τₘ (MEMTYPE (Sized σ) (ConstM MemMM) ImDrop) ->
+  has_kind F τₘ' (MEMTYPE (Sized σ) (ConstM MemMM) δ) ->
   mono_size σ n ->
-  let τ := RefT κ MemMM τ0 in
-  let τ' := RefT κ' MemMM τ0' in
+  let τ := RefT κ (ConstM MemMM) τ0 in
+  let τ' := RefT κ' (ConstM MemMM) τ0' in
   has_kind F τ κ ->
   has_kind F τ' κ' ->
   instr_has_type M F L (IRefStore ann π) (ArrowT [τ; τᵥ'] [τ']) L
@@ -530,8 +530,8 @@ Inductive instr_has_type :
   stores_as F τᵥ' τₘ' ->
   update_at π τ0 τₘ τ0' τₘ' ->
   Forall (mono_sized F) τs__prefix ->
-  let τ := RefT κ MemMM τ0 in
-  let τ' := RefT κ' MemMM τ0' in
+  let τ := RefT κ (ConstM MemMM) τ0 in
+  let τ' := RefT κ' (ConstM MemMM) τ0' in
   has_kind F τ κ ->
   has_kind F τ' κ' ->
   let χ := ArrowT [τ; τᵥ'] [τ'; τᵥ] in
