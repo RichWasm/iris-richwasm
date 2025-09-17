@@ -97,15 +97,24 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   end.
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
-| KSubValCopy F τ ρ δ :
+| KSubValExCopy F τ ρ δ :
   has_kind F τ (VALTYPE ρ ImCopy δ) ->
   has_kind F τ (VALTYPE ρ ExCopy δ)
-| KSubValDrop F τ ρ χ :
+| KSubValNoCopy F τ ρ δ :
+  has_kind F τ (VALTYPE ρ ExCopy δ) ->
+  has_kind F τ (VALTYPE ρ NoCopy δ)
+| KSubValExDrop F τ ρ χ :
   has_kind F τ (VALTYPE ρ χ ImDrop) ->
   has_kind F τ (VALTYPE ρ χ ExDrop)
-| KSubMemDrop F τ ζ μ :
+| KSubValNoDrop F τ ρ χ :
+  has_kind F τ (VALTYPE ρ χ ExDrop) ->
+  has_kind F τ (VALTYPE ρ χ NoDrop)
+| KSubMemExDrop F τ ζ μ :
   has_kind F τ (MEMTYPE ζ μ ImDrop) ->
   has_kind F τ (MEMTYPE ζ μ ExDrop)
+| KSubMemNoDrop F τ ζ μ :
+  has_kind F τ (MEMTYPE ζ μ ExDrop) ->
+  has_kind F τ (MEMTYPE ζ μ NoDrop)
 | KSubSizity F τ σ μ δ :
   has_kind F τ (MEMTYPE (Sized σ) μ δ) ->
   has_kind F τ (MEMTYPE Unsized μ δ)
@@ -339,6 +348,48 @@ Inductive module_ctx_ok : module_ctx -> Prop :=
   Forall (fun '(_, τ) => exists ρ χ, has_kind fc_empty τ (VALTYPE ρ χ ImDrop)) gs ->
   module_ctx_ok {| mc_globals := gs; mc_table := ts |}.
 
+Inductive inst_function_type : function_ctx -> index -> function_type -> function_type -> Prop :=
+| FTInstMem F ϕ μ :
+  let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
+  inst_function_type F (MemI μ) (FaMemT ϕ) ϕ'
+| FTInstRep F ϕ ρ :
+  let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
+  inst_function_type F (RepI ρ) (FaRepT ϕ) ϕ'
+| FTInstSize F ϕ σ :
+  let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
+  inst_function_type F (SizeI σ) (FaSizeT ϕ) ϕ'
+| FTInstType F ϕ τ κ :
+  has_kind F τ κ ->
+  let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
+  inst_function_type F (TypeI τ) (FaTypeT κ ϕ) ϕ'.
+
+Inductive list_inst_function_type : function_ctx -> list index -> function_type -> function_type -> Prop :=
+| FTNil F ϕ :
+  list_inst_function_type F [] ϕ ϕ
+| FTCons F ϕ ϕ' ϕ'' ix ixs :
+  inst_function_type F ix ϕ ϕ' ->
+  list_inst_function_type F ixs ϕ' ϕ'' ->
+  list_inst_function_type F (ix :: ixs) ϕ ϕ''.
+
+Inductive packed_type : function_ctx -> type -> type -> Prop :=
+| PackMem F μ τ' κ' :
+  has_kind F τ' κ' ->
+  let τ0 := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ' in
+  packed_type F τ0 (ExMemT κ' τ')
+| PackRep F ρ τ' κ' :
+  has_kind F τ' κ' ->
+  let τ0 := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ' in
+  packed_type F τ0 (ExRepT κ' τ')
+| PackSize F σ τ' κ' :
+  has_kind F τ' κ' ->
+  let τ0 := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' in
+  packed_type F τ0 (ExSizeT κ' τ')
+| PackType F τ τ' κ κ' :
+  has_kind F τ κ ->
+  has_kind F τ' κ' ->
+  let τ0 := subst_type VarM VarR VarS (unscoped.scons τ VarT) τ' in
+  packed_type F τ0 (ExTypeT κ' κ τ').
+
 (* TODO *)
 Inductive num_instr_has_type : num_instruction -> arrow_type -> Prop :=.
 
@@ -439,19 +490,34 @@ Inductive instr_has_type :
   M.(mc_globals) !! n = Some (Mut, τ) ->
   let ψ := ArrowT [τ] [τ] in
   instr_has_type M F L (IGlobalSwap ψ n) ψ L
-| TCodeRef M F L n ϕ κ :
-  M.(mc_table) !! n = Some ϕ ->
+| TCodeRef M F L i ϕ κ :
+  M.(mc_table) !! i = Some ϕ ->
   let τ := CodeRefT κ ϕ in
   has_kind F τ κ ->
   let ψ := ArrowT [] [τ] in
-  instr_has_type M F L (ICodeRef ψ n) ψ L
-(*
-| TCall M F L ann n ixs :
-  instr_has_type M F L (ICall ann n ixs) (ArrowT [] []) L
-| TCallIndirect M F L ann ixs :
-  instr_has_type M F L (ICallIndirect ann ixs) (ArrowT [] []) L
-*)
-| TGroup M F L κ τs ρs χ δ :
+  instr_has_type M F L (ICodeRef ψ i) ψ L
+| TInst M F L ix ϕ ϕ' κ :
+  inst_function_type F ix ϕ ϕ' ->
+  let ψ := ArrowT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
+  instr_has_type M F L (IInst ψ ix) ψ L
+| TCall M F L i ixs ϕ τs1 τs2 :
+  M.(mc_table) !! i = Some ϕ ->
+  let ψ := ArrowT τs1 τs2 in
+  list_inst_function_type F ixs ϕ (FunT ψ) ->
+  instr_has_type M F L (ICall ψ i ixs) ψ L
+| TCallIndirect M F L τs1 τs2 κ :
+  let ψ := ArrowT (τs1 ++ [CodeRefT κ (FunT (ArrowT τs1 τs2))]) τs2 in
+  instr_has_type M F L (ICallIndirect ψ) ψ L
+| TInject M F L i τ τs κ :
+  τs !! i = Some τ ->
+  let ψ := ArrowT [τ] [SumT κ τs] in
+  instr_has_type M F L (IInject ψ i) ψ L
+| TCase M F L ξ κ τ' τs ess :
+  let L' := update_locals ξ L in
+  Forall2 (fun τ es => instrs_have_type M F L es (ArrowT [τ] [τ']) L') τs ess ->
+  let ψ := ArrowT [SumT κ τs] [τ'] in
+  instr_has_type M F L (ICase ψ ξ ess) ψ L'
+| TGroup M F L τs κ ρs χ δ :
   Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
   let τ := ProdT κ τs in
   has_kind F τ κ ->
@@ -472,65 +538,36 @@ Inductive instr_has_type :
   let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
   let ψ := ArrowT [RecT κ τ] [τ0] in
   instr_has_type M F L (IUnfold ψ) ψ L
-| TPackMem M F L κ τ τ' μ :
-  has_kind F τ κ ->
-  τ = subst_type (unscoped.scons μ VarM) VarR VarS VarT τ' ->
-  let ψ := ArrowT [τ] [ExMemT κ τ'] in
-  instr_has_type M F L (IPack ψ) ψ L
-| TPackRep M F L κ τ τ' ρ :
-  has_kind F τ κ ->
-  τ = subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ' ->
-  let ψ := ArrowT [τ] [ExRepT κ τ'] in
-  instr_has_type M F L (IPack ψ) ψ L
-| TPackSize M F L κ τ τ' σ :
-  has_kind F τ κ ->
-  τ = subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' ->
-  let ψ := ArrowT [τ] [ExSizeT κ τ'] in
-  instr_has_type M F L (IPack ψ) ψ L
-| TPackType M F L κ0 κ τ0 τ τ' :
-  has_kind F τ0 κ0 ->
-  has_kind F τ κ ->
-  τ = subst_type VarM VarR VarS (unscoped.scons τ0 VarT) τ' ->
-  let ψ := ArrowT [τ] [ExTypeT κ κ0 τ'] in
+| TPack M F L τ τ' :
+  packed_type F τ τ' ->
+  let ψ := ArrowT [τ] [τ'] in
   instr_has_type M F L (IPack ψ) ψ L
 | TUnpackMem M F L κ τ τs1 τs2 ξ es :
   let F' := set fc_mem_vars S (subst_function_ctx (up_memory VarM) VarR VarS VarT F) in
   let L' := update_locals ξ L in
-  let L__up := map (subst_type (up_memory VarM) VarR VarS VarT) L in
-  let L'__up := map (subst_type (up_memory VarM) VarR VarS VarT) L' in
-  let τs1__up := map (subst_type (up_memory VarM) VarR VarS VarT) τs1 in
-  let τs2__up := map (subst_type (up_memory VarM) VarR VarS VarT) τs2 in
-  instrs_have_type M F' L__up es (ArrowT (τs1__up ++ [τ]) τs2__up) L'__up ->
+  let weak := map (subst_type (up_memory VarM) VarR VarS VarT) in
+  instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
   let ψ := ArrowT (τs1 ++ [ExMemT κ τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TUnpackRep M F L κ τ τs1 τs2 ξ es :
   let F' := set fc_rep_vars S (subst_function_ctx VarM (up_representation VarR) VarS VarT F) in
   let L' := update_locals ξ L in
-  let L__up := map (subst_type VarM (up_representation VarR) VarS VarT) L in
-  let L'__up := map (subst_type VarM (up_representation VarR) VarS VarT) L' in
-  let τs1__up := map (subst_type VarM (up_representation VarR) VarS VarT) τs1 in
-  let τs2__up := map (subst_type VarM (up_representation VarR) VarS VarT) τs2 in
-  instrs_have_type M F' L__up es (ArrowT (τs1__up ++ [τ]) τs2__up) L'__up ->
+  let weak := map (subst_type VarM (up_representation VarR) VarS VarT) in
+  instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
   let ψ := ArrowT (τs1 ++ [ExRepT κ τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TUnpackSize M F L κ τ τs1 τs2 ξ es :
   let F' := set fc_size_vars S (subst_function_ctx VarM VarR (up_size VarS) VarT F) in
   let L' := update_locals ξ L in
-  let L__up := map (subst_type VarM VarR (up_size VarS) VarT) L in
-  let L'__up := map (subst_type VarM VarR (up_size VarS) VarT) L' in
-  let τs1__up := map (subst_type VarM VarR (up_size VarS) VarT) τs1 in
-  let τs2__up := map (subst_type VarM VarR (up_size VarS) VarT) τs2 in
-  instrs_have_type M F' L__up es (ArrowT (τs1__up ++ [τ]) τs2__up) L'__up ->
+  let weak := map (subst_type VarM VarR (up_size VarS) VarT) in
+  instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
   let ψ := ArrowT (τs1 ++ [ExRepT κ τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TUnpackType M F L κ0 κ τ τs1 τs2 ξ es :
   let F' := set fc_type_vars (cons κ0) (subst_function_ctx VarM VarR VarS (up_type VarT) F) in
   let L' := update_locals ξ L in
-  let L__up := map (subst_type VarM VarR VarS (up_type VarT)) L in
-  let L'__up := map (subst_type VarM VarR VarS (up_type VarT)) L' in
-  let τs1__up := map (subst_type VarM VarR VarS (up_type VarT)) τs1 in
-  let τs2__up := map (subst_type VarM VarR VarS (up_type VarT)) τs2 in
-  instrs_have_type M F' L__up es (ArrowT (τs1__up ++ [τ]) τs2__up) L'__up ->
+  let weak := map (subst_type VarM VarR VarS (up_type VarT)) in
+  instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
   let ψ := ArrowT (τs1 ++ [ExTypeT κ κ0 τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TWrap M F L ρ0 ρ ιs0 ιs τ0 κ :
