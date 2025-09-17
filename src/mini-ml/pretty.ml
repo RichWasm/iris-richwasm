@@ -56,12 +56,12 @@ and pp_expr ff e =
   | If0 (c, thn, els) ->
       fprintf ff "@[<hov 2>(if0@ %a@,@[<v 2>%a@]@,@[<v 2>%a@])@]" pp_value c
         pp_expr thn pp_expr els
-  | Cases (v, branches, t) ->
-      fprintf ff "@[<hov 2>(cases@ %a%a@,%a)@]" pp_value v
+  | Cases (v, branches) ->
+      fprintf ff "@[<hov 2>(cases@ %a%a)@]" pp_value v
         (pp_print_list (fun ff ((v, t), e) ->
              fprintf ff "@,@[<v 2>[@[<hov 2>(:@ %s@ %a)@]@ %a]@]" v pp_type t
                pp_expr e ) )
-        branches pp_type t
+        branches
   | New v -> fprintf ff "@[<hov 2>(new@ %a)@]" pp_value v
   | Deref v -> fprintf ff "@[<hov 2>(!@ %a)@]" pp_value v
   | Assign (r, v) -> fprintf ff "@[<hov 2>(:=@ %a@  %a)@]" pp_value r pp_value v

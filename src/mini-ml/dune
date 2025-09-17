@@ -1,5 +1,5 @@
 (library
  (name richwasm_mini_ml)
  (public_name iris-richwasm.mini-ml)
- (modules main :standard syntax)
+ (modules main :standard syntax convert)
  (libraries iris-richwasm.common core))

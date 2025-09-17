@@ -1,0 +1,153 @@
+open! Core
+open Syntax
+
+let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
+  let open Source.Expr in
+  let open Source.Value in
+  let rec free_v v =
+    match v with
+    | Int _ -> []
+    | Var v ->
+        if List.mem ~equal:equal_string bound v then
+          []
+        else
+          [v]
+    | Tuple vs -> List.concat_map ~f:free_v vs
+    | Inj (_, v, _) -> free_v v
+    | Fun {args; body; _} ->
+        let arg_names = List.unzip args |> fst in
+        fv ~bound:(arg_names @ bound) body
+  in
+  match e with
+  | Value v -> free_v v
+  | Apply (f, _, args) -> free_v f @ List.concat_map ~f:free_v args
+  | Project (_, v) -> free_v v
+  | Op (_, l, r) -> free_v l @ free_v r
+  | If0 (c, t, e) -> free_v c @ fv ~bound t @ fv ~bound e
+  | New v -> free_v v
+  | Deref v -> free_v v
+  | Assign (r, v) -> free_v r @ free_v v
+  | Fold (_, v) -> free_v v
+  | Unfold v -> free_v v
+  | Let ((n, _), e1, e2) -> fv ~bound e1 @ fv ~bound:(n :: bound) e2
+  | Cases (v, branches) ->
+      free_v v
+      @ List.concat_map
+          ~f:(fun ((n, _), e) -> fv ~bound:(n :: bound) e)
+          branches
+;;
+
+let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
+  let ftv_pt pt =
+    let open Source.PreType in
+    match pt with
+    | Int -> []
+    | Var v ->
+        if List.mem ~equal:equal_string bound v then
+          []
+        else
+          [v]
+    | Prod ts -> List.concat_map ~f:(ftv ~bound) ts
+    | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
+    | Ref t -> ftv ~bound t
+    | Rec (v, t) -> ftv ~bound:(v :: bound) t
+    | Fun {foralls; args; ret} ->
+        let bound = foralls @ bound in
+        List.concat_map ~f:(ftv ~bound) args @ ftv ~bound ret
+  in
+  ftv_pt t
+;;
+
+let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
+  let open Source.Expr in
+  let open Source.Value in
+  let ftv_v v =
+    match v with
+    | Inj (_, _, t) -> ftv ~bound t
+    | Fun {foralls; args; ret_type; body} ->
+        let arg_types = List.unzip args |> snd in
+        (* TODO: do both of these have to be here? *)
+        ftv (Fun {foralls; args= arg_types; ret= ret_type})
+        @ ftv_e ~bound:foralls body
+    | Int _ | Var _ | Tuple _ -> []
+  in
+  match e with
+  | Value v -> ftv_v v
+  | Apply (f, ts, args) ->
+      ftv_v f
+      @ List.concat_map ~f:(ftv ~bound) ts
+      @ List.concat_map ~f:ftv_v args
+  | Project (_, v) -> ftv_v v
+  | Op (_, l, r) -> ftv_v l @ ftv_v r
+  | If0 (c, t, e) -> ftv_v c @ ftv_e t @ ftv_e e
+  | Cases (v, branches) ->
+      ftv_v v
+      @ (branches |> List.unzip |> snd |> List.concat_map ~f:(ftv_e ~bound))
+  | New v -> ftv_v v
+  | Deref v -> ftv_v v
+  | Assign (r, v) -> ftv_v r @ ftv_v v
+  | Let (_, e1, e2) -> ftv_e ~bound e1 @ ftv_e ~bound e2
+  | Fold (_, v) -> ftv_v v
+  | Unfold v -> ftv_v v
+;;
+
+let rec cc_t t = cc_pt t
+
+and cc_pt pt =
+  match pt with
+  | Source.PreType.Int -> Closed.PreType.Int
+  | Source.PreType.Var v -> Closed.PreType.Var v
+  | Source.PreType.Prod ts -> Closed.PreType.Prod (List.map ~f:cc_t ts)
+  | Source.PreType.Sum ts -> Closed.PreType.Sum (List.map ~f:cc_t ts)
+  | Source.PreType.Ref t -> Closed.PreType.Ref (cc_t t)
+  | Source.PreType.Rec (v, t) -> Closed.PreType.Rec (v, cc_t t)
+  | Source.PreType.Fun {foralls; args; ret} ->
+      Closed.PreType.Exists
+        ( "#cc-env",
+          Closed.PreType.Code
+            { foralls;
+              args= Closed.PreType.Var "#cc-env" :: List.map ~f:cc_t args;
+              ret= cc_t ret } )
+;;
+
+let rec cc_v gamma tagger acc v =
+  match v with
+  | Source.Value.Int i -> (Closed.Value.Int i, acc)
+  | Source.Value.Var v -> (Closed.Value.Var v, acc)
+  | Tuple vs ->
+      let vs, code =
+        List.fold_left
+          ~f:(fun (vs, extra) v ->
+            let converted, code = cc_v gamma tagger acc v in
+            (converted :: vs, code @ extra) )
+          ~init:([], acc) vs
+      in
+      (Closed.Value.Tuple vs, code)
+  | Inj (i, v, t) ->
+      let v, code = cc_v gamma tagger acc v in
+      (Closed.Value.Inj (i, v, cc_t t), code)
+  | Fun {foralls; args; ret_type; body} ->
+      let gamma = args @ gamma in
+      let free_vars = fv body in
+      let free_type_vars = ftv_e (Value v) in
+      let arg_types = List.unzip args |> snd |> List.map ~f:cc_t in
+      let closure_id = string_of_int (tagger ()) in
+      let code_name = "closure#fn" ^ closure_id in
+      ( Closed.Value.Pack
+          ( Closed.PreType.Prod
+              ( free_vars
+              |> List.map ~f:(List.Assoc.find_exn ~equal:equal_string gamma)
+              |> List.map ~f:cc_t ),
+            Closed.Value.Tuple
+              [ Closed.Value.Tuple
+                  (List.map ~f:(fun v -> Closed.Value.Var v) free_vars);
+                Closed.Value.Var code_name ],
+            Closed.PreType.Exists
+              ( "#cc-env",
+                Closed.PreType.Code
+                  { foralls= free_type_vars @ foralls;
+                    args= arg_types;
+                    ret= cc_t ret_type } ) ),
+        (* TODO: fill in the closed code term here *)
+        [] )
+;;
