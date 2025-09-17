@@ -625,31 +625,31 @@ Section Instrs.
     match e with
     | INop _ => emit W.BI_nop
     | IUnreachable _ => emit (W.BI_unreachable)
-    | ICopy (ArrowT [τ] [_; _]) =>
+    | ICopy (InstrT [τ] [_; _]) =>
         ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
         idx ← save_stack_r ρ;
         dup_roots_local idx ρ;;
         restore_stack_r idx ρ;;
         restore_stack_r idx ρ
     | ICopy _ => raise EWrongTypeAnn
-    | IDrop (ArrowT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
+    | IDrop (InstrT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | INum _ e' => emit (compile_num_instr e')
-    | INumConst (ArrowT [] [NumT _ nt]) n =>
+    | INumConst (InstrT [] [NumT _ nt]) n =>
         emit (W.BI_const (compile_Z (translate_num_type nt) (Z.of_nat n)))
     | INumConst _ _ => raise EWrongTypeAnn
     | IBlock ψ _ es =>
-        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
+        tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
         ignore (block_c tf (mapM compile_instr es))
     | ILoop ψ es =>
-        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
+        tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
         ignore (loop_c tf (mapM compile_instr es))
     | IIte ψ _ es1 es2 =>
-        tf ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
+        tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
         ignore (if_c tf (mapM compile_instr es1) (mapM compile_instr es2))
     | IBr _ n => emit (W.BI_br n)
     | IBrIf _ n => emit (W.BI_br_if n)
     | IBrTable _ ns n => emit (W.BI_br_table ns n)
-    | IReturn (ArrowT τs _) => compile_return τs
+    | IReturn (InstrT τs _) => compile_return τs
     | ILocalGet _ idx => compile_get_local idx
     | ILocalSet _ idx => compile_set_local idx
     | IGlobalGet _ idx => compile_get_global idx
@@ -672,36 +672,25 @@ Section Instrs.
 
     | IPack _ => erased_in_wasm
     | IUnpack ψ _ es =>
-        tys ← try_option EUnboundTypeVar (translate_arrow_type fe.(fe_type_vars) ψ);
+        tys ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
         (* bug? fe.(fe_type_vars) needs to be extended *)
         ignore $ block_c tys $ mapM compile_instr es
 
-    | IWrap (ArrowT [τ0] [RepT κ ρ τ0']) =>
+    | IWrap (InstrT [τ0] [RepT κ ρ τ0']) =>
         ρ0 ← try_option EUnboundTypeVar $ type_rep fe.(fe_type_vars) τ0;
         conv_rep ρ0 ρ
     | IWrap _ => raise EWrongTypeAnn
-    | IUnwrap (ArrowT [RepT κ ρ τ0'] [τ0]) =>
+    | IUnwrap (InstrT [RepT κ ρ τ0'] [τ0]) =>
         ρ0 ← try_option EUnboundTypeVar $ type_rep fe.(fe_type_vars) τ0;
         conv_rep ρ ρ0
     | IUnwrap _ => raise EWrongTypeAnn
 
-    | IRefNew (ArrowT [τ] [RefT κ (ConstM MemMM) τ']) => raise ETodo
-    | IRefNew (ArrowT [τ] [RefT κ (ConstM MemGC) τ']) => raise ETodo
+    | IRefNew (InstrT [τ] [RefT κ (ConstM MemMM) τ']) => raise ETodo
+    | IRefNew (InstrT [τ] [RefT κ (ConstM MemGC) τ']) => raise ETodo
     | IRefNew _ => raise ETodo
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
     | IRefSwap _ _ => raise ETodo
-
-    | IArrayNew _ =>
-        (* TODO: unregisterroot the initial value if GC array;
-                 duproot a bunch of times if MM array *)
-        raise ETodo
-    | IArrayGet _ =>
-        (* TODO: try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_get *)
-        raise ETodo
-    | IArraySet _ =>
-        (* TODO: try_option EWrongTypeAnn (head in_ty ≫= array_elem) ≫= compile_array_set *)
-        raise ETodo
     end.
 
   Definition compile_instrs : list instruction -> codegen unit := iterM compile_instr.

@@ -99,11 +99,11 @@ Definition translate_types (κs : list kind) (τs : list type) : option (list W.
 Definition translate_num_type (ν : num_type) : W.value_type :=
   translate_prim_rep (num_type_rep ν).
 
-Definition translate_arrow_type (κs : list kind) (ψ : arrow_type) : option W.function_type :=
-  let 'ArrowT τs1 τs2 := ψ in
+Definition translate_instr_type (κs : list kind) (ψ : instruction_type) : option W.function_type :=
+  let 'InstrT τs1 τs2 := ψ in
   tys1 ← translate_types κs τs1;
   tys2 ← translate_types κs τs2;
-  mret (W.Tf tys1 tys2).
+  Some (W.Tf tys1 tys2).
 
 Definition fe_wlocal_offset (fe : function_env) : nat :=
   default 0 (sum_list_with length <$> mapM translate_rep fe.(fe_local_reps)).

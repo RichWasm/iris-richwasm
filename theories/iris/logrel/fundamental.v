@@ -18,7 +18,7 @@ Section Fundamental.
   Lemma compat_nop M F L wl wl' es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let ψ := ArrowT [] [] in
+    let ψ := InstrT [] [] in
     run_codegen (compile_instr me fe (INop ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -26,7 +26,7 @@ Section Fundamental.
   Lemma compat_unreachable M F L L' wl wl' τs1 τs2 es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let ψ := ArrowT τs1 τs2 in
+    let ψ := InstrT τs1 τs2 in
     run_codegen (compile_instr me fe (IUnreachable ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -35,7 +35,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     has_copyability F τ ExCopy ->
-    let ψ := ArrowT [τ] [τ; τ] in
+    let ψ := InstrT [τ] [τ; τ] in
     run_codegen (compile_instr me fe (ICopy ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -44,7 +44,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     has_dropability F τ ExDrop ->
-    let ψ := ArrowT [τ] [] in
+    let ψ := InstrT [τ] [] in
     run_codegen (compile_instr me fe (IDrop ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -61,7 +61,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     has_kind F (NumT κ ν) κ ->
-    let ψ := ArrowT [] [NumT κ ν] in
+    let ψ := InstrT [] [NumT κ ν] in
     run_codegen (compile_instr me fe (INumConst ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -71,7 +71,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let L' := update_locals ξ L in
     let F' := RecordSet.set fc_labels (cons (τs2, L')) F in
-    let ψ := ArrowT τs1 τs2 in
+    let ψ := InstrT τs1 τs2 in
     instrs_have_type M F' L es ψ L' ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
@@ -85,7 +85,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let F' := RecordSet.set fc_labels (cons (τs1, L)) F in
-    let ψ := ArrowT τs1 τs2 in
+    let ψ := InstrT τs1 τs2 in
     instrs_have_type M F' L es ψ L ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
@@ -116,7 +116,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     fc_labels F !! n = Some (τs, L) ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
-    let ψ := ArrowT (τs1 ++ τs) τs2 in
+    let ψ := InstrT (τs1 ++ τs) τs2 in
     let L' := update_locals ξ L in
     run_codegen (compile_instr me fe (IBr ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
@@ -128,7 +128,7 @@ Section Fundamental.
     fc_labels F !! n = Some (τs, L) ->
     let τ := NumT κ (IntT I32T) in
     has_kind F τ κ ->
-    let ψ := ArrowT (τs ++ [τ]) τs in
+    let ψ := InstrT (τs ++ [τ]) τs in
     run_codegen (compile_instr me fe (IBrIf ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -140,7 +140,7 @@ Section Fundamental.
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     let τ := NumT κ (IntT I32T) in
     has_kind F τ κ ->
-    let ψ := ArrowT (τs1 ++ τs ++ [τ]) τs2 in
+    let ψ := InstrT (τs1 ++ τs ++ [τ]) τs2 in
     run_codegen (compile_instr me fe (IBrTable ψ ns n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -150,7 +150,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     fc_return_type F = τs ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
-    let ψ := ArrowT (τs1 ++ τs) τs2 in
+    let ψ := InstrT (τs1 ++ τs) τs2 in
     run_codegen (compile_instr me fe (IReturn ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -163,7 +163,7 @@ Section Fundamental.
     let τ' := RepT κ ρ (ProdT κ0 []) in
     has_kind F τ' κ ->
     let L' := <[n := τ']> L in
-    let ψ := ArrowT [] [τ] in
+    let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (ILocalGet ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -173,7 +173,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     L !! n = Some τ ->
     has_copyability F τ ImCopy ->
-    let ψ := ArrowT [] [τ] in
+    let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (ILocalGet ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -186,7 +186,7 @@ Section Fundamental.
     has_rep F τ ρ ->
     has_rep F τ' ρ ->
     let L' := <[n := τ']> L in
-    let ψ := ArrowT [τ'] [] in
+    let ψ := InstrT [τ'] [] in
     run_codegen (compile_instr me fe (ILocalSet ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -196,7 +196,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     mc_globals M !! n = Some (m, τ) ->
     has_copyability F τ ImCopy ->
-    let ψ := ArrowT [] [τ] in
+    let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (IGlobalGet ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -206,7 +206,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     mc_globals M !! n = Some (Mut, τ) ->
     has_dropability F τ ImDrop ->
-    let ψ := ArrowT [τ] [] in
+    let ψ := InstrT [τ] [] in
     run_codegen (compile_instr me fe (IGlobalSet ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -215,7 +215,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     mc_globals M !! n = Some (Mut, τ) ->
-    let ψ := ArrowT [τ] [τ] in
+    let ψ := InstrT [τ] [τ] in
     run_codegen (compile_instr me fe (IGlobalSwap ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -226,7 +226,7 @@ Section Fundamental.
     mc_table M !! i = Some ϕ ->
     let τ := CodeRefT κ ϕ in
     has_kind F τ κ ->
-    let ψ := ArrowT [] [τ] in
+    let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (ICodeRef ψ i)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -235,7 +235,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     inst_function_type F ix ϕ ϕ' ->
-    let ψ := ArrowT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
+    let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
     run_codegen (compile_instr me fe (IInst ψ ix)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -244,8 +244,8 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     mc_table M !! i = Some ϕ ->
-    let ψ := ArrowT τs1 τs2 in
-    list_inst_function_type F ixs ϕ (FunT ψ) ->
+    let ψ := InstrT τs1 τs2 in
+    list_inst_function_type F ixs ϕ (MonoFunT ψ) ->
     run_codegen (compile_instr me fe (ICall ψ i ixs)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -253,7 +253,7 @@ Section Fundamental.
   Lemma compat_call_indirect M F L wl wl' es' τs1 τs2 κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let ψ := ArrowT (τs1 ++ [CodeRefT κ (FunT (ArrowT τs1 τs2))]) τs2 in
+    let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT (InstrT τs1 τs2))]) τs2 in
     run_codegen (compile_instr me fe (ICallIndirect ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -262,7 +262,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     τs !! i = Some τ ->
-    let ψ := ArrowT [τ] [SumT κ τs] in
+    let ψ := InstrT [τ] [SumT κ τs] in
     run_codegen (compile_instr me fe (IInject ψ i)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -271,8 +271,8 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let L' := update_locals ξ L in
-    Forall2 (fun τ es => instrs_have_type M F L es (ArrowT [τ] [τ']) L') τs ess ->
-    let ψ := ArrowT [SumT κ τs] [τ'] in
+    Forall2 (fun τ es => instrs_have_type M F L es (InstrT [τ] [τ']) L') τs ess ->
+    let ψ := InstrT [SumT κ τs] [τ'] in
     run_codegen (compile_instr me fe (ICase ψ ξ ess)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -283,7 +283,7 @@ Section Fundamental.
     Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
     let τ := ProdT κ τs in
     has_kind F τ κ ->
-    let ψ := ArrowT τs [τ] in
+    let ψ := InstrT τs [τ] in
     run_codegen (compile_instr me fe (IGroup ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -294,7 +294,7 @@ Section Fundamental.
     let κ := VALTYPE ρ χ δ in
     let τ := ProdT κ τs in
     has_kind F τ κ ->
-    let ψ := ArrowT [τ] τs in
+    let ψ := InstrT [τ] τs in
     run_codegen (compile_instr me fe (IUngroup ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -304,7 +304,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     has_kind F τ κ ->
     let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
-    let ψ := ArrowT [τ0] [RecT κ τ] in
+    let ψ := InstrT [τ0] [RecT κ τ] in
     run_codegen (compile_instr me fe (IFold ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -313,7 +313,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
-    let ψ := ArrowT [RecT κ τ] [τ0] in
+    let ψ := InstrT [RecT κ τ] [τ0] in
     run_codegen (compile_instr me fe (IUnfold ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -322,7 +322,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     pack_existential_type F τ τ' ->
-    let ψ := ArrowT [τ] [τ'] in
+    let ψ := InstrT [τ] [τ'] in
     run_codegen (compile_instr me fe (IPack ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -333,14 +333,14 @@ Section Fundamental.
     let F' := RecordSet.set fc_mem_vars S (subst_function_ctx (up_memory VarM) VarR VarS VarT F) in
     let L' := update_locals ξ L in
     let weak := map (subst_type (up_memory VarM) VarR VarS VarT) in
-    instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
-    let ψ := ArrowT (τs1 ++ [ExMemT κ τ]) τs2 in
+    instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+    let ψ := InstrT (τs1 ++ [ExistsMemT κ τ]) τs2 in
     (forall wl wl' es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
         ⊢ has_type_semantic sr M F' (weak L) wl'
           (to_e_list es')
-          (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
+          (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
     run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -351,14 +351,14 @@ Section Fundamental.
     let F' := RecordSet.set fc_rep_vars S (subst_function_ctx VarM (up_representation VarR) VarS VarT F) in
     let L' := update_locals ξ L in
     let weak := map (subst_type VarM (up_representation VarR) VarS VarT) in
-    instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
-    let ψ := ArrowT (τs1 ++ [ExRepT κ τ]) τs2 in
+    instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+    let ψ := InstrT (τs1 ++ [ExistsRepT κ τ]) τs2 in
     (forall wl wl' es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
         ⊢ has_type_semantic sr M F' (weak L) wl'
           (to_e_list es')
-          (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
+          (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
     run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -369,14 +369,14 @@ Section Fundamental.
     let F' := RecordSet.set fc_size_vars S (subst_function_ctx VarM VarR (up_size VarS) VarT F) in
     let L' := update_locals ξ L in
     let weak := map (subst_type VarM VarR (up_size VarS) VarT) : list type → list type in
-    instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
-    let ψ := ArrowT (τs1 ++ [ExRepT κ τ]) τs2 in
+    instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+    let ψ := InstrT (τs1 ++ [ExistsRepT κ τ]) τs2 in
     (forall wl wl' es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
         ⊢ has_type_semantic sr M F' (weak L) wl'
           (to_e_list es')
-          (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
+          (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
     run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -389,14 +389,14 @@ Section Fundamental.
     in
     let L' := update_locals ξ L in
     let weak := map (subst_type VarM VarR VarS (up_type VarT)) in
-    instrs_have_type M F' (weak L) es (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
-    let ψ := ArrowT (τs1 ++ [ExTypeT κ κ0 τ]) τs2 in
+    instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+    let ψ := InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2 in
     (forall wl wl' es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
         ⊢ has_type_semantic sr M F' (weak L) wl'
           (to_e_list es')
-          (ArrowT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
+          (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L')) ->
     run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -409,7 +409,7 @@ Section Fundamental.
     convertible_to ιs0 ιs ->
     let τ := RepT κ ρ τ0 in
     has_kind F τ κ ->
-    let ψ := ArrowT [τ0] [τ] in
+    let ψ := InstrT [τ0] [τ] in
     run_codegen (compile_instr me fe (IWrap ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -422,7 +422,7 @@ Section Fundamental.
     convertible_to ιs0 ιs ->
     let τ := RepT κ ρ τ0 in
     has_kind F τ κ ->
-    let ψ := ArrowT [τ] [τ0] in
+    let ψ := InstrT [τ] [τ0] in
     run_codegen (compile_instr me fe (IUnwrap ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -434,7 +434,7 @@ Section Fundamental.
     stores_as F τ0 τ0' ->
     let τ := RefT κ μ τ0' in
     has_kind F τ κ ->
-    let ψ := ArrowT [τ0] [τ] in
+    let ψ := InstrT [τ0] [τ] in
     run_codegen (compile_instr me fe (IRefNew ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -448,7 +448,7 @@ Section Fundamental.
     mono_rep ρ ιs ->
     let τ := RefT κ μ τ0 in
     has_kind F τ κ ->
-    let ψ := ArrowT [τ] [τ; τ0'] in
+    let ψ := InstrT [τ] [τ; τ0'] in
     run_codegen (compile_instr me fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -461,7 +461,7 @@ Section Fundamental.
     has_dropability F τ__π ImDrop ->
     let τ := RefT κ μ τ0 in
     has_kind F τ κ ->
-    let ψ := ArrowT [τ; τᵥ] [τ] in
+    let ψ := InstrT [τ; τᵥ] [τ] in
     run_codegen (compile_instr me fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -478,7 +478,7 @@ Section Fundamental.
     let τ' := RefT κ' (ConstM MemMM) τ0' in
     has_kind F τ κ ->
     has_kind F τ' κ' ->
-    let ψ := ArrowT [τ; τᵥ'] [τ'] in
+    let ψ := InstrT [τ; τᵥ'] [τ'] in
     run_codegen (compile_instr me fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -492,7 +492,7 @@ Section Fundamental.
     Forall (mono_sized F) τs__prefix ->
     let τ := RefT κ μ τ0 in
     has_kind F τ κ ->
-    let ψ := ArrowT [τ; τᵥ] [τ; τᵥ] in
+    let ψ := InstrT [τ; τᵥ] [τ; τᵥ] in
     run_codegen (compile_instr me fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -510,7 +510,7 @@ Section Fundamental.
     let τ' := RefT κ' (ConstM MemMM) τ0' in
     has_kind F τ κ ->
     has_kind F τ' κ' ->
-    let ψ := ArrowT [τ; τᵥ'] [τ'; τᵥ] in
+    let ψ := InstrT [τ; τᵥ'] [τ'; τᵥ] in
     run_codegen (compile_instr me fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -519,22 +519,22 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     run_codegen (compile_instrs me fe []) es' = inr ((), wl, wl') ->
-    ⊢ has_type_semantic sr M F L wl (to_e_list wl') (ArrowT [] []) L.
+    ⊢ has_type_semantic sr M F L wl (to_e_list wl') (InstrT [] []) L.
   Admitted.
 
   Lemma compat_cons M F L1 L2 L3 wl wl' es' e es τs1 τs2 τs3 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    instr_has_type M F L1 e (ArrowT τs1 τs2) L2 ->
-    instrs_have_type M F L2 es (ArrowT τs2 τs3) L3 ->
+    instr_has_type M F L1 e (InstrT τs1 τs2) L2 ->
+    instrs_have_type M F L2 es (InstrT τs2 τs3) L3 ->
     (forall es' wl wl',
         run_codegen (compile_instr me fe e) wl = inr ((), wl', es') ->
-        ⊢ has_type_semantic sr M F L1 [] (to_e_list es') (ArrowT τs1 τs2) L2) ->
+        ⊢ has_type_semantic sr M F L1 [] (to_e_list es') (InstrT τs1 τs2) L2) ->
     (forall wl wl' es',
         run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
-        ⊢ has_type_semantic sr M F L2 wl' (to_e_list es') (ArrowT τs2 τs3) L3) ->
+        ⊢ has_type_semantic sr M F L2 wl' (to_e_list es') (InstrT τs2 τs3) L3) ->
     run_codegen (compile_instrs me fe (e :: es)) es' = inr ((), wl, wl') ->
-    ⊢ has_type_semantic sr M F L1 wl (to_e_list wl') (ArrowT τs1 τs3) L3.
+    ⊢ has_type_semantic sr M F L1 wl (to_e_list wl') (InstrT τs1 τs3) L3.
   Admitted.
 
   Theorem fundamental_theorem M F L L' wl wl' es es' tf :

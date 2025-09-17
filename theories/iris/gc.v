@@ -11,7 +11,7 @@ From RichWasm.iris.rules Require Import iris_rules proofmode.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Definition layout_map : Type := gmap location object_layout.
+Definition layout_map : Type := gmap location (list word_kind).
 
 Definition root_map : Type := gmap address location.
 
@@ -19,7 +19,7 @@ Definition object_map : Type := gmap location (list word).
 
 Class RichWasmGCG (Σ : gFunctors) :=
   { gc_layouts : gname;
-    gc_layouts_G :: ghost_mapG Σ location object_layout;
+    gc_layouts_G :: ghost_mapG Σ location (list word_kind);
     gc_objects : gname;
     gc_objects_G :: ghost_mapG Σ location (list word);
     gc_roots : gname;
@@ -58,47 +58,43 @@ Section Token.
 
   Definition consistent_objects_memory (m : memaddr) (θ : address_map) (wss : object_map) : iProp Σ :=
     [∗ map] ℓ ↦ a; ws ∈ θ; wss,
-    ∃ bs ns,
-    N.of_nat m ↦[wms][a] bs ∗
-    ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-    ⌜repr_list_word heap_start θ ws ns⌝.
+      ∃ bs ns,
+        N.of_nat m ↦[wms][a] bs ∗
+          ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
+          ⌜repr_list_word heap_start θ ws ns⌝.
 
   Definition consistent_roots_memory (m : memaddr) (θ : address_map) (rs : root_map) : iProp Σ :=
     [∗ map] a ↦ ℓ ∈ rs,
-    ∃ bs n,
-    N.of_nat m ↦[wms][a] bs ∗
-    ⌜bs = serialize_Z_i32 n⌝ ∗
-    ⌜repr_location_index θ ℓ 0 n⌝.
+      ∃ bs n,
+        N.of_nat m ↦[wms][a] bs ∗
+          ⌜bs = serialize_Z_i32 n⌝ ∗
+          ⌜repr_location_index θ ℓ 0 n⌝.
 
-  Definition consistent_objects_layouts (ls : layout_map) (wss : object_map) : Prop :=
-    map_Forall
-      (fun ℓ '(l, ws) =>
-         length ws =? length l.(ol_prefix) + l.(ol_count) * length l.(ol_element) /\
-           Forall (curry word_has_kind) (combine (concat (repeat l.(ol_element) l.(ol_count))) ws))
-      (map_zip ls wss).
+  Definition consistent_objects_layouts (kss : layout_map) (wss : object_map) : Prop :=
+    map_Forall (fun ℓ '(ks, ws) => Forall2 word_has_kind ks ws) (map_zip kss wss).
 
   Definition consistent_reachable_addresses (wss : object_map) (θ : address_map) : Prop :=
     gmap_injective θ /\
-    ∀ ℓ ℓ' ws,
-    ℓ ∈ dom θ ->
-    wss !! ℓ = Some ws ->
-    WordPtr (PtrGC ℓ') ∈ ws ->
-    ℓ' ∈ dom θ.
+      ∀ ℓ ℓ' ws,
+        ℓ ∈ dom θ ->
+        wss !! ℓ = Some ws ->
+        WordPtr (PtrGC ℓ') ∈ ws ->
+        ℓ' ∈ dom θ.
 
   Definition live_roots (θ : address_map) (rs : root_map) : Prop :=
     ∀ a ℓ, rs !! a = Some ℓ -> ℓ ∈ dom θ.
 
   Definition gc_token (inv : gc_invariant Σ) (m : memaddr) (θ : address_map) : iProp Σ :=
-    ∃ (ls : layout_map) (wss : object_map) (rs : root_map),
-    inv ls wss rs ∗
-    ghost_map_auth gc_layouts (1/2) ls ∗
-    ghost_map_auth gc_objects 1 wss ∗
-    ghost_map_auth gc_roots (1/2) rs ∗
-    consistent_objects_memory m θ wss ∗
-    consistent_roots_memory m θ rs ∗
-    ⌜consistent_objects_layouts ls wss⌝ ∗
-    ⌜consistent_reachable_addresses wss θ⌝ ∗
-    ⌜live_roots θ rs⌝.
+    ∃ (kss : layout_map) (wss : object_map) (rs : root_map),
+      inv kss wss rs ∗
+        ghost_map_auth gc_layouts (1/2) kss ∗
+        ghost_map_auth gc_objects 1 wss ∗
+        ghost_map_auth gc_roots (1/2) rs ∗
+        consistent_objects_memory m θ wss ∗
+        consistent_roots_memory m θ rs ∗
+        ⌜consistent_objects_layouts kss wss⌝ ∗
+        ⌜consistent_reachable_addresses wss θ⌝ ∗
+        ⌜live_roots θ rs⌝.
 
 End Token.
 
@@ -364,34 +360,23 @@ Section Rules.
     (E : coPset) (inv : gc_invariant Σ) (m : memaddr)
     (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction) :
     iProp Σ :=
-    □ ∀ (F : frame) (θ : address_map) (prefix_sz count elem_sz : i32) (prefix_map elem_map : i64),
-    let alloc_gc_func :=
-      N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32; T_i64; T_i32; T_i32; T_i64] [T_i32]) fts fes
-    in
-    let l :=
-      {| ol_prefix := kinds_of_pointer_map prefix_map (Wasm_int.nat_of_uint i32m prefix_sz);
-         ol_count := Wasm_int.nat_of_uint i32m count;
-         ol_element := kinds_of_pointer_map elem_map (Wasm_int.nat_of_uint i32m elem_sz) |}
-    in
+    □ ∀ (F : frame) (θ : address_map) (sz : i32) (pm : i64),
+    let alloc_gc_func := N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32; T_i64] [T_i32]) fts fes in
+    let ks := kinds_of_pointer_map pm (Wasm_int.nat_of_uint i32m sz) in
     gc_token heap_start inv m θ ∗
     alloc_gc_func ∗
     ↪[frame] F -∗
-    WP [AI_basic (BI_const (VAL_int32 prefix_sz));
-        AI_basic (BI_const (VAL_int64 prefix_map));
-        AI_basic (BI_const (VAL_int32 count));
-        AI_basic (BI_const (VAL_int32 elem_sz));
-        AI_basic (BI_const (VAL_int64 elem_map));
-        AI_invoke fid]
+    WP [AI_basic (BI_const (VAL_int32 sz)); AI_basic (BI_const (VAL_int64 pm)); AI_invoke fid]
        @ E
        {{ v, (⌜v = trapV⌝ ∨
               ∃ θ' ℓ n ws,
               ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_location_index θ' ℓ 0 n⌝ ∗
-              gc_token heap_start inv m θ' ∗ ℓ ↦gcl l ∗ ℓ ↦gco ws ∗
+              gc_token heap_start inv m θ' ∗ ℓ ↦gcl ks ∗ ℓ ↦gco ws ∗
               alloc_gc_func) ∗
              ↪[frame] F }}%I.
 
   (* TODO: What would happen if the ∃ k was pulled up to a lemma parameter, and
-   * repr_vval θ vv k was an assumption? *)
+           repr_vval θ vv k was an assumption? *)
   Lemma wp_load_i32_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
       (m : memaddr) (θ : address_map) (inv : gc_invariant Σ)

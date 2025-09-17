@@ -115,7 +115,6 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
   | NumT κ _
   | SumT κ _
   | ProdT κ _
-  | ArrT κ _
   | RefT κ _ _
   | GCPtrT κ _
   | CodeRefT κ _
@@ -123,10 +122,10 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
   | PadT κ _ _
   | SerT κ _
   | RecT κ _
-  | ExMemT κ _
-  | ExRepT κ _
-  | ExSizeT κ _
-  | ExTypeT κ _ _ => kind_rep κ
+  | ExistsMemT κ _
+  | ExistsRepT κ _
+  | ExistsSizeT κ _
+  | ExistsTypeT κ _ _ => kind_rep κ
   end.
 
 Fixpoint eval_size (σ : size) : option nat :=

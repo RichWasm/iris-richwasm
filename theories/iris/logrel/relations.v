@@ -46,7 +46,7 @@ Section Relations.
   Implicit Type τ : leibnizO type.
   Implicit Type τs : leibnizO (list type).
   Implicit Type ϕ : leibnizO function_type.
-  Implicit Type ψ : leibnizO arrow_type.
+  Implicit Type ψ : leibnizO instruction_type.
 
   Definition relation_bundle : Type :=
     (* Value *)
@@ -164,14 +164,6 @@ Section Relations.
       | ProdT (MEMTYPE _ (ConstM cm) _) τs =>
           ∃ wss,
             ⌜sv = SWords cm (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ rb_value rb τ (SWords cm ws)
-      | ArrT (VALTYPE _ _ _) _ => False
-      | ArrT (MEMTYPE _ (VarM _) _) _ => False
-      | ArrT (MEMTYPE _ (ConstM cm) _) τ =>
-          ∃ wₙ wss bsₙ n,
-            ⌜sv = SWords cm (wₙ :: concat wss)⌝ ∗
-              ⌜bsₙ = serialize_Z_i32 n⌝ ∗
-              ⌜repr_word sr.(sr_gc_heap_start) ∅ wₙ n⌝ ∗
-              [∗ list] ws ∈ wss, ▷ rb_value rb τ (SWords cm ws)
       | RefT _ (VarM _) _ => False
       | RefT _ (ConstM MemMM) τ =>
           ∃ a ws ns bs,
@@ -224,19 +216,19 @@ Section Relations.
       | RecT κ τ =>
           let τ' := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
           ▷ rb_value rb τ' sv
-      | ExMemT _ τ =>
+      | ExistsMemT _ τ =>
           ∃ μ,
             let τ' := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ in
             ▷ rb_value rb τ' sv
-      | ExRepT _ τ =>
+      | ExistsRepT _ τ =>
           ∃ ρ,
             let τ' := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ in
             ▷ rb_value rb τ' sv
-      | ExSizeT _ τ =>
+      | ExistsSizeT _ τ =>
           ∃ σ,
             let τ' := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ in
             ▷ rb_value rb τ' sv
-      | ExTypeT _ κ τ =>
+      | ExistsTypeT _ κ τ =>
           ∃ τ0,
             ▷ kind_interp κ (rb_value rb τ0) ∗
             let τ' := subst_type VarM VarR VarS (unscoped.scons τ0 VarT) τ in
@@ -303,7 +295,7 @@ Section Relations.
   Definition has_type_semantic
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
     (es : list administrative_instruction)
-    '(ArrowT τs1 τs2 : arrow_type) (L' : local_ctx) :
+    '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
     (∀ inst lh,
        instance_interp M inst ∗ context_interp F L L' inst lh -∗

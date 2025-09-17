@@ -27,11 +27,6 @@ Inductive word_kind :=
 | IntWord
 | PtrWord.
 
-Record object_layout :=
-  { ol_prefix : list word_kind;
-    ol_element : list word_kind;
-    ol_count : nat }.
-
 Inductive rep_value :=
 | PtrV (i : i32)
 | I32V (i : i32)
