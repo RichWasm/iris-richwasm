@@ -8,6 +8,7 @@ let example1 : Module.t =
 
 open Types
 
+(* TODO: generate proper examples once parser is done *)
 (* ChatGPT: *)
 
 let add_one_program =
@@ -207,3 +208,15 @@ let closure_example =
            ( ("add5", Lollipop (Int, Int)),
              App (Var "make_adder", Int 5),
              App (Var "add5", Int 10) )) )
+
+let all =
+  [
+    ("add_one_program", add_one_program);
+    ("swap_pair_program", swap_pair_program);
+    ("compose_program", compose_program);
+    ("reference_example", reference_example);
+    ("factorial_program", factorial_program);
+    ("module_with_imports", module_with_imports);
+    ("complex_example", complex_example);
+    ("closure_example", closure_example);
+  ]

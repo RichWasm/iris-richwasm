@@ -1,5 +1,12 @@
 open Base
 
+module LVar = struct
+  type t = int * string option
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
+
+  let compare (i1, _) (i2, _) = Int.compare i1 i2
+end
+
 (* de Bruijn indices *)
 module Indexed = struct
   open Sexplib.Std
@@ -11,11 +18,14 @@ module Indexed = struct
   type binop = Types.binop
   [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
+  type lvar = LVar.t
+  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
+
   type gvar = string
   [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   type value =
-    | Var of int
+    | Var of lvar
     | Global of gvar
     | Int of int
     | Lam of typ * typ * expr
@@ -61,7 +71,7 @@ module Index = struct
     match value with
     | Var x ->
         (match List.findi ~f:(fun _ -> String.equal x) env with
-        | Some (i, _) -> B.Var i
+        | Some (i, n) -> B.Var (i, Some n)
         | None -> B.Global x)
         (* assumes WF *)
         |> return
