@@ -196,8 +196,8 @@ Section Instrs.
     mret $ W.Mk_localidx $ sum_list_with length (take x ts).
 
   Definition lookup_local (x: nat) : option (W.localidx * representation) :=
-    idx ← local_index x fe.(fe_local_reprs);
-    ρ ← fe.(fe_local_reprs) !! x;
+    idx ← local_index x fe.(fe_local_reps);
+    ρ ← fe.(fe_local_reps) !! x;
     mret (idx, ρ).
 
   Definition compile_get_local (idx : nat) : codegen unit :=

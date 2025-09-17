@@ -23,11 +23,14 @@ Definition typeidx_i32_i32_to_nil : W.immediate := 1.
 Definition globidx_table_next : W.immediate := 0.
 Definition globidx_table_offset : W.immediate := 1.
 
-Definition fe_of_contexts (F : function_ctx) (L : local_ctx) : option function_env :=
-  ρs ← mapM (fun τ => type_rep F.(fc_type_vars) τ) L;
-  mret {| fe_return_type := F.(fc_return_type);
-          fe_type_vars := F.(fc_type_vars);
-          fe_local_reprs := ρs |}.
+Definition me_of_context (M : module_ctx) (mr : module_runtime) : module_env :=
+  {| me_globals := map snd M.(mc_globals);
+     me_runtime := mr |}.
+
+Definition fe_of_context (F : function_ctx) : function_env :=
+  {| fe_return_type := F.(fc_return_type);
+     fe_type_vars := F.(fc_type_vars);
+     fe_local_reps := F.(fc_locals) |}.
 
 Definition set_table_elem (start : W.immediate) (i f : nat) : W.expr :=
   [W.BI_get_local start;
