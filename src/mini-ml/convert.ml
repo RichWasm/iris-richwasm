@@ -134,7 +134,7 @@ let rec cc_v gamma tagger acc v =
       let arg_types = List.map ~f:cc_t arg_types in
       let closure_id = string_of_int (tagger ()) in
       let code_name = "closure#fn" ^ closure_id in
-      let cced_body, code = cc_e gamma tagger acc v in
+      let cced_body, code = cc_e gamma tagger acc body in
       let env_type =
         free_vars
         |> List.map ~f:(List.Assoc.find_exn ~equal:equal_string gamma)
@@ -172,4 +172,56 @@ let rec cc_v gamma tagger acc v =
                      free_bindings ) } )
         :: code )
 
-and cc_e gamma tagger acc e = failwith "todo"
+and cc_e gamma tagger acc e =
+  let open Source.Expr in
+  match e with
+  | Value v ->
+      let v', code = cc_v gamma tagger acc v in
+      (Closed.Expr.Value v', code)
+  | Project (i, v) ->
+      let v', code = cc_v gamma tagger acc v in
+      (Closed.Expr.Project (i, v'), code)
+  | Op (o, l, r) ->
+      let l', acc' = cc_v gamma tagger acc l in
+      let r', code = cc_v gamma tagger acc' r in
+      (Closed.Expr.Op (o, l', r'), code)
+  | New v ->
+      let v', code = cc_v gamma tagger acc v in
+      (Closed.Expr.New v', code)
+  | Deref v ->
+      let v', code = cc_v gamma tagger acc v in
+      (Closed.Expr.Deref v', code)
+  | Assign (r, v) ->
+      let r', acc' = cc_v gamma tagger acc r in
+      let v', code = cc_v gamma tagger acc' v in
+      (Closed.Expr.Assign (r', v'), code)
+  | Fold (t, v) ->
+      let t' = cc_t t in
+      let v', code = cc_v gamma tagger acc v in
+      (Closed.Expr.Fold (t', v'), code)
+  | Unfold v ->
+      let v', code = cc_v gamma tagger acc v in
+      (Closed.Expr.Unfold v', code)
+  | If0 (c, t, e) ->
+      let c', acc' = cc_v gamma tagger acc c in
+      let t', acc' = cc_e gamma tagger acc' t in
+      let e', code = cc_e gamma tagger acc' e in
+      (Closed.Expr.If0 (c', t', e'), code)
+  | Let ((n, t), e1, e2) ->
+      let t' = cc_t t in
+      let e1', acc' = cc_e gamma tagger acc e1 in
+      let e2', code = cc_e gamma tagger acc' e2 in
+      (Closed.Expr.Let ((n, t'), e1', e2'), code)
+  | Cases (v, branches) ->
+      let v', acc' = cc_v gamma tagger acc v in
+      let branches', code =
+        List.fold_left
+          ~f:(fun (branches, code) ((n, t), e) ->
+            let t' = cc_t t in
+            let e', new_code = cc_e gamma tagger code e in
+            (((n, t'), e') :: branches, new_code) )
+          ~init:([], acc') branches
+      in
+      (Closed.Expr.Cases (v', branches'), code)
+  | _ -> failwith ""
+;;
