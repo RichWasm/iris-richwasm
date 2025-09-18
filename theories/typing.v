@@ -5,7 +5,7 @@ Require Import stdpp.list.
 
 Require Import RecordUpdate.RecordUpdate.
 
-Require Import RichWasm.syntax.
+From RichWasm Require Import syntax layout.
 
 Record module_ctx :=
   { mc_globals : list (mutability * type);
@@ -78,26 +78,6 @@ Inductive kind_ok : function_ctx -> kind -> Prop :=
 Inductive mono_mem : memory -> Prop :=
 | MonoMemMM MemMM : mono_mem MemMM
 | MonoMemGC MemGC : mono_mem MemGC.
-
-Inductive mono_rep : representation -> list primitive_rep -> Prop :=
-| MonoSumR (ρs : list representation) (ιss : list (list primitive_rep)) :
-  Forall2 mono_rep ρs ιss ->
-  (* TODO: Use an efficient packing. *)
-  mono_rep (SumR ρs) (concat ιss)
-| MonoProdR (ρs : list representation) (ιss : list (list primitive_rep)) :
-  Forall2 mono_rep ρs ιss ->
-  mono_rep (ProdR ρs) (concat ιss)
-| MonoPrim : forall ι,
-  mono_rep (PrimR ι) [ι].
-
-Definition primitive_size (ι : primitive_rep) : nat :=
-  match ι with
-  | PtrR => 1
-  | I32R => 1
-  | I64R => 2
-  | F32R => 1
-  | F64R => 2
-  end.
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSubValExCopy F τ ρ δ :
@@ -217,11 +197,33 @@ Inductive has_rep : function_ctx -> type -> representation -> Prop :=
   has_kind F τ (VALTYPE ρ χ δ) ->
   has_rep F τ ρ.
 
-Inductive mono_sized : function_ctx -> type -> Prop :=
-| MonoSized (F : function_ctx) (τ : type) (ρ : representation) (ιs : list primitive_rep) :
+Inductive mono_rep : function_ctx -> type -> Prop :=
+| MonoRep F τ ρ ιs :
   has_rep F τ ρ ->
-  mono_rep ρ ιs ->
-  mono_sized F τ.
+  eval_rep ρ = Some ιs ->
+  mono_rep F τ.
+
+Inductive mono_size : function_ctx -> type -> Prop :=
+| MonoSizeVALTYPE F τ ρ ιs :
+  has_rep F τ ρ ->
+  eval_rep ρ = Some ιs ->
+  mono_size F τ
+| MonoSizeMEMTYPE F τ σ μ δ n :
+  has_kind F τ (MEMTYPE (Sized σ) μ δ) ->
+  eval_size σ = Some n ->
+  mono_size F τ.
+
+Inductive rep_eq : representation -> representation -> Prop :=
+| RepEq ρ1 ρ2 ιs :
+  eval_rep ρ1 = Some ιs ->
+  eval_rep ρ2 = Some ιs ->
+  rep_eq ρ1 ρ2.
+
+Inductive size_eq : size -> size -> Prop :=
+| SizeEq σ1 σ2 n :
+  eval_size σ1 = Some n ->
+  eval_size σ2 = Some n ->
+  size_eq σ1 σ2.
 
 Inductive has_copyability : function_ctx -> type -> copyability -> Prop :=
 | CopyVALTYPE F τ ρ χ δ :
@@ -312,26 +314,13 @@ Inductive update_at : path -> type -> type -> type -> type -> Prop :=
   update_at π τ τ__π τ' τ__π' ->
   update_at (PCProj n :: π) (ProdT κ (τs ++ τ :: τs')) τ__π (ProdT κ (τs ++ τ' :: τs')) τ__π'.
 
-Inductive mono_size : size -> nat -> Prop :=
-| MonoSizeSum σs ns :
-  Forall2 mono_size σs ns ->
-  mono_size (SumS σs) (S (list_max ns))
-| MonoSizeProd σs ns :
-  Forall2 mono_size σs ns ->
-  mono_size (ProdS σs) (list_sum ns)
-| MonoSizeRep ρ ιs :
-  mono_rep ρ ιs ->
-  mono_size (RepS ρ) (list_sum (map primitive_size ιs))
-| MonoSizeConst n :
-  mono_size (ConstS n) n.
-
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SASer F κ τ :
   stores_as F τ (SerT κ τ)
 | SAPad F κ τ τ' ρ ιs σ n :
   has_rep F τ ρ ->
-  mono_rep ρ ιs ->
-  mono_size σ n ->
+  eval_rep ρ = Some ιs ->
+  eval_size σ = Some n ->
   list_sum (map primitive_size ιs) <= n ->
   stores_as F τ τ' ->
   stores_as F τ (PadT κ σ τ')
@@ -437,17 +426,15 @@ Inductive instr_has_type :
   let ψ := InstrT (τs1 ++ τs) τs2 in
   let L' := update_locals ξ L in
   instr_has_type M F L (IBr ψ n) ψ L'
-| TBrIf M F L n τs κ :
+| TBrIf M F L n τs :
   F.(fc_labels) !! n = Some (τs, L) ->
-  let τ := NumT κ (IntT I32T) in
-  has_kind F τ κ ->
+  let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
   let ψ := InstrT (τs ++ [τ]) τs in
   instr_has_type M F L (IBrIf ψ n) ψ L
-| TBrTable M F L L' ns n τs τs1 τs2 κ :
+| TBrTable M F L L' ns n τs τs1 τs2 :
   Forall (fun i => F.(fc_labels) !! i = Some (τs, L)) (n :: ns) ->
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
-  let τ := NumT κ (IntT I32T) in
-  has_kind F τ κ ->
+  let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
   let ψ := InstrT (τs1 ++ τs ++ [τ]) τs2 in
   instr_has_type M F L (IBrTable ψ ns n) ψ L'
 | TReturn M F L L' τs τs1 τs2 :
@@ -455,11 +442,10 @@ Inductive instr_has_type :
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let ψ := InstrT (τs1 ++ τs) τs2 in
   instr_has_type M F L (IReturn ψ) ψ L'
-| TLocalGet M F L n τ ρ κ0 κ :
+| TLocalGet M F L n τ ρ :
   L !! n = Some τ ->
   has_rep F τ ρ ->
-  let τ' := RepT κ ρ (ProdT κ0 []) in
-  has_kind F τ' κ ->
+  let τ' := RepT (VALTYPE ρ ImCopy ImDrop) ρ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []) in
   let L' := <[ n := τ' ]> L in
   let ψ := InstrT [] [τ] in
   instr_has_type M F L (ILocalGet ψ n) ψ L'
@@ -468,11 +454,12 @@ Inductive instr_has_type :
   has_copyability F τ ImCopy ->
   let ψ := InstrT [] [τ] in
   instr_has_type M F L (ILocalGet ψ n) ψ L
-| TLocalSet M F L n τ τ' ρ :
+| TLocalSet M F L n τ τ' ρ ρ' :
+  F.(fc_locals) !! n = Some ρ ->
   L !! n = Some τ ->
   has_dropability F τ ImDrop ->
-  has_rep F τ ρ ->
-  has_rep F τ' ρ ->
+  has_rep F τ' ρ' ->
+  rep_eq ρ ρ' ->
   let L' := <[ n := τ' ]> L in
   let ψ := InstrT [τ'] [] in
   instr_has_type M F L (ILocalSet ψ n) ψ L'
@@ -490,10 +477,9 @@ Inductive instr_has_type :
   M.(mc_globals) !! n = Some (Mut, τ) ->
   let ψ := InstrT [τ] [τ] in
   instr_has_type M F L (IGlobalSwap ψ n) ψ L
-| TCodeRef M F L i ϕ κ :
+| TCodeRef M F L i ϕ :
   M.(mc_table) !! i = Some ϕ ->
-  let τ := CodeRefT κ ϕ in
-  has_kind F τ κ ->
+  let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
   let ψ := InstrT [] [τ] in
   instr_has_type M F L (ICodeRef ψ i) ψ L
 | TInst M F L ix ϕ ϕ' κ :
@@ -517,24 +503,22 @@ Inductive instr_has_type :
   Forall2 (fun τ es => instrs_have_type M F L es (InstrT [τ] [τ']) L') τs ess ->
   let ψ := InstrT [SumT κ τs] [τ'] in
   instr_has_type M F L (ICase ψ ξ ess) ψ L'
-| TGroup M F L τs κ ρs χ δ :
+| TGroup M F L τs ρs χ δ :
   Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-  let τ := ProdT κ τs in
-  has_kind F τ κ ->
+  let τ := ProdT (VALTYPE (ProdR ρs) χ δ) τs in
   let ψ := InstrT τs [τ] in
   instr_has_type M F L (IGroup ψ) ψ L
-| TUngroup M F L τs ρ χ δ :
-  let κ := VALTYPE ρ χ δ in
+| TUngroup M F L τs κ :
   let τ := ProdT κ τs in
-  has_kind F τ κ ->
   let ψ := InstrT [τ] τs in
   instr_has_type M F L (IUngroup ψ) ψ L
 | TFold M F L τ κ :
-  has_kind F τ κ ->
+  has_kind F (RecT κ τ) κ ->
   let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
   let ψ := InstrT [τ0] [RecT κ τ] in
   instr_has_type M F L (IFold ψ) ψ L
 | TUnfold M F L τ κ :
+  has_kind F (RecT κ τ) κ ->
   let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
   let ψ := InstrT [RecT κ τ] [τ0] in
   instr_has_type M F L (IUnfold ψ) ψ L
@@ -570,20 +554,20 @@ Inductive instr_has_type :
   instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
   let ψ := InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
-| TWrap M F L ρ0 ρ ιs0 ιs τ0 κ :
-  mono_rep ρ0 ιs0 ->
-  mono_rep ρ ιs ->
+| TWrap M F L ρ0 ρ ιs0 ιs τ0 χ δ :
+  has_kind F τ0 (VALTYPE ρ0 χ δ) ->
+  eval_rep ρ0 = Some ιs0 ->
+  eval_rep ρ = Some ιs ->
   convertible_to ιs0 ιs ->
-  let τ := RepT κ ρ τ0 in
-  has_kind F τ κ ->
+  let τ := RepT (VALTYPE ρ χ δ) ρ τ0 in
   let ψ := InstrT [τ0] [τ] in
   instr_has_type M F L (IWrap ψ) ψ L
-| TUnwrap M F L ρ0 ρ ιs0 ιs τ0 κ :
-  mono_rep ρ0 ιs0 ->
-  mono_rep ρ ιs ->
+| TUnwrap M F L ρ0 ρ ιs0 ιs τ0 χ δ :
+  has_kind F τ0 (VALTYPE ρ0 χ δ) ->
+  eval_rep ρ0 = Some ιs0 ->
+  eval_rep ρ = Some ιs ->
   convertible_to ιs0 ιs ->
-  let τ := RepT κ ρ τ0 in
-  has_kind F τ κ ->
+  let τ := RepT (VALTYPE ρ χ δ) ρ τ0 in
   let ψ := InstrT [τ] [τ0] in
   instr_has_type M F L (IUnwrap ψ) ψ L
 | TRefNew M F L μ τ0 τ0' κ :
@@ -593,11 +577,11 @@ Inductive instr_has_type :
   has_kind F τ κ ->
   let ψ := InstrT [τ0] [τ] in
   instr_has_type M F L (IRefNew ψ) ψ L
-| TRefLoad M F L π μ τ0 τs__off τ0' ρ ιs δ κ :
+| TRefLoad M F L π μ τ0 τs__off τ0' ρ δ κ :
   path_to π τ0 τs__off τ0' ->
-  Forall (mono_sized F) τs__off ->
+  Forall (mono_size F) τs__off ->
   has_kind F τ0' (VALTYPE ρ ImCopy δ) ->
-  mono_rep ρ ιs ->
+  rep_ok fc_empty ρ ->
   let τ := RefT κ μ τ0 in
   has_kind F τ κ ->
   let ψ := InstrT [τ] [τ; τ0'] in
@@ -607,15 +591,14 @@ Inductive instr_has_type :
   stores_as F τᵥ τ__π ->
   has_dropability F τ__π ImDrop ->
   let τ := RefT κ μ τ0 in
-  has_kind F τ κ ->
   let ψ := InstrT [τ; τᵥ] [τ] in
   instr_has_type M F L (IRefStore ψ π) ψ L
-| TRefMMStore M F L π τ0 τ0' τᵥ τᵥ' τₘ τₘ' κ κ' σ δ n :
+| TRefMMStore M F L π τ0 τ0' τᵥ τᵥ' τₘ τₘ' κ κ' σ σ' δ :
   stores_as F τᵥ τₘ' ->
   update_at π τ0 τₘ τ0' τₘ' ->
   has_kind F τₘ (MEMTYPE (Sized σ) (ConstM MemMM) ImDrop) ->
-  has_kind F τₘ' (MEMTYPE (Sized σ) (ConstM MemMM) δ) ->
-  mono_size σ n ->
+  has_kind F τₘ' (MEMTYPE (Sized σ') (ConstM MemMM) δ) ->
+  size_eq σ σ' ->
   let τ := RefT κ (ConstM MemMM) τ0 in
   let τ' := RefT κ' (ConstM MemMM) τ0' in
   has_kind F τ κ ->
@@ -623,21 +606,20 @@ Inductive instr_has_type :
   let ψ := InstrT [τ; τᵥ'] [τ'] in
   instr_has_type M F L (IRefStore ψ π) ψ L
 | TRefSwap M F L π ρ ιs μ τ0 τᵥ τₘ τs__prefix κ :
-  mono_rep ρ ιs ->
+  eval_rep ρ = Some ιs ->
   path_to π τ0 τs__prefix τₘ ->
   loads_as F τᵥ τₘ ->
-  Forall (mono_sized F) τs__prefix ->
+  Forall (mono_size F) τs__prefix ->
   let τ := RefT κ μ τ0 in
-  has_kind F τ κ ->
   let ψ := InstrT [τ; τᵥ] [τ; τᵥ] in
   instr_has_type M F L (IRefSwap ψ π) ψ L
 | TRefMMSwap M F L π ρ ιs τ0 τ0' τᵥ τᵥ' τₘ τₘ' τs__prefix κ κ' :
-  mono_rep ρ ιs ->
+  eval_rep ρ = Some ιs ->
   path_to π τ0 τs__prefix τₘ ->
   loads_as F τᵥ τₘ ->
   stores_as F τᵥ' τₘ' ->
   update_at π τ0 τₘ τ0' τₘ' ->
-  Forall (mono_sized F) τs__prefix ->
+  Forall (mono_size F) τs__prefix ->
   let τ := RefT κ (ConstM MemMM) τ0 in
   let τ' := RefT κ' (ConstM MemMM) τ0' in
   has_kind F τ κ ->

@@ -2,7 +2,7 @@ From Stdlib Require Import List.
 
 Require Import stdpp.list.
 
-From RichWasm Require Import syntax typing.
+From RichWasm Require Import syntax.
 
 Record primitive_dist :=
   { pd_n__ptr : nat;
@@ -126,6 +126,15 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
   | ExistsRepT κ _
   | ExistsSizeT κ _
   | ExistsTypeT κ _ _ => kind_rep κ
+  end.
+
+Definition primitive_size (ι : primitive_rep) : nat :=
+  match ι with
+  | PtrR => 1
+  | I32R => 1
+  | I64R => 2
+  | F32R => 1
+  | F64R => 2
   end.
 
 Fixpoint eval_size (σ : size) : option nat :=

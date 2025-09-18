@@ -1,4 +1,4 @@
-From RichWasm Require Import syntax typing.
+From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.logrel Require Import relations.
@@ -122,24 +122,22 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_br_if M F L wl wl' es' n τs κ :
+  Lemma compat_br_if M F L wl wl' es' n τs :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     fc_labels F !! n = Some (τs, L) ->
-    let τ := NumT κ (IntT I32T) in
-    has_kind F τ κ ->
+    let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
     let ψ := InstrT (τs ++ [τ]) τs in
     run_codegen (compile_instr me fe (IBrIf ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_br_table M F L L' wl wl' es' n ns τs τs1 τs2 κ :
+  Lemma compat_br_table M F L L' wl wl' es' n ns τs τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     Forall (fun i => fc_labels F !! i = Some (τs, L)) (n :: ns) ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
-    let τ := NumT κ (IntT I32T) in
-    has_kind F τ κ ->
+    let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
     let ψ := InstrT (τs1 ++ τs ++ [τ]) τs2 in
     run_codegen (compile_instr me fe (IBrTable ψ ns n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
@@ -155,13 +153,12 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_local_get M F L wl wl' es' n τ ρ κ κ0 :
+  Lemma compat_local_get M F L wl wl' es' n τ ρ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     L !! n = Some τ ->
     has_rep F τ ρ ->
-    let τ' := RepT κ ρ (ProdT κ0 []) in
-    has_kind F τ' κ ->
+    let τ' := RepT (VALTYPE ρ ImCopy ImDrop) ρ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []) in
     let L' := <[n := τ']> L in
     let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (ILocalGet ψ n)) wl = inr ((), wl', es') ->
@@ -178,13 +175,14 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_local_set M F L wl wl' es' n τ τ' ρ :
+  Lemma compat_local_set M F L wl wl' es' n τ τ' ρ ρ' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    typing.fc_locals F !! n = Some ρ ->
     L !! n = Some τ ->
     has_dropability F τ ImDrop ->
-    has_rep F τ ρ ->
-    has_rep F τ' ρ ->
+    has_rep F τ' ρ' ->
+    rep_eq ρ ρ' ->
     let L' := <[n := τ']> L in
     let ψ := InstrT [τ'] [] in
     run_codegen (compile_instr me fe (ILocalSet ψ n)) wl = inr ((), wl', es') ->
@@ -220,12 +218,11 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_coderef M F L wl wl' es' i ϕ κ :
+  Lemma compat_coderef M F L wl wl' es' i ϕ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     mc_table M !! i = Some ϕ ->
-    let τ := CodeRefT κ ϕ in
-    has_kind F τ κ ->
+    let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
     let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (ICodeRef ψ i)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
@@ -277,23 +274,20 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_group M F L wl wl' es' τs ρs χ δ κ :
+  Lemma compat_group M F L wl wl' es' τs ρs χ δ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-    let τ := ProdT κ τs in
-    has_kind F τ κ ->
+    let τ := ProdT (VALTYPE (ProdR ρs) χ δ) τs in
     let ψ := InstrT τs [τ] in
     run_codegen (compile_instr me fe (IGroup ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ungroup M F L wl wl' es' τs ρ χ δ :
+  Lemma compat_ungroup M F L wl wl' es' τs κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let κ := VALTYPE ρ χ δ in
     let τ := ProdT κ τs in
-    has_kind F τ κ ->
     let ψ := InstrT [τ] τs in
     run_codegen (compile_instr me fe (IUngroup ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
@@ -302,7 +296,7 @@ Section Fundamental.
   Lemma compat_fold M F L wl wl' es' τ κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    has_kind F τ κ ->
+    has_kind F (RecT κ τ) κ ->
     let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
     let ψ := InstrT [τ0] [RecT κ τ] in
     run_codegen (compile_instr me fe (IFold ψ)) wl = inr ((), wl', es') ->
@@ -401,27 +395,27 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_wrap M F L wl wl' es' τ0 ρ0 ρ ιs0 ιs κ :
+  Lemma compat_wrap M F L wl wl' es' τ0 ρ0 ρ ιs0 ιs χ δ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    mono_rep ρ0 ιs0 ->
-    mono_rep ρ ιs ->
+    has_kind F τ0 (VALTYPE ρ0 χ δ) ->
+    eval_rep ρ0 = Some ιs0 ->
+    eval_rep ρ = Some ιs ->
     convertible_to ιs0 ιs ->
-    let τ := RepT κ ρ τ0 in
-    has_kind F τ κ ->
+    let τ := RepT (VALTYPE ρ χ δ) ρ τ0 in
     let ψ := InstrT [τ0] [τ] in
     run_codegen (compile_instr me fe (IWrap ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_unwrap M F L wl wl' es' τ0 ρ0 ρ ιs0 ιs κ :
+  Lemma compat_unwrap M F L wl wl' es' τ0 ρ0 ρ ιs0 ιs χ δ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    mono_rep ρ0 ιs0 ->
-    mono_rep ρ ιs ->
+    has_kind F τ0 (VALTYPE ρ0 χ δ) ->
+    eval_rep ρ0 = Some ιs0 ->
+    eval_rep ρ = Some ιs ->
     convertible_to ιs0 ιs ->
-    let τ := RepT κ ρ τ0 in
-    has_kind F τ κ ->
+    let τ := RepT (VALTYPE ρ χ δ) ρ τ0 in
     let ψ := InstrT [τ] [τ0] in
     run_codegen (compile_instr me fe (IUnwrap ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
@@ -439,13 +433,13 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_load M F L wl wl' es' μ π τ0 τ0' τs__off ρ δ ιs κ :
+  Lemma compat_ref_load M F L wl wl' es' μ π τ0 τ0' τs__off ρ δ κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     path_to π τ0 τs__off τ0' ->
-    Forall (mono_sized F) τs__off ->
+    Forall (mono_size F) τs__off ->
     has_kind F τ0' (VALTYPE ρ ImCopy δ) ->
-    mono_rep ρ ιs ->
+    rep_ok fc_empty ρ ->
     let τ := RefT κ μ τ0 in
     has_kind F τ κ ->
     let ψ := InstrT [τ] [τ; τ0'] in
@@ -460,20 +454,19 @@ Section Fundamental.
     stores_as F τᵥ τ__π ->
     has_dropability F τ__π ImDrop ->
     let τ := RefT κ μ τ0 in
-    has_kind F τ κ ->
     let ψ := InstrT [τ; τᵥ] [τ] in
     run_codegen (compile_instr me fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_mm_store M F L wl wl' es' π τᵥ τᵥ' τₘ τₘ' τ0 τ0' σ n δ κ κ' :
+  Lemma compat_ref_mm_store M F L wl wl' es' π τᵥ τᵥ' τₘ τₘ' τ0 τ0' σ σ' δ κ κ' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     stores_as F τᵥ τₘ' ->
     update_at π τ0 τₘ τ0' τₘ' ->
     has_kind F τₘ (MEMTYPE (Sized σ) (ConstM MemMM) ImDrop) ->
-    has_kind F τₘ' (MEMTYPE (Sized σ) (ConstM MemMM) δ) ->
-    mono_size σ n ->
+    has_kind F τₘ' (MEMTYPE (Sized σ') (ConstM MemMM) δ) ->
+    size_eq σ σ' ->
     let τ := RefT κ (ConstM MemMM) τ0 in
     let τ' := RefT κ' (ConstM MemMM) τ0' in
     has_kind F τ κ ->
@@ -486,12 +479,11 @@ Section Fundamental.
   Lemma compat_ref_swap M F L wl wl' es' μ π τ0 τs__prefix τₘ τᵥ ρ ιs κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    mono_rep ρ ιs ->
+    eval_rep ρ = Some ιs ->
     path_to π τ0 τs__prefix τₘ ->
     loads_as F τᵥ τₘ ->
-    Forall (mono_sized F) τs__prefix ->
+    Forall (mono_size F) τs__prefix ->
     let τ := RefT κ μ τ0 in
-    has_kind F τ κ ->
     let ψ := InstrT [τ; τᵥ] [τ; τᵥ] in
     run_codegen (compile_instr me fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
@@ -500,12 +492,12 @@ Section Fundamental.
   Lemma compat_ref_mm_swap M F L wl wl' es' π τ0 τ0' τs__prefix τₘ τₘ' τᵥ τᵥ' ρ ιs κ κ' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    mono_rep ρ ιs ->
+    eval_rep ρ = Some ιs ->
     path_to π τ0 τs__prefix τₘ ->
     loads_as F τᵥ τₘ ->
     stores_as F τᵥ' τₘ' ->
     update_at π τ0 τₘ τ0' τₘ' ->
-    Forall (mono_sized F) τs__prefix ->
+    Forall (mono_size F) τs__prefix ->
     let τ := RefT κ (ConstM MemMM) τ0 in
     let τ' := RefT κ' (ConstM MemMM) τ0' in
     has_kind F τ κ ->
@@ -555,7 +547,7 @@ Section Fundamental.
                 let fe := fe_of_context F in
                 run_codegen (compile_instr me fe e) wl = inr (tt, wl', es') ->
                 ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L');
-      intros me fe es' wl wl' Hcomp.
+      intros es' wl wl' me fe Hcomp.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.
     - eapply compat_copy; eassumption.
@@ -592,12 +584,8 @@ Section Fundamental.
     - eapply compat_unpack_rep; eassumption.
     - eapply compat_unpack_size; eassumption.
     - eapply compat_unpack_type; eassumption.
-    - eapply compat_wrap.
-      1: exact m.
-      all: eassumption.
-    - eapply compat_unwrap.
-      1: exact m.
-      all: eassumption.
+    - eapply compat_wrap; eassumption.
+    - eapply compat_unwrap; eassumption.
     - eapply compat_ref_new; eassumption.
     - eapply compat_ref_load; eassumption.
     - eapply compat_ref_store; eassumption.
