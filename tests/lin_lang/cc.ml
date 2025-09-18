@@ -1,17 +1,23 @@
+open! Base
 open Richwasm_lin_lang
 open Syntax
 open Index
 open Cc
-open Format
+open Stdlib.Format
 
 let do_thing (x : Syntax.Module.t) =
-  x |> Index.compile_module |> Result.get_ok |> ClosureConversion.compile_module
+  x
+  |> Index.compile_module
+  |> ( function
+  | Ok x -> x
+  | Error _ -> failwith "couldn't index..." )
+  |> ClosureConversion.compile_module
 
 let%expect_test "simple" =
   let output x =
     x |> do_thing |> function
     | Ok res -> printf "@.%a@." Declosure.pp_modul res
-    | Error err -> printf "@.%s@." (CCErr.to_string err)
+    | Error err -> printf "@.%s@." (ClosureConversion.CCErr.to_string err)
   in
   let open Syntax.Types in
   output (Module ([], [], None));
@@ -129,16 +135,17 @@ let%expect_test "simple" =
 
 let%expect_test "examples" =
   let examples = Examples.all in
-  let fmt = Format.std_formatter in
-  Format.pp_set_margin fmt 80;
-  Format.pp_set_max_indent fmt 80;
+  let fmt = std_formatter in
+  pp_set_margin fmt 80;
+  pp_set_max_indent fmt 80;
   examples
-  |> List.iter (fun (n, m) ->
+  |> List.iter ~f:(fun (n, m) ->
          match do_thing m with
          | Ok res ->
              printf "-----------%s-----------@.%a@." n Declosure.pp_modul res
          | Error err ->
-             printf "-----------%s-----------@.%s@." n (CCErr.to_string err));
+             printf "-----------%s-----------@.%s@." n
+               (ClosureConversion.CCErr.to_string err));
   [%expect
     {|
     -----------add_one_program-----------
@@ -160,7 +167,9 @@ let%expect_test "examples" =
          ],
        (Some (App ((Coderef "swap"), (Tuple [(Int 1); (Int 2)]))))))
     -----------compose_program-----------
-    Type not found for variable 0 (f)
+    Type not found for variable 0 (f);
+    ((vdepth 1) (tdepth 0) (tenv ()) (tls ()) (gensym 2) (vmap ())
+     (lambda_base 1) (fun_globals (compose)))
     -----------reference_example-----------
     (Module ([],
        [(Let (false, ("test_ref", Int),
@@ -237,4 +246,6 @@ let%expect_test "examples" =
          ],
        (Some (App ((Coderef "process_pair"), (Tuple [(Int 3); (Int 4)]))))))
     -----------closure_example-----------
-    Type not found for variable 0 (n) |}]
+    Type not found for variable 0 (n);
+    ((vdepth 1) (tdepth 0) (tenv ()) (tls ()) (gensym 2) (vmap ())
+     (lambda_base 1) (fun_globals (make_adder))) |}]

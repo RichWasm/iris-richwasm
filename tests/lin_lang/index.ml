@@ -1,8 +1,12 @@
+open! Base
 open Richwasm_lin_lang.Syntax
 open Richwasm_lin_lang.Index
-open Format
+open Stdlib.Format
 
-let do_thing x = x |> Index.compile_module |> Result.get_ok
+let do_thing x =
+  x |> Index.compile_module |> function
+  | Ok x -> x
+  | Error _ -> failwith "unexpected"
 
 let%expect_test "basic indexing" =
   let do_thing x = x |> do_thing |> printf "@.%a@." Indexed.pp_modul in
@@ -29,11 +33,11 @@ let%expect_test "basic indexing" =
 
 let%expect_test "indexes examples" =
   let examples = Examples.all in
-  let fmt = Format.std_formatter in
-  Format.pp_set_margin fmt 80;
-  Format.pp_set_max_indent fmt 80;
+  let fmt = std_formatter in
+  pp_set_margin fmt 80;
+  pp_set_max_indent fmt 80;
   examples
-  |> List.iter (fun (n, m) ->
+  |> List.iter ~f:(fun (n, m) ->
          let res = m |> do_thing in
          printf "-----------%s-----------@.%a@." n Indexed.pp_modul res);
   [%expect

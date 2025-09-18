@@ -1,3 +1,4 @@
+open! Base
 open Richwasm_lin_lang.Syntax
 
 let example1 : Module.t =

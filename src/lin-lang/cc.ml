@@ -1,3 +1,5 @@
+open! Base
+
 module Declosure = struct
   open Sexplib.Std
   open Index
@@ -54,50 +56,40 @@ module Declosure = struct
   [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 end
 
-module CCErr = struct
-  type t =
-    | TypeNotFound of Index.LVar.t
-    | UnexpectedClosure of string
-    | InternalError of string
-
-  let to_string = function
-    | TypeNotFound (i, None) ->
-        Printf.sprintf "Type not found for variable %d" i
-    | TypeNotFound (i, Some x) ->
-        Printf.sprintf "Type not found for variable %d (%s)" i x
-    | UnexpectedClosure s -> Printf.sprintf "Unexpected closure in %s" s
-    | InternalError s -> Printf.sprintf "Internal error: %s" s
-end
-
 module ClosureConversion = struct
   open Index
   module A = Indexed
   module B = Declosure
 
-  module IS = struct
-    include Set.Make (LVar)
+  module LS = struct
+    module S = Set.M (LVar)
+    include S
 
-    let union3 (s1 : t) (s2 : t) (s3 : t) : t = union (union s1 s2) s3
+    let empty = Set.empty (module LVar)
+    let singleton = Set.singleton (module LVar)
+    let elements = Set.elements
+    let union = Set.union
+    let union3 (s1 : t) (s2 : t) (s3 : t) : t = Set.union (Set.union s1 s2) s3
   end
 
-  let rec fv_value (depth : int) : A.value -> IS.t = function
-    | Var (i, x) -> if i >= depth then IS.singleton (i - depth, x) else IS.empty
-    | Global _ | Int _ -> IS.empty
+  let rec fv_value (depth : int) : A.value -> LS.t = function
+    | Var (i, x) -> if i >= depth then LS.singleton (i - depth, x) else LS.empty
+    | Global _ | Int _ -> LS.empty
     | Lam (_, _, body) -> fv_expr (depth + 1) body
-    | Prod (v1, v2) -> IS.union (fv_value depth v1) (fv_value depth v2)
+    | Prod (v1, v2) -> LS.union (fv_value depth v1) (fv_value depth v2)
 
-  and fv_expr (depth : int) : A.expr -> IS.t = function
+  and fv_expr (depth : int) : A.expr -> LS.t = function
     | Val v -> fv_value depth v
-    | App (vf, va) -> IS.union (fv_value depth vf) (fv_value depth va)
+    | App (vf, va) -> LS.union (fv_value depth vf) (fv_value depth va)
     | Let (_, rhs, body) ->
-        IS.union (fv_expr depth rhs) (fv_expr (depth + 1) body)
+        LS.union (fv_expr depth rhs) (fv_expr (depth + 1) body)
     | If0 (v, e1, e2) ->
-        IS.union3 (fv_value depth v) (fv_expr depth e1) (fv_expr depth e2)
-    | Binop (_, v1, v2) -> IS.union (fv_value depth v1) (fv_value depth v2)
+        LS.union3 (fv_value depth v) (fv_expr depth e1) (fv_expr depth e2)
+    | Binop (_, v1, v2) -> LS.union (fv_value depth v1) (fv_value depth v2)
     | LetPair (_, _, rhs, body) ->
-        IS.union (fv_expr depth rhs) (fv_expr (depth + 2) body)
+        LS.union (fv_expr depth rhs) (fv_expr (depth + 2) body)
     | New v | Free v -> fv_value depth v
-    | Swap (v1, v2) -> IS.union (fv_value depth v1) (fv_value depth v2)
+    | Swap (v1, v2) -> LS.union (fv_value depth v1) (fv_value depth v2)
 
   (** assumes that there are no closures *)
   let rec lower_typ : A.typ -> B.typ = function
@@ -113,10 +105,11 @@ module ClosureConversion = struct
       tenv : A.typ list;
       tls : B.toplevel list;
       gensym : int;
-      vmap : (int, int) Hashtbl.t; (* when in closure *)
+      vmap : (int, int) Base.Hashtbl.t; (* when in closure *)
       lambda_base : int;
       fun_globals : string list;
     }
+    [@@deriving sexp_of]
 
     let empty : t =
       {
@@ -125,12 +118,29 @@ module ClosureConversion = struct
         tenv = [];
         tls = [];
         gensym = 0;
-        vmap = Hashtbl.create 0;
+        vmap = Hashtbl.create (module Int);
         lambda_base = 0;
         fun_globals = [];
       }
 
-    let lookup_v_typ (i : int) (e : t) : A.typ option = List.nth_opt e.tenv i
+    let lookup_v_typ (i : int) (e : t) : A.typ option = List.nth e.tenv i
+  end
+
+  module CCErr = struct
+    type t =
+      | TypeNotFound of LVar.t * Env.t
+      | UnexpectedClosure of string
+      | InternalError of string
+
+    let to_string = function
+      | TypeNotFound ((i, None), env) ->
+          Stdlib.Format.asprintf "Type not found for variable %d;@;%a" i
+            Sexp.pp_hum (Env.sexp_of_t env)
+      | TypeNotFound ((i, Some x), env) ->
+          Stdlib.Format.asprintf "Type not found for variable %d (%s);@;%a" i x
+            Sexp.pp_hum (Env.sexp_of_t env)
+      | UnexpectedClosure s -> Printf.sprintf "Unexpected closure in %s" s
+      | InternalError s -> Printf.sprintf "Internal error: %s" s
   end
 
   module M = struct
@@ -171,7 +181,8 @@ module ClosureConversion = struct
   let synth_inc_v : unit t = modify (fun e -> { e with vdepth = e.vdepth + 1 })
 
   let dec_v : unit t =
-    modify (fun e -> { e with vdepth = e.vdepth - 1; tenv = List.tl e.tenv })
+    modify (fun e ->
+        { e with vdepth = e.vdepth - 1; tenv = List.tl_exn e.tenv })
 
   let synth_dec_v : unit t = modify (fun e -> { e with vdepth = e.vdepth - 1 })
   let inc_t : unit t = modify (fun e -> { e with tdepth = e.tdepth + 1 })
@@ -197,23 +208,23 @@ module ClosureConversion = struct
   type 'a ek = B.expr -> 'a t
   (** expr continuation *)
 
-  let closure_typ (env : Env.t) (fvs : IS.t) : B.typ t =
-    let fv_list = IS.elements fvs in
+  let closure_typ (env : Env.t) (fvs : LS.t) : B.typ t =
+    let fv_list = LS.elements fvs in
     let* typs =
       fv_list
       |> List.fold_left
-           (fun acc (i, x) ->
+           ~f:(fun acc (i, x) ->
              let* acc' = acc in
              match Env.lookup_v_typ i env with
-             | None -> fail (CCErr.TypeNotFound (i, x))
+             | None -> fail (CCErr.TypeNotFound ((i, x), env))
              | Some t -> return (lower_typ t :: acc'))
-           (return [])
+           ~init:(return [])
     in
     return @@ B.Prod (List.rev typs)
 
-  let build_closure (fvs : IS.t) : B.value =
-    let fv_list = IS.elements fvs in
-    Tuple (List.map (fun i -> B.Var i) fv_list)
+  let build_closure (fvs : LS.t) : B.value =
+    let fv_list = LS.elements fvs in
+    Tuple (List.map ~f:(fun i -> B.Var i) fv_list)
 
   let compile_var ((i, x) : A.lvar) : B.value t =
     let* env = get in
@@ -223,7 +234,7 @@ module ClosureConversion = struct
       return (B.Var (i, x))
     else
       let key = i - fbinders in
-      match Hashtbl.find_opt env.vmap key with
+      match Hashtbl.find env.vmap key with
       | Some slot -> return (B.Var (slot + fbinders, x))
       | None -> return (B.Var (i + k, x))
 
@@ -234,7 +245,7 @@ module ClosureConversion = struct
         k v'
     | A.Global g ->
         let* env = get in
-        if List.mem g env.fun_globals then
+        if List.mem env.fun_globals g ~equal:String.equal then
           k (B.Coderef g)
         else
           k (B.Global g)
@@ -246,7 +257,7 @@ module ClosureConversion = struct
         let fvs = fv_expr 1 body in
         let* fname = fresh "lam" in
         let* env = get in
-        if IS.is_empty fvs then
+        if Set.is_empty fvs then
           let* body' = conv_expr_as_func body [] in
           let* () =
             emit_tl
@@ -254,7 +265,7 @@ module ClosureConversion = struct
           in
           k (B.Coderef fname)
         else
-          let fv_list = IS.elements fvs in
+          let fv_list = Set.elements fvs in
           let* clos_typ = closure_typ env fvs in
           let* body' = conv_expr_as_func body fv_list in
 
@@ -268,7 +279,9 @@ module ClosureConversion = struct
             emit_tl (B.Func (false, fname, func_typs, lower_typ t_ret, body'))
           in
 
-          let clos = B.Tuple (List.map (fun (i, x) -> B.Var (i, x)) fv_list) in
+          let clos =
+            B.Tuple (List.map ~f:(fun (i, x) -> B.Var (i, x)) fv_list)
+          in
           let packed_typ =
             B.Exists
               (B.Lollipop ([ B.Var 0; lower_typ t_arg ], lower_typ t_ret))
@@ -323,7 +336,7 @@ module ClosureConversion = struct
 
   and conv_expr_as_func (body : A.expr) (fv_list : A.lvar list) : B.expr t =
     let* env = get in
-    if fv_list = [] then
+    if List.is_empty fv_list then
       let* () = synth_inc_v in
       let* () = update_lambda_base in
       let* result = conv_expr body return in
@@ -332,20 +345,21 @@ module ClosureConversion = struct
     else
       let k = List.length fv_list in
 
-      let vmap = Hashtbl.create k in
+      let vmap = Hashtbl.create (module Int) ~size:k in
       List.iteri
-        (fun j (fv, _) -> Hashtbl.add vmap (fv + 1) (k - 1 - j))
+        ~f:(fun j (fv, _) ->
+          Hashtbl.add vmap ~key:(fv + 1) ~data:(k - 1 - j) |> ignore)
         fv_list;
 
       let* clos_typs_rev =
         fv_list
         |> List.fold_left
-             (fun acc (i, x) ->
+             ~f:(fun acc (i, x) ->
                let* acc' = acc in
                match Env.lookup_v_typ i env with
-               | None -> fail (CCErr.TypeNotFound (i, x))
+               | None -> fail (CCErr.TypeNotFound ((i, x), env))
                | Some t -> return (lower_typ t :: acc'))
-             (return [])
+             ~init:(return [])
       in
       let clos_typs = List.rev clos_typs_rev in
 
@@ -369,20 +383,20 @@ module ClosureConversion = struct
         let* expr' = conv_expr expr return in
         return (B.Let (export, (name, lower_typ typ), expr'))
 
-  let compile_module (m : A.modul) : (B.modul, CCErr.t) result =
+  let compile_module (m : A.modul) : (B.modul, CCErr.t) Result.t =
     match m with
     | A.Module (imports, toplevels, main) -> (
         let process_imports imports env =
           let open Env in
           List.fold_left
-            (fun (acc_imports, env) (Import (t, g) : A.import) ->
+            ~f:(fun (acc_imports, env) (Import (t, g) : A.import) ->
               let env' =
                 match t with
                 | Lollipop _ -> { env with fun_globals = g :: env.fun_globals }
                 | _ -> env
               in
               (B.Import (lower_typ t, g) :: acc_imports, env'))
-            ([], env) imports
+            ~init:([], env) imports
         in
 
         let imports_rev, env_with_imports = process_imports imports Env.empty in

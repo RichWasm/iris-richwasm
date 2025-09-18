@@ -1,5 +1,6 @@
+open! Base
 open Sexplib.Std
-open Format
+open Stdlib.Format
 
 module Types = struct
   type variable = string
@@ -63,7 +64,7 @@ module Printers = struct
     | Ref t -> fprintf ff "@[(ref@ %a)@]" pp_typ t
 
   let pp_binding ff ((x, t) : Types.binding) =
-    Format.fprintf ff "@[(%a@ :@ %a)@]" pp_var x pp_typ t
+    fprintf ff "@[(%a@ :@ %a)@]" pp_var x pp_typ t
 
   let pp_binop ff = function
     | `Add -> fprintf ff "+"
@@ -76,8 +77,8 @@ module Printers = struct
     | Var x -> pp_var ff x
     | Int n -> fprintf ff "%d" n
     | Lam (bind, ret, body) ->
-        fprintf ff "@[<v 2>@[<2>(λ@ %a@ :@ %a@ @].@;@[<2>%a@])@]@]" pp_binding bind pp_typ ret
-          pp_expr body
+        fprintf ff "@[<v 2>@[<2>(λ@ %a@ :@ %a@ @].@;@[<2>%a@])@]@]" pp_binding
+          bind pp_typ ret pp_expr body
     | Prod (l, r) -> fprintf ff "@[<2>(%a,@ %a)@]" pp_val l pp_val r
 
   and pp_expr ff (e : Types.expr) =
@@ -85,16 +86,16 @@ module Printers = struct
     | Val v -> pp_val ff v
     | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" pp_val l pp_val r
     | Let (bind, e, body) ->
-        fprintf ff "@[<v 0>@[<2>let@ %a@ =@ %a@ in@]@;@[<2>%a@]@]" pp_binding bind pp_expr e
-          pp_expr body
+        fprintf ff "@[<v 0>@[<2>let@ %a@ =@ %a@ in@]@;@[<2>%a@]@]" pp_binding
+          bind pp_expr e pp_expr body
     | If0 (v, e1, e2) ->
         fprintf ff "@[<2>if %a@;then %a@;else@ %a@]" pp_val v pp_expr e1 pp_expr
           e2
     | Binop (op, l, r) ->
         fprintf ff "@[<2>(%a@ %a@ %a)@]" pp_val l pp_binop op pp_val r
     | LetPair (b1, b2, e, b) ->
-        fprintf ff "@[<v 0>@[<2>let@ (%a,@ %a)@ =@ %a@ in@]@;@[<2>%a@]" pp_binding b1
-          pp_binding b2 pp_expr e pp_expr b
+        fprintf ff "@[<v 0>@[<2>let@ (%a,@ %a)@ =@ %a@ in@]@;@[<2>%a@]"
+          pp_binding b1 pp_binding b2 pp_expr e pp_expr b
     | New v -> fprintf ff "@[<2>(new@ %a)@]" pp_val v
     | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp_val l pp_val r
     | Free v -> fprintf ff "@[<2>(free@ %a)@]" pp_val v
@@ -109,19 +110,19 @@ module Printers = struct
   let pp_modul ff (Types.Module (imports, toplevels, main_expr)) =
     let pp_list pp ff xs =
       List.iteri
-        (fun i x ->
+        ~f:(fun i x ->
           if i > 0 then fprintf ff "@.";
           pp ff x)
         xs
     in
     fprintf ff "@[<v 0>";
-    if imports <> [] then (
+    if not (List.is_empty imports) then (
       pp_list pp_import ff imports;
       fprintf ff "@.@.");
-    if toplevels <> [] then (
+    if not (List.is_empty toplevels) then (
       pp_list pp_toplevel ff toplevels;
       fprintf ff "@.@.");
-    Option.iter (fun e -> fprintf ff "%a" pp_expr e) main_expr;
+    Option.iter ~f:(fun e -> fprintf ff "%a" pp_expr e) main_expr;
     fprintf ff "@]"
 
   let string_of_var x = asprintf "%a" pp_var x

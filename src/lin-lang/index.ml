@@ -1,10 +1,15 @@
-open Base
+open! Base
 
 module LVar = struct
-  type t = int * string option
-  [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
+  module T = struct
+    type t = int * string option
+    [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
-  let compare (i1, _) (i2, _) = Int.compare i1 i2
+    let compare (i1, _) (i2, _) = Int.compare i1 i2
+  end
+
+  include T
+  include Comparator.Make (T)
 end
 
 (* de Bruijn indices *)
@@ -62,10 +67,11 @@ end
 module Index = struct
   module A = Syntax.Types
   module B = Indexed
-  open Result.Let_syntax
 
   type 'a index_res = ('a, IndexErr.t) Result.t
   type env = string list
+
+  open Result.Let_syntax
 
   let rec compile_value (env : env) (value : A.value) : B.value index_res =
     match value with

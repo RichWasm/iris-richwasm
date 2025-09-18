@@ -1,5 +1,6 @@
+open! Base
 open Richwasm_lin_lang.Syntax
-open Format
+open Stdlib.Format
 
 let%expect_test "pretty prints examples" =
   let examples : (string * Module.t) list =
@@ -15,11 +16,11 @@ let%expect_test "pretty prints examples" =
         ("closure_example", closure_example);
       ]
   in
-  let fmt = Format.std_formatter in
-  Format.pp_set_margin fmt 120;
-  Format.pp_set_max_indent fmt 80;
+  let fmt = std_formatter in
+  pp_set_margin fmt 120;
+  pp_set_max_indent fmt 80;
   List.iter
-    (fun (n, m) -> printf "-----------%s-----------@.%a@." n Module.pp m)
+    ~f:(fun (n, m) -> printf "-----------%s-----------@.%a@." n Module.pp m)
     examples;
   [%expect
     {|
