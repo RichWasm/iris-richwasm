@@ -1,8 +1,9 @@
 (coq.theory
  (name RichWasm.syntax)
  (package iris-richwasm)
- (flags -w -argument-scope-delimiter
-        -w -automatic-prop-lowering)
+ (flags
+   -w -argument-scope-delimiter
+   -w -automatic-prop-lowering)
  (theories Stdlib))
 
 (rule

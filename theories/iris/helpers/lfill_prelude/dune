@@ -1,6 +1,10 @@
 (coq.theory
   (name RichWasm.iris.helpers.lfill_prelude)
-   (package iris-richwasm)
-  (flags -w -ambiguous-paths -w -notation-overridden -w -abstract-large-number -w -extraction-reserved-identifier)
- (theories RichWasm)
-)
+  (package iris-richwasm)
+  (flags
+    -w -ambiguous-paths
+    -w -notation-overridden
+    -w -abstract-large-number
+    -w -extraction-reserved-identifier)
+ (theories
+   RichWasm))
