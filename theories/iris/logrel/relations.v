@@ -156,14 +156,21 @@ Section Relations.
         end%I.
 
   Definition closure_interp0 (rb : relation_bundle) : leibnizO function_type -n> ClR :=
-    λne ϕ cl,
+    let fix go ϕ cl s__mem s__rep s__size s__type :=
       match ϕ with
-      | MonoFunT ψ => mono_closure_interp0 rb ψ cl
-      | ForallMemT ϕ' => True (* TODO *)
-      | ForallRepT ϕ' => True (* TODO *)
-      | ForallSizeT ϕ' => True (* TODO *)
-      | ForallTypeT κ ϕ' => True (* TODO *)
-      end%I.
+      | MonoFunT ψ =>
+          let ψ' := subst_instruction_type s__mem s__rep s__size s__type ψ in
+          mono_closure_interp0 rb ψ' cl
+      | ForallMemT ϕ' => ∀ μ, go ϕ' cl (unscoped.scons μ s__mem) s__rep s__size s__type
+      | ForallRepT ϕ' => ∀ ρ, go ϕ' cl s__mem (unscoped.scons ρ s__rep) s__size s__type
+      | ForallSizeT ϕ' => ∀ σ, go ϕ' cl s__mem s__rep (unscoped.scons σ s__size) s__type
+      | ForallTypeT κ ϕ' =>
+          ∀ τ,
+            kind_interp κ (rb_value rb τ) -∗
+            go ϕ' cl s__mem s__rep s__size (unscoped.scons τ s__type)
+      end%I
+    in
+    λne ϕ cl, go ϕ cl VarM VarR VarS VarT.
 
   (* Fact: If |- τ : κ, then kind_interp κ (value_interp τ).
      TODO: Some of the definitions in value_interp0 may be too permissive.
