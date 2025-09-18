@@ -142,35 +142,33 @@ let rec cc_v gamma tagger acc v =
       in
       let env_prod = Closed.PreType.Prod env_type in
       let free_bindings = List.zip_exn free_vars env_type in
-      ( Closed.Value.Pack
-          ( env_prod,
-            Closed.Value.Tuple
-              [ Closed.Value.Tuple
-                  (List.map ~f:(fun v -> Closed.Value.Var v) free_vars);
-                Closed.Value.Var code_name ],
-            Closed.PreType.Exists
-              ( "#cc-env",
-                Closed.PreType.Code
-                  { foralls= free_type_vars @ foralls;
-                    args= Closed.PreType.Var "#cc-env" :: arg_types;
-                    ret= cc_t ret_type } ) ),
-        ( code_name,
-          Closed.Value.Fun
-            { foralls= free_type_vars @ foralls;
-              args= ("#env", env_prod) :: List.zip_exn arg_names arg_types;
-              ret_type= cc_t ret_type;
-              body=
-                List.fold_right
-                  ~f:(fun (idx, (name, ty)) acc ->
-                    Closed.Expr.Let
-                      ( (name, ty),
-                        Closed.Expr.Project (idx, Closed.Value.Var "#env"),
-                        acc ) )
-                  ~init:cced_body
-                  (List.zip_exn
-                     (List.range 0 (List.length free_bindings))
-                     free_bindings ) } )
-        :: code )
+      Closed.
+        ( Value.Pack
+            ( env_prod,
+              Value.Tuple
+                [ Value.Tuple (List.map ~f:(fun v -> Value.Var v) free_vars);
+                  Value.Var code_name ],
+              PreType.Exists
+                ( "#cc-env",
+                  PreType.Code
+                    { foralls= free_type_vars @ foralls;
+                      args= PreType.Var "#cc-env" :: arg_types;
+                      ret= cc_t ret_type } ) ),
+          ( code_name,
+            Value.Fun
+              { foralls= free_type_vars @ foralls;
+                args= ("#env", env_prod) :: List.zip_exn arg_names arg_types;
+                ret_type= cc_t ret_type;
+                body=
+                  List.fold_right
+                    ~f:(fun (idx, (name, ty)) acc ->
+                      Expr.Let
+                        ((name, ty), Expr.Project (idx, Value.Var "#env"), acc) )
+                    ~init:cced_body
+                    (List.zip_exn
+                       (List.range 0 (List.length free_bindings))
+                       free_bindings ) } )
+          :: code )
 
 and cc_e gamma tagger acc e =
   let open Source.Expr in
