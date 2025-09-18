@@ -21,3 +21,7 @@ Review Existing OCaml implementation and see what can be reused
 Read System F to tal paper (target for closure conversion must have existentials)
 
 Read Linking types
+
+## TODO
+
+Make functions unary
