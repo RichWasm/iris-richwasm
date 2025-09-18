@@ -58,9 +58,9 @@ module Printers = struct
   let rec pp_typ ff (t : Types.typ) =
     match t with
     | Int -> fprintf ff "@[int@]"
-    | Lollipop (t1, t2) -> fprintf ff "@[<2>(%a@ ⊸@ %a)@]" pp_typ t1 pp_typ t2
-    | Prod (t1, t2) -> fprintf ff "@[<2>(%a@ ⊗@ %a)@]" pp_typ t1 pp_typ t2
-    | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp_typ t
+    | Lollipop (t1, t2) -> fprintf ff "@[(%a@ ⊸@ %a)@]" pp_typ t1 pp_typ t2
+    | Prod (t1, t2) -> fprintf ff "@[(%a@ ⊗@ %a)@]" pp_typ t1 pp_typ t2
+    | Ref t -> fprintf ff "@[(ref@ %a)@]" pp_typ t
 
   let pp_binding ff ((x, t) : Types.binding) =
     Format.fprintf ff "@[(%a@ :@ %a)@]" pp_var x pp_typ t
@@ -76,7 +76,7 @@ module Printers = struct
     | Var x -> pp_var ff x
     | Int n -> fprintf ff "%d" n
     | Lam (bind, ret, body) ->
-        fprintf ff "@[<2>(λ@ %a@ :@ %a .@;%a)@]" pp_binding bind pp_typ ret
+        fprintf ff "@[<v 2>@[<2>(λ@ %a@ :@ %a@ @].@;@[<2>%a@])@]@]" pp_binding bind pp_typ ret
           pp_expr body
     | Prod (l, r) -> fprintf ff "@[<2>(%a,@ %a)@]" pp_val l pp_val r
 
@@ -85,7 +85,7 @@ module Printers = struct
     | Val v -> pp_val ff v
     | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" pp_val l pp_val r
     | Let (bind, e, body) ->
-        fprintf ff "@[<2>let@ %a@ =@ %a@ in@;%a@]" pp_binding bind pp_expr e
+        fprintf ff "@[<v 0>@[<2>let@ %a@ =@ %a@ in@]@;@[<2>%a@]@]" pp_binding bind pp_expr e
           pp_expr body
     | If0 (v, e1, e2) ->
         fprintf ff "@[<2>if %a@;then %a@;else@ %a@]" pp_val v pp_expr e1 pp_expr
@@ -93,7 +93,7 @@ module Printers = struct
     | Binop (op, l, r) ->
         fprintf ff "@[<2>(%a@ %a@ %a)@]" pp_val l pp_binop op pp_val r
     | LetPair (b1, b2, e, b) ->
-        fprintf ff "@[<2>let@ (%a,@ %a)@ =@ %a@ in@;%a@]" pp_binding b1
+        fprintf ff "@[<v 0>@[<2>let@ (%a,@ %a)@ =@ %a@ in@]@;@[<2>%a@]" pp_binding b1
           pp_binding b2 pp_expr e pp_expr b
     | New v -> fprintf ff "@[<2>(new@ %a)@]" pp_val v
     | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp_val l pp_val r
