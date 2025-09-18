@@ -14,13 +14,11 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
           [v]
     | Tuple vs -> List.concat_map ~f:free_v vs
     | Inj (_, v, _) -> free_v v
-    | Fun {args; body; _} ->
-        let arg_names = List.unzip args |> fst in
-        fv ~bound:(arg_names @ bound) body
+    | Fun {arg= n, _; body; _} -> fv ~bound:(n :: bound) body
   in
   match e with
   | Value v -> free_v v
-  | Apply (f, _, args) -> free_v f @ List.concat_map ~f:free_v args
+  | Apply (f, _, arg) -> free_v f @ free_v arg
   | Project (_, v) -> free_v v
   | Op (_, l, r) -> free_v l @ free_v r
   | If0 (c, t, e) -> free_v c @ fv ~bound t @ fv ~bound e
@@ -51,9 +49,9 @@ let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
     | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
     | Ref t -> ftv ~bound t
     | Rec (v, t) -> ftv ~bound:(v :: bound) t
-    | Fun {foralls; args; ret} ->
+    | Fun {foralls; arg; ret} ->
         let bound = foralls @ bound in
-        List.concat_map ~f:(ftv ~bound) args @ ftv ~bound ret
+        ftv ~bound arg @ ftv ~bound ret
   in
   ftv_pt t
 ;;
@@ -64,19 +62,15 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   let ftv_v v =
     match v with
     | Inj (_, _, t) -> ftv ~bound t
-    | Fun {foralls; args; ret_type; body} ->
-        let arg_types = List.unzip args |> snd in
+    | Fun {foralls; arg= _, t; ret_type; body} ->
         (* TODO: do both of these have to be here? *)
-        ftv (Fun {foralls; args= arg_types; ret= ret_type})
-        @ ftv_e ~bound:foralls body
+        ftv (Fun {foralls; arg= t; ret= ret_type}) @ ftv_e ~bound:foralls body
     | Int _ | Var _ | Tuple _ -> []
   in
   match e with
   | Value v -> ftv_v v
-  | Apply (f, ts, args) ->
-      ftv_v f
-      @ List.concat_map ~f:(ftv ~bound) ts
-      @ List.concat_map ~f:ftv_v args
+  | Apply (f, ts, arg) ->
+      ftv_v f @ List.concat_map ~f:(ftv ~bound) ts @ ftv_v arg
   | Project (_, v) -> ftv_v v
   | Op (_, l, r) -> ftv_v l @ ftv_v r
   | If0 (c, t, e) -> ftv_v c @ ftv_e t @ ftv_e e
@@ -101,13 +95,14 @@ and cc_pt pt =
   | Source.PreType.Sum ts -> Closed.PreType.Sum (List.map ~f:cc_t ts)
   | Source.PreType.Ref t -> Closed.PreType.Ref (cc_t t)
   | Source.PreType.Rec (v, t) -> Closed.PreType.Rec (v, cc_t t)
-  | Source.PreType.Fun {foralls; args; ret} ->
-      Closed.PreType.Exists
-        ( "#cc-env",
-          Closed.PreType.Code
-            { foralls;
-              args= Closed.PreType.Var "#cc-env" :: List.map ~f:cc_t args;
-              ret= cc_t ret } )
+  | Source.PreType.Fun {foralls; arg; ret} ->
+      Closed.(
+        PreType.Exists
+          ( "#cc-env",
+            PreType.Code
+              { foralls;
+                arg= PreType.Prod [PreType.Var "#cc-env"; cc_t arg];
+                ret= cc_t ret } ) )
 ;;
 
 let rec cc_v gamma tagger acc v =
@@ -126,12 +121,12 @@ let rec cc_v gamma tagger acc v =
   | Inj (i, v, t) ->
       let v, code = cc_v gamma tagger acc v in
       (Closed.Value.Inj (i, v, cc_t t), code)
-  | Fun {foralls; args; ret_type; body} ->
-      let gamma = args @ gamma in
-      let free_vars = fv body in
+  | Fun {foralls; arg= (n, t) as arg; ret_type; body} ->
+      let gamma = arg :: gamma in
+      let free_vars = fv (Value v) in
       let free_type_vars = ftv_e (Value v) in
-      let arg_names, arg_types = List.unzip args in
-      let arg_types = List.map ~f:cc_t arg_types in
+      (* let arg_names, arg_types = List.unzip args in *)
+      (* let arg_types = List.map ~f:cc_t arg_types in *)
       let closure_id = string_of_int (tagger ()) in
       let code_name = "closure#fn" ^ closure_id in
       let cced_body, code = cc_e gamma tagger acc body in
@@ -152,22 +147,30 @@ let rec cc_v gamma tagger acc v =
                 ( "#cc-env",
                   PreType.Code
                     { foralls= free_type_vars @ foralls;
-                      args= PreType.Var "#cc-env" :: arg_types;
+                      arg= PreType.Prod [PreType.Var "#cc-env"; cc_t t];
                       ret= cc_t ret_type } ) ),
           ( code_name,
             Value.Fun
               { foralls= free_type_vars @ foralls;
-                args= ("#env", env_prod) :: List.zip_exn arg_names arg_types;
+                arg= ("#env_and_arg", PreType.Prod [env_prod; cc_t t]);
                 ret_type= cc_t ret_type;
                 body=
-                  List.fold_right
-                    ~f:(fun (idx, (name, ty)) acc ->
+                  Expr.Let
+                    ( ("#env", PreType.Var "#cc-env"),
+                      Expr.Project (0, Value.Var "#env_and_arg"),
                       Expr.Let
-                        ((name, ty), Expr.Project (idx, Value.Var "#env"), acc) )
-                    ~init:cced_body
-                    (List.zip_exn
-                       (List.range 0 (List.length free_bindings))
-                       free_bindings ) } )
+                        ( (n, cc_t t),
+                          Expr.Project (1, Value.Var "#env_and_arg"),
+                          List.fold_right
+                            ~f:(fun (idx, (name, ty)) acc ->
+                              Expr.Let
+                                ( (name, ty),
+                                  Expr.Project (idx, Value.Var "#env"),
+                                  acc ) )
+                            ~init:cced_body
+                            (List.zip_exn
+                               (List.range 0 (List.length free_bindings))
+                               free_bindings ) ) ) } )
           :: code )
 
 and cc_e gamma tagger acc e =

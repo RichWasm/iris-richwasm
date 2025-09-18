@@ -9,7 +9,7 @@ module Source = struct
       | Var of Variable.t
       | Fun of
           { foralls: Variable.t list;
-            args: Type.t list;
+            arg: Type.t;
             ret: Type.t }
       | Prod of Type.t list
       | Sum of Type.t list
@@ -22,7 +22,7 @@ module Source = struct
       | Var of Variable.t
       | Fun of
           { foralls: Variable.t list;
-            args: Type.t list;
+            arg: Type.t;
             ret: Type.t }
       | Prod of Type.t list
       | Sum of Type.t list
@@ -49,7 +49,7 @@ module Source = struct
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
-            args: Binding.t list;
+            arg: Binding.t;
             ret_type: Type.t;
             body: Expr.t }
     [@@deriving sexp]
@@ -61,7 +61,7 @@ module Source = struct
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
-            args: Binding.t list;
+            arg: Binding.t;
             ret_type: Type.t;
             body: Expr.t }
     [@@deriving sexp]
@@ -70,7 +70,7 @@ module Source = struct
   and Expr : sig
     type t =
       | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t list
+      | Apply of Value.t * Type.t list * Value.t
       | Project of int * Value.t
       | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | If0 of Value.t * Expr.t * Expr.t
@@ -85,7 +85,7 @@ module Source = struct
   end = struct
     type t =
       | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t list
+      | Apply of Value.t * Type.t list * Value.t
       | Project of int * Value.t
       | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | If0 of Value.t * Expr.t * Expr.t
@@ -123,7 +123,7 @@ module Closed = struct
       | Var of Variable.t
       | Code of
           { foralls: Variable.t list;
-            args: Type.t list;
+            arg: Type.t;
             ret: Type.t }
       | Prod of Type.t list
       | Sum of Type.t list
@@ -137,7 +137,7 @@ module Closed = struct
       | Var of Variable.t
       | Code of
           { foralls: Variable.t list;
-            args: Type.t list;
+            arg: Type.t;
             ret: Type.t }
       | Prod of Type.t list
       | Sum of Type.t list
@@ -165,7 +165,7 @@ module Closed = struct
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
-            args: Binding.t list;
+            arg: Binding.t;
             ret_type: Type.t;
             body: Expr.t }
       | Pack of Type.t * Value.t * Type.t
@@ -178,7 +178,7 @@ module Closed = struct
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Fun of
           { foralls: Variable.t list;
-            args: Binding.t list;
+            arg: Binding.t;
             ret_type: Type.t;
             body: Expr.t }
       | Pack of Type.t * Value.t * Type.t
@@ -188,7 +188,7 @@ module Closed = struct
   and Expr : sig
     type t =
       | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t list
+      | Apply of Value.t * Type.t list * Value.t
       | Project of int * Value.t
       | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | If0 of Value.t * Expr.t * Expr.t
@@ -204,7 +204,7 @@ module Closed = struct
   end = struct
     type t =
       | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t list
+      | Apply of Value.t * Type.t list * Value.t
       | Project of int * Value.t
       | Op of [`Add | `Sub | `Mul | `Div] * Value.t * Value.t
       | If0 of Value.t * Expr.t * Expr.t
