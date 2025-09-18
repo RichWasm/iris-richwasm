@@ -133,33 +133,14 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
   let κ := VALTYPE (ProdR ρs) χ δ in
   has_kind F (ProdT κ τs) κ
-| KProdMem F τs τn σs ζ μ δ :
-  (* TODO: Maybe the requirement that all preceding components are sized should be in the typing
-           rule for load instead. *)
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
-  has_kind F τn (MEMTYPE ζ μ δ) ->
+| KProdMem F τs ζs μ δ :
+  Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ μ δ)) τs ζs ->
   let κ := MEMTYPE Unsized μ δ in
-  has_kind F (ProdT κ (τs ++ [τn])) κ
+  has_kind F (ProdT κ τs) κ
 | KProdMemSized F τs σs μ δ :
   Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
   let κ := MEMTYPE (Sized (ProdS σs)) μ δ in
   has_kind F (ProdT κ τs) κ
-| KExixstsMem F τ κ :
-  has_kind (set fc_mem_vars S F) τ κ ->
-  has_kind F (ExistsMemT κ τ) κ
-| KExistsRep F τ κ :
-  has_kind (set fc_rep_vars S F) τ κ ->
-  has_kind F (ExistsRepT κ τ) κ
-| KExistsSize F τ κ :
-  has_kind (set fc_size_vars S F) τ κ ->
-  has_kind F (ExistsSizeT κ τ) κ
-| KExistsType F τ κ0 κ :
-  has_kind (set fc_type_vars (cons κ0) F) τ κ ->
-  has_kind F (ExistsTypeT κ κ0 τ) κ
-| KRec F τ κ :
-  (* TODO: Unfold. *)
-  has_kind F τ κ ->
-  has_kind F (RecT κ τ) κ
 | KRef F (μ : memory) τ ζ μ δ :
   has_kind F τ (MEMTYPE ζ μ δ) ->
   let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in
@@ -190,7 +171,23 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSer F τ ρ μ χ δ :
   has_kind F τ (VALTYPE ρ χ δ) ->
   let κ := MEMTYPE (Sized (RepS ρ)) μ δ in
-  has_kind F (SerT κ τ) κ.
+  has_kind F (SerT κ τ) κ
+| KRec F τ κ :
+  let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
+  has_kind F τ0 κ ->
+  has_kind F (RecT κ τ) κ
+| KExistsMem F τ κ :
+  has_kind (set fc_mem_vars S F) τ κ ->
+  has_kind F (ExistsMemT κ τ) κ
+| KExistsRep F τ κ :
+  has_kind (set fc_rep_vars S F) τ κ ->
+  has_kind F (ExistsRepT κ τ) κ
+| KExistsSize F τ κ :
+  has_kind (set fc_size_vars S F) τ κ ->
+  has_kind F (ExistsSizeT κ τ) κ
+| KExistsType F τ κ0 κ :
+  has_kind (set fc_type_vars (cons κ0) F) τ κ ->
+  has_kind F (ExistsTypeT κ κ0 τ) κ.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
 | RepVALTYPE F τ ρ χ δ :
