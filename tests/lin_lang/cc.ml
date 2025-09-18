@@ -1,6 +1,5 @@
 open! Base
 open Richwasm_lin_lang
-open Syntax
 open Index
 open Cc
 open Stdlib.Format
