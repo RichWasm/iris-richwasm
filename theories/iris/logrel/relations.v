@@ -130,8 +130,40 @@ Section Relations.
     | MEMTYPE ζ μ _ => fun T => (⌜T ⊑ sizity_interp ζ⌝ ∗ ⌜T ⊑ memory_interp μ⌝)%I
     end.
 
-  Definition closure_interp0 (rb : relation_bundle) : leibnizO function_type -n> ClR.
-  Admitted.
+  Definition values_interp0 (rb : relation_bundle) : leibnizO (list type) -n> VsR :=
+    λne τs vs,
+      (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, rb_value rb τ (SValues vs))%I.
+
+  Definition mono_closure_interp0 (rb : relation_bundle) : leibnizO instruction_type -n> ClR :=
+    λne ψ cl,
+      let 'InstrT τs1 τs2 := ψ in
+      match cl with
+      | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
+          ⌜translate_types [] τs1 = Some tfs1⌝ ∗
+          ⌜translate_types [] τs2 = Some tfs2⌝ ∗
+          ∀ vs1 fr,
+            values_interp0 rb τs1 vs1 -∗
+            ↪[frame] fr -∗
+            lenient_wp NotStuck top
+              [AI_local (length tfs2) (Build_frame (vs1 ++ n_zeros tlocs) inst) (to_e_list es)]
+              {| lp_fr := fun fr' => ⌜fr = fr'⌝;
+                 lp_val := fun vs2 => values_interp0 rb τs2 vs2 ∗ ↪[RUN];
+                 lp_trap := True;
+                 lp_br := fun _ => False;
+                 lp_ret := fun _ => False;
+                 lp_host := fun _ _ _ _ => False |}
+        | FC_func_host _ _ => False
+        end%I.
+
+  Definition closure_interp0 (rb : relation_bundle) : leibnizO function_type -n> ClR :=
+    λne ϕ cl,
+      match ϕ with
+      | MonoFunT ψ => mono_closure_interp0 rb ψ cl
+      | ForallMemT ϕ' => True (* TODO *)
+      | ForallRepT ϕ' => True (* TODO *)
+      | ForallSizeT ϕ' => True (* TODO *)
+      | ForallTypeT κ ϕ' => True (* TODO *)
+      end%I.
 
   (* Fact: If |- τ : κ, then kind_interp κ (value_interp τ).
      TODO: Some of the definitions in value_interp0 may be too permissive.
@@ -234,10 +266,6 @@ Section Relations.
             let τ' := subst_type VarM VarR VarS (unscoped.scons τ0 VarT) τ in
             ▷ rb_value rb τ' sv
       end%I.
-
-  Definition values_interp0 (rb : relation_bundle) : leibnizO (list type) -n> VsR :=
-    λne τs vs,
-      (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, rb_value rb τ (SValues vs))%I.
 
   Definition frame_interp0 (rb : relation_bundle) :
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
