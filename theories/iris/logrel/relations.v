@@ -317,8 +317,7 @@ Section Relations.
   Lemma relations_eq : relations ≡ relations0 relations.
   Proof. apply fixpoint_unfold. Qed.
 
-  Definition logical_value_interp : leibnizO (list type) -n> LVR.
-  Admitted.
+  Definition values_interp : leibnizO (list type) -n> VsR := values_interp0 relations.
 
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
     True.
@@ -334,8 +333,8 @@ Section Relations.
     iProp Σ :=
     (∀ inst lh,
        instance_interp M inst ∗ context_interp F L L' inst lh -∗
-       ∀ fr lv,
-         logical_value_interp τs1 lv ∗ frame_interp L WL inst fr ∗ ↪[frame] fr -∗
-         expr_interp τs2 F L' WL inst lh (of_val lv ++ es))%I.
+       ∀ fr vs,
+         values_interp τs1 vs ∗ frame_interp L WL inst fr ∗ ↪[frame] fr -∗
+         expr_interp τs2 F L' WL inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.
