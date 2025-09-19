@@ -1,9 +1,27 @@
 (coq.theory
- (name RichWasm.opsem)
- (package iris-richwasm)
- (flags
-   -w -ambiguous-paths
-   -w -notation-incompatible-prefix
-   -w -notation-overridden)
- (theories
-   Wasm))
+  (name RichWasm.opsem)
+  (package iris-richwasm)
+  (flags
+    :standard
+    -w -ambiguous-paths
+    -w -notation-incompatible-prefix
+    -w -notation-overridden)
+  (theories
+    Wasm
+    Wasm.iris.language
+    Stdlib
+    stdpp
+    mathcomp.ssreflect
+    HB
+    elpi
+    elpi_elpi
+    compcert
+    Flocq
+    parseque
+    ITree
+    ExtLib.Structures
+    ExtLib.Core
+    ExtLib.Data
+    Paco
+    iris
+    Ltac2))

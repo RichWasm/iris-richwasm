@@ -1,7 +1,10 @@
 (coq.theory
   (name RichWasm.iris.alloc.functions)
   (package iris-richwasm)
-  (flags -w -ambiguous-paths -w -notation-overridden)
+  (flags
+    :standard
+    -w -ambiguous-paths
+    -w -notation-overridden)
   (theories
     iris
     stdpp
@@ -16,4 +19,6 @@
     elpi
     elpi_elpi
     parseque
-    RichWasm.iris.alloc))
+    RichWasm.iris.alloc
+    ITree
+    Paco))

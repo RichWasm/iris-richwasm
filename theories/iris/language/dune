@@ -2,6 +2,7 @@
   (name RichWasm.iris.language)
   (package iris-richwasm)
   (flags
+    :standard
     -w -ambiguous-paths
     -w -notation-overridden
     -w -abstract-large-number

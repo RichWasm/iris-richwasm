@@ -2,6 +2,7 @@
   (name RichWasm.iris.instantiation)
   (package iris-richwasm)
   (flags
+    :standard
     -w -ambiguous-paths
     -w -notation-overridden
     -w -abstract-large-number
@@ -10,4 +11,7 @@
     RichWasm.iris.language
     RichWasm.iris.helpers
     RichWasm.iris.rules
-    RichWasm))
+    RichWasm
+    Stdlib
+    ITree
+    Paco))

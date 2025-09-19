@@ -1,7 +1,9 @@
 (coq.theory
  (name RichWasm)
  (package iris-richwasm)
- (flags -w -ambiguous-paths)
+ (flags 
+   :standard
+   -w -ambiguous-paths)
  (theories
    compcert
    elpi
@@ -14,4 +16,7 @@
    parseque
    RecordUpdate
    stdpp
-   Wasm))
+   Wasm
+   Stdlib
+   Ltac2
+   ExtLib))

@@ -14,4 +14,6 @@
   elpi
   elpi_elpi
   stdpp
-  RichWasm))
+  RichWasm
+  ITree
+  Paco))

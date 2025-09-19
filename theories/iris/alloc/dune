@@ -1,10 +1,15 @@
 (coq.theory
   (name RichWasm.iris.alloc)
   (package iris-richwasm)
-  (flags -w -ambiguous-paths -w -notation-overridden)
+  (flags
+    :standard
+    -w -ambiguous-paths
+    -w -notation-overridden)
   (theories
     RichWasm
     Wasm
     Wasm.iris.logrel
     Wasm.iris.rules
-    Wasm.iris.host))
+    Wasm.iris.host
+    ITree
+    Paco))
