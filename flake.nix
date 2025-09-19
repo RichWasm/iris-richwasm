@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
 
   outputs =
@@ -55,6 +55,7 @@
             mathcomp-ssreflect
             coq-record-update
             flocq
+            autosubst-ocaml
           ];
 
           richwasm-ocaml-deps = with ocamlPackages; [
@@ -71,10 +72,6 @@
         in
         rec {
           default = self.packages.${pkgs.system}.${project};
-
-          autosubst-ocaml = import ./autosubst-ocaml.nix {
-            inherit (coqPackages) lib coq mkCoqDerivation;
-          };
 
           # NOTE(owen): this doesn't need to be seperate but since it rarely
           # chanages, it greatly reduces build time
@@ -110,7 +107,6 @@
 
             buildInputs =
               [
-                autosubst-ocaml
                 iris-wasm
               ]
               ++ iris-richwasm-deps
@@ -119,7 +115,6 @@
             # NOTE(owen): let dune manage the iris-wasm vendor in the devshell
             passthru.devShellDeps =
               [
-                autosubst-ocaml
               ]
               ++ iris-wasm-deps
               ++ iris-richwasm-deps
