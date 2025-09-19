@@ -100,18 +100,9 @@ Definition kind_rep (κ : kind) : option representation :=
   | MEMTYPE _ _ _ => None
   end.
 
-(* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
-Definition num_type_rep (ν : num_type) : primitive_rep :=
-  match ν with
-  | IntT I32T => I32R
-  | IntT I64T => I64R
-  | FloatT F32T => F32R
-  | FloatT F64T => F64R
-  end.
-
-Definition type_rep (κs : list kind) (τ : type) : option representation :=
+Definition type_kind (κs : list kind) (τ : type) : option kind :=
   match τ with
-  | VarT t => κs !! t ≫= kind_rep
+  | VarT t => κs !! t
   | NumT κ _
   | SumT κ _
   | ProdT κ _
@@ -125,8 +116,20 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
   | ExistsMemT κ _
   | ExistsRepT κ _
   | ExistsSizeT κ _
-  | ExistsTypeT κ _ _ => kind_rep κ
+  | ExistsTypeT κ _ _ => Some κ
   end.
+
+(* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
+Definition num_type_rep (ν : num_type) : primitive_rep :=
+  match ν with
+  | IntT I32T => I32R
+  | IntT I64T => I64R
+  | FloatT F32T => F32R
+  | FloatT F64T => F64R
+  end.
+
+Definition type_rep (κs : list kind) (τ : type) : option representation :=
+  type_kind κs τ ≫= kind_rep.
 
 Definition primitive_size (ι : primitive_rep) : nat :=
   match ι with
