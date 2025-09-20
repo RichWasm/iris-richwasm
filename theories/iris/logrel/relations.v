@@ -23,6 +23,10 @@ Section Relations.
   | SValues (vs : list value)
   | SWords (cm : concrete_memory) (ws : list word).
 
+  Notation semantic_type := (leibnizO semantic_value -n> iProp Σ).
+  Notation semantic_kind := (semantic_type -> iProp Σ).
+  Notation semantic_env := (list.listO semantic_type).
+
   Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
   Notation LVR := (leibnizO val -n> iPropO Σ).
   Notation VsR := (leibnizO (list value) -n> iPropO Σ).
@@ -48,11 +52,7 @@ Section Relations.
   Implicit Type ϕ : leibnizO function_type.
   Implicit Type ψ : leibnizO instruction_type.
 
-  Definition value_relation : Type := leibnizO type -n> SVR.
-
-  Definition semantic_type : Type := semantic_value -> iProp Σ.
-
-  Definition semantic_kind : Type := semantic_type -> iProp Σ.
+  Notation value_relation := (semantic_env -n> leibnizO type -n> SVR).
 
   Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
     match ty with
@@ -78,7 +78,7 @@ Section Relations.
     exists ιs, eval_rep ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
 
   Definition representation_interp (ρ : representation) : semantic_type :=
-    fun sv => (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
+    λne sv, (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
 
   Definition copyability_interp (χ : copyability) (T : semantic_type) : Prop :=
     match χ with
@@ -91,45 +91,43 @@ Section Relations.
     eval_size σ = Some (length ws).
 
   Definition sizity_interp (ζ : sizity) : semantic_type :=
-    fun sv => (∃ μ ws, ⌜sv = SWords μ ws⌝ ∗ ∀ σ, ⌜ζ = Sized σ⌝ -∗ ⌜size_interp σ ws⌝)%I.
+    λne sv, (∃ μ ws, ⌜sv = SWords μ ws⌝ ∗ ∀ σ, ⌜ζ = Sized σ⌝ -∗ ⌜size_interp σ ws⌝)%I.
 
   Definition memory_interp (μ : memory) : semantic_type :=
-    fun sv => (∃ cm ws, ⌜μ = ConstM cm⌝ ∗ ⌜sv = SWords cm ws⌝)%I.
+    λne sv, (∃ cm ws, ⌜μ = ConstM cm⌝ ∗ ⌜sv = SWords cm ws⌝)%I.
 
   (* S refines T, written S ⊑ T. *)
-  Definition semantic_type_le (S T : semantic_type) : Prop :=
-    forall sv, S sv -∗ T sv.
+  Definition semantic_type_le (S T : semantic_type) : Prop := forall sv, S sv -∗ T sv.
 
-  Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type :=
-    semantic_type_le.
+  Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type := semantic_type_le.
 
   Definition kind_as_type_interp (κ : kind) : semantic_type :=
     match κ with
     | VALTYPE ρ χ _ => representation_interp ρ
-    | MEMTYPE ζ μ _ => fun sv => sizity_interp ζ sv ∗ memory_interp μ sv
+    | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
     end%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
     fun T => (⌜T ⊑ kind_as_type_interp κ⌝ ∗ ∃ ρ χ δ, ⌜κ = VALTYPE ρ χ δ⌝ -∗ ⌜copyability_interp χ T⌝)%I.
 
-  Definition values_interp0 (vrel : value_relation) : leibnizO (list type) -n> VsR :=
-    λne τs vs,
-      (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, vrel τ (SValues vs))%I.
+  Definition values_interp0 (vrel : value_relation) (se : semantic_env) (τs : list type) : VsR :=
+    λne vs, (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, vrel se τ (SValues vs))%I.
 
-  Definition mono_closure_interp0 (vrel : value_relation) : leibnizO instruction_type -n> ClR :=
-    λne ψ cl,
+  Definition mono_closure_interp0
+    (vrel : value_relation) (se : semantic_env) (ψ : instruction_type) : ClR :=
+    λne cl,
       let 'InstrT τs1 τs2 := ψ in
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
           ⌜translate_types [] τs1 = Some tfs1⌝ ∗
           ⌜translate_types [] τs2 = Some tfs2⌝ ∗
           ∀ vs1 fr,
-            values_interp0 vrel τs1 vs1 -∗
+            values_interp0 vrel se τs1 vs1 -∗
             ↪[frame] fr -∗
             lenient_wp NotStuck top
               [AI_local (length tfs2) (Build_frame (vs1 ++ n_zeros tlocs) inst) (to_e_list es)]
               {| lp_fr := fun fr' => ⌜fr = fr'⌝;
-                 lp_val := fun vs2 => values_interp0 vrel τs2 vs2 ∗ ↪[RUN];
+                 lp_val := fun vs2 => values_interp0 vrel se τs2 vs2 ∗ ↪[RUN];
                  lp_trap := True;
                  lp_br := fun _ => False;
                  lp_ret := fun _ => False;
@@ -137,27 +135,25 @@ Section Relations.
         | FC_func_host _ _ => False
         end%I.
 
-  Definition closure_interp0 (vrel : value_relation) : leibnizO function_type -n> ClR :=
-    let fix go ϕ cl s__mem s__rep s__size s__type :=
-      match ϕ with
-      | MonoFunT ψ =>
-          let ψ' := subst_instruction_type s__mem s__rep s__size s__type ψ in
-          mono_closure_interp0 vrel ψ' cl
-      | ForallMemT ϕ' => ∀ μ, go ϕ' cl (unscoped.scons μ s__mem) s__rep s__size s__type
-      | ForallRepT ϕ' => ∀ ρ, go ϕ' cl s__mem (unscoped.scons ρ s__rep) s__size s__type
-      | ForallSizeT ϕ' => ∀ σ, go ϕ' cl s__mem s__rep (unscoped.scons σ s__size) s__type
-      | ForallTypeT κ ϕ' =>
-          ∀ τ,
-            kind_interp κ (vrel τ) -∗
-            go ϕ' cl s__mem s__rep s__size (unscoped.scons τ s__type)
-      end%I
-    in
-    λne ϕ cl, go ϕ cl VarM VarR VarS VarT.
+  Definition closure_interp0 (vrel : value_relation) (se : semantic_env) (ϕ : function_type) : ClR :=
+    λne cl,
+      let fix go se ϕ s__mem s__rep s__size :=
+        match ϕ with
+        | MonoFunT ψ =>
+            let ψ' := subst_instruction_type s__mem s__rep s__size VarT ψ in
+            mono_closure_interp0 vrel se ψ' cl
+        | ForallMemT ϕ' => ∀ μ, go se ϕ' (unscoped.scons μ s__mem) s__rep s__size
+        | ForallRepT ϕ' => ∀ ρ, go se ϕ' s__mem (unscoped.scons ρ s__rep) s__size
+        | ForallSizeT ϕ' => ∀ σ, go se ϕ' s__mem s__rep (unscoped.scons σ s__size)
+        | ForallTypeT κ ϕ' => ∀ T, kind_interp κ T -∗ go (T :: se) ϕ' s__mem s__rep s__size
+        end%I
+      in
+      go se ϕ VarM VarR VarS.
 
   Definition type_interp0 (vrel : value_relation) : value_relation :=
-    λne τ sv,
+    λne se τ sv,
       match τ with
-      | VarT _ => False
+      | VarT t => False
       | NumT _ _ => True
       | SumT (VALTYPE ρ _ _) τs =>
           ∃ i vs vs0 τ0 ρs ρ0 ixs,
@@ -167,7 +163,7 @@ Section Relations.
               ⌜type_rep [] τ0 = Some ρ0⌝ ∗
               ⌜inject_sum_rep ρs ρ = Some ixs⌝ ∗
               ⌜nths_error vs ixs = Some vs0⌝ ∗
-              ▷ vrel τ0 (SValues vs0)
+              ▷ vrel se τ0 (SValues vs0)
       | SumT (MEMTYPE _ (VarM _) _) _ => False
       | SumT (MEMTYPE _ (ConstM cm) _) τs =>
           ∃ wᵢ ws ws' bsᵢ i τ,
@@ -175,13 +171,13 @@ Section Relations.
               ⌜bsᵢ = serialize_Z_i32 (Z.of_nat i)⌝ ∗
               ⌜repr_word sr.(sr_gc_heap_start) ∅ wᵢ i⌝ ∗
               ⌜τs !! i = Some τ⌝ ∗
-              ▷ vrel τ (SWords cm ws)
+              ▷ vrel se τ (SWords cm ws)
       | ProdT (VALTYPE _ _ _) τs =>
-          ∃ vss, ⌜sv = SValues (concat vss)⌝ ∗ [∗ list] vs; τ ∈ vss; τs, ▷ vrel τ (SValues vs)
+          ∃ vss, ⌜sv = SValues (concat vss)⌝ ∗ [∗ list] vs; τ ∈ vss; τs, ▷ vrel se τ (SValues vs)
       | ProdT (MEMTYPE _ (VarM _) _) _ => False
       | ProdT (MEMTYPE _ (ConstM cm) _) τs =>
           ∃ wss,
-            ⌜sv = SWords cm (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ vrel τ (SWords cm ws)
+            ⌜sv = SWords cm (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ vrel se τ (SWords cm ws)
       | RefT _ (VarM _) _ => False
       | RefT _ (ConstM MemMM) τ =>
           ∃ a ws ns bs,
@@ -189,20 +185,20 @@ Section Relations.
               N.of_nat sr.(sr_mem_mm) ↦[wms][a] bs ∗
               ⌜repr_list_word sr.(sr_gc_heap_start) ∅ ws ns⌝ ∗
               ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-              ▷ vrel τ (SWords MemMM ws)
+              ▷ vrel se τ (SWords MemMM ws)
       | RefT _ (ConstM MemGC) τ =>
           ∃ a ℓ,
             ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
               a ↦gcr ℓ ∗
-              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ vrel τ (SWords MemGC ws))
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws))
       | GCPtrT _ τ =>
           ∃ ℓ,
             ⌜sv = SWords MemGC [WordPtr (PtrGC ℓ)]⌝ ∗
-              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ vrel τ (SWords MemGC ws))
+              na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws))
       | CodeRefT _ ϕ =>
           ∃ n cl,
             ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N n))]⌝ ∗
-              ▷ closure_interp0 vrel ϕ cl ∗
+              ▷ closure_interp0 vrel se ϕ cl ∗
               na_inv logrel_nais (ns_func n) (n ↦[wf] cl)
       | RepT _ ρ' τ =>
           ∃ ρ ιs ιs' vs vs' rvs rvs' wss wss' ws,
@@ -215,11 +211,11 @@ Section Relations.
               ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
               ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs' wss'⌝ ∗
               ⌜concat wss ++ ws = concat wss'⌝ ∗
-              ▷ vrel τ (SValues vs)
+              ▷ vrel se τ (SValues vs)
       | PadT (VALTYPE _ _ _) _ _ => False
       | PadT (MEMTYPE _ (VarM _) _) _ _ => False
       | PadT (MEMTYPE _ (ConstM cm) _) _ τ =>
-          ∃ ws ws', ⌜sv = SWords cm (ws ++ ws')⌝ ∗ ▷ vrel τ (SWords cm ws)
+          ∃ ws ws', ⌜sv = SWords cm (ws ++ ws')⌝ ∗ ▷ vrel se τ (SWords cm ws)
       | SerT (VALTYPE _ _ _) _ => False
       | SerT (MEMTYPE _ (VarM _) _) _ => False
       | SerT (MEMTYPE _ (ConstM cm) _) τ =>
@@ -230,60 +226,60 @@ Section Relations.
               ⌜to_rep_values ιs vs = Some rvs⌝ ∗
               ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
               ⌜ws = concat wss⌝ ∗
-              ▷ vrel τ (SValues vs)
+              ▷ vrel se τ (SValues vs)
       | RecT κ τ =>
           let τ' := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
-          ▷ vrel τ' sv
+          ▷ vrel se τ' sv
       | ExistsMemT _ τ =>
           ∃ μ,
             let τ' := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ in
-            ▷ vrel τ' sv
+            ▷ vrel se τ' sv
       | ExistsRepT _ τ =>
           ∃ ρ,
             let τ' := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ in
-            ▷ vrel τ' sv
+            ▷ vrel se τ' sv
       | ExistsSizeT _ τ =>
           ∃ σ,
             let τ' := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ in
-            ▷ vrel τ' sv
+            ▷ vrel se τ' sv
       | ExistsTypeT _ κ τ =>
           ∃ τ0,
-            ▷ kind_interp κ (vrel τ0) ∗
+            ▷ kind_interp κ (vrel se τ0) ∗
             let τ' := subst_type VarM VarR VarS (unscoped.scons τ0 VarT) τ in
-            ▷ vrel τ' sv
+            ▷ vrel se τ' sv
       end%I.
 
   Definition value_interp0 (vrel : value_relation) : value_relation :=
-    λne τ sv,
-      (∃ κ, ⌜type_kind [] τ = Some κ⌝ ∗ kind_as_type_interp κ sv ∗ type_interp0 vrel τ sv)%I.
+    λne se τ sv,
+      (∃ κ, ⌜type_kind [] τ = Some κ⌝ ∗ kind_as_type_interp κ sv ∗ type_interp0 vrel se τ sv)%I.
 
   Instance Contractive_value_interp0 : Contractive value_interp0.
   (* TODO *)
   Admitted.
 
-  Definition value_interp : leibnizO type -n> SVR := fixpoint value_interp0.
+  Definition value_interp : semantic_env -n> leibnizO type -n> SVR := fixpoint value_interp0.
 
   Lemma value_interp_eq : value_interp ≡ value_interp0 value_interp.
   Proof. apply fixpoint_unfold. Qed.
 
-  Definition values_interp : leibnizO (list type) -n> VsR := values_interp0 value_interp.
+  Definition values_interp : semantic_env -n> leibnizO (list type) -n> VsR := values_interp0 value_interp.
 
   Definition frame_interp :
-    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
-    λne L WL inst fr,
+    semantic_env -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
+    λne se L WL inst fr,
       (∃ vs__L vs__WL,
          ⌜fr = Build_frame (vs__L ++ vs__WL) inst⌝ ∗
-           values_interp L vs__L ∗
+           values_interp se L vs__L ∗
            ⌜result_type_interp WL vs__WL⌝ ∗
            na_own logrel_nais ⊤)%I.
 
   Definition expr_interp :
-    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
-      leibnizO instance -n> leibnizO lholed -n> ER :=
-    λne τs F L WL inst lh es,
+    semantic_env -n> leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
+      leibnizO wlocal_ctx -n> leibnizO instance -n> leibnizO lholed -n> ER :=
+    λne se τs F L WL inst lh es,
       lenient_wp NotStuck top es
-                 {| lp_fr := frame_interp L WL inst;
-                    lp_val := fun vs => values_interp τs vs ∗ ↪[RUN];
+                 {| lp_fr := frame_interp se L WL inst;
+                    lp_val := fun vs => values_interp se τs vs ∗ ↪[RUN];
                     lp_trap := True;
                     lp_br := fun _ => True; (* TODO *)
                     lp_ret := fun _ => True; (* TODO *)
