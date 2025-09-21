@@ -59,25 +59,60 @@ Definition update_locals (ξ : local_fx) (L : local_ctx) : local_ctx :=
   let 'LocalFx l := ξ in
   fold_left (fun acc '(i, τ) => <[ i := τ ]> acc) l L.
 
+Inductive mem_ok : function_ctx -> memory -> Prop :=
+| VarMOK F m :
+  m < F.(fc_mem_vars) ->
+  mem_ok F (VarM m)
+| ConstMOK F cm :
+  mem_ok F (ConstM cm).
+
 Inductive rep_ok : function_ctx -> representation -> Prop :=
-| VarROK (F : function_ctx) (r : nat) :
-  r < F.(fc_rep_vars) -> rep_ok F (VarR r)
-| SumROK (F : function_ctx) (ρs : list representation) :
-  Forall (rep_ok F) ρs -> rep_ok F (SumR ρs)
-| ProdROK (F : function_ctx) (ρs : list representation) :
-  Forall (rep_ok F) ρs -> rep_ok F (ProdR ρs)
-| PrimROK (F : function_ctx) (ι : primitive_rep) :
+| VarROK F r :
+  r < F.(fc_rep_vars) ->
+  rep_ok F (VarR r)
+| SumROK F ρs :
+  Forall (rep_ok F) ρs ->
+  rep_ok F (SumR ρs)
+| ProdROK F ρs :
+  Forall (rep_ok F) ρs ->
+  rep_ok F (ProdR ρs)
+| PrimROK F ι :
   rep_ok F (PrimR ι).
+
+Inductive size_ok : function_ctx -> size -> Prop :=
+| VarSOK F s :
+  s < F.(fc_size_vars) ->
+  size_ok F (VarS s)
+| SumSOK F σs :
+  Forall (size_ok F) σs ->
+  size_ok F (SumS σs)
+| ProdSOK F σs :
+  Forall (size_ok F) σs ->
+  size_ok F (ProdS σs)
+| RepSOK F ρ :
+  rep_ok F ρ ->
+  size_ok F (RepS ρ)
+| ConstSOK F n :
+  size_ok F (ConstS n).
+
+Inductive sizity_ok : function_ctx -> sizity -> Prop :=
+| SizedOK F σ :
+  size_ok F σ ->
+  sizity_ok F (Sized σ)
+| UnsizedOK F :
+  sizity_ok F Unsized.
 
 Inductive kind_ok : function_ctx -> kind -> Prop :=
 | VALTYPEOK (F : function_ctx) (ρ : representation) (χ : copyability) (δ : dropability) :
-  rep_ok F ρ -> kind_ok F (VALTYPE ρ χ δ)
+  rep_ok F ρ ->
+  kind_ok F (VALTYPE ρ χ δ)
 | MEMTYPEOK (F : function_ctx) (ζ : sizity) (μ : memory) (δ : dropability) :
+  sizity_ok F ζ ->
+  mem_ok F μ ->
   kind_ok F (MEMTYPE ζ μ δ).
 
-Inductive mono_mem : memory -> Prop :=
-| MonoMemMM MemMM : mono_mem MemMM
-| MonoMemGC MemGC : mono_mem MemGC.
+Definition mono_mem (μ : memory) : Prop :=
+  exists cm, μ = ConstM cm.
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KSubValExCopy F τ ρ δ :
