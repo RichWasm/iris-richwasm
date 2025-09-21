@@ -110,12 +110,13 @@ Section Relations.
   Definition kind_interp (κ : kind) : semantic_kind :=
     fun T => (⌜T ⊑ kind_as_type_interp κ⌝ ∗ ∃ ρ χ δ, ⌜κ = VALTYPE ρ χ δ⌝ -∗ ⌜copyability_interp χ T⌝)%I.
 
-  Definition values_interp0 (vrel : value_relation) (se : semantic_env) (τs : list type) : VsR :=
-    λne vs, (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, vrel se τ (SValues vs))%I.
+  Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
+    leibnizO (list type) -n> VsR :=
+    λne τs vs, (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, vrel se τ (SValues vs))%I.
 
-  Definition mono_closure_interp0
-    (vrel : value_relation) (se : semantic_env) (ψ : instruction_type) : ClR :=
-    λne cl,
+  Definition mono_closure_interp0 (vrel : value_relation) (se : semantic_env) :
+    leibnizO instruction_type -n> ClR :=
+    λne ψ cl,
       let 'InstrT τs1 τs2 := ψ in
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
@@ -135,8 +136,9 @@ Section Relations.
         | FC_func_host _ _ => False
         end%I.
 
-  Definition closure_interp0 (vrel : value_relation) (se : semantic_env) (ϕ : function_type) : ClR :=
-    λne cl,
+  Definition closure_interp0 (vrel : value_relation) (se : semantic_env) :
+    leibnizO function_type -n> ClR :=
+    λne ϕ cl,
       let fix go se ϕ s__mem s__rep s__size :=
         match ϕ with
         | MonoFunT ψ =>
@@ -150,10 +152,10 @@ Section Relations.
       in
       go se ϕ VarM VarR VarS.
 
-  Definition type_interp0 (vrel : value_relation) : value_relation :=
-    λne se τ sv,
+  Definition type_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
+    λne τ sv,
       match τ with
-      | VarT t => False
+      | VarT t => (default (λne _, False) (se !! t)) sv
       | NumT _ _ => True
       | SumT (VALTYPE ρ _ _) τs =>
           ∃ i vs vs0 τ0 ρs ρ0 ixs,
@@ -242,19 +244,23 @@ Section Relations.
           ∃ σ,
             let τ' := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ in
             ▷ vrel se τ' sv
-      | ExistsTypeT _ κ τ =>
-          ∃ τ0,
-            ▷ kind_interp κ (vrel se τ0) ∗
-            let τ' := subst_type VarM VarR VarS (unscoped.scons τ0 VarT) τ in
-            ▷ vrel se τ' sv
+      | ExistsTypeT _ κ τ => ∃ T, ▷ kind_interp κ T ∗ ▷ vrel (T :: se) τ sv
       end%I.
 
-  Definition value_interp0 (vrel : value_relation) : value_relation :=
-    λne se τ sv,
+  Definition value_se_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
+    λne τ sv,
       (∃ κ, ⌜type_kind [] τ = Some κ⌝ ∗ kind_as_type_interp κ sv ∗ type_interp0 vrel se τ sv)%I.
 
-  Instance Contractive_value_interp0 : Contractive value_interp0.
   (* TODO *)
+  Local Instance NonExpansive_value_se_interp0 (vrel : value_relation) :
+    NonExpansive (λ se, λne τ sv, value_se_interp0 vrel se τ sv).
+  Admitted.
+
+  Definition value_interp0 (vrel : value_relation) : value_relation :=
+    λne se τ sv, value_se_interp0 vrel se τ sv.
+
+  (* TODO *)
+  Instance Contractive_value_interp0 : Contractive value_interp0.
   Admitted.
 
   Definition value_interp : semantic_env -n> leibnizO type -n> SVR := fixpoint value_interp0.
@@ -262,21 +268,22 @@ Section Relations.
   Lemma value_interp_eq : value_interp ≡ value_interp0 value_interp.
   Proof. apply fixpoint_unfold. Qed.
 
-  Definition values_interp : semantic_env -n> leibnizO (list type) -n> VsR := values_interp0 value_interp.
+  Definition values_interp (se : semantic_env) : leibnizO (list type) -n> VsR :=
+    values_interp0 value_interp se.
 
-  Definition frame_interp :
-    semantic_env -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
-    λne se L WL inst fr,
+  Definition frame_interp (se : semantic_env) :
+    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
+    λne L WL inst fr,
       (∃ vs__L vs__WL,
          ⌜fr = Build_frame (vs__L ++ vs__WL) inst⌝ ∗
            values_interp se L vs__L ∗
            ⌜result_type_interp WL vs__WL⌝ ∗
            na_own logrel_nais ⊤)%I.
 
-  Definition expr_interp :
-    semantic_env -n> leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n>
-      leibnizO wlocal_ctx -n> leibnizO instance -n> leibnizO lholed -n> ER :=
-    λne se τs F L WL inst lh es,
+  Definition expr_interp (se : semantic_env) :
+    leibnizO (list type) -n> leibnizO function_ctx -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
+      leibnizO instance -n> leibnizO lholed -n> ER :=
+    λne τs F L WL inst lh es,
       lenient_wp NotStuck top es
                  {| lp_fr := frame_interp se L WL inst;
                     lp_val := fun vs => values_interp se τs vs ∗ ↪[RUN];
@@ -288,19 +295,35 @@ Section Relations.
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
     True. (* TODO *)
 
-  Definition context_interp (F : function_ctx) (L L' : local_ctx) (inst : instance) (lh : lholed) :
+  Definition lholed_interp (F : function_ctx) (L L' : local_ctx) (inst : instance) (lh : lholed) :
     iProp Σ :=
     True. (* TODO *)
+
+  Definition subst_env_interp
+    (F : function_ctx)
+    (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size)
+    (se : semantic_env) :
+    iProp Σ :=
+    (∀ m, ⌜m < F.(fc_mem_vars)⌝ -∗ ∀ m', ⌜s__mem m <> VarM m'⌝) ∗
+      (∀ r, ⌜r < F.(fc_rep_vars)⌝ -∗ ∀ r', ⌜s__rep r <> VarR r'⌝) ∗
+      (∀ s, ⌜s < F.(fc_size_vars)⌝ -∗ ∀ s', ⌜s__size s <> VarS s'⌝) ∗
+      [∗ list] T; κ ∈ se; F.(fc_type_vars), kind_interp κ T.
 
   Definition has_type_semantic
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
-    (∀ inst lh,
-       instance_interp M inst ∗ context_interp F L L' inst lh -∗
+    (∀ s__mem s__rep s__size se inst lh,
+       subst_env_interp F s__mem s__rep s__size se ∗
+         instance_interp M inst ∗
+         lholed_interp F L L' inst lh -∗
        ∀ fr vs,
-         values_interp τs1 vs ∗ frame_interp L WL inst fr ∗ ↪[frame] fr -∗
-         expr_interp τs2 F L' WL inst lh (of_val (immV vs) ++ es))%I.
+         let τs1' := map (subst_type s__mem s__rep s__size VarT) τs1 in
+         let τs2' := map (subst_type s__mem s__rep s__size VarT) τs2 in
+         values_interp se τs1' vs ∗
+           frame_interp se L WL inst fr ∗
+           ↪[frame] fr -∗
+         expr_interp se τs2' F L' WL inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.
