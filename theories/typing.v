@@ -246,70 +246,49 @@ Inductive convertible_to : list primitive_rep -> list primitive_rep -> Prop :=
 | ConvertPtr ιs1 ιs2 :
   convertible_to (PtrR :: ιs1) (PtrR :: ιs2).
 
-Inductive path_to : path -> type -> list type -> type -> Prop :=
-| PathToNil τ :
-  path_to [] τ [] τ
-| PathToRep κ π ρ τ τs τ' :
-  path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (RepT κ ρ τ) τs τ'
-| PathToPad κ π σ τ τs τ' :
-  path_to (PCUnwrap :: π) τ τs τ' ->
-  path_to π (PadT κ σ τ) τs τ'
-| PathToSer κ π τ τs τ' :
-  path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (SerT κ τ) τs τ'
-| PathToExistsMem π κ τ τs τ' :
-  path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (ExistsMemT κ τ) τs τ'
-| PathToExistsRep π κ τ τs τ' :
-  path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (ExistsRepT κ τ) τs τ'
-| PathToExistsSize π κ τ τs τ' :
-  path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (ExistsSizeT κ τ) τs τ'
-| PathToExstsType π κ κ0 τ τs τ' :
-  path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (ExistsTypeT κ κ0 τ) τs τ'
-| PathToRec κ π τ τs τ' :
-  path_to π τ τs τ' ->
-  path_to (PCUnwrap :: π) (RecT κ τ) τs τ'
-| PathToProd κ n π τs τs0 τs' τ τ0 :
-  length τs0 = n ->
-  path_to π τ0 τs τ ->
-  path_to (PCProj n :: π) (ProdT κ (τs0 ++ τ0 :: τs')) (τs0 ++ τs) τ.
+Record path_result :=
+  { pr_prefix : list type;
+    pr_target : type;
+    pr_replaced : type }.
 
-(* TODO: Merge this with path_to. *)
-Inductive update_at : path -> type -> type -> type -> type -> Prop :=
-| UpdateAtNil τ τ' :
-  update_at [] τ τ τ' τ'
-| UpdateAtRep κ π ρ τ τ' τ__π τ__π' :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (RepT κ ρ τ) τ__π (RepT κ ρ τ') τ__π'
-| UpdateAtPad κ π σ τ τ' τ__π τ__π' :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (PadT κ σ τ) τ__π (PadT κ σ τ') τ__π'
-| UpdateAtSer κ π τ τ' τ__π τ__π' :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (SerT κ τ) τ__π (SerT κ τ') τ__π'
-| UpdateAtExistsMem κ π τ τ' τ__π τ__π'  :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (ExistsMemT κ τ) τ__π (ExistsMemT κ τ') τ__π'
-| UpdateAtExistsRep κ π τ τ' τ__π τ__π'  :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (ExistsRepT κ τ) τ__π (ExistsRepT κ τ') τ__π'
-| UpdateAtExistsSize κ π τ τ' τ__π τ__π'  :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (ExistsSizeT κ τ) τ__π (ExistsSizeT κ τ') τ__π'
-| UpdateAtExistsType κ κ0 π τ τ' τ__π τ__π'  :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (ExistsTypeT κ κ0 τ) τ__π (ExistsTypeT κ κ0 τ') τ__π'
-| UpdateAtRec κ π τ τ' τ__π τ__π' :
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCUnwrap :: π) (RecT κ τ) τ__π (RecT κ τ') τ__π'
-| UpdateAtProd κ π τ τ' τ__π τ__π' τs τs' n :
-  length τs = n ->
-  update_at π τ τ__π τ' τ__π' ->
-  update_at (PCProj n :: π) (ProdT κ (τs ++ τ :: τs')) τ__π (ProdT κ (τs ++ τ' :: τs')) τ__π'.
+Inductive resolve_path : type -> path -> option type -> path_result -> Prop :=
+| PathNilNone τ :
+  resolve_path τ [] None (Build_path_result [] τ τ)
+| PathNilSome τ τ' :
+  resolve_path τ [] (Some τ') (Build_path_result [] τ τ')
+| PathProd pr i π τ__π τs0 τ τs' κ :
+  length τs0 = i ->
+  resolve_path τ π τ__π pr ->
+  let pr' :=
+    {| pr_prefix := τs0 ++ pr.(pr_prefix);
+       pr_target := pr.(pr_target);
+       pr_replaced := ProdT κ (τs0 ++ pr.(pr_replaced) :: τs') |}
+  in
+  resolve_path (ProdT κ (τs0 ++ τ :: τs')) (PCProj i :: π) τ__π pr'
+| PathRep pr π τ τ__π κ ρ :
+  resolve_path τ π τ__π pr ->
+  resolve_path (RepT κ ρ τ) (PCUnwrap :: π) τ__π pr
+| PathPad pr π τ τ__π κ σ :
+  resolve_path τ π τ__π pr ->
+  resolve_path (PadT κ σ τ) (PCUnwrap :: π) τ__π pr
+| PathSer pr π τ τ__π κ :
+  resolve_path τ π τ__π pr ->
+  resolve_path (SerT κ τ) (PCUnwrap :: π) τ__π pr
+| PathExistsMem pr π τ τ__π κ :
+  resolve_path τ π τ__π pr ->
+  resolve_path (ExistsMemT κ τ) (PCUnwrap :: π) τ__π pr
+| PathRec pr π τ τ__π κ :
+  resolve_path τ π τ__π pr ->
+  resolve_path (RecT κ τ) (PCUnwrap :: π) τ__π pr
+| PathExistsRep pr π τ τ__π κ :
+  resolve_path τ π τ__π pr ->
+  resolve_path (ExistsRepT κ τ) (PCUnwrap :: π) τ__π pr
+| PathExistsSize pr π τ τ__π κ :
+  resolve_path τ π τ__π pr ->
+  resolve_path (ExistsSizeT κ τ) (PCUnwrap :: π) τ__π pr
+| PathExistsType pr π τ τ__π κ κ0 :
+  resolve_path τ π τ__π pr ->
+  resolve_path (ExistsTypeT κ κ0 τ) (PCUnwrap :: π) τ__π pr.
 
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SASer F κ τ :
@@ -325,7 +304,6 @@ Inductive stores_as : function_ctx -> type -> type -> Prop :=
   Forall2 (stores_as F) τs τs' ->
   stores_as F (ProdT κ τs) (ProdT κ τs').
 
-(* Handy name for the converse of stores_as. *)
 Definition loads_as F τ τ' := stores_as F τ' τ.
 
 Inductive module_ctx_ok : module_ctx -> Prop :=
@@ -571,61 +549,62 @@ Inductive instr_has_type :
   let τ := RepT (VALTYPE ρ χ δ) ρ τ0 in
   let ψ := InstrT [τ] [τ0] in
   instr_has_type M F L (IUnwrap ψ) ψ L
-| TRefNew M F L μ τ0 τ0' κ :
+| TRefNew M F L μ τ τ' κ :
   mono_mem μ ->
-  stores_as F τ0 τ0' ->
-  let τ := RefT κ μ τ0' in
+  stores_as F τ τ' ->
+  let τ_ref := RefT κ μ τ' in
   has_kind F τ κ ->
-  let ψ := InstrT [τ0] [τ] in
+  let ψ := InstrT [τ] [τ_ref] in
   instr_has_type M F L (IRefNew ψ) ψ L
-| TRefLoad M F L π μ τ0 τs__off τ0' ρ δ κ :
-  path_to π τ0 τs__off τ0' ->
-  Forall (mono_size F) τs__off ->
-  has_kind F τ0' (VALTYPE ρ ImCopy δ) ->
+| TRefLoad M F L π μ τ τ_val pr ρ δ κ :
+  resolve_path τ π None pr ->
+  Forall (mono_size F) pr.(pr_prefix) ->
+  has_kind F pr.(pr_target) (VALTYPE ρ ImCopy δ) ->
+  loads_as F pr.(pr_target) τ_val ->
   rep_ok fc_empty ρ ->
-  let τ := RefT κ μ τ0 in
-  has_kind F τ κ ->
-  let ψ := InstrT [τ] [τ; τ0'] in
+  let τ_ref := RefT κ μ τ in
+  has_kind F τ_ref κ ->
+  let ψ := InstrT [τ_ref] [τ_ref; τ_val] in
   instr_has_type M F L (IRefLoad ψ π) ψ L
-| TRefStore M F L π μ τ0 τs τᵥ τ__π κ :
-  path_to π τ0 τs τ__π ->
-  stores_as F τᵥ τ__π ->
-  has_dropability F τ__π ImDrop ->
-  let τ := RefT κ μ τ0 in
-  let ψ := InstrT [τ; τᵥ] [τ] in
+| TRefStore M F L π μ τ τ_val pr κ :
+  resolve_path τ π None pr ->
+  Forall (mono_size F) pr.(pr_prefix) ->
+  has_dropability F pr.(pr_target) ImDrop ->
+  stores_as F τ_val pr.(pr_target) ->
+  let τ_ref := RefT κ μ τ in
+  let ψ := InstrT [τ_ref; τ_val] [τ] in
   instr_has_type M F L (IRefStore ψ π) ψ L
-| TRefMMStore M F L π τ0 τ0' τᵥ τᵥ' τₘ τₘ' κ κ' σ σ' δ :
-  stores_as F τᵥ τₘ' ->
-  update_at π τ0 τₘ τ0' τₘ' ->
-  has_kind F τₘ (MEMTYPE (Sized σ) (ConstM MemMM) ImDrop) ->
-  has_kind F τₘ' (MEMTYPE (Sized σ') (ConstM MemMM) δ) ->
+| TRefMMStore M F L π τ τ_val τ_val' pr κ κ' σ σ' δ :
+  resolve_path τ π (Some τ_val') pr ->
+  Forall (mono_size F) pr.(pr_prefix) ->
+  stores_as F τ_val τ_val' ->
+  has_kind F pr.(pr_target) (MEMTYPE (Sized σ) (ConstM MemMM) ImDrop) ->
+  has_kind F τ_val' (MEMTYPE (Sized σ') (ConstM MemMM) δ) ->
   size_eq σ σ' ->
-  let τ := RefT κ (ConstM MemMM) τ0 in
-  let τ' := RefT κ' (ConstM MemMM) τ0' in
-  has_kind F τ κ ->
-  has_kind F τ' κ' ->
-  let ψ := InstrT [τ; τᵥ'] [τ'] in
+  let τ_ref := RefT κ (ConstM MemMM) τ in
+  let τ_ref' := RefT κ' (ConstM MemMM) pr.(pr_replaced) in
+  has_kind F τ_ref κ ->
+  has_kind F τ_ref' κ' ->
+  let ψ := InstrT [τ_ref; τ_val] [τ_ref'] in
   instr_has_type M F L (IRefStore ψ π) ψ L
-| TRefSwap M F L π ρ ιs μ τ0 τᵥ τₘ τs__prefix κ :
-  eval_rep ρ = Some ιs ->
-  path_to π τ0 τs__prefix τₘ ->
-  loads_as F τᵥ τₘ ->
-  Forall (mono_size F) τs__prefix ->
-  let τ := RefT κ μ τ0 in
-  let ψ := InstrT [τ; τᵥ] [τ; τᵥ] in
+| TRefSwap M F L π τ τ_val pr κ μ :
+  resolve_path τ π None pr ->
+  Forall (mono_size F) pr.(pr_prefix) ->
+  loads_as F τ_val pr.(pr_target) ->
+  let τ_ref := RefT κ μ τ in
+  let ψ := InstrT [τ_ref; τ_val] [τ_ref; τ_val] in
   instr_has_type M F L (IRefSwap ψ π) ψ L
-| TRefMMSwap M F L π ρ ιs τ0 τ0' τᵥ τᵥ' τₘ τₘ' τs__prefix κ κ' :
-  eval_rep ρ = Some ιs ->
-  path_to π τ0 τs__prefix τₘ ->
-  loads_as F τᵥ τₘ ->
-  stores_as F τᵥ' τₘ' ->
-  update_at π τ0 τₘ τ0' τₘ' ->
-  Forall (mono_size F) τs__prefix ->
-  let τ := RefT κ (ConstM MemMM) τ0 in
-  let τ' := RefT κ' (ConstM MemMM) τ0' in
-  has_kind F τ κ ->
-  has_kind F τ' κ' ->
-  let ψ := InstrT [τ; τᵥ'] [τ'; τᵥ] in
+| TRefMMSwap M F L π τ τ_val τ_val' τ__π κ κ' pr :
+  resolve_path τ π (Some τ_val') pr ->
+  Forall (mono_size F) pr.(pr_prefix) ->
+  stores_as F τ_val τ_val' ->
+  loads_as F pr.(pr_target) τ__π ->
+  mono_rep F τ__π ->
+  let τ_ref := RefT κ (ConstM MemMM) τ in
+  let τ_ref' := RefT κ' (ConstM MemMM) pr.(pr_replaced) in
+  has_kind F τ_ref κ ->
+  has_kind F τ_ref' κ' ->
+  let ψ := InstrT [τ_ref; τ_val] [τ_ref'; τ__π] in
   instr_has_type M F L (IRefSwap ψ π) ψ L
 
 with instrs_have_type :

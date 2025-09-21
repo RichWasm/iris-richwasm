@@ -425,88 +425,89 @@ Section Fundamental.
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_new M F L wl wl' es' μ τ0 τ0' κ :
+  Lemma compat_ref_new M F L wl wl' es' μ τ τ' κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     mono_mem μ ->
-    stores_as F τ0 τ0' ->
-    let τ := RefT κ μ τ0' in
+    stores_as F τ τ' ->
+    let τ_ref := RefT κ μ τ' in
     has_kind F τ κ ->
-    let ψ := InstrT [τ0] [τ] in
+    let ψ := InstrT [τ] [τ_ref] in
     run_codegen (compile_instr me fe (IRefNew ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_load M F L wl wl' es' μ π τ0 τ0' τs__off ρ δ κ :
+  Lemma compat_ref_load M F L wl wl' es' μ π τ τ_val pr ρ δ κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    path_to π τ0 τs__off τ0' ->
-    Forall (mono_size F) τs__off ->
-    has_kind F τ0' (VALTYPE ρ ImCopy δ) ->
+    resolve_path τ π None pr ->
+    Forall (mono_size F) pr.(pr_prefix) ->
+    has_kind F pr.(pr_target) (VALTYPE ρ ImCopy δ) ->
+    loads_as F pr.(pr_target) τ_val ->
     rep_ok fc_empty ρ ->
-    let τ := RefT κ μ τ0 in
-    has_kind F τ κ ->
-    let ψ := InstrT [τ] [τ; τ0'] in
+    let τ_ref := RefT κ μ τ in
+    has_kind F τ_ref κ ->
+    let ψ := InstrT [τ_ref] [τ_ref; τ_val] in
     run_codegen (compile_instr me fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_store M F L wl wl' es' μ π τ0 τs τ__π τᵥ κ :
+  Lemma compat_ref_store M F L wl wl' es' μ π τ τ_val pr κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    path_to π τ0 τs τ__π ->
-    stores_as F τᵥ τ__π ->
-    has_dropability F τ__π ImDrop ->
-    let τ := RefT κ μ τ0 in
-    let ψ := InstrT [τ; τᵥ] [τ] in
+    resolve_path τ π None pr ->
+    Forall (mono_size F) pr.(pr_prefix) ->
+    has_dropability F pr.(pr_target) ImDrop ->
+    stores_as F τ_val pr.(pr_target) ->
+    let τ_ref := RefT κ μ τ in
+    let ψ := InstrT [τ_ref; τ_val] [τ] in
     run_codegen (compile_instr me fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_mm_store M F L wl wl' es' π τᵥ τᵥ' τₘ τₘ' τ0 τ0' σ σ' δ κ κ' :
+  Lemma compat_ref_mm_store M F L wl wl' es' π τ τ_val τ_val' pr κ κ' σ σ' δ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    stores_as F τᵥ τₘ' ->
-    update_at π τ0 τₘ τ0' τₘ' ->
-    has_kind F τₘ (MEMTYPE (Sized σ) (ConstM MemMM) ImDrop) ->
-    has_kind F τₘ' (MEMTYPE (Sized σ') (ConstM MemMM) δ) ->
+    resolve_path τ π (Some τ_val') pr ->
+    Forall (mono_size F) pr.(pr_prefix) ->
+    stores_as F τ_val τ_val' ->
+    has_kind F pr.(pr_target) (MEMTYPE (Sized σ) (ConstM MemMM) ImDrop) ->
+    has_kind F τ_val' (MEMTYPE (Sized σ') (ConstM MemMM) δ) ->
     size_eq σ σ' ->
-    let τ := RefT κ (ConstM MemMM) τ0 in
-    let τ' := RefT κ' (ConstM MemMM) τ0' in
-    has_kind F τ κ ->
-    has_kind F τ' κ' ->
-    let ψ := InstrT [τ; τᵥ'] [τ'] in
+    let τ_ref := RefT κ (ConstM MemMM) τ in
+    let τ_ref' := RefT κ' (ConstM MemMM) pr.(pr_replaced) in
+    has_kind F τ_ref κ ->
+    has_kind F τ_ref' κ' ->
+    let ψ := InstrT [τ_ref; τ_val] [τ_ref'] in
     run_codegen (compile_instr me fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_swap M F L wl wl' es' μ π τ0 τs__prefix τₘ τᵥ ρ ιs κ :
+  Lemma compat_ref_swap M F L wl wl' es' π τ τ_val pr κ μ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    eval_rep ρ = Some ιs ->
-    path_to π τ0 τs__prefix τₘ ->
-    loads_as F τᵥ τₘ ->
-    Forall (mono_size F) τs__prefix ->
-    let τ := RefT κ μ τ0 in
-    let ψ := InstrT [τ; τᵥ] [τ; τᵥ] in
+    resolve_path τ π None pr ->
+    Forall (mono_size F) pr.(pr_prefix) ->
+    loads_as F τ_val pr.(pr_target) ->
+    let τ_ref := RefT κ μ τ in
+    let ψ := InstrT [τ_ref; τ_val] [τ_ref; τ_val] in
     run_codegen (compile_instr me fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_mm_swap M F L wl wl' es' π τ0 τ0' τs__prefix τₘ τₘ' τᵥ τᵥ' ρ ιs κ κ' :
+  Lemma compat_ref_mm_swap M F L wl wl' es' π τ τ_val τ_val' τ__π κ κ' pr :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    eval_rep ρ = Some ιs ->
-    path_to π τ0 τs__prefix τₘ ->
-    loads_as F τᵥ τₘ ->
-    stores_as F τᵥ' τₘ' ->
-    update_at π τ0 τₘ τ0' τₘ' ->
-    Forall (mono_size F) τs__prefix ->
-    let τ := RefT κ (ConstM MemMM) τ0 in
-    let τ' := RefT κ' (ConstM MemMM) τ0' in
-    has_kind F τ κ ->
-    has_kind F τ' κ' ->
-    let ψ := InstrT [τ; τᵥ'] [τ'; τᵥ] in
+    resolve_path τ π (Some τ_val') pr ->
+    Forall (mono_size F) pr.(pr_prefix) ->
+    stores_as F τ_val τ_val' ->
+    loads_as F pr.(pr_target) τ__π ->
+    mono_rep F τ__π ->
+    let τ_ref := RefT κ (ConstM MemMM) τ in
+    let τ_ref' := RefT κ' (ConstM MemMM) pr.(pr_replaced) in
+    has_kind F τ_ref κ ->
+    has_kind F τ_ref' κ' ->
+    let ψ := InstrT [τ_ref; τ_val] [τ_ref'; τ__π] in
     run_codegen (compile_instr me fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
   Admitted.
