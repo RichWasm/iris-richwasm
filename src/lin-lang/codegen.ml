@@ -6,7 +6,7 @@ end
 
 module CodeGen = struct
   open Cc
-  module A = Declosure
+  module A = Closed
 
   let compile : A.modul -> unit = function
     | _ -> ()

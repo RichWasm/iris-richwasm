@@ -51,15 +51,15 @@ let%expect_test "indexes examples" =
     -----------swap_pair_program-----------
     (Module ([],
        [(TopLevel (true,
-           ("swap", (Lollipop ((Prod (Int, Int)), (Prod (Int, Int))))),
+           ("swap", (Lollipop ((Prod [Int; Int]), (Prod [Int; Int])))),
            (Val
-              (Lam ((Prod (Int, Int)), (Prod (Int, Int)),
-                 (LetPair (Int, Int, (Val (Var (0, (Some "p")))),
-                    (Val (Prod ((Var (0, (Some "y"))), (Var (1, (Some "x"))))))))
+              (Lam ((Prod [Int; Int]), (Prod [Int; Int]),
+                 (LetProd ([Int; Int], (Val (Var (0, (Some "p")))),
+                    (Val (Tuple [(Var (0, (Some "y"))); (Var (1, (Some "x")))]))))
                  )))
            ))
          ],
-       (Some (App ((Global "swap"), (Prod ((Int 1), (Int 2))))))))
+       (Some (App ((Global "swap"), (Tuple [(Int 1); (Int 2)]))))))
     -----------compose_program-----------
     (Module ([],
        [(TopLevel (true,
@@ -121,7 +121,7 @@ let%expect_test "indexes examples" =
     -----------module_with_imports-----------
     (Module (
        [(Import ((Lollipop (Int, Int)), "external_inc"));
-         (Import ((Lollipop ((Prod (Int, Int)), Int)), "external_add"))],
+         (Import ((Lollipop ((Prod [Int; Int]), Int)), "external_add"))],
        [(TopLevel (true, ("double_inc", (Lollipop (Int, Int))),
            (Val
               (Lam (Int, Int,
@@ -134,10 +134,10 @@ let%expect_test "indexes examples" =
        (Some (App ((Global "double_inc"), (Int 5))))))
     -----------complex_example-----------
     (Module ([],
-       [(TopLevel (true, ("process_pair", (Lollipop ((Prod (Int, Int)), Int))),
+       [(TopLevel (true, ("process_pair", (Lollipop ((Prod [Int; Int]), Int))),
            (Val
-              (Lam ((Prod (Int, Int)), Int,
-                 (LetPair (Int, Int, (Val (Var (0, (Some "input")))),
+              (Lam ((Prod [Int; Int]), Int,
+                 (LetProd ([Int; Int], (Val (Var (0, (Some "input")))),
                     (Let (Int,
                        (Binop (`Add, (Var (1, (Some "a"))), (Var (0, (Some "b"))))),
                        (Let ((Ref Int), (New (Var (0, (Some "sum")))),
@@ -170,7 +170,7 @@ let%expect_test "indexes examples" =
                  )))
            ))
          ],
-       (Some (App ((Global "process_pair"), (Prod ((Int 3), (Int 4))))))))
+       (Some (App ((Global "process_pair"), (Tuple [(Int 3); (Int 4)]))))))
     -----------closure_example-----------
     (Module ([],
        [(TopLevel (true, ("make_adder", (Lollipop (Int, (Lollipop (Int, Int))))),

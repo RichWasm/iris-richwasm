@@ -3,7 +3,7 @@ open Richwasm_lin_lang.Syntax
 
 let example1 : Module.t =
   Module
-    ( [ Import (Lollipop (Int, Prod (Int, Int)), "dup-int") ],
+    ( [ Import (Lollipop (Int, Prod [ Int; Int ]), "dup-int") ],
       [],
       Some (App (Lam (("x", Int), Int, Val (Var "x")), Int 10)) )
 
@@ -29,18 +29,17 @@ let swap_pair_program =
       [
         TopLevel
           ( true,
-            ("swap", Lollipop (Prod (Int, Int), Prod (Int, Int))),
+            ("swap", Lollipop (Prod [ Int; Int ], Prod [ Int; Int ])),
             Val
               (Lam
-                 ( ("p", Prod (Int, Int)),
-                   Prod (Int, Int),
-                   LetPair
-                     ( ("x", Int),
-                       ("y", Int),
+                 ( ("p", Prod [ Int; Int ]),
+                   Prod [ Int; Int ],
+                   LetProd
+                     ( [ ("x", Int); ("y", Int) ],
                        Val (Var "p"),
-                       Val (Prod (Var "y", Var "x")) ) )) );
+                       Val (Tuple [ Var "y"; Var "x" ]) ) )) );
       ],
-      Some (App (Var "swap", Prod (Int 1, Int 2))) )
+      Some (App (Var "swap", Tuple [ Int 1; Int 2 ])) )
 
 let compose_program =
   let f_to_g_to_h =
@@ -121,7 +120,7 @@ let module_with_imports =
   Module
     ( [
         Import (Lollipop (Int, Int), "external_inc");
-        Import (Lollipop (Prod (Int, Int), Int), "external_add");
+        Import (Lollipop (Prod [ Int; Int ], Int), "external_add");
       ],
       [
         TopLevel
@@ -144,14 +143,13 @@ let complex_example =
       [
         TopLevel
           ( true,
-            ("process_pair", Lollipop (Prod (Int, Int), Int)),
+            ("process_pair", Lollipop (Prod [ Int; Int ], Int)),
             Val
               (Lam
-                 ( ("input", Prod (Int, Int)),
+                 ( ("input", Prod [ Int; Int ]),
                    Int,
-                   LetPair
-                     ( ("a", Int),
-                       ("b", Int),
+                   LetProd
+                     ( [ ("a", Int); ("b", Int) ],
                        Val (Var "input"),
                        Let
                          ( ("sum", Int),
@@ -188,7 +186,7 @@ let complex_example =
                                                          ) ) ) ) ) ) ) ) ) ) ))
           );
       ],
-      Some (App (Var "process_pair", Prod (Int 3, Int 4))) )
+      Some (App (Var "process_pair", Tuple [ Int 3; Int 4 ])) )
 
 let closure_example =
   Module

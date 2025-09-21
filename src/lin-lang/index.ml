@@ -34,7 +34,7 @@ module Indexed = struct
     | Global of gvar
     | Int of int
     | Lam of typ * typ * expr
-    | Prod of value * value
+    | Tuple of value list
   [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
 
   and expr =
@@ -43,8 +43,8 @@ module Indexed = struct
     | Let of typ * expr * expr
     | If0 of value * expr * expr
     | Binop of binop * value * value
-    (* let (x:tx, y:ty) = rhs in body; y -> 0, x -> 1 *)
-    | LetPair of typ * typ * expr * expr
+    (* let (x_0:ty_0, ..., x_n:ty_n) = rhs in body; x_n -> 0, x_0 -> n *)
+    | LetProd of typ list * expr * expr
     | New of value
     | Swap of value * value
     | Free of value
@@ -86,10 +86,9 @@ module Index = struct
         let env' = var :: env in
         let%bind body' = compile_expr env' body in
         return @@ B.Lam (typ, ret, body')
-    | Prod (l, r) ->
-        let%bind l' = compile_value env l in
-        let%bind r' = compile_value env r in
-        return @@ B.Prod (l', r')
+    | Tuple vs ->
+        let%bind vs' = vs |> List.map ~f:(compile_value env) |> Result.all in
+        return @@ B.Tuple vs'
 
   and compile_expr (env : env) (expr : A.expr) : B.expr index_res =
     match expr with
@@ -114,11 +113,12 @@ module Index = struct
         let%bind l' = compile_value env l in
         let%bind r' = compile_value env r in
         return @@ B.Binop (op, l', r')
-    | LetPair ((var1, typ1), (var2, typ2), e, body) ->
+    | LetProd (bindings, e, body) ->
         let%bind e' = compile_expr env e in
-        let env' = var2 :: var1 :: env in
+        let vars, typs = List.unzip bindings in
+        let env' = List.rev vars @ env in
         let%bind body' = compile_expr env' body in
-        return @@ B.LetPair (typ1, typ2, e', body')
+        return @@ B.LetProd (typs, e', body')
     | New v ->
         let%bind v' = compile_value env v in
         return @@ B.New v'
