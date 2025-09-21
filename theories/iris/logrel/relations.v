@@ -318,12 +318,9 @@ Section Relations.
        subst_env_interp F s__mem s__rep s__size se ∗
          instance_interp M inst ∗
          lholed_interp F L L' inst lh -∗
+       let sub := map (subst_type s__mem s__rep s__size VarT) in
        ∀ fr vs,
-         let τs1' := map (subst_type s__mem s__rep s__size VarT) τs1 in
-         let τs2' := map (subst_type s__mem s__rep s__size VarT) τs2 in
-         values_interp se τs1' vs ∗
-           frame_interp se L WL inst fr ∗
-           ↪[frame] fr -∗
-         expr_interp se τs2' F L' WL inst lh (of_val (immV vs) ++ es))%I.
+         values_interp se (sub τs1) vs ∗ frame_interp se (sub L) WL inst fr ∗ ↪[frame] fr -∗
+         expr_interp se (sub τs2) F (sub L') WL inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.

@@ -526,29 +526,33 @@ Inductive instr_has_type :
 | TUnpackMem M F L κ τ τs1 τs2 ξ es :
   let F' := set fc_mem_vars S (subst_function_ctx (up_memory VarM) VarR VarS VarT F) in
   let L' := update_locals ξ L in
-  let weak := map (subst_type (up_memory VarM) VarR VarS VarT) in
-  instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+  let weak_t := map (subst_type (up_memory VarM) VarR VarS VarT) in
+  let weak_e := map (subst_instruction (up_memory VarM) VarR VarS VarT) in
+  instrs_have_type M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
   let ψ := InstrT (τs1 ++ [ExistsMemT κ τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TUnpackRep M F L κ τ τs1 τs2 ξ es :
   let F' := set fc_rep_vars S (subst_function_ctx VarM (up_representation VarR) VarS VarT F) in
   let L' := update_locals ξ L in
-  let weak := map (subst_type VarM (up_representation VarR) VarS VarT) in
-  instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+  let weak_t := map (subst_type VarM (up_representation VarR) VarS VarT) in
+  let weak_e := map (subst_instruction VarM (up_representation VarR) VarS VarT) in
+  instrs_have_type M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
   let ψ := InstrT (τs1 ++ [ExistsRepT κ τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TUnpackSize M F L κ τ τs1 τs2 ξ es :
   let F' := set fc_size_vars S (subst_function_ctx VarM VarR (up_size VarS) VarT F) in
   let L' := update_locals ξ L in
-  let weak := map (subst_type VarM VarR (up_size VarS) VarT) in
-  instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+  let weak_t := map (subst_type VarM VarR (up_size VarS) VarT) in
+  let weak_e := map (subst_instruction VarM VarR (up_size VarS) VarT) in
+  instrs_have_type M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
   let ψ := InstrT (τs1 ++ [ExistsRepT κ τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TUnpackType M F L κ0 κ τ τs1 τs2 ξ es :
   let F' := set fc_type_vars (cons κ0) (subst_function_ctx VarM VarR VarS (up_type VarT) F) in
   let L' := update_locals ξ L in
-  let weak := map (subst_type VarM VarR VarS (up_type VarT)) in
-  instrs_have_type M F' (weak L) es (InstrT (weak τs1 ++ [τ]) (weak τs2)) (weak L') ->
+  let weak_t := map (subst_type VarM VarR VarS (up_type VarT)) in
+  let weak_e := map (subst_instruction VarM VarR VarS (up_type VarT)) in
+  instrs_have_type M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
   let ψ := InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2 in
   instr_has_type M F L (IUnpack ψ ξ es) ψ L'
 | TWrap M F L ρ0 ρ ιs0 ιs τ0 χ δ :
