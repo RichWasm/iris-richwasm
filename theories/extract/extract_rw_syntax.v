@@ -1,4 +1,4 @@
-From Stdlib Require Import Extraction ExtrOcamlBasic ExtrOcamlZBigInt.
+From Stdlib Require Import Extraction ExtrOcamlBasic ExtrOcamlZBigInt ExtrOcamlNativeString.
 
 Set Warnings "-extraction-default-directory".
 
@@ -10,6 +10,6 @@ Extraction Language OCaml.
 Set Extraction AutoInline.
 Set Extraction Optimize.
 
-From RichWasm.syntax Require rw.
+From RichWasm.syntax Require rw modules.
 
-Extraction "RwSyntax.ml" rw.Core.instruction.
+Extraction "RwSyntax.ml" rw.Core.instruction modules.module.
