@@ -60,56 +60,144 @@ Definition update_locals (ξ : local_fx) (L : local_ctx) : local_ctx :=
   fold_left (fun acc '(i, τ) => <[ i := τ ]> acc) l L.
 
 Inductive mem_ok : function_ctx -> memory -> Prop :=
-| VarMOK F m :
+| OKVarM F m :
   m < F.(fc_mem_vars) ->
   mem_ok F (VarM m)
-| ConstMOK F cm :
+| OKConstM F cm :
   mem_ok F (ConstM cm).
 
 Inductive rep_ok : function_ctx -> representation -> Prop :=
-| VarROK F r :
+| OKVarR F r :
   r < F.(fc_rep_vars) ->
   rep_ok F (VarR r)
-| SumROK F ρs :
+| OKSumR F ρs :
   Forall (rep_ok F) ρs ->
   rep_ok F (SumR ρs)
-| ProdROK F ρs :
+| OKProdR F ρs :
   Forall (rep_ok F) ρs ->
   rep_ok F (ProdR ρs)
-| PrimROK F ι :
+| OKPrimR F ι :
   rep_ok F (PrimR ι).
 
 Inductive size_ok : function_ctx -> size -> Prop :=
-| VarSOK F s :
+| OKVarS F s :
   s < F.(fc_size_vars) ->
   size_ok F (VarS s)
-| SumSOK F σs :
+| OKSumS F σs :
   Forall (size_ok F) σs ->
   size_ok F (SumS σs)
-| ProdSOK F σs :
+| OKProdS F σs :
   Forall (size_ok F) σs ->
   size_ok F (ProdS σs)
-| RepSOK F ρ :
+| OKRepS F ρ :
   rep_ok F ρ ->
   size_ok F (RepS ρ)
-| ConstSOK F n :
+| OKConstS F n :
   size_ok F (ConstS n).
 
 Inductive sizity_ok : function_ctx -> sizity -> Prop :=
-| SizedOK F σ :
+| OKSized F σ :
   size_ok F σ ->
   sizity_ok F (Sized σ)
-| UnsizedOK F :
+| OKUnsized F :
   sizity_ok F Unsized.
 
 Inductive kind_ok : function_ctx -> kind -> Prop :=
-| VALTYPEOK (F : function_ctx) (ρ : representation) (χ : copyability) (δ : dropability) :
+| OKVALTYPE (F : function_ctx) (ρ : representation) (χ : copyability) (δ : dropability) :
   rep_ok F ρ ->
   kind_ok F (VALTYPE ρ χ δ)
-| MEMTYPEOK (F : function_ctx) (ζ : sizity) (μ : memory) (δ : dropability) :
+| OKMEMTYPE (F : function_ctx) (ζ : sizity) (μ : memory) (δ : dropability) :
   sizity_ok F ζ ->
   mem_ok F μ ->
   kind_ok F (MEMTYPE ζ μ δ).
+
+Inductive type_ok : function_ctx -> type -> Prop :=
+| OKVarT F t κ :
+  F.(fc_type_vars) !! t = Some κ ->
+  kind_ok F κ ->
+  type_ok F (VarT t)
+| OKNumT F κ ν :
+  kind_ok F κ ->
+  type_ok F (NumT κ ν)
+| OKSumT F κ τs :
+  kind_ok F κ ->
+  Forall (type_ok F) τs ->
+  type_ok F (SumT κ τs)
+| OKProdT F κ τs :
+  kind_ok F κ ->
+  Forall (type_ok F) τs ->
+  type_ok F (ProdT κ τs)
+| OKRefT F κ μ τ :
+  kind_ok F κ ->
+  mem_ok F μ ->
+  type_ok F τ ->
+  type_ok F (RefT κ μ τ)
+| OKGCPtr F κ τ :
+  kind_ok F κ ->
+  type_ok F τ ->
+  type_ok F (GCPtrT κ τ)
+| OKCodeRefT F κ ϕ :
+  kind_ok F κ ->
+  function_type_ok F ϕ ->
+  type_ok F (CodeRefT κ ϕ)
+| OKRepT F κ ρ τ :
+  kind_ok F κ ->
+  rep_ok F ρ ->
+  type_ok F τ ->
+  type_ok F (RepT κ ρ τ)
+| OKPadT F κ σ τ :
+  kind_ok F κ ->
+  size_ok F σ ->
+  type_ok F τ ->
+  type_ok F (PadT κ σ τ)
+| OKSerT F κ τ :
+  kind_ok F κ ->
+  type_ok F τ ->
+  type_ok F (SerT κ τ)
+| OKRecT F κ τ :
+  kind_ok F κ ->
+  type_ok F τ ->
+  type_ok F (RecT κ τ)
+| OKExistsMemT F κ τ :
+  kind_ok F κ ->
+  type_ok (set fc_mem_vars S F) τ ->
+  type_ok F (ExistsMemT κ τ)
+| OKExistsRepT F κ τ :
+  kind_ok F κ ->
+  type_ok (set fc_rep_vars S F) τ ->
+  type_ok F (ExistsRepT κ τ)
+| OKExistsSizeT F κ τ :
+  kind_ok F κ ->
+  type_ok (set fc_size_vars S F) τ ->
+  type_ok F (ExistsSizeT κ τ)
+| OKExistsType F κ κ0 τ :
+  kind_ok F κ ->
+  kind_ok F κ0 ->
+  type_ok (set fc_type_vars (cons κ0) F) τ ->
+  type_ok F (ExistsTypeT κ κ0 τ)
+
+with instruction_type_ok : function_ctx -> instruction_type -> Prop :=
+| OKInstrT F τs1 τs2 :
+  Forall (type_ok F) τs1 ->
+  Forall (type_ok F) τs2 ->
+  instruction_type_ok F (InstrT τs1 τs2)
+
+with function_type_ok : function_ctx -> function_type -> Prop :=
+| OKMonoFunT F ψ :
+  instruction_type_ok F ψ ->
+  function_type_ok F (MonoFunT ψ)
+| OKForallMemT F ϕ :
+  function_type_ok (set fc_mem_vars S F) ϕ ->
+  function_type_ok F (ForallMemT ϕ)
+| OKForallRepT F ϕ :
+  function_type_ok (set fc_rep_vars S F) ϕ ->
+  function_type_ok F (ForallRepT ϕ)
+| OKForallSizeT F ϕ :
+  function_type_ok (set fc_size_vars S F) ϕ ->
+  function_type_ok F (ForallSizeT ϕ)
+| OKForallTypeT F κ ϕ :
+  function_type_ok (set fc_type_vars (cons κ) F) ϕ ->
+  function_type_ok F (ForallTypeT κ ϕ).
 
 Definition mono_mem (μ : memory) : Prop :=
   exists cm, μ = ConstM cm.
