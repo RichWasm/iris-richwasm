@@ -8,15 +8,16 @@ Require Import RecordUpdate.RecordUpdate.
 From RichWasm Require Import syntax layout.
 
 Record module_ctx :=
-  { mc_globals : list (mutability * type);
-    mc_table : list function_type }.
+  { mc_functions : list function_type;
+    mc_table : list function_type;
+    mc_globals : list (mutability * type) }.
 
 Arguments module_ctx : clear implicits.
 
 Definition local_ctx := list type.
 
 Record function_ctx :=
-  { fc_return_type : list type;
+  { fc_return : list type;
     fc_locals : list representation;
     fc_labels : list (list type * local_ctx);
     fc_mem_vars : nat;
@@ -27,7 +28,7 @@ Record function_ctx :=
 Arguments function_ctx : clear implicits.
 
 Definition fc_empty : function_ctx :=
-  {| fc_return_type := [];
+  {| fc_return := [];
      fc_locals := [];
      fc_labels := [];
      fc_mem_vars := 0;
@@ -39,7 +40,7 @@ Definition subst_function_ctx
   (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size) (s__type : nat -> type)
   (F : function_ctx) :
   function_ctx :=
-  {| fc_return_type := map (subst_type s__mem s__rep s__size s__type) F.(fc_return_type);
+  {| fc_return := map (subst_type s__mem s__rep s__size s__type) F.(fc_return);
      fc_locals := map (subst_representation s__rep) F.(fc_locals);
      fc_labels :=
        map
@@ -53,7 +54,7 @@ Definition subst_function_ctx
 
 Global Instance eta_function_ctx : Settable _ :=
   settable! Build_function_ctx
-  <fc_return_type; fc_locals; fc_labels; fc_mem_vars; fc_rep_vars; fc_size_vars; fc_type_vars>.
+  <fc_return; fc_locals; fc_labels; fc_mem_vars; fc_rep_vars; fc_size_vars; fc_type_vars>.
 
 Definition update_locals (ξ : local_fx) (L : local_ctx) : local_ctx :=
   let 'LocalFx l := ξ in
@@ -431,9 +432,11 @@ Inductive stores_as : function_ctx -> type -> type -> Prop :=
 Definition loads_as F τ τ' := stores_as F τ' τ.
 
 Inductive module_ctx_ok : module_ctx -> Prop :=
-| MC_OK (gs : list (mutability * type)) ts :
-  Forall (fun '(_, τ) => exists ρ χ, has_kind fc_empty τ (VALTYPE ρ χ ImDrop)) gs ->
-  module_ctx_ok {| mc_globals := gs; mc_table := ts |}.
+| OKModuleCtx fs ts gs :
+  Forall (function_type_ok fc_empty) fs ->
+  Forall (function_type_ok fc_empty) ts ->
+  Forall (fun '(_, τ) => type_ok fc_empty τ /\ exists ρ χ, has_kind fc_empty τ (VALTYPE ρ χ ImDrop)) gs ->
+  module_ctx_ok {| mc_functions := fs; mc_table := ts; mc_globals := gs |}.
 
 Inductive inst_function_type : function_ctx -> index -> function_type -> function_type -> Prop :=
 | FTInstMem F ϕ μ :
@@ -537,7 +540,7 @@ Inductive instr_has_type :
   let ψ := InstrT (τs1 ++ τs ++ [τ]) τs2 in
   instr_has_type M F L (IBrTable ψ ns n) ψ L'
 | TReturn M F L L' τs τs1 τs2 :
-  F.(fc_return_type) = τs ->
+  F.(fc_return) = τs ->
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let ψ := InstrT (τs1 ++ τs) τs2 in
   instr_has_type M F L (IReturn ψ) ψ L'
@@ -586,7 +589,7 @@ Inductive instr_has_type :
   let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
   instr_has_type M F L (IInst ψ ix) ψ L
 | TCall M F L i ixs ϕ τs1 τs2 :
-  M.(mc_table) !! i = Some ϕ ->
+  M.(mc_functions) !! i = Some ϕ ->
   let ψ := InstrT τs1 τs2 in
   list_inst_function_type F ixs ϕ (MonoFunT ψ) ->
   instr_has_type M F L (ICall ψ i ixs) ψ L

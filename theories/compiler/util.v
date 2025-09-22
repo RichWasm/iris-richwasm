@@ -22,6 +22,7 @@ Inductive error :=
 Record store_runtime :=
   { sr_mem_gc : W.memaddr;
     sr_mem_mm : W.memaddr;
+    sr_table : W.tableaddr;
     sr_gc_heap_start : N }.
 
 Record module_runtime :=
@@ -33,8 +34,10 @@ Record module_runtime :=
     mr_func_registerroot : W.funcidx;
     mr_func_duproot : W.funcidx;
     mr_func_unregisterroot : W.funcidx;
+    mr_func_user : W.funcidx;
+    mr_table : W.tableidx;
     mr_global_table_offset : W.globalidx;
-    mr_table : W.tableidx }.
+    mr_global_user : W.globalidx }.
 
 Record module_env :=
   { me_globals : list type;
@@ -76,6 +79,12 @@ Definition option_sum {A E : Type} (e : E) (x : option A) : E + A :=
   match x with
   | None => inl e
   | Some x' => inr x'
+  end.
+
+Definition translate_mut (m : mutability) : W.mutability :=
+  match m with
+  | Mut => W.MUT_mut
+  | Imm => W.MUT_immut
   end.
 
 Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=

@@ -31,7 +31,7 @@ Section FundamentalKinding.
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
     subst_env_interp F s__mem s__rep s__size se
-    ⊢ kind_interp κ (value_interp sr se (subst_type s__mem s__rep s__size VarT τ)).
+    ⊢ kind_interp κ (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind. 
     revert s__mem s__rep s__size se.
@@ -71,4 +71,3 @@ Section FundamentalKinding.
   Admitted.
 
 End FundamentalKinding.
-

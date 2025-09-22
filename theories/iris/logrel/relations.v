@@ -15,9 +15,12 @@ Section Relations.
   Context `{!RichWasmGCG Σ}.
 
   Variable sr : store_runtime.
+  Variable mr : module_runtime.
 
-  Definition ns_func (x : N) : namespace := nroot .@ "rwf" .@ x.
-  Definition ns_ref (x : N) : namespace := nroot .@ "rwr" .@ x.
+  Definition ns_fun (n : N) : namespace := nroot .@ "rwf" .@ n.
+  Definition ns_ref (n : N) : namespace := nroot .@ "rwr" .@ n.
+  Definition ns_tab (n : N) : namespace := nroot .@ "rwt" .@ n.
+  Definition ns_glo (n : N) : namespace := nroot .@ "rwg" .@ n.
 
   Inductive semantic_value :=
   | SValues (vs : list value)
@@ -228,7 +231,7 @@ Section Relations.
           ∃ n cl,
             ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N n))]⌝ ∗
               ▷ closure_interp0 vrel se ϕ cl ∗
-              na_inv logrel_nais (ns_func n) (n ↦[wf] cl)
+              na_inv logrel_nais (ns_fun n) (n ↦[wf] cl)
       | RepT _ ρ' τ =>
           ∃ ρ ιs ιs' vs vs' rvs rvs' wss wss' ws,
             ⌜sv = SValues vs'⌝ ∗
@@ -298,6 +301,9 @@ Section Relations.
   Definition values_interp (se : semantic_env) : leibnizO (list type) -n> VsR :=
     values_interp0 value_interp se.
 
+  Definition closure_interp (se : semantic_env) : leibnizO function_type -n> ClR :=
+    closure_interp0 value_interp se.
+
   Definition frame_interp (se : semantic_env) :
     leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO instance -n> FrR :=
     λne L WL inst fr,
@@ -320,7 +326,35 @@ Section Relations.
                     lp_host := fun _ _ _ _ => False |}%I.
 
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
-    True. (* TODO *)
+    (* TODO: alloc_mm spec *)
+    (* TODO: alloc_gc spec *)
+    (* TODO: free spec *)
+    (* TODO: registerroot spec *)
+    (* TODO: duproot spec *)
+    (* TODO: unregisterroot spec *)
+    ([∗ list] i ↦ ϕ ∈ M.(mc_functions),
+       ∃ cl,
+         let n := N.of_nat (i + funcimm mr.(mr_func_user)) in
+         na_inv logrel_nais (ns_fun n) (n ↦[wf] cl) ∗ closure_interp [] ϕ cl) ∗
+      ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
+      (∃ off,
+         let n_off := N.of_nat (globalimm mr.(mr_global_table_offset)) in
+         let v_off := VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat off)) in
+         n_off ↦[wg] Build_global MUT_mut v_off ∗
+           ([∗ list] i ↦ ϕ ∈ M.(mc_table),
+              ∃ i' cl,
+                let nt := N.of_nat (off + i) in
+                let nf := N.of_nat i' in
+                na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
+                na_inv logrel_nais (ns_fun nf) (nf ↦[wf] cl) ∗ closure_interp [] ϕ cl)) ∗
+      ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
+      ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝ ∗
+      ([∗ list] i ↦ '(m, τ) ∈ M.(mc_globals),
+         let n := N.of_nat (globalimm mr.(mr_global_user) + i) in
+         let m' := translate_mut m in
+         na_inv logrel_nais (ns_glo n)
+           (∃ vs, value_interp [] τ (SValues vs) ∗
+                    [∗ list] j ↦ v ∈ vs, (n + N.of_nat j)%N ↦[wg] Build_global m' v)).
 
   Definition lholed_interp (F : function_ctx) (L L' : local_ctx) (inst : instance) (lh : lholed) :
     iProp Σ :=

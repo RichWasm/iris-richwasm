@@ -28,7 +28,7 @@ Definition me_of_context (M : module_ctx) (mr : module_runtime) : module_env :=
      me_runtime := mr |}.
 
 Definition fe_of_context (F : function_ctx) : function_env :=
-  {| fe_return_type := F.(fc_return_type);
+  {| fe_return_type := F.(fc_return);
      fe_type_vars := F.(fc_type_vars);
      fe_local_reps := F.(fc_locals) |}.
 
