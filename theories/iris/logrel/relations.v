@@ -1,6 +1,6 @@
 Require Import iris.proofmode.tactics.
 
-From RichWasm.compiler Require Import codegen util.
+From RichWasm.compiler Require Import codegen util instrs.
 From RichWasm.iris Require Import gc memory.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 From RichWasm Require Import syntax typing layout util.
@@ -79,11 +79,37 @@ Section Relations.
 
   Definition representation_interp (ρ : representation) : semantic_type :=
     λne sv, (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
-
-  Definition copyability_interp (χ : copyability) (T : semantic_type) : Prop :=
+  
+  Definition is_copy_operation (ρ: representation) (es: expr) : Prop :=
+    ∃ fe me wl wl' (es': codegen.W.expr),
+      run_codegen (idx ← save_stack_r fe ρ;
+                   dup_roots_local me idx ρ;;
+                   restore_stack_r idx ρ;;
+                   restore_stack_r idx ρ) wl = inr ((), wl', es') /\
+      to_e_list es' = es.
+    
+  Definition explicit_copy_spec (ρ: representation) (T: semantic_type) :=
+    ∀ fr vs es,
+      ⌜is_copy_operation ρ es⌝ -∗
+      ↪[frame] fr -∗
+      ↪[RUN] -∗
+      T (SValues vs) -∗
+      lenient_wp NotStuck top (v_to_e_list vs ++ es)
+        {| lp_fr := λ fr', ⌜fr = fr'⌝;
+           lp_val := λ vs', (∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗
+                                          T (SValues vs1) ∗
+                                          T (SValues vs2)) ∗
+                            ↪[RUN];
+           lp_trap := False;
+           lp_br := λ _, False;
+           lp_ret := λ _, False;
+           lp_host := λ _ _ _ _, False |}.
+      
+                            
+  Definition copyability_interp (ρ: representation) (χ : copyability) (T : semantic_type) : Prop :=
     match χ with
     | NoCopy => True
-    | ExCopy => True (* TODO *)
+    | ExCopy => explicit_copy_spec ρ T
     | ImCopy => forall sv, Persistent (T sv)
     end.
 
@@ -109,7 +135,7 @@ Section Relations.
     end%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
-    fun T => (⌜T ⊑ kind_as_type_interp κ⌝ ∗ ⌜∃ ρ χ δ, κ = VALTYPE ρ χ δ /\ copyability_interp χ T⌝)%I.
+    fun T => (⌜T ⊑ kind_as_type_interp κ⌝ ∗ ⌜∃ ρ χ δ, κ = VALTYPE ρ χ δ /\ copyability_interp ρ χ T⌝)%I.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> VsR :=

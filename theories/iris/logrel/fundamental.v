@@ -5,7 +5,7 @@ From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural.
-From RichWasm.iris.logrel Require Import relations.
+From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -45,18 +45,37 @@ Section Fundamental.
   Proof.
     intros me fe Hcopy ψ Hcompile.
     inv_cg_bind Hcompile ρ wl1 es_nil es1 Htype_rep Hcompile.
-    inv_cg_bind Hcompile idx wl_save es_save es2 Hsave_stack Hcompile.
-    inv_cg_bind Hcompile tt_unit wl_dup_roots es_dup_roots es3 Hdup_roots Hcompile.
-    destruct tt_unit.
-    inv_cg_bind Hcompile tt_unit wl_restore1 es_restore1 es_restore2 Hrestore1 Hrestore2.
-    destruct tt_unit.
-    subst.
     unfold has_type_semantic.
-    iIntros (τs1 τs2 ? ? ? ?) "(Henv & Hinst & Hlh)".
+    destruct ψ eqn:Hψ.
+    inversion Hψ; subst l l0.
+    iIntros (? ? ? ? ? ?) "(Henv & Hinst & Hlh)".
     iIntros (fr vs) "(Hvs & Hframe & Hfr)".
     unfold expr_interp.
     cbn.
-    iApply lenient_wp_val_app'.
+    inv_cg_try_option Htype_rep.
+    rewrite app_nil_l.
+    inversion Hcopy as [F' τ' ρ' χ ? Hhas_kind HF' Hτ' Hχ].
+    subst F' τ'.
+    pose proof (kinding_sound sr mr F s__mem s__rep s__size se _ _ Hhas_kind) as Hhas_kind_sem.
+    iPoseProof (Hhas_kind_sem with "Henv")  as "(_ & %ρ'' & %χ'' & %δ'' & %Hkind_eq & %Hcopyable)".
+    inversion Hkind_eq; subst ρ'' χ'' δ''; clear Hkind_eq.
+    cbn in Hcopyable.
+    assert (ρ' = ρ) by admit.
+    subst ρ'.
+    iApply (lenient_wp_wand).
+    { admit. }
+    iApply (Hcopyable with "[] [$] [] [Hvs]").
+    - iPureIntro.
+      unfold is_copy_operation.
+      repeat eexists.
+      apply Hcompile.
+    - admit.
+    - iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
+      iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
+      destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
+      rewrite app_nil_r in Hconcat; subst vs'.
+      rewrite big_sepL2_singleton.
+      iFrame.
   Admitted.
 
   Lemma compat_drop M F L wl wl' τ es' :

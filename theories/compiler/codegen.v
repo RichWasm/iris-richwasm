@@ -202,6 +202,15 @@ Proof.
   split; reflexivity.
 Qed.
 
+Lemma run_codegen_try_option_inr {A} (c: option A) e x wl wl' es :
+  run_codegen (try_option e c) wl = inr (x, wl', es) ->
+  c = Some x /\ wl' = wl /\ es = [].
+Proof.
+  intros H.
+  destruct c; cbn in H; [|congruence].
+  inversion H; auto.
+Qed.
+
 Lemma run_codegen_capture {A} (c : codegen A) wl wl' es es' x :
   run_codegen (capture c) wl = inr (x, es', wl', es) ->
   run_codegen c wl = inr (x, wl', es') /\ es = [].
@@ -220,6 +229,14 @@ Proof.
   clear H.
   split; reflexivity.
 Qed.
+
+Ltac inv_cg_try_option Hrun :=
+  let Heq1 := fresh "Heq_some" in
+  let Heq2 := fresh "Heq_wl" in
+  let Heq3 := fresh "Heq_nil" in
+  apply run_codegen_try_option_inr in Hrun;
+  destruct Hrun as (Heq1 & Heq2 & Heq3);
+  rewrite ?Heq1, ?Heq2, ?Heq3.
 
 Ltac inv_cg_bind Hbind res wl es1 es2 Hgen1 Hgen2 :=
   let Heseq := fresh "Hes_app_eq" in
