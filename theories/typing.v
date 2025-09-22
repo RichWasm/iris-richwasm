@@ -14,6 +14,11 @@ Record module_ctx :=
 
 Arguments module_ctx : clear implicits.
 
+Definition mc_empty : module_ctx :=
+  {| mc_functions := [];
+     mc_table := [];
+     mc_globals := [] |}.
+
 Definition local_ctx := list type.
 
 Record function_ctx :=
@@ -745,3 +750,34 @@ with instrs_have_type :
 
 Scheme instr_has_type_mind := Induction for instr_has_type Sort Prop
 with instrs_have_type_mind := Induction for instrs_have_type Sort Prop.
+
+Lemma types_decidable_eq (τs1 : list type) (τs2 : list type) : {τs1 = τs2} + {τs1 <> τs2}.
+Admitted.
+
+Definition check_instr (M : module_ctx) (F : function_ctx) (L : local_ctx) (e : instruction) :
+  option ({ '(L', ψ) | instr_has_type M F L e ψ L' }).
+Proof.
+  induction e.
+Admitted.
+
+Definition check_instrs (M : module_ctx) (F : function_ctx) (L : local_ctx) (es : list instruction) :
+  option ({ '(L', ψ) | instrs_have_type M F L es ψ L' }).
+Proof.
+  generalize dependent L.
+  induction es as [| e es'].
+  - intros L.
+    refine (Some _).
+    exists (L, InstrT [] []).
+    apply TNil.
+  - intros L1.
+    destruct (check_instr M F L1 e) as [He |]; last exact None.
+    destruct He as [[L2 [τs1 τs2]] He].
+    destruct (IHes' L2) as [Hes |]; last exact None.
+    destruct Hes as [[L3 [τs2' τs3]] Hes].
+    destruct (types_decidable_eq τs2 τs2'); last exact None.
+    refine (Some _).
+    exists (L3, InstrT τs1 τs3).
+    eapply TCons; first exact He.
+    subst τs2'.
+    exact Hes.
+Defined.
