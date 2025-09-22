@@ -1,8 +1,10 @@
 Require Import RecordUpdate.RecordUpdate.
 
+From iris.proofmode Require Import base tactics classes.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
+From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural.
 From RichWasm.iris.logrel Require Import relations.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -40,6 +42,21 @@ Section Fundamental.
     let ψ := InstrT [τ] [τ; τ] in
     run_codegen (compile_instr me fe (ICopy ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr M F L [] (to_e_list es') ψ L.
+  Proof.
+    intros me fe Hcopy ψ Hcompile.
+    inv_cg_bind Hcompile ρ wl1 es_nil es1 Htype_rep Hcompile.
+    inv_cg_bind Hcompile idx wl_save es_save es2 Hsave_stack Hcompile.
+    inv_cg_bind Hcompile tt_unit wl_dup_roots es_dup_roots es3 Hdup_roots Hcompile.
+    destruct tt_unit.
+    inv_cg_bind Hcompile tt_unit wl_restore1 es_restore1 es_restore2 Hrestore1 Hrestore2.
+    destruct tt_unit.
+    subst.
+    unfold has_type_semantic.
+    iIntros (τs1 τs2 ? ? ? ?) "(Henv & Hinst & Hlh)".
+    iIntros (fr vs) "(Hvs & Hframe & Hfr)".
+    unfold expr_interp.
+    cbn.
+    iApply lenient_wp_val_app'.
   Admitted.
 
   Lemma compat_drop M F L wl wl' τ es' :

@@ -220,3 +220,9 @@ Proof.
   clear H.
   split; reflexivity.
 Qed.
+
+Ltac inv_cg_bind Hbind res wl es1 es2 Hgen1 Hgen2 :=
+  let Heseq := fresh "Hes_app_eq" in
+  apply run_codegen_bind_dist in Hbind;
+  destruct Hbind as (res & wl & es1 & es2 & Hgen1 & Hgen2 & Heseq);
+  rewrite Heseq.
