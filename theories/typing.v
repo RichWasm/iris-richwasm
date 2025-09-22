@@ -196,6 +196,7 @@ with function_type_ok : function_ctx -> function_type -> Prop :=
   function_type_ok (set fc_size_vars S F) ϕ ->
   function_type_ok F (ForallSizeT ϕ)
 | OKForallTypeT F κ ϕ :
+  kind_ok F κ ->
   function_type_ok (set fc_type_vars (cons κ) F) ϕ ->
   function_type_ok F (ForallTypeT κ ϕ).
 
