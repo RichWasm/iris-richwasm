@@ -230,16 +230,85 @@ Proof.
   split; reflexivity.
 Qed.
 
+Lemma run_codegen_ret {A} (a: A) wl wl' x es :
+  run_codegen (mret a) wl = inr (x, wl', es) ->
+  x = a /\ wl' = wl /\ es = [].
+Proof.
+  intros Hret.
+  inversion Hret.
+  auto.
+Qed.
+
+Lemma run_codegen_emit wl e x wl' es' :
+  run_codegen (emit e) wl = inr (x, wl', es') ->
+  x = tt /\
+  wl' = wl /\
+  es' = [e].
+Proof.
+  intros Hemit.
+  inversion Hemit.
+  auto.
+Qed.
+
+Lemma run_codegen_emit_all wl es x wl' es' :
+  run_codegen (emit_all es) wl = inr (x, wl', es') ->
+  x = tt /\
+  wl' = wl /\
+  es' = es.
+Proof.
+  intros Hemit.
+  inversion Hemit.
+  rewrite app_nil_r in *.
+  auto.
+Qed.
+
 Ltac inv_cg_try_option Hrun :=
   let Heq1 := fresh "Heq_some" in
   let Heq2 := fresh "Heq_wl" in
   let Heq3 := fresh "Heq_nil" in
   apply run_codegen_try_option_inr in Hrun;
   destruct Hrun as (Heq1 & Heq2 & Heq3);
-  rewrite ?Heq1, ?Heq2, ?Heq3.
+  rewrite ?Heq1, ?Heq2, ?Heq3 in *.
 
 Ltac inv_cg_bind Hbind res wl es1 es2 Hgen1 Hgen2 :=
   let Heseq := fresh "Hes_app_eq" in
   apply run_codegen_bind_dist in Hbind;
   destruct Hbind as (res & wl & es1 & es2 & Hgen1 & Hgen2 & Heseq);
   rewrite Heseq.
+
+Ltac inv_cg_ret Hret :=
+  let Hretval := fresh "Hretval" in
+  let Hwl := fresh "Hwl" in
+  let Hes := fresh "Hes" in
+  apply run_codegen_ret in Hret;
+  destruct Hret as (Hretval & Hwl & Hes);
+  rewrite ?Hretval, ?Hwl, ?Hes in *.
+
+Ltac inv_cg_emit Hemit :=
+  let Hretval := fresh "Hretval" in
+  let Hwl := fresh "Hwl" in
+  let Hes := fresh "Hes" in
+  apply run_codegen_emit in Hemit;
+  destruct Hemit as (Hretval & Hwl & Hes);
+  rewrite ?Hretval, ?Hwl, ?Hes in *.
+
+Ltac inv_cg_emit_all Hemit :=
+  let Hretval := fresh "Hretval" in
+  let Hwl := fresh "Hwl" in
+  let Hes := fresh "Hes" in
+  apply run_codegen_emit_all in Hemit;
+  destruct Hemit as (Hretval & Hwl & Hes);
+  rewrite ?Hretval, ?Hwl, ?Hes in *.
+
+Example emit_ret_test wl x y z :
+  run_codegen (emit W.BI_nop;;
+               mret 7) wl = inr (x, y, z) ->
+  x = 7 /\ y = wl /\ z = [W.BI_nop].
+Proof.
+  intros Hrun.
+  inv_cg_bind Hrun res wl' es1 es2 Hemit Hret.
+  inv_cg_emit Hemit.
+  inv_cg_ret Hret.
+  rewrite app_nil_r.
+  repeat split; exact eq_refl.
+Qed.

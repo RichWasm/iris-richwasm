@@ -1,12 +1,11 @@
 Require Import RecordUpdate.RecordUpdate.
 
 From iris.proofmode Require Import base tactics classes.
-
-From RichWasm.iris Require Import autowp gc.
-From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural.
-From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
+From RichWasm.iris Require Import autowp gc.
+From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural logpred.
+From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -35,6 +34,38 @@ Section Fundamental.
     run_codegen (compile_instr me fe (IUnreachable ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
+  
+  Lemma type_rep_has_kind_agree F τ ρ χ δ :
+    has_kind F τ (VALTYPE ρ χ δ) ->
+    type_rep (fe_type_vars (fe_of_context F)) τ = Some ρ.
+  Proof.
+    intros Hhas_kind.
+    remember (VALTYPE ρ χ δ) as k.
+    revert Heqk.
+    revert χ δ.
+    induction Hhas_kind; cbn; eauto; intros χ' δ' Hk;
+      try solve [inversion Hk; subst; by eauto  (* subkinding cases *)
+                | subst κ; by eauto             (* other cases *)].
+    (* type var case *)
+    inversion H0; subst; [|congruence].
+    inversion H3; subst.
+    rewrite H; done.
+  Qed.
+
+  (* This should be moved to the logpred module. *)
+  Definition lp_wand' Φ1 Φ2 : iProp Σ :=
+    ∀ lv, denote_logpred Φ1 lv -∗ denote_logpred Φ2 lv.
+
+  (* This should be moved to the lwp_structural module. *)
+  Lemma lwp_wand s E es Φ Ψ :
+    ⊢ lp_wand' Φ Ψ -∗
+      lenient_wp s E es Φ -∗
+      lenient_wp s E es Ψ.
+  Proof.
+    unfold lp_wand', lenient_wp.
+    iIntros "Hwand HΦ".
+    iApply (wp_wand with "[$] [$]").
+  Qed.
 
   Lemma compat_copy M F L wl wl' τ es' :
     let me := me_of_context M mr in
@@ -49,8 +80,8 @@ Section Fundamental.
     unfold has_type_semantic.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ?) "(Henv & Hinst & Hlh)".
-    iIntros (fr vs) "(Hvs & Hframe & Hfr)".
+    iIntros (? ? ? ? ? ?) "Henv Hinst Hlh".
+    iIntros (fr vs) "Hvs Hframe Hfr Hrun".
     unfold expr_interp.
     cbn.
     inv_cg_try_option Htype_rep.
@@ -61,23 +92,38 @@ Section Fundamental.
     iPoseProof (Hhas_kind_sem with "Henv")  as "(_ & %ρ'' & %χ'' & %δ'' & %Hkind_eq & %Hcopyable)".
     inversion Hkind_eq; subst ρ'' χ'' δ''; clear Hkind_eq.
     cbn in Hcopyable.
-    assert (ρ' = ρ) by admit.
+    assert (ρ' = ρ).
+    { 
+      apply type_rep_has_kind_agree in Hhas_kind.
+      rewrite Heq_some in Hhas_kind.
+      congruence.
+    }
     subst ρ'.
-    iApply (lenient_wp_wand).
-    { admit. }
-    iApply (Hcopyable with "[] [$] [] [Hvs]").
-    - iPureIntro.
+    iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
+    iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
+    destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
+    rewrite app_nil_r in Hconcat; subst vs'.
+    rewrite big_sepL2_singleton.
+    iApply (lwp_wand with "[Hframe]"); last first.
+    - iApply (Hcopyable with "[] [$Hfr] [$Hrun] [$Hvs]").
+      iPureIntro.
       unfold is_copy_operation.
       repeat eexists.
       apply Hcompile.
-    - admit.
-    - iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
-      iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
-      destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
-      rewrite app_nil_r in Hconcat; subst vs'.
-      rewrite big_sepL2_singleton.
-      iFrame.
-  Admitted.
+    - iIntros (sv) "(Hcopy & %fr' & Hfr & <-)".
+      unfold lp_wand', denote_logpred.
+      cbn.
+      iSplitL "Hcopy".
+      + destruct sv; cbn; try iDestruct "Hcopy" as "[]".
+        * iDestruct "Hcopy" as "[(%vs1 & %vs2 & %Hl & Hvs1 & Hvs2) ?]".
+          iFrame.
+          iExists [vs1; vs2].
+          cbn.
+          rewrite app_nil_r.
+          by iFrame.
+        * iDestruct "Hcopy" as "[? []]".
+      + by iFrame.
+  Qed.
 
   Lemma compat_drop M F L wl wl' τ es' :
     let me := me_of_context M mr in
@@ -185,7 +231,7 @@ Section Fundamental.
   Lemma compat_return M F L L' wl wl' es' τs τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    F.(fc_return) = τs ->
+    fc_return F = τs ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     let ψ := InstrT (τs1 ++ τs) τs2 in
     run_codegen (compile_instr me fe (IReturn ψ)) wl = inr ((), wl', es') ->
@@ -217,7 +263,7 @@ Section Fundamental.
   Lemma compat_local_set M F L wl wl' es' n τ τ' ρ ρ' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    F.(fc_locals) !! n = Some ρ ->
+    typing.fc_locals F !! n = Some ρ ->
     L !! n = Some τ ->
     has_dropability F τ ImDrop ->
     has_rep F τ' ρ' ->
@@ -231,7 +277,7 @@ Section Fundamental.
   Lemma compat_global_get M F L wl wl' es' n m τ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    M.(mc_globals) !! n = Some (m, τ) ->
+    mc_globals M !! n = Some (m, τ) ->
     has_copyability F τ ImCopy ->
     let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (IGlobalGet ψ n)) wl = inr ((), wl', es') ->
@@ -241,7 +287,7 @@ Section Fundamental.
   Lemma compat_global_set M F L wl wl' es' n τ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    M.(mc_globals) !! n = Some (Mut, τ) ->
+    mc_globals M !! n = Some (Mut, τ) ->
     has_dropability F τ ImDrop ->
     let ψ := InstrT [τ] [] in
     run_codegen (compile_instr me fe (IGlobalSet ψ n)) wl = inr ((), wl', es') ->
@@ -251,7 +297,7 @@ Section Fundamental.
   Lemma compat_global_swap M F L wl wl' es' n τ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    M.(mc_globals) !! n = Some (Mut, τ) ->
+    mc_globals M !! n = Some (Mut, τ) ->
     let ψ := InstrT [τ] [τ] in
     run_codegen (compile_instr me fe (IGlobalSwap ψ n)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L.
@@ -260,7 +306,7 @@ Section Fundamental.
   Lemma compat_coderef M F L wl wl' es' i ϕ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    M.(mc_table) !! i = Some ϕ ->
+    mc_table M !! i = Some ϕ ->
     let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
     let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (ICodeRef ψ i)) wl = inr ((), wl', es') ->
@@ -279,7 +325,7 @@ Section Fundamental.
   Lemma compat_call M F L wl wl' es' i ixs ϕ τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    M.(mc_functions) !! i = Some ϕ ->
+    mc_functions M !! i = Some ϕ ->
     let ψ := InstrT τs1 τs2 in
     list_inst_function_type F ixs ϕ (MonoFunT ψ) ->
     run_codegen (compile_instr me fe (ICall ψ i ixs)) wl = inr ((), wl', es') ->

@@ -376,12 +376,15 @@ Section Relations.
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
     (∀ s__mem s__rep s__size se inst lh,
-       subst_env_interp F s__mem s__rep s__size se ∗
-         instance_interp M inst ∗
-         lholed_interp F L L' inst lh -∗
+       subst_env_interp F s__mem s__rep s__size se -∗
+       instance_interp M inst -∗
+       lholed_interp F L L' inst lh -∗
        let sub := map (subst_type s__mem s__rep s__size VarT) in
        ∀ fr vs,
-         values_interp se (sub τs1) vs ∗ frame_interp se (sub L) WL inst fr ∗ ↪[frame] fr -∗
+         values_interp se (sub τs1) vs -∗
+         frame_interp se (sub L) WL inst fr -∗
+         ↪[frame] fr -∗
+         ↪[RUN] -∗
          expr_interp se (sub τs2) F (sub L') WL inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.
