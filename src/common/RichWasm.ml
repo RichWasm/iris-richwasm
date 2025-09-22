@@ -1,5 +1,351 @@
 open! Base
 
-module PrimativeRep = struct
+module Big_int_Z = struct
+  include Z
+
+  let pp fmt z = Stdlib.Format.fprintf fmt "%s" (Z.to_string z)
+  let sexp_of_t z = Sexp.Atom (Z.to_string z)
+
+  let t_of_sexp = function
+    | Sexp.Atom s -> Z.of_string s
+    | _ -> failwith "expected atom"
+end
+
+module Path = struct
+  module Component = struct
+    type t =
+      [%import:
+        (Richwasm_extract.RwSyntax.path_component[@with Z.t := Big_int_Z.t])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.path[@with path_component := Component.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module ConcreteMemory = struct
+  type t = [%import: Richwasm_extract.RwSyntax.Core.concrete_memory]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Copyability = struct
+  type t = [%import: Richwasm_extract.RwSyntax.Core.copyability]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Dropability = struct
+  type t = [%import: Richwasm_extract.RwSyntax.Core.dropability]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module PrimitiveRep = struct
   type t = [%import: Richwasm_extract.RwSyntax.Core.primitive_rep]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Sign = struct
+  type t = [%import: Richwasm_extract.RwSyntax.Core.sign]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Float = struct
+  module Type = struct
+    type t = [%import: Richwasm_extract.RwSyntax.Core.float_type]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Unop = struct
+    type t = [%import: Richwasm_extract.RwSyntax.Core.float_unop]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Binop = struct
+    type t = [%import: Richwasm_extract.RwSyntax.Core.float_binop]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Relop = struct
+    type t = [%import: Richwasm_extract.RwSyntax.Core.float_relop]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+end
+
+module Int = struct
+  module Type = struct
+    type t = [%import: Richwasm_extract.RwSyntax.Core.int_type]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Unop = struct
+    type t = [%import: Richwasm_extract.RwSyntax.Core.int_unop]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Binop = struct
+    type t =
+      [%import:
+        (Richwasm_extract.RwSyntax.Core.int_binop[@with sign := Sign.t])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Relop = struct
+    type t =
+      [%import:
+        (Richwasm_extract.RwSyntax.Core.int_relop[@with sign := Sign.t])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Testop = struct
+    type t = [%import: Richwasm_extract.RwSyntax.Core.int_testop]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+end
+
+module ConversionOp = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.conversion_op
+      [@with
+        sign := Sign.t;
+        int_type := Int.Type.t;
+        float_type := Float.Type.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module NumInstruction = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.num_instruction
+      [@with
+        int_type := Int.Type.t;
+        int_unop := Int.Unop.t;
+        int_binop := Int.Binop.t;
+        int_testop := Int.Testop.t;
+        int_relop := Int.Relop.t;
+        float_type := Float.Type.t;
+        float_unop := Float.Unop.t;
+        float_binop := Float.Binop.t;
+        float_relop := Float.Relop.t;
+        conversion_op := ConversionOp.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Representation = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.representation
+      [@with
+        Z.t := Big_int_Z.t;
+        primitive_rep := PrimitiveRep.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Size = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.size
+      [@with
+        Z.t := Big_int_Z.t;
+        representation := Representation.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Sizity = struct
+  type t =
+    [%import: (Richwasm_extract.RwSyntax.Core.sizity[@with size := Size.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Memory = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.memory
+      [@with
+        Z.t := Big_int_Z.t;
+        concrete_memory := ConcreteMemory.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Kind = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.kind
+      [@with
+        representation := Representation.t;
+        copyability := Copyability.t;
+        dropability := Dropability.t;
+        sizity := Sizity.t;
+        memory := Memory.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module NumType = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.num_type
+      [@with
+        int_type := Int.Type.t;
+        float_type := Float.Type.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+(* work around bug? with ppx_import *)
+module Internal = struct
+  module Types = struct
+    type typ =
+      [%import:
+        (Richwasm_extract.RwSyntax.Core.coq_type
+        [@with
+          Z.t := Big_int_Z.t;
+          kind := Kind.t;
+          num_type := NumType.t;
+          memory := Memory.t;
+          representation := Representation.t;
+          size := Size.t;
+          coq_type := typ;
+          function_type := function_typ])]
+
+    and instruction_typ =
+      [%import:
+        (Richwasm_extract.RwSyntax.Core.instruction_type
+        [@with
+          coq_type := typ;
+          function_type := function_typ])]
+
+    and function_typ =
+      [%import:
+        (Richwasm_extract.RwSyntax.Core.function_type
+        [@with
+          kind := Kind.t;
+          instruction_type := instruction_typ;
+          function_type := function_typ])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+end
+
+module Type = struct
+  type t = Internal.Types.typ [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module InstructionType = struct
+  type t = Internal.Types.instruction_typ
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module FunctionType = struct
+  type t = Internal.Types.function_typ
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Index = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.index
+      [@with
+        memory := Memory.t;
+        representation := Representation.t;
+        size := Size.t;
+        coq_type := Type.t;
+        instruction_type := InstructionType.t;
+        function_type := FunctionType.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module LocalFx = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.local_fx
+      [@with
+        Z.t := Big_int_Z.t;
+        coq_type := Type.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Instruction = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.instruction
+      [@with
+        Z.t := Big_int_Z.t;
+        instruction_type := InstructionType.t;
+        num_instruction := NumInstruction.t;
+        local_fx := LocalFx.t;
+        index := Index.t;
+        path := Path.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
+end
+
+module Module = struct
+  module Mutability = struct
+    type t = [%import: Richwasm_extract.RwSyntax.mutability]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Function = struct
+    type t =
+      [%import:
+        (Richwasm_extract.RwSyntax.module_function
+        [@with
+          Core.function_type := FunctionType.t;
+          Core.instruction := Instruction.t])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Global = struct
+    type t =
+      [%import:
+        (Richwasm_extract.RwSyntax.module_global
+        [@with
+          Core.coq_type := Type.t;
+          Core.instruction := Instruction.t])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Import = struct
+    module Desc = struct
+      type t =
+        [%import:
+          (Richwasm_extract.RwSyntax.module_import_desc
+          [@with
+            Core.function_type := FunctionType.t;
+            Core.coq_type := Type.t;
+            mutability := Mutability.t])]
+      [@@deriving show, eq, ord, iter, map, fold, sexp]
+    end
+
+    type t =
+      [%import:
+        (Richwasm_extract.RwSyntax.module_import
+        [@with module_import_desc := Desc.t])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  module Export = struct
+    module Desc = struct
+      type t =
+        [%import:
+          (Richwasm_extract.RwSyntax.module_export_desc
+          [@with Z.t := Big_int_Z.t])]
+      [@@deriving show, eq, ord, iter, map, fold, sexp]
+    end
+
+    type t =
+      [%import:
+        (Richwasm_extract.RwSyntax.module_export
+        [@with module_export_desc := Desc.t])]
+    [@@deriving show, eq, ord, iter, map, fold, sexp]
+  end
+
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.module0
+      [@with
+        module_import := Import.t;
+        module_global := Global.t;
+        module_function := Function.t;
+        Z.t := Big_int_Z.t;
+        module_export := Export.t])]
+  [@@deriving show, eq, ord, iter, map, fold, sexp]
 end
