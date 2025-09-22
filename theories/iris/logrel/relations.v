@@ -91,14 +91,15 @@ Section Relations.
     eval_size σ = Some (length ws).
 
   Definition sizity_interp (ζ : sizity) : semantic_type :=
-    λne sv, (∃ μ ws, ⌜sv = SWords μ ws⌝ ∗ ∀ σ, ⌜ζ = Sized σ⌝ -∗ ⌜size_interp σ ws⌝)%I.
+    λne sv, ⌜∃ μ ws, sv = SWords μ ws /\ ∀ σ, ζ = Sized σ -> size_interp σ ws⌝%I.
 
   Definition memory_interp (μ : memory) : semantic_type :=
-    λne sv, (∃ cm ws, ⌜μ = ConstM cm⌝ ∗ ⌜sv = SWords cm ws⌝)%I.
+    λne sv, ⌜∃ cm ws, μ = ConstM cm /\ sv = SWords cm ws⌝%I.
 
   (* S refines T, written S ⊑ T. *)
   Definition semantic_type_le (S T : semantic_type) : Prop := forall sv, S sv -∗ T sv.
 
+  #[export]
   Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type := semantic_type_le.
 
   Definition kind_as_type_interp (κ : kind) : semantic_type :=
@@ -108,7 +109,7 @@ Section Relations.
     end%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
-    fun T => (⌜T ⊑ kind_as_type_interp κ⌝ ∗ ∃ ρ χ δ, ⌜κ = VALTYPE ρ χ δ⌝ -∗ ⌜copyability_interp χ T⌝)%I.
+    fun T => (⌜T ⊑ kind_as_type_interp κ⌝ ∗ ⌜∃ ρ χ δ, κ = VALTYPE ρ χ δ /\ copyability_interp χ T⌝)%I.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> VsR :=
