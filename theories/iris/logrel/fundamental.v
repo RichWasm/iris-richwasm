@@ -3,7 +3,7 @@ Require Import RecordUpdate.RecordUpdate.
 From iris.proofmode Require Import base tactics classes.
 
 From RichWasm.iris Require Import autowp gc.
-From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural.
+From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
@@ -35,6 +35,38 @@ Section Fundamental.
     run_codegen (compile_instr me fe (IUnreachable ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
+  
+  Lemma type_rep_has_kind_agree F τ ρ χ δ :
+    has_kind F τ (VALTYPE ρ χ δ) ->
+    type_rep (fe_type_vars (fe_of_context F)) τ = Some ρ.
+  Proof.
+    intros Hhas_kind.
+    remember (VALTYPE ρ χ δ) as k.
+    revert Heqk.
+    revert χ δ.
+    induction Hhas_kind; cbn; eauto; intros χ' δ' Hk;
+      try solve [inversion Hk; subst; by eauto  (* subkinding cases *)
+                | subst κ; by eauto             (* other cases *)].
+    (* type var case *)
+    inversion H0; subst; [|congruence].
+    inversion H3; subst.
+    rewrite H; done.
+  Qed.
+
+  (* This should be moved to the logpred module. *)
+  Definition lp_wand' Φ1 Φ2 : iProp Σ :=
+    ∀ lv, denote_logpred Φ1 lv -∗ denote_logpred Φ2 lv.
+
+  (* This should be moved to the lwp_structural module. *)
+  Lemma lwp_wand s E es Φ Ψ :
+    ⊢ lp_wand' Φ Ψ -∗
+      lenient_wp s E es Φ -∗
+      lenient_wp s E es Ψ.
+  Proof.
+    unfold lp_wand', lenient_wp.
+    iIntros "Hwand HΦ".
+    iApply (wp_wand with "[$] [$]").
+  Qed.
 
   Lemma compat_copy M F L wl wl' τ es' :
     let me := me_of_context M mr in
@@ -61,23 +93,40 @@ Section Fundamental.
     iPoseProof (Hhas_kind_sem with "Henv")  as "(_ & %ρ'' & %χ'' & %δ'' & %Hkind_eq & %Hcopyable)".
     inversion Hkind_eq; subst ρ'' χ'' δ''; clear Hkind_eq.
     cbn in Hcopyable.
-    assert (ρ' = ρ) by admit.
+    assert (ρ' = ρ).
+    { 
+      apply type_rep_has_kind_agree in Hhas_kind.
+      rewrite Heq_some in Hhas_kind.
+      congruence.
+    }
     subst ρ'.
-    iApply (lenient_wp_wand).
-    { admit. }
-    iApply (Hcopyable with "[] [$] [] [Hvs]").
-    - iPureIntro.
-      unfold is_copy_operation.
-      repeat eexists.
-      apply Hcompile.
-    - admit.
-    - iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
-      iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
-      destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
-      rewrite app_nil_r in Hconcat; subst vs'.
-      rewrite big_sepL2_singleton.
-      iFrame.
+    iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
+    iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
+    destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
+    rewrite app_nil_r in Hconcat; subst vs'.
+    rewrite big_sepL2_singleton.
+    iApply (lwp_wand with "[Hframe]"); last first.
+    - iApply (Hcopyable with "[] [$Hfr] [] [$Hvs]").
+      + iPureIntro.
+        unfold is_copy_operation.
+        repeat eexists.
+        apply Hcompile.
+      + admit.
+    - iIntros (sv) "(Hcopy & %fr' & Hfr & <-)".
+      unfold lp_wand', denote_logpred.
+      cbn.
+      iSplitL "Hcopy".
+      + destruct sv; cbn; try iDestruct "Hcopy" as "[]".
+        * iDestruct "Hcopy" as "[(%vs1 & %vs2 & %Hl & Hvs1 & Hvs2) ?]".
+          iFrame.
+          iExists [vs1; vs2].
+          cbn.
+          rewrite app_nil_r.
+          by iFrame.
+        * iDestruct "Hcopy" as "[? []]".
+      + by iFrame.
   Admitted.
+
 
   Lemma compat_drop M F L wl wl' τ es' :
     let me := me_of_context M mr in
