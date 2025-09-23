@@ -6,6 +6,7 @@ From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.logrel Require Import relations.
+From Stdlib Require Import Relations.Relation_Operators.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -19,6 +20,19 @@ Section FundamentalKinding.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
   
+  Lemma semantic_type_le_refl :
+    ∀ (T: @semantic_type Σ), 
+      T ⊑ T.
+  Proof.
+  Admitted.
+
+  Lemma semantic_type_le_trans :
+    ∀ (S T U : @semantic_type Σ), 
+      S ⊑ T ->
+      T ⊑ U ->
+      S ⊑ U.
+  Admitted.
+
   Lemma sizity_sized_le_unsized σ :
     sizity_interp (Σ:=Σ) (Sized σ) ⊑ sizity_interp Unsized.
   Proof.
@@ -27,47 +41,110 @@ Section FundamentalKinding.
     do 2 eexists; split; eauto.
     intros; congruence.
   Qed.
+  
+  Lemma type_kind_has_kind_Some F τ κ :
+    has_kind F τ κ ->
+    ∃ κ', type_kind (fe_type_vars (fe_of_context F)) τ = Some κ'.
+  Proof.
+    induction 1; try solve [eexists; cbn; eauto].
+    auto.
+  Qed.
+
+  Lemma type_kind_has_kind_agree F τ κ κ' :
+    has_kind F τ κ ->
+    type_kind (fe_type_vars (fe_of_context F)) τ = Some κ' ->
+    clos_refl_trans _ sub_kind κ' κ.
+  Proof.
+    intros Hhas_kind.
+    revert κ'.
+    induction Hhas_kind;
+      try solve [intros;
+                 replace κ' with κ; 
+                 [by constructor|]; 
+                 cbn in *; congruence].
+    intros.
+    eapply IHHhas_kind in H0.
+    eapply rt_trans; [|apply rt_step]; by eauto.
+  Qed.
+  
+  Lemma sub_kind_rep_inv :
+    forall κ κ',
+      clos_refl_trans _ sub_kind κ κ' ->
+      kind_rep κ = kind_rep κ'.
+  Proof.
+    induction 1; try congruence.
+    inversion H; reflexivity.
+  Qed.
+
+  Lemma type_rep_has_kind_agree F τ ρ χ δ :
+    has_kind F τ (VALTYPE ρ χ δ) ->
+    type_rep (fe_type_vars (fe_of_context F)) τ = Some ρ.
+  Proof.
+    intros Hhas_kind.
+    unfold type_rep.
+    destruct (type_kind_has_kind_Some _ _ _ Hhas_kind) as [κ' Htk].
+    rewrite Htk; cbn.
+    eapply type_kind_has_kind_agree in Htk; eauto.
+    erewrite sub_kind_rep_inv by eauto.
+    done.
+  Qed.
+  
+  Lemma sub_kind_sound κ κ' :
+    sub_kind κ κ' ->
+    kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
+  Proof.
+  Admitted.
+
+  Lemma rt_sub_kind_sound κ κ' :
+    clos_refl_trans _ sub_kind κ κ' ->
+    kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
+  Proof. 
+  Admitted.
+  
+  Lemma has_kind_subst F τ κ s__mem s__rep s__size :
+    has_kind F τ κ ->
+    subst_interp F s__mem s__rep s__size ->
+    has_kind fc_empty (subst_type s__mem s__rep s__size VarT τ) (subst_kind s__mem s__rep s__size κ).
+  Proof.
+  Admitted.
+
+  Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
+    has_kind F τ κ ->
+    subst_env_interp F s__mem s__rep s__size se
+    ⊢ ⌜value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑ kind_as_type_interp (subst_kind s__mem s__rep s__size κ)⌝.
+  Proof.
+    iIntros "%Hhas_kind [%Hsubst _]".
+    iPureIntro.
+    intros sv.
+    iIntros "Hval".
+    rewrite value_interp_eq.
+    iDestruct "Hval" as "(%κ' & %Htyk & Hinterp & _)".
+    eapply has_kind_subst in Hhas_kind; eauto.
+    eapply (type_kind_has_kind_agree fc_empty) in Hhas_kind; eauto.
+    iApply rt_sub_kind_sound; eauto.
+  Qed.
+
+  Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
+    has_kind F τ (VALTYPE ρ χ δ) ->
+    subst_env_interp F s__mem s__rep s__size se
+    ⊢ copyability_interp (subst_representation s__rep ρ) χ (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
+  Proof.
+  Admitted.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
     subst_env_interp F s__mem s__rep s__size se
-    ⊢ kind_interp κ (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
+    ⊢ kind_interp (subst_kind s__mem s__rep s__size κ) 
+                  (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind. 
     revert s__mem s__rep s__size se.
-    induction Hkind; intros; iIntros "Hsubst".
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-      (* CHANGE to use true by construction refinement *)
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-  Admitted.
+    iIntros "* Hsubst".
+    iSplit.
+    - iApply kinding_refinement; eauto.
+    - destruct κ; [| done].
+      cbn.
+      iApply kinding_copyable; eauto.
+  Qed.
 
 End FundamentalKinding.

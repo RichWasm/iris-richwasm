@@ -35,23 +35,6 @@ Section Fundamental.
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
   
-  Lemma type_rep_has_kind_agree F τ ρ χ δ :
-    has_kind F τ (VALTYPE ρ χ δ) ->
-    type_rep (fe_type_vars (fe_of_context F)) τ = Some ρ.
-  Proof.
-    intros Hhas_kind.
-    remember (VALTYPE ρ χ δ) as k.
-    revert Heqk.
-    revert χ δ.
-    induction Hhas_kind; cbn; eauto; intros χ' δ' Hk;
-      try solve [inversion Hk; subst; by eauto  (* subkinding cases *)
-                | subst κ; by eauto             (* other cases *)].
-    (* type var case *)
-    inversion H0; subst; [|congruence].
-    inversion H3; subst.
-    rewrite H; done.
-  Qed.
-
   (* This should be moved to the logpred module. *)
   Definition lp_wand' Φ1 Φ2 : iProp Σ :=
     ∀ lv, denote_logpred Φ1 lv -∗ denote_logpred Φ2 lv.
@@ -66,16 +49,32 @@ Section Fundamental.
     iIntros "Hwand HΦ".
     iApply (wp_wand with "[$] [$]").
   Qed.
+  
+  Lemma subst_repr_closed_nop ρ :
+    repr_closed ρ -> 
+    ∀ s, subst_representation s ρ = ρ.
+  Proof.
+  Admitted.
+  
+  Lemma mono_rep_closed F τ ρ :
+    mono_rep F τ ->
+    has_rep F τ ρ ->
+    repr_closed ρ.
+  Proof.
+  Admitted.
 
   Lemma compat_copy M F L wl wl' τ es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    mono_rep F τ ->
     has_copyability F τ ExCopy ->
     let ψ := InstrT [τ] [τ; τ] in
     run_codegen (compile_instr me fe (ICopy ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L.
   Proof.
-    intros me fe Hcopy ψ Hcompile.
+    intros me fe Hmono Hcopy ψ Hcompile.
+    unfold compile_instr in Hcompile.
+    cbn in Hcompile.
     inv_cg_bind Hcompile ρ wl1 es_nil es1 Htype_rep Hcompile.
     unfold has_type_semantic.
     destruct ψ eqn:Hψ.
@@ -89,9 +88,9 @@ Section Fundamental.
     inversion Hcopy as [F' τ' ρ' χ ? Hhas_kind HF' Hτ' Hχ].
     subst F' τ'.
     pose proof (kinding_sound sr mr F s__mem s__rep s__size se _ _ Hhas_kind) as Hhas_kind_sem.
-    iPoseProof (Hhas_kind_sem with "Henv")  as "(_ & %ρ'' & %χ'' & %δ'' & %Hkind_eq & %Hcopyable)".
-    inversion Hkind_eq; subst ρ'' χ'' δ''; clear Hkind_eq.
-    cbn in Hcopyable.
+    iPoseProof (Hhas_kind_sem with "Henv") as "Hskind".
+    iDestruct "Hskind" as "[Hrefine Hcopyable]".
+    iEval (cbn) in "Hcopyable".
     assert (ρ' = ρ).
     { 
       apply type_rep_has_kind_agree in Hhas_kind.
@@ -105,7 +104,9 @@ Section Fundamental.
     rewrite app_nil_r in Hconcat; subst vs'.
     rewrite big_sepL2_singleton.
     iApply (lwp_wand with "[Hframe]"); last first.
-    - iApply (Hcopyable with "[] [$Hfr] [$Hrun] [$Hvs]").
+    - iApply ("Hcopyable" with "[] [$Hfr] [$Hrun] [$Hvs]").
+      rewrite subst_repr_closed_nop;
+        [|eapply mono_rep_closed; eauto; econstructor; eauto].
       iPureIntro.
       unfold is_copy_operation.
       repeat eexists.

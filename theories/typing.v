@@ -204,28 +204,27 @@ with function_type_ok : function_ctx -> function_type -> Prop :=
 Definition mono_mem (μ : memory) : Prop :=
   exists cm, μ = ConstM cm.
 
+Inductive sub_kind : kind -> kind -> Prop :=
+| KSubValExCopy ρ δ :
+  sub_kind (VALTYPE ρ ImCopy δ) (VALTYPE ρ ExCopy δ)
+| KSubValNoCopy ρ δ :
+  sub_kind (VALTYPE ρ ExCopy δ) (VALTYPE ρ NoCopy δ)
+| KSubValExDrop ρ χ :
+  sub_kind (VALTYPE ρ χ ImDrop) (VALTYPE ρ χ ExDrop)
+| KSubValNoDrop ρ χ :
+  sub_kind (VALTYPE ρ χ ExDrop) (VALTYPE ρ χ NoDrop)
+| KSubMemExDrop ζ μ :
+  sub_kind (MEMTYPE ζ μ ImDrop) (MEMTYPE ζ μ ExDrop)
+| KSubMemNoDrop ζ μ :
+  sub_kind (MEMTYPE ζ μ ExDrop) (MEMTYPE ζ μ NoDrop)
+| KSubSizity σ μ δ :
+  sub_kind (MEMTYPE (Sized σ) μ δ) (MEMTYPE Unsized μ δ).
+
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
-| KSubValExCopy F τ ρ δ :
-  has_kind F τ (VALTYPE ρ ImCopy δ) ->
-  has_kind F τ (VALTYPE ρ ExCopy δ)
-| KSubValNoCopy F τ ρ δ :
-  has_kind F τ (VALTYPE ρ ExCopy δ) ->
-  has_kind F τ (VALTYPE ρ NoCopy δ)
-| KSubValExDrop F τ ρ χ :
-  has_kind F τ (VALTYPE ρ χ ImDrop) ->
-  has_kind F τ (VALTYPE ρ χ ExDrop)
-| KSubValNoDrop F τ ρ χ :
-  has_kind F τ (VALTYPE ρ χ ExDrop) ->
-  has_kind F τ (VALTYPE ρ χ NoDrop)
-| KSubMemExDrop F τ ζ μ :
-  has_kind F τ (MEMTYPE ζ μ ImDrop) ->
-  has_kind F τ (MEMTYPE ζ μ ExDrop)
-| KSubMemNoDrop F τ ζ μ :
-  has_kind F τ (MEMTYPE ζ μ ExDrop) ->
-  has_kind F τ (MEMTYPE ζ μ NoDrop)
-| KSubSizity F τ σ μ δ :
-  has_kind F τ (MEMTYPE (Sized σ) μ δ) ->
-  has_kind F τ (MEMTYPE Unsized μ δ)
+| KSub F τ κ κ' :
+  sub_kind κ κ' ->
+  has_kind F τ κ ->
+  has_kind F τ κ'
 | KVar F t κ :
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F κ ->
@@ -493,10 +492,12 @@ Inductive instr_has_type :
   instr_has_type M F L (IUnreachable ψ) ψ L'
 | TCopy M F L τ :
   has_copyability F τ ExCopy ->
+  mono_rep F τ ->
   let ψ := InstrT [τ] [τ; τ] in
   instr_has_type M F L (ICopy ψ) ψ L
 | TDrop M F L τ :
   has_dropability F τ ExDrop ->
+  mono_rep F τ ->
   let ψ := InstrT [τ] [] in
   instr_has_type M F L (IDrop ψ) ψ L
 | TNum M F L eₙ ψ :

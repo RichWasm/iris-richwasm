@@ -9,7 +9,7 @@ Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
 Section Relations.
-
+  Context `{Σ: gFunctors}.
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
   Context `{!RichWasmGCG Σ}.
@@ -26,7 +26,7 @@ Section Relations.
   | SValues (vs : list value)
   | SWords (cm : concrete_memory) (ws : list word).
 
-  Notation semantic_type := (leibnizO semantic_value -n> iProp Σ).
+  Definition semantic_type := (leibnizO semantic_value -n> iProp Σ).
   Notation semantic_kind := (semantic_type -> iProp Σ).
   Notation semantic_env := (list.listO semantic_type).
 
@@ -91,7 +91,7 @@ Section Relations.
                    restore_stack_r idx ρ) wl = inr ((), wl', es') /\
       to_e_list es' = es.
     
-  Definition explicit_copy_spec (ρ: representation) (T: semantic_type) :=
+  Definition explicit_copy_spec (ρ: representation) (T: semantic_type) : iProp Σ :=
     ∀ fr vs es,
       ⌜is_copy_operation ρ es⌝ -∗
       ↪[frame] fr -∗
@@ -109,11 +109,11 @@ Section Relations.
            lp_host := λ _ _ _ _, False |}.
       
                             
-  Definition copyability_interp (ρ: representation) (χ : copyability) (T : semantic_type) : Prop :=
+  Definition copyability_interp (ρ: representation) (χ : copyability) (T : semantic_type) : iProp Σ :=
     match χ with
     | NoCopy => True
     | ExCopy => explicit_copy_spec ρ T
-    | ImCopy => forall sv, Persistent (T sv)
+    | ImCopy => ⌜forall sv, Persistent (T sv)⌝
     end.
 
   Definition size_interp (σ : size) (ws : list word) : Prop :=
@@ -138,7 +138,12 @@ Section Relations.
     end%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
-    fun T => (⌜T ⊑ kind_as_type_interp κ⌝ ∗ ⌜∃ ρ χ δ, κ = VALTYPE ρ χ δ /\ copyability_interp ρ χ T⌝)%I.
+    fun T =>
+      (⌜T ⊑ kind_as_type_interp κ⌝ ∗
+       match κ with
+       | VALTYPE ρ χ _ => copyability_interp ρ χ T
+       | MEMTYPE ζ μ δ => True
+       end)%I.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> VsR :=
@@ -295,8 +300,12 @@ Section Relations.
 
   Definition value_interp : semantic_env -n> leibnizO type -n> SVR := fixpoint value_interp0.
 
-  Lemma value_interp_eq : value_interp ≡ value_interp0 value_interp.
-  Proof. apply fixpoint_unfold. Qed.
+  Lemma value_interp_eq se τ sv :
+    value_interp se τ sv ⊣⊢ value_interp0 value_interp se τ sv.
+  Proof.
+    do 3 f_equiv.
+    apply fixpoint_unfold.
+  Qed.
 
   Definition values_interp (se : semantic_env) : leibnizO (list type) -n> VsR :=
     values_interp0 value_interp se.
@@ -360,15 +369,56 @@ Section Relations.
     iProp Σ :=
     True. (* TODO *)
 
+  Definition memory_closed (m: memory) :=
+    match m with
+    | VarM _ => False
+    | ConstM _ => True
+    end.
+  
+  Fixpoint repr_closedb (ρ: representation) : bool :=
+    match ρ with
+    | VarR x => false
+    | SumR ρs 
+    | ProdR ρs => forallb repr_closedb ρs
+    | PrimR _ => true
+    end.
+
+  Definition repr_closed ρ : Prop := repr_closedb ρ.
+      
+  Fixpoint size_closedb (σ : size) : bool :=
+    match σ with
+    | VarS x => false
+    | SumS σs
+    | ProdS σs => forallb size_closedb σs
+    | RepS ρ => repr_closedb ρ
+    | ConstS _ => true
+    end.
+  
+  Definition size_closed (σ : size) : Prop := size_closedb σ.
+
+  Definition mem_subst_interp (F: function_ctx) (s : nat -> memory) : Prop :=
+    ∀ m, m < F.(fc_mem_vars) -> memory_closed (s m).
+  
+  Definition rep_subst_interp (F: function_ctx) (s: nat -> representation) : Prop :=
+    ∀ r, r < F.(fc_rep_vars) -> repr_closed (s r).
+  
+  Definition size_subst_interp (F: function_ctx) (s: nat -> size) : Prop :=
+    forall r, r < F.(fc_size_vars) -> size_closed (s r).
+
+  Definition subst_interp
+    (F : function_ctx)
+    (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size) : Prop :=
+    mem_subst_interp F s__mem /\
+    rep_subst_interp F s__rep /\
+    size_subst_interp F s__size.
+
   Definition subst_env_interp
     (F : function_ctx)
     (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size)
     (se : semantic_env) :
     iProp Σ :=
-    (∀ m, ⌜m < F.(fc_mem_vars)⌝ -∗ ∀ m', ⌜s__mem m <> VarM m'⌝) ∗
-      (∀ r, ⌜r < F.(fc_rep_vars)⌝ -∗ ∀ r', ⌜s__rep r <> VarR r'⌝) ∗
-      (∀ s, ⌜s < F.(fc_size_vars)⌝ -∗ ∀ s', ⌜s__size s <> VarS s'⌝) ∗
-      [∗ list] T; κ ∈ se; F.(fc_type_vars), kind_interp κ T.
+    ⌜subst_interp F s__mem s__rep s__size ⌝ ∗
+    [∗ list] T; κ ∈ se; F.(fc_type_vars), kind_interp κ T.
 
   Definition has_type_semantic
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
