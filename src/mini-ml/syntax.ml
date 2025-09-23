@@ -199,7 +199,7 @@ module Closed = struct
       | Let of Binding.t * Expr.t * Expr.t
       | Fold of Type.t * Value.t
       | Unfold of Value.t
-      | Unpack of Value.t * Expr.t
+      | Unpack of Variable.t * Binding.t * Value.t * Expr.t
     [@@deriving sexp]
   end = struct
     type t =
@@ -215,7 +215,7 @@ module Closed = struct
       | Let of Binding.t * Expr.t * Expr.t
       | Fold of Type.t * Value.t
       | Unfold of Value.t
-      | Unpack of Value.t * Expr.t
+      | Unpack of Variable.t * Binding.t * Value.t * Expr.t
     [@@deriving sexp]
   end
 

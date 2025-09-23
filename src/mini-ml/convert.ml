@@ -224,5 +224,43 @@ and cc_e gamma tagger acc e =
           ~init:([], acc') branches
       in
       (Closed.Expr.Cases (v', branches'), code)
-  | _ -> failwith ""
+  | Apply (f, ts, arg) ->
+      let f', acc' = cc_v gamma tagger acc f in
+      let arg', code = cc_v gamma tagger acc' arg in
+      let ts' = List.map ~f:cc_t ts in
+      let ft =
+        match f' with
+        | Closed.Value.Var v ->
+            List.Assoc.find_exn ~equal:equal_string gamma v |> cc_t
+        | Closed.Value.Pack (_, _, t) -> t
+        | _ -> failwith "type error"
+      in
+      ( Closed.(
+          Expr.Unpack
+            ( "#cc-env",
+              ("#env_and_fn", PreType.Prod [PreType.Var "#cc-env"; ft]),
+              f',
+              Expr.Let
+                ( ("#env", PreType.Var "#cc-env"),
+                  Expr.Project (0, Value.Var "#env_and_fn"),
+                  Expr.Let
+                    ( ("#actual_fn", ft),
+                      Expr.Project (1, Value.Var "#env_and_fn"),
+                      Expr.Apply (Value.Var "#actual_fn", ts', arg') ) ) ) ),
+        code )
+;;
+
+let cc_imp (Source.Module.Import (n, t)) = Closed.Module.Import (n, cc_t t)
+
+let cc_item gamma tagger acc =
+  let open Source.Module in
+  function
+  | Export ((n, t), e) ->
+      ( (fun ((n, t), e) -> Closed.Module.Export ((n, t), e)),
+        (n, cc_t t),
+        cc_e gamma tagger acc e )
+  | Private ((n, t), e) ->
+      ( (fun ((n, t), e) -> Closed.Module.Private ((n, t), e)),
+        (n, cc_t t),
+        cc_e gamma tagger acc e )
 ;;
