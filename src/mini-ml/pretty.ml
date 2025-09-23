@@ -11,10 +11,10 @@ let rec pp_pretype ff pt =
   | Prod ts -> fprintf ff "@[<hov 2>(*@ %a)@]" (pp_print_list pp_type) ts
   | Sum ts -> fprintf ff "@[<hov 2>(+@ %a)@]" (pp_print_list pp_type) ts
   | Rec (v, t) -> fprintf ff "@[<hov 2>(rec@ %s@ %a)]" v pp_type t
-  | Fun {foralls; args; ret} ->
+  | Fun {foralls; arg; ret} ->
       fprintf ff "@[<hov 2>(->@ [%a]@ %a@ %a)]"
         (pp_print_list pp_print_string)
-        foralls (pp_print_list pp_type) args pp_type ret
+        foralls pp_type arg pp_type ret
 
 and pp_type ff (t : Source.Type.t) = pp_pretype ff t
 
@@ -36,20 +36,20 @@ let rec pp_value ff v =
   | Tuple vs -> fprintf ff "@[<hov 2>(tuple@ %a)@]" (pp_print_list pp_value) vs
   | Inj (case, v, t) ->
       fprintf ff "@[<hov 2>(inj@ %i@ %a@ %a)@]" case pp_value v pp_type t
-  | Fun {foralls; args; ret_type; body} ->
+  | Fun {foralls; arg; ret_type; body} ->
       fprintf ff "@[<hov 2>(λ@ [%a]@ @[<hov 2>(:@ (%a)@ %a)@]@,@[<v 2>%a@])]"
         (pp_print_list pp_print_string)
         foralls
         (pp_print_list (fun ff (v, t) -> fprintf ff "[:@ %s@ %a]" v pp_type t))
-        args pp_type ret_type pp_expr body
+        [arg] pp_type ret_type pp_expr body
 
 and pp_expr ff e =
   let open Source.Expr in
   match e with
   | Value v -> fprintf ff "%a" pp_value v
-  | Apply (f, ts, args) ->
+  | Apply (f, ts, arg) ->
       fprintf ff "@[<hov 2>(%a@ [%a]@ %a)@]" pp_value f (pp_print_list pp_type)
-        ts (pp_print_list pp_value) args
+        ts pp_value arg
   | Project (pos, v) -> fprintf ff "@[<hov 2>(π@ %i@ %a)@]" pos pp_value v
   | Op (op, l, r) ->
       fprintf ff "@[<hov 2>(%a@ %a@ %a)@]" pp_op op pp_value l pp_value r
