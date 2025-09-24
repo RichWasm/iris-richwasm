@@ -420,7 +420,7 @@ Section Relations.
     ⌜subst_interp F.(fc_kind_ctx) s__mem s__rep s__size ⌝ ∗
     [∗ list] T; κ ∈ se; F.(fc_type_vars), kind_interp κ T.
 
-  Definition has_type_semantic
+  Definition have_instruction_type_sem
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :

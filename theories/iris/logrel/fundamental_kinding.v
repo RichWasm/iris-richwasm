@@ -53,7 +53,7 @@ Section FundamentalKinding.
   Lemma type_kind_has_kind_agree F τ κ κ' :
     has_kind F τ κ ->
     type_kind (fe_type_vars (fe_of_context F)) τ = Some κ' ->
-    clos_refl_trans _ sub_kind κ' κ.
+    clos_refl_trans _ subkind_of κ' κ.
   Proof.
     intros Hhas_kind.
     revert κ'.
@@ -67,9 +67,9 @@ Section FundamentalKinding.
     eapply rt_trans; [|apply rt_step]; by eauto.
   Qed.
   
-  Lemma sub_kind_rep_inv :
+  Lemma subkind_rep_inv :
     forall κ κ',
-      clos_refl_trans _ sub_kind κ κ' ->
+      clos_refl_trans _ subkind_of κ κ' ->
       kind_rep κ = kind_rep κ'.
   Proof.
     induction 1; try congruence.
@@ -85,18 +85,18 @@ Section FundamentalKinding.
     destruct (type_kind_has_kind_Some _ _ _ Hhas_kind) as [κ' Htk].
     rewrite Htk; cbn.
     eapply type_kind_has_kind_agree in Htk; eauto.
-    erewrite sub_kind_rep_inv by eauto.
+    erewrite subkind_rep_inv by eauto.
     done.
   Qed.
   
-  Lemma sub_kind_sound κ κ' :
-    sub_kind κ κ' ->
+  Lemma subkind_sound κ κ' :
+    subkind_of κ κ' ->
     kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
   Proof.
   Admitted.
 
-  Lemma rt_sub_kind_sound κ κ' :
-    clos_refl_trans _ sub_kind κ κ' ->
+  Lemma rt_subkind_sound κ κ' :
+    clos_refl_trans _ subkind_of κ κ' ->
     kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
   Proof. 
   Admitted.
@@ -121,7 +121,7 @@ Section FundamentalKinding.
     iDestruct "Hval" as "(%κ' & %Htyk & Hinterp & _)".
     eapply has_kind_subst in Hhas_kind; eauto.
     eapply (type_kind_has_kind_agree fc_empty) in Hhas_kind; eauto.
-    iApply rt_sub_kind_sound; eauto.
+    iApply rt_subkind_sound; eauto.
   Qed.
 
   Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
