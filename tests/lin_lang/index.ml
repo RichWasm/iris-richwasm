@@ -13,7 +13,9 @@ let%expect_test "basic indexing" =
 
   do_thing (mk ~main:(Let (("a", Int), Val (Int 10), Val (Var "a"))) ());
   [%expect
-    {| ((imports ()) (toplevels ()) (main ((Let Int (Val (Int 10)) (Val (Var (0 (a)))))))) |}];
+    {|
+      ((imports ()) (toplevels ())
+       (main ((Let Int (Val (Int 10)) (Val (Var (0 (a)))))))) |}];
 
   do_thing
     (mk
@@ -29,7 +31,9 @@ let%expect_test "basic indexing" =
   [%expect
     {|
       ((imports ())
-       (toplevels (((export true) (binding (foo (Lollipop Int Int))) (init (Val (Lam Int Int (Val (Int 10))))))))
+       (toplevels
+        (((export true) (binding (foo (Lollipop Int Int)))
+          (init (Val (Lam Int Int (Val (Int 10))))))))
        (main ())) |}]
 
 let%expect_test "indexes examples" =

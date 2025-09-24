@@ -15,6 +15,7 @@ module Variable = struct
 
   let pp ff = fprintf ff "@[%s@]"
   let string_of = asprintf "%a" pp
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module Type = struct
@@ -38,6 +39,7 @@ module Type = struct
     | Ref t -> fprintf ff "@[(ref@ %a)@]" pp t
 
   let string_of = asprintf "%a" pp
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module Binding = struct
@@ -62,6 +64,7 @@ module Binop = struct
     | Div -> fprintf ff "÷"
 
   let string_of = asprintf "%a" pp
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module rec Value : sig
@@ -74,6 +77,7 @@ module rec Value : sig
 
   val pp : formatter -> t -> unit
   val string_of : t -> string
+  val pp_sexp : formatter -> t -> unit
 end = struct
   type t =
     | Var of Variable.t
@@ -97,6 +101,7 @@ end = struct
         fprintf ff ")@]"
 
   let string_of = asprintf "%a" pp
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 and Expr : sig
@@ -114,6 +119,7 @@ and Expr : sig
 
   val pp : formatter -> t -> unit
   val string_of : t -> string
+  val pp_sexp : formatter -> t -> unit
 end = struct
   type t =
     | Val of Value.t
@@ -132,17 +138,17 @@ end = struct
     | Val v -> Value.pp ff v
     | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" Value.pp l Value.pp r
     | Let (bind, e, body) ->
-        fprintf ff "@[<v 0>@[<2>let@ %a@ =@ %a@ in@]@;@[<2>%a@]@]" Binding.pp
+        fprintf ff "@[<v 0>@[<2>(let@ %a@ =@ %a@ in@]@;@[<2>%a)@]@]" Binding.pp
           bind pp e pp body
     | LetProd (bs, e, b) ->
-        fprintf ff "@[<v 0>@[<2>let@ (";
+        fprintf ff "@[<v 0>@[<2>(letprod@ (";
         Internal.pp_list
           (fun x -> fprintf ff "%a" Binding.pp x)
           (fun () -> fprintf ff ",@ ")
           bs;
-        fprintf ff ")@ =@ %a@ in@]@;@[<2>%a@]" pp e pp b
+        fprintf ff ")@ =@ %a@ in@]@;@[<2>%a)@]@]" pp e pp b
     | If0 (v, e1, e2) ->
-        fprintf ff "@[<2>if %a@;then %a@;else@ %a@]" Value.pp v pp e1 pp e2
+        fprintf ff "@[<2>(if %a@;then %a@;else@ %a)@]" Value.pp v pp e1 pp e2
     | Binop (op, l, r) ->
         fprintf ff "@[<2>(%a@ %a@ %a)@]" Value.pp l Binop.pp op Value.pp r
     | New v -> fprintf ff "@[<2>(new@ %a)@]" Value.pp v
@@ -150,6 +156,7 @@ end = struct
     | Free v -> fprintf ff "@[<2>(free@ %a)@]" Value.pp v
 
   let string_of = asprintf "%a" pp
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module Import = struct
@@ -160,7 +167,7 @@ module Import = struct
   [@@deriving eq, ord, iter, map, fold, sexp, make]
 
   let pp ff ({ typ; name } : t) =
-    fprintf ff "@[<2>(import@ %a@ :@ %a)@]" Variable.pp name Type.pp typ
+    fprintf ff "@[<2>(import@ %a@ as@ %a@,)@]" Type.pp typ Variable.pp name
 
   let string_of = asprintf "%a" pp
 end
@@ -175,10 +182,11 @@ module TopLevel = struct
 
   let pp ff ({ export; binding; init } : t) =
     let export_str = if export then "export " else "" in
-    fprintf ff "@[<2>%slet@ %a@ =@ %a@;@]" export_str Binding.pp binding Expr.pp
-      init
+    fprintf ff "@[<2>(%slet@ %a@ =@ %a)@;@]" export_str Binding.pp binding
+      Expr.pp init
 
   let string_of = asprintf "%a" pp
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module Module = struct
@@ -208,4 +216,5 @@ module Module = struct
     fprintf ff "@]"
 
   let string_of = asprintf "%a" pp
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
