@@ -25,6 +25,58 @@ Section Fundamental.
     let ψ := InstrT [] [] in
     run_codegen (compile_instr me fe (INop ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L.
+  Proof.
+    (* This is currently following the compat_copy lemma very closely *)
+    intros me fe ψ Hcompile.
+    inv_cg_emit Hcompile.
+    unfold has_type_semantic.
+    destruct ψ eqn:Hψ.
+    inversion Hψ; subst l l0.
+    iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
+    iIntros (? ?) "Hvs Hframe Hfr Hrun".
+    unfold expr_interp; cbn.
+    (* The compat_copy lemma had some kind stuff here *)
+    (* I don't think I need any of it, but come back here if it ends up *)
+    iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
+    iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
+    (* Show vs = []. Surprisingly a lot of tactics. *)
+    simpl in Hlens; symmetry in Hlens; apply length_zero_iff_nil in Hlens.
+    rewrite Hlens in Hconcat; simpl in Hconcat.
+    rewrite Hconcat. simpl.
+
+    (* There are now two potential lemmas: lenient_wp_nop and wp_nop*)
+
+    (* lenient_wp_nop attempt *)    
+    About lenient_wp_nop.
+    About denote_logpred. Locate denote_logpred.
+    (* It's almost perfect to our goal. The only thing that doesn't match
+       is the lp_run Φ *)
+    (* For convenience, here are the necessary defs with lp_run: *)
+    (*
+      Definition lp_with (Ψ: iProp Σ) Φ :=
+      {|
+        lp_fr := lp_fr Φ;
+        lp_val := λ vs, lp_val Φ vs ∗ Ψ;
+        lp_trap := lp_trap Φ ∗ Ψ;          <- Ψ would be ↪[RUN] here
+        lp_br := λ x, lp_br Φ x ∗ Ψ;
+        lp_ret := λ x, lp_ret Φ x ∗ Ψ;
+        lp_host := λ ft hf vs lh, lp_host Φ ft hf vs lh ∗ Ψ;
+        |}.
+      Definition lp_run Φ := lp_with (↪[RUN])%I Φ.
+     *)
+    (* Brianna thought this definition was strange, as that means
+       that in the case of trap, we would have run. Hm.
+     *)
+    (* I can also confirm that trying to apply this lemma fails: *)
+    assert_fails iApply (lenient_wp_nop NotStuck ⊤ _).
+
+    (* wp_nop attempt *)
+    unfold lenient_wp.
+    About wp_nop.
+    (* This seems like it's made for also having sequencing, which isn't great?*)
+    (* I haven't *really* tried to work with this *)
+    (* Maybe this is the way to go? *)
+
   Admitted.
 
   Lemma compat_unreachable M F L L' wl wl' τs1 τs2 es' :
