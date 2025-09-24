@@ -1,5 +1,5 @@
-open! Core
-open Format
+open! Base
+open Stdlib.Format
 open Syntax
 
 let rec pp_pretype ff pt =

@@ -1,4 +1,4 @@
-open! Core
+open! Base
 open Syntax
 
 let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
@@ -127,7 +127,7 @@ let rec cc_v gamma tagger acc v =
       let free_type_vars = ftv_e (Value v) in
       (* let arg_names, arg_types = List.unzip args in *)
       (* let arg_types = List.map ~f:cc_t arg_types in *)
-      let closure_id = string_of_int (tagger ()) in
+      let closure_id = Int.to_string (tagger ()) in
       let code_name = "closure#fn" ^ closure_id in
       let cced_body, code = cc_e gamma tagger acc body in
       let env_type =
