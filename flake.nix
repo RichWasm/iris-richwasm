@@ -107,20 +107,18 @@
               export DUNE_CACHE=disabled
             '';
 
-            buildInputs =
-              [
-                iris-wasm
-              ]
-              ++ iris-richwasm-deps
-              ++ richwasm-ocaml-deps;
+            buildInputs = [
+              iris-wasm
+            ]
+            ++ iris-richwasm-deps
+            ++ richwasm-ocaml-deps;
 
             # NOTE(owen): let dune manage the iris-wasm vendor in the devshell
-            passthru.devShellDeps =
-              [
-              ]
-              ++ iris-wasm-deps
-              ++ iris-richwasm-deps
-              ++ richwasm-ocaml-deps;
+            passthru.devShellDeps = [
+            ]
+            ++ iris-wasm-deps
+            ++ iris-richwasm-deps
+            ++ richwasm-ocaml-deps;
           };
         }
       );
@@ -138,25 +136,24 @@
         in
         {
           default = pkgs.mkShell {
-            packages =
-              [
-                pkgs.git # TODO(ari): figure out how to use system git
-                pkgs.dune_3
-                coq
-                ocaml
-              ]
-              ++ (with coqPackages; [
-                vscoq-language-server
-              ])
-              ++ (with ocamlPackages; [
-                merlin
-                ocp-indent
-                ocamlformat
-                ocaml-lsp
-                utop
+            packages = [
+              pkgs.git # TODO(ari): figure out how to use system git
+              pkgs.dune_3
+              coq
+              ocaml
+            ]
+            ++ (with coqPackages; [
+              vscoq-language-server
+            ])
+            ++ (with ocamlPackages; [
+              merlin
+              ocp-indent
+              ocamlformat
+              ocaml-lsp
+              utop
 
-              ])
-              ++ self.packages.${system}.${project}.passthru.devShellDeps;
+            ])
+            ++ self.packages.${system}.${project}.passthru.devShellDeps;
           };
         }
       );
