@@ -901,204 +901,40 @@ Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
 Proof.
   intros H.
   induction H using has_kind_ind'.
-  - destruct IHhas_kind.
-    apply (sub_kind_kind_ok _ _ _ H1) in H.
-    split; assumption.
-  - split.
-    + eapply OKVarT.
-      * exact H.
-      * assumption.
-    + assumption.
-  - repeat constructor.
-  - repeat constructor.
-  - repeat constructor.
-  - repeat constructor.
-  - split.
-    + constructor.
-      * constructor. constructor.
-        eapply Forall2_Forall_r in H; first exact H.
-        apply Forall_forall.
-        intros τ Hτ ρ H'.
-        inversion H'. inversion H1.
-        assumption.
-      * eapply Forall2_Forall_l in H; first exact H.
-        apply Forall_forall.
-        intros ρ Hρ τ [Hk Ht].
-        assumption.
-    + constructor. constructor.
-      eapply Forall2_Forall_r in H; first exact H.
-      apply Forall_forall.
-      intros τ Hτ ρ H'.
-      inversion H'. inversion H1.
-      assumption.
-  - split.
-    + constructor.
-      * constructor.
-        -- constructor.
-        -- assumption.
-      * eapply Forall2_Forall_l in H0; first exact H0.
-        apply Forall_forall.
-        intros ζ Hζ τ [Hk Ht].
-        assumption.
-    + constructor.
-      * constructor.
-      * assumption.
-  - split.
-    + constructor.
-      * constructor.
-        -- constructor. constructor.
-           eapply Forall2_Forall_r in H0; first exact H0.
-           apply Forall_forall.
-           intros τ Hτ σ H'.
-           inversion H'. inversion H2. inversion H9.
-           assumption.
-        -- assumption.
-      * eapply Forall2_Forall_l in H0; first exact H0.
-        apply Forall_forall.
-        intros σ Hσ τ [Hk Ht].
-        assumption.
-    + constructor.
-      * constructor. constructor.
-        eapply Forall2_Forall_r in H0; first exact H0.
-        apply Forall_forall.
-        intros τ Hτ σ H'.
-        inversion H'. inversion H2. inversion H9.
-        assumption.
-      * assumption.
-  - split.
-    + constructor.
-      * constructor. constructor.
-        eapply Forall2_Forall_r in H; first exact H.
-        apply Forall_forall.
-        intros τ Hτ ρ H'.
-        inversion H'. inversion H1.
-        assumption.
-      * eapply Forall2_Forall_l in H; first exact H.
-        apply Forall_forall.
-        intros ρ Hρ τ [Hk Ht].
-        assumption.
-    + constructor. constructor.
-      eapply Forall2_Forall_r in H; first exact H.
-      apply Forall_forall.
-      intros τ Hτ ρ H'.
-      inversion H'. inversion H1.
-      assumption.
-  - split.
-    + constructor.
-      * constructor.
-        -- constructor.
-        -- assumption.
-      * eapply Forall2_Forall_l in H0; first exact H0.
-        apply Forall_forall.
-        intros ζ Hζ τ [Hk Ht].
-        assumption.
-    + constructor.
-      * constructor.
-      * assumption.
-  - split.
-    + constructor.
-      * constructor.
-        -- constructor. constructor.
-           eapply Forall2_Forall_r in H0; first exact H0.
-           apply Forall_forall.
-           intros τ Hτ σ H'.
-           inversion H'. inversion H2. inversion H9.
-           assumption.
-        -- assumption.
-      * eapply Forall2_Forall_l in H0; first exact H0.
-        apply Forall_forall.
-        intros σ Hσ τ [Hk Ht].
-        assumption.
-    + constructor.
-      * constructor. constructor.
-        eapply Forall2_Forall_r in H0; first exact H0.
-        apply Forall_forall.
-        intros τ Hτ σ H'.
-        inversion H'. inversion H2. inversion H9.
-        assumption.
-      * assumption.
-  - split.
-    + constructor.
-      * repeat constructor.
-      * inversion IHhas_kind. inversion H0. assumption.
-      * destruct IHhas_kind.
-        assumption.
-    + repeat constructor.
-  - split.
-    + constructor.
-      * repeat constructor.
-      * constructor.
-      * destruct IHhas_kind.
-        assumption.
-    + repeat constructor.
-  - split.
-    + constructor.
-      * repeat constructor.
-      * constructor.
-      * destruct IHhas_kind. assumption.
-    + repeat constructor.
-  - split.
-    + constructor.
-      * repeat constructor.
-      * destruct IHhas_kind. assumption.
-    + repeat constructor.
-  - split.
-    + constructor.
-      * repeat constructor.
-      * assumption.
-    + repeat constructor.
-  - split.
-    + constructor.
-      * constructor. assumption.
-      * assumption.
-      * destruct IHhas_kind. assumption.
-    + constructor. assumption.
-  - split.
-    + constructor.
-      * constructor.
-        -- constructor. assumption.
-        -- inversion IHhas_kind. inversion H1. assumption.
-      * assumption.
-      * destruct IHhas_kind. assumption.
-    + constructor.
-      * constructor. assumption.
-      * inversion IHhas_kind. inversion H1. assumption.
-  - split.
-    + constructor.
-      * constructor.
-        -- constructor. constructor.
-           inversion IHhas_kind. inversion H1. assumption.
-        -- assumption.
-      * destruct IHhas_kind. assumption.
-    + constructor.
-      * constructor. constructor.
-        inversion IHhas_kind.
-        inversion H1. assumption.
-      * assumption.
-  - split.
-    + constructor.
-      * inversion IHhas_kind. simpl in H0. assumption.
-      * inversion IHhas_kind. subst τ0. assumption.
-    + inversion IHhas_kind. simpl in H0. assumption.
-  - split.
-    + constructor.
-      * assumption.
-      * destruct IHhas_kind. assumption.
-    + assumption.
-  - split.
-    + constructor.
-      * assumption.
-      * destruct IHhas_kind. assumption.
-    + assumption.
-  - split.
-    + constructor.
-      * assumption.
-      * destruct IHhas_kind. assumption.
-    + assumption.
-  - split.
-    + constructor.
-      * assumption.
-      * assumption.
-      * destruct IHhas_kind. assumption.
-    + assumption.
+  { destruct IHhas_kind as [F τ κ H1 H2].
+    by apply (sub_kind_kind_ok _ _ _ H2) in H. }
+  { constructor; last done. by apply OKVarT with (κ := κ). }
+  all: repeat constructor.
+  all: try inversion IHhas_kind.
+  all: try done.
+  all: try by inversion H0.
+  all: try by inversion H1.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
+    intros. by inversion H1.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
 Qed.
