@@ -19,6 +19,22 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  (* This should be moved to the logpred module. *)
+  Definition lp_wand' Φ1 Φ2 : iProp Σ :=
+    ∀ lv, denote_logpred Φ1 lv -∗ denote_logpred Φ2 lv.
+
+  (* This should be moved to the lwp_structural module. *)
+  Lemma lwp_wand s E es Φ Ψ :
+    ⊢ lp_wand' Φ Ψ -∗
+      lenient_wp s E es Φ -∗
+      lenient_wp s E es Ψ.
+  Proof.
+    unfold lp_wand', lenient_wp.
+    iIntros "Hwand HΦ".
+    iApply (wp_wand with "[$] [$]").
+  Qed.
+
+  
   Lemma compat_nop M F L wl wl' es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
@@ -35,8 +51,6 @@ Section Fundamental.
     iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
     iIntros (? ?) "Hvs Hframe Hfr Hrun".
     unfold expr_interp; cbn.
-    (* The compat_copy lemma had some kind stuff here *)
-    (* I don't think I need any of it, but come back here if it ends up *)
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
     (* Show vs = []. Surprisingly a lot of tactics. *)
@@ -44,40 +58,50 @@ Section Fundamental.
     rewrite Hlens in Hconcat; simpl in Hconcat.
     rewrite Hconcat. simpl.
 
-    (* There are now two potential lemmas: lenient_wp_nop and wp_nop*)
+    (* To apply lenient_wp_nop, some strangeness has to happen
+     with ->[RUN] being in the Phi. This is where lwp_wand comes in.*)
 
-    (* lenient_wp_nop attempt *)    
-    About lenient_wp_nop.
-    About denote_logpred. Locate denote_logpred.
-    (* It's almost perfect to our goal. The only thing that doesn't match
-       is the lp_run Φ *)
-    (* For convenience, here are the necessary defs with lp_run: *)
-    (*
-      Definition lp_with (Ψ: iProp Σ) Φ :=
-      {|
-        lp_fr := lp_fr Φ;
-        lp_val := λ vs, lp_val Φ vs ∗ Ψ;
-        lp_trap := lp_trap Φ ∗ Ψ;          <- Ψ would be ↪[RUN] here
-        lp_br := λ x, lp_br Φ x ∗ Ψ;
-        lp_ret := λ x, lp_ret Φ x ∗ Ψ;
-        lp_host := λ ft hf vs lh, lp_host Φ ft hf vs lh ∗ Ψ;
-        |}.
-      Definition lp_run Φ := lp_with (↪[RUN])%I Φ.
-     *)
-    (* Brianna thought this definition was strange, as that means
-       that in the case of trap, we would have run. Hm.
-     *)
-    (* I can also confirm that trying to apply this lemma fails: *)
-    assert_fails iApply (lenient_wp_nop NotStuck ⊤ _).
+    iApply (lwp_wand); [| iApply lenient_wp_nop].
+    (* Note: this strange iApply in the second subgoal makes sure that the 
+     ?Goal is made into the right shape (lp_run ?Goal) in the first subgoal*)
+    - unfold lp_wand'.
+      iIntros (lv).
+      unfold denote_logpred.
+      iIntros "[LPrunframe [%f [Hf Hlpfr]]]".
+      iSplitL "LPrunframe".
+      + unfold lp_run.
+        unfold lp_with.
+        (* Essentially, the ?Goal is a logpred that is almost exactly 
+           the same as the logpred in the goal, but with the ↪[RUN] removed from
+           the lp_val case. Not sure how to do that cleaner than just writing it out*)
+        instantiate
+          (1 :=
+          {|
+            lp_fr :=
+              λ fr0 : leibnizO frame, ∃ vs__L vs__WL : list value,
+              ⌜fr0 = {| modules.W.f_locs := vs__L ++ vs__WL; modules.W.f_inst := inst |}⌝ ∗
+              (∃ vss0 : list (list value), ⌜vs__L = concat vss0⌝ ∗
+              ([∗ list] τ;vs0 ∈ map (subst_type s__mem s__rep s__size VarT) L;vss0, 
+                  value_interp sr mr se τ (SValues vs0))) ∗
+                  ⌜result_type_interp [] vs__WL⌝ ∗ na_own logrel_nais ⊤;
+            lp_val :=
+              λ vs0 : leibnizO (list value),
+              (∃ vss0 : list (list value), ⌜vs0 = concat vss0⌝ ∗
+                ([∗ list] τ;vs1 ∈ [];vss0, value_interp sr mr se τ (SValues vs1)));
+            lp_trap := True;
+            lp_br := λ _ : {x : nat & valid_holed x}, True;
+            lp_ret := λ _ : simple_valid_holed, True;
+            lp_host :=
+              λ (_ : function_type) (_ : hostfuncidx) (_ : list value) (_ : llholed), False
+          |}%I).
+        cbn.
+        case lv; simpl; auto.
+        * iDestruct "LPrunframe" as "[H1 [H2 H3]]". iFrame.
+        * iIntros. iDestruct "LPrunframe" as "[H _]". iExact "H".
+      + iFrame.
+    - iFrame. iPureIntro. rewrite Hlens. auto.
 
-    (* wp_nop attempt *)
-    unfold lenient_wp.
-    About wp_nop.
-    (* This seems like it's made for also having sequencing, which isn't great?*)
-    (* I haven't *really* tried to work with this *)
-    (* Maybe this is the way to go? *)
-
-  Admitted.
+  Qed.
 
   Lemma compat_unreachable M F L L' wl wl' τs1 τs2 es' :
     let me := me_of_context M mr in
@@ -87,21 +111,7 @@ Section Fundamental.
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
   
-  (* This should be moved to the logpred module. *)
-  Definition lp_wand' Φ1 Φ2 : iProp Σ :=
-    ∀ lv, denote_logpred Φ1 lv -∗ denote_logpred Φ2 lv.
-
-  (* This should be moved to the lwp_structural module. *)
-  Lemma lwp_wand s E es Φ Ψ :
-    ⊢ lp_wand' Φ Ψ -∗
-      lenient_wp s E es Φ -∗
-      lenient_wp s E es Ψ.
-  Proof.
-    unfold lp_wand', lenient_wp.
-    iIntros "Hwand HΦ".
-    iApply (wp_wand with "[$] [$]").
-  Qed.
-  
+    
   Lemma subst_repr_closed_nop ρ :
     repr_closed ρ -> 
     ∀ s, subst_representation s ρ = ρ.
