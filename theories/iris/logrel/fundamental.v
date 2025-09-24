@@ -34,7 +34,6 @@ Section Fundamental.
     iApply (wp_wand with "[$] [$]").
   Qed.
 
-  
   Lemma compat_nop M F L wl wl' es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
@@ -103,15 +102,14 @@ Section Fundamental.
 
   Qed.
 
-  Lemma compat_unreachable M F L L' wl wl' τs1 τs2 es' :
+  Lemma compat_unreachable M F L L' wl wl' ψ es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let ψ := InstrT τs1 τs2 in
+    has_type_ok F L ψ L' ->
     run_codegen (compile_instr me fe (IUnreachable ψ)) wl = inr ((), wl', es') ->
     ⊢ has_type_semantic sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
-  
-    
+
   Lemma subst_repr_closed_nop ρ :
     repr_closed ρ -> 
     ∀ s, subst_representation s ρ = ρ.
@@ -472,7 +470,8 @@ Section Fundamental.
   Lemma compat_unpack_mem M F L wl wl' es es' ξ τ τs1 τs2 κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let F' := set fc_mem_vars S (subst_function_ctx (up_memory VarM) VarR VarS VarT F) in
+    let F' := subst_function_ctx (up_memory VarM) VarR VarS VarT F
+                <| fc_kind_ctx ::= set kc_mem_vars S |> in
     let L' := update_locals ξ L in
     let weak_t := map (subst_type (up_memory VarM) VarR VarS VarT) in
     let weak_e := map (subst_instruction (up_memory VarM) VarR VarS VarT) in
@@ -491,7 +490,8 @@ Section Fundamental.
   Lemma compat_unpack_rep M F L wl wl' es es' ξ τ τs1 τs2 κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let F' := set fc_rep_vars S (subst_function_ctx VarM (up_representation VarR) VarS VarT F) in
+    let F' := subst_function_ctx VarM (up_representation VarR) VarS VarT F
+                <| fc_kind_ctx ::= set kc_rep_vars S |> in
     let L' := update_locals ξ L in
     let weak_t := map (subst_type VarM (up_representation VarR) VarS VarT) in
     let weak_e := map (subst_instruction VarM (up_representation VarR) VarS VarT) in
@@ -510,7 +510,8 @@ Section Fundamental.
   Lemma compat_unpack_size M F L wl wl' es es' ξ τ τs1 τs2 κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let F' := set fc_size_vars S (subst_function_ctx VarM VarR (up_size VarS) VarT F) in
+    let F' := subst_function_ctx VarM VarR (up_size VarS) VarT F
+                <| fc_kind_ctx ::= set kc_size_vars S |> in
     let L' := update_locals ξ L in
     let weak_t := map (subst_type VarM VarR (up_size VarS) VarT) in
     let weak_e := map (subst_instruction VarM VarR (up_size VarS) VarT) in
@@ -529,7 +530,8 @@ Section Fundamental.
   Lemma compat_unpack_type M F L wl wl' es es' ξ τ τs1 τs2 κ κ0 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let F' := set fc_type_vars (cons κ0) (subst_function_ctx VarM VarR VarS (up_type VarT) F) in
+    let F' := subst_function_ctx VarM VarR VarS (up_type VarT) F
+                <| fc_type_vars ::= cons κ0 |> in
     let L' := update_locals ξ L in
     let weak_t := map (subst_type VarM VarR VarS (up_type VarT)) in
     let weak_e := map (subst_instruction VarM VarR VarS (up_type VarT)) in
@@ -590,7 +592,7 @@ Section Fundamental.
     Forall (mono_size F) pr.(pr_prefix) ->
     has_kind F pr.(pr_target) (VALTYPE ρ ImCopy δ) ->
     loads_as F pr.(pr_target) τ_val ->
-    rep_ok fc_empty ρ ->
+    rep_ok kc_empty ρ ->
     let τ_ref := RefT κ μ τ in
     has_kind F τ_ref κ ->
     let ψ := InstrT [τ_ref] [τ_ref; τ_val] in

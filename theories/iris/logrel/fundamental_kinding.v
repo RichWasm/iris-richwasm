@@ -103,7 +103,7 @@ Section FundamentalKinding.
   
   Lemma has_kind_subst F τ κ s__mem s__rep s__size :
     has_kind F τ κ ->
-    subst_interp F s__mem s__rep s__size ->
+    subst_interp F.(fc_kind_ctx) s__mem s__rep s__size ->
     has_kind fc_empty (subst_type s__mem s__rep s__size VarT τ) (subst_kind s__mem s__rep s__size κ).
   Proof.
   Admitted.

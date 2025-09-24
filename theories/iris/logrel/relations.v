@@ -396,28 +396,28 @@ Section Relations.
   
   Definition size_closed (σ : size) : Prop := size_closedb σ.
 
-  Definition mem_subst_interp (F: function_ctx) (s : nat -> memory) : Prop :=
-    ∀ m, m < F.(fc_mem_vars) -> memory_closed (s m).
-  
-  Definition rep_subst_interp (F: function_ctx) (s: nat -> representation) : Prop :=
-    ∀ r, r < F.(fc_rep_vars) -> repr_closed (s r).
-  
-  Definition size_subst_interp (F: function_ctx) (s: nat -> size) : Prop :=
-    forall r, r < F.(fc_size_vars) -> size_closed (s r).
+  Definition mem_subst_interp (K : kind_ctx) (s : nat -> memory) : Prop :=
+    ∀ m, m < K.(kc_mem_vars) -> memory_closed (s m).
+
+  Definition rep_subst_interp (K : kind_ctx) (s : nat -> representation) : Prop :=
+    ∀ r, r < K.(kc_rep_vars) -> repr_closed (s r).
+
+  Definition size_subst_interp (K : kind_ctx) (s : nat -> size) : Prop :=
+    forall r, r < K.(kc_size_vars) -> size_closed (s r).
 
   Definition subst_interp
-    (F : function_ctx)
+    (K : kind_ctx)
     (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size) : Prop :=
-    mem_subst_interp F s__mem /\
-    rep_subst_interp F s__rep /\
-    size_subst_interp F s__size.
+    mem_subst_interp K s__mem /\
+    rep_subst_interp K s__rep /\
+    size_subst_interp K s__size.
 
   Definition subst_env_interp
     (F : function_ctx)
     (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size)
     (se : semantic_env) :
     iProp Σ :=
-    ⌜subst_interp F s__mem s__rep s__size ⌝ ∗
+    ⌜subst_interp F.(fc_kind_ctx) s__mem s__rep s__size ⌝ ∗
     [∗ list] T; κ ∈ se; F.(fc_type_vars), kind_interp κ T.
 
   Definition has_type_semantic
