@@ -1,12 +1,15 @@
 open! Base
-open Richwasm_lin_lang
+open! Stdlib.Format
+open! Richwasm_lin_lang
 open Cc
-open Stdlib.Format
 
 let do_thing (x : Syntax.Module.t) =
   x |> Index.Compile.compile_module |> Cc.Compile.compile_module
 
 let%expect_test "simple" =
+  pp_set_margin std_formatter 80;
+  pp_set_max_indent std_formatter 80;
+
   let output x =
     x |> do_thing |> function
     | Ok res -> printf "@.%a@." IR.Module.pp res
@@ -72,7 +75,8 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (toplevels
-      ((Func (export false) (name lam_1) (params ((Prod (Int Int)) Int)) (ret Int)
+      ((Func (export false) (name lam_1) (params ((Prod (Int Int)) Int))
+        (ret Int)
         (body
          (LetTuple (Int Int) (Val (Var (1 ())))
           (Let Int (Binop Add (Var (0 (x))) (Var (3 (y))))

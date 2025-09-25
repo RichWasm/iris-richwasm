@@ -1,12 +1,17 @@
 open! Base
-open Richwasm_lin_lang.Syntax
+open! Stdlib.Format
+open! Richwasm_lin_lang
+open Syntax
 
 let example1 : Module.t =
-  Module.make
-    ~imports:
-      [ Import.make ~typ:(Lollipop (Int, Prod [ Int; Int ])) ~name:"dup-int" ]
-    ~main:(App (Lam (("x", Int), Int, Val (Var "x")), Int 10))
-    ()
+  Parse.from_string_exn
+    {|
+    (import (int -o (int * int)) as dup-int)
+
+    (app
+      (lam (x : int) : int .
+        x)
+      10) |}
 
 (* TODO: generate proper examples once parser is done *)
 (* ChatGPT: *)

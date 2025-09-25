@@ -1,11 +1,11 @@
-open Richwasm_lin_lang
-open Stdlib.Format
-
-let () =
-  pp_set_margin std_formatter 80;
-  pp_set_max_indent std_formatter 80
+open! Base
+open! Stdlib.Format
+open! Richwasm_lin_lang
 
 let%expect_test "basic functionality" =
+  pp_set_margin std_formatter 80;
+  pp_set_max_indent std_formatter 80;
+
   let suspended = ref (fun () -> ()) in
 
   let run (s : string) =

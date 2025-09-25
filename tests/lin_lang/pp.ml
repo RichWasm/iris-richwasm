@@ -1,8 +1,12 @@
 open! Base
-open Richwasm_lin_lang.Syntax
-open Stdlib.Format
+open! Stdlib.Format
+open! Richwasm_lin_lang
+open Syntax
 
 let%expect_test "pretty prints examples" =
+  pp_set_margin std_formatter 80;
+  pp_set_max_indent std_formatter 80;
+
   let examples : (string * Module.t) list =
     Examples.
       [
@@ -16,9 +20,6 @@ let%expect_test "pretty prints examples" =
         ("closure_example", closure_example);
       ]
   in
-  let fmt = std_formatter in
-  pp_set_margin fmt 120;
-  pp_set_max_indent fmt 80;
   List.iter
     ~f:(fun (n, m) -> printf "-----------%s-----------@.%a@." n Module.pp m)
     examples;
@@ -96,9 +97,10 @@ let%expect_test "pretty prints examples" =
 
     (app process_pair (3, 4))
     -----------closure_example-----------
-    (export let (make_adder : (int ⊸ (int ⊸ int))) = (λ (n : int) : (int ⊸ int) .
-                                                           (λ (x : int) : int .
-                                                             (n + x))))
+    (export let (make_adder : (int ⊸ (int ⊸ int))) =
+      (λ (n : int) : (int ⊸ int) .
+        (λ (x : int) : int .
+          (n + x))))
 
 
     (let (add5 : (int ⊸ int)) = (app make_adder 5) in

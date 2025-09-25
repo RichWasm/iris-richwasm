@@ -74,7 +74,7 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t res = function
                 ret @@ Some t'
               else
                 match t with
-                | Atom "⊗" -> Ok None
+                | Atom ("⊗" | "*") -> Ok None
                 | x -> fail Err.(MalformedProdSep (p', x)))
             lst
           |> Result.all
@@ -100,8 +100,8 @@ let parse_binding (p : Path.t) : Sexp.t -> Binding.t res = function
 let parse_binop (p : Path.t) : Sexp.t -> Binop.t res = function
   | Atom "+" -> ret Binop.Add
   | Atom "-" -> ret Binop.Sub
-  | Atom "×" | Atom "*" -> ret Binop.Mul
-  | Atom "÷" | Atom "/" -> ret Binop.Div
+  | Atom ("×" | "*") -> ret Binop.Mul
+  | Atom ("÷" | "/") -> ret Binop.Div
   | x -> fail Err.(ExpectedBinop (p, x))
 
 let rec parse_value (p : Path.t) : Sexp.t -> Value.t res = function
@@ -109,8 +109,8 @@ let rec parse_value (p : Path.t) : Sexp.t -> Value.t res = function
       match Int.of_string_opt x with
       | Some x -> ret @@ Value.Int x
       | None -> ret @@ Value.Var x)
-  | List [ Atom "λ"; binding; Atom ":"; ret_t; Atom "."; body ]
-  | List [ Atom "lam"; binding; ret_t; body ] ->
+  | List [ Atom ("λ" | "lam"); binding; Atom ":"; ret_t; Atom "."; body ]
+  | List [ Atom ("λ" | "lam"); binding; ret_t; body ] ->
       let p = Path.add p ~tag:"lam" in
       let* binding' = parse_binding (p ~field:"binding") binding in
       let* ret_t' = parse_type (p ~field:"ret_t") ret_t in

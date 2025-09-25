@@ -1,11 +1,14 @@
 open! Base
-open Richwasm_lin_lang
+open! Stdlib.Format
+open! Richwasm_lin_lang
 open Index
-open Stdlib.Format
 
 let do_thing x = x |> Compile.compile_module
 
 let%expect_test "basic indexing" =
+  pp_set_margin std_formatter 80;
+  pp_set_max_indent std_formatter 80;
+
   let do_thing (x : Syntax.Module.t) =
     x |> do_thing |> printf "@.%a@." IR.Module.pp
   in
@@ -37,11 +40,9 @@ let%expect_test "basic indexing" =
        (main ())) |}]
 
 let%expect_test "indexes examples" =
-  let examples = Examples.all in
-  let fmt = std_formatter in
-  pp_set_margin fmt 80;
-  pp_set_max_indent fmt 80;
-  examples
+  pp_set_margin std_formatter 80;
+  pp_set_max_indent std_formatter 80;
+  Examples.all
   |> List.iter ~f:(fun (n, m) ->
          let res = m |> do_thing in
          printf "-----------%s-----------@.%a@." n IR.Module.pp res);
