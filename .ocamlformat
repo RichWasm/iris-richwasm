@@ -5,7 +5,6 @@ break-cases = fit-or-vertical
 break-fun-decl = fit-or-vertical
 break-fun-sig = fit-or-vertical
 if-then-else = fit-or-vertical
-let-binding-spacing = double-semicolon
 sequence-style = terminator
 break-separators = after
 break-infix = wrap-or-vertical
