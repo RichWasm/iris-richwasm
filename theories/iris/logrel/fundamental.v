@@ -1,6 +1,7 @@
 Require Import RecordUpdate.RecordUpdate.
 
 From iris.proofmode Require Import base tactics classes.
+
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
@@ -117,7 +118,7 @@ Section Fundamental.
   Admitted.
   
   Lemma mono_rep_closed F τ ρ :
-    mono_rep F τ ->
+    has_mono_rep F τ ->
     has_rep F τ ρ ->
     repr_closed ρ.
   Proof.
@@ -126,7 +127,7 @@ Section Fundamental.
   Lemma compat_copy M F L wl wl' τ es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    mono_rep F τ ->
+    has_mono_rep F τ ->
     has_copyability F τ ExCopy ->
     let ψ := InstrT [τ] [τ; τ] in
     run_codegen (compile_instr me fe (ICopy ψ)) wl = inr ((), wl', es') ->
@@ -189,7 +190,9 @@ Section Fundamental.
   Lemma compat_drop M F L wl wl' τ es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     has_dropability F τ ExDrop ->
+    has_mono_rep F τ ->
     let ψ := InstrT [τ] [] in
     run_codegen (compile_instr me fe (IDrop ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
@@ -198,6 +201,7 @@ Section Fundamental.
   Lemma compat_num M F L wl wl' ψ e es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     has_instruction_type_num e ψ ->
     run_codegen (compile_instr me fe (INum ψ e)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
@@ -206,6 +210,7 @@ Section Fundamental.
   Lemma compat_num_const M F L wl wl' n ν κ es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     has_kind F (NumT κ ν) κ ->
     let ψ := InstrT [] [NumT κ ν] in
     run_codegen (compile_instr me fe (INumConst ψ n)) wl = inr ((), wl', es') ->
@@ -215,9 +220,12 @@ Section Fundamental.
   Lemma compat_block M F L wl wl' ξ τs1 τs2 es es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    local_fx_ok F ξ ->
     let L' := update_locals ξ L in
-    let F' := set fc_labels (cons (τs2, L')) F in
+    let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
+    has_mono_rep_instr F ψ ->
     have_instruction_type M F' L es ψ L' ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
@@ -230,8 +238,10 @@ Section Fundamental.
   Lemma compat_loop M F L wl wl' es es' τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let F' := set fc_labels (cons (τs1, L)) F in
+    local_ctx_ok F L ->
+    let F' := F <| fc_labels ::= cons (τs1, L) |> in
     let ψ := InstrT τs1 τs2 in
+    has_mono_rep_instr F ψ ->
     have_instruction_type M F' L es ψ L ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
@@ -245,6 +255,9 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let L' := update_locals ξ L in
+    local_ctx_ok F L ->
+    local_fx_ok F ξ ->
+    has_mono_rep_instr F ψ ->
     have_instruction_type M F L es1 ψ L' ->
     have_instruction_type M F L es2 ψ L' ->
     (forall wl wl' es',
@@ -257,13 +270,14 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_br M F L wl wl' es' n τs1 τs τs2 ξ :
+  Lemma compat_br M F L L' wl wl' es' n τs1 τs τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    local_ctx_ok F L' ->
     fc_labels F !! n = Some (τs, L) ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     let ψ := InstrT (τs1 ++ τs) τs2 in
-    let L' := update_locals ξ L in
     run_codegen (compile_instr me fe (IBr ψ n)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -271,6 +285,8 @@ Section Fundamental.
   Lemma compat_br_if M F L wl wl' es' n τs :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    Forall (has_mono_rep F) τs ->
     fc_labels F !! n = Some (τs, L) ->
     let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
     let ψ := InstrT (τs ++ [τ]) τs in
@@ -281,10 +297,13 @@ Section Fundamental.
   Lemma compat_br_table M F L L' wl wl' es' n ns τs τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    local_ctx_ok F L' ->
     Forall (fun i => fc_labels F !! i = Some (τs, L)) (n :: ns) ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
     let ψ := InstrT (τs1 ++ τs ++ [τ]) τs2 in
+    has_mono_rep_instr F ψ ->
     run_codegen (compile_instr me fe (IBrTable ψ ns n)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -292,9 +311,12 @@ Section Fundamental.
   Lemma compat_return M F L L' wl wl' es' τs τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    local_ctx_ok F L' ->
     fc_return F = τs ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     let ψ := InstrT (τs1 ++ τs) τs2 in
+    has_mono_rep_instr F ψ ->
     run_codegen (compile_instr me fe (IReturn ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -302,8 +324,10 @@ Section Fundamental.
   Lemma compat_local_get M F L wl wl' es' n τ ρ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    F.(typing.fc_locals) !! n = Some ρ ->
+    mono_rep ρ ->
     L !! n = Some τ ->
-    has_rep F τ ρ ->
     let τ' := RepT (VALTYPE ρ ImCopy ImDrop) ρ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []) in
     let L' := <[n := τ']> L in
     let ψ := InstrT [] [τ] in
@@ -314,6 +338,7 @@ Section Fundamental.
   Lemma compat_local_get_copy M F L wl wl' es' n τ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     L !! n = Some τ ->
     has_copyability F τ ImCopy ->
     let ψ := InstrT [] [τ] in
@@ -321,14 +346,14 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_local_set M F L wl wl' es' n τ τ' ρ ρ' :
+  Lemma compat_local_set M F L wl wl' es' n τ τ' ρ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     typing.fc_locals F !! n = Some ρ ->
     L !! n = Some τ ->
     has_dropability F τ ImDrop ->
-    has_rep F τ' ρ' ->
-    rep_eq ρ ρ' ->
+    type_rep_eq F τ' ρ ->
     let L' := <[n := τ']> L in
     let ψ := InstrT [τ'] [] in
     run_codegen (compile_instr me fe (ILocalSet ψ n)) wl = inr ((), wl', es') ->
@@ -654,7 +679,7 @@ Section Fundamental.
     Forall (mono_size F) pr.(pr_prefix) ->
     stores_as F τ_val τ_val' ->
     loads_as F pr.(pr_target) τ__π ->
-    mono_rep F τ__π ->
+    has_mono_rep F τ__π ->
     let τ_ref := RefT κ (ConstM MemMM) τ in
     let τ_ref' := RefT κ' (ConstM MemMM) pr.(pr_replaced) in
     has_kind F τ_ref κ ->
@@ -714,7 +739,7 @@ Section Fundamental.
     - eapply compat_block; eassumption.
     - eapply compat_loop; eassumption.
     - eapply compat_ite.
-      1: exact Htype1.
+      4: exact Htype1.
       all: eassumption.
     - eapply compat_br; eassumption.
     - eapply compat_br_if; eassumption.

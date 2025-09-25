@@ -457,11 +457,14 @@ Inductive has_rep : function_ctx -> type -> representation -> Prop :=
   has_kind F τ (VALTYPE ρ χ δ) ->
   has_rep F τ ρ.
 
-Inductive mono_rep : function_ctx -> type -> Prop :=
+Inductive has_mono_rep : function_ctx -> type -> Prop :=
 | MonoRep F τ ρ ιs :
   has_rep F τ ρ ->
   eval_rep ρ = Some ιs ->
-  mono_rep F τ.
+  has_mono_rep F τ.
+
+Definition has_mono_rep_instr (F : function_ctx) '(InstrT τs1 τs2 : instruction_type) : Prop :=
+  Forall (has_mono_rep F) τs1 /\ Forall (has_mono_rep F) τs2.
 
 Inductive mono_size : function_ctx -> type -> Prop :=
 | MonoSizeVALTYPE F τ ρ ιs :
@@ -473,11 +476,17 @@ Inductive mono_size : function_ctx -> type -> Prop :=
   eval_size σ = Some n ->
   mono_size F τ.
 
+Definition mono_rep (ρ : representation) : Prop :=
+  exists ιs, eval_rep ρ = Some ιs.
+
 Inductive rep_eq : representation -> representation -> Prop :=
 | RepEq ρ1 ρ2 ιs :
   eval_rep ρ1 = Some ιs ->
   eval_rep ρ2 = Some ιs ->
   rep_eq ρ1 ρ2.
+
+Definition type_rep_eq (F : function_ctx) (τ : type) (ρ : representation) : Prop :=
+  exists ρ', has_rep F τ ρ' /\ rep_eq ρ ρ'.
 
 Inductive size_eq : size -> size -> Prop :=
 | SizeEq σ1 σ2 n :
@@ -611,98 +620,129 @@ Inductive packed_existential_type : function_ctx -> type -> type -> Prop :=
   let τ0 := subst_type VarM VarR VarS (unscoped.scons τ VarT) τ' in
   packed_existential_type F τ0 (ExistsTypeT κ' κ τ').
 
-(* TODO *)
-Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop :=.
+Definition local_ctx_ok (F : function_ctx) (L : local_ctx) : Prop :=
+  Forall2 (type_rep_eq F) L F.(fc_locals).
+
+Definition local_fx_ok (F : function_ctx) '(LocalFx ξ : local_fx) : Prop :=
+  Forall (fun '(i, τ) => exists ρ, F.(fc_locals) !! i = Some ρ /\ type_rep_eq F τ ρ) ξ.
 
 Inductive has_instruction_type_ok : function_ctx -> local_ctx -> instruction_type -> local_ctx -> Prop :=
-| OKHasInstructionType F L τs1 τs2 L' :
-  Forall (type_ok F) L ->
-  Forall (type_ok F) L' ->
-  Forall (mono_rep F) τs1 ->
-  Forall (mono_rep F) τs2 ->
-  has_instruction_type_ok F L (InstrT τs1 τs2) L'.
+| OKHasInstructionType F L ψ L' :
+  local_ctx_ok F L ->
+  local_ctx_ok F L' ->
+  has_mono_rep_instr F ψ ->
+  has_instruction_type_ok F L ψ L'.
+
+(* TODO *)
+Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop :=.
 
 Inductive has_instruction_type :
   module_ctx -> function_ctx -> local_ctx -> instruction -> instruction_type -> local_ctx -> Prop :=
 | TNop M F L :
+  local_ctx_ok F L ->
   let ψ := InstrT [] [] in
   has_instruction_type M F L (INop ψ) ψ L
 | TUnreachable M F L ψ L' :
   has_instruction_type_ok F L ψ L' ->
   has_instruction_type M F L (IUnreachable ψ) ψ L'
 | TCopy M F L τ :
+  local_ctx_ok F L ->
   has_copyability F τ ExCopy ->
-  mono_rep F τ ->
+  has_mono_rep F τ ->
   let ψ := InstrT [τ] [τ; τ] in
   has_instruction_type M F L (ICopy ψ) ψ L
 | TDrop M F L τ :
+  local_ctx_ok F L ->
   has_dropability F τ ExDrop ->
-  mono_rep F τ ->
+  has_mono_rep F τ ->
   let ψ := InstrT [τ] [] in
   has_instruction_type M F L (IDrop ψ) ψ L
 | TNum M F L e ψ :
+  local_ctx_ok F L ->
   has_instruction_type_num e ψ ->
   has_instruction_type M F L (INum ψ e) ψ L
 | TNumConst M F L κ ν n :
+  local_ctx_ok F L ->
   has_kind F (NumT κ ν) κ ->
   let ψ := InstrT [] [NumT κ ν] in
   has_instruction_type M F L (INumConst ψ n) ψ L
 | TBlock M F L τs1 τs2 ξ es :
+  local_ctx_ok F L ->
+  local_fx_ok F ξ ->
   let L' := update_locals ξ L in
-  let F' := set fc_labels (cons (τs2, L')) F in
+  let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT τs1 τs2 in
+  has_mono_rep_instr F ψ ->
   have_instruction_type M F' L es ψ L' ->
   has_instruction_type M F L (IBlock ψ ξ es) ψ L'
 | TLoop M F L τs1 τs2 es :
-  let F' := set fc_labels (cons (τs1, L)) F in
+  local_ctx_ok F L ->
+  let F' := F <| fc_labels ::= cons (τs1, L) |> in
   let ψ := InstrT τs1 τs2 in
+  has_mono_rep_instr F ψ ->
   have_instruction_type M F' L es ψ L ->
   has_instruction_type M F L (ILoop ψ es) ψ L
 | TIte M F L ψ ξ es1 es2 :
+  local_ctx_ok F L ->
+  local_fx_ok F ξ ->
+  has_mono_rep_instr F ψ ->
   let L' := update_locals ξ L in
   have_instruction_type M F L es1 ψ L' ->
   have_instruction_type M F L es2 ψ L' ->
   has_instruction_type M F L (IIte ψ ξ es1 es2) ψ L'
-| TBr M F L n τs τs1 τs2 ξ :
+| TBr M F L n τs τs1 τs2 L' :
+  local_ctx_ok F L ->
+  local_ctx_ok F L' ->
   F.(fc_labels) !! n = Some (τs, L) ->
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let ψ := InstrT (τs1 ++ τs) τs2 in
-  let L' := update_locals ξ L in
+  has_mono_rep_instr F ψ ->
   has_instruction_type M F L (IBr ψ n) ψ L'
 | TBrIf M F L n τs :
+  local_ctx_ok F L ->
+  Forall (has_mono_rep F) τs ->
   F.(fc_labels) !! n = Some (τs, L) ->
   let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
   let ψ := InstrT (τs ++ [τ]) τs in
   has_instruction_type M F L (IBrIf ψ n) ψ L
 | TBrTable M F L L' ns n τs τs1 τs2 :
+  local_ctx_ok F L ->
+  local_ctx_ok F L' ->
   Forall (fun i => F.(fc_labels) !! i = Some (τs, L)) (n :: ns) ->
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
   let ψ := InstrT (τs1 ++ τs ++ [τ]) τs2 in
+  has_mono_rep_instr F ψ ->
   has_instruction_type M F L (IBrTable ψ ns n) ψ L'
 | TReturn M F L L' τs τs1 τs2 :
+  local_ctx_ok F L ->
+  local_ctx_ok F L' ->
   F.(fc_return) = τs ->
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   let ψ := InstrT (τs1 ++ τs) τs2 in
+  has_mono_rep_instr F ψ ->
   has_instruction_type M F L (IReturn ψ) ψ L'
 | TLocalGet M F L n τ ρ :
+  local_ctx_ok F L ->
+  F.(fc_locals) !! n = Some ρ ->
+  mono_rep ρ ->
   L !! n = Some τ ->
-  has_rep F τ ρ ->
   let τ' := RepT (VALTYPE ρ ImCopy ImDrop) ρ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []) in
   let L' := <[ n := τ' ]> L in
   let ψ := InstrT [] [τ] in
   has_instruction_type M F L (ILocalGet ψ n) ψ L'
 | TLocalGetCopy M F L n τ :
+  local_ctx_ok F L ->
   L !! n = Some τ ->
   has_copyability F τ ImCopy ->
   let ψ := InstrT [] [τ] in
   has_instruction_type M F L (ILocalGet ψ n) ψ L
-| TLocalSet M F L n τ τ' ρ ρ' :
+| TLocalSet M F L n τ τ' ρ :
+  local_ctx_ok F L ->
   F.(fc_locals) !! n = Some ρ ->
   L !! n = Some τ ->
   has_dropability F τ ImDrop ->
-  has_rep F τ' ρ' ->
-  rep_eq ρ ρ' ->
+  type_rep_eq F τ' ρ ->
   let L' := <[ n := τ' ]> L in
   let ψ := InstrT [τ'] [] in
   has_instruction_type M F L (ILocalSet ψ n) ψ L'
@@ -874,7 +914,7 @@ Inductive has_instruction_type :
   Forall (mono_size F) pr.(pr_prefix) ->
   stores_as F τ_val τ_val' ->
   loads_as F pr.(pr_target) τ__π ->
-  mono_rep F τ__π ->
+  has_mono_rep F τ__π ->
   let τ_ref := RefT κ (ConstM MemMM) τ in
   let τ_ref' := RefT κ' (ConstM MemMM) pr.(pr_replaced) in
   has_kind F τ_ref κ ->
@@ -900,7 +940,7 @@ Proof.
   induction H2; repeat constructor; by inversion H1.
 Qed.
 
-Lemma has_kind_invariant F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
+Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
 Proof.
   intros H.
   induction H using has_kind_ind'.
@@ -941,3 +981,116 @@ Proof.
   - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
     intros. inversion H2. inversion H4. by inversion H11.
 Qed.
+
+Lemma has_instruction_type_num_inv F L e ψ :
+  has_instruction_type_num e ψ -> has_instruction_type_ok F L ψ L.
+Proof.
+  intros H. inversion H.
+Qed.
+
+Lemma has_mono_rep_num F κ ν : has_kind F (NumT κ ν) κ -> has_mono_rep F (NumT κ ν).
+Admitted.
+
+Lemma update_local_ctx_ok F L i ρ τ :
+  F.(fc_locals) !! i = Some ρ ->
+  type_rep_eq F τ ρ ->
+  local_ctx_ok F L ->
+  local_ctx_ok F (<[ i := τ ]> L).
+Admitted.
+
+Lemma update_locals_ctx_ok F L ξ :
+  local_ctx_ok F L ->
+  local_fx_ok F ξ ->
+  local_ctx_ok F (update_locals ξ L).
+Admitted.
+
+Lemma has_mono_rep_if_type_rep_eq F τ ρ : type_rep_eq F τ ρ -> has_mono_rep F τ.
+Admitted.
+
+Lemma mono_rep_ok K ρ : mono_rep ρ -> rep_ok K ρ.
+Admitted.
+
+Lemma mono_rep_iff_eq_refl ρ : mono_rep ρ <-> rep_eq ρ ρ.
+Admitted.
+
+Lemma have_instruction_type_inv M F L e ψ L' :
+  have_instruction_type M F L e ψ L' -> has_instruction_type_ok F L ψ L'.
+Proof.
+  intros H.
+  induction H using have_instruction_type_mind with
+    (P := fun _ F L _ ψ L' _ => has_instruction_type_ok F L ψ L').
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor; constructor.
+  - assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor.
+      * constructor; last constructor. assumption.
+      * constructor; last constructor; last constructor; assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor.
+      * constructor; last constructor. assumption.
+      * constructor.
+  - by apply has_instruction_type_num_inv with (e := e).
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor.
+      * constructor.
+      * constructor; last constructor.
+        by apply has_mono_rep_num.
+  - constructor.
+    + assumption.
+    + by apply update_locals_ctx_ok.
+    + assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + assumption.
+  - constructor.
+    + assumption.
+    + by apply update_locals_ctx_ok.
+    + assumption.
+  - constructor; assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor; last assumption.
+      apply Forall_app. split; first assumption.
+      constructor; last constructor.
+      apply MonoRep with (ρ := PrimR I32R) (ιs := [I32R]).
+      * apply RepVALTYPE with (χ := ImCopy) (δ := ImDrop).
+        apply KI32.
+      * reflexivity.
+  - constructor; assumption.
+  - constructor; assumption.
+  - constructor.
+    + assumption.
+    + apply update_local_ctx_ok with (ρ := ρ).
+      * assumption.
+      * exists ρ. split.
+        -- apply RepVALTYPE with (χ := ImCopy) (δ := ImDrop).
+           apply KRep with (ρ0 := ProdR []); first repeat constructor.
+           by apply mono_rep_ok.
+        -- by apply mono_rep_iff_eq_refl.
+      * assumption.
+    + constructor; first constructor. constructor; last constructor.
+      apply has_mono_rep_if_type_rep_eq with (ρ := ρ).
+      apply Forall2_lookup_lr with (l := L) (k := F.(fc_locals)) (i := n); assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor; first constructor. constructor; last constructor.
+      destruct (Forall2_lookup_l _ _ _ _ _ l e) as (ρ & Hρ & Hτ).
+      by apply has_mono_rep_if_type_rep_eq with (ρ := ρ).
+  - constructor.
+    + assumption.
+    + apply update_local_ctx_ok with (ρ := ρ); assumption.
+    + constructor; last constructor. constructor; last constructor.
+      by apply has_mono_rep_if_type_rep_eq with (ρ := ρ).
+Abort.
