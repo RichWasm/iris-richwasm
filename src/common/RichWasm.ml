@@ -289,6 +289,7 @@ module Module = struct
         (Richwasm_extract.RwSyntax.module_function
         [@with
           Core.function_type := FunctionType.t;
+          Core.representation := Representation.t;
           Core.instruction := Instruction.t])]
     [@@deriving show, eq, ord, iter, map, fold, sexp]
   end
@@ -298,6 +299,7 @@ module Module = struct
       [%import:
         (Richwasm_extract.RwSyntax.module_global
         [@with
+          mutability := Mutability.t;
           Core.coq_type := Type.t;
           Core.instruction := Instruction.t])]
     [@@deriving show, eq, ord, iter, map, fold, sexp]

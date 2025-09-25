@@ -8,12 +8,14 @@ Inductive mutability :=
 
 Record module_function :=
   { mf_type : function_type;
+    mf_locals : list representation;
     mf_body : list instruction }.
 
 Arguments module_function : clear implicits.
 
 Record module_global :=
-  { mg_type : type;
+  { mg_mut : mutability;
+    mg_type : type;
     mg_init : list instruction }.
 
 Arguments module_global : clear implicits.
