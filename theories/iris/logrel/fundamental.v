@@ -89,10 +89,9 @@ Section Fundamental.
               (∃ vss0 : list (list value), ⌜vs0 = concat vss0⌝ ∗
                 ([∗ list] τ;vs1 ∈ [];vss0, value_interp sr mr se τ (SValues vs1)));
             lp_trap := True;
-            lp_br := br_interp sr mr se (map (subst_type s__mem s__rep s__size VarT) L) [] inst lh F.(fc_labels);
-            lp_ret := return_interp sr mr se F.(fc_return);
-            lp_host :=
-              λ (_ : function_type) (_ : hostfuncidx) (_ : list value) (_ : llholed), False
+            lp_br := br_interp sr mr se F (map (subst_type s__mem s__rep s__size VarT) L) [] inst lh F.(fc_labels);
+            lp_ret := return_interp sr mr se F;
+            lp_host := fun _ _ _ _ => False
           |}%I).
         cbn.
         case lv; simpl; auto.

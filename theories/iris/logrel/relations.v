@@ -28,9 +28,9 @@ Section Relations.
   | SValues (vs : list value)
   | SWords (cm : concrete_memory) (ws : list word).
 
-  Definition semantic_type := (leibnizO semantic_value -n> iProp Σ).
-  Notation semantic_kind := (semantic_type -> iProp Σ).
-  Notation semantic_env := (list.listO semantic_type).
+  Definition semantic_type := leibnizO semantic_value -n> iProp Σ.
+  Definition semantic_kind := semantic_type -> iProp Σ.
+  Definition semantic_env := list.listO semantic_type.
 
   Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
   Notation LVR := (leibnizO val -n> iPropO Σ).
@@ -56,6 +56,7 @@ Section Relations.
   Implicit Type inst : leibnizO instance.
   Implicit Type lh : leibnizO lholed.
   Implicit Type vh : leibnizO {n : nat & valid_holed n}.
+  Implicit Type svh : leibnizO simple_valid_holed.
 
   Implicit Type τ : leibnizO type.
   Implicit Type τs : leibnizO (list type).
@@ -63,7 +64,7 @@ Section Relations.
   Implicit Type ϕ : leibnizO function_type.
   Implicit Type ψ : leibnizO instruction_type.
 
-  Notation value_relation := (semantic_env -n> leibnizO type -n> SVR).
+  Definition value_relation := semantic_env -n> leibnizO type -n> SVR.
 
   Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
     match ty with
@@ -163,6 +164,7 @@ Section Relations.
       let 'InstrT τs1 τs2 := ψ in
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
+          (* TODO: Kind context. *)
           ⌜translate_types [] τs1 = Some tfs1⌝ ∗
           ⌜translate_types [] τs2 = Some tfs2⌝ ∗
           ∀ vs1 fr,
@@ -342,49 +344,54 @@ Section Relations.
     | SH_rec _ _ _ lh' _ => simple_get_base_l lh'
     end.
 
-  Definition br_interp0
-    (se : semantic_env) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) (br_interp : BR) :
-    BR :=
-    λne lh τc vh,
-      (∃ j k p lh' lh'' τs' τs'' ts'' es0 es es' vs,
-         ⌜get_base_l (projT2 vh) = vs⌝ ∗
-           ⌜lh_depth (lh_of_vh (projT2 vh)) = p⌝ ∗
-           ⌜τc !! (j - p) = Some (τs', L)⌝ ∗
-           ⌜get_layer lh (lh_depth lh - S (j - p)) = Some (es0, k, es, lh', es')⌝ ∗
-           ⌜lh_depth lh'' = lh_depth lh - S (j - p)⌝ ∗
-           ⌜is_Some (lh_minus lh lh'')⌝ ∗
-           ⌜translate_types [] τs'' = Some ts''⌝ ∗
-           values_interp se (τs'' ++ τs') vs ∗
-           ∀ fr,
-             ↪[frame] fr -∗
-             frame_interp se L WL inst fr -∗
-             lenient_wp
-               NotStuck top
-               (of_val (immV (drop (length ts'') vs)) ++ [AI_basic (BI_br (j - p))])
-               {| lp_fr := fun fr' => frame_interp se L WL inst fr';
-                  lp_val := fun vs' => ∃ τs, values_interp se τs vs';
-                  lp_trap := True;
-                  lp_br := br_interp lh'' (drop (S (j - p)) τc);
-                  lp_ret := fun _ => True (* TODO *);
-                  lp_host := fun _ _ _ _ => False |})%I.
-
-  (* TODO *)
-  Instance Contractive_br_interp0 se L WL inst : Contractive (br_interp0 se L WL inst).
-  Admitted.
-
-  Definition br_interp (se : semantic_env) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :=
-    fixpoint (br_interp0 se L WL inst).
-
-  Definition return_interp (se : semantic_env) (τs : list type) : RR :=
-    λne (svh : leibnizO simple_valid_holed),
+  Definition return_interp (se : semantic_env) (F : function_ctx) : RR :=
+    λne svh,
       (∃ τs0 ts vs,
-         ⌜translate_types [] τs = Some ts⌝ ∗
+         ⌜translate_types F.(fc_type_vars) F.(fc_return) = Some ts⌝ ∗
            ⌜simple_get_base_l svh = vs⌝ ∗
-           values_interp se (τs0 ++ τs) vs ∗
+           values_interp se (τs0 ++ F.(fc_return)) vs ∗
            ∀ fr fr',
              ↪[frame] fr -∗
              WP [AI_local (length ts) fr' (of_val (retV svh))]
-                {{ lv, ∃ vs', ⌜lv = immV vs'⌝ ∗ values_interp se τs vs' ∗ ↪[frame] fr }})%I.
+                {{ lv, ∃ vs', ⌜lv = immV vs'⌝ ∗
+                                values_interp se F.(fc_return) vs' ∗
+                                ↪[frame] fr }})%I.
+
+  Definition br_interp0
+    (se : semantic_env) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx) (inst : instance)
+    (br_interp : BR) :
+    BR :=
+    λne lh τc vh,
+      (∃ j k p lh' lh'' τs0 τs es0 es es' vs0 vs,
+         ⌜get_base_l (projT2 vh) = vs0 ++ vs⌝ ∗
+           ⌜lh_depth (lh_of_vh (projT2 vh)) = p⌝ ∗
+           ⌜τc !! (j - p) = Some (τs, L)⌝ ∗
+           ⌜get_layer lh (lh_depth lh - S (j - p)) = Some (es0, k, es, lh', es')⌝ ∗
+           ⌜lh_depth lh'' = lh_depth lh - S (j - p)⌝ ∗
+           ⌜is_Some (lh_minus lh lh'')⌝ ∗
+           values_interp se τs vs ∗
+           ∀ fr,
+             ↪[frame] fr -∗
+             frame_interp se L WL inst fr -∗
+             (* TODO: WP with label context. *)
+             lenient_wp
+               NotStuck top
+               (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
+               {| lp_fr := fun fr' => frame_interp se L WL inst fr';
+                  lp_val := fun vs' => ∃ τs', values_interp se τs' vs';
+                  lp_trap := True;
+                  lp_br := br_interp lh'' (drop (S (j - p)) τc);
+                  lp_ret := return_interp se F;
+                  lp_host := fun _ _ _ _ => False |})%I.
+
+  (* TODO *)
+  Instance Contractive_br_interp0 se F L WL inst : Contractive (br_interp0 se F L WL inst).
+  Admitted.
+
+  Definition br_interp
+    (se : semantic_env) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
+    BR :=
+    fixpoint (br_interp0 se F L WL inst).
 
   Definition expr_interp
     (se : semantic_env) (τc : list (list type * local_ctx)) (τs : list type)
@@ -395,8 +402,8 @@ Section Relations.
                  {| lp_fr := frame_interp se L WL inst;
                     lp_val := fun vs => values_interp se τs vs ∗ ↪[RUN];
                     lp_trap := True;
-                    lp_br := br_interp se L WL inst lh τc;
-                    lp_ret := return_interp se F.(fc_return);
+                    lp_br := br_interp se F L WL inst lh τc;
+                    lp_ret := return_interp se F;
                     lp_host := fun _ _ _ _ => False |}%I.
 
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
