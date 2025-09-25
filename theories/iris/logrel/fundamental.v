@@ -712,6 +712,18 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L1 wl (to_e_list wl') (InstrT τs1 τs3) L3.
   Admitted.
 
+  Lemma compat_frame M F L L' wl wl' es es' τ τs1 τs2 :
+    let me := me_of_context M mr in
+    let fe := fe_of_context F in
+    have_instruction_type M F L es (InstrT τs1 τs2) L' ->
+    has_mono_rep F τ ->
+    (forall wl wl' es',
+        run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
+        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
+    run_codegen (compile_instrs me fe es) es' = inr ((), wl, wl') ->
+    ⊢ have_instruction_type_sem sr mr M F L wl (to_e_list wl') (InstrT (τ :: τs1) (τ :: τs2)) L'.
+  Admitted.
+
   Theorem fundamental_theorem M F L L' wl wl' es es' tf :
     have_instruction_type M F L es tf L' ->
     let me := me_of_context M mr in
@@ -777,6 +789,7 @@ Section Fundamental.
     - eapply compat_ref_mm_swap; eassumption.
     - eapply compat_nil; eassumption.
     - eapply compat_cons; eassumption.
+    - eapply compat_frame; eassumption.
   Qed.
 
 End Fundamental.

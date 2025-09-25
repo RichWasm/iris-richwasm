@@ -925,11 +925,16 @@ Inductive has_instruction_type :
 with have_instruction_type :
   module_ctx -> function_ctx -> local_ctx -> list instruction -> instruction_type -> local_ctx -> Prop :=
 | TNil M F L :
+  local_ctx_ok F L ->
   have_instruction_type M F L [] (InstrT [] []) L
 | TCons M F L1 L2 L3 e es τs1 τs2 τs3 :
   has_instruction_type M F L1 e (InstrT τs1 τs2) L2 ->
   have_instruction_type M F L2 es (InstrT τs2 τs3) L3 ->
-  have_instruction_type M F L1 (e :: es) (InstrT τs1 τs3) L3.
+  have_instruction_type M F L1 (e :: es) (InstrT τs1 τs3) L3
+| TFrame M F L L' es τ τs1 τs2 :
+  have_instruction_type M F L es (InstrT τs1 τs2) L' ->
+  has_mono_rep F τ ->
+  have_instruction_type M F L es (InstrT (τ :: τs1) (τ :: τs2)) L'.
 
 Scheme has_instruction_type_mind := Induction for has_instruction_type Sort Prop
 with have_instruction_type_mind := Induction for have_instruction_type Sort Prop.
