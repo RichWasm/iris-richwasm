@@ -38,8 +38,9 @@ Section Relations.
   Notation FrR := (leibnizO frame -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
   Notation ER := (leibnizO (list administrative_instruction) -n> iPropO Σ).
-  Notation BR := (leibnizO {n : nat & valid_holed n} -n> leibnizO lholed -n>
-                    leibnizO (list (list type * local_ctx)) -n> iProp Σ).
+  Notation BR := (leibnizO lholed -n> leibnizO (list (list type * local_ctx)) -n>
+                    leibnizO {n : nat & valid_holed n} -n> iProp Σ).
+  Notation RR := (leibnizO simple_valid_holed -n> iPropO Σ).
 
   Implicit Type L : leibnizO local_ctx.
   Implicit Type WL : leibnizO wlocal_ctx.
@@ -335,28 +336,35 @@ Section Relations.
     | VH_rec _ _ _ _ lh' _ => get_base_l lh'
     end.
 
+  Fixpoint simple_get_base_l (lh : simple_valid_holed) :=
+    match lh with
+    | SH_base vs _ => vs
+    | SH_rec _ _ _ lh' _ => simple_get_base_l lh'
+    end.
+
   Definition br_interp0
     (se : semantic_env) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) (br_interp : BR) :
     BR :=
-    λne vh lh τc,
-      (∃ j k p lh' lh'' τs' τs'' es0 es es' vs,
+    λne lh τc vh,
+      (∃ j k p lh' lh'' τs' τs'' ts'' es0 es es' vs,
          ⌜get_base_l (projT2 vh) = vs⌝ ∗
            ⌜lh_depth (lh_of_vh (projT2 vh)) = p⌝ ∗
            ⌜τc !! (j - p) = Some (τs', L)⌝ ∗
            ⌜get_layer lh (lh_depth lh - S (j - p)) = Some (es0, k, es, lh', es')⌝ ∗
            ⌜lh_depth lh'' = lh_depth lh - S (j - p)⌝ ∗
            ⌜is_Some (lh_minus lh lh'')⌝ ∗
+           ⌜translate_types [] τs'' = Some ts''⌝ ∗
            values_interp se (τs'' ++ τs') vs ∗
            ∀ fr,
              ↪[frame] fr -∗
              frame_interp se L WL inst fr -∗
              lenient_wp
                NotStuck top
-               (of_val (immV (drop (length τs'') vs)) ++ [AI_basic (BI_br (j - p))])
+               (of_val (immV (drop (length ts'') vs)) ++ [AI_basic (BI_br (j - p))])
                {| lp_fr := fun fr' => frame_interp se L WL inst fr';
                   lp_val := fun vs' => ∃ τs, values_interp se τs vs';
                   lp_trap := True;
-                  lp_br := fun vh' => ▷ br_interp vh' lh'' (drop (S (j - p)) τc);
+                  lp_br := br_interp lh'' (drop (S (j - p)) τc);
                   lp_ret := fun _ => True (* TODO *);
                   lp_host := fun _ _ _ _ => False |})%I.
 
@@ -367,6 +375,17 @@ Section Relations.
   Definition br_interp (se : semantic_env) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :=
     fixpoint (br_interp0 se L WL inst).
 
+  Definition return_interp (se : semantic_env) (τs : list type) : RR :=
+    λne (svh : leibnizO simple_valid_holed),
+      (∃ τs0 ts vs,
+         ⌜translate_types [] τs = Some ts⌝ ∗
+           ⌜simple_get_base_l svh = vs⌝ ∗
+           values_interp se (τs0 ++ τs) vs ∗
+           ∀ fr fr',
+             ↪[frame] fr -∗
+             WP [AI_local (length ts) fr' (of_val (retV svh))]
+                {{ lv, ∃ vs', ⌜lv = immV vs'⌝ ∗ values_interp se τs vs' ∗ ↪[frame] fr }})%I.
+
   Definition expr_interp
     (se : semantic_env) (τc : list (list type * local_ctx)) (τs : list type)
     (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) (lh : lholed) :
@@ -376,8 +395,8 @@ Section Relations.
                  {| lp_fr := frame_interp se L WL inst;
                     lp_val := fun vs => values_interp se τs vs ∗ ↪[RUN];
                     lp_trap := True;
-                    lp_br := fun vh => br_interp se L WL inst vh lh τc;
-                    lp_ret := fun _ => True; (* TODO *)
+                    lp_br := br_interp se L WL inst lh τc;
+                    lp_ret := return_interp se F.(fc_return);
                     lp_host := fun _ _ _ _ => False |}%I.
 
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
