@@ -89,7 +89,8 @@ Section Fundamental.
               (∃ vss0 : list (list value), ⌜vs0 = concat vss0⌝ ∗
                 ([∗ list] τ;vs1 ∈ [];vss0, value_interp sr mr se τ (SValues vs1)));
             lp_trap := True;
-            lp_br := λ _ : {x : nat & valid_holed x}, True;
+            lp_br := fun vh => br_interp sr mr se (map (subst_type s__mem s__rep s__size VarT) L) [] inst
+                              vh lh F.(fc_labels);
             lp_ret := λ _ : simple_valid_holed, True;
             lp_host :=
               λ (_ : function_type) (_ : hostfuncidx) (_ : list value) (_ : llholed), False
@@ -98,9 +99,9 @@ Section Fundamental.
         case lv; simpl; auto.
         * iDestruct "LPrunframe" as "[H1 [H2 H3]]". iFrame.
         * iIntros. iDestruct "LPrunframe" as "[H _]". iExact "H".
+        * iIntros. by iDestruct "LPrunframe" as "[H _]".
       + iFrame.
     - iFrame. iPureIntro. rewrite Hlens. auto.
-
   Qed.
 
   Lemma compat_unreachable M F L L' wl wl' ψ es' :
