@@ -51,11 +51,9 @@ and type_of_e gamma e =
   | Value v -> type_of_v gamma v
   | Apply (f, ts, _) -> (
       match type_of_v gamma f with
-      | Code { foralls; ret; _ } ->
-          List.fold_right2_exn ~init:ret
-            ~f:(fun var arg acc -> type_subst var arg acc)
-            foralls ts
-      | _ -> failwith "application should be on a function")
+      | Exists (_, Prod [ _; Code { foralls; ret; _ } ]) ->
+          List.fold_right2_exn ~init:ret ~f:type_subst foralls ts
+      | _ -> failwith "application should be on a existential/closure")
   | Project (i, v) -> (
       match type_of_v gamma v with
       | Prod ts -> List.nth_exn ts i
@@ -77,6 +75,41 @@ and type_of_e gamma e =
       | Rec (var, t) as tau -> type_subst var tau t
       | _ -> failwith "unfold should be on a µ-type")
   | Unpack (_, (n, t), _, e) -> type_of_e ((n, t) :: gamma) e
+;;
+
+let rec compile_type delta t =
+  let open Closed.PreType in
+  let open RichWasm.Internal.Types in
+  let open RichWasm.NumType in
+  let open RichWasm.Int in
+  let open RichWasm.Memory in
+  let open RichWasm.ConcreteMemory in
+  let r = compile_type delta in
+  match t with
+  | Int -> NumT (kind, IntT I32T)
+  | Prod ts -> ProdT (kind, List.map ~f:r ts)
+  | Sum ts -> SumT (kind, List.map ~f:r ts)
+  | Ref t -> RefT (kind, ConstM MemGC, r t)
+  | Rec (v, t) -> RecT (kind, compile_type (v :: delta) t)
+  | Exists (v, t) -> ExistsTypeT (kind, kind, compile_type (v :: delta) t)
+  | Code { foralls; arg; ret } ->
+      let inner =
+        List.fold_right
+          ~init:
+            (MonoFunT
+               (InstrT
+                  ( [ compile_type (foralls @ delta) arg ],
+                    [ compile_type (foralls @ delta) ret ] )))
+          ~f:(fun _ acc -> ForallTypeT (kind, acc))
+          foralls
+      in
+      CodeRefT (kind, inner)
+  | Var v ->
+      delta
+      |> List.find_mapi_exn ~f:(fun i name ->
+             Option.some_if (equal_string name v) i)
+      |> Z.of_int
+      |> fun x -> VarT x
 ;;
 
 let rec compile_value gamma localctx v =
