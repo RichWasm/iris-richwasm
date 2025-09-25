@@ -1,5 +1,54 @@
 open! Base
 
+module type Monad = sig
+  type 'a t
+
+  val ret : 'a -> 'a t
+  val bind : 'a t -> ('a -> 'b t) -> 'b t
+end
+
+module Monad_ops (M : Monad) = struct
+  open M
+
+  let ( let* ) = bind
+  let map (m : 'a t) (f : 'a -> 'b) : 'b t = bind m (fun x -> ret (f x))
+  let ( let+ ) = map
+
+  let sequence (ms : 'a t list) : 'a list t =
+    let rec go acc = function
+      | [] -> ret (List.rev acc)
+      | m :: ms ->
+          let* x = m in
+          go (x :: acc) ms
+    in
+    go [] ms
+
+  let all = sequence
+
+  let traverse ~(f : 'a -> 'b t) (xs : 'a list) : 'b list t =
+    let rec go acc = function
+      | [] -> ret (List.rev acc)
+      | x :: xs ->
+          let* y = f x in
+          go (y :: acc) xs
+    in
+    go [] xs
+
+  let mapM = traverse
+
+  let foldM ~(f : 'acc -> 'a -> 'acc t) (init : 'acc) (xs : 'a list) : 'acc t =
+    let rec go acc = function
+      | [] -> ret acc
+      | x :: xs ->
+          let* acc' = f acc x in
+          go acc' xs
+    in
+    go init xs
+
+  let iterM (f : 'a -> unit t) (xs : 'a list) : unit t =
+    foldM ~f:(fun () x -> f x) () xs
+end
+
 module type State = sig
   type t
 end
@@ -8,58 +57,42 @@ module type Err = sig
   type t
 end
 
+module ResultM (E : Err) = struct
+  module T = struct
+    type 'a t = ('a, E.t) Result.t
+
+    let ret (x : 'a) : 'a t = Ok x
+
+    let bind (m : 'a t) (f : 'a -> 'b t) : 'b t =
+      match m with
+      | Error _ as er -> er
+      | Ok x -> f x
+
+    let fail err : 'a t = Error err
+  end
+
+  include T
+  include Monad_ops (T)
+end
+
 module StateM (S : State) (E : Err) = struct
-  type 'a t = S.t -> ('a * S.t, E.t) Result.t
+  module T = struct
+    type 'a t = S.t -> ('a * S.t, E.t) Result.t
 
-  let return (x : 'a) : 'a t = fun e -> Ok (x, e)
+    let ret (x : 'a) : 'a t = fun e -> Ok (x, e)
 
-  let bind (m : 'a t) (f : 'a -> 'b t) : 'b t =
-   fun e ->
-    match m e with
-    | Error _ as er -> er
-    | Ok (x, e') -> f x e'
+    let bind (m : 'a t) (f : 'a -> 'b t) : 'b t =
+     fun e ->
+      match m e with
+      | Error _ as er -> er
+      | Ok (x, e') -> f x e'
 
-  let ( let* ) = bind
+    let fail err : 'a t = fun _ -> Error err
+    let get : S.t t = fun s -> Ok (s, s)
+    let put (s : S.t) : unit t = fun _ -> Ok ((), s)
+    let modify (f : S.t -> S.t) : unit t = fun s -> Ok ((), f s)
+  end
 
-  let map m f =
-   fun e ->
-    match m e with
-    | Error _ as er -> er
-    | Ok (x, e') -> Ok (f x, e')
-
-  let ( let+ ) = map
-  let fail msg : 'a t = fun _ -> Error msg
-  let get : S.t t = fun s -> Ok (s, s)
-  let put (s : S.t) : unit t = fun _ -> Ok ((), s)
-  let modify (f : S.t -> S.t) : unit t = fun s -> Ok ((), f s)
-
-  let all (ms : 'a t list) : 'a list t =
-    let rec go acc = function
-      | [] -> return (List.rev acc)
-      | m :: ms ->
-          let* x = m in
-          go (x :: acc) ms
-    in
-    go [] ms
-
-  let mapM (f : 'a -> 'b t) (xs : 'a list) : 'b list t =
-    let rec go acc = function
-      | [] -> return (List.rev acc)
-      | x :: xs ->
-          let* y = f x in
-          go (y :: acc) xs
-    in
-    go [] xs
-
-  let foldM (f : 'acc -> 'a -> 'acc t) (init : 'acc) (xs : 'a list) : 'acc t =
-    let rec go acc = function
-      | [] -> return acc
-      | x :: xs ->
-          let* acc' = f acc x in
-          go acc' xs
-    in
-    go init xs
-
-  let iterM (f : 'a -> unit t) (xs : 'a list) : unit t =
-    foldM (fun () x -> f x) () xs
+  include T
+  include Monad_ops (T)
 end

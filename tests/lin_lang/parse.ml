@@ -18,7 +18,10 @@ let%expect_test "basic functionality" =
       suspended := fun () -> printf "Failure ^^^"
   in
 
-  let next () = !suspended () in
+  let next () =
+    !suspended ();
+    suspended := fun () -> ()
+  in
 
   (* values *)
   run {| 1 |};
