@@ -37,12 +37,11 @@ module Err = struct
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
-let ( let* ) x f = bind ~f x
-let ret x = Ok x
+module Res = Util.ResultM (Err)
 
-type 'a res = ('a, Err.t) t
-
-let rec parse_type (p : Path.t) : Sexp.t -> Type.t res = function
+let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
+  let open Res in
+  function
   | Atom "int" -> ret @@ Type.Int
   | List [ Atom "ref"; t ] ->
       let* t' = parse_type (Tag "ref" :: p) t in
@@ -91,20 +90,26 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t res = function
         ret @@ Type.Prod ts
   | x -> fail Err.(ExpectedType (p, x))
 
-let parse_binding (p : Path.t) : Sexp.t -> Binding.t res = function
+let parse_binding (p : Path.t) : Sexp.t -> Binding.t Res.t =
+  let open Res in
+  function
   | List [ Atom var; Atom ":"; typ ] | List [ Atom var; typ ] ->
       let* typ' = parse_type (Path.add p ~field:"typ" ~tag:"binding") typ in
       ret (var, typ')
   | x -> fail Err.(ExpectedBinding (p, x))
 
-let parse_binop (p : Path.t) : Sexp.t -> Binop.t res = function
+let parse_binop (p : Path.t) : Sexp.t -> Binop.t Res.t =
+  let open Res in
+  function
   | Atom "+" -> ret Binop.Add
   | Atom "-" -> ret Binop.Sub
   | Atom ("×" | "*") -> ret Binop.Mul
   | Atom ("÷" | "/") -> ret Binop.Div
   | x -> fail Err.(ExpectedBinop (p, x))
 
-let rec parse_value (p : Path.t) : Sexp.t -> Value.t res = function
+let rec parse_value (p : Path.t) : Sexp.t -> Value.t Res.t =
+  let open Res in
+  function
   | Atom x -> (
       match Int.of_string_opt x with
       | Some x -> ret @@ Value.Int x
@@ -145,7 +150,9 @@ let rec parse_value (p : Path.t) : Sexp.t -> Value.t res = function
       let* values = check_and_parse [] 0 atoms in
       ret @@ Value.Tuple values
 
-and parse_expr (p : Path.t) : Sexp.t -> Expr.t res = function
+and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
+  let open Res in
+  function
   | List [ Atom "app"; v1; v2 ] ->
       let p = Path.add p ~tag:"app" in
       let* v1' = parse_value (p ~field:"v1") v1 in
@@ -161,8 +168,8 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t res = function
   | List (Atom "letprod" :: rst) as sexp ->
       let p : Path.t = Tag "letprod" :: p in
       (* Split on "=" to separate bindings from expressions *)
-      let rec split_on_eq acc : Sexp.t list -> (Sexp.t list * Sexp.t list) res =
-        function
+      let rec split_on_eq acc : Sexp.t list -> (Sexp.t list * Sexp.t list) Res.t
+          = function
         | [] -> fail Err.(ExpectedExpr (p, sexp))
         | Atom "=" :: rest -> Ok (List.rev acc, rest)
         | x :: xs -> split_on_eq (x :: acc) xs
@@ -234,14 +241,17 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t res = function
       let* v = parse_value (Tag "val" :: p) x in
       ret @@ Expr.Val v
 
-let parse_import (p : Path.t) : Sexp.t -> Import.t res = function
+let parse_import (p : Path.t) : Sexp.t -> Import.t Res.t =
+  let open Res in
+  function
   | List [ Atom "import"; t; Atom "as"; Atom x ]
   | List [ Atom "import"; t; Atom x ] ->
       let* t' = parse_type (Path.add ~tag:"import" ~field:"t" p) t in
       ret @@ Import.{ name = x; typ = t' }
   | x -> fail Err.(ExpectedImport (p, x))
 
-let parse_toplevel (p : Path.t) : Sexp.t -> TopLevel.t res =
+let parse_toplevel (p : Path.t) : Sexp.t -> TopLevel.t Res.t =
+  let open Res in
   let help ?(export = false) binding e =
     let* binding' =
       parse_binding (Path.add ~tag:"tl let" ~field:"binding" p) binding
@@ -255,7 +265,9 @@ let parse_toplevel (p : Path.t) : Sexp.t -> TopLevel.t res =
   | List [ Atom "let"; binding; e ] -> help binding e
   | x -> fail Err.(ExpectedTopLevel (p, x))
 
-let parse_module (p : Path.t) : Sexp.t list -> Module.t res = function
+let parse_module (p : Path.t) : Sexp.t list -> Module.t Res.t =
+  let open Res in
+  function
   | [] -> ret @@ Module.make ()
   | sexps ->
       let rec classify imports toplevels main_opt : Sexp.t list -> 'a = function
@@ -282,9 +294,10 @@ let parse_module (p : Path.t) : Sexp.t list -> Module.t res = function
       let* imports, toplevels, main = classify [] [] None sexps in
       ret @@ Module.{ imports; toplevels; main }
 
-let from_string (s : string) : Module.t res =
+let from_string (s : string) : Module.t Res.t =
+  let open Res in
   match Parsexp.Many.parse_string s with
-  | Error x -> Error (Err.ParseError x)
+  | Error x -> fail (Err.ParseError x)
   | Ok sexps -> parse_module Path.empty sexps
 
 let from_string_exn (s : string) : Module.t =

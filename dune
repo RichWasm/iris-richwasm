@@ -3,7 +3,7 @@
 (env
  (dev
   (flags
-   (:standard -warn-error -37-8-27-33)))
+   (:standard -warn-error -8-21-26-27-33-37-39)))
  (coq
   (flags
     :standard -w -deprecated-coq-env-var)))
