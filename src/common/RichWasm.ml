@@ -456,8 +456,8 @@ module Module = struct
           Core.instruction := Instruction.t])]
     [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
-    let pp ff ({ mf_type; mf_body } : t) : unit =
-      (* FIXME: where are locals?? *)
+    let pp ff ({ mf_type; mf_locals ;mf_body } : t) : unit =
+      (* TODO: locals *)
       fprintf ff "@[<v 2>@[(func %a@]" FunctionType.pp mf_type;
       List.iter ~f:(fprintf ff "@;%a" Instruction.pp) mf_body;
       fprintf ff "@[)@]@]"

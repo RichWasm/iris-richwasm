@@ -175,8 +175,13 @@ module Compile = struct
           let tenv = TEnv.empty in
           let* expr_typ = Type.type_of_expr tenv main in
           let stack_typ = compile_type expr_typ in
+          (* TODO: locals *)
           let func : B.Module.Function.t =
-            { mf_type = MonoFunT (InstrT ([], [ stack_typ ])); mf_body = body }
+            {
+              mf_type = MonoFunT (InstrT ([], [ stack_typ ]));
+              mf_locals = [];
+              mf_body = body;
+            }
           in
           Ok ([ func ], state)
     in
