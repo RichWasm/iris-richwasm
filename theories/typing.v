@@ -747,38 +747,58 @@ Inductive has_instruction_type :
   let ψ := InstrT [τ'] [] in
   has_instruction_type M F L (ILocalSet ψ n) ψ L'
 | TGlobalGet M F L n m τ :
+  local_ctx_ok F L ->
   M.(mc_globals) !! n = Some (m, τ) ->
+  has_mono_rep F τ ->
   has_copyability F τ ImCopy ->
   let ψ := InstrT [] [τ] in
   has_instruction_type M F L (IGlobalGet ψ n) ψ L
 | TGlobalSet M F L n τ :
+  local_ctx_ok F L ->
   M.(mc_globals) !! n = Some (Mut, τ) ->
+  has_mono_rep F τ ->
   has_dropability F τ ImDrop ->
   let ψ := InstrT [τ] [] in
   has_instruction_type M F L (IGlobalSet ψ n) ψ L
 | TGlobalSwap M F L n τ :
+  local_ctx_ok F L ->
   M.(mc_globals) !! n = Some (Mut, τ) ->
+  has_mono_rep F τ ->
   let ψ := InstrT [τ] [τ] in
   has_instruction_type M F L (IGlobalSwap ψ n) ψ L
 | TCodeRef M F L i ϕ :
+  local_ctx_ok F L ->
   M.(mc_table) !! i = Some ϕ ->
+  function_type_ok F ϕ ->
   let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
   let ψ := InstrT [] [τ] in
   has_instruction_type M F L (ICodeRef ψ i) ψ L
-| TInst M F L ix ϕ ϕ' κ :
+| TInst M F L ix ϕ ϕ' :
+  local_ctx_ok F L ->
+  function_type_ok F ϕ ->
   function_type_inst F ix ϕ ϕ' ->
+  let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
   has_instruction_type M F L (IInst ψ ix) ψ L
 | TCall M F L i ixs ϕ τs1 τs2 :
+  local_ctx_ok F L ->
   M.(mc_functions) !! i = Some ϕ ->
   let ψ := InstrT τs1 τs2 in
+  has_mono_rep_instr F ψ ->
   function_type_insts F ixs ϕ (MonoFunT ψ) ->
   has_instruction_type M F L (ICall ψ i ixs) ψ L
-| TCallIndirect M F L τs1 τs2 κ :
+| TCallIndirect M F L τs1 τs2 :
+  local_ctx_ok F L ->
+  Forall (has_mono_rep F) τs1 ->
+  Forall (has_mono_rep F) τs2 ->
+  let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT (InstrT τs1 τs2))]) τs2 in
   has_instruction_type M F L (ICallIndirect ψ) ψ L
 | TInject M F L i τ τs κ :
+  local_ctx_ok F L ->
   τs !! i = Some τ ->
+  has_kind F (SumT κ τs) κ ->
+  Forall (has_mono_rep F) τs ->
   let ψ := InstrT [τ] [SumT κ τs] in
   has_instruction_type M F L (IInject ψ i) ψ L
 | TCase M F L ξ κ τ' τs ess :
@@ -1015,7 +1035,22 @@ Admitted.
 Lemma mono_rep_ok K ρ : mono_rep ρ -> rep_ok K ρ.
 Admitted.
 
+Lemma mono_rep_type_ok F τ : has_mono_rep F τ -> type_ok F τ.
+Admitted.
+
 Lemma mono_rep_iff_eq_refl ρ : mono_rep ρ <-> rep_eq ρ ρ.
+Admitted.
+
+Lemma function_type_inst_ok  F ix ϕ ϕ' :
+  function_type_ok F ϕ ->
+  function_type_inst F ix ϕ ϕ' ->
+  function_type_ok F ϕ'.
+Admitted.
+
+Lemma mono_rep_sum F κ τs :
+  Forall (has_mono_rep F) τs ->
+  has_kind F (SumT κ τs) κ ->
+  has_mono_rep F (SumT κ τs).
 Admitted.
 
 Lemma have_instruction_type_inv M F L e ψ L' :
@@ -1098,4 +1133,62 @@ Proof.
     + apply update_local_ctx_ok with (ρ := ρ); assumption.
     + constructor; last constructor. constructor; last constructor.
       by apply has_mono_rep_if_type_rep_eq with (ρ := ρ).
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor; first constructor. constructor; last constructor. assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor; last constructor. constructor; last constructor. assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor.
+      * constructor; last constructor. assumption.
+      * constructor; last constructor. assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor; first constructor. constructor; last constructor.
+      apply MonoRep with (ρ := PrimR I32R) (ιs := [I32R]).
+      * apply RepVALTYPE with (χ := ImCopy) (δ := ImDrop). constructor. assumption.
+      * reflexivity.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor.
+      * constructor; last constructor.
+        apply MonoRep with (ρ := PrimR I32R) (ιs := [I32R]).
+        -- apply RepVALTYPE with (χ := ImCopy) (δ := ImDrop). constructor. assumption.
+        -- reflexivity.
+      * constructor; last constructor.
+        apply MonoRep with (ρ := PrimR I32R) (ιs := [I32R]).
+        -- apply RepVALTYPE with (χ := ImCopy) (δ := ImDrop). constructor.
+           by eapply function_type_inst_ok.
+        -- reflexivity.
+  - constructor; assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor.
+      * apply Forall_app. split.
+        -- assumption.
+        -- constructor; last constructor.
+           apply MonoRep with (ρ := PrimR I32R) (ιs := [I32R]).
+           ++ apply RepVALTYPE with (χ := ImCopy) (δ := ImDrop). repeat constructor.
+              ** eapply Forall_impl; first exact f. intros τ H.
+                 by apply mono_rep_type_ok.
+              ** eapply Forall_impl; first exact f0. intros τ H.
+                 by apply mono_rep_type_ok.
+           ++ reflexivity.
+      * assumption.
+  - constructor.
+    + assumption.
+    + assumption.
+    + constructor.
+      * constructor; last constructor.
+        by apply Forall_lookup_1 with (l := τs) (i := i).
+      * constructor; last constructor.
+        by apply mono_rep_sum.
 Abort.

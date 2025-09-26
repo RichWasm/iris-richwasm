@@ -363,7 +363,9 @@ Section Fundamental.
   Lemma compat_global_get M F L wl wl' es' n m τ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     mc_globals M !! n = Some (m, τ) ->
+    has_mono_rep F τ ->
     has_copyability F τ ImCopy ->
     let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (IGlobalGet ψ n)) wl = inr ((), wl', es') ->
@@ -373,7 +375,9 @@ Section Fundamental.
   Lemma compat_global_set M F L wl wl' es' n τ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     mc_globals M !! n = Some (Mut, τ) ->
+    has_mono_rep F τ ->
     has_dropability F τ ImDrop ->
     let ψ := InstrT [τ] [] in
     run_codegen (compile_instr me fe (IGlobalSet ψ n)) wl = inr ((), wl', es') ->
@@ -383,7 +387,9 @@ Section Fundamental.
   Lemma compat_global_swap M F L wl wl' es' n τ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     mc_globals M !! n = Some (Mut, τ) ->
+    has_mono_rep F τ ->
     let ψ := InstrT [τ] [τ] in
     run_codegen (compile_instr me fe (IGlobalSwap ψ n)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
@@ -392,17 +398,22 @@ Section Fundamental.
   Lemma compat_coderef M F L wl wl' es' i ϕ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     mc_table M !! i = Some ϕ ->
+    function_type_ok F ϕ ->
     let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
     let ψ := InstrT [] [τ] in
     run_codegen (compile_instr me fe (ICodeRef ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_inst M F L wl wl' es' ix ϕ ϕ' κ :
+  Lemma compat_inst M F L wl wl' es' ix ϕ ϕ' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    function_type_ok F ϕ ->
     function_type_inst F ix ϕ ϕ' ->
+    let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
     let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
     run_codegen (compile_instr me fe (IInst ψ ix)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
@@ -411,16 +422,22 @@ Section Fundamental.
   Lemma compat_call M F L wl wl' es' i ixs ϕ τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     mc_functions M !! i = Some ϕ ->
     let ψ := InstrT τs1 τs2 in
+    has_mono_rep_instr F ψ ->
     function_type_insts F ixs ϕ (MonoFunT ψ) ->
     run_codegen (compile_instr me fe (ICall ψ i ixs)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_call_indirect M F L wl wl' es' τs1 τs2 κ :
+  Lemma compat_call_indirect M F L wl wl' es' τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
+    Forall (has_mono_rep F) τs1 ->
+    Forall (has_mono_rep F) τs2 ->
+    let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
     let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT (InstrT τs1 τs2))]) τs2 in
     run_codegen (compile_instr me fe (ICallIndirect ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
@@ -429,7 +446,10 @@ Section Fundamental.
   Lemma compat_inject M F L wl wl' es' i τs τ κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
+    local_ctx_ok F L ->
     τs !! i = Some τ ->
+    has_kind F (SumT κ τs) κ ->
+    Forall (has_mono_rep F) τs ->
     let ψ := InstrT [τ] [SumT κ τs] in
     run_codegen (compile_instr me fe (IInject ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
