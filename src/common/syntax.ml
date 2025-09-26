@@ -484,8 +484,6 @@ module Instruction = struct
     | Loop of InstructionType.t * t list
     | Ite of InstructionType.t * LocalFx.t * t list * t list
     | Br of int
-    | BrIf of int
-    | BrTable of int list * int
     | Return
     | LocalGet of int
     | LocalSet of int

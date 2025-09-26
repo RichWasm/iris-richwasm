@@ -647,8 +647,6 @@ Section Instrs.
         tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
         ignore (if_c tf (mapM compile_instr es1) (mapM compile_instr es2))
     | IBr _ n => emit (W.BI_br n)
-    | IBrIf _ n => emit (W.BI_br_if n)
-    | IBrTable _ ns n => emit (W.BI_br_table ns n)
     | IReturn (InstrT τs _) => compile_return τs
     | ILocalGet _ idx => compile_get_local idx
     | ILocalSet _ idx => compile_set_local idx

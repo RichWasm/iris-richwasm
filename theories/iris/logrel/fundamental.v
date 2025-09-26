@@ -285,32 +285,6 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_br_if M F L wl wl' es' n τs :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    local_ctx_ok F L ->
-    Forall (has_mono_rep F) τs ->
-    fc_labels F !! n = Some (τs, L) ->
-    let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
-    let ψ := InstrT (τs ++ [τ]) τs in
-    run_codegen (compile_instr me fe (IBrIf ψ n)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
-  Admitted.
-
-  Lemma compat_br_table M F L L' wl wl' es' n ns τs τs1 τs2 :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    local_ctx_ok F L ->
-    local_ctx_ok F L' ->
-    Forall (fun i => fc_labels F !! i = Some (τs, L)) (n :: ns) ->
-    Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
-    let τ := NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T) in
-    let ψ := InstrT (τs1 ++ τs ++ [τ]) τs2 in
-    has_mono_rep_instr F ψ ->
-    run_codegen (compile_instr me fe (IBrTable ψ ns n)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
-  Admitted.
-
   Lemma compat_return M F L L' wl wl' es' τs τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
@@ -509,92 +483,19 @@ Section Fundamental.
   Lemma compat_pack M F L wl wl' es' τ τ' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    packed_existential_type F τ τ' ->
+    packed_existential F τ τ' ->
     let ψ := InstrT [τ] [τ'] in
     run_codegen (compile_instr me fe (IPack ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_unpack_mem M F L wl wl' es es' ξ τ τs1 τs2 κ :
+  Lemma compat_unpack M F F0 L L0 L0' ξ wl wl' es es0 es' ψ ψ0 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let F' := subst_function_ctx (up_memory VarM) VarR VarS VarT F
-                <| fc_kind_ctx ::= set kc_mem_vars S |> in
     let L' := update_locals ξ L in
-    let weak_t := map (subst_type (up_memory VarM) VarR VarS VarT) in
-    let weak_e := map (subst_instruction (up_memory VarM) VarR VarS VarT) in
-    have_instruction_type
-      M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
-    let ψ := InstrT (τs1 ++ [ExistsMemT κ τ]) τs2 in
-    (forall wl wl' es',
-        let fe' := fe_of_context F' in
-        run_codegen (compile_instrs me fe' (weak_e es)) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' (weak_t L) wl'
-          (to_e_list es')
-          (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L')) ->
-    run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
-  Admitted.
-
-  Lemma compat_unpack_rep M F L wl wl' es es' ξ τ τs1 τs2 κ :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    let F' := subst_function_ctx VarM (up_representation VarR) VarS VarT F
-                <| fc_kind_ctx ::= set kc_rep_vars S |> in
-    let L' := update_locals ξ L in
-    let weak_t := map (subst_type VarM (up_representation VarR) VarS VarT) in
-    let weak_e := map (subst_instruction VarM (up_representation VarR) VarS VarT) in
-    have_instruction_type
-      M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
-    let ψ := InstrT (τs1 ++ [ExistsRepT κ τ]) τs2 in
-    (forall wl wl' es',
-        let fe' := fe_of_context F' in
-        run_codegen (compile_instrs me fe' (weak_e es)) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' (weak_t L) wl'
-          (to_e_list es')
-          (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L')) ->
-    run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
-  Admitted.
-
-  Lemma compat_unpack_size M F L wl wl' es es' ξ τ τs1 τs2 κ :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    let F' := subst_function_ctx VarM VarR (up_size VarS) VarT F
-                <| fc_kind_ctx ::= set kc_size_vars S |> in
-    let L' := update_locals ξ L in
-    let weak_t := map (subst_type VarM VarR (up_size VarS) VarT) in
-    let weak_e := map (subst_instruction VarM VarR (up_size VarS) VarT) in
-    have_instruction_type
-      M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
-    let ψ := InstrT (τs1 ++ [ExistsRepT κ τ]) τs2 in
-    (forall wl wl' es',
-        let fe' := fe_of_context F' in
-        run_codegen (compile_instrs me fe' (weak_e es)) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' (weak_t L) wl'
-          (to_e_list es')
-          (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L')) ->
-    run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
-  Admitted.
-
-  Lemma compat_unpack_type M F L wl wl' es es' ξ τ τs1 τs2 κ κ0 :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    let F' := subst_function_ctx VarM VarR VarS (up_type VarT) F
-                <| fc_type_vars ::= cons κ0 |> in
-    let L' := update_locals ξ L in
-    let weak_t := map (subst_type VarM VarR VarS (up_type VarT)) in
-    let weak_e := map (subst_instruction VarM VarR VarS (up_type VarT)) in
-    have_instruction_type
-      M F' (weak_t L) (weak_e es) (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L') ->
-    let ψ := InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2 in
-    (forall wl wl' es',
-        let fe' := fe_of_context F' in
-        run_codegen (compile_instrs me fe' (weak_e es)) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' (weak_t L) wl'
-          (to_e_list es')
-          (InstrT (weak_t τs1 ++ [τ]) (weak_t τs2)) (weak_t L')) ->
+    unpacked_existential F L es ψ L'
+                        F0 L0 es0 ψ0 L0' ->
+    have_instruction_type M F0 L0 es0 ψ0 L0' ->
     run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -777,8 +678,6 @@ Section Fundamental.
       4: exact Htype1.
       all: eassumption.
     - eapply compat_br; eassumption.
-    - eapply compat_br_if; eassumption.
-    - eapply compat_br_table; eassumption.
     - eapply compat_return; eassumption.
     - eapply compat_local_get; eassumption.
     - eapply compat_local_get_copy; eassumption.
@@ -797,10 +696,7 @@ Section Fundamental.
     - eapply compat_fold; eassumption.
     - eapply compat_unfold; eassumption.
     - eapply compat_pack; eassumption.
-    - eapply compat_unpack_mem; eassumption.
-    - eapply compat_unpack_rep; eassumption.
-    - eapply compat_unpack_size; eassumption.
-    - eapply compat_unpack_type; eassumption.
+    - eapply compat_unpack; eassumption.
     - eapply compat_wrap; eassumption.
     - eapply compat_unwrap; eassumption.
     - eapply compat_ref_new; eassumption.

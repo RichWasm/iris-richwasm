@@ -187,8 +187,6 @@ IBlock : instruction_type -> local_fx -> "list" (instruction) -> instruction
 ILoop : instruction_type -> "list" (instruction) -> instruction
 IIte : instruction_type -> local_fx -> "list" (instruction) -> "list" (instruction) -> instruction
 IBr : instruction_type -> nat -> instruction
-IBrIf : instruction_type -> nat -> instruction
-IBrTable : instruction_type -> "list" (nat) -> nat -> instruction
 IReturn : instruction_type -> instruction
 ILocalGet : instruction_type -> nat -> instruction
 ILocalSet : instruction_type -> nat -> instruction
