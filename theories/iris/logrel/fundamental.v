@@ -53,46 +53,49 @@ Section Fundamental.
     unfold expr_interp; cbn.
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
-    (* Show vs = []. Surprisingly a lot of tactics. *)
-    simpl in Hlens; symmetry in Hlens; apply length_zero_iff_nil in Hlens.
-    rewrite Hlens in Hconcat; simpl in Hconcat.
-    rewrite Hconcat. simpl.
+    (* To prove a list is nil, it's often easier to destruct it and
+       then show the cons case is impossible.
 
+       Here the congruence tactic deals with the 3 subgoals where
+       something is not nil, where the hyps Hlens or Hconcat equate
+       terms with obviously different constructors, like
+         v :: vs = []
+       or
+         0 = S (...).                               - Ryan *)
+    destruct vss, vs; cbn in Hconcat, Hlens; try congruence.
+    cbn.
     (* To apply lenient_wp_nop, some strangeness has to happen
      with ->[RUN] being in the Phi. This is where lwp_wand comes in.*)
 
-    iApply (lwp_wand); [| iApply lenient_wp_nop].
-    (* Note: this strange iApply in the second subgoal makes sure that the 
-     ?Goal is made into the right shape (lp_run ?Goal) in the first subgoal*)
-    - unfold lp_wand'.
-      iIntros (lv).
-      unfold denote_logpred.
-      iIntros "[LPrunframe [%f [Hf Hlpfr]]]".
-      iSplitL "LPrunframe".
-      + unfold lp_run.
-        unfold lp_with.
-        (* Essentially, the ?Goal is a logpred that is almost exactly 
-           the same as the logpred in the goal, but with the ↪[RUN] removed from
-           the lp_val case. Not sure how to do that cleaner than just writing it out*)
-        instantiate
-          (1 :=
-          {|
-            lp_fr :=
-              λ fr0 : leibnizO frame, ∃ vs__L vs__WL : list value,
-              ⌜fr0 = {| modules.W.f_locs := vs__L ++ vs__WL; modules.W.f_inst := inst |}⌝ ∗
-              (∃ vss0 : list (list value), ⌜vs__L = concat vss0⌝ ∗
-              ([∗ list] τ;vs0 ∈ map (subst_type s__mem s__rep s__size VarT) L;vss0, 
-                  value_interp sr mr se τ (SValues vs0))) ∗
+    (* I've tried to clean this definition up a bit, but it's the same
+       as the one that was in an instantiate (1 := ...) tactic earlier
+       -Ryan *)
+    set (Ψ := {|
+            lp_fr := λ fr, ∃ vs__L vs__WL,
+              ⌜fr = {| W.f_locs := vs__L ++ vs__WL; W.f_inst := inst |}⌝ ∗
+              (∃ vss, ⌜vs__L = concat vss⌝ ∗
+                      [∗ list] τ;vs ∈ map (subst_type s__mem s__rep s__size VarT) L;vss,
+                      value_interp sr mr se τ (SValues vs)) ∗
                   ⌜result_type_interp [] vs__WL⌝ ∗ na_own logrel_nais ⊤;
             lp_val :=
-              λ vs0 : leibnizO (list value),
-              (∃ vss0 : list (list value), ⌜vs0 = concat vss0⌝ ∗
-                ([∗ list] τ;vs1 ∈ [];vss0, value_interp sr mr se τ (SValues vs1)));
+              λ vs, ∃ vss, ⌜vs = concat vss⌝ ∗
+                           [∗ list] τ;vs' ∈ [];vss, value_interp sr mr se τ (SValues vs');
             lp_trap := True;
             lp_br := br_interp sr mr se F (map (subst_type s__mem s__rep s__size VarT) L) [] inst lh F.(fc_labels);
             lp_ret := return_interp sr mr se F;
             lp_host := fun _ _ _ _ => False
           |}%I).
+    iApply lwp_wand; [| iApply (lenient_wp_nop _ _ Ψ)].
+    (* Note: this strange iApply in the second subgoal makes sure that the
+     ?Goal is made into the right shape (lp_run ?Goal) in the first subgoal*)
+    - unfold lp_wand'.
+      iIntros (lv).
+      unfold denote_logpred.
+      cbn.
+      iIntros "[LPrunframe [%f [Hf Hlpfr]]]".
+      iSplitL "LPrunframe".
+      + unfold lp_run.
+        unfold lp_with.
         cbn.
         case lv; simpl; auto.
         * iDestruct "LPrunframe" as "[H1 [H2 H3]]". iFrame.
@@ -100,7 +103,7 @@ Section Fundamental.
         * iIntros. by iDestruct "LPrunframe" as "[H _]".
         * iIntros. by iDestruct "LPrunframe" as "[H _]".
       + iFrame.
-    - iFrame. iPureIntro. rewrite Hlens. auto.
+    - cbn. iFrame. cbn. iExists _. iSplit; auto. auto.
   Qed.
 
   Lemma compat_unreachable M F L L' wl wl' ψ es' :
