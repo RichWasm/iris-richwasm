@@ -44,6 +44,10 @@ n.b. the grammar is in Monadic Normal Form
 - closure conversion
 - code gen into RichWasm
 
+## Type System
+
+
+
 ## Notes
 
 ### 2025-09-15
@@ -56,4 +60,15 @@ stack--might mean that RW will need to be tweaked for the lin-lang compiler.
 Make calling convension uniform
 
 just make n-ary tuples
+
+### 2025-09-25
+
+All calls are indirect since that is the most general case
+
+All functions get placed into the table, and map fname to idx 
+
+When typing tuples....
+
+Linear local.get consumes local, annotation needs to reflect this.
+
 
