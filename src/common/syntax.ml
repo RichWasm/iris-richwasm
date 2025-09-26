@@ -1,199 +1,393 @@
-type copyability = NoCopy | ExCopy | ImCopy
+open! Base
 
-type dropability = NoDrop | ExDrop | ImDrop
+module Copyability = struct
+  type t =
+    | NoCopy
+    | ExCopy
+    | ImCopy
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type memory = MM | GC
+module Dropability = struct
+  type t =
+    | NoDrop
+    | ExDrop
+    | ImDrop
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type primitive_rep =
-  | Ptr
-  | I32
-  | I64
-  | F32
-  | F64
+module Memory = struct
+  type t =
+    | MM
+    | GC
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type representation =
-  | Var of int
-  | Sum of representation list
-  | Prod of representation list
-  | Prim of primitive_rep
+module PrimitiveRep = struct
+  type t =
+    | Ptr
+    | I32
+    | I64
+    | F32
+    | F64
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type size =
-  | Var of int
-  | Sum of size list
-  | Prod of size list
-  | Rep of representation
-  | Const of int
+module Representation = struct
+  type t =
+    | Var of int
+    | Sum of t list
+    | Prod of t list
+    | Prim of PrimitiveRep.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type sizity =
-  | Sized of size
-  | Unsized
+module Size = struct
+  type t =
+    | Var of int
+    | Sum of t list
+    | Prod of t list
+    | Rep of Representation.t
+    | Const of int
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type kind =
-  | VALTYPE of representation * copyability * dropability
-  | MEMTYPE of sizity * memory * dropability
+module Sizity = struct
+  type t =
+    | Sized of Size.t
+    | Unsized
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type quantifier =
-  | Memory
-  | Representation
-  | Size
-  | Type of kind
+module Kind = struct
+  type t =
+    | VALTYPE of Representation.t * Copyability.t * Dropability.t
+    | MEMTYPE of Sizity.t * Memory.t * Dropability.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type int_type = I32 | I64
+module Quantifier = struct
+  type t =
+    | Memory
+    | Representation
+    | Size
+    | Type of Kind.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type float_type = F32 | F64
+module Sign = struct
+  type t =
+    | Unsigned
+    | Signed
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type num_type =
-  | Int of int_type
-  | Float of float_type
+module Int = struct
+  module Type = struct
+    type t =
+      | I32
+      | I64
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type typ =
-  | Var of int
-  | Num of num_type
-  | Sum of typ list
-  | Prod of typ list
-  | Ref of memory * typ
-  | GCPtr of typ
-  | CodeRef of function_type
-  | Rep of representation * typ
-  | Pad of size * typ
-  | Ser of typ
-  | Rec of typ
-  | Exists of quantifier * typ
-and instruction_type = InstructionType of typ list * typ list
-and function_type = FunctionType of quantifier list * instruction_type
+  module Unop = struct
+    type t =
+      | Clz
+      | Ctz
+      | Popcnt
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type index =
-  | Mem of memory
-  | Rep of representation
-  | Size of size
-  | Type of typ
+  module Binop = struct
+    type t =
+      | Add
+      | Sub
+      | Mul
+      | Div
+      | Rem
+      | And
+      | Or
+      | Xor
+      | Shl
+      | Shr
+      | Rotl
+      | Rotr
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type local_fx = LocalFx of (int * typ) list
+  module Testop = struct
+    type t = Eqz [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type sign = Unsigned | Signed
+  module Relop = struct
+    type t =
+      | Eq
+      | Ne
+      | Lt
+      | Gt
+      | Le
+      | Ge
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
+end
 
-type int_unop = Clz | Ctz | Popcnt
+module Float = struct
+  module Type = struct
+    type t =
+      | F32
+      | F64
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type int_binop = Add | Sub | Mul | Div | Rem | And | Or | Xor | Shl | Shr | Rotl | Rotr
+  module Unop = struct
+    type t =
+      | Neg
+      | Abs
+      | Ceil
+      | Floor
+      | Trunc
+      | Nearest
+      | Sqrt
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type int_testop = Eqz
+  module Binop = struct
+    type t =
+      | Add
+      | Sub
+      | Mul
+      | Div
+      | Min
+      | Max
+      | CopySign
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type int_relop = Eq | Ne | Lt | Gt | Le | Ge
+  module Relop = struct
+    type t =
+      | Eq
+      | Ne
+      | Lt
+      | Gt
+      | Le
+      | Ge
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
+end
 
-type float_unop = Neg | Abs | Ceil | Floor | Trunc | Nearest | Sqrt
+module NumType = struct
+  type t =
+    | Int of Int.Type.t
+    | Float of Float.Type.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type float_binop = Add | Sub | Mul | Div | Min | Max | CopySign
+module ConversionOp = struct
+  type t =
+    | Wrap
+    | Extend of Sign.t
+    | Trunc of Int.Type.t * Float.Type.t * Sign.t
+    | TruncSat of Int.Type.t * Float.Type.t * Sign.t
+    | Demote
+    | Promote
+    | Convert of Float.Type.t * Int.Type.t * Sign.t
+    | ReinterpretFI of Float.Type.t * Int.Type.t
+    | ReinterpretIF of Int.Type.t * Float.Type.t
+    | ReinterpretII of Int.Type.t * Sign.t * Sign.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type float_relop = Eq | Ne | Lt | Gt | Le | Ge
+module NumInstruction = struct
+  type t =
+    | Int1 of Int.Type.t * Int.Unop.t
+    | Int2 of Int.Type.t * Int.Binop.t
+    | IntTest of Int.Type.t * Int.Testop.t
+    | IntRel of Int.Type.t * Int.Relop.t
+    | Float1 of Float.Type.t * Float.Unop.t
+    | Float2 of Float.Type.t * Float.Binop.t
+    | FloatRel of Float.Type.t * Float.Relop.t
+    | Cvt of ConversionOp.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type conversion_op =
-  | Wrap
-  | Extend of sign
-  | Trunc of int_type * float_type * sign
-  | TruncSat of int_type * float_type * sign
-  | Demote
-  | Promote
-  | Convert of float_type * int_type * sign
-  | ReinterpretFI of float_type * int_type
-  | ReinterpretIF of int_type * float_type
-  | ReinterpretII of int_type * sign * sign
+module rec Type : sig
+  type t =
+    | Var of int
+    | Num of NumType.t
+    | Sum of t list
+    | Prod of t list
+    | Ref of Memory.t * t
+    | GCPtr of t
+    | CodeRef of FunctionType.t
+    | Rep of Representation.t * t
+    | Pad of Size.t * t
+    | Ser of t
+    | Rec of t
+    | Exists of Quantifier.t * t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end = struct
+  type t =
+    | Var of int
+    | Num of NumType.t
+    | Sum of t list
+    | Prod of t list
+    | Ref of Memory.t * t
+    | GCPtr of t
+    | CodeRef of FunctionType.t
+    | Rep of Representation.t * t
+    | Pad of Size.t * t
+    | Ser of t
+    | Rec of t
+    | Exists of Quantifier.t * t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type num_instruction =
-  | Int1 of int_type * int_unop
-  | Int2 of int_type * int_binop
-  | IntTest of int_type * int_testop
-  | IntRel of int_type * int_relop
-  | Float1 of float_type * float_unop
-  | Float2 of float_type * float_binop
-  | FloatRel of float_type * float_relop
-  | Cvt of conversion_op
+and InstructionType : sig
+  type t = InstructionType of Type.t list * Type.t list
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end = struct
+  type t = InstructionType of Type.t list * Type.t list
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type path_component =
-  | Proj of int
-  | Unwrap
+and FunctionType : sig
+  type t = FunctionType of Quantifier.t list * InstructionType.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end = struct
+  type t = FunctionType of Quantifier.t list * InstructionType.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type path = Path of path_component list
+module Index = struct
+  type t =
+    | Mem of Memory.t
+    | Rep of Representation.t
+    | Size of Size.t
+    | Type of Type.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type instruction =
-  | Nop
-  | Unreachable
-  | Copy
-  | Drop
-  | Num of num_instruction
-  | NumConst of num_type * int
-  | Block of instruction_type * local_fx * instruction list
-  | Loop of instruction_type * instruction list
-  | Ite of instruction_type * local_fx * instruction list * instruction list
-  | Br of int
-  | BrIf of int
-  | BrTable of int list * int
-  | Return
-  | LocalGet of int
-  | LocalSet of int
-  | GlobalGet of int
-  | GlobalSet of int
-  | GlobalSwap of int
-  | CodeRef of int
-  | Inst of index
-  | Call of int * index list
-  | CallIndirect
-  | Inject of int * typ list
-  | Case of instruction_type * local_fx * instruction list list
-  | Group of int
-  | Ungroup
-  | Fold of typ
-  | Unfold
-  | Pack of index * typ
-  | Unpack of instruction_type * local_fx * instruction list
-  | Wrap of typ
-  | Unwrap
-  | RefNew of memory * typ
-  | RefLoad of path * typ
-  | RefStore of path
-  | RefSwap of path
+module LocalFx = struct
+  type t = LocalFx of (int * Type.t) list
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type mutability = Mut | Imm
+module Path = struct
+  module Component = struct
+    type t =
+      | Proj of int
+      | Unwrap
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type module_import_desc =
-  | ImFunction of function_type
-  | ImGlobal of mutability * typ
+  type t = Path of Component.t list
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type module_import =
-  {
-    name : string;
-    desc : module_import_desc;
-  }
+module Instruction = struct
+  type t =
+    | Nop
+    | Unreachable
+    | Copy
+    | Drop
+    | Num of NumInstruction.t
+    | NumConst of NumType.t * int
+    | Block of InstructionType.t * LocalFx.t * t list
+    | Loop of InstructionType.t * t list
+    | Ite of InstructionType.t * LocalFx.t * t list * t list
+    | Br of int
+    | BrIf of int
+    | BrTable of int list * int
+    | Return
+    | LocalGet of int
+    | LocalSet of int
+    | GlobalGet of int
+    | GlobalSet of int
+    | GlobalSwap of int
+    | CodeRef of int
+    | Inst of Index.t
+    | Call of int * Index.t list
+    | CallIndirect
+    | Inject of int * Type.t list
+    | Case of InstructionType.t * LocalFx.t * t list list
+    | Group of int
+    | Ungroup
+    | Fold of Type.t
+    | Unfold
+    | Pack of Index.t * Type.t
+    | Unpack of InstructionType.t * LocalFx.t * t list
+    | Wrap of Type.t
+    | Unwrap
+    | RefNew of Memory.t * Type.t
+    | RefLoad of Path.t * Type.t
+    | RefStore of Path.t
+    | RefSwap of Path.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type module_global =
-  {
-    mut : mutability;
-    typ : typ;
-    init : instruction list;
-  }
+module Mutability = struct
+  type t =
+    | Mut
+    | Imm
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
 
-type module_function =
-  {
-    typ : function_type;
-    locals : representation list;
-    body : instruction list;
-  }
+module Module = struct
+  module Import = struct
+    module Desc = struct
+      type t =
+        | ImFunction of FunctionType.t
+        | ImGlobal of Mutability.t * Type.t
+      [@@deriving eq, ord, iter, map, fold, sexp]
+    end
 
-type module_export_desc =
-  | ExFunction of int
-  | ExGlobal of int
+    type t = {
+      name : string;
+      desc : Desc.t;
+    }
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type module_export =
-  {
-    name : string;
-    desc : module_export_desc;
-  }
+  module Global = struct
+    type t = {
+      mut : Mutability.t;
+      typ : Type.t;
+      init : Instruction.t list;
+    }
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
 
-type modul =
-  {
-    imports : module_import list;
-    globals : module_global list;
-    functions : module_function list;
+  module Function = struct
+    type t = {
+      typ : FunctionType.t;
+      locals : Representation.t list;
+      body : Instruction.t list;
+    }
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
+
+  module Export = struct
+    module Desc = struct
+      type t =
+        | ExFunction of int
+        | ExGlobal of int
+      [@@deriving eq, ord, iter, map, fold, sexp]
+    end
+
+    type t = {
+      name : string;
+      desc : Desc.t;
+    }
+    [@@deriving eq, ord, iter, map, fold, sexp]
+  end
+
+  type t = {
+    imports : Import.t list;
+    globals : Global.t list;
+    functions : Function.t list;
     table : int list;
     start : int option;
-    exports : module_export list;
+    exports : Export.t list;
   }
+  [@@deriving eq, ord, iter, map, fold, sexp]
+end
