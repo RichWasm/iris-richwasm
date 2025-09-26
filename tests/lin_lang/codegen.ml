@@ -1,7 +1,8 @@
 open! Base
 open! Stdlib.Format
 open! Richwasm_lin_lang
-open! Richwasm_common
+
+module RichWasm = Richwasm_common.Syntax
 
 let%expect_test "basic functionality" =
   pp_set_margin std_formatter 80;
@@ -40,18 +41,15 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func (->)
+      (func (-> (Num i32))
         i32.const 1)
       (table)
-      { me_name = "_start"; me_desc = (ExFunction 0) }) |}];
+      { name = "_start"; desc = (ExFunction 0) }) |}];
   next ();
   [%expect
     {|
-    ((m_imports ()) (m_globals ())
-     (m_funcs
-      (((mf_type (MonoFunT (InstrT () ())))
-        (mf_body
-         ((INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 1))))))
-     (m_table ()) (m_start ())
-     (m_exports (((me_name _start) (me_desc (ExFunction 0)))))) |}]
+    ((imports ()) (globals ())
+     (functions
+      (((typ (FunctionType () (InstructionType () ((Num (Int I32)))))) (locals ())
+        (body ((NumConst (Int I32) 1))))))
+     (table ()) (start ()) (exports (((name _start) (desc (ExFunction 0)))))) |}]
