@@ -369,7 +369,7 @@ module FunctionType = struct
     | ForallMemT ft -> fprintf ff "(forall.mem %a)" pp ft
     | ForallRepT ft -> fprintf ff "(forall.rep %a)" pp ft
     | ForallSizeT ft -> fprintf ff "(forall.size %a)" pp ft
-    | ForallTypeT (k, ft) -> fprintf ff "(forall.size %a %a)" Kind.pp k pp ft
+    | ForallTypeT (k, ft) -> fprintf ff "(forall.type %a %a)" Kind.pp k pp ft
 end
 
 module Index = struct
