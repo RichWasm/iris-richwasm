@@ -79,8 +79,8 @@ Section Relations.
 
   Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
     match ι with
-    | PtrR => exists n n', v = VAL_int32 (Wasm_int.int_of_Z i32m n') /\
-                       repr_pointer sr.(sr_gc_heap_start) ∅ (PtrInt n) n'
+    | PtrR => exists θ p n,
+        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_start) θ p n
     | I32R => exists n, v = VAL_int32 n
     | I64R => exists n, v = VAL_int64 n
     | F32R => exists n, v = VAL_float32 n
