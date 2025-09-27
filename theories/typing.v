@@ -121,6 +121,9 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F.(fc_kind_ctx) κ ->
   type_ok F (VarT t)
+| OKI31T F κ :
+  kind_ok F.(fc_kind_ctx) κ ->
+  type_ok F (I31T κ)
 | OKNumT F κ ν :
   kind_ok F.(fc_kind_ctx) κ ->
   type_ok F (NumT κ ν)
@@ -238,6 +241,9 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F.(fc_kind_ctx) κ ->
   has_kind F (VarT t) κ
+| KI31 F :
+  let κ := VALTYPE (PrimR PtrR) ImCopy ImDrop in
+  has_kind F (I31T κ) κ
 | KI32 F :
   let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   has_kind F (NumT κ (IntT I32T)) κ
@@ -343,6 +349,8 @@ Section HasKindInd.
       (HVar : forall F t κ, F.(fc_type_vars) !! t = Some κ ->
                        kind_ok F.(fc_kind_ctx) κ ->
                        P F (VarT t) κ)
+      (HI31 : forall F, let κ := VALTYPE (PrimR PtrR) ImCopy ImDrop in
+                   P F (I31T κ) κ)
       (HI32 : forall F, let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
                    P F (NumT κ (IntT I32T)) κ)
       (HI64 : forall F, let κ := VALTYPE (PrimR I64R) ImCopy ImDrop in
@@ -419,6 +427,7 @@ Section HasKindInd.
     match H with
     | KSub F τ κ κ' H1 H2 => HSub F τ κ κ' H1 (has_kind_ind' F τ κ H2)
     | KVar F t κ H1 H2 => HVar F t κ H1 H2
+    | KI31 F => HI31 F
     | KI32 F => HI32 F
     | KI64 F => HI64 F
     | KF32 F => HF32 F
