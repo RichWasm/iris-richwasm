@@ -19,10 +19,10 @@ Section Relations.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Definition ns_fun (n : N) : namespace := nroot .@ "rwf" .@ n.
-  Definition ns_ref (n : N) : namespace := nroot .@ "rwr" .@ n.
-  Definition ns_tab (n : N) : namespace := nroot .@ "rwt" .@ n.
   Definition ns_glo (n : N) : namespace := nroot .@ "rwg" .@ n.
+  Definition ns_fun (n : N) : namespace := nroot .@ "rwf" .@ n.
+  Definition ns_tab (n : N) : namespace := nroot .@ "rwt" .@ n.
+  Definition ns_ref (n : N) : namespace := nroot .@ "rwr" .@ n.
 
   Inductive semantic_value :=
   | SValues (vs : list value)
@@ -243,10 +243,11 @@ Section Relations.
             ⌜sv = SWords MemGC [WordPtr (PtrGC ℓ)]⌝ ∗
               na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws))
       | CodeRefT _ ϕ =>
-          ∃ n cl,
-            ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N n))]⌝ ∗
+          ∃ i j cl,
+            ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N i))]⌝ ∗
               ▷ closure_interp0 vrel se ϕ cl ∗
-              na_inv logrel_nais (ns_fun n) (n ↦[wf] cl)
+              na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
+              na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl)
       | RepT _ ρ' τ =>
           ∃ ρ ιs ιs' vs vs' rvs rvs' wss wss' ws,
             ⌜sv = SValues vs'⌝ ∗
@@ -426,8 +427,9 @@ Section Relations.
               ∃ i' cl,
                 let nt := N.of_nat (off + i) in
                 let nf := N.of_nat i' in
-                na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
-                na_inv logrel_nais (ns_fun nf) (nf ↦[wf] cl) ∗ closure_interp [] ϕ cl)) ∗
+                closure_interp [] ϕ cl ∗
+                  na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
+                  na_inv logrel_nais (ns_fun nf) (nf ↦[wf] cl))) ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝ ∗
       ([∗ list] i ↦ '(m, τ) ∈ M.(mc_globals),
