@@ -201,6 +201,10 @@ Section Relations.
     λne τ sv,
       match τ with
       | VarT t => (default (λne _, False) (se !! t)) sv
+      | I31T _ =>
+          ∃ n n',
+            ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m n')]⌝ ∗
+              ⌜repr_pointer sr.(sr_gc_heap_start) ∅ (PtrInt n) n'⌝
       | NumT _ _ => True
       | SumT (VALTYPE ρ _ _) τs =>
           ∃ i vs vs0 τ0 ρs ρ0 ixs,

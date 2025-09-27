@@ -254,21 +254,23 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ite M F L wl wl' es1 es2 es' ξ ψ :
+  Lemma compat_ite M F L wl wl' es1 es2 es' ξ τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let L' := update_locals ξ L in
     local_ctx_ok F L ->
     local_fx_ok F ξ ->
-    has_mono_rep_instr F ψ ->
-    have_instruction_type M F L es1 ψ L' ->
-    have_instruction_type M F L es2 ψ L' ->
+    Forall (has_mono_rep F) τs1 ->
+    Forall (has_mono_rep F) τs2 ->
+    have_instruction_type M F L es1 (InstrT τs1 τs2) L' ->
+    have_instruction_type M F L es2 (InstrT τs1 τs2) L' ->
     (forall wl wl' es',
         run_codegen (compile_instrs me fe es1) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L') ->
+        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
     (forall wl wl' es',
         run_codegen (compile_instrs me fe es2) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L') ->
+        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
+    let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
     run_codegen (compile_instr me fe (IIte ψ ξ es1 es2)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -526,6 +528,22 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
 
+  Lemma compat_tag M F L wl wl' es' :
+    let me := me_of_context M mr in
+    let fe := fe_of_context F in
+    let ψ := InstrT [type_i32] [type_i31] in
+    run_codegen (compile_instr me fe (ITag ψ)) wl = inr ((), wl', es') ->
+    ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
+  Admitted.
+
+  Lemma compat_untag M F L wl wl' es' :
+    let me := me_of_context M mr in
+    let fe := fe_of_context F in
+    let ψ := InstrT [type_i31] [type_i32] in
+    run_codegen (compile_instr me fe (IUntag ψ)) wl = inr ((), wl', es') ->
+    ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
+  Admitted.
+
   Lemma compat_ref_new M F L wl wl' es' μ τ τ' κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
@@ -675,7 +693,7 @@ Section Fundamental.
     - eapply compat_block; eassumption.
     - eapply compat_loop; eassumption.
     - eapply compat_ite.
-      4: exact Htype1.
+      5: exact Htype1.
       all: eassumption.
     - eapply compat_br; eassumption.
     - eapply compat_return; eassumption.
@@ -699,6 +717,8 @@ Section Fundamental.
     - eapply compat_unpack; eassumption.
     - eapply compat_wrap; eassumption.
     - eapply compat_unwrap; eassumption.
+    - eapply compat_tag; eassumption.
+    - eapply compat_untag; eassumption.
     - eapply compat_ref_new; eassumption.
     - eapply compat_ref_load; eassumption.
     - eapply compat_ref_store; eassumption.

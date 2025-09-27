@@ -60,6 +60,7 @@ IntT : int_type -> num_type
 FloatT : float_type -> num_type
 
 type (VarT) : Type
+I31T : kind -> type
 NumT : kind -> num_type -> type
 SumT : kind -> "list" (type) -> type
 ProdT : kind -> "list" (type) -> type
@@ -204,6 +205,8 @@ IPack : instruction_type -> instruction
 IUnpack : instruction_type -> local_fx -> "list" (instruction) -> instruction
 IWrap : instruction_type -> instruction
 IUnwrap : instruction_type -> instruction
+ITag : instruction_type -> instruction
+IUntag : instruction_type -> instruction
 IRefNew : instruction_type -> instruction
 IRefLoad : instruction_type -> path -> instruction
 IRefStore : instruction_type -> path -> instruction

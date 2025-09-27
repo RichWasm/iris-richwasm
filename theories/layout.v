@@ -107,6 +107,7 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | SumT κ _
   | ProdT κ _
   | RefT κ _ _
+  | I31T κ
   | GCPtrT κ _
   | CodeRefT κ _
   | RepT κ _ _
@@ -139,6 +140,7 @@ Definition float_type_type (νf : float_type) : type :=
   let ι := float_type_rep νf in
   NumT (VALTYPE (PrimR ι) ImCopy ImDrop) (FloatT νf).
 
+Definition type_i31 : type := I31T (VALTYPE (PrimR PtrR) ImCopy ImDrop).
 Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
@@ -162,6 +164,9 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   | F32R => 1
   | F64R => 2
   end.
+
+Definition primitives_size : list primitive_rep -> nat :=
+  list_sum ∘ map primitive_size.
 
 Fixpoint eval_size (σ : size) : option nat :=
   match σ with

@@ -683,6 +683,9 @@ Section Instrs.
         conv_rep ρ ρ0
     | IUnwrap _ => raise EWrongTypeAnn
 
+    | ITag _ => raise ETodo
+    | IUntag _ => raise ETodo
+
     | IRefNew (InstrT [τ] [RefT κ (ConstM MemMM) τ']) => raise ETodo
     | IRefNew (InstrT [τ] [RefT κ (ConstM MemGC) τ']) => raise ETodo
     | IRefNew _ => raise ETodo

@@ -507,16 +507,10 @@ Inductive has_dropability : function_ctx -> type -> dropability -> Prop :=
   has_kind F τ (MEMTYPE ζ μ δ) ->
   has_dropability F τ δ.
 
-Inductive convertible_to : list primitive_rep -> list primitive_rep -> Prop :=
-| ConvertPad ιs2 :
-  convertible_to [] ιs2
-| ConvertNoPtrs ιs1 ιs1' ιs2 ιs2' :
-  PtrR ∉ ιs1 ->
-  list_sum (map primitive_size ιs1) = list_sum (map primitive_size ιs2) ->
-  convertible_to ιs1' ιs2' ->
-  convertible_to (ιs1 ++ ιs1') (ιs2 ++ ιs2')
-| ConvertPtr ιs1 ιs2 :
-  convertible_to (PtrR :: ιs1) (PtrR :: ιs2).
+Definition convertible_to (ιs1 ιs2 : list primitive_rep) : Prop :=
+  let eq_dec := primitive_rep_eq_dec in
+  count_occ eq_dec ιs1 PtrR <= count_occ eq_dec ιs2 PtrR /\
+    primitives_size (remove eq_dec PtrR ιs1) <= primitives_size (remove eq_dec PtrR ιs2).
 
 Record path_result :=
   { pr_prefix : list type;
@@ -763,13 +757,15 @@ Inductive has_instruction_type :
   has_mono_rep_instr F ψ ->
   have_instruction_type M F' L es ψ L ->
   has_instruction_type M F L (ILoop ψ es) ψ L
-| TIte M F L ψ ξ es1 es2 :
+| TIte M F L τs1 τs2 ξ es1 es2 :
   local_ctx_ok F L ->
   local_fx_ok F ξ ->
-  has_mono_rep_instr F ψ ->
+  Forall (has_mono_rep F) τs1 ->
+  Forall (has_mono_rep F) τs2 ->
   let L' := update_locals ξ L in
-  have_instruction_type M F L es1 ψ L' ->
-  have_instruction_type M F L es2 ψ L' ->
+  have_instruction_type M F L es1 (InstrT τs1 τs2) L' ->
+  have_instruction_type M F L es2 (InstrT τs1 τs2) L' ->
+  let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
   has_instruction_type M F L (IIte ψ ξ es1 es2) ψ L'
 | TBr M F L n τs τs1 τs2 L' :
   local_ctx_ok F L ->
@@ -916,6 +912,12 @@ Inductive has_instruction_type :
   let τ := RepT (VALTYPE ρ χ δ) ρ τ0 in
   let ψ := InstrT [τ] [τ0] in
   has_instruction_type M F L (IUnwrap ψ) ψ L
+| TTag M F L :
+  let ψ := InstrT [type_i32] [type_i31] in
+  has_instruction_type M F L (ITag ψ) ψ L
+| TUntag M F L :
+  let ψ := InstrT [type_i31] [type_i32] in
+  has_instruction_type M F L (IUntag ψ) ψ L
 | TRefNew M F L μ τ τ' κ :
   mono_mem μ ->
   stores_as F τ τ' ->
@@ -1158,7 +1160,11 @@ Proof.
   - constructor.
     + assumption.
     + by apply update_locals_ctx_ok.
-    + assumption.
+    + constructor.
+      * apply Forall_app. split.
+        -- assumption.
+        -- constructor; last constructor. apply int_type_type_mono_rep.
+      * assumption.
   - constructor; assumption.
   - constructor; assumption.
   - constructor.

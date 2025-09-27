@@ -356,6 +356,7 @@ end
 module rec Type : sig
   type t =
     | Var of int
+    | I31
     | Num of NumType.t
     | Sum of t list
     | Prod of t list
@@ -374,6 +375,7 @@ module rec Type : sig
 end = struct
   type t =
     | Var of int
+    | I31
     | Num of NumType.t
     | Sum of t list
     | Prod of t list
@@ -498,6 +500,8 @@ module Instruction = struct
     | Unpack of InstructionType.t * LocalFx.t * t list
     | Wrap of Type.t
     | Unwrap
+    | Tag
+    | Untag
     | RefNew of Memory.t * Type.t
     | RefLoad of Path.t * Type.t
     | RefStore of Path.t
