@@ -669,8 +669,31 @@ Inductive has_instruction_type_ok : function_ctx -> local_ctx -> instruction_typ
   has_mono_rep_instr F ψ ->
   has_instruction_type_ok F L ψ L'.
 
-(* TODO *)
-Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop :=.
+Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop :=
+| TInt1 νi op :
+  let τ := int_type_type νi in
+  has_instruction_type_num (IInt1 νi op) (InstrT [τ] [τ])
+| TInt2 νi op :
+  let τ := int_type_type νi in
+  has_instruction_type_num (IInt2 νi op) (InstrT [τ; τ] [τ])
+| TIntTest νi op :
+  let τ := int_type_type νi in
+  let τ_i32 := int_type_type I32T in
+  has_instruction_type_num (IIntTest νi op) (InstrT [τ] [τ_i32])
+| TIntRel νi op :
+  let τ := int_type_type νi in
+  let τ_i32 := int_type_type I32T in
+  has_instruction_type_num (IIntRel νi op) (InstrT [τ; τ] [τ_i32])
+| IFloat1 νf op :
+  let τ := float_type_type νf in
+  has_instruction_type_num (IFloat1 νf op) (InstrT [τ] [τ])
+| IFloat2 νf op :
+  let τ := float_type_type νf in
+  has_instruction_type_num (IFloat2 νf op) (InstrT [τ; τ] [τ])
+| IFloatRel νf op :
+  let τ := float_type_type νf in
+  let τ_i32 := int_type_type I32T in
+  has_instruction_type_num (IFloatRel νf op) (InstrT [τ; τ] [τ_i32]).
 
 Inductive has_instruction_type :
   module_ctx -> function_ctx -> local_ctx -> instruction -> instruction_type -> local_ctx -> Prop :=
@@ -994,10 +1017,30 @@ Proof.
     intros. inversion H2. inversion H4. by inversion H11.
 Qed.
 
-Lemma has_instruction_type_num_inv F L e ψ :
-  has_instruction_type_num e ψ -> has_instruction_type_ok F L ψ L.
+Lemma int_type_type_mono_rep F νi : has_mono_rep F (int_type_type νi).
 Proof.
-  intros H. inversion H.
+  unfold int_type_type.
+  destruct νi; (econstructor; [econstructor; constructor | reflexivity]).
+Qed.
+
+Lemma float_type_type_mono_rep F νf : has_mono_rep F (float_type_type νf).
+Proof.
+  unfold float_type_type.
+  destruct νf; (econstructor; [econstructor; constructor | reflexivity]).
+Qed.
+
+Lemma has_instruction_type_num_inv F L e ψ :
+  local_ctx_ok F L ->
+  has_instruction_type_num e ψ ->
+  has_instruction_type_ok F L ψ L.
+Proof.
+  intros H1 H2.
+  inversion H2;
+    constructor;
+    try assumption;
+    repeat constructor;
+    try apply int_type_type_mono_rep;
+    apply float_type_type_mono_rep.
 Qed.
 
 Lemma has_mono_rep_num F κ ν : has_kind F (NumT κ ν) κ -> has_mono_rep F (NumT κ ν).

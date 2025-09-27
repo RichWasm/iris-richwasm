@@ -119,13 +119,31 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | ExistsTypeT κ _ _ => Some κ
   end.
 
+Definition int_type_rep (νi : int_type) : primitive_rep :=
+  match νi with
+  | I32T => I32R
+  | I64T => I64R
+  end.
+
+Definition int_type_type (νi : int_type) : type :=
+  let ι := int_type_rep νi in
+  NumT (VALTYPE (PrimR ι) ImCopy ImDrop) (IntT νi).
+
+Definition float_type_rep (νf : float_type) : primitive_rep :=
+  match νf with
+  | F32T => F32R
+  | F64T => F64R
+  end.
+
+Definition float_type_type (νf : float_type) : type :=
+  let ι := float_type_rep νf in
+  NumT (VALTYPE (PrimR ι) ImCopy ImDrop) (FloatT νf).
+
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_rep (ν : num_type) : primitive_rep :=
   match ν with
-  | IntT I32T => I32R
-  | IntT I64T => I64R
-  | FloatT F32T => F32R
-  | FloatT F64T => F64R
+  | IntT νi => int_type_rep νi
+  | FloatT νf => float_type_rep νf
   end.
 
 Definition type_rep (κs : list kind) (τ : type) : option representation :=
