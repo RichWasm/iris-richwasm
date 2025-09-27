@@ -669,6 +669,28 @@ Inductive has_instruction_type_ok : function_ctx -> local_ctx -> instruction_typ
   has_mono_rep_instr F ψ ->
   has_instruction_type_ok F L ψ L'.
 
+Inductive has_instruction_type_cvt : conversion_op -> instruction_type -> Prop :=
+| TWrapC :
+  has_instruction_type_cvt CWrap (InstrT [type_i64] [type_i32])
+| TExtend s :
+  has_instruction_type_cvt (CExtend s) (InstrT [type_i32] [type_i64])
+| TTrunc νf νi s :
+  has_instruction_type_cvt (CTrunc νf νi s) (InstrT [float_type_type νf] [int_type_type νi])
+| TDemote :
+  has_instruction_type_cvt CDemote (InstrT [type_f64] [type_f32])
+| TPromote :
+  has_instruction_type_cvt CPromote (InstrT [type_f32] [type_f64])
+| TConvert νi νf s :
+  has_instruction_type_cvt (CConvert νi νf s) (InstrT [int_type_type νi] [float_type_type νf])
+| TReinterpretI32 :
+  has_instruction_type_cvt (CReinterpret (IntT I32T)) (InstrT [type_i32] [type_f32])
+| TReinterpretI64 :
+  has_instruction_type_cvt (CReinterpret (IntT I64T)) (InstrT [type_i64] [type_f64])
+| TReinterpretF32 :
+  has_instruction_type_cvt (CReinterpret (FloatT F32T)) (InstrT [type_f32] [type_i32])
+| TReinterpretF64 :
+  has_instruction_type_cvt (CReinterpret (FloatT F64T)) (InstrT [type_f64] [type_i64]).
+
 Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop :=
 | TInt1 νi op :
   let τ := int_type_type νi in
@@ -678,12 +700,10 @@ Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop
   has_instruction_type_num (IInt2 νi op) (InstrT [τ; τ] [τ])
 | TIntTest νi op :
   let τ := int_type_type νi in
-  let τ_i32 := int_type_type I32T in
-  has_instruction_type_num (IIntTest νi op) (InstrT [τ] [τ_i32])
+  has_instruction_type_num (IIntTest νi op) (InstrT [τ] [type_i32])
 | TIntRel νi op :
   let τ := int_type_type νi in
-  let τ_i32 := int_type_type I32T in
-  has_instruction_type_num (IIntRel νi op) (InstrT [τ; τ] [τ_i32])
+  has_instruction_type_num (IIntRel νi op) (InstrT [τ; τ] [type_i32])
 | IFloat1 νf op :
   let τ := float_type_type νf in
   has_instruction_type_num (IFloat1 νf op) (InstrT [τ] [τ])
@@ -692,8 +712,10 @@ Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop
   has_instruction_type_num (IFloat2 νf op) (InstrT [τ; τ] [τ])
 | IFloatRel νf op :
   let τ := float_type_type νf in
-  let τ_i32 := int_type_type I32T in
-  has_instruction_type_num (IFloatRel νf op) (InstrT [τ; τ] [τ_i32]).
+  has_instruction_type_num (IFloatRel νf op) (InstrT [τ; τ] [type_i32])
+| ICvt op ψ :
+  has_instruction_type_cvt op ψ ->
+  has_instruction_type_num (ICvt op) ψ.
 
 Inductive has_instruction_type :
   module_ctx -> function_ctx -> local_ctx -> instruction -> instruction_type -> local_ctx -> Prop :=
@@ -1029,16 +1051,24 @@ Proof.
   destruct νf; (econstructor; [econstructor; constructor | reflexivity]).
 Qed.
 
-Lemma has_instruction_type_num_inv F L e ψ :
-  local_ctx_ok F L ->
-  has_instruction_type_num e ψ ->
-  has_instruction_type_ok F L ψ L.
+Lemma has_instruction_type_cvt_mono_rep F op ψ :
+  has_instruction_type_cvt op ψ ->
+  has_mono_rep_instr F ψ.
 Proof.
-  intros H1 H2.
-  inversion H2;
-    constructor;
-    try assumption;
-    repeat constructor;
+  destruct ψ.
+  intros H.
+  inversion H; repeat constructor;
+    try apply int_type_type_mono_rep;
+    apply float_type_type_mono_rep.
+Qed.
+
+Lemma has_instruction_type_num_mono_rep F e ψ :
+  has_instruction_type_num e ψ ->
+  has_mono_rep_instr F ψ.
+Proof.
+  intros H.
+  inversion H; last by eapply has_instruction_type_cvt_mono_rep.
+  all: destruct ψ; repeat constructor;
     try apply int_type_type_mono_rep;
     apply float_type_type_mono_rep.
 Qed.
@@ -1106,7 +1136,10 @@ Proof.
     + constructor.
       * constructor; last constructor. assumption.
       * constructor.
-  - by apply has_instruction_type_num_inv with (e := e).
+  - constructor.
+    + assumption.
+    + assumption.
+    + by apply has_instruction_type_num_mono_rep with (e := e).
   - constructor.
     + assumption.
     + assumption.

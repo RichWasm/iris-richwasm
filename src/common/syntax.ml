@@ -307,14 +307,11 @@ module ConversionOp = struct
   type t =
     | Wrap
     | Extend of Sign.t
-    | Trunc of Int.Type.t * Float.Type.t * Sign.t
-    | TruncSat of Int.Type.t * Float.Type.t * Sign.t
+    | Trunc of Float.Type.t * Int.Type.t * Sign.t
     | Demote
     | Promote
-    | Convert of Float.Type.t * Int.Type.t * Sign.t
-    | ReinterpretFI of Float.Type.t * Int.Type.t
-    | ReinterpretIF of Int.Type.t * Float.Type.t
-    | ReinterpretII of Int.Type.t * Sign.t * Sign.t
+    | Convert of Int.Type.t * Float.Type.t * Sign.t
+    | Reinterpret of NumType.t
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -323,14 +320,11 @@ module ConversionOp = struct
   let pp ff : t -> unit = function
     | Wrap -> fprintf ff "i32.wrap_i64"
     | Extend s -> fprintf ff "i64.extend_i32_%a" Sign.pp s
-    (* | Trunc (int_type, float_type, sign) -> failwith "TODO"
-    | TruncSat (int_type, float_type, sign) -> failwith "TODO" *)
+    (* | Trunc (float_type, float_type, sign) -> failwith "TODO" *)
     | Demote -> fprintf ff "f32.demote_f64"
     | Promote -> fprintf ff "f64.promote_f32"
-    (* | Convert (float_type, int_type, sign) -> failwith "TODO, ordering"
-    | ReinterpretFI (float_type, int_type) -> failwith "TODO"
-    | ReinterpretIF (int_type, float_type) -> failwith "TODO"
-    | ReinterpretII (int_type, sign1, sign2) -> failwith "TODO" *)
+    (* | Convert (int_type, float_type, sign) -> failwith "TODO, ordering"
+    | Reinterpret num_type -> failwith "TODO" *)
     | x -> pp_show ff x
 end
 

@@ -1,6 +1,8 @@
 From Stdlib Require Import List NArith.BinNat.
 Require Import Stdlib.Strings.String.
 Require Import Stdlib.ZArith.BinInt.
+Require Import Stdlib.Program.Basics.
+Local Open Scope program_scope.
 
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
@@ -16,67 +18,54 @@ Definition translate_sign (s : sign) : W.sx :=
   | SignS => W.SX_S
   end.
 
-Definition translate_int_type (νᵢ : int_type) : W.value_type :=
-  match νᵢ with
+Definition translate_int_type (νi : int_type) : W.value_type :=
+  match νi with
   | I32T => W.T_i32
   | I64T => W.T_i64
   end.
 
-Definition translate_float_type (ν__f : float_type) : W.value_type :=
-  match ν__f with
+Definition translate_float_type (νf : float_type) : W.value_type :=
+  match νf with
   | F32T => W.T_f32
   | F64T => W.T_f64
   end.
 
-Definition compile_Z (ty : W.value_type) (n : Z) : W.value :=
+Definition compile_Z (ty : W.value_type) : Z -> W.value :=
   match ty with
-  | W.T_i32 => W.VAL_int32 (Wasm_int.int_of_Z i32m n)
-  | W.T_i64 => W.VAL_int64 (Wasm_int.int_of_Z i64m n)
-  (* TODO: is the signed converter the right thing to use here? *)
-  | W.T_f32 =>
-      let i := Wasm_int.int_of_Z i32m n in
-      W.VAL_float32 (Wasm_float.float_convert_si32 f32m i)
-  | W.T_f64 =>
-      let i := Wasm_int.int_of_Z i64m n in
-      W.VAL_float64 (Wasm_float.float_convert_si64 f64m i)
+  | W.T_i32 => W.VAL_int32 ∘ Wasm_int.int_of_Z i32m
+  | W.T_i64 => W.VAL_int64 ∘ Wasm_int.int_of_Z i64m
+  | W.T_f32 => W.VAL_float32 ∘ Wasm_float.FloatSize32.of_bits ∘ Integers.Int.repr
+  | W.T_f64 => W.VAL_float64 ∘ Wasm_float.FloatSize64.of_bits ∘ Integers.Int64.repr
   end.
 
 Definition compile_cvt_op (op : conversion_op) : W.basic_instruction :=
   match op with
   | CWrap => W.BI_cvtop W.T_i32 W.CVO_convert W.T_i64 None
-  | CExtend s => W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 (Some (translate_sign s))
-  | CTrunc i f s =>
-      let wi := translate_int_type i in
-      let wf := translate_float_type f in
-      W.BI_cvtop wi W.CVO_convert wf (Some (translate_sign s))
-  | CTruncSat i f s =>
-      (* XXX this case shouldn't be the same as the Trunc case, but I
-         don't see what else it could be in the wasmcert syntax. Is
-         this a Wasm 1.0 vs current day Wasm issue ? *)
-      let wi := translate_int_type i in
-      let wf := translate_float_type f in
-      W.BI_cvtop wi W.CVO_convert wf (Some (translate_sign s))
+  | CExtend s =>
+      let s' := translate_sign s in
+      W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 (Some s')
+  | CTrunc νf νi s =>
+      let νf' := translate_float_type νf in
+      let νi' := translate_int_type νi in
+      let s' := translate_sign s in
+      W.BI_cvtop νi' W.CVO_convert νf' (Some s')
   | CDemote => W.BI_cvtop W.T_f64 W.CVO_convert W.T_f32 None
   | CPromote => W.BI_cvtop W.T_f32 W.CVO_convert W.T_f64 None
-  | CConvert f i s =>
-      let wi := translate_int_type i in
-      let wf := translate_float_type f in
-      W.BI_cvtop wf W.CVO_convert wf (Some (translate_sign s))
-  | CReinterpretFI f i =>
-      let wi := translate_int_type i in
-      let wf := translate_float_type f in
-      W.BI_cvtop wf W.CVO_reinterpret wi None
-  | CReinterpretIF i f =>
-      let wi := translate_int_type i in
-      let wf := translate_float_type f in
-      W.BI_cvtop wi W.CVO_reinterpret wf None
-  | CReinterpretII i s s' => W.BI_nop
+  | CConvert νi νf s =>
+      let νi' := translate_int_type νi in
+      let νf' := translate_float_type νf in
+      let s' := translate_sign s in
+      W.BI_cvtop νf' W.CVO_convert νi' (Some s')
+  | CReinterpret (IntT I32T) => W.BI_cvtop W.T_f32 W.CVO_reinterpret W.T_i32 None
+  | CReinterpret (IntT I64T) => W.BI_cvtop W.T_f64 W.CVO_reinterpret W.T_i64 None
+  | CReinterpret (FloatT F32T) => W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_f32 None
+  | CReinterpret (FloatT F64T) => W.BI_cvtop W.T_i64 W.CVO_reinterpret W.T_f64 None
   end.
 
 Definition compile_num_instr (e : num_instruction) : W.basic_instruction :=
   match e with
-  | IInt1 νᵢ op =>
-      let νᵢ' := translate_int_type νᵢ in
+  | IInt1 νi op =>
+      let νi' := translate_int_type νi in
       let op' :=
         match op with
         | ClzI => W.UOI_clz
@@ -84,9 +73,9 @@ Definition compile_num_instr (e : num_instruction) : W.basic_instruction :=
         | PopcntI => W.UOI_popcnt
         end
       in
-      W.BI_unop νᵢ' (W.Unop_i op')
-  | IInt2 νᵢ op =>
-      let νᵢ' := translate_int_type νᵢ in
+      W.BI_unop νi' (W.Unop_i op')
+  | IInt2 νi op =>
+      let νi' := translate_int_type νi in
       let op' :=
         match op with
         | AddI => W.BOI_add
@@ -103,17 +92,17 @@ Definition compile_num_instr (e : num_instruction) : W.basic_instruction :=
         | RotrI => W.BOI_rotr
         end
       in
-      W.BI_binop νᵢ' (W.Binop_i op')
-  | IIntTest νᵢ op =>
-      let νᵢ' := translate_int_type νᵢ in
+      W.BI_binop νi' (W.Binop_i op')
+  | IIntTest νi op =>
+      let νi' := translate_int_type νi in
       let op' :=
         match op with
         | EqzI => W.TO_eqz
         end
       in
-      W.BI_testop νᵢ' op'
-  | IIntRel νᵢ op =>
-      let νᵢ' := translate_int_type νᵢ in
+      W.BI_testop νi' op'
+  | IIntRel νi op =>
+      let νi' := translate_int_type νi in
       let op' :=
         match op with
         | EqI => W.ROI_eq
@@ -124,9 +113,9 @@ Definition compile_num_instr (e : num_instruction) : W.basic_instruction :=
         | GeI s => W.ROI_ge (translate_sign s)
         end
       in
-      W.BI_relop νᵢ' (W.Relop_i op')
-  | IFloat1 ν__f op =>
-      let ν__f' := translate_float_type ν__f in
+      W.BI_relop νi' (W.Relop_i op')
+  | IFloat1 νf op =>
+      let νf' := translate_float_type νf in
       let op' :=
         match op with
         | NegF => W.UOF_neg
@@ -138,9 +127,9 @@ Definition compile_num_instr (e : num_instruction) : W.basic_instruction :=
         | SqrtF => W.UOF_sqrt
         end
       in
-      W.BI_unop ν__f' (W.Unop_f op')
-  | IFloat2 ν__f op =>
-      let ν__f' := translate_float_type ν__f in
+      W.BI_unop νf' (W.Unop_f op')
+  | IFloat2 νf op =>
+      let νf' := translate_float_type νf in
       let op' :=
         match op with
         | AddF => W.BOF_add
@@ -152,9 +141,9 @@ Definition compile_num_instr (e : num_instruction) : W.basic_instruction :=
         | CopySignF => W.BOF_copysign
       end
       in
-      W.BI_binop ν__f' (W.Binop_f op')
-  | IFloatRel ν__f op =>
-      let ν__f' := translate_float_type ν__f in
+      W.BI_binop νf' (W.Binop_f op')
+  | IFloatRel νf op =>
+      let νf' := translate_float_type νf in
       let op' :=
         match op with
         | EqF => W.ROF_eq
@@ -165,6 +154,6 @@ Definition compile_num_instr (e : num_instruction) : W.basic_instruction :=
         | GeF => W.ROF_ge
         end
       in
-      W.BI_relop ν__f' (W.Relop_f op')
+      W.BI_relop νf' (W.Relop_f op')
   | ICvt op => compile_cvt_op op
   end.

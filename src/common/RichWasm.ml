@@ -90,6 +90,16 @@ module Int = struct
   end
 end
 
+module NumType = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.num_type
+      [@with
+        int_type := Int.Type.t;
+        float_type := Float.Type.t])]
+  [@@deriving eq, ord]
+end
+
 module ConversionOp = struct
   type t =
     [%import:
@@ -97,7 +107,8 @@ module ConversionOp = struct
       [@with
         sign := Sign.t;
         int_type := Int.Type.t;
-        float_type := Float.Type.t])]
+        float_type := Float.Type.t;
+        num_type := NumType.t])]
   [@@deriving eq, ord]
 end
 
@@ -159,16 +170,6 @@ module Kind = struct
         dropability := Dropability.t;
         sizity := Sizity.t;
         memory := Memory.t])]
-  [@@deriving eq, ord]
-end
-
-module NumType = struct
-  type t =
-    [%import:
-      (Richwasm_extract.RwSyntax.Core.num_type
-      [@with
-        int_type := Int.Type.t;
-        float_type := Float.Type.t])]
   [@@deriving eq, ord]
 end
 

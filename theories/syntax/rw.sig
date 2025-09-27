@@ -157,14 +157,11 @@ GeF : float_relop
 conversion_op : Type
 CWrap : conversion_op
 CExtend : sign -> conversion_op
-CTrunc : int_type -> float_type -> sign -> conversion_op
-CTruncSat : int_type -> float_type -> sign -> conversion_op
+CTrunc : float_type -> int_type -> sign -> conversion_op
 CDemote : conversion_op
 CPromote : conversion_op
-CConvert : float_type -> int_type -> sign -> conversion_op
-CReinterpretFI : float_type -> int_type -> conversion_op
-CReinterpretIF : int_type -> float_type -> conversion_op
-CReinterpretII : int_type -> sign -> sign -> conversion_op
+CConvert : int_type -> float_type -> sign -> conversion_op
+CReinterpret : num_type -> conversion_op
 
 num_instruction : Type
 IInt1 : int_type -> int_unop -> num_instruction
