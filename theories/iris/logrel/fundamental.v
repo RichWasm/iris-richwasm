@@ -229,7 +229,6 @@ Section Fundamental.
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
     has_mono_rep_instr F ψ ->
-    have_instruction_type M F' L es ψ L' ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
@@ -245,7 +244,6 @@ Section Fundamental.
     let F' := F <| fc_labels ::= cons (τs1, L) |> in
     let ψ := InstrT τs1 τs2 in
     has_mono_rep_instr F ψ ->
-    have_instruction_type M F' L es ψ L ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
@@ -262,8 +260,6 @@ Section Fundamental.
     local_fx_ok F ξ ->
     Forall (has_mono_rep F) τs1 ->
     Forall (has_mono_rep F) τs2 ->
-    have_instruction_type M F L es1 (InstrT τs1 τs2) L' ->
-    have_instruction_type M F L es2 (InstrT τs1 τs2) L' ->
     (forall wl wl' es',
         run_codegen (compile_instrs me fe es1) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
@@ -438,7 +434,12 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let L' := update_locals ξ L in
-    Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs ess ->
+    Forall2
+      (fun τ es =>
+         forall wl wl' es',
+           run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
+           ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT [τ] [τ']) L')
+      τs ess ->
     let ψ := InstrT [SumT κ τs] [τ'] in
     run_codegen (compile_instr me fe (ICase ψ ξ ess)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
@@ -496,8 +497,11 @@ Section Fundamental.
     let fe := fe_of_context F in
     let L' := update_locals ξ L in
     unpacked_existential F L es ψ L'
-                        F0 L0 es0 ψ0 L0' ->
-    have_instruction_type M F0 L0 es0 ψ0 L0' ->
+                         F0 L0 es0 ψ0 L0' ->
+    (forall wl wl' es',
+        let fe0 := fe_of_context F0 in
+        run_codegen (compile_instrs me fe0 es0) wl = inr ((), wl', es') ->
+        ⊢ have_instruction_type_sem sr mr M F0 L0 wl' (to_e_list es') ψ0 L0') ->
     run_codegen (compile_instr me fe (IUnpack ψ ξ es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
@@ -641,8 +645,6 @@ Section Fundamental.
   Lemma compat_cons M F L1 L2 L3 wl wl' es' e es τs1 τs2 τs3 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    has_instruction_type M F L1 e (InstrT τs1 τs2) L2 ->
-    have_instruction_type M F L2 es (InstrT τs2 τs3) L3 ->
     (forall es' wl wl',
         run_codegen (compile_instr me fe e) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F L1 [] (to_e_list es') (InstrT τs1 τs2) L2) ->
@@ -656,7 +658,6 @@ Section Fundamental.
   Lemma compat_frame M F L L' wl wl' es es' τ τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    have_instruction_type M F L es (InstrT τs1 τs2) L' ->
     has_mono_rep F τ ->
     (forall wl wl' es',
         run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
@@ -677,12 +678,12 @@ Section Fundamental.
     generalize dependent wl'.
     generalize dependent wl.
     induction Htype using have_instruction_type_mind with
-      (P := fun M F L e ψ L' _ =>
-              forall es' wl wl',
-                let me := me_of_context M mr in
-                let fe := fe_of_context F in
-                run_codegen (compile_instr me fe e) wl = inr (tt, wl', es') ->
-                ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L');
+      (P1 := fun M F L e ψ L' =>
+               forall es' wl wl',
+                 let me := me_of_context M mr in
+                 let fe := fe_of_context F in
+                 run_codegen (compile_instr me fe e) wl = inr (tt, wl', es') ->
+                 ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L');
       intros es' wl wl' me fe Hcomp.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.
@@ -692,9 +693,7 @@ Section Fundamental.
     - eapply compat_num_const; eassumption.
     - eapply compat_block; eassumption.
     - eapply compat_loop; eassumption.
-    - eapply compat_ite.
-      5: exact Htype1.
-      all: eassumption.
+    - eapply compat_ite with (es1 := es1); eassumption.
     - eapply compat_br; eassumption.
     - eapply compat_return; eassumption.
     - eapply compat_local_get; eassumption.
