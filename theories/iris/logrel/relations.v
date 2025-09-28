@@ -92,34 +92,32 @@ Section Relations.
 
   Definition representation_interp (ρ : representation) : semantic_type :=
     λne sv, (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
-  
-  Definition is_copy_operation (ρ: representation) (es: expr) : Prop :=
-    ∃ fe me wl wl' (es': codegen.W.expr),
-      run_codegen (idx ← save_stack_r fe ρ;
-                   dup_roots_local me idx ρ;;
-                   restore_stack_r idx ρ;;
-                   restore_stack_r idx ρ) wl = inr ((), wl', es') /\
-      to_e_list es' = es.
-    
-  Definition explicit_copy_spec (ρ: representation) (T: semantic_type) : iProp Σ :=
-    ∀ fr vs es,
-      ⌜is_copy_operation ρ es⌝ -∗
+
+  Definition is_copy_operation (ιs : list primitive_rep) (es : expr) : Prop :=
+    ∃ fe me wl wl' (es' : W.expr),
+      run_codegen (i ← save_stack_r fe ιs;
+                   dup_roots_local me i ιs;;
+                   restore_stack_r i ιs;;
+                   restore_stack_r i ιs) wl = inr ((), wl', es') /\
+        to_e_list es' = es.
+
+  Definition explicit_copy_spec (ρ : representation) (T : semantic_type) : iProp Σ :=
+    ∀ fr ιs vs es,
+      ⌜eval_rep ρ = Some ιs⌝ -∗
+      ⌜is_copy_operation ιs es⌝ -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       T (SValues vs) -∗
       lenient_wp NotStuck top (v_to_e_list vs ++ es)
         {| lp_fr := λ fr', ⌜fr = fr'⌝;
-           lp_val := λ vs', (∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗
-                                          T (SValues vs1) ∗
-                                          T (SValues vs2)) ∗
-                            ↪[RUN];
+           lp_val :=
+            λ vs', ↪[RUN] ∗ ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
            lp_trap := False;
            lp_br := λ _, False;
            lp_ret := λ _, False;
            lp_host := λ _ _ _ _, False |}.
-      
-                            
-  Definition copyability_interp (ρ: representation) (χ : copyability) (T : semantic_type) : iProp Σ :=
+
+  Definition copyability_interp (ρ : representation) (χ : copyability) (T : semantic_type) : iProp Σ :=
     match χ with
     | NoCopy => True
     | ExCopy => explicit_copy_spec ρ T
@@ -160,9 +158,8 @@ Section Relations.
     λne τs vs, (∃ vss, ⌜vs = concat vss⌝ ∗ [∗ list] τ; vs ∈ τs; vss, vrel se τ (SValues vs))%I.
 
   Definition mono_closure_interp0 (vrel : value_relation) (se : semantic_env) :
-    leibnizO instruction_type -n> ClR :=
-    λne ψ cl,
-      let 'InstrT τs1 τs2 := ψ in
+    leibnizO (list type) -n> leibnizO (list type) -n> ClR :=
+    λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
           (* TODO: Kind context. *)
@@ -187,9 +184,10 @@ Section Relations.
     λne ϕ cl,
       let fix go se ϕ s__mem s__rep s__size :=
         match ϕ with
-        | MonoFunT ψ =>
-            let ψ' := subst_instruction_type s__mem s__rep s__size VarT ψ in
-            mono_closure_interp0 vrel se ψ' cl
+        | MonoFunT τs1 τs2 =>
+            let τs1' := map (subst_type s__mem s__rep s__size VarT) τs1 in
+            let τs2' := map (subst_type s__mem s__rep s__size VarT) τs2 in
+            mono_closure_interp0 vrel se τs1 τs2 cl
         | ForallMemT ϕ' => ∀ μ, go se ϕ' (unscoped.scons μ s__mem) s__rep s__size
         | ForallRepT ϕ' => ∀ ρ, go se ϕ' s__mem (unscoped.scons ρ s__rep) s__size
         | ForallSizeT ϕ' => ∀ σ, go se ϕ' s__mem s__rep (unscoped.scons σ s__size)

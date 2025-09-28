@@ -97,9 +97,8 @@ let rec compile_type delta t =
         List.fold_right
           ~init:
             (MonoFunT
-               (InstrT
-                  ( [ compile_type (foralls @ delta) arg ],
-                    [ compile_type (foralls @ delta) ret ] )))
+               ( [ compile_type (foralls @ delta) arg ],
+                 [ compile_type (foralls @ delta) ret ] ))
           ~f:(fun _ acc -> ForallTypeT (kind, acc))
           foralls
       in

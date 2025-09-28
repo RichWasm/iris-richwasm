@@ -76,15 +76,15 @@ ExistsRepT : kind -> (bind representation in type) -> type
 ExistsSizeT : kind -> (bind size in type) -> type
 ExistsTypeT : kind -> kind -> (bind type in type) -> type
 
-instruction_type : Type
-InstrT : "list" (type) -> "list" (type) -> instruction_type
-
 function_type : Type
-MonoFunT : instruction_type -> function_type
+MonoFunT : "list" (type) -> "list" (type) -> function_type
 ForallMemT : (bind memory in function_type) -> function_type
 ForallRepT : (bind representation in function_type) -> function_type
 ForallSizeT : (bind size in function_type) -> function_type
 ForallTypeT : kind -> (bind type in function_type) -> function_type
+
+instruction_type : Type
+InstrT : "list" (type) -> "list" (type) -> instruction_type
 
 index : Type
 MemI : memory -> index
@@ -95,9 +95,6 @@ TypeI : type -> index
 sign : Type
 SignU : sign
 SignS : sign
-
-local_fx : Type
-LocalFx : "list" ("prod" (nat, type)) -> local_fx
 
 int_unop : Type
 ClzI : int_unop
@@ -181,9 +178,9 @@ ICopy : instruction_type -> instruction
 IDrop : instruction_type -> instruction
 INum : instruction_type -> num_instruction -> instruction
 INumConst : instruction_type -> nat -> instruction
-IBlock : instruction_type -> local_fx -> "list" (instruction) -> instruction
+IBlock : instruction_type -> "list" (type) -> "list" (instruction) -> instruction
 ILoop : instruction_type -> "list" (instruction) -> instruction
-IIte : instruction_type -> local_fx -> "list" (instruction) -> "list" (instruction) -> instruction
+IIte : instruction_type -> "list" (type) -> "list" (instruction) -> "list" (instruction) -> instruction
 IBr : instruction_type -> nat -> instruction
 IReturn : instruction_type -> instruction
 ILocalGet : instruction_type -> nat -> instruction
@@ -196,13 +193,13 @@ IInst : instruction_type -> index -> instruction
 ICall : instruction_type -> nat -> "list" (index) -> instruction
 ICallIndirect : instruction_type -> instruction
 IInject : instruction_type -> nat -> instruction
-ICase : instruction_type -> local_fx -> "list" ("list" (instruction)) -> instruction
+ICase : instruction_type -> "list" (type) -> "list" ("list" (instruction)) -> instruction
 IGroup : instruction_type -> instruction
 IUngroup : instruction_type -> instruction
 IFold : instruction_type -> instruction
 IUnfold : instruction_type -> instruction
 IPack : instruction_type -> instruction
-IUnpack : instruction_type -> local_fx -> "list" (instruction) -> instruction
+IUnpack : instruction_type -> "list" (type) -> "list" (instruction) -> instruction
 IWrap : instruction_type -> instruction
 IUnwrap : instruction_type -> instruction
 ITag : instruction_type -> instruction

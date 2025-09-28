@@ -46,7 +46,7 @@ Record module_env :=
 Record function_env :=
   { fe_return_type : list type;
     fe_type_vars : list kind;
-    fe_local_reps : list representation }.
+    fe_local_reps : list (list primitive_rep) }.
 
 Inductive VarScope :=
   | VSGlobal
@@ -115,4 +115,4 @@ Definition translate_instr_type (κs : list kind) (ψ : instruction_type) : opti
   Some (W.Tf tys1 tys2).
 
 Definition fe_wlocal_offset (fe : function_env) : nat :=
-  default 0 (sum_list_with length <$> mapM translate_rep fe.(fe_local_reps)).
+  sum_list_with length fe.(fe_local_reps).

@@ -77,64 +77,46 @@ Section Instrs.
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)).
 
   (** Root management. *)
-  Fixpoint foreach_gc_ptr (idx: W.localidx) (ρ: representation) (op: codegen unit) : codegen unit :=
-    let fix do_prod (idx: W.localidx) ρs : codegen unit :=
-      let 'W.Mk_localidx idx_nat := idx in
-      match ρs with
-      | [] => mret ()
-      | ρ :: ρs =>
-          foreach_gc_ptr idx ρ op;;
-          do_prod (W.Mk_localidx (S idx_nat)) ρs
-      end
-    in
-    match ρ with
-    | VarR v => raise ERepNotMono
-    | SumR ρs => raise ETodo
-    | ProdR ρs => do_prod idx ρs
-    | PrimR PtrR =>
-        ignore $ ptr_case (W.Tf [] []) idx (mret ()) (mret ())
-          (emit $ W.BI_get_local (localimm idx);;
-           clear_gc_bit;;
-           op)
-    | PrimR _ => mret ()
-    end.
+  Fixpoint foreach_gc_ptr (idx : W.localidx) (ιs : list primitive_rep) (op : codegen unit) :
+    codegen unit :=
+    ignore $ forT (zip (seq (localimm idx) (length ιs)) ιs)
+      (fun '(i, ι) =>
+         match ι with
+          | PtrR =>
+              ignore $ ptr_case (W.Tf [] []) idx (mret ()) (mret ())
+                (emit $ W.BI_get_local (localimm idx);;
+                 clear_gc_bit;;
+                 op)
+         | _ => mret tt
+         end).
 
-  Fixpoint foreach_gc_ptr_global (idx: W.globalidx) (ρ: representation) (op: codegen unit) : codegen unit :=
-    let fix do_prod (idx: W.globalidx) ρs : codegen unit :=
-      let 'W.Mk_globalidx idx_nat := idx in
-      match ρs with
-      | [] => mret ()
-      | ρ :: ρs =>
-          foreach_gc_ptr_global idx ρ op;;
-          do_prod (W.Mk_globalidx (S idx_nat)) ρs
-      end
-    in
-    match ρ with
-    | VarR v => raise ERepNotMono
-    | SumR ρs => raise ETodo
-    | ProdR ρs => do_prod idx ρs
-    | PrimR PtrR =>
-        ignore $ ptr_case_global (W.Tf [] []) idx (mret ()) (mret ())
-          (emit $ W.BI_get_global (globalimm idx);;
-           clear_gc_bit;;
-           op)
-    | PrimR _ => mret ()
-    end.
+  Fixpoint foreach_gc_ptr_global (idx : W.globalidx) (ιs : list primitive_rep) (op : codegen unit) :
+    codegen unit :=
+    ignore $ forT (zip (seq (globalimm idx) (length ιs)) ιs)
+      (fun '(i, ι) =>
+         match ι with
+          | PtrR =>
+              ignore $ ptr_case_global (W.Tf [] []) idx (mret ()) (mret ())
+                (emit $ W.BI_get_global (globalimm idx);;
+                 clear_gc_bit;;
+                 op)
+         | _ => mret tt
+         end).
 
-  Definition dup_roots_local (idx: W.localidx) (ρ: representation) : codegen unit :=
-    foreach_gc_ptr idx ρ $ 
+  Definition dup_roots_local (idx : W.localidx) (ιs : list primitive_rep) : codegen unit :=
+    foreach_gc_ptr idx ιs $ 
       emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))).
 
-  Definition dup_roots_global (idx: W.globalidx) (ρ: representation) : codegen unit :=
-    foreach_gc_ptr_global idx ρ $ 
+  Definition dup_roots_global (idx : W.globalidx) (ιs : list primitive_rep) : codegen unit :=
+    foreach_gc_ptr_global idx ιs $ 
       emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))).
 
-  Definition unregister_roots_local (idx: W.localidx) (ρ: representation) : codegen unit :=
-    foreach_gc_ptr idx ρ $ 
+  Definition unregister_roots_local (idx: W.localidx) (ιs : list primitive_rep) : codegen unit :=
+    foreach_gc_ptr idx ιs $ 
       emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
 
-  Definition unregister_roots_global (idx: W.globalidx) (ρ: representation) : codegen unit :=
-    foreach_gc_ptr_global idx ρ $ 
+  Definition unregister_roots_global (idx : W.globalidx) (ιs : list primitive_rep) : codegen unit :=
+    foreach_gc_ptr_global idx ιs $ 
       emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
 
   Definition wlalloc (ty : W.value_type) : codegen W.localidx :=
@@ -148,8 +130,8 @@ Section Instrs.
     mapM (emit ∘ W.BI_set_local ∘ localimm) (reverse xs);;
     ret (ssrfun.Option.default (W.Mk_localidx 0) (head xs)).
 
-  Definition save_stack_r (ρ : representation) : codegen W.localidx :=
-    try_option EWrongTypeAnn (translate_rep ρ) ≫= save_stack_w.
+  Definition save_stack_r (ιs : list primitive_rep) : codegen W.localidx :=
+    save_stack_w (map translate_prim_rep ιs).
 
   Definition save_stack (τs : list type) : codegen W.localidx :=
     tys ← try_option EWrongTypeAnn (mapM translate_type τs);
@@ -157,10 +139,9 @@ Section Instrs.
 
   Definition restore_stack_w (x : W.localidx) (ty : W.result_type) : codegen unit :=
     ignore (mapM (emit ∘ W.BI_get_local) (seq (localimm x) (length ty)) ).
-  
-  Definition restore_stack_r (x: W.localidx) (ρ: representation) : codegen unit :=
-    tys ← try_option EWrongTypeAnn (translate_rep ρ);
-    restore_stack_w x tys.
+
+  Definition restore_stack_r (x: W.localidx) (ιs : list primitive_rep) : codegen unit :=
+    restore_stack_w x (map translate_prim_rep ιs).
 
   Definition restore_stack (x : W.localidx) (τs : list type) : codegen unit :=
     tys ← try_option EWrongTypeAnn (mapM translate_type τs);
@@ -183,32 +164,29 @@ Section Instrs.
         set_locals_w base_idx count
     end.
 
-  Definition get_local (x : W.localidx) (ρ : representation) : codegen unit :=
-    tys ← try_option EWrongTypeAnn (translate_rep ρ);
-    get_locals_w x (length tys).
+  Definition get_local (x : W.localidx) (ιs : list primitive_rep) : codegen unit :=
+    get_locals_w x (length ιs).
 
-  Definition set_local (x : W.localidx) (ρ: representation) : codegen unit :=
-    tys ← try_option EWrongTypeAnn (translate_rep ρ);
-    set_locals_w x (length tys).
+  Definition set_local (x : W.localidx) (ιs : list primitive_rep) : codegen unit :=
+    set_locals_w x (length ιs).
 
-  Definition local_index (x: nat) (ρs: list representation) : option W.localidx :=
-    ts ← mapM translate_rep ρs;
-    mret $ W.Mk_localidx $ sum_list_with length (take x ts).
+  Definition local_index (x : nat) (ιs : list (list primitive_rep)) : option W.localidx :=
+    mret $ W.Mk_localidx $ sum_list_with length (take x ιs).
 
-  Definition lookup_local (x: nat) : option (W.localidx * representation) :=
+  Definition lookup_local (x : nat) : option (W.localidx * list primitive_rep) :=
     idx ← local_index x fe.(fe_local_reps);
     ρ ← fe.(fe_local_reps) !! x;
     mret (idx, ρ).
 
   Definition compile_get_local (idx : nat) : codegen unit :=
-    '(idx', ρ) ← try_option EUnboundLocal (lookup_local idx);
-    dup_roots_local idx' ρ;;
-    get_local idx' ρ.
+    '(idx', ιs) ← try_option EUnboundLocal (lookup_local idx);
+    dup_roots_local idx' ιs;;
+    get_local idx' ιs.
 
   Definition compile_set_local (x : nat) : codegen unit :=
-    '(x', ρ) ← try_option EUnboundLocal (lookup_local x);
-    unregister_roots_local x' ρ;;
-    set_local x' ρ.
+    '(x', ιs) ← try_option EUnboundLocal (lookup_local x);
+    unregister_roots_local x' ιs;;
+    set_local x' ιs.
 
   (** Operations on globals. *)
   Fixpoint get_globals_w (base_idx : W.globalidx) (count : nat) : codegen unit :=
@@ -227,40 +205,38 @@ Section Instrs.
         set_globals_w base_idx count
     end.
 
-  Definition get_global (x : W.globalidx) (ρ : representation) : codegen unit :=
-    tys ← try_option EWrongTypeAnn (translate_rep ρ);
-    get_globals_w x (length tys).
+  Definition get_global (x : W.globalidx) (ιs : list primitive_rep) : codegen unit :=
+    get_globals_w x (length ιs).
 
-  Definition set_global (idx : W.globalidx) (ρ: representation) : codegen unit :=
-    tys ← try_option EWrongTypeAnn (translate_rep ρ);
-    set_globals_w idx (length tys).
+  Definition set_global (idx : W.globalidx) (ιs : list primitive_rep) : codegen unit :=
+    set_globals_w idx (length ιs).
 
-  Definition global_index (x: nat) (ρs: list representation) : option W.globalidx :=
-    ts ← mapM translate_rep ρs;
-    mret $ W.Mk_globalidx $ sum_list_with length (take x ts).
+  Definition global_index (x : nat) (ιss: list (list primitive_rep)) : W.globalidx :=
+    W.Mk_globalidx $ sum_list_with length (take x ιss).
 
-  Definition lookup_global (x: nat) : option (W.globalidx * representation) :=
-    ρs ← mapM (type_rep fe.(fe_type_vars)) me.(me_globals);
-    idx ← global_index x ρs;
-    ρ ← ρs !! x;
-    mret (idx, ρ).
+  Definition lookup_global (x : nat) : option (W.globalidx * list primitive_rep) :=
+    ρs ← mapM (type_rep []) me.(me_globals);
+    ιss ← mapM eval_rep ρs;
+    let idx := global_index x ιss in
+    ιs ← ιss !! x;
+    mret (idx, ιs).
 
   Definition compile_get_global (idx : nat) : codegen unit :=
-    '(idx', ρ) ← try_option EUnboundGlobal (lookup_global idx);
-    dup_roots_global idx' ρ;;
-    get_global idx' ρ.
+    '(idx', ιs) ← try_option EUnboundGlobal (lookup_global idx);
+    dup_roots_global idx' ιs;;
+    get_global idx' ιs.
 
   Definition compile_set_global (idx : nat) : codegen unit :=
-    '(idx', ρ) ← try_option EUnboundGlobal (lookup_global idx);
-    unregister_roots_global idx' ρ;;
-    set_global idx' ρ.
+    '(idx', ιs) ← try_option EUnboundGlobal (lookup_global idx);
+    unregister_roots_global idx' ιs;;
+    set_global idx' ιs.
   
-  Definition compile_swap_global (idx: nat) : codegen unit :=
-    '(idx', ρ) ← try_option EUnboundGlobal (lookup_global idx);
-    get_global idx' ρ;;
-    idx_old ← save_stack_r ρ;
-    set_global idx' ρ;;
-    restore_stack_r idx_old ρ.
+  Definition compile_swap_global (idx : nat) : codegen unit :=
+    '(idx', ιs) ← try_option EUnboundGlobal (lookup_global idx);
+    get_global idx' ιs;;
+    idx_old ← save_stack_r ιs;
+    set_global idx' ιs;;
+    restore_stack_r idx_old ιs.
 
   (** Operations on memory. *)
   Definition load_values_w (mem : W.memidx) (ptr : W.localidx) (off : W.static_offset) :
@@ -376,17 +352,10 @@ Section Instrs.
     | _ => emit W.BI_drop
     end.
 
-  Fixpoint compile_drop_rep (ρ : representation) : codegen unit :=
-    match ρ with
-    | VarR r => raise ERepNotMono
-    | SumR ρs => raise ETodo
-    | ProdR ρs => ignore $ mapM compile_drop_rep ρs
-    | PrimR ι => compile_drop_prim_rep ι
-    end.
-
   Definition compile_drop (τ : type) : codegen unit :=
     ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
-    compile_drop_rep ρ.
+    ιs ← try_option EUnboundTypeVar (eval_rep ρ);
+    ignore $ mapM compile_drop_prim_rep ιs.
 
   Definition compile_drops (τs : list type) : codegen unit :=
     ignore $ mapM compile_drop τs.
@@ -547,26 +516,16 @@ Section Instrs.
     *)
     ret tt.
 
-  (** Operatiosn on mono representations *)
-  (* This is the computational analogue of mono_rep *)
-  Fixpoint flatten_rep (ρ : representation) : option (list primitive_rep) :=
-    match ρ with
-    | VarR _ => None
-    | SumR ρs => seq.flatten <$> mapM flatten_rep ρs
-    | ProdR ρs => seq.flatten <$> mapM flatten_rep ρs
-    | PrimR ι => mret [ι]
-    end.
-
   (** Conversions between types of the same size and ptr layout *)
   Definition to_words_i64 : codegen unit :=
-    idx ← save_stack_r (PrimR I64R);
+    idx ← save_stack_r [I64R];
     (* low half *)
-    restore_stack_r idx (PrimR I64R);;
+    restore_stack_r idx [I64R];;
     emit (W.BI_const (W.VAL_int64 (wasm_extend_u int32_minus_one)));;
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_and));;
     emit (W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None);;
     (* high half *)
-    restore_stack_r idx (PrimR I64R);;
+    restore_stack_r idx [I64R];;
     emit (W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32)));;
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotr));;
     emit (W.BI_cvtop W.T_i64 W.CVO_convert W.T_i32 None).
@@ -614,8 +573,8 @@ Section Instrs.
     ignore $ mapM from_words_one ιs.
 
   Definition conv_rep (ρ ρ' : representation) : codegen unit :=
-    ιs ← try_option ERepNotMono $ flatten_rep ρ;
-    ιs' ← try_option ERepNotMono $ flatten_rep ρ';
+    ιs ← try_option ERepNotMono $ eval_rep ρ;
+    ιs' ← try_option ERepNotMono $ eval_rep ρ';
     to_words ιs;;
     from_words ιs'.
 
@@ -627,10 +586,11 @@ Section Instrs.
     | IUnreachable _ => emit (W.BI_unreachable)
     | ICopy (InstrT [τ] [_; _]) =>
         ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
-        idx ← save_stack_r ρ;
-        dup_roots_local idx ρ;;
-        restore_stack_r idx ρ;;
-        restore_stack_r idx ρ
+        ιs ← try_option EUnboundTypeVar (eval_rep ρ);
+        idx ← save_stack_r ιs;
+        dup_roots_local idx ιs;;
+        restore_stack_r idx ιs;;
+        restore_stack_r idx ιs
     | ICopy _ => raise EWrongTypeAnn
     | IDrop (InstrT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | INum _ e' => emit (compile_num_instr e')
@@ -657,10 +617,7 @@ Section Instrs.
     | IInst _ _ => erased_in_wasm
     | ICall _ fidx _ => emit (W.BI_call fidx)
     | ICallIndirect _ => emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
-    | IInject _ k =>
-        (* TODO: registerroot on the new address;
-                 unregisterroot if payload is GC ref being put into GC variant *)
-        raise ETodo
+    | IInject _ k => raise ETodo
     | ICase _ _ _ => raise ETodo
 
     | IGroup _ => erased_in_wasm

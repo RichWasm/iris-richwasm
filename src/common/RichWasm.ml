@@ -188,19 +188,20 @@ module Internal = struct
           coq_type := typ;
           function_type := function_typ])]
 
-    and instruction_typ =
-      [%import:
-        (Richwasm_extract.RwSyntax.Core.instruction_type
-        [@with
-          coq_type := typ;
-          function_type := function_typ])]
-
     and function_typ =
       [%import:
         (Richwasm_extract.RwSyntax.Core.function_type
         [@with
           kind := Kind.t;
-          instruction_type := instruction_typ;
+          coq_type := typ;
+          function_type := function_typ])]
+    [@@deriving eq, ord]
+
+    type instruction_typ =
+      [%import:
+        (Richwasm_extract.RwSyntax.Core.instruction_type
+        [@with
+          coq_type := typ;
           function_type := function_typ])]
     [@@deriving eq, ord]
   end
@@ -238,13 +239,6 @@ module Index = struct
   [@@deriving eq, ord]
 end
 
-module LocalFx = struct
-  type t =
-    [%import:
-      (Richwasm_extract.RwSyntax.Core.local_fx[@with coq_type := Type.t])]
-  [@@deriving eq, ord]
-end
-
 module Instruction = struct
   type t =
     [%import:
@@ -252,7 +246,7 @@ module Instruction = struct
       [@with
         instruction_type := InstructionType.t;
         num_instruction := NumInstruction.t;
-        local_fx := LocalFx.t;
+        coq_type := Type.t;
         index := Index.t;
         path := Path.t])]
   [@@deriving eq, ord]

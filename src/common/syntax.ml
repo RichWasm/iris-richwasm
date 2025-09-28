@@ -392,13 +392,32 @@ end = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
-and InstructionType : sig
-  type t = InstructionType of Type.t list * Type.t list
+and FunctionType : sig
+  type t = FunctionType of Quantifier.t list * Type.t list * Type.t list
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
 end = struct
+  type t = FunctionType of Quantifier.t list * Type.t list * Type.t list
+  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+  let pp ff (FunctionType (quals, ts1, ts2)) =
+    let rec go = function
+      | [] ->
+          List.iter ~f:(fprintf ff "%a@ " Type.pp) ts1;
+          fprintf ff "->";
+          List.iter ~f:(fprintf ff "@ %a" Type.pp) ts2
+      | x :: xs ->
+          fprintf ff "@[(forall.%a" Quantifier.pp x;
+          go xs;
+          fprintf ff ")@]"
+    in
+    go quals;
+end
+
+module InstructionType = struct
   type t = InstructionType of Type.t list * Type.t list
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
@@ -412,26 +431,11 @@ end = struct
     fprintf ff "@])"
 end
 
-and FunctionType : sig
-  type t = FunctionType of Quantifier.t list * InstructionType.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
-
-  val pp_sexp : formatter -> t -> unit
-  val pp : formatter -> t -> unit
-end = struct
-  type t = FunctionType of Quantifier.t list * InstructionType.t
+module LocalFx = struct
+  type t = LocalFx of (int * Type.t) list
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp ff (FunctionType (quals, it)) = 
-    let rec go = function 
-      | [] -> fprintf ff "%a" InstructionType.pp it
-      | x :: xs ->
-          fprintf ff "@[(forall.%a" Quantifier.pp x;
-          go xs;
-          fprintf ff ")@]"
-    in
-    go quals;
 end
 
 module Index = struct
@@ -440,13 +444,6 @@ module Index = struct
     | Rep of Representation.t
     | Size of Size.t
     | Type of Type.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-end
-
-module LocalFx = struct
-  type t = LocalFx of (int * Type.t) list
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)

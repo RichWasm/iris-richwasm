@@ -161,7 +161,7 @@ module Compile = struct
           (* TODO: locals *)
           let func : B.Module.Function.t =
             {
-              typ = FunctionType ([], InstructionType ([], [ stack_typ ]));
+              typ = FunctionType ([], [], [ stack_typ ]);
               locals = [];
               body;
             }
