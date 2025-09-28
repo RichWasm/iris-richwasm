@@ -837,16 +837,17 @@ Inductive has_instruction_type :
   has_kind F (SumT κ τs) κ ->
   let ψ := InstrT [SumT κ τs] [τ'] in
   has_instruction_type M F L (ICase ψ L' ess) ψ L'
-| TGroup M F L τs ρs χ δ :
+| TGroup M F L τs κ :
   local_ctx_ok F L ->
-  Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-  let τ := ProdT (VALTYPE (ProdR ρs) χ δ) τs in
-  let ψ := InstrT τs [τ] in
+  Forall (has_mono_rep F) τs ->
+  has_kind F (ProdT κ τs) κ ->
+  let ψ := InstrT τs [ProdT κ τs] in
   has_instruction_type M F L (IGroup ψ) ψ L
 | TUngroup M F L τs κ :
   local_ctx_ok F L ->
-  let τ := ProdT κ τs in
-  let ψ := InstrT [τ] τs in
+  Forall (has_mono_rep F) τs ->
+  has_kind F (ProdT κ τs) κ ->
+  let ψ := InstrT [ProdT κ τs] τs in
   has_instruction_type M F L (IUngroup ψ) ψ L
 | TFold M F L τ κ :
   local_ctx_ok F L ->
@@ -1119,16 +1120,17 @@ Section HasHaveInstructionTypeMind.
           has_kind F (SumT κ τs) κ ->
           let ψ := InstrT [SumT κ τs] [τ'] in
           P1 M F L (ICase ψ L' ess) ψ L')
-      (HGroup : forall M F L τs ρs χ δ,
+      (HGroup : forall M F L τs κ,
           local_ctx_ok F L ->
-          Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-          let τ := ProdT (VALTYPE (ProdR ρs) χ δ) τs in
-          let ψ := InstrT τs [τ] in
+          Forall (has_mono_rep F) τs ->
+          has_kind F (ProdT κ τs) κ ->
+          let ψ := InstrT τs [ProdT κ τs] in
           P1 M F L (IGroup ψ) ψ L)
       (HUngroup : forall M F L τs κ,
           local_ctx_ok F L ->
-          let τ := ProdT κ τs in
-          let ψ := InstrT [τ] τs in
+          Forall (has_mono_rep F) τs ->
+          has_kind F (ProdT κ τs) κ ->
+          let ψ := InstrT [ProdT κ τs] τs in
           P1 M F L (IUngroup ψ) ψ L)
       (HFold : forall M F L τ κ,
           local_ctx_ok F L ->
@@ -1288,8 +1290,8 @@ Section HasHaveInstructionTypeMind.
         HCase M F L L' κ τ' τs ess H1 H2
           (Forall2_impl _ _ _ _ H3 (fun τ es => have_instruction_type_mind _ _ _ _ _ _))
           H4
-    | TGroup M F L τs ρs χ δ H1 H2 => HGroup M F L τs ρs χ δ H1 H2
-    | TUngroup M F L τs κ H1 => HUngroup M F L τs κ H1
+    | TGroup M F L τs κ H1 H2 H3 => HGroup M F L τs κ H1 H2 H3
+    | TUngroup M F L τs κ H1 H2 H3 => HUngroup M F L τs κ H1 H2 H3
     | TFold M F L τs κ H1 H2 => HFold M F L τs κ H1 H2
     | TUnfold M F L τ κ H1 H2 => HUnfold M F L τ κ H1 H2
     | TPack M F L τ τ' H1 H2 => HPack M F L τ τ' H1 H2
@@ -1426,6 +1428,12 @@ Lemma mono_rep_sum F κ τs :
   Forall (has_mono_rep F) τs ->
   has_kind F (SumT κ τs) κ ->
   has_mono_rep F (SumT κ τs).
+Admitted.
+
+Lemma mono_rep_prod F κ τs :
+  Forall (has_mono_rep F) τs ->
+  has_kind F (ProdT κ τs) κ ->
+  has_mono_rep F (ProdT κ τs).
 Admitted.
 
 Lemma mono_rep_fc_labels F f ψ :
@@ -1571,5 +1579,15 @@ Proof.
         -- by apply mono_rep_sum.
         -- apply Forall_forall. intros es Hes τ Hok. inversion Hok. inversion H3. by inversion H8.
       * constructor; last constructor. assumption.
+    + assumption.
+  - constructor.
+    + constructor.
+      * assumption.
+      * constructor; last constructor. by apply mono_rep_prod.
+    + assumption.
+  - constructor.
+    + repeat constructor.
+      * by apply mono_rep_prod.
+      * assumption.
     + assumption.
 Abort.

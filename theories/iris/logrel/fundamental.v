@@ -431,12 +431,13 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_group M F L wl wl' es' τs ρs χ δ :
+  Lemma compat_group M F L wl wl' es' τs κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-    let τ := ProdT (VALTYPE (ProdR ρs) χ δ) τs in
-    let ψ := InstrT τs [τ] in
+    local_ctx_ok F L ->
+    Forall (has_mono_rep F) τs ->
+    has_kind F (ProdT κ τs) κ ->
+    let ψ := InstrT τs [ProdT κ τs] in
     run_codegen (compile_instr me fe (IGroup ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
@@ -444,8 +445,10 @@ Section Fundamental.
   Lemma compat_ungroup M F L wl wl' es' τs κ :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let τ := ProdT κ τs in
-    let ψ := InstrT [τ] τs in
+    local_ctx_ok F L ->
+    Forall (has_mono_rep F) τs ->
+    has_kind F (ProdT κ τs) κ ->
+    let ψ := InstrT [ProdT κ τs] τs in
     run_codegen (compile_instr me fe (IUngroup ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L.
   Admitted.
