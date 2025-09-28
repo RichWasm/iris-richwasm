@@ -30,7 +30,7 @@ module IR = struct
   module rec Value : sig
     type t =
       | Var of LVar.t
-      | Global of string
+      | Coderef of string
       | Int of int
       | Lam of Type.t * Type.t * Expr.t
       | Tuple of t list
@@ -40,7 +40,7 @@ module IR = struct
   end = struct
     type t =
       | Var of LVar.t
-      | Global of string
+      | Coderef of string
       | Int of int
       | Lam of Type.t * Type.t * Expr.t
       | Tuple of t list
@@ -86,11 +86,13 @@ module IR = struct
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
-  module TopLevel = struct
+  module Function = struct
     type t = {
       export : bool;
-      binding : string * Type.t;
-      init : Expr.t;
+      name : string;
+      param : Type.t;
+      return : Type.t;
+      body : Expr.t;
     }
     [@@deriving eq, ord, iter, map, fold, sexp]
 
@@ -100,7 +102,7 @@ module IR = struct
   module Module = struct
     type t = {
       imports : Import.t list;
-      toplevels : TopLevel.t list;
+      functions : Function.t list;
       main : Expr.t option;
     }
     [@@deriving eq, ord, iter, map, fold, sexp]
@@ -109,76 +111,125 @@ module IR = struct
   end
 end
 
+module Err = struct
+  type t = UnboundLocal of string [@@deriving sexp]
+
+  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+end
+
+module Res = Util.ResultM (Err)
+
 module Compile = struct
   module A = Syntax
   module B = IR
 
-  type env = string list
+  module Env = struct
+    type t = {
+      locals : string list;
+      fn_names : string list;
+    }
 
-  let rec compile_value (env : env) : A.Value.t -> B.Value.t =
+    let empty = { locals = []; fn_names = [] }
+
+    let resolve_name (env : t) (name : string) :
+        [ `Local of int * string | `Function of string | `NotFound ] =
+      match List.findi ~f:(fun _ -> String.equal name) env.locals with
+      | Some (i, n) -> `Local (i, n)
+      | None -> (
+          match List.mem env.fn_names name ~equal:String.equal with
+          | true -> `Function name
+          | false -> `NotFound)
+
+    let add (env : t) (lname : string) : t =
+      { env with locals = lname :: env.locals }
+
+    let add_all (env : t) (lnames : string list) : t =
+      { env with locals = List.rev lnames @ env.locals }
+  end
+
+  let rec compile_value (env : Env.t) : A.Value.t -> B.Value.t Res.t =
     let open B.Value in
+    let open Res in
     function
     | Var x -> (
-        match List.findi ~f:(fun _ -> String.equal x) env with
-        | Some (i, n) -> Var (i, Some n)
-        | None -> Global x (* assumes WF *))
-    | Int n -> Int n
-    | Lam ((var, typ), ret, body) ->
-        let env' = var :: env in
-        let body' = compile_expr env' body in
-        Lam (typ, ret, body')
+        match Env.resolve_name env x with
+        | `Local (i, n) -> Ok (Var (i, Some n))
+        | `Function n -> Ok (Coderef n)
+        | `NotFound -> Error (UnboundLocal x))
+    | Int n -> ret (Int n)
+    | Lam ((var, typ), return, body) ->
+        let env' = Env.add env var in
+        let* body' = compile_expr env' body in
+        ret (Lam (typ, return, body'))
     | Tuple vs ->
-        let vs' = List.map ~f:(compile_value env) vs in
-        Tuple vs'
+        let* vs' = mapM ~f:(compile_value env) vs in
+        ret (Tuple vs' : B.Value.t)
 
-  and compile_expr (env : env) : A.Expr.t -> B.Expr.t =
+  and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t Res.t =
     let open B.Expr in
+    let open Res in
     function
     | Val v ->
-        let v' = compile_value env v in
-        Val v'
+        let* v' = compile_value env v in
+        ret @@ Val v'
     | App (l, r) ->
-        let l' = compile_value env l in
-        let r' = compile_value env r in
-        App (l', r')
+        let* l' = compile_value env l in
+        let* r' = compile_value env r in
+        ret @@ App (l', r')
     | Let ((var, typ), e, body) ->
-        let e' = compile_expr env e in
-        let env' = var :: env in
-        let body' = compile_expr env' body in
-        Let (typ, e', body')
+        let* e' = compile_expr env e in
+        let env' = Env.add env var in
+        let* body' = compile_expr env' body in
+        ret @@ Let (typ, e', body')
     | If0 (v, e1, e2) ->
-        let v' = compile_value env v in
-        let e1' = compile_expr env e1 in
-        let e2' = compile_expr env e2 in
-        If0 (v', e1', e2')
+        let* v' = compile_value env v in
+        let* e1' = compile_expr env e1 in
+        let* e2' = compile_expr env e2 in
+        ret @@ If0 (v', e1', e2')
     | Binop (op, l, r) ->
-        let l' = compile_value env l in
-        let r' = compile_value env r in
-        Binop (op, l', r')
+        let* l' = compile_value env l in
+        let* r' = compile_value env r in
+        ret @@ Binop (op, l', r')
     | LetProd (bindings, e, body) ->
-        let e' = compile_expr env e in
+        let* e' = compile_expr env e in
         let vars, typs = List.unzip bindings in
-        let env' = List.rev vars @ env in
-        let body' = compile_expr env' body in
-        LetProd (typs, e', body')
+        let env' = Env.add_all env vars in
+        let* body' = compile_expr env' body in
+        ret @@ LetProd (typs, e', body')
     | New v ->
-        let v' = compile_value env v in
-        New v'
+        let* v' = compile_value env v in
+        ret @@ New v'
     | Swap (l, r) ->
-        let l' = compile_value env l in
-        let r' = compile_value env r in
-        Swap (l', r')
+        let* l' = compile_value env l in
+        let* r' = compile_value env r in
+        ret @@ Swap (l', r')
     | Free v ->
-        let v' = compile_value env v in
-        Free v'
+        let* v' = compile_value env v in
+        ret @@ Free v'
 
-  let compile_toplevel ({ export; binding; init } : A.TopLevel.t) : B.TopLevel.t
-      =
-    let init' = compile_expr [] init in
-    B.TopLevel.{ export; binding; init = init' }
+  let compile_function
+      (fn_names : string list)
+      ({ export; name; param; return; body } : A.Function.t) :
+      B.Function.t Res.t =
+    let open Res in
+    let env = Env.add { Env.empty with fn_names } (fst param) in
+    let* body' = compile_expr env body in
+    ret B.Function.{ export; name; param = snd param; return; body = body' }
 
-  let compile_module ({ imports; toplevels; main } : A.Module.t) : B.Module.t =
-    let toplevels' = List.map ~f:compile_toplevel toplevels in
-    let main' = Option.map ~f:(compile_expr []) main in
-    B.Module.{ imports; toplevels = toplevels'; main = main' }
+  let compile_module ({ imports; functions; main } : A.Module.t) :
+      B.Module.t Res.t =
+    let open Res in
+    let fn_names =
+      List.map ~f:(fun fn -> fn.name) functions
+      @ List.map ~f:(fun im -> im.name) imports
+    in
+    let* functions' = mapM ~f:(compile_function fn_names) functions in
+    let* main' =
+      match main with
+      | None -> Ok None
+      | Some m ->
+          let* m = compile_expr { Env.empty with fn_names } m in
+          Ok (Some m)
+    in
+    ret @@ B.Module.{ imports; functions = functions'; main = main' }
 end

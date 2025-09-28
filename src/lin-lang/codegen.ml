@@ -94,7 +94,7 @@ module Compile = struct
           match Map.find env.locals lvar with
           | None -> Error (MissingLocalTEnv (lvar, env))
           | Some x -> Ok x)
-      | Global n | Coderef n -> (
+      | Coderef n -> (
           match Map.find env.tls n with
           | None -> Error (MissingGlobalTEnv (n, env))
           | Some x -> Ok x)
@@ -119,10 +119,6 @@ module Compile = struct
   let rec compile_value (env : Env.t) : A.Value.t -> B.Instruction.t list t =
     function
     | Var (i, x) -> (*let* idx =  *) fail TODO
-    | Global g -> (
-        match Map.find env.global_map g with
-        | Some (i, typ) -> ret @@ [ B.Instruction.GlobalGet i ]
-        | None -> fail (UnmappedGlobal (g, env)))
     | Coderef g -> (
         match Map.find env.function_map g with
         | Some (i, typ) -> ret @@ [ B.Instruction.CodeRef i ]
@@ -140,47 +136,46 @@ module Compile = struct
 
   let compile_import ({ typ; name } : A.Import.t) = ()
 
-  let compile_module ({ imports; toplevels; main } : A.Module.t) :
+  let compile_module ({ imports; functions; main } : A.Module.t) :
       B.Module.t Res.t =
-    let open Res in
     (* TODO: map function names to index into table *)
     (* TODO: function start must have [] -> [] ft, main therefore cannot leave anything on op stack *)
 
     (* TODO: this can't be empty when calling main *)
-    let env = Env.empty in
-    let state = State.empty in
-    let* main_fn, state' =
-      match main with
-      | None -> Ok ([], state)
-      | Some main ->
-          let* body, state = compile_expr env main state in
-          (* TODO: init tenv *)
-          let tenv = TEnv.empty in
-          let* expr_typ = Type.type_of_expr tenv main in
-          let stack_typ = compile_type expr_typ in
-          (* TODO: locals *)
-          let func : B.Module.Function.t =
-            {
-              typ = FunctionType ([], [], [ stack_typ ]);
-              locals = [];
-              body;
-            }
-          in
-          Ok ([ func ], state)
-    in
+    let prog : B.Module.t M.t =
+      let env = Env.empty in
+      let* main_fn =
+        match main with
+        | None -> ret []
+        | Some main ->
+            let* body = compile_expr env main in
+            (* TODO: init tenv *)
+            let tenv = TEnv.empty in
+            let* expr_typ = lift_result @@ Type.type_of_expr tenv main in
+            let stack_typ = compile_type expr_typ in
+            (* TODO: locals *)
+            let func : B.Module.Function.t =
+              { typ = FunctionType ([], [], [ stack_typ ]); locals = []; body }
+            in
+            ret [ func ]
+      in
 
-    let functions, table, globals = ([] @ main_fn, [], []) in
-    (* NOTE: start should only be used for module initialization, not main *)
-    let start = None in
-    let imports = [] in
-    let main_export =
-      main
-      |> Option.map ~f:(fun _ -> List.length functions - 1)
-      |> Option.map ~f:(fun i ->
-             [ B.Module.Export.{ name = "_start"; desc = ExFunction i } ])
-      |> Option.value_or_thunk ~default:(fun () -> [])
-    in
-    let exports = [] @ main_export in
+      let functions, table, globals = ([] @ main_fn, [], []) in
+      (* NOTE: start should only be used for module initialization, not main *)
+      let start = None in
+      let imports = [] in
+      let main_export =
+        main
+        |> Option.map ~f:(fun _ -> List.length functions - 1)
+        |> Option.map ~f:(fun i ->
+               [ B.Module.Export.{ name = "_start"; desc = ExFunction i } ])
+        |> Option.value_or_thunk ~default:(fun () -> [])
+      in
+      let exports = [] @ main_export in
 
-    Ok B.Module.{ imports; exports; globals; functions; table; start }
+      ret @@ B.Module.{ imports; exports; globals; functions; table; start }
+    in
+    let open Res in
+    let+ prog, _ = prog State.empty in
+    prog
 end

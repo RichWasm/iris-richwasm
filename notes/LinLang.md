@@ -30,9 +30,9 @@ e ::=
     | (free v)
 
 im := (import τ as x)
-tl := ([export] let (x : τ) = e)
+fn := ([export] fun x₁ (x₂ : τ₁) : τ₂ . e)
 
-m := im* tl* [e]
+m := im* fn* [e]
 ```
 
 n.b. the grammar is in Monadic Normal Form

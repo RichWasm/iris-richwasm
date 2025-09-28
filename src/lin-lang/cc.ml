@@ -24,7 +24,6 @@ module IR = struct
   module Value = struct
     type t =
       | Var of LVar.t (* val de Bruijn *)
-      | Global of string
       | Coderef of string
       | Int of int
       | Tuple of t list
@@ -61,21 +60,16 @@ module IR = struct
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
-  module TopLevel = struct
-    type t =
-      | Let of {
-          export : bool;
-          binding : string * Type.t;
-          init : Expr.t;
-        }
-      | Func of {
-          export : bool;
-          name : string;
-          params : Type.t list;
-          ret : Type.t;
-          body : Expr.t;
-        }
-    [@@deriving eq, ord, iter, map, fold, sexp]
+  module Function = struct
+    type t = {
+      export : bool;
+      name : string;
+      closure : Type.t;
+      param : Type.t;
+      return : Type.t;
+      body : Expr.t;
+    }
+    [@@deriving eq, ord, iter, map, fold, sexp, make]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
@@ -83,7 +77,7 @@ module IR = struct
   module Module = struct
     type t = {
       imports : Import.t list;
-      toplevels : TopLevel.t list;
+      functions : Function.t list;
       main : Expr.t option;
     }
     [@@deriving eq, ord, iter, map, fold, sexp, make]
@@ -114,7 +108,7 @@ module Compile = struct
 
   let rec fv_value (depth : int) : A.Value.t -> LS.t = function
     | Var (i, x) -> if i >= depth then LS.singleton (i - depth, x) else LS.empty
-    | Global _ | Int _ -> LS.empty
+    | Coderef _ | Int _ -> LS.empty
     | Lam (_, _, body) -> fv_expr (depth + 1) body
     | Tuple vs -> vs |> List.map ~f:(fv_value depth) |> LS.union_list
 
@@ -144,10 +138,9 @@ module Compile = struct
     type t = {
       vdepth : int;
       tenv : A.Type.t list;
-      tls : B.TopLevel.t list;
-      vmap : (int, int) Hashtbl.t; (* when in closure *)
       lambda_base : int;
-      globals : (string * A.Type.t) list;
+      vmap : Int.t Map.M(Int).t; (* when in closure *)
+      fns : (A.Type.t * A.Type.t) Map.M(String).t;
     }
     [@@deriving sexp_of]
 
@@ -155,10 +148,9 @@ module Compile = struct
       {
         vdepth = 0;
         tenv = [];
-        tls = [];
-        vmap = Hashtbl.create (module Int);
         lambda_base = 0;
-        globals = [];
+        vmap = Map.empty (module Int);
+        fns = Map.empty (module String);
       }
 
     let lookup_v_typ (e : t) (i : int) : A.Type.t option = List.nth e.tenv i
@@ -174,48 +166,31 @@ module Compile = struct
     type t =
       | TypeNotFound of LVar.t * Env.t
       | LocalTypeLookupFailed of LVar.t * Env.t
-      | GlobalTypeLookupFailed of string * Env.t
+      | FunctionLookupFailed of string * Env.t
       | UnexpectedApplicand of A.Type.t
+      | DuplicateFunName of string
+      | InvalidImport of string * A.Type.t
       | InternalError of string
+    [@@deriving sexp_of]
 
-    let to_string =
-      Stdlib.Format.(
-        function
-        | TypeNotFound ((i, None), env) ->
-            asprintf "Type not found for variable %d;@;%a" i Sexp.pp_hum
-              (Env.sexp_of_t env)
-        | TypeNotFound ((i, Some x), env) ->
-            asprintf "Type not found for variable %d (%s);@;%a" i x Sexp.pp_hum
-              (Env.sexp_of_t env)
-        | LocalTypeLookupFailed ((i, None), env) ->
-            asprintf "type lookup failed for local %d;@;%a" i Sexp.pp_hum
-              (Env.sexp_of_t env)
-        | LocalTypeLookupFailed ((i, Some x), env) ->
-            asprintf "type lookup failed for local %d (%s);@;%a" i x Sexp.pp_hum
-              (Env.sexp_of_t env)
-        | GlobalTypeLookupFailed (g, env) ->
-            asprintf "type lookup failed for global %s;@;%a" g Sexp.pp_hum
-              (Env.sexp_of_t env)
-        | UnexpectedApplicand x ->
-            asprintf "UnexpectedApplicand: %a" A.Type.pp x
-        | InternalError s -> asprintf "Internal error: %s" s)
+    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
   module State = struct
     type t = {
-      tls : B.TopLevel.t list;
+      fns : B.Function.t list;
       gensym : int;
     }
     [@@deriving sexp_of]
 
-    let empty : t = { tls = []; gensym = 0 }
+    let empty : t = { fns = []; gensym = 0 }
   end
 
   module M = struct
     include Util.StateM (State) (Err)
 
-    let emit (tl : B.TopLevel.t) : unit t =
-     fun s -> Ok ((), { s with tls = tl :: s.tls })
+    let emit (fn : B.Function.t) : unit t =
+     fun s -> Ok ((), { s with fns = fn :: s.fns })
 
     let fresh (prefix : string) : string t =
      fun s ->
@@ -246,15 +221,30 @@ module Compile = struct
 
   let compile_var (env : Env.t) ((i, x) : LVar.t) : B.Value.t t =
     let fbinders = env.vdepth - env.lambda_base in
-    let k = Hashtbl.length env.vmap in
+    let k = Map.length env.vmap in
     let open B.Value in
     if i < fbinders then
       ret @@ Var (i, x)
     else
       let key = i - fbinders in
-      match Hashtbl.find env.vmap key with
+      match Map.find env.vmap key with
       | Some slot -> ret (Var (slot + fbinders, x))
       | None -> ret @@ Var (i + k, x)
+
+  let rec lookup_typ (env : Env.t) : A.Value.t -> A.Type.t t = function
+    | Var (i, x) -> (
+        match Env.lookup_v_typ env i with
+        | Some t -> ret t
+        | None -> fail (LocalTypeLookupFailed ((i, x), env)))
+    | Coderef n -> (
+        match Map.find env.fns n with
+        | Some (param, return) -> ret (Lollipop (param, return) : A.Type.t)
+        | None -> fail (FunctionLookupFailed (n, env)))
+    | Int _ -> ret @@ (Int : A.Type.t)
+    | Lam (arg_t, ret_t, _) -> ret (Lollipop (arg_t, ret_t) : A.Type.t)
+    | Tuple vs ->
+        let* vs' = mapM ~f:(fun v -> lookup_typ env v) vs in
+        ret (Prod vs' : A.Type.t)
 
   let rec compile_value (env : Env.t) : A.Value.t -> B.Value.t t =
     let open B.Expr in
@@ -263,12 +253,9 @@ module Compile = struct
     | Var i ->
         let* v' = compile_var env i in
         ret v'
-    | Global g -> (
-        match List.Assoc.find env.globals g ~equal:String.equal with
-        | Some (Lollipop _ as t) ->
-            ret (Pack (Prod [], Tuple [ Coderef g; Tuple [] ], lower_typ t))
-        | Some _ -> ret @@ Global g
-        | None -> fail (GlobalTypeLookupFailed (g, env)))
+    | Coderef n as v ->
+        let* typ = lookup_typ env v in
+        ret (Pack (Prod [], Tuple [ Coderef n; Tuple [] ], lower_typ typ))
     | Int n -> ret (Int n)
     | Tuple vs ->
         let* vs' = mapM ~f:(compile_value env) vs in
@@ -280,43 +267,48 @@ module Compile = struct
         let* body' =
           let k = List.length fv_list in
 
-          let vmap = Hashtbl.create (module Int) ~size:k in
-          List.iteri
-            ~f:(fun j (fv, _) ->
-              Hashtbl.add vmap ~key:(fv + 1) ~data:(k - 1 - j) |> ignore)
-            fv_list;
+          let* vmap =
+            List.foldi
+              ~f:(fun i acc (fv, _) ->
+                let* acc = acc in
+                match Map.add acc ~key:(fv + 1) ~data:(k - 1 - i) with
+                | `Ok m -> ret m
+                | `Duplicate -> fail (InternalError "duplicate vmap"))
+              ~init:(ret (Map.empty (module Int)))
+              fv_list
+          in
 
           let* clos_typs = calc_closure_typs env fv_list in
           let env' = Env.add_var env arg_t in
           let env' = { env' with vmap; lambda_base = env.vdepth } in
 
-          let* body' = conv_expr env' body in
+          let* body' = compile_expr env' body in
           ret @@ LetTuple (clos_typs, Val (Var (1, None)), body')
         in
-        let* clos_typ = closure_typ env fvs in
-        let arg_t' = lower_typ arg_t in
-        let ret_t' = lower_typ ret_t in
+        let* closure = closure_typ env fvs in
+        let param = lower_typ arg_t in
+        let return = lower_typ ret_t in
 
         let* () =
           emit
-            (Func
-               {
-                 export = false;
-                 name = fname;
-                 params = [ clos_typ; arg_t' ];
-                 ret = ret_t';
-                 body = body';
-               })
+            {
+              export = false;
+              name = fname;
+              closure;
+              param;
+              return;
+              body = body';
+            }
         in
 
         let clos = Tuple (List.map ~f:(fun (i, x) -> Var (i, x)) fv_list) in
         ret
           (Pack
-             ( clos_typ,
+             ( closure,
                Tuple [ Coderef fname; clos ],
                lower_typ (Lollipop (arg_t, ret_t)) ))
 
-  and conv_expr (env : Env.t) : A.Expr.t -> B.Expr.t t = function
+  and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t t = function
     | Val v ->
         let* v' = compile_value env v in
         ret @@ B.Expr.Val v'
@@ -324,23 +316,7 @@ module Compile = struct
         let* vf' = compile_value env vf in
         let* va' = compile_value env va in
 
-        let rec lookup_typ : A.Value.t -> A.Type.t t = function
-          | Var (i, x) -> (
-              match Env.lookup_v_typ env i with
-              | Some t -> ret t
-              | None -> fail (LocalTypeLookupFailed ((i, x), env)))
-          | Global g -> (
-              match List.Assoc.find env.globals g ~equal:String.equal with
-              | Some t -> ret t
-              | None -> fail (GlobalTypeLookupFailed (g, env)))
-          | Int _ -> ret @@ (Int : A.Type.t)
-          | Lam (arg_t, ret_t, _) -> ret (Lollipop (arg_t, ret_t) : A.Type.t)
-          | Tuple vs ->
-              let* vs' = mapM ~f:(fun v -> lookup_typ v) vs in
-              ret (Prod vs' : A.Type.t)
-        in
-
-        let* looked_up = lookup_typ vf in
+        let* looked_up = lookup_typ env vf in
 
         match looked_up with
         | Lollipop (arg, return) ->
@@ -354,23 +330,23 @@ module Compile = struct
             ret (Unpack (vf', body, lower_typ return) : B.Expr.t)
         | t -> fail (UnexpectedApplicand t))
     | Let (t, rhs, body) ->
-        let* rhs' = conv_expr env rhs in
+        let* rhs' = compile_expr env rhs in
         let env' = Env.add_var env t in
-        let* body' = conv_expr env' body in
+        let* body' = compile_expr env' body in
         ret (Let (lower_typ t, rhs', body') : B.Expr.t)
     | If0 (v, e1, e2) ->
         let* v' = compile_value env v in
-        let* e1' = conv_expr env e1 in
-        let* e2' = conv_expr env e2 in
+        let* e1' = compile_expr env e1 in
+        let* e2' = compile_expr env e2 in
         ret (If0 (v', e1', e2') : B.Expr.t)
     | Binop (op, v1, v2) ->
         let* v1' = compile_value env v1 in
         let* v2' = compile_value env v2 in
         ret (Binop (op, v1', v2') : B.Expr.t)
     | LetProd (ts, rhs, body) ->
-        let* rhs' = conv_expr env rhs in
+        let* rhs' = compile_expr env rhs in
         let env' = Env.add_vars env ts in
-        let* body' = conv_expr env' body in
+        let* body' = compile_expr env' body in
 
         ret (LetTuple (List.map ~f:lower_typ ts, rhs', body') : B.Expr.t)
     | New v ->
@@ -384,52 +360,74 @@ module Compile = struct
         let* v' = compile_value env v in
         ret (Free v' : B.Expr.t)
 
-  let compile_toplevel
+  let compile_function
       (env : Env.t)
-      ({ export; binding = name, typ; init } : A.TopLevel.t) :
-      (B.TopLevel.t * Env.t) t =
-    let env' = { env with globals = (name, typ) :: env.globals } in
-    let* init' = conv_expr env' init in
+      ({ export; name; param; return; body } : A.Function.t) : B.Function.t t =
+    let env' = Env.add_var env param in
+    let* body' = compile_expr env' body in
     ret
-      ( B.TopLevel.Let { export; binding = (name, lower_typ typ); init = init' },
-        env' )
+      ({
+         export;
+         name;
+         closure = Prod [];
+         param = lower_typ param;
+         return = lower_typ return;
+         body = body';
+       }
+        : B.Function.t)
 
-  let compile_module ({ imports; toplevels; main } : A.Module.t) :
-      (B.Module.t, Err.t) Result.t =
-    let imports_rev, globals =
+  module Res = Util.ResultM (Err)
+
+  let compile_module ({ imports; functions; main } : A.Module.t) :
+      B.Module.t Res.t =
+    let open Res in
+    let imports' =
       List.fold_left
-        ~f:(fun (acc_imports, acc_globals) ({ typ; name } : A.Import.t) ->
-          let acc_globals' = (name, typ) :: acc_globals in
-          (B.Import.{ typ = lower_typ typ; name } :: acc_imports, acc_globals'))
-        ~init:([], []) imports
-    in
-    let imports' = List.rev imports_rev in
-
-    let rec compile_tls tls acc state env =
-      match tls with
-      | [] -> Ok (List.rev acc, env, state)
-      | tl :: tls' -> (
-          match compile_toplevel env tl state with
-          | Error e -> Error e
-          | Ok ((tl', env'), state') ->
-              compile_tls tls' (tl' :: acc) state' env')
+        ~f:(fun acc_imports { typ; name } ->
+          B.Import.{ typ = lower_typ typ; name } :: acc_imports)
+        ~init:[] imports
+      |> List.rev
     in
 
-    match compile_tls toplevels [] State.empty { Env.empty with globals } with
-    | Error e -> Error e
-    | Ok (tls', env, state) -> (
-        match main with
-        | None ->
-            Ok
-              (B.Module.make ~imports:imports'
-                 ~toplevels:(List.rev state.tls @ tls')
-                 ())
-        | Some e -> (
-            match conv_expr env e state with
-            | Error e -> Error e
-            | Ok (e', state') ->
-                Ok
-                  (B.Module.make ~imports:imports'
-                     ~toplevels:(List.rev state'.tls @ tls')
-                     ~main:e' ())))
+    let* fns =
+      foldM
+        ~f:(fun acc ({ typ; name } : A.Import.t) ->
+          match typ with
+          | Lollipop (param, return) -> (
+              match Map.add acc ~key:name ~data:(param, return) with
+              | `Ok m -> ret m
+              | `Duplicate -> fail (DuplicateFunName name))
+          | _ -> fail (InvalidImport (name, typ)))
+        ~init:(Map.empty (module String))
+        imports
+    in
+    let* fns =
+      foldM
+        ~f:(fun acc (fn : A.Function.t) ->
+          match Map.add acc ~key:fn.name ~data:(fn.param, fn.return) with
+          | `Ok m -> ret m
+          | `Duplicate -> fail (DuplicateFunName fn.name))
+        ~init:fns functions
+    in
+
+    let env = { Env.empty with fns } in
+    let prog : B.Module.t M.t =
+      let open M in
+      let* functions' = mapM ~f:(compile_function env) functions in
+      let* main' =
+        Option.value_map
+          ~f:(compile_expr env >-> Option.return)
+          ~default:(ret None) main
+      in
+      let* st = get in
+      ret
+        B.Module.
+          {
+            imports = imports';
+            functions = List.rev st.fns @ functions';
+            main = main';
+          }
+    in
+    let+ prog, _ = prog State.empty in
+    prog
 end

@@ -14,6 +14,11 @@ module Monad_ops (M : Monad) = struct
   let map (m : 'a t) (f : 'a -> 'b) : 'b t = bind m (fun x -> ret (f x))
   let ( let+ ) = map
 
+  let apply (mf : ('a -> 'b) t) (mx : 'a t) : 'b t =
+    let* f = mf in
+    let* x = mx in
+    ret (f x)
+
   let sequence (ms : 'a t list) : 'a list t =
     let rec go acc = function
       | [] -> ret (List.rev acc)
@@ -36,7 +41,7 @@ module Monad_ops (M : Monad) = struct
 
   let mapM = traverse
 
-  let foldM ~(f : 'acc -> 'a -> 'acc t) (init : 'acc) (xs : 'a list) : 'acc t =
+  let foldM ~(f : 'acc -> 'a -> 'acc t) ~(init : 'acc) (xs : 'a list) : 'acc t =
     let rec go acc = function
       | [] -> ret acc
       | x :: xs ->
@@ -46,7 +51,18 @@ module Monad_ops (M : Monad) = struct
     go init xs
 
   let iterM (f : 'a -> unit t) (xs : 'a list) : unit t =
-    foldM ~f:(fun () x -> f x) () xs
+    foldM ~f:(fun () x -> f x) ~init:() xs
+
+  let ( >=> ) f g x = bind (f x) g
+  let ( >-> ) f g x = map (f x) g
+
+  module Applicative = Applicative.Make (struct
+    type 'a t = 'a M.t
+
+    let return = ret
+    let apply = apply
+    let map = `Custom (fun m ~f -> map m f)
+  end)
 end
 
 module type State = sig
@@ -91,6 +107,12 @@ module StateM (S : State) (E : Err) = struct
     let get : S.t t = fun s -> Ok (s, s)
     let put (s : S.t) : unit t = fun _ -> Ok ((), s)
     let modify (f : S.t -> S.t) : unit t = fun s -> Ok ((), f s)
+
+    let lift_result (r : 'a ResultM(E).t) : 'a t =
+     fun s ->
+      match r with
+      | Ok x -> Ok (x, s)
+      | Error e -> Error e
   end
 
   include T

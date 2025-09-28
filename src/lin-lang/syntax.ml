@@ -75,9 +75,9 @@ module rec Value : sig
     | Tuple of Value.t list
   [@@deriving eq, ord, iter, map, fold, sexp]
 
+  val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
   val string_of : t -> string
-  val pp_sexp : formatter -> t -> unit
 end = struct
   type t =
     | Var of Variable.t
@@ -85,6 +85,8 @@ end = struct
     | Lam of Binding.t * Type.t * Expr.t
     | Tuple of Value.t list
   [@@deriving eq, ord, iter, map, fold, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp ff : t -> unit = function
     | Var x -> Variable.pp ff x
@@ -101,7 +103,6 @@ end = struct
         fprintf ff ")@]"
 
   let string_of = asprintf "%a" pp
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 and Expr : sig
@@ -117,9 +118,9 @@ and Expr : sig
     | Free of Value.t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
+  val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
   val string_of : t -> string
-  val pp_sexp : formatter -> t -> unit
 end = struct
   type t =
     | Val of Value.t
@@ -132,6 +133,8 @@ end = struct
     | Swap of Value.t * Value.t
     | Free of Value.t
   [@@deriving eq, ord, iter, map, fold, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp ff (e : t) =
     match e with
@@ -156,7 +159,6 @@ end = struct
     | Free v -> fprintf ff "@[<2>(free@ %a)@]" Value.pp v
 
   let string_of = asprintf "%a" pp
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module Import = struct
@@ -166,38 +168,45 @@ module Import = struct
   }
   [@@deriving eq, ord, iter, map, fold, sexp, make]
 
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
   let pp ff ({ typ; name } : t) =
     fprintf ff "@[<2>(import@ %a@ as@ %a@,)@]" Type.pp typ Variable.pp name
 
   let string_of = asprintf "%a" pp
 end
 
-module TopLevel = struct
+module Function = struct
   type t = {
     export : bool;
-    binding : Binding.t;
-    init : Expr.t;
+    name : string;
+    param : Binding.t;
+    return : Type.t;
+    body : Expr.t;
   }
   [@@deriving eq, ord, iter, map, fold, sexp, make]
 
-  let pp ff ({ export; binding; init } : t) =
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp (ff : formatter) ({ export; name; param; return; body } : t) =
     let export_str = if export then "export " else "" in
-    fprintf ff "@[<2>(%slet@ %a@ =@ %a)@;@]" export_str Binding.pp binding
-      Expr.pp init
+    fprintf ff "@[<2>(%sfun %s@ %a :@ %a@ .@ %a)@;@]" export_str name Binding.pp
+      param Type.pp return Expr.pp body
 
   let string_of = asprintf "%a" pp
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module Module = struct
   type t = {
     imports : Import.t list;
-    toplevels : TopLevel.t list;
+    functions : Function.t list;
     main : Expr.t option;
   }
   [@@deriving eq, ord, iter, map, fold, sexp, make]
 
-  let pp ff ({ imports; toplevels; main } : t) =
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff ({ imports; functions; main } : t) =
     let pp_m_list pp ff xs =
       List.iteri
         ~f:(fun i x ->
@@ -209,12 +218,11 @@ module Module = struct
     if not (List.is_empty imports) then (
       pp_m_list Import.pp ff imports;
       fprintf ff "@.@.");
-    if not (List.is_empty toplevels) then (
-      pp_m_list TopLevel.pp ff toplevels;
+    if not (List.is_empty functions) then (
+      pp_m_list Function.pp ff functions;
       fprintf ff "@.@.");
     Option.iter ~f:(fun e -> fprintf ff "%a" Expr.pp e) main;
     fprintf ff "@]"
 
   let string_of = asprintf "%a" pp
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end

@@ -1,7 +1,6 @@
 open! Base
 open! Stdlib.Format
 open! Richwasm_lin_lang
-
 module RichWasm = Richwasm_common.Syntax
 
 let%expect_test "basic functionality" =
@@ -16,10 +15,13 @@ let%expect_test "basic functionality" =
         s
         |> Parse.from_string_exn
         |> Index.Compile.compile_module
+        |> ( function
+        | Ok x -> x
+        | Error err -> failwith @@ asprintf "%a" Index.Err.pp err )
         |> Cc.Compile.compile_module
         |> ( function
         | Ok x -> x
-        | Error err -> failwith @@ Cc.Compile.Err.to_string err )
+        | Error err -> failwith @@ asprintf "%a" Cc.Compile.Err.pp err )
         |> Codegen.Compile.compile_module
         |> function
         | Ok x -> x
@@ -41,7 +43,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func (-> (Num i32))
+      (func -> (Num i32)
         i32.const 1)
       (table)
       { name = "_start"; desc = (ExFunction 0) }) |}];
@@ -50,6 +52,6 @@ let%expect_test "basic functionality" =
     {|
     ((imports ()) (globals ())
      (functions
-      (((typ (FunctionType () (InstructionType () ((Num (Int I32)))))) (locals ())
+      (((typ (FunctionType () () ((Num (Int I32))))) (locals ())
         (body ((NumConst (Int I32) 1))))))
      (table ()) (start ()) (exports (((name _start) (desc (ExFunction 0)))))) |}]

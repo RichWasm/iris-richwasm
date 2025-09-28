@@ -250,19 +250,36 @@ let parse_import (p : Path.t) : Sexp.t -> Import.t Res.t =
       ret @@ Import.{ name = x; typ = t' }
   | x -> fail Err.(ExpectedImport (p, x))
 
-let parse_toplevel (p : Path.t) : Sexp.t -> TopLevel.t Res.t =
+let parse_function (p : Path.t) : Sexp.t -> Function.t Res.t =
   let open Res in
-  let help ?(export = false) binding e =
-    let* binding' =
-      parse_binding (Path.add ~tag:"tl let" ~field:"binding" p) binding
+  let help ?(export = false) name maybe_param maybe_return maybe_body =
+    let* param =
+      parse_binding (Path.add ~tag:"fun" ~field:"param" p) maybe_param
     in
-    let* init' = parse_expr (Path.add ~tag:"tl let" ~field:"e" p) e in
-    ret @@ TopLevel.{ export; binding = binding'; init = init' }
+    let* return =
+      parse_type (Path.add ~tag:"fun" ~field:"return" p) maybe_return
+    in
+    let* body = parse_expr (Path.add ~tag:"fun" ~field:"body" p) maybe_body in
+    ret @@ Function.{ export; name; param; return; body }
   in
   function
-  | List [ Atom "export"; Atom "let"; binding; e ] ->
-      help ~export:true binding e
-  | List [ Atom "let"; binding; e ] -> help binding e
+  | List
+      ( [
+          Atom "export";
+          Atom "fun";
+          Atom name;
+          param;
+          Atom ":";
+          return;
+          Atom ".";
+          body;
+        ]
+      | [ Atom "export"; Atom "fun"; Atom name; param; return; body ] ) ->
+      help ~export:true name param return body
+  | List
+      ( [ Atom "fun"; Atom name; param; Atom ":"; return; Atom "."; body ]
+      | [ Atom "fun"; Atom name; param; return; body ] ) ->
+      help name param return body
   | x -> fail Err.(ExpectedTopLevel (p, x))
 
 let parse_module (p : Path.t) : Sexp.t list -> Module.t Res.t =
@@ -270,29 +287,25 @@ let parse_module (p : Path.t) : Sexp.t list -> Module.t Res.t =
   function
   | [] -> ret @@ Module.make ()
   | sexps ->
-      let rec classify imports toplevels main_opt : Sexp.t list -> 'a = function
-        | [] -> Ok (List.rev imports, List.rev toplevels, main_opt)
+      let rec classify imports functions main_opt : Sexp.t list -> 'a = function
+        | [] -> Ok (List.rev imports, List.rev functions, main_opt)
         | sexp :: rest -> (
             match sexp with
             | List (Atom "import" :: _) ->
                 let* import = parse_import p sexp in
-                classify (import :: imports) toplevels main_opt rest
-            | List (Atom "export" :: _) ->
-                let* tl = parse_toplevel p sexp in
-                classify imports (tl :: toplevels) main_opt rest
-            | List [ Atom "let"; _; _ ] ->
-                (* tl let only 3 elems *)
-                let* tl = parse_toplevel p sexp in
-                classify imports (tl :: toplevels) main_opt rest
+                classify (import :: imports) functions main_opt rest
+            | List (Atom ("export" | "fun") :: _) ->
+                let* fn = parse_function p sexp in
+                classify imports (fn :: functions) main_opt rest
             | _ -> (
                 match (main_opt, rest) with
                 | None, [] ->
                     let* main = parse_expr p sexp in
-                    classify imports toplevels (Some main) []
+                    classify imports functions (Some main) []
                 | _, _ -> fail Err.(ExpectedModule sexps)))
       in
-      let* imports, toplevels, main = classify [] [] None sexps in
-      ret @@ Module.{ imports; toplevels; main }
+      let* imports, functions, main = classify [] [] None sexps in
+      ret @@ Module.{ imports; functions; main }
 
 let from_string (s : string) : Module.t Res.t =
   let open Res in
