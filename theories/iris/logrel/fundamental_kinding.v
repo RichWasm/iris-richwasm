@@ -26,13 +26,6 @@ Section FundamentalKinding.
   Proof.
   Admitted.
 
-  Lemma semantic_type_le_trans :
-    ∀ (S T U : @semantic_type Σ), 
-      S ⊑ T ->
-      T ⊑ U ->
-      S ⊑ U.
-  Admitted.
-
   Lemma sizity_sized_le_unsized σ :
     sizity_interp (Σ:=Σ) (Sized σ) ⊑ sizity_interp Unsized.
   Proof.
@@ -130,6 +123,60 @@ Section FundamentalKinding.
     subst_env_interp sr F s__mem s__rep s__size se
     ⊢ copyability_interp (subst_representation s__rep ρ) χ (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
+    intros Hkind.
+    remember (VALTYPE ρ χ δ) as κ.
+    revert Heqκ.
+    revert ρ χ δ.
+    induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *;
+      iIntros "[%Hsubst Henv]"; unfold copyability_interp;
+      try (subst κ; inversion Hκeq; subst).
+    - subst.
+      admit.
+    - assert (Ht: exists Tt, se !! t = Some Tt) by admit.
+      destruct Ht as [Tt Ht].
+      eapply big_sepL2_lookup_acc in H; eauto.
+      iPoseProof (H with "Henv") as "[H _]".
+      iDestruct "H" as "[%Ht' Ht'']".
+      remember (value_interp _ _ _ _) as T.
+      assert (T ≡ Tt).
+      {
+        rewrite HeqT.
+        cbn.
+        intros x.
+        rewrite value_interp_eq.
+        cbn.
+        rewrite Ht; cbn.
+        admit.
+      }
+      admit.
+    - iIntros "%sv !%".
+      rewrite value_interp_eq; cbn.
+      eapply bi.exist_persistent; intros κ.
+      destruct κ; cbn; typeclasses eauto.
+    - iIntros "%sv !%".
+      rewrite value_interp_eq; cbn.
+      eapply bi.exist_persistent; intros κ.
+      destruct κ; cbn; typeclasses eauto.
+    - iIntros "%sv !%".
+      rewrite value_interp_eq; cbn.
+      eapply bi.exist_persistent; intros κ.
+      destruct κ; cbn; typeclasses eauto.
+    - iIntros "%sv !%".
+      rewrite value_interp_eq; cbn.
+      eapply bi.exist_persistent; intros κ.
+      destruct κ; cbn; typeclasses eauto.
+    - admit.
+    - admit.
+    - auto.
+    - auto.
+    - admit. (* explicit copy *)
+    - admit. (* function type stuff...? *)
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
   Admitted.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 

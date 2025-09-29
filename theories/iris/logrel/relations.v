@@ -91,7 +91,7 @@ Section Relations.
     exists ιs, eval_rep ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
 
   Definition representation_interp (ρ : representation) : semantic_type :=
-    λne sv, (∃ vs, ⌜sv = SValues vs⌝ ∗ ⌜representation_interp0 ρ vs⌝)%I.
+    λne sv, ⌜∃ vs, sv = SValues vs /\ representation_interp0 ρ vs⌝%I.
 
   Definition is_copy_operation (ιs : list primitive_rep) (es : expr) : Prop :=
     ∃ fe me wl wl' (es' : W.expr),
@@ -140,10 +140,10 @@ Section Relations.
   Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type := semantic_type_le.
 
   Definition kind_as_type_interp (κ : kind) : semantic_type :=
-    match κ with
-    | VALTYPE ρ χ _ => representation_interp ρ
-    | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
-    end%I.
+    (match κ with
+     | VALTYPE ρ χ _ => λne sv, representation_interp ρ sv
+     | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
+     end)%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
     fun T =>
@@ -310,6 +310,13 @@ Section Relations.
   Admitted.
 
   Definition value_interp : semantic_env -n> leibnizO type -n> SVR := fixpoint value_interp0.
+
+  Lemma value_interp_part_eq se τ sv :
+    value_interp se τ ≡ value_interp0 value_interp se τ.
+  Proof.
+    do 2 f_equiv.
+    apply fixpoint_unfold.
+  Qed.
 
   Lemma value_interp_eq se τ sv :
     value_interp se τ sv ⊣⊢ value_interp0 value_interp se τ sv.
