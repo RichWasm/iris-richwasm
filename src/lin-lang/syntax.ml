@@ -21,9 +21,11 @@ end
 module Type = struct
   type t =
     | Int
+    | Var of Variable.t
     | Lollipop of t * t
     | Prod of t list
     | Sum of t list
+    | Rec of Variable.t * t
     | Ref of t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
@@ -38,9 +40,11 @@ module Type = struct
     in
     function
     | Int -> fprintf ff "@[int@]"
+    | Var x -> fprintf ff "@[%a@]" Variable.pp x
     | Lollipop (t1, t2) -> fprintf ff "@[(%a@ ⊸@ %a)@]" pp t1 pp t2
     | Prod ts -> pp_sep ~sep:"⊗" ts
     | Sum ts -> pp_sep ~sep:"⊕" ts
+    | Rec (x, t) -> fprintf ff "@[(rec %a %a)@]" Variable.pp x pp t
     | Ref t -> fprintf ff "@[(ref@ %a)@]" pp t
 
   let string_of = asprintf "%a" pp
@@ -79,6 +83,7 @@ module rec Value : sig
     | Lam of Binding.t * Type.t * Expr.t
     | Tuple of t list
     | Inj of int * t * Type.t
+    | Fold of Type.t * t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   val pp_sexp : formatter -> t -> unit
@@ -91,6 +96,7 @@ end = struct
     | Lam of Binding.t * Type.t * Expr.t
     | Tuple of t list
     | Inj of int * t * Type.t
+    | Fold of Type.t * t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -110,6 +116,7 @@ end = struct
         fprintf ff ")@]"
     | Inj (i, v, t) ->
         fprintf ff "@[(inj %a %a@ :@ %a)" Int.pp i Value.pp v Type.pp t
+    | Fold (t, v) -> fprintf ff "@[(fold %a %a)@]" Type.pp t pp v
 
   let string_of = asprintf "%a" pp
 end
@@ -121,6 +128,7 @@ and Expr : sig
     | Let of Binding.t * Expr.t * Expr.t
     | Split of Binding.t list * Expr.t * Expr.t
     | Cases of Value.t * (Binding.t * t) list
+    | Unfold of Type.t * Value.t
     | If0 of Value.t * Expr.t * Expr.t
     | Binop of Binop.t * Value.t * Value.t
     | New of Value.t
@@ -138,6 +146,7 @@ end = struct
     | Let of Binding.t * Expr.t * Expr.t
     | Split of Binding.t list * Expr.t * Expr.t
     | Cases of Value.t * (Binding.t * t) list
+    | Unfold of Type.t * Value.t
     | If0 of Value.t * Expr.t * Expr.t
     | Binop of Binop.t * Value.t * Value.t
     | New of Value.t
@@ -169,6 +178,7 @@ end = struct
           (fun () -> fprintf ff "@;")
           cases;
         fprintf ff "@[<2>)@]@]"
+    | Unfold (t, v) -> fprintf ff "@[(unfold %a %a)@]" Type.pp t Value.pp v
     | If0 (v, e1, e2) ->
         fprintf ff "@[<2>(if %a@;then %a@;else@ %a)@]" Value.pp v pp e1 pp e2
     | Binop (op, l, r) ->

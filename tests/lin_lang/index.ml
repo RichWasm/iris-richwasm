@@ -121,4 +121,38 @@ let%expect_test "indexes examples" =
              (App (Coderef incr_n) (Tuple ((Var (1 (r1))) (Var (0 (n1))))))))))))))
      (main
       ((Let (Ref Int) (New (Int 10))
-        (App (Coderef incr_n) (Tuple ((Var (0 (r0))) (Int 3)))))))) |}]
+        (App (Coderef incr_n) (Tuple ((Var (0 (r0))) (Int 3))))))))
+    -----------fix_factorial-----------
+    ((imports ()) (functions ())
+     (main
+      ((Let
+        (Lollipop (Lollipop (Lollipop Int Int) (Lollipop Int Int))
+         (Lollipop Int Int))
+        (Val
+         (Lam (Lollipop (Lollipop Int Int) (Lollipop Int Int)) (Lollipop Int Int)
+          (Let
+           (Lollipop (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
+            (Lollipop Int Int))
+           (Val
+            (Lam (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
+             (Lollipop Int Int)
+             (Let
+              (Lollipop (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
+               (Lollipop Int Int))
+              (Unfold (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
+               (Var (0 (x))))
+              (Let (Lollipop Int Int) (App (Var (0 (ux))) (Var (1 (x))))
+               (App (Var (3 (f))) (Var (0 (xx))))))))
+           (App (Var (0 (omega)))
+            (Fold (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
+             (Var (0 (omega))))))))
+        (Let (Lollipop Int Int)
+         (App (Var (0 (fix)))
+          (Lam (Lollipop Int Int) (Lollipop Int Int)
+           (Val
+            (Lam Int Int
+             (If0 (Var (0 (n))) (Val (Int 1))
+              (Let Int (Binop Sub (Var (0 (n))) (Int 1))
+               (Let Int (App (Var (2 (rec))) (Var (0 (n-sub1))))
+                (Binop Mul (Var (2 (n))) (Var (0 (rec-res)))))))))))
+         (App (Var (0 (factorial))) (Int 5))))))) |}]

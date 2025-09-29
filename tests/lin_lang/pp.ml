@@ -214,6 +214,27 @@ let%expect_test "pretty prints examples" =
 
     (let (r0 : (ref int)) = (new 10) in
     (app incr_n (r0, 3)))
+    -----------fix_factorial-----------
+    (let (fix : (((int ⊸ int) ⊸ (int ⊸ int)) ⊸ (int ⊸ int))) =
+      (λ (f : ((int ⊸ int) ⊸ (int ⊸ int))) : (int ⊸ int) .
+        (let (omega : ((rec a (a ⊸ (int ⊸ int))) ⊸ (int ⊸ int))) =
+          (λ (x : (rec a (a ⊸ (int ⊸ int)))) : (int ⊸ int) .
+            (let (ux : ((rec a (a ⊸ (int ⊸ int))) ⊸ (int ⊸ int))) =
+              (unfold (rec a (a ⊸ (int ⊸ int))) x) in
+            (let (xx : (int ⊸ int)) = (app ux x) in
+            (app f xx))))
+        in (app omega (fold (rec a (a ⊸ (int ⊸ int))) omega))))
+    in
+    (let (factorial : (int ⊸ int)) =
+      (app fix
+        (λ (rec : (int ⊸ int)) : (int ⊸ int) .
+          (λ (n : int) : int .
+            (if n then 1 else
+              (let (n-sub1 : int) = (n - 1) in
+              (let (rec-res : int) = (app rec n-sub1) in
+              (n × rec-res)))))))
+      in
+    (app factorial 5)))
     -----------swap_pair_program-----------
     (export fun swap (p : (int ⊗ int)) : (int ⊗ int) .
       (split ((x : int), (y : int)) = p in

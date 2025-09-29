@@ -7,25 +7,29 @@ Simple linear lambda calculus with 32-bit integers and n-ary tuples.
 ```
 τ ::=
     | int
+    | x
     | (τ₁ ⊸ τ₂)
     | (τ₁ ⊗ ... ⊗ τₙ)
     | (τ₁ ⊕ ... ⊕ τₙ)
+    | (rec x τ)
     | (ref τ)
 
 binop := + | - | × | ÷
 
 v ::=
-    | x
     | n
+    | x
     | (λ (x : τ₁) : τ₂ . e)
     | (v₁, ..., vₙ)
     | (inj i v : τ)
+    | (fold τ v)
 e ::=
     | v
     | (app v₁ v₂)
     | (let (x : τ) = e₁ in e₂)
     | (split (x₁ : τ₁) ... (xₙ : τₙ) = e₁ in e₂)
-    | (cases e (case (x₁ : τ₁) e₁) ... (case (xₙ : τₙ) eₙ))
+    | (cases v (case (x₁ : τ₁) e₁) ... (case (xₙ : τₙ) eₙ))
+    | (unfold τ v)
     | (if0 v then e₁ else e₂)
     | (v₁ binop v₂)
     | (new v)

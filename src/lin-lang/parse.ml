@@ -45,6 +45,7 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
   let open Res in
   function
   | Atom "int" -> ret @@ Type.Int
+  | Atom x -> ret @@ Type.Var x
   | List [ Atom "ref"; t ] ->
       let* t' = parse_type (Tag "ref" :: p) t in
       ret @@ Type.Ref t'
@@ -63,6 +64,9 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
         mapiM ~f:(fun i x -> parse_type (Idx i :: Tag "sum" :: p) x) ts
       in
       ret @@ Type.Sum ts'
+  | List [ Atom "rec"; Atom x; t ] ->
+      let* t' = parse_type (Path.add p ~tag:"rec" ~field:"t") t in
+      ret @@ Type.Rec (x, t')
   | List lst ->
       let n = List.length lst in
       if Int.equal (n % 2) 0 && n <> 0 then
@@ -102,7 +106,6 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
                 | x -> fail Err.(MalformedInfixSep (Idx i :: p, x)))
         in
         go 0 None [] lst
-  | x -> fail Err.(ExpectedType (p, x))
 
 let parse_binding (p : Path.t) : Sexp.t -> Binding.t Res.t =
   let open Res in
@@ -151,6 +154,11 @@ let rec parse_value (p : Path.t) : Sexp.t -> Value.t Res.t =
       let* v' = parse_value (p ~field:"v") v in
       let* typ' = parse_type (p ~field:"typ") typ in
       ret @@ Value.Inj (i, v', typ')
+  | List [ Atom "fold"; t; v ] ->
+      let p = Path.add p ~tag:"fold" in
+      let* t' = parse_type (p ~field:"t") t in
+      let* v' = parse_value (p ~field:"v") v in
+      ret @@ Value.Fold (t', v')
   (* FIXME: nested tuples are broken *)
   | List atoms ->
       (* Check if this is a comma-separated tuple eq (1, 2, 3) *)
@@ -249,6 +257,11 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
           cases
       in
       ret @@ Expr.Cases (scrutinee', cases')
+  | List [ Atom "unfold"; t; v ] ->
+      let p = Path.add p ~tag:"unfold" in
+      let* t' = parse_type (p ~field:"t") t in
+      let* v' = parse_value (p ~field:"v") v in
+      ret @@ Expr.Unfold (t', v')
   | List [ f1; f2; f3 ] -> (
       let p' = Path.add p ~tag:"binop" in
       (* try (op l r) if (l op r) fails (assumes valid op is not variable name) *)

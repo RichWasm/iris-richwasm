@@ -16,7 +16,15 @@ module IR = struct
   (* de Bruijn indices *)
 
   module Type = struct
-    include Syntax.Type
+    type t =
+      | Int
+      | Var of LVar.t (* type de Bruijn *)
+      | Lollipop of t * t
+      | Prod of t list
+      | Sum of t list
+      | Rec of t
+      | Ref of t
+    [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
@@ -29,23 +37,25 @@ module IR = struct
 
   module rec Value : sig
     type t =
-      | Var of LVar.t
-      | Coderef of string
       | Int of int
+      | Var of LVar.t (* val de Bruijn *)
+      | Coderef of string
       | Lam of Type.t * Type.t * Expr.t
       | Tuple of t list
       | Inj of int * t * Type.t
+      | Fold of Type.t * t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     val pp : Stdlib.Format.formatter -> t -> unit
   end = struct
     type t =
+      | Int of int
       | Var of LVar.t
       | Coderef of string
-      | Int of int
       | Lam of Type.t * Type.t * Expr.t
       | Tuple of t list
       | Inj of int * t * Type.t
+      | Fold of Type.t * t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -61,6 +71,7 @@ module IR = struct
       (* split (x_0:ty_0, ..., x_n:ty_n) = rhs in body; x_n -> 0, x_0 -> n *)
       | Split of Type.t list * t * t
       | Cases of Value.t * (Type.t * t) list
+      | Unfold of Type.t * Value.t
       | New of Value.t
       | Swap of Value.t * Value.t
       | Free of Value.t
@@ -76,6 +87,7 @@ module IR = struct
       | Binop of Binop.t * Value.t * Value.t
       | Split of Type.t list * t * t
       | Cases of Value.t * (Type.t * t) list
+      | Unfold of Type.t * Value.t
       | New of Value.t
       | Swap of Value.t * Value.t
       | Free of Value.t
@@ -85,7 +97,11 @@ module IR = struct
   end
 
   module Import = struct
-    type t = Syntax.Import.t [@@deriving eq, ord, iter, map, fold, sexp]
+    type t = {
+      typ : Type.t;
+      name : string;
+    }
+    [@@deriving eq, ord, iter, map, fold, sexp, make]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
@@ -116,7 +132,10 @@ module IR = struct
 end
 
 module Err = struct
-  type t = UnboundLocal of string [@@deriving sexp]
+  type t =
+    | UnboundLocal of string
+    | UnboundType of string
+  [@@deriving sexp]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -130,10 +149,11 @@ module Compile = struct
   module Env = struct
     type t = {
       locals : string list;
+      types : string list;
       fn_names : string list;
     }
 
-    let empty = { locals = []; fn_names = [] }
+    let empty = { locals = []; types = []; fn_names = [] }
 
     let resolve_name (env : t) (name : string) :
         [ `Local of int * string | `Function of string | `NotFound ] =
@@ -144,12 +164,45 @@ module Compile = struct
           | true -> `Function name
           | false -> `NotFound)
 
+    let resolve_tname (env : t) (tname : string) : (int * string) option =
+      List.findi ~f:(fun _ -> String.equal tname) env.types
+
     let add (env : t) (lname : string) : t =
       { env with locals = lname :: env.locals }
 
     let add_all (env : t) (lnames : string list) : t =
       { env with locals = List.rev lnames @ env.locals }
+
+    let add_t (env : t) (tname : string) : t =
+      { env with types = tname :: env.types }
   end
+
+  let rec compile_typ (env : Env.t) : A.Type.t -> B.Type.t Res.t =
+    let open B.Type in
+    let open Res in
+    function
+    | Int -> ret @@ Int
+    | Var x -> (
+        match Env.resolve_tname env x with
+        | Some (i, n) -> Ok (Var (i, Some n))
+        | None -> Error (UnboundType x))
+    | Lollipop (t1, t2) ->
+        let* t1' = compile_typ env t1 in
+        let* t2' = compile_typ env t2 in
+        ret @@ Lollipop (t1', t2')
+    | Prod ts ->
+        let* ts' = mapM ~f:(compile_typ env) ts in
+        ret @@ Prod ts'
+    | Sum ts ->
+        let* ts' = mapM ~f:(compile_typ env) ts in
+        ret @@ Sum ts'
+    | Rec (x, t) ->
+        let env' = Env.add_t env x in
+        let* t' = compile_typ env' t in
+        ret @@ Rec t'
+    | Ref t ->
+        let* t' = compile_typ env t in
+        ret @@ Ref t'
 
   let rec compile_value (env : Env.t) : A.Value.t -> B.Value.t Res.t =
     let open B.Value in
@@ -163,14 +216,21 @@ module Compile = struct
     | Int n -> ret (Int n)
     | Lam ((var, typ), return, body) ->
         let env' = Env.add env var in
+        let* typ' = compile_typ env typ in
+        let* return' = compile_typ env return in
         let* body' = compile_expr env' body in
-        ret (Lam (typ, return, body'))
+        ret (Lam (typ', return', body'))
     | Tuple vs ->
         let* vs' = mapM ~f:(compile_value env) vs in
         ret (Tuple vs' : B.Value.t)
     | Inj (i, v, t) ->
         let* v' = compile_value env v in
-        ret (Inj (i, v', t))
+        let* t' = compile_typ env t in
+        ret (Inj (i, v', t'))
+    | Fold (t, v) ->
+        let* t' = compile_typ env t in
+        let* v' = compile_value env v in
+        ret (Fold (t', v'))
 
   and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t Res.t =
     let open B.Expr in
@@ -184,27 +244,34 @@ module Compile = struct
         let* r' = compile_value env r in
         ret @@ App (l', r')
     | Let ((var, typ), e, body) ->
+        let* typ' = compile_typ env typ in
         let* e' = compile_expr env e in
         let env' = Env.add env var in
         let* body' = compile_expr env' body in
-        ret @@ Let (typ, e', body')
+        ret @@ Let (typ', e', body')
     | Split (bindings, e, body) ->
         let* e' = compile_expr env e in
         let vars, typs = List.unzip bindings in
+        let* typs' = mapM ~f:(compile_typ env) typs in
         let env' = Env.add_all env vars in
         let* body' = compile_expr env' body in
-        ret @@ Split (typs, e', body')
+        ret @@ Split (typs', e', body')
     | Cases (scrutinee, cases) ->
         let* scrutinee' = compile_value env scrutinee in
         let* cases' =
           mapM
             ~f:(fun ((x, t), body) ->
               let env' = Env.add env x in
-              let+ body' = compile_expr env' body in
-              (t, body'))
+              let* t' = compile_typ env t in
+              let* body' = compile_expr env' body in
+              ret (t', body'))
             cases
         in
         ret @@ Cases (scrutinee', cases')
+    | Unfold (t, v) ->
+        let* t' = compile_typ env t in
+        let* v' = compile_value env v in
+        ret @@ Unfold (t', v')
     | If0 (v, e1, e2) ->
         let* v' = compile_value env v in
         let* e1' = compile_expr env e1 in
@@ -231,12 +298,23 @@ module Compile = struct
       B.Function.t Res.t =
     let open Res in
     let env = Env.add { Env.empty with fn_names } (fst param) in
+    let* param' = compile_typ env (snd param) in
+    let* return' = compile_typ env return in
     let* body' = compile_expr env body in
-    ret B.Function.{ export; name; param = snd param; return; body = body' }
+    ret
+      B.Function.
+        { export; name; param = param'; return = return'; body = body' }
 
   let compile_module ({ imports; functions; main } : A.Module.t) :
       B.Module.t Res.t =
     let open Res in
+    let* imports' =
+      mapM
+        ~f:(fun { typ; name } ->
+          let+ typ' = compile_typ Env.empty typ in
+          B.Import.{ typ = typ'; name })
+        imports
+    in
     let fn_names =
       List.map ~f:(fun fn -> fn.name) functions
       @ List.map ~f:(fun im -> im.name) imports
@@ -249,5 +327,5 @@ module Compile = struct
           let* m = compile_expr { Env.empty with fn_names } m in
           Ok (Some m)
     in
-    ret @@ B.Module.{ imports; functions = functions'; main = main' }
+    ret @@ B.Module.{ imports = imports'; functions = functions'; main = main' }
 end

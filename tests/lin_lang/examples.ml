@@ -91,6 +91,30 @@ let incr_n =
       (app incr_n (r0, 3)))
     |}
 
+let fix_factorial =
+  Parse.from_string_exn
+    {|
+      (let (fix : (((int -> int) -> (int -> int)) -> (int -> int))) =
+        (lam (f : ((int -> int) -> (int -> int))) : (int -> int) .
+          (let (omega : ((rec a (a -> (int -> int))) -> (int -> int))) =
+            (lam (x : (rec a (a -> (int -> int)))) : (int -> int) .
+              (let (ux : ((rec a (a -> (int -> int))) -> (int -> int))) =
+                (unfold (rec a (a -> (int -> int))) x) in
+              (let (xx : (int -> int)) = (app ux x) in
+              (app f xx)))) in
+          (app omega (fold (rec a (a -> (int -> int))) omega)))) in
+      (let (factorial : (int -> int)) =
+        (app fix (lam (rec : (int -> int)) : (int -> int) .
+          (lam (n : int) : int .
+            (if0 n then
+                1
+              else
+                (let (n-sub1 : int) = (- n 1) in
+                (let (rec-res : int) = (app rec n-sub1) in
+                (* n rec-res))))))) in
+      (app factorial 5)))
+    |}
+
 let all =
   [
     ("simple_app_lambda", simple_app_lambda);
@@ -100,4 +124,5 @@ let all =
     ("factorial_program", factorial_program);
     ("safe_div", safe_div);
     ("incr_n", incr_n);
+    ("fix_factorial", fix_factorial);
   ]

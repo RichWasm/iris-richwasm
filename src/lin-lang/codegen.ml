@@ -102,9 +102,7 @@ module Compile = struct
       | Tuple vs ->
           let* vs' = mapM ~f:(type_of_value env) vs in
           Ok (Prod vs' : A.Type.t)
-      | Pack (witness, value, typ) ->
-          (* TODO: check? *)
-          Ok typ
+      | Pack (_, _, typ) -> Ok typ
 
     let rec type_of_expr (env : TEnv.t) : A.Expr.t -> A.Type.t t = function
       | Val v -> type_of_value env v

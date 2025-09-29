@@ -99,11 +99,12 @@ module Quantifier = struct
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp ff : t -> unit = function 
+
+  let pp ff : t -> unit = function
     | Memory -> fprintf ff "mem"
     | Representation -> fprintf ff "rep"
     | Size -> fprintf ff "size"
-    | Type k-> fprintf ff "type %a" Kind.pp  k
+    | Type k -> fprintf ff "type %a" Kind.pp k
 end
 
 module Sign = struct
@@ -403,6 +404,7 @@ end = struct
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
   let pp ff (FunctionType (quals, ts1, ts2)) =
     let rec go = function
       | [] ->
@@ -414,7 +416,7 @@ end = struct
           go xs;
           fprintf ff ")@]"
     in
-    go quals;
+    go quals
 end
 
 module InstructionType = struct
