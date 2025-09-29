@@ -167,7 +167,7 @@ Section FundamentalKinding.
       destruct κ; cbn; typeclasses eauto.
     - admit.
     - admit.
-    - auto.
+    - admit.
     - auto.
     - admit. (* explicit copy *)
     - admit. (* function type stuff...? *)
