@@ -54,41 +54,26 @@ let%expect_test "indexes examples" =
            printf "-----------%s-----------@.%a@." n IR.Module.pp res
          with Failure msg ->
            printf "-----------%s-----------@.FAILURE %s@." n msg);
-  [%expect{|
+  [%expect
+    {|
+    -----------simple_app_lambda-----------
+    ((imports ()) (functions ())
+     (main ((App (Lam Int Int (Val (Var (0 (x))))) (Int 10)))))
     -----------add_one_program-----------
     ((imports ())
      (functions
-      (((export true) (name add_one) (param Int) (return Int)
+      (((export true) (name add-one) (param Int) (return Int)
         (body (Binop Add (Var (0 (x))) (Int 1))))))
-     (main ((App (Coderef add_one) (Int 42)))))
-    -----------swap_pair_program-----------
-    ((imports ())
-     (functions
-      (((export true) (name swap) (param (Prod (Int Int)))
-        (return (Prod (Int Int)))
-        (body
-         (LetProd (Int Int) (Val (Var (0 (p))))
-          (Val (Tuple ((Var (0 (y))) (Var (1 (x)))))))))))
-     (main ((App (Coderef swap) (Tuple ((Int 1) (Int 2)))))))
-    -----------compose_program-----------
-    ((imports ())
-     (functions
-      (((export true) (name compose) (param (Lollipop Int Int))
-        (return (Lollipop (Lollipop Int Int) (Lollipop Int Int)))
-        (body
-         (Val
-          (Lam (Lollipop Int Int) (Lollipop Int Int)
-           (Val
-            (Lam Int Int
-             (Let Int (App (Var (1 (g))) (Var (0 (x))))
-              (App (Var (3 (f))) (Var (0 (g_result)))))))))))))
-     (main ()))
-    -----------reference_example-----------
+     (main ((App (Coderef add-one) (Int 42)))))
+    -----------add_tup_ref-----------
     ((imports ()) (functions ())
      (main
-      ((Let (Ref Int) (New (Int 10))
-        (Let Int (Swap (Var (0 (r))) (Int 20))
-         (Let Int (Free (Var (1 (r)))) (Val (Var (1 (old_val))))))))))
+      ((Let (Ref Int) (New (Int 2))
+        (Split (Int (Ref Int)) (Val (Tuple ((Int 1) (Var (0 (r))))))
+         (Let Int (Free (Var (0 (x2)))) (Binop Add (Var (2 (x1))) (Var (0 (x2'))))))))))
+    -----------print_10-----------
+    ((imports (((typ (Lollipop Int (Prod ()))) (name print)))) (functions ())
+     (main ((App (Coderef print) (Int 10)))))
     -----------factorial_program-----------
     ((imports ())
      (functions
@@ -96,42 +81,44 @@ let%expect_test "indexes examples" =
         (body
          (If0 (Var (0 (n))) (Val (Int 1))
           (Let Int (Binop Sub (Var (0 (n))) (Int 1))
-           (Let Int (App (Coderef factorial) (Var (0 (n_minus_1))))
-            (Let Int (Binop Mul (Var (2 (n))) (Var (0 (rec_result))))
-             (Val (Var (0 (final_result))))))))))))
+           (Let Int (App (Coderef factorial) (Var (0 (n-sub1))))
+            (Binop Mul (Var (2 (n))) (Var (0 (rec-res)))))))))))
      (main ((App (Coderef factorial) (Int 5)))))
-    -----------module_with_imports-----------
-    ((imports
-      (((typ (Lollipop Int Int)) (name external_inc))
-       ((typ (Lollipop (Prod (Int Int)) Int)) (name external_add))))
-     (functions
-      (((export true) (name double_inc) (param Int) (return Int)
-        (body
-         (Let Int (App (Coderef external_inc) (Var (0 (x))))
-          (App (Coderef external_inc) (Var (0 (first_inc)))))))))
-     (main ((App (Coderef double_inc) (Int 5)))))
-    -----------complex_example-----------
+    -----------safe_div-----------
     ((imports ())
      (functions
-      (((export true) (name process_pair) (param (Prod (Int Int))) (return Int)
+      (((export false) (name safe_div) (param (Prod (Int Int)))
+        (return (Sum (Int (Prod ()))))
         (body
-         (LetProd (Int Int) (Val (Var (0 (input))))
-          (Let Int (Binop Add (Var (1 (a))) (Var (0 (b))))
-           (Let (Ref Int) (New (Var (0 (sum))))
-            (Let Int (Binop Mul (Var (3 (a))) (Var (2 (b))))
-             (Let (Ref Int) (New (Var (0 (product))))
-              (Let Int (Swap (Var (2 (r1))) (Int 0))
-               (Let Int (Swap (Var (1 (r2))) (Int 0))
-                (Let Int (Free (Var (4 (r1))))
-                 (Let Int (Free (Var (3 (r2))))
-                  (Let Int (Binop Add (Var (3 (sum_val))) (Var (2 (prod_val))))
-                   (Val (Var (0 (final_result))))))))))))))))))
-     (main ((App (Coderef process_pair) (Tuple ((Int 3) (Int 4)))))))
-    -----------closure_example-----------
-    ((imports ())
-     (functions
-      (((export true) (name make_adder) (param Int) (return (Lollipop Int Int))
-        (body (Val (Lam Int Int (Binop Add (Var (1 (n))) (Var (0 (x))))))))))
+         (Split (Int Int) (Val (Var (0 (p))))
+          (If0 (Var (0 (y))) (Val (Inj 1 (Tuple ()) (Sum (Int (Prod ())))))
+           (Let Int (Binop Div (Var (1 (x))) (Var (0 (y))))
+            (Val (Inj 0 (Var (0 (q))) (Sum (Int (Prod ()))))))))))
+       ((export false) (name from_either) (param (Sum (Int (Prod ()))))
+        (return Int)
+        (body
+         (Cases (Var (0 (e)))
+          ((Int (Val (Var (0 (ok))))) ((Prod ()) (Val (Int 0)))))))))
      (main
-      ((Let (Lollipop Int Int) (App (Coderef make_adder) (Int 5))
-        (App (Var (0 (add5))) (Int 10)))))) |}]
+      ((Let (Sum (Int (Prod ())))
+        (App (Coderef safe_div) (Tuple ((Int 10) (Int 0))))
+        (App (Coderef from_either) (Var (0 (r))))))))
+    -----------incr_n-----------
+    ((imports ())
+     (functions
+      (((export false) (name incr_1) (param (Ref Int)) (return (Ref Int))
+        (body
+         (Split (Int (Ref Int)) (Swap (Var (0 (r))) (Int 0))
+          (Let Int (Binop Add (Var (1 (old))) (Int 1))
+           (Let (Prod (Int (Ref Int))) (Swap (Var (1 (r1))) (Var (0 (new))))
+            (Split (Int (Ref Int)) (Val (Var (0 (p2)))) (Val (Var (0 (r2))))))))))
+       ((export true) (name incr_n) (param (Prod ((Ref Int) Int))) (return Int)
+        (body
+         (Split ((Ref Int) Int) (Val (Var (0 (p))))
+          (If0 (Var (0 (n))) (Free (Var (1 (r))))
+           (Let (Ref Int) (App (Coderef incr_1) (Var (1 (r))))
+            (Let Int (Binop Sub (Var (1 (n))) (Int 1))
+             (App (Coderef incr_n) (Tuple ((Var (1 (r1))) (Var (0 (n1))))))))))))))
+     (main
+      ((Let (Ref Int) (New (Int 10))
+        (App (Coderef incr_n) (Tuple ((Var (0 (r0))) (Int 3)))))))) |}]

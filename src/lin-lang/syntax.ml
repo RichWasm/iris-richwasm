@@ -23,19 +23,24 @@ module Type = struct
     | Int
     | Lollipop of t * t
     | Prod of t list
+    | Sum of t list
     | Ref of t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
-  let rec pp ff : t -> unit = function
+  let rec pp ff : t -> unit =
+    let pp_sep ~(sep : string) ts =
+      fprintf ff "@[(";
+      Internal.pp_list
+        (fun x -> fprintf ff "%a" pp x)
+        (fun () -> fprintf ff "@ %s@ " sep)
+        ts;
+      fprintf ff ")@]"
+    in
+    function
     | Int -> fprintf ff "@[int@]"
     | Lollipop (t1, t2) -> fprintf ff "@[(%a@ ⊸@ %a)@]" pp t1 pp t2
-    | Prod ts ->
-        fprintf ff "@[(";
-        Internal.pp_list
-          (fun x -> fprintf ff "%a" pp x)
-          (fun () -> fprintf ff "@ ⊗@ ")
-          ts;
-        fprintf ff ")@]"
+    | Prod ts -> pp_sep ~sep:"⊗" ts
+    | Sum ts -> pp_sep ~sep:"⊕" ts
     | Ref t -> fprintf ff "@[(ref@ %a)@]" pp t
 
   let string_of = asprintf "%a" pp
@@ -72,7 +77,8 @@ module rec Value : sig
     | Var of Variable.t
     | Int of int
     | Lam of Binding.t * Type.t * Expr.t
-    | Tuple of Value.t list
+    | Tuple of t list
+    | Inj of int * t * Type.t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   val pp_sexp : formatter -> t -> unit
@@ -83,7 +89,8 @@ end = struct
     | Var of Variable.t
     | Int of int
     | Lam of Binding.t * Type.t * Expr.t
-    | Tuple of Value.t list
+    | Tuple of t list
+    | Inj of int * t * Type.t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -101,6 +108,8 @@ end = struct
           (fun () -> fprintf ff ",@ ")
           vs;
         fprintf ff ")@]"
+    | Inj (i, v, t) ->
+        fprintf ff "@[(inj %a %a@ :@ %a)" Int.pp i Value.pp v Type.pp t
 
   let string_of = asprintf "%a" pp
 end
@@ -110,7 +119,8 @@ and Expr : sig
     | Val of Value.t
     | App of Value.t * Value.t
     | Let of Binding.t * Expr.t * Expr.t
-    | LetProd of Binding.t list * Expr.t * Expr.t
+    | Split of Binding.t list * Expr.t * Expr.t
+    | Cases of Value.t * (Binding.t * t) list
     | If0 of Value.t * Expr.t * Expr.t
     | Binop of Binop.t * Value.t * Value.t
     | New of Value.t
@@ -126,7 +136,8 @@ end = struct
     | Val of Value.t
     | App of Value.t * Value.t
     | Let of Binding.t * Expr.t * Expr.t
-    | LetProd of Binding.t list * Expr.t * Expr.t
+    | Split of Binding.t list * Expr.t * Expr.t
+    | Cases of Value.t * (Binding.t * t) list
     | If0 of Value.t * Expr.t * Expr.t
     | Binop of Binop.t * Value.t * Value.t
     | New of Value.t
@@ -143,13 +154,21 @@ end = struct
     | Let (bind, e, body) ->
         fprintf ff "@[<v 0>@[<2>(let@ %a@ =@ %a@ in@]@;@[<2>%a)@]@]" Binding.pp
           bind pp e pp body
-    | LetProd (bs, e, b) ->
-        fprintf ff "@[<v 0>@[<2>(letprod@ (";
+    | Split (bs, e, b) ->
+        fprintf ff "@[<v 0>@[<2>(split@ (";
         Internal.pp_list
           (fun x -> fprintf ff "%a" Binding.pp x)
           (fun () -> fprintf ff ",@ ")
           bs;
         fprintf ff ")@ =@ %a@ in@]@;@[<2>%a)@]@]" pp e pp b
+    | Cases (scrutinee, cases) ->
+        fprintf ff "@[<v 2>@[<2>(cases %a@]@;" Value.pp scrutinee;
+        Internal.pp_list
+          (fun (binding, body) ->
+            fprintf ff "@[<2>(case %a@ %a)@]" Binding.pp binding pp body)
+          (fun () -> fprintf ff "@;")
+          cases;
+        fprintf ff "@[<2>)@]@]"
     | If0 (v, e1, e2) ->
         fprintf ff "@[<2>(if %a@;then %a@;else@ %a)@]" Value.pp v pp e1 pp e2
     | Binop (op, l, r) ->

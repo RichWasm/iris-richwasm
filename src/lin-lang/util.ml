@@ -30,25 +30,47 @@ module Monad_ops (M : Monad) = struct
 
   let all = sequence
 
-  let traverse ~(f : 'a -> 'b t) (xs : 'a list) : 'b list t =
+  let traverse (lst : 'a list) ~(f : 'a -> 'b t) : 'b list t =
     let rec go acc = function
       | [] -> ret (List.rev acc)
       | x :: xs ->
           let* y = f x in
           go (y :: acc) xs
     in
-    go [] xs
+    go [] lst
 
   let mapM = traverse
 
-  let foldM ~(f : 'acc -> 'a -> 'acc t) ~(init : 'acc) (xs : 'a list) : 'acc t =
+  let traversei (lst : 'a list) ~(f : int -> 'a -> 'b t) : 'b list t =
+    let rec go i acc = function
+      | [] -> ret acc
+      | x :: xs ->
+          let* y = f i x in
+          go (i + 1) (y :: acc) xs
+    in
+    let+ res = go 0 [] lst in
+    List.rev res
+
+  let mapiM = traversei
+
+  let foldM (lst : 'a list) ~(f : 'b -> 'a -> 'b t) ~(init : 'b) : 'b t =
     let rec go acc = function
       | [] -> ret acc
       | x :: xs ->
           let* acc' = f acc x in
           go acc' xs
     in
-    go init xs
+    go init lst
+
+  let foldiM (lst : 'a list) ~(f : int -> 'b -> 'a -> 'b t) ~(init : 'b) : 'b t
+      =
+    let rec go i acc = function
+      | [] -> ret acc
+      | x :: xs ->
+          let* acc' = f i acc x in
+          go (i + 1) acc' xs
+    in
+    go 0 init lst
 
   let iterM (f : 'a -> unit t) (xs : 'a list) : unit t =
     foldM ~f:(fun () x -> f x) ~init:() xs

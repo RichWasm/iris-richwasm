@@ -21,18 +21,20 @@ end
 module Err = struct
   type t =
     | ExpectedType of Path.t * Sexp.t
-    | MalformedProdArity of Path.t * Sexp.t list
-    | MalformedProdSep of Path.t * Sexp.t
+    | MalformedInfixArity of Path.t * Sexp.t list
+    | MalformedInfixSep of Path.t * Sexp.t
+    | MalformedInjTag of Path.t * string
     | ExpectedBinding of Path.t * Sexp.t
     | ExpectedBinop of Path.t * Sexp.t
     | ExpectedValue of Path.t * Sexp.t
     | MalformedTuple of Path.t * Sexp.t
     | ExpectedExpr of Path.t * Sexp.t
+    | ExpectedCase of Path.t * Sexp.t
     | ExpectedImport of Path.t * Sexp.t
     | ExpectedTopLevel of Path.t * Sexp.t
     | ExpectedModule of Sexp.t list
-    | ParseError of (Parsexp.Parse_error.t[@sexp.opaque])
-  [@@deriving sexp]
+    | ParseError of Parsexp.Parse_error.t
+  [@@deriving sexp_of]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -46,48 +48,60 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
   | List [ Atom "ref"; t ] ->
       let* t' = parse_type (Tag "ref" :: p) t in
       ret @@ Type.Ref t'
-  | List [ t1; Atom "⊸"; t2 ]
-  | List [ t1; Atom "-o"; t2 ]
-  | List [ t1; Atom "->"; t2 ] ->
+  | List [ t1; Atom ("⊸" | "-o" | "->"); t2 ] ->
       let p = Path.add p ~tag:"lollipop" in
       let* t1' = parse_type (p ~field:"t1") t1 in
       let* t2' = parse_type (p ~field:"t2") t2 in
       ret @@ Type.Lollipop (t1', t2')
   | List (Atom "prod" :: ts) ->
       let* ts' =
-        List.mapi ~f:(fun i x -> parse_type (Idx i :: Tag "prod" :: p) x) ts
-        |> Result.all
+        mapiM ~f:(fun i x -> parse_type (Idx i :: Tag "prod" :: p) x) ts
       in
       ret @@ Type.Prod ts'
+  | List (Atom "sum" :: ts) ->
+      let* ts' =
+        mapiM ~f:(fun i x -> parse_type (Idx i :: Tag "sum" :: p) x) ts
+      in
+      ret @@ Type.Sum ts'
   | List lst ->
       let n = List.length lst in
-      if Int.equal (n % 2) 0 then
-        fail Err.(MalformedProdArity (p, lst))
+      if Int.equal (n % 2) 0 && n <> 0 then
+        fail Err.(MalformedInfixArity (p, lst))
       else
-        let* ts =
-          List.mapi
-            ~f:(fun i t ->
-              let p' : Path.t = Idx i :: Tag "prod" :: p in
+        let rec go i (kind : [ `Prod | `Sum ] option) (acc : Type.t list) =
+          function
+          | [] ->
+              ret
+                (match Option.value ~default:`Prod kind with
+                | `Prod -> Type.Prod (List.rev acc)
+                | `Sum -> Type.Sum (List.rev acc))
+          | t :: ts -> (
               if Int.equal (i % 2) 0 then
-                let* t' = parse_type p' t in
-                ret @@ Some t'
+                let tag =
+                  match kind with
+                  | Some `Sum -> "sum"
+                  | Some `Prod -> "prod"
+                  | None -> "prod?"
+                in
+                let* t' = parse_type (Idx i :: Tag tag :: p) t in
+                go (i + 1) kind (t' :: acc) ts
               else
+                let valid_prod = function
+                  | Some `Prod | None -> true
+                  | _ -> false
+                in
+                let valid_sum = function
+                  | Some `Sum | None -> true
+                  | _ -> false
+                in
                 match t with
-                | Atom ("⊗" | "*") -> Ok None
-                | x -> fail Err.(MalformedProdSep (p', x)))
-            lst
-          |> Result.all
+                | Atom ("⊗" | "*") when valid_prod kind ->
+                    go (i + 1) (Some `Prod) acc ts
+                | Atom ("⊕" | "+") when valid_sum kind ->
+                    go (i + 1) (Some `Sum) acc ts
+                | x -> fail Err.(MalformedInfixSep (Idx i :: p, x)))
         in
-        let ts =
-          List.fold ~init:[]
-            ~f:(fun acc x ->
-              match x with
-              | None -> acc
-              | Some x -> x :: acc)
-            ts
-          |> List.rev
-        in
-        ret @@ Type.Prod ts
+        go 0 None [] lst
   | x -> fail Err.(ExpectedType (p, x))
 
 let parse_binding (p : Path.t) : Sexp.t -> Binding.t Res.t =
@@ -123,11 +137,21 @@ let rec parse_value (p : Path.t) : Sexp.t -> Value.t Res.t =
       ret @@ Value.Lam (binding', ret_t', body')
   | List (Atom "tup" :: vs) ->
       let* vs' =
-        List.mapi ~f:(fun i x -> parse_value (Idx i :: Tag "tup" :: p) x) vs
-        |> Result.all
+        mapiM ~f:(fun i x -> parse_value (Idx i :: Tag "tup" :: p) x) vs
       in
       ret @@ Value.Tuple vs'
-      (* FIXME: nested tuples are broken *)
+  | List [ Atom "inj"; Atom i; v; Atom ":"; typ ]
+  | List [ Atom "inj"; Atom i; v; typ ] ->
+      let* i =
+        match Int.of_string_opt i with
+        | Some i -> ret i
+        | None -> fail Err.(MalformedInjTag (p, i))
+      in
+      let p = Path.add p ~tag:"inj" in
+      let* v' = parse_value (p ~field:"v") v in
+      let* typ' = parse_type (p ~field:"typ") typ in
+      ret @@ Value.Inj (i, v', typ')
+  (* FIXME: nested tuples are broken *)
   | List atoms ->
       (* Check if this is a comma-separated tuple eq (1, 2, 3) *)
       let rec check_and_parse acc idx : Sexp.t list -> 'a = function
@@ -165,8 +189,8 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
       let* e1' = parse_expr (p ~field:"e1") e1 in
       let* e2' = parse_expr (p ~field:"e2") e2 in
       ret @@ Expr.Let (binding', e1', e2')
-  | List (Atom "letprod" :: rst) as sexp ->
-      let p : Path.t = Tag "letprod" :: p in
+  | List (Atom "split" :: rst) as sexp ->
+      let p : Path.t = Tag "split" :: p in
       (* Split on "=" to separate bindings from expressions *)
       let rec split_on_eq acc : Sexp.t list -> (Sexp.t list * Sexp.t list) Res.t
           = function
@@ -185,11 +209,11 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
         match rest with
         | [ e1; Atom "in"; e2 ] -> Ok (e1, e2)
         | [ e1; e2 ] -> Ok (e1, e2)
-        | _ -> fail Err.(ExpectedExpr (p, List (Atom "letprod" :: rst)))
+        | _ -> fail Err.(ExpectedExpr (p, List (Atom "split" :: rst)))
       in
       let* e1' = parse_expr (Field "e1" :: p) e1 in
       let* e2' = parse_expr (Field "e2" :: p) e2 in
-      ret @@ Expr.LetProd (bindings', e1', e2')
+      ret @@ Expr.Split (bindings', e1', e2')
   | List [ Atom "if0"; v; Atom "then"; e1; Atom "else"; e2 ]
   | List [ Atom "if0"; v; e1; e2 ] ->
       let p = Path.add p ~tag:"if0" in
@@ -208,6 +232,23 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
   | List [ Atom "free"; v ] ->
       let* v' = parse_value (Tag "free" :: p) v in
       ret @@ Expr.Free v'
+  | List (Atom "cases" :: scrutinee :: cases) ->
+      let p : Path.t = Tag "cases" :: p in
+      let* scrutinee' = parse_value (Field "scrutinee" :: p) scrutinee in
+      let* cases' =
+        mapiM
+          ~f:(fun i ->
+            let p : Path.t = Idx i :: Field "cases" :: p in
+            function
+            | List [ Atom "case"; binding; expr ] ->
+                let p : Path.t = Tag "case" :: p in
+                let* binding' = parse_binding (Field "binding" :: p) binding in
+                let* expr' = parse_expr (Field "expr" :: p) expr in
+                ret (binding', expr')
+            | s -> fail Err.(ExpectedCase (p, s)))
+          cases
+      in
+      ret @@ Expr.Cases (scrutinee', cases')
   | List [ f1; f2; f3 ] -> (
       let p' = Path.add p ~tag:"binop" in
       (* try (op l r) if (l op r) fails (assumes valid op is not variable name) *)
@@ -253,13 +294,10 @@ let parse_import (p : Path.t) : Sexp.t -> Import.t Res.t =
 let parse_function (p : Path.t) : Sexp.t -> Function.t Res.t =
   let open Res in
   let help ?(export = false) name maybe_param maybe_return maybe_body =
-    let* param =
-      parse_binding (Path.add ~tag:"fun" ~field:"param" p) maybe_param
-    in
-    let* return =
-      parse_type (Path.add ~tag:"fun" ~field:"return" p) maybe_return
-    in
-    let* body = parse_expr (Path.add ~tag:"fun" ~field:"body" p) maybe_body in
+    let tag = Stdlib.Format.sprintf "fun:%s" name in
+    let* param = parse_binding (Path.add ~tag ~field:"param" p) maybe_param in
+    let* return = parse_type (Path.add ~tag ~field:"return" p) maybe_return in
+    let* body = parse_expr (Path.add ~tag ~field:"body" p) maybe_body in
     ret @@ Function.{ export; name; param; return; body }
   in
   function
@@ -304,8 +342,8 @@ let parse_module (p : Path.t) : Sexp.t list -> Module.t Res.t =
                     classify imports functions (Some main) []
                 | _, _ -> fail Err.(ExpectedModule sexps)))
       in
-      let* imports, functions, main = classify [] [] None sexps in
-      ret @@ Module.{ imports; functions; main }
+      let+ imports, functions, main = classify [] [] None sexps in
+      Module.{ imports; functions; main }
 
 let from_string (s : string) : Module.t Res.t =
   let open Res in

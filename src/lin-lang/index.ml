@@ -34,6 +34,7 @@ module IR = struct
       | Int of int
       | Lam of Type.t * Type.t * Expr.t
       | Tuple of t list
+      | Inj of int * t * Type.t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     val pp : Stdlib.Format.formatter -> t -> unit
@@ -44,6 +45,7 @@ module IR = struct
       | Int of int
       | Lam of Type.t * Type.t * Expr.t
       | Tuple of t list
+      | Inj of int * t * Type.t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -56,8 +58,9 @@ module IR = struct
       | Let of Type.t * t * t
       | If0 of Value.t * t * t
       | Binop of Binop.t * Value.t * Value.t
-      (* let (x_0:ty_0, ..., x_n:ty_n) = rhs in body; x_n -> 0, x_0 -> n *)
-      | LetProd of Type.t list * t * t
+      (* split (x_0:ty_0, ..., x_n:ty_n) = rhs in body; x_n -> 0, x_0 -> n *)
+      | Split of Type.t list * t * t
+      | Cases of Value.t * (Type.t * t) list
       | New of Value.t
       | Swap of Value.t * Value.t
       | Free of Value.t
@@ -71,7 +74,8 @@ module IR = struct
       | Let of Type.t * t * t
       | If0 of Value.t * t * t
       | Binop of Binop.t * Value.t * Value.t
-      | LetProd of Type.t list * t * t
+      | Split of Type.t list * t * t
+      | Cases of Value.t * (Type.t * t) list
       | New of Value.t
       | Swap of Value.t * Value.t
       | Free of Value.t
@@ -164,6 +168,9 @@ module Compile = struct
     | Tuple vs ->
         let* vs' = mapM ~f:(compile_value env) vs in
         ret (Tuple vs' : B.Value.t)
+    | Inj (i, v, t) ->
+        let* v' = compile_value env v in
+        ret (Inj (i, v', t))
 
   and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t Res.t =
     let open B.Expr in
@@ -181,6 +188,23 @@ module Compile = struct
         let env' = Env.add env var in
         let* body' = compile_expr env' body in
         ret @@ Let (typ, e', body')
+    | Split (bindings, e, body) ->
+        let* e' = compile_expr env e in
+        let vars, typs = List.unzip bindings in
+        let env' = Env.add_all env vars in
+        let* body' = compile_expr env' body in
+        ret @@ Split (typs, e', body')
+    | Cases (scrutinee, cases) ->
+        let* scrutinee' = compile_value env scrutinee in
+        let* cases' =
+          mapM
+            ~f:(fun ((x, t), body) ->
+              let env' = Env.add env x in
+              let+ body' = compile_expr env' body in
+              (t, body'))
+            cases
+        in
+        ret @@ Cases (scrutinee', cases')
     | If0 (v, e1, e2) ->
         let* v' = compile_value env v in
         let* e1' = compile_expr env e1 in
@@ -190,12 +214,6 @@ module Compile = struct
         let* l' = compile_value env l in
         let* r' = compile_value env r in
         ret @@ Binop (op, l', r')
-    | LetProd (bindings, e, body) ->
-        let* e' = compile_expr env e in
-        let vars, typs = List.unzip bindings in
-        let env' = Env.add_all env vars in
-        let* body' = compile_expr env' body in
-        ret @@ LetProd (typs, e', body')
     | New v ->
         let* v' = compile_value env v in
         ret @@ New v'

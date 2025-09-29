@@ -131,13 +131,13 @@ let%expect_test "basic functionality" =
   run
     {| 
       (let (r : (ref int)) = (new 2) in
-      (letprod (x1 : int) (x2 : (ref int)) = (tup 1 r) in
+      (split (x1 : int) (x2 : (ref int)) = (tup 1 r) in
       (let (x2' : int) = (free x2) in
         (x1 * x2)))) |};
   [%expect
     {|
     (let (r : (ref int)) = (new 2) in
-    (letprod ((x1 : int), (x2 : (ref int))) = (1, r) in
+    (split ((x1 : int), (x2 : (ref int))) = (1, r) in
     (let (x2' : int) = (free x2) in
     (x1 × x2)))) |}];
   next ();
@@ -146,7 +146,7 @@ let%expect_test "basic functionality" =
     ((imports ()) (functions ())
      (main
       ((Let (r (Ref Int)) (New (Int 2))
-        (LetProd ((x1 Int) (x2 (Ref Int))) (Val (Tuple ((Int 1) (Var r))))
+        (Split ((x1 Int) (x2 (Ref Int))) (Val (Tuple ((Int 1) (Var r))))
          (Let (x2' Int) (Free (Var x2)) (Binop Mul (Var x1) (Var x2)))))))) |}];
 
   run {| (if0 0 then 67 else 42) |};
@@ -175,10 +175,10 @@ let%expect_test "basic functionality" =
      (main ((New (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5) (Int 6))))))) |}];
 
   run
-    {| 
+    {|
       (let (r1 : (ref int)) = (new 32) in
       (let (r2 : (ref int)) = (new 64) in
-      (letprod (r2' : (ref int)) (r1' : (ref int)) = (swap r1 r2) in
+      (split (r2' : (ref int)) (r1' : (ref int)) = (swap r1 r2) in
       (let (x2 : int) = (free r2') in
       (let (x1 : int) = (free r1') in
       (+ x1 x2)))))) |};
@@ -186,7 +186,7 @@ let%expect_test "basic functionality" =
     {|
     (let (r1 : (ref int)) = (new 32) in
     (let (r2 : (ref int)) = (new 64) in
-    (letprod ((r2' : (ref int)), (r1' : (ref int))) = (swap r1 r2) in
+    (split ((r2' : (ref int)), (r1' : (ref int))) = (swap r1 r2) in
     (let (x2 : int) = (free r2') in
     (let (x1 : int) = (free r1') in
     (x1 + x2)))))) |}];
@@ -197,7 +197,7 @@ let%expect_test "basic functionality" =
      (main
       ((Let (r1 (Ref Int)) (New (Int 32))
         (Let (r2 (Ref Int)) (New (Int 64))
-         (LetProd ((r2' (Ref Int)) (r1' (Ref Int))) (Swap (Var r1) (Var r2))
+         (Split ((r2' (Ref Int)) (r1' (Ref Int))) (Swap (Var r1) (Var r2))
           (Let (x2 Int) (Free (Var r2'))
            (Let (x1 Int) (Free (Var r1')) (Binop Add (Var x1) (Var x2)))))))))) |}];
 
