@@ -63,19 +63,19 @@ Section Repr.
   Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
   | ReprPtrInt θ n :
     n `mod` 2 = 0 ->
-    repr_pointer θ (PtrInt n) (2 * n + 1)
+    repr_pointer θ (PtrInt n) (2 * n)
   | ReprPtrMM θ a :
     (a `mod` 4 = 0)%N ->
-    repr_pointer θ (PtrMM a) (Z.of_N a)
+    repr_pointer θ (PtrMM a) (Z.of_N a + 1)
   | ReprPtrGC θ ℓ a :
     θ !! ℓ = Some a ->
     (a `mod` 4 = 0)%N ->
     (a >= heap_start)%N ->
-    repr_pointer θ (PtrGC ℓ) (Z.of_N (a + 2))
+    repr_pointer θ (PtrGC ℓ) (Z.of_N a + 3)
   | ReprPtrRoot θ a :
     (a `mod` 4 = 0)%N ->
     (a < heap_start)%N ->
-    repr_pointer θ (PtrRoot a) (Z.of_N (a + 2)).
+    repr_pointer θ (PtrRoot a) (Z.of_N a + 3).
 
   Inductive repr_word : address_map -> word -> Z -> Prop :=
   | ReprWordInt θ n :
@@ -101,26 +101,17 @@ Section Repr.
     repr_location_index θ ℓ i a.
 
   Inductive ser_value : rep_value -> list word -> Prop :=
-  | SerPtrInt i n :
-    n `mod` 2 = 0 ->
-    i = Wasm_int.int_of_Z i32m (2 * n + 1) ->
-    ser_value (PtrV i) [WordPtr (PtrInt n)]
-  | SerPtrMM i a :
-    (a `mod` 4 = 0)%N ->
-    i = Wasm_int.int_of_Z i32m (Z.of_N a) ->
-    ser_value (PtrV i) [WordPtr (PtrMM a)]
-  | SerPtrRoot i a :
-    (a `mod` 4 = 0)%N ->
-    (a < heap_start)%N ->
-    i = Wasm_int.int_of_Z i32m (Z.of_N (a + 2)) ->
-    ser_value (PtrV i) [WordPtr (PtrRoot a)]
+  | SerPtr i p n :
+    i = Wasm_int.int_of_Z i32m n ->
+    repr_pointer ∅ p n ->
+    ser_value (PtrV i) [WordPtr p]
   | SerI32 i n :
     i = Wasm_int.int_of_Z i32m n ->
     ser_value (I32V i) [WordInt n]
-  | SerI64 i n n1 n2 :
-    (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = n ->
+  | SerI64 i n w1 w2 :
     i = Wasm_int.int_of_Z i64m n ->
-    ser_value (I64V i) [WordInt n1; WordInt n2]
+    repr_double_word ∅ w1 w2 n ->
+    ser_value (I64V i) [w1; w2]
   | SerF32 i f n :
     ser_value (I32V i) [WordInt n] ->
     serialise_i32 i = serialise_f32 f ->
