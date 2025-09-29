@@ -27,17 +27,13 @@ homepage: "https://github.com/logsem/iriswasm"
 bug-reports: "https://github.com/logsem/iriswasm/issues"
 depends: [
   "dune" {>= "3.16"}
-  "rocq-prover" {>= "9.0.0"}
-  "coq-iris" {>= "4.3.0"}
-  "coq-stdpp" {>= "1.11.0"}
   "coq-compcert" {>= "3.16"}
-  "coq-ext-lib" {>= "0.13.0"}
-  "coq-mathcomp-ssreflect" {>= "2.3.0"}
-  "rocq-parseque" {>= "0.3.0"}
+  "coq-iris" {>= "4.3.0"}
   "coq-itree" {>= "5.2.0"}
-  "cmdliner" {>= "1.3.0"}
-  "linenoise" {>= "1.5.1"}
   "mdx" {>= "2.5.0"}
+  "rocq-mathcomp-ssreflect" {>= "2.4.0"}
+  "rocq-parseque" {>= "0.3.0"}
+  "rocq-prover" {>= "9.0.0"}
   "odoc" {with-doc}
 ]
 build: [
