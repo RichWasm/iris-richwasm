@@ -588,8 +588,8 @@ Section Instrs.
         ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
         ιs ← try_option EUnboundTypeVar (eval_rep ρ);
         idx ← save_stack_r ιs;
-        dup_roots_local idx ιs;;
         restore_stack_r idx ιs;;
+        dup_roots_local idx ιs;;
         restore_stack_r idx ιs
     | ICopy _ => raise EWrongTypeAnn
     | IDrop (InstrT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
