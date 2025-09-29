@@ -139,7 +139,6 @@ Section Fundamental.
   Proof.
     intros me fe ψ Hcopy Hok Hcompile.
     unfold compile_instr in Hcompile.
-    cbn in Hcompile.
     inv_cg_bind Hcompile ρ wl1 es_nil es1 Htype_rep Hcompile.
     inv_cg_bind Hcompile ιs wl2 es_nil' es2 Heval_rep Hcompile.
     unfold have_instruction_type_sem.

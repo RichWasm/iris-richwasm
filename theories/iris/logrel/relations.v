@@ -419,7 +419,6 @@ Section Relations.
     (* TODO: alloc_gc spec *)
     (* TODO: free spec *)
     (* TODO: registerroot spec *)
-    (* TODO: duproot spec *)
     (* TODO: unregisterroot spec *)
     ([∗ list] i ↦ ϕ ∈ M.(mc_functions),
        ∃ cl,

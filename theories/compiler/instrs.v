@@ -77,39 +77,41 @@ Section Instrs.
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_sub)).
 
   (** Root management. *)
-  Fixpoint foreach_gc_ptr (idx : W.localidx) (ιs : list primitive_rep) (op : codegen unit) :
+  Definition foreach_gc_ptr (idx : W.localidx) (ιs : list primitive_rep) (op : codegen unit) :
     codegen unit :=
     ignore $ forT (zip (seq (localimm idx) (length ιs)) ιs)
       (fun '(i, ι) =>
          match ι with
           | PtrR =>
               ignore $ ptr_case (W.Tf [] []) idx (mret ()) (mret ())
-                (emit $ W.BI_get_local (localimm idx);;
+                (emit $ W.BI_get_local i;;
                  clear_gc_bit;;
                  op)
          | _ => mret tt
          end).
 
-  Fixpoint foreach_gc_ptr_global (idx : W.globalidx) (ιs : list primitive_rep) (op : codegen unit) :
+  Definition foreach_gc_ptr_global (idx : W.globalidx) (ιs : list primitive_rep) (op : codegen unit) :
     codegen unit :=
     ignore $ forT (zip (seq (globalimm idx) (length ιs)) ιs)
       (fun '(i, ι) =>
          match ι with
           | PtrR =>
               ignore $ ptr_case_global (W.Tf [] []) idx (mret ()) (mret ())
-                (emit $ W.BI_get_global (globalimm idx);;
+                (emit $ W.BI_get_global i;;
                  clear_gc_bit;;
                  op)
          | _ => mret tt
          end).
 
+  Definition dup_root : codegen unit :=
+    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N 0%N);;
+    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
+
   Definition dup_roots_local (idx : W.localidx) (ιs : list primitive_rep) : codegen unit :=
-    foreach_gc_ptr idx ιs $ 
-      emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))).
+    foreach_gc_ptr idx ιs dup_root.
 
   Definition dup_roots_global (idx : W.globalidx) (ιs : list primitive_rep) : codegen unit :=
-    foreach_gc_ptr_global idx ιs $ 
-      emit (W.BI_call (funcimm me.(me_runtime).(mr_func_duproot))).
+    foreach_gc_ptr_global idx ιs dup_root.
 
   Definition unregister_roots_local (idx: W.localidx) (ιs : list primitive_rep) : codegen unit :=
     foreach_gc_ptr idx ιs $ 
@@ -138,7 +140,7 @@ Section Instrs.
     save_stack_w (concat tys).
 
   Definition restore_stack_w (x : W.localidx) (ty : W.result_type) : codegen unit :=
-    ignore (mapM (emit ∘ W.BI_get_local) (seq (localimm x) (length ty)) ).
+    ignore (mapM (emit ∘ W.BI_get_local) (seq (localimm x) (length ty))).
 
   Definition restore_stack_r (x: W.localidx) (ιs : list primitive_rep) : codegen unit :=
     restore_stack_w x (map translate_prim_rep ιs).
@@ -230,7 +232,7 @@ Section Instrs.
     '(idx', ιs) ← try_option EUnboundGlobal (lookup_global idx);
     unregister_roots_global idx' ιs;;
     set_global idx' ιs.
-  
+
   Definition compile_swap_global (idx : nat) : codegen unit :=
     '(idx', ιs) ← try_option EUnboundGlobal (lookup_global idx);
     get_global idx' ιs;;

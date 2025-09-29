@@ -32,7 +32,6 @@ Record module_runtime :=
     mr_func_alloc_gc : W.funcidx;
     mr_func_free : W.funcidx;
     mr_func_registerroot : W.funcidx;
-    mr_func_duproot : W.funcidx;
     mr_func_unregisterroot : W.funcidx;
     mr_func_user : W.funcidx;
     mr_table : W.tableidx;
