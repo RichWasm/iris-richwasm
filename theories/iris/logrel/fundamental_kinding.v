@@ -167,9 +167,17 @@ Section FundamentalKinding.
       destruct κ; cbn; typeclasses eauto.
     - admit.
     - admit.
-    - admit.
+    - admit. (* Product case! *)
     - auto.
-    - admit. (* explicit copy *)
+    - auto.
+    - iIntros (fr ιs vs es) "%Hevalrep %Hcopyop Hfr Hrun Hval".
+      unfold is_copy_operation in Hcopyop.
+      destruct Hcopyop as (fe & me & wl & wl' & es' & Hcg & Hes').
+      subst es.
+      inv_cg_bind Hcg res1 wl1 es_save es_rest1 Hcg_save Hcg_rest1; subst.
+      inv_cg_bind Hcg_rest1 res2 wl2 es_restore es_rest2 Hcg_restore Hcg_rest2; subst.
+      inv_cg_bind Hcg_rest2 res3 wl3 es_dup es_restore' Hcg_dup Hcg_restore'; subst.
+      admit.
     - admit. (* function type stuff...? *)
     - admit.
     - admit.
