@@ -172,6 +172,7 @@ and compile_expr delta gamma locals globals e =
   | Unpack (var, (n, t), v, e) ->
       cv v
       @ [
+          RefLoad (Path.Path [], compile_type delta t);
           Unpack
             ( InstructionType
                 ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
