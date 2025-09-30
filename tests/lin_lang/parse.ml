@@ -150,7 +150,7 @@ let%expect_test "basic functionality" =
          (Let (x2' Int) (Free (Var x2)) (Binop Mul (Var x1) (Var x2)))))))) |}];
 
   run {| (if0 0 then 67 else 42) |};
-  [%expect {| (if 0 then 67 else 42) |}];
+  [%expect {| (if0 0 then 67 else 42) |}];
   next ();
   [%expect
     {|
@@ -158,7 +158,7 @@ let%expect_test "basic functionality" =
      (main ((If0 (Int 0) (Val (Int 67)) (Val (Int 42)))))) |}];
 
   run {| (if0 1 (/ 10 2) (* 10 2)) |};
-  [%expect {| (if 1 then (10 ÷ 2) else (10 × 2)) |}];
+  [%expect {| (if0 1 then (10 ÷ 2) else (10 × 2)) |}];
   next ();
   [%expect
     {|

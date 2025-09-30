@@ -174,7 +174,7 @@ let%expect_test "pretty prints examples" =
     (app print 10)
     -----------factorial_program-----------
     (export fun factorial (n : int) : int .
-      (if n then 1 else
+      (if0 n then 1 else
         (let (n-sub1 : int) = (n - 1) in
         (let (rec-res : int) = (app factorial n-sub1) in
         (n × rec-res)))))
@@ -184,7 +184,7 @@ let%expect_test "pretty prints examples" =
     -----------safe_div-----------
     (fun safe_div (p : (int ⊗ int)) : (int ⊕ ()) .
       (split ((x : int), (y : int)) = p in
-      (if y
+      (if0 y
         then (inj 1 () : (int ⊕ ())) else
              (let (q : int) = (x ÷ y) in
              (inj 0 q : (int ⊕ ()))))))
@@ -206,7 +206,7 @@ let%expect_test "pretty prints examples" =
       r2)))))
     (export fun incr_n (p : ((ref int) ⊗ int)) : int .
       (split ((r : (ref int)), (n : int)) = p in
-      (if n then (free r) else
+      (if0 n then (free r) else
         (let (r1 : (ref int)) = (app incr_1 r) in
         (let (n1 : int) = (n - 1) in
         (app incr_n (r1, n1)))))))
@@ -229,7 +229,7 @@ let%expect_test "pretty prints examples" =
       (app fix
         (λ (rec : (int ⊸ int)) : (int ⊸ int) .
           (λ (n : int) : int .
-            (if n then 1 else
+            (if0 n then 1 else
               (let (n-sub1 : int) = (n - 1) in
               (let (rec-res : int) = (app rec n-sub1) in
               (n × rec-res)))))))

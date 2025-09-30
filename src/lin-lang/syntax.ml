@@ -180,7 +180,7 @@ end = struct
         fprintf ff "@[<2>)@]@]"
     | Unfold (t, v) -> fprintf ff "@[(unfold %a %a)@]" Type.pp t Value.pp v
     | If0 (v, e1, e2) ->
-        fprintf ff "@[<2>(if %a@;then %a@;else@ %a)@]" Value.pp v pp e1 pp e2
+        fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" Value.pp v pp e1 pp e2
     | Binop (op, l, r) ->
         fprintf ff "@[<2>(%a@ %a@ %a)@]" Value.pp l Binop.pp op Value.pp r
     | New v -> fprintf ff "@[<2>(new@ %a)@]" Value.pp v
