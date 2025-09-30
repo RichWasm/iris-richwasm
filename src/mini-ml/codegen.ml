@@ -211,4 +211,20 @@ and compile_expr delta gamma locals globals e =
                     globals e)
                 branches );
         ]
-  | _ -> failwith "todoo"
+  | Apply (f, ts, arg) ->
+      let fn_name =
+        match f with
+        | Closed.Value.Var v -> v
+        | _ -> failwith "apply must be on a function name"
+      in
+      let fn_idx =
+        List.find_mapi_exn
+          ~f:(fun i (n, _) -> Option.some_if (equal_string n fn_name) i)
+          globals
+      in
+      cv f
+      @ cv arg
+      @ [
+          Call
+            (fn_idx, List.map ~f:(fun t -> Index.Type (compile_type delta t)) ts);
+        ]
