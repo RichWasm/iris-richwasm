@@ -1,5 +1,12 @@
 open! Base
 
+let flatten (lst : 'a list list) : 'a list =
+  let rec go acc = function
+    | [] -> List.rev acc
+    | m :: ms -> go (List.rev_append m acc) ms
+  in
+  go [] lst
+
 module type Monad = sig
   type 'a t
 
@@ -40,6 +47,15 @@ module Monad_ops (M : Monad) = struct
     go [] lst
 
   let mapM = traverse
+
+  let flat_mapM lst ~(f : 'a -> 'b list t) : 'b list t =
+    let rec go acc = function
+      | [] -> ret (List.rev acc)
+      | x :: xs ->
+          let* y = f x in
+          go (List.rev_append y acc) xs
+    in
+    go [] lst
 
   let traversei (lst : 'a list) ~(f : int -> 'a -> 'b t) : 'b list t =
     let rec go i acc = function

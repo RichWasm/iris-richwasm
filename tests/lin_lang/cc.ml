@@ -20,6 +20,7 @@ let%expect_test "simple" =
 
   let output x = x |> do_thing |> printf "%a" Cc.IR.Module.pp in
   let mk = Syntax.Module.make in
+  let mks = Parse.from_string_exn in
   output (mk ());
   [%expect {| ((imports ()) (functions ()) (main ())) |}];
 
@@ -142,7 +143,19 @@ let%expect_test "simple" =
         (Unpack (Var (0 (add1)))
          (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ()))) (Val (Var (0 ())))
           (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 10)))))
-         Int))))) |}]
+         Int))))) |}];
+
+  (* shadow type *)
+  output
+    (mks
+       {| (fold (rec a (rec a (a + int))) (inj 1 0 : (rec a (rec a (a + int))))) |});
+  [%expect
+    {|
+    ((imports ()) (functions ())
+     (main
+      ((Val
+        (Fold (Rec (Rec (Sum ((Var (0 (a))) Int))))
+         (Inj 1 (Int 0) (Rec (Rec (Sum ((Var (0 (a))) Int)))))))))) |}]
 
 let%expect_test "examples" =
   let examples = Examples.all in

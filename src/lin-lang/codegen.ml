@@ -52,6 +52,9 @@ module Err = struct
     | UnmappedCoderef of (string * Env.t)
     | MissingLocalTEnv of (Cc.LVar.t * TEnv.t)
     | MissingGlobalTEnv of (string * TEnv.t)
+    | InjInvalidAnn of Cc.IR.Type.t
+    | EmptyCases
+    | FreeNonRef of Cc.IR.Type.t
   [@@deriving sexp]
 
   let to_string : t -> string = function
@@ -65,21 +68,14 @@ end
 
 module M = struct
   include Util.StateM (State) (Err)
-
-  (* let lookup_debruijn (i:int) : [`Local of int | `Env of int] t =
-    let* st = get () in
-    match st.env_layout with
-    | None ->
-        (* 0 = newest => map to depth-1, then subtract i *)
-        let idx = depth st - 1 - i in
-        if idx < 0 then fail TODO else ret (`Local idx)
-    | Some (k, slot_of) ->
-        if i < k then
-          ret (`Local (k - 1 - i))
-        else
-          let slot = slot_of (i - k) in
-          ret (`Env slot) *)
 end
+
+(* NOTE: the following comments will use the following notation for the RichWasm (operand) stack
+
+  f32 i32 i64 -> i64 f32 i32
+   ^       ^      ^       ^
+  bot     top    bot     top
+ *)
 
 module Compile = struct
   module A = Cc.IR
@@ -102,44 +98,161 @@ module Compile = struct
       | Tuple vs ->
           let* vs' = mapM ~f:(type_of_value env) vs in
           Ok (Prod vs' : A.Type.t)
+      | Inj (_, _, typ) -> Ok typ
+      | Fold (typ, _) -> Ok typ
       | Pack (_, _, typ) -> Ok typ
 
-    let rec type_of_expr (env : TEnv.t) : A.Expr.t -> A.Type.t t = function
+    let rec type_of_expr (env : TEnv.t) : A.Expr.t -> A.Type.t t =
+      let open A.Type in
+      function
       | Val v -> type_of_value env v
+      | App (v1, _) ->
+          let* v1t = type_of_value env v1 in
+          fail TODO
+      | Let (t, lhs, body) -> fail TODO
+      | Split (ts, lhs, body) -> fail TODO
+      | Cases (scrutinee, cases) -> (
+          match List.nth cases 0 with
+          | Some (_, e) ->
+              let* env' = fail TODO in
+              type_of_expr env' e
+          | None -> fail EmptyCases)
+      | Unfold (t, _) -> ret t
+      | Unpack (_, _, t) -> ret t
+      | If0 (_, l, _) -> type_of_expr env l
+      | Binop ((Add | Sub | Mul | Div), _, _) -> Ok Int
+      | New v ->
+          let* v' = type_of_value env v in
+          ret @@ Ref v'
+      | Swap (v1, v2) -> fail TODO
+      | Free v -> (
+          let* v' = type_of_value env v in
+          match v' with
+          | Ref v -> ret v
+          | x -> fail (FreeNonRef x))
   end
 
   include M
 
   let rec compile_type : A.Type.t -> B.Type.t = function
-    | Int -> B.Type.Num (Int I32)
-    | _ -> failwith "todo"
+    | Int -> Num (Int I32)
+    | Var (i, _) -> Var i
+    | Lollipop ((ct, pt), rt) ->
+        CodeRef
+          (FunctionType
+             ([], [ compile_type ct; compile_type pt ], [ compile_type rt ]))
+    | Prod ts -> Prod (List.map ~f:compile_type ts)
+    | Sum ts -> Sum (List.map ~f:compile_type ts)
+    | Rec t -> Rec (compile_type t)
+    (* FIXME: what should the representation be? *)
+    | Exists t -> Exists (Type (VALTYPE (Var 0, ExCopy, ExDrop)), compile_type t)
+    | Ref t -> Ref (MM, compile_type t)
+
+  let compile_binop (binop : A.Binop.t) : B.Instruction.t list =
+    let binop' : B.Int.Binop.t =
+      match binop with
+      | Add -> Add
+      | Sub -> Sub
+      | Mul -> Mul
+      | Div -> Div Signed
+    in
+    [ Num (Int2 (I32, binop')) ]
 
   let rec compile_value (env : Env.t) : A.Value.t -> B.Instruction.t list t =
+    let open B.Instruction in
     function
     | Var (i, x) -> (*let* idx =  *) fail TODO
     | Coderef g -> (
         match Map.find env.function_map g with
-        | Some (i, typ) -> ret @@ [ B.Instruction.CodeRef i ]
+        | Some (i, _) -> ret @@ [ CodeRef i ]
         | None -> fail (UnmappedCoderef (g, env)))
-    | Int n -> ret @@ [ B.Instruction.NumConst (Int I32, n) ]
-    | Tuple n ->
-        (* (1, 2, 3, 4, 5, 6) needs to go into the wasm stack st;
-            what to do with family? *)
-        fail TODO
-    | _ -> fail TODO
+    | Int n -> ret @@ [ NumConst (Int I32, n) ]
+    | Tuple vs ->
+        (* (1, 2, 3, 4) goes on stack as 1 2 3 4 group *)
+        let* vs' = flat_mapM ~f:(compile_value env) vs in
+        ret @@ vs' @ [ Group (List.length vs) ]
+    | Inj (i, v, t) ->
+        let* v' = compile_value env v in
+        let* ts =
+          match compile_type t with
+          | Sum ts -> ret ts
+          | _ -> fail (InjInvalidAnn t)
+        in
+        ret @@ v' @ [ Inject (i, ts) ]
+    | Fold (t, v) ->
+        let* v' = compile_value env v in
+        let t' = compile_type t in
+        ret @@ v' @ [ Fold t' ]
+    | Pack (w, v, t) ->
+        let* v' = compile_value env v in
+        let w' = compile_type w in
+        let t' = compile_type t in
+        ret @@ v' @ [ Pack (Type w', t') ]
 
   and compile_expr (env : Env.t) : A.Expr.t -> B.Instruction.t list t = function
     | Val v -> compile_value env v
-    | _ -> fail TODO
+    | App (v1, v2) ->
+        let* v1' = compile_value env v1 in
+        let* v2' = compile_value env v2 in
+        ret @@ v2' @ v1' @ [ CallIndirect ]
+    | Let (t, rhs, body) -> fail TODO
+    | Split (ts, rhs, body) -> fail TODO
+    | Cases (scrutinee, cases) ->
+        let* scrutinee' = compile_value env scrutinee in
+        let* cases' =
+          mapM
+            ~f:(fun (t, body) ->
+              (* TODO: binding is already on the stack *)
+              let env' = env in
+              let* body' = compile_expr env' body in
+              fail TODO)
+            cases
+        in
+        let* it = fail TODO in
+        let* lfx = fail TODO in
+        ret @@ scrutinee' @ [ Case (it, lfx, cases') ]
+    | Unfold (_, v) ->
+        let* v' = compile_value env v in
+        ret @@ v' @ [ Unfold ]
+    | Unpack (v, e, t) ->
+        let* v' = compile_value env v in
+        let* env' = fail TODO in
+        let* e' = compile_expr env' e in
+        fail TODO
+    | If0 (v, e1, e2) ->
+        let* v' = compile_value env v in
+        let* e1' = compile_expr env e1 in
+        let* e2' = compile_expr env e2 in
+        fail TODO
+    | Binop (op, v1, v2) ->
+        let op' = compile_binop op in
+        let* v1' = compile_value env v1 in
+        let* v2' = compile_value env v2 in
+        (* TODO: confirm operand order *)
+        ret @@ v1' @ v2' @ op'
+    | New v ->
+        let* v' = compile_value env v in
+        let* tenv = fail TODO in
+        let* t = lift_result @@ Type.type_of_value tenv v in
+        let t' = compile_type t in
+        ret @@ v' @ [ RefNew (MM, t') ]
+    | Swap (v1, v2) ->
+        let* v1' = compile_value env v1 in
+        let* v2' = compile_value env v2 in
+        (* TODO: double check Path *)
+        ret @@ v1' @ v2' @ [ RefSwap (Path [ Unwrap ]) ]
+    | Free v ->
+        let* v' = compile_value env v in
+        let* tenv = fail TODO in
+        let* t = lift_result @@ Type.type_of_value tenv v in
+        let t' = compile_type t in
+        ret @@ v' @ [ RefLoad (Path [ Unwrap ], t') ]
 
   let compile_import ({ typ; name } : A.Import.t) = ()
 
   let compile_module ({ imports; functions; main } : A.Module.t) :
       B.Module.t Res.t =
     (* TODO: map function names to index into table *)
-    (* TODO: function start must have [] -> [] ft, main therefore cannot leave anything on op stack *)
-
-    (* TODO: this can't be empty when calling main *)
     let prog : B.Module.t M.t =
       let env = Env.empty in
       let* main_fn =

@@ -536,9 +536,13 @@ module Mutability = struct
   type t =
     | Mut
     | Imm
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff : t -> unit = function
+    | Mut -> fprintf ff "mut"
+    | Imm -> fprintf ff "imm"
 end
 
 module Module = struct
@@ -547,18 +551,26 @@ module Module = struct
       type t =
         | ImFunction of FunctionType.t
         | ImGlobal of Mutability.t * Type.t
-      [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+      [@@deriving eq, ord, iter, map, fold, sexp]
 
       let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+      let pp ff : t -> unit = function
+        | ImFunction ft -> fprintf ff "@[(func %a)@]" FunctionType.pp ft
+        | ImGlobal (mut, typ) ->
+            fprintf ff "@[(global %a %a)@]" Mutability.pp mut Type.pp typ
     end
 
     type t = {
       name : string;
       desc : Desc.t;
     }
-    [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+    [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+    let pp ff ({ name; desc } : t) : unit =
+      fprintf ff "@[(import %s %a)@]" name Desc.pp desc
   end
 
   module Global = struct
@@ -578,7 +590,7 @@ module Module = struct
       locals : Representation.t list;
       body : Instruction.t list;
     }
-    [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+    [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -598,18 +610,25 @@ module Module = struct
       type t =
         | ExFunction of int
         | ExGlobal of int
-      [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+      [@@deriving eq, ord, iter, map, fold, sexp]
 
       let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+      let pp ff : t -> unit = function
+        | ExFunction i -> fprintf ff "@[(func %a)@]" Base.Int.pp i
+        | ExGlobal i -> fprintf ff "@[(global %a)@]" Base.Int.pp i
     end
 
     type t = {
       name : string;
       desc : Desc.t;
     }
-    [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+    [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+    let pp ff ({ name; desc } : t) : unit =
+      fprintf ff "@[(export %s %a)@]" name Desc.pp desc
   end
 
   type t = {
@@ -620,7 +639,7 @@ module Module = struct
     start : int option;
     exports : Export.t list;
   }
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
