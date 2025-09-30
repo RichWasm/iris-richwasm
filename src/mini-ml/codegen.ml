@@ -2,12 +2,11 @@ open! Base
 open Syntax
 open Richwasm_common.Syntax
 
+let rep = Representation.Prim PrimitiveRep.Ptr
+
 let kind =
   (* the kind of all mini-ml types: [VALTYPE ptr ExCopy ExDrop] *)
-  Kind.VALTYPE
-    ( Representation.Prim PrimitiveRep.Ptr,
-      Copyability.ExCopy,
-      Dropability.ExDrop )
+  Kind.VALTYPE (rep, Copyability.ExCopy, Dropability.ExDrop)
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in
@@ -104,10 +103,10 @@ let rec compile_type delta t =
              Option.some_if (equal_string name v) i)
       |> fun x -> Type.Var x
 
-let rec compile_value delta gamma locals globals v =
+let rec compile_value delta gamma locals functions v =
   let open Closed.Value in
   let open Instruction in
-  let r = compile_value delta gamma locals globals in
+  let r = compile_value delta gamma locals functions in
   let t = type_of_v gamma v in
   let rw_t = compile_type delta t in
   let box = [ RefNew (Memory.GC, rw_t); RefStore (Path []) ] in
@@ -127,7 +126,9 @@ let rec compile_value delta gamma locals globals v =
       r v @ [ Inject (i, types) ] @ box
   | Pack (witness, v, _) ->
       r v @ [ Pack (Index.Type (compile_type delta witness), rw_t) ] @ box
-  | Fun { foralls; arg; ret_type; body } -> failwith "todo"
+  | Fun { foralls; arg; ret_type = _; body } ->
+      (* FIXME: get locals out of here *)
+      compile_expr foralls [ arg ] [] functions body
   | Var v ->
       let idx =
         List.find_mapi_exn
@@ -136,14 +137,14 @@ let rec compile_value delta gamma locals globals v =
       in
       [ LocalGet idx ]
 
-and compile_expr delta gamma locals globals e =
+and compile_expr delta gamma locals functions e =
   let open Closed.Expr in
   let open Closed.Value in
   let open Instruction in
   let open InstructionType in
   let open LocalFx in
-  let cv = compile_value delta gamma locals globals in
-  let r = compile_expr delta gamma locals globals in
+  let cv = compile_value delta gamma locals functions in
+  let r = compile_expr delta gamma locals functions in
   let t = type_of_e gamma e in
   let rw_t = compile_type delta t in
   match e with
@@ -179,14 +180,14 @@ and compile_expr delta gamma locals globals e =
               LocalFx [],
               compile_expr (var :: delta) ((n, t) :: gamma)
                 (locals @ [ (n, compile_type delta t) ])
-                globals e );
+                functions e );
         ]
   | Let ((n, t), e1, e2) ->
       r e1
       @ [ LocalSet (List.length locals) ]
       @ compile_expr delta ((n, t) :: gamma)
           (locals @ [ (n, compile_type delta t) ])
-          globals e2
+          functions e2
   | If0 (c, thn, els) ->
       cv c
       @ [
@@ -208,7 +209,7 @@ and compile_expr delta gamma locals globals e =
                 ~f:(fun ((n, t), e) ->
                   compile_expr delta ((n, t) :: gamma)
                     (locals @ [ (n, compile_type delta t) ])
-                    globals e)
+                    functions e)
                 branches );
         ]
   | Apply (f, ts, arg) ->
@@ -220,7 +221,7 @@ and compile_expr delta gamma locals globals e =
       let fn_idx =
         List.find_mapi_exn
           ~f:(fun i (n, _) -> Option.some_if (equal_string n fn_name) i)
-          globals
+          functions
       in
       cv f
       @ cv arg
