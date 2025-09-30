@@ -1,14 +1,13 @@
 open! Base
 open Syntax
-open Richwasm_common
+open Richwasm_common.Syntax
 
 let kind =
   (* the kind of all mini-ml types: [VALTYPE ptr ExCopy ExDrop] *)
-  RichWasm.Kind.VALTYPE
-    ( RichWasm.Representation.PrimR RichWasm.PrimitiveRep.PtrR,
-      RichWasm.Copyability.ExCopy,
-      RichWasm.Dropability.ExDrop )
-;;
+  Kind.VALTYPE
+    ( Representation.Prim PrimitiveRep.Ptr,
+      Copyability.ExCopy,
+      Dropability.ExDrop )
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in
@@ -31,7 +30,6 @@ let rec type_subst var replacement tau =
           arg = type_subst var replacement arg;
           ret = type_subst var replacement ret;
         }
-;;
 
 let rec type_of_v gamma v =
   let open Closed in
@@ -75,58 +73,141 @@ and type_of_e gamma e =
       | Rec (var, t) as tau -> type_subst var tau t
       | _ -> failwith "unfold should be on a µ-type")
   | Unpack (_, (n, t), _, e) -> type_of_e ((n, t) :: gamma) e
-;;
 
 let rec compile_type delta t =
   let open Closed.PreType in
-  let open RichWasm.Internal.Types in
-  let open RichWasm.NumType in
-  let open RichWasm.Int in
-  let open RichWasm.Memory in
-  let open RichWasm.ConcreteMemory in
+  let open Memory in
   let r = compile_type delta in
   match t with
-  | Int -> NumT (kind, IntT I32T)
-  | Prod ts -> ProdT (kind, List.map ~f:r ts)
-  | Sum ts -> SumT (kind, List.map ~f:r ts)
-  | Ref t -> RefT (kind, ConstM MemGC, r t)
-  | Rec (v, t) -> RecT (kind, compile_type (v :: delta) t)
-  | Exists (v, t) -> ExistsTypeT (kind, kind, compile_type (v :: delta) t)
+  | Int -> Type.I31
+  | Prod ts ->
+      let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
+      Type.(Ref (GC, Prod ts'))
+  | Sum ts ->
+      let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
+      Type.(Ref (GC, Sum ts'))
+  | Ref t -> Type.(Ref (GC, Ser (r t)))
+  | Rec (v, t) -> Type.Rec (compile_type (v :: delta) t)
+  | Exists (v, t) ->
+      Type.(
+        Ref (GC, Exists (Quantifier.Type kind, compile_type (v :: delta) t)))
   | Code { foralls; arg; ret } ->
-      let inner =
-        List.fold_right
-          ~init:
-            (MonoFunT
-               ( [ compile_type (foralls @ delta) arg ],
-                 [ compile_type (foralls @ delta) ret ] ))
-          ~f:(fun _ acc -> ForallTypeT (kind, acc))
-          foralls
-      in
-      CodeRefT (kind, inner)
+      let r = compile_type (foralls @ delta) in
+      Type.CodeRef
+        (FunctionType.FunctionType
+           ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
+             [ r arg ],
+             [ r ret ] ))
   | Var v ->
       delta
       |> List.find_mapi_exn ~f:(fun i name ->
              Option.some_if (equal_string name v) i)
-      |> Z.of_int
-      |> fun x -> VarT x
-;;
+      |> fun x -> Type.Var x
 
-let rec compile_value gamma localctx v =
+let rec compile_value delta gamma locals globals v =
   let open Closed.Value in
+  let open Instruction in
+  let r = compile_value delta gamma locals globals in
+  let t = type_of_v gamma v in
+  let rw_t = compile_type delta t in
+  let box = [ RefNew (Memory.GC, rw_t); RefStore (Path []) ] in
   match v with
   | Int i ->
-      [
-        RichWasm.Instruction.INumConst
-          ( RichWasm.Internal.Types.InstrT
-              ( [],
-                [
-                  RichWasm.Internal.Types.NumT
-                    (kind, RichWasm.NumType.IntT RichWasm.Int.Type.I32T);
-                ] ),
-            Z.of_int i );
-      ]
+      let open NumType in
+      [ NumConst (Int I32, i); Tag ]
   | Tuple vs ->
-      List.concat_map ~f:(compile_value gamma localctx) vs
-      @ [ RichWasm.Instruction.IGroup (failwith "") ]
-  | _ -> failwith ""
-;;
+      let items = List.concat_map ~f:r vs in
+      items @ [ Group (List.length vs) ] @ box
+  | Inj (i, v, t) ->
+      let types =
+        match t with
+        | Closed.PreType.Sum ts -> List.map ~f:(compile_type delta) ts
+        | _ -> failwith "inj should be annotated with sum type"
+      in
+      r v @ [ Inject (i, types) ] @ box
+  | Pack (witness, v, _) ->
+      r v @ [ Pack (Index.Type (compile_type delta witness), rw_t) ] @ box
+  | Fun { foralls; arg; ret_type; body } -> failwith "todo"
+  | Var v ->
+      let idx =
+        List.find_mapi_exn
+          ~f:(fun i (name, _) -> Option.some_if (equal_string name v) i)
+          locals
+      in
+      [ LocalGet idx ]
+
+and compile_expr delta gamma locals globals e =
+  let open Closed.Expr in
+  let open Closed.Value in
+  let open Instruction in
+  let open InstructionType in
+  let open LocalFx in
+  let cv = compile_value delta gamma locals globals in
+  let r = compile_expr delta gamma locals globals in
+  let t = type_of_e gamma e in
+  let rw_t = compile_type delta t in
+  match e with
+  | Value v -> cv v
+  | Op (o, l, r) ->
+      let o' =
+        Int.Binop.(
+          match o with
+          | `Add -> Add
+          | `Sub -> Sub
+          | `Mul -> Mul
+          | `Div -> Div Sign.Signed)
+      in
+      cv l
+      @ [ Untag ]
+      @ cv r
+      @ [ Untag; Num (NumInstruction.Int2 (Int.Type.I32, o')); Tag ]
+  | Project (n, v) ->
+      (* FIXME: is this the whole product type or the type of projected field *)
+      cv v @ [ RefLoad (Path.Path [ Path.Component.Proj n ], rw_t) ]
+  | New v -> cv v @ [ RefNew (Memory.GC, rw_t) ]
+  | Deref v -> cv v @ [ RefLoad (Path.Path [], rw_t) ]
+  | Assign (r, v) -> cv r @ cv v @ [ RefStore (Path.Path []) ]
+  | Fold (_, v) -> cv v @ [ Fold rw_t ]
+  | Unfold v -> cv v @ [ Unfold ]
+  | Unpack (var, (n, t), v, e) ->
+      cv v
+      @ [
+          Unpack
+            ( InstructionType
+                ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
+              LocalFx [],
+              compile_expr (var :: delta) ((n, t) :: gamma)
+                (locals @ [ (n, compile_type delta t) ])
+                globals e );
+        ]
+  | Let ((n, t), e1, e2) ->
+      r e1
+      @ [ LocalSet (List.length locals) ]
+      @ compile_expr delta ((n, t) :: gamma)
+          (locals @ [ (n, compile_type delta t) ])
+          globals e2
+  | If0 (c, thn, els) ->
+      cv c
+      @ [
+          Untag;
+          Ite
+            ( InstructionType ([ Type.Num (NumType.Int Int.Type.I32) ], [ rw_t ]),
+              LocalFx [],
+              r thn,
+              r els );
+        ]
+  | Cases (v, branches) ->
+      cv v
+      @ [
+          Case
+            ( InstructionType
+                ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
+              LocalFx [],
+              List.map
+                ~f:(fun ((n, t), e) ->
+                  compile_expr delta ((n, t) :: gamma)
+                    (locals @ [ (n, compile_type delta t) ])
+                    globals e)
+                branches );
+        ]
+  | _ -> failwith "todoo"
