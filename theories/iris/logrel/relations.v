@@ -94,10 +94,9 @@ Section Relations.
     λne sv, ⌜∃ vs, sv = SValues vs /\ representation_interp0 ρ vs⌝%I.
 
   Definition is_copy_operation (ιs : list primitive_rep) (es : expr) : Prop :=
-    ∃ fe me wl wl' (es' : W.expr),
+    ∃ fe wl wl' (es' : W.expr),
       run_codegen (i ← save_stack_r fe ιs;
                    restore_stack_r i ιs;;
-                   dup_roots_local me i ιs;;
                    restore_stack_r i ιs) wl = inr ((), wl', es') /\
         to_e_list es' = es.
 

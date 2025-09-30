@@ -1,5 +1,6 @@
 Require Import iris.proofmode.tactics.
 
+From stdpp Require Import list.
 From RichWasm Require Import syntax typing.
 From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
@@ -78,7 +79,7 @@ Section CodeGen.
     inversion Hcg; subst; done.
   Qed.
 
-  Lemma wp_mapM_nil {A B} (f: A -> codegen (list B)) wl ys wl' es :
+  Lemma wp_mapM_nil {A B} (f: A -> codegen B) wl ys wl' es :
     run_codegen (mapM f []) wl = inr (ys, wl', es) ->
     wl' = wl /\
     ys = [] /\
@@ -90,7 +91,7 @@ Section CodeGen.
     done.
   Qed.
   
-  Lemma wp_mapM_cons {A B} (f: A -> codegen (list B)) wl yss wl' es x xs :
+  Lemma wp_mapM_cons {A B} (f: A -> codegen B) wl yss wl' es x xs :
     run_codegen (mapM f (x :: xs)) wl = inr (yss, wl', es) ->
     ∃ ys_x wl_x es_x yss_xs wl_xs es_xs,
       run_codegen (f x) wl = inr (ys_x, wl_x, es_x) /\
@@ -108,6 +109,29 @@ Section CodeGen.
     subst.
     repeat eexists; eauto.
     rewrite app_nil_r; eauto.
+  Qed.
+  
+  Lemma wp_mapM_emit wl es xs wl' es' :
+    run_codegen (mapM emit es) wl = inr (xs, wl', es') ->
+    xs = repeat tt (length es) /\
+    wl' = wl /\
+    es' = es.
+  Proof.
+    revert es' xs.
+    induction es; intros es' xs Hemit.
+    - cbn in Hemit.
+      inversion Hemit; subst.
+      done.
+    - apply wp_mapM_cons in Hemit.
+      destruct Hemit as (ys_x & wl_x & es_x & yss_xs & wl_xs & es_xs & Hemit & Hemits & Hx & Hwl' & Hes').
+      subst xs wl' es'.
+      inv_cg_emit Hemit; subst.
+      apply IHes in Hemits.
+      destruct Hemits as (Hyss & Hwl_xs & Hes_xs).
+      inversion Hes_xs; subst es_xs wl_xs.
+      split; eauto.
+      cbn.
+      congruence.
   Qed.
 
   (* State monad operations. *) 
@@ -140,6 +164,7 @@ Section CodeGen.
   (* Monotone interpretation of a wlocal_ctx *)
   Definition interp_wl (wlocal_offset : nat) (wl : wlocal_ctx) (inst: instance) : frame -> Prop :=
     λ fr, ∃ vs vs__wl vs', fr = Build_frame (vs ++ vs__wl ++ vs') inst /\
+                         length vs = wlocal_offset /\
                          result_type_interp wl vs__wl.
 
   Lemma wp_wlalloc fe ty wl wl' idx es :
@@ -161,13 +186,275 @@ Section CodeGen.
     subst; done.
   Qed.
 
+  Lemma wp_wlallocs fe tys wl idxs wl' es :
+    run_codegen (mapM (wlalloc fe) tys) wl = inr (idxs, wl', es) ->
+    idxs = imap (λ i _, Mk_localidx (fe_wlocal_offset fe + length wl + i)) tys /\
+    wl' = wl ++ tys /\
+    es = [].
+  Proof.
+    revert wl idxs wl' es.
+    induction tys.
+    - cbn; intros * Hcg.
+      inversion Hcg.
+      rewrite app_nil_r.
+      done.
+    - intros * Hcg.
+      eapply (wp_mapM_cons (wlalloc fe)) in Hcg.
+      destruct Hcg as (ys_a & wl_a & es_a & yss_tys & wl_tys  & es_tys & Hcg_a & Hcg_tys & Hidxs & Hwl' & Hes).
+      subst.
+      apply IHtys in Hcg_tys.
+      destruct Hcg_tys as (Himap & Hwl_tys & Hes_tys); subst.
+      apply wp_wlalloc in Hcg_a.
+      destruct Hcg_a as (Hys_a & Hwl_a & Hes_a); subst.
+      repeat split; eauto with datatypes.
+      cbn.
+      f_equal.
+      + by rewrite Nat.add_0_r.
+      + rewrite length_app Nat.add_1_r; cbn.
+        apply imap_ext; intros.
+        cbn.
+        f_equal.
+        lia.
+  Qed.
+  
+  Lemma rev_reverse {A} (xs: list A) :
+    reverse xs = rev xs.
+  Proof.
+    unfold reverse.
+    by rewrite rev_append_rev app_nil_r.
+  Qed.
+
+  Lemma rev_append_reverse {A} (xs ys: list A) :
+    rev_append xs ys = reverse xs ++ ys.
+  Proof.
+    rewrite rev_reverse.
+    by rewrite rev_append_rev.
+  Qed.
+
+  Lemma rev_append_imap_distr {A B} (f: nat -> A -> B) l l' :
+    rev_append (imap f l) l' = imap (λ i x, f (length l - 1 - i) x) (reverse l) ++ l'.
+  Proof.
+    revert f l'.
+    induction l; intros f l'.
+    - done.
+    - rewrite imap_cons.
+      cbn.
+      rewrite IHl.
+      cbn.
+      rewrite !rev_append_reverse.
+      rewrite imap_app.
+      cbn.
+      rewrite Nat.add_0_r.
+      rewrite -app_assoc.
+      cbn.
+      f_equal.
+      + apply imap_ext.
+        intros i x Hfind.
+        assert (i < length l).
+        {
+          rewrite -length_reverse.
+          eapply lookup_lt_is_Some_1; eauto.
+        }
+        f_equal.
+        lia.
+      + rewrite length_reverse.
+        do 2 f_equal.
+        lia.
+  Qed.
+  
+  Lemma reverse_imap_distr {A B} (f: nat -> A -> B) l :
+    (reverse (imap f l)) = imap (λ i x, f (length l - 1 - i) x) (reverse l).
+  Proof.
+    unfold reverse.
+    rewrite rev_append_imap_distr.
+    rewrite rev_append_reverse.
+    by rewrite !app_nil_r.
+  Qed.
+  
+  Lemma mapM_comp {A B C} (f: A -> B) (g : B -> codegen C) xs :
+    mapM (g ∘ f) xs = mapM g (map f xs).
+  Proof.
+    induction xs.
+    - done.
+    - simpl mapM.
+      by rewrite IHxs.
+  Qed.
+  
+  Lemma map_imap {A B C} (f : nat -> A -> B) (g : B -> C) xs :
+    map g (imap f xs) = imap (λ i x, g (f i x)) xs.
+  Proof.
+    revert f g.
+    induction xs; intros f g.
+    - done.
+    - cbn.
+      by rewrite IHxs.
+  Qed.
+
   (* Saving and restoring the stack. *)
-  Lemma wp_save_stack_w s E Φ inst fe ty wl idx wl' es fr :
-    run_codegen (save_stack_w fe ty) wl = inr (idx, wl', es) ->
-    interp_wl (fe_wlocal_offset fe) wl' inst fr ->
+  
+  Lemma wp_save_stack1 ty :
+    forall s E Φ inst fe wl idx wl' es fr (v: value),
+      interp_wl (fe_wlocal_offset fe) wl' inst fr ->
+      value_type_interp ty v ->
+      run_codegen (save_stack1 fe ty) wl = inr (idx, wl', es) ->
+      idx = W.Mk_localidx (fe_wlocal_offset fe + length wl) /\
+      wl' = wl ++ [ty] /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        Φ (immV []) -∗
+        WP (AI_basic (BI_const v) :: to_e_list es) @ s; E 
+           {{ v', (Φ v' ∗ ↪[RUN]) ∗ 
+                   ↪[frame] {| f_locs := seq.set_nth v (f_locs fr) (localimm idx) v; 
+                                f_inst := f_inst fr |} }}.
+  Proof.
+    intros * Hwl Hv.
+    unfold save_stack1.
+    intros Hcg.
+    inv_cg_bind Hcg res wl1 es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res2 wl2 es3 es4 Hcg2 Hcg3.
+    subst.
+    inv_cg_ret Hcg3; subst.
+    apply wp_wlalloc in Hcg1.
+    destruct Hcg1 as (Hres & Hwl1 & Hes1); subst res wl1 es1.
+    inv_cg_emit Hcg2.
+    subst es3 wl2 res2.
+    split; auto.
+    split; auto.
+    iIntros "Hfr Hrun HΦ".
+    cbn.
+    iApply (wp_set_local with "[HΦ] [$Hfr]"); eauto.
+    destruct Hwl as (locs & locs__wl & locs' & Hlocs & Hoff & Hlocsty).
+    subst.
+    cbn.
+    apply Forall2_length in Hlocsty.
+    rewrite !length_app.
+    rewrite -Hlocsty -Hoff.
+    rewrite !length_app.
+    cbn.
+    lia.
+  Qed.
+  
+  (* Gross internal induction for save_stack_w proof. *)
+  Lemma wp_save_stack_w_ind len : forall vs start fr Φ s E,
+    length vs = len ->
+    start + len <= length (f_locs fr) ->
     ⊢ ↪[frame] fr -∗
       ↪[RUN] -∗
-      WP (to_e_list es) @ s; E {{ v, Φ v }}.
+      Φ (immV []) -∗
+      WP W.v_to_e_list vs ++ to_e_list (rev (map W.BI_set_local (seq start len))) @ s; E
+      {{ v, (Φ v ∗  ↪[RUN]) ∗
+          ∃ f : frame,
+          ↪[frame]f ∗
+          ([∧ list] k↦i ∈ seq 0 start, ⌜f_locs f !! i = f_locs fr !! k⌝) ∗
+          ([∧ list] k↦i ∈ seq start len, ⌜ f_locs f !! i = vs !! k⌝) }}.
+  Proof.
+    induction len; intros.
+    - cbn; intros.
+      destruct vs; cbn in H; try congruence.
+      cbn.
+      iIntros.
+      iApply wp_nil_noctx.
+      iFrame.
+      iSplit; auto.
+      iApply big_andL_pure_2.
+      iIntros (k x Hid). iPureIntro. 
+      rewrite lookup_seq in Hid.
+      rewrite Nat.add_0_l in Hid.
+      destruct Hid; subst.
+      auto.
+    - iIntros "Hfr Hrun HΦ".
+      rewrite -length_rev in H.
+      destruct (rev vs) as [|v0 vs'] eqn:Hrev; cbn in H; [congruence|].
+      assert (vs = rev vs' ++ [v0]).
+      {
+        apply rev_inj; by rewrite Hrev rev_unit rev_involutive.
+      }
+      subst vs.
+      rewrite -map_rev.
+      rewrite seq_S.
+      rewrite rev_unit; cbn.
+      unfold W.v_to_e_list.
+      replace @seq.map with map by admit.
+      rewrite map_app.
+      cbn.
+      match goal with
+      | |- context [(?vs ++ [?v]) ++ ?e :: ?es] =>
+          replace ((vs ++ [v]) ++ e :: es)
+          with ((vs ++ ([v; e])) ++ es)
+          by (do 2 rewrite -app_assoc; auto)
+      end.
+      set (Ψ := (λ w, ⌜w = immV (rev vs')⌝ ∗ 
+                      ↪[RUN] ∗
+                      ↪[frame] {| f_locs := seq.set_nth v0 (f_locs fr) (start + len) v0;
+                                   f_inst := f_inst fr |})%I : val -> iProp Σ).
+      iApply (wp_seq _ _ _ Ψ).
+      iSplitR; first last;
+        [iSplitR "HΦ"|].
+      + iApply wp_val_app'.
+        iSplitR; first last.
+        {
+          iApply (wp_wand with "[Hfr Hrun]").
+          - iApply (wp_set_local with "[] [$] [$]").
+            + lia.
+            + fill_imm_pred.
+          - iIntros (v) "((-> & Hrun) & Hfr)".
+            cbn.
+            rewrite seq.cats0.
+            by iFrame.
+        }
+        iIntros "!> (%Heq & _ & _)"; congruence.
+      + iIntros (w) "(-> & Hrun & Hfr)".
+        cbn.
+        rewrite map_rev.
+        iApply wp_wand.
+        * iApply IHlen; eauto.
+          -- rewrite length_rev; congruence.
+          -- admit.
+          -- admit.
+          -- admit.
+          -- admit.
+        * iIntros (v) "Hvwp".
+          admit.
+      + admit.
+  Admitted.
+
+  Lemma wp_save_stack_w tys :
+    forall s E Φ inst fe wl idxs wl' es fr vs,
+      run_codegen (save_stack_w fe tys) wl = inr (idxs, wl', es) ->
+      interp_wl (fe_wlocal_offset fe) wl' inst fr ->
+      result_type_interp tys vs ->
+      idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
+      wl' = wl ++ tys /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        Φ (immV []) -∗
+        WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
+           {{ v, (Φ v ∗ ↪[RUN]) ∗
+                 ∃ f, ↪[frame] f  ∗
+                      [∧ list] k ↦ i ∈ idxs, ⌜f_locs f !! localimm i = vs !! k⌝ }}.
+  Proof.
+    intros * Hcg.
+    unfold save_stack_w in Hcg.
+    (* apply wps/inversion principles *)
+    inv_cg_bind Hcg res wl1 es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res2 wl2 es3 es4 Hcg2 Hcg3.
+    inv_cg_ret Hcg3; subst.
+    apply wp_wlallocs in Hcg1.
+    destruct Hcg1 as (Hres1 & Hwl1 & Hes1); subst.
+    rewrite -rev_reverse in Hcg2.
+    rewrite imap_seq in Hcg2.
+    do 2 rewrite mapM_comp in Hcg2.
+    rewrite map_map in Hcg2.
+    rewrite rev_reverse in Hcg2.
+    rewrite map_rev in Hcg2.
+    apply wp_mapM_emit in Hcg2.
+    destruct Hcg2 as (Hres2 & Hwl2 & Hes3); subst res2 wl2 es3.
+    repeat rewrite app_nil_r app_nil_l.
+    rewrite imap_seq.
+    intros.
+    split; auto.
+    split; auto.
+    iIntros "Hfr Hrun HΦ".
   Abort.
 
 

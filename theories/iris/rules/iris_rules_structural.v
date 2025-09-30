@@ -35,6 +35,15 @@ Proof.
     iPureIntro. cbn. rewrite app_nil_r eqseqE. apply eq_refl. }
 Qed.
 
+Lemma wp_nil_noctx s E Φ :
+  ⊢ (Φ (immV []) -∗ WP [] @ s ; E {{ fun v => Φ v }})%I.
+Proof.
+  iIntros "HΦ".
+  setoid_rewrite wp_unfold.
+  rewrite /wp_pre /=.
+  done.
+Qed.
+
 Lemma wp_nil (s : stuckness) (E : coPset) (Φ : iProp Σ) f :
   ↪[frame] f ∗ Φ ⊢ WP [] @ s ; E CTX_EMPTY {{ fun v => Φ }}%I.
 Proof.

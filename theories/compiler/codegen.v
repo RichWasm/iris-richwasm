@@ -270,10 +270,10 @@ Ltac inv_cg_try_option Hrun :=
   destruct Hrun as (Heq1 & Heq2 & Heq3);
   rewrite ?Heq1, ?Heq2, ?Heq3 in *.
 
-Ltac inv_cg_bind Hbind res wl es1 es2 Hgen1 Hgen2 :=
+Ltac inv_cg_bind Hbind res wl es1 es2 Hcg1 Hcg2 :=
   let Heseq := fresh "Hes_app_eq" in
   apply run_codegen_bind_dist in Hbind;
-  destruct Hbind as (res & wl & es1 & es2 & Hgen1 & Hgen2 & Heseq);
+  destruct Hbind as (res & wl & es1 & es2 & Hcg1 & Hcg2 & Heseq);
   rewrite Heseq.
 
 Ltac inv_cg_ret Hret :=

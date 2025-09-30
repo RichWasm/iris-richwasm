@@ -127,27 +127,32 @@ Section Instrs.
     ret (W.Mk_localidx (fe_wlocal_offset fe + length wl)).
 
   (** Saving and restoring the stack. *)
-  Definition save_stack_w (ty : W.result_type) : codegen W.localidx :=
-    xs ← mapM wlalloc ty;
-    mapM (emit ∘ W.BI_set_local ∘ localimm) (reverse xs);;
-    ret (ssrfun.Option.default (W.Mk_localidx 0) (head xs)).
+  Definition save_stack1 (ty : W.value_type) : codegen W.localidx :=
+    idx ← wlalloc ty;
+    emit (W.BI_set_local (localimm idx));;
+    mret idx.
 
-  Definition save_stack_r (ιs : list primitive_rep) : codegen W.localidx :=
+  Definition save_stack_w (tys : W.result_type) : codegen (list W.localidx) :=
+    idxs ← mapM wlalloc tys;
+    mapM (emit ∘ W.BI_set_local ∘ localimm) (rev idxs);;
+    mret idxs.
+
+  Definition save_stack_r (ιs : list primitive_rep) : codegen (list W.localidx) :=
     save_stack_w (map translate_prim_rep ιs).
 
-  Definition save_stack (τs : list type) : codegen W.localidx :=
+  Definition save_stack (τs : list type) : codegen (list W.localidx) :=
     tys ← try_option EWrongTypeAnn (mapM translate_type τs);
     save_stack_w (concat tys).
 
-  Definition restore_stack_w (x : W.localidx) (ty : W.result_type) : codegen unit :=
-    ignore (mapM (emit ∘ W.BI_get_local) (seq (localimm x) (length ty))).
+  Definition restore_stack_w (idxs : list W.localidx) (ty : W.result_type) : codegen unit :=
+    ignore (mapM (emit ∘ W.BI_get_local ∘ localimm) idxs).
 
-  Definition restore_stack_r (x: W.localidx) (ιs : list primitive_rep) : codegen unit :=
-    restore_stack_w x (map translate_prim_rep ιs).
+  Definition restore_stack_r (idxs: list W.localidx) (ιs : list primitive_rep) : codegen unit :=
+    restore_stack_w idxs (map translate_prim_rep ιs).
 
-  Definition restore_stack (x : W.localidx) (τs : list type) : codegen unit :=
+  Definition restore_stack (idxs : list W.localidx) (τs : list type) : codegen unit :=
     tys ← try_option EWrongTypeAnn (mapM translate_type τs);
-    restore_stack_w x (concat tys).
+    restore_stack_w idxs (concat tys).
 
   (** Operations on locals. *)
   Fixpoint get_locals_w (base_idx : W.localidx) (count : nat) : codegen unit :=
@@ -344,7 +349,7 @@ Section Instrs.
   Definition compile_drop_prim_rep (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>
-        idx ← save_stack_w [W.T_i32];
+        idx ← save_stack1 W.T_i32;
         ignore $ ptr_case
                    (W.Tf [] [])
                    idx
@@ -548,14 +553,13 @@ Section Instrs.
     ignore $ mapM to_words_one ιs.
 
   Definition from_words_i64 : codegen unit :=
-    idx ← save_stack_w [W.T_i32; W.T_i32];
-    let idx_hi := localimm idx + 1 in 
-    let idx_lo := localimm idx + 1 in 
-    emit (W.BI_get_local idx_hi);;
+    idx_lo ← save_stack1 W.T_i32;
+    idx_hi ← save_stack1 W.T_i32;
+    emit (W.BI_get_local (localimm idx_hi));;
     emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
     emit (W.BI_const (W.VAL_int64 (Wasm_int.int_of_Z i64m 32)));;
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_rotl));;
-    emit (W.BI_get_local idx_lo);;
+    emit (W.BI_get_local (localimm idx_lo));;
     emit (W.BI_cvtop W.T_i32 W.CVO_reinterpret W.T_i64 None);;
     emit (W.BI_binop W.T_i64 (W.Binop_i W.BOI_or)).
 
@@ -589,10 +593,8 @@ Section Instrs.
     | ICopy (InstrT [τ] [_; _]) =>
         ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
         ιs ← try_option EUnboundTypeVar (eval_rep ρ);
-        idx ← save_stack_r ιs;
-        restore_stack_r idx ιs;;
-        dup_roots_local idx ιs;;
-        restore_stack_r idx ιs
+        idxs ← save_stack_r ιs;
+        raise ETodo
     | ICopy _ => raise EWrongTypeAnn
     | IDrop (InstrT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | INum _ e' => emit (compile_num_instr e')
