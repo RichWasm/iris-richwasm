@@ -36,7 +36,7 @@ Proof.
 Qed.
 
 Lemma wp_nil_noctx s E Φ :
-  ⊢ (Φ (immV []) -∗ WP [] @ s ; E {{ fun v => Φ v }})%I.
+  ⊢ (Φ (immV []) -∗ WP [] @ s ; E {{ Φ }})%I.
 Proof.
   iIntros "HΦ".
   setoid_rewrite wp_unfold.

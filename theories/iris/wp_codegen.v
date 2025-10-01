@@ -548,5 +548,113 @@ Section CodeGen.
         destruct Hkx as (n & Hkx & ->).
         eauto.
   Qed.
+  
+  Lemma wp_ignore {A} (c: codegen A) wl ret wl' es :
+    run_codegen (ignore c) wl = inr (ret, wl', es) ->
+    ret = tt /\
+    exists ret',
+      run_codegen c wl = inr (ret', wl', es).
+  Proof.
+    intros Hcg.
+    inv_cg_bind Hcg res' wl'' es1 es2 Hcg1 Hcg2.
+    inv_cg_ret Hcg2.
+    rewrite app_nil_r.
+    eauto.
+  Qed.
+
+  Lemma wp_get_locals vars vals E f :
+    Forall2 (fun x v => f.(f_locs) !! x = Some v) vars vals ->
+    ⊢ □ ∀ Φ,
+            ↪[RUN] -∗
+            ↪[frame] f -∗
+            (∀ w, ⌜w = immV vals⌝ -∗ ↪[RUN] -∗ ↪[frame] f -∗ Φ w) -∗
+            WP to_e_list (List.map BI_get_local vars) @ NotStuck; E {{ Φ }}.
+  Proof.
+    induction 1.
+    - iIntros (Φ) "!> Hrun Hfr HΦ".
+      cbn.
+      iApply wp_nil_noctx.
+      iApply ("HΦ" with "[//] [$] [$]").
+    - iIntros (Φ) "!> Hrun Hfr HΦ".
+      cbn.
+      wp_chomp 1.
+      rewrite take_0 drop_0.
+      set (Φ' := (λ w, (⌜w = immV [y]⌝ ∗ ↪[RUN]) ∗ ↪[frame]f)%I).
+      iApply (wp_seq _ _ Φ Φ').
+      iSplitR. { iIntros "((%Hw & _) & _)" => //. }
+      iSplitL "Hrun Hfr".
+      {
+        iApply (wp_get_local with "[] [$] [$]"); auto.
+        assumption.
+      }
+      iIntros (w) "((%Hw & Hrun) & Hfr)".
+      subst w.
+      iApply (wp_wand _ _ _ (λ w, (⌜w = immV (y::l')⌝ ∗ ↪[RUN]) ∗ ↪[frame] f)%I with "[Hfr Hrun]"); auto.
+      iApply wp_val_app; auto.
+      iSplitR.
+      { iIntros "!> ((%Hw & _) & _)" => //. }
+      iApply (IHForall2 with "[$] [$]").
+      + iIntros (w) "%Hw Hrun Hfr".
+        iFrame.
+        subst w; auto.
+      + iIntros (v) "[[%Hv Hrun] Hfr]".
+        iApply ("HΦ" with "[//] [$] [$]").
+  Qed.
+
+  Lemma big_and_forall2 {A} (env vs: list A) (idxs: list nat) :
+    length idxs = length vs ->
+    (forall k i, idxs !! k = Some i -> env !! i = vs !! k) ->
+    Forall2 (fun x v => env !! x = Some v) idxs vs.
+  Proof.
+    remember (length vs) as len.
+    revert Heqlen. revert env vs idxs.
+    induction len; intros * Hlen1 Hlen2 Hbig.
+    - destruct vs; destruct idxs; simpl in *; try congruence.
+      done.
+    - destruct vs as [| v vs]; destruct idxs as [| idx idxs]; simpl in *; try congruence.
+      apply Forall2_cons; split.
+      + specialize (Hbig 0 idx eq_refl).
+        done.
+      + apply IHlen; eauto.
+        intros k i Hki.
+        by apply (Hbig (S k) i).
+  Qed.
+  
+  Lemma wp_restore_stack_w idxs vs wl wl' es E ret f Φ :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wl = inr (ret, wl', es) ->
+    ret = tt /\
+    wl' = wl /\
+    ⊢ 
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    Φ (immV vs) -∗
+    (* this condition appears in the postcondition of the save_stack wp lemma. *)
+    ([∧ list] k ↦ i ∈ idxs, ⌜f_locs f !! localimm i = vs !! k⌝) -∗
+    WP to_e_list es @ NotStuck; E {{ v, Φ v ∗ ↪[RUN] ∗ ↪[frame] f }}.
+  Proof.
+    unfold restore_stack.
+    intros Hlen Hcg.
+    unfold get_locals_w in Hcg.
+    apply wp_ignore in Hcg.
+    destruct Hcg as [-> [ret' Hcg]].
+    do 2 rewrite mapM_comp in Hcg.
+    apply wp_mapM_emit in Hcg.
+    destruct Hcg as (-> & -> & ->).
+    split; auto.
+    split; auto.
+    iIntros "Hfr Hrun HΦ Hlocs".
+    repeat rewrite big_andL_pure; eauto.
+    iDestruct "Hlocs" as "%Hlocs".
+    iApply (wp_get_locals with "[$Hrun] [$Hfr]");
+      [|iIntros (w ->) "Hrun Hfr"; by iFrame].
+    apply big_and_forall2.
+    - by rewrite length_map.
+    - intros k i Hki.
+      rewrite list_lookup_fmap in Hki.
+      rewrite fmap_Some in Hki.
+      destruct Hki as [x [Hx Hi]]; subst.
+      eauto.
+  Qed.
 
 End CodeGen.
