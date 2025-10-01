@@ -421,27 +421,9 @@ Section CodeGen.
              rewrite lookup_seq in Hget.
              cbn in Hget.
              destruct Hget as (-> & Hstart).
-             rewrite Nat.add_0_l in 
-             erewrite set_nth_read_neq.
-             eapply lookup_lt_is_Some_2.
-             destruct (f_locs f !! x) eqn:?.
-             ++ symmetry in Hkx.
-                pose proof (lookup_lt_Some _ _ _ Hkx) as Hlen.
-                rewrite set_nth_length_eq in Hlen.
-                erewrite set_nth_read_neq in Hkx; eauto.
-                admit.
-                lia.
-                eauto.
              admit.
-             lia.
-            Search lookup seq.set_nth. 
-          iExists f.
-          cbn.
-          iDest
-          rewrite -seq_S.
-          
-          
-          admit.
+          -- admit.
+          -- admit.
       + admit.
   Admitted.
 
