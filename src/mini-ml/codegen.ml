@@ -136,6 +136,7 @@ let rec compile_value delta gamma locals functions v =
       [ LocalGet idx ]
 
 and compile_expr delta gamma locals functions e =
+  (* TODO: deal with localfx *)
   let open Closed.Expr in
   let open Closed.Value in
   let open Instruction in
@@ -162,7 +163,6 @@ and compile_expr delta gamma locals functions e =
         @ [ Untag; Num (NumInstruction.Int2 (Int.Type.I32, o')); Tag ],
         locals )
   | Project (n, v) ->
-      (* FIXME: is this the whole product type or the type of projected field *)
       (cv v @ [ RefLoad (Path.Path [ Path.Component.Proj n ], rw_t) ], locals)
   | New v -> (cv v @ [ RefNew (Memory.GC, rw_t) ], locals)
   | Deref v -> (cv v @ [ RefLoad (Path.Path [], rw_t) ], locals)
@@ -170,6 +170,11 @@ and compile_expr delta gamma locals functions e =
   | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals)
   | Unfold v -> (cv v @ [ Unfold ], locals)
   | Unpack (var, (n, t), v, e) ->
+      let e', locals' =
+        compile_expr (var :: delta) ((n, t) :: gamma)
+          (locals @ [ (n, compile_type delta t) ])
+          functions e
+      in
       ( cv v
         @ [
             RefLoad (Path.Path [], compile_type delta t);
@@ -177,14 +182,9 @@ and compile_expr delta gamma locals functions e =
               ( InstructionType
                   ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
                 LocalFx [],
-                (* TODO: what about these locals?
-                   should they make it to function locals? *)
-                compile_expr (var :: delta) ((n, t) :: gamma)
-                  (locals @ [ (n, compile_type delta t) ])
-                  functions e
-                |> fst );
+                e' );
           ],
-        locals )
+        locals' )
   | Let ((n, t), e1, e2) ->
       let e1', locals' = r e1 in
       let locals' = locals' @ [ (n, compile_type delta t) ] in
