@@ -484,7 +484,7 @@ Section CodeGen.
         ↪[RUN] -∗
         Φ (immV []) -∗
         WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
-           {{ v, (Φ v ∗ ↪[RUN]) ∗
+           {{ v, Φ v ∗ ↪[RUN] ∗
                  ∃ f, ↪[frame] f  ∗
                       ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
                       [∧ list] k ↦ i ∈ idxs, ⌜f_locs f !! localimm i = vs !! k⌝ }}.
@@ -534,7 +534,12 @@ Section CodeGen.
       iDestruct "Hvs" as "%Hvs".
       iDestruct "Hpre" as "%Hpre".
       iSplit.
-      + admit.
+      + iPureIntro.
+        intros i Hi.
+        destruct i.
+        setoid_rewrite elem_of_list_fmap_inj in Hi;
+          [| intros x y Hinj; by injection Hinj].
+        by apply Hpre in Hi.
       + rewrite big_andL_pure.
         iPureIntro.
         intros k x Hkx.
@@ -542,6 +547,6 @@ Section CodeGen.
         rewrite fmap_Some in Hkx.
         destruct Hkx as (n & Hkx & ->).
         eauto.
-  Admitted.
+  Qed.
 
 End CodeGen.
