@@ -126,10 +126,7 @@ let rec compile_value delta gamma locals functions v =
       r v @ [ Inject (i, types) ] @ box
   | Pack (witness, v, _) ->
       r v @ [ Pack (Index.Type (compile_type delta witness), rw_t) ] @ box
-  | Fun { foralls; arg; ret_type = _; body } ->
-      (* FIXME: get locals out of here *)
-      (* compile_expr foralls [ arg ] [] functions body *)
-      failwith "todo"
+  | Fun _ -> failwith "functions should be compiled with [compile_fun]"
   | Var v ->
       let idx =
         List.find_mapi_exn
@@ -250,3 +247,20 @@ and compile_expr delta gamma locals functions e =
                 List.map ~f:(fun t -> Index.Type (compile_type delta t)) ts );
           ],
         locals )
+
+let compile_fun
+    functions
+    (Closed.Value.Fun { foralls; arg = (_, arg_type) as arg; ret_type; body }) :
+    Module.Function.t =
+  let open FunctionType in
+  let open Type in
+  let body', locals = compile_expr foralls [ arg ] [] functions body in
+  {
+    typ =
+      FunctionType
+        ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
+          [ compile_type foralls arg_type ],
+          [ compile_type foralls ret_type ] );
+    locals = List.map ~f:(Fn.const rep) locals;
+    body = body';
+  }
