@@ -419,16 +419,12 @@ end = struct
     go quals
 end
 
-module InstructionType = struct
-  type t = InstructionType of Type.t list * Type.t list
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+module BlockType = struct
+  type t = BlockType of Type.t list
+  [@@deriving eq, ord, iter, map, fold, sexp]
 
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-  let pp ff (InstructionType (from, res) : t) : unit =
-    fprintf ff "(@[";
-    List.iter ~f:(fprintf ff "%a@ " Type.pp) from;
-    fprintf ff "->";
+  let pp ff (BlockType res : t) : unit =
+    fprintf ff "(@[result";
     List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
     fprintf ff "@])"
 end
@@ -475,9 +471,9 @@ module Instruction = struct
     | Drop
     | Num of NumInstruction.t
     | NumConst of NumType.t * int
-    | Block of InstructionType.t * LocalFx.t * t list
-    | Loop of InstructionType.t * t list
-    | Ite of InstructionType.t * LocalFx.t * t list * t list
+    | Block of BlockType.t * LocalFx.t * t list
+    | Loop of BlockType.t * t list
+    | Ite of BlockType.t * LocalFx.t * t list * t list
     | Br of int
     | Return
     | LocalGet of int
@@ -490,13 +486,13 @@ module Instruction = struct
     | Call of int * Index.t list
     | CallIndirect
     | Inject of int * Type.t list
-    | Case of InstructionType.t * LocalFx.t * t list list
+    | Case of BlockType.t * LocalFx.t * t list list
     | Group of int
     | Ungroup
     | Fold of Type.t
     | Unfold
     | Pack of Index.t * Type.t
-    | Unpack of InstructionType.t * LocalFx.t * t list
+    | Unpack of BlockType.t * LocalFx.t * t list
     | Wrap of Type.t
     | Unwrap
     | Tag

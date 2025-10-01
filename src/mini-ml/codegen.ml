@@ -140,7 +140,7 @@ and compile_expr delta gamma locals functions e =
   let open Closed.Expr in
   let open Closed.Value in
   let open Instruction in
-  let open InstructionType in
+  let open BlockType in
   let open LocalFx in
   let cv = compile_value delta gamma locals functions in
   let r = compile_expr delta gamma locals functions in
@@ -178,11 +178,7 @@ and compile_expr delta gamma locals functions e =
       ( cv v
         @ [
             RefLoad (Path.Path [], compile_type delta t);
-            Unpack
-              ( InstructionType
-                  ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
-                LocalFx [],
-                e' );
+            Unpack (BlockType [ rw_t ], LocalFx [], e');
           ],
         locals' )
   | Let ((n, t), e1, e2) ->
@@ -195,16 +191,7 @@ and compile_expr delta gamma locals functions e =
   | If0 (c, thn, els) ->
       let thn', locals' = r thn in
       let els', locals' = compile_expr delta gamma locals' functions els in
-      ( cv c
-        @ [
-            Untag;
-            Ite
-              ( InstructionType
-                  ([ Type.Num (NumType.Int Int.Type.I32) ], [ rw_t ]),
-                LocalFx [],
-                thn',
-                els' );
-          ],
+      ( cv c @ [ Untag; Ite (BlockType [ rw_t ], LocalFx [], thn', els') ],
         locals' )
   | Cases (v, branches) ->
       let branches', locals' =
@@ -219,15 +206,7 @@ and compile_expr delta gamma locals functions e =
             ((LocalSet bound_local_idx :: compiled) :: branches', locals'))
           ~init:([], locals)
       in
-      ( cv v
-        @ [
-            Case
-              ( InstructionType
-                  ([ v |> type_of_v gamma |> compile_type delta ], [ rw_t ]),
-                LocalFx [],
-                branches' );
-          ],
-        locals' )
+      (cv v @ [ Case (BlockType [ rw_t ], LocalFx [], branches') ], locals')
   | Apply (f, ts, arg) ->
       let fn_name =
         match f with
