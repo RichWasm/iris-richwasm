@@ -344,10 +344,8 @@ Section CodeGen.
       {{ v, (Φ v ∗  ↪[RUN]) ∗
           ∃ f : frame,
           ↪[frame]f ∗
-          ([∧ list] i ∈ seq 0 start, ⌜f_locs f !! i = f_locs fr !! i⌝) ∗
-          ([∧ list] k↦i ∈ seq start len, ⌜f_locs f !! i = vs !! k⌝) ∗
-          ([∧ list] i ∈ seq (start + len) (length (f_locs fr) - (start + len)), 
-            ⌜f_locs f !! i = f_locs fr !! i⌝) }}.
+          ⌜∀ i, i ∉ seq start len -> f_locs f !! i = f_locs fr !! i⌝ ∗
+          [∧ list] k↦i ∈ seq start len, ⌜f_locs f !! i = vs !! k⌝ }}.
   Proof.
     induction len; intros.
     - cbn; intros.
@@ -414,56 +412,63 @@ Section CodeGen.
           repeat rewrite big_andL_pure.
           iDestruct "Hbase" as "%Hbase".
           iDestruct "Hsaved" as "%Hsaved".
-          destruct Hsaved as [Hpre Hpost].
           iPureIntro.
-          repeat split; intros * Hget.
-          -- assert (k < start) by (apply lookup_seq in Hget; tauto).
-             erewrite Hbase by eauto.
-             rewrite lookup_seq in Hget.
-             assert (Hdefd: is_Some (f_locs fr !! x))
-               by (apply lookup_lt_is_Some; lia).
-             destruct Hdefd as [u Hdefd].
-             cbn in Hget.
-             destruct Hget as (-> & Hstart).
-             rewrite Hdefd.
-             erewrite set_nth_read_neq; eauto.
-             lia.
-          -- apply lookup_snoc_Some in Hget.
-             destruct Hget as [[Hlt Hget]|[Hlast Hget]].
+          split; intros * Hget.
+          -- rewrite -seq_S in Hget.
+             rewrite elem_of_seq in Hget.
+             rewrite Hbase; try (rewrite elem_of_seq; lia).
+             destruct (f_locs fr !! i) eqn:Hfri.
+             ++ erewrite set_nth_read_neq; try lia; eauto.
+             ++ apply lookup_ge_None_1 in Hfri.
+                apply lookup_ge_None_2.
+                rewrite set_nth_length_eq; auto.
+                rewrite -length_is_size.
+                lia.
+          -- apply lookup_app_Some in Hget.
+             destruct Hget as [Hget|[Hlen Hget]].
              ++ apply lookup_seq in Hget.
                 destruct Hget as [-> Hlen].
                 rewrite lookup_app_l.
-                erewrite <- Hpre; eauto.
+                erewrite Hsaved; eauto.
                 rewrite lookup_seq; auto.
                 rewrite length_rev; lia.
-             ++ inversion H.
-                rewrite length_seq in Hlast.
-                subst len k.
-                rewrite lookup_app_r length_rev; auto.
-                rewrite Nat.sub_diag.
-                cbn.
-                subst.
-                erewrite Hpost.
-                by rewrite set_nth_read.
-                instantiate (1:=0).
-                rewrite lookup_seq.
-                split; try lia.
-                rewrite set_nth_length_eq; try rewrite -length_is_size; lia.
-          -- rewrite lookup_seq in Hget.
-             destruct Hget as [Hx Hk].
-             subst x.
-             erewrite Hpost.
-             {
-               assert (Hfind: is_Some (f_locs fr !! (start + S len + k)))
-                 by (apply lookup_lt_is_Some; lia).
-               destruct Hfind as [u Hfind].
-               erewrite -> set_nth_read_neq; try lia; eauto.
-             }
-             instantiate (1:= S k).
-             rewrite lookup_seq; split; try lia.
-             rewrite set_nth_length_eq; try lia.
-             rewrite -length_is_size; lia.
+             ++ rewrite list_lookup_singleton in Hget.
+                destruct (k - length _) eqn:Hidx; try congruence.
+                rewrite length_seq in Hidx Hlen.
+                inversion Hget; subst.
+                assert (k = len) by lia.
+                subst k.
+                rewrite Hbase.
+                rewrite set_nth_read.
+                inversion H.
+                rewrite lookup_app_r length_rev; eauto.
+                by rewrite Nat.sub_diag.
+                rewrite elem_of_seq.
+                lia.
       + iIntros "(%Hneq & _)"; congruence.
+  Qed.
+  
+  Lemma map_comp {A B C} (f: A -> B) (g: B -> C) xs :
+    map g (map f xs) = map (g ∘ f) xs.
+  Proof.
+    by apply map_map.
+  Qed.
+  
+  Lemma localimm_Mk_localidx :
+    localimm ∘ Mk_localidx = id.
+  Proof.
+    reflexivity.
+  Qed.
+
+  Lemma interp_wl_length offset wl inst fr :
+    interp_wl offset wl inst fr ->
+    offset + length wl <= length (f_locs fr).
+  Proof.
+    unfold interp_wl.
+    intros (vs & vs' & vs'' & -> & Hlen & Htyp).
+    eapply Forall2_length in Htyp.
+    rewrite !length_app.
+    lia.
   Qed.
 
   Lemma wp_save_stack_w tys :
@@ -479,6 +484,7 @@ Section CodeGen.
         WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
            {{ v, (Φ v ∗ ↪[RUN]) ∗
                  ∃ f, ↪[frame] f  ∗
+                      ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
                       [∧ list] k ↦ i ∈ idxs, ⌜f_locs f !! localimm i = vs !! k⌝ }}.
   Proof.
     intros * Hcg.
@@ -492,9 +498,14 @@ Section CodeGen.
     rewrite -rev_reverse in Hcg2.
     rewrite imap_seq in Hcg2.
     do 2 rewrite mapM_comp in Hcg2.
-    rewrite map_map in Hcg2.
+    rewrite map_comp in Hcg2.
     rewrite rev_reverse in Hcg2.
     rewrite map_rev in Hcg2.
+    rewrite -map_fmap in Hcg2.
+    rewrite map_comp in Hcg2.
+    rewrite Combinators.compose_assoc in Hcg2.
+    rewrite localimm_Mk_localidx in Hcg2.
+    rewrite Combinators.compose_id_right in Hcg2.
     apply wp_mapM_emit in Hcg2.
     destruct Hcg2 as (Hres2 & Hwl2 & Hes3); subst res2 wl2 es3.
     repeat rewrite app_nil_r app_nil_l.
@@ -503,7 +514,28 @@ Section CodeGen.
     split; auto.
     split; auto.
     iIntros "Hfr Hrun HΦ".
-  Abort.
+    iApply (wp_wand with "[Hfr Hrun HΦ]").
+    iApply (wp_save_stack_w_ind with "[$] [$] [HΦ]").
+    - symmetry. eapply Forall2_length; eauto.
+    - apply interp_wl_length in H.
+      rewrite length_app in H.
+      lia.
+    - eauto.
+    - iIntros (v) "((HΦ & Hrun) & %f & Hfr & Hpre & Hvs)".
+      repeat rewrite big_andL_pure; eauto.
+      iFrame.
+      iDestruct "Hvs" as "%Hvs".
+      iDestruct "Hpre" as "%Hpre".
+      iSplit.
+      + admit.
+      + rewrite big_andL_pure.
+        iPureIntro.
+        intros k x Hkx.
+        rewrite list_lookup_fmap in Hkx.
+        rewrite fmap_Some in Hkx.
+        destruct Hkx as (n & Hkx & ->).
+        eauto.
+  Admitted.
 
 
 End CodeGen.
