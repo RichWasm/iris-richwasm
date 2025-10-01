@@ -369,7 +369,7 @@ Section CodeGen.
       rewrite seq_S.
       rewrite rev_unit; cbn.
       unfold W.v_to_e_list.
-      replace @seq.map with map by admit.
+      change @seq.map with map.
       rewrite map_app.
       cbn.
       match goal with
@@ -414,18 +414,57 @@ Section CodeGen.
           repeat rewrite big_andL_pure.
           iDestruct "Hbase" as "%Hbase".
           iDestruct "Hsaved" as "%Hsaved".
+          destruct Hsaved as [Hpre Hpost].
           iPureIntro.
           repeat split; intros * Hget.
-          -- assert (k < start) by admit.
+          -- assert (k < start) by (apply lookup_seq in Hget; tauto).
              erewrite Hbase by eauto.
              rewrite lookup_seq in Hget.
+             assert (Hdefd: is_Some (f_locs fr !! x))
+               by (apply lookup_lt_is_Some; lia).
+             destruct Hdefd as [u Hdefd].
              cbn in Hget.
              destruct Hget as (-> & Hstart).
-             admit.
-          -- admit.
-          -- admit.
-      + admit.
-  Admitted.
+             rewrite Hdefd.
+             erewrite set_nth_read_neq; eauto.
+             lia.
+          -- apply lookup_snoc_Some in Hget.
+             destruct Hget as [[Hlt Hget]|[Hlast Hget]].
+             ++ apply lookup_seq in Hget.
+                destruct Hget as [-> Hlen].
+                rewrite lookup_app_l.
+                erewrite <- Hpre; eauto.
+                rewrite lookup_seq; auto.
+                rewrite length_rev; lia.
+             ++ inversion H.
+                rewrite length_seq in Hlast.
+                subst len k.
+                rewrite lookup_app_r length_rev; auto.
+                rewrite Nat.sub_diag.
+                cbn.
+                subst.
+                erewrite Hpost.
+                by rewrite set_nth_read.
+                instantiate (1:=0).
+                rewrite lookup_seq.
+                split; try lia.
+                rewrite set_nth_length_eq; try rewrite -length_is_size; lia.
+          -- rewrite lookup_seq in Hget.
+             destruct Hget as [Hx Hk].
+             subst x.
+             erewrite Hpost.
+             {
+               assert (Hfind: is_Some (f_locs fr !! (start + S len + k)))
+                 by (apply lookup_lt_is_Some; lia).
+               destruct Hfind as [u Hfind].
+               erewrite -> set_nth_read_neq; try lia; eauto.
+             }
+             instantiate (1:= S k).
+             rewrite lookup_seq; split; try lia.
+             rewrite set_nth_length_eq; try lia.
+             rewrite -length_is_size; lia.
+      + iIntros "(%Hneq & _)"; congruence.
+  Qed.
 
   Lemma wp_save_stack_w tys :
     forall s E Φ inst fe wl idxs wl' es fr vs,
