@@ -187,11 +187,13 @@ Section Instrs.
 
   Definition compile_get_local (idx : nat) : codegen unit :=
     '(idx', ιs) ← try_option EUnboundLocal (lookup_local idx);
+    (* TODO: local.get should never do anything with the retrieved value. *)
     dup_roots_local idx' ιs;;
     get_local idx' ιs.
 
   Definition compile_set_local (x : nat) : codegen unit :=
     '(x', ιs) ← try_option EUnboundLocal (lookup_local x);
+    (* TODO: local.set should never do anything with the old value. *)
     unregister_roots_local x' ιs;;
     set_local x' ιs.
 
@@ -230,11 +232,13 @@ Section Instrs.
 
   Definition compile_get_global (idx : nat) : codegen unit :=
     '(idx', ιs) ← try_option EUnboundGlobal (lookup_global idx);
+    (* TODO: global.get should never do anything with the retrieved value. *)
     dup_roots_global idx' ιs;;
     get_global idx' ιs.
 
   Definition compile_set_global (idx : nat) : codegen unit :=
     '(idx', ιs) ← try_option EUnboundGlobal (lookup_global idx);
+    (* TODO: global.set should never do anything with the previous value. *)
     unregister_roots_global idx' ιs;;
     set_global idx' ιs.
 
@@ -349,6 +353,7 @@ Section Instrs.
   Definition compile_drop_prim_rep (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>
+        (* TODO: Drop also needs to free MM refs. *)
         idx ← save_stack1 W.T_i32;
         ignore $ ptr_case
                    (W.Tf [] [])
@@ -366,15 +371,6 @@ Section Instrs.
 
   Definition compile_drops (τs : list type) : codegen unit :=
     ignore $ mapM compile_drop τs.
-  
-  (** Control flow: return *)
-  Definition compile_return (τs : list type) : codegen unit :=
-    let return_ty := fe.(fe_return_type) in
-    let drop_ty := take (length τs - length return_ty) τs in
-    r ← save_stack return_ty;
-    compile_drops drop_ty;;
-    restore_stack r return_ty;;
-    emit W.BI_return.
 
   Definition compile_coderef (x : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat x))));;
@@ -579,18 +575,19 @@ Section Instrs.
     ignore $ mapM from_words_one ιs.
 
   Definition conv_rep (ρ ρ' : representation) : codegen unit :=
+    (* TODO: Pointer reps must be preserved. *)
     ιs ← try_option ERepNotMono $ eval_rep ρ;
     ιs' ← try_option ERepNotMono $ eval_rep ρ';
     to_words ιs;;
     from_words ιs'.
 
   Definition erased_in_wasm : codegen unit := mret tt.
-  
+
   Fixpoint compile_instr (e : instruction) : codegen unit :=
     match e with
     | INop _ => emit W.BI_nop
-    | IUnreachable _ => emit (W.BI_unreachable)
-    | ICopy (InstrT [τ] [_; _]) =>
+    | IUnreachable _ => emit W.BI_unreachable
+    | ICopy (InstrT [τ] _) =>
         ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
         ιs ← try_option EUnboundTypeVar (eval_rep ρ);
         idxs ← save_stack_r ιs;
@@ -598,8 +595,8 @@ Section Instrs.
     | ICopy _ => raise EWrongTypeAnn
     | IDrop (InstrT τs _) => try_option EWrongTypeAnn (head τs) ≫= compile_drop
     | INum _ e' => emit (compile_num_instr e')
-    | INumConst (InstrT [] [NumT _ nt]) n =>
-        emit (W.BI_const (compile_Z (translate_num_type nt) (Z.of_nat n)))
+    | INumConst (InstrT _ [NumT _ ν]) n =>
+        emit (W.BI_const (compile_Z (translate_num_type ν) (Z.of_nat n)))
     | INumConst _ _ => raise EWrongTypeAnn
     | IBlock ψ _ es =>
         tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
@@ -610,8 +607,8 @@ Section Instrs.
     | IIte ψ _ es1 es2 =>
         tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
         ignore (if_c tf (mapM compile_instr es1) (mapM compile_instr es2))
-    | IBr _ n => emit (W.BI_br n)
-    | IReturn (InstrT τs _) => compile_return τs
+    | IBr _ i => emit (W.BI_br i)
+    | IReturn _ => emit W.BI_return
     | ILocalGet _ idx => compile_get_local idx
     | ILocalSet _ idx => compile_set_local idx
     | IGlobalGet _ idx => compile_get_global idx
@@ -619,7 +616,7 @@ Section Instrs.
     | IGlobalSwap _ idx => compile_swap_global idx
     | ICodeRef _ x => compile_coderef x
     | IInst _ _ => erased_in_wasm
-    | ICall _ fidx _ => emit (W.BI_call fidx)
+    | ICall _ fidx _ => emit (W.BI_call fidx) (* TODO: Add offset for imported runtime functions. *)
     | ICallIndirect _ => emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
     | IInject _ k => raise ETodo
     | ICase _ _ _ => raise ETodo
