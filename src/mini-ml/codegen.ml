@@ -128,7 +128,8 @@ let rec compile_value delta gamma locals functions v =
       r v @ [ Pack (Index.Type (compile_type delta witness), rw_t) ] @ box
   | Fun { foralls; arg; ret_type = _; body } ->
       (* FIXME: get locals out of here *)
-      compile_expr foralls [ arg ] [] functions body
+      (* compile_expr foralls [ arg ] [] functions body *)
+      failwith "todo"
   | Var v ->
       let idx =
         List.find_mapi_exn
@@ -148,7 +149,7 @@ and compile_expr delta gamma locals functions e =
   let t = type_of_e gamma e in
   let rw_t = compile_type delta t in
   match e with
-  | Value v -> cv v
+  | Value v -> (cv v, locals)
   | Op (o, l, r) ->
       let o' =
         Int.Binop.(
@@ -158,60 +159,78 @@ and compile_expr delta gamma locals functions e =
           | `Mul -> Mul
           | `Div -> Div Sign.Signed)
       in
-      cv l
-      @ [ Untag ]
-      @ cv r
-      @ [ Untag; Num (NumInstruction.Int2 (Int.Type.I32, o')); Tag ]
+      ( cv l
+        @ [ Untag ]
+        @ cv r
+        @ [ Untag; Num (NumInstruction.Int2 (Int.Type.I32, o')); Tag ],
+        locals )
   | Project (n, v) ->
       (* FIXME: is this the whole product type or the type of projected field *)
-      cv v @ [ RefLoad (Path.Path [ Path.Component.Proj n ], rw_t) ]
-  | New v -> cv v @ [ RefNew (Memory.GC, rw_t) ]
-  | Deref v -> cv v @ [ RefLoad (Path.Path [], rw_t) ]
-  | Assign (r, v) -> cv r @ cv v @ [ RefStore (Path.Path []) ]
-  | Fold (_, v) -> cv v @ [ Fold rw_t ]
-  | Unfold v -> cv v @ [ Unfold ]
+      (cv v @ [ RefLoad (Path.Path [ Path.Component.Proj n ], rw_t) ], locals)
+  | New v -> (cv v @ [ RefNew (Memory.GC, rw_t) ], locals)
+  | Deref v -> (cv v @ [ RefLoad (Path.Path [], rw_t) ], locals)
+  | Assign (r, v) -> (cv r @ cv v @ [ RefStore (Path.Path []) ], locals)
+  | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals)
+  | Unfold v -> (cv v @ [ Unfold ], locals)
   | Unpack (var, (n, t), v, e) ->
-      cv v
-      @ [
-          RefLoad (Path.Path [], compile_type delta t);
-          Unpack
-            ( InstructionType
-                ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
-              LocalFx [],
-              compile_expr (var :: delta) ((n, t) :: gamma)
-                (locals @ [ (n, compile_type delta t) ])
-                functions e );
-        ]
+      ( cv v
+        @ [
+            RefLoad (Path.Path [], compile_type delta t);
+            Unpack
+              ( InstructionType
+                  ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
+                LocalFx [],
+                (* TODO: what about these locals?
+                   should they make it to function locals? *)
+                compile_expr (var :: delta) ((n, t) :: gamma)
+                  (locals @ [ (n, compile_type delta t) ])
+                  functions e
+                |> fst );
+          ],
+        locals )
   | Let ((n, t), e1, e2) ->
-      r e1
-      @ [ LocalSet (List.length locals) ]
-      @ compile_expr delta ((n, t) :: gamma)
-          (locals @ [ (n, compile_type delta t) ])
-          functions e2
+      let e1', locals' = r e1 in
+      let locals' = locals' @ [ (n, compile_type delta t) ] in
+      ( e1'
+        @ [ LocalSet (List.length locals) ]
+        @ (compile_expr delta ((n, t) :: gamma) locals' functions e2 |> fst),
+        locals' )
   | If0 (c, thn, els) ->
-      cv c
-      @ [
-          Untag;
-          Ite
-            ( InstructionType ([ Type.Num (NumType.Int Int.Type.I32) ], [ rw_t ]),
-              LocalFx [],
-              r thn,
-              r els );
-        ]
+      let thn', locals' = r thn in
+      let els', locals' = compile_expr delta gamma locals' functions els in
+      ( cv c
+        @ [
+            Untag;
+            Ite
+              ( InstructionType
+                  ([ Type.Num (NumType.Int Int.Type.I32) ], [ rw_t ]),
+                LocalFx [],
+                thn',
+                els' );
+          ],
+        locals' )
   | Cases (v, branches) ->
-      cv v
-      @ [
-          Case
-            ( InstructionType
-                ([ type_of_v gamma v |> compile_type delta ], [ rw_t ]),
-              LocalFx [],
-              List.map
-                ~f:(fun ((n, t), e) ->
-                  compile_expr delta ((n, t) :: gamma)
-                    (locals @ [ (n, compile_type delta t) ])
-                    functions e)
-                branches );
-        ]
+      let branches', locals' =
+        List.fold_left branches
+          ~f:(fun (branches', locals) ((n, t), e) ->
+            let compiled, locals' =
+              compile_expr delta ((n, t) :: gamma)
+                (locals @ [ (n, compile_type delta t) ])
+                functions e
+            in
+            let bound_local_idx = List.length locals' - 1 in
+            ((LocalSet bound_local_idx :: compiled) :: branches', locals'))
+          ~init:([], locals)
+      in
+      ( cv v
+        @ [
+            Case
+              ( InstructionType
+                  ([ v |> type_of_v gamma |> compile_type delta ], [ rw_t ]),
+                LocalFx [],
+                branches' );
+          ],
+        locals' )
   | Apply (f, ts, arg) ->
       let fn_name =
         match f with
@@ -223,9 +242,11 @@ and compile_expr delta gamma locals functions e =
           ~f:(fun i (n, _) -> Option.some_if (equal_string n fn_name) i)
           functions
       in
-      cv f
-      @ cv arg
-      @ [
-          Call
-            (fn_idx, List.map ~f:(fun t -> Index.Type (compile_type delta t)) ts);
-        ]
+      ( cv f
+        @ cv arg
+        @ [
+            Call
+              ( fn_idx,
+                List.map ~f:(fun t -> Index.Type (compile_type delta t)) ts );
+          ],
+        locals )
