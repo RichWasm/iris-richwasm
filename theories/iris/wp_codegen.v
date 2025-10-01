@@ -1,13 +1,12 @@
 Require Import iris.proofmode.tactics.
 
 From stdpp Require Import list.
-From RichWasm Require Import syntax typing.
+From RichWasm Require Import syntax typing util.
 From RichWasm.compiler Require Import codegen instrs modules util.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.logrel Require Import relations.
 
 Set Bullet Behavior "Strict Subproofs".
-Set Default Goal Selector "!".
 
 Section CodeGen.
 
@@ -345,8 +344,10 @@ Section CodeGen.
       {{ v, (Φ v ∗  ↪[RUN]) ∗
           ∃ f : frame,
           ↪[frame]f ∗
-          ([∧ list] k↦i ∈ seq 0 start, ⌜f_locs f !! i = f_locs fr !! k⌝) ∗
-          ([∧ list] k↦i ∈ seq start len, ⌜ f_locs f !! i = vs !! k⌝) }}.
+          ([∧ list] i ∈ seq 0 start, ⌜f_locs f !! i = f_locs fr !! i⌝) ∗
+          ([∧ list] k↦i ∈ seq start len, ⌜f_locs f !! i = vs !! k⌝) ∗
+          ([∧ list] i ∈ seq (start + len) (length (f_locs fr) - (start + len)), 
+            ⌜f_locs f !! i = f_locs fr !! i⌝) }}.
   Proof.
     induction len; intros.
     - cbn; intros.
@@ -355,13 +356,7 @@ Section CodeGen.
       iIntros.
       iApply wp_nil_noctx.
       iFrame.
-      iSplit; auto.
-      iApply big_andL_pure_2.
-      iIntros (k x Hid). iPureIntro. 
-      rewrite lookup_seq in Hid.
-      rewrite Nat.add_0_l in Hid.
-      destruct Hid; subst.
-      auto.
+      repeat rewrite big_andL_pure; eauto.
     - iIntros "Hfr Hrun HΦ".
       rewrite -length_rev in H.
       destruct (rev vs) as [|v0 vs'] eqn:Hrev; cbn in H; [congruence|].
@@ -406,14 +401,46 @@ Section CodeGen.
       + iIntros (w) "(-> & Hrun & Hfr)".
         cbn.
         rewrite map_rev.
-        iApply wp_wand.
-        * iApply IHlen; eauto.
+        iApply (wp_wand with "[Hrun Hfr HΦ]").
+        * iApply (IHlen with "[$] [$]"); eauto.
           -- rewrite length_rev; congruence.
-          -- admit.
-          -- admit.
-          -- admit.
-          -- admit.
-        * iIntros (v) "Hvwp".
+          -- cbn.
+             rewrite <- fmap_insert_set_nth by lia.
+             rewrite length_insert.
+             lia.
+        * iIntros (v) "((HΦ & Hrun) & (%f & Hfr & Hbase & Hsaved))".
+          cbn.
+          iFrame.
+          repeat rewrite big_andL_pure.
+          iDestruct "Hbase" as "%Hbase".
+          iDestruct "Hsaved" as "%Hsaved".
+          iPureIntro.
+          repeat split; intros * Hget.
+          -- assert (k < start) by admit.
+             erewrite Hbase by eauto.
+             rewrite lookup_seq in Hget.
+             cbn in Hget.
+             destruct Hget as (-> & Hstart).
+             rewrite Nat.add_0_l in 
+             erewrite set_nth_read_neq.
+             eapply lookup_lt_is_Some_2.
+             destruct (f_locs f !! x) eqn:?.
+             ++ symmetry in Hkx.
+                pose proof (lookup_lt_Some _ _ _ Hkx) as Hlen.
+                rewrite set_nth_length_eq in Hlen.
+                erewrite set_nth_read_neq in Hkx; eauto.
+                admit.
+                lia.
+                eauto.
+             admit.
+             lia.
+            Search lookup seq.set_nth. 
+          iExists f.
+          cbn.
+          iDest
+          rewrite -seq_S.
+          
+          
           admit.
       + admit.
   Admitted.
