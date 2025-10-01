@@ -239,14 +239,13 @@ module Compile = struct
     | Swap (v1, v2) ->
         let* v1' = compile_value env v1 in
         let* v2' = compile_value env v2 in
-        (* TODO: double check Path *)
-        ret @@ v1' @ v2' @ [ RefSwap (Path [ Unwrap ]) ]
+        ret @@ v1' @ v2' @ [ RefSwap (Path [ ]) ]
     | Free v ->
         let* v' = compile_value env v in
         let* tenv = fail TODO in
         let* t = lift_result @@ Type.type_of_value tenv v in
         let t' = compile_type t in
-        ret @@ v' @ [ RefLoad (Path [ Unwrap ], t') ]
+        ret @@ v' @ [ RefLoad (Path [  ], t'); Drop ]
 
   let compile_import ({ typ; name } : A.Import.t) = ()
 

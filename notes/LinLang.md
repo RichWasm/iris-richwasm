@@ -85,3 +85,22 @@ Language changes:
 - add recursive types and sum types
 - add recrusive functions
 
+### 2025-09-30
+
+closures must be boxed to maintain a uniform kind
+
+---
+
+See if annotating local effects is strictly needed? Can this be infered?
+
+See what WAT does with block types.
+
+
+# Thoughts for later
+
+## Tail calls
+
+- top level functions need 0-sized allocations every time
+- also call-indicirect when call could work
+
+
