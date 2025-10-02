@@ -555,16 +555,18 @@ Inductive resolve_path : type -> path -> option type -> path_result -> Prop :=
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SASer F κ τ :
   stores_as F τ (SerT κ τ)
-| SAPad F κ τ τ' ρ ιs σ n :
-  has_rep F τ ρ ->
-  eval_rep ρ = Some ιs ->
+| SAPad F κ τ τ' ιs σ n :
+  type_rep_eval F τ ιs ->
   eval_size σ = Some n ->
-  list_sum (map primitive_size ιs) <= n ->
+  primitives_size ιs <= n ->
   stores_as F τ τ' ->
   stores_as F τ (PadT κ σ τ')
-| SAProd F κ τs τs' :
+| SASum F κ κ' τs τs' :
   Forall2 (stores_as F) τs τs' ->
-  stores_as F (ProdT κ τs) (ProdT κ τs').
+  stores_as F (SumT κ τs) (SumT κ' τs')
+| SAProd F κ κ' τs τs' :
+  Forall2 (stores_as F) τs τs' ->
+  stores_as F (ProdT κ τs) (ProdT κ' τs').
 
 Definition loads_as (F : function_ctx) (τ τ' : type) := stores_as F τ' τ.
 
