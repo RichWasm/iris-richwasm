@@ -159,6 +159,9 @@ let rec parse_value (p : Path.t) : Sexp.t -> Value.t Res.t =
       let* t' = parse_type (p ~field:"t") t in
       let* v' = parse_value (p ~field:"v") v in
       ret @@ Value.Fold (t', v')
+  | List [ Atom "new"; v ] ->
+      let* v' = parse_value (Tag "new" :: p) v in
+      ret @@ Value.New v'
   (* FIXME: nested tuples are broken *)
   | List atoms ->
       (* Check if this is a comma-separated tuple eq (1, 2, 3) *)
@@ -229,9 +232,6 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
       let* e1' = parse_expr (p ~field:"e1") e1 in
       let* e2' = parse_expr (p ~field:"e2") e2 in
       ret @@ Expr.If0 (v', e1', e2')
-  | List [ Atom "new"; v ] ->
-      let* v' = parse_value (Tag "new" :: p) v in
-      ret @@ Expr.New v'
   | List [ Atom "swap"; v1; v2 ] ->
       let p = Path.add p ~tag:"swap" in
       let* v1' = parse_value (p ~field:"v1") v1 in

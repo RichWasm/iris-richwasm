@@ -88,8 +88,18 @@ module Monad_ops (M : Monad) = struct
     in
     go 0 init lst
 
-  let iterM (f : 'a -> unit t) (xs : 'a list) : unit t =
+  let iterM ~(f : 'a -> unit t) (xs : 'a list) : unit t =
     foldM ~f:(fun () x -> f x) ~init:() xs
+
+  let iteriM ~(f : int -> 'a -> unit t) (xs : 'a list) : unit t =
+    foldiM ~f:(fun i () x -> f i x) ~init:() xs
+
+  let omap ~(f : 'a -> 'b t) (x : 'a option) : 'b option t =
+    match x with
+    | None -> ret None
+    | Some x ->
+        let+ x' = f x in
+        Some x'
 
   let ( >=> ) f g x = bind (f x) g
   let ( >-> ) f g x = map (f x) g

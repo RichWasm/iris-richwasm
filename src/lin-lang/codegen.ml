@@ -9,19 +9,18 @@ end
 module State = struct
   type t = {
     next_local : int;
-    rev_locals : int list;
-    num_params : int;
+    rev_locals : RichWasm.Representation.t list; (* TODO: local fxs *)
   }
-  [@@deriving sexp]
+  [@@deriving sexp, make]
 
-  let empty = { next_local = 0; rev_locals = []; num_params = 0 }
+  let empty ~next_local = { next_local; rev_locals = [] }
 end
 
 module Env = struct
   type t = {
     global_map : (int * RichWasm.Type.t) StringMap.t;
     function_map : (int * RichWasm.FunctionType.t) StringMap.t;
-        (*local_map : int *)
+    local_map : int list;
   }
   [@@deriving sexp]
 
@@ -29,45 +28,46 @@ module Env = struct
     {
       global_map = Map.empty (module String);
       function_map = Map.empty (module String);
+      local_map = [];
     }
+
+  let add_local (env : t) (richwasm_local_index : int) : t =
+    { env with local_map = richwasm_local_index :: env.local_map }
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
-module TEnv = struct
-  type t = {
-    locals : Cc.IR.Type.t Map.M(Cc.LVar).t;
-    tls : Cc.IR.Type.t Map.M(String).t;
-  }
-  [@@deriving sexp]
-
-  let empty =
-    { locals = Map.empty (module Cc.LVar); tls = Map.empty (module String) }
-end
-
 module Err = struct
   type t =
-    | TODO
+    | TODO of string
+    | ImportNotFunc of Cc.IR.Type.t
+    | UnmappedLocal of (Cc.LVar.t * Env.t)
     | UnmappedGlobal of (string * Env.t)
     | UnmappedCoderef of (string * Env.t)
-    | MissingLocalTEnv of (Cc.LVar.t * TEnv.t)
-    | MissingGlobalTEnv of (string * TEnv.t)
     | InjInvalidAnn of Cc.IR.Type.t
-    | EmptyCases
-    | FreeNonRef of Cc.IR.Type.t
   [@@deriving sexp]
 
-  let to_string : t -> string = function
-    | TODO -> "TODO"
+  let pp ff : t -> unit = function
+    | UnmappedLocal ((de_bruijn, Some orig_name), env) ->
+        fprintf ff "Local %d (originally %s) is not mapped in env: %a" de_bruijn
+          orig_name Env.pp env
     | UnmappedGlobal (glob, env) ->
-        asprintf "Global named %s is not mapped in env: %a" glob Env.pp env
+        fprintf ff "Global named %s is not mapped in env: %a" glob Env.pp env
     | UnmappedCoderef (cref, env) ->
-        asprintf "Function named %s is not mapped in env: %a" cref Env.pp env
-    | x -> asprintf "%a" Sexp.pp_hum (sexp_of_t x)
+        fprintf ff "Function named %s is not mapped in env: %a" cref Env.pp env
+    | x -> Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module M = struct
   include Util.StateM (State) (Err)
+
+  let todo reason = fail (TODO reason)
+
+  let new_local (rep : RichWasm.Representation.t) : int t =
+    let* st = get in
+    let num = st.next_local in
+    let+ () = put { next_local = num + 1; rev_locals = rep :: st.rev_locals } in
+    num
 end
 
 (* NOTE: the following comments will use the following notation for the RichWasm (operand) stack
@@ -78,58 +78,12 @@ end
  *)
 
 module Compile = struct
-  module A = Cc.IR
+  module A = Typecheck.IR
   module B = RichWasm
   module Res = Util.ResultM (Err)
 
   module Type = struct
     include Res
-
-    let rec type_of_value (env : TEnv.t) : A.Value.t -> A.Type.t t = function
-      | Var lvar -> (
-          match Map.find env.locals lvar with
-          | None -> Error (MissingLocalTEnv (lvar, env))
-          | Some x -> Ok x)
-      | Coderef n -> (
-          match Map.find env.tls n with
-          | None -> Error (MissingGlobalTEnv (n, env))
-          | Some x -> Ok x)
-      | Int _ -> Ok Int
-      | Tuple vs ->
-          let* vs' = mapM ~f:(type_of_value env) vs in
-          Ok (Prod vs' : A.Type.t)
-      | Inj (_, _, typ) -> Ok typ
-      | Fold (typ, _) -> Ok typ
-      | Pack (_, _, typ) -> Ok typ
-
-    let rec type_of_expr (env : TEnv.t) : A.Expr.t -> A.Type.t t =
-      let open A.Type in
-      function
-      | Val v -> type_of_value env v
-      | App (v1, _) ->
-          let* v1t = type_of_value env v1 in
-          fail TODO
-      | Let (t, lhs, body) -> fail TODO
-      | Split (ts, lhs, body) -> fail TODO
-      | Cases (scrutinee, cases) -> (
-          match List.nth cases 0 with
-          | Some (_, e) ->
-              let* env' = fail TODO in
-              type_of_expr env' e
-          | None -> fail EmptyCases)
-      | Unfold (t, _) -> ret t
-      | Unpack (_, _, t) -> ret t
-      | If0 (_, l, _) -> type_of_expr env l
-      | Binop ((Add | Sub | Mul | Div), _, _) -> Ok Int
-      | New v ->
-          let* v' = type_of_value env v in
-          ret @@ Ref v'
-      | Swap (v1, v2) -> fail TODO
-      | Free v -> (
-          let* v' = type_of_value env v in
-          match v' with
-          | Ref v -> ret v
-          | x -> fail (FreeNonRef x))
   end
 
   include M
@@ -137,16 +91,20 @@ module Compile = struct
   let rec compile_type : A.Type.t -> B.Type.t = function
     | Int -> Num (Int I32)
     | Var (i, _) -> Var i
-    | Lollipop ((ct, pt), rt) ->
-        CodeRef
-          (FunctionType
-             ([], [ compile_type ct; compile_type pt ], [ compile_type rt ]))
+    | Lollipop (pt, rt) ->
+        CodeRef (FunctionType ([], [ compile_type pt ], [ compile_type rt ]))
     | Prod ts -> Prod (List.map ~f:compile_type ts)
     | Sum ts -> Sum (List.map ~f:compile_type ts)
     | Rec t -> Rec (compile_type t)
-    (* FIXME: what should the representation be? *)
-    | Exists t -> Exists (Type (VALTYPE (Var 0, ExCopy, ExDrop)), compile_type t)
+    | Exists t -> Exists (Type (VALTYPE (Prim Ptr, ExCopy, ExDrop)), compile_type t)
     | Ref t -> Ref (MM, compile_type t)
+
+  let rep_of_typ : A.Type.t -> B.Representation.t Res.t =
+    let open Res in
+    let open B.Representation in
+    function
+    | Int -> ret @@ Prim I32
+    | _ -> fail (TODO "rep of typ")
 
   let compile_binop (binop : A.Binop.t) : B.Instruction.t list =
     let binop' : B.Int.Binop.t =
@@ -161,13 +119,16 @@ module Compile = struct
   let rec compile_value (env : Env.t) : A.Value.t -> B.Instruction.t list t =
     let open B.Instruction in
     function
-    | Var (i, x) -> (*let* idx =  *) fail TODO
-    | Coderef g -> (
+    | Var (((de_bruijn, _) as lvar), _) -> (
+        match List.nth env.local_map de_bruijn with
+        | Some idx -> ret @@ [ LocalGet idx ]
+        | None -> fail (UnmappedLocal (lvar, env)))
+    | Coderef (g, _) -> (
         match Map.find env.function_map g with
         | Some (i, _) -> ret @@ [ CodeRef i ]
         | None -> fail (UnmappedCoderef (g, env)))
-    | Int n -> ret @@ [ NumConst (Int I32, n) ]
-    | Tuple vs ->
+    | Int (n, _) -> ret @@ [ NumConst (Int I32, n) ]
+    | Tuple (vs, _) ->
         (* (1, 2, 3, 4) goes on stack as 1 2 3 4 group *)
         let* vs' = flat_mapM ~f:(compile_value env) vs in
         ret @@ vs' @ [ Group (List.length vs) ]
@@ -179,7 +140,7 @@ module Compile = struct
           | _ -> fail (InjInvalidAnn t)
         in
         ret @@ v' @ [ Inject (i, ts) ]
-    | Fold (t, v) ->
+    | Fold (v, t) ->
         let* v' = compile_value env v in
         let t' = compile_type t in
         ret @@ v' @ [ Fold t' ]
@@ -188,104 +149,151 @@ module Compile = struct
         let w' = compile_type w in
         let t' = compile_type t in
         ret @@ v' @ [ Pack (Type w', t') ]
+    | New (v, _) ->
+        let* v' = compile_value env v in
+        let t = A.Value.type_of v in
+        let t' = compile_type t in
+        ret @@ v' @ [ RefNew (MM, t') ]
 
-  and compile_expr (env : Env.t) : A.Expr.t -> B.Instruction.t list t = function
-    | Val v -> compile_value env v
-    | App (v1, v2) ->
+  and compile_expr (env : Env.t) : A.Expr.t -> B.Instruction.t list t =
+    let open B.Instruction in
+    function
+    | Val (v, _) -> compile_value env v
+    | App (v1, v2, _) ->
         let* v1' = compile_value env v1 in
         let* v2' = compile_value env v2 in
         ret @@ v2' @ v1' @ [ CallIndirect ]
-    | Let (t, rhs, body) -> fail TODO
-    | Split (ts, rhs, body) -> fail TODO
-    | Cases (scrutinee, cases) ->
+    | Let (t, rhs, body, _) ->
+        let* rhs' = compile_expr env rhs in
+        let* rep = lift_result @@ rep_of_typ t in
+        let* fresh_idx = new_local rep in
+        let env' = Env.add_local env fresh_idx in
+        let* body' = compile_expr env' body in
+        ret @@ rhs' @ [ LocalSet fresh_idx ] @ body'
+    | Split (ts, rhs, body, _) -> 
+        let ts' = List.map ~f:(compile_type) ts in
+        let rhs' = compile_expr env rhs in
+        todo "split (ordering)"
+    | Cases (scrutinee, cases, t) ->
         let* scrutinee' = compile_value env scrutinee in
         let* cases' =
           mapM
             ~f:(fun (t, body) ->
-              (* TODO: binding is already on the stack *)
-              let env' = env in
+              let* rep = lift_result @@ rep_of_typ t in
+              let* fresh_idx = new_local rep in
+              let env' = Env.add_local env fresh_idx in
               let* body' = compile_expr env' body in
-              fail TODO)
+              (* NOTE: binding is already on the stack *)
+              ret @@  [LocalSet fresh_idx] @  body')
             cases
         in
-        let* it = fail TODO in
-        let* lfx = fail TODO in
-        ret @@ scrutinee' @ [ Case (it, lfx, cases') ]
-    | Unfold (_, v) ->
+        let bt = compile_type t in
+        (* FIXME: local effects *)
+        ret @@ scrutinee' @ [ Case (BlockType [ bt ], LocalFx [], cases') ]
+    | Unfold (v, _) ->
         let* v' = compile_value env v in
         ret @@ v' @ [ Unfold ]
     | Unpack (v, e, t) ->
         let* v' = compile_value env v in
-        let* env' = fail TODO in
+        let* env' = todo "unpack env" in
         let* e' = compile_expr env' e in
-        fail TODO
-    | If0 (v, e1, e2) ->
+        let bt = compile_type t in
+        (* FIXME: local fx *)
+        ret @@ v' @ [Unpack (BlockType [bt], LocalFx [], e')]
+    | If0 (v, e1, e2, t) ->
         let* v' = compile_value env v in
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
-        fail TODO
-    | Binop (op, v1, v2) ->
+        let bt = compile_type t in
+        (* FIXME: local effects *)
+        ret @@ v'
+        @ [ NumConst (Int I32, 0); Num (IntTest (I32, Eqz)) ]
+        @ [ Ite (BlockType [ bt ], LocalFx [], e1', e2') ]
+    | Binop (op, v1, v2, _) ->
         let op' = compile_binop op in
         let* v1' = compile_value env v1 in
         let* v2' = compile_value env v2 in
-        (* TODO: confirm operand order *)
         ret @@ v1' @ v2' @ op'
-    | New v ->
-        let* v' = compile_value env v in
-        let* tenv = fail TODO in
-        let* t = lift_result @@ Type.type_of_value tenv v in
-        let t' = compile_type t in
-        ret @@ v' @ [ RefNew (MM, t') ]
-    | Swap (v1, v2) ->
+    | Swap (v1, v2, _) ->
         let* v1' = compile_value env v1 in
         let* v2' = compile_value env v2 in
-        ret @@ v1' @ v2' @ [ RefSwap (Path [ ]) ]
-    | Free v ->
+        ret @@ v1' @ v2' @ [ RefSwap (Path []) ]
+    | Free (v, _) ->
         let* v' = compile_value env v in
-        let* tenv = fail TODO in
-        let* t = lift_result @@ Type.type_of_value tenv v in
+        let t = A.Value.type_of v in
         let t' = compile_type t in
-        ret @@ v' @ [ RefLoad (Path [  ], t'); Drop ]
+        ret @@ v' @ [ RefLoad (Path [], t'); Drop ]
 
-  let compile_import ({ typ; name } : A.Import.t) = ()
+  let compile_import ({ typ; name } : A.Import.t) : B.Module.Import.t Res.t =
+    let open Res in
+    let open B.Module.Import in
+    let* desc : B.Module.Import.Desc.t =
+      match typ with
+      | Lollipop (pt, rt) ->
+          ret
+            (Desc.ImFunction
+               (FunctionType ([], [ compile_type pt ], [ compile_type rt ])))
+      | x -> fail (ImportNotFunc x)
+    in
+    ret { name; desc }
+
+  let base_compile_function
+      (env : Env.t)
+      (ft : B.FunctionType.t)
+      (body : A.Expr.t) : B.Module.Function.t Res.t =
+    let open Res in
+    let open B.Module.Function in
+    let (FunctionType (_, params, _)) = ft in
+    let+ body', state =
+      compile_expr env body (State.empty ~next_local:(List.length params))
+    in
+    let locals = List.rev state.rev_locals in
+
+    { typ = ft; locals; body = body' }
+
+  let compile_function
+      (env : Env.t)
+      ({ export = _; name = _; param; return; body } : A.Function.t) :
+      B.Module.Function.t Res.t =
+    let param' = compile_type param in
+    let return' = compile_type return in
+    (* {Rich}Wasm starts indexing locals with parameters; we only ever have one *)
+    let env' = Env.add_local env 0 in
+    base_compile_function env' (FunctionType ([], [ param' ], [ return' ])) body
 
   let compile_module ({ imports; functions; main } : A.Module.t) :
       B.Module.t Res.t =
-    (* TODO: map function names to index into table *)
-    let prog : B.Module.t M.t =
-      let env = Env.empty in
-      let* main_fn =
-        match main with
-        | None -> ret []
-        | Some main ->
-            let* body = compile_expr env main in
-            (* TODO: init tenv *)
-            let tenv = TEnv.empty in
-            let* expr_typ = lift_result @@ Type.type_of_expr tenv main in
-            let stack_typ = compile_type expr_typ in
-            (* TODO: locals *)
-            let func : B.Module.Function.t =
-              { typ = FunctionType ([], [], [ stack_typ ]); locals = []; body }
-            in
-            ret [ func ]
-      in
-
-      let functions, table, globals = ([] @ main_fn, [], []) in
-      (* NOTE: start should only be used for module initialization, not main *)
-      let start = None in
-      let imports = [] in
-      let main_export =
-        main
-        |> Option.map ~f:(fun _ -> List.length functions - 1)
-        |> Option.map ~f:(fun i ->
-               [ B.Module.Export.{ name = "_start"; desc = ExFunction i } ])
-        |> Option.value_or_thunk ~default:(fun () -> [])
-      in
-      let exports = [] @ main_export in
-
-      ret @@ B.Module.{ imports; exports; globals; functions; table; start }
-    in
     let open Res in
-    let+ prog, _ = prog State.empty in
-    prog
+    (* TODO: map function names to index into table *)
+    let env = Env.empty in
+    let* main' =
+      omap
+        ~f:(fun main ->
+          let ret_t = A.Expr.type_of main in
+          let ret_t' = compile_type ret_t in
+          let ft : B.FunctionType.t = FunctionType ([], [], [ ret_t' ]) in
+          base_compile_function env ft main)
+        main
+    in
+    let main_fn = main' |> Option.value_map ~default:[] ~f:(fun x -> [ x ]) in
+
+    let* functions = mapM ~f:(compile_function env) functions in
+    let functions = functions @ main_fn in
+    (* TODO: table *)
+    let table = [] in
+    let globals = [] in
+    (* NOTE: start should only be used for module initialization, not main *)
+    let start = None in
+    let* imports = mapM ~f:compile_import imports in
+    let main_export =
+      main
+      |> Option.map ~f:(fun _ -> List.length functions - 1)
+      |> Option.map ~f:(fun i ->
+             [ B.Module.Export.{ name = "_start"; desc = ExFunction i } ])
+      |> Option.value_or_thunk ~default:(fun () -> [])
+    in
+    (* TODO: exports *)
+    let exports = [] @ main_export in
+
+    ret @@ B.Module.{ imports; exports; globals; functions; table; start }
 end

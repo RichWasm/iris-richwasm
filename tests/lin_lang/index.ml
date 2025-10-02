@@ -3,28 +3,30 @@ open! Stdlib.Format
 open! Richwasm_lin_lang
 open Index
 
-let do_thing x =
-  x |> Compile.compile_module |> function
-  | Ok x -> x
-  | Error err -> failwith @@ asprintf "%a" Index.Err.pp err
+include Help.Outputter.Make (struct
+  open Help
+
+  type syntax = Syntax.Module.t
+  type text = string
+  type res = IR.Module.t
+
+  let syntax_pipeline x =
+    x |> Index.Compile.compile_module |> or_fail_pp Index.Err.pp
+
+  let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
+  let examples = Examples.all
+  let pp = IR.Module.pp
+end)
 
 let%expect_test "basic indexing" =
-  pp_set_margin std_formatter 80;
-  pp_set_max_indent std_formatter 80;
-
-  let output (x : Syntax.Module.t) =
-    try x |> do_thing |> printf "@.%a@." IR.Module.pp
-    with Failure msg -> printf "FAILURE %s@." msg
-  in
   let mk = Syntax.Module.make in
-
-  output (mk ~main:(Let (("a", Int), Val (Int 10), Val (Var "a"))) ());
+  output_syntax (mk ~main:(Let (("a", Int), Val (Int 10), Val (Var "a"))) ());
   [%expect
     {|
       ((imports ()) (functions ())
        (main ((Let Int (Val (Int 10)) (Val (Var (0 (a)))))))) |}];
 
-  output
+  output_syntax
     (mk
        ~functions:
          [
@@ -44,19 +46,33 @@ let%expect_test "basic indexing" =
         (((export true) (name foo) (param Int) (return Int) (body (Val (Int 10))))))
        (main ())) |}]
 
-let%expect_test "indexes examples" =
-  pp_set_margin std_formatter 80;
-  pp_set_max_indent std_formatter 80;
-  Examples.all
-  |> List.iter ~f:(fun (n, m) ->
-         try
-           let res = m |> do_thing in
-           printf "-----------%s-----------@.%a@." n IR.Module.pp res
-         with Failure msg ->
-           printf "-----------%s-----------@.FAILURE %s@." n msg);
+let%expect_test "examples" =
+  output_examples ();
   [%expect
     {|
-    -----------simple_app_lambda-----------
+    -----------one-----------
+    ((imports ()) (functions ()) (main ((Val (Int 1)))))
+    -----------flat_tuple-----------
+    ((imports ()) (functions ())
+     (main ((Val (Tuple ((Int 1) (Int 2) (Int 3) (Int 4)))))))
+    -----------nested_tuple-----------
+    ((imports ()) (functions ())
+     (main ((Val (Tuple ((Tuple ((Int 1) (Int 2))) (Tuple ((Int 3) (Int 4)))))))))
+    -----------single_sum-----------
+    ((imports ()) (functions ())
+     (main ((Val (Inj 0 (Tuple ()) (Sum ((Prod ()))))))))
+    -----------double_sum-----------
+    ((imports ()) (functions ())
+     (main ((Val (Inj 1 (Int 15) (Sum ((Prod ()) Int)))))))
+    -----------arith_add-----------
+    ((imports ()) (functions ()) (main ((Binop Add (Int 9) (Int 10)))))
+    -----------arith_sub-----------
+    ((imports ()) (functions ()) (main ((Binop Sub (Int 67) (Int 41)))))
+    -----------arith_mul-----------
+    ((imports ()) (functions ()) (main ((Binop Mul (Int 42) (Int 10)))))
+    -----------arith_div-----------
+    ((imports ()) (functions ()) (main ((Binop Div (Int -30) (Int 10)))))
+    -----------app_ident-----------
     ((imports ()) (functions ())
      (main ((App (Lam Int Int (Val (Var (0 (x))))) (Int 10)))))
     -----------add_one_program-----------
@@ -68,7 +84,7 @@ let%expect_test "indexes examples" =
     -----------add_tup_ref-----------
     ((imports ()) (functions ())
      (main
-      ((Let (Ref Int) (New (Int 2))
+      ((Let (Ref Int) (Val (New (Int 2)))
         (Split (Int (Ref Int)) (Val (Tuple ((Int 1) (Var (0 (r))))))
          (Let Int (Free (Var (0 (x2)))) (Binop Add (Var (2 (x1))) (Var (0 (x2'))))))))))
     -----------print_10-----------
@@ -120,7 +136,7 @@ let%expect_test "indexes examples" =
             (Let Int (Binop Sub (Var (1 (n))) (Int 1))
              (App (Coderef incr_n) (Tuple ((Var (1 (r1))) (Var (0 (n1))))))))))))))
      (main
-      ((Let (Ref Int) (New (Int 10))
+      ((Let (Ref Int) (Val (New (Int 10)))
         (App (Coderef incr_n) (Tuple ((Var (0 (r0))) (Int 3))))))))
     -----------fix_factorial-----------
     ((imports ()) (functions ())
