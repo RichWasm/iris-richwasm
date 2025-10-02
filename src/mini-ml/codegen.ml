@@ -41,7 +41,7 @@ let rec type_of_v gamma v =
       PreType.Code { foralls; arg = t; ret = ret_type }
   | Value.Var v -> List.Assoc.find_exn ~equal:equal_string gamma v
 
-and type_of_e gamma e =
+let rec type_of_e gamma e =
   let open Closed.Expr in
   let open Closed.PreType in
   match e with
@@ -134,9 +134,10 @@ let rec compile_value delta gamma locals functions v =
           ~f:(fun (name, _, i) -> Option.some_if (equal_string name v) i)
           gamma
       in
-      [ LocalGet idx ]
+      (* local.get sets the value to unit, so we have to copy and put it back *)
+      [ LocalGet idx; Copy; LocalSet idx ]
 
-and compile_expr delta gamma locals functions e =
+let rec compile_expr delta gamma locals functions e =
   (* TODO: deal with localfx *)
   let open Closed.Expr in
   let open Closed.Value in
@@ -183,6 +184,8 @@ and compile_expr delta gamma locals functions e =
         @ [
             RefLoad (Path.Path [], compile_type delta t);
             Unpack (BlockType [ rw_t ], LocalFx [], e');
+            LocalGet new_local_idx;
+            Drop;
           ],
         locals' )
   | Let ((n, t), e1, e2) ->
@@ -191,7 +194,8 @@ and compile_expr delta gamma locals functions e =
       let e2', locals' =
         compile_expr delta ((n, t, new_local_idx) :: gamma) locals' functions e2
       in
-      (e1' @ [ LocalSet new_local_idx ] @ e2', locals')
+      ( e1' @ [ LocalSet new_local_idx ] @ e2' @ [ LocalGet new_local_idx; Drop ],
+        locals' )
   | If0 (c, thn, els) ->
       let thn', locals' = r thn in
       let els', locals' = compile_expr delta gamma locals' functions els in
@@ -201,14 +205,14 @@ and compile_expr delta gamma locals functions e =
       let branches', locals' =
         List.fold_left branches
           ~f:(fun (branches', locals) ((n, t), e) ->
+            let new_local = List.length locals in
             let compiled, locals' =
               compile_expr delta
-                ((n, t, List.length locals) :: gamma)
+                ((n, t, new_local) :: gamma)
                 (locals @ [ (n, compile_type delta t) ])
                 functions e
             in
-            let bound_local_idx = List.length locals' - 1 in
-            ((LocalSet bound_local_idx :: compiled) :: branches', locals'))
+            ((LocalSet new_local :: compiled @ [LocalGet new_local; Drop]) :: branches', locals'))
           ~init:([], locals)
       in
       (cv v @ [ Case (BlockType [ rw_t ], LocalFx [], branches') ], locals')
