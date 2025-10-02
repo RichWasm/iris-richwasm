@@ -178,6 +178,14 @@ Section Compiler.
     wz ← to_words fe ιs;
     from_words fe wz ιs0.
 
+  Definition compile_tag : codegen unit :=
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
+    emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_shl)).
+
+  Definition compile_untag : codegen unit :=
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
+    emit (W.BI_binop W.T_i32 (W.Binop_i (W.BOI_shr W.SX_U))).
+
   Definition erased_in_wasm : codegen unit := ret tt.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
@@ -217,8 +225,8 @@ Section Compiler.
     | IWrap _ => raise EWrongTypeAnn
     | IUnwrap (InstrT [RepT _ ρ τ] _) => compile_unwrap fe ρ τ
     | IUnwrap _ => raise EWrongTypeAnn
-    | ITag _ => raise ETodo
-    | IUntag _ => raise ETodo
+    | ITag _ => compile_tag
+    | IUntag _ => compile_untag
     | IRefNew _ => raise ETodo
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
