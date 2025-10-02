@@ -94,10 +94,11 @@ Section Relations.
     λne sv, ⌜∃ vs, sv = SValues vs /\ representation_interp0 ρ vs⌝%I.
 
   Definition is_copy_operation (ιs : list primitive_rep) (es : expr) : Prop :=
-    ∃ fe wl wl' (es' : W.expr),
-      run_codegen (i ← save_stack_r fe ιs;
-                   restore_stack_r i ιs;;
-                   restore_stack_r i ιs) wl = inr ((), wl', es') /\
+    ∃ me fe wl wl' (es' : W.expr),
+      run_codegen (ixs ← save_stack fe ιs;
+                   restore_stack ixs;;
+                   update_gc_refs ixs ιs (duproot me);;
+                   restore_stack ixs) wl = inr ((), wl', es') /\
         to_e_list es' = es.
 
   Definition explicit_copy_spec (ρ : representation) (T : semantic_type) : iProp Σ :=

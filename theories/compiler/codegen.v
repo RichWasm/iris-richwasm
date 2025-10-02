@@ -3,7 +3,7 @@ Import ListNotations.
 Require Import Stdlib.Program.Basics.
 Local Open Scope program_scope.
 
-Require Import stdpp.base.
+Require Import stdpp.list_monad.
 
 From ExtLib.Data Require Import List.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
@@ -50,20 +50,21 @@ Global Instance MonadWriter_codegen : MonadWriter (@Monoid_list_app W.basic_inst
       pass ('(x, f, s) ← runStateT (uncodegen c) s;
             ret (x, s, f)))) }.
 
-Definition lift_error {A} (c : error + A) : codegen A :=
+Definition lift_error {A : Type} (c : error + A) : codegen A :=
   Build_codegen (lift (lift c)).
 
-Definition try_option {A} (e : error) (x : option A) : codegen A :=
+Definition try_option {A : Type} (e : error) (x : option A) : codegen A :=
   match x with
   | None => raise e
   | Some x' => ret x'
   end.
 
-Definition ignore {A} (c : codegen A) : codegen unit :=
-  c;;
-  ret tt.
+Definition ignore {A : Type} (c : codegen A) : codegen unit := c;; ret tt.
 
-Definition run_codegen {A} (c : codegen A) (wl : wlocal_ctx) : error + A * wlocal_ctx * W.expr :=
+Definition mapM_ {A B : Type} (f : A → codegen B) (l : list A) : codegen unit :=
+  ignore (mapM f l).
+
+Definition run_codegen {A : Type} (c : codegen A) (wl : wlocal_ctx) : error + A * wlocal_ctx * W.expr :=
   match runWriterT (runStateT (uncodegen c) wl) with
   | inl e => inl e
   | inr x => inr (PPair.pfst x, PPair.psnd x)
@@ -73,20 +74,20 @@ Definition emit (e : W.basic_instruction) : codegen unit := tell [e].
 
 Definition emit_all : W.expr -> codegen unit := tell.
 
-Definition capture {A} (c : codegen A) : codegen (A * W.expr) :=
+Definition capture {A : Type} (c : codegen A) : codegen (A * W.expr) :=
   censor (const []) (listen c).
 
-Definition block_c {A} (tf : W.function_type) (c : codegen A) : codegen A :=
+Definition block_c {A : Type} (tf : W.function_type) (c : codegen A) : codegen A :=
   '(x, es) ← capture c;
   emit (W.BI_block tf es);;
   ret x.
 
-Definition loop_c {A} (tf : W.function_type) (c : codegen A) : codegen A :=
+Definition loop_c {A : Type} (tf : W.function_type) (c : codegen A) : codegen A :=
   '(x, es) ← capture c;
   emit (W.BI_loop tf es);;
   ret x.
 
-Definition if_c {A B} (tf : W.function_type) (thn : codegen A) (els : codegen B) : codegen (A * B) :=
+Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : codegen B) : codegen (A * B) :=
   '(x1, es1) ← capture thn;
   '(x2, es2) ← capture els;
   emit (W.BI_if tf es1 es2);;

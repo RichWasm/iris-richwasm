@@ -66,16 +66,16 @@ Section Repr.
     repr_pointer θ (PtrInt n) (2 * n)
   | ReprPtrMM θ a :
     (a `mod` 4 = 0)%N ->
-    repr_pointer θ (PtrMM a) (Z.of_N a + 1)
+    repr_pointer θ (PtrMM a) (Z.of_N a - 3)
   | ReprPtrGC θ ℓ a :
     θ !! ℓ = Some a ->
     (a `mod` 4 = 0)%N ->
     (a >= heap_start)%N ->
-    repr_pointer θ (PtrGC ℓ) (Z.of_N a + 3)
+    repr_pointer θ (PtrGC ℓ) (Z.of_N a - 1)
   | ReprPtrRoot θ a :
     (a `mod` 4 = 0)%N ->
     (a < heap_start)%N ->
-    repr_pointer θ (PtrRoot a) (Z.of_N a + 3).
+    repr_pointer θ (PtrRoot a) (Z.of_N a - 1).
 
   Inductive repr_word : address_map -> word -> Z -> Prop :=
   | ReprWordInt θ n :

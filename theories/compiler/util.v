@@ -47,10 +47,6 @@ Record function_env :=
     fe_type_vars : list kind;
     fe_local_reps : list (list primitive_rep) }.
 
-Inductive VarScope :=
-  | VSGlobal
-  | VSLocal.
-
 Definition funcimm (ix : W.funcidx) : W.immediate :=
   let '(W.Mk_funcidx i) := ix in i.
 
@@ -65,14 +61,6 @@ Definition localimm (ix : W.localidx) : W.immediate :=
 
 Definition globalimm (ix : W.globalidx) : W.immediate :=
   let '(W.Mk_globalidx i) := ix in i.
-
-Definition scope_get_set (scope : VarScope) :
-  (W.immediate -> W.basic_instruction) *
-  (W.immediate -> W.basic_instruction) :=
-  match scope with
-  | VSGlobal => (W.BI_get_global, W.BI_set_global)
-  | VSLocal => (W.BI_get_local, W.BI_set_local)
-  end.
 
 Definition option_sum {A E : Type} (e : E) (x : option A) : E + A :=
   match x with
