@@ -106,8 +106,9 @@ let rec compile_type delta t =
 let rec compile_value delta gamma locals functions v =
   let open Closed.Value in
   let open Instruction in
+  let unindexed = List.map ~f:(fun (n, t, _) -> (n, t)) gamma in
   let r = compile_value delta gamma locals functions in
-  let t = type_of_v gamma v in
+  let t = type_of_v unindexed v in
   let rw_t = compile_type delta t in
   let box = [ RefNew (Memory.GC, rw_t); RefStore (Path []) ] in
   match v with
@@ -129,9 +130,9 @@ let rec compile_value delta gamma locals functions v =
   | Fun _ -> failwith "functions should be compiled with [compile_fun]"
   | Var v ->
       let idx =
-        List.find_mapi_exn
-          ~f:(fun i (name, _) -> Option.some_if (equal_string name v) i)
-          locals
+        List.find_map_exn
+          ~f:(fun (name, _, i) -> Option.some_if (equal_string name v) i)
+          gamma
       in
       [ LocalGet idx ]
 
@@ -142,10 +143,12 @@ and compile_expr delta gamma locals functions e =
   let open Instruction in
   let open BlockType in
   let open LocalFx in
+  let unindexed = List.map ~f:(fun (n, t, _) -> (n, t)) gamma in
   let cv = compile_value delta gamma locals functions in
   let r = compile_expr delta gamma locals functions in
-  let t = type_of_e gamma e in
+  let t = type_of_e unindexed e in
   let rw_t = compile_type delta t in
+  let new_local_idx = List.length locals in
   match e with
   | Value v -> (cv v, locals)
   | Op (o, l, r) ->
@@ -171,7 +174,8 @@ and compile_expr delta gamma locals functions e =
   | Unfold v -> (cv v @ [ Unfold ], locals)
   | Unpack (var, (n, t), v, e) ->
       let e', locals' =
-        compile_expr (var :: delta) ((n, t) :: gamma)
+        compile_expr (var :: delta)
+          ((n, t, new_local_idx) :: gamma)
           (locals @ [ (n, compile_type delta t) ])
           functions e
       in
@@ -184,10 +188,10 @@ and compile_expr delta gamma locals functions e =
   | Let ((n, t), e1, e2) ->
       let e1', locals' = r e1 in
       let locals' = locals' @ [ (n, compile_type delta t) ] in
-      ( e1'
-        @ [ LocalSet (List.length locals) ]
-        @ (compile_expr delta ((n, t) :: gamma) locals' functions e2 |> fst),
-        locals' )
+      let e2', locals' =
+        compile_expr delta ((n, t, new_local_idx) :: gamma) locals' functions e2
+      in
+      (e1' @ [ LocalSet new_local_idx ] @ e2', locals')
   | If0 (c, thn, els) ->
       let thn', locals' = r thn in
       let els', locals' = compile_expr delta gamma locals' functions els in
@@ -198,7 +202,8 @@ and compile_expr delta gamma locals functions e =
         List.fold_left branches
           ~f:(fun (branches', locals) ((n, t), e) ->
             let compiled, locals' =
-              compile_expr delta ((n, t) :: gamma)
+              compile_expr delta
+                ((n, t, List.length locals) :: gamma)
                 (locals @ [ (n, compile_type delta t) ])
                 functions e
             in
@@ -229,17 +234,24 @@ and compile_expr delta gamma locals functions e =
 
 let compile_fun
     functions
-    (Closed.Value.Fun { foralls; arg = (_, arg_type) as arg; ret_type; body }) :
+    (Closed.Value.Fun { foralls; arg = arg_name, arg_type; ret_type; body }) :
     Module.Function.t =
   let open FunctionType in
   let open Type in
-  let body', locals = compile_expr foralls [ arg ] [] functions body in
+  let arg_rw_type = compile_type foralls arg_type in
+  let ret_rw_type = compile_type foralls ret_type in
+  let body', locals =
+    compile_expr foralls
+      [ (arg_name, arg_type, 0) ]
+      [ (arg_name, arg_rw_type) ]
+      functions body
+  in
   {
     typ =
       FunctionType
         ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
-          [ compile_type foralls arg_type ],
-          [ compile_type foralls ret_type ] );
+          [ arg_rw_type ],
+          [ ret_rw_type ] );
     locals = List.map ~f:(Fn.const rep) locals;
     body = body';
   }
