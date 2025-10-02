@@ -2,9 +2,11 @@ Require Import iris.proofmode.tactics.
 
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
-From RichWasm.compiler Require Import codegen instrs modules util.
+From RichWasm.compiler Require Import prelude codegen util.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.logrel Require Import relations.
+
+Module W := Wasm.operations.
 
 Set Bullet Behavior "Strict Subproofs".
 

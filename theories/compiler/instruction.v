@@ -7,49 +7,24 @@ From stdpp Require Import numbers list.
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import prelude syntax layout.
-From RichWasm.compiler Require Import codegen numerics util.
+From RichWasm Require Import prelude layout syntax.
+From RichWasm.compiler Require Import prelude codegen convert util.
 
-Module W. Include datatypes <+ operations. End W.
+Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
 
-Section Instrs.
+Section Compiler.
 
   Variable me : module_env.
 
-  Definition offset_mm : N := 3.
-  Definition offset_gc : N := 1.
+  Definition free : codegen unit :=
+    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free))).
 
-  Definition get_locals_w : list W.localidx -> codegen unit :=
-    mapM_ (emit ∘ W.BI_get_local ∘ localimm).
+  Definition duproot : codegen unit :=
+    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N offset_gc);;
+    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
 
-  Definition set_locals_w : list W.localidx -> codegen unit :=
-    mapM_ (emit ∘ W.BI_set_local ∘ localimm) ∘ @rev _.
-
-  Definition get_globals_w : list W.globalidx -> codegen unit :=
-    mapM_ (emit ∘ W.BI_get_global ∘ globalimm).
-
-  Definition set_globals_w : list W.globalidx -> codegen unit :=
-    mapM_ (emit ∘ W.BI_set_global ∘ globalimm) ∘ @rev _.
-
-  Definition wlalloc (fe : function_env) (ty : W.value_type) : codegen W.localidx :=
-    wl ← get;
-    put (wl ++ [ty]);;
-    ret (W.Mk_localidx (fe_wlocal_offset fe + length wl)).
-
-  Definition save_stack1 (fe : function_env) (ty : W.value_type) : codegen W.localidx :=
-    i ← wlalloc fe ty;
-    emit (W.BI_set_local (localimm i));;
-    ret i.
-
-  Definition save_stack_w (fe : function_env) (tys : W.result_type) : codegen (list W.localidx) :=
-    ixs ← mapM (wlalloc fe) tys;
-    set_locals_w ixs;;
-    ret ixs.
-
-  Definition save_stack (fe : function_env) (ιs : list primitive_rep) : codegen (list W.localidx) :=
-    save_stack_w fe (map translate_prim_rep ιs).
-
-  Definition restore_stack : list W.localidx -> codegen unit := get_locals_w.
+  Definition unregisterroot : codegen unit :=
+    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
 
   Definition case_ptr {A B C : Type}
     (tf : W.function_type) (i : W.localidx) (num : codegen A) (mm : codegen B) (gc : codegen C) :
@@ -81,16 +56,6 @@ Section Instrs.
   Definition update_gc_refs (ixs : list W.localidx) (ιs : list primitive_rep) (c : codegen unit) :
     codegen unit :=
     mapM_ (fun '(i, ι) => update_gc_ref i ι c) (zip ixs ιs).
-
-  Definition free : codegen unit :=
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free))).
-
-  Definition duproot : codegen unit :=
-    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N offset_gc);;
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
-
-  Definition unregisterroot : codegen unit :=
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
 
   Definition drop_primitive (fe : function_env) (ι : primitive_rep) : codegen unit :=
     match ι with
@@ -131,8 +96,22 @@ Section Instrs.
     ιs ← try_option EUnboundTypeVar (eval_rep ρ);
     mapM_ (drop_primitive fe) (rev ιs).
 
+  Definition compile_num (e : num_instruction) : codegen unit :=
+    match e with
+    | IInt1 νi op => emit (W.BI_unop (translate_int_type νi) (W.Unop_i (translate_int_unop op)))
+    | IInt2 νi op => emit (W.BI_binop (translate_int_type νi) (W.Binop_i (translate_int_binop op)))
+    | IIntTest νi op => emit (W.BI_testop (translate_int_type νi) (translate_int_testop op))
+    | IIntRel νi op => emit (W.BI_relop (translate_int_type νi) (W.Relop_i (translate_int_relop op)))
+    | IFloat1 νf op => emit (W.BI_unop (translate_float_type νf) (W.Unop_f (translate_float_unop op)))
+    | IFloat2 νf op =>
+        emit (W.BI_binop (translate_float_type νf) (W.Binop_f (translate_float_binop op)))
+    | IFloatRel νf op =>
+        emit (W.BI_relop (translate_float_type νf) (W.Relop_f (translate_float_relop op)))
+    | ICvt op => emit (translate_cvt_op op)
+    end.
+
   Definition compile_num_const (ν : num_type) (n : nat) : codegen unit :=
-    emit (W.BI_const (compile_Z (translate_num_type ν) (Z.of_nat n))).
+    emit (W.BI_const (value_of_Z (translate_num_type ν) (Z.of_nat n))).
 
   Definition compile_block (fe : function_env) (ψ : instruction_type) (c : codegen (list unit)) :
     codegen unit :=
@@ -185,6 +164,20 @@ Section Instrs.
     tys ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) (InstrT τs1 τs2));
     ignore $ block_c tys (c fe').
 
+  Definition compile_wrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
+    ρ0 ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
+    ιs0 ← try_option EWrongTypeAnn (eval_rep ρ0);
+    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
+    wz ← to_words fe ιs0;
+    from_words fe wz ιs.
+
+  Definition compile_unwrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
+    ρ0 ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
+    ιs0 ← try_option EWrongTypeAnn (eval_rep ρ0);
+    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
+    wz ← to_words fe ιs;
+    from_words fe wz ιs0.
+
   Definition erased_in_wasm : codegen unit := ret tt.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
@@ -195,7 +188,7 @@ Section Instrs.
     | ICopy _ => raise EWrongTypeAnn
     | IDrop (InstrT [τ] _) => compile_drop fe τ
     | IDrop _ => raise EWrongTypeAnn
-    | INum _ e' => emit (compile_num_instr e')
+    | INum _ e' => compile_num e'
     | INumConst (InstrT _ [NumT _ ν]) n => compile_num_const ν n
     | INumConst _ _ => raise EWrongTypeAnn
     | IBlock ψ _ es => compile_block fe ψ (mapM (compile_instr fe) es)
@@ -220,8 +213,10 @@ Section Instrs.
     | IUnfold  _ => erased_in_wasm
     | IPack _ => erased_in_wasm
     | IUnpack ψ _ es => compile_unpack fe ψ (fun fe' => mapM_ (compile_instr fe') es)
-    | IWrap _ => raise ETodo
-    | IUnwrap _ => raise ETodo
+    | IWrap (InstrT _ [RepT _ ρ τ]) => compile_wrap fe ρ τ
+    | IWrap _ => raise EWrongTypeAnn
+    | IUnwrap (InstrT [RepT _ ρ τ] _) => compile_unwrap fe ρ τ
+    | IUnwrap _ => raise EWrongTypeAnn
     | ITag _ => raise ETodo
     | IUntag _ => raise ETodo
     | IRefNew _ => raise ETodo
@@ -233,4 +228,4 @@ Section Instrs.
   Definition compile_instrs (fe : function_env) : list instruction -> codegen unit :=
     iterM (compile_instr fe).
 
-End Instrs.
+End Compiler.

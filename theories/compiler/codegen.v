@@ -11,7 +11,7 @@ From ExtLib.Structures Require Import Monoid Monads.
 
 From Wasm Require datatypes.
 
-Require Import RichWasm.compiler.util.
+Require Import RichWasm.compiler.prelude.
 Require Import RichWasm.util.
 
 Module W := Wasm.datatypes.

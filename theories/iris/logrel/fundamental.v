@@ -3,7 +3,7 @@ Require Import RecordUpdate.RecordUpdate.
 From iris.proofmode Require Import base tactics classes.
 
 From RichWasm Require Import layout syntax typing.
-From RichWasm.compiler Require Import codegen instrs modules util.
+From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.

@@ -10,6 +10,6 @@ Extraction Language OCaml.
 Set Extraction AutoInline.
 Set Extraction Optimize.
 
-From RichWasm.syntax Require rw modules.
+From RichWasm.syntax Require rw module.
 
-Extraction "RwSyntax.ml" rw.Core.instruction modules.module.
+Extraction "RwSyntax.ml" rw.Core.instruction module.module.

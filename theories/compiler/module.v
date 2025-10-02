@@ -11,7 +11,7 @@ Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
 From RichWasm Require Import syntax typing layout.
-Require Import RichWasm.compiler.util.
+Require Import RichWasm.compiler.prelude.
 
 Module W := Wasm.datatypes.
 
