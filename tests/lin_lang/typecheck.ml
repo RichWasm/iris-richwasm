@@ -29,31 +29,25 @@ let%expect_test "examples" =
   [%expect
     {|
     -----------one-----------
-    ((imports ()) (functions ()) (main ((Val (Int 1 Int) Int))))
+    ((imports ()) (functions ()) (main ((Int 1 Int))))
     -----------flat_tuple-----------
     ((imports ()) (functions ())
      (main
-      ((Val
-        (Tuple ((Int 1 Int) (Int 2 Int) (Int 3 Int) (Int 4 Int))
-         (Prod (Int Int Int Int)))
+      ((Tuple ((Int 1 Int) (Int 2 Int) (Int 3 Int) (Int 4 Int))
         (Prod (Int Int Int Int))))))
     -----------nested_tuple-----------
     ((imports ()) (functions ())
      (main
-      ((Val
-        (Tuple
-         ((Tuple ((Int 1 Int) (Int 2 Int)) (Prod (Int Int)))
-          (Tuple ((Int 3 Int) (Int 4 Int)) (Prod (Int Int))))
-         (Prod ((Prod (Int Int)) (Prod (Int Int)))))
+      ((Tuple
+        ((Tuple ((Int 1 Int) (Int 2 Int)) (Prod (Int Int)))
+         (Tuple ((Int 3 Int) (Int 4 Int)) (Prod (Int Int))))
         (Prod ((Prod (Int Int)) (Prod (Int Int))))))))
     -----------single_sum-----------
     ((imports ()) (functions ())
-     (main
-      ((Val (Inj 0 (Tuple () (Prod ())) (Sum ((Prod ())))) (Sum ((Prod ())))))))
+     (main ((Inj 0 (Tuple () (Prod ())) (Sum ((Prod ())))))))
     -----------double_sum-----------
     ((imports ()) (functions ())
-     (main
-      ((Val (Inj 1 (Int 15 Int) (Sum ((Prod ()) Int))) (Sum ((Prod ()) Int))))))
+     (main ((Inj 1 (Int 15 Int) (Sum ((Prod ()) Int))))))
     -----------arith_add-----------
     ((imports ()) (functions ()) (main ((Binop Add (Int 9 Int) (Int 10 Int) Int))))
     -----------arith_sub-----------

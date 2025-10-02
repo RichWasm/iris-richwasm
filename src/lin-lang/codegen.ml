@@ -96,7 +96,8 @@ module Compile = struct
     | Prod ts -> Prod (List.map ~f:compile_type ts)
     | Sum ts -> Sum (List.map ~f:compile_type ts)
     | Rec t -> Rec (compile_type t)
-    | Exists t -> Exists (Type (VALTYPE (Prim Ptr, ExCopy, ExDrop)), compile_type t)
+    | Exists t ->
+        Exists (Type (VALTYPE (Prim Ptr, ExCopy, ExDrop)), compile_type t)
     | Ref t -> Ref (MM, compile_type t)
 
   let rep_of_typ : A.Type.t -> B.Representation.t Res.t =
@@ -116,7 +117,8 @@ module Compile = struct
     in
     [ Num (Int2 (I32, binop')) ]
 
-  let rec compile_value (env : Env.t) : A.Value.t -> B.Instruction.t list t =
+  let rec compile_expr (env : Env.t) : A.Expr.t -> B.Instruction.t list t =
+    let open A.Expr in
     let open B.Instruction in
     function
     | Var (((de_bruijn, _) as lvar), _) -> (
@@ -130,10 +132,10 @@ module Compile = struct
     | Int (n, _) -> ret @@ [ NumConst (Int I32, n) ]
     | Tuple (vs, _) ->
         (* (1, 2, 3, 4) goes on stack as 1 2 3 4 group *)
-        let* vs' = flat_mapM ~f:(compile_value env) vs in
+        let* vs' = flat_mapM ~f:(compile_expr env) vs in
         ret @@ vs' @ [ Group (List.length vs) ]
     | Inj (i, v, t) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* ts =
           match compile_type t with
           | Sum ts -> ret ts
@@ -141,27 +143,17 @@ module Compile = struct
         in
         ret @@ v' @ [ Inject (i, ts) ]
     | Fold (v, t) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let t' = compile_type t in
         ret @@ v' @ [ Fold t' ]
     | Pack (w, v, t) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let w' = compile_type w in
         let t' = compile_type t in
         ret @@ v' @ [ Pack (Type w', t') ]
-    | New (v, _) ->
-        let* v' = compile_value env v in
-        let t = A.Value.type_of v in
-        let t' = compile_type t in
-        ret @@ v' @ [ RefNew (MM, t') ]
-
-  and compile_expr (env : Env.t) : A.Expr.t -> B.Instruction.t list t =
-    let open B.Instruction in
-    function
-    | Val (v, _) -> compile_value env v
     | App (v1, v2, _) ->
-        let* v1' = compile_value env v1 in
-        let* v2' = compile_value env v2 in
+        let* v1' = compile_expr env v1 in
+        let* v2' = compile_expr env v2 in
         ret @@ v2' @ v1' @ [ CallIndirect ]
     | Let (t, rhs, body, _) ->
         let* rhs' = compile_expr env rhs in
@@ -170,12 +162,12 @@ module Compile = struct
         let env' = Env.add_local env fresh_idx in
         let* body' = compile_expr env' body in
         ret @@ rhs' @ [ LocalSet fresh_idx ] @ body'
-    | Split (ts, rhs, body, _) -> 
-        let ts' = List.map ~f:(compile_type) ts in
+    | Split (ts, rhs, body, _) ->
+        let ts' = List.map ~f:compile_type ts in
         let rhs' = compile_expr env rhs in
         todo "split (ordering)"
     | Cases (scrutinee, cases, t) ->
-        let* scrutinee' = compile_value env scrutinee in
+        let* scrutinee' = compile_expr env scrutinee in
         let* cases' =
           mapM
             ~f:(fun (t, body) ->
@@ -184,24 +176,24 @@ module Compile = struct
               let env' = Env.add_local env fresh_idx in
               let* body' = compile_expr env' body in
               (* NOTE: binding is already on the stack *)
-              ret @@  [LocalSet fresh_idx] @  body')
+              ret @@ [ LocalSet fresh_idx ] @ body')
             cases
         in
         let bt = compile_type t in
         (* FIXME: local effects *)
         ret @@ scrutinee' @ [ Case (BlockType [ bt ], LocalFx [], cases') ]
     | Unfold (v, _) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret @@ v' @ [ Unfold ]
     | Unpack (v, e, t) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* env' = todo "unpack env" in
         let* e' = compile_expr env' e in
         let bt = compile_type t in
         (* FIXME: local fx *)
-        ret @@ v' @ [Unpack (BlockType [bt], LocalFx [], e')]
+        ret @@ v' @ [ Unpack (BlockType [ bt ], LocalFx [], e') ]
     | If0 (v, e1, e2, t) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
         let bt = compile_type t in
@@ -211,16 +203,21 @@ module Compile = struct
         @ [ Ite (BlockType [ bt ], LocalFx [], e1', e2') ]
     | Binop (op, v1, v2, _) ->
         let op' = compile_binop op in
-        let* v1' = compile_value env v1 in
-        let* v2' = compile_value env v2 in
+        let* v1' = compile_expr env v1 in
+        let* v2' = compile_expr env v2 in
         ret @@ v1' @ v2' @ op'
+    | New (v, _) ->
+        let* v' = compile_expr env v in
+        let t = type_of v in
+        let t' = compile_type t in
+        ret @@ v' @ [ RefNew (MM, t') ]
     | Swap (v1, v2, _) ->
-        let* v1' = compile_value env v1 in
-        let* v2' = compile_value env v2 in
+        let* v1' = compile_expr env v1 in
+        let* v2' = compile_expr env v2 in
         ret @@ v1' @ v2' @ [ RefSwap (Path []) ]
     | Free (v, _) ->
-        let* v' = compile_value env v in
-        let t = A.Value.type_of v in
+        let* v' = compile_expr env v in
+        let t = type_of v in
         let t' = compile_type t in
         ret @@ v' @ [ RefLoad (Path [], t'); Drop ]
 

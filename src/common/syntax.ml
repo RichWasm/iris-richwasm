@@ -402,7 +402,6 @@ end = struct
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
   let show_pp = pp
 
   let rec pp ff : t -> unit = function
@@ -419,7 +418,7 @@ end = struct
         fprintf ff ")@]"
     | Ref (m, t) -> fprintf ff "@[(ref %a %a)@]" Memory.pp m pp t
     | x -> show_pp ff x
-    (*| GCPtr t -> fprintf ff ""
+  (*| GCPtr t -> fprintf ff ""
     | CodeRef ft -> fprintf ff ""
     | Rep (r, t) -> fprintf ff ""
     | Pad (s, t) -> fprintf ff ""

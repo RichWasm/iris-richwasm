@@ -15,9 +15,7 @@ let swap_pair_program : Module.t =
           return = Prod [ Int; Int ];
           body =
             Split
-              ( [ ("x", Int); ("y", Int) ],
-                Val (Var "p"),
-                Val (Tuple [ Var "y"; Var "x" ]) );
+              ([ ("x", Int); ("y", Int) ], Var "p", Tuple [ Var "y"; Var "x" ]);
         };
       ];
     main = Some (App (Var "swap", Tuple [ Int 1; Int 2 ]));
@@ -33,18 +31,16 @@ let compose_program : Module.t =
           param = ("f", Lollipop (Int, Int));
           return = Lollipop (Lollipop (Int, Int), Lollipop (Int, Int));
           body =
-            Val
-              (Lam
-                 ( ("g", Lollipop (Int, Int)),
-                   Lollipop (Int, Int),
-                   Val
-                     (Lam
-                        ( ("x", Int),
-                          Int,
-                          Let
-                            ( ("g_result", Int),
-                              App (Var "g", Var "x"),
-                              App (Var "f", Var "g_result") ) )) ));
+            Lam
+              ( ("g", Lollipop (Int, Int)),
+                Lollipop (Int, Int),
+                Lam
+                  ( ("x", Int),
+                    Int,
+                    Let
+                      ( ("g_result", Int),
+                        App (Var "g", Var "x"),
+                        App (Var "f", Var "g_result") ) ) );
         };
       ]
     ()
@@ -54,11 +50,11 @@ let reference_example : Module.t =
     ~main:
       (Let
          ( ("r", Ref Int),
-           Val (New (Int 10)),
+           New (Int 10),
            Let
              ( ("old_val", Int),
                Swap (Var "r", Int 20),
-               Let (("_", Int), Free (Var "r"), Val (Var "old_val")) ) ))
+               Let (("_", Int), Free (Var "r"), Var "old_val") ) ))
     ()
 
 let module_with_imports : Module.t =
@@ -98,19 +94,19 @@ let complex_example : Module.t =
           body =
             Split
               ( [ ("a", Int); ("b", Int) ],
-                Val (Var "input"),
+                Var "input",
                 Let
                   ( ("sum", Int),
                     Binop (Add, Var "a", Var "b"),
                     Let
                       ( ("r1", Ref Int),
-                        Val (New (Var "sum")),
+                        New (Var "sum"),
                         Let
                           ( ("product", Int),
                             Binop (Mul, Var "a", Var "b"),
                             Let
                               ( ("r2", Ref Int),
-                                Val (New (Var "product")),
+                                New (Var "product"),
                                 Let
                                   ( ("sum_val", Int),
                                     Swap (Var "r1", Int 0),
@@ -129,8 +125,8 @@ let complex_example : Module.t =
                                                       ( Add,
                                                         Var "sum_val",
                                                         Var "prod_val" ),
-                                                    Val (Var "final_result") )
-                                              ) ) ) ) ) ) ) ) );
+                                                    Var "final_result" ) ) ) )
+                                  ) ) ) ) ) );
         };
       ];
     main = Some (App (Var "process_pair", Tuple [ Int 3; Int 4 ]));

@@ -23,7 +23,7 @@ module IR = struct
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
-  module Value = struct
+  module Expr = struct
     type t =
       | Int of int
       | Var of LVar.t
@@ -32,25 +32,17 @@ module IR = struct
       | Inj of int * t * Type.t
       | Fold of Type.t * t
       | Pack of Type.t * t * Type.t
-      | New of t
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  end
-
-  module Expr = struct
-    type t =
-      | Val of Value.t
-      | App of Value.t * Value.t
+      | App of t * t
       | Let of Type.t * t * t
       | Split of Type.t list * t * t
-      | Cases of Value.t * (Type.t * t) list
-      | Unfold of Type.t * Value.t
-      | Unpack of Value.t * t * Type.t
-      | If0 of Value.t * t * t
-      | Binop of Binop.t * Value.t * Value.t
-      | Swap of Value.t * Value.t
-      | Free of Value.t
+      | Cases of t * (Type.t * t) list
+      | Unfold of Type.t * t
+      | Unpack of t * t * Type.t
+      | If0 of t * t * t
+      | Binop of Binop.t * t * t
+      | New of t
+      | Swap of t * t
+      | Free of t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -111,16 +103,13 @@ module Compile = struct
     let union_list = Set.union_list (module LVar)
   end
 
-  let rec fv_value (depth : int) : A.Value.t -> LS.t = function
+  let rec fv_expr (depth : int) : A.Expr.t -> LS.t = function
     | Var (i, x) -> if i >= depth then LS.singleton (i - depth, x) else LS.empty
     | Coderef _ | Int _ -> LS.empty
     | Lam (_, _, body) -> fv_expr (depth + 1) body
-    | Tuple vs -> vs |> List.map ~f:(fv_value depth) |> LS.union_list
-    | Inj (_, v, _) | Fold (_, v) | New v -> fv_value depth v
-
-  and fv_expr (depth : int) : A.Expr.t -> LS.t = function
-    | Val v -> fv_value depth v
-    | App (vf, va) -> LS.union (fv_value depth vf) (fv_value depth va)
+    | Tuple vs -> vs |> List.map ~f:(fv_expr depth) |> LS.union_list
+    | Inj (_, v, _) | Fold (_, v) -> fv_expr depth v
+    | App (vf, va) -> LS.union (fv_expr depth vf) (fv_expr depth va)
     | Let (_, rhs, body) ->
         LS.union (fv_expr depth rhs) (fv_expr (depth + 1) body)
     | Split (ts, rhs, body) ->
@@ -128,13 +117,13 @@ module Compile = struct
         LS.union (fv_expr depth rhs) (fv_expr (depth + n) body)
     | Cases (scrutinee, cases) ->
         let cases' = List.map ~f:(fun (_, b) -> fv_expr (depth + 1) b) cases in
-        LS.union_list (fv_value depth scrutinee :: cases')
-    | Unfold (_, v) -> fv_value depth v
+        LS.union_list (fv_expr depth scrutinee :: cases')
+    | Unfold (_, v) -> fv_expr depth v
     | If0 (v, e1, e2) ->
-        LS.union3 (fv_value depth v) (fv_expr depth e1) (fv_expr depth e2)
-    | Binop (_, v1, v2) -> LS.union (fv_value depth v1) (fv_value depth v2)
-    | Free v -> fv_value depth v
-    | Swap (v1, v2) -> LS.union (fv_value depth v1) (fv_value depth v2)
+        LS.union3 (fv_expr depth v) (fv_expr depth e1) (fv_expr depth e2)
+    | Binop (_, v1, v2) -> LS.union (fv_expr depth v1) (fv_expr depth v2)
+    | New v | Free v -> fv_expr depth v
+    | Swap (v1, v2) -> LS.union (fv_expr depth v1) (fv_expr depth v2)
 
   let rec shift_tidx d c : B.Type.t -> B.Type.t = function
     | Int -> Int
@@ -197,6 +186,7 @@ module Compile = struct
       | DuplicateFunName of string
       | InvalidImport of string * A.Type.t
       | InternalError of string
+      | TODO
     [@@deriving sexp_of]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -240,15 +230,15 @@ module Compile = struct
     let* typs = calc_closure_typs env fv_list in
     ret @@ B.Type.Prod typs
 
-  let build_closure (fvs : LS.t) : B.Value.t =
+  let build_closure (fvs : LS.t) : B.Expr.t =
     let fv_list = LS.elements fvs in
-    let open B.Value in
+    let open B.Expr in
     Tuple (List.map ~f:(fun i -> Var i) fv_list)
 
-  let compile_var (env : Env.t) ((i, x) : LVar.t) : B.Value.t t =
+  let compile_var (env : Env.t) ((i, x) : LVar.t) : B.Expr.t t =
     let fbinders = env.vdepth - env.lambda_base in
     let k = Map.length env.vmap in
-    let open B.Value in
+    let open B.Expr in
     if i < fbinders then
       ret @@ Var (i, x)
     else
@@ -257,7 +247,7 @@ module Compile = struct
       | Some slot -> ret (Var (slot + fbinders, x))
       | None -> ret @@ Var (i + k, x)
 
-  let rec lookup_typ (env : Env.t) : A.Value.t -> A.Type.t t =
+  let rec lookup_typ (env : Env.t) : A.Expr.t -> A.Type.t t =
     let open A.Type in
     function
     | Var (i, x) -> (
@@ -278,10 +268,10 @@ module Compile = struct
     | New v ->
         let+ t = lookup_typ env v in
         Ref t
+    | _ -> fail TODO
 
-  let rec compile_value (env : Env.t) : A.Value.t -> B.Value.t t =
+  let rec compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t t =
     let open B.Expr in
-    let open B.Value in
     function
     | Var i ->
         let* v' = compile_var env i in
@@ -291,16 +281,16 @@ module Compile = struct
         ret (Pack (Prod [], Tuple [ Coderef n; Tuple [] ], lower_typ typ))
     | Int n -> ret (Int n)
     | Tuple vs ->
-        let* vs' = mapM ~f:(compile_value env) vs in
+        let* vs' = mapM ~f:(compile_expr env) vs in
         ret (Tuple vs')
     | Inj (i, v, t) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret (Inj (i, v', lower_typ t))
     | Fold (t, v) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret (Fold (lower_typ t, v'))
     | New v ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret (New v')
     | Lam (arg_t, ret_t, body) ->
         let fvs = fv_expr 1 body in
@@ -328,7 +318,7 @@ module Compile = struct
           let+ body' = compile_expr env' body in
           Split
             ( [ Prod clos_typs; arg_t' ],
-              Val (Var (0, None)),
+              Var (0, None),
               Split (clos_typs, Free (Var (1, None)), body') )
         in
         let* closure = closure_typ env fvs in
@@ -351,18 +341,11 @@ module Compile = struct
           ( closure,
             Tuple [ Coderef fname; New clos ],
             lower_typ (Lollipop (arg_t, ret_t)) )
+    | App (fn, arg) -> (
+        let* fn' = compile_expr env fn in
+        let* arg' = compile_expr env arg in
 
-  and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t t =
-    let open B.Expr in
-    function
-    | Val v ->
-        let* v' = compile_value env v in
-        ret @@ Val v'
-    | App (vf, va) -> (
-        let* vf' = compile_value env vf in
-        let* va' = compile_value env va in
-
-        let* looked_up = lookup_typ env vf in
+        let* looked_up = lookup_typ env fn in
 
         match looked_up with
         | Lollipop (arg, return) ->
@@ -379,10 +362,10 @@ module Compile = struct
             let body : B.Expr.t =
               Split
                 ( [ Lollipop (in_t, out_t); Var (0, None) ],
-                  Val (Var (0, None)),
-                  App (Var (1, None), Tuple [ Var (0, None); va' ]) )
+                  Var (0, None),
+                  App (Var (1, None), Tuple [ Var (0, None); arg' ]) )
             in
-            ret (Unpack (vf', body, lower_typ return))
+            ret (Unpack (fn', body, lower_typ return))
         | t -> fail (UnexpectedApplicand t))
     | Let (t, rhs, body) ->
         let* rhs' = compile_expr env rhs in
@@ -396,7 +379,7 @@ module Compile = struct
 
         ret (Split (List.map ~f:lower_typ ts, rhs', body'))
     | Cases (scrutinee, cases) ->
-        let* scrutinee' = compile_value env scrutinee in
+        let* scrutinee' = compile_expr env scrutinee in
         let* cases' =
           mapM
             ~f:(fun (t, body) ->
@@ -408,23 +391,23 @@ module Compile = struct
         ret (Cases (scrutinee', cases'))
     | Unfold (t, v) ->
         let t' = lower_typ t in
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret (Unfold (t', v'))
     | If0 (v, e1, e2) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
         ret (If0 (v', e1', e2'))
     | Binop (op, v1, v2) ->
-        let* v1' = compile_value env v1 in
-        let* v2' = compile_value env v2 in
+        let* v1' = compile_expr env v1 in
+        let* v2' = compile_expr env v2 in
         ret (Binop (op, v1', v2'))
     | Swap (v1, v2) ->
-        let* v1' = compile_value env v1 in
-        let* v2' = compile_value env v2 in
+        let* v1' = compile_expr env v1 in
+        let* v2' = compile_expr env v2 in
         ret (Swap (v1', v2'))
     | Free v ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret (Free v')
 
   let compile_function
