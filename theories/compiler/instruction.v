@@ -156,6 +156,17 @@ Section Compiler.
     let i' := i + funcimm me.(me_runtime).(mr_func_user) in
     emit (W.BI_call i').
 
+  Definition compile_inject (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
+    codegen unit :=
+    ιs_sum ← try_option EWrongTypeAnn (eval_rep (SumR ρs));
+    ixs_sum ← mapM (wlalloc fe) (map translate_prim_rep (tail ιs_sum));
+    ρ ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
+    ixs ← try_option EWrongTypeAnn (inject_sum_rep ρs ρ);
+    ixs' ← mapM (try_option EWrongTypeAnn ∘ nth_error ixs_sum) ixs;
+    mapM (emit ∘ W.BI_set_local ∘ localimm) (rev ixs');;
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
+    restore_stack ixs_sum.
+
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
     codegen unit :=
@@ -213,7 +224,8 @@ Section Compiler.
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
     | ICallIndirect _ => emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
-    | IInject _ _ => raise ETodo
+    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
+    | IInject _ _ => raise EWrongTypeAnn
     | ICase _ _ _ => raise ETodo
     | IGroup _ => erased_in_wasm
     | IUngroup _ => erased_in_wasm
