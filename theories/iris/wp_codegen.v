@@ -495,8 +495,11 @@ Section CodeGen.
     inv_cg_ret Hcg3; subst.
     apply wp_wlallocs in Hcg1.
     destruct Hcg1 as (Hres1 & Hwl1 & Hes1); subst.
+    unfold set_locals_w in Hcg2.
+    simpl in Hcg2.
     rewrite -rev_reverse in Hcg2.
     rewrite imap_seq in Hcg2.
+    unfold mapM_ in Hcg2.
     do 2 rewrite mapM_comp in Hcg2.
     rewrite map_comp in Hcg2.
     rewrite rev_reverse in Hcg2.
@@ -506,9 +509,11 @@ Section CodeGen.
     rewrite Combinators.compose_assoc in Hcg2.
     rewrite localimm_Mk_localidx in Hcg2.
     rewrite Combinators.compose_id_right in Hcg2.
+    inv_cg_bind Hcg2 res3 wl3 es5 es6 Hcg2 Hcg3.
+    inv_cg_ret Hcg3; subst.
     apply wp_mapM_emit in Hcg2.
-    destruct Hcg2 as (Hres2 & Hwl2 & Hes3); subst res2 wl2 es3.
-    repeat rewrite app_nil_r app_nil_l.
+    destruct Hcg2 as (Hres2 & Hwl2 & Hes3); subst res3 wl3 es5.
+    repeat rewrite app_nil_r app_nil_l app_nil_r.
     rewrite imap_seq.
     intros.
     split; auto.
@@ -536,6 +541,5 @@ Section CodeGen.
         destruct Hkx as (n & Hkx & ->).
         eauto.
   Admitted.
-
 
 End CodeGen.

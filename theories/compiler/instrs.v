@@ -19,26 +19,37 @@ Section Instrs.
   Definition offset_mm : N := 3.
   Definition offset_gc : N := 1.
 
+  Definition get_locals_w : list W.localidx -> codegen unit :=
+    mapM_ (emit ∘ W.BI_get_local ∘ localimm).
+
+  Definition set_locals_w : list W.localidx -> codegen unit :=
+    mapM_ (emit ∘ W.BI_set_local ∘ localimm) ∘ @rev _.
+
+  Definition get_globals_w : list W.globalidx -> codegen unit :=
+    mapM_ (emit ∘ W.BI_get_global ∘ globalimm).
+
+  Definition set_globals_w : list W.globalidx -> codegen unit :=
+    mapM_ (emit ∘ W.BI_set_global ∘ globalimm) ∘ @rev _.
+
   Definition wlalloc (fe : function_env) (ty : W.value_type) : codegen W.localidx :=
     wl ← get;
     put (wl ++ [ty]);;
     ret (W.Mk_localidx (fe_wlocal_offset fe + length wl)).
 
   Definition save_stack1 (fe : function_env) (ty : W.value_type) : codegen W.localidx :=
-    idx ← wlalloc fe ty;
-    emit (W.BI_set_local (localimm idx));;
-    mret idx.
+    i ← wlalloc fe ty;
+    emit (W.BI_set_local (localimm i));;
+    ret i.
 
   Definition save_stack_w (fe : function_env) (tys : W.result_type) : codegen (list W.localidx) :=
-    idxs ← mapM (wlalloc fe) tys;
-    mapM (emit ∘ W.BI_set_local ∘ localimm) (rev idxs);;
-    mret idxs.
+    ixs ← mapM (wlalloc fe) tys;
+    set_locals_w ixs;;
+    ret ixs.
 
   Definition save_stack (fe : function_env) (ιs : list primitive_rep) : codegen (list W.localidx) :=
     save_stack_w fe (map translate_prim_rep ιs).
 
-  Definition restore_stack (ixs : list W.localidx) : codegen unit :=
-    mapM_ (emit ∘ W.BI_get_local ∘ localimm) ixs.
+  Definition restore_stack : list W.localidx -> codegen unit := get_locals_w.
 
   Definition case_ptr {A B C : Type}
     (tf : W.function_type) (i : W.localidx) (num : codegen A) (mm : codegen B) (gc : codegen C) :
@@ -118,7 +129,7 @@ Section Instrs.
   Definition compile_drop (fe : function_env) (τ : type) : codegen unit :=
     ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
     ιs ← try_option EUnboundTypeVar (eval_rep ρ);
-    ignore $ mapM (drop_primitive fe) ιs.
+    mapM_ (drop_primitive fe) (rev ιs).
 
   Definition compile_num_const (ν : num_type) (n : nat) : codegen unit :=
     emit (W.BI_const (compile_Z (translate_num_type ν) (Z.of_nat n))).
@@ -139,27 +150,23 @@ Section Instrs.
     ignore (if_c tf c1 c2).
 
   Definition compile_local_get (fe : function_env) (i : nat) : codegen unit :=
-    ixs ← try_option EUnboundLocal (local_indices fe i);
-    mapM_ (emit ∘ W.BI_get_local ∘ localimm) ixs.
+    try_option EUnboundLocal (local_indices fe i) ≫= get_locals_w.
 
   Definition compile_local_set (fe : function_env) (i : nat) : codegen unit :=
-    ixs ← try_option EUnboundLocal (local_indices fe i);
-    mapM_ (emit ∘ W.BI_set_local ∘ localimm) ixs.
+    try_option EUnboundLocal (local_indices fe i) ≫= set_locals_w.
 
   Definition compile_global_get (i : nat) : codegen unit :=
-    '(ixs, _) ← try_option EUnboundGlobal (global_indices i);
-    mapM_ (emit ∘ W.BI_get_global ∘ globalimm) ixs.
+    try_option EUnboundGlobal (global_indices i) ≫= get_globals_w ∘ fst.
 
   Definition compile_global_set (i : nat) : codegen unit :=
-    '(ixs, _) ← try_option EUnboundGlobal (global_indices i);
-    mapM_ (emit ∘ W.BI_set_global ∘ globalimm) ixs.
+    try_option EUnboundGlobal (global_indices i) ≫= set_globals_w ∘ fst.
 
   Definition compile_global_swap (fe : function_env) (i : nat) : codegen unit :=
     '(ixs, ιs) ← try_option EUnboundGlobal (global_indices i);
-    mapM_ (emit ∘ W.BI_get_global ∘ globalimm) ixs;;
-    idx_old ← save_stack fe ιs;
-    mapM_ (emit ∘ W.BI_set_global ∘ globalimm) ixs;;
-    restore_stack idx_old.
+    get_globals_w ixs;;
+    old ← save_stack fe ιs;
+    set_globals_w ixs;;
+    restore_stack old.
 
   Definition compile_coderef (i : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
@@ -178,7 +185,7 @@ Section Instrs.
     tys ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) (InstrT τs1 τs2));
     ignore $ block_c tys (c fe').
 
-  Definition erased_in_wasm : codegen unit := mret tt.
+  Definition erased_in_wasm : codegen unit := ret tt.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
     match e with
