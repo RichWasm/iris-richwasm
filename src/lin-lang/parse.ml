@@ -124,25 +124,26 @@ let parse_binop (p : Path.t) : Sexp.t -> Binop.t Res.t =
   | Atom ("÷" | "/") -> ret Binop.Div
   | x -> fail Err.(ExpectedBinop (p, x))
 
-let rec parse_value (p : Path.t) : Sexp.t -> Value.t Res.t =
+let rec parse_value (p : Path.t) : Sexp.t -> Expr.t Res.t =
   let open Res in
+  let open Expr in
   function
   | Atom x -> (
       match Int.of_string_opt x with
-      | Some x -> ret @@ Value.Int x
-      | None -> ret @@ Value.Var x)
+      | Some x -> ret @@ Int x
+      | None -> ret @@ Var x)
   | List [ Atom ("λ" | "lam"); binding; Atom ":"; ret_t; Atom "."; body ]
   | List [ Atom ("λ" | "lam"); binding; ret_t; body ] ->
       let p = Path.add p ~tag:"lam" in
       let* binding' = parse_binding (p ~field:"binding") binding in
       let* ret_t' = parse_type (p ~field:"ret_t") ret_t in
       let* body' = parse_expr (p ~field:"body") body in
-      ret @@ Value.Lam (binding', ret_t', body')
+      ret @@ Lam (binding', ret_t', body')
   | List (Atom "tup" :: vs) ->
       let* vs' =
         mapiM ~f:(fun i x -> parse_value (Idx i :: Tag "tup" :: p) x) vs
       in
-      ret @@ Value.Tuple vs'
+      ret @@ Tuple vs'
   | List [ Atom "inj"; Atom i; v; Atom ":"; typ ]
   | List [ Atom "inj"; Atom i; v; typ ] ->
       let* i =
@@ -153,15 +154,15 @@ let rec parse_value (p : Path.t) : Sexp.t -> Value.t Res.t =
       let p = Path.add p ~tag:"inj" in
       let* v' = parse_value (p ~field:"v") v in
       let* typ' = parse_type (p ~field:"typ") typ in
-      ret @@ Value.Inj (i, v', typ')
+      ret @@ Inj (i, v', typ')
   | List [ Atom "fold"; t; v ] ->
       let p = Path.add p ~tag:"fold" in
       let* t' = parse_type (p ~field:"t") t in
       let* v' = parse_value (p ~field:"v") v in
-      ret @@ Value.Fold (t', v')
+      ret @@ Fold (t', v')
   | List [ Atom "new"; v ] ->
       let* v' = parse_value (Tag "new" :: p) v in
-      ret @@ Value.New v'
+      ret @@ New v'
   (* FIXME: nested tuples are broken *)
   | List atoms ->
       (* Check if this is a comma-separated tuple eq (1, 2, 3) *)
@@ -183,23 +184,24 @@ let rec parse_value (p : Path.t) : Sexp.t -> Value.t Res.t =
         | _ -> fail Err.(ExpectedValue (p, List atoms))
       in
       let* values = check_and_parse [] 0 atoms in
-      ret @@ Value.Tuple values
+      ret @@ Tuple values
 
 and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
   let open Res in
+  let open Expr in
   function
   | List [ Atom "app"; v1; v2 ] ->
       let p = Path.add p ~tag:"app" in
       let* v1' = parse_value (p ~field:"v1") v1 in
       let* v2' = parse_value (p ~field:"v2") v2 in
-      ret @@ Expr.App (v1', v2')
+      ret @@ App (v1', v2')
   | List [ Atom "let"; binding; Atom "="; e1; Atom "in"; e2 ]
   | List [ Atom "let"; binding; e1; e2 ] ->
       let p = Path.add p ~tag:"let" in
       let* binding' = parse_binding (p ~field:"binding") binding in
       let* e1' = parse_expr (p ~field:"e1") e1 in
       let* e2' = parse_expr (p ~field:"e2") e2 in
-      ret @@ Expr.Let (binding', e1', e2')
+      ret @@ Let (binding', e1', e2')
   | List (Atom "split" :: rst) as sexp ->
       let p : Path.t = Tag "split" :: p in
       (* Split on "=" to separate bindings from expressions *)
@@ -224,19 +226,19 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
       in
       let* e1' = parse_expr (Field "e1" :: p) e1 in
       let* e2' = parse_expr (Field "e2" :: p) e2 in
-      ret @@ Expr.Split (bindings', e1', e2')
+      ret @@ Split (bindings', e1', e2')
   | List [ Atom "if0"; v; Atom "then"; e1; Atom "else"; e2 ]
   | List [ Atom "if0"; v; e1; e2 ] ->
       let p = Path.add p ~tag:"if0" in
       let* v' = parse_value (p ~field:"v") v in
       let* e1' = parse_expr (p ~field:"e1") e1 in
       let* e2' = parse_expr (p ~field:"e2") e2 in
-      ret @@ Expr.If0 (v', e1', e2')
+      ret @@ If0 (v', e1', e2')
   | List [ Atom "swap"; v1; v2 ] ->
       let p = Path.add p ~tag:"swap" in
       let* v1' = parse_value (p ~field:"v1") v1 in
       let* v2' = parse_value (p ~field:"v2") v2 in
-      ret @@ Expr.Swap (v1', v2')
+      ret @@ Swap (v1', v2')
   | List [ Atom "free"; v ] ->
       let* v' = parse_value (Tag "free" :: p) v in
       ret @@ Expr.Free v'
@@ -256,12 +258,12 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
             | s -> fail Err.(ExpectedCase (p, s)))
           cases
       in
-      ret @@ Expr.Cases (scrutinee', cases')
+      ret @@ Cases (scrutinee', cases')
   | List [ Atom "unfold"; t; v ] ->
       let p = Path.add p ~tag:"unfold" in
       let* t' = parse_type (p ~field:"t") t in
       let* v' = parse_value (p ~field:"v") v in
-      ret @@ Expr.Unfold (t', v')
+      ret @@ Unfold (t', v')
   | List [ f1; f2; f3 ] -> (
       let p' = Path.add p ~tag:"binop" in
       (* try (op l r) if (l op r) fails (assumes valid op is not variable name) *)
@@ -277,23 +279,23 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
       | Ok (op', v1, v2) ->
           let* v1' = parse_value (p' ~field:"v1") v1 in
           let* v2' = parse_value (p' ~field:"v2") v2 in
-          ret @@ Expr.Binop (op', v1', v2')
+          ret @@ Binop (op', v1', v2')
       | Error err -> (
           match
             parse_value
               (Tag "[VAL]" :: Tag "<BINOP>" :: p)
               (List [ f1; f2; f3 ] : Sexp.t)
           with
-          | Ok v -> ret @@ Expr.Val v
+          | Ok v -> ret v
           | Error _ -> Error err))
   | List [ l; r ] -> (
       match parse_value (Tag "[VAL]" :: p) (List [ l; r ] : Sexp.t) with
-      | Ok v -> ret @@ Expr.Val v
+      | Ok v -> ret @@ v
       | Error _ ->
           parse_expr (Tag "[APP]" :: p) (List [ Atom "app"; l; r ] : Sexp.t))
   | x ->
       let* v = parse_value (Tag "val" :: p) x in
-      ret @@ Expr.Val v
+      ret @@ v
 
 let parse_import (p : Path.t) : Sexp.t -> Import.t Res.t =
   let open Res in

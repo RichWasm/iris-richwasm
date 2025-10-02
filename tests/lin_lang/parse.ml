@@ -19,17 +19,17 @@ let%expect_test "basic functionality" =
   run {| 1 |};
   [%expect {| 1 |}];
   next ();
-  [%expect {| ((imports ()) (functions ()) (main ((Val (Int 1))))) |}];
+  [%expect {| ((imports ()) (functions ()) (main ((Int 1)))) |}];
 
   run {| -33 |};
   [%expect {| -33 |}];
   next ();
-  [%expect {| ((imports ()) (functions ()) (main ((Val (Int -33))))) |}];
+  [%expect {| ((imports ()) (functions ()) (main ((Int -33)))) |}];
 
   run {| foobar |};
   [%expect {| foobar |}];
   next ();
-  [%expect {| ((imports ()) (functions ()) (main ((Val (Var foobar))))) |}];
+  [%expect {| ((imports ()) (functions ()) (main ((Var foobar)))) |}];
 
   run {| (lam (x : int) int (1 + 1)) |};
   [%expect {|
@@ -39,7 +39,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
       ((imports ()) (functions ())
-       (main ((Val (Lam (x Int) Int (Binop Add (Int 1) (Int 1))))))) |}];
+       (main ((Lam (x Int) Int (Binop Add (Int 1) (Int 1)))))) |}];
 
   run {| (λ (x : int) : int . (1 + 1)) |};
   [%expect {|
@@ -49,7 +49,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((Val (Lam (x Int) Int (Binop Add (Int 1) (Int 1))))))) |}];
+     (main ((Lam (x Int) Int (Binop Add (Int 1) (Int 1)))))) |}];
 
   run {| (1 + 1) |};
   [%expect {| (1 + 1) |}];
@@ -63,7 +63,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((Val (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5))))))) |}];
+     (main ((Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5)))))) |}];
 
   run {| (1, 2, 3, 4, 5) |};
   [%expect {| (1, 2, 3, 4, 5) |}];
@@ -71,7 +71,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((Val (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5))))))) |}];
+     (main ((Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5)))))) |}];
 
   run {| (tup (tup 1 2 3 (tup -4))) |};
   (* prority over app *)
@@ -80,7 +80,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((Val (Tuple ((Tuple ((Int 1) (Int 2) (Int 3) (Tuple ((Int -4))))))))))) |}];
+     (main ((Tuple ((Tuple ((Int 1) (Int 2) (Int 3) (Tuple ((Int -4)))))))))) |}];
 
   (* FIXME: this should work *)
   run {| ((), (1, 2, 3, (-4))) |};
@@ -103,7 +103,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((Let (x Int) (Val (Int 55)) (Binop Add (Var x) (Int 1)))))) |}];
+     (main ((Let (x Int) (Int 55) (Binop Add (Var x) (Int 1)))))) |}];
 
   run {| (let (x int) 55 (x + 1)) |};
   [%expect {|
@@ -113,7 +113,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((Let (x Int) (Val (Int 55)) (Binop Add (Var x) (Int 1)))))) |}];
+     (main ((Let (x Int) (Int 55) (Binop Add (Var x) (Int 1)))))) |}];
 
   run
     {| 
@@ -132,8 +132,8 @@ let%expect_test "basic functionality" =
     {|
     ((imports ()) (functions ())
      (main
-      ((Let (r (Ref Int)) (Val (New (Int 2)))
-        (Split ((x1 Int) (x2 (Ref Int))) (Val (Tuple ((Int 1) (Var r))))
+      ((Let (r (Ref Int)) (New (Int 2))
+        (Split ((x1 Int) (x2 (Ref Int))) (Tuple ((Int 1) (Var r)))
          (Let (x2' Int) (Free (Var x2)) (Binop Mul (Var x1) (Var x2)))))))) |}];
 
   run {| (if0 0 then 67 else 42) |};
@@ -141,8 +141,7 @@ let%expect_test "basic functionality" =
   next ();
   [%expect
     {|
-    ((imports ()) (functions ())
-     (main ((If0 (Int 0) (Val (Int 67)) (Val (Int 42)))))) |}];
+    ((imports ()) (functions ()) (main ((If0 (Int 0) (Int 67) (Int 42))))) |}];
 
   run {| (if0 1 (/ 10 2) (* 10 2)) |};
   [%expect {| (if0 1 then (10 ÷ 2) else (10 × 2)) |}];
@@ -159,7 +158,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((Val (New (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5) (Int 6)))))))) |}];
+     (main ((New (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5) (Int 6))))))) |}];
 
   run
     {|
@@ -182,8 +181,8 @@ let%expect_test "basic functionality" =
     {|
     ((imports ()) (functions ())
      (main
-      ((Let (r1 (Ref Int)) (Val (New (Int 32)))
-        (Let (r2 (Ref Int)) (Val (New (Int 64)))
+      ((Let (r1 (Ref Int)) (New (Int 32))
+        (Let (r2 (Ref Int)) (New (Int 64))
          (Split ((r2' (Ref Int)) (r1' (Ref Int))) (Swap (Var r1) (Var r2))
           (Let (x2 Int) (Free (Var r2'))
            (Let (x1 Int) (Free (Var r1')) (Binop Add (Var x1) (Var x2)))))))))) |}];

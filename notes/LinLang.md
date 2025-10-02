@@ -21,20 +21,18 @@ v ::=
     | x
     | (λ (x : τ₁) : τ₂ . e)
     | (v₁, ..., vₙ)
-    | (inj i v : τ)
-    | (fold τ v)
-    | (new v)
-e ::=
-    | v
+    | (inj i e : τ)
+    | (fold τ e)
     | (app v₁ v₂)
     | (let (x : τ) = e₁ in e₂)
     | (split (x₁ : τ₁) ... (xₙ : τₙ) = e₁ in e₂)
     | (cases v (case (x₁ : τ₁) e₁) ... (case (xₙ : τₙ) eₙ))
-    | (unfold τ v)
-    | (if0 v then e₁ else e₂)
-    | (v₁ binop v₂)
-    | (swap v₁ v₂)
-    | (free v)
+    | (unfold τ e)
+    | (if0 e₁ then e₂ else e₃)
+    | (e₁ binop e₂)
+    | (new e)
+    | (swap e₁ e₂)
+    | (free e)
 
 im := (import τ as x)
 fn := ([export] fun x₁ (x₂ : τ₁) : τ₂ . e)
@@ -95,6 +93,9 @@ See if annotating local effects is strictly needed? Can this be infered?
 
 See what WAT does with block types.
 
+### 2025-10-02
+
+Remove MNF.
 
 # Thoughts for later
 

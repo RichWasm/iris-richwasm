@@ -35,62 +35,26 @@ module IR = struct
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
-  module rec Value : sig
+  module Expr = struct
     type t =
       | Int of int
       | Var of LVar.t (* val de Bruijn *)
       | Coderef of string
-      | Lam of Type.t * Type.t * Expr.t
+      | Lam of Type.t * Type.t * t
       | Tuple of t list
       | Inj of int * t * Type.t
       | Fold of Type.t * t
-      | New of Value.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    val pp : Stdlib.Format.formatter -> t -> unit
-  end = struct
-    type t =
-      | Int of int
-      | Var of LVar.t
-      | Coderef of string
-      | Lam of Type.t * Type.t * Expr.t
-      | Tuple of t list
-      | Inj of int * t * Type.t
-      | Fold of Type.t * t
-      | New of Value.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  end
-
-  and Expr : sig
-    type t =
-      | Val of Value.t
-      | App of Value.t * Value.t
+      | App of t * t
       | Let of Type.t * t * t
-      | If0 of Value.t * t * t
-      | Binop of Binop.t * Value.t * Value.t
+      | If0 of t * t * t
+      | Binop of Binop.t * t * t
       (* split (x_0:ty_0, ..., x_n:ty_n) = rhs in body; x_n -> 0, x_0 -> n *)
       | Split of Type.t list * t * t
-      | Cases of Value.t * (Type.t * t) list
-      | Unfold of Type.t * Value.t
-      | Swap of Value.t * Value.t
-      | Free of Value.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    val pp : Stdlib.Format.formatter -> t -> unit
-  end = struct
-    type t =
-      | Val of Value.t
-      | App of Value.t * Value.t
-      | Let of Type.t * t * t
-      | If0 of Value.t * t * t
-      | Binop of Binop.t * Value.t * Value.t
-      | Split of Type.t list * t * t
-      | Cases of Value.t * (Type.t * t) list
-      | Unfold of Type.t * Value.t
-      | Swap of Value.t * Value.t
-      | Free of Value.t
+      | Cases of t * (Type.t * t) list
+      | Unfold of Type.t * t
+      | New of t
+      | Swap of t * t
+      | Free of t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -204,8 +168,8 @@ module Compile = struct
         let* t' = compile_typ env t in
         ret @@ Ref t'
 
-  let rec compile_value (env : Env.t) : A.Value.t -> B.Value.t Res.t =
-    let open B.Value in
+  let rec compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t Res.t =
+    let open B.Expr in
     let open Res in
     function
     | Var x -> (
@@ -221,30 +185,19 @@ module Compile = struct
         let* body' = compile_expr env' body in
         ret (Lam (typ', return', body'))
     | Tuple vs ->
-        let* vs' = mapM ~f:(compile_value env) vs in
-        ret (Tuple vs' : B.Value.t)
+        let* vs' = mapM ~f:(compile_expr env) vs in
+        ret (Tuple vs')
     | Inj (i, v, t) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* t' = compile_typ env t in
         ret (Inj (i, v', t'))
     | Fold (t, v) ->
         let* t' = compile_typ env t in
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret (Fold (t', v'))
-    | New v ->
-        let* v' = compile_value env v in
-        ret @@ New v'
-
-  and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t Res.t =
-    let open B.Expr in
-    let open Res in
-    function
-    | Val v ->
-        let* v' = compile_value env v in
-        ret @@ Val v'
     | App (l, r) ->
-        let* l' = compile_value env l in
-        let* r' = compile_value env r in
+        let* l' = compile_expr env l in
+        let* r' = compile_expr env r in
         ret @@ App (l', r')
     | Let ((var, typ), e, body) ->
         let* typ' = compile_typ env typ in
@@ -260,7 +213,7 @@ module Compile = struct
         let* body' = compile_expr env' body in
         ret @@ Split (typs', e', body')
     | Cases (scrutinee, cases) ->
-        let* scrutinee' = compile_value env scrutinee in
+        let* scrutinee' = compile_expr env scrutinee in
         let* cases' =
           mapM
             ~f:(fun ((x, t), body) ->
@@ -273,24 +226,27 @@ module Compile = struct
         ret @@ Cases (scrutinee', cases')
     | Unfold (t, v) ->
         let* t' = compile_typ env t in
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret @@ Unfold (t', v')
     | If0 (v, e1, e2) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
         ret @@ If0 (v', e1', e2')
     | Binop (op, l, r) ->
-        let* l' = compile_value env l in
-        let* r' = compile_value env r in
+        let* l' = compile_expr env l in
+        let* r' = compile_expr env r in
         ret @@ Binop (op, l', r')
     | Swap (l, r) ->
-        let* l' = compile_value env l in
-        let* r' = compile_value env r in
+        let* l' = compile_expr env l in
+        let* r' = compile_expr env r in
         ret @@ Swap (l', r')
     | Free v ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         ret @@ Free v'
+    | New v ->
+        let* v' = compile_expr env v in
+        ret @@ New v'
 
   let compile_function
       (fn_names : string list)

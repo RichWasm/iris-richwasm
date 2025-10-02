@@ -76,91 +76,45 @@ module Binop = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
-module rec Value : sig
+module Expr = struct
   type t =
     | Var of Variable.t
     | Int of int
-    | Lam of Binding.t * Type.t * Expr.t
+    | Lam of Binding.t * Type.t * t
     | Tuple of t list
     | Inj of int * t * Type.t
     | Fold of Type.t * t
-    | New of Value.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
-
-  val pp_sexp : formatter -> t -> unit
-  val pp : formatter -> t -> unit
-  val string_of : t -> string
-end = struct
-  type t =
-    | Var of Variable.t
-    | Int of int
-    | Lam of Binding.t * Type.t * Expr.t
-    | Tuple of t list
-    | Inj of int * t * Type.t
-    | Fold of Type.t * t
-    | New of Value.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-  let rec pp ff : t -> unit = function
-    | Var x -> Variable.pp ff x
-    | Int n -> fprintf ff "%d" n
-    | Lam (bind, ret, body) ->
-        fprintf ff "@[<v 2>@[<2>(λ@ %a@ :@ %a@ @].@;@[<2>%a@])@]@]" Binding.pp
-          bind Type.pp ret Expr.pp body
-    | Tuple vs ->
-        fprintf ff "@[<2>(";
-        Internal.pp_list
-          (fun x -> fprintf ff "%a" pp x)
-          (fun () -> fprintf ff ",@ ")
-          vs;
-        fprintf ff ")@]"
-    | Inj (i, v, t) ->
-        fprintf ff "@[(inj %a %a@ :@ %a)" Int.pp i Value.pp v Type.pp t
-    | Fold (t, v) -> fprintf ff "@[(fold %a %a)@]" Type.pp t pp v
-    | New v -> fprintf ff "@[(new@ %a)@]" Value.pp v
-
-  let string_of = asprintf "%a" pp
-end
-
-and Expr : sig
-  type t =
-    | Val of Value.t
-    | App of Value.t * Value.t
-    | Let of Binding.t * Expr.t * Expr.t
-    | Split of Binding.t list * Expr.t * Expr.t
-    | Cases of Value.t * (Binding.t * t) list
-    | Unfold of Type.t * Value.t
-    | If0 of Value.t * Expr.t * Expr.t
-    | Binop of Binop.t * Value.t * Value.t
-    | Swap of Value.t * Value.t
-    | Free of Value.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
-
-  val pp_sexp : formatter -> t -> unit
-  val pp : formatter -> t -> unit
-  val string_of : t -> string
-end = struct
-  type t =
-    | Val of Value.t
-    | App of Value.t * Value.t
-    | Let of Binding.t * Expr.t * Expr.t
-    | Split of Binding.t list * Expr.t * Expr.t
-    | Cases of Value.t * (Binding.t * t) list
-    | Unfold of Type.t * Value.t
-    | If0 of Value.t * Expr.t * Expr.t
-    | Binop of Binop.t * Value.t * Value.t
-    | Swap of Value.t * Value.t
-    | Free of Value.t
+    | App of t * t
+    | Let of Binding.t * t * t
+    | Split of Binding.t list * t * t
+    | Cases of t * (Binding.t * t) list
+    | Unfold of Type.t * t
+    | If0 of t * t * t
+    | Binop of Binop.t * t * t
+    | New of t
+    | Swap of t * t
+    | Free of t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp ff (e : t) =
     match e with
-    | Val v -> Value.pp ff v
-    | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" Value.pp l Value.pp r
+    | Var x -> Variable.pp ff x
+    | Int n -> fprintf ff "%d" n
+    | Lam (bind, ret, body) ->
+        fprintf ff "@[<v 2>@[<2>(λ@ %a@ :@ %a@ @].@;@[<2>%a@])@]@]" Binding.pp
+          bind Type.pp ret pp body
+    | Tuple es ->
+        fprintf ff "@[<2>(";
+        Internal.pp_list
+          (fun x -> fprintf ff "%a" pp x)
+          (fun () -> fprintf ff ",@ ")
+          es;
+        fprintf ff ")@]"
+    | Inj (i, e, t) -> fprintf ff "@[(inj %a %a@ :@ %a)" Int.pp i pp e Type.pp t
+    | Fold (t, e) -> fprintf ff "@[(fold %a %a)@]" Type.pp t pp e
+    | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" pp l pp r
     | Let (bind, e, body) ->
         fprintf ff "@[<v 0>@[<2>(let@ %a@ =@ %a@ in@]@;@[<2>%a)@]@]" Binding.pp
           bind pp e pp body
@@ -172,20 +126,20 @@ end = struct
           bs;
         fprintf ff ")@ =@ %a@ in@]@;@[<2>%a)@]@]" pp e pp b
     | Cases (scrutinee, cases) ->
-        fprintf ff "@[<v 2>@[<2>(cases %a@]@;" Value.pp scrutinee;
+        fprintf ff "@[<v 2>@[<2>(cases %a@]@;" pp scrutinee;
         Internal.pp_list
           (fun (binding, body) ->
             fprintf ff "@[<2>(case %a@ %a)@]" Binding.pp binding pp body)
           (fun () -> fprintf ff "@;")
           cases;
         fprintf ff "@[<2>)@]@]"
-    | Unfold (t, v) -> fprintf ff "@[(unfold %a %a)@]" Type.pp t Value.pp v
-    | If0 (v, e1, e2) ->
-        fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" Value.pp v pp e1 pp e2
-    | Binop (op, l, r) ->
-        fprintf ff "@[<2>(%a@ %a@ %a)@]" Value.pp l Binop.pp op Value.pp r
-    | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" Value.pp l Value.pp r
-    | Free v -> fprintf ff "@[<2>(free@ %a)@]" Value.pp v
+    | Unfold (t, e) -> fprintf ff "@[(unfold %a %a)@]" Type.pp t pp e
+    | If0 (e1, e2, e3) ->
+        fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" pp e1 pp e2 pp e3
+    | Binop (op, l, r) -> fprintf ff "@[<2>(%a@ %a@ %a)@]" pp l Binop.pp op pp r
+    | New e -> fprintf ff "@[(new@ %a)@]" pp e
+    | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp l pp r
+    | Free e -> fprintf ff "@[<2>(free@ %a)@]" pp e
 
   let string_of = asprintf "%a" pp
 end

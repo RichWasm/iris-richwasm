@@ -10,7 +10,7 @@ module IR = struct
   module Type = Cc.IR.Type
   module Binop = Cc.IR.Binop
 
-  module Value = struct
+  module Expr = struct
     type t =
       | Int of int * Type.t
       | Var of LVar.t * Type.t
@@ -19,7 +19,17 @@ module IR = struct
       | Inj of int * t * Type.t
       | Fold of t * Type.t
       | Pack of Type.t * t * Type.t
+      | App of t * t * Type.t
+      | Let of Type.t * t * t * Type.t
+      | Split of Type.t list * t * t * Type.t
+      | Cases of t * (Type.t * t) list * Type.t
+      | Unfold of t * Type.t
+      | Unpack of t * t * Type.t
+      | If0 of t * t * t * Type.t
+      | Binop of Binop.t * t * t * Type.t
       | New of t * Type.t
+      | Swap of t * t * Type.t
+      | Free of t * Type.t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -32,28 +42,6 @@ module IR = struct
       | Inj (_, _, t)
       | Fold (_, t)
       | Pack (_, _, t)
-      | New (_, t) -> t
-  end
-
-  module Expr = struct
-    type t =
-      | Val of Value.t * Type.t
-      | App of Value.t * Value.t * Type.t
-      | Let of Type.t * t * t * Type.t
-      | Split of Type.t list * t * t * Type.t
-      | Cases of Value.t * (Type.t * t) list * Type.t
-      | Unfold of Value.t * Type.t
-      | Unpack of Value.t * t * Type.t
-      | If0 of Value.t * t * t * Type.t
-      | Binop of Binop.t * Value.t * Value.t * Type.t
-      | Swap of Value.t * Value.t * Type.t
-      | Free of Value.t * Type.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-    let type_of : t -> Type.t = function
-      | Val (_, t)
       | App (_, _, t)
       | Let (_, _, _, t)
       | Split (_, _, _, t)
@@ -62,6 +50,7 @@ module IR = struct
       | Unpack (_, _, t)
       | If0 (_, _, _, t)
       | Binop (_, _, _, t)
+      | New (_, t)
       | Swap (_, _, t)
       | Free (_, t) -> t
   end
@@ -167,9 +156,9 @@ module Compile = struct
     else
       fail (Mismatch (ctx, { expected; actual }))
 
-  let rec compile_value (env : Env.t) : A.Value.t -> B.Value.t t =
+  let rec compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t t =
     let open B.Type in
-    let open B.Value in
+    let open B.Expr in
     function
     | Var ((i, _) as lvar) ->
         let* t =
@@ -187,11 +176,11 @@ module Compile = struct
         ret @@ Coderef (n, t)
     | Int n -> ret @@ Int (n, Int)
     | Tuple vs ->
-        let* vs' = mapM ~f:(compile_value env) vs in
+        let* vs' = mapM ~f:(compile_expr env) vs in
         let t = Prod (List.map ~f:type_of vs') in
         ret @@ Tuple (vs', t)
     | Inj (i, v, typ) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* inner_ts =
           match typ with
           | Sum ts -> ret ts
@@ -206,28 +195,15 @@ module Compile = struct
         ret @@ Inj (i, v', typ)
     | Fold (typ, _) -> fail TODO
     | Pack (_, _, typ) -> fail TODO
-    | New v ->
-        let* v' = compile_value env v in
-        let t = Ref (B.Value.type_of v') in
-        ret @@ New (v', t)
-
-  let rec compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t t =
-    let open B.Type in
-    let open B.Expr in
-    function
-    | Val v ->
-        let* v' = compile_value env v in
-        let t = B.Value.type_of v' in
-        ret @@ Val (v', t)
     | App (v1, v2) ->
-        let* v1' = compile_value env v1 in
-        let* v2' = compile_value env v2 in
+        let* v1' = compile_expr env v1 in
+        let* v2' = compile_expr env v2 in
         let* ft1, ft2 =
-          match B.Value.type_of v1' with
+          match type_of v1' with
           | Lollipop (t1, t2) -> ret (t1, t2)
           | x -> fail (AppNotFun x)
         in
-        let v2t = B.Value.type_of v2' in
+        let v2t = type_of v2' in
         let* () = teq ~expected:ft1 ~actual:v2t AppArg in
         ret @@ App (v1', v2', ft2)
     | Let (b_t, lhs, body) ->
@@ -266,19 +242,23 @@ module Compile = struct
         | None -> fail EmptyCases)*)
         fail TODO
     | Unfold (t, v) ->
-        let* v' = compile_value env v in
+        let* v' = compile_expr env v in
         let* () = fail TODO in
         ret @@ Unfold (v', t)
     | Unpack (_, _, t) -> fail TODO
     | If0 (_, l, _) -> fail TODO
     | Binop (((Add | Sub | Mul | Div) as op), v1, v2) ->
-        let* v1' = compile_value env v1 in
-        let* v2' = compile_value env v2 in
-        let v1t = B.Value.type_of v1' in
-        let v2t = B.Value.type_of v2' in
+        let* v1' = compile_expr env v1 in
+        let* v2' = compile_expr env v2 in
+        let v1t = type_of v1' in
+        let v2t = type_of v2' in
         let* () = teq ~actual:v1t ~expected:Int Binop in
         let* () = teq ~actual:v2t ~expected:Int Binop in
         ret @@ Binop (op, v1', v2', Int)
+    | New v ->
+        let* v' = compile_expr env v in
+        let t = Ref (type_of v') in
+        ret @@ New (v', t)
     | Swap (v1, v2) -> fail TODO
     | Free v ->
         (*(let* v' = type_of_value env v in
