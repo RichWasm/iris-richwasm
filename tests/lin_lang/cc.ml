@@ -3,40 +3,45 @@ open! Stdlib.Format
 open! Richwasm_lin_lang
 open Cc
 
-let do_thing (x : Syntax.Module.t) =
-  x
-  |> Index.Compile.compile_module
-  |> ( function
-  | Ok x -> x
-  | Error err -> failwith @@ asprintf "%a" Index.Err.pp err )
-  |> Cc.Compile.compile_module
-  |> function
-  | Ok x -> x
-  | Error err -> failwith @@ asprintf "%a" Cc.Compile.Err.pp err
+include Help.Outputter.Make (struct
+  open Help
+
+  type syntax = Syntax.Module.t
+  type text = string
+  type res = IR.Module.t
+
+  let syntax_pipeline x =
+    x
+    |> Index.Compile.compile_module
+    |> or_fail_pp Index.Err.pp
+    |> Cc.Compile.compile_module
+    |> or_fail_pp Cc.Compile.Err.pp
+
+  let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
+  let examples = Examples.all
+  let pp = IR.Module.pp
+end)
 
 let%expect_test "simple" =
-  pp_set_margin std_formatter 80;
-  pp_set_max_indent std_formatter 80;
-
-  let output x = x |> do_thing |> printf "%a" Cc.IR.Module.pp in
   let mk = Syntax.Module.make in
-  let mks = Parse.from_string_exn in
-  output (mk ());
+  output_syntax (mk ());
   [%expect {| ((imports ()) (functions ()) (main ())) |}];
 
-  output (mk ~main:(Val (Lam (("x", Int), Int, Val (Int 69)))) ());
+  output_syntax (mk ~main:(Val (Lam (("x", Int), Int, Val (Int 69)))) ());
   [%expect
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (closure (Prod ())) (param Int) (return Int)
-        (body (Split () (Val (Var (1 ()))) (Val (Int 69)))))))
+      (((export false) (name lam_1) (param (Prod ((Prod ()) Int))) (return Int)
+        (body
+         (Split ((Prod ()) Int) (Val (Var (0 ())))
+          (Split () (Free (Var (1 ()))) (Val (Int 69))))))))
      (main
       ((Val
-        (Pack (Prod ()) (Tuple ((Coderef lam_1) (Tuple ())))
-         (Exists (Lollipop ((Var (0 ())) Int) Int))))))) |}];
+        (Pack (Prod ()) (Tuple ((Coderef lam_1) (New (Tuple ()))))
+         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))) |}];
 
-  output
+  output_syntax
     (mk
        ~main:
          (Let
@@ -48,16 +53,17 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (closure (Prod (Int))) (param Int) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Prod (Int)) Int))) (return Int)
         (body
-         (Split (Int) (Val (Var (1 ()))) (Binop Add (Var (0 (x))) (Var (2 (y)))))))))
+         (Split ((Prod (Int)) Int) (Val (Var (0 ())))
+          (Split (Int) (Free (Var (1 ()))) (Binop Add (Var (0 (x))) (Var (2 (y))))))))))
      (main
       ((Let Int (Val (Int 67))
         (Val
-         (Pack (Prod (Int)) (Tuple ((Coderef lam_1) (Tuple ((Var (0 (y)))))))
-          (Exists (Lollipop ((Var (0 ())) Int) Int)))))))) |}];
+         (Pack (Prod (Int)) (Tuple ((Coderef lam_1) (New (Tuple ((Var (0 (y))))))))
+          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))) |}];
 
-  output
+  output_syntax
     (mk
        ~main:
          (Let
@@ -79,20 +85,21 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (closure (Prod (Int Int))) (param Int)
+      (((export false) (name lam_1) (param (Prod ((Prod (Int Int)) Int)))
         (return Int)
         (body
-         (Split (Int Int) (Val (Var (1 ())))
-          (Let Int (Binop Add (Var (0 (x))) (Var (3 (y))))
-           (Binop Mul (Var (3 (z))) (Var (0 (r))))))))))
+         (Split ((Prod (Int Int)) Int) (Val (Var (0 ())))
+          (Split (Int Int) (Free (Var (1 ())))
+           (Let Int (Binop Add (Var (0 (x))) (Var (3 (y))))
+            (Binop Mul (Var (3 (z))) (Var (0 (r)))))))))))
      (main
       ((Let Int (Val (Int 420))
         (Let Int (Val (Int 67))
          (Val
           (Pack (Prod (Int Int))
-           (Tuple ((Coderef lam_1) (Tuple ((Var (0 (y))) (Var (1 (z)))))))
-           (Exists (Lollipop ((Var (0 ())) Int) Int))))))))) |}];
-  output
+           (Tuple ((Coderef lam_1) (New (Tuple ((Var (0 (y))) (Var (1 (z))))))))
+           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))) |}];
+  output_syntax
     (mk
        ~main:
          (Let
@@ -111,17 +118,18 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (closure (Prod (Int))) (param Int) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Prod (Int)) Int))) (return Int)
         (body
-         (Split (Int) (Val (Var (1 ())))
-          (Split (Int Int) (Val (Tuple ((Var (0 (x))) (Var (2 (y))))))
-           (Binop Add (Var (1 (a))) (Var (0 (b))))))))))
+         (Split ((Prod (Int)) Int) (Val (Var (0 ())))
+          (Split (Int) (Free (Var (1 ())))
+           (Split (Int Int) (Val (Tuple ((Var (0 (x))) (Var (2 (y))))))
+            (Binop Add (Var (1 (a))) (Var (0 (b)))))))))))
      (main
       ((Let Int (Val (Int 67))
         (Val
-         (Pack (Prod (Int)) (Tuple ((Coderef lam_1) (Tuple ((Var (0 (y)))))))
-          (Exists (Lollipop ((Var (0 ())) Int) Int)))))))) |}];
-  output
+         (Pack (Prod (Int)) (Tuple ((Coderef lam_1) (New (Tuple ((Var (0 (y))))))))
+          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))) |}];
+  output_syntax
     (mk
        ~main:
          (Let
@@ -133,22 +141,23 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (closure (Prod ())) (param Int) (return Int)
-        (body (Split () (Val (Var (1 ()))) (Binop Add (Var (0 (x))) (Int 1)))))))
+      (((export false) (name lam_1) (param (Prod ((Prod ()) Int))) (return Int)
+        (body
+         (Split ((Prod ()) Int) (Val (Var (0 ())))
+          (Split () (Free (Var (1 ()))) (Binop Add (Var (0 (x))) (Int 1))))))))
      (main
-      ((Let (Exists (Lollipop ((Var (0 ())) Int) Int))
+      ((Let (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
         (Val
-         (Pack (Prod ()) (Tuple ((Coderef lam_1) (Tuple ())))
-          (Exists (Lollipop ((Var (0 ())) Int) Int))))
+         (Pack (Prod ()) (Tuple ((Coderef lam_1) (New (Tuple ()))))
+          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
         (Unpack (Var (0 (add1)))
-         (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ()))) (Val (Var (0 ())))
-          (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 10)))))
+         (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
+          (Val (Var (0 ()))) (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 10)))))
          Int))))) |}];
 
   (* shadow type *)
   output
-    (mks
-       {| (fold (rec a (rec a (a + int))) (inj 1 0 : (rec a (rec a (a + int))))) |});
+    {| (fold (rec a (rec a (a + int))) (inj 1 0 : (rec a (rec a (a + int))))) |};
   [%expect
     {|
     ((imports ()) (functions ())
@@ -158,70 +167,87 @@ let%expect_test "simple" =
          (Inj 1 (Int 0) (Rec (Rec (Sum ((Var (0 (a))) Int)))))))))) |}]
 
 let%expect_test "examples" =
-  let examples = Examples.all in
-  let fmt = std_formatter in
-  pp_set_margin fmt 80;
-  pp_set_max_indent fmt 80;
-  examples
-  |> List.iter ~f:(fun (n, m) ->
-         try
-           do_thing m |> printf "-----------%s-----------@.%a@." n IR.Module.pp
-         with Failure msg -> printf "-----------%s-----------@.%s@." n msg);
+  output_examples ();
   [%expect
     {|
-    -----------simple_app_lambda-----------
+    -----------one-----------
+    ((imports ()) (functions ()) (main ((Val (Int 1)))))
+    -----------flat_tuple-----------
+    ((imports ()) (functions ())
+     (main ((Val (Tuple ((Int 1) (Int 2) (Int 3) (Int 4)))))))
+    -----------nested_tuple-----------
+    ((imports ()) (functions ())
+     (main ((Val (Tuple ((Tuple ((Int 1) (Int 2))) (Tuple ((Int 3) (Int 4)))))))))
+    -----------single_sum-----------
+    ((imports ()) (functions ())
+     (main ((Val (Inj 0 (Tuple ()) (Sum ((Prod ()))))))))
+    -----------double_sum-----------
+    ((imports ()) (functions ())
+     (main ((Val (Inj 1 (Int 15) (Sum ((Prod ()) Int)))))))
+    -----------arith_add-----------
+    ((imports ()) (functions ()) (main ((Binop Add (Int 9) (Int 10)))))
+    -----------arith_sub-----------
+    ((imports ()) (functions ()) (main ((Binop Sub (Int 67) (Int 41)))))
+    -----------arith_mul-----------
+    ((imports ()) (functions ()) (main ((Binop Mul (Int 42) (Int 10)))))
+    -----------arith_div-----------
+    ((imports ()) (functions ()) (main ((Binop Div (Int -30) (Int 10)))))
+    -----------app_ident-----------
     ((imports ())
      (functions
-      (((export false) (name lam_1) (closure (Prod ())) (param Int) (return Int)
-        (body (Split () (Val (Var (1 ()))) (Val (Var (0 (x)))))))))
+      (((export false) (name lam_1) (param (Prod ((Prod ()) Int))) (return Int)
+        (body
+         (Split ((Prod ()) Int) (Val (Var (0 ())))
+          (Split () (Free (Var (1 ()))) (Val (Var (0 (x))))))))))
      (main
       ((Unpack
-        (Pack (Prod ()) (Tuple ((Coderef lam_1) (Tuple ())))
-         (Exists (Lollipop ((Var (0 ())) Int) Int)))
-        (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ()))) (Val (Var (0 ())))
-         (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 10)))))
+        (Pack (Prod ()) (Tuple ((Coderef lam_1) (New (Tuple ()))))
+         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+        (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
+         (Val (Var (0 ()))) (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 10)))))
         Int))))
     -----------add_one_program-----------
     ((imports ())
      (functions
-      (((export true) (name add-one) (closure (Prod ())) (param Int) (return Int)
-        (body (Binop Add (Var (0 (x))) (Int 1))))))
+      (((export true) (name add-one) (param (Prod ((Ref (Prod ())) Int)))
+        (return Int) (body (Binop Add (Var (0 (x))) (Int 1))))))
      (main
       ((Unpack
         (Pack (Prod ()) (Tuple ((Coderef add-one) (Tuple ())))
-         (Exists (Lollipop ((Var (0 ())) Int) Int)))
-        (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ()))) (Val (Var (0 ())))
-         (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 42)))))
+         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+        (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
+         (Val (Var (0 ()))) (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 42)))))
         Int))))
     -----------add_tup_ref-----------
     ((imports ()) (functions ())
      (main
-      ((Let (Ref Int) (New (Int 2))
+      ((Let (Ref Int) (Val (New (Int 2)))
         (Split (Int (Ref Int)) (Val (Tuple ((Int 1) (Var (0 (r))))))
          (Let Int (Free (Var (0 (x2)))) (Binop Add (Var (2 (x1))) (Var (0 (x2'))))))))))
     -----------print_10-----------
     ((imports
-      (((typ (Exists (Lollipop ((Var (0 ())) Int) (Prod ())))) (name print))))
+      (((typ (Exists (Lollipop (Prod ((Var (0 ())) Int)) (Prod ())))) (name print))))
      (functions ())
      (main
       ((Unpack
         (Pack (Prod ()) (Tuple ((Coderef print) (Tuple ())))
-         (Exists (Lollipop ((Var (0 ())) Int) (Prod ()))))
-        (Split ((Lollipop ((Var (0 ())) Int) (Prod ())) (Var (0 ())))
+         (Exists (Lollipop (Prod ((Var (0 ())) Int)) (Prod ()))))
+        (Split ((Lollipop (Prod ((Var (0 ())) Int)) (Prod ())) (Var (0 ())))
          (Val (Var (0 ()))) (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 10)))))
         (Prod ())))))
     -----------factorial_program-----------
     ((imports ())
      (functions
-      (((export true) (name factorial) (closure (Prod ())) (param Int) (return Int)
+      (((export true) (name factorial) (param (Prod ((Ref (Prod ())) Int)))
+        (return Int)
         (body
          (If0 (Var (0 (n))) (Val (Int 1))
           (Let Int (Binop Sub (Var (0 (n))) (Int 1))
            (Let Int
             (Unpack
              (Pack (Prod ()) (Tuple ((Coderef factorial) (Tuple ())))
-              (Exists (Lollipop ((Var (0 ())) Int) Int)))
-             (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ())))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+             (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
               (Val (Var (0 ())))
               (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (0 (n-sub1)))))))
              Int)
@@ -229,22 +255,23 @@ let%expect_test "examples" =
      (main
       ((Unpack
         (Pack (Prod ()) (Tuple ((Coderef factorial) (Tuple ())))
-         (Exists (Lollipop ((Var (0 ())) Int) Int)))
-        (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ()))) (Val (Var (0 ())))
-         (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 5)))))
+         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+        (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
+         (Val (Var (0 ()))) (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 5)))))
         Int))))
     -----------safe_div-----------
     ((imports ())
      (functions
-      (((export false) (name safe_div) (closure (Prod ())) (param (Prod (Int Int)))
+      (((export false) (name safe_div)
+        (param (Prod ((Ref (Prod ())) (Prod (Int Int)))))
         (return (Sum (Int (Prod ()))))
         (body
          (Split (Int Int) (Val (Var (0 (p))))
           (If0 (Var (0 (y))) (Val (Inj 1 (Tuple ()) (Sum (Int (Prod ())))))
            (Let Int (Binop Div (Var (1 (x))) (Var (0 (y))))
             (Val (Inj 0 (Var (0 (q))) (Sum (Int (Prod ()))))))))))
-       ((export false) (name from_either) (closure (Prod ()))
-        (param (Sum (Int (Prod ())))) (return Int)
+       ((export false) (name from_either)
+        (param (Prod ((Ref (Prod ())) (Sum (Int (Prod ())))))) (return Int)
         (body
          (Cases (Var (0 (e)))
           ((Int (Val (Var (0 (ok))))) ((Prod ()) (Val (Int 0)))))))))
@@ -252,59 +279,65 @@ let%expect_test "examples" =
       ((Let (Sum (Int (Prod ())))
         (Unpack
          (Pack (Prod ()) (Tuple ((Coderef safe_div) (Tuple ())))
-          (Exists (Lollipop ((Var (0 ())) (Prod (Int Int))) (Sum (Int (Prod ()))))))
+          (Exists
+           (Lollipop (Prod ((Var (0 ())) (Prod (Int Int)))) (Sum (Int (Prod ()))))))
          (Split
-          ((Lollipop ((Var (0 ())) (Prod (Int Int))) (Sum (Int (Prod ()))))
+          ((Lollipop (Prod ((Var (0 ())) (Prod (Int Int)))) (Sum (Int (Prod ()))))
            (Var (0 ())))
           (Val (Var (0 ())))
           (App (Var (1 ())) (Tuple ((Var (0 ())) (Tuple ((Int 10) (Int 0)))))))
          (Sum (Int (Prod ()))))
         (Unpack
          (Pack (Prod ()) (Tuple ((Coderef from_either) (Tuple ())))
-          (Exists (Lollipop ((Var (0 ())) (Sum (Int (Prod ())))) Int)))
-         (Split ((Lollipop ((Var (0 ())) (Sum (Int (Prod ())))) Int) (Var (0 ())))
+          (Exists (Lollipop (Prod ((Var (0 ())) (Sum (Int (Prod ()))))) Int)))
+         (Split
+          ((Lollipop (Prod ((Var (0 ())) (Sum (Int (Prod ()))))) Int) (Var (0 ())))
           (Val (Var (0 ())))
           (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (0 (r)))))))
          Int)))))
     -----------incr_n-----------
     ((imports ())
      (functions
-      (((export false) (name incr_1) (closure (Prod ())) (param (Ref Int))
+      (((export false) (name incr_1) (param (Prod ((Ref (Prod ())) (Ref Int))))
         (return (Ref Int))
         (body
          (Split (Int (Ref Int)) (Swap (Var (0 (r))) (Int 0))
           (Let Int (Binop Add (Var (1 (old))) (Int 1))
            (Let (Prod (Int (Ref Int))) (Swap (Var (1 (r1))) (Var (0 (new))))
             (Split (Int (Ref Int)) (Val (Var (0 (p2)))) (Val (Var (0 (r2))))))))))
-       ((export true) (name incr_n) (closure (Prod ()))
-        (param (Prod ((Ref Int) Int))) (return Int)
+       ((export true) (name incr_n)
+        (param (Prod ((Ref (Prod ())) (Prod ((Ref Int) Int))))) (return Int)
         (body
          (Split ((Ref Int) Int) (Val (Var (0 (p))))
           (If0 (Var (0 (n))) (Free (Var (1 (r))))
            (Let (Ref Int)
             (Unpack
              (Pack (Prod ()) (Tuple ((Coderef incr_1) (Tuple ())))
-              (Exists (Lollipop ((Var (0 ())) (Ref Int)) (Ref Int))))
-             (Split ((Lollipop ((Var (0 ())) (Ref Int)) (Ref Int)) (Var (0 ())))
+              (Exists (Lollipop (Prod ((Var (0 ())) (Ref Int))) (Ref Int))))
+             (Split
+              ((Lollipop (Prod ((Var (0 ())) (Ref Int))) (Ref Int)) (Var (0 ())))
               (Val (Var (0 ())))
               (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (1 (r)))))))
              (Ref Int))
             (Let Int (Binop Sub (Var (1 (n))) (Int 1))
              (Unpack
               (Pack (Prod ()) (Tuple ((Coderef incr_n) (Tuple ())))
-               (Exists (Lollipop ((Var (0 ())) (Prod ((Ref Int) Int))) Int)))
+               (Exists (Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)))
               (Split
-               ((Lollipop ((Var (0 ())) (Prod ((Ref Int) Int))) Int) (Var (0 ())))
+               ((Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)
+                (Var (0 ())))
                (Val (Var (0 ())))
                (App (Var (1 ()))
                 (Tuple ((Var (0 ())) (Tuple ((Var (1 (r1))) (Var (0 (n1)))))))))
               Int)))))))))
      (main
-      ((Let (Ref Int) (New (Int 10))
+      ((Let (Ref Int) (Val (New (Int 10)))
         (Unpack
          (Pack (Prod ()) (Tuple ((Coderef incr_n) (Tuple ())))
-          (Exists (Lollipop ((Var (0 ())) (Prod ((Ref Int) Int))) Int)))
-         (Split ((Lollipop ((Var (0 ())) (Prod ((Ref Int) Int))) Int) (Var (0 ())))
+          (Exists (Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)))
+         (Split
+          ((Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)
+           (Var (0 ())))
           (Val (Var (0 ())))
           (App (Var (1 ()))
            (Tuple ((Var (0 ())) (Tuple ((Var (0 (r0))) (Int 3)))))))
@@ -313,174 +346,229 @@ let%expect_test "examples" =
     ((imports ())
      (functions
       (((export false) (name lam_2)
-        (closure
-         (Prod
-          ((Exists
-            (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-             (Exists (Lollipop ((Var (0 ())) Int) Int)))))))
         (param
-         (Rec
-          (Exists
-           (Lollipop ((Var (0 ())) (Var (1 (a))))
-            (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-        (return (Exists (Lollipop ((Var (0 ())) Int) Int)))
+         (Prod
+          ((Prod
+            ((Exists
+              (Lollipop
+               (Prod
+                ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+           (Rec
+            (Exists
+             (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))
+        (return (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
         (body
          (Split
-          ((Exists
-            (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-             (Exists (Lollipop ((Var (0 ())) Int) Int)))))
-          (Val (Var (1 ())))
-          (Let
+          ((Prod
+            ((Exists
+              (Lollipop
+               (Prod
+                ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+           (Rec
+            (Exists
+             (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+          (Val (Var (0 ())))
+          (Split
+           ((Exists
+             (Lollipop
+              (Prod
+               ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+           (Free (Var (1 ())))
+           (Let
+            (Exists
+             (Lollipop
+              (Prod
+               ((Var (0 ()))
+                (Rec
+                 (Exists
+                  (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+            (Unfold
+             (Rec
+              (Exists
+               (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+             (Var (0 (x))))
+            (Let (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+             (Unpack (Var (0 (ux)))
+              (Split
+               ((Lollipop
+                 (Prod
+                  ((Var (0 ()))
+                   (Rec
+                    (Exists
+                     (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+                      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                (Var (0 ())))
+               (Val (Var (0 ())))
+               (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (1 (x)))))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+             (Unpack (Var (4 (f)))
+              (Split
+               ((Lollipop
+                 (Prod
+                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                (Var (0 ())))
+               (Val (Var (0 ())))
+               (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (0 (xx)))))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))))
+       ((export false) (name lam_1)
+        (param
+         (Prod
+          ((Prod ())
            (Exists
             (Lollipop
-             ((Var (0 ()))
-              (Rec
-               (Exists
-                (Lollipop ((Var (0 ())) (Var (1 (a))))
-                 (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-             (Exists (Lollipop ((Var (0 ())) Int) Int))))
-           (Unfold
-            (Rec
-             (Exists
-              (Lollipop ((Var (0 ())) (Var (1 (a))))
-               (Exists (Lollipop ((Var (0 ())) Int) Int)))))
-            (Var (0 (x))))
-           (Let (Exists (Lollipop ((Var (0 ())) Int) Int))
-            (Unpack (Var (0 (ux)))
+             (Prod
+              ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+        (return (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+        (body
+         (Split
+          ((Prod ())
+           (Exists
+            (Lollipop
+             (Prod
+              ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+          (Val (Var (0 ())))
+          (Split () (Free (Var (1 ())))
+           (Let
+            (Exists
+             (Lollipop
+              (Prod
+               ((Var (0 ()))
+                (Rec
+                 (Exists
+                  (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+            (Val
+             (Pack
+              (Prod
+               ((Exists
+                 (Lollipop
+                  (Prod
+                   ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+              (Tuple ((Coderef lam_2) (New (Tuple ((Var (0 (f))))))))
+              (Exists
+               (Lollipop
+                (Prod
+                 ((Var (0 ()))
+                  (Rec
+                   (Exists
+                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+            (Unpack (Var (0 (omega)))
              (Split
               ((Lollipop
+                (Prod
+                 ((Var (0 ()))
+                  (Rec
+                   (Exists
+                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+               (Var (0 ())))
+              (Val (Var (0 ())))
+              (App (Var (1 ()))
+               (Tuple
                 ((Var (0 ()))
-                 (Rec
-                  (Exists
-                   (Lollipop ((Var (0 ())) (Var (1 (a))))
-                    (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-                (Exists (Lollipop ((Var (0 ())) Int) Int)))
-               (Var (0 ())))
-              (Val (Var (0 ())))
-              (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (1 (x)))))))
-             (Exists (Lollipop ((Var (0 ())) Int) Int)))
-            (Unpack (Var (4 (f)))
-             (Split
-              ((Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-                (Exists (Lollipop ((Var (0 ())) Int) Int)))
-               (Var (0 ())))
-              (Val (Var (0 ())))
-              (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (0 (xx)))))))
-             (Exists (Lollipop ((Var (0 ())) Int) Int))))))))
-       ((export false) (name lam_1) (closure (Prod ()))
-        (param
-         (Exists
-          (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-           (Exists (Lollipop ((Var (0 ())) Int) Int)))))
-        (return (Exists (Lollipop ((Var (0 ())) Int) Int)))
-        (body
-         (Split () (Val (Var (1 ())))
-          (Let
-           (Exists
-            (Lollipop
-             ((Var (0 ()))
-              (Rec
-               (Exists
-                (Lollipop ((Var (0 ())) (Var (1 (a))))
-                 (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-             (Exists (Lollipop ((Var (0 ())) Int) Int))))
-           (Val
-            (Pack
-             (Prod
-              ((Exists
-                (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-                 (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-             (Tuple ((Coderef lam_2) (Tuple ((Var (0 (f)))))))
-             (Exists
-              (Lollipop
-               ((Var (0 ()))
-                (Rec
-                 (Exists
-                  (Lollipop ((Var (0 ())) (Var (1 (a))))
-                   (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-               (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-           (Unpack (Var (0 (omega)))
-            (Split
-             ((Lollipop
-               ((Var (0 ()))
-                (Rec
-                 (Exists
-                  (Lollipop ((Var (0 ())) (Var (1 (a))))
-                   (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-               (Exists (Lollipop ((Var (0 ())) Int) Int)))
-              (Var (0 ())))
-             (Val (Var (0 ())))
-             (App (Var (1 ()))
-              (Tuple
-               ((Var (0 ()))
-                (Fold
-                 (Rec
-                  (Exists
-                   (Lollipop ((Var (0 ())) (Var (1 (a))))
-                    (Exists (Lollipop ((Var (0 ())) Int) Int)))))
-                 (Var (0 (omega))))))))
-            (Exists (Lollipop ((Var (0 ())) Int) Int)))))))
+                 (Fold
+                  (Rec
+                   (Exists
+                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
+                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+                  (Var (0 (omega))))))))
+             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))
        ((export false) (name lam_4)
-        (closure (Prod ((Exists (Lollipop ((Var (0 ())) Int) Int))))) (param Int)
+        (param
+         (Prod ((Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))) Int)))
         (return Int)
         (body
-         (Split ((Exists (Lollipop ((Var (0 ())) Int) Int))) (Val (Var (1 ())))
-          (If0 (Var (0 (n))) (Val (Int 1))
-           (Let Int (Binop Sub (Var (0 (n))) (Int 1))
-            (Let Int
-             (Unpack (Var (3 (rec)))
-              (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ())))
-               (Val (Var (0 ())))
-               (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (0 (n-sub1)))))))
-              Int)
-             (Binop Mul (Var (2 (n))) (Var (0 (rec-res))))))))))
-       ((export false) (name lam_3) (closure (Prod ()))
-        (param (Exists (Lollipop ((Var (0 ())) Int) Int)))
-        (return (Exists (Lollipop ((Var (0 ())) Int) Int)))
+         (Split ((Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))) Int)
+          (Val (Var (0 ())))
+          (Split ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+           (Free (Var (1 ())))
+           (If0 (Var (0 (n))) (Val (Int 1))
+            (Let Int (Binop Sub (Var (0 (n))) (Int 1))
+             (Let Int
+              (Unpack (Var (3 (rec)))
+               (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
+                (Val (Var (0 ())))
+                (App (Var (1 ())) (Tuple ((Var (0 ())) (Var (0 (n-sub1)))))))
+               Int)
+              (Binop Mul (Var (2 (n))) (Var (0 (rec-res)))))))))))
+       ((export false) (name lam_3)
+        (param
+         (Prod ((Prod ()) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+        (return (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
         (body
-         (Split () (Val (Var (1 ())))
-          (Val
-           (Pack (Prod ((Exists (Lollipop ((Var (0 ())) Int) Int))))
-            (Tuple ((Coderef lam_4) (Tuple ((Var (0 (rec)))))))
-            (Exists (Lollipop ((Var (0 ())) Int) Int)))))))))
+         (Split ((Prod ()) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+          (Val (Var (0 ())))
+          (Split () (Free (Var (1 ())))
+           (Val
+            (Pack (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+             (Tuple ((Coderef lam_4) (New (Tuple ((Var (0 (rec))))))))
+             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))))
      (main
       ((Let
         (Exists
          (Lollipop
-          ((Var (0 ()))
-           (Exists
-            (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-             (Exists (Lollipop ((Var (0 ())) Int) Int)))))
-          (Exists (Lollipop ((Var (0 ())) Int) Int))))
+          (Prod
+           ((Var (0 ()))
+            (Exists
+             (Lollipop
+              (Prod
+               ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
         (Val
-         (Pack (Prod ()) (Tuple ((Coderef lam_1) (Tuple ())))
+         (Pack (Prod ()) (Tuple ((Coderef lam_1) (New (Tuple ()))))
           (Exists
            (Lollipop
-            ((Var (0 ()))
-             (Exists
-              (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-               (Exists (Lollipop ((Var (0 ())) Int) Int)))))
-            (Exists (Lollipop ((Var (0 ())) Int) Int))))))
-        (Let (Exists (Lollipop ((Var (0 ())) Int) Int))
+            (Prod
+             ((Var (0 ()))
+              (Exists
+               (Lollipop
+                (Prod
+                 ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+        (Let (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
          (Unpack (Var (0 (fix)))
           (Split
            ((Lollipop
-             ((Var (0 ()))
-              (Exists
-               (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-                (Exists (Lollipop ((Var (0 ())) Int) Int)))))
-             (Exists (Lollipop ((Var (0 ())) Int) Int)))
+             (Prod
+              ((Var (0 ()))
+               (Exists
+                (Lollipop
+                 (Prod
+                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
             (Var (0 ())))
            (Val (Var (0 ())))
            (App (Var (1 ()))
             (Tuple
              ((Var (0 ()))
-              (Pack (Prod ()) (Tuple ((Coderef lam_3) (Tuple ())))
+              (Pack (Prod ()) (Tuple ((Coderef lam_3) (New (Tuple ()))))
                (Exists
-                (Lollipop ((Var (0 ())) (Exists (Lollipop ((Var (0 ())) Int) Int)))
-                 (Exists (Lollipop ((Var (0 ())) Int) Int)))))))))
-          (Exists (Lollipop ((Var (0 ())) Int) Int)))
+                (Lollipop
+                 (Prod
+                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))))
+          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
          (Unpack (Var (0 (factorial)))
-          (Split ((Lollipop ((Var (0 ())) Int) Int) (Var (0 ())))
+          (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
            (Val (Var (0 ()))) (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 5)))))
           Int)))))) |}]

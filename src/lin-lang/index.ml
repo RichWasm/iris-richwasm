@@ -44,6 +44,7 @@ module IR = struct
       | Tuple of t list
       | Inj of int * t * Type.t
       | Fold of Type.t * t
+      | New of Value.t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     val pp : Stdlib.Format.formatter -> t -> unit
@@ -56,6 +57,7 @@ module IR = struct
       | Tuple of t list
       | Inj of int * t * Type.t
       | Fold of Type.t * t
+      | New of Value.t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -72,7 +74,6 @@ module IR = struct
       | Split of Type.t list * t * t
       | Cases of Value.t * (Type.t * t) list
       | Unfold of Type.t * Value.t
-      | New of Value.t
       | Swap of Value.t * Value.t
       | Free of Value.t
     [@@deriving eq, ord, iter, map, fold, sexp]
@@ -88,7 +89,6 @@ module IR = struct
       | Split of Type.t list * t * t
       | Cases of Value.t * (Type.t * t) list
       | Unfold of Type.t * Value.t
-      | New of Value.t
       | Swap of Value.t * Value.t
       | Free of Value.t
     [@@deriving eq, ord, iter, map, fold, sexp]
@@ -231,6 +231,9 @@ module Compile = struct
         let* t' = compile_typ env t in
         let* v' = compile_value env v in
         ret (Fold (t', v'))
+    | New v ->
+        let* v' = compile_value env v in
+        ret @@ New v'
 
   and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t Res.t =
     let open B.Expr in
@@ -281,9 +284,6 @@ module Compile = struct
         let* l' = compile_value env l in
         let* r' = compile_value env r in
         ret @@ Binop (op, l', r')
-    | New v ->
-        let* v' = compile_value env v in
-        ret @@ New v'
     | Swap (l, r) ->
         let* l' = compile_value env l in
         let* r' = compile_value env r in
@@ -320,12 +320,7 @@ module Compile = struct
       @ List.map ~f:(fun im -> im.name) imports
     in
     let* functions' = mapM ~f:(compile_function fn_names) functions in
-    let* main' =
-      match main with
-      | None -> Ok None
-      | Some m ->
-          let* m = compile_expr { Env.empty with fn_names } m in
-          Ok (Some m)
-    in
+    let* main' = omap ~f:(compile_expr { Env.empty with fn_names }) main in
+
     ret @@ B.Module.{ imports = imports'; functions = functions'; main = main' }
 end

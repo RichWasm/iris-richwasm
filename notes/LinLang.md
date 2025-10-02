@@ -23,6 +23,7 @@ v ::=
     | (v₁, ..., vₙ)
     | (inj i v : τ)
     | (fold τ v)
+    | (new v)
 e ::=
     | v
     | (app v₁ v₂)
@@ -32,7 +33,6 @@ e ::=
     | (unfold τ v)
     | (if0 v then e₁ else e₂)
     | (v₁ binop v₂)
-    | (new v)
     | (swap v₁ v₂)
     | (free v)
 

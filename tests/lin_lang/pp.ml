@@ -54,7 +54,7 @@ let reference_example : Module.t =
     ~main:
       (Let
          ( ("r", Ref Int),
-           New (Int 10),
+           Val (New (Int 10)),
            Let
              ( ("old_val", Int),
                Swap (Var "r", Int 20),
@@ -104,13 +104,13 @@ let complex_example : Module.t =
                     Binop (Add, Var "a", Var "b"),
                     Let
                       ( ("r1", Ref Int),
-                        New (Var "sum"),
+                        Val (New (Var "sum")),
                         Let
                           ( ("product", Int),
                             Binop (Mul, Var "a", Var "b"),
                             Let
                               ( ("r2", Ref Int),
-                                New (Var "product"),
+                                Val (New (Var "product")),
                                 Let
                                   ( ("sum_val", Int),
                                     Swap (Var "r1", Int 0),
@@ -155,7 +155,25 @@ let%expect_test "pretty prints examples" =
     examples;
   [%expect
     {|
-    -----------simple_app_lambda-----------
+    -----------one-----------
+    1
+    -----------flat_tuple-----------
+    (1, 2, 3, 4)
+    -----------nested_tuple-----------
+    ((1, 2), (3, 4))
+    -----------single_sum-----------
+    (inj 0 () : (()))
+    -----------double_sum-----------
+    (inj 1 15 : (() ⊕ int))
+    -----------arith_add-----------
+    (9 + 10)
+    -----------arith_sub-----------
+    (67 - 41)
+    -----------arith_mul-----------
+    (42 × 10)
+    -----------arith_div-----------
+    (-30 ÷ 10)
+    -----------app_ident-----------
     (app (λ (x : int) : int .
            x)
     10)

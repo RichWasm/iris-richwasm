@@ -3,15 +3,6 @@ open! Stdlib.Format
 open! Richwasm_lin_lang
 open Syntax
 
-let simple_app_lambda : Module.t =
-  Parse.from_string_exn
-    {|
-      (app
-        (lam (x : int) : int .
-          x)
-        10)
-    |}
-
 let add_one_program : Module.t =
   Parse.from_string_exn
     {|
@@ -100,6 +91,8 @@ let fix_factorial =
             (lam (x : (rec a (a -> (int -> int)))) : (int -> int) .
               (let (ux : ((rec a (a -> (int -> int))) -> (int -> int))) =
                 (unfold (rec a (a -> (int -> int))) x) in
+              ; this doesn't work when closures are boxed!
+              ; (x is now linear)
               (let (xx : (int -> int)) = (app ux x) in
               (app f xx)))) in
           (app omega (fold (rec a (a -> (int -> int))) omega)))) in
@@ -115,14 +108,38 @@ let fix_factorial =
       (app factorial 5)))
     |}
 
-let all =
+(*let knot_factorial = Parse.from_string_exn 
+    {|
+      (let (peek : ((ref int) -> ((ref int) * int))) =
+        (lam (r : (ref int)) : ((ref int) * int) .
+          (let (v : int) = (free r) in
+          (let (r' : (ref int)) = (new r) in
+          (v, r')))) in
+    |} *)
+
+let simple : (string * Module.t) list =
   [
-    ("simple_app_lambda", simple_app_lambda);
-    ("add_one_program", add_one_program);
-    ("add_tup_ref", add_tup_ref);
-    ("print_10", print_10);
-    ("factorial_program", factorial_program);
-    ("safe_div", safe_div);
-    ("incr_n", incr_n);
-    ("fix_factorial", fix_factorial);
+    ("one", "1");
+    ("flat_tuple", "(tup 1 2 3 4)");
+    ("nested_tuple", "(tup (tup 1 2) (tup 3 4))");
+    ("single_sum", "(inj 0 () (sum (prod)))");
+    ("double_sum", "(inj 1 15 (sum (prod) int))");
+    ("arith_add", "(9 + 10)");
+    ("arith_sub", "(67 - 41)");
+    ("arith_mul", "(42 * 10)");
+    ("arith_div", "(-30 / 10)");
+    ("app_ident", "((lam (x int) int x) 10)");
   ]
+  |> List.map ~f:(fun (n, s) -> (n, Parse.from_string_exn s))
+
+let all : (string * Module.t) list =
+  simple
+  @ [
+      ("add_one_program", add_one_program);
+      ("add_tup_ref", add_tup_ref);
+      ("print_10", print_10);
+      ("factorial_program", factorial_program);
+      ("safe_div", safe_div);
+      ("incr_n", incr_n);
+      ("fix_factorial", fix_factorial);
+    ]

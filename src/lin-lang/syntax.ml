@@ -84,6 +84,7 @@ module rec Value : sig
     | Tuple of t list
     | Inj of int * t * Type.t
     | Fold of Type.t * t
+    | New of Value.t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   val pp_sexp : formatter -> t -> unit
@@ -97,6 +98,7 @@ end = struct
     | Tuple of t list
     | Inj of int * t * Type.t
     | Fold of Type.t * t
+    | New of Value.t
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -117,6 +119,7 @@ end = struct
     | Inj (i, v, t) ->
         fprintf ff "@[(inj %a %a@ :@ %a)" Int.pp i Value.pp v Type.pp t
     | Fold (t, v) -> fprintf ff "@[(fold %a %a)@]" Type.pp t pp v
+    | New v -> fprintf ff "@[(new@ %a)@]" Value.pp v
 
   let string_of = asprintf "%a" pp
 end
@@ -131,7 +134,6 @@ and Expr : sig
     | Unfold of Type.t * Value.t
     | If0 of Value.t * Expr.t * Expr.t
     | Binop of Binop.t * Value.t * Value.t
-    | New of Value.t
     | Swap of Value.t * Value.t
     | Free of Value.t
   [@@deriving eq, ord, iter, map, fold, sexp]
@@ -149,7 +151,6 @@ end = struct
     | Unfold of Type.t * Value.t
     | If0 of Value.t * Expr.t * Expr.t
     | Binop of Binop.t * Value.t * Value.t
-    | New of Value.t
     | Swap of Value.t * Value.t
     | Free of Value.t
   [@@deriving eq, ord, iter, map, fold, sexp]
@@ -183,7 +184,6 @@ end = struct
         fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" Value.pp v pp e1 pp e2
     | Binop (op, l, r) ->
         fprintf ff "@[<2>(%a@ %a@ %a)@]" Value.pp l Binop.pp op Value.pp r
-    | New v -> fprintf ff "@[<2>(new@ %a)@]" Value.pp v
     | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" Value.pp l Value.pp r
     | Free v -> fprintf ff "@[<2>(free@ %a)@]" Value.pp v
 

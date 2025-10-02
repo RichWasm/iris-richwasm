@@ -9,7 +9,11 @@ module Copyability = struct
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp = pp_sexp
+
+  let pp ff : t -> unit = function
+    | NoCopy -> fprintf ff "nocopy"
+    | ExCopy -> fprintf ff "excopy"
+    | ImCopy -> fprintf ff "imcopy"
 end
 
 module Dropability = struct
@@ -20,7 +24,11 @@ module Dropability = struct
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp = pp_sexp
+
+  let pp ff : t -> unit = function
+    | NoDrop -> fprintf ff "nodrop"
+    | ExDrop -> fprintf ff "exdrop"
+    | ImDrop -> fprintf ff "imdrop"
 end
 
 module Memory = struct
@@ -30,7 +38,10 @@ module Memory = struct
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp = pp_sexp
+
+  let pp ff : t -> unit = function
+    | MM -> fprintf ff "mm"
+    | GC -> fprintf ff "gc"
 end
 
 module PrimitiveRep = struct
@@ -40,10 +51,9 @@ module PrimitiveRep = struct
     | I64
     | F32
     | F64
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp = pp_sexp
 end
 
 module Representation = struct
@@ -52,10 +62,9 @@ module Representation = struct
     | Sum of t list
     | Prod of t list
     | Prim of PrimitiveRep.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp = pp_sexp
 end
 
 module Size = struct
@@ -65,20 +74,18 @@ module Size = struct
     | Prod of t list
     | Rep of Representation.t
     | Const of int
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp = pp_sexp
 end
 
 module Sizity = struct
   type t =
     | Sized of Size.t
     | Unsized
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp = pp_sexp
 end
 
 module Kind = struct
@@ -96,7 +103,7 @@ module Quantifier = struct
     | Representation
     | Size
     | Type of Kind.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -313,20 +320,24 @@ module ConversionOp = struct
     | Promote
     | Convert of Int.Type.t * Float.Type.t * Sign.t
     | Reinterpret of NumType.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp_show = pp
 
   let pp ff : t -> unit = function
     | Wrap -> fprintf ff "i32.wrap_i64"
     | Extend s -> fprintf ff "i64.extend_i32_%a" Sign.pp s
-    (* | Trunc (float_type, float_type, sign) -> failwith "TODO" *)
+    | Trunc (ft, it, sign) ->
+        fprintf ff "%a.trunc_%a_%a" Int.Type.pp it Float.Type.pp ft Sign.pp sign
     | Demote -> fprintf ff "f32.demote_f64"
     | Promote -> fprintf ff "f64.promote_f32"
-    (* | Convert (int_type, float_type, sign) -> failwith "TODO, ordering"
-    | Reinterpret num_type -> failwith "TODO" *)
-    | x -> pp_show ff x
+    | Convert (it, ft, sign) ->
+        fprintf ff "%a.convert_%a_%a" Float.Type.pp ft Int.Type.pp it Sign.pp
+          sign
+    | Reinterpret (Int I32) -> fprintf ff "f32.reinterpret_i32"
+    | Reinterpret (Int I64) -> fprintf ff "f64.reinterpret_i64"
+    | Reinterpret (Float F32) -> fprintf ff "i32.reinterpret_f32"
+    | Reinterpret (Float F64) -> fprintf ff "i64.reinterpret_f64"
 end
 
 module NumInstruction = struct
@@ -391,6 +402,30 @@ end = struct
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let show_pp = pp
+
+  let rec pp ff : t -> unit = function
+    | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
+    | I31 -> fprintf ff "i31"
+    | Num nt -> fprintf ff "%a" NumType.pp nt
+    | Sum ts ->
+        fprintf ff "@[(sum";
+        List.iter ~f:(fprintf ff "@ %a" pp) ts;
+        fprintf ff ")@]"
+    | Prod ts ->
+        fprintf ff "@[(prod";
+        List.iter ~f:(fprintf ff "@ %a" pp) ts;
+        fprintf ff ")@]"
+    | Ref (m, t) -> fprintf ff "@[(ref %a %a)@]" Memory.pp m pp t
+    | x -> show_pp ff x
+    (*| GCPtr t -> fprintf ff ""
+    | CodeRef ft -> fprintf ff ""
+    | Rep (r, t) -> fprintf ff ""
+    | Pad (s, t) -> fprintf ff ""
+    | Ser t -> fprintf ff ""
+    | Rec t -> fprintf ff ""
+    | Exists (q, t) -> fprintf ff "" *)
 end
 
 and FunctionType : sig
@@ -508,23 +543,36 @@ module Instruction = struct
 
   let rec pp ff : t -> unit =
     let pp_instrs ff (instrs : t list) = () in
+    let pp_int = Base.Int.pp in
     function
     | Nop -> fprintf ff "nop"
     | Unreachable -> fprintf ff "unreachable"
     | Copy -> fprintf ff "copy"
     | Drop -> fprintf ff "drop"
     | Num ni -> fprintf ff "%a" NumInstruction.pp ni
-    | NumConst (t, n) -> fprintf ff "%a.const %a" NumType.pp t Base.Int.pp n
+    | NumConst (t, n) -> fprintf ff "%a.const %a" NumType.pp t pp_int n
     (*| Block (it, lfx, instrs) ->
     (* TODO: block return *)
         fprintf ff "block %a %a @; @[<v 2>%a@] end" InstructionType.pp it
           LocalFx.pp lfx pp_instrs instrs *)
+    | Br i -> fprintf ff "br %a" pp_int i
     | Return -> fprintf ff "return"
-    | LocalGet i -> fprintf ff "local.get %a" Base.Int.pp i
-    | LocalSet i -> fprintf ff "local.set %a" Base.Int.pp i
-    | GlobalGet i -> fprintf ff "global.get %a" Base.Int.pp i
-    | GlobalSet i -> fprintf ff "global.set %a" Base.Int.pp i
-    | GlobalSwap i -> fprintf ff "global.swap %a" Base.Int.pp i
+    | LocalGet i -> fprintf ff "local.get %a" pp_int i
+    | LocalSet i -> fprintf ff "local.set %a" pp_int i
+    | GlobalGet i -> fprintf ff "global.get %a" pp_int i
+    | GlobalSet i -> fprintf ff "global.set %a" pp_int i
+    | GlobalSwap i -> fprintf ff "global.swap %a" pp_int i
+    | CodeRef i -> fprintf ff "coderef %a" pp_int i
+    | Group i -> fprintf ff "seq.group %a" pp_int i
+    | Ungroup -> fprintf ff "seq.ungroup"
+    | Wrap t -> fprintf ff "wrap %a" Type.pp t
+    | Unwrap -> fprintf ff "unwrap"
+    | Tag -> fprintf ff "tag"
+    | Untag -> fprintf ff "untag"
+    | RefNew (m, t) -> fprintf ff "ref.new %a %a" Memory.pp m Type.pp t
+    | RefLoad (p, t) -> fprintf ff "ref.load %a %a" Path.pp p Type.pp t
+    | RefStore p -> fprintf ff "ref.store %a" Path.pp p
+    | RefSwap p -> fprintf ff "ref.swap %a" Path.pp p
     | x -> show_pp ff x
 end
 

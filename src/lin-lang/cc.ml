@@ -6,7 +6,7 @@ module IR = struct
     type t =
       | Int
       | Var of LVar.t
-      | Lollipop of (t * t) * t (* no free *)
+      | Lollipop of t * t (* no free *)
       | Prod of t list
       | Sum of t list
       | Rec of t
@@ -32,6 +32,7 @@ module IR = struct
       | Inj of int * t * Type.t
       | Fold of Type.t * t
       | Pack of Type.t * t * Type.t
+      | New of t
     [@@deriving eq, ord, iter, map, fold, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -48,7 +49,6 @@ module IR = struct
       | Unpack of Value.t * t * Type.t
       | If0 of Value.t * t * t
       | Binop of Binop.t * Value.t * Value.t
-      | New of Value.t
       | Swap of Value.t * Value.t
       | Free of Value.t
     [@@deriving eq, ord, iter, map, fold, sexp]
@@ -70,7 +70,6 @@ module IR = struct
     type t = {
       export : bool;
       name : string;
-      closure : Type.t;
       param : Type.t;
       return : Type.t;
       body : Expr.t;
@@ -117,8 +116,7 @@ module Compile = struct
     | Coderef _ | Int _ -> LS.empty
     | Lam (_, _, body) -> fv_expr (depth + 1) body
     | Tuple vs -> vs |> List.map ~f:(fv_value depth) |> LS.union_list
-    | Inj (_, v, _) -> fv_value depth v
-    | Fold (_, v) -> fv_value depth v
+    | Inj (_, v, _) | Fold (_, v) | New v -> fv_value depth v
 
   and fv_expr (depth : int) : A.Expr.t -> LS.t = function
     | Val v -> fv_value depth v
@@ -135,14 +133,13 @@ module Compile = struct
     | If0 (v, e1, e2) ->
         LS.union3 (fv_value depth v) (fv_expr depth e1) (fv_expr depth e2)
     | Binop (_, v1, v2) -> LS.union (fv_value depth v1) (fv_value depth v2)
-    | New v | Free v -> fv_value depth v
+    | Free v -> fv_value depth v
     | Swap (v1, v2) -> LS.union (fv_value depth v1) (fv_value depth v2)
 
   let rec shift_tidx d c : B.Type.t -> B.Type.t = function
     | Int -> Int
     | Var (i, n) -> Var ((if i >= c then i + d else i), n)
-    | Lollipop ((t1, t2), t3) ->
-        Lollipop ((shift_tidx d c t1, shift_tidx d c t2), shift_tidx d c t3)
+    | Lollipop (t1, t2) -> Lollipop (shift_tidx d c t1, shift_tidx d c t2)
     | Prod ts -> Prod (List.map ~f:(shift_tidx d c) ts)
     | Sum ts -> Sum (List.map ~f:(shift_tidx d c) ts)
     | Rec t -> Rec (shift_tidx d (c + 1) t)
@@ -156,7 +153,7 @@ module Compile = struct
     | Lollipop (t1, t2) ->
         Exists
           (Lollipop
-             ( (Var (0, None), lower_typ t1 |> shift_tidx 1 0),
+             ( Prod [ Var (0, None); lower_typ t1 |> shift_tidx 1 0 ],
                lower_typ t2 |> shift_tidx 1 0 ))
     | Prod ts -> Prod (List.map ~f:lower_typ ts)
     | Sum ts -> Sum (List.map ~f:lower_typ ts)
@@ -260,22 +257,27 @@ module Compile = struct
       | Some slot -> ret (Var (slot + fbinders, x))
       | None -> ret @@ Var (i + k, x)
 
-  let rec lookup_typ (env : Env.t) : A.Value.t -> A.Type.t t = function
+  let rec lookup_typ (env : Env.t) : A.Value.t -> A.Type.t t =
+    let open A.Type in
+    function
     | Var (i, x) -> (
         match Env.lookup_v_typ env i with
         | Some t -> ret t
         | None -> fail (LocalTypeLookupFailed ((i, x), env)))
     | Coderef n -> (
         match Map.find env.fns n with
-        | Some (param, return) -> ret (Lollipop (param, return) : A.Type.t)
+        | Some (param, return) -> ret (Lollipop (param, return))
         | None -> fail (FunctionLookupFailed (n, env)))
-    | Int _ -> ret @@ (Int : A.Type.t)
-    | Lam (arg_t, ret_t, _) -> ret (Lollipop (arg_t, ret_t) : A.Type.t)
+    | Int _ -> ret @@ Int
+    | Lam (arg_t, ret_t, _) -> ret (Lollipop (arg_t, ret_t))
     | Tuple vs ->
-        let* vs' = mapM ~f:(fun v -> lookup_typ env v) vs in
-        ret (Prod vs' : A.Type.t)
+        let+ vs' = mapM ~f:(fun v -> lookup_typ env v) vs in
+        Prod vs'
     | Inj (_, _, t) -> ret t
     | Fold (t, _) -> ret t
+    | New v ->
+        let+ t = lookup_typ env v in
+        Ref t
 
   let rec compile_value (env : Env.t) : A.Value.t -> B.Value.t t =
     let open B.Expr in
@@ -297,10 +299,15 @@ module Compile = struct
     | Fold (t, v) ->
         let* v' = compile_value env v in
         ret (Fold (lower_typ t, v'))
+    | New v ->
+        let* v' = compile_value env v in
+        ret (New v')
     | Lam (arg_t, ret_t, body) ->
         let fvs = fv_expr 1 body in
         let* fname = fresh "lam" in
         let fv_list = Set.elements fvs in
+        let arg_t' = lower_typ arg_t in
+        let* clos_typs = calc_closure_typs env fv_list in
         let* body' =
           let k = List.length fv_list in
 
@@ -315,35 +322,35 @@ module Compile = struct
               fv_list
           in
 
-          let* clos_typs = calc_closure_typs env fv_list in
           let env' = Env.add_var env arg_t in
           let env' = { env' with vmap; lambda_base = env.vdepth } in
 
-          let* body' = compile_expr env' body in
-          ret @@ Split (clos_typs, Val (Var (1, None)), body')
+          let+ body' = compile_expr env' body in
+          Split
+            ( [ Prod clos_typs; arg_t' ],
+              Val (Var (0, None)),
+              Split (clos_typs, Free (Var (1, None)), body') )
         in
         let* closure = closure_typ env fvs in
-        let param = lower_typ arg_t in
+        let param : B.Type.t = Prod [ closure; arg_t' ] in
         let return = lower_typ ret_t in
 
-        let* () =
-          emit
-            {
-              export = false;
-              name = fname;
-              closure;
-              param;
-              return;
-              body = body';
-            }
+        (*
+          #`(func #,name (#,param -> #,return)
+              (split (closure : #,clos_typs) (orig_param : #,arg_t) = #,param in
+                (split #,@clos_typs = (free closure) in
+                  #,body)))
+          *)
+        let+ () =
+          emit { export = false; name = fname; param; return; body = body' }
         in
 
         let clos = Tuple (List.map ~f:(fun (i, x) -> Var (i, x)) fv_list) in
-        ret
-          (Pack
-             ( closure,
-               Tuple [ Coderef fname; clos ],
-               lower_typ (Lollipop (arg_t, ret_t)) ))
+        (* #`(pack #,closure (new #,clos) as #,(lower clos)) *)
+        Pack
+          ( closure,
+            Tuple [ Coderef fname; New clos ],
+            lower_typ (Lollipop (arg_t, ret_t)) )
 
   and compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t t =
     let open B.Expr in
@@ -359,19 +366,23 @@ module Compile = struct
 
         match looked_up with
         | Lollipop (arg, return) ->
+            (*
+            #`(unpack (package : α) from #,vf where
+                (split (coderef : ((α ⊗ #,tin) -> #,tout)) (closure : α) = package in
+                  (app coderef (closure, #,va))))
+            *)
+            let in_t =
+              B.Type.Prod [ Var (0, None); lower_typ arg |> shift_tidx 1 0 ]
+            in
+            let out_t = lower_typ return |> shift_tidx 1 0 in
+
             let body : B.Expr.t =
               Split
-                (* tvar from unpack *)
-                ( [
-                    Lollipop
-                      ( (Var (0, None), lower_typ arg |> shift_tidx 1 0),
-                        lower_typ return |> shift_tidx 1 0 );
-                    Var (0, None);
-                  ],
+                ( [ Lollipop (in_t, out_t); Var (0, None) ],
                   Val (Var (0, None)),
                   App (Var (1, None), Tuple [ Var (0, None); va' ]) )
             in
-            ret (Unpack (vf', body, lower_typ return) : B.Expr.t)
+            ret (Unpack (vf', body, lower_typ return))
         | t -> fail (UnexpectedApplicand t))
     | Let (t, rhs, body) ->
         let* rhs' = compile_expr env rhs in
@@ -408,9 +419,6 @@ module Compile = struct
         let* v1' = compile_value env v1 in
         let* v2' = compile_value env v2 in
         ret (Binop (op, v1', v2'))
-    | New v ->
-        let* v' = compile_value env v in
-        ret (New v')
     | Swap (v1, v2) ->
         let* v1' = compile_value env v1 in
         let* v2' = compile_value env v2 in
@@ -429,8 +437,7 @@ module Compile = struct
       {
         export;
         name;
-        closure = Prod [];
-        param = lower_typ param;
+        param = Prod [ Ref (Prod []); lower_typ param ];
         return = lower_typ return;
         body = body';
       }

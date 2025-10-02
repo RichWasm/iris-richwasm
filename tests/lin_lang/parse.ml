@@ -2,33 +2,20 @@ open! Base
 open! Stdlib.Format
 open! Richwasm_lin_lang
 
+include Help.MultiOutputter.Make (struct
+  type syntax = Syntax.Module.t
+  type text = string
+  type res = Syntax.Module.t
+
+  let syntax_pipeline x = x
+  let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
+  let examples = []
+  let pp = Syntax.Module.pp
+  let pp_sexp = Syntax.Module.pp_sexp
+end)
+
 let%expect_test "basic functionality" =
-  pp_set_margin std_formatter 80;
-  pp_set_max_indent std_formatter 80;
-
-  let suspended = ref (fun () -> ()) in
-
-  let run (s : string) =
-    try
-      let x = Parse.from_string_exn s in
-      printf "%a" Syntax.Module.pp x;
-      suspended := fun () -> printf "%a" Syntax.Module.pp_sexp x
-    with Failure msg ->
-      printf "Failure: %s" msg;
-      suspended := fun () -> printf "Failure ^^^"
-  in
-
-  let next () =
-    !suspended ();
-    suspended := fun () -> ()
-  in
-
   (* values *)
-  run {| 1 |};
-  [%expect {| 1 |}];
-  next ();
-  [%expect {| ((imports ()) (functions ()) (main ((Val (Int 1))))) |}];
-
   run {| 1 |};
   [%expect {| 1 |}];
   next ();
@@ -97,7 +84,7 @@ let%expect_test "basic functionality" =
 
   (* FIXME: this should work *)
   run {| ((), (1, 2, 3, (-4))) |};
-  [%expect {| Failure: Failed (ExpectedBinop ((Field op-f2) (Tag binop)) ,) |}];
+  [%expect {| FAILURE Failed (ExpectedBinop ((Field op-f2) (Tag binop)) ,) |}];
   next ();
   [%expect {|
     Failure ^^^ |}];
@@ -145,7 +132,7 @@ let%expect_test "basic functionality" =
     {|
     ((imports ()) (functions ())
      (main
-      ((Let (r (Ref Int)) (New (Int 2))
+      ((Let (r (Ref Int)) (Val (New (Int 2)))
         (Split ((x1 Int) (x2 (Ref Int))) (Val (Tuple ((Int 1) (Var r))))
          (Let (x2' Int) (Free (Var x2)) (Binop Mul (Var x1) (Var x2)))))))) |}];
 
@@ -172,7 +159,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     ((imports ()) (functions ())
-     (main ((New (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5) (Int 6))))))) |}];
+     (main ((Val (New (Tuple ((Int 1) (Int 2) (Int 3) (Int 4) (Int 5) (Int 6)))))))) |}];
 
   run
     {|
@@ -195,8 +182,8 @@ let%expect_test "basic functionality" =
     {|
     ((imports ()) (functions ())
      (main
-      ((Let (r1 (Ref Int)) (New (Int 32))
-        (Let (r2 (Ref Int)) (New (Int 64))
+      ((Let (r1 (Ref Int)) (Val (New (Int 32)))
+        (Let (r2 (Ref Int)) (Val (New (Int 64)))
          (Split ((r2' (Ref Int)) (r1' (Ref Int))) (Swap (Var r1) (Var r2))
           (Let (x2 Int) (Free (Var r2'))
            (Let (x1 Int) (Free (Var r1')) (Binop Add (Var x1) (Var x2)))))))))) |}];
