@@ -12,6 +12,12 @@ module LVar = struct
   include Comparator.Make (T)
 end
 
+module type Ast = sig
+  type t [@@deriving eq, ord, iter, map, fold, sexp]
+
+  val pp : Stdlib.Format.formatter -> t -> unit
+end
+
 module IR = struct
   (* de Bruijn indices *)
 
@@ -60,39 +66,43 @@ module IR = struct
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
-  module Import = struct
-    type t = {
-      typ : Type.t;
-      name : string;
-    }
-    [@@deriving eq, ord, iter, map, fold, sexp, make]
+  module Mk (Type : Ast) (Expr : Ast) = struct
+    module Import = struct
+      type t = {
+        typ : Type.t;
+        name : string;
+      }
+      [@@deriving eq, ord, iter, map, fold, sexp, make]
 
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+      let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    end
+
+    module Function = struct
+      type t = {
+        export : bool;
+        name : string;
+        param : Type.t;
+        return : Type.t;
+        body : Expr.t;
+      }
+      [@@deriving eq, ord, iter, map, fold, sexp]
+
+      let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    end
+
+    module Module = struct
+      type t = {
+        imports : Import.t list;
+        functions : Function.t list;
+        main : Expr.t option;
+      }
+      [@@deriving eq, ord, iter, map, fold, sexp]
+
+      let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    end
   end
 
-  module Function = struct
-    type t = {
-      export : bool;
-      name : string;
-      param : Type.t;
-      return : Type.t;
-      body : Expr.t;
-    }
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  end
-
-  module Module = struct
-    type t = {
-      imports : Import.t list;
-      functions : Function.t list;
-      main : Expr.t option;
-    }
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  end
+  include Mk (Type) (Expr)
 end
 
 module Err = struct

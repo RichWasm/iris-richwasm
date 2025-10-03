@@ -14,8 +14,6 @@ include Help.Outputter.Make (struct
     x
     |> Index.Compile.compile_module
     |> or_fail_pp Index.Err.pp
-    |> Cc.Compile.compile_module
-    |> or_fail_pp Cc.Compile.Err.pp
     |> Typecheck.Compile.compile_module
     |> or_fail_pp Typecheck.Err.pp
 
@@ -26,8 +24,7 @@ end)
 
 let%expect_test "examples" =
   output_examples ();
-  [%expect
-    {|
+  [%expect{|
     -----------one-----------
     ((imports ()) (functions ()) (main ((Int 1 Int))))
     -----------flat_tuple-----------
@@ -60,7 +57,9 @@ let%expect_test "examples" =
     ((imports ()) (functions ())
      (main ((Binop Div (Int -30 Int) (Int 10 Int) Int))))
     -----------app_ident-----------
-    FAILURE TODO
+    ((imports ()) (functions ())
+     (main
+      ((App (Lam Int Int (Var (0 (x)) Int) (Lollipop Int Int)) (Int 10 Int) Int))))
     -----------nested_arith-----------
     ((imports ()) (functions ())
      (main ((Binop Mul (Binop Add (Int 9 Int) (Int 10 Int) Int) (Int 5 Int) Int))))
@@ -68,15 +67,27 @@ let%expect_test "examples" =
     ((imports ()) (functions ())
      (main ((Let Int (Int 10 Int) (Var (0 (x)) Int) Int))))
     -----------add_one_program-----------
-    FAILURE (Mismatch Binop ((expected Int) (actual (Prod ((Ref (Prod ())) Int)))))
+    ((imports ())
+     (functions
+      (((export true) (name add-one) (param Int) (return Int)
+        (body (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int)))))
+     (main ((App (Coderef add-one (Lollipop Int Int)) (Int 42 Int) Int))))
     -----------add_tup_ref-----------
-    FAILURE TODO
+    ((imports ()) (functions ())
+     (main
+      ((Let (Ref Int) (New (Int 2 Int) (Ref Int))
+        (Split (Int (Ref Int))
+         (Tuple ((Int 1 Int) (Var (0 (r)) (Ref Int))) (Prod (Int (Ref Int))))
+         (Let Int (Free (Var (0 (x2)) (Ref Int)) Int)
+          (Binop Add (Var (2 (x1)) Int) (Var (0 (x2')) Int) Int) Int)
+         Int)
+        Int))))
     -----------print_10-----------
-    FAILURE TODO
+    FAILURE (MissingGlobalEnv print ((locals ()) (fns ())))
     -----------factorial_program-----------
     FAILURE TODO
     -----------safe_div-----------
-    FAILURE (Mismatch (SplitBind 0) ((expected Int) (actual (Ref (Prod ())))))
+    FAILURE TODO
     -----------incr_n-----------
     FAILURE TODO
     -----------fix_factorial-----------

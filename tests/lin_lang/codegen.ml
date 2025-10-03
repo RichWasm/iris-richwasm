@@ -14,10 +14,10 @@ include Help.MultiOutputter.Make (struct
     x
     |> Index.Compile.compile_module
     |> or_fail_pp Index.Err.pp
-    |> Cc.Compile.compile_module
-    |> or_fail_pp Cc.Compile.Err.pp
     |> Typecheck.Compile.compile_module
     |> or_fail_pp Typecheck.Err.pp
+    |> Cc.Compile.compile_module
+    |> or_fail_pp Cc.Compile.Err.pp
     |> Codegen.Compile.compile_module
     |> or_fail_pp Codegen.Err.pp
 
@@ -123,8 +123,7 @@ let%expect_test "basic functionality" =
 
 let%expect_test "examples" =
   output_examples ();
-  [%expect
-    {|
+  [%expect{|
     -----------one-----------
     (module
       (func -> i32
@@ -200,7 +199,8 @@ let%expect_test "examples" =
       (table)
       (export _start (func 0)))
     -----------app_ident-----------
-    FAILURE TODO
+    FAILURE Function named lam_1 is not mapped in env: ((global_map ()) (function_map ())
+                                                (local_map ()))
     -----------nested_arith-----------
     (module
       (func -> i32
@@ -220,15 +220,17 @@ let%expect_test "examples" =
       (table)
       (export _start (func 0)))
     -----------add_one_program-----------
-    FAILURE (Mismatch Binop ((expected Int) (actual (Prod ((Ref (Prod ())) Int)))))
+    FAILURE Function named add-one is not mapped in env: ((global_map ())
+                                                  (function_map ())
+                                                  (local_map ()))
     -----------add_tup_ref-----------
-    FAILURE TODO
+    FAILURE (TODO "rep of typ")
     -----------print_10-----------
-    FAILURE TODO
+    FAILURE (MissingGlobalEnv print ((locals ()) (fns ())))
     -----------factorial_program-----------
     FAILURE TODO
     -----------safe_div-----------
-    FAILURE (Mismatch (SplitBind 0) ((expected Int) (actual (Ref (Prod ())))))
+    FAILURE TODO
     -----------incr_n-----------
     FAILURE TODO
     -----------fix_factorial-----------
