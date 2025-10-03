@@ -201,6 +201,24 @@ let%expect_test "examples" =
       (export _start (func 0)))
     -----------app_ident-----------
     FAILURE TODO
+    -----------nested_arith-----------
+    (module
+      (func -> i32
+        i32.const 9
+        i32.const 10
+        i32.add
+        i32.const 5
+        i32.mul)
+      (table)
+      (export _start (func 0)))
+    -----------let_bind-----------
+    (module
+      (func -> i32(local (Prim I32)
+        i32.const 10
+        local.set 0
+        local.get 0)
+      (table)
+      (export _start (func 0)))
     -----------add_one_program-----------
     FAILURE (Mismatch Binop ((expected Int) (actual (Prod ((Ref (Prod ())) Int)))))
     -----------add_tup_ref-----------

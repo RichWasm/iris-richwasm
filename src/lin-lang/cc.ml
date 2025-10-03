@@ -276,8 +276,12 @@ module Compile = struct
     | Var i ->
         let* v' = compile_var env i in
         ret v'
-    | Coderef n as v ->
-        let* typ = lookup_typ env v in
+    | Coderef n ->
+        let* typ =
+          match Map.find env.fns n with
+          | Some (param, return) -> ret (A.Type.Lollipop (param, return))
+          | None -> fail (FunctionLookupFailed (n, env))
+        in
         ret (Pack (Prod [], Tuple [ Coderef n; Tuple [] ], lower_typ typ))
     | Int n -> ret (Int n)
     | Tuple vs ->
@@ -345,6 +349,9 @@ module Compile = struct
         let* fn' = compile_expr env fn in
         let* arg' = compile_expr env arg in
 
+        (* TODO: do we really need a full lookup here? 
+
+           we know it must contain function, does that let us do less work?? *)
         let* looked_up = lookup_typ env fn in
 
         match looked_up with
@@ -376,7 +383,6 @@ module Compile = struct
         let* rhs' = compile_expr env rhs in
         let env' = Env.add_vars env ts in
         let* body' = compile_expr env' body in
-
         ret (Split (List.map ~f:lower_typ ts, rhs', body'))
     | Cases (scrutinee, cases) ->
         let* scrutinee' = compile_expr env scrutinee in

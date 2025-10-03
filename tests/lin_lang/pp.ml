@@ -173,6 +173,11 @@ let%expect_test "pretty prints examples" =
     (app (λ (x : int) : int .
            x)
     10)
+    -----------nested_arith-----------
+    ((9 + 10) × 5)
+    -----------let_bind-----------
+    (let (x : int) = 10 in
+    x)
     -----------add_one_program-----------
     (export fun add-one (x : int) : int . (x + 1))
 

@@ -121,9 +121,25 @@ module type Err = sig
   type t
 end
 
+module type Failable = sig
+  include Monad
+
+  type error
+
+  val fail : error -> 'a t
+end
+
+module Failable_ops (F : Failable) = struct
+  open F
+
+  let fail_if cond err : 'a t = if cond then fail err else ret ()
+  let fail_ifn cond err : 'a t = if cond then ret () else fail err
+end
+
 module ResultM (E : Err) = struct
   module T = struct
-    type 'a t = ('a, E.t) Result.t
+    type error = E.t
+    type 'a t = ('a, error) Result.t
 
     let ret (x : 'a) : 'a t = Ok x
 
@@ -133,15 +149,19 @@ module ResultM (E : Err) = struct
       | Ok x -> f x
 
     let fail err : 'a t = Error err
+    let fail_if cond err : 'a t = if cond then Error err else Ok ()
+    let fail_ifn cond err : 'a t = if cond then Ok () else Error err
   end
 
   include T
   include Monad_ops (T)
+  include Failable_ops (T)
 end
 
 module StateM (S : State) (E : Err) = struct
   module T = struct
-    type 'a t = S.t -> ('a * S.t, E.t) Result.t
+    type error = E.t
+    type 'a t = S.t -> ('a * S.t, error) Result.t
 
     let ret (x : 'a) : 'a t = fun e -> Ok (x, e)
 
@@ -165,4 +185,5 @@ module StateM (S : State) (E : Err) = struct
 
   include T
   include Monad_ops (T)
+  include Failable_ops (T)
 end

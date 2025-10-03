@@ -61,6 +61,12 @@ let%expect_test "examples" =
      (main ((Binop Div (Int -30 Int) (Int 10 Int) Int))))
     -----------app_ident-----------
     FAILURE TODO
+    -----------nested_arith-----------
+    ((imports ()) (functions ())
+     (main ((Binop Mul (Binop Add (Int 9 Int) (Int 10 Int) Int) (Int 5 Int) Int))))
+    -----------let_bind-----------
+    ((imports ()) (functions ())
+     (main ((Let Int (Int 10 Int) (Var (0 (x)) Int) Int))))
     -----------add_one_program-----------
     FAILURE (Mismatch Binop ((expected Int) (actual (Prod ((Ref (Prod ())) Int)))))
     -----------add_tup_ref-----------

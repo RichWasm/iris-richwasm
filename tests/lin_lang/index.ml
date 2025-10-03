@@ -72,6 +72,11 @@ let%expect_test "examples" =
     -----------app_ident-----------
     ((imports ()) (functions ())
      (main ((App (Lam Int Int (Var (0 (x)))) (Int 10)))))
+    -----------nested_arith-----------
+    ((imports ()) (functions ())
+     (main ((Binop Mul (Binop Add (Int 9) (Int 10)) (Int 5)))))
+    -----------let_bind-----------
+    ((imports ()) (functions ()) (main ((Let Int (Int 10) (Var (0 (x)))))))
     -----------add_one_program-----------
     ((imports ())
      (functions
