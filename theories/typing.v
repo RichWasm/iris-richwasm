@@ -466,10 +466,6 @@ Definition has_size (F : function_ctx) (τ : type) (σ : size) : Prop :=
   exists χ δ, has_kind F τ (MEMTYPE (Sized σ) χ δ).
 
 Inductive mono_size : function_ctx -> type -> Prop :=
-| MonoSizeVALTYPE F τ ρ ιs :
-  has_rep F τ ρ ->
-  eval_rep ρ = Some ιs ->
-  mono_size F τ
 | MonoSizeMEMTYPE F τ σ μ δ n :
   has_kind F τ (MEMTYPE (Sized σ) μ δ) ->
   eval_size σ = Some n ->
@@ -486,6 +482,9 @@ Inductive size_eq : size -> size -> Prop :=
   eval_size σ1 = Some n ->
   eval_size σ2 = Some n ->
   size_eq σ1 σ2.
+
+Definition size_leq (σ1 σ2 : size) : Prop :=
+  exists n m, eval_size σ1 = Some n /\ eval_size σ2 = Some m /\ n <= m.
 
 Definition type_size_eq (F : function_ctx) (τ1 τ2 : type) : Prop :=
   exists σ1 σ2, has_size F τ1 σ1 /\ has_size F τ2 σ2 /\ size_eq σ1 σ2.
@@ -527,38 +526,16 @@ Inductive resolve_path : type -> path -> option type -> path_result -> Prop :=
        pr_replaced := ProdT κ (τs0 ++ pr.(pr_replaced) :: τs') |}
   in
   resolve_path (ProdT κ (τs0 ++ τ :: τs')) (PCProj i :: π) τ__π pr'
-| PathRep pr π τ τ__π κ ρ :
-  resolve_path τ π τ__π pr ->
-  resolve_path (RepT κ ρ τ) (PCUnwrap :: π) τ__π pr
 | PathPad pr π τ τ__π κ σ :
   resolve_path τ π τ__π pr ->
-  resolve_path (PadT κ σ τ) (PCUnwrap :: π) τ__π pr
-| PathSer pr π τ τ__π κ :
-  resolve_path τ π τ__π pr ->
-  resolve_path (SerT κ τ) (PCUnwrap :: π) τ__π pr
-| PathExistsMem pr π τ τ__π κ :
-  resolve_path τ π τ__π pr ->
-  resolve_path (ExistsMemT κ τ) (PCUnwrap :: π) τ__π pr
-| PathRec pr π τ τ__π κ :
-  resolve_path τ π τ__π pr ->
-  resolve_path (RecT κ τ) (PCUnwrap :: π) τ__π pr
-| PathExistsRep pr π τ τ__π κ :
-  resolve_path τ π τ__π pr ->
-  resolve_path (ExistsRepT κ τ) (PCUnwrap :: π) τ__π pr
-| PathExistsSize pr π τ τ__π κ :
-  resolve_path τ π τ__π pr ->
-  resolve_path (ExistsSizeT κ τ) (PCUnwrap :: π) τ__π pr
-| PathExistsType pr π τ τ__π κ κ0 :
-  resolve_path τ π τ__π pr ->
-  resolve_path (ExistsTypeT κ κ0 τ) (PCUnwrap :: π) τ__π pr.
+  resolve_path (PadT κ σ τ) (PCSkip :: π) τ__π pr.
 
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SASer F κ τ :
   stores_as F τ (SerT κ τ)
-| SAPad F κ τ τ' ιs σ n :
-  type_rep_eval F τ ιs ->
-  eval_size σ = Some n ->
-  primitives_size ιs <= n ->
+| SAPad F κ τ τ' σ σ' :
+  has_size F τ' σ' ->
+  size_leq σ' σ ->
   stores_as F τ τ' ->
   stores_as F τ (PadT κ σ τ')
 | SASum F κ κ' τs τs' :
@@ -566,7 +543,19 @@ Inductive stores_as : function_ctx -> type -> type -> Prop :=
   stores_as F (SumT κ τs) (SumT κ' τs')
 | SAProd F κ κ' τs τs' :
   Forall2 (stores_as F) τs τs' ->
-  stores_as F (ProdT κ τs) (ProdT κ' τs').
+  stores_as F (ProdT κ τs) (ProdT κ' τs')
+| SAExistsMem F κ κ' τ τ' :
+  stores_as F τ τ' ->
+  stores_as F (ExistsMemT κ τ) (ExistsMemT κ' τ')
+| SAExistsRep F κ κ' τ τ' :
+  stores_as F τ τ' ->
+  stores_as F (ExistsRepT κ τ) (ExistsRepT κ' τ')
+| SAExistsSize F κ κ' τ τ' :
+  stores_as F τ τ' ->
+  stores_as F (ExistsSizeT κ τ) (ExistsSizeT κ' τ')
+| SAExistsType F κ0 κ κ' τ τ' :
+  stores_as F τ τ' ->
+  stores_as F (ExistsTypeT κ κ0 τ) (ExistsTypeT κ' κ0 τ').
 
 Definition loads_as (F : function_ctx) (τ τ' : type) := stores_as F τ' τ.
 
