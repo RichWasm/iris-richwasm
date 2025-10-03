@@ -77,6 +77,25 @@ Section Compiler.
     ιs ← ιss !! i;
     Some (map W.Mk_globalidx (seq i' (length ιs)), ιs).
 
+  Fixpoint case_blocks
+    (ρs : list representation) (ixs : list W.localidx) (result : W.result_type)
+    (depth : nat) (cases : list (representation * codegen unit)) :
+    codegen unit :=
+    match cases with
+    | [] =>
+        block_c (W.Tf [W.T_i32] [])
+          (block_c (W.Tf [] result) (emit (W.BI_br_table (seq 1 depth) 0));;
+           emit W.BI_unreachable)
+    | (ρ, c) :: cases' =>
+        block_c (W.Tf [W.T_i32] result)
+          (case_blocks ρs ixs result (depth + 1) cases';;
+           ixs_case ← try_option EWrongTypeAnn (inject_sum_rep ρs ρ);
+           ixs' ← mapM (try_option EWrongTypeAnn ∘ nth_error ixs) ixs_case;
+           mapM (emit ∘ W.BI_get_local ∘ localimm) ixs';;
+           c;;
+           emit (W.BI_br depth))
+    end.
+
   Definition fe_extend_unpack (fe : function_env) (τ : type) : function_env :=
     match τ with
     | ExistsTypeT _ κ _ => fe <| fe_type_vars ::= cons κ |>
@@ -113,17 +132,17 @@ Section Compiler.
   Definition compile_num_const (ν : num_type) (n : nat) : codegen unit :=
     emit (W.BI_const (value_of_Z (translate_num_type ν) (Z.of_nat n))).
 
-  Definition compile_block (fe : function_env) (ψ : instruction_type) (c : codegen (list unit)) :
+  Definition compile_block (fe : function_env) (ψ : instruction_type) (c : codegen unit) :
     codegen unit :=
     tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
-    block_c tf (ignore c).
+    block_c tf c.
 
-  Definition compile_loop (fe : function_env) (ψ : instruction_type) (c : codegen (list unit)) :
+  Definition compile_loop (fe : function_env) (ψ : instruction_type) (c : codegen unit) :
     codegen unit :=
     tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
-    loop_c tf (ignore c).
+    loop_c tf c.
 
-  Definition compile_ite (fe : function_env) (ψ : instruction_type) (c1 c2 : codegen (list unit)) :
+  Definition compile_ite (fe : function_env) (ψ : instruction_type) (c1 c2 : codegen unit) :
     codegen unit :=
     tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
     ignore (if_c tf c1 c2).
@@ -167,6 +186,14 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs_sum.
 
+  Definition compile_case
+    (fe : function_env) (ρs : list representation) (τs : list type) (cases : list (codegen unit)) :
+    codegen unit :=
+    result ← try_option EWrongTypeAnn (translate_types fe.(fe_type_vars) τs);
+    ιs ← try_option EWrongTypeAnn (eval_rep (SumR ρs));
+    ixs ← save_stack fe (tail ιs);
+    case_blocks ρs ixs result 0 (rev (zip ρs cases)).
+
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
     codegen unit :=
@@ -200,6 +227,7 @@ Section Compiler.
   Definition erased_in_wasm : codegen unit := ret tt.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
+    let compile_instrs fe := mapM_ (compile_instr fe) in
     match e with
     | INop _ => emit W.BI_nop
     | IUnreachable _ => emit W.BI_unreachable
@@ -210,9 +238,9 @@ Section Compiler.
     | INum _ e' => compile_num e'
     | INumConst (InstrT _ [NumT _ ν]) n => compile_num_const ν n
     | INumConst _ _ => raise EWrongTypeAnn
-    | IBlock ψ _ es => compile_block fe ψ (mapM (compile_instr fe) es)
-    | ILoop ψ es => compile_loop fe ψ (mapM (compile_instr fe) es)
-    | IIte ψ _ es1 es2 => compile_ite fe ψ (mapM (compile_instr fe) es1) (mapM (compile_instr fe) es2)
+    | IBlock ψ _ es => compile_block fe ψ (compile_instrs fe es)
+    | ILoop ψ es => compile_loop fe ψ (compile_instrs fe es)
+    | IIte ψ _ es1 es2 => compile_ite fe ψ (compile_instrs fe es1) (compile_instrs fe es2)
     | IBr _ i => emit (W.BI_br i)
     | IReturn _ => emit W.BI_return
     | ILocalGet _ i => compile_local_get fe i
@@ -226,13 +254,15 @@ Section Compiler.
     | ICallIndirect _ => emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
     | IInject _ _ => raise EWrongTypeAnn
-    | ICase _ _ _ => raise ETodo
+    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] τs) _ ess =>
+        compile_case fe ρs τs (map (compile_instrs fe) ess)
+    | ICase _ _ _ => raise EWrongTypeAnn
     | IGroup _ => erased_in_wasm
     | IUngroup _ => erased_in_wasm
     | IFold _ => erased_in_wasm
     | IUnfold  _ => erased_in_wasm
     | IPack _ => erased_in_wasm
-    | IUnpack ψ _ es => compile_unpack fe ψ (fun fe' => mapM_ (compile_instr fe') es)
+    | IUnpack ψ _ es => compile_unpack fe ψ (flip compile_instrs es)
     | IWrap (InstrT _ [RepT _ ρ τ]) => compile_wrap fe ρ τ
     | IWrap _ => raise EWrongTypeAnn
     | IUnwrap (InstrT [RepT _ ρ τ] _) => compile_unwrap fe ρ τ
