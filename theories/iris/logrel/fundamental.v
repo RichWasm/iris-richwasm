@@ -608,7 +608,22 @@ Section Fundamental.
     let fe := fe_of_context F in
     run_codegen (compile_instrs me fe []) es' = inr ((), wl, wl') ->
     ⊢ have_instruction_type_sem sr mr M F L wl (to_e_list wl') (InstrT [] []) L.
-  Admitted.
+  Proof.
+    intros me fe Hcompile.
+    cbn in Hcompile.
+    inversion Hcompile.
+
+    unfold have_instruction_type_sem.
+    iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
+    iIntros (? ?) "Hvs Hframe Hfr Hrun".
+    unfold expr_interp; cbn.
+
+    iApply lenient_wp_val_app'.
+    iApply lenient_wp_nil.
+    unfold lp_combine, denote_logpred; cbn.
+    rewrite seq.cats0.
+    iFrame.
+  Qed.
 
   Lemma compat_cons M F L1 L2 L3 wl wl' es' e es τs1 τs2 τs3 :
     let me := me_of_context M mr in
