@@ -1,6 +1,6 @@
 Require Import RecordUpdate.RecordUpdate.
 
-From ExtLib.Structures Require Import Monads Reducible.
+From ExtLib.Structures Require Import Monads.
 
 From stdpp Require Import numbers list.
 
@@ -276,6 +276,6 @@ Section Compiler.
     end.
 
   Definition compile_instrs (fe : function_env) : list instruction -> codegen unit :=
-    iterM (compile_instr fe).
+    mapM_ (compile_instr fe).
 
 End Compiler.
