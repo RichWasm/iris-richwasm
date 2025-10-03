@@ -84,10 +84,12 @@ let%expect_test "basic functionality" =
 
   (* FIXME: this should work *)
   run {| ((), (1, 2, 3, (-4))) |};
-  [%expect {| FAILURE Failed (ExpectedBinop ((Field op-f2) (Tag binop)) ,) |}];
+  [%expect {| ((), (1, 2, 3, (-4))) |}];
   next ();
   [%expect {|
-    Failure ^^^ |}];
+    ((imports ()) (functions ())
+     (main
+      ((Tuple ((Tuple ()) (Tuple ((Int 1) (Int 2) (Int 3) (Tuple ((Int -4)))))))))) |}];
 
   (* expressions *)
   run {| (app a b) |};

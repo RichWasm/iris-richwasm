@@ -8,14 +8,35 @@ module Path = struct
     | Tag of string
     | Field of string
     | Idx of int
+    | Choice of string
+    | Alt of string
+    | Commit
   [@@deriving sexp]
 
   type t = seg list [@@deriving sexp]
 
   let empty : t = []
+  let length : Path.t -> int = List.length
 
-  let add (ctx : t) ~(tag : string) ~(field : string) =
-    Field field :: Tag tag :: ctx
+  let add ?(commit = true) ~(tag : string) ~(field : string) (ctx : t) =
+    if commit then
+      Field field :: Commit :: Tag tag :: ctx
+    else
+      Field field :: Tag tag :: ctx
+
+  let choose (p : t) (name : string) : t = Choice name :: p
+  let alt (p : t) (alt : string) : t = Alt alt :: p
+  let commit (p : t) : t = Commit :: p
+
+  let score (p : t) : int * int =
+    let commits, depth =
+      List.fold_left
+        ~f:(fun (c, d) -> function
+          | Commit -> (c + 1, d + 1)
+          | _ -> (c, d + 1))
+        ~init:(0, 0) p
+    in
+    (commits, depth)
 end
 
 module Err = struct
@@ -26,8 +47,8 @@ module Err = struct
     | MalformedInjTag of Path.t * string
     | ExpectedBinding of Path.t * Sexp.t
     | ExpectedBinop of Path.t * Sexp.t
-    | ExpectedValue of Path.t * Sexp.t
     | MalformedTuple of Path.t * Sexp.t
+    | ExpectedTupElem of Path.t * Sexp.t
     | ExpectedExpr of Path.t * Sexp.t
     | ExpectedCase of Path.t * Sexp.t
     | ExpectedImport of Path.t * Sexp.t
@@ -37,9 +58,60 @@ module Err = struct
   [@@deriving sexp_of]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let path_of = function
+    | ExpectedType (p, _)
+    | MalformedInfixArity (p, _)
+    | MalformedInfixSep (p, _)
+    | MalformedInjTag (p, _)
+    | ExpectedBinding (p, _)
+    | ExpectedBinop (p, _)
+    | MalformedTuple (p, _)
+    | ExpectedTupElem (p, _)
+    | ExpectedExpr (p, _)
+    | ExpectedCase (p, _)
+    | ExpectedImport (p, _)
+    | ExpectedTopLevel (p, _) -> p
+    | ExpectedModule _ | ParseError _ -> Path.empty
+
+  let prefer (e1 : t) (e2 : t) : t =
+    let cmp_score (c1, d1) (c2, d2) =
+      match Int.compare c1 c2 with
+      | 0 -> Int.compare d1 d2
+      | n -> n
+    in
+    let s1 = Path.score (path_of e1) in
+    let s2 = Path.score (path_of e2) in
+    if cmp_score s1 s2 >= 0 then e1 else e2
 end
 
 module Res = Util.ResultM (Err)
+
+let choice
+    (name : string)
+    (p : Path.t)
+    (sexp : Sexp.t)
+    (alts : ((Path.t -> Sexp.t -> 'a Res.t) * string) list) : 'a Res.t =
+  let p_choice = Path.choose p name in
+  let rec go best = function
+    | [] -> (
+        match best with
+        | None -> Error Err.(ExpectedExpr (p_choice, sexp))
+        | Some e -> Error e)
+    | (f, alt_name) :: fs -> (
+        let p_alt = Path.alt p_choice alt_name in
+        match f p_alt sexp with
+        | Ok x -> Ok x
+        | Error e ->
+            let best' =
+              Some
+                (match best with
+                | None -> e
+                | Some b -> Err.prefer e b)
+            in
+            go best' fs)
+  in
+  go None alts
 
 let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
   let open Res in
@@ -69,49 +141,53 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
       ret @@ Type.Rec (x, t')
   | List lst ->
       let n = List.length lst in
-      if Int.equal (n % 2) 0 && n <> 0 then
-        fail Err.(MalformedInfixArity (p, lst))
-      else
-        let rec go i (kind : [ `Prod | `Sum ] option) (acc : Type.t list) =
-          function
-          | [] ->
-              ret
-                (match Option.value ~default:`Prod kind with
-                | `Prod -> Type.Prod (List.rev acc)
-                | `Sum -> Type.Sum (List.rev acc))
-          | t :: ts -> (
-              if Int.equal (i % 2) 0 then
-                let tag =
-                  match kind with
-                  | Some `Sum -> "sum"
-                  | Some `Prod -> "prod"
-                  | None -> "prod?"
-                in
-                let* t' = parse_type (Idx i :: Tag tag :: p) t in
-                go (i + 1) kind (t' :: acc) ts
-              else
-                let valid_prod = function
-                  | Some `Prod | None -> true
-                  | _ -> false
-                in
-                let valid_sum = function
-                  | Some `Sum | None -> true
-                  | _ -> false
-                in
-                match t with
-                | Atom ("⊗" | "*") when valid_prod kind ->
-                    go (i + 1) (Some `Prod) acc ts
-                | Atom ("⊕" | "+") when valid_sum kind ->
-                    go (i + 1) (Some `Sum) acc ts
-                | x -> fail Err.(MalformedInfixSep (Idx i :: p, x)))
-        in
-        go 0 None [] lst
+      let* () =
+        fail_if
+          (Int.equal (n % 2) 0 && n <> 0)
+          Err.(MalformedInfixArity (p, lst))
+      in
+      let rec go i (kind : [ `Prod | `Sum ] option) (acc : Type.t list) =
+        function
+        | [] ->
+            ret
+              (match Option.value ~default:`Prod kind with
+              | `Prod -> Type.Prod (List.rev acc)
+              | `Sum -> Type.Sum (List.rev acc))
+        | t :: ts -> (
+            if Int.equal (i % 2) 0 then
+              let tag =
+                match kind with
+                | Some `Sum -> "sum"
+                | Some `Prod -> "prod"
+                | None -> "prod?"
+              in
+              let* t' = parse_type (Idx i :: Tag tag :: p) t in
+              go (i + 1) kind (t' :: acc) ts
+            else
+              let valid_prod = function
+                | Some `Prod | None -> true
+                | _ -> false
+              in
+              let valid_sum = function
+                | Some `Sum | None -> true
+                | _ -> false
+              in
+              match t with
+              | Atom ("⊗" | "*") when valid_prod kind ->
+                  go (i + 1) (Some `Prod) acc ts
+              | Atom ("⊕" | "+") when valid_sum kind ->
+                  go (i + 1) (Some `Sum) acc ts
+              | x -> fail Err.(MalformedInfixSep (Idx i :: p, x)))
+      in
+      go 0 None [] lst
 
 let parse_binding (p : Path.t) : Sexp.t -> Binding.t Res.t =
   let open Res in
   function
   | List [ Atom var; Atom ":"; typ ] | List [ Atom var; typ ] ->
-      let* typ' = parse_type (Path.add p ~field:"typ" ~tag:"binding") typ in
+      let* typ' =
+        parse_type (Path.add p ~commit:false ~field:"typ" ~tag:"binding") typ
+      in
       ret (var, typ')
   | x -> fail Err.(ExpectedBinding (p, x))
 
@@ -124,76 +200,14 @@ let parse_binop (p : Path.t) : Sexp.t -> Binop.t Res.t =
   | Atom ("÷" | "/") -> ret Binop.Div
   | x -> fail Err.(ExpectedBinop (p, x))
 
-let rec parse_value (p : Path.t) : Sexp.t -> Expr.t Res.t =
-  let open Res in
-  let open Expr in
-  function
-  | Atom x -> (
-      match Int.of_string_opt x with
-      | Some x -> ret @@ Int x
-      | None -> ret @@ Var x)
-  | List [ Atom ("λ" | "lam"); binding; Atom ":"; ret_t; Atom "."; body ]
-  | List [ Atom ("λ" | "lam"); binding; ret_t; body ] ->
-      let p = Path.add p ~tag:"lam" in
-      let* binding' = parse_binding (p ~field:"binding") binding in
-      let* ret_t' = parse_type (p ~field:"ret_t") ret_t in
-      let* body' = parse_expr (p ~field:"body") body in
-      ret @@ Lam (binding', ret_t', body')
-  | List (Atom "tup" :: vs) ->
-      let* vs' =
-        mapiM ~f:(fun i x -> parse_value (Idx i :: Tag "tup" :: p) x) vs
-      in
-      ret @@ Tuple vs'
-  | List [ Atom "inj"; Atom i; v; Atom ":"; typ ]
-  | List [ Atom "inj"; Atom i; v; typ ] ->
-      let* i =
-        match Int.of_string_opt i with
-        | Some i -> ret i
-        | None -> fail Err.(MalformedInjTag (p, i))
-      in
-      let p = Path.add p ~tag:"inj" in
-      let* v' = parse_value (p ~field:"v") v in
-      let* typ' = parse_type (p ~field:"typ") typ in
-      ret @@ Inj (i, v', typ')
-  | List [ Atom "fold"; t; v ] ->
-      let p = Path.add p ~tag:"fold" in
-      let* t' = parse_type (p ~field:"t") t in
-      let* v' = parse_value (p ~field:"v") v in
-      ret @@ Fold (t', v')
-  | List [ Atom "new"; v ] ->
-      let* v' = parse_value (Tag "new" :: p) v in
-      ret @@ New v'
-  (* FIXME: nested tuples are broken *)
-  | List atoms ->
-      (* Check if this is a comma-separated tuple eq (1, 2, 3) *)
-      let rec check_and_parse acc idx : Sexp.t list -> 'a = function
-        | [] -> ret (List.rev acc)
-        | [ Atom last ] ->
-            if String.contains last ',' then
-              fail Err.(MalformedTuple (p, List atoms))
-            else
-              let* v = parse_value (Idx idx :: Tag "tuple" :: p) (Atom last) in
-              ret (List.rev (v :: acc))
-        | Atom s :: rest ->
-            if String.is_suffix s ~suffix:"," then
-              let s' = String.drop_suffix s 1 in
-              let* v = parse_value (Idx idx :: Tag "tuple" :: p) (Atom s') in
-              check_and_parse (v :: acc) (idx + 1) rest
-            else
-              fail Err.(MalformedTuple (p, List atoms))
-        | _ -> fail Err.(ExpectedValue (p, List atoms))
-      in
-      let* values = check_and_parse [] 0 atoms in
-      ret @@ Tuple values
-
-and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
+let rec parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
   let open Res in
   let open Expr in
   function
   | List [ Atom "app"; v1; v2 ] ->
       let p = Path.add p ~tag:"app" in
-      let* v1' = parse_value (p ~field:"v1") v1 in
-      let* v2' = parse_value (p ~field:"v2") v2 in
+      let* v1' = parse_expr (p ~field:"v1") v1 in
+      let* v2' = parse_expr (p ~field:"v2") v2 in
       ret @@ App (v1', v2')
   | List [ Atom "let"; binding; Atom "="; e1; Atom "in"; e2 ]
   | List [ Atom "let"; binding; e1; e2 ] ->
@@ -203,7 +217,7 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
       let* e2' = parse_expr (p ~field:"e2") e2 in
       ret @@ Let (binding', e1', e2')
   | List (Atom "split" :: rst) as sexp ->
-      let p : Path.t = Tag "split" :: p in
+      let p : Path.t = Commit :: Tag "split" :: p in
       (* Split on "=" to separate bindings from expressions *)
       let rec split_on_eq acc : Sexp.t list -> (Sexp.t list * Sexp.t list) Res.t
           = function
@@ -230,21 +244,21 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
   | List [ Atom "if0"; v; Atom "then"; e1; Atom "else"; e2 ]
   | List [ Atom "if0"; v; e1; e2 ] ->
       let p = Path.add p ~tag:"if0" in
-      let* v' = parse_value (p ~field:"v") v in
+      let* v' = parse_expr (p ~field:"v") v in
       let* e1' = parse_expr (p ~field:"e1") e1 in
       let* e2' = parse_expr (p ~field:"e2") e2 in
       ret @@ If0 (v', e1', e2')
   | List [ Atom "swap"; v1; v2 ] ->
       let p = Path.add p ~tag:"swap" in
-      let* v1' = parse_value (p ~field:"v1") v1 in
-      let* v2' = parse_value (p ~field:"v2") v2 in
+      let* v1' = parse_expr (p ~field:"v1") v1 in
+      let* v2' = parse_expr (p ~field:"v2") v2 in
       ret @@ Swap (v1', v2')
   | List [ Atom "free"; v ] ->
-      let* v' = parse_value (Tag "free" :: p) v in
+      let* v' = parse_expr (Tag "free" :: p) v in
       ret @@ Expr.Free v'
   | List (Atom "cases" :: scrutinee :: cases) ->
       let p : Path.t = Tag "cases" :: p in
-      let* scrutinee' = parse_value (Field "scrutinee" :: p) scrutinee in
+      let* scrutinee' = parse_expr (Field "scrutinee" :: p) scrutinee in
       let* cases' =
         mapiM
           ~f:(fun i ->
@@ -262,40 +276,124 @@ and parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
   | List [ Atom "unfold"; t; v ] ->
       let p = Path.add p ~tag:"unfold" in
       let* t' = parse_type (p ~field:"t") t in
-      let* v' = parse_value (p ~field:"v") v in
+      let* v' = parse_expr (p ~field:"v") v in
       ret @@ Unfold (t', v')
-  | List [ f1; f2; f3 ] -> (
-      let p' = Path.add p ~tag:"binop" in
-      (* try (op l r) if (l op r) fails (assumes valid op is not variable name) *)
-      let foo =
-        match parse_binop (p' ~field:"op-f2") f2 with
-        | Ok x -> Ok (x, f1, f3)
-        | Error err -> (
-            match parse_binop (p' ~field:"op-f1") f1 with
-            | Ok x -> Ok (x, f2, f3)
-            | Error _ -> Error err)
+  | Atom x -> (
+      match Int.of_string_opt x with
+      | Some x -> ret @@ Int x
+      | None -> ret @@ Var x)
+  | List [ Atom ("λ" | "lam"); binding; Atom ":"; ret_t; Atom "."; body ]
+  | List [ Atom ("λ" | "lam"); binding; ret_t; body ] ->
+      let p = Path.add p ~tag:"lam" in
+      let* binding' = parse_binding (p ~field:"binding") binding in
+      let* ret_t' = parse_type (p ~field:"ret_t") ret_t in
+      let* body' = parse_expr (p ~field:"body") body in
+      ret @@ Lam (binding', ret_t', body')
+  | List (Atom "tup" :: vs) ->
+      let* vs' =
+        mapiM
+          ~f:(fun i x -> parse_expr (Idx i :: Commit :: Tag "tup" :: p) x)
+          vs
       in
-      match foo with
-      | Ok (op', v1, v2) ->
-          let* v1' = parse_value (p' ~field:"v1") v1 in
-          let* v2' = parse_value (p' ~field:"v2") v2 in
-          ret @@ Binop (op', v1', v2')
-      | Error err -> (
-          match
-            parse_value
-              (Tag "[VAL]" :: Tag "<BINOP>" :: p)
-              (List [ f1; f2; f3 ] : Sexp.t)
-          with
-          | Ok v -> ret v
-          | Error _ -> Error err))
-  | List [ l; r ] -> (
-      match parse_value (Tag "[VAL]" :: p) (List [ l; r ] : Sexp.t) with
-      | Ok v -> ret @@ v
-      | Error _ ->
-          parse_expr (Tag "[APP]" :: p) (List [ Atom "app"; l; r ] : Sexp.t))
-  | x ->
-      let* v = parse_value (Tag "val" :: p) x in
-      ret @@ v
+      ret @@ Tuple vs'
+  | List [ Atom "inj"; Atom i; v; Atom ":"; typ ]
+  | List [ Atom "inj"; Atom i; v; typ ] ->
+      let* i =
+        match Int.of_string_opt i with
+        | Some i -> ret i
+        | None -> fail Err.(MalformedInjTag (p, i))
+      in
+      let p = Path.add p ~tag:"inj" in
+      let* v' = parse_expr (p ~field:"v") v in
+      let* typ' = parse_type (p ~field:"typ") typ in
+      ret @@ Inj (i, v', typ')
+  | List [ Atom "fold"; t; v ] ->
+      let p = Path.add p ~tag:"fold" in
+      let* t' = parse_type (p ~field:"t") t in
+      let* v' = parse_expr (p ~field:"v") v in
+      ret @@ Fold (t', v')
+  | List [ Atom "new"; v ] ->
+      let* v' = parse_expr (Commit :: Tag "new" :: p) v in
+      ret @@ New v'
+  | List [ _; _ ] as sexp ->
+      choice "generic-2-list" p sexp
+        [ (parse_as_tup, "len-2-tup"); (parse_as_app, "no-kw-app") ]
+  | List [ _; _; _ ] as sexp ->
+      choice "generic-3-list" p sexp
+        [
+          (parse_as_tup, "len-3-tup");
+          (parse_as_binop ~fix:`Pre, "prefix-binop");
+          (parse_as_binop ~fix:`In, "infix-binop");
+        ]
+  | sexp -> parse_as_tup p sexp
+
+and parse_as_binop ~(fix : [ `In | `Pre ]) (p : Path.t) (sexp : Sexp.t) :
+    Expr.t Res.t =
+  let open Res in
+  let open Expr in
+  let p' =
+    Path.add p ~commit:false
+      ~tag:
+        (match fix with
+        | `In -> "infix-binop"
+        | `Pre -> "prefix-binop")
+  in
+  let parse (op : Binop.t) (left : Sexp.t) (right : Sexp.t) =
+    let* v1' = parse_expr (p' ~field:"left") left in
+    let* v2' = parse_expr (p' ~field:"right") right in
+    ret @@ Binop (op, v1', v2')
+  in
+  match (sexp, fix) with
+  | List [ op; left; right ], `Pre ->
+      let* op' = parse_binop (p' ~field:"op") op in
+      parse op' left right
+  | List [ left; op; right ], `In ->
+      let* op' = parse_binop (p' ~field:"op") op in
+      parse op' left right
+  | x, _ -> fail Err.(ExpectedExpr (p, x))
+
+and parse_as_app (p : Path.t) : Sexp.t -> Expr.t Res.t = function
+  | List [ l; r ] -> parse_expr p (List [ Atom "app"; l; r ] : Sexp.t)
+  | x -> fail Err.(ExpectedExpr (p, x))
+
+(* comma-separated tuple eg. (1, 2, 3) *)
+and parse_as_tup (p : Path.t) : Sexp.t -> Expr.t Res.t =
+  let open Res in
+  let open Expr in
+  function
+  | List atoms ->
+      let rec check_and_parse acc idx : Sexp.t list -> 'a =
+        let p' = Path.Idx idx :: Tag "tuple" :: p in
+        function
+        | [] -> ret (List.rev acc)
+        | [ Atom last ] ->
+            let* () =
+              fail_if
+                (String.is_suffix last ~suffix:",")
+                Err.(MalformedTuple (p', List atoms))
+            in
+            let+ expr = parse_expr p' (Atom last) in
+            List.rev (expr :: acc)
+        | [ sexp ] ->
+            let+ expr = parse_expr p' sexp in
+            List.rev (expr :: acc)
+        | Atom s :: rest ->
+            let* () =
+              fail_ifn
+                (String.is_suffix s ~suffix:",")
+                Err.(MalformedTuple (p', List atoms))
+            in
+            let s' = String.drop_suffix s 1 in
+            let* expr = parse_expr p' (Atom s') in
+            check_and_parse (expr :: acc) (idx + 1) rest
+        | expr :: Atom "," :: rest ->
+            let* expr' = parse_expr p' expr in
+            check_and_parse (expr' :: acc) (idx + 1) rest
+        | _ -> fail Err.(ExpectedTupElem (p', List atoms))
+      in
+      let* values = check_and_parse [] 0 atoms in
+      ret @@ Tuple values
+  | x -> fail Err.(ExpectedExpr (p, x))
 
 let parse_import (p : Path.t) : Sexp.t -> Import.t Res.t =
   let open Res in

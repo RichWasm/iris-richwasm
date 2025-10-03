@@ -196,6 +196,11 @@ let%expect_test "examples" =
         (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ()))) (Var (0 ()))
          (App (Var (1 ())) (Tuple ((Var (0 ())) (Int 10)))))
         Int))))
+    -----------nested_arith-----------
+    ((imports ()) (functions ())
+     (main ((Binop Mul (Binop Add (Int 9) (Int 10)) (Int 5)))))
+    -----------let_bind-----------
+    ((imports ()) (functions ()) (main ((Let Int (Int 10) (Var (0 (x)))))))
     -----------add_one_program-----------
     ((imports ())
      (functions

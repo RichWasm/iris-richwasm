@@ -129,6 +129,8 @@ let simple : (string * Module.t) list =
     ("arith_mul", "(42 * 10)");
     ("arith_div", "(-30 / 10)");
     ("app_ident", "((lam (x int) int x) 10)");
+    ("nested_arith", "((9 + 10) * 5)");
+    ("let_bind", "(let (x int) 10 x)");
   ]
   |> List.map ~f:(fun (n, s) -> (n, Parse.from_string_exn s))
 

@@ -277,11 +277,11 @@ module Compile = struct
         let* v' = compile_var env i in
         ret v'
     | Coderef n ->
-        let* typ = 
-        (match Map.find env.fns n with
-        | Some (param, return) -> ret (A.Type.Lollipop (param, return))
-        | None -> fail (FunctionLookupFailed (n, env)))
- in
+        let* typ =
+          match Map.find env.fns n with
+          | Some (param, return) -> ret (A.Type.Lollipop (param, return))
+          | None -> fail (FunctionLookupFailed (n, env))
+        in
         ret (Pack (Prod [], Tuple [ Coderef n; Tuple [] ], lower_typ typ))
     | Int n -> ret (Int n)
     | Tuple vs ->
