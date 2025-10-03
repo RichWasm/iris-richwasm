@@ -39,6 +39,13 @@ Definition fc_empty : function_ctx :=
      fc_kind_ctx := kc_empty;
      fc_type_vars := [] |}.
 
+Definition fc_clear_kind (F : function_ctx) : function_ctx :=
+  {| fc_return := F.(fc_return);
+     fc_locals := F.(fc_locals);
+     fc_labels := F.(fc_labels);
+     fc_kind_ctx := kc_empty;
+     fc_type_vars := F.(fc_type_vars) |}.
+
 Definition subst_function_ctx
   (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size) (s__type : nat -> type)
   (F : function_ctx) :
@@ -292,13 +299,13 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   has_kind F (CodeRefT κ ϕ) κ
 | KRep F ρ0 ρ τ χ δ :
-  has_kind F τ (VALTYPE ρ0 χ δ) ->
   rep_ok F.(fc_kind_ctx) ρ ->
+  has_kind F τ (VALTYPE ρ0 χ δ) ->
   let κ := VALTYPE ρ χ δ in
   has_kind F (RepT κ ρ τ) κ
 | KPad F σ0 σ τ μ δ :
-  has_kind F τ (MEMTYPE (Sized σ0) μ δ) ->
   size_ok F.(fc_kind_ctx) σ ->
+  has_kind F τ (MEMTYPE (Sized σ0) μ δ) ->
   let κ := MEMTYPE (Sized σ) μ δ in
   has_kind F (PadT κ σ τ) κ
 | KSer F τ ρ μ χ δ :
@@ -310,16 +317,16 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind (F <| fc_type_vars ::= cons κ |>) τ κ ->
   has_kind F (RecT κ τ) κ
 | KExistsMem F τ κ :
-  has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
   kind_ok F.(fc_kind_ctx) κ ->
+  has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
   has_kind F (ExistsMemT κ τ) κ
 | KExistsRep F τ κ :
-  has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
   kind_ok F.(fc_kind_ctx) κ ->
+  has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
   has_kind F (ExistsRepT κ τ) κ
 | KExistsSize F τ κ :
-  has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
   kind_ok F.(fc_kind_ctx) κ ->
+  has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
   has_kind F (ExistsSizeT κ τ) κ
 | KExistsType F τ κ0 κ :
   kind_ok F.(fc_kind_ctx) κ0 ->
@@ -382,33 +389,41 @@ Section HasKindInd.
       (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
                          let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
                          P F (CodeRefT κ ϕ) κ)
-      (HRep : forall F ρ0 ρ τ χ δ, P F τ (VALTYPE ρ0 χ δ) ->
-                              rep_ok F.(fc_kind_ctx) ρ ->
-                              let κ := VALTYPE ρ χ δ in
-                              P F (RepT κ ρ τ) κ)
-      (HPad : forall F σ0 σ τ μ δ, P F τ (MEMTYPE (Sized σ0) μ δ) ->
-                              size_ok F.(fc_kind_ctx) σ ->
-                              let κ := MEMTYPE (Sized σ) μ δ in
-                              P F (PadT κ σ τ) κ)
-      (HSer : forall F τ ρ μ χ δ, mem_ok F.(fc_kind_ctx) μ ->
-                             P F τ (VALTYPE ρ χ δ) ->
-                             let κ := MEMTYPE (Sized (RepS ρ)) μ δ in
-                             P F (SerT κ τ) κ)
-      (HRec : forall F τ κ, P (F <| fc_type_vars ::= cons κ |>) τ κ ->
-                       P F (RecT κ τ) κ)
-      (HExistsMem : forall F τ κ, P (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
-                             kind_ok F.(fc_kind_ctx) κ ->
-                             P F (ExistsMemT κ τ) κ)
-      (HExistsRep : forall F τ κ, P (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
-                             kind_ok F.(fc_kind_ctx) κ ->
-                             P F (ExistsRepT κ τ) κ)
-      (HExistsSize : forall F τ κ, P (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
-                              kind_ok F.(fc_kind_ctx) κ ->
-                              P F (ExistsSizeT κ τ) κ)
-      (HExistsType : forall F τ κ0 κ, kind_ok F.(fc_kind_ctx) κ0 ->
-                                 kind_ok F.(fc_kind_ctx) κ ->
-                                 P (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
-                                 P F (ExistsTypeT κ κ0 τ) κ).
+      (HRep : forall F ρ0 ρ τ χ δ, 
+          rep_ok F.(fc_kind_ctx) ρ ->
+          P F τ (VALTYPE ρ0 χ δ) ->
+          let κ := VALTYPE ρ χ δ in
+          P F (RepT κ ρ τ) κ)
+      (HPad : forall F σ0 σ τ μ δ,
+          size_ok F.(fc_kind_ctx) σ ->
+          P F τ (MEMTYPE (Sized σ0) μ δ) ->
+          let κ := MEMTYPE (Sized σ) μ δ in
+          P F (PadT κ σ τ) κ)
+      (HSer : forall F τ ρ μ χ δ,
+          mem_ok F.(fc_kind_ctx) μ ->
+          P F τ (VALTYPE ρ χ δ) ->
+          let κ := MEMTYPE (Sized (RepS ρ)) μ δ in
+          P F (SerT κ τ) κ)
+      (HRec : forall F τ κ,
+          P (F <| fc_type_vars ::= cons κ |>) τ κ ->
+          P F (RecT κ τ) κ)
+      (HExistsMem : forall F τ κ,
+          kind_ok F.(fc_kind_ctx) κ ->
+          P (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
+          P F (ExistsMemT κ τ) κ)
+      (HExistsRep : forall F τ κ,
+          kind_ok F.(fc_kind_ctx) κ ->
+          P (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
+          P F (ExistsRepT κ τ) κ)
+      (HExistsSize : forall F τ κ,
+          kind_ok F.(fc_kind_ctx) κ ->
+          P (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
+          P F (ExistsSizeT κ τ) κ)
+      (HExistsType : forall F τ κ0 κ,
+          kind_ok F.(fc_kind_ctx) κ0 ->
+          kind_ok F.(fc_kind_ctx) κ ->
+          P (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
+          P F (ExistsTypeT κ κ0 τ) κ).
 
   Fixpoint has_kind_ind' (F : function_ctx) (τ : type) (κ : kind) (H : has_kind F τ κ) : P F τ κ :=
     match H with
@@ -436,13 +451,13 @@ Section HasKindInd.
     | KRefGC F τ ζ δ H1 => HRefGC F τ ζ δ (has_kind_ind' _ _ _ H1)
     | KGCPtr F τ ζ δ H1 => HGCPtr F τ ζ δ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
-    | KRep F ρ0 ρ τ χ δ H1 H2 => HRep F ρ0 ρ τ χ δ (has_kind_ind' _ _ _ H1) H2
-    | KPad F σ0 σ τ μ δ H1 H2 => HPad F σ0 σ τ μ δ (has_kind_ind' _ _ _ H1) H2
+    | KRep F ρ0 ρ τ χ δ H1 H2 => HRep F ρ0 ρ τ χ δ H1 (has_kind_ind' _ _ _ H2)
+    | KPad F σ0 σ τ μ δ H1 H2 => HPad F σ0 σ τ μ δ H1 (has_kind_ind' _ _ _ H2)
     | KSer F τ ρ μ χ δ H1 H2 => HSer F τ ρ μ χ δ H1 (has_kind_ind' _ _ _ H2)
     | KRec F τ κ H1 => HRec F τ κ (has_kind_ind' _ _ _ H1)
-    | KExistsMem F τ κ H1 H2 => HExistsMem F τ κ (has_kind_ind' _ _ _ H1) H2
-    | KExistsRep F τ κ H1 H2 => HExistsRep F τ κ (has_kind_ind' _ _ _ H1) H2
-    | KExistsSize F τ κ H1 H2 => HExistsSize F τ κ (has_kind_ind' _ _ _ H1) H2
+    | KExistsMem F τ κ H1 H2 => HExistsMem F τ κ H1 (has_kind_ind' _ _ _ H2)
+    | KExistsRep F τ κ H1 H2 => HExistsRep F τ κ H1 (has_kind_ind' _ _ _ H2)
+    | KExistsSize F τ κ H1 H2 => HExistsSize F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsType F τ κ0 κ H1 H2 H3 => HExistsType F τ κ0 κ H1 H2 (has_kind_ind' _ _ _ H3)
     end.
 

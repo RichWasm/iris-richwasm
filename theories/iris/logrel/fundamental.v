@@ -115,19 +115,6 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L [] (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma subst_repr_closed_nop ρ :
-    repr_closed ρ -> 
-    ∀ s, subst_representation s ρ = ρ.
-  Proof.
-  Admitted.
-  
-  Lemma mono_rep_closed F τ ρ :
-    has_mono_rep F τ ->
-    has_rep F τ ρ ->
-    repr_closed ρ.
-  Proof.
-  Admitted.
-
   Lemma compat_copy M F L wl wl' τ es' :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
@@ -172,8 +159,7 @@ Section Fundamental.
     iApply (lwp_wand with "[Hframe]"); last first.
     - iApply ("Hcopyable" with "[] [] [$Hfr] [$Hrun] [$Hvs]").
       + inversion Hok. inversion H. inversion H4.
-        rewrite subst_repr_closed_nop; [|eapply mono_rep_closed; eauto; econstructor; eauto].
-        iPureIntro. exact Heq_some0.
+        admit.
       + iPureIntro. unfold is_copy_operation. repeat eexists. admit.
     - iIntros (lv) "(Hcopy & %fr' & Hfr & <-)".
       unfold lp_wand', denote_logpred.

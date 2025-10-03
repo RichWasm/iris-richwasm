@@ -454,36 +454,15 @@ Section Relations.
     | VarM _ => False
     | ConstM _ => True
     end.
-  
-  Fixpoint repr_closedb (ρ: representation) : bool :=
-    match ρ with
-    | VarR x => false
-    | SumR ρs 
-    | ProdR ρs => forallb repr_closedb ρs
-    | PrimR _ => true
-    end.
-
-  Definition repr_closed ρ : Prop := repr_closedb ρ.
-      
-  Fixpoint size_closedb (σ : size) : bool :=
-    match σ with
-    | VarS x => false
-    | SumS σs
-    | ProdS σs => forallb size_closedb σs
-    | RepS ρ => repr_closedb ρ
-    | ConstS _ => true
-    end.
-  
-  Definition size_closed (σ : size) : Prop := size_closedb σ.
 
   Definition mem_subst_interp (K : kind_ctx) (s : nat -> memory) : Prop :=
-    ∀ m, m < K.(kc_mem_vars) -> memory_closed (s m).
+    ∀ m, m < K.(kc_mem_vars) -> mem_ok kc_empty (s m).
 
   Definition rep_subst_interp (K : kind_ctx) (s : nat -> representation) : Prop :=
-    ∀ r, r < K.(kc_rep_vars) -> repr_closed (s r).
+    ∀ r, r < K.(kc_rep_vars) -> rep_ok kc_empty (s r).
 
   Definition size_subst_interp (K : kind_ctx) (s : nat -> size) : Prop :=
-    forall r, r < K.(kc_size_vars) -> size_closed (s r).
+    forall r, r < K.(kc_size_vars) -> size_ok kc_empty (s r).
 
   Definition subst_interp
     (K : kind_ctx)
