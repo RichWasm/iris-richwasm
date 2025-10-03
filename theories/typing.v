@@ -531,19 +531,21 @@ Inductive resolve_path : type -> path -> option type -> path_result -> Prop :=
   resolve_path (PadT κ σ τ) (PCSkip :: π) τ__π pr.
 
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
-| SASer F κ τ :
-  stores_as F τ (SerT κ τ)
-| SAPad F κ τ τ' σ σ' :
-  has_size F τ' σ' ->
-  size_leq σ' σ ->
-  stores_as F τ τ' ->
-  stores_as F τ (PadT κ σ τ')
 | SASum F κ κ' τs τs' :
   Forall2 (stores_as F) τs τs' ->
   stores_as F (SumT κ τs) (SumT κ' τs')
 | SAProd F κ κ' τs τs' :
   Forall2 (stores_as F) τs τs' ->
   stores_as F (ProdT κ τs) (ProdT κ' τs')
+| SASer F κ τ :
+  stores_as F τ (SerT κ τ)
+| SAGCPtr F κ κ' τ :
+  stores_as F (RefT κ (ConstM MemGC) τ) (GCPtrT κ' τ)
+| SAPad F κ τ τ' σ σ' :
+  has_size F τ' σ' ->
+  size_leq σ' σ ->
+  stores_as F τ τ' ->
+  stores_as F τ (PadT κ σ τ')
 | SAExistsMem F κ κ' τ τ' :
   stores_as F τ τ' ->
   stores_as F (ExistsMemT κ τ) (ExistsMemT κ' τ')
