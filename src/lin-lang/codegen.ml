@@ -78,7 +78,7 @@ end
  *)
 
 module Compile = struct
-  module A = Typecheck.IR
+  module A = Cc.IR
   module B = RichWasm
   module Res = Util.ResultM (Err)
 

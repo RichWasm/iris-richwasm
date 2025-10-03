@@ -86,7 +86,8 @@ let%expect_test "basic functionality" =
   run {| ((), (1, 2, 3, (-4))) |};
   [%expect {| ((), (1, 2, 3, (-4))) |}];
   next ();
-  [%expect {|
+  [%expect
+    {|
     ((imports ()) (functions ())
      (main
       ((Tuple ((Tuple ()) (Tuple ((Int 1) (Int 2) (Int 3) (Tuple ((Int -4)))))))))) |}];
