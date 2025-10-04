@@ -5,7 +5,7 @@ Require Import stdpp.list.
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import prelude layout syntax.
+From RichWasm Require Import prelude layout syntax util.
 From RichWasm.compiler Require Import prelude codegen util.
 
 Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
@@ -31,6 +31,9 @@ Section Compiler.
 
   Definition duproot : codegen unit :=
     emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N offset_gc);;
+    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
+
+  Definition registerroot : codegen unit :=
     emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
 
   Definition unregisterroot : codegen unit :=
@@ -121,14 +124,19 @@ Section Compiler.
         (* TODO: ref.store on a GC ref with a sum type can change pointer positions. *)
         let fix store_cons_as ρs τs {struct τs} :=
           match ρs, τs with
-          | ρ :: ρs', τ :: τs' => store_as fe cm a (off + 1)%N ρ τ :: store_cons_as ρs' τs'
+          | ρ :: ρs', τ :: τs' =>
+              let store_case ixs :=
+                try_option EFail (nths_error (tail vs) ixs) ≫=
+                  store_as fe cm a (off + 1)%N ρ τ
+              in
+              store_case :: store_cons_as ρs' τs'
           | _, _ => []
           end
         in
         v ← try_option EFail (head vs);
         store_as_primitive cm a off I32R v;;
         emit (W.BI_get_local (localimm v));;
-        case_blocks ρs (tail vs) [] (store_cons_as ρs τs)
+        case_blocks ρs [] (store_cons_as ρs τs)
     | ProdR ρs, ProdT _ τs =>
         let fix store_items_as off vs ρs τs {struct τs} :=
           match ρs, τs with
@@ -144,12 +152,74 @@ Section Compiler.
         store_items_as off vs ρs τs
     | _, SerT _ _ => try_option EFail (eval_rep ρ) ≫= store_as_ser cm a off vs
     | _, GCPtrT _ _ => try_option EFail (head vs) ≫= store_as_gcptr a off
-    | _, PadT _ _ τ' => store_as fe cm a off ρ τ' vs
+    | _, PadT _ _ τ'
     | _, ExistsMemT _ τ'
     | _, ExistsRepT _ τ'
     | _, ExistsSizeT _ τ'
     | _, ExistsTypeT _ _ τ' => store_as fe cm a off ρ τ' vs
     | _, _ => raise EFail
+    end.
+
+  Definition load_from_primitive
+    (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (ι : primitive_rep) :
+    codegen unit :=
+    emit (W.BI_get_local (localimm a));;
+    let ty := translate_prim_rep ι in
+    match cm with
+    | MemMM => emit (W.BI_load (memimm me.(me_runtime).(mr_mem_mm)) ty None 0%N (offset_mm + off)%N)
+    | MemGC => emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) ty None 0%N (offset_gc + off)%N)
+    end.
+
+  Definition load_from_ser
+    (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (ιs : list primitive_rep) :
+    codegen unit :=
+    ignore $ foldM
+      (fun ι off => load_from_primitive cm a off ι;; ret (off + primitive_offset ι)%N)
+      (ret off)
+      ιs.
+
+  Definition load_from_gcptr (a : W.localidx) (off : W.static_offset) : codegen unit :=
+    emit (W.BI_get_local (localimm a));;
+    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N (offset_gc + off)%N);;
+    registerroot.
+
+  Fixpoint load_from
+    (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (τ : type) :
+    codegen unit :=
+    match τ with
+    | SumT _ τs =>
+        ρs ← try_option EFail (mapM (type_rep fe.(fe_type_vars)) τs);
+        ιs ← try_option EFail (eval_rep (SumR ρs));
+        vs ← mapM (wlalloc fe) (map translate_prim_rep ιs);
+        tag ← try_option EFail (head vs);
+        let load_case τ ixs :=
+          ixs' ← try_option EFail (nths_error (tail vs) ixs);
+          load_from fe cm a (off + 1)%N τ;;
+          set_locals_w ixs'
+        in
+        load_from_primitive cm a off I32R;;
+        emit (W.BI_tee_local (localimm tag));;
+        case_blocks ρs [] (map load_case τs);;
+        restore_stack vs
+    | ProdT _ τs =>
+        ignore $ foldM
+          (fun τ' off =>
+             σ ← try_option EFail (type_size fe.(fe_type_vars) τ');
+             n ← try_option EFail (eval_size σ);
+             load_from fe cm a off τ';;
+             ret (off + N.of_nat n)%N)
+          (ret off)
+          τs
+    | SerT _ τ' =>
+        ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
+        try_option EFail (eval_rep ρ) ≫= load_from_ser cm a off
+    | GCPtrT _ _ => load_from_gcptr a off
+    | PadT _ _ τ'
+    | ExistsMemT _ τ'
+    | ExistsRepT _ τ'
+    | ExistsSizeT _ τ'
+    | ExistsTypeT _ _ τ' => load_from fe cm a off τ'
+    | _ => raise EFail
     end.
 
 End Compiler.

@@ -7,7 +7,7 @@ Require Import stdpp.list.
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import prelude layout syntax.
+From RichWasm Require Import prelude layout syntax util.
 From RichWasm.compiler Require Import prelude codegen convert memory util.
 
 Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
@@ -132,8 +132,8 @@ Section Compiler.
     result ← try_option EFail (translate_types fe.(fe_type_vars) τs);
     ιs ← try_option EFail (eval_rep (SumR ρs));
     ixs ← save_stack fe (tail ιs);
-    let cases' := map (fun c ixs => get_locals_w ixs;; c) cases in
-    case_blocks ρs ixs result cases'.
+    let do_case c ixs' := try_option EFail (nths_error ixs ixs') ≫= get_locals_w;; c in
+    case_blocks ρs result (map do_case cases).
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
@@ -189,6 +189,17 @@ Section Compiler.
       (store_as me fe MemMM a off ρ τ'' vs)
       (store_as me fe MemGC a off ρ τ'' vs).
 
+  Definition compile_ref_load (fe : function_env) (τ : type) (π : path) : codegen unit :=
+    '(off, τ') ← try_option EFail (resolve_path fe τ π);
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
+    ιs ← try_option EFail (eval_rep ρ);
+    a ← wlalloc fe W.T_i32;
+    emit (W.BI_set_local (localimm a));;
+    ignore $ case_ptr (W.Tf [] (map translate_prim_rep ιs)) a
+      (emit W.BI_unreachable)
+      (load_from me fe MemMM a off τ')
+      (load_from me fe MemGC a off τ').
+
   Definition erased_in_wasm : codegen unit := ret tt.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
@@ -236,7 +247,8 @@ Section Compiler.
     | IUntag _ => compile_untag
     | IRefNew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_ref_new fe cm τ τ'
     | IRefNew _ => raise EFail
-    | IRefLoad _ _ => raise ETodo
+    | IRefLoad (InstrT [RefT _ _ τ] _) π => compile_ref_load fe τ π
+    | IRefLoad _ _ => raise EFail
     | IRefStore (InstrT [RefT _ _ τ'; τ] _) π => compile_ref_store fe τ τ' π
     | IRefStore _ _ => raise EFail
     | IRefSwap _ _ => raise ETodo

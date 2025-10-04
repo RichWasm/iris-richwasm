@@ -38,8 +38,7 @@ Definition save_stack (fe : function_env) (ιs : list primitive_rep) : codegen (
 Definition restore_stack : list W.localidx -> codegen unit := get_locals_w.
 
 Definition case_blocks
-  (ρs : list representation) (ixs : list W.localidx) (result : W.result_type)
-  (cases : list (list W.localidx -> codegen unit)) :
+  (ρs : list representation) (result : W.result_type) (cases : list (list nat -> codegen unit)) :
   codegen unit :=
   let fix go depth cases :=
     match cases with
@@ -50,10 +49,8 @@ Definition case_blocks
     | (ρ, c) :: cases' =>
         block_c (W.Tf [W.T_i32] result)
           (go (depth + 1) cases';;
-            ixs_case ← try_option EFail (inject_sum_rep ρs ρ);
-            ixs' ← mapM (try_option EFail ∘ nth_error ixs) ixs_case;
-            c ixs';;
-            emit (W.BI_br depth))
+           try_option EFail (inject_sum_rep ρs ρ) ≫= c;;
+           emit (W.BI_br depth))
     end
   in
   go 0 (zip ρs cases).
