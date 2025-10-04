@@ -30,7 +30,7 @@ Section Compiler.
     emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free))).
 
   Definition duproot : codegen unit :=
-    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N offset_gc);;
+    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None align_word offset_gc);;
     emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
 
   Definition registerroot : codegen unit :=
@@ -95,8 +95,10 @@ Section Compiler.
     emit (W.BI_get_local (localimm v));;
     let ty := translate_prim_rep ι in
     match cm with
-    | MemMM => emit (W.BI_store (memimm me.(me_runtime).(mr_mem_mm)) ty None 0%N (offset_mm + off)%N)
-    | MemGC => emit (W.BI_store (memimm me.(me_runtime).(mr_mem_gc)) ty None 0%N (offset_gc + off)%N)
+    | MemMM =>
+        emit (W.BI_store (memimm me.(me_runtime).(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
+    | MemGC =>
+        emit (W.BI_store (memimm me.(me_runtime).(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
     end.
 
   Definition store_as_ser
@@ -113,7 +115,7 @@ Section Compiler.
     emit (W.BI_get_local (localimm a));;
     emit (W.BI_get_local (localimm v));;
     unregisterroot;;
-    emit (W.BI_store (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N (offset_gc + off)%N).
+    emit (W.BI_store (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N).
 
   Fixpoint store_as
     (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset)
@@ -166,8 +168,10 @@ Section Compiler.
     emit (W.BI_get_local (localimm a));;
     let ty := translate_prim_rep ι in
     match cm with
-    | MemMM => emit (W.BI_load (memimm me.(me_runtime).(mr_mem_mm)) ty None 0%N (offset_mm + off)%N)
-    | MemGC => emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) ty None 0%N (offset_gc + off)%N)
+    | MemMM =>
+        emit (W.BI_load (memimm me.(me_runtime).(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
+    | MemGC =>
+        emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
     end.
 
   Definition load_from_ser
@@ -180,7 +184,7 @@ Section Compiler.
 
   Definition load_from_gcptr (a : W.localidx) (off : W.static_offset) : codegen unit :=
     emit (W.BI_get_local (localimm a));;
-    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N (offset_gc + off)%N);;
+    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N);;
     registerroot.
 
   Fixpoint load_from

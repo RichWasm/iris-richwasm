@@ -44,8 +44,9 @@ Record function_env :=
 Definition fe_wlocal_offset (fe : function_env) : nat :=
   sum_list_with length fe.(fe_local_reps).
 
-Definition offset_mm : N := 3.
-Definition offset_gc : N := 1.
+Definition offset_mm : W.static_offset := 3%N.
+Definition offset_gc : W.static_offset := 1%N.
+Definition align_word : W.alignment_exponent := 2%N.
 
 Definition funcimm (ix : W.funcidx) : W.immediate :=
   let '(W.Mk_funcidx i) := ix in i.
