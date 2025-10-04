@@ -125,7 +125,7 @@ Section Compiler.
           | _, _ => []
           end
         in
-        v ← try_option EWrongTypeAnn (head vs);
+        v ← try_option EFail (head vs);
         store_as_primitive cm a off I32R v;;
         emit (W.BI_get_local (localimm v));;
         case_blocks ρs (tail vs) [] (store_cons_as ρs τs)
@@ -133,23 +133,23 @@ Section Compiler.
         let fix store_items_as off vs ρs τs {struct τs} :=
           match ρs, τs with
           | ρ :: ρs', τ :: τs' =>
-              ιs ← try_option EWrongTypeAnn (eval_rep ρ);
-              σ ← try_option EWrongTypeAnn (type_size fe.(fe_type_vars) τ);
-              n ← try_option EWrongTypeAnn (eval_size σ);
+              ιs ← try_option EFail (eval_rep ρ);
+              σ ← try_option EFail (type_size fe.(fe_type_vars) τ);
+              n ← try_option EFail (eval_size σ);
               store_as fe cm a off ρ τ (take (length ιs) vs);;
               store_items_as (off + N.of_nat n)%N (drop (length ιs) vs) ρs' τs'
           | _, _ => ret tt
           end
         in
         store_items_as off vs ρs τs
-    | _, SerT _ _ => try_option EWrongTypeAnn (eval_rep ρ) ≫= store_as_ser cm a off vs
-    | _, GCPtrT _ _ => try_option EWrongTypeAnn (head vs) ≫= store_as_gcptr a off
+    | _, SerT _ _ => try_option EFail (eval_rep ρ) ≫= store_as_ser cm a off vs
+    | _, GCPtrT _ _ => try_option EFail (head vs) ≫= store_as_gcptr a off
     | _, PadT _ _ τ' => store_as fe cm a off ρ τ' vs
     | _, ExistsMemT _ τ'
     | _, ExistsRepT _ τ'
     | _, ExistsSizeT _ τ'
     | _, ExistsTypeT _ _ τ' => store_as fe cm a off ρ τ' vs
-    | _, _ => raise EWrongTypeAnn
+    | _, _ => raise EFail
     end.
 
 End Compiler.

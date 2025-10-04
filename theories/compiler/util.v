@@ -50,8 +50,8 @@ Definition case_blocks
     | (ρ, c) :: cases' =>
         block_c (W.Tf [W.T_i32] result)
           (go (depth + 1) cases';;
-            ixs_case ← try_option EWrongTypeAnn (inject_sum_rep ρs ρ);
-            ixs' ← mapM (try_option EWrongTypeAnn ∘ nth_error ixs) ixs_case;
+            ixs_case ← try_option EFail (inject_sum_rep ρs ρ);
+            ixs' ← mapM (try_option EFail ∘ nth_error ixs) ixs_case;
             c ixs';;
             emit (W.BI_br depth))
     end

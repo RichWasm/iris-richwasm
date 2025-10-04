@@ -43,16 +43,16 @@ Section Compiler.
     end.
 
   Definition compile_copy (fe : function_env) (τ : type) : codegen unit :=
-    ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EUnboundTypeVar (eval_rep ρ);
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ιs ← try_option EFail (eval_rep ρ);
     ixs ← save_stack fe ιs;
     restore_stack ixs;;
     update_gc_refs ixs ιs (duproot me);;
     restore_stack ixs.
 
   Definition compile_drop (fe : function_env) (τ : type) : codegen unit :=
-    ρ ← try_option EUnboundTypeVar (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EUnboundTypeVar (eval_rep ρ);
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ιs ← try_option EFail (eval_rep ρ);
     mapM_ (drop_primitive fe) (rev ιs).
 
   Definition compile_num (e : num_instruction) : codegen unit :=
@@ -74,33 +74,33 @@ Section Compiler.
 
   Definition compile_block (fe : function_env) (ψ : instruction_type) (c : codegen unit) :
     codegen unit :=
-    tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
+    tf ← try_option EFail (translate_instr_type fe.(fe_type_vars) ψ);
     block_c tf c.
 
   Definition compile_loop (fe : function_env) (ψ : instruction_type) (c : codegen unit) :
     codegen unit :=
-    tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
+    tf ← try_option EFail (translate_instr_type fe.(fe_type_vars) ψ);
     loop_c tf c.
 
   Definition compile_ite (fe : function_env) (ψ : instruction_type) (c1 c2 : codegen unit) :
     codegen unit :=
-    tf ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) ψ);
+    tf ← try_option EFail (translate_instr_type fe.(fe_type_vars) ψ);
     ignore (if_c tf c1 c2).
 
   Definition compile_local_get (fe : function_env) (i : nat) : codegen unit :=
-    try_option EUnboundLocal (local_indices fe i) ≫= get_locals_w.
+    try_option EFail (local_indices fe i) ≫= get_locals_w.
 
   Definition compile_local_set (fe : function_env) (i : nat) : codegen unit :=
-    try_option EUnboundLocal (local_indices fe i) ≫= set_locals_w.
+    try_option EFail (local_indices fe i) ≫= set_locals_w.
 
   Definition compile_global_get (i : nat) : codegen unit :=
-    try_option EUnboundGlobal (global_indices i) ≫= get_globals_w ∘ fst.
+    try_option EFail (global_indices i) ≫= get_globals_w ∘ fst.
 
   Definition compile_global_set (i : nat) : codegen unit :=
-    try_option EUnboundGlobal (global_indices i) ≫= set_globals_w ∘ fst.
+    try_option EFail (global_indices i) ≫= set_globals_w ∘ fst.
 
   Definition compile_global_swap (fe : function_env) (i : nat) : codegen unit :=
-    '(ixs, ιs) ← try_option EUnboundGlobal (global_indices i);
+    '(ixs, ιs) ← try_option EFail (global_indices i);
     get_globals_w ixs;;
     old ← save_stack fe ιs;
     set_globals_w ixs;;
@@ -117,11 +117,11 @@ Section Compiler.
 
   Definition compile_inject (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
     codegen unit :=
-    ιs_sum ← try_option EWrongTypeAnn (eval_rep (SumR ρs));
+    ιs_sum ← try_option EFail (eval_rep (SumR ρs));
     ixs_sum ← mapM (wlalloc fe) (map translate_prim_rep (tail ιs_sum));
-    ρ ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
-    ixs ← try_option EWrongTypeAnn (inject_sum_rep ρs ρ);
-    ixs' ← mapM (try_option EWrongTypeAnn ∘ nth_error ixs_sum) ixs;
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ixs ← try_option EFail (inject_sum_rep ρs ρ);
+    ixs' ← mapM (try_option EFail ∘ nth_error ixs_sum) ixs;
     mapM (emit ∘ W.BI_set_local ∘ localimm) (rev ixs');;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs_sum.
@@ -129,8 +129,8 @@ Section Compiler.
   Definition compile_case
     (fe : function_env) (ρs : list representation) (τs : list type) (cases : list (codegen unit)) :
     codegen unit :=
-    result ← try_option EWrongTypeAnn (translate_types fe.(fe_type_vars) τs);
-    ιs ← try_option EWrongTypeAnn (eval_rep (SumR ρs));
+    result ← try_option EFail (translate_types fe.(fe_type_vars) τs);
+    ιs ← try_option EFail (eval_rep (SumR ρs));
     ixs ← save_stack fe (tail ιs);
     let cases' := map (fun c ixs => get_locals_w ixs;; c) cases in
     case_blocks ρs ixs result cases'.
@@ -138,22 +138,22 @@ Section Compiler.
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
     codegen unit :=
-    τ ← try_option EWrongTypeAnn (last τs1);
+    τ ← try_option EFail (last τs1);
     let fe' := fe_extend_unpack fe τ in
-    tys ← try_option EUnboundTypeVar (translate_instr_type fe.(fe_type_vars) (InstrT τs1 τs2));
+    tys ← try_option EFail (translate_instr_type fe.(fe_type_vars) (InstrT τs1 τs2));
     ignore $ block_c tys (c fe').
 
   Definition compile_wrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
-    ρ0 ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
-    ιs0 ← try_option EWrongTypeAnn (eval_rep ρ0);
-    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
+    ρ0 ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ιs0 ← try_option EFail (eval_rep ρ0);
+    ιs ← try_option EFail (eval_rep ρ);
     wz ← to_words fe ιs0;
     from_words fe wz ιs.
 
   Definition compile_unwrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
-    ρ0 ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
-    ιs0 ← try_option EWrongTypeAnn (eval_rep ρ0);
-    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
+    ρ0 ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ιs0 ← try_option EFail (eval_rep ρ0);
+    ιs ← try_option EFail (eval_rep ρ);
     wz ← to_words fe ιs;
     from_words fe wz ιs0.
 
@@ -167,10 +167,10 @@ Section Compiler.
 
   Definition compile_ref_new (fe : function_env) (cm : concrete_memory) (τ τ' : type) :
     codegen unit :=
-    ρ ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
-    σ ← try_option EWrongTypeAnn (type_size fe.(fe_type_vars) τ');
-    n ← try_option EWrongTypeAnn (eval_size σ);
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ιs ← try_option EFail (eval_rep ρ);
+    σ ← try_option EFail (type_size fe.(fe_type_vars) τ');
+    n ← try_option EFail (eval_size σ);
     vs ← save_stack fe ιs;
     alloc me cm n;;
     a ← wlalloc fe W.T_i32;
@@ -178,9 +178,9 @@ Section Compiler.
     store_as me fe cm a 0%N ρ τ' vs.
 
   Definition compile_ref_store (fe : function_env) (τ τ' : type) (π : path) : codegen unit :=
-    ρ ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
-    '(off, τ'') ← try_option EWrongTypeAnn (resolve_path fe τ' π);
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ιs ← try_option EFail (eval_rep ρ);
+    '(off, τ'') ← try_option EFail (resolve_path fe τ' π);
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
@@ -197,12 +197,12 @@ Section Compiler.
     | INop _ => emit W.BI_nop
     | IUnreachable _ => emit W.BI_unreachable
     | ICopy (InstrT [τ] _) => compile_copy fe τ
-    | ICopy _ => raise EWrongTypeAnn
+    | ICopy _ => raise EFail
     | IDrop (InstrT [τ] _) => compile_drop fe τ
-    | IDrop _ => raise EWrongTypeAnn
+    | IDrop _ => raise EFail
     | INum _ e' => compile_num e'
     | INumConst (InstrT _ [NumT _ ν]) n => compile_num_const ν n
-    | INumConst _ _ => raise EWrongTypeAnn
+    | INumConst _ _ => raise EFail
     | IBlock ψ _ es => compile_block fe ψ (compile_instrs fe es)
     | ILoop ψ es => compile_loop fe ψ (compile_instrs fe es)
     | IIte ψ _ es1 es2 => compile_ite fe ψ (compile_instrs fe es1) (compile_instrs fe es2)
@@ -218,10 +218,10 @@ Section Compiler.
     | ICall _ i _ => compile_call i
     | ICallIndirect _ => emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
-    | IInject _ _ => raise EWrongTypeAnn
+    | IInject _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] τs) _ ess =>
         compile_case fe ρs τs (map (compile_instrs fe) ess)
-    | ICase _ _ _ => raise EWrongTypeAnn
+    | ICase _ _ _ => raise EFail
     | IGroup _ => erased_in_wasm
     | IUngroup _ => erased_in_wasm
     | IFold _ => erased_in_wasm
@@ -229,16 +229,16 @@ Section Compiler.
     | IPack _ => erased_in_wasm
     | IUnpack ψ _ es => compile_unpack fe ψ (flip compile_instrs es)
     | IWrap (InstrT _ [RepT _ ρ τ]) => compile_wrap fe ρ τ
-    | IWrap _ => raise EWrongTypeAnn
+    | IWrap _ => raise EFail
     | IUnwrap (InstrT [RepT _ ρ τ] _) => compile_unwrap fe ρ τ
-    | IUnwrap _ => raise EWrongTypeAnn
+    | IUnwrap _ => raise EFail
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
     | IRefNew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_ref_new fe cm τ τ'
-    | IRefNew _ => raise EWrongTypeAnn
+    | IRefNew _ => raise EFail
     | IRefLoad _ _ => raise ETodo
     | IRefStore (InstrT [RefT _ _ τ'; τ] _) π => compile_ref_store fe τ τ' π
-    | IRefStore _ _ => raise EWrongTypeAnn
+    | IRefStore _ _ => raise EFail
     | IRefSwap _ _ => raise ETodo
     end.
 

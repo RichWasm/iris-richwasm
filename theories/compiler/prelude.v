@@ -10,15 +10,8 @@ From RichWasm Require Import syntax layout.
 Module W := Wasm.datatypes.
 
 Inductive error :=
-  | EWrongTypeAnn
-  | ECaseNotOnVariant
-  | EIndexOutOfBounds (index : nat)
-  | EUnboundQual
-  | EUnboundTypeVar
-  | ERepNotMono
-  | EUnboundLocal
-  | EUnboundGlobal
-  | ETodo.
+| EFail
+| ETodo.
 
 Record store_runtime :=
   { sr_mem_gc : W.memaddr;
