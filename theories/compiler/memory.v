@@ -36,8 +36,22 @@ Section Compiler.
   Definition unregisterroot : codegen unit :=
     emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
 
-  Definition primitive_offset (ι : primitive_rep) : N :=
-    4 * N.of_nat (primitive_size ι).
+  Definition primitive_offset (ι : primitive_rep) : W.static_offset :=
+    (4 * N.of_nat (primitive_size ι))%N.
+
+  Fixpoint resolve_path (fe : function_env) (τ : type) (π : path) :
+    option (W.static_offset * type) :=
+    match τ, π with
+    | _, [] => Some (0%N, τ)
+    | ProdT _ τs, PCProj i :: π' =>
+        σs ← mapM (type_size fe.(fe_type_vars)) (take i τs);
+        ns ← mapM eval_size σs;
+        τ' ← τs !! i;
+        '(n, τ'') ← resolve_path fe τ' π';
+        Some (N.of_nat (list_sum ns) + n, τ'')%N
+    | PadT _ _ τ', PCSkip :: π' => resolve_path fe τ' π'
+    | _, _ => None
+    end.
 
   Definition case_ptr {A B C : Type}
     (tf : W.function_type) (i : W.localidx) (num : codegen A) (mm : codegen B) (gc : codegen C) :

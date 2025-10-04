@@ -527,23 +527,23 @@ Record path_result :=
     pr_target : type;
     pr_replaced : type }.
 
-Inductive resolve_path : type -> path -> option type -> path_result -> Prop :=
+Inductive resolves_path : type -> path -> option type -> path_result -> Prop :=
 | PathNilNone τ :
-  resolve_path τ [] None (Build_path_result [] τ τ)
+  resolves_path τ [] None (Build_path_result [] τ τ)
 | PathNilSome τ τ' :
-  resolve_path τ [] (Some τ') (Build_path_result [] τ τ')
+  resolves_path τ [] (Some τ') (Build_path_result [] τ τ')
 | PathProd pr i π τ__π τs0 τ τs' κ :
   length τs0 = i ->
-  resolve_path τ π τ__π pr ->
+  resolves_path τ π τ__π pr ->
   let pr' :=
     {| pr_prefix := τs0 ++ pr.(pr_prefix);
        pr_target := pr.(pr_target);
        pr_replaced := ProdT κ (τs0 ++ pr.(pr_replaced) :: τs') |}
   in
-  resolve_path (ProdT κ (τs0 ++ τ :: τs')) (PCProj i :: π) τ__π pr'
+  resolves_path (ProdT κ (τs0 ++ τ :: τs')) (PCProj i :: π) τ__π pr'
 | PathPad pr π τ τ__π κ σ :
-  resolve_path τ π τ__π pr ->
-  resolve_path (PadT κ σ τ) (PCSkip :: π) τ__π pr.
+  resolves_path τ π τ__π pr ->
+  resolves_path (PadT κ σ τ) (PCSkip :: π) τ__π pr.
 
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SASum F κ κ' τs τs' :
@@ -900,7 +900,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (IRefNew ψ) ψ L
 | TRefLoad M F L π μ τ τval pr κ :
   let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-  resolve_path τ π None pr ->
+  resolves_path τ π None pr ->
   has_copyability F pr.(pr_target) ImCopy ->
   loads_as F pr.(pr_target) τval ->
   Forall (mono_size F) pr.(pr_prefix) ->
@@ -908,7 +908,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (IRefLoad ψ π) ψ L
 | TRefStore M F L π μ τ τval pr κ :
   let ψ := InstrT [RefT κ μ τ; τval] [τ] in
-  resolve_path τ π None pr ->
+  resolves_path τ π None pr ->
   has_dropability F pr.(pr_target) ImDrop ->
   stores_as F τval pr.(pr_target) ->
   Forall (mono_size F) pr.(pr_prefix) ->
@@ -917,7 +917,7 @@ Inductive has_instruction_type :
 | TRefMMStore M F L π τ τval τmem pr κ κ' :
   let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
   stores_as F τval τmem ->
-  resolve_path τ π (Some τmem) pr ->
+  resolves_path τ π (Some τmem) pr ->
   has_dropability F pr.(pr_target) ImDrop ->
   type_size_eq F pr.(pr_target) τmem ->
   Forall (mono_size F) pr.(pr_prefix) ->
@@ -925,7 +925,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (IRefStore ψ π) ψ L
 | TRefSwap M F L π τ τval pr κ μ :
   let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
-  resolve_path τ π None pr ->
+  resolves_path τ π None pr ->
   Forall (mono_size F) pr.(pr_prefix) ->
   loads_as F τval pr.(pr_target) ->
   has_instruction_type_ok F ψ L ->
@@ -933,7 +933,7 @@ Inductive has_instruction_type :
 | TRefMMSwap M F L π τ τval τval' τmem κ κ' pr :
   let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval'] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
   stores_as F τval τmem ->
-  resolve_path τ π (Some τmem) pr ->
+  resolves_path τ π (Some τmem) pr ->
   Forall (mono_size F) pr.(pr_prefix) ->
   loads_as F pr.(pr_target) τval ->
   has_instruction_type_ok F ψ L ->
@@ -1148,7 +1148,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (IRefNew ψ) ψ L)
       (HRefLoad : forall M F L π μ τ τval pr κ,
           let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-          resolve_path τ π None pr ->
+          resolves_path τ π None pr ->
           has_copyability F pr.(pr_target) ImCopy ->
           loads_as F pr.(pr_target) τval ->
           Forall (mono_size F) pr.(pr_prefix) ->
@@ -1156,7 +1156,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (IRefLoad ψ π) ψ L)
       (HRefStore : forall M F L π μ τ τval pr κ,
           let ψ := InstrT [RefT κ μ τ; τval] [τ] in
-          resolve_path τ π None pr ->
+          resolves_path τ π None pr ->
           has_dropability F pr.(pr_target) ImDrop ->
           stores_as F τval pr.(pr_target) ->
           Forall (mono_size F) pr.(pr_prefix) ->
@@ -1165,7 +1165,7 @@ Section HasHaveInstructionTypeMind.
       (HRefMMStore : forall M F L π τ τval τmem pr κ κ',
           let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
           stores_as F τval τmem ->
-          resolve_path τ π (Some τmem) pr ->
+          resolves_path τ π (Some τmem) pr ->
           has_dropability F pr.(pr_target) ImDrop ->
           type_size_eq F pr.(pr_target) τmem ->
           Forall (mono_size F) pr.(pr_prefix) ->
@@ -1173,7 +1173,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (IRefStore ψ π) ψ L)
       (HRefSwap : forall M F L π τ τval pr κ μ,
           let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
-          resolve_path τ π None pr ->
+          resolves_path τ π None pr ->
           Forall (mono_size F) pr.(pr_prefix) ->
           loads_as F τval pr.(pr_target) ->
           has_instruction_type_ok F ψ L ->
@@ -1183,7 +1183,7 @@ Section HasHaveInstructionTypeMind.
             InstrT [RefT κ (ConstM MemMM) τ; τval'] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval]
           in
           stores_as F τval τmem ->
-          resolve_path τ π (Some τmem) pr ->
+          resolves_path τ π (Some τmem) pr ->
           Forall (mono_size F) pr.(pr_prefix) ->
           loads_as F pr.(pr_target) τval ->
           has_instruction_type_ok F ψ L ->

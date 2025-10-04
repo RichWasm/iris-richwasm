@@ -526,7 +526,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-    resolve_path τ π None pr ->
+    resolves_path τ π None pr ->
     has_copyability F pr.(pr_target) ImCopy ->
     loads_as F pr.(pr_target) τval ->
     Forall (mono_size F) pr.(pr_prefix) ->
@@ -539,7 +539,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ; τval] [τ] in
-    resolve_path τ π None pr ->
+    resolves_path τ π None pr ->
     has_dropability F pr.(pr_target) ImDrop ->
     stores_as F τval pr.(pr_target) ->
     Forall (mono_size F) pr.(pr_prefix) ->
@@ -553,7 +553,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
     stores_as F τval τmem ->
-    resolve_path τ π (Some τmem) pr ->
+    resolves_path τ π (Some τmem) pr ->
     has_dropability F pr.(pr_target) ImDrop ->
     type_size_eq F pr.(pr_target) τmem ->
     Forall (mono_size F) pr.(pr_prefix) ->
@@ -566,7 +566,7 @@ Section Fundamental.
     let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
-    resolve_path τ π None pr ->
+    resolves_path τ π None pr ->
     Forall (mono_size F) pr.(pr_prefix) ->
     loads_as F τval pr.(pr_target) ->
     has_instruction_type_ok F ψ L ->
@@ -581,7 +581,7 @@ Section Fundamental.
       InstrT [RefT κ (ConstM MemMM) τ; τval'] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval]
     in
     stores_as F τval τmem ->
-    resolve_path τ π (Some τmem) pr ->
+    resolves_path τ π (Some τmem) pr ->
     Forall (mono_size F) pr.(pr_prefix) ->
     loads_as F pr.(pr_target) τval ->
     has_instruction_type_ok F ψ L ->

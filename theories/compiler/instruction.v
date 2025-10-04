@@ -177,6 +177,18 @@ Section Compiler.
     emit (W.BI_set_local (localimm a));;
     store_as me fe cm a 0%N ρ τ' vs.
 
+  Definition compile_ref_store (fe : function_env) (τ τ' : type) (π : path) : codegen unit :=
+    ρ ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
+    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
+    '(off, τ'') ← try_option EWrongTypeAnn (resolve_path fe τ' π);
+    vs ← save_stack fe ιs;
+    a ← wlalloc fe W.T_i32;
+    emit (W.BI_set_local (localimm a));;
+    ignore $ case_ptr (W.Tf [] []) a
+      (emit W.BI_unreachable)
+      (store_as me fe MemMM a off ρ τ'' vs)
+      (store_as me fe MemGC a off ρ τ'' vs).
+
   Definition erased_in_wasm : codegen unit := ret tt.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
@@ -225,7 +237,8 @@ Section Compiler.
     | IRefNew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_ref_new fe cm τ τ'
     | IRefNew _ => raise EWrongTypeAnn
     | IRefLoad _ _ => raise ETodo
-    | IRefStore _ _ => raise ETodo
+    | IRefStore (InstrT [RefT _ _ τ'; τ] _) π => compile_ref_store fe τ τ' π
+    | IRefStore _ _ => raise EWrongTypeAnn
     | IRefSwap _ _ => raise ETodo
     end.
 
