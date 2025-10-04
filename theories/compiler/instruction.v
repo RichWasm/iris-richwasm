@@ -2,13 +2,13 @@ Require Import RecordUpdate.RecordUpdate.
 
 From ExtLib.Structures Require Import Monads.
 
-From stdpp Require Import numbers list.
+Require Import stdpp.list.
 
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
 From RichWasm Require Import prelude layout syntax.
-From RichWasm.compiler Require Import prelude codegen convert util.
+From RichWasm.compiler Require Import prelude codegen convert memory util.
 
 Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
 
@@ -16,52 +16,11 @@ Section Compiler.
 
   Variable me : module_env.
 
-  Definition free : codegen unit :=
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free))).
-
-  Definition duproot : codegen unit :=
-    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None 0%N offset_gc);;
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
-
-  Definition unregisterroot : codegen unit :=
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
-
-  Definition case_ptr {A B C : Type}
-    (tf : W.function_type) (i : W.localidx) (num : codegen A) (mm : codegen B) (gc : codegen C) :
-    codegen (A * (B * C)) :=
-    emit (W.BI_get_local (localimm i));;
-    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
-    emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
-    emit (W.BI_testop W.T_i32 W.TO_eqz);;
-    if_c tf
-      num
-      (emit (W.BI_get_local (localimm i));;
-       emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 2)));;
-       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
-       emit (W.BI_testop W.T_i32 W.TO_eqz);;
-       if_c tf mm gc).
-
-  Definition update_gc_ref (i : W.localidx) (ι : primitive_rep) (c : codegen unit) : codegen unit :=
-    match ι with
-    | PtrR =>
-        ignore $ case_ptr (W.Tf [] []) i
-          (ret tt)
-          (ret tt)
-          (emit (W.BI_get_local (localimm i));;
-           c;;
-           emit (W.BI_set_local (localimm i)))
-    | _ => ret tt
-    end.
-
-  Definition update_gc_refs (ixs : list W.localidx) (ιs : list primitive_rep) (c : codegen unit) :
-    codegen unit :=
-    mapM_ (fun '(i, ι) => update_gc_ref i ι c) (zip ixs ιs).
-
   Definition drop_primitive (fe : function_env) (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>
         i ← save_stack1 fe W.T_i32;
-        ignore (case_ptr (W.Tf [] []) i (emit W.BI_drop) free unregisterroot)
+        ignore (case_ptr (W.Tf [] []) i (emit W.BI_drop) (free me) (unregisterroot me))
     | _ => emit W.BI_drop
     end.
 
@@ -77,25 +36,6 @@ Section Compiler.
     ιs ← ιss !! i;
     Some (map W.Mk_globalidx (seq i' (length ιs)), ιs).
 
-  Fixpoint case_blocks
-    (ρs : list representation) (ixs : list W.localidx) (result : W.result_type)
-    (depth : nat) (cases : list (representation * codegen unit)) :
-    codegen unit :=
-    match cases with
-    | [] =>
-        block_c (W.Tf [W.T_i32] [])
-          (block_c (W.Tf [] result) (emit (W.BI_br_table (seq 1 depth) 0));;
-           emit W.BI_unreachable)
-    | (ρ, c) :: cases' =>
-        block_c (W.Tf [W.T_i32] result)
-          (case_blocks ρs ixs result (depth + 1) cases';;
-           ixs_case ← try_option EWrongTypeAnn (inject_sum_rep ρs ρ);
-           ixs' ← mapM (try_option EWrongTypeAnn ∘ nth_error ixs) ixs_case;
-           mapM (emit ∘ W.BI_get_local ∘ localimm) ixs';;
-           c;;
-           emit (W.BI_br depth))
-    end.
-
   Definition fe_extend_unpack (fe : function_env) (τ : type) : function_env :=
     match τ with
     | ExistsTypeT _ κ _ => fe <| fe_type_vars ::= cons κ |>
@@ -107,7 +47,7 @@ Section Compiler.
     ιs ← try_option EUnboundTypeVar (eval_rep ρ);
     ixs ← save_stack fe ιs;
     restore_stack ixs;;
-    update_gc_refs ixs ιs duproot;;
+    update_gc_refs ixs ιs (duproot me);;
     restore_stack ixs.
 
   Definition compile_drop (fe : function_env) (τ : type) : codegen unit :=
@@ -192,7 +132,8 @@ Section Compiler.
     result ← try_option EWrongTypeAnn (translate_types fe.(fe_type_vars) τs);
     ιs ← try_option EWrongTypeAnn (eval_rep (SumR ρs));
     ixs ← save_stack fe (tail ιs);
-    case_blocks ρs ixs result 0 (rev (zip ρs cases)).
+    let cases' := map (fun c ixs => get_locals_w ixs;; c) cases in
+    case_blocks ρs ixs result cases'.
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
@@ -223,6 +164,18 @@ Section Compiler.
   Definition compile_untag : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i (W.BOI_shr W.SX_U))).
+
+  Definition compile_ref_new (fe : function_env) (cm : concrete_memory) (τ τ' : type) :
+    codegen unit :=
+    ρ ← try_option EWrongTypeAnn (type_rep fe.(fe_type_vars) τ);
+    ιs ← try_option EWrongTypeAnn (eval_rep ρ);
+    σ ← try_option EWrongTypeAnn (type_size fe.(fe_type_vars) τ');
+    n ← try_option EWrongTypeAnn (eval_size σ);
+    vs ← save_stack fe ιs;
+    alloc me cm n;;
+    a ← wlalloc fe W.T_i32;
+    emit (W.BI_set_local (localimm a));;
+    store_as me fe cm a 0%N ρ τ' vs.
 
   Definition erased_in_wasm : codegen unit := ret tt.
 
@@ -269,7 +222,8 @@ Section Compiler.
     | IUnwrap _ => raise EWrongTypeAnn
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
-    | IRefNew _ => raise ETodo
+    | IRefNew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_ref_new fe cm τ τ'
+    | IRefNew _ => raise EWrongTypeAnn
     | IRefLoad _ _ => raise ETodo
     | IRefStore _ _ => raise ETodo
     | IRefSwap _ _ => raise ETodo

@@ -100,6 +100,13 @@ Definition kind_rep (κ : kind) : option representation :=
   | MEMTYPE _ _ _ => None
   end.
 
+Definition kind_size (κ : kind) : option size :=
+  match κ with
+  | VALTYPE _ _ _
+  | MEMTYPE Unsized _ _ => None
+  | MEMTYPE (Sized σ) _ _ => Some σ
+  end.
+
 Definition type_kind (κs : list kind) (τ : type) : option kind :=
   match τ with
   | VarT t => κs !! t
@@ -155,6 +162,9 @@ Definition num_type_rep (ν : num_type) : primitive_rep :=
 
 Definition type_rep (κs : list kind) (τ : type) : option representation :=
   type_kind κs τ ≫= kind_rep.
+
+Definition type_size (κs : list kind) (τ : type) : option size :=
+  type_kind κs τ ≫= kind_size.
 
 Definition primitive_size (ι : primitive_rep) : nat :=
   match ι with

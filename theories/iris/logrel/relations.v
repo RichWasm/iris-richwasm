@@ -2,7 +2,7 @@ Require Import iris.proofmode.tactics.
 
 From Wasm.iris.helpers Require Import iris_properties.
 
-From RichWasm.compiler Require Import prelude codegen instruction util.
+From RichWasm.compiler Require Import prelude codegen instruction memory util.
 From RichWasm.iris Require Import gc memory.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 From RichWasm Require Import syntax typing layout util.
