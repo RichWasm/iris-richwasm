@@ -20,7 +20,13 @@ Section Compiler.
     match ι with
     | PtrR =>
         i ← save_stack1 fe W.T_i32;
-        ignore (case_ptr (W.Tf [] []) i (emit W.BI_drop) (free me) (unregisterroot me))
+        ignore $ case_ptr (W.Tf [] []) i
+          (emit W.BI_drop)
+          (fun cm =>
+             match cm with
+             | MemMM => free me
+             | MemGC => unregisterroot me
+             end)
     | _ => emit W.BI_drop
     end.
 
@@ -177,28 +183,38 @@ Section Compiler.
     emit (W.BI_set_local (localimm a));;
     store_as me fe cm a 0%N ρ τ' vs.
 
-  Definition compile_ref_store (fe : function_env) (τ τ' : type) (π : path) : codegen unit :=
-    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+  Definition compile_ref_store (fe : function_env) (τval τ : type) (π : path) : codegen unit :=
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep ρ);
-    '(off, τ'') ← try_option EFail (resolve_path fe τ' π);
+    '(off, τmem) ← try_option EFail (resolve_path fe τ π);
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
-    emit (W.BI_set_local (localimm a));;
+    emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr (W.Tf [] []) a
       (emit W.BI_unreachable)
-      (store_as me fe MemMM a off ρ τ'' vs)
-      (store_as me fe MemGC a off ρ τ'' vs).
+      (fun cm => store_as me fe cm a off ρ τmem vs).
 
   Definition compile_ref_load (fe : function_env) (τ : type) (π : path) : codegen unit :=
     '(off, τ') ← try_option EFail (resolve_path fe τ π);
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
     ιs ← try_option EFail (eval_rep ρ);
     a ← wlalloc fe W.T_i32;
-    emit (W.BI_set_local (localimm a));;
+    emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr (W.Tf [] (map translate_prim_rep ιs)) a
       (emit W.BI_unreachable)
-      (load_from me fe MemMM a off τ')
-      (load_from me fe MemGC a off τ').
+      (fun cm => load_from me fe cm a off τ').
+
+  Definition compile_ref_swap (fe : function_env) (τval τ τ' : type) (π : path) : codegen unit :=
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
+    ιs ← try_option EFail (eval_rep ρ);
+    '(off, τmem) ← try_option EFail (resolve_path fe τ π);
+    '(_, τmem') ← try_option EFail (resolve_path fe τ' π);
+    vs ← save_stack fe ιs;
+    a ← wlalloc fe W.T_i32;
+    emit (W.BI_tee_local (localimm a));;
+    ignore $ case_ptr (W.Tf [] (map translate_prim_rep ιs)) a
+      (emit W.BI_unreachable)
+      (fun cm => load_from me fe cm a off τmem;; store_as me fe cm a off ρ τmem' vs).
 
   Definition erased_in_wasm : codegen unit := ret tt.
 
@@ -249,9 +265,10 @@ Section Compiler.
     | IRefNew _ => raise EFail
     | IRefLoad (InstrT [RefT _ _ τ] _) π => compile_ref_load fe τ π
     | IRefLoad _ _ => raise EFail
-    | IRefStore (InstrT [RefT _ _ τ'; τ] _) π => compile_ref_store fe τ τ' π
+    | IRefStore (InstrT [_; τval] [RefT _ _ τ]) π => compile_ref_store fe τval τ π
     | IRefStore _ _ => raise EFail
-    | IRefSwap _ _ => raise ETodo
+    | IRefSwap (InstrT [RefT _ _ τ; τval] [RefT _ _ τ'; _]) π => compile_ref_swap fe τval τ τ' π
+    | IRefSwap _ _ => raise EFail
     end.
 
   Definition compile_instrs (fe : function_env) : list instruction -> codegen unit :=

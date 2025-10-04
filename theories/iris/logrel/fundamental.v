@@ -538,7 +538,7 @@ Section Fundamental.
   Lemma compat_ref_store M F L wl wl' es' π pr κ μ τ τval :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
-    let ψ := InstrT [RefT κ μ τ; τval] [τ] in
+    let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
     resolves_path τ π None pr ->
     has_dropability F pr.(pr_target) ImDrop ->
     stores_as F τval pr.(pr_target) ->

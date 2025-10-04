@@ -907,7 +907,7 @@ Inductive has_instruction_type :
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IRefLoad ψ π) ψ L
 | TRefStore M F L π μ τ τval pr κ :
-  let ψ := InstrT [RefT κ μ τ; τval] [τ] in
+  let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
   resolves_path τ π None pr ->
   has_dropability F pr.(pr_target) ImDrop ->
   stores_as F τval pr.(pr_target) ->
@@ -1155,7 +1155,7 @@ Section HasHaveInstructionTypeMind.
           has_instruction_type_ok F ψ L ->
           P1 M F L (IRefLoad ψ π) ψ L)
       (HRefStore : forall M F L π μ τ τval pr κ,
-          let ψ := InstrT [RefT κ μ τ; τval] [τ] in
+          let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
           resolves_path τ π None pr ->
           has_dropability F pr.(pr_target) ImDrop ->
           stores_as F τval pr.(pr_target) ->
