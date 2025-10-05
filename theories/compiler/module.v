@@ -100,6 +100,10 @@ Definition set_start (ms : option W.module_start) : modgen unit :=
   m ← get;
   put (m <| W.mod_start := ms |>).
 
+Definition add_export (ex : W.module_export) : modgen unit :=
+  m ← get;
+  put (m <| W.mod_exports ::= flip app [ex] |>).
+
 Definition table_alloc (gid_table_next gid_table_off : W.globalidx) (n : nat) : W.expr :=
   [
     (* Save the next index. *)
@@ -143,6 +147,15 @@ Definition compile_table
       flatten (imap (call_table_set gid_table_off fid_table_set) tab)
   in
   add_func (W.Build_module_func tid [] body).
+
+Definition compile_export (ex : module_export) : modgen unit :=
+  let ed :=
+    match ex with
+    | ExFunction i => W.MED_func (W.Mk_funcidx i) (* TODO: Translate index. *)
+    | ExGlobal i => W.MED_global (W.Mk_globalidx i) (* TODO: Translate index. *)
+    end
+  in
+  add_export (W.Build_module_export [] ed).
 
 Definition compile_module (m : module) : modgen unit :=
   (* Runtime Imports *)
@@ -188,5 +201,5 @@ Definition compile_module (m : module) : modgen unit :=
   let me := me_of_module m mr in
   mapM_ (compile_func me) m.(m_funcs);;
 
-  (* TODO: exports *)
-  ret tt.
+  (* User Exports *)
+  mapM_ compile_export m.(m_exports).
