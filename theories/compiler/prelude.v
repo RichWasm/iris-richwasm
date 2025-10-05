@@ -14,14 +14,14 @@ Inductive error :=
 | ETodo.
 
 Record store_runtime :=
-  { sr_mem_gc : W.memaddr;
-    sr_mem_mm : W.memaddr;
-    sr_table : W.tableaddr;
-    sr_gc_heap_start : N }.
+  { sr_mem_mm : W.memaddr;
+    sr_mem_gc : W.memaddr;
+    sr_gc_heap_start : N;
+    sr_table : W.tableaddr }.
 
 Record module_runtime :=
-  { mr_mem_gc : W.memidx;
-    mr_mem_mm : W.memidx;
+  { mr_mem_mm : W.memidx;
+    mr_mem_gc : W.memidx;
     mr_func_alloc_mm : W.funcidx;
     mr_func_alloc_gc : W.funcidx;
     mr_func_free : W.funcidx;
@@ -47,8 +47,7 @@ Definition me_of_module (m : module) (mr : module_runtime) : module_env :=
   {| me_globals := gsi ++ gs; me_runtime := mr |}.
 
 Definition me_of_context (M : module_ctx) (mr : module_runtime) : module_env :=
-  {| me_globals := map snd M.(mc_globals);
-     me_runtime := mr |}.
+  {| me_globals := map snd M.(mc_globals); me_runtime := mr |}.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
   locals ← mapM eval_rep mf.(mf_locals);
