@@ -53,17 +53,6 @@ Global Instance MonadWriter_codegen : MonadWriter (@Monoid_list_app W.basic_inst
 Definition lift_error {A : Type} (c : error + A) : codegen A :=
   Build_codegen (lift (lift c)).
 
-Definition try_option {A : Type} (e : error) (x : option A) : codegen A :=
-  match x with
-  | None => raise e
-  | Some x' => ret x'
-  end.
-
-Definition ignore {A : Type} (c : codegen A) : codegen unit := c;; ret tt.
-
-Definition mapM_ {A B : Type} (f : A → codegen B) (l : list A) : codegen unit :=
-  ignore (mapM f l).
-
 Definition run_codegen {A : Type} (c : codegen A) (wl : wlocal_ctx) : error + A * wlocal_ctx * W.expr :=
   match runWriterT (runStateT (uncodegen c) wl) with
   | inl e => inl e

@@ -1,27 +1,26 @@
-From Stdlib Require Import List.
-Import ListNotations.
-Require Import Stdlib.Strings.String.
+From Stdlib Require Import String.
 Require Import Stdlib.ZArith.BinInt.
 
 Require Import mathcomp.ssreflect.seq.
 
-Require Import stdpp.list_numbers.
+Require Import stdpp.list.
+
+Require Import RecordUpdate.RecordUpdate.
+
+Require Import ExtLib.Data.Monads.StateMonad.
+Require Import ExtLib.Structures.Monads.
 
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import syntax typing layout.
+From RichWasm Require Import syntax typing util.
 Require Import RichWasm.compiler.prelude.
 
 Module W := Wasm.datatypes.
 
-Definition funcidx_table_set : W.immediate := 0.
+Definition modgen := stateT W.module (sum error).
 
-Definition typeidx_nil_to_nil : W.immediate := 0.
-Definition typeidx_i32_i32_to_nil : W.immediate := 1.
-
-Definition globidx_table_next : W.immediate := 0.
-Definition globidx_table_offset : W.immediate := 1.
+Existing Instance Monad_stateT.
 
 Definition me_of_context (M : module_ctx) (mr : module_runtime) : module_env :=
   {| me_globals := map snd M.(mc_globals);
@@ -32,60 +31,137 @@ Definition fe_of_context (F : function_ctx) : function_env :=
      fe_type_vars := F.(fc_type_vars);
      fe_local_reps := F.(fc_locals) |}.
 
-Definition set_table_elem (start : W.immediate) (i f : nat) : W.expr :=
-  [W.BI_get_local start;
-   W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i)));
-   W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
-   W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat f)));
-   W.BI_call funcidx_table_set].
+Definition imd_global (imd : W.import_desc) : option W.global_type :=
+  match imd with
+  | W.ID_global tg => Some tg
+  | _ => None
+  end.
 
-Definition start_func (table : list nat) : W.module_func :=
-  {| W.modfunc_type := W.Mk_typeidx typeidx_nil_to_nil;
-     W.modfunc_locals := [];
-     W.modfunc_body :=
-       [
-         (* Remember the starting index of our section in the table. *)
-         W.BI_get_global globidx_table_next;
-         W.BI_set_global globidx_table_offset;
-         (* Increment the index for the next module to use the table. *)
-         W.BI_get_global globidx_table_offset;
-         W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat (length table))));
-         W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
-         W.BI_set_global globidx_table_next
-       ] ++
-       flatten (imap (set_table_elem 0) table) |}.
+Definition imd_func (imd : W.import_desc) : option nat :=
+  match imd with
+  | W.ID_func i => Some i
+  | _ => None
+  end.
 
-(* TODO: modfunc_type expects a typeidx while rwasm does this inline *)
-Definition compile_func (func : module_function) : error + W.module_func :=
-  inr {|
-    W.modfunc_type := W.Mk_typeidx 0; (* TODO *)
-    W.modfunc_locals := []; (* TODO *)
-    W.modfunc_body := []; (* TODO *)
-  |}.
+Definition count_global_imports (m : W.module) : nat :=
+  length (pmap (imd_global ∘ W.imp_desc) m.(W.mod_imports)).
 
-Definition compile_module (module : module) : error + W.module :=
-  let globals :=
-    (* TODO *)
-    [W.Build_module_glob
-       (W.Build_global_type W.MUT_mut W.T_i32)
-       [W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 0))]]
+Definition count_func_imports (m : W.module) : nat :=
+  length (pmap (imd_func ∘ W.imp_desc) m.(W.mod_imports)).
+
+Definition add_type (tf : W.function_type) : modgen W.typeidx :=
+  m ← get;
+  put (m <| W.mod_types ::= flip app [tf] |>);;
+  ret (W.Mk_typeidx (length m.(W.mod_types))).
+
+Definition add_import (imp : W.module_import) : modgen unit :=
+  m ← get;
+  put (m <| W.mod_imports ::= flip app [imp] |>).
+
+Definition add_rt_global_import (name : string) (tg : W.global_type) : modgen W.globalidx :=
+  let imp :=
+    {| W.imp_module := String.list_byte_of_string "richwasm";
+       W.imp_name := String.list_byte_of_string name;
+       W.imp_desc := W.ID_global tg |}
   in
-  let imports :=
-    (* TODO *)
-    [W.Build_module_import
-       (String.list_byte_of_string "RichWasm")
-       (String.list_byte_of_string "table_set")
-       (W.ID_func typeidx_i32_i32_to_nil)]
+  m ← get;
+  add_import imp;;
+  ret (W.Mk_globalidx (count_global_imports m)).
+
+Definition add_global_import (tg : W.global_type) : modgen W.globalidx :=
+  m ← get;
+  add_import (W.Build_module_import [] [] (W.ID_global tg));;
+  ret (W.Mk_globalidx (count_global_imports m)).
+
+Definition add_global (mg : W.module_glob) : modgen W.globalidx :=
+  m ← get;
+  put (m <| W.mod_globals ::= flip app [mg] |>);;
+  ret (W.Mk_globalidx (count_global_imports m + length m.(W.mod_globals))).
+
+Definition add_rt_func_import (name : string) (tf : W.function_type) : modgen W.funcidx :=
+  m ← get;
+  tid ← add_type tf;
+  let imp :=
+    {| W.imp_module := String.list_byte_of_string "richwasm";
+       W.imp_name := String.list_byte_of_string name;
+       W.imp_desc := W.ID_func (typeimm tid) |}
   in
-  inr {|
-    W.mod_types := []; (* TODO *)
-    W.mod_funcs := []; (* TODO *)
-    W.mod_tables := []; (* TODO *)
-    W.mod_mems := []; (* TODO *)
-    W.mod_globals := globals;
-    W.mod_elem := []; (* TODO *)
-    W.mod_data := []; (* TODO *)
-    W.mod_start := Some (W.Build_module_start (W.Mk_funcidx 0));
-    W.mod_imports := imports;
-    W.mod_exports := [] (* TODO *)
-  |}.
+  add_import imp;;
+  ret (W.Mk_funcidx (count_func_imports m)).
+
+Definition add_func_import (tf : W.function_type) : modgen W.funcidx :=
+  m ← get;
+  tid ← add_type tf;
+  add_import (W.Build_module_import [] [] (W.ID_func (typeimm tid)));;
+  ret (W.Mk_funcidx (count_func_imports m)).
+
+Definition add_func (mf : W.module_func) : modgen W.funcidx :=
+  m ← get;
+  put (m <| W.mod_funcs ::= flip app [mf] |>);;
+  ret (W.Mk_funcidx (count_func_imports m + length m.(W.mod_funcs))).
+
+Definition set_start (ms : option W.module_start) : modgen unit :=
+  m ← get;
+  put (m <| W.mod_start := ms |>).
+
+Definition table_alloc (gid_table_next gid_table_off : W.globalidx) (n : nat) : W.expr :=
+  [
+    (* Save the next index. *)
+    W.BI_get_global (globalimm gid_table_next);
+    W.BI_set_global (globalimm gid_table_off);
+    (* Increment the next index. *)
+    W.BI_get_global (globalimm gid_table_off);
+    W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n)));
+    W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
+    W.BI_set_global (globalimm gid_table_next)
+  ].
+
+Definition call_table_set (gid_table_off : W.globalidx) (fid_table_set : W.funcidx) (ix fid : nat) :
+  W.expr :=
+  [
+    W.BI_get_global (globalimm gid_table_off);
+    W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat ix)));
+    W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
+    W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat fid)));
+    W.BI_call (funcimm fid_table_set)
+  ].
+
+Definition compile_func_import (ϕ : function_type) : modgen W.funcidx :=
+  try_option EFail (translate_func_type [] ϕ) ≫= add_func_import.
+
+Definition compile_table
+  (gid_table_next gid_table_off : W.globalidx) (fid_table_set : W.funcidx) (tab : list nat) :
+  modgen W.funcidx :=
+  tid ← add_type (W.Tf [] []);
+  let body :=
+    table_alloc gid_table_next gid_table_off (length tab) ++
+      flatten (imap (call_table_set gid_table_off fid_table_set) tab)
+  in
+  add_func (W.Build_module_func tid [] body).
+
+Definition compile_module (m : module) : modgen unit :=
+  (* Imports *)
+  gid_table_next ← add_rt_global_import "table_next" (W.Build_global_type W.MUT_mut W.T_i32);
+  fid_table_set ← add_rt_func_import "table_set" (W.Tf [W.T_i32; W.T_i32] []);
+  fid_alloc_mm ← add_rt_func_import "alloc_mm" (W.Tf [W.T_i32] [W.T_i32]);
+  fid_alloc_gc ← add_rt_func_import "alloc_gc" (W.Tf [W.T_i32; W.T_i64] [W.T_i32]);
+  fid_free ← add_rt_func_import "free" (W.Tf [W.T_i32] []);
+  fid_registerroot ← add_rt_func_import "registerroot" (W.Tf [W.T_i32] [W.T_i32]);
+  fid_unregisterroot ← add_rt_func_import "unregisterroot" (W.Tf [W.T_i32] []);
+  mapM_ compile_func_import m.(m_funcs_import);;
+
+  (* Definitions *)
+  let mg_table_off :=
+    {| W.modglob_type := W.Build_global_type W.MUT_mut W.T_i32;
+       W.modglob_init := [W.BI_const (W.VAL_int32 (Wasm_int.int_zero i32m))] |}
+  in
+  gid_table_off ← add_global mg_table_off;
+  fid_table_init ← compile_table gid_table_next gid_table_off fid_table_set m.(m_table);
+  set_start (Some (W.Build_module_start fid_table_init));;
+
+  (* TODO: globals_import *)
+  (* TODO: globals *)
+  (* TODO: funcs *)
+  (* TODO: start *)
+  (* TODO: exports *)
+  ret tt.

@@ -1,51 +1,31 @@
-Require Import Stdlib.Strings.String.
-
 Require Import RichWasm.syntax.rw.
 
 Inductive mutability :=
 | Mut
 | Imm.
 
+Record global_type :=
+  { gt_mut : mutability;
+    gt_type : type }.
+
+Record module_global :=
+  { mg_type : global_type;
+    mg_init : list instruction }.
+
 Record module_function :=
   { mf_type : function_type;
     mf_locals : list representation;
     mf_body : list instruction }.
 
-Arguments module_function : clear implicits.
-
-Record module_global :=
-  { mg_mut : mutability;
-    mg_type : type;
-    mg_init : list instruction }.
-
-Arguments module_global : clear implicits.
-
-Inductive module_import_desc :=
-| ImFunction (ϕ : function_type)
-| ImGlobal (ω : mutability) (τ : type).
-
-Arguments module_import_desc : clear implicits.
-
-Record module_import :=
-  { mi_name : string;
-    mi_desc : module_import_desc }.
-
-Arguments module_import : clear implicits.
-
-Inductive module_export_desc :=
+Inductive module_export :=
 | ExFunction (n : nat)
 | ExGlobal (n : nat).
 
-Record module_export :=
-  { me_name : string;
-    me_desc : module_export_desc }.
-
 Record module :=
-  { m_imports : list module_import;
+  { m_globals_import : list global_type;
     m_globals : list module_global;
+    m_funcs_import : list function_type;
     m_funcs : list module_function;
     m_table : list nat;
     m_start : option nat;
     m_exports : list module_export }.
-
-Arguments module : clear implicits.

@@ -16,6 +16,19 @@ Global Instance MJoin_Monad (M : Type -> Type) `(Monad M) : MJoin M :=
 Global Instance FMap_Functor (F : Type -> Type) `(Functor F) : FMap F :=
   { fmap := fun _ _ => fmap }.
 
+Definition try_option {M : Type -> Type} {E A : Type} `{Monad M, MonadExc E M}
+  (e : E) (x : option A) : M A :=
+  match x with
+  | None => raise e
+  | Some x' => ret x'
+  end.
+
+Definition ignore {M : Type -> Type} {A : Type} `{Monad M} (c : M A) : M unit :=
+  c;; ret tt.
+
+Definition mapM_ {M : Type -> Type} {A B : Type} `{Monad M} (f : A → M B) (l : list A) : M unit :=
+  ignore (mapM f l).
+
 Definition nths_error {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
   mapM (nth_error l) ixs.
 

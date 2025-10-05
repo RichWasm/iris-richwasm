@@ -60,9 +60,6 @@ Definition subst_function_ctx
      fc_kind_ctx := F.(fc_kind_ctx);
      fc_type_vars := map (subst_kind s__mem s__rep s__size) F.(fc_type_vars) |}.
 
-Global Instance eta_function_ctx : Settable function_ctx :=
-  settable! Build_function_ctx <fc_return; fc_locals; fc_labels; fc_kind_ctx; fc_type_vars>.
-
 Inductive mem_ok : kind_ctx -> memory -> Prop :=
 | OKVarM K m :
   m < K.(kc_mem_vars) ->

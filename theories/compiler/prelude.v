@@ -48,6 +48,9 @@ Definition offset_mm : W.static_offset := 3%N.
 Definition offset_gc : W.static_offset := 1%N.
 Definition align_word : W.alignment_exponent := 2%N.
 
+Definition typeimm (ix : W.typeidx) : W.immediate :=
+  let '(W.Mk_typeidx i) := ix in i.
+
 Definition funcimm (ix : W.funcidx) : W.immediate :=
   let '(W.Mk_funcidx i) := ix in i.
 
@@ -101,6 +104,15 @@ Definition translate_instr_type (κs : list kind) (ψ : instruction_type) : opti
   tys1 ← translate_types κs τs1;
   tys2 ← translate_types κs τs2;
   Some (W.Tf tys1 tys2).
+
+Fixpoint translate_func_type (κs : list kind) (ϕ : function_type) : option W.function_type :=
+  match ϕ with
+  | MonoFunT τs1 τs2 => translate_instr_type κs (InstrT τs1 τs2)
+  | ForallMemT ϕ'
+  | ForallRepT ϕ'
+  | ForallSizeT ϕ' => translate_func_type κs ϕ'
+  | ForallTypeT κ ϕ' => translate_func_type (κ :: κs) ϕ'
+  end.
 
 Definition translate_sign (s : sign) : W.sx :=
   match s with

@@ -2,7 +2,7 @@ From ExtLib.Structures Require Import Monads.
 
 Require Import stdpp.list.
 
-From RichWasm Require Import prelude layout syntax.
+From RichWasm Require Import prelude layout syntax util.
 From RichWasm.compiler Require Import prelude codegen.
 
 Definition get_locals_w : list W.localidx -> codegen unit :=
