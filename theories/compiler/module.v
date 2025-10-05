@@ -13,23 +13,14 @@ Require Import ExtLib.Structures.Monads.
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import syntax typing util.
-Require Import RichWasm.compiler.prelude.
+From RichWasm Require Import layout syntax typing util.
+From RichWasm.compiler Require Import prelude codegen instruction.
 
 Module W := Wasm.datatypes.
 
 Definition modgen := stateT W.module (sum error).
 
 Existing Instance Monad_stateT.
-
-Definition me_of_context (M : module_ctx) (mr : module_runtime) : module_env :=
-  {| me_globals := map snd M.(mc_globals);
-     me_runtime := mr |}.
-
-Definition fe_of_context (F : function_ctx) : function_env :=
-  {| fe_return_type := F.(fc_return);
-     fe_type_vars := F.(fc_type_vars);
-     fe_local_reps := F.(fc_locals) |}.
 
 Definition imd_global (imd : W.import_desc) : option W.global_type :=
   match imd with
@@ -129,6 +120,15 @@ Definition call_table_set (gid_table_off : W.globalidx) (fid_table_set : W.funci
 Definition compile_func_import (ϕ : function_type) : modgen W.funcidx :=
   try_option EFail (translate_func_type [] ϕ) ≫= add_func_import.
 
+Definition compile_func (me : module_env) (mf : module_function) : modgen W.funcidx :=
+  tf ← try_option EFail (translate_func_type [] mf.(mf_type));
+  tid ← add_type tf;
+  fe ← try_option EFail (fe_of_module_func mf);
+  '((), wl, body) ← lift (run_codegen (compile_instrs me fe mf.(mf_body)) []);
+  locals ← try_option EFail (mapM eval_rep mf.(mf_locals));
+  let locals' := flat_map (map translate_prim_rep) locals ++ wl in
+  add_func (W.Build_module_func tid locals' body).
+
 Definition compile_table
   (gid_table_next gid_table_off : W.globalidx) (fid_table_set : W.funcidx) (tab : list nat) :
   modgen W.funcidx :=
@@ -140,7 +140,7 @@ Definition compile_table
   add_func (W.Build_module_func tid [] body).
 
 Definition compile_module (m : module) : modgen unit :=
-  (* Imports *)
+  (* Runtime Imports *)
   gid_table_next ← add_rt_global_import "table_next" (W.Build_global_type W.MUT_mut W.T_i32);
   fid_table_set ← add_rt_func_import "table_set" (W.Tf [W.T_i32; W.T_i32] []);
   fid_alloc_mm ← add_rt_func_import "alloc_mm" (W.Tf [W.T_i32] [W.T_i32]);
@@ -148,9 +148,12 @@ Definition compile_module (m : module) : modgen unit :=
   fid_free ← add_rt_func_import "free" (W.Tf [W.T_i32] []);
   fid_registerroot ← add_rt_func_import "registerroot" (W.Tf [W.T_i32] [W.T_i32]);
   fid_unregisterroot ← add_rt_func_import "unregisterroot" (W.Tf [W.T_i32] []);
-  mapM_ compile_func_import m.(m_funcs_import);;
 
-  (* Definitions *)
+  (* User Imports *)
+  mapM_ compile_func_import m.(m_funcs_import);;
+  (* TODO: globals_import *)
+
+  (* Runtime Definitions *)
   let mg_table_off :=
     {| W.modglob_type := W.Build_global_type W.MUT_mut W.T_i32;
        W.modglob_init := [W.BI_const (W.VAL_int32 (Wasm_int.int_zero i32m))] |}
@@ -159,9 +162,23 @@ Definition compile_module (m : module) : modgen unit :=
   fid_table_init ← compile_table gid_table_next gid_table_off fid_table_set m.(m_table);
   set_start (Some (W.Build_module_start fid_table_init));;
 
-  (* TODO: globals_import *)
+  (* User Definitions *)
   (* TODO: globals *)
-  (* TODO: funcs *)
-  (* TODO: start *)
+  let mr :=
+    {| mr_mem_gc := W.Mk_memidx 0; (* TODO *)
+       mr_mem_mm := W.Mk_memidx 0; (* TODO *)
+       mr_func_alloc_mm := fid_alloc_mm;
+       mr_func_alloc_gc := fid_alloc_gc;
+       mr_func_free := fid_free;
+       mr_func_registerroot := fid_registerroot;
+       mr_func_unregisterroot := fid_unregisterroot;
+       mr_func_user := W.Mk_funcidx 0; (* TODO *)
+       mr_table := W.Mk_tableidx 0; (* TODO *)
+       mr_global_table_off := gid_table_off;
+       mr_global_user := W.Mk_globalidx 0 (* TODO *) |}
+  in
+  let me := me_of_module m mr in
+  mapM_ (compile_func me) m.(m_funcs);;
+
   (* TODO: exports *)
   ret tt.

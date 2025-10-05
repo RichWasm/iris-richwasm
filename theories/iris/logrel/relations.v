@@ -426,7 +426,7 @@ Section Relations.
          na_inv logrel_nais (ns_fun n) (n ↦[wf] cl) ∗ closure_interp [] ϕ cl) ∗
       ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
       (∃ off,
-         let n_off := N.of_nat (globalimm mr.(mr_global_table_offset)) in
+         let n_off := N.of_nat (globalimm mr.(mr_global_table_off)) in
          let v_off := VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat off)) in
          n_off ↦[wg] Build_global MUT_mut v_off ∗
            ([∗ list] i ↦ ϕ ∈ M.(mc_table),

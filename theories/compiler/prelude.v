@@ -5,7 +5,7 @@ Require Import stdpp.list_numbers.
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
-From RichWasm Require Import syntax layout.
+From RichWasm Require Import layout syntax typing.
 
 Module W := Wasm.datatypes.
 
@@ -29,7 +29,7 @@ Record module_runtime :=
     mr_func_unregisterroot : W.funcidx;
     mr_func_user : W.funcidx;
     mr_table : W.tableidx;
-    mr_global_table_offset : W.globalidx;
+    mr_global_table_off : W.globalidx;
     mr_global_user : W.globalidx }.
 
 Record module_env :=
@@ -37,12 +37,31 @@ Record module_env :=
     me_runtime : module_runtime }.
 
 Record function_env :=
-  { fe_return_type : list type;
-    fe_type_vars : list kind;
-    fe_local_reps : list (list primitive_rep) }.
+  { fe_type_vars : list kind;
+    fe_return : list type;
+    fe_locals : list (list primitive_rep) }.
+
+Definition me_of_module (m : module) (mr : module_runtime) : module_env :=
+  let gsi := map gt_type m.(m_globals_import) in
+  let gs := map (gt_type ∘ mg_type) m.(m_globals) in
+  {| me_globals := gsi ++ gs; me_runtime := mr |}.
+
+Definition me_of_context (M : module_ctx) (mr : module_runtime) : module_env :=
+  {| me_globals := map snd M.(mc_globals);
+     me_runtime := mr |}.
+
+Definition fe_of_module_func (mf : module_function) : option function_env :=
+  locals ← mapM eval_rep mf.(mf_locals);
+  let '(κs, _, τs) := flatten_func_type mf.(mf_type) in
+  Some {| fe_type_vars := κs; fe_return := τs; fe_locals := locals |}.
+
+Definition fe_of_context (F : function_ctx) : function_env :=
+  {| fe_type_vars := F.(fc_type_vars);
+     fe_return := F.(fc_return);
+     fe_locals := F.(fc_locals) |}.
 
 Definition fe_wlocal_offset (fe : function_env) : nat :=
-  sum_list_with length fe.(fe_local_reps).
+  sum_list_with length fe.(fe_locals).
 
 Definition offset_mm : W.static_offset := 3%N.
 Definition offset_gc : W.static_offset := 1%N.

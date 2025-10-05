@@ -27,5 +27,4 @@ Record module :=
     m_funcs_import : list function_type;
     m_funcs : list module_function;
     m_table : list nat;
-    m_start : option nat;
     m_exports : list module_export }.

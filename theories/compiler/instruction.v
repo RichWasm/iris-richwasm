@@ -31,8 +31,8 @@ Section Compiler.
     end.
 
   Definition local_indices (fe : function_env) (i : nat) : option (list W.localidx) :=
-    let i' := sum_list_with length (take i fe.(fe_local_reps)) in
-    ιs ← fe.(fe_local_reps) !! i;
+    let i' := sum_list_with length (take i fe.(fe_locals)) in
+    ιs ← fe.(fe_locals) !! i;
     Some (map W.Mk_localidx (seq i' (length ιs))).
 
   Definition global_indices (i : nat) : option (list W.globalidx * list primitive_rep) :=
@@ -114,7 +114,7 @@ Section Compiler.
 
   Definition compile_coderef (i : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
-    emit (W.BI_get_global (globalimm me.(me_runtime).(mr_global_table_offset)));;
+    emit (W.BI_get_global (globalimm me.(me_runtime).(mr_global_table_off)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
   Definition compile_call (i : nat) : codegen unit :=
