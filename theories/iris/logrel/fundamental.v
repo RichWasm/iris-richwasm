@@ -82,8 +82,8 @@ Section Fundamental.
               λ vs, ∃ vss, ⌜vs = concat vss⌝ ∗
                            [∗ list] τ;vs' ∈ [];vss, value_interp sr mr se τ (SValues vs');
             lp_trap := True;
-            lp_br := br_interp sr mr se F (map (subst_type s__mem s__rep s__size VarT) L) wl inst lh F.(fc_labels);
-            lp_ret := return_interp sr mr se F;
+            lp_br := br_interp sr mr se F.(fc_return) (map (subst_type s__mem s__rep s__size VarT) L) wl inst lh F.(fc_labels);
+            lp_ret := return_interp sr mr se F.(fc_return);
             lp_host := fun _ _ _ _ => False
           |}%I).
     iApply lwp_wand; [| iApply (lenient_wp_nop _ _ Ψ)].
@@ -396,7 +396,7 @@ Section Fundamental.
         * iDestruct "H" as "(Hbr & %fr & Hfr & %vsl & %vswl' & -> & (%vss & -> & Hvss) & %Hrestype' & Htok)".
           iDestruct (br_interp_eq with "Hbr") as "Hbr".
           unfold br_interp0. iSimpl in "Hbr".
-          iDestruct "Hbr" as (j k p lh' lh'' _ τs es0 es es' vs0 vs) "(%Hgetbase & %Hdepth & %Hlabels & %Hlayer & %Hdepth' & %Hminus & (%vss2 & -> & Hvss2) & Hbr)".
+          iDestruct "Hbr" as (j k p lh' lh'' τs es0 es es' vs0 vs) "(%Hgetbase & %Hdepth & %Hlabels & %Hlayer & %Hdepth' & %Hminus & (%vss2 & -> & Hvss2) & Hbr)".
           (* may need to first progress in wp before yielding frame *)
           iDestruct ("Hbr" with "Hfr [Hvss Hvss2 $Htok]") as "Hbr".
           { iExists _,_. iSplit; first done. iFrame. done. } 
@@ -472,19 +472,17 @@ Section Fundamental.
             inversion H; subst v; clear H.
             done. }
           iSimpl.
-          iDestruct "H" as "((%ts0 & %ts & %vs & %Htrans & %Hbase & (%vss & -> & Hvss) & Hret) & %fr & Hfr & %vsl & %vswl' & -> & (%vss' & -> & Hvss') & %Hrestype' & Htok)".
+          iDestruct "H" as "((%vs0 & %vs & %Hbase & (%vss & -> & Hvss) & Hret) & %fr & Hfr & %vsl & %vswl' & -> & (%vss' & -> & Hvss') & %Hrestype' & Htok)".
           iSplitL "Hvss Hret".
-          -- iExists _,_,_. iSplit; first done. iSplit; first done. iFrame.
-             iSplit; first done.
+          -- iExists _,_. iSplit; first done. iFrame. iSplit; first done.
              iIntros (fr fr') "Hf".
              admit.
           -- iFrame. iExists _,_.
              iSplit; first done. iFrame. done.
         * iDestruct "H" as "[? _]"; done.
     - (* n is true *)
-      admit. 
-  Admitted. 
-
+      admit.
+  Admitted.
 
   Lemma compat_br M F L L' wl wl' es' i τs1 τs τs2 :
     let me := me_of_context M mr in

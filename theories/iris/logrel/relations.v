@@ -40,6 +40,7 @@ Section Relations.
 
   Notation FrR := (leibnizO frame -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
+  Notation CtxR := (leibnizO lholed -n> iPropO Σ).
   Notation ER := (leibnizO (list administrative_instruction) -n> iPropO Σ).
   Notation BR := (leibnizO lholed -n> leibnizO (list (list type * local_ctx)) -n>
                     leibnizO {n : nat & valid_holed n} -n> iProp Σ).
@@ -412,25 +413,22 @@ Section Relations.
     | SH_rec _ _ _ lh' _ => simple_get_base_l lh'
     end.
 
-  Definition return_interp (se : semantic_env) (F : function_ctx) : RR :=
+  Definition return_interp (se : semantic_env) (τr : list type) : RR :=
     λne svh,
-      (∃ τs0 ts vs,
-         ⌜translate_types F.(fc_type_vars) F.(fc_return) = Some ts⌝ ∗
-           ⌜simple_get_base_l svh = vs⌝ ∗
-           values_interp se (τs0 ++ F.(fc_return)) vs ∗
+      (∃ vs0 vs,
+         ⌜simple_get_base_l svh = vs0 ++ vs⌝ ∗
+           values_interp se τr vs ∗
            ∀ fr fr',
              ↪[frame] fr -∗
-             WP [AI_local (length ts) fr' (of_val (retV svh))]
-                {{ lv, ∃ vs', ⌜lv = immV vs'⌝ ∗
-                                values_interp se F.(fc_return) vs' ∗
-                                ↪[frame] fr }})%I.
+             WP [AI_local (length vs) fr' (of_val (retV svh))]
+                {{ lv, ∃ vs', ⌜lv = immV vs'⌝ ∗ values_interp se τr vs' ∗ ↪[frame] fr }})%I.
 
   Definition br_interp0
-    (se : semantic_env) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx) (inst : instance)
+    (se : semantic_env) (τr : list type) (L : local_ctx) (WL : wlocal_ctx) (inst : instance)
     (br_interp : BR) :
     BR :=
     λne lh τc vh,
-      (∃ j k p lh' lh'' τs0 τs es0 es es' vs0 vs,
+      (∃ j k p lh' lh'' τs es0 es es' vs0 vs,
          ⌜get_base_l (projT2 vh) = vs0 ++ vs⌝ ∗
            ⌜lh_depth (lh_of_vh (projT2 vh)) = p⌝ ∗
            ⌜τc !! (j - p) = Some (τs, L)⌝ ∗
@@ -449,36 +447,36 @@ Section Relations.
                   lp_val := fun vs' => ∃ τs', values_interp se τs' vs';
                   lp_trap := True;
                   lp_br := br_interp lh'' (drop (S (j - p)) τc);
-                  lp_ret := return_interp se F;
+                  lp_ret := return_interp se τr;
                   lp_host := fun _ _ _ _ => False |})%I.
 
   (* TODO *)
-  Instance Contractive_br_interp0 se F L WL inst : Contractive (br_interp0 se F L WL inst).
+  Instance Contractive_br_interp0 se τr L WL inst : Contractive (br_interp0 se τr L WL inst).
   Admitted.
 
   Definition br_interp
-    (se : semantic_env) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
+    (se : semantic_env) (τr : list type) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
     BR :=
-    fixpoint (br_interp0 se F L WL inst).
+    fixpoint (br_interp0 se τr L WL inst).
 
-  Lemma br_interp_eq se F L WL inst lh l vh :
-    br_interp se F L WL inst lh l vh ⊣⊢ br_interp0 se F L WL inst (br_interp se F L WL inst) lh l vh.
+  Lemma br_interp_eq se τr L WL inst lh l vh :
+    br_interp se τr L WL inst lh l vh ⊣⊢ br_interp0 se τr L WL inst (br_interp se τr L WL inst) lh l vh.
   Proof.
     do 3 f_equiv.
     apply fixpoint_unfold.
   Qed.
 
   Definition expr_interp
-    (se : semantic_env) (τc : list (list type * local_ctx)) (τs : list type)
-    (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) (lh : lholed) :
+    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx)) (τs : list type)
+    (L : local_ctx) (WL : wlocal_ctx) (inst : instance) (lh : lholed) :
     ER :=
     λne es,
       lenient_wp NotStuck top es
                  {| lp_fr := frame_interp se L WL inst;
                     lp_val := fun vs => values_interp se τs vs ∗ ↪[RUN];
                     lp_trap := True;
-                    lp_br := br_interp se F L WL inst lh τc;
-                    lp_ret := return_interp se F;
+                    lp_br := br_interp se τr L WL inst lh τc;
+                    lp_ret := return_interp se τr;
                     lp_host := fun _ _ _ _ => False |}%I.
 
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
@@ -512,11 +510,55 @@ Section Relations.
            (∃ vs, value_interp [] τ (SValues vs) ∗
                     [∗ list] j ↦ v ∈ vs, (n + N.of_nat j)%N ↦[wg] Build_global m' v)).
 
-  Definition context_interp (F : function_ctx) (L L' : local_ctx) (inst : instance) (lh : lholed) :
-    iProp Σ :=
-    True. (* TODO *)
+  Fixpoint lholed_valid (lh : lholed) : Prop :=
+    match lh with
+    | LH_base vs _ => const_list vs
+    | LH_rec vs _ _ lh' _ => const_list vs ∧ lholed_valid lh'
+    end.
 
-  Definition memory_closed (m: memory) :=
+  Fixpoint length_lholeds (se : semantic_env) (τc : list (list type * local_ctx)) (lh : lholed) :
+    Prop :=
+    match τc, lh with
+    | [], LH_base _ _ => True
+    | (τs, _) :: τc', LH_rec _ n _ lh' _ =>
+        (forall vs, values_interp se τs vs -∗ ⌜length vs = n⌝) /\ length_lholeds se τc' lh'
+    | _, _ => False
+    end.
+
+  Definition continuation_interp
+    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
+    (L : local_ctx) (WL : wlocal_ctx) (inst : instance)
+    (lh : lholed) (k : nat) (τs : list type) :
+    iProp Σ :=
+    (∃ j es0 es es' lh' lh'',
+       ⌜get_layer lh (lh_depth lh - S k) = Some (es0, j, es, lh', es')⌝ ∧
+         ⌜lh_depth lh'' = lh_depth lh - S k⌝ ∧
+         ⌜is_Some (lh_minus lh lh'')⌝ ∧
+         □ ∀ vs fr,
+           values_interp se τs vs -∗
+           ↪[frame] fr -∗
+           frame_interp se L WL inst fr -∗
+           ∃ τs',
+             expr_interp se τr (drop (S k) τc) τs' L WL inst lh''
+               (es0 ++ of_val (immV vs) ++ es ++ es'))%I.
+
+  Definition continuations_interp
+    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
+    (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
+    CtxR :=
+    λne lh, ([∗ list] k ↦ '(τs, L) ∈ τc, continuation_interp se τr τc L WL inst lh k τs)%I.
+
+  Definition context_interp
+    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
+    (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
+    CtxR :=
+    λne lh,
+      (⌜base_is_empty lh⌝ ∗
+         ⌜length_lholeds se (rev τc) lh⌝ ∗
+         ⌜lholed_valid lh⌝ ∗
+         continuations_interp se τr τc L WL inst lh)%I.
+
+  Definition memory_closed (m : memory) : Prop :=
     match m with
     | VarM _ => False
     | ConstM _ => True
@@ -554,13 +596,13 @@ Section Relations.
     (∀ s__mem s__rep s__size se inst lh,
        subst_env_interp F s__mem s__rep s__size se -∗
        instance_interp M inst -∗
-       context_interp F L L' inst lh -∗
+       context_interp se F.(fc_return) F.(fc_labels) L WL inst lh -∗
        let sub := map (subst_type s__mem s__rep s__size VarT) in
        ∀ fr vs,
          values_interp se (sub τs1) vs -∗
          frame_interp se (sub L) WL inst fr -∗
          ↪[frame] fr -∗
          ↪[RUN] -∗
-         expr_interp se F.(fc_labels) (sub τs2) F (sub L') WL inst lh (of_val (immV vs) ++ es))%I.
+         expr_interp se F.(fc_return) F.(fc_labels) (sub τs2) (sub L') WL inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.
