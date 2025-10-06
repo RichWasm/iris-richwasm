@@ -232,6 +232,16 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
+  Fixpoint replace_base {n} (vh: valid_holed n) vs :=
+    match vh with
+    | VH_base n _ es => VH_base n vs es
+    | VH_rec n b c d vh e => VH_rec b c d (replace_base vh vs) e
+    end. 
+
+(*  Lemma lfilled_replace_base {n} vh vs1 vs2 :=
+    get_base vh = vs1 ++ vs2 ->
+    lfilled  *)
+  
   Lemma compat_ite M F L L' wl wl' es1 es2 es' τs1 τs2 :
     let me := me_of_context M mr in
     let fe := fe_of_context F in
@@ -245,7 +255,236 @@ Section Fundamental.
         ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
     run_codegen (compile_instr me fe (IIte ψ L' es1 es2)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
-  Admitted.
+  Proof.
+    intros me fe ψ Hok Hthen Helse Hcodegen.
+    iIntros (smem srep ssize se inst lh) "Hsubst Hinst Hctxt".
+    iIntros (fr vs) "Hvss Hvsl Hfr Hrun".
+    iDestruct "Hvss" as (vss) "(-> & Hvss)".
+    iDestruct "Hvsl" as (vsl vswl) "(-> & Hvss0 & %Hrestype & Htok)".
+    iDestruct "Hvss0" as (vss0) "[-> Hvss0]".
+    rewrite map_app.
+    iDestruct (big_sepL2_app_inv_l with "Hvss") as (vss1 vssi32) "(-> & Hvss1 & Hvssi32)".
+    destruct vssi32; first done.
+    iDestruct "Hvssi32" as "[Hvssi32 Hvoid]".
+    destruct vssi32; last done.
+    iClear "Hvoid".
+    iDestruct (value_interp_eq with "Hvssi32") as "Hvssi32".
+    iSimpl in "Hvssi32".
+    iDestruct "Hvssi32" as (κ) "(%Heq & Hκ & _)".
+    inversion Heq; subst κ; clear Heq.
+    iSimpl in "Hκ".
+    iDestruct "Hκ" as "%Hκ".
+    destruct Hκ as (vs & Heq & Hrepr).
+    inversion Heq; subst o; clear Heq.
+
+(*    destruct vswl; last by inversion Hrestype. *)
+    rewrite /representation_interp0 /= in Hrepr.
+    destruct Hrepr as (ιs & Heq & Hvs).
+    inversion Heq; subst ιs; clear Heq.
+    destruct vs; inversion Hvs; subst.
+    destruct vs; last by inversion H4.
+    unfold primitive_rep_interp in H2.
+    destruct H2 as [n ->].
+    clear Hvs H4.
+
+(*    inversion Hok; subst.
+    destruct H as [Hτs1 Hτs2].
+    apply Forall_app in Hτs1 as [Hτs1 Hi32].
+    inversion Hi32; subst.
+    inversion H2; subst.
+    inversion H; subst.
+    inversion H4; subst. *)
+
+    rewrite /= /compile_ite in Hcodegen. 
+    inv_cg_bind Hcodegen ρ wl1 es_nil es1' Htype_rep Hcodegen.
+    inv_cg_try_option Htype_rep.
+    subst.
+
+(*    unfold util.ignore in Hcodegen. *)
+    inv_cg_bind Hcodegen ρ' wl2 es_nil' es2' Htype_rep' Hcodegen.
+    rewrite /run_codegen /= in Hcodegen.
+    inversion Hcodegen; subst wl' es2'; clear Hcodegen.
+    rewrite app_nil_r in Hes_app_eq.
+    subst es_nil'.
+    rewrite app_nil_r app_nil_l.
+    unfold if_c in Htype_rep'.
+    inv_cg_bind Htype_rep' ρ'' wl3 es_nil'' es3' Hes1 Hcodegen.
+    subst es1'.
+    destruct ρ''.
+    inv_cg_bind Hcodegen ρ'' wl4 es_nil''' es4' Hes2 Hcodegen.
+    subst es3'.
+    destruct ρ''.
+    rewrite /run_codegen /= in Hcodegen.
+    inversion Hcodegen.
+    subst ρ' wl4 es4'.
+    clear Hcodegen.
+    apply run_codegen_capture in Hes1 as [Hes1 ->].
+    apply run_codegen_capture in Hes2 as [Hes2 ->].
+
+    unfold compile_instrs in Hthen.
+    destruct u, u0.
+    apply Hthen in Hes1.
+    apply Helse in Hes2.
+
+    subst ψ.
+    simpl in Heq_some.
+    remember (translate_types (fc_type_vars F) (τs1 ++ [type_i32])) as trans1.
+    destruct trans1 as [trans1|]; last done.
+    remember (translate_types (fc_type_vars F) τs2) as trans2.
+    destruct trans2 as [trans2|]; last done.
+    simpl in Heq_some.
+    inversion Heq_some; subst ρ; clear Heq_some.
+    iSimpl.
+    unfold lenient_wp.
+    rewrite concat_app /=.
+    rewrite -v_to_e_cat.
+    rewrite cat_app -app_assoc /=.
+    iApply wp_wasm_empty_ctx.
+    rewrite (separate2 (AI_basic _)).
+    iApply wp_base_push; first by apply v_to_e_is_const_list.
+    destruct (value_eq_dec (VAL_int32 n) (VAL_int32 (Wasm_int.int_zero i32m))).
+    - (* n is false *)
+      inversion e; subst.
+      iApply (wp_if_false_ctx with "Hfr Hrun") => //.
+      iIntros "!> Hfr Hrun".
+      iApply wp_base_pull.
+      iSimpl.
+      iApply wp_wasm_empty_ctx.
+      iApply (wp_block with "Hfr Hrun") => //.
+      { apply v_to_e_is_const_list. }
+      { admit. }
+      iIntros "!> Hfr Hrun".
+      iApply (wp_label_bind with "[-]").
+      2:{ iPureIntro. instantiate (5 := []).
+          rewrite /lfilled /lfill /= app_nil_r //. }
+      iApply (wp_wand with "[-]").
+      + simpl in Hes2.
+        iApply (Hes2 with "Hsubst Hinst Hctxt [$Hvss1] [$Htok Hvss0] Hfr Hrun"); first done.
+        iExists _, _. iSplit; first done. iSplit.
+        * iExists _. iSplit; first done. iExact "Hvss0".
+        * iSplit; last done. iPureIntro. exact Hrestype. 
+      + iIntros (v) "H".
+        rewrite /denote_logpred /lp_noframe /=.
+        iIntros (LI HLI).
+        apply lfilled_Ind_Equivalent in HLI; inversion HLI; subst.
+        inversion H8; subst.
+        clear HLI H7 H8 H1.
+        iSimpl.
+
+        destruct v.
+        * iDestruct "H" as "(((%vss & -> & Hvss) & Hrun) & %fr & Hfr & %vsl & %vswl' & -> & (%vss' & -> & Hvss') & %Hrestype' & Htok)".
+          edestruct const_list_to_val as [vs Hvs]; first by apply v_to_e_is_const_list.
+          iApply (wp_wand with "[Hfr Hrun]").
+          { iApply (wp_label_value with "Hfr Hrun").
+            - rewrite seq.cats0. exact Hvs.
+            - by instantiate (1 := λ v, ⌜ v = immV vs ⌝%I). }
+          iIntros (v) "[[-> Hrun] Hfr]".
+          iFrame.
+          apply v_to_e_list_to_val in Hvs as Hvs'.
+          apply v_to_e_inj in Hvs' as ->.
+          iSplit; first done.
+          iExists _,_. iSplit; first done.
+          iFrame. iSplit => //.
+        * iDestruct "H" as "([Hbail _] & %fr & Hfr & %vsl & %vswl' & -> & (%vss & -> & Hvss) & %Hrestype' & Htok)".
+          iApply (wp_wand with "[Hfr]").
+          { iApply (wp_label_trap with "Hfr") => //.
+            instantiate (1 := λ v, ⌜ v = trapV ⌝%I) => //. }
+          iIntros (v) "[-> Hfr]".
+          iFrame.
+          iExists _, _. iSplit; first done.
+          iFrame. iSplit => //.
+        * iDestruct "H" as "(Hbr & %fr & Hfr & %vsl & %vswl' & -> & (%vss & -> & Hvss) & %Hrestype' & Htok)".
+          iDestruct (br_interp_eq with "Hbr") as "Hbr".
+          unfold br_interp0. iSimpl in "Hbr".
+          iDestruct "Hbr" as (j k p lh' lh'' _ τs es0 es es' vs0 vs) "(%Hgetbase & %Hdepth & %Hlabels & %Hlayer & %Hdepth' & %Hminus & (%vss2 & -> & Hvss2) & Hbr)".
+          (* may need to first progress in wp before yielding frame *)
+          iDestruct ("Hbr" with "Hfr [Hvss Hvss2 $Htok]") as "Hbr".
+          { iExists _,_. iSplit; first done. iFrame. done. } 
+          unfold lenient_wp.
+          iDestruct wp_value_fupd as "[H _]"; 
+            last iMod ("H" with "Hbr") as "Hbr".
+          { unfold IntoVal. apply of_to_val.
+            unfold language.to_val. simpl. 
+            rewrite (separate1 (AI_basic _)).
+            apply to_val_br_eq. }
+          iClear "H".
+          unfold denote_logpred.
+          iSimpl in "Hbr".
+          iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vsl & %vswl'' & -> & (%vss3 & -> & Hvss3) & Hrestype' & Htok)".
+          
+          remember (i - p) as hop.
+          destruct hop.
+          -- (* targetting this exact block *)
+            assert (i = p) as ->.
+            { admit. } 
+            iApply (wp_br with "Hfr").
+            3:{ rewrite seq.cats0 /=. 
+                instantiate (1 := p).
+                instantiate (1 := v_to_e_list (concat vss2)).
+                instantiate (1 := lh_of_vh (replace_base lh0 vs0)).
+                admit. (* auxiliary lemma *) } 
+            ++ apply v_to_e_is_const_list.
+            ++ admit. (* use sepL2 and Heqtrans2 *) 
+            ++ admit. (* fix def of br_interp *) 
+            ++ iIntros "!> Hf Hrun".
+               edestruct const_list_to_val as [vs Hvs]; first by apply v_to_e_is_const_list. 
+               iApply wp_value.
+               { apply of_to_val. rewrite app_nil_r. exact Hvs. }
+               iSimpl. iFrame.
+               iSplitL "Hbr".
+               ** apply v_to_e_list_to_val in Hvs as Hvs'.
+                  apply v_to_e_inj in Hvs' as ->.
+                  iExists _. iSplit; first done.
+                  admit. 
+               ** iExists _, _. iSplit; first done. iFrame. done.
+          -- (* still blocked *)
+            assert (i > p) as Hip; first lia.
+            destruct i; first lia.
+            destruct (vh_decrease lh0) eqn:Hlh0.
+            2:{ admit. (* Hip and Hlh0 should be contradictory *) }
+            iApply wp_value.
+            { apply of_to_val. rewrite seq.cats0 /=. 
+              simpl.
+              unfold RichWasm.iris.language.iris.iris.to_val.
+              simpl.
+              rewrite seq.cats0.
+              specialize (to_of_val (brV lh0)) as H.
+              simpl in H.
+              unfold RichWasm.iris.language.iris.iris.to_val in H.
+              destruct (merge_values_list _) ; try by exfalso.
+              inversion H; subst v0; clear H.
+              rewrite Hlh0. 
+              done. } 
+            iSimpl. iFrame.
+            iSplitL "Hbr".
+            ++ admit.
+            ++ iExists _,_. iSplit; first done.
+               iFrame.  done. 
+        * iApply wp_value.
+          { apply of_to_val.
+            rewrite seq.cats0 /=.
+            unfold RichWasm.iris.language.iris.iris.to_val.
+            simpl.
+            specialize (to_of_val (retV s)) as H.
+            simpl in H.
+            unfold RichWasm.iris.language.iris.iris.to_val in H.
+            destruct (merge_values_list _); try by exfalso.
+            inversion H; subst v; clear H.
+            done. }
+          iSimpl.
+          iDestruct "H" as "((%ts0 & %ts & %vs & %Htrans & %Hbase & (%vss & -> & Hvss) & Hret) & %fr & Hfr & %vsl & %vswl' & -> & (%vss' & -> & Hvss') & %Hrestype' & Htok)".
+          iSplitL "Hvss Hret".
+          -- iExists _,_,_. iSplit; first done. iSplit; first done. iFrame.
+             iSplit; first done.
+             iIntros (fr fr') "Hf".
+             admit.
+          -- iFrame. iExists _,_.
+             iSplit; first done. iFrame. done.
+        * iDestruct "H" as "[? _]"; done.
+    - (* n is true *)
+      admit. 
+  Admitted. 
+
 
   Lemma compat_br M F L L' wl wl' es' i τs1 τs τs2 :
     let me := me_of_context M mr in

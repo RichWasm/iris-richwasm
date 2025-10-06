@@ -401,6 +401,14 @@ Section Relations.
     BR :=
     fixpoint (br_interp0 se F L WL inst).
 
+   Lemma br_interp_eq se F L WL inst lh l vh :
+    br_interp se F L WL inst lh l vh ⊣⊢ br_interp0 se F L WL inst (br_interp se F L WL inst) lh l vh.
+  Proof.
+    do 3 f_equiv.
+    apply fixpoint_unfold.
+  Qed.
+
+
   Definition expr_interp
     (se : semantic_env) (τc : list (list type * local_ctx)) (τs : list type)
     (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) (lh : lholed) :
