@@ -209,7 +209,8 @@ let rec compile_expr delta gamma locals functions e =
       let els', locals', fx_e =
         compile_expr delta gamma locals' functions els
       in
-      ( cv c @ [ Untag; Ite (BlockType [ rw_t ], LocalFx [], thn', els') ],
+      ( cv c
+        @ [ Untag; Ite (BlockType [ rw_t ], LocalFx (fx_t @ fx_e), thn', els') ],
         locals',
         fx_t @ fx_e )
   | Cases (v, branches) ->
@@ -229,7 +230,7 @@ let rec compile_expr delta gamma locals functions e =
               fx @ fx' ))
           ~init:([], locals, [])
       in
-      (cv v @ [ Case (BlockType [ rw_t ], LocalFx [], branches') ], locals', fx)
+      (cv v @ [ Case (BlockType [ rw_t ], LocalFx fx, branches') ], locals', fx)
   | Apply (f, ts, arg) ->
       let fn_name =
         match f with
