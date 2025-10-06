@@ -147,11 +147,20 @@ Definition float_type_type (νf : float_type) : type :=
   let ι := float_type_rep νf in
   NumT (VALTYPE (PrimR ι) ImCopy ImDrop) (FloatT νf).
 
+Definition type_unit : type := ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [].
 Definition type_i31 : type := I31T (VALTYPE (PrimR PtrR) ImCopy ImDrop).
 Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
 Definition type_f64 : type := float_type_type F64T.
+
+Definition type_val_uninit (ιs : list primitive_rep) : type :=
+  let ρ := ProdR (map PrimR ιs) in
+  RepT (VALTYPE ρ ImCopy ImDrop) ρ type_unit.
+
+Definition type_mem_uninit (σ : size) (μ : memory) : type :=
+  let ser_unit := SerT (MEMTYPE (Sized (RepS (ProdR []))) μ ImDrop) type_unit in
+  PadT (MEMTYPE (Sized σ) μ ImDrop) σ ser_unit.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_rep (ν : num_type) : primitive_rep :=

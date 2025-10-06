@@ -767,9 +767,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (IReturn ψ) ψ L'
 | TLocalGet M F L i τ ιs :
   let ψ := InstrT [] [τ] in
-  let ρ := ProdR (map PrimR ιs) in
-  let τ' := RepT (VALTYPE ρ ImCopy ImDrop) ρ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []) in
-  let L' := <[ i := τ' ]> L in
+  let L' := <[ i := type_val_uninit ιs ]> L in
   F.(fc_locals) !! i = Some ιs ->
   L !! i = Some τ ->
   has_instruction_type_ok F ψ L' ->
@@ -780,13 +778,11 @@ Inductive has_instruction_type :
   has_copyability F τ ImCopy ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILocalGet ψ i) ψ L
-| TLocalSet M F L i τ τ' ιs :
+| TLocalSet M F L i τ τ' :
   let ψ := InstrT [τ'] [] in
   let L' := <[ i := τ' ]> L in
   L !! i = Some τ ->
   has_dropability F τ ImDrop ->
-  F.(fc_locals) !! i = Some ιs ->
-  type_rep_eval F τ' ιs ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ILocalSet ψ i) ψ L'
 | TGlobalGet M F L i ω τ :
@@ -903,6 +899,14 @@ Inductive has_instruction_type :
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IRefLoad ψ π) ψ L
+| TRefMMLoad M F L π τ τval κ κ' σ pr :
+  let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
+  resolves_path τ π (Some (type_mem_uninit σ (ConstM MemMM))) pr ->
+  has_size F pr.(pr_target) σ ->
+  loads_as F pr.(pr_target) τval ->
+  Forall (mono_size F) pr.(pr_prefix) ->
+  has_instruction_type_ok F ψ L ->
+  has_instruction_type M F L (IRefLoad ψ π) ψ L
 | TRefStore M F L π μ τ τval pr κ :
   let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
   resolves_path τ π None pr ->
@@ -925,14 +929,6 @@ Inductive has_instruction_type :
   resolves_path τ π None pr ->
   Forall (mono_size F) pr.(pr_prefix) ->
   loads_as F τval pr.(pr_target) ->
-  has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IRefSwap ψ π) ψ L
-| TRefMMSwap M F L π τ τval τval' τmem κ κ' pr :
-  let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval'] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
-  stores_as F τval τmem ->
-  resolves_path τ π (Some τmem) pr ->
-  Forall (mono_size F) pr.(pr_prefix) ->
-  loads_as F pr.(pr_target) τval ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IRefSwap ψ π) ψ L
 
@@ -1015,9 +1011,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (IReturn ψ) ψ L')
       (HLocalGet : forall M F L i τ ιs,
           let ψ := InstrT [] [τ] in
-          let ρ := ProdR (map PrimR ιs) in
-          let τ' := RepT (VALTYPE ρ ImCopy ImDrop) ρ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []) in
-          let L' := <[ i := τ' ]> L in
+          let L' := <[ i := type_val_uninit ιs ]> L in
           F.(fc_locals) !! i = Some ιs ->
           L !! i = Some τ ->
           has_instruction_type_ok F ψ L' ->
@@ -1028,13 +1022,11 @@ Section HasHaveInstructionTypeMind.
           has_copyability F τ ImCopy ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILocalGet ψ i) ψ L)
-      (HLocalSet : forall M F L i τ τ' ιs,
+      (HLocalSet : forall M F L i τ τ',
           let ψ := InstrT [τ'] [] in
           let L' := <[ i := τ' ]> L in
           L !! i = Some τ ->
           has_dropability F τ ImDrop ->
-          F.(fc_locals) !! i = Some ιs ->
-          type_rep_eval F τ' ιs ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ILocalSet ψ i) ψ L')
       (HGlobalGet : forall M F L i ω τ,
@@ -1151,6 +1143,14 @@ Section HasHaveInstructionTypeMind.
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IRefLoad ψ π) ψ L)
+      (HRefMMLoad : forall M F L π τ τval κ κ' σ pr,
+          let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
+          resolves_path τ π (Some (type_mem_uninit σ (ConstM MemMM))) pr ->
+          has_size F pr.(pr_target) σ ->
+          loads_as F pr.(pr_target) τval ->
+          Forall (mono_size F) pr.(pr_prefix) ->
+          has_instruction_type_ok F ψ L ->
+          P1 M F L (IRefLoad ψ π) ψ L)
       (HRefStore : forall M F L π μ τ τval pr κ,
           let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
           resolves_path τ π None pr ->
@@ -1173,16 +1173,6 @@ Section HasHaveInstructionTypeMind.
           resolves_path τ π None pr ->
           Forall (mono_size F) pr.(pr_prefix) ->
           loads_as F τval pr.(pr_target) ->
-          has_instruction_type_ok F ψ L ->
-          P1 M F L (IRefSwap ψ π) ψ L)
-      (HRefMMSwap : forall M F L π τ τval τval' τmem κ κ' pr,
-          let ψ :=
-            InstrT [RefT κ (ConstM MemMM) τ; τval'] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval]
-          in
-          stores_as F τval τmem ->
-          resolves_path τ π (Some τmem) pr ->
-          Forall (mono_size F) pr.(pr_prefix) ->
-          loads_as F pr.(pr_target) τval ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IRefSwap ψ π) ψ L)
       (HNil : forall M F L,
@@ -1223,7 +1213,7 @@ Section HasHaveInstructionTypeMind.
     | TReturn M F L L' τs τs1 τs2 H1 H2 H3 => HReturn M F L L' τs τs1 τs2 H1 H2 H3
     | TLocalGet M F L i τ ιs H1 H2 H3 => HLocalGet M F L i τ ιs H1 H2 H3
     | TLocalGetCopy M F L i τ H1 H2 H3 => HLocalGetCopy M F L i τ H1 H2 H3
-    | TLocalSet M F L i τ τ' ιs H1 H2 H3 H4 H5 => HLocalSet M F L i τ τ' ιs H1 H2 H3 H4 H5
+    | TLocalSet M F L i τ τ' H1 H2 H3 => HLocalSet M F L i τ τ' H1 H2 H3
     | TGlobalGet M F L i ω τ H1 H2 H3 => HGlobalGet M F L i ω τ H1 H2 H3
     | TGlobalSet M F L i τ H1 H2 H3 => HGlobalSet M F L i τ H1 H2 H3
     | TGlobalSwap M F L i τ H1 H2 => HGlobalSwap M F L i τ H1 H2
@@ -1249,12 +1239,12 @@ Section HasHaveInstructionTypeMind.
     | TUntag M F L H1 => HUntag M F L H1
     | TRefNew M F L μ τ τ' κ H1 H2 H3 => HRefNew M F L μ τ τ' κ H1 H2 H3
     | TRefLoad M F L π μ τ τval pr κ H1 H2 H3 H4 H5 => HRefLoad M F L π μ τ τval pr κ H1 H2 H3 H4 H5
+    | TRefMMLoad M F L π τ τval κ κ' σ pr H1 H2 H3 H4 H5 =>
+        HRefMMLoad M F L π τ τval κ κ' σ pr H1 H2 H3 H4 H5
     | TRefStore M F L π μ τ τval pr κ H1 H2 H3 H4 H5 => HRefStore M F L π μ τ τval pr κ H1 H2 H3 H4 H5
     | TRefMMStore M F L π τ τval τmem pr κ κ' H1 H2 H3 H4 H5 H6 =>
         HRefMMStore M F L π τ τval τmem pr κ κ' H1 H2 H3 H4 H5 H6
     | TRefSwap M F L π τ τval pr κ μ H1 H2 H3 H4 => HRefSwap M F L π τ τval pr κ μ H1 H2 H3 H4
-    | TRefMMSwap M F L π τ τval τval' τmem κ κ' pr H1 H2 H3 H4 H5 =>
-        HRefMMSwap M F L π τ τval τval' τmem κ κ' pr H1 H2 H3 H4 H5
     end
 
   with have_instruction_type_mind
