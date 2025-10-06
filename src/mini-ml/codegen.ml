@@ -189,7 +189,7 @@ let rec compile_expr delta gamma locals functions e =
             RefLoad (Path.Path [], compile_type delta t);
             Unpack
               ( BlockType [ rw_t ],
-                fx,
+                LocalFx fx,
                 [ LocalSet new_local_idx ] @ e'
                 @ [ LocalGet new_local_idx; Drop ] );
           ],
@@ -274,3 +274,29 @@ let compile_fun
     locals = List.map ~f:(Fn.const rep) locals;
     body = body';
   }
+
+let compile_module (Closed.Module.Module (imports, fns, body)) : Module.t =
+  let open Module.Import in
+  let open Closed.Module in
+  let open Closed.Expr in
+  let imports' =
+    List.map
+      ~f:(fun (Import (n, t)) ->
+        { name = n; desc = Desc.ImGlobal (Mutability.Imm, compile_type [] t) })
+      imports
+  in
+  let functions =
+    List.map
+      ~f:(function
+        | Export ((n, t), e) | Private ((n, t), e) -> (n, t))
+      fns
+  in
+  let fns' =
+    (* FIXME: update source syntax to make sure these are always functions
+     *  (or at least values) *)
+    List.map
+      ~f:(function
+        | Export (_, Value v) | Private (_, Value v) -> compile_fun functions v)
+      fns
+  in
+  failwith "todo"
