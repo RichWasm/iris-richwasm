@@ -1,3 +1,4 @@
+Require Import iris.algebra.list.
 Require Import iris.proofmode.tactics.
 
 From Wasm.iris.helpers Require Import iris_properties.
@@ -11,7 +12,8 @@ Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
 Section Relations.
-  Context `{Σ: gFunctors}.
+
+  Context `{Σ : gFunctors}.
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
   Context `{!RichWasmGCG Σ}.
@@ -28,13 +30,14 @@ Section Relations.
   | SValues (vs : list value)
   | SWords (cm : concrete_memory) (ws : list word).
 
-  Definition semantic_type := leibnizO semantic_value -n> iProp Σ.
-  Definition semantic_kind := semantic_type -> iProp Σ.
-  Definition semantic_env := list.listO semantic_type.
-
   Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
   Notation LVR := (leibnizO val -n> iPropO Σ).
   Notation VsR := (leibnizO (list value) -n> iPropO Σ).
+
+  Definition semantic_type : Type := SVR.
+  Definition semantic_kind : Type := semantic_type -> iProp Σ.
+  Definition semantic_env : Type := listO semantic_type.
+
   Notation FrR := (leibnizO frame -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
   Notation ER := (leibnizO (list administrative_instruction) -n> iPropO Σ).
@@ -62,9 +65,8 @@ Section Relations.
   Implicit Type τs : leibnizO (list type).
   Implicit Type τc : leibnizO (list (list type * local_ctx)).
   Implicit Type ϕ : leibnizO function_type.
-  Implicit Type ψ : leibnizO instruction_type.
 
-  Definition value_relation := semantic_env -n> leibnizO type -n> SVR.
+  Definition value_relation : Type := semantic_env -n> leibnizO type -n> SVR.
 
   Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
     match ty with
@@ -140,10 +142,10 @@ Section Relations.
   Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type := semantic_type_le.
 
   Definition kind_as_type_interp (κ : kind) : semantic_type :=
-    (match κ with
-     | VALTYPE ρ χ _ => λne sv, representation_interp ρ sv
-     | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
-     end)%I.
+    match κ with
+    | VALTYPE ρ χ _ => λne sv, representation_interp ρ sv
+    | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
+    end%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
     fun T =>
@@ -162,10 +164,10 @@ Section Relations.
     λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
-          (* TODO: Kind context. *)
-          ⌜translate_types [] τs1 = Some tfs1⌝ ∗
-          ⌜translate_types [] τs2 = Some tfs2⌝ ∗
-          ∀ vs1 fr,
+          ∀ κs vs1 fr,
+            big_sepL2 (const kind_interp) κs se -∗
+            ⌜translate_types κs τs1 = Some tfs1⌝ -∗
+            ⌜translate_types κs τs2 = Some tfs2⌝ -∗
             values_interp0 vrel se τs1 vs1 -∗
             ↪[frame] fr -∗
             lenient_wp NotStuck top
@@ -401,13 +403,12 @@ Section Relations.
     BR :=
     fixpoint (br_interp0 se F L WL inst).
 
-   Lemma br_interp_eq se F L WL inst lh l vh :
+  Lemma br_interp_eq se F L WL inst lh l vh :
     br_interp se F L WL inst lh l vh ⊣⊢ br_interp0 se F L WL inst (br_interp se F L WL inst) lh l vh.
   Proof.
     do 3 f_equiv.
     apply fixpoint_unfold.
   Qed.
-
 
   Definition expr_interp
     (se : semantic_env) (τc : list (list type * local_ctx)) (τs : list type)
