@@ -276,19 +276,44 @@ let compile_fun
   }
 
 let compile_module (Closed.Module.Module (imports, fns, body)) : Module.t =
+  let open Index in
   let open Module.Import in
+  let open Module.Export in
   let open Closed.Module in
   let open Closed.Expr in
+  let open Closed.PreType in
+  let open Closed.Value in
+  let closed_unit = Prod [] in
+  let fns =
+    match body with
+    | None -> fns
+    | Some body ->
+        fns
+        @ [
+            Export
+              ( ( "_start",
+                  Code { foralls = []; arg = closed_unit; ret = closed_unit } ),
+                Value
+                  (Fun
+                     {
+                       foralls = [];
+                       arg = ("_", closed_unit);
+                       ret_type = closed_unit;
+                       body;
+                     }) );
+          ]
+  in
   let imports' =
+    let open Module.Import.Desc in
     List.map
-      ~f:(fun (Import (n, t)) ->
-        { name = n; desc = Desc.ImGlobal (Mutability.Imm, compile_type [] t) })
+      ~f:(fun (Import (n, t)) : Module.Import.t ->
+        { name = n; desc = ImGlobal (Mutability.Imm, compile_type [] t) })
       imports
   in
   let functions =
     List.map
       ~f:(function
-        | Export ((n, t), e) | Private ((n, t), e) -> (n, t))
+        | Export ((n, t), _) | Private ((n, t), _) -> (n, t))
       fns
   in
   let fns' =
@@ -296,7 +321,36 @@ let compile_module (Closed.Module.Module (imports, fns, body)) : Module.t =
      *  (or at least values) *)
     List.map
       ~f:(function
-        | Export (_, Value v) | Private (_, Value v) -> compile_fun functions v)
+        | Export (_, Value v) | Private (_, Value v) -> compile_fun functions v
+        | _ -> failwith "expected function value here")
       fns
   in
-  failwith "todo"
+  let function_globals =
+    List.mapi
+      ~f:(fun i (_, t) : Module.Global.t ->
+        let t' = compile_type [] t in
+        {
+          mut = Mutability.Imm;
+          typ = t';
+          init = [ Group 0; CodeRef i; Group 2; Pack (Type (Prod []), t') ];
+        })
+      functions
+  in
+  let global_exports =
+    let imported = List.length imports' in
+    List.filter_mapi
+      ~f:(fun i f : Module.Export.t option ->
+        match f with
+        | Export ((n, _), _) ->
+            Some { name = n; desc = Desc.ExGlobal (imported + i) }
+        | _ -> None)
+      fns
+  in
+  {
+    imports = imports';
+    globals = function_globals;
+    functions = fns';
+    table = [];
+    start = Option.map ~f:(Fn.const @@ List.length fns') body;
+    exports = global_exports;
+  }
