@@ -40,14 +40,34 @@ Definition count_global_imports (m : W.module) : nat :=
 Definition count_func_imports (m : W.module) : nat :=
   length (pmap (get_id_func ∘ W.imp_desc) m.(W.mod_imports)).
 
+Definition next_memidx_import : modgen W.memidx :=
+  gets (W.Mk_memidx ∘ length ∘ W.mod_mems).
+
+Definition next_typeidx : modgen W.typeidx :=
+  gets (fun m => W.Mk_typeidx (length m.(W.mod_types))).
+
+Definition next_globalidx_import : modgen W.globalidx :=
+  gets (W.Mk_globalidx ∘ count_global_imports).
+
+Definition next_globalidx : modgen W.globalidx :=
+  gets (fun m => W.Mk_globalidx (count_global_imports m + length m.(W.mod_globals))).
+
+Definition next_funcidx_import : modgen W.funcidx :=
+  gets (W.Mk_funcidx ∘ count_func_imports).
+
+Definition next_funcidx : modgen W.funcidx :=
+  gets (fun m => W.Mk_funcidx (count_func_imports m + length m.(W.mod_funcs))).
+
+Definition next_tableidx_import : modgen W.tableidx :=
+  gets (W.Mk_tableidx ∘ length ∘ W.mod_tables).
+
 Definition add_type (tf : W.function_type) : modgen W.typeidx :=
-  m ← get;
-  put (m <| W.mod_types ::= flip app [tf] |>);;
-  ret (W.Mk_typeidx (length m.(W.mod_types))).
+  tid ← next_typeidx;
+  modify (set W.mod_types (flip app [tf]));;
+  ret tid.
 
 Definition add_import (imp : W.module_import) : modgen unit :=
-  m ← get;
-  put (m <| W.mod_imports ::= flip app [imp] |>).
+  ignore (modify (set W.mod_imports (flip app [imp]))).
 
 Definition rt_import (name : string) (id : W.import_desc) : W.module_import :=
   {| W.imp_module := String.list_byte_of_string "richwasm";
@@ -55,54 +75,52 @@ Definition rt_import (name : string) (id : W.import_desc) : W.module_import :=
      W.imp_desc := id |}.
 
 Definition add_rt_mem_import (name : string) (tm : W.memory_type) : modgen W.memidx :=
-  m ← get;
+  mid ← next_memidx_import;
   add_import (rt_import name (W.ID_mem tm));;
-  ret (W.Mk_memidx (length m.(W.mod_mems))).
+  ret mid.
 
 Definition add_rt_global_import (name : string) (tg : W.global_type) : modgen W.globalidx :=
-  m ← get;
+  gid ← next_globalidx_import;
   add_import (rt_import name (W.ID_global tg));;
-  ret (W.Mk_globalidx (count_global_imports m)).
+  ret gid.
 
 Definition add_global_import (tg : W.global_type) : modgen W.globalidx :=
-  m ← get;
+  gid ← next_globalidx_import;
   add_import (W.Build_module_import [] [] (W.ID_global tg));;
-  ret (W.Mk_globalidx (count_global_imports m)).
+  ret gid.
 
 Definition add_global (mg : W.module_glob) : modgen W.globalidx :=
-  m ← get;
-  put (m <| W.mod_globals ::= flip app [mg] |>);;
-  ret (W.Mk_globalidx (count_global_imports m + length m.(W.mod_globals))).
+  gid ← next_globalidx;
+  modify (set W.mod_globals (flip app [mg]));;
+  ret gid.
 
 Definition add_rt_func_import (name : string) (tf : W.function_type) : modgen W.funcidx :=
-  m ← get;
   tid ← add_type tf;
+  fid ← next_funcidx_import;
   add_import (rt_import name (W.ID_func (typeimm tid)));;
-  ret (W.Mk_funcidx (count_func_imports m)).
+  ret fid.
 
 Definition add_func_import (tf : W.function_type) : modgen W.funcidx :=
-  m ← get;
   tid ← add_type tf;
+  fid ← next_funcidx_import;
   add_import (W.Build_module_import [] [] (W.ID_func (typeimm tid)));;
-  ret (W.Mk_funcidx (count_func_imports m)).
+  ret fid.
 
 Definition add_func (mf : W.module_func) : modgen W.funcidx :=
-  m ← get;
-  put (m <| W.mod_funcs ::= flip app [mf] |>);;
-  ret (W.Mk_funcidx (count_func_imports m + length m.(W.mod_funcs))).
+  fid ← next_funcidx;
+  modify (set W.mod_funcs (flip app [mf]));;
+  ret fid.
 
 Definition add_rt_table_import (name : string) (tt : W.table_type) : modgen W.tableidx :=
-  m ← get;
+  tid ← next_tableidx_import;
   add_import (rt_import name (W.ID_table tt));;
-  ret (W.Mk_tableidx (length m.(W.mod_tables))).
+  ret tid.
 
 Definition set_start (ms : option W.module_start) : modgen unit :=
-  m ← get;
-  put (m <| W.mod_start := ms |>).
+  ignore (modify (set W.mod_start (const ms))).
 
 Definition add_export (ex : W.module_export) : modgen unit :=
-  m ← get;
-  put (m <| W.mod_exports ::= flip app [ex] |>).
+  ignore (modify (set W.mod_exports (flip app [ex]))).
 
 Definition table_alloc (gid_table_next gid_table_off : W.globalidx) (n : nat) : W.expr :=
   [
@@ -148,11 +166,12 @@ Definition compile_table
   in
   add_func (W.Build_module_func tid [] body).
 
-Definition compile_export (ex : module_export) : modgen unit :=
+Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (ex : module_export) :
+  modgen unit :=
   let ed :=
     match ex with
-    | ExFunction i => W.MED_func (W.Mk_funcidx i) (* TODO: Translate index. *)
-    | ExGlobal i => W.MED_global (W.Mk_globalidx i) (* TODO: Translate index. *)
+    | ExFunction i => W.MED_func (W.Mk_funcidx (funcimm fid_user + i))
+    | ExGlobal i => W.MED_global (W.Mk_globalidx (globalimm gid_user + i))
     end
   in
   add_export (W.Build_module_export [] ed).
@@ -170,21 +189,31 @@ Definition compile_module (m : module) : modgen unit :=
   fid_unregisterroot ← add_rt_func_import "unregisterroot" (W.Tf [W.T_i32] []);
   tid_table ← add_rt_table_import "table" (W.Build_table_type (W.Build_limits 0 None) W.ELT_funcref);
 
-  (* User Imports *)
-  mapM_ compile_func_import m.(m_funcs_import);;
-  (* TODO: globals_import *)
+  (* Save the offsets of user imports and definitions. After this point:
 
-  (* Runtime Definitions *)
+     - No more runtime imports.
+     - Runtime global definitions only after all user globals (imports and definitions).
+     - Runtime function definitions only after all user functions (imports and definitions).
+
+     This creates a "sandwich," with runtime imports at the beginning, user imports and definitions
+     in the middle, and runtime definitions at the end. *)
+  gid_user ← next_globalidx_import;
+  fid_user ← next_funcidx_import;
+
+  (* User Imports *)
+  (* TODO: globals_import *)
+  mapM_ compile_func_import m.(m_funcs_import);;
+
+  (* TODO: User Global Definitions *)
+
+  (* Runtime Global Definitions *)
   let mg_table_off :=
     {| W.modglob_type := W.Build_global_type W.MUT_mut W.T_i32;
        W.modglob_init := [W.BI_const (W.VAL_int32 (Wasm_int.int_zero i32m))] |}
   in
   gid_table_off ← add_global mg_table_off;
-  fid_table_init ← compile_table gid_table_next gid_table_off fid_table_set m.(m_table);
-  set_start (Some (W.Build_module_start fid_table_init));;
 
-  (* User Definitions *)
-  (* TODO: globals *)
+  (* User Function Definitions *)
   let mr :=
     {| mr_mem_mm := mid_mem_mm;
        mr_mem_gc := mid_mem_gc;
@@ -193,13 +222,17 @@ Definition compile_module (m : module) : modgen unit :=
        mr_func_free := fid_free;
        mr_func_registerroot := fid_registerroot;
        mr_func_unregisterroot := fid_unregisterroot;
-       mr_func_user := W.Mk_funcidx 0; (* TODO *)
+       mr_func_user := fid_user;
        mr_table := tid_table;
        mr_global_table_off := gid_table_off;
-       mr_global_user := W.Mk_globalidx 0 (* TODO *) |}
+       mr_global_user := gid_user |}
   in
   let me := me_of_module m mr in
   mapM_ (compile_func me) m.(m_funcs);;
 
   (* User Exports *)
-  mapM_ compile_export m.(m_exports).
+  mapM_ (compile_export gid_user fid_user) m.(m_exports);;
+
+  (* Runtime Function Definitions *)
+  fid_table_init ← compile_table gid_table_next gid_table_off fid_table_set m.(m_table);
+  set_start (Some (W.Build_module_start fid_table_init)).
