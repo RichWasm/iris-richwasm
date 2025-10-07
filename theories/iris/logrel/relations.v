@@ -498,13 +498,7 @@ Section Relations.
                   na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
                   na_inv logrel_nais (ns_fun nf) (nf ↦[wf] cl))) ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
-      ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝ ∗
-      ([∗ list] i ↦ '(m, τ) ∈ M.(mc_globals),
-         let n := N.of_nat (globalimm mr.(mr_global_user) + i) in
-         let m' := translate_mut m in
-         na_inv logrel_nais (ns_glo n)
-           (∃ vs, value_interp [] τ (SValues vs) ∗
-                    [∗ list] j ↦ v ∈ vs, (n + N.of_nat j)%N ↦[wg] Build_global m' v)).
+      ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝.
 
   Fixpoint lholed_valid (lh : lholed) : Prop :=
     match lh with

@@ -276,10 +276,8 @@ let compile_fun
     body = body';
   }
 
-let compile_module (Closed.Module.Module (imports, fns, body)) : Module.t =
+let compile_module (Closed.Module.Module (_, fns, body)) : Module.t =
   let open Index in
-  let open Module.Import in
-  let open Module.Export in
   let open Closed.Module in
   let open Closed.Expr in
   let open Closed.PreType in
@@ -304,13 +302,6 @@ let compile_module (Closed.Module.Module (imports, fns, body)) : Module.t =
                      }) );
           ]
   in
-  let imports' =
-    let open Module.Import.Desc in
-    List.map
-      ~f:(fun (Import (n, t)) : Module.Import.t ->
-        { name = n; desc = ImGlobal (Mutability.Imm, compile_type [] t) })
-      imports
-  in
   let functions =
     List.map
       ~f:(function
@@ -326,32 +317,9 @@ let compile_module (Closed.Module.Module (imports, fns, body)) : Module.t =
         | _ -> failwith "expected function value here")
       fns
   in
-  let function_globals =
-    List.mapi
-      ~f:(fun i (_, t) : Module.Global.t ->
-        let t' = compile_type [] t in
-        {
-          mut = Mutability.Imm;
-          typ = t';
-          init = [ Group 0; CodeRef i; Group 2; Pack (Type (Prod []), t') ];
-        })
-      functions
-  in
-  let global_exports =
-    let imported = List.length imports' in
-    List.filter_mapi
-      ~f:(fun i f : Module.Export.t option ->
-        match f with
-        | Export ((n, _), _) ->
-            Some { name = n; desc = Desc.ExGlobal (imported + i) }
-        | _ -> None)
-      fns
-  in
   {
-    imports = imports';
-    globals = function_globals;
+    imports = [];
     functions = fns';
     table = [];
-    start = Option.map ~f:(Fn.const @@ List.length fns') body;
-    exports = global_exports;
+    exports = [];
   }

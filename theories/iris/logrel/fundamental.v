@@ -36,15 +36,14 @@ Section Fundamental.
   Qed.
 
   Lemma compat_nop M F L wl wl' es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [] [] in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (INop ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (INop ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Proof.
     (* This is currently following the compat_copy lemma very closely *)
-    intros me fe ψ Hok Hcompile.
+    intros fe ψ Hok Hcompile.
     inv_cg_emit Hcompile.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
@@ -108,23 +107,21 @@ Section Fundamental.
   Qed.
 
   Lemma compat_unreachable M F L L' wl wl' ψ es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr me fe (IUnreachable ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IUnreachable ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_copy M F L wl wl' τ es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [τ; τ] in
     has_copyability F τ ExCopy ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (ICopy ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ICopy ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Proof.
-    intros me fe ψ Hcopy Hok Hcompile.
+    intros fe ψ Hcopy Hok Hcompile.
     unfold compile_instr in Hcompile.
     inv_cg_bind Hcompile ρ wl1 es_nil es1 Htype_rep Hcompile.
     inv_cg_bind Hcompile ιs wl2 es_nil' es2 Heval_rep Hcompile.
@@ -177,58 +174,53 @@ Section Fundamental.
   Admitted.
 
   Lemma compat_drop M F L wl wl' τ es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [] in
     has_dropability F τ ExDrop ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IDrop ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IDrop ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_num M F L wl wl' ψ e es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     has_instruction_type_num e ψ ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (INum ψ e)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (INum ψ e)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_num_const M F L wl wl' n ν κ es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [] [NumT κ ν] in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (INumConst ψ n)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (INumConst ψ n)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_block M F L L' wl wl' τs1 τs2 es es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
     has_instruction_type_ok F ψ L' ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
-        run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe' es) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F' L wl' (to_e_list es') ψ L') ->
-    run_codegen (compile_instr me fe (IBlock ψ L' es)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IBlock ψ L' es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_loop M F L wl wl' es es' τs1 τs2 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let F' := F <| fc_labels ::= cons (τs1, L) |> in
     let ψ := InstrT τs1 τs2 in
     has_instruction_type_ok F ψ L ->
     (forall wl wl' es',
         let fe' := fe_of_context F' in
-        run_codegen (compile_instrs me fe' es) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe' es) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F' L wl' (to_e_list es') ψ L) ->
-    run_codegen (compile_instr me fe (ILoop ψ es)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILoop ψ es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
@@ -243,20 +235,19 @@ Section Fundamental.
     lfilled  *)
   
   Lemma compat_ite M F L L' wl wl' es1 es2 es' τs1 τs2 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
     has_instruction_type_ok F ψ L' ->
     (forall wl wl' es',
-        run_codegen (compile_instrs me fe es1) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe es1) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
     (forall wl wl' es',
-        run_codegen (compile_instrs me fe es2) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe es2) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
-    run_codegen (compile_instr me fe (IIte ψ L' es1 es2)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Proof.
-    intros me fe ψ Hok Hthen Helse Hcodegen.
+    intros fe ψ Hok Hthen Helse Hcodegen.
     iIntros (smem srep ssize se inst lh) "Hsubst Hinst Hctxt".
     iIntros (fr vs) "Hvss Hvsl Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
@@ -485,278 +476,223 @@ Section Fundamental.
   Admitted.
 
   Lemma compat_br M F L L' wl wl' es' i τs1 τs τs2 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT (τs1 ++ τs) τs2 in
     F.(fc_labels) !! i = Some (τs, L) ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr me fe (IBr ψ i)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IBr ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_return M F L L' wl wl' es' τs1 τs τs2 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT (τs1 ++ τs) τs2 in
     F.(fc_return) = τs ->
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr me fe (IReturn ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IReturn ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_local_get M F L wl wl' es' i τ ιs :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [] [τ] in
     let L' := <[ i := type_val_uninit ιs ]> L in
     F.(typing.fc_locals) !! i = Some ιs ->
     L !! i = Some τ ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr me fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_local_get_copy M F L wl wl' es' i τ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [] [τ] in
     L !! i = Some τ ->
     has_copyability F τ ImCopy ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_local_set M F L wl wl' es' i τ τ' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [τ'] [] in
     let L' := <[ i := τ' ]> L in
     L !! i = Some τ ->
     has_dropability F τ ImDrop ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr me fe (ILocalSet ψ i)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILocalSet ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_global_get M F L wl wl' es' i ω τ :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    let ψ := InstrT [] [τ] in
-    M.(mc_globals) !! i = Some (ω, τ) ->
-    has_copyability F τ ImCopy ->
-    has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IGlobalGet ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
-  Admitted.
-
-  Lemma compat_global_set M F L wl wl' es' i τ :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    let ψ := InstrT [τ] [] in
-    M.(mc_globals) !! i = Some (Mut, τ) ->
-    has_dropability F τ ImDrop ->
-    has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IGlobalSet ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
-  Admitted.
-
-  Lemma compat_global_swap M F L wl wl' es' i τ :
-    let me := me_of_context M mr in
-    let fe := fe_of_context F in
-    let ψ := InstrT [τ] [τ] in
-    M.(mc_globals) !! i = Some (Mut, τ) ->
-    has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IGlobalSwap ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
-  Admitted.
-
   Lemma compat_coderef M F L wl wl' es' i ϕ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
     let ψ := InstrT [] [τ] in
     M.(mc_table) !! i = Some ϕ ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (ICodeRef ψ i)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ICodeRef ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_inst M F L wl wl' es' ix ϕ ϕ' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
     let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
     function_type_inst F ix ϕ ϕ' ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IInst ψ ix)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IInst ψ ix)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_call M F L wl wl' es' i ixs ϕ τs1 τs2 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT τs1 τs2 in
     M.(mc_functions) !! i = Some ϕ ->
     function_type_insts F ixs ϕ (MonoFunT τs1 τs2) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (ICall ψ i ixs)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ICall ψ i ixs)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_call_indirect M F L wl wl' es' τs1 τs2 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
     let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (ICallIndirect ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ICallIndirect ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_inject M F L wl wl' es' i τs τ κ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [SumT κ τs] in
     τs !! i = Some τ ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IInject ψ i)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IInject ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_case M F L L' wl wl' es' ess τs τ' κ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [SumT κ τs] [τ'] in
     (Forall2
       (fun τ es =>
          forall wl wl' es',
-           run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
+           run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
            ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT [τ] [τ']) L')
       τs ess) ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr me fe (ICase ψ L' ess)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ICase ψ L' ess)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_group M F L wl wl' es' τs κ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT τs [ProdT κ τs] in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IGroup ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IGroup ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ungroup M F L wl wl' es' τs κ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [ProdT κ τs] τs in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IUngroup ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IUngroup ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_fold M F L wl wl' es' τ κ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
     let ψ := InstrT [τ0] [RecT κ τ] in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IFold ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IFold ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_unfold M F L wl wl' es' τ κ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let τ0 := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
     let ψ := InstrT [RecT κ τ] [τ0] in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IUnfold ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IUnfold ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_pack M F L wl wl' es' τ τ' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [τ'] in
     packed_existential F τ τ' ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IPack ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IPack ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_unpack M F F0 L L' L0 L0' wl wl' es es' es0 ψ ψ0 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     unpacked_existential F L es ψ L' F0 L0 es0 ψ0 L0' ->
     has_instruction_type_ok F ψ L' ->
     (forall wl wl' es',
         let fe0 := fe_of_context F0 in
-        run_codegen (compile_instrs me fe0 es0) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe0 es0) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F0 L0 wl' (to_e_list es') ψ0 L0') ->
-    run_codegen (compile_instr me fe (IUnpack ψ L' es)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IUnpack ψ L' es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_wrap M F L wl wl' es' τ0 ρ κ ιs ιs0 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [τ0] [RepT κ ρ τ0] in
     type_rep_eval F τ0 ιs0 ->
     eval_rep ρ = Some ιs ->
     convertible_to ιs0 ιs ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IWrap ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IWrap ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_unwrap M F L wl wl' es' τ0 ρ κ ιs ιs0 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RepT κ ρ τ0] [τ0] in
     type_rep_eval F τ0 ιs0 ->
     eval_rep ρ = Some ιs ->
     convertible_to ιs0 ιs ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IUnwrap ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IUnwrap ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_tag M F L wl wl' es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [type_i32] [type_i31] in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (ITag ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ITag ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_untag M F L wl wl' es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [type_i31] [type_i32] in
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IUntag ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IUntag ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ref_new M F L wl wl' es' τ τ' κ μ :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [RefT κ μ τ'] in
     mono_mem μ ->
     stores_as F τ τ' ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IRefNew ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IRefNew ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ref_load M F L wl wl' es' π pr κ μ τ τval :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
     resolves_path τ π None pr ->
@@ -764,12 +700,11 @@ Section Fundamental.
     loads_as F pr.(pr_target) τval ->
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ref_mm_load M F L wl wl' es' π τ τval κ κ' σ pr :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) (pr_replaced pr); τval] in
     resolves_path τ π (Some (type_mem_uninit σ (ConstM MemMM))) pr ->
@@ -777,12 +712,11 @@ Section Fundamental.
     loads_as F (pr_target pr) τval ->
     Forall (mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ref_store M F L wl wl' es' π pr κ μ τ τval :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
     resolves_path τ π None pr ->
@@ -790,12 +724,11 @@ Section Fundamental.
     stores_as F τval pr.(pr_target) ->
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ref_mm_store M F L wl wl' es' π pr κ κ' τ τval τmem :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
     stores_as F τval τmem ->
@@ -804,29 +737,27 @@ Section Fundamental.
     type_size_eq F pr.(pr_target) τmem ->
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ref_swap M F L wl wl' es' π pr κ μ τ τval :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
     resolves_path τ π None pr ->
     Forall (mono_size F) pr.(pr_prefix) ->
     loads_as F τval pr.(pr_target) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr me fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_nil M F L wl wl' es' :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
-    run_codegen (compile_instrs me fe []) wl = inr ((), wl', es') ->
+    run_codegen (compile_instrs mr fe []) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT [] []) L.
   Proof.
-    intros me fe Hcompile.
+    intros fe Hcompile.
     cbn in Hcompile.
     inversion Hcompile.
 
@@ -843,34 +774,31 @@ Section Fundamental.
   Qed.
 
   Lemma compat_cons M F L1 L2 L3 wl wl' es' e es τs1 τs2 τs3 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     (forall wl wl' es',
-        run_codegen (compile_instr me fe e) wl = inr ((), wl', es') ->
+        run_codegen (compile_instr mr fe e) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F L1 wl' (to_e_list es') (InstrT τs1 τs2) L2) ->
     (forall wl wl' es',
-        run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F L2 wl' (to_e_list es') (InstrT τs2 τs3) L3) ->
-    run_codegen (compile_instrs me fe (e :: es)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instrs mr fe (e :: es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L1 wl' (to_e_list es') (InstrT τs1 τs3) L3.
   Admitted.
 
   Lemma compat_frame M F L L' wl wl' es es' τ τs1 τs2 :
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
     has_mono_rep F τ ->
     (forall wl wl' es',
-        run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
-    run_codegen (compile_instrs me fe es) wl = inr ((), wl', es') ->
+    run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT (τ :: τs1) (τ :: τs2)) L'.
   Admitted.
 
   Theorem fundamental_theorem M F L L' wl wl' es es' tf :
     have_instruction_type M F L es tf L' ->
-    let me := me_of_context M mr in
     let fe := fe_of_context F in
-    run_codegen (compile_instrs me fe es) wl = inr (tt, wl', es') ->
+    run_codegen (compile_instrs mr fe es) wl = inr (tt, wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') tf L'.
   Proof.
     intros Htype.
@@ -880,11 +808,10 @@ Section Fundamental.
     induction Htype using have_instruction_type_mind with
       (P1 := fun M F L e ψ L' =>
                forall wl wl' es',
-                 let me := me_of_context M mr in
                  let fe := fe_of_context F in
-                 run_codegen (compile_instr me fe e) wl = inr (tt, wl', es') ->
+                 run_codegen (compile_instr mr fe e) wl = inr (tt, wl', es') ->
                  ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L');
-      intros wl wl' es' me fe Hcomp.
+      intros wl wl' es' fe Hcomp.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.
     - eapply compat_copy; eassumption.
@@ -899,9 +826,6 @@ Section Fundamental.
     - eapply compat_local_get; eassumption.
     - eapply compat_local_get_copy; eassumption.
     - eapply compat_local_set; eassumption.
-    - eapply compat_global_get; eassumption.
-    - eapply compat_global_set; eassumption.
-    - eapply compat_global_swap; eassumption.
     - eapply compat_coderef; eassumption.
     - eapply compat_inst; eassumption.
     - eapply compat_call; eassumption.

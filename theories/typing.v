@@ -6,8 +6,7 @@ From RichWasm Require Import syntax layout.
 
 Record module_ctx :=
   { mc_functions : list function_type;
-    mc_table : list function_type;
-    mc_globals : list (mutability * type) }.
+    mc_table : list function_type }.
 
 Arguments module_ctx : clear implicits.
 
@@ -785,23 +784,6 @@ Inductive has_instruction_type :
   has_dropability F τ ImDrop ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ILocalSet ψ i) ψ L'
-| TGlobalGet M F L i ω τ :
-  let ψ := InstrT [] [τ] in
-  M.(mc_globals) !! i = Some (ω, τ) ->
-  has_copyability F τ ImCopy ->
-  has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IGlobalGet ψ i) ψ L
-| TGlobalSet M F L i τ :
-  let ψ := InstrT [τ] [] in
-  M.(mc_globals) !! i = Some (Mut, τ) ->
-  has_dropability F τ ImDrop ->
-  has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IGlobalSet ψ i) ψ L
-| TGlobalSwap M F L i τ :
-  let ψ := InstrT [τ] [τ] in
-  M.(mc_globals) !! i = Some (Mut, τ) ->
-  has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IGlobalSwap ψ i) ψ L
 | TCodeRef M F L i ϕ :
   let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
   let ψ := InstrT [] [τ] in
@@ -1029,23 +1011,6 @@ Section HasHaveInstructionTypeMind.
           has_dropability F τ ImDrop ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ILocalSet ψ i) ψ L')
-      (HGlobalGet : forall M F L i ω τ,
-          let ψ := InstrT [] [τ] in
-          M.(mc_globals) !! i = Some (ω, τ) ->
-          has_copyability F τ ImCopy ->
-          has_instruction_type_ok F ψ L ->
-          P1 M F L (IGlobalGet ψ i) ψ L)
-      (HGlobalSet : forall M F L i τ,
-          let ψ := InstrT [τ] [] in
-          M.(mc_globals) !! i = Some (Mut, τ) ->
-          has_dropability F τ ImDrop ->
-          has_instruction_type_ok F ψ L ->
-          P1 M F L (IGlobalSet ψ i) ψ L)
-      (HGlobalSwap : forall M F L i τ,
-          let ψ := InstrT [τ] [τ] in
-          M.(mc_globals) !! i = Some (Mut, τ) ->
-          has_instruction_type_ok F ψ L ->
-          P1 M F L (IGlobalSwap ψ i) ψ L)
       (HCodeRef : forall M F L i ϕ,
           let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
           let ψ := InstrT [] [τ] in
@@ -1214,9 +1179,6 @@ Section HasHaveInstructionTypeMind.
     | TLocalGet M F L i τ ιs H1 H2 H3 => HLocalGet M F L i τ ιs H1 H2 H3
     | TLocalGetCopy M F L i τ H1 H2 H3 => HLocalGetCopy M F L i τ H1 H2 H3
     | TLocalSet M F L i τ τ' H1 H2 H3 => HLocalSet M F L i τ τ' H1 H2 H3
-    | TGlobalGet M F L i ω τ H1 H2 H3 => HGlobalGet M F L i ω τ H1 H2 H3
-    | TGlobalSet M F L i τ H1 H2 H3 => HGlobalSet M F L i τ H1 H2 H3
-    | TGlobalSwap M F L i τ H1 H2 => HGlobalSwap M F L i τ H1 H2
     | TCodeRef M F L i ϕ H1 H2 => HCodeRef M F L i ϕ H1 H2
     | TInst M F L ix ϕ ϕ' H1 H2 => HInst M F L ix ϕ ϕ' H1 H2
     | TCall M F L i ixs ϕ τs1 τs2 H1 H2 H3 => HCall M F L i ixs ϕ τs1 τs2 H1 H2 H3

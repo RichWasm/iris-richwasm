@@ -185,9 +185,6 @@ IBr : instruction_type -> nat -> instruction
 IReturn : instruction_type -> instruction
 ILocalGet : instruction_type -> nat -> instruction
 ILocalSet : instruction_type -> nat -> instruction
-IGlobalGet : instruction_type -> nat -> instruction
-IGlobalSet : instruction_type -> nat -> instruction
-IGlobalSwap : instruction_type -> nat -> instruction
 ICodeRef : instruction_type -> nat -> instruction
 IInst : instruction_type -> index -> instruction
 ICall : instruction_type -> nat -> "list" (index) -> instruction

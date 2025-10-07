@@ -32,22 +32,10 @@ Record module_runtime :=
     mr_global_table_off : W.globalidx;
     mr_global_user : W.globalidx }.
 
-Record module_env :=
-  { me_globals : list type;
-    me_runtime : module_runtime }.
-
 Record function_env :=
   { fe_type_vars : list kind;
     fe_return : list type;
     fe_locals : list (list primitive_rep) }.
-
-Definition me_of_module (m : module) (mr : module_runtime) : module_env :=
-  let gsi := map gt_type m.(m_globals_import) in
-  let gs := map (gt_type ∘ mg_type) m.(m_globals) in
-  {| me_globals := gsi ++ gs; me_runtime := mr |}.
-
-Definition me_of_context (M : module_ctx) (mr : module_runtime) : module_env :=
-  {| me_globals := map snd M.(mc_globals); me_runtime := mr |}.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
   locals ← mapM eval_rep mf.(mf_locals);
@@ -88,12 +76,6 @@ Definition option_sum {A E : Type} (e : E) (x : option A) : E + A :=
   match x with
   | None => inl e
   | Some x' => inr x'
-  end.
-
-Definition translate_mut (m : mutability) : W.mutability :=
-  match m with
-  | Mut => W.MUT_mut
-  | Imm => W.MUT_immut
   end.
 
 Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=

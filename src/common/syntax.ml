@@ -512,9 +512,6 @@ module Instruction = struct
     | Return
     | LocalGet of int
     | LocalSet of int
-    | GlobalGet of int
-    | GlobalSet of int
-    | GlobalSwap of int
     | CodeRef of int
     | Inst of Index.t
     | Call of int * Index.t list
@@ -558,9 +555,6 @@ module Instruction = struct
     | Return -> fprintf ff "return"
     | LocalGet i -> fprintf ff "local.get %a" pp_int i
     | LocalSet i -> fprintf ff "local.set %a" pp_int i
-    | GlobalGet i -> fprintf ff "global.get %a" pp_int i
-    | GlobalSet i -> fprintf ff "global.set %a" pp_int i
-    | GlobalSwap i -> fprintf ff "global.swap %a" pp_int i
     | CodeRef i -> fprintf ff "coderef %a" pp_int i
     | Group i -> fprintf ff "seq.group %a" pp_int i
     | Ungroup -> fprintf ff "seq.ungroup"
@@ -575,58 +569,7 @@ module Instruction = struct
     | x -> show_pp ff x
 end
 
-module Mutability = struct
-  type t =
-    | Mut
-    | Imm
-  [@@deriving eq, ord, iter, map, fold, sexp]
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-  let pp ff : t -> unit = function
-    | Mut -> fprintf ff "mut"
-    | Imm -> fprintf ff "imm"
-end
-
 module Module = struct
-  module Import = struct
-    module Desc = struct
-      type t =
-        | ImFunction of FunctionType.t
-        | ImGlobal of Mutability.t * Type.t
-      [@@deriving eq, ord, iter, map, fold, sexp]
-
-      let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-      let pp ff : t -> unit = function
-        | ImFunction ft -> fprintf ff "@[(func %a)@]" FunctionType.pp ft
-        | ImGlobal (mut, typ) ->
-            fprintf ff "@[(global %a %a)@]" Mutability.pp mut Type.pp typ
-    end
-
-    type t = {
-      name : string;
-      desc : Desc.t;
-    }
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-    let pp ff ({ name; desc } : t) : unit =
-      fprintf ff "@[(import %s %a)@]" name Desc.pp desc
-  end
-
-  module Global = struct
-    type t = {
-      mut : Mutability.t;
-      typ : Type.t;
-      init : Instruction.t list;
-    }
-    [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
-
-    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  end
-
   module Function = struct
     type t = {
       typ : FunctionType.t;
@@ -648,45 +591,17 @@ module Module = struct
       fprintf ff "@[)@]@]"
   end
 
-  module Export = struct
-    module Desc = struct
-      type t =
-        | ExFunction of int
-        | ExGlobal of int
-      [@@deriving eq, ord, iter, map, fold, sexp]
-
-      let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-      let pp ff : t -> unit = function
-        | ExFunction i -> fprintf ff "@[(func %a)@]" Base.Int.pp i
-        | ExGlobal i -> fprintf ff "@[(global %a)@]" Base.Int.pp i
-    end
-
-    type t = {
-      name : string;
-      desc : Desc.t;
-    }
-    [@@deriving eq, ord, iter, map, fold, sexp]
-
-    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-    let pp ff ({ name; desc } : t) : unit =
-      fprintf ff "@[(export %s %a)@]" name Desc.pp desc
-  end
-
   type t = {
-    imports : Import.t list;
-    globals : Global.t list;
+    imports : FunctionType.t list;
     functions : Function.t list;
     table : int list;
-    start : int option;
-    exports : Export.t list;
+    exports : int list;
   }
   [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff ({ imports; globals; functions; table; start; exports } : t) : unit
+  let pp ff ({ imports; functions; table; exports } : t) : unit
       =
     let print_sep ~f ~sep lst =
       List.iter
@@ -699,16 +614,12 @@ module Module = struct
     let break_hint () = fprintf ff "@;" in
 
     fprintf ff "@[<v 2>@[(module @]";
-    print_sep ~f:(Import.pp ff) ~sep:break_hint imports;
-    print_sep ~f:(Global.pp ff) ~sep:break_hint globals;
+    print_sep ~f:(FunctionType.pp ff) ~sep:break_hint imports;
     print_sep ~f:(Function.pp ff) ~sep:break_hint functions;
     fprintf ff "@;@[(table@[<hv 2>";
     if List.is_empty table then () else fprintf ff "@ ";
     print_sep ~f:(Base.Int.pp ff) ~sep:space_hint table;
     fprintf ff "@])@]";
-    Option.iter
-      ~f:(fun start -> fprintf ff "@;(start %a)" Base.Int.pp start)
-      start;
-    print_sep ~f:(Export.pp ff) ~sep:break_hint exports;
+    print_sep ~f:(Base.Int.pp ff) ~sep:break_hint exports;
     fprintf ff "@])@]"
 end

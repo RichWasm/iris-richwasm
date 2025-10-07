@@ -253,11 +253,6 @@ module Instruction = struct
 end
 
 module Module = struct
-  module Mutability = struct
-    type t = [%import: Richwasm_extract.RwSyntax.mutability]
-    [@@deriving eq, ord]
-  end
-
   module Function = struct
     type t =
       [%import:
@@ -269,40 +264,11 @@ module Module = struct
     [@@deriving eq, ord]
   end
 
-  module GlobalType = struct
-    type t =
-      [%import:
-        (Richwasm_extract.RwSyntax.global_type
-        [@with
-          mutability := Mutability.t;
-          Core.coq_type := Type.t])]
-    [@@deriving eq, ord]
-  end
-
-  module Global = struct
-    type t =
-      [%import:
-        (Richwasm_extract.RwSyntax.module_global
-        [@with
-          global_type := GlobalType.t;
-          Core.instruction := Instruction.t])]
-    [@@deriving eq, ord]
-  end
-
-  module Export = struct
-    type t = [%import: (Richwasm_extract.RwSyntax.module_export)]
-    [@@deriving eq, ord]
-  end
-
   type t =
     [%import:
       (Richwasm_extract.RwSyntax.module0
       [@with
         Core.function_type := FunctionType.t;
-        global_type := GlobalType.t;
-        module_import := Import.t;
-        module_global := Global.t;
-        module_function := Function.t;
-        module_export := Export.t])]
+        module_function := Function.t])]
   [@@deriving eq, ord]
 end

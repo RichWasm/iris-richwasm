@@ -16,12 +16,6 @@ Section CodeGen.
   Context `{!wasmG Σ}.
   Context `{!rwasm_gcG Σ}.
 
-  Variable sr : store_runtime.
-  Variable me : module_env.
-  Variable F : function_ctx.
-  Variable L : local_ctx.
-  Variable WL : wlocal_ctx.
-
   Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wl wl' es x y Φ (f: frame) :
     run_codegen (if_c tf c1 c2) wl = inr (x, y, wl', es) ->
     exists wl1 es1 es2,
