@@ -285,7 +285,6 @@ Section Relations.
     λne sv,
       (∃ ρ ιs vs rvs wss,
          ⌜sv = SWords cm (concat wss)⌝ ∗
-           (* TODO: Kind context. *)
            ⌜type_rep (map fst se) τ = Some ρ⌝ ∗
            ⌜eval_rep ρ = Some ιs⌝ ∗
            ⌜to_rep_values ιs vs = Some rvs⌝ ∗
@@ -577,15 +576,18 @@ Section Relations.
     rep_subst_interp K s__rep /\
     size_subst_interp K s__size.
 
+  Definition sem_env_interp κs s__mem s__rep s__size se : iProp Σ :=
+    [∗ list] κT; κ ∈ se; κs, 
+       ⌜fst κT = subst_kind s__mem s__rep s__size κ⌝ ∗
+       kind_interp (fst κT) (snd κT).
+
   Definition subst_env_interp
     (F : function_ctx)
     (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size)
     (se : semantic_env) :
     iProp Σ :=
     ⌜subst_interp F.(fc_kind_ctx) s__mem s__rep s__size ⌝ ∗
-    [∗ list] '(κ', T); κ ∈ se; F.(fc_type_vars), 
-       ⌜κ' = subst_kind s__mem s__rep s__size κ⌝ ∗
-       kind_interp κ' T.
+    sem_env_interp F.(fc_type_vars) s__mem s__rep s__size se.
 
   Definition have_instruction_type_sem
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)

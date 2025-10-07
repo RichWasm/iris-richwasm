@@ -120,21 +120,36 @@ Section FundamentalKinding.
     - by eapply semantic_type_le_trans.
   Qed.
 
+  Lemma subst_interp_kinds_map κs s__mem s__rep s__size se :
+    ⊢ sem_env_interp sr κs s__mem s__rep s__size se -∗
+    ⌜ map fst se = map (subst_kind s__mem s__rep s__size) κs⌝.
+  Proof.
+  Admitted.
+
   Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
     subst_env_interp sr F s__mem s__rep s__size se
-    ⊢ ⌜ value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑
+    ⊢ ⌜value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑
          kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ)⌝.
   Proof.
     iIntros "%Hhas_kind [%Hsubst Hse]".
+    iPoseProof (subst_interp_kinds_map with "Hse") as "%Hfsteq".
+    unfold sem_env_interp.
+    setoid_rewrite bi.sep_comm.
+    rewrite big_sepL2_sep_sepL_l.
+    iDestruct "Hse" as "[Hkinding Hsubst]".
+    rewrite big_sepL2_pure.
+    iDestruct "Hsubst" as "[%Htylen %Htysub]".
     iPureIntro.
     intros sv.
     iIntros "Hval".
     rewrite value_interp_eq.
     iDestruct "Hval" as "(%κ' & %Htyk & Hinterp & _)".
+    rewrite Hfsteq in Htyk.
     eapply has_kind_subst in Hhas_kind; eauto.
-    eapply type_kind_has_kind_agree in Hhas_kind; cbn; eauto.
-  Admitted.
+    eapply type_kind_has_kind_agree in Hhas_kind; eauto.
+    by iApply rt_subkind_sound.
+  Qed.
   
   Instance kind_as_type_persistent κ sv :
     @Persistent (iProp Σ) (kind_as_type_interp sr κ sv).
