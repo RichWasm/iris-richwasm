@@ -36,7 +36,7 @@ Section Relations.
 
   Definition semantic_type : Type := SVR.
   Definition semantic_kind : Type := semantic_type -> iProp Σ.
-  Definition semantic_env : Type := listO semantic_type.
+  Definition semantic_env : Type := listO (prodO (leibnizO kind) semantic_type).
 
   Notation FrR := (leibnizO frame -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
@@ -165,10 +165,9 @@ Section Relations.
     λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
-          ∀ κs vs1 fr,
-            big_sepL2 (const kind_interp) κs se -∗
-            ⌜translate_types κs τs1 = Some tfs1⌝ -∗
-            ⌜translate_types κs τs2 = Some tfs2⌝ -∗
+          ∀ vs1 fr,
+            ⌜translate_types (map fst se) τs1 = Some tfs1⌝ -∗
+            ⌜translate_types (map fst se) τs2 = Some tfs2⌝ -∗
             values_interp0 vrel se τs1 vs1 -∗
             ↪[frame] fr -∗
             lenient_wp NotStuck top
@@ -194,13 +193,13 @@ Section Relations.
         | ForallMemT ϕ' => ∀ μ, go se ϕ' (unscoped.scons μ s__mem) s__rep s__size
         | ForallRepT ϕ' => ∀ ρ, go se ϕ' s__mem (unscoped.scons ρ s__rep) s__size
         | ForallSizeT ϕ' => ∀ σ, go se ϕ' s__mem s__rep (unscoped.scons σ s__size)
-        | ForallTypeT κ ϕ' => ∀ T, kind_interp κ T -∗ go (T :: se) ϕ' s__mem s__rep s__size
+        | ForallTypeT κ ϕ' => ∀ T, kind_interp κ T -∗ go ((κ, T) :: se) ϕ' s__mem s__rep s__size
         end%I
       in
       go se ϕ VarM VarR VarS.
 
   Definition type_var_interp (se : semantic_env) (t : nat) : SVR :=
-    nth t se (λne _, False%I).
+    nth t (map snd se) (λne _, False%I).
 
   Definition sum_val_interp
     (vrel : value_relation) (se : semantic_env) (ρs : list representation) (τs : list type) : SVR :=
@@ -208,8 +207,7 @@ Section Relations.
       (∃ i vs vs_i τ_i ρ_i ixs,
          ⌜sv = SValues (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: vs)⌝ ∗
            ⌜τs !! i = Some τ_i⌝ ∗
-           (* TODO: Kind context. *)
-           ⌜type_rep [] τ_i = Some ρ_i⌝ ∗
+           ⌜type_rep (map fst se) τ_i = Some ρ_i⌝ ∗
            ⌜inject_sum_rep ρs ρ_i = Some ixs⌝ ∗
            ⌜nths_error vs ixs = Some vs_i⌝ ∗
            ▷ vrel se τ_i (SValues vs_i))%I.
@@ -267,8 +265,7 @@ Section Relations.
     λne sv,
       (∃ ρ0 ιs0 ιs vs0 vs rvs0 rvs wss0 wss ws0,
          ⌜sv = SValues vs⌝ ∗
-           (* TODO: Kind context. *)
-           ⌜type_rep [] τ0 = Some ρ0⌝ ∗
+           ⌜type_rep (map fst se) τ0 = Some ρ0⌝ ∗
            ⌜eval_rep ρ0 = Some ιs0⌝ ∗
            ⌜eval_rep ρ = Some ιs⌝ ∗
            ⌜to_rep_values ιs0 vs0 = Some rvs0⌝ ∗
@@ -289,7 +286,7 @@ Section Relations.
       (∃ ρ ιs vs rvs wss,
          ⌜sv = SWords cm (concat wss)⌝ ∗
            (* TODO: Kind context. *)
-           ⌜type_rep [] τ = Some ρ⌝ ∗
+           ⌜type_rep (map fst se) τ = Some ρ⌝ ∗
            ⌜eval_rep ρ = Some ιs⌝ ∗
            ⌜to_rep_values ιs vs = Some rvs⌝ ∗
            ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
@@ -320,7 +317,7 @@ Section Relations.
 
   Definition exists_type_interp
     (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
-    λne sv, (∃ T, kind_interp κ T ∗ ▷ vrel (T :: se) τ sv)%I.
+    λne sv, (∃ T, kind_interp κ T ∗ ▷ vrel ((κ, T) :: se) τ sv)%I.
 
   Definition type_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ,
@@ -356,7 +353,7 @@ Section Relations.
 
   Definition value_se_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ sv,
-      (∃ κ, ⌜type_kind [] τ = Some κ⌝ ∗ kind_as_type_interp κ sv ∗ type_interp0 vrel se τ sv)%I.
+      (∃ κ, ⌜type_kind (map fst se) τ = Some κ⌝ ∗ kind_as_type_interp κ sv ∗ type_interp0 vrel se τ sv)%I.
 
   (* TODO *)
   Local Instance NonExpansive_value_se_interp0 (vrel : value_relation) :
@@ -586,7 +583,9 @@ Section Relations.
     (se : semantic_env) :
     iProp Σ :=
     ⌜subst_interp F.(fc_kind_ctx) s__mem s__rep s__size ⌝ ∗
-    [∗ list] T; κ ∈ se; F.(fc_type_vars), kind_interp κ T.
+    [∗ list] '(κ', T); κ ∈ se; F.(fc_type_vars), 
+       ⌜κ' = subst_kind s__mem s__rep s__size κ⌝ ∗
+       kind_interp κ' T.
 
   Definition have_instruction_type_sem
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)

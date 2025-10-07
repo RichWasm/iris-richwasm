@@ -123,10 +123,10 @@ Section FundamentalKinding.
   Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
     subst_env_interp sr F s__mem s__rep s__size se
-    ⊢ ⌜value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑
+    ⊢ ⌜ value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑
          kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ)⌝.
   Proof.
-    iIntros "%Hhas_kind [%Hsubst _]".
+    iIntros "%Hhas_kind [%Hsubst Hse]".
     iPureIntro.
     intros sv.
     iIntros "Hval".
