@@ -110,7 +110,7 @@ let rec compile_value delta gamma locals functions v =
   let r = compile_value delta gamma locals functions in
   let t = type_of_v unindexed v in
   let rw_t = compile_type delta t in
-  let box = [ RefNew (Memory.GC, rw_t); RefStore (Path []) ] in
+  let box = [ RefNew (Memory.GC, rw_t); RefStore (Path [], None) ] in
   match v with
   | Int i ->
       let open NumType in
@@ -168,12 +168,12 @@ let rec compile_expr delta gamma locals functions e =
         locals,
         [] )
   | Project (n, v) ->
-      ( cv v @ [ RefLoad (Path.Path [ Path.Component.Proj n ], rw_t) ],
+      ( cv v @ [ RefLoad (Path.Path [ Path.Component.Proj n ]) ],
         locals,
         [] )
   | New v -> (cv v @ [ RefNew (Memory.GC, rw_t) ], locals, [])
-  | Deref v -> (cv v @ [ RefLoad (Path.Path [], rw_t) ], locals, [])
-  | Assign (r, v) -> (cv r @ cv v @ [ RefStore (Path.Path []) ], locals, [])
+  | Deref v -> (cv v @ [ RefLoad (Path.Path []) ], locals, [])
+  | Assign (r, v) -> (cv r @ cv v @ [ RefStore (Path.Path [], None) ], locals, [])
   | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals, [])
   | Unfold v -> (cv v @ [ Unfold ], locals, [])
   | Unpack (var, (n, t), v, e) ->
@@ -186,7 +186,7 @@ let rec compile_expr delta gamma locals functions e =
       let fx = fx @ [ (new_local_idx, rw_unit) ] in
       ( cv v
         @ [
-            RefLoad (Path.Path [], compile_type delta t);
+            RefLoad (Path.Path []);
             Unpack
               ( BlockType [ rw_t ],
                 LocalFx fx,

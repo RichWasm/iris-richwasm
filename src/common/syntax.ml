@@ -529,8 +529,8 @@ module Instruction = struct
     | Tag
     | Untag
     | RefNew of Memory.t * Type.t
-    | RefLoad of Path.t * Type.t
-    | RefStore of Path.t
+    | RefLoad of Path.t
+    | RefStore of Path.t * Type.t option
     | RefSwap of Path.t
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
@@ -563,8 +563,9 @@ module Instruction = struct
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
     | RefNew (m, t) -> fprintf ff "ref.new %a %a" Memory.pp m Type.pp t
-    | RefLoad (p, t) -> fprintf ff "ref.load %a %a" Path.pp p Type.pp t
-    | RefStore p -> fprintf ff "ref.store %a" Path.pp p
+    | RefLoad p -> fprintf ff "ref.store %a" Path.pp p
+    | RefStore (p, None) -> fprintf ff "ref.store %a" Path.pp p
+    | RefStore (p, Some t) -> fprintf ff "ref.store %a %a" Path.pp p Type.pp t
     | RefSwap p -> fprintf ff "ref.swap %a" Path.pp p
     | x -> show_pp ff x
 end
