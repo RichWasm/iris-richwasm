@@ -115,6 +115,12 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
+  Lemma eval_rep_subst_eq ρ ιs s__rep :
+    eval_rep ρ = Some ιs ->
+    subst_representation s__rep ρ = ρ.
+  Proof.
+  Admitted.
+
   Lemma compat_copy M F L wl wl' τ es' :
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [τ; τ] in
@@ -156,23 +162,19 @@ Section Fundamental.
     rewrite app_nil_r in Hconcat; subst vs'.
     rewrite big_sepL2_singleton.
     iApply (lwp_wand with "[Hframe]"); last first.
-    - iApply ("Hcopyable" with "[] [] [$Hfr] [$Hrun] [$Hvs]").
-      + inversion Hok. inversion H. inversion H4.
-        admit.
-      + iPureIntro. unfold is_copy_operation. repeat eexists. admit.
-    - iIntros (lv) "(Hcopy & %fr' & Hfr & <-)".
-      unfold lp_wand', denote_logpred.
-      cbn.
-      iSplitL "Hcopy".
-      + destruct lv; cbn; try iDestruct "Hcopy" as "[]".
-        * iDestruct "Hcopy" as "[? (%vs1 & %vs2 & %Hl & Hvs1 & Hvs2)]".
-          iFrame.
-          iExists [vs1; vs2].
-          cbn.
-          rewrite app_nil_r.
-          by iFrame.
-        * iDestruct "Hcopy" as "[? []]".
-      + by iFrame.
+    - erewrite eval_rep_subst_eq; eauto.
+      rewrite Heq_some0.
+      iApply ("Hcopyable" with "[] [] [$Hfr] [$Hrun] [$Hvs]").
+      + unfold is_copy_operation.
+        iPureIntro.
+        eexists.
+        split.
+        * setoid_rewrite Hcompile.
+          repeat f_equal.
+          admit.
+        * by rewrite app_nil_l.
+      + admit.
+    - admit.
   Admitted.
 
   Lemma compat_drop M F L wl wl' τ es' :
@@ -422,18 +424,12 @@ Section Fundamental.
     inversion Heq; subst κ; clear Heq.
     iSimpl in "Hκ".
     iDestruct "Hκ" as "%Hκ".
-    destruct Hκ as (vs & Heq & Hrepr).
-    inversion Heq; subst o; clear Heq.
 
 (*    destruct vswl; last by inversion Hrestype. *)
-    rewrite /representation_interp0 /= in Hrepr.
-    destruct Hrepr as (ιs & Heq & Hvs).
-    inversion Heq; subst ιs; clear Heq.
-    destruct vs; inversion Hvs; subst.
-    destruct vs; last by inversion H4.
+    destruct o as [|v vs]; inversion Hκ; subst.
+    destruct vs as [|v' vs]; inversion H4; subst.
     unfold primitive_rep_interp in H2.
     destruct H2 as [n ->].
-    clear Hvs H4.
 
 (*    inversion Hok; subst.
     destruct H as [Hτs1 Hτs2].
