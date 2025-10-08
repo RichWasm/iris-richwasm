@@ -192,9 +192,9 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_num_const M F L wl wl' n ν κ es' :
+  Lemma compat_num_const M F L wl wl' n ν es' :
     let fe := fe_of_context F in
-    let ψ := InstrT [] [NumT κ ν] in
+    let ψ := InstrT [] [num_type_type ν] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INumConst ψ n)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
