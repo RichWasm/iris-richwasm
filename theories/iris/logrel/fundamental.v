@@ -200,7 +200,49 @@ Section Fundamental.
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INumConst ψ n)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
-  Admitted.
+  Proof.
+    intros fe ψ Hok Hcompile. cbn in Hcompile.
+    (* Immediately, we must destruct ν *)
+    destruct ν; cbn in Hcompile; inversion Hcompile.
+    (* From here on out, we have an integer case and a float case (until we split
+       further into 32/64 *)
+
+    (* Some basic intros, unfolds, proving empty lists empty *)
+    all: unfold have_instruction_type_sem;
+      iIntros (? ? ? ? ? ?) "Henv Hinst Hlh";
+      iIntros (fr vs) "Hvs Hframe Hfr Hrun";
+      unfold expr_interp; cbn;
+      iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)";
+      iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens";
+      destruct vss, vs; cbn in Hconcat, Hlens; try congruence; cbn;
+      clear Hconcat Hlens.
+    (* Now it's time to actually apply lenient_wp *)
+    all: iApply lenient_wp_value.
+    (* In int case, instantiate value with int value. Float in float case *)
+    (* Automatics don't work great here *)
+    1: by instantiate (1 := (immV [(value_of_Z (translate_num_type (IntT i)) n)])%I).
+    2: by instantiate (1 := (immV [(value_of_Z (translate_num_type (FloatT f)) n)])%I).
+
+    all: unfold denote_logpred; iFrame.
+    (* iExists _ doesn't work great here *)
+    1: iExists [[value_of_Z (translate_num_type (IntT i)) n]].
+    2: iExists [[value_of_Z (translate_num_type (FloatT f)) n]].
+    all: cbn; iFrame; iSplitR; try (by iPureIntro).
+
+    (* Now, all we need to do is to prove value_interps! *)
+    (* Dig into fixpoint one step *)
+    all: iApply value_interp_eq; cbn.
+    (* Get the obvious kind, then the rest is proving kind interp is right *)
+    all: iExists _.
+    all: iSplitR; try auto; iSplitL; try auto; cbn.
+    all: iPureIntro.
+    all: apply Forall2_cons_iff.
+    all: split; try (by apply Forall2_nil).
+    (* Finally, we have to destruct i and f to get the 32/64 info! *)
+    1: destruct i.
+    3: destruct f.
+    all: eexists; done.
+  Qed.
 
   Lemma compat_block M F L L' wl wl' τs1 τs2 es es' :
     let fe := fe_of_context F in
