@@ -236,11 +236,165 @@ Section Fundamental.
     match vh with
     | VH_base n _ es => VH_base n vs es
     | VH_rec n b c d vh e => VH_rec b c d (replace_base vh vs) e
-    end. 
+    end.
 
-(*  Lemma lfilled_replace_base {n} vh vs1 vs2 :=
-    get_base vh = vs1 ++ vs2 ->
-    lfilled  *)
+  Lemma lfilled_get_replace_base {n} (vh: valid_holed n) es vs1 vs2:
+    get_base_l vh = vs1 ++ vs2 ->
+    lh_depth (lh_of_vh vh) = n ->
+    is_true (lfilled n (lh_of_vh (replace_base vh vs1))
+               (seq.cat (v_to_e_list vs2) es) (vfill vh es)).
+  Proof.
+    induction vh => //=.
+    - intros -> <-.
+      unfold lfilled, lfill => //=.
+      rewrite v_to_e_is_const_list /=.
+      rewrite -v_to_e_cat.
+      repeat rewrite cat_app.
+      repeat rewrite app_assoc.
+      done.
+    - intros Hbase Hdepth.
+      apply eq_add_S in Hdepth.
+      specialize (IHvh Hbase Hdepth).
+      unfold lfilled, lfill; fold lfill.
+      rewrite v_to_e_is_const_list.
+      unfold lfilled in IHvh.
+      destruct (lfill _ _ _) => //.
+      apply b2p in IHvh as <-.
+      done.
+  Qed. 
+
+
+  Lemma translate_types_app ks t1s t2s res :
+    translate_types ks (t1s ++ t2s) = Some res ->
+    exists res1 res2, translate_types ks t1s = Some res1 /\
+                   translate_types ks t2s = Some res2 /\
+                   res = res1 ++ res2.
+  Proof.
+    generalize dependent res. 
+    induction t1s => //=.
+    - intros res Htrans. exists [], res. done.
+    - intros res Htrans.
+      unfold translate_types in Htrans.
+      simpl in Htrans.
+      destruct (translate_type ks a) eqn:Ha; simpl in Htrans => //. 
+      destruct (mapM (translate_type ks) (t1s ++ t2s)) eqn:Htrans';
+        simpl in Htrans => //. 
+      inversion Htrans; subst res.
+      edestruct IHt1s as (res1 & res2 & Htrans1 & Htrans2 & Hres).
+      + unfold translate_types.
+        rewrite Htrans'.
+        simpl. done.
+      + exists (l ++ res1), res2.
+        repeat split => //=.
+        * rewrite /translate_types /=.
+          unfold translate_types in Htrans1.
+          destruct (mapM (translate_type ks) t1s) eqn:Htrans1' => //. 
+          rewrite Ha /=.
+          simpl in Htrans1. inversion Htrans1; subst res1 => //.
+        * rewrite Hres app_assoc //.
+  Qed.
+
+(*
+  Lemma value_interp_length ks ts se smem srep ssize a vs :
+    translate_type ks a = Some ts ->
+    (value_interp sr mr se (subst_type smem srep ssize VarT a) (SValues vs)
+       ⊢ ⌜ length vs = length ts ⌝)%I.
+  Proof.
+    iIntros (Ha) "Ha".
+    iDestruct (value_interp_eq with "Ha") as "Ha".
+    unfold value_interp0.
+    simpl.
+    unfold translate_type in Ha.
+    unfold type_rep in Ha.
+    unfold type_kind in Ha.
+    iDestruct "Ha" as (κ) "(%Hkind & Hkind & Ha)".
+    destruct a => //=.
+    all: simpl in Ha.
+    all: simpl in Hkind.
+    all: inversion Hkind; subst κ; clear Hkind.
+    all: unfold kind_as_type_interp.
+    all: destruct k => //=.
+    all: simpl in Ha.
+    all: iDestruct "Hkind" as %Hkind.
+    all: destruct Hkind as (vs' & Hvs & Hrep).
+    all: inversion Hvs; subst vs'; clear Hvs.
+    - iPureIntro.
+      destruct r => //=.
+      all: rewrite /translate_rep /= in Ha.
+      all: simpl in Hrep.
+      + induction l.
+        * simpl in Hrep, Ha.
+          inversion Ha; subst ts => //=.
+          unfold representation_interp0 in Hrep.
+          destruct Hrep as (ιs & Hιs & Hl1).
+          simpl in Hιs.
+          inversion Hιs; subst ιs.
+          inversion Hl1; subst.
+          inversion H3; subst. done.
+        * simpl in Ha.
+          destruct (eval_rep a) eqn:Ha'; last done.
+          simpl in Ha.
+          destruct (mapM eval_rep l) eqn:Hl; last done.
+          simpl in Ha.
+          inversion Ha; subst ts; clear Ha.
+          simpl in IHl.
+          unfold representation_interp0 in Hrep.
+          destruct Hrep as (ιs & Hιs & Hvs).
+          simpl in Hιs.
+          destruct (eval_rep (subst_representation srep a)) eqn:Ha''; last done.
+          simpl in Hιs.
+          destruct (mapM eval_rep (map (subst_representation srep) l)) eqn:Hl'; last done.
+          simpl in Hιs.
+          inversion Hιs; subst ιs.
+          unfold representation_interp0 in IHl.
+          simpl in IHl.
+          rewrite Hl' /= in IHl.
+          apply IHl.
+          -- eexists. split; first done.
+             
+       *)   
+
+
+  Lemma translate_types_length_subst ks ts res vs se smem srep ssize :
+    translate_types ks ts = Some res ->
+    (([∗ list] y1;y2 ∈ map (subst_type smem srep ssize VarT) ts;vs, 
+       value_interp sr mr se y1 (SValues y2))
+       ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
+  Proof.
+  Admitted. 
+(*    generalize dependent vs. generalize dependent res. 
+    induction ts; iIntros (res vs Hres) "H".
+    { destruct vs; last done.
+      rewrite /translate_types /= in Hres.
+      inversion Hres; subst; done. }
+    rewrite /translate_types /= in Hres.
+    destruct (translate_type ks a) eqn:Ha; last done.
+    destruct (mapM (translate_type ks) ts) eqn:Htrans; last done.
+    simpl in Hres.
+    inversion Hres; subst res; clear Hres.
+    destruct vs; first done.
+    iDestruct "H" as "[Ha H]".
+    iDestruct (IHts with "H") as "%IH".
+    { rewrite /translate_types Htrans //. }
+    iClear "H".
+ *)
+
+  Lemma translate_types_length ks ts res vs se:
+    translate_types ks ts = Some res ->
+    (([∗ list] y1;y2 ∈ ts;vs, 
+       value_interp sr mr se y1 (SValues y2))
+       ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
+  Proof.
+    iIntros (H) "H".
+    iApply (translate_types_length_subst _ _ _ _ _ _ _ _ H).
+    instantiate (1 := VarS).
+    instantiate (1 := VarR).
+    instantiate (1 := VarM).
+    replace (map (subst_type VarM VarR VarS VarT) ts) with ts; first done.
+    clear. induction ts => //=.
+    rewrite instId'_type -IHts //. 
+  Qed. 
+
   
   Lemma compat_ite M F L L' wl wl' es1 es2 es' τs1 τs2 :
     let me := me_of_context M mr in
@@ -334,6 +488,18 @@ Section Fundamental.
     destruct trans2 as [trans2|]; last done.
     simpl in Heq_some.
     inversion Heq_some; subst ρ; clear Heq_some.
+
+    symmetry in Heqtrans1.
+    apply translate_types_app in Heqtrans1 as (trans1' & transi32 & Heqtrans1 & Heqtransi32 & ->).
+    rewrite /translate_types /= in Heqtransi32.
+    inversion Heqtransi32; subst transi32; clear Heqtransi32.
+    iDestruct (big_sepL2_length with "Hvss1") as "%Hlen1".
+    iDestruct (big_sepL2_length with "Hvss0") as "%Hlen0".
+    rewrite length_map in Hlen1.
+    rewrite length_map in Hlen0.
+    iDestruct (translate_types_length_subst _ _ _ _ _ _ _ _ Heqtrans1 with "Hvss1") as "%Hlen1'".
+    
+    
     iSimpl.
     unfold lenient_wp.
     rewrite concat_app /=.
@@ -352,7 +518,10 @@ Section Fundamental.
       iApply wp_wasm_empty_ctx.
       iApply (wp_block with "Hfr Hrun") => //.
       { apply v_to_e_is_const_list. }
-      { admit. }
+      { rewrite length_app. rewrite v_to_e_length.
+        rewrite length_concat.
+        simpl. 
+        admit. }
       iIntros "!> Hfr Hrun".
       iApply (wp_label_bind with "[-]").
       2:{ iPureIntro. instantiate (5 := []).
@@ -397,8 +566,11 @@ Section Fundamental.
           iDestruct (br_interp_eq with "Hbr") as "Hbr".
           unfold br_interp0. iSimpl in "Hbr".
           iDestruct "Hbr" as (j k p lh' lh'' τs es0 es es' vs0 vs) "(%Hgetbase & %Hdepth & %Hlabels & %Hlayer & %Hdepth' & %Hminus & (%vss2 & -> & Hvss2) & Hbr)".
+          iDestruct (big_sepL2_length with "Hvss2") as "%Hlen2".
+          (* iDestruct (translate_types_length with "Hvss2") as "%Hlen2'".
+          ; first exact Heqtrans2. *)
           (* may need to first progress in wp before yielding frame *)
-          iDestruct ("Hbr" with "Hfr [Hvss Hvss2 $Htok]") as "Hbr".
+          iDestruct ("Hbr" with "Hfr [Hvss $Htok]") as "Hbr".
           { iExists _,_. iSplit; first done. iFrame. done. } 
           unfold lenient_wp.
           iDestruct wp_value_fupd as "[H _]"; 
@@ -416,13 +588,16 @@ Section Fundamental.
           destruct hop.
           -- (* targetting this exact block *)
             assert (i = p) as ->.
-            { admit. } 
+            { clear - Heqhop Hdepth.
+              specialize (vfill_to_lfilled lh0 []) as [H _].
+              rewrite Hdepth in H. lia. } 
             iApply (wp_br with "Hfr").
             3:{ rewrite seq.cats0 /=. 
                 instantiate (1 := p).
                 instantiate (1 := v_to_e_list (concat vss2)).
                 instantiate (1 := lh_of_vh (replace_base lh0 vs0)).
-                admit. (* auxiliary lemma *) } 
+                clear - Hgetbase Hdepth.
+                apply lfilled_get_replace_base => //. } 
             ++ apply v_to_e_is_const_list.
             ++ admit. (* use sepL2 and Heqtrans2 *) 
             ++ admit. (* fix def of br_interp *) 
@@ -431,7 +606,7 @@ Section Fundamental.
                iApply wp_value.
                { apply of_to_val. rewrite app_nil_r. exact Hvs. }
                iSimpl. iFrame.
-               iSplitL "Hbr".
+               iSplitL "Hvss2".
                ** apply v_to_e_list_to_val in Hvs as Hvs'.
                   apply v_to_e_inj in Hvs' as ->.
                   iExists _. iSplit; first done.
@@ -441,7 +616,8 @@ Section Fundamental.
             assert (i > p) as Hip; first lia.
             destruct i; first lia.
             destruct (vh_decrease lh0) eqn:Hlh0.
-            2:{ admit. (* Hip and Hlh0 should be contradictory *) }
+            2:{ exfalso. clear - Hip Hlh0 Hdepth.
+                 admit. (* painstaking dep-type induction *) } 
             iApply wp_value.
             { apply of_to_val. rewrite seq.cats0 /=. 
               simpl.
@@ -457,7 +633,7 @@ Section Fundamental.
               done. } 
             iSimpl. iFrame.
             iSplitL "Hbr".
-            ++ admit.
+            ++ admit. (* massage the br_interp layers *) 
             ++ iExists _,_. iSplit; first done.
                iFrame.  done. 
         * iApply wp_value.
@@ -476,7 +652,7 @@ Section Fundamental.
           iSplitL "Hvss Hret".
           -- iExists _,_. iSplit; first done. iFrame. iSplit; first done.
              iIntros (fr fr') "Hf".
-             admit.
+             admit. (* generalise s in IH? *)
           -- iFrame. iExists _,_.
              iSplit; first done. iFrame. done.
         * iDestruct "H" as "[? _]"; done.
