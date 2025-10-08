@@ -80,10 +80,6 @@ Proof.
   - eapply KCodeRef.
     fold_subst.
     admit.
-  - eapply KRep.
-    { admit. }
-    fold_subst.
-    eauto.
   - eapply KPad.
     { admit. }
     fold_subst.

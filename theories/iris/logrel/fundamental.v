@@ -71,17 +71,19 @@ Section Fundamental.
        as the one that was in an instantiate (1 := ...) tactic earlier
        -Ryan *)
     set (Ψ := {|
-            lp_fr := λ fr, ∃ vs__L vs__WL,
-              ⌜fr = {| W.f_locs := vs__L ++ vs__WL; W.f_inst := inst |}⌝ ∗
-              (∃ vss, ⌜vs__L = concat vss⌝ ∗
-                      [∗ list] τ;vs ∈ map (subst_type s__mem s__rep s__size VarT) L;vss,
-                      value_interp sr mr se τ (SValues vs)) ∗
-                  ⌜result_type_interp wl vs__WL⌝ ∗ na_own logrel_nais ⊤;
+            lp_fr := λ fr, ∃ vss__L vs__WL,
+              ⌜fr = {| W.f_locs := concat vss__L ++ vs__WL; W.f_inst := inst |}⌝ ∗
+                locals_interp sr mr se F.(typing.fc_locals)
+                  (map (option_map (subst_type s__mem s__rep s__size VarT)) L) vss__L ∗
+                ⌜result_type_interp wl vs__WL⌝ ∗
+                na_own logrel_nais ⊤;
             lp_val :=
               λ vs, ∃ vss, ⌜vs = concat vss⌝ ∗
                            [∗ list] τ;vs' ∈ [];vss, value_interp sr mr se τ (SValues vs');
             lp_trap := True;
-            lp_br := br_interp sr mr se F.(fc_return) (map (subst_type s__mem s__rep s__size VarT) L) wl inst lh F.(fc_labels);
+            lp_br :=
+              br_interp sr mr se F.(fc_return) F.(typing.fc_locals)
+                (map (option_map (subst_type s__mem s__rep s__size VarT)) L) wl inst lh F.(fc_labels);
             lp_ret := return_interp sr mr se F.(fc_return);
             lp_host := fun _ _ _ _ => False
           |}%I).
@@ -251,8 +253,7 @@ Section Fundamental.
     iIntros (smem srep ssize se inst lh) "Hsubst Hinst Hctxt".
     iIntros (fr vs) "Hvss Hvsl Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
-    iDestruct "Hvsl" as (vsl vswl) "(-> & Hvss0 & %Hrestype & Htok)".
-    iDestruct "Hvss0" as (vss0) "[-> Hvss0]".
+    iDestruct "Hvsl" as (vsl vswl) "(-> & Hlocs & %Hrestype & Htok)".
     rewrite map_app.
     iDestruct (big_sepL2_app_inv_l with "Hvss") as (vss1 vssi32) "(-> & Hvss1 & Hvssi32)".
     destruct vssi32; first done.
@@ -350,10 +351,9 @@ Section Fundamental.
           rewrite /lfilled /lfill /= app_nil_r //. }
       iApply (wp_wand with "[-]").
       + simpl in Hes2.
-        iApply (Hes2 with "Hsubst Hinst Hctxt [$Hvss1] [$Htok Hvss0] Hfr Hrun"); first done.
-        iExists _, _. iSplit; first done. iSplit.
-        * iExists _. iSplit; first done. iExact "Hvss0".
-        * iSplit; last done. iPureIntro. exact Hrestype. 
+        iApply (Hes2 with "Hsubst Hinst Hctxt [$Hvss1] [$Htok Hlocs] Hfr Hrun"); first done.
+        iExists _, _. iSplit; first done. iSplit; first done.
+        iSplit; last done. iPureIntro. exact Hrestype.
       + iIntros (v) "H".
         rewrite /denote_logpred /lp_noframe /=.
         iIntros (LI HLI).
@@ -363,7 +363,7 @@ Section Fundamental.
         iSimpl.
 
         destruct v.
-        * iDestruct "H" as "(((%vss & -> & Hvss) & Hrun) & %fr & Hfr & %vsl & %vswl' & -> & (%vss' & -> & Hvss') & %Hrestype' & Htok)".
+        * iDestruct "H" as "(((%vss & -> & Hvss) & Hrun) & %fr & Hfr & %vssl & %vswl' & -> & Hlocs & %Hrestype' & Htok)".
           edestruct const_list_to_val as [vs Hvs]; first by apply v_to_e_is_const_list.
           iApply (wp_wand with "[Hfr Hrun]").
           { iApply (wp_label_value with "Hfr Hrun").
@@ -374,22 +374,22 @@ Section Fundamental.
           apply v_to_e_list_to_val in Hvs as Hvs'.
           apply v_to_e_inj in Hvs' as ->.
           iSplit; first done.
-          iExists _,_. iSplit; first done.
-          iFrame. iSplit => //.
-        * iDestruct "H" as "([Hbail _] & %fr & Hfr & %vsl & %vswl' & -> & (%vss & -> & Hvss) & %Hrestype' & Htok)".
+          iExists _. iSplit; first done.
+          by iFrame.
+        * iDestruct "H" as "([Hbail _] & %fr & Hfr & %vssl & %vswl' & -> & Hlocs & %Hrestype' & Htok)".
           iApply (wp_wand with "[Hfr]").
           { iApply (wp_label_trap with "Hfr") => //.
             instantiate (1 := λ v, ⌜ v = trapV ⌝%I) => //. }
           iIntros (v) "[-> Hfr]".
           iFrame.
-          iExists _, _. iSplit; first done.
-          iFrame. iSplit => //.
-        * iDestruct "H" as "(Hbr & %fr & Hfr & %vsl & %vswl' & -> & (%vss & -> & Hvss) & %Hrestype' & Htok)".
+          iExists _. iSplit; first done.
+          by iFrame.
+        * iDestruct "H" as "(Hbr & %fr & Hfr & %vssl & %vswl' & -> & Hlocs & %Hrestype' & Htok)".
           iDestruct (br_interp_eq with "Hbr") as "Hbr".
           unfold br_interp0. iSimpl in "Hbr".
           iDestruct "Hbr" as (j k p lh' lh'' τs es0 es es' vs0 vs) "(%Hgetbase & %Hdepth & %Hlabels & %Hlayer & %Hdepth' & %Hminus & (%vss2 & -> & Hvss2) & Hbr)".
           (* may need to first progress in wp before yielding frame *)
-          iDestruct ("Hbr" with "Hfr [Hvss Hvss2 $Htok]") as "Hbr".
+          iDestruct ("Hbr" with "Hfr [Hlocs Hvss2 $Htok]") as "Hbr".
           { iExists _,_. iSplit; first done. iFrame. done. } 
           unfold lenient_wp.
           iDestruct wp_value_fupd as "[H _]"; 
@@ -401,7 +401,7 @@ Section Fundamental.
           iClear "H".
           unfold denote_logpred.
           iSimpl in "Hbr".
-          iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vsl & %vswl'' & -> & (%vss3 & -> & Hvss3) & Hrestype' & Htok)".
+          iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vssl' & %vswl'' & -> & Hlocs & Hrestype' & Htok)".
           
           remember (i - p) as hop.
           destruct hop.
@@ -427,7 +427,7 @@ Section Fundamental.
                   apply v_to_e_inj in Hvs' as ->.
                   iExists _. iSplit; first done.
                   admit. 
-               ** iExists _, _. iSplit; first done. iFrame. done.
+               ** iExists _. iSplit; first done. iFrame.
           -- (* still blocked *)
             assert (i > p) as Hip; first lia.
             destruct i; first lia.
@@ -449,8 +449,7 @@ Section Fundamental.
             iSimpl. iFrame.
             iSplitL "Hbr".
             ++ admit.
-            ++ iExists _,_. iSplit; first done.
-               iFrame.  done. 
+            ++ iExists _,_. iSplit; first done. iFrame.
         * iApply wp_value.
           { apply of_to_val.
             rewrite seq.cats0 /=.
@@ -463,7 +462,7 @@ Section Fundamental.
             inversion H; subst v; clear H.
             done. }
           iSimpl.
-          iDestruct "H" as "((%vs0 & %vs & %Hbase & (%vss & -> & Hvss) & Hret) & %fr & Hfr & %vsl & %vswl' & -> & (%vss' & -> & Hvss') & %Hrestype' & Htok)".
+          iDestruct "H" as "((%vs0 & %vs & %Hbase & (%vss & -> & Hvss) & Hret) & %fr & Hfr & %vssl & %vswl' & -> & Hlocs & %Hrestype' & Htok)".
           iSplitL "Hvss Hret".
           -- iExists _,_. iSplit; first done. iFrame. iSplit; first done.
              iIntros (fr fr') "Hf".
@@ -495,12 +494,11 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_local_get M F L wl wl' es' i τ ιs :
+  Lemma compat_local_get M F L wl wl' es' i τ :
     let fe := fe_of_context F in
     let ψ := InstrT [] [τ] in
-    let L' := <[ i := type_val_uninit ιs ]> L in
-    F.(typing.fc_locals) !! i = Some ιs ->
-    L !! i = Some τ ->
+    let L' := <[ i := None]> L in
+    L !! i = Some (Some τ) ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
@@ -509,19 +507,18 @@ Section Fundamental.
   Lemma compat_local_get_copy M F L wl wl' es' i τ :
     let fe := fe_of_context F in
     let ψ := InstrT [] [τ] in
-    L !! i = Some τ ->
+    L !! i = Some (Some τ) ->
     has_copyability F τ ImCopy ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_local_set M F L wl wl' es' i τ τ' :
+  Lemma compat_local_set M F L wl wl' es' i τ :
     let fe := fe_of_context F in
-    let ψ := InstrT [τ'] [] in
-    let L' := <[ i := τ' ]> L in
-    L !! i = Some τ ->
-    has_dropability F τ ImDrop ->
+    let ψ := InstrT [τ] [] in
+    let L' := <[ i := Some τ ]> L in
+    (∀ τ0, L !! i = Some (Some τ0) → has_dropability F τ0 ImDrop) ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalSet ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
@@ -642,28 +639,6 @@ Section Fundamental.
         ⊢ have_instruction_type_sem sr mr M F0 L0 wl' (to_e_list es') ψ0 L0') ->
     run_codegen (compile_instr mr fe (IUnpack ψ L' es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
-  Admitted.
-
-  Lemma compat_wrap M F L wl wl' es' τ0 ρ κ ιs ιs0 :
-    let fe := fe_of_context F in
-    let ψ := InstrT [τ0] [RepT κ ρ τ0] in
-    type_rep_eval F τ0 ιs0 ->
-    eval_rep ρ = Some ιs ->
-    convertible_to ιs0 ιs ->
-    has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IWrap ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
-  Admitted.
-
-  Lemma compat_unwrap M F L wl wl' es' τ0 ρ κ ιs ιs0 :
-    let fe := fe_of_context F in
-    let ψ := InstrT [RepT κ ρ τ0] [τ0] in
-    type_rep_eval F τ0 ιs0 ->
-    eval_rep ρ = Some ιs ->
-    convertible_to ιs0 ιs ->
-    has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IUnwrap ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_tag M F L wl wl' es' :
@@ -838,8 +813,6 @@ Section Fundamental.
     - eapply compat_unfold; eassumption.
     - eapply compat_pack; eassumption.
     - eapply compat_unpack; eassumption.
-    - eapply compat_wrap; eassumption.
-    - eapply compat_unwrap; eassumption.
     - eapply compat_tag; eassumption.
     - eapply compat_untag; eassumption.
     - eapply compat_ref_new; eassumption.

@@ -117,7 +117,6 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | I31T κ
   | GCPtrT κ _
   | CodeRefT κ _
-  | RepT κ _ _
   | PadT κ _ _
   | SerT κ _
   | RecT κ _
@@ -153,10 +152,6 @@ Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
 Definition type_f64 : type := float_type_type F64T.
-
-Definition type_val_uninit (ιs : list primitive_rep) : type :=
-  let ρ := ProdR (map PrimR ιs) in
-  RepT (VALTYPE ρ ImCopy ImDrop) ρ type_unit.
 
 Definition type_mem_uninit (σ : size) (μ : memory) : type :=
   let ser_unit := SerT (MEMTYPE (Sized (RepS (ProdR []))) μ ImDrop) type_unit in

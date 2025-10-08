@@ -10,7 +10,7 @@ Record module_ctx :=
 
 Arguments module_ctx : clear implicits.
 
-Definition local_ctx := list type.
+Definition local_ctx := list (option type).
 
 Record kind_ctx :=
   { kc_mem_vars : nat;
@@ -54,7 +54,8 @@ Definition subst_function_ctx
      fc_labels :=
        map
          (fun '(τs, L) =>
-            (map (subst_type s__mem s__rep s__size s__type) τs, map (subst_type s__mem s__rep s__size s__type) L))
+            (map (subst_type s__mem s__rep s__size s__type) τs,
+              map (option_map (subst_type s__mem s__rep s__size s__type)) L))
          F.(fc_labels);
      fc_kind_ctx := F.(fc_kind_ctx);
      fc_type_vars := map (subst_kind s__mem s__rep s__size) F.(fc_type_vars) |}.
@@ -143,11 +144,6 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   kind_ok F.(fc_kind_ctx) κ ->
   function_type_ok F ϕ ->
   type_ok F (CodeRefT κ ϕ)
-| OKRepT F κ ρ τ :
-  kind_ok F.(fc_kind_ctx) κ ->
-  rep_ok F.(fc_kind_ctx) ρ ->
-  type_ok F τ ->
-  type_ok F (RepT κ ρ τ)
 | OKPadT F κ σ τ :
   kind_ok F.(fc_kind_ctx) κ ->
   size_ok F.(fc_kind_ctx) σ ->
@@ -294,11 +290,6 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   function_type_ok F ϕ ->
   let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   has_kind F (CodeRefT κ ϕ) κ
-| KRep F ρ0 ρ τ χ δ :
-  rep_ok F.(fc_kind_ctx) ρ ->
-  has_kind F τ (VALTYPE ρ0 χ δ) ->
-  let κ := VALTYPE ρ χ δ in
-  has_kind F (RepT κ ρ τ) κ
 | KPad F σ0 σ τ μ δ :
   size_ok F.(fc_kind_ctx) σ ->
   has_kind F τ (MEMTYPE (Sized σ0) μ δ) ->
@@ -385,11 +376,6 @@ Section HasKindInd.
       (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
                          let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
                          P F (CodeRefT κ ϕ) κ)
-      (HRep : forall F ρ0 ρ τ χ δ, 
-          rep_ok F.(fc_kind_ctx) ρ ->
-          P F τ (VALTYPE ρ0 χ δ) ->
-          let κ := VALTYPE ρ χ δ in
-          P F (RepT κ ρ τ) κ)
       (HPad : forall F σ0 σ τ μ δ,
           size_ok F.(fc_kind_ctx) σ ->
           P F τ (MEMTYPE (Sized σ0) μ δ) ->
@@ -447,7 +433,6 @@ Section HasKindInd.
     | KRefGC F τ ζ δ H1 => HRefGC F τ ζ δ (has_kind_ind' _ _ _ H1)
     | KGCPtr F τ ζ δ H1 => HGCPtr F τ ζ δ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
-    | KRep F ρ0 ρ τ χ δ H1 H2 => HRep F ρ0 ρ τ χ δ H1 (has_kind_ind' _ _ _ H2)
     | KPad F σ0 σ τ μ δ H1 H2 => HPad F σ0 σ τ μ δ H1 (has_kind_ind' _ _ _ H2)
     | KSer F τ ρ μ χ δ H1 H2 => HSer F τ ρ μ χ δ H1 (has_kind_ind' _ _ _ H2)
     | KRec F τ κ H1 => HRec F τ κ (has_kind_ind' _ _ _ H1)
@@ -512,11 +497,6 @@ Inductive has_dropability : function_ctx -> type -> dropability -> Prop :=
 | DropMEMTYPE F τ ζ μ δ :
   has_kind F τ (MEMTYPE ζ μ δ) ->
   has_dropability F τ δ.
-
-Definition convertible_to (ιs1 ιs2 : list primitive_rep) : Prop :=
-  let eq_dec := primitive_rep_eq_dec in
-  count_occ eq_dec ιs1 PtrR <= count_occ eq_dec ιs2 PtrR /\
-    primitives_size (remove eq_dec PtrR ιs1) <= primitives_size (remove eq_dec PtrR ιs2).
 
 Record path_result :=
   { pr_prefix : list type;
@@ -622,36 +602,40 @@ Inductive unpacked_existential :
   let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
               <| fc_kind_ctx ::= set kc_mem_vars S |> in
   let es0 := map (subst_instruction (up_memory VarM) VarR VarS VarT) es in
-  let up := map (subst_type (up_memory VarM) VarR VarS VarT) in
+  let up := subst_type (up_memory VarM) VarR VarS VarT in
+  let upo := option_map up in
   unpacked_existential
     F L es (InstrT (τs1 ++ [ExistsMemT κ τ]) τs2) L'
-    F0 (up L) es0 (InstrT (up τs1 ++ [τ]) (up τs2)) (up L')
+    F0 (map upo L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map upo L')
 | UnpackRep F L L' es τs1 κ τ τs2 :
   let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
               <| fc_kind_ctx ::= set kc_rep_vars S |> in
   let es0 := map (subst_instruction VarM (up_representation VarR) VarS VarT) es in
-  let up := map (subst_type VarM (up_representation VarR) VarS VarT) in
+  let up := subst_type VarM (up_representation VarR) VarS VarT in
+  let upo := option_map up in
   unpacked_existential
     F L es (InstrT (τs1 ++ [ExistsRepT κ τ]) τs2) L'
-    F0 (up L) es0 (InstrT (up τs1 ++ [τ]) (up τs2)) (up L')
+    F0 (map upo L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map upo L')
 | UnpackSize F L L' es τs1 κ τ τs2 :
   let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
               <| fc_kind_ctx ::= set kc_size_vars S |> in
   let es0 := map (subst_instruction VarM VarR (up_size VarS) VarT) es in
-  let up := map (subst_type VarM VarR (up_size VarS) VarT) in
+  let up := subst_type VarM VarR (up_size VarS) VarT in
+  let upo := option_map up in
   unpacked_existential
     F L es (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
-    F0 (up L) es0 (InstrT (up τs1 ++ [τ]) (up τs2)) (up L')
+    F0 (map upo L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map upo L')
 | UnpackType F L L' es τs1 κ κ0 τ τs2 :
   let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
   let es0 := map (subst_instruction VarM VarR VarS (up_type VarT)) es in
-  let up := map (subst_type VarM VarR VarS (up_type VarT)) in
+  let up := subst_type VarM VarR VarS (up_type VarT) in
+  let upo := option_map up in
   unpacked_existential
     F L es (InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2) L'
-    F0 (up L) es0 (InstrT (up τs1 ++ [τ]) (up τs2)) (up L').
+    F0 (map upo L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map upo L').
 
 Definition local_ctx_ok (F : function_ctx) (L : local_ctx) : Prop :=
-  Forall2 (type_rep_eval F) L F.(fc_locals).
+  Forall2 (fun τo ιs => forall τ, τo = Some τ -> type_rep_eval F τ ιs) L F.(fc_locals).
 
 Inductive has_instruction_type_ok : function_ctx -> instruction_type -> local_ctx -> Prop :=
 | OKHasInstructionType F ψ L' :
@@ -764,24 +748,22 @@ Inductive has_instruction_type :
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IReturn ψ) ψ L'
-| TLocalGet M F L i τ ιs :
+| TLocalGet M F L i τ :
   let ψ := InstrT [] [τ] in
-  let L' := <[ i := type_val_uninit ιs ]> L in
-  F.(fc_locals) !! i = Some ιs ->
-  L !! i = Some τ ->
+  let L' := <[ i := None ]> L in
+  L !! i = Some (Some τ) ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ILocalGet ψ i) ψ L'
 | TLocalGetCopy M F L i τ :
   let ψ := InstrT [] [τ] in
-  L !! i = Some τ ->
+  L !! i = Some (Some τ) ->
   has_copyability F τ ImCopy ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILocalGet ψ i) ψ L
-| TLocalSet M F L i τ τ' :
-  let ψ := InstrT [τ'] [] in
-  let L' := <[ i := τ' ]> L in
-  L !! i = Some τ ->
-  has_dropability F τ ImDrop ->
+| TLocalSet M F L i τ :
+  let ψ := InstrT [τ] [] in
+  let L' := <[ i := Some τ ]> L in
+  (forall τ0, L !! i = Some (Some τ0) -> has_dropability F τ0 ImDrop) ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ILocalSet ψ i) ψ L'
 | TCodeRef M F L i ϕ :
@@ -845,20 +827,6 @@ Inductive has_instruction_type :
   have_instruction_type M F0 L0 es0 ψ0 L0' ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IUnpack ψ L' es) ψ L'
-| TWrap M F L ρ ιs0 ιs τ0 κ :
-  let ψ := InstrT [τ0] [RepT κ ρ τ0] in
-  type_rep_eval F τ0 ιs0 ->
-  eval_rep ρ = Some ιs ->
-  convertible_to ιs0 ιs ->
-  has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IWrap ψ) ψ L
-| TUnwrap M F L ρ ιs0 ιs τ0 κ :
-  let ψ := InstrT [RepT κ ρ τ0] [τ0] in
-  type_rep_eval F τ0 ιs0 ->
-  eval_rep ρ = Some ιs ->
-  convertible_to ιs0 ιs ->
-  has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IUnwrap ψ) ψ L
 | TTag M F L :
   let ψ := InstrT [type_i32] [type_i31] in
   has_instruction_type_ok F ψ L ->
@@ -991,24 +959,22 @@ Section HasHaveInstructionTypeMind.
           Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IReturn ψ) ψ L')
-      (HLocalGet : forall M F L i τ ιs,
+      (HLocalGet : forall M F L i τ,
           let ψ := InstrT [] [τ] in
-          let L' := <[ i := type_val_uninit ιs ]> L in
-          F.(fc_locals) !! i = Some ιs ->
-          L !! i = Some τ ->
+          let L' := <[ i := None ]> L in
+          L !! i = Some (Some τ) ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ILocalGet ψ i) ψ L')
       (HLocalGetCopy : forall M F L i τ,
           let ψ := InstrT [] [τ] in
-          L !! i = Some τ ->
+          L !! i = Some (Some τ) ->
           has_copyability F τ ImCopy ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILocalGet ψ i) ψ L)
-      (HLocalSet : forall M F L i τ τ',
-          let ψ := InstrT [τ'] [] in
-          let L' := <[ i := τ' ]> L in
-          L !! i = Some τ ->
-          has_dropability F τ ImDrop ->
+      (HLocalSet : forall M F L i τ,
+          let ψ := InstrT [τ] [] in
+          let L' := <[ i := Some τ ]> L in
+          (forall τ0, L !! i = Some (Some τ0) -> has_dropability F τ0 ImDrop) ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ILocalSet ψ i) ψ L')
       (HCodeRef : forall M F L i ϕ,
@@ -1072,20 +1038,6 @@ Section HasHaveInstructionTypeMind.
           P2 M F0 L0 es0 ψ0 L0' ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IUnpack ψ L' es) ψ L')
-      (HWrap : forall M F L ρ ιs0 ιs τ0 κ,
-          let ψ := InstrT [τ0] [RepT κ ρ τ0] in
-          type_rep_eval F τ0 ιs0 ->
-          eval_rep ρ = Some ιs ->
-          convertible_to ιs0 ιs ->
-          has_instruction_type_ok F ψ L ->
-          P1 M F L (IWrap ψ) ψ L)
-      (HUnwrap : forall M F L ρ ιs0 ιs τ0 κ,
-          let ψ := InstrT [RepT κ ρ τ0] [τ0] in
-          type_rep_eval F τ0 ιs0 ->
-          eval_rep ρ = Some ιs ->
-          convertible_to ιs0 ιs ->
-          has_instruction_type_ok F ψ L ->
-          P1 M F L (IUnwrap ψ) ψ L)
       (HTag : forall M F L,
           let ψ := InstrT [type_i32] [type_i31] in
           has_instruction_type_ok F ψ L ->
@@ -1176,9 +1128,9 @@ Section HasHaveInstructionTypeMind.
           H3
     | TBr M F L L' i τs τs1 τs2 H1 H2 H3 => HBr M F L L' i τs τs1 τs2 H1 H2 H3
     | TReturn M F L L' τs τs1 τs2 H1 H2 H3 => HReturn M F L L' τs τs1 τs2 H1 H2 H3
-    | TLocalGet M F L i τ ιs H1 H2 H3 => HLocalGet M F L i τ ιs H1 H2 H3
+    | TLocalGet M F L i τ H1 H2 => HLocalGet M F L i τ H1 H2
     | TLocalGetCopy M F L i τ H1 H2 H3 => HLocalGetCopy M F L i τ H1 H2 H3
-    | TLocalSet M F L i τ τ' H1 H2 H3 => HLocalSet M F L i τ τ' H1 H2 H3
+    | TLocalSet M F L i τ H1 H2 => HLocalSet M F L i τ H1 H2
     | TCodeRef M F L i ϕ H1 H2 => HCodeRef M F L i ϕ H1 H2
     | TInst M F L ix ϕ ϕ' H1 H2 => HInst M F L ix ϕ ϕ' H1 H2
     | TCall M F L i ixs ϕ τs1 τs2 H1 H2 H3 => HCall M F L i ixs ϕ τs1 τs2 H1 H2 H3
@@ -1195,8 +1147,6 @@ Section HasHaveInstructionTypeMind.
     | TPack M F L τ τ' H1 H2 => HPack M F L τ τ' H1 H2
     | TUnpack M F F0 L L' L0 L0' es es0 ψ ψ0 H1 H2 H3 =>
         HUnpack M F F0 L L' L0 L0' es es0 ψ ψ0 H1 (have_instruction_type_mind _ _ _ _ _ _ H2) H3
-    | TWrap M F L ρ ιs0 ιs τ0 κ H1 H2 H3 H4 => HWrap M F L ρ ιs0 ιs τ0 κ H1 H2 H3 H4
-    | TUnwrap M F L ρ ιs0 ιs τ0 κ H1 H2 H3 H4 => HUnwrap M F L ρ ιs0 ιs τ0 κ H1 H2 H3 H4
     | TTag M F L H1 => HTag M F L H1
     | TUntag M F L H1 => HUntag M F L H1
     | TRefNew M F L μ τ τ' κ H1 H2 H3 => HRefNew M F L μ τ τ' κ H1 H2 H3

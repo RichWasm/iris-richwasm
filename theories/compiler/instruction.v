@@ -8,7 +8,7 @@ From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
 From RichWasm Require Import prelude layout syntax util.
-From RichWasm.compiler Require Import prelude codegen convert memory util.
+From RichWasm.compiler Require Import prelude codegen memory util.
 
 Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
 
@@ -129,20 +129,6 @@ Section Compiler.
     tys ← try_option EFail (translate_instr_type fe.(fe_type_vars) (InstrT τs1 τs2));
     ignore $ block_c tys (c fe').
 
-  Definition compile_wrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
-    ρ0 ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs0 ← try_option EFail (eval_rep ρ0);
-    ιs ← try_option EFail (eval_rep ρ);
-    wz ← to_words fe ιs0;
-    from_words fe wz ιs.
-
-  Definition compile_unwrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
-    ρ0 ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs0 ← try_option EFail (eval_rep ρ0);
-    ιs ← try_option EFail (eval_rep ρ);
-    wz ← to_words fe ιs;
-    from_words fe wz ιs0.
-
   Definition compile_tag : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_shl)).
@@ -232,10 +218,6 @@ Section Compiler.
     | IUnfold  _ => erased_in_wasm
     | IPack _ => erased_in_wasm
     | IUnpack ψ _ es => compile_unpack fe ψ (flip compile_instrs es)
-    | IWrap (InstrT _ [RepT _ ρ τ]) => compile_wrap fe ρ τ
-    | IWrap _ => raise EFail
-    | IUnwrap (InstrT [RepT _ ρ τ] _) => compile_unwrap fe ρ τ
-    | IUnwrap _ => raise EFail
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
     | IRefNew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_ref_new fe cm τ τ'
