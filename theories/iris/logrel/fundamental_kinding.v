@@ -2,7 +2,7 @@
      well-kinded syntactic types are semantically well-kinded *)
 
 From iris.proofmode Require Import base tactics classes.
-From RichWasm Require Import layout syntax typing.
+From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module.
 From RichWasm.iris Require Import autowp gc.
 From RichWasm.iris.logrel Require Import relations.
@@ -120,117 +120,10 @@ Section FundamentalKinding.
     - by eapply semantic_type_le_trans.
   Qed.
 
-  Lemma subkind_of_subst s__mem s__rep s__size κ κ' :
-    subkind_of κ κ' ->
-    subkind_of (subst_kind s__mem s__rep s__size κ)
-               (subst_kind s__mem s__rep s__size κ').
+  Lemma subst_interp_kinds_map κs s__mem s__rep s__size se :
+    ⊢ sem_env_interp sr κs s__mem s__rep s__size se -∗
+    ⌜ map fst se = map (subst_kind s__mem s__rep s__size) κs⌝.
   Proof.
-    intros Hle.
-    destruct Hle; constructor.
-  Qed.
-  
-  Lemma rep_ok_subst K ρ :
-    rep_ok K ρ ->
-    forall s__rep,
-      rep_subst_interp K s__rep ->
-      rep_ok kc_empty (subst_representation s__rep ρ).
-  Proof.
-    induction 1; intros; eauto.
-  Admitted.
-  
-  Lemma kind_ok_subst K κ :
-    kind_ok K κ ->
-    forall s__mem s__rep s__size,
-      subst_interp K s__mem s__rep s__size ->
-      kind_ok kc_empty (subst_kind s__mem s__rep s__size κ).
-  Proof.
-    unfold subst_interp.
-    induction 1; intros * (Hmem & Hrep & Hsz).
-    - constructor.
-      eapply rep_ok_subst; eauto.
-    - constructor.
-      + admit.
-      + admit.
-  Admitted.
-  
-  Ltac fold_subst :=
-    fold subst_type subst_size subst_representation subst_function_type.
-  
-  Lemma has_kind_subst F τ κ :
-    has_kind F τ κ ->
-    ∀ s__mem s__rep s__size,
-        subst_interp F.(fc_kind_ctx) s__mem s__rep s__size ->
-        has_kind 
-          (fc_clear_kind (subst_function_ctx s__mem s__rep s__size VarT F))
-          (subst_type s__mem s__rep s__size VarT τ)
-          (subst_kind s__mem s__rep s__size κ).
-  Proof.
-    induction 1 using has_kind_ind'; intros s__mem s__rep s__size Hsubst; try solve [econstructor; eauto].
-    - eapply IHhas_kind in Hsubst.
-      econstructor; eauto using subkind_of_subst.
-    - cbn.
-      eapply KVar.
-      + cbn.
-        by rewrite list_lookup_fmap H.
-      + by eapply kind_ok_subst.
-    - eapply KSumVal.
-      fold_subst.
-      apply Forall2_fmap; eapply Forall2_impl; eauto.
-    - eapply KSumMem.
-      { admit. }
-      apply Forall2_fmap; eapply Forall2_impl; eauto.
-    - eapply KSumMemSized.
-      { admit. }
-      apply Forall2_fmap; eapply Forall2_impl; eauto.
-    - eapply KProdVal.
-      fold_subst.
-      apply Forall2_fmap; eapply Forall2_impl; eauto.
-    - eapply KProdMem.
-      { admit. }
-      fold_subst.
-      apply Forall2_fmap; eapply Forall2_impl; eauto.
-    - eapply KProdMemSized.
-      { admit. }
-      fold_subst.
-      apply Forall2_fmap; eapply Forall2_impl; eauto.
-    - eapply KCodeRef.
-      fold_subst.
-      admit.
-    - eapply KRep.
-      { admit. }
-      fold_subst.
-      eauto.
-    - eapply KPad.
-      { admit. }
-      fold_subst.
-      eauto.
-    - eapply KSer.
-      { admit. }
-      fold_subst; eauto.
-    - eapply KRec.
-      fold_subst.
-      admit.
-    - eapply KExistsMem.
-      { eapply kind_ok_subst; eauto. }
-      fold_subst.
-      admit.
-    - eapply KExistsRep.
-      { eapply kind_ok_subst; eauto. }
-      fold_subst.
-      set (s__mem' := up_representation_memory s__mem).
-      set (s__rep' := up_representation_representation s__rep).
-      set (s__size' := up_representation_size s__size).
-      set (F' := RecordSet.set _ _ _) in *.
-      set (F'' := RecordSet.set _ _ _).
-      erewrite ext_type; first last.
-      + intros i.
-        rewrite upId_representation_type; eauto.
-      + reflexivity.
-      + reflexivity.
-      + reflexivity.
-      + admit.
-    - admit.
-    - admit.
   Admitted.
 
   Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
@@ -239,15 +132,24 @@ Section FundamentalKinding.
     ⊢ ⌜value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑
          kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ)⌝.
   Proof.
-    iIntros "%Hhas_kind [%Hsubst _]".
+    iIntros "%Hhas_kind [%Hsubst Hse]".
+    iPoseProof (subst_interp_kinds_map with "Hse") as "%Hfsteq".
+    unfold sem_env_interp.
+    setoid_rewrite bi.sep_comm.
+    rewrite big_sepL2_sep_sepL_l.
+    iDestruct "Hse" as "[Hkinding Hsubst]".
+    rewrite big_sepL2_pure.
+    iDestruct "Hsubst" as "[%Htylen %Htysub]".
     iPureIntro.
     intros sv.
     iIntros "Hval".
     rewrite value_interp_eq.
     iDestruct "Hval" as "(%κ' & %Htyk & Hinterp & _)".
+    rewrite Hfsteq in Htyk.
     eapply has_kind_subst in Hhas_kind; eauto.
-    eapply type_kind_has_kind_agree in Hhas_kind; cbn; eauto.
-  Admitted.
+    eapply type_kind_has_kind_agree in Hhas_kind; eauto.
+    by iApply rt_subkind_sound.
+  Qed.
   
   Instance kind_as_type_persistent κ sv :
     @Persistent (iProp Σ) (kind_as_type_interp sr κ sv).
@@ -315,22 +217,6 @@ Section FundamentalKinding.
     - admit. (* refs *)
     - inversion Hκeq; subst.
     - admit. (* coderef *)
-    - inversion Hκeq; subst; cbn; eauto.
-      destruct χ0; cbn.
-      + done.
-      + unfold explicit_copy_spec.
-        iIntros.
-        rewrite value_interp_eq; simpl.
-        admit.
-      + setoid_rewrite value_interp_eq; cbn.
-        iPoseProof (IHHkind _ _ _ eq_refl) as "IH".
-        iSpecialize ("IH" with "[Henv]"); [by iFrame|].
-        cbn.
-        iPoseProof "IH" as "%IH".
-        iIntros "!% %sv".
-        repeat ((eapply bi.exist_persistent; intros) 
-                || eapply bi.sep_persistent
-                || typeclasses eauto).
     - cbn in *. 
       admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.

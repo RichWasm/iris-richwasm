@@ -84,11 +84,6 @@ Definition add_rt_global_import (name : string) (tg : W.global_type) : modgen W.
   add_import (rt_import name (W.ID_global tg));;
   ret gid.
 
-Definition add_global_import (tg : W.global_type) : modgen W.globalidx :=
-  gid ← next_globalidx_import;
-  add_import (W.Build_module_import [] [] (W.ID_global tg));;
-  ret gid.
-
 Definition add_global (mg : W.module_glob) : modgen W.globalidx :=
   gid ← next_globalidx;
   modify (set W.mod_globals (flip app [mg]));;
@@ -147,11 +142,11 @@ Definition call_table_set (gid_table_off : W.globalidx) (fid_table_set : W.funci
 Definition compile_func_import (ϕ : function_type) : modgen W.funcidx :=
   try_option EFail (translate_func_type [] ϕ) ≫= add_func_import.
 
-Definition compile_func (me : module_env) (mf : module_function) : modgen W.funcidx :=
+Definition compile_func (mr : module_runtime) (mf : module_function) : modgen W.funcidx :=
   tf ← try_option EFail (translate_func_type [] mf.(mf_type));
   tid ← add_type tf;
   fe ← try_option EFail (fe_of_module_func mf);
-  '((), wl, body) ← lift (run_codegen (compile_instrs me fe mf.(mf_body)) []);
+  '((), wl, body) ← lift (run_codegen (compile_instrs mr fe mf.(mf_body)) []);
   locals ← try_option EFail (mapM eval_rep mf.(mf_locals));
   let locals' := flat_map (map translate_prim_rep) locals ++ wl in
   add_func (W.Build_module_func tid locals' body).
@@ -166,14 +161,9 @@ Definition compile_table
   in
   add_func (W.Build_module_func tid [] body).
 
-Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (ex : module_export) :
+Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (i : nat) :
   modgen unit :=
-  let ed :=
-    match ex with
-    | ExFunction i => W.MED_func (W.Mk_funcidx (funcimm fid_user + i))
-    | ExGlobal i => W.MED_global (W.Mk_globalidx (globalimm gid_user + i))
-    end
-  in
+  let ed := W.MED_func (W.Mk_funcidx (funcimm fid_user + i)) in
   add_export (W.Build_module_export [] ed).
 
 Definition compile_module (m : module) : modgen unit :=
@@ -192,7 +182,6 @@ Definition compile_module (m : module) : modgen unit :=
   (* Save the offsets of user imports and definitions. After this point:
 
      - No more runtime imports.
-     - Runtime global definitions only after all user globals (imports and definitions).
      - Runtime function definitions only after all user functions (imports and definitions).
 
      This creates a "sandwich," with runtime imports at the beginning, user imports and definitions
@@ -201,10 +190,7 @@ Definition compile_module (m : module) : modgen unit :=
   fid_user ← next_funcidx_import;
 
   (* User Imports *)
-  (* TODO: globals_import *)
-  mapM_ compile_func_import m.(m_funcs_import);;
-
-  (* TODO: User Global Definitions *)
+  mapM_ compile_func_import m.(m_imports);;
 
   (* Runtime Global Definitions *)
   let mg_table_off :=
@@ -227,8 +213,7 @@ Definition compile_module (m : module) : modgen unit :=
        mr_global_table_off := gid_table_off;
        mr_global_user := gid_user |}
   in
-  let me := me_of_module m mr in
-  mapM_ (compile_func me) m.(m_funcs);;
+  mapM_ (compile_func mr) m.(m_functions);;
 
   (* User Exports *)
   mapM_ (compile_export gid_user fid_user) m.(m_exports);;

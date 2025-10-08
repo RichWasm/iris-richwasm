@@ -12,32 +12,32 @@ Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
 
 Section Compiler.
 
-  Variable me : module_env.
+  Variable mr : module_runtime.
 
   Definition alloc (cm : concrete_memory) (n : nat) : codegen unit :=
     match cm with
     | MemMM =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
-        emit (W.BI_call (funcimm me.(me_runtime).(mr_func_alloc_mm)))
+        emit (W.BI_call (funcimm mr.(mr_func_alloc_mm)))
     | MemGC =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
         (* TODO: Pointer map. *)
         emit (W.BI_const (W.VAL_int64 (Wasm_int.int_zero i64m)));;
-        emit (W.BI_call (funcimm me.(me_runtime).(mr_func_alloc_gc)))
+        emit (W.BI_call (funcimm mr.(mr_func_alloc_gc)))
     end.
 
   Definition free : codegen unit :=
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_free))).
+    emit (W.BI_call (funcimm mr.(mr_func_free))).
 
   Definition duproot : codegen unit :=
-    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None align_word offset_gc);;
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
+    emit (W.BI_load (memimm mr.(mr_mem_gc)) W.T_i32 None align_word offset_gc);;
+    emit (W.BI_call (funcimm mr.(mr_func_registerroot))).
 
   Definition registerroot : codegen unit :=
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_registerroot))).
+    emit (W.BI_call (funcimm mr.(mr_func_registerroot))).
 
   Definition unregisterroot : codegen unit :=
-    emit (W.BI_call (funcimm me.(me_runtime).(mr_func_unregisterroot))).
+    emit (W.BI_call (funcimm mr.(mr_func_unregisterroot))).
 
   Definition primitive_offset (ι : primitive_rep) : W.static_offset :=
     (4 * N.of_nat (primitive_size ι))%N.
@@ -98,9 +98,9 @@ Section Compiler.
     let ty := translate_prim_rep ι in
     match cm with
     | MemMM =>
-        emit (W.BI_store (memimm me.(me_runtime).(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
+        emit (W.BI_store (memimm mr.(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
     | MemGC =>
-        emit (W.BI_store (memimm me.(me_runtime).(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
+        emit (W.BI_store (memimm mr.(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
     end.
 
   Definition store_as_ser
@@ -117,7 +117,7 @@ Section Compiler.
     emit (W.BI_get_local (localimm a));;
     emit (W.BI_get_local (localimm v));;
     unregisterroot;;
-    emit (W.BI_store (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N).
+    emit (W.BI_store (memimm mr.(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N).
 
   Fixpoint store_as
     (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset)
@@ -171,9 +171,9 @@ Section Compiler.
     let ty := translate_prim_rep ι in
     match cm with
     | MemMM =>
-        emit (W.BI_load (memimm me.(me_runtime).(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
+        emit (W.BI_load (memimm mr.(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
     | MemGC =>
-        emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
+        emit (W.BI_load (memimm mr.(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
     end.
 
   Definition load_from_ser
@@ -186,7 +186,7 @@ Section Compiler.
 
   Definition load_from_gcptr (a : W.localidx) (off : W.static_offset) : codegen unit :=
     emit (W.BI_get_local (localimm a));;
-    emit (W.BI_load (memimm me.(me_runtime).(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N);;
+    emit (W.BI_load (memimm mr.(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N);;
     registerroot.
 
   Fixpoint load_from

@@ -8,13 +8,13 @@ From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
 From RichWasm Require Import prelude layout syntax util.
-From RichWasm.compiler Require Import prelude codegen convert memory util.
+From RichWasm.compiler Require Import prelude codegen memory util.
 
 Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
 
 Section Compiler.
 
-  Variable me : module_env.
+  Variable mr : module_runtime.
 
   Definition drop_primitive (fe : function_env) (ι : primitive_rep) : codegen unit :=
     match ι with
@@ -24,8 +24,8 @@ Section Compiler.
           (emit W.BI_drop)
           (fun cm =>
              match cm with
-             | MemMM => free me
-             | MemGC => unregisterroot me
+             | MemMM => free mr
+             | MemGC => unregisterroot mr
              end)
     | _ => emit W.BI_drop
     end.
@@ -34,13 +34,6 @@ Section Compiler.
     let i' := sum_list_with length (take i fe.(fe_locals)) in
     ιs ← fe.(fe_locals) !! i;
     Some (map W.Mk_localidx (seq i' (length ιs))).
-
-  Definition global_indices (i : nat) : option (list W.globalidx * list primitive_rep) :=
-    ρs ← mapM (type_rep []) me.(me_globals);
-    ιss ← mapM eval_rep ρs;
-    let i' := sum_list_with length (take i ιss) in
-    ιs ← ιss !! i;
-    Some (map W.Mk_globalidx (seq i' (length ιs)), ιs).
 
   Definition fe_extend_unpack (fe : function_env) (τ : type) : function_env :=
     match τ with
@@ -53,7 +46,7 @@ Section Compiler.
     ιs ← try_option EFail (eval_rep ρ);
     ixs ← save_stack fe ιs;
     restore_stack ixs;;
-    update_gc_refs ixs ιs (duproot me);;
+    update_gc_refs ixs ιs (duproot mr);;
     restore_stack ixs.
 
   Definition compile_drop (fe : function_env) (τ : type) : codegen unit :=
@@ -99,26 +92,13 @@ Section Compiler.
   Definition compile_local_set (fe : function_env) (i : nat) : codegen unit :=
     try_option EFail (local_indices fe i) ≫= set_locals_w.
 
-  Definition compile_global_get (i : nat) : codegen unit :=
-    try_option EFail (global_indices i) ≫= get_globals_w ∘ fst.
-
-  Definition compile_global_set (i : nat) : codegen unit :=
-    try_option EFail (global_indices i) ≫= set_globals_w ∘ fst.
-
-  Definition compile_global_swap (fe : function_env) (i : nat) : codegen unit :=
-    '(ixs, ιs) ← try_option EFail (global_indices i);
-    get_globals_w ixs;;
-    old ← save_stack fe ιs;
-    set_globals_w ixs;;
-    restore_stack old.
-
   Definition compile_coderef (i : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
-    emit (W.BI_get_global (globalimm me.(me_runtime).(mr_global_table_off)));;
+    emit (W.BI_get_global (globalimm mr.(mr_global_table_off)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_add)).
 
   Definition compile_call (i : nat) : codegen unit :=
-    let i' := i + funcimm me.(me_runtime).(mr_func_user) in
+    let i' := i + funcimm mr.(mr_func_user) in
     emit (W.BI_call i').
 
   Definition compile_inject (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
@@ -149,20 +129,6 @@ Section Compiler.
     tys ← try_option EFail (translate_instr_type fe.(fe_type_vars) (InstrT τs1 τs2));
     ignore $ block_c tys (c fe').
 
-  Definition compile_wrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
-    ρ0 ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs0 ← try_option EFail (eval_rep ρ0);
-    ιs ← try_option EFail (eval_rep ρ);
-    wz ← to_words fe ιs0;
-    from_words fe wz ιs.
-
-  Definition compile_unwrap (fe : function_env) (ρ : representation) (τ : type) : codegen unit :=
-    ρ0 ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs0 ← try_option EFail (eval_rep ρ0);
-    ιs ← try_option EFail (eval_rep ρ);
-    wz ← to_words fe ιs;
-    from_words fe wz ιs0.
-
   Definition compile_tag : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_shl)).
@@ -178,10 +144,10 @@ Section Compiler.
     σ ← try_option EFail (type_size fe.(fe_type_vars) τ');
     n ← try_option EFail (eval_size σ);
     vs ← save_stack fe ιs;
-    alloc me cm n;;
+    alloc mr cm n;;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
-    store_as me fe cm a 0%N ρ τ' vs.
+    store_as mr fe cm a 0%N ρ τ' vs.
 
   Definition compile_ref_store (fe : function_env) (τval τ : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -192,7 +158,7 @@ Section Compiler.
     emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr (W.Tf [] []) a
       (emit W.BI_unreachable)
-      (fun cm => store_as me fe cm a off ρ τmem vs).
+      (fun cm => store_as mr fe cm a off ρ τmem vs).
 
   Definition compile_ref_load (fe : function_env) (τ : type) (π : path) : codegen unit :=
     '(off, τ') ← try_option EFail (resolve_path fe τ π);
@@ -202,7 +168,7 @@ Section Compiler.
     emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr (W.Tf [] (map translate_prim_rep ιs)) a
       (emit W.BI_unreachable)
-      (fun cm => load_from me fe cm a off τ').
+      (fun cm => load_from mr fe cm a off τ').
 
   Definition compile_ref_swap (fe : function_env) (τval τ τ' : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -214,7 +180,7 @@ Section Compiler.
     emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr (W.Tf [] (map translate_prim_rep ιs)) a
       (emit W.BI_unreachable)
-      (fun cm => load_from me fe cm a off τmem;; store_as me fe cm a off ρ τmem' vs).
+      (fun cm => load_from mr fe cm a off τmem;; store_as mr fe cm a off ρ τmem' vs).
 
   Definition erased_in_wasm : codegen unit := ret tt.
 
@@ -237,13 +203,10 @@ Section Compiler.
     | IReturn _ => emit W.BI_return
     | ILocalGet _ i => compile_local_get fe i
     | ILocalSet _ i => compile_local_set fe i
-    | IGlobalGet _ i => compile_global_get i
-    | IGlobalSet _ i => compile_global_set i
-    | IGlobalSwap _ i => compile_global_swap fe i
     | ICodeRef _ i => compile_coderef i
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
-    | ICallIndirect _ => emit (W.BI_call_indirect (tableimm me.(me_runtime).(mr_table)))
+    | ICallIndirect _ => emit (W.BI_call_indirect (tableimm mr.(mr_table)))
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
     | IInject _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] τs) _ ess =>
@@ -255,10 +218,6 @@ Section Compiler.
     | IUnfold  _ => erased_in_wasm
     | IPack _ => erased_in_wasm
     | IUnpack ψ _ es => compile_unpack fe ψ (flip compile_instrs es)
-    | IWrap (InstrT _ [RepT _ ρ τ]) => compile_wrap fe ρ τ
-    | IWrap _ => raise EFail
-    | IUnwrap (InstrT [RepT _ ρ τ] _) => compile_unwrap fe ρ τ
-    | IUnwrap _ => raise EFail
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
     | IRefNew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_ref_new fe cm τ τ'

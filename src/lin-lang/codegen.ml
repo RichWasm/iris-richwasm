@@ -221,18 +221,13 @@ module Compile = struct
         let t' = compile_type t in
         ret @@ v' @ [ RefLoad (Path [], t'); Drop ]
 
-  let compile_import ({ typ; name } : A.Import.t) : B.Module.Import.t Res.t =
+  let compile_import ({ typ; _ } : A.Import.t) : B.FunctionType.t Res.t =
     let open Res in
-    let open B.Module.Import in
-    let* desc : B.Module.Import.Desc.t =
-      match typ with
-      | Lollipop (pt, rt) ->
-          ret
-            (Desc.ImFunction
-               (FunctionType ([], [ compile_type pt ], [ compile_type rt ])))
-      | x -> fail (ImportNotFunc x)
-    in
-    ret { name; desc }
+    let open B.FunctionType in
+    match typ with
+    | Lollipop (pt, rt) ->
+        ret (FunctionType ([], [ compile_type pt ], [ compile_type rt ]))
+    | x -> fail (ImportNotFunc x)
 
   let base_compile_function
       (env : Env.t)
@@ -279,18 +274,15 @@ module Compile = struct
     (* TODO: table *)
     let table = [] in
     let globals = [] in
-    (* NOTE: start should only be used for module initialization, not main *)
-    let start = None in
     let* imports = mapM ~f:compile_import imports in
     let main_export =
       main
       |> Option.map ~f:(fun _ -> List.length functions - 1)
-      |> Option.map ~f:(fun i ->
-             [ B.Module.Export.{ name = "_start"; desc = ExFunction i } ])
+      |> Option.map ~f:List.return
       |> Option.value_or_thunk ~default:(fun () -> [])
     in
     (* TODO: exports *)
     let exports = [] @ main_export in
 
-    ret @@ B.Module.{ imports; exports; globals; functions; table; start }
+    ret @@ B.Module.{ imports; exports; functions; table }
 end
