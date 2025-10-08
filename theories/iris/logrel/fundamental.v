@@ -389,21 +389,23 @@ Section Fundamental.
     rewrite instId'_type -IHts //. 
   Qed. 
 
-  
   Lemma compat_ite M F L L' wl wl' es1 es2 es' τs1 τs2 :
     let fe := fe_of_context F in
+    let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
     has_instruction_type_ok F ψ L' ->
     (forall wl wl' es',
+        let fe := fe_of_context F' in
         run_codegen (compile_instrs mr fe es1) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
+        ⊢ have_instruction_type_sem sr mr M F' L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
     (forall wl wl' es',
+        let fe := fe_of_context F' in
         run_codegen (compile_instrs mr fe es2) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
+        ⊢ have_instruction_type_sem sr mr M F' L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Proof.
-    intros fe ψ Hok Hthen Helse Hcodegen.
+    intros fe F' ψ Hok Hthen Helse Hcodegen.
     iIntros (smem srep ssize se inst lh) "Hsubst Hinst Hctxt".
     iIntros (fr vs) "Hvss Hvsl Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
@@ -449,7 +451,7 @@ Section Fundamental.
 (*    unfold util.ignore in Hcodegen. *)
     inv_cg_bind Hcodegen ρ' wl2 es_nil' es2' Htype_rep' Hcodegen.
     rewrite /run_codegen /= in Hcodegen.
-    inversion Hcodegen; subst wl' es2'; clear Hcodegen.
+    (* inversion Hcodegen; subst wl' es2'; clear Hcodegen.
     rewrite app_nil_r in Hes_app_eq.
     subst es_nil'.
     rewrite app_nil_r app_nil_l.
@@ -648,7 +650,7 @@ Section Fundamental.
              iSplit; first done. iFrame. done.
         * iDestruct "H" as "[? _]"; done.
     - (* n is true *)
-      admit.
+      admit. *)
   Admitted.
 
   Lemma compat_br M F L L' wl wl' es' i τs1 τs τs2 :

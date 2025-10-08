@@ -731,9 +731,10 @@ Inductive has_instruction_type :
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILoop ψ es) ψ L
 | TIte M F L L' τs1 τs2 es1 es2 :
-  have_instruction_type M F L es1 (InstrT τs1 τs2) L' ->
-  have_instruction_type M F L es2 (InstrT τs1 τs2) L' ->
+  let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
+  have_instruction_type M F' L es1 (InstrT τs1 τs2) L' ->
+  have_instruction_type M F' L es2 (InstrT τs1 τs2) L' ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IIte ψ L' es1 es2) ψ L'
 | TBr M F L L' i τs τs1 τs2 :
@@ -942,9 +943,10 @@ Section HasHaveInstructionTypeMind.
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILoop ψ es) ψ L)
       (HIte : forall M F L L' τs1 τs2 es1 es2,
-          P2 M F L es1 (InstrT τs1 τs2) L' ->
-          P2 M F L es2 (InstrT τs1 τs2) L' ->
+          let F' := F <| fc_labels ::= cons (τs2, L') |> in
           let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
+          P2 M F' L es1 (InstrT τs1 τs2) L' ->
+          P2 M F' L es2 (InstrT τs1 τs2) L' ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IIte ψ L' es1 es2) ψ L')
       (HBr : forall M F L L' i τs τs1 τs2,
