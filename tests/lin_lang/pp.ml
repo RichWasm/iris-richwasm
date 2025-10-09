@@ -205,8 +205,8 @@ let%expect_test "pretty prints examples" =
       (split ((x : int), (y : int)) = p in
       (if0 y
         then (inj 1 () : (int ⊕ ())) else
-             (let (q : int) = (x ÷ y) in
-             (inj 0 q : (int ⊕ ()))))))
+               (let (q : int) = (x ÷ y) in
+               (inj 0 q : (int ⊕ ()))))))
 
     (fun from_either (e : (int ⊕ ())) : int .
       (cases e
@@ -218,11 +218,10 @@ let%expect_test "pretty prints examples" =
     (app from_either r))
     -----------incr_n-----------
     (fun incr_1 (r : (ref int)) : (ref int) .
-      (split ((old : int), (r1 : (ref int))) = (swap r 0) in
+      (split ((r1 : (ref int)), (old : int)) = (swap r 0) in
       (let (new : int) = (old + 1) in
-      (let (p2 : (int ⊗ (ref int))) = (swap r1 new) in
-      (split ((_ : int), (r2 : (ref int))) = p2 in
-      r2)))))
+      (split ((r2 : (ref int)), (_ : int)) = (swap r1 new) in
+      r2))))
     (export fun incr_n (p : ((ref int) ⊗ int)) : int .
       (split ((r : (ref int)), (n : int)) = p in
       (if0 n then (free r) else
@@ -254,6 +253,25 @@ let%expect_test "pretty prints examples" =
               (n × rec-res)))))))
       in
     (app factorial 5)))
+    -----------unboxed_list-----------
+    (fun map_int (p : ((int ⊸ int) ⊗ (rec α (() ⊕ (int ⊗ α))))) :
+      (rec α (() ⊕ (int ⊗ α))) .
+      (split ((f : (int ⊸ int)), (lst : (rec α (() ⊕ (int ⊗ α))))) = p in
+      (fold (rec α (() ⊕ (int ⊗ α)))
+        (cases (unfold (rec α (() ⊕ (int ⊗ α))) lst)
+          (case (nil : ())
+            (inj 0 nil : (() ⊕ (int ⊗ (rec α (() ⊕ (int ⊗ α)))))))
+            (case (cons : (int ⊗ (rec α (() ⊕ (int ⊗ α)))))
+              (split ((hd : int), (tl : (rec α (() ⊕ (int ⊗ α))))) = cons in
+              (inj 1 ((app f hd), (app map_int (f, tl))) :
+                (() ⊕ (int ⊗ (rec α (() ⊕ (int ⊗ α))))))))))))
+
+
+    (let (lst : (rec α (() ⊕ (int ⊗ α)))) =
+      (fold (rec α (() ⊕ (int ⊗ α)))
+        (inj 0 () : (() ⊕ (int ⊗ (rec α (() ⊕ (int ⊗ α))))))) in
+      (app map_int ((λ (x : int) : int .
+                      (x + 1)), lst)))
     -----------swap_pair_program-----------
     (export fun swap (p : (int ⊗ int)) : (int ⊗ int) .
       (split ((x : int), (y : int)) = p in

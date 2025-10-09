@@ -63,11 +63,10 @@ let incr_n =
   Parse.from_string_exn
     {|
       (fun incr_1 (r : (ref int)) : (ref int) .
-        (split (old : int) (r1 : (ref int)) = (swap r 0) in
+        (split (r1 : (ref int)) (old : int) = (swap r 0) in
         (let (new : int) = (old + 1) in
-        (let (p2 : (int ⊗ (ref int))) = (swap r1 new) in
-        (split (_ : int) (r2 : (ref int)) = p2 in
-        r2)))))
+        (split (r2 : (ref int)) (_ : int) = (swap r1 new) in
+        r2))))
 
       (export fun incr_n (p : ((ref int) ⊗ int)) : int .
         (split (r : (ref int)) (n : int) = p in
@@ -108,6 +107,26 @@ let fix_factorial =
       (app factorial 5)))
     |}
 
+let unboxed_list =
+  Parse.from_string_exn
+    {|
+      (fun map_int
+          (p : ((int -> int) * (rec α . (() + (int * α)))))
+          : (rec α . (() + (int * α))) .
+        (split (f : (int -> int)) (lst : (rec α . (() + (int * α)))) = p in
+        (fold (rec α . (() + (int * α)))
+          (cases (unfold (rec α . (() + (int * α))) lst)
+            (case (nil : ())
+              (inj 0 nil : (() + (int * (rec α . (() + (int * α)))))))
+            (case (cons : (int * (rec α . (() + (int * α)))))
+              (split (hd : int) (tl : (rec α . (() + (int * α)))) = cons in
+                (inj 1 (tup (app f hd) (app map_int (f, tl))) : (() + (int * (rec α . (() + (int * α))))))))))))
+      (let (lst : (rec α . (() + (int * α)))) =
+        (fold (rec α . (() + (int * α)))
+          (inj 0 () : (() + (int * (rec α . (() + (int * α))))))) in
+      (app map_int ((lam (x : int) : int . (x + 1)), lst)))
+    |}
+
 (*let knot_factorial = Parse.from_string_exn 
     {|
       (let (peek : ((ref int) -> ((ref int) * int))) =
@@ -144,4 +163,5 @@ let all : (string * Module.t) list =
       ("safe_div", safe_div);
       ("incr_n", incr_n);
       ("fix_factorial", fix_factorial);
+      ("unboxed_list", unboxed_list)
     ]

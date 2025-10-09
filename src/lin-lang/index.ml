@@ -69,8 +69,9 @@ module IR = struct
   module Mk (Type : Ast) (Expr : Ast) = struct
     module Import = struct
       type t = {
-        typ : Type.t;
         name : string;
+        input : Type.t;
+        output : Type.t;
       }
       [@@deriving eq, ord, iter, map, fold, sexp, make]
 
@@ -108,7 +109,8 @@ end
 module Err = struct
   type t =
     | UnboundLocal of string
-    | UnboundType of string
+    | UnboundType of string * string
+    | InvalidImport of IR.Type.t
   [@@deriving sexp]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -126,6 +128,7 @@ module Compile = struct
       types : string list;
       fn_names : string list;
     }
+    [@@deriving sexp]
 
     let empty = { locals = []; types = []; fn_names = [] }
 
@@ -159,7 +162,11 @@ module Compile = struct
     | Var x -> (
         match Env.resolve_tname env x with
         | Some (i, n) -> Ok (Var (i, Some n))
-        | None -> Error (UnboundType x))
+        | None ->
+            Error
+              (UnboundType
+                 (x, Stdlib.Format.asprintf "%a" Sexp.pp_hum (Env.sexp_of_t env)))
+        )
     | Lollipop (t1, t2) ->
         let* t1' = compile_typ env t1 in
         let* t2' = compile_typ env t2 in
@@ -194,34 +201,34 @@ module Compile = struct
         let* return' = compile_typ env return in
         let* body' = compile_expr env' body in
         ret (Lam (typ', return', body'))
-    | Tuple vs ->
-        let* vs' = mapM ~f:(compile_expr env) vs in
-        ret (Tuple vs')
-    | Inj (i, v, t) ->
-        let* v' = compile_expr env v in
+    | Tuple es ->
+        let* es' = mapM ~f:(compile_expr env) es in
+        ret (Tuple es')
+    | Inj (i, e, t) ->
+        let* e' = compile_expr env e in
         let* t' = compile_typ env t in
-        ret (Inj (i, v', t'))
-    | Fold (t, v) ->
-        let* t' = compile_typ env t in
-        let* v' = compile_expr env v in
-        ret (Fold (t', v'))
+        ret (Inj (i, e', t'))
+    | Fold (mu, e) ->
+        let* mu' = compile_typ env mu in
+        let* e' = compile_expr env e in
+        ret (Fold (mu', e'))
     | App (l, r) ->
         let* l' = compile_expr env l in
         let* r' = compile_expr env r in
         ret @@ App (l', r')
-    | Let ((var, typ), e, body) ->
+    | Let ((var, typ), rhs, body) ->
         let* typ' = compile_typ env typ in
-        let* e' = compile_expr env e in
+        let* rhs' = compile_expr env rhs in
         let env' = Env.add env var in
         let* body' = compile_expr env' body in
-        ret @@ Let (typ', e', body')
-    | Split (bindings, e, body) ->
-        let* e' = compile_expr env e in
+        ret @@ Let (typ', rhs', body')
+    | Split (bindings, rhs, body) ->
+        let* rhs' = compile_expr env rhs in
         let vars, typs = List.unzip bindings in
         let* typs' = mapM ~f:(compile_typ env) typs in
         let env' = Env.add_all env vars in
         let* body' = compile_expr env' body in
-        ret @@ Split (typs', e', body')
+        ret @@ Split (typs', rhs', body')
     | Cases (scrutinee, cases) ->
         let* scrutinee' = compile_expr env scrutinee in
         let* cases' =
@@ -234,15 +241,15 @@ module Compile = struct
             cases
         in
         ret @@ Cases (scrutinee', cases')
-    | Unfold (t, v) ->
-        let* t' = compile_typ env t in
-        let* v' = compile_expr env v in
-        ret @@ Unfold (t', v')
-    | If0 (v, e1, e2) ->
-        let* v' = compile_expr env v in
-        let* e1' = compile_expr env e1 in
-        let* e2' = compile_expr env e2 in
-        ret @@ If0 (v', e1', e2')
+    | Unfold (mu, e) ->
+        let* mu' = compile_typ env mu in
+        let* e' = compile_expr env e in
+        ret @@ Unfold (mu', e')
+    | If0 (cond, thn, els) ->
+        let* cond' = compile_expr env cond in
+        let* thn' = compile_expr env thn in
+        let* els' = compile_expr env els in
+        ret @@ If0 (cond', thn', els')
     | Binop (op, l, r) ->
         let* l' = compile_expr env l in
         let* r' = compile_expr env r in
@@ -251,12 +258,12 @@ module Compile = struct
         let* l' = compile_expr env l in
         let* r' = compile_expr env r in
         ret @@ Swap (l', r')
-    | Free v ->
-        let* v' = compile_expr env v in
-        ret @@ Free v'
-    | New v ->
-        let* v' = compile_expr env v in
-        ret @@ New v'
+    | Free e ->
+        let* e' = compile_expr env e in
+        ret @@ Free e'
+    | New e ->
+        let* e' = compile_expr env e in
+        ret @@ New e'
 
   let compile_function
       (fn_names : string list)
@@ -277,8 +284,13 @@ module Compile = struct
     let* imports' =
       mapM
         ~f:(fun { typ; name } ->
-          let+ typ' = compile_typ Env.empty typ in
-          B.Import.{ typ = typ'; name })
+          let* typ' = compile_typ Env.empty typ in
+          let+ input, output =
+            match typ' with
+            | Lollipop (input, output) -> ret (input, output)
+            | x -> fail (InvalidImport x)
+          in
+          B.Import.{ name; input; output })
         imports
     in
     let fn_names =
