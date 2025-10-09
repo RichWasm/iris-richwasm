@@ -132,7 +132,7 @@ Section Compiler.
               σ ← try_option EFail (type_size fe.(fe_type_vars) τ);
               n ← try_option EFail (eval_size σ);
               store_as fe cm a off ρ τ (take (length ιs) vs);;
-              store_items_as (off + N.of_nat n)%N (drop (length ιs) vs) ρs' τs'
+              store_items_as (off + 4 * N.of_nat n)%N (drop (length ιs) vs) ρs' τs'
           | _, _ => ret tt
           end
         in
@@ -182,7 +182,7 @@ Section Compiler.
              σ ← try_option EFail (type_size fe.(fe_type_vars) τ');
              n ← try_option EFail (eval_size σ);
              load_from fe cm a off τ';;
-             ret (off + N.of_nat n)%N)
+             ret (off + 4 * N.of_nat n)%N)
           (ret off)
           τs
     | SerT _ τ' =>

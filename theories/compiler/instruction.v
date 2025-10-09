@@ -113,15 +113,49 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs_sum.
 
+  Definition compile_inject_variant
+    (fe : function_env) (i : nat) (τ : type) (τs : list type) (cm : concrete_memory) (σ : size) :
+    codegen unit :=
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+    ιs ← try_option EFail (eval_rep ρ);
+    τ' ← try_option EFail (τs !! i);
+    n ← try_option EFail (eval_size σ);
+    vs ← save_stack fe ιs;
+    alloc mr cm (4 * n);;
+    a ← wlalloc fe W.T_i32;
+    emit (W.BI_set_local (localimm a));;
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
+    v ← wlalloc fe W.T_i32;
+    emit (W.BI_set_local (localimm v));;
+    store_as_primitive mr cm a 0%N I32R v;;
+    store_as mr fe cm a 4%N ρ τ' vs.
+
   Definition compile_case_sum
     (fe : function_env) (ρs : list representation) (τs : list type) (cases : list (codegen unit)) :
     codegen unit :=
     result ← try_option EFail (translate_types fe.(fe_type_vars) τs);
     ιs ← try_option EFail (eval_rep (SumR ρs));
     ixs ← save_stack fe (tail ιs);
-    let do_case c ixs' := try_option EFail (nths_error ixs ixs') ≫= get_locals_w;; c in
+    let do_case case i :=
+      ρ ← try_option EFail (ρs !! i);
+      ixs' ← try_option EFail (inject_sum_rep ρs ρ);
+      try_option EFail (nths_error ixs ixs') ≫= get_locals_w;;
+      case
+    in
     (* TODO: br inside a case should bypass all but the outermost block. *)
-    case_blocks ρs result (map do_case cases).
+    case_blocks result (map do_case cases).
+
+  Definition compile_case_variant
+    (fe : function_env) (τsv τsr : list type) (cases : list (codegen unit)) : codegen unit :=
+    result ← try_option EFail (translate_types fe.(fe_type_vars) τsr);
+    a ← wlalloc fe W.T_i32;
+    emit (W.BI_tee_local (localimm a));;
+    ignore $ case_ptr (W.Tf [] result) a
+      (emit W.BI_unreachable)
+      (fun cm =>
+         let do_case c i := try_option EFail (τsv !! i) ≫= load_from mr fe cm a 4%N;; c in
+         (* TODO: br inside a case should bypass all but the outermost block. *)
+         case_blocks result (map do_case cases)).
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
@@ -146,7 +180,7 @@ Section Compiler.
     σ ← try_option EFail (type_size fe.(fe_type_vars) τ');
     n ← try_option EFail (eval_size σ);
     vs ← save_stack fe ιs;
-    alloc mr cm n;;
+    alloc mr cm (4 * n);;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
     store_as mr fe cm a 0%N ρ τ' vs.
@@ -210,11 +244,13 @@ Section Compiler.
     | ICall _ i _ => compile_call i
     | ICallIndirect _ => emit (W.BI_call_indirect (tableimm mr.(mr_table)))
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
-    | IInject (InstrT _ [RefT _ _ (VariantT _ _)]) _ => raise ETodo
+    | IInject (InstrT [τ] [RefT _ (ConstM cm) (VariantT (MEMTYPE (Sized σ) _ _) τs)]) i =>
+        compile_inject_variant fe i τ τs cm σ
     | IInject _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] τs) _ ess =>
         compile_case_sum fe ρs τs (map (compile_instrs fe) ess)
-    | ICase (InstrT [RefT _ _ (VariantT _ _)] _) _ _ => raise ETodo
+    | ICase (InstrT [RefT _ _ (VariantT _ τsv)] τsr) _ ess =>
+        compile_case_variant fe τsv τsr (map (compile_instrs fe) ess)
     | ICase _ _ _ => raise EFail
     | IGroup _ => erased_in_wasm
     | IUngroup _ => erased_in_wasm
