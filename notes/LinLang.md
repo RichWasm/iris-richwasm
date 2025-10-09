@@ -97,11 +97,34 @@ See what WAT does with block types.
 
 Remove MNF.
 
+Add dedicated `fix` to the language.
+
+### 2025-10-03
+
+Write Pretty Printer for annotated AST (to use in Roqc)
+
+See if LocalEffects can be entirely infered.
+
+If time, eventually check linearity in the LL type checker.
+
+### 2025-10-07
+
+2 bump allocators:
+- alloc -> bump allocator
+- free -> noop
+- register root -> bump allocator
+- unregster root -> noop
+
+Stil need to pp->roqc for annotated AST
+
+Need to check if LL lx is less general than general inference.
+
+fix free to temporarily save to reg
+
 # Thoughts for later
 
 ## Tail calls
 
 - top level functions need 0-sized allocations every time
 - also call-indicirect when call could work
-
 
