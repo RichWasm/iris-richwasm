@@ -215,9 +215,12 @@ module Compile = struct
         let* v1' = compile_expr env v1 in
         let* v2' = compile_expr env v2 in
         ret @@ v1' @ v2' @ [ RefSwap (Path []) ]
-    | Free (v, _) ->
+    | Free (v, t) ->
         let* v' = compile_expr env v in
-        ret @@ v' @ [ RefLoad (Path []); Drop ]
+        let* rep = lift_result @@ rep_of_typ t in
+        let* fresh_idx = new_local rep in
+        ret @@ v'
+        @ [ RefLoad (Path []); LocalSet fresh_idx; Drop; LocalGet fresh_idx ]
 
   let compile_import ({ typ; _ } : A.Import.t) : B.FunctionType.t Res.t =
     let open Res in
