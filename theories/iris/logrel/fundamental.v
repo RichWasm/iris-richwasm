@@ -115,6 +115,12 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
 
+  Lemma eval_rep_subst_eq ρ ιs s__rep :
+    eval_rep ρ = Some ιs ->
+    subst_representation s__rep ρ = ρ.
+  Proof.
+  Admitted.
+
   Lemma compat_copy M F L wl wl' τ es' :
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [τ; τ] in
@@ -156,23 +162,19 @@ Section Fundamental.
     rewrite app_nil_r in Hconcat; subst vs'.
     rewrite big_sepL2_singleton.
     iApply (lwp_wand with "[Hframe]"); last first.
-    - iApply ("Hcopyable" with "[] [] [$Hfr] [$Hrun] [$Hvs]").
-      + inversion Hok. inversion H. inversion H4.
-        admit.
-      + iPureIntro. unfold is_copy_operation. repeat eexists. admit.
-    - iIntros (lv) "(Hcopy & %fr' & Hfr & <-)".
-      unfold lp_wand', denote_logpred.
-      cbn.
-      iSplitL "Hcopy".
-      + destruct lv; cbn; try iDestruct "Hcopy" as "[]".
-        * iDestruct "Hcopy" as "[? (%vs1 & %vs2 & %Hl & Hvs1 & Hvs2)]".
-          iFrame.
-          iExists [vs1; vs2].
-          cbn.
-          rewrite app_nil_r.
-          by iFrame.
-        * iDestruct "Hcopy" as "[? []]".
-      + by iFrame.
+    - erewrite eval_rep_subst_eq; eauto.
+      rewrite Heq_some0.
+      iApply ("Hcopyable" with "[] [] [$Hfr] [$Hrun] [$Hvs]").
+      + unfold is_copy_operation.
+        iPureIntro.
+        eexists.
+        split.
+        * setoid_rewrite Hcompile.
+          repeat f_equal.
+          admit.
+        * by rewrite app_nil_l.
+      + admit.
+    - admit.
   Admitted.
 
   Lemma compat_drop M F L wl wl' τ es' :
@@ -192,13 +194,55 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_num_const M F L wl wl' n ν κ es' :
+  Lemma compat_num_const M F L wl wl' n ν es' :
     let fe := fe_of_context F in
-    let ψ := InstrT [] [NumT κ ν] in
+    let ψ := InstrT [] [num_type_type ν] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INumConst ψ n)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
-  Admitted.
+  Proof.
+    intros fe ψ Hok Hcompile. cbn in Hcompile.
+    (* Immediately, we must destruct ν *)
+    destruct ν; cbn in Hcompile; inversion Hcompile.
+    (* From here on out, we have an integer case and a float case (until we split
+       further into 32/64 *)
+
+    (* Some basic intros, unfolds, proving empty lists empty *)
+    all: unfold have_instruction_type_sem;
+      iIntros (? ? ? ? ? ?) "Henv Hinst Hlh";
+      iIntros (fr vs) "Hvs Hframe Hfr Hrun";
+      unfold expr_interp; cbn;
+      iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)";
+      iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens";
+      destruct vss, vs; cbn in Hconcat, Hlens; try congruence; cbn;
+      clear Hconcat Hlens.
+    (* Now it's time to actually apply lenient_wp *)
+    all: iApply lenient_wp_value.
+    (* In int case, instantiate value with int value. Float in float case *)
+    (* Automatics don't work great here *)
+    1: by instantiate (1 := (immV [(value_of_Z (translate_num_type (IntT i)) n)])%I).
+    2: by instantiate (1 := (immV [(value_of_Z (translate_num_type (FloatT f)) n)])%I).
+
+    all: unfold denote_logpred; iFrame.
+    (* iExists _ doesn't work great here *)
+    1: iExists [[value_of_Z (translate_num_type (IntT i)) n]].
+    2: iExists [[value_of_Z (translate_num_type (FloatT f)) n]].
+    all: cbn; iFrame; iSplitR; try (by iPureIntro).
+
+    (* Now, all we need to do is to prove value_interps! *)
+    (* Dig into fixpoint one step *)
+    all: iApply value_interp_eq; cbn.
+    (* Get the obvious kind, then the rest is proving kind interp is right *)
+    all: iExists _.
+    all: iSplitR; try auto; iSplitL; try auto; cbn.
+    all: iPureIntro.
+    all: apply Forall2_cons_iff.
+    all: split; try (by apply Forall2_nil).
+    (* Finally, we have to destruct i and f to get the 32/64 info! *)
+    1: destruct i.
+    3: destruct f.
+    all: eexists; done.
+  Qed.
 
   Lemma compat_block M F L L' wl wl' τs1 τs2 es es' :
     let fe := fe_of_context F in
@@ -456,21 +500,23 @@ Section Fundamental.
     rewrite instId'_type -IHts //. 
   Qed. 
 
-  
   Lemma compat_ite M F L L' wl wl' es1 es2 es' τs1 τs2 :
     let fe := fe_of_context F in
+    let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
     has_instruction_type_ok F ψ L' ->
     (forall wl wl' es',
+        let fe := fe_of_context F' in
         run_codegen (compile_instrs mr fe es1) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
+        ⊢ have_instruction_type_sem sr mr M F' L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
     (forall wl wl' es',
+        let fe := fe_of_context F' in
         run_codegen (compile_instrs mr fe es2) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
+        ⊢ have_instruction_type_sem sr mr M F' L wl' (to_e_list es') (InstrT τs1 τs2) L') ->
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Proof.
-    intros fe ψ Hok Hthen Helse Hcodegen.
+    intros fe F' ψ Hok Hthen Helse Hcodegen.
     iIntros (smem srep ssize se inst lh) "Hsubst Hinst Hctxt".
     iIntros (fr vs) "Hvss Hvsl Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
@@ -487,18 +533,12 @@ Section Fundamental.
     inversion Heq; subst κ; clear Heq.
     iSimpl in "Hκ".
     iDestruct "Hκ" as "%Hκ".
-    destruct Hκ as (vs & Heq & Hrepr).
-    inversion Heq; subst o; clear Heq.
 
 (*    destruct vswl; last by inversion Hrestype. *)
-    rewrite /representation_interp0 /= in Hrepr.
-    destruct Hrepr as (ιs & Heq & Hvs).
-    inversion Heq; subst ιs; clear Heq.
-    destruct vs; inversion Hvs; subst.
-    destruct vs; last by inversion H4.
+    destruct o as [|v vs]; inversion Hκ; subst.
+    destruct vs as [|v' vs]; inversion H4; subst.
     unfold primitive_rep_interp in H2.
     destruct H2 as [n ->].
-    clear Hvs H4.
 
 (*    inversion Hok; subst.
     destruct H as [Hτs1 Hτs2].
@@ -516,7 +556,7 @@ Section Fundamental.
 (*    unfold util.ignore in Hcodegen. *)
     inv_cg_bind Hcodegen ρ' wl2 es_nil' es2' Htype_rep' Hcodegen.
     rewrite /run_codegen /= in Hcodegen.
-    inversion Hcodegen; subst wl' es2'; clear Hcodegen.
+    (* inversion Hcodegen; subst wl' es2'; clear Hcodegen.
     rewrite app_nil_r in Hes_app_eq.
     subst es_nil'.
     rewrite app_nil_r app_nil_l.
@@ -715,7 +755,7 @@ Section Fundamental.
              iSplit; first done. iFrame. done.
         * iDestruct "H" as "[? _]"; done.
     - (* n is true *)
-      admit.
+      admit. *)
   Admitted.
 
   Lemma compat_br M F L L' wl wl' es' i τs1 τs τs2 :

@@ -146,6 +146,12 @@ Definition float_type_type (νf : float_type) : type :=
   let ι := float_type_rep νf in
   NumT (VALTYPE (PrimR ι) ImCopy ImDrop) (FloatT νf).
 
+Definition num_type_type (ν : num_type) : type :=
+  match ν with
+  | IntT νi => int_type_type νi
+  | FloatT νf => float_type_type νf
+  end.
+
 Definition type_unit : type := ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [].
 Definition type_i31 : type := I31T (VALTYPE (PrimR PtrR) ImCopy ImDrop).
 Definition type_i32 : type := int_type_type I32T.

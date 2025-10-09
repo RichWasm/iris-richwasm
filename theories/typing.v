@@ -714,8 +714,8 @@ Inductive has_instruction_type :
   has_instruction_type_num e ψ ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (INum ψ e) ψ L
-| TNumConst M F L κ ν n :
-  let ψ := InstrT [] [NumT κ ν] in
+| TNumConst M F L ν n :
+  let ψ := InstrT [] [num_type_type ν] in
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (INumConst ψ n) ψ L
 | TBlock M F L L' τs1 τs2 es :
@@ -731,9 +731,10 @@ Inductive has_instruction_type :
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILoop ψ es) ψ L
 | TIte M F L L' τs1 τs2 es1 es2 :
-  have_instruction_type M F L es1 (InstrT τs1 τs2) L' ->
-  have_instruction_type M F L es2 (InstrT τs1 τs2) L' ->
+  let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
+  have_instruction_type M F' L es1 (InstrT τs1 τs2) L' ->
+  have_instruction_type M F' L es2 (InstrT τs1 τs2) L' ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IIte ψ L' es1 es2) ψ L'
 | TBr M F L L' i τs τs1 τs2 :
@@ -925,8 +926,8 @@ Section HasHaveInstructionTypeMind.
           has_instruction_type_num e ψ ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (INum ψ e) ψ L)
-      (HNumConst : forall M F L κ ν n,
-          let ψ := InstrT [] [NumT κ ν] in
+      (HNumConst : forall M F L ν n,
+          let ψ := InstrT [] [num_type_type ν] in
           has_instruction_type_ok F ψ L ->
           P1 M F L (INumConst ψ n) ψ L)
       (HBlock : forall M F L L' τs1 τs2 es,
@@ -942,9 +943,10 @@ Section HasHaveInstructionTypeMind.
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILoop ψ es) ψ L)
       (HIte : forall M F L L' τs1 τs2 es1 es2,
-          P2 M F L es1 (InstrT τs1 τs2) L' ->
-          P2 M F L es2 (InstrT τs1 τs2) L' ->
+          let F' := F <| fc_labels ::= cons (τs2, L') |> in
           let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
+          P2 M F' L es1 (InstrT τs1 τs2) L' ->
+          P2 M F' L es2 (InstrT τs1 τs2) L' ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IIte ψ L' es1 es2) ψ L')
       (HBr : forall M F L L' i τs τs1 τs2,
@@ -1116,7 +1118,7 @@ Section HasHaveInstructionTypeMind.
     | TCopy M F L τ H1 H2 => HCopy M F L τ H1 H2
     | TDrop M F L τ H1 H2 => HDrop M F L τ H1 H2
     | TNum M F L e ψ H1 H2 => HNum M F L e ψ H1 H2
-    | TNumConst M F L κ ν n H1 => HNumConst M F L κ ν n H1
+    | TNumConst M F L ν n H1 => HNumConst M F L ν n H1
     | TBlock M F L L' τs1 τs2 es H1 H2 =>
         HBlock M F L L' τs1 τs2 es (have_instruction_type_mind _ _ _ _ _ _ H1) H2
     | TLoop M F L τs1 τs2 es H1 H2 =>

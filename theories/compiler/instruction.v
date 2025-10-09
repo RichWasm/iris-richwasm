@@ -81,10 +81,11 @@ Section Compiler.
     tf ← try_option EFail (translate_instr_type fe.(fe_type_vars) ψ);
     loop_c tf c.
 
-  Definition compile_ite (fe : function_env) (ψ : instruction_type) (c1 c2 : codegen unit) :
-    codegen unit :=
-    tf ← try_option EFail (translate_instr_type fe.(fe_type_vars) ψ);
-    ignore (if_c tf c1 c2).
+  Definition compile_ite
+    (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c1 c2 : codegen unit) : codegen unit :=
+    ts1 ← try_option EFail (translate_types fe.(fe_type_vars) (removelast τs1));
+    ts2 ← try_option EFail (translate_types fe.(fe_type_vars) τs2);
+    ignore (if_c (W.Tf ts1 ts2) c1 c2).
 
   Definition compile_local_get (fe : function_env) (i : nat) : codegen unit :=
     try_option EFail (local_indices fe i) ≫= get_locals_w.

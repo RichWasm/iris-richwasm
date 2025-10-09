@@ -156,12 +156,6 @@ Section CodeGen.
   
   (* Allocating locals. *)
   
-  (* Monotone interpretation of a wlocal_ctx *)
-  Definition interp_wl (wlocal_offset : nat) (wl : wlocal_ctx) (inst: instance) : frame -> Prop :=
-    λ fr, ∃ vs vs__wl vs', fr = Build_frame (vs ++ vs__wl ++ vs') inst /\
-                         length vs = wlocal_offset /\
-                         result_type_interp wl vs__wl.
-
   Lemma wp_wlalloc fe ty wl wl' idx es :
     run_codegen (wlalloc fe ty) wl = inr (idx, wl', es) ->
     idx = Mk_localidx (fe_wlocal_offset fe + length wl) /\

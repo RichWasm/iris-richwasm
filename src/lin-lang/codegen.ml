@@ -217,9 +217,7 @@ module Compile = struct
         ret @@ v1' @ v2' @ [ RefSwap (Path []) ]
     | Free (v, _) ->
         let* v' = compile_expr env v in
-        let t = type_of v in
-        let t' = compile_type t in
-        ret @@ v' @ [ RefLoad (Path [], t'); Drop ]
+        ret @@ v' @ [ RefLoad (Path []); Drop ]
 
   let compile_import ({ typ; _ } : A.Import.t) : B.FunctionType.t Res.t =
     let open Res in

@@ -93,29 +93,45 @@ Section Relations.
     | F64R => exists n, v = VAL_float64 n
     end.
 
-  Definition representation_interp0 (ρ : representation) (vs : list value) : Prop :=
-    exists ιs, eval_rep ρ = Some ιs /\ Forall2 primitive_rep_interp ιs vs.
+  Definition prim_reps_interp (ιs: list primitive_rep) : semantic_type :=
+    λne sv,
+      match sv with
+      | SValues vs => ⌜Forall2 primitive_rep_interp ιs vs⌝
+      | _ => False
+      end%I.
 
   Definition representation_interp (ρ : representation) : semantic_type :=
-    λne sv, ⌜∃ vs, sv = SValues vs /\ representation_interp0 ρ vs⌝%I.
+    match eval_rep ρ with
+    | Some ιs => prim_reps_interp ιs
+    | None => λne _, False%I
+    end.
 
-  Definition is_copy_operation (ιs : list primitive_rep) (es : expr) : Prop :=
-    ∃ me fe wl wl' (es' : W.expr),
+  
+  Definition is_copy_operation (fe: function_env) wl wl' (ιs : list primitive_rep) (es : expr) : Prop :=
+    ∃ (es' : W.expr),
       run_codegen (ixs ← save_stack fe ιs;
                    restore_stack ixs;;
-                   update_gc_refs ixs ιs (duproot me);;
-                   restore_stack ixs) wl = inr ((), wl', es') /\
+                   update_gc_refs ixs ιs (duproot mr);;
+                   restore_stack ixs) wl = inr ((), wl ++ wl', es') /\
         to_e_list es' = es.
 
-  Definition explicit_copy_spec (ρ : representation) (T : semantic_type) : iProp Σ :=
-    ∀ fr ιs vs es,
-      ⌜eval_rep ρ = Some ιs⌝ -∗
-      ⌜is_copy_operation ιs es⌝ -∗
+  (* Monotone interpretation of a wlocal_ctx *)
+  Definition interp_wl (wlocal_offset : nat) (wl : wlocal_ctx) (inst: instance) : frame -> Prop :=
+    λ fr, ∃ vs vs__wl vs', fr = Build_frame (vs ++ vs__wl ++ vs') inst /\
+                         length vs = wlocal_offset /\
+                         result_type_interp wl vs__wl.
+
+  Definition explicit_copy_spec (ιs : list primitive_rep) (T : semantic_type) : iProp Σ :=
+    ∀ inst fe fr wl wl' vs es,
+      ⌜is_copy_operation fe wl wl' ιs es⌝ -∗
+      ⌜interp_wl (fe_wlocal_offset fe) (wl ++ wl') inst fr⌝ -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       T (SValues vs) -∗
       lenient_wp NotStuck top (v_to_e_list vs ++ es)
-        {| lp_fr := λ fr', ⌜fr = fr'⌝;
+      {| lp_fr := λ fr', ⌜fr.(f_inst) = fr'.(f_inst) /\
+                         length fr.(f_locs) = length fr'.(f_locs) /\
+                         forall i, i < length wl -> fr.(f_locs) !! i = fr'.(f_locs) !! i ⌝;
            lp_val :=
             λ vs', ↪[RUN] ∗ ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
            lp_trap := False;
@@ -126,7 +142,11 @@ Section Relations.
   Definition copyability_interp (ρ : representation) (χ : copyability) (T : semantic_type) : iProp Σ :=
     match χ with
     | NoCopy => True
-    | ExCopy => explicit_copy_spec ρ T
+    | ExCopy =>
+        match eval_rep ρ with
+        | Some ιs => explicit_copy_spec ιs T
+        | None => False
+        end
     | ImCopy => ⌜forall sv, Persistent (T sv)⌝
     end.
 
@@ -202,7 +222,10 @@ Section Relations.
       go se ϕ VarM VarR VarS.
 
   Definition type_var_interp (se : semantic_env) (t : nat) : SVR :=
-    nth t (map snd se) (λne _, False%I).
+    match (snd <$> se) !! t with
+    | Some T => T
+    | None => λne _, False%I
+    end.
 
   Definition sum_val_interp
     (vrel : value_relation) (se : semantic_env) (ρs : list representation) (τs : list type) : SVR :=
@@ -354,9 +377,9 @@ Section Relations.
 
   Definition value_interp : semantic_env -n> leibnizO type -n> SVR := fixpoint value_interp0.
 
-  Lemma value_interp_part_eq se τ sv :
+  Lemma value_interp_part_eq se τ :
     value_interp se τ ≡ value_interp0 value_interp se τ.
-  Proof.
+  Proof using.
     do 2 f_equiv.
     apply fixpoint_unfold.
   Qed.
@@ -429,7 +452,7 @@ Section Relations.
              ↪[frame] fr -∗
              frame_interp se ιss_L L WL inst fr -∗
              (* TODO: WP with label context. *)
-             lenient_wp
+             lenient_wp_ctx
                NotStuck top
                (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
                {| lp_fr := frame_interp se ιss_L L WL inst;
@@ -437,7 +460,8 @@ Section Relations.
                   lp_trap := True;
                   lp_br := br_interp lh'' (drop (S (j - p)) τc);
                   lp_ret := return_interp se τr;
-                  lp_host := fun _ _ _ _ => False |})%I.
+                  lp_host := fun _ _ _ _ => False |}
+               (lh_depth lh) lh)%I.
 
   (* TODO *)
   Instance Contractive_br_interp0 se τr ιss_L L WL inst :
