@@ -523,8 +523,8 @@ Section Relations.
 
   Fixpoint lholed_valid (lh : lholed) : Prop :=
     match lh with
-    | LH_base vs _ => const_list vs
-    | LH_rec vs _ _ lh' _ => const_list vs ∧ lholed_valid lh'
+    | LH_base vs _ => is_true (const_list vs)
+    | LH_rec vs _ _ lh' _ => is_true (const_list vs) ∧ lholed_valid lh'
     end.
 
   Fixpoint length_lholeds (se : semantic_env) (τc : list (list type * local_ctx)) (lh : lholed) :
