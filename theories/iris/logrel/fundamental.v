@@ -288,13 +288,30 @@ Section Fundamental.
         * rewrite Hres app_assoc //.
   Qed.
 
-(*
-  Lemma value_interp_length ks ts se smem srep ssize a vs :
+(*  Lemma translate_subst ks a ts smem srep ssize st:
     translate_type ks a = Some ts ->
-    (value_interp sr mr se (subst_type smem srep ssize VarT a) (SValues vs)
+    exists ts', translate_type ks (subst_type smem srep ssize st a) = Some ts' /\
+             length ts = length ts'.
+  Proof.
+    unfold translate_type.
+    destruct (type_rep ks a) eqn:Ha => //=. 
+    destruct a => //=.
+    - 
+  
+  Lemma eval_rep_subst_length srep r :
+    length (eval_rep r) = length (eval_rep (subst_representation srep r)). 
+
+
+  Lemma value_interp_length ts se F smem srep ssize a vs :
+    translate_type (fc_type_vars F) a = Some ts ->
+    (subst_env_interp sr F smem srep ssize se ∗
+       value_interp sr mr se (subst_type smem srep ssize VarT a) (SValues vs)
        ⊢ ⌜ length vs = length ts ⌝)%I.
   Proof.
-    iIntros (Ha) "Ha".
+    iIntros (Ha) "[Hse Ha]".
+    unfold subst_env_interp.
+    iDestruct "Hse" as "(%Hse & Hse)".
+    unfold sem_env_interp. 
     iDestruct (value_interp_eq with "Ha") as "Ha".
     unfold value_interp0.
     simpl.
@@ -303,6 +320,55 @@ Section Fundamental.
     unfold type_kind in Ha.
     iDestruct "Ha" as (κ) "(%Hkind & Hkind & Ha)".
     destruct a => //=.
+    - destruct (fc_type_vars F !! n) eqn:Hksn; last done.
+      simpl in Ha.
+      unfold kind_rep in Ha.
+      destruct k => //=.
+      simpl in Ha.
+      simpl in Hkind.
+      unfold type_var_interp.
+      rewrite -nth_error_lookup in Hkind.
+      rewrite nth_error_map in Hkind.
+      destruct (nth_error se n) eqn:Hsen; last by rewrite Hsen in Hkind.
+      destruct o. rewrite Hsen /= in Hkind.
+      inversion Hkind; subst o; clear Hkind.
+      erewrite nth_error_nth.
+      2:{ rewrite nth_error_map. rewrite Hsen. done. }
+      rewrite nth_error_lookup in Hsen.
+      iDestruct (big_sepL2_lookup _ _ _ _ _ _ Hsen Hksn with "Hse") as "[%Heq _]".
+      simpl in Heq; subst κ. 
+      simpl.
+      iDestruct "Hkind" as "%Hkind".
+      destruct Hkind as (vs0 & Heq & Hrepr).
+      inversion Heq; subst vs0; clear Heq.
+      unfold representation_interp0 in Hrepr.
+      destruct Hrepr as (ιs & Hιs & Hιvs).
+      unfold translate_rep in Ha.
+      iPureIntro.
+      apply Forall2_length in Hιvs.
+      rewrite -Hιvs.
+      destruct (eval_rep r) eqn:Hr; last done.
+      simpl in Ha.
+      inversion Ha; subst ts.
+      rewrite length_map.
+
+      
+      Check eval_rep.
+      
+      
+      unfold subst_representation in Hιs. 
+
+      unfold nth. 
+      iClear "Hkind".  clear. 
+      
+      
+      Set Printing All. 
+      rewrite map_nth. 
+      simpl in H
+      Search (nth_error (map _ _) _).
+      Search (map _ _ !! _).
+      
+    all: destruct (ks !! n) eqn:Hksn; last done.
     all: simpl in Ha.
     all: simpl in Hkind.
     all: inversion Hkind; subst κ; clear Hkind.
@@ -348,7 +414,8 @@ Section Fundamental.
              
        *)   
 
-
+      
+  
   Lemma translate_types_length_subst ks ts res vs se smem srep ssize :
     translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ map (subst_type smem srep ssize VarT) ts;vs, 
