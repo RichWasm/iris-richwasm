@@ -30,12 +30,12 @@ module IR = struct
       | Lam of Type.t * Type.t * t * Type.t
       | Tuple of t list * Type.t
       | Inj of int * t * Type.t
-      | Fold of t * Type.t
+      | Fold of Type.t * t * Type.t
       | App of t * t * Type.t
       | Let of Type.t * t * t * Type.t
       | Split of Type.t list * t * t * Type.t
       | Cases of t * (Type.t * t) list * Type.t
-      | Unfold of t * Type.t
+      | Unfold of Type.t * t * Type.t
       | If0 of t * t * t * Type.t
       | Binop of Binop.t * t * t * Type.t
       | New of t * Type.t
@@ -52,12 +52,12 @@ module IR = struct
       | Lam (_, _, _, t)
       | Tuple (_, t)
       | Inj (_, _, t)
-      | Fold (_, t)
+      | Fold (_, _, t)
       | App (_, _, t)
       | Let (_, _, _, t)
       | Split (_, _, _, t)
       | Cases (_, _, t)
-      | Unfold (_, t)
+      | Unfold (_, _, t)
       | If0 (_, _, _, t)
       | Binop (_, _, _, t)
       | New (_, t)
@@ -107,22 +107,30 @@ module Err = struct
         | LetBind
         | SplitBind of int
         | Binop
+        | IfEls
+        | FoldExpr
+        | UnfoldExpr
+        | CaseAnn
+        | CaseBody of int
       [@@deriving sexp]
     end
   end
 
   type t =
-    | TODO
     | IntenalError of string
     | MissingLocalEnv of LVar.t * Env.t
     | MissingGlobalEnv of string * Env.t
-    | EmptyCases
-    | FreeNonRef of Type.t
+    | CasesEmpty
+    | CasesScrutineeNotSum of Type.t
+    | CasesWrongNum
     | InjInvalidAnn of Type.t
     | InjInvalidIdx of int * Type.t list
     | AppNotFun of Type.t
     | SplitNotProd of Type.t
     | SplitWrongNum
+    | InvalidFoldUnfoldAnn of Type.t
+    | FreeNonRef of Type.t
+    | SwapNonRef of Type.t
     | Mismatch of Mismatch.Ctx.t * Mismatch.Info.t
   [@@deriving sexp]
 
@@ -142,6 +150,21 @@ module Compile = struct
       ret ()
     else
       fail (Mismatch (ctx, { expected; actual }))
+
+  let rec subst ?(idx : int = 0) ~(repl : A.Type.t) : A.Type.t -> A.Type.t =
+    function
+    | Int -> Int
+    | Var (i, _) when i = idx -> repl
+    | Var x -> Var x
+    | Lollipop (p, r) -> Lollipop (subst ~idx ~repl p, subst ~idx ~repl r)
+    | Prod ts -> Prod (List.map ~f:(subst ~idx ~repl) ts)
+    | Sum ts -> Sum (List.map ~f:(subst ~idx ~repl) ts)
+    | Rec t -> Rec (subst ~idx:(idx + 1) ~repl t)
+    | Ref t -> Ref (subst ~idx ~repl t)
+
+  let unroll : A.Type.t -> A.Type.t t = function
+    | Rec body as mu -> ret @@ subst ~repl:mu body
+    | x -> fail (InvalidFoldUnfoldAnn x)
 
   let rec compile_expr (env : Env.t) : A.Expr.t -> B.Expr.t t =
     let open B.Type in
@@ -165,7 +188,7 @@ module Compile = struct
         let env' = Env.add_local env param_t in
         let* body' = compile_expr env' body in
         let* () = teq ~expected:ret_t ~actual:(type_of body') LamRet in
-        ret @@ Lam(param_t, ret_t, body', Lollipop (param_t, ret_t))
+        ret @@ Lam (param_t, ret_t, body', Lollipop (param_t, ret_t))
     | Int n -> ret @@ Int (n, Int)
     | Tuple es ->
         let* es' = mapM ~f:(compile_expr env) es in
@@ -184,27 +207,31 @@ module Compile = struct
           | Some t -> teq ~expected:t ~actual:(type_of v') InjAnn
         in
         ret @@ Inj (i, v', typ)
-    | Fold (_, _) -> fail TODO
-    | App (applicant, applicand) ->
-        let* applicant' = compile_expr env applicant in
+    | Fold (mu, expr) ->
+        let* expr' = compile_expr env expr in
+        let* unrolled = unroll mu in
+        let* () = teq ~expected:unrolled ~actual:(type_of expr') FoldExpr in
+        ret @@ Fold (mu, expr', mu)
+    | App (applicand, applicant) ->
         let* applicand' = compile_expr env applicand in
+        let* applicant' = compile_expr env applicant in
         let* ft_in, ft_out =
-          match type_of applicant' with
+          match type_of applicand' with
           | Lollipop (t1, t2) -> ret (t1, t2)
           | x -> fail (AppNotFun x)
         in
-        let* () = teq ~expected:ft_in ~actual:(type_of applicand') AppArg in
-        ret @@ App (applicant', applicand', ft_out)
-    | Let (b_t, lhs, body) ->
-        let* lhs' = compile_expr env lhs in
-        let* () = teq ~expected:b_t ~actual:(type_of lhs') LetBind in
+        let* () = teq ~expected:ft_in ~actual:(type_of applicant') AppArg in
+        ret @@ App (applicand', applicant', ft_out)
+    | Let (b_t, rhs, body) ->
+        let* rhs' = compile_expr env rhs in
+        let* () = teq ~expected:b_t ~actual:(type_of rhs') LetBind in
         let env' = Env.add_local env b_t in
         let* body' = compile_expr env' body in
-        ret @@ Let (b_t, lhs', body', type_of body')
-    | Split (ts, lhs, body) ->
-        let* lhs' = compile_expr env lhs in
+        ret @@ Let (b_t, rhs', body', type_of body')
+    | Split (ts, rhs, body) ->
+        let* rhs' = compile_expr env rhs in
         let* tup_t =
-          match type_of lhs' with
+          match type_of rhs' with
           | Prod ts -> ret ts
           | x -> fail (SplitNotProd x)
         in
@@ -221,18 +248,50 @@ module Compile = struct
         let env' = Env.add_locals env ts in
         let* body' = compile_expr env' body in
         let t = type_of body' in
-        ret @@ Split (ts, lhs', body', t)
+        ret @@ Split (ts, rhs', body', t)
     | Cases (scrutinee, cases) ->
-        fail TODO
-        (* TODO:
-           - check that all branches return the correct type
-           - 
-           *)
-    | Unfold (typ, expr) ->
+        let* scrutinee' = compile_expr env scrutinee in
+        let* variants =
+          match type_of scrutinee' with
+          | Sum variants -> ret variants
+          | x -> fail @@ CasesScrutineeNotSum x
+        in
+        let* zipped =
+          match List.zip variants cases with
+          | Ok x -> ret x
+          | Unequal_lengths -> fail CasesWrongNum
+        in
+        let* cases' =
+          mapM zipped ~f:(fun (actual, (ann, body)) ->
+              let* () = teq ~actual ~expected:ann CaseAnn in
+              let env' = Env.add_local env ann in
+              let* body' = compile_expr env' body in
+              ret (ann, body'))
+        in
+        let* t =
+          match List.nth cases' 0 with
+          | Some (_, body) -> ret @@ type_of body
+          | None -> fail CasesEmpty
+        in
+        let* () =
+          iteriM cases' ~f:(fun i (_, b) ->
+              teq ~expected:t ~actual:(type_of b) (CaseBody i))
+        in
+
+        ret @@ Cases (scrutinee', cases', t)
+    | Unfold (mu, expr) ->
         let* expr' = compile_expr env expr in
-        let* () = fail TODO in
-        ret @@ Unfold (expr', typ)
-    | If0 (_, l, _) -> fail TODO
+        let* () = teq ~expected:mu ~actual:(type_of expr') UnfoldExpr in
+        let* t = unroll mu in
+        ret @@ Unfold (mu, expr', t)
+    | If0 (cond, thn, els) ->
+        let* cond' = compile_expr env cond in
+        let* thn' = compile_expr env thn in
+        let* els' = compile_expr env els in
+        let thn_t = type_of thn' in
+        let els_t = type_of els' in
+        let* () = teq ~expected:thn_t ~actual:els_t IfEls in
+        ret @@ If0 (cond', thn', els', thn_t)
     | Binop (((Add | Sub | Mul | Div) as op), left, right) ->
         let* left' = compile_expr env left in
         let* right' = compile_expr env right in
@@ -244,12 +303,22 @@ module Compile = struct
     | New expr ->
         let* expr' = compile_expr env expr in
         ret @@ New (expr', Ref (type_of expr'))
-    | Swap (_, _) -> fail TODO
-    | Free expr ->
+    | Swap (ref, expr) ->
+        let* ref' = compile_expr env ref in
         let* expr' = compile_expr env expr in
-        (match type_of expr' with
+        let ref_t = type_of ref' in
+        let expr_t = type_of expr' in
+        let* inner_t =
+          match ref_t with
+          | Ref x -> ret x
+          | x -> fail @@ SwapNonRef x
+        in
+        ret @@ Swap (ref', expr', Prod [ Ref expr_t; inner_t ])
+    | Free expr -> (
+        let* expr' = compile_expr env expr in
+        match type_of expr' with
         | Ref t -> ret @@ Free (expr', t)
-        | x -> fail (FreeNonRef x))
+        | x -> fail @@ FreeNonRef x)
 
   let compile_function
       (env : Env.t)
@@ -265,20 +334,22 @@ module Compile = struct
   let compile_module ({ imports; functions; main } : A.Module.t) : B.Module.t t
       =
     let open B.Module in
-    (* TODO: add imports to ENV *)
     let* fn_rets =
-      match
-        Map.of_list_with_key
-          ~get_key:(fun x -> x.name)
-          (module String)
-          functions
-      with
+      List.map imports ~f:(fun i -> A.Import.(i.name, i.input, i.output))
+      @ List.map functions ~f:(fun f -> A.Function.(f.name, f.param, f.return))
+      |> Map.of_list_with_key
+           ~get_key:(fun (name, _, _) -> name)
+           (module String)
+      |> function
       | `Duplicate_key k -> fail (IntenalError ("dup fn " ^ k))
-      | `Ok m -> ret @@ Map.map ~f:(fun x -> (x.param, x.return)) m
+      | `Ok m -> ret @@ Map.map ~f:(fun (_, param, return) -> (param, return)) m
     in
     let env = { Env.empty with fns = fn_rets } in
     let imports' =
-      List.map ~f:(fun A.Import.{ typ; name } -> B.Import.{ typ; name }) imports
+      List.map
+        ~f:(fun A.Import.{ name; input; output } ->
+          B.Import.{ name; input; output })
+        imports
     in
     let* functions' = mapM ~f:(compile_function env) functions in
     let* main' = omap ~f:(compile_expr env) main in

@@ -26,13 +26,13 @@ module IR = struct
       | Coderef of string * Type.t
       | Tuple of t list * Type.t
       | Inj of int * t * Type.t
-      | Fold of t * Type.t
+      | Fold of Type.t * t * Type.t
       | Pack of Type.t * t * Type.t
       | App of t * t * Type.t
       | Let of Type.t * t * t * Type.t
       | Split of Type.t list * t * t * Type.t
       | Cases of t * (Type.t * t) list * Type.t
-      | Unfold of t * Type.t
+      | Unfold of Type.t * t * Type.t
       | Unpack of t * t * Type.t
       | If0 of t * t * t * Type.t
       | Binop of Binop.t * t * t * Type.t
@@ -49,13 +49,13 @@ module IR = struct
       | Int (_, t)
       | Tuple (_, t)
       | Inj (_, _, t)
-      | Fold (_, t)
+      | Fold (_, _, t)
       | Pack (_, _, t)
       | App (_, _, t)
       | Let (_, _, _, t)
       | Split (_, _, _, t)
       | Cases (_, _, t)
-      | Unfold (_, t)
+      | Unfold (_, _, t)
       | Unpack (_, _, t)
       | If0 (_, _, _, t)
       | Binop (_, _, _, t)
@@ -98,7 +98,7 @@ module Compile = struct
     | Coderef (_, _) | Int (_, _) -> LS.empty
     | Lam (_, _, body, _) -> fv_expr (depth + 1) body
     | Tuple (vs, _) -> vs |> List.map ~f:(fv_expr depth) |> LS.union_list
-    | Inj (_, v, _) | Fold (v, _) -> fv_expr depth v
+    | Inj (_, v, _) | Fold (_, v, _) -> fv_expr depth v
     | App (vf, va, _) -> LS.union (fv_expr depth vf) (fv_expr depth va)
     | Let (_, rhs, body, _) ->
         LS.union (fv_expr depth rhs) (fv_expr (depth + 1) body)
@@ -108,7 +108,7 @@ module Compile = struct
     | Cases (scrutinee, cases, _) ->
         let cases' = List.map ~f:(fun (_, b) -> fv_expr (depth + 1) b) cases in
         LS.union_list (fv_expr depth scrutinee :: cases')
-    | Unfold (v, _) -> fv_expr depth v
+    | Unfold (_, v, _) -> fv_expr depth v
     | If0 (cond, thn, els, _) ->
         LS.union3 (fv_expr depth cond) (fv_expr depth thn) (fv_expr depth els)
     | Binop (_, l, r, _) -> LS.union (fv_expr depth l) (fv_expr depth r)
@@ -173,7 +173,6 @@ module Compile = struct
       | InvalidCoderefAnn of A.Type.t
       | UnexpectedApplicand of A.Type.t
       | DuplicateFunName of string
-      | InvalidImport of string * A.Type.t
       | InternalError of string
       | TODO
     [@@deriving sexp_of]
@@ -264,15 +263,16 @@ module Compile = struct
     | Tuple (es, t) ->
         let* es' = mapM ~f:(compile_expr env) es in
         ret @@ Tuple (es', compile_typ t)
-    | Inj (i, e, t) ->
-        let* e' = compile_expr env e in
-        ret @@ Inj (i, e', compile_typ t)
-    | Fold (e, t) ->
-        let* e' = compile_expr env e in
-        ret @@ Fold (e', compile_typ t)
-    | New (e, t) ->
-        let* e' = compile_expr env e in
-        ret @@ New (e', compile_typ t)
+    | Inj (i, expr, t) ->
+        let* expr' = compile_expr env expr in
+        ret @@ Inj (i, expr', compile_typ t)
+    | Fold (mu, expr, t) ->
+        let mu' = compile_typ mu in
+        let* expr' = compile_expr env expr in
+        ret @@ Fold (mu', expr', compile_typ t)
+    | New (expr, t) ->
+        let* expr' = compile_expr env expr in
+        ret @@ New (expr', compile_typ t)
     | Lam (arg_t, ret_t, body, t) ->
         let fvs = fv_expr 1 body in
         let* fname = fresh "lam" in
@@ -315,21 +315,21 @@ module Compile = struct
                 mk_new (build_closure fvs);
               ],
             compile_typ t )
-    | App (fn, arg, _) ->
-        let* fn' = compile_expr env fn in
-        let* arg' = compile_expr env arg in
+    | App (applicand, applicant, _) ->
+        let* applicand' = compile_expr env applicand in
+        let* applicant' = compile_expr env applicant in
 
         let* arg, return =
-          match A.Expr.type_of fn with
+          match A.Expr.type_of applicand with
           | Lollipop (arg, return) -> ret (arg, return)
           | t -> fail (UnexpectedApplicand t)
         in
 
         let open B.Type in
         (*
-        #`(unpack (package : α) from #,fn where
+        #`(unpack (package : α) from #,applicand where
             (split (coderef : ((α ⊗ #,tin) -> #,tout)) (closure : α) = package in
-              (app coderef (closure, #,arg))))
+              (app coderef (closure, #,applicant))))
         *)
         let package_t = Var (0, None) in
         let in_t = Prod [ package_t; compile_typ arg |> shift_tidx 1 0 ] in
@@ -342,10 +342,10 @@ module Compile = struct
             ~i:0
             (App
                ( Var ((1, None), real_ft),
-                 mk_tuple [ Var ((0, None), package_t); arg' ],
+                 mk_tuple [ Var ((0, None), package_t); applicant' ],
                  out_t ))
         in
-        ret (Unpack (fn', body, compile_typ return))
+        ret (Unpack (applicand', body, compile_typ return))
     | Let (b_t, rhs, body, t) ->
         let* rhs' = compile_expr env rhs in
         let env' = Env.add_var env t in
@@ -367,9 +367,10 @@ module Compile = struct
             cases
         in
         ret @@ Cases (scrutinee', cases', compile_typ t)
-    | Unfold (expr, t) ->
+    | Unfold (mu, expr, t) ->
+        let mu' = compile_typ mu in
         let* expr' = compile_expr env expr in
-        ret @@ Unfold (expr', compile_typ t)
+        ret @@ Unfold (mu', expr', compile_typ t)
     | If0 (cond, thn, els, t) ->
         let* cond' = compile_expr env cond in
         let* thn' = compile_expr env thn in
@@ -383,9 +384,9 @@ module Compile = struct
         let* left' = compile_expr env left in
         let* right' = compile_expr env right in
         ret @@ Swap (left', right', compile_typ t)
-    | Free (v, t) ->
-        let* v' = compile_expr env v in
-        ret @@ Free (v', compile_typ t)
+    | Free (expr, t) ->
+        let* expr' = compile_expr env expr in
+        ret @@ Free (expr', compile_typ t)
 
   let compile_function
       (env : Env.t)
@@ -404,27 +405,30 @@ module Compile = struct
 
   module Res = Util.ResultM (Err)
 
+  let compile_imports (imports : A.Import.t list) : B.Import.t list =
+    List.fold_left
+      ~f:(fun acc_imports A.Import.{ name; input; output } ->
+        B.Import.
+          {
+            name;
+            input = Prod [ Ref (Prod []); compile_typ input ];
+            output = compile_typ output;
+          }
+        :: acc_imports)
+      ~init:[] imports
+    |> List.rev
+
   let compile_module ({ imports; functions; main } : A.Module.t) :
       B.Module.t Res.t =
     let open B.Module in
     let open Res in
-    let imports' =
-      List.fold_left
-        ~f:(fun acc_imports { typ; name } ->
-          B.Import.{ typ = compile_typ typ; name } :: acc_imports)
-        ~init:[] imports
-      |> List.rev
-    in
-
+    let imports' = compile_imports imports in
     let* fns =
       foldM
-        ~f:(fun acc A.Import.{ typ; name } ->
-          match typ with
-          | Lollipop (param, return) -> (
-              match Map.add acc ~key:name ~data:(param, return) with
-              | `Ok m -> ret m
-              | `Duplicate -> fail (DuplicateFunName name))
-          | _ -> fail (InvalidImport (name, typ)))
+        ~f:(fun acc A.Import.{ name; input; output } ->
+          match Map.add acc ~key:name ~data:(input, output) with
+          | `Ok m -> ret m
+          | `Duplicate -> fail (DuplicateFunName name))
         ~init:(Map.empty (module String))
         imports
     in

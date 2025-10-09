@@ -112,8 +112,9 @@ module Expr = struct
           (fun () -> fprintf ff ",@ ")
           es;
         fprintf ff ")@]"
-    | Inj (i, e, t) -> fprintf ff "@[(inj %a %a@ :@ %a)" Int.pp i pp e Type.pp t
-    | Fold (t, e) -> fprintf ff "@[(fold %a %a)@]" Type.pp t pp e
+    | Inj (i, e, t) ->
+        fprintf ff "@[<2>(inj %a@ %a@ :@ %a)" Int.pp i pp e Type.pp t
+    | Fold (t, e) -> fprintf ff "@[<2>(fold %a@ %a)@]" Type.pp t pp e
     | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" pp l pp r
     | Let (bind, e, body) ->
         fprintf ff "@[<v 0>@[<2>(let@ %a@ =@ %a@ in@]@;@[<2>%a)@]@]" Binding.pp

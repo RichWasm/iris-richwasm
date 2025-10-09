@@ -49,14 +49,10 @@ Definition subst_function_ctx
   (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size) (s__type : nat -> type)
   (F : function_ctx) :
   function_ctx :=
-  {| fc_return := map (subst_type s__mem s__rep s__size s__type) F.(fc_return);
+  let sub := subst_type s__mem s__rep s__size s__type in
+  {| fc_return := map sub F.(fc_return);
      fc_locals := F.(fc_locals);
-     fc_labels :=
-       map
-         (fun '(τs, L) =>
-            (map (subst_type s__mem s__rep s__size s__type) τs,
-              map (option_map (subst_type s__mem s__rep s__size s__type)) L))
-         F.(fc_labels);
+     fc_labels := map (fun '(τs, L) => (map sub τs, map (option_map sub) L)) F.(fc_labels);
      fc_kind_ctx := F.(fc_kind_ctx);
      fc_type_vars := map (subst_kind s__mem s__rep s__size) F.(fc_type_vars) |}.
 
@@ -796,6 +792,7 @@ Inductive has_instruction_type :
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IInject ψ i) ψ L
 | TCase M F L L' κ τ' τs ess :
+  (* TODO: Add label to escape case. *)
   let ψ := InstrT [SumT κ τs] [τ'] in
   Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs ess ->
   has_instruction_type_ok F ψ L' ->
@@ -823,9 +820,11 @@ Inductive has_instruction_type :
   packed_existential F τ τ' ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IPack ψ) ψ L
-| TUnpack M F F0 L L' L0 L0' es es0 ψ ψ0 :
-  unpacked_existential F L es ψ L' F0 L0 es0 ψ0 L0' ->
-  have_instruction_type M F0 L0 es0 ψ0 L0' ->
+| TUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 :
+  let F' := F <| fc_labels ::= cons (τs2, L') |> in
+  let ψ := InstrT τs1 τs2 in
+  unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
+  have_instruction_type M F0' L0 es0 ψ0 L0' ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IUnpack ψ L' es) ψ L'
 | TTag M F L :
@@ -1035,9 +1034,11 @@ Section HasHaveInstructionTypeMind.
           packed_existential F τ τ' ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IPack ψ) ψ L)
-      (HUnpack : forall M F F0 L L' L0 L0' es es0 ψ ψ0,
-          unpacked_existential F L es ψ L' F0 L0 es0 ψ0 L0' ->
-          P2 M F0 L0 es0 ψ0 L0' ->
+      (HUnpack : forall M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0,
+          let F' := F <| fc_labels ::= cons (τs2, L') |> in
+          let ψ := InstrT τs1 τs2 in
+          unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
+          P2 M F0' L0 es0 ψ0 L0' ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IUnpack ψ L' es) ψ L')
       (HTag : forall M F L,
@@ -1147,8 +1148,10 @@ Section HasHaveInstructionTypeMind.
     | TFold M F L τs κ H1 => HFold M F L τs κ H1
     | TUnfold M F L τ κ H1 => HUnfold M F L τ κ H1
     | TPack M F L τ τ' H1 H2 => HPack M F L τ τ' H1 H2
-    | TUnpack M F F0 L L' L0 L0' es es0 ψ ψ0 H1 H2 H3 =>
-        HUnpack M F F0 L L' L0 L0' es es0 ψ ψ0 H1 (have_instruction_type_mind _ _ _ _ _ _ H2) H3
+    | TUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 H1 H2 H3 =>
+        HUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 H1
+          (have_instruction_type_mind _ _ _ _ _ _ H2)
+          H3
     | TTag M F L H1 => HTag M F L H1
     | TUntag M F L H1 => HUntag M F L H1
     | TRefNew M F L μ τ τ' κ H1 H2 H3 => HRefNew M F L μ τ τ' κ H1 H2 H3

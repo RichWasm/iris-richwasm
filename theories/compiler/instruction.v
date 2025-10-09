@@ -120,6 +120,7 @@ Section Compiler.
     ιs ← try_option EFail (eval_rep (SumR ρs));
     ixs ← save_stack fe (tail ιs);
     let do_case c ixs' := try_option EFail (nths_error ixs ixs') ≫= get_locals_w;; c in
+    (* TODO: br inside a case should bypass all but the outermost block. *)
     case_blocks ρs result (map do_case cases).
 
   Definition compile_unpack
