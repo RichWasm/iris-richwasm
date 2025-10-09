@@ -454,7 +454,6 @@ Section Relations.
            ∀ fr,
              ↪[frame] fr -∗
              frame_interp se ιss_L L WL inst fr -∗
-             (* TODO: WP with label context. *)
              lenient_wp_ctx
                NotStuck top
                (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
@@ -464,7 +463,7 @@ Section Relations.
                   lp_br := br_interp lh'' (drop (S (j - p)) τc);
                   lp_ret := return_interp se τr;
                   lp_host := fun _ _ _ _ => False |}
-               (lh_depth lh) lh)%I.
+               (S (lh_depth lh')) (LH_rec es0 k es lh' es'))%I.
 
   (* TODO *)
   Instance Contractive_br_interp0 se τr ιss_L L WL inst :
