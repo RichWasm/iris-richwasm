@@ -57,23 +57,23 @@ Proof.
     + cbn.
       by rewrite list_lookup_fmap H.
     + by eapply kind_ok_subst.
-  - eapply KSumVal.
+  - eapply KSum.
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
-  - eapply KSumMem.
+  - eapply KVariant.
     { admit. }
     apply Forall2_fmap; eapply Forall2_impl; eauto.
-  - eapply KSumMemSized.
+  - eapply KVariantSized.
     { admit. }
     apply Forall2_fmap; eapply Forall2_impl; eauto.
-  - eapply KProdVal.
+  - eapply KProd.
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
-  - eapply KProdMem.
+  - eapply KStruct.
     { admit. }
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
-  - eapply KProdMemSized.
+  - eapply KStructSized.
     { admit. }
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.

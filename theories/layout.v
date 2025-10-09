@@ -112,7 +112,9 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | VarT t => κs !! t
   | NumT κ _
   | SumT κ _
+  | VariantT κ _
   | ProdT κ _
+  | StructT κ _
   | RefT κ _ _
   | I31T κ
   | GCPtrT κ _

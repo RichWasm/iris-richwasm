@@ -1072,7 +1072,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_inject M F L wl wl' es' i τs τ κ :
+  Lemma compat_inject_sum M F L wl wl' es' i τs τ κ :
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [SumT κ τs] in
     τs !! i = Some τ ->
@@ -1081,15 +1081,42 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_case M F L L' wl wl' es' ess τs τ' κ :
+  Lemma compat_inject_variant M F L wl wl' es' μ i τ τ' τs κr κv :
+    let fe := fe_of_context F in
+    let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs)] in
+    τs !! i = Some τ' ->
+    mono_mem μ ->
+    stores_as F τ τ' ->
+    has_instruction_type_ok F ψ L ->
+    run_codegen (compile_instr mr fe (IInject ψ i)) wl = inr ((), wl', es') ->
+    ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
+  Admitted.
+
+  Lemma compat_case_sum M F L L' wl wl' es' ess τ' τs κ :
     let fe := fe_of_context F in
     let ψ := InstrT [SumT κ τs] [τ'] in
-    (Forall2
+    Forall2
       (fun τ es =>
          forall wl wl' es',
            run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
            ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT [τ] [τ']) L')
-      τs ess) ->
+      τs ess ->
+    has_instruction_type_ok F ψ L' ->
+    run_codegen (compile_instr mr fe (ICase ψ L' ess)) wl = inr ((), wl', es') ->
+    ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
+  Admitted.
+
+  Lemma compat_case_variant M F L L' wl wl' es' ess τs τs' τ' κr κv μ :
+    let fe := fe_of_context F in
+    let ψ := InstrT [RefT κr μ (VariantT κv τs)] [τ'] in
+    Forall2 (loads_as F) τs τs' ->
+    Forall2
+      (fun τ es =>
+         (forall wl wl' es',
+             let fe := fe_of_context F in
+             run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
+             ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') (InstrT [τ] [τ']) L'))
+      τs' ess ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ICase ψ L' ess)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
@@ -1168,17 +1195,17 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_new M F L wl wl' es' τ τ' κ μ :
+  Lemma compat_new M F L wl wl' es' τ τ' κ μ :
     let fe := fe_of_context F in
     let ψ := InstrT [τ] [RefT κ μ τ'] in
     mono_mem μ ->
     stores_as F τ τ' ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IRefNew ψ)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (INew ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_load M F L wl wl' es' π pr κ μ τ τval :
+  Lemma compat_load M F L wl wl' es' π pr κ μ τ τval :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
     resolves_path τ π None pr ->
@@ -1186,11 +1213,11 @@ Section Fundamental.
     loads_as F pr.(pr_target) τval ->
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILoad ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_mm_load M F L wl wl' es' π τ τval κ κ' σ pr :
+  Lemma compat_load_mm M F L wl wl' es' π τ τval κ κ' σ pr :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) (pr_replaced pr); τval] in
     resolves_path τ π (Some (type_mem_uninit σ (ConstM MemMM))) pr ->
@@ -1198,11 +1225,11 @@ Section Fundamental.
     loads_as F (pr_target pr) τval ->
     Forall (mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IRefLoad ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILoad ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_store M F L wl wl' es' π pr κ μ τ τval :
+  Lemma compat_store M F L wl wl' es' π pr κ μ τ τval :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
     resolves_path τ π None pr ->
@@ -1210,11 +1237,11 @@ Section Fundamental.
     stores_as F τval pr.(pr_target) ->
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_mm_store M F L wl wl' es' π pr κ κ' τ τval τmem :
+  Lemma compat_store_mm M F L wl wl' es' π pr κ κ' τ τval τmem :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
     stores_as F τval τmem ->
@@ -1223,18 +1250,18 @@ Section Fundamental.
     type_size_eq F pr.(pr_target) τmem ->
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IRefStore ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (IStore ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_ref_swap M F L wl wl' es' π pr κ μ τ τval :
+  Lemma compat_swap M F L wl wl' es' π pr κ μ τ τval :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
     resolves_path τ π None pr ->
     Forall (mono_size F) pr.(pr_prefix) ->
     loads_as F τval pr.(pr_target) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IRefSwap ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ISwap ψ π)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
@@ -1316,8 +1343,10 @@ Section Fundamental.
     - eapply compat_inst; eassumption.
     - eapply compat_call; eassumption.
     - eapply compat_call_indirect; eassumption.
-    - eapply compat_inject; eassumption.
-    - eapply compat_case; eassumption.
+    - eapply compat_inject_sum; eassumption.
+    - eapply compat_inject_variant; eassumption.
+    - eapply compat_case_sum; eassumption.
+    - eapply compat_case_variant; eassumption.
     - eapply compat_group; eassumption.
     - eapply compat_ungroup; eassumption.
     - eapply compat_fold; eassumption.
@@ -1326,12 +1355,12 @@ Section Fundamental.
     - eapply compat_unpack; eassumption.
     - eapply compat_tag; eassumption.
     - eapply compat_untag; eassumption.
-    - eapply compat_ref_new; eassumption.
-    - eapply compat_ref_load; eassumption.
-    - eapply compat_ref_mm_load; eassumption.
-    - eapply compat_ref_store; eassumption.
-    - eapply compat_ref_mm_store; eassumption.
-    - eapply compat_ref_swap; eassumption.
+    - eapply compat_new; eassumption.
+    - eapply compat_load; eassumption.
+    - eapply compat_load_mm; eassumption.
+    - eapply compat_store; eassumption.
+    - eapply compat_store_mm; eassumption.
+    - eapply compat_swap; eassumption.
     - eapply compat_nil; eassumption.
     - eapply compat_cons; eassumption.
     - eapply compat_frame; eassumption.

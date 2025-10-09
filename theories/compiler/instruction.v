@@ -102,7 +102,7 @@ Section Compiler.
     let i' := i + funcimm mr.(mr_func_user) in
     emit (W.BI_call i').
 
-  Definition compile_inject (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
+  Definition compile_inject_sum (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
     codegen unit :=
     ιs_sum ← try_option EFail (eval_rep (SumR ρs));
     ixs_sum ← mapM (wlalloc fe) (map translate_prim_rep (tail ιs_sum));
@@ -113,7 +113,7 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs_sum.
 
-  Definition compile_case
+  Definition compile_case_sum
     (fe : function_env) (ρs : list representation) (τs : list type) (cases : list (codegen unit)) :
     codegen unit :=
     result ← try_option EFail (translate_types fe.(fe_type_vars) τs);
@@ -139,7 +139,7 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i (W.BOI_shr W.SX_U))).
 
-  Definition compile_ref_new (fe : function_env) (cm : concrete_memory) (τ τ' : type) :
+  Definition compile_new (fe : function_env) (cm : concrete_memory) (τ τ' : type) :
     codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
     ιs ← try_option EFail (eval_rep ρ);
@@ -151,7 +151,7 @@ Section Compiler.
     emit (W.BI_set_local (localimm a));;
     store_as mr fe cm a 0%N ρ τ' vs.
 
-  Definition compile_ref_store (fe : function_env) (τval τ : type) (π : path) : codegen unit :=
+  Definition compile_store (fe : function_env) (τval τ : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep ρ);
     '(off, τmem) ← try_option EFail (resolve_path fe τ π);
@@ -162,7 +162,7 @@ Section Compiler.
       (emit W.BI_unreachable)
       (fun cm => store_as mr fe cm a off ρ τmem vs).
 
-  Definition compile_ref_load (fe : function_env) (τ : type) (π : path) : codegen unit :=
+  Definition compile_load (fe : function_env) (τ : type) (π : path) : codegen unit :=
     '(off, τ') ← try_option EFail (resolve_path fe τ π);
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
     ιs ← try_option EFail (eval_rep ρ);
@@ -172,7 +172,7 @@ Section Compiler.
       (emit W.BI_unreachable)
       (fun cm => load_from mr fe cm a off τ').
 
-  Definition compile_ref_swap (fe : function_env) (τval τ τ' : type) (π : path) : codegen unit :=
+  Definition compile_swap (fe : function_env) (τval τ τ' : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep ρ);
     '(off, τmem) ← try_option EFail (resolve_path fe τ π);
@@ -209,10 +209,12 @@ Section Compiler.
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
     | ICallIndirect _ => emit (W.BI_call_indirect (tableimm mr.(mr_table)))
-    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
+    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
+    | IInject (InstrT _ [RefT _ _ (VariantT _ _)]) _ => raise ETodo
     | IInject _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] τs) _ ess =>
-        compile_case fe ρs τs (map (compile_instrs fe) ess)
+        compile_case_sum fe ρs τs (map (compile_instrs fe) ess)
+    | ICase (InstrT [RefT _ _ (VariantT _ _)] _) _ _ => raise ETodo
     | ICase _ _ _ => raise EFail
     | IGroup _ => erased_in_wasm
     | IUngroup _ => erased_in_wasm
@@ -222,14 +224,14 @@ Section Compiler.
     | IUnpack ψ _ es => compile_unpack fe ψ (flip compile_instrs es)
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
-    | IRefNew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_ref_new fe cm τ τ'
-    | IRefNew _ => raise EFail
-    | IRefLoad (InstrT [RefT _ _ τ] _) π => compile_ref_load fe τ π
-    | IRefLoad _ _ => raise EFail
-    | IRefStore (InstrT [_; τval] [RefT _ _ τ]) π => compile_ref_store fe τval τ π
-    | IRefStore _ _ => raise EFail
-    | IRefSwap (InstrT [RefT _ _ τ; τval] [RefT _ _ τ'; _]) π => compile_ref_swap fe τval τ τ' π
-    | IRefSwap _ _ => raise EFail
+    | INew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_new fe cm τ τ'
+    | INew _ => raise EFail
+    | ILoad (InstrT [RefT _ _ τ] _) π => compile_load fe τ π
+    | ILoad _ _ => raise EFail
+    | IStore (InstrT [_; τval] [RefT _ _ τ]) π => compile_store fe τval τ π
+    | IStore _ _ => raise EFail
+    | ISwap (InstrT [RefT _ _ τ; τval] [RefT _ _ τ'; _]) π => compile_swap fe τval τ τ' π
+    | ISwap _ _ => raise EFail
     end.
 
   Definition compile_instrs (fe : function_env) : list instruction -> codegen unit :=

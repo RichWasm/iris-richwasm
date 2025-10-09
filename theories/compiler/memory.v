@@ -124,23 +124,6 @@ Section Compiler.
     (ρ : representation) (τ : type) (vs : list W.localidx) {struct τ} :
     codegen unit :=
     match ρ, τ with
-    | SumR ρs, SumT _ τs =>
-        (* TODO: ref.store on a GC ref with a sum type can change pointer positions. *)
-        let fix store_cons_as ρs τs {struct τs} :=
-          match ρs, τs with
-          | ρ :: ρs', τ :: τs' =>
-              let store_case ixs :=
-                try_option EFail (nths_error (tail vs) ixs) ≫=
-                  store_as fe cm a (off + 1)%N ρ τ
-              in
-              store_case :: store_cons_as ρs' τs'
-          | _, _ => []
-          end
-        in
-        v ← try_option EFail (head vs);
-        store_as_primitive cm a off I32R v;;
-        emit (W.BI_get_local (localimm v));;
-        case_blocks ρs [] (store_cons_as ρs τs)
     | ProdR ρs, ProdT _ τs =>
         let fix store_items_as off vs ρs τs {struct τs} :=
           match ρs, τs with
@@ -193,20 +176,6 @@ Section Compiler.
     (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (τ : type) :
     codegen unit :=
     match τ with
-    | SumT _ τs =>
-        ρs ← try_option EFail (mapM (type_rep fe.(fe_type_vars)) τs);
-        ιs ← try_option EFail (eval_rep (SumR ρs));
-        vs ← mapM (wlalloc fe) (map translate_prim_rep ιs);
-        tag ← try_option EFail (head vs);
-        let load_case τ ixs :=
-          ixs' ← try_option EFail (nths_error (tail vs) ixs);
-          load_from fe cm a (off + 1)%N τ;;
-          set_locals_w ixs'
-        in
-        load_from_primitive cm a off I32R;;
-        emit (W.BI_tee_local (localimm tag));;
-        case_blocks ρs [] (map load_case τs);;
-        restore_stack vs
     | ProdT _ τs =>
         ignore $ foldM
           (fun τ' off =>

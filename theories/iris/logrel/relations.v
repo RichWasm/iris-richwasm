@@ -227,7 +227,7 @@ Section Relations.
     | None => λne _, False%I
     end.
 
-  Definition sum_val_interp
+  Definition sum_interp
     (vrel : value_relation) (se : semantic_env) (ρs : list representation) (τs : list type) : SVR :=
     λne sv,
       (∃ i vs vs_i τ_i ρ_i ixs,
@@ -238,7 +238,7 @@ Section Relations.
            ⌜nths_error vs ixs = Some vs_i⌝ ∗
            ▷ vrel se τ_i (SValues vs_i))%I.
 
-  Definition sum_mem_interp
+  Definition variant_interp
     (vrel : value_relation) (se : semantic_env) (cm : concrete_memory) (τs : list type) : SVR :=
     λne sv,
       (∃ i ws ws' τ,
@@ -246,11 +246,11 @@ Section Relations.
            ⌜τs !! i = Some τ⌝ ∗
            ▷ vrel se τ (SWords cm ws))%I.
 
-  Definition prod_val_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
+  Definition prod_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,
       (∃ vss, ⌜sv = SValues (concat vss)⌝ ∗ [∗ list] vs; τ ∈ vss; τs, ▷ vrel se τ (SValues vs))%I.
 
-  Definition prod_mem_interp
+  Definition struct_interp
     (vrel : value_relation) (se : semantic_env) (cm : concrete_memory) (τs : list type) : SVR :=
     λne sv,
       (∃ wss,
@@ -332,24 +332,27 @@ Section Relations.
     λne τ,
       match τ with
       | VarT t => type_var_interp se t
-      | I31T _ => λne _, True
+      | I31T _
       | NumT _ _ => λne _, True
-      | SumT (VALTYPE (SumR ρs) _ _) τs => sum_val_interp vrel se ρs τs
-      | SumT (VALTYPE _ _ _) _ => λne _, False
-      | SumT (MEMTYPE _ (VarM _) _) _ => λne _, False
-      | SumT (MEMTYPE _ (ConstM cm) _) τs => sum_mem_interp vrel se cm τs
-      | ProdT (VALTYPE _ _ _) τs => prod_val_interp vrel se τs
-      | ProdT (MEMTYPE _ (VarM _) _) _ => λne _, False
-      | ProdT (MEMTYPE _ (ConstM cm) _) τs => prod_mem_interp vrel se cm τs
+      | SumT (VALTYPE (SumR ρs) _ _) τs => sum_interp vrel se ρs τs
+      | SumT _ _ => λne _, False
+      | VariantT (VALTYPE _ _ _) _
+      | VariantT (MEMTYPE _ (VarM _) _) _ => λne _, False
+      | VariantT (MEMTYPE _ (ConstM cm) _) τs => variant_interp vrel se cm τs
+      | ProdT (VALTYPE _ _ _) τs => prod_interp vrel se τs
+      | ProdT (MEMTYPE _ _ _) _
+      | StructT (VALTYPE _ _ _) _
+      | StructT (MEMTYPE _ (VarM _) _) _ => λne _, False
+      | StructT (MEMTYPE _ (ConstM cm) _) τs => struct_interp vrel se cm τs
       | RefT _ (VarM _) _ => λne _, False
       | RefT _ (ConstM MemMM) τ => ref_mm_interp vrel se τ
       | RefT _ (ConstM MemGC) τ => ref_gc_interp vrel se τ
       | GCPtrT _ τ => gcptr_interp vrel se τ
       | CodeRefT _ ϕ => coderef_interp vrel se ϕ
-      | PadT (VALTYPE _ _ _) _ _ => λne _, False
+      | PadT (VALTYPE _ _ _) _ _
       | PadT (MEMTYPE _ (VarM _) _) _ _ => λne _, False
       | PadT (MEMTYPE _ (ConstM cm) _) _ τ => pad_interp vrel se cm τ
-      | SerT (VALTYPE _ _ _) _ => λne _, False
+      | SerT (VALTYPE _ _ _) _
       | SerT (MEMTYPE _ (VarM _) _) _ => λne _, False
       | SerT (MEMTYPE _ (ConstM cm) _) τ => ser_interp vrel se cm τ
       | RecT κ τ => rec_interp vrel se κ τ

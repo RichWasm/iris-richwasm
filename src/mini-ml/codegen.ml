@@ -110,7 +110,7 @@ let rec compile_value delta gamma locals functions v =
   let r = compile_value delta gamma locals functions in
   let t = type_of_v unindexed v in
   let rw_t = compile_type delta t in
-  let box = [ RefNew (Memory.GC, rw_t); RefStore (Path [], None) ] in
+  let box = [ New (Memory.GC, rw_t); Store (Path [], None) ] in
   match v with
   | Int i ->
       let open NumType in
@@ -124,7 +124,7 @@ let rec compile_value delta gamma locals functions v =
         | Closed.PreType.Sum ts -> List.map ~f:(compile_type delta) ts
         | _ -> failwith "inj should be annotated with sum type"
       in
-      r v @ [ Inject (i, types) ] @ box
+      r v @ [ Inject (Some GC, i, types) ]
   | Pack (witness, v, _) ->
       r v @ [ Pack (Index.Type (compile_type delta witness), rw_t) ] @ box
   | Fun _ -> failwith "functions should be compiled with [compile_fun]"
@@ -168,12 +168,12 @@ let rec compile_expr delta gamma locals functions e =
         locals,
         [] )
   | Project (n, v) ->
-      ( cv v @ [ RefLoad (Path.Path [ Path.Component.Proj n ]) ],
+      ( cv v @ [ Load (Path.Path [ Path.Component.Proj n ]) ],
         locals,
         [] )
-  | New v -> (cv v @ [ RefNew (Memory.GC, rw_t) ], locals, [])
-  | Deref v -> (cv v @ [ RefLoad (Path.Path []) ], locals, [])
-  | Assign (r, v) -> (cv r @ cv v @ [ RefStore (Path.Path [], None) ], locals, [])
+  | New v -> (cv v @ [ New (Memory.GC, rw_t) ], locals, [])
+  | Deref v -> (cv v @ [ Load (Path.Path []) ], locals, [])
+  | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path [], None) ], locals, [])
   | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals, [])
   | Unfold v -> (cv v @ [ Unfold ], locals, [])
   | Unpack (var, (n, t), v, e) ->
@@ -186,7 +186,7 @@ let rec compile_expr delta gamma locals functions e =
       let fx = fx @ [ (new_local_idx, rw_unit) ] in
       ( cv v
         @ [
-            RefLoad (Path.Path []);
+            Load (Path.Path []);
             Unpack
               ( BlockType [ rw_t ],
                 LocalFx fx,

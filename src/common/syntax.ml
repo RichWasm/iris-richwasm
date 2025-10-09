@@ -371,7 +371,9 @@ module rec Type : sig
     | I31
     | Num of NumType.t
     | Sum of t list
+    | Variant of t list
     | Prod of t list
+    | Struct of t list
     | Ref of Memory.t * t
     | GCPtr of t
     | CodeRef of FunctionType.t
@@ -390,7 +392,9 @@ end = struct
     | I31
     | Num of NumType.t
     | Sum of t list
+    | Variant of t list
     | Prod of t list
+    | Struct of t list
     | Ref of Memory.t * t
     | GCPtr of t
     | CodeRef of FunctionType.t
@@ -412,8 +416,16 @@ end = struct
         fprintf ff "@[(sum";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
+    | Variant ts ->
+        fprintf ff "@[(variant";
+        List.iter ~f:(fprintf ff "@ %a" pp) ts;
+        fprintf ff ")@]"
     | Prod ts ->
         fprintf ff "@[(prod";
+        List.iter ~f:(fprintf ff "@ %a" pp) ts;
+        fprintf ff ")@]"
+    | Struct ts ->
+        fprintf ff "@[(struct";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Ref (m, t) -> fprintf ff "@[(ref %a %a)@]" Memory.pp m pp t
@@ -516,7 +528,7 @@ module Instruction = struct
     | Inst of Index.t
     | Call of int * Index.t list
     | CallIndirect
-    | Inject of int * Type.t list
+    | Inject of Memory.t option * int * Type.t list
     | Case of BlockType.t * LocalFx.t * t list list
     | Group of int
     | Ungroup
@@ -528,10 +540,10 @@ module Instruction = struct
     | Unwrap
     | Tag
     | Untag
-    | RefNew of Memory.t * Type.t
-    | RefLoad of Path.t
-    | RefStore of Path.t * Type.t option
-    | RefSwap of Path.t
+    | New of Memory.t * Type.t
+    | Load of Path.t
+    | Store of Path.t * Type.t option
+    | Swap of Path.t
   [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -562,11 +574,11 @@ module Instruction = struct
     | Unwrap -> fprintf ff "unwrap"
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
-    | RefNew (m, t) -> fprintf ff "ref.new %a %a" Memory.pp m Type.pp t
-    | RefLoad p -> fprintf ff "ref.store %a" Path.pp p
-    | RefStore (p, None) -> fprintf ff "ref.store %a" Path.pp p
-    | RefStore (p, Some t) -> fprintf ff "ref.store %a %a" Path.pp p Type.pp t
-    | RefSwap p -> fprintf ff "ref.swap %a" Path.pp p
+    | New (m, t) -> fprintf ff "new %a %a" Memory.pp m Type.pp t
+    | Load p -> fprintf ff "store %a" Path.pp p
+    | Store (p, None) -> fprintf ff "store %a" Path.pp p
+    | Store (p, Some t) -> fprintf ff "store %a %a" Path.pp p Type.pp t
+    | Swap p -> fprintf ff "swap %a" Path.pp p
     | x -> show_pp ff x
 end
 

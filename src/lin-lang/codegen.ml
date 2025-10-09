@@ -151,7 +151,7 @@ module Compile = struct
           | Sum ts -> ret ts
           | _ -> fail (InjInvalidAnn t)
         in
-        ret @@ expr' @ [ Inject (i, ts) ]
+        ret @@ expr' @ [ Inject (None, i, ts) ]
     | Fold (mu, expr, _) ->
         let mu' = compile_type mu in
         let* expr' = compile_expr env expr in
@@ -225,17 +225,17 @@ module Compile = struct
         let* v' = compile_expr env v in
         let t = type_of v in
         let t' = compile_type t in
-        ret @@ v' @ [ RefNew (MM, t') ]
+        ret @@ v' @ [ New (MM, t') ]
     | Swap (e1, e2, _) ->
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
-        ret @@ e1' @ e2' @ [ RefSwap (Path []); Group 2 ]
+        ret @@ e1' @ e2' @ [ Swap (Path []); Group 2 ]
     | Free (e, t) ->
         let* e' = compile_expr env e in
         let* rep = lift_result @@ rep_of_typ t in
         let* fresh_idx = new_local rep in
         ret @@ e'
-        @ [ RefLoad (Path []); LocalSet fresh_idx; Drop; LocalGet fresh_idx ]
+        @ [ Load (Path []); LocalSet fresh_idx; Drop; LocalGet fresh_idx ]
 
   let compile_import ({ input; output; _ } : A.Import.t) :
       B.FunctionType.t Res.t =

@@ -64,7 +64,9 @@ type (VarT) : Type
 I31T : kind -> type
 NumT : kind -> num_type -> type
 SumT : kind -> "list" (type) -> type
+VariantT : kind -> "list" (type) -> type
 ProdT : kind -> "list" (type) -> type
+StructT : kind -> "list" (type) -> type
 RefT : kind -> memory -> type -> type
 GCPtrT : kind -> type -> type
 CodeRefT : kind -> function_type -> type
@@ -199,7 +201,7 @@ IPack : instruction_type -> instruction
 IUnpack : instruction_type -> "list" ("option" (type)) -> "list" (instruction) -> instruction
 ITag : instruction_type -> instruction
 IUntag : instruction_type -> instruction
-IRefNew : instruction_type -> instruction
-IRefLoad : instruction_type -> path -> instruction
-IRefStore : instruction_type -> path -> instruction
-IRefSwap : instruction_type -> path -> instruction
+INew : instruction_type -> instruction
+ILoad : instruction_type -> path -> instruction
+IStore : instruction_type -> path -> instruction
+ISwap : instruction_type -> path -> instruction

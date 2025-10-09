@@ -123,10 +123,18 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   kind_ok F.(fc_kind_ctx) κ ->
   Forall (type_ok F) τs ->
   type_ok F (SumT κ τs)
+| OKVariantT F κ τs :
+  kind_ok F.(fc_kind_ctx) κ ->
+  Forall (type_ok F) τs ->
+  type_ok F (VariantT κ τs)
 | OKProdT F κ τs :
   kind_ok F.(fc_kind_ctx) κ ->
   Forall (type_ok F) τs ->
   type_ok F (ProdT κ τs)
+| OKStructT F κ τs :
+  kind_ok F.(fc_kind_ctx) κ ->
+  Forall (type_ok F) τs ->
+  type_ok F (StructT κ τs)
 | OKRefT F κ μ τ :
   kind_ok F.(fc_kind_ctx) κ ->
   mem_ok F.(fc_kind_ctx) μ ->
@@ -238,34 +246,34 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KF64 F :
   let κ := VALTYPE (PrimR F64R) ImCopy ImDrop in
   has_kind F (NumT κ (FloatT F64T)) κ
-| KSumVal F τs ρs χ δ :
+| KSum F τs ρs χ δ :
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
   let κ := VALTYPE (SumR ρs) χ δ in
   has_kind F (SumT κ τs) κ
-| KSumMem F τs ζs μ δ :
+| KVariant F τs ζs μ δ :
   mem_ok F.(fc_kind_ctx) μ ->
   Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ μ δ)) τs ζs ->
   let κ := MEMTYPE Unsized μ δ in
-  has_kind F (SumT κ τs) κ
-| KSumMemSized F τs σs μ δ :
+  has_kind F (VariantT κ τs) κ
+| KVariantSized F τs σs μ δ :
   mem_ok F.(fc_kind_ctx) μ ->
   Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
   let κ := MEMTYPE (Sized (SumS σs)) μ δ in
-  has_kind F (SumT κ τs) κ
-| KProdVal F τs ρs χ δ :
+  has_kind F (VariantT κ τs) κ
+| KProd F τs ρs χ δ :
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
   let κ := VALTYPE (ProdR ρs) χ δ in
   has_kind F (ProdT κ τs) κ
-| KProdMem F τs ζs μ δ :
+| KStruct F τs ζs μ δ :
   mem_ok F.(fc_kind_ctx) μ ->
   Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ μ δ)) τs ζs ->
   let κ := MEMTYPE Unsized μ δ in
-  has_kind F (ProdT κ τs) κ
-| KProdMemSized F τs σs μ δ :
+  has_kind F (StructT κ τs) κ
+| KStructSized F τs σs μ δ :
   mem_ok F.(fc_kind_ctx) μ ->
   Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
   let κ := MEMTYPE (Sized (ProdS σs)) μ δ in
-  has_kind F (ProdT κ τs) κ
+  has_kind F (StructT κ τs) κ
 | KRef F τ ζ μ δ :
   has_kind F τ (MEMTYPE ζ μ δ) ->
   let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in
@@ -336,27 +344,27 @@ Section HasKindInd.
                    P F (NumT κ (FloatT F32T)) κ)
       (HF64 : forall F, let κ := VALTYPE (PrimR F64R) ImCopy ImDrop in
                    P F (NumT κ (FloatT F64T)) κ)
-      (HSumVal : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
-                                let κ := VALTYPE (SumR ρs) χ δ in
-                                P F (SumT κ τs) κ)
-      (HSumMem : forall F τs ζs μ δ, mem_ok F.(fc_kind_ctx) μ ->
-                                Forall2 (fun τ ζ => P F τ (MEMTYPE ζ μ δ)) τs ζs ->
-                                let κ := MEMTYPE Unsized μ δ in P F (SumT κ τs) κ)
-      (HSumMemSized : forall F τs σs μ δ,
+      (HSum : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
+                             let κ := VALTYPE (SumR ρs) χ δ in
+                             P F (SumT κ τs) κ)
+      (HVariant : forall F τs ζs μ δ, mem_ok F.(fc_kind_ctx) μ ->
+                                 Forall2 (fun τ ζ => P F τ (MEMTYPE ζ μ δ)) τs ζs ->
+                                 let κ := MEMTYPE Unsized μ δ in P F (VariantT κ τs) κ)
+      (HVariantSized : forall F τs σs μ δ,
           mem_ok F.(fc_kind_ctx) μ ->
           Forall2 (fun τ σ => P F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
-          let κ := MEMTYPE (Sized (SumS σs)) μ δ in P F (SumT κ τs) κ)
-      (HProdVal : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
-                                 let κ := VALTYPE (ProdR ρs) χ δ in
-                                 P F (ProdT κ τs) κ)
-      (HProdMem : forall F τs ζs μ δ, mem_ok F.(fc_kind_ctx) μ ->
-                                 Forall2 (fun τ ζ => P F τ (MEMTYPE ζ μ δ)) τs ζs ->
-                                 let κ := MEMTYPE Unsized μ δ in
-                                 P F (ProdT κ τs) κ)
-      (HProdMemSized : forall F τs σs μ δ, mem_ok F.(fc_kind_ctx) μ ->
-                                      Forall2 (fun τ σ => P F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
-                                      let κ := MEMTYPE (Sized (ProdS σs)) μ δ in
-                                      P F (ProdT κ τs) κ)
+          let κ := MEMTYPE (Sized (SumS σs)) μ δ in P F (VariantT κ τs) κ)
+      (HProd : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
+                              let κ := VALTYPE (ProdR ρs) χ δ in
+                              P F (ProdT κ τs) κ)
+      (HStruct : forall F τs ζs μ δ, mem_ok F.(fc_kind_ctx) μ ->
+                                Forall2 (fun τ ζ => P F τ (MEMTYPE ζ μ δ)) τs ζs ->
+                                let κ := MEMTYPE Unsized μ δ in
+                                P F (StructT κ τs) κ)
+      (HStructSized : forall F τs σs μ δ, mem_ok F.(fc_kind_ctx) μ ->
+                                     Forall2 (fun τ σ => P F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
+                                     let κ := MEMTYPE (Sized (ProdS σs)) μ δ in
+                                     P F (StructT κ τs) κ)
       (HRef : forall F τ ζ μ δ, P F τ (MEMTYPE ζ μ δ) ->
                            let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in
                            P F (RefT κ μ τ) κ)
@@ -412,18 +420,18 @@ Section HasKindInd.
     | KI64 F => HI64 F
     | KF32 F => HF32 F
     | KF64 F => HF64 F
-    | KSumVal F τs ρs χ δ H1 =>
-        HSumVal F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KSumMem F τs ζs μ δ H1 H2 =>
-        HSumMem F τs ζs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ ζ => has_kind_ind' _ _ _))
-    | KSumMemSized F τs σs μ δ H1 H2 =>
-        HSumMemSized F τs σs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ σ => has_kind_ind' _ _ _))
-    | KProdVal F τs ρs χ δ H1 H2 =>
-        HProdVal F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KProdMem F τs ζs μ δ H1 H2 =>
-        HProdMem F τs ζs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ ζ => has_kind_ind' _ _ _))
-    | KProdMemSized F τs σs μ δ H1 H2 =>
-        HProdMemSized F τs σs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ σ => has_kind_ind' _ _ _))
+    | KSum F τs ρs χ δ H1 =>
+        HSum F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
+    | KVariant F τs ζs μ δ H1 H2 =>
+        HVariant F τs ζs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ ζ => has_kind_ind' _ _ _))
+    | KVariantSized F τs σs μ δ H1 H2 =>
+        HVariantSized F τs σs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ σ => has_kind_ind' _ _ _))
+    | KProd F τs ρs χ δ H1 H2 =>
+        HProd F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
+    | KStruct F τs ζs μ δ H1 H2 =>
+        HStruct F τs ζs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ ζ => has_kind_ind' _ _ _))
+    | KStructSized F τs σs μ δ H1 H2 =>
+        HStructSized F τs σs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ σ => has_kind_ind' _ _ _))
     | KRef F τ ζ μ δ H1 => HRef F τ ζ μ δ (has_kind_ind' _ _ _ H1)
     | KRefMMDrop F τ ζ H1 => HRefMMDrop F τ ζ (has_kind_ind' _ _ _ H1)
     | KRefGC F τ ζ δ H1 => HRefGC F τ ζ δ (has_kind_ind' _ _ _ H1)
@@ -518,9 +526,6 @@ Inductive resolves_path : type -> path -> option type -> path_result -> Prop :=
   resolves_path (PadT κ σ τ) (PCSkip :: π) τ__π pr.
 
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
-| SASum F κ κ' τs τs' :
-  Forall2 (stores_as F) τs τs' ->
-  stores_as F (SumT κ τs) (SumT κ' τs')
 | SAProd F κ κ' τs τs' :
   Forall2 (stores_as F) τs τs' ->
   stores_as F (ProdT κ τs) (ProdT κ' τs')
@@ -786,15 +791,29 @@ Inductive has_instruction_type :
   let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICallIndirect ψ) ψ L
-| TInject M F L i τ τs κ :
+| TInjectSum M F L i τ τs κ :
   let ψ := InstrT [τ] [SumT κ τs] in
   τs !! i = Some τ ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IInject ψ i) ψ L
-| TCase M F L L' κ τ' τs ess :
+| TInjectVariant M F L μ i τ τ' τs κr κv :
+  let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs)] in
+  τs !! i = Some τ' ->
+  mono_mem μ ->
+  stores_as F τ τ' ->
+  has_instruction_type_ok F ψ L ->
+  has_instruction_type M F L (IInject ψ i) ψ L
+| TCaseSum M F L L' ess τ' τs κ :
   (* TODO: Add label to escape case. *)
   let ψ := InstrT [SumT κ τs] [τ'] in
   Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs ess ->
+  has_instruction_type_ok F ψ L' ->
+  has_instruction_type M F L (ICase ψ L' ess) ψ L'
+| TCaseVariant M F L L' ess τs τs' τ' κr κv μ :
+  (* TODO: Add label to escape case. *)
+  let ψ := InstrT [RefT κr μ (VariantT κv τs)] [τ'] in
+  Forall2 (loads_as F) τs τs' ->
+  Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs' ess ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ICase ψ L' ess) ψ L'
 | TGroup M F L τs κ :
@@ -835,37 +854,37 @@ Inductive has_instruction_type :
   let ψ := InstrT [type_i31] [type_i32] in
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IUntag ψ) ψ L
-| TRefNew M F L μ τ τ' κ :
+| TNew M F L μ τ τ' κ :
   let ψ := InstrT [τ] [RefT κ μ τ'] in
   mono_mem μ ->
   stores_as F τ τ' ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IRefNew ψ) ψ L
-| TRefLoad M F L π μ τ τval pr κ :
+  has_instruction_type M F L (INew ψ) ψ L
+| TLoad M F L π μ τ τval pr κ :
   let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
   resolves_path τ π None pr ->
   has_copyability F pr.(pr_target) ImCopy ->
   loads_as F pr.(pr_target) τval ->
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IRefLoad ψ π) ψ L
-| TRefMMLoad M F L π τ τval κ κ' σ pr :
+  has_instruction_type M F L (ILoad ψ π) ψ L
+| TLoadMM M F L π τ τval κ κ' σ pr :
   let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
   resolves_path τ π (Some (type_mem_uninit σ (ConstM MemMM))) pr ->
   has_size F pr.(pr_target) σ ->
   loads_as F pr.(pr_target) τval ->
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IRefLoad ψ π) ψ L
-| TRefStore M F L π μ τ τval pr κ :
+  has_instruction_type M F L (ILoad ψ π) ψ L
+| TStore M F L π μ τ τval pr κ :
   let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
   resolves_path τ π None pr ->
   has_dropability F pr.(pr_target) ImDrop ->
   stores_as F τval pr.(pr_target) ->
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IRefStore ψ π) ψ L
-| TRefMMStore M F L π τ τval τmem pr κ κ' :
+  has_instruction_type M F L (IStore ψ π) ψ L
+| TStoreMM M F L π τ τval τmem pr κ κ' :
   let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
   stores_as F τval τmem ->
   resolves_path τ π (Some τmem) pr ->
@@ -873,14 +892,14 @@ Inductive has_instruction_type :
   type_size_eq F pr.(pr_target) τmem ->
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IRefStore ψ π) ψ L
-| TRefSwap M F L π τ τval pr κ μ :
+  has_instruction_type M F L (IStore ψ π) ψ L
+| TSwap M F L π τ τval pr κ μ :
   let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
   resolves_path τ π None pr ->
   Forall (mono_size F) pr.(pr_prefix) ->
   loads_as F τval pr.(pr_target) ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (IRefSwap ψ π) ψ L
+  has_instruction_type M F L (ISwap ψ π) ψ L
 
 with have_instruction_type :
   module_ctx -> function_ctx -> local_ctx -> list instruction -> instruction_type -> local_ctx -> Prop :=
@@ -1001,11 +1020,29 @@ Section HasHaveInstructionTypeMind.
           let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICallIndirect ψ) ψ L)
-      (HInject : forall M F L i τ τs κ,
+      (HInjectSum : forall M F L i τ τs κ,
           let ψ := InstrT [τ] [SumT κ τs] in
           τs !! i = Some τ ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IInject ψ i) ψ L)
+      (HInjectVariant : forall M F L μ i τ τ' τs κr κv,
+          let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs)] in
+          τs !! i = Some τ' ->
+          mono_mem μ ->
+          stores_as F τ τ' ->
+          has_instruction_type_ok F ψ L ->
+          P1 M F L (IInject ψ i) ψ L)
+      (HCaseSum : forall M F L L' ess τ' τs κ,
+          let ψ := InstrT [SumT κ τs] [τ'] in
+          Forall2 (fun τ es => P2 M F L es (InstrT [τ] [τ']) L') τs ess ->
+          has_instruction_type_ok F ψ L' ->
+          P1 M F L (ICase ψ L' ess) ψ L')
+      (HCaseVariant : forall M F L L' ess τs τs' τ' κr κv μ,
+          let ψ := InstrT [RefT κr μ (VariantT κv τs)] [τ'] in
+          Forall2 (loads_as F) τs τs' ->
+          Forall2 (fun τ es => P2 M F L es (InstrT [τ] [τ']) L') τs' ess ->
+          has_instruction_type_ok F ψ L' ->
+          P1 M F L (ICase ψ L' ess) ψ L')
       (HCase : forall M F L L' κ τ' τs ess,
           let ψ := InstrT [SumT κ τs] [τ'] in
           Forall2 (fun τ es => P2 M F L es (InstrT [τ] [τ']) L') τs ess ->
@@ -1054,7 +1091,7 @@ Section HasHaveInstructionTypeMind.
           mono_mem μ ->
           stores_as F τ τ' ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (IRefNew ψ) ψ L)
+          P1 M F L (INew ψ) ψ L)
       (HRefLoad : forall M F L π μ τ τval pr κ,
           let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
           resolves_path τ π None pr ->
@@ -1062,7 +1099,7 @@ Section HasHaveInstructionTypeMind.
           loads_as F pr.(pr_target) τval ->
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (IRefLoad ψ π) ψ L)
+          P1 M F L (ILoad ψ π) ψ L)
       (HRefMMLoad : forall M F L π τ τval κ κ' σ pr,
           let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
           resolves_path τ π (Some (type_mem_uninit σ (ConstM MemMM))) pr ->
@@ -1070,7 +1107,7 @@ Section HasHaveInstructionTypeMind.
           loads_as F pr.(pr_target) τval ->
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (IRefLoad ψ π) ψ L)
+          P1 M F L (ILoad ψ π) ψ L)
       (HRefStore : forall M F L π μ τ τval pr κ,
           let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
           resolves_path τ π None pr ->
@@ -1078,7 +1115,7 @@ Section HasHaveInstructionTypeMind.
           stores_as F τval pr.(pr_target) ->
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (IRefStore ψ π) ψ L)
+          P1 M F L (IStore ψ π) ψ L)
       (HRefMMStore : forall M F L π τ τval τmem pr κ κ',
           let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
           stores_as F τval τmem ->
@@ -1087,14 +1124,14 @@ Section HasHaveInstructionTypeMind.
           type_size_eq F pr.(pr_target) τmem ->
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (IRefStore ψ π) ψ L)
+          P1 M F L (IStore ψ π) ψ L)
       (HRefSwap : forall M F L π τ τval pr κ μ,
           let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
           resolves_path τ π None pr ->
           Forall (mono_size F) pr.(pr_prefix) ->
           loads_as F τval pr.(pr_target) ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (IRefSwap ψ π) ψ L)
+          P1 M F L (ISwap ψ π) ψ L)
       (HNil : forall M F L,
           local_ctx_ok F L ->
           P2 M F L [] (InstrT [] []) L)
@@ -1138,11 +1175,17 @@ Section HasHaveInstructionTypeMind.
     | TInst M F L ix ϕ ϕ' H1 H2 => HInst M F L ix ϕ ϕ' H1 H2
     | TCall M F L i ixs ϕ τs1 τs2 H1 H2 H3 => HCall M F L i ixs ϕ τs1 τs2 H1 H2 H3
     | TCallIndirect M F L τs1 τs2 H1 => HCallIndirect M F L τs1 τs2 H1
-    | TInject M F L i τ τs κ H1 H2 => HInject M F L i τ τs κ H1 H2
-    | TCase M F L L' κ τ' τs ess H1 H2 =>
-        HCase M F L L' κ τ' τs ess
+    | TInjectSum M F L i τ τs κ H1 H2 => HInjectSum M F L i τ τs κ H1 H2
+    | TInjectVariant M F L μ i τ τ' τs κr κv H1 H2 H3 H4 =>
+        HInjectVariant M F L μ i τ τ' τs κr κv H1 H2 H3 H4
+    | TCaseSum M F L L' ess τ' τs κ H1 H2 =>
+        HCaseSum M F L L' ess τ' τs κ
           (Forall2_impl _ _ _ _ H1 (fun τ es => have_instruction_type_mind _ _ _ _ _ _))
           H2
+    | TCaseVariant M F L L' ess τs τs' τ' κr κv μ H1 H2 H3 =>
+        HCaseVariant M F L L' ess τs τs' τ' κr κv μ H1
+          (Forall2_impl _ _ _ _ H2 (fun τ es => have_instruction_type_mind _ _ _ _ _ _))
+          H3
     | TGroup M F L τs κ H1 => HGroup M F L τs κ H1
     | TUngroup M F L τs κ H1 => HUngroup M F L τs κ H1
     | TFold M F L τs κ H1 => HFold M F L τs κ H1
@@ -1154,14 +1197,14 @@ Section HasHaveInstructionTypeMind.
           H3
     | TTag M F L H1 => HTag M F L H1
     | TUntag M F L H1 => HUntag M F L H1
-    | TRefNew M F L μ τ τ' κ H1 H2 H3 => HRefNew M F L μ τ τ' κ H1 H2 H3
-    | TRefLoad M F L π μ τ τval pr κ H1 H2 H3 H4 H5 => HRefLoad M F L π μ τ τval pr κ H1 H2 H3 H4 H5
-    | TRefMMLoad M F L π τ τval κ κ' σ pr H1 H2 H3 H4 H5 =>
+    | TNew M F L μ τ τ' κ H1 H2 H3 => HRefNew M F L μ τ τ' κ H1 H2 H3
+    | TLoad M F L π μ τ τval pr κ H1 H2 H3 H4 H5 => HRefLoad M F L π μ τ τval pr κ H1 H2 H3 H4 H5
+    | TLoadMM M F L π τ τval κ κ' σ pr H1 H2 H3 H4 H5 =>
         HRefMMLoad M F L π τ τval κ κ' σ pr H1 H2 H3 H4 H5
-    | TRefStore M F L π μ τ τval pr κ H1 H2 H3 H4 H5 => HRefStore M F L π μ τ τval pr κ H1 H2 H3 H4 H5
-    | TRefMMStore M F L π τ τval τmem pr κ κ' H1 H2 H3 H4 H5 H6 =>
+    | TStore M F L π μ τ τval pr κ H1 H2 H3 H4 H5 => HRefStore M F L π μ τ τval pr κ H1 H2 H3 H4 H5
+    | TStoreMM M F L π τ τval τmem pr κ κ' H1 H2 H3 H4 H5 H6 =>
         HRefMMStore M F L π τ τval τmem pr κ κ' H1 H2 H3 H4 H5 H6
-    | TRefSwap M F L π τ τval pr κ μ H1 H2 H3 H4 => HRefSwap M F L π τ τval pr κ μ H1 H2 H3 H4
+    | TSwap M F L π τ τval pr κ μ H1 H2 H3 H4 => HRefSwap M F L π τ τval pr κ μ H1 H2 H3 H4
     end
 
   with have_instruction_type_mind
