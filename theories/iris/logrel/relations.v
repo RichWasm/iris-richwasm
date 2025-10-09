@@ -565,7 +565,7 @@ Section Relations.
     CtxR :=
     λne lh,
       (⌜base_is_empty lh⌝ ∗
-         ⌜length_lholeds se τc lh⌝ ∗
+         ⌜length_lholeds se (rev τc) lh⌝ ∗
          ⌜lholed_valid lh⌝ ∗
          continuations_interp se τr τc ιss_L L WL inst lh)%I.
 
