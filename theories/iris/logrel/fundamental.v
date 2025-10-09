@@ -1062,14 +1062,16 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_unpack M F F0 L L' L0 L0' wl wl' es es' es0 ψ ψ0 :
+  Lemma compat_unpack M F F0' L L' L0 L0' wl wl' es es' es0 τs1 τs2 ψ0 :
     let fe := fe_of_context F in
-    unpacked_existential F L es ψ L' F0 L0 es0 ψ0 L0' ->
+    let F' := F <| fc_labels ::= cons (τs2, L') |> in
+    let ψ := InstrT τs1 τs2 in
+    unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
     has_instruction_type_ok F ψ L' ->
     (forall wl wl' es',
-        let fe0 := fe_of_context F0 in
-        run_codegen (compile_instrs mr fe0 es0) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F0 L0 wl' (to_e_list es') ψ0 L0') ->
+        let fe0' := fe_of_context F0' in
+        run_codegen (compile_instrs mr fe0' es0) wl = inr ((), wl', es') ->
+        ⊢ have_instruction_type_sem sr mr M F0' L0 wl' (to_e_list es') ψ0 L0') ->
     run_codegen (compile_instr mr fe (IUnpack ψ L' es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L wl' (to_e_list es') ψ L'.
   Admitted.
