@@ -57,8 +57,8 @@ Section Compiler.
     end.
 
   Definition case_ptr {A B : Type}
-    (tf : W.function_type) (i : W.localidx)
-    (do_int : codegen A) (do_ptr : concrete_memory -> codegen B) :
+    (i : W.localidx) (tf : W.function_type)
+    (do_int : codegen A) (do_ref : concrete_memory -> codegen B) :
     codegen (A * (B * B)) :=
     emit (W.BI_get_local (localimm i));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
@@ -70,12 +70,12 @@ Section Compiler.
        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 2)));;
        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
        emit (W.BI_testop W.T_i32 W.TO_eqz);;
-       if_c tf (do_ptr MemMM) (do_ptr MemGC)).
+       if_c tf (do_ref MemMM) (do_ref MemGC)).
 
   Definition update_gc_ref (i : W.localidx) (ι : primitive_rep) (c : codegen unit) : codegen unit :=
     match ι with
     | PtrR =>
-        ignore $ case_ptr (W.Tf [] []) i
+        ignore $ case_ptr i (W.Tf [] [])
           (ret tt)
           (fun cm =>
              match cm with

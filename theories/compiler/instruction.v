@@ -16,17 +16,19 @@ Section Compiler.
 
   Variable mr : module_runtime.
 
+  Definition drop_ref (cm : concrete_memory) : codegen unit :=
+    match cm with
+    | MemMM => free mr
+    | MemGC => unregisterroot mr
+    end.
+
   Definition drop_primitive (fe : function_env) (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>
         i ← save_stack1 fe W.T_i32;
-        ignore $ case_ptr (W.Tf [] []) i
-          (emit W.BI_drop)
-          (fun cm =>
-             match cm with
-             | MemMM => free mr
-             | MemGC => unregisterroot mr
-             end)
+        ignore $ case_ptr i (W.Tf [] [])
+          (ret tt)
+          (fun cm => emit (W.BI_get_local (localimm i));; drop_ref cm)
     | _ => emit W.BI_drop
     end.
 
@@ -150,12 +152,14 @@ Section Compiler.
     result ← try_option EFail (translate_types fe.(fe_type_vars) τsr);
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
-    ignore $ case_ptr (W.Tf [] result) a
+    ignore $ case_ptr a (W.Tf [] result)
       (emit W.BI_unreachable)
       (fun cm =>
          let do_case c i := try_option EFail (τsv !! i) ≫= load_from mr fe cm a 4%N;; c in
          (* TODO: br inside a case should bypass all but the outermost block. *)
-         case_blocks result (map do_case cases)).
+         case_blocks result (map do_case cases);;
+         emit (W.BI_get_local (localimm a));;
+         drop_ref cm).
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
@@ -192,7 +196,7 @@ Section Compiler.
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
-    ignore $ case_ptr (W.Tf [] []) a
+    ignore $ case_ptr a (W.Tf [] [])
       (emit W.BI_unreachable)
       (fun cm => store_as mr fe cm a off ρ τmem vs).
 
@@ -202,7 +206,7 @@ Section Compiler.
     ιs ← try_option EFail (eval_rep ρ);
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
-    ignore $ case_ptr (W.Tf [] (map translate_prim_rep ιs)) a
+    ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
       (emit W.BI_unreachable)
       (fun cm => load_from mr fe cm a off τ').
 
@@ -214,7 +218,7 @@ Section Compiler.
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
-    ignore $ case_ptr (W.Tf [] (map translate_prim_rep ιs)) a
+    ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
       (emit W.BI_unreachable)
       (fun cm => load_from mr fe cm a off τmem;; store_as mr fe cm a off ρ τmem' vs).
 
