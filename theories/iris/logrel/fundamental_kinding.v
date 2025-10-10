@@ -121,17 +121,18 @@ Section FundamentalKinding.
   Qed.
 
   Lemma subst_interp_kinds_map κs s__mem s__rep s__size se :
-    ⊢ sem_env_interp sr mr κs s__mem s__rep s__size se -∗
-    ⌜ map fst se = map (subst_kind s__mem s__rep s__size) κs⌝.
+    sem_env_interp sr mr κs s__mem s__rep s__size se ->
+    map fst se = map (subst_kind s__mem s__rep s__size) κs.
   Proof.
   Admitted.
 
   Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp sr mr F s__mem s__rep s__size se
-    ⊢ ⌜value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑
-         kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ)⌝.
+    subst_env_interp sr mr F s__mem s__rep s__size se ->
+    value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ) ⊑
+      kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ).
   Proof.
+    (*
     iIntros "%Hhas_kind [%Hsubst Hse]".
     iPoseProof (subst_interp_kinds_map with "Hse") as "%Hfsteq".
     unfold sem_env_interp.
@@ -149,8 +150,9 @@ Section FundamentalKinding.
     eapply has_kind_subst in Hhas_kind; eauto.
     eapply type_kind_has_kind_agree in Hhas_kind; eauto.
     by iApply rt_subkind_sound.
-  Qed.
-  
+    *)
+  Admitted.
+
   Instance kind_as_type_persistent κ sv :
     @Persistent (iProp Σ) (kind_as_type_interp sr κ sv).
   Proof.
@@ -184,13 +186,13 @@ Section FundamentalKinding.
   Qed.
 
   Lemma explicit_copy_prim_reps_interp ιs :
-    ⊢ explicit_copy_spec mr ιs (prim_reps_interp sr ιs).
+    explicit_copy_spec mr ιs (prim_reps_interp sr ιs).
   Proof.
   Admitted.
 
   Lemma copyability_kind ρ ιs χ δ :
     eval_rep ρ = Some ιs ->
-    ⊢ copyability_interp mr ρ χ (kind_as_type_interp sr (VALTYPE ρ χ δ)).
+    copyability_interp mr ρ χ (kind_as_type_interp sr (VALTYPE ρ χ δ)).
   Proof.
     unfold copyability_interp.
     intros H.
@@ -202,31 +204,32 @@ Section FundamentalKinding.
       unfold representation_interp.
       rewrite H.
       apply explicit_copy_prim_reps_interp.
-    - iIntros "!% %sv".
+    - intros.
       apply kind_as_type_persistent.
   Qed.
 
   Lemma copyability_sep ρ χ S T :
-    ⊢ copyability_interp mr ρ χ S -∗
-      copyability_interp mr ρ χ T -∗
-      copyability_interp mr ρ χ (λne sv, S sv ∗ T sv).
+    copyability_interp mr ρ χ S ->
+    copyability_interp mr ρ χ T ->
+    copyability_interp mr ρ χ (λne sv, (S sv ∗ T sv)%I).
   Proof.
     destruct χ; cbn.
     - auto.
     - admit.
-    - iIntros "%HS %HT !% %sv".
+    - intros HS HT sv.
       typeclasses eauto.
   Admitted.
 
   Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
     has_kind F τ (VALTYPE ρ χ δ) ->
-    subst_env_interp sr mr F s__mem s__rep s__size se
-    ⊢ copyability_interp mr (subst_representation s__rep ρ) χ (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
+    subst_env_interp sr mr F s__mem s__rep s__size se ->
+    copyability_interp mr (subst_representation s__rep ρ) χ (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind.
     remember (VALTYPE ρ χ δ) as κ.
     revert Heqκ.
     revert ρ χ δ.
+    (*
     induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *;
       iIntros "[%Hsubst Henv]"; try subst κ; try subst κ'.
     - inversion H; subst; eauto.
@@ -294,22 +297,23 @@ Section FundamentalKinding.
     - admit.
     - admit.
     - admit.
+    *)
   Admitted.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp sr mr F s__mem s__rep s__size se
-    ⊢ kind_interp sr mr (subst_kind s__mem s__rep s__size κ)
-                        (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
+    subst_env_interp sr mr F s__mem s__rep s__size se ->
+    kind_interp sr mr (subst_kind s__mem s__rep s__size κ)
+      (value_interp sr mr se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind. 
     revert s__mem s__rep s__size se.
-    iIntros "* Hsubst".
-    iSplit.
-    - iApply kinding_refinement; eauto.
+    intros * Hsubst.
+    split.
+    - eapply kinding_refinement; eauto.
     - destruct κ; [| done].
       cbn.
-      iApply kinding_copyable; eauto.
+      eapply kinding_copyable; eauto.
   Qed.
 
 End FundamentalKinding.

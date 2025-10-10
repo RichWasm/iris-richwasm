@@ -1,1 +1,1 @@
-Global Set Typeclasses Depth 10.
+Global Set Typeclasses Depth 50.

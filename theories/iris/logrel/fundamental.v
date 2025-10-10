@@ -137,7 +137,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ?) "Henv Hinst Hlh".
+    iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlh".
     iIntros (fr vs) "Hvs Hframe Hfr Hrun".
     unfold expr_interp.
     cbn.
@@ -147,9 +147,9 @@ Section Fundamental.
     inversion Hcopy as [F' τ' ρ' χ ? Hhas_kind HF' Hτ' Hχ].
     subst F' τ'.
     pose proof (kinding_sound sr mr F s__mem s__rep s__size se _ _ Hhas_kind) as Hhas_kind_sem.
-    iPoseProof (Hhas_kind_sem with "Henv") as "Hskind".
-    iDestruct "Hskind" as "[Hrefine Hcopyable]".
-    iEval (cbn) in "Hcopyable".
+    pose proof (Hhas_kind_sem Henv) as Hskind.
+    destruct Hskind as [Hrefine Hcopyable].
+    cbn in Hcopyable.
     assert (ρ' = ρ).
     {
       apply type_rep_has_kind_agree in Hhas_kind.
@@ -163,9 +163,9 @@ Section Fundamental.
     rewrite app_nil_r in Hconcat; subst vs'.
     rewrite big_sepL2_singleton.
     iApply (lwp_wand with "[Hframe]"); last first.
-    - erewrite eval_rep_subst_eq; eauto.
-      rewrite Heq_some0.
-      iApply ("Hcopyable" with "[] [] [$Hfr] [$Hrun] [$Hvs]").
+    - erewrite eval_rep_subst_eq in Hcopyable; eauto.
+      rewrite Heq_some0 in Hcopyable.
+      iApply (Hcopyable with "[] [] [$Hfr] [$Hrun] [$Hvs]").
       + unfold is_copy_operation.
         iPureIntro.
         eexists.
@@ -671,7 +671,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl') (to_e_list es') ψ L'.
   Proof.
     intros fe F' ψ Hok Hthen Helse Hcodegen.
-    iIntros (smem srep ssize se inst lh) "Hsubst Hinst Hctxt".
+    iIntros (smem srep ssize se inst lh) "%Hsubst #Hinst #Hctxt".
     iIntros (fr vs) "Hvss Hvsl Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
     iDestruct "Hvsl" as (vsl vswl) "(-> & Hlocs & %Hrestype & Htok)".
@@ -788,9 +788,9 @@ Section Fundamental.
       2:{ iPureIntro. instantiate (5 := []).
           rewrite /lfilled /lfill /= app_nil_r //. }
       iApply (wp_wand with "[-]").
-      + iApply (Hes2 with "Hsubst Hinst [Hctxt] [$Hvss1] [$Htok Hlocs] Hfr Hrun").
+      + iApply (Hes2 with "[%] Hinst [Hctxt] [$Hvss1] [$Htok Hlocs] Hfr Hrun"); first assumption.
         * instantiate (1 := lh_plug (LH_rec _ _ _ (LH_base _ _) _) lh). 
-          iDestruct "Hctxt" as "(%Hbase & %Hlength & %Hvalid & H)".
+          iDestruct "Hctxt" as "(%Hbase & %Hlength & %Hvalid & Hconts)".
           repeat iSplitR.
           all: try iPureIntro.
           -- apply base_is_empty_plug => //.
@@ -826,10 +826,10 @@ Section Fundamental.
                admit. 
              } 
 
-             iApply (big_sepL_impl with "H").
-             iIntros "!>" (k [ts ctx] Hk) "H".
+             iApply (big_sepL_impl with "Hconts").
+             iIntros "!>" (k [ts ctx] Hk) "#Hcont".
              unfold continuation_interp.
-             iDestruct "H" as (j es0 es es' lh' lh'') "(%Hlayer & %Hdepth & %Hminus & #H)".
+             iDestruct "Hcont" as (j es0 es es' lh' lh'') "(%Hlayer & %Hdepth & %Hminus & #Hcont)".
              iExists _,_,_,_,_,_.
              repeat iSplitR.
              1-3: iPureIntro.
@@ -844,14 +844,13 @@ Section Fundamental.
              ++ apply lh_minus_plug. done.
              ++ iIntros "!>" (vs fr) "Hvs Hfr Hframe".
                 rewrite <- !app_assoc.
-                iDestruct ("H" with "Hvs Hfr Hframe") as (τs') "Hexp".
+                iDestruct ("Hcont" with "Hvs Hfr Hframe") as (τs') "Hexp".
                 iExists τs'.
                 done.
         * done.
         * iExists _, _. iSplit; first done. iSplit; first done.
-          iSplit; last done. iPureIntro. 
           rewrite <- !app_assoc.
-          exact Hrestype.
+          iPureIntro. exact Hrestype.
       + iIntros (v) "H".
         rewrite /denote_logpred /lp_noframe /=.
         iIntros (LI HLI).
@@ -989,11 +988,8 @@ Section Fundamental.
           -- iExists _,_. iSplit; first done. iFrame. iSplit; first done.
              iIntros (fr fr') "Hf".
              admit. (* generalise s in IH? *)
-          -- iFrame. iExists _,_.
-             iSplit; first done. 
-             rewrite app_assoc.
-             iFrame. 
-             done.
+          -- iFrame. iExists _.
+             iSplit; first done. iFrame. by rewrite app_assoc.
         * iDestruct "H" as "[? _]"; done.
     - (* n is true *)
       admit. 

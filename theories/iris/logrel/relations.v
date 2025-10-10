@@ -8,6 +8,8 @@ From RichWasm.iris Require Import gc memory.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 From RichWasm Require Import syntax typing layout util.
 
+Require Import Corelib.Init.Datatypes.
+
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
@@ -36,7 +38,7 @@ Section Relations.
   Notation VssR := (leibnizO (list (list value)) -n> iPropO Σ).
 
   Definition semantic_type : Type := SVR.
-  Definition semantic_kind : Type := semantic_type -> iProp Σ.
+  Definition semantic_kind : Type := semantic_type -> Prop.
   Definition semantic_env : Type := listO (prodO (leibnizO kind) semantic_type).
 
   Notation FrR := (leibnizO frame -n> iPropO Σ).
@@ -121,25 +123,28 @@ Section Relations.
                          length vs = wlocal_offset /\
                          result_type_interp wl vs__wl.
 
-  Definition explicit_copy_spec (ιs : list primitive_rep) (T : semantic_type) : iProp Σ :=
-    ∀ inst fe fr wl wl' vs es,
+  Definition explicit_copy_spec (ιs : list primitive_rep) (T : semantic_type) : Prop :=
+    forall inst fe fr wl wl' vs es,
+      (* TODO: Provide the resources for the runtime functions needed to run the copy op. *)
       ⌜is_copy_operation fe wl wl' ιs es⌝ -∗
       ⌜interp_wl (fe_wlocal_offset fe) (wl ++ wl') inst fr⌝ -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       T (SValues vs) -∗
       lenient_wp NotStuck top (v_to_e_list vs ++ es)
-      {| lp_fr := λ fr', ⌜fr.(f_inst) = fr'.(f_inst) /\
-                         length fr.(f_locs) = length fr'.(f_locs) /\
-                         forall i, i < length wl -> fr.(f_locs) !! i = fr'.(f_locs) !! i ⌝;
-           lp_val :=
-            λ vs', ↪[RUN] ∗ ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
-           lp_trap := False;
-           lp_br := λ _, False;
-           lp_ret := λ _, False;
-           lp_host := λ _ _ _ _, False |}.
+      {| lp_fr :=
+          fun fr' =>
+            ⌜fr.(f_inst) = fr'.(f_inst) /\
+               length fr.(f_locs) = length fr'.(f_locs) /\
+               forall i, i < length wl -> fr.(f_locs) !! i = fr'.(f_locs) !! i⌝;
+         lp_val :=
+          fun vs' => ↪[RUN] ∗ ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
+         lp_trap := False;
+         lp_br := λ _, False;
+         lp_ret := λ _, False;
+         lp_host := λ _ _ _ _, False |}.
 
-  Definition copyability_interp (ρ : representation) (χ : copyability) (T : semantic_type) : iProp Σ :=
+  Definition copyability_interp (ρ : representation) (χ : copyability) (T : semantic_type) : Prop :=
     match χ with
     | NoCopy => True
     | ExCopy =>
@@ -147,7 +152,7 @@ Section Relations.
         | Some ιs => explicit_copy_spec ιs T
         | None => False
         end
-    | ImCopy => ⌜forall sv, Persistent (T sv)⌝
+    | ImCopy => forall sv, Persistent (T sv)
     end.
 
   Definition size_interp (σ : size) (ws : list word) : Prop :=
@@ -173,11 +178,11 @@ Section Relations.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
     fun T =>
-      (⌜T ⊑ kind_as_type_interp κ⌝ ∗
-       match κ with
-       | VALTYPE ρ χ _ => copyability_interp ρ χ T
-       | MEMTYPE ζ μ δ => True
-       end)%I.
+      T ⊑ kind_as_type_interp κ /\
+        match κ with
+        | VALTYPE ρ χ _ => copyability_interp ρ χ T
+        | MEMTYPE _ _ _ => True
+        end.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> VsR :=
@@ -188,7 +193,7 @@ Section Relations.
     λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
-          ∀ vs1 fr,
+          □ ∀ vs1 fr,
             ⌜translate_types (map fst se) τs1 = Some tfs1⌝ -∗
             ⌜translate_types (map fst se) τs2 = Some tfs2⌝ -∗
             values_interp0 vrel se τs1 vs1 -∗
@@ -216,10 +221,14 @@ Section Relations.
         | ForallMemT ϕ' => ∀ μ, go se ϕ' (unscoped.scons μ s__mem) s__rep s__size
         | ForallRepT ϕ' => ∀ ρ, go se ϕ' s__mem (unscoped.scons ρ s__rep) s__size
         | ForallSizeT ϕ' => ∀ σ, go se ϕ' s__mem s__rep (unscoped.scons σ s__size)
-        | ForallTypeT κ ϕ' => ∀ T, kind_interp κ T -∗ go ((κ, T) :: se) ϕ' s__mem s__rep s__size
+        | ForallTypeT κ ϕ' => ∀ T, ⌜kind_interp κ T⌝ -∗ go ((κ, T) :: se) ϕ' s__mem s__rep s__size
         end%I
       in
       go se ϕ VarM VarR VarS.
+
+  (* TODO *)
+  Global Instance Persistent_closure_interp0 vrel se ϕ cl : Persistent (closure_interp0 vrel se ϕ cl).
+  Admitted.
 
   Definition type_var_interp (se : semantic_env) (t : nat) : SVR :=
     match (snd <$> se) !! t with
@@ -326,7 +335,7 @@ Section Relations.
 
   Definition exists_type_interp
     (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
-    λne sv, (∃ T, kind_interp κ T ∗ ▷ vrel ((κ, T) :: se) τ sv)%I.
+    λne sv, (∃ T, ⌜kind_interp κ T⌝ ∗ ▷ vrel ((κ, T) :: se) τ sv)%I.
 
   Definition type_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ,
@@ -507,12 +516,12 @@ Section Relations.
     ([∗ list] i ↦ ϕ ∈ M.(mc_functions),
        ∃ cl,
          let n := N.of_nat (i + funcimm mr.(mr_func_user)) in
-         na_inv logrel_nais (ns_fun n) (n ↦[wf] cl) ∗ closure_interp [] ϕ cl) ∗
+         closure_interp [] ϕ cl ∗ na_inv logrel_nais (ns_fun n) (n ↦[wf] cl)) ∗
       ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
       (∃ off,
          let n_off := N.of_nat (globalimm mr.(mr_global_table_off)) in
          let v_off := VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat off)) in
-         n_off ↦[wg] Build_global MUT_mut v_off ∗
+         na_inv logrel_nais (ns_glo n_off) (n_off ↦[wg] Build_global MUT_mut v_off) ∗
            ([∗ list] i ↦ ϕ ∈ M.(mc_table),
               ∃ i' cl,
                 let nt := N.of_nat (off + i) in
@@ -593,18 +602,16 @@ Section Relations.
     rep_subst_interp K s__rep /\
     size_subst_interp K s__size.
 
-  Definition sem_env_interp κs s__mem s__rep s__size se : iProp Σ :=
-    [∗ list] κT; κ ∈ se; κs, 
-       ⌜fst κT = subst_kind s__mem s__rep s__size κ⌝ ∗
-       kind_interp (fst κT) (snd κT).
+  Definition sem_env_interp κs s__mem s__rep s__size se : Prop :=
+    Forall2 (fun κT κ => fst κT = subst_kind s__mem s__rep s__size κ /\ uncurry kind_interp κT) se κs.
 
   Definition subst_env_interp
     (F : function_ctx)
     (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size)
     (se : semantic_env) :
-    iProp Σ :=
-    ⌜subst_interp F.(fc_kind_ctx) s__mem s__rep s__size ⌝ ∗
-    sem_env_interp F.(fc_type_vars) s__mem s__rep s__size se.
+    Prop :=
+    subst_interp F.(fc_kind_ctx) s__mem s__rep s__size /\
+      sem_env_interp F.(fc_type_vars) s__mem s__rep s__size se.
 
   Definition have_instruction_type_sem
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
@@ -612,7 +619,7 @@ Section Relations.
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
     (∀ s__mem s__rep s__size se inst lh,
-       subst_env_interp F s__mem s__rep s__size se -∗
+       ⌜subst_env_interp F s__mem s__rep s__size se⌝ -∗
        instance_interp M inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) L WL inst lh -∗
        let sub := subst_type s__mem s__rep s__size VarT in

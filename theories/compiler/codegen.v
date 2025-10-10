@@ -219,7 +219,6 @@ Proof.
   destruct c; cbn in H; [|congruence].
   inversion H; auto.
 Qed.
-  Check pass.
 
 Lemma run_codegen_capture {A} (c : codegen A) (wl wl': wlocal_ctx) es es' x :
   run_codegen (capture c) wl = inr (x, es', wl', es) ->
