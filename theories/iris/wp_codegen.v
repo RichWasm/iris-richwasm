@@ -18,9 +18,10 @@ Section CodeGen.
 
   Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wl wl' es x y Φ (f: frame) :
     run_codegen (if_c tf c1 c2) wl = inr (x, y, wl', es) ->
-    exists wl1 es1 es2,
+    exists wl1 wl2 es1 es2,
     run_codegen c1 wl = inr (x, wl1, es1) /\
-    run_codegen c2 wl1 = inr (y, wl', es2) /\
+    run_codegen c2 (wl ++ wl1) = inr (y, wl2, es2) /\
+    wl' = wl1 ++ wl2 /\
     ⊢ ↪[frame] f -∗
       ↪[RUN] -∗
       ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
@@ -32,30 +33,31 @@ Section CodeGen.
     intros Hcomp.
     unfold if_c in Hcomp.
 
-    apply run_codegen_bind_dist in Hcomp.
-    destruct Hcomp as (x1 & wl1 & es1 & es2 & Hcomp1 & Hcomp2 & Hes).
+    inv_cg_bind Hcomp x1 wl1 wl2 es1 es2 Hcg1 Hcg2.
     destruct x1 as [x' es1'].
     subst es.
-    apply run_codegen_capture in Hcomp1.
-    destruct Hcomp1 as [Hcomp1 ->].
+    apply run_codegen_capture in Hcg1.
+    destruct Hcg1 as [Hcg1 ->].
 
-    apply run_codegen_bind_dist in Hcomp2.
-    destruct Hcomp2 as (x2 & wl2 & es3 & es4 & Hcomp2 & Hcomp3 & Hes).
+    inv_cg_bind Hcg2 x2 wl3 wl4 es3 es4 Hcg2 Hcg3.
     destruct x2 as [y' es2'].
     subst es2.
 
-    apply run_codegen_capture in Hcomp2.
-    destruct Hcomp2 as [Hcomp2 ->].
+    apply run_codegen_capture in Hcg2.
+    destruct Hcg2 as [Hcg2 ->].
 
-    cbn in Hcomp3.
-    inversion Hcomp3.
+    cbn in Hcg3.
+    inversion Hcg3.
     subst x' y' wl2 es4.
-    clear Hcomp3.
+    clear Hcg3.
     rename es1' into es1, es2' into es2.
+    subst.
 
-    exists wl1, es1, es2.
+    exists wl1, wl3, es1, es2.
+    subst.
     split; first assumption.
     split; first assumption.
+    split; first by rewrite app_nil_r.
 
     iIntros "Hfr Hrun Hbl".
     iSimpl.
@@ -67,7 +69,7 @@ Section CodeGen.
   (* Generic monad operations. *)
   Lemma wp_ret {A} (a: A) wl v wl' es :
     run_codegen (Monad.ret a) wl = inr (v, wl', es) ->
-    v = a /\ wl' = wl /\ es = [].
+    v = a /\ wl' = [] /\ es = [].
   Proof.
     cbn.
     intros Hcg.
@@ -76,7 +78,7 @@ Section CodeGen.
 
   Lemma wp_mapM_nil {A B} (f: A -> codegen B) wl ys wl' es :
     run_codegen (mapM f []) wl = inr (ys, wl', es) ->
-    wl' = wl /\
+    wl' = [] /\
     ys = [] /\
     es = [].
   Proof.
@@ -90,26 +92,26 @@ Section CodeGen.
     run_codegen (mapM f (x :: xs)) wl = inr (yss, wl', es) ->
     ∃ ys_x wl_x es_x yss_xs wl_xs es_xs,
       run_codegen (f x) wl = inr (ys_x, wl_x, es_x) /\
-      run_codegen (mapM f xs) wl_x = inr (yss_xs, wl_xs, es_xs) /\
+      run_codegen (mapM f xs) (wl ++ wl_x) = inr (yss_xs, wl_xs, es_xs) /\
       yss = ys_x :: yss_xs /\
-      wl' = wl_xs /\
+      wl' = wl_x ++ wl_xs /\
       es = es_x ++ es_xs.
   Proof.
     cbn.
     intros Hcg.
-    inv_cg_bind Hcg res1 wl1 es_fx es2 Hfx Hcg1.
-    inv_cg_bind Hcg1 res2 wl2 es_fxs es3 Hfxs Hcg2.
+    inv_cg_bind Hcg res1 wl1 wl1' es_fx es2 Hfx Hcg1.
+    inv_cg_bind Hcg1 res2 wl2 wl2' es_fxs es3 Hfxs Hcg2.
     cbn in Hcg2.
     inversion Hcg2.
     subst.
     repeat eexists; eauto.
-    rewrite app_nil_r; eauto.
+    rewrite !app_nil_r; eauto.
   Qed.
   
   Lemma wp_mapM_emit wl es xs wl' es' :
     run_codegen (mapM emit es) wl = inr (xs, wl', es') ->
     xs = repeat tt (length es) /\
-    wl' = wl /\
+    wl' = [] /\
     es' = es.
   Proof.
     revert es' xs.
@@ -121,8 +123,10 @@ Section CodeGen.
       destruct Hemit as (ys_x & wl_x & es_x & yss_xs & wl_xs & es_xs & Hemit & Hemits & Hx & Hwl' & Hes').
       subst xs wl' es'.
       inv_cg_emit Hemit; subst.
+      rewrite app_nil_r in Hemits.
       apply IHes in Hemits.
       destruct Hemits as (Hyss & Hwl_xs & Hes_xs).
+      cbn in *.
       inversion Hes_xs; subst es_xs wl_xs.
       split; eauto.
       cbn.
@@ -131,24 +135,24 @@ Section CodeGen.
 
   (* State monad operations. *) 
   Lemma wp_get wl v wl' es :
-    run_codegen MonadState.get wl = inr (v, wl', es) ->
+    run_codegen get wl = inr (v, wl', es) ->
     v = wl /\
-    wl' = wl /\
+    wl' = [] /\
     es = [].
   Proof.
-    unfold MonadState.get; cbn.
+    unfold get; cbn.
     intros Heq.
     inversion Heq; subst.
     tauto.
   Qed.
 
-  Lemma wp_put wl v wl' wl'' es :
-    run_codegen (MonadState.put wl') wl = inr (v, wl'', es) ->
+  Lemma wp_acc wl v wl' wl'' es :
+    run_codegen (acc wl') wl = inr (v, wl'', es) ->
     v = () /\
     wl'' = wl' /\
     es = [].
   Proof.
-    unfold MonadState.put; cbn.
+    unfold acc; cbn.
     intros Heq.
     inversion Heq; subst.
     tauto.
@@ -159,34 +163,33 @@ Section CodeGen.
   Lemma wp_wlalloc fe ty wl wl' idx es :
     run_codegen (wlalloc fe ty) wl = inr (idx, wl', es) ->
     idx = Mk_localidx (fe_wlocal_offset fe + length wl) /\
-    wl' = wl ++ [ty] /\
+    wl' = [ty] /\
     es = [].
   Proof.
     unfold wlalloc.
     intros Hcg.
-    inv_cg_bind Hcg res wl1 es_get es2 Hget Hcg1.
-    inv_cg_bind Hcg1 res1 wl2 es_put es_ret Hput Hret.
+    inv_cg_bind Hcg res wl1 wl1' es_get es2 Hget Hcg1.
+    inv_cg_bind Hcg1 res1 wl2 wl2' es_acc es_ret Hacc Hret.
     apply wp_get in Hget.
-    apply wp_put in Hput.
+    apply wp_acc in Hacc.
     apply wp_ret in Hret.
     destruct Hget as (? & ? & ?).
-    destruct Hput as (? & ? & ?).
+    destruct Hacc as (? & ? & ?).
     destruct Hret as (? & ? & ?).
-    subst; done.
+    subst.
+    rewrite !app_nil_r; done.
   Qed.
 
   Lemma wp_wlallocs fe tys wl idxs wl' es :
     run_codegen (mapM (wlalloc fe) tys) wl = inr (idxs, wl', es) ->
     idxs = imap (λ i _, Mk_localidx (fe_wlocal_offset fe + length wl + i)) tys /\
-    wl' = wl ++ tys /\
+    wl' = tys /\
     es = [].
   Proof.
     revert wl idxs wl' es.
     induction tys.
-    - cbn; intros * Hcg.
-      inversion Hcg.
-      rewrite app_nil_r.
-      done.
+    - intros * Hcg; cbn in *.
+      by inversion Hcg.
     - intros * Hcg.
       eapply (wp_mapM_cons (wlalloc fe)) in Hcg.
       destruct Hcg as (ys_a & wl_a & es_a & yss_tys & wl_tys  & es_tys & Hcg_a & Hcg_tys & Hidxs & Hwl' & Hes).
@@ -283,11 +286,11 @@ Section CodeGen.
   
   Lemma wp_save_stack1 ty :
     forall s E Φ inst fe wl idx wl' es fr (v: value),
-      interp_wl (fe_wlocal_offset fe) wl' inst fr ->
+      interp_wl (fe_wlocal_offset fe) (wl ++ wl') inst fr ->
       value_type_interp ty v ->
       run_codegen (save_stack1 fe ty) wl = inr (idx, wl', es) ->
       idx = W.Mk_localidx (fe_wlocal_offset fe + length wl) /\
-      wl' = wl ++ [ty] /\
+      wl' = [ty] /\
       ⊢ ↪[frame] fr -∗
         ↪[RUN] -∗
         Φ (immV []) -∗
@@ -299,14 +302,16 @@ Section CodeGen.
     intros * Hwl Hv.
     unfold save_stack1.
     intros Hcg.
-    inv_cg_bind Hcg res wl1 es1 es2 Hcg1 Hcg2.
-    inv_cg_bind Hcg2 res2 wl2 es3 es4 Hcg2 Hcg3.
+    inv_cg_bind Hcg res wl1 wl1' es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res2 wl2 wl2' es3 es4 Hcg2 Hcg3.
     subst.
     inv_cg_ret Hcg3; subst.
     apply wp_wlalloc in Hcg1.
     destruct Hcg1 as (Hres & Hwl1 & Hes1); subst res wl1 es1.
     inv_cg_emit Hcg2.
     subst es3 wl2 res2.
+    rewrite !app_nil_r in Hwl.
+    rewrite !app_nil_r.
     split; auto.
     split; auto.
     iIntros "Hfr Hrun HΦ".
@@ -464,10 +469,10 @@ Section CodeGen.
   Lemma wp_save_stack_w tys :
     forall s E Φ inst fe wl idxs wl' es fr vs,
       run_codegen (save_stack_w fe tys) wl = inr (idxs, wl', es) ->
-      interp_wl (fe_wlocal_offset fe) wl' inst fr ->
+      interp_wl (fe_wlocal_offset fe) (wl ++ wl') inst fr ->
       result_type_interp tys vs ->
       idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
-      wl' = wl ++ tys /\
+      wl' = tys /\
       ⊢ ↪[frame] fr -∗
         ↪[RUN] -∗
         Φ (immV []) -∗
@@ -480,8 +485,8 @@ Section CodeGen.
     intros * Hcg.
     unfold save_stack_w in Hcg.
     (* apply wps/inversion principles *)
-    inv_cg_bind Hcg res wl1 es1 es2 Hcg1 Hcg2.
-    inv_cg_bind Hcg2 res2 wl2 es3 es4 Hcg2 Hcg3.
+    inv_cg_bind Hcg res wl1 wl1' es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res2 wl2 wl2' es3 es4 Hcg2 Hcg3.
     inv_cg_ret Hcg3; subst.
     apply wp_wlallocs in Hcg1.
     destruct Hcg1 as (Hres1 & Hwl1 & Hes1); subst.
@@ -499,7 +504,7 @@ Section CodeGen.
     rewrite Combinators.compose_assoc in Hcg2.
     rewrite localimm_Mk_localidx in Hcg2.
     rewrite Combinators.compose_id_right in Hcg2.
-    inv_cg_bind Hcg2 res3 wl3 es5 es6 Hcg2 Hcg3.
+    inv_cg_bind Hcg2 res3 wl3 wl3' es5 es6 Hcg2 Hcg3.
     inv_cg_ret Hcg3; subst.
     apply wp_mapM_emit in Hcg2.
     destruct Hcg2 as (Hres2 & Hwl2 & Hes3); subst res3 wl3 es5.
@@ -544,9 +549,9 @@ Section CodeGen.
       run_codegen c wl = inr (ret', wl', es).
   Proof.
     intros Hcg.
-    inv_cg_bind Hcg res' wl'' es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg res' wl'' wl'''  es1 es2 Hcg1 Hcg2.
     inv_cg_ret Hcg2.
-    rewrite app_nil_r.
+    rewrite !app_nil_r.
     eauto.
   Qed.
 
@@ -612,7 +617,7 @@ Section CodeGen.
     length idxs = length vs ->
     run_codegen (restore_stack idxs) wl = inr (ret, wl', es) ->
     ret = tt /\
-    wl' = wl /\
+    wl' = [] /\
     ⊢ 
     ↪[frame] f -∗
     ↪[RUN] -∗

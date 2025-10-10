@@ -19,7 +19,7 @@ Definition set_globals_w : list W.globalidx -> codegen unit :=
 
 Definition wlalloc (fe : function_env) (ty : W.value_type) : codegen W.localidx :=
   wl ← get;
-  put (wl ++ [ty]);;
+  acc [ty];;
   ret (W.Mk_localidx (fe_wlocal_offset fe + length wl)).
 
 Definition save_stack1 (fe : function_env) (ty : W.value_type) : codegen W.localidx :=
