@@ -1,7 +1,7 @@
 Require Import RichWasm.typing.
 Require Import RichWasm.compiler.module.
 Require Import RichWasm.iris.rules.iris_rules.
-Require Import RichWasm.iris.logrel.relations.
+Require Import RichWasm.iris.logrel.relations_module.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".

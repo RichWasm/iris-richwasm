@@ -15,7 +15,6 @@ Set Default Goal Selector "!".
 
 Section Relations.
 
-  Context `{Σ : gFunctors}.
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
   Context `{!RichWasmGCG Σ}.
@@ -48,7 +47,6 @@ Section Relations.
   Notation BR := (leibnizO lholed -n> leibnizO (list (list type * local_ctx)) -n>
                     leibnizO {n : nat & valid_holed n} -n> iProp Σ).
   Notation RR := (leibnizO simple_valid_holed -n> iPropO Σ).
-  Notation MR := (leibnizO W.module -n> iProp Σ).
 
   Implicit Type L : leibnizO local_ctx.
   Implicit Type WL : leibnizO wlocal_ctx.
@@ -119,7 +117,7 @@ Section Relations.
         to_e_list es' = es.
 
   (* Monotone interpretation of a wlocal_ctx *)
-  Definition interp_wl (wlocal_offset : nat) (wl : wlocal_ctx) (inst: instance) : frame -> Prop :=
+  Definition interp_wl (wlocal_offset : nat) (wl : wlocal_ctx) (inst : instance) : frame -> Prop :=
     λ fr, ∃ vs vs__wl vs', fr = Build_frame (vs ++ vs__wl ++ vs') inst /\
                          length vs = wlocal_offset /\
                          result_type_interp wl vs__wl.
@@ -533,10 +531,6 @@ Section Relations.
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝.
 
-  (* TODO *)
-  Definition module_interp : MR :=
-    λne m, True%I.
-
   Fixpoint lholed_valid (lh : lholed) : Prop :=
     match lh with
     | LH_base vs _ => is_true (const_list vs)
@@ -635,9 +629,5 @@ Section Relations.
          ↪[RUN] -∗
          expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
            (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV vs) ++ es))%I.
-
-  (* TODO *)
-  Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=
-    True%I.
 
 End Relations.
