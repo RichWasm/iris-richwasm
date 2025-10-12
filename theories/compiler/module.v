@@ -22,6 +22,21 @@ Definition modgen := stateT W.module (sum error).
 
 Existing Instance Monad_stateT.
 
+Definition run_modgen {A : Type} : modgen A -> W.module -> error + A * W.module :=
+  @runStateT _ _ _.
+
+Definition mod_empty : W.module :=
+  {| W.mod_types := [];
+     W.mod_funcs := [];
+     W.mod_tables := [];
+     W.mod_mems := [];
+     W.mod_globals := [];
+     W.mod_elem := [];
+     W.mod_data := [];
+     W.mod_start := None;
+     W.mod_imports := [];
+     W.mod_exports := [] |}.
+
 Definition get_id_global (imd : W.import_desc) : option W.global_type :=
   match imd with
   | W.ID_global tg => Some tg

@@ -2,7 +2,7 @@ Require Import stdpp.list.
 
 Require Import RecordUpdate.RecordUpdate.
 
-From RichWasm Require Import syntax layout.
+From RichWasm Require Import layout syntax util.
 
 Record module_ctx :=
   { mc_functions : list function_type;
@@ -21,6 +21,11 @@ Definition kc_empty : kind_ctx :=
   {| kc_mem_vars := 0;
      kc_rep_vars := 0;
      kc_size_vars := 0 |}.
+
+Definition kc_of_fft (fft : flat_function_type) : kind_ctx :=
+  {| kc_mem_vars := fft.(fft_mem_vars);
+     kc_rep_vars := fft.(fft_rep_vars);
+     kc_size_vars := fft.(fft_size_vars) |}.
 
 Record function_ctx :=
   { fc_return : list type;
@@ -447,6 +452,54 @@ Section HasKindInd.
     end.
 
 End HasKindInd.
+
+Lemma kind_ok_subkind_of F κ κ' : kind_ok F κ -> subkind_of κ κ' -> kind_ok F κ'.
+Proof.
+  intros H1 H2.
+  induction H2; repeat constructor; by inversion H1.
+Qed.
+
+Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
+Proof.
+  intros H.
+  induction H using has_kind_ind'.
+  { destruct IHhas_kind as [F τ κ H1 H2].
+    by apply (kind_ok_subkind_of _ _ _ H2) in H. }
+  { constructor; last done. by apply OKVarT with (κ := κ). }
+  all: repeat constructor.
+  all: try inversion IHhas_kind.
+  all: try done.
+  all: try by inversion H0.
+  all: try by inversion H1.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
+    intros. by inversion H1.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
+  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
+    intros. by inversion H2.
+  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
+    intros. inversion H2. inversion H4. by inversion H11.
+Qed.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
 | RepVALTYPE F τ ρ χ δ :
@@ -1225,54 +1278,6 @@ Section HasHaveInstructionTypeMind.
 
 End HasHaveInstructionTypeMind.
 
-Lemma kind_ok_subkind_of F κ κ' : kind_ok F κ -> subkind_of κ κ' -> kind_ok F κ'.
-Proof.
-  intros H1 H2.
-  induction H2; repeat constructor; by inversion H1.
-Qed.
-
-Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
-Proof.
-  intros H.
-  induction H using has_kind_ind'.
-  { destruct IHhas_kind as [F τ κ H1 H2].
-    by apply (kind_ok_subkind_of _ _ _ H2) in H. }
-  { constructor; last done. by apply OKVarT with (κ := κ). }
-  all: repeat constructor.
-  all: try inversion IHhas_kind.
-  all: try done.
-  all: try by inversion H0.
-  all: try by inversion H1.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
-    intros. by inversion H2.
-  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
-    intros. inversion H2. inversion H4. by inversion H11.
-  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
-    intros. by inversion H2.
-  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
-    intros. inversion H2. inversion H4. by inversion H11.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. by inversion H1.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
-    intros. by inversion H2.
-  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
-    intros. inversion H2. inversion H4. by inversion H11.
-  - eapply Forall2_Forall_l in H0; first exact H0. apply Forall_forall.
-    intros. by inversion H2.
-  - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
-    intros. inversion H2. inversion H4. by inversion H11.
-Qed.
-
 Lemma have_instruction_type_inv M F L e ψ L' :
   have_instruction_type M F L e ψ L' -> has_instruction_type_ok F ψ L'.
 Proof.
@@ -1287,3 +1292,24 @@ Proof.
   - inversion IHhave_instruction_type. by inversion H0.
   - by inversion IHhave_instruction_type.
 Qed.
+
+Inductive has_function_type : module_ctx -> module_function -> function_type -> Prop :=
+| TFunction M mf ιss L' :
+  let fft := flatten_function_type mf.(mf_type) in
+  let K := kc_of_fft fft in
+  let F := Build_function_ctx fft.(fft_out) ιss [] K fft.(fft_type_vars) in
+  let L := repeat None (length ιss) in
+  let ψ := InstrT fft.(fft_in) fft.(fft_out) in
+  mapM eval_rep mf.(mf_locals) = Some ιss ->
+  Forall (fun τo => forall τ, τo = Some τ -> has_dropability F τ ImDrop) L' ->
+  have_instruction_type M F L mf.(mf_body) ψ L' ->
+  has_function_type M mf mf.(mf_type).
+
+Inductive has_module_type : module -> module_type -> Prop :=
+| TModule m table exports :
+  let functions := map mf_type m.(m_functions) in
+  nths_error functions m.(m_table) = Some table ->
+  nths_error functions m.(m_exports) = Some exports ->
+  let M := Build_module_ctx functions table in
+  Forall (fun mf => has_function_type M mf mf.(mf_type)) m.(m_functions) ->
+  has_module_type m (Build_module_type m.(m_imports) exports).

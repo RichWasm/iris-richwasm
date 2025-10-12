@@ -39,8 +39,8 @@ Record function_env :=
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
   locals ← mapM eval_rep mf.(mf_locals);
-  let '(κs, _, τs) := flatten_func_type mf.(mf_type) in
-  Some {| fe_type_vars := κs; fe_return := τs; fe_locals := locals |}.
+  let fft := flatten_function_type mf.(mf_type) in
+  Some (Build_function_env fft.(fft_type_vars) fft.(fft_out) locals).
 
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);

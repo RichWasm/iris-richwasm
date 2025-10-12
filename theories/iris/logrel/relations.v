@@ -48,6 +48,7 @@ Section Relations.
   Notation BR := (leibnizO lholed -n> leibnizO (list (list type * local_ctx)) -n>
                     leibnizO {n : nat & valid_holed n} -n> iProp Σ).
   Notation RR := (leibnizO simple_valid_holed -n> iPropO Σ).
+  Notation MR := (leibnizO W.module -n> iProp Σ).
 
   Implicit Type L : leibnizO local_ctx.
   Implicit Type WL : leibnizO wlocal_ctx.
@@ -532,6 +533,10 @@ Section Relations.
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝.
 
+  (* TODO *)
+  Definition module_interp : MR :=
+    λne m, True%I.
+
   Fixpoint lholed_valid (lh : lholed) : Prop :=
     match lh with
     | LH_base vs _ => is_true (const_list vs)
@@ -630,5 +635,9 @@ Section Relations.
          ↪[RUN] -∗
          expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
            (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV vs) ++ es))%I.
+
+  (* TODO *)
+  Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=
+    True%I.
 
 End Relations.
