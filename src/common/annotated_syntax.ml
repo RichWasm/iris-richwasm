@@ -627,12 +627,12 @@ module Module = struct
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
     let pp_roqc ff ({ mf_type; mf_locals; mf_body } : t) : unit =
-      fprintf ff "@[<v 0>{@[<hv 2>@,";
-      fprintf ff "@[<2>mf_type =@ %a;@]@ " FunctionType.pp_roqc mf_type;
-      fprintf ff "@[<2>mf_locals =@ %a;@]@ "
+      fprintf ff "@[<v 0>{|@[<hv 2>@,";
+      fprintf ff "@[<2>mf_type :=@ %a;@]@ " FunctionType.pp_roqc mf_type;
+      fprintf ff "@[<2>mf_locals :=@ %a;@]@ "
         (pp_roqc_list Representation.pp_roqc)
         mf_locals;
-      fprintf ff "@[<2>mf_body =@ %a@];@,"
+      fprintf ff "@[<2>mf_body :=@ %a@];@,"
         (pp_roqc_list Instruction.pp_roqc)
         mf_body;
       fprintf ff "@]}@]"
@@ -650,14 +650,14 @@ module Module = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp_roqc ff ({ m_imports; m_functions; m_table; m_exports } : t) : unit =
-    fprintf ff "@[<v 0>{@[<hv 2>@,";
-    fprintf ff "@[<2>m_imports =@ %a;@]@ "
+    fprintf ff "@[<v 0>{|@[<hv 2>@,";
+    fprintf ff "@[<2>m_imports :=@ %a;@]@ "
       (pp_roqc_list FunctionType.pp_roqc)
       m_imports;
-    fprintf ff "@[<2>m_functions =@ %a;@]@ "
+    fprintf ff "@[<2>m_functions :=@ %a;@]@ "
       (pp_roqc_list Function.pp_roqc)
       m_functions;
-    fprintf ff "@[<2>m_table =@ %a;@]@ " (pp_roqc_list Z.pp_print) m_table;
-    fprintf ff "@[<2>m_exports =@ %a;@]@," (pp_roqc_list Z.pp_print) m_exports;
-    fprintf ff "@]}@]"
+    fprintf ff "@[<2>m_table :=@ %a;@]@ " (pp_roqc_list Z.pp_print) m_table;
+    fprintf ff "@[<2>m_exports :=@ %a;@]@," (pp_roqc_list Z.pp_print) m_exports;
+    fprintf ff "@]|}@]"
 end
