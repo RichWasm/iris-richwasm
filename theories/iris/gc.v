@@ -5,8 +5,9 @@ From mathcomp Require Import eqtype.
 From iris.proofmode Require Import base tactics classes.
 
 From RichWasm Require Import syntax util.
-Require Import RichWasm.iris.memory.
+From RichWasm.iris Require Import memory util.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
+From RichWasm.iris.language Require Import lenient_wp logpred.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -54,21 +55,19 @@ Section Token.
   Context `{wasmG Σ}.
   Context `{RichWasmGCG Σ}.
 
-  Variable heap_start : N.
+  Variable sr : store_runtime.
 
-  Definition consistent_objects_memory (m : memaddr) (θ : address_map) (wss : object_map) : iProp Σ :=
+  Definition consistent_objects_memory (θ : address_map) (wss : object_map) : iProp Σ :=
     [∗ map] ℓ ↦ a; ws ∈ θ; wss,
       ∃ bs ns,
-        N.of_nat m ↦[wms][a] bs ∗
+        N.of_nat sr.(sr_mem_gc) ↦[wms][a] bs ∗
           ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-          ⌜repr_list_word heap_start θ ws ns⌝.
+          ⌜repr_list_word sr.(sr_gc_heap_off) θ ws ns⌝.
 
-  Definition consistent_roots_memory (m : memaddr) (θ : address_map) (rs : root_map) : iProp Σ :=
+  Definition consistent_roots_memory (θ : address_map) (rs : root_map) : iProp Σ :=
     [∗ map] a ↦ ℓ ∈ rs,
       ∃ bs n,
-        N.of_nat m ↦[wms][a] bs ∗
-          ⌜bs = serialize_Z_i32 n⌝ ∗
-          ⌜repr_location_index θ ℓ 0 n⌝.
+        N.of_nat sr.(sr_mem_gc) ↦[wms][a] bs ∗ ⌜bs = serialize_Z_i32 n⌝ ∗ ⌜repr_location θ ℓ n⌝.
 
   Definition consistent_objects_layouts (kss : layout_map) (wss : object_map) : Prop :=
     map_Forall (fun ℓ '(ks, ws) => Forall2 word_has_kind ks ws) (map_zip kss wss).
@@ -84,14 +83,14 @@ Section Token.
   Definition live_roots (θ : address_map) (rs : root_map) : Prop :=
     ∀ a ℓ, rs !! a = Some ℓ -> ℓ ∈ dom θ.
 
-  Definition gc_token (inv : gc_invariant Σ) (m : memaddr) (θ : address_map) : iProp Σ :=
+  Definition gc_token (gci : gc_invariant Σ) (θ : address_map) : iProp Σ :=
     ∃ (kss : layout_map) (wss : object_map) (rs : root_map),
-      inv kss wss rs ∗
+      gci kss wss rs ∗
         ghost_map_auth gc_layouts (1/2) kss ∗
         ghost_map_auth gc_objects 1 wss ∗
         ghost_map_auth gc_roots (1/2) rs ∗
-        consistent_objects_memory m θ wss ∗
-        consistent_roots_memory m θ rs ∗
+        consistent_objects_memory θ wss ∗
+        consistent_roots_memory θ rs ∗
         ⌜consistent_objects_layouts kss wss⌝ ∗
         ⌜consistent_reachable_addresses wss θ⌝ ∗
         ⌜live_roots θ rs⌝.
@@ -103,7 +102,7 @@ Section Rules.
   Context `{wasmG Σ}.
   Context `{RichWasmGCG Σ}.
 
-  Variable heap_start : N.
+  Variable sr : store_runtime.
 
   Lemma byte_eqm_mod (n : Z) (m : Z) :
     (n `mod` 256 = m `mod` 256)%Z ->
@@ -356,111 +355,59 @@ Section Rules.
       cbn; lia
     | auto ].
 
-  Definition alloc_gc_spec
-    (E : coPset) (inv : gc_invariant Σ) (m : memaddr)
-    (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction) :
-    iProp Σ :=
-    □ ∀ (F : frame) (θ : address_map) (sz : i32) (pm : i64),
-    let alloc_gc_func := N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32; T_i64] [T_i32]) fts fes in
-    let ks := kinds_of_pointer_map pm (Wasm_int.nat_of_uint i32m sz) in
-    gc_token heap_start inv m θ ∗
-    alloc_gc_func ∗
-    ↪[frame] F -∗
-    WP [AI_basic (BI_const (VAL_int32 sz)); AI_basic (BI_const (VAL_int64 pm)); AI_invoke fid]
-       @ E
-       {{ v, (⌜v = trapV⌝ ∨
-              ∃ θ' ℓ n ws,
-              ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_location_index θ' ℓ 0 n⌝ ∗
-              gc_token heap_start inv m θ' ∗ ℓ ↦gcl ks ∗ ℓ ↦gco ws ∗
-              alloc_gc_func) ∗
-             ↪[frame] F }}%I.
-
   (* TODO: What would happen if the ∃ k was pulled up to a lemma parameter, and
            repr_vval θ vv k was an assumption? *)
   Lemma wp_load_i32_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
-      (m : memaddr) (θ : address_map) (inv : gc_invariant Σ)
+      (θ : address_map) (gci : gc_invariant Σ)
       (i : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (w : word) :
-    F.(f_inst).(inst_memory) !! memidx = Some m ->
+    F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
     repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     ws !! j = Some w ->
-    gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[frame] F ∗ ↪[RUN] ⊢
+    gc_token sr gci θ ∗ ℓ ↦gco ws ∗ ↪[frame] F ∗ ↪[RUN] ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i32 None N.zero off)]
        @ s; E
-       {{ v, (∃ n, ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_word heap_start θ w n⌝) ∗
-             gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F }}.
+       {{ v, (∃ n, ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗ ⌜repr_word sr.(sr_gc_heap_off) θ w n⌝) ∗
+             gc_token sr gci θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F }}.
   Admitted.
 
   Lemma wp_load_i64_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
-      (m : memaddr) (θ : address_map) (inv : gc_invariant Σ)
+      (θ : address_map) (gci : gc_invariant Σ)
       (i : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (n1 n2 : Z) :
-    F.(f_inst).(inst_memory) !! memidx = Some m ->
+    F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
     repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     ws !! j = Some (WordInt n1) ->
     ws !! (j + 1) = Some (WordInt n2) ->
-    gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    gc_token sr gci θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i64 None N.zero off)]
        @ s; E
        {{ v, (∃ n, ⌜v = immV [VAL_int64 (Wasm_int.int_of_Z i64m n)]⌝ ∗
-                   ⌜repr_double_word heap_start θ (WordInt n1) (WordInt n2) n⌝) ∗
-             gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F }}.
+                   ⌜repr_double_word sr.(sr_gc_heap_off) θ (WordInt n1) (WordInt n2) n⌝) ∗
+             gc_token sr gci θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F }}.
   Admitted.
 
   Lemma wp_store_i32_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
-      (m : memaddr) (θ : address_map) (inv : gc_invariant Σ)
+      (θ : address_map) (gci : gc_invariant Σ)
       (i k : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (w : word) :
-    F.(f_inst).(inst_memory) !! memidx = Some m ->
+    F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
     repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     j < length ws ->
-    repr_word heap_start θ w (Wasm_int.Z_of_uint i32m k) ->
-    gc_token heap_start inv m θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    repr_word sr.(sr_gc_heap_off) θ w (Wasm_int.Z_of_uint i32m k) ->
+    gc_token sr gci θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i));
         AI_basic (BI_const (VAL_int32 k));
         AI_basic (BI_store memidx T_i32 None N.zero off)]
        @ s; E
        {{ v, ⌜v = immV []⌝ ∗
-             gc_token heap_start inv m θ ∗
+             gc_token sr gci θ ∗
              ℓ ↦gco <[ j := w ]> ws ∗
              ↪[RUN] ∗ ↪[frame] F }}.
   Admitted.
-
-  Definition spec_registerroot
-      (E : coPset) (inv : gc_invariant Σ) (m : memaddr)
-      (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
-      : iProp Σ :=
-    □ ∀ (F : frame) (θ : address_map) (ℓ : location) (i : i32),
-    gc_token heap_start inv m θ ∗ ⌜repr_location_index θ ℓ 0 (Wasm_int.Z_of_uint i32m i)⌝ ∗
-    N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[RUN] ∗ ↪[frame] F -∗
-    WP [AI_basic (BI_const (VAL_int32 i)); AI_invoke fid]
-       @ E
-       {{ v, (⌜v = trapV⌝ ∨
-              ∃ n,
-              ⌜v = immV [VAL_int32 n]⌝ ∗
-              Wasm_int.N_of_uint i32m n ↦gcr ℓ ∗
-              gc_token heap_start inv m θ ∗
-              N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes) ∗
-             ↪[RUN] ∗ ↪[frame] F }}%I.
-
-  Definition spec_unregisterroot
-      (E : coPset) (inv : gc_invariant Σ) (m : memaddr)
-      (finst : instance) (fid : nat) (fts : list value_type) (fes : list basic_instruction)
-      : iProp Σ :=
-    □ ∀ (F : frame) (θ : address_map) (n : i32) (ℓ : location),
-    gc_token heap_start inv m θ ∗ Wasm_int.N_of_uint i32m n ↦gcr ℓ ∗
-    N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗ ↪[frame] F -∗
-    WP [AI_basic (BI_const (VAL_int32 n)); AI_invoke fid]
-       @ E
-       {{ v, ∃ n,
-          ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗
-          ⌜repr_location_index θ ℓ 0 n⌝ ∗
-          gc_token heap_start inv m θ ∗
-          N.of_nat fid ↦[wf] FC_func_native finst (Tf [T_i32] [T_i32]) fts fes ∗
-          ↪[RUN] ∗ ↪[frame] F }}%I.
 
   (* TODO: wp_loadroot *)
 

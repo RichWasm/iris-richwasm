@@ -13,6 +13,17 @@ Unset Printing Implicit Defensive.
 
 Set Bullet Behavior "Strict Subproofs".
 
+Record store_runtime :=
+  { sr_mem_mm : memaddr;
+    sr_mem_gc : memaddr;
+    sr_func_alloc_mm : funcaddr;
+    sr_func_alloc_gc : funcaddr;
+    sr_func_free : funcaddr;
+    sr_func_registerroot : funcaddr;
+    sr_func_unregisterroot : funcaddr;
+    sr_table : tableaddr;
+    sr_gc_heap_off : N }.
+
 (* beware:
    The i32 type is a record {intval: Z; proof: -1 < z < 2^32}.
    This means that N_repr is not a functional relation

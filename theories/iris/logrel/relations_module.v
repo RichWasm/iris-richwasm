@@ -1,5 +1,5 @@
 Require Import RichWasm.compiler.prelude.
-Require Import RichWasm.iris.gc.
+From RichWasm.iris Require Import gc util.
 Require Import RichWasm.iris.logrel.relations.
 Require Import RichWasm.iris.host.iris_host.
 Require Import RichWasm.syntax.
@@ -15,6 +15,7 @@ Section Relations.
   Context `{!hasG Σ}.
 
   Variable sr : store_runtime.
+  Variable gci : gc_invariant Σ.
 
   (* TODO *)
   Definition module_interp (ω : module_type) (mr : module_runtime) (m : W.module) : iProp Σ :=
@@ -26,7 +27,7 @@ Section Relations.
           {{ v, ⌜v = immHV []⌝ ∗
                 i ↪[mods] m ∗
                 (* TODO: Relate instance to imports/exports. *)
-                ∃ M inst, instance_interp sr mr M inst }})%I.
+                ∃ M inst, instance_interp sr mr gci M inst }})%I.
 
   (* TODO *)
   Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=

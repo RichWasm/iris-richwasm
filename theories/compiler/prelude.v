@@ -13,12 +13,6 @@ Inductive error :=
 | EFail
 | ETodo.
 
-Record store_runtime :=
-  { sr_mem_mm : W.memaddr;
-    sr_mem_gc : W.memaddr;
-    sr_gc_heap_start : N;
-    sr_table : W.tableaddr }.
-
 Record module_runtime :=
   { mr_mem_mm : W.memidx;
     mr_mem_gc : W.memidx;

@@ -4,7 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
-From RichWasm.iris Require Import autowp gc.
+From RichWasm.iris Require Import autowp gc util.
 From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
@@ -19,6 +19,7 @@ Section Fundamental.
 
   Variable sr : store_runtime.
   Variable mr : module_runtime.
+  Variable gci : gc_invariant Σ.
 
   (* This should be moved to the logpred module. *)
   Definition lp_wand' Φ1 Φ2 : iProp Σ :=
@@ -40,7 +41,7 @@ Section Fundamental.
     let ψ := InstrT [] [] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INop ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Proof.
     (* This is currently following the compat_copy lemma very closely *)
     intros fe ψ Hok Hcompile.
@@ -74,18 +75,18 @@ Section Fundamental.
     set (Ψ := {|
             lp_fr := λ fr, ∃ vss__L vs__WL,
               ⌜fr = {| W.f_locs := concat vss__L ++ vs__WL; W.f_inst := inst |}⌝ ∗
-                locals_interp sr mr se F.(typing.fc_locals)
+                locals_interp sr mr gci se F.(typing.fc_locals)
                   (map (option_map (subst_type s__mem s__rep s__size VarT)) L) vss__L ∗
                 ⌜result_type_interp (wl ++ wlf) vs__WL⌝ ∗
                 na_own logrel_nais ⊤;
             lp_val :=
               λ vs, ∃ vss, ⌜vs = concat vss⌝ ∗
-                           [∗ list] τ;vs' ∈ [];vss, value_interp sr mr se τ (SValues vs');
+                           [∗ list] τ;vs' ∈ [];vss, value_interp sr mr gci se τ (SValues vs');
             lp_trap := True;
             lp_br :=
-              br_interp sr mr se F.(fc_return) F.(typing.fc_locals)
+              br_interp sr mr gci se F.(fc_return) F.(typing.fc_locals)
                 (map (option_map (subst_type s__mem s__rep s__size VarT)) L) (wl ++ wlf) inst lh F.(fc_labels);
-            lp_ret := return_interp sr mr se F.(fc_return);
+            lp_ret := return_interp sr mr gci se F.(fc_return);
             lp_host := fun _ _ _ _ => False
           |}%I).
     iApply lwp_wand; [| iApply (lenient_wp_nop _ _ Ψ)].
@@ -113,7 +114,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (IUnreachable ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma eval_rep_subst_eq ρ ιs s__rep :
@@ -128,7 +129,7 @@ Section Fundamental.
     has_copyability F τ ExCopy ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICopy ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Proof.
     intros fe ψ Hcopy Hok Hcompile.
     unfold compile_instr in Hcompile.
@@ -146,7 +147,7 @@ Section Fundamental.
     rewrite app_nil_l.
     inversion Hcopy as [F' τ' ρ' χ ? Hhas_kind HF' Hτ' Hχ].
     subst F' τ'.
-    pose proof (kinding_sound sr mr F s__mem s__rep s__size se _ _ Hhas_kind) as Hhas_kind_sem.
+    pose proof (kinding_sound sr mr gci F s__mem s__rep s__size se _ _ Hhas_kind) as Hhas_kind_sem.
     pose proof (Hhas_kind_sem Henv) as Hskind.
     destruct Hskind as [Hrefine Hcopyable].
     cbn in Hcopyable.
@@ -184,7 +185,7 @@ Section Fundamental.
     has_dropability F τ ExDrop ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IDrop ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_num M F L wl wl' wlf ψ e es' :
@@ -192,7 +193,7 @@ Section Fundamental.
     has_instruction_type_num e ψ ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INum ψ e)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_num_const M F L wl wl' wlf n ν es' :
@@ -200,7 +201,7 @@ Section Fundamental.
     let ψ := InstrT [] [num_type_type ν] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INumConst ψ n)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Proof.
     intros fe ψ Hok Hcompile. cbn in Hcompile.
     (* Immediately, we must destruct ν *)
@@ -253,9 +254,9 @@ Section Fundamental.
     (forall wl wl' wlf es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs mr fe' es) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' L (wl ++ wl' ++ wlf) (to_e_list es') ψ L') ->
+        ⊢ have_instruction_type_sem sr mr gci M F' L (wl ++ wl' ++ wlf) (to_e_list es') ψ L') ->
     run_codegen (compile_instr mr fe (IBlock ψ L' es)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_loop M F L wl wl' wlf es es' τs1 τs2 :
@@ -266,9 +267,9 @@ Section Fundamental.
     (forall wl wl' wlf es',
         let fe' := fe_of_context F' in
         run_codegen (compile_instrs mr fe' es) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' L (wl ++ wl' ++ wlf) (to_e_list es') ψ L) ->
+        ⊢ have_instruction_type_sem sr mr gci M F' L (wl ++ wl' ++ wlf) (to_e_list es') ψ L) ->
     run_codegen (compile_instr mr fe (ILoop ψ es)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Fixpoint replace_base {n} (vh: valid_holed n) vs :=
@@ -464,7 +465,7 @@ Section Fundamental.
   Lemma translate_types_length_subst ks ts res vs se smem srep ssize :
     translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ map (subst_type smem srep ssize VarT) ts;vs, 
-       value_interp sr mr se y1 (SValues y2))
+       value_interp sr mr gci se y1 (SValues y2))
        ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
   Proof.
   Admitted. 
@@ -488,7 +489,7 @@ Section Fundamental.
   Lemma translate_types_length ks ts res vs se:
     translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ ts;vs, 
-       value_interp sr mr se y1 (SValues y2))
+       value_interp sr mr gci se y1 (SValues y2))
        ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
   Proof.
     iIntros (H) "H".
@@ -514,8 +515,8 @@ Section Fundamental.
     end. 
 
   Lemma length_lholeds_bef_aft se l lh bef aft:
-    length_lholeds sr mr se l lh <->
-      length_lholeds sr mr se l (lh_bef_aft bef lh aft).
+    length_lholeds sr mr gci se l lh <->
+      length_lholeds sr mr gci se l (lh_bef_aft bef lh aft).
   Proof.
     induction lh => //=.
     { destruct l => //=. }
@@ -523,9 +524,9 @@ Section Fundamental.
   Qed. 
   
   Lemma length_lholeds_app se l1 l2 lh1 lh2:
-    length_lholeds sr mr se l1 lh1 ->
-    length_lholeds sr mr se l2 lh2 ->
-    length_lholeds sr mr se (l1 ++ l2) (lh_plug lh2 lh1).
+    length_lholeds sr mr gci se l1 lh1 ->
+    length_lholeds sr mr gci se l2 lh2 ->
+    length_lholeds sr mr gci se (l1 ++ l2) (lh_plug lh2 lh1).
   Proof.
     generalize dependent l1.
     induction lh1 => //=.
@@ -658,13 +659,13 @@ Section Fundamental.
     (forall wl wl' wlf es',
         let fe := fe_of_context F' in
         run_codegen (compile_instrs mr fe es1) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L') ->
+        ⊢ have_instruction_type_sem sr mr gci M F' L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L') ->
     (forall wl wl' wlf es',
         let fe := fe_of_context F' in
         run_codegen (compile_instrs mr fe es2) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F' L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L') ->
+        ⊢ have_instruction_type_sem sr mr gci M F' L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L') ->
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Proof.
     intros fe F' ψ Hok Hthen Helse Hcodegen.
     iIntros (smem srep ssize se inst lh) "%Hsubst #Hinst #Hctxt".
@@ -1001,7 +1002,7 @@ Section Fundamental.
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (IBr ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_return M F L L' wl wl' wlf es' τs1 τs τs2 :
@@ -1011,7 +1012,7 @@ Section Fundamental.
     Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (IReturn ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_local_get M F L wl wl' wlf es' i τ :
@@ -1021,7 +1022,7 @@ Section Fundamental.
     L !! i = Some (Some τ) ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_local_get_copy M F L wl wl' wlf es' i τ :
@@ -1031,7 +1032,7 @@ Section Fundamental.
     has_copyability F τ ImCopy ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_local_set M F L wl wl' wlf es' i τ :
@@ -1041,7 +1042,7 @@ Section Fundamental.
     (∀ τ0, L !! i = Some (Some τ0) → has_dropability F τ0 ImDrop) ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalSet ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_coderef M F L wl wl' wlf es' i ϕ :
@@ -1051,7 +1052,7 @@ Section Fundamental.
     M.(mc_table) !! i = Some ϕ ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICodeRef ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_inst M F L wl wl' wlf es' ix ϕ ϕ' :
@@ -1061,7 +1062,7 @@ Section Fundamental.
     function_type_inst F ix ϕ ϕ' ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IInst ψ ix)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_call M F L wl wl' wlf es' i ixs ϕ τs1 τs2 :
@@ -1071,7 +1072,7 @@ Section Fundamental.
     function_type_insts F ixs ϕ (MonoFunT τs1 τs2) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICall ψ i ixs)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_call_indirect M F L wl wl' wlf es' τs1 τs2 :
@@ -1080,7 +1081,7 @@ Section Fundamental.
     let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICallIndirect ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_inject_sum M F L wl wl' wlf es' i τs τ κ :
@@ -1089,7 +1090,7 @@ Section Fundamental.
     τs !! i = Some τ ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IInject ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_inject_variant M F L wl wl' wlf es' μ i τ τ' τs κr κv :
@@ -1100,7 +1101,7 @@ Section Fundamental.
     stores_as F τ τ' ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IInject ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_case_sum M F L L' wl wl' wlf es' ess τ' τs κ :
@@ -1110,11 +1111,11 @@ Section Fundamental.
       (fun τ es =>
          forall wl wl' wlf es',
            run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
-           ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT [τ] [τ']) L')
+           ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT [τ] [τ']) L')
       τs ess ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ICase ψ L' ess)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_case_variant M F L L' wl wl' wlf es' ess τs τs' τ' κr κv μ :
@@ -1126,11 +1127,11 @@ Section Fundamental.
          (forall wl wl' wlf es',
              let fe := fe_of_context F in
              run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
-             ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT [τ] [τ']) L'))
+             ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT [τ] [τ']) L'))
       τs' ess ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ICase ψ L' ess)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_group M F L wl wl' wlf es' τs κ :
@@ -1138,7 +1139,7 @@ Section Fundamental.
     let ψ := InstrT τs [ProdT κ τs] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IGroup ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_ungroup M F L wl wl' wlf es' τs κ :
@@ -1146,7 +1147,7 @@ Section Fundamental.
     let ψ := InstrT [ProdT κ τs] τs in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IUngroup ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_fold M F L wl wl' wlf es' τ κ :
@@ -1155,7 +1156,7 @@ Section Fundamental.
     let ψ := InstrT [τ0] [RecT κ τ] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IFold ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_unfold M F L wl wl' wlf es' τ κ :
@@ -1164,7 +1165,7 @@ Section Fundamental.
     let ψ := InstrT [RecT κ τ] [τ0] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IUnfold ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_pack M F L wl wl' wlf es' τ τ' :
@@ -1173,7 +1174,7 @@ Section Fundamental.
     packed_existential F τ τ' ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IPack ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_unpack M F F0' L L' L0 L0' wl wl' wlf es es' es0 τs1 τs2 ψ0 :
@@ -1185,9 +1186,9 @@ Section Fundamental.
     (forall wl wl' wlf es',
         let fe0' := fe_of_context F0' in
         run_codegen (compile_instrs mr fe0' es0) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F0' L0 (wl ++ wl' ++ wlf) (to_e_list es') ψ0 L0') ->
+        ⊢ have_instruction_type_sem sr mr gci M F0' L0 (wl ++ wl' ++ wlf) (to_e_list es') ψ0 L0') ->
     run_codegen (compile_instr mr fe (IUnpack ψ L' es)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_tag M F L wl wl' wlf es' :
@@ -1195,7 +1196,7 @@ Section Fundamental.
     let ψ := InstrT [type_i32] [type_i31] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ITag ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_untag M F L wl wl' wlf es' :
@@ -1203,7 +1204,7 @@ Section Fundamental.
     let ψ := InstrT [type_i31] [type_i32] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IUntag ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_new M F L wl wl' wlf es' τ τ' κ μ :
@@ -1213,7 +1214,7 @@ Section Fundamental.
     stores_as F τ τ' ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (INew ψ)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_load M F L wl wl' wlf es' π pr κ μ τ τval :
@@ -1225,7 +1226,7 @@ Section Fundamental.
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_load_mm M F L wl wl' wlf es' π τ τval κ κ' σ pr :
@@ -1237,7 +1238,7 @@ Section Fundamental.
     Forall (mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_store M F L wl wl' wlf es' π pr κ μ τ τval :
@@ -1249,7 +1250,7 @@ Section Fundamental.
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_store_mm M F L wl wl' wlf es' π pr κ κ' τ τval τmem :
@@ -1262,7 +1263,7 @@ Section Fundamental.
     Forall (mono_size F) pr.(pr_prefix) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_swap M F L wl wl' wlf es' π pr κ μ τ τval :
@@ -1273,13 +1274,13 @@ Section Fundamental.
     loads_as F τval pr.(pr_target) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ISwap ψ π)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
   Lemma compat_nil M F L wl wl' wlf es' :
     let fe := fe_of_context F in
     run_codegen (compile_instrs mr fe []) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT [] []) L.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT [] []) L.
   Proof.
     intros fe Hcompile.
     cbn in Hcompile.
@@ -1307,12 +1308,12 @@ Section Fundamental.
     let fe := fe_of_context F in
     (forall wl wl' wlf es',
         run_codegen (compile_instr mr fe e) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L1 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L2) ->
+        ⊢ have_instruction_type_sem sr mr gci M F L1 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L2) ->
     (forall wl wl' wlf es',
         run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L2 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs2 τs3) L3) ->
+        ⊢ have_instruction_type_sem sr mr gci M F L2 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs2 τs3) L3) ->
     run_codegen (compile_instrs mr fe (e :: es)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L1 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs3) L3.
+    ⊢ have_instruction_type_sem sr mr gci M F L1 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs3) L3.
   Proof.
     intros fe He Hes Hcompile; rename wl' into wl''.
     (* Step 1: split out Hcompile into Hcompile_e and Hcompile_es *)
@@ -1379,16 +1380,16 @@ Section Fundamental.
     has_mono_rep F τ ->
     (forall wl wl' wlf es',
         run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
-        ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L') ->
+        ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L') ->
     run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT (τ :: τs1) (τ :: τs2)) L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') (InstrT (τ :: τs1) (τ :: τs2)) L'.
   Admitted.
 
   Theorem fundamental_theorem M F L L' wl wl' wlf es es' tf :
     have_instruction_type M F L es tf L' ->
     let fe := fe_of_context F in
     run_codegen (compile_instrs mr fe es) wl = inr (tt, wl', es') ->
-    ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') tf L'.
+    ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') tf L'.
   Proof.
     intros Htype.
     generalize dependent es'.
@@ -1400,7 +1401,7 @@ Section Fundamental.
                forall wl wl' wlf es',
                  let fe := fe_of_context F in
                  run_codegen (compile_instr mr fe e) wl = inr (tt, wl', es') ->
-                 ⊢ have_instruction_type_sem sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L');
+                 ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L');
       intros wl wl' wlf es' fe Hcomp.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.
