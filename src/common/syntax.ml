@@ -663,11 +663,11 @@ module Instruction = struct
         fprintf ff "end"
     | Group i -> fprintf ff "group %a" pp_int i
     | Ungroup -> fprintf ff "ungroup"
-    | Fold t -> fprintf ff "rec.fold %a" Type.pp t
-    | Unfold -> fprintf ff "rec.unfold"
-    | Pack (idx, t) -> fprintf ff "exist.pack %a %a" Index.pp idx Type.pp t
+    | Fold t -> fprintf ff "fold %a" Type.pp t
+    | Unfold -> fprintf ff "unfold"
+    | Pack (idx, t) -> fprintf ff "pack %a %a" Index.pp idx Type.pp t
     | Unpack (bt, lfx, instrs) ->
-        fprintf ff "exist.unpack %a %a %a" BlockType.pp bt LocalFx.pp lfx
+        fprintf ff "unpack %a %a %a" BlockType.pp bt LocalFx.pp lfx
           pp_instrs instrs
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
