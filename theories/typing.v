@@ -1295,11 +1295,11 @@ Qed.
 
 Inductive has_function_type : module_ctx -> module_function -> function_type -> Prop :=
 | TFunction M mf ιss L' :
-  let fft := flatten_function_type mf.(mf_type) in
-  let K := kc_of_fft fft in
-  let F := Build_function_ctx fft.(fft_out) ιss [] K fft.(fft_type_vars) in
+  let ϕ := flatten_function_type mf.(mf_type) in
+  let K := kc_of_fft ϕ in
+  let F := Build_function_ctx ϕ.(fft_out) ιss [] K ϕ.(fft_type_vars) in
   let L := repeat None (length ιss) in
-  let ψ := InstrT fft.(fft_in) fft.(fft_out) in
+  let ψ := InstrT ϕ.(fft_in) ϕ.(fft_out) in
   mapM eval_rep mf.(mf_locals) = Some ιss ->
   Forall (fun τo => forall τ, τo = Some τ -> has_dropability F τ ImDrop) L' ->
   have_instruction_type M F L mf.(mf_body) ψ L' ->
@@ -1307,9 +1307,9 @@ Inductive has_function_type : module_ctx -> module_function -> function_type -> 
 
 Inductive has_module_type : module -> module_type -> Prop :=
 | TModule m table exports :
-  let functions := map mf_type m.(m_functions) in
-  nths_error functions m.(m_table) = Some table ->
-  nths_error functions m.(m_exports) = Some exports ->
-  let M := Build_module_ctx functions table in
+  let ϕs := m.(m_imports) ++ map mf_type m.(m_functions) in
+  nths_error ϕs m.(m_table) = Some table ->
+  nths_error ϕs m.(m_exports) = Some exports ->
+  let M := Build_module_ctx ϕs table in
   Forall (fun mf => has_function_type M mf mf.(mf_type)) m.(m_functions) ->
   has_module_type m (Build_module_type m.(m_imports) exports).
