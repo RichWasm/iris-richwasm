@@ -635,7 +635,7 @@ module Module = struct
       fprintf ff "@[<2>mf_body :=@ %a@];@,"
         (pp_roqc_list Instruction.pp_roqc)
         mf_body;
-      fprintf ff "@]}@]"
+      fprintf ff "@]|}@]"
   end
 
   type t =
