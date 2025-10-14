@@ -1298,6 +1298,12 @@ Section Fundamental.
     iFrame.
   Qed.
 
+  Lemma to_e_list_distributes e1 e2 :
+    to_e_list (e1 ++ e2) = to_e_list e1 ++ to_e_list e2.
+  Proof.
+    unfold to_e_list. rewrite mathcomp.ssreflect.seq.map_cat. done.
+  Qed.
+  
   Lemma compat_cons M F L1 L2 L3 wl wl' es' e es τs1 τs2 τs3 :
     let fe := fe_of_context F in
     (forall wl wl' es',
@@ -1308,6 +1314,63 @@ Section Fundamental.
         ⊢ have_instruction_type_sem sr mr M F L2 (wl ++ wl') (to_e_list es') (InstrT τs2 τs3) L3) ->
     run_codegen (compile_instrs mr fe (e :: es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr M F L1 (wl ++ wl') (to_e_list es') (InstrT τs1 τs3) L3.
+  Proof.
+    intros fe He Hes Hcompile; rename wl' into wl''.
+    (* Step 1: split out Hcompile into Hcompile_e and Hcompile_es *)
+
+    (* For Hcompile_e *)
+    unfold compile_instrs in Hcompile.
+    cbn in Hcompile.
+    inv_cg_bind Hcompile res wl1' wltest es1' es2' Hcompile Hcompile_empty; subst.
+    inversion Hcompile_empty; subst; clear Hcompile_empty.
+                                           
+
+    inv_cg_bind Hcompile res' wl' wl'' e' es' Hcompile_e Hcompile_es_kinda; subst.
+
+    assert (Hres: res' = ()). {admit.} subst.
+    apply He in Hcompile_e as Hsem_e.
+
+    (* For Hcompile_es: *)
+
+    (* First, rework Hcompile_es_kinda. I'm *pretty* sure this is true *)
+    (* Reasoning why I think this is true:
+       - compile_instrs is defined as mapM_ (compile_instr fe)
+       - mapM_ is defined as ignoring all output at returning ()
+       - In Hcompile_es_kinda, we have the normal mapM, and res is a list of ()
+       - After staring at some of the insides, I'm *pretty* sure replacing mapM
+         with mapM_ results in res (list of ()) turning into just ().
+       - then things fold in from there
+       Not sure how to prove that atm
+     *)
+    assert (Hcompile_es:
+             run_codegen (compile_instrs mr fe es) (wl ++ wl') = inr((), wl'', es')).
+    { admit. }
+
+    apply Hes in Hcompile_es as Hsem_es. clear Hcompile_es_kinda.
+
+    (* a bit of prep for step 2 *)
+    do 2 rewrite app_nil_r.
+    rewrite <- app_assoc in Hsem_es.
+    rewrite to_e_list_distributes.
+
+    (* Can be temporary: *)
+    clear Hcompile_e Hcompile_es He Hes.
+
+    (* Step 2: let's get the type semantic! *)
+    unfold have_instruction_type_sem.
+    iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
+    iIntros (? ?) "Hvs Hframe Hfr Hrun".
+    (* unfold expr_interp. *)
+
+    (* Idea: pass resources into Hsem_e, then Hsem_es *)
+    (* Start with all the pure stuff into both *)
+    unfold have_instruction_type_sem in Hsem_e, Hsem_es.
+
+    iPoseProof (Hsem_e) as "Hsem_e"; iPoseProof (Hsem_es) as "Hsem_es".
+    iSpecialize ("Hsem_e" $! s__mem s__rep s__size se inst lh Henv with "Hinst").
+    iSpecialize ("Hsem_es" $! s__mem s__rep s__size se inst lh Henv with "Hinst").
+
+    (* Issue arises right here! *)
   Admitted.
 
   Lemma compat_frame M F L L' wl wl' es es' τ τs1 τs2 :
