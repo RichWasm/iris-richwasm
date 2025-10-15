@@ -171,9 +171,7 @@ Section Fundamental.
         iPureIntro.
         eexists.
         split.
-        * setoid_rewrite Hcompile.
-          repeat f_equal.
-          admit.
+        * by setoid_rewrite Hcompile.
         * by rewrite app_nil_l.
       + admit.
       + admit.

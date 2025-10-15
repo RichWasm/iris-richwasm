@@ -468,9 +468,9 @@ Section CodeGen.
   Qed.
 
   Lemma wp_save_stack_w tys :
-    forall s E Φ fe wl idxs wl' es fr vs,
+    forall s E Φ fe wl idxs wl' wlf es fr vs,
       run_codegen (save_stack_w fe tys) wl = inr (idxs, wl', es) ->
-      wl_interp (fe_wlocal_offset fe) (wl ++ wl') fr ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
       result_type_interp tys vs ->
       idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
       wl' = tys /\
@@ -519,7 +519,7 @@ Section CodeGen.
     iApply (wp_save_stack_w_ind with "[$] [$] [HΦ]").
     - symmetry. eapply Forall2_length; eauto.
     - apply interp_wl_length in H.
-      rewrite length_app in H.
+      rewrite !length_app in H.
       lia.
     - eauto.
     - iIntros (v) "((HΦ & Hrun) & %f & Hfr & Hpre & Hvs)".

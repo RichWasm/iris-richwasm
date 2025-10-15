@@ -186,6 +186,16 @@ Section FundamentalKinding.
   Lemma explicit_copy_prim_reps_interp ιs :
     explicit_copy_spec sr gci ιs (prim_reps_interp sr ιs).
   Proof.
+    unfold explicit_copy_spec; intros.
+    iIntros "%Hcopy %Hwl Hfr Hrun Hprim".
+    unfold is_copy_operation in Hcopy.
+    destruct Hcopy as (es' & Hcg & <-).
+    inv_cg_bind Hcg res wl1 wl2 es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res1 wl3 wl4 es3 es4 Hcg2 Hcg3.
+    inv_cg_bind Hcg3 res2 wl5 wl6 es5 es6 Hcg3 Hcg4.
+    subst.
+    rewrite <- !app_assoc in Hwl.
+    eapply wp_save_stack_w in Hcg1; eauto.
   Admitted.
 
   Lemma copyability_kind ρ ιs χ δ :
@@ -218,6 +228,9 @@ Section FundamentalKinding.
       typeclasses eauto.
   Admitted.
 
+  Instance copyability_proper : Proper (eq ==> eq ==> eq ==> eq ==> equiv ==> equiv) copyability_interp.
+  Admitted.
+
   Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
     has_kind F τ (VALTYPE ρ χ δ) ->
     subst_env_interp sr gci F s__mem s__rep s__size se ->
@@ -227,54 +240,50 @@ Section FundamentalKinding.
     remember (VALTYPE ρ χ δ) as κ.
     revert Heqκ.
     revert ρ χ δ.
-    (*
     induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *;
-      iIntros "[%Hsubst Henv]"; try subst κ; try subst κ'.
+      intros [Hsubst Henv]; try subst κ; try subst κ'.
     - inversion H; subst; eauto.
       + specialize (IHHkind _ _ _ eq_refl).
         cbn in IHHkind.
+        cbn.
         admit.
-      + iApply IHHkind; eauto.
-        by iFrame.
-      + iApply IHHkind; eauto.
-        by iFrame.
+      + cbn; done.
+      + specialize (IHHkind _ _ _ eq_refl).
+        eapply IHHkind.
+        split; auto.
+      + specialize (IHHkind _ _ _ eq_refl).
+        eapply IHHkind.
+        split; eauto.
     - simpl subst_type.
-      unfold sem_env_interp.
-      iPoseProof (big_sepL2_length with "Henv") as "%Hlen".
-      assert (Hκt': exists κt', se !! t = Some κt').
-      {
-        apply lookup_lt_is_Some.
-        rewrite Hlen.
-        apply lookup_lt_is_Some.
-        eauto.
-      }
-      destruct Hκt' as [[κt' T] Hκt'].
-      iPoseProof (big_sepL2_lookup_acc with "Henv") as "[[%Hκsubst Hκinterp] Henv]"; eauto.
+      unfold sem_env_interp in Henv.
+      pose proof (Forall2_length _ _ _ Henv) as Hlen.
+      eapply Forall2_lookup_r in H; eauto.
+      destruct H as [[κt' T] [Hκt' [Hκsubst Hκinterp]]].
+      cbn in Hκsubst, Hκinterp.
       cbn in *; subst.
       rewrite value_interp_var; eauto.
-      iApply (copyability_sep ).
-      + iApply copyability_kind.
+      apply copyability_sep.
+      + eapply copyability_kind; eauto.
         admit.
       + cbn.
-        iDestruct "Hκinterp" as "[_ Hcopy]".
-        iFrame.
+        by destruct Hκinterp.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
       cbn.
-      iIntros "%sv !%".
+      intros.
       rewrite value_interp_eq; cbn.
       typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn.
       typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn; typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn; typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn; typeclasses eauto.
     - admit. (* sums *)
     - inversion Hκeq; subst; eauto.
@@ -282,20 +291,19 @@ Section FundamentalKinding.
     - admit. (* products *)
     - inversion Hκeq; subst; eauto.
     - inversion Hκeq; subst; eauto.
-    - inversion Hκeq; subst; eauto.
-    - inversion Hκeq; subst; eauto.
+    - inversion Hκeq; subst; done.
+    - inversion Hκeq; subst; done.
     - admit. (* refs *)
-    - inversion Hκeq; subst.
+    - inversion Hκeq.
     - admit. (* coderef *)
     - cbn in *. 
       admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    *)
+    - admit. (* recursive types *)
+    - admit. (* exists (mem) *)
+    - admit. (* exists (repr) *)
+    - admit. (* exists (size) *)
+    - admit. (* exists (type) *)
   Admitted.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 

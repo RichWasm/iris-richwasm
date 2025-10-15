@@ -119,13 +119,13 @@ Section Relations.
       run_codegen (ixs ← save_stack fe ιs;
                    restore_stack ixs;;
                    update_gc_refs ixs ιs (duproot mr);;
-                   restore_stack ixs) wl = inr ((), wl ++ wl', es') /\
+                   restore_stack ixs) wl = inr ((), wl', es') /\
         to_e_list es' = es.
 
   Definition explicit_copy_spec (ιs : list primitive_rep) (T : semantic_type) : Prop :=
-    forall cl mr fe fr wl wl' vs es,
+    forall cl mr fe fr wl wl' wlf vs es,
       ⌜is_copy_operation mr fe wl wl' ιs es⌝ -∗
-      ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl') fr⌝ -∗
+      ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr⌝ -∗
       ⌜fr.(f_inst).(inst_funcs) !! funcimm mr.(mr_func_registerroot) =
          Some sr.(sr_func_registerroot)⌝ -∗
       ⌜spec_registerroot sr gci cl⌝ -∗
@@ -137,8 +137,8 @@ Section Relations.
         {| lp_fr :=
              fun fr' =>
                ⌜fr.(f_inst) = fr'.(f_inst) /\
-                  length fr.(f_locs) = length fr'.(f_locs) /\
-                  forall i, i < length wl -> fr.(f_locs) !! i = fr'.(f_locs) !! i⌝;
+                 length fr.(f_locs) = length fr'.(f_locs) /\
+                 forall i, i < length wl \/ i > length (wl ++ wl') -> fr.(f_locs) !! i = fr'.(f_locs) !! i⌝;
            lp_val :=
              fun vs' =>
                ↪[RUN] ∗ N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
