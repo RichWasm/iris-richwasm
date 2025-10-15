@@ -973,4 +973,121 @@ Section lfilled_properties.
       apply lfilled_Ind_Equivalent. cbn. rewrite app_nil_r;by apply/eqP. }
   Qed.
 
+
+Definition lh_bef_aft bef lh aft :=
+    match lh with
+    | LH_base bef' aft' => LH_base (bef ++ bef') (aft' ++ aft)
+    | LH_rec bef' n es lh aft' => LH_rec (bef ++ bef') n es lh (aft' ++ aft)
+    end. 
+
+  Fixpoint lh_plug lh2 lh1 :=
+    match lh1 with
+    | LH_base bef aft => lh_bef_aft bef lh2 aft
+    | LH_rec bef n es lh aft => LH_rec bef n es (lh_plug lh2 lh) aft
+    end. 
+
+      
+  Lemma base_is_empty_plug lh1 lh2:
+    base_is_empty lh1 -> base_is_empty lh2 -> base_is_empty (lh_plug lh2 lh1).
+  Proof.
+    induction lh1 => //=.
+    destruct lh2 => //=.
+    intros [-> ->] [-> ->] => //.
+  Qed.
+
+
+
+  Lemma get_layer_plug_shallow lh1 lh2 k a b c lh d:
+    get_layer lh1 k = Some (a, b, c, lh, d) ->
+    get_layer (lh_plug lh2 lh1) k = Some (a, b, c, lh_plug lh2 lh, d).
+  Proof.
+    generalize dependent k. 
+    induction lh1 => //=.
+    destruct k => //=.
+    - intros Heq; inversion Heq; subst => //.
+    - intros ?; by apply IHlh1.
+  Qed.
+
+  Lemma get_layer_plug_deep lh1 lh2 k:
+    k > lh_depth lh1 ->
+    get_layer (lh_plug lh2 lh1) k = get_layer lh2 (k - lh_depth lh1).
+  Proof.
+    generalize dependent k. 
+    induction lh1 => //=.
+    - destruct lh2 => //.
+      intros k. 
+      rewrite Nat.sub_0_r /=.
+      destruct k => //.
+      lia.
+    - destruct k; first lia.
+      rewrite Nat.sub_succ.
+      intros H.
+      apply IHlh1 => //.
+      lia.
+  Qed.
+
+(*  Fixpoint get_lh_base lh :=
+    match lh with
+    | LH_base bef aft => (bef, aft)
+    | LH_rec _ _ _ lh _ => get_lh_base lh
+    end. *)
+  
+  Lemma get_layer_plug_precise lh1 lh2 bef' n es lh aft':
+    base_is_empty lh1 ->
+    get_layer lh2 0 = Some (bef', n, es, lh, aft') ->
+    get_layer (lh_plug lh2 lh1) (lh_depth lh1) = Some (bef', n, es, lh, aft').
+  Proof.
+    induction lh1 => //=.
+    destruct lh2 => //=.
+    intros [-> ->] Heq; inversion Heq; subst.
+    rewrite cats0 //. 
+  Qed. 
+      
+
+  Lemma lh_depth_bef_aft bef lh aft:
+    lh_depth (lh_bef_aft bef lh aft) = lh_depth lh.
+  Proof.
+    destruct lh => //=.
+  Qed. 
+
+  Lemma lh_depth_plug lh1 lh2:
+    lh_depth (lh_plug lh2 lh1) = lh_depth lh1 + lh_depth lh2.
+  Proof.
+    induction lh1 => //=.
+    - apply lh_depth_bef_aft.
+    - rewrite IHlh1 //.
+  Qed.
+
+  Lemma lh_minus_plug lh1 lh2 lh:
+    is_Some (lh_minus lh1 lh) ->
+    is_Some (lh_minus (lh_plug lh2 lh1) lh).
+  Proof.
+    generalize dependent lh. 
+    induction lh1 => //=.
+    - destruct lh; last by intros [??].
+      destruct l1; last by intros [??].
+      destruct l2; last by intros [??].
+      intros _; eexists => //.
+      rewrite lh_minus_eq. done.
+    - destruct lh => //.
+      + destruct l2; last by intros [??].
+        destruct l3; last by intros [??].
+        done.
+      + destruct (_ && _) eqn:Heq => //.
+        intros H.
+        apply IHlh1 => //.
+  Qed. 
+
+  Lemma lh_plug_minus lh1 lh2:
+    base_is_empty lh1 ->
+    lh_minus (lh_plug lh2 lh1) lh1 = Some lh2.
+  Proof.
+    induction lh1 => //=.
+    - intros [-> ->]. destruct lh2; rewrite /= cats0 //.
+    - repeat rewrite eqtype.eq_refl.
+      rewrite Nat.eqb_refl //.
+  Qed. 
+
+
+  
 End lfilled_properties.

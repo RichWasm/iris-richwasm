@@ -558,6 +558,7 @@ Section Relations.
          □ ∀ vs fr,
            values_interp se τs vs -∗
            ↪[frame] fr -∗
+           ↪[RUN] -∗
            frame_interp se ιss_L L WL inst fr -∗
            ∃ τs',
              expr_interp se τr (drop (S k) τc) ιss_L L WL τs' inst lh''
