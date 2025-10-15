@@ -167,14 +167,13 @@ Definition compile_func (mr : module_runtime) (mf : module_function) : modgen W.
   add_func (W.Build_module_func tid locals' body).
 
 Definition compile_table
-  (gid_table_next gid_table_off : W.globalidx) (fid_table_set : W.funcidx) (tab : list nat) :
+  (gid_table_next gid_table_off : W.globalidx) (fid_user fid_table_set : W.funcidx) (tab : list nat) :
   modgen W.funcidx :=
   tid ← add_type (W.Tf [] []);
-  let body :=
-    table_alloc gid_table_next gid_table_off (length tab) ++
-      flatten (imap (call_table_set gid_table_off fid_table_set) tab)
-  in
-  add_func (W.Build_module_func tid [] body).
+  let es1 := table_alloc gid_table_next gid_table_off (length tab) in
+  let table_set i fid := call_table_set gid_table_off fid_table_set i (funcimm fid_user + fid) in
+  let es2 := flatten (imap table_set tab) in
+  add_func (W.Build_module_func tid [] (es1 ++ es2)).
 
 Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (i : nat) :
   modgen unit :=
@@ -195,10 +194,8 @@ Definition compile_module (m : module) : modgen unit :=
   tid_table ← add_rt_table_import "table" (W.Build_table_type (W.Build_limits 0 None) W.ELT_funcref);
 
   (* Save the offsets of user imports and definitions. After this point:
-
      - No more runtime imports.
      - Runtime function definitions only after all user functions (imports and definitions).
-
      This creates a "sandwich," with runtime imports at the beginning, user imports and definitions
      in the middle, and runtime definitions at the end. *)
   gid_user ← next_globalidx_import;
@@ -234,5 +231,5 @@ Definition compile_module (m : module) : modgen unit :=
   mapM_ (compile_export gid_user fid_user) m.(m_exports);;
 
   (* Runtime Function Definitions *)
-  fid_table_init ← compile_table gid_table_next gid_table_off fid_table_set m.(m_table);
+  fid_table_init ← compile_table gid_table_next gid_table_off fid_user fid_table_set m.(m_table);
   set_start (Some (W.Build_module_start fid_table_init)).

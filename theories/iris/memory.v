@@ -58,7 +58,7 @@ Definition index_address (i : nat) : N := N.of_nat (4 * i).
 
 Section Repr.
 
-  Variable heap_start : N.
+  Variable gc_heap_off : N.
 
   Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
   | ReprPtrInt θ n :
@@ -70,11 +70,11 @@ Section Repr.
   | ReprPtrGC θ ℓ a :
     θ !! ℓ = Some a ->
     (a `mod` 4 = 0)%N ->
-    (a >= heap_start)%N ->
+    (a >= gc_heap_off)%N ->
     repr_pointer θ (PtrGC ℓ) (Z.of_N a - 1)
   | ReprPtrRoot θ a :
     (a `mod` 4 = 0)%N ->
-    (a < heap_start)%N ->
+    (a < gc_heap_off)%N ->
     repr_pointer θ (PtrRoot a) (Z.of_N a - 1).
 
   Inductive repr_word : address_map -> word -> Z -> Prop :=
@@ -99,6 +99,9 @@ Section Repr.
     θ !! ℓ = Some a0 ->
     a = Z.of_N (a0 + index_address i) ->
     repr_location_index θ ℓ i a.
+
+  Definition repr_location (θ : address_map) (ℓ : location) (a : Z) : Prop :=
+    repr_location_index θ ℓ 0 a.
 
   Inductive ser_value : rep_value -> list word -> Prop :=
   | SerPtr i p n :

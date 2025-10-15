@@ -1,0 +1,178 @@
+open! Base
+
+module Monad = struct
+  module type Basic = sig
+    type 'a t
+
+    val ret : 'a -> 'a t
+    val bind : 'a t -> ('a -> 'b t) -> 'b t
+  end
+
+  module Make (M : Basic) = struct
+    include M
+
+    let ( let* ) = bind
+    let ( >>= ) = bind
+    let map (m : 'a t) (f : 'a -> 'b) : 'b t = bind m (fun x -> ret (f x))
+    let ( let+ ) = map
+    let ( >>| ) = map
+
+    let apply (mf : ('a -> 'b) t) (mx : 'a t) : 'b t =
+      let* f = mf in
+      let* x = mx in
+      ret (f x)
+
+    let sequence (ms : 'a t list) : 'a list t =
+      let rec go acc = function
+        | [] -> ret (List.rev acc)
+        | m :: ms ->
+            let* x = m in
+            go (x :: acc) ms
+      in
+      go [] ms
+
+    let all = sequence
+
+    let traverse (lst : 'a list) ~(f : 'a -> 'b t) : 'b list t =
+      let rec go acc = function
+        | [] -> ret (List.rev acc)
+        | x :: xs ->
+            let* y = f x in
+            go (y :: acc) xs
+      in
+      go [] lst
+
+    let mapM = traverse
+
+    let flat_mapM lst ~(f : 'a -> 'b list t) : 'b list t =
+      let rec go acc = function
+        | [] -> ret (List.rev acc)
+        | x :: xs ->
+            let* y = f x in
+            go (List.rev_append y acc) xs
+      in
+      go [] lst
+
+    let traversei (lst : 'a list) ~(f : int -> 'a -> 'b t) : 'b list t =
+      let rec go i acc = function
+        | [] -> ret acc
+        | x :: xs ->
+            let* y = f i x in
+            go (i + 1) (y :: acc) xs
+      in
+      let+ res = go 0 [] lst in
+      List.rev res
+
+    let mapiM = traversei
+
+    let foldM (lst : 'a list) ~(f : 'b -> 'a -> 'b t) ~(init : 'b) : 'b t =
+      let rec go acc = function
+        | [] -> ret acc
+        | x :: xs ->
+            let* acc' = f acc x in
+            go acc' xs
+      in
+      go init lst
+
+    let foldiM (lst : 'a list) ~(f : int -> 'b -> 'a -> 'b t) ~(init : 'b) :
+        'b t =
+      let rec go i acc = function
+        | [] -> ret acc
+        | x :: xs ->
+            let* acc' = f i acc x in
+            go (i + 1) acc' xs
+      in
+      go 0 init lst
+
+    let iterM ~(f : 'a -> unit t) (xs : 'a list) : unit t =
+      foldM ~f:(fun () x -> f x) ~init:() xs
+
+    let iteriM ~(f : int -> 'a -> unit t) (xs : 'a list) : unit t =
+      foldiM ~f:(fun i () x -> f i x) ~init:() xs
+
+    let omap ~(f : 'a -> 'b t) (x : 'a option) : 'b option t =
+      match x with
+      | None -> ret None
+      | Some x ->
+          let+ x' = f x in
+          Some x'
+
+    let ( >=> ) f g x = bind (f x) g
+    let ( >-> ) f g x = map (f x) g
+
+    module Applicative = Applicative.Make (struct
+      type 'a t = 'a M.t
+
+      let return = ret
+      let apply = apply
+      let map = `Custom (fun m ~f -> map m f)
+    end)
+  end
+end
+
+module Monad_with_fail = struct
+  module type Basic = sig
+    include Monad.Basic
+
+    type error
+
+    val fail : error -> 'a t
+  end
+
+  module Make (M : Basic) = struct
+    open M
+
+    let fail_if cond err : 'a t = if cond then fail err else ret ()
+    let fail_ifn cond err : 'a t = if cond then ret () else fail err
+  end
+end
+
+module ResultM (E : T) = struct
+  module T = struct
+    type error = E.t
+    type 'a t = ('a, error) Result.t
+
+    let ret (x : 'a) : 'a t = Ok x
+
+    let bind (m : 'a t) (f : 'a -> 'b t) : 'b t =
+      match m with
+      | Error _ as er -> er
+      | Ok x -> f x
+
+    let fail err : 'a t = Error err
+  end
+
+  include T
+  include Monad.Make (T)
+  include Monad_with_fail.Make (T)
+end
+
+module StateM (S : T) (E : T) = struct
+  module T = struct
+    type error = E.t
+    type 'a t = S.t -> ('a * S.t, error) Result.t
+
+    let ret (x : 'a) : 'a t = fun e -> Ok (x, e)
+
+    let bind (m : 'a t) (f : 'a -> 'b t) : 'b t =
+     fun e ->
+      match m e with
+      | Error _ as er -> er
+      | Ok (x, e') -> f x e'
+
+    let fail err : 'a t = fun _ -> Error err
+    let get : S.t t = fun s -> Ok (s, s)
+    let put (s : S.t) : unit t = fun _ -> Ok ((), s)
+    let modify (f : S.t -> S.t) : unit t = fun s -> Ok ((), f s)
+
+    let lift_result (r : 'a ResultM(E).t) : 'a t =
+     fun s ->
+      match r with
+      | Ok x -> Ok (x, s)
+      | Error e -> Error e
+  end
+
+  include T
+  include Monad.Make (T)
+  include Monad_with_fail.Make (T)
+end

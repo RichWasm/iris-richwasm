@@ -4,7 +4,7 @@ Require Import iris.proofmode.tactics.
 From Wasm.iris.helpers Require Import iris_properties.
 
 From RichWasm.compiler Require Import prelude codegen instruction memory util.
-From RichWasm.iris Require Import gc memory.
+From RichWasm.iris Require Import gc memory runtime util.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 From RichWasm Require Import syntax typing layout util.
 
@@ -21,6 +21,7 @@ Section Relations.
 
   Variable sr : store_runtime.
   Variable mr : module_runtime.
+  Variable gci : gc_invariant Σ.
 
   Definition ns_glo (n : N) : namespace := nroot .@ "rwg" .@ n.
   Definition ns_fun (n : N) : namespace := nroot .@ "rwf" .@ n.
@@ -87,7 +88,7 @@ Section Relations.
   Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
     match ι with
     | PtrR => exists θ p n,
-        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_start) θ p n
+        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_off) θ p n
     | I32R => exists n, v = VAL_int32 n
     | I64R => exists n, v = VAL_int64 n
     | F32R => exists n, v = VAL_float32 n
@@ -269,7 +270,7 @@ Section Relations.
       (∃ a ws ns bs,
          ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
            N.of_nat sr.(sr_mem_mm) ↦[wms][a] bs ∗
-           ⌜repr_list_word sr.(sr_gc_heap_start) ∅ ws ns⌝ ∗
+           ⌜repr_list_word sr.(sr_gc_heap_off) ∅ ws ns⌝ ∗
            ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
            ▷ vrel se τ (SWords MemMM ws))%I.
 
@@ -306,7 +307,7 @@ Section Relations.
            ⌜type_rep (map fst se) τ = Some ρ⌝ ∗
            ⌜eval_rep ρ = Some ιs⌝ ∗
            ⌜to_rep_values ιs vs = Some rvs⌝ ∗
-           ⌜Forall2 (ser_value sr.(sr_gc_heap_start)) rvs wss⌝ ∗
+           ⌜Forall2 (ser_value sr.(sr_gc_heap_off)) rvs wss⌝ ∗
            ▷ vrel se τ (SValues vs))%I.
 
   Definition rec_interp (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
@@ -506,30 +507,57 @@ Section Relations.
                     lp_ret := return_interp se τr;
                     lp_host := fun _ _ _ _ => False |}%I.
 
+  Definition instance_rt_func_interp
+    (i : funcidx) (a : funcaddr) (spec : function_closure -> Prop) (inst : instance) : iProp Σ :=
+    ∃ cl,
+      ⌜spec cl⌝ ∗
+        ⌜inst.(inst_funcs) !! funcimm i = Some a⌝ ∗
+        na_inv logrel_nais (ns_fun (N.of_nat a)) (N.of_nat a ↦[wf] cl).
+
+  Definition instance_runtime_interp (inst : instance) : iProp Σ :=
+    instance_rt_func_interp mr.(mr_func_alloc_mm) sr.(sr_func_alloc_mm) spec_alloc_mm inst ∗
+      instance_rt_func_interp
+        mr.(mr_func_alloc_gc) sr.(sr_func_alloc_gc) (spec_alloc_gc sr gci) inst ∗
+      instance_rt_func_interp mr.(mr_func_free) sr.(sr_func_free) spec_free inst ∗
+      instance_rt_func_interp
+        mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot sr gci) inst ∗
+      instance_rt_func_interp
+        mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot sr gci) inst.
+
+  Definition instance_functions_interp (M : module_ctx) (inst : instance) : iProp Σ :=
+    [∗ list] i ↦ ϕ ∈ M.(mc_functions),
+      ∃ i' cl,
+        ⌜inst.(inst_funcs) !! (funcimm mr.(mr_func_user) + i)%nat = Some i'⌝ ∗
+          closure_interp [] ϕ cl ∗
+          na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
+
+  Definition table_entry_interp (off : nat) (i : nat) (ϕ : function_type) : iProp Σ :=
+    let nt := N.of_nat (off + i) in
+    ∃ i' cl,
+      closure_interp [] ϕ cl ∗
+        na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
+        na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
+
+  Definition instance_table_interp (M : module_ctx) (inst : instance) : iProp Σ :=
+    ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
+      ∃ i_off off,
+        let g_off := Build_global MUT_mut (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat off))) in
+        ([∗ list] i ↦ ϕ ∈ M.(mc_table), table_entry_interp off i ϕ) ∗
+          ⌜inst.(inst_globs) !! globalimm mr.(mr_global_table_off) = Some i_off⌝ ∗
+          na_inv logrel_nais (ns_glo (N.of_nat i_off)) (N.of_nat i_off ↦[wg] g_off).
+
   Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
-    (* TODO: alloc_mm spec *)
-    (* TODO: alloc_gc spec *)
-    (* TODO: free spec *)
-    (* TODO: registerroot spec *)
-    (* TODO: unregisterroot spec *)
-    ([∗ list] i ↦ ϕ ∈ M.(mc_functions),
-       ∃ cl,
-         let n := N.of_nat (i + funcimm mr.(mr_func_user)) in
-         closure_interp [] ϕ cl ∗ na_inv logrel_nais (ns_fun n) (n ↦[wf] cl)) ∗
+    instance_runtime_interp inst ∗
+      instance_functions_interp M inst ∗
       ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
-      (∃ off,
-         let n_off := N.of_nat (globalimm mr.(mr_global_table_off)) in
-         let v_off := VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat off)) in
-         na_inv logrel_nais (ns_glo n_off) (n_off ↦[wg] Build_global MUT_mut v_off) ∗
-           ([∗ list] i ↦ ϕ ∈ M.(mc_table),
-              ∃ i' cl,
-                let nt := N.of_nat (off + i) in
-                let nf := N.of_nat i' in
-                closure_interp [] ϕ cl ∗
-                  na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
-                  na_inv logrel_nais (ns_fun nf) (nf ↦[wf] cl))) ∗
+      instance_table_interp M inst ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝.
+
+  Global Instance Persistent_instance_interp M inst : Persistent (instance_interp M inst).
+  Proof.
+    typeclasses eauto.
+  Defined.
 
   Fixpoint lholed_valid (lh : lholed) : Prop :=
     match lh with

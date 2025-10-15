@@ -246,7 +246,7 @@ Section Compiler.
     | ICodeRef _ i => compile_coderef i
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
-    | ICallIndirect _ => emit (W.BI_call_indirect (tableimm mr.(mr_table)))
+    | ICallIndirect _ => emit (W.BI_call_indirect 0) (* TODO: Type index. *)
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
     | IInject (InstrT [τ] [RefT _ (ConstM cm) (VariantT (MEMTYPE (Sized σ) _ _) τs)]) i =>
         compile_inject_variant fe i τ τs cm σ

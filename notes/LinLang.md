@@ -121,6 +121,10 @@ Need to check if LL lx is less general than general inference.
 
 fix free to temporarily save to reg
 
+### 2025-10-09
+
+will need to serialize sums before allocating them -- this advoids the rwasm -> wasm compiler having to implcicitly casing...
+
 # Thoughts for later
 
 ## Tail calls

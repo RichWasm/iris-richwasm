@@ -13,12 +13,6 @@ Inductive error :=
 | EFail
 | ETodo.
 
-Record store_runtime :=
-  { sr_mem_mm : W.memaddr;
-    sr_mem_gc : W.memaddr;
-    sr_gc_heap_start : N;
-    sr_table : W.tableaddr }.
-
 Record module_runtime :=
   { mr_mem_mm : W.memidx;
     mr_mem_gc : W.memidx;
@@ -39,8 +33,8 @@ Record function_env :=
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
   locals ← mapM eval_rep mf.(mf_locals);
-  let fft := flatten_function_type mf.(mf_type) in
-  Some (Build_function_env fft.(fft_type_vars) fft.(fft_out) locals).
+  let ϕ := flatten_function_type mf.(mf_type) in
+  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) locals).
 
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);

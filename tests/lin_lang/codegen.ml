@@ -32,7 +32,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const 1)
       (table)
       0) |}];
@@ -49,12 +49,12 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func -> (prod i32 i32 i32 i32)
+      (func (-> (prod i32 i32 i32 i32))
         i32.const 1
         i32.const 2
         i32.const 3
         i32.const 4
-        seq.group 4)
+        group 4)
       (table)
       0) |}];
   next ();
@@ -75,18 +75,18 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func -> (prod (prod i32 (prod i32 i32) i32 i32) (prod i32 i32))
+      (func (-> (prod (prod i32 (prod i32 i32) i32 i32) (prod i32 i32)))
         i32.const 1
         i32.const 2
         i32.const 3
-        seq.group 2
+        group 2
         i32.const 4
         i32.const 5
-        seq.group 4
+        group 4
         i32.const 6
         i32.const 7
-        seq.group 2
-        seq.group 2)
+        group 2
+        group 2)
       (table)
       0) |}];
 
@@ -94,9 +94,9 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func -> (ref mm i32)
+      (func (-> (ref mm i32))
         i32.const 10
-        ref.new mm i32)
+        new mm i32)
       (table)
       0) |}];
 
@@ -104,7 +104,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const 1
         i32.const 2
         i32.add)
@@ -127,49 +127,49 @@ let%expect_test "examples" =
     {|
     -----------one-----------
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const 1)
       (table)
       0)
     -----------flat_tuple-----------
     (module
-      (func -> (prod i32 i32 i32 i32)
+      (func (-> (prod i32 i32 i32 i32))
         i32.const 1
         i32.const 2
         i32.const 3
         i32.const 4
-        seq.group 4)
+        group 4)
       (table)
       0)
     -----------nested_tuple-----------
     (module
-      (func -> (prod (prod i32 i32) (prod i32 i32))
+      (func (-> (prod (prod i32 i32) (prod i32 i32)))
         i32.const 1
         i32.const 2
-        seq.group 2
+        group 2
         i32.const 3
         i32.const 4
-        seq.group 2
-        seq.group 2)
+        group 2
+        group 2)
       (table)
       0)
     -----------single_sum-----------
     (module
-      (func -> (sum (prod))
-        seq.group 0
-        (Inject (0, [(prod)])))
+      (func (-> (sum (prod)))
+        group 0
+        inject 0 (prod))
       (table)
       0)
     -----------double_sum-----------
     (module
-      (func -> (sum (prod) i32)
+      (func (-> (sum (prod) i32))
         i32.const 15
-        (Inject (1, [(prod); i32])))
+        inject 1 (prod) i32)
       (table)
       0)
     -----------arith_add-----------
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const 9
         i32.const 10
         i32.add)
@@ -177,7 +177,7 @@ let%expect_test "examples" =
       0)
     -----------arith_sub-----------
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const 67
         i32.const 41
         i32.sub)
@@ -185,7 +185,7 @@ let%expect_test "examples" =
       0)
     -----------arith_mul-----------
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const 42
         i32.const 10
         i32.mul)
@@ -193,7 +193,7 @@ let%expect_test "examples" =
       0)
     -----------arith_div-----------
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const -30
         i32.const 10
         i32.div_s)
@@ -203,7 +203,7 @@ let%expect_test "examples" =
     FAILURE (CannotFindRep (Var (0 ())))
     -----------nested_arith-----------
     (module
-      (func -> i32
+      (func (-> i32)
         i32.const 9
         i32.const 10
         i32.add
@@ -213,7 +213,7 @@ let%expect_test "examples" =
       0)
     -----------let_bind-----------
     (module
-      (func -> i32(local (Prim I32)
+      (func (-> i32)(local i32)
         i32.const 10
         local.set 0
         local.get 0)
@@ -223,17 +223,17 @@ let%expect_test "examples" =
     FAILURE (CannotFindRep (Var (0 ())))
     -----------add_tup_ref-----------
     (module
-      (func -> i32(local (Prim Ptr) (Prim I32) (Prim Ptr) (Prim I32) (Prim I32)
+      (func (-> i32)(local ptr i32 ptr i32 i32)
         i32.const 2
-        ref.new mm i32
+        new mm i32
         local.set 0
         i32.const 1
         local.get 0
-        seq.group 2
+        group 2
         local.set 1
         local.set 2
         local.get 2
-        ref.store (Path [])
+        load (Path [])
         local.set 3
         drop
         local.get 3
