@@ -20,7 +20,6 @@ Section Relations.
   Context `{!RichWasmGCG Σ}.
 
   Variable sr : store_runtime.
-  Variable mr : module_runtime.
   Variable gci : gc_invariant Σ.
 
   Definition ns_glo (n : N) : namespace := nroot .@ "rwg" .@ n.
@@ -85,6 +84,11 @@ Section Relations.
   Definition result_type_interp (tys : W.result_type) (vs : list value) : Prop :=
     Forall2 value_type_interp tys vs.
 
+  (* Monotone interpretation of a wlocal_ctx *)
+  Definition wl_interp (wlocal_offset : nat) (wl : wlocal_ctx) (fr : frame) : Prop :=
+    ∃ vs vs__wl vs',
+      fr.(f_locs) = vs ++ vs__wl ++ vs' /\ length vs = wlocal_offset /\ result_type_interp wl vs__wl.
+
   Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
     match ι with
     | PtrR => exists θ p n,
@@ -108,8 +112,9 @@ Section Relations.
     | None => λne _, False%I
     end.
 
-  
-  Definition is_copy_operation (fe: function_env) wl wl' (ιs : list primitive_rep) (es : expr) : Prop :=
+  Definition is_copy_operation
+    (mr : module_runtime) (fe : function_env) (wl wl' : wlocal_ctx)
+    (ιs : list primitive_rep) (es : expr) : Prop :=
     ∃ (es' : W.expr),
       run_codegen (ixs ← save_stack fe ιs;
                    restore_stack ixs;;
@@ -117,32 +122,31 @@ Section Relations.
                    restore_stack ixs) wl = inr ((), wl ++ wl', es') /\
         to_e_list es' = es.
 
-  (* Monotone interpretation of a wlocal_ctx *)
-  Definition interp_wl (wlocal_offset : nat) (wl : wlocal_ctx) (inst : instance) : frame -> Prop :=
-    λ fr, ∃ vs vs__wl vs', fr = Build_frame (vs ++ vs__wl ++ vs') inst /\
-                         length vs = wlocal_offset /\
-                         result_type_interp wl vs__wl.
-
   Definition explicit_copy_spec (ιs : list primitive_rep) (T : semantic_type) : Prop :=
-    forall inst fe fr wl wl' vs es,
-      (* TODO: Provide the resources for the runtime functions needed to run the copy op. *)
-      ⌜is_copy_operation fe wl wl' ιs es⌝ -∗
-      ⌜interp_wl (fe_wlocal_offset fe) (wl ++ wl') inst fr⌝ -∗
+    forall cl mr fe fr wl wl' vs es,
+      ⌜is_copy_operation mr fe wl wl' ιs es⌝ -∗
+      ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl') fr⌝ -∗
+      ⌜fr.(f_inst).(inst_funcs) !! funcimm mr.(mr_func_registerroot) =
+         Some sr.(sr_func_registerroot)⌝ -∗
+      ⌜spec_registerroot sr gci cl⌝ -∗
+      N.of_nat sr.(sr_func_registerroot) ↦[wf] cl -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       T (SValues vs) -∗
       lenient_wp NotStuck top (v_to_e_list vs ++ es)
-      {| lp_fr :=
-          fun fr' =>
-            ⌜fr.(f_inst) = fr'.(f_inst) /\
-               length fr.(f_locs) = length fr'.(f_locs) /\
-               forall i, i < length wl -> fr.(f_locs) !! i = fr'.(f_locs) !! i⌝;
-         lp_val :=
-          fun vs' => ↪[RUN] ∗ ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
-         lp_trap := False;
-         lp_br := λ _, False;
-         lp_ret := λ _, False;
-         lp_host := λ _ _ _ _, False |}.
+        {| lp_fr :=
+             fun fr' =>
+               ⌜fr.(f_inst) = fr'.(f_inst) /\
+                  length fr.(f_locs) = length fr'.(f_locs) /\
+                  forall i, i < length wl -> fr.(f_locs) !! i = fr'.(f_locs) !! i⌝;
+           lp_val :=
+             fun vs' =>
+               ↪[RUN] ∗ N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
+                 ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
+           lp_trap := True;
+           lp_br := λ _, False;
+           lp_ret := λ _, False;
+           lp_host := λ _ _ _ _, False |}.
 
   Definition copyability_interp (ρ : representation) (χ : copyability) (T : semantic_type) : Prop :=
     match χ with
@@ -373,7 +377,10 @@ Section Relations.
 
   Definition value_se_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ sv,
-      (∃ κ, ⌜type_kind (map fst se) τ = Some κ⌝ ∗ kind_as_type_interp κ sv ∗ type_interp0 vrel se τ sv)%I.
+      (∃ κ,
+         ⌜type_kind (map fst se) τ = Some κ⌝ ∗
+           kind_as_type_interp κ sv ∗
+           type_interp0 vrel se τ sv)%I.
 
   (* TODO *)
   Local Instance NonExpansive_value_se_interp0 (vrel : value_relation) :
@@ -514,7 +521,7 @@ Section Relations.
         ⌜inst.(inst_funcs) !! funcimm i = Some a⌝ ∗
         na_inv logrel_nais (ns_fun (N.of_nat a)) (N.of_nat a ↦[wf] cl).
 
-  Definition instance_runtime_interp (inst : instance) : iProp Σ :=
+  Definition instance_runtime_interp (mr : module_runtime) (inst : instance) : iProp Σ :=
     instance_rt_func_interp mr.(mr_func_alloc_mm) sr.(sr_func_alloc_mm) spec_alloc_mm inst ∗
       instance_rt_func_interp
         mr.(mr_func_alloc_gc) sr.(sr_func_alloc_gc) (spec_alloc_gc sr gci) inst ∗
@@ -524,7 +531,8 @@ Section Relations.
       instance_rt_func_interp
         mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot sr gci) inst.
 
-  Definition instance_functions_interp (M : module_ctx) (inst : instance) : iProp Σ :=
+  Definition instance_functions_interp (M : module_ctx) (mr : module_runtime) (inst : instance) :
+    iProp Σ :=
     [∗ list] i ↦ ϕ ∈ M.(mc_functions),
       ∃ i' cl,
         ⌜inst.(inst_funcs) !! (funcimm mr.(mr_func_user) + i)%nat = Some i'⌝ ∗
@@ -538,7 +546,7 @@ Section Relations.
         na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
         na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
-  Definition instance_table_interp (M : module_ctx) (inst : instance) : iProp Σ :=
+  Definition instance_table_interp (M : module_ctx) (mr : module_runtime) (inst : instance) : iProp Σ :=
     ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
       ∃ i_off off,
         let g_off := Build_global MUT_mut (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat off))) in
@@ -546,15 +554,15 @@ Section Relations.
           ⌜inst.(inst_globs) !! globalimm mr.(mr_global_table_off) = Some i_off⌝ ∗
           na_inv logrel_nais (ns_glo (N.of_nat i_off)) (N.of_nat i_off ↦[wg] g_off).
 
-  Definition instance_interp (M : module_ctx) (inst : instance) : iProp Σ :=
-    instance_runtime_interp inst ∗
-      instance_functions_interp M inst ∗
+  Definition instance_interp (M : module_ctx) (mr : module_runtime) (inst : instance) : iProp Σ :=
+    instance_runtime_interp mr inst ∗
+      instance_functions_interp M mr inst ∗
       ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
-      instance_table_interp M inst ∗
+      instance_table_interp M mr inst ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝.
 
-  Global Instance Persistent_instance_interp M inst : Persistent (instance_interp M inst).
+  Global Instance Persistent_instance_interp M mr inst : Persistent (instance_interp M mr inst).
   Proof.
     typeclasses eauto.
   Defined.
@@ -642,13 +650,14 @@ Section Relations.
       sem_env_interp F.(fc_type_vars) s__mem s__rep s__size se.
 
   Definition have_instruction_type_sem
+    (mr : module_runtime)
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
     (∀ s__mem s__rep s__size se inst lh,
        ⌜subst_env_interp F s__mem s__rep s__size se⌝ -∗
-       instance_interp M inst -∗
+       instance_interp M mr inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
        let sub := subst_type s__mem s__rep s__size VarT in
        ∀ fr vs,
