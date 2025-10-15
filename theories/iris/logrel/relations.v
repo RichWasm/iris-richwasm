@@ -594,19 +594,19 @@ Section Relations.
 
   Definition continuations_interp
     (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
-    (ιss_L : list (list primitive_rep)) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
+    (ιss_L : list (list primitive_rep)) (WL : wlocal_ctx) (inst : instance) :
     CtxR :=
     λne lh, ([∗ list] k ↦ '(τs, L) ∈ τc, continuation_interp se τr τc ιss_L L WL inst lh k τs)%I.
 
   Definition context_interp
     (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
-    (ιss_L : list (list primitive_rep)) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
+    (ιss_L : list (list primitive_rep)) (WL : wlocal_ctx) (inst : instance) :
     CtxR :=
     λne lh,
       (⌜base_is_empty lh⌝ ∗
          ⌜length_lholeds se (rev τc) lh⌝ ∗
          ⌜lholed_valid lh⌝ ∗
-         continuations_interp se τr τc ιss_L L WL inst lh)%I.
+         continuations_interp se τr τc ιss_L WL inst lh)%I.
 
   Definition memory_closed (m : memory) : Prop :=
     match m with
@@ -649,7 +649,7 @@ Section Relations.
     (∀ s__mem s__rep s__size se inst lh,
        ⌜subst_env_interp F s__mem s__rep s__size se⌝ -∗
        instance_interp M inst -∗
-       context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) L WL inst lh -∗
+       context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
        let sub := subst_type s__mem s__rep s__size VarT in
        ∀ fr vs,
          values_interp se (map sub τs1) vs -∗
