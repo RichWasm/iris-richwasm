@@ -290,4 +290,73 @@ let%expect_test "examples" =
               (Ref
                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))))
         (App (Coderef map_int)
-         (Tuple ((Lam Int Int (Binop Add (Var (0 (x))) (Int 1))) (Var (0 (lst)))))))))) |}]
+         (Tuple ((Lam Int Int (Binop Add (Var (0 (x))) (Int 1))) (Var (0 (lst))))))))))
+    -----------peano_3-----------
+    ((imports ()) (functions ())
+     (main
+      ((Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+        (Inj 1
+         (New
+          (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+           (Inj 1
+            (New
+             (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+              (Inj 1
+               (New
+                (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+                 (Inj 0 (Tuple ())
+                  (Sum
+                   ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))
+               (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))
+            (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))
+         (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))))
+    -----------peano-----------
+    ((imports ())
+     (functions
+      (((export false) (name add)
+        (param
+         (Prod
+          ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+           (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))
+        (return (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+        (body
+         (Split
+          ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+           (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+          (Var (0 (p)))
+          (Cases
+           (Unfold (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) (Var (1 (left))))
+           (((Prod ()) (Var (1 (right))))
+            ((Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+             (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+              (Inj 1
+               (New
+                (App (Coderef add)
+                 (Tuple ((Free (Var (0 (succ)))) (Var (1 (right)))))))
+               (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))))))))))
+       ((export false) (name from-int) (param Int)
+        (return (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+        (body
+         (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+          (If0 (Var (0 (int)))
+           (Inj 0 (Tuple ())
+            (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
+           (Inj 1
+            (New (App (Coderef from-int) (Binop Sub (Var (0 (int))) (Int 1))))
+            (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))))
+       ((export false) (name to-int)
+        (param (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))) (return Int)
+        (body
+         (Cases
+          (Unfold (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) (Var (0 (peano))))
+          (((Prod ()) (Int 0))
+           ((Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+            (Binop Add (Int 1) (App (Coderef to-int) (Free (Var (0 (succ)))))))))))))
+     (main
+      ((Let (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+        (App (Coderef from-int) (Int 6))
+        (Let (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+         (App (Coderef from-int) (Int 7))
+         (Let (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+          (App (Coderef add) (Tuple ((Var (1 (six))) (Var (0 (seven))))))
+          (App (Coderef to-int) (Var (0 (sum)))))))))) |}]

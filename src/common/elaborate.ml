@@ -63,10 +63,13 @@ let elab_dropability : A.Dropability.t -> B.Dropability.t = function
   | ImDrop -> ImDrop
   | ExDrop -> ExDrop
 
+let elab_concrete_memory : A.ConcreteMemory.t -> B.ConcreteMemory.t = function
+  | MM -> MemMM
+  | GC -> MemGC
+
 let elab_memory : A.Memory.t -> B.Memory.t = function
-  (* FIXME: why does the unannotated ast not have memory polymorphism? *)
-  | MM -> ConstM MemMM
-  | GC -> ConstM MemGC
+  | Var x -> VarM (Z.of_int x)
+  | Concrete m -> ConstM (elab_concrete_memory m)
 
 let elab_primitive_rep : A.PrimitiveRep.t -> B.PrimitiveRep.t = function
   | Ptr -> PtrR
@@ -245,7 +248,6 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       let* ts' = mapM ~f:(elab_type env) ts in
       let k = meet_typs ts' in
       ret @@ ProdT (k, ts')
-
   (* Struct [Num I32 ] *)
   | Struct ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
@@ -254,12 +256,15 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       let* dropability = fail TODO in
       let+ () = ret () in
       StructT (MEMTYPE (size, mem, dropability), ts')
-  | Ref (MM, t) ->
+  | Ref (Concrete MM, t) ->
       let+ t' = elab_type env t in
       RefT (VALTYPE (PrimR PtrR, NoCopy, ExDrop), ConstM MemMM, t')
-  | Ref (GC, t) ->
+  | Ref (Concrete GC, t) ->
       let+ t' = elab_type env t in
       RefT (VALTYPE (PrimR PtrR, ExCopy, ExDrop), ConstM MemGC, t')
+  | Ref (mem, t) ->
+      let+ t' = elab_type env t in
+      RefT (VALTYPE (PrimR PtrR, NoCopy, NoDrop), elab_memory mem, t')
   | GCPtr t ->
       let+ t' = elab_type env t in
       GCPtrT (MEMTYPE (Sized (ConstS (Z.of_int 1)), ConstM MemGC, ImDrop), t')

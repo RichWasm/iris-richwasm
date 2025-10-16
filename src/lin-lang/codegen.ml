@@ -101,7 +101,7 @@ module Compile = struct
     | Rec t -> Rec (compile_type t)
     | Exists t ->
         Exists (Type (VALTYPE (Prim Ptr, ExCopy, ExDrop)), compile_type t)
-    | Ref t -> Ref (MM, compile_type t)
+    | Ref t -> Ref (Concrete MM, compile_type t)
 
   let rec rep_of_typ (env : Env.t) : A.Type.t -> B.Representation.t Res.t =
     let open Res in
@@ -143,7 +143,7 @@ module Compile = struct
     function
     | Var (((de_bruijn, _) as lvar), _) -> (
         match List.nth env.local_map de_bruijn with
-        | Some idx -> ret @@ [ LocalGet idx ]
+        | Some idx -> ret @@ [ LocalGet (idx, Follow) ]
         | None -> fail (UnmappedLocal (lvar, env)))
     | Coderef (g, _) -> (
         match Map.find env.function_map g with
@@ -219,7 +219,7 @@ module Compile = struct
         in
         let bt = compile_type t in
         (* FIXME: local effects *)
-        ret @@ scrutinee' @ [ Case (BlockType [ bt ], LocalFx [], cases') ]
+        ret @@ scrutinee' @ [ Case (ArrowType (1, [ bt ]), LocalFx [], cases') ]
     | Unfold (_, expr, _) ->
         let* expr' = compile_expr env expr in
         ret @@ expr' @ [ Unfold ]
@@ -234,7 +234,10 @@ module Compile = struct
         let bt = compile_type t in
         (* FIXME: local fx *)
         ret @@ rhs'
-        @ [ Unpack (BlockType [ bt ], LocalFx [], LocalGet fresh_idx :: body') ]
+        @ [
+            Unpack
+              (ArrowType (1, [ bt ]), LocalFx [], LocalSet fresh_idx :: body');
+          ]
     | If0 (v, e1, e2, t) ->
         let* v' = compile_expr env v in
         let* e1' = compile_expr env e1 in
@@ -243,7 +246,7 @@ module Compile = struct
         (* FIXME: local effects *)
         ret @@ v'
         @ [ NumConst (Int I32, 0); Num (IntTest (I32, Eqz)) ]
-        @ [ Ite (BlockType [ bt ], LocalFx [], e1', e2') ]
+        @ [ Ite (ArrowType (1, [ bt ]), LocalFx [], e1', e2') ]
     | Binop (op, v1, v2, _) ->
         let op' = compile_binop op in
         let* v1' = compile_expr env v1 in
@@ -267,7 +270,12 @@ module Compile = struct
         in
         let* fresh_idx = new_local rep in
         ret @@ e'
-        @ [ Load (Path []); LocalSet fresh_idx; Drop; LocalGet fresh_idx ]
+        @ [
+            Load (Path [], Move);
+            LocalSet fresh_idx;
+            Drop;
+            LocalGet (fresh_idx, Move);
+          ]
 
   let compile_import ({ input; output; _ } : A.Import.t) :
       B.FunctionType.t Res.t =
