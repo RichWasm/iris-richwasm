@@ -3,7 +3,7 @@ Require Import iris.proofmode.tactics.
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
 From RichWasm.compiler Require Import prelude codegen util.
-From RichWasm.iris Require Import autowp.
+From RichWasm.iris Require Import autowp lenient_wp logpred.
 From RichWasm.iris.logrel Require Import relations.
 
 Module W := Wasm.operations.
@@ -467,6 +467,7 @@ Section CodeGen.
     lia.
   Qed.
 
+
   Lemma wp_save_stack_w tys :
     forall s E Φ fe wl idxs wl' wlf es fr vs,
       run_codegen (save_stack_w fe tys) wl = inr (idxs, wl', es) ->
@@ -481,7 +482,7 @@ Section CodeGen.
            {{ v, Φ v ∗ ↪[RUN] ∗
                  ∃ f, ↪[frame] f  ∗
                       ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-                      [∧ list] k ↦ i ∈ idxs, ⌜f_locs f !! localimm i = vs !! k⌝ }}.
+                      ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ }}.
   Proof.
     intros * Hcg.
     unfold save_stack_w in Hcg.
@@ -534,15 +535,56 @@ Section CodeGen.
         setoid_rewrite elem_of_list_fmap_inj in Hi;
           [| intros x y Hinj; by injection Hinj].
         by apply Hpre in Hi.
-      + rewrite big_andL_pure.
-        iPureIntro.
-        intros k x Hkx.
-        rewrite list_lookup_fmap in Hkx.
-        rewrite fmap_Some in Hkx.
-        destruct Hkx as (n & Hkx & ->).
-        eauto.
+      + iPureIntro.
+        apply Forall2_same_length_lookup.
+        split.
+        * rewrite length_fmap.
+          rewrite length_seq.
+          eapply Forall2_length.
+          eapply H0.
+        * intros i x y Hx Hy.
+          erewrite Hvs; eauto.
+          rewrite list_lookup_fmap in Hx.
+          apply fmap_Some_1 in Hx.
+          destruct Hx as (ximm & Hx & ->).
+          cbn in *.
+          rewrite lookup_seq in Hx.
+          destruct Hx as [-> Hlen].
+          rewrite lookup_seq; eauto.
   Qed.
-  
+
+  Lemma lwp_save_stack_w tys :
+    forall s E fe wl idxs wl' wlf es fr vs,
+      run_codegen (save_stack_w fe tys) wl = inr (idxs, wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
+      wl' = tys /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        lenient_wp s E (W.v_to_e_list vs ++ to_e_list es)
+        {| lp_fr := λ f, ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                         ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝;
+          lp_val := λ vs, ↪[RUN] ∗ ⌜vs = []⌝;
+          lp_trap := False;
+          lp_br := λ _, False;
+          lp_ret := λ _, False;
+          lp_host := λ _ _ _ _, False |}.
+  Proof.
+    intros.
+    eapply (wp_save_stack_w _ s E (λ vs, ⌜vs = immV []⌝)%I) in H; eauto.
+    destruct H as (Hidx & Hwl' & Hwp).
+    split; auto.
+    split; auto.
+    iIntros "Hfr Hrun".
+    unfold lenient_wp.
+    unfold denote_logpred, lp_noframe; cbn.
+    iApply (wp_wand with "[Hfr Hrun]").
+    { iApply (Hwp with "[$] [$] [//]"). }
+    iIntros (w) "(-> & Hrun & Hfr)".
+    by iFrame.
+  Qed.
+
   Lemma wp_ignore {A} (c: codegen A) wl ret wl' es :
     run_codegen (ignore c) wl = inr (ret, wl', es) ->
     ret = tt /\
@@ -624,7 +666,7 @@ Section CodeGen.
     ↪[RUN] -∗
     Φ (immV vs) -∗
     (* this condition appears in the postcondition of the save_stack wp lemma. *)
-    ([∧ list] k ↦ i ∈ idxs, ⌜f_locs f !! localimm i = vs !! k⌝) -∗
+    ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
     WP to_e_list es @ NotStuck; E {{ v, Φ v ∗ ↪[RUN] ∗ ↪[frame] f }}.
   Proof.
     unfold restore_stack.
@@ -648,7 +690,44 @@ Section CodeGen.
       rewrite list_lookup_fmap in Hki.
       rewrite fmap_Some in Hki.
       destruct Hki as [x [Hx Hi]]; subst.
+      eapply Forall2_lookup_l in Hx; eauto.
+      destruct Hx as [y [Hvs Hwhatever]].
+      rewrite Hvs.
+      rewrite Hwhatever.
+      done.
+  Qed.
+
+  Lemma lwp_restore_stack_w idxs vs wl wl' es E ret f :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wl = inr (ret, wl', es) ->
+    ret = tt /\
+    wl' = [] /\
+    ⊢ 
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    (* this condition appears in the postcondition of the save_stack wp lemma. *)
+    ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+    lenient_wp NotStuck E (to_e_list es) 
+      {| lp_fr := λ f', ⌜f' = f⌝;
+         lp_val := λ vs', (↪[RUN] ∗ ⌜vs' = vs⌝)%I;
+         lp_trap := False;
+         lp_br := λ _, False;
+         lp_ret := λ _, False;
+         lp_host := λ _ _ _ _, False |}.
+  Proof.
+    intros.
+    eapply (wp_restore_stack_w _ _ _ _ _ E _ f (λ vs', ⌜vs' = immV vs⌝%I)) in H0; [|eassumption].
+    destruct H0 as (-> & -> & Hwp).
+    split; [done | split; [done|]].
+    iIntros "Hf Hrun Hvs".
+    unfold lenient_wp.
+    iApply (wp_wand with "[Hf Hrun Hvs]").
+    - iApply (Hwp with "[$] [$]").
+      done.
       eauto.
+    - iIntros (v) "(-> & Hrun & Hfr)".
+      unfold denote_logpred; cbn.
+      by iFrame.
   Qed.
 
 End CodeGen.

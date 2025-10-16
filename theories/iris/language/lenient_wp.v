@@ -60,14 +60,14 @@ Section lenient_wp.
   End wp_params.
 
   Lemma lenient_wp_seq s E (Φ Ψ: logpred) es1 es2 :
-    lenient_wp NotStuck E es1 Ψ ∗
-    (* trap case: old frame and trap conditions imply the new ones *)
-    (∀ f, lp_trap Ψ ∗ lp_fr Ψ f -∗ lp_trap Φ ∗ lp_fr Φ f) ∗
-    (* non-trap case: old frame and non-trap conditions imply the new wp *)
-    (∀ w f, lp_notrap Ψ w ∗ ↪[frame] f ∗ lp_fr Ψ f -∗ lenient_wp s E (of_val w ++ es2) Φ)
-    ⊢ lenient_wp s E (es1 ++ es2) Φ.
+    ⊢ lenient_wp NotStuck E es1 Ψ -∗
+      (* trap case: old frame and trap conditions imply the new ones *)
+      (∀ f, lp_trap Ψ -∗ lp_fr Ψ f -∗ lp_trap Φ ∗ lp_fr Φ f) -∗
+      (* non-trap case: old frame and non-trap conditions imply the new wp *)
+      (∀ w f, lp_notrap Ψ w -∗ ↪[frame] f -∗ lp_fr Ψ f -∗ lenient_wp s E (of_val w ++ es2) Φ) -∗
+      lenient_wp s E (es1 ++ es2) Φ.
   Proof.
-    iIntros "(Hes1 & Htrapimpl & Hes2)".
+    iIntros "Hes1 Htrapimpl Hes2".
     iApply (wp_seq_can_trap s E _ (lp_notrap Ψ) _ _ Ψ.(lp_fr) (↪[BAIL] ∗ Ψ.(lp_trap))).
     iSplitR; [done |].
     unfold lenient_wp.
@@ -75,8 +75,7 @@ Section lenient_wp.
     {
       iIntros (f0) "[Hf0 [[Hbail Htrap] Hfr]]".
       iFrame.
-      iApply "Htrapimpl".
-      iFrame.
+      iApply ("Htrapimpl" with "[$] [$]").
     }
     iSplitR "Hes2".
     - iApply (wp_wand with "[Hes1]").
@@ -86,10 +85,8 @@ Section lenient_wp.
         iLeft.
         by iFrame.
     - iIntros (w f) "(Hnotrap & Hfr & Hfrcond)".
-      iApply "Hes2".
-      iFrame.
+      iApply ("Hes2" with "[$] [$] [$]").
   Qed.
-
 
   Definition sigT_apply {A} {P: A -> Type} (f: forall a, P a -> P a) (x: {a: A & P a}) : {a: A & P a} :=
     existT (projT1 x) (f _ (projT2 x)).

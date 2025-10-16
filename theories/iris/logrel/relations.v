@@ -100,17 +100,17 @@ Section Relations.
     | F64R => exists n, v = VAL_float64 n
     end.
 
-  Definition prim_reps_interp (ιs: list primitive_rep) : semantic_type :=
-    λne sv,
+  Definition prim_reps_interp (ιs: list primitive_rep) : semantic_value -> Prop :=
+    λ sv,
       match sv with
-      | SValues vs => ⌜Forall2 primitive_rep_interp ιs vs⌝
+      | SValues vs => Forall2 primitive_rep_interp ιs vs
       | _ => False
-      end%I.
+      end.
 
-  Definition representation_interp (ρ : representation) : semantic_type :=
+  Definition representation_interp (ρ : representation) : semantic_value -> Prop  :=
     match eval_rep ρ with
     | Some ιs => prim_reps_interp ιs
-    | None => λne _, False%I
+    | None => λ _ , False
     end.
 
   Definition is_copy_operation
@@ -177,7 +177,7 @@ Section Relations.
 
   Definition kind_as_type_interp (κ : kind) : semantic_type :=
     match κ with
-    | VALTYPE ρ χ _ => λne sv, representation_interp ρ sv
+    | VALTYPE ρ χ _ => λne sv, ⌜representation_interp ρ sv⌝
     | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
     end%I.
 
