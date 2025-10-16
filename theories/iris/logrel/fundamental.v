@@ -1388,7 +1388,8 @@ Section Fundamental.
      *)
     iApply lenient_wp_seq.
     (* This line uses up the lenient_wp for e completely.*)
-    iSplitL "Hsem_e"; [iExact "Hsem_e"|].
+  Admitted. 
+(*     iSplitL "Hsem_e"; [iExact "Hsem_e"|].
     iSplitL; cbn.
     * (* This is the trap case in the lemma. Intros. *)
       iIntros (f) "[_ Hvsl2]".
@@ -1415,7 +1416,7 @@ Section Fundamental.
        *)
       admit.
     * admit.
-  Admitted.
+  Admitted. *)
 
   Lemma compat_frame M F L L' wl wl' wlf es es' τ τs1 τs2 :
     let fe := fe_of_context F in
