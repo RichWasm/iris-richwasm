@@ -11,11 +11,11 @@ Section lenient_wp.
   Section wp_params.
     Variables (s: stuckness) (E: coPset).
 
-    Definition lp_notrap (Φ: logpred) : val -> iProp Σ := 
-        λ lv,
+    Definition lp_notrap (Φ: logpred) f : val -> iProp Σ := 
+      λ lv,
         match lv with
         | trapV => False
-        | _ => lp_noframe Φ lv
+        | _ => lp_noframe Φ f lv
         end.
 
     Definition lenient_wp (es: expr) (Φ: logpred): iProp Σ :=
@@ -31,59 +31,38 @@ Section lenient_wp.
     Qed.
 
     (* TODO move this to the structural rules file with wp_seq_can_trap_ctx and the rest of those lemmas *)
-    Lemma wp_seq_can_trap (Φ Ψ : iris.val -> iProp Σ) (es1 es2 : language.expr wasm_lang) (Φf : datatypes.frame -> iProp Σ) (Φt : iProp Σ) :
-        (Ψ trapV ={E}=∗ ⌜False⌝) ∗
-        (∀ f, ↪[frame] f ∗ Φt ∗ Φf f -∗ Φ trapV) ∗
-        WP es1 @ NotStuck; E {{ w, (⌜w = trapV⌝ ∗ Φt ∨ Ψ w) ∗ ∃ f0, ↪[frame] f0 ∗ Φf f0 }} ∗
-        (∀ w (f0: datatypes.frame),
-            Ψ w ∗ ↪[frame] f0 ∗ Φf f0 -∗
-            WP (of_val w ++ es2) @ s; E {{ v, Φ v }})
-        ⊢ WP (es1 ++ es2) @ s; E {{ v, Φ v }}.
-    Proof.
-        iIntros "(HΨnotrap & Hframetrap & Hes1 & Hes2)".
-        iApply wp_wasm_empty_ctx.
-        iApply wp_seq_can_trap_ctx_precise; iFrame.
-        iIntros (w f0) "(Hw & Hf0 & HΦf)".
-        unfold wp_wasm_ctx.
-        iIntros (LI Hfill).
-        assert (LI = (iris.of_val w ++ es2)).
-        {
-        cbn in *.
-        rewrite app_nil_r in Hfill.
-        by destruct (@seq.eqseqP _ LI (iris.of_val w ++ es2)).
-        }
-        subst LI.
-        iApply "Hes2".
-        iFrame.
-    Qed.
-
   End wp_params.
 
   Lemma lenient_wp_seq s E (Φ Ψ: logpred) es1 es2 :
     ⊢ lenient_wp NotStuck E es1 Ψ -∗
       (* trap case: old frame and trap conditions imply the new ones *)
-      (∀ f, lp_trap Ψ -∗ lp_fr Ψ f -∗ lp_trap Φ ∗ lp_fr Φ f) -∗
+      (∀ f, lp_trap Ψ -∗ lp_fr_inv Ψ f -∗ lp_trap Φ ∗ lp_fr_inv Φ f) -∗
       (* non-trap case: old frame and non-trap conditions imply the new wp *)
-      (∀ w f, lp_notrap Ψ w -∗ ↪[frame] f -∗ lp_fr Ψ f -∗ lenient_wp s E (of_val w ++ es2) Φ) -∗
+      (∀ w f, lp_notrap Ψ f w -∗ ↪[frame] f -∗ lp_fr_inv Ψ f -∗ lenient_wp s E (of_val w ++ es2) Φ) -∗
       lenient_wp s E (es1 ++ es2) Φ.
   Proof.
     iIntros "Hes1 Htrapimpl Hes2".
-    iApply (wp_seq_can_trap s E _ (lp_notrap Ψ) _ _ Ψ.(lp_fr) (↪[BAIL] ∗ Ψ.(lp_trap))).
-    iSplitR; [done |].
-    unfold lenient_wp.
-    iSplitL "Htrapimpl".
-    {
-      iIntros (f0) "[Hf0 [[Hbail Htrap] Hfr]]".
+    iApply (wp_seq_can_trap s E
+              (denote_logpred Φ)
+              (lp_notrap Ψ)
+              Ψ.(lp_fr_inv)
+              (↪[BAIL] ∗ Ψ.(lp_trap))
+           with "[] [Htrapimpl] [Hes1]").
+    - by iIntros "%f Hnotraptrap".
+    - iIntros (f) "(Hf & [Hbail Htrap] & Hinv)".
+      unfold denote_logpred; cbn.
+      iExists f.
       iFrame.
+      rewrite bi.sep_comm.
       iApply ("Htrapimpl" with "[$] [$]").
-    }
-    iSplitR "Hes2".
-    - iApply (wp_wand with "[Hes1]").
-      + iApply "Hes1".
-      + iIntros (v). destruct v; unfold denote_logpred; cbn; iIntros "[Hlog Hfr]";
-          try iFrame.
-        iLeft.
-        by iFrame.
+    - iApply (wp_wand with "[Hes1]"); first done.
+      iIntros (v). 
+      unfold denote_logpred; cbn.
+      iIntros "(%f' & Hfr & Hfrinv & Hlog)".
+      iExists f'; iFrame.
+      destruct v; iFrame.
+      iLeft.
+      by iFrame.
     - iIntros (w f) "(Hnotrap & Hfr & Hfrcond)".
       iApply ("Hes2" with "[$] [$] [$]").
   Qed.
@@ -95,6 +74,7 @@ Section lenient_wp.
   Definition lp_combine {A} (l: logp A) vs : logp A :=
     {|
       lp_fr := lp_fr l;
+      lp_fr_inv := lp_fr_inv l;
       lp_val vs' := lp_val l (seq.cat vs vs');
       lp_trap := lp_trap l;
       lp_br n vh := lp_br l n (vh_push_const vh vs);
@@ -144,25 +124,25 @@ Section lenient_wp.
   Qed.
 
   Lemma lp_expand Φ w:
-    denote_logpred Φ w ⊣⊢ (⌜w = trapV⌝ ∗ ↪[BAIL] ∗ lp_trap Φ ∨ lp_notrap Φ w) ∗ ∃ f, ↪[frame] f ∗ lp_fr Φ f.
+    denote_logpred Φ w ⊣⊢
+      ∃ f, ↪[frame] f ∗ lp_fr_inv Φ f ∗ (⌜w = trapV⌝ ∗ ↪[BAIL] ∗ lp_trap Φ ∨ lp_notrap Φ f w).
   Proof.
-    destruct w;
-      unfold denote_logpred, lp_noframe;
-      iSplit;
+    unfold denote_logpred.
+    iSplit;
       cbn;
-      iIntros "[Hpost Hfr]";
+      iIntros "(%f & Hfr & Hfrinv & Hpost)";
       iFrame.
-    - by iDestruct "Hpost" as "[[%Hcontra _] | Hpost]".
-    - iLeft. by iFrame.
-    - iDestruct "Hpost" as "[[_ Hpost] | %Hcontra]"; [iFrame|by exfalso].
-    - by iDestruct "Hpost" as "[[%Hcontra _] | Hpost]".
-    - by iDestruct "Hpost" as "[[%Hcontra _] | Hpost]".
-    - by iDestruct "Hpost" as "[[%Hcontra _] | Hpost]".
+    - destruct w; cbn;
+        solve [iRight; by iFrame | iLeft; by iFrame].
+    - iDestruct "Hpost" as "[[-> Hpost] | Htrap]".
+      + iFrame.
+      + destruct w; by iFrame.
   Qed.
 
   Definition lp_fr_set f i v (Φ : @logpred Σ) : logpred :=
     {|
       lp_fr := λ f', ⌜f' = {| f_locs := seq.set_nth v (f_locs f) i v; f_inst := f_inst f |}⌝;
+      lp_fr_inv := λ f', ⌜f' = {| f_locs := seq.set_nth v (f_locs f) i v; f_inst := f_inst f |}⌝;
       lp_val := lp_val Φ;
       lp_trap := lp_trap Φ;
       lp_br := lp_br Φ;
@@ -173,6 +153,7 @@ Section lenient_wp.
   Definition lp_with (Ψ: iProp Σ) Φ :=
     {|
       lp_fr := lp_fr Φ;
+      lp_fr_inv := lp_fr_inv Φ;
       lp_val := λ vs, lp_val Φ vs ∗ Ψ;
       lp_trap := lp_trap Φ ∗ Ψ;
       lp_br := λ n x, lp_br Φ n x ∗ Ψ;
@@ -180,18 +161,16 @@ Section lenient_wp.
       lp_host := λ ft hf vs lh, lp_host Φ ft hf vs lh ∗ Ψ;
     |}.
 
-  Definition lp_run Φ := lp_with (↪[RUN])%I Φ.
-
   Lemma lp_with_sep Ψ Φ w :
-    denote_logpred Φ w ∗ Ψ ⊣⊢ denote_logpred (lp_with Ψ Φ) w.
+    denote_logpred (lp_with Ψ Φ) w ⊣⊢ denote_logpred Φ w ∗ Ψ.
   Proof.
-    unfold lp_run, denote_logpred.
+    unfold denote_logpred.
     cbn.
     iSplit.
+    - destruct w; cbn;
+        iIntros "(%f' & Hf & Hfinv & Hfr & Hres & HΨ)";
+        by iFrame.
     - destruct w; cbn; iIntros "[HΦ Hrun]"; iFrame.
-    - destruct w; cbn; try by (iIntros "[HΦ Hrun]"; iFrame).
-      iIntros "[[HΦ [Htrap HΨ]] Hf]".
-      iFrame.
   Qed.
 
 End lenient_wp.

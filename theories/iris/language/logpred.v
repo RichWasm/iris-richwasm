@@ -17,6 +17,7 @@ Section logpred.
   Record logp (A: Type) :=
     MkLP {
         lp_fr: datatypes.frame -> A;
+        lp_fr_inv: datatypes.frame -> A;
         lp_val: list value -> A;
         lp_trap: A;
         lp_br: forall n, valid_holed n -> A;
@@ -25,6 +26,7 @@ Section logpred.
       }.
   Arguments MkLP {A}.
   Arguments lp_fr {A}.
+  Arguments lp_fr_inv {A}.
   Arguments lp_val {A}.
   Arguments lp_trap {A}.
   Arguments lp_br {A}.
@@ -33,24 +35,27 @@ Section logpred.
 
   Definition logpred := logp (iProp Σ).
 
-  Definition lp_noframe (Φ: logpred) : val -> iProp Σ :=
-    λ w, match w with
-         | immV vs => Φ.(lp_val) vs
-         | trapV => ↪[BAIL] ∗ Φ.(lp_trap)
-         | brV i lh => Φ.(lp_br) i lh
-         | retV lh => Φ.(lp_ret) lh
-         | callHostV ft hidx vs lh => Φ.(lp_host) ft hidx vs lh
-         end.
+  Definition lp_noframe (Φ: logpred) : frame -> val -> iProp Σ :=
+    λ f w,
+      match w with
+      | immV vs => Φ.(lp_fr) f ∗ ↪[RUN] ∗ Φ.(lp_val) vs 
+      | trapV => ↪[BAIL] ∗ Φ.(lp_trap)
+      | brV i lh => ↪[RUN] ∗ Φ.(lp_br) i lh
+      | retV lh => ↪[RUN] ∗ Φ.(lp_ret) lh
+      | callHostV ft hidx vs lh => ↪[RUN] ∗ Φ.(lp_host) ft hidx vs lh
+      end.
 
   Definition denote_logpred (Φ: logpred) : val -> iProp Σ :=
-    λ w, lp_noframe Φ w ∗
-         ∃ f, ↪[frame] f ∗ Φ.(lp_fr) f.
+    λ w, ∃ f, ↪[frame] f ∗ 
+              Φ.(lp_fr_inv) f ∗ 
+              lp_noframe Φ f w.
 
   Notation "⟦ Φ ⟧" := (denote_logpred Φ).
 
   Definition lp_map {A B: Type} (f: A -> B) (p: logp A) : logp B :=
     {|
       lp_fr := λ fr, f (lp_fr p fr);
+      lp_fr_inv := λ fr, f (lp_fr_inv p fr);
       lp_val := λ vs, f (lp_val p vs);
       lp_trap := f (lp_trap p);
       lp_br := λ n lh, f (lp_br p n lh);
@@ -61,6 +66,7 @@ Section logpred.
   Definition lp_map2 {A B C} (f: A -> B -> C) (Φ1: logp A) (Φ2: logp B) : logp C :=
     {|
       lp_fr := λ fr, f (lp_fr Φ1 fr) (lp_fr Φ2 fr);
+      lp_fr_inv := λ fr, f (lp_fr_inv Φ1 fr) (lp_fr_inv Φ2 fr);
       lp_val := λ vs, f (lp_val Φ1 vs) (lp_val Φ2 vs);
       lp_trap := f (lp_trap Φ1) (lp_trap Φ2);
       lp_br := λ n lh, f (lp_br Φ1 n lh) (lp_br Φ2 n lh);
@@ -69,7 +75,7 @@ Section logpred.
     |}.
 
   Definition lp_const (Φ: iProp Σ) : logpred :=
-    MkLP (λ fr, ⌜True⌝) (λ vs, Φ) Φ (λ n lh, Φ) (λ lh, Φ) (λ ft hf vs lh, Φ).
+    MkLP (λ fr, ⌜True⌝) (λ fr, ⌜True⌝) (λ vs, Φ) Φ (λ n lh, Φ) (λ lh, Φ) (λ ft hf vs lh, Φ).
 
   Definition lp_emp : logpred :=
     lp_const emp.
@@ -108,6 +114,7 @@ Section logpred.
     λ p,
     {|
       lp_fr := λ fr a, lp_fr (p a) fr;
+      lp_fr_inv := λ fr a, lp_fr_inv (p a) fr;
       lp_val := λ vs a, lp_val (p a) vs;
       lp_trap := λ a, lp_trap (p a);
       lp_br := λ n lh a, lp_br (p a) n lh;
@@ -173,6 +180,7 @@ End logpred.
 
 Arguments MkLP {A}.
 Arguments lp_fr {A}.
+Arguments lp_fr_inv {A}.
 Arguments lp_val {A}.
 Arguments lp_trap {A}.
 Arguments lp_br {A}.

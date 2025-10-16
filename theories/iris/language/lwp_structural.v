@@ -41,21 +41,22 @@ Section lwp_structural.
   Proof.
     iIntros "Hcomb".
     iApply (wp_wand with "[Hcomb]").
-    - iApply (wp_val_can_trap_precise _ _ (lp_notrap Φ) _ _ (lp_fr Φ) (lp_trap Φ ∗ ↪[BAIL])).
-      iSplitR; [done|].
+    - iApply (wp_val_can_trap_precise _ _ (lp_notrap Φ) _ _ (lp_fr_inv Φ) (lp_trap Φ ∗ ↪[BAIL])).
+      iSplitR.
+      { iIntros (f); done. }
       unfold lenient_wp.
       iApply (wp_wand with "[Hcomb]").
       iApply "Hcomb".
       iIntros (w) "Hden".
       setoid_rewrite <- lp_combine_val at 1.
       setoid_rewrite -> lp_expand at 1.
-      iDestruct "Hden" as "[[(%Hcomb & Hbail & Htrap) | Hnotrap] Hfr]";
+      iDestruct "Hden" as "(%f & Hfr & Hfrinv & [(%Hcomb & Hbail & Htrap) | Hnotrap])";
         iFrame.
       iLeft.
       iFrame.
       iPureIntro.
       destruct w; vm_compute in Hcomb; congruence.
-    - iIntros (w) "[[(%Hcomb & Hbail & Htrap) | Hnotrap] Hfr]";
+    - iIntros (w) "(%f & Hfr & Hfrinv & [(%Hcomb & Hbail & Htrap) | Hnotrap])";
         rewrite lp_expand; iFrame.
       iLeft; by iFrame.
   Qed.

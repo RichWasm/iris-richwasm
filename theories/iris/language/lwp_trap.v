@@ -10,15 +10,15 @@ Section lwp_trap.
 
   Lemma lwp_trap s E vs es Φ f: 
     is_true (const_list vs) ->
-    Φ.(lp_trap) ∗
-    Φ.(lp_fr) f ∗
-    ↪[frame] f ∗
-    ↪[BAIL]
-    ⊢ lenient_wp s E (vs ++ [AI_trap] ++ es) Φ.
+    ⊢ Φ.(lp_trap) -∗
+      Φ.(lp_fr_inv) f -∗
+      ↪[frame] f -∗
+      ↪[BAIL] -∗
+      lenient_wp s E (vs ++ [AI_trap] ++ es) Φ.
   Proof.
-    iIntros (Hvs) "(Htrap & Hfr & Hf & Hbail)".
+    iIntros (Hvs) "Htrap Hfr Hf Hbail".
     iApply (wp_wand with "[Htrap Hf Hbail]").
-    - iApply (wp_trap with "[Htrap Hbail] [$]"); auto.
+    - iApply (wp_trap_frame with "[Htrap Hbail] [$]"); auto.
       instantiate (1:= lp_noframe Φ).
       iFrame.
     - iIntros (w) "(Hnof & Hf)".

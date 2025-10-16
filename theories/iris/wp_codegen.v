@@ -565,7 +565,8 @@ Section CodeGen.
         lenient_wp s E (W.v_to_e_list vs ++ to_e_list es)
         {| lp_fr := λ f, ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
                          ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝;
-          lp_val := λ vs, ↪[RUN] ∗ ⌜vs = []⌝;
+          lp_fr_inv := λ _, True;
+          lp_val := λ vs, ⌜vs = []⌝;
           lp_trap := False;
           lp_br := λ _ _, False;
           lp_ret := λ _, False;
@@ -581,7 +582,7 @@ Section CodeGen.
     unfold denote_logpred, lp_noframe; cbn.
     iApply (wp_wand with "[Hfr Hrun]").
     { iApply (Hwp with "[$] [$] [//]"). }
-    iIntros (w) "(-> & Hrun & Hfr)".
+    iIntros (w) "(-> & Hrun & %f & Hfr & %Hpre & %Hvs)".
     by iFrame.
   Qed.
 
@@ -709,7 +710,8 @@ Section CodeGen.
     ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
     lenient_wp NotStuck E (to_e_list es) 
       {| lp_fr := λ f', ⌜f' = f⌝;
-         lp_val := λ vs', (↪[RUN] ∗ ⌜vs' = vs⌝)%I;
+         lp_fr_inv := λ _, True;
+         lp_val := λ vs', ⌜vs' = vs⌝%I;
          lp_trap := False;
          lp_br := λ _ _, False;
          lp_ret := λ _, False;

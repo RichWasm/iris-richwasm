@@ -13,17 +13,19 @@ Section lwp_pure.
     ↪[frame] f ∗
     ↪[RUN] ∗
     ▷ Φ.(lp_val) [v] ∗
-    Φ.(lp_fr) f
-    ⊢ lenient_wp s E [AI_basic (BI_const v1); AI_basic (BI_const v2); AI_basic (BI_binop t op)] (lp_run Φ).
+    Φ.(lp_fr) f ∗
+    Φ.(lp_fr_inv) f
+    ⊢ lenient_wp s E [AI_basic (BI_const v1); AI_basic (BI_const v2); AI_basic (BI_binop t op)] Φ.
   Proof.
-    iIntros (Happ) "(Hf & Hrun & Hval & Hfr)".
-    iApply (wp_wand with "[Hf Hrun Hval]").
+    iIntros (Happ) "(Hf & Hrun & Hval & Hfr & Hfrinv)".
+    iApply (wp_wand with "[Hf Hfr Hrun Hval]").
     - iApply (wp_binop with "[$] [$]").
       eauto.
-      by instantiate (1:= lp_noframe Φ).
+      instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
+      iFrame.
+      by iIntros "!> ?".
     - iIntros (w) "[[Hnofr Hrun] Hf]".
-      unfold lp_run.
-      rewrite -lp_with_sep.
+      iSpecialize ("Hnofr" with "Hrun").
       iFrame.
   Qed.
 
@@ -32,33 +34,39 @@ Section lwp_pure.
     ↪[frame] f ∗
     ↪[RUN] ∗
     ▷ Φ.(lp_val) [VAL_int32 (wasm_bool b)] ∗
-    Φ.(lp_fr) f
-    ⊢ lenient_wp s E [AI_basic (BI_const v1); AI_basic (BI_const v2); AI_basic (BI_relop t op)] (lp_run Φ).
+    Φ.(lp_fr) f ∗
+    Φ.(lp_fr_inv) f
+    ⊢ lenient_wp s E [AI_basic (BI_const v1); AI_basic (BI_const v2); AI_basic (BI_relop t op)] Φ.
   Proof.
-    iIntros (Happ) "(Hf & Hrun & Hval & Hfr)".
-    iApply (wp_wand with "[Hf Hrun Hval]").
+    iIntros (Happ) "(Hf & Hrun & Hval & Hfr & Hfrinv)".
+    iApply (wp_wand with "[Hf Hrun Hval Hfr]").
     - iApply (wp_relop with "[$] [$]").
       eauto.
-      by instantiate (1:= lp_noframe Φ).
+      instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
+      iFrame.
+      by iIntros "!> ?".
     - iIntros (w) "[[Hnofr Hrun] Hf]".
-      unfold lp_run.
-      rewrite -lp_with_sep.
+      iSpecialize ("Hnofr" with "Hrun").
       iFrame.
   Qed.
 
-  Lemma lenient_wp_nop s E Φ :
-    ↪[RUN] ∗
-    denote_logpred Φ (immV [])
-    ⊢ lenient_wp s E [AI_basic BI_nop] (lp_run Φ).
+  Lemma lenient_wp_nop s E Φ f :
+    ⊢ ↪[RUN] -∗
+      ↪[frame] f -∗
+      Φ.(lp_fr) f -∗
+      Φ.(lp_fr_inv) f -∗
+      Φ.(lp_val) [] -∗
+      lenient_wp s E [AI_basic BI_nop] Φ.
   Proof.
-    iIntros "(HR & HΦ & %f & Hf & Hfpred)".
-    unfold lp_run.
-    iApply (wp_wand with "[HR HΦ Hf]").
+    iIntros "HR Hf Hfr Hfrinv HΦ".
+    iApply (wp_wand with "[HR HΦ Hf Hfr]").
     iApply (wp_nop with "[$] [$]").
-    iApply "HΦ".
-    iIntros (w) "[[Hnof HR] Hf]".
-    iEval (rewrite -lp_with_sep).
-    iFrame.
+    - instantiate (1 := λ v, ↪[RUN] -∗ lp_noframe Φ f v).
+      iFrame.
+      by iIntros "!> ?".
+    - iIntros (w) "[[Hnof HR] Hf]".
+      iSpecialize ("Hnof" with "HR").
+      iFrame.
   Qed.
 
 End lwp_pure.

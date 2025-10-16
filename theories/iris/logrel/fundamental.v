@@ -51,63 +51,18 @@ Section Fundamental.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
     iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
-    iIntros (? ?) "Hvs Hframe Hfr Hrun".
-    unfold expr_interp; cbn.
+    iIntros (? ?) "Hvs Hframe Hframeinv Hfr Hrun".
+    unfold expr_interp.
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
-    (* To prove a list is nil, it's often easier to destruct it and
-       then show the cons case is impossible.
-
-       Here the congruence tactic deals with the 3 subgoals where
-       something is not nil, where the hyps Hlens or Hconcat equate
-       terms with obviously different constructors, like
-         v :: vs = []
-       or
-         0 = S (...).                               - Ryan *)
     destruct vss, vs; cbn in Hconcat, Hlens; try congruence.
-    cbn.
-    (* To apply lenient_wp_nop, some strangeness has to happen
-     with ->[RUN] being in the Phi. This is where lwp_wand comes in.*)
-
-    (* I've tried to clean this definition up a bit, but it's the same
-       as the one that was in an instantiate (1 := ...) tactic earlier
-       -Ryan *)
-    set (Ψ := {|
-            lp_fr := λ fr, ∃ vss__L vs__WL,
-              ⌜fr = {| W.f_locs := concat vss__L ++ vs__WL; W.f_inst := inst |}⌝ ∗
-                locals_interp rti sr se F.(typing.fc_locals)
-                  (map (option_map (subst_type s__mem s__rep s__size VarT)) L) vss__L ∗
-                ⌜result_type_interp (wl ++ wlf) vs__WL⌝ ∗
-                na_own logrel_nais ⊤;
-            lp_val :=
-              λ vs, ∃ vss, ⌜vs = concat vss⌝ ∗
-                           [∗ list] τ;vs' ∈ [];vss, value_interp rti sr se τ (SValues vs');
-            lp_trap := True;
-            lp_br :=
-              br_interp rti sr se F.(fc_return) F.(typing.fc_locals)
-                (map (option_map (subst_type s__mem s__rep s__size VarT)) L) (wl ++ wlf) inst lh F.(fc_labels);
-            lp_ret := return_interp rti sr se F.(fc_return);
-            lp_host := fun _ _ _ _ => False
-          |}%I).
-    iApply lwp_wand; [| iApply (lenient_wp_nop _ _ Ψ)].
-    (* Note: this strange iApply in the second subgoal makes sure that the
-     ?Goal is made into the right shape (lp_run ?Goal) in the first subgoal*)
-    - unfold lp_wand'.
-      iIntros (lv).
-      unfold denote_logpred.
-      cbn.
-      iIntros "[LPrunframe [%f [Hf Hlpfr]]]".
-      iSplitL "LPrunframe".
-      + unfold lp_run.
-        unfold lp_with.
-        cbn.
-        case lv; simpl; auto.
-        * iDestruct "LPrunframe" as "[H1 [H2 H3]]". iFrame.
-        * iIntros. iDestruct "LPrunframe" as "[H _]". iExact "H".
-        * iIntros. by iDestruct "LPrunframe" as "[H _]".
-        * iIntros. by iDestruct "LPrunframe" as "[H _]".
-      + iFrame.
-    - cbn. iFrame. cbn. iExists _. iSplit; auto. auto.
+    iApply (lenient_wp_nop with "[$] [$] [Hframe] [Hframeinv]").
+    - done.
+    - done.
+    - cbn. 
+      iFrame.
+      iExists [].
+      iSplit; done.
   Qed.
 
   Lemma compat_unreachable M F L L' wl wl' wlf ψ es' :
@@ -139,7 +94,7 @@ Section Fundamental.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
     iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlh".
-    iIntros (fr vs) "Hvs Hframe Hfr Hrun".
+    iIntros (fr vs) "Hvs Hframe Hfrinv Hfr Hrun".
     unfold expr_interp.
     cbn.
     inv_cg_try_option Htype_rep.
@@ -213,7 +168,7 @@ Section Fundamental.
     (* Some basic intros, unfolds, proving empty lists empty *)
     all: unfold have_instruction_type_sem;
       iIntros (? ? ? ? ? ?) "Henv Hinst Hlh";
-      iIntros (fr vs) "Hvs Hframe Hfr Hrun";
+      iIntros (fr vs) "Hvs Hframe Hfrinv Hfr Hrun";
       unfold expr_interp; cbn;
       iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)";
       iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens";
@@ -304,7 +259,6 @@ Section Fundamental.
       apply b2p in IHvh as <-.
       done.
   Qed. 
-
 
   Lemma translate_types_app ks t1s t2s res :
     translate_types ks (t1s ++ t2s) = Some res ->
@@ -601,9 +555,10 @@ Section Fundamental.
   Proof.
     intros fe F' ψ Hok Hthen Helse Hcodegen.
     iIntros (smem srep ssize se inst lh) "%Hsubst #Hinst #Hctxt".
-    iIntros (fr vs) "Hvss Hvsl Hfr Hrun".
+    iIntros (fr vs) "Hvss Hvsl Hfrinv Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
-    iDestruct "Hvsl" as (vsl vswl) "(-> & Hlocs & %Hrestype & Htok)".
+    iDestruct "Hvsl" as (vsl' vswl') "(-> & Hlocs)".
+    iDestruct "Hfrinv" as (vsl vswl) "(-> & %Hlocs & %Hrestype & Htok)".
     rewrite map_app.
     iDestruct (big_sepL2_app_inv_l with "Hvss") as (vss1 vssi32) "(-> & Hvss1 & Hvssi32)".
     destruct vssi32; first done.
@@ -723,276 +678,7 @@ Section Fundamental.
       iApply (wp_label_bind with "[-]").
       2:{ iPureIntro. instantiate (5 := []).
           rewrite /lfilled /lfill /= app_nil_r //. }
-      iApply (wp_wand with "[-]").
-      + iApply (Hes2 with "[%] Hinst [Hctxt] [$Hvss1] [$Htok Hlocs] Hfr Hrun"); first assumption; cycle 1.
-        * done.
-        * iExists _, _. iSplit; first done. iSplit; first done.
-          iPureIntro. rewrite app_assoc app_assoc -(app_assoc wl) -app_assoc.
-          exact Hrestype.
-        * instantiate (1 := (* push_base lh (length ρ2) [] [] []). *)
-                         lh_plug (LH_rec _ _ _ (LH_base _ _) _) lh).  
-          iDestruct "Hctxt" as "(%Hbase & %Hlength & %Hvalid & Hconts)".
-          repeat iSplitR.
-          all: try iPureIntro.
-          -- apply base_is_empty_plug => //.
-          -- eapply length_lholeds_app => //.
-             split => //. 
-             iIntros (?) "(%vss & -> & Hvss)".
-             iDestruct (translate_types_length with "Hvss") as "%H".
-             ++ exact Heq_some0.
-             ++ rewrite length_concat -H. done. 
-          -- apply lholed_valid_plug => //=.
-             split => //. 
-             apply v_to_e_is_const_list.
-          -- iSimpl. iSplitR; last first. 
-             ++ iApply (big_sepL_impl with "Hconts").
-                iIntros "!>" (k [ts ctx] Hk) "#Hcont".
-                unfold continuation_interp.
-                iDestruct "Hcont" as (j es0 es es' lh' lh'') "(%Hlayer & %Hdepth & %Hminus & #Hcont)".
-                iExists _,_,_,_,_,_.
-                repeat iSplitR.
-                1-3: iPureIntro.
-                ** rewrite lh_depth_plug. simpl.
-                   replace (lh_depth lh + 1 - S (S k)) with (lh_depth lh - S k); last lia.
-                   apply get_layer_plug_shallow.
-                   exact Hlayer. 
-                ** rewrite lh_depth_plug. simpl.
-                   replace (lh_depth lh + 1 - S (S k)) with
-                     (lh_depth lh - S k); first exact Hdepth.
-                   lia. 
-                ** apply lh_minus_plug. done.
-                ** iIntros "!>" (vs fr) "Hvs Hfr Hrun Hframe".
-                   iDestruct ("Hcont" with "Hvs Hfr Hrun Hframe") as (τs') "Hexp".
-                   iExists τs'.
-                   done.
-
-             ++ iExists _, _, _, _,_, _.
-               iSplit.
-               { iPureIntro.
-                 rewrite lh_depth_plug /= Nat.add_sub.
-                 apply get_layer_plug_precise => //. } 
-               iSplit; first iSimpl.
-               { (* instantiate (5 := lh). *)
-                 rewrite lh_depth_plug /= Nat.add_sub //. }
-               iSplit.
-               { iPureIntro. 
-                 erewrite lh_plug_minus => //. }
-               iIntros "!>" (vs fr) "Hvs Hfr Hrun Hframe".
-               iExists _.
-               unfold expr_interp.
-               iSimpl.
-               unfold lenient_wp.
-               do 3 instantiate (2 := []).
-               rewrite app_nil_r app_nil_r /=.
-
-               iApply wp_value.
-               { apply of_to_val. unfold language.to_val.
-                 simpl. apply to_val_v_to_e. } 
-               rewrite /denote_logpred /=.
-               iFrame.
-(*             iApply (big_sepL_impl with "Hconts").
-             iIntros "!>" (k [ts ctx] Hk) "#Hcont".
-             unfold continuation_interp.
-             iDestruct "Hcont" as (j es0 es es' lh' lh'') "(%Hlayer & %Hdepth & %Hminus & #Hcont)".
-             iExists _,_,_,_,_,_.
-             repeat iSplitR.
-             1-3: iPureIntro.
-             ++ rewrite lh_depth_plug. simpl.
-                replace (lh_depth lh + 1 - S (S k)) with (lh_depth lh - S k); last lia.
-                apply get_layer_plug_shallow.
-                exact Hlayer. 
-             ++ rewrite lh_depth_plug. simpl.
-                replace (lh_depth lh + 1 - S (S k)) with
-                  (lh_depth lh - S k); first exact Hdepth.
-                lia. 
-             ++ apply lh_minus_plug. done.
-             ++ iIntros "!>" (vs fr) "Hvs Hfr Hframe".
-                iDestruct ("Hcont" with "Hvs Hfr Hframe") as (τs') "Hexp".
-                iExists τs'.
-                done.
-        * done.
-        * iExists _, _. iSplit; first done. iSplit; first done.
-          rewrite <- !app_assoc in Hrestype.
-          iPureIntro. exact Hrestype. *)
-
-      + iIntros (v) "H".
-        rewrite /denote_logpred /lp_noframe /=.
-        iIntros (LI HLI).
-        apply lfilled_Ind_Equivalent in HLI; inversion HLI; subst.
-        inversion H8; subst.
-        clear HLI H7 H8 H1.
-        iSimpl.
-
-        destruct v.
-        * (* immV case *)
-          iDestruct "H" as "(((%vss & -> & Hvss) & Hrun) & %fr & Hfr & %vssl & %vswl' & -> & Hlocs & %Hrestype' & Htok)".
-          edestruct const_list_to_val as [vs Hvs]; first by apply v_to_e_is_const_list.
-          iApply (wp_wand with "[Hfr Hrun]").
-          { iApply (wp_label_value with "Hfr Hrun").
-            - rewrite seq.cats0. exact Hvs.
-            - by instantiate (1 := λ v, ⌜ v = immV vs ⌝%I). }
-          iIntros (v) "[[-> Hrun] Hfr]".
-          iFrame.
-          apply v_to_e_list_to_val in Hvs as Hvs'.
-          apply v_to_e_inj in Hvs' as ->.
-          iSplit; first done.
-          iExists _. iSplit; first done.
-          by iFrame.
-        * (* trapV case *)
-          iDestruct "H" as "([Hbail _] & %fr & Hfr & %vssl & %vswl' & -> & Hlocs & %Hrestype' & Htok)".
-          iApply (wp_wand with "[Hfr]").
-          { iApply (wp_label_trap with "Hfr") => //.
-            instantiate (1 := λ v, ⌜ v = trapV ⌝%I) => //. }
-          iIntros (v) "[-> Hfr]".
-          iFrame.
-          iExists _. iSplit; first done.
-          by iFrame.
-        * (* brV case *)
-          iDestruct "H" as "(Hbr & %fr & Hfr & %vssl & %vswl' & -> & [%Hlocs Hlocs] & %Hrestype' & Htok)".
-          iDestruct (br_interp_eq with "Hbr") as "Hbr".
-          unfold br_interp0. iSimpl in "Hbr".
-          iDestruct "Hbr" as (j k p lh' lh'' τs es0 es es' vs0 vs) "(%Hgetbase & %Hdepth & %Hlabels & %Hlayer & %Hdepth' & %Hminus & (%vss2 & -> & Hvss2) & Hbr)".
-          iDestruct (big_sepL2_length with "Hvss2") as "%Hlen2".
-          (* iDestruct (translate_types_length with "Hvss2") as "%Hlen2'".
-          ; first exact Heqtrans2. *)
-          (* may need to first progress in wp before yielding frame *)
-          iDestruct ("Hbr" with "Hfr [Hlocs $Htok]") as "Hbr".
-          { iExists _,_. iSplit; first done. iFrame. done. } 
-          unfold lenient_wp_ctx.
-          (* iDestruct ("Hbr" with "[]") as "Hbr".
-          { iPureIntro. 
-            rewrite lh_depth_plug /=. *)
-
-          (* Hmmmm this next part should work… *) 
-(*          iDestruct wp_value_fupd as "[H _]"; 
-            last iMod ("H" with "Hbr") as "Hbr".
-          { unfold IntoVal. apply of_to_val.
-            unfold language.to_val. simpl. 
-            rewrite (separate1 (AI_basic _)).
-            apply to_val_br_eq. }
-          iClear "H".
-          unfold denote_logpred.
-          iSimpl in "Hbr".
-          iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vssl' & %vswl'' & -> & Hlocs & Hrestype' & Htok)". *)
-          admit. 
-(*          destruct (decide (j = p)).
-          -- (* targetting this exact block *)
-            subst p. 
-            destruct (pull_base_l_drop_len lh0 (length (vs0 ++ concat vss2) - length ρ2)) eqn:Hpb.
-            rewrite seq.cats0.
-            unfold of_val. 
-            erewrite vfill_pull_base_l_take_len.
-            2:{ exact Hpb. }
-            
-            
-
-            ainsain
-            
-          
-          remember ((* i *) j - p) as hop.
-          destruct hop.
-          -- (* targetting this exact block *)
-            rewrite lh_depth_plug /= Nat.add_sub in Hdepth' Hlayer.
-            replace iris_lfilled_properties.get_layer with get_layer in Hlayer; last done.
-            erewrite get_layer_plug_precise in Hlayer.
-            3: done.
-            2:{ admit. }
-            inversion Hlayer; subst; clear Hlayer.
-            simpl in Hlabels.
-            inversion Hlabels; subst; clear Hlabels. 
-            assert (j = p) as ->.
-            { 
-            assert (i = p) as ->.
-            { clear - Heqhop Hdepth.
-              specialize (vfill_to_lfilled lh0 []) as [H _].
-              rewrite Hdepth in H. lia. }
-            assert (j = p) as ->.
-            { admit. }
-            rewrite Nat.sub_diag lh_depth_plug /= Nat.add_sub in Hdepth'.
-            rewrite Nat.sub_diag /= in Hlabels.
-            inversion Hlabels; subst τs; clear Hlabels. 
-            iDestruct (translate_types_length with "Hvss2") as "%Hlen2'".
-            { exact Heq_some0. }
-            rewrite Nat.sub_diag in Hlayer.
-            rewrite lh_depth_plug /= in Hlayer.
-            rewrite Nat.add_sub in Hlayer.
-            replace ( iris_lfilled_properties.get_layer
-                        (lh_plug (LH_rec [] (length ρ2) [] (LH_base [] []) []) lh) 
-                        (lh_depth lh))
-              with ( get_layer
-                       (lh_plug (LH_rec [] (length ρ2) [] (LH_base [] []) []) lh) 
-                       (lh_depth lh)) in Hlayer; last done.
-            erewrite get_layer_plug_precise in Hlayer => //.
-            2:{ admit. }
-            inversion Hlayer; subst. 
-            
-            iApply (wp_br with "[]").
-            3:{ rewrite seq.cats0 /=. 
-                instantiate (1 := p).
-                instantiate (1 := v_to_e_list (concat vss2)).
-                instantiate (1 := lh_of_vh (replace_base lh0 vs0)).
-                clear - Hgetbase Hdepth.
-                apply lfilled_get_replace_base => //. } 
-            ++ apply v_to_e_is_const_list.
-            ++ rewrite v_to_e_length length_concat //.
-            ++ admit. (* def of br_interp? or my proof? *) 
-            ++ admit. (* fix def of br_interp *) 
-            ++ iIntros "!> Hf Hrun".
-               edestruct const_list_to_val as [vs Hvs]; first by apply v_to_e_is_const_list. 
-               iApply wp_value.
-               { apply of_to_val. rewrite app_nil_r. exact Hvs. }
-               iSimpl. iFrame.
-               iSplitL "Hvss2".
-               ** apply v_to_e_list_to_val in Hvs as Hvs'.
-                  apply v_to_e_inj in Hvs' as ->.
-                  iExists _. iSplit; first done.
-                  admit. 
-               ** iExists _,_. iSplit; first done.
-                  admit. 
-          -- (* still blocked *)
-            assert (i > p) as Hip; first lia.
-            destruct i; first lia.
-            destruct (vh_decrease lh0) eqn:Hlh0.
-            2:{ exfalso. clear - Hip Hlh0 Hdepth.
-                 admit. (* painstaking dep-type induction *) } 
-            iApply wp_value.
-            { apply of_to_val. rewrite seq.cats0 /=. 
-              simpl.
-              unfold RichWasm.iris.language.iris.iris.to_val.
-              simpl.
-              rewrite seq.cats0.
-              specialize (to_of_val (brV lh0)) as H.
-              simpl in H.
-              unfold RichWasm.iris.language.iris.iris.to_val in H.
-              destruct (merge_values_list _) ; try by exfalso.
-              inversion H; subst v0; clear H.
-              rewrite Hlh0. 
-              done. } 
-            iSimpl. iFrame.
-            iSplitL "Hbr".
-            ++ admit. (* massage the br_interp layers *) 
-            ++ admit. (* iExists _,_. iSplit; first done.
-               iFrame.   *) *)
-        * iApply wp_value.
-          { apply of_to_val.
-            rewrite seq.cats0 /=.
-            unfold RichWasm.iris.language.iris.iris.to_val.
-            simpl.
-            specialize (to_of_val (retV s)) as H.
-            simpl in H.
-            unfold RichWasm.iris.language.iris.iris.to_val in H.
-            destruct (merge_values_list _); try by exfalso.
-            inversion H; subst v; clear H.
-            done. }
-          iSimpl.
-          iDestruct "H" as "((%vs0 & %vs & %Hbase & (%vss & -> & Hvss) & Hret) & %fr & Hfr & %vssl & %vswl' & -> & Hlocs & %Hrestype' & Htok)".
-          iSplitL "Hvss Hret".
-          -- iExists _,_. iSplit; first done. iFrame. iSplit; first done.
-             iIntros (fr fr') "Hf".
-             admit. (* generalise s in IH? *)
-          -- iFrame. iExists _.
-             iSplit; first done. iFrame. done.
-        * iDestruct "H" as "[? _]"; done.
+      admit.
     - (* n is true *)
       admit. 
   Admitted.
@@ -1290,14 +976,18 @@ Section Fundamental.
 
     unfold have_instruction_type_sem.
     iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
-    iIntros (? ?) "Hvs Hframe Hfr Hrun".
-    unfold expr_interp; cbn.
+    iIntros (? ?) "Hvs Hframe Hfrinv Hfr Hrun".
+    iDestruct "Hvs" as "(%vss & -> & Hvs)".
+    iPoseProof (big_sepL2_length with "Hvs") as "%Hlenvs".
+    cbn in Hlenvs.
+    destruct vss; cbn in Hlenvs; inversion Hlenvs.
+    rewrite !app_nil_l.
+    unfold expr_interp.
 
-    iApply lenient_wp_val_app'.
     iApply lenient_wp_nil.
     unfold lp_combine, denote_logpred; cbn.
-    rewrite seq.cats0.
     iFrame.
+    iExists []; auto.
   Qed.
 
   Lemma to_e_list_distributes e1 e2 :
@@ -1363,7 +1053,7 @@ Section Fundamental.
     (* Step 2: let's get the type semantic! *)
     unfold have_instruction_type_sem.
     iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
-    iIntros (? ?) "Hvs Hframe Hfr Hrun".
+    iIntros (? ?) "Hvs Hframe Hfrinv Hfr Hrun".
     (* unfold expr_interp. *)
 
     (* Idea: pass resources into Hsem_e, then Hsem_es *)
@@ -1375,10 +1065,9 @@ Section Fundamental.
     iSpecialize ("Hsem_es" $! s__mem s__rep s__size se inst lh Henv with "Hinst Hlf").
 
     (* Time to use the resources!*)
-    iSpecialize("Hsem_e" $! fr vs with "Hvs Hframe Hfr Hrun").
+    iSpecialize("Hsem_e" $! fr vs with "Hvs Hframe Hfrinv Hfr Hrun").
 
     rewrite (app_assoc (v_to_e_list vs) (to_e_list e') (to_e_list es')).
-    cbn.
     (* We have a goal with a lwp with two concatted expression lists. Our context has
        a resource for the lenient weakest precondition for the first of the two.
        lenient_wp_seq, then, seems perfect.
@@ -1386,33 +1075,22 @@ Section Fundamental.
        However, the problem will arise from the fact that our lenient_wp es is stuck
        behind some resources.
      *)
-
-    (* NOTE: This line uses up the lenient_wp for e completely (Hsem_e)*)
-    iApply (lenient_wp_seq  with "Hsem_e"); cbn.
-    - iIntros (f) "_ Hvsl2".
-      iSplitR "Hvsl2"; [done |].
-      iDestruct "Hvsl2" as "[%vss_L [%vs_WL [%Hf [[%Hpriminterp HvalinterpL2] [%Hresultinterp Hnaown]]]]]".
-
-      (* Slightly scary: vss_L and vs_WL don't change due to the f = ..*)
-      iExists vss_L; iExists vs_WL.
-      iFrame. (* For some reason, iFrame doesn't get the pures, so some silliness:*)
-      iSplitR "HvalinterpL2"; [done |]. iSplitL "HvalinterpL2"; [| done].
-      iSplitR "HvalinterpL2"; [done |].
-
-      (* ISSUE IS HERE *)
-      (* The problem here is that we need to prove the value_interps for local context L3.
-         Information about that is in lp_fr in the Hsem_es hypothesis. But, it's stuck
-         behind some resources, with the frame and run resources most obviously un-gettable
-         in the current state.
-         If we still had the lenient_wp e, we'd be able to get those out (and the others), but
-         it's gone due to being used up in the first conjunctiono f the lemma.
-         I'm not exactly sure how to prove a lenient wp (e' ++ es') if we don't use this lemma, honestly.
-         If we don't use this lemma and just try to shove resources from lenient wp e into Hsem_es,
-         we just get back a lenient_wp es, *not* for the full thing. So it seems a lemma of lenient_wp_seq's
-         shape must be used, but I'm not sure how.
-       *)
-      admit.
-    - admit.
+    iApply (lenient_wp_seq with "[Hsem_e]").
+    (* This line uses up the lenient_wp for e completely.*)
+    - iApply "Hsem_e".
+    - (* This is the trap case in the lemma. *)
+      iEval (cbn).
+      iIntros (f) "HT Hvs".
+      iSplitR; done.
+    - iEval (cbn).
+      iIntros (w f) "Hvs Hfr Hfrinv".
+      destruct w eqn:Hw; iEval (cbn) in "Hvs".
+      + iDestruct "Hvs" as "(Hf & Hrun & Hvs)".
+        iApply ("Hsem_es" with "[$Hvs] [$Hf] [$] [$] [$]").
+      + done.
+      + admit.
+      + admit.
+      + admit.
   Admitted.
 
   Lemma compat_frame M F L L' wl wl' wlf es es' τ τs1 τs2 :

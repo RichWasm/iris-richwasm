@@ -141,11 +141,12 @@ Section Relations.
                ⌜fr.(f_inst) = fr'.(f_inst) /\
                  length fr.(f_locs) = length fr'.(f_locs) /\
                  forall i, i < length wl \/ i > length (wl ++ wl') -> fr.(f_locs) !! i = fr'.(f_locs) !! i⌝;
+           lp_fr_inv := fun fr' => True;
            lp_val :=
              fun vs' =>
-               ↪[RUN] ∗ N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
+               N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
                  ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
-           lp_trap := True;
+           lp_trap := False;
            lp_br := λ _ _, False;
            lp_ret := λ _, False;
            lp_host := λ _ _ _ _, False |}.
@@ -206,8 +207,9 @@ Section Relations.
             ↪[frame] fr -∗
             lenient_wp NotStuck top
               [AI_local (length tfs2) (Build_frame (vs1 ++ n_zeros tlocs) inst) (to_e_list es)]
-              {| lp_fr := fun fr' => ⌜fr = fr'⌝;
-                 lp_val := fun vs2 => values_interp0 vrel se τs2 vs2 ∗ ↪[RUN];
+              {| lp_fr := fun _ => True;
+                 lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+                 lp_val := fun vs2 => values_interp0 vrel se τs2 vs2;
                  lp_trap := True;
                  lp_br := fun _ _ => False;
                  lp_ret := fun _ => False;
@@ -419,11 +421,23 @@ Section Relations.
   Definition closure_interp (se : semantic_env) : leibnizO function_type -n> ClR :=
     closure_interp0 value_interp se.
 
+  Definition locals_inv_interp (se : semantic_env) : (list (list primitive_rep)) -> list (list value) -> Prop :=
+    λ ιss vss, Forall2 (Forall2 primitive_rep_interp) ιss vss.
+
   Definition locals_interp (se : semantic_env) :
     leibnizO (list (list primitive_rep)) -n> leibnizO local_ctx -n> VssR :=
-    λne ιss L vss,
-      (⌜Forall2 (Forall2 primitive_rep_interp) ιss vss⌝ ∗
-         [∗ list] τo; vs ∈ L; vss, ∀ τ, ⌜τo = Some τ⌝ -∗ value_interp se τ (SValues vs))%I.
+    (λne ιss L vss,
+      [∗ list] τo; vs ∈ L; vss, ∀ τ, ⌜τo = Some τ⌝ -∗ value_interp se τ (SValues vs))%I.
+
+  Definition frame_inv_interp (se : semantic_env) :
+    leibnizO (list (list primitive_rep)) -n> leibnizO wlocal_ctx -n>
+      leibnizO instance -n> FrR :=
+    λne ιss WL inst fr,
+      (∃ vss_L vs_WL,
+         ⌜fr = Build_frame (concat vss_L ++ vs_WL) inst⌝ ∗
+         ⌜locals_inv_interp se ιss vss_L⌝ ∗
+         ⌜result_type_interp WL vs_WL⌝ ∗
+         na_own logrel_nais ⊤)%I.
 
   Definition frame_interp (se : semantic_env) :
     leibnizO (list (list primitive_rep)) -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
@@ -431,9 +445,7 @@ Section Relations.
     λne ιss L WL inst fr,
       (∃ vss_L vs_WL,
          ⌜fr = Build_frame (concat vss_L ++ vs_WL) inst⌝ ∗
-           locals_interp se ιss L vss_L ∗
-           ⌜result_type_interp WL vs_WL⌝ ∗
-           na_own logrel_nais ⊤)%I.
+         locals_interp se ιss L vss_L)%I.
 
   Fixpoint get_base_l {n : nat} (lh : valid_holed n) :=
     match lh with
@@ -473,10 +485,12 @@ Section Relations.
            ∀ fr,
              ↪[frame] fr -∗
              frame_interp se ιss_L L WL inst fr -∗
+             frame_inv_interp se ιss_L WL inst fr -∗
              lenient_wp_ctx
                NotStuck top
                (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
                {| lp_fr := frame_interp se ιss_L L WL inst;
+                  lp_fr_inv := frame_inv_interp se ιss_L WL inst;
                   lp_val := fun vs' => ∃ τs', values_interp se τs' vs';
                   lp_trap := True;
                   lp_br := br_interp lh'' (drop (S (j - p)) τc);
@@ -520,7 +534,8 @@ Section Relations.
     λne es,
       lenient_wp NotStuck top es
                  {| lp_fr := frame_interp se ιss_L L WL inst;
-                    lp_val := fun vs => values_interp se τs vs ∗ ↪[RUN];
+                    lp_fr_inv := frame_inv_interp se ιss_L WL inst;
+                    lp_val := fun vs => values_interp se τs vs;
                     lp_trap := True;
                     lp_br := br_interp se τr ιss_L L WL inst lh τc;
                     lp_ret := return_interp se τr;
@@ -608,6 +623,7 @@ Section Relations.
            ↪[frame] fr -∗
            ↪[RUN] -∗
            frame_interp se ιss_L L WL inst fr -∗
+           frame_inv_interp se ιss_L WL inst fr -∗
            ∃ τs',
              expr_interp se τr (drop (S k) τc) ιss_L L WL τs' inst lh''
                (es0 ++ of_val (immV vs) ++ es ++ es'))%I.
@@ -675,6 +691,7 @@ Section Relations.
        ∀ fr vs,
          values_interp se (map sub τs1) vs -∗
          frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
+         frame_inv_interp se F.(fc_locals) WL inst fr -∗
          ↪[frame] fr -∗
          ↪[RUN] -∗
          expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)

@@ -226,9 +226,9 @@ Section FundamentalKinding.
       | ].
     clear Hwpes1.
     cbn.
-    iIntros (w f) "Hnotrap Hfr [%Hlocs %Hsaved]".
-    destruct w; cbn; try done.
-    iDestruct "Hnotrap" as "[Hrun ->]".
+    iIntros (w f) "Hnotrap Hfr _".
+    destruct w; cbn; try (done || by iDestruct "Hnotrap" as "[? ?]").
+    iDestruct "Hnotrap" as "([%Hlocs %Hsaved] & Hrun & ->)".
     rewrite app_nil_l.
     eapply lwp_restore_stack_w in Hcg2; 
       [| by eapply Forall2_length].
@@ -238,11 +238,10 @@ Section FundamentalKinding.
       | iIntros (?) "%Hfalse"; tauto 
       | ].
     clear Hwpes3.
-    unfold lp_notrap.
-    iIntros (w f') "Hwes Hfr ->".
-    destruct w; try done.
+    iIntros (w f') "Hwes Hfr _".
+    destruct w; cbn; try (done || by iDestruct "Hwes" as "[? ?]").
     cbn.
-    iDestruct "Hwes" as "[Hrun ->]".
+    iDestruct "Hwes" as "(-> & Hrun & ->)".
     rewrite app_assoc.
     iApply (lenient_wp_seq with "[Hfr Hrun]").
     - admit.

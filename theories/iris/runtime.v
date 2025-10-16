@@ -20,7 +20,8 @@ Section Runtime.
       ↪[RUN] -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_alloc_mm)]
-        {| lp_fr := fun fr' => ⌜fr = fr'⌝ ∗ ↪[frame] fr;
+        {| lp_fr := fun _ => True;
+           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val := fun vs => True;
            lp_trap := True;
            lp_br := fun _ _ => False;
@@ -38,7 +39,8 @@ Section Runtime.
         [AI_basic (BI_const (VAL_int32 sz));
          AI_basic (BI_const (VAL_int64 pm));
          AI_invoke sr.(sr_func_alloc_gc)]
-        {| lp_fr := fun fr' => ⌜fr = fr'⌝ ∗ ↪[frame] fr';
+        {| lp_fr := fun _ => True;
+           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
              fun vs =>
                ↪[RUN] ∗
@@ -69,7 +71,8 @@ Section Runtime.
       ↪[frame] fr -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 a)); AI_invoke sr.(sr_func_registerroot)]
-        {| lp_fr := fun fr' => ⌜fr = fr'⌝ ∗ ↪[frame] fr';
+        {| lp_fr := fun _ => True;
+           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
              fun vs =>
                ↪[RUN] ∗
@@ -92,7 +95,8 @@ Section Runtime.
       ↪[frame] fr -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 a)); AI_invoke sr.(sr_func_unregisterroot)]
-        {| lp_fr := fun fr' => ⌜fr = fr' ⌝ ∗ ↪[frame] fr';
+        {| lp_fr := fun _ => True;
+           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
              fun vs =>
                ↪[RUN] ∗
