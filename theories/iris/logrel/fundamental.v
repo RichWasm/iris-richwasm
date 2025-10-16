@@ -4,7 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
-From RichWasm.iris Require Import autowp gc util.
+From RichWasm.iris Require Import autowp gc util wp_codegen.
 From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
@@ -257,7 +257,47 @@ Section Fundamental.
         ⊢ have_instruction_type_sem sr mr gci M F' L (wl ++ wl' ++ wlf) (to_e_list es') ψ L') ->
     run_codegen (compile_instr mr fe (IBlock ψ L' es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem sr mr gci M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
-  Admitted.
+  Proof.
+  Admitted. 
+(*    intros fe F' ψ Hok IH Hcode.
+    simpl in Hcode.
+    unfold compile_block in Hcode.
+    simpl in Hcode.
+    inv_cg_bind Hcode ρ1 wl1 wl1' es_nil es1' Htype Hcode.
+    subst wl' es'.
+    inv_cg_try_option Htype.
+    subst wl1 es_nil.
+    rewrite app_nil_r in Hcode.
+    destruct (translate_types (fc_type_vars F) τs1) as [ts1'|] eqn:Hts1; last done.
+    destruct (translate_types (fc_type_vars F) τs2) as [ts2'|] eqn:Hts2; last done.
+    simpl in Heq_some.
+    inversion Heq_some; subst ρ1; clear Heq_some.
+    unfold block_c in Hcode.
+    inv_cg_bind Hcode ρ1 wl1 wl2 es_nil es2 Hes Hend.
+    destruct ρ1. destruct u.
+    subst wl1' es1'.
+    apply run_codegen_capture in Hes as [Hes ->].
+    apply run_codegen_emit in Hend as (_ & -> & ->).
+    inv_cg_bind Hes ρ1 wl2 wl1' es_nil es2 Hes Hend.
+    subst wl1 l.
+    unfold run_codegen in Hend.
+    simpl in Hend.
+    inversion Hend; subst wl1' es2; clear Hend.
+
+    
+    
+    
+    Search capture. 
+    simpl in Hes. 
+    
+    simpl in Hend. 
+    simpl in Hcode. 
+    
+    
+    unfold have_instruction_type_sem. 
+
+    aians
+  Admitted. *)
 
   Lemma compat_loop M F L wl wl' wlf es es' τs1 τs2 :
     let fe := fe_of_context F in
@@ -556,6 +596,31 @@ Section Fundamental.
     simpl. done.
   Qed. 
 
+    Fixpoint pull_base_l_drop_len {i : nat} (vh : valid_holed i) (len : nat) :=
+  match vh with
+  | VH_base j vs es => (VH_base j (take len vs) es, drop len vs)
+  | @VH_rec j vs m es' lh' es => let '(lh'',l1) := pull_base_l_drop_len lh' len in
+                             (@VH_rec j vs m es' lh'' es,l1)
+  end.
+
+  Lemma vfill_pull_base_l_take_len {i : nat} (vh : valid_holed i) (len : nat) es vh' vs :
+    pull_base_l_drop_len vh len = (vh', vs) ->
+    vfill vh es = vfill vh' (((λ x : value, AI_basic (BI_const x)) <$> vs) ++ es).
+  Proof.
+    intros Heq.
+    induction vh.
+    { simpl in *. simplify_eq. simpl.
+      rewrite -!app_assoc. repeat rewrite v_to_e_is_fmap. rewrite fmap_take fmap_drop.
+      rewrite (app_assoc (take _ _)).
+      rewrite (take_drop len ((λ x : value, AI_basic (BI_const x)) <$> l)). auto. }
+    { simpl in *.
+      destruct (pull_base_l_drop_len vh len) eqn:Heq'.
+      simplify_eq. simpl. f_equiv. f_equiv.
+      erewrite IHvh;eauto. 
+    }
+  Qed.
+
+  
   Lemma compat_ite M F L L' wl wl' wlf es1 es2 es' τs1 τs2 :
     let fe := fe_of_context F in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
@@ -702,7 +767,8 @@ Section Fundamental.
         * iExists _, _. iSplit; first done. iSplit; first done.
           iPureIntro. rewrite app_assoc app_assoc -(app_assoc wl) -app_assoc.
           exact Hrestype.
-        * instantiate (1 := lh_plug (LH_rec _ _ _ (LH_base _ _) _) lh). 
+        * instantiate (1 := (* push_base lh (length ρ2) [] [] []). *)
+                         lh_plug (LH_rec _ _ _ (LH_base _ _) _) lh).  
           iDestruct "Hctxt" as "(%Hbase & %Hlength & %Hvalid & Hconts)".
           repeat iSplitR.
           all: try iPureIntro.
@@ -847,7 +913,20 @@ Section Fundamental.
           iSimpl in "Hbr".
           iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vssl' & %vswl'' & -> & Hlocs & Hrestype' & Htok)". *)
           admit. 
-(*          
+(*          destruct (decide (j = p)).
+          -- (* targetting this exact block *)
+            subst p. 
+            destruct (pull_base_l_drop_len lh0 (length (vs0 ++ concat vss2) - length ρ2)) eqn:Hpb.
+            rewrite seq.cats0.
+            unfold of_val. 
+            erewrite vfill_pull_base_l_take_len.
+            2:{ exact Hpb. }
+            
+            
+
+            ainsain
+            
+          
           remember ((* i *) j - p) as hop.
           destruct hop.
           -- (* targetting this exact block *)
