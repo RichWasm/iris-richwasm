@@ -20,16 +20,22 @@ module Env = struct
   type t = {
     function_map : int StringMap.t;
     local_map : int list;
+    (* types vars have kinds, we only care about its representation here *)
+    type_map : RichWasm.Representation.t list;
   }
   [@@deriving sexp]
 
-  let empty = { function_map = Map.empty (module String); local_map = [] }
+  let empty =
+    { function_map = Map.empty (module String); local_map = []; type_map = [] }
 
   let add_local (env : t) (richwasm_local_index : int) : t =
     { env with local_map = richwasm_local_index :: env.local_map }
 
   let add_locals (env : t) (richwasm_local_indexs : int list) : t =
     { env with local_map = List.rev richwasm_local_indexs @ env.local_map }
+
+  let add_type (env : t) (rep : RichWasm.Representation.t) : t =
+    { env with type_map = rep :: env.type_map }
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -43,6 +49,7 @@ module Err = struct
     | InjInvalidAnn of Cc.IR.Type.t
     | UnexpectedOpenType of Cc.LVar.t
     | CannotFindRep of Cc.IR.Type.t
+    | Ctx of t * Cc.IR.Type.t
   [@@deriving sexp]
 
   let pp ff : t -> unit = function
@@ -96,25 +103,28 @@ module Compile = struct
         Exists (Type (VALTYPE (Prim Ptr, ExCopy, ExDrop)), compile_type t)
     | Ref t -> Ref (MM, compile_type t)
 
-  let rec rep_of_typ : A.Type.t -> B.Representation.t Res.t =
+  let rec rep_of_typ (env : Env.t) : A.Type.t -> B.Representation.t Res.t =
     let open Res in
     let open B.Representation in
     function
+    | Var (x, _) as typ -> (
+        match List.nth env.type_map x with
+        | Some rep -> ret @@ rep
+        | None -> fail @@ CannotFindRep typ)
     | Int -> ret @@ Prim I32
     (* NOTE: a coderef doesn't have ptr rep *)
     | Lollipop (Prod [ closure; _ ], _) ->
-        let* closure' = rep_of_typ closure in
+        let* closure' = rep_of_typ env closure in
         ret @@ Prod [ closure'; Prim I32 ]
     | Prod ts ->
-        let* rs = mapM ~f:rep_of_typ ts in
+        let* rs = mapM ~f:(rep_of_typ env) ts in
         ret @@ Prod rs
     | Sum ts ->
-        let* rs = mapM ~f:rep_of_typ ts in
+        let* rs = mapM ~f:(rep_of_typ env) ts in
         ret @@ Sum rs
     | Ref _ -> ret @@ Prim Ptr
-    (* FIXME: all rec types are currently unboxed, where should this be changed? *)
-    | Rec t -> rep_of_typ t
-    | Exists t -> rep_of_typ t
+    | Rec t -> rep_of_typ env t
+    | Exists t -> rep_of_typ env t
     | x -> fail @@ CannotFindRep x
 
   let compile_binop (binop : A.Binop.t) : B.Instruction.t list =
@@ -167,14 +177,25 @@ module Compile = struct
         ret @@ applicant' @ applicand' @ [ CallIndirect ]
     | Let (b_t, rhs, body, _) ->
         let* rhs' = compile_expr env rhs in
-        let* rep = lift_result @@ rep_of_typ b_t in
+        let* rep =
+          rep_of_typ env b_t
+          |> Result.map_error ~f:(fun x -> Err.Ctx (x, b_t))
+          |> lift_result
+        in
         let* fresh_idx = new_local rep in
         let env' = Env.add_local env fresh_idx in
         let* body' = compile_expr env' body in
         ret @@ rhs' @ [ LocalSet fresh_idx ] @ body'
     | Split (ts, rhs, body, _) ->
         let* rhs' = compile_expr env rhs in
-        let* reps = mapM ~f:(fun t -> lift_result @@ rep_of_typ t) ts in
+        let* reps =
+          mapM
+            ~f:(fun t ->
+              rep_of_typ env t
+              |> Result.map_error ~f:(fun x -> Err.Ctx (x, t))
+              |> lift_result)
+            ts
+        in
         let* fresh_idxs = mapM ~f:new_local reps in
         let env' = Env.add_locals env fresh_idxs in
         let* body' = compile_expr env' body in
@@ -184,7 +205,11 @@ module Compile = struct
         let* cases' =
           mapM
             ~f:(fun (t, body) ->
-              let* rep = lift_result @@ rep_of_typ t in
+              let* rep =
+                rep_of_typ env t
+                |> Result.map_error ~f:(fun x -> Err.Ctx (x, t))
+                |> lift_result
+              in
               let* fresh_idx = new_local rep in
               let env' = Env.add_local env fresh_idx in
               let* body' = compile_expr env' body in
@@ -200,8 +225,11 @@ module Compile = struct
         ret @@ expr' @ [ Unfold ]
     | Unpack (rhs, body, t) ->
         let* rhs' = compile_expr env rhs in
-        let* fresh_idx = new_local (Prim Ptr) in
+        (* HACK: we will only ever have boxed existentials *)
+        let rep = B.Representation.Prim Ptr in
+        let* fresh_idx = new_local rep in
         let env' = Env.add_local env fresh_idx in
+        let env' = Env.add_type env' rep in
         let* body' = compile_expr env' body in
         let bt = compile_type t in
         (* FIXME: local fx *)
@@ -232,7 +260,11 @@ module Compile = struct
         ret @@ e1' @ e2' @ [ Swap (Path []); Group 2 ]
     | Free (e, t) ->
         let* e' = compile_expr env e in
-        let* rep = lift_result @@ rep_of_typ t in
+        let* rep =
+          rep_of_typ env t
+          |> Result.map_error ~f:(fun x -> Err.Ctx (x, t))
+          |> lift_result
+        in
         let* fresh_idx = new_local rep in
         ret @@ e'
         @ [ Load (Path []); LocalSet fresh_idx; Drop; LocalGet fresh_idx ]

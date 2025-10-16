@@ -107,6 +107,7 @@ let fix_factorial =
       (app factorial 5)))
     |}
 
+(* NOTE: this doesn't work, rec types don't have lifetimes *)
 let unboxed_list =
   Parse.from_string_exn
     {|
@@ -120,21 +121,37 @@ let unboxed_list =
               (inj 0 nil : (() + (int * (rec α . (() + (int * α)))))))
             (case (cons : (int * (rec α . (() + (int * α)))))
               (split (hd : int) (tl : (rec α . (() + (int * α)))) = cons in
-                (inj 1 (tup (app f hd) (app map_int (f, tl))) : (() + (int * (rec α . (() + (int * α))))))))))))
+                (inj 1 (tup (app f hd) (app map_int (f, tl)))
+                  : (() + (int * (rec α . (() + (int * α))))))))))))
       (let (lst : (rec α . (() + (int * α)))) =
         (fold (rec α . (() + (int * α)))
           (inj 0 () : (() + (int * (rec α . (() + (int * α))))))) in
       (app map_int ((lam (x : int) : int . (x + 1)), lst)))
     |}
 
-(*let knot_factorial = Parse.from_string_exn 
+let boxed_list =
+  Parse.from_string_exn
     {|
-      (let (peek : ((ref int) -> ((ref int) * int))) =
-        (lam (r : (ref int)) : ((ref int) * int) .
-          (let (v : int) = (free r) in
-          (let (r' : (ref int)) = (new r) in
-          (v, r')))) in
-    |} *)
+      (fun map_int
+          (p : ((int -> int) * (rec α . (() + (int * (ref α))))))
+          : (rec α . (() + (int * (ref α)))) .
+        (split (f : (int -> int)) (lst : (rec α . (() + (int * (ref α))))) = p in
+        (fold (rec α . (() + (int * (ref α))))
+          (cases (unfold (rec α . (() + (int * (ref α)))) lst)
+            (case (nil : ())
+              (inj 0 nil : (() + (int * (ref (rec α . (() + (int * (ref α)))))))))
+            (case (cons : (int * (ref (rec α . (() + (int * (ref α)))))))
+              (split (hd : int) (tl : (ref (rec α . (() + (int * (ref α)))))) = cons in
+                (inj 1 ((app f hd), (new (app map_int (f, (free tl)))))
+                  : (() + (int * (ref (rec α . (() + (int * (ref α))))))))))))))
+      (let (lst : (rec α . (() + (int * (ref α))))) =
+        (fold (rec α . (() + (int * (ref α))))
+          (inj 1
+            (5, (new (fold (rec α . (() + (int * (ref α))))
+                  (inj 0 () : (() + (int * (ref (rec α . (() + (int * (ref α)))))))))))
+              : (() + (int * (ref (rec α . (() + (int * (ref α))))))))) in
+      (app map_int ((lam (x : int) : int . (x + 1)), lst)))
+    |}
 
 let simple : (string * Module.t) list =
   [
@@ -162,6 +179,7 @@ let all : (string * Module.t) list =
       ("factorial_program", factorial_program);
       ("safe_div", safe_div);
       ("incr_n", incr_n);
-      ("fix_factorial", fix_factorial);
-      ("unboxed_list", unboxed_list)
+      ("fix_factorial[invalid]", fix_factorial);
+      ("unboxed_list[invlaid]", unboxed_list);
+      ("boxed_list", boxed_list)
     ]

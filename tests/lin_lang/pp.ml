@@ -232,7 +232,7 @@ let%expect_test "pretty prints examples" =
 
     (let (r0 : (ref int)) = (new 10) in
     (app incr_n (r0, 3)))
-    -----------fix_factorial-----------
+    -----------fix_factorial[invalid]-----------
     (let (fix : (((int ⊸ int) ⊸ (int ⊸ int)) ⊸ (int ⊸ int))) =
       (λ (f : ((int ⊸ int) ⊸ (int ⊸ int))) : (int ⊸ int) .
         (let (omega : ((rec a (a ⊸ (int ⊸ int))) ⊸ (int ⊸ int))) =
@@ -253,7 +253,7 @@ let%expect_test "pretty prints examples" =
               (n × rec-res)))))))
       in
     (app factorial 5)))
-    -----------unboxed_list-----------
+    -----------unboxed_list[invlaid]-----------
     (fun map_int (p : ((int ⊸ int) ⊗ (rec α (() ⊕ (int ⊗ α))))) :
       (rec α (() ⊕ (int ⊗ α))) .
       (split ((f : (int ⊸ int)), (lst : (rec α (() ⊕ (int ⊗ α))))) = p in
@@ -272,6 +272,36 @@ let%expect_test "pretty prints examples" =
         (inj 0 () : (() ⊕ (int ⊗ (rec α (() ⊕ (int ⊗ α))))))) in
       (app map_int ((λ (x : int) : int .
                       (x + 1)), lst)))
+    -----------boxed_list-----------
+    (fun map_int (p : ((int ⊸ int) ⊗ (rec α (() ⊕ (int ⊗ (ref α)))))) :
+      (rec α (() ⊕ (int ⊗ (ref α)))) .
+      (split ((f : (int ⊸ int)), (lst : (rec α (() ⊕ (int ⊗ (ref α)))))) =
+        p in
+      (fold (rec α (() ⊕ (int ⊗ (ref α))))
+        (cases (unfold (rec α (() ⊕ (int ⊗ (ref α)))) lst)
+          (case (nil : ())
+            (inj 0 nil :
+              (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))
+            (case (cons : (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))
+              (split ((hd : int),
+                (tl : (ref (rec α (() ⊕ (int ⊗ (ref α))))))) = cons in
+              (inj 1 ((app f hd), (new (app map_int (f, (free tl))))) :
+                (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α))))))))))
+              ))))
+
+
+    (let (lst : (rec α (() ⊕ (int ⊗ (ref α))))) =
+      (fold (rec α (() ⊕ (int ⊗ (ref α))))
+        (inj 1
+          (5,
+            (new
+            (fold (rec α (() ⊕ (int ⊗ (ref α))))
+              (inj 0 () :
+                (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))))
+            : (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))
+          in
+        (app map_int ((λ (x : int) : int .
+                        (x + 1)), lst)))
     -----------swap_pair_program-----------
     (export fun swap (p : (int ⊗ int)) : (int ⊗ int) .
       (split ((x : int), (y : int)) = p in

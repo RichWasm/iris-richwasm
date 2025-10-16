@@ -527,7 +527,7 @@ let%expect_test "examples" =
           Int)
          Int)
         Int))))
-    -----------fix_factorial-----------
+    -----------fix_factorial[invalid]-----------
     ((imports ())
      (functions
       (((export false) (name lam_2)
@@ -1063,7 +1063,7 @@ let%expect_test "examples" =
           Int)
          Int)
         Int))))
-    -----------unboxed_list-----------
+    -----------unboxed_list[invlaid]-----------
     ((imports ())
      (functions
       (((export false) (name lam_1) (param (Prod ())) (return Int)
@@ -1304,4 +1304,324 @@ let%expect_test "examples" =
            (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
           (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
          (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
-        (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))) |}]
+        (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
+    -----------boxed_list-----------
+    ((imports ())
+     (functions
+      (((export false) (name lam_1) (param (Prod ())) (return Int)
+        (body
+         (Split ((Ref (Prod ())) Int) (Var (0 ()) (Prod ((Ref (Prod ())) Int)))
+          (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
+           (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int) Int)
+          Int)))
+       ((export false) (name map_int)
+        (param
+         (Prod
+          ((Ref (Prod ()))
+           (Prod
+            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+             (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
+        (return (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+        (body
+         (Split
+          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+           (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+          (Var (0 (p))
+           (Prod
+            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+             (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+          (Fold (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
+           (Cases
+            (Unfold
+             (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
+             (Var (0 (lst))
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+             (Sum
+              ((Prod ())
+               (Prod
+                (Int
+                 (Ref
+                  (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))
+            (((Prod ())
+              (Inj 0 (Var (0 (nil)) (Prod ()))
+               (Sum
+                ((Prod ())
+                 (Prod
+                  (Int
+                   (Ref
+                    (Rec
+                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))))
+             ((Prod
+               (Int
+                (Ref
+                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+              (Split
+               (Int
+                (Ref
+                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+               (Var (0 (cons))
+                (Prod
+                 (Int
+                  (Ref
+                   (Rec
+                    (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+               (Inj 1
+                (Tuple
+                 ((Unpack
+                   (Var (4 (f)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                   (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
+                    (Var (0 ())
+                     (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
+                    (App (Var (1 ()) (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                     (Tuple ((Var (0 ()) (Var (0 ()))) (Var (1 (hd)) Int))
+                      (Prod ((Var (0 ())) Int)))
+                     Int)
+                    Int)
+                   Int)
+                  (New
+                   (Unpack
+                    (Pack (Prod ())
+                     (Tuple
+                      ((Coderef map_int
+                        (Lollipop
+                         (Prod
+                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           (Rec
+                            (Sum
+                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                         (Rec
+                          (Sum
+                           ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                       (New (Tuple () (Prod ())) (Ref (Prod ()))))
+                      (Prod
+                       ((Lollipop
+                         (Prod
+                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           (Rec
+                            (Sum
+                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                         (Rec
+                          (Sum
+                           ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+                        (Ref (Prod ())))))
+                     (Exists
+                      (Lollipop
+                       (Prod
+                        ((Var (0 ()))
+                         (Prod
+                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           (Rec
+                            (Sum
+                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+                       (Rec
+                        (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+                    (Split
+                     ((Lollipop
+                       (Prod
+                        ((Var (0 ()))
+                         (Prod
+                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           (Rec
+                            (Sum
+                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+                       (Rec
+                        (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+                      (Var (0 ())))
+                     (Var (0 ())
+                      (Prod
+                       ((Lollipop
+                         (Prod
+                          ((Var (0 ()))
+                           (Prod
+                            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                             (Rec
+                              (Sum
+                               ((Prod ())
+                                (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+                         (Rec
+                          (Sum
+                           ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+                        (Var (0 ())))))
+                     (App
+                      (Var (1 ())
+                       (Lollipop
+                        (Prod
+                         ((Var (0 ()))
+                          (Prod
+                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                            (Rec
+                             (Sum
+                              ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+                        (Rec
+                         (Sum
+                          ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                      (Tuple
+                       ((Var (0 ()) (Var (0 ())))
+                        (Tuple
+                         ((Var (4 (f))
+                           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                          (Free
+                           (Var (0 (tl))
+                            (Ref
+                             (Rec
+                              (Sum
+                               ((Prod ())
+                                (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                           (Rec
+                            (Sum
+                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                         (Prod
+                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           (Rec
+                            (Sum
+                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+                       (Prod
+                        ((Var (0 ()))
+                         (Prod
+                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           (Rec
+                            (Sum
+                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
+                      (Rec
+                       (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+                     (Rec
+                      (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+                    (Rec
+                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+                   (Ref
+                    (Rec
+                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+                 (Prod
+                  (Int
+                   (Ref
+                    (Rec
+                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+                (Sum
+                 ((Prod ())
+                  (Prod
+                   (Int
+                    (Ref
+                     (Rec
+                      (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))
+               (Sum
+                ((Prod ())
+                 (Prod
+                  (Int
+                   (Ref
+                    (Rec
+                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))))
+            (Sum
+             ((Prod ())
+              (Prod
+               (Int
+                (Ref
+                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))
+           (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+          (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
+     (main
+      ((Let (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
+        (Fold (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
+         (Inj 1
+          (Tuple
+           ((Int 5 Int)
+            (New
+             (Fold
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
+              (Inj 0 (Tuple () (Prod ()))
+               (Sum
+                ((Prod ())
+                 (Prod
+                  (Int
+                   (Ref
+                    (Rec
+                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+             (Ref
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+           (Prod
+            (Int
+             (Ref
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+          (Sum
+           ((Prod ())
+            (Prod
+             (Int
+              (Ref
+               (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))
+         (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+        (Unpack
+         (Pack (Prod ())
+          (Tuple
+           ((Coderef map_int
+             (Lollipop
+              (Prod
+               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+            (New (Tuple () (Prod ())) (Ref (Prod ()))))
+           (Prod
+            ((Lollipop
+              (Prod
+               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+             (Ref (Prod ())))))
+          (Exists
+           (Lollipop
+            (Prod
+             ((Var (0 ()))
+              (Prod
+               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+            (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+         (Split
+          ((Lollipop
+            (Prod
+             ((Var (0 ()))
+              (Prod
+               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+            (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+           (Var (0 ())))
+          (Var (0 ())
+           (Prod
+            ((Lollipop
+              (Prod
+               ((Var (0 ()))
+                (Prod
+                 ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                  (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+             (Var (0 ())))))
+          (App
+           (Var (1 ())
+            (Lollipop
+             (Prod
+              ((Var (0 ()))
+               (Prod
+                ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+             (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+           (Tuple
+            ((Var (0 ()) (Var (0 ())))
+             (Tuple
+              ((Pack (Ref (Prod ()))
+                (Tuple
+                 ((Coderef lam_1 (Lollipop (Prod ()) Int))
+                  (New (Tuple () (Prod ())) (Ref (Prod ()))))
+                 (Prod ((Lollipop (Prod ()) Int) (Ref (Prod ())))))
+                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+               (Var (0 (lst))
+                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+              (Prod
+               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+            (Prod
+             ((Var (0 ()))
+              (Prod
+               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
+           (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+          (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+         (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+        (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))) |}]

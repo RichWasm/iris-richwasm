@@ -136,7 +136,7 @@ will need to serialize sums before allocating them -- this avoids the rwasm -> w
 - clarification on LocalFx -> is the annotation the new locals or just the changes?
   - annotated is whole local ctx, unnanotated is a diff
 
-TODO:
+Changes:
 - mem to ser
 - kind to rec
 - extract subst_type, etc from rw.v
