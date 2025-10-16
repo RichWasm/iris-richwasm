@@ -79,16 +79,6 @@ Definition gc_address_map : Type := gmap location address.
 
 Definition gc_root_map : Type := gmap address location.
 
-Record rt_pointer_space :=
-  { ps_mm_ptrs : gset address;
-    ps_gc_roots : gset address;
-    ps_gc_ptrs : gc_address_map }.
-
-Instance Empty_rt_pointer_space : Empty rt_pointer_space :=
-  {| ps_mm_ptrs := ∅;
-     ps_gc_roots := ∅;
-     ps_gc_ptrs := ∅ |}.
-
 Definition rt_invariant (Σ : gFunctors) : Type :=
   mm_layout_map -> mm_object_map -> gc_layout_map -> gc_object_map -> gc_root_map -> iProp Σ.
 
@@ -119,31 +109,29 @@ Definition kinds_of_pointer_map (m : i64) (n : nat) : list word_kind :=
 
 Definition index_address (i : nat) : N := N.of_nat (4 * i).
 
-Inductive repr_pointer : N -> rt_pointer_space -> pointer -> Z -> Prop :=
-| ReprPtrInt gc_heap_off ps n :
+Inductive repr_pointer : N -> gc_address_map -> pointer -> Z -> Prop :=
+| ReprPtrInt gc_heap_off θ n :
   n `mod` 2 = 0 ->
-  repr_pointer gc_heap_off ps (PtrInt n) (2 * n)
-| ReprPtrMM gc_heap_off ps a :
-  a ∈ ps.(ps_mm_ptrs) ->
+  repr_pointer gc_heap_off θ (PtrInt n) (2 * n)
+| ReprPtrMM gc_heap_off θ a :
   (a `mod` 4 = 0)%N ->
-  repr_pointer gc_heap_off ps (PtrMM a) (Z.of_N a - 3)
-| ReprPtrGC gc_heap_off ps ℓ a :
-  ps.(ps_gc_ptrs) !! ℓ = Some a ->
+  repr_pointer gc_heap_off θ (PtrMM a) (Z.of_N a - 3)
+| ReprPtrGC gc_heap_off θ ℓ a :
+  θ !! ℓ = Some a ->
   (a `mod` 4 = 0)%N ->
   (a >= gc_heap_off)%N ->
-  repr_pointer gc_heap_off ps (PtrGC ℓ) (Z.of_N a - 1)
-| ReprPtrRoot gc_heap_off ps a :
-  a ∈ ps.(ps_gc_roots) ->
+  repr_pointer gc_heap_off θ (PtrGC ℓ) (Z.of_N a - 1)
+| ReprPtrRoot gc_heap_off θ a :
   (a `mod` 4 = 0)%N ->
   (a < gc_heap_off)%N ->
-  repr_pointer gc_heap_off ps (PtrRoot a) (Z.of_N a - 1).
+  repr_pointer gc_heap_off θ (PtrRoot a) (Z.of_N a - 1).
 
-Inductive repr_word : N -> rt_pointer_space -> word -> Z -> Prop :=
-| ReprWordInt gc_heap_off ps n :
-  repr_word gc_heap_off ps (WordInt n) n
-| ReprWordPtr gc_heap_off ps p n :
-  repr_pointer gc_heap_off ps p n ->
-  repr_word gc_heap_off ps (WordPtr p) n.
+Inductive repr_word : N -> gc_address_map -> word -> Z -> Prop :=
+| ReprWordInt gc_heap_off θ n :
+  repr_word gc_heap_off θ (WordInt n) n
+| ReprWordPtr gc_heap_off θ p n :
+  repr_pointer gc_heap_off θ p n ->
+  repr_word gc_heap_off θ (WordPtr p) n.
 
 Inductive repr_double_word : word -> word -> Z -> Prop :=
 | ReprDoubleWordInt n1 n2 m :
@@ -152,9 +140,9 @@ Inductive repr_double_word : word -> word -> Z -> Prop :=
   (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = m ->
   repr_double_word (WordInt n1) (WordInt n2) m.
 
-Definition repr_list_word (gc_heap_off : N) (ps : rt_pointer_space) (ws : list word) (ns : list Z) :
+Definition repr_list_word (gc_heap_off : N) (θ : gc_address_map) (ws : list word) (ns : list Z) :
   Prop :=
-  Forall2 (repr_word gc_heap_off ps) ws ns.
+  Forall2 (repr_word gc_heap_off θ) ws ns.
 
 Definition repr_location_index (θ : gc_address_map) (ℓ : location) (i : nat) (a : Z) : Prop :=
   exists a0, θ !! ℓ = Some a0 /\ a = Z.of_N (a0 + index_address i).
@@ -163,9 +151,8 @@ Definition repr_location (θ : gc_address_map) (ℓ : location) (a : Z) : Prop :
   repr_location_index θ ℓ 0 a.
 
 Inductive ser_value : N -> rep_value -> list word -> Prop :=
-| SerPtr gc_heap_off ps p n :
-  ps.(ps_gc_ptrs) = ∅ ->
-  repr_pointer gc_heap_off ps p n ->
+| SerPtr gc_heap_off p n :
+  repr_pointer gc_heap_off ∅ p n ->
   ser_value gc_heap_off (PtrV (Wasm_int.int_of_Z i32m n)) [WordPtr p]
 | SerI32 gc_heap_off n :
   ser_value gc_heap_off (I32V (Wasm_int.int_of_Z i32m n)) [WordInt n]
@@ -189,48 +176,80 @@ Section Token.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
-  Definition consistent_objects_memory (ps : rt_pointer_space) (gco : gc_object_map) : iProp Σ :=
-    [∗ map] ℓ ↦ a; ws ∈ ps.(ps_gc_ptrs); gco,
+  Definition mm_object_memory (mmo : mm_object_map) : iProp Σ :=
+    (* TODO: Seems like this will never allow MM memory owned by the GC to be reclaimed. *)
+    [∗ map] a ↦ ws ∈ mmo,
+      ∃ bs ns,
+        N.of_nat sr.(sr_mem_mm) ↦[wms][a] bs ∗
+          ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
+          ⌜repr_list_word sr.(sr_gc_heap_off) ∅ ws ns⌝.
+
+  Inductive mm_closed_reach_from : mm_object_map -> gc_root_map -> word -> Prop :=
+  | MMClosedReachInt mmo gcr n :
+    mm_closed_reach_from mmo gcr (WordInt n)
+  | MMClosedReachPtrInt mmo gcr n :
+    mm_closed_reach_from mmo gcr (WordPtr (PtrInt n))
+  | MMClosedReachPtrMM mmo gcr a ws :
+    mmo !! a = Some ws ->
+    Forall (mm_closed_reach_from mmo gcr) ws ->
+    mm_closed_reach_from mmo gcr (WordPtr (PtrMM a))
+  | MMClosedReachPtrRoot mmo gcr a :
+    a ∈ dom gcr ->
+    mm_closed_reach_from mmo gcr (WordPtr (PtrRoot a)).
+
+  Definition gc_object_layout (gcl : gc_layout_map) (gco : gc_object_map) : Prop :=
+    map_Forall (fun ℓ '(ks, ws) => Forall2 word_has_kind ks ws) (map_zip gcl gco).
+
+  Definition gc_object_memory (θ : gc_address_map) (gco : gc_object_map) : iProp Σ :=
+    [∗ map] ℓ ↦ a; ws ∈ θ; gco,
       ∃ bs ns,
         N.of_nat sr.(sr_mem_gc) ↦[wms][a] bs ∗
           ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-          ⌜repr_list_word sr.(sr_gc_heap_off) ps ws ns⌝.
+          ⌜repr_list_word sr.(sr_gc_heap_off) θ ws ns⌝.
 
-  Definition consistent_roots_memory (θ : gc_address_map) (gcr : gc_root_map) : iProp Σ :=
+  Definition gc_root_memory (θ : gc_address_map) (gcr : gc_root_map) : iProp Σ :=
     [∗ map] a ↦ ℓ ∈ gcr,
       ∃ bs n,
         N.of_nat sr.(sr_mem_gc) ↦[wms][a] bs ∗ ⌜bs = serialize_Z_i32 n⌝ ∗ ⌜repr_location θ ℓ n⌝.
 
-  Definition consistent_objects_layouts (gcl : gc_layout_map) (gco : gc_object_map) : Prop :=
-    map_Forall (fun ℓ '(ks, ws) => Forall2 word_has_kind ks ws) (map_zip gcl gco).
+  Definition gc_closed_reach
+    (mmo : mm_object_map) (gco : gc_object_map) (gcr : gc_root_map) (θ : gc_address_map) : Prop :=
+    map_Forall
+      (fun ℓ ws =>
+         ℓ ∈ dom θ ->
+         Forall (fun w => match w with
+                       | WordInt _ => True
+                       | WordPtr (PtrInt _) => True
+                       | WordPtr (PtrMM a) =>
+                           match mmo !! a with
+                           | None => False
+                           | Some ws => Forall (mm_closed_reach_from mmo gcr) ws
+                           end
+                       | WordPtr (PtrGC ℓ') => ℓ' ∈ dom θ
+                       | WordPtr (PtrRoot a) => a ∈ dom gcr
+                       end)
+                ws)
+      gco.
 
-  Definition consistent_reachable_addresses (gco : gc_object_map) (θ : gc_address_map) : Prop :=
-    gmap_injective θ /\
-      ∀ ℓ ℓ' ws,
-        ℓ ∈ dom θ ->
-        gco !! ℓ = Some ws ->
-        WordPtr (PtrGC ℓ') ∈ ws ->
-        ℓ' ∈ dom θ.
-
-  Definition live_roots (θ : gc_address_map) (gcr : gc_root_map) : Prop :=
-    ∀ a ℓ, gcr !! a = Some ℓ -> ℓ ∈ dom θ.
+  Definition gc_live_roots (θ : gc_address_map) (gcr : gc_root_map) : Prop :=
+    map_Forall (fun _ ℓ => ℓ ∈ dom θ) gcr.
 
   (* TODO: MM memory resources. *)
-  Definition rt_token (ps : rt_pointer_space) : iProp Σ :=
+  Definition rt_token (θ : gc_address_map) : iProp Σ :=
     ∃ mml mmo gcl gco gcr,
-      ⌜ps.(ps_mm_ptrs) = dom mmo⌝ ∗
-        ⌜ps.(ps_gc_roots) = dom gcr⌝ ∗
-        ghost_map_auth rw_mm_layouts (1/2) mml ∗
+      ghost_map_auth rw_mm_layouts (1/2) mml ∗
         ghost_map_auth rw_mm_objects 1 mmo ∗
         ghost_map_auth rw_gc_layouts (1/2) gcl ∗
         ghost_map_auth rw_gc_objects 1 gco ∗
         ghost_map_auth rw_gc_roots (1/2) gcr ∗
         rti mml mmo gcl gco gcr ∗
-        consistent_objects_memory ps gco ∗
-        consistent_roots_memory ps.(ps_gc_ptrs) gcr ∗
-        ⌜consistent_objects_layouts gcl gco⌝ ∗
-        ⌜consistent_reachable_addresses gco ps.(ps_gc_ptrs)⌝ ∗
-        ⌜live_roots ps.(ps_gc_ptrs) gcr⌝.
+        mm_object_memory mmo ∗
+        ⌜gmap_injective θ⌝ ∗
+        ⌜gc_closed_reach mmo gco gcr θ⌝ ∗
+        ⌜gc_object_layout gcl gco⌝ ∗
+        gc_object_memory θ gco ∗
+        gc_root_memory θ gcr ∗
+        ⌜gc_live_roots θ gcr⌝.
 
 End Token.
 
@@ -496,19 +515,19 @@ Section Rules.
            repr_vval θ vv k was an assumption? *)
   Lemma wp_load_i32_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
-      (rti : rt_invariant Σ) (ps : rt_pointer_space)
+      (rti : rt_invariant Σ) (θ : gc_address_map)
       (i : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (w : word) :
     F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
-    repr_location_index ps.(ps_gc_ptrs) ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
+    repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     ws !! j = Some w ->
-    rt_token rti sr ps ∗ ℓ ↦gco ws ∗ ↪[frame] F ∗ ↪[RUN] ⊢
+    rt_token rti sr θ ∗ ℓ ↦gco ws ∗ ↪[frame] F ∗ ↪[RUN] ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i32 None N.zero off)]
        @ s; E
        {{ v, ∃ n,
             ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗
-              ⌜repr_word sr.(sr_gc_heap_off) ps w n⌝ ∗
-              rt_token rti sr ps ∗
+              ⌜repr_word sr.(sr_gc_heap_off) θ w n⌝ ∗
+              rt_token rti sr θ ∗
               ℓ ↦gco ws ∗
               ↪[RUN] ∗
               ↪[frame] F }}.
@@ -516,20 +535,20 @@ Section Rules.
 
   Lemma wp_load_i64_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
-      (rti : rt_invariant Σ) (ps : rt_pointer_space)
+      (rti : rt_invariant Σ) (θ : gc_address_map)
       (i : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (n1 n2 : Z) :
     F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
-    repr_location_index ps.(ps_gc_ptrs) ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
+    repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     ws !! j = Some (WordInt n1) ->
     ws !! (j + 1) = Some (WordInt n2) ->
-    rt_token rti sr ps ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    rt_token rti sr θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i64 None N.zero off)]
        @ s; E
        {{ v, ∃ n,
             ⌜v = immV [VAL_int64 (Wasm_int.int_of_Z i64m n)]⌝ ∗
               ⌜repr_double_word (WordInt n1) (WordInt n2) n⌝ ∗
-              rt_token rti sr ps ∗
+              rt_token rti sr θ ∗
               ℓ ↦gco ws ∗
               ↪[RUN] ∗
               ↪[frame] F }}.
@@ -537,20 +556,20 @@ Section Rules.
 
   Lemma wp_store_i32_gc
       (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
-      (rti : rt_invariant Σ) (ps : rt_pointer_space)
+      (rti : rt_invariant Σ) (θ : gc_address_map)
       (i k : i32) (ℓ : location) (ws : list word)
       (j : nat) (off : static_offset) (w : word) :
     F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
-    repr_location_index ps.(ps_gc_ptrs) ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
+    repr_location_index θ ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
     j < length ws ->
-    repr_word sr.(sr_gc_heap_off) ps w (Wasm_int.Z_of_uint i32m k) ->
-    rt_token rti sr ps ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    repr_word sr.(sr_gc_heap_off) θ w (Wasm_int.Z_of_uint i32m k) ->
+    rt_token rti sr θ ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
     WP [AI_basic (BI_const (VAL_int32 i));
         AI_basic (BI_const (VAL_int32 k));
         AI_basic (BI_store memidx T_i32 None N.zero off)]
        @ s; E
        {{ v, ⌜v = immV []⌝ ∗
-             rt_token rti sr ps ∗
+             rt_token rti sr θ ∗
              ℓ ↦gco <[ j := w ]> ws ∗
              ↪[RUN] ∗ ↪[frame] F }}.
   Admitted.

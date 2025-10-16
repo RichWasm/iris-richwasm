@@ -19,8 +19,8 @@ Section Relations.
   Context `{!wasmG Σ}.
   Context `{!richwasmG Σ}.
 
-  Variable sr : store_runtime.
   Variable rti : rt_invariant Σ.
+  Variable sr : store_runtime.
 
   Definition ns_glo (n : N) : namespace := nroot .@ "rwg" .@ n.
   Definition ns_fun (n : N) : namespace := nroot .@ "rwf" .@ n.
@@ -92,9 +92,9 @@ Section Relations.
 
   Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
     match ι with
-    | PtrR => exists ps p n,
-        (* TODO: Make the pointer space a parameter. *)
-        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_off) ps p n
+    | PtrR => exists θ p n,
+        (* TODO: Make the address map a parameter? *)
+        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_off) θ p n
     | I32R => exists n, v = VAL_int32 n
     | I64R => exists n, v = VAL_int64 n
     | F32R => exists n, v = VAL_float32 n

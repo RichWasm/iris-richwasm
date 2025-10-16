@@ -26,7 +26,7 @@ Section Relations.
           ∃ bs j cl,
             N.of_nat i ↪[vis] Build_module_export bs (MED_func j) ∗
               N.of_nat (funcimm j) ↦[wf] cl ∗
-              closure_interp sr rti [] ϕ cl ∗
+              closure_interp rti sr [] ϕ cl ∗
               ⌜imports !! (funcimm mr.(mr_func_user) + i)%nat = Some (N.of_nat (funcimm j))⌝) -∗
        ([∗ list] i ↦ '_ ∈ ω.(mt_exports),
           ∃ bs j,
@@ -38,7 +38,7 @@ Section Relations.
                   ([∗ list] i ↦ ϕ ∈ ω.(mt_exports),
                      ∃ j cl, (* TODO: same j as precond *)
                        N.of_nat (funcimm j) ↦[wf] cl ∗
-                         closure_interp sr rti [] ϕ cl) }})%I.
+                         closure_interp rti sr [] ϕ cl) }})%I.
 
   (* TODO *)
   Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=
