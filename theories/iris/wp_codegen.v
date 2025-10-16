@@ -567,7 +567,7 @@ Section CodeGen.
                          ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝;
           lp_val := λ vs, ↪[RUN] ∗ ⌜vs = []⌝;
           lp_trap := False;
-          lp_br := λ _, False;
+          lp_br := λ _ _, False;
           lp_ret := λ _, False;
           lp_host := λ _ _ _ _, False |}.
   Proof.
@@ -711,7 +711,7 @@ Section CodeGen.
       {| lp_fr := λ f', ⌜f' = f⌝;
          lp_val := λ vs', (↪[RUN] ∗ ⌜vs' = vs⌝)%I;
          lp_trap := False;
-         lp_br := λ _, False;
+         lp_br := λ _ _, False;
          lp_ret := λ _, False;
          lp_host := λ _ _ _ _, False |}.
   Proof.

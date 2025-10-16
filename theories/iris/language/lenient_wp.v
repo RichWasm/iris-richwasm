@@ -97,7 +97,7 @@ Section lenient_wp.
       lp_fr := lp_fr l;
       lp_val vs' := lp_val l (seq.cat vs vs');
       lp_trap := lp_trap l;
-      lp_br vh := lp_br l (sigT_apply (λ _ vh0, vh_push_const vh0 vs) vh);
+      lp_br n vh := lp_br l n (vh_push_const vh vs);
       lp_ret lh := lp_ret l (sh_push_const lh vs);
       lp_host tf h cvs sh := lp_host l tf h cvs (llh_push_const sh vs);
     |}.
@@ -175,7 +175,7 @@ Section lenient_wp.
       lp_fr := lp_fr Φ;
       lp_val := λ vs, lp_val Φ vs ∗ Ψ;
       lp_trap := lp_trap Φ ∗ Ψ;
-      lp_br := λ x, lp_br Φ x ∗ Ψ;
+      lp_br := λ n x, lp_br Φ n x ∗ Ψ;
       lp_ret := λ x, lp_ret Φ x ∗ Ψ;
       lp_host := λ ft hf vs lh, lp_host Φ ft hf vs lh ∗ Ψ;
     |}.
