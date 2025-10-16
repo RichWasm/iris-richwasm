@@ -57,7 +57,7 @@ module Dropability = struct
     | ImDrop -> fprintf ff "imdrop"
 end
 
-module Memory = struct
+module ConcreteMemory = struct
   type t =
     | MM
     | GC
@@ -68,6 +68,19 @@ module Memory = struct
   let pp ff : t -> unit = function
     | MM -> fprintf ff "mm"
     | GC -> fprintf ff "gc"
+end
+
+module Memory = struct
+  type t =
+    | Var of int
+    | Concrete of ConcreteMemory.t
+  [@@deriving eq, ord, iter, map, fold, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff : t -> unit = function
+    | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
+    | Concrete m -> fprintf ff "@[(concrete %a)@]" ConcreteMemory.pp m
 end
 
 module PrimitiveRep = struct
@@ -476,32 +489,32 @@ end = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp ff : t -> unit = function
-    | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
+    | Var i -> fprintf ff "@[<2>(var %a)@]" Base.Int.pp i
     | I31 -> fprintf ff "i31"
     | Num nt -> fprintf ff "%a" NumType.pp nt
     | Sum ts ->
-        fprintf ff "@[(sum";
+        fprintf ff "@[<2>(sum";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Variant ts ->
-        fprintf ff "@[(variant";
+        fprintf ff "@[<2>(variant";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Prod ts ->
-        fprintf ff "@[(prod";
+        fprintf ff "@[<2>(prod";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Struct ts ->
-        fprintf ff "@[(struct";
+        fprintf ff "@[<2>(struct";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
-    | Ref (m, t) -> fprintf ff "@[(ref %a %a)@]" Memory.pp m pp t
-    | GCPtr t -> fprintf ff "@[(gcref %a)@]" pp t
-    | CodeRef ft -> fprintf ff "@[(coderef %a@]" FunctionType.pp ft
-    | Pad (s, t) -> fprintf ff "@[(pad %a %a)@]" Size.pp s pp t
-    | Ser t -> fprintf ff "@[(ser %a)@]" pp t
-    | Rec t -> fprintf ff "@[(rec %a)@]" pp t
-    | Exists (q, t) -> fprintf ff "@[(exists %a %a)@]" Quantifier.pp q pp t
+    | Ref (m, t) -> fprintf ff "@[<2>(ref@ %a@ %a)@]" Memory.pp m pp t
+    | GCPtr t -> fprintf ff "@[<2>(gcref@ %a)@]" pp t
+    | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
+    | Pad (s, t) -> fprintf ff "@[<2>(pad@ %a@ %a)@]" Size.pp s pp t
+    | Ser t -> fprintf ff "@[<2>(ser@ %a)@]" pp t
+    | Rec t -> fprintf ff "@[<2>(rec@ %a)@]" pp t
+    | Exists (q, t) -> fprintf ff "@[<2>(exists@ %a@ %a)@]" Quantifier.pp q pp t
 end
 
 and FunctionType : sig
@@ -533,13 +546,22 @@ end = struct
 end
 
 module BlockType = struct
-  type t = BlockType of Type.t list
+  type t =
+    | ValType of Type.t list
+    | ArrowType of int * Type.t list
   [@@deriving eq, ord, iter, map, fold, sexp]
 
-  let pp ff (BlockType res : t) : unit =
-    fprintf ff "(@[result";
-    List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
-    fprintf ff "@])"
+  let pp ff : t -> unit = function
+    | ValType res ->
+        fprintf ff "(@[result";
+        List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
+        fprintf ff "@])"
+    | ArrowType (inputs, res) ->
+        fprintf ff "@[(";
+        fprintf ff "<%a>@ " Base.Int.pp inputs;
+        fprintf ff "->";
+        List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
+        fprintf ff ")@]"
 end
 
 module LocalFx = struct
@@ -576,6 +598,19 @@ module Path = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
+module Consume = struct
+  type t =
+    | Follow
+    | Copy
+    | Move
+  [@@deriving eq, ord, iter, map, fold, sexp]
+
+  let rec pp ff : t -> unit = function
+    | Follow -> fprintf ff "follow"
+    | Copy -> fprintf ff "copy"
+    | Move -> fprintf ff "move"
+end
+
 module Instruction = struct
   type t =
     | Nop
@@ -589,13 +624,13 @@ module Instruction = struct
     | Ite of BlockType.t * LocalFx.t * t list * t list
     | Br of int
     | Return
-    | LocalGet of int
+    | LocalGet of int * Consume.t
     | LocalSet of int
     | CodeRef of int
     | Inst of Index.t
     | Call of int * Index.t list
     | CallIndirect
-    | Inject of Memory.t option * int * Type.t list
+    | Inject of ConcreteMemory.t option * int * Type.t list
     | Case of BlockType.t * LocalFx.t * t list list
     | Group of int
     | Ungroup
@@ -605,21 +640,19 @@ module Instruction = struct
     | Unpack of BlockType.t * LocalFx.t * t list
     | Tag
     | Untag
-    | New of Memory.t * Type.t
-    | Load of Path.t
+    | New of ConcreteMemory.t * Type.t
+    | Load of Path.t * Consume.t
     | Store of Path.t * Type.t option
     | Swap of Path.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, iter, map, fold, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let show_pp = pp
 
   let rec pp ff : t -> unit =
-    (* FIXME: this isn't quite right *)
     let pp_instrs ff (instrs : t list) =
-      fprintf ff "@[<v 2>";
-      List.iter ~f:(fprintf ff "@;%a" pp) instrs;
-      fprintf ff "@]"
+      List.iteri
+        ~f:(fun i -> if i = 0 then fprintf ff "%a" pp else fprintf ff "@,%a" pp)
+        instrs
     in
     let pp_int = Base.Int.pp in
     function
@@ -630,52 +663,60 @@ module Instruction = struct
     | Num ni -> fprintf ff "%a" NumInstruction.pp ni
     | NumConst (t, n) -> fprintf ff "%a.const %a" NumType.pp t pp_int n
     | Block (bt, lfx, instrs) ->
-        fprintf ff "block %a %a%a@;end" BlockType.pp bt LocalFx.pp lfx pp_instrs
-          instrs
+        fprintf ff "@[<v 0>@[<2>block@ %a@ %a@]@,@[<v 2>  %a@]@,end@]"
+          BlockType.pp bt LocalFx.pp lfx pp_instrs instrs
     | Loop (bt, instrs) ->
-        fprintf ff "loop %a%a@;end" BlockType.pp bt pp_instrs instrs
+        fprintf ff "@[<v 0>@[<2>loop@ %a@]@,@[<v 2>  %a@]@,end@]" BlockType.pp
+          bt pp_instrs instrs
     | Ite (bt, lfx, e_thn, e_els) ->
-        fprintf ff "if %a %a%a@;else%a@;end" BlockType.pp bt LocalFx.pp lfx
-          pp_instrs e_thn pp_instrs e_els
-    | Br i -> fprintf ff "br %a" pp_int i
+        fprintf ff
+          "@[<v 0>@[<2>if@ %a@ %a@]@,@[<v 2>  %a@]@,else@,@[<v 2>  %a@]@,end@]"
+          BlockType.pp bt LocalFx.pp lfx pp_instrs e_thn pp_instrs e_els
+    | Br i -> fprintf ff "@[<2>br@ %a@]" pp_int i
     | Return -> fprintf ff "return"
-    | LocalGet i -> fprintf ff "local.get %a" pp_int i
-    | LocalSet i -> fprintf ff "local.set %a" pp_int i
-    | CodeRef i -> fprintf ff "coderef %a" pp_int i
-    | Inst idx -> fprintf ff "inst %a" Index.pp idx
+    | LocalGet (i, c) ->
+        fprintf ff "@[<2>local.get@ %a@ %a@]" pp_int i Consume.pp c
+    | LocalSet i -> fprintf ff "@[<2>local.set@ %a@]" pp_int i
+    | CodeRef i -> fprintf ff "@[<2>coderef@ %a@]" pp_int i
+    | Inst idx -> fprintf ff "@[<2>inst@ %a@]" Index.pp idx
     | Call (i, idxs) ->
-        fprintf ff "call %a" pp_int i;
-        List.iter ~f:(fprintf ff " %a" Index.pp) idxs
+        fprintf ff "@[<v 2>call@ %a" pp_int i;
+        List.iter ~f:(fprintf ff "@ %a" Index.pp) idxs;
+        fprintf ff "@]"
     | CallIndirect -> fprintf ff "call_indirect"
     | Inject (None, i, typs) ->
-        fprintf ff "inject %a" pp_int i;
-        List.iter ~f:(fprintf ff " %a" Type.pp) typs
+        fprintf ff "@[<2>inject@ %a" pp_int i;
+        List.iter ~f:(fprintf ff " %a" Type.pp) typs;
+        fprintf ff "@]"
     | Inject (Some mem, i, typs) ->
-        fprintf ff "inject %a %a" Memory.pp mem pp_int i;
-        List.iter ~f:(fprintf ff " %a" Type.pp) typs
+        fprintf ff "@[<2>inject@ %a@ %a" ConcreteMemory.pp mem pp_int i;
+        List.iter ~f:(fprintf ff " %a" Type.pp) typs;
+        fprintf ff "@]"
     | Case (bt, lfx, cases) ->
-        (* TODO: needs improvement *)
-        fprintf ff "case %a %a" BlockType.pp bt LocalFx.pp lfx;
+        fprintf ff "@[<v 0>@[<2>case@ %a@ %a@]@,@[<v 2>  " BlockType.pp bt LocalFx.pp
+          lfx;
         List.iteri
           ~f:(fun i instrs ->
-            fprintf ff "@[<v 2>(%a@;%a)@]" pp_int i pp_instrs instrs)
+            if i <> 0 then fprintf ff "@,";
+            fprintf ff "@[<v 2>(%a@,%a)@]" pp_int i pp_instrs instrs)
           cases;
-        fprintf ff "end"
-    | Group i -> fprintf ff "group %a" pp_int i
+        fprintf ff "@]@,end@]"
+    | Group i -> fprintf ff "@[<2>group@ %a@]" pp_int i
     | Ungroup -> fprintf ff "ungroup"
-    | Fold t -> fprintf ff "fold %a" Type.pp t
+    | Fold t -> fprintf ff "@[<2>fold@ %a@]" Type.pp t
     | Unfold -> fprintf ff "unfold"
-    | Pack (idx, t) -> fprintf ff "pack %a %a" Index.pp idx Type.pp t
+    | Pack (idx, t) -> fprintf ff "@[<2>pack@ %a@ %a@]" Index.pp idx Type.pp t
     | Unpack (bt, lfx, instrs) ->
-        fprintf ff "unpack %a %a %a" BlockType.pp bt LocalFx.pp lfx
-          pp_instrs instrs
+        fprintf ff "@[<v 0>@[<2>unpack@ %a@ %a@]@,@[<v 2>  %a@]@,end@]"
+          BlockType.pp bt LocalFx.pp lfx pp_instrs instrs
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
-    | New (m, t) -> fprintf ff "new %a %a" Memory.pp m Type.pp t
-    | Load p -> fprintf ff "load %a" Path.pp p
-    | Store (p, None) -> fprintf ff "store %a" Path.pp p
-    | Store (p, Some t) -> fprintf ff "store %a %a" Path.pp p Type.pp t
-    | Swap p -> fprintf ff "swap %a" Path.pp p
+    | New (m, t) ->
+        fprintf ff "@[<2>new@ %a@ %a@]" ConcreteMemory.pp m Type.pp t
+    | Load (p, c) -> fprintf ff "@[<2>load@ %a@ %a@]" Path.pp p Consume.pp c
+    | Store (p, None) -> fprintf ff "@[<2>store@ %a@]" Path.pp p
+    | Store (p, Some t) -> fprintf ff "@[<2>store@ %a@ %a@]" Path.pp p Type.pp t
+    | Swap p -> fprintf ff "@[<2>swap@ %a@]" Path.pp p
 end
 
 module Module = struct
@@ -690,14 +731,14 @@ module Module = struct
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
     let pp ff ({ typ; locals; body } : t) : unit =
-      fprintf ff "@[<v 2>@[(func %a" FunctionType.pp typ;
+      fprintf ff "@[<v 2>@[<4>(func@ %a" FunctionType.pp typ;
       if not @@ List.is_empty locals then (
-        fprintf ff "@[(local";
+        fprintf ff "@ (local";
         List.iter ~f:(fprintf ff "@ %a" Representation.pp) locals;
-        fprintf ff ")@]");
+        fprintf ff ")");
       fprintf ff "@]";
-      List.iter ~f:(fprintf ff "@;%a" Instruction.pp) body;
-      fprintf ff "@[)@]@]"
+      List.iter ~f:(fprintf ff "@,%a" Instruction.pp) body;
+      fprintf ff ")@]"
   end
 
   type t = {
@@ -722,12 +763,15 @@ module Module = struct
     let break_hint () = fprintf ff "@;" in
 
     fprintf ff "@[<v 2>@[(module @]";
-    print_sep ~f:(FunctionType.pp ff) ~sep:break_hint imports;
+    print_sep
+      ~f:(fprintf ff "(import %a" FunctionType.pp)
+      ~sep:break_hint imports;
     print_sep ~f:(Function.pp ff) ~sep:break_hint functions;
     fprintf ff "@;@[(table@[<hv 2>";
-    if List.is_empty table then () else fprintf ff "@ ";
     print_sep ~f:(Base.Int.pp ff) ~sep:space_hint table;
     fprintf ff "@])@]";
-    print_sep ~f:(Base.Int.pp ff) ~sep:break_hint exports;
+    fprintf ff "@;@[(export@[<hv 2>";
+    print_sep ~f:(Base.Int.pp ff) ~sep:space_hint exports;
+    fprintf ff "@])@]";
     fprintf ff "@])@]"
 end

@@ -23,7 +23,6 @@ include Help.MultiOutputter.Make (struct
     |> Richwasm_common.Elaborate.elab_module
     |> or_fail_pp Richwasm_common.Elaborate.Err.pp
 
-
   let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
   let examples = Examples.all
   let pp = AnnRichWasm.Module.pp_roqc
@@ -61,22 +60,18 @@ let%expect_test "basic functionality" =
      (m_table ()) (m_exports (0))) |}];
 
   run {| (1, 2, 3, 4) |};
-  [%expect
-    {|
+  [%expect {|
     FAILURE TODO |}];
   next ();
-  [%expect
-    {|
+  [%expect {|
     Failure ^^^ |}];
 
   run {| (tup (tup 1 (tup 2 3) 4 5) (tup 6 7)) |};
-  [%expect
-    {|
+  [%expect {|
     FAILURE TODO |}];
 
   run {| (new 10) |};
-  [%expect
-    {|
+  [%expect {|
     FAILURE TODO |}];
 
   run {| (1 + 2) |};
@@ -121,7 +116,6 @@ let%expect_test "basic functionality" =
      (m_table ()) (m_exports (0))) |}];
 
   ()
-
 
 let%expect_test "examples" =
   output_examples ();
@@ -276,4 +270,8 @@ let%expect_test "examples" =
      (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
     -----------boxed_list-----------
     FAILURE (Ctx (CannotFindRep (Var (0 ())))
-     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))) |xxx}]
+     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+    -----------peano_3-----------
+    FAILURE TODO
+    -----------peano-----------
+    FAILURE TODO |xxx}]

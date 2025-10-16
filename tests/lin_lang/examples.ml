@@ -99,11 +99,11 @@ let fix_factorial =
         (app fix (lam (rec : (int -> int)) : (int -> int) .
           (lam (n : int) : int .
             (if0 n then
-                1
-              else
-                (let (n-sub1 : int) = (- n 1) in
-                (let (rec-res : int) = (app rec n-sub1) in
-                (* n rec-res))))))) in
+               1
+             else
+               (let (n-sub1 : int) = (- n 1) in
+               (let (rec-res : int) = (app rec n-sub1) in
+               (* n rec-res))))))) in
       (app factorial 5)))
     |}
 
@@ -153,6 +153,57 @@ let boxed_list =
       (app map_int ((lam (x : int) : int . (x + 1)), lst)))
     |}
 
+let peano_3 =
+  Parse.from_string_exn 
+    {|
+      (fold (rec a . (() + (ref a)))
+        (inj 1 (new
+          (fold (rec a . (() + (ref a)))
+            (inj 1 (new
+              (fold (rec a . (() + (ref a)))
+                (inj 1 (new
+                  (fold (rec a . (() + (ref a)))
+                    (inj 0 () : (() + (ref (rec a . (() + (ref a))))))))
+                  : (() + (ref (rec a . (() + (ref a))))))))
+              : (() + (ref (rec a . (() + (ref a))))))))
+          : (() + (ref (rec a . (() + (ref a)))))))
+    |}
+
+let peano =
+  Parse.from_string_exn
+    {|
+      (fun add
+          (p : ((rec a . (() + (ref a))) * (rec a . (() + (ref a)))))
+          : (rec a . (() + (ref a))) .
+        (split (left : (rec a . (() + (ref a)))) (right : (rec a . (() + (ref a)))) = p in
+          (cases (unfold (rec a . (() + (ref a))) left)
+            (case (zero : ())
+              right)
+            (case (succ : (ref (rec a . (() + (ref a)))))
+              (fold (rec a . (() + (ref a)))
+                (inj 1 (new (app add ((free succ), right)))
+                  : (() + (ref (rec a . (() + (ref a)))))))))))
+
+      (fun from-int (int : int) : (rec a . (() + (ref a))) .
+        (fold (rec a . (() + (ref a)))
+          (if0 int
+            (inj 0 ()
+              : (() + (ref (rec a . (() + (ref a))))))
+            (inj 1 (new (app from-int (int - 1)))
+              : (() + (ref (rec a . (() + (ref a)))))))))
+
+      (fun to-int (peano : (rec a . (() + (ref a)))) : int .
+        (cases (unfold (rec a . (() + (ref a))) peano)
+          (case (zero : ()) 0)
+          (case (succ : (ref (rec a . (() + (ref a)))))
+            (1 + (app to-int (free succ))))))
+
+      (let (six   : (rec a . (() + (ref a)))) = (from-int 6) in
+      (let (seven : (rec a . (() + (ref a)))) = (from-int 7) in
+      (let (sum   : (rec a . (() + (ref a)))) = (add (six, seven)) in
+      (to-int sum))))
+    |}
+
 let simple : (string * Module.t) list =
   [
     ("one", "1");
@@ -181,5 +232,7 @@ let all : (string * Module.t) list =
       ("incr_n", incr_n);
       ("fix_factorial[invalid]", fix_factorial);
       ("unboxed_list[invlaid]", unboxed_list);
-      ("boxed_list", boxed_list)
+      ("boxed_list", boxed_list);
+      ("peano_3", peano_3);
+      ("peano", peano);
     ]

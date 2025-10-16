@@ -302,6 +302,51 @@ let%expect_test "pretty prints examples" =
           in
         (app map_int ((λ (x : int) : int .
                         (x + 1)), lst)))
+    -----------peano_3-----------
+    (fold (rec a (() ⊕ (ref a)))
+      (inj 1
+        (new
+        (fold (rec a (() ⊕ (ref a)))
+          (inj 1
+            (new
+            (fold (rec a (() ⊕ (ref a)))
+              (inj 1
+                (new
+                (fold (rec a (() ⊕ (ref a)))
+                  (inj 0 () : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
+                : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
+              : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
+            : (() ⊕ (ref (rec a (() ⊕ (ref a)))))))
+    -----------peano-----------
+    (fun add (p : ((rec a (() ⊕ (ref a))) ⊗ (rec a (() ⊕ (ref a))))) :
+      (rec a (() ⊕ (ref a))) .
+      (split ((left : (rec a (() ⊕ (ref a)))),
+        (right : (rec a (() ⊕ (ref a))))) = p in
+      (cases (unfold (rec a (() ⊕ (ref a))) left)
+        (case (zero : ()) right)
+        (case (succ : (ref (rec a (() ⊕ (ref a)))))
+          (fold (rec a (() ⊕ (ref a)))
+            (inj 1 (new (app add ((free succ), right))) :
+              (() ⊕ (ref (rec a (() ⊕ (ref a)))))))))))
+
+    (fun from-int (int : int) : (rec a (() ⊕ (ref a))) .
+      (fold (rec a (() ⊕ (ref a)))
+        (if0 int
+          then (inj 0 () : (() ⊕ (ref (rec a (() ⊕ (ref a)))))) else
+                 (inj 1 (new (app from-int (int - 1))) :
+                   (() ⊕ (ref (rec a (() ⊕ (ref a)))))))))
+
+    (fun to-int (peano : (rec a (() ⊕ (ref a)))) : int .
+      (cases (unfold (rec a (() ⊕ (ref a))) peano)
+        (case (zero : ()) 0)
+        (case (succ : (ref (rec a (() ⊕ (ref a)))))
+          (1 + (app to-int (free succ))))))
+
+
+    (let (six : (rec a (() ⊕ (ref a)))) = (app from-int 6) in
+    (let (seven : (rec a (() ⊕ (ref a)))) = (app from-int 7) in
+    (let (sum : (rec a (() ⊕ (ref a)))) = (app add (six, seven)) in
+    (app to-int sum))))
     -----------swap_pair_program-----------
     (export fun swap (p : (int ⊗ int)) : (int ⊗ int) .
       (split ((x : int), (y : int)) = p in

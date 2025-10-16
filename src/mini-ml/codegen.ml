@@ -81,15 +81,17 @@ let rec compile_type delta t =
   | Int -> Type.I31
   | Prod ts ->
       let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
-      Type.(Ref (GC, Prod ts'))
+      Type.(Ref (Concrete GC, Prod ts'))
   | Sum ts ->
       let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
-      Type.(Ref (GC, Sum ts'))
-  | Ref t -> Type.(Ref (GC, Ser (r t)))
+      Type.(Ref (Concrete GC, Sum ts'))
+  | Ref t -> Type.(Ref (Concrete GC, Ser (r t)))
   | Rec (v, t) -> Type.Rec (compile_type (v :: delta) t)
   | Exists (v, t) ->
       Type.(
-        Ref (GC, Exists (Quantifier.Type kind, compile_type (v :: delta) t)))
+        Ref
+          ( Concrete GC,
+            Exists (Quantifier.Type kind, compile_type (v :: delta) t) ))
   | Code { foralls; arg; ret } ->
       let r = compile_type (foralls @ delta) in
       Type.CodeRef
@@ -110,7 +112,7 @@ let rec compile_value delta gamma locals functions v =
   let r = compile_value delta gamma locals functions in
   let t = type_of_v unindexed v in
   let rw_t = compile_type delta t in
-  let box = [ New (Memory.GC, rw_t); Store (Path [], None) ] in
+  let box : Instruction.t list = [ New (GC, rw_t); Store (Path [], None) ] in
   match v with
   | Int i ->
       let open NumType in
@@ -135,7 +137,7 @@ let rec compile_value delta gamma locals functions v =
           gamma
       in
       (* local.get sets the value to unit, so we have to copy and put it back *)
-      [ LocalGet idx; Copy; LocalSet idx ]
+      [ LocalGet (idx, Move); Copy; LocalSet idx ]
 
 let rec compile_expr delta gamma locals functions e =
   let open Closed.Expr in
@@ -167,9 +169,9 @@ let rec compile_expr delta gamma locals functions e =
         locals,
         [] )
   | Project (n, v) ->
-      (cv v @ [ Load (Path.Path [ Path.Component.Proj n ]) ], locals, [])
-  | New v -> (cv v @ [ New (Memory.GC, rw_t) ], locals, [])
-  | Deref v -> (cv v @ [ Load (Path.Path []) ], locals, [])
+      (cv v @ [ Load (Path.Path [ Path.Component.Proj n ], Follow) ], locals, [])
+  | New v -> (cv v @ [ New (ConcreteMemory.GC, rw_t) ], locals, [])
+  | Deref v -> (cv v @ [ Load (Path.Path [], Follow) ], locals, [])
   | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path [], None) ], locals, [])
   | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals, [])
   | Unfold v -> (cv v @ [ Unfold ], locals, [])
@@ -183,12 +185,12 @@ let rec compile_expr delta gamma locals functions e =
       let fx = fx @ [ (new_local_idx, rw_unit) ] in
       ( cv v
         @ [
-            Load (Path.Path []);
+            Load (Path.Path [], Follow);
             Unpack
-              ( BlockType [ rw_t ],
+              ( ArrowType (1, [ rw_t ]),
                 LocalFx fx,
                 [ LocalSet new_local_idx ] @ e'
-                @ [ LocalGet new_local_idx; Drop ] );
+                @ [ LocalGet (new_local_idx, Move); Drop ] );
           ],
         locals',
         fx )
@@ -198,7 +200,8 @@ let rec compile_expr delta gamma locals functions e =
       let e2', locals', fx2 =
         compile_expr delta ((n, t, new_local_idx) :: gamma) locals' functions e2
       in
-      ( e1' @ [ LocalSet new_local_idx ] @ e2' @ [ LocalGet new_local_idx; Drop ],
+      ( e1' @ [ LocalSet new_local_idx ] @ e2'
+        @ [ LocalGet (new_local_idx, Move); Drop ],
         locals',
         fx1 @ fx2 )
   | If0 (c, thn, els) ->
@@ -207,7 +210,10 @@ let rec compile_expr delta gamma locals functions e =
         compile_expr delta gamma locals' functions els
       in
       ( cv c
-        @ [ Untag; Ite (BlockType [ rw_t ], LocalFx (fx_t @ fx_e), thn', els') ],
+        @ [
+            Untag;
+            Ite (ArrowType (1, [ rw_t ]), LocalFx (fx_t @ fx_e), thn', els');
+          ],
         locals',
         fx_t @ fx_e )
   | Cases (v, branches) ->
@@ -221,13 +227,16 @@ let rec compile_expr delta gamma locals functions e =
                 (locals @ [ (n, compile_type delta t) ])
                 functions e
             in
-            ( ((LocalSet new_local :: compiled) @ [ LocalGet new_local; Drop ])
+            ( ((LocalSet new_local :: compiled)
+              @ [ LocalGet (new_local, Move); Drop ])
               :: branches',
               locals',
               fx @ fx' ))
           ~init:([], locals, [])
       in
-      (cv v @ [ Case (BlockType [ rw_t ], LocalFx fx, branches') ], locals', fx)
+      ( cv v @ [ Case (ArrowType (1, [ rw_t ]), LocalFx fx, branches') ],
+        locals',
+        fx )
   | Apply (f, ts, arg) ->
       let fn_name =
         match f with
