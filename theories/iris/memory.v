@@ -176,6 +176,9 @@ Section Token.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
+  Definition mm_object_layout (mml : mm_layout_map) (mmo : mm_object_map) : Prop :=
+    map_Forall (fun a '(ks, ws) => Forall2 word_has_kind ks ws) (map_zip mml mmo).
+
   Definition mm_object_memory (mmo : mm_object_map) : iProp Σ :=
     (* TODO: Seems like this will never allow MM memory owned by the GC to be reclaimed. *)
     [∗ map] a ↦ ws ∈ mmo,
@@ -243,6 +246,7 @@ Section Token.
         ghost_map_auth rw_gc_objects 1 gco ∗
         ghost_map_auth rw_gc_roots (1/2) gcr ∗
         rti mml mmo gcl gco gcr ∗
+        ⌜mm_object_layout mml mmo⌝ ∗
         mm_object_memory mmo ∗
         ⌜gmap_injective θ⌝ ∗
         ⌜gc_closed_reach mmo gco gcr θ⌝ ∗
