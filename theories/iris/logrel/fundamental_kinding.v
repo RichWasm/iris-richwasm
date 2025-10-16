@@ -4,7 +4,7 @@
 From iris.proofmode Require Import base tactics classes.
 From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module codegen.
-From RichWasm.iris Require Import autowp gc util wp_codegen.
+From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.logrel Require Import relations.
 From Stdlib Require Import Relations.Relation_Operators.
 From stdpp Require Import list.
@@ -13,14 +13,13 @@ Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
 Section FundamentalKinding.
-  Context `{Σ: gFunctors}.
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
-  Context `{!RichWasmGCG Σ}.
+  Context `{!richwasmG Σ}.
 
+  Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
-  Variable gci : gc_invariant Σ.
   
   Lemma semantic_type_le_refl :
     ∀ (T: @semantic_type Σ), 
@@ -122,15 +121,15 @@ Section FundamentalKinding.
   Qed.
 
   Lemma subst_interp_kinds_map κs s__mem s__rep s__size se :
-    sem_env_interp sr gci κs s__mem s__rep s__size se ->
+    sem_env_interp sr rti κs s__mem s__rep s__size se ->
     map fst se = map (subst_kind s__mem s__rep s__size) κs.
   Proof.
   Admitted.
 
   Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp sr gci F s__mem s__rep s__size se ->
-    value_interp sr gci se (subst_type s__mem s__rep s__size VarT τ) ⊑
+    subst_env_interp sr rti F s__mem s__rep s__size se ->
+    value_interp sr rti se (subst_type s__mem s__rep s__size VarT τ) ⊑
       kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ).
   Proof.
     (*
@@ -166,7 +165,7 @@ Section FundamentalKinding.
 
   Lemma value_interp_var (se: semantic_env) (t: nat) (κ: kind) (T: semantic_type) :
     se !! t = Some (κ, T) ->
-    value_interp sr gci se (VarT t) ≡ (λne sv, kind_as_type_interp sr κ sv ∗ T sv)%I.
+    value_interp sr rti se (VarT t) ≡ (λne sv, kind_as_type_interp sr κ sv ∗ T sv)%I.
   Proof.
     intros.
     rewrite value_interp_part_eq.
@@ -184,7 +183,7 @@ Section FundamentalKinding.
   Qed.
 
   Lemma explicit_copy_prim_reps_interp ιs :
-    explicit_copy_spec sr gci ιs (prim_reps_interp sr ιs).
+    explicit_copy_spec sr rti ιs (prim_reps_interp sr ιs).
   Proof.
     unfold explicit_copy_spec; intros.
     iIntros "%Hcopy %Hwl Hfr Hrun Hprim".
@@ -200,7 +199,7 @@ Section FundamentalKinding.
 
   Lemma copyability_kind ρ ιs χ δ :
     eval_rep ρ = Some ιs ->
-    copyability_interp sr gci ρ χ (kind_as_type_interp sr (VALTYPE ρ χ δ)).
+    copyability_interp sr rti ρ χ (kind_as_type_interp sr (VALTYPE ρ χ δ)).
   Proof.
     unfold copyability_interp.
     intros H.
@@ -217,9 +216,9 @@ Section FundamentalKinding.
   Qed.
 
   Lemma copyability_sep ρ χ S T :
-    copyability_interp sr gci ρ χ S ->
-    copyability_interp sr gci ρ χ T ->
-    copyability_interp sr gci ρ χ (λne sv, (S sv ∗ T sv)%I).
+    copyability_interp sr rti ρ χ S ->
+    copyability_interp sr rti ρ χ T ->
+    copyability_interp sr rti ρ χ (λne sv, (S sv ∗ T sv)%I).
   Proof.
     destruct χ; cbn.
     - auto.
@@ -233,8 +232,8 @@ Section FundamentalKinding.
 
   Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
     has_kind F τ (VALTYPE ρ χ δ) ->
-    subst_env_interp sr gci F s__mem s__rep s__size se ->
-    copyability_interp sr gci (subst_representation s__rep ρ) χ (value_interp sr gci se (subst_type s__mem s__rep s__size VarT τ)).
+    subst_env_interp sr rti F s__mem s__rep s__size se ->
+    copyability_interp sr rti (subst_representation s__rep ρ) χ (value_interp sr rti se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind.
     remember (VALTYPE ρ χ δ) as κ.
@@ -308,9 +307,9 @@ Section FundamentalKinding.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp sr gci F s__mem s__rep s__size se ->
-    kind_interp sr gci (subst_kind s__mem s__rep s__size κ)
-      (value_interp sr gci se (subst_type s__mem s__rep s__size VarT τ)).
+    subst_env_interp sr rti F s__mem s__rep s__size se ->
+    kind_interp sr rti (subst_kind s__mem s__rep s__size κ)
+      (value_interp sr rti se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind. 
     revert s__mem s__rep s__size se.

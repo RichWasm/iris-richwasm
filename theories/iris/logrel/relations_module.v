@@ -1,5 +1,5 @@
 Require Import RichWasm.compiler.prelude.
-From RichWasm.iris Require Import gc util.
+From RichWasm.iris Require Import memory util.
 Require Import RichWasm.iris.logrel.relations.
 Require Import RichWasm.iris.host.iris_host.
 Require Import RichWasm.syntax.
@@ -8,14 +8,14 @@ Section Relations.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
-  Context `{!RichWasmGCG Σ}.
+  Context `{!richwasmG Σ}.
   Context `{!wasmG Σ}.
   Context `{!hvisG Σ}.
   Context `{!hmsG Σ}.
   Context `{!hasG Σ}.
 
+  Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
-  Variable gci : gc_invariant Σ.
 
   (* TODO *)
   Definition module_interp (ω : module_type) (mr : module_runtime) (m : W.module) : iProp Σ :=
@@ -26,7 +26,7 @@ Section Relations.
           ∃ bs j cl,
             N.of_nat i ↪[vis] Build_module_export bs (MED_func j) ∗
               N.of_nat (funcimm j) ↦[wf] cl ∗
-              closure_interp sr gci [] ϕ cl ∗
+              closure_interp sr rti [] ϕ cl ∗
               ⌜imports !! (funcimm mr.(mr_func_user) + i)%nat = Some (N.of_nat (funcimm j))⌝) -∗
        ([∗ list] i ↦ '_ ∈ ω.(mt_exports),
           ∃ bs j,
@@ -38,7 +38,7 @@ Section Relations.
                   ([∗ list] i ↦ ϕ ∈ ω.(mt_exports),
                      ∃ j cl, (* TODO: same j as precond *)
                        N.of_nat (funcimm j) ↦[wf] cl ∗
-                         closure_interp sr gci [] ϕ cl) }})%I.
+                         closure_interp sr rti [] ϕ cl) }})%I.
 
   (* TODO *)
   Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=

@@ -4,7 +4,7 @@ Require Import iris.proofmode.tactics.
 From Wasm.iris.helpers Require Import iris_properties.
 
 From RichWasm.compiler Require Import prelude codegen instruction memory util.
-From RichWasm.iris Require Import gc memory runtime util.
+From RichWasm.iris Require Import memory runtime util.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 From RichWasm Require Import syntax typing layout util.
 
@@ -17,10 +17,10 @@ Section Relations.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
-  Context `{!RichWasmGCG Σ}.
+  Context `{!richwasmG Σ}.
 
   Variable sr : store_runtime.
-  Variable gci : gc_invariant Σ.
+  Variable rti : rt_invariant Σ.
 
   Definition ns_glo (n : N) : namespace := nroot .@ "rwg" .@ n.
   Definition ns_fun (n : N) : namespace := nroot .@ "rwf" .@ n.
@@ -91,8 +91,9 @@ Section Relations.
 
   Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
     match ι with
-    | PtrR => exists θ p n,
-        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_off) θ p n
+    | PtrR => exists ps p n,
+        (* TODO: Make the pointer space a parameter. *)
+        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_off) ps p n
     | I32R => exists n, v = VAL_int32 n
     | I64R => exists n, v = VAL_int64 n
     | F32R => exists n, v = VAL_float32 n
@@ -128,7 +129,7 @@ Section Relations.
       ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr⌝ -∗
       ⌜fr.(f_inst).(inst_funcs) !! funcimm mr.(mr_func_registerroot) =
          Some sr.(sr_func_registerroot)⌝ -∗
-      ⌜spec_registerroot sr gci cl⌝ -∗
+      ⌜spec_registerroot rti sr cl⌝ -∗
       N.of_nat sr.(sr_func_registerroot) ↦[wf] cl -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
@@ -271,11 +272,10 @@ Section Relations.
 
   Definition ref_mm_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
-      (∃ a ws ns bs,
+      (∃ a ks ws,
          ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
-           N.of_nat sr.(sr_mem_mm) ↦[wms][a] bs ∗
-           ⌜repr_list_word sr.(sr_gc_heap_off) ∅ ws ns⌝ ∗
-           ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
+           a ↦mml ks ∗
+           a ↦mmo ws ∗
            ▷ vrel se τ (SWords MemMM ws))%I.
 
   Definition ref_gc_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
@@ -283,13 +283,15 @@ Section Relations.
       (∃ a ℓ,
          ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
            a ↦gcr ℓ ∗
-           na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws)))%I.
+           na_inv logrel_nais (ns_ref ℓ)
+             (∃ ks ws, ℓ ↦gcl ks ∗ ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws)))%I.
 
   Definition gcptr_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
       (∃ ℓ,
          ⌜sv = SWords MemGC [WordPtr (PtrGC ℓ)]⌝ ∗
-           na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws)))%I.
+           na_inv logrel_nais (ns_ref ℓ)
+             (∃ ks ws, ℓ ↦gcl ks ∗ ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws)))%I.
 
   Definition coderef_interp (vrel : value_relation) (se : semantic_env) (ϕ : function_type) : SVR :=
     λne sv,
@@ -522,14 +524,14 @@ Section Relations.
         na_inv logrel_nais (ns_fun (N.of_nat a)) (N.of_nat a ↦[wf] cl).
 
   Definition instance_runtime_interp (mr : module_runtime) (inst : instance) : iProp Σ :=
-    instance_rt_func_interp mr.(mr_func_alloc_mm) sr.(sr_func_alloc_mm) spec_alloc_mm inst ∗
+    instance_rt_func_interp mr.(mr_func_alloc_mm) sr.(sr_func_alloc_mm) (spec_alloc_mm sr) inst ∗
       instance_rt_func_interp
-        mr.(mr_func_alloc_gc) sr.(sr_func_alloc_gc) (spec_alloc_gc sr gci) inst ∗
+        mr.(mr_func_alloc_gc) sr.(sr_func_alloc_gc) (spec_alloc_gc rti sr) inst ∗
       instance_rt_func_interp mr.(mr_func_free) sr.(sr_func_free) spec_free inst ∗
       instance_rt_func_interp
-        mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot sr gci) inst ∗
+        mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) inst ∗
       instance_rt_func_interp
-        mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot sr gci) inst.
+        mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot rti sr) inst.
 
   Definition instance_functions_interp (M : module_ctx) (mr : module_runtime) (inst : instance) :
     iProp Σ :=
