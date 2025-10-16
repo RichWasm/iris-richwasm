@@ -1371,10 +1371,50 @@ Section Fundamental.
     unfold have_instruction_type_sem in Hsem_e, Hsem_es.
 
     iPoseProof (Hsem_e) as "Hsem_e"; iPoseProof (Hsem_es) as "Hsem_es".
-    iSpecialize ("Hsem_e" $! s__mem s__rep s__size se inst lh Henv with "Hinst").
-    iSpecialize ("Hsem_es" $! s__mem s__rep s__size se inst lh Henv with "Hinst").
+    iSpecialize ("Hsem_e" $! s__mem s__rep s__size se inst lh Henv with "Hinst Hlf").
+    iSpecialize ("Hsem_es" $! s__mem s__rep s__size se inst lh Henv with "Hinst Hlf").
 
-    (* Issue arises right here! *)
+    (* Time to use the resources!*)
+    iSpecialize("Hsem_e" $! fr vs with "Hvs Hframe Hfr Hrun").
+
+    rewrite (app_assoc (v_to_e_list vs) (to_e_list e') (to_e_list es')).
+    cbn.
+    (* We have a goal with a lwp with two concatted expression lists. Our context has
+       a resource for the lenient weakest precondition for the first of the two.
+       lenient_wp_seq, then, seems perfect.
+
+       However, the problem will arise from the fact that our lenient_wp es is stuck
+       behind some resources.
+     *)
+    iApply lenient_wp_seq.
+    (* This line uses up the lenient_wp for e completely.*)
+    iSplitL "Hsem_e"; [iExact "Hsem_e"|].
+    iSplitL; cbn.
+    * (* This is the trap case in the lemma. Intros. *)
+      iIntros (f) "[_ Hvsl2]".
+      iSplitR "Hvsl2"; [done |].
+      iDestruct "Hvsl2" as "[%vss_L [%vs_WL [%Hf [[%Hpriminterp HvalinterpL2] [%Hresultinterp Hnaown]]]]]".
+
+      (* Slightly scary: vss_L and vs_WL don't change due to the f = ..*)
+      iExists vss_L; iExists vs_WL.
+      iFrame. (* For some reason, iFrame doesn't get the pures, so some silliness:*)
+      iSplitR "HvalinterpL2"; [done |]. iSplitL "HvalinterpL2"; [| done].
+      iSplitR "HvalinterpL2"; [done |].
+
+      (* ISSUE IS HERE *)
+      (* The problem here is that we need to prove the value_interps for local context L3.
+         Information about that is in lp_fr in the Hsem_es hypothesis. But, it's stuck
+         behind some resources, with the frame and run resources most obviously un-gettable
+         in the current state.
+         If we still had the lenient_wp e, we'd be able to get those out (and the others), but
+         it's gone due to being used up in the first conjunctiono f the lemma.
+         I'm not exactly sure how to prove a lenient wp (e' ++ es') if we don't use this lemma, honestly.
+         If we don't use this lemma and just try to shove resources from lenient wp e into Hsem_es,
+         we just get back a lenient_wp es, *not* for the full thing. So it seems a lemma of lenient_wp_seq's
+         shape must be used, but I'm not sure how.
+       *)
+      admit.
+    * admit.
   Admitted.
 
   Lemma compat_frame M F L L' wl wl' wlf es es' τ τs1 τs2 :

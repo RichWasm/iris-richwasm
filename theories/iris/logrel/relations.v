@@ -45,7 +45,7 @@ Section Relations.
   Notation CtxR := (leibnizO lholed -n> iPropO Σ).
   Notation ER := (leibnizO (list administrative_instruction) -n> iPropO Σ).
   Notation BR := (leibnizO lholed -n> leibnizO (list (list type * local_ctx)) -n>
-                    leibnizO {n : nat & valid_holed n} -n> iProp Σ).
+                    discrete_funO (λ n, leibnizO (valid_holed n) -n> iProp Σ)).
   Notation RR := (leibnizO simple_valid_holed -n> iPropO Σ).
 
   Implicit Type L : leibnizO local_ctx.
@@ -62,7 +62,8 @@ Section Relations.
   Implicit Type cl : leibnizO function_closure.
   Implicit Type inst : leibnizO instance.
   Implicit Type lh : leibnizO lholed.
-  Implicit Type vh : leibnizO {n : nat & valid_holed n}.
+  (* vh is always dependently typed, so we can't give it a static implicit type. *)
+  (*Implicit Type vh : leibnizO (valid_holed _).*)
   Implicit Type svh : leibnizO simple_valid_holed.
 
   Implicit Type τ : leibnizO type.
@@ -100,17 +101,17 @@ Section Relations.
     | F64R => exists n, v = VAL_float64 n
     end.
 
-  Definition prim_reps_interp (ιs: list primitive_rep) : semantic_type :=
-    λne sv,
+  Definition prim_reps_interp (ιs: list primitive_rep) : semantic_value -> Prop :=
+    λ sv,
       match sv with
-      | SValues vs => ⌜Forall2 primitive_rep_interp ιs vs⌝
+      | SValues vs => Forall2 primitive_rep_interp ιs vs
       | _ => False
-      end%I.
+      end.
 
-  Definition representation_interp (ρ : representation) : semantic_type :=
+  Definition representation_interp (ρ : representation) : semantic_value -> Prop  :=
     match eval_rep ρ with
     | Some ιs => prim_reps_interp ιs
-    | None => λne _, False%I
+    | None => λ _ , False
     end.
 
   Definition is_copy_operation
@@ -145,7 +146,7 @@ Section Relations.
                ↪[RUN] ∗ N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
                  ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
            lp_trap := True;
-           lp_br := λ _, False;
+           lp_br := λ _ _, False;
            lp_ret := λ _, False;
            lp_host := λ _ _ _ _, False |}.
 
@@ -177,7 +178,7 @@ Section Relations.
 
   Definition kind_as_type_interp (κ : kind) : semantic_type :=
     match κ with
-    | VALTYPE ρ χ _ => λne sv, representation_interp ρ sv
+    | VALTYPE ρ χ _ => λne sv, ⌜representation_interp ρ sv⌝
     | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
     end%I.
 
@@ -208,7 +209,7 @@ Section Relations.
               {| lp_fr := fun fr' => ⌜fr = fr'⌝;
                  lp_val := fun vs2 => values_interp0 vrel se τs2 vs2 ∗ ↪[RUN];
                  lp_trap := True;
-                 lp_br := fun _ => False;
+                 lp_br := fun _ _ => False;
                  lp_ret := fun _ => False;
                  lp_host := fun _ _ _ _ => False |}
         | FC_func_host _ _ => False
@@ -456,14 +457,14 @@ Section Relations.
              WP [AI_local (length vs) fr' (of_val (retV svh))]
                 {{ lv, ∃ vs', ⌜lv = immV vs'⌝ ∗ values_interp se τr vs' ∗ ↪[frame] fr }})%I.
 
-  Definition br_interp0
+  Program Definition br_interp0
     (se : semantic_env) (τr : list type) (ιss_L : list (list primitive_rep)) (L : local_ctx)
     (WL : wlocal_ctx) (inst : instance) (br_interp : BR) :
     BR :=
-    λne lh τc vh,
+    λne lh τc, λ (n: nat), λne (vh: leibnizO (valid_holed n)),
       (∃ j k p lh' lh'' τs es0 es es' vs0 vs,
-         ⌜get_base_l (projT2 vh) = vs0 ++ vs⌝ ∗
-           ⌜lh_depth (lh_of_vh (projT2 vh)) = p⌝ ∗
+         ⌜get_base_l vh = vs0 ++ vs⌝ ∗
+           ⌜lh_depth (lh_of_vh vh) = p⌝ ∗
            ⌜τc !! (j - p) = Some (τs, L)⌝ ∗
            ⌜get_layer lh (lh_depth lh - S (j - p)) = Some (es0, k, es, lh', es')⌝ ∗
            ⌜lh_depth lh'' = lh_depth lh - S (j - p)⌝ ∗
@@ -494,12 +495,21 @@ Section Relations.
     BR :=
     fixpoint (br_interp0 se τr ιss_L L WL inst).
 
-  Lemma br_interp_eq se τr ιss_L L WL inst lh l vh :
-    br_interp se τr ιss_L L WL inst lh l vh ⊣⊢
-      br_interp0 se τr ιss_L L WL inst (br_interp se τr ιss_L L WL inst) lh l vh.
+  Lemma br_interp_eq se τr ιss_L L WL inst n lh l vh :
+    br_interp se τr ιss_L L WL inst lh l n vh ⊣⊢
+      br_interp0 se τr ιss_L L WL inst (br_interp se τr ιss_L L WL inst) lh l n vh.
   Proof.
-    do 3 f_equiv.
-    apply fixpoint_unfold.
+    f_equiv.
+    (* f_equiv has some trouble with discrete_funO equivalences *)
+    cut (br_interp se τr ιss_L L WL inst lh l
+           ≡ br_interp0 se τr ιss_L L WL inst (br_interp se τr ιss_L L WL inst) lh l).
+    { intros H.
+      unfold equiv, ofe_equiv, discrete_funO, discrete_fun_equiv in H.
+      apply H.
+    }
+    f_equiv.
+    f_equiv.
+    by rewrite -fixpoint_unfold.
   Qed.
 
   Definition expr_interp

@@ -23,7 +23,7 @@ Section Runtime.
         {| lp_fr := fun fr' => ⌜fr = fr'⌝ ∗ ↪[frame] fr;
            lp_val := fun vs => True;
            lp_trap := True;
-           lp_br := fun _ => False;
+           lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -50,7 +50,7 @@ Section Runtime.
                      ℓ ↦gcl ks ∗
                      ℓ ↦gco ws;
            lp_trap := True;
-           lp_br := fun _ => False;
+           lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -80,7 +80,7 @@ Section Runtime.
                    rt_token rti sr (ps <| ps_gc_roots ::= ({[a']} ∪.) |>) ∗
                    a' ↦gcr ℓ;
            lp_trap := True;
-           lp_br := fun _ => False;
+           lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -104,7 +104,7 @@ Section Runtime.
                    ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m a')]⌝ ∗
                      ⌜repr_location ps.(ps_gc_ptrs) ℓ a'⌝;
            lp_trap := True;
-           lp_br := fun _ => False;
+           lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 

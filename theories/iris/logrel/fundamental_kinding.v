@@ -4,7 +4,7 @@
 From iris.proofmode Require Import base tactics classes.
 From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module codegen.
-From RichWasm.iris Require Import autowp memory util wp_codegen.
+From RichWasm.iris Require Import autowp memory util wp_codegen lenient_wp logpred.
 From RichWasm.iris.logrel Require Import relations.
 From Stdlib Require Import Relations.Relation_Operators.
 From stdpp Require Import list.
@@ -156,11 +156,7 @@ Section FundamentalKinding.
   Instance kind_as_type_persistent κ sv :
     @Persistent (iProp Σ) (kind_as_type_interp sr κ sv).
   Proof.
-    destruct κ, sv; cbn; try typeclasses eauto.
-    - unfold representation_interp.
-      destruct (eval_rep r); typeclasses eauto.
-    - unfold representation_interp.
-      destruct (eval_rep r); typeclasses eauto.
+    destruct κ, sv; cbn; typeclasses eauto.
   Qed.
 
   Lemma value_interp_var (se: semantic_env) (t: nat) (κ: kind) (T: semantic_type) :
@@ -181,12 +177,37 @@ Section FundamentalKinding.
       iFrame.
     - eauto.
   Qed.
+  
+  Lemma prim_rep_val_type ι v :
+    primitive_rep_interp sr ι v ->
+    value_type_interp (translate_prim_rep ι) v.
+  Proof.
+    destruct ι; cbn; intros; eauto.
+    destruct H as (θ & p & n & -> & Hrep); eauto.
+  Qed.
+
+  Lemma prim_reps_result_type ιs vs :
+    prim_reps_interp sr ιs (SValues vs) ->
+    result_type_interp (map translate_prim_rep ιs) vs.
+  Proof.
+    revert vs.
+    induction ιs; intros.
+    - cbn.
+      unfold result_type_interp.
+      intros.
+      inversion H.
+      constructor.
+    - inversion H; cbn; subst.
+      constructor; cbn; eauto.
+      + apply prim_rep_val_type; eauto.
+      + eapply IHιs; eauto.
+  Qed.
 
   Lemma explicit_copy_prim_reps_interp ιs :
-    explicit_copy_spec sr rti ιs (prim_reps_interp sr ιs).
+    explicit_copy_spec sr rti ιs (λne (sv: leibnizO semantic_value), ⌜prim_reps_interp sr ιs sv⌝)%I.
   Proof.
     unfold explicit_copy_spec; intros.
-    iIntros "%Hcopy %Hwl Hfr Hrun Hprim".
+    iIntros "%Hcopy %Hwl %Hreg %Hfunc Hregcl Hfr Hrun %Hprim".
     unfold is_copy_operation in Hcopy.
     destruct Hcopy as (es' & Hcg & <-).
     inv_cg_bind Hcg res wl1 wl2 es1 es2 Hcg1 Hcg2.
@@ -194,7 +215,39 @@ Section FundamentalKinding.
     inv_cg_bind Hcg3 res2 wl5 wl6 es5 es6 Hcg3 Hcg4.
     subst.
     rewrite <- !app_assoc in Hwl.
-    eapply wp_save_stack_w in Hcg1; eauto.
+    eapply lwp_save_stack_w in Hcg1; 
+      [| done |by apply prim_reps_result_type].
+    destruct Hcg1 as (Hres & Hwl1 & Hwpes1).
+    repeat rewrite to_e_list_cat W.cat_app.
+    rewrite app_assoc.
+    iApply (lenient_wp_seq with "[Hfr Hrun]");
+      [ iApply (Hwpes1 with "[$] [$]")
+      | iIntros (?) "%Hfalse"; tauto 
+      | ].
+    clear Hwpes1.
+    cbn.
+    iIntros (w f) "Hnotrap Hfr [%Hlocs %Hsaved]".
+    destruct w; cbn; try done.
+    iDestruct "Hnotrap" as "[Hrun ->]".
+    rewrite app_nil_l.
+    eapply lwp_restore_stack_w in Hcg2; 
+      [| by eapply Forall2_length].
+    destruct Hcg2 as (-> & -> & Hwpes3).
+    iApply (lenient_wp_seq with "[Hfr Hrun]");
+      [ iApply (Hwpes3 with "[$] [$]"); done
+      | iIntros (?) "%Hfalse"; tauto 
+      | ].
+    clear Hwpes3.
+    unfold lp_notrap.
+    iIntros (w f') "Hwes Hfr ->".
+    destruct w; try done.
+    cbn.
+    iDestruct "Hwes" as "[Hrun ->]".
+    rewrite app_assoc.
+    iApply (lenient_wp_seq with "[Hfr Hrun]").
+    - admit.
+    - admit.
+    - admit.
   Admitted.
 
   Lemma copyability_kind ρ ιs χ δ :

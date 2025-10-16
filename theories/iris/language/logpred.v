@@ -9,7 +9,7 @@ Section logpred.
         lpo_fr: leibnizO datatypes.frame -n> iProp Σ;
         lpo_val: listO (leibnizO value) -n> iProp Σ;
         lpo_trap: iProp Σ;
-        lpo_br: sigTO (λ n, leibnizO (valid_holed n)) -n> iProp Σ;
+        lpo_br: discrete_funO (λ n, leibnizO (valid_holed n) -n> iProp Σ);
         lpo_ret: leibnizO simple_valid_holed -n> iProp Σ;
         lpo_host: leibnizO function_type -n> leibnizO hostfuncidx -n> listO (leibnizO value) -n> leibnizO llholed -n> iProp Σ;
       }.
@@ -19,7 +19,7 @@ Section logpred.
         lp_fr: datatypes.frame -> A;
         lp_val: list value -> A;
         lp_trap: A;
-        lp_br: sigT valid_holed -> A;
+        lp_br: forall n, valid_holed n -> A;
         lp_ret: simple_valid_holed -> A;
         lp_host: function_type -> hostfuncidx -> list value -> llholed -> A;
       }.
@@ -37,7 +37,7 @@ Section logpred.
     λ w, match w with
          | immV vs => Φ.(lp_val) vs
          | trapV => ↪[BAIL] ∗ Φ.(lp_trap)
-         | brV i lh => Φ.(lp_br) (existT i lh)
+         | brV i lh => Φ.(lp_br) i lh
          | retV lh => Φ.(lp_ret) lh
          | callHostV ft hidx vs lh => Φ.(lp_host) ft hidx vs lh
          end.
@@ -53,7 +53,7 @@ Section logpred.
       lp_fr := λ fr, f (lp_fr p fr);
       lp_val := λ vs, f (lp_val p vs);
       lp_trap := f (lp_trap p);
-      lp_br := λ lh, f (lp_br p lh);
+      lp_br := λ n lh, f (lp_br p n lh);
       lp_ret := λ lh, f (lp_ret p lh);
       lp_host := λ ft hf vs lh, f (lp_host p ft hf vs lh)
     |}.
@@ -63,13 +63,13 @@ Section logpred.
       lp_fr := λ fr, f (lp_fr Φ1 fr) (lp_fr Φ2 fr);
       lp_val := λ vs, f (lp_val Φ1 vs) (lp_val Φ2 vs);
       lp_trap := f (lp_trap Φ1) (lp_trap Φ2);
-      lp_br := λ lh, f (lp_br Φ1 lh) (lp_br Φ2 lh);
+      lp_br := λ n lh, f (lp_br Φ1 n lh) (lp_br Φ2 n lh);
       lp_ret := λ lh, f (lp_ret Φ1 lh) (lp_ret Φ2 lh);
       lp_host := λ ft hf vs lh, f (lp_host Φ1 ft hf vs lh) (lp_host Φ2 ft hf vs lh)
     |}.
 
   Definition lp_const (Φ: iProp Σ) : logpred :=
-    MkLP (λ fr, ⌜True⌝) (λ vs, Φ) Φ (λ lh, Φ) (λ lh, Φ) (λ ft hf vs lh, Φ).
+    MkLP (λ fr, ⌜True⌝) (λ vs, Φ) Φ (λ n lh, Φ) (λ lh, Φ) (λ ft hf vs lh, Φ).
 
   Definition lp_emp : logpred :=
     lp_const emp.
@@ -110,7 +110,7 @@ Section logpred.
       lp_fr := λ fr a, lp_fr (p a) fr;
       lp_val := λ vs a, lp_val (p a) vs;
       lp_trap := λ a, lp_trap (p a);
-      lp_br := λ lh a, lp_br (p a) lh;
+      lp_br := λ n lh a, lp_br (p a) n lh;
       lp_ret := λ lh a, lp_ret (p a) lh;
       lp_host := λ ft hf vs lh a, lp_host (p a) ft hf vs lh;
     |}.
