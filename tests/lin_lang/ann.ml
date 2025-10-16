@@ -222,7 +222,7 @@ let%expect_test "examples" =
         m_exports := [0];
         |}
     -----------app_ident-----------
-    FAILURE (CannotFindRep (Var (0 ())))
+    FAILURE TODO
     -----------nested_arith-----------
     {|
         m_imports := [];
@@ -248,18 +248,32 @@ let%expect_test "examples" =
     -----------let_bind-----------
     FAILURE TODO
     -----------add_one_program-----------
-    FAILURE (CannotFindRep (Var (0 ())))
+    FAILURE TODO
     -----------add_tup_ref-----------
     FAILURE TODO
     -----------print_10-----------
-    FAILURE (CannotFindRep (Var (0 ())))
+    FAILURE TODO
     -----------factorial_program-----------
-    FAILURE (CannotFindRep (Var (0 ())))
+    FAILURE TODO
     -----------safe_div-----------
-    FAILURE (CannotFindRep (Var (0 ())))
+    FAILURE TODO
     -----------incr_n-----------
-    FAILURE (CannotFindRep (Var (0 ())))
-    -----------fix_factorial-----------
-    FAILURE (CannotFindRep (Var (0 ())))
-    -----------unboxed_list-----------
-    FAILURE (CannotFindRep (Var (0 ("\206\177")))) |xxx}]
+    FAILURE TODO
+    -----------fix_factorial[invalid]-----------
+    FAILURE (Ctx (CannotFindRep (Var (0 ())))
+     (Exists
+      (Lollipop
+       (Prod
+        ((Var (0 ()))
+         (Exists
+          (Lollipop
+           (Prod
+            ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+    -----------unboxed_list[invlaid]-----------
+    FAILURE (Ctx (CannotFindRep (Var (0 ("\206\177"))))
+     (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
+    -----------boxed_list-----------
+    FAILURE (Ctx (CannotFindRep (Var (0 ())))
+     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))) |xxx}]
