@@ -1386,13 +1386,10 @@ Section Fundamental.
        However, the problem will arise from the fact that our lenient_wp es is stuck
        behind some resources.
      *)
-    iApply lenient_wp_seq.
-    (* This line uses up the lenient_wp for e completely.*)
-  Admitted. 
-(*     iSplitL "Hsem_e"; [iExact "Hsem_e"|].
-    iSplitL; cbn.
-    * (* This is the trap case in the lemma. Intros. *)
-      iIntros (f) "[_ Hvsl2]".
+
+    (* NOTE: This line uses up the lenient_wp for e completely (Hsem_e)*)
+    iApply (lenient_wp_seq  with "Hsem_e"); cbn.
+    - iIntros (f) "_ Hvsl2".
       iSplitR "Hvsl2"; [done |].
       iDestruct "Hvsl2" as "[%vss_L [%vs_WL [%Hf [[%Hpriminterp HvalinterpL2] [%Hresultinterp Hnaown]]]]]".
 
@@ -1415,8 +1412,8 @@ Section Fundamental.
          shape must be used, but I'm not sure how.
        *)
       admit.
-    * admit.
-  Admitted. *)
+    - admit.
+  Admitted.
 
   Lemma compat_frame M F L L' wl wl' wlf es es' τ τs1 τs2 :
     let fe := fe_of_context F in
