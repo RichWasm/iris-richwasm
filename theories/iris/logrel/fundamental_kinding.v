@@ -4,7 +4,7 @@
 From iris.proofmode Require Import base tactics classes.
 From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module codegen.
-From RichWasm.iris Require Import autowp gc util wp_codegen.
+From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.logrel Require Import relations.
 From Stdlib Require Import Relations.Relation_Operators.
 From stdpp Require Import list.
@@ -13,14 +13,13 @@ Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
 Section FundamentalKinding.
-  Context `{Σ: gFunctors}.
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
-  Context `{!RichWasmGCG Σ}.
+  Context `{!richwasmG Σ}.
 
+  Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
-  Variable gci : gc_invariant Σ.
   
   Lemma semantic_type_le_refl :
     ∀ (T: @semantic_type Σ), 
@@ -122,15 +121,15 @@ Section FundamentalKinding.
   Qed.
 
   Lemma subst_interp_kinds_map κs s__mem s__rep s__size se :
-    sem_env_interp sr mr κs s__mem s__rep s__size se ->
+    sem_env_interp sr rti κs s__mem s__rep s__size se ->
     map fst se = map (subst_kind s__mem s__rep s__size) κs.
   Proof.
   Admitted.
 
   Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp sr mr F s__mem s__rep s__size se ->
-    value_interp sr mr gci se (subst_type s__mem s__rep s__size VarT τ) ⊑
+    subst_env_interp sr rti F s__mem s__rep s__size se ->
+    value_interp sr rti se (subst_type s__mem s__rep s__size VarT τ) ⊑
       kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ).
   Proof.
     (*
@@ -164,12 +163,9 @@ Section FundamentalKinding.
       destruct (eval_rep r); typeclasses eauto.
   Qed.
 
-  Instance copyability_proper : Proper (eq ==> eq ==> eq ==> equiv ==> equiv) copyability_interp.
-  Admitted.
-
   Lemma value_interp_var (se: semantic_env) (t: nat) (κ: kind) (T: semantic_type) :
     se !! t = Some (κ, T) ->
-    value_interp sr mr gci se (VarT t) ≡ (λne sv, kind_as_type_interp sr κ sv ∗ T sv)%I.
+    value_interp sr rti se (VarT t) ≡ (λne sv, kind_as_type_interp sr κ sv ∗ T sv)%I.
   Proof.
     intros.
     rewrite value_interp_part_eq.
@@ -187,13 +183,23 @@ Section FundamentalKinding.
   Qed.
 
   Lemma explicit_copy_prim_reps_interp ιs :
-    explicit_copy_spec mr ιs (prim_reps_interp sr ιs).
+    explicit_copy_spec sr rti ιs (prim_reps_interp sr ιs).
   Proof.
+    unfold explicit_copy_spec; intros.
+    iIntros "%Hcopy %Hwl Hfr Hrun Hprim".
+    unfold is_copy_operation in Hcopy.
+    destruct Hcopy as (es' & Hcg & <-).
+    inv_cg_bind Hcg res wl1 wl2 es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res1 wl3 wl4 es3 es4 Hcg2 Hcg3.
+    inv_cg_bind Hcg3 res2 wl5 wl6 es5 es6 Hcg3 Hcg4.
+    subst.
+    rewrite <- !app_assoc in Hwl.
+    eapply wp_save_stack_w in Hcg1; eauto.
   Admitted.
 
   Lemma copyability_kind ρ ιs χ δ :
     eval_rep ρ = Some ιs ->
-    copyability_interp mr ρ χ (kind_as_type_interp sr (VALTYPE ρ χ δ)).
+    copyability_interp sr rti ρ χ (kind_as_type_interp sr (VALTYPE ρ χ δ)).
   Proof.
     unfold copyability_interp.
     intros H.
@@ -210,9 +216,9 @@ Section FundamentalKinding.
   Qed.
 
   Lemma copyability_sep ρ χ S T :
-    copyability_interp mr ρ χ S ->
-    copyability_interp mr ρ χ T ->
-    copyability_interp mr ρ χ (λne sv, (S sv ∗ T sv)%I).
+    copyability_interp sr rti ρ χ S ->
+    copyability_interp sr rti ρ χ T ->
+    copyability_interp sr rti ρ χ (λne sv, (S sv ∗ T sv)%I).
   Proof.
     destruct χ; cbn.
     - auto.
@@ -221,63 +227,62 @@ Section FundamentalKinding.
       typeclasses eauto.
   Admitted.
 
+  Instance copyability_proper : Proper (eq ==> eq ==> eq ==> eq ==> equiv ==> equiv) copyability_interp.
+  Admitted.
+
   Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
     has_kind F τ (VALTYPE ρ χ δ) ->
-    subst_env_interp sr mr F s__mem s__rep s__size se ->
-    copyability_interp mr (subst_representation s__rep ρ) χ (value_interp sr mr gci se (subst_type s__mem s__rep s__size VarT τ)).
+    subst_env_interp sr rti F s__mem s__rep s__size se ->
+    copyability_interp sr rti (subst_representation s__rep ρ) χ (value_interp sr rti se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind.
     remember (VALTYPE ρ χ δ) as κ.
     revert Heqκ.
     revert ρ χ δ.
-    (*
     induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *;
-      iIntros "[%Hsubst Henv]"; try subst κ; try subst κ'.
+      intros [Hsubst Henv]; try subst κ; try subst κ'.
     - inversion H; subst; eauto.
       + specialize (IHHkind _ _ _ eq_refl).
         cbn in IHHkind.
+        cbn.
         admit.
-      + iApply IHHkind; eauto.
-        by iFrame.
-      + iApply IHHkind; eauto.
-        by iFrame.
+      + cbn; done.
+      + specialize (IHHkind _ _ _ eq_refl).
+        eapply IHHkind.
+        split; auto.
+      + specialize (IHHkind _ _ _ eq_refl).
+        eapply IHHkind.
+        split; eauto.
     - simpl subst_type.
-      unfold sem_env_interp.
-      iPoseProof (big_sepL2_length with "Henv") as "%Hlen".
-      assert (Hκt': exists κt', se !! t = Some κt').
-      {
-        apply lookup_lt_is_Some.
-        rewrite Hlen.
-        apply lookup_lt_is_Some.
-        eauto.
-      }
-      destruct Hκt' as [[κt' T] Hκt'].
-      iPoseProof (big_sepL2_lookup_acc with "Henv") as "[[%Hκsubst Hκinterp] Henv]"; eauto.
+      unfold sem_env_interp in Henv.
+      pose proof (Forall2_length _ _ _ Henv) as Hlen.
+      eapply Forall2_lookup_r in H; eauto.
+      destruct H as [[κt' T] [Hκt' [Hκsubst Hκinterp]]].
+      cbn in Hκsubst, Hκinterp.
       cbn in *; subst.
       rewrite value_interp_var; eauto.
-      iApply (copyability_sep ).
-      + iApply copyability_kind.
+      apply copyability_sep.
+      + eapply copyability_kind; eauto.
         admit.
       + cbn.
-        iDestruct "Hκinterp" as "[_ Hcopy]".
-        iFrame.
+        by destruct Hκinterp.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
       cbn.
-      iIntros "%sv !%".
+      intros.
       rewrite value_interp_eq; cbn.
       typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn.
       typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn; typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn; typeclasses eauto.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      iIntros "%sv !%".
+      intros sv.
       rewrite value_interp_eq; cbn; typeclasses eauto.
     - admit. (* sums *)
     - inversion Hκeq; subst; eauto.
@@ -285,27 +290,26 @@ Section FundamentalKinding.
     - admit. (* products *)
     - inversion Hκeq; subst; eauto.
     - inversion Hκeq; subst; eauto.
-    - inversion Hκeq; subst; eauto.
-    - inversion Hκeq; subst; eauto.
+    - inversion Hκeq; subst; done.
+    - inversion Hκeq; subst; done.
     - admit. (* refs *)
-    - inversion Hκeq; subst.
+    - inversion Hκeq.
     - admit. (* coderef *)
     - cbn in *. 
       admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    *)
+    - admit. (* recursive types *)
+    - admit. (* exists (mem) *)
+    - admit. (* exists (repr) *)
+    - admit. (* exists (size) *)
+    - admit. (* exists (type) *)
   Admitted.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp sr mr F s__mem s__rep s__size se ->
-    kind_interp sr mr (subst_kind s__mem s__rep s__size κ)
-      (value_interp sr mr gci se (subst_type s__mem s__rep s__size VarT τ)).
+    subst_env_interp sr rti F s__mem s__rep s__size se ->
+    kind_interp sr rti (subst_kind s__mem s__rep s__size κ)
+      (value_interp sr rti se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind. 
     revert s__mem s__rep s__size se.

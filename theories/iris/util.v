@@ -57,6 +57,8 @@ Proof.
     + lia.
 Qed.
 
+Definition serialize_Z_i32 : Z -> bytes := serialise_i32 ∘ Wasm_int.int_of_Z i32m.
+
 Section misc.
 
   Context `{!wasmG Σ}.

@@ -1,24 +1,36 @@
+Require Import RecordUpdate.RecordUpdate.
+
 From RichWasm.iris.language Require Import lenient_wp logpred.
-From RichWasm.iris Require Import gc memory util.
+From RichWasm.iris Require Import memory util.
 From iris.proofmode Require Import base tactics classes.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
 
 Section Runtime.
 
   Context `{wasmG Σ}.
-  Context `{RichWasmGCG Σ}.
+  Context `{richwasmG Σ}.
 
+  Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
-  Variable gci : gc_invariant Σ.
 
+  (* TODO *)
   Definition spec_alloc_mm (cl : function_closure) : Prop :=
-    (* TODO *)
-    True.
+    forall sz fr,
+      ↪[frame] fr -∗
+      ↪[RUN] -∗
+      lenient_wp NotStuck top
+        [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_alloc_mm)]
+        {| lp_fr := fun fr' => ⌜fr = fr'⌝ ∗ ↪[frame] fr;
+           lp_val := fun vs => True;
+           lp_trap := True;
+           lp_br := fun _ => False;
+           lp_ret := fun _ => False;
+           lp_host := fun _ _ _ _ => False |}.
 
   Definition spec_alloc_gc (cl : function_closure) : Prop :=
-    forall θ sz pm fr,
+    forall ps sz pm fr,
       let ks := kinds_of_pointer_map pm (Wasm_int.nat_of_uint i32m sz) in
-      gc_token sr gci θ -∗
+      rt_token rti sr ps -∗
       N.of_nat sr.(sr_func_alloc_gc) ↦[wf] cl -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
@@ -34,7 +46,7 @@ Section Runtime.
                  ∃ θ' ℓ a ws,
                    ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m a)]⌝ ∗
                      ⌜repr_location θ' ℓ a⌝ ∗
-                     gc_token sr gci θ' ∗
+                     rt_token rti sr (ps <| ps_gc_ptrs := θ' |>) ∗
                      ℓ ↦gcl ks ∗
                      ℓ ↦gco ws;
            lp_trap := True;
@@ -42,14 +54,16 @@ Section Runtime.
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
+  (* TODO: spec_setptrflag_mm for mutating the pointer map of an MM ref. *)
+
+  (* TODO *)
   Definition spec_free (cl : function_closure) : Prop :=
-    (* TODO *)
     True.
 
   Definition spec_registerroot (cl : function_closure) : Prop :=
-    forall θ ℓ a fr,
-      repr_location θ ℓ (Wasm_int.Z_of_uint i32m a) ->
-      gc_token sr gci θ -∗
+    forall ps ℓ a fr,
+      repr_location ps.(ps_gc_ptrs) ℓ (Wasm_int.Z_of_uint i32m a) ->
+      rt_token rti sr ps -∗
       N.of_nat sr.(sr_func_registerroot) ↦[wf] cl -∗
       ↪[RUN] -∗
       ↪[frame] fr -∗
@@ -60,16 +74,19 @@ Section Runtime.
              fun vs =>
                ↪[RUN] ∗
                  N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
-                 gc_token sr gci θ ∗
-                 ∃ a', ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a'))]⌝ ∗ a' ↦gcr ℓ;
+                 ∃ a',
+                   ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a'))]⌝ ∗
+                   (* TODO: Specifying ps_gc_roots seems redundant with ↦gcr? *)
+                   rt_token rti sr (ps <| ps_gc_roots ::= ({[a']} ∪.) |>) ∗
+                   a' ↦gcr ℓ;
            lp_trap := True;
            lp_br := fun _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
   Definition spec_unregisterroot (cl : function_closure) : Prop :=
-    forall θ ℓ a fr,
-      gc_token sr gci θ -∗
+    forall ps ℓ a fr,
+      rt_token rti sr ps -∗
       Wasm_int.N_of_uint i32m a ↦gcr ℓ -∗
       N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl -∗
       ↪[RUN] -∗
@@ -81,8 +98,11 @@ Section Runtime.
              fun vs =>
                ↪[RUN] ∗
                  N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl ∗
-                 gc_token sr gci θ ∗
-                 ∃ a', ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m a')]⌝ ∗ ⌜repr_location θ ℓ a'⌝;
+                 (* TODO: Specifying ps_gc_roots seems redundant with ↦gcr? *)
+                 rt_token rti sr (ps <| ps_gc_roots ::= ({[Wasm_int.N_of_uint i32m a]} ∖.) |>) ∗
+                 ∃ a',
+                   ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m a')]⌝ ∗
+                     ⌜repr_location ps.(ps_gc_ptrs) ℓ a'⌝;
            lp_trap := True;
            lp_br := fun _ => False;
            lp_ret := fun _ => False;

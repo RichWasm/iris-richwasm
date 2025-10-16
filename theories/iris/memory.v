@@ -4,14 +4,15 @@ From mathcomp Require Import eqtype.
 
 From iris.proofmode Require Import base tactics classes.
 
-From RichWasm Require Import syntax util.
+From RichWasm Require Import syntax util iris.util.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
+
+Set Bullet Behavior "Strict Subproofs".
+Set Default Goal Selector "!".
 
 Definition location := N.
 
 Definition address := N.
-
-Definition address_map : Type := gmap location address.
 
 Inductive pointer :=
 | PtrInt (n : Z)
@@ -34,6 +35,63 @@ Inductive rep_value :=
 | F32V (f : f32)
 | F64V (f : f64).
 
+Class richwasmG (Σ : gFunctors) :=
+  { rw_mm_layouts : gname;
+    rw_mm_layoutsG :: ghost_mapG Σ address (list word_kind);
+    rw_mm_objects : gname;
+    rw_mm_objectsG :: ghost_mapG Σ address (list word);
+    rw_gc_layouts : gname;
+    rw_gc_layoutsG :: ghost_mapG Σ location (list word_kind);
+    rw_gc_objects : gname;
+    rw_gc_objectsG :: ghost_mapG Σ location (list word);
+    rw_gc_roots : gname;
+    rw_gc_rootsG :: ghost_mapG Σ address location }.
+
+Notation "a ↦mml{ q } l" :=
+  (a ↪[rw_mm_layouts]{q} l)%I (at level 20, format "a  ↦mml{ q }  l") : bi_scope.
+Notation "a ↦mml l" := (a ↪[rw_mm_layouts] l)%I (at level 20, format "a  ↦mml  l") : bi_scope.
+
+Notation "a ↦mmo{ q } o" :=
+  (a ↪[rw_mm_objects]{q} o)%I (at level 20, format "a  ↦mmo{ q }  o") : bi_scope.
+Notation "a ↦mmo o" := (a ↪[rw_mm_objects] o)%I (at level 20, format "a  ↦mmo  o") : bi_scope.
+
+Notation "ℓ ↦gcl{ q } l" :=
+  (ℓ ↪[rw_gc_layouts]{q} l)%I (at level 20, format "ℓ  ↦gcl{ q }  l") : bi_scope.
+Notation "ℓ ↦gcl l" := (ℓ ↪[rw_gc_layouts] l)%I (at level 20, format "ℓ  ↦gcl  l") : bi_scope.
+
+Notation "ℓ ↦gco{ q } o" :=
+  (ℓ ↪[rw_gc_objects]{q} o)%I (at level 20, format "ℓ  ↦gco{ q }  o") : bi_scope.
+Notation "ℓ ↦gco o" := (ℓ ↪[rw_gc_objects] o)%I (at level 20, format "ℓ  ↦gco  o") : bi_scope.
+
+Notation "a ↦gcr{ q } ℓ" :=
+  (a ↪[rw_gc_roots]{q} ℓ)%I (at level 20, format "a  ↦gcr{ q }  ℓ") : bi_scope.
+Notation "a ↦gcr ℓ" := (a ↪[rw_gc_roots] ℓ)%I (at level 20, format "a  ↦gcr  ℓ") : bi_scope.
+
+Definition mm_object_map : Type := gmap address (list word).
+
+Definition mm_layout_map : Type := gmap address (list word_kind).
+
+Definition gc_object_map : Type := gmap location (list word).
+
+Definition gc_layout_map : Type := gmap location (list word_kind).
+
+Definition gc_address_map : Type := gmap location address.
+
+Definition gc_root_map : Type := gmap address location.
+
+Record rt_pointer_space :=
+  { ps_mm_ptrs : gset address;
+    ps_gc_roots : gset address;
+    ps_gc_ptrs : gc_address_map }.
+
+Instance Empty_rt_pointer_space : Empty rt_pointer_space :=
+  {| ps_mm_ptrs := ∅;
+     ps_gc_roots := ∅;
+     ps_gc_ptrs := ∅ |}.
+
+Definition rt_invariant (Σ : gFunctors) : Type :=
+  mm_layout_map -> mm_object_map -> gc_layout_map -> gc_object_map -> gc_root_map -> iProp Σ.
+
 Definition to_rep_value (ι : primitive_rep) (v : value) : option rep_value :=
   match ι, v with
   | PtrR, VAL_int32 i => Some (PtrV i)
@@ -54,74 +112,451 @@ Definition word_has_kind (k : word_kind) (w : word) : bool :=
   | _, _ => false
   end.
 
+Definition kinds_of_pointer_map (m : i64) (n : nat) : list word_kind :=
+  map
+    (fun b : bool => if b then PtrWord else IntWord)
+    (take n (reverse (Wasm_int.Int64.convert_to_bits m))).
+
 Definition index_address (i : nat) : N := N.of_nat (4 * i).
 
-Section Repr.
+Inductive repr_pointer : N -> rt_pointer_space -> pointer -> Z -> Prop :=
+| ReprPtrInt gc_heap_off ps n :
+  n `mod` 2 = 0 ->
+  repr_pointer gc_heap_off ps (PtrInt n) (2 * n)
+| ReprPtrMM gc_heap_off ps a :
+  a ∈ ps.(ps_mm_ptrs) ->
+  (a `mod` 4 = 0)%N ->
+  repr_pointer gc_heap_off ps (PtrMM a) (Z.of_N a - 3)
+| ReprPtrGC gc_heap_off ps ℓ a :
+  ps.(ps_gc_ptrs) !! ℓ = Some a ->
+  (a `mod` 4 = 0)%N ->
+  (a >= gc_heap_off)%N ->
+  repr_pointer gc_heap_off ps (PtrGC ℓ) (Z.of_N a - 1)
+| ReprPtrRoot gc_heap_off ps a :
+  a ∈ ps.(ps_gc_roots) ->
+  (a `mod` 4 = 0)%N ->
+  (a < gc_heap_off)%N ->
+  repr_pointer gc_heap_off ps (PtrRoot a) (Z.of_N a - 1).
 
-  Variable gc_heap_off : N.
+Inductive repr_word : N -> rt_pointer_space -> word -> Z -> Prop :=
+| ReprWordInt gc_heap_off ps n :
+  repr_word gc_heap_off ps (WordInt n) n
+| ReprWordPtr gc_heap_off ps p n :
+  repr_pointer gc_heap_off ps p n ->
+  repr_word gc_heap_off ps (WordPtr p) n.
 
-  Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
-  | ReprPtrInt θ n :
-    n `mod` 2 = 0 ->
-    repr_pointer θ (PtrInt n) (2 * n)
-  | ReprPtrMM θ a :
-    (a `mod` 4 = 0)%N ->
-    repr_pointer θ (PtrMM a) (Z.of_N a - 3)
-  | ReprPtrGC θ ℓ a :
-    θ !! ℓ = Some a ->
-    (a `mod` 4 = 0)%N ->
-    (a >= gc_heap_off)%N ->
-    repr_pointer θ (PtrGC ℓ) (Z.of_N a - 1)
-  | ReprPtrRoot θ a :
-    (a `mod` 4 = 0)%N ->
-    (a < gc_heap_off)%N ->
-    repr_pointer θ (PtrRoot a) (Z.of_N a - 1).
+Inductive repr_double_word : word -> word -> Z -> Prop :=
+| ReprDoubleWordInt n1 n2 m :
+  repr_word 0 ∅ (WordInt n1) n1 ->
+  repr_word 0 ∅ (WordInt n2) n2 ->
+  (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = m ->
+  repr_double_word (WordInt n1) (WordInt n2) m.
 
-  Inductive repr_word : address_map -> word -> Z -> Prop :=
-  | ReprWordInt θ n :
-    repr_word θ (WordInt n) n
-  | ReprWordPtr θ p n :
-    repr_pointer θ p n ->
-    repr_word θ (WordPtr p) n.
+Definition repr_list_word (gc_heap_off : N) (ps : rt_pointer_space) (ws : list word) (ns : list Z) :
+  Prop :=
+  Forall2 (repr_word gc_heap_off ps) ws ns.
 
-  Inductive repr_double_word : address_map -> word -> word -> Z -> Prop :=
-  | ReprDoubleWordInt θ n1 n2 m :
-    repr_word θ (WordInt n1) n1 ->
-    repr_word θ (WordInt n2) n2 ->
-    (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = m ->
-    repr_double_word θ (WordInt n1) (WordInt n2) m.
+Definition repr_location_index (θ : gc_address_map) (ℓ : location) (i : nat) (a : Z) : Prop :=
+  exists a0, θ !! ℓ = Some a0 /\ a = Z.of_N (a0 + index_address i).
 
-  Definition repr_list_word (θ : address_map) (ws : list word) (ns : list Z) : Prop :=
-    Forall2 (repr_word θ) ws ns.
+Definition repr_location (θ : gc_address_map) (ℓ : location) (a : Z) : Prop :=
+  repr_location_index θ ℓ 0 a.
 
-  Inductive repr_location_index : address_map -> location -> nat -> Z -> Prop :=
-  | ReprLocElem θ ℓ i a0 a :
-    θ !! ℓ = Some a0 ->
-    a = Z.of_N (a0 + index_address i) ->
-    repr_location_index θ ℓ i a.
+Inductive ser_value : N -> rep_value -> list word -> Prop :=
+| SerPtr gc_heap_off ps p n :
+  ps.(ps_gc_ptrs) = ∅ ->
+  repr_pointer gc_heap_off ps p n ->
+  ser_value gc_heap_off (PtrV (Wasm_int.int_of_Z i32m n)) [WordPtr p]
+| SerI32 gc_heap_off n :
+  ser_value gc_heap_off (I32V (Wasm_int.int_of_Z i32m n)) [WordInt n]
+| SerI64 gc_heap_off n w1 w2 :
+  repr_double_word w1 w2 n ->
+  ser_value gc_heap_off (I64V (Wasm_int.int_of_Z i64m n)) [w1; w2]
+| SerF32 gc_heap_off i f n :
+  ser_value gc_heap_off (I32V i) [WordInt n] ->
+  serialise_i32 i = serialise_f32 f ->
+  ser_value gc_heap_off (F32V f) [WordInt n]
+| SerF64 gc_heap_off i f n1 n2 :
+  ser_value gc_heap_off (I64V i) [WordInt n1; WordInt n2] ->
+  serialise_i64 i = serialise_f64 f ->
+  ser_value gc_heap_off (F64V f) [WordInt n1; WordInt n2].
 
-  Definition repr_location (θ : address_map) (ℓ : location) (a : Z) : Prop :=
-    repr_location_index θ ℓ 0 a.
+Section Token.
 
-  Inductive ser_value : rep_value -> list word -> Prop :=
-  | SerPtr i p n :
-    i = Wasm_int.int_of_Z i32m n ->
-    repr_pointer ∅ p n ->
-    ser_value (PtrV i) [WordPtr p]
-  | SerI32 i n :
-    i = Wasm_int.int_of_Z i32m n ->
-    ser_value (I32V i) [WordInt n]
-  | SerI64 i n w1 w2 :
-    i = Wasm_int.int_of_Z i64m n ->
-    repr_double_word ∅ w1 w2 n ->
-    ser_value (I64V i) [w1; w2]
-  | SerF32 i f n :
-    ser_value (I32V i) [WordInt n] ->
-    serialise_i32 i = serialise_f32 f ->
-    ser_value (F32V f) [WordInt n]
-  | SerF64 i f n1 n2 :
-    ser_value (I64V i) [WordInt n1; WordInt n2] ->
-    serialise_i64 i = serialise_f64 f ->
-    ser_value (F64V f) [WordInt n1; WordInt n2].
+  Context `{wasmG Σ}.
+  Context `{richwasmG Σ}.
 
-End Repr.
+  Variable rti : rt_invariant Σ.
+  Variable sr : store_runtime.
+
+  Definition consistent_objects_memory (ps : rt_pointer_space) (gco : gc_object_map) : iProp Σ :=
+    [∗ map] ℓ ↦ a; ws ∈ ps.(ps_gc_ptrs); gco,
+      ∃ bs ns,
+        N.of_nat sr.(sr_mem_gc) ↦[wms][a] bs ∗
+          ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
+          ⌜repr_list_word sr.(sr_gc_heap_off) ps ws ns⌝.
+
+  Definition consistent_roots_memory (θ : gc_address_map) (gcr : gc_root_map) : iProp Σ :=
+    [∗ map] a ↦ ℓ ∈ gcr,
+      ∃ bs n,
+        N.of_nat sr.(sr_mem_gc) ↦[wms][a] bs ∗ ⌜bs = serialize_Z_i32 n⌝ ∗ ⌜repr_location θ ℓ n⌝.
+
+  Definition consistent_objects_layouts (gcl : gc_layout_map) (gco : gc_object_map) : Prop :=
+    map_Forall (fun ℓ '(ks, ws) => Forall2 word_has_kind ks ws) (map_zip gcl gco).
+
+  Definition consistent_reachable_addresses (gco : gc_object_map) (θ : gc_address_map) : Prop :=
+    gmap_injective θ /\
+      ∀ ℓ ℓ' ws,
+        ℓ ∈ dom θ ->
+        gco !! ℓ = Some ws ->
+        WordPtr (PtrGC ℓ') ∈ ws ->
+        ℓ' ∈ dom θ.
+
+  Definition live_roots (θ : gc_address_map) (gcr : gc_root_map) : Prop :=
+    ∀ a ℓ, gcr !! a = Some ℓ -> ℓ ∈ dom θ.
+
+  (* TODO: MM memory resources. *)
+  Definition rt_token (ps : rt_pointer_space) : iProp Σ :=
+    ∃ mml mmo gcl gco gcr,
+      ⌜ps.(ps_mm_ptrs) = dom mmo⌝ ∗
+        ⌜ps.(ps_gc_roots) = dom gcr⌝ ∗
+        ghost_map_auth rw_mm_layouts (1/2) mml ∗
+        ghost_map_auth rw_mm_objects 1 mmo ∗
+        ghost_map_auth rw_gc_layouts (1/2) gcl ∗
+        ghost_map_auth rw_gc_objects 1 gco ∗
+        ghost_map_auth rw_gc_roots (1/2) gcr ∗
+        rti mml mmo gcl gco gcr ∗
+        consistent_objects_memory ps gco ∗
+        consistent_roots_memory ps.(ps_gc_ptrs) gcr ∗
+        ⌜consistent_objects_layouts gcl gco⌝ ∗
+        ⌜consistent_reachable_addresses gco ps.(ps_gc_ptrs)⌝ ∗
+        ⌜live_roots ps.(ps_gc_ptrs) gcr⌝.
+
+End Token.
+
+Section Rules.
+
+  Context `{wasmG Σ}.
+  Context `{richwasmG Σ}.
+
+  Variable sr : store_runtime.
+
+  Lemma byte_eqm_mod (n : Z) (m : Z) :
+    (n `mod` 256 = m `mod` 256)%Z ->
+    Integers.Byte.eqm n m.
+  Admitted.
+
+  Lemma serialise_split_i64 k1 k2 :
+    serialise_i32 (Wasm_int.int_of_Z i32m k1) ++
+    serialise_i32 (Wasm_int.int_of_Z i32m k2) =
+    serialise_i64 (Wasm_int.int_of_Z i64m (Wasm_int.Int32.Z_mod_modulus k1 + k2 ≪ 32)).
+  Proof.
+    unfold serialise_i32, serialise_i64, Memdata.encode_int.
+    Transparent Archi.big_endian.
+    cbn.
+
+    rewrite !Wasm_int.Int32.Z_mod_modulus_eq.
+    rewrite !Wasm_int.Int64.Z_mod_modulus_eq.
+    f_equal; last f_equal; last f_equal; last f_equal; last f_equal; last f_equal; last f_equal; last f_equal.
+    all: apply Integers.Byte.eqm_samerepr; apply byte_eqm_mod.
+    - rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 8)).
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 8)).
+      rewrite Z.add_mod; last done.
+      rewrite Z.shiftl_mul_pow2; last done.
+      rewrite Z.mul_mod; last done.
+      rewrite (Znumtheory.Zdivide_mod (2 ^ 32)); last by exists (two_power_nat (32 - 8)).
+      rewrite Z.mul_0_r.
+      rewrite Z.mod_0_l; last done.
+      rewrite Z.add_0_r.
+      rewrite Z.mod_mod; last done.
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 8)).
+    - replace Wasm_int.Int32.modulus with (256 * 2 ^ 24)%Z; last done.
+      replace Wasm_int.Int64.modulus with (256 * 2 ^ 56)%Z; last done.
+      rewrite !Zaux.Zdiv_mod_mult; try done.
+
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 2 * 8)).
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 2 * 8)).
+      rewrite Z.shiftl_mul_pow2; last done.
+      replace (k2 * 2 ^ 32)%Z with ((k2 * 2 ^ 24) * 256)%Z; last lia.
+      rewrite Z_div_plus; last done.
+
+      rewrite Z.add_mod; last done.
+      rewrite Z.mul_mod; last done.
+      rewrite (Znumtheory.Zdivide_mod (2 ^ 24)); last by exists (two_power_nat (32 - 2 * 8)).
+      rewrite Z.mul_0_r.
+      rewrite Z.mod_0_l; last done.
+      rewrite Z.add_0_r.
+      rewrite <- Znumtheory.Zmod_div_mod; try done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 2 * 8)).
+    - replace Wasm_int.Int32.modulus with (256 * (256 * 2 ^ 16))%Z; last done.
+      replace Wasm_int.Int64.modulus with (256 * (256 * 2 ^ 48))%Z; last done.
+      rewrite !Zaux.Zdiv_mod_mult; try done.
+
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 3 * 8)).
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 3 * 8)).
+      rewrite Z.shiftl_mul_pow2; last done.
+      replace (k2 * 2 ^ 32)%Z with (((k2 * 2 ^ 16) * 256) * 256)%Z; last lia.
+      rewrite !Z_div_plus; try done.
+
+      rewrite Z.add_mod; last done.
+      rewrite Z.mul_mod; last done.
+      rewrite (Znumtheory.Zdivide_mod (2 ^ 16)); last by exists (two_power_nat (32 - 3 * 8)).
+      rewrite Z.mul_0_r.
+      rewrite Z.mod_0_l; last done.
+      rewrite Z.add_0_r.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite <- Znumtheory.Zmod_div_mod; try done.
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (16 - 8)).
+    - replace Wasm_int.Int32.modulus with (256 * (256 * (256 * 2 ^ 8)))%Z; last done.
+      replace Wasm_int.Int64.modulus with (256 * (256 * (256 * 2 ^ 40)))%Z; last done.
+      rewrite !Zaux.Zdiv_mod_mult; try done.
+
+      rewrite <- Znumtheory.Zmod_div_mod; try done.
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 4 * 8)).
+      rewrite Z.shiftl_mul_pow2; last done.
+      replace (k2 * 2 ^ 32)%Z with ((((k2 * 2 ^ 8) * 256) * 256) * 256)%Z; last lia.
+      rewrite !Z_div_plus; try done.
+
+      rewrite Z.add_mod; last done.
+      rewrite Z.mul_mod; last done.
+      rewrite (Znumtheory.Zdivide_mod (2 ^ 8)); last by exists (two_power_nat (32 - 4 * 8)).
+      rewrite Z.mul_0_r.
+      rewrite Z.mod_0_l; last done.
+      rewrite Z.add_0_r.
+      rewrite Z.mod_mod; last done.
+
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      by rewrite Z.mod_mod; last done.
+    - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+      rewrite !Zaux.Zdiv_mod_mult; try done.
+
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 8)).
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (64 - 5 * 8)).
+      rewrite Z.shiftl_mul_pow2; try done.
+      replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+      rewrite !Z_div_plus; try done.
+
+      rewrite Z.add_mod; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.mod_div; last done.
+      rewrite Z.mod_0_l; last done.
+      rewrite Z.add_0_l.
+      rewrite Z.mod_mod; done.
+    - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+      rewrite !Zaux.Zdiv_mod_mult; try done.
+
+      replace (2 ^ 32)%Z with (256 * 2 ^ 24)%Z; last reflexivity.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 2 * 8)).
+      rewrite Z.shiftl_mul_pow2; try done.
+      replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+      rewrite !Z_div_plus; try done.
+
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.mod_div; last done.
+      rewrite Z.add_0_l.
+
+      replace Wasm_int.Int32.modulus with (256 * 2 ^ 24)%Z; last done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (24 - 8)).
+    - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+      rewrite !Zaux.Zdiv_mod_mult; try done.
+
+      replace (2 ^ 32)%Z with (256 * (256 * 2 ^ 16))%Z; last reflexivity.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (32 - 3 * 8)).
+      rewrite Z.shiftl_mul_pow2; try done.
+      replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+      rewrite !Z_div_plus; try done.
+
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.mod_div; last done.
+      rewrite Z.add_0_l.
+
+      replace Wasm_int.Int32.modulus with ((256 * 256) * 2 ^ 16)%Z; last done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite <- Znumtheory.Zmod_div_mod; try done; last by exists (two_power_nat (24 - 2 * 8)).
+    - replace Wasm_int.Int64.modulus with (256 * (256 * (256 * (256 * 2 ^ 32))))%Z; last done.
+      rewrite !Zaux.Zdiv_mod_mult; try done.
+
+      replace (2 ^ 32)%Z with (256 * (256 * (256 * 256)))%Z; last reflexivity.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+
+      rewrite <- Znumtheory.Zmod_div_mod; try done.
+      rewrite Z.shiftl_mul_pow2; try done.
+      replace (k2 * 2 ^ 32)%Z with ((((k2 * 256) * 256) * 256) * 256)%Z; last lia.
+      rewrite !Z_div_plus; try done.
+
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.div_div; try done.
+      rewrite Z.mod_div; last done.
+      rewrite Z.add_0_l.
+
+      replace Wasm_int.Int32.modulus with ((256 * (256 * 256)) * 256)%Z; last done.
+      rewrite Zaux.Zdiv_mod_mult; try done.
+      rewrite Z.mod_mod; done.
+
+    Opaque Archi.big_endian.
+  Qed.
+
+  Lemma wms_app n bs1 :
+    forall ℓ sz1 bs2,
+    sz1 = N.of_nat (length bs1) ->
+    n ↦[wms][ℓ] (bs1 ++ bs2) ⊣⊢ n ↦[wms][ℓ] bs1 ∗ n ↦[wms][ℓ + sz1] bs2.
+  Proof.
+    unfold mem_block_at_pos.
+    intros.
+    rewrite big_opL_app.
+    repeat (f_equiv; try lia).
+  Qed.
+
+  Lemma list_pluck : forall (A : Type) i (l : list A),
+    i < length l ->
+    exists l1 x l2,
+    l !! i = Some x /\
+    length l1 = i /\
+    l = l1 ++ x :: l2.
+  Admitted.
+
+  Lemma list_pluck_2 {A : Type} i (l : list A) :
+    i + 1 < length l ->
+    exists l1 x1 x2 l2,
+    l !! i = Some x1 /\
+    l !! (i + 1) = Some x2 /\
+    length l1 = i /\
+    l = l1 ++ x1 :: x2 :: l2.
+  Admitted.
+
+  Lemma flat_map_singleton : forall (A B : Type) (f : A -> list B) (x : A),
+    f x = flat_map f [x].
+  Proof.
+    intros A B f x. simpl. rewrite app_nil_r. reflexivity.
+  Qed.
+
+  Lemma deserialise_serialise_i32 : forall i,
+    wasm_deserialise (serialise_i32 i) T_i32 = VAL_int32 i.
+  Proof.
+    intros i. replace (serialise_i32 i) with (bits (VAL_int32 i)).
+    - rewrite deserialise_bits.
+      + reflexivity.
+      + reflexivity.
+    - unfold bits. reflexivity.
+  Qed.
+
+  Lemma deserialise_serialise_i64 : forall i,
+    wasm_deserialise (serialise_i64 i) T_i64 = VAL_int64 i.
+  Proof.
+    intros i. replace (serialise_i64 i) with (bits (VAL_int64 i)).
+    - rewrite deserialise_bits.
+      + reflexivity.
+      + reflexivity.
+    - unfold bits. reflexivity.
+  Qed.
+
+  Lemma pointer_offset_eqn_Z2N : forall i n m,
+    Z.of_N n = (Wasm_int.Int32.unsigned i + Z.of_N m)%Z ->
+    n = (Wasm_int.N_of_uint i32m i + m)%N.
+  Proof.
+    intros i n m.
+    rewrite <- (Z2N.id (Wasm_int.Int32.unsigned _)); last apply Wasm_int.Int32.unsigned_range.
+    rewrite <- N2Z.inj_add. apply N2Z.inj.
+  Qed.
+
+  Ltac solve_i32_bytes_len len :=
+    try rewrite <- flat_map_app;
+    rewrite -> flat_map_constant_length with (c := 4);
+    [ try rewrite length_app; rewrite len; unfold index_address; unfold serialise_i32;
+      try rewrite Memdata.encode_int_length;
+      cbn; lia
+    | auto ].
+
+  (* TODO: What would happen if the ∃ k was pulled up to a lemma parameter, and
+           repr_vval θ vv k was an assumption? *)
+  Lemma wp_load_i32_gc
+      (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
+      (rti : rt_invariant Σ) (ps : rt_pointer_space)
+      (i : i32) (ℓ : location) (ws : list word)
+      (j : nat) (off : static_offset) (w : word) :
+    F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
+    repr_location_index ps.(ps_gc_ptrs) ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
+    ws !! j = Some w ->
+    rt_token rti sr ps ∗ ℓ ↦gco ws ∗ ↪[frame] F ∗ ↪[RUN] ⊢
+    WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i32 None N.zero off)]
+       @ s; E
+       {{ v, ∃ n,
+            ⌜v = immV [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗
+              ⌜repr_word sr.(sr_gc_heap_off) ps w n⌝ ∗
+              rt_token rti sr ps ∗
+              ℓ ↦gco ws ∗
+              ↪[RUN] ∗
+              ↪[frame] F }}.
+  Admitted.
+
+  Lemma wp_load_i64_gc
+      (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
+      (rti : rt_invariant Σ) (ps : rt_pointer_space)
+      (i : i32) (ℓ : location) (ws : list word)
+      (j : nat) (off : static_offset) (n1 n2 : Z) :
+    F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
+    repr_location_index ps.(ps_gc_ptrs) ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
+    ws !! j = Some (WordInt n1) ->
+    ws !! (j + 1) = Some (WordInt n2) ->
+    rt_token rti sr ps ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    WP [AI_basic (BI_const (VAL_int32 i)); AI_basic (BI_load memidx T_i64 None N.zero off)]
+       @ s; E
+       {{ v, ∃ n,
+            ⌜v = immV [VAL_int64 (Wasm_int.int_of_Z i64m n)]⌝ ∗
+              ⌜repr_double_word (WordInt n1) (WordInt n2) n⌝ ∗
+              rt_token rti sr ps ∗
+              ℓ ↦gco ws ∗
+              ↪[RUN] ∗
+              ↪[frame] F }}.
+  Admitted.
+
+  Lemma wp_store_i32_gc
+      (s : stuckness) (E : coPset) (F : frame) (memidx : immediate)
+      (rti : rt_invariant Σ) (ps : rt_pointer_space)
+      (i k : i32) (ℓ : location) (ws : list word)
+      (j : nat) (off : static_offset) (w : word) :
+    F.(f_inst).(inst_memory) !! memidx = Some sr.(sr_mem_gc) ->
+    repr_location_index ps.(ps_gc_ptrs) ℓ j (Wasm_int.Z_of_uint i32m i + Z.of_N off) ->
+    j < length ws ->
+    repr_word sr.(sr_gc_heap_off) ps w (Wasm_int.Z_of_uint i32m k) ->
+    rt_token rti sr ps ∗ ℓ ↦gco ws ∗ ↪[RUN] ∗ ↪[frame] F ⊢
+    WP [AI_basic (BI_const (VAL_int32 i));
+        AI_basic (BI_const (VAL_int32 k));
+        AI_basic (BI_store memidx T_i32 None N.zero off)]
+       @ s; E
+       {{ v, ⌜v = immV []⌝ ∗
+             rt_token rti sr ps ∗
+             ℓ ↦gco <[ j := w ]> ws ∗
+             ↪[RUN] ∗ ↪[frame] F }}.
+  Admitted.
+
+  (* TODO: wp_loadroot *)
+
+  (* TODO: wp_duproot *)
+
+End Rules.

@@ -3,7 +3,7 @@ Require Import iris.proofmode.tactics.
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
 From RichWasm.compiler Require Import prelude codegen util.
-From RichWasm.iris Require Import autowp gc.
+From RichWasm.iris Require Import autowp.
 From RichWasm.iris.logrel Require Import relations.
 
 Module W := Wasm.operations.
@@ -285,8 +285,8 @@ Section CodeGen.
   (* Saving and restoring the stack. *)
   
   Lemma wp_save_stack1 ty :
-    forall s E Φ inst fe wl idx wl' es fr (v: value),
-      interp_wl (fe_wlocal_offset fe) (wl ++ wl') inst fr ->
+    forall s E Φ fe wl idx wl' es fr (v: value),
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl') fr ->
       value_type_interp ty v ->
       run_codegen (save_stack1 fe ty) wl = inr (idx, wl', es) ->
       idx = W.Mk_localidx (fe_wlocal_offset fe + length wl) /\
@@ -321,13 +321,14 @@ Section CodeGen.
     subst.
     cbn.
     apply Forall2_length in Hlocsty.
+    rewrite Hlocs.
     rewrite !length_app.
     rewrite -Hlocsty -Hoff.
     rewrite !length_app.
     cbn.
     lia.
   Qed.
-  
+
   (* Gross internal induction for save_stack_w proof. *)
   Lemma wp_save_stack_w_ind len : forall vs start fr Φ s E,
     length vs = len ->
@@ -455,11 +456,11 @@ Section CodeGen.
     reflexivity.
   Qed.
 
-  Lemma interp_wl_length offset wl inst fr :
-    interp_wl offset wl inst fr ->
+  Lemma interp_wl_length offset wl fr :
+    wl_interp offset wl fr ->
     offset + length wl <= length (f_locs fr).
   Proof.
-    unfold interp_wl.
+    unfold wl_interp.
     intros (vs & vs' & vs'' & -> & Hlen & Htyp).
     eapply Forall2_length in Htyp.
     rewrite !length_app.
@@ -467,9 +468,9 @@ Section CodeGen.
   Qed.
 
   Lemma wp_save_stack_w tys :
-    forall s E Φ inst fe wl idxs wl' es fr vs,
+    forall s E Φ fe wl idxs wl' wlf es fr vs,
       run_codegen (save_stack_w fe tys) wl = inr (idxs, wl', es) ->
-      interp_wl (fe_wlocal_offset fe) (wl ++ wl') inst fr ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
       result_type_interp tys vs ->
       idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
       wl' = tys /\
@@ -518,7 +519,7 @@ Section CodeGen.
     iApply (wp_save_stack_w_ind with "[$] [$] [HΦ]").
     - symmetry. eapply Forall2_length; eauto.
     - apply interp_wl_length in H.
-      rewrite length_app in H.
+      rewrite !length_app in H.
       lia.
     - eauto.
     - iIntros (v) "((HΦ & Hrun) & %f & Hfr & Hpre & Hvs)".
