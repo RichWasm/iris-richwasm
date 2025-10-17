@@ -213,6 +213,33 @@ Section Fundamental.
         ⊢ have_instruction_type_sem rti sr mr M F' L (wl ++ wl' ++ wlf) (to_e_list es') ψ L') ->
     run_codegen (compile_instr mr fe (IBlock ψ L' es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+  Proof.
+    intros fe F' ψ Hok IH Hrun.
+    simpl in Hrun.
+    inv_cg_bind Hrun ρ wl0 wl0' es_nil es0' Hrun1 Hrun2.
+    subst wl' es'.
+    simpl in Hrun1.
+    simpl in Hrun2.
+    inv_cg_try_option Hrun1.
+    subst wl0 es_nil.
+    destruct (translate_types (fc_type_vars F) τs1) as [ts1|] eqn:Hts1; last done.
+    destruct (translate_types (fc_type_vars F) τs2) as [ts2|] eqn:Hts2; last done.
+    simpl in Heq_some.
+    inversion Heq_some; subst ρ; clear Heq_some.
+    rewrite app_nil_r in Hrun2.
+    inv_cg_bind Hrun2 ρ wl0 wl1 es1 es0 Hrun1 Hrun2.
+    subst wl0' es0'.
+    destruct ρ, u.
+    inv_cg_emit Hrun2.
+    subst wl1 es0.
+    clear Hretval.
+    apply run_codegen_capture in Hrun1 as [Hrun1 ->].
+    inv_cg_bind Hrun1 ρ wl2 wl2' es_nil es1' Hrun0 Hrun1.
+    subst l wl0.
+    cbn in Hrun1.
+    inversion Hrun1; subst wl2' es1'; clear Hrun1.
+    unfold compile_instrs in IH.
+    (* Hmmmm cannot seem to apply IH to Hrun1 *)
   Admitted.
 
 
