@@ -537,6 +537,28 @@ Section Fundamental.
   Qed.
 
   
+  Lemma lh_depth_pull_base_l_take_len {i : nat} (vh : valid_holed i) (len : nat) vh' vs :
+    pull_base_l_drop_len vh len = (vh', vs) ->
+    lh_depth (lh_of_vh vh) = lh_depth (lh_of_vh vh').
+  Proof.
+    intros Heq.
+    induction vh;simpl in *;simplify_eq;auto.
+    destruct (pull_base_l_drop_len vh len) eqn:Heq'.
+    simplify_eq. simpl. erewrite IHvh;eauto.
+  Qed.
+   Lemma length_pull_base_l_take_len {i : nat} (vh : valid_holed i) (len : nat) vh' vs vs' :
+    get_base_l vh = vs' ->
+    pull_base_l_drop_len vh len = (vh', vs) ->
+    length vs = length vs' - len.
+  Proof.
+    intros Hbase Hpull.
+    induction vh;simpl in *;simplify_eq.
+    { rewrite length_drop. auto. }
+    { destruct (pull_base_l_drop_len vh len) eqn:Heq'.
+      simplify_eq. simpl. erewrite IHvh;eauto. }
+  Qed.
+
+  
   Lemma compat_ite M F L L' wl wl' wlf es1 es2 es' τs1 τs2 :
     let fe := fe_of_context F in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
@@ -678,7 +700,296 @@ Section Fundamental.
       iApply (wp_label_bind with "[-]").
       2:{ iPureIntro. instantiate (5 := []).
           rewrite /lfilled /lfill /= app_nil_r //. }
-      admit.
+      iApply (wp_wand with "[-]").
+      + iApply (Hes2 with "[%] Hinst [Hctxt] [$Hvss1] [Hlocs] [$Htok] Hfr Hrun"); first assumption; cycle 1.
+        * done.
+        * admit.
+          (* iExists _,_. iSplit; first done.
+          iSimpl. Search vsl. unfold locals_inv_interp in Hlocs.  *)
+        * iExists _, _. iSplit; first done.
+          iSplit; first done.
+          iPureIntro. rewrite app_assoc app_assoc -(app_assoc wl) -app_assoc.
+          exact Hrestype. 
+        * instantiate (1 := (* push_base lh (length ρ2) [] [] []). *)
+                         lh_plug (LH_rec _ _ _ (LH_base _ _) _) lh).  
+          iDestruct "Hctxt" as "(%Hbase & %Hlength & %Hvalid & Hconts)".
+          repeat iSplitR.
+          all: try iPureIntro.
+          -- apply base_is_empty_plug => //.
+          -- eapply length_lholeds_app => //.
+             split => //. 
+             iIntros (?) "(%vss & -> & Hvss)".
+             iDestruct (translate_types_length with "Hvss") as "%H".
+             ++ exact Heq_some0.
+             ++ rewrite length_concat -H. done. 
+          -- apply lholed_valid_plug => //=.
+             split => //. 
+             apply v_to_e_is_const_list.
+          -- iSimpl. iSplitR; last first. 
+             ++ iApply (big_sepL_impl with "Hconts").
+                iIntros "!>" (k [ts ctx] Hk) "#Hcont".
+                unfold continuation_interp.
+                iDestruct "Hcont" as (j es0 es es' lh' lh'') "(%Hlayer & %Hdepth & %Hminus & #Hcont)".
+                iExists _,_,_,_,_,_.
+                repeat iSplitR.
+                1-3: iPureIntro.
+                ** rewrite lh_depth_plug. simpl.
+                   replace (lh_depth lh + 1 - S (S k)) with (lh_depth lh - S k); last lia.
+                   apply get_layer_plug_shallow.
+                   exact Hlayer. 
+                ** rewrite lh_depth_plug. simpl.
+                   replace (lh_depth lh + 1 - S (S k)) with
+                     (lh_depth lh - S k); first exact Hdepth.
+                   lia. 
+                ** apply lh_minus_plug. done.
+                ** iIntros "!>" (vs fr) "Hvs Hfr Hrun Hframe Hframe'".
+                   iDestruct ("Hcont" with "Hvs Hfr Hrun Hframe Hframe'") as (τs') "Hexp".
+                   iExists τs'.
+                   done.
+
+             ++ iExists _, _, _, _,_, _.
+               iSplit.
+               { iPureIntro.
+                 rewrite lh_depth_plug /= Nat.add_sub.
+                 apply get_layer_plug_precise => //. } 
+               iSplit; first iSimpl.
+               { (* instantiate (5 := lh). *)
+                 rewrite lh_depth_plug /= Nat.add_sub //. }
+               iSplit.
+               { iPureIntro. 
+                 erewrite lh_plug_minus => //. }
+               iIntros "!>" (vs fr) "Hvs Hfr Hrun Hframe Hframe'".
+               iExists _.
+               unfold expr_interp.
+               iSimpl.
+               unfold lenient_wp.
+               do 3 instantiate (2 := []).
+               rewrite app_nil_r app_nil_r /=.
+
+               iApply wp_value.
+               { apply of_to_val. unfold language.to_val.
+                 simpl. apply to_val_v_to_e. } 
+               rewrite /denote_logpred /=.
+               iFrame.
+(*             iApply (big_sepL_impl with "Hconts").
+             iIntros "!>" (k [ts ctx] Hk) "#Hcont".
+             unfold continuation_interp.
+             iDestruct "Hcont" as (j es0 es es' lh' lh'') "(%Hlayer & %Hdepth & %Hminus & #Hcont)".
+             iExists _,_,_,_,_,_.
+             repeat iSplitR.
+             1-3: iPureIntro.
+             ++ rewrite lh_depth_plug. simpl.
+                replace (lh_depth lh + 1 - S (S k)) with (lh_depth lh - S k); last lia.
+                apply get_layer_plug_shallow.
+                exact Hlayer. 
+             ++ rewrite lh_depth_plug. simpl.
+                replace (lh_depth lh + 1 - S (S k)) with
+                  (lh_depth lh - S k); first exact Hdepth.
+                lia. 
+             ++ apply lh_minus_plug. done.
+             ++ iIntros "!>" (vs fr) "Hvs Hfr Hframe".
+                iDestruct ("Hcont" with "Hvs Hfr Hframe") as (τs') "Hexp".
+                iExists τs'.
+                done.
+        * done.
+        * iExists _, _. iSplit; first done. iSplit; first done.
+          rewrite <- !app_assoc in Hrestype.
+          iPureIntro. exact Hrestype. *)
+
+      + iIntros (v) "H".
+        rewrite /denote_logpred /lp_noframe /=.
+        iIntros (LI HLI).
+        apply lfilled_Ind_Equivalent in HLI; inversion HLI; subst.
+        inversion H8; subst.
+        clear HLI H7 H8 H1.
+        iSimpl.
+
+        destruct v.
+        * (* immV case *)
+          iDestruct "H" as "(%fr & Hfr & (%vssl & %vswl0 & -> & %Hlocs' & %Hrestype' & Htok) & (%vssl' & %vswl0' & %Heq & Hlocs) & Hrun & %vss & -> & Hvss)".
+          inversion Heq.
+          
+(*          edestruct const_list_to_val as [vs Hvs]; first by apply v_to_e_is_const_list. *)
+          iApply (wp_wand with "[Hfr Hrun]").
+          { iApply (wp_label_value with "Hfr Hrun").
+            - rewrite seq.cats0. rewrite to_of_val. done.
+            - by instantiate (1 := λ v, ⌜ v = immV _ ⌝%I). }
+          iIntros (v) "[[-> Hrun] Hfr]".
+          iFrame.
+          iSplit. 
+          -- iExists _,_. iSplit; first done.
+             admit. (* must show that the terms in H0 are equal *) 
+          -- iSplit; last done. iExists _. done. (* iSplit; first done.
+          by iFrame. *)   
+        * (* trapV case *)
+          iDestruct "H" as "(%fr & Hfr & (%vssl & %vswl0' & -> & % & % & Htok) & Hbail & _)".
+          iApply (wp_wand with "[Hfr]").
+          { iApply (wp_label_trap with "Hfr") => //.
+            instantiate (1 := λ v, ⌜ v = trapV ⌝%I) => //. }
+          iIntros (v) "[-> Hfr]".
+          iFrame.
+          iExists _,_. iSplit; first done. done. 
+(*          by iFrame. *)
+        * (* brV case *)
+          iDestruct "H" as "(%fr & Hfr & (%vssl & %vswl0' & -> & %Hlocs' & %Hrestype' & Htok) & Hrun & Hbr)".
+          iDestruct (br_interp_eq with "Hbr") as "Hbr".
+          unfold br_interp0. iSimpl in "Hbr".
+          iDestruct "Hbr" as (k p lh' lh'' τs es0 es es' vs0 vs) "(%Hgetbase & %Hdepth & %Hlabels & %Hlayer & %Hdepth' & %Hminus & (%vss2 & -> & Hvss2) & Hbr)".
+          iDestruct (big_sepL2_length with "Hvss2") as "%Hlen2".
+          (* iDestruct (translate_types_length with "Hvss2") as "%Hlen2'".
+          ; first exact Heqtrans2. *)
+          (* may need to first progress in wp before yielding frame *)
+          iDestruct ("Hbr" with "Hfr [Hvss2] [$Htok]") as "Hbr".
+          { iExists _,_. iSplit; first done. admit. } 
+          { iExists _,_. iSplit; first done. done. } 
+          unfold lenient_wp_ctx.
+          (* iDestruct ("Hbr" with "[]") as "Hbr".
+          { iPureIntro. 
+            rewrite lh_depth_plug /=. *)
+
+          (* Hmmmm this next part should work… *) 
+(*          iDestruct wp_value_fupd as "[H _]"; 
+            last iMod ("H" with "Hbr") as "Hbr".
+          { unfold IntoVal. apply of_to_val.
+            unfold language.to_val. simpl. 
+            rewrite (separate1 (AI_basic _)).
+            apply to_val_br_eq. }
+          iClear "H".
+          unfold denote_logpred.
+          iSimpl in "Hbr".
+          iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vssl' & %vswl'' & -> & Hlocs & Hrestype' & Htok)". *)
+          destruct (decide (i = p)).
+          -- (* targetting this exact block *)
+            subst p. 
+            destruct (pull_base_l_drop_len lh0 (length (vs0 ++ concat vss2) - length ρ2)) eqn:Hpb.
+            rewrite seq.cats0.
+            unfold of_val. 
+            erewrite vfill_pull_base_l_take_len.
+            2:{ exact Hpb. }
+            pose proof (vfill_to_lfilled v ((v_to_e_list l1) ++ [AI_basic (BI_br i)])) as [Hle Hfill].
+            erewrite <- lh_depth_pull_base_l_take_len in Hfill;[|eauto]. 
+            rewrite -e0 in Hfill.
+            rewrite -e0 Nat.sub_diag /= in Hlabels.
+            rewrite -e0 Nat.sub_diag. 
+            inversion Hlabels; subst τs2; clear Hlabels. 
+            iApply (wp_br with "[] Hrun").
+            3: exact Hfill.
+            ++ apply v_to_e_is_const_list. 
+            ++ rewrite length_fmap.
+               eapply length_pull_base_l_take_len in Hpb;[|eauto]. rewrite Hpb.
+               assert (length (vs0 ++ concat vss2) >= length ρ2);[|lia].
+               admit. 
+(*               rewrite Hlen2. lia. } *)
+            ++ admit.
+            ++ iNext. iIntros "Hf Hrun".
+               rewrite app_nil_r.
+               iApply wp_value.
+               { apply of_to_val. apply to_val_v_to_e. }
+               iFrame.
+               admit. 
+(*          -- (* targetting this exact block *)
+            rewrite lh_depth_plug /= Nat.add_sub in Hdepth' Hlayer.
+            replace iris_lfilled_properties.get_layer with get_layer in Hlayer; last done
+            erewrite get_layer_plug_precise in Hlayer.
+            3: done.
+            2:{ admit. }
+            inversion Hlayer; subst; clear Hlayer.
+            simpl in Hlabels.
+            inversion Hlabels; subst; clear Hlabels. 
+            assert (j = p) as ->.
+            { 
+            assert (i = p) as ->.
+            { clear - Heqhop Hdepth.
+              specialize (vfill_to_lfilled lh0 []) as [H _].
+              rewrite Hdepth in H. lia. }
+            assert (j = p) as ->.
+            { admit. }
+            rewrite Nat.sub_diag lh_depth_plug /= Nat.add_sub in Hdepth'.
+            rewrite Nat.sub_diag /= in Hlabels.
+            inversion Hlabels; subst τs; clear Hlabels. 
+            iDestruct (translate_types_length with "Hvss2") as "%Hlen2'".
+            { exact Heq_some0. }
+            rewrite Nat.sub_diag in Hlayer.
+            rewrite lh_depth_plug /= in Hlayer.
+            rewrite Nat.add_sub in Hlayer.
+            replace ( iris_lfilled_properties.get_layer
+                        (lh_plug (LH_rec [] (length ρ2) [] (LH_base [] []) []) lh) 
+                        (lh_depth lh))
+              with ( get_layer
+                       (lh_plug (LH_rec [] (length ρ2) [] (LH_base [] []) []) lh) 
+                       (lh_depth lh)) in Hlayer; last done.
+            erewrite get_layer_plug_precise in Hlayer => //.
+            2:{ admit. }
+            inversion Hlayer; subst. 
+
+            iApply (wp_br with "[]").
+            3:{ rewrite seq.cats0 /=. 
+                instantiate (1 := p).
+                instantiate (1 := v_to_e_list (concat vss2)).
+                instantiate (1 := lh_of_vh (replace_base lh0 vs0)).
+                clear - Hgetbase Hdepth.
+                apply lfilled_get_replace_base => //. } 
+            ++ apply v_to_e_is_const_list.
+            ++ rewrite v_to_e_length length_concat //.
+            ++ admit. (* def of br_interp? or my proof? *) 
+            ++ admit. (* fix def of br_interp *) 
+            ++ iIntros "!> Hf Hrun".
+               edestruct const_list_to_val as [vs Hvs]; first by apply v_to_e_is_const_li
+               iApply wp_value.
+               { apply of_to_val. rewrite app_nil_r. exact Hvs. }
+               iSimpl. iFrame.
+               iSplitL "Hvss2".
+               ** apply v_to_e_list_to_val in Hvs as Hvs'.
+                  apply v_to_e_inj in Hvs' as ->.
+                  iExists _. iSplit; first done.
+                  admit. 
+               ** iExists _,_. iSplit; first done.
+                  admit. *)
+          -- (* still blocked *)
+            admit. 
+(*            assert (i > p) as Hip; first lia.
+            destruct i; first lia.
+            destruct (vh_decrease lh0) eqn:Hlh0.
+            2:{ exfalso. clear - Hip Hlh0 Hdepth.
+                 admit. (* painstaking dep-type induction *) } 
+            iApply wp_value.
+            { apply of_to_val. rewrite seq.cats0 /=. 
+              simpl.
+              unfold RichWasm.iris.language.iris.iris.to_val.
+              simpl.
+              rewrite seq.cats0.
+              specialize (to_of_val (brV lh0)) as H.
+              simpl in H.
+              unfold RichWasm.iris.language.iris.iris.to_val in H.
+              destruct (merge_values_list _) ; try by exfalso.
+              inversion H; subst v0; clear H.
+              rewrite Hlh0. 
+              done. } 
+            iSimpl. iFrame.
+            iSplitL "Hbr".
+            ++ admit. (* massage the br_interp layers *) 
+            ++ admit. (* iExists _,_. iSplit; first done.
+               iFrame.   *) *)
+        * iApply wp_value.
+          { apply of_to_val.
+            rewrite seq.cats0 /=.
+            unfold RichWasm.iris.language.iris.iris.to_val.
+            simpl.
+            specialize (to_of_val (retV s)) as H.
+            simpl in H.
+            unfold RichWasm.iris.language.iris.iris.to_val in H.
+            destruct (merge_values_list _); try by exfalso.
+            inversion H; subst v; clear H.
+            done. }
+          iSimpl.
+          iDestruct "H" as "(%fr & Hfr & (%vssl & %vswl0' & -> & % & % & Htok) & Hrun & %vs0 & %vs & %Hgetbase & (%vss & -> & Hvss) & Hret)".
+          iFrame.
+          iSplit.
+          -- iExists _,_. iSplit; first done. done.
+          -- iExists _,_. iSplit; first done. iSplit; first done.
+             iIntros (fr fr') "Hf".
+             admit. (* generalise s in IH? *)
+        * iDestruct "H" as "(%fr & Hfr & _ & _ & ?)"; done.
     - (* n is true *)
       admit. 
   Admitted.

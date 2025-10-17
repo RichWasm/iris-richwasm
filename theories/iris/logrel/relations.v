@@ -473,8 +473,8 @@ Section Relations.
     (se : semantic_env) (τr : list type) (ιss_L : list (list primitive_rep)) (L : local_ctx)
     (WL : wlocal_ctx) (inst : instance) (br_interp : BR) :
     BR :=
-    λne lh τc, λ (n: nat), λne (vh: leibnizO (valid_holed n)),
-      (∃ j k p lh' lh'' τs es0 es es' vs0 vs,
+    λne lh τc, λ (j: nat), λne (vh: leibnizO (valid_holed j)),
+      (∃ k p lh' lh'' τs es0 es es' vs0 vs,
          ⌜get_base_l vh = vs0 ++ vs⌝ ∗
            ⌜lh_depth (lh_of_vh vh) = p⌝ ∗
            ⌜τc !! (j - p) = Some (τs, L)⌝ ∗
