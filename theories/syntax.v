@@ -21,3 +21,38 @@ Fixpoint flatten_function_type (ϕ : function_type) : flat_function_type :=
   | ForallSizeT ϕ' => flatten_function_type ϕ' <| fft_size_vars ::= S |>
   | ForallTypeT κ ϕ' => flatten_function_type ϕ' <| fft_type_vars ::= app [κ] |>
   end.
+
+Definition proj_instr_ty (e: instruction) : instruction_type :=
+  match e with
+  | INop ty
+  | IUnreachable ty
+  | ICopy ty
+  | IDrop ty
+  | INum ty _
+  | INumConst ty _
+  | IBlock ty _ _
+  | ILoop ty _
+  | IIte ty _ _ _
+  | IBr ty _
+  | IReturn ty
+  | ILocalGet ty _
+  | ILocalSet ty _
+  | ICodeRef ty _
+  | IInst ty _
+  | ICall ty _ _
+  | ICallIndirect ty
+  | IInject ty _
+  | ICase ty _ _
+  | IGroup ty
+  | IUngroup ty
+  | IFold ty
+  | IUnfold ty
+  | IPack ty
+  | IUnpack ty _ _
+  | ITag ty
+  | IUntag ty
+  | INew ty
+  | ILoad ty _
+  | IStore ty _
+  | ISwap ty _ => ty
+  end.

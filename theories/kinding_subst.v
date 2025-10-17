@@ -50,13 +50,6 @@ Lemma has_kind_subst F τ κ :
         (subst_kind s__mem s__rep s__size κ).
 Proof.
   induction 1 using has_kind_ind'; intros s__mem s__rep s__size Hsubst; try solve [econstructor; eauto].
-  - eapply IHhas_kind in Hsubst.
-    econstructor; eauto using subkind_of_subst.
-  - cbn.
-    eapply KVar.
-    + cbn.
-      by rewrite list_lookup_fmap H.
-    + by eapply kind_ok_subst.
   - eapply KSum.
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
@@ -111,4 +104,11 @@ Proof.
     + admit.
   - admit.
   - admit.
+  - eapply IHhas_kind in Hsubst.
+    econstructor; eauto using subkind_of_subst.
+  - cbn.
+    eapply KVar.
+    + cbn.
+      by rewrite list_lookup_fmap H.
+    + by eapply kind_ok_subst.
 Admitted.

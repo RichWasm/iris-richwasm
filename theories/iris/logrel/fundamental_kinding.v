@@ -293,31 +293,6 @@ Section FundamentalKinding.
     revert ρ χ δ.
     induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *;
       intros [Hsubst Henv]; try subst κ; try subst κ'.
-    - inversion H; subst; eauto.
-      + specialize (IHHkind _ _ _ eq_refl).
-        cbn in IHHkind.
-        cbn.
-        admit.
-      + cbn; done.
-      + specialize (IHHkind _ _ _ eq_refl).
-        eapply IHHkind.
-        split; auto.
-      + specialize (IHHkind _ _ _ eq_refl).
-        eapply IHHkind.
-        split; eauto.
-    - simpl subst_type.
-      unfold sem_env_interp in Henv.
-      pose proof (Forall2_length _ _ _ Henv) as Hlen.
-      eapply Forall2_lookup_r in H; eauto.
-      destruct H as [[κt' T] [Hκt' [Hκsubst Hκinterp]]].
-      cbn in Hκsubst, Hκinterp.
-      cbn in *; subst.
-      rewrite value_interp_var; eauto.
-      apply copyability_sep.
-      + eapply copyability_kind; eauto.
-        admit.
-      + cbn.
-        by destruct Hκinterp.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
       cbn.
       intros.
@@ -355,6 +330,31 @@ Section FundamentalKinding.
     - admit. (* exists (repr) *)
     - admit. (* exists (size) *)
     - admit. (* exists (type) *)
+    - inversion H; subst; eauto.
+      + specialize (IHHkind _ _ _ eq_refl).
+        cbn in IHHkind.
+        cbn.
+        admit.
+      + cbn; done.
+      + specialize (IHHkind _ _ _ eq_refl).
+        eapply IHHkind.
+        split; auto.
+      + specialize (IHHkind _ _ _ eq_refl).
+        eapply IHHkind.
+        split; eauto.
+    - simpl subst_type.
+      unfold sem_env_interp in Henv.
+      pose proof (Forall2_length _ _ _ Henv) as Hlen.
+      eapply Forall2_lookup_r in H; eauto.
+      destruct H as [[κt' T] [Hκt' [Hκsubst Hκinterp]]].
+      cbn in Hκsubst, Hκinterp.
+      cbn in *; subst.
+      rewrite value_interp_var; eauto.
+      apply copyability_sep.
+      + eapply copyability_kind; eauto.
+        admit.
+      + cbn.
+        by destruct Hκinterp.
   Admitted.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 

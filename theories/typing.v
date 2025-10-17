@@ -228,14 +228,6 @@ Inductive has_kind_ok : function_ctx -> type -> kind -> Prop :=
   has_kind_ok F τ κ.
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
-| KSub F τ κ κ' :
-  subkind_of κ κ' ->
-  has_kind F τ κ ->
-  has_kind F τ κ'
-| KVar F t κ :
-  F.(fc_type_vars) !! t = Some κ ->
-  kind_ok F.(fc_kind_ctx) κ ->
-  has_kind F (VarT t) κ
 | KI31 F :
   let κ := VALTYPE (PrimR PtrR) ImCopy ImDrop in
   has_kind F (I31T κ) κ
@@ -328,17 +320,21 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   kind_ok F.(fc_kind_ctx) κ0 ->
   kind_ok F.(fc_kind_ctx) κ ->
   has_kind (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
-  has_kind F (ExistsTypeT κ κ0 τ) κ.
+  has_kind F (ExistsTypeT κ κ0 τ) κ
+| KSub F τ κ κ' :
+  subkind_of κ κ' ->
+  has_kind F τ κ ->
+  has_kind F τ κ'
+| KVar F t κ :
+  F.(fc_type_vars) !! t = Some κ ->
+  kind_ok F.(fc_kind_ctx) κ ->
+  has_kind F (VarT t) κ.
 
 Section HasKindInd.
 
   Variable P : function_ctx -> type -> kind -> Prop.
 
   Hypotheses
-    (HSub : forall F τ κ κ', subkind_of κ κ' -> P F τ κ -> P F τ κ')
-      (HVar : forall F t κ, F.(fc_type_vars) !! t = Some κ ->
-                       kind_ok F.(fc_kind_ctx) κ ->
-                       P F (VarT t) κ)
       (HI31 : forall F, let κ := VALTYPE (PrimR PtrR) ImCopy ImDrop in
                    P F (I31T κ) κ)
       (HI32 : forall F, let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
@@ -414,12 +410,14 @@ Section HasKindInd.
           kind_ok F.(fc_kind_ctx) κ0 ->
           kind_ok F.(fc_kind_ctx) κ ->
           P (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
-          P F (ExistsTypeT κ κ0 τ) κ).
+          P F (ExistsTypeT κ κ0 τ) κ)
+    (HSub : forall F τ κ κ', subkind_of κ κ' -> P F τ κ -> P F τ κ')
+      (HVar : forall F t κ, F.(fc_type_vars) !! t = Some κ ->
+                       kind_ok F.(fc_kind_ctx) κ ->
+                       P F (VarT t) κ).
 
   Fixpoint has_kind_ind' (F : function_ctx) (τ : type) (κ : kind) (H : has_kind F τ κ) : P F τ κ :=
     match H with
-    | KSub F τ κ κ' H1 H2 => HSub F τ κ κ' H1 (has_kind_ind' F τ κ H2)
-    | KVar F t κ H1 H2 => HVar F t κ H1 H2
     | KI31 F => HI31 F
     | KI32 F => HI32 F
     | KI64 F => HI64 F
@@ -449,6 +447,8 @@ Section HasKindInd.
     | KExistsRep F τ κ H1 H2 => HExistsRep F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsSize F τ κ H1 H2 => HExistsSize F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsType F τ κ0 κ H1 H2 H3 => HExistsType F τ κ0 κ H1 H2 (has_kind_ind' _ _ _ H3)
+    | KSub F τ κ κ' H1 H2 => HSub F τ κ κ' H1 (has_kind_ind' F τ κ H2)
+    | KVar F t κ H1 H2 => HVar F t κ H1 H2
     end.
 
 End HasKindInd.
@@ -463,9 +463,6 @@ Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
 Proof.
   intros H.
   induction H using has_kind_ind'.
-  { destruct IHhas_kind as [F τ κ H1 H2].
-    by apply (kind_ok_subkind_of _ _ _ H2) in H. }
-  { constructor; last done. by apply OKVarT with (κ := κ). }
   all: repeat constructor.
   all: try inversion IHhas_kind.
   all: try done.
@@ -499,6 +496,9 @@ Proof.
     intros. by inversion H2.
   - eapply Forall2_Forall_r in H0; first exact H0. apply Forall_forall.
     intros. inversion H2. inversion H4. by inversion H11.
+  - subst. 
+    by apply (kind_ok_subkind_of _ _ _ H1) in H.
+  - econstructor; done.
 Qed.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
