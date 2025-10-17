@@ -421,7 +421,7 @@ Section Relations.
   Definition closure_interp (se : semantic_env) : leibnizO function_type -n> ClR :=
     closure_interp0 value_interp se.
 
-  Definition locals_inv_interp (se : semantic_env) : (list (list primitive_rep)) -> list (list value) -> Prop :=
+  Definition locals_inv_interp : (list (list primitive_rep)) -> list (list value) -> Prop :=
     λ ιss vss, Forall2 (Forall2 primitive_rep_interp) ιss vss.
 
   Definition locals_interp (se : semantic_env) :
@@ -432,12 +432,12 @@ Section Relations.
   Definition frame_inv_interp (se : semantic_env) :
     leibnizO (list (list primitive_rep)) -n> leibnizO wlocal_ctx -n>
       leibnizO instance -n> FrR :=
-    λne ιss WL inst fr,
-      (∃ vss_L vs_WL,
-         ⌜fr = Build_frame (concat vss_L ++ vs_WL) inst⌝ ∗
-         ⌜locals_inv_interp se ιss vss_L⌝ ∗
-         ⌜result_type_interp WL vs_WL⌝ ∗
-         na_own logrel_nais ⊤)%I.
+    (λne ιss WL inst fr,
+      na_own logrel_nais ⊤ ∗
+      ∃ vss_L vs_WL,
+        ⌜fr = Build_frame (concat vss_L ++ vs_WL) inst⌝ ∗
+        ⌜locals_inv_interp ιss vss_L⌝ ∗
+        ⌜result_type_interp WL vs_WL⌝)%I.
 
   Definition frame_interp (se : semantic_env) :
     leibnizO (list (list primitive_rep)) -n> leibnizO local_ctx -n> leibnizO wlocal_ctx -n>
@@ -445,6 +445,8 @@ Section Relations.
     λne ιss L WL inst fr,
       (∃ vss_L vs_WL,
          ⌜fr = Build_frame (concat vss_L ++ vs_WL) inst⌝ ∗
+         ⌜locals_inv_interp ιss vss_L⌝ ∗
+         ⌜result_type_interp WL vs_WL⌝ ∗
          locals_interp se ιss L vss_L)%I.
 
   Fixpoint get_base_l {n : nat} (lh : valid_holed n) :=
