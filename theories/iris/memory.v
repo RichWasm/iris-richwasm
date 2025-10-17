@@ -111,7 +111,6 @@ Definition index_address (i : nat) : N := N.of_nat (4 * i).
 
 Inductive repr_pointer : N -> gc_address_map -> pointer -> Z -> Prop :=
 | ReprPtrInt gc_heap_off θ n :
-  n `mod` 2 = 0 ->
   repr_pointer gc_heap_off θ (PtrInt n) (2 * n)
 | ReprPtrMM gc_heap_off θ a :
   (a `mod` 4 = 0)%N ->

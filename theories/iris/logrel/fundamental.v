@@ -1283,13 +1283,99 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
+  Lemma length1concat (vss: list (list value)) (vs: list value):
+    1 = length vss ->
+    vs = concat vss ->
+    vss = [vs].
+  Proof.
+    intros Hlength Hconcat.
+    destruct vss as [| v vs1]; inversion Hlength.
+    symmetry in H0; apply nil_length_inv in H0; subst; simpl.
+    by rewrite app_nil_r.
+  Qed.
+
   Lemma compat_tag M F L wl wl' wlf es' :
     let fe := fe_of_context F in
     let ψ := InstrT [type_i32] [type_i31] in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ITag ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
-  Admitted.
+  Proof.
+    intros fe ψ Hok Hcompile.
+    cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
+
+    cbn.
+    iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
+    iIntros (? ?) "Hvs Hframe Hframeinv Hfr Hrun".
+
+    (* A loooong section to prove that vs just has an integer in it *)
+    (* First, show vss = [vs]. Mostly lemma *)
+    iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
+    iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
+    simpl in Hlens.
+    pose proof (length1concat vss vs Hlens Hconcat) as Hvss.
+    (* Second, unfold Hvs until a single value interp *)
+    rewrite Hvss.
+    iEval (cbn) in "Hvs".
+    iDestruct "Hvs" as "[Hvs _]".
+    iPoseProof (value_interp_eq with "Hvs") as "Hvs".
+    iEval (cbn) in "Hvs".
+    (* Third, get through the kind interp *)
+    iDestruct "Hvs" as "(%k & %Hk & Hkindinterp & _)".
+    inversion Hk.
+    iEval (cbn) in "Hkindinterp".
+    iPoseProof "Hkindinterp" as "%Hkindinterp".
+    (* Fourth, we prove that vs must just be some integers *)
+    assert (Hvs: exists n, vs = [VAL_int32 n]).
+    {
+      (* Dig into forall2*)
+      apply Forall2_length in Hkindinterp as Hvslength.
+      (* Prove vs is a single element *)
+      cbn in Hvslength.
+      destruct vs as [| v vs]; inversion Hvslength.
+      symmetry in H1; apply nil_length_inv in H1; subst.
+      (* Now dig into primitive_rep_interp*)
+      apply Forall2_cons_iff in Hkindinterp.
+      destruct Hkindinterp as [Hpriminterp _].
+      cbn in Hpriminterp.
+      destruct Hpriminterp as [n Hfinally].
+      exists n.
+      by rewrite Hfinally.
+    }
+    (* Now we can intros that vs = [Val_int32 n] for some n *)
+    destruct Hvs as [n Hvs].
+    rewrite Hvs.
+    iEval (cbn).
+
+    (* Finally, FINALLY, we can apply lwp_binop. The end is in sight. *)
+    iApply lwp_binop.
+    - cbn. auto. (* get the pure value that the computations gets you *)
+    - (* Four of the resources are just trivial *)
+      iFrame.
+      (* let's prove this value!*)
+      iModIntro; iEval (cbn).
+      (* Several vss0 work, but this one is good*)
+      iExists [[VAL_int32 (Wasm_int.Int32.ishl n (Wasm_int.Int32.repr 1))]].
+      cbn.
+      (* Silly splitting and auto to resolve things *)
+      iSplitL; auto; iSplitL; auto.
+      (* Dig into value-interp *)
+      iApply value_interp_eq; cbn.
+      (* Silly splitting and auto *)
+      iExists _; iSplitL; auto; iSplitL; auto; cbn.
+      iPureIntro.
+      (* Dig into Forall2 *)
+      apply Forall2_cons_iff.
+      split; auto; cbn.
+      (* Now some silly eexists to get shifts out to work *)
+      exists empty.
+      eexists.
+      eexists.
+      split; auto.
+      unfold Z.shiftl.
+      cbn.
+      apply (ReprPtrInt (sr_gc_heap_off sr) empty (Wasm_int.Int32.unsigned n)).
+  Qed.
 
   Lemma compat_untag M F L wl wl' wlf es' :
     let fe := fe_of_context F in
