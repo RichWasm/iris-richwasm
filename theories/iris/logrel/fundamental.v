@@ -1400,18 +1400,18 @@ Section Fundamental.
     unfold to_e_list. rewrite mathcomp.ssreflect.seq.map_cat. done.
   Qed.
   
-  Lemma compat_cons M F L1 L2 L3 wl wl' wlf es' e es τs1 τs2 τs3 :
+  Lemma compat_app M F L1 L2 L3 wl wl' wlf es' es1 es2 τs1 τs2 τs3 :
     let fe := fe_of_context F in
     (forall wl wl' wlf es',
-        run_codegen (compile_instr mr fe e) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe es1) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem rti sr mr M F L1 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs2) L2) ->
     (forall wl wl' wlf es',
-        run_codegen (compile_instrs mr fe es) wl = inr ((), wl', es') ->
+        run_codegen (compile_instrs mr fe es2) wl = inr ((), wl', es') ->
         ⊢ have_instruction_type_sem rti sr mr M F L2 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs2 τs3) L3) ->
-    run_codegen (compile_instrs mr fe (e :: es)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instrs mr fe (es1 ++ es2)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L1 (wl ++ wl' ++ wlf) (to_e_list es') (InstrT τs1 τs3) L3.
   Proof.
-    intros fe He Hes Hcompile; rename wl' into wl''.
+    intros fe Hes1 Hes2 Hcompile; rename wl' into wl''.
     (* Step 1: split out Hcompile into Hcompile_e and Hcompile_es *)
 
     (* For Hcompile_e *)
@@ -1419,7 +1419,9 @@ Section Fundamental.
     cbn in Hcompile.
     inv_cg_bind Hcompile res wl1' wltest es1' es2' Hcompile Hcompile_empty; subst.
     inversion Hcompile_empty; subst; clear Hcompile_empty.
+    admit.
 
+    (*
     inv_cg_bind Hcompile res' wl' wl'' e' es' Hcompile_e Hcompile_es_kinda; subst.
 
     assert (Hres: res' = ()). { admit. } 
@@ -1442,7 +1444,7 @@ Section Fundamental.
        Not sure how to prove that atm
      *)
     assert (Hcompile_es:
-             run_codegen (compile_instrs mr fe es) (wl ++ wl') = inr((), wl'', es')).
+             run_codegen (compile_instrs mr fe es1) (wl ++ wl') = inr((), wl'', es')).
     { admit. }
 
     apply (Hes _ _ wlf) in Hcompile_es as Hsem_es. clear Hcompile_es_kinda.
@@ -1495,6 +1497,18 @@ Section Fundamental.
       + admit.
       + admit.
       + admit.
+*)
+  Admitted.
+
+  Lemma compat_instr M F L L' wl wl' wlf e ψ es' :
+    let fe := fe_of_context F in
+    (∀ (wl wl' wlf : list codegen.W.value_type) (es' : codegen.W.expr),
+      let fe := fe_of_context F in
+      run_codegen (compile_instr mr fe e) wl = inr ((), wl', es')
+      → ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L') ->
+    run_codegen (compile_instrs mr fe [e]) wl = inr ((), wl', es') ->
+    ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
+  Proof.
   Admitted.
 
   Lemma compat_frame M F L L' wl wl' wlf es es' τ τs1 τs2 :
@@ -1524,7 +1538,7 @@ Section Fundamental.
                  let fe := fe_of_context F in
                  run_codegen (compile_instr mr fe e) wl = inr (tt, wl', es') ->
                  ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L');
-      intros wl wl' wlf es' fe Hcomp.
+      intros wl wl' wlf wes fe Hcomp.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.
     - eapply compat_copy; eassumption.
@@ -1562,7 +1576,8 @@ Section Fundamental.
     - eapply compat_store_mm; eassumption.
     - eapply compat_swap; eassumption.
     - eapply compat_nil; eassumption.
-    - eapply compat_cons; eassumption.
+    - eapply compat_app in Hcomp; eassumption.
+    - eapply compat_instr; eassumption.
     - eapply compat_frame; eassumption.
   Qed.
 

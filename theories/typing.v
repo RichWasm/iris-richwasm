@@ -959,10 +959,13 @@ with have_instruction_type :
 | TNil M F L :
   local_ctx_ok F L ->
   have_instruction_type M F L [] (InstrT [] []) L
-| TCons M F L1 L2 L3 e es τs1 τs2 τs3 :
-  has_instruction_type M F L1 e (InstrT τs1 τs2) L2 ->
-  have_instruction_type M F L2 es (InstrT τs2 τs3) L3 ->
-  have_instruction_type M F L1 (e :: es) (InstrT τs1 τs3) L3
+| TApp M F L1 L2 L3 es es' τs1 τs2 τs3 :
+  have_instruction_type M F L1 es (InstrT τs1 τs2) L2 ->
+  have_instruction_type M F L2 es' (InstrT τs2 τs3) L3 ->
+  have_instruction_type M F L1 (es ++ es') (InstrT τs1 τs3) L3
+| TInstr M F L L' e ψ :
+  has_instruction_type M F L e ψ L' ->
+  have_instruction_type M F L [e] ψ L'
 | TFrame M F L L' es τ τs1 τs2 :
   has_mono_rep F τ ->
   have_instruction_type M F L es (InstrT τs1 τs2) L' ->
@@ -1188,10 +1191,13 @@ Section HasHaveInstructionTypeMind.
       (HNil : forall M F L,
           local_ctx_ok F L ->
           P2 M F L [] (InstrT [] []) L)
-      (HCons : forall M F L1 L2 L3 e es τs1 τs2 τs3,
-          P1 M F L1 e (InstrT τs1 τs2) L2 ->
-          P2 M F L2 es (InstrT τs2 τs3) L3 ->
-          P2 M F L1 (e :: es) (InstrT τs1 τs3) L3)
+      (HApp : forall M F L1 L2 L3 es es' τs1 τs2 τs3,
+          P2 M F L1 es (InstrT τs1 τs2) L2 ->
+          P2 M F L2 es' (InstrT τs2 τs3) L3 ->
+          P2 M F L1 (es ++ es') (InstrT τs1 τs3) L3)
+      (HInstr : forall M F L L' e ψ,
+          P1 M F L e ψ L' ->
+          P2 M F L [e] ψ L')
       (HFrame : forall M F L L' es τ τs1 τs2,
           has_mono_rep F τ ->
           P2 M F L es (InstrT τs1 τs2) L' ->
@@ -1268,10 +1274,12 @@ Section HasHaveInstructionTypeMind.
     P2 M F L es ψ L' :=
     match H with
     | TNil M F L H1 => HNil M F L H1
-    | TCons M F L1 L2 L3 e es τs1 τs2 τs3 H1 H2 =>
-        HCons M F L1 L2 L3 e es τs1 τs2 τs3
-          (has_instruction_type_mind _ _ _ _ _ _ H1)
+    | TApp M F L1 L2 L3 es es' τs1 τs2 τs3 H1 H2 =>
+        HApp M F L1 L2 L3 es es' τs1 τs2 τs3
+          (have_instruction_type_mind _ _ _ _ _ _ H1)
           (have_instruction_type_mind _ _ _ _ _ _ H2)
+    | TInstr M F L L' e ψ H =>
+        HInstr M F L L' e ψ (has_instruction_type_mind _ _ _ _ _ _ H)
     | TFrame M F L L' es τ τs1 τs2 H1 H2 =>
        HFrame M F L L' es τ τs1 τs2 H1 (have_instruction_type_mind _ _ _ _ _ _ H2)
     end.
