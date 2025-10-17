@@ -359,4 +359,23 @@ let%expect_test "examples" =
          (App (Coderef from-int) (Int 7))
          (Let (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
           (App (Coderef add) (Tuple ((Var (1 (six))) (Var (0 (seven))))))
-          (App (Coderef to-int) (Var (0 (sum)))))))))) |}]
+          (App (Coderef to-int) (Var (0 (sum))))))))))
+    -----------mini_zip-----------
+    ((imports ())
+     (functions
+      (((export false) (name add1) (param Int) (return Int)
+        (body (Binop Add (Var (0 (x))) (Int 1))))
+       ((export true) (name typle_add1) (param (Prod (Int Int)))
+        (return (Prod (Int Int)))
+        (body
+         (Split (Int Int) (Var (0 (x)))
+          (Tuple
+           ((App (Coderef add1) (Var (1 (x1))))
+            (App (Coderef add1) (Var (0 (x2)))))))))
+       ((export false) (name mini_zip_specialized)
+        (param (Prod ((Ref Int) (Ref (Ref Int)))))
+        (return (Ref (Prod (Int (Ref Int)))))
+        (body
+         (Split ((Ref Int) (Ref (Ref Int))) (Var (0 (p)))
+          (New (Tuple ((Free (Var (1 (a)))) (Free (Var (0 (b))))))))))))
+     (main ())) |}]

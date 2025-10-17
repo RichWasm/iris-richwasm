@@ -625,4 +625,32 @@ let%expect_test "examples" =
            (Var (0 (sum)) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))) Int)
           Int)
          Int)
-        Int)))) |}]
+        Int))))
+    -----------mini_zip-----------
+    ((imports ())
+     (functions
+      (((export false) (name add1) (param Int) (return Int)
+        (body (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int)))
+       ((export true) (name typle_add1) (param (Prod (Int Int)))
+        (return (Prod (Int Int)))
+        (body
+         (Split (Int Int) (Var (0 (x)) (Prod (Int Int)))
+          (Tuple
+           ((App (Coderef add1 (Lollipop Int Int)) (Var (1 (x1)) Int) Int)
+            (App (Coderef add1 (Lollipop Int Int)) (Var (0 (x2)) Int) Int))
+           (Prod (Int Int)))
+          (Prod (Int Int)))))
+       ((export false) (name mini_zip_specialized)
+        (param (Prod ((Ref Int) (Ref (Ref Int)))))
+        (return (Ref (Prod (Int (Ref Int)))))
+        (body
+         (Split ((Ref Int) (Ref (Ref Int)))
+          (Var (0 (p)) (Prod ((Ref Int) (Ref (Ref Int)))))
+          (New
+           (Tuple
+            ((Free (Var (1 (a)) (Ref Int)) Int)
+             (Free (Var (0 (b)) (Ref (Ref Int))) (Ref Int)))
+            (Prod (Int (Ref Int))))
+           (Ref (Prod (Int (Ref Int)))))
+          (Ref (Prod (Int (Ref Int)))))))))
+     (main ())) |}]

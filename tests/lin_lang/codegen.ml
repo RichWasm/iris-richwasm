@@ -840,4 +840,75 @@ let%expect_test "examples" =
           call_indirect
         end)
       (table -1 0 1)
-      (export 3)) |}]
+      (export 3))
+    -----------mini_zip-----------
+    (module
+      (func ((prod (ref (concrete mm) (prod)) i32) -> i32)
+        local.get 0 follow
+        i32.const 1
+        i32.add)
+      (func ((prod (ref (concrete mm) (prod)) (prod i32 i32)) -> (prod i32 i32))
+          (local i32 i32 ptr (prod ptr i32) ptr ptr (prod ptr i32) ptr)
+        local.get 0 follow
+        local.set 1
+        local.set 2
+        coderef -1
+        group 0
+        new mm (prod)
+        group 2
+        pack (Type (prod))
+          (exists type (VALTYPE (ptr, excopy, exdrop))
+            (coderef ((prod (var 0) i32) -> i32)))
+        unpack (<1> -> i32) (LocalFx [])
+          local.set 3
+          local.get 3 follow
+          local.set 4
+          local.set 5
+          local.get 5 follow
+          local.get 4 follow
+          group 2
+          local.get 4 follow
+          call_indirect
+        end
+        coderef -1
+        group 0
+        new mm (prod)
+        group 2
+        pack (Type (prod))
+          (exists type (VALTYPE (ptr, excopy, exdrop))
+            (coderef ((prod (var 0) i32) -> i32)))
+        unpack (<1> -> i32) (LocalFx [])
+          local.set 6
+          local.get 6 follow
+          local.set 7
+          local.set 8
+          local.get 8 follow
+          local.get 8 follow
+          group 2
+          local.get 7 follow
+          call_indirect
+        end
+        group 2)
+      (func
+          ((prod (ref (concrete mm) (prod))
+             (prod (ref (concrete mm) i32)
+               (ref (concrete mm) (ref (concrete mm) i32))))
+          -> (ref (concrete mm) (prod i32 (ref (concrete mm) i32)))) (local ptr ptr
+          i32 ptr)
+        local.get 0 follow
+        local.set 1
+        local.set 2
+        local.get 1 follow
+        load (Path []) move
+        local.set 3
+        drop
+        local.get 3 move
+        local.get 2 follow
+        load (Path []) move
+        local.set 4
+        drop
+        local.get 4 move
+        group 2
+        new mm (prod i32 (ref (concrete mm) i32)))
+      (table -1 0 1)
+      (export 1)) |}]

@@ -154,7 +154,7 @@ let boxed_list =
     |}
 
 let peano_3 =
-  Parse.from_string_exn 
+  Parse.from_string_exn
     {|
       (fold (rec a . (() + (ref a)))
         (inj 1 (new
@@ -204,6 +204,19 @@ let peano =
       (to-int sum))))
     |}
 
+let mini_zip =
+  Parse.from_string_exn
+    {|
+      (fun add1 (x : int) : int .
+        (x + 1))
+      (export fun typle_add1 (x : (int * int)) : (int * int) .
+        (split (x1 : int) (x2 : int) = x in
+        ((add1 x1), (add1 x2))))
+      (fun mini_zip_specialized (p : ((ref int) * (ref (ref int)))) : (ref (int * (ref int))) .
+        (split (a : (ref int)) (b : (ref (ref int))) = p in
+        (new ((free a), (free b)))))
+    |}
+
 let simple : (string * Module.t) list =
   [
     ("one", "1");
@@ -235,4 +248,5 @@ let all : (string * Module.t) list =
       ("boxed_list", boxed_list);
       ("peano_3", peano_3);
       ("peano", peano);
+      ("mini_zip", mini_zip);
     ]

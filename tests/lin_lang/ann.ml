@@ -274,4 +274,6 @@ let%expect_test "examples" =
     -----------peano_3-----------
     FAILURE TODO
     -----------peano-----------
+    FAILURE TODO
+    -----------mini_zip-----------
     FAILURE TODO |xxx}]
