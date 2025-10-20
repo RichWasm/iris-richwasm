@@ -53,9 +53,9 @@ Section lwp_pure.
   Lemma lenient_wp_nop s E Φ f :
     ⊢ ↪[RUN] -∗
       ↪[frame] f -∗
-      Φ.(lp_fr) f -∗
+      ▷ Φ.(lp_fr) f -∗
       Φ.(lp_fr_inv) f -∗
-      Φ.(lp_val) [] -∗
+      ▷ Φ.(lp_val) [] -∗
       lenient_wp s E [AI_basic BI_nop] Φ.
   Proof.
     iIntros "HR Hf Hfr Hfrinv HΦ".

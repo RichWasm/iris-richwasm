@@ -224,6 +224,10 @@ Section Compiler.
 
   Definition erased_in_wasm : codegen unit := ret tt.
 
+  (* Some instructions that are erased should still take a step due to
+     funny business involving the later modality. *)
+  Definition erased_in_wasm_nop : codegen unit := emit W.BI_nop.
+
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
     let compile_instrs fe := mapM_ (compile_instr fe) in
     match e with
@@ -256,8 +260,8 @@ Section Compiler.
     | ICase (InstrT [RefT _ _ (VariantT _ τsv)] τsr) _ ess =>
         compile_case_variant fe τsv τsr (map (compile_instrs fe) ess)
     | ICase _ _ _ => raise EFail
-    | IGroup _ => erased_in_wasm
-    | IUngroup _ => erased_in_wasm
+    | IGroup _ => erased_in_wasm_nop
+    | IUngroup _ => erased_in_wasm_nop
     | IFold _ => erased_in_wasm
     | IUnfold  _ => erased_in_wasm
     | IPack _ => erased_in_wasm

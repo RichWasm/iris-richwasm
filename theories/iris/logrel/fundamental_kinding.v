@@ -83,6 +83,23 @@ Section FundamentalKinding.
     inversion H; reflexivity.
   Qed.
 
+  Lemma subkind_preserves_valtype :
+    forall ρ χ δ κ,
+      clos_refl_trans _ subkind_of κ (VALTYPE ρ χ δ) ->
+      ∃ χ' δ',
+        κ = VALTYPE ρ χ' δ'.
+  Proof.
+    intros.
+    remember (VALTYPE ρ χ δ) as κ'.
+    revert Heqκ'.
+    revert ρ δ χ.
+    induction H; intros; subst.
+    - inversion H; eauto.
+    - eauto.
+    - destruct (IHclos_refl_trans2 _ _ _ eq_refl) as (χ' & δ' & Hy).
+      eauto.
+  Qed.
+
   Lemma type_rep_has_kind_agree F τ ρ χ δ :
     has_kind F τ (VALTYPE ρ χ δ) ->
     type_rep (fe_type_vars (fe_of_context F)) τ = Some ρ.
