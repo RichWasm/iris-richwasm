@@ -266,7 +266,7 @@ Section Fundamental.
     3: destruct f.
     all: eexists; done.
   Qed.
-
+  
   Lemma compat_block M F L L' wl wl' wlf τs1 τs2 es es' :
     let fe := fe_of_context F in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
@@ -280,11 +280,10 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Proof.
     intros fe F' ψ Hok IH Hrun.
-    simpl in Hrun.
+    cbn [compile_instr] in Hrun.
     inv_cg_bind Hrun ρ wl0 wl0' es_nil es0' Hrun1 Hrun2.
     subst wl' es'.
-    simpl in Hrun1.
-    simpl in Hrun2.
+    cbn in Hrun1.
     inv_cg_try_option Hrun1.
     subst wl0 es_nil.
     destruct (translate_types (fc_type_vars F) τs1) as [ts1|] eqn:Hts1; last done.
@@ -304,7 +303,11 @@ Section Fundamental.
     cbn in Hrun1.
     inversion Hrun1; subst wl2' es1'; clear Hrun1.
     unfold compile_instrs in IH.
-    (* Hmmmm cannot seem to apply IH to Hrun1 *)
+    rewrite !app_nil_l !app_nil_r.
+    assert (Hrun': run_codegen (util.ignore (mapM (compile_instr mr fe) es)) wl = inr ((), wl2, es_nil))
+      by admit.
+    apply (IH _ _ wlf) in Hrun'.
+    (* stuck here: if F' |- es then F |- block {es} *)
   Admitted.
 
 

@@ -732,4 +732,80 @@ Section CodeGen.
       by iFrame.
   Qed.
 
+  Lemma wp_bind_err {A B} c (f: A -> codegen B) wl err :
+    run_codegen (c ≫= f) wl = inl err ->
+    run_codegen c wl = inl err \/ 
+      exists x wl' es,
+        run_codegen c wl = inr (x, wl', es) /\
+        run_codegen (f x) (wl ++ wl') = inl err.
+  Proof.
+    intros.
+    unfold mbind, Monad_codegen in H.
+    cbn in H.
+    unfold run_codegen in H.
+    destruct (WriterMonad.runWriterT _) eqn:Hrun in H; [|congruence].
+    cbn in Hrun.
+    destruct (accum.runAccumT _) as [[err' | val]] eqn:Harun in Hrun; [|cbn in *; congruence].
+    unfold accum.runAccumT in Harun.
+    destruct c as [c].
+    cbn in Harun.
+    destruct (c ≫= uncodegen ∘ f) as [x] eqn:? in Harun.
+    cbn in *.
+    inversion Hrun; subst.
+    inversion H; subst.
+    clear Hrun.
+    unfold mbind in Heqa; cbn in Heqa.
+    inversion Heqa; subst.
+    inversion Harun; subst.
+    clear Heqa Harun.
+    destruct (WriterMonad.runWriterT (accum.runAccumT c wl)) eqn:Hc.
+    - left.
+      unfold run_codegen.
+      rewrite Hc; congruence.
+    - right.
+      destruct p as [ret' es'].
+      cbn in H1.
+      destruct (WriterMonad.runWriterT _) eqn:? in H1; [|cbn in *; try congruence].
+      destruct ret' as [ret' wl'].
+      inversion H1; subst e.
+      do 3 eexists.
+      split.
+      + cbn. unfold run_codegen.
+        rewrite Hc.
+        cbn.
+        eauto.
+      + unfold run_codegen; cbn.
+        destruct (WriterMonad.runWriterT (accum.runAccumT (uncodegen (f ret')) (wl ++ wl'))) eqn:Hf.
+        * cbn in Heqy.
+          congruence.
+        * cbn in Heqy.
+          destruct p as [[? ?] ?]; cbn in Heqy.
+          congruence.
+  Qed.
+
+  Lemma ignore_err_faithful {A} (c: codegen A) wl err :
+    run_codegen (util.ignore c) wl = inl err ->
+    run_codegen c wl = inl err.
+  Proof.
+    unfold util.ignore.
+    intros Hi.
+    apply wp_bind_err in Hi.
+    destruct Hi as [? | (x & wl' & es & Hc & Hret)]; first done.
+    cbn in Hret.
+    congruence.
+  Qed.
+
+  Lemma ignore_cg_agree {A} (c: codegen A) wl wl' es ret :
+    run_codegen c wl = inr (ret, wl', es) ->
+    run_codegen (util.ignore c) wl = inr ((), wl', es).
+  Proof.
+    destruct (run_codegen (util.ignore c) wl) as [err | [[reti wli] esi]] eqn:?.
+    - apply ignore_err_faithful in Heqs.
+      congruence.
+    - intros.
+      eapply wp_ignore in Heqs.
+      destruct Heqs as (-> & ret' & Hc).
+      congruence.
+  Qed.
+
 End CodeGen.
