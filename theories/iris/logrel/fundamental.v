@@ -1693,7 +1693,16 @@ Section Fundamental.
     run_codegen (compile_instrs mr fe [e]) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Proof.
-  Admitted.
+    intros fe IH Hcg.
+    unfold compile_instrs, util.mapM_ in Hcg.
+    apply wp_ignore in Hcg.
+    destruct Hcg as (_ & ? & Hcg).
+    apply wp_mapM_cons in Hcg.
+    destruct Hcg as ([] & ? & ? & yss_xs & ? & ? & He & Hret & -> & Hwl & ->).
+    cbn in Hret; inversion Hret; subst; clear Hret.
+    rewrite -> !app_nil_r in *.
+    eauto.
+  Qed.
 
   Lemma values_interp_cons_inv se τ τs vs :
     ⊢ values_interp rti sr se (τ :: τs) vs -∗
