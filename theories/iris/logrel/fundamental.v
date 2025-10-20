@@ -1460,6 +1460,13 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IPack ψ)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Proof.
+    intros fe τrec ψ Hok Hcg.
+    cbn in Hcg; inversion Hcg; subst wl' es'; clear Hcg.
+    rewrite app_nil_l.
+    simpl to_e_list.
+    iApply sem_type_erased; first done.
+    iIntros (se s__mem s__rep s__size vs) "Hrec".
+    do 2 rewrite values_interp_one_eq value_interp_eq.
   Admitted.
 
   Lemma compat_unpack M F F0' L L' L0 L0' wl wl' wlf es es' es0 τs1 τs2 ψ0 :
