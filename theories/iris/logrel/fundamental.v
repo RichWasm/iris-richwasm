@@ -1711,6 +1711,70 @@ Section Fundamental.
     - iExists _.
       iSplit; done.
   Qed.
+
+  (* some lemmas borrowed from iris_fundamental_weakening.v *)
+  Lemma get_base_l_push_const {i : nat} (lh : valid_holed i) w :
+    get_base_l (vh_push_const lh w) = (w ++ get_base_l lh) ∨
+      get_base_l (vh_push_const lh w) = get_base_l lh.
+  Proof.
+    induction lh.
+    { left. auto. }
+    { simpl. by right. }
+  Qed.
+
+  Lemma push_const_lh_depth {i : nat} (lh : valid_holed i) w :
+    lh_depth (lh_of_vh lh) = lh_depth (lh_of_vh (vh_push_const lh w)).
+  Proof.
+    induction lh;simpl;auto.
+  Qed.
+
+  Lemma simple_get_base_l_push_const (lh : simple_valid_holed) w :
+    simple_get_base_l (sh_push_const lh w) = (w ++ simple_get_base_l lh) ∨
+    simple_get_base_l (sh_push_const lh w) = simple_get_base_l lh.
+  Proof.
+    induction lh.
+    { left. auto. }
+    { simpl. by right. }
+  Qed.
+
+  Lemma sh_push_const_lh_depth (lh : simple_valid_holed) w :
+    lh_depth (lh_of_sh lh) = lh_depth (lh_of_sh (sh_push_const lh w)).
+  Proof.
+    induction lh;simpl;auto.
+  Qed.
+
+  Lemma br_interp_val_app se τr ιss_L L WL inst lh τc i lh' τ vs :
+    ⊢ value_interp rti sr se τ (SValues vs) -∗
+      br_interp rti sr se τr ιss_L L WL inst lh τc i lh' -∗
+      br_interp rti sr se τr ιss_L L WL inst lh τc i (vh_push_const lh' vs).
+  Proof.
+    revert lh' vs.
+    iLöb as "IH".
+    iIntros (lh' vs) "Hvs Hbr".
+    iEval (rewrite br_interp_eq) in "Hbr".
+    iDestruct "Hbr" as "(%k & %p & %lh1 & %lh2 & %τs & %es0 & %es1 & %es2 & %vs0 & %vs1 & Hbr)".
+    rewrite br_interp_eq.
+    iDestruct "Hbr" as "(%Hbase & %Hdepth & %Hlbty & %Hlayer & %Hdepth' & %Hminus & Hvals & Hbr)".
+    pose proof (get_base_l_push_const lh' vs) as [Hbase' | Hbase'].
+    - iExists k, p, lh1, lh2, τs, es0, es1, es2, (vs ++ vs0), vs1.
+      iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit]]]]]; try iPureIntro.
+      + by rewrite Hbase' Hbase -app_assoc.
+      + by rewrite -push_const_lh_depth Hdepth.
+      + auto.
+      + auto.
+      + by rewrite Hdepth'.
+      + auto.
+      + iFrame.
+    - iExists k, p, lh1, lh2, τs, es0, es1, es2, vs0, vs1.
+      iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit]]]]]; try iPureIntro.
+      + by rewrite Hbase' Hbase.
+      + by rewrite -push_const_lh_depth Hdepth.
+      + auto.
+      + auto.
+      + by rewrite Hdepth'.
+      + auto.
+      + iFrame.
+  Qed.
   
   Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ vs :
     ⊢ expr_interp rti sr se τr τc ιss_L L WL τs inst lh es -∗
@@ -1746,7 +1810,9 @@ Section Fundamental.
       + rewrite big_sepL2_cons.
         iFrame.
     - done.
-    - admit. (* hard: br case *)
+    - iDestruct "HΦ" as "(Hrun & Hbr)".
+      iFrame.
+      iApply (br_interp_val_app with "[$] [$]").
     - admit. (* hard: return case. *)
     - done.
   Admitted.
