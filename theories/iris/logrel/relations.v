@@ -449,11 +449,7 @@ Section Relations.
          ⌜result_type_interp WL vs_WL⌝ ∗
          locals_interp se ιss L vss_L)%I.
 
-  Fixpoint get_base_l {n : nat} (lh : valid_holed n) :=
-    match lh with
-    | VH_base _ vs _ => vs
-    | VH_rec _ _ _ _ lh' _ => get_base_l lh'
-    end.
+
 
   Fixpoint simple_get_base_l (lh : simple_valid_holed) :=
     match lh with

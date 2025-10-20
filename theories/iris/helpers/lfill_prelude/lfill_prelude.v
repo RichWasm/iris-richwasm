@@ -10,6 +10,8 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Lemma length_cons_rec a es :
   length_rec (a :: es) > length_rec es.
 Proof.
@@ -293,7 +295,194 @@ Proof.
     intro H ; inversion H ; subst  => /=.
     simpl in Hdecr1.
     by rewrite Hdecr1.
-Qed.    
+Qed.
+
+Fixpoint get_base_l {n : nat} (lh : valid_holed n) :=
+  match lh with
+  | VH_base _ vs _ => vs
+  | VH_rec _ _ _ _ lh' _ => get_base_l lh'
+  end.
+
+Lemma get_base_vh_decrease m (vh: valid_holed (S m)) vh':
+  vh_decrease vh = Some vh' ->
+  get_base_l vh' = get_base_l vh.
+Proof.
+  set (n := S m) in vh.
+  pose (Logic.eq_refl : n = S m) as Hn.
+  change vh with (match Hn in _ = w return valid_holed w with
+                  | Logic.eq_refl => vh end).
+  clearbody n Hn.
+  generalize dependent m. 
+  induction vh; intros m vh' Hn.
+   - destruct n => //=.
+      pose proof (eq_add_S _ _ Hn) as Hm.
+    assert (Hn = f_equal S Hm) as Hproof.
+    apply Eqdep.EqdepTheory.UIP.
+    replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                          | Logic.eq_refl => VH_base (S n) l l0 end)) with
+      (match Hm in _ = w return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease (VH_base (S n) l l0) end) ;
+      last by rewrite Hproof; destruct Hm. 
+    destruct Hm; simpl. intros H; inversion H; subst vh'.
+    clear. destruct Hn. done.
+   - pose proof (eq_add_S _ _ Hn) as Hm.
+    assert (Hn = f_equal S Hm) as Hproof.
+    apply Eqdep.EqdepTheory.UIP.
+    replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                          | Logic.eq_refl => VH_rec l n0 l0 vh l1 end)) with
+      (match Hm in _ = w return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease (VH_rec l n0 l0 vh l1) end) ;
+      last by rewrite Hproof ; destruct Hm.
+    replace (get_base_l match Hn in (_ = w) return (valid_holed w) with
+      | Logic.eq_refl => VH_rec l n0 l0 vh l1
+               end) with
+      (match Hm in _ = w return (list value) with
+       | Logic.eq_refl => get_base_l (VH_rec l n0 l0 vh l1) end);
+      last by rewrite Hproof; destruct Hm.
+    destruct Hm => //=.
+    destruct n => //=.
+    destruct (vh_decrease vh) eqn:Hvh => //.
+    intros H; inversion H; subst vh'.
+    simpl.
+    pose proof (eq_add_S _ _ Hn) as Hm.
+    pose proof (eq_add_S _ _ Hm) as Hp.
+    assert (Hm = f_equal S Hp) as Hproof'.
+    apply Eqdep.EqdepTheory.UIP. 
+    specialize (IHvh n v Hm).
+    rewrite IHvh.
+    { clear. destruct Hm. done. }
+    replace (vh_decrease match Hm in (_ = w) return (valid_holed w) with
+              | Logic.eq_refl => vh
+               end) with
+      (match Hp in (_ = w) return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease vh end); last by rewrite Hproof'; clear; destruct Hp.
+    rewrite Hvh. clear.
+    assert (Hp = Logic.eq_refl).
+    apply Eqdep.EqdepTheory.UIP.
+    rewrite H. done.
+Qed.
+
+Lemma lh_of_vh_decrease m (vh: valid_holed (S m)) vh' :
+  vh_decrease vh = Some vh' ->
+  lh_of_vh vh' = lh_of_vh vh.
+Proof.
+  set (n := S m) in vh.
+  pose (Logic.eq_refl : n = S m) as Hn.
+  change vh with (match Hn in _ = w return valid_holed w with
+                  | Logic.eq_refl => vh end).
+  clearbody n Hn.
+  generalize dependent m. 
+  induction vh; intros m vh' Hn.
+  - destruct n => //=.
+    pose proof (eq_add_S _ _ Hn) as Hm.
+    assert (Hn = f_equal S Hm) as Hproof.
+    apply Eqdep.EqdepTheory.UIP.
+    replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                          | Logic.eq_refl => VH_base (S n) l l0 end)) with
+      (match Hm in _ = w return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease (VH_base (S n) l l0) end) ;
+      last by rewrite Hproof; destruct Hm. 
+    destruct Hm; simpl. intros H; inversion H; subst vh'.
+    clear. destruct Hn. done.
+  - pose proof (eq_add_S _ _ Hn) as Hm.
+    assert (Hn = f_equal S Hm) as Hproof.
+    apply Eqdep.EqdepTheory.UIP.
+    replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                          | Logic.eq_refl => VH_rec l n0 l0 vh l1 end)) with
+      (match Hm in _ = w return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease (VH_rec l n0 l0 vh l1) end) ;
+      last by rewrite Hproof ; destruct Hm.
+    replace (lh_of_vh match Hn in (_ = w) return (valid_holed w) with
+      | Logic.eq_refl => VH_rec l n0 l0 vh l1
+               end) with
+      (match Hm in _ = w return lholed with
+       | Logic.eq_refl => lh_of_vh (VH_rec l n0 l0 vh l1) end);
+      last by rewrite Hproof; destruct Hm.
+    destruct Hm => //=.
+    destruct n => //=.
+    destruct (vh_decrease vh) eqn:Hvh => //.
+    intros H; inversion H; subst vh'.
+    simpl. f_equal. 
+    pose proof (eq_add_S _ _ Hn) as Hm.
+    pose proof (eq_add_S _ _ Hm) as Hp.
+    assert (Hm = f_equal S Hp) as Hproof'.
+    apply Eqdep.EqdepTheory.UIP. 
+    specialize (IHvh n v Hm).
+    rewrite IHvh.
+    { clear. destruct Hm. done. }
+    replace (vh_decrease match Hm in (_ = w) return (valid_holed w) with
+              | Logic.eq_refl => vh
+               end) with
+      (match Hp in (_ = w) return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease vh end); last by rewrite Hproof'; clear; destruct Hp.
+    rewrite Hvh. clear. 
+    assert (Hp = Logic.eq_refl).
+    apply Eqdep.EqdepTheory.UIP.
+    rewrite H. done.
+Qed. 
+  
+
+Lemma vh_depth_can_decrease m (vh: valid_holed (S m)) :
+  S m > lh_depth (lh_of_vh vh) ->
+  vh_decrease vh = None ->
+  False.
+Proof.
+  set (n := S m) in vh.
+  pose (Logic.eq_refl : n = S m) as Hn.
+  change vh with (match Hn in _ = w return valid_holed w with
+                  | Logic.eq_refl => vh end).
+  clearbody n Hn.
+  generalize dependent m. 
+  induction vh; intros m Hn. 
+  - destruct n => //=.
+    pose proof (eq_add_S _ _ Hn) as Hm.
+    assert (Hn = f_equal S Hm) as Hproof.
+    apply Eqdep.EqdepTheory.UIP.
+    replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                          | Logic.eq_refl => VH_base (S n) l l0 end)) with
+      (match Hm in _ = w return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease (VH_base (S n) l l0) end) ;
+      last by rewrite Hproof; destruct Hm. 
+    destruct Hm; simpl. done.
+  - pose proof (eq_add_S _ _ Hn) as Hm.
+    assert (Hn = f_equal S Hm) as Hproof.
+    apply Eqdep.EqdepTheory.UIP.
+    replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                          | Logic.eq_refl => VH_rec l n0 l0 vh l1 end)) with
+      (match Hm in _ = w return (option (valid_holed w)) with
+       | Logic.eq_refl => vh_decrease (VH_rec l n0 l0 vh l1) end) ;
+      last by rewrite Hproof ; destruct Hm.
+    replace (lh_depth (lh_of_vh (match Hn in (_ = w) return (valid_holed w) with
+                                         | Logic.eq_refl => VH_rec l n0 l0 vh l1 end)))
+      with (match Hm in _ = w return nat with
+            | Logic.eq_refl => lh_depth (lh_of_vh (VH_rec l n0 l0 vh l1)) end) ;
+      last by rewrite Hproof ; destruct Hm.
+    destruct Hm => //=.
+    destruct n => //=.
+    + remember 0 as z. destruct vh => //=.
+      subst n. lia.
+    + intros H Habs.
+      assert (S n > lh_depth (lh_of_vh vh)); first lia.
+      pose proof (eq_add_S _ _ Hn) as Hm.
+      pose proof (eq_add_S _ _ Hm) as Hp.
+      assert (Hm = f_equal S Hp) as Hproof'.
+      apply Eqdep.EqdepTheory.UIP.
+(*      assert (S n = S n) as Hn'; first lia. *)
+(*      assert (n = n) as Hm; first lia. *)
+      eapply IHvh.
+      instantiate (1 := Hm).
+      { clear Hproof'. destruct Hm. done. } 
+      destruct (vh_decrease vh) eqn:Hvh => //.
+      replace ( vh_decrease
+                  match Hm in (_ = w) return (valid_holed w) with
+                  | Logic.eq_refl => vh
+                  end) with ( match Hp in (_ = w) return (option (valid_holed w)) with
+                              | Logic.eq_refl => vh_decrease vh end).
+      2:{ rewrite Hproof'. clear. destruct Hp => //. } 
+      clear Hproof'. destruct Hp => //.
+Qed. 
+    
+                            
 
 Lemma vh_decrease_push_const m (vh : valid_holed (S m)) vs vh' :
   vh_decrease vh = Some vh' ->
@@ -1133,7 +1322,7 @@ Proof.
       apply (lfilled_first_values H1 Hfill') => //=. }
   * specialize (lfilled_first_values H1 Hfill) as [Hcontra _ ]=> //=.
     subst; by apply v_to_e_is_const_list.
-    specialize (lfilled_first_values H1 Hfill) as [Habs _] => //=.
+  * specialize (lfilled_first_values H1 Hfill) as [Habs _] => //=.
     subst ; by apply v_to_e_is_const_list.
   * destruct (lfilled_trans H Hfill) as [lh' Hfill'].
     apply (IHn0 _ _ _ _ Hred2 Hfill').
@@ -1549,7 +1738,7 @@ Proof.
       apply (lfilled_first_values H1 Hfill') => //=. }
   * specialize (lfilled_first_values H1 Hfill) as [Hcontra _ ]=> //=.
     subst; by apply v_to_e_is_const_list.
-    specialize (lfilled_first_values H1 Hfill) as [Habs _] => //=.
+  * specialize (lfilled_first_values H1 Hfill) as [Habs _] => //=.
     subst ; by apply v_to_e_is_const_list.
   * destruct (lfilled_trans H Hfill) as [lh' Hfill'].
     apply (IHn0 _ _ _ _ Hred2 Hfill').

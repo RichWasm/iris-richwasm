@@ -5,6 +5,8 @@ From Wasm Require Export stdpp_aux datatypes operations.
 From RichWasm.opsem Require Export instr properties.
 From RichWasm.iris.helpers.lfill_prelude Require Export lfill_prelude.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Ltac false_assumption := exfalso ; apply ssrbool.not_false_is_true ; assumption.
 
 Lemma found_intruse l1 l2 (x : administrative_instruction) :
@@ -1008,6 +1010,23 @@ Definition lh_bef_aft bef lh aft :=
     - intros ?; by apply IHlh1.
   Qed.
 
+  Lemma get_layer_plug_shallow_inv lh1 lh2 k a b c lh d:
+    k < lh_depth lh1 ->
+    get_layer (lh_plug lh2 lh1) k = Some (a, b, c, lh, d) ->
+    exists lh', get_layer lh1 k = Some (a, b, c, lh', d) /\
+             lh = lh_plug lh2 lh'. 
+  Proof.
+    generalize dependent k. 
+    induction lh1; first by simpl; lia.
+    destruct k => //=.
+    - intros _ Heq; inversion Heq; subst => //.
+      eexists. split => //. 
+    - intros ? ?; apply IHlh1.
+      lia. done.
+  Qed.
+
+    
+
   Lemma get_layer_plug_deep lh1 lh2 k:
     k > lh_depth lh1 ->
     get_layer (lh_plug lh2 lh1) k = get_layer lh2 (k - lh_depth lh1).
@@ -1057,6 +1076,8 @@ Definition lh_bef_aft bef lh aft :=
     - apply lh_depth_bef_aft.
     - rewrite IHlh1 //.
   Qed.
+
+
 
   Lemma lh_minus_plug lh1 lh2 lh:
     is_Some (lh_minus lh1 lh) ->

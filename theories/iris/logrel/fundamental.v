@@ -925,7 +925,7 @@ Section Fundamental.
           iDestruct (big_sepL2_length with "Hvss2") as "%Hlen2".
           (* iDestruct (translate_types_length with "Hvss2") as "%Hlen2'".
           ; first exact Heqtrans2. *)
-          (* may need to first progress in wp before yielding frame *)
+(*          (* may need to first progress in wp before yielding frame *)
           iDestruct ("Hbr" with "Hfr [Hvss2] [$Htok]") as "Hbr".
           { iExists _,_. iSplit; first done. admit. } 
           { iExists _,_. iSplit; first done. done. } 
@@ -944,7 +944,7 @@ Section Fundamental.
           iClear "H".
           unfold denote_logpred.
           iSimpl in "Hbr".
-          iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vssl' & %vswl'' & -> & Hlocs & Hrestype' & Htok)". *)
+          iDestruct "Hbr" as "(Hbr & %fr & Hfr & %vssl' & %vswl'' & -> & Hlocs & Hrestype' & Htok)". *) *)
           destruct (decide (i = p)).
           -- (* targetting this exact block *)
             subst p. 
@@ -957,25 +957,36 @@ Section Fundamental.
             erewrite <- lh_depth_pull_base_l_take_len in Hfill;[|eauto]. 
             rewrite -e0 in Hfill.
             rewrite -e0 Nat.sub_diag /= in Hlabels.
+            rewrite -e0 Nat.sub_diag /= in Hlayer.
+            rewrite lh_depth_plug /= in Hlayer.
+            rewrite Nat.add_sub in Hlayer.
+(*            erewrite get_layer_plug_precise in Hlayer.
+            2:{ Search lh. done. *)
+            
             rewrite -e0 Nat.sub_diag. 
             inversion Hlabels; subst τs2; clear Hlabels. 
-            iApply (wp_br with "[] Hrun").
+            iApply (wp_br with "Hfr Hrun").
             3: exact Hfill.
             ++ apply v_to_e_is_const_list. 
             ++ rewrite length_fmap.
                eapply length_pull_base_l_take_len in Hpb;[|eauto]. rewrite Hpb.
                assert (length (vs0 ++ concat vss2) >= length ρ2);[|lia].
+               rewrite -Hgetbase.
                admit. 
 (*               rewrite Hlen2. lia. } *)
-            ++ admit.
             ++ iNext. iIntros "Hf Hrun".
                rewrite app_nil_r.
                iApply wp_value.
                { apply of_to_val. apply to_val_v_to_e. }
+(*               iDestruct ("Hbr" with "Hf [Hvss2] [$Htok]") as "Hbr".
+               { iExists _,_. iSplit; first done. iSplit; first done.
+                 iSplit; first done.  admit. } 
+               { iExists _,_. iSplit; first done. done. }  *)
                iFrame.
                iSplitR; last iSplitR. 
-               ** admit.
-               ** iExists _,_.  iSplit; first done.
+               ** iExists _,_. iSplit; first done.
+                  done.
+               ** iExists _,_. iSplit; first done.
                   iSplit; first (iPureIntro; exact Hlocs').
                   iSplit; first done.
                   admit.
@@ -1039,12 +1050,15 @@ Section Fundamental.
                ** iExists _,_. iSplit; first done.
                   admit. *)
           -- (* still blocked *)
-            admit. 
-(*            assert (i > p) as Hip; first lia.
+            assert (i > p) as Hip.
+            { destruct (vfill_to_lfilled lh0 []) as [? _].
+              rewrite Hdepth in H.
+              lia. } 
             destruct i; first lia.
             destruct (vh_decrease lh0) eqn:Hlh0.
             2:{ exfalso. clear - Hip Hlh0 Hdepth.
-                 admit. (* painstaking dep-type induction *) } 
+                eapply vh_depth_can_decrease => //.
+                by rewrite Hdepth. } 
             iApply wp_value.
             { apply of_to_val. rewrite seq.cats0 /=. 
               simpl.
@@ -1058,11 +1072,49 @@ Section Fundamental.
               inversion H; subst v0; clear H.
               rewrite Hlh0. 
               done. } 
-            iSimpl. iFrame.
-            iSplitL "Hbr".
-            ++ admit. (* massage the br_interp layers *) 
-            ++ admit. (* iExists _,_. iSplit; first done.
-               iFrame.   *) *)
+            iSimpl.
+(*            iDestruct ("Hbr" with "Hfr [Hvss2] [$Htok]") as "Hbr".
+            { iExists _,_. iSplit; first done. iSplit; first done.
+              iSplit; first done. admit. } 
+            { iExists _,_. iSplit; first done. done. }  *)
+
+            iFrame.
+            iSplitR.
+            ++ iExists _,_. iSplit; first done. done. 
+            ++ iApply br_interp_eq.
+               rewrite /br_interp0 /=.
+               rewrite lh_depth_plug /= in Hlayer.
+               apply get_layer_plug_shallow_inv in Hlayer as (lhnew & Hlayer & ->).
+               2:{ clear - Hip.
+                   assert (S i - p > 0); first lia.
+                   assert (lh_depth lh > 0).
+                   { admit. } 
+                   lia. }
+                  
+               repeat iExists _.
+               iFrame "Hvss2".
+               repeat (iSplit; first iPureIntro).
+               ** apply get_base_vh_decrease in Hlh0.
+                  rewrite Hlh0. done.
+               ** apply lh_of_vh_decrease in Hlh0.
+                  rewrite -Hlh0 in Hdepth.
+                  rewrite Hdepth. done.
+               ** destruct (S i - p) eqn:Hip'; first lia. 
+                  simpl in Hlabels.
+                  replace (S i - S p) with n0; last lia.
+                  done.
+               ** rewrite <- Hlayer.
+                  f_equal. lia.
+               ** rewrite lh_depth_plug /= in Hdepth'.
+                  instantiate (1 := lh'').
+                  lia.
+               ** admit.
+               ** done.
+               ** iIntros (fr) "Hfr H1 H2".
+                  iDestruct ("Hbr" with "Hfr H1 H2") as "H".
+                  iIntros (LI HLI).
+                  (* br index weirdness *)
+                  admit. 
         * iApply wp_value.
           { apply of_to_val.
             rewrite seq.cats0 /=.
