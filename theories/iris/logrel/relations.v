@@ -464,6 +464,7 @@ Section Relations.
            values_interp se τr vs ∗
            ∀ fr fr',
              ↪[frame] fr -∗
+             ↪[RUN] -∗
              WP [AI_local (length vs) fr' (of_val (retV svh))]
                 {{ lv, ∃ vs', ⌜lv = immV vs'⌝ ∗ values_interp se τr vs' ∗ ↪[frame] fr }})%I.
 

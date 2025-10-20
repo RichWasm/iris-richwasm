@@ -2,6 +2,7 @@ Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base tactics classes.
+From Wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
@@ -1775,6 +1776,80 @@ Section Fundamental.
       + auto.
       + iFrame.
   Qed.
+
+  Lemma const_list_map ws1 :
+    is_true (const_list (map (λ x : value, AI_basic (BI_const x)) ws1)).
+  Proof.
+    induction ws1.
+    - done.
+    - by rewrite Wasm.properties.const_list_cons.
+  Qed.
+
+  Lemma lfilled_simple_get_base_pull j sh e LI ws1 ws2 :
+    simple_get_base_l sh = ws1 ++ ws2 ->
+    is_true (lfilled j (lh_of_sh sh) e LI) ->
+    ∃ lh, is_true (lfilled j lh (of_val (immV ws2) ++ e) LI).
+  Proof.
+    revert j e LI ws1 ws2.
+    induction sh;intros j e LI ws1 ws2 Hbase Hfill%lfilled_Ind_Equivalent.
+    { simpl in *. inversion Hfill;simplify_eq.
+      eexists. rewrite map_app.
+      repeat erewrite <- app_assoc. erewrite (app_assoc _ e).
+      apply lfilled_Ind_Equivalent. constructor.
+      apply const_list_map. }
+    { simpl in Hfill. inversion Hfill;simplify_eq.
+      apply lfilled_Ind_Equivalent in H8.
+      eapply IHsh in H8 as Hlh';eauto.
+      destruct Hlh' as [lh Hfill'].
+      eexists.
+      apply lfilled_Ind_Equivalent.
+      constructor;eauto.
+      apply lfilled_Ind_Equivalent;eauto. }
+  Qed.
+
+  Lemma return_interp_val_app se τr τ s vs :
+    ⊢ value_interp rti sr se τ (SValues vs) -∗
+      return_interp rti sr se τr s -∗
+      return_interp rti sr se τr (sh_push_const s vs).
+  Proof.
+    iIntros "Hvs Hr".
+    iDestruct "Hr" as "(%vs1 & %vs2 & %Hs & Hvs1 & Hr)".
+    pose proof (sfill_to_lfilled s ([AI_basic BI_return])) as Hj.
+    pose proof Hs as Hpull.
+    eapply lfilled_simple_get_base_pull in Hpull; try apply Hj.
+    destruct Hpull as [lhp Hpull].
+    pose proof (sfill_to_lfilled (sh_push_const s vs) ([AI_basic BI_return])) as Hj'.
+    destruct (simple_get_base_l_push_const s vs) as [Hs' | Hs'].
+    - rewrite Hs in Hs'. 
+      rewrite app_assoc in Hs'.
+      pose proof Hs' as Hpull'.
+      eapply lfilled_simple_get_base_pull in Hpull'; try apply Hj'.
+      destruct Hpull' as [lhp' Hpull'].
+      iExists (vs ++ vs1), vs2.
+      iSplit; first by rewrite Hs'.
+      iFrame.
+      iIntros (fr fr') "Hf Hrun".
+      iSpecialize ("Hr" $! fr fr' with "Hf").
+      iApply (wp_ret_shift _ _ _ _ _ _ _ _ _ _ _ (v_to_e_list vs2) with "[$Hrun] [$Hr]").
+      + apply v_to_e_is_const_list.
+      + by rewrite length_map.
+      + apply Hpull.
+      + eapply Hpull'.
+    - rewrite Hs in Hs'. 
+      pose proof Hs' as Hpull'.
+      eapply lfilled_simple_get_base_pull in Hpull'; try apply Hj'.
+      destruct Hpull' as [lhp' Hpull'].
+      iExists vs1, vs2.
+      iSplit; first by rewrite Hs'.
+      iFrame.
+      iIntros (fr fr') "Hf Hrun".
+      iSpecialize ("Hr" $! fr fr' with "Hf").
+      iApply (wp_ret_shift _ _ _ _ _ _ _ _ _ _ _ (v_to_e_list vs2) with "[$Hrun] [$Hr]").
+      + apply v_to_e_is_const_list.
+      + by rewrite length_map.
+      + apply Hpull.
+      + eapply Hpull'.
+  Qed.
   
   Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ vs :
     ⊢ expr_interp rti sr se τr τc ιss_L L WL τs inst lh es -∗
@@ -1799,7 +1874,7 @@ Section Fundamental.
     iExists f.
     change (lp_fr_inv Ψ) with (lp_fr_inv Φ).
     iFrame.
-    destruct lv; simpl lp_noframe.
+    destruct lv; unfold lp_noframe.
     - cbn in *.
       iDestruct "HΦ" as "(Hfr & Hrun & Hvs')".
       iFrame.
@@ -1810,12 +1885,14 @@ Section Fundamental.
       + rewrite big_sepL2_cons.
         iFrame.
     - done.
-    - iDestruct "HΦ" as "(Hrun & Hbr)".
+    - iDestruct "HΦ" as "[Hrun Hbr]".
       iFrame.
       iApply (br_interp_val_app with "[$] [$]").
-    - admit. (* hard: return case. *)
+    - iDestruct "HΦ" as "[Hrun Hret]".
+      iFrame.
+      iApply (return_interp_val_app with "[$Hvs] [$Hret]").
     - done.
-  Admitted.
+  Qed.
 
   Lemma compat_frame M F L L' wl wl' wlf es es' τ τs1 τs2 :
     let fe := fe_of_context F in
