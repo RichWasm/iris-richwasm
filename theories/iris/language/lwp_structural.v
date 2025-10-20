@@ -16,6 +16,9 @@ Section lwp_structural.
     by iFrame.
   Qed.
 
+  Definition lp_wand' Φ1 Φ2 : iProp Σ :=
+    ∀ lv, denote_logpred Φ1 lv -∗ denote_logpred Φ2 lv.
+
   Lemma lenient_wp_wand s E es Φ Ψ :
     lp_entails Φ Ψ ->
     lenient_wp s E es Φ ⊢ lenient_wp s E es Ψ.
@@ -26,6 +29,16 @@ Section lwp_structural.
     iApply (wp_wand with "[$]").
     iIntros (v) "HΦv".
     by iApply Himp.
+  Qed.
+
+  Lemma lwp_wand s E es Φ Ψ :
+    ⊢ lenient_wp s E es Φ -∗
+      lp_wand' Φ Ψ -∗
+      lenient_wp s E es Ψ.
+  Proof.
+    unfold lp_wand', lenient_wp.
+    iIntros "Hwand HΦ".
+    iApply (wp_wand with "[$] [$]").
   Qed.
 
   Lemma lenient_wp_value s E Φ e v :
