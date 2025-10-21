@@ -329,6 +329,8 @@ module Representation = struct
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_representation
+  let ren = Richwasm_extract.RwSyntax.Core.ren_representation
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp_roqc ff : t -> unit = function
@@ -347,6 +349,8 @@ module Size = struct
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_size
+  let ren = Richwasm_extract.RwSyntax.Core.ren_size
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp_roqc ff : t -> unit = function
@@ -362,6 +366,8 @@ module Sizity = struct
     [%import: (Richwasm_extract.RwSyntax.Core.sizity[@with size := Size.t])]
   [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_sizity
+  let ren = Richwasm_extract.RwSyntax.Core.ren_sizity
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp_roqc ff : t -> unit = function
@@ -378,6 +384,8 @@ module Memory = struct
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_memory
+  let ren = Richwasm_extract.RwSyntax.Core.ren_memory
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp_roqc ff : t -> unit = function
@@ -398,6 +406,8 @@ module Kind = struct
         memory := Memory.t])]
   [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_kind
+  let ren = Richwasm_extract.RwSyntax.Core.ren_kind
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp_roqc ff : t -> unit = function
@@ -497,6 +507,8 @@ module Type = struct
 
   type t = Internal.Types.typ [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_type
+  let ren = Richwasm_extract.RwSyntax.Core.ren_type
   let pp_sexp = Internal.Types.pp_sexp_typ
   let pp_roqc = Internal.Types.pp_roqc_typ
 end
@@ -506,6 +518,8 @@ module FunctionType = struct
 
   type t = Internal.Types.function_typ [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_function_type
+  let ren = Richwasm_extract.RwSyntax.Core.ren_function_type
   let pp_sexp = Internal.Types.pp_sexp_function_typ
   let pp_roqc = Internal.Types.pp_roqc_function_typ
 end
@@ -517,6 +531,7 @@ module InstructionType = struct
       [@with coq_type := Type.t])]
   [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_function_type
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp_roqc ff : t -> unit = function
@@ -563,6 +578,7 @@ module Instruction = struct
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
+  let subst = Richwasm_extract.RwSyntax.Core.subst_instruction
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp_roqc ff : t -> unit =

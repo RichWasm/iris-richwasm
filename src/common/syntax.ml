@@ -693,8 +693,8 @@ module Instruction = struct
         List.iter ~f:(fprintf ff " %a" Type.pp) typs;
         fprintf ff "@]"
     | Case (bt, lfx, cases) ->
-        fprintf ff "@[<v 0>@[<2>case@ %a@ %a@]@,@[<v 2>  " BlockType.pp bt LocalFx.pp
-          lfx;
+        fprintf ff "@[<v 0>@[<2>case@ %a@ %a@]@,@[<v 2>  " BlockType.pp bt
+          LocalFx.pp lfx;
         List.iteri
           ~f:(fun i instrs ->
             if i <> 0 then fprintf ff "@,";

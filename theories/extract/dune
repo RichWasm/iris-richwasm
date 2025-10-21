@@ -8,3 +8,9 @@
  (public_name iris-richwasm.extract)
  (modules :standard)
  (libraries zarith))
+
+(env
+  (release
+    (flags (:standard -w -20)))
+  (dev
+    (flags (:standard -w -20))))
