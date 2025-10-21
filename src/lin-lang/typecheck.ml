@@ -9,7 +9,7 @@ module LVar = Index.LVar
 module AnnLVar (Type : Index.Ast) = struct
   module T = struct
     type t = LVar.t * Type.t
-    [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
+    [@@deriving eq, sexp, show { with_path = false }]
 
     let compare (a, _) (b, _) = LVar.compare a b
   end
@@ -41,7 +41,7 @@ module IR = struct
       | New of t * Type.t
       | Swap of t * t * Type.t
       | Free of t * Type.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 

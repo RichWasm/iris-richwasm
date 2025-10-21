@@ -12,7 +12,7 @@ module IR = struct
       | Rec of t
       | Exists of t
       | Ref of t
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
@@ -39,7 +39,7 @@ module IR = struct
       | New of t * Type.t
       | Swap of t * t * Type.t
       | Free of t * Type.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 

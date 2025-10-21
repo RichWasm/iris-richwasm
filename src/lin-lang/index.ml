@@ -3,7 +3,7 @@ open! Base
 module LVar = struct
   module T = struct
     type t = int * string option
-    [@@deriving show { with_path = false }, eq, iter, map, fold, sexp]
+    [@@deriving eq, sexp, show { with_path = false }]
 
     let compare (i1, _) (i2, _) = Int.compare i1 i2
   end
@@ -13,7 +13,7 @@ module LVar = struct
 end
 
 module type Ast = sig
-  type t [@@deriving eq, ord, iter, map, fold, sexp]
+  type t [@@deriving eq, ord, sexp]
 
   val pp : Stdlib.Format.formatter -> t -> unit
 end
@@ -30,7 +30,7 @@ module IR = struct
       | Sum of t list
       | Rec of t
       | Ref of t
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
@@ -61,7 +61,7 @@ module IR = struct
       | New of t
       | Swap of t * t
       | Free of t
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
@@ -73,7 +73,7 @@ module IR = struct
         input : Type.t;
         output : Type.t;
       }
-      [@@deriving eq, ord, iter, map, fold, sexp, make]
+      [@@deriving eq, ord, sexp, make]
 
       let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
     end
@@ -86,7 +86,7 @@ module IR = struct
         return : Type.t;
         body : Expr.t;
       }
-      [@@deriving eq, ord, iter, map, fold, sexp]
+      [@@deriving eq, ord, sexp]
 
       let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
     end
@@ -97,7 +97,7 @@ module IR = struct
         functions : Function.t list;
         main : Expr.t option;
       }
-      [@@deriving eq, ord, iter, map, fold, sexp]
+      [@@deriving eq, ord, sexp]
 
       let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
     end
