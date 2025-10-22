@@ -271,6 +271,7 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) μ δ)) τs σs ->
   let κ := MEMTYPE (Sized (ProdS σs)) μ δ in
   has_kind F (StructT κ τs) κ
+(* TODO: The runtime has pointer maps for MM and can recursively free, so all refs can be ExDrop. *)
 | KRef F τ ζ μ δ :
   has_kind F τ (MEMTYPE ζ μ δ) ->
   let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in

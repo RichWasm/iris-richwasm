@@ -22,7 +22,10 @@ Section Runtime.
         [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_alloc_mm)]
         {| lp_fr := fun _ => True;
            lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
-           lp_val := fun vs => True;
+           lp_val :=
+            fun vs =>
+              ↪[RUN] ∗
+                ∃ ℓ ws, ℓ ↦layout repeat FlagInt sz ∗ ℓ ↦heap ws;
            lp_trap := True;
            lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
@@ -30,7 +33,7 @@ Section Runtime.
 
   Definition spec_alloc_gc (cl : function_closure) : Prop :=
     forall θ sz pm fr,
-      let ks := kinds_of_pointer_map pm (Wasm_int.nat_of_uint i32m sz) in
+      let fs := flags_of_pointer_map pm (Wasm_int.nat_of_uint i32m sz) in
       rt_token rti sr θ -∗
       N.of_nat sr.(sr_func_alloc_gc) ↦[wf] cl -∗
       ↪[frame] fr -∗
@@ -49,7 +52,7 @@ Section Runtime.
                    ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m a)]⌝ ∗
                      ⌜repr_location θ' ℓ a⌝ ∗
                      rt_token rti sr θ' ∗
-                     ℓ ↦gcl ks ∗
+                     ℓ ↦gcl fs ∗
                      ℓ ↦gco ws;
            lp_trap := True;
            lp_br := fun _ _ => False;

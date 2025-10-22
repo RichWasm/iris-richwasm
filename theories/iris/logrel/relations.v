@@ -28,13 +28,14 @@ Section Relations.
   Definition ns_ref (n : N) : namespace := nroot .@ "rwr" .@ n.
 
   Inductive semantic_value :=
-  | SValues (vs : list value)
+  | SValues (vs : list rep_value)
   | SWords (cm : concrete_memory) (ws : list word).
 
-  Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
-  Notation LVR := (leibnizO val -n> iPropO Σ).
+  Notation VR := (leibnizO value -n> iPropO Σ).
   Notation VsR := (leibnizO (list value) -n> iPropO Σ).
   Notation VssR := (leibnizO (list (list value)) -n> iPropO Σ).
+  Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
+  Notation LVR := (leibnizO val -n> iPropO Σ).
 
   Definition semantic_type : Type := SVR.
   Definition semantic_kind : Type := semantic_type -> Prop.
@@ -54,6 +55,7 @@ Section Relations.
   Implicit Type es : leibnizO (list administrative_instruction).
   Implicit Type sv : leibnizO semantic_value.
   Implicit Type lv : leibnizO val.
+  Implicit Type v : leibnizO value.
   Implicit Type vs : leibnizO (list value).
   Implicit Type vss : leibnizO (list (list value)).
   Implicit Type ws : leibnizO (list word).
@@ -90,76 +92,66 @@ Section Relations.
     ∃ vs vs__wl vs',
       fr.(f_locs) = vs ++ vs__wl ++ vs' /\ length vs = wlocal_offset /\ result_type_interp wl vs__wl.
 
-  Definition primitive_rep_interp (ι : primitive_rep) (v : value) : Prop :=
-    match ι with
-    | PtrR => exists θ p n,
-        (* TODO: Make the address map a parameter? *)
-        v = VAL_int32 (Wasm_int.int_of_Z i32m n) /\ repr_pointer sr.(sr_gc_heap_off) θ p n
-    | I32R => exists n, v = VAL_int32 n
-    | I64R => exists n, v = VAL_int64 n
-    | F32R => exists n, v = VAL_float32 n
-    | F64R => exists n, v = VAL_float64 n
-    end.
+  Definition rep_value_interp (rv : rep_value) : VR :=
+    λne v,
+      match rv with
+      | PtrV p => ∃ rp n,
+          ⌜repr_root_pointer rp n⌝ ∗
+            ⌜v = VAL_int32 (Wasm_int.int_of_Z i32m n)⌝ ∗
+            match rp with
+            | RootInt _ => ⌜p = PtrInt n⌝
+            | RootMM a => ∃ ℓ, a ↦mmr ℓ ∗ ⌜p = PtrMM ℓ⌝ (* ∃ ks ws, a ↦mml ks ∗ a ↦mmo ws ∗ ⌜p = PtrMM a⌝ *)
+            | RootGC a => ∃ ℓ, a ↦gcr ℓ ∗ ⌜p = PtrGC ℓ⌝
+            end
+      | I32V n => ⌜v = VAL_int32 n⌝
+      | I64V n => ⌜v = VAL_int64 n⌝
+      | F32V n => ⌜v = VAL_float32 n⌝
+      | F64V n => ⌜v = VAL_float64 n⌝
+      end%I.
 
-  Definition prim_reps_interp (ιs: list primitive_rep) : semantic_value -> Prop :=
-    λ sv,
-      match sv with
-      | SValues vs => Forall2 primitive_rep_interp ιs vs
-      | _ => False
+  Definition rep_values_interp (rvs : list rep_value) : VsR :=
+    λne vs, big_sepL2 (const rep_value_interp) rvs vs.
+
+  Definition primitive_rep_interp (ι : primitive_rep) (rv : rep_value) : Prop :=
+      match ι, rv with
+      | PtrR, PtrV _
+      | I32R, I32V _
+      | I64R, I64V _
+      | F32R, F32V _
+      | F64R, F64V _ => True
+      | _, _ => False
       end.
 
-  Definition representation_interp (ρ : representation) : semantic_value -> Prop  :=
+  Definition primitive_reps_interp (ιs : list primitive_rep) (sv : semantic_value) : Prop :=
+    exists rvs, sv = SValues rvs /\ Forall2 primitive_rep_interp ιs rvs.
+
+  Definition representation_interp (ρ : representation) (sv : semantic_value) : Prop :=
     match eval_rep ρ with
-    | Some ιs => prim_reps_interp ιs
-    | None => λ _ , False
+    | Some ιs => primitive_reps_interp ιs sv
+    | None => False
     end.
 
-  Definition is_copy_operation
-    (mr : module_runtime) (fe : function_env) (wl wl' : wlocal_ctx)
-    (ιs : list primitive_rep) (es : expr) : Prop :=
-    ∃ (es' : W.expr),
-      run_codegen (ixs ← save_stack fe ιs;
-                   restore_stack ixs;;
-                   update_gc_refs ixs ιs (duproot mr);;
-                   restore_stack ixs) wl = inr ((), wl', es') /\
-        to_e_list es' = es.
+  Definition forall_svalues (sv : semantic_value) (P : rep_value -> Prop) : Prop :=
+    exists rvs, sv = SValues rvs /\ Forall P rvs.
 
-  Definition explicit_copy_spec (ιs : list primitive_rep) (T : semantic_type) : Prop :=
-    forall cl mr fe fr wl wl' wlf vs es,
-      ⌜is_copy_operation mr fe wl wl' ιs es⌝ -∗
-      ⌜wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr⌝ -∗
-      ⌜fr.(f_inst).(inst_funcs) !! funcimm mr.(mr_func_registerroot) =
-         Some sr.(sr_func_registerroot)⌝ -∗
-      ⌜spec_registerroot rti sr cl⌝ -∗
-      N.of_nat sr.(sr_func_registerroot) ↦[wf] cl -∗
-      ↪[frame] fr -∗
-      ↪[RUN] -∗
-      T (SValues vs) -∗
-      lenient_wp NotStuck top (v_to_e_list vs ++ es)
-        {| lp_fr :=
-             fun fr' =>
-               ⌜fr.(f_inst) = fr'.(f_inst) /\
-                 length fr.(f_locs) = length fr'.(f_locs) /\
-                 forall i, i < length wl \/ i > length (wl ++ wl') -> fr.(f_locs) !! i = fr'.(f_locs) !! i⌝;
-           lp_fr_inv := fun fr' => True;
-           lp_val :=
-             fun vs' =>
-               N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
-                 ∃ vs1 vs2, ⌜vs' = vs1 ++ vs2⌝ ∗ T (SValues vs1) ∗ T (SValues vs2);
-           lp_trap := False;
-           lp_br := λ _ _, False;
-           lp_ret := λ _, False;
-           lp_host := λ _ _ _ _, False |}.
+  Definition ex_copy_interp (rv : rep_value) : Prop :=
+    match rv with
+    | PtrV (PtrMM _) => False
+    | _ => True
+    end.
 
-  Definition copyability_interp (ρ : representation) (χ : copyability) (T : semantic_type) : Prop :=
+  Definition im_copy_interp (rv : rep_value) : Prop :=
+    match rv with
+    | PtrV (PtrMM _)
+    | PtrV (PtrGC _) => False
+    | _ => True
+    end.
+
+  Definition copyability_interp (χ : copyability) (T : semantic_type) : Prop :=
     match χ with
     | NoCopy => True
-    | ExCopy =>
-        match eval_rep ρ with
-        | Some ιs => explicit_copy_spec ιs T
-        | None => False
-        end
-    | ImCopy => forall sv, Persistent (T sv)
+    | ExCopy => forall sv, T sv ⊢ T sv ∗ T sv ∗ ⌜forall_svalues sv ex_copy_interp⌝
+    | ImCopy => forall sv, T sv ⊢ T sv ∗ T sv ∗ ⌜forall_svalues sv im_copy_interp⌝
     end.
 
   Definition size_interp (σ : size) (ws : list word) : Prop :=
@@ -187,7 +179,7 @@ Section Relations.
     fun T =>
       T ⊑ kind_as_type_interp κ /\
         match κ with
-        | VALTYPE ρ χ _ => copyability_interp ρ χ T
+        | VALTYPE ρ χ _ => copyability_interp χ T
         | MEMTYPE _ _ _ => True
         end.
 
@@ -275,24 +267,17 @@ Section Relations.
 
   Definition ref_mm_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
-      (∃ a ks ws,
-         ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
-           a ↦mml ks ∗
-           a ↦mmo ws ∗
-           ▷ vrel se τ (SWords MemMM ws))%I.
+      (∃ n a,
+         ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m n)]⌝ ∗
+           ⌜repr_pointer sr.(sr_gc_heap_off) ∅ (PtrMM a) n⌝ ∗
+           ℓ ↦mml fs ∗
+           ℓ ↦mmo ws ∗
+           ▷ vrel se τ (SWords MemMM ws)))%I.
 
   Definition ref_gc_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
       (∃ a ℓ,
          ⌜sv = SValues [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a))]⌝ ∗
-           a ↦gcr ℓ ∗
-           na_inv logrel_nais (ns_ref ℓ)
-             (∃ ks ws, ℓ ↦gcl ks ∗ ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws)))%I.
-
-  Definition gcptr_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv,
-      (∃ ℓ,
-         ⌜sv = SWords MemGC [WordPtr (PtrGC ℓ)]⌝ ∗
            na_inv logrel_nais (ns_ref ℓ)
              (∃ ks ws, ℓ ↦gcl ks ∗ ℓ ↦gco ws ∗ ▷ vrel se τ (SWords MemGC ws)))%I.
 
@@ -447,9 +432,8 @@ Section Relations.
          ⌜fr = Build_frame (concat vss_L ++ vs_WL) inst⌝ ∗
          ⌜locals_inv_interp ιss vss_L⌝ ∗
          ⌜result_type_interp WL vs_WL⌝ ∗
+         (* TODO: Quantify over rep values that relate to the values in the locals. *)
          locals_interp se ιss L vss_L)%I.
-
-
 
   Fixpoint simple_get_base_l (lh : simple_valid_holed) :=
     match lh with
@@ -687,13 +671,14 @@ Section Relations.
        instance_interp M mr inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
        let sub := subst_type s__mem s__rep s__size VarT in
-       ∀ fr vs,
-         values_interp se (map sub τs1) vs -∗
+       ∀ fr vs, ∃ rvs,
+         rep_value_interp rvs vs -∗
+         values_interp se (map sub τs1) rvs -∗
          frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
          frame_inv_interp se F.(fc_locals) WL inst fr -∗
          ↪[frame] fr -∗
          ↪[RUN] -∗
          expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
-           (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV vs) ++ es))%I.
+           (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV rvs) ++ es))%I.
 
 End Relations.
