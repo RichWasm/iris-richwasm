@@ -115,7 +115,7 @@ Section FundamentalKinding.
   
   Lemma subkind_sound κ κ' :
     subkind_of κ κ' ->
-    kind_as_type_interp (Σ := Σ) sr κ ⊑ kind_as_type_interp sr κ'.
+    kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
   Proof.
     induction 1; cbn; eauto using semantic_type_le_refl.
     iIntros (sv [(μ' & ws & Hwords & Hsz) Hmem]).
@@ -128,7 +128,7 @@ Section FundamentalKinding.
 
   Lemma rt_subkind_sound κ κ' :
     clos_refl_trans _ subkind_of κ κ' ->
-    kind_as_type_interp (Σ := Σ) sr κ ⊑ kind_as_type_interp sr κ'.
+    kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
   Proof. 
     intros H.
     induction H.
@@ -138,16 +138,16 @@ Section FundamentalKinding.
   Qed.
 
   Lemma subst_interp_kinds_map κs s__mem s__rep s__size se :
-    sem_env_interp rti sr κs s__mem s__rep s__size se ->
+    sem_env_interp (Σ := Σ) κs s__mem s__rep s__size se ->
     map fst se = map (subst_kind s__mem s__rep s__size) κs.
   Proof.
   Admitted.
 
   Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp rti sr F s__mem s__rep s__size se ->
+    subst_env_interp F s__mem s__rep s__size se ->
     value_interp rti sr se (subst_type s__mem s__rep s__size VarT τ) ⊑
-      kind_as_type_interp sr (subst_kind s__mem s__rep s__size κ).
+      kind_as_type_interp (subst_kind s__mem s__rep s__size κ).
   Proof.
     (*
     iIntros "%Hhas_kind [%Hsubst Hse]".
@@ -171,14 +171,14 @@ Section FundamentalKinding.
   Admitted.
 
   Instance kind_as_type_persistent κ sv :
-    @Persistent (iProp Σ) (kind_as_type_interp sr κ sv).
+    @Persistent (iProp Σ) (kind_as_type_interp κ sv).
   Proof.
     destruct κ, sv; cbn; typeclasses eauto.
   Qed.
 
   Lemma value_interp_var (se: semantic_env) (t: nat) (κ: kind) (T: semantic_type) :
     se !! t = Some (κ, T) ->
-    value_interp rti sr se (VarT t) ≡ (λne sv, kind_as_type_interp sr κ sv ∗ T sv)%I.
+    value_interp rti sr se (VarT t) ≡ (λne sv, kind_as_type_interp κ sv ∗ T sv)%I.
   Proof.
     intros.
     rewrite value_interp_part_eq.
@@ -194,15 +194,18 @@ Section FundamentalKinding.
       iFrame.
     - eauto.
   Qed.
-  
+
+  (*
   Lemma prim_rep_val_type ι v :
-    primitive_rep_interp sr ι v ->
+    primitive_rep_interp ι v ->
     value_type_interp (translate_prim_rep ι) v.
   Proof.
     destruct ι; cbn; intros; eauto.
     destruct H as (θ & p & n & -> & Hrep); eauto.
   Qed.
+  *)
 
+  (*
   Lemma prim_reps_result_type ιs vs :
     prim_reps_interp sr ιs (SValues vs) ->
     result_type_interp (map translate_prim_rep ιs) vs.
@@ -219,7 +222,9 @@ Section FundamentalKinding.
       + apply prim_rep_val_type; eauto.
       + eapply IHιs; eauto.
   Qed.
+  *)
 
+  (*
   Lemma explicit_copy_prim_reps_interp ιs :
     explicit_copy_spec rti sr ιs (λne (sv: leibnizO semantic_value), ⌜prim_reps_interp sr ιs sv⌝)%I.
   Proof.
@@ -265,13 +270,15 @@ Section FundamentalKinding.
     - admit.
     - admit.
   Admitted.
+  *)
 
   Lemma copyability_kind ρ ιs χ δ :
     eval_rep ρ = Some ιs ->
-    copyability_interp rti sr ρ χ (kind_as_type_interp sr (VALTYPE ρ χ δ)).
+    copyability_interp (Σ := Σ) χ (kind_as_type_interp (VALTYPE ρ χ δ)).
   Proof.
     unfold copyability_interp.
     intros H.
+    (*
     rewrite H.
     destruct χ.
     - auto.
@@ -282,27 +289,28 @@ Section FundamentalKinding.
       apply explicit_copy_prim_reps_interp.
     - intros.
       apply kind_as_type_persistent.
-  Qed.
+    *)
+  Admitted.
 
-  Lemma copyability_sep ρ χ S T :
-    copyability_interp rti sr ρ χ S ->
-    copyability_interp rti sr ρ χ T ->
-    copyability_interp rti sr ρ χ (λne sv, (S sv ∗ T sv)%I).
+  Lemma copyability_sep χ S T :
+    copyability_interp χ S ->
+    copyability_interp χ T ->
+    copyability_interp (Σ := Σ) χ (λne sv, (S sv ∗ T sv)%I).
   Proof.
     destruct χ; cbn.
     - auto.
     - admit.
     - intros HS HT sv.
-      typeclasses eauto.
+      (* typeclasses eauto. *)
   Admitted.
 
-  Instance copyability_proper : Proper (eq ==> eq ==> eq ==> eq ==> equiv ==> equiv) copyability_interp.
+  Instance copyability_proper : Proper (eq ==> equiv ==> equiv) (copyability_interp (Σ := Σ)).
   Admitted.
 
   Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
     has_kind F τ (VALTYPE ρ χ δ) ->
-    subst_env_interp rti sr F s__mem s__rep s__size se ->
-    copyability_interp rti sr (subst_representation s__rep ρ) χ (value_interp rti sr se (subst_type s__mem s__rep s__size VarT τ)).
+    subst_env_interp F s__mem s__rep s__size se ->
+    copyability_interp χ (value_interp rti sr se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind.
     remember (VALTYPE ρ χ δ) as κ.
@@ -314,20 +322,25 @@ Section FundamentalKinding.
       cbn.
       intros.
       rewrite value_interp_eq; cbn.
-      typeclasses eauto.
+      (* typeclasses eauto. *)
+      admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
       intros sv.
       rewrite value_interp_eq; cbn.
-      typeclasses eauto.
+      (* typeclasses eauto. *)
+      admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
       intros sv.
-      rewrite value_interp_eq; cbn; typeclasses eauto.
+      (* rewrite value_interp_eq; cbn; typeclasses eauto. *)
+      admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
       intros sv.
-      rewrite value_interp_eq; cbn; typeclasses eauto.
+      (* rewrite value_interp_eq; cbn; typeclasses eauto. *)
+      admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
       intros sv.
-      rewrite value_interp_eq; cbn; typeclasses eauto.
+      (* rewrite value_interp_eq; cbn; typeclasses eauto. *)
+      admit.
     - admit. (* sums *)
     - inversion Hκeq; subst; eauto.
     - inversion Hκeq; subst; eauto.
@@ -335,9 +348,7 @@ Section FundamentalKinding.
     - inversion Hκeq; subst; eauto.
     - inversion Hκeq; subst; eauto.
     - inversion Hκeq; subst; done.
-    - inversion Hκeq; subst; done.
     - admit. (* refs *)
-    - inversion Hκeq.
     - admit. (* coderef *)
     - cbn in *. 
       admit.
@@ -376,8 +387,8 @@ Section FundamentalKinding.
 
   Theorem kinding_sound F s__mem s__rep s__size se τ κ : 
     has_kind F τ κ ->
-    subst_env_interp rti sr F s__mem s__rep s__size se ->
-    kind_interp rti sr (subst_kind s__mem s__rep s__size κ)
+    subst_env_interp F s__mem s__rep s__size se ->
+    kind_interp (subst_kind s__mem s__rep s__size κ)
       (value_interp rti sr se (subst_type s__mem s__rep s__size VarT τ)).
   Proof.
     intros Hkind. 

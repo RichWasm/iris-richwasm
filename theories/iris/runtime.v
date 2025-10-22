@@ -29,7 +29,7 @@ Section Runtime.
                 N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl ∗
                 ∃ θ' ℓ a ws,
                   ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemMM a))]⌝ ∗
-                    ⌜repr_root_pointer θ' (RootMM ℓ) (tag_address MemMM a)⌝ ∗
+                    ⌜repr_root_pointer (RootHeap MemMM a) (tag_address MemMM a)⌝ ∗
                     rt_token rti sr θ' ∗
                     ℓ ↦addr (MemMM, a) ∗
                     ℓ ↦layout repeat FlagInt sz' ∗
@@ -68,7 +68,7 @@ Section Runtime.
   Definition spec_free (cl : function_closure) : Prop :=
     forall fr θ ℓ a ta,
       ta = Wasm_int.int_of_Z i32m (tag_address MemMM a) ->
-      repr_root_pointer θ (RootMM ℓ) (tag_address MemMM a) ->
+      repr_root_pointer (RootHeap MemMM a) (tag_address MemMM a) ->
       rt_token rti sr θ -∗
       N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl -∗
       ℓ ↦addr (MemMM, a) -∗
@@ -133,7 +133,7 @@ Section Runtime.
                  N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
                  ∃ θ' ar,
                    ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemGC ar))]⌝ ∗
-                     ⌜repr_root_pointer θ' (RootGC ar) (tag_address MemGC ar)⌝ ∗
+                     ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ ∗
                      ar ↦root ℓ ∗
                      rt_token rti sr θ';
            lp_trap := True;
@@ -144,7 +144,7 @@ Section Runtime.
   Definition spec_unregisterroot (cl : function_closure) : Prop :=
     forall fr θ ℓ ar tar,
       let tar' := Wasm_int.Z_of_uint i32m tar in
-      repr_root_pointer θ (RootGC ar) tar' ->
+      repr_root_pointer (RootHeap MemGC ar) tar' ->
       rt_token rti sr θ -∗
       ar ↦root ℓ -∗
       N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl -∗

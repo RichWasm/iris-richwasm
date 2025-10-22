@@ -28,8 +28,7 @@ Inductive word :=
 
 Inductive root_pointer :=
 | RootInt (n : Z)
-| RootMM (ℓ : location)
-| RootGC (a : address).
+| RootHeap (μ : concrete_memory) (a : address).
 
 Inductive rep_value :=
 | PtrV (r : pointer)
@@ -117,16 +116,12 @@ Inductive repr_double_word : word -> word -> Z -> Prop :=
 Definition repr_list_word (θ : address_map) (ws : list word) (ns : list Z) : Prop :=
   Forall2 (repr_word θ) ws ns.
 
-Inductive repr_root_pointer : address_map -> root_pointer -> Z -> Prop :=
-| ReprRootInt θ n :
-  repr_root_pointer θ (RootInt n) (2 * n)
-| ReprRootMM θ ℓ a :
-  θ !! ℓ = Some (MemMM, a) ->
+Inductive repr_root_pointer : root_pointer -> Z -> Prop :=
+| ReprRootInt n :
+  repr_root_pointer (RootInt n) (2 * n)
+| ReprRootHeap μ a :
   (a `mod` 4 = 0)%N ->
-  repr_root_pointer θ (RootMM ℓ) (tag_address MemMM a)
-| ReprRootGC θ a :
-  (a `mod` 4 = 0)%N ->
-  repr_root_pointer θ (RootGC a) (tag_address MemGC a).
+  repr_root_pointer (RootHeap μ a) (tag_address μ a).
 
 Inductive ser_value : rep_value -> list word -> Prop :=
 | SerPtr p :

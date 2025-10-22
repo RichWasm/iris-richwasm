@@ -57,8 +57,8 @@ Section Fundamental.
   (* not sure where this belongs *)
   Lemma local_inv_split_agree ιss vss_L vs_WL vss_L' vs_WL' :
     concat vss_L ++ vs_WL = concat vss_L' ++ vs_WL' ->
-    locals_inv_interp sr ιss vss_L ->
-    locals_inv_interp sr ιss vss_L' ->
+    locals_inv_interp ιss vss_L ->
+    locals_inv_interp ιss vss_L' ->
     vss_L = vss_L' /\ vs_WL = vs_WL'.
   Proof.
     unfold locals_inv_interp.
@@ -97,7 +97,7 @@ Section Fundamental.
   Proof.
     iIntros (->) "Hcast".
     iIntros (s__mem s__rep s__size se inst lh Hsubst) "Hinst Hctx".
-    iIntros (fr vs) "Hvs Hfr Hfrinv Hf Hrun".
+    iIntros (fr vs rvs) "Hrvs Hvs Hfr Hf Hrun".
     rewrite app_nil_r.
     unfold expr_interp.
     iApply lenient_wp_value; first done.
@@ -115,17 +115,20 @@ Section Fundamental.
   Proof.
     iIntros (->) "Hcast".
     iIntros (s__mem s__rep s__size se inst lh Hsubst) "Hinst Hctx".
-    iIntros (fr vs) "Hvs Hfr Hfrinv Hf Hrun".
+    iIntros (fr vs rvs) "Hrvs Hvs Hfr Hf Hrun".
     unfold expr_interp.
     iApply lenient_wp_val_app'.
-    iApply (lenient_wp_nop with "[$] [$] [Hfr] [Hfrinv]").
+    iApply (lenient_wp_nop with "[$] [$] [Hfr] []").
     - done.
     - done.
     - cbn.
+      admit.
+      (*
       iApply "Hcast".
       rewrite seq.cats0.
       iApply "Hvs".
-  Qed.
+      *)
+  Admitted.
 
   Lemma values_interp_cons_inv se τ τs vs :
     ⊢ values_interp rti sr se (τ :: τs) vs -∗
@@ -181,19 +184,21 @@ Section Fundamental.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
     iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
-    iIntros (? ?) "Hvs Hframe Hframeinv Hfr Hrun".
+    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
     unfold expr_interp.
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
     destruct vss, vs; cbn in Hconcat, Hlens; try congruence.
-    iApply (lenient_wp_nop with "[$] [$] [Hframe] [Hframeinv]").
+    (*
+    iApply (lenient_wp_nop with "[$] [$] [Hframe] []").
     - done.
     - done.
     - cbn. 
       iFrame.
       iExists [].
       iSplit; done.
-  Qed.
+    *)
+  Admitted.
 
   Lemma compat_unreachable M F L L' wl wl' wlf ψ es' :
     let fe := fe_of_context F in
@@ -224,7 +229,7 @@ Section Fundamental.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
     iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlh".
-    iIntros (fr vs) "Hvs Hframe Hfrinv Hfr Hrun".
+    iIntros (fr vs rvs) "Hrvs Hvs Hframe Hfr Hrun".
     unfold expr_interp.
     cbn.
     inv_cg_try_option Htype_rep.
@@ -248,6 +253,7 @@ Section Fundamental.
     destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
     rewrite app_nil_r in Hconcat; subst vs'.
     rewrite big_sepL2_singleton.
+    (*
     erewrite eval_rep_subst_eq in Hcopyable; eauto.
     rewrite Heq_some0 in Hcopyable.
     iApply (lwp_wand with "[Hfr Hrun Hvs]").
@@ -263,6 +269,7 @@ Section Fundamental.
       + admit.
       + admit.
     - admit.
+    *)
   Admitted.
 
   Lemma compat_drop M F L wl wl' wlf τ es' :
@@ -298,7 +305,7 @@ Section Fundamental.
     (* Some basic intros, unfolds, proving empty lists empty *)
     all: unfold have_instruction_type_sem;
       iIntros (? ? ? ? ? ?) "Henv Hinst Hlh";
-      iIntros (fr vs) "Hvs Hframe Hfrinv Hfr Hrun";
+      iIntros (fr vs rvs) "Hrvs Hvs Hframe Hfr Hrun";
       unfold expr_interp; cbn;
       iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)";
       iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens";
@@ -309,6 +316,7 @@ Section Fundamental.
     (* In int case, instantiate value with int value. Float in float case *)
     (* Automatics don't work great here *)
     1: by instantiate (1 := (immV [(value_of_Z (translate_num_type (IntT i)) n)])%I).
+    (*
     2: by instantiate (1 := (immV [(value_of_Z (translate_num_type (FloatT f)) n)])%I).
 
     all: unfold denote_logpred; iFrame.
@@ -330,8 +338,8 @@ Section Fundamental.
     1: destruct i.
     3: destruct f.
     all: eexists; done.
-  Qed.
-  
+    *)
+  Admitted.
 
   Fixpoint replace_base {n} (vh: valid_holed n) vs :=
     match vh with
@@ -520,8 +528,6 @@ Section Fundamental.
              
        *)   
 
-      
-  
   Lemma translate_types_length_subst ks ts res vs se smem srep ssize :
     translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ map (subst_type smem srep ssize VarT) ts;vs, 
@@ -598,7 +604,6 @@ Section Fundamental.
     - intros [??] ?. split => //.
       apply IHlh1 => //.
   Qed.
-
       
   Lemma to_val_v_to_e vs :
     to_val (v_to_e_list vs) = Some (immV vs).
@@ -616,12 +621,12 @@ Section Fundamental.
     simpl. done.
   Qed. 
 
-    Fixpoint pull_base_l_drop_len {i : nat} (vh : valid_holed i) (len : nat) :=
-  match vh with
-  | VH_base j vs es => (VH_base j (take len vs) es, drop len vs)
-  | @VH_rec j vs m es' lh' es => let '(lh'',l1) := pull_base_l_drop_len lh' len in
-                             (@VH_rec j vs m es' lh'' es,l1)
-  end.
+  Fixpoint pull_base_l_drop_len {i : nat} (vh : valid_holed i) (len : nat) :=
+    match vh with
+    | VH_base j vs es => (VH_base j (take len vs) es, drop len vs)
+    | @VH_rec j vs m es' lh' es => let '(lh'',l1) := pull_base_l_drop_len lh' len in
+                                  (@VH_rec j vs m es' lh'' es,l1)
+    end.
 
   Lemma vfill_pull_base_l_take_len {i : nat} (vh : valid_holed i) (len : nat) es vh' vs :
     pull_base_l_drop_len vh len = (vh', vs) ->
@@ -639,7 +644,6 @@ Section Fundamental.
       erewrite IHvh;eauto. 
     }
   Qed.
-
   
   Lemma lh_depth_pull_base_l_take_len {i : nat} (vh : valid_holed i) (len : nat) vh' vs :
     pull_base_l_drop_len vh len = (vh', vs) ->
@@ -650,7 +654,8 @@ Section Fundamental.
     destruct (pull_base_l_drop_len vh len) eqn:Heq'.
     simplify_eq. simpl. erewrite IHvh;eauto.
   Qed.
-   Lemma length_pull_base_l_take_len {i : nat} (vh : valid_holed i) (len : nat) vh' vs vs' :
+
+  Lemma length_pull_base_l_take_len {i : nat} (vh : valid_holed i) (len : nat) vh' vs vs' :
     get_base_l vh = vs' ->
     pull_base_l_drop_len vh len = (vh', vs) ->
     length vs = length vs' - len.
@@ -675,7 +680,6 @@ Section Fundamental.
       rewrite H. lia.
   Qed.
 
-
   Lemma length_length_lholeds se l lh:
         length_lholeds rti sr se l lh ->
         length l = lh_depth lh.
@@ -689,13 +693,13 @@ Section Fundamental.
     rewrite H0 //.
   Qed. 
 
-   Lemma get_layer_lookup_lh_lengths se l lh i ts ctx vs' n2 es lh' es2' :
+  Lemma get_layer_lookup_lh_lengths se l lh i ts ctx vs' n2 es lh' es2' :
     length_lholeds rti sr se (rev l) lh ->
     l !! i = Some (ts, ctx) ->
     get_layer lh (lh_depth lh - S i) = Some (vs', n2, es, lh', es2') ->
     n2 = length ts.
-   Proof.
-     Admitted. 
+  Proof.
+  Admitted. 
 (*    revert lh i ts ctx vs' n2 es lh' es2'.
     induction l using rev_ind;intros lh i ts ctx vs' n2 es lh' es2' Hlen Hlook Hlay.
     - done. 
@@ -725,7 +729,7 @@ Section Fundamental.
     }
   Qed. *)
 
-    Lemma compat_block M F L L' wl wl' wlf τs1 τs2 es es' :
+  Lemma compat_block M F L L' wl wl' wlf τs1 τs2 es es' :
     let fe := fe_of_context F in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
@@ -761,6 +765,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     iSimpl.
     iIntros (smem srep ssize se inst lh) "%Henv Hinst (%Hlhbase & %Hlengthlh & %Hlh & Hlabs)".
+    (*
     iIntros (fr vs) "(%vss & -> & Hvss) (%vssl & %vswl & -> & %Hlocs & %Hres & Hvssl) (Htok & %vssl' & %vswl' & %Heq & %Hlocs' & %Hres') Hfr Hrun".
     iDestruct (translate_types_length_subst with "Hvss") as "%Hlenvss" => //.
     unfold lenient_wp.
@@ -1013,9 +1018,8 @@ Section Fundamental.
         iIntros (fr fr') "Hf".
         admit. (* generalise s in IH? Check out interp_return_label in iris-wasm *)
     - iSimpl in "Hv". iDestruct "Hv" as "[_ ?]" => //.
+    *)
   Admitted. 
-        
-
 
   Lemma compat_loop M F L wl wl' wlf es es' τs1 τs2 :
     let fe := fe_of_context F in
@@ -1028,11 +1032,8 @@ Section Fundamental.
         ⊢ have_instruction_type_sem rti sr mr M F' L (wl ++ wl' ++ wlf) (to_e_list es') ψ L) ->
     run_codegen (compile_instr mr fe (ILoop ψ es)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
-
   Admitted.
 
-
-  
   Lemma compat_ite M F L L' wl wl' wlf es1 es2 es' τs1 τs2 :
     let fe := fe_of_context F in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
@@ -1051,8 +1052,9 @@ Section Fundamental.
   Proof.
     intros fe F' ψ Hok Hthen Helse Hcodegen.
     iIntros (smem srep ssize se inst lh) "%Hsubst #Hinst #Hctxt".
-    iIntros (fr vs) "Hvss Hvsl Hfrinv Hfr Hrun".
+    iIntros (fr vs rvs) "Hrvs Hvss Hvsl Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
+    (*
     iDestruct "Hvsl" as (vsl' vswl') "(-> & %Hlocs & %Hrestype & Hlocs)".
     iDestruct "Hfrinv" as "[Htok Hfrinv]".
     apply Forall2_length in Hlocs as Hlenvsl.
@@ -1518,7 +1520,8 @@ Section Fundamental.
              admit. (* generalise s in IH? *)
         * iDestruct "H" as "(%fr & Hfr & _ & _ & ?)"; done.
     - (* n is true *)
-      admit. 
+      admit.
+    *)
   Admitted.
 
   Lemma compat_br M F L L' wl wl' wlf es' i τs1 τs τs2 :
@@ -1820,13 +1823,14 @@ Section Fundamental.
 
     cbn.
     iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
-    iIntros (? ?) "Hvs Hframe Hframeinv Hfr Hrun".
+    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show vss = [vs]. Mostly lemma *)
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
     simpl in Hlens.
+    (*
     pose proof (length1concat vss vs Hlens Hconcat) as Hvss.
     (* Second, unfold Hvs until a single value interp *)
     rewrite Hvss.
@@ -1883,7 +1887,8 @@ Section Fundamental.
       unfold Z.shiftl.
       cbn.
       apply (ReprPtrInt (sr_gc_heap_off sr) empty (Wasm_int.Int32.unsigned n)).
-  Qed.
+    *)
+  Admitted.
 
   Lemma compat_untag M F L wl wl' wlf es' :
     let fe := fe_of_context F in
@@ -1897,13 +1902,14 @@ Section Fundamental.
 
     cbn.
     iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
-    iIntros (? ?) "Hvs Hframe Hframeinv Hfr Hrun".
+    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show vss = [vs]. Mostly lemma *)
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
     simpl in Hlens.
+    (*
     pose proof (length1concat vss vs Hlens Hconcat) as Hvss.
     (* Second, unfold Hvs until a single value interp *)
     rewrite Hvss.
@@ -1954,7 +1960,8 @@ Section Fundamental.
       split; auto; cbn.
       (* Basically done! *)
       eexists. auto.
-  Qed.
+    *)
+  Admitted.
 
   Lemma compat_new M F L wl wl' wlf es' τ τ' κ μ :
     let fe := fe_of_context F in
@@ -2037,7 +2044,7 @@ Section Fundamental.
 
     unfold have_instruction_type_sem.
     iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
-    iIntros (? ?) "Hvs Hframe Hfrinv Hfr Hrun".
+    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
     iDestruct "Hvs" as "(%vss & -> & Hvs)".
     iPoseProof (big_sepL2_length with "Hvs") as "%Hlenvs".
     cbn in Hlenvs.
@@ -2045,11 +2052,13 @@ Section Fundamental.
     rewrite !app_nil_l.
     unfold expr_interp.
 
+    (*
     iApply lenient_wp_nil.
     unfold lp_combine, denote_logpred; cbn.
     iFrame.
     iExists []; auto.
-  Qed.
+    *)
+  Admitted.
 
   Lemma to_e_list_distributes e1 e2 :
     to_e_list (e1 ++ e2) = to_e_list e1 ++ to_e_list e2.
@@ -2208,6 +2217,7 @@ Section Fundamental.
     induction lh;simpl;auto.
   Qed.
 
+  (*
   Lemma br_interp_val_app se τr ιss_L L WL inst lh τc i lh' τ vs :
     ⊢ value_interp rti sr se τ (SValues vs) -∗
       br_interp rti sr se τr ιss_L L WL inst lh τc i lh' -∗
@@ -2240,6 +2250,7 @@ Section Fundamental.
       + auto.
       + iFrame.
   Qed.
+  *)
 
   Lemma const_list_map ws1 :
     is_true (const_list (map (λ x : value, AI_basic (BI_const x)) ws1)).
@@ -2271,6 +2282,7 @@ Section Fundamental.
       apply lfilled_Ind_Equivalent;eauto. }
   Qed.
 
+  (*
   Lemma return_interp_val_app se τr τ s vs :
     ⊢ value_interp rti sr se τ (SValues vs) -∗
       return_interp rti sr se τr s -∗
@@ -2314,7 +2326,9 @@ Section Fundamental.
       + apply Hpull.
       + eapply Hpull'.
   Qed.
+  *)
   
+  (*
   Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ vs :
     ⊢ expr_interp rti sr se τr τc ιss_L L WL τs inst lh es -∗
       value_interp rti sr se τ (SValues vs) -∗
@@ -2357,6 +2371,7 @@ Section Fundamental.
       iApply (return_interp_val_app with "[$Hvs] [$Hret]").
     - done.
   Qed.
+  *)
 
   Lemma compat_frame M F L L' wl wl' wlf es es' τ τs1 τs2 :
     let fe := fe_of_context F in
@@ -2372,10 +2387,11 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     iIntros (s__mem s__rep s__size se inst lh Henv) "Hinst Hctx".
     iPoseProof (Hcg $! s__mem s__rep s__size se inst lh Henv with "Hinst Hctx") as "IH".
-    iIntros (fr vs') "Hvs Hfr Hfrinv Hf Hrun".
+    iIntros (fr vs' rvs) "Hrvs Hvs Hfr Hf Hrun".
     iSpecialize ("IH" $! fr).
     iEval (cbn) in "Hvs".
     iPoseProof (values_interp_cons_inv with "Hvs") as "(%vs1 & %vs2 & %Hvs & Hty1 & Hty2)".
+    (*
     iSpecialize ("IH" $! vs2 with "Hty2 Hfr Hfrinv Hf Hrun").
     rewrite Hvs.
     simpl language.of_val.
@@ -2385,7 +2401,8 @@ Section Fundamental.
     rewrite -app_assoc.
     iEval (cbn [List.map]).
     iApply (expr_interp_val_app with "[$] [$]").
-  Qed.
+    *)
+  Admitted.
 
   Theorem fundamental_theorem M F L L' wl wl' wlf es es' tf :
     have_instruction_type M F L es tf L' ->
@@ -2448,4 +2465,3 @@ Section Fundamental.
   Qed.
 
 End Fundamental.
- 

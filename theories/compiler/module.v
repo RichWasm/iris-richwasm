@@ -186,8 +186,9 @@ Definition compile_module (m : module) : modgen unit :=
   mid_mem_gc ← add_rt_mem_import "mem_gc" (W.Build_limits 0 None);
   gid_table_next ← add_rt_global_import "table_next" (W.Build_global_type W.MUT_mut W.T_i32);
   fid_table_set ← add_rt_func_import "table_set" (W.Tf [W.T_i32; W.T_i32] []);
-  fid_alloc_mm ← add_rt_func_import "alloc_mm" (W.Tf [W.T_i32] [W.T_i32]);
-  fid_alloc_gc ← add_rt_func_import "alloc_gc" (W.Tf [W.T_i32; W.T_i64] [W.T_i32]);
+  fid_mmalloc ← add_rt_func_import "mmalloc" (W.Tf [W.T_i32] [W.T_i32]);
+  fid_gcalloc ← add_rt_func_import "mmalloc" (W.Tf [W.T_i32] [W.T_i32]);
+  fid_setflag ← add_rt_func_import "setflag" (W.Tf [W.T_i32; W.T_i32; W.T_i32] []);
   fid_free ← add_rt_func_import "free" (W.Tf [W.T_i32] []);
   fid_registerroot ← add_rt_func_import "registerroot" (W.Tf [W.T_i32] [W.T_i32]);
   fid_unregisterroot ← add_rt_func_import "unregisterroot" (W.Tf [W.T_i32] []);
@@ -215,8 +216,9 @@ Definition compile_module (m : module) : modgen unit :=
   let mr :=
     {| mr_mem_mm := mid_mem_mm;
        mr_mem_gc := mid_mem_gc;
-       mr_func_alloc_mm := fid_alloc_mm;
-       mr_func_alloc_gc := fid_alloc_gc;
+       mr_func_mmalloc := fid_mmalloc;
+       mr_func_gcalloc := fid_gcalloc;
+       mr_func_setflag := fid_setflag;
        mr_func_free := fid_free;
        mr_func_registerroot := fid_registerroot;
        mr_func_unregisterroot := fid_unregisterroot;
