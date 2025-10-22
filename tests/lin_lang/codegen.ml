@@ -217,7 +217,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (ref (concrete mm) (prod)))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) i32) -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 0
@@ -262,7 +262,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) i32) -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 0
@@ -308,7 +308,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) i32) -> (prod))))
         unpack (<1> -> (prod)) (LocalFx [])
           local.set 0
@@ -342,7 +342,7 @@ let%expect_test "examples" =
           new mm (prod)
           group 2
           pack (Type (prod))
-            (exists type (VALTYPE (ptr, excopy, exdrop))
+            (exists type (VALTYPE (ptr, nocopy, exdrop))
               (coderef ((prod (var 0) i32) -> i32)))
           unpack (<1> -> i32) (LocalFx [])
             local.set 2
@@ -366,7 +366,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) i32) -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 0
@@ -420,7 +420,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) (prod i32 i32)) -> (sum i32 (prod)))))
         unpack (<1> -> (sum i32 (prod))) (LocalFx [])
           local.set 0
@@ -441,7 +441,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) (sum i32 (prod))) -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 4
@@ -500,7 +500,7 @@ let%expect_test "examples" =
           new mm (prod)
           group 2
           pack (Type (prod))
-            (exists type (VALTYPE (ptr, excopy, exdrop))
+            (exists type (VALTYPE (ptr, nocopy, exdrop))
               (coderef
                 ((prod (var 0) (ref (concrete mm) i32)) -> (ref (concrete mm) i32))))
           unpack (<1> -> (ref (concrete mm) i32)) (LocalFx [])
@@ -524,7 +524,7 @@ let%expect_test "examples" =
           new mm (prod)
           group 2
           pack (Type (prod))
-            (exists type (VALTYPE (ptr, excopy, exdrop))
+            (exists type (VALTYPE (ptr, nocopy, exdrop))
               (coderef ((prod (var 0) (prod (ref (concrete mm) i32) i32)) -> i32)))
           unpack (<1> -> i32) (LocalFx [])
             local.set 9
@@ -549,7 +549,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) (prod (ref (concrete mm) i32) i32)) -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 1
@@ -579,51 +579,80 @@ let%expect_test "examples" =
            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
     -----------unboxed_list[invlaid]-----------
-    FAILURE (Ctx (CannotFindRep (Var (0 ("\206\177"))))
-     (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
+    FAILURE (CannotFindRep (Var (0 ("\206\177"))))
     -----------boxed_list-----------
     FAILURE (Ctx (CannotFindRep (Var (0 ())))
      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
     -----------peano_3-----------
     (module
-      (func (-> (rec (sum (prod) (ref (concrete mm) (var 0)))))
+      (func
+          (->
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
         group 0
         inject
           0 (prod) (ref (concrete mm)
-                     (rec (sum (prod) (ref (concrete mm) (var 0)))))
-        fold (rec (sum (prod) (ref (concrete mm) (var 0))))
-        new mm (rec (sum (prod) (ref (concrete mm) (var 0))))
+                     (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                       (sum (prod) (ref (concrete mm) (var 0)))))
+        fold
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0))))
+        new mm
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0))))
         inject
           1 (prod) (ref (concrete mm)
-                     (rec (sum (prod) (ref (concrete mm) (var 0)))))
-        fold (rec (sum (prod) (ref (concrete mm) (var 0))))
-        new mm (rec (sum (prod) (ref (concrete mm) (var 0))))
+                     (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                       (sum (prod) (ref (concrete mm) (var 0)))))
+        fold
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0))))
+        new mm
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0))))
         inject
           1 (prod) (ref (concrete mm)
-                     (rec (sum (prod) (ref (concrete mm) (var 0)))))
-        fold (rec (sum (prod) (ref (concrete mm) (var 0))))
-        new mm (rec (sum (prod) (ref (concrete mm) (var 0))))
+                     (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                       (sum (prod) (ref (concrete mm) (var 0)))))
+        fold
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0))))
+        new mm
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0))))
         inject
           1 (prod) (ref (concrete mm)
-                     (rec (sum (prod) (ref (concrete mm) (var 0)))))
-        fold (rec (sum (prod) (ref (concrete mm) (var 0)))))
+                     (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                       (sum (prod) (ref (concrete mm) (var 0)))))
+        fold
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
       (table)
       (export 0))
     -----------peano-----------
     (module
       (func
           ((prod (ref (concrete mm) (prod))
-             (prod (rec (sum (prod) (ref (concrete mm) (var 0))))
-               (rec (sum (prod) (ref (concrete mm) (var 0))))))
-          -> (rec (sum (prod) (ref (concrete mm) (var 0))))) (local
-          (sum (prod) ptr) (sum (prod) ptr) (prod) ptr ptr (prod ptr i32) ptr
-          (sum (prod) ptr))
+             (prod
+               (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                 (sum (prod) (ref (concrete mm) (var 0))))
+               (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                 (sum (prod) (ref (concrete mm) (var 0))))))
+          ->
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
+          (local (sum (prod) ptr) (sum (prod) ptr) (prod) ptr ptr (prod ptr i32)
+          ptr (sum (prod) ptr))
         local.get 0 follow
         local.set 1
         local.set 2
         local.get 1 follow
         unfold
-        case (<1> -> (rec (sum (prod) (ref (concrete mm) (var 0))))) (LocalFx [])
+        case
+          (<1> ->
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
+          (LocalFx [])
           (0
             local.set 3
             local.get 2 follow)
@@ -634,13 +663,21 @@ let%expect_test "examples" =
             new mm (prod)
             group 2
             pack (Type (prod))
-              (exists type (VALTYPE (ptr, excopy, exdrop))
+              (exists type (VALTYPE (ptr, nocopy, exdrop))
                 (coderef
                   ((prod (var 0)
-                     (prod (rec (sum (prod) (ref (concrete mm) (var 0))))
-                       (rec (sum (prod) (ref (concrete mm) (var 0))))))
-                  -> (rec (sum (prod) (ref (concrete mm) (var 0)))))))
-            unpack (<1> -> (rec (sum (prod) (ref (concrete mm) (var 0)))))
+                     (prod
+                       (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                         (sum (prod) (ref (concrete mm) (var 0))))
+                       (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                         (sum (prod) (ref (concrete mm) (var 0))))))
+                  ->
+                  (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                    (sum (prod) (ref (concrete mm) (var 0)))))))
+            unpack
+              (<1> ->
+              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                (sum (prod) (ref (concrete mm) (var 0)))))
               (LocalFx [])
               local.set 5
               local.get 5 follow
@@ -658,39 +695,52 @@ let%expect_test "examples" =
               local.get 6 follow
               call_indirect
             end
-            new mm (rec (sum (prod) (ref (concrete mm) (var 0))))
+            new mm
+              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                (sum (prod) (ref (concrete mm) (var 0))))
             inject
               1 (prod) (ref (concrete mm)
-                         (rec (sum (prod) (ref (concrete mm) (var 0)))))
-            fold (rec (sum (prod) (ref (concrete mm) (var 0)))))
+                         (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                           (sum (prod) (ref (concrete mm) (var 0)))))
+            fold
+              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                (sum (prod) (ref (concrete mm) (var 0)))))
         end)
       (func
           ((prod (ref (concrete mm) (prod)) i32) ->
-          (rec (sum (prod) (ref (concrete mm) (var 0))))) (local ptr (prod ptr i32)
-          ptr)
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
+          (local ptr (prod ptr i32) ptr)
         local.get 0 follow
         i32.const 0
         i32.eqz
         if
           (<1> ->
           (sum (prod)
-            (ref (concrete mm) (rec (sum (prod) (ref (concrete mm) (var 0)))))))
+            (ref (concrete mm)
+              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                (sum (prod) (ref (concrete mm) (var 0)))))))
           (LocalFx [])
           group 0
           inject
             0 (prod) (ref (concrete mm)
-                       (rec (sum (prod) (ref (concrete mm) (var 0)))))
+                       (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                         (sum (prod) (ref (concrete mm) (var 0)))))
         else
           coderef 0
           group 0
           new mm (prod)
           group 2
           pack (Type (prod))
-            (exists type (VALTYPE (ptr, excopy, exdrop))
+            (exists type (VALTYPE (ptr, nocopy, exdrop))
               (coderef
                 ((prod (var 0) i32) ->
-                (rec (sum (prod) (ref (concrete mm) (var 0)))))))
-          unpack (<1> -> (rec (sum (prod) (ref (concrete mm) (var 0)))))
+                (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                  (sum (prod) (ref (concrete mm) (var 0)))))))
+          unpack
+            (<1> ->
+            (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+              (sum (prod) (ref (concrete mm) (var 0)))))
             (LocalFx [])
             local.set 1
             local.get 1 follow
@@ -704,15 +754,21 @@ let%expect_test "examples" =
             local.get 2 follow
             call_indirect
           end
-          new mm (rec (sum (prod) (ref (concrete mm) (var 0))))
+          new mm
+            (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+              (sum (prod) (ref (concrete mm) (var 0))))
           inject
             1 (prod) (ref (concrete mm)
-                       (rec (sum (prod) (ref (concrete mm) (var 0)))))
+                       (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                         (sum (prod) (ref (concrete mm) (var 0)))))
         end
-        fold (rec (sum (prod) (ref (concrete mm) (var 0)))))
+        fold
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
       (func
           ((prod (ref (concrete mm) (prod))
-             (rec (sum (prod) (ref (concrete mm) (var 0)))))
+             (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+               (sum (prod) (ref (concrete mm) (var 0)))))
           -> i32) (local (prod) ptr ptr (prod ptr i32) ptr (sum (prod) ptr))
         local.get 0 follow
         unfold
@@ -728,10 +784,12 @@ let%expect_test "examples" =
             new mm (prod)
             group 2
             pack (Type (prod))
-              (exists type (VALTYPE (ptr, excopy, exdrop))
+              (exists type (VALTYPE (ptr, nocopy, exdrop))
                 (coderef
-                  ((prod (var 0) (rec (sum (prod) (ref (concrete mm) (var 0))))) ->
-                  i32)))
+                  ((prod (var 0)
+                     (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                       (sum (prod) (ref (concrete mm) (var 0)))))
+                  -> i32)))
             unpack (<1> -> i32) (LocalFx [])
               local.set 3
               local.get 3 follow
@@ -757,11 +815,16 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef
               ((prod (var 0) i32) ->
-              (rec (sum (prod) (ref (concrete mm) (var 0)))))))
-        unpack (<1> -> (rec (sum (prod) (ref (concrete mm) (var 0))))) (LocalFx [])
+              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                (sum (prod) (ref (concrete mm) (var 0)))))))
+        unpack
+          (<1> ->
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
+          (LocalFx [])
           local.set 0
           local.get 0 follow
           local.set 1
@@ -778,11 +841,16 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef
               ((prod (var 0) i32) ->
-              (rec (sum (prod) (ref (concrete mm) (var 0)))))))
-        unpack (<1> -> (rec (sum (prod) (ref (concrete mm) (var 0))))) (LocalFx [])
+              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                (sum (prod) (ref (concrete mm) (var 0)))))))
+        unpack
+          (<1> ->
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
+          (LocalFx [])
           local.set 4
           local.get 4 follow
           local.set 5
@@ -799,13 +867,22 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef
               ((prod (var 0)
-                 (prod (rec (sum (prod) (ref (concrete mm) (var 0))))
-                   (rec (sum (prod) (ref (concrete mm) (var 0))))))
-              -> (rec (sum (prod) (ref (concrete mm) (var 0)))))))
-        unpack (<1> -> (rec (sum (prod) (ref (concrete mm) (var 0))))) (LocalFx [])
+                 (prod
+                   (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                     (sum (prod) (ref (concrete mm) (var 0))))
+                   (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                     (sum (prod) (ref (concrete mm) (var 0))))))
+              ->
+              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                (sum (prod) (ref (concrete mm) (var 0)))))))
+        unpack
+          (<1> ->
+          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+            (sum (prod) (ref (concrete mm) (var 0)))))
+          (LocalFx [])
           local.set 8
           local.get 8 follow
           local.set 9
@@ -824,10 +901,12 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef
-              ((prod (var 0) (rec (sum (prod) (ref (concrete mm) (var 0))))) ->
-              i32)))
+              ((prod (var 0)
+                 (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                   (sum (prod) (ref (concrete mm) (var 0)))))
+              -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 12
           local.get 12 follow
@@ -857,7 +936,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) i32) -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 3
@@ -875,7 +954,7 @@ let%expect_test "examples" =
         new mm (prod)
         group 2
         pack (Type (prod))
-          (exists type (VALTYPE (ptr, excopy, exdrop))
+          (exists type (VALTYPE (ptr, nocopy, exdrop))
             (coderef ((prod (var 0) i32) -> i32)))
         unpack (<1> -> i32) (LocalFx [])
           local.set 6

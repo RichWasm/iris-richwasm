@@ -6,7 +6,7 @@ module Copyability = struct
     | NoCopy
     | ExCopy
     | ImCopy
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let le a b =
     match (a, b) with
@@ -34,7 +34,7 @@ module Dropability = struct
     | NoDrop
     | ExDrop
     | ImDrop
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let le a b =
     match (a, b) with
@@ -61,7 +61,7 @@ module ConcreteMemory = struct
   type t =
     | MM
     | GC
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -74,7 +74,7 @@ module Memory = struct
   type t =
     | Var of int
     | Concrete of ConcreteMemory.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -90,7 +90,7 @@ module PrimitiveRep = struct
     | I64
     | F32
     | F64
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -108,7 +108,7 @@ module Representation = struct
     | Sum of t list
     | Prod of t list
     | Prim of PrimitiveRep.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -132,7 +132,7 @@ module Size = struct
     | Prod of t list
     | Rep of Representation.t
     | Const of int
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -154,7 +154,7 @@ module Sizity = struct
   type t =
     | Sized of Size.t
     | Unsized
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let le a b =
     match (a, b) with
@@ -175,7 +175,7 @@ module Kind = struct
   type t =
     | VALTYPE of Representation.t * Copyability.t * Dropability.t
     | MEMTYPE of Sizity.t * Memory.t * Dropability.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -186,7 +186,7 @@ module Quantifier = struct
     | Representation
     | Size
     | Type of Kind.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -201,7 +201,7 @@ module Sign = struct
   type t =
     | Unsigned
     | Signed
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -215,7 +215,7 @@ module Int = struct
     type t =
       | I32
       | I64
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -229,7 +229,7 @@ module Int = struct
       | Clz
       | Ctz
       | Popcnt
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -253,7 +253,7 @@ module Int = struct
       | Shr of Sign.t
       | Rotl
       | Rotr
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -273,7 +273,7 @@ module Int = struct
   end
 
   module Testop = struct
-    type t = Eqz [@@deriving eq, ord, iter, map, fold, sexp]
+    type t = Eqz [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -289,7 +289,7 @@ module Int = struct
       | Gt of Sign.t
       | Le of Sign.t
       | Ge of Sign.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -308,7 +308,7 @@ module Float = struct
     type t =
       | F32
       | F64
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -326,7 +326,7 @@ module Float = struct
       | Trunc
       | Nearest
       | Sqrt
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -349,7 +349,7 @@ module Float = struct
       | Min
       | Max
       | CopySign
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff : t -> unit = function
       | Add -> fprintf ff "add"
@@ -369,7 +369,7 @@ module Float = struct
       | Gt
       | Le
       | Ge
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff : t -> unit = function
       | Eq -> fprintf ff "eq"
@@ -385,7 +385,7 @@ module NumType = struct
   type t =
     | Int of Int.Type.t
     | Float of Float.Type.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -403,7 +403,7 @@ module ConversionOp = struct
     | Promote
     | Convert of Int.Type.t * Float.Type.t * Sign.t
     | Reinterpret of NumType.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -433,7 +433,7 @@ module NumInstruction = struct
     | Float2 of Float.Type.t * Float.Binop.t
     | FloatRel of Float.Type.t * Float.Relop.t
     | Cvt of ConversionOp.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -461,10 +461,10 @@ module rec Type : sig
     | GCPtr of t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
-    | Ser of t
-    | Rec of t
+    | Ser of Memory.t * t
+    | Rec of Kind.t * t
     | Exists of Quantifier.t * t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
@@ -481,10 +481,10 @@ end = struct
     | GCPtr of t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
-    | Ser of t
-    | Rec of t
+    | Ser of Memory.t * t
+    | Rec of Kind.t * t
     | Exists of Quantifier.t * t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -512,20 +512,20 @@ end = struct
     | GCPtr t -> fprintf ff "@[<2>(gcref@ %a)@]" pp t
     | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
     | Pad (s, t) -> fprintf ff "@[<2>(pad@ %a@ %a)@]" Size.pp s pp t
-    | Ser t -> fprintf ff "@[<2>(ser@ %a)@]" pp t
-    | Rec t -> fprintf ff "@[<2>(rec@ %a)@]" pp t
+    | Ser (mem, t) -> fprintf ff "@[<2>(ser@ %a@ %a)@]" Memory.pp mem pp t
+    | Rec (kind, t) -> fprintf ff "@[<2>(rec@ %a@ %a)@]" Kind.pp kind pp t
     | Exists (q, t) -> fprintf ff "@[<2>(exists@ %a@ %a)@]" Quantifier.pp q pp t
 end
 
 and FunctionType : sig
   type t = FunctionType of Quantifier.t list * Type.t list * Type.t list
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, sexp]
 
   val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
 end = struct
   type t = FunctionType of Quantifier.t list * Type.t list * Type.t list
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -549,7 +549,7 @@ module BlockType = struct
   type t =
     | ValType of Type.t list
     | ArrowType of int * Type.t list
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp ff : t -> unit = function
     | ValType res ->
@@ -566,7 +566,7 @@ end
 
 module LocalFx = struct
   type t = LocalFx of (int * Type.t) list
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -577,7 +577,7 @@ module Index = struct
     | Rep of Representation.t
     | Size of Size.t
     | Type of Type.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -587,13 +587,13 @@ module Path = struct
     type t =
       | Proj of int
       | Unwrap
-    [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+    [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
   type t = Path of Component.t list
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -603,7 +603,7 @@ module Consume = struct
     | Follow
     | Copy
     | Move
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let rec pp ff : t -> unit = function
     | Follow -> fprintf ff "follow"
@@ -644,7 +644,7 @@ module Instruction = struct
     | Load of Path.t * Consume.t
     | Store of Path.t * Type.t option
     | Swap of Path.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -726,7 +726,7 @@ module Module = struct
       locals : Representation.t list;
       body : Instruction.t list;
     }
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, make, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -747,7 +747,7 @@ module Module = struct
     table : int list;
     exports : int list;
   }
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, make, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 

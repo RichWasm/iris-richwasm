@@ -240,7 +240,21 @@ let%expect_test "examples" =
         m_exports := [0];
         |}
     -----------let_bind-----------
-    FAILURE TODO
+    {|
+        m_imports := [];
+        m_functions :=
+          [{|
+               mf_type :=
+                 (MonoFunT [] [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]);
+               mf_locals := [(PrimR I32R)];
+               mf_body :=
+                 [(INumConst (InstrT [] [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 10);
+                    (ILocalSet (InstrT [] [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 0);
+                    (ILocalGet (InstrT [] [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 0)];
+               |}];
+        m_table := [];
+        m_exports := [0];
+        |}
     -----------add_one_program-----------
     FAILURE TODO
     -----------add_tup_ref-----------
@@ -266,8 +280,7 @@ let%expect_test "examples" =
            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
     -----------unboxed_list[invlaid]-----------
-    FAILURE (Ctx (CannotFindRep (Var (0 ("\206\177"))))
-     (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
+    FAILURE (CannotFindRep (Var (0 ("\206\177"))))
     -----------boxed_list-----------
     FAILURE (Ctx (CannotFindRep (Var (0 ())))
      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))

@@ -174,8 +174,8 @@ module Function = struct
 
   let pp (ff : formatter) ({ export; name; param; return; body } : t) =
     let export_str = if export then "export " else "" in
-    fprintf ff "@[<v 0>@[<2>(%sfun %s@ %a :@ %a@ .@]@,@[<v 2>  %a)@]@,@]" export_str name Binding.pp
-      param Type.pp return Expr.pp body
+    fprintf ff "@[<v 0>@[<2>(%sfun %s@ %a :@ %a@ .@]@,@[<v 2>  %a)@]@,@]"
+      export_str name Binding.pp param Type.pp return Expr.pp body
 
   let string_of = asprintf "%a" pp
 end

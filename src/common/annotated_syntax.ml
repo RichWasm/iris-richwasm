@@ -333,6 +333,9 @@ module Representation = struct
   let ren = Richwasm_extract.RwSyntax.Core.ren_representation
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
+  (* HACK: can't get @@deriving variants to work with ppx_import *)
+  let varR x = VarR x
+
   let rec pp_roqc ff : t -> unit = function
     | VarR x -> fprintf ff "(VarR %a)" Z.pp_print x
     | SumR rs -> fprintf ff "(SumR %a)" (pp_roqc_list pp_roqc) rs
@@ -349,6 +352,8 @@ module Size = struct
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
+  (* HACK: can't get @@deriving variants to work with ppx_import *)
+  let varS x = VarS x
   let subst = Richwasm_extract.RwSyntax.Core.subst_size
   let ren = Richwasm_extract.RwSyntax.Core.ren_size
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -387,6 +392,9 @@ module Memory = struct
   let subst = Richwasm_extract.RwSyntax.Core.subst_memory
   let ren = Richwasm_extract.RwSyntax.Core.ren_memory
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  (* HACK: can't get @@deriving variants to work with ppx_import *)
+  let varM x = VarM x
 
   let pp_roqc ff : t -> unit = function
     | VarM x -> fprintf ff "(VarM %a)" Z.pp_print x
@@ -509,6 +517,9 @@ module Type = struct
 
   let subst = Richwasm_extract.RwSyntax.Core.subst_type
   let ren = Richwasm_extract.RwSyntax.Core.ren_type
+
+  (* HACK: can't get @@deriving variants to work with ppx_import *)
+  let varT x = VarT x
   let pp_sexp = Internal.Types.pp_sexp_typ
   let pp_roqc = Internal.Types.pp_roqc_typ
 end

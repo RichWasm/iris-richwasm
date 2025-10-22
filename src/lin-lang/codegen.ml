@@ -84,26 +84,33 @@ module Compile = struct
   module A = Cc.IR
   module B = RichWasm
   module Res = Util.ResultM (Err)
-
-  module Type = struct
-    include Res
-  end
-
   include M
 
-  let rec compile_type : A.Type.t -> B.Type.t = function
-    | Int -> Num (Int I32)
-    | Var (i, _) -> Var i
+  let rec compile_type (env : Env.t) : A.Type.t -> B.Type.t Res.t =
+    let open Res in
+    let open B.Type in
+    function
+    | Int -> ret @@ Num (Int I32)
+    | Var (i, _) -> ret @@ Var i
     | Lollipop (pt, rt) ->
-        CodeRef (FunctionType ([], [ compile_type pt ], [ compile_type rt ]))
-    | Prod ts -> Prod (List.map ~f:compile_type ts)
-    | Sum ts -> Sum (List.map ~f:compile_type ts)
-    | Rec t -> Rec (compile_type t)
+        let* pt' = compile_type env pt in
+        let* rt' = compile_type env rt in
+        ret @@ CodeRef (FunctionType ([], [ pt' ], [ rt' ]))
+    | Prod ts -> mapM ~f:(compile_type env) ts >>| prod
+    | Sum ts -> mapM ~f:(compile_type env) ts >>| sum
+    | Rec t ->
+        let* rep = rep_of_typ env t in
+        (* FIXME: if this has an inner coderef thing *)
+        let kind : B.Kind.t = (VALTYPE (rep, NoCopy, ExDrop)) in
+        let* t' = compile_type env t in
+        Rec (kind, t') |> ret
     | Exists t ->
-        Exists (Type (VALTYPE (Prim Ptr, ExCopy, ExDrop)), compile_type t)
-    | Ref t -> Ref (Concrete MM, compile_type t)
+        let kind : B.Kind.t = (VALTYPE (Prim Ptr, NoCopy, ExDrop)) in
+        let* t' = compile_type env t in
+        ret @@ Exists (Type kind, t')
+    | Ref t -> compile_type env t >>| ref (Concrete MM)
 
-  let rec rep_of_typ (env : Env.t) : A.Type.t -> B.Representation.t Res.t =
+  and rep_of_typ (env : Env.t) : A.Type.t -> B.Representation.t Res.t =
     let open Res in
     let open B.Representation in
     function
@@ -157,19 +164,21 @@ module Compile = struct
     | Inj (i, expr, t) ->
         let* expr' = compile_expr env expr in
         let* ts =
-          match compile_type t with
-          | Sum ts -> ret ts
-          | _ -> fail (InjInvalidAnn t)
+          (let open Res in
+           compile_type env t >>= function
+           | Sum ts -> ret ts
+           | _ -> fail (InjInvalidAnn t))
+          |> lift_result
         in
         ret @@ expr' @ [ Inject (None, i, ts) ]
     | Fold (mu, expr, _) ->
-        let mu' = compile_type mu in
+        let* mu' = compile_type env mu |> lift_result in
         let* expr' = compile_expr env expr in
         ret @@ expr' @ [ Fold mu' ]
     | Pack (witness, expr, t) ->
         let* expr' = compile_expr env expr in
-        let witness' = compile_type witness in
-        let t' = compile_type t in
+        let* witness' = compile_type env witness |> lift_result in
+        let* t' = compile_type env t |> lift_result in
         ret @@ expr' @ [ Pack (Type witness', t') ]
     | App (applicand, applicant, _) ->
         let* applicand' = compile_expr env applicand in
@@ -217,7 +226,7 @@ module Compile = struct
               ret @@ [ LocalSet fresh_idx ] @ body')
             cases
         in
-        let bt = compile_type t in
+        let* bt = compile_type env t |> lift_result in
         (* FIXME: local effects *)
         ret @@ scrutinee' @ [ Case (ArrowType (1, [ bt ]), LocalFx [], cases') ]
     | Unfold (_, expr, _) ->
@@ -231,7 +240,7 @@ module Compile = struct
         let env' = Env.add_local env fresh_idx in
         let env' = Env.add_type env' rep in
         let* body' = compile_expr env' body in
-        let bt = compile_type t in
+        let* bt = compile_type env t |> lift_result in
         (* FIXME: local fx *)
         ret @@ rhs'
         @ [
@@ -242,7 +251,7 @@ module Compile = struct
         let* v' = compile_expr env v in
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
-        let bt = compile_type t in
+        let* bt = compile_type env t |> lift_result in
         (* FIXME: local effects *)
         ret @@ v'
         @ [ NumConst (Int I32, 0); Num (IntTest (I32, Eqz)) ]
@@ -255,7 +264,7 @@ module Compile = struct
     | New (v, _) ->
         let* v' = compile_expr env v in
         let t = type_of v in
-        let t' = compile_type t in
+        let* t' = compile_type env t |> lift_result in
         ret @@ v' @ [ New (MM, t') ]
     | Swap (e1, e2, _) ->
         let* e1' = compile_expr env e1 in
@@ -281,7 +290,9 @@ module Compile = struct
       B.FunctionType.t Res.t =
     let open Res in
     let open B.FunctionType in
-    ret (FunctionType ([], [ compile_type input ], [ compile_type output ]))
+    let* input' = compile_type Env.empty input in
+    let* output' = compile_type Env.empty output in
+    ret (FunctionType ([], [ input' ], [ output' ]))
 
   let base_compile_function
       (env : Env.t)
@@ -301,8 +312,9 @@ module Compile = struct
       (env : Env.t)
       ({ export = _; name = _; param; return; body } : A.Function.t) :
       B.Module.Function.t Res.t =
-    let param' = compile_type param in
-    let return' = compile_type return in
+    let open Res in
+    let* param' = compile_type env param in
+    let* return' = compile_type env return in
     (* {Rich}Wasm starts indexing locals with parameters; we only ever have one *)
     let env' = Env.add_local env 0 in
     base_compile_function env' (FunctionType ([], [ param' ], [ return' ])) body
@@ -328,7 +340,7 @@ module Compile = struct
       omap
         ~f:(fun main ->
           let ret_t = A.Expr.type_of main in
-          let ret_t' = compile_type ret_t in
+          let* ret_t' = compile_type env ret_t in
           let ft : B.FunctionType.t = FunctionType ([], [], [ ret_t' ]) in
           base_compile_function env ft main)
         main

@@ -8,8 +8,7 @@ module LVar = Index.LVar
 
 module AnnLVar (Type : Index.Ast) = struct
   module T = struct
-    type t = LVar.t * Type.t
-    [@@deriving eq, sexp, show { with_path = false }]
+    type t = LVar.t * Type.t [@@deriving eq, sexp, show { with_path = false }]
 
     let compare (a, _) (b, _) = LVar.compare a b
   end
