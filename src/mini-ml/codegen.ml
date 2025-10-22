@@ -139,7 +139,6 @@ let rec compile_value delta gamma locals functions v =
 
 let rec compile_expr delta gamma locals functions e =
   let open Closed.Expr in
-  let open Closed.Value in
   let open Instruction in
   let open BlockType in
   let open LocalFx in
@@ -168,9 +167,7 @@ let rec compile_expr delta gamma locals functions e =
         locals,
         [] )
   | Project (n, v) ->
-      ( cv v @ [ Load (Path.Path [ Path.Component.Proj n ]) ],
-        locals,
-        [] )
+      (cv v @ [ Load (Path.Path [ Path.Component.Proj n ]) ], locals, [])
   | New v -> (cv v @ [ New (Memory.GC, rw_t) ], locals, [])
   | Deref v -> (cv v @ [ Load (Path.Path []) ], locals, [])
   | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path [], None) ], locals, [])
@@ -252,12 +249,11 @@ let rec compile_expr delta gamma locals functions e =
         locals,
         [] )
 
-let compile_fun
+let[@warning "-8"] compile_fun
     functions
     (Closed.Value.Fun { foralls; arg = arg_name, arg_type; ret_type; body }) :
     Module.Function.t =
   let open FunctionType in
-  let open Type in
   let arg_rw_type = compile_type foralls arg_type in
   let ret_rw_type = compile_type foralls ret_type in
   let body', locals, _ =
@@ -276,13 +272,20 @@ let compile_fun
     body = body';
   }
 
-let compile_module (Closed.Module.Module (_, fns, body)) : Module.t =
-  let open Index in
+let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
   let open Closed.Module in
   let open Closed.Expr in
   let open Closed.PreType in
   let open Closed.Value in
   let closed_unit = Prod [] in
+  let imports =
+    List.map
+      ~f:(fun (Import (_, t)) ->
+        match compile_type [] t with
+        | Type.CodeRef ft -> ft
+        | _ -> failwith "imports must be functions")
+      imps
+  in
   let fns =
     match body with
     | None -> fns
@@ -308,7 +311,7 @@ let compile_module (Closed.Module.Module (_, fns, body)) : Module.t =
         | Export ((n, t), _) | Private ((n, t), _) -> (n, t))
       fns
   in
-  let fns' =
+  let functions =
     (* FIXME: update source syntax to make sure these are always functions
      *  (or at least values) *)
     List.map
@@ -317,9 +320,11 @@ let compile_module (Closed.Module.Module (_, fns, body)) : Module.t =
         | _ -> failwith "expected function value here")
       fns
   in
-  {
-    imports = [];
-    functions = fns';
-    table = [];
-    exports = [];
-  }
+  let exports =
+    List.filter_mapi
+      ~f:(fun i -> function
+        | Export _ -> Some i
+        | Private _ -> None)
+      fns
+  in
+  { imports; functions; table = []; exports }
