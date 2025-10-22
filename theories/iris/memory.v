@@ -16,8 +16,7 @@ Definition address := N.
 
 Inductive pointer :=
 | PtrInt (n : Z)
-| PtrMM (ℓ : location)
-| PtrGC (ℓ : location).
+| PtrHeap (μ : concrete_memory) (ℓ : location).
 
 Inductive pointer_flag :=
 | FlagPtr
@@ -80,24 +79,26 @@ Definition word_has_flag (f : pointer_flag) (w : word) : bool :=
   | _, _ => false
   end.
 
-Definition flags_of_pointer_map (m : i64) (n : nat) : list pointer_flag :=
-  map
-    (fun b : bool => if b then FlagPtr else FlagInt)
-    (take n (reverse (Wasm_int.Int64.convert_to_bits m))).
+Definition flag_of_i32 (n : i32) : pointer_flag :=
+  if Wasm_int.Int32.eq n Wasm_int.Int32.zero
+  then FlagInt
+  else FlagPtr.
+
+Definition tag_address (μ : concrete_memory) (a : address) : Z :=
+  match μ with
+  | MemMM => Z.of_N a - 3
+  | MemGC => Z.of_N a - 1
+  end.
 
 Definition index_address (i : nat) : N := N.of_nat (4 * i).
 
 Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
 | ReprPtrInt θ n :
   repr_pointer θ (PtrInt n) (2 * n)
-| ReprPtrMM θ ℓ a :
-  θ !! ℓ = Some (MemMM, a) ->
+| RepPtrHeap θ ℓ μ a :
+  θ !! ℓ = Some (μ, a) ->
   (a `mod` 4 = 0)%N ->
-  repr_pointer θ (PtrMM ℓ) (Z.of_N a - 3)
-| ReprPtrGC θ ℓ a :
-  θ !! ℓ = Some (MemGC, a) ->
-  (a `mod` 4 = 0)%N ->
-  repr_pointer θ (PtrGC ℓ) (Z.of_N a - 1).
+  repr_pointer θ (PtrHeap μ ℓ) (tag_address μ a).
 
 Inductive repr_word : address_map -> word -> Z -> Prop :=
 | ReprWordInt θ n :
@@ -116,22 +117,16 @@ Inductive repr_double_word : word -> word -> Z -> Prop :=
 Definition repr_list_word (θ : address_map) (ws : list word) (ns : list Z) : Prop :=
   Forall2 (repr_word θ) ws ns.
 
-Definition repr_location_index (θ : address_map) (ℓ : location) (i : nat) (a : Z) : Prop :=
-  exists cm a0, θ !! ℓ = Some (cm, a0) /\ a = Z.of_N (a0 + index_address i).
-
-Definition repr_location (θ : address_map) (ℓ : location) (a : Z) : Prop :=
-  repr_location_index θ ℓ 0 a.
-
 Inductive repr_root_pointer : address_map -> root_pointer -> Z -> Prop :=
 | ReprRootInt θ n :
   repr_root_pointer θ (RootInt n) (2 * n)
 | ReprRootMM θ ℓ a :
   θ !! ℓ = Some (MemMM, a) ->
   (a `mod` 4 = 0)%N ->
-  repr_root_pointer θ (RootMM a) (Z.of_N a - 3)
+  repr_root_pointer θ (RootMM ℓ) (tag_address MemMM a)
 | ReprRootGC θ a :
   (a `mod` 4 = 0)%N ->
-  repr_root_pointer θ (RootGC a) (Z.of_N a - 1).
+  repr_root_pointer θ (RootGC a) (tag_address MemGC a).
 
 Inductive ser_value : rep_value -> list word -> Prop :=
 | SerPtr p :
@@ -161,18 +156,17 @@ Section Token.
     match w with
     | WordInt _
     | WordPtr (PtrInt _) => []
-    | WordPtr (PtrMM ℓ)
-    | WordPtr (PtrGC ℓ) => [ℓ]
+    | WordPtr (PtrHeap _ ℓ) => [ℓ]
     end.
 
-  Definition rt_memaddr (cm : concrete_memory) : N :=
-    match cm with
+  Definition rt_memaddr (μ : concrete_memory) : N :=
+    match μ with
     | MemMM => N.of_nat sr.(sr_mem_mm)
     | MemGC => N.of_nat sr.(sr_mem_gc)
     end.
 
   Definition own_addr_gc (θ : address_map) : iProp Σ :=
-    [∗ map] ℓ ↦ '(cm, a) ∈ θ, ⌜cm = MemGC⌝ -∗ ℓ ↦addr (MemGC, a).
+    [∗ map] ℓ ↦ '(μ, a) ∈ θ, ⌜μ = MemGC⌝ -∗ ℓ ↦addr (MemGC, a).
 
   Definition own_addr_mm (θ : address_map) (hm : heap_map) : iProp Σ :=
     [∗ map] '_ ↦ ws ∈ hm,
@@ -183,9 +177,12 @@ Section Token.
     map_Forall (fun _ ℓ => exists a, θ !! ℓ = Some (MemGC, a)).
 
   Definition root_memory (θ : address_map) (rm : root_map) : iProp Σ :=
-    [∗ map] a ↦ ℓ ∈ rm,
-      ∃ bs n,
-        N.of_nat sr.(sr_mem_gc) ↦[wms][a] bs ∗ ⌜bs = serialize_Z_i32 n⌝ ∗ ⌜repr_location θ ℓ n⌝.
+    [∗ map] ar ↦ ℓ ∈ rm,
+      ∃ bs ah,
+        ⌜θ !! ℓ = Some (MemGC, Z.to_N ah)⌝ ∗
+          ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
+          ⌜bs = serialize_Z_i32 ah⌝ ∗
+          N.of_nat sr.(sr_mem_gc) ↦[wms][ar] bs.
 
   Definition heap_ok (θ : address_map) (lm : layout_map) (hm : heap_map) : Prop :=
     map_Forall2 (const (Forall2 word_has_flag)) lm hm /\
@@ -193,9 +190,9 @@ Section Token.
       map_Forall2 (fun ℓ _ => Forall (fun ℓ' => ℓ' ∈ dom θ) ∘ flat_map locations) θ hm.
 
   Definition heap_memory (θ : address_map) (hm : heap_map) : iProp Σ :=
-    [∗ map] ℓ ↦ '(cm, a); ws ∈ θ; hm,
+    [∗ map] ℓ ↦ '(μ, a); ws ∈ θ; hm,
       ∃ bs ns,
-        rt_memaddr cm ↦[wms][a] bs ∗ ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗ ⌜repr_list_word θ ws ns⌝.
+        rt_memaddr μ ↦[wms][a] bs ∗ ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗ ⌜repr_list_word θ ws ns⌝.
 
   Definition rt_token (θ : address_map) : iProp Σ :=
     ∃ rm lm hm,

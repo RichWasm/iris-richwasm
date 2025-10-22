@@ -518,7 +518,7 @@ Section Relations.
       lenient_wp NotStuck top es
                  {| lp_fr := frame_interp se ιss_L L WL inst;
                     lp_fr_inv := frame_inv_interp se ιss_L WL inst;
-                    lp_val := fun vs => values_interp se τs vs;
+                    lp_val := fun vs => ∃ rvs, values_interp se τs rvs ∗ rep_value_interp rvs vs;
                     lp_trap := True;
                     lp_br := br_interp se τr ιss_L L WL inst lh τc;
                     lp_ret := return_interp se τr;
@@ -671,7 +671,7 @@ Section Relations.
        instance_interp M mr inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
        let sub := subst_type s__mem s__rep s__size VarT in
-       ∀ fr vs, ∃ rvs,
+       ∀ fr vs rvs,
          rep_value_interp rvs vs -∗
          values_interp se (map sub τs1) rvs -∗
          frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
@@ -679,6 +679,6 @@ Section Relations.
          ↪[frame] fr -∗
          ↪[RUN] -∗
          expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
-           (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV rvs) ++ es))%I.
+           (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.

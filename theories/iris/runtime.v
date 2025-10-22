@@ -1,9 +1,8 @@
 Require Import RecordUpdate.RecordUpdate.
 
-From RichWasm.iris.language Require Import lenient_wp logpred.
+Require Import RichWasm.syntax.
 From RichWasm.iris Require Import memory util.
-From iris.proofmode Require Import base tactics classes.
-From RichWasm.iris.rules Require Import iris_rules proofmode.
+From RichWasm.iris.language Require Import lenient_wp logpred.
 
 Section Runtime.
 
@@ -13,99 +12,154 @@ Section Runtime.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
-  (* TODO *)
-  Definition spec_alloc_mm (cl : function_closure) : Prop :=
-    forall sz fr,
+  Definition spec_mmalloc (cl : function_closure) : Prop :=
+    forall fr θ sz,
+      let sz' := Wasm_int.nat_of_uint i32m sz in
+      rt_token rti sr θ -∗
+      N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       lenient_wp NotStuck top
-        [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_alloc_mm)]
+        [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_mmalloc)]
         {| lp_fr := fun _ => True;
            lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
             fun vs =>
               ↪[RUN] ∗
-                ∃ ℓ ws, ℓ ↦layout repeat FlagInt sz ∗ ℓ ↦heap ws;
+                N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl ∗
+                ∃ θ' ℓ a ws,
+                  ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemMM a))]⌝ ∗
+                    ⌜repr_root_pointer θ' (RootMM ℓ) (tag_address MemMM a)⌝ ∗
+                    rt_token rti sr θ' ∗
+                    ℓ ↦addr (MemMM, a) ∗
+                    ℓ ↦layout repeat FlagInt sz' ∗
+                    ℓ ↦heap ws;
            lp_trap := True;
            lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
-  Definition spec_alloc_gc (cl : function_closure) : Prop :=
-    forall θ sz pm fr,
-      let fs := flags_of_pointer_map pm (Wasm_int.nat_of_uint i32m sz) in
+  Definition spec_gcalloc (cl : function_closure) : Prop :=
+    forall fr θ sz,
+      let sz' := Wasm_int.nat_of_uint i32m sz in
       rt_token rti sr θ -∗
-      N.of_nat sr.(sr_func_alloc_gc) ↦[wf] cl -∗
+      N.of_nat sr.(sr_func_gcalloc) ↦[wf] cl -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       lenient_wp NotStuck top
-        [AI_basic (BI_const (VAL_int32 sz));
-         AI_basic (BI_const (VAL_int64 pm));
-         AI_invoke sr.(sr_func_alloc_gc)]
+        [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_gcalloc)]
         {| lp_fr := fun _ => True;
            lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
              fun vs =>
                ↪[RUN] ∗
-                 N.of_nat sr.(sr_func_alloc_gc) ↦[wf] cl ∗
-                 ∃ θ' ℓ a ws,
-                   ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m a)]⌝ ∗
-                     ⌜repr_location θ' ℓ a⌝ ∗
+                 N.of_nat sr.(sr_func_gcalloc) ↦[wf] cl ∗
+                 ∃ θ' ℓ ta ws,
+                   ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m ta)]⌝ ∗
+                     ⌜repr_pointer θ' (PtrHeap MemGC ℓ) ta⌝ ∗
                      rt_token rti sr θ' ∗
-                     ℓ ↦gcl fs ∗
-                     ℓ ↦gco ws;
+                     ℓ ↦layout repeat FlagInt sz' ∗
+                     ℓ ↦heap ws;
            lp_trap := True;
            lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
-  (* TODO: spec_setptrflag_mm for mutating the pointer map of an MM ref. *)
-
-  (* TODO *)
   Definition spec_free (cl : function_closure) : Prop :=
-    True.
+    forall fr θ ℓ a ta,
+      ta = Wasm_int.int_of_Z i32m (tag_address MemMM a) ->
+      repr_root_pointer θ (RootMM ℓ) (tag_address MemMM a) ->
+      rt_token rti sr θ -∗
+      N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl -∗
+      ℓ ↦addr (MemMM, a) -∗
+      ↪[frame] fr -∗
+      ↪[RUN] -∗
+      lenient_wp NotStuck top
+        [AI_basic (BI_const (VAL_int32 ta)); AI_invoke sr.(sr_func_free)]
+        {| lp_fr := fun _ => True;
+           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+           lp_val :=
+             fun vs =>
+               ⌜vs = []⌝ ∗ ↪[RUN] ∗ N.of_nat sr.(sr_func_free) ↦[wf] cl ∗ ∃ θ', rt_token rti sr θ';
+           lp_trap := True;
+           lp_br := fun _ _ => False;
+           lp_ret := fun _ => False;
+           lp_host := fun _ _ _ _ => False |}.
+
+  Definition spec_setflag (cl : function_closure) : Prop :=
+    forall fr θ ℓ fs μ ta i f,
+      let ta' := Wasm_int.Z_of_uint i32m ta in
+      let i' := Wasm_int.nat_of_uint i32m i in
+      repr_pointer θ (PtrHeap μ ℓ) ta' ->
+      rt_token rti sr θ -∗
+      ℓ ↦layout fs -∗
+      N.of_nat sr.(sr_func_setflag) ↦[wf] cl ∗
+      ↪[frame] fr -∗
+      ↪[RUN] -∗
+      lenient_wp NotStuck top
+        [AI_basic (BI_const (VAL_int32 ta));
+         AI_basic (BI_const (VAL_int32 i));
+         AI_basic (BI_const (VAL_int32 f));
+         AI_invoke sr.(sr_func_setflag)]
+        {| lp_fr := fun _ => True;
+           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+           lp_val :=
+             fun vs =>
+               ⌜vs = []⌝ ∗
+                 ↪[RUN] ∗
+                 N.of_nat sr.(sr_func_setflag) ↦[wf] cl ∗
+                 ℓ ↦layout <[ i' := flag_of_i32 f ]> fs ∗
+                 ∃ θ', rt_token rti sr θ';
+           lp_trap := True;
+           lp_br := fun _ _ => False;
+           lp_ret := fun _ => False;
+           lp_host := fun _ _ _ _ => False |}.
 
   Definition spec_registerroot (cl : function_closure) : Prop :=
-    forall θ ℓ a fr,
-      repr_location θ ℓ (Wasm_int.Z_of_uint i32m a) ->
+    forall fr θ ℓ tah,
+      let tah' := Wasm_int.Z_of_uint i32m tah in
+      repr_pointer θ (PtrHeap MemGC ℓ) tah' ->
       rt_token rti sr θ -∗
       N.of_nat sr.(sr_func_registerroot) ↦[wf] cl -∗
-      ↪[RUN] -∗
       ↪[frame] fr -∗
+      ↪[RUN] -∗
       lenient_wp NotStuck top
-        [AI_basic (BI_const (VAL_int32 a)); AI_invoke sr.(sr_func_registerroot)]
+        [AI_basic (BI_const (VAL_int32 tah)); AI_invoke sr.(sr_func_registerroot)]
         {| lp_fr := fun _ => True;
            lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
              fun vs =>
                ↪[RUN] ∗
                  N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
-                 ∃ a',
-                   ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_N a'))]⌝ ∗
-                   rt_token rti sr θ ∗
-                   a' ↦gcr ℓ;
+                 ∃ θ' ar,
+                   ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemGC ar))]⌝ ∗
+                     ⌜repr_root_pointer θ' (RootGC ar) (tag_address MemGC ar)⌝ ∗
+                     ar ↦root ℓ ∗
+                     rt_token rti sr θ';
            lp_trap := True;
            lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
   Definition spec_unregisterroot (cl : function_closure) : Prop :=
-    forall θ ℓ a fr,
+    forall fr θ ℓ ar tar,
+      let tar' := Wasm_int.Z_of_uint i32m tar in
+      repr_root_pointer θ (RootGC ar) tar' ->
       rt_token rti sr θ -∗
-      Wasm_int.N_of_uint i32m a ↦gcr ℓ -∗
+      ar ↦root ℓ -∗
       N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl -∗
-      ↪[RUN] -∗
       ↪[frame] fr -∗
+      ↪[RUN] -∗
       lenient_wp NotStuck top
-        [AI_basic (BI_const (VAL_int32 a)); AI_invoke sr.(sr_func_unregisterroot)]
+        [AI_basic (BI_const (VAL_int32 tar)); AI_invoke sr.(sr_func_unregisterroot)]
         {| lp_fr := fun _ => True;
            lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
              fun vs =>
-               ↪[RUN] ∗
+               ⌜vs = []⌝ ∗
+                 ↪[RUN] ∗
                  N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl ∗
-                 rt_token rti sr θ ∗
-                 ∃ a', ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m a')]⌝ ∗ ⌜repr_location θ ℓ a'⌝;
+                 ∃ θ', rt_token rti sr θ';
            lp_trap := True;
            lp_br := fun _ _ => False;
            lp_ret := fun _ => False;
