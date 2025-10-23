@@ -2041,20 +2041,27 @@ Section Fundamental.
 
     unfold have_instruction_type_sem.
     iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hfr Hrun".
-    iDestruct "Hvs" as "(%vss & -> & Hvs)".
-    iPoseProof (big_sepL2_length with "Hvs") as "%Hlenvs".
-    cbn in Hlenvs.
-    destruct vss; cbn in Hlenvs; inversion Hlenvs.
+
+    iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
+    iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
+    iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss".
+    iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs".
+    cbn in Hlens_rvss.
+    destruct rvss, rvs; cbn in Hconcat, Hlens_rvss; try congruence.
+    cbn in Hlens_rvs_vs. destruct vs; cbn in Hlens_rvs_vs; try congruence.
+
     rewrite !app_nil_l.
     unfold expr_interp.
 
-    (*
+
     iApply lenient_wp_nil.
     unfold lp_combine, denote_logpred; cbn.
     iFrame.
     iExists []; auto.
-    *)
-  Admitted.
+    iSplit; auto.
+    iExists []; auto.
+
+  Qed.
 
   Lemma to_e_list_distributes e1 e2 :
     to_e_list (e1 ++ e2) = to_e_list e1 ++ to_e_list e2.
