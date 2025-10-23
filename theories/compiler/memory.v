@@ -14,15 +14,16 @@ Section Compiler.
 
   Variable mr : module_runtime.
 
-  Definition alloc (cm : concrete_memory) (n : nat) : codegen unit :=
-    match cm with
+  Definition primitive_offset (ι : primitive_rep) : W.static_offset :=
+    (4 * N.of_nat (primitive_size ι))%N.
+
+  Definition alloc (μ : concrete_memory) (n : nat) : codegen unit :=
+    match μ with
     | MemMM =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
         emit (W.BI_call (funcimm mr.(mr_func_mmalloc)))
     | MemGC =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
-        (* TODO: Pointer map. *)
-        emit (W.BI_const (W.VAL_int64 (Wasm_int.int_zero i64m)));;
         emit (W.BI_call (funcimm mr.(mr_func_gcalloc)))
     end.
 
@@ -39,14 +40,17 @@ Section Compiler.
   Definition unregisterroot : codegen unit :=
     emit (W.BI_call (funcimm mr.(mr_func_unregisterroot))).
 
-  Definition primitive_offset (ι : primitive_rep) : W.static_offset :=
-    (4 * N.of_nat (primitive_size ι))%N.
+  Definition drop_ptr (μ : concrete_memory) : codegen unit :=
+    match μ with
+    | MemMM => free
+    | MemGC => unregisterroot
+    end.
 
   Fixpoint resolve_path (fe : function_env) (τ : type) (π : path) :
     option (W.static_offset * type) :=
     match τ, π with
-    | _, [] => Some (0%N, τ)
-    | ProdT _ τs, PCProj i :: π' =>
+    | SerT _ τ', [] => Some (0%N, τ')
+    | StructT _ τs, PCProj i :: π' =>
         σs ← mapM (type_size fe.(fe_type_vars)) (take i τs);
         ns ← mapM eval_size σs;
         τ' ← τs !! i;
@@ -57,7 +61,7 @@ Section Compiler.
 
   Definition case_ptr {A B : Type}
     (i : W.localidx) (tf : W.function_type)
-    (do_int : codegen A) (do_ref : concrete_memory -> codegen B) :
+    (do_int : codegen A) (do_heap : concrete_memory -> codegen B) :
     codegen (A * (B * B)) :=
     emit (W.BI_get_local (localimm i));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
@@ -69,131 +73,85 @@ Section Compiler.
        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 2)));;
        emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
        emit (W.BI_testop W.T_i32 W.TO_eqz);;
-       if_c tf (do_ref MemMM) (do_ref MemGC)).
+       if_c tf (do_heap MemMM) (do_heap MemGC)).
 
-  Definition update_gc_ref (i : W.localidx) (ι : primitive_rep) (c : codegen unit) : codegen unit :=
+  Definition get_local_unregistering_root (ι : primitive_rep) (i : W.localidx) :=
+    match ι with
+    | PtrR =>
+        ignore $ case_ptr i (W.Tf [] [W.T_i32])
+          (emit (W.BI_get_local (localimm i)))
+          (fun μ =>
+             match μ with
+             | MemMM => emit (W.BI_get_local (localimm i))
+             | MemGC => emit (W.BI_get_local (localimm i));;
+                       emit (W.BI_load (memimm mr.(mr_mem_gc)) W.T_i32 None align_word offset_gc);;
+                       emit (W.BI_get_local (localimm i));;
+                       unregisterroot
+             end)
+    | _ => emit (W.BI_get_local (localimm i))
+    end.
+
+  Definition map_gc_ptr (i : W.localidx) (ι : primitive_rep) (c : codegen unit) : codegen unit :=
     match ι with
     | PtrR =>
         ignore $ case_ptr i (W.Tf [] [])
           (ret tt)
-          (fun cm =>
-             match cm with
+          (fun μ =>
+             match μ with
              | MemMM => ret tt
              | MemGC => emit (W.BI_get_local (localimm i));; c;; emit (W.BI_set_local (localimm i))
              end)
     | _ => ret tt
     end.
 
-  Definition update_gc_refs (ixs : list W.localidx) (ιs : list primitive_rep) (c : codegen unit) :
+  Definition map_gc_ptrs (ixs : list W.localidx) (ιs : list primitive_rep) (c : codegen unit) :
     codegen unit :=
-    mapM_ (fun '(i, ι) => update_gc_ref i ι c) (zip ixs ιs).
+    mapM_ (fun '(i, ι) => map_gc_ptr i ι c) (zip ixs ιs).
 
-  Definition store_as_primitive
-    (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (ι : primitive_rep)
-    (v : W.localidx) :
+  Definition store_primitive
+    (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
+    (v : W.localidx) (ι : primitive_rep) :
     codegen unit :=
     emit (W.BI_get_local (localimm a));;
-    emit (W.BI_get_local (localimm v));;
-    let ty := translate_prim_rep ι in
-    match cm with
-    | MemMM =>
-        emit (W.BI_store (memimm mr.(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
-    | MemGC =>
-        emit (W.BI_store (memimm mr.(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
+    get_local_unregistering_root ι v;;
+    let t := translate_prim_rep ι in
+    match μ with
+    | MemMM => emit (W.BI_store (memimm mr.(mr_mem_mm)) t None align_word (offset_mm + off)%N)
+    | MemGC => emit (W.BI_store (memimm mr.(mr_mem_gc)) t None align_word (offset_gc + off)%N)
     end.
 
-  Definition store_as_ser
-    (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (vs : list W.localidx)
+  Definition store_primitives
+    (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
+    (vs : list W.localidx) (ιs : list primitive_rep) :
+    codegen unit :=
+    ignore $ foldM
+      (fun '(v, ι) off => store_primitive μ a off v ι;; ret (off + primitive_offset ι)%N)
+      (ret off)
+      (zip vs ιs).
+
+  Definition load_primitive
+    (fe : function_env) (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
+    (ι : primitive_rep) :
+    codegen unit :=
+    emit (W.BI_get_local (localimm a));;
+    let t := translate_prim_rep ι in
+    match μ with
+    | MemMM => emit (W.BI_load (memimm mr.(mr_mem_mm)) t None align_word (offset_mm + off)%N)
+    | MemGC => emit (W.BI_load (memimm mr.(mr_mem_gc)) t None align_word (offset_gc + off)%N)
+    end;;
+    v ← wlalloc fe t;
+    emit (W.BI_tee_local (localimm v));;
+    ignore $ case_ptr v (W.Tf [W.T_i32] [W.T_i32])
+      (ret tt)
+      (fun μ' => match μ' with MemMM => ret tt | MemGC => registerroot end).
+
+  Definition load_primitives
+    (fe : function_env) (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
     (ιs : list primitive_rep) :
     codegen unit :=
     ignore $ foldM
-      (fun '(ι, v) off => store_as_primitive cm a off ι v;; ret (off + primitive_offset ι)%N)
-      (ret off)
-      (zip ιs vs).
-
-  Definition store_as_gcptr (a : W.localidx) (off : W.static_offset) (v : W.localidx) :
-    codegen unit :=
-    emit (W.BI_get_local (localimm a));;
-    emit (W.BI_get_local (localimm v));;
-    unregisterroot;;
-    emit (W.BI_store (memimm mr.(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N).
-
-  (* TODO: Replace type-directed store with rep-directed store. *)
-  Fixpoint store_as
-    (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset)
-    (ρ : representation) (τ : type) (vs : list W.localidx) {struct τ} :
-    codegen unit :=
-    match ρ, τ with
-    | ProdR ρs, ProdT _ τs =>
-        let fix store_items_as off vs ρs τs {struct τs} :=
-          match ρs, τs with
-          | ρ :: ρs', τ :: τs' =>
-              ιs ← try_option EFail (eval_rep ρ);
-              σ ← try_option EFail (type_size fe.(fe_type_vars) τ);
-              n ← try_option EFail (eval_size σ);
-              store_as fe cm a off ρ τ (take (length ιs) vs);;
-              store_items_as (off + 4 * N.of_nat n)%N (drop (length ιs) vs) ρs' τs'
-          | _, _ => ret tt
-          end
-        in
-        store_items_as off vs ρs τs
-    | _, SerT _ _ => try_option EFail (eval_rep ρ) ≫= store_as_ser cm a off vs
-    (* | _, GCPtrT _ _ => try_option EFail (head vs) ≫= store_as_gcptr a off *)
-    | _, ExistsMemT _ τ'
-    | _, ExistsRepT _ τ'
-    | _, ExistsSizeT _ τ'
-    | _, ExistsTypeT _ _ τ' => store_as fe cm a off ρ τ' vs
-    | _, _ => raise EFail
-    end.
-
-  Definition load_from_primitive
-    (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (ι : primitive_rep) :
-    codegen unit :=
-    emit (W.BI_get_local (localimm a));;
-    let ty := translate_prim_rep ι in
-    match cm with
-    | MemMM =>
-        emit (W.BI_load (memimm mr.(mr_mem_mm)) ty None align_word (offset_mm + off)%N)
-    | MemGC =>
-        emit (W.BI_load (memimm mr.(mr_mem_gc)) ty None align_word (offset_gc + off)%N)
-    end.
-
-  Definition load_from_ser
-    (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (ιs : list primitive_rep) :
-    codegen unit :=
-    ignore $ foldM
-      (fun ι off => load_from_primitive cm a off ι;; ret (off + primitive_offset ι)%N)
+      (fun ι off => load_primitive fe μ a off ι;; ret (off + primitive_offset ι)%N)
       (ret off)
       ιs.
-
-  Definition load_from_gcptr (a : W.localidx) (off : W.static_offset) : codegen unit :=
-    emit (W.BI_get_local (localimm a));;
-    emit (W.BI_load (memimm mr.(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N);;
-    registerroot.
-
-  (* TODO: Replace type-directed load with rep-directed load. *)
-  Fixpoint load_from
-    (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (τ : type) :
-    codegen unit :=
-    match τ with
-    | ProdT _ τs =>
-        ignore $ foldM
-          (fun τ' off =>
-             σ ← try_option EFail (type_size fe.(fe_type_vars) τ');
-             n ← try_option EFail (eval_size σ);
-             load_from fe cm a off τ';;
-             ret (off + 4 * N.of_nat n)%N)
-          (ret off)
-          τs
-    | SerT _ τ' =>
-        ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
-        try_option EFail (eval_rep ρ) ≫= load_from_ser cm a off
-    (* | GCPtrT _ _ => load_from_gcptr a off *)
-    | ExistsMemT _ τ'
-    | ExistsRepT _ τ'
-    | ExistsSizeT _ τ'
-    | ExistsTypeT _ _ τ' => load_from fe cm a off τ'
-    | _ => raise EFail
-    end.
 
 End Compiler.

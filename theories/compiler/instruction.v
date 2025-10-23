@@ -16,19 +16,13 @@ Section Compiler.
 
   Variable mr : module_runtime.
 
-  Definition drop_ref (cm : concrete_memory) : codegen unit :=
-    match cm with
-    | MemMM => free mr
-    | MemGC => unregisterroot mr
-    end.
-
   Definition drop_primitive (fe : function_env) (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>
         i ← save_stack1 fe W.T_i32;
         ignore $ case_ptr i (W.Tf [] [])
           (ret tt)
-          (fun cm => emit (W.BI_get_local (localimm i));; drop_ref cm)
+          (fun μ => emit (W.BI_get_local (localimm i));; drop_ptr mr μ)
     | _ => emit W.BI_drop
     end.
 
@@ -48,7 +42,7 @@ Section Compiler.
     ιs ← try_option EFail (eval_rep ρ);
     ixs ← save_stack fe ιs;
     restore_stack ixs;;
-    update_gc_refs ixs ιs (duproot mr);;
+    map_gc_ptrs ixs ιs (duproot mr);;
     restore_stack ixs.
 
   Definition compile_drop (fe : function_env) (τ : type) : codegen unit :=
@@ -116,50 +110,55 @@ Section Compiler.
     restore_stack ixs_sum.
 
   Definition compile_inject_variant
-    (fe : function_env) (i : nat) (τ : type) (τs : list type) (cm : concrete_memory) (σ : size) :
-    codegen unit :=
+    (fe : function_env) (μ : concrete_memory) (i : nat) (τ : type) (σ : size) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
     ιs ← try_option EFail (eval_rep ρ);
-    τ' ← try_option EFail (τs !! i);
     n ← try_option EFail (eval_size σ);
     vs ← save_stack fe ιs;
-    alloc mr cm (4 * n);;
+    alloc mr μ n;;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
-    v ← wlalloc fe W.T_i32;
-    emit (W.BI_set_local (localimm v));;
-    store_as_primitive mr cm a 0%N I32R v;;
-    store_as mr fe cm a 4%N ρ τ' vs.
+    tag ← wlalloc fe W.T_i32;
+    emit (W.BI_set_local (localimm tag));;
+    store_primitive mr μ a 0%N tag I32R;;
+    store_primitives mr μ a 4%N vs ιs.
 
+  (* TODO: br inside a case should bypass all but the outermost block. *)
   Definition compile_case_sum
-    (fe : function_env) (ρs : list representation) (τs : list type) (cases : list (codegen unit)) :
+    (fe : function_env) (ρs : list representation) (τ' : type) (cases : list (codegen unit)) :
     codegen unit :=
-    result ← try_option EFail (translate_types fe.(fe_type_vars) τs);
+    res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
     ιs ← try_option EFail (eval_rep (SumR ρs));
     ixs ← save_stack fe (tail ιs);
-    let do_case case i :=
+    let do_case c i :=
       ρ ← try_option EFail (ρs !! i);
       ixs' ← try_option EFail (inject_sum_rep ρs ρ);
       try_option EFail (nths_error ixs ixs') ≫= get_locals_w;;
-      case
+      c
     in
-    (* TODO: br inside a case should bypass all but the outermost block. *)
-    case_blocks result (map do_case cases).
+    case_blocks res (map do_case cases).
 
+  (* TODO: br inside a case should bypass all but the outermost block. *)
   Definition compile_case_variant
-    (fe : function_env) (τsv τsr : list type) (cases : list (codegen unit)) : codegen unit :=
-    result ← try_option EFail (translate_types fe.(fe_type_vars) τsr);
+    (fe : function_env) (τs : list type) (τ' : type) (cases : list (codegen unit)) : codegen unit :=
+    res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
     a ← wlalloc fe W.T_i32;
-    emit (W.BI_tee_local (localimm a));;
-    ignore $ case_ptr a (W.Tf [] result)
+    emit (W.BI_set_local (localimm a));;
+    ignore $ case_ptr a (W.Tf [] res)
       (emit W.BI_unreachable)
-      (fun cm =>
-         let do_case c i := try_option EFail (τsv !! i) ≫= load_from mr fe cm a 4%N;; c in
-         (* TODO: br inside a case should bypass all but the outermost block. *)
-         case_blocks result (map do_case cases);;
+      (fun μ =>
+         let do_case c i :=
+           τ ← try_option EFail (τs !! i);
+           ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+           ιs ← try_option EFail (eval_rep ρ);
+           load_primitives mr fe μ a 4%N ιs;;
+           c
+         in
+         load_primitive mr fe μ a 0%N I32R;;
+         case_blocks res (map do_case cases);;
          emit (W.BI_get_local (localimm a));;
-         drop_ref cm).
+         drop_ptr mr μ).
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
@@ -177,50 +176,54 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i (W.BOI_shr W.SX_U))).
 
-  Definition compile_new (fe : function_env) (cm : concrete_memory) (τ τ' : type) :
-    codegen unit :=
+  Definition compile_new (fe : function_env) (μ : concrete_memory) (τ : type) : codegen unit :=
+    (* TODO: Set pointer flags. *)
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
     ιs ← try_option EFail (eval_rep ρ);
-    σ ← try_option EFail (type_size fe.(fe_type_vars) τ');
-    n ← try_option EFail (eval_size σ);
+    let n := list_sum (map primitive_size ιs) in
     vs ← save_stack fe ιs;
-    alloc mr cm (4 * n);;
+    alloc mr μ n;;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
-    store_as mr fe cm a 0%N ρ τ' vs.
+    store_primitives mr μ a 0%N vs ιs;;
+    match μ with
+    | MemMM => emit (W.BI_get_local (localimm a))
+    | MemGC => emit (W.BI_get_local (localimm a));; registerroot mr
+    end.
 
-  Definition compile_store (fe : function_env) (τval τ : type) (π : path) : codegen unit :=
+  Definition compile_load (fe : function_env) (τ : type) (π : path) : codegen unit :=
+    (* TODO: Set pointer flags if destructive load. *)
+    '(off, τval) ← try_option EFail (resolve_path fe τ π);
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep ρ);
-    '(off, τmem) ← try_option EFail (resolve_path fe τ π);
+    a ← wlalloc fe W.T_i32;
+    emit (W.BI_set_local (localimm a));;
+    ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
+      (emit W.BI_unreachable)
+      (fun μ => load_primitives mr fe μ a off ιs).
+
+  Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
+    (* TODO: Set pointer flags if strong update. *)
+    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
+    ιs ← try_option EFail (eval_rep ρ);
+    '(off, _) ← try_option EFail (resolve_path fe τ π);
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr a (W.Tf [] [])
       (emit W.BI_unreachable)
-      (fun cm => store_as mr fe cm a off ρ τmem vs).
+      (fun μ => store_primitives mr μ a off vs ιs).
 
-  Definition compile_load (fe : function_env) (τ : type) (π : path) : codegen unit :=
-    '(off, τ') ← try_option EFail (resolve_path fe τ π);
-    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
-    ιs ← try_option EFail (eval_rep ρ);
-    a ← wlalloc fe W.T_i32;
-    emit (W.BI_tee_local (localimm a));;
-    ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
-      (emit W.BI_unreachable)
-      (fun cm => load_from mr fe cm a off τ').
-
-  Definition compile_swap (fe : function_env) (τval τ τ' : type) (π : path) : codegen unit :=
+  Definition compile_swap (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep ρ);
-    '(off, τmem) ← try_option EFail (resolve_path fe τ π);
-    '(_, τmem') ← try_option EFail (resolve_path fe τ' π);
+    '(off, _) ← try_option EFail (resolve_path fe τ π);
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
-    emit (W.BI_tee_local (localimm a));;
+    emit (W.BI_set_local (localimm a));;
     ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
       (emit W.BI_unreachable)
-      (fun cm => load_from mr fe cm a off τmem;; store_as mr fe cm a off ρ τmem' vs).
+      (fun μ => load_primitives mr fe μ a off ιs;; store_primitives mr μ a off vs ιs).
 
   Definition erased_in_wasm : codegen unit := ret tt.
 
@@ -252,13 +255,13 @@ Section Compiler.
     | ICall _ i _ => compile_call i
     | ICallIndirect _ => emit (W.BI_call_indirect 0) (* TODO: Type index. *)
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
-    | IInject (InstrT [τ] [RefT _ (ConstM cm) (VariantT (MEMTYPE (Sized σ) _) τs)]) i =>
-        compile_inject_variant fe i τ τs cm σ
+    | IInject (InstrT [τ] [RefT _ (ConstM μ) (VariantT (MEMTYPE (Sized σ) _) _)]) i =>
+        compile_inject_variant fe μ i τ σ
     | IInject _ _ => raise EFail
-    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] τs) _ ess =>
-        compile_case_sum fe ρs τs (map (compile_instrs fe) ess)
-    | ICase (InstrT [RefT _ _ (VariantT _ τsv)] τsr) _ ess =>
-        compile_case_variant fe τsv τsr (map (compile_instrs fe) ess)
+    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] [τ']) _ ess =>
+        compile_case_sum fe ρs τ' (map (compile_instrs fe) ess)
+    | ICase (InstrT [RefT _ _ (VariantT _ τs)] [τ']) _ ess =>
+        compile_case_variant fe τs τ' (map (compile_instrs fe) ess)
     | ICase _ _ _ => raise EFail
     | IGroup _ => erased_in_wasm_nop
     | IUngroup _ => erased_in_wasm_nop
@@ -269,13 +272,13 @@ Section Compiler.
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
     | ICast _ => erased_in_wasm
-    | INew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_new fe cm τ τ'
+    | INew (InstrT [τ] [RefT _ (ConstM μ) _]) => compile_new fe μ τ
     | INew _ => raise EFail
     | ILoad (InstrT [RefT _ _ τ] _) π => compile_load fe τ π
     | ILoad _ _ => raise EFail
-    | IStore (InstrT [_; τval] [RefT _ _ τ]) π => compile_store fe τval τ π
+    | IStore (InstrT [RefT _ _ τ; τval] _) π => compile_store fe τ τval π
     | IStore _ _ => raise EFail
-    | ISwap (InstrT [RefT _ _ τ; τval] [RefT _ _ τ'; _]) π => compile_swap fe τval τ τ' π
+    | ISwap (InstrT [RefT _ _ τ; τval] _) π => compile_swap fe τ τval π
     | ISwap _ _ => raise EFail
     end.
 
