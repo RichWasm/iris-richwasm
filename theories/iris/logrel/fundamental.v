@@ -96,8 +96,7 @@ Section Fundamental.
       have_instruction_type_sem rti sr mr M F L wl [] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (s__mem s__rep s__size se inst lh Hsubst) "Hinst Hctx".
-    iIntros (fr vs rvs) "Hrvs Hvs Hfr Hf Hrun".
+    iIntros (s__mem s__rep s__size se inst fr lh rvs vs Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hf Hrun".
     rewrite app_nil_r.
     unfold expr_interp.
     iApply lenient_wp_value; first done.
@@ -114,8 +113,7 @@ Section Fundamental.
       have_instruction_type_sem rti sr mr M F L wl [AI_basic BI_nop] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (s__mem s__rep s__size se inst lh Hsubst) "Hinst Hctx".
-    iIntros (fr vs rvs) "Hrvs Hvs Hfr Hf Hrun".
+    iIntros (s__mem s__rep s__size se inst fr lh rvs vs Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hf Hrun".
     unfold expr_interp.
     iApply lenient_wp_val_app'.
     iApply (lenient_wp_nop with "[$] [$] [Hfr] []").
@@ -183,8 +181,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
-    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hfr Hrun".
     unfold expr_interp.
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
@@ -228,8 +225,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlh".
-    iIntros (fr vs rvs) "Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlh Hrvs Hvs Hframe Hfr Hrun".
     unfold expr_interp.
     cbn.
     inv_cg_try_option Htype_rep.
@@ -304,8 +300,7 @@ Section Fundamental.
 
     (* Some basic intros, unfolds, proving empty lists empty *)
     all: unfold have_instruction_type_sem;
-      iIntros (? ? ? ? ? ?) "Henv Hinst Hlh";
-      iIntros (fr vs rvs) "Hrvs Hvs Hframe Hfr Hrun";
+      iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlh Hrvs Hvs Hframe Hfr Hrun";
       unfold expr_interp; cbn;
       iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)";
       iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens";
@@ -764,8 +759,8 @@ Section Fundamental.
     rewrite app_nil_r app_nil_l. 
     unfold have_instruction_type_sem.
     iSimpl.
-    iIntros (smem srep ssize se inst lh) "%Henv Hinst (%Hlhbase & %Hlengthlh & %Hlh & Hlabs)".
     (*
+    iIntros (smem srep ssize se inst lh) "%Henv Hinst (%Hlhbase & %Hlengthlh & %Hlh & Hlabs)".
     iIntros (fr vs) "(%vss & -> & Hvss) (%vssl & %vswl & -> & %Hlocs & %Hres & Hvssl) (Htok & %vssl' & %vswl' & %Heq & %Hlocs' & %Hres') Hfr Hrun".
     iDestruct (translate_types_length_subst with "Hvss") as "%Hlenvss" => //.
     unfold lenient_wp.
@@ -1051,8 +1046,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Proof.
     intros fe F' ψ Hok Hthen Helse Hcodegen.
-    iIntros (smem srep ssize se inst lh) "%Hsubst #Hinst #Hctxt".
-    iIntros (fr vs rvs) "Hrvs Hvss Hvsl Hfr Hrun".
+    iIntros (smem srep ssize se inst fr lh rvs vs) "%Hsubst #Hinst #Hctxt Hrvs Hvss Hvsl Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
     (*
     iDestruct "Hvsl" as (vsl' vswl') "(-> & %Hlocs & %Hrestype & Hlocs)".
@@ -1822,8 +1816,7 @@ Section Fundamental.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
     cbn.
-    iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
-    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show vss = [vs]. Mostly lemma *)
@@ -1901,8 +1894,7 @@ Section Fundamental.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
     cbn.
-    iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
-    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show vss = [vs]. Mostly lemma *)
@@ -2043,8 +2035,7 @@ Section Fundamental.
     inversion Hcompile.
 
     unfold have_instruction_type_sem.
-    iIntros (? ? ? ? ? ?) "Henv Hinst Hlf".
-    iIntros (? ? ?) "Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hfr Hrun".
     iDestruct "Hvs" as "(%vss & -> & Hvs)".
     iPoseProof (big_sepL2_length with "Hvs") as "%Hlenvs".
     cbn in Hlenvs.
@@ -2385,13 +2376,12 @@ Section Fundamental.
     intros fe Hmono IH Hcg.
     eapply (IH _ _ wlf) in Hcg.
     unfold have_instruction_type_sem.
-    iIntros (s__mem s__rep s__size se inst lh Henv) "Hinst Hctx".
+    iIntros (s__mem s__rep s__size se inst fr lh rvs vs' Henv) "Hinst Hctx Hrvs Hvs Hfr Hf Hrun".
+    (*
     iPoseProof (Hcg $! s__mem s__rep s__size se inst lh Henv with "Hinst Hctx") as "IH".
-    iIntros (fr vs' rvs) "Hrvs Hvs Hfr Hf Hrun".
     iSpecialize ("IH" $! fr).
     iEval (cbn) in "Hvs".
     iPoseProof (values_interp_cons_inv with "Hvs") as "(%vs1 & %vs2 & %Hvs & Hty1 & Hty2)".
-    (*
     iSpecialize ("IH" $! vs2 with "Hty2 Hfr Hfrinv Hf Hrun").
     rewrite Hvs.
     simpl language.of_val.

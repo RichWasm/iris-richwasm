@@ -665,18 +665,17 @@ Section Relations.
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
-    (∀ s__mem s__rep s__size se inst lh,
+    (∀ s__mem s__rep s__size se inst fr lh rvs vs,
        ⌜subst_env_interp F s__mem s__rep s__size se⌝ -∗
        instance_interp M mr inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
        let sub := subst_type s__mem s__rep s__size VarT in
-       ∀ fr vs rvs,
-         rep_values_interp rvs vs -∗
-         values_interp se (map sub τs1) rvs -∗
-         frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
-         ↪[frame] fr -∗
-         ↪[RUN] -∗
-         expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
-           (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV vs) ++ es))%I.
+       rep_values_interp rvs vs -∗
+       values_interp se (map sub τs1) rvs -∗
+       frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
+       ↪[frame] fr -∗
+       ↪[RUN] -∗
+       expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
+         (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.
