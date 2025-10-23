@@ -183,19 +183,24 @@ Section Fundamental.
     inversion Hψ; subst l l0.
     iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hfr Hrun".
     unfold expr_interp.
-    iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
-    iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
-    destruct vss, vs; cbn in Hconcat, Hlens; try congruence.
-    (*
+
+    iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
+    iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
+    iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss".
+    iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs".
+    cbn in Hlens_rvss.
+    destruct rvss, rvs; cbn in Hconcat, Hlens_rvss; try congruence.
+    cbn in Hlens_rvs_vs. destruct vs; cbn in Hlens_rvs_vs; try congruence.
+
     iApply (lenient_wp_nop with "[$] [$] [Hframe] []").
     - done.
     - done.
-    - cbn. 
-      iFrame.
+    - cbn. iModIntro.
+      iExists []; cbn.
+      iSplit; try done.
       iExists [].
-      iSplit; done.
-    *)
-  Admitted.
+      iFrame; auto.
+  Qed.
 
   Lemma compat_unreachable M F L L' wl wl' wlf ψ es' :
     let fe := fe_of_context F in
