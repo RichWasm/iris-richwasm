@@ -11,7 +11,7 @@ module Internal = struct
 end
 
 module Variable = struct
-  type t = string [@@deriving eq, ord, iter, map, fold, sexp]
+  type t = string [@@deriving eq, ord, sexp]
 
   let pp ff = fprintf ff "@[%s@]"
   let string_of = asprintf "%a" pp
@@ -27,7 +27,7 @@ module Type = struct
     | Sum of t list
     | Rec of Variable.t * t
     | Ref of t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let rec pp ff : t -> unit =
     let pp_sep ~(sep : string) ts =
@@ -52,7 +52,7 @@ module Type = struct
 end
 
 module Binding = struct
-  type t = Variable.t * Type.t [@@deriving eq, ord, iter, map, fold, sexp]
+  type t = Variable.t * Type.t [@@deriving eq, ord, sexp]
 
   let pp ff ((x, t) : t) = fprintf ff "@[(%a@ :@ %a)@]" Variable.pp x Type.pp t
   let string_of = asprintf "%a" pp
@@ -64,7 +64,7 @@ module Binop = struct
     | Sub
     | Mul
     | Div
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp ff : t -> unit = function
     | Add -> fprintf ff "+"
@@ -94,7 +94,7 @@ module Expr = struct
     | New of t
     | Swap of t * t
     | Free of t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -120,12 +120,12 @@ module Expr = struct
         fprintf ff "@[<v 0>@[<2>(let@ %a@ =@ %a@ in@]@;@[<2>%a)@]@]" Binding.pp
           bind pp e pp body
     | Split (bs, e, b) ->
-        fprintf ff "@[<v 0>@[<2>(split@ (";
+        fprintf ff "@[<v 0>@[<2>(split@ ";
         Internal.pp_list
           (fun x -> fprintf ff "%a" Binding.pp x)
-          (fun () -> fprintf ff ",@ ")
+          (fun () -> fprintf ff "@ ")
           bs;
-        fprintf ff ")@ =@ %a@ in@]@;@[<2>%a)@]@]" pp e pp b
+        fprintf ff "@ =@ %a@ in@]@;@[<2>%a)@]@]" pp e pp b
     | Cases (scrutinee, cases) ->
         fprintf ff "@[<v 2>@[<2>(cases %a@]@;" pp scrutinee;
         Internal.pp_list
@@ -150,7 +150,7 @@ module Import = struct
     typ : Type.t;
     name : Variable.t;
   }
-  [@@deriving eq, ord, iter, map, fold, sexp, make]
+  [@@deriving eq, ord, sexp, make]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -168,14 +168,14 @@ module Function = struct
     return : Type.t;
     body : Expr.t;
   }
-  [@@deriving eq, ord, iter, map, fold, sexp, make]
+  [@@deriving eq, ord, sexp, make]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp (ff : formatter) ({ export; name; param; return; body } : t) =
     let export_str = if export then "export " else "" in
-    fprintf ff "@[<2>(%sfun %s@ %a :@ %a@ .@ %a)@;@]" export_str name Binding.pp
-      param Type.pp return Expr.pp body
+    fprintf ff "@[<v 0>@[<2>(%sfun %s@ %a :@ %a@ .@]@,@[<v 2>  %a)@]@,@]"
+      export_str name Binding.pp param Type.pp return Expr.pp body
 
   let string_of = asprintf "%a" pp
 end
@@ -186,7 +186,7 @@ module Module = struct
     functions : Function.t list;
     main : Expr.t option;
   }
-  [@@deriving eq, ord, iter, map, fold, sexp, make]
+  [@@deriving eq, ord, sexp, make]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 

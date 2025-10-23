@@ -60,16 +60,17 @@
 
           richwasm-ocaml-deps = with ocamlPackages; [
             base
+            core
+            core_unix
             zarith
             ppx_import
             ppx_deriving
             janeStreet.ppx_sexp_conv
-            janeStreet.sexplib
             janeStreet.ppx_let
             janeStreet.ppx_expect
+            janeStreet.ppx_variants_conv
+            janeStreet.sexplib
             janeStreet.parsexp
-            # sedlex
-            # menhir
           ];
         in
         rec {

@@ -1,0 +1,5 @@
+(library
+ (name richwasm_runtime)
+ (public_name iris-richwasm.runtime)
+ (modules :standard)
+ (libraries base))

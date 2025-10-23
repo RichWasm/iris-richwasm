@@ -1,25 +1,29 @@
 open! Base
 open! Stdlib.Format
 
+module Unscoped = struct
+  let scons (x : 'a) (xi : int -> 'a) (n : int) : 'a =
+    if n = 0 then x else xi (n - 1)
+
+  let rec map f = function
+    | [] -> []
+    | a :: l0 -> f a :: map f l0
+
+  let funcomp g f x = g (f x)
+  let id x = x
+  let shift = ( + ) 1
+  let var_zero = 0
+
+  let up_ren (xi : int -> int) : int -> int =
+    scons 0 (funcomp (fun x -> x + 1) xi)
+end
+
 module Copyability = struct
   type t =
     | NoCopy
     | ExCopy
     | ImCopy
-  [@@deriving eq, ord, iter, map, fold, sexp]
-
-  let le a b =
-    match (a, b) with
-    | ImCopy, _ -> true
-    | ExCopy, (ExCopy | NoCopy) -> true
-    | NoCopy, NoCopy -> true
-    | _ -> false
-
-  let meet a b =
-    match (a, b) with
-    | NoCopy, _ | _, NoCopy -> NoCopy
-    | ExCopy, _ | _, ExCopy -> ExCopy
-    | ImCopy, ImCopy -> ImCopy
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -34,20 +38,7 @@ module Dropability = struct
     | NoDrop
     | ExDrop
     | ImDrop
-  [@@deriving eq, ord, iter, map, fold, sexp]
-
-  let le a b =
-    match (a, b) with
-    | ImDrop, _ -> true
-    | ExDrop, (ExDrop | NoDrop) -> true
-    | NoDrop, NoDrop -> true
-    | _ -> false
-
-  let meet a b =
-    match (a, b) with
-    | NoDrop, _ | _, NoDrop -> NoDrop
-    | ExDrop, _ | _, ExDrop -> ExDrop
-    | ImDrop, ImDrop -> ImDrop
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -57,17 +48,46 @@ module Dropability = struct
     | ImDrop -> fprintf ff "imdrop"
 end
 
-module Memory = struct
+module ConcreteMemory = struct
   type t =
     | MM
     | GC
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp ff : t -> unit = function
     | MM -> fprintf ff "mm"
     | GC -> fprintf ff "gc"
+end
+
+module Memory = struct
+  type t =
+    | Var of int
+    | Concrete of ConcreteMemory.t
+  [@@deriving eq, ord, variants, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff : t -> unit = function
+    | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
+    | Concrete m -> fprintf ff "@[(concrete %a)@]" ConcreteMemory.pp m
+
+  (* autosubst: *)
+  open Unscoped
+
+  let ren xi_memory = function
+    | Var s0 -> Var (xi_memory s0)
+    | Concrete s0 -> Concrete s0
+
+  let subst sigma_memory = function
+    | Var s0 -> sigma_memory s0
+    | Concrete s0 -> Concrete s0
+
+  let up_memory sigma = scons (Var var_zero) (funcomp (ren shift) sigma)
+  let up_representation sigma = funcomp (ren id) sigma
+  let up_size sigma = funcomp (ren id) sigma
+  let up_type sigma = funcomp (ren id) sigma
 end
 
 module PrimitiveRep = struct
@@ -77,7 +97,7 @@ module PrimitiveRep = struct
     | I64
     | F32
     | F64
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -95,7 +115,7 @@ module Representation = struct
     | Sum of t list
     | Prod of t list
     | Prim of PrimitiveRep.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -110,6 +130,26 @@ module Representation = struct
         List.iter ~f:(fprintf ff "@ %a" pp) rs;
         fprintf ff ")@]"
     | Prim prim -> PrimitiveRep.pp ff prim
+
+  (* autosubst: *)
+  open Unscoped
+
+  let rec ren xi_representation = function
+    | Var s0 -> Var (xi_representation s0)
+    | Sum s0 -> Sum (map (ren xi_representation) s0)
+    | Prod s0 -> Prod (map (ren xi_representation) s0)
+    | Prim s0 -> Prim s0
+
+  let rec subst sigma_representation = function
+    | Var s0 -> sigma_representation s0
+    | Sum s0 -> Sum (map (subst sigma_representation) s0)
+    | Prod s0 -> Prod (map (subst sigma_representation) s0)
+    | Prim s0 -> Prim s0
+
+  let up_memory sigma = funcomp (ren id) sigma
+  let up_representation sigma = scons (Var var_zero) (funcomp (ren shift) sigma)
+  let up_size sigma = funcomp (ren id) sigma
+  let up_type sigma = funcomp (ren id) sigma
 end
 
 module Size = struct
@@ -119,7 +159,7 @@ module Size = struct
     | Prod of t list
     | Rep of Representation.t
     | Const of int
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -135,13 +175,35 @@ module Size = struct
         fprintf ff ")@]"
     | Rep r -> fprintf ff "@[(rep %a)@]" Representation.pp r
     | Const prim -> fprintf ff "@[(const %a)@]" Base.Int.pp prim
+
+  (* autosubst: *)
+  open Unscoped
+
+  let rec ren xi_representation xi_size = function
+    | Var s0 -> Var (xi_size s0)
+    | Sum s0 -> Sum (map (ren xi_representation xi_size) s0)
+    | Prod s0 -> Prod (map (ren xi_representation xi_size) s0)
+    | Rep s0 -> Rep (Representation.ren xi_representation s0)
+    | Const s0 -> Const s0
+
+  let rec subst sigma_representation sigma_size = function
+    | Var s0 -> sigma_size s0
+    | Sum s0 -> Sum (map (subst sigma_representation sigma_size) s0)
+    | Prod s0 -> Prod (map (subst sigma_representation sigma_size) s0)
+    | Rep s0 -> Rep (Representation.subst sigma_representation s0)
+    | Const s0 -> Const s0
+
+  let up_memory sigma = funcomp (ren id id) sigma
+  let up_representation sigma = funcomp (ren shift id) sigma
+  let up_size sigma = scons (Var var_zero) (funcomp (ren id shift) sigma)
+  let up_type sigma = funcomp (ren id id) sigma
 end
 
 module Sizity = struct
   type t =
     | Sized of Size.t
     | Unsized
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let le a b =
     match (a, b) with
@@ -156,15 +218,43 @@ module Sizity = struct
     | Sized s1, Sized s2 -> if Size.equal s1 s2 then Some (Sized s1) else None
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  (* autosubst: *)
+
+  let ren xi_representation xi_size = function
+    | Sized s0 -> Sized (Size.ren xi_representation xi_size s0)
+    | Unsized -> Unsized
+
+  let subst sigma_representation sigma_size = function
+    | Sized s0 -> Sized (Size.subst sigma_representation sigma_size s0)
+    | Unsized -> Unsized
 end
 
 module Kind = struct
   type t =
     | VALTYPE of Representation.t * Copyability.t * Dropability.t
     | MEMTYPE of Sizity.t * Memory.t * Dropability.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  (* autosubst: *)
+
+  let ren xi_memory xi_representation xi_size = function
+    | VALTYPE (s0, s1, s2) ->
+        VALTYPE (Representation.ren xi_representation s0, s1, s2)
+    | MEMTYPE (s0, s1, s2) ->
+        MEMTYPE
+          (Sizity.ren xi_representation xi_size s0, Memory.ren xi_memory s1, s2)
+
+  let subst sigma_memory sigma_representation sigma_size = function
+    | VALTYPE (s0, s1, s2) ->
+        VALTYPE (Representation.subst sigma_representation s0, s1, s2)
+    | MEMTYPE (s0, s1, s2) ->
+        MEMTYPE
+          ( Sizity.subst sigma_representation sigma_size s0,
+            Memory.subst sigma_memory s1,
+            s2 )
 end
 
 module Quantifier = struct
@@ -173,7 +263,7 @@ module Quantifier = struct
     | Representation
     | Size
     | Type of Kind.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -188,7 +278,7 @@ module Sign = struct
   type t =
     | Unsigned
     | Signed
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -202,7 +292,7 @@ module Int = struct
     type t =
       | I32
       | I64
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -216,7 +306,7 @@ module Int = struct
       | Clz
       | Ctz
       | Popcnt
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -240,7 +330,7 @@ module Int = struct
       | Shr of Sign.t
       | Rotl
       | Rotr
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -260,7 +350,7 @@ module Int = struct
   end
 
   module Testop = struct
-    type t = Eqz [@@deriving eq, ord, iter, map, fold, sexp]
+    type t = Eqz [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -276,7 +366,7 @@ module Int = struct
       | Gt of Sign.t
       | Le of Sign.t
       | Ge of Sign.t
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -295,7 +385,7 @@ module Float = struct
     type t =
       | F32
       | F64
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -313,7 +403,7 @@ module Float = struct
       | Trunc
       | Nearest
       | Sqrt
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -336,7 +426,7 @@ module Float = struct
       | Min
       | Max
       | CopySign
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff : t -> unit = function
       | Add -> fprintf ff "add"
@@ -356,7 +446,7 @@ module Float = struct
       | Gt
       | Le
       | Ge
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, variants, sexp]
 
     let pp ff : t -> unit = function
       | Eq -> fprintf ff "eq"
@@ -372,7 +462,7 @@ module NumType = struct
   type t =
     | Int of Int.Type.t
     | Float of Float.Type.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -390,7 +480,7 @@ module ConversionOp = struct
     | Promote
     | Convert of Int.Type.t * Float.Type.t * Sign.t
     | Reinterpret of NumType.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -420,7 +510,7 @@ module NumInstruction = struct
     | Float2 of Float.Type.t * Float.Binop.t
     | FloatRel of Float.Type.t * Float.Relop.t
     | Cvt of ConversionOp.t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -448,13 +538,29 @@ module rec Type : sig
     | GCPtr of t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
-    | Ser of t
-    | Rec of t
+    | Ser of Memory.t * t
+    | Rec of Kind.t * t
     | Exists of Quantifier.t * t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
+  (* val subst : (int -> Memory.t) -> (int -> Representation.t) -> (int -> Size.t) -> (int -> Type.t) -> t *)
   val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
+  val up_memory : ('a -> t) -> 'a -> t
+  val up_representation : ('a -> t) -> 'a -> t
+  val up_size : ('a -> t) -> 'a -> t
+  val up_type : (int -> t) -> int -> t
+
+  val ren :
+    (int -> int) -> (int -> int) -> (int -> int) -> (int -> int) -> t -> t
+
+  val subst :
+    (int -> Memory.t) ->
+    (int -> Representation.t) ->
+    (int -> Size.t) ->
+    (int -> t) ->
+    t ->
+    t
 end = struct
   type t =
     | Var of int
@@ -468,51 +574,139 @@ end = struct
     | GCPtr of t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
-    | Ser of t
-    | Rec of t
+    | Ser of Memory.t * t
+    | Rec of Kind.t * t
     | Exists of Quantifier.t * t
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp ff : t -> unit = function
-    | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
+    | Var i -> fprintf ff "@[<2>(var %a)@]" Base.Int.pp i
     | I31 -> fprintf ff "i31"
     | Num nt -> fprintf ff "%a" NumType.pp nt
     | Sum ts ->
-        fprintf ff "@[(sum";
+        fprintf ff "@[<2>(sum";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Variant ts ->
-        fprintf ff "@[(variant";
+        fprintf ff "@[<2>(variant";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Prod ts ->
-        fprintf ff "@[(prod";
+        fprintf ff "@[<2>(prod";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Struct ts ->
-        fprintf ff "@[(struct";
+        fprintf ff "@[<2>(struct";
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
-    | Ref (m, t) -> fprintf ff "@[(ref %a %a)@]" Memory.pp m pp t
-    | GCPtr t -> fprintf ff "@[(gcref %a)@]" pp t
-    | CodeRef ft -> fprintf ff "@[(coderef %a@]" FunctionType.pp ft
-    | Pad (s, t) -> fprintf ff "@[(pad %a %a)@]" Size.pp s pp t
-    | Ser t -> fprintf ff "@[(ser %a)@]" pp t
-    | Rec t -> fprintf ff "@[(rec %a)@]" pp t
-    | Exists (q, t) -> fprintf ff "@[(exists %a %a)@]" Quantifier.pp q pp t
+    | Ref (m, t) -> fprintf ff "@[<2>(ref@ %a@ %a)@]" Memory.pp m pp t
+    | GCPtr t -> fprintf ff "@[<2>(gcref@ %a)@]" pp t
+    | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
+    | Pad (s, t) -> fprintf ff "@[<2>(pad@ %a@ %a)@]" Size.pp s pp t
+    | Ser (mem, t) -> fprintf ff "@[<2>(ser@ %a@ %a)@]" Memory.pp mem pp t
+    | Rec (kind, t) -> fprintf ff "@[<2>(rec@ %a@ %a)@]" Kind.pp kind pp t
+    | Exists (q, t) -> fprintf ff "@[<2>(exists@ %a@ %a)@]" Quantifier.pp q pp t
+
+  open Unscoped
+
+  let rec ren xi_memory xi_representation xi_size xi_type = function
+    | Var s0 -> Var (xi_type s0)
+    | I31 -> I31
+    | Num s1 -> Num s1
+    | Sum s1 -> Sum (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Variant s1 -> Variant (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Prod s1 -> Prod (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Struct s1 -> Struct (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Ref (s1, s2) -> Ref (Memory.ren xi_memory s1, ren xi_memory xi_representation xi_size xi_type s2)
+    | GCPtr s1 -> GCPtr (ren xi_memory xi_representation xi_size xi_type s1)
+    | CodeRef s1 -> CodeRef (FunctionType.ren xi_memory xi_representation xi_size xi_type s1)
+    | Pad (s1, s2) ->
+        Pad (Size.ren xi_representation xi_size s1, ren xi_memory xi_representation xi_size xi_type s2)
+    | Ser (s0, s1) -> Ser (Memory.ren xi_memory s0, ren xi_memory xi_representation xi_size xi_type s1)
+    | Rec (s0, s1) ->
+        Rec (Kind.ren xi_memory xi_representation xi_size s0,
+             ren xi_memory xi_representation xi_size (up_ren xi_type) s1)
+    | Exists (Memory, s1) ->
+        Exists (Memory, ren (up_ren xi_memory) xi_representation xi_size xi_type s1)
+    | Exists (Representation, s1) ->
+        Exists (Representation, ren xi_memory (up_ren xi_representation) xi_size xi_type s1)
+    | Exists (Size, s1) ->
+        Exists (Size, ren xi_memory xi_representation (up_ren xi_size) xi_type s1)
+    | Exists (Type s1, s2) ->
+        Exists (Type (Kind.ren xi_memory xi_representation xi_size s1),
+                ren xi_memory xi_representation xi_size (up_ren xi_type) s2)
+    [@@ocamlformat "disable"]
+
+  let up_memory sigma = funcomp (ren shift id id id) sigma
+  let up_representation sigma = funcomp (ren id id shift id) sigma
+  let up_size sigma = funcomp (ren id id shift id) sigma
+  let up_type sigma = scons (Var var_zero) (funcomp (ren id id id shift) sigma)
+
+  let rec subst sigma_memory sigma_representation sigma_size sigma_type = function
+    | Var s0 -> sigma_type s0
+    | I31 -> I31
+    | Num s1 -> Num s1
+    | Sum s1 -> Sum (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Variant s1 -> Variant (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Prod s1 -> Prod (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Struct s1 -> Struct (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Ref (s1, s2) -> Ref (Memory.subst sigma_memory s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
+    | GCPtr s1 -> GCPtr (subst sigma_memory sigma_representation sigma_size sigma_type s1)
+    | CodeRef s1 -> CodeRef (FunctionType.subst sigma_memory sigma_representation sigma_size sigma_type s1)
+    | Pad (s1, s2) ->
+        Pad (Size.subst sigma_representation sigma_size s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
+    | Ser (s0, s1) ->
+        Ser (Memory.subst sigma_memory s0, subst sigma_memory sigma_representation sigma_size sigma_type s1)
+    | Rec (s0, s1) ->
+        Rec (Kind.subst sigma_memory sigma_representation sigma_size s0,
+             subst
+               (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
+               (Size.up_type sigma_size) (up_type sigma_type) s1)
+    | Exists (Memory, s1) ->
+        Exists (Memory,
+                subst
+                  (Memory.up_memory sigma_memory) (Representation.up_memory sigma_representation)
+                  (Size.up_memory sigma_size) (up_memory sigma_type) s1)
+    | Exists (Representation, s1) ->
+        Exists (Representation,
+                subst
+                  (Memory.up_representation sigma_memory) (Representation.up_representation sigma_representation)
+                  (Size.up_representation sigma_size) (up_representation sigma_type) s1)
+    | Exists (Size, s1) ->
+        Exists (Size,
+                subst
+                  (Memory.up_size sigma_memory) (Representation.up_size sigma_representation)
+                  (Size.up_size sigma_size) (up_size sigma_type) s1)
+    | Exists (Type s1, s2) ->
+        Exists (Type (Kind.subst sigma_memory sigma_representation sigma_size s1),
+                subst
+                  (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
+                  (Size.up_type sigma_size) (up_type sigma_type) s2)
+    [@@ocamlformat "disable"]
 end
 
 and FunctionType : sig
   type t = FunctionType of Quantifier.t list * Type.t list * Type.t list
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, sexp]
+
+  val ren :
+    (int -> int) -> (int -> int) -> (int -> int) -> (int -> int) -> t -> t
+
+  val subst :
+    (int -> Memory.t) ->
+    (int -> Representation.t) ->
+    (int -> Size.t) ->
+    (int -> Type.t) ->
+    t ->
+    t
 
   val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
 end = struct
   type t = FunctionType of Quantifier.t list * Type.t list * Type.t list
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -530,21 +724,83 @@ end = struct
           fprintf ff ")@]"
     in
     go ~top:true quals
+
+  open Unscoped
+
+  let ren xi_memory xi_representation xi_size xi_type ft =
+    let (FunctionType (qs, s0, s1)) = ft in
+    let rec go acc xi_memory xi_representation xi_size xi_type :
+        Quantifier.t list -> t = function
+      | [] ->
+          FunctionType
+            ( List.rev acc,
+              List.map ~f:(Type.ren xi_memory xi_representation xi_size xi_type) s0,
+              List.map ~f:(Type.ren xi_memory xi_representation xi_size xi_type) s1 )
+      | Memory :: xs ->
+          go (Memory :: acc) (up_ren xi_memory) xi_representation xi_size xi_type xs
+      | Representation :: xs ->
+          go (Representation :: acc) xi_memory (up_ren xi_representation) xi_size xi_type xs
+      | Size :: xs ->
+          go (Size :: acc) xi_memory xi_representation (up_ren xi_size) xi_type xs
+      | Type k :: xs ->
+          go (Type (Kind.ren xi_memory xi_representation xi_size k) :: acc)
+            xi_memory xi_representation xi_size (up_ren xi_type) xs
+    in
+    go [] xi_memory xi_representation xi_size xi_type qs
+    [@@ocamlformat "disable"]
+
+  let subst sigma_memory sigma_representation sigma_size sigma_type ft =
+    let (FunctionType (qs, s0, s1)) = ft in
+    let rec go acc sigma_memory sigma_representation sigma_size sigma_type :
+        Quantifier.t list -> t = function
+      | [] ->
+          FunctionType
+            ( List.rev acc,
+              List.map ~f:(Type.subst sigma_memory sigma_representation sigma_size sigma_type) s0,
+              List.map ~f:(Type.subst sigma_memory sigma_representation sigma_size sigma_type) s1 )
+      | Memory :: xs ->
+          go (Memory :: acc)
+            (Memory.up_memory sigma_memory) (Representation.up_memory sigma_representation)
+            (Size.up_memory sigma_size) (Type.up_memory sigma_type) xs
+      | Representation :: xs ->
+          go (Representation :: acc)
+            (Memory.up_representation sigma_memory) (Representation.up_representation sigma_representation)
+            (Size.up_representation sigma_size) (Type.up_representation sigma_type) xs
+      | Size :: xs ->
+          go (Size :: acc)
+            (Memory.up_size sigma_memory) (Representation.up_size sigma_representation)
+            (Size.up_size sigma_size) (Type.up_size sigma_type) xs
+      | Type k :: xs ->
+          go (Type (Kind.subst sigma_memory sigma_representation sigma_size k) :: acc)
+            (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
+            (Size.up_type sigma_size) (Type.up_type sigma_type) xs
+    in
+    go [] sigma_memory sigma_representation sigma_size sigma_type qs
+    [@@ocamlformat "disable"]
 end
 
 module BlockType = struct
-  type t = BlockType of Type.t list
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  type t =
+    | ValType of Type.t list
+    | ArrowType of int * Type.t list
+  [@@deriving eq, ord, variants, sexp]
 
-  let pp ff (BlockType res : t) : unit =
-    fprintf ff "(@[result";
-    List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
-    fprintf ff "@])"
+  let pp ff : t -> unit = function
+    | ValType res ->
+        fprintf ff "(@[result";
+        List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
+        fprintf ff "@])"
+    | ArrowType (inputs, res) ->
+        fprintf ff "@[(";
+        fprintf ff "<%a>@ " Base.Int.pp inputs;
+        fprintf ff "->";
+        List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
+        fprintf ff ")@]"
 end
 
 module LocalFx = struct
   type t = LocalFx of (int * Type.t) list
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -555,7 +811,7 @@ module Index = struct
     | Rep of Representation.t
     | Size of Size.t
     | Type of Type.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
@@ -565,15 +821,28 @@ module Path = struct
     type t =
       | Proj of int
       | Unwrap
-    [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+    [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
   end
 
   type t = Path of Component.t list
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+end
+
+module Consume = struct
+  type t =
+    | Follow
+    | Copy
+    | Move
+  [@@deriving eq, ord, variants, sexp]
+
+  let pp ff : t -> unit = function
+    | Follow -> fprintf ff "follow"
+    | Copy -> fprintf ff "copy"
+    | Move -> fprintf ff "move"
 end
 
 module Instruction = struct
@@ -589,13 +858,13 @@ module Instruction = struct
     | Ite of BlockType.t * LocalFx.t * t list * t list
     | Br of int
     | Return
-    | LocalGet of int
+    | LocalGet of int * Consume.t
     | LocalSet of int
     | CodeRef of int
     | Inst of Index.t
     | Call of int * Index.t list
     | CallIndirect
-    | Inject of Memory.t option * int * Type.t list
+    | Inject of ConcreteMemory.t option * int * Type.t list
     | Case of BlockType.t * LocalFx.t * t list list
     | Group of int
     | Ungroup
@@ -605,21 +874,19 @@ module Instruction = struct
     | Unpack of BlockType.t * LocalFx.t * t list
     | Tag
     | Untag
-    | New of Memory.t * Type.t
-    | Load of Path.t
+    | New of ConcreteMemory.t * Type.t
+    | Load of Path.t * Consume.t
     | Store of Path.t * Type.t option
     | Swap of Path.t
-  [@@deriving eq, ord, iter, map, fold, sexp, show { with_path = false }]
+  [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let show_pp = pp
 
   let rec pp ff : t -> unit =
-    (* FIXME: this isn't quite right *)
     let pp_instrs ff (instrs : t list) =
-      fprintf ff "@[<v 2>";
-      List.iter ~f:(fprintf ff "@;%a" pp) instrs;
-      fprintf ff "@]"
+      List.iteri
+        ~f:(fun i -> if i = 0 then fprintf ff "%a" pp else fprintf ff "@,%a" pp)
+        instrs
     in
     let pp_int = Base.Int.pp in
     function
@@ -630,52 +897,60 @@ module Instruction = struct
     | Num ni -> fprintf ff "%a" NumInstruction.pp ni
     | NumConst (t, n) -> fprintf ff "%a.const %a" NumType.pp t pp_int n
     | Block (bt, lfx, instrs) ->
-        fprintf ff "block %a %a%a@;end" BlockType.pp bt LocalFx.pp lfx pp_instrs
-          instrs
+        fprintf ff "@[<v 0>@[<2>block@ %a@ %a@]@,@[<v 2>  %a@]@,end@]"
+          BlockType.pp bt LocalFx.pp lfx pp_instrs instrs
     | Loop (bt, instrs) ->
-        fprintf ff "loop %a%a@;end" BlockType.pp bt pp_instrs instrs
+        fprintf ff "@[<v 0>@[<2>loop@ %a@]@,@[<v 2>  %a@]@,end@]" BlockType.pp
+          bt pp_instrs instrs
     | Ite (bt, lfx, e_thn, e_els) ->
-        fprintf ff "if %a %a%a@;else%a@;end" BlockType.pp bt LocalFx.pp lfx
-          pp_instrs e_thn pp_instrs e_els
-    | Br i -> fprintf ff "br %a" pp_int i
+        fprintf ff
+          "@[<v 0>@[<2>if@ %a@ %a@]@,@[<v 2>  %a@]@,else@,@[<v 2>  %a@]@,end@]"
+          BlockType.pp bt LocalFx.pp lfx pp_instrs e_thn pp_instrs e_els
+    | Br i -> fprintf ff "@[<2>br@ %a@]" pp_int i
     | Return -> fprintf ff "return"
-    | LocalGet i -> fprintf ff "local.get %a" pp_int i
-    | LocalSet i -> fprintf ff "local.set %a" pp_int i
-    | CodeRef i -> fprintf ff "coderef %a" pp_int i
-    | Inst idx -> fprintf ff "inst %a" Index.pp idx
+    | LocalGet (i, c) ->
+        fprintf ff "@[<2>local.get@ %a@ %a@]" pp_int i Consume.pp c
+    | LocalSet i -> fprintf ff "@[<2>local.set@ %a@]" pp_int i
+    | CodeRef i -> fprintf ff "@[<2>coderef@ %a@]" pp_int i
+    | Inst idx -> fprintf ff "@[<2>inst@ %a@]" Index.pp idx
     | Call (i, idxs) ->
-        fprintf ff "call %a" pp_int i;
-        List.iter ~f:(fprintf ff " %a" Index.pp) idxs
+        fprintf ff "@[<v 2>call@ %a" pp_int i;
+        List.iter ~f:(fprintf ff "@ %a" Index.pp) idxs;
+        fprintf ff "@]"
     | CallIndirect -> fprintf ff "call_indirect"
     | Inject (None, i, typs) ->
-        fprintf ff "inject %a" pp_int i;
-        List.iter ~f:(fprintf ff " %a" Type.pp) typs
+        fprintf ff "@[<2>inject@ %a" pp_int i;
+        List.iter ~f:(fprintf ff " %a" Type.pp) typs;
+        fprintf ff "@]"
     | Inject (Some mem, i, typs) ->
-        fprintf ff "inject %a %a" Memory.pp mem pp_int i;
-        List.iter ~f:(fprintf ff " %a" Type.pp) typs
+        fprintf ff "@[<2>inject@ %a@ %a" ConcreteMemory.pp mem pp_int i;
+        List.iter ~f:(fprintf ff " %a" Type.pp) typs;
+        fprintf ff "@]"
     | Case (bt, lfx, cases) ->
-        (* TODO: needs improvement *)
-        fprintf ff "case %a %a" BlockType.pp bt LocalFx.pp lfx;
+        fprintf ff "@[<v 0>@[<2>case@ %a@ %a@]@,@[<v 2>  " BlockType.pp bt
+          LocalFx.pp lfx;
         List.iteri
           ~f:(fun i instrs ->
-            fprintf ff "@[<v 2>(%a@;%a)@]" pp_int i pp_instrs instrs)
+            if i <> 0 then fprintf ff "@,";
+            fprintf ff "@[<v 2>(%a@,%a)@]" pp_int i pp_instrs instrs)
           cases;
-        fprintf ff "end"
-    | Group i -> fprintf ff "group %a" pp_int i
+        fprintf ff "@]@,end@]"
+    | Group i -> fprintf ff "@[<2>group@ %a@]" pp_int i
     | Ungroup -> fprintf ff "ungroup"
-    | Fold t -> fprintf ff "rec.fold %a" Type.pp t
-    | Unfold -> fprintf ff "rec.unfold"
-    | Pack (idx, t) -> fprintf ff "exist.pack %a %a" Index.pp idx Type.pp t
+    | Fold t -> fprintf ff "@[<2>fold@ %a@]" Type.pp t
+    | Unfold -> fprintf ff "unfold"
+    | Pack (idx, t) -> fprintf ff "@[<2>pack@ %a@ %a@]" Index.pp idx Type.pp t
     | Unpack (bt, lfx, instrs) ->
-        fprintf ff "exist.unpack %a %a %a" BlockType.pp bt LocalFx.pp lfx
-          pp_instrs instrs
+        fprintf ff "@[<v 0>@[<2>unpack@ %a@ %a@]@,@[<v 2>  %a@]@,end@]"
+          BlockType.pp bt LocalFx.pp lfx pp_instrs instrs
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
-    | New (m, t) -> fprintf ff "new %a %a" Memory.pp m Type.pp t
-    | Load p -> fprintf ff "load %a" Path.pp p
-    | Store (p, None) -> fprintf ff "store %a" Path.pp p
-    | Store (p, Some t) -> fprintf ff "store %a %a" Path.pp p Type.pp t
-    | Swap p -> fprintf ff "swap %a" Path.pp p
+    | New (m, t) ->
+        fprintf ff "@[<2>new@ %a@ %a@]" ConcreteMemory.pp m Type.pp t
+    | Load (p, c) -> fprintf ff "@[<2>load@ %a@ %a@]" Path.pp p Consume.pp c
+    | Store (p, None) -> fprintf ff "@[<2>store@ %a@]" Path.pp p
+    | Store (p, Some t) -> fprintf ff "@[<2>store@ %a@ %a@]" Path.pp p Type.pp t
+    | Swap p -> fprintf ff "@[<2>swap@ %a@]" Path.pp p
 end
 
 module Module = struct
@@ -685,19 +960,19 @@ module Module = struct
       locals : Representation.t list;
       body : Instruction.t list;
     }
-    [@@deriving eq, ord, iter, map, fold, sexp]
+    [@@deriving eq, ord, make, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
     let pp ff ({ typ; locals; body } : t) : unit =
-      fprintf ff "@[<v 2>@[(func %a" FunctionType.pp typ;
+      fprintf ff "@[<v 2>@[<4>(func@ %a" FunctionType.pp typ;
       if not @@ List.is_empty locals then (
-        fprintf ff "@[(local";
+        fprintf ff "@ (local";
         List.iter ~f:(fprintf ff "@ %a" Representation.pp) locals;
-        fprintf ff ")@]");
+        fprintf ff ")");
       fprintf ff "@]";
-      List.iter ~f:(fprintf ff "@;%a" Instruction.pp) body;
-      fprintf ff "@[)@]@]"
+      List.iter ~f:(fprintf ff "@,%a" Instruction.pp) body;
+      fprintf ff ")@]"
   end
 
   type t = {
@@ -706,7 +981,7 @@ module Module = struct
     table : int list;
     exports : int list;
   }
-  [@@deriving eq, ord, iter, map, fold, sexp]
+  [@@deriving eq, ord, make, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -722,12 +997,15 @@ module Module = struct
     let break_hint () = fprintf ff "@;" in
 
     fprintf ff "@[<v 2>@[(module @]";
-    print_sep ~f:(FunctionType.pp ff) ~sep:break_hint imports;
+    print_sep
+      ~f:(fprintf ff "(import %a" FunctionType.pp)
+      ~sep:break_hint imports;
     print_sep ~f:(Function.pp ff) ~sep:break_hint functions;
     fprintf ff "@;@[(table@[<hv 2>";
-    if List.is_empty table then () else fprintf ff "@ ";
     print_sep ~f:(Base.Int.pp ff) ~sep:space_hint table;
     fprintf ff "@])@]";
-    print_sep ~f:(Base.Int.pp ff) ~sep:break_hint exports;
+    fprintf ff "@;@[(export@[<hv 2>";
+    print_sep ~f:(Base.Int.pp ff) ~sep:space_hint exports;
+    fprintf ff "@])@]";
     fprintf ff "@])@]"
 end

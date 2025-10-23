@@ -127,7 +127,7 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (let (r : (ref int)) = (new 2) in
-    (split ((x1 : int), (x2 : (ref int))) = (1, r) in
+    (split (x1 : int) (x2 : (ref int)) = (1, r) in
     (let (x2' : int) = (free x2) in
     (x1 × x2)))) |}];
   next ();
@@ -175,7 +175,7 @@ let%expect_test "basic functionality" =
     {|
     (let (r1 : (ref int)) = (new 32) in
     (let (r2 : (ref int)) = (new 64) in
-    (split ((r2' : (ref int)), (r1' : (ref int))) = (swap r1 r2) in
+    (split (r2' : (ref int)) (r1' : (ref int)) = (swap r1 r2) in
     (let (x2 : int) = (free r2') in
     (let (x1 : int) = (free r1') in
     (x1 + x2)))))) |}];

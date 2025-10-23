@@ -99,14 +99,15 @@ let fix_factorial =
         (app fix (lam (rec : (int -> int)) : (int -> int) .
           (lam (n : int) : int .
             (if0 n then
-                1
-              else
-                (let (n-sub1 : int) = (- n 1) in
-                (let (rec-res : int) = (app rec n-sub1) in
-                (* n rec-res))))))) in
+               1
+             else
+               (let (n-sub1 : int) = (- n 1) in
+               (let (rec-res : int) = (app rec n-sub1) in
+               (* n rec-res))))))) in
       (app factorial 5)))
     |}
 
+(* NOTE: this doesn't work, rec types don't have lifetimes *)
 let unboxed_list =
   Parse.from_string_exn
     {|
@@ -120,21 +121,101 @@ let unboxed_list =
               (inj 0 nil : (() + (int * (rec α . (() + (int * α)))))))
             (case (cons : (int * (rec α . (() + (int * α)))))
               (split (hd : int) (tl : (rec α . (() + (int * α)))) = cons in
-                (inj 1 (tup (app f hd) (app map_int (f, tl))) : (() + (int * (rec α . (() + (int * α))))))))))))
+                (inj 1 (tup (app f hd) (app map_int (f, tl)))
+                  : (() + (int * (rec α . (() + (int * α))))))))))))
       (let (lst : (rec α . (() + (int * α)))) =
         (fold (rec α . (() + (int * α)))
           (inj 0 () : (() + (int * (rec α . (() + (int * α))))))) in
       (app map_int ((lam (x : int) : int . (x + 1)), lst)))
     |}
 
-(*let knot_factorial = Parse.from_string_exn 
+let boxed_list =
+  Parse.from_string_exn
     {|
-      (let (peek : ((ref int) -> ((ref int) * int))) =
-        (lam (r : (ref int)) : ((ref int) * int) .
-          (let (v : int) = (free r) in
-          (let (r' : (ref int)) = (new r) in
-          (v, r')))) in
-    |} *)
+      (fun map_int
+          (p : ((int -> int) * (rec α . (() + (int * (ref α))))))
+          : (rec α . (() + (int * (ref α)))) .
+        (split (f : (int -> int)) (lst : (rec α . (() + (int * (ref α))))) = p in
+        (fold (rec α . (() + (int * (ref α))))
+          (cases (unfold (rec α . (() + (int * (ref α)))) lst)
+            (case (nil : ())
+              (inj 0 nil : (() + (int * (ref (rec α . (() + (int * (ref α)))))))))
+            (case (cons : (int * (ref (rec α . (() + (int * (ref α)))))))
+              (split (hd : int) (tl : (ref (rec α . (() + (int * (ref α)))))) = cons in
+                (inj 1 ((app f hd), (new (app map_int (f, (free tl)))))
+                  : (() + (int * (ref (rec α . (() + (int * (ref α))))))))))))))
+      (let (lst : (rec α . (() + (int * (ref α))))) =
+        (fold (rec α . (() + (int * (ref α))))
+          (inj 1
+            (5, (new (fold (rec α . (() + (int * (ref α))))
+                  (inj 0 () : (() + (int * (ref (rec α . (() + (int * (ref α)))))))))))
+              : (() + (int * (ref (rec α . (() + (int * (ref α))))))))) in
+      (app map_int ((lam (x : int) : int . (x + 1)), lst)))
+    |}
+
+let peano_3 =
+  Parse.from_string_exn
+    {|
+      (fold (rec a . (() + (ref a)))
+        (inj 1 (new
+          (fold (rec a . (() + (ref a)))
+            (inj 1 (new
+              (fold (rec a . (() + (ref a)))
+                (inj 1 (new
+                  (fold (rec a . (() + (ref a)))
+                    (inj 0 () : (() + (ref (rec a . (() + (ref a))))))))
+                  : (() + (ref (rec a . (() + (ref a))))))))
+              : (() + (ref (rec a . (() + (ref a))))))))
+          : (() + (ref (rec a . (() + (ref a)))))))
+    |}
+
+let peano =
+  Parse.from_string_exn
+    {|
+      (fun add
+          (p : ((rec a . (() + (ref a))) * (rec a . (() + (ref a)))))
+          : (rec a . (() + (ref a))) .
+        (split (left : (rec a . (() + (ref a)))) (right : (rec a . (() + (ref a)))) = p in
+          (cases (unfold (rec a . (() + (ref a))) left)
+            (case (zero : ())
+              right)
+            (case (succ : (ref (rec a . (() + (ref a)))))
+              (fold (rec a . (() + (ref a)))
+                (inj 1 (new (app add ((free succ), right)))
+                  : (() + (ref (rec a . (() + (ref a)))))))))))
+
+      (fun from-int (int : int) : (rec a . (() + (ref a))) .
+        (fold (rec a . (() + (ref a)))
+          (if0 int
+            (inj 0 ()
+              : (() + (ref (rec a . (() + (ref a))))))
+            (inj 1 (new (app from-int (int - 1)))
+              : (() + (ref (rec a . (() + (ref a)))))))))
+
+      (fun to-int (peano : (rec a . (() + (ref a)))) : int .
+        (cases (unfold (rec a . (() + (ref a))) peano)
+          (case (zero : ()) 0)
+          (case (succ : (ref (rec a . (() + (ref a)))))
+            (1 + (app to-int (free succ))))))
+
+      (let (six   : (rec a . (() + (ref a)))) = (from-int 6) in
+      (let (seven : (rec a . (() + (ref a)))) = (from-int 7) in
+      (let (sum   : (rec a . (() + (ref a)))) = (add (six, seven)) in
+      (to-int sum))))
+    |}
+
+let mini_zip =
+  Parse.from_string_exn
+    {|
+      (fun add1 (x : int) : int .
+        (x + 1))
+      (export fun typle_add1 (x : (int * int)) : (int * int) .
+        (split (x1 : int) (x2 : int) = x in
+        ((add1 x1), (add1 x2))))
+      (fun mini_zip_specialized (p : ((ref int) * (ref (ref int)))) : (ref (int * (ref int))) .
+        (split (a : (ref int)) (b : (ref (ref int))) = p in
+        (new ((free a), (free b)))))
+    |}
 
 let simple : (string * Module.t) list =
   [
@@ -162,6 +243,10 @@ let all : (string * Module.t) list =
       ("factorial_program", factorial_program);
       ("safe_div", safe_div);
       ("incr_n", incr_n);
-      ("fix_factorial", fix_factorial);
-      ("unboxed_list", unboxed_list)
+      ("fix_factorial[invalid]", fix_factorial);
+      ("unboxed_list[invlaid]", unboxed_list);
+      ("boxed_list", boxed_list);
+      ("peano_3", peano_3);
+      ("peano", peano);
+      ("mini_zip", mini_zip);
     ]

@@ -123,7 +123,29 @@ fix free to temporarily save to reg
 
 ### 2025-10-09
 
-will need to serialize sums before allocating them -- this advoids the rwasm -> wasm compiler having to implcicitly casing...
+will need to serialize sums before allocating them -- this avoids the rwasm -> wasm compiler having to implicitly casing...
+
+### 2025-10-14
+
+- can just use nodejs to run -- v8 has wasm support -- WASI not needed
+- existentials in locals? -- yes -> weakens env
+- elab_type:
+  - are size, mem, dropability propogated in MEMTYPE
+  - how to find the kind of an Exists instruction?
+- block type does in-fact need input
+- clarification on LocalFx -> is the annotation the new locals or just the changes?
+  - annotated is whole local ctx, unnanotated is a diff
+
+Changes:
+- mem to ser
+- kind to rec
+- extract subst_type, etc from rw.v
+- add tables to env
+- add functions to env
+- add kind to fold
+- modify unnanotated to have `Copy` vs `Move` for local.get and 
+- `Inject` and `New` should take `ConcreteMemory`
+
 
 # Thoughts for later
 
