@@ -323,7 +323,7 @@ module Compile = struct
       B.Module.t Res.t =
     let open Res in
     let imports_only_map = List.mapi imports ~f:(fun i im -> (im.name, i)) in
-    let import_offset = List.length imports - 1 in
+    let import_offset = List.length imports in
     let functions_only_map =
       List.mapi functions ~f:(fun i f -> (f.name, import_offset + i))
     in

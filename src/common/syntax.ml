@@ -1,25 +1,29 @@
 open! Base
 open! Stdlib.Format
 
+module Unscoped = struct
+  let scons (x : 'a) (xi : int -> 'a) (n : int) : 'a =
+    if n = 0 then x else xi (n - 1)
+
+  let rec map f = function
+    | [] -> []
+    | a :: l0 -> f a :: map f l0
+
+  let funcomp g f x = g (f x)
+  let id x = x
+  let shift = ( + ) 1
+  let var_zero = 0
+
+  let up_ren (xi : int -> int) : int -> int =
+    scons 0 (funcomp (fun x -> x + 1) xi)
+end
+
 module Copyability = struct
   type t =
     | NoCopy
     | ExCopy
     | ImCopy
   [@@deriving eq, ord, variants, sexp]
-
-  let le a b =
-    match (a, b) with
-    | ImCopy, _ -> true
-    | ExCopy, (ExCopy | NoCopy) -> true
-    | NoCopy, NoCopy -> true
-    | _ -> false
-
-  let meet a b =
-    match (a, b) with
-    | NoCopy, _ | _, NoCopy -> NoCopy
-    | ExCopy, _ | _, ExCopy -> ExCopy
-    | ImCopy, ImCopy -> ImCopy
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -35,19 +39,6 @@ module Dropability = struct
     | ExDrop
     | ImDrop
   [@@deriving eq, ord, variants, sexp]
-
-  let le a b =
-    match (a, b) with
-    | ImDrop, _ -> true
-    | ExDrop, (ExDrop | NoDrop) -> true
-    | NoDrop, NoDrop -> true
-    | _ -> false
-
-  let meet a b =
-    match (a, b) with
-    | NoDrop, _ | _, NoDrop -> NoDrop
-    | ExDrop, _ | _, ExDrop -> ExDrop
-    | ImDrop, ImDrop -> ImDrop
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -81,6 +72,22 @@ module Memory = struct
   let pp ff : t -> unit = function
     | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
     | Concrete m -> fprintf ff "@[(concrete %a)@]" ConcreteMemory.pp m
+
+  (* autosubst: *)
+  open Unscoped
+
+  let ren xi_memory = function
+    | Var s0 -> Var (xi_memory s0)
+    | Concrete s0 -> Concrete s0
+
+  let subst sigma_memory = function
+    | Var s0 -> sigma_memory s0
+    | Concrete s0 -> Concrete s0
+
+  let up_memory sigma = scons (Var var_zero) (funcomp (ren shift) sigma)
+  let up_representation sigma = funcomp (ren id) sigma
+  let up_size sigma = funcomp (ren id) sigma
+  let up_type sigma = funcomp (ren id) sigma
 end
 
 module PrimitiveRep = struct
@@ -123,6 +130,26 @@ module Representation = struct
         List.iter ~f:(fprintf ff "@ %a" pp) rs;
         fprintf ff ")@]"
     | Prim prim -> PrimitiveRep.pp ff prim
+
+  (* autosubst: *)
+  open Unscoped
+
+  let rec ren xi_representation = function
+    | Var s0 -> Var (xi_representation s0)
+    | Sum s0 -> Sum (map (ren xi_representation) s0)
+    | Prod s0 -> Prod (map (ren xi_representation) s0)
+    | Prim s0 -> Prim s0
+
+  let rec subst sigma_representation = function
+    | Var s0 -> sigma_representation s0
+    | Sum s0 -> Sum (map (subst sigma_representation) s0)
+    | Prod s0 -> Prod (map (subst sigma_representation) s0)
+    | Prim s0 -> Prim s0
+
+  let up_memory sigma = funcomp (ren id) sigma
+  let up_representation sigma = scons (Var var_zero) (funcomp (ren shift) sigma)
+  let up_size sigma = funcomp (ren id) sigma
+  let up_type sigma = funcomp (ren id) sigma
 end
 
 module Size = struct
@@ -148,6 +175,28 @@ module Size = struct
         fprintf ff ")@]"
     | Rep r -> fprintf ff "@[(rep %a)@]" Representation.pp r
     | Const prim -> fprintf ff "@[(const %a)@]" Base.Int.pp prim
+
+  (* autosubst: *)
+  open Unscoped
+
+  let rec ren xi_representation xi_size = function
+    | Var s0 -> Var (xi_size s0)
+    | Sum s0 -> Sum (map (ren xi_representation xi_size) s0)
+    | Prod s0 -> Prod (map (ren xi_representation xi_size) s0)
+    | Rep s0 -> Rep (Representation.ren xi_representation s0)
+    | Const s0 -> Const s0
+
+  let rec subst sigma_representation sigma_size = function
+    | Var s0 -> sigma_size s0
+    | Sum s0 -> Sum (map (subst sigma_representation sigma_size) s0)
+    | Prod s0 -> Prod (map (subst sigma_representation sigma_size) s0)
+    | Rep s0 -> Rep (Representation.subst sigma_representation s0)
+    | Const s0 -> Const s0
+
+  let up_memory sigma = funcomp (ren id id) sigma
+  let up_representation sigma = funcomp (ren shift id) sigma
+  let up_size sigma = scons (Var var_zero) (funcomp (ren id shift) sigma)
+  let up_type sigma = funcomp (ren id id) sigma
 end
 
 module Sizity = struct
@@ -169,6 +218,16 @@ module Sizity = struct
     | Sized s1, Sized s2 -> if Size.equal s1 s2 then Some (Sized s1) else None
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  (* autosubst: *)
+
+  let ren xi_representation xi_size = function
+    | Sized s0 -> Sized (Size.ren xi_representation xi_size s0)
+    | Unsized -> Unsized
+
+  let subst sigma_representation sigma_size = function
+    | Sized s0 -> Sized (Size.subst sigma_representation sigma_size s0)
+    | Unsized -> Unsized
 end
 
 module Kind = struct
@@ -178,6 +237,24 @@ module Kind = struct
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  (* autosubst: *)
+
+  let ren xi_memory xi_representation xi_size = function
+    | VALTYPE (s0, s1, s2) ->
+        VALTYPE (Representation.ren xi_representation s0, s1, s2)
+    | MEMTYPE (s0, s1, s2) ->
+        MEMTYPE
+          (Sizity.ren xi_representation xi_size s0, Memory.ren xi_memory s1, s2)
+
+  let subst sigma_memory sigma_representation sigma_size = function
+    | VALTYPE (s0, s1, s2) ->
+        VALTYPE (Representation.subst sigma_representation s0, s1, s2)
+    | MEMTYPE (s0, s1, s2) ->
+        MEMTYPE
+          ( Sizity.subst sigma_representation sigma_size s0,
+            Memory.subst sigma_memory s1,
+            s2 )
 end
 
 module Quantifier = struct
@@ -466,8 +543,24 @@ module rec Type : sig
     | Exists of Quantifier.t * t
   [@@deriving eq, ord, variants, sexp]
 
+  (* val subst : (int -> Memory.t) -> (int -> Representation.t) -> (int -> Size.t) -> (int -> Type.t) -> t *)
   val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
+  val up_memory : ('a -> t) -> 'a -> t
+  val up_representation : ('a -> t) -> 'a -> t
+  val up_size : ('a -> t) -> 'a -> t
+  val up_type : (int -> t) -> int -> t
+
+  val ren :
+    (int -> int) -> (int -> int) -> (int -> int) -> (int -> int) -> t -> t
+
+  val subst :
+    (int -> Memory.t) ->
+    (int -> Representation.t) ->
+    (int -> Size.t) ->
+    (int -> t) ->
+    t ->
+    t
 end = struct
   type t =
     | Var of int
@@ -515,11 +608,99 @@ end = struct
     | Ser (mem, t) -> fprintf ff "@[<2>(ser@ %a@ %a)@]" Memory.pp mem pp t
     | Rec (kind, t) -> fprintf ff "@[<2>(rec@ %a@ %a)@]" Kind.pp kind pp t
     | Exists (q, t) -> fprintf ff "@[<2>(exists@ %a@ %a)@]" Quantifier.pp q pp t
+
+  open Unscoped
+
+  let rec ren xi_memory xi_representation xi_size xi_type = function
+    | Var s0 -> Var (xi_type s0)
+    | I31 -> I31
+    | Num s1 -> Num s1
+    | Sum s1 -> Sum (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Variant s1 -> Variant (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Prod s1 -> Prod (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Struct s1 -> Struct (map (ren xi_memory xi_representation xi_size xi_type) s1)
+    | Ref (s1, s2) -> Ref (Memory.ren xi_memory s1, ren xi_memory xi_representation xi_size xi_type s2)
+    | GCPtr s1 -> GCPtr (ren xi_memory xi_representation xi_size xi_type s1)
+    | CodeRef s1 -> CodeRef (FunctionType.ren xi_memory xi_representation xi_size xi_type s1)
+    | Pad (s1, s2) ->
+        Pad (Size.ren xi_representation xi_size s1, ren xi_memory xi_representation xi_size xi_type s2)
+    | Ser (s0, s1) -> Ser (Memory.ren xi_memory s0, ren xi_memory xi_representation xi_size xi_type s1)
+    | Rec (s0, s1) ->
+        Rec (Kind.ren xi_memory xi_representation xi_size s0,
+             ren xi_memory xi_representation xi_size (up_ren xi_type) s1)
+    | Exists (Memory, s1) ->
+        Exists (Memory, ren (up_ren xi_memory) xi_representation xi_size xi_type s1)
+    | Exists (Representation, s1) ->
+        Exists (Representation, ren xi_memory (up_ren xi_representation) xi_size xi_type s1)
+    | Exists (Size, s1) ->
+        Exists (Size, ren xi_memory xi_representation (up_ren xi_size) xi_type s1)
+    | Exists (Type s1, s2) ->
+        Exists (Type (Kind.ren xi_memory xi_representation xi_size s1),
+                ren xi_memory xi_representation xi_size (up_ren xi_type) s2)
+    [@@ocamlformat "disable"]
+
+  let up_memory sigma = funcomp (ren shift id id id) sigma
+  let up_representation sigma = funcomp (ren id id shift id) sigma
+  let up_size sigma = funcomp (ren id id shift id) sigma
+  let up_type sigma = scons (Var var_zero) (funcomp (ren id id id shift) sigma)
+
+  let rec subst sigma_memory sigma_representation sigma_size sigma_type = function
+    | Var s0 -> sigma_type s0
+    | I31 -> I31
+    | Num s1 -> Num s1
+    | Sum s1 -> Sum (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Variant s1 -> Variant (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Prod s1 -> Prod (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Struct s1 -> Struct (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
+    | Ref (s1, s2) -> Ref (Memory.subst sigma_memory s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
+    | GCPtr s1 -> GCPtr (subst sigma_memory sigma_representation sigma_size sigma_type s1)
+    | CodeRef s1 -> CodeRef (FunctionType.subst sigma_memory sigma_representation sigma_size sigma_type s1)
+    | Pad (s1, s2) ->
+        Pad (Size.subst sigma_representation sigma_size s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
+    | Ser (s0, s1) ->
+        Ser (Memory.subst sigma_memory s0, subst sigma_memory sigma_representation sigma_size sigma_type s1)
+    | Rec (s0, s1) ->
+        Rec (Kind.subst sigma_memory sigma_representation sigma_size s0,
+             subst
+               (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
+               (Size.up_type sigma_size) (up_type sigma_type) s1)
+    | Exists (Memory, s1) ->
+        Exists (Memory,
+                subst
+                  (Memory.up_memory sigma_memory) (Representation.up_memory sigma_representation)
+                  (Size.up_memory sigma_size) (up_memory sigma_type) s1)
+    | Exists (Representation, s1) ->
+        Exists (Representation,
+                subst
+                  (Memory.up_representation sigma_memory) (Representation.up_representation sigma_representation)
+                  (Size.up_representation sigma_size) (up_representation sigma_type) s1)
+    | Exists (Size, s1) ->
+        Exists (Size,
+                subst
+                  (Memory.up_size sigma_memory) (Representation.up_size sigma_representation)
+                  (Size.up_size sigma_size) (up_size sigma_type) s1)
+    | Exists (Type s1, s2) ->
+        Exists (Type (Kind.subst sigma_memory sigma_representation sigma_size s1),
+                subst
+                  (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
+                  (Size.up_type sigma_size) (up_type sigma_type) s2)
+    [@@ocamlformat "disable"]
 end
 
 and FunctionType : sig
   type t = FunctionType of Quantifier.t list * Type.t list * Type.t list
   [@@deriving eq, ord, sexp]
+
+  val ren :
+    (int -> int) -> (int -> int) -> (int -> int) -> (int -> int) -> t -> t
+
+  val subst :
+    (int -> Memory.t) ->
+    (int -> Representation.t) ->
+    (int -> Size.t) ->
+    (int -> Type.t) ->
+    t ->
+    t
 
   val pp_sexp : formatter -> t -> unit
   val pp : formatter -> t -> unit
@@ -543,6 +724,59 @@ end = struct
           fprintf ff ")@]"
     in
     go ~top:true quals
+
+  open Unscoped
+
+  let ren xi_memory xi_representation xi_size xi_type ft =
+    let (FunctionType (qs, s0, s1)) = ft in
+    let rec go acc xi_memory xi_representation xi_size xi_type :
+        Quantifier.t list -> t = function
+      | [] ->
+          FunctionType
+            ( List.rev acc,
+              List.map ~f:(Type.ren xi_memory xi_representation xi_size xi_type) s0,
+              List.map ~f:(Type.ren xi_memory xi_representation xi_size xi_type) s1 )
+      | Memory :: xs ->
+          go (Memory :: acc) (up_ren xi_memory) xi_representation xi_size xi_type xs
+      | Representation :: xs ->
+          go (Representation :: acc) xi_memory (up_ren xi_representation) xi_size xi_type xs
+      | Size :: xs ->
+          go (Size :: acc) xi_memory xi_representation (up_ren xi_size) xi_type xs
+      | Type k :: xs ->
+          go (Type (Kind.ren xi_memory xi_representation xi_size k) :: acc)
+            xi_memory xi_representation xi_size (up_ren xi_type) xs
+    in
+    go [] xi_memory xi_representation xi_size xi_type qs
+    [@@ocamlformat "disable"]
+
+  let subst sigma_memory sigma_representation sigma_size sigma_type ft =
+    let (FunctionType (qs, s0, s1)) = ft in
+    let rec go acc sigma_memory sigma_representation sigma_size sigma_type :
+        Quantifier.t list -> t = function
+      | [] ->
+          FunctionType
+            ( List.rev acc,
+              List.map ~f:(Type.subst sigma_memory sigma_representation sigma_size sigma_type) s0,
+              List.map ~f:(Type.subst sigma_memory sigma_representation sigma_size sigma_type) s1 )
+      | Memory :: xs ->
+          go (Memory :: acc)
+            (Memory.up_memory sigma_memory) (Representation.up_memory sigma_representation)
+            (Size.up_memory sigma_size) (Type.up_memory sigma_type) xs
+      | Representation :: xs ->
+          go (Representation :: acc)
+            (Memory.up_representation sigma_memory) (Representation.up_representation sigma_representation)
+            (Size.up_representation sigma_size) (Type.up_representation sigma_type) xs
+      | Size :: xs ->
+          go (Size :: acc)
+            (Memory.up_size sigma_memory) (Representation.up_size sigma_representation)
+            (Size.up_size sigma_size) (Type.up_size sigma_type) xs
+      | Type k :: xs ->
+          go (Type (Kind.subst sigma_memory sigma_representation sigma_size k) :: acc)
+            (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
+            (Size.up_type sigma_size) (Type.up_type sigma_type) xs
+    in
+    go [] sigma_memory sigma_representation sigma_size sigma_type qs
+    [@@ocamlformat "disable"]
 end
 
 module BlockType = struct
@@ -605,7 +839,7 @@ module Consume = struct
     | Move
   [@@deriving eq, ord, variants, sexp]
 
-  let rec pp ff : t -> unit = function
+  let pp ff : t -> unit = function
     | Follow -> fprintf ff "follow"
     | Copy -> fprintf ff "copy"
     | Move -> fprintf ff "move"

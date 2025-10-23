@@ -4,14 +4,11 @@ open Stdlib.Format
 module A = Syntax
 module B = Annotated_syntax
 
-let scons (x : 'a) (xi : Z.t -> 'a) (n : Z.t) : 'a =
-  if Z.equal Z.zero n then x else xi (Z.sub n Z.one)
-
 module Err = struct
   type t =
-    | TODO
+    | TODO of string
     | InvalidLocalFx of (int * (int * A.Type.t) list)
-    | TVarNotInEnv of (int * B.Kind.t list)
+    | TVarNotInEnv of (int * A.Kind.t list)
     | PopEmptyStack of string
     | ExpectedEqStack of (string * A.Type.t * A.Type.t)
     | InvalidLabel of int
@@ -21,10 +18,13 @@ module Err = struct
     | InvalidTableIdx of int
     | InstNonCoderef of A.Type.t
     | InvalidFunctionIdx of int
-    | CallNotFullyInstanciated of B.FunctionType.t
-    | ExpectedVALTYPE of B.Type.t
+    | CallNotFullyInstanciated of A.FunctionType.t
+    | ExpectedVALTYPE of string * B.Type.t
+    | ExpectedMEMTYPE of string * B.Type.t
+    | CannotMeet of string * B.Kind.t
     | ExpectedUnqualidfiedCoderef of A.Type.t
     | UngroupNonProd of A.Type.t
+    | FoldNonRec of A.Type.t
     | UnfoldNonRec of A.Type.t
   [@@deriving sexp]
 
@@ -47,9 +47,7 @@ end
 
 module State = struct
   type t = {
-    (* TODO: use annotated types w/ kinds *)
     locals : (A.Type.t * bool) option list;
-    (* TODO: switch to B.Type.t and remove unlab_* *)
     stack : A.Type.t list;
   }
   [@@deriving make, sexp]
@@ -57,11 +55,12 @@ end
 
 module InstrM = struct
   include StateM (State) (Err)
+  open A
 
-  let push (t : A.Type.t) : unit t =
+  let push (t : Type.t) : unit t =
     modify (fun s -> { s with stack = t :: s.stack })
 
-  let pop (ctx : string) : A.Type.t t =
+  let pop (ctx : string) : Type.t t =
     let* st = get in
     match st.stack with
     | [] -> fail (PopEmptyStack ctx)
@@ -69,7 +68,7 @@ module InstrM = struct
         let+ () = put { st with stack = rst } in
         top
 
-  let set_local (i : int) (t : A.Type.t) (c : bool) : unit t =
+  let set_local (i : int) (t : Type.t) (c : bool) : unit t =
     let* st = get in
     let* () = fail_if (List.length st.locals <= i) (InvalidLocalIdx i) in
     let locals' =
@@ -88,48 +87,23 @@ end
 
 open Res
 
-let unelab_copyability : B.Copyability.t -> A.Copyability.t = function
-  | NoCopy -> NoCopy
-  | ImCopy -> ImCopy
-  | ExCopy -> ExCopy
-
 let elab_copyability : A.Copyability.t -> B.Copyability.t = function
   | NoCopy -> NoCopy
   | ImCopy -> ImCopy
   | ExCopy -> ExCopy
-
-let unelab_dropability : B.Dropability.t -> A.Dropability.t = function
-  | NoDrop -> NoDrop
-  | ImDrop -> ImDrop
-  | ExDrop -> ExDrop
 
 let elab_dropability : A.Dropability.t -> B.Dropability.t = function
   | NoDrop -> NoDrop
   | ImDrop -> ImDrop
   | ExDrop -> ExDrop
 
-let unelab_concrete_memory : B.ConcreteMemory.t -> A.ConcreteMemory.t = function
-  | MemMM -> MM
-  | MemGC -> GC
-
 let elab_concrete_memory : A.ConcreteMemory.t -> B.ConcreteMemory.t = function
   | MM -> MemMM
   | GC -> MemGC
 
-let unelab_memory : B.Memory.t -> A.Memory.t = function
-  | VarM x -> Var (Z.to_int x)
-  | ConstM m -> Concrete (unelab_concrete_memory m)
-
 let elab_memory : A.Memory.t -> B.Memory.t = function
   | Var x -> VarM (Z.of_int x)
   | Concrete m -> ConstM (elab_concrete_memory m)
-
-let unelab_primimive_rep : B.PrimitiveRep.t -> A.PrimitiveRep.t = function
-  | PtrR -> Ptr
-  | I32R -> I32
-  | I64R -> I64
-  | F32R -> F32
-  | F64R -> F64
 
 let elab_primitive_rep : A.PrimitiveRep.t -> B.PrimitiveRep.t = function
   | Ptr -> PtrR
@@ -138,26 +112,12 @@ let elab_primitive_rep : A.PrimitiveRep.t -> B.PrimitiveRep.t = function
   | F32 -> F32R
   | F64 -> F64R
 
-let rec unelab_representation : B.Representation.t -> A.Representation.t =
-  function
-  | VarR x -> Var (Z.to_int x)
-  | SumR reps -> Sum (List.map ~f:unelab_representation reps)
-  | ProdR reps -> Prod (List.map ~f:unelab_representation reps)
-  | PrimR rep -> Prim (unelab_primimive_rep rep)
-
 let rec elab_representation : A.Representation.t -> B.Representation.t =
   function
   | Var x -> VarR (Z.of_int x)
   | Sum reps -> SumR (List.map ~f:elab_representation reps)
   | Prod reps -> ProdR (List.map ~f:elab_representation reps)
   | Prim rep -> PrimR (elab_primitive_rep rep)
-
-let rec unelab_size : B.Size.t -> A.Size.t = function
-  | VarS x -> Var (Z.to_int x)
-  | SumS sizes -> Sum (List.map ~f:unelab_size sizes)
-  | ProdS sizes -> Prod (List.map ~f:unelab_size sizes)
-  | RepS rep -> Rep (unelab_representation rep)
-  | ConstS s -> Const (Z.to_int s)
 
 let rec elab_size : A.Size.t -> B.Size.t = function
   | Var x -> VarS (Z.of_int x)
@@ -166,25 +126,9 @@ let rec elab_size : A.Size.t -> B.Size.t = function
   | Rep rep -> RepS (elab_representation rep)
   | Const s -> ConstS (Z.of_int s)
 
-let unelab_sizity : B.Sizity.t -> A.Sizity.t = function
-  | Sized size -> Sized (unelab_size size)
-  | Unsized -> Unsized
-
 let elab_sizity : A.Sizity.t -> B.Sizity.t = function
   | Sized size -> Sized (elab_size size)
   | Unsized -> Unsized
-
-let unelab_kind : B.Kind.t -> A.Kind.t = function
-  | VALTYPE (representation, copyability, dropability) ->
-      VALTYPE
-        ( unelab_representation representation,
-          unelab_copyability copyability,
-          unelab_dropability dropability )
-  | MEMTYPE (sizity, memory, dropability) ->
-      MEMTYPE
-        ( unelab_sizity sizity,
-          unelab_memory memory,
-          unelab_dropability dropability )
 
 let elab_kind : A.Kind.t -> B.Kind.t = function
   | VALTYPE (representation, copyability, dropability) ->
@@ -199,10 +143,6 @@ let elab_kind : A.Kind.t -> B.Kind.t = function
 let elab_sign : A.Sign.t -> B.Sign.t = function
   | Unsigned -> SignU
   | Signed -> SignS
-
-let unelab_int_type : B.Int.Type.t -> A.Int.Type.t = function
-  | I32T -> I32
-  | I64T -> I64
 
 let elab_int_type : A.Int.Type.t -> B.Int.Type.t = function
   | I32 -> I32T
@@ -238,10 +178,6 @@ let elab_int_replop : A.Int.Relop.t -> B.Int.Relop.t = function
   | Le sign -> LeI (elab_sign sign)
   | Ge sign -> GeI (elab_sign sign)
 
-let unelab_float_type : B.Float.Type.t -> A.Float.Type.t = function
-  | F64T -> F64
-  | F32T -> F32
-
 let elab_float_type : A.Float.Type.t -> B.Float.Type.t = function
   | F32 -> F32T
   | F64 -> F64T
@@ -272,10 +208,6 @@ let elab_float_relop : A.Float.Relop.t -> B.Float.Relop.t = function
   | Le -> LeF
   | Ge -> GeF
 
-let unelab_num_type : B.NumType.t -> A.NumType.t = function
-  | IntT int_type -> Int (unelab_int_type int_type)
-  | FloatT float_type -> Float (unelab_float_type float_type)
-
 let elab_num_type : A.NumType.t -> B.NumType.t = function
   | Int int_type -> IntT (elab_int_type int_type)
   | Float float_type -> FloatT (elab_float_type float_type)
@@ -291,14 +223,11 @@ let elab_conversion_op : A.ConversionOp.t -> B.ConversionOp.t = function
       CConvert (elab_int_type it, elab_float_type ft, elab_sign sign)
   | Reinterpret num_type -> CReinterpret (elab_num_type num_type)
 
-(* let meet_kind : B.Kind.t -> B.Kind.t -> B.Kind.t =
-  function 
-  | VALKIND *)
-let kind_of_typ (env : B.Kind.t list) : B.Type.t -> B.Kind.t t = function
+let kind_of_typ (env : A.Kind.t list) : B.Type.t -> B.Kind.t t = function
   | VarT x -> (
       let i = Z.to_int x in
       match List.nth env i with
-      | Some x -> ret x
+      | Some x -> ret (elab_kind x)
       | None -> fail (TVarNotInEnv (i, env)))
   | I31T k -> ret k
   | NumT (k, _)
@@ -317,39 +246,49 @@ let kind_of_typ (env : B.Kind.t list) : B.Type.t -> B.Kind.t t = function
   | ExistsSizeT (k, _)
   | ExistsTypeT (k, _, _) -> ret k
 
-let rec unelab_type : B.Type.t -> A.Type.t = function
-  | VarT x -> Var (Z.to_int x)
-  | I31T _ -> I31
-  | NumT (_, nt) -> Num (unelab_num_type nt)
-  | SumT (_, ts) -> Sum (List.map ~f:unelab_type ts)
-  | VariantT (_, ts) -> Variant (List.map ~f:unelab_type ts)
-  | ProdT (_, ts) -> Prod (List.map ~f:unelab_type ts)
-  | StructT (_, ts) -> Struct (List.map ~f:unelab_type ts)
-  | RefT (_, mem, t) -> Ref (unelab_memory mem, unelab_type t)
-  | GCPtrT (_, t) -> GCPtr (unelab_type t)
-  | CodeRefT (_, ft) -> CodeRef (unelab_function_type ft)
-  | PadT (_, size, t) -> Pad (unelab_size size, unelab_type t)
-  | SerT (MEMTYPE (_, mem, _), t) -> Ser (unelab_memory mem, unelab_type t)
-  | SerT (_, _) -> failwith "invalid ser"
-  | RecT (kind, t) -> Rec (unelab_kind kind, unelab_type t)
-  | ExistsMemT (_, t) -> Exists (Memory, unelab_type t)
-  | ExistsRepT (_, t) -> Exists (Representation, unelab_type t)
-  | ExistsSizeT (_, t) -> Exists (Size, unelab_type t)
-  | ExistsTypeT (_, k, t) -> Exists (Type (unelab_kind k), unelab_type t)
-
-and unelab_function_type (ft : B.FunctionType.t) : A.FunctionType.t =
-  let rec go (qs : A.Quantifier.t list) : B.FunctionType.t -> A.FunctionType.t =
+let meet_valtypes
+    (combine_rep : B.Representation.t list -> B.Representation.t)
+    (kinds : B.Kind.t list) : B.Kind.t t =
+  let rec go reps copy drop : B.Kind.t list -> B.Kind.t t =
+    let open B in
     function
-    | MonoFunT (ts1, ts2) ->
-        let ts1' = List.map ~f:unelab_type ts1 in
-        let ts2' = List.map ~f:unelab_type ts2 in
-        FunctionType (qs, ts1', ts2')
-    | ForallMemT ft -> go (Memory :: qs) ft
-    | ForallRepT ft -> go (Representation :: qs) ft
-    | ForallSizeT ft -> go (Size :: qs) ft
-    | ForallTypeT (k, ft) -> go (Type (unelab_kind k) :: qs) ft
+    | [] -> Kind.VALTYPE (combine_rep (List.rev reps), copy, drop) |> ret
+    | VALTYPE (rep, copy', drop') :: xs ->
+        go (rep :: reps)
+          (Copyability.meet copy copy')
+          (Dropability.meet drop drop')
+          xs
+    | x :: _ -> fail (CannotMeet ("expected valtype", x))
   in
-  go [] ft
+  go [] ImCopy ImDrop kinds
+
+let meet_memtypes
+    (combine_sizes : B.Size.t list -> B.Size.t)
+    (kinds : B.Kind.t list) : B.Kind.t t =
+  let rec go (sizity : [ `Sized of B.Size.t list | `Unsized ]) mem drop :
+      B.Kind.t list -> B.Kind.t t =
+    let open B in
+    function
+    | [] ->
+        Kind.MEMTYPE
+          ( (match sizity with
+            | `Sized sizes -> Sized (combine_sizes (List.rev sizes))
+            | `Unsized -> Unsized),
+            (* FIXME: memory will be removed from kinds, so this doesn't matter *)
+            Option.value ~default:(Memory.ConstM MemMM) mem,
+            drop )
+        |> ret
+    | MEMTYPE (sizity', mem', drop') :: xs ->
+        let sizity'' =
+          match (sizity, sizity') with
+          | `Unsized, _ | _, Unsized -> `Unsized
+          | `Sized sizes, Sized size -> `Sized (size :: sizes)
+        in
+        (* NOTE: mem ommitted *)
+        go sizity'' (Some mem') (Dropability.meet drop drop') xs
+    | x :: _ -> fail (CannotMeet ("expected memtype", x))
+  in
+  go (`Sized []) None ImDrop kinds
 
 (* TODO: this needs to be double checked *)
 let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
@@ -359,8 +298,17 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
     | Float F32 -> F32R
     | Float F64 -> F64R
   in
-
-  let meet_typs (typs : B.Type.t list) : B.Kind.t = failwith "TODO" in
+  let sumR x = B.Representation.SumR x in
+  let prodR x = B.Representation.ProdR x in
+  let sumS x = B.Size.SumS x in
+  let prodS x = B.Size.ProdS x in
+  let unshift n =
+    if Z.equal n Z.zero then
+      failwith "Cannot strengthen zero"
+    else
+      Z.sub Z.one n
+  in
+  let id x = x in
 
   let open B.Type in
   function
@@ -371,27 +319,20 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       NumT (VALTYPE (PrimR (rep_of_nt nt), ImCopy, ImDrop), elab_num_type nt)
   | Sum ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let k = meet_typs ts' in
+      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_valtypes sumR in
       ret @@ SumT (k, ts')
   | Variant ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let* size = fail TODO in
-      let* mem = fail TODO in
-      let* dropability = fail TODO in
-      let+ () = ret () in
-      VariantT (MEMTYPE (size, mem, dropability), ts')
+      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_memtypes sumS in
+      ret @@ VariantT (k, ts')
   | Prod ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let k = meet_typs ts' in
+      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_valtypes prodR in
       ret @@ ProdT (k, ts')
-  (* Struct [Num I32 ] *)
   | Struct ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let* size = fail TODO in
-      let* mem = fail TODO in
-      let* dropability = fail TODO in
-      let+ () = ret () in
-      StructT (MEMTYPE (size, mem, dropability), ts')
+      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_memtypes prodS in
+      ret @@ StructT (k, ts')
   | Ref (Concrete MM, t) ->
       let+ t' = elab_type env t in
       RefT (VALTYPE (PrimR PtrR, NoCopy, ExDrop), ConstM MemMM, t')
@@ -410,48 +351,48 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
   | Pad (size, t) ->
       let size' = elab_size size in
       let* t' = elab_type env t in
-      let* mem = fail TODO in
-      let* dropability = fail TODO in
-      let+ () = ret () in
-      PadT (MEMTYPE (Sized size', mem, dropability), size', t')
+      let* mem, dropability =
+        kind_of_typ env t' >>= function
+        | MEMTYPE (_, mem, dropability) -> ret (mem, dropability)
+        | _ -> fail (ExpectedMEMTYPE ("Pad", t'))
+      in
+      ret @@ PadT (MEMTYPE (Sized size', mem, dropability), size', t')
   | Ser (mem, t) ->
       let* t' = elab_type env t in
       let mem' = elab_memory mem in
       let* rep, dropability =
-        kind_of_typ [] t' >>= function
+        kind_of_typ env t' >>= function
         | VALTYPE (rep, _, dropability) -> ret (rep, dropability)
-        | _ -> fail (ExpectedVALTYPE t')
+        | _ -> fail (ExpectedVALTYPE ("Ser", t'))
       in
       ret @@ SerT (MEMTYPE (Sized (RepS rep), mem', dropability), t')
   | Rec (kind, t) ->
       let env' = kind :: env in
       let* t' = elab_type env' t in
-      let kind' = elab_kind kind in
-      let+ () = ret () in
-      RecT (kind', t')
-  (* TODO: do we need to keep track of all var? *)
+      let* kind' = kind_of_typ env' t' in
+      ret @@ RecT (kind', t')
+  (* we only need to keep track of type varianbles,
+     BUT the varianbles should not be present for the type's kind,
+     so when we copy the kind from the inner type, we must unshift
+     type varianbles appropriately--idx 0 must not be used *)
   | Exists (Memory, t) ->
       let* t' = elab_type env t in
-      let* kind = fail TODO in
-      let+ () = ret () in
-      ExistsMemT (kind, t')
+      let* k = kind_of_typ env t' >>| B.Kind.ren unshift id id in
+      ret @@ ExistsMemT (k, t')
   | Exists (Representation, t) ->
       let* t' = elab_type env t in
-      let* kind = fail TODO in
-      let+ () = ret () in
-      ExistsMemT (kind, t')
+      let* k = kind_of_typ env t' >>| B.Kind.ren id unshift id in
+      ret @@ ExistsMemT (k, t')
   | Exists (Size, t) ->
       let* t' = elab_type env t in
-      let* kind = fail TODO in
-      let+ () = ret () in
-      ExistsSizeT (kind, t')
+      let* k = kind_of_typ env t' >>| B.Kind.ren id id unshift in
+      ret @@ ExistsSizeT (k, t')
   | Exists (Type k, t) ->
       let env' = k :: env in
       let* t' = elab_type env' t in
       let k' = elab_kind k in
-      let* kind = fail TODO in
-      let+ () = ret () in
-      ExistsTypeT (kind, k', t')
+      let* kind = kind_of_typ env' t' in
+      ret @@ ExistsTypeT (kind, k', t')
 
 and elab_function_type
     (env : A.Kind.t list)
@@ -531,7 +472,6 @@ let elab_num_instruction (kenv : A.Kind.t list) :
     A.NumInstruction.t -> (B.InstructionType.t * B.NumInstruction.t) InstrM.t =
   let open InstrM in
   let open B.NumInstruction in
-  let open B.InstructionType in
   function
   | Int1 (t, o) ->
       let* t_in = pop "Int1" in
@@ -639,21 +579,20 @@ let elab_num_instruction (kenv : A.Kind.t list) :
       let ni = ICvt (CReinterpret (elab_num_type num_type)) in
       ret (it, ni)
 
-let function_typ_inst (idx : B.Index.t) (ft : B.FunctionType.t) =
-  let open B.FunctionType in
-  B.(
-    match idx with
-    | MemI mem ->
-        subst (scons mem Memory.varM) Representation.varR Size.varS Type.varT
-    | RepI rep ->
-        subst Memory.varM (scons rep Representation.varR) Size.varS Type.varT
-    | SizeI size ->
-        subst Memory.varM Representation.varR (scons size Size.varS) Type.varT
-    | TypeI typ ->
-        subst Memory.varM Representation.varR Size.varS (scons typ Type.varT))
+let function_typ_inst (idx : A.Index.t) (ft : A.FunctionType.t) =
+  let open A in
+  let open FunctionType in
+  let open Unscoped in
+  (match idx with
+  | Mem mem -> subst (scons mem Memory.var) Representation.var Size.var Type.var
+  | Rep rep -> subst Memory.var (scons rep Representation.var) Size.var Type.var
+  | Size size ->
+      subst Memory.var Representation.var (scons size Size.var) Type.var
+  | Type typ ->
+      subst Memory.var Representation.var Size.var (scons typ Type.var))
     ft
 
-let function_typ_insts (idxs : B.Index.t list) (ft : B.FunctionType.t) =
+let function_typ_insts (idxs : A.Index.t list) (ft : A.FunctionType.t) =
   List.fold ~init:ft ~f:(fun ft idx -> function_typ_inst idx ft) idxs
 
 let rec elab_instruction (env : Env.t) :
@@ -712,7 +651,7 @@ let rec elab_instruction (env : Env.t) :
       in
       let* () =
         ignore st';
-        fail TODO (* check lfx *)
+        fail (TODO "check lfx")
       in
       let* lfx' = lift_result @@ elab_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
@@ -735,7 +674,7 @@ let rec elab_instruction (env : Env.t) :
       let* () =
         ignore thn_st;
         ignore els_st;
-        fail TODO
+        fail (TODO "check lfx")
       in
       let* lfx' = lift_result @@ elab_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
@@ -782,7 +721,7 @@ let rec elab_instruction (env : Env.t) :
       let* t' = lift_result @@ elab_type env.kinds t in
       let* copyable =
         let open Res in
-        kind_of_typ (List.map ~f:elab_kind env.kinds) t'
+        kind_of_typ env.kinds t'
         >>| ( function
         | VALTYPE (_, ImCopy, _) -> true
         | _ -> false )
@@ -804,16 +743,10 @@ let rec elab_instruction (env : Env.t) :
         | CodeRef ft -> ret ft
         | x -> fail (InstNonCoderef x)
       in
-
-      let* ft' = elab_function_type env.kinds ft |> lift_result in
+      let ft' = function_typ_inst idx ft in
+      let* it = instr_t_of env.kinds [ CodeRef ft ] [ CodeRef ft' ] in
+      let* () = push (CodeRef ft') in
       let* idx' = elab_index env.kinds idx |> lift_result in
-      let ft'' = function_typ_inst idx' ft' in
-      (* FIXME: repeated *)
-      let k : B.Kind.t = VALTYPE (PrimR I32R, ImCopy, ImDrop) in
-      let it : B.InstructionType.t =
-        InstrT ([ CodeRefT (k, ft') ], [ CodeRefT (k, ft'') ])
-      in
-      let* () = push (unelab_type (CodeRefT (k, ft''))) in
       ret @@ IInst (it, idx')
   | Call (i, idxs) ->
       let* idxs' = Res.mapM ~f:(elab_index env.kinds) idxs |> lift_result in
@@ -822,16 +755,12 @@ let rec elab_instruction (env : Env.t) :
         | Some x -> ret x
         | None -> fail (InvalidFunctionIdx i)
       in
-      let* ft' = elab_function_type env.kinds ft |> lift_result in
       let* ts1, ts2 =
-        match function_typ_insts idxs' ft' with
-        | MonoFunT (ts1, ts2) -> ret (ts1, ts2)
+        match ft with
+        | FunctionType ([], ts1, ts2) -> ret (ts1, ts2)
         | x -> fail (CallNotFullyInstanciated x)
       in
-      let ts1_a, ts2_a =
-        (List.map ~f:unelab_type ts1, List.map ~f:unelab_type ts2)
-      in
-      let* it = mono_in_out env.kinds "Call" ts1_a ts2_a in
+      let* it = mono_in_out env.kinds "Call" ts1 ts2 in
       ret @@ ICall (it, Z.of_int i, idxs')
   | CallIndirect ->
       let* ts1, ts2 =
@@ -864,7 +793,7 @@ let rec elab_instruction (env : Env.t) :
             ignore case';
             ignore st';
             ignore acc;
-            fail TODO)
+            fail (TODO "case: check lfx, st management"))
       in
       let* it = instr_t_of env.kinds consume result in
       ret @@ ICase (it, lfx', cases')
@@ -876,24 +805,76 @@ let rec elab_instruction (env : Env.t) :
         >>| List.rev
       in
       let* () = push (Prod ts) in
-      let* it = instr_t_of env.kinds ts [Prod ts] in
+      let* it = instr_t_of env.kinds ts [ Prod ts ] in
       ret @@ IGroup it
   | Ungroup ->
-      let* ts = pop "Ungroup" >>= (function 
+      let* ts =
+        pop "Ungroup" >>= function
         | Prod ts -> ret ts
-        | x -> fail (UngroupNonProd x)) in
+        | x -> fail (UngroupNonProd x)
+      in
       let* () = iterM ~f:push ts in
-      let* it = instr_t_of env.kinds [Prod ts] ts in
+      let* it = instr_t_of env.kinds [ Prod ts ] ts in
       ret @@ IUngroup it
   | Fold t ->
-      let* t = pop "Fold" in
-      fail TODO
+      let* k, t_inner =
+        match t with
+        | Rec (k, inner) -> ret (k, inner)
+        | x -> fail (FoldNonRec x)
+      in
+      let expected_in =
+        let open A in
+        Type.subst Memory.var Representation.var Size.var
+          Type.(Unscoped.scons (Rec (k, t_inner)) var)
+          t_inner
+      in
+      let* it =
+        mono_in_out env.kinds "Fold" [ expected_in ] [ Rec (k, t_inner) ]
+      in
+      ret @@ IFold it
   | Unfold ->
-      let* (k, inner_t) = pop "Unfold" >>= function 
+      let* k, t_inner =
+        pop "Unfold" >>= function
         | Rec (k, t) -> ret (k, t)
-        | x -> fail (UnfoldNonRec x) in
-      fail TODO
-  | _ -> fail TODO
+        | x -> fail (UnfoldNonRec x)
+      in
+      let out =
+        let open A in
+        Type.subst Memory.var Representation.var Size.var
+          Type.(Unscoped.scons (Rec (k, t_inner)) var)
+          t_inner
+      in
+      let* () = push out in
+      let* it = instr_t_of env.kinds [ Rec (k, t_inner) ] [ out ] in
+      ret @@ IUnfold it
+  | Pack (Mem mem, t) ->
+      ignore mem;
+      ignore t;
+      fail (TODO "pack")
+  | Pack (Rep rep, t) ->
+      ignore rep;
+      ignore t;
+      fail (TODO "pack")
+  | Pack (Size sz, t) ->
+      ignore sz;
+      ignore t;
+      fail (TODO "pack")
+  | Pack (Type typ, t) ->
+      ignore typ;
+      ignore t;
+      fail (TODO "pack")
+  | Unpack (bt, lfx, instrs) ->
+      ignore bt;
+      ignore lfx;
+      ignore instrs;
+      fail (TODO "unpack")
+  | Tag ->
+      let* it = mono_in_out env.kinds "Tag" [ Num (Int I32) ] [ I31 ] in
+      ret @@ ITag it
+  | Untag ->
+      let* it = mono_in_out env.kinds "Untag" [ I31 ] [ Num (Int I32) ] in
+      ret @@ IUntag it
+  | New (_, _) | Load (_, _) | Store (_, _) | Swap _ -> fail (TODO "memory")
 
 let elab_function ({ typ; locals; body } : A.Module.Function.t) :
     B.Module.Function.t t =
@@ -903,6 +884,7 @@ let elab_function ({ typ; locals; body } : A.Module.Function.t) :
   (* TODO: setup qual env *)
   let init_locals = List.map ~f:(fun _ -> None) locals in
   let init_state = State.make ~locals:init_locals () in
+  (* TODO: use correct local offset *)
   let init_env = Env.make ~return ~local_offset:1 () in
   let* mf_body, _ =
     InstrM.mapM body ~f:(elab_instruction init_env) init_state

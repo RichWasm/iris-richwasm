@@ -212,7 +212,7 @@ let%expect_test "examples" =
         local.get 3 move
         local.get 2 follow)
       (func (-> i32) (local ptr (prod ptr i32) ptr)
-        coderef -1
+        coderef 0
         group 0
         new mm (prod)
         group 2
@@ -230,7 +230,7 @@ let%expect_test "examples" =
           local.get 1 follow
           call_indirect
         end)
-      (table -1)
+      (table 0)
       (export 1))
     -----------nested_arith-----------
     (module
@@ -257,7 +257,7 @@ let%expect_test "examples" =
         i32.const 1
         i32.add)
       (func (-> i32) (local ptr (prod ptr i32) ptr)
-        coderef -1
+        coderef 0
         group 0
         new mm (prod)
         group 2
@@ -275,7 +275,7 @@ let%expect_test "examples" =
           local.get 1 follow
           call_indirect
         end)
-      (table -1)
+      (table 0)
       (export 0 1))
     -----------add_tup_ref-----------
     (module
@@ -337,7 +337,7 @@ let%expect_test "examples" =
           i32.const 1
           i32.sub
           local.set 1
-          coderef -1
+          coderef 0
           group 0
           new mm (prod)
           group 2
@@ -361,7 +361,7 @@ let%expect_test "examples" =
           i32.mul
         end)
       (func (-> i32) (local ptr (prod ptr i32) ptr)
-        coderef -1
+        coderef 0
         group 0
         new mm (prod)
         group 2
@@ -379,7 +379,7 @@ let%expect_test "examples" =
           local.get 1 follow
           call_indirect
         end)
-      (table -1)
+      (table 0)
       (export 0 1))
     -----------safe_div-----------
     (module
@@ -415,7 +415,7 @@ let%expect_test "examples" =
         end)
       (func (-> i32) (local ptr (prod ptr i32) ptr (sum i32 (prod)) ptr
           (prod ptr i32) ptr)
-        coderef -1
+        coderef 0
         group 0
         new mm (prod)
         group 2
@@ -436,7 +436,7 @@ let%expect_test "examples" =
           call_indirect
         end
         local.set 3
-        coderef 0
+        coderef 1
         group 0
         new mm (prod)
         group 2
@@ -454,7 +454,7 @@ let%expect_test "examples" =
           local.get 5 follow
           call_indirect
         end)
-      (table -1 0)
+      (table 0 1)
       (export 2))
     -----------incr_n-----------
     (module
@@ -495,7 +495,7 @@ let%expect_test "examples" =
           drop
           local.get 3 move
         else
-          coderef -1
+          coderef 0
           group 0
           new mm (prod)
           group 2
@@ -519,7 +519,7 @@ let%expect_test "examples" =
           i32.const 1
           i32.sub
           local.set 8
-          coderef 0
+          coderef 1
           group 0
           new mm (prod)
           group 2
@@ -544,7 +544,7 @@ let%expect_test "examples" =
         i32.const 10
         new mm i32
         local.set 0
-        coderef 0
+        coderef 1
         group 0
         new mm (prod)
         group 2
@@ -564,7 +564,7 @@ let%expect_test "examples" =
           local.get 2 follow
           call_indirect
         end)
-      (table -1 0)
+      (table 0 1)
       (export 1 2))
     -----------fix_factorial[invalid]-----------
     FAILURE (Ctx (CannotFindRep (Var (0 ())))
@@ -658,7 +658,7 @@ let%expect_test "examples" =
             local.get 2 follow)
           (1
             local.set 4
-            coderef -1
+            coderef 0
             group 0
             new mm (prod)
             group 2
@@ -727,7 +727,7 @@ let%expect_test "examples" =
                        (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
                          (sum (prod) (ref (concrete mm) (var 0)))))
         else
-          coderef 0
+          coderef 1
           group 0
           new mm (prod)
           group 2
@@ -779,7 +779,7 @@ let%expect_test "examples" =
           (1
             local.set 2
             i32.const 1
-            coderef 1
+            coderef 2
             group 0
             new mm (prod)
             group 2
@@ -810,7 +810,7 @@ let%expect_test "examples" =
       (func (-> i32) (local ptr (prod ptr i32) ptr (sum (prod) ptr) ptr
           (prod ptr i32) ptr (sum (prod) ptr) ptr (prod ptr i32) ptr
           (sum (prod) ptr) ptr (prod ptr i32) ptr)
-        coderef 0
+        coderef 1
         group 0
         new mm (prod)
         group 2
@@ -836,7 +836,7 @@ let%expect_test "examples" =
           call_indirect
         end
         local.set 3
-        coderef 0
+        coderef 1
         group 0
         new mm (prod)
         group 2
@@ -862,7 +862,7 @@ let%expect_test "examples" =
           call_indirect
         end
         local.set 7
-        coderef -1
+        coderef 0
         group 0
         new mm (prod)
         group 2
@@ -896,7 +896,7 @@ let%expect_test "examples" =
           call_indirect
         end
         local.set 11
-        coderef 1
+        coderef 2
         group 0
         new mm (prod)
         group 2
@@ -918,7 +918,7 @@ let%expect_test "examples" =
           local.get 13 follow
           call_indirect
         end)
-      (table -1 0 1)
+      (table 0 1 2)
       (export 3))
     -----------mini_zip-----------
     (module
@@ -931,7 +931,7 @@ let%expect_test "examples" =
         local.get 0 follow
         local.set 1
         local.set 2
-        coderef -1
+        coderef 0
         group 0
         new mm (prod)
         group 2
@@ -949,7 +949,7 @@ let%expect_test "examples" =
           local.get 4 follow
           call_indirect
         end
-        coderef -1
+        coderef 0
         group 0
         new mm (prod)
         group 2
@@ -989,5 +989,5 @@ let%expect_test "examples" =
         local.get 4 move
         group 2
         new mm (prod i32 (ref (concrete mm) i32)))
-      (table -1 0 1)
+      (table 0 1 2)
       (export 1)) |}]
