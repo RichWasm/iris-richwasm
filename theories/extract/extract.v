@@ -31,3 +31,8 @@ Extraction "RwSyntax.ml"
   rw.Core.subst_representation
   rw.Core.ren_representation
   module.module.
+
+From RichWasm.compiler Require module.
+
+Separate Extraction module.compile_module.
+

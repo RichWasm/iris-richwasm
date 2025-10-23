@@ -1,7 +1,30 @@
 (coq.extraction
- (prelude extract_rw_syntax)
+ (prelude extract)
  (extracted_modules RwSyntax)
- (theories Stdlib RichWasm.syntax))
+ (theories Stdlib RichWasm.syntax RichWasm.compiler
+  iris
+  Wasm
+  elpi
+  compcert
+  Flocq
+  parseque
+  HB
+  mathcomp
+  mathcomp.ssreflect
+  elpi
+  elpi_elpi
+  stdpp
+  RichWasm
+  ITree
+  Paco
+  RecordUpdate
+  Ltac2
+  ExtLib.Data
+  ExtLib.Structures
+  ExtLib.Core
+  ExtLib.Tactics))
+
+
 
 (library
  (name richwasm_extract)
