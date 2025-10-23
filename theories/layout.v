@@ -97,14 +97,14 @@ Definition inject_sum_rep (ρs : list representation) (ρ : representation) : op
 Definition kind_rep (κ : kind) : option representation :=
   match κ with
   | VALTYPE ρ _ _ => Some ρ
-  | MEMTYPE _ _ _ => None
+  | MEMTYPE _ _ => None
   end.
 
 Definition kind_size (κ : kind) : option size :=
   match κ with
   | VALTYPE _ _ _
-  | MEMTYPE Unsized _ _ => None
-  | MEMTYPE (Sized σ) _ _ => Some σ
+  | MEMTYPE Unsized _ => None
+  | MEMTYPE (Sized σ) _ => Some σ
   end.
 
 Definition type_kind (κs : list kind) (τ : type) : option kind :=
@@ -162,11 +162,11 @@ Definition type_f64 : type := float_type_type F64T.
 Definition type_val_unit : type :=
   ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [].
 
-Definition type_mem_unit (μ : memory) : type :=
-  StructT (MEMTYPE (Sized (ProdS [])) μ ImDrop) [].
+Definition type_mem_unit : type :=
+  StructT (MEMTYPE (Sized (ProdS [])) ImDrop) [].
 
-Definition type_mem_uninit (σ : size) (μ : memory) : type :=
-  PadT (MEMTYPE (Sized σ) μ ImDrop) σ (type_mem_unit μ).
+Definition type_mem_uninit (σ : size) : type :=
+  PadT (MEMTYPE (Sized σ) ImDrop) σ type_mem_unit.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_rep (ν : num_type) : primitive_rep :=

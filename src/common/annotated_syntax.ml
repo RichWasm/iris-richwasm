@@ -442,9 +442,8 @@ module Kind = struct
     | VALTYPE (rep, copy, drop) ->
         fprintf ff "(VALTYPE %a %a %a)" Representation.pp_roqc rep
           Copyability.pp_roqc copy Dropability.pp_roqc drop
-    | MEMTYPE (sizity, mem, drop) ->
-        fprintf ff "(MEMTYPE %a %a %a)" Sizity.pp_roqc sizity Memory.pp_roqc mem
-          Dropability.pp_roqc drop
+    | MEMTYPE (sizity, drop) ->
+        fprintf ff "(MEMTYPE %a %a)" Sizity.pp_roqc sizity Dropability.pp_roqc drop
 
   let subst = Richwasm_extract.RwSyntax.Core.subst_kind
   let ren = Richwasm_extract.RwSyntax.Core.ren_kind

@@ -1994,7 +1994,7 @@ Section Fundamental.
   Lemma compat_load_mm M F L wl wl' wlf es' π τ τval κ κ' σ pr :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) (pr_replaced pr); τval] in
-    resolves_path τ π (Some (type_mem_uninit σ (ConstM MemMM))) pr ->
+    resolves_path τ π (Some (type_mem_uninit σ)) pr ->
     has_size F (pr_target pr) σ ->
     loads_as F (pr_target pr) τval ->
     Forall (mono_size F) (pr_prefix pr) ->

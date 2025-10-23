@@ -6,11 +6,10 @@ From RichWasm.iris.logrel Require Import relations.
 Ltac fold_subst :=
   fold subst_type subst_size subst_representation subst_function_type.
 
-
-Lemma subkind_of_subst s__mem s__rep s__size κ κ' :
+Lemma subkind_of_subst s__rep s__size κ κ' :
   subkind_of κ κ' ->
-  subkind_of (subst_kind s__mem s__rep s__size κ)
-             (subst_kind s__mem s__rep s__size κ').
+  subkind_of (subst_kind s__rep s__size κ)
+             (subst_kind s__rep s__size κ').
 Proof.
   intros Hle.
   destruct Hle; constructor.
@@ -29,14 +28,13 @@ Lemma kind_ok_subst K κ :
   kind_ok K κ ->
   forall s__mem s__rep s__size,
     subst_interp K s__mem s__rep s__size ->
-    kind_ok kc_empty (subst_kind s__mem s__rep s__size κ).
+    kind_ok kc_empty (subst_kind s__rep s__size κ).
 Proof.
   unfold subst_interp.
   induction 1; intros * (Hmem & Hrep & Hsz).
   - constructor.
     eapply rep_ok_subst; eauto.
   - constructor.
-    + admit.
     + admit.
 Admitted.
 
@@ -47,29 +45,26 @@ Lemma has_kind_subst F τ κ :
       has_kind 
         (fc_clear_kind (subst_function_ctx s__mem s__rep s__size VarT F))
         (subst_type s__mem s__rep s__size VarT τ)
-        (subst_kind s__mem s__rep s__size κ).
+        (subst_kind s__rep s__size κ).
 Proof.
   induction 1 using has_kind_ind'; intros s__mem s__rep s__size Hsubst; try solve [econstructor; eauto].
   - eapply KSum.
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KVariant.
-    { admit. }
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KVariantSized.
-    { admit. }
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KProd.
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KStruct.
-    { admit. }
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KStructSized.
-    { admit. }
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
+  - admit.
   - eapply KCodeRef.
     fold_subst.
     admit.
@@ -77,9 +72,6 @@ Proof.
     { admit. }
     fold_subst.
     eauto.
-  - eapply KSer.
-    { admit. }
-    fold_subst; eauto.
   - eapply KRec.
     fold_subst.
     admit.

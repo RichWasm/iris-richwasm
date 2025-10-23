@@ -252,7 +252,7 @@ Section Compiler.
     | ICall _ i _ => compile_call i
     | ICallIndirect _ => emit (W.BI_call_indirect 0) (* TODO: Type index. *)
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
-    | IInject (InstrT [τ] [RefT _ (ConstM cm) (VariantT (MEMTYPE (Sized σ) _ _) τs)]) i =>
+    | IInject (InstrT [τ] [RefT _ (ConstM cm) (VariantT (MEMTYPE (Sized σ) _) τs)]) i =>
         compile_inject_variant fe i τ τs cm σ
     | IInject _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] τs) _ ess =>

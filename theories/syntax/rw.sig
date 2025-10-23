@@ -46,7 +46,7 @@ Unsized : sizity
 
 kind : Type
 VALTYPE : representation -> copyability -> dropability -> kind
-MEMTYPE : sizity -> memory -> dropability -> kind
+MEMTYPE : sizity -> dropability -> kind
 
 int_type : Type
 I32T : int_type

@@ -136,9 +136,8 @@ let elab_kind : A.Kind.t -> B.Kind.t = function
         ( elab_representation representation,
           elab_copyability copyability,
           elab_dropability dropability )
-  | MEMTYPE (sizity, memory, dropability) ->
-      MEMTYPE
-        (elab_sizity sizity, elab_memory memory, elab_dropability dropability)
+  | MEMTYPE (sizity, dropability) ->
+      MEMTYPE (elab_sizity sizity, elab_dropability dropability)
 
 let elab_sign : A.Sign.t -> B.Sign.t = function
   | Unsigned -> SignU
@@ -264,7 +263,7 @@ let meet_valtypes
 let meet_memtypes
     (combine_sizes : B.Size.t list -> B.Size.t)
     (kinds : B.Kind.t list) : B.Kind.t t =
-  let rec go (sizity : [ `Sized of B.Size.t list | `Unsized ]) mem drop :
+  let rec go (sizity : [ `Sized of B.Size.t list | `Unsized ]) drop :
       B.Kind.t list -> B.Kind.t t =
     let open B in
     function
@@ -273,21 +272,19 @@ let meet_memtypes
           ( (match sizity with
             | `Sized sizes -> Sized (combine_sizes (List.rev sizes))
             | `Unsized -> Unsized),
-            (* FIXME: memory will be removed from kinds, so this doesn't matter *)
-            Option.value ~default:(Memory.ConstM MemMM) mem,
             drop )
         |> ret
-    | MEMTYPE (sizity', mem', drop') :: xs ->
+    | MEMTYPE (sizity', drop') :: xs ->
         let sizity'' =
           match (sizity, sizity') with
           | `Unsized, _ | _, Unsized -> `Unsized
           | `Sized sizes, Sized size -> `Sized (size :: sizes)
         in
         (* NOTE: mem ommitted *)
-        go sizity'' (Some mem') (Dropability.meet drop drop') xs
+        go sizity'' (Dropability.meet drop drop') xs
     | x :: _ -> fail (CannotMeet ("expected memtype", x))
   in
-  go (`Sized []) None ImDrop kinds
+  go (`Sized []) ImDrop kinds
 
 (* TODO: this needs to be double checked *)
 let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
@@ -347,21 +344,20 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
   | Pad (size, t) ->
       let size' = elab_size size in
       let* t' = elab_type env t in
-      let* mem, dropability =
+      let* dropability =
         kind_of_typ env t' >>= function
-        | MEMTYPE (_, mem, dropability) -> ret (mem, dropability)
+        | MEMTYPE (_, dropability) -> ret dropability
         | _ -> fail (ExpectedMEMTYPE ("Pad", t'))
       in
-      ret @@ PadT (MEMTYPE (Sized size', mem, dropability), size', t')
-  | Ser (mem, t) ->
+      ret @@ PadT (MEMTYPE (Sized size', dropability), size', t')
+  | Ser t ->
       let* t' = elab_type env t in
-      let mem' = elab_memory mem in
       let* rep, dropability =
         kind_of_typ env t' >>= function
         | VALTYPE (rep, _, dropability) -> ret (rep, dropability)
         | _ -> fail (ExpectedVALTYPE ("Ser", t'))
       in
-      ret @@ SerT (MEMTYPE (Sized (RepS rep), mem', dropability), t')
+      ret @@ SerT (MEMTYPE (Sized (RepS rep), dropability), t')
   | Rec (kind, t) ->
       let env' = kind :: env in
       let* t' = elab_type env' t in
@@ -373,15 +369,15 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
      type varianbles appropriately--idx 0 must not be used *)
   | Exists (Memory, t) ->
       let* t' = elab_type env t in
-      let* k = kind_of_typ env t' >>| B.Kind.ren unshift id id in
+      let* k = kind_of_typ env t' >>| B.Kind.ren id id in
       ret @@ ExistsMemT (k, t')
   | Exists (Representation, t) ->
       let* t' = elab_type env t in
-      let* k = kind_of_typ env t' >>| B.Kind.ren id unshift id in
+      let* k = kind_of_typ env t' >>| B.Kind.ren unshift id in
       ret @@ ExistsMemT (k, t')
   | Exists (Size, t) ->
       let* t' = elab_type env t in
-      let* k = kind_of_typ env t' >>| B.Kind.ren id id unshift in
+      let* k = kind_of_typ env t' >>| B.Kind.ren id unshift in
       ret @@ ExistsSizeT (k, t')
   | Exists (Type k, t) ->
       let env' = k :: env in

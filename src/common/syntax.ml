@@ -233,28 +233,24 @@ end
 module Kind = struct
   type t =
     | VALTYPE of Representation.t * Copyability.t * Dropability.t
-    | MEMTYPE of Sizity.t * Memory.t * Dropability.t
+    | MEMTYPE of Sizity.t * Dropability.t
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   (* autosubst: *)
 
-  let ren xi_memory xi_representation xi_size = function
+  let ren xi_representation xi_size = function
     | VALTYPE (s0, s1, s2) ->
         VALTYPE (Representation.ren xi_representation s0, s1, s2)
-    | MEMTYPE (s0, s1, s2) ->
-        MEMTYPE
-          (Sizity.ren xi_representation xi_size s0, Memory.ren xi_memory s1, s2)
+    | MEMTYPE (s0, s1) ->
+        MEMTYPE (Sizity.ren xi_representation xi_size s0, s1)
 
-  let subst sigma_memory sigma_representation sigma_size = function
+  let subst sigma_representation sigma_size = function
     | VALTYPE (s0, s1, s2) ->
         VALTYPE (Representation.subst sigma_representation s0, s1, s2)
-    | MEMTYPE (s0, s1, s2) ->
-        MEMTYPE
-          ( Sizity.subst sigma_representation sigma_size s0,
-            Memory.subst sigma_memory s1,
-            s2 )
+    | MEMTYPE (s0, s1) ->
+        MEMTYPE (Sizity.subst sigma_representation sigma_size s0, s1)
 end
 
 module Quantifier = struct
@@ -537,7 +533,7 @@ module rec Type : sig
     | Ref of Memory.t * t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
-    | Ser of Memory.t * t
+    | Ser of t
     | Rec of Kind.t * t
     | Exists of Quantifier.t * t
   [@@deriving eq, ord, variants, sexp]
@@ -572,7 +568,7 @@ end = struct
     | Ref of Memory.t * t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
-    | Ser of Memory.t * t
+    | Ser of t
     | Rec of Kind.t * t
     | Exists of Quantifier.t * t
   [@@deriving eq, ord, variants, sexp]
@@ -602,7 +598,7 @@ end = struct
     | Ref (m, t) -> fprintf ff "@[<2>(ref@ %a@ %a)@]" Memory.pp m pp t
     | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
     | Pad (s, t) -> fprintf ff "@[<2>(pad@ %a@ %a)@]" Size.pp s pp t
-    | Ser (mem, t) -> fprintf ff "@[<2>(ser@ %a@ %a)@]" Memory.pp mem pp t
+    | Ser t -> fprintf ff "@[<2>(ser@ %a)@]" pp t
     | Rec (kind, t) -> fprintf ff "@[<2>(rec@ %a@ %a)@]" Kind.pp kind pp t
     | Exists (q, t) -> fprintf ff "@[<2>(exists@ %a@ %a)@]" Quantifier.pp q pp t
 
@@ -620,9 +616,9 @@ end = struct
     | CodeRef s1 -> CodeRef (FunctionType.ren xi_memory xi_representation xi_size xi_type s1)
     | Pad (s1, s2) ->
         Pad (Size.ren xi_representation xi_size s1, ren xi_memory xi_representation xi_size xi_type s2)
-    | Ser (s0, s1) -> Ser (Memory.ren xi_memory s0, ren xi_memory xi_representation xi_size xi_type s1)
+    | Ser s0 -> Ser (ren xi_memory xi_representation xi_size xi_type s0)
     | Rec (s0, s1) ->
-        Rec (Kind.ren xi_memory xi_representation xi_size s0,
+        Rec (Kind.ren xi_representation xi_size s0,
              ren xi_memory xi_representation xi_size (up_ren xi_type) s1)
     | Exists (Memory, s1) ->
         Exists (Memory, ren (up_ren xi_memory) xi_representation xi_size xi_type s1)
@@ -631,7 +627,7 @@ end = struct
     | Exists (Size, s1) ->
         Exists (Size, ren xi_memory xi_representation (up_ren xi_size) xi_type s1)
     | Exists (Type s1, s2) ->
-        Exists (Type (Kind.ren xi_memory xi_representation xi_size s1),
+        Exists (Type (Kind.ren xi_representation xi_size s1),
                 ren xi_memory xi_representation xi_size (up_ren xi_type) s2)
     [@@ocamlformat "disable"]
 
@@ -652,10 +648,10 @@ end = struct
     | CodeRef s1 -> CodeRef (FunctionType.subst sigma_memory sigma_representation sigma_size sigma_type s1)
     | Pad (s1, s2) ->
         Pad (Size.subst sigma_representation sigma_size s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
-    | Ser (s0, s1) ->
-        Ser (Memory.subst sigma_memory s0, subst sigma_memory sigma_representation sigma_size sigma_type s1)
+    | Ser s0 ->
+        Ser (subst sigma_memory sigma_representation sigma_size sigma_type s0)
     | Rec (s0, s1) ->
-        Rec (Kind.subst sigma_memory sigma_representation sigma_size s0,
+        Rec (Kind.subst sigma_representation sigma_size s0,
              subst
                (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
                (Size.up_type sigma_size) (up_type sigma_type) s1)
@@ -675,7 +671,7 @@ end = struct
                   (Memory.up_size sigma_memory) (Representation.up_size sigma_representation)
                   (Size.up_size sigma_size) (up_size sigma_type) s1)
     | Exists (Type s1, s2) ->
-        Exists (Type (Kind.subst sigma_memory sigma_representation sigma_size s1),
+        Exists (Type (Kind.subst sigma_representation sigma_size s1),
                 subst
                   (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
                   (Size.up_type sigma_size) (up_type sigma_type) s2)
@@ -738,7 +734,7 @@ end = struct
       | Size :: xs ->
           go (Size :: acc) xi_memory xi_representation (up_ren xi_size) xi_type xs
       | Type k :: xs ->
-          go (Type (Kind.ren xi_memory xi_representation xi_size k) :: acc)
+          go (Type (Kind.ren xi_representation xi_size k) :: acc)
             xi_memory xi_representation xi_size (up_ren xi_type) xs
     in
     go [] xi_memory xi_representation xi_size xi_type qs
@@ -766,7 +762,7 @@ end = struct
             (Memory.up_size sigma_memory) (Representation.up_size sigma_representation)
             (Size.up_size sigma_size) (Type.up_size sigma_type) xs
       | Type k :: xs ->
-          go (Type (Kind.subst sigma_memory sigma_representation sigma_size k) :: acc)
+          go (Type (Kind.subst sigma_representation sigma_size k) :: acc)
             (Memory.up_type sigma_memory) (Representation.up_type sigma_representation)
             (Size.up_type sigma_size) (Type.up_type sigma_type) xs
     in

@@ -28,8 +28,8 @@ Section Relations.
   Definition ns_ref (n : N) : namespace := nroot .@ "rwr" .@ n.
 
   Inductive semantic_value :=
-  | SValues (vs : list rep_value)
-  | SWords (μ : concrete_memory) (ws : list word).
+  | SValues (rvs : list rep_value)
+  | SWords (ws : list word).
 
   Notation VR := (leibnizO value -n> iPropO Σ).
   Notation VsR := (leibnizO (list value) -n> iPropO Σ).
@@ -161,11 +161,15 @@ Section Relations.
   Definition size_interp (σ : size) (ws : list word) : Prop :=
     eval_size σ = Some (length ws).
 
-  Definition sizity_interp (ζ : sizity) : semantic_type :=
-    λne sv, ⌜∃ μ ws, sv = SWords μ ws /\ ∀ σ, ζ = Sized σ -> size_interp σ ws⌝%I.
-
-  Definition memory_interp (μ : memory) : semantic_type :=
-    λne sv, ⌜∃ cm ws, μ = ConstM cm /\ sv = SWords cm ws⌝%I.
+  Definition sizity_interp (ζ : sizity) (sv : semantic_value) : Prop :=
+    match sv with
+    | SValues _ => False
+    | SWords ws =>
+        match ζ with
+        | Sized σ => size_interp σ ws
+        | Unsized => True
+        end
+    end.
 
   (* S refines T, written S ⊑ T. *)
   Definition semantic_type_le (S T : semantic_type) : Prop := forall sv, S sv -∗ T sv.
@@ -174,17 +178,18 @@ Section Relations.
   Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type := semantic_type_le.
 
   Definition kind_as_type_interp (κ : kind) : semantic_type :=
-    match κ with
-    | VALTYPE ρ χ _ => λne sv, ⌜representation_interp ρ sv⌝
-    | MEMTYPE ζ μ _ => λne sv, sizity_interp ζ sv ∗ memory_interp μ sv
-    end%I.
+    λne sv,
+      match κ with
+      | VALTYPE ρ χ _ => ⌜representation_interp ρ sv⌝
+      | MEMTYPE ζ _ => ⌜sizity_interp ζ sv⌝
+      end%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=
     fun T =>
       T ⊑ kind_as_type_interp κ /\
         match κ with
         | VALTYPE ρ χ _ => copyability_interp χ T
-        | MEMTYPE _ _ _ => True
+        | MEMTYPE _ _ => True
         end.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
@@ -256,23 +261,22 @@ Section Relations.
            ▷ vrel se τ_i (SValues rvs_i))%I.
 
   Definition variant_interp
-    (vrel : value_relation) (se : semantic_env) (cm : concrete_memory) (τs : list type) : SVR :=
+    (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,
       (∃ i ws ws' τ,
-         ⌜sv = SWords cm (WordInt (Z.of_nat i) :: ws ++ ws')⌝ ∗
+         ⌜sv = SWords (WordInt (Z.of_nat i) :: ws ++ ws')⌝ ∗
            ⌜τs !! i = Some τ⌝ ∗
-           ▷ vrel se τ (SWords cm ws))%I.
+           ▷ vrel se τ (SWords ws))%I.
 
   Definition prod_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,
       (∃ rvss,
          ⌜sv = SValues (concat rvss)⌝ ∗ [∗ list] rvs; τ ∈ rvss; τs, ▷ vrel se τ (SValues rvs))%I.
 
-  Definition struct_interp
-    (vrel : value_relation) (se : semantic_env) (cm : concrete_memory) (τs : list type) : SVR :=
+  Definition struct_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,
       (∃ wss,
-         ⌜sv = SWords cm (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ vrel se τ (SWords cm ws))%I.
+         ⌜sv = SWords (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ vrel se τ (SWords ws))%I.
 
   Definition ref_mm_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
@@ -280,14 +284,14 @@ Section Relations.
          ⌜sv = SValues [PtrV (PtrHeap MemMM ℓ)]⌝ ∗
            ℓ ↦layout fs ∗
            ℓ ↦heap ws ∗
-           ▷ vrel se τ (SWords MemMM ws))%I.
+           ▷ vrel se τ (SWords ws))%I.
 
   Definition ref_gc_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
       (∃ ℓ fs,
          ⌜sv = SValues [PtrV (PtrHeap MemGC ℓ)]⌝ ∗
            na_inv logrel_nais (ns_ref ℓ)
-             (∃ ws, ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ vrel se τ (SWords MemGC ws)))%I.
+             (∃ ws, ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ vrel se τ (SWords ws)))%I.
 
   Definition coderef_interp (vrel : value_relation) (se : semantic_env) (ϕ : function_type) : SVR :=
     λne sv,
@@ -297,15 +301,13 @@ Section Relations.
            na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
            na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl))%I.
 
-  Definition pad_interp
-    (vrel : value_relation) (se : semantic_env) (cm : concrete_memory) (τ : type) : SVR :=
-    λne sv, (∃ ws ws', ⌜sv = SWords cm (ws ++ ws')⌝ ∗ ▷ vrel se τ (SWords cm ws))%I.
+  Definition pad_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
+    λne sv, (∃ ws ws', ⌜sv = SWords (ws ++ ws')⌝ ∗ ▷ vrel se τ (SWords ws))%I.
 
-  Definition ser_interp
-    (vrel : value_relation) (se : semantic_env) (cm : concrete_memory) (τ : type) : SVR :=
+  Definition ser_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
       (∃ rvs wss,
-         ⌜sv = SWords cm (concat wss)⌝ ∗ ⌜Forall2 ser_value rvs wss⌝ ∗ ▷ vrel se τ (SValues rvs))%I.
+         ⌜sv = SWords (concat wss)⌝ ∗ ⌜Forall2 ser_value rvs wss⌝ ∗ ▷ vrel se τ (SValues rvs))%I.
 
   Definition rec_interp (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
     λne sv,
@@ -342,24 +344,20 @@ Section Relations.
       | NumT _ _ => λne _, True
       | SumT (VALTYPE (SumR ρs) _ _) τs => sum_interp vrel se ρs τs
       | SumT _ _ => λne _, False
-      | VariantT (VALTYPE _ _ _) _
-      | VariantT (MEMTYPE _ (VarM _) _) _ => λne _, False
-      | VariantT (MEMTYPE _ (ConstM cm) _) τs => variant_interp vrel se cm τs
+      | VariantT (VALTYPE _ _ _) _ => λne _, False
+      | VariantT (MEMTYPE _ _) τs => variant_interp vrel se τs
       | ProdT (VALTYPE _ _ _) τs => prod_interp vrel se τs
-      | ProdT (MEMTYPE _ _ _) _
-      | StructT (VALTYPE _ _ _) _
-      | StructT (MEMTYPE _ (VarM _) _) _ => λne _, False
-      | StructT (MEMTYPE _ (ConstM cm) _) τs => struct_interp vrel se cm τs
+      | ProdT (MEMTYPE _ _) _
+      | StructT (VALTYPE _ _ _) _ => λne _, False
+      | StructT (MEMTYPE _ _) τs => struct_interp vrel se τs
       | RefT _ (VarM _) _ => λne _, False
       | RefT _ (ConstM MemMM) τ => ref_mm_interp vrel se τ
       | RefT _ (ConstM MemGC) τ => ref_gc_interp vrel se τ
       | CodeRefT _ ϕ => coderef_interp vrel se ϕ
-      | PadT (VALTYPE _ _ _) _ _
-      | PadT (MEMTYPE _ (VarM _) _) _ _ => λne _, False
-      | PadT (MEMTYPE _ (ConstM cm) _) _ τ => pad_interp vrel se cm τ
-      | SerT (VALTYPE _ _ _) _
-      | SerT (MEMTYPE _ (VarM _) _) _ => λne _, False
-      | SerT (MEMTYPE _ (ConstM cm) _) τ => ser_interp vrel se cm τ
+      | PadT (VALTYPE _ _ _) _ _ => λne _, False
+      | PadT (MEMTYPE _ _) _ τ => pad_interp vrel se τ
+      | SerT (VALTYPE _ _ _) _ => λne _, False
+      | SerT (MEMTYPE _ _) τ => ser_interp vrel se τ
       | RecT κ τ => rec_interp vrel se κ τ
       | ExistsMemT _ τ => exists_mem_interp vrel se τ
       | ExistsRepT _ τ => exists_rep_interp vrel se τ
@@ -648,8 +646,8 @@ Section Relations.
     rep_subst_interp K s__rep /\
     size_subst_interp K s__size.
 
-  Definition sem_env_interp κs s__mem s__rep s__size se : Prop :=
-    Forall2 (fun κT κ => fst κT = subst_kind s__mem s__rep s__size κ /\ uncurry kind_interp κT) se κs.
+  Definition sem_env_interp κs s__rep s__size se : Prop :=
+    Forall2 (fun κT κ => fst κT = subst_kind s__rep s__size κ /\ uncurry kind_interp κT) se κs.
 
   Definition subst_env_interp
     (F : function_ctx)
@@ -657,7 +655,7 @@ Section Relations.
     (se : semantic_env) :
     Prop :=
     subst_interp F.(fc_kind_ctx) s__mem s__rep s__size /\
-      sem_env_interp F.(fc_type_vars) s__mem s__rep s__size se.
+      sem_env_interp F.(fc_type_vars) s__rep s__size se.
 
   Definition have_instruction_type_sem
     (mr : module_runtime)
