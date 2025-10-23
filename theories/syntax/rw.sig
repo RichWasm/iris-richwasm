@@ -200,6 +200,7 @@ IPack : instruction_type -> instruction
 IUnpack : instruction_type -> "list" ("option" (type)) -> "list" (instruction) -> instruction
 ITag : instruction_type -> instruction
 IUntag : instruction_type -> instruction
+ICast : instruction_type -> instruction
 INew : instruction_type -> instruction
 ILoad : instruction_type -> path -> instruction
 IStore : instruction_type -> path -> instruction

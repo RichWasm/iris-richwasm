@@ -268,6 +268,7 @@ Section Compiler.
     | IUnpack ψ _ es => compile_unpack fe ψ (flip compile_instrs es)
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
+    | ICast _ => erased_in_wasm
     | INew (InstrT [τ] [RefT _ (ConstM cm) τ']) => compile_new fe cm τ τ'
     | INew _ => raise EFail
     | ILoad (InstrT [RefT _ _ τ] _) π => compile_load fe τ π

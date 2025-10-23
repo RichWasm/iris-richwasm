@@ -265,7 +265,7 @@ module Compile = struct
         let* v' = compile_expr env v in
         let t = type_of v in
         let* t' = compile_type env t |> lift_result in
-        ret @@ v' @ [ New (MM, t') ]
+        ret @@ v' @ [ New MM ]
     | Swap (e1, e2, _) ->
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in

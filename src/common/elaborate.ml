@@ -829,7 +829,8 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | Untag ->
       let* it = mono_in_out env.kinds "Untag" [ I31 ] [ Num (Int I32) ] in
       ret @@ IUntag it
-  | New (_, _) | Load (_, _) | Store (_, _) | Swap _ -> fail (TODO "memory")
+  | Cast _ -> fail (TODO "cast")
+  | New _ | Load (_, _) | Store _ | Swap _ -> fail (TODO "memory")
 
 let elab_function ({ typ; locals; body } : A.Module.Function.t) :
     B.Module.Function.t t =

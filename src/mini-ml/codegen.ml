@@ -112,14 +112,13 @@ let rec compile_value delta gamma locals functions v =
   let r = compile_value delta gamma locals functions in
   let t = type_of_v unindexed v in
   let rw_t = compile_type delta t in
-  let box : Instruction.t list = [ New (GC, rw_t); Store (Path [], None) ] in
   match v with
   | Int i ->
       let open NumType in
       [ NumConst (Int I32, i); Tag ]
   | Tuple vs ->
       let items = List.concat_map ~f:r vs in
-      items @ [ Group (List.length vs) ] @ box
+      items @ [ Group (List.length vs); New GC ]
   | Inj (i, v, t) ->
       let types =
         match t with
@@ -128,7 +127,7 @@ let rec compile_value delta gamma locals functions v =
       in
       r v @ [ Inject (Some GC, i, types) ]
   | Pack (witness, v, _) ->
-      r v @ [ Pack (Index.Type (compile_type delta witness), rw_t) ] @ box
+      r v @ [ Pack (Index.Type (compile_type delta witness), rw_t); New GC ]
   | Fun _ -> failwith "functions should be compiled with [compile_fun]"
   | Var v ->
       let idx =
@@ -170,9 +169,9 @@ let rec compile_expr delta gamma locals functions e =
         [] )
   | Project (n, v) ->
       (cv v @ [ Load (Path.Path [ Path.Component.Proj n ], Follow) ], locals, [])
-  | New v -> (cv v @ [ New (ConcreteMemory.GC, rw_t) ], locals, [])
+  | New v -> (cv v @ [ New ConcreteMemory.GC ], locals, [])
   | Deref v -> (cv v @ [ Load (Path.Path [], Follow) ], locals, [])
-  | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path [], None) ], locals, [])
+  | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path []) ], locals, [])
   | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals, [])
   | Unfold v -> (cv v @ [ Unfold ], locals, [])
   | Unpack (var, (n, t), v, e) ->

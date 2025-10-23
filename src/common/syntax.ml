@@ -862,9 +862,10 @@ module Instruction = struct
     | Unpack of BlockType.t * LocalFx.t * t list
     | Tag
     | Untag
-    | New of ConcreteMemory.t * Type.t
+    | Cast of Type.t
+    | New of ConcreteMemory.t
     | Load of Path.t * Consume.t
-    | Store of Path.t * Type.t option
+    | Store of Path.t
     | Swap of Path.t
   [@@deriving eq, ord, variants, sexp]
 
@@ -933,11 +934,10 @@ module Instruction = struct
           BlockType.pp bt LocalFx.pp lfx pp_instrs instrs
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
-    | New (m, t) ->
-        fprintf ff "@[<2>new@ %a@ %a@]" ConcreteMemory.pp m Type.pp t
+    | Cast t -> fprintf ff "@[<2>cast@ %a@]" Type.pp t
+    | New m -> fprintf ff "@[<2>new@ %a@]" ConcreteMemory.pp m
     | Load (p, c) -> fprintf ff "@[<2>load@ %a@ %a@]" Path.pp p Consume.pp c
-    | Store (p, None) -> fprintf ff "@[<2>store@ %a@]" Path.pp p
-    | Store (p, Some t) -> fprintf ff "@[<2>store@ %a@ %a@]" Path.pp p Type.pp t
+    | Store p -> fprintf ff "@[<2>store@ %a@]" Path.pp p
     | Swap p -> fprintf ff "@[<2>swap@ %a@]" Path.pp p
 end
 

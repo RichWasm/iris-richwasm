@@ -51,6 +51,7 @@ Definition proj_instr_ty (e: instruction) : instruction_type :=
   | IUnpack ty _ _
   | ITag ty
   | IUntag ty
+  | ICast ty
   | INew ty
   | ILoad ty _
   | IStore ty _

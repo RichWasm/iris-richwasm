@@ -185,17 +185,15 @@ Definition primitive_size (ι : primitive_rep) : nat :=
 Definition primitives_size : list primitive_rep -> nat :=
   list_sum ∘ map primitive_size.
 
+Definition eval_rep_size (ρ : representation) : option nat :=
+  ιs ← eval_rep ρ;
+  Some (list_sum (map primitive_size ιs)).
+
 Fixpoint eval_size (σ : size) : option nat :=
   match σ with
   | VarS _ => None
-  | SumS σs =>
-      ns ← mapM eval_size σs;
-      Some (1 + list_max ns)
-  | ProdS σs =>
-      ns ← mapM eval_size σs;
-      Some (list_sum ns)
-  | RepS ρ =>
-      ιs ← eval_rep ρ;
-      Some (list_sum (map primitive_size ιs))
+  | SumS σs => ns ← mapM eval_size σs; Some (1 + list_max ns)
+  | ProdS σs => ns ← mapM eval_size σs; Some (list_sum ns)
+  | RepS ρ => eval_rep_size ρ
   | ConstS n => Some n
   end.
