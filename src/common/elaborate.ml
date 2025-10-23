@@ -236,8 +236,8 @@ let kind_of_typ (env : A.Kind.t list) : B.Type.t -> B.Kind.t t = function
   | StructT (k, _)
   | RefT (k, _, _)
   | CodeRefT (k, _)
-  | PadT (k, _, _)
   | SerT (k, _)
+  | UninitT (k, _)
   | RecT (k, _)
   | ExistsMemT (k, _)
   | ExistsRepT (k, _)
@@ -341,15 +341,6 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
   | CodeRef ft ->
       let+ ft' = elab_function_type env ft in
       CodeRefT (VALTYPE (PrimR I32R, ImCopy, ImDrop), ft')
-  | Pad (size, t) ->
-      let size' = elab_size size in
-      let* t' = elab_type env t in
-      let* dropability =
-        kind_of_typ env t' >>= function
-        | MEMTYPE (_, dropability) -> ret dropability
-        | _ -> fail (ExpectedMEMTYPE ("Pad", t'))
-      in
-      ret @@ PadT (MEMTYPE (Sized size', dropability), size', t')
   | Ser t ->
       let* t' = elab_type env t in
       let* rep, dropability =
@@ -358,6 +349,9 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
         | _ -> fail (ExpectedVALTYPE ("Ser", t'))
       in
       ret @@ SerT (MEMTYPE (Sized (RepS rep), dropability), t')
+  | Uninit size ->
+      let size' = elab_size size in
+      ret @@ UninitT (MEMTYPE (Sized size', ImDrop), size')
   | Rec (kind, t) ->
       let env' = kind :: env in
       let* t' = elab_type env' t in

@@ -118,8 +118,8 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | RefT κ _ _
   | I31T κ
   | CodeRefT κ _
-  | PadT κ _ _
   | SerT κ _
+  | UninitT κ _
   | RecT κ _
   | ExistsMemT κ _
   | ExistsRepT κ _
@@ -158,15 +158,7 @@ Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
 Definition type_f64 : type := float_type_type F64T.
-
-Definition type_val_unit : type :=
-  ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [].
-
-Definition type_mem_unit : type :=
-  StructT (MEMTYPE (Sized (ProdS [])) ImDrop) [].
-
-Definition type_mem_uninit (σ : size) : type :=
-  PadT (MEMTYPE (Sized σ) ImDrop) σ type_mem_unit.
+Definition type_uninit (σ : size) : type := UninitT (MEMTYPE (Sized σ) ImDrop) σ.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_rep (ν : num_type) : primitive_rep :=

@@ -301,13 +301,13 @@ Section Relations.
            na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
            na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl))%I.
 
-  Definition pad_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv, (∃ ws ws', ⌜sv = SWords (ws ++ ws')⌝ ∗ ▷ vrel se τ (SWords ws))%I.
-
   Definition ser_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
       (∃ rvs wss,
          ⌜sv = SWords (concat wss)⌝ ∗ ⌜Forall2 ser_value rvs wss⌝ ∗ ▷ vrel se τ (SValues rvs))%I.
+
+  Definition uninit_interp (vrel : value_relation) (se : semantic_env) (σ : size) : SVR :=
+    λne sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
 
   Definition rec_interp (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
     λne sv,
@@ -354,10 +354,10 @@ Section Relations.
       | RefT _ (ConstM MemMM) τ => ref_mm_interp vrel se τ
       | RefT _ (ConstM MemGC) τ => ref_gc_interp vrel se τ
       | CodeRefT _ ϕ => coderef_interp vrel se ϕ
-      | PadT (VALTYPE _ _ _) _ _ => λne _, False
-      | PadT (MEMTYPE _ _) _ τ => pad_interp vrel se τ
       | SerT (VALTYPE _ _ _) _ => λne _, False
       | SerT (MEMTYPE _ _) τ => ser_interp vrel se τ
+      | UninitT (VALTYPE _ _ _) _ => λne _, False
+      | UninitT (MEMTYPE _ _) σ => uninit_interp vrel se σ
       | RecT κ τ => rec_interp vrel se κ τ
       | ExistsMemT _ τ => exists_mem_interp vrel se τ
       | ExistsRepT _ τ => exists_rep_interp vrel se τ

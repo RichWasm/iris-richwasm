@@ -148,15 +148,14 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   kind_ok F.(fc_kind_ctx) κ ->
   function_type_ok F ϕ ->
   type_ok F (CodeRefT κ ϕ)
-| OKPadT F κ σ τ :
-  kind_ok F.(fc_kind_ctx) κ ->
-  size_ok F.(fc_kind_ctx) σ ->
-  type_ok F τ ->
-  type_ok F (PadT κ σ τ)
 | OKSerT F κ τ :
   kind_ok F.(fc_kind_ctx) κ ->
   type_ok F τ ->
   type_ok F (SerT κ τ)
+| OKUninitT F κ σ :
+  kind_ok F.(fc_kind_ctx) κ ->
+  size_ok F.(fc_kind_ctx) σ ->
+  type_ok F (UninitT κ σ)
 | OKRecT F κ τ :
   kind_ok F.(fc_kind_ctx) κ ->
   type_ok (F <| fc_type_vars ::= cons κ |>) τ ->
@@ -275,15 +274,14 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   function_type_ok F ϕ ->
   let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
   has_kind F (CodeRefT κ ϕ) κ
-| KPad F σ0 σ τ δ :
-  size_ok F.(fc_kind_ctx) σ ->
-  has_kind F τ (MEMTYPE (Sized σ0) δ) ->
-  let κ := MEMTYPE (Sized σ) δ in
-  has_kind F (PadT κ σ τ) κ
 | KSer F τ ρ χ δ :
   has_kind F τ (VALTYPE ρ χ δ) ->
   let κ := MEMTYPE (Sized (RepS ρ)) δ in
   has_kind F (SerT κ τ) κ
+| KUninit F σ :
+  size_ok F.(fc_kind_ctx) σ ->
+  let κ := MEMTYPE (Sized σ) ImDrop in
+  has_kind F (UninitT κ σ) κ
 | KRec F τ κ :
   has_kind (F <| fc_type_vars ::= cons κ |>) τ κ ->
   has_kind F (RecT κ τ) κ
@@ -358,15 +356,14 @@ Section HasKindInd.
       (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
                          let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
                          P F (CodeRefT κ ϕ) κ)
-      (HPad : forall F σ0 σ τ δ,
-          size_ok F.(fc_kind_ctx) σ ->
-          P F τ (MEMTYPE (Sized σ0) δ) ->
-          let κ := MEMTYPE (Sized σ) δ in
-          P F (PadT κ σ τ) κ)
       (HSer : forall F τ ρ χ δ,
           P F τ (VALTYPE ρ χ δ) ->
           let κ := MEMTYPE (Sized (RepS ρ)) δ in
           P F (SerT κ τ) κ)
+      (HUninit : forall F σ,
+          size_ok F.(fc_kind_ctx) σ ->
+          let κ := MEMTYPE (Sized σ) ImDrop in
+          P F (UninitT κ σ) κ)
       (HRec : forall F τ κ,
           P (F <| fc_type_vars ::= cons κ |>) τ κ ->
           P F (RecT κ τ) κ)
@@ -414,8 +411,8 @@ Section HasKindInd.
     | KRef F τ ζ μ δ H1 H2 => HRef F τ ζ μ δ H1 (has_kind_ind' _ _ _ H2)
     | KRefGC F τ ζ δ H1 => HRefGC F τ ζ δ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
-    | KPad F σ0 σ τ μ δ H1 => HPad F σ0 σ τ μ δ (has_kind_ind' _ _ _ H1)
     | KSer F τ ρ χ δ H1 => HSer F τ ρ χ δ (has_kind_ind' _ _ _ H1)
+    | KUninit F σ H1 => HUninit F σ H1
     | KRec F τ κ H1 => HRec F τ κ (has_kind_ind' _ _ _ H1)
     | KExistsMem F τ κ H1 H2 => HExistsMem F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsRep F τ κ H1 H2 => HExistsRep F τ κ H1 (has_kind_ind' _ _ _ H2)
@@ -546,10 +543,7 @@ Inductive resolves_path : type -> path -> option type -> path_result -> Prop :=
        pr_target := pr.(pr_target);
        pr_replaced := ProdT κ (τs0 ++ pr.(pr_replaced) :: τs') |}
   in
-  resolves_path (ProdT κ (τs0 ++ τ :: τs')) (PCProj i :: π) τ__π pr'
-| PathPad pr π τ τ__π κ σ :
-  resolves_path τ π τ__π pr ->
-  resolves_path (PadT κ σ τ) (PCSkip :: π) τ__π pr.
+  resolves_path (ProdT κ (τs0 ++ τ :: τs')) (PCProj i :: π) τ__π pr'.
 
 Inductive stores_as : function_ctx -> type -> type -> Prop :=
 | SAProd F κ κ' τs τs' :
@@ -557,11 +551,6 @@ Inductive stores_as : function_ctx -> type -> type -> Prop :=
   stores_as F (ProdT κ τs) (ProdT κ' τs')
 | SASer F κ τ :
   stores_as F τ (SerT κ τ)
-| SAPad F κ τ τ' σ σ' :
-  has_size F τ' σ' ->
-  size_leq σ' σ ->
-  stores_as F τ τ' ->
-  stores_as F τ (PadT κ σ τ')
 | SAExistsMem F κ κ' τ τ' :
   stores_as F τ τ' ->
   stores_as F (ExistsMemT κ τ) (ExistsMemT κ' τ')
@@ -894,7 +883,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (ILoad ψ π) ψ L
 | TLoadMM M F L π τ τval κ κ' σ pr :
   let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
-  resolves_path τ π (Some (type_mem_uninit σ)) pr ->
+  resolves_path τ π (Some (type_uninit σ)) pr ->
   has_size F pr.(pr_target) σ ->
   loads_as F pr.(pr_target) τval ->
   Forall (mono_size F) pr.(pr_prefix) ->
@@ -1129,7 +1118,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (ILoad ψ π) ψ L)
       (HRefMMLoad : forall M F L π τ τval κ κ' σ pr,
           let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
-          resolves_path τ π (Some (type_mem_uninit σ)) pr ->
+          resolves_path τ π (Some (type_uninit σ)) pr ->
           has_size F pr.(pr_target) σ ->
           loads_as F pr.(pr_target) τval ->
           Forall (mono_size F) pr.(pr_prefix) ->

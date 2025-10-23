@@ -68,10 +68,8 @@ Proof.
   - eapply KCodeRef.
     fold_subst.
     admit.
-  - eapply KPad.
-    { admit. }
-    fold_subst.
-    eauto.
+  - eapply KUninit.
+    admit.
   - eapply KRec.
     fold_subst.
     admit.

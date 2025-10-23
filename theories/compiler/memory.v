@@ -52,7 +52,6 @@ Section Compiler.
         τ' ← τs !! i;
         '(n, τ'') ← resolve_path fe τ' π';
         Some (N.of_nat (list_sum ns) + n, τ'')%N
-    | PadT _ _ τ', PCSkip :: π' => resolve_path fe τ' π'
     | _, _ => None
     end.
 
@@ -140,7 +139,6 @@ Section Compiler.
         store_items_as off vs ρs τs
     | _, SerT _ _ => try_option EFail (eval_rep ρ) ≫= store_as_ser cm a off vs
     (* | _, GCPtrT _ _ => try_option EFail (head vs) ≫= store_as_gcptr a off *)
-    | _, PadT _ _ τ'
     | _, ExistsMemT _ τ'
     | _, ExistsRepT _ τ'
     | _, ExistsSizeT _ τ'
@@ -191,7 +189,6 @@ Section Compiler.
         ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
         try_option EFail (eval_rep ρ) ≫= load_from_ser cm a off
     (* | GCPtrT _ _ => load_from_gcptr a off *)
-    | PadT _ _ τ'
     | ExistsMemT _ τ'
     | ExistsRepT _ τ'
     | ExistsSizeT _ τ'

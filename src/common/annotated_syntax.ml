@@ -500,11 +500,10 @@ module Internal = struct
       | CodeRefT (kind, ft) ->
           fprintf ff "(CodeRefT %a %a)" Kind.pp_roqc kind pp_roqc_function_typ
             ft
-      | PadT (kind, size, t) ->
-          fprintf ff "(PadT %a %a %a)" Kind.pp_roqc kind Size.pp_roqc size
-            pp_roqc_typ t
       | SerT (kind, t) ->
           fprintf ff "(SerT %a %a)" Kind.pp_roqc kind pp_roqc_typ t
+      | UninitT (kind, size) ->
+          fprintf ff "(PadT %a %a)" Kind.pp_roqc kind Size.pp_roqc size
       | RecT (kind, t) ->
           fprintf ff "(RecT %a %a)" Kind.pp_roqc kind pp_roqc_typ t
       | ExistsMemT (kind, t) ->

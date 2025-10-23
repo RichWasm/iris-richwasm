@@ -69,8 +69,8 @@ ProdT : kind -> "list" (type) -> type
 StructT : kind -> "list" (type) -> type
 RefT : kind -> memory -> type -> type
 CodeRefT : kind -> function_type -> type
-PadT : kind -> size -> type -> type
 SerT : kind -> type -> type
+UninitT : kind -> size -> type
 RecT : kind -> (bind type in type) -> type
 ExistsMemT : kind -> (bind memory in type) -> type
 ExistsRepT : kind -> (bind representation in type) -> type
