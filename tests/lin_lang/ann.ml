@@ -60,7 +60,8 @@ let%expect_test "basic functionality" =
      (m_table ()) (m_exports (0))) |}];
 
   run {| (1, 2, 3, 4) |};
-  [%expect {xxx|
+  [%expect
+    {xxx|
     {|
         m_imports := [];
         m_functions :=
@@ -97,7 +98,8 @@ let%expect_test "basic functionality" =
         m_exports := [0];
         |} |xxx}];
   next ();
-  [%expect {|
+  [%expect
+    {|
     ((m_imports ())
      (m_functions
       (((mf_type
@@ -136,7 +138,8 @@ let%expect_test "basic functionality" =
      (m_table ()) (m_exports (0))) |}];
 
   run {| (tup (tup 1 (tup 2 3) 4 5) (tup 6 7)) |};
-  [%expect {xxx|
+  [%expect
+    {xxx|
     {|
         m_imports := [];
         m_functions :=
@@ -291,8 +294,6 @@ let%expect_test "basic functionality" =
   (* run {| (fun foo ()) |}; *)
   (* [%expect {| *)
     (* FAILURE (TODO memory) |}]; *)
-
-
   ()
 
 let%expect_test "examples" =

@@ -595,15 +595,10 @@ let function_typ_inst (idx : A.Index.t) (ft : A.FunctionType.t) =
 let function_typ_insts (idxs : A.Index.t list) (ft : A.FunctionType.t) =
   List.fold ~init:ft ~f:(fun ft idx -> function_typ_inst idx ft) idxs
 
-let rec elab_instruction (env : Env.t) :
+let[@warning "-27"] rec elab_instruction (env : Env.t) :
     A.Instruction.t -> B.Instruction.t InstrM.t =
   let open InstrM in
   let open B.Instruction in
-  (* let combine_its (its : B.InstructionType.t list) = *)
-  (*   List.fold its ~init:[] ~f:(fun acc it -> *)
-  (*      *)
-  (* ) *)
-  (* in *)
   let handle_bt (bt : A.BlockType.t) =
     let* init_st = get in
     let* consume, result =
@@ -649,10 +644,7 @@ let rec elab_instruction (env : Env.t) :
       let* instrs', st' =
         lift_result @@ mapM ~f:(elab_instruction env') instrs st_inner
       in
-      let* () =
-        ignore st';
-        fail (TODO "check lfx")
-      in
+      let* () = fail (TODO "check lfx") in
       let* lfx' = lift_result @@ elab_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
       ret @@ IBlock (it, lfx', instrs')
@@ -671,11 +663,7 @@ let rec elab_instruction (env : Env.t) :
       let* els', els_st =
         lift_result @@ mapM ~f:(elab_instruction env') els st_inner
       in
-      let* () =
-        ignore thn_st;
-        ignore els_st;
-        fail (TODO "check lfx")
-      in
+      let* () = fail (TODO "check lfx") in
       let* lfx' = lift_result @@ elab_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
       ret @@ IIte (it, lfx', thn', els')
@@ -790,9 +778,6 @@ let rec elab_instruction (env : Env.t) :
             let* case', st' =
               mapM ~f:(elab_instruction env') case st_inner |> lift_result
             in
-            ignore case';
-            ignore st';
-            ignore acc;
             fail (TODO "case: check lfx, st management"))
       in
       let* it = instr_t_of env.kinds consume result in
@@ -847,27 +832,11 @@ let rec elab_instruction (env : Env.t) :
       let* () = push out in
       let* it = instr_t_of env.kinds [ Rec (k, t_inner) ] [ out ] in
       ret @@ IUnfold it
-  | Pack (Mem mem, t) ->
-      ignore mem;
-      ignore t;
-      fail (TODO "pack")
-  | Pack (Rep rep, t) ->
-      ignore rep;
-      ignore t;
-      fail (TODO "pack")
-  | Pack (Size sz, t) ->
-      ignore sz;
-      ignore t;
-      fail (TODO "pack")
-  | Pack (Type typ, t) ->
-      ignore typ;
-      ignore t;
-      fail (TODO "pack")
-  | Unpack (bt, lfx, instrs) ->
-      ignore bt;
-      ignore lfx;
-      ignore instrs;
-      fail (TODO "unpack")
+  | Pack (Mem mem, t) -> fail (TODO "pack")
+  | Pack (Rep rep, t) -> fail (TODO "pack")
+  | Pack (Size sz, t) -> fail (TODO "pack")
+  | Pack (Type typ, t) -> fail (TODO "pack")
+  | Unpack (bt, lfx, instrs) -> fail (TODO "unpack")
   | Tag ->
       let* it = mono_in_out env.kinds "Tag" [ Num (Int I32) ] [ I31 ] in
       ret @@ ITag it

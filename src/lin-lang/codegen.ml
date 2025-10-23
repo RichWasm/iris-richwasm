@@ -101,11 +101,11 @@ module Compile = struct
     | Rec t ->
         let* rep = rep_of_typ env t in
         (* FIXME: if this has an inner coderef thing *)
-        let kind : B.Kind.t = (VALTYPE (rep, NoCopy, ExDrop)) in
+        let kind : B.Kind.t = VALTYPE (rep, NoCopy, ExDrop) in
         let* t' = compile_type env t in
         Rec (kind, t') |> ret
     | Exists t ->
-        let kind : B.Kind.t = (VALTYPE (Prim Ptr, NoCopy, ExDrop)) in
+        let kind : B.Kind.t = VALTYPE (Prim Ptr, NoCopy, ExDrop) in
         let* t' = compile_type env t in
         ret @@ Exists (Type kind, t')
     | Ref t -> compile_type env t >>| ref (Concrete MM)

@@ -60,6 +60,8 @@
 
           richwasm-ocaml-deps = with ocamlPackages; [
             base
+            core
+            core_unix
             zarith
             ppx_import
             ppx_deriving

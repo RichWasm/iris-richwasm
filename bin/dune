@@ -2,4 +2,12 @@
  (public_name richwasm)
  (name main)
  (modules main :standard)
- (libraries iris-richwasm.common iris-richwasm.lin-lang))
+ (libraries
+  core
+  core_unix.command_unix
+  iris-richwasm.runtime
+  iris-richwasm.common
+  iris-richwasm.lin-lang
+  iris-richwasm.mini-ml)
+ (preprocess
+  (pps ppx_jane)))
