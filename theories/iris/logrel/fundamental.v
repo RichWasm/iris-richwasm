@@ -90,13 +90,14 @@ Section Fundamental.
   (* useful lemma for proving compat lemmas for instructions erased by the compiler. *)
   Lemma sem_type_erased M F L WT WL ψ τs1 τs2 :
     ψ = InstrT τs1 τs2 ->
-    ⊢ (∀ se s__mem s__rep s__size vs,
-          values_interp rti sr se (map (subst_type s__mem s__rep s__size VarT) τs1) vs -∗
-          values_interp rti sr se (map (subst_type s__mem s__rep s__size VarT) τs2) vs) -∗
+    ⊢ (∀ se vs,
+          values_interp rti sr se τs1 vs -∗
+          values_interp rti sr se τs2 vs) -∗
       have_instruction_type_sem rti sr mr M F L WT WL [] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (s__mem s__rep s__size se inst fr lh rvs vs Θ Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
+    iIntros (se inst lh Henv) "Hinst Hctx".
+    iIntros (fr rvs vs θ) "Hrvs Hvs Hfr Hrt Hf Hrun".
     rewrite app_nil_r.
     unfold expr_interp.
     iApply lenient_wp_value; first done.
@@ -107,13 +108,14 @@ Section Fundamental.
 
   Lemma sem_type_erased_nop M F L WT WL ψ τs1 τs2 :
     ψ = InstrT τs1 τs2 ->
-    ⊢ (∀ se s__mem s__rep s__size vs,
-          values_interp rti sr se (map (subst_type s__mem s__rep s__size VarT) τs1) vs -∗
-          ▷values_interp rti sr se (map (subst_type s__mem s__rep s__size VarT) τs2) vs) -∗
+    ⊢ (∀ se vs,
+          values_interp rti sr se τs1 vs -∗
+          ▷values_interp rti sr se τs2 vs) -∗
       have_instruction_type_sem rti sr mr M F L WT WL [AI_basic BI_nop] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (s__mem s__rep s__size se inst fr lh rvs vs θ Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
+    iIntros (se inst lh Henv) "Hinst Hctx".
+    iIntros (fr rvs vs θ) "Hrvs Hvs Hfr Hrt Hf Hrun".
     unfold expr_interp.
     iApply lenient_wp_val_app'.
     iApply (lenient_wp_nop with "[$] [$] [Hfr] []").
@@ -182,7 +184,8 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? Henv) "Hinst Hctx".
+    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
     unfold expr_interp.
 
     iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
@@ -213,12 +216,6 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma eval_rep_subst_eq ρ ιs s__rep :
-    eval_rep ρ = Some ιs ->
-    subst_representation s__rep ρ = ρ.
-  Proof.
-  Admitted.
-
   Lemma compat_copy M F L wt wt' wtf wl wl' wlf τ es' :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -236,18 +233,14 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlh Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? Henv) "#Hinst #Hlh".
+    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
     unfold expr_interp.
-    cbn.
     inv_cg_try_option Htype_rep.
     inv_cg_try_option Heval_rep.
     rewrite app_nil_l.
     inversion Hcopy as [F' τ' ρ' χ ? Hhas_kind HF' Hτ' Hχ].
     subst F' τ'.
-    pose proof (kinding_sound rti sr mr F s__mem s__rep s__size se _ _ Hhas_kind) as Hhas_kind_sem.
-    pose proof (Hhas_kind_sem Henv) as Hskind.
-    destruct Hskind as [Hrefine Hcopyable].
-    cbn in Hcopyable.
     assert (ρ' = ρ).
     {
       apply type_rep_has_kind_agree in Hhas_kind.
@@ -255,6 +248,14 @@ Section Fundamental.
       congruence.
     }
     subst ρ'.
+    assert (Heval: eval_kind se (VALTYPE ρ ExCopy δ) = Some (SVALTYPE ιs ExCopy δ)).
+    {
+      unfold eval_kind.
+      admit.
+    }
+    pose proof (kinding_sound rti sr mr F se _ _ _ Hhas_kind Henv Heval) as Hskind.
+    destruct Hskind as [Hrefine Hcopyable].
+    cbn in Hcopyable.
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
     destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
@@ -317,7 +318,8 @@ Section Fundamental.
 
     (* Some basic intros, unfolds, proving empty lists empty *)
     all: unfold have_instruction_type_sem.
-    all: iIntros (? ? ? ? ? ? ? ? ? ?) "Henv Hinst Hlh Hrvs Hvs Hframe Hrt Hfr Hrun".
+    all: iIntros (? ? ?) "Henv Hinst Hlh".
+    all: iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
     all: iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
     all: iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
     all: iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss";
@@ -394,30 +396,30 @@ Section Fundamental.
   Qed. 
 
   Lemma translate_types_app ks t1s t2s res :
-    translate_types ks (t1s ++ t2s) = Some res ->
-    exists res1 res2, translate_types ks t1s = Some res1 /\
-                   translate_types ks t2s = Some res2 /\
-                   res = res1 ++ res2.
+    prelude.translate_types ks (t1s ++ t2s) = Some res ->
+    exists res1 res2, prelude.translate_types ks t1s = Some res1 /\
+                 prelude.translate_types ks t2s = Some res2 /\
+                 res = res1 ++ res2.
   Proof.
     generalize dependent res. 
     induction t1s => //=.
     - intros res Htrans. exists [], res. done.
     - intros res Htrans.
-      unfold translate_types in Htrans.
+      unfold prelude.translate_types in Htrans.
       simpl in Htrans.
-      destruct (translate_type ks a) eqn:Ha; simpl in Htrans => //. 
-      destruct (mapM (translate_type ks) (t1s ++ t2s)) eqn:Htrans';
+      destruct (prelude.translate_type ks a) eqn:Ha; simpl in Htrans => //. 
+      destruct (mapM (prelude.translate_type ks) (t1s ++ t2s)) eqn:Htrans';
         simpl in Htrans => //. 
       inversion Htrans; subst res.
       edestruct IHt1s as (res1 & res2 & Htrans1 & Htrans2 & Hres).
-      + unfold translate_types.
+      + unfold prelude.translate_types.
         rewrite Htrans'.
         simpl. done.
       + exists (l ++ res1), res2.
         repeat split => //=.
-        * rewrite /translate_types /=.
-          unfold translate_types in Htrans1.
-          destruct (mapM (translate_type ks) t1s) eqn:Htrans1' => //. 
+        * rewrite /prelude.translate_types /=.
+          unfold prelude.translate_types in Htrans1.
+          destruct (mapM (prelude.translate_type ks) t1s) eqn:Htrans1' => //. 
           rewrite Ha /=.
           simpl in Htrans1. inversion Htrans1; subst res1 => //.
         * rewrite Hres app_assoc //.
@@ -550,7 +552,7 @@ Section Fundamental.
        *)   
 
   Lemma translate_types_length_subst ks ts res vs se smem srep ssize :
-    translate_types ks ts = Some res ->
+    prelude.translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ map (subst_type smem srep ssize VarT) ts;vs, 
        value_interp rti sr se y1 (SValues y2))
        ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
@@ -573,8 +575,8 @@ Section Fundamental.
     iClear "H".
  *)
 
-  Lemma translate_types_length ks ts res vs se:
-    translate_types ks ts = Some res ->
+  Lemma translate_types_length (ks : list kind) ts res vs se:
+    prelude.translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ ts;vs, 
        value_interp rti sr se y1 (SValues y2))
        ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
@@ -773,8 +775,8 @@ Section Fundamental.
     cbn in Hrun1.
     inv_cg_try_option Hrun1.
     subst wt0 wl0 es_nil.
-    destruct (translate_types (fc_type_vars F) τs1) as [ts1|] eqn:Hts1; last done.
-    destruct (translate_types (fc_type_vars F) τs2) as [ts2|] eqn:Hts2; last done.
+    destruct (prelude.translate_types (fc_type_vars F) τs1) as [ts1|] eqn:Hts1; last done.
+    destruct (prelude.translate_types (fc_type_vars F) τs2) as [ts2|] eqn:Hts2; last done.
     simpl in Heq_some.
     inversion Heq_some; subst ρ; clear Heq_some.
     rewrite app_nil_r in Hrun2.
@@ -1085,7 +1087,8 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Proof.
     intros fe WT WL F' ψ Hok Hthen Helse Hcodegen.
-    iIntros (smem srep ssize se inst fr lh rvs vs θ) "%Hsubst #Hinst #Hctxt Hrvs Hvss Hvsl Hrt Hfr Hrun".
+    iIntros (se inst lh Hsubst) "#Hinst #Hctxt".
+    iIntros (fr rvs vs θ) "Hrvs Hvss Hvsl Hrt Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
     (*
     iDestruct "Hvsl" as (vsl' vswl') "(-> & %Hlocs & %Hrestype & Hlocs)".
@@ -1644,14 +1647,14 @@ Section Fundamental.
     cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg.
     simpl to_e_list.
     iApply sem_type_erased; first done.
-    iIntros (se s__mem s__rep s__size vs) "Hrec".
+    iIntros (se vs) "Hrec".
     do 2 rewrite values_interp_one_eq value_interp_eq.
     cbn [subst_type].
     cbn -[closure_interp0].
     iDestruct "Hrec" as "(%κ' & %Hκ' & Hkindinterp & %i & %j & %cl & %Hvs & Hrec)".
     inversion Hκ'; subst κ'; clear Hκ'.
     inversion Hvs; subst vs; clear Hvs.
-    iExists (VALTYPE (PrimR I32R) ImCopy ImDrop).
+    iExists (SVALTYPE [I32R] ImCopy ImDrop).
     iSplit; first done.
     iFrame.
     iExists i, j, cl.
@@ -1661,7 +1664,6 @@ Section Fundamental.
     iModIntro.
     (* prove that closure interp at ϕ implies closure interp at any instantiation ϕ' *)
     (* Will probably want to proceed by induction on function_type_inst? *)
-    admit.
   Admitted.
 
   Lemma compat_call M F L wt wt' wtf wl wl' wlf es' i ixs ϕ τs1 τs2 :
@@ -1793,27 +1795,11 @@ Section Fundamental.
     cbn in Hcg; inversion Hcg; subst wt' wl' es'.
     simpl to_e_list.
     iApply sem_type_erased_nop; first done.
-    iIntros (se s__mem s__rep s__size vs) "Hvs".
+    iIntros (se vs) "Hvs".
     rewrite values_interp_one_eq value_interp_eq.
     cbn.
     iDestruct "Hvs" as "(%κ' & %Hκ' & Hkind & Hvs)".
-    inversion Hκ'; subst κ'; clear Hκ'.
-    inversion Hmono.
-    inversion H; subst.
-    inversion H3; subst.
-    inversion H1; subst.
-    eapply type_kind_has_kind_agree in H5; cbn; auto.
-    apply subkind_preserves_valtype in H5.
-    destruct H5 as (χ' & δ' & ->).
-    cbn [subst_kind].
-    unfold prod_interp.
-    iDestruct "Hvs" as "(%vss & %Hsv & Hvs)".
-    inversion Hsv; subst vs.
-    iExists vss.
-    iSplit; first done.
-    iApply big_sepL2_later_2.
-    by rewrite big_sepL2_flip.
-  Qed.
+  Admitted.
 
   Lemma compat_fold M F L wt wt' wtf wl wl' wlf es' τ κ :
     let fe := fe_of_context F in
@@ -1829,7 +1815,7 @@ Section Fundamental.
     cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg.
     simpl to_e_list.
     iApply sem_type_erased; first done.
-    iIntros (se s__mem s__rep s__size vs) "Hrec".
+    iIntros (se vs) "Hrec".
     do 2 rewrite values_interp_one_eq value_interp_eq.
     iEval (cbn).
     admit.
@@ -1849,7 +1835,7 @@ Section Fundamental.
     cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg.
     simpl to_e_list.
     iApply sem_type_erased; first done.
-    iIntros (se s__mem s__rep s__size vs) "Hrec".
+    iIntros (se vs) "Hrec".
     do 2 rewrite values_interp_one_eq value_interp_eq.
     iEval (cbn) in "Hrec".
     admit.
@@ -1869,7 +1855,7 @@ Section Fundamental.
     cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg.
     simpl to_e_list.
     iApply sem_type_erased; first done.
-    iIntros (se s__mem s__rep s__size vs) "Hrec".
+    iIntros (se vs) "Hrec".
     do 2 rewrite values_interp_one_eq value_interp_eq.
   Admitted.
 
@@ -1914,7 +1900,8 @@ Section Fundamental.
     intros fe WT WL ψ Hok Hcompile.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
-    iIntros (? ? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ?) "%Henv #Hinst #Hlf".
+    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show that rvs just has one thing in it *)
@@ -2005,7 +1992,8 @@ Section Fundamental.
     intros fe WT WL ψ Hok Hcompile.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
-    iIntros (? ? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? Henv) "#Hinst #Hlf".
+    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show that rvs just has one thing in it *)
@@ -2109,7 +2097,7 @@ Section Fundamental.
     has_copyability F τval ExCopy ->
     resolves_path τ π None pr ->
     pr.(pr_target) = SerT κser τval ->
-    Forall (mono_size F) (pr_prefix pr) ->
+    Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Copy)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
@@ -2123,7 +2111,7 @@ Section Fundamental.
     resolves_path τ π (Some (type_uninit σ)) pr ->
     has_size F pr.(pr_target) σ ->
     pr.(pr_target) = SerT κser τval ->
-    Forall (mono_size F) (pr_prefix pr) ->
+    Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Move)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
@@ -2137,7 +2125,7 @@ Section Fundamental.
     resolves_path τ π None pr ->
     has_dropability F pr.(pr_target) ImDrop ->
     pr.(pr_target) = SerT κser τval ->
-    Forall (mono_size F) (pr_prefix pr) ->
+    Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
@@ -2152,8 +2140,8 @@ Section Fundamental.
     has_dropability F pr.(pr_target) ImDrop ->
     has_size F pr.(pr_target) σ ->
     has_rep F τval ρ ->
-    eval_size σ = eval_rep_size ρ ->
-    Forall (mono_size F) (pr_prefix pr) ->
+    eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
+    Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
@@ -2165,7 +2153,7 @@ Section Fundamental.
      let WL := wl ++ wl' ++ wlf in
      let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
      resolves_path τ π None pr ->
-     Forall (mono_size F) (pr_prefix pr) ->
+     Forall (has_mono_size F) (pr_prefix pr) ->
      pr.(pr_target) = SerT κser τval ->
      has_instruction_type_ok F ψ L ->
      run_codegen (compile_instr mr fe (ISwap ψ π)) wt wl = inr ((), wt', wl', es') ->
@@ -2184,7 +2172,8 @@ Section Fundamental.
     inversion Hcompile.
 
     unfold have_instruction_type_sem.
-    iIntros (? ? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? Henv) "#Hinst #Hlf".
+    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
     iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
@@ -2545,7 +2534,8 @@ Section Fundamental.
     intros fe WT WL Hmono IH Hcg.
     eapply (IH _ _ _ _ _ wlf) in Hcg.
     unfold have_instruction_type_sem.
-    iIntros (s__mem s__rep s__size se inst fr lh rvs vs' Henv) "Hinst Hctx Hrvs Hvs Hfr Hf Hrun".
+    iIntros (se inst lh Henv) "Hinst Hctx".
+    iIntros (fr rvs vs' θ) "Hrvs Hvs Hfr Hf Hrun".
     (*
     iPoseProof (Hcg $! s__mem s__rep s__size se inst lh Henv with "Hinst Hctx") as "IH".
     iSpecialize ("IH" $! fr).

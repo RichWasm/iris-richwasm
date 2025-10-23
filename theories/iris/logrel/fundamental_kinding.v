@@ -104,43 +104,11 @@ Section FundamentalKinding.
     done.
   Qed.
   
-  Lemma subkind_sound κ κ' :
-    subkind_of κ κ' ->
-    kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
-  Proof.
-    induction 1; cbn; eauto using semantic_type_le_refl.
-    (*
-    iIntros (sv [(μ' & ws & Hwords & Hsz) Hmem]).
-    iSplit; eauto.
-    iPureIntro.
-    exists μ', ws.
-    split; auto.
-    intros; congruence.
-    *)
-  Admitted.
-
-  Lemma rt_subkind_sound κ κ' :
-    clos_refl_trans _ subkind_of κ κ' ->
-    kind_as_type_interp (Σ := Σ) κ ⊑ kind_as_type_interp κ'.
-  Proof. 
-    intros H.
-    induction H.
-    - by apply subkind_sound.
-    - by apply semantic_type_le_refl.
-    - by eapply semantic_type_le_trans.
-  Qed.
-
-  Lemma subst_interp_kinds_map κs s__rep s__size se :
-    sem_env_interp (Σ := Σ) κs s__rep s__size se ->
-    map fst se = map (subst_kind s__rep s__size) κs.
-  Proof.
-  Admitted.
-
-  Theorem kinding_refinement F s__mem s__rep s__size se τ κ : 
+  Theorem kinding_refinement F (se: semantic_env) τ κ sκ : 
     has_kind F τ κ ->
-    subst_env_interp F s__mem s__rep s__size se ->
-    value_interp rti sr se (subst_type s__mem s__rep s__size VarT τ) ⊑
-      kind_as_type_interp (subst_kind s__rep s__size κ).
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    value_interp rti sr se τ ⊑ skind_as_type_interp sκ.
   Proof.
     (*
     iIntros "%Hhas_kind [%Hsubst Hse]".
@@ -164,21 +132,22 @@ Section FundamentalKinding.
   Admitted.
 
   Instance kind_as_type_persistent κ sv :
-    @Persistent (iProp Σ) (kind_as_type_interp κ sv).
+    @Persistent (iProp Σ) (skind_as_type_interp κ sv).
   Proof.
     destruct κ, sv; cbn; typeclasses eauto.
   Qed.
 
-  Lemma value_interp_var (se: semantic_env) (t: nat) (κ: kind) (T: semantic_type) :
+  Lemma value_interp_var (se: semantic_env) (t: nat) (κ: skind) (T: semantic_type) :
     se !! t = Some (κ, T) ->
-    value_interp rti sr se (VarT t) ≡ (λne sv, kind_as_type_interp κ sv ∗ T sv)%I.
+    value_interp rti sr se (VarT t) ≡ (λne sv, skind_as_type_interp κ sv ∗ T sv)%I.
   Proof.
-    intros.
     rewrite value_interp_part_eq.
-    intros sv.
     cbn.
     unfold type_var_interp.
-    rewrite !list_lookup_fmap.
+    unfold lookup.
+    unfold senv_kind_lookup, senv_type_lookup.
+    intros.
+    intros sv.
     rewrite !H.
     cbn.
     iSplit.
@@ -265,12 +234,10 @@ Section FundamentalKinding.
   Admitted.
   *)
 
-  Lemma copyability_kind ρ ιs χ δ :
-    eval_rep ρ = Some ιs ->
-    copyability_interp (Σ := Σ) χ (kind_as_type_interp (VALTYPE ρ χ δ)).
+  Lemma copyability_kind ιs χ δ :
+    copyability_interp (Σ := Σ) χ (skind_as_type_interp (SVALTYPE ιs χ δ)).
   Proof.
     unfold copyability_interp.
-    intros H.
     (*
     rewrite H.
     destruct χ.
@@ -300,10 +267,10 @@ Section FundamentalKinding.
   Instance copyability_proper : Proper (eq ==> equiv ==> equiv) (copyability_interp (Σ := Σ)).
   Admitted.
 
-  Theorem kinding_copyable F s__mem s__rep s__size se τ ρ χ δ : 
+  Theorem kinding_copyable F se τ ρ χ δ : 
     has_kind F τ (VALTYPE ρ χ δ) ->
-    subst_env_interp F s__mem s__rep s__size se ->
-    copyability_interp χ (value_interp rti sr se (subst_type s__mem s__rep s__size VarT τ)).
+    sem_env_interp F se ->
+    copyability_interp χ (value_interp rti sr se τ).
   Proof.
     intros Hkind.
     remember (VALTYPE ρ χ δ) as κ.
@@ -369,27 +336,23 @@ Section FundamentalKinding.
       cbn in Hκsubst, Hκinterp.
       cbn in *; subst.
       rewrite value_interp_var; eauto.
-      apply copyability_sep.
-      + eapply copyability_kind; eauto.
-        admit.
-      + cbn.
-        by destruct Hκinterp.
+      admit.
   Admitted.
 
-  Theorem kinding_sound F s__mem s__rep s__size se τ κ : 
+  Theorem kinding_sound F se τ κ sκ :
     has_kind F τ κ ->
-    subst_env_interp F s__mem s__rep s__size se ->
-    kind_interp (subst_kind s__rep s__size κ)
-      (value_interp rti sr se (subst_type s__mem s__rep s__size VarT τ)).
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    skind_interp sκ (value_interp rti sr se τ).
   Proof.
     intros Hkind. 
-    revert s__mem s__rep s__size se.
     intros * Hsubst.
     split.
     - eapply kinding_refinement; eauto.
-    - destruct κ; [| done].
+    - destruct sκ; [| done].
       cbn.
       eapply kinding_copyable; eauto.
-  Qed.
+      admit.
+  Admitted.
 
 End FundamentalKinding.

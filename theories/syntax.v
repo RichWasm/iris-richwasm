@@ -61,3 +61,7 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
   | IStore ψ _
   | ISwap ψ _ => ψ
   end.
+
+Inductive skind :=
+| SVALTYPE : list primitive_rep -> copyability -> dropability -> skind
+| SMEMTYPE : nat -> dropability -> skind.

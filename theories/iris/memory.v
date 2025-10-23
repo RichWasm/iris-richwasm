@@ -16,11 +16,11 @@ Definition address := N.
 
 Inductive pointer :=
 | PtrInt (n : Z)
-| PtrHeap (μ : concrete_memory) (ℓ : location).
+| PtrHeap (μ : smemory) (ℓ : location).
 
 Inductive root_pointer :=
 | RootInt (n : Z)
-| RootHeap (μ : concrete_memory) (a : address).
+| RootHeap (μ : smemory) (a : address).
 
 Inductive rep_value :=
 | PtrV (r : pointer)
@@ -33,7 +33,7 @@ Inductive word :=
 | WordPtr (p : pointer)
 | WordInt (n : Z).
 
-Definition address_map : Type := gmap location (concrete_memory * address).
+Definition address_map : Type := gmap location (smemory * address).
 Definition root_map : Type := gmap address location.
 Definition layout_map : Type := gmap location (list pointer_flag).
 Definition heap_map : Type := gmap location (list word).
@@ -43,7 +43,7 @@ Definition rt_invariant (Σ : gFunctors) : Type :=
 
 Class richwasmG (Σ : gFunctors) :=
   { rw_addr : gname;
-    rw_addrG :: ghost_mapG Σ location (concrete_memory * address);
+    rw_addrG :: ghost_mapG Σ location (smemory * address);
     rw_root : gname;
     rw_rootG :: ghost_mapG Σ address location;
     rw_layout : gname;
@@ -74,7 +74,7 @@ Definition word_has_flag (f : pointer_flag) (w : word) : bool :=
   | _, _ => false
   end.
 
-Definition tag_address (μ : concrete_memory) (a : address) : Z :=
+Definition tag_address (μ : smemory) (a : address) : Z :=
   match μ with
   | MemMM => Z.of_N a - 3
   | MemGC => Z.of_N a - 1
@@ -118,7 +118,7 @@ Section Token.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
-  Definition word_interp (θ : address_map) (μ : concrete_memory) (w : word) (n : Z) : iProp Σ :=
+  Definition word_interp (θ : address_map) (μ : smemory) (w : word) (n : Z) : iProp Σ :=
     match w with
     | WordInt m => ⌜n = m⌝
     | WordPtr p =>
@@ -135,7 +135,7 @@ Section Token.
     | WordPtr (PtrHeap _ ℓ) => [ℓ]
     end.
 
-  Definition rt_memaddr (μ : concrete_memory) : N :=
+  Definition rt_memaddr (μ : smemory) : N :=
     match μ with
     | MemMM => N.of_nat sr.(sr_mem_mm)
     | MemGC => N.of_nat sr.(sr_mem_gc)

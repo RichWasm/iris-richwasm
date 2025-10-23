@@ -180,7 +180,7 @@ Definition compile_func (mr : module_runtime) (mf : module_function) : modgen W.
   wt ← gets W.mod_types;
   '((), wt', wl, body) ← lift (run_codegen (compile_instrs mr fe mf.(mf_body)) wt []);
   add_types wt';;
-  ls ← try_option EFail (mapM eval_rep mf.(mf_locals));
+  ls ← try_option EFail (mapM (eval_rep EmptyEnv) mf.(mf_locals));
   let ls' := flat_map (map translate_prim_rep) ls ++ wl in
   add_func (W.Build_module_func tid ls' body).
 

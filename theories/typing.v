@@ -435,10 +435,13 @@ Inductive has_rep : function_ctx -> type -> representation -> Prop :=
   has_kind F τ (VALTYPE ρ χ δ) ->
   has_rep F τ ρ.
 
+Definition is_mono_rep : representation -> Prop :=
+  rep_ok kc_empty.
+
 Inductive has_mono_rep : function_ctx -> type -> Prop :=
-| MonoRep F τ ρ ιs :
+| MonoRep F τ ρ :
   has_rep F τ ρ ->
-  eval_rep ρ = Some ιs ->
+  is_mono_rep ρ ->
   has_mono_rep F τ.
 
 Definition has_mono_rep_instr (F : function_ctx) '(InstrT τs1 τs2 : instruction_type) : Prop :=
@@ -447,26 +450,26 @@ Definition has_mono_rep_instr (F : function_ctx) '(InstrT τs1 τs2 : instructio
 Definition has_size (F : function_ctx) (τ : type) (σ : size) : Prop :=
   exists δ, has_kind F τ (MEMTYPE σ δ).
 
-Inductive mono_size : function_ctx -> type -> Prop :=
-| MonoSizeMEMTYPE F τ σ δ n :
-  has_kind F τ (MEMTYPE σ δ) ->
-  eval_size σ = Some n ->
-  mono_size F τ.
+Definition is_mono_size : size -> Prop :=
+  size_ok kc_empty.
 
-Definition mono_rep (ρ : representation) : Prop :=
-  exists ιs, eval_rep ρ = Some ιs.
+Inductive has_mono_size : function_ctx -> type -> Prop :=
+| MonoSizeMEMTYPE F τ σ δ :
+  has_kind F τ (MEMTYPE σ δ) ->
+  is_mono_size σ ->
+  has_mono_size F τ.
 
 Definition type_rep_eval (F : function_ctx) (τ : type) (ιs : list primitive_rep) : Prop :=
-  exists ρ, has_rep F τ ρ /\ eval_rep ρ = Some ιs.
+  exists ρ, has_rep F τ ρ /\ eval_rep EmptyEnv ρ = Some ιs.
 
 Inductive size_eq : size -> size -> Prop :=
 | SizeEq σ1 σ2 n :
-  eval_size σ1 = Some n ->
-  eval_size σ2 = Some n ->
+  eval_size EmptyEnv σ1 = Some n ->
+  eval_size EmptyEnv σ2 = Some n ->
   size_eq σ1 σ2.
 
 Definition size_leq (σ1 σ2 : size) : Prop :=
-  exists n m, eval_size σ1 = Some n /\ eval_size σ2 = Some m /\ n <= m.
+  exists n m, eval_size EmptyEnv σ1 = Some n /\ eval_size EmptyEnv σ2 = Some m /\ n <= m.
 
 Definition type_size_eq (F : function_ctx) (τ1 τ2 : type) : Prop :=
   exists σ1 σ2, has_size F τ1 σ1 /\ has_size F τ2 σ2 /\ size_eq σ1 σ2.
@@ -888,7 +891,7 @@ Inductive has_instruction_type :
   has_copyability F τval ExCopy ->
   resolves_path τ π None pr ->
   pr.(pr_target) = SerT κser τval ->
-  Forall (mono_size F) pr.(pr_prefix) ->
+  Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILoad ψ π Copy) ψ L
 | TLoadMove M F L π τ τval κ κ' κser σ pr :
@@ -896,7 +899,7 @@ Inductive has_instruction_type :
   resolves_path τ π (Some (type_uninit σ)) pr ->
   has_size F pr.(pr_target) σ ->
   pr.(pr_target) = SerT κser τval ->
-  Forall (mono_size F) pr.(pr_prefix) ->
+  Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILoad ψ π Move) ψ L
 | TStoreWeak M F L π μ τ τval pr κ κser :
@@ -904,7 +907,7 @@ Inductive has_instruction_type :
   resolves_path τ π None pr ->
   has_dropability F pr.(pr_target) ImDrop ->
   pr.(pr_target) = SerT κser τval ->
-  Forall (mono_size F) pr.(pr_prefix) ->
+  Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IStore ψ π) ψ L
 | TStoreStrong M F L π τ τval pr σ ρ κ κ' κser :
@@ -913,14 +916,14 @@ Inductive has_instruction_type :
   has_dropability F pr.(pr_target) ImDrop ->
   has_size F pr.(pr_target) σ ->
   has_rep F τval ρ ->
-  eval_size σ = eval_rep_size ρ ->
-  Forall (mono_size F) pr.(pr_prefix) ->
+  eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
+  Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IStore ψ π) ψ L
 | TSwap M F L π τ τval pr κ κser μ :
   let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
   resolves_path τ π None pr ->
-  Forall (mono_size F) pr.(pr_prefix) ->
+  Forall (has_mono_size F) pr.(pr_prefix) ->
   pr.(pr_target) = SerT κser τval ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ISwap ψ π) ψ L
@@ -1130,7 +1133,7 @@ Section HasHaveInstructionTypeMind.
           has_copyability F τval ExCopy ->
           resolves_path τ π None pr ->
           pr.(pr_target) = SerT κser τval ->
-          Forall (mono_size F) pr.(pr_prefix) ->
+          Forall (has_mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILoad ψ π Copy) ψ L)
       (HLoadMove : forall M F L π τ τval κ κ' κser σ pr,
@@ -1138,7 +1141,7 @@ Section HasHaveInstructionTypeMind.
           resolves_path τ π (Some (type_uninit σ)) pr ->
           has_size F pr.(pr_target) σ ->
           pr.(pr_target) = SerT κser τval ->
-          Forall (mono_size F) pr.(pr_prefix) ->
+          Forall (has_mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILoad ψ π Move) ψ L)
       (HStoreWeak : forall M F L π μ τ τval pr κ κser,
@@ -1146,7 +1149,7 @@ Section HasHaveInstructionTypeMind.
           resolves_path τ π None pr ->
           has_dropability F pr.(pr_target) ImDrop ->
           pr.(pr_target) = SerT κser τval ->
-          Forall (mono_size F) pr.(pr_prefix) ->
+          Forall (has_mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IStore ψ π) ψ L)
       (HStoreStrong : forall M F L π τ τval pr σ ρ κ κ' κser,
@@ -1155,14 +1158,14 @@ Section HasHaveInstructionTypeMind.
           has_dropability F pr.(pr_target) ImDrop ->
           has_size F pr.(pr_target) σ ->
           has_rep F τval ρ ->
-          eval_size σ = eval_rep_size ρ ->
-          Forall (mono_size F) pr.(pr_prefix) ->
+          eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
+          Forall (has_mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IStore ψ π) ψ L)
       (HSwap : forall M F L π τ τval pr κ κser μ,
           let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
           resolves_path τ π None pr ->
-          Forall (mono_size F) pr.(pr_prefix) ->
+          Forall (has_mono_size F) pr.(pr_prefix) ->
           pr.(pr_target) = SerT κser τval ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ISwap ψ π) ψ L)
@@ -1293,7 +1296,7 @@ Inductive has_function_type : module_ctx -> module_function -> function_type -> 
   let F := Build_function_ctx ϕ.(fft_out) ιss [] K ϕ.(fft_type_vars) in
   let L := repeat None (length ιss) in
   let ψ := InstrT ϕ.(fft_in) ϕ.(fft_out) in
-  mapM eval_rep mf.(mf_locals) = Some ιss ->
+  mapM (eval_rep EmptyEnv) mf.(mf_locals) = Some ιss ->
   Forall (fun τo => forall τ, τo = Some τ -> has_dropability F τ ImDrop) L' ->
   have_instruction_type M F L mf.(mf_body) ψ L' ->
   has_function_type M mf mf.(mf_type).

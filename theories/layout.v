@@ -1,6 +1,5 @@
-From Stdlib Require Import List.
 
-Require Import stdpp.list.
+Require Import stdpp.base stdpp.list.
 
 From RichWasm Require Import syntax.
 
@@ -72,28 +71,6 @@ Definition inject_primitives (slots : primitive_dist) (ιs : list primitive_rep)
   in
   go pd_empty ιs.
 
-Fixpoint eval_rep (ρ : representation) : option (list primitive_rep) :=
-  match ρ with
-  | VarR _ => None
-  | SumR ρs =>
-      ιss ← mapM eval_rep ρs;
-      let slots := max_primitives ιss in
-      Some (I32R ::
-              repeat PtrR slots.(pd_n__ptr) ++
-              repeat I32R slots.(pd_n__i32) ++
-              repeat I64R slots.(pd_n__i64) ++
-              repeat F32R slots.(pd_n__f32) ++
-              repeat F64R slots.(pd_n__f64))
-  | ProdR ρs => @concat _ <$> mapM eval_rep ρs
-  | PrimR ι => Some [ι]
-  end.
-
-Definition inject_sum_rep (ρs : list representation) (ρ : representation) : option (list nat) :=
-  ιs ← tail <$> eval_rep (SumR ρs);
-  let slots := count_primitives ιs in
-  ιs0 ← eval_rep ρ;
-  inject_primitives slots ιs0.
-
 Definition kind_rep (κ : kind) : option representation :=
   match κ with
   | VALTYPE ρ _ _ => Some ρ
@@ -125,6 +102,7 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | ExistsSizeT κ _
   | ExistsTypeT κ _ _ => Some κ
   end.
+
 
 Definition int_type_rep (νi : int_type) : primitive_rep :=
   match νi with
@@ -184,15 +162,74 @@ Definition primitive_size (ι : primitive_rep) : nat :=
 Definition primitives_size : list primitive_rep -> nat :=
   list_sum ∘ map primitive_size.
 
-Definition eval_rep_size (ρ : representation) : option nat :=
-  ιs ← eval_rep ρ;
-  Some (list_sum (map primitive_size ιs)).
+Section eval.
+  Context `{Lookup nat smemory Env}.
+  Context `{Lookup nat (list primitive_rep) Env}.
+  Context `{Lookup nat nat Env}.
+  Variable (env: Env).
+  
+  Definition eval_mem (μ: memory) : option smemory :=
+    match μ with
+    | VarM x => env !! x
+    | ConstM sm => mret sm
+    end.
 
-Fixpoint eval_size (σ : size) : option nat :=
-  match σ with
-  | VarS _ => None
-  | SumS σs => ns ← mapM eval_size σs; Some (1 + list_max ns)
-  | ProdS σs => ns ← mapM eval_size σs; Some (list_sum ns)
-  | RepS ρ => eval_rep_size ρ
-  | ConstS n => Some n
-  end.
+  Fixpoint eval_rep (ρ : representation) : option (list primitive_rep) :=
+    match ρ with
+    | VarR x => env !! x
+    | SumR ρs =>
+        slots ← max_primitives <$> mapM eval_rep ρs;
+        mret $ I32R ::
+           repeat PtrR slots.(pd_n__ptr) ++
+           repeat I32R slots.(pd_n__i32) ++
+           repeat I64R slots.(pd_n__i64) ++
+           repeat F32R slots.(pd_n__f32) ++
+           repeat F64R slots.(pd_n__f64)
+    | ProdR ρs => 
+        @concat _ <$> mapM eval_rep ρs
+    | PrimR ι => mret [ι]
+    end.
+  
+  Definition eval_rep_size (ρ : representation) : option nat :=
+    primitives_size <$> eval_rep ρ.
+
+  Fixpoint eval_size (σ : size) : option nat :=
+    match σ with
+    | VarS x => env !! x
+    | SumS σs =>
+        ns ← mapM eval_size σs;
+        mret (1 + list_max ns)
+    | ProdS σs =>
+        list_sum <$> mapM eval_size σs
+    | RepS ρ =>
+        ιs ← eval_rep ρ;
+        mret (list_sum (map primitive_size ιs))
+    | ConstS n => mret n
+    end.
+
+  Definition eval_kind (κ: kind) : option skind :=
+    match κ with
+    | VALTYPE ρ χ δ => 
+        sρ ← eval_rep ρ;
+        mret $ SVALTYPE sρ χ δ 
+    | MEMTYPE σ δ =>
+        n ← eval_size σ;
+        mret $ SMEMTYPE n δ
+    end.
+
+  Definition inject_sum_prim_reps (ιs : list primitive_rep) (ιs0 : list primitive_rep) : option (list nat) :=
+    let slots := count_primitives ιs in
+    inject_primitives slots ιs0.
+
+  Definition inject_sum_rep (ρs : list representation) (ρ : representation) : option (list nat) :=
+    ιs ← tail <$> eval_rep (SumR ρs);
+    ιs0 ← eval_rep ρ;
+    inject_sum_prim_reps ιs ιs0.
+
+End eval.
+
+(* empty_env is a type of environments that are always empty. It is
+   useful for evaluating _closed_ things. *)
+Inductive empty_env : Type := EmptyEnv.
+Instance empty_env_lookup {K A} : Lookup K A empty_env := 
+  λ k m, None.

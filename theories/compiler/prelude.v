@@ -33,7 +33,7 @@ Record function_env :=
     fe_locals : list (list primitive_rep) }.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
-  locals ← mapM eval_rep mf.(mf_locals);
+  locals ← mapM (eval_rep EmptyEnv) mf.(mf_locals);
   let ϕ := flatten_function_type mf.(mf_type) in
   Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) locals).
 
@@ -83,7 +83,7 @@ Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=
   end.
 
 Definition translate_rep (ρ : representation) : option (list W.value_type) :=
-  map translate_prim_rep <$> eval_rep ρ.
+  map translate_prim_rep <$> eval_rep EmptyEnv ρ.
 
 Definition translate_type (κs : list kind) (τ : type) : option (list W.value_type) :=
   type_rep κs τ ≫= translate_rep.

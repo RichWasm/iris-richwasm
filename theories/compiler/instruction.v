@@ -16,6 +16,12 @@ Section Compiler.
 
   Variable mr : module_runtime.
 
+  Definition drop_ref (cm : smemory) : codegen unit :=
+    match cm with
+    | MemMM => free mr
+    | MemGC => unregisterroot mr
+    end.
+
   Definition drop_primitive (fe : function_env) (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>
@@ -39,7 +45,7 @@ Section Compiler.
 
   Definition compile_copy (fe : function_env) (τ : type) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EFail (eval_rep ρ);
+    ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     ixs ← save_stack fe ιs;
     restore_stack ixs;;
     map_gc_ptrs ιs ixs (duproot mr);;
@@ -47,7 +53,7 @@ Section Compiler.
 
   Definition compile_drop (fe : function_env) (τ : type) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EFail (eval_rep ρ);
+    ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     mapM_ (drop_primitive fe) (rev ιs).
 
   Definition compile_num (e : num_instruction) : codegen unit :=
@@ -107,20 +113,20 @@ Section Compiler.
 
   Definition compile_inject (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
     codegen unit :=
-    ιs_sum ← try_option EFail (eval_rep (SumR ρs));
+    ιs_sum ← try_option EFail (eval_rep EmptyEnv (SumR ρs));
     ixs_sum ← mapM (wlalloc fe) (map translate_prim_rep (tail ιs_sum));
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ixs ← try_option EFail (inject_sum_rep ρs ρ);
+    ixs ← try_option EFail (inject_sum_rep EmptyEnv ρs ρ);
     ixs' ← mapM (try_option EFail ∘ nth_error ixs_sum) ixs;
     mapM (emit ∘ W.BI_set_local ∘ localimm) (rev ixs');;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs_sum.
 
   Definition compile_inject_new
-    (fe : function_env) (μ : concrete_memory) (i : nat) (τ : type) (σ : size) : codegen unit :=
+    (fe : function_env) (μ : smemory) (i : nat) (τ : type) (σ : size) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EFail (eval_rep ρ);
-    n ← try_option EFail (eval_size σ);
+    ιs ← try_option EFail (eval_rep EmptyEnv ρ);
+    n ← try_option EFail (eval_size EmptyEnv σ);
     vs ← save_stack fe ιs;
     alloc mr μ n;;
     a ← wlalloc fe W.T_i32;
@@ -142,11 +148,11 @@ Section Compiler.
     (fe : function_env) (ρs : list representation) (τ' : type) (cases : list (codegen unit)) :
     codegen unit :=
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
-    ιs ← try_option EFail (eval_rep (SumR ρs));
+    ιs ← try_option EFail (eval_rep EmptyEnv (SumR ρs));
     ixs ← save_stack fe (tail ιs);
     let do_case c i :=
       ρ ← try_option EFail (ρs !! i);
-      ixs' ← try_option EFail (inject_sum_rep ρs ρ);
+      ixs' ← try_option EFail (inject_sum_rep EmptyEnv ρs ρ);
       try_option EFail (nths_error ixs ixs') ≫= get_locals_w;;
       c
     in
@@ -157,7 +163,7 @@ Section Compiler.
     (fe : function_env) (σ : size) (τs : list type) (τ' : type) (con : consumption)
     (cases : list (codegen unit)) :
     codegen unit :=
-    n ← try_option EFail (eval_size σ);
+    n ← try_option EFail (eval_size EmptyEnv σ);
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
     a ← wlalloc fe W.T_i32;
     match con with
@@ -167,7 +173,7 @@ Section Compiler.
     let do_case μ c i :=
       τ ← try_option EFail (τs !! i);
       ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-      ιs ← try_option EFail (eval_rep ρ);
+      ιs ← try_option EFail (eval_rep EmptyEnv ρ);
       load_primitives mr fe μ con a 1 ιs;;
       c
     in
@@ -201,9 +207,9 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
     emit (W.BI_binop W.T_i32 (W.Binop_i (W.BOI_shr W.SX_U))).
 
-  Definition compile_new (fe : function_env) (μ : concrete_memory) (τ : type) : codegen unit :=
+  Definition compile_new (fe : function_env) (μ : smemory) (τ : type) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ιs ← try_option EFail (eval_rep ρ);
+    ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     let n := list_sum (map primitive_size ιs) in
     vs ← save_stack fe ιs;
     alloc mr μ n;;
@@ -221,7 +227,7 @@ Section Compiler.
     codegen unit :=
     off ← try_option EFail (path_offset fe τ π);
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
-    ιs ← try_option EFail (eval_rep ρ);
+    ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     let n := list_sum (map primitive_size ιs) in
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
@@ -235,7 +241,7 @@ Section Compiler.
 
   Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
-    ιs ← try_option EFail (eval_rep ρ);
+    ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     off ← try_option EFail (path_offset fe τ π);
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
@@ -247,7 +253,7 @@ Section Compiler.
 
   Definition compile_swap (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
-    ιs ← try_option EFail (eval_rep ρ);
+    ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     off ← try_option EFail (path_offset fe τ π);
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;

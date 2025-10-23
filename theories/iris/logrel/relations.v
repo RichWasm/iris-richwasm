@@ -41,7 +41,57 @@ Section Relations.
 
   Definition semantic_type : Type := SVR.
   Definition semantic_kind : Type := semantic_type -> Prop.
-  Definition semantic_env : Type := listO (prodO (leibnizO kind) semantic_type).
+  Definition mem_env := listO (leibnizO smemory).
+  Definition rep_env := listO (leibnizO (list primitive_rep)).
+  Definition size_env := listO (leibnizO nat).
+  Definition type_env := listO (prodO (leibnizO skind) semantic_type).
+  Definition semantic_env : Type := 
+    prodO (prodO (prodO mem_env rep_env) size_env) type_env.
+  
+  Definition senv_empty : semantic_env := ([], [], [], []).
+
+  Definition senv_mems (se : semantic_env) : mem_env :=
+    let '(m, r, s, t) := se in m.
+
+  Definition senv_reps (se: semantic_env) : rep_env :=
+    let '(m, r, s, t) := se in r.
+
+  Definition senv_sizes (se: semantic_env) : size_env :=
+    let '(m, r, s, t) := se in s.
+
+  Definition senv_types (se: semantic_env) : type_env :=
+    let '(m, r, s, t) := se in t.
+  
+  Definition senv_kinds (se: semantic_env) : list skind :=
+    map fst (senv_types se).
+
+  Definition senv_insert_type : skind -> semantic_type -> semantic_env -> semantic_env :=
+    λ κ T se,
+      (senv_mems se, senv_reps se, senv_sizes se, (κ, T) :: senv_types se).
+  
+  Definition senv_insert_mem : smemory → semantic_env → semantic_env. Admitted.
+  Definition senv_insert_rep : list primitive_rep → semantic_env → semantic_env. Admitted.
+  Definition senv_insert_size : nat → semantic_env → semantic_env. Admitted.
+
+  #[global]
+  Instance senv_mem_lookup : Lookup nat smemory semantic_env :=
+    λ idx se, senv_mems se !! idx.
+
+  #[global]
+  Instance senv_rep_lookup : Lookup nat (list primitive_rep) semantic_env :=
+    λ idx se, senv_reps se !! idx.
+
+  #[global]
+  Instance senv_size_lookup : Lookup nat nat semantic_env :=
+    λ idx se, senv_sizes se !! idx.
+
+  #[global]
+  Instance senv_type_lookup : Lookup nat (skind * semantic_type) semantic_env :=
+    λ idx se, senv_types se !! idx.
+
+  #[global]
+  Instance senv_kind_lookup : Lookup nat skind semantic_env :=
+    λ idx se, fst <$> senv_types se !! idx.
 
   Notation FrR := (leibnizO frame -n> iPropO Σ).
   Notation ClR := (leibnizO function_closure -n> iPropO Σ).
@@ -77,6 +127,7 @@ Section Relations.
   Implicit Type ιss : leibnizO (list (list primitive_rep)).
 
   Definition value_relation : Type := semantic_env -n> leibnizO type -n> SVR.
+
 
   Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
     match ty with
@@ -130,12 +181,6 @@ Section Relations.
   Definition primitive_reps_interp (ιs : list primitive_rep) (sv : semantic_value) : Prop :=
     exists rvs, sv = SValues rvs /\ Forall2 primitive_rep_interp ιs rvs.
 
-  Definition representation_interp (ρ : representation) (sv : semantic_value) : Prop :=
-    match eval_rep ρ with
-    | Some ιs => primitive_reps_interp ιs sv
-    | None => False
-    end.
-
   Definition forall_svalues (sv : semantic_value) (P : rep_value -> Prop) : Prop :=
     exists rvs, sv = SValues rvs /\ Forall P rvs.
 
@@ -158,10 +203,10 @@ Section Relations.
     | ImCopy => forall sv, T sv ⊢ T sv ∗ T sv ∗ ⌜forall_svalues sv im_copy_interp⌝
     end.
 
-  Definition size_interp (σ : size) (sv : semantic_value) : Prop :=
+  Definition ssize_interp (n : nat) (sv : semantic_value) : Prop :=
     match sv with
     | SValues _ => False
-    | SWords ws => eval_size σ = Some (length ws)
+    | SWords ws => n = length ws
     end.
 
   (* S refines T, written S ⊑ T. *)
@@ -170,19 +215,19 @@ Section Relations.
   #[export]
   Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type := semantic_type_le.
 
-  Definition kind_as_type_interp (κ : kind) : semantic_type :=
+  Definition skind_as_type_interp (κ : skind) : semantic_type :=
     λne sv,
       match κ with
-      | VALTYPE ρ χ _ => ⌜representation_interp ρ sv⌝
-      | MEMTYPE σ _ => ⌜size_interp σ sv⌝
+      | SVALTYPE ιs χ _ => ⌜primitive_reps_interp ιs sv⌝
+      | SMEMTYPE n _ => ⌜ssize_interp n sv⌝
       end%I.
 
-  Definition kind_interp (κ : kind) : semantic_kind :=
+  Definition skind_interp (κ : skind) : semantic_kind :=
     fun T =>
-      T ⊑ kind_as_type_interp κ /\
+      T ⊑ skind_as_type_interp κ /\
         match κ with
-        | VALTYPE ρ χ _ => copyability_interp χ T
-        | MEMTYPE _ _ => True
+        | SVALTYPE _ χ _ => copyability_interp χ T
+        | SMEMTYPE _ _ => True
         end.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
@@ -190,14 +235,53 @@ Section Relations.
     λne τs rvs,
       (∃ rvss, ⌜rvs = concat rvss⌝ ∗ [∗ list] τ; rvs ∈ τs; rvss, vrel se τ (SValues rvs))%I.
 
+  Definition translate_rep (se: semantic_env) (ρ : representation) : option (list W.value_type) :=
+    map translate_prim_rep <$> eval_rep se ρ.
+  
+  Definition type_skind (se: semantic_env) (τ : type) : option skind :=
+    match τ with
+    | VarT x => se !! x
+    | NumT κ _
+    | SumT κ _
+    | VariantT κ _
+    | ProdT κ _
+    | StructT κ _
+    | RefT κ _ _
+    | I31T κ
+    | CodeRefT κ _
+    | SerT κ _
+    | RecT κ _
+    | UninitT κ _
+    | ExistsMemT κ _
+    | ExistsRepT κ _
+    | ExistsSizeT κ _
+    | ExistsTypeT κ _ _ => eval_kind se κ
+    end.
+  
+  Definition skind_rep (κ: skind) : option (list primitive_rep) :=
+    match κ with
+    | SVALTYPE ιs _ _ => Some ιs
+    | _ => None
+    end.
+
+  Definition type_prim_rep (se : semantic_env) (τ : type) : option (list primitive_rep) :=
+    κ ← type_skind se τ;
+    skind_rep κ.
+
+  Definition translate_type (se : semantic_env) (τ : type) : option (list W.value_type) :=
+    map translate_prim_rep <$> type_prim_rep se τ.
+  
+  Definition translate_types (se: semantic_env) (τs : list type) : option (list W.value_type) :=
+    @concat _ <$> mapM (translate_type se) τs.
+
   Definition mono_closure_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> leibnizO (list type) -n> ClR :=
     λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
           □ ∀ vs1 rvs1 fr θ,
-            ⌜translate_types (map fst se) τs1 = Some tfs1⌝ -∗
-            ⌜translate_types (map fst se) τs2 = Some tfs2⌝ -∗
+            ⌜translate_types se τs1 = Some tfs1⌝ -∗
+            ⌜translate_types se τs2 = Some tfs2⌝ -∗
             rep_values_interp rvs1 vs1 -∗
             values_interp0 vrel se τs1 rvs1 -∗
             rt_token rti sr θ -∗
@@ -219,43 +303,48 @@ Section Relations.
         | FC_func_host _ _ => False
         end%I.
 
-  Definition closure_interp0 (vrel : value_relation) (se : semantic_env) :
-    leibnizO function_type -n> ClR :=
-    λne ϕ cl,
-      let fix go se ϕ s__mem s__rep s__size :=
-        match ϕ with
-        | MonoFunT τs1 τs2 =>
-            let τs1' := map (subst_type s__mem s__rep s__size VarT) τs1 in
-            let τs2' := map (subst_type s__mem s__rep s__size VarT) τs2 in
-            mono_closure_interp0 vrel se τs1 τs2 cl
-        | ForallMemT ϕ' => ∀ μ, go se ϕ' (unscoped.scons μ s__mem) s__rep s__size
-        | ForallRepT ϕ' => ∀ ρ, go se ϕ' s__mem (unscoped.scons ρ s__rep) s__size
-        | ForallSizeT ϕ' => ∀ σ, go se ϕ' s__mem s__rep (unscoped.scons σ s__size)
-        | ForallTypeT κ ϕ' => ∀ T, ⌜kind_interp κ T⌝ -∗ go ((κ, T) :: se) ϕ' s__mem s__rep s__size
-        end%I
-      in
-      go se ϕ VarM VarR VarS.
+  Fixpoint closure_interp0 vrel se ϕ: ClR :=
+    λne cl,
+    match ϕ with
+    | MonoFunT τs1 τs2 =>
+        mono_closure_interp0 vrel se τs1 τs2 cl
+    | ForallMemT ϕ' =>
+        ∀ μ, closure_interp0 vrel (senv_insert_mem μ se) ϕ' cl
+    | ForallRepT ϕ' =>
+        ∀ ρ, closure_interp0 vrel (senv_insert_rep ρ se) ϕ' cl
+    | ForallSizeT ϕ' =>
+        ∀ σ, closure_interp0 vrel (senv_insert_size σ se) ϕ' cl
+    | ForallTypeT κ ϕ' => 
+        ∀ sκ T,
+          ⌜eval_kind se κ = Some sκ⌝ -∗
+          ⌜skind_interp sκ T⌝ -∗ 
+          closure_interp0 vrel (senv_insert_type sκ T se) ϕ' cl
+    end%I.
 
   (* TODO *)
   Global Instance Persistent_closure_interp0 vrel se ϕ cl : Persistent (closure_interp0 vrel se ϕ cl).
   Admitted.
 
+  Global Instance closure_interp0_ne vrel se ϕ : NonExpansive2 (closure_interp0 vrel se).
+  Admitted.
+
   Definition type_var_interp (se : semantic_env) (t : nat) : SVR :=
-    match (snd <$> se) !! t with
-    | Some T => T
+    match se !! t with
+    | Some (_, T) => T
     | None => λne _, False%I
     end.
 
   Definition sum_interp
     (vrel : value_relation) (se : semantic_env) (ρs : list representation) (τs : list type) : SVR :=
     λne sv,
-      (∃ i rvs rvs_i τ_i ρ_i ixs,
+      (∃ i rvs rvs_i τ_i ιs ιs_i ixs,
          ⌜sv = SValues (I32V (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: rvs)⌝ ∗
-           ⌜τs !! i = Some τ_i⌝ ∗
-           ⌜type_rep (map fst se) τ_i = Some ρ_i⌝ ∗
-           ⌜inject_sum_rep ρs ρ_i = Some ixs⌝ ∗
-           ⌜nths_error rvs ixs = Some rvs_i⌝ ∗
-           ▷ vrel se τ_i (SValues rvs_i))%I.
+         ⌜τs !! i = Some τ_i⌝ ∗
+         ⌜type_prim_rep se τ_i = Some ιs_i⌝ ∗
+         ⌜tail <$> eval_rep se (SumR ρs) = Some ιs⌝ ∗
+         ⌜inject_sum_prim_reps ιs ιs_i = Some ixs⌝ ∗
+         ⌜nths_error rvs ixs = Some rvs_i⌝ ∗
+         ▷ vrel se τ_i (SValues rvs_i))%I.
 
   Definition variant_interp
     (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
@@ -303,34 +392,32 @@ Section Relations.
       (∃ rvs, ⌜sv = SWords (flat_map rep_serialize rvs)⌝ ∗ ▷ vrel se τ (SValues rvs))%I.
 
   Definition uninit_interp (vrel : value_relation) (se : semantic_env) (σ : size) : SVR :=
-    λne sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
+    λne sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size se σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
 
   Definition rec_interp (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
     λne sv,
-      let τ' := subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ in
-      (▷ vrel se τ' sv)%I.
+      match eval_kind se κ with
+      | Some sκ =>
+          let T := (λne sv, ▷ vrel se (RecT κ τ) sv) in
+          vrel (senv_insert_type sκ T se) τ sv
+      | None => False
+      end%I.
 
   Definition exists_mem_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv,
-      (∃ μ,
-         let τ' := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ in
-         ▷ vrel se τ' sv)%I.
+    λne sv, (∃ μ, ▷ vrel (senv_insert_mem μ se) τ sv)%I.
 
   Definition exists_rep_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv,
-      (∃ ρ,
-         let τ' := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ in
-         ▷ vrel se τ' sv)%I.
+    λne sv, (∃ ιs, ▷ vrel (senv_insert_rep ιs se) τ sv)%I.
 
   Definition exists_size_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
-      (∃ σ,
-         let τ' := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ in
-         ▷ vrel se τ' sv)%I.
+      (∃ n, ▷ vrel (senv_insert_size n se) τ sv)%I.
 
   Definition exists_type_interp
     (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
-    λne sv, (∃ T, ⌜kind_interp κ T⌝ ∗ ▷ vrel ((κ, T) :: se) τ sv)%I.
+    λne sv, (∃ sκ T, ⌜eval_kind se κ = Some sκ⌝ ∗
+                     ⌜skind_interp sκ T⌝ ∗
+                     ▷ vrel (senv_insert_type sκ T se) τ sv)%I.
 
   Definition type_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ,
@@ -364,9 +451,9 @@ Section Relations.
   Definition value_se_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ sv,
       (∃ κ,
-         ⌜type_kind (map fst se) τ = Some κ⌝ ∗
-           kind_as_type_interp κ sv ∗
-           type_interp0 vrel se τ sv)%I.
+         ⌜type_skind se τ = Some κ⌝ ∗
+         skind_as_type_interp κ sv ∗
+         type_interp0 vrel se τ sv)%I.
 
   (* TODO *)
   Local Instance NonExpansive_value_se_interp0 (vrel : value_relation) :
@@ -400,7 +487,7 @@ Section Relations.
     values_interp0 value_interp se.
 
   Definition closure_interp (se : semantic_env) : leibnizO function_type -n> ClR :=
-    closure_interp0 value_interp se.
+    λne ϕ, closure_interp0 value_interp se ϕ.
 
   Definition locals_inv_interp : list (list primitive_rep) -> list (list rep_value) -> Prop :=
     Forall2 (Forall2 primitive_rep_interp).
@@ -544,13 +631,13 @@ Section Relations.
     [∗ list] i ↦ ϕ ∈ M.(mc_functions),
       ∃ i' cl,
         ⌜inst.(inst_funcs) !! (funcimm mr.(mr_func_user) + i)%nat = Some i'⌝ ∗
-          closure_interp [] ϕ cl ∗
+          closure_interp senv_empty ϕ cl ∗
           na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
   Definition table_entry_interp (off : nat) (i : nat) (ϕ : function_type) : iProp Σ :=
     let nt := N.of_nat (off + i) in
     ∃ i' cl,
-      closure_interp [] ϕ cl ∗
+      closure_interp senv_empty ϕ cl ∗
         na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
         na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
@@ -634,32 +721,19 @@ Section Relations.
     | ConstM _ => True
     end.
 
-  Definition mem_subst_interp (K : kind_ctx) (s : nat -> memory) : Prop :=
-    ∀ m, m < K.(kc_mem_vars) -> mem_ok kc_empty (s m).
+  Definition kind_ctx_interp (K : kind_ctx) (se: semantic_env) : Prop :=
+    K.(kc_mem_vars) = length (senv_mems se) /\
+    K.(kc_rep_vars) = length (senv_reps se) /\
+    K.(kc_size_vars) = length (senv_sizes se).
+  
+  Definition type_ctx_interp κs (se: semantic_env) : Prop :=
+    Forall2 (fun κT κ => eval_kind se κ = Some (fst κT) /\
+                      skind_interp (fst κT) (snd κT)) 
+      (senv_types se) κs.
 
-  Definition rep_subst_interp (K : kind_ctx) (s : nat -> representation) : Prop :=
-    ∀ r, r < K.(kc_rep_vars) -> rep_ok kc_empty (s r).
-
-  Definition size_subst_interp (K : kind_ctx) (s : nat -> size) : Prop :=
-    forall r, r < K.(kc_size_vars) -> size_ok kc_empty (s r).
-
-  Definition subst_interp
-    (K : kind_ctx)
-    (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size) : Prop :=
-    mem_subst_interp K s__mem /\
-    rep_subst_interp K s__rep /\
-    size_subst_interp K s__size.
-
-  Definition sem_env_interp κs s__rep s__size se : Prop :=
-    Forall2 (fun κT κ => fst κT = subst_kind s__rep s__size κ /\ uncurry kind_interp κT) se κs.
-
-  Definition subst_env_interp
-    (F : function_ctx)
-    (s__mem : nat -> memory) (s__rep : nat -> representation) (s__size : nat -> size)
-    (se : semantic_env) :
-    Prop :=
-    subst_interp F.(fc_kind_ctx) s__mem s__rep s__size /\
-      sem_env_interp F.(fc_type_vars) s__rep s__size se.
+  Definition sem_env_interp (F : function_ctx) (se : semantic_env) : Prop :=
+    kind_ctx_interp F.(fc_kind_ctx) se /\
+    type_ctx_interp F.(fc_type_vars) se.
 
   Definition have_instruction_type_sem
     (mr : module_runtime)
@@ -667,18 +741,18 @@ Section Relations.
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
-    (∀ s__mem s__rep s__size se inst fr lh rvs vs θ,
-       ⌜subst_env_interp F s__mem s__rep s__size se⌝ -∗
+    (∀ se inst lh,
+       ⌜sem_env_interp F se⌝ -∗
        instance_interp mr M WT inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
-       rep_values_interp rvs vs -∗
-       let sub := subst_type s__mem s__rep s__size VarT in
-       values_interp se (map sub τs1) rvs -∗
-       frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
-       rt_token rti sr θ -∗
-       ↪[frame] fr -∗
-       ↪[RUN] -∗
-       expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
-         (map (option_map sub) L') WL (map sub τs2) inst lh (of_val (immV vs) ++ es))%I.
+       ∀ fr rvs vs θ,
+         rep_values_interp rvs vs -∗
+         values_interp se τs1 rvs -∗
+         frame_interp se F.(fc_locals) L WL inst fr -∗
+         rt_token rti sr θ -∗
+         ↪[frame] fr -∗
+         ↪[RUN] -∗
+         expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
+           L' WL τs2 inst lh (of_val (immV vs) ++ es))%I.
 
 End Relations.
