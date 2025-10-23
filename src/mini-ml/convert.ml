@@ -11,10 +11,10 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
         if List.mem ~equal:equal_string bound v then
           []
         else
-          [v]
+          [ v ]
     | Tuple vs -> List.concat_map ~f:free_v vs
     | Inj (_, v, _) -> free_v v
-    | Fun {arg= n, _; body; _} -> fv ~bound:(n :: bound) body
+    | Fun { arg = n, _; body; _ } -> fv ~bound:(n :: bound) body
   in
   match e with
   | Value v -> free_v v
@@ -33,7 +33,6 @@ let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
       @ List.concat_map
           ~f:(fun ((n, _), e) -> fv ~bound:(n :: bound) e)
           branches
-;;
 
 let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
   let ftv_pt pt =
@@ -44,17 +43,16 @@ let rec ftv ?(bound = []) (t : Source.Type.t) : Source.Variable.t list =
         if List.mem ~equal:equal_string bound v then
           []
         else
-          [v]
+          [ v ]
     | Prod ts -> List.concat_map ~f:(ftv ~bound) ts
     | Sum ts -> List.concat_map ~f:(ftv ~bound) ts
     | Ref t -> ftv ~bound t
     | Rec (v, t) -> ftv ~bound:(v :: bound) t
-    | Fun {foralls; arg; ret} ->
+    | Fun { foralls; arg; ret } ->
         let bound = foralls @ bound in
         ftv ~bound arg @ ftv ~bound ret
   in
   ftv_pt t
-;;
 
 let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   let open Source.Expr in
@@ -62,9 +60,10 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   let ftv_v v =
     match v with
     | Inj (_, _, t) -> ftv ~bound t
-    | Fun {foralls; arg= _, t; ret_type; body} ->
+    | Fun { foralls; arg = _, t; ret_type; body } ->
         (* TODO: do both of these have to be here? *)
-        ftv (Fun {foralls; arg= t; ret= ret_type}) @ ftv_e ~bound:foralls body
+        ftv (Fun { foralls; arg = t; ret = ret_type })
+        @ ftv_e ~bound:foralls body
     | Int _ | Var _ | Tuple _ -> []
   in
   match e with
@@ -83,7 +82,6 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | Let (_, e1, e2) -> ftv_e ~bound e1 @ ftv_e ~bound e2
   | Fold (_, v) -> ftv_v v
   | Unfold v -> ftv_v v
-;;
 
 let rec cc_t t = cc_pt t
 
@@ -95,15 +93,16 @@ and cc_pt pt =
   | Source.PreType.Sum ts -> Closed.PreType.Sum (List.map ~f:cc_t ts)
   | Source.PreType.Ref t -> Closed.PreType.Ref (cc_t t)
   | Source.PreType.Rec (v, t) -> Closed.PreType.Rec (v, cc_t t)
-  | Source.PreType.Fun {foralls; arg; ret} ->
+  | Source.PreType.Fun { foralls; arg; ret } ->
       Closed.(
         PreType.Exists
           ( "#cc-env",
             PreType.Code
-              { foralls;
-                arg= PreType.Prod [PreType.Var "#cc-env"; cc_t arg];
-                ret= cc_t ret } ) )
-;;
+              {
+                foralls;
+                arg = PreType.Prod [ PreType.Var "#cc-env"; cc_t arg ];
+                ret = cc_t ret;
+              } ))
 
 let rec cc_v gamma tagger acc v =
   match v with
@@ -114,14 +113,14 @@ let rec cc_v gamma tagger acc v =
         List.fold_left
           ~f:(fun (vs, extra) v ->
             let converted, code = cc_v gamma tagger acc v in
-            (converted :: vs, code @ extra) )
+            (converted :: vs, code @ extra))
           ~init:([], acc) vs
       in
       (Closed.Value.Tuple vs, code)
   | Inj (i, v, t) ->
       let v, code = cc_v gamma tagger acc v in
       (Closed.Value.Inj (i, v, cc_t t), code)
-  | Fun {foralls; arg= (n, t) as arg; ret_type; body} ->
+  | Fun { foralls; arg = (n, t) as arg; ret_type; body } ->
       let gamma = arg :: gamma in
       let free_vars = fv (Value v) in
       let free_type_vars = ftv_e (Value v) in
@@ -141,20 +140,25 @@ let rec cc_v gamma tagger acc v =
         ( Value.Pack
             ( env_prod,
               Value.Tuple
-                [ Value.Tuple (List.map ~f:(fun v -> Value.Var v) free_vars);
-                  Value.Var code_name ],
+                [
+                  Value.Tuple (List.map ~f:(fun v -> Value.Var v) free_vars);
+                  Value.Var code_name;
+                ],
               PreType.Exists
                 ( "#cc-env",
                   PreType.Code
-                    { foralls= free_type_vars @ foralls;
-                      arg= PreType.Prod [PreType.Var "#cc-env"; cc_t t];
-                      ret= cc_t ret_type } ) ),
+                    {
+                      foralls = free_type_vars @ foralls;
+                      arg = PreType.Prod [ PreType.Var "#cc-env"; cc_t t ];
+                      ret = cc_t ret_type;
+                    } ) ),
           ( code_name,
             Value.Fun
-              { foralls= free_type_vars @ foralls;
-                arg= ("#env_and_arg", PreType.Prod [env_prod; cc_t t]);
-                ret_type= cc_t ret_type;
-                body=
+              {
+                foralls = free_type_vars @ foralls;
+                arg = ("#env_and_arg", PreType.Prod [ env_prod; cc_t t ]);
+                ret_type = cc_t ret_type;
+                body =
                   Expr.Let
                     ( ("#env", PreType.Var "#cc-env"),
                       Expr.Project (0, Value.Var "#env_and_arg"),
@@ -166,11 +170,12 @@ let rec cc_v gamma tagger acc v =
                               Expr.Let
                                 ( (name, ty),
                                   Expr.Project (idx, Value.Var "#env"),
-                                  acc ) )
+                                  acc ))
                             ~init:cced_body
                             (List.zip_exn
                                (List.range 0 (List.length free_bindings))
-                               free_bindings ) ) ) } )
+                               free_bindings) ) );
+              } )
           :: code )
 
 and cc_e gamma tagger acc e =
@@ -220,7 +225,7 @@ and cc_e gamma tagger acc e =
           ~f:(fun (branches, code) ((n, t), e) ->
             let t' = cc_t t in
             let e', new_code = cc_e gamma tagger code e in
-            (((n, t'), e') :: branches, new_code) )
+            (((n, t'), e') :: branches, new_code))
           ~init:([], acc') branches
       in
       (Closed.Expr.Cases (v', branches'), code)
@@ -238,7 +243,7 @@ and cc_e gamma tagger acc e =
       ( Closed.(
           Expr.Unpack
             ( "#cc-env",
-              ("#env_and_fn", PreType.Prod [PreType.Var "#cc-env"; ft]),
+              ("#env_and_fn", PreType.Prod [ PreType.Var "#cc-env"; ft ]),
               f',
               Expr.Let
                 ( ("#env", PreType.Var "#cc-env"),
@@ -246,9 +251,8 @@ and cc_e gamma tagger acc e =
                   Expr.Let
                     ( ("#actual_fn", ft),
                       Expr.Project (1, Value.Var "#env_and_fn"),
-                      Expr.Apply (Value.Var "#actual_fn", ts', arg') ) ) ) ),
+                      Expr.Apply (Value.Var "#actual_fn", ts', arg') ) ) )),
         code )
-;;
 
 let cc_imp (Source.Module.Import (n, t)) = Closed.Module.Import (n, cc_t t)
 
@@ -263,4 +267,44 @@ let cc_item gamma tagger acc =
       ( (fun ((n, t), e) -> Closed.Module.Private ((n, t), e)),
         (n, cc_t t),
         cc_e gamma tagger acc e )
-;;
+
+let cc_module (Source.Module.Module (imps, items, body)) =
+  let mk_private =
+    let open Closed in
+    function
+    | n, (Value.Fun { foralls; arg = _, arg; ret_type; _ } as v) ->
+        Module.Private
+          ((n, PreType.Code { foralls; arg; ret = ret_type }), Expr.Value v)
+    | _ -> failwith "cc_e will only produce functions here"
+  in
+  let tagger = Tag.new_counter () in
+  let initial_gamma =
+    let open Source.Module in
+    List.map ~f:(fun (Import (n, t)) -> (n, t)) imps
+    @ List.map
+        ~f:(function
+          | Export ((n, t), _) | Private ((n, t), _) -> (n, t))
+        items
+  in
+  let imps' =
+    List.map
+      ~f:(fun (Source.Module.Import (n, t)) -> Closed.Module.Import (n, cc_t t))
+      imps
+  in
+  let items' =
+    List.fold_left
+      ~f:(fun acc item ->
+        let repack, bind, (e, extra) = cc_item initial_gamma tagger [] item in
+        let item' = repack (bind, e) in
+        let extra = List.map ~f:mk_private extra in
+        acc @ extra @ [ item' ])
+      ~init:[] items
+  in
+  let open Closed.Module in
+  match body with
+  | None -> Module (imps', items', None)
+  | Some body ->
+      let body', extra = cc_e initial_gamma tagger [] body in
+      let extra = List.map ~f:mk_private extra in
+      let items' = items' @ extra in
+      Module (imps', items', Some body')
