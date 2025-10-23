@@ -304,42 +304,51 @@ Section Fundamental.
        further into 32/64 *)
 
     (* Some basic intros, unfolds, proving empty lists empty *)
-    all: unfold have_instruction_type_sem;
-      iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlh Hrvs Hvs Hframe Hfr Hrun";
-      unfold expr_interp; cbn;
-      iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)";
-      iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens";
-      destruct vss, vs; cbn in Hconcat, Hlens; try congruence; cbn;
-      clear Hconcat Hlens.
-    (* Now it's time to actually apply lenient_wp *)
+    all: unfold have_instruction_type_sem.
+    all: iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlh Hrvs Hvs Hframe Hfr Hrun".
+    all: iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
+    all: iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
+    all: iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss";
+      iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs".
+    all: cbn in Hlens_rvss; destruct rvss, rvs; cbn in Hconcat, Hlens_rvss;
+      try congruence.
+    all: cbn in Hlens_rvs_vs; destruct vs; cbn in Hlens_rvs_vs; try congruence.
+
+    (* Now it's time to apply lenient_wp *)
     all: iApply lenient_wp_value.
     (* In int case, instantiate value with int value. Float in float case *)
     (* Automatics don't work great here *)
     1: by instantiate (1 := (immV [(value_of_Z (translate_num_type (IntT i)) n)])%I).
-    (*
     2: by instantiate (1 := (immV [(value_of_Z (translate_num_type (FloatT f)) n)])%I).
 
-    all: unfold denote_logpred; iFrame.
-    (* iExists _ doesn't work great here *)
-    1: iExists [[value_of_Z (translate_num_type (IntT i)) n]].
-    2: iExists [[value_of_Z (translate_num_type (FloatT f)) n]].
-    all: cbn; iFrame; iSplitR; try (by iPureIntro).
-
-    (* Now, all we need to do is to prove value_interps! *)
-    (* Dig into fixpoint one step *)
-    all: iApply value_interp_eq; cbn.
-    (* Get the obvious kind, then the rest is proving kind interp is right *)
-    all: iExists _.
-    all: iSplitR; try auto; iSplitL; try auto; cbn.
-    all: iPureIntro.
-    all: apply Forall2_cons_iff.
-    all: split; try (by apply Forall2_nil).
-    (* Finally, we have to destruct i and f to get the 32/64 info! *)
+    all: unfold denote_logpred; iFrame; iEval (cbn).
+    (* Split into 32/64 cases *)
     1: destruct i.
     3: destruct f.
-    all: eexists; done.
-    *)
-  Admitted.
+    all: iEval (cbn).
+    (* automatic exists don't work well here unfortunately *)
+    1: iExists [I32V (Wasm_int.Int32.repr n)].
+    2: iExists [I64V (Wasm_int.Int64.repr n)].
+    3: iExists [F32V (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))].
+    4: iExists [F64V (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))].
+    all: iEval (cbn).
+    all: iSplitL; try iSplitL; auto.
+    (* once again, automatic exists don't work great *)
+    1: iExists [[I32V (Wasm_int.Int32.repr n)]].
+    2: iExists [[I64V (Wasm_int.Int64.repr n)]].
+    3: iExists [[F32V (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))]].
+    4: iExists [[F64V (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))]].
+    all: iEval (cbn); iSplitR; auto; iSplitL; auto.
+    (* Dig into value interp a bit, then smooth sailing *)
+    all: iApply value_interp_eq; iEval (cbn).
+    all: iExists _.
+    all: iSplitR; auto; iSplitL; auto; iEval (cbn).
+    all: iPureIntro.
+    all: eexists; split; auto.
+    all: apply Forall2_cons_iff.
+    all: split; try (by apply Forall2_nill).
+    all: done.
+  Qed.
 
   Fixpoint replace_base {n} (vh: valid_holed n) vs :=
     match vh with
