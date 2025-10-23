@@ -535,7 +535,6 @@ module rec Type : sig
     | Prod of t list
     | Struct of t list
     | Ref of Memory.t * t
-    | GCPtr of t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
     | Ser of Memory.t * t
@@ -571,7 +570,6 @@ end = struct
     | Prod of t list
     | Struct of t list
     | Ref of Memory.t * t
-    | GCPtr of t
     | CodeRef of FunctionType.t
     | Pad of Size.t * t
     | Ser of Memory.t * t
@@ -602,7 +600,6 @@ end = struct
         List.iter ~f:(fprintf ff "@ %a" pp) ts;
         fprintf ff ")@]"
     | Ref (m, t) -> fprintf ff "@[<2>(ref@ %a@ %a)@]" Memory.pp m pp t
-    | GCPtr t -> fprintf ff "@[<2>(gcref@ %a)@]" pp t
     | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
     | Pad (s, t) -> fprintf ff "@[<2>(pad@ %a@ %a)@]" Size.pp s pp t
     | Ser (mem, t) -> fprintf ff "@[<2>(ser@ %a@ %a)@]" Memory.pp mem pp t
@@ -620,7 +617,6 @@ end = struct
     | Prod s1 -> Prod (map (ren xi_memory xi_representation xi_size xi_type) s1)
     | Struct s1 -> Struct (map (ren xi_memory xi_representation xi_size xi_type) s1)
     | Ref (s1, s2) -> Ref (Memory.ren xi_memory s1, ren xi_memory xi_representation xi_size xi_type s2)
-    | GCPtr s1 -> GCPtr (ren xi_memory xi_representation xi_size xi_type s1)
     | CodeRef s1 -> CodeRef (FunctionType.ren xi_memory xi_representation xi_size xi_type s1)
     | Pad (s1, s2) ->
         Pad (Size.ren xi_representation xi_size s1, ren xi_memory xi_representation xi_size xi_type s2)
@@ -653,7 +649,6 @@ end = struct
     | Prod s1 -> Prod (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
     | Struct s1 -> Struct (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
     | Ref (s1, s2) -> Ref (Memory.subst sigma_memory s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
-    | GCPtr s1 -> GCPtr (subst sigma_memory sigma_representation sigma_size sigma_type s1)
     | CodeRef s1 -> CodeRef (FunctionType.subst sigma_memory sigma_representation sigma_size sigma_type s1)
     | Pad (s1, s2) ->
         Pad (Size.subst sigma_representation sigma_size s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)

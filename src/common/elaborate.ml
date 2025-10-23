@@ -236,7 +236,6 @@ let kind_of_typ (env : A.Kind.t list) : B.Type.t -> B.Kind.t t = function
   | ProdT (k, _)
   | StructT (k, _)
   | RefT (k, _, _)
-  | GCPtrT (k, _)
   | CodeRefT (k, _)
   | PadT (k, _, _)
   | SerT (k, _)
@@ -342,9 +341,6 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
   | Ref (mem, t) ->
       let+ t' = elab_type env t in
       RefT (VALTYPE (PrimR PtrR, NoCopy, NoDrop), elab_memory mem, t')
-  | GCPtr t ->
-      let+ t' = elab_type env t in
-      GCPtrT (MEMTYPE (Sized (ConstS (Z.of_int 1)), ConstM MemGC, ImDrop), t')
   | CodeRef ft ->
       let+ ft' = elab_function_type env ft in
       CodeRefT (VALTYPE (PrimR I32R, ImCopy, ImDrop), ft')
