@@ -68,7 +68,6 @@ VariantT : kind -> "list" (type) -> type
 ProdT : kind -> "list" (type) -> type
 StructT : kind -> "list" (type) -> type
 RefT : kind -> memory -> type -> type
-GCPtrT : kind -> type -> type
 CodeRefT : kind -> function_type -> type
 PadT : kind -> size -> type -> type
 SerT : kind -> type -> type

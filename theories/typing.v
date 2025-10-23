@@ -145,10 +145,6 @@ Inductive type_ok : function_ctx -> type -> Prop :=
   mem_ok F.(fc_kind_ctx) μ ->
   type_ok F τ ->
   type_ok F (RefT κ μ τ)
-| OKGCPtr F κ τ :
-  kind_ok F.(fc_kind_ctx) κ ->
-  type_ok F τ ->
-  type_ok F (GCPtrT κ τ)
 | OKCodeRefT F κ ϕ :
   kind_ok F.(fc_kind_ctx) κ ->
   function_type_ok F ϕ ->
@@ -273,20 +269,12 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (StructT κ τs) κ
 | KRef F τ ζ μ δ :
   has_kind F τ (MEMTYPE ζ μ δ) ->
-  let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in
-  has_kind F (RefT κ μ τ) κ
-| KRefMMDrop F τ ζ :
-  has_kind F τ (MEMTYPE ζ (ConstM MemMM) ImDrop) ->
   let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
-  has_kind F (RefT κ (ConstM MemMM) τ) κ
+  has_kind F (RefT κ μ τ) κ
 | KRefGC F τ ζ δ :
   has_kind F τ (MEMTYPE ζ (ConstM MemGC) δ) ->
   let κ := VALTYPE (PrimR PtrR) ExCopy ExDrop in
   has_kind F (RefT κ (ConstM MemGC) τ) κ
-| KGCPtr F τ ζ δ :
-  has_kind F τ (MEMTYPE ζ (ConstM MemGC) δ) ->
-  let κ := MEMTYPE (Sized (ConstS 1)) (ConstM MemGC) ImDrop in
-  has_kind F (GCPtrT κ τ) κ
 | KCodeRef F ϕ :
   function_type_ok F ϕ ->
   let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
@@ -367,7 +355,7 @@ Section HasKindInd.
                                      let κ := MEMTYPE (Sized (ProdS σs)) μ δ in
                                      P F (StructT κ τs) κ)
       (HRef : forall F τ ζ μ δ, P F τ (MEMTYPE ζ μ δ) ->
-                           let κ := VALTYPE (PrimR PtrR) NoCopy NoDrop in
+                           let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
                            P F (RefT κ μ τ) κ)
       (HRefMMDrop : forall F τ ζ, P F τ (MEMTYPE ζ (ConstM MemMM) ImDrop) ->
                              let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
@@ -375,9 +363,6 @@ Section HasKindInd.
       (HRefGC : forall F τ ζ δ, P F τ (MEMTYPE ζ (ConstM MemGC) δ) ->
                            let κ := VALTYPE (PrimR PtrR) ExCopy ExDrop in
                            P F (RefT κ (ConstM MemGC) τ) κ)
-      (HGCPtr : forall F τ ζ δ, P F τ (MEMTYPE ζ (ConstM MemGC) δ) ->
-                           let κ := MEMTYPE (Sized (ConstS 1)) (ConstM MemGC) ImDrop in
-                           P F (GCPtrT κ τ) κ)
       (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
                          let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
                          P F (CodeRefT κ ϕ) κ)
@@ -436,9 +421,7 @@ Section HasKindInd.
     | KStructSized F τs σs μ δ H1 H2 =>
         HStructSized F τs σs μ δ H1 (Forall2_impl _ _ _ _ H2 (fun τ σ => has_kind_ind' _ _ _))
     | KRef F τ ζ μ δ H1 => HRef F τ ζ μ δ (has_kind_ind' _ _ _ H1)
-    | KRefMMDrop F τ ζ H1 => HRefMMDrop F τ ζ (has_kind_ind' _ _ _ H1)
     | KRefGC F τ ζ δ H1 => HRefGC F τ ζ δ (has_kind_ind' _ _ _ H1)
-    | KGCPtr F τ ζ δ H1 => HGCPtr F τ ζ δ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
     | KPad F σ0 σ τ μ δ H1 H2 => HPad F σ0 σ τ μ δ H1 (has_kind_ind' _ _ _ H2)
     | KSer F τ ρ μ χ δ H1 H2 => HSer F τ ρ μ χ δ H1 (has_kind_ind' _ _ _ H2)
@@ -584,8 +567,6 @@ Inductive stores_as : function_ctx -> type -> type -> Prop :=
   stores_as F (ProdT κ τs) (ProdT κ' τs')
 | SASer F κ τ :
   stores_as F τ (SerT κ τ)
-| SAGCPtr F κ κ' τ :
-  stores_as F (RefT κ (ConstM MemGC) τ) (GCPtrT κ' τ)
 | SAPad F κ τ τ' σ σ' :
   has_size F τ' σ' ->
   size_leq σ' σ ->

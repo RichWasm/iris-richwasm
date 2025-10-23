@@ -16,9 +16,10 @@ Set Bullet Behavior "Strict Subproofs".
 Record store_runtime :=
   { sr_mem_mm : memaddr;
     sr_mem_gc : memaddr;
-    sr_func_alloc_mm : funcaddr;
-    sr_func_alloc_gc : funcaddr;
+    sr_func_mmalloc : funcaddr;
+    sr_func_gcalloc : funcaddr;
     sr_func_free : funcaddr;
+    sr_func_setflag : funcaddr;
     sr_func_registerroot : funcaddr;
     sr_func_unregisterroot : funcaddr;
     sr_table : tableaddr;

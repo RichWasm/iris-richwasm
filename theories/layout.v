@@ -117,7 +117,6 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | StructT κ _
   | RefT κ _ _
   | I31T κ
-  | GCPtrT κ _
   | CodeRefT κ _
   | PadT κ _ _
   | SerT κ _

@@ -16,8 +16,9 @@ Inductive error :=
 Record module_runtime :=
   { mr_mem_mm : W.memidx;
     mr_mem_gc : W.memidx;
-    mr_func_alloc_mm : W.funcidx;
-    mr_func_alloc_gc : W.funcidx;
+    mr_func_mmalloc : W.funcidx;
+    mr_func_gcalloc : W.funcidx;
+    mr_func_setflag : W.funcidx;
     mr_func_free : W.funcidx;
     mr_func_registerroot : W.funcidx;
     mr_func_unregisterroot : W.funcidx;

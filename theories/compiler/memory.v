@@ -18,12 +18,12 @@ Section Compiler.
     match cm with
     | MemMM =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
-        emit (W.BI_call (funcimm mr.(mr_func_alloc_mm)))
+        emit (W.BI_call (funcimm mr.(mr_func_mmalloc)))
     | MemGC =>
         emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
         (* TODO: Pointer map. *)
         emit (W.BI_const (W.VAL_int64 (Wasm_int.int_zero i64m)));;
-        emit (W.BI_call (funcimm mr.(mr_func_alloc_gc)))
+        emit (W.BI_call (funcimm mr.(mr_func_gcalloc)))
     end.
 
   Definition free : codegen unit :=
@@ -119,6 +119,7 @@ Section Compiler.
     unregisterroot;;
     emit (W.BI_store (memimm mr.(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N).
 
+  (* TODO: Replace type-directed store with rep-directed store. *)
   Fixpoint store_as
     (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset)
     (ρ : representation) (τ : type) (vs : list W.localidx) {struct τ} :
@@ -138,7 +139,7 @@ Section Compiler.
         in
         store_items_as off vs ρs τs
     | _, SerT _ _ => try_option EFail (eval_rep ρ) ≫= store_as_ser cm a off vs
-    | _, GCPtrT _ _ => try_option EFail (head vs) ≫= store_as_gcptr a off
+    (* | _, GCPtrT _ _ => try_option EFail (head vs) ≫= store_as_gcptr a off *)
     | _, PadT _ _ τ'
     | _, ExistsMemT _ τ'
     | _, ExistsRepT _ τ'
@@ -172,6 +173,7 @@ Section Compiler.
     emit (W.BI_load (memimm mr.(mr_mem_gc)) W.T_i32 None align_word (offset_gc + off)%N);;
     registerroot.
 
+  (* TODO: Replace type-directed load with rep-directed load. *)
   Fixpoint load_from
     (fe : function_env) (cm : concrete_memory) (a : W.localidx) (off : W.static_offset) (τ : type) :
     codegen unit :=
@@ -188,7 +190,7 @@ Section Compiler.
     | SerT _ τ' =>
         ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ');
         try_option EFail (eval_rep ρ) ≫= load_from_ser cm a off
-    | GCPtrT _ _ => load_from_gcptr a off
+    (* | GCPtrT _ _ => load_from_gcptr a off *)
     | PadT _ _ τ'
     | ExistsMemT _ τ'
     | ExistsRepT _ τ'

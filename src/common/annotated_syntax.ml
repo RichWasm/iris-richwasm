@@ -498,8 +498,6 @@ module Internal = struct
       | RefT (kind, mem, t) ->
           fprintf ff "(RefT %a %a %a)" Kind.pp_roqc kind Memory.pp_roqc mem
             pp_roqc_typ t
-      | GCPtrT (kind, t) ->
-          fprintf ff "(GCPtrT %a %a)" Kind.pp_roqc kind pp_roqc_typ t
       | CodeRefT (kind, ft) ->
           fprintf ff "(CodeRefT %a %a)" Kind.pp_roqc kind pp_roqc_function_typ
             ft
