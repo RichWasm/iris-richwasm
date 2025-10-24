@@ -42,7 +42,7 @@ Section Compiler.
     ιs ← try_option EFail (eval_rep ρ);
     ixs ← save_stack fe ιs;
     restore_stack ixs;;
-    map_gc_ptrs ixs ιs (duproot mr);;
+    map_gc_ptrs ιs ixs (duproot mr);;
     restore_stack ixs.
 
   Definition compile_drop (fe : function_env) (τ : type) : codegen unit :=
