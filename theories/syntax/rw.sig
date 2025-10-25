@@ -88,6 +88,10 @@ RepI : representation -> index
 SizeI : size -> index
 TypeI : type -> index
 
+consumption : Type
+Copy : consumption
+Move : consumption
+
 sign : Type
 SignU : sign
 SignS : sign
@@ -197,6 +201,6 @@ ITag : instruction_type -> instruction
 IUntag : instruction_type -> instruction
 ICast : instruction_type -> instruction
 INew : instruction_type -> instruction
-ILoad : instruction_type -> "list" (nat) -> instruction
+ILoad : instruction_type -> "list" (nat) -> consumption -> instruction
 IStore : instruction_type -> "list" (nat) -> instruction
 ISwap : instruction_type -> "list" (nat) -> instruction

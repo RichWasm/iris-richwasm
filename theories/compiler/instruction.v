@@ -118,7 +118,7 @@ Section Compiler.
     alloc mr μ n;;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
-    set_pointer_flags mr a 0 (I32R :: ιs);;
+    set_pointer_flags mr a 1 (flat_map flags_of_rep ιs);;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     t ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm t));;
@@ -191,7 +191,7 @@ Section Compiler.
     alloc mr μ n;;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
-    set_pointer_flags mr a 0 ιs;;
+    set_pointer_flags mr a 0 (flat_map flags_of_rep ιs);;
     store_primitives mr μ a 0 vs ιs;;
     emit (W.BI_get_local (localimm a));;
     match μ with
@@ -199,13 +199,18 @@ Section Compiler.
     | MemGC => registerroot mr
     end.
 
-  Definition compile_load (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
-    (* TODO: Set pointer flags if destructive load. *)
+  Definition compile_load (fe : function_env) (τ τval : type) (π : path) (c : consumption) :
+    codegen unit :=
     off ← try_option EFail (path_offset fe τ π);
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep ρ);
+    let n := list_sum (map primitive_size ιs) in
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
+    match c with
+    | Copy => ret tt
+    | Move => set_pointer_flags mr a off (repeat FlagInt n)
+    end;;
     ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
       (emit W.BI_unreachable)
       (fun μ => load_primitives mr fe μ a off ιs).
@@ -220,7 +225,7 @@ Section Compiler.
     case_ptr a (W.Tf [] [])
       (emit W.BI_unreachable)
       (fun μ => store_primitives mr μ a off vs ιs);;
-    set_pointer_flags mr a off ιs.
+    set_pointer_flags mr a off (flat_map flags_of_rep ιs).
 
   Definition compile_swap (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -282,8 +287,8 @@ Section Compiler.
     | ICast _ => erased_in_wasm
     | INew (InstrT [τ] [RefT _ (ConstM μ) _]) => compile_new fe μ τ
     | INew _ => raise EFail
-    | ILoad (InstrT [RefT _ _ τ] [_; τval]) π => compile_load fe τ τval π
-    | ILoad _ _ => raise EFail
+    | ILoad (InstrT [RefT _ _ τ] [_; τval]) π c => compile_load fe τ τval π c
+    | ILoad _ _ _ => raise EFail
     | IStore (InstrT [RefT _ _ τ; τval] _) π => compile_store fe τ τval π
     | IStore _ _ => raise EFail
     | ISwap (InstrT [RefT _ _ τ; τval] _) π => compile_swap fe τ τval π

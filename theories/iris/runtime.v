@@ -1,6 +1,6 @@
 Require Import RecordUpdate.RecordUpdate.
 
-Require Import RichWasm.syntax.
+From RichWasm Require Import syntax util.
 From RichWasm.iris Require Import memory util.
 From RichWasm.iris.language Require Import lenient_wp logpred.
 

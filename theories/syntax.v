@@ -26,36 +26,36 @@ Fixpoint flatten_function_type (ϕ : function_type) : flat_function_type :=
 
 Definition proj_instr_ty (e : instruction) : instruction_type :=
   match e with
-  | INop ty
-  | IUnreachable ty
-  | ICopy ty
-  | IDrop ty
-  | INum ty _
-  | INumConst ty _
-  | IBlock ty _ _
-  | ILoop ty _
-  | IIte ty _ _ _
-  | IBr ty _
-  | IReturn ty
-  | ILocalGet ty _
-  | ILocalSet ty _
-  | ICodeRef ty _
-  | IInst ty _
-  | ICall ty _ _
-  | ICallIndirect ty
-  | IInject ty _
-  | ICase ty _ _
-  | IGroup ty
-  | IUngroup ty
-  | IFold ty
-  | IUnfold ty
-  | IPack ty
-  | IUnpack ty _ _
-  | ITag ty
-  | IUntag ty
-  | ICast ty
-  | INew ty
-  | ILoad ty _
-  | IStore ty _
-  | ISwap ty _ => ty
+  | INop ψ
+  | IUnreachable ψ
+  | ICopy ψ
+  | IDrop ψ
+  | INum ψ _
+  | INumConst ψ _
+  | IBlock ψ _ _
+  | ILoop ψ _
+  | IIte ψ _ _ _
+  | IBr ψ _
+  | IReturn ψ
+  | ILocalGet ψ _
+  | ILocalSet ψ _
+  | ICodeRef ψ _
+  | IInst ψ _
+  | ICall ψ _ _
+  | ICallIndirect ψ
+  | IInject ψ _
+  | ICase ψ _ _
+  | IGroup ψ
+  | IUngroup ψ
+  | IFold ψ
+  | IUnfold ψ
+  | IPack ψ
+  | IUnpack ψ _ _
+  | ITag ψ
+  | IUntag ψ
+  | ICast ψ
+  | INew ψ
+  | ILoad ψ _ _
+  | IStore ψ _
+  | ISwap ψ _ => ψ
   end.

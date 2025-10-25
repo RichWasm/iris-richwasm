@@ -1,8 +1,37 @@
 From stdpp Require Import gmap list.
-From mathcomp.ssreflect Require seq.
+
+From mathcomp Require Import eqtype ssreflect.seq.
+
+From ExtLib.Structures Require Import Functor Monads.
 
 From Wasm Require common stdpp_aux.
-From ExtLib.Structures Require Import Functor Monads.
+Require Import Wasm.numerics.
+
+Require Import RichWasm.syntax.
+
+Inductive pointer_flag :=
+| FlagPtr
+| FlagInt.
+
+Definition flag_of_i32 (n : i32) : pointer_flag :=
+  if Wasm_int.Int32.eq n Wasm_int.Int32.zero
+  then FlagInt
+  else FlagPtr.
+
+Definition i32_of_flag (f : pointer_flag) : i32 :=
+  match f with
+  | FlagInt => Wasm_int.Int32.zero
+  | FlagPtr => Wasm_int.Int32.one
+  end.
+
+Definition flags_of_rep (ι : primitive_rep) : list pointer_flag :=
+  match ι with
+  | PtrR => [FlagPtr]
+  | I32R => [FlagInt]
+  | I64R => [FlagInt; FlagInt]
+  | F32R => [FlagInt]
+  | F64R => [FlagInt; FlagInt]
+  end.
 
 Global Instance MRet_Monad (M : Type -> Type) `(Monad M) : MRet M :=
   { mret := fun _ => ret }.

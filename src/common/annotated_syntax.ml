@@ -558,6 +558,17 @@ module Index = struct
     | TypeI typ -> fprintf ff "(TypeI %a)" Type.pp_roqc typ
 end
 
+module Consumption = struct
+  type t =
+    [%import:
+      (Richwasm_extract.RwSyntax.Core.consumption)]
+    [@@deriving eq, ord, sexp]
+
+  let pp_print ff : t -> unit = function
+    | Copy -> fprintf ff "Copy"
+    | Move -> fprintf ff "Move"
+end
+
 module Instruction = struct
   type t =
     [%import:
@@ -567,6 +578,7 @@ module Instruction = struct
         num_instruction := NumInstruction.t;
         coq_type := Type.t;
         index := Index.t;
+        consumption := Consumption.t;
         path := Path.t;
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
@@ -617,7 +629,9 @@ module Instruction = struct
     | IUntag it -> fprintf ff "(IUntag %a)" pp_it it
     | ICast it -> fprintf ff "(ICast %a)" pp_it it
     | INew it -> fprintf ff "(INew %a)" pp_it it
-    | ILoad (it, p) -> fprintf ff "(ILoad %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
+    | ILoad (it, p, c) ->
+        fprintf ff "(ILoad %a %a %a)"
+          pp_it it (pp_roqc_list Z.pp_print) p Consumption.pp_print c
     | IStore (it, p) -> fprintf ff "(IStore %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
     | ISwap (it, p) -> fprintf ff "(ISwap %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
 

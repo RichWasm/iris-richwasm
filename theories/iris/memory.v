@@ -22,10 +22,6 @@ Inductive root_pointer :=
 | RootInt (n : Z)
 | RootHeap (μ : concrete_memory) (a : address).
 
-Inductive pointer_flag :=
-| FlagPtr
-| FlagInt.
-
 Inductive rep_value :=
 | PtrV (r : pointer)
 | I32V (n : i32)
@@ -77,11 +73,6 @@ Definition word_has_flag (f : pointer_flag) (w : word) : bool :=
   | FlagInt, WordInt _ => true
   | _, _ => false
   end.
-
-Definition flag_of_i32 (n : i32) : pointer_flag :=
-  if Wasm_int.Int32.eq n Wasm_int.Int32.zero
-  then FlagInt
-  else FlagPtr.
 
 Definition tag_address (μ : concrete_memory) (a : address) : Z :=
   match μ with

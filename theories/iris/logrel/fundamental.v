@@ -1552,16 +1552,6 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_local_get M F L wl wl' wlf es' i τ :
-    let fe := fe_of_context F in
-    let ψ := InstrT [] [τ] in
-    let L' := <[ i := None]> L in
-    L !! i = Some (Some τ) ->
-    has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
-    ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
-  Admitted.
-
   Lemma compat_local_get_copy M F L wl wl' wlf es' i τ :
     let fe := fe_of_context F in
     let ψ := InstrT [] [τ] in
@@ -1570,6 +1560,16 @@ Section Fundamental.
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
+  Admitted.
+
+  Lemma compat_local_get_move M F L wl wl' wlf es' i τ :
+    let fe := fe_of_context F in
+    let ψ := InstrT [] [τ] in
+    let L' := <[ i := None]> L in
+    L !! i = Some (Some τ) ->
+    has_instruction_type_ok F ψ L' ->
+    run_codegen (compile_instr mr fe (ILocalGet ψ i)) wl = inr ((), wl', es') ->
+    ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L'.
   Admitted.
 
   Lemma compat_local_set M F L wl wl' wlf es' i τ :
@@ -2011,19 +2011,19 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_load M F L wl wl' wlf es' κ κser μ τ τval π pr :
+  Lemma compat_load_copy M F L wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-    has_copyability F τval ImCopy ->
+    has_copyability F τval ExCopy ->
     resolves_path τ π None pr ->
     pr.(pr_target) = SerT κser τval ->
     Forall (mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (ILoad ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILoad ψ π Copy)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_load_mm M F L wl wl' wlf es' κ κ' κser σ τ τval π pr :
+  Lemma compat_load_move M F L wl wl' wlf es' κ κ' κser σ τ τval π pr :
     let fe := fe_of_context F in   
     let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) (pr_replaced pr); τval] in
     resolves_path τ π (Some (type_uninit σ)) pr ->
@@ -2031,11 +2031,11 @@ Section Fundamental.
     pr.(pr_target) = SerT κser τval ->
     Forall (mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (ILoad ψ π)) wl = inr ((), wl', es') ->
+    run_codegen (compile_instr mr fe (ILoad ψ π Move)) wl = inr ((), wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_store M F L wl wl' wlf es' κ κser μ τ τval π pr :
+  Lemma compat_store_weak M F L wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
     resolves_path τ π None pr ->
@@ -2047,7 +2047,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L (wl ++ wl' ++ wlf) (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_store_mm M F L wl wl' wlf es' κ κ' κser σ ρ τ τval π pr :
+  Lemma compat_store_strong M F L wl wl' wlf es' κ κ' κser σ ρ τ τval π pr :
     let fe := fe_of_context F in   
     let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) (pr_replaced pr)] in
     resolves_path τ π (Some (SerT κser τval)) pr ->
@@ -2477,8 +2477,8 @@ Section Fundamental.
     - eapply compat_ite with (es1 := es1); eassumption.
     - eapply compat_br; eassumption.
     - eapply compat_return; eassumption.
-    - eapply compat_local_get; eassumption.
     - eapply compat_local_get_copy; eassumption.
+    - eapply compat_local_get_move; eassumption.
     - eapply compat_local_set; eassumption.
     - eapply compat_coderef; eassumption.
     - eapply compat_inst; eassumption.
@@ -2498,10 +2498,10 @@ Section Fundamental.
     - eapply compat_untag; eassumption.
     - eapply compat_cast; eassumption.
     - eapply compat_new; eassumption.
-    - eapply compat_load; eassumption.
-    - eapply compat_load_mm; eassumption.
-    - eapply compat_store; eassumption.
-    - eapply compat_store_mm; eassumption.
+    - eapply compat_load_copy; eassumption.
+    - eapply compat_load_move; eassumption.
+    - eapply compat_store_weak; eassumption.
+    - eapply compat_store_strong; eassumption.
     - eapply compat_swap; eassumption.
     - eapply compat_nil; eassumption.
     - eapply compat_app in Hcomp; eassumption.

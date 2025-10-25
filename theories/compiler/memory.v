@@ -43,15 +43,9 @@ Section Compiler.
 
   Definition free : codegen unit := emit (W.BI_call (funcimm mr.(mr_func_free))).
 
-  Definition setflag (i : nat) (ι : primitive_rep) : codegen unit :=
-    let f :=
-      match ι with
-      | PtrR => Wasm_int.Int32.one
-      | _ => Wasm_int.Int32.zero
-      end
-    in
+  Definition setflag (i : nat) (f : pointer_flag) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
-    emit (W.BI_const (W.VAL_int32 f));;
+    emit (W.BI_const (W.VAL_int32 (i32_of_flag f)));;
     emit (W.BI_call (funcimm mr.(mr_func_setflag))).
 
   Definition registerroot : codegen unit :=
@@ -65,10 +59,10 @@ Section Compiler.
   Definition unregisterroot : codegen unit :=
     emit (W.BI_call (funcimm mr.(mr_func_unregisterroot))).
 
-  Definition set_pointer_flags (a : W.localidx) (i : nat) (ιs : list primitive_rep) : codegen unit :=
+  Definition set_pointer_flags (a : W.localidx) (i : nat) (fs : list pointer_flag) : codegen unit :=
     mapM_
-      (fun '(i, ι) => emit (W.BI_get_local (localimm a));; setflag i ι)
-      (zip (seq i (length ιs)) ιs).
+      (fun '(i, f) => emit (W.BI_get_local (localimm a));; setflag i f)
+      (zip (seq i (length fs)) fs).
 
   Definition drop_ptr (μ : concrete_memory) : codegen unit :=
     match μ with

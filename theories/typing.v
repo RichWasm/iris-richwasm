@@ -761,18 +761,18 @@ Inductive has_instruction_type :
   Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IReturn ψ) ψ L'
-| TLocalGet M F L i τ :
-  let ψ := InstrT [] [τ] in
-  let L' := <[ i := None ]> L in
-  L !! i = Some (Some τ) ->
-  has_instruction_type_ok F ψ L' ->
-  has_instruction_type M F L (ILocalGet ψ i) ψ L'
 | TLocalGetCopy M F L i τ :
   let ψ := InstrT [] [τ] in
   L !! i = Some (Some τ) ->
   has_copyability F τ ImCopy ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILocalGet ψ i) ψ L
+| TLocalGetMove M F L i τ :
+  let ψ := InstrT [] [τ] in
+  let L' := <[ i := None ]> L in
+  L !! i = Some (Some τ) ->
+  has_instruction_type_ok F ψ L' ->
+  has_instruction_type M F L (ILocalGet ψ i) ψ L'
 | TLocalSet M F L i τ :
   let ψ := InstrT [τ] [] in
   let L' := <[ i := Some τ ]> L in
@@ -875,23 +875,23 @@ Inductive has_instruction_type :
   mono_mem μ ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (INew ψ) ψ L
-| TLoad M F L π μ τ τval pr κ κser :
+| TLoadCopy M F L π μ τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-  has_copyability F τval ImCopy ->
+  has_copyability F τval ExCopy ->
   resolves_path τ π None pr ->
   pr.(pr_target) = SerT κser τval ->
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (ILoad ψ π) ψ L
-| TLoadMM M F L π τ τval κ κ' κser σ pr :
+  has_instruction_type M F L (ILoad ψ π Copy) ψ L
+| TLoadMove M F L π τ τval κ κ' κser σ pr :
   let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
   resolves_path τ π (Some (type_uninit σ)) pr ->
   has_size F pr.(pr_target) σ ->
   pr.(pr_target) = SerT κser τval ->
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (ILoad ψ π) ψ L
-| TStore M F L π μ τ τval pr κ κser :
+  has_instruction_type M F L (ILoad ψ π Move) ψ L
+| TStoreWeak M F L π μ τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
   resolves_path τ π None pr ->
   has_dropability F pr.(pr_target) ImDrop ->
@@ -899,7 +899,7 @@ Inductive has_instruction_type :
   Forall (mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IStore ψ π) ψ L
-| TStoreMM M F L π τ τval pr σ ρ κ κ' κser :
+| TStoreStrong M F L π τ τval pr σ ρ κ κ' κser :
   let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
   resolves_path τ π (Some (SerT κser τval)) pr ->
   has_dropability F pr.(pr_target) ImDrop ->
@@ -998,18 +998,18 @@ Section HasHaveInstructionTypeMind.
           Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IReturn ψ) ψ L')
-      (HLocalGet : forall M F L i τ,
-          let ψ := InstrT [] [τ] in
-          let L' := <[ i := None ]> L in
-          L !! i = Some (Some τ) ->
-          has_instruction_type_ok F ψ L' ->
-          P1 M F L (ILocalGet ψ i) ψ L')
       (HLocalGetCopy : forall M F L i τ,
           let ψ := InstrT [] [τ] in
           L !! i = Some (Some τ) ->
           has_copyability F τ ImCopy ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILocalGet ψ i) ψ L)
+      (HLocalGetMove : forall M F L i τ,
+          let ψ := InstrT [] [τ] in
+          let L' := <[ i := None ]> L in
+          L !! i = Some (Some τ) ->
+          has_instruction_type_ok F ψ L' ->
+          P1 M F L (ILocalGet ψ i) ψ L')
       (HLocalSet : forall M F L i τ,
           let ψ := InstrT [τ] [] in
           let L' := <[ i := Some τ ]> L in
@@ -1115,23 +1115,23 @@ Section HasHaveInstructionTypeMind.
           mono_mem μ ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (INew ψ) ψ L)
-      (HLoad : forall M F L π μ τ τval pr κ κser,
+      (HLoadCopy : forall M F L π μ τ τval pr κ κser,
           let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-          has_copyability F τval ImCopy ->
+          has_copyability F τval ExCopy ->
           resolves_path τ π None pr ->
           pr.(pr_target) = SerT κser τval ->
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (ILoad ψ π) ψ L)
-      (HLoadMM : forall M F L π τ τval κ κ' κser σ pr,
+          P1 M F L (ILoad ψ π Copy) ψ L)
+      (HLoadMove : forall M F L π τ τval κ κ' κser σ pr,
           let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) pr.(pr_replaced); τval] in
           resolves_path τ π (Some (type_uninit σ)) pr ->
           has_size F pr.(pr_target) σ ->
           pr.(pr_target) = SerT κser τval ->
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (ILoad ψ π) ψ L)
-      (HStore : forall M F L π μ τ τval pr κ κser,
+          P1 M F L (ILoad ψ π Move) ψ L)
+      (HStoreWeak : forall M F L π μ τ τval pr κ κser,
           let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
           resolves_path τ π None pr ->
           has_dropability F pr.(pr_target) ImDrop ->
@@ -1139,7 +1139,7 @@ Section HasHaveInstructionTypeMind.
           Forall (mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IStore ψ π) ψ L)
-      (HStoreMM : forall M F L π τ τval pr σ ρ κ κ' κser,
+      (HStoreStrong : forall M F L π τ τval pr σ ρ κ κ' κser,
           let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) pr.(pr_replaced)] in
           resolves_path τ π (Some (SerT κser τval)) pr ->
           has_dropability F pr.(pr_target) ImDrop ->
@@ -1195,8 +1195,8 @@ Section HasHaveInstructionTypeMind.
           H3
     | TBr M F L L' i τs τs1 τs2 H1 H2 H3 => HBr M F L L' i τs τs1 τs2 H1 H2 H3
     | TReturn M F L L' τs τs1 τs2 H1 H2 H3 => HReturn M F L L' τs τs1 τs2 H1 H2 H3
-    | TLocalGet M F L i τ H1 H2 => HLocalGet M F L i τ H1 H2
     | TLocalGetCopy M F L i τ H1 H2 H3 => HLocalGetCopy M F L i τ H1 H2 H3
+    | TLocalGetMove M F L i τ H1 H2 => HLocalGetMove M F L i τ H1 H2
     | TLocalSet M F L i τ H1 H2 => HLocalSet M F L i τ H1 H2
     | TCodeRef M F L i ϕ H1 H2 => HCodeRef M F L i ϕ H1 H2
     | TInst M F L ix ϕ ϕ' H1 H2 => HInst M F L ix ϕ ϕ' H1 H2
@@ -1226,14 +1226,14 @@ Section HasHaveInstructionTypeMind.
     | TUntag M F L H1 => HUntag M F L H1
     | TCast M F L τ τ' H1 H2 => HCast M F L τ τ' H1 H2
     | TNew M F L μ τ κ κser H1 H2 => HNew M F L μ τ κ κser H1 H2
-    | TLoad M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5 =>
-        HLoad M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5
-    | TLoadMM M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5 =>
-        HLoadMM M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5
-    | TStore M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5 =>
-        HStore M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5
-    | TStoreMM M F L π τ τval pr σ ρ κ κ' κser H1 H2 H3 H4 H5 H6 H7 =>
-        HStoreMM M F L π τ τval pr σ ρ κ κ' κser H1 H2 H3 H4 H5 H6 H7
+    | TLoadCopy M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5 =>
+        HLoadCopy M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5
+    | TLoadMove M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5 =>
+        HLoadMove M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5
+    | TStoreWeak M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5 =>
+        HStoreWeak M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5
+    | TStoreStrong M F L π τ τval pr σ ρ κ κ' κser H1 H2 H3 H4 H5 H6 H7 =>
+        HStoreStrong M F L π τ τval pr σ ρ κ κ' κser H1 H2 H3 H4 H5 H6 H7
     | TSwap M F L π τ τval pr κ κser μ H1 H2 H3 H4 => HSwap M F L π τ τval pr κ κser μ H1 H2 H3 H4
     end
 
