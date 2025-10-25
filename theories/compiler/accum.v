@@ -5,11 +5,15 @@
 From stdpp Require Import base.
 From ExtLib.Structures Require Import Functor Monads Monoid.
 
+Class MonadAccum@{s d c} (S : Type@{s}) (m : Type@{d} -> Type@{c}) : Type :=
+  { get : m (list S);
+    acc : list S -> m unit }.
+
 Section Accum.
   Variables 
     (S : Type)
     (m : Type -> Type).
-  
+
   Record accumT (t: Type) : Type :=
     mkAccumT { runAccumT : list S -> m (t * list S)%type }.
   Arguments mkAccumT {t} _.
@@ -22,6 +26,10 @@ Section Accum.
 
   Definition execAccumT {t} (c : accumT t) (s : list S) : m (list S) :=
     bind (runAccumT c s) (fun x => ret (snd x)).
+
+  Global Instance MonadAccum_accumT : MonadAccum S accumT :=
+    { get := mkAccumT (fun s => ret (s, nil));
+      acc := fun s' => mkAccumT (fun s => ret (tt, s')) }.
 
   Global Instance Monad_accumT : Monad accumT :=
   { ret := fun _ x => mkAccumT (fun s => @ret _ M _ (x, nil))
@@ -60,15 +68,15 @@ Section Accum.
                              | inr (b,s') => ret (inr b, s')
                            end))
   }.
-  
+
   Global Instance MonadWriter_accumT T (Mon : Monoid T) (MR : MonadWriter Mon m) : MonadWriter Mon accumT :=
   { tell := fun x => mkAccumT (fun s => bind (tell x) (fun v => ret (v, nil)))
   ; listen := fun A (c: accumT A) =>
                 mkAccumT (fun s => bind (listen (runAccumT c s))
                                          (fun x => let '(a,s',t) := x in ret (a,t,s')))
   ; pass := fun _ c =>
-              mkAccumT (fun s => bind (runAccumT c s) 
-                                       (fun x => let '(a,t,s') := x in pass (ret ((a,s'),t))))
+              mkAccumT (fun s => pass (bind (runAccumT c s)
+                                      (fun '(x, f, s') => ret (x, s', f))))
   }.
 
 End Accum.

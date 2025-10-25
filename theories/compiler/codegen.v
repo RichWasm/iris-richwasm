@@ -19,45 +19,11 @@ Module W := Wasm.datatypes.
 
 Notation wlocal_ctx := (list W.value_type) (only parsing).
 
-Record codegen (A : Type) :=
-  { uncodegen : accumT W.value_type
-                       (writerT (@Monoid_list_app W.basic_instruction)
-                                (sum error))
-                       A }.
-
-Arguments Build_codegen {A} _.
-Arguments uncodegen {A} _.
-
-Existing Instance Monad_stateT.
-
-Global Instance Monad_codegen : Monad codegen :=
-  { ret := fun _ => Build_codegen ∘ ret;
-    bind := fun _ _ c f => Build_codegen (uncodegen c ≫= uncodegen ∘ f) }.
-
-Global Instance MonadExc_codegen : MonadExc error codegen :=
-  { raise := fun _ => Build_codegen ∘ raise;
-    catch := fun _ b h => Build_codegen (catch (uncodegen b) (uncodegen ∘ h)) }.
-
-Definition get : codegen (list W.value_type) :=
-  Build_codegen (mkAccumT (fun s => ret (s, nil))).
-
-Definition acc (s' : list W.value_type) : codegen () :=
-  Build_codegen (mkAccumT (fun s => ret (tt, s'))).
-
-Global Instance MonadWriter_codegen : MonadWriter (@Monoid_list_app W.basic_instruction) codegen :=
-  { tell := Build_codegen ∘ tell;
-    listen := fun _ => Build_codegen ∘ listen ∘ uncodegen;
-    (* Work around broken implementation of `pass` in ExtLib.
-       https://github.com/rocq-community/coq-ext-lib/issues/153 *)
-    pass := fun _ c => Build_codegen (mkAccumT (fun s =>
-      pass ('(x, f, s') ← runAccumT (uncodegen c) s;
-            ret (x, s', f)))) }.
-
-Definition lift_error {A : Type} (c : error + A) : codegen A :=
-  Build_codegen (lift (lift c)).
+Definition codegen : Type -> Type :=
+  accumT W.value_type (writerT (@Monoid_list_app W.basic_instruction) (sum error)).
 
 Definition run_codegen {A : Type} (c : codegen A) (wl : wlocal_ctx) : error + A * wlocal_ctx * W.expr :=
-  match runWriterT (runAccumT (uncodegen c) wl) with
+  match runWriterT (runAccumT c wl) with
   | inl e => inl e
   | inr x => inr (PPair.pfst x, PPair.psnd x)
   end.
@@ -79,7 +45,8 @@ Definition loop_c {A : Type} (tf : W.function_type) (c : codegen A) : codegen A 
   emit (W.BI_loop tf es);;
   ret x.
 
-Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : codegen B) : codegen (A * B) :=
+Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : codegen B) :
+  codegen (A * B) :=
   '(x1, es1) ← capture thn;
   '(x2, es2) ← capture els;
   emit (W.BI_if tf es1 es2);;
@@ -149,20 +116,20 @@ Qed.
 
 Lemma run_codegen_def {A} (c : codegen A) wl wl' x es:
   run_codegen c wl = inr (x, wl', es) <->
-  runWriterT (runAccumT (uncodegen c) wl) = inr (PPair.ppair (x, wl') es).
+  runWriterT (runAccumT c wl) = inr (PPair.ppair (x, wl') es).
 Proof.
   split.
   {
     intros H.
     unfold run_codegen in H.
-    destruct (runWriterT (runAccumT (uncodegen c) wl)); first congruence.
+    destruct (runWriterT (runAccumT c wl)); first congruence.
     inversion H.
     reflexivity.
   }
   {
     intros H.
     unfold run_codegen.
-    destruct (runWriterT (runAccumT (uncodegen c) wl)); first congruence.
+    destruct (runWriterT (runAccumT c wl)); first congruence.
     inversion H.
     reflexivity.
   }
@@ -200,17 +167,6 @@ Proof.
   - assumption.
 Qed.
 
-Lemma run_codegen_lift_error_inr {A} c wl wl' es (x : A) :
-  run_codegen (lift_error c) wl = inr (x, wl', es) ->
-  c = inr x /\ wl' = [] /\ es = [].
-Proof.
-  intros H.
-  destruct c; cbn in H; first congruence.
-  inversion H.
-  split; first reflexivity.
-  split; reflexivity.
-Qed.
-
 Lemma run_codegen_try_option_inr {A} (c: option A) e x wl wl' es :
   run_codegen (try_option e c) wl = inr (x, wl', es) ->
   c = Some x /\ wl' = [] /\ es = [].
@@ -226,14 +182,14 @@ Lemma run_codegen_capture {A} (c : codegen A) (wl wl': wlocal_ctx) es es' x :
 Proof.
   intros H.
   unfold run_codegen.
-  unfold capture, censor, pass, listen, MonadWriter_codegen in H.
+  unfold capture, censor, pass, listen, MonadWriter_accumT in H.
   unfold listen in H.
   cbn in H.
   unfold pass in H.
   cbn in H.
   unfold run_codegen in *.
   cbn in H.
-  destruct (runWriterT (runAccumT (uncodegen c) wl)); first congruence.
+  destruct (runWriterT (runAccumT c wl)); first congruence.
   cbn in H.
   destruct p.
   cbn in *.
