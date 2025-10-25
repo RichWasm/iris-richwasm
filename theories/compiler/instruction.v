@@ -122,8 +122,8 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     t ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm t));;
-    store_primitive mr μ a 0%N t I32R;;
-    store_primitives mr μ a 4%N vs ιs;;
+    store_primitive mr μ a 0 t I32R;;
+    store_primitives mr μ a 1 vs ιs;;
     emit (W.BI_get_local (localimm a));;
     match μ with
     | MemMM => ret tt
@@ -159,10 +159,10 @@ Section Compiler.
            τ ← try_option EFail (τs !! i);
            ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
            ιs ← try_option EFail (eval_rep ρ);
-           load_primitives mr fe μ a 4%N ιs;;
+           load_primitives mr fe μ a 1 ιs;;
            c
          in
-         load_primitive mr fe μ a 0%N I32R;;
+         load_primitive mr fe μ a 0 I32R;;
          case_blocks res (map do_case cases);;
          emit (W.BI_get_local (localimm a));;
          drop_ptr mr μ).
@@ -192,7 +192,7 @@ Section Compiler.
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
     set_pointer_flags mr a 0 ιs;;
-    store_primitives mr μ a 0%N vs ιs;;
+    store_primitives mr μ a 0 vs ιs;;
     emit (W.BI_get_local (localimm a));;
     match μ with
     | MemMM => ret tt
@@ -211,16 +211,16 @@ Section Compiler.
       (fun μ => load_primitives mr fe μ a off ιs).
 
   Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
-    (* TODO: Set pointer flags if strong update. *)
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep ρ);
     off ← try_option EFail (path_offset fe τ π);
     vs ← save_stack fe ιs;
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
-    ignore $ case_ptr a (W.Tf [] [])
+    case_ptr a (W.Tf [] [])
       (emit W.BI_unreachable)
-      (fun μ => store_primitives mr μ a off vs ιs).
+      (fun μ => store_primitives mr μ a off vs ιs);;
+    set_pointer_flags mr a off ιs.
 
   Definition compile_swap (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);

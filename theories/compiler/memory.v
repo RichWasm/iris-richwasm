@@ -14,33 +14,34 @@ Section Compiler.
 
   Variable mr : module_runtime.
 
-  Definition load (μ : concrete_memory) (t : W.value_type) (off : W.static_offset) : codegen unit :=
+  Definition byte_offset (μ : concrete_memory) (off : nat) : W.static_offset :=
     match μ with
-    | MemMM => emit (W.BI_load (memimm mr.(mr_mem_mm)) t None align_word (offset_mm + off)%N)
-    | MemGC => emit (W.BI_load (memimm mr.(mr_mem_gc)) t None align_word (offset_gc + off)%N)
+    | MemMM => offset_mm + 4 * N.of_nat off
+    | MemGC => offset_gc + 4 * N.of_nat off
+    end%N.
+
+  Definition load (μ : concrete_memory) (t : W.value_type) (off : nat) : codegen unit :=
+    let off' := byte_offset μ off in
+    match μ with
+    | MemMM => emit (W.BI_load (memimm mr.(mr_mem_mm)) t None align_word off')
+    | MemGC => emit (W.BI_load (memimm mr.(mr_mem_gc)) t None align_word off')
     end.
 
-  Definition store (μ : concrete_memory) (t : W.value_type) (off : W.static_offset) : codegen unit :=
+  Definition store (μ : concrete_memory) (t : W.value_type) (off : nat) : codegen unit :=
+    let off' := byte_offset μ off in
     match μ with
-    | MemMM => emit (W.BI_store (memimm mr.(mr_mem_mm)) t None align_word (offset_mm + off)%N)
-    | MemGC => emit (W.BI_store (memimm mr.(mr_mem_gc)) t None align_word (offset_gc + off)%N)
+    | MemMM => emit (W.BI_store (memimm mr.(mr_mem_mm)) t None align_word off')
+    | MemGC => emit (W.BI_store (memimm mr.(mr_mem_gc)) t None align_word off')
     end.
-
-  Definition primitive_offset (ι : primitive_rep) : W.static_offset :=
-    (4 * N.of_nat (primitive_size ι))%N.
 
   Definition alloc (μ : concrete_memory) (n : nat) : codegen unit :=
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
     match μ with
-    | MemMM =>
-        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
-        emit (W.BI_call (funcimm mr.(mr_func_mmalloc)))
-    | MemGC =>
-        emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
-        emit (W.BI_call (funcimm mr.(mr_func_gcalloc)))
+    | MemMM => emit (W.BI_call (funcimm mr.(mr_func_mmalloc)))
+    | MemGC => emit (W.BI_call (funcimm mr.(mr_func_gcalloc)))
     end.
 
-  Definition free : codegen unit :=
-    emit (W.BI_call (funcimm mr.(mr_func_free))).
+  Definition free : codegen unit := emit (W.BI_call (funcimm mr.(mr_func_free))).
 
   Definition setflag (i : nat) (ι : primitive_rep) : codegen unit :=
     let f :=
@@ -75,15 +76,15 @@ Section Compiler.
     | MemGC => unregisterroot
     end.
 
-  Fixpoint path_offset (fe : function_env) (τ : type) (π : path) : option W.static_offset :=
+  Fixpoint path_offset (fe : function_env) (τ : type) (π : path) : option nat :=
     match τ, π with
-    | _, [] => Some 0%N
+    | _, [] => Some 0
     | StructT _ τs, i :: π' =>
         σs ← mapM (type_size fe.(fe_type_vars)) (take i τs);
         ns ← mapM eval_size σs;
         τ' ← τs !! i;
         n ← path_offset fe τ' π';
-        Some (N.of_nat (list_sum ns) + n)%N
+        Some (list_sum ns + n)
     | _, _ => None
     end.
 
@@ -105,7 +106,8 @@ Section Compiler.
 
   Definition ite_gc_ptr
     (ι : primitive_rep) (i : W.localidx) (tf : W.function_type)
-    (do_gc : codegen unit) (do_nongc : codegen unit) : codegen unit :=
+    (do_gc : codegen unit) (do_nongc : codegen unit) :
+    codegen unit :=
     match ι with
     | PtrR =>
         ignore $ case_ptr i tf
@@ -124,8 +126,7 @@ Section Compiler.
     mapM_ (fun '(ι, i) => map_gc_ptr ι i c) (zip ιs ixs).
 
   Definition load_primitive
-    (fe : function_env) (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
-    (ι : primitive_rep) :
+    (fe : function_env) (μ : concrete_memory) (a : W.localidx) (off : nat) (ι : primitive_rep) :
     codegen unit :=
     emit (W.BI_get_local (localimm a));;
     let t := translate_prim_rep ι in
@@ -139,17 +140,15 @@ Section Compiler.
     end.
 
   Definition load_primitives
-    (fe : function_env) (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
-    (ιs : list primitive_rep) :
+    (fe : function_env) (μ : concrete_memory) (a : W.localidx) (off : nat) (ιs : list primitive_rep) :
     codegen unit :=
     ignore $ foldM
-      (fun ι off => load_primitive fe μ a off ι;; ret (off + primitive_offset ι)%N)
+      (fun ι off => load_primitive fe μ a off ι;; ret (off + primitive_size ι))
       (ret off)
       ιs.
 
   Definition store_primitive
-    (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
-    (v : W.localidx) (ι : primitive_rep) :
+    (μ : concrete_memory) (a : W.localidx) (off : nat) (v : W.localidx) (ι : primitive_rep) :
     codegen unit :=
     emit (W.BI_get_local (localimm a));;
     emit (W.BI_get_local (localimm v));;
@@ -163,11 +162,11 @@ Section Compiler.
     end.
 
   Definition store_primitives
-    (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
+    (μ : concrete_memory) (a : W.localidx) (off : nat)
     (vs : list W.localidx) (ιs : list primitive_rep) :
     codegen unit :=
     ignore $ foldM
-      (fun '(v, ι) off => store_primitive μ a off v ι;; ret (off + primitive_offset ι)%N)
+      (fun '(v, ι) off => store_primitive μ a off v ι;; ret (off + primitive_size ι))
       (ret off)
       (zip vs ιs).
 
