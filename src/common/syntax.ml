@@ -774,16 +774,7 @@ module Index = struct
 end
 
 module Path = struct
-  module Component = struct
-    type t =
-      | Proj of int
-      | Unwrap
-    [@@deriving eq, ord, variants, sexp, show { with_path = false }]
-
-    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  end
-
-  type t = Path of Component.t list
+  type t = Path of int list
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)

@@ -24,26 +24,6 @@ module Z' = struct
     | _ -> failwith "expected atom"
 end
 
-module Path = struct
-  module Component = struct
-    type t =
-      [%import: (Richwasm_extract.RwSyntax.path_component[@with Z.t := Z'.t])]
-    [@@deriving eq, ord, sexp]
-
-    let pp_roqc ff : t -> unit = function
-      | PCProj i -> fprintf ff "(PCProj %a)" Z.pp_print i
-      | PCSkip -> fprintf ff "(PCSkip)"
-  end
-
-  type t =
-    [%import:
-      (Richwasm_extract.RwSyntax.path[@with path_component := Component.t])]
-  [@@deriving eq, ord, sexp]
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  let pp_roqc ff : t -> unit = fprintf ff "%a" (pp_roqc_list Component.pp_roqc)
-end
-
 module ConcreteMemory = struct
   type t = [%import: Richwasm_extract.RwSyntax.Core.concrete_memory]
   [@@deriving eq, ord, sexp]
@@ -637,9 +617,9 @@ module Instruction = struct
     | IUntag it -> fprintf ff "(IUntag %a)" pp_it it
     | ICast it -> fprintf ff "(ICast %a)" pp_it it
     | INew it -> fprintf ff "(INew %a)" pp_it it
-    | ILoad (it, p) -> fprintf ff "(ILoad %a %a)" pp_it it Path.pp_roqc p
-    | IStore (it, p) -> fprintf ff "(IStore %a %a)" pp_it it Path.pp_roqc p
-    | ISwap (it, p) -> fprintf ff "(ISwap %a %a)" pp_it it Path.pp_roqc p
+    | ILoad (it, p) -> fprintf ff "(ILoad %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
+    | IStore (it, p) -> fprintf ff "(IStore %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
+    | ISwap (it, p) -> fprintf ff "(ISwap %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
 
   let subst = Richwasm_extract.RwSyntax.Core.subst_instruction
 end

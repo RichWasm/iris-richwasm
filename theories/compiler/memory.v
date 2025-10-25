@@ -42,6 +42,17 @@ Section Compiler.
   Definition free : codegen unit :=
     emit (W.BI_call (funcimm mr.(mr_func_free))).
 
+  Definition setflag (i : nat) (ι : primitive_rep) : codegen unit :=
+    let f :=
+      match ι with
+      | PtrR => Wasm_int.Int32.one
+      | _ => Wasm_int.Int32.zero
+      end
+    in
+    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
+    emit (W.BI_const (W.VAL_int32 f));;
+    emit (W.BI_call (funcimm mr.(mr_func_setflag))).
+
   Definition registerroot : codegen unit :=
     emit (W.BI_call (funcimm mr.(mr_func_registerroot))).
 
@@ -53,22 +64,26 @@ Section Compiler.
   Definition unregisterroot : codegen unit :=
     emit (W.BI_call (funcimm mr.(mr_func_unregisterroot))).
 
+  Definition set_pointer_flags (a : W.localidx) (i : nat) (ιs : list primitive_rep) : codegen unit :=
+    mapM_
+      (fun '(i, ι) => emit (W.BI_get_local (localimm a));; setflag i ι)
+      (zip (seq i (length ιs)) ιs).
+
   Definition drop_ptr (μ : concrete_memory) : codegen unit :=
     match μ with
     | MemMM => free
     | MemGC => unregisterroot
     end.
 
-  Fixpoint resolve_path
-    (fe : function_env) (τ : type) (π : path) : option (W.static_offset * type) :=
+  Fixpoint path_offset (fe : function_env) (τ : type) (π : path) : option W.static_offset :=
     match τ, π with
-    | SerT _ τ', [] => Some (0%N, τ')
-    | StructT _ τs, PCProj i :: π' =>
+    | _, [] => Some 0%N
+    | StructT _ τs, i :: π' =>
         σs ← mapM (type_size fe.(fe_type_vars)) (take i τs);
         ns ← mapM eval_size σs;
         τ' ← τs !! i;
-        '(n, τ'') ← resolve_path fe τ' π';
-        Some (N.of_nat (list_sum ns) + n, τ'')%N
+        n ← path_offset fe τ' π';
+        Some (N.of_nat (list_sum ns) + n)%N
     | _, _ => None
     end.
 

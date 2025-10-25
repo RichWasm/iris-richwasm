@@ -5,6 +5,8 @@ Require Import RecordUpdate.RecordUpdate.
 
 From RichWasm.syntax Require Export module rw.
 
+Definition path := list nat.
+
 Record flat_function_type :=
   { fft_mem_vars : nat;
     fft_rep_vars : nat;
@@ -22,7 +24,7 @@ Fixpoint flatten_function_type (ϕ : function_type) : flat_function_type :=
   | ForallTypeT κ ϕ' => flatten_function_type ϕ' <| fft_type_vars ::= app [κ] |>
   end.
 
-Definition proj_instr_ty (e: instruction) : instruction_type :=
+Definition proj_instr_ty (e : instruction) : instruction_type :=
   match e with
   | INop ty
   | IUnreachable ty

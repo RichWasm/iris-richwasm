@@ -1,5 +1,4 @@
 nat : Type
-path : Type
 
 list : Functor
 prod : Functor
@@ -198,6 +197,6 @@ ITag : instruction_type -> instruction
 IUntag : instruction_type -> instruction
 ICast : instruction_type -> instruction
 INew : instruction_type -> instruction
-ILoad : instruction_type -> path -> instruction
-IStore : instruction_type -> path -> instruction
-ISwap : instruction_type -> path -> instruction
+ILoad : instruction_type -> "list" (nat) -> instruction
+IStore : instruction_type -> "list" (nat) -> instruction
+ISwap : instruction_type -> "list" (nat) -> instruction

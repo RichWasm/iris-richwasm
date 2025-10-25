@@ -502,7 +502,7 @@ Inductive resolves_path : type -> path -> option type -> path_result -> Prop :=
        pr_target := pr.(pr_target);
        pr_replaced := StructT κ (τs0 ++ pr.(pr_replaced) :: τs') |}
   in
-  resolves_path (StructT κ (τs0 ++ τ :: τs')) (PCProj i :: π) τ__π pr'.
+  resolves_path (StructT κ (τs0 ++ τ :: τs')) (i :: π) τ__π pr'.
 
 Inductive type_eq : function_ctx -> type -> type -> Prop :=
 | TEqRefl F τ :
@@ -562,22 +562,7 @@ Inductive type_eq : function_ctx -> type -> type -> Prop :=
   let κ := MEMTYPE (ProdS (map RepS ρs)) δ in
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
   let τs' := zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) δ) τ) τs ρs in
-  type_eq F (SerT κ (ProdT κp τs)) (StructT κ τs')
-| TEqSerRec F κ κrec τ :
-  has_kind F (SerT κ (RecT κrec τ)) κ ->
-  type_eq F (SerT κ (RecT κrec τ)) (RecT κ (SerT κrec τ))
-| TEqSerExMem F κ1 κ2 τ :
-  has_kind F (SerT κ1 (ExistsMemT κ2 τ)) κ1 ->
-  type_eq F (SerT κ1 (ExistsMemT κ2 τ)) (ExistsMemT κ1 (SerT κ2 τ))
-| TEqSerExRep F κ1 κ2 τ :
-  has_kind F (SerT κ1 (ExistsRepT κ2 τ)) κ1 ->
-  type_eq F (SerT κ1 (ExistsRepT κ2 τ)) (ExistsRepT κ1 (SerT κ2 τ))
-| TEqSerExSize F κ1 κ2 τ :
-  has_kind F (SerT κ1 (ExistsSizeT κ2 τ)) κ1 ->
-  type_eq F (SerT κ1 (ExistsSizeT κ2 τ)) (ExistsSizeT κ1 (SerT κ2 τ))
-| TEqSerExType F κ1 κ2 κτ τ :
-  has_kind F (SerT κ1 (ExistsTypeT κ2 κτ τ)) κ1 ->
-  type_eq F (SerT κ1 (ExistsTypeT κ2 κτ τ)) (ExistsTypeT κ1 κτ (SerT κ2 τ)).
+  type_eq F (SerT κ (ProdT κp τs)) (StructT κ τs').
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
 | FTInstMem F ϕ μ :

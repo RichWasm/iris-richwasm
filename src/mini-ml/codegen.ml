@@ -168,7 +168,7 @@ let rec compile_expr delta gamma locals functions e =
         locals,
         [] )
   | Project (n, v) ->
-      (cv v @ [ Load (Path.Path [ Path.Component.Proj n ], Follow) ], locals, [])
+      (cv v @ [ Load (Path.Path [ n ], Follow) ], locals, [])
   | New v -> (cv v @ [ New ConcreteMemory.GC ], locals, [])
   | Deref v -> (cv v @ [ Load (Path.Path [], Follow) ], locals, [])
   | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path []) ], locals, [])

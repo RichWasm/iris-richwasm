@@ -408,12 +408,8 @@ let elab_index (env : A.Kind.t list) : A.Index.t -> B.Index.t t =
   | Size size -> ret @@ SizeI (elab_size size)
   | Type typ -> elab_type env typ >>| fun t -> TypeI t
 
-let elab_path (Path components : A.Path.t) : B.Path.t =
-  let elab_component : A.Path.Component.t -> B.Path.Component.t = function
-    | Proj i -> PCProj (Z.of_int i)
-    | Unwrap -> PCSkip
-  in
-  List.map ~f:elab_component components
+let elab_path (Path ns : A.Path.t) : Z.t list =
+  List.map ~f:Z.of_int ns
 
 let instr_t_of env t_in t_out : B.InstructionType.t InstrM.t =
   let open InstrM in
