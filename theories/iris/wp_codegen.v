@@ -739,25 +739,17 @@ Section CodeGen.
         run_codegen (f x) (wl ++ wl') = inl err.
   Proof.
     intros.
-    unfold mbind in H.
-    cbn in H.
     unfold run_codegen in H.
     destruct (WriterMonad.runWriterT _) eqn:Hrun in H; [|congruence].
-    cbn in Hrun.
-    (*
     destruct (accum.runAccumT _) as [[err' | val]] eqn:Harun in Hrun; [|cbn in *; congruence].
-    unfold accum.runAccumT in Harun.
-    destruct c as [c].
-    cbn in Harun.
-    destruct (c ≫= uncodegen ∘ f) as [x] eqn:? in Harun.
+    destruct (c ≫= f) as [x] eqn:? in Harun.
     cbn in *.
     inversion Hrun; subst.
     inversion H; subst.
     clear Hrun.
-    unfold mbind in Heqa; cbn in Heqa.
-    inversion Heqa; subst.
+    inversion Heqc0; subst.
     inversion Harun; subst.
-    clear Heqa Harun.
+    clear Heqc0 Harun.
     destruct (WriterMonad.runWriterT (accum.runAccumT c wl)) eqn:Hc.
     - left.
       unfold run_codegen.
@@ -775,14 +767,13 @@ Section CodeGen.
         cbn.
         eauto.
       + unfold run_codegen; cbn.
-        destruct (WriterMonad.runWriterT (accum.runAccumT (uncodegen (f ret')) (wl ++ wl'))) eqn:Hf.
+        destruct (WriterMonad.runWriterT (accum.runAccumT (f ret') (wl ++ wl'))) eqn:Hf.
         * cbn in Heqy.
           congruence.
         * cbn in Heqy.
           destruct p as [[? ?] ?]; cbn in Heqy.
           congruence.
-    *)
-  Admitted.
+  Qed.
 
   Lemma ignore_err_faithful {A} (c: codegen A) wl err :
     run_codegen (util.ignore c) wl = inl err ->
