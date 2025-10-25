@@ -18,17 +18,13 @@ Inductive pointer :=
 | PtrInt (n : Z)
 | PtrHeap (μ : concrete_memory) (ℓ : location).
 
-Inductive pointer_flag :=
-| FlagPtr
-| FlagInt.
-
-Inductive word :=
-| WordPtr (p : pointer)
-| WordInt (n : Z).
-
 Inductive root_pointer :=
 | RootInt (n : Z)
 | RootHeap (μ : concrete_memory) (a : address).
+
+Inductive pointer_flag :=
+| FlagPtr
+| FlagInt.
 
 Inductive rep_value :=
 | PtrV (r : pointer)
@@ -36,6 +32,10 @@ Inductive rep_value :=
 | I64V (n : i64)
 | F32V (n : f32)
 | F64V (n : f64).
+
+Inductive word :=
+| WordPtr (p : pointer)
+| WordInt (n : Z).
 
 Definition address_map : Type := gmap location (concrete_memory * address).
 Definition root_map : Type := gmap address location.
@@ -99,20 +99,6 @@ Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
   (a `mod` 4 = 0)%N ->
   repr_pointer θ (PtrHeap μ ℓ) (tag_address μ a).
 
-Inductive repr_word : address_map -> word -> Z -> Prop :=
-| ReprWordInt θ n :
-  repr_word θ (WordInt n) n
-| ReprWordPtr θ p n :
-  repr_pointer θ p n ->
-  repr_word θ (WordPtr p) n.
-
-Inductive repr_double_word : word -> word -> Z -> Prop :=
-| ReprDoubleWordInt n1 n2 m :
-  repr_word ∅ (WordInt n1) n1 ->
-  repr_word ∅ (WordInt n2) n2 ->
-  (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = m ->
-  repr_double_word (WordInt n1) (WordInt n2) m.
-
 Inductive repr_root_pointer : root_pointer -> Z -> Prop :=
 | ReprRootInt n :
   repr_root_pointer (RootInt n) (2 * n)
@@ -120,21 +106,18 @@ Inductive repr_root_pointer : root_pointer -> Z -> Prop :=
   (a `mod` 4 = 0)%N ->
   repr_root_pointer (RootHeap μ a) (tag_address μ a).
 
-Inductive ser_value : rep_value -> list word -> Prop :=
-| SerPtr p :
-  ser_value (PtrV p) [WordPtr p]
-| SerI32 n :
-  ser_value (I32V (Wasm_int.int_of_Z i32m n)) [WordInt n]
-| SerI64 n w1 w2 :
-  repr_double_word w1 w2 n ->
-  ser_value (I64V (Wasm_int.int_of_Z i64m n)) [w1; w2]
-| SerF32 n :
-  let n' := Integers.Int.repr n in
-  ser_value (F32V (Wasm_float.FloatSize32.of_bits n')) [WordInt n]
-| SerF64 w1 w2 n :
-  repr_double_word w1 w2 n ->
-  let n' := Integers.Int64.repr n in
-  ser_value (F64V (Wasm_float.FloatSize64.of_bits n')) [w1; w2].
+Definition rep_serialize (rv : rep_value) : list word :=
+  match rv with
+  | PtrV p => [WordPtr p]
+  | I32V n => [WordInt (Wasm_int.Z_of_uint i32m n)]
+  | I64V n =>
+      let n' := Wasm_int.Z_of_uint i64m n in
+      [WordInt (Wasm_int.Int32.Z_mod_modulus n'); WordInt (n' ≫ 32)%Z]
+  | F32V n => [WordInt (Integers.Int.intval (Wasm_float.FloatSize32.to_bits n))]
+  | F64V n =>
+      let n' := Integers.Int64.intval (Wasm_float.FloatSize64.to_bits n) in
+      [WordInt (Wasm_int.Int32.Z_mod_modulus n'); WordInt (n' ≫ 32)%Z]
+  end.
 
 Section Token.
 

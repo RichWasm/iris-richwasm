@@ -303,8 +303,7 @@ Section Relations.
 
   Definition ser_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
     λne sv,
-      (∃ rvs wss,
-         ⌜sv = SWords (concat wss)⌝ ∗ ⌜Forall2 ser_value rvs wss⌝ ∗ ▷ vrel se τ (SValues rvs))%I.
+      (∃ rvs, ⌜sv = SWords (flat_map rep_serialize rvs)⌝ ∗ ▷ vrel se τ (SValues rvs))%I.
 
   Definition uninit_interp (vrel : value_relation) (se : semantic_env) (σ : size) : SVR :=
     λne sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
