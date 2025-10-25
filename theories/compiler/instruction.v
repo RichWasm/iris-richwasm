@@ -159,10 +159,10 @@ Section Compiler.
            τ ← try_option EFail (τs !! i);
            ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
            ιs ← try_option EFail (eval_rep ρ);
-           load_primitives mr fe μ a 1 ιs;;
+           load_primitives mr fe μ Move a 1 ιs;;
            c
          in
-         load_primitive mr fe μ a 0 I32R;;
+         load_primitive mr fe μ Move a 0 I32R;;
          case_blocks res (map do_case cases);;
          emit (W.BI_get_local (localimm a));;
          drop_ptr mr μ).
@@ -213,7 +213,7 @@ Section Compiler.
     end;;
     ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
       (emit W.BI_unreachable)
-      (fun μ => load_primitives mr fe μ a off ιs).
+      (fun μ => load_primitives mr fe μ c a off ιs).
 
   Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -236,7 +236,7 @@ Section Compiler.
     emit (W.BI_set_local (localimm a));;
     ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
       (emit W.BI_unreachable)
-      (fun μ => load_primitives mr fe μ a off ιs;; store_primitives mr μ a off vs ιs).
+      (fun μ => load_primitives mr fe μ Move a off ιs;; store_primitives mr μ a off vs ιs).
 
   Definition erased_in_wasm : codegen unit := ret tt.
 

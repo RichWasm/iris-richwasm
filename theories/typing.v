@@ -822,6 +822,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (ICase ψ L' ess) ψ L'
 | TCaseVariant M F L L' ess τs τ' κr κv κs μ :
   (* TODO: Add label to escape case. *)
+  (* TODO: Copyability of contents? *)
   let τs' := zip_with SerT κs τs in
   let ψ := InstrT [RefT κr μ (VariantT κv τs')] [τ'] in
   Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs' ess ->
