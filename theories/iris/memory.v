@@ -113,9 +113,6 @@ Inductive repr_double_word : word -> word -> Z -> Prop :=
   (Wasm_int.Int32.Z_mod_modulus n1 + n2 ≪ 32)%Z = m ->
   repr_double_word (WordInt n1) (WordInt n2) m.
 
-Definition repr_list_word (θ : address_map) (ws : list word) (ns : list Z) : Prop :=
-  Forall2 (repr_word θ) ws ns.
-
 Inductive repr_root_pointer : root_pointer -> Z -> Prop :=
 | ReprRootInt n :
   repr_root_pointer (RootInt n) (2 * n)
@@ -146,6 +143,16 @@ Section Token.
 
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
+
+  Definition word_interp (θ : address_map) (μ : concrete_memory) (w : word) (n : Z) : iProp Σ :=
+    match w with
+    | WordInt m => ⌜n = m⌝
+    | WordPtr p =>
+        match μ, p with
+        | MemMM, PtrHeap MemGC ℓ => ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+        | _, _ => ⌜repr_pointer θ p n⌝
+        end
+    end.
 
   Definition locations (w : word) : list location :=
     match w with
@@ -187,7 +194,9 @@ Section Token.
   Definition heap_memory (θ : address_map) (hm : heap_map) : iProp Σ :=
     [∗ map] ℓ ↦ '(μ, a); ws ∈ θ; hm,
       ∃ bs ns,
-        rt_memaddr μ ↦[wms][a] bs ∗ ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗ ⌜repr_list_word θ ws ns⌝.
+        rt_memaddr μ ↦[wms][a] bs ∗
+          ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
+          big_sepL2 (const (word_interp θ μ)) ws ns.
 
   Definition rt_token (θ : address_map) : iProp Σ :=
     ∃ rm lm hm,

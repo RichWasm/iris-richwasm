@@ -115,9 +115,13 @@ Section Compiler.
     emit (W.BI_get_local (localimm a));;
     let t := translate_prim_rep ι in
     load μ t off;;
-    v ← wlalloc fe t;
-    emit (W.BI_tee_local (localimm v));;
-    ite_gc_ptr ι v (W.Tf [W.T_i32] [W.T_i32]) registerroot (ret tt).
+    match μ with
+    | MemMM => ret tt
+    | MemGC =>
+        v ← wlalloc fe t;
+        emit (W.BI_tee_local (localimm v));;
+        ite_gc_ptr ι v (W.Tf [W.T_i32] [W.T_i32]) registerroot (ret tt)
+    end.
 
   Definition load_primitives
     (fe : function_env) (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
@@ -135,9 +139,13 @@ Section Compiler.
     emit (W.BI_get_local (localimm a));;
     emit (W.BI_get_local (localimm v));;
     let t := translate_prim_rep ι in
-    ite_gc_ptr ι v (W.Tf [t] [])
-      (loadroot;; store μ t off;; emit (W.BI_get_local (localimm v));; unregisterroot)
-      (store μ t off).
+    match μ with
+    | MemMM => store μ t off
+    | MemGC =>
+        ite_gc_ptr ι v (W.Tf [t] [])
+          (loadroot;; store μ t off;; emit (W.BI_get_local (localimm v));; unregisterroot)
+          (store μ t off)
+    end.
 
   Definition store_primitives
     (μ : concrete_memory) (a : W.localidx) (off : W.static_offset)
