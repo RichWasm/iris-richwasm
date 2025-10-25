@@ -102,9 +102,8 @@ Definition kind_rep (κ : kind) : option representation :=
 
 Definition kind_size (κ : kind) : option size :=
   match κ with
-  | VALTYPE _ _ _
-  | MEMTYPE Unsized _ => None
-  | MEMTYPE (Sized σ) _ => Some σ
+  | VALTYPE _ _ _ => None
+  | MEMTYPE σ _ => Some σ
   end.
 
 Definition type_kind (κs : list kind) (τ : type) : option kind :=
@@ -158,7 +157,7 @@ Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
 Definition type_f64 : type := float_type_type F64T.
-Definition type_uninit (σ : size) : type := UninitT (MEMTYPE (Sized σ) ImDrop) σ.
+Definition type_uninit (σ : size) : type := UninitT (MEMTYPE σ ImDrop) σ.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_rep (ν : num_type) : primitive_rep :=

@@ -40,17 +40,6 @@ Section FundamentalKinding.
     done.
   Qed.
 
-  (*
-  Lemma sizity_sized_le_unsized σ :
-    sizity_interp (Sized σ) ⊑ sizity_interp Unsized.
-  Proof.
-    iIntros "%sv (%μ & %ws & %Hsv & %Hsz)".
-    iPureIntro.
-    do 2 eexists; split; eauto.
-    intros; congruence.
-  Qed.
-  *)
-  
   Lemma type_kind_has_kind_Some F τ κ :
     has_kind F τ κ ->
     ∃ κ', type_kind (fe_type_vars (fe_of_context F)) τ = Some κ'.
@@ -347,9 +336,7 @@ Section FundamentalKinding.
       admit.
     - admit. (* sums *)
     - inversion Hκeq; subst; eauto.
-    - inversion Hκeq; subst; eauto.
     - admit. (* products *)
-    - inversion Hκeq; subst; eauto.
     - inversion Hκeq; subst; eauto.
     - inversion Hκeq; subst; done.
     - admit. (* refs *)

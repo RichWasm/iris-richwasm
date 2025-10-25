@@ -126,18 +126,14 @@ let rec elab_size : A.Size.t -> B.Size.t = function
   | Rep rep -> RepS (elab_representation rep)
   | Const s -> ConstS (Z.of_int s)
 
-let elab_sizity : A.Sizity.t -> B.Sizity.t = function
-  | Sized size -> Sized (elab_size size)
-  | Unsized -> Unsized
-
 let elab_kind : A.Kind.t -> B.Kind.t = function
   | VALTYPE (representation, copyability, dropability) ->
       VALTYPE
         ( elab_representation representation,
           elab_copyability copyability,
           elab_dropability dropability )
-  | MEMTYPE (sizity, dropability) ->
-      MEMTYPE (elab_sizity sizity, elab_dropability dropability)
+  | MEMTYPE (size, dropability) ->
+      MEMTYPE (elab_size size, elab_dropability dropability)
 
 let elab_sign : A.Sign.t -> B.Sign.t = function
   | Unsigned -> SignU
@@ -263,28 +259,16 @@ let meet_valtypes
 let meet_memtypes
     (combine_sizes : B.Size.t list -> B.Size.t)
     (kinds : B.Kind.t list) : B.Kind.t t =
-  let rec go (sizity : [ `Sized of B.Size.t list | `Unsized ]) drop :
+  let rec go sizes drop :
       B.Kind.t list -> B.Kind.t t =
     let open B in
     function
-    | [] ->
-        Kind.MEMTYPE
-          ( (match sizity with
-            | `Sized sizes -> Sized (combine_sizes (List.rev sizes))
-            | `Unsized -> Unsized),
-            drop )
-        |> ret
-    | MEMTYPE (sizity', drop') :: xs ->
-        let sizity'' =
-          match (sizity, sizity') with
-          | `Unsized, _ | _, Unsized -> `Unsized
-          | `Sized sizes, Sized size -> `Sized (size :: sizes)
-        in
-        (* NOTE: mem ommitted *)
-        go sizity'' (Dropability.meet drop drop') xs
+    | [] -> Kind.MEMTYPE (combine_sizes (List.rev sizes), drop) |> ret
+    | MEMTYPE (size, drop') :: xs ->
+        go (size :: sizes) (Dropability.meet drop drop') xs
     | x :: _ -> fail (CannotMeet ("expected memtype", x))
   in
-  go (`Sized []) ImDrop kinds
+  go [] ImDrop kinds
 
 (* TODO: this needs to be double checked *)
 let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
@@ -348,10 +332,10 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
         | VALTYPE (rep, _, dropability) -> ret (rep, dropability)
         | _ -> fail (ExpectedVALTYPE ("Ser", t'))
       in
-      ret @@ SerT (MEMTYPE (Sized (RepS rep), dropability), t')
+      ret @@ SerT (MEMTYPE (RepS rep, dropability), t')
   | Uninit size ->
       let size' = elab_size size in
-      ret @@ UninitT (MEMTYPE (Sized size', ImDrop), size')
+      ret @@ UninitT (MEMTYPE (size', ImDrop), size')
   | Rec (kind, t) ->
       let env' = kind :: env in
       let* t' = elab_type env' t in

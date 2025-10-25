@@ -97,20 +97,13 @@ Inductive size_ok : kind_ctx -> size -> Prop :=
 | OKConstS K n :
   size_ok K (ConstS n).
 
-Inductive sizity_ok : kind_ctx -> sizity -> Prop :=
-| OKSized K σ :
-  size_ok K σ ->
-  sizity_ok K (Sized σ)
-| OKUnsized K :
-  sizity_ok K Unsized.
-
 Inductive kind_ok : kind_ctx -> kind -> Prop :=
 | OKVALTYPE K ρ χ δ :
   rep_ok K ρ ->
   kind_ok K (VALTYPE ρ χ δ)
-| OKMEMTYPE K ζ δ :
-  sizity_ok K ζ ->
-  kind_ok K (MEMTYPE ζ δ).
+| OKMEMTYPE K σ δ :
+  size_ok K σ ->
+  kind_ok K (MEMTYPE σ δ).
 
 Inductive type_ok : function_ctx -> type -> Prop :=
 | OKVarT F t κ :
@@ -208,12 +201,10 @@ Inductive subkind_of : kind -> kind -> Prop :=
   subkind_of (VALTYPE ρ χ ImDrop) (VALTYPE ρ χ ExDrop)
 | KSubValNoDrop ρ χ :
   subkind_of (VALTYPE ρ χ ExDrop) (VALTYPE ρ χ NoDrop)
-| SubMemExDrop ζ :
-  subkind_of (MEMTYPE ζ ImDrop) (MEMTYPE ζ ExDrop)
-| SubMemNoDrop ζ :
-  subkind_of (MEMTYPE ζ ExDrop) (MEMTYPE ζ NoDrop)
-| KSubSizity σ δ :
-  subkind_of (MEMTYPE (Sized σ) δ) (MEMTYPE Unsized δ).
+| KSubMemExDrop σ :
+  subkind_of (MEMTYPE σ ImDrop) (MEMTYPE σ ExDrop)
+| KSubMemNoDrop σ :
+  subkind_of (MEMTYPE σ ExDrop) (MEMTYPE σ NoDrop).
 
 Inductive has_kind_ok : function_ctx -> type -> kind -> Prop :=
 | OKHasKind F τ κ :
@@ -241,33 +232,25 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
   let κ := VALTYPE (SumR ρs) χ δ in
   has_kind F (SumT κ τs) κ
-| KVariant F τs ζs δ :
-  Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ δ)) τs ζs ->
-  let κ := MEMTYPE Unsized δ in
-  has_kind F (VariantT κ τs) κ
-| KVariantSized F τs σs δ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) δ)) τs σs ->
-  let κ := MEMTYPE (Sized (SumS σs)) δ in
+| KVariant F τs σs δ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ δ)) τs σs ->
+  let κ := MEMTYPE (SumS σs) δ in
   has_kind F (VariantT κ τs) κ
 | KProd F τs ρs χ δ :
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
   let κ := VALTYPE (ProdR ρs) χ δ in
   has_kind F (ProdT κ τs) κ
-| KStruct F τs ζs δ :
-  Forall2 (fun τ ζ => has_kind F τ (MEMTYPE ζ δ)) τs ζs ->
-  let κ := MEMTYPE Unsized δ in
+| KStruct F τs σs δ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ δ)) τs σs ->
+  let κ := MEMTYPE (ProdS σs) δ in
   has_kind F (StructT κ τs) κ
-| KStructSized F τs σs δ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE (Sized σ) δ)) τs σs ->
-  let κ := MEMTYPE (Sized (ProdS σs)) δ in
-  has_kind F (StructT κ τs) κ
-| KRef F τ ζ μ δ :
+| KRef F μ τ σ δ :
   mem_ok F.(fc_kind_ctx) μ ->
-  has_kind F τ (MEMTYPE ζ δ) ->
+  has_kind F τ (MEMTYPE σ δ) ->
   let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
   has_kind F (RefT κ μ τ) κ
-| KRefGC F τ ζ δ :
-  has_kind F τ (MEMTYPE ζ δ) ->
+| KRefGC F τ σ δ :
+  has_kind F τ (MEMTYPE σ δ) ->
   let κ := VALTYPE (PrimR PtrR) ExCopy ExDrop in
   has_kind F (RefT κ (ConstM MemGC) τ) κ
 | KCodeRef F ϕ :
@@ -276,11 +259,11 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   has_kind F (CodeRefT κ ϕ) κ
 | KSer F τ ρ χ δ :
   has_kind F τ (VALTYPE ρ χ δ) ->
-  let κ := MEMTYPE (Sized (RepS ρ)) δ in
+  let κ := MEMTYPE (RepS ρ) δ in
   has_kind F (SerT κ τ) κ
 | KUninit F σ :
   size_ok F.(fc_kind_ctx) σ ->
-  let κ := MEMTYPE (Sized σ) ImDrop in
+  let κ := MEMTYPE σ ImDrop in
   has_kind F (UninitT κ σ) κ
 | KRec F τ κ :
   has_kind (F <| fc_type_vars ::= cons κ |>) τ κ ->
@@ -329,62 +312,47 @@ Section HasKindInd.
       (HSum : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
                              let κ := VALTYPE (SumR ρs) χ δ in
                              P F (SumT κ τs) κ)
-      (HVariant : forall F τs ζs δ, Forall2 (fun τ ζ => P F τ (MEMTYPE ζ δ)) τs ζs ->
-                               let κ := MEMTYPE Unsized δ in P F (VariantT κ τs) κ)
-      (HVariantSized : forall F τs σs δ,
-          Forall2 (fun τ σ => P F τ (MEMTYPE (Sized σ) δ)) τs σs ->
-          let κ := MEMTYPE (Sized (SumS σs)) δ in P F (VariantT κ τs) κ)
+      (HVariant : forall F τs σs δ, Forall2 (fun τ σ => P F τ (MEMTYPE σ δ)) τs σs ->
+                               let κ := MEMTYPE (SumS σs) δ in
+                               P F (VariantT κ τs) κ)
       (HProd : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
                               let κ := VALTYPE (ProdR ρs) χ δ in
                               P F (ProdT κ τs) κ)
-      (HStruct : forall F τs ζs δ, Forall2 (fun τ ζ => P F τ (MEMTYPE ζ δ)) τs ζs ->
-                              let κ := MEMTYPE Unsized δ in
+      (HStruct : forall F τs σs δ, Forall2 (fun τ σ => P F τ (MEMTYPE σ δ)) τs σs ->
+                              let κ := MEMTYPE (ProdS σs) δ in
                               P F (StructT κ τs) κ)
-      (HStructSized : forall F τs σs δ, Forall2 (fun τ σ => P F τ (MEMTYPE (Sized σ) δ)) τs σs ->
-                                   let κ := MEMTYPE (Sized (ProdS σs)) δ in
-                                   P F (StructT κ τs) κ)
-      (HRef : forall F τ ζ μ δ, mem_ok F.(fc_kind_ctx) μ ->
-                           P F τ (MEMTYPE ζ δ) ->
+      (HRef : forall F μ τ σ δ, mem_ok F.(fc_kind_ctx) μ ->
+                           P F τ (MEMTYPE σ δ) ->
                            let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
-                           P F (RefT κ μ τ) κ)
-      (HRefMMDrop : forall F τ ζ, P F τ (MEMTYPE ζ ImDrop) ->
-                             let κ := VALTYPE (PrimR PtrR) NoCopy ExDrop in
-                             P F (RefT κ (ConstM MemMM) τ) κ)
-      (HRefGC : forall F τ ζ δ, P F τ (MEMTYPE ζ δ) ->
+                         P F (RefT κ μ τ) κ)
+      (HRefGC : forall F τ σ δ, P F τ (MEMTYPE σ δ) ->
                            let κ := VALTYPE (PrimR PtrR) ExCopy ExDrop in
                            P F (RefT κ (ConstM MemGC) τ) κ)
       (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
                          let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
                          P F (CodeRefT κ ϕ) κ)
-      (HSer : forall F τ ρ χ δ,
-          P F τ (VALTYPE ρ χ δ) ->
-          let κ := MEMTYPE (Sized (RepS ρ)) δ in
-          P F (SerT κ τ) κ)
-      (HUninit : forall F σ,
-          size_ok F.(fc_kind_ctx) σ ->
-          let κ := MEMTYPE (Sized σ) ImDrop in
-          P F (UninitT κ σ) κ)
-      (HRec : forall F τ κ,
-          P (F <| fc_type_vars ::= cons κ |>) τ κ ->
-          P F (RecT κ τ) κ)
-      (HExistsMem : forall F τ κ,
-          kind_ok F.(fc_kind_ctx) κ ->
-          P (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
-          P F (ExistsMemT κ τ) κ)
-      (HExistsRep : forall F τ κ,
-          kind_ok F.(fc_kind_ctx) κ ->
-          P (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
-          P F (ExistsRepT κ τ) κ)
-      (HExistsSize : forall F τ κ,
-          kind_ok F.(fc_kind_ctx) κ ->
-          P (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
-          P F (ExistsSizeT κ τ) κ)
-      (HExistsType : forall F τ κ0 κ,
-          kind_ok F.(fc_kind_ctx) κ0 ->
-          kind_ok F.(fc_kind_ctx) κ ->
-          P (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
-          P F (ExistsTypeT κ κ0 τ) κ)
-    (HSub : forall F τ κ κ', subkind_of κ κ' -> P F τ κ -> P F τ κ')
+      (HSer : forall F τ ρ χ δ, P F τ (VALTYPE ρ χ δ) ->
+                           let κ := MEMTYPE (RepS ρ) δ in
+                           P F (SerT κ τ) κ)
+      (HUninit : forall F σ, size_ok F.(fc_kind_ctx) σ ->
+                        let κ := MEMTYPE σ ImDrop in
+                        P F (UninitT κ σ) κ)
+      (HRec : forall F τ κ, P (F <| fc_type_vars ::= cons κ |>) τ κ ->
+                       P F (RecT κ τ) κ)
+      (HExistsMem : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
+                             P (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ ->
+                             P F (ExistsMemT κ τ) κ)
+      (HExistsRep : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
+                             P (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ ->
+                             P F (ExistsRepT κ τ) κ)
+      (HExistsSize : forall F τ κ, kind_ok F.(fc_kind_ctx) κ ->
+                              P (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ ->
+                              P F (ExistsSizeT κ τ) κ)
+      (HExistsType : forall F τ κ0 κ, kind_ok F.(fc_kind_ctx) κ0 ->
+                                 kind_ok F.(fc_kind_ctx) κ ->
+                                 P (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
+                                 P F (ExistsTypeT κ κ0 τ) κ)
+      (HSub : forall F τ κ κ', subkind_of κ κ' -> P F τ κ -> P F τ κ')
       (HVar : forall F t κ, F.(fc_type_vars) !! t = Some κ ->
                        kind_ok F.(fc_kind_ctx) κ ->
                        P F (VarT t) κ).
@@ -398,18 +366,14 @@ Section HasKindInd.
     | KF64 F => HF64 F
     | KSum F τs ρs χ δ H1 =>
         HSum F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KVariant F τs ζs δ H1 =>
-        HVariant F τs ζs δ (Forall2_impl _ _ _ _ H1 (fun τ ζ => has_kind_ind' _ _ _))
-    | KVariantSized F τs σs δ H1 =>
-        HVariantSized F τs σs δ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
+    | KVariant F τs σs δ H1 =>
+        HVariant F τs σs δ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
     | KProd F τs ρs χ δ H1 H2 =>
         HProd F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KStruct F τs ζs δ H1 =>
-        HStruct F τs ζs δ (Forall2_impl _ _ _ _ H1 (fun τ ζ => has_kind_ind' _ _ _))
-    | KStructSized F τs σs δ H1 =>
-        HStructSized F τs σs δ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
-    | KRef F τ ζ μ δ H1 H2 => HRef F τ ζ μ δ H1 (has_kind_ind' _ _ _ H2)
-    | KRefGC F τ ζ δ H1 => HRefGC F τ ζ δ (has_kind_ind' _ _ _ H1)
+    | KStruct F τs σs δ H1 =>
+        HStruct F τs σs δ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
+    | KRef F μ τ σ δ H1 H2 => HRef F μ τ σ δ H1 (has_kind_ind' _ _ _ H2)
+    | KRefGC F τ σ δ H1 => HRefGC F τ σ δ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
     | KSer F τ ρ χ δ H1 => HSer F τ ρ χ δ (has_kind_ind' _ _ _ H1)
     | KUninit F σ H1 => HUninit F σ H1
@@ -444,30 +408,25 @@ Proof.
     intros. inversion H1. by inversion H3.
   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
     intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. by inversion H1.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. inversion H3. by inversion H9.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. by inversion H1.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. inversion H3. by inversion H9.
   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
     intros. inversion H1. by inversion H3.
   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
     intros. by inversion H1.
   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
     intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
     intros. by inversion H1.
   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. inversion H3. by inversion H9.
+    intros. inversion H1. by inversion H3.
+  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
+    intros. inversion H1. by inversion H3.
   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
     intros. by inversion H1.
   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. inversion H3. by inversion H9.
-  - subst. 
-    by apply (kind_ok_subkind_of _ _ _ H1) in H.
+    intros. inversion H1. by inversion H3.
+  - subst. by apply (kind_ok_subkind_of _ _ _ H1) in H.
   - econstructor; done.
 Qed.
 
@@ -486,11 +445,11 @@ Definition has_mono_rep_instr (F : function_ctx) '(InstrT τs1 τs2 : instructio
   Forall (has_mono_rep F) τs1 /\ Forall (has_mono_rep F) τs2.
 
 Definition has_size (F : function_ctx) (τ : type) (σ : size) : Prop :=
-  exists δ, has_kind F τ (MEMTYPE (Sized σ) δ).
+  exists δ, has_kind F τ (MEMTYPE σ δ).
 
 Inductive mono_size : function_ctx -> type -> Prop :=
 | MonoSizeMEMTYPE F τ σ δ n :
-  has_kind F τ (MEMTYPE (Sized σ) δ) ->
+  has_kind F τ (MEMTYPE σ δ) ->
   eval_size σ = Some n ->
   mono_size F τ.
 
@@ -521,8 +480,8 @@ Inductive has_dropability : function_ctx -> type -> dropability -> Prop :=
 | DropVALTYPE F τ ρ χ δ :
   has_kind F τ (VALTYPE ρ χ δ) ->
   has_dropability F τ δ
-| DropMEMTYPE F τ ζ δ :
-  has_kind F τ (MEMTYPE ζ δ) ->
+| DropMEMTYPE F τ σ δ :
+  has_kind F τ (MEMTYPE σ δ) ->
   has_dropability F τ δ.
 
 Record path_result :=
@@ -600,9 +559,9 @@ Inductive type_eq : function_ctx -> type -> type -> Prop :=
   type_eq F τ τ' ->
   type_eq F (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ')
 | TEqSerProd F κp ρs χ δ τs :
-  let κ := MEMTYPE (Sized (ProdS (map RepS ρs))) δ in
+  let κ := MEMTYPE (ProdS (map RepS ρs)) δ in
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-  let τs' := zip_with (fun τ ρ => SerT (MEMTYPE (Sized (RepS ρ)) δ) τ) τs ρs in
+  let τs' := zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) δ) τ) τs ρs in
   type_eq F (SerT κ (ProdT κp τs)) (StructT κ τs')
 | TEqSerRec F κ κrec τ :
   has_kind F (SerT κ (RecT κrec τ)) κ ->

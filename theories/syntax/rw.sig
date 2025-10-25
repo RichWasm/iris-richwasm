@@ -40,13 +40,9 @@ ProdS : "list" (size) -> size
 RepS : representation -> size
 ConstS : nat -> size
 
-sizity : Type
-Sized : size -> sizity
-Unsized : sizity
-
 kind : Type
 VALTYPE : representation -> copyability -> dropability -> kind
-MEMTYPE : sizity -> dropability -> kind
+MEMTYPE : size -> dropability -> kind
 
 int_type : Type
 I32T : int_type

@@ -158,17 +158,10 @@ Section Relations.
     | ImCopy => forall sv, T sv ⊢ T sv ∗ T sv ∗ ⌜forall_svalues sv im_copy_interp⌝
     end.
 
-  Definition size_interp (σ : size) (ws : list word) : Prop :=
-    eval_size σ = Some (length ws).
-
-  Definition sizity_interp (ζ : sizity) (sv : semantic_value) : Prop :=
+  Definition size_interp (σ : size) (sv : semantic_value) : Prop :=
     match sv with
     | SValues _ => False
-    | SWords ws =>
-        match ζ with
-        | Sized σ => size_interp σ ws
-        | Unsized => True
-        end
+    | SWords ws => eval_size σ = Some (length ws)
     end.
 
   (* S refines T, written S ⊑ T. *)
@@ -181,7 +174,7 @@ Section Relations.
     λne sv,
       match κ with
       | VALTYPE ρ χ _ => ⌜representation_interp ρ sv⌝
-      | MEMTYPE ζ _ => ⌜sizity_interp ζ sv⌝
+      | MEMTYPE σ _ => ⌜size_interp σ sv⌝
       end%I.
 
   Definition kind_interp (κ : kind) : semantic_kind :=

@@ -389,21 +389,6 @@ module Size = struct
   let ren = Richwasm_extract.RwSyntax.Core.ren_size
 end
 
-module Sizity = struct
-  type t =
-    [%import: (Richwasm_extract.RwSyntax.Core.sizity[@with size := Size.t])]
-  [@@deriving eq, ord, sexp]
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-  let pp_roqc ff : t -> unit = function
-    | Sized size -> fprintf ff "(Sized %a)" Size.pp_roqc size
-    | Unsized -> fprintf ff "Unsized"
-
-  let subst = Richwasm_extract.RwSyntax.Core.subst_sizity
-  let ren = Richwasm_extract.RwSyntax.Core.ren_sizity
-end
-
 module Memory = struct
   type t =
     [%import:
@@ -432,7 +417,7 @@ module Kind = struct
         representation := Representation.t;
         copyability := Copyability.t;
         dropability := Dropability.t;
-        sizity := Sizity.t;
+        size := Size.t;
         memory := Memory.t])]
   [@@deriving eq, ord, sexp]
 
@@ -442,8 +427,8 @@ module Kind = struct
     | VALTYPE (rep, copy, drop) ->
         fprintf ff "(VALTYPE %a %a %a)" Representation.pp_roqc rep
           Copyability.pp_roqc copy Dropability.pp_roqc drop
-    | MEMTYPE (sizity, drop) ->
-        fprintf ff "(MEMTYPE %a %a)" Sizity.pp_roqc sizity Dropability.pp_roqc drop
+    | MEMTYPE (size, drop) ->
+        fprintf ff "(MEMTYPE %a %a)" Size.pp_roqc size Dropability.pp_roqc drop
 
   let subst = Richwasm_extract.RwSyntax.Core.subst_kind
   let ren = Richwasm_extract.RwSyntax.Core.ren_kind
@@ -650,6 +635,7 @@ module Instruction = struct
         fprintf ff "(IUnpack %a %a %a)" pp_it it pp_lfx lfx pp_instrs instrs
     | ITag it -> fprintf ff "(ITag %a)" pp_it it
     | IUntag it -> fprintf ff "(IUntag %a)" pp_it it
+    | ICast it -> fprintf ff "(ICast %a)" pp_it it
     | INew it -> fprintf ff "(INew %a)" pp_it it
     | ILoad (it, p) -> fprintf ff "(ILoad %a %a)" pp_it it Path.pp_roqc p
     | IStore (it, p) -> fprintf ff "(IStore %a %a)" pp_it it Path.pp_roqc p

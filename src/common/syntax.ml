@@ -199,41 +199,10 @@ module Size = struct
   let up_type sigma = funcomp (ren id id) sigma
 end
 
-module Sizity = struct
-  type t =
-    | Sized of Size.t
-    | Unsized
-  [@@deriving eq, ord, variants, sexp, show { with_path = false }]
-
-  let le a b =
-    match (a, b) with
-    | Sized s1, Sized s2 -> Size.equal s1 s2
-    | Sized _, Unsized -> true
-    | Unsized, Unsized -> true
-    | Unsized, Sized _ -> false
-
-  let meet a b =
-    match (a, b) with
-    | Unsized, x | x, Unsized -> Some x
-    | Sized s1, Sized s2 -> if Size.equal s1 s2 then Some (Sized s1) else None
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-  (* autosubst: *)
-
-  let ren xi_representation xi_size = function
-    | Sized s0 -> Sized (Size.ren xi_representation xi_size s0)
-    | Unsized -> Unsized
-
-  let subst sigma_representation sigma_size = function
-    | Sized s0 -> Sized (Size.subst sigma_representation sigma_size s0)
-    | Unsized -> Unsized
-end
-
 module Kind = struct
   type t =
     | VALTYPE of Representation.t * Copyability.t * Dropability.t
-    | MEMTYPE of Sizity.t * Dropability.t
+    | MEMTYPE of Size.t * Dropability.t
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -244,13 +213,13 @@ module Kind = struct
     | VALTYPE (s0, s1, s2) ->
         VALTYPE (Representation.ren xi_representation s0, s1, s2)
     | MEMTYPE (s0, s1) ->
-        MEMTYPE (Sizity.ren xi_representation xi_size s0, s1)
+        MEMTYPE (Size.ren xi_representation xi_size s0, s1)
 
   let subst sigma_representation sigma_size = function
     | VALTYPE (s0, s1, s2) ->
         VALTYPE (Representation.subst sigma_representation s0, s1, s2)
     | MEMTYPE (s0, s1) ->
-        MEMTYPE (Sizity.subst sigma_representation sigma_size s0, s1)
+        MEMTYPE (Size.subst sigma_representation sigma_size s0, s1)
 end
 
 module Quantifier = struct

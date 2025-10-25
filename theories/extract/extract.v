@@ -22,8 +22,6 @@ Extraction "RwSyntax.ml"
   rw.Core.ren_type
   rw.Core.subst_kind
   rw.Core.ren_kind
-  rw.Core.subst_sizity
-  rw.Core.ren_sizity
   rw.Core.subst_memory
   rw.Core.ren_memory
   rw.Core.subst_size

@@ -53,15 +53,10 @@ Proof.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KVariant.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
-  - eapply KVariantSized.
-    apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KProd.
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - eapply KStruct.
-    fold_subst.
-    apply Forall2_fmap; eapply Forall2_impl; eauto.
-  - eapply KStructSized.
     fold_subst.
     apply Forall2_fmap; eapply Forall2_impl; eauto.
   - admit.

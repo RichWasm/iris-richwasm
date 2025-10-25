@@ -255,7 +255,7 @@ Section Compiler.
     | ICall _ i _ => compile_call i
     | ICallIndirect _ => emit (W.BI_call_indirect 0) (* TODO: Type index. *)
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
-    | IInject (InstrT [τ] [RefT _ (ConstM μ) (VariantT (MEMTYPE (Sized σ) _) _)]) i =>
+    | IInject (InstrT [τ] [RefT _ (ConstM μ) (VariantT (MEMTYPE σ _) _)]) i =>
         compile_inject_variant fe μ i τ σ
     | IInject _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] [τ']) _ ess =>
