@@ -195,11 +195,12 @@ Section Relations.
     λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
-          □ ∀ vs1 rvs1 fr,
+          □ ∀ vs1 rvs1 fr θ,
             ⌜translate_types (map fst se) τs1 = Some tfs1⌝ -∗
             ⌜translate_types (map fst se) τs2 = Some tfs2⌝ -∗
             rep_values_interp rvs1 vs1 -∗
             values_interp0 vrel se τs1 rvs1 -∗
+            rt_token rti sr θ -∗
             ↪[frame] fr -∗
             lenient_wp NotStuck top
               [AI_local (length tfs2) (Build_frame (vs1 ++ n_zeros tlocs) inst) (to_e_list es)]
@@ -207,7 +208,10 @@ Section Relations.
                  lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
                  lp_val :=
                    fun vs2 =>
-                     ∃ rvs2, rep_values_interp rvs2 vs2 ∗ values_interp0 vrel se τs2 rvs2;
+                     ∃ rvs2 θ',
+                       rep_values_interp rvs2 vs2 ∗
+                         values_interp0 vrel se τs2 rvs2 ∗
+                         rt_token rti sr θ';
                  lp_trap := True;
                  lp_br := fun _ _ => False;
                  lp_ret := fun _ => False;
@@ -443,7 +447,7 @@ Section Relations.
     (se : semantic_env) (τr : list type) (ιss_L : list (list primitive_rep)) (L : local_ctx)
     (WL : wlocal_ctx) (inst : instance) (br_interp : BR) :
     BR :=
-    λne lh τc, λ (j: nat), λne (vh: leibnizO (valid_holed j)),
+    λne lh τc, λ j, λne (vh : leibnizO (valid_holed j)),
       (∃ k p lh' lh'' τs es0 es es' vs0 vs rvs,
          ⌜get_base_l vh = vs0 ++ vs⌝ ∗
            ⌜lh_depth (lh_of_vh vh) = p⌝ ∗
@@ -453,16 +457,19 @@ Section Relations.
            ⌜is_Some (lh_minus lh lh'')⌝ ∗
            rep_values_interp rvs vs ∗
            values_interp se τs rvs ∗
-           ∀ fr,
-             ↪[frame] fr -∗
+           ∀ fr θ,
              frame_interp se ιss_L L WL inst fr -∗
+             rt_token rti sr θ -∗
+             ↪[frame] fr -∗
              lenient_wp_ctx
                NotStuck top
                (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
                {| lp_fr := frame_interp se ιss_L L WL inst;
                   lp_fr_inv := const True;
                   lp_val :=
-                    fun vs' => ∃ τs' rvs', rep_values_interp rvs' vs' ∗ values_interp se τs' rvs';
+                    fun vs' =>
+                      ∃ τs' rvs' θ',
+                        rep_values_interp rvs' vs' ∗ values_interp se τs' rvs' ∗ rt_token rti sr θ';
                   lp_trap := True;
                   lp_br := br_interp lh'' (drop (S (j - p)) τc);
                   lp_ret := return_interp se τr;
@@ -504,13 +511,15 @@ Section Relations.
     ER :=
     λne es,
       lenient_wp NotStuck top es
-                 {| lp_fr := frame_interp se ιss_L L WL inst;
-                    lp_fr_inv := const True;
-                    lp_val := fun vs => ∃ rvs, values_interp se τs rvs ∗ rep_values_interp rvs vs;
-                    lp_trap := True;
-                    lp_br := br_interp se τr ιss_L L WL inst lh τc;
-                    lp_ret := return_interp se τr;
-                    lp_host := fun _ _ _ _ => False |}%I.
+        {| lp_fr := frame_interp se ιss_L L WL inst;
+           lp_fr_inv := const True;
+           lp_val :=
+             fun vs =>
+               ∃ rvs θ, values_interp se τs rvs ∗ rep_values_interp rvs vs ∗ rt_token rti sr θ;
+           lp_trap := True;
+           lp_br := br_interp se τr ιss_L L WL inst lh τc;
+           lp_ret := return_interp se τr;
+           lp_host := fun _ _ _ _ => False |}%I.
 
   Definition instance_rt_func_interp
     (i : funcidx) (a : funcaddr) (spec : function_closure -> Prop) (inst : instance) : iProp Σ :=
@@ -592,12 +601,13 @@ Section Relations.
        ⌜get_layer lh (lh_depth lh - S k) = Some (es0, j, es, lh', es')⌝ ∧
          ⌜lh_depth lh'' = lh_depth lh - S k⌝ ∧
          ⌜is_Some (lh_minus lh lh'')⌝ ∧
-         □ ∀ fr vs rvs,
+         □ ∀ fr vs rvs θ,
              rep_values_interp rvs vs -∗
              values_interp se τs rvs -∗
+             frame_interp se ιss_L L WL inst fr -∗
+             rt_token rti sr θ -∗
              ↪[frame] fr -∗
              ↪[RUN] -∗
-             frame_interp se ιss_L L WL inst fr -∗
              ∃ τs',
                expr_interp se τr (drop (S k) τc) ιss_L L WL τs' inst lh''
                  (es0 ++ of_val (immV vs) ++ es ++ es'))%I.
@@ -657,7 +667,7 @@ Section Relations.
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
-    (∀ s__mem s__rep s__size se inst fr lh rvs vs,
+    (∀ s__mem s__rep s__size se inst fr lh rvs vs θ,
        ⌜subst_env_interp F s__mem s__rep s__size se⌝ -∗
        instance_interp mr M WT inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
@@ -665,6 +675,7 @@ Section Relations.
        let sub := subst_type s__mem s__rep s__size VarT in
        values_interp se (map sub τs1) rvs -∗
        frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
+       rt_token rti sr θ -∗
        ↪[frame] fr -∗
        ↪[RUN] -∗
        expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)

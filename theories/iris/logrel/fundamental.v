@@ -96,7 +96,7 @@ Section Fundamental.
       have_instruction_type_sem rti sr mr M F L WT WL [] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (s__mem s__rep s__size se inst fr lh rvs vs Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hf Hrun".
+    iIntros (s__mem s__rep s__size se inst fr lh rvs vs Θ Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
     rewrite app_nil_r.
     unfold expr_interp.
     iApply lenient_wp_value; first done.
@@ -113,7 +113,7 @@ Section Fundamental.
       have_instruction_type_sem rti sr mr M F L WT WL [AI_basic BI_nop] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (s__mem s__rep s__size se inst fr lh rvs vs Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hf Hrun".
+    iIntros (s__mem s__rep s__size se inst fr lh rvs vs θ Hsubst) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
     unfold expr_interp.
     iApply lenient_wp_val_app'.
     iApply (lenient_wp_nop with "[$] [$] [Hfr] []").
@@ -182,7 +182,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
     unfold expr_interp.
 
     iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
@@ -198,9 +198,10 @@ Section Fundamental.
     - done.
     - cbn. iModIntro.
       iExists []; cbn.
-      iSplit; try done.
-      iExists [].
-      iFrame; auto.
+      iExists θ.
+      iSplitR "Hrt".
+      + iExists []. auto.
+      + iFrame.
   Qed.
 
   Lemma compat_unreachable M F L L' wt wt' wtf wl wl' wlf ψ es' :
@@ -235,7 +236,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlh Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlh Hrvs Hvs Hframe Hrt Hfr Hrun".
     unfold expr_interp.
     cbn.
     inv_cg_try_option Htype_rep.
@@ -316,7 +317,7 @@ Section Fundamental.
 
     (* Some basic intros, unfolds, proving empty lists empty *)
     all: unfold have_instruction_type_sem.
-    all: iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlh Hrvs Hvs Hframe Hfr Hrun".
+    all: iIntros (? ? ? ? ? ? ? ? ? ?) "Henv Hinst Hlh Hrvs Hvs Hframe Hrt Hfr Hrun".
     all: iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
     all: iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
     all: iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss";
@@ -1084,7 +1085,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Proof.
     intros fe WT WL F' ψ Hok Hthen Helse Hcodegen.
-    iIntros (smem srep ssize se inst fr lh rvs vs) "%Hsubst #Hinst #Hctxt Hrvs Hvss Hvsl Hfr Hrun".
+    iIntros (smem srep ssize se inst fr lh rvs vs θ) "%Hsubst #Hinst #Hctxt Hrvs Hvss Hvsl Hrt Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
     (*
     iDestruct "Hvsl" as (vsl' vswl') "(-> & %Hlocs & %Hrestype & Hlocs)".
@@ -1893,7 +1894,7 @@ Section Fundamental.
     intros fe WT WL ψ Hok Hcompile.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
-    iIntros (? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show that rvs just has one thing in it *)
@@ -1984,7 +1985,7 @@ Section Fundamental.
     intros fe WT WL ψ Hok Hcompile.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
-    iIntros (? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ? ?) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show that rvs just has one thing in it *)
@@ -2163,7 +2164,7 @@ Section Fundamental.
     inversion Hcompile.
 
     unfold have_instruction_type_sem.
-    iIntros (? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ? ?) "Henv Hinst Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
     iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
