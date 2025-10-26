@@ -553,15 +553,17 @@ Section Relations.
           ⌜inst.(inst_globs) !! globalimm mr.(mr_global_table_off) = Some i_off⌝ ∗
           na_inv logrel_nais (ns_glo (N.of_nat i_off)) (N.of_nat i_off ↦[wg] g_off).
 
-  Definition instance_interp (M : module_ctx) (mr : module_runtime) (inst : instance) : iProp Σ :=
-    instance_runtime_interp mr inst ∗
+  Definition instance_interp
+    (mr : module_runtime) (M : module_ctx) (WT : wtype_ctx) (inst : instance) : iProp Σ :=
+    ⌜inst.(inst_types) = WT⌝ ∗
+      instance_runtime_interp mr inst ∗
       instance_functions_interp M mr inst ∗
       ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
       instance_table_interp M mr inst ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_mm) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mem_gc) = Some sr.(sr_mem_gc)⌝.
 
-  Global Instance Persistent_instance_interp M mr inst : Persistent (instance_interp M mr inst).
+  Global Instance Persistent_instance_interp mr M WT inst : Persistent (instance_interp mr M WT inst).
   Proof.
     typeclasses eauto.
   Defined.
@@ -651,16 +653,16 @@ Section Relations.
 
   Definition have_instruction_type_sem
     (mr : module_runtime)
-    (M : module_ctx) (F : function_ctx) (L : local_ctx) (WL : wlocal_ctx)
+    (M : module_ctx) (F : function_ctx) (L : local_ctx) (WT : wtype_ctx) (WL : wlocal_ctx)
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
     (∀ s__mem s__rep s__size se inst fr lh rvs vs,
        ⌜subst_env_interp F s__mem s__rep s__size se⌝ -∗
-       instance_interp M mr inst -∗
+       instance_interp mr M WT inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
-       let sub := subst_type s__mem s__rep s__size VarT in
        rep_values_interp rvs vs -∗
+       let sub := subst_type s__mem s__rep s__size VarT in
        values_interp se (map sub τs1) rvs -∗
        frame_interp se F.(fc_locals) (map (option_map sub) L) WL inst fr -∗
        ↪[frame] fr -∗
