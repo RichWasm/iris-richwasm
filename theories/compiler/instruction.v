@@ -8,7 +8,7 @@ From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
 From RichWasm Require Import prelude layout syntax util.
-From RichWasm.compiler Require Import prelude codegen memory util.
+From RichWasm.compiler Require Import prelude codegen memory.
 
 Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
 

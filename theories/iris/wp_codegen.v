@@ -2,7 +2,7 @@ Require Import iris.proofmode.tactics.
 
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
-From RichWasm.compiler Require Import prelude accum codegen util.
+From RichWasm.compiler Require Import prelude accum codegen.
 From RichWasm.iris Require Import autowp lenient_wp logpred.
 From RichWasm.iris.logrel Require Import relations.
 
