@@ -3,18 +3,18 @@ Import ListNotations.
 Require Import Stdlib.Program.Basics.
 Local Open Scope program_scope.
 
-Require Import stdpp.list_monad.
+From stdpp Require Import list_misc list_monad.
 
 From ExtLib.Data Require Import List PPair.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
 From ExtLib.Structures Require Import Monoid Monads.
 
-From Wasm Require datatypes.
+From Wasm Require datatypes_properties.
 
 From RichWasm Require Import syntax util.
 From RichWasm.compiler Require Import prelude accum.
 
-Module W := Wasm.datatypes.
+Module W := Wasm.datatypes_properties.
 
 Definition wtype_ctx : Type := list W.function_type.
 
@@ -29,11 +29,12 @@ Definition run_codegen {A : Type} (c : codegen A) (wt : wtype_ctx) (wl : wlocal_
   | inr x => inr (x.(pfst).1, x.(pfst).2.1, x.(pfst).2.2, x.(psnd))
   end.
 
-(* TODO: Check if the type is already in the list. *)
 Definition wtinsert (tf : W.function_type) : codegen W.typeidx :=
   '(wt, _) ← get;
-  acc ([tf], []);;
-  ret (W.Mk_typeidx (length wt)).
+  match list_find (W.function_type_eqb tf) wt with
+  | Some (i, _) => ret (W.Mk_typeidx i)
+  | None => acc ([tf], []);; ret (W.Mk_typeidx (length wt))
+  end.
 
 Definition wlalloc (fe : function_env) (t : W.value_type) : codegen W.localidx :=
   '(_, wl) ← get;
