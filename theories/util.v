@@ -43,6 +43,10 @@ Arguments monoid_unit {_ _}.
 Arguments monoid_plus {_ _}.
 Arguments writerT _ {_} _ _.
 
+Global Instance Monoid_pair {A B} `{Monoid A, Monoid B} : Monoid (A * B) :=
+  {| monoid_unit := (monoid_unit, monoid_unit);
+     monoid_plus '(a1, b1) '(a2, b2) := (monoid_plus a1 a2, monoid_plus b1 b2) |}.
+
 Global Instance MRet_Monad (M : Type -> Type) `(Monad M) : MRet M :=
   { mret := fun _ => ret }.
 

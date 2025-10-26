@@ -89,9 +89,12 @@ Definition next_funcidx : modgen W.funcidx :=
 Definition next_tableidx_import : modgen W.tableidx :=
   gets (W.Mk_tableidx ∘ length ∘ W.mod_tables).
 
+Definition add_types (tfs : list W.function_type) : modgen unit :=
+  acc (mod_empty <| W.mod_types := tfs |>).
+
 Definition add_type (tf : W.function_type) : modgen W.typeidx :=
   tid ← next_typeidx;
-  acc (mod_empty <| W.mod_types := [tf] |>);;
+  add_types [tf];;
   mret tid.
 
 Definition add_import (imp : W.module_import) : modgen unit :=
@@ -174,10 +177,12 @@ Definition compile_func (mr : module_runtime) (mf : module_function) : modgen W.
   tf ← try_option EFail (translate_func_type [] mf.(mf_type));
   tid ← add_type tf;
   fe ← try_option EFail (fe_of_module_func mf);
-  '((), wl, body) ← lift (run_codegen (compile_instrs mr fe mf.(mf_body)) []);
-  locals ← try_option EFail (mapM eval_rep mf.(mf_locals));
-  let locals' := flat_map (map translate_prim_rep) locals ++ wl in
-  add_func (W.Build_module_func tid locals' body).
+  wt ← gets W.mod_types;
+  '((), wt', wl, body) ← lift (run_codegen (compile_instrs mr fe mf.(mf_body)) wt []);
+  add_types wt';;
+  ls ← try_option EFail (mapM eval_rep mf.(mf_locals));
+  let ls' := flat_map (map translate_prim_rep) ls ++ wl in
+  add_func (W.Build_module_func tid ls' body).
 
 Definition compile_table
   (gid_table_next gid_table_off : W.globalidx) (fid_user fid_table_set : W.funcidx) (tab : list nat) :

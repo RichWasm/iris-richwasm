@@ -98,6 +98,13 @@ Section Compiler.
     let i' := i + funcimm mr.(mr_func_user) in
     emit (W.BI_call i').
 
+  Definition compile_call_indirect (fe : function_env) (τs : list type) : codegen unit :=
+    τ ← try_option EFail (last τs);
+    ϕ ← match τ with CodeRefT _ ϕ => ret ϕ | _ => raise EFail end;
+    tf ← try_option EFail (translate_func_type fe.(fe_type_vars) ϕ);
+    i ← wtinsert tf;
+    emit (W.BI_call_indirect (typeimm i)).
+
   Definition compile_inject_sum (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
     codegen unit :=
     ιs_sum ← try_option EFail (eval_rep (SumR ρs));
@@ -266,7 +273,7 @@ Section Compiler.
     | ICodeRef _ i => compile_coderef i
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
-    | ICallIndirect _ => emit (W.BI_call_indirect 0) (* TODO: Type index. *)
+    | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
     | IInject (InstrT [τ] [RefT _ (ConstM μ) (VariantT (MEMTYPE σ _) _)]) i =>
         compile_inject_variant fe μ i τ σ
