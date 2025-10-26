@@ -767,11 +767,10 @@ Section CodeGen.
         cbn.
         eauto.
       + unfold run_codegen; cbn.
+        unfold mbind in Heqy. cbn in Heqy.
         destruct (WriterMonad.runWriterT (accum.runAccumT (f ret') (wl ++ wl'))) eqn:Hf.
-        * cbn in Heqy.
-          congruence.
-        * cbn in Heqy.
-          destruct p as [[? ?] ?]; cbn in Heqy.
+        * congruence.
+        * destruct p as [[? ?] ?]; cbn in Heqy.
           congruence.
   Qed.
 

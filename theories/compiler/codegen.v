@@ -19,8 +19,7 @@ Module W := Wasm.datatypes.
 
 Notation wlocal_ctx := (list W.value_type) (only parsing).
 
-Definition codegen : Type -> Type :=
-  accumT W.value_type (writerT (@Monoid_list_app W.basic_instruction) (sum error)).
+Definition codegen : Type -> Type := accumT (list W.value_type) (writerT W.expr (sum error)).
 
 Definition run_codegen {A : Type} (c : codegen A) (wl : wlocal_ctx) : error + A * wlocal_ctx * W.expr :=
   match runWriterT (runAccumT c wl) with
@@ -54,15 +53,15 @@ Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : cod
 
 Lemma runWriterT_sum_bind_dist {A B L E}
   (m : Monoid L)
-  (c : writerT m (sum E) A)
-  (f : A -> writerT m (sum E) B)
+  (c : writerT L (sum E) A)
+  (f : A -> writerT L (sum E) B)
   (x : B)
   (l : L) :
   runWriterT (c ≫= f) = inr (PPair.ppair x l) ->
   exists x1 l1 l2,
   runWriterT c = inr (PPair.ppair x1 l1) /\
   runWriterT (f x1) = inr (PPair.ppair x l2) /\
-  l = m.(monoid_plus) l1 l2.
+  l = monoid_plus l1 l2.
 Proof.
   intros H.
   unfold runWriterT, mbind, MBind_Monad, flip, bind, Monad_writerT, bind, EitherMonad.Monad_either in H.
@@ -84,18 +83,19 @@ Qed.
 
 Lemma runWriterT_runAccumT_sum_bind_dist {E L S A B}
   (m : Monoid L)
+  (mS : Monoid S)
   (mL : MonoidLaws m)
-  (c : accumT S (writerT m (sum E)) A)
-  (f : A -> accumT S (writerT m (sum E)) B)
-  (s s' : list S)
+  (c : accumT S (writerT L (sum E)) A)
+  (f : A -> accumT S (writerT L (sum E)) B)
+  (s s' : S)
   (l : L)
   (x : B) :
   runWriterT (runAccumT (c ≫= f) s) = inr (PPair.ppair (x, s') l) ->
   exists x1 s1 s2 l1 l2,
   runWriterT (runAccumT c s) = inr (PPair.ppair (x1, s1) l1) /\
-  runWriterT (runAccumT (f x1) (s ++ s1)) = inr (PPair.ppair (x, s2) l2) /\
-  s' = s1 ++ s2 /\
-  l = m.(monoid_plus) l1 l2.
+  runWriterT (runAccumT (f x1) (monoid_plus s s1)) = inr (PPair.ppair (x, s2) l2) /\
+  s' = monoid_plus s1 s2 /\
+  l = monoid_plus l1 l2.
 Proof.
   intros H.
   unfold mbind, MBind_Monad, runStateT, flip, bind, Monad_stateT in H.

@@ -2,81 +2,65 @@
 (* Like a state monad with S = list A, but writes append to the state
    instead of replacing the state. *)
 
-From stdpp Require Import base.
+Require Import stdpp.base.
+
 From ExtLib.Structures Require Import Functor Monads Monoid.
 
-Class MonadAccum@{s d c} (S : Type@{s}) (m : Type@{d} -> Type@{c}) : Type :=
-  { get : m (list S);
-    acc : list S -> m unit }.
+Require Import RichWasm.util.
 
-Section Accum.
+Class MonadAccum (S : Type) (M : Type -> Type) : Type :=
+  { get : M S;
+    acc : S -> M unit }.
 
-  Variables 
-    (S : Type)
-    (m : Type -> Type).
+Record accumT (S : Type) (M : Type -> Type) (A : Type) : Type :=
+  mkAccumT { runAccumT : S -> M (A * S)%type }.
 
-  Record accumT (t : Type) : Type :=
-    mkAccumT { runAccumT : list S -> m (t * list S)%type }.
+Arguments mkAccumT {_ _ _} _.
+Arguments runAccumT {_ _ _} _ _.
 
-  Arguments mkAccumT {t} _.
-  Arguments runAccumT {t} _.
+Definition evalAccumT {S M A} `{Monad M} (m : accumT S M A) (s : S) : M A :=
+  bind (runAccumT m s) $ fun x => ret (fst x).
 
-  Variable M : Monad m.
+Definition execAccumT {S M A} `{Monad M} (m : accumT S M A) (s : S) : M S :=
+  bind (runAccumT m s) $ fun x => ret (snd x).
 
-  Definition evalAccumT {t} (c : accumT t) (s : list S) : m t :=
-    bind (runAccumT c s) $ fun x => ret (fst x).
+Global Instance MonadAccum_accumT {S M} `{Monoid S, Monad M} : MonadAccum S (accumT S M) :=
+  { get := mkAccumT $ fun s => ret (s, monoid_unit);
+    acc s' := mkAccumT $ fun s => ret (tt, s') }.
 
-  Definition execAccumT {t} (c : accumT t) (s : list S) : m (list S) :=
-    bind (runAccumT c s) $ fun x => ret (snd x).
+Global Instance Monad_accumT {S M} `{Monoid S, Monad M} : Monad (accumT S M) :=
+  { ret _ x := mkAccumT $ fun s => ret (x, monoid_unit);
+    bind _ _ m1 m2 := mkAccumT $ fun s =>
+      '(v, s') ← runAccumT m1 s;
+      '(v, s'') ← runAccumT (m2 v) (monoid_plus s s');
+      ret (v, monoid_plus s' s'') }.
 
-  Global Instance MonadAccum_accumT : MonadAccum S accumT :=
-    { get := mkAccumT $ fun s => ret (s, nil);
-      acc s' := mkAccumT $ fun s => ret (tt, s') }.
+Global Instance MonadT_accumT {S M} `{Monoid S, Monad M} : MonadT (accumT S M) M :=
+  { lift _ c := mkAccumT $ fun s => t ← c; ret (t, monoid_unit) }.
 
-  Global Instance Monad_accumT : Monad accumT :=
-    { ret _ x := mkAccumT $ fun s => ret (x, nil);
-      bind _ _ c1 c2 :=
-        mkAccumT $ fun s =>
-            bind (runAccumT c1 s) $ fun '(v, s') =>
-                bind (runAccumT (c2 v) (s ++ s')) $ fun '(v, s'') =>
-                    ret (v, s' ++ s'') }.
+Global Instance MonadExc_accumT {S M A} `{Monoid S, Monad M, MonadExc A M} :
+  MonadExc A (accumT S M) :=
+  { raise _ e := lift (raise e);
+    catch _ body hnd := mkAccumT $ fun s =>
+      catch (runAccumT body s) (fun e => runAccumT (hnd e) s) }.
 
-  Global Instance MonadT_accumT : MonadT accumT m :=
-    { lift _ c := mkAccumT $ fun s => bind c (fun t => ret (t, nil)) }.
+Global Instance MonadZero_accumT {S M} `{Monoid S, Monad M, MonadZero M} : MonadZero (accumT S M) :=
+  { mzero _ := lift mzero }.
 
-  Global Instance Exc_accumT T (MR : MonadExc T m) : MonadExc T accumT :=
-    { raise _ e := lift (raise e);
-      catch _ body hnd :=
-        mkAccumT $ fun s => catch (runAccumT body s) (fun e => runAccumT (hnd e) s) }.
+Global Instance MonadFix_accumT {S M} `{MonadFix M} : MonadFix (accumT S M) :=
+  { mfix _ _ r v := mkAccumT $ fun s =>
+      mfix2 _ (fun r v s => runAccumT (mkAccumT (r v)) s) v s }.
 
-  Global Instance MonadZero_stateT (MR : MonadZero m) : MonadZero accumT :=
-    { mzero _ := lift mzero }.
+Global Instance MonadPlus_accumT {S M} `{Monad M, MonadPlus M} : MonadPlus (accumT S M) :=
+  { mplus _ _ a b := mkAccumT $ fun s =>
+      res ← mplus (runAccumT a s) (runAccumT b s);
+      match res with
+      | inl (a, s') => ret (inl a, s')
+      | inr (b, s') => ret (inr b, s')
+      end }.
 
-  Global Instance MonadFix_stateT (MF : MonadFix m) : MonadFix accumT :=
-    { mfix _ _ r v :=
-        mkAccumT $ fun s => mfix2 _ (fun r v s => runAccumT (mkAccumT (r v)) s) v s }.
-
-  Global Instance MonadPlus_stateT (MP : MonadPlus m) : MonadPlus accumT :=
-    { mplus _A _B a b :=
-        mkAccumT $ fun s =>
-            bind (mplus (runAccumT a s) (runAccumT b s)) $ fun res =>
-                match res with
-                | inl (a, s') => ret (inl a, s')
-                | inr (b, s') => ret (inr b, s')
-                end }.
-
-  Global Instance MonadWriter_accumT T (Mon : Monoid T) (MR : MonadWriter Mon m) :
-    MonadWriter Mon accumT :=
-    { tell x := mkAccumT (fun s => bind (tell x) (fun v => ret (v, nil)));
-      listen A c :=
-        mkAccumT $ fun s =>
-            bind (listen (runAccumT c s)) $ fun x => let '(a, s', t) := x in ret (a, t, s');
-      pass _ c :=
-        mkAccumT $ fun s =>
-            pass (bind (runAccumT c s) $ fun '(x, f, s') =>
-                      ret (x, s', f)) }.
-
-End Accum.
-
-Arguments mkAccumT {S m t} _.
-Arguments runAccumT {S m t} _.
+Global Instance MonadWriter_accumT {S M A} `{Monoid S, m : Monoid A, Monad M, @MonadWriter A m M} :
+  @MonadWriter A m (accumT S M) :=
+  { tell x := mkAccumT $ fun s => v ← tell x; ret (v, monoid_unit);
+    listen A c := mkAccumT $ fun s => '(a, s', t) ← listen (runAccumT c s); ret (a, t, s');
+    pass _ c := mkAccumT $ fun s => pass ('(x, f, s') ← runAccumT c s; ret (x, s', f)) }.

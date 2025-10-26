@@ -2,7 +2,9 @@ From stdpp Require Import gmap list.
 
 From mathcomp Require Import eqtype ssreflect.seq.
 
-From ExtLib.Structures Require Import Functor Monads.
+Require Import ExtLib.Data.List.
+Require Import ExtLib.Data.Monads.WriterMonad.
+From ExtLib.Structures Require Import Functor Monads Monoid.
 
 From Wasm Require common stdpp_aux.
 Require Import Wasm.numerics.
@@ -32,6 +34,14 @@ Definition flags_of_rep (ι : primitive_rep) : list pointer_flag :=
   | F32R => [FlagInt]
   | F64R => [FlagInt; FlagInt]
   end.
+
+(* Unfortunately, ExtLib defines Monoid as a record.
+   Make it behave like a typeclass, as God intended. *)
+Existing Class Monoid.
+Existing Instance Monoid_list_app.
+Arguments monoid_unit {_ _}.
+Arguments monoid_plus {_ _}.
+Arguments writerT _ {_} _ _.
 
 Global Instance MRet_Monad (M : Type -> Type) `(Monad M) : MRet M :=
   { mret := fun _ => ret }.
