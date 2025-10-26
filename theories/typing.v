@@ -927,7 +927,7 @@ with have_instruction_type :
   have_instruction_type M F L1 es (InstrT τs1 τs2) L2 ->
   have_instruction_type M F L2 es' (InstrT τs2 τs3) L3 ->
   have_instruction_type M F L1 (es ++ es') (InstrT τs1 τs3) L3
-| TInstr M F L L' e ψ :
+| TSingleton M F L L' e ψ :
   has_instruction_type M F L e ψ L' ->
   have_instruction_type M F L [e] ψ L'
 | TFrame M F L L' es τ τs1 τs2 :
@@ -1164,7 +1164,7 @@ Section HasHaveInstructionTypeMind.
           P2 M F L1 es (InstrT τs1 τs2) L2 ->
           P2 M F L2 es' (InstrT τs2 τs3) L3 ->
           P2 M F L1 (es ++ es') (InstrT τs1 τs3) L3)
-      (HInstr : forall M F L L' e ψ,
+      (HSingleton : forall M F L L' e ψ,
           P1 M F L e ψ L' ->
           P2 M F L [e] ψ L')
       (HFrame : forall M F L L' es τ τs1 τs2,
@@ -1250,8 +1250,8 @@ Section HasHaveInstructionTypeMind.
         HApp M F L1 L2 L3 es es' τs1 τs2 τs3
           (have_instruction_type_mind _ _ _ _ _ _ H1)
           (have_instruction_type_mind _ _ _ _ _ _ H2)
-    | TInstr M F L L' e ψ H =>
-        HInstr M F L L' e ψ (has_instruction_type_mind _ _ _ _ _ _ H)
+    | TSingleton M F L L' e ψ H =>
+        HSingleton M F L L' e ψ (has_instruction_type_mind _ _ _ _ _ _ H)
     | TFrame M F L L' es τ τs1 τs2 H1 H2 =>
        HFrame M F L L' es τ τs1 τs2 H1 (have_instruction_type_mind _ _ _ _ _ _ H2)
     end.

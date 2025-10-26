@@ -2296,7 +2296,7 @@ Section Fundamental.
 *)
   Admitted.
 
-  Lemma compat_instr M F L L' wt wt' wtf wl wl' wlf e ψ es' :
+  Lemma compat_singleton M F L L' wt wt' wtf wl wl' wlf e ψ es' :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
@@ -2606,7 +2606,7 @@ Section Fundamental.
     - eapply compat_swap; eassumption.
     - eapply compat_nil; eassumption.
     - eapply compat_app in Hcomp; eassumption.
-    - eapply compat_instr; eassumption.
+    - eapply compat_singleton; eassumption.
     - eapply compat_frame; eassumption.
   Qed.
 
