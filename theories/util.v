@@ -68,6 +68,12 @@ Definition ignore {M : Type -> Type} {A : Type} `{Monad M} (c : M A) : M unit :=
 Definition mapM_ {M : Type -> Type} {A B : Type} `{Monad M} (f : A → M B) (l : list A) : M unit :=
   ignore (mapM f l).
 
+Definition option_last {A : Type} (a : option A) (b : option A) : option A :=
+  match b with
+  | None => a
+  | _ => b
+  end.
+
 Definition nths_error {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
   mapM (nth_error l) ixs.
 

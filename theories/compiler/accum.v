@@ -8,7 +8,7 @@ From ExtLib.Structures Require Import Functor Monads Monoid.
 
 Require Import RichWasm.util.
 
-Class MonadAccum (S : Type) (M : Type -> Type) : Type :=
+Class MonadAccum (S : Type) (M : Type -> Type) `{Monad M} : Type :=
   { get : M S;
     acc : S -> M unit }.
 
@@ -24,9 +24,8 @@ Definition evalAccumT {S M A} `{Monad M} (m : accumT S M A) (s : S) : M A :=
 Definition execAccumT {S M A} `{Monad M} (m : accumT S M A) (s : S) : M S :=
   bind (runAccumT m s) $ fun x => ret (snd x).
 
-Global Instance MonadAccum_accumT {S M} `{Monoid S, Monad M} : MonadAccum S (accumT S M) :=
-  { get := mkAccumT $ fun s => ret (s, monoid_unit);
-    acc s' := mkAccumT $ fun s => ret (tt, s') }.
+Definition gets {S M A} `{MonadAccum S M} (f : S -> A) : M A :=
+  fmap f get.
 
 Global Instance Monad_accumT {S M} `{Monoid S, Monad M} : Monad (accumT S M) :=
   { ret _ x := mkAccumT $ fun s => ret (x, monoid_unit);
@@ -34,6 +33,10 @@ Global Instance Monad_accumT {S M} `{Monoid S, Monad M} : Monad (accumT S M) :=
       '(v, s') ← runAccumT m1 s;
       '(v, s'') ← runAccumT (m2 v) (monoid_plus s s');
       ret (v, monoid_plus s' s'') }.
+
+Global Instance MonadAccum_accumT {S M} `{Monoid S, Monad M} : MonadAccum S (accumT S M) :=
+  { get := mkAccumT $ fun s => ret (s, monoid_unit);
+    acc s' := mkAccumT $ fun s => ret (tt, s') }.
 
 Global Instance MonadT_accumT {S M} `{Monoid S, Monad M} : MonadT (accumT S M) M :=
   { lift _ c := mkAccumT $ fun s => t ← c; ret (t, monoid_unit) }.

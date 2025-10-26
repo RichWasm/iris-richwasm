@@ -7,23 +7,20 @@ Require Import stdpp.list.
 
 Require Import RecordUpdate.RecordUpdate.
 
-Require Import ExtLib.Data.Monads.StateMonad.
-Require Import ExtLib.Structures.Monads.
+From ExtLib.Structures Require Import MonadTrans Monoid.
 
 Require Wasm.datatypes.
 Require Import Wasm.numerics.
 
 From RichWasm Require Import layout syntax typing util.
-From RichWasm.compiler Require Import prelude codegen instruction.
+From RichWasm.compiler Require Import prelude accum codegen instruction.
 
 Module W := Wasm.datatypes.
 
-Definition modgen := stateT W.module (sum error).
-
-Existing Instance Monad_stateT.
+Definition modgen : Type -> Type := accumT W.module (sum error).
 
 Definition run_modgen {A : Type} : modgen A -> W.module -> error + A * W.module :=
-  @runStateT _ _ _.
+  runAccumT.
 
 Definition mod_empty : W.module :=
   {| W.mod_types := [];
@@ -36,6 +33,22 @@ Definition mod_empty : W.module :=
      W.mod_start := None;
      W.mod_imports := [];
      W.mod_exports := [] |}.
+
+Definition mod_app (m1 m2 : W.module) : W.module :=
+  {| W.mod_types := monoid_plus m1.(W.mod_types) m2.(W.mod_types);
+     W.mod_funcs := monoid_plus m1.(W.mod_funcs) m2.(W.mod_funcs);
+     W.mod_tables := monoid_plus m1.(W.mod_tables) m2.(W.mod_tables);
+     W.mod_mems := monoid_plus m1.(W.mod_mems) m2.(W.mod_mems);
+     W.mod_globals := monoid_plus m1.(W.mod_globals) m2.(W.mod_globals);
+     W.mod_elem := monoid_plus m1.(W.mod_elem) m2.(W.mod_elem);
+     W.mod_data := monoid_plus m1.(W.mod_data) m2.(W.mod_data);
+     W.mod_start := option_last m1.(W.mod_start) m2.(W.mod_start);
+     W.mod_imports := monoid_plus m1.(W.mod_imports) m2.(W.mod_imports);
+     W.mod_exports := monoid_plus m1.(W.mod_exports) m2.(W.mod_exports) |}.
+
+Instance Monoid_module : Monoid W.module :=
+  {| monoid_unit := mod_empty;
+     monoid_plus := mod_app |}.
 
 Definition get_id_global (imd : W.import_desc) : option W.global_type :=
   match imd with
@@ -78,11 +91,11 @@ Definition next_tableidx_import : modgen W.tableidx :=
 
 Definition add_type (tf : W.function_type) : modgen W.typeidx :=
   tid ← next_typeidx;
-  modify (set W.mod_types (flip app [tf]));;
-  ret tid.
+  acc (mod_empty <| W.mod_types := [tf] |>);;
+  mret tid.
 
 Definition add_import (imp : W.module_import) : modgen unit :=
-  ignore (modify (set W.mod_imports (flip app [imp]))).
+  acc (mod_empty <| W.mod_imports := [imp] |>).
 
 Definition rt_import (name : string) (id : W.import_desc) : W.module_import :=
   {| W.imp_module := String.list_byte_of_string "richwasm";
@@ -92,45 +105,45 @@ Definition rt_import (name : string) (id : W.import_desc) : W.module_import :=
 Definition add_rt_mem_import (name : string) (tm : W.memory_type) : modgen W.memidx :=
   mid ← next_memidx_import;
   add_import (rt_import name (W.ID_mem tm));;
-  ret mid.
+  mret mid.
 
 Definition add_rt_global_import (name : string) (tg : W.global_type) : modgen W.globalidx :=
   gid ← next_globalidx_import;
   add_import (rt_import name (W.ID_global tg));;
-  ret gid.
+  mret gid.
 
 Definition add_global (mg : W.module_glob) : modgen W.globalidx :=
   gid ← next_globalidx;
-  modify (set W.mod_globals (flip app [mg]));;
-  ret gid.
+  acc (mod_empty <| W.mod_globals := [mg] |>);;
+  mret gid.
 
 Definition add_rt_func_import (name : string) (tf : W.function_type) : modgen W.funcidx :=
   tid ← add_type tf;
   fid ← next_funcidx_import;
   add_import (rt_import name (W.ID_func (typeimm tid)));;
-  ret fid.
+  mret fid.
 
 Definition add_func_import (tf : W.function_type) : modgen W.funcidx :=
   tid ← add_type tf;
   fid ← next_funcidx_import;
   add_import (W.Build_module_import [] [] (W.ID_func (typeimm tid)));;
-  ret fid.
+  mret fid.
 
 Definition add_func (mf : W.module_func) : modgen W.funcidx :=
   fid ← next_funcidx;
-  modify (set W.mod_funcs (flip app [mf]));;
-  ret fid.
+  acc (mod_empty <| W.mod_funcs := [mf] |>);;
+  mret fid.
 
 Definition add_rt_table_import (name : string) (tt : W.table_type) : modgen W.tableidx :=
   tid ← next_tableidx_import;
   add_import (rt_import name (W.ID_table tt));;
-  ret tid.
+  mret tid.
 
-Definition set_start (ms : option W.module_start) : modgen unit :=
-  ignore (modify (set W.mod_start (const ms))).
+Definition set_start (ms : W.module_start) : modgen unit :=
+  acc (mod_empty <| W.mod_start := Some ms |>).
 
 Definition add_export (ex : W.module_export) : modgen unit :=
-  ignore (modify (set W.mod_exports (flip app [ex]))).
+  acc (mod_empty <| W.mod_exports := [ex] |>).
 
 Definition table_alloc (gid_table_next gid_table_off : W.globalidx) (n : nat) : W.expr :=
   [
@@ -175,8 +188,7 @@ Definition compile_table
   let es2 := flatten (imap table_set tab) in
   add_func (W.Build_module_func tid [] (es1 ++ es2)).
 
-Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (i : nat) :
-  modgen unit :=
+Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (i : nat) : modgen unit :=
   let ed := W.MED_func (W.Mk_funcidx (funcimm fid_user + i)) in
   add_export (W.Build_module_export [] ed).
 
@@ -205,14 +217,14 @@ Definition compile_module (m : module) : modgen unit :=
   (* User Imports *)
   mapM_ compile_func_import m.(m_imports);;
 
-  (* Runtime Global Definitions *)
+  (* Runtime Global Defs *)
   let mg_table_off :=
     {| W.modglob_type := W.Build_global_type W.MUT_mut W.T_i32;
        W.modglob_init := [W.BI_const (W.VAL_int32 (Wasm_int.int_zero i32m))] |}
   in
   gid_table_off ← add_global mg_table_off;
 
-  (* User Function Definitions *)
+  (* User Function Defs *)
   let mr :=
     {| mr_mem_mm := mid_mem_mm;
        mr_mem_gc := mid_mem_gc;
@@ -232,6 +244,6 @@ Definition compile_module (m : module) : modgen unit :=
   (* User Exports *)
   mapM_ (compile_export gid_user fid_user) m.(m_exports);;
 
-  (* Runtime Function Definitions *)
+  (* Runtime Function Defs *)
   fid_table_init ← compile_table gid_table_next gid_table_off fid_user fid_table_set m.(m_table);
-  set_start (Some (W.Build_module_start fid_table_init)).
+  set_start (W.Build_module_start fid_table_init).
