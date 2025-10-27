@@ -47,7 +47,7 @@ Section Relations.
   Definition type_env := listO (prodO (leibnizO skind) semantic_type).
   Definition semantic_env : Type := 
     prodO (prodO (prodO mem_env rep_env) size_env) type_env.
-  
+
   Definition senv_empty : semantic_env := ([], [], [], []).
 
   Definition senv_mems (se : semantic_env) : mem_env :=
@@ -61,14 +61,14 @@ Section Relations.
 
   Definition senv_types (se: semantic_env) : type_env :=
     let '(m, r, s, t) := se in t.
-  
+
   Definition senv_kinds (se: semantic_env) : list skind :=
     map fst (senv_types se).
 
   Definition senv_insert_type : skind -> semantic_type -> semantic_env -> semantic_env :=
     λ κ T se,
       (senv_mems se, senv_reps se, senv_sizes se, (κ, T) :: senv_types se).
-  
+
   Definition senv_insert_mem : smemory → semantic_env → semantic_env. Admitted.
   Definition senv_insert_rep : list primitive_rep → semantic_env → semantic_env. Admitted.
   Definition senv_insert_size : nat → semantic_env → semantic_env. Admitted.
@@ -127,7 +127,6 @@ Section Relations.
   Implicit Type ιss : leibnizO (list (list primitive_rep)).
 
   Definition value_relation : Type := semantic_env -n> leibnizO type -n> SVR.
-
 
   Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
     match ty with
@@ -218,7 +217,7 @@ Section Relations.
   Definition skind_as_type_interp (κ : skind) : semantic_type :=
     λne sv,
       match κ with
-      | SVALTYPE ιs χ _ => ⌜primitive_reps_interp ιs sv⌝
+      | SVALTYPE ιs _ _ => ⌜primitive_reps_interp ιs sv⌝
       | SMEMTYPE n _ => ⌜ssize_interp n sv⌝
       end%I.
 
@@ -237,7 +236,7 @@ Section Relations.
 
   Definition translate_rep (se: semantic_env) (ρ : representation) : option (list W.value_type) :=
     map translate_prim_rep <$> eval_rep se ρ.
-  
+
   Definition type_skind (se: semantic_env) (τ : type) : option skind :=
     match τ with
     | VarT x => se !! x
@@ -257,7 +256,7 @@ Section Relations.
     | ExistsSizeT κ _
     | ExistsTypeT κ _ _ => eval_kind se κ
     end.
-  
+
   Definition skind_rep (κ: skind) : option (list primitive_rep) :=
     match κ with
     | SVALTYPE ιs _ _ => Some ιs
@@ -398,7 +397,7 @@ Section Relations.
     λne sv,
       match eval_kind se κ with
       | Some sκ =>
-          let T := (λne sv, ▷ vrel se (RecT κ τ) sv) in
+          let T := λne sv, ▷ vrel se (RecT κ τ) sv in
           vrel (senv_insert_type sκ T se) τ sv
       | None => False
       end%I.
@@ -410,8 +409,7 @@ Section Relations.
     λne sv, (∃ ιs, ▷ vrel (senv_insert_rep ιs se) τ sv)%I.
 
   Definition exists_size_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv,
-      (∃ n, ▷ vrel (senv_insert_size n se) τ sv)%I.
+    λne sv, (∃ n, ▷ vrel (senv_insert_size n se) τ sv)%I.
 
   Definition exists_type_interp
     (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
@@ -705,7 +703,7 @@ Section Relations.
     CtxR :=
     λne lh, ([∗ list] k ↦ '(τs, L) ∈ τc, continuation_interp se τr τc ιss_L L WL inst lh k τs)%I.
 
-  Definition context_interp
+  Definition labels_interp
     (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
     (ιss_L : list (list primitive_rep)) (WL : wlocal_ctx) (inst : instance) :
     CtxR :=
@@ -744,14 +742,14 @@ Section Relations.
     (∀ se inst lh fr rvs vs θ,
        ⌜sem_env_interp F se⌝ -∗
        instance_interp mr M WT inst -∗
-       context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
-         rep_values_interp rvs vs -∗
-         values_interp se τs1 rvs -∗
-         frame_interp se F.(fc_locals) L WL inst fr -∗
-         rt_token rti sr θ -∗
-         ↪[frame] fr -∗
-         ↪[RUN] -∗
-         expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals)
-           L' WL τs2 inst lh (of_val (immV vs) ++ es))%I.
+       labels_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
+       rep_values_interp rvs vs -∗
+       values_interp se τs1 rvs -∗
+       frame_interp se F.(fc_locals) L WL inst fr -∗
+       rt_token rti sr θ -∗
+       ↪[frame] fr -∗
+       ↪[RUN] -∗
+       expr_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) L' WL τs2 inst lh
+         (of_val (immV vs) ++ es))%I.
 
 End Relations.
