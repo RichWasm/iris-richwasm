@@ -99,10 +99,10 @@ Definition case_blocks (result : W.result_type) (cases : list (nat -> codegen un
         block_c (W.Tf [W.T_i32] [])
           (block_c (W.Tf [] result) (emit (W.BI_br_table (seq 1 depth) 0));;
            emit W.BI_unreachable)
-    | case :: cases' =>
+    | c :: cases' =>
         block_c (W.Tf [W.T_i32] result)
           (go (depth + 1) cases';;
-           case depth;;
+           c depth;;
            emit (W.BI_br depth))
     end
   in

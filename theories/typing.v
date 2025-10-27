@@ -817,25 +817,25 @@ Inductive has_instruction_type :
   mono_mem μ ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IInjectNew ψ i) ψ L
-| TCase M F L L' ess τ' τs κ :
-  (* TODO: Add label to escape case. *)
-  let ψ := InstrT [SumT κ τs] [τ'] in
-  Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs ess ->
+| TCase M F L L' ess τs τs' κ :
+  let F' := F <| fc_labels ::= cons (τs', L') |> in
+  let ψ := InstrT [SumT κ τs] τs' in
+  Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ICase ψ L' ess) ψ L'
-| TCaseLoadCopy M F L L' ess τs τ' κr κv κs μ :
-  (* TODO: Add label to escape case. *)
-  let τs' := zip_with SerT κs τs in
-  let ψ := InstrT [RefT κr μ (VariantT κv τs')] [RefT κr μ (VariantT κv τs'); τ'] in
+| TCaseLoadCopy M F L L' ess τs τs' κr κv κs μ :
+  let F' := F <| fc_labels ::= cons (τs', L') |> in
+  let τs_ser := zip_with SerT κs τs in
+  let ψ := InstrT [RefT κr μ (VariantT κv τs_ser)] (RefT κr μ (VariantT κv τs') :: τs') in
   Forall (fun τ => has_copyability F τ ExCopy) τs ->
-  Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs ess ->
+  Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ICaseLoad ψ Copy L' ess) ψ L'
-| TCaseLoadMove M F L L' ess τs τ' κr κv κs :
-  (* TODO: Add label to escape case. *)
-  let τs' := zip_with SerT κs τs in
-  let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs')] [τ'] in
-  Forall2 (fun τ es => have_instruction_type M F L es (InstrT [τ] [τ']) L') τs ess ->
+| TCaseLoadMove M F L L' ess τs τs' κr κv κs :
+  let F' := F <| fc_labels ::= cons (τs', L') |> in
+  let τs_ser := zip_with SerT κs τs in
+  let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs_ser)] τs' in
+  Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ICaseLoad ψ Move L' ess) ψ L'
 | TGroup M F L τs κ :
@@ -1062,22 +1062,25 @@ Section HasHaveInstructionTypeMind.
           mono_mem μ ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IInjectNew ψ i) ψ L)
-      (HCase : forall M F L L' ess τ' τs κ,
-          let ψ := InstrT [SumT κ τs] [τ'] in
-          Forall2 (fun τ es => P2 M F L es (InstrT [τ] [τ']) L') τs ess ->
+      (HCase : forall M F L L' ess τs τs' κ,
+          let F' := F <| fc_labels ::= cons (τs', L') |> in
+          let ψ := InstrT [SumT κ τs] τs' in
+          Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ICase ψ L' ess) ψ L')
-      (HCaseLoadCopy : forall M F L L' ess τs τ' κr κv κs μ,
-          let τs' := zip_with SerT κs τs in
-          let ψ := InstrT [RefT κr μ (VariantT κv τs')] [RefT κr μ (VariantT κv τs'); τ'] in
+      (HCaseLoadCopy : forall M F L L' ess τs τs' κr κv κs μ,
+          let F' := F <| fc_labels ::= cons (τs', L') |> in
+          let τs_ser := zip_with SerT κs τs in
+          let ψ := InstrT [RefT κr μ (VariantT κv τs_ser)] (RefT κr μ (VariantT κv τs') :: τs') in
           Forall (fun τ => has_copyability F τ ExCopy) τs ->
-          Forall2 (fun τ es => P2 M F L es (InstrT [τ] [τ']) L') τs ess ->
+          Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ICaseLoad ψ Copy L' ess) ψ L')
-      (HCaseLoadMove : forall M F L L' ess τs τ' κr κv κs,
-          let τs' := zip_with SerT κs τs in
-          let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs')] [τ'] in
-          Forall2 (fun τ es => P2 M F L es (InstrT [τ] [τ']) L') τs ess ->
+      (HCaseLoadMove : forall M F L L' ess τs τs' κr κv κs,
+          let F' := F <| fc_labels ::= cons (τs', L') |> in
+          let τs_ser := zip_with SerT κs τs in
+          let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs_ser)] τs' in
+          Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ICaseLoad ψ Move L' ess) ψ L')
       (HGroup : forall M F L τs κ,
@@ -1217,17 +1220,17 @@ Section HasHaveInstructionTypeMind.
     | TCallIndirect M F L τs1 τs2 H1 => HCallIndirect M F L τs1 τs2 H1
     | TInject M F L i τ τs κ H1 H2 => HInject M F L i τ τs κ H1 H2
     | TInjectNew M F L μ i τ τs κr κv H1 H2 H3 H4 => HInjectNew M F L μ i τ τs κr κv H1 H2 H3 H4
-    | TCase M F L L' ess τ' τs κ H1 H2 =>
-        HCase M F L L' ess τ' τs κ
+    | TCase M F L L' ess τs τs' κ H1 H2 =>
+        HCase M F L L' ess τs τs' κ
           (Forall2_impl _ _ _ _ H1 (fun τ es => have_instruction_type_mind _ _ _ _ _ _))
           H2
-    | TCaseLoadCopy M F L L' ess τs τ' κr κv κs μ H1 H2 H3 =>
-        HCaseLoadCopy M F L L' ess τs τ' κr κv κs μ
+    | TCaseLoadCopy M F L L' ess τs τs' κr κv κs μ H1 H2 H3 =>
+        HCaseLoadCopy M F L L' ess τs τs' κr κv κs μ
           H1
           (Forall2_impl _ _ _ _ H2 (fun τ es => have_instruction_type_mind _ _ _ _ _ _))
           H3
-    | TCaseLoadMove M F L L' ess τs τ' κr κv κs H1 H2 =>
-        HCaseLoadMove M F L L' ess τs τ' κr κv κs
+    | TCaseLoadMove M F L L' ess τs τs' κr κv κs H1 H2 =>
+        HCaseLoadMove M F L L' ess τs τs' κr κv κs
           (Forall2_impl _ _ _ _ H1 (fun τ es => have_instruction_type_mind _ _ _ _ _ _))
           H2
     | TGroup M F L τs κ H1 => HGroup M F L τs κ H1

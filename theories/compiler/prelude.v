@@ -30,17 +30,19 @@ Record module_runtime :=
 Record function_env :=
   { fe_type_vars : list kind;
     fe_return : list type;
-    fe_locals : list (list primitive_rep) }.
+    fe_locals : list (list primitive_rep);
+    fe_br_skip : nat }.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
-  locals ← mapM (eval_rep EmptyEnv) mf.(mf_locals);
+  ls ← mapM (eval_rep EmptyEnv) mf.(mf_locals);
   let ϕ := flatten_function_type mf.(mf_type) in
-  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) locals).
+  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) ls 0).
 
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);
      fe_return := F.(fc_return);
-     fe_locals := F.(fc_locals) |}.
+     fe_locals := F.(fc_locals);
+     fe_br_skip := 0 |}.
 
 Definition fe_wlocal_offset (fe : function_env) : nat :=
   sum_list_with length fe.(fe_locals).

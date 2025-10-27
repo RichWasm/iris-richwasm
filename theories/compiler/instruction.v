@@ -270,6 +270,12 @@ Section Compiler.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
     let compile_instrs fe := mapM_ (compile_instr fe) in
+    let fix compile_cases fe ess :=
+      match ess with
+      | [] => []
+      | es :: ess' => compile_instrs fe es :: compile_cases (fe <| fe_br_skip ::= S |>) ess'
+      end
+    in
     match e with
     | INop _ => emit W.BI_nop
     | IUnreachable _ => emit W.BI_unreachable
@@ -283,7 +289,7 @@ Section Compiler.
     | IBlock ψ _ es => compile_block fe ψ (compile_instrs fe es)
     | ILoop ψ es => compile_loop fe ψ (compile_instrs fe es)
     | IIte ψ _ es1 es2 => compile_ite fe ψ (compile_instrs fe es1) (compile_instrs fe es2)
-    | IBr _ i => emit (W.BI_br i)
+    | IBr _ i => emit (W.BI_br (fe.(fe_br_skip) + i))
     | IReturn _ => emit W.BI_return
     | ILocalGet _ i => compile_local_get fe i
     | ILocalSet _ i => compile_local_set fe i
@@ -297,12 +303,12 @@ Section Compiler.
         compile_inject_new fe μ i τ σ
     | IInjectNew _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] [τ']) _ ess =>
-        compile_case fe ρs τ' (map (compile_instrs fe) ess)
+        compile_case fe ρs τ' (compile_cases fe ess)
     | ICase _ _ _ => raise EFail
     | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>
-        compile_case_load fe σ τs τ' Copy (map (compile_instrs fe) ess)
+        compile_case_load fe σ τs τ' Copy (compile_cases fe ess)
     | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [τ']) Move _ ess =>
-        compile_case_load fe σ τs τ' Move (map (compile_instrs fe) ess)
+        compile_case_load fe σ τs τ' Move (compile_cases fe ess)
     | ICaseLoad _ _ _ _ => raise EFail
     | IGroup _ => erased_in_wasm_nop
     | IUngroup _ => erased_in_wasm_nop

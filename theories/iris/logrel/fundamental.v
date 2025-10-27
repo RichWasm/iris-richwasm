@@ -1713,57 +1713,63 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τ' τs κ :
+  Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let ψ := InstrT [SumT κ τs] [τ'] in
+    let F' := F <| fc_labels ::= cons (τs', L') |> in
+    let ψ := InstrT [SumT κ τs] τs' in
     Forall2
       (fun τ es =>
-         forall wt wt' wtf wl wl' wlf es',
-           let WT := wt ++ wt' ++ wtf in
-           let WL := wl ++ wl' ++ wlf in
-           run_codegen (compile_instrs mr fe es) wt wl = inr ((), wt', wl', es') ->
-           ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') (InstrT [τ] [τ']) L')
+         (forall wt wt' wtf wl wl' wlf es',
+            let fe' := fe_of_context F' in
+            let WT := wt ++ wt' ++ wtf in
+            let WL := wl ++ wl' ++ wlf in
+            run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
+            ⊢ have_instruction_type_sem rti sr mr M F' L WT WL (to_e_list es') (InstrT [τ] τs') L'))
       τs ess ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ICase ψ L' ess)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_case_load_copy M F L L' wt wt' wtf wl wl' wlf ess es' τ' τs μ κr κv κs :
+  Lemma compat_case_load_copy M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' μ κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let τs' := zip_with SerT κs τs in
-    let ψ := InstrT [RefT κr μ (VariantT κv τs')] [RefT κr μ (VariantT κv τs'); τ'] in
+    let F' := F <| fc_labels ::= cons (τs', L') |> in
+    let τs_ser := zip_with SerT κs τs in
+    let ψ := InstrT [RefT κr μ (VariantT κv τs_ser)] (RefT κr μ (VariantT κv τs') :: τs') in
     Forall (fun τ => has_copyability F τ ExCopy) τs ->
     Forall2
       (fun τ es =>
-         forall wt wt' wtf wl wl' wlf es',
-           let WT := wt ++ wt' ++ wtf in
-           let WL := wl ++ wl' ++ wlf in
-           run_codegen (compile_instrs mr fe es) wt wl = inr ((), wt', wl', es') ->
-           ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') (InstrT [τ] [τ']) L')
+         (forall wt wt' wtf wl wl' wlf es',
+            let fe' := fe_of_context F' in
+            let WT := wt ++ wt' ++ wtf in
+            let WL := wl ++ wl' ++ wlf in
+            run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
+            ⊢ have_instruction_type_sem rti sr mr M F' L WT WL (to_e_list es') (InstrT [τ] τs') L'))
       τs ess ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ICaseLoad ψ Copy L' ess)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_case_load_move M F L L' wt wt' wtf wl wl' wlf ess es' τ' τs κr κv κs :
+  Lemma compat_case_load_move M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let τs' := zip_with SerT κs τs in
-    let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs')] [τ'] in
+    let F' := F <| fc_labels ::= cons (τs', L') |> in
+    let τs_ser := zip_with SerT κs τs in
+    let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs_ser)] τs' in
     Forall2
       (fun τ es =>
-         forall wt wt' wtf wl wl' wlf es',
-           let WT := wt ++ wt' ++ wtf in
-           let WL := wl ++ wl' ++ wlf in
-           run_codegen (compile_instrs mr fe es) wt wl = inr ((), wt', wl', es') ->
-           ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') (InstrT [τ] [τ']) L')
+         (forall wt wt' wtf wl wl' wlf es',
+            let fe' := fe_of_context F' in
+            let WT := wt ++ wt' ++ wtf in
+            let WL := wl ++ wl' ++ wlf in
+            run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
+           ⊢ have_instruction_type_sem rti sr mr M F' L WT WL (to_e_list es') (InstrT [τ] τs') L'))
       τs ess ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ICaseLoad ψ Move L' ess)) wt wl = inr ((), wt', wl', es') ->
