@@ -2357,21 +2357,21 @@ Section Fundamental.
     induction lh;simpl;auto.
   Qed.
 
-  (*
-  Lemma br_interp_val_app se τr ιss_L L WL inst lh τc i lh' τ vs :
-    ⊢ value_interp rti sr se τ (SValues vs) -∗
+  Lemma br_interp_val_app se τr ιss_L L WL inst lh τc i lh' τ rvs vs :
+    ⊢ value_interp rti sr se τ (SValues rvs) -∗
+      rep_values_interp rvs vs -∗
       br_interp rti sr se τr ιss_L L WL inst lh τc i lh' -∗
       br_interp rti sr se τr ιss_L L WL inst lh τc i (vh_push_const lh' vs).
   Proof.
-    revert lh' vs.
+    revert lh' rvs vs.
     iLöb as "IH".
-    iIntros (lh' vs) "Hvs Hbr".
+    iIntros (lh' rvs vs) "Hrvs Hvs Hbr".
     iEval (rewrite br_interp_eq) in "Hbr".
-    iDestruct "Hbr" as "(%k & %p & %lh1 & %lh2 & %τs & %es0 & %es1 & %es2 & %vs0 & %vs1 & Hbr)".
+    iDestruct "Hbr" as "(%k & %p & %lh1 & %lh2 & %τs & %es0 & %es1 & %es2 & %vs0 & %vs1 & %rvs1 & Hbr)".
     rewrite br_interp_eq.
-    iDestruct "Hbr" as "(%Hbase & %Hdepth & %Hlbty & %Hlayer & %Hdepth' & %Hminus & Hvals & Hbr)".
+    iDestruct "Hbr" as "(%Hbase & %Hdepth & %Hlbty & %Hlayer & %Hdepth' & %Hminus & Hvs1 & Hrvs1 & Hbr)".
     pose proof (get_base_l_push_const lh' vs) as [Hbase' | Hbase'].
-    - iExists k, p, lh1, lh2, τs, es0, es1, es2, (vs ++ vs0), vs1.
+    - iExists k, p, lh1, lh2, τs, es0, es1, es2, (vs ++ vs0), vs1, rvs1.
       iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit]]]]]; try iPureIntro.
       + by rewrite Hbase' Hbase -app_assoc.
       + by rewrite -push_const_lh_depth Hdepth.
@@ -2380,7 +2380,7 @@ Section Fundamental.
       + by rewrite Hdepth'.
       + auto.
       + iFrame.
-    - iExists k, p, lh1, lh2, τs, es0, es1, es2, vs0, vs1.
+    - iExists k, p, lh1, lh2, τs, es0, es1, es2, vs0, vs1, rvs1.
       iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit; [| iSplit]]]]]; try iPureIntro.
       + by rewrite Hbase' Hbase.
       + by rewrite -push_const_lh_depth Hdepth.
@@ -2390,7 +2390,6 @@ Section Fundamental.
       + auto.
       + iFrame.
   Qed.
-  *)
 
   Lemma const_list_map ws1 :
     is_true (const_list (map (λ x : value, AI_basic (BI_const x)) ws1)).
@@ -2422,14 +2421,14 @@ Section Fundamental.
       apply lfilled_Ind_Equivalent;eauto. }
   Qed.
 
-  (*
-  Lemma return_interp_val_app se τr τ s vs :
-    ⊢ value_interp rti sr se τ (SValues vs) -∗
+  Lemma return_interp_val_app se τr τ s rvs vs :
+    ⊢ value_interp rti sr se τ (SValues rvs) -∗
+      rep_values_interp rvs vs -∗
       return_interp rti sr se τr s -∗
       return_interp rti sr se τr (sh_push_const s vs).
   Proof.
-    iIntros "Hvs Hr".
-    iDestruct "Hr" as "(%vs1 & %vs2 & %Hs & Hvs1 & Hr)".
+    iIntros "Hrvs Hvs Hr".
+    iDestruct "Hr" as "(%vs1 & %vs2 & %rvs1 & %Hs & Hrvs1 & Hvs1 & Hr)".
     pose proof (sfill_to_lfilled s ([AI_basic BI_return])) as Hj.
     pose proof Hs as Hpull.
     eapply lfilled_simple_get_base_pull in Hpull; try apply Hj.
@@ -2441,7 +2440,7 @@ Section Fundamental.
       pose proof Hs' as Hpull'.
       eapply lfilled_simple_get_base_pull in Hpull'; try apply Hj'.
       destruct Hpull' as [lhp' Hpull'].
-      iExists (vs ++ vs1), vs2.
+      iExists (vs ++ vs1), vs2, rvs1.
       iSplit; first by rewrite Hs'.
       iFrame.
       iIntros (fr fr') "Hf Hrun".
@@ -2455,7 +2454,7 @@ Section Fundamental.
       pose proof Hs' as Hpull'.
       eapply lfilled_simple_get_base_pull in Hpull'; try apply Hj'.
       destruct Hpull' as [lhp' Hpull'].
-      iExists vs1, vs2.
+      iExists vs1, vs2, rvs1.
       iSplit; first by rewrite Hs'.
       iFrame.
       iIntros (fr fr') "Hf Hrun".
@@ -2466,26 +2465,27 @@ Section Fundamental.
       + apply Hpull.
       + eapply Hpull'.
   Qed.
-  *)
   
-  (*
-  Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ vs :
+  Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ rvs vs :
     ⊢ expr_interp rti sr se τr τc ιss_L L WL τs inst lh es -∗
-      value_interp rti sr se τ (SValues vs) -∗
+      value_interp rti sr se τ (SValues rvs) -∗
+      rep_values_interp rvs vs -∗
       expr_interp rti sr se τr τc ιss_L L WL (τ :: τs) inst lh (v_to_e_list vs ++ es).
   Proof.
-    iIntros "Hes Hvs".
+    iIntros "Hes Hrvs Hvs".
     iApply lenient_wp_val_app'.
     iApply (lwp_wand with "Hes").
     set (Φ :=
            {|
              lp_fr := frame_interp rti sr se ιss_L L WL inst;
-             lp_fr_inv := frame_inv_interp sr se ιss_L WL inst;
-             lp_val := λ vs0 : leibnizO (list value), values_interp rti sr se τs vs0;
+             lp_fr_inv := const True%I;
+             lp_val := λ vs0, (∃ rvs θ, values_interp rti sr se τs rvs ∗ 
+                                        rep_values_interp rvs vs0 ∗
+                                        rt_token rti sr θ)%I;
              lp_trap := True%I;
-             lp_br := λ x : nat, br_interp rti sr se τr ιss_L L WL inst lh τc x;
+             lp_br := λ n, br_interp rti sr se τr ιss_L L WL inst lh τc n;
              lp_ret := return_interp rti sr se τr;
-             lp_host := λ (_ : function_type) (_ : hostfuncidx) (_ : list value) (_ : llholed), False%I
+             lp_host := λ _ _ _ _, False%I
            |}).
     set (Ψ := lp_combine _ _).
     iIntros (lv) "(%f & Hf & Hfrinv & HΦ)".
@@ -2496,22 +2496,21 @@ Section Fundamental.
     - cbn in *.
       iDestruct "HΦ" as "(Hfr & Hrun & Hvs')".
       iFrame.
-      iDestruct "Hvs'" as "(%vss & -> & Hτs)".
-      iExists (vs :: vss).
-      iSplit.
-      + done.
-      + rewrite big_sepL2_cons.
-        iFrame.
+      iDestruct "Hvs'" as "(%rvs' & %θ' & (%vss & %Hvss & Hτs) & Hrvs' & Hrti)".
+      iExists (rvs ++ rvs'), _.
+      iFrame.
+      iExists (rvs :: vss); iFrame.
+      cbn.
+      by rewrite Hvss.
     - done.
     - iDestruct "HΦ" as "[Hrun Hbr]".
       iFrame.
-      iApply (br_interp_val_app with "[$] [$]").
+      iApply (br_interp_val_app with "[$] [$] [$]").
     - iDestruct "HΦ" as "[Hrun Hret]".
-      iFrame.
-      iApply (return_interp_val_app with "[$Hvs] [$Hret]").
+      iFrame "Hrun".
+      iApply (return_interp_val_app with "[$] [$] [$]").
     - done.
   Qed.
-  *)
 
   Lemma compat_frame M F L L' wt wt' wtf wl wl' wlf es es' τ τs1 τs2 :
     let fe := fe_of_context F in
@@ -2529,22 +2528,19 @@ Section Fundamental.
     intros fe WT WL Hmono IH Hcg.
     eapply (IH _ _ _ _ _ wlf) in Hcg.
     iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
-    (*
-    iPoseProof (Hcg $! s__mem s__rep s__size se inst lh Henv with "Hinst Hctx") as "IH".
-    iSpecialize ("IH" $! fr).
-    iEval (cbn) in "Hvs".
-    iPoseProof (values_interp_cons_inv with "Hvs") as "(%vs1 & %vs2 & %Hvs & Hty1 & Hty2)".
-    iSpecialize ("IH" $! vs2 with "Hty2 Hfr Hfrinv Hf Hrun").
-    rewrite Hvs.
+    iPoseProof (values_interp_cons_inv with "Hvs") as "(%rvs1 & %rvs2 & %Hvs & Hty1 & Hty2)".
+    subst rvs.
+    iPoseProof (big_sepL2_app_inv_l with "Hrvs") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)".
+    iPoseProof (Hcg $! se inst lh fr rvs2 vs2 θ Henv with "Hinst Hlf") as "IH".
+    iSpecialize ("IH" with "Hvs2 Hty2 [$] [$] [$] [$]").
     simpl language.of_val.
     iEval (repeat rewrite -cat_app).
     rewrite -v_to_e_cat.
     repeat rewrite cat_app.
     rewrite -app_assoc.
     iEval (cbn [List.map]).
-    iApply (expr_interp_val_app with "[$] [$]").
-    *)
-  Admitted.
+    iApply (expr_interp_val_app with "[$] [$] [$]").
+  Qed.
 
   Theorem fundamental_theorem M F L L' wt wt' wtf wl wl' wlf es es' tf :
     have_instruction_type M F L es tf L' ->
