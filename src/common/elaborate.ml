@@ -97,13 +97,13 @@ let elab_dropability : A.Dropability.t -> B.Dropability.t = function
   | ImDrop -> ImDrop
   | ExDrop -> ExDrop
 
-let elab_concrete_memory : A.ConcreteMemory.t -> B.ConcreteMemory.t = function
+let elab_smemory : A.ConcreteMemory.t -> B.ConcreteMemory.t = function
   | MM -> MemMM
   | GC -> MemGC
 
 let elab_memory : A.Memory.t -> B.Memory.t = function
   | Var x -> VarM (Z.of_int x)
-  | Concrete m -> ConstM (elab_concrete_memory m)
+  | Concrete m -> ConstM (elab_smemory m)
 
 let elab_primitive_rep : A.PrimitiveRep.t -> B.PrimitiveRep.t = function
   | Ptr -> PtrR

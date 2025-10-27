@@ -25,7 +25,7 @@ module Z' = struct
 end
 
 module ConcreteMemory = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.concrete_memory]
+  type t = [%import: Richwasm_extract.RwSyntax.Core.smemory]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -374,7 +374,7 @@ module Memory = struct
     [%import:
       (Richwasm_extract.RwSyntax.Core.memory
       [@with
-        concrete_memory := ConcreteMemory.t;
+        smemory := ConcreteMemory.t;
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
