@@ -105,7 +105,7 @@ Section Compiler.
     i ← wtinsert tf;
     emit (W.BI_call_indirect (typeimm i)).
 
-  Definition compile_inject_sum (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
+  Definition compile_inject (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
     codegen unit :=
     ιs_sum ← try_option EFail (eval_rep (SumR ρs));
     ixs_sum ← mapM (wlalloc fe) (map translate_prim_rep (tail ιs_sum));
@@ -116,7 +116,7 @@ Section Compiler.
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs_sum.
 
-  Definition compile_inject_variant
+  Definition compile_inject_new
     (fe : function_env) (μ : concrete_memory) (i : nat) (τ : type) (σ : size) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
     ιs ← try_option EFail (eval_rep ρ);
@@ -138,7 +138,7 @@ Section Compiler.
     end.
 
   (* TODO: br inside a case should bypass all but the outermost block. *)
-  Definition compile_case_sum
+  Definition compile_case
     (fe : function_env) (ρs : list representation) (τ' : type) (cases : list (codegen unit)) :
     codegen unit :=
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
@@ -153,26 +153,37 @@ Section Compiler.
     case_blocks res (map do_case cases).
 
   (* TODO: br inside a case should bypass all but the outermost block. *)
-  (* TODO: Handle NoCopy data in GC variants? *)
-  Definition compile_case_variant
-    (fe : function_env) (τs : list type) (τ' : type) (cases : list (codegen unit)) : codegen unit :=
+  Definition compile_case_load
+    (fe : function_env) (σ : size) (τs : list type) (τ' : type) (con : consumption)
+    (cases : list (codegen unit)) :
+    codegen unit :=
+    n ← try_option EFail (eval_size σ);
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
     a ← wlalloc fe W.T_i32;
-    emit (W.BI_set_local (localimm a));;
+    match con with
+    | Copy => emit (W.BI_tee_local (localimm a))
+    | Move => emit (W.BI_set_local (localimm a))
+    end;;
+    let do_case μ c i :=
+      τ ← try_option EFail (τs !! i);
+      ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+      ιs ← try_option EFail (eval_rep ρ);
+      load_primitives mr fe μ con a 1 ιs;;
+      c
+    in
+    let cleanup :=
+      match con with
+      | Copy => ret tt
+      | Move => set_pointer_flags mr a 0 (repeat FlagInt n);;
+               emit (W.BI_get_local (localimm a));;
+               free mr
+      end
+    in
     ignore $ case_ptr a (W.Tf [] res)
       (emit W.BI_unreachable)
-      (fun μ =>
-         let do_case c i :=
-           τ ← try_option EFail (τs !! i);
-           ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-           ιs ← try_option EFail (eval_rep ρ);
-           load_primitives mr fe μ Move a 1 ιs;;
-           c
-         in
-         load_primitive mr fe μ Move a 0 I32R;;
-         case_blocks res (map do_case cases);;
-         emit (W.BI_get_local (localimm a));;
-         drop_ptr mr μ).
+      (fun μ => load_primitive mr fe μ Copy a 0 I32R;;
+             case_blocks res (map (do_case μ) cases);;
+             cleanup).
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
@@ -206,7 +217,7 @@ Section Compiler.
     | MemGC => registerroot mr
     end.
 
-  Definition compile_load (fe : function_env) (τ τval : type) (π : path) (c : consumption) :
+  Definition compile_load (fe : function_env) (τ τval : type) (π : path) (con : consumption) :
     codegen unit :=
     off ← try_option EFail (path_offset fe τ π);
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -214,13 +225,13 @@ Section Compiler.
     let n := list_sum (map primitive_size ιs) in
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
-    match c with
+    match con with
     | Copy => ret tt
     | Move => set_pointer_flags mr a off (repeat FlagInt n)
     end;;
     ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
       (emit W.BI_unreachable)
-      (fun μ => load_primitives mr fe μ c a off ιs).
+      (fun μ => load_primitives mr fe μ con a off ιs).
 
   Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -274,15 +285,19 @@ Section Compiler.
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
     | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
-    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject_sum fe ρs τ i
-    | IInject (InstrT [τ] [RefT _ (ConstM μ) (VariantT (MEMTYPE σ _) _)]) i =>
-        compile_inject_variant fe μ i τ σ
+    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
     | IInject _ _ => raise EFail
+    | IInjectNew (InstrT [τ] [RefT _ (ConstM μ) (VariantT (MEMTYPE σ _) _)]) i =>
+        compile_inject_new fe μ i τ σ
+    | IInjectNew _ _ => raise EFail
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] [τ']) _ ess =>
-        compile_case_sum fe ρs τ' (map (compile_instrs fe) ess)
-    | ICase (InstrT [RefT _ _ (VariantT _ τs)] [τ']) _ ess =>
-        compile_case_variant fe τs τ' (map (compile_instrs fe) ess)
+        compile_case fe ρs τ' (map (compile_instrs fe) ess)
     | ICase _ _ _ => raise EFail
+    | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>
+        compile_case_load fe σ τs τ' Copy (map (compile_instrs fe) ess)
+    | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [τ']) Move _ ess =>
+        compile_case_load fe σ τs τ' Move (map (compile_instrs fe) ess)
+    | ICaseLoad _ _ _ _ => raise EFail
     | IGroup _ => erased_in_wasm_nop
     | IUngroup _ => erased_in_wasm_nop
     | IFold _ => erased_in_wasm
@@ -294,7 +309,7 @@ Section Compiler.
     | ICast _ => erased_in_wasm
     | INew (InstrT [τ] [RefT _ (ConstM μ) _]) => compile_new fe μ τ
     | INew _ => raise EFail
-    | ILoad (InstrT [RefT _ _ τ] [_; τval]) π c => compile_load fe τ τval π c
+    | ILoad (InstrT [RefT _ _ τ] [_; τval]) π con => compile_load fe τ τval π con
     | ILoad _ _ _ => raise EFail
     | IStore (InstrT [RefT _ _ τ; τval] _) π => compile_store fe τ τval π
     | IStore _ _ => raise EFail

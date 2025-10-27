@@ -1687,7 +1687,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_inject_sum M F L wt wt' wtf wl wl' wlf es' i τs τ κ :
+  Lemma compat_inject M F L wt wt' wtf wl wl' wlf es' i τs τ κ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
@@ -1698,7 +1698,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_inject_variant M F L wt wt' wtf wl wl' wlf es' μ i τ τs κr κv κs :
+  Lemma compat_inject_new M F L wt wt' wtf wl wl' wlf es' μ i τ τs κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
@@ -1707,11 +1707,11 @@ Section Fundamental.
     τs !! i = Some τ ->
     mono_mem μ ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (IInject ψ i)) wt wl = inr ((), wt', wl', es') ->
+    run_codegen (compile_instr mr fe (IInjectNew ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_case_sum M F L L' wt wt' wtf wl wl' wlf es' ess τ' τs κ :
+  Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τ' τs κ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
@@ -1729,12 +1729,13 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Admitted.
 
-  Lemma compat_case_variant M F L L' wt wt' wtf wl wl' wlf ess es' τ' τs μ κr κv κs :
+  Lemma compat_case_load_copy M F L L' wt wt' wtf wl wl' wlf ess es' τ' τs μ κr κv κs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let τs' := zip_with SerT κs τs in
-    let ψ := InstrT [RefT κr μ (VariantT κv τs')] [τ'] in
+    let ψ := InstrT [RefT κr μ (VariantT κv τs')] [RefT κr μ (VariantT κv τs'); τ'] in
+    Forall (fun τ => has_copyability F τ ExCopy) τs ->
     Forall2
       (fun τ es =>
          forall wt wt' wtf wl wl' wlf es',
@@ -1742,9 +1743,28 @@ Section Fundamental.
            let WL := wl ++ wl' ++ wlf in
            run_codegen (compile_instrs mr fe es) wt wl = inr ((), wt', wl', es') ->
            ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') (InstrT [τ] [τ']) L')
-      τs' ess ->
+      τs ess ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr mr fe (ICase ψ L' ess)) wt wl = inr ((), wt', wl', es') ->
+    run_codegen (compile_instr mr fe (ICaseLoad ψ Copy L' ess)) wt wl = inr ((), wt', wl', es') ->
+    ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
+  Admitted.
+
+  Lemma compat_case_load_move M F L L' wt wt' wtf wl wl' wlf ess es' τ' τs κr κv κs :
+    let fe := fe_of_context F in
+    let WT := wt ++ wt' ++ wtf in
+    let WL := wl ++ wl' ++ wlf in
+    let τs' := zip_with SerT κs τs in
+    let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs')] [τ'] in
+    Forall2
+      (fun τ es =>
+         forall wt wt' wtf wl wl' wlf es',
+           let WT := wt ++ wt' ++ wtf in
+           let WL := wl ++ wl' ++ wlf in
+           run_codegen (compile_instrs mr fe es) wt wl = inr ((), wt', wl', es') ->
+           ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') (InstrT [τ] [τ']) L')
+      τs ess ->
+    has_instruction_type_ok F ψ L' ->
+    run_codegen (compile_instr mr fe (ICaseLoad ψ Move L' ess)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Admitted.
 
@@ -2576,7 +2596,7 @@ Section Fundamental.
     - eapply compat_num_const; eassumption.
     - eapply compat_block; eassumption.
     - eapply compat_loop; eassumption.
-    - eapply compat_ite with (es1 := es1); eassumption.
+    - eapply compat_ite in Hcomp; eassumption.
     - eapply compat_br; eassumption.
     - eapply compat_return; eassumption.
     - eapply compat_local_get_copy; eassumption.
@@ -2586,10 +2606,11 @@ Section Fundamental.
     - eapply compat_inst; eassumption.
     - eapply compat_call; eassumption.
     - eapply compat_call_indirect; eassumption.
-    - eapply compat_inject_sum; eassumption.
-    - eapply compat_inject_variant; eassumption.
-    - eapply compat_case_sum; eassumption.
-    - eapply compat_case_variant; eassumption.
+    - eapply compat_inject; eassumption.
+    - eapply compat_inject_new; eassumption.
+    - eapply compat_case; eassumption.
+    - eapply compat_case_load_copy; eassumption.
+    - eapply compat_case_load_move; eassumption.
     - eapply compat_group; eassumption.
     - eapply compat_ungroup; eassumption.
     - eapply compat_fold; eassumption.

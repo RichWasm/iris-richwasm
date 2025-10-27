@@ -44,7 +44,9 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
   | ICall ψ _ _
   | ICallIndirect ψ
   | IInject ψ _
+  | IInjectNew ψ _
   | ICase ψ _ _
+  | ICaseLoad ψ _ _ _
   | IGroup ψ
   | IUngroup ψ
   | IFold ψ

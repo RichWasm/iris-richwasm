@@ -190,7 +190,9 @@ IInst : instruction_type -> index -> instruction
 ICall : instruction_type -> nat -> "list" (index) -> instruction
 ICallIndirect : instruction_type -> instruction
 IInject : instruction_type -> nat -> instruction
+IInjectNew : instruction_type -> nat -> instruction
 ICase : instruction_type -> "list" ("option" (type)) -> "list" ("list" (instruction)) -> instruction
+ICaseLoad : instruction_type -> consumption -> "list" ("option" (type)) -> "list" ("list" (instruction)) -> instruction
 IGroup : instruction_type -> instruction
 IUngroup : instruction_type -> instruction
 IFold : instruction_type -> instruction

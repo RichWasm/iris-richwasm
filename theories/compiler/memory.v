@@ -120,7 +120,7 @@ Section Compiler.
     mapM_ (fun '(ι, i) => map_gc_ptr ι i c) (zip ιs ixs).
 
   Definition load_primitive
-    (fe : function_env) (μ : concrete_memory) (c : consumption)
+    (fe : function_env) (μ : concrete_memory) (con : consumption)
     (a : W.localidx) (off : nat) (ι : primitive_rep) :
     codegen unit :=
     emit (W.BI_get_local (localimm a));;
@@ -129,7 +129,7 @@ Section Compiler.
     v ← wlalloc fe t;
     emit (W.BI_tee_local (localimm v));;
     let prep_root :=
-      match μ, c with
+      match μ, con with
       | MemMM, Move => ret tt
       | MemMM, Copy => duproot
       | MemGC, _ => registerroot
@@ -138,11 +138,11 @@ Section Compiler.
     ite_gc_ptr ι v (W.Tf [W.T_i32] [W.T_i32]) prep_root (ret tt).
 
   Definition load_primitives
-    (fe : function_env) (μ : concrete_memory) (c : consumption)
+    (fe : function_env) (μ : concrete_memory) (con : consumption)
     (a : W.localidx) (off : nat) (ιs : list primitive_rep) :
     codegen unit :=
     ignore $ foldM
-      (fun ι off => load_primitive fe μ c a off ι;; ret (off + primitive_size ι))
+      (fun ι off => load_primitive fe μ con a off ι;; ret (off + primitive_size ι))
       (ret off)
       ιs.
 
