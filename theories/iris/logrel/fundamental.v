@@ -96,12 +96,10 @@ Section Fundamental.
       have_instruction_type_sem rti sr mr M F L WT WL [] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (se inst lh Henv) "Hinst Hctx".
-    iIntros (fr rvs vs θ) "Hrvs Hvs Hfr Hrt Hf Hrun".
+    iIntros (se inst lh Henv fr rvs vs θ) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
     rewrite app_nil_r.
     unfold expr_interp.
     iApply lenient_wp_value; first done.
-    iExists fr.
     iFrame.
     by iApply "Hcast".
   Qed.
@@ -114,8 +112,7 @@ Section Fundamental.
       have_instruction_type_sem rti sr mr M F L WT WL [AI_basic BI_nop] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (se inst lh Henv) "Hinst Hctx".
-    iIntros (fr rvs vs θ) "Hrvs Hvs Hfr Hrt Hf Hrun".
+    iIntros (se inst lh Henv fr rvs vs θ) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
     unfold expr_interp.
     iApply lenient_wp_val_app'.
     iApply (lenient_wp_nop with "[$] [$] [Hfr] []").
@@ -184,8 +181,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? Henv) "Hinst Hctx".
-    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ?) "Hinst Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
     unfold expr_interp.
 
     iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
@@ -233,8 +229,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
     destruct ψ eqn:Hψ.
     inversion Hψ; subst l l0.
-    iIntros (? ? ? Henv) "#Hinst #Hlh".
-    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (se inst lh Henv fr rvs vs θ) "#Hinst #Hlh Hrvs Hvs Hframe Hrt Hfr Hrun".
     unfold expr_interp.
     inv_cg_try_option Htype_rep.
     inv_cg_try_option Heval_rep.
@@ -253,7 +248,7 @@ Section Fundamental.
       unfold eval_kind.
       admit.
     }
-    pose proof (kinding_sound rti sr mr F se _ _ _ Hhas_kind Henv Heval) as Hskind.
+    pose proof (kinding_sound rti sr mr F se _ _ _ Hhas_kind ltac:(eauto) Heval) as Hskind.
     destruct Hskind as [Hrefine Hcopyable].
     cbn in Hcopyable.
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
@@ -318,8 +313,7 @@ Section Fundamental.
 
     (* Some basic intros, unfolds, proving empty lists empty *)
     all: unfold have_instruction_type_sem.
-    all: iIntros (? ? ?) "Henv Hinst Hlh".
-    all: iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
+    all: iIntros (? ? ? ? ? ? ?) "Henv Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
     all: iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
     all: iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
     all: iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss";
@@ -1087,8 +1081,7 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Proof.
     intros fe WT WL F' ψ Hok Hthen Helse Hcodegen.
-    iIntros (se inst lh Hsubst) "#Hinst #Hctxt".
-    iIntros (fr rvs vs θ) "Hrvs Hvss Hvsl Hrt Hfr Hrun".
+    iIntros (se inst lh fr rvs vs θ Henv) "#Hinst #Hctxt Hrvs Hvss Hvsl Hrt Hfr Hrun".
     iDestruct "Hvss" as (vss) "(-> & Hvss)".
     (*
     iDestruct "Hvsl" as (vsl' vswl') "(-> & %Hlocs & %Hrestype & Hlocs)".
@@ -1906,8 +1899,7 @@ Section Fundamental.
     intros fe WT WL ψ Hok Hcompile.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
-    iIntros (? ? ?) "%Henv #Hinst #Hlf".
-    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show that rvs just has one thing in it *)
@@ -1998,8 +1990,7 @@ Section Fundamental.
     intros fe WT WL ψ Hok Hcompile.
     cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
 
-    iIntros (? ? ? Henv) "#Hinst #Hlf".
-    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     (* A loooong section to prove that vs just has an integer in it *)
     (* First, show that rvs just has one thing in it *)
@@ -2177,9 +2168,7 @@ Section Fundamental.
     cbn in Hcompile.
     inversion Hcompile.
 
-    unfold have_instruction_type_sem.
-    iIntros (? ? ? Henv) "#Hinst #Hlf".
-    iIntros (? ? ? ?) "Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
 
     iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
     iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
@@ -2539,9 +2528,7 @@ Section Fundamental.
   Proof.
     intros fe WT WL Hmono IH Hcg.
     eapply (IH _ _ _ _ _ wlf) in Hcg.
-    unfold have_instruction_type_sem.
-    iIntros (se inst lh Henv) "Hinst Hctx".
-    iIntros (fr rvs vs' θ) "Hrvs Hvs Hfr Hf Hrun".
+    iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun".
     (*
     iPoseProof (Hcg $! s__mem s__rep s__size se inst lh Henv with "Hinst Hctx") as "IH".
     iSpecialize ("IH" $! fr).

@@ -16,12 +16,6 @@ Section Compiler.
 
   Variable mr : module_runtime.
 
-  Definition drop_ref (cm : smemory) : codegen unit :=
-    match cm with
-    | MemMM => free mr
-    | MemGC => unregisterroot mr
-    end.
-
   Definition drop_primitive (fe : function_env) (ι : primitive_rep) : codegen unit :=
     match ι with
     | PtrR =>

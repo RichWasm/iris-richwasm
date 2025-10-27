@@ -741,11 +741,10 @@ Section Relations.
     (es : list administrative_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
-    (∀ se inst lh,
+    (∀ se inst lh fr rvs vs θ,
        ⌜sem_env_interp F se⌝ -∗
        instance_interp mr M WT inst -∗
        context_interp se F.(fc_return) F.(fc_labels) F.(fc_locals) WL inst lh -∗
-       ∀ fr rvs vs θ,
          rep_values_interp rvs vs -∗
          values_interp se τs1 rvs -∗
          frame_interp se F.(fc_locals) L WL inst fr -∗
