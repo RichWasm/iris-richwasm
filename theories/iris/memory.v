@@ -39,7 +39,7 @@ Definition layout_map : Type := gmap location (list pointer_flag).
 Definition heap_map : Type := gmap location (list word).
 
 Definition rt_invariant (Σ : gFunctors) : Type :=
-  address_map -> layout_map -> heap_map -> root_map -> iProp Σ.
+  address_map -> root_map -> layout_map -> iProp Σ.
 
 Class richwasmG (Σ : gFunctors) :=
   { rw_addr : gname;
@@ -178,7 +178,7 @@ Section Token.
         ghost_map_auth rw_root (1/2) rm ∗
         ghost_map_auth rw_layout (1/2) lm ∗
         ghost_map_auth rw_heap 1 hm ∗
-        rti θ lm hm rm ∗
+        rti θ rm lm ∗
         ⌜gmap_injective θ⌝ ∗
         own_addr_mm θ hm ∗
         own_addr_gc θ ∗
