@@ -211,6 +211,55 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IUnreachable ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Admitted.
+ 
+  Lemma eval_rep_emptyenv :
+    forall ρ ιs,
+      eval_rep EmptyEnv ρ = Some ιs ->
+      ∀ (se: semantic_env (Σ:=Σ)),
+        eval_rep se ρ = Some ιs.
+  Proof.
+    induction ρ using rep_ind; intros * Hev *; cbn in Hev; cbn.
+    - inversion Hev.
+    - rewrite -Hev.
+      do 2 f_equal.
+      rewrite bind_Some in Hev.
+      destruct Hev as (pdist & Hmax & Hret).
+      rewrite fmap_Some in Hmax.
+      destruct Hmax as (ιss & Hevals & Hmax).
+      assert (Hdefd: is_Some (mapM (eval_rep EmptyEnv) ρs)) by (eexists; eapply Hevals).
+      apply mapM_is_Some_1 in Hdefd.
+      apply Forall_mapM_ext.
+      eapply Forall_impl.
+      { eapply (List.Forall_and H Hdefd). }
+      cbn.
+      intros ρ [Hev [ιs' Hempty]].
+      erewrite Hev; eauto.
+    - rewrite -Hev.
+      f_equal.
+      apply fmap_Some in Hev.
+      destruct Hev as (ιss & Hev & _).
+      apply mk_is_Some in Hev.
+      apply mapM_is_Some_1 in Hev.
+      apply Forall_mapM_ext.
+      eapply Forall_impl.
+      { eapply (List.Forall_and H Hev). }
+      cbn.
+      intros ρ [Hev' [ιs' Hempty]].
+      erewrite Hev'; eauto.
+    - done.
+  Qed.
+  
+  Lemma to_e_list_app es1 es2 :
+    to_e_list (es1 ++ es2) = to_e_list es1 ++ to_e_list es2.
+  Proof.
+    by rewrite to_e_list_cat cat_app.
+  Qed.
+
+  Lemma frame_interp_wl_interp se F L WL inst fr :
+    frame_interp rti sr se (typing.fc_locals F) L WL inst fr -∗
+    ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
+  Proof.
+  Admitted.
 
   Lemma compat_copy M F L wt wt' wtf wl wl' wlf τ es' :
     let fe := fe_of_context F in
@@ -226,14 +275,18 @@ Section Fundamental.
     unfold compile_instr in Hcompile.
     inv_cg_bind Hcompile ρ wt1 wt1' wl1 wl1' es_nil es1 Htype_rep Hcompile.
     inv_cg_bind Hcompile ιs wt2 wt2' wl2 wl2' es_nil' es2 Heval_rep Hcompile.
-    unfold have_instruction_type_sem.
-    destruct ψ eqn:Hψ.
-    inversion Hψ; subst l l0.
-    iIntros (se inst lh Henv fr rvs vs θ) "#Hinst #Hlh Hrvs Hvs Hframe Hrt Hfr Hrun".
-    unfold expr_interp.
+    inv_cg_bind Hcompile idxs ?wt ?wt ?wl ?wl es_save ?es Hsave Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_restore1 ?es Hrestore1 Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_gcs es_restore2 Hgcs Hrestore2.
     inv_cg_try_option Htype_rep.
     inv_cg_try_option Heval_rep.
-    rewrite app_nil_l.
+    subst.
+    unfold WT, WL.
+    repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
+    unfold have_instruction_type_sem.
+    unfold ψ.
+    iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlh Hrvs Hvs Hframe Hrt Hfr Hrun".
+    unfold expr_interp.
     inversion Hcopy as [F' τ' ρ' χ ? Hhas_kind HF' Hτ' Hχ].
     subst F' τ'.
     assert (ρ' = ρ).
@@ -246,7 +299,7 @@ Section Fundamental.
     assert (Heval: eval_kind se (VALTYPE ρ ExCopy δ) = Some (SVALTYPE ιs ExCopy δ)).
     {
       unfold eval_kind.
-      admit.
+      by erewrite eval_rep_emptyenv.
     }
     pose proof (kinding_sound rti sr mr F se _ _ _ Hhas_kind ltac:(eauto) Heval) as Hskind.
     destruct Hskind as [Hrefine Hcopyable].
@@ -254,25 +307,57 @@ Section Fundamental.
     iDestruct "Hvs" as "(%vss & %Hconcat & Hvs)".
     iPoseProof (big_sepL2_length with "[$Hvs]") as "%Hlens".
     destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
-    rewrite app_nil_r in Hconcat; subst vs'.
+    rewrite app_nil_r in Hconcat; subst vs'; clear Hlens.
     rewrite big_sepL2_singleton.
-    (*
-    erewrite eval_rep_subst_eq in Hcopyable; eauto.
-    rewrite Heq_some0 in Hcopyable.
-    iApply (lwp_wand with "[Hfr Hrun Hvs]").
-    - iApply (Hcopyable with "[] [] [] [] [] [$Hfr] [$Hrun] [$Hvs]").
-      + unfold is_copy_operation.
-        iPureIntro.
-        eexists.
-        split.
-        * by setoid_rewrite Hcompile.
-        * by rewrite app_nil_l.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-    - admit.
-    *)
+    iEval (cbn -[return_interp br_interp values_interp rep_values_interp frame_interp]).
+    rewrite to_e_list_app.
+    rewrite (app_assoc (v_to_e_list _)).
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
+    set (Φ := {| lp_fr := λ f, ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                               ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝;
+               lp_fr_inv := λ _, True;
+               lp_val := λ vs, ⌜vs = []⌝;
+               lp_trap := False;
+               lp_br := λ _ _, False;
+               lp_ret := λ _, False;
+                lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+    iApply (lenient_wp_seq with "[Hfr Hrun]").
+    {
+      eapply (lwp_save_stack_w _ Φ) in Hsave; eauto.
+      + destruct Hsave as (-> & -> & -> & Hsave).
+        iApply (Hsave with "[$] [$] [//]").
+        by iIntros (f' [Hfsame Hfchanged]).
+      + admit. (* easy pure conseqeunce of value_interp and
+      rep_values_interp, should be proved above the first wp_seq
+      rule *)
+    }
+    { by iIntros (fr') "Htrap". }
+    iIntros (w fr_saved) "Hnotrap Hfr _".
+    rewrite to_e_list_app.
+    rewrite (app_assoc (of_val _)).
+    set (Φ2 := {| lp_fr := Φ.(lp_fr);
+               lp_fr_inv := λ _, True;
+               lp_val := λ vs', ⌜vs' = vs⌝;
+               lp_trap := False;
+               lp_br := λ _ _, False;
+               lp_ret := λ _, False;
+                lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+    destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+    iDestruct "Hnotrap" as "((%Hsame & %Hsaved) & Hrun & ->)".
+    eapply lwp_restore_stack_w in Hrestore1; eauto using Forall2_length.
+    destruct Hrestore1 as (? & -> & -> & Hrestore1).
+    iApply (lenient_wp_seq with "[Hfr Hrun]").
+    {
+      iEval (cbn).
+      iApply (Hrestore1 with "[$] [$] [//]").
+    }
+    { by iIntros (w) "Htrap". }
+    clear Hrestore1.
+    iIntros (w fr_saved') "HΦ2 Hf _".
+    destruct w; iEval (cbn) in "HΦ2"; try done;
+      try (iDestruct "HΦ2" as "[? ?]"; done).
+    iDestruct "HΦ2" as "(-> & Hrun & ->)".
   Admitted.
 
   Lemma compat_drop M F L wt wt' wtf wl wl' wlf τ es' :
@@ -2266,9 +2351,7 @@ Section Fundamental.
 
     iApply (lenient_wp_seq with "[Hsem_es1]").
     - iApply "Hsem_es1".
-    - iEval (cbn).
-      (* QUICK CHECK HERE: is the fact that this is so trivial suspicious? *)
-      iIntros; iSplitL; auto.
+    - done.
     - iIntros (w f) "Hvs Hfr _".
       destruct w eqn:Hw.
       + (* Value case *)

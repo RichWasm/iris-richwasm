@@ -302,13 +302,26 @@ Ltac inv_cg_try_option Hrun :=
   destruct Hrun as (Heq1 & Heq2 & Heq3 & Heq4);
   rewrite ?Heq1, ?Heq2, ?Heq3, ?Heq4 in *.
 
-Ltac inv_cg_bind Hbind res wt1 wt2 wl1 wl2 es1 es2 Hcg1 Hcg2 :=
+Ltac _inv_cg_bind Hbind res wt1 wt2 wl1 wl2 es1 es2 Hcg1 Hcg2 :=
   let Hwteq := fresh "Hwt_app_eq" in
   let Hwleq := fresh "Hwl_app_eq" in
   let Heseq := fresh "Hes_app_eq" in
   apply run_codegen_bind_dist in Hbind;
   destruct Hbind as (res & wt1 & wt2 & wl1 & wl2 & es1 & es2 & Hcg1 & Hcg2 & Hwteq & Hwleq & Heseq);
   rewrite ?Heseq, ?Hwteq, ?Hwleq in *.
+
+Tactic Notation "inv_cg_bind" 
+  hyp(Hbind) 
+  simple_intropattern(res)
+  simple_intropattern(wt1) 
+  simple_intropattern(wt2) 
+  simple_intropattern(wl1) 
+  simple_intropattern(wl2) 
+  simple_intropattern(es1) 
+  simple_intropattern(es2) 
+  simple_intropattern(Hcg1) 
+  simple_intropattern(Hcg2) :=
+  _inv_cg_bind Hbind res wt1 wt2 wl1 wl2 es1 es2 Hcg1 Hcg2.
 
 Ltac inv_cg_ret Hret :=
   let Hretval := fresh "Hretval" in

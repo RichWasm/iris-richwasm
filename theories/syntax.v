@@ -65,3 +65,24 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
 Inductive skind :=
 | SVALTYPE : list primitive_rep -> copyability -> dropability -> skind
 | SMEMTYPE : nat -> dropability -> skind.
+
+Section RepInd.
+  Variables (P : representation -> Prop)
+            (HVarR: forall idx, P (VarR idx))
+            (HSumR: forall ρs, Forall P ρs -> P (SumR ρs))
+            (HProdR: forall ρs, Forall P ρs -> P (ProdR ρs))
+            (HPrimR: forall ι, P (PrimR ι)).
+
+  Fixpoint rep_ind (ρ: representation) : P ρ :=
+    let fix reps_ind (ρs: list representation) : Forall P ρs :=
+      match ρs with
+      | [] => ListDef.Forall_nil _
+      | ρ :: ρs => ListDef.Forall_cons _ (rep_ind ρ) (reps_ind ρs)
+      end in
+    match ρ with
+    | VarR idx => HVarR idx
+    | SumR ρs => HSumR ρs (reps_ind ρs)
+    | ProdR ρs => HProdR ρs (reps_ind ρs)
+    | PrimR ι => HPrimR ι 
+    end.
+End RepInd.

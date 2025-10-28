@@ -566,39 +566,39 @@ Section CodeGen.
           rewrite lookup_seq; eauto.
   Qed.
 
-  Lemma lwp_save_stack_w tys :
+  Lemma lwp_save_stack_w tys Φ :
     forall s E fe wt wl idxs wt' wl' wlf es fr vs,
       run_codegen (save_stack_w fe tys) wt wl = inr (idxs, wt', wl', es) ->
       wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
       result_type_interp tys vs ->
       idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
-        wt' = [] /\
-        wl' = tys /\
-        ⊢ ↪[frame] fr -∗
-          ↪[RUN] -∗
-          lenient_wp s E (W.v_to_e_list vs ++ to_e_list es)
-            {| lp_fr := λ f, ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-                               ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝;
-               lp_fr_inv := λ _, True;
-               lp_val := λ vs, ⌜vs = []⌝;
-               lp_trap := False;
-               lp_br := λ _ _, False;
-               lp_ret := λ _, False;
-               lp_host := λ _ _ _ _, False |}.
+      wt' = [] /\
+      wl' = tys /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        Φ.(lp_val) [] -∗
+        (∀ f, 
+            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            Φ.(lp_fr_inv) f ∗ Φ.(lp_fr) f) -∗
+        lenient_wp s E (W.v_to_e_list vs ++ to_e_list es) Φ.
   Proof.
     intros.
-    eapply (wp_save_stack_w _ s E (λ vs, ⌜vs = immV []⌝)%I) in H; eauto.
-    destruct H as (Hidx & Hwt' & Hwl' & Hwp).
+    eapply wp_save_stack_w in H; eauto.
+    destruct H as (Hidxs & Hwt' & Hwl' & Hwp).
     split; auto.
     split; auto.
     split; auto.
-    iIntros "Hfr Hrun".
-    unfold lenient_wp.
-    unfold denote_logpred, lp_noframe; cbn.
-    iApply (wp_wand with "[Hfr Hrun]").
-    { iApply (Hwp with "[$] [$] [//]"). }
-    iIntros (w) "(-> & Hrun & %f & Hfr & %Hpre & %Hvs)".
-    by iFrame.
+    iIntros "Hf Hrun Hval Hfr".
+    iApply (wp_wand with "[Hf Hrun]").
+    {
+      iApply (Hwp with "[$] [$]").
+      fill_imm_pred.
+    }
+    iIntros (v) "(-> & Hrun & %f & Hf & %Hold & %Hsaved)".
+    unfold denote_logpred.
+    iFrame.
+    by iApply "Hfr".
   Qed.
 
   Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
