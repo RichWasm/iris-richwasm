@@ -2212,93 +2212,94 @@ Section Fundamental.
     run_codegen (compile_instrs mr fe (es1 ++ es2)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L1 WT WL (to_e_list es') (InstrT τs1 τs3) L3.
   Proof.
-    intros fe WT WL Hes1 Hes2 Hcompile; rename wl' into wl''.
+    intros fe WT WL Hes1 Hes2 Hcompile; rename wl' into wl''; rename wt' into wt''; rename es' into es''.
     (* Step 1: split out Hcompile into Hcompile_e and Hcompile_es *)
 
     (* For Hcompile_e *)
     unfold compile_instrs in Hcompile.
     cbn in Hcompile.
-    inv_cg_bind Hcompile res wt1' wttest wl1' wltest es1' es2' Hcompile Hcompile_empty; subst.
+    inv_cg_bind Hcompile res wt_full wttemp wl_full wltemp es' es2_temp' Hcompile Hcompile_empty; subst.
     inversion Hcompile_empty; subst; clear Hcompile_empty.
-    admit.
+    rewrite app_nil_r.
 
-    (*
-    inv_cg_bind Hcompile res' wl' wl'' e' es' Hcompile_e Hcompile_es_kinda; subst.
+    assert (Hcompile_split: exists wt1 wt2 wl1 wl2 es1' es2',
+              run_codegen (compile_instrs mr fe es1) wt wl = inr ((), wt1, wl1, es1')
+               /\
+              run_codegen (compile_instrs mr fe es2) (wt ++ wt1) (wl ++ wl1) =
+                inr ((), wt2, wl2, es2')
+               /\
+              wt_full = wt1 ++ wt2
+               /\
+              wl_full = wl1 ++ wl2
+               /\
+              es' = es1' ++ es2'
+           ).
+    {
+      (* This is mainly a proof about the codegen monad. Weirdly difficult for whatever reason.
+         Come back to it later. *)
+      admit.
+    }
+    destruct Hcompile_split as (wt1&wt2&wl1&wl2&es1'&es2'& Hcompile_es1 & Hcompile_es2 & H1 & H2 & H3); subst.
 
-    assert (Hres: res' = ()). { admit. } 
-    subst.
-    autorewrite with list.
-    rewrite -app_assoc.
-    apply (He _ _ (wl'' ++ wlf)) in Hcompile_e as Hsem_e.
+    (* This is very silly but I can't figure out how to just rewrite with WT := ... *)
+    assert (Temp: WT = wt ++ ((wt1 ++ wt2) ++ []) ++ wtf) by auto; rewrite Temp; clear Temp.
+    assert (Temp: WL = wl ++ ((wl1 ++ wl2) ++ []) ++ wlf) by auto; rewrite Temp; clear Temp.
+    repeat rewrite app_nil_r.
 
+    apply (Hes1 wt wt1 (wt2 ++ wtf) wl wl1 (wl2 ++ wlf) es1') in Hcompile_es1 as Hsem_es1.
+    apply (Hes2 (wt ++ wt1) wt2 wtf (wl ++ wl1) wl2 wlf es2') in Hcompile_es2 as Hsem_es2.
 
-    (* For Hcompile_es: *)
-
-    (* First, rework Hcompile_es_kinda. I'm *pretty* sure this is true *)
-    (* Reasoning why I think this is true:
-       - compile_instrs is defined as mapM_ (compile_instr fe)
-       - mapM_ is defined as ignoring all output at returning ()
-       - In Hcompile_es_kinda, we have the normal mapM, and res is a list of ()
-       - After staring at some of the insides, I'm *pretty* sure replacing mapM
-         with mapM_ results in res (list of ()) turning into just ().
-       - then things fold in from there
-       Not sure how to prove that atm
-     *)
-    assert (Hcompile_es:
-             run_codegen (compile_instrs mr fe es1) (wl ++ wl') = inr((), wl'', es')).
-    { admit. }
-
-    apply (Hes _ _ wlf) in Hcompile_es as Hsem_es. clear Hcompile_es_kinda.
-    rewrite -app_assoc in Hcompile_es Hsem_es.
-
-    (* a bit of prep for step 2 *)
+    (* Temporary context clean up*)
+    clear Hes1 Hes2 Hcompile Hcompile_es1 Hcompile_es2 WT WL.
     rewrite to_e_list_distributes.
+    repeat rewrite <- app_assoc.
 
-    (* Can be temporary: *)
-    clear Hcompile_e Hcompile_es He Hes.
-
-    (* Step 2: let's get the type semantic! *)
+    (* Time for type semantic! *)
     unfold have_instruction_type_sem.
-    iIntros (? ? ? ? ? ?) "%Henv #Hinst #Hlf".
-    iIntros (? ?) "Hvs Hframe Hfrinv Hfr Hrun".
-    (* unfold expr_interp. *)
+    iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
+    unfold have_instruction_type_sem in Hsem_es1, Hsem_es2.
+    iPoseProof (Hsem_es1) as "Hsem_es1"; iPoseProof (Hsem_es2) as "Hsem_es2".
 
-    (* Idea: pass resources into Hsem_e, then Hsem_es *)
-    (* Start with all the pure stuff into both *)
-    unfold have_instruction_type_sem in Hsem_e, Hsem_es.
+    (* Start passing resources *)
+    iSpecialize ("Hsem_es1" $! se inst lh fr rvs vs θ Henv with "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun").
+    rewrite (app_assoc (language.of_val (immV vs)) (to_e_list es1') (to_e_list es2')).
 
-    iPoseProof (Hsem_e) as "Hsem_e"; iPoseProof (Hsem_es) as "Hsem_es".
-    iSpecialize ("Hsem_e" $! s__mem s__rep s__size se inst lh Henv with "Hinst Hlf").
-    iSpecialize ("Hsem_es" $! s__mem s__rep s__size se inst lh Henv with "Hinst Hlf").
-
-    (* Time to use the resources!*)
-    iSpecialize("Hsem_e" $! fr vs with "Hvs Hframe Hfrinv Hfr Hrun").
-
-    rewrite (app_assoc (v_to_e_list vs) (to_e_list e') (to_e_list es')).
-    (* We have a goal with a lwp with two concatted expression lists. Our context has
-       a resource for the lenient weakest precondition for the first of the two.
-       lenient_wp_seq, then, seems perfect.
-
-       However, the problem will arise from the fact that our lenient_wp es is stuck
-       behind some resources.
-     *)
-    iApply (lenient_wp_seq with "[Hsem_e]").
-    (* This line uses up the lenient_wp for e completely.*)
-    - iApply "Hsem_e".
-    - (* This is the trap case in the lemma. *)
-      iEval (cbn).
-      iIntros (f) "HT Hvs".
-      iSplitR; done.
+    iApply (lenient_wp_seq with "[Hsem_es1]").
+    - iApply "Hsem_es1".
     - iEval (cbn).
-      iIntros (w f) "Hvs Hfr Hfrinv".
-      destruct w eqn:Hw; iEval (cbn) in "Hvs".
-      + iDestruct "Hvs" as "(Hf & Hrun & Hvs)".
-        iApply ("Hsem_es" with "[$Hvs] [$Hf] [$] [$] [$]").
+      (* QUICK CHECK HERE: is the fact that this is so trivial suspicious? *)
+      iIntros; iSplitL; auto.
+    - iIntros (w f) "Hvs Hfr _".
+      destruct w eqn:Hw.
+      + (* Value case *)
+        iDestruct "Hvs" as "(Hframe & Hrun & Hval)". rename l into vs0.
+        iEval (cbn [lp_fr]) in "Hframe"; iEval (cbn [lp_val]) in "Hval".
+        iDestruct "Hval" as "[%rvs0 [%θ0 (Hval_interp & Hrep_interp & Hrt)]]".
+
+        (* This makes the rewrites a little nicer *)
+        assert (Temp: forall A (l1:list A) l2 l3 l4, l1 ++ l2 ++ l3 ++ l4 = (l1 ++ l2) ++ l3 ++ l4).
+        { intros. by rewrite app_assoc. }
+
+        repeat (rewrite Temp).
+        iSpecialize ("Hsem_es2" $! se inst lh f rvs0 vs0 θ0 Henv
+                      with "Hinst Hctx Hrep_interp Hval_interp Hframe Hrt Hfr Hrun").
+        iApply "Hsem_es2".
       + done.
-      + admit.
-      + admit.
-      + admit.
-*)
+      + iEval (cbn) in "Hvs". iDestruct "Hvs" as "(Hrun & Hbr_interp)".
+        iEval (cbn).
+        (* Some sort of lenient_wp lemma about BI_br *)
+        admit.
+      + (* string of specific cbns for a cleaner context *)
+        iEval (cbn [lp_notrap]) in "Hvs". iEval (cbn [lp_noframe]) in "Hvs".
+        iEval (cbn [lp_ret]) in "Hvs".
+        iDestruct "Hvs" as "(Hrun & Hret_interp)".
+        iEval (cbn).
+        (* Some sort of lenient_wp lemma about BI_return *)
+        admit.
+      + (* While call_host is still just False, this works. *)
+        iEval (cbn) in "Hvs".
+        iDestruct "Hvs" as "(_ & HF)".
+        auto.
   Admitted.
 
   Lemma compat_singleton M F L L' wt wt' wtf wl wl' wlf e ψ es' :
