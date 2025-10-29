@@ -2274,12 +2274,6 @@ Section Fundamental.
     iExists []; auto.
   Qed.
 
-  Lemma to_e_list_distributes e1 e2 :
-    to_e_list (e1 ++ e2) = to_e_list e1 ++ to_e_list e2.
-  Proof.
-    unfold to_e_list. rewrite mathcomp.ssreflect.seq.map_cat. done.
-  Qed.
-
   Lemma compat_app M F L1 L2 L3 wt wt' wtf wl wl' wlf es' es1 es2 τs1 τs2 τs3 :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -2336,7 +2330,7 @@ Section Fundamental.
 
     (* Temporary context clean up*)
     clear Hes1 Hes2 Hcompile Hcompile_es1 Hcompile_es2 WT WL.
-    rewrite to_e_list_distributes.
+    rewrite to_e_list_app.
     repeat rewrite <- app_assoc.
 
     (* Time for type semantic! *)
