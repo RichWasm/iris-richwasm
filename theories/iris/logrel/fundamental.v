@@ -365,7 +365,6 @@ Section Fundamental.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [τ] [] in
-    has_dropability F τ ExDrop ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IDrop ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.

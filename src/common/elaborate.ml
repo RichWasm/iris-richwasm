@@ -93,7 +93,6 @@ let elab_copyability : A.Copyability.t -> B.Copyability.t = function
   | ExCopy -> ExCopy
 
 let elab_dropability : A.Dropability.t -> B.Dropability.t = function
-  | NoDrop -> NoDrop
   | ImDrop -> ImDrop
   | ExDrop -> ExDrop
 
@@ -321,7 +320,7 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       RefT (VALTYPE (PrimR PtrR, ExCopy, ExDrop), ConstM MemGC, t')
   | Ref (mem, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (PrimR PtrR, NoCopy, NoDrop), elab_memory mem, t')
+      RefT (VALTYPE (PrimR PtrR, NoCopy, ExDrop), elab_memory mem, t')
   | CodeRef ft ->
       let+ ft' = elab_function_type env ft in
       CodeRefT (VALTYPE (PrimR I32R, ImCopy, ImDrop), ft')

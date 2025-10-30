@@ -35,7 +35,6 @@ end
 
 module Dropability = struct
   type t =
-    | NoDrop
     | ExDrop
     | ImDrop
   [@@deriving eq, ord, variants, sexp]
@@ -43,7 +42,6 @@ module Dropability = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp ff : t -> unit = function
-    | NoDrop -> fprintf ff "nodrop"
     | ExDrop -> fprintf ff "exdrop"
     | ImDrop -> fprintf ff "imdrop"
 end

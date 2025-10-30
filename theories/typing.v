@@ -199,12 +199,8 @@ Inductive subkind_of : kind -> kind -> Prop :=
   subkind_of (VALTYPE ρ ExCopy δ) (VALTYPE ρ NoCopy δ)
 | KSubValExDrop ρ χ :
   subkind_of (VALTYPE ρ χ ImDrop) (VALTYPE ρ χ ExDrop)
-| KSubValNoDrop ρ χ :
-  subkind_of (VALTYPE ρ χ ExDrop) (VALTYPE ρ χ NoDrop)
 | KSubMemExDrop σ :
-  subkind_of (MEMTYPE σ ImDrop) (MEMTYPE σ ExDrop)
-| KSubMemNoDrop σ :
-  subkind_of (MEMTYPE σ ExDrop) (MEMTYPE σ NoDrop).
+  subkind_of (MEMTYPE σ ImDrop) (MEMTYPE σ ExDrop).
 
 Inductive has_kind_ok : function_ctx -> type -> kind -> Prop :=
 | OKHasKind F τ κ :
@@ -722,7 +718,6 @@ Inductive has_instruction_type :
   has_instruction_type M F L (ICopy ψ) ψ L
 | TDrop M F L τ :
   let ψ := InstrT [τ] [] in
-  has_dropability F τ ExDrop ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IDrop ψ) ψ L
 | TNum M F L e ψ :
@@ -967,7 +962,6 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (ICopy ψ) ψ L)
       (HDrop : forall M F L τ,
           let ψ := InstrT [τ] [] in
-          has_dropability F τ ExDrop ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IDrop ψ) ψ L)
       (HNum : forall M F L e ψ,
@@ -1197,7 +1191,7 @@ Section HasHaveInstructionTypeMind.
     | TNop M F L H1 => HNop M F L H1
     | TUnreachable M F L L' ψ H1 => HUnreachable M F L L' ψ H1
     | TCopy M F L τ H1 H2 => HCopy M F L τ H1 H2
-    | TDrop M F L τ H1 H2 => HDrop M F L τ H1 H2
+    | TDrop M F L τ H1 => HDrop M F L τ H1
     | TNum M F L e ψ H1 H2 => HNum M F L e ψ H1 H2
     | TNumConst M F L ν n H1 => HNumConst M F L ν n H1
     | TBlock M F L L' τs1 τs2 es H1 H2 =>

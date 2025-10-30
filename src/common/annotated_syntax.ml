@@ -67,20 +67,17 @@ module Dropability = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp_roqc ff : t -> unit = function
-    | NoDrop -> fprintf ff "NoDrop"
     | ExDrop -> fprintf ff "ExDrop"
     | ImDrop -> fprintf ff "ImDrop"
 
   let le a b =
     match (a, b) with
     | ImDrop, _ -> true
-    | ExDrop, (ExDrop | NoDrop) -> true
-    | NoDrop, NoDrop -> true
+    | ExDrop, ExDrop -> true
     | _ -> false
 
   let meet a b =
     match (a, b) with
-    | NoDrop, _ | _, NoDrop -> NoDrop
     | ExDrop, _ | _, ExDrop -> ExDrop
     | ImDrop, ImDrop -> ImDrop
 end

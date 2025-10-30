@@ -325,9 +325,6 @@ Section FundamentalKinding.
       + specialize (IHHkind _ _ _ eq_refl).
         eapply IHHkind.
         split; auto.
-      + specialize (IHHkind _ _ _ eq_refl).
-        eapply IHHkind.
-        split; eauto.
     - simpl subst_type.
       unfold sem_env_interp in Henv.
       pose proof (Forall2_length _ _ _ Henv) as Hlen.

@@ -10,7 +10,6 @@ ExCopy : copyability
 ImCopy : copyability
 
 dropability : Type
-NoDrop : dropability
 ExDrop : dropability
 ImDrop : dropability
 
