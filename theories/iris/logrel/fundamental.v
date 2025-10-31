@@ -23,6 +23,10 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Ltac clear_nils :=
+    repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
+
+
   Lemma Forall2_Forall2_cat_length {X Y} (P : X -> Y -> Prop) xss yss :
     Forall2 (Forall2 P) xss yss ->
     length (concat xss) = length (concat yss).
@@ -2191,6 +2195,35 @@ Section Fundamental.
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Copy)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
+  Proof.
+    intros fe WT WL ψ Hcopyability Hresolves Hser Hmonosize Htype Hcompile.
+    unfold WT, WL; clear WT WL. (* If the WT := or WL := become necessary, comment the unfold/clear*)
+    cbn in Hcompile.
+
+    (* Mechanically get through some of the first few things in compile_load *)
+    inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
+    inv_cg_bind Hcompile ρ ?wt ?wt ?wl ?wl es_off ?es_rest Hρ Hcompile.
+    inv_cg_bind Hcompile ιs ?wt ?wt ?wl ?wl es_ρ ?es_rest Hιs Hcompile.
+    inv_cg_try_option Hρ; rename Heq_some into Hρ.
+    inv_cg_try_option Hιs; rename Heq_some into Hιs.
+    inv_cg_try_option Hoff; rename Heq_some into Hoff.
+    inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl es_a ?es_rest Ha Hcompile.
+    cbn in Ha; inversion Ha; subst; clear Ha.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_emit Hemit.
+    inv_cg_bind Hcompile () ?wt ?wt ?wl ?wl es_empty ?es_rest Hempty Hcompile.
+    cbn in Hempty; inversion Hempty; subst; clear Hempty.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
+    cbn in Hignore; inversion Hignore; subst; clear Hignore.
+
+    (* Some clean up *)
+    assert (Hu: u = ()). { admit. }
+    assert (Hp: p = ((),())). { admit. }
+    subst.
+    clear_nils.
+
+    (* Next is case ptr *)
+
   Admitted.
 
   Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
@@ -2205,6 +2238,34 @@ Section Fundamental.
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Move)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
+  Proof.
+    intros fe WT WL ψ Hresolves Hsize Hser Hmonosize Htype Hcompile.
+    unfold WT, WL; clear WT WL. (* If the WT := or WL := become necessary, comment the unfold/clear*)
+    cbn in Hcompile.
+
+    (* Mechanically get through some of the first few things in compile_load *)
+    inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
+    inv_cg_bind Hcompile ρ ?wt ?wt ?wl ?wl es_off ?es_rest Hρ Hcompile.
+    inv_cg_bind Hcompile ιs ?wt ?wt ?wl ?wl es_ρ ?es_rest Hιs Hcompile.
+    inv_cg_try_option Hρ; rename Heq_some into Hρ.
+    inv_cg_try_option Hιs; rename Heq_some into Hιs.
+    inv_cg_try_option Hoff; rename Heq_some into Hoff.
+    inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl es_a ?es_rest Ha Hcompile.
+    cbn in Ha; inversion Ha; subst; clear Ha.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_emit Hemit.
+    inv_cg_bind Hcompile () ?wt ?wt ?wl ?wl es_ptr_flags ?es_rest Hptr_flags Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
+    cbn in Hignore; inversion Hignore; subst; clear Hignore.
+
+    (* Some clean up *)
+    assert (Hu: u = ()). { admit. }
+    assert (Hp: p = ((),())). { admit. }
+    subst.
+    clear_nils.
+
+    (* Next is case ptr *)
+
   Admitted.
 
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
@@ -2219,6 +2280,32 @@ Section Fundamental.
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
+  Proof.
+    intros fe WT WL ψ Hresolves Hdrop Hser Hmonosize Htype Hcompile.
+    unfold WT, WL; clear WT WL.
+    (* If the WT := or WL := become necessary, undo the unfold/clear*)
+    cbn in Hcompile.
+
+    (* Mechanically get through some of the first few things in compile_swap *)
+    inv_cg_bind Hcompile ρ ?wt ?wt ?wl ?wl es_off ?es_rest Hρ Hcompile.
+    inv_cg_bind Hcompile ιs ?wt ?wt ?wl ?wl es_ρ ?es_rest Hιs Hcompile.
+    inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
+    inv_cg_try_option Hρ; rename Heq_some into Hρ.
+    inv_cg_try_option Hιs; rename Heq_some into Hιs.
+    inv_cg_try_option Hoff; rename Heq_some into Hoff.
+    inv_cg_bind Hcompile vs ?wt ?wt ?wl ?wl  es_save ?es_rest Hsave Hcompile.
+    inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl  es_a ?es_rest Ha Hcompile.
+    cbn in Ha; inversion Ha; subst; clear Ha.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_emit Hemit.
+    inv_cg_bind Hcompile ((),((),())) ?wt ?wt ?wl ?wl es_case_ptr es_ptr_flags Hcompile Hptr_flags.
+
+    (* Some clean up *)
+    subst.
+    clear_nils.
+
+    (* The next step is a case_ptr, for which a lemma is currently being proven about *)
+
   Admitted.
 
   Lemma compat_store_strong M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ ρ τ τval π pr :
@@ -2235,7 +2322,35 @@ Section Fundamental.
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
+  Proof.
+    intros fe WT WL ψ Hresolves Hdrop Hsize Hrep Henv Hmonosize Htype Hcompile.
+    unfold WT, WL; clear WT WL.
+    (* If the WT := or WL := become necessary, undo the unfold/clear*)
+    cbn in Hcompile.
+
+    (* Mechanically get through some of the first few things in compile_swap *)
+    inv_cg_bind Hcompile ρ_inner ?wt ?wt ?wl ?wl es_off ?es_rest Hρ_inner Hcompile.
+    inv_cg_bind Hcompile ιs ?wt ?wt ?wl ?wl es_ρ ?es_rest Hιs Hcompile.
+    inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
+    inv_cg_try_option Hρ_inner; rename Heq_some into Hρ_inner.
+    inv_cg_try_option Hιs; rename Heq_some into Hιs.
+    inv_cg_try_option Hoff; rename Heq_some into Hoff.
+    inv_cg_bind Hcompile vs ?wt ?wt ?wl ?wl  es_save ?es_rest Hsave Hcompile.
+    inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl  es_a ?es_rest Ha Hcompile.
+    cbn in Ha; inversion Ha; subst; clear Ha.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_emit Hemit.
+    inv_cg_bind Hcompile ((),((),())) ?wt ?wt ?wl ?wl es_case_ptr es_ptr_flags Hcompile Hptr_flags.
+
+    (* Some clean up *)
+    subst.
+    clear_nils.
+
+    (* The next step is a case_ptr, for which a lemma is currently being proven about *)
+
   Admitted.
+
+
 
   Lemma compat_swap M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
      let fe := fe_of_context F in   
@@ -2248,6 +2363,34 @@ Section Fundamental.
      has_instruction_type_ok F ψ L ->
      run_codegen (compile_instr mr fe (ISwap ψ π)) wt wl = inr ((), wt', wl', es') ->
      ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
+  Proof.
+    intros fe WT WL ψ Hresolves Hmonosize Hser Htype Hcompile. unfold WT, WL; clear WT WL.
+    (* If the WT := or WL := become necessary, undo the unfold/clear*)
+    cbn in Hcompile.
+
+    (* Mechanically get through some of the first few things in compile_swap *)
+    inv_cg_bind Hcompile ρ ?wt ?wt ?wl ?wl es_off ?es_rest Hρ Hcompile.
+    inv_cg_bind Hcompile ιs ?wt ?wt ?wl ?wl es_ρ ?es_rest Hιs Hcompile.
+    inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
+    inv_cg_try_option Hρ; rename Heq_some into Hρ.
+    inv_cg_try_option Hιs; rename Heq_some into Hιs.
+    inv_cg_try_option Hoff; rename Heq_some into Hoff.
+    inv_cg_bind Hcompile vs ?wt ?wt ?wl ?wl  es_save ?es_rest Hsave Hcompile.
+    inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl  es_a ?es_rest Ha Hcompile.
+    cbn in Ha; inversion Ha; subst; clear Ha.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_emit Hemit.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
+    cbn in Hignore; inversion Hignore; subst; clear Hignore.
+
+    (* Some clean up *)
+    assert (Hu: u = ()). { admit. }
+    assert (Hp: p = ((),())). { admit. }
+    subst.
+    clear_nils.
+
+    (* The next step is a case_ptr, for which a lemma is currently being proven about *)
+
   Admitted.
 
   Lemma compat_nil M F L wt wt' wtf wl wl' wlf es' :
