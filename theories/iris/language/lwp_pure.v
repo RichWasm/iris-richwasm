@@ -29,6 +29,28 @@ Section lwp_pure.
       iFrame.
   Qed.
 
+  Lemma lwp_unop s E Φ op t v1 v (f: datatypes.frame) :
+    app_unop op v1 = v →
+    ↪[frame] f ∗
+    ↪[RUN] ∗
+    ▷ Φ.(lp_val) [v] ∗
+    Φ.(lp_fr) f ∗
+    Φ.(lp_fr_inv) f
+    ⊢ lenient_wp s E [AI_basic (BI_const v1); AI_basic (BI_unop t op)] Φ.
+  Proof.
+    iIntros (Happ) "(Hf & Hrun & Hval & Hfr & Hfrinv)".
+    iApply (wp_wand with "[Hf Hfr Hrun Hval]").
+    - About wp_unop.
+      iApply (wp_unop with "[$] [$]"); eauto.
+      instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
+      iFrame.
+      by iIntros "!> ?".
+    - iIntros (w) "[[Hnofr Hrun] Hf]".
+      iSpecialize ("Hnofr" with "Hrun").
+      iFrame.
+  Qed.
+
+
   Lemma lwp_relop s E Φ op t v1 v2 b (f: datatypes.frame) :
     app_relop op v1 v2 = b →
     ↪[frame] f ∗
