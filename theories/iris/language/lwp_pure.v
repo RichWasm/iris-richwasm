@@ -40,8 +40,7 @@ Section lwp_pure.
   Proof.
     iIntros (Happ) "(Hf & Hrun & Hval & Hfr & Hfrinv)".
     iApply (wp_wand with "[Hf Hfr Hrun Hval]").
-    - About wp_unop.
-      iApply (wp_unop with "[$] [$]"); eauto.
+    - iApply (wp_unop with "[$] [$]"); eauto.
       instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
       iFrame.
       by iIntros "!> ?".

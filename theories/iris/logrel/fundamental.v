@@ -2465,7 +2465,7 @@ Section Fundamental.
     cbn in Ha; inversion Ha; subst; clear Ha.
     inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
     inv_cg_emit Hemit.
-    inv_cg_bind Hcompile ((),((),())) ?wt ?wt ?wl ?wl es_case_ptr es_ptr_flags Hcompile Hptr_flags.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_case_ptr es_ptr_flags Hcompile Hptr_flags.
 
     (* Some clean up *)
     subst.
@@ -2507,7 +2507,7 @@ Section Fundamental.
     cbn in Ha; inversion Ha; subst; clear Ha.
     inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
     inv_cg_emit Hemit.
-    inv_cg_bind Hcompile ((),((),())) ?wt ?wt ?wl ?wl es_case_ptr es_ptr_flags Hcompile Hptr_flags.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_case_ptr es_ptr_flags Hcompile Hptr_flags.
 
     (* Some clean up *)
     subst.
