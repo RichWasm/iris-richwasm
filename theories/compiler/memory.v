@@ -84,19 +84,20 @@ Section Compiler.
 
   Definition case_ptr {A B : Type}
     (i : W.localidx) (tf : W.function_type)
-    (do_int : codegen A) (do_heap : smemory -> codegen B) :
-    codegen (A * (B * B)) :=
-    emit (W.BI_get_local (localimm i));;
-    emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1)));;
-    emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
-    emit (W.BI_testop W.T_i32 W.TO_eqz);;
+    (do_heap : smemory -> codegen A) 
+    (do_int : codegen B)
+    : codegen (A * A * B) :=
+    emit_all [W.BI_get_local (localimm i);
+              W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+              W.BI_binop W.T_i32 (W.Binop_i W.BOI_and);
+              W.BI_testop W.T_i32 W.TO_eqz];;
     if_c tf
-      do_int
-      (emit (W.BI_get_local (localimm i));;
-       emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 2)));;
-       emit (W.BI_binop W.T_i32 (W.Binop_i W.BOI_and));;
-       emit (W.BI_testop W.T_i32 W.TO_eqz);;
-       if_c tf (do_heap MemMM) (do_heap MemGC)).
+      (emit_all [W.BI_get_local (localimm i);
+                 W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z numerics.i32m 2));
+                 W.BI_binop W.T_i32 (W.Binop_i W.BOI_and);
+                 W.BI_testop W.T_i32 W.TO_eqz];;
+       if_c tf (do_heap MemMM) (do_heap MemGC))
+      do_int.
 
   Definition ite_gc_ptr
     (ι : primitive_rep) (i : W.localidx) (tf : W.function_type)
@@ -105,8 +106,8 @@ Section Compiler.
     match ι with
     | PtrR =>
         ignore $ case_ptr i tf
-          do_nongc
           (fun μ => match μ with MemMM => do_nongc | MemGC => do_gc end)
+          do_nongc
     | _ => do_nongc
     end.
 

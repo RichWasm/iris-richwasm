@@ -16,14 +16,15 @@ Section CodeGen.
   Context `{!wasmG Σ}.
   Context `{!rwasm_gcG Σ}.
 
-  Lemma wp_if_c {A B} s E i tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y Φ (f: frame) :
+  Lemma wp_if_c {A B} s E tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y :
     run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
     exists wt1 wt2 wl1 wl2 es1 es2,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
         run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
         wt' = wt1 ++ wt2 /\
         wl' = wl1 ++ wl2 /\
-        ⊢ ↪[frame] f -∗
+        ⊢ ∀ Φ (f: frame) i,
+          ↪[frame] f -∗
           ↪[RUN] -∗
           ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
               ▷ (↪[frame] f -∗ ↪[RUN] -∗ WP [AI_basic (BI_block tf es1)] @ s; E {{ v, Φ v }})) ∨
@@ -61,11 +62,38 @@ Section CodeGen.
     split; first by rewrite app_nil_r.
     split; first by rewrite app_nil_r.
 
-    iIntros "Hfr Hrun Hbl".
+    iIntros (Φ f i) "Hfr Hrun Hbl".
     iSimpl.
     iDestruct "Hbl" as "[[%Hi Hbl] | [%Hi Hbl]]".
-    - by iApply (wp_if_true with "[Hfr] [Hrun]"); auto.
+    - by iApply (wp_if_true with "[$Hfr] [Hrun]"); eauto.
     - by iApply (wp_if_false with "[Hfr] [Hrun]"); auto.
+  Qed.
+
+  Lemma lwp_if_c {A B} s E tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y :
+    run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
+    exists wt1 wt2 wl1 wl2 es1 es2,
+      run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
+        run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
+        wt' = wt1 ++ wt2 /\
+        wl' = wl1 ++ wl2 /\
+        ⊢ ∀ Φ (f: frame) i,
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
+              ▷ (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E [AI_basic (BI_block tf es1)] Φ)) ∨
+             (⌜i = Wasm_int.int_zero i32m⌝ ∧
+                ▷ (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E [AI_basic (BI_block tf es2)] Φ))) -∗
+          lenient_wp s E (AI_basic (BI_const (VAL_int32 i)) :: to_e_list es) Φ.
+  Proof.
+    intros Hcg.
+    eapply wp_if_c in Hcg.
+    destruct Hcg as (wt1 & wt2 & wl1 & wl2 & es1 & es2 & Hcg1 & Hcg2 & Hwt' & Hwl' & Hwp).
+    do 6 eexists; split; eauto.
+    split; eauto.
+    split; eauto.
+    split; eauto.
+    iIntros (Φ f i) "Hf Hrun Hbranches".
+    iApply (Hwp with "[$] [$] [$]").
   Qed.
 
   (* Generic monad operations. *)

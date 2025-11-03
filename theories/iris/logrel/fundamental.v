@@ -265,6 +265,172 @@ Section Fundamental.
   Proof.
   Admitted.
 
+  Lemma root_pointer_heap_shp_inv rp μ ℓ :
+    root_pointer_interp rp (PtrHeap μ ℓ) -∗
+    ⌜∃ a, rp = RootHeap μ a⌝.
+  Proof.
+    iIntros "H".
+    destruct rp; first done. 
+    cbn.
+    iDestruct "H" as "(-> & _)".
+    by iExists _.
+  Qed.
+
+  Lemma wp_case_ptr {A B} s E idx tf (c1: smemory -> codegen A) (c2 : codegen B) wt wt' wl wl' es x y z v (f: frame) Φ :
+    run_codegen (memory.case_ptr idx tf c1 c2) wt wl = inr (x, y, z, wt', wl', es) ->
+    exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
+      run_codegen (c1 MemMM) wt wl = inr (x, wt1, wl1, es1) /\
+      run_codegen (c1 MemGC) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
+      run_codegen c2 (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2) = inr (z, wt3, wl3, es3) /\
+      wt' = wt1 ++ wt2 ++ wt3 /\
+      wl' = wl1 ++ wl2 ++ wl3 /\
+      ⊢ ∀ ptr, 
+        ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜f.(f_locs) !! localimm idx = Some v⌝ -∗
+        rep_value_interp (PtrV ptr) v -∗
+        ▷ (↪[frame]f -∗
+            ↪[RUN] -∗
+            match ptr with
+            | PtrHeap MemMM l => lenient_wp s E [AI_basic (BI_block tf es1)] Φ
+            | PtrHeap MemGC l => lenient_wp s E [AI_basic (BI_block tf es2)] Φ
+            | PtrInt z => lenient_wp s E [AI_basic (BI_block tf es3)] Φ
+            end) -∗
+        rep_value_interp (PtrV ptr) v ∗
+        lenient_wp s E (to_e_list es) Φ.
+  Proof.
+    unfold memory.case_ptr.
+    intros Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es_prelude ?es_cg Hprelude Hcg.
+    inv_cg_emit_all Hprelude.
+    subst es es_prelude.
+    subst wt' wl'.
+    rewrite -> !app_nil_l, !app_nil_r in *.
+    eapply (lwp_if_c s E) in Hcg.
+    destruct Hcg as (?wt & ?wt & ?wl & ?wl & es_if & es_int & Hcg_if & Hcg_int & -> & -> & Hwp1).
+    inv_cg_bind Hcg_if [] ?wt ?wt ?wl ?wl ?es_next es_if' Hnext Hcg.
+    inv_cg_emit_all Hnext.
+    subst.
+    eapply (lwp_if_c s E) in Hcg.
+    destruct Hcg as (?wt & ?wt & ?wl & ?wl & es_mm & es_gc & Hcg2 & Hcg3 & -> & -> & Hwp2).
+    rewrite <- !app_assoc, !app_nil_r, !app_nil_l in *.
+    exists wt0, wt1, wt3.
+    exists wl0, wl1, wl3.
+    exists es_mm, es_gc, es_int.
+    split; first assumption.
+    split; first assumption.
+    split; first assumption.
+    split; auto.
+    split; auto.
+    iIntros (p) "Hf Hrun %Hidx Hrep Hbranches".
+    destruct p.
+    - iEval (cbn) in "Hrep".
+      iDestruct "Hrep" as "(%vn & %Hv & %rp & %Hrp & Hrep)".
+      destruct rp as [r|? ?].
+      + iPoseProof "Hrep" as "->".
+        inversion Hrp; subst.
+        iSplitR.
+        * cbn; eauto.
+        * (* not actually equal but it's going to reduce to zero so I'm just admitting this for now *)
+          replace
+            ([memory.W.BI_get_local (localimm idx);
+              memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+              memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+              memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
+            with
+            [BI_const (VAL_int32 (Wasm_int.int_zero i32m))]
+            by admit.
+          iApply (Hwp1 with "[$] [$]").
+          iRight.
+          iSplit; done.
+      + done.
+    - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
+      iPoseProof (root_pointer_heap_shp_inv with "Hroot") as "(%a & ->)".
+      iSplitL "Hroot"; first (iExists _; by iFrame).
+      inversion Hrep.
+      subst.
+      replace
+        ([memory.W.BI_get_local (localimm idx);
+          memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+          memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+          memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
+        with
+        [BI_const (VAL_int32 (Wasm_int.int_of_Z i32m 1%Z))]
+        by admit.
+      iApply (Hwp1 with "[$] [$]").
+      iLeft.
+      iSplit; first done.
+      iIntros "!> Hf Hrun".
+      destruct μ.
+      + simpl tag_address in Hidx.
+        replace
+          ([memory.W.BI_get_local (localimm idx);
+            memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
+            memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+            memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
+          with
+          [BI_const (VAL_int32 (Wasm_int.int_of_Z i32m 1%Z))]
+          by admit.
+        cbn.
+        (* need lemma about block *)
+        admit.
+      + replace
+          ([memory.W.BI_get_local (localimm idx);
+            memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+            memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+            memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
+          with
+          [BI_const (VAL_int32 (Wasm_int.int_zero i32m))]
+          by admit.
+        admit.
+  Admitted.
+    
+
+  Lemma wp_map_cg_ptr_duproot ι idx wt wl res wt' wl' es:
+    run_codegen (memory.map_gc_ptr ι idx (memory.duproot mr)) wt wl = inr (res, wt', wl', es) ->
+    res = () /\ wt' = [] /\ wl' = [].
+  Proof.
+    unfold memory.map_gc_ptr, memory.ite_gc_ptr; intros Hcg.
+    destruct ι.
+    - apply wp_ignore in Hcg.
+      destruct Hcg as (-> & res' & Hcg).
+      admit.
+    - cbn; inv_cg_ret Hcg; done.
+    - cbn; inv_cg_ret Hcg; done.
+    - cbn; inv_cg_ret Hcg; done.
+    - cbn; inv_cg_ret Hcg; done.
+  Admitted.
+
+  Lemma wp_map_gc_ptrs_duproot ιs idxs wt wl res wt' wl' es_gcs:
+    run_codegen (memory.map_gc_ptrs ιs idxs (memory.duproot mr)) wt wl = inr (res, wt', wl', es_gcs) ->
+    res = () /\ wt' = [] /\ wl' = [].
+  Proof.
+    unfold memory.map_gc_ptrs, util.mapM_.
+    intros Hcg.
+    apply wp_ignore in Hcg.
+    destruct Hcg as (-> & res' & Hcg).
+    remember (zip ιs idxs) as ιidxs.
+    revert Heqιidxs Hcg.
+    revert ιs idxs wt wl res' wt' wl' es_gcs.
+    induction ιidxs as [|[ι idx] ιidxs].
+    - intros.
+      apply wp_mapM_nil in Hcg.
+      destruct Hcg as (-> & -> & -> & ->).
+      done.
+    - intros.
+      destruct ιs as [|ι' ιs], idxs as [|idx' idxs]; inversion Heqιidxs.
+      subst ι' idx'.
+      apply wp_mapM_cons in Hcg.
+      destruct Hcg as (res & ?wt & ?wl & ?es & ?res & ?wt & ?wl & ?es & Hdup & Hcg & Heqs).
+      destruct Heqs as (-> & -> & -> & ->).
+      eapply IHιidxs in Hcg; eauto.
+      destruct Hcg as (_ & -> & ->).
+      split; auto.
+      apply wp_map_cg_ptr_duproot in Hdup.
+      destruct Hdup as (-> & -> & ->).
+      done.
+  Qed.
+
   Lemma compat_copy M F L wt wt' wtf wl wl' wlf τ es' :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -362,6 +528,7 @@ Section Fundamental.
     destruct w; iEval (cbn) in "HΦ2"; try done;
       try (iDestruct "HΦ2" as "[? ?]"; done).
     iDestruct "HΦ2" as "(-> & Hrun & ->)".
+    admit.
   Admitted.
 
   Lemma compat_drop M F L wt wt' wtf wl wl' wlf τ es' :

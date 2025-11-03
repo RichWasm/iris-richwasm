@@ -146,11 +146,20 @@ Section Relations.
 
   Definition root_pointer_interp (rp : root_pointer) (p : pointer) : iProp Σ :=
     match rp with
-    | RootInt n => ⌜p = PtrInt n⌝
-    | RootHeap μ a => ∃ ℓ, ⌜p = PtrHeap μ ℓ⌝ ∗ match μ with
-                                              | MemMM => ℓ ↦addr a
-                                              | MemGC => a ↦root ℓ
-                                              end
+    | RootInt n =>
+        match p with
+        | PtrInt n' => ⌜n = n'⌝
+        | _ => False
+        end
+    | RootHeap μ a => 
+        match p with
+        | PtrHeap μ' ℓ =>
+            ⌜μ = μ'⌝ ∗ match μ with
+                       | MemMM => ℓ ↦addr a
+                       | MemGC => a ↦root ℓ
+                       end
+        | _ => False
+        end
     end.
 
   Definition rep_value_interp (rv : rep_value) : VR :=
@@ -524,9 +533,9 @@ Section Relations.
                 {{ lv,
                      ∃ rvs' vs',
                        ⌜lv = immV vs'⌝ ∗
-                         rep_values_interp rvs' vs' ∗
-                         values_interp se τr rvs' ∗
-                         ↪[frame] fr }})%I.
+                       rep_values_interp rvs' vs' ∗
+                       values_interp se τr rvs' ∗
+                       ↪[frame] fr }})%I.
 
   Program Definition br_interp0
     (se : semantic_env) (τr : list type) (ιss_L : list (list primitive_rep)) (L : local_ctx)
