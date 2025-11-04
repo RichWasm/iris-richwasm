@@ -2,7 +2,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.bi Require Export weakestpre.
 From Wasm Require Import datatypes.
 From RichWasm.iris.rules Require Export proofmode iris_rules.
-From RichWasm.iris.language Require Export iris_wp_def.
+From RichWasm.iris.language Require Export iris_wp_def lenient_wp.
 
 Inductive arity :=
 | Ar (i: nat) (o: nat)
@@ -152,4 +152,10 @@ Ltac next_wp :=
       |];
       first (skip_sz to_skip)
   | Unknown => fail 0
+  end.
+
+Ltac lwp_chomp n :=
+  match goal with
+  | |- context [ environments.envs_entails _ (@lenient_wp _ _ _ _ ?e _) ] =>
+      iEval (rewrite -(@take_drop _ n e); simpl firstn; simpl skipn)
   end.

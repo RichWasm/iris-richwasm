@@ -49,7 +49,6 @@ Section lwp_pure.
       iFrame.
   Qed.
 
-
   Lemma lwp_relop s E Φ op t v1 v2 b (f: datatypes.frame) :
     app_relop op v1 v2 = b →
     ↪[frame] f ∗
@@ -62,6 +61,48 @@ Section lwp_pure.
     iIntros (Happ) "(Hf & Hrun & Hval & Hfr & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval Hfr]").
     - iApply (wp_relop with "[$] [$]").
+      eauto.
+      instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
+      iFrame.
+      by iIntros "!> ?".
+    - iIntros (w) "[[Hnofr Hrun] Hf]".
+      iSpecialize ("Hnofr" with "Hrun").
+      iFrame.
+  Qed.
+
+  Lemma lwp_testop_i32 s E Φ op v b (f: datatypes.frame) :
+    app_testop_i (e:=i32t) op v = b →
+    ↪[frame] f ∗
+    ↪[RUN] ∗
+    ▷ Φ.(lp_val) [VAL_int32 (wasm_bool b)] ∗
+    Φ.(lp_fr) f ∗
+    Φ.(lp_fr_inv) f
+    ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int32 v)); AI_basic (BI_testop T_i32 op)] Φ.
+  Proof.
+    iIntros (Happ) "(Hf & Hrun & Hval & Hfr & Hfrinv)".
+    iApply (wp_wand with "[Hf Hrun Hval Hfr]").
+    - iApply (wp_testop_i32 with "[$] [$]").
+      eauto.
+      instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
+      iFrame.
+      by iIntros "!> ?".
+    - iIntros (w) "[[Hnofr Hrun] Hf]".
+      iSpecialize ("Hnofr" with "Hrun").
+      iFrame.
+  Qed.
+
+  Lemma lwp_testop_i64 s E Φ op v b (f: datatypes.frame) :
+    app_testop_i (e:=i64t) op v = b →
+    ↪[frame] f ∗
+    ↪[RUN] ∗
+    ▷ Φ.(lp_val) [VAL_int32 (wasm_bool b)] ∗
+    Φ.(lp_fr) f ∗
+    Φ.(lp_fr_inv) f
+    ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int64 v)); AI_basic (BI_testop T_i64 op)] Φ.
+  Proof.
+    iIntros (Happ) "(Hf & Hrun & Hval & Hfr & Hfrinv)".
+    iApply (wp_wand with "[Hf Hrun Hval Hfr]").
+    - iApply (wp_testop_i64 with "[$] [$]").
       eauto.
       instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
       iFrame.

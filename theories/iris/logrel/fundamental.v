@@ -7,7 +7,7 @@ From Wasm Require Import operations.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural logpred.
+From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural lwp_resources logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -264,6 +264,7 @@ Section Fundamental.
     ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
   Proof.
   Admitted.
+  Eval cbn in Wasm_int.int_of_Z i32m .
 
   Lemma root_pointer_heap_shp_inv rp μ ℓ :
     root_pointer_interp rp (PtrHeap μ ℓ) -∗
@@ -276,12 +277,346 @@ Section Fundamental.
     by iExists _.
   Qed.
 
-  Lemma wp_case_ptr {A B} s E idx tf (c1: smemory -> codegen A) (c2 : codegen B) wt wt' wl wl' es x y z v (f: frame) Φ :
-    run_codegen (memory.case_ptr idx tf c1 c2) wt wl = inr (x, y, z, wt', wl', es) ->
+  Lemma wp_mod4_sub1_test f (idx: nat) k E :
+    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 1)))⌝ →
+      ⌜(k `mod` 4 = 0)%Z⌝ →
+      ⌜(0 ≤ k - 1 ≤ Wasm_int.Int32.max_unsigned)%Z⌝ →
+      ↪[frame] f -∗
+      ↪[RUN] -∗
+      lenient_wp NotStuck E
+        (to_e_list [memory.W.BI_get_local idx;
+                    memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
+                    memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+                    memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
+        {| lp_fr := λ f', ⌜f' = f⌝;
+            lp_fr_inv := λ _, True;
+            lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+            lp_trap := False;
+            lp_br := λ _ _, False;
+            lp_ret := λ _, False;
+            lp_host := λ _ _ _ _, False; |}%I.
+  Proof.
+    iIntros (Hidx Hmod Hbdd) "Hf Hrun".
+    lwp_chomp 3.
+    iApply (lenient_wp_seq with "[Hf Hrun]").
+    - lwp_chomp 1.
+      iApply (lenient_wp_seq with "[Hf Hrun]").
+      + iApply lenient_wp_get_local; eauto.
+        iFrame.
+        by instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
+                               lp_fr_inv := λ _, True;
+                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝;
+                               lp_trap := False;
+                               lp_br := λ _ _, False;
+                               lp_ret := λ _, False;
+                               lp_host := λ _ _ _ _, False; |}%I).
+      + cbn; iIntros (?) "?"; done.
+      + iIntros (w f') "Hpre".
+        destruct w; iEval (cbn) in "Hpre";
+          try solve [done | iDestruct "Hpre" as "[? ?]"; done].
+        iDestruct "Hpre" as "(-> & Hrun & ->)".
+        iIntros "Hf _".
+        iApply lwp_binop.
+        * cbn.
+          reflexivity.
+        * iFrame.
+          (*Eval vm_compute in (let k := 8%Z in Z.land (k - 1) 2%Z).*)
+          instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
+                               lp_fr_inv := λ _, True;
+                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 2)]⌝;
+                               lp_trap := False;
+                               lp_br := λ _ _, False;
+                               lp_ret := λ _, False;
+                               lp_host := λ _ _ _ _, False; |}%I).
+          cbn.
+          iSplit; [|done].
+          iPureIntro.
+          do 2 f_equal.
+          unfold Wasm_int.Int32.iand.
+          unfold Wasm_int.Int32.and.
+          f_equal.
+          apply Z.bits_inj_iff.
+          intros i.
+          rewrite Z.land_spec.
+          rewrite Wasm_int.Int32.unsigned_repr; [|by auto].
+          set (a := (k `div` 4)%Z).
+          assert (k = (a * 2) * 2 ^ 1)%Z.
+          {
+            unfold a.
+            pose proof (Z.div_mod k 4 ltac:(done)).
+            lia.
+          }
+          destruct (Z.eq_dec i 1); [subst i|].
+          -- apply andb_true_intro; split; [|done].
+             rewrite Z.add_bit1.
+             simpl (Z.testbit (- (1)) _).
+             rewrite H.
+             rewrite Z.mul_pow2_bits; [| lia].
+             change (1 - 1)%Z with 0%Z.
+             cbn.
+             rewrite Z.mul_comm Z.odd_even.
+             rewrite andb_true_r.
+             rewrite xorb_false_l xorb_true_l.
+             rewrite -Z.mul_assoc Z.odd_even.
+             done.
+          -- cbn.
+             rewrite (Z.pow2_bits_false 1 i); [|lia].
+             apply andb_false_r.
+    - done.
+    - iIntros (w f') "Hnotrap Hf' _".
+      destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+      iDestruct "Hnotrap" as "(-> & Hrun & ->)".
+      iApply lwp_testop_i32.
+      + reflexivity.
+      + cbn.
+        iFrame.
+        iSplit; eauto.
+  Qed.
+
+  Lemma wp_mod4_sub3_test f (idx: nat) k E :
+    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 3)))⌝ →
+      ⌜(k `mod` 4 = 0)%Z⌝ →
+      ⌜(0 ≤ k - 3 ≤ Wasm_int.Int32.max_unsigned)%Z⌝ →
+      ↪[frame] f -∗
+      ↪[RUN] -∗
+      lenient_wp NotStuck E
+        (to_e_list [memory.W.BI_get_local idx;
+                    memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
+                    memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+                    memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
+        {| lp_fr := λ f', ⌜f' = f⌝;
+            lp_fr_inv := λ _, True;
+            lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
+            lp_trap := False;
+            lp_br := λ _ _, False;
+            lp_ret := λ _, False;
+            lp_host := λ _ _ _ _, False; |}%I.
+  Proof.
+    iIntros (Hidx Hmod Hbdd) "Hf Hrun".
+    lwp_chomp 3.
+    iApply (lenient_wp_seq with "[Hf Hrun]").
+    - lwp_chomp 1.
+      iApply (lenient_wp_seq with "[Hf Hrun]").
+      + iApply lenient_wp_get_local; eauto.
+        iFrame.
+        by instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
+                               lp_fr_inv := λ _, True;
+                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝;
+                               lp_trap := False;
+                               lp_br := λ _ _, False;
+                               lp_ret := λ _, False;
+                               lp_host := λ _ _ _ _, False; |}%I).
+      + cbn; iIntros (?) "?"; done.
+      + iIntros (w f') "Hpre".
+        destruct w; iEval (cbn) in "Hpre";
+          try solve [done | iDestruct "Hpre" as "[? ?]"; done].
+        iDestruct "Hpre" as "(-> & Hrun & ->)".
+        iIntros "Hf _".
+        iApply lwp_binop.
+        * cbn.
+          reflexivity.
+        * iFrame.
+          (*Eval vm_compute in (let k := 8%Z in Z.land (k - 1) 2%Z).*)
+          instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
+                               lp_fr_inv := λ _, True;
+                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+                               lp_trap := False;
+                               lp_br := λ _ _, False;
+                               lp_ret := λ _, False;
+                               lp_host := λ _ _ _ _, False; |}%I).
+          cbn.
+          iSplit; [|done].
+          iPureIntro.
+          do 2 f_equal.
+          unfold Wasm_int.Int32.iand.
+          unfold Wasm_int.Int32.and.
+          f_equal.
+          apply Z.bits_inj_iff.
+          intros i.
+          rewrite Z.land_spec.
+          rewrite Wasm_int.Int32.unsigned_repr; [|by auto].
+          rewrite (Wasm_int.Int32.unsigned_repr 2); [|by auto].
+          set (a := (k `div` 4)%Z).
+          assert (k = (a * 2) * 2 ^ 1)%Z.
+          {
+            unfold a.
+            pose proof (Z.div_mod k 4 ltac:(done)).
+            lia.
+          }
+          destruct (Z.eq_dec i 1); [subst i|].
+          -- apply andb_false_intro1.
+             rewrite Z.add_bit1.
+             simpl (Z.testbit (- (3)) _).
+             rewrite H.
+             rewrite Z.mul_pow2_bits; [| lia].
+             change (1 - 1)%Z with 0%Z.
+             cbn.
+             rewrite Z.mul_comm Z.odd_even.
+             rewrite andb_true_r.
+             rewrite xorb_false_l xorb_false_l.
+             replace (2 * a * 2 ^ 1)%Z with (2 * (a * 2))%Z by lia.
+             by rewrite Z.odd_even.
+          -- rewrite (Z.pow2_bits_false 1 i); [|lia].
+             rewrite Z.bits_0.
+             apply andb_false_r.
+    - done.
+    - iIntros (w f') "Hnotrap Hf' _".
+      destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+      iDestruct "Hnotrap" as "(-> & Hrun & ->)".
+      iApply lwp_testop_i32.
+      + reflexivity.
+      + cbn.
+        iFrame.
+        iSplit; eauto.
+  Qed.
+
+  Lemma wp_mod2_test f (idx: nat) k E :
+    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr k))⌝ →
+      ⌜(k `mod` 2 = 0)%Z⌝ →
+      ⌜(0 ≤ k ≤ Wasm_int.Int32.max_unsigned)%Z⌝ →
+      ↪[frame] f -∗
+      ↪[RUN] -∗
+      lenient_wp NotStuck E
+        (to_e_list [memory.W.BI_get_local idx;
+                    memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+                    memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+                    memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
+        {| lp_fr := λ f', ⌜f' = f⌝;
+            lp_fr_inv := λ _, True;
+            lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
+            lp_trap := False;
+            lp_br := λ _ _, False;
+            lp_ret := λ _, False;
+            lp_host := λ _ _ _ _, False; |}%I.
+  Proof.
+    iIntros (Hidx Hmod Hbdd) "Hf Hrun".
+    lwp_chomp 3.
+    iApply (lenient_wp_seq with "[Hf Hrun]").
+    - lwp_chomp 1.
+      iApply (lenient_wp_seq with "[Hf Hrun]").
+      + iApply lenient_wp_get_local; eauto.
+        iFrame.
+        by instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
+                               lp_fr_inv := λ _, True;
+                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
+                               lp_trap := False;
+                               lp_br := λ _ _, False;
+                               lp_ret := λ _, False;
+                               lp_host := λ _ _ _ _, False; |}%I).
+      + cbn; iIntros (?) "?"; done.
+      + iIntros (w f') "Hpre".
+        destruct w; iEval (cbn) in "Hpre";
+          try solve [done | iDestruct "Hpre" as "[? ?]"; done].
+        iDestruct "Hpre" as "(-> & Hrun & ->)".
+        iIntros "Hf _".
+        iApply lwp_binop.
+        * cbn.
+          reflexivity.
+        * iFrame.
+          instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
+                                 lp_fr_inv := λ _, True;
+                                 lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+                                 lp_trap := False;
+                                 lp_br := λ _ _, False;
+                                 lp_ret := λ _, False;
+                                 lp_host := λ _ _ _ _, False; |}%I).
+          cbn.
+          iSplit; [|done].
+          iPureIntro.
+          do 2 f_equal.
+          unfold Wasm_int.Int32.iand.
+          unfold Wasm_int.Int32.and.
+          f_equal.
+          rewrite (Z.land_ones _ 1).
+          -- rewrite Wasm_int.Int32.unsigned_repr; [apply Hmod|done].
+          -- lia.
+    - done.
+    - iIntros (w f') "Hnotrap Hf' _".
+      destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+      iDestruct "Hnotrap" as "(-> & Hrun & ->)".
+      iApply lwp_testop_i32.
+      + reflexivity.
+      + cbn.
+        iFrame.
+        iSplit; eauto.
+  Qed.
+  
+  Lemma lwp_wasm_empty_ctx s E es Φ:
+    lenient_wp s E es Φ ∗-∗ lenient_wp_ctx s E es Φ 0 (LH_base nil nil).
+  Proof.
+    by iApply wp_wasm_empty_ctx.
+  Qed.
+
+  Lemma lwp_label_push s E Φ i lh n es es0 vs es':
+    is_true (const_list vs) ->
+    ⊢ lenient_wp_ctx s E es Φ (S i) (push_base lh n es0 vs es') -∗
+      lenient_wp_ctx s E [AI_label n es0 (vs ++ es ++ es')] Φ i lh.
+  Proof.
+    iIntros (Hconst) "Hwp".
+    change @app with @seq.cat.
+    by iApply wp_label_push.
+  Qed.
+
+  Lemma lwp_label_push_nil s E Φ i lh n es es0:
+    ⊢ lenient_wp_ctx s E es Φ (S i) (push_base lh n es0 [] []) -∗
+      lenient_wp_ctx s E [AI_label n es0 es] Φ i lh.
+  Proof.
+    by iApply wp_label_push_nil.
+  Qed.
+  
+  Definition lp_bind s E i lh (Φ: logpred) : logpred :=
+    let wp := λ e, (∀ f: datatypes.frame, 
+                       ↪[frame] f -∗
+                       ↪[RUN] -∗
+                       Φ.(lp_fr_inv) f -∗
+                       lenient_wp_ctx s E e Φ i lh)%I in
+    let wp_trap := λ e, (∀ f: datatypes.frame, 
+                       ↪[frame] f -∗
+                       ↪[BAIL] -∗
+                       Φ.(lp_fr_inv) f -∗
+                       lenient_wp_ctx s E e Φ i lh)%I in
+    {|
+      lp_fr := λ f, True%I;
+      lp_fr_inv := Φ.(lp_fr_inv);
+      lp_val := λ v, wp (v_to_e_list v);
+      lp_trap := wp_trap [AI_trap];
+      lp_br := λ n vh, wp (vfill vh [AI_basic (BI_br n)]);
+      lp_ret := λ sh, wp (sfill sh [AI_basic BI_return]);
+      lp_host := λ tf h vcs sh, wp (llfill sh [AI_call_host tf h vcs])
+    |}.
+       
+  Lemma lwp_ctx_bind s E Φ i lh es:
+    base_is_empty lh ->
+    ⊢ lenient_wp s E es (lp_bind s E i lh Φ) -∗
+      lenient_wp_ctx s E es Φ i lh.
+  Proof.
+    iIntros (Hbase) "Hwp".
+    iApply wp_ctx_bind; [done|].
+    unfold lp_bind, lenient_wp.
+    iApply (wp_wand with "Hwp").
+    iIntros (w) "(%f & Hf & Hfrinv & Hlp)".
+    destruct w; cbn.
+    - iDestruct "Hlp" as "(Hbind & Hrun & Hvs)".
+      iApply ("Hvs" with "[$] [$] [$]").
+    - iDestruct "Hlp" as "(Hbail & Hlp)".
+      iApply ("Hlp" with "[$] [$] [$]").
+    - iDestruct "Hlp" as "(Hrun & Hlp)".
+      iApply ("Hlp" with "[$] [$] [$]").
+    - iDestruct "Hlp" as "(Hrun & Hlp)".
+      iApply ("Hlp" with "[$] [$] [$]").
+    - iDestruct "Hlp" as "(Hrun & Hlp)".
+      iApply ("Hlp" with "[$] [$] [$]").
+  Qed.
+
+  Lemma wp_case_ptr {A B} s E idx tf (c1 : codegen B) (c2: smemory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+    run_codegen (memory.case_ptr idx tf c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
-      run_codegen (c1 MemMM) wt wl = inr (x, wt1, wl1, es1) /\
-      run_codegen (c1 MemGC) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
-      run_codegen c2 (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2) = inr (z, wt3, wl3, es3) /\
+      run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
+      run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
+      run_codegen (c2 MemGC) (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2) = inr (z, wt3, wl3, es3) /\
       wt' = wt1 ++ wt2 ++ wt3 /\
       wl' = wl1 ++ wl2 ++ wl3 /\
       ⊢ ∀ ptr, 
@@ -292,9 +627,9 @@ Section Fundamental.
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
-            | PtrHeap MemMM l => lenient_wp s E [AI_basic (BI_block tf es1)] Φ
-            | PtrHeap MemGC l => lenient_wp s E [AI_basic (BI_block tf es2)] Φ
-            | PtrInt z => lenient_wp s E [AI_basic (BI_block tf es3)] Φ
+            | PtrInt z => lenient_wp s E [AI_basic (BI_block tf es1)] Φ
+            | PtrHeap MemMM l => lenient_wp s E [AI_basic (BI_block tf es2)] Φ
+            | PtrHeap MemGC l => lenient_wp s E [AI_basic (BI_block tf es3)] Φ
             end) -∗
         rep_value_interp (PtrV ptr) v ∗
         lenient_wp s E (to_e_list es) Φ.
@@ -307,16 +642,15 @@ Section Fundamental.
     subst wt' wl'.
     rewrite -> !app_nil_l, !app_nil_r in *.
     eapply (lwp_if_c s E) in Hcg.
-    destruct Hcg as (?wt & ?wt & ?wl & ?wl & es_if & es_int & Hcg_if & Hcg_int & -> & -> & Hwp1).
+    destruct Hcg as (?wt & ?wt & ?wl & ?wl & es_int & es_if & Hcg_int & Hcg_if & -> & -> & Hwp1).
     inv_cg_bind Hcg_if [] ?wt ?wt ?wl ?wl ?es_next es_if' Hnext Hcg.
     inv_cg_emit_all Hnext.
     subst.
     eapply (lwp_if_c s E) in Hcg.
     destruct Hcg as (?wt & ?wt & ?wl & ?wl & es_mm & es_gc & Hcg2 & Hcg3 & -> & -> & Hwp2).
     rewrite <- !app_assoc, !app_nil_r, !app_nil_l in *.
-    exists wt0, wt1, wt3.
-    exists wl0, wl1, wl3.
-    exists es_mm, es_gc, es_int.
+    exists wt2, wt0, wt1, wl2, wl0, wl1.
+    exists es_int, es_mm, es_gc.
     split; first assumption.
     split; first assumption.
     split; first assumption.
@@ -331,17 +665,19 @@ Section Fundamental.
         inversion Hrp; subst.
         iSplitR.
         * cbn; eauto.
-        * (* not actually equal but it's going to reduce to zero so I'm just admitting this for now *)
-          replace
-            ([memory.W.BI_get_local (localimm idx);
-              memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
-              memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
-              memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-            with
-            [BI_const (VAL_int32 (Wasm_int.int_zero i32m))]
-            by admit.
+        * rewrite to_e_list_app.
+          iApply (lenient_wp_seq with "[Hf Hrun]").
+          {
+            iApply (wp_mod2_test with "[] [] [] [$] [$]"); eauto.
+            - by rewrite Z.mul_comm Z.mod_mul.
+            - admit.
+          }
+          { cbn. iIntros (?) "?". done. }
+          iIntros (w f') "Hnotrap Hf _".
+          destruct w; try solve [done | iDestruct "Hnotrap" as "[? ?]"; done].
+          iDestruct "Hnotrap" as "(-> & Hrun & ->)".
           iApply (Hwp1 with "[$] [$]").
-          iRight.
+          iLeft.
           iSplit; done.
       + done.
     - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
@@ -355,25 +691,59 @@ Section Fundamental.
           memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
           memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
         with
-        [BI_const (VAL_int32 (Wasm_int.int_of_Z i32m 1%Z))]
+        [BI_const (VAL_int32 (Wasm_int.int_of_Z i32m 0%Z))]
         by admit.
       iApply (Hwp1 with "[$] [$]").
-      iLeft.
+      iRight.
       iSplit; first done.
       iIntros "!> Hf Hrun".
       destruct μ.
       + simpl tag_address in Hidx.
-        replace
-          ([memory.W.BI_get_local (localimm idx);
-            memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
-            memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
-            memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-          with
-          [BI_const (VAL_int32 (Wasm_int.int_of_Z i32m 1%Z))]
-          by admit.
         cbn.
-        (* need lemma about block *)
-        admit.
+        lwp_chomp 0.
+        destruct tf.
+        iApply (lenient_wp_block with "[$] [$]"); auto.
+        * admit.
+        * iIntros "!> Hf Hrun".
+          rewrite app_nil_l.
+          iApply lwp_wasm_empty_ctx.
+          iApply lwp_label_push_nil.
+          iApply lwp_ctx_bind; first done.
+          lwp_chomp 4.
+          rewrite take_0 drop_0.
+          iApply (lenient_wp_seq with "[Hf Hrun]").
+          -- iApply (wp_mod4_sub3_test with "[//] [] [] [$] [$]").
+             ++ replace 4%Z with (Z.of_N 4%N) by auto.
+                rewrite -N2Z.inj_mod.
+                by rewrite H2.
+             ++ admit.
+          -- iIntros (?) "?". done.
+          -- iIntros (w f') "Ht Hf' Hfrinv".
+             cbn.
+             destruct w; cbn; try done; try (iDestruct "Ht" as "(? & ?)"; done).
+             iDestruct "Ht" as "(-> & Hrun & ->)".
+             cbn.
+             iApply (Hwp2 with "[$] [$]").
+             iLeft.
+             iSplit; auto.
+             iIntros "!> Hf Hrun".
+             iSpecialize ("Hbranches" with "Hf Hrun").
+             iApply (wp_wand with "Hbranches").
+             iIntros (w) "HP".
+             destruct w; simpl.
+             ++ iDestruct "HP" as "(%f' & Hf & Hfrinv' & Hfr & Hrun & Hval)".
+                iExists f'; iFrame.
+                cbn.
+                iIntros (f'') "Hf Hrun Hinv".
+                Search wp_wasm_ctx.
+                iIntros "%X".
+                admit.
+             ++ unfold denote_logpred.
+                cbn.
+                admit.
+             ++ admit.
+             ++ admit.
+             ++ admit.
       + replace
           ([memory.W.BI_get_local (localimm idx);
             memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
@@ -385,6 +755,7 @@ Section Fundamental.
         admit.
   Admitted.
     
+
 
   Lemma wp_map_cg_ptr_duproot ι idx wt wl res wt' wl' es:
     run_codegen (memory.map_gc_ptr ι idx (memory.duproot mr)) wt wl = inr (res, wt', wl', es) ->

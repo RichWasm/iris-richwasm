@@ -138,5 +138,20 @@ Section lwp_structural.
     iIntros (Hc) "(Hf & Hrun & Hwp)".
     by iApply (wp_if_false with "[$] [$] [$]").
   Qed.
+  
+  Lemma lenient_wp_block s E Φ vs es n m t1s t2s (f: datatypes.frame) :
+    is_true (const_list vs) →
+    length vs = n →
+    length t1s = n →
+    length t2s = m →
+    (↪[frame]f -∗
+     ↪[RUN] -∗
+     ▷ ( ↪[frame]f -∗  ↪[RUN] -∗ lenient_wp s E [AI_label m [] (vs ++ to_e_list es)] Φ) -∗
+    lenient_wp s E (vs ++ [AI_basic (BI_block (Tf t1s t2s) es)]) Φ)%stdpp.
+  Proof.
+    intros.
+    iIntros "Hf Hrun Hlbl".
+    iApply (wp_block with "[$] [$]"); eauto.
+  Qed.
 
 End lwp_structural.

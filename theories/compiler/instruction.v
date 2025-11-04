@@ -21,8 +21,8 @@ Section Compiler.
     | PtrR =>
         i ← save_stack1 fe W.T_i32;
         ignore $ case_ptr i (W.Tf [] [])
-          (fun μ => emit (W.BI_get_local (localimm i));; drop_ptr mr μ)
           (ret tt)
+          (fun μ => emit (W.BI_get_local (localimm i));; drop_ptr mr μ)
     | _ => emit W.BI_drop
     end.
 
@@ -180,10 +180,10 @@ Section Compiler.
       end
     in
     ignore $ case_ptr a (W.Tf [] res)
+      (emit W.BI_unreachable)
       (fun μ => load_primitive mr fe μ Copy a 0 I32R;;
              case_blocks res (map (do_case μ) cases);;
-             cleanup)
-      (emit W.BI_unreachable).
+             cleanup).
 
   Definition compile_unpack
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c : function_env -> codegen unit) :
@@ -230,8 +230,8 @@ Section Compiler.
     | Move => set_pointer_flags mr a off (repeat FlagInt n)
     end;;
     ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
-      (fun μ => load_primitives mr fe μ con a off ιs)
-      (emit W.BI_unreachable).
+      (emit W.BI_unreachable)
+      (fun μ => load_primitives mr fe μ con a off ιs).
 
   Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -241,8 +241,8 @@ Section Compiler.
     a ← wlalloc fe W.T_i32;
     emit (W.BI_tee_local (localimm a));;
     case_ptr a (W.Tf [] [])
-      (fun μ => store_primitives mr μ a off vs ιs)
-      (emit W.BI_unreachable);;
+      (emit W.BI_unreachable)
+      (fun μ => store_primitives mr μ a off vs ιs);;
     set_pointer_flags mr a off (flat_map flags_of_rep ιs).
 
   Definition compile_swap (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
@@ -253,8 +253,8 @@ Section Compiler.
     a ← wlalloc fe W.T_i32;
     emit (W.BI_set_local (localimm a));;
     ignore $ case_ptr a (W.Tf [] (map translate_prim_rep ιs))
-      (fun μ => load_primitives mr fe μ Move a off ιs;; store_primitives mr μ a off vs ιs)
-      (emit W.BI_unreachable).
+      (emit W.BI_unreachable)
+      (fun μ => load_primitives mr fe μ Move a off ιs;; store_primitives mr μ a off vs ιs).
 
   Definition erased_in_wasm : codegen unit := ret tt.
 
