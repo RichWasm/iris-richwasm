@@ -57,18 +57,21 @@ Definition get_globals_w : list W.globalidx -> codegen unit :=
 Definition set_globals_w : list W.globalidx -> codegen unit :=
   mapM_ (emit ∘ W.BI_set_global ∘ globalimm) ∘ @rev _.
 
-Definition save_stack1 (fe : function_env) (ty : W.value_type) : codegen W.localidx :=
-  i ← wlalloc fe ty;
+Definition save_stack1 (fe : function_env) (t : W.value_type) : codegen W.localidx :=
+  i ← wlalloc fe t;
   emit (W.BI_set_local (localimm i));;
   ret i.
 
-Definition save_stack_w (fe : function_env) (tys : W.result_type) : codegen (list W.localidx) :=
-  ixs ← mapM (wlalloc fe) tys;
+Definition save_stack_w (fe : function_env) (ts : W.result_type) : codegen (list W.localidx) :=
+  ixs ← mapM (wlalloc fe) ts;
   set_locals_w ixs;;
   ret ixs.
 
-Definition save_stack (fe : function_env) (ιs : list primitive_rep) : codegen (list W.localidx) :=
-  save_stack_w fe (map translate_prim_rep ιs).
+Definition save_stack (fe : function_env) (ηs : list primitive) : codegen (list W.localidx) :=
+  save_stack_w fe (map translate_prim ηs).
+
+Definition save_stack_arep (fe : function_env) (ιs : list atomic_rep) : codegen (list W.localidx) :=
+  save_stack fe (map arep_to_prim ιs).
 
 Definition restore_stack : list W.localidx -> codegen unit := get_locals_w.
 

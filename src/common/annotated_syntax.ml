@@ -24,8 +24,8 @@ module Z' = struct
     | _ -> failwith "expected atom"
 end
 
-module ConcreteMemory = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.smemory]
+module BaseMemory = struct
+  type t = [%import: Richwasm_extract.RwSyntax.Core.base_memory]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -82,8 +82,8 @@ module Dropability = struct
     | ImDrop, ImDrop -> ImDrop
 end
 
-module PrimitiveRep = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.primitive_rep]
+module AtomicRep = struct
+  type t = [%import: Richwasm_extract.RwSyntax.Core.atomic_rep]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -328,7 +328,7 @@ module Representation = struct
     [%import:
       (Richwasm_extract.RwSyntax.Core.representation
       [@with
-        primitive_rep := PrimitiveRep.t;
+        atomic_rep := AtomicRep.t;
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
@@ -338,7 +338,7 @@ module Representation = struct
     | VarR x -> fprintf ff "(VarR %a)" Z.pp_print x
     | SumR rs -> fprintf ff "(SumR %a)" (pp_roqc_list pp_roqc) rs
     | ProdR rs -> fprintf ff "(ProdR %a)" (pp_roqc_list pp_roqc) rs
-    | PrimR p -> fprintf ff "(PrimR %a)" PrimitiveRep.pp_roqc p
+    | AtomR a -> fprintf ff "(PrimR %a)" AtomicRep.pp_roqc a
 
   let subst = Richwasm_extract.RwSyntax.Core.subst_representation
   let ren = Richwasm_extract.RwSyntax.Core.ren_representation
@@ -371,7 +371,7 @@ module Memory = struct
     [%import:
       (Richwasm_extract.RwSyntax.Core.memory
       [@with
-        smemory := ConcreteMemory.t;
+        base_memory := BaseMemory.t;
         Z.t := Z'.t])]
   [@@deriving eq, ord, sexp]
 
@@ -379,8 +379,7 @@ module Memory = struct
 
   let pp_roqc ff : t -> unit = function
     | VarM x -> fprintf ff "(VarM %a)" Z.pp_print x
-    | ConstM concrete ->
-        fprintf ff "(ConstM %a)" ConcreteMemory.pp_roqc concrete
+    | BaseM bm -> fprintf ff "(BaseM %a)" BaseMemory.pp_roqc bm
 
   let subst = Richwasm_extract.RwSyntax.Core.subst_memory
   let ren = Richwasm_extract.RwSyntax.Core.ren_memory

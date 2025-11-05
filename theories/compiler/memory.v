@@ -14,27 +14,27 @@ Section Compiler.
 
   Variable mr : module_runtime.
 
-  Definition byte_offset (μ : smemory) (off : nat) : W.static_offset :=
+  Definition byte_offset (μ : base_memory) (off : nat) : W.static_offset :=
     match μ with
     | MemMM => offset_mm + 4 * N.of_nat off
     | MemGC => offset_gc + 4 * N.of_nat off
     end%N.
 
-  Definition load (μ : smemory) (t : W.value_type) (off : nat) : codegen unit :=
+  Definition load_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
     let off' := byte_offset μ off in
     match μ with
     | MemMM => emit (W.BI_load (memimm mr.(mr_mem_mm)) t None align_word off')
     | MemGC => emit (W.BI_load (memimm mr.(mr_mem_gc)) t None align_word off')
     end.
 
-  Definition store (μ : smemory) (t : W.value_type) (off : nat) : codegen unit :=
+  Definition store_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
     let off' := byte_offset μ off in
     match μ with
     | MemMM => emit (W.BI_store (memimm mr.(mr_mem_mm)) t None align_word off')
     | MemGC => emit (W.BI_store (memimm mr.(mr_mem_gc)) t None align_word off')
     end.
 
-  Definition alloc (μ : smemory) (n : nat) : codegen unit :=
+  Definition alloc (μ : base_memory) (n : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
     match μ with
     | MemMM => emit (W.BI_call (funcimm mr.(mr_func_mmalloc)))
@@ -64,7 +64,7 @@ Section Compiler.
       (fun '(i, f) => emit (W.BI_get_local (localimm a));; setflag i f)
       (zip (seq i (length fs)) fs).
 
-  Definition drop_ptr (μ : smemory) : codegen unit :=
+  Definition drop_ptr (μ : base_memory) : codegen unit :=
     match μ with
     | MemMM => free
     | MemGC => unregisterroot
@@ -85,7 +85,7 @@ Section Compiler.
   Definition case_ptr {A B : Type}
     (i : W.localidx) (tf : W.function_type)
     (do_int : codegen A)
-    (do_heap : smemory -> codegen B)
+    (do_heap : base_memory -> codegen B)
     : codegen (A * (B * B)) :=
     emit_all [W.BI_get_local (localimm i);
               W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
@@ -100,7 +100,7 @@ Section Compiler.
        if_c tf (do_heap MemMM) (do_heap MemGC)).
 
   Definition ite_gc_ptr
-    (ι : primitive_rep) (i : W.localidx) (tf : W.function_type)
+    (ι : atomic_rep) (i : W.localidx) (tf : W.function_type)
     (do_gc : codegen unit) (do_nongc : codegen unit) :
     codegen unit :=
     match ι with
@@ -111,22 +111,22 @@ Section Compiler.
     | _ => do_nongc
     end.
 
-  Definition map_gc_ptr (ι : primitive_rep) (i : W.localidx) (c : codegen unit) : codegen unit :=
+  Definition map_gc_ptr (ι : atomic_rep) (i : W.localidx) (c : codegen unit) : codegen unit :=
     ite_gc_ptr ι i (W.Tf [] [])
       (emit (W.BI_get_local (localimm i));; c;; emit (W.BI_set_local (localimm i)))
       (ret tt).
 
   Definition map_gc_ptrs
-    (ιs : list primitive_rep) (ixs : list W.localidx) (c : codegen unit) : codegen unit :=
+    (ιs : list atomic_rep) (ixs : list W.localidx) (c : codegen unit) : codegen unit :=
     mapM_ (fun '(ι, i) => map_gc_ptr ι i c) (zip ιs ixs).
 
-  Definition load_primitive
-    (fe : function_env) (μ : smemory) (con : consumption)
-    (a : W.localidx) (off : nat) (ι : primitive_rep) :
+  Definition load1
+    (fe : function_env) (μ : base_memory) (con : consumption)
+    (a : W.localidx) (off : nat) (ι : atomic_rep) :
     codegen unit :=
     emit (W.BI_get_local (localimm a));;
-    let t := translate_prim_rep ι in
-    load μ t off;;
+    let t := translate_arep ι in
+    load_w μ t off;;
     v ← wlalloc fe t;
     emit (W.BI_tee_local (localimm v));;
     let prep_root :=
@@ -138,35 +138,35 @@ Section Compiler.
     in
     ite_gc_ptr ι v (W.Tf [W.T_i32] [W.T_i32]) prep_root (ret tt).
 
-  Definition load_primitives
-    (fe : function_env) (μ : smemory) (con : consumption)
-    (a : W.localidx) (off : nat) (ιs : list primitive_rep) :
+  Definition load
+    (fe : function_env) (μ : base_memory) (con : consumption)
+    (a : W.localidx) (off : nat) (ιs : list atomic_rep) :
     codegen unit :=
     ignore $ foldM
-      (fun ι off => load_primitive fe μ con a off ι;; ret (off + primitive_size ι))
+      (fun ι off => load1 fe μ con a off ι;; ret (off + arep_size ι))
       (ret off)
       ιs.
 
-  Definition store_primitive
-    (μ : smemory) (a : W.localidx) (off : nat) (v : W.localidx) (ι : primitive_rep) :
+  Definition store1
+    (μ : base_memory) (a : W.localidx) (off : nat) (v : W.localidx) (ι : atomic_rep) :
     codegen unit :=
     emit (W.BI_get_local (localimm a));;
     emit (W.BI_get_local (localimm v));;
-    let t := translate_prim_rep ι in
+    let t := translate_arep ι in
     match μ with
-    | MemMM => store μ t off
+    | MemMM => store_w μ t off
     | MemGC =>
         ite_gc_ptr ι v (W.Tf [t] [])
-          (loadroot;; store μ t off;; emit (W.BI_get_local (localimm v));; unregisterroot)
-          (store μ t off)
+          (loadroot;; store_w μ t off;; emit (W.BI_get_local (localimm v));; unregisterroot)
+          (store_w μ t off)
     end.
 
-  Definition store_primitives
-    (μ : smemory) (a : W.localidx) (off : nat)
-    (vs : list W.localidx) (ιs : list primitive_rep) :
+  Definition store
+    (μ : base_memory) (a : W.localidx) (off : nat)
+    (vs : list W.localidx) (ιs : list atomic_rep) :
     codegen unit :=
     ignore $ foldM
-      (fun '(v, ι) off => store_primitive μ a off v ι;; ret (off + primitive_size ι))
+      (fun '(v, ι) off => store1 μ a off v ι;; ret (off + arep_size ι))
       (ret off)
       (zip vs ιs).
 

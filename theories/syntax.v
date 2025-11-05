@@ -5,7 +5,13 @@ Require Import RecordUpdate.RecordUpdate.
 
 From RichWasm.syntax Require Export module rw.
 
-Definition path := list nat.
+Inductive primitive :=
+| I32P
+| I64P
+| F32P
+| F64P.
+
+Definition path : Type := list nat.
 
 Record flat_function_type :=
   { fft_mem_vars : nat;
@@ -22,6 +28,15 @@ Fixpoint flatten_function_type (ϕ : function_type) : flat_function_type :=
   | ForallRepT ϕ' => flatten_function_type ϕ' <| fft_rep_vars ::= S |>
   | ForallSizeT ϕ' => flatten_function_type ϕ' <| fft_size_vars ::= S |>
   | ForallTypeT κ ϕ' => flatten_function_type ϕ' <| fft_type_vars ::= app [κ] |>
+  end.
+
+Definition arep_to_prim (ι : atomic_rep) : primitive :=
+  match ι with
+  | PtrR => I32P
+  | I32R => I32P
+  | I64R => I64P
+  | F32R => F32P
+  | F64R => F64P
   end.
 
 Definition proj_instr_ty (e : instruction) : instruction_type :=
@@ -63,26 +78,29 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
   end.
 
 Inductive skind :=
-| SVALTYPE : list primitive_rep -> copyability -> dropability -> skind
+| SVALTYPE : list atomic_rep -> copyability -> dropability -> skind
 | SMEMTYPE : nat -> dropability -> skind.
 
 Section RepInd.
+
   Variables (P : representation -> Prop)
-            (HVarR: forall idx, P (VarR idx))
-            (HSumR: forall ρs, Forall P ρs -> P (SumR ρs))
-            (HProdR: forall ρs, Forall P ρs -> P (ProdR ρs))
-            (HPrimR: forall ι, P (PrimR ι)).
+            (HVarR : forall idx, P (VarR idx))
+            (HSumR : forall ρs, Forall P ρs -> P (SumR ρs))
+            (HProdR : forall ρs, Forall P ρs -> P (ProdR ρs))
+            (HAtomR : forall ι, P (AtomR ι)).
 
   Fixpoint rep_ind (ρ: representation) : P ρ :=
-    let fix reps_ind (ρs: list representation) : Forall P ρs :=
+    let fix reps_ind ρs : Forall P ρs :=
       match ρs with
       | [] => ListDef.Forall_nil _
       | ρ :: ρs => ListDef.Forall_cons _ (rep_ind ρ) (reps_ind ρs)
-      end in
+      end
+    in
     match ρ with
     | VarR idx => HVarR idx
     | SumR ρs => HSumR ρs (reps_ind ρs)
     | ProdR ρs => HProdR ρs (reps_ind ρs)
-    | PrimR ι => HPrimR ι 
+    | AtomR ι => HAtomR ι
     end.
+
 End RepInd.

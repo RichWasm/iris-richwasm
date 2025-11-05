@@ -13,24 +13,24 @@ dropability : Type
 ExDrop : dropability
 ImDrop : dropability
 
-smemory : Type
-MemMM : smemory
-MemGC : smemory
+base_memory : Type
+MemMM : base_memory
+MemGC : base_memory
 
 memory (VarM) : Type
-ConstM : smemory -> memory
+BaseM : base_memory -> memory
 
-primitive_rep : Type
-PtrR : primitive_rep
-I32R : primitive_rep
-I64R : primitive_rep
-F32R : primitive_rep
-F64R : primitive_rep
+atomic_rep : Type
+PtrR : atomic_rep
+I32R : atomic_rep
+I64R : atomic_rep
+F32R : atomic_rep
+F64R : atomic_rep
 
 representation (VarR) : Type
 SumR : "list" (representation) -> representation
 ProdR : "list" (representation) -> representation
-PrimR : primitive_rep -> representation
+AtomR : atomic_rep -> representation
 
 size (VarS) : Type
 SumS : "list" (size) -> size

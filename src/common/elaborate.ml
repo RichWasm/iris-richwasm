@@ -96,15 +96,15 @@ let elab_dropability : A.Dropability.t -> B.Dropability.t = function
   | ImDrop -> ImDrop
   | ExDrop -> ExDrop
 
-let elab_smemory : A.ConcreteMemory.t -> B.ConcreteMemory.t = function
+let elab_base_memory : A.BaseMemory.t -> B.BaseMemory.t = function
   | MM -> MemMM
   | GC -> MemGC
 
 let elab_memory : A.Memory.t -> B.Memory.t = function
   | Var x -> VarM (Z.of_int x)
-  | Concrete m -> ConstM (elab_smemory m)
+  | Base m -> BaseM (elab_base_memory m)
 
-let elab_primitive_rep : A.PrimitiveRep.t -> B.PrimitiveRep.t = function
+let elab_atomic_rep : A.AtomicRep.t -> B.AtomicRep.t = function
   | Ptr -> PtrR
   | I32 -> I32R
   | I64 -> I64R
@@ -116,7 +116,7 @@ let rec elab_representation : A.Representation.t -> B.Representation.t =
   | Var x -> VarR (Z.of_int x)
   | Sum reps -> SumR (List.map ~f:elab_representation reps)
   | Prod reps -> ProdR (List.map ~f:elab_representation reps)
-  | Prim rep -> PrimR (elab_primitive_rep rep)
+  | Atom rep -> AtomR (elab_atomic_rep rep)
 
 let rec elab_size : A.Size.t -> B.Size.t = function
   | Var x -> VarS (Z.of_int x)
@@ -271,7 +271,7 @@ let meet_memtypes
 
 (* TODO: this needs to be double checked *)
 let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
-  let rep_of_nt : A.NumType.t -> B.PrimitiveRep.t = function
+  let rep_of_nt : A.NumType.t -> B.AtomicRep.t = function
     | Int I32 -> I32R
     | Int I64 -> I64R
     | Float F32 -> F32R
@@ -292,10 +292,10 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
   let open B.Type in
   function
   | Var x -> ret @@ VarT (Z.of_int x)
-  | I31 -> ret @@ I31T (VALTYPE (PrimR PtrR, ImCopy, ImDrop))
+  | I31 -> ret @@ I31T (VALTYPE (AtomR PtrR, ImCopy, ImDrop))
   | Num nt ->
       let+ () = ret () in
-      NumT (VALTYPE (PrimR (rep_of_nt nt), ImCopy, ImDrop), elab_num_type nt)
+      NumT (VALTYPE (AtomR (rep_of_nt nt), ImCopy, ImDrop), elab_num_type nt)
   | Sum ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
       let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_valtypes sumR in
@@ -312,18 +312,18 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       let* ts' = mapM ~f:(elab_type env) ts in
       let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_memtypes prodS in
       ret @@ StructT (k, ts')
-  | Ref (Concrete MM, t) ->
+  | Ref (Base MM, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (PrimR PtrR, NoCopy, ExDrop), ConstM MemMM, t')
-  | Ref (Concrete GC, t) ->
+      RefT (VALTYPE (AtomR PtrR, NoCopy, ExDrop), BaseM MemMM, t')
+  | Ref (Base GC, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (PrimR PtrR, ExCopy, ExDrop), ConstM MemGC, t')
+      RefT (VALTYPE (AtomR PtrR, ExCopy, ExDrop), BaseM MemGC, t')
   | Ref (mem, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (PrimR PtrR, NoCopy, ExDrop), elab_memory mem, t')
+      RefT (VALTYPE (AtomR PtrR, NoCopy, ExDrop), elab_memory mem, t')
   | CodeRef ft ->
       let+ ft' = elab_function_type env ft in
-      CodeRefT (VALTYPE (PrimR I32R, ImCopy, ImDrop), ft')
+      CodeRefT (VALTYPE (AtomR I32R, ImCopy, ImDrop), ft')
   | Ser t ->
       let* t' = elab_type env t in
       let* rep, dropability =
@@ -731,7 +731,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       ret @@ IInject (it, Z.of_int i)
   | Inject (Some mem, i, ts) ->
       let* t_in = pop "Inject" in
-      let t_out = A.Type.(Ref (Concrete mem, Variant ts)) in
+      let t_out = A.Type.(Ref (Base mem, Variant ts)) in
       let* () = push t_out in
       let* it = instr_t_of env.kinds [ t_in ] [ t_out ] in
       ret @@ IInject (it, Z.of_int i)

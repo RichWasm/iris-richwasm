@@ -105,10 +105,10 @@ module Compile = struct
         let* t' = compile_type env t in
         Rec (kind, t') |> ret
     | Exists t ->
-        let kind : B.Kind.t = VALTYPE (Prim Ptr, NoCopy, ExDrop) in
+        let kind : B.Kind.t = VALTYPE (Atom Ptr, NoCopy, ExDrop) in
         let* t' = compile_type env t in
         ret @@ Exists (Type kind, t')
-    | Ref t -> compile_type env t >>| ref (Concrete MM)
+    | Ref t -> compile_type env t >>| ref (Base MM)
 
   and rep_of_typ (env : Env.t) : A.Type.t -> B.Representation.t Res.t =
     let open Res in
@@ -118,18 +118,18 @@ module Compile = struct
         match List.nth env.type_map x with
         | Some rep -> ret @@ rep
         | None -> fail @@ CannotFindRep typ)
-    | Int -> ret @@ Prim I32
+    | Int -> ret @@ Atom I32
     (* NOTE: a coderef doesn't have ptr rep *)
     | Lollipop (Prod [ closure; _ ], _) ->
         let* closure' = rep_of_typ env closure in
-        ret @@ Prod [ closure'; Prim I32 ]
+        ret @@ Prod [ closure'; Atom I32 ]
     | Prod ts ->
         let* rs = mapM ~f:(rep_of_typ env) ts in
         ret @@ Prod rs
     | Sum ts ->
         let* rs = mapM ~f:(rep_of_typ env) ts in
         ret @@ Sum rs
-    | Ref _ -> ret @@ Prim Ptr
+    | Ref _ -> ret @@ Atom Ptr
     | Rec t -> rep_of_typ env t
     | Exists t -> rep_of_typ env t
     | x -> fail @@ CannotFindRep x
@@ -235,7 +235,7 @@ module Compile = struct
     | Unpack (rhs, body, t) ->
         let* rhs' = compile_expr env rhs in
         (* HACK: we will only ever have boxed existentials *)
-        let rep = B.Representation.Prim Ptr in
+        let rep = B.Representation.Atom Ptr in
         let* fresh_idx = new_local rep in
         let env' = Env.add_local env fresh_idx in
         let env' = Env.add_type env' rep in
@@ -263,8 +263,6 @@ module Compile = struct
         ret @@ v1' @ v2' @ op'
     | New (v, _) ->
         let* v' = compile_expr env v in
-        let t = type_of v in
-        let* t' = compile_type env t |> lift_result in
         ret @@ v' @ [ New MM ]
     | Swap (e1, e2, _) ->
         let* e1' = compile_expr env e1 in

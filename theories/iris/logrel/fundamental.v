@@ -131,12 +131,12 @@ Section Fundamental.
       *)
   Admitted.
 
-  Lemma values_interp_cons_inv se τ τs vs :
-    ⊢ values_interp rti sr se (τ :: τs) vs -∗
-      ∃ vs1 vs2,
-        ⌜vs = vs1 ++ vs2⌝ ∗
-        value_interp rti sr se τ (SValues vs1) ∗
-        values_interp rti sr se τs vs2.
+  Lemma values_interp_cons_inv se τ τs os :
+    ⊢ values_interp rti sr se (τ :: τs) os -∗
+      ∃ os1 os2,
+        ⌜os = os1 ++ os2⌝ ∗
+        value_interp rti sr se τ (SAtoms os1) ∗
+        values_interp rti sr se τs os2.
   Proof.
     iIntros "(%vss & %Hconcat & Hval)".
     rewrite big_sepL2_cons_inv_l.
@@ -149,8 +149,8 @@ Section Fundamental.
       iSplit; done.
   Qed.
 
-  Lemma values_interp_one_eq se τ vs :
-    values_interp rti sr se [τ] vs ⊣⊢ value_interp rti sr se τ (SValues vs).
+  Lemma values_interp_one_eq se τ os :
+    values_interp rti sr se [τ] os ⊣⊢ value_interp rti sr se τ (SAtoms os).
   Proof.
     unfold values_interp.
     iSplit.
@@ -162,7 +162,7 @@ Section Fundamental.
       cbn.
       by rewrite app_nil_r.
     - iIntros "H".
-      iExists [vs].
+      iExists [os].
       iSplit.
       + cbn. by rewrite app_nil_r.
       + iApply big_sepL2_cons.
@@ -193,7 +193,7 @@ Section Fundamental.
     iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss".
     iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs".
     cbn in Hlens_rvss.
-    destruct rvss, rvs; cbn in Hconcat, Hlens_rvss; try congruence.
+    destruct rvss, os; cbn in Hconcat, Hlens_rvss; try congruence.
     cbn in Hlens_rvs_vs. destruct vs; cbn in Hlens_rvs_vs; try congruence.
 
     iApply (lenient_wp_nop with "[$] [$] [Hframe] []").
@@ -611,7 +611,7 @@ Section Fundamental.
       iApply ("Hlp" with "[$] [$] [$]").
   Qed.
 
-  Lemma wp_case_ptr {A B} s E idx tf (c1 : codegen B) (c2: smemory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+  Lemma wp_case_ptr {A B} s E idx tf (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
     run_codegen (memory.case_ptr idx tf c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
@@ -623,7 +623,7 @@ Section Fundamental.
         ↪[frame] f -∗
         ↪[RUN] -∗
         ⌜f.(f_locs) !! localimm idx = Some v⌝ -∗
-        rep_value_interp (PtrV ptr) v -∗
+        atom_interp (PtrA ptr) v -∗
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
@@ -631,7 +631,7 @@ Section Fundamental.
             | PtrHeap MemMM l => lenient_wp s E [AI_basic (BI_block tf es2)] Φ
             | PtrHeap MemGC l => lenient_wp s E [AI_basic (BI_block tf es3)] Φ
             end) -∗
-        rep_value_interp (PtrV ptr) v ∗
+        atom_interp (PtrA ptr) v ∗
         lenient_wp s E (to_e_list es) Φ.
   Proof.
     unfold memory.case_ptr.
@@ -735,7 +735,6 @@ Section Fundamental.
                 iExists f'; iFrame.
                 cbn.
                 iIntros (f'') "Hf Hrun Hinv".
-                Search wp_wasm_ctx.
                 iIntros "%X".
                 admit.
              ++ unfold denote_logpred.
@@ -850,7 +849,7 @@ Section Fundamental.
     destruct vss as [|vs' [|vs'' vss]]; cbn in Hlens, Hconcat; try congruence.
     rewrite app_nil_r in Hconcat; subst vs'; clear Hlens.
     rewrite big_sepL2_singleton.
-    iEval (cbn -[return_interp br_interp values_interp rep_values_interp frame_interp]).
+    iEval (cbn -[return_interp br_interp values_interp atoms_interp frame_interp]).
     rewrite to_e_list_app.
     rewrite (app_assoc (v_to_e_list _)).
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
@@ -944,7 +943,7 @@ Section Fundamental.
     all: iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
     all: iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss";
       iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs".
-    all: cbn in Hlens_rvss; destruct rvss, rvs; cbn in Hconcat, Hlens_rvss;
+    all: cbn in Hlens_rvss; destruct rvss, os; cbn in Hconcat, Hlens_rvss;
       try congruence.
     all: cbn in Hlens_rvs_vs; destruct vs; cbn in Hlens_rvs_vs; try congruence.
 
@@ -961,17 +960,17 @@ Section Fundamental.
     3: destruct f.
     all: iEval (cbn).
     (* automatic exists don't work well here unfortunately *)
-    1: iExists [I32V (Wasm_int.Int32.repr n)].
-    2: iExists [I64V (Wasm_int.Int64.repr n)].
-    3: iExists [F32V (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))].
-    4: iExists [F64V (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))].
+    1: iExists [I32A (Wasm_int.Int32.repr n)].
+    2: iExists [I64A (Wasm_int.Int64.repr n)].
+    3: iExists [F32A (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))].
+    4: iExists [F64A (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))].
     all: iEval (cbn).
     all: iSplitL; try iSplitL; auto.
     (* once again, automatic exists don't work great *)
-    1: iExists [[I32V (Wasm_int.Int32.repr n)]].
-    2: iExists [[I64V (Wasm_int.Int64.repr n)]].
-    3: iExists [[F32V (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))]].
-    4: iExists [[F64V (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))]].
+    1: iExists [[I32A (Wasm_int.Int32.repr n)]].
+    2: iExists [[I64A (Wasm_int.Int64.repr n)]].
+    3: iExists [[F32A (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))]].
+    4: iExists [[F64A (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))]].
     all: iEval (cbn); iSplitR; auto; iSplitL; auto.
     (* Dig into value interp a bit, then smooth sailing *)
     all: iApply value_interp_eq; iEval (cbn).
@@ -1174,7 +1173,7 @@ Section Fundamental.
   Lemma translate_types_length_subst ks ts res vs se smem srep ssize :
     prelude.translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ map (subst_type smem srep ssize VarT) ts;vs, 
-       value_interp rti sr se y1 (SValues y2))
+       value_interp rti sr se y1 (SAtoms y2))
        ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
   Proof.
   Admitted. 
@@ -1198,7 +1197,7 @@ Section Fundamental.
   Lemma translate_types_length (ks : list kind) ts res vs se:
     prelude.translate_types ks ts = Some res ->
     (([∗ list] y1;y2 ∈ ts;vs, 
-       value_interp rti sr se y1 (SValues y2))
+       value_interp rti sr se y1 (SAtoms y2))
        ⊢ ⌜ length res = list_sum (map length vs) ⌝)%I.
   Proof.
     iIntros (H) "H".
@@ -2252,7 +2251,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let τ := CodeRefT (VALTYPE (PrimR I32R) ImCopy ImDrop) ϕ in
+    let τ := CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop) ϕ in
     let ψ := InstrT [] [τ] in
     M.(mc_table) !! i = Some ϕ ->
     has_instruction_type_ok F ψ L ->
@@ -2264,7 +2263,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
+    let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
     let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
     function_type_inst F ix ϕ ϕ' ->
     has_instruction_type_ok F ψ L ->
@@ -2310,7 +2309,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let κ := VALTYPE (PrimR I32R) ImCopy ImDrop in
+    let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
     let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICallIndirect ψ)) wt wl = inr ((), wt', wl', es') ->
@@ -2389,7 +2388,7 @@ Section Fundamental.
     let WL := wl ++ wl' ++ wlf in
     let F' := F <| fc_labels ::= cons (τs', L') |> in
     let τs_ser := zip_with SerT κs τs in
-    let ψ := InstrT [RefT κr (ConstM MemMM) (VariantT κv τs_ser)] τs' in
+    let ψ := InstrT [RefT κr (BaseM MemMM) (VariantT κv τs_ser)] τs' in
     Forall2
       (fun τ es =>
          (forall wt wt' wtf wl wl' wlf es',
@@ -2561,7 +2560,7 @@ Section Fundamental.
     iEval (cbn) in "Hkindinterp".
     iPoseProof "Hkindinterp" as "%Hkindinterp".
     (* Have to dig in and prove rvs is just an integer *)
-    unfold primitive_reps_interp in Hkindinterp.
+    unfold has_areps in Hkindinterp.
     destruct Hkindinterp as (rvs0 & Hrvs0 & Hprimprep).
     inversion Hrvs0.
     rewrite <- H1 in Hprimprep. (* subst does too much here*)
@@ -2595,13 +2594,13 @@ Section Fundamental.
       (* let's prove this value!*)
       iModIntro; cbn.
       unfold Wasm_int.Int32.ishl, Wasm_int.Int32.shl, Z.shiftl; cbn.
-      iExists [PtrV (PtrInt (Wasm_int.Int32.unsigned n))].
+      iExists [PtrA (PtrInt (Wasm_int.Int32.unsigned n))].
       iSplitR; cbn; try (iSplitR; auto); last first.
       * iExists _; iSplitL; auto.
         iExists (RootInt (Wasm_int.Int32.unsigned n)).
         cbn.
         iSplit; auto using ReprRootInt.
-      * iExists [[PtrV (PtrInt (Wasm_int.Int32.unsigned n))]].
+      * iExists [[PtrA (PtrInt (Wasm_int.Int32.unsigned n))]].
         iSplitL; cbn; auto; iSplitL; auto.
 
         iApply value_interp_eq; cbn.
@@ -2610,7 +2609,7 @@ Section Fundamental.
 
         eexists; split; auto.
         apply Forall2_cons_iff; split; auto.
-        by unfold primitive_rep_interp.
+        by unfold has_areps.
   Qed.
 
   Lemma compat_untag M F L wt wt' wtf wl wl' wlf es' :
@@ -2652,7 +2651,7 @@ Section Fundamental.
     iEval (cbn) in "Hkindinterp".
     iPoseProof "Hkindinterp" as "%Hkindinterp".
     (* Have to dig in and prove rvs is just an integer *)
-    unfold primitive_reps_interp in Hkindinterp.
+    unfold has_areps in Hkindinterp.
     destruct Hkindinterp as (rvs0 & Hrvs0 & Hprimprep).
     inversion Hrvs0.
     rewrite <- H1 in Hprimprep. (* subst does too much here*)
@@ -2685,9 +2684,9 @@ Section Fundamental.
       iFrame.
       (* let's prove this value!*)
       iModIntro; cbn.
-      iExists [I32V (Wasm_int.Int32.ishr_u (Wasm_int.Int32.repr n) (Wasm_int.Int32.repr 1))].
+      iExists [I32A (Wasm_int.Int32.ishr_u (Wasm_int.Int32.repr n) (Wasm_int.Int32.repr 1))].
       iSplitR; cbn; try (iSplitR; auto).
-      iExists [[I32V (Wasm_int.Int32.ishr_u (Wasm_int.Int32.repr n) (Wasm_int.Int32.repr 1))]].
+      iExists [[I32A (Wasm_int.Int32.ishr_u (Wasm_int.Int32.repr n) (Wasm_int.Int32.repr 1))]].
       iSplitR; cbn; auto; iSplitL; auto.
 
       iApply value_interp_eq; cbn.
@@ -2696,7 +2695,7 @@ Section Fundamental.
 
       eexists; split; auto.
       apply Forall2_cons_iff; split; auto.
-      by unfold primitive_rep_interp.
+      by unfold has_areps.
   Qed.
 
   Lemma compat_cast M F L wt wt' wtf wl wl' wlf es' τ τ' :
@@ -2768,7 +2767,7 @@ Section Fundamental.
     let fe := fe_of_context F in   
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let ψ := InstrT [RefT κ (ConstM MemMM) τ] [RefT κ' (ConstM MemMM) (pr_replaced pr); τval] in
+    let ψ := InstrT [RefT κ (BaseM MemMM) τ] [RefT κ' (BaseM MemMM) (pr_replaced pr); τval] in
     resolves_path τ π (Some (type_uninit σ)) pr ->
     has_size F pr.(pr_target) σ ->
     pr.(pr_target) = SerT κser τval ->
@@ -2850,7 +2849,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let ψ := InstrT [RefT κ (ConstM MemMM) τ; τval] [RefT κ' (ConstM MemMM) (pr_replaced pr)] in
+    let ψ := InstrT [RefT κ (BaseM MemMM) τ; τval] [RefT κ' (BaseM MemMM) (pr_replaced pr)] in
     resolves_path τ π (Some (SerT κser τval)) pr ->
     has_dropability F pr.(pr_target) ImDrop ->
     has_size F pr.(pr_target) σ ->
@@ -3029,7 +3028,7 @@ Section Fundamental.
     iPoseProof (Hsem_es1) as "Hsem_es1"; iPoseProof (Hsem_es2) as "Hsem_es2".
 
     (* Start passing resources *)
-    iSpecialize ("Hsem_es1" $! se inst lh fr rvs vs θ Henv with "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun").
+    iSpecialize ("Hsem_es1" $! se inst lh fr os vs θ Henv with "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun").
     rewrite (app_assoc (language.of_val (immV vs)) (to_e_list es1') (to_e_list es2')).
 
     iApply (lenient_wp_seq with "[Hsem_es1]").
@@ -3124,13 +3123,13 @@ Section Fundamental.
     induction lh;simpl;auto.
   Qed.
 
-  Lemma br_interp_val_app se τr ιss_L L WL inst lh τc i lh' τ rvs vs :
-    ⊢ value_interp rti sr se τ (SValues rvs) -∗
-      rep_values_interp rvs vs -∗
+  Lemma br_interp_val_app se τr ιss_L L WL inst lh τc i lh' τ os vs :
+    ⊢ value_interp rti sr se τ (SAtoms os) -∗
+      atoms_interp os vs -∗
       br_interp rti sr se τr ιss_L L WL inst lh τc i lh' -∗
       br_interp rti sr se τr ιss_L L WL inst lh τc i (vh_push_const lh' vs).
   Proof.
-    revert lh' rvs vs.
+    revert lh' os vs.
     iLöb as "IH".
     iIntros (lh' rvs vs) "Hrvs Hvs Hbr".
     iEval (rewrite br_interp_eq) in "Hbr".
@@ -3188,9 +3187,9 @@ Section Fundamental.
       apply lfilled_Ind_Equivalent;eauto. }
   Qed.
 
-  Lemma return_interp_val_app se τr τ s rvs vs :
-    ⊢ value_interp rti sr se τ (SValues rvs) -∗
-      rep_values_interp rvs vs -∗
+  Lemma return_interp_val_app se τr τ s os vs :
+    ⊢ value_interp rti sr se τ (SAtoms os) -∗
+      atoms_interp os vs -∗
       return_interp rti sr se τr s -∗
       return_interp rti sr se τr (sh_push_const s vs).
   Proof.
@@ -3233,10 +3232,10 @@ Section Fundamental.
       + eapply Hpull'.
   Qed.
   
-  Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ rvs vs :
+  Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ os vs :
     ⊢ expr_interp rti sr se τr τc ιss_L L WL τs inst lh es -∗
-      value_interp rti sr se τ (SValues rvs) -∗
-      rep_values_interp rvs vs -∗
+      value_interp rti sr se τ (SAtoms os) -∗
+      atoms_interp os vs -∗
       expr_interp rti sr se τr τc ιss_L L WL (τ :: τs) inst lh (v_to_e_list vs ++ es).
   Proof.
     iIntros "Hes Hrvs Hvs".
@@ -3246,9 +3245,9 @@ Section Fundamental.
            {|
              lp_fr := frame_interp rti sr se ιss_L L WL inst;
              lp_fr_inv := const True%I;
-             lp_val := λ vs0, (∃ rvs θ, values_interp rti sr se τs rvs ∗ 
-                                        rep_values_interp rvs vs0 ∗
-                                        rt_token rti sr θ)%I;
+             lp_val := λ vs0, (∃ os θ, values_interp rti sr se τs os ∗
+                                         atoms_interp os vs0 ∗
+                                         rt_token rti sr θ)%I;
              lp_trap := True%I;
              lp_br := λ n, br_interp rti sr se τr ιss_L L WL inst lh τc n;
              lp_ret := return_interp rti sr se τr;
@@ -3264,9 +3263,9 @@ Section Fundamental.
       iDestruct "HΦ" as "(Hfr & Hrun & Hvs')".
       iFrame.
       iDestruct "Hvs'" as "(%rvs' & %θ' & (%vss & %Hvss & Hτs) & Hrvs' & Hrti)".
-      iExists (rvs ++ rvs'), _.
+      iExists (os ++ rvs'), _.
       iFrame.
-      iExists (rvs :: vss); iFrame.
+      iExists (os :: vss); iFrame.
       cbn.
       by rewrite Hvss.
     - done.

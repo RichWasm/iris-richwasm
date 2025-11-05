@@ -46,7 +46,7 @@ module Dropability = struct
     | ImDrop -> fprintf ff "imdrop"
 end
 
-module ConcreteMemory = struct
+module BaseMemory = struct
   type t =
     | MM
     | GC
@@ -62,25 +62,25 @@ end
 module Memory = struct
   type t =
     | Var of int
-    | Concrete of ConcreteMemory.t
+    | Base of BaseMemory.t
   [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp ff : t -> unit = function
     | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
-    | Concrete m -> fprintf ff "@[(concrete %a)@]" ConcreteMemory.pp m
+    | Base m -> fprintf ff "@[(base %a)@]" BaseMemory.pp m
 
   (* autosubst: *)
   open Unscoped
 
   let ren xi_memory = function
     | Var s0 -> Var (xi_memory s0)
-    | Concrete s0 -> Concrete s0
+    | Base s0 -> Base s0
 
   let subst sigma_memory = function
     | Var s0 -> sigma_memory s0
-    | Concrete s0 -> Concrete s0
+    | Base s0 -> Base s0
 
   let up_memory sigma = scons (Var var_zero) (funcomp (ren shift) sigma)
   let up_representation sigma = funcomp (ren id) sigma
@@ -88,7 +88,7 @@ module Memory = struct
   let up_type sigma = funcomp (ren id) sigma
 end
 
-module PrimitiveRep = struct
+module AtomicRep = struct
   type t =
     | Ptr
     | I32
@@ -112,7 +112,7 @@ module Representation = struct
     | Var of int
     | Sum of t list
     | Prod of t list
-    | Prim of PrimitiveRep.t
+    | Atom of AtomicRep.t
   [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -127,7 +127,7 @@ module Representation = struct
         fprintf ff "@[(prod";
         List.iter ~f:(fprintf ff "@ %a" pp) rs;
         fprintf ff ")@]"
-    | Prim prim -> PrimitiveRep.pp ff prim
+    | Atom prim -> AtomicRep.pp ff prim
 
   (* autosubst: *)
   open Unscoped
@@ -136,13 +136,13 @@ module Representation = struct
     | Var s0 -> Var (xi_representation s0)
     | Sum s0 -> Sum (map (ren xi_representation) s0)
     | Prod s0 -> Prod (map (ren xi_representation) s0)
-    | Prim s0 -> Prim s0
+    | Atom s0 -> Atom s0
 
   let rec subst sigma_representation = function
     | Var s0 -> sigma_representation s0
     | Sum s0 -> Sum (map (subst sigma_representation) s0)
     | Prod s0 -> Prod (map (subst sigma_representation) s0)
-    | Prim s0 -> Prim s0
+    | Atom s0 -> Atom s0
 
   let up_memory sigma = funcomp (ren id) sigma
   let up_representation sigma = scons (Var var_zero) (funcomp (ren shift) sigma)
@@ -810,7 +810,7 @@ module Instruction = struct
     | Inst of Index.t
     | Call of int * Index.t list
     | CallIndirect
-    | Inject of ConcreteMemory.t option * int * Type.t list
+    | Inject of BaseMemory.t option * int * Type.t list
     | Case of BlockType.t * LocalFx.t * t list list
     | Group of int
     | Ungroup
@@ -821,7 +821,7 @@ module Instruction = struct
     | Tag
     | Untag
     | Cast of Type.t
-    | New of ConcreteMemory.t
+    | New of BaseMemory.t
     | Load of Path.t * Consume.t
     | Store of Path.t
     | Swap of Path.t
@@ -870,7 +870,7 @@ module Instruction = struct
         List.iter ~f:(fprintf ff " %a" Type.pp) typs;
         fprintf ff "@]"
     | Inject (Some mem, i, typs) ->
-        fprintf ff "@[<2>inject@ %a@ %a" ConcreteMemory.pp mem pp_int i;
+        fprintf ff "@[<2>inject@ %a@ %a" BaseMemory.pp mem pp_int i;
         List.iter ~f:(fprintf ff " %a" Type.pp) typs;
         fprintf ff "@]"
     | Case (bt, lfx, cases) ->
@@ -893,7 +893,7 @@ module Instruction = struct
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
     | Cast t -> fprintf ff "@[<2>cast@ %a@]" Type.pp t
-    | New m -> fprintf ff "@[<2>new@ %a@]" ConcreteMemory.pp m
+    | New m -> fprintf ff "@[<2>new@ %a@]" BaseMemory.pp m
     | Load (p, c) -> fprintf ff "@[<2>load@ %a@ %a@]" Path.pp p Consume.pp c
     | Store p -> fprintf ff "@[<2>store@ %a@]" Path.pp p
     | Swap p -> fprintf ff "@[<2>swap@ %a@]" Path.pp p

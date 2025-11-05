@@ -26,7 +26,7 @@ Definition i32_of_flag (f : pointer_flag) : i32 :=
   | FlagPtr => Wasm_int.Int32.one
   end.
 
-Definition flags_of_rep (ι : primitive_rep) : list pointer_flag :=
+Definition arep_flags (ι : atomic_rep) : list pointer_flag :=
   match ι with
   | PtrR => [FlagPtr]
   | I32R => [FlagInt]

@@ -2,7 +2,7 @@ open! Base
 open Syntax
 open Richwasm_common.Syntax
 
-let rep = Representation.Prim PrimitiveRep.Ptr
+let rep = Representation.Atom AtomicRep.Ptr
 
 let kind =
   (* the kind of all mini-ml types: [VALTYPE ptr ExCopy ExDrop] *)
@@ -81,16 +81,16 @@ let rec compile_type delta t =
   | Int -> Type.I31
   | Prod ts ->
       let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
-      Type.(Ref (Concrete GC, Prod ts'))
+      Type.(Ref (Base GC, Prod ts'))
   | Sum ts ->
       let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
-      Type.(Ref (Concrete GC, Sum ts'))
-  | Ref t -> Type.(Ref (Concrete GC, Ser (r t)))
+      Type.(Ref (Base GC, Sum ts'))
+  | Ref t -> Type.(Ref (Base GC, Ser (r t)))
   | Rec (v, t) -> Type.Rec (kind, compile_type (v :: delta) t)
   | Exists (v, t) ->
       Type.(
         Ref
-          ( Concrete GC,
+          ( Base GC,
             Exists (Quantifier.Type kind, compile_type (v :: delta) t) ))
   | Code { foralls; arg; ret } ->
       let r = compile_type (foralls @ delta) in
@@ -169,7 +169,7 @@ let rec compile_expr delta gamma locals functions e =
         [] )
   | Project (n, v) ->
       (cv v @ [ Load (Path.Path [ n ], Follow) ], locals, [])
-  | New v -> (cv v @ [ New ConcreteMemory.GC ], locals, [])
+  | New v -> (cv v @ [ New BaseMemory.GC ], locals, [])
   | Deref v -> (cv v @ [ Load (Path.Path [], Follow) ], locals, [])
   | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path []) ], locals, [])
   | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals, [])

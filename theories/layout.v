@@ -3,73 +3,73 @@ Require Import stdpp.base stdpp.list.
 
 From RichWasm Require Import syntax.
 
-Record primitive_dist :=
-  { pd_n__ptr : nat;
-    pd_n__i32 : nat;
-    pd_n__i64 : nat;
-    pd_n__f32 : nat;
-    pd_n__f64 : nat }.
+Record arep_dist :=
+  { ad_ptr : nat;
+    ad_i32 : nat;
+    ad_i64 : nat;
+    ad_f32 : nat;
+    ad_f64 : nat }.
 
-Definition pd_empty : primitive_dist :=
-  {| pd_n__ptr := 0; pd_n__i32 := 0; pd_n__i64 := 0; pd_n__f32 := 0; pd_n__f64 := 0 |}.
+Definition ad_empty : arep_dist :=
+  {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 0; ad_f32 := 0; ad_f64 := 0 |}.
 
-Definition pd_singleton (ι : primitive_rep) : primitive_dist :=
+Definition ad_singleton (ι : atomic_rep) : arep_dist :=
   match ι with
-  | PtrR => {| pd_n__ptr := 1; pd_n__i32 := 0; pd_n__i64 := 0; pd_n__f32 := 0; pd_n__f64 := 0 |}
-  | I32R => {| pd_n__ptr := 0; pd_n__i32 := 1; pd_n__i64 := 0; pd_n__f32 := 0; pd_n__f64 := 0 |}
-  | I64R => {| pd_n__ptr := 0; pd_n__i32 := 0; pd_n__i64 := 1; pd_n__f32 := 0; pd_n__f64 := 0 |}
-  | F32R => {| pd_n__ptr := 0; pd_n__i32 := 0; pd_n__i64 := 0; pd_n__f32 := 1; pd_n__f64 := 0 |}
-  | F64R => {| pd_n__ptr := 0; pd_n__i32 := 0; pd_n__i64 := 0; pd_n__f32 := 0; pd_n__f64 := 1 |}
+  | PtrR => {| ad_ptr := 1; ad_i32 := 0; ad_i64 := 0; ad_f32 := 0; ad_f64 := 0 |}
+  | I32R => {| ad_ptr := 0; ad_i32 := 1; ad_i64 := 0; ad_f32 := 0; ad_f64 := 0 |}
+  | I64R => {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 1; ad_f32 := 0; ad_f64 := 0 |}
+  | F32R => {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 0; ad_f32 := 1; ad_f64 := 0 |}
+  | F64R => {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 0; ad_f32 := 0; ad_f64 := 1 |}
   end.
 
-Definition pd_plus (pd1 pd2 : primitive_dist) : primitive_dist :=
-  {| pd_n__ptr := pd1.(pd_n__ptr) + pd2.(pd_n__ptr);
-     pd_n__i32 := pd1.(pd_n__i32) + pd2.(pd_n__i32);
-     pd_n__i64 := pd1.(pd_n__i64) + pd2.(pd_n__i64);
-     pd_n__f32 := pd1.(pd_n__f32) + pd2.(pd_n__f32);
-     pd_n__f64 := pd1.(pd_n__f64) + pd2.(pd_n__f64) |}.
+Definition ad_plus (ad1 ad2 : arep_dist) : arep_dist :=
+  {| ad_ptr := ad1.(ad_ptr) + ad2.(ad_ptr);
+     ad_i32 := ad1.(ad_i32) + ad2.(ad_i32);
+     ad_i64 := ad1.(ad_i64) + ad2.(ad_i64);
+     ad_f32 := ad1.(ad_f32) + ad2.(ad_f32);
+     ad_f64 := ad1.(ad_f64) + ad2.(ad_f64) |}.
 
-Definition pd_max (pd1 pd2 : primitive_dist) : primitive_dist :=
-  {| pd_n__ptr := max pd1.(pd_n__ptr) pd2.(pd_n__ptr);
-     pd_n__i32 := max pd1.(pd_n__i32) pd2.(pd_n__i32);
-     pd_n__i64 := max pd1.(pd_n__i64) pd2.(pd_n__i64);
-     pd_n__f32 := max pd1.(pd_n__f32) pd2.(pd_n__f32);
-     pd_n__f64 := max pd1.(pd_n__f64) pd2.(pd_n__f64) |}.
+Definition ad_max (ad1 ad2 : arep_dist) : arep_dist :=
+  {| ad_ptr := max ad1.(ad_ptr) ad2.(ad_ptr);
+     ad_i32 := max ad1.(ad_i32) ad2.(ad_i32);
+     ad_i64 := max ad1.(ad_i64) ad2.(ad_i64);
+     ad_f32 := max ad1.(ad_f32) ad2.(ad_f32);
+     ad_f64 := max ad1.(ad_f64) ad2.(ad_f64) |}.
 
-Definition pd_le (pd1 pd2 : primitive_dist) : bool :=
-  (pd1.(pd_n__ptr) <=? pd2.(pd_n__ptr)) &&
-    (pd1.(pd_n__i32) <=? pd2.(pd_n__i32)) &&
-    (pd1.(pd_n__i64) <=? pd2.(pd_n__i64)) &&
-    (pd1.(pd_n__f32) <=? pd2.(pd_n__f32)) &&
-    (pd1.(pd_n__f64) <=? pd2.(pd_n__f64)).
+Definition ad_le (ad1 ad2 : arep_dist) : bool :=
+  (ad1.(ad_ptr) <=? ad2.(ad_ptr)) &&
+    (ad1.(ad_i32) <=? ad2.(ad_i32)) &&
+    (ad1.(ad_i64) <=? ad2.(ad_i64)) &&
+    (ad1.(ad_f32) <=? ad2.(ad_f32)) &&
+    (ad1.(ad_f64) <=? ad2.(ad_f64)).
 
-Definition count_primitives (ιs : list primitive_rep) : primitive_dist :=
-  fold_left pd_plus (map pd_singleton ιs) pd_empty.
+Definition count_areps (ιs : list atomic_rep) : arep_dist :=
+  fold_left ad_plus (map ad_singleton ιs) ad_empty.
 
-Definition max_primitives (ιss : list (list primitive_rep)) : primitive_dist :=
-  fold_left pd_max (map count_primitives ιss) pd_empty.
+Definition max_areps (ιss : list (list atomic_rep)) : arep_dist :=
+  fold_left ad_max (map count_areps ιss) ad_empty.
 
-Definition inject_primitive (slots : primitive_dist) (used : primitive_dist) (ι : primitive_rep) : nat :=
+Definition inject_arep (slots : arep_dist) (used : arep_dist) (ι : atomic_rep) : nat :=
   match ι with
-  | PtrR => used.(pd_n__ptr)
-  | I32R => slots.(pd_n__ptr) + used.(pd_n__i32)
-  | I64R => slots.(pd_n__ptr) + slots.(pd_n__i32) + used.(pd_n__i64)
-  | F32R => slots.(pd_n__ptr) + slots.(pd_n__i32) + slots.(pd_n__i64) + used.(pd_n__f32)
-  | F64R => slots.(pd_n__ptr) + slots.(pd_n__i32) + slots.(pd_n__i64) + slots.(pd_n__f32) + used.(pd_n__f64)
+  | PtrR => used.(ad_ptr)
+  | I32R => slots.(ad_ptr) + used.(ad_i32)
+  | I64R => slots.(ad_ptr) + slots.(ad_i32) + used.(ad_i64)
+  | F32R => slots.(ad_ptr) + slots.(ad_i32) + slots.(ad_i64) + used.(ad_f32)
+  | F64R => slots.(ad_ptr) + slots.(ad_i32) + slots.(ad_i64) + slots.(ad_f32) + used.(ad_f64)
   end.
 
-Definition inject_primitives (slots : primitive_dist) (ιs : list primitive_rep) : option (list nat) :=
+Definition inject_areps (slots : arep_dist) (ιs : list atomic_rep) : option (list nat) :=
   let fix go used ιs :=
     match ιs with
     | [] => Some []
     | ι :: ιs' =>
-        let ix := inject_primitive slots used ι in
-        let used' := pd_plus used (pd_singleton ι) in
-        guard (pd_le used' slots);;
+        let ix := inject_arep slots used ι in
+        let used' := ad_plus used (ad_singleton ι) in
+        guard (ad_le used' slots);;
         cons ix <$> go used' ιs'
     end
   in
-  go pd_empty ιs.
+  go ad_empty ιs.
 
 Definition kind_rep (κ : kind) : option representation :=
   match κ with
@@ -103,26 +103,25 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | ExistsTypeT κ _ _ => Some κ
   end.
 
-
-Definition int_type_rep (νi : int_type) : primitive_rep :=
+Definition int_type_arep (νi : int_type) : atomic_rep :=
   match νi with
   | I32T => I32R
   | I64T => I64R
   end.
 
 Definition int_type_type (νi : int_type) : type :=
-  let ι := int_type_rep νi in
-  NumT (VALTYPE (PrimR ι) ImCopy ImDrop) (IntT νi).
+  let ι := int_type_arep νi in
+  NumT (VALTYPE (AtomR ι) ImCopy ImDrop) (IntT νi).
 
-Definition float_type_rep (νf : float_type) : primitive_rep :=
+Definition float_type_arep (νf : float_type) : atomic_rep :=
   match νf with
   | F32T => F32R
   | F64T => F64R
   end.
 
 Definition float_type_type (νf : float_type) : type :=
-  let ι := float_type_rep νf in
-  NumT (VALTYPE (PrimR ι) ImCopy ImDrop) (FloatT νf).
+  let ι := float_type_arep νf in
+  NumT (VALTYPE (AtomR ι) ImCopy ImDrop) (FloatT νf).
 
 Definition num_type_type (ν : num_type) : type :=
   match ν with
@@ -130,7 +129,7 @@ Definition num_type_type (ν : num_type) : type :=
   | FloatT νf => float_type_type νf
   end.
 
-Definition type_i31 : type := I31T (VALTYPE (PrimR PtrR) ImCopy ImDrop).
+Definition type_i31 : type := I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop).
 Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
@@ -138,10 +137,10 @@ Definition type_f64 : type := float_type_type F64T.
 Definition type_uninit (σ : size) : type := UninitT (MEMTYPE σ ImDrop) σ.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
-Definition num_type_rep (ν : num_type) : primitive_rep :=
+Definition num_type_arep (ν : num_type) : atomic_rep :=
   match ν with
-  | IntT νi => int_type_rep νi
-  | FloatT νf => float_type_rep νf
+  | IntT νi => int_type_arep νi
+  | FloatT νf => float_type_arep νf
   end.
 
 Definition type_rep (κs : list kind) (τ : type) : option representation :=
@@ -150,7 +149,7 @@ Definition type_rep (κs : list kind) (τ : type) : option representation :=
 Definition type_size (κs : list kind) (τ : type) : option size :=
   type_kind κs τ ≫= kind_size.
 
-Definition primitive_size (ι : primitive_rep) : nat :=
+Definition arep_size (ι : atomic_rep) : nat :=
   match ι with
   | PtrR => 1
   | I32R => 1
@@ -159,55 +158,58 @@ Definition primitive_size (ι : primitive_rep) : nat :=
   | F64R => 2
   end.
 
-Definition primitives_size : list primitive_rep -> nat :=
-  list_sum ∘ map primitive_size.
+Definition areps_size : list atomic_rep -> nat :=
+  list_sum ∘ map arep_size.
 
-Section eval.
-  Context `{Lookup nat smemory Env}.
-  Context `{Lookup nat (list primitive_rep) Env}.
+Section Eval.
+
+  Context `{Lookup nat base_memory Env}.
+  Context `{Lookup nat (list atomic_rep) Env}.
   Context `{Lookup nat nat Env}.
-  Variable (env: Env).
-  
-  Definition eval_mem (μ: memory) : option smemory :=
+  Variable (env : Env).
+
+  Definition eval_mem (μ : memory) : option base_memory :=
     match μ with
     | VarM x => env !! x
-    | ConstM sm => mret sm
+    | BaseM bm => mret bm
     end.
 
-  Fixpoint eval_rep (ρ : representation) : option (list primitive_rep) :=
+  Fixpoint eval_rep (ρ : representation) : option (list atomic_rep) :=
     match ρ with
     | VarR x => env !! x
     | SumR ρs =>
-        slots ← max_primitives <$> mapM eval_rep ρs;
+        slots ← max_areps <$> mapM eval_rep ρs;
         mret $ I32R ::
-           repeat PtrR slots.(pd_n__ptr) ++
-           repeat I32R slots.(pd_n__i32) ++
-           repeat I64R slots.(pd_n__i64) ++
-           repeat F32R slots.(pd_n__f32) ++
-           repeat F64R slots.(pd_n__f64)
-    | ProdR ρs => 
-        @concat _ <$> mapM eval_rep ρs
-    | PrimR ι => mret [ι]
+          repeat PtrR slots.(ad_ptr) ++
+          repeat I32R slots.(ad_i32) ++
+          repeat I64R slots.(ad_i64) ++
+          repeat F32R slots.(ad_f32) ++
+          repeat F64R slots.(ad_f64)
+    | ProdR ρs => @concat _ <$> mapM eval_rep ρs
+    | AtomR ι => Some [ι]
     end.
-  
+
+  Definition eval_rep_prim (ρ : representation) : option (list primitive) :=
+    map arep_to_prim <$> eval_rep ρ.
+
   Definition eval_rep_size (ρ : representation) : option nat :=
-    primitives_size <$> eval_rep ρ.
+    areps_size <$> eval_rep ρ.
 
   Fixpoint eval_size (σ : size) : option nat :=
     match σ with
     | VarS x => env !! x
     | SumS σs =>
         ns ← mapM eval_size σs;
-        mret (1 + list_max ns)
+        Some (1 + list_max ns)
     | ProdS σs =>
         list_sum <$> mapM eval_size σs
     | RepS ρ =>
         ιs ← eval_rep ρ;
-        mret (list_sum (map primitive_size ιs))
-    | ConstS n => mret n
+        Some (list_sum (map arep_size ιs))
+    | ConstS n => Some n
     end.
 
-  Definition eval_kind (κ: kind) : option skind :=
+  Definition eval_kind (κ : kind) : option skind :=
     match κ with
     | VALTYPE ρ χ δ => 
         sρ ← eval_rep ρ;
@@ -217,19 +219,19 @@ Section eval.
         mret $ SMEMTYPE n δ
     end.
 
-  Definition inject_sum_prim_reps (ιs : list primitive_rep) (ιs0 : list primitive_rep) : option (list nat) :=
-    let slots := count_primitives ιs in
-    inject_primitives slots ιs0.
+  Definition inject_sum_arep (ιs : list atomic_rep) (ιs0 : list atomic_rep) : option (list nat) :=
+    let slots := count_areps ιs in
+    inject_areps slots ιs0.
 
   Definition inject_sum_rep (ρs : list representation) (ρ : representation) : option (list nat) :=
     ιs ← tail <$> eval_rep (SumR ρs);
     ιs0 ← eval_rep ρ;
-    inject_sum_prim_reps ιs ιs0.
+    inject_sum_arep ιs ιs0.
 
-End eval.
+End Eval.
 
 (* empty_env is a type of environments that are always empty. It is
    useful for evaluating _closed_ things. *)
 Inductive empty_env : Type := EmptyEnv.
-Instance empty_env_lookup {K A} : Lookup K A empty_env := 
-  λ k m, None.
+
+Instance empty_env_lookup {K A} : Lookup K A empty_env := λ k m, None.

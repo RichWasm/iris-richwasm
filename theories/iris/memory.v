@@ -16,24 +16,24 @@ Definition address := N.
 
 Inductive pointer :=
 | PtrInt (n : Z)
-| PtrHeap (μ : smemory) (ℓ : location).
+| PtrHeap (μ : base_memory) (ℓ : location).
 
 Inductive root_pointer :=
 | RootInt (n : Z)
-| RootHeap (μ : smemory) (a : address).
+| RootHeap (μ : base_memory) (a : address).
 
-Inductive rep_value :=
-| PtrV (r : pointer)
-| I32V (n : i32)
-| I64V (n : i64)
-| F32V (n : f32)
-| F64V (n : f64).
+Inductive atom :=
+| PtrA (p : pointer)
+| I32A (n : i32)
+| I64A (n : i64)
+| F32A (n : f32)
+| F64A (n : f64).
 
 Inductive word :=
 | WordPtr (p : pointer)
 | WordInt (n : Z).
 
-Definition address_map : Type := gmap location (smemory * address).
+Definition address_map : Type := gmap location (base_memory * address).
 Definition root_map : Type := gmap address location.
 Definition layout_map : Type := gmap location (list pointer_flag).
 Definition heap_map : Type := gmap location (list word).
@@ -43,7 +43,7 @@ Definition rt_invariant (Σ : gFunctors) : Type :=
 
 Class richwasmG (Σ : gFunctors) :=
   { rw_addr : gname;
-    rw_addrG :: ghost_mapG Σ location (smemory * address);
+    rw_addrG :: ghost_mapG Σ location (base_memory * address);
     rw_root : gname;
     rw_rootG :: ghost_mapG Σ address location;
     rw_layout : gname;
@@ -74,7 +74,7 @@ Definition word_has_flag (f : pointer_flag) (w : word) : bool :=
   | _, _ => false
   end.
 
-Definition tag_address (μ : smemory) (a : address) : Z :=
+Definition tag_address (μ : base_memory) (a : address) : Z :=
   match μ with
   | MemMM => Z.of_N a - 3
   | MemGC => Z.of_N a - 1
@@ -97,15 +97,15 @@ Inductive repr_root_pointer : root_pointer -> Z -> Prop :=
   (a `mod` 4 = 0)%N ->
   repr_root_pointer (RootHeap μ a) (tag_address μ a).
 
-Definition rep_serialize (rv : rep_value) : list word :=
-  match rv with
-  | PtrV p => [WordPtr p]
-  | I32V n => [WordInt (Wasm_int.Z_of_uint i32m n)]
-  | I64V n =>
+Definition serialize_atom (o : atom) : list word :=
+  match o with
+  | PtrA p => [WordPtr p]
+  | I32A n => [WordInt (Wasm_int.Z_of_uint i32m n)]
+  | I64A n =>
       let n' := Wasm_int.Z_of_uint i64m n in
       [WordInt (Wasm_int.Int32.Z_mod_modulus n'); WordInt (n' ≫ 32)%Z]
-  | F32V n => [WordInt (Integers.Int.intval (Wasm_float.FloatSize32.to_bits n))]
-  | F64V n =>
+  | F32A n => [WordInt (Integers.Int.intval (Wasm_float.FloatSize32.to_bits n))]
+  | F64A n =>
       let n' := Integers.Int64.intval (Wasm_float.FloatSize64.to_bits n) in
       [WordInt (Wasm_int.Int32.Z_mod_modulus n'); WordInt (n' ≫ 32)%Z]
   end.
@@ -118,7 +118,7 @@ Section Token.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
-  Definition word_interp (θ : address_map) (μ : smemory) (w : word) (n : Z) : iProp Σ :=
+  Definition word_interp (θ : address_map) (μ : base_memory) (w : word) (n : Z) : iProp Σ :=
     match w with
     | WordInt m => ⌜n = m⌝
     | WordPtr p =>
@@ -135,7 +135,7 @@ Section Token.
     | WordPtr (PtrHeap _ ℓ) => [ℓ]
     end.
 
-  Definition rt_memaddr (μ : smemory) : N :=
+  Definition rt_memaddr (μ : base_memory) : N :=
     match μ with
     | MemMM => N.of_nat sr.(sr_mem_mm)
     | MemGC => N.of_nat sr.(sr_mem_gc)

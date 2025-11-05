@@ -30,13 +30,13 @@ Record module_runtime :=
 Record function_env :=
   { fe_type_vars : list kind;
     fe_return : list type;
-    fe_locals : list (list primitive_rep);
+    fe_locals : list (list primitive);
     fe_br_skip : nat }.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
-  ls ← mapM (eval_rep EmptyEnv) mf.(mf_locals);
+  ηss ← mapM (eval_rep_prim EmptyEnv) mf.(mf_locals);
   let ϕ := flatten_function_type mf.(mf_type) in
-  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) ls 0).
+  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) ηss 0).
 
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);
@@ -75,17 +75,19 @@ Definition option_sum {A E : Type} (e : E) (x : option A) : E + A :=
   | Some x' => inr x'
   end.
 
-Definition translate_prim_rep (ι : primitive_rep) : W.value_type :=
-  match ι with
-  | PtrR => W.T_i32
-  | I32R => W.T_i32
-  | I64R => W.T_i64
-  | F32R => W.T_f32
-  | F64R => W.T_f64
+Definition translate_prim (η : primitive) : W.value_type :=
+  match η with
+  | I32P => W.T_i32
+  | I64P => W.T_i64
+  | F32P => W.T_f32
+  | F64P => W.T_f64
   end.
 
-Definition translate_rep (ρ : representation) : option (list W.value_type) :=
-  map translate_prim_rep <$> eval_rep EmptyEnv ρ.
+Definition translate_arep : atomic_rep -> W.value_type :=
+  translate_prim ∘ arep_to_prim.
+
+Definition translate_rep : representation -> option (list W.value_type) :=
+  fmap (map translate_arep) ∘ eval_rep EmptyEnv.
 
 Definition translate_type (κs : list kind) (τ : type) : option (list W.value_type) :=
   type_rep κs τ ≫= translate_rep.
@@ -93,8 +95,8 @@ Definition translate_type (κs : list kind) (τ : type) : option (list W.value_t
 Definition translate_types (κs : list kind) (τs : list type) : option (list W.value_type) :=
   @concat _ <$> mapM (translate_type κs) τs.
 
-Definition translate_num_type (ν : num_type) : W.value_type :=
-  translate_prim_rep (num_type_rep ν).
+Definition translate_num_type : num_type -> W.value_type :=
+  translate_prim ∘ arep_to_prim ∘ num_type_arep.
 
 Definition translate_instr_type (κs : list kind) (ψ : instruction_type) : option W.function_type :=
   let 'InstrT τs1 τs2 := ψ in
