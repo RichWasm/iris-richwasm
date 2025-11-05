@@ -204,7 +204,7 @@ Definition compile_module (m : module) : modgen unit :=
   gid_table_next ← add_rt_global_import "table_next" (W.Build_global_type W.MUT_mut W.T_i32);
   fid_table_set ← add_rt_func_import "table_set" (W.Tf [W.T_i32; W.T_i32] []);
   fid_mmalloc ← add_rt_func_import "mmalloc" (W.Tf [W.T_i32] [W.T_i32]);
-  fid_gcalloc ← add_rt_func_import "mmalloc" (W.Tf [W.T_i32] [W.T_i32]);
+  fid_gcalloc ← add_rt_func_import "gcalloc" (W.Tf [W.T_i32] [W.T_i32]);
   fid_setflag ← add_rt_func_import "setflag" (W.Tf [W.T_i32; W.T_i32; W.T_i32] []);
   fid_free ← add_rt_func_import "free" (W.Tf [W.T_i32] []);
   fid_registerroot ← add_rt_func_import "registerroot" (W.Tf [W.T_i32] [W.T_i32]);

@@ -52,11 +52,11 @@ let%expect_test "basic functionality" =
     ((m_imports ())
      (m_functions
       (((mf_type
-         (MonoFunT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))))
+         (MonoFunT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))))
         (mf_locals ())
         (mf_body
          ((INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 1))))))
+           (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 1))))))
      (m_table ()) (m_exports (0))) |}];
 
   run {| (1, 2, 3, 4) |};
@@ -105,36 +105,36 @@ let%expect_test "basic functionality" =
       (((mf_type
          (MonoFunT ()
           ((ProdT
-            (VALTYPE (ProdR ((PrimR I32R) (PrimR I32R) (PrimR I32R) (PrimR I32R)))
+            (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R) (AtomR I32R)))
              ImCopy ImDrop)
-            ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-             (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-             (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-             (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))))))
+            ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))))))
         (mf_locals ())
         (mf_body
          ((INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 1)
+           (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 1)
           (INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 2)
+           (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 2)
           (INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 3)
+           (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 3)
           (INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 4)
+           (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 4)
           (IGroup
            (InstrT
-            ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-             (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-             (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-             (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))
+            ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))
             ((ProdT
               (VALTYPE
-               (ProdR ((PrimR I32R) (PrimR I32R) (PrimR I32R) (PrimR I32R))) ImCopy
+               (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R) (AtomR I32R))) ImCopy
                ImDrop)
-              ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-               (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-               (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-               (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))))))))))
+              ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+               (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+               (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+               (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))))))))
      (m_table ()) (m_exports (0))) |}];
 
   run {| (tup (tup 1 (tup 2 3) 4 5) (tup 6 7)) |};
@@ -276,18 +276,18 @@ let%expect_test "basic functionality" =
     ((m_imports ())
      (m_functions
       (((mf_type
-         (MonoFunT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))))
+         (MonoFunT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))))
         (mf_locals ())
         (mf_body
          ((INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 1)
+           (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 1)
           (INumConst
-           (InstrT () ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))) 2)
+           (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 2)
           (INum
            (InstrT
-            ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))
-             (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))
-            ((NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))
+            ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))
+            ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
            (IInt2 I32T AddI)))))))
      (m_table ()) (m_exports (0))) |}];
 

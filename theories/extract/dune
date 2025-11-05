@@ -1,6 +1,90 @@
 (coq.extraction
  (prelude extract)
- (extracted_modules RwSyntax)
+ (extracted_modules
+  accum
+  Archi
+  array
+  Ascii
+  base
+  Basics
+  Binary
+  BinarySingleNaN
+  binary_format_printer
+  BinInt
+  BinNat
+  BinNatDef
+  BinNums
+  BinPos
+  BinPosDef
+  Bits
+  Bool
+  Byte
+  Byte0
+  bytes
+  codegen
+  common
+  Coqlib
+  core
+  Datatypes
+  datatypes0
+  datatypes_properties
+  decidable
+  EitherMonad
+  EqDec
+  eqtype
+  Floats
+  Functor
+  IEEE754_extra
+  instruction
+  IntDef
+  Integers
+  layout
+  leb128
+  List
+  List0
+  list_basics
+  list_misc
+  list_monad
+  list_numbers
+  ListDef
+  Memdata
+  memory
+  memory_list
+  module
+  module0
+  Monad
+  MonadExc
+  MonadTrans
+  MonadWriter
+  Monoid
+  Nat
+  NatDef
+  numerics
+  option
+  PeanoNat
+  PosDef
+  PPair
+  prelude
+  RecordSet
+  Reducible
+  Round
+  rw
+  seq
+  SpecFloat
+  Specif
+  ssrbool
+  ssreflect
+  ssrfun
+  ssrnat
+  String
+  syntax
+  unscoped
+  util
+  WriterMonad
+  ZArith_dec
+  Zaux
+  Zbits
+  Zpower)
  (theories Stdlib RichWasm.syntax RichWasm.compiler
   iris
   Wasm
@@ -22,9 +106,8 @@
   ExtLib.Data
   ExtLib.Structures
   ExtLib.Core
-  ExtLib.Tactics))
-
-
+  ExtLib.Tactics)
+ (flags -w -extraction-reserved-identifier))
 
 (library
  (name richwasm_extract)
@@ -34,6 +117,7 @@
 
 (env
   (release
-    (flags (:standard -w -20)))
+    (flags (:standard -w -20-33-39-67)))
   (dev
-    (flags (:standard -w -20))))
+
+    (flags (:standard -w -20-33-39-67))))

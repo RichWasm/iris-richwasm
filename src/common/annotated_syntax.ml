@@ -14,18 +14,20 @@ let pp_roqc_option (pp : formatter -> 'a -> unit) ff = function
   | Some x -> fprintf ff "(Some %a)" pp x
   | None -> fprintf ff "None"
 
-module Z' = struct
-  include Z
+module Big_int_Z' = struct
+  include Big_int_Z
 
-  let sexp_of_t z = Sexp.Atom (Z.to_string z)
+  let equal_big_int = eq_big_int
 
-  let t_of_sexp = function
+  let sexp_of_big_int (z : big_int) = Sexp.Atom (Z.to_string z)
+
+  let big_int_of_sexp : Sexp.t -> big_int  = function
     | Sexp.Atom s -> Z.of_string s
     | _ -> failwith "expected atom"
 end
 
 module BaseMemory = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.base_memory]
+  type t = [%import: Richwasm_extract.Rw.Core.base_memory]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -36,7 +38,7 @@ module BaseMemory = struct
 end
 
 module Copyability = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.copyability]
+  type t = [%import: Richwasm_extract.Rw.Core.copyability]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -61,7 +63,7 @@ module Copyability = struct
 end
 
 module Dropability = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.dropability]
+  type t = [%import: Richwasm_extract.Rw.Core.dropability]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -83,7 +85,7 @@ module Dropability = struct
 end
 
 module AtomicRep = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.atomic_rep]
+  type t = [%import: Richwasm_extract.Rw.Core.atomic_rep]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -97,7 +99,7 @@ module AtomicRep = struct
 end
 
 module Sign = struct
-  type t = [%import: Richwasm_extract.RwSyntax.Core.sign]
+  type t = [%import: Richwasm_extract.Rw.Core.sign]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -109,7 +111,7 @@ end
 
 module Float = struct
   module Type = struct
-    type t = [%import: Richwasm_extract.RwSyntax.Core.float_type]
+    type t = [%import: Richwasm_extract.Rw.Core.float_type]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -120,7 +122,7 @@ module Float = struct
   end
 
   module Unop = struct
-    type t = [%import: Richwasm_extract.RwSyntax.Core.float_unop]
+    type t = [%import: Richwasm_extract.Rw.Core.float_unop]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -136,7 +138,7 @@ module Float = struct
   end
 
   module Binop = struct
-    type t = [%import: Richwasm_extract.RwSyntax.Core.float_binop]
+    type t = [%import: Richwasm_extract.Rw.Core.float_binop]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -152,7 +154,7 @@ module Float = struct
   end
 
   module Relop = struct
-    type t = [%import: Richwasm_extract.RwSyntax.Core.float_relop]
+    type t = [%import: Richwasm_extract.Rw.Core.float_relop]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -169,7 +171,7 @@ end
 
 module Int = struct
   module Type = struct
-    type t = [%import: Richwasm_extract.RwSyntax.Core.int_type]
+    type t = [%import: Richwasm_extract.Rw.Core.int_type]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -180,7 +182,7 @@ module Int = struct
   end
 
   module Unop = struct
-    type t = [%import: Richwasm_extract.RwSyntax.Core.int_unop]
+    type t = [%import: Richwasm_extract.Rw.Core.int_unop]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -194,7 +196,7 @@ module Int = struct
   module Binop = struct
     type t =
       [%import:
-        (Richwasm_extract.RwSyntax.Core.int_binop[@with sign := Sign.t])]
+        (Richwasm_extract.Rw.Core.int_binop[@with sign := Sign.t])]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -217,7 +219,7 @@ module Int = struct
   module Relop = struct
     type t =
       [%import:
-        (Richwasm_extract.RwSyntax.Core.int_relop[@with sign := Sign.t])]
+        (Richwasm_extract.Rw.Core.int_relop[@with sign := Sign.t])]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -232,7 +234,7 @@ module Int = struct
   end
 
   module Testop = struct
-    type t = [%import: Richwasm_extract.RwSyntax.Core.int_testop]
+    type t = [%import: Richwasm_extract.Rw.Core.int_testop]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -245,7 +247,7 @@ end
 module NumType = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.num_type
+      (Richwasm_extract.Rw.Core.num_type
       [@with
         int_type := Int.Type.t;
         float_type := Float.Type.t])]
@@ -261,7 +263,7 @@ end
 module ConversionOp = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.conversion_op
+      (Richwasm_extract.Rw.Core.conversion_op
       [@with
         sign := Sign.t;
         int_type := Int.Type.t;
@@ -288,7 +290,7 @@ end
 module NumInstruction = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.num_instruction
+      (Richwasm_extract.Rw.Core.num_instruction
       [@with
         int_type := Int.Type.t;
         int_unop := Int.Unop.t;
@@ -326,10 +328,10 @@ end
 module Representation = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.representation
+      (Richwasm_extract.Rw.Core.representation
       [@with
         atomic_rep := AtomicRep.t;
-        Z.t := Z'.t])]
+        Big_int_Z.big_int := Big_int_Z'.big_int])]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -340,17 +342,17 @@ module Representation = struct
     | ProdR rs -> fprintf ff "(ProdR %a)" (pp_roqc_list pp_roqc) rs
     | AtomR a -> fprintf ff "(PrimR %a)" AtomicRep.pp_roqc a
 
-  let subst = Richwasm_extract.RwSyntax.Core.subst_representation
-  let ren = Richwasm_extract.RwSyntax.Core.ren_representation
+  let subst = Richwasm_extract.Rw.Core.subst_representation
+  let ren = Richwasm_extract.Rw.Core.ren_representation
 end
 
 module Size = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.size
+      (Richwasm_extract.Rw.Core.size
       [@with
         representation := Representation.t;
-        Z.t := Z'.t])]
+        Big_int_Z.big_int := Big_int_Z'.big_int])]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -362,17 +364,17 @@ module Size = struct
     | RepS rep -> fprintf ff "(RepS %a)" Representation.pp_roqc rep
     | ConstS i -> fprintf ff "(ConstS %a)" Z.pp_print i
 
-  let subst = Richwasm_extract.RwSyntax.Core.subst_size
-  let ren = Richwasm_extract.RwSyntax.Core.ren_size
+  let subst = Richwasm_extract.Rw.Core.subst_size
+  let ren = Richwasm_extract.Rw.Core.ren_size
 end
 
 module Memory = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.memory
+      (Richwasm_extract.Rw.Core.memory
       [@with
         base_memory := BaseMemory.t;
-        Z.t := Z'.t])]
+        Big_int_Z.big_int := Big_int_Z'.big_int])]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -381,14 +383,14 @@ module Memory = struct
     | VarM x -> fprintf ff "(VarM %a)" Z.pp_print x
     | BaseM bm -> fprintf ff "(BaseM %a)" BaseMemory.pp_roqc bm
 
-  let subst = Richwasm_extract.RwSyntax.Core.subst_memory
-  let ren = Richwasm_extract.RwSyntax.Core.ren_memory
+  let subst = Richwasm_extract.Rw.Core.subst_memory
+  let ren = Richwasm_extract.Rw.Core.ren_memory
 end
 
 module Kind = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.kind
+      (Richwasm_extract.Rw.Core.kind
       [@with
         representation := Representation.t;
         copyability := Copyability.t;
@@ -406,8 +408,8 @@ module Kind = struct
     | MEMTYPE (size, drop) ->
         fprintf ff "(MEMTYPE %a %a)" Size.pp_roqc size Dropability.pp_roqc drop
 
-  let subst = Richwasm_extract.RwSyntax.Core.subst_kind
-  let ren = Richwasm_extract.RwSyntax.Core.ren_kind
+  let subst = Richwasm_extract.Rw.Core.subst_kind
+  let ren = Richwasm_extract.Rw.Core.ren_kind
 end
 
 (* work around bug? with ppx_import *)
@@ -415,7 +417,7 @@ module Internal = struct
   module Types = struct
     type typ =
       [%import:
-        (Richwasm_extract.RwSyntax.Core.coq_type
+        (Richwasm_extract.Rw.Core.coq_type
         [@with
           kind := Kind.t;
           num_type := NumType.t;
@@ -424,11 +426,11 @@ module Internal = struct
           size := Size.t;
           coq_type := typ;
           function_type := function_typ;
-          Z.t := Z'.t])]
+          Big_int_Z.big_int := Big_int_Z'.big_int])]
 
     and function_typ =
       [%import:
-        (Richwasm_extract.RwSyntax.Core.function_type
+        (Richwasm_extract.Rw.Core.function_type
         [@with
           kind := Kind.t;
           coq_type := typ;
@@ -499,8 +501,8 @@ module Type = struct
 
   let pp_sexp = Internal.Types.pp_sexp_typ
   let pp_roqc = Internal.Types.pp_roqc_typ
-  let subst = Richwasm_extract.RwSyntax.Core.subst_type
-  let ren = Richwasm_extract.RwSyntax.Core.ren_type
+  let subst = Richwasm_extract.Rw.Core.subst_type
+  let ren = Richwasm_extract.Rw.Core.ren_type
 end
 
 module FunctionType = struct
@@ -510,14 +512,14 @@ module FunctionType = struct
 
   let pp_sexp = Internal.Types.pp_sexp_function_typ
   let pp_roqc = Internal.Types.pp_roqc_function_typ
-  let subst = Richwasm_extract.RwSyntax.Core.subst_function_type
-  let ren = Richwasm_extract.RwSyntax.Core.ren_function_type
+  let subst = Richwasm_extract.Rw.Core.subst_function_type
+  let ren = Richwasm_extract.Rw.Core.ren_function_type
 end
 
 module InstructionType = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.instruction_type
+      (Richwasm_extract.Rw.Core.instruction_type
       [@with coq_type := Type.t])]
   [@@deriving eq, ord, sexp]
 
@@ -531,13 +533,13 @@ module InstructionType = struct
           (pp_roqc_list Type.pp_roqc)
           t_out
 
-  let subst = Richwasm_extract.RwSyntax.Core.subst_function_type
+  let subst = Richwasm_extract.Rw.Core.subst_function_type
 end
 
 module Index = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.index
+      (Richwasm_extract.Rw.Core.index
       [@with
         memory := Memory.t;
         representation := Representation.t;
@@ -559,7 +561,7 @@ end
 module Consumption = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.consumption)]
+      (Richwasm_extract.Rw.Core.consumption)]
     [@@deriving eq, ord, sexp]
 
   let pp_print ff : t -> unit = function
@@ -570,7 +572,7 @@ end
 module Instruction = struct
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.Core.instruction
+      (Richwasm_extract.Rw.Core.instruction
       [@with
         instruction_type := InstructionType.t;
         num_instruction := NumInstruction.t;
@@ -578,7 +580,7 @@ module Instruction = struct
         index := Index.t;
         consumption := Consumption.t;
         path := Path.t;
-        Z.t := Z'.t])]
+        Big_int_Z.big_int := Big_int_Z'.big_int])]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -633,18 +635,18 @@ module Instruction = struct
     | IStore (it, p) -> fprintf ff "(IStore %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
     | ISwap (it, p) -> fprintf ff "(ISwap %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
 
-  let subst = Richwasm_extract.RwSyntax.Core.subst_instruction
+  let subst = Richwasm_extract.Rw.Core.subst_instruction
 end
 
 module Module = struct
   module Function = struct
     type t =
       [%import:
-        (Richwasm_extract.RwSyntax.module_function
+        (Richwasm_extract.Module.module_function
         [@with
-          Core.function_type := FunctionType.t;
-          Core.representation := Representation.t;
-          Core.instruction := Instruction.t])]
+          Richwasm_extract.Rw.Core.function_type := FunctionType.t;
+          Richwasm_extract.Rw.Core.representation := Representation.t;
+          Richwasm_extract.Rw.Core.instruction := Instruction.t])]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -663,11 +665,11 @@ module Module = struct
 
   type t =
     [%import:
-      (Richwasm_extract.RwSyntax.module0
+      (Richwasm_extract.Module.coq_module
       [@with
-        Core.function_type := FunctionType.t;
+        Richwasm_extract.Rw.Core.function_type := FunctionType.t;
         module_function := Function.t;
-        Z.t := Z'.t])]
+        Big_int_Z.big_int := Big_int_Z'.big_int])]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
