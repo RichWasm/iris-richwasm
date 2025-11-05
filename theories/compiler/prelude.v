@@ -34,9 +34,8 @@ Record function_env :=
     fe_br_skip : nat }.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
-  ηss ← mapM (eval_rep_prim EmptyEnv) mf.(mf_locals);
   let ϕ := flatten_function_type mf.(mf_type) in
-  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) ηss 0).
+  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) mf.(mf_locals) 0).
 
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);

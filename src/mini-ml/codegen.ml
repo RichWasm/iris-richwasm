@@ -2,6 +2,8 @@ open! Base
 open Syntax
 open Richwasm_common.Syntax
 
+let prim = Primitive.I32
+
 let rep = Representation.Atom AtomicRep.Ptr
 
 let kind =
@@ -276,7 +278,7 @@ let[@warning "-8"] compile_fun
         ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
           [ arg_rw_type ],
           [ ret_rw_type ] );
-    locals = List.map ~f:(Fn.const rep) locals;
+    locals = List.map ~f:(Fn.const [prim]) locals;
     body = body';
   }
 

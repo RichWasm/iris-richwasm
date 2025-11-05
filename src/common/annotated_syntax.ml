@@ -96,6 +96,19 @@ module AtomicRep = struct
     | F64R -> fprintf ff "F64R"
 end
 
+module Primitive = struct
+  type t = [%import: Richwasm_extract.RwSyntax.primitive]
+  [@@deriving eq, ord, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp_roqc ff : t -> unit = function
+    | I32P -> fprintf ff "I32P"
+    | I64P -> fprintf ff "I64P"
+    | F32P -> fprintf ff "F32P"
+    | F64P -> fprintf ff "F64P"
+end
+
 module Sign = struct
   type t = [%import: Richwasm_extract.RwSyntax.Core.sign]
   [@@deriving eq, ord, sexp]
@@ -641,8 +654,8 @@ module Module = struct
         (Richwasm_extract.RwSyntax.module_function
         [@with
           Core.function_type := FunctionType.t;
-          Core.representation := Representation.t;
-          Core.instruction := Instruction.t])]
+          Core.instruction := Instruction.t;
+          primitive := Primitive.t])]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -651,7 +664,7 @@ module Module = struct
       fprintf ff "@[<v 0>{|@[<hv 2>@,";
       fprintf ff "@[<2>mf_type :=@ %a;@]@ " FunctionType.pp_roqc mf_type;
       fprintf ff "@[<2>mf_locals :=@ %a;@]@ "
-        (pp_roqc_list Representation.pp_roqc)
+        (pp_roqc_list (pp_roqc_list Primitive.pp_roqc))
         mf_locals;
       fprintf ff "@[<2>mf_body :=@ %a@];@,"
         (pp_roqc_list Instruction.pp_roqc)

@@ -88,6 +88,23 @@ module Memory = struct
   let up_type sigma = funcomp (ren id) sigma
 end
 
+module Primitive = struct
+  type t =
+    | I32
+    | I64
+    | F32
+    | F64
+  [@@deriving eq, ord, variants, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff = function
+    | I32 -> fprintf ff "i32"
+    | I64 -> fprintf ff "i64"
+    | F32 -> fprintf ff "f32"
+    | F64 -> fprintf ff "f64"
+end
+
 module AtomicRep = struct
   type t =
     | Ptr
@@ -903,7 +920,7 @@ module Module = struct
   module Function = struct
     type t = {
       typ : FunctionType.t;
-      locals : Representation.t list;
+      locals : Primitive.t list list;
       body : Instruction.t list;
     }
     [@@deriving eq, ord, make, sexp]
@@ -914,7 +931,12 @@ module Module = struct
       fprintf ff "@[<v 2>@[<4>(func@ %a" FunctionType.pp typ;
       if not @@ List.is_empty locals then (
         fprintf ff "@ (local";
-        List.iter ~f:(fprintf ff "@ %a" Representation.pp) locals;
+        List.iter
+          ~f:(fun ps ->
+            fprintf ff "@ [";
+            List.iter ~f:(fprintf ff "%a" Primitive.pp) ps;
+            fprintf ff "@]")
+          locals;
         fprintf ff ")");
       fprintf ff "@]";
       List.iter ~f:(fprintf ff "@,%a" Instruction.pp) body;

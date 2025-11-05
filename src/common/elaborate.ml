@@ -104,6 +104,12 @@ let elab_memory : A.Memory.t -> B.Memory.t = function
   | Var x -> VarM (Z.of_int x)
   | Base m -> BaseM (elab_base_memory m)
 
+let elab_primitive : A.Primitive.t -> B.Primitive.t = function
+  | I32 -> I32P
+  | I64 -> I64P
+  | F32 -> F32P
+  | F64 -> F64P
+
 let elab_atomic_rep : A.AtomicRep.t -> B.AtomicRep.t = function
   | Ptr -> PtrR
   | I32 -> I32R
@@ -814,7 +820,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
 let elab_function ({ typ; locals; body } : A.Module.Function.t) :
     B.Module.Function.t t =
   let* mf_type = elab_function_type [] typ in
-  let mf_locals = List.map ~f:elab_representation locals in
+  let mf_locals = List.map ~f:(List.map ~f:elab_primitive) locals in
   let (FunctionType (_, _, return)) = typ in
   (* TODO: setup qual env *)
   let init_locals = List.map ~f:(fun _ -> None) locals in
