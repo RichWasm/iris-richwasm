@@ -463,8 +463,10 @@ module Internal = struct
             ft
       | SerT (kind, t) ->
           fprintf ff "(SerT %a %a)" Kind.pp_roqc kind pp_roqc_typ t
-      | UninitT (kind, size) ->
-          fprintf ff "(PadT %a %a)" Kind.pp_roqc kind Size.pp_roqc size
+      | PlugT (kind, rep) ->
+          fprintf ff "(PlugT %a %a)" Kind.pp_roqc kind Representation.pp_roqc rep
+      | SpanT (kind, size) ->
+          fprintf ff "(SpanT %a %a)" Kind.pp_roqc kind Size.pp_roqc size
       | RecT (kind, t) ->
           fprintf ff "(RecT %a %a)" Kind.pp_roqc kind pp_roqc_typ t
       | ExistsMemT (kind, t) ->
@@ -583,7 +585,7 @@ module Instruction = struct
 
   let rec pp_roqc ff : t -> unit =
     let pp_it = InstructionType.pp_roqc in
-    let pp_lfx = pp_print_list (pp_roqc_option Type.pp_roqc) in
+    let pp_lfx = pp_print_list Type.pp_roqc in
     let pp_instrs = pp_roqc_list pp_roqc in
     function
     | INop it -> fprintf ff "(INop %a)" pp_it it

@@ -95,7 +95,8 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | I31T κ
   | CodeRefT κ _
   | SerT κ _
-  | UninitT κ _
+  | PlugT κ _
+  | SpanT κ _
   | RecT κ _
   | ExistsMemT κ _
   | ExistsRepT κ _
@@ -134,7 +135,8 @@ Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
 Definition type_f64 : type := float_type_type F64T.
-Definition type_uninit (σ : size) : type := UninitT (MEMTYPE σ ImDrop) σ.
+Definition type_plug (ρ : representation) : type := PlugT (VALTYPE ρ ImCopy ImDrop) ρ.
+Definition type_span (σ : size) : type := SpanT (MEMTYPE σ ImDrop) σ.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_arep (ν : num_type) : atomic_rep :=
@@ -142,6 +144,17 @@ Definition num_type_arep (ν : num_type) : atomic_rep :=
   | IntT νi => int_type_arep νi
   | FloatT νf => float_type_arep νf
   end.
+
+Definition prim_to_arep (η : primitive) : atomic_rep :=
+  match η with
+  | I32P => I32R
+  | I64P => I64R
+  | F32P => F32R
+  | F64P => F64R
+  end.
+
+Definition type_plug_prim (ηs : list primitive) : type :=
+  type_plug (ProdR (map (AtomR ∘ prim_to_arep) ηs)).
 
 Definition type_rep (κs : list kind) (τ : type) : option representation :=
   type_kind κs τ ≫= kind_rep.

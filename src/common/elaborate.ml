@@ -232,7 +232,8 @@ let kind_of_typ (env : A.Kind.t list) : B.Type.t -> B.Kind.t t = function
   | RefT (k, _, _)
   | CodeRefT (k, _)
   | SerT (k, _)
-  | UninitT (k, _)
+  | PlugT (k, _)
+  | SpanT (k, _)
   | RecT (k, _)
   | ExistsMemT (k, _)
   | ExistsRepT (k, _)
@@ -332,9 +333,12 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
         | _ -> fail (ExpectedVALTYPE ("Ser", t'))
       in
       ret @@ SerT (MEMTYPE (RepS rep, dropability), t')
-  | Uninit size ->
+  | Plug rep ->
+      let rep' = elab_representation rep in
+      ret @@ PlugT (VALTYPE (rep', ImCopy, ImDrop), rep')
+  | Span size ->
       let size' = elab_size size in
-      ret @@ UninitT (MEMTYPE (size', ImDrop), size')
+      ret @@ SpanT (MEMTYPE (size', ImDrop), size')
   | Rec (kind, t) ->
       let env' = kind :: env in
       let* t' = elab_type env' t in
@@ -386,18 +390,8 @@ and elab_function_type
   ret @@ go quals
 
 let elab_local_fx (env : Env.t) (LocalFx fxs : A.LocalFx.t) :
-    B.Type.t option list Res.t =
-  let arr = Array.init env.local_offset ~f:(fun _ -> None) in
-  let+ () =
-    iterM fxs ~f:(fun (idx, typ) ->
-        let* () =
-          fail_if (idx >= env.local_offset)
-            (InvalidLocalFx (env.local_offset, fxs))
-        in
-        let+ typ' = elab_type env.kinds typ in
-        arr.(idx - env.local_offset) <- Some typ')
-  in
-  List.of_array arr
+    B.Type.t list Res.t =
+  fail (TODO "elab_local_fx")
 
 let elab_index (env : A.Kind.t list) : A.Index.t -> B.Index.t t =
   let open B.Index in

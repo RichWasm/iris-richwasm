@@ -58,39 +58,6 @@ Section Fundamental.
       eauto.
   Qed.
 
-  (* not sure where this belongs *)
-  Lemma local_inv_split_agree ιss vss_L vs_WL vss_L' vs_WL' :
-    concat vss_L ++ vs_WL = concat vss_L' ++ vs_WL' ->
-    locals_inv_interp ιss vss_L ->
-    locals_inv_interp ιss vss_L' ->
-    vss_L = vss_L' /\ vs_WL = vs_WL'.
-  Proof.
-    unfold locals_inv_interp.
-    intros Heq Hinv Hinv'.
-    eapply Coqlib.list_append_injective_l in Heq.
-    - destruct Heq.
-      split; auto.
-      apply concat_len_inj;  eauto.
-      assert (Forall2 (λ xs ys, length xs = length ys) vss_L ιss).
-      {
-        apply Forall2_flip.
-        eapply Forall2_impl; try eapply Hinv.
-        symmetry; eapply Forall2_length; eauto.
-      }
-      assert (Forall2 (λ xs ys, length xs = length ys) ιss vss_L').
-      {
-        eapply Forall2_impl; try eapply Hinv'.
-        eapply Forall2_length; eauto.
-      }
-      eapply Forall2_transitive; eauto.
-      cbn.
-      intros; congruence.
-    - transitivity (length (concat ιss)).
-      + symmetry.
-        eapply Forall2_Forall2_cat_length; eauto.
-      + eapply Forall2_Forall2_cat_length; eauto.
-  Qed.
-
   (* useful lemma for proving compat lemmas for instructions erased by the compiler. *)
   Lemma sem_type_erased M F L WT WL ψ τs1 τs2 :
     ψ = InstrT τs1 τs2 ->
@@ -260,11 +227,10 @@ Section Fundamental.
   Qed.
 
   Lemma frame_interp_wl_interp se F L WL inst fr :
-    frame_interp rti sr se (typing.fc_locals F) L WL inst fr -∗
+    frame_interp rti sr se L WL inst fr -∗
     ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
   Proof.
   Admitted.
-  Eval cbn in Wasm_int.int_of_Z i32m .
 
   Lemma root_pointer_heap_shp_inv rp μ ℓ :
     root_pointer_interp rp (PtrHeap μ ℓ) -∗
@@ -1411,7 +1377,7 @@ Section Fundamental.
     unfold have_instruction_type_sem.
 (*    iSimpl. *)
     iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst (%Hlhbase & %Hlengthlh & %Hlh & Hlabs)".
-    iIntros "Hrvs (%vss & -> & Hvss) (%rvssl & %vssl & %vswl & -> & %Hlocs & %Hres & Hvssl) Htok Hfr Hrun".
+    iIntros "Hrvs (%vss & -> & Hvss) (%rvssl & %vssl & %vswl & -> & %Hres & Hvssl) Htok Hfr Hrun".
     iDestruct (translate_types_length with "Hvss") as "%Hlenvss" => //.
     iDestruct (big_sepL2_length with "Hrvs") as "%Hlenrvs". 
     unfold lenient_wp.
@@ -1456,7 +1422,7 @@ Section Fundamental.
             -- apply get_layer_plug_precise => //.
             -- done.
             -- rewrite lh_plug_minus => //.
-            -- iIntros "!>" (fr vs0 rvs θ0) "Hrvs (%vss0 & -> & Hvss0) (%rvssl0 & %vssl0 & %vswl0 & -> & %Hlocs0 & %Hres0 & Hvssl0) Htok Hfr Hrun".
+            -- iIntros "!>" (fr vs0 rvs θ0) "Hrvs (%vss0 & -> & Hvss0) (%rvssl0 & %vssl0 & %vswl0 & -> & %Hres0 & Hvssl0) Htok Hfr Hrun".
                rewrite app_nil_r app_nil_r /=.
                iExists _.
                unfold lenient_wp.
@@ -2216,20 +2182,21 @@ Section Fundamental.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [] [τ] in
-    L !! i = Some (Some τ) ->
+    L !! i = Some τ ->
     has_copyability F τ ImCopy ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
   Admitted.
 
-  Lemma compat_local_get_move M F L wt wt' wtf wl wl' wlf es' i τ :
+  Lemma compat_local_get_move M F L wt wt' wtf wl wl' wlf es' i τ ηs :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [] [τ] in
-    let L' := <[ i := None]> L in
-    L !! i = Some (Some τ) ->
+    let L' := <[ i := type_plug_prim ηs ]> L in
+    F.(typing.fc_locals) !! i = Some ηs ->
+    L !! i = Some τ ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
@@ -2240,8 +2207,8 @@ Section Fundamental.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [τ] [] in
-    let L' := <[ i := Some τ ]> L in
-    (∀ τ0, L !! i = Some (Some τ0) → has_dropability F τ0 ImDrop) ->
+    let L' := <[ i := τ ]> L in
+    (∀ τ0, L !! i = Some τ0 → has_dropability F τ0 ImDrop) ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalSet ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
@@ -2768,7 +2735,7 @@ Section Fundamental.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [RefT κ (BaseM MemMM) τ] [RefT κ' (BaseM MemMM) (pr_replaced pr); τval] in
-    resolves_path τ π (Some (type_uninit σ)) pr ->
+    resolves_path τ π (Some (type_span σ)) pr ->
     has_size F pr.(pr_target) σ ->
     pr.(pr_target) = SerT κser τval ->
     Forall (has_mono_size F) (pr_prefix pr) ->
@@ -3123,11 +3090,11 @@ Section Fundamental.
     induction lh;simpl;auto.
   Qed.
 
-  Lemma br_interp_val_app se τr ιss_L L WL inst lh τc i lh' τ os vs :
+  Lemma br_interp_val_app se τr L WL inst lh τc i lh' τ os vs :
     ⊢ value_interp rti sr se τ (SAtoms os) -∗
       atoms_interp os vs -∗
-      br_interp rti sr se τr ιss_L L WL inst lh τc i lh' -∗
-      br_interp rti sr se τr ιss_L L WL inst lh τc i (vh_push_const lh' vs).
+      br_interp rti sr se τr L WL inst lh τc i lh' -∗
+      br_interp rti sr se τr L WL inst lh τc i (vh_push_const lh' vs).
   Proof.
     revert lh' os vs.
     iLöb as "IH".
@@ -3232,24 +3199,24 @@ Section Fundamental.
       + eapply Hpull'.
   Qed.
   
-  Lemma expr_interp_val_app se τr τc ιss_L L WL τs inst lh es τ os vs :
-    ⊢ expr_interp rti sr se τr τc ιss_L L WL τs inst lh es -∗
+  Lemma expr_interp_val_app se τr τc L WL τs inst lh es τ os vs :
+    ⊢ expr_interp rti sr se τr τc L WL τs inst lh es -∗
       value_interp rti sr se τ (SAtoms os) -∗
       atoms_interp os vs -∗
-      expr_interp rti sr se τr τc ιss_L L WL (τ :: τs) inst lh (v_to_e_list vs ++ es).
+      expr_interp rti sr se τr τc L WL (τ :: τs) inst lh (v_to_e_list vs ++ es).
   Proof.
     iIntros "Hes Hrvs Hvs".
     iApply lenient_wp_val_app'.
     iApply (lwp_wand with "Hes").
     set (Φ :=
            {|
-             lp_fr := frame_interp rti sr se ιss_L L WL inst;
+             lp_fr := frame_interp rti sr se L WL inst;
              lp_fr_inv := const True%I;
              lp_val := λ vs0, (∃ os θ, values_interp rti sr se τs os ∗
                                          atoms_interp os vs0 ∗
                                          rt_token rti sr θ)%I;
              lp_trap := True%I;
-             lp_br := λ n, br_interp rti sr se τr ιss_L L WL inst lh τc n;
+             lp_br := λ n, br_interp rti sr se τr L WL inst lh τc n;
              lp_ret := return_interp rti sr se τr;
              lp_host := λ _ _ _ _, False%I
            |}).

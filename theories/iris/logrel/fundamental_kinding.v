@@ -310,6 +310,7 @@ Section FundamentalKinding.
     - admit. (* coderef *)
     - cbn in *. 
       admit.
+    - admit.
     - unfold copyability_interp; inversion Hκeq; subst; eauto.
     - admit. (* recursive types *)
     - admit. (* exists (mem) *)

@@ -500,7 +500,8 @@ module rec Type : sig
     | Ref of Memory.t * t
     | CodeRef of FunctionType.t
     | Ser of t
-    | Uninit of Size.t
+    | Plug of Representation.t
+    | Span of Size.t
     | Rec of Kind.t * t
     | Exists of Quantifier.t * t
   [@@deriving eq, ord, variants, sexp]
@@ -535,7 +536,8 @@ end = struct
     | Ref of Memory.t * t
     | CodeRef of FunctionType.t
     | Ser of t
-    | Uninit of Size.t
+    | Plug of Representation.t
+    | Span of Size.t
     | Rec of Kind.t * t
     | Exists of Quantifier.t * t
   [@@deriving eq, ord, variants, sexp]
@@ -565,7 +567,8 @@ end = struct
     | Ref (m, t) -> fprintf ff "@[<2>(ref@ %a@ %a)@]" Memory.pp m pp t
     | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
     | Ser t -> fprintf ff "@[<2>(ser@ %a)@]" pp t
-    | Uninit s -> fprintf ff "@[<2>(pad@ %a)@]" Size.pp s
+    | Plug r -> fprintf ff "@[<2>(plug@ %a)@]" Representation.pp r
+    | Span s -> fprintf ff "@[<2>(span@ %a)@]" Size.pp s
     | Rec (kind, t) -> fprintf ff "@[<2>(rec@ %a@ %a)@]" Kind.pp kind pp t
     | Exists (q, t) -> fprintf ff "@[<2>(exists@ %a@ %a)@]" Quantifier.pp q pp t
 
@@ -582,7 +585,8 @@ end = struct
     | Ref (s1, s2) -> Ref (Memory.ren xi_memory s1, ren xi_memory xi_representation xi_size xi_type s2)
     | CodeRef s1 -> CodeRef (FunctionType.ren xi_memory xi_representation xi_size xi_type s1)
     | Ser s0 -> Ser (ren xi_memory xi_representation xi_size xi_type s0)
-    | Uninit s1 -> Uninit (Size.ren xi_representation xi_size s1)
+    | Plug s1 -> Plug (Representation.ren xi_representation s1)
+    | Span s1 -> Span (Size.ren xi_representation xi_size s1)
     | Rec (s0, s1) ->
         Rec (Kind.ren xi_representation xi_size s0,
              ren xi_memory xi_representation xi_size (up_ren xi_type) s1)
@@ -613,7 +617,8 @@ end = struct
     | Ref (s1, s2) -> Ref (Memory.subst sigma_memory s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
     | CodeRef s1 -> CodeRef (FunctionType.subst sigma_memory sigma_representation sigma_size sigma_type s1)
     | Ser s0 -> Ser (subst sigma_memory sigma_representation sigma_size sigma_type s0)
-    | Uninit s1 -> Uninit (Size.subst sigma_representation sigma_size s1)
+    | Plug s1 -> Plug (Representation.subst sigma_representation s1)
+    | Span s1 -> Span (Size.subst sigma_representation sigma_size s1)
     | Rec (s0, s1) ->
         Rec (Kind.subst sigma_representation sigma_size s0,
              subst

@@ -1,8 +1,6 @@
 nat : Type
 
 list : Functor
-prod : Functor
-option : Functor
 
 copyability : Type
 NoCopy : copyability
@@ -64,7 +62,8 @@ StructT : kind -> "list" (type) -> type
 RefT : kind -> memory -> type -> type
 CodeRefT : kind -> function_type -> type
 SerT : kind -> type -> type
-UninitT : kind -> size -> type
+PlugT : kind -> representation -> type
+SpanT : kind -> size -> type
 RecT : kind -> (bind type in type) -> type
 ExistsMemT : kind -> (bind memory in type) -> type
 ExistsRepT : kind -> (bind representation in type) -> type
@@ -177,9 +176,9 @@ ICopy : instruction_type -> instruction
 IDrop : instruction_type -> instruction
 INum : instruction_type -> num_instruction -> instruction
 INumConst : instruction_type -> nat -> instruction
-IBlock : instruction_type -> "list" ("option" (type)) -> "list" (instruction) -> instruction
+IBlock : instruction_type -> "list" (type) -> "list" (instruction) -> instruction
 ILoop : instruction_type -> "list" (instruction) -> instruction
-IIte : instruction_type -> "list" ("option" (type)) -> "list" (instruction) -> "list" (instruction) -> instruction
+IIte : instruction_type -> "list" (type) -> "list" (instruction) -> "list" (instruction) -> instruction
 IBr : instruction_type -> nat -> instruction
 IReturn : instruction_type -> instruction
 ILocalGet : instruction_type -> nat -> instruction
@@ -190,14 +189,14 @@ ICall : instruction_type -> nat -> "list" (index) -> instruction
 ICallIndirect : instruction_type -> instruction
 IInject : instruction_type -> nat -> instruction
 IInjectNew : instruction_type -> nat -> instruction
-ICase : instruction_type -> "list" ("option" (type)) -> "list" ("list" (instruction)) -> instruction
-ICaseLoad : instruction_type -> consumption -> "list" ("option" (type)) -> "list" ("list" (instruction)) -> instruction
+ICase : instruction_type -> "list" (type) -> "list" ("list" (instruction)) -> instruction
+ICaseLoad : instruction_type -> consumption -> "list" (type) -> "list" ("list" (instruction)) -> instruction
 IGroup : instruction_type -> instruction
 IUngroup : instruction_type -> instruction
 IFold : instruction_type -> instruction
 IUnfold : instruction_type -> instruction
 IPack : instruction_type -> instruction
-IUnpack : instruction_type -> "list" ("option" (type)) -> "list" (instruction) -> instruction
+IUnpack : instruction_type -> "list" (type) -> "list" (instruction) -> instruction
 ITag : instruction_type -> instruction
 IUntag : instruction_type -> instruction
 ICast : instruction_type -> instruction
