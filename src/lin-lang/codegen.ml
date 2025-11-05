@@ -302,10 +302,9 @@ module Compile = struct
     let+ body', state =
       compile_expr env body (State.empty ~next_local:(List.length params))
     in
-    (* TODO: List of list of primitives instead of list of reps. *)
     let locals = List.rev state.rev_locals in
 
-    { typ = ft; locals = []; body = body' }
+    { typ = ft; locals; body = body' }
 
   let compile_function
       (env : Env.t)

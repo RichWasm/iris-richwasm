@@ -5,6 +5,12 @@ Require Import RecordUpdate.RecordUpdate.
 
 From RichWasm.syntax Require Export module rw.
 
+Inductive primitive :=
+| I32P
+| I64P
+| F32P
+| F64P.
+
 Definition path : Type := list nat.
 
 Record flat_function_type :=

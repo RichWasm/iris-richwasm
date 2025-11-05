@@ -1287,12 +1287,13 @@ Proof.
 Qed.
 
 Inductive has_function_type : module_ctx -> module_function -> function_type -> Prop :=
-| TFunction M mf L' :
+| TFunction M mf ηss L' :
   let ϕ := flatten_function_type mf.(mf_type) in
   let K := kc_of_fft ϕ in
-  let F := Build_function_ctx ϕ.(fft_out) mf.(mf_locals) [] K ϕ.(fft_type_vars) in
-  let L := repeat None (length mf.(mf_locals)) in
+  let F := Build_function_ctx ϕ.(fft_out) ηss [] K ϕ.(fft_type_vars) in
+  let L := repeat None (length ηss) in
   let ψ := InstrT ϕ.(fft_in) ϕ.(fft_out) in
+  mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) = Some ηss ->
   Forall (fun τo => forall τ, τo = Some τ -> has_dropability F τ ImDrop) L' ->
   have_instruction_type M F L mf.(mf_body) ψ L' ->
   has_function_type M mf mf.(mf_type).
