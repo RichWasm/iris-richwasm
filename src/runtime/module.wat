@@ -1,27 +1,26 @@
 (module
-  ;; TODO: check order of params
-  (func (export "table_set") (param i32 i32) (result)
+  (func (export "mmalloc") (param i32) (result i32)
     unreachable)
 
-  (func (export "alloc_mm") (param i32) (result i32)
-    unreachable)
-
-  (func (export "alloc_gc") (param i32 i64) (result i32)
+  (func (export "gcalloc") (param i32 i64) (result i32)
     unreachable)
 
   (func (export "free") (param i32) (result)
-    unreachable)
+    nop)
+
+  (func (export "setflag") (param i32 i32 i32) (result)
+    nop)
 
   (func (export "registerroot") (param i32) (result i32)
     unreachable)
 
   (func (export "unregisterroot") (param i32) (result i32)
-    unreachable)
+    nop)
 
   (table $table (export "table") 0 anyfunc)
 
-  (global (export "table_next") (mut i32)
+  (global (export "tablenext") (mut i32)
     i32.const 0)
 
-  (memory (export "mem_mm") 0)
-  (memory (export "mem_gc") 0))
+  (memory (export "mmmem") 0)
+  (memory (export "gcmem") 0))
