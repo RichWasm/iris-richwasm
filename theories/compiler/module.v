@@ -71,9 +71,6 @@ Definition count_func_imports (m : W.module) : nat :=
 Definition next_memidx_import : modgen W.memidx :=
   gets (W.Mk_memidx ∘ length ∘ W.mod_mems).
 
-Definition next_typeidx : modgen W.typeidx :=
-  gets (fun m => W.Mk_typeidx (length m.(W.mod_types))).
-
 Definition next_globalidx_import : modgen W.globalidx :=
   gets (W.Mk_globalidx ∘ count_global_imports).
 
@@ -89,13 +86,15 @@ Definition next_funcidx : modgen W.funcidx :=
 Definition next_tableidx_import : modgen W.tableidx :=
   gets (W.Mk_tableidx ∘ length ∘ W.mod_tables).
 
-Definition add_types (tfs : list W.function_type) : modgen unit :=
-  acc (mod_empty <| W.mod_types := tfs |>).
-
 Definition add_type (tf : W.function_type) : modgen W.typeidx :=
-  tid ← next_typeidx;
-  add_types [tf];;
-  mret tid.
+  tfs ← gets W.mod_types;
+  match list_find (W.function_type_eqb tf) tfs with
+  | Some (i, _) => mret (W.Mk_typeidx i)
+  | None => acc (mod_empty <| W.mod_types := [tf] |>);;
+           mret (W.Mk_typeidx (length tfs))
+  end.
+
+Definition add_types : list W.function_type -> modgen unit := mapM_ add_type.
 
 Definition add_import (imp : W.module_import) : modgen unit :=
   acc (mod_empty <| W.mod_imports := [imp] |>).
