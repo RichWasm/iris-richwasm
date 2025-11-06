@@ -44,7 +44,7 @@ Proof.
   done.
 Qed.
 
-Lemma wp_nil (s : stuckness) (E : coPset) (Φ : iProp Σ) f :
+Lemma wp_nil (s : stuckness) (E : coPset) (Φ : iProp Σ) (f: frame) :
   ↪[frame] f ∗ Φ ⊢ WP [] @ s ; E CTX_EMPTY {{ fun v => Φ }}%I.
 Proof.
   iIntros "(Hframe & H)". iApply wp_wasm_empty_ctx.

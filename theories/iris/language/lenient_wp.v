@@ -73,9 +73,8 @@ Section lenient_wp.
   (* This is like composition with val_combine *)
   Definition lp_combine {A} (l: logp A) vs : logp A :=
     {|
-      lp_fr := lp_fr l;
       lp_fr_inv := lp_fr_inv l;
-      lp_val vs' := lp_val l (seq.cat vs vs');
+      lp_val fr vs' := lp_val l fr (seq.cat vs vs');
       lp_trap := lp_trap l;
       lp_br n vh := lp_br l n (vh_push_const vh vs);
       lp_ret lh := lp_ret l (sh_push_const lh vs);
@@ -139,22 +138,10 @@ Section lenient_wp.
       + destruct w; by iFrame.
   Qed.
 
-  Definition lp_fr_set f i v (Φ : @logpred Σ) : logpred :=
-    {|
-      lp_fr := λ f', ⌜f' = {| f_locs := seq.set_nth v (f_locs f) i v; f_inst := f_inst f |}⌝;
-      lp_fr_inv := λ f', ⌜f' = {| f_locs := seq.set_nth v (f_locs f) i v; f_inst := f_inst f |}⌝;
-      lp_val := lp_val Φ;
-      lp_trap := lp_trap Φ;
-      lp_br := lp_br Φ;
-      lp_ret := lp_ret Φ;
-      lp_host := lp_host Φ;
-    |}.
-
   Definition lp_with (Ψ: iProp Σ) Φ :=
     {|
-      lp_fr := lp_fr Φ;
       lp_fr_inv := lp_fr_inv Φ;
-      lp_val := λ vs, lp_val Φ vs ∗ Ψ;
+      lp_val := λ fr vs, lp_val Φ fr vs ∗ Ψ;
       lp_trap := lp_trap Φ ∗ Ψ;
       lp_br := λ n x, lp_br Φ n x ∗ Ψ;
       lp_ret := λ x, lp_ret Φ x ∗ Ψ;

@@ -299,10 +299,9 @@ Section Relations.
             ↪[frame] fr -∗
             lenient_wp NotStuck top
               [AI_local (length tfs2) (Build_frame (vs1 ++ n_zeros tlocs) inst) (to_e_list es)]
-              {| lp_fr := fun _ => True;
-                 lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+              {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
                  lp_val :=
-                   fun vs2 =>
+                   fun fr vs2 =>
                      ∃ os2 θ',
                        atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2 ∗ rt_token rti sr θ';
                  lp_trap := True;
@@ -551,10 +550,10 @@ Section Relations.
              lenient_wp_ctx
                NotStuck top
                (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
-               {| lp_fr := frame_interp se L WL inst;
-                  lp_fr_inv := const True;
+               {| lp_fr_inv := const True;
                   lp_val :=
-                    fun vs' =>
+                    fun fr vs' =>
+                      frame_interp se L WL inst fr ∗
                       ∃ τs' os' θ',
                         atoms_interp os' vs' ∗ values_interp se τs' os' ∗ rt_token rti sr θ';
                   lp_trap := True;
@@ -596,10 +595,10 @@ Section Relations.
     leibnizO (list administrative_instruction) -n> iPropO Σ :=
     λne es,
       lenient_wp NotStuck top es
-        {| lp_fr := frame_interp se L WL inst;
-           lp_fr_inv := const True;
+        {| lp_fr_inv := const True;
            lp_val :=
-             fun vs =>
+             fun fr vs =>
+               frame_interp se L WL inst fr ∗ 
                ∃ os θ, values_interp se τs os ∗ atoms_interp os vs ∗ rt_token rti sr θ;
            lp_trap := True;
            lp_br := br_interp se τr L WL inst lh τc;

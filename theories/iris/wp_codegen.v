@@ -604,11 +604,10 @@ Section CodeGen.
       wl' = tys /\
       ⊢ ↪[frame] fr -∗
         ↪[RUN] -∗
-        Φ.(lp_val) [] -∗
         (∀ f, 
             ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
             ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
-            Φ.(lp_fr_inv) f ∗ Φ.(lp_fr) f) -∗
+            Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f []) -∗
         lenient_wp s E (W.v_to_e_list vs ++ to_e_list es) Φ.
   Proof.
     intros.
@@ -617,7 +616,7 @@ Section CodeGen.
     split; auto.
     split; auto.
     split; auto.
-    iIntros "Hf Hrun Hval Hfr".
+    iIntros "Hf Hrun Hfr".
     iApply (wp_wand with "[Hf Hrun]").
     {
       iApply (Hwp with "[$] [$]").
@@ -753,9 +752,8 @@ Section CodeGen.
         (* this condition appears in the postcondition of the save_stack wp lemma. *)
         ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
         lenient_wp NotStuck E (to_e_list es)
-          {| lp_fr := λ f', ⌜f' = f⌝;
-             lp_fr_inv := λ _, True;
-             lp_val := λ vs', ⌜vs' = vs⌝%I;
+          {| lp_fr_inv := λ _, True;
+             lp_val := λ f' vs', ⌜f' = f /\ vs' = vs⌝%I;
              lp_trap := False;
              lp_br := λ _ _, False;
              lp_ret := λ _, False;

@@ -12,17 +12,16 @@ Section lwp_resources.
 
   Lemma lenient_wp_get_local s E (v: value) i Φ f :
     (f_locs f) !! i = Some v ->
-    ▷Φ.(lp_val) [v] ∗
-    Φ.(lp_fr) f ∗
+    ▷ Φ.(lp_val) f [v] ∗
     Φ.(lp_fr_inv) f ∗
     ↪[frame] f ∗
     ↪[RUN]
     ⊢ lenient_wp s E [AI_basic (BI_get_local i)] Φ.
   Proof.
-    iIntros "%Hi (Hval & Hfr & Hfrinv & Hf & Hrun)".
+    iIntros "%Hi (Hval & Hfrinv & Hf & Hrun)".
     unfold lenient_wp.
-    iApply (wp_wand with "[Hfr Hf Hrun Hval]").
-    iApply (wp_get_local with "[Hfr Hval] [$] [$]").
+    iApply (wp_wand with "[Hf Hrun Hval]").
+    iApply (wp_get_local with "[Hval] [$] [$]").
     - by apply Hi.
     - instantiate (1:= (λ v, ↪[RUN] -∗ lp_noframe Φ f v)).
       iIntros "!> ?"; iFrame.
@@ -35,16 +34,15 @@ Section lwp_resources.
   Lemma lenient_wp_set_local s E i Φ v (f: datatypes.frame) :
     let f' := {| f_locs := seq.set_nth v (f_locs f) i v; f_inst := f_inst f |} in
     i < length f.(f_locs) ->
-    ▷ Φ.(lp_val) [] ∗
-    ▷ Φ.(lp_fr) f' ∗
+    ▷ Φ.(lp_val) f' [] ∗
     Φ.(lp_fr_inv) f' ∗
     ↪[frame] f ∗
     ↪[RUN]
     ⊢ lenient_wp s E [AI_basic (BI_const v); AI_basic (BI_set_local i)] Φ.
   Proof.
-    iIntros (f' Hlen) "(Hval & Hfr & Hfrinv & Hf & Hrun)".
-    iApply (wp_wand with "[Hval Hf Hfr Hrun]").
-    iApply (wp_set_local with "[Hval Hfr] [$Hf] [$Hrun]").
+    iIntros (f' Hlen) "(Hval & Hfrinv & Hf & Hrun)".
+    iApply (wp_wand with "[Hval Hf Hrun]").
+    iApply (wp_set_local with "[Hval] [$Hf] [$Hrun]").
     - assumption.
     - instantiate (1:= (λ v, ↪[RUN] -∗ lp_noframe Φ f' v)).
       iIntros "!> ?"; iFrame.
@@ -72,15 +70,14 @@ Section lwp_resources.
     inst_memory (f_inst f) !! i = Some n ->
     ↪[RUN] ∗
     R ∗
-    ▷ (R -∗ Φ.(lp_val) [v]) ∗
-    Φ.(lp_fr) f ∗
+    ▷ (R -∗ Φ.(lp_val) f [v]) ∗
     Φ.(lp_fr_inv) f ∗
     ↪[frame] f
     ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int32 k)); AI_basic (BI_load i t None a off)]
                      Φ.
   Proof.
-    iIntros (R Hag Hmem) "(Hrun & HR & Hval & Hfr & Hfrinv & Hf)".
-    iApply (wp_wand with "[Hrun HR Hval Hfr Hf]").
+    iIntros (R Hag Hmem) "(Hrun & HR & Hval & Hfrinv & Hf)".
+    iApply (wp_wand with "[Hrun HR Hval Hf]").
     iApply wp_load; eauto.
     - iFrame.
       instantiate (1:= (λ v, ↪[RUN] -∗ R -∗ lp_noframe Φ f v)).
@@ -100,8 +97,7 @@ Section lwp_resources.
     inst_memory (f_inst f) !! i = Some n ->
     R ∗
     ↪[RUN] ∗
-    ▷ (R' -∗ Φ.(lp_val) []) ∗
-    Φ.(lp_fr) f ∗
+    ▷ (R' -∗ Φ.(lp_val) f []) ∗
     Φ.(lp_fr_inv) f ∗
     ↪[frame] f
     ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int32 k));
@@ -109,8 +105,8 @@ Section lwp_resources.
                       AI_basic (BI_store i t None a off)]
                      Φ.
   Proof.
-    iIntros (R R' Hag Hlen Hmem) "(HR & Hrun & Hval & Hfr & Hfrinv & Hf)".
-    iApply (wp_wand with "[HR Hrun Hval Hf Hfr]").
+    iIntros (R R' Hag Hlen Hmem) "(HR & Hrun & Hval & Hfrinv & Hf)".
+    iApply (wp_wand with "[HR Hrun Hval Hf]").
     - iApply wp_store; eauto.
       iFrame.
       instantiate (1:= (λ v, ↪[RUN] -∗ R' -∗ lp_noframe Φ f v)).
