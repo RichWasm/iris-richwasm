@@ -256,7 +256,6 @@ Section Fundamental.
     ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
   Proof.
   Admitted.
-  Eval cbn in Wasm_int.int_of_Z i32m .
 
   Lemma root_pointer_heap_shp_inv rp μ ℓ :
     root_pointer_interp rp (PtrHeap μ ℓ) -∗
