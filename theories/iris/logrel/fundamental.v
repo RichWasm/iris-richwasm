@@ -567,7 +567,18 @@ Section Fundamental.
     by iApply wp_label_push_nil.
   Qed.
   
+  Check wp_ctx_bind.
+  Print lenient_wp.
+  Check wp_seq.
+  Check lenient_wp_seq.
+  Print denote_logpred.
+  Print lp_noframe.
+
   Definition lp_bind s E i lh (Φ: logpred) : logpred :=
+    let wp_val := λ e, (∀ f: datatypes.frame, ↪[frame] f -∗
+                       ↪[RUN] -∗
+                       Φ.(lp_fr_inv) f -∗
+                       lenient_wp_ctx s E e Φ i lh)%I in
     let wp := λ e, (∀ f: datatypes.frame, 
                        ↪[frame] f -∗
                        ↪[RUN] -∗
@@ -581,34 +592,40 @@ Section Fundamental.
     {|
       lp_fr := λ f, True%I;
       lp_fr_inv := Φ.(lp_fr_inv);
-      lp_val := λ v, wp (v_to_e_list v);
+      lp_val := λ v, wp_val (v_to_e_list v);
       lp_trap := wp_trap [AI_trap];
       lp_br := λ n vh, wp (vfill vh [AI_basic (BI_br n)]);
       lp_ret := λ sh, wp (sfill sh [AI_basic BI_return]);
       lp_host := λ tf h vcs sh, wp (llfill sh [AI_call_host tf h vcs])
     |}.
-       
+
   Lemma lwp_ctx_bind s E Φ i lh es:
     base_is_empty lh ->
     ⊢ lenient_wp s E es (lp_bind s E i lh Φ) -∗
       lenient_wp_ctx s E es Φ i lh.
   Proof.
     iIntros (Hbase) "Hwp".
-    iApply wp_ctx_bind; [done|].
-    unfold lp_bind, lenient_wp.
+    iApply wp_ctx_bind; first auto.
     iApply (wp_wand with "Hwp").
-    iIntros (w) "(%f & Hf & Hfrinv & Hlp)".
-    destruct w; cbn.
-    - iDestruct "Hlp" as "(Hbind & Hrun & Hvs)".
-      iApply ("Hvs" with "[$] [$] [$]").
-    - iDestruct "Hlp" as "(Hbail & Hlp)".
-      iApply ("Hlp" with "[$] [$] [$]").
-    - iDestruct "Hlp" as "(Hrun & Hlp)".
-      iApply ("Hlp" with "[$] [$] [$]").
-    - iDestruct "Hlp" as "(Hrun & Hlp)".
-      iApply ("Hlp" with "[$] [$] [$]").
-    - iDestruct "Hlp" as "(Hrun & Hlp)".
-      iApply ("Hlp" with "[$] [$] [$]").
+    iIntros (w) "(%f & Hf & Hinv & Hwp)".
+    destruct w.
+    - cbn.
+      unfold lenient_wp_ctx.
+      iDestruct "Hwp" as "(Hfr & Hrun & Hwp)".
+      iApply ("Hwp" with "[Hf] [Hrun] [Hfr] [Hinv]").
+      all:iFrame.
+    - iDestruct "Hwp" as "(Hbail & Hwp)".
+      iApply ("Hwp" with "[Hf] [Hbail] [Hinv]").
+      all:iFrame.
+    - iDestruct "Hwp" as "(Hrun & Hwp)".
+      iApply ("Hwp" with "[Hf] [Hrun] [Hinv]").
+      all:iFrame.
+    - iDestruct "Hwp" as "(Hrun & Hwp)".
+      iApply ("Hwp" with "[Hf] [Hrun] [Hinv]").
+      all:iFrame.
+    - iDestruct "Hwp" as "(Hrun & Hwp)".
+      iApply ("Hwp" with "[Hf] [Hrun] [Hinv]").
+      all:iFrame.
   Qed.
 
   Lemma wp_case_ptr {A B} s E idx tf (c1 : codegen B) (c2: smemory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
@@ -719,7 +736,6 @@ Section Fundamental.
              ++ admit.
           -- iIntros (?) "?". done.
           -- iIntros (w f') "Ht Hf' Hfrinv".
-             cbn.
              destruct w; cbn; try done; try (iDestruct "Ht" as "(? & ?)"; done).
              iDestruct "Ht" as "(-> & Hrun & ->)".
              cbn.
@@ -735,6 +751,21 @@ Section Fundamental.
                 iExists f'; iFrame.
                 cbn.
                 iIntros (f'') "Hf Hrun Hinv".
+                iApply (wp_val_return with "[$] [$]").
+                ** apply v_to_e_is_const_list.
+                ** iIntros "Hf Hrun".
+                   rewrite app_nil_l app_nil_r.
+                   iApply wp_value.
+                   { unfold IntoVal. rewrite of_val_imm. by f_equal. }
+                   iExists _; iFrame.
+                   iFrame.
+                   unfold 
+                   rewrite v_to_e_list_to_val.
+                   eauto.
+                   cbn.
+                eauto.
+                replace (length r0) with 
+                iApply wp_val
                 Search wp_wasm_ctx.
                 iIntros "%X".
                 admit.
