@@ -89,9 +89,7 @@ let rec compile_type delta t =
   | Rec (v, t) -> Type.Rec (kind, compile_type (v :: delta) t)
   | Exists (v, t) ->
       Type.(
-        Ref
-          ( Base GC,
-            Exists (Quantifier.Type kind, compile_type (v :: delta) t) ))
+        Ref (Base GC, Exists (Quantifier.Type kind, compile_type (v :: delta) t)))
   | Code { foralls; arg; ret } ->
       let r = compile_type (foralls @ delta) in
       Type.CodeRef
@@ -102,7 +100,7 @@ let rec compile_type delta t =
   | Var v ->
       delta
       |> List.find_mapi_exn ~f:(fun i name ->
-             Option.some_if (equal_string name v) i)
+          Option.some_if (equal_string name v) i)
       |> fun x -> Type.Var x
 
 let rec compile_value delta gamma locals functions v =
@@ -167,8 +165,7 @@ let rec compile_expr delta gamma locals functions e =
         @ [ Untag; Num (NumInstruction.Int2 (Int.Type.I32, o')); Tag ],
         locals,
         [] )
-  | Project (n, v) ->
-      (cv v @ [ Load (Path.Path [ n ], Follow) ], locals, [])
+  | Project (n, v) -> (cv v @ [ Load (Path.Path [ n ], Follow) ], locals, [])
   | New v -> (cv v @ [ New BaseMemory.GC ], locals, [])
   | Deref v -> (cv v @ [ Load (Path.Path [], Follow) ], locals, [])
   | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path []) ], locals, [])

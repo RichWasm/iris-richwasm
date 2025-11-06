@@ -1,13 +1,6 @@
 open! Base
 open! Stdlib.Format
 
-let or_fail (p : 'b -> string) : ('a, 'b) Result.t -> 'a = function
-  | Ok x -> x
-  | Error err -> failwith (p err)
-
-let or_fail_pp (pp : formatter -> 'b -> unit) : ('a, 'b) Result.t -> 'a =
-  or_fail (asprintf "%a" pp)
-
 module Outputter = struct
   module type Core = sig
     type syntax
@@ -59,11 +52,11 @@ module Outputter = struct
       fun () ->
         M.examples
         |> List.iter ~f:(fun (n, s) ->
-               try
-                 let res = s |> M.syntax_pipeline in
-                 fprintf ff "-----------%s-----------@.%a@." n M.pp res
-               with Failure msg ->
-                 fprintf ff "-----------%s-----------@.FAILURE %s@." n msg)
+            try
+              let res = s |> M.syntax_pipeline in
+              fprintf ff "-----------%s-----------@.%a@." n M.pp res
+            with Failure msg ->
+              fprintf ff "-----------%s-----------@.FAILURE %s@." n msg)
   end
 end
 
@@ -71,7 +64,7 @@ module MultiOutputter = struct
   module type Core = sig
     include Outputter.Core
 
-    val pp_sexp : formatter -> res -> unit
+    val pp_raw : formatter -> res -> unit
   end
 
   module type S = sig
@@ -87,7 +80,7 @@ module MultiOutputter = struct
   module Make (M : Core) = struct
     include Outputter.Make (M)
 
-    let pp_sexp = M.pp_sexp
+    let pp_raw = M.pp_raw
     let suspended = ref (fun () -> ())
 
     let mk_run (pipeline : 'a -> res) =
@@ -96,7 +89,7 @@ module MultiOutputter = struct
         try
           let r = x |> pipeline in
           fprintf ff "@.%a@." pp r;
-          suspended := fun () -> fprintf ff "@.%a@." pp_sexp r
+          suspended := fun () -> fprintf ff "@.%a@." pp_raw r
         with Failure msg ->
           fprintf ff "@.FAILURE %s@." msg;
           suspended := fun () -> fprintf ff "@.Failure ^^^@."

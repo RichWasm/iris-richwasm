@@ -1,0 +1,17 @@
+(library
+ (name richwasm_tests)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect))
+ (libraries
+  core
+  core_unix
+  base
+  iris-richwasm.test-support
+  iris-richwasm.test-examples
+  iris-richwasm.common
+  iris-richwasm.runtime
+  iris-richwasm.lin-lang
+  iris-richwasm.mini-ml))
+
+(include_subdirs qualified)

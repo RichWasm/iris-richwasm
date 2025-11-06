@@ -18,10 +18,9 @@ module Big_int_Z' = struct
   include Big_int_Z
 
   let equal_big_int = eq_big_int
-
   let sexp_of_big_int (z : big_int) = Sexp.Atom (Z.to_string z)
 
-  let big_int_of_sexp : Sexp.t -> big_int  = function
+  let big_int_of_sexp : Sexp.t -> big_int = function
     | Sexp.Atom s -> Z.of_string s
     | _ -> failwith "expected atom"
 end
@@ -99,8 +98,7 @@ module AtomicRep = struct
 end
 
 module Sign = struct
-  type t = [%import: Richwasm_extract.Rw.Core.sign]
-  [@@deriving eq, ord, sexp]
+  type t = [%import: Richwasm_extract.Rw.Core.sign] [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -195,8 +193,7 @@ module Int = struct
 
   module Binop = struct
     type t =
-      [%import:
-        (Richwasm_extract.Rw.Core.int_binop[@with sign := Sign.t])]
+      [%import: (Richwasm_extract.Rw.Core.int_binop[@with sign := Sign.t])]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -218,8 +215,7 @@ module Int = struct
 
   module Relop = struct
     type t =
-      [%import:
-        (Richwasm_extract.Rw.Core.int_relop[@with sign := Sign.t])]
+      [%import: (Richwasm_extract.Rw.Core.int_relop[@with sign := Sign.t])]
     [@@deriving eq, ord, sexp]
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -466,7 +462,8 @@ module Internal = struct
       | SerT (kind, t) ->
           fprintf ff "(SerT %a %a)" Kind.pp_roqc kind pp_roqc_typ t
       | PlugT (kind, rep) ->
-          fprintf ff "(PlugT %a %a)" Kind.pp_roqc kind Representation.pp_roqc rep
+          fprintf ff "(PlugT %a %a)" Kind.pp_roqc kind Representation.pp_roqc
+            rep
       | SpanT (kind, size) ->
           fprintf ff "(SpanT %a %a)" Kind.pp_roqc kind Size.pp_roqc size
       | RecT (kind, t) ->
@@ -519,8 +516,7 @@ end
 module InstructionType = struct
   type t =
     [%import:
-      (Richwasm_extract.Rw.Core.instruction_type
-      [@with coq_type := Type.t])]
+      (Richwasm_extract.Rw.Core.instruction_type[@with coq_type := Type.t])]
   [@@deriving eq, ord, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -559,10 +555,8 @@ module Index = struct
 end
 
 module Consumption = struct
-  type t =
-    [%import:
-      (Richwasm_extract.Rw.Core.consumption)]
-    [@@deriving eq, ord, sexp]
+  type t = [%import: Richwasm_extract.Rw.Core.consumption]
+  [@@deriving eq, ord, sexp]
 
   let pp_print ff : t -> unit = function
     | Copy -> fprintf ff "Copy"
@@ -630,10 +624,12 @@ module Instruction = struct
     | ICast it -> fprintf ff "(ICast %a)" pp_it it
     | INew it -> fprintf ff "(INew %a)" pp_it it
     | ILoad (it, p, c) ->
-        fprintf ff "(ILoad %a %a %a)"
-          pp_it it (pp_roqc_list Z.pp_print) p Consumption.pp_print c
-    | IStore (it, p) -> fprintf ff "(IStore %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
-    | ISwap (it, p) -> fprintf ff "(ISwap %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
+        fprintf ff "(ILoad %a %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
+          Consumption.pp_print c
+    | IStore (it, p) ->
+        fprintf ff "(IStore %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
+    | ISwap (it, p) ->
+        fprintf ff "(ISwap %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
 
   let subst = Richwasm_extract.Rw.Core.subst_instruction
 end

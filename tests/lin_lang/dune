@@ -1,6 +1,0 @@
-(library
- (name lin_lang_pp_tests)
- (inline_tests)
- (preprocess
-  (pps ppx_expect))
- (libraries iris-richwasm.lin-lang))

@@ -1,8 +1,9 @@
 open! Base
 open! Stdlib.Format
+open! Test_support
 open! Richwasm_lin_lang
 
-include Help.MultiOutputter.Make (struct
+include Test_runner.MultiOutputter.Make (struct
   type syntax = Syntax.Module.t
   type text = string
   type res = Syntax.Module.t
@@ -11,7 +12,7 @@ include Help.MultiOutputter.Make (struct
   let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
   let examples = []
   let pp = Syntax.Module.pp
-  let pp_sexp = Syntax.Module.pp_sexp
+  let pp_raw = Syntax.Module.pp_sexp
 end)
 
 let%expect_test "basic functionality" =

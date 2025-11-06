@@ -1,0 +1,5 @@
+(library
+ (name test_examples)
+ (public_name iris-richwasm.test-examples)
+ (modules :standard)
+ (libraries base iris-richwasm.lin-lang iris-richwasm.mini-ml))

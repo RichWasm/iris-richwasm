@@ -1,10 +1,11 @@
 open! Base
 open! Stdlib.Format
+open! Test_support
 open! Richwasm_lin_lang
 open Typecheck
 
-include Help.Outputter.Make (struct
-  open Help
+include Test_runner.Outputter.Make (struct
+  open Test_utils
 
   type syntax = Syntax.Module.t
   type text = string
@@ -18,7 +19,7 @@ include Help.Outputter.Make (struct
     |> or_fail_pp Typecheck.Err.pp
 
   let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
-  let examples = Examples.all
+  let examples = Test_examples.Lin_lang.all
   let pp = IR.Module.pp
 end)
 

@@ -1,5 +1,6 @@
 open! Base
 open! Stdlib.Format
+open! Test_support
 open! Richwasm_lin_lang
 open Syntax
 
@@ -145,7 +146,9 @@ let%expect_test "pretty prints examples" =
   pp_set_margin std_formatter 80;
   pp_set_max_indent std_formatter 80;
 
-  let examples : (string * Module.t) list = Examples.all @ extra_examples in
+  let examples : (string * Module.t) list =
+    Test_examples.Lin_lang.all @ extra_examples
+  in
   List.iter
     ~f:(fun (n, m) -> printf "-----------%s-----------@.%a@." n Module.pp m)
     examples;

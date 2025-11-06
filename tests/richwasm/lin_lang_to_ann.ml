@@ -1,32 +1,28 @@
-open! Base
+open! Core
 open! Stdlib.Format
-open! Richwasm_lin_lang
+open! Test_support
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 
-include Help.MultiOutputter.Make (struct
-  open Help
+include Test_runner.MultiOutputter.Make (struct
+  open Test_utils
+  open Richwasm_lin_lang
 
   type syntax = Syntax.Module.t
   type text = string
   type res = AnnRichWasm.Module.t
 
-  let syntax_pipeline x =
+  let elab x =
     x
-    |> Index.Compile.compile_module
-    |> or_fail_pp Index.Err.pp
-    |> Typecheck.Compile.compile_module
-    |> or_fail_pp Typecheck.Err.pp
-    |> Cc.Compile.compile_module
-    |> or_fail_pp Cc.Compile.Err.pp
-    |> Codegen.Compile.compile_module
-    |> or_fail_pp Codegen.Err.pp
     |> Richwasm_common.Elaborate.elab_module
     |> or_fail_pp Richwasm_common.Elaborate.Err.pp
 
+  let syntax_pipeline x =
+    x |> Main.compile_ast |> or_fail_pp Main.CompileErr.pp |> elab
+
   let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
-  let examples = Examples.all
+  let examples = Test_examples.Lin_lang.all
   let pp = AnnRichWasm.Module.pp_roqc
-  let pp_sexp = AnnRichWasm.Module.pp_sexp
+  let pp_raw = AnnRichWasm.Module.pp_sexp
 end)
 
 let%expect_test "basic functionality" =
@@ -574,22 +570,24 @@ let%expect_test "examples" =
     -----------incr_n-----------
     FAILURE (UnexpectedUnitializedLocal 0)
     -----------fix_factorial[invalid]-----------
-    FAILURE (Ctx (CannotFindRep (Var (0 ())))
-     (Exists
-      (Lollipop
-       (Prod
-        ((Var (0 ()))
-         (Exists
-          (Lollipop
-           (Prod
-            ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+    FAILURE (Codegen
+     (Ctx (CannotFindRep (Var (0 ())))
+      (Exists
+       (Lollipop
+        (Prod
+         ((Var (0 ()))
+          (Exists
+           (Lollipop
+            (Prod
+             ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
     -----------unboxed_list[invlaid]-----------
-    FAILURE (CannotFindRep (Var (0 ("\206\177"))))
+    FAILURE (Codegen (CannotFindRep (Var (0 ("\206\177")))))
     -----------boxed_list-----------
-    FAILURE (Ctx (CannotFindRep (Var (0 ())))
-     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+    FAILURE (Codegen
+     (Ctx (CannotFindRep (Var (0 ())))
+      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
     -----------peano_3-----------
     FAILURE (TODO memory)
     -----------peano-----------

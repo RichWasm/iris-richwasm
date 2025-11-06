@@ -141,8 +141,9 @@
           default = pkgs.mkShell {
             packages =
               [
-                pkgs.git # TODO(ari): figure out how to use system git
+                pkgs.git
                 pkgs.dune_3
+                pkgs.wabt
                 coq
                 ocaml
               ]

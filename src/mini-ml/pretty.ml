@@ -11,7 +11,7 @@ let rec pp_pretype ff pt =
   | Prod ts -> fprintf ff "@[<hov 2>(*@ %a)@]" (pp_print_list pp_type) ts
   | Sum ts -> fprintf ff "@[<hov 2>(+@ %a)@]" (pp_print_list pp_type) ts
   | Rec (v, t) -> fprintf ff "@[<hov 2>(rec@ %s@ %a)]" v pp_type t
-  | Fun {foralls; arg; ret} ->
+  | Fun { foralls; arg; ret } ->
       fprintf ff "@[<hov 2>(->@ [%a]@ %a@ %a)]"
         (pp_print_list pp_print_string)
         foralls pp_type arg pp_type ret
@@ -20,13 +20,12 @@ and pp_type ff (t : Source.Type.t) = pp_pretype ff t
 
 let pp_op ff op =
   op
-  |> (function
-       | `Add -> "+"
-       | `Sub -> "-"
-       | `Mul -> "*"
-       | `Div -> "/" )
+  |> ( function
+  | `Add -> "+"
+  | `Sub -> "-"
+  | `Mul -> "*"
+  | `Div -> "/" )
   |> pp_print_string ff
-;;
 
 let rec pp_value ff v =
   let open Source.Value in
@@ -36,12 +35,12 @@ let rec pp_value ff v =
   | Tuple vs -> fprintf ff "@[<hov 2>(tuple@ %a)@]" (pp_print_list pp_value) vs
   | Inj (case, v, t) ->
       fprintf ff "@[<hov 2>(inj@ %i@ %a@ %a)@]" case pp_value v pp_type t
-  | Fun {foralls; arg; ret_type; body} ->
+  | Fun { foralls; arg; ret_type; body } ->
       fprintf ff "@[<hov 2>(λ@ [%a]@ @[<hov 2>(:@ (%a)@ %a)@]@,@[<v 2>%a@])]"
         (pp_print_list pp_print_string)
         foralls
         (pp_print_list (fun ff (v, t) -> fprintf ff "[:@ %s@ %a]" v pp_type t))
-        [arg] pp_type ret_type pp_expr body
+        [ arg ] pp_type ret_type pp_expr body
 
 and pp_expr ff e =
   let open Source.Expr in
@@ -60,7 +59,7 @@ and pp_expr ff e =
       fprintf ff "@[<hov 2>(cases@ %a%a)@]" pp_value v
         (pp_print_list (fun ff ((v, t), e) ->
              fprintf ff "@,@[<v 2>[@[<hov 2>(:@ %s@ %a)@]@ %a]@]" v pp_type t
-               pp_expr e ) )
+               pp_expr e))
         branches
   | New v -> fprintf ff "@[<hov 2>(new@ %a)@]" pp_value v
   | Deref v -> fprintf ff "@[<hov 2>(!@ %a)@]" pp_value v
@@ -70,11 +69,9 @@ and pp_expr ff e =
         name pp_type ty pp_expr v pp_expr body
   | Fold (t, v) -> fprintf ff "@[<hov 2>(fold@ [%a]@ %a)@]" pp_type t pp_value v
   | Unfold v -> fprintf ff "@[<hov 2>(unfold@ %a)@]" pp_value v
-;;
 
 let pp_import ff (Source.Module.Import (v, t)) =
   fprintf ff "@[<hov 2>(import@ %s@ %a)@]" v pp_type t
-;;
 
 let pp_item ff item =
   let open Source.Module in
@@ -84,7 +81,6 @@ let pp_item ff item =
     | Export ((v, t), e) -> ("export", v, t, e)
   in
   fprintf ff "@[<hov 2>(%s@ %s@ [%a]@,@[<v 2>%a@])@]" kw v pp_type t pp_expr e
-;;
 
 let pp_module ff (Source.Module.Module (imps, items, maybe_main)) =
   let body ff maybe_main =
@@ -94,4 +90,3 @@ let pp_module ff (Source.Module.Module (imps, items, maybe_main)) =
   in
   fprintf ff "@[<hov 2>(%a@,%a@,%a)@]" (pp_print_list pp_import) imps
     (pp_print_list pp_item) items body maybe_main
-;;

@@ -1,0 +1,5 @@
+(library
+ (name test_support)
+ (public_name iris-richwasm.test-support)
+ (modules :standard)
+ (libraries base))

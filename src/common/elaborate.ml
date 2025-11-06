@@ -259,8 +259,7 @@ let meet_valtypes
 let meet_memtypes
     (combine_sizes : B.Size.t list -> B.Size.t)
     (kinds : B.Kind.t list) : B.Kind.t t =
-  let rec go sizes drop :
-      B.Kind.t list -> B.Kind.t t =
+  let rec go sizes drop : B.Kind.t list -> B.Kind.t t =
     let open B in
     function
     | [] -> Kind.MEMTYPE (combine_sizes (List.rev sizes), drop) |> ret
@@ -401,8 +400,7 @@ let elab_index (env : A.Kind.t list) : A.Index.t -> B.Index.t t =
   | Size size -> ret @@ SizeI (elab_size size)
   | Type typ -> elab_type env typ >>| fun t -> TypeI t
 
-let elab_path (Path ns : A.Path.t) : Z.t list =
-  List.map ~f:Z.of_int ns
+let elab_path (Path ns : A.Path.t) : Z.t list = List.map ~f:Z.of_int ns
 
 let instr_t_of env t_in t_out : B.InstructionType.t InstrM.t =
   let open InstrM in
@@ -421,8 +419,8 @@ let mono_in_out (kenv : A.Kind.t list) ctx t_in t_out :
   let* () =
     List.zip_exn t_in t_in'
     |> iteriM ~f:(fun i (a, b) ->
-           fail_ifn (A.Type.equal a b)
-             (ExpectedEqStack (sprintf "%s%i" ctx i, a, b)))
+        fail_ifn (A.Type.equal a b)
+          (ExpectedEqStack (sprintf "%s%i" ctx i, a, b)))
   in
   let* () = t_out |> iterM ~f:push in
   instr_t_of kenv t_in t_out

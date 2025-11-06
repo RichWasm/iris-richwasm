@@ -210,8 +210,7 @@ module Kind = struct
   let ren xi_representation xi_size = function
     | VALTYPE (s0, s1, s2) ->
         VALTYPE (Representation.ren xi_representation s0, s1, s2)
-    | MEMTYPE (s0, s1) ->
-        MEMTYPE (Size.ren xi_representation xi_size s0, s1)
+    | MEMTYPE (s0, s1) -> MEMTYPE (Size.ren xi_representation xi_size s0, s1)
 
   let subst sigma_representation sigma_size = function
     | VALTYPE (s0, s1, s2) ->

@@ -18,3 +18,9 @@ Then you can build the project with Dune:
 ```bash
 dune build
 ```
+
+## Additional Dependencies
+
+The cli and certian tests require `wabt` (WebAssembly Binary Toolkit) to
+convert between the produced binary and WebAssembly text format.
+
