@@ -111,8 +111,8 @@ Fixpoint binary_of_be (be : basic_instruction) : list byte :=
   | BI_store i T_i64 (Some Tp_i8) a o => x3c :: binary_of_idx i ++ binary_of_memarg a o
   | BI_store i T_i64 (Some Tp_i16) a o => x3d :: binary_of_idx i ++ binary_of_memarg a o
   | BI_store i T_i64 (Some Tp_i32) a o => x3e :: binary_of_idx i ++ binary_of_memarg a o
-  | BI_current_memory i => x3f :: x00 :: binary_of_idx i
-  | BI_grow_memory i => x40 :: x00 ::binary_of_idx i
+  | BI_current_memory i => x3f :: binary_of_idx i
+  | BI_grow_memory i => x40 :: binary_of_idx i
   | BI_const (VAL_int32 x) => x41 :: binary_of_i32 x
   | BI_const (VAL_int64 x) => x42 :: binary_of_i64 x
   | BI_const (VAL_float32 x) => x43 :: binary_of_f32 x
@@ -418,7 +418,7 @@ Definition binary_of_module_start (s : module_start) : list byte :=
   binary_of_funcidx s.(modstart_func).
 
 Definition binary_of_startsec (s : module_start) : list byte :=
-  x08 :: with_length (binary_of_vec binary_of_module_start (cons s nil)).
+  x08 :: with_length (binary_of_module_start s).
 
 Definition binary_of_module_elem (e : module_element) : list byte :=
   binary_of_tableidx e.(modelem_table) ++
