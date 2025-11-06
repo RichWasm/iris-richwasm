@@ -296,10 +296,9 @@ Section Relations.
             ↪[frame] fr -∗
             lenient_wp NotStuck top
               [AI_local (length tfs2) (Build_frame (vs1 ++ n_zeros tlocs) inst) (to_e_list es)]
-              {| lp_fr := fun _ => True;
-                 lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+              {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
                  lp_val :=
-                   fun vs2 =>
+                   fun fr vs2 =>
                      ∃ rvs2 θ',
                        rep_values_interp rvs2 vs2 ∗
                          values_interp0 vrel se τs2 rvs2 ∗
@@ -558,10 +557,10 @@ Section Relations.
              lenient_wp_ctx
                NotStuck top
                (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
-               {| lp_fr := frame_interp se ιss_L L WL inst;
-                  lp_fr_inv := const True;
+               {| lp_fr_inv := const True;
                   lp_val :=
-                    fun vs' =>
+                    fun fr vs' =>
+                      frame_interp se ιss_L L WL inst fr ∗
                       ∃ τs' rvs' θ',
                         rep_values_interp rvs' vs' ∗ values_interp se τs' rvs' ∗ rt_token rti sr θ';
                   lp_trap := True;
@@ -605,10 +604,10 @@ Section Relations.
     ER :=
     λne es,
       lenient_wp NotStuck top es
-        {| lp_fr := frame_interp se ιss_L L WL inst;
-           lp_fr_inv := const True;
+        {| lp_fr_inv := const True;
            lp_val :=
-             fun vs =>
+             fun fr vs =>
+               frame_interp se ιss_L L WL inst fr ∗ 
                ∃ rvs θ, values_interp se τs rvs ∗ rep_values_interp rvs vs ∗ rt_token rti sr θ;
            lp_trap := True;
            lp_br := br_interp se τr ιss_L L WL inst lh τc;

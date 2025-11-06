@@ -116,20 +116,16 @@ Section Fundamental.
       have_instruction_type_sem rti sr mr M F L WT WL [AI_basic BI_nop] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (se inst lh Henv fr rvs vs θ) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
+    iIntros (se inst lh fr rvs vs θ Henv) "Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
     unfold expr_interp.
     iApply lenient_wp_val_app'.
-    iApply (lenient_wp_nop with "[$] [$] [Hfr] []").
-    - done.
-    - done.
-    - cbn.
-      admit.
-      (*
-      iApply "Hcast".
+    iApply (lenient_wp_nop with "[$] [$] [Hfr Hrvs Hvs Hrt Hcast] []").
+    - iFrame.
       rewrite seq.cats0.
-      iApply "Hvs".
-      *)
-  Admitted.
+      iSpecialize ("Hcast" with "Hvs").
+      iFrame.
+    - done.
+  Qed.
 
   Lemma values_interp_cons_inv se τ τs vs :
     ⊢ values_interp rti sr se (τ :: τs) vs -∗
@@ -187,7 +183,6 @@ Section Fundamental.
     inversion Hψ; subst l l0.
     iIntros (? ? ? ? ? ? ? ?) "Hinst Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
     unfold expr_interp.
-
     iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs".
     iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)".
     iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss".
@@ -195,16 +190,13 @@ Section Fundamental.
     cbn in Hlens_rvss.
     destruct rvss, rvs; cbn in Hconcat, Hlens_rvss; try congruence.
     cbn in Hlens_rvs_vs. destruct vs; cbn in Hlens_rvs_vs; try congruence.
-
-    iApply (lenient_wp_nop with "[$] [$] [Hframe] []").
-    - done.
-    - done.
-    - cbn. iModIntro.
+    iApply (lenient_wp_nop with "[$] [$] [Hframe Hrt] []").
+    - iModIntro.
+      iFrame.
       iExists []; cbn.
-      iExists θ.
-      iSplitR "Hrt".
-      + iExists []. auto.
-      + iFrame.
+      iSplitR; [|done].
+      iExists []; auto.
+    - done.
   Qed.
 
   Lemma compat_unreachable M F L L' wt wt' wtf wl wl' wlf ψ es' :
@@ -288,13 +280,12 @@ Section Fundamental.
                     memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
                     memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
                     memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-        {| lp_fr := λ f', ⌜f' = f⌝;
-            lp_fr_inv := λ _, True;
-            lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
-            lp_trap := False;
-            lp_br := λ _ _, False;
-            lp_ret := λ _, False;
-            lp_host := λ _ _ _ _, False; |}%I.
+        {| lp_fr_inv := λ _, True;
+           lp_val := λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+           lp_trap := False;
+           lp_br := λ _ _, False;
+           lp_ret := λ _, False;
+           lp_host := λ _ _ _ _, False; |}%I.
   Proof.
     iIntros (Hidx Hmod Hbdd) "Hf Hrun".
     lwp_chomp 3.
@@ -303,9 +294,8 @@ Section Fundamental.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
-                               lp_fr_inv := λ _, True;
-                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝;
+        by instantiate (1 := {| lp_fr_inv := λ _, True;
+                               lp_val := λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝;
                                lp_trap := False;
                                lp_br := λ _ _, False;
                                lp_ret := λ _, False;
@@ -314,22 +304,22 @@ Section Fundamental.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
           try solve [done | iDestruct "Hpre" as "[? ?]"; done].
-        iDestruct "Hpre" as "(-> & Hrun & ->)".
+        iDestruct "Hpre" as "(Hrun & -> & ->)".
         iIntros "Hf _".
         iApply lwp_binop.
         * cbn.
           reflexivity.
         * iFrame.
           (*Eval vm_compute in (let k := 8%Z in Z.land (k - 1) 2%Z).*)
-          instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
-                               lp_fr_inv := λ _, True;
-                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 2)]⌝;
+          instantiate (1 := {| lp_fr_inv := λ _, True;
+                              lp_val := λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 2)]⌝;
                                lp_trap := False;
                                lp_br := λ _ _, False;
                                lp_ret := λ _, False;
                                lp_host := λ _ _ _ _, False; |}%I).
           cbn.
           iSplit; [|done].
+          iSplit; [done|].
           iPureIntro.
           do 2 f_equal.
           unfold Wasm_int.Int32.iand.
@@ -366,7 +356,7 @@ Section Fundamental.
     - iIntros (w f') "Hnotrap Hf' _".
       destruct w; iEval (cbn) in "Hnotrap"; try done;
         try (iDestruct "Hnotrap" as "[? ?]"; done).
-      iDestruct "Hnotrap" as "(-> & Hrun & ->)".
+      iDestruct "Hnotrap" as "(Hrun & -> & ->)".
       iApply lwp_testop_i32.
       + reflexivity.
       + cbn.
@@ -385,9 +375,9 @@ Section Fundamental.
                     memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
                     memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
                     memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-        {| lp_fr := λ f', ⌜f' = f⌝;
+        {| 
             lp_fr_inv := λ _, True;
-            lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
+            lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
             lp_trap := False;
             lp_br := λ _ _, False;
             lp_ret := λ _, False;
@@ -400,9 +390,9 @@ Section Fundamental.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
+        by instantiate (1 := {| 
                                lp_fr_inv := λ _, True;
-                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝;
+                               lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝;
                                lp_trap := False;
                                lp_br := λ _ _, False;
                                lp_ret := λ _, False;
@@ -411,22 +401,22 @@ Section Fundamental.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
           try solve [done | iDestruct "Hpre" as "[? ?]"; done].
-        iDestruct "Hpre" as "(-> & Hrun & ->)".
+        iDestruct "Hpre" as "(Hrun & -> & ->)".
         iIntros "Hf _".
         iApply lwp_binop.
         * cbn.
           reflexivity.
         * iFrame.
           (*Eval vm_compute in (let k := 8%Z in Z.land (k - 1) 2%Z).*)
-          instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
-                               lp_fr_inv := λ _, True;
-                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+          instantiate (1 := {| lp_fr_inv := λ _, True;
+                               lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
                                lp_trap := False;
                                lp_br := λ _ _, False;
                                lp_ret := λ _, False;
                                lp_host := λ _ _ _ _, False; |}%I).
           cbn.
           iSplit; [|done].
+          iSplit; [done|].
           iPureIntro.
           do 2 f_equal.
           unfold Wasm_int.Int32.iand.
@@ -464,7 +454,7 @@ Section Fundamental.
     - iIntros (w f') "Hnotrap Hf' _".
       destruct w; iEval (cbn) in "Hnotrap"; try done;
         try (iDestruct "Hnotrap" as "[? ?]"; done).
-      iDestruct "Hnotrap" as "(-> & Hrun & ->)".
+      iDestruct "Hnotrap" as "(Hrun & -> & ->)".
       iApply lwp_testop_i32.
       + reflexivity.
       + cbn.
@@ -483,13 +473,12 @@ Section Fundamental.
                     memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
                     memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
                     memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-        {| lp_fr := λ f', ⌜f' = f⌝;
-            lp_fr_inv := λ _, True;
-            lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
-            lp_trap := False;
-            lp_br := λ _ _, False;
-            lp_ret := λ _, False;
-            lp_host := λ _ _ _ _, False; |}%I.
+        {| lp_fr_inv := λ _, True;
+           lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
+           lp_trap := False;
+           lp_br := λ _ _, False;
+           lp_ret := λ _, False;
+           lp_host := λ _ _ _ _, False; |}%I.
   Proof.
     iIntros (Hidx Hmod Hbdd) "Hf Hrun".
     lwp_chomp 3.
@@ -498,9 +487,8 @@ Section Fundamental.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
-                               lp_fr_inv := λ _, True;
-                               lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
+        by instantiate (1 := {| lp_fr_inv := λ _, True;
+                               lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
                                lp_trap := False;
                                lp_br := λ _ _, False;
                                lp_ret := λ _, False;
@@ -509,21 +497,21 @@ Section Fundamental.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
           try solve [done | iDestruct "Hpre" as "[? ?]"; done].
-        iDestruct "Hpre" as "(-> & Hrun & ->)".
+        iDestruct "Hpre" as "(Hrun & -> & ->)".
         iIntros "Hf _".
         iApply lwp_binop.
         * cbn.
           reflexivity.
         * iFrame.
-          instantiate (1 := {| lp_fr := λ f', ⌜f' = f⌝;
-                                 lp_fr_inv := λ _, True;
-                                 lp_val := λ vs, ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
-                                 lp_trap := False;
-                                 lp_br := λ _ _, False;
-                                 lp_ret := λ _, False;
-                                 lp_host := λ _ _ _ _, False; |}%I).
+          instantiate (1 := {| lp_fr_inv := λ _, True;
+                              lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+                              lp_trap := False;
+                              lp_br := λ _ _, False;
+                              lp_ret := λ _, False;
+                              lp_host := λ _ _ _ _, False; |}%I).
           cbn.
           iSplit; [|done].
+          iSplit; [done|].
           iPureIntro.
           do 2 f_equal.
           unfold Wasm_int.Int32.iand.
@@ -536,7 +524,7 @@ Section Fundamental.
     - iIntros (w f') "Hnotrap Hf' _".
       destruct w; iEval (cbn) in "Hnotrap"; try done;
         try (iDestruct "Hnotrap" as "[? ?]"; done).
-      iDestruct "Hnotrap" as "(-> & Hrun & ->)".
+      iDestruct "Hnotrap" as "(Hrun & -> & ->)".
       iApply lwp_testop_i32.
       + reflexivity.
       + cbn.
@@ -567,15 +555,9 @@ Section Fundamental.
     by iApply wp_label_push_nil.
   Qed.
   
-  Check wp_ctx_bind.
-  Print lenient_wp.
-  Check wp_seq.
-  Check lenient_wp_seq.
-  Print denote_logpred.
-  Print lp_noframe.
-
   Definition lp_bind s E i lh (Φ: logpred) : logpred :=
-    let wp_val := λ e, (∀ f: datatypes.frame, ↪[frame] f -∗
+    let wp_val f := (λ e, 
+                       ↪[frame] f -∗
                        ↪[RUN] -∗
                        Φ.(lp_fr_inv) f -∗
                        lenient_wp_ctx s E e Φ i lh)%I in
@@ -590,9 +572,8 @@ Section Fundamental.
                        Φ.(lp_fr_inv) f -∗
                        lenient_wp_ctx s E e Φ i lh)%I in
     {|
-      lp_fr := λ f, True%I;
       lp_fr_inv := Φ.(lp_fr_inv);
-      lp_val := λ v, wp_val (v_to_e_list v);
+      lp_val := λ f v, wp_val f (v_to_e_list v);
       lp_trap := wp_trap [AI_trap];
       lp_br := λ n vh, wp (vfill vh [AI_basic (BI_br n)]);
       lp_ret := λ sh, wp (sfill sh [AI_basic BI_return]);
@@ -611,8 +592,8 @@ Section Fundamental.
     destruct w.
     - cbn.
       unfold lenient_wp_ctx.
-      iDestruct "Hwp" as "(Hfr & Hrun & Hwp)".
-      iApply ("Hwp" with "[Hf] [Hrun] [Hfr] [Hinv]").
+      iDestruct "Hwp" as "(Hrun & Hwp)".
+      iApply ("Hwp" with "[Hf] [Hrun] [Hinv]").
       all:iFrame.
     - iDestruct "Hwp" as "(Hbail & Hwp)".
       iApply ("Hwp" with "[Hf] [Hbail] [Hinv]").
@@ -692,7 +673,7 @@ Section Fundamental.
           { cbn. iIntros (?) "?". done. }
           iIntros (w f') "Hnotrap Hf _".
           destruct w; try solve [done | iDestruct "Hnotrap" as "[? ?]"; done].
-          iDestruct "Hnotrap" as "(-> & Hrun & ->)".
+          iDestruct "Hnotrap" as "(Hrun & -> & ->)".
           iApply (Hwp1 with "[$] [$]").
           iLeft.
           iSplit; done.
@@ -737,7 +718,7 @@ Section Fundamental.
           -- iIntros (?) "?". done.
           -- iIntros (w f') "Ht Hf' Hfrinv".
              destruct w; cbn; try done; try (iDestruct "Ht" as "(? & ?)"; done).
-             iDestruct "Ht" as "(-> & Hrun & ->)".
+             iDestruct "Ht" as "(Hrun & -> & ->)".
              cbn.
              iApply (Hwp2 with "[$] [$]").
              iLeft.
@@ -747,10 +728,10 @@ Section Fundamental.
              iApply (wp_wand with "Hbranches").
              iIntros (w) "HP".
              destruct w; simpl.
-             ++ iDestruct "HP" as "(%f' & Hf & Hfrinv' & Hfr & Hrun & Hval)".
+             ++ iDestruct "HP" as "(%f' & Hf & Hfrinv' & Hrun & Hval)".
                 iExists f'; iFrame.
                 cbn.
-                iIntros (f'') "Hf Hrun Hinv".
+                iIntros "Hf Hrun Hinv".
                 iApply (wp_val_return with "[$] [$]").
                 ** apply v_to_e_is_const_list.
                 ** iIntros "Hf Hrun".
@@ -758,19 +739,7 @@ Section Fundamental.
                    iApply wp_value.
                    { unfold IntoVal. rewrite of_val_imm. by f_equal. }
                    iExists _; iFrame.
-                   iFrame.
-                   unfold 
-                   rewrite v_to_e_list_to_val.
-                   eauto.
-                   cbn.
-                eauto.
-                replace (length r0) with 
-                iApply wp_val
-                Search wp_wasm_ctx.
-                iIntros "%X".
-                admit.
              ++ unfold denote_logpred.
-                cbn.
                 admit.
              ++ admit.
              ++ admit.
@@ -785,8 +754,6 @@ Section Fundamental.
           by admit.
         admit.
   Admitted.
-    
-
 
   Lemma wp_map_cg_ptr_duproot ι idx wt wl res wt' wl' es:
     run_codegen (memory.map_gc_ptr ι idx (memory.duproot mr)) wt wl = inr (res, wt', wl', es) ->
@@ -885,10 +852,11 @@ Section Fundamental.
     rewrite to_e_list_app.
     rewrite (app_assoc (v_to_e_list _)).
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
-    set (Φ := {| lp_fr := λ f, ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-                               ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝;
-               lp_fr_inv := λ _, True;
-               lp_val := λ vs, ⌜vs = []⌝;
+    set (Φ := {| lp_fr_inv := λ _, True;
+               lp_val := λ f vs', 
+                  ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                  ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ ∗
+                  ⌜vs' = []⌝;
                lp_trap := False;
                lp_br := λ _ _, False;
                lp_ret := λ _, False;
@@ -897,8 +865,9 @@ Section Fundamental.
     {
       eapply (lwp_save_stack_w _ Φ) in Hsave; eauto.
       + destruct Hsave as (-> & -> & -> & Hsave).
-        iApply (Hsave with "[$] [$] [//]").
-        by iIntros (f' [Hfsame Hfchanged]).
+        iApply (Hsave with "[$] [$]").
+        iIntros (f' [Hfsame Hfchanged]).
+        done.
       + admit. (* easy pure conseqeunce of value_interp and
       rep_values_interp, should be proved above the first wp_seq
       rule *)
@@ -907,16 +876,18 @@ Section Fundamental.
     iIntros (w fr_saved) "Hnotrap Hfr _".
     rewrite to_e_list_app.
     rewrite (app_assoc (of_val _)).
-    set (Φ2 := {| lp_fr := Φ.(lp_fr);
-               lp_fr_inv := λ _, True;
-               lp_val := λ vs', ⌜vs' = vs⌝;
-               lp_trap := False;
-               lp_br := λ _ _, False;
-               lp_ret := λ _, False;
-                lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+    set (Φ2 := {| lp_fr_inv := λ _, True;
+                 lp_val := λ f vs',
+                   ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                   ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ ∗
+                   ⌜vs' = vs⌝;
+                 lp_trap := False;
+                 lp_br := λ _ _, False;
+                 lp_ret := λ _, False;
+                 lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
     destruct w; iEval (cbn) in "Hnotrap"; try done;
       try (iDestruct "Hnotrap" as "[? ?]"; done).
-    iDestruct "Hnotrap" as "((%Hsame & %Hsaved) & Hrun & ->)".
+    iDestruct "Hnotrap" as "(Hrun & %Hsame & %Hsaved & ->)".
     eapply lwp_restore_stack_w in Hrestore1; eauto using Forall2_length.
     destruct Hrestore1 as (? & -> & -> & Hrestore1).
     iApply (lenient_wp_seq with "[Hfr Hrun]").
@@ -929,7 +900,7 @@ Section Fundamental.
     iIntros (w fr_saved') "HΦ2 Hf _".
     destruct w; iEval (cbn) in "HΦ2"; try done;
       try (iDestruct "HΦ2" as "[? ?]"; done).
-    iDestruct "HΦ2" as "(-> & Hrun & ->)".
+    iDestruct "HΦ2" as "(Hrun & -> & ->)".
     admit.
   Admitted.
 
@@ -1534,7 +1505,7 @@ Section Fundamental.
     destruct v.
     - (* immV case *)
       iSimpl in "Hv".
-      iDestruct "Hv" as "(Hframe & Hrun & Hframeinv)".
+      iDestruct "Hv" as "(Hrun & Hframe & Hframeinv)".
       iApply (wp_wand with "[Hf Hrun]").
       { iApply (wp_label_value with "Hf Hrun"); first by apply to_of_val.
         by instantiate (1 := λ v, ⌜ v = immV _ ⌝%I). }
@@ -3069,8 +3040,7 @@ Section Fundamental.
     - iIntros (w f) "Hvs Hfr _".
       destruct w eqn:Hw.
       + (* Value case *)
-        iDestruct "Hvs" as "(Hframe & Hrun & Hval)". rename l into vs0.
-        iEval (cbn [lp_fr]) in "Hframe"; iEval (cbn [lp_val]) in "Hval".
+        iDestruct "Hvs" as "(Hrun & Hframe & Hval)". rename l into vs0.
         iDestruct "Hval" as "[%rvs0 [%θ0 (Hval_interp & Hrep_interp & Hrt)]]".
 
         (* This makes the rewrites a little nicer *)
@@ -3275,9 +3245,10 @@ Section Fundamental.
     iApply (lwp_wand with "Hes").
     set (Φ :=
            {|
-             lp_fr := frame_interp rti sr se ιss_L L WL inst;
              lp_fr_inv := const True%I;
-             lp_val := λ vs0, (∃ rvs θ, values_interp rti sr se τs rvs ∗ 
+             lp_val := λ f vs0, 
+               (frame_interp rti sr se ιss_L L WL inst f ∗
+                ∃ rvs θ, values_interp rti sr se τs rvs ∗ 
                                         rep_values_interp rvs vs0 ∗
                                         rt_token rti sr θ)%I;
              lp_trap := True%I;

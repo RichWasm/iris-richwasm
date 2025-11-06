@@ -21,10 +21,9 @@ Section Runtime.
       ↪[RUN] -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_mmalloc)]
-        {| lp_fr := fun _ => True;
-           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+        {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
-            fun vs =>
+            fun fr vs =>
               ↪[RUN] ∗
                 N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl ∗
                 ∃ θ' ℓ a ws,
@@ -48,10 +47,9 @@ Section Runtime.
       ↪[RUN] -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 sz)); AI_invoke sr.(sr_func_gcalloc)]
-        {| lp_fr := fun _ => True;
-           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+        {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
-             fun vs =>
+             fun fr vs =>
                ↪[RUN] ∗
                  N.of_nat sr.(sr_func_gcalloc) ↦[wf] cl ∗
                  ∃ θ' ℓ ta ws,
@@ -76,10 +74,9 @@ Section Runtime.
       ↪[RUN] -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 ta)); AI_invoke sr.(sr_func_free)]
-        {| lp_fr := fun _ => True;
-           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+        {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
-             fun vs =>
+             fun fr vs =>
                ⌜vs = []⌝ ∗ ↪[RUN] ∗ N.of_nat sr.(sr_func_free) ↦[wf] cl ∗ ∃ θ', rt_token rti sr θ';
            lp_trap := True;
            lp_br := fun _ _ => False;
@@ -101,10 +98,9 @@ Section Runtime.
          AI_basic (BI_const (VAL_int32 i));
          AI_basic (BI_const (VAL_int32 f));
          AI_invoke sr.(sr_func_setflag)]
-        {| lp_fr := fun _ => True;
-           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+        {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
-             fun vs =>
+             fun fr vs =>
                ⌜vs = []⌝ ∗
                  ↪[RUN] ∗
                  N.of_nat sr.(sr_func_setflag) ↦[wf] cl ∗
@@ -125,10 +121,9 @@ Section Runtime.
       ↪[RUN] -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 tah)); AI_invoke sr.(sr_func_registerroot)]
-        {| lp_fr := fun _ => True;
-           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+        {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
-             fun vs =>
+             fun fr vs =>
                ↪[RUN] ∗
                  N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
                  ∃ θ' ar,
@@ -152,10 +147,9 @@ Section Runtime.
       ↪[RUN] -∗
       lenient_wp NotStuck top
         [AI_basic (BI_const (VAL_int32 tar)); AI_invoke sr.(sr_func_unregisterroot)]
-        {| lp_fr := fun _ => True;
-           lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
+        {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
            lp_val :=
-             fun vs =>
+             fun fr vs =>
                ⌜vs = []⌝ ∗
                  ↪[RUN] ∗
                  N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl ∗
