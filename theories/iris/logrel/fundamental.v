@@ -882,10 +882,10 @@ Section Fundamental.
   Ltac solve_post_lwp_num :=
     iFrame; iModIntro; cbn;
     (match goal with
-      | |- context [ (VAL_int32 ?x) ] => iExists [I32V x]
-      | |- context [ (VAL_int64 ?x) ] => iExists [I64V x]
-      | |- context [ (VAL_float32 ?x) ] => iExists [F32V x]
-      | |- context [ (VAL_float64 ?x) ] => iExists [F64V x]
+      | |- context [ (VAL_int32 ?x) ] => iExists [I32A x]
+      | |- context [ (VAL_int64 ?x) ] => iExists [I64A x]
+      | |- context [ (VAL_float32 ?x) ] => iExists [F32A x]
+      | |- context [ (VAL_float64 ?x) ] => iExists [F64A x]
     end);
     iEval (cbn); iSplitR; try iSplitR; auto;
     (match goal with
@@ -897,15 +897,15 @@ Section Fundamental.
     iPureIntro;
     eexists; split; auto;
     apply Forall2_cons_iff; split; auto;
-    by unfold primitive_rep_interp.
+    by unfold has_arep.
 
   Lemma one_rep_in_rvs_vs rvs vs rtii srr se:
-    (forall i, rep_values_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (PrimR (int_type_rep i)) ImCopy ImDrop) (IntT i)] rvs -∗
+    (forall i, atoms_interp rvs vs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) ImCopy ImDrop) (IntT i)] rvs -∗
     ⌜(exists n, vs = [VAL_int32 n] /\ i = I32T) \/ (exists n, vs = [VAL_int64 n] /\ i = I64T)⌝)
     /\
-    (forall i, rep_values_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (PrimR (float_type_rep i)) ImCopy ImDrop) (FloatT i)] rvs -∗
+    (forall i, atoms_interp rvs vs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) ImCopy ImDrop) (FloatT i)] rvs -∗
     ⌜(exists n, vs = [VAL_float32 n] /\ i = F32T) \/ (exists n, vs = [VAL_float64 n] /\ i = F64T)⌝)
   .
   Proof.
@@ -933,7 +933,7 @@ Section Fundamental.
     all: iEval (cbn) in "Hkindinterp".
     all: iPoseProof "Hkindinterp" as "%Hkindinterp".
     (* Have to dig in and prove rvs is just an integer *)
-    all: unfold primitive_reps_interp in Hkindinterp.
+    all: unfold has_areps in Hkindinterp.
     all: destruct Hkindinterp as (rvs0 & Hrvs0 & Hprimprep).
     all: inversion Hrvs0.
     all: rewrite <- H1 in Hprimprep. (* subst does too much here*)
@@ -945,7 +945,7 @@ Section Fundamental.
     all: apply Forall2_cons_iff in Hprimprep.
     all: destruct Hprimprep as [Hrv _].
 
-    all: destruct i eqn:Hi; cbn [int_type_rep] in *; cbn [float_type_rep] in *.
+    all: destruct i eqn:Hi; cbn [int_type_arep] in *; cbn [float_type_arep] in *.
     all: cbn in Hrv.
     all: destruct rv; cbn in Hrv; try (inversion Hrv); subst.
     (* Now genuinely new bit: show vs has an integer *)
@@ -962,15 +962,15 @@ Section Fundamental.
   Qed.
 
   Lemma two_rep_in_rvs_vs rvs vs rtii srr se :
-    (forall i, rep_values_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (PrimR (int_type_rep i)) ImCopy ImDrop) (IntT i);
-                               NumT (VALTYPE (PrimR (int_type_rep i)) ImCopy ImDrop) (IntT i)] rvs -∗
+    (forall i, atoms_interp rvs vs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) ImCopy ImDrop) (IntT i);
+                               NumT (VALTYPE (AtomR (int_type_arep i)) ImCopy ImDrop) (IntT i)] rvs -∗
     ⌜(exists n1 n2, vs = [VAL_int32 n1; VAL_int32 n2] /\ i = I32T) \/
       (exists n1 n2, vs = [VAL_int64 n1; VAL_int64 n2] /\ i = I64T)⌝)
     /\
-    (forall i, rep_values_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (PrimR (float_type_rep i)) ImCopy ImDrop) (FloatT i);
-                               NumT (VALTYPE (PrimR (float_type_rep i)) ImCopy ImDrop) (FloatT i)] rvs -∗
+    (forall i, atoms_interp rvs vs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) ImCopy ImDrop) (FloatT i);
+                               NumT (VALTYPE (AtomR (float_type_arep i)) ImCopy ImDrop) (FloatT i)] rvs -∗
     ⌜(exists n1 n2, vs = [VAL_float32 n1; VAL_float32 n2] /\ i = F32T) \/
       (exists n1 n2, vs = [VAL_float64 n1; VAL_float64 n2] /\ i = F64T)⌝)
   .
@@ -1010,8 +1010,8 @@ Section Fundamental.
     all: iPoseProof "Hkindinterp1" as "%Hkindinterp1".
     all: iPoseProof "Hkindinterp2" as "%Hkindinterp2".
     (* Have to dig in and prove rvs1 is just an integer *)
-    all: unfold primitive_reps_interp in Hkindinterp1.
-    all: unfold primitive_reps_interp in Hkindinterp2.
+    all: unfold has_areps in Hkindinterp1.
+    all: unfold has_areps in Hkindinterp2.
     all: destruct Hkindinterp1 as (rvs1_0 & Hrvs1 & Hprimprep1).
     all: destruct Hkindinterp2 as (rvs2_0 & Hrvs2 & Hprimprep2).
     all: inversion Hrvs1; rewrite <- H2 in Hprimprep1.
@@ -1031,7 +1031,7 @@ Section Fundamental.
 
     (* This is pain. Time to destruct i. *)
     (* I'm not going to destruct the unop just yet bc probably lwp lemma about it *)
-    all: destruct i; cbn [int_type_rep] in *; cbn [float_type_rep] in *.
+    all: destruct i; cbn [int_type_arep] in *; cbn [float_type_arep] in *.
     all: cbn in Hrv1, Hrv2.
     all: destruct rv1; destruct rv2; cbn in Hrv1; cbn in Hrv2; try easy; subst.
     all: rename n into n1; rename n0 into n2.
@@ -1122,7 +1122,6 @@ Section Fundamental.
       all: iEval (cbn).
       all: iApply lwp_binop_failure; [cbn; unfold option_map; by rewrite HPartialResult |].
       all: iFrame.
-      all: iModIntro.
       all: by iEval (cbn).
 
     - rename i0 into testop.
@@ -1179,10 +1178,9 @@ Section Fundamental.
       iClear "Hrvs"; iClear "Hvs".
       destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
-      (* ??? how come float binops aren't partial??? we have div??? *)
+      (* Float binops aren't partial! *)
       all: destruct binop.
-      all: iApply lwp_binop; cbn; auto.
-      all: solve_post_lwp_num.
+      all: iApply lwp_binop; [cbn; auto | solve_post_lwp_num].
 
     - rename f0 into relop.
 
@@ -3178,55 +3176,6 @@ Section Fundamental.
     clear_nils.
 
     (* Next is case ptr *)
-
-    (* FOR NOW let's unravel have_instruction_type_sem *)
-    iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-
-    (* Two things we can do right now *)
-    (* One: unfold vs and hrvs a bit*)
-    iEval (cbn) in "Hvs".
-    unfold value_interp.
-    iEval (cbn) in "Hvs"; iEval (cbn) in "Hrvs".
-    iDestruct "Hvs" as "(%rvss & %Hconcat_rvss & Hrvss)".
-    iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss".
-    iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_vs_rvs".
-    simpl in Hlens_rvss.
-    assert (Hrvsss: rvss = [rvs]).
-    {
-      destruct rvss as [ | rv rvs1 ]; inversion Hlens_rvss.
-      symmetry in H0; apply nil_length_inv in H0; subst; simpl.
-      by rewrite app_nil_r.
-    }
-    rewrite Hrvsss.
-    iEval (cbn) in "Hrvss".
-    iDestruct "Hrvss" as "[Hvs _]".
-    iPoseProof (value_interp_eq with "Hvs") as "Hvs".
-    iEval (cbn) in "Hvs".
-    iDestruct "Hvs" as "(%k & %Hk & Hkindinterp & _)".
-    destruct k; try auto.
-    iPoseProof "Hkindinterp" as "%Hkindinterp".
-
-    (* I want to get to kind interp so let's dig into type *)
-    unfold ψ in Htype.
-    inversion Htype; subst. rename H into Hmonorep; rename H0 into Hlocalok.
-    destruct Hmonorep as [Hmonoτ Hmonoτ2].
-    apply (Forall_singleton (has_mono_rep F) (RefT κ μ τ)) in Hmonoτ.
-    inversion Hmonoτ.
-    subst.
-    rename ρ into τval_ρ; rename ρ0 into τ_ρ.
-    (* let's try to get a bit of info about τval *)
-    apply Forall_cons_1 in Hmonoτ2; destruct Hmonoτ2 as [_ Hmonoτval].
-    apply (Forall_singleton (has_mono_rep F) τval) in Hmonoτval.
-    inversion Hmonoτval; subst.
-    unfold type_rep in Hρ. unfold type_kind in Hρ. unfold kind_rep in Hρ.
-    unfold fe_type_vars in Hρ.
-
-    unfold pr_target in Hser.
-
-    (* Two: eval_rep thing *)
-    About eval_rep_emptyenv.
-    Search eval_kind.
-    (*apply (eval_rep_emptyenv ρ ιs) in Hιs.*)
 
   Admitted.
 
