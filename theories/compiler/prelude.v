@@ -212,8 +212,8 @@ Definition translate_cvt_op (op : conversion_op) : W.basic_instruction :=
       let νi' := translate_int_type νi in
       let s' := translate_sign s in
       W.BI_cvtop νi' W.CVO_convert νf' (Some s')
-  | CDemote => W.BI_cvtop W.T_f64 W.CVO_convert W.T_f32 None
-  | CPromote => W.BI_cvtop W.T_f32 W.CVO_convert W.T_f64 None
+  | CDemote => W.BI_cvtop W.T_f32 W.CVO_convert W.T_f64 None
+  | CPromote => W.BI_cvtop W.T_f64 W.CVO_convert W.T_f32 None
   | CConvert νi νf s =>
       let νi' := translate_int_type νi in
       let νf' := translate_float_type νf in
