@@ -1049,6 +1049,26 @@ Section Fundamental.
   Qed.
 
 
+  Ltac one_num_set_up τ n :=
+    inversion Htypenum; subst;
+    unfold τ in *; unfold int_type_type, float_type_type in *;
+    unfold type_i64, type_i32, type_f64, type_f32 in *;
+    iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun";
+    edestruct (one_rep_in_rvs_vs) as [one_rep_in_rvs_vs_ints one_rep_in_rvs_vs_floats];
+    try (iPoseProof (one_rep_in_rvs_vs_ints n with "[$Hrvs] [$Hvs]") as "%Hvs");
+    try (iPoseProof (one_rep_in_rvs_vs_floats n with "[$Hrvs] [$Hvs]") as "%Hvs");
+    iClear "Hrvs"; iClear "Hvs".
+  Ltac two_num_set_up τ n :=
+    inversion Htypenum; subst;
+    unfold τ in *; unfold int_type_type, float_type_type in *;
+    unfold type_i64, type_i32, type_f64, type_f32 in *;
+    iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun";
+    edestruct (two_rep_in_rvs_vs) as [two_rep_in_rvs_vs_ints two_rep_in_rvs_vs_floats];
+    try (iPoseProof (two_rep_in_rvs_vs_ints n with "[$Hrvs] [$Hvs]") as "%Hvs");
+    try (iPoseProof (two_rep_in_rvs_vs_floats n with "[$Hrvs] [$Hvs]") as "%Hvs");
+    iClear "Hrvs"; iClear "Hvs".
+
+
   Lemma compat_num M F L wt wt' wtf wl wl' wlf ψ e es' :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -1064,13 +1084,7 @@ Section Fundamental.
     destruct e; cbn in Hcompile; inversion Hcompile; subst; clear Hcompile.
     - rename i0 into unop.
 
-      (* one int set up - I could not tactic-ify this sadly *)
-      inversion Htypenum; subst.
-      unfold τ in *; unfold int_type_type in *.
-      iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-      edestruct (one_rep_in_rvs_vs) as [one_rep_in_rvs_vs _].
-      iPoseProof (one_rep_in_rvs_vs i with "[$Hrvs] [$Hvs]") as "%Hvs".
-      iClear "Hrvs"; iClear "Hvs".
+      one_num_set_up τ i.
       destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst.
 
       all: destruct unop; iEval (cbn).
@@ -1078,13 +1092,7 @@ Section Fundamental.
 
     - rename i0 into binop.
 
-      (* two int set up *)
-      inversion Htypenum; subst.
-      unfold τ in *; unfold int_type_type in *.
-      iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-      edestruct (two_rep_in_rvs_vs) as [two_rep_in_rvs_vs _].
-      iPoseProof (two_rep_in_rvs_vs i with "[$Hrvs] [$Hvs]") as "%Hvs".
-      iClear "Hrvs"; iClear "Hvs".
+      two_num_set_up τ i.
       destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
       all: destruct binop; try (destruct s).
@@ -1126,13 +1134,7 @@ Section Fundamental.
 
     - rename i0 into testop.
 
-      (* one int set up *)
-      inversion Htypenum; subst.
-      unfold τ in *; unfold int_type_type in *.
-      iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-      edestruct (one_rep_in_rvs_vs) as [one_rep_in_rvs_vs _].
-      iPoseProof (one_rep_in_rvs_vs i with "[$Hrvs] [$Hvs]") as "%Hvs".
-      iClear "Hrvs"; iClear "Hvs".
+      one_num_set_up τ i.
       destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst.
 
       all: destruct testop; iEval (cbn).
@@ -1141,13 +1143,7 @@ Section Fundamental.
 
     - rename i0 into relop.
 
-      (* two int set up *)
-      inversion Htypenum; subst.
-      unfold τ in *; unfold int_type_type in *.
-      iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-      edestruct (two_rep_in_rvs_vs) as [two_rep_in_rvs_vs _].
-      iPoseProof (two_rep_in_rvs_vs i with "[$Hrvs] [$Hvs]") as "%Hvs".
-      iClear "Hrvs"; iClear "Hvs".
+      two_num_set_up τ i.
       destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
       all: destruct relop; iEval (cbn).
@@ -1156,12 +1152,7 @@ Section Fundamental.
     - rename f0 into unop.
 
       (* one float set up *)
-      inversion Htypenum; subst.
-      unfold τ in *; unfold float_type_type in *.
-      iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-      edestruct (one_rep_in_rvs_vs) as [_ one_rep_in_rvs_vs].
-      iPoseProof (one_rep_in_rvs_vs f with "[$Hrvs] [$Hvs]") as "%Hvs".
-      iClear "Hrvs"; iClear "Hvs".
+      one_num_set_up τ f.
       destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst.
 
       all: destruct unop; iEval (cbn).
@@ -1169,13 +1160,7 @@ Section Fundamental.
 
     - rename f0 into binop.
 
-      (* two float setup *)
-      inversion Htypenum; subst.
-      unfold τ in *; unfold float_type_type in *.
-      iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-      edestruct (two_rep_in_rvs_vs) as [_ two_rep_in_rvs_vs].
-      iPoseProof (two_rep_in_rvs_vs f with "[$Hrvs] [$Hvs]") as "%Hvs".
-      iClear "Hrvs"; iClear "Hvs".
+      two_num_set_up τ f.
       destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
       (* Float binops aren't partial! *)
@@ -1184,63 +1169,33 @@ Section Fundamental.
 
     - rename f0 into relop.
 
-      (* two float set up *)
-      inversion Htypenum; subst.
-      unfold τ in *; unfold float_type_type in *.
-      iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-      edestruct (two_rep_in_rvs_vs) as [_ two_rep_in_rvs_vs].
-      iPoseProof (two_rep_in_rvs_vs f with "[$Hrvs] [$Hvs]") as "%Hvs".
-      iClear "Hrvs"; iClear "Hvs".
+      two_num_set_up τ f.
       destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
       all: destruct relop; iEval (cbn).
       all: iApply lwp_relop; [cbn; auto | solve_post_lwp_num].
 
-    - (* This is unique now! Conversion operation. *)
+    - (* Conversion operations!  *)
       inversion Htypenum; subst.
+      rename Htypenum into Htypecvt; rename H0 into Htypenum.
 
-      (* okay for now. I am going to destruct c and see what happens. Clean up later*)
       destruct c.
       all: cbn [translate_cvt_op].
-      + (* one int set up - MODIFIED *)
-        inversion H0; subst.
-        iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-        unfold type_i64, type_i32 in *.
-        unfold int_type_type in *.
-        edestruct (one_rep_in_rvs_vs) as [one_rep_in_rvs_vs _].
-        iPoseProof (one_rep_in_rvs_vs I64T with "[$Hrvs] [$Hvs]") as "%Hvs".
+      + one_num_set_up type_i64 I64T.
         destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
-        clear one_rep_in_rvs_vs Hi.
-        iClear "Hrvs"; iClear "Hvs".
 
         iEval (cbn).
         iApply lwp_cvtop_convert; cbn; auto.
         solve_post_lwp_num.
-      + (* one int set up - MODIFIED *)
-        inversion H0; subst.
-        iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-        unfold type_i64, type_i32 in *.
-        unfold int_type_type in *.
-        edestruct (one_rep_in_rvs_vs) as [one_rep_in_rvs_vs _].
-        iPoseProof (one_rep_in_rvs_vs I32T with "[$Hrvs] [$Hvs]") as "%Hvs".
+      + one_num_set_up type_i64 I32T.
         destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
-        clear one_rep_in_rvs_vs Hi.
-        iClear "Hrvs"; iClear "Hvs".
 
         destruct s.
         all: iEval (cbn).
         all: iApply lwp_cvtop_convert; cbn; auto.
         all: solve_post_lwp_num.
-      + (* one int set up - MODIFIED *)
-        inversion H0; subst.
-        iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-        unfold type_i64, type_i32 in *.
-        unfold int_type_type, float_type_type in *.
-        edestruct (one_rep_in_rvs_vs) as [_ one_rep_in_rvs_vs].
-        iPoseProof (one_rep_in_rvs_vs f with "[$Hrvs] [$Hvs]") as "%Hvs".
+      + one_num_set_up type_i64 f.
         destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
-        all: clear one_rep_in_rvs_vs H.
-        all: iClear "Hrvs"; iClear "Hvs".
 
         all: match goal with
              | |- context [ F32T ] =>
@@ -1267,37 +1222,22 @@ Section Fundamental.
             (* Partials! *)
             | (_ = None) => idtac
              end.
-        all: admit.
-      + (* one float set up - MODIFIED *)
-        inversion H0; subst.
-        unfold type_f64, type_f32, float_type_type in *.
-        iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-        edestruct (one_rep_in_rvs_vs) as [_ one_rep_in_rvs_vs].
-        iPoseProof (one_rep_in_rvs_vs F64T with "[$Hrvs] [$Hvs]") as "%Hvs".
-        iClear "Hrvs"; iClear "Hvs".
+        all: iApply lwp_cvtop_convert_failure; [cbn; unfold option_map; by rewrite HPartialResult | cbn; auto |].
+        all: iFrame; by iEval (cbn).
+      + one_num_set_up type_i64 F64T.
         destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+
         iEval (cbn).
         iApply lwp_cvtop_convert; cbn; auto.
         solve_post_lwp_num.
-      + (* one float set up - MODIFIED *)
-        inversion H0; subst.
-        unfold type_f64, type_f32, float_type_type in *.
-        iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-        edestruct (one_rep_in_rvs_vs) as [_ one_rep_in_rvs_vs].
-        iPoseProof (one_rep_in_rvs_vs F32T with "[$Hrvs] [$Hvs]") as "%Hvs".
-        iClear "Hrvs"; iClear "Hvs".
+      + one_num_set_up type_i64 F32T.
         destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+
         iEval (cbn).
         iApply lwp_cvtop_convert; cbn; auto.
         solve_post_lwp_num.
-      + inversion H0; subst.
-        unfold int_type_type, float_type_type in *.
-        iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-        edestruct (one_rep_in_rvs_vs) as [one_rep_in_rvs_vs _].
-        iPoseProof (one_rep_in_rvs_vs i with "[$Hrvs] [$Hvs]") as "%Hvs".
+      + one_num_set_up type_i64 i.
         destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
-        all: clear one_rep_in_rvs_vs H.
-        all: iClear "Hrvs"; iClear "Hvs".
 
         all: match goal with
              | |- context [ I32T ] =>
@@ -1316,25 +1256,19 @@ Section Fundamental.
                  solve_post_lwp_num
              | (_ = None) => idtac
              end.
-        all: admit.
-      + (* We'll need to split the cases again :( *)
-        destruct n eqn:Hn.
-        all: inversion H0; subst.
-        (* mix of one int one float set up *)
-        all: iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun".
-        all: edestruct (one_rep_in_rvs_vs) as [one_rep_ints one_rep_floats].
-        all: unfold type_f64, type_f32, type_i32, type_i64 in *.
-        all: unfold int_type_type, float_type_type in *.
-        1, 2: iPoseProof (one_rep_ints _ with "[$Hrvs] [$Hvs]") as "%Hvs".
-        3, 4: iPoseProof (one_rep_floats _ with "[$Hrvs] [$Hvs]") as "%Hvs".
-        all: iClear "Hrvs"; iClear "Hvs".
+         all: iApply lwp_cvtop_convert_failure; [cbn; unfold option_map; by rewrite HPartialResult | cbn; auto |].
+         all: iFrame; by iEval (cbn).
+      + (* We'll need to split into cases again. This was the only thing that worked for some reason *)
+        destruct n eqn:Hn;
+          [ destruct i eqn:Hii; [one_num_set_up type_i64 I32T | one_num_set_up type_i64 I64T ] |
+            destruct f eqn:Hf; [one_num_set_up type_i64 F32T | one_num_set_up type_i64 F64T ]  ].
+
         all: destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
-        all: clear one_rep_floats one_rep_ints Hi.
+
         all: iEval (cbn).
         all: iApply lwp_cvtop_reinterpret; cbn; auto.
         all: solve_post_lwp_num.
-
-  Admitted.
+  Qed.
 
   Lemma compat_num_const M F L wt wt' wtf wl wl' wlf n ν es' :
     let fe := fe_of_context F in

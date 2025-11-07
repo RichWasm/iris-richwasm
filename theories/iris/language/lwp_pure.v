@@ -41,8 +41,7 @@ Section lwp_pure.
   Proof.
     iIntros (Happ) "(Hf & Hrun & Hval & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval]").
-    - About wp_binop_failure.
-      iApply (wp_binop_failure with "[Hval] [$Hf] [$Hrun]").
+    - iApply (wp_binop_failure with "[Hval] [$Hf] [$Hrun]").
       eauto.
       instantiate (1:= λ v, ↪[BAIL] -∗ lp_noframe Φ f v).
       iFrame.
@@ -86,8 +85,7 @@ Section lwp_pure.
   Proof.
     iIntros (Happ Htypesagree) "(Hf & Hrun & Hval & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval]").
-    - About wp_cvtop_convert_failure.
-      iApply (wp_cvtop_convert_failure with "[$Hf] [$Hrun] [Hval]").
+    - iApply (wp_cvtop_convert_failure with "[$Hf] [$Hrun] [Hval]").
       eauto. auto.
       instantiate (1:= λ v, ↪[BAIL] -∗ lp_noframe Φ f v).
       iFrame.
