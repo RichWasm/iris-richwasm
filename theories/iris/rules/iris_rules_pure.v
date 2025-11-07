@@ -240,7 +240,7 @@ Lemma wp_cvtop_convert_failure (s : stuckness) (E : coPset) (Φ : iris.val -> iP
   types_agree t1 v ->
   ↪[frame] f0 -∗ ↪[RUN] -∗
   ▷Φ (trapV) -∗
-    WP [AI_basic (BI_const v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)] @ s; E {{ v, (Φ v ∗ ↪[CRASH]) ∗ ↪[frame] f0}}.
+    WP [AI_basic (BI_const v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)] @ s; E {{ v, (Φ v ∗ ↪[BAIL]) ∗ ↪[frame] f0}}.
 Proof.
   iIntros (Hcvtop Htypes) "Hf0 Hrun HΦ".
   iApply wp_lift_atomic_step => //=.

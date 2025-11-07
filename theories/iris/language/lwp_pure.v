@@ -41,7 +41,8 @@ Section lwp_pure.
   Proof.
     iIntros (Happ) "(Hf & Hrun & Hval & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval]").
-    - iApply (wp_binop_failure with "[Hval] [$Hf] [$Hrun]").
+    - About wp_binop_failure.
+      iApply (wp_binop_failure with "[Hval] [$Hf] [$Hrun]").
       eauto.
       instantiate (1:= λ v, ↪[BAIL] -∗ lp_noframe Φ f v).
       iFrame.
@@ -85,21 +86,17 @@ Section lwp_pure.
   Proof.
     iIntros (Happ Htypesagree) "(Hf & Hrun & Hval & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval]").
-    - iApply (wp_cvtop_convert_failure with "[$Hf] [$Hrun] [Hval]").
+    - About wp_cvtop_convert_failure.
+      iApply (wp_cvtop_convert_failure with "[$Hf] [$Hrun] [Hval]").
       eauto. auto.
       instantiate (1:= λ v, ↪[BAIL] -∗ lp_noframe Φ f v).
       iFrame.
       by iIntros "!> ?".
-    - (* PROBLEM: our lp noframe needs for the goal
-         to be instantiated with [BAIL]
-         But the wp_cvtop_convert_failure needs [CRASH]
-       *)
-      iIntros (w) "[[Hnofr Hrun] Hf]".
-      (* this fails:
+    - iIntros (w) "[[Hnofr Hrun] Hf]".
       iSpecialize ("Hnofr" with "Hrun").
-      iFrame.*)
+      iFrame.
 
-  Admitted.
+  Qed.
 
   Lemma lwp_cvtop_reinterpret s E Φ t1 t2 v v' f :
     wasm_deserialise (bits v) t2 = v' →
@@ -121,7 +118,7 @@ Section lwp_pure.
     - iIntros (w) "[[Hnofr Hrun] Hf]".
       iSpecialize ("Hnofr" with "Hrun").
       iFrame.
-  Admitted.
+  Qed.
 
   Lemma lwp_unop s E Φ op t v1 v (f: datatypes.frame) :
     app_unop op v1 = v →

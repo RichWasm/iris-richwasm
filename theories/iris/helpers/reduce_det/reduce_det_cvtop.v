@@ -18,7 +18,7 @@ Lemma cvtop_convert_none_det v t1 t2 sx obs s f obs' s' f' es:
   types_agree t1 v ->
   cvt t2 sx v = None ->
   reduce obs s f [AI_basic (BI_const v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)] obs' s' f' es ->
-  reduce_det_goal Crash s f [AI_trap] obs' s' f' es [AI_basic (BI_const v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)].
+  reduce_det_goal Bail s f [AI_trap] obs' s' f' es [AI_basic (BI_const v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)].
 Proof.
   move => H H0 Hred.
   by only_one [AI_basic (BI_const v) ; AI_basic (BI_cvtop t2 CVO_convert t1 sx)] Hred ;

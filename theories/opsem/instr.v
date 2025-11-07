@@ -52,7 +52,7 @@ Inductive reduce_simple : obs -> seq.seq administrative_instruction -> obs -> se
     forall t1 t2 v sx,
     types_agree t1 v ->
     cvt t2 sx v = None ->
-    reduce_simple Run [::AI_basic (BI_const v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)] Crash [::AI_trap]
+    reduce_simple Run [::AI_basic (BI_const v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)] Bail [::AI_trap]
   | rs_reinterpret :
     forall t1 t2 v,
     types_agree t1 v ->
