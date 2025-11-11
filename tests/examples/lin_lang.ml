@@ -244,7 +244,7 @@ let all : (string * Module.t) list =
       ("safe_div", safe_div);
       ("incr_n", incr_n);
       ("fix_factorial[invalid]", fix_factorial);
-      ("unboxed_list[invlaid]", unboxed_list);
+      ("unboxed_list[invalid]", unboxed_list);
       ("boxed_list", boxed_list);
       ("peano_3", peano_3);
       ("peano", peano);

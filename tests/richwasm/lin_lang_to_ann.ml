@@ -518,7 +518,7 @@ let%expect_test "examples" =
         m_exports := [0];
         |}
     -----------app_ident-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (PopEmptyStack LocalSet)
     -----------nested_arith-----------
     {|
         m_imports := [];
@@ -558,39 +558,27 @@ let%expect_test "examples" =
         m_exports := [0];
         |}
     -----------add_one_program-----------
-    FAILURE (InvalidLocalIdx 0)
+    FAILURE (TODO memory)
     -----------add_tup_ref-----------
     FAILURE (TODO memory)
     -----------print_10-----------
     FAILURE (InvalidTableIdx 0)
     -----------factorial_program-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO memory)
     -----------safe_div-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO "check lfx")
     -----------incr_n-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO memory)
     -----------fix_factorial[invalid]-----------
+    FAILURE (PopEmptyStack LocalSet)
+    -----------unboxed_list[invalid]-----------
     FAILURE (Codegen
-     (Ctx (CannotFindRep (Var (0 ())))
-      (Exists
-       (Lollipop
-        (Prod
-         ((Var (0 ()))
-          (Exists
-           (Lollipop
-            (Prod
-             ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-    -----------unboxed_list[invlaid]-----------
-    FAILURE (Codegen (CannotFindRep (Var (0 ("\206\177")))))
+     (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177")))))
     -----------boxed_list-----------
-    FAILURE (Codegen
-     (Ctx (CannotFindRep (Var (0 ())))
-      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+    FAILURE (PopEmptyStack LocalSet)
     -----------peano_3-----------
     FAILURE (TODO memory)
     -----------peano-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO elab_local_fx)
     -----------mini_zip-----------
-    FAILURE (InvalidLocalIdx 0) |xxx}]
+    FAILURE (TODO memory) |xxx}]

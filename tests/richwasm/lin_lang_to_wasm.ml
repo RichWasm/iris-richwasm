@@ -40,10 +40,10 @@ let%expect_test "simple programs" =
         (type (;3;) (func (param i32)))
         (type (;4;) (func (result i32)))
         (type (;5;) (func))
-        (import "richwasm" "mem_mm" (memory (;0;) 0))
-        (import "richwasm" "mem_gc" (memory (;1;) 0))
-        (import "richwasm" "table_next" (global (;0;) (mut i32)))
-        (import "richwasm" "table_set" (func (;0;) (type 0)))
+        (import "richwasm" "mmmem" (memory (;0;) 0))
+        (import "richwasm" "gcmem" (memory (;1;) 0))
+        (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+        (import "richwasm" "tableset" (func (;0;) (type 0)))
         (import "richwasm" "mmalloc" (func (;1;) (type 1)))
         (import "richwasm" "gcalloc" (func (;2;) (type 1)))
         (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -65,7 +65,7 @@ let%expect_test "simple programs" =
         (start 8)) |}];
   next ();
   [%expect
-    {| "\000asm\001\000\000\000\001\028\006`\002\127\127\000`\001\127\001\127`\003\127\127\127\000`\001\127\000`\000\001\127`\000\000\002\225\001\011\brichwasm\006mem_mm\002\000\000\brichwasm\006mem_gc\002\000\000\brichwasm\ntable_next\003\127\001\brichwasm\ttable_set\000\000\brichwasm\007mmalloc\000\001\brichwasm\007gcalloc\000\001\brichwasm\007setflag\000\002\brichwasm\004free\000\003\brichwasm\012registerroot\000\001\brichwasm\014unregisterroot\000\003\brichwasm\005table\001p\000\000\003\003\002\004\005\006\006\001\127\001A\000\011\007\004\001\000\000\007\b\001\b\n\020\002\004\000A\001\011\r\000#\000$\001#\001A\000j$\000\011" |}]
+    {| "\000asm\001\000\000\000\001\028\006`\002\127\127\000`\001\127\001\127`\003\127\127\127\000`\001\127\000`\000\001\127`\000\000\002\221\001\011\brichwasm\005mmmem\002\000\000\brichwasm\005gcmem\002\000\000\brichwasm\ttablenext\003\127\001\brichwasm\btableset\000\000\brichwasm\007mmalloc\000\001\brichwasm\007gcalloc\000\001\brichwasm\007setflag\000\002\brichwasm\004free\000\003\brichwasm\012registerroot\000\001\brichwasm\014unregisterroot\000\003\brichwasm\005table\001p\000\000\003\003\002\004\005\006\006\001\127\001A\000\011\007\004\001\000\000\007\b\001\b\n\020\002\004\000A\001\011\r\000#\000$\001#\001A\000j$\000\011" |}]
 
 let%expect_test "examples" =
   output_examples ();
@@ -79,10 +79,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -111,10 +111,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32 i32 i32 i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -147,10 +147,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32 i32 i32 i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -185,10 +185,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -218,10 +218,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32 i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -254,10 +254,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -288,10 +288,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -322,10 +322,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -356,10 +356,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -383,7 +383,7 @@ let%expect_test "examples" =
       (start 8))
 
     -----------app_ident-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (PopEmptyStack LocalSet)
     -----------nested_arith-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -392,10 +392,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -428,10 +428,10 @@ let%expect_test "examples" =
       (type (;3;) (func (param i32)))
       (type (;4;) (func (result i32)))
       (type (;5;) (func))
-      (import "richwasm" "mem_mm" (memory (;0;) 0))
-      (import "richwasm" "mem_gc" (memory (;1;) 0))
-      (import "richwasm" "table_next" (global (;0;) (mut i32)))
-      (import "richwasm" "table_set" (func (;0;) (type 0)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
       (import "richwasm" "mmalloc" (func (;1;) (type 1)))
       (import "richwasm" "gcalloc" (func (;2;) (type 1)))
       (import "richwasm" "setflag" (func (;3;) (type 2)))
@@ -456,39 +456,27 @@ let%expect_test "examples" =
       (start 8))
 
     -----------add_one_program-----------
-    FAILURE (InvalidLocalIdx 0)
+    FAILURE (TODO memory)
     -----------add_tup_ref-----------
     FAILURE (TODO memory)
     -----------print_10-----------
     FAILURE (InvalidTableIdx 0)
     -----------factorial_program-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO memory)
     -----------safe_div-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO "check lfx")
     -----------incr_n-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO memory)
     -----------fix_factorial[invalid]-----------
+    FAILURE (PopEmptyStack LocalSet)
+    -----------unboxed_list[invalid]-----------
     FAILURE (Codegen
-     (Ctx (CannotFindRep (Var (0 ())))
-      (Exists
-       (Lollipop
-        (Prod
-         ((Var (0 ()))
-          (Exists
-           (Lollipop
-            (Prod
-             ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-    -----------unboxed_list[invlaid]-----------
-    FAILURE (Codegen (CannotFindRep (Var (0 ("\206\177")))))
+     (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177")))))
     -----------boxed_list-----------
-    FAILURE (Codegen
-     (Ctx (CannotFindRep (Var (0 ())))
-      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+    FAILURE (PopEmptyStack LocalSet)
     -----------peano_3-----------
     FAILURE (TODO memory)
     -----------peano-----------
-    FAILURE (UnexpectedUnitializedLocal 0)
+    FAILURE (TODO elab_local_fx)
     -----------mini_zip-----------
-    FAILURE (InvalidLocalIdx 0) |}]
+    FAILURE (TODO memory) |}]

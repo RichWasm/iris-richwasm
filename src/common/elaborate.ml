@@ -13,9 +13,10 @@ module Err = struct
     | ExpectedEqStack of (string * A.Type.t * A.Type.t)
     | InvalidLabel of int
     | UnexpectedUnitializedLocal of int
-    | InvalidLocalIdx of int
+    | InvalidLocalIdx of (int * [ `Set | `Get | `Reset ])
     | CannotCopyNonCopyable
     | InvalidTableIdx of int
+    | InvalidTableIdxModule of int
     | InstNonCoderef of A.Type.t
     | InvalidFunctionIdx of int
     | CallNotFullyInstanciated of A.FunctionType.t
@@ -26,6 +27,8 @@ module Err = struct
     | UngroupNonProd of A.Type.t
     | FoldNonRec of A.Type.t
     | UnfoldNonRec of A.Type.t
+    | FunctionParamMustBeMonoRep
+    | ParamMustBeMemType of B.Kind.t
   [@@deriving sexp]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -43,6 +46,8 @@ module Env = struct
     table : A.FunctionType.t list;
   }
   [@@deriving make, sexp]
+
+  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module State = struct
@@ -51,6 +56,8 @@ module State = struct
     stack : A.Type.t list;
   }
   [@@deriving make, sexp]
+
+  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module InstrM = struct
@@ -70,7 +77,9 @@ module InstrM = struct
 
   let set_local (i : int) (t : Type.t) (c : bool) : unit t =
     let* st = get in
-    let* () = fail_if (List.length st.locals <= i) (InvalidLocalIdx i) in
+    let* () =
+      fail_if (List.length st.locals <= i) (InvalidLocalIdx (i, `Set))
+    in
     let locals' =
       List.mapi st.locals ~f:(fun i' x -> if i <> i' then x else Some (t, c))
     in
@@ -78,7 +87,9 @@ module InstrM = struct
 
   let reset_local (i : int) : unit t =
     let* st = get in
-    let* () = fail_if (List.length st.locals <= i) (InvalidLocalIdx i) in
+    let* () =
+      fail_if (List.length st.locals <= i) (InvalidLocalIdx (i, `Reset))
+    in
     let locals' =
       List.mapi st.locals ~f:(fun i' x -> if i <> i' then x else None)
     in
@@ -111,12 +122,26 @@ let elab_atomic_rep : A.AtomicRep.t -> B.AtomicRep.t = function
   | F32 -> F32R
   | F64 -> F64R
 
+let unelab_atomic_rep : B.AtomicRep.t -> A.AtomicRep.t = function
+  | PtrR -> Ptr
+  | I32R -> I32
+  | I64R -> I64
+  | F32R -> F32
+  | F64R -> F64
+
 let rec elab_representation : A.Representation.t -> B.Representation.t =
   function
   | Var x -> VarR (Z.of_int x)
   | Sum reps -> SumR (List.map ~f:elab_representation reps)
   | Prod reps -> ProdR (List.map ~f:elab_representation reps)
   | Atom rep -> AtomR (elab_atomic_rep rep)
+
+let rec unelab_representation : B.Representation.t -> A.Representation.t =
+  function
+  | VarR x -> Var (Z.to_int x)
+  | SumR reps -> Sum (List.map ~f:unelab_representation reps)
+  | ProdR reps -> Prod (List.map ~f:unelab_representation reps)
+  | AtomR rep -> Atom (unelab_atomic_rep rep)
 
 let rec elab_size : A.Size.t -> B.Size.t = function
   | Var x -> VarS (Z.of_int x)
@@ -217,13 +242,11 @@ let elab_conversion_op : A.ConversionOp.t -> B.ConversionOp.t = function
       CConvert (elab_int_type it, elab_float_type ft, elab_sign sign)
   | Reinterpret num_type -> CReinterpret (elab_num_type num_type)
 
-let kind_of_typ (env : A.Kind.t list) : B.Type.t -> B.Kind.t t = function
-  | VarT x -> (
+let kind_of_typ (env : 'a list) : B.Type.t -> B.Kind.t t = function
+  | VarT x ->
       let i = Z.to_int x in
-      match List.nth env i with
-      | Some x -> ret (elab_kind x)
-      | None -> fail (TVarNotInEnv (i, env)))
-  | I31T k -> ret k
+      List.nth env i |> lift_option (TVarNotInEnv (i, env)) >>| elab_kind
+  | I31T k
   | NumT (k, _)
   | SumT (k, _)
   | VariantT (k, _)
@@ -343,10 +366,10 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       let* t' = elab_type env' t in
       let* kind' = kind_of_typ env' t' in
       ret @@ RecT (kind', t')
-  (* we only need to keep track of type varianbles,
-     BUT the varianbles should not be present for the type's kind,
+  (* we only need to keep track of type variables,
+     BUT the variables should not be present for the type's kind,
      so when we copy the kind from the inner type, we must unshift
-     type varianbles appropriately--idx 0 must not be used *)
+     type variables appropriately--idx 0 must not be used *)
   | Exists (Memory, t) ->
       let* t' = elab_type env t in
       let* k = kind_of_typ env t' >>| B.Kind.ren id id in
@@ -444,7 +467,7 @@ let elab_num_instruction (kenv : A.Kind.t list) :
           (ExpectedEqStack ("Int2", t_in1, t_in2))
       in
       let* () = push t_in1 in
-      let* it = instr_t_of kenv [ t_in1; t_in2 ] [ t_in1 ] in
+      let* it = instr_t_of kenv [ t_in2; t_in1 ] [ t_in1 ] in
       let ni = IInt2 (elab_int_type t, elab_int_binop o) in
       ret (it, ni)
   | IntTest (t, o) ->
@@ -463,7 +486,7 @@ let elab_num_instruction (kenv : A.Kind.t list) :
       in
       let t_out : A.Type.t = Num (Int I32) in
       let* () = push t_out in
-      let* it = instr_t_of kenv [ t_in1; t_in2 ] [ t_out ] in
+      let* it = instr_t_of kenv [ t_in2; t_in1 ] [ t_out ] in
       let ni = IIntRel (elab_int_type t, elab_int_replop o) in
       ret (it, ni)
   | Float1 (t, o) ->
@@ -480,7 +503,7 @@ let elab_num_instruction (kenv : A.Kind.t list) :
           (ExpectedEqStack ("Float2", t_in1, t_in2))
       in
       let* () = push t_in1 in
-      let* it = instr_t_of kenv [ t_in1; t_in2 ] [ t_in1 ] in
+      let* it = instr_t_of kenv [ t_in2; t_in1 ] [ t_in1 ] in
       let ni = IFloat2 (elab_float_type t, elab_float_binop o) in
       ret (it, ni)
   | FloatRel (t, o) ->
@@ -492,7 +515,7 @@ let elab_num_instruction (kenv : A.Kind.t list) :
       in
       let t_out : A.Type.t = Num (Float F32) in
       let* () = push t_out in
-      let* it = instr_t_of kenv [ t_in1; t_in2 ] [ t_out ] in
+      let* it = instr_t_of kenv [ t_in2; t_in1 ] [ t_out ] in
       let ni = IFloatRel (elab_float_type t, elab_float_relop o) in
       ret (it, ni)
   | Cvt Wrap ->
@@ -551,6 +574,11 @@ let function_typ_inst (idx : A.Index.t) (ft : A.FunctionType.t) =
 
 let function_typ_insts (idxs : A.Index.t list) (ft : A.FunctionType.t) =
   List.fold ~init:ft ~f:(fun ft idx -> function_typ_inst idx ft) idxs
+
+let is_local_copyable (kinds : A.Kind.t list) t =
+  kind_of_typ kinds t >>| function
+  | VALTYPE (_, ImCopy, _) -> true
+  | _ -> false
 
 let[@warning "-27"] rec elab_instruction (env : Env.t) :
     A.Instruction.t -> B.Instruction.t InstrM.t =
@@ -627,9 +655,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | Br label ->
       let* st = get in
       let* result =
-        match List.nth env.labels label with
-        | Some t -> ret t
-        | None -> fail (InvalidLabel label)
+        List.nth env.labels label |> lift_option (InvalidLabel label)
       in
       let* it = mono_in_out env.kinds "Br" st.stack result in
       ret @@ IBr (it, Z.of_int label)
@@ -640,10 +666,9 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | LocalGet (i, consume) ->
       let* st = get in
       let* t, copyable =
-        match List.nth st.locals i with
-        | Some (Some (t, c)) -> ret (t, c)
-        | Some None -> fail (UnexpectedUnitializedLocal i)
-        | None -> fail (InvalidLocalIdx i)
+        List.nth st.locals i
+        |> lift_option (InvalidLocalIdx (i, `Get))
+        >>= lift_option (UnexpectedUnitializedLocal i)
       in
       let* is_effective_consume =
         A.Consume.(
@@ -664,22 +689,11 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | LocalSet i ->
       let* t = pop "LocalSet" in
       let* t' = lift_result @@ elab_type env.kinds t in
-      let* copyable =
-        let open Res in
-        kind_of_typ env.kinds t'
-        >>| ( function
-        | VALTYPE (_, ImCopy, _) -> true
-        | _ -> false )
-        |> lift_result
-      in
+      let* copyable = is_local_copyable env.kinds t' |> lift_result in
       let* () = set_local i t copyable in
       ret @@ ILocalSet (InstrT ([], [ t' ]), Z.of_int i)
   | CodeRef i ->
-      let* ft =
-        match List.nth env.table i with
-        | Some ft -> ret ft
-        | None -> fail (InvalidTableIdx i)
-      in
+      let* ft = List.nth env.table i |> lift_option (InvalidTableIdx i) in
       let* it = mono_in_out env.kinds "CodeRef" [] [ CodeRef ft ] in
       ret @@ ICodeRef (it, Z.of_int i)
   | Inst idx ->
@@ -696,9 +710,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | Call (i, idxs) ->
       let* idxs' = Res.mapM ~f:(elab_index env.kinds) idxs |> lift_result in
       let* ft =
-        match List.nth env.functions i with
-        | Some x -> ret x
-        | None -> fail (InvalidFunctionIdx i)
+        List.nth env.functions i |> lift_option (InvalidFunctionIdx i)
       in
       let* ts1, ts2 =
         match ft with
@@ -803,16 +815,33 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | Cast _ -> fail (TODO "cast")
   | New _ | Load (_, _) | Store _ | Swap _ -> fail (TODO "memory")
 
-let elab_function ({ typ; locals; body } : A.Module.Function.t) :
+let function_param_reps (FunctionType (qs, in_t, _) : A.FunctionType.t) :
+    (A.Type.t * bool) option list t =
+  let kinds =
+    List.filter_map
+      ~f:(function
+        | A.Quantifier.Memory | Representation | Size -> None
+        | Type k -> Some k)
+      qs
+    |> List.rev
+  in
+
+  mapM ~f:(elab_type kinds) in_t
+  >>= mapM ~f:(is_local_copyable kinds)
+  >>| List.zip_exn in_t
+  >>| List.map ~f:Option.return
+
+let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
     B.Module.Function.t t =
   let* mf_type = elab_function_type [] typ in
   let mf_locals = List.map ~f:elab_representation locals in
   let (FunctionType (_, _, return)) = typ in
-  (* TODO: setup qual env *)
-  let init_locals = List.map ~f:(fun _ -> None) locals in
+  let* param_locals = function_param_reps typ in
+  let init_locals = param_locals @ List.map ~f:(fun _ -> None) locals in
   let init_state = State.make ~locals:init_locals () in
-  (* TODO: use correct local offset *)
-  let init_env = Env.make ~return ~local_offset:1 () in
+  (* TODO: setup qual env *)
+
+  let init_env = { env with return; local_offset = List.length param_locals } in
   let* mf_body, _ =
     InstrM.mapM body ~f:(elab_instruction init_env) init_state
   in
@@ -821,7 +850,17 @@ let elab_function ({ typ; locals; body } : A.Module.Function.t) :
 let elab_module ({ imports; functions; table; exports } : A.Module.t) :
     B.Module.t t =
   let* m_imports = mapM ~f:(elab_function_type []) imports in
-  let* m_functions = mapM ~f:elab_function functions in
+  let* env =
+    let functions_typs = List.map ~f:(fun { typ; _ } -> typ) functions in
+    let+ table_typs =
+      mapM
+        ~f:(fun i ->
+          List.nth functions_typs i |> lift_option (InvalidTableIdxModule i))
+        table
+    in
+    Env.make ~functions:functions_typs ~table:table_typs ~local_offset:0 ()
+  in
+  let* m_functions = mapM ~f:(elab_function env) functions in
   let m_table = List.map ~f:Z.of_int table in
   let m_exports = List.map ~f:Z.of_int exports in
   ret @@ B.Module.{ m_imports; m_functions; m_table; m_exports }

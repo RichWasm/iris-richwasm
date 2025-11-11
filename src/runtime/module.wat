@@ -2,8 +2,14 @@
   (func (export "mmalloc") (param i32) (result i32)
     unreachable)
 
-  (func (export "gcalloc") (param i32 i64) (result i32)
+  (func (export "gcalloc") (param i32) (result i32)
     unreachable)
+
+  (; table.set was only introduced in wasm 2.0 but that's fine since our runtime supports it.
+     if we were strictly using wasm 1.0 this would be implemented using the host language. ;)
+  (func (export "tableset") (param i32 i32) (result)
+    unreachable
+    (;  table.set   ;))
 
   (func (export "free") (param i32) (result)
     nop)
@@ -22,5 +28,5 @@
   (global (export "tablenext") (mut i32)
     i32.const 0)
 
-  (memory (export "mmmem") 0)
-  (memory (export "gcmem") 0))
+  (memory $mmmem (export "mmmem") 0)
+  (memory $gcmem (export "gcmem") 0))

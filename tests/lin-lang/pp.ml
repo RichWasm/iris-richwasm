@@ -259,7 +259,7 @@ let%expect_test "pretty prints examples" =
               (n × rec-res)))))))
       in
     (app factorial 5)))
-    -----------unboxed_list[invlaid]-----------
+    -----------unboxed_list[invalid]-----------
     (fun map_int (p : ((int ⊸ int) ⊗ (rec α (() ⊕ (int ⊗ α))))) :
       (rec α (() ⊕ (int ⊗ α))) .
       (split (f : (int ⊸ int)) (lst : (rec α (() ⊕ (int ⊗ α)))) = p in

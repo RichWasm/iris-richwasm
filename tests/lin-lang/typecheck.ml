@@ -222,7 +222,7 @@ let%expect_test "examples" =
           (Lollipop Int Int))
          (App (Var (0 (factorial)) (Lollipop Int Int)) (Int 5 Int) Int) Int)
         Int))))
-    -----------unboxed_list[invlaid]-----------
+    -----------unboxed_list[invalid]-----------
     ((imports ())
      (functions
       (((export false) (name map_int)

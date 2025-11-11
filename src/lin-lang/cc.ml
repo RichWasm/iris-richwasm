@@ -392,15 +392,23 @@ module Compile = struct
       (env : Env.t)
       ({ export; name; param; return; body } : A.Function.t) : B.Function.t t =
     let open B.Function in
+    let open B.Expr in
     let env' = Env.add_var env param in
     let* body' = compile_expr env' body in
+    (*
+      #`(func #,name (#,param -> #,return)
+          (split (_ : (ref (prod))) (orig_param : #,arg_t) = #,param in
+            #,body))
+    *)
+    let inner_param : B.Type.t list = [ Ref (Prod []); compile_typ param ] in
+    let body'' = mk_split_var ~split_t:inner_param ~i:0 body' in
     ret
       {
         export;
         name;
-        param = Prod [ Ref (Prod []); compile_typ param ];
+        param = Prod inner_param;
         return = compile_typ return;
-        body = body';
+        body = body'';
       }
 
   module Res = Util.ResultM (Err)

@@ -23,15 +23,15 @@ Section Compiler.
   Definition load_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
     let off' := byte_offset μ off in
     match μ with
-    | MemMM => emit (W.BI_load (memimm mr.(mr_mem_mm)) t None align_word off')
-    | MemGC => emit (W.BI_load (memimm mr.(mr_mem_gc)) t None align_word off')
+    | MemMM => emit (W.BI_load (memimm mr.(mr_mmmem)) t None align_word off')
+    | MemGC => emit (W.BI_load (memimm mr.(mr_gcmem)) t None align_word off')
     end.
 
   Definition store_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
     let off' := byte_offset μ off in
     match μ with
-    | MemMM => emit (W.BI_store (memimm mr.(mr_mem_mm)) t None align_word off')
-    | MemGC => emit (W.BI_store (memimm mr.(mr_mem_gc)) t None align_word off')
+    | MemMM => emit (W.BI_store (memimm mr.(mr_mmmem)) t None align_word off')
+    | MemGC => emit (W.BI_store (memimm mr.(mr_gcmem)) t None align_word off')
     end.
 
   Definition alloc (μ : base_memory) (n : nat) : codegen unit :=
@@ -52,7 +52,7 @@ Section Compiler.
     emit (W.BI_call (funcimm mr.(mr_func_registerroot))).
 
   Definition loadroot : codegen unit :=
-    emit (W.BI_load (memimm mr.(mr_mem_gc)) W.T_i32 None align_word offset_gc).
+    emit (W.BI_load (memimm mr.(mr_gcmem)) W.T_i32 None align_word offset_gc).
 
   Definition duproot : codegen unit := loadroot;; registerroot.
 

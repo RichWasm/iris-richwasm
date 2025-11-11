@@ -169,7 +169,7 @@ let%expect_test "examples" =
               (Let Int (App (Var (2 (rec))) (Var (0 (n-sub1))))
                (Binop Mul (Var (2 (n))) (Var (0 (rec-res))))))))))
          (App (Var (0 (factorial))) (Int 5)))))))
-    -----------unboxed_list[invlaid]-----------
+    -----------unboxed_list[invalid]-----------
     ((imports ())
      (functions
       (((export false) (name map_int)

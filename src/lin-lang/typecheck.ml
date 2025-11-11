@@ -171,9 +171,7 @@ module Compile = struct
     function
     | Var ((i, _) as lvar) ->
         let* t =
-          match List.nth env.locals i with
-          | None -> Error (MissingLocalEnv (lvar, env))
-          | Some x -> Ok x
+          List.nth env.locals i |> lift_option (MissingLocalEnv (lvar, env))
         in
         ret @@ Var (lvar, t)
     | Coderef n ->
@@ -202,8 +200,8 @@ module Compile = struct
         in
         let* () =
           match List.nth inner_ts i with
-          | None -> fail (InjInvalidIdx (i, inner_ts))
           | Some t -> teq ~expected:t ~actual:(type_of v') InjAnn
+          | None -> fail (InjInvalidIdx (i, inner_ts))
         in
         ret @@ Inj (i, v', typ)
     | Fold (mu, expr) ->

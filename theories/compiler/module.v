@@ -147,26 +147,26 @@ Definition set_start (ms : W.module_start) : modgen unit :=
 Definition add_export (ex : W.module_export) : modgen unit :=
   acc (mod_empty <| W.mod_exports := [ex] |>).
 
-Definition table_alloc (gid_table_next gid_table_off : W.globalidx) (n : nat) : W.expr :=
+Definition table_alloc (gid_tablenext gid_table_off : W.globalidx) (n : nat) : W.expr :=
   [
     (* Save the next index. *)
-    W.BI_get_global (globalimm gid_table_next);
+    W.BI_get_global (globalimm gid_tablenext);
     W.BI_set_global (globalimm gid_table_off);
     (* Increment the next index. *)
     W.BI_get_global (globalimm gid_table_off);
     W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n)));
     W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
-    W.BI_set_global (globalimm gid_table_next)
+    W.BI_set_global (globalimm gid_tablenext)
   ].
 
-Definition call_table_set (gid_table_off : W.globalidx) (fid_table_set : W.funcidx) (ix fid : nat) :
+Definition call_table_set (gid_table_off : W.globalidx) (fid_tableset : W.funcidx) (ix fid : nat) :
   W.expr :=
   [
     W.BI_get_global (globalimm gid_table_off);
     W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat ix)));
     W.BI_binop W.T_i32 (W.Binop_i W.BOI_add);
     W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat fid)));
-    W.BI_call (funcimm fid_table_set)
+    W.BI_call (funcimm fid_tableset)
   ].
 
 Definition compile_func_import (ϕ : function_type) : modgen W.funcidx :=
@@ -184,11 +184,11 @@ Definition compile_func (mr : module_runtime) (mf : module_function) : modgen W.
   add_func (W.Build_module_func tid ls' body).
 
 Definition compile_table
-  (gid_table_next gid_table_off : W.globalidx) (fid_user fid_table_set : W.funcidx) (tab : list nat) :
+  (gid_tablenext gid_table_off : W.globalidx) (fid_user fid_tableset : W.funcidx) (tab : list nat) :
   modgen W.funcidx :=
   tid ← add_type (W.Tf [] []);
-  let es1 := table_alloc gid_table_next gid_table_off (length tab) in
-  let table_set i fid := call_table_set gid_table_off fid_table_set i (funcimm fid_user + fid) in
+  let es1 := table_alloc gid_tablenext gid_table_off (length tab) in
+  let table_set i fid := call_table_set gid_table_off fid_tableset i (funcimm fid_user + fid) in
   let es2 := flatten (imap table_set tab) in
   add_func (W.Build_module_func tid [] (es1 ++ es2)).
 
@@ -198,10 +198,10 @@ Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (i : n
 
 Definition compile_module (m : module) : modgen unit :=
   (* Runtime Imports *)
-  mid_mem_mm ← add_rt_mem_import "mem_mm" (W.Build_limits 0 None);
-  mid_mem_gc ← add_rt_mem_import "mem_gc" (W.Build_limits 0 None);
-  gid_table_next ← add_rt_global_import "table_next" (W.Build_global_type W.MUT_mut W.T_i32);
-  fid_table_set ← add_rt_func_import "table_set" (W.Tf [W.T_i32; W.T_i32] []);
+  mid_mmmem ← add_rt_mem_import "mmmem" (W.Build_limits 0 None);
+  mid_gcmem ← add_rt_mem_import "gcmem" (W.Build_limits 0 None);
+  gid_tablenext ← add_rt_global_import "tablenext" (W.Build_global_type W.MUT_mut W.T_i32);
+  fid_tableset ← add_rt_func_import "tableset" (W.Tf [W.T_i32; W.T_i32] []);
   fid_mmalloc ← add_rt_func_import "mmalloc" (W.Tf [W.T_i32] [W.T_i32]);
   fid_gcalloc ← add_rt_func_import "gcalloc" (W.Tf [W.T_i32] [W.T_i32]);
   fid_setflag ← add_rt_func_import "setflag" (W.Tf [W.T_i32; W.T_i32; W.T_i32] []);
@@ -230,8 +230,8 @@ Definition compile_module (m : module) : modgen unit :=
 
   (* User Function Defs *)
   let mr :=
-    {| mr_mem_mm := mid_mem_mm;
-       mr_mem_gc := mid_mem_gc;
+    {| mr_mmmem := mid_mmmem;
+       mr_gcmem := mid_gcmem;
        mr_func_mmalloc := fid_mmalloc;
        mr_func_gcalloc := fid_gcalloc;
        mr_func_setflag := fid_setflag;
@@ -249,5 +249,5 @@ Definition compile_module (m : module) : modgen unit :=
   mapM_ (compile_export gid_user fid_user) m.(m_exports);;
 
   (* Runtime Function Defs *)
-  fid_table_init ← compile_table gid_table_next gid_table_off fid_user fid_table_set m.(m_table);
+  fid_table_init ← compile_table gid_tablenext gid_table_off fid_user fid_tableset m.(m_table);
   set_start (W.Build_module_start fid_table_init).

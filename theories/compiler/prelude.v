@@ -14,8 +14,8 @@ Inductive error :=
 | ETodo.
 
 Record module_runtime :=
-  { mr_mem_mm : W.memidx;
-    mr_mem_gc : W.memidx;
+  { mr_mmmem : W.memidx;
+    mr_gcmem : W.memidx;
     mr_func_mmalloc : W.funcidx;
     mr_func_gcalloc : W.funcidx;
     mr_func_setflag : W.funcidx;

@@ -124,6 +124,10 @@ module Monad_with_fail = struct
 
     let fail_if cond err : 'a t = if cond then fail err else ret ()
     let fail_ifn cond err : 'a t = if cond then ret () else fail err
+
+    let lift_option err : 'a Option.t -> 'a t = function
+      | Some x -> ret x
+      | None -> fail err
   end
 end
 

@@ -161,9 +161,9 @@ module Compile = struct
     | Int -> ret @@ Int
     | Var x -> (
         match Env.resolve_tname env x with
-        | Some (i, n) -> Ok (Var (i, Some n))
+        | Some (i, n) -> ret (Var (i, Some n))
         | None ->
-            Error
+            fail
               (UnboundType
                  (x, Stdlib.Format.asprintf "%a" Sexp.pp_hum (Env.sexp_of_t env)))
         )
@@ -191,9 +191,9 @@ module Compile = struct
     function
     | Var x -> (
         match Env.resolve_name env x with
-        | `Local (i, n) -> Ok (Var (i, Some n))
-        | `Function n -> Ok (Coderef n)
-        | `NotFound -> Error (UnboundLocal x))
+        | `Local (i, n) -> ret (Var (i, Some n))
+        | `Function n -> ret (Coderef n)
+        | `NotFound -> fail (UnboundLocal x))
     | Int n -> ret (Int n)
     | Lam ((var, typ), return, body) ->
         let env' = Env.add env var in
