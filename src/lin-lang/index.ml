@@ -136,8 +136,8 @@ module Compile = struct
         [ `Local of int * string | `Function of string | `NotFound ] =
       match List.findi ~f:(fun _ -> String.equal name) env.locals with
       | Some (i, n) -> `Local (i, n)
-      | None -> (
-          match List.mem env.fn_names name ~equal:String.equal with
+      | None ->
+          (match List.mem env.fn_names name ~equal:String.equal with
           | true -> `Function name
           | false -> `NotFound)
 
@@ -159,14 +159,13 @@ module Compile = struct
     let open Res in
     function
     | Int -> ret @@ Int
-    | Var x -> (
-        match Env.resolve_tname env x with
+    | Var x ->
+        (match Env.resolve_tname env x with
         | Some (i, n) -> ret (Var (i, Some n))
         | None ->
             fail
               (UnboundType
-                 (x, Stdlib.Format.asprintf "%a" Sexp.pp_hum (Env.sexp_of_t env)))
-        )
+                 (x, Stdlib.Format.asprintf "%a" Sexp.pp_hum (Env.sexp_of_t env))))
     | Lollipop (t1, t2) ->
         let* t1' = compile_typ env t1 in
         let* t2' = compile_typ env t2 in
@@ -189,8 +188,8 @@ module Compile = struct
     let open B.Expr in
     let open Res in
     function
-    | Var x -> (
-        match Env.resolve_name env x with
+    | Var x ->
+        (match Env.resolve_name env x with
         | `Local (i, n) -> ret (Var (i, Some n))
         | `Function n -> ret (Coderef n)
         | `NotFound -> fail (UnboundLocal x))

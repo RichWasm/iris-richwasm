@@ -626,11 +626,11 @@ let rec resolves_path
   match (path, replacement) with
   | [], None -> ret { prefix = []; target = t; replaced = t }
   | [], Some t' -> ret { prefix = []; target = t; replaced = t' }
-  | i :: p', _ -> (
-      match t with
-      | Struct ts -> (
+  | i :: p', _ ->
+      (match t with
+      | Struct ts ->
           let ts0, rest = List.split_n ts i in
-          match rest with
+          (match rest with
           | [] -> fail (CannotResolvePath (`OutOfBounds, Path path, t))
           | t_field :: ts' ->
               let+ pr = resolves_path t_field (Path p') replacement in

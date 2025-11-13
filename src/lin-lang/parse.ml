@@ -94,13 +94,13 @@ let choice
     (alts : ((Path.t -> Sexp.t -> 'a Res.t) * string) list) : 'a Res.t =
   let p_choice = Path.choose p name in
   let rec go best = function
-    | [] -> (
-        match best with
+    | [] ->
+        (match best with
         | None -> Error Err.(ExpectedExpr (p_choice, sexp))
         | Some e -> Error e)
-    | (f, alt_name) :: fs -> (
+    | (f, alt_name) :: fs ->
         let p_alt = Path.alt p_choice alt_name in
-        match f p_alt sexp with
+        (match f p_alt sexp with
         | Ok x -> Ok x
         | Error e ->
             let best' =
@@ -153,7 +153,7 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
               (match Option.value ~default:`Prod kind with
               | `Prod -> Type.Prod (List.rev acc)
               | `Sum -> Type.Sum (List.rev acc))
-        | t :: ts -> (
+        | t :: ts ->
             if Int.equal (i % 2) 0 then
               let tag =
                 match kind with
@@ -172,7 +172,7 @@ let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
                 | Some `Sum | None -> true
                 | _ -> false
               in
-              match t with
+              (match t with
               | Atom ("⊗" | "*") when valid_prod kind ->
                   go (i + 1) (Some `Prod) acc ts
               | Atom ("⊕" | "+") when valid_sum kind ->
@@ -277,8 +277,8 @@ let rec parse_expr (p : Path.t) : Sexp.t -> Expr.t Res.t =
       let* mu' = parse_type (p ~field:"mu") mu in
       let* e' = parse_expr (p ~field:"e") e in
       ret @@ Unfold (mu', e')
-  | Atom x -> (
-      match Int.of_string_opt x with
+  | Atom x ->
+      (match Int.of_string_opt x with
       | Some x -> ret @@ Int x
       | None -> ret @@ Var x)
   | List [ Atom ("λ" | "lam"); binding; Atom ":"; ret_t; Atom "."; body ]
@@ -439,16 +439,16 @@ let parse_module (p : Path.t) : Sexp.t list -> Module.t Res.t =
   | sexps ->
       let rec classify imports functions main_opt : Sexp.t list -> 'a = function
         | [] -> Ok (List.rev imports, List.rev functions, main_opt)
-        | sexp :: rest -> (
-            match sexp with
+        | sexp :: rest ->
+            (match sexp with
             | List (Atom "import" :: _) ->
                 let* import = parse_import p sexp in
                 classify (import :: imports) functions main_opt rest
             | List (Atom ("export" | "fun") :: _) ->
                 let* fn = parse_function p sexp in
                 classify imports (fn :: functions) main_opt rest
-            | _ -> (
-                match (main_opt, rest) with
+            | _ ->
+                (match (main_opt, rest) with
                 | None, [] ->
                     let* main = parse_expr p sexp in
                     classify imports functions (Some main) []

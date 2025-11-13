@@ -311,9 +311,9 @@ module Compile = struct
           | x -> fail @@ SwapNonRef x
         in
         ret @@ Swap (ref', expr', Prod [ Ref expr_t; inner_t ])
-    | Free expr -> (
+    | Free expr ->
         let* expr' = compile_expr env expr in
-        match type_of expr' with
+        (match type_of expr' with
         | Ref t -> ret @@ Free (expr', t)
         | x -> fail @@ FreeNonRef x)
 

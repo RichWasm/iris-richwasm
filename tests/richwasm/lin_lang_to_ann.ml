@@ -243,7 +243,8 @@ let%expect_test "basic functionality" =
         |} |xxx}];
 
   run {| (new 10) |};
-  [%expect {xxx|
+  [%expect
+    {xxx|
     {|
         m_imports := [];
         m_functions :=

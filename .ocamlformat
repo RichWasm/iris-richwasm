@@ -8,3 +8,5 @@ if-then-else = fit-or-vertical
 sequence-style = terminator
 break-separators = after
 break-infix = wrap-or-vertical
+exp-grouping = parens
+leading-nested-match-parens = true

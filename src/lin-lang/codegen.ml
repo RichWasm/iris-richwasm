@@ -156,12 +156,12 @@ module Compile = struct
     let open A.Expr in
     let open B.Instruction in
     function
-    | Var (((de_bruijn, _) as lvar), _) -> (
-        match List.nth env.local_map de_bruijn with
+    | Var (((de_bruijn, _) as lvar), _) ->
+        (match List.nth env.local_map de_bruijn with
         | Some idx -> ret @@ [ LocalGet (idx, Follow) ]
         | None -> fail (UnmappedLocal (lvar, env)))
-    | Coderef (g, _) -> (
-        match Map.find env.function_map g with
+    | Coderef (g, _) ->
+        (match Map.find env.function_map g with
         | Some i -> ret @@ [ CodeRef i ]
         | None -> fail (UnmappedCoderef (g, env)))
     | Int (n, _) -> ret @@ [ NumConst (Int I32, n) ]
