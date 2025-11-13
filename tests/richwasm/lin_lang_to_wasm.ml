@@ -459,8 +459,8 @@ let%expect_test "examples" =
     -----------add_one_program-----------
     FAILURE (TODO pack)
     -----------add_tup_ref-----------
-    FAILURE (ExpectedMEMTYPE "size of"
-     (Type (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
+    Error: 0000141: error: unexpected opcode: 0x6
+
     -----------print_10-----------
     FAILURE (InvalidTableIdx 0)
     -----------factorial_program-----------
@@ -468,7 +468,7 @@ let%expect_test "examples" =
     -----------safe_div-----------
     FAILURE (TODO elab_local_fx)
     -----------incr_n-----------
-    FAILURE (TODO swap)
+    FAILURE (TODO pack)
     -----------fix_factorial[invalid]-----------
     FAILURE (PopEmptyStack LocalSet)
     -----------unboxed_list[invalid]-----------

@@ -232,7 +232,7 @@ let%expect_test "basic functionality" =
           mf_type :=
             (MonoFunT []
               [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T)))]);
+                (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))]);
           mf_locals := [];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 10);
@@ -561,8 +561,86 @@ let%expect_test "examples" =
     -----------add_one_program-----------
     FAILURE (TODO pack)
     -----------add_tup_ref-----------
-    FAILURE (ExpectedMEMTYPE "size of"
-     (Type (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
+    {|
+      m_imports := [];
+      m_functions :=
+        [ {|
+          mf_type := (MonoFunT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]);
+          mf_locals := [ (PrimR PtrR); (PrimR I32R); (PrimR PtrR); (PrimR I32R); (PrimR I32R)];
+          mf_body :=
+            [ (INumConst (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
+              (INew
+                (InstrT [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))]));
+              (ILocalSet
+                (InstrT []
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))])
+                0);
+              (INumConst (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
+              (ILocalGet
+                (InstrT []
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))])
+                0);
+              (IGroup
+                (InstrT
+                  [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T));
+                    (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                      (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))]
+                  [ (ProdT (VALTYPE (ProdR [ (PrimR I32R); (PrimR PtrR)]) NoCopy ExDrop)
+                    [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T));
+                      (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                        (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))])]));
+              (IUngroup
+                (InstrT
+                  [ (ProdT (VALTYPE (ProdR [ (PrimR I32R); (PrimR PtrR)]) NoCopy ExDrop)
+                    [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T));
+                      (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                        (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))])]
+                  [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T));
+                    (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                      (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))]));
+              (ILocalSet
+                (InstrT []
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))])
+                2);
+              (ILocalSet (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
+              (ILocalGet
+                (InstrT []
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))])
+                2);
+              (ILoad
+                (InstrT
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SerT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))))]
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SpanT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (RepS (PrimR I32R))));
+                    (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))])
+                [] Move);
+              (ILocalSet (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 3);
+              (IDrop
+                (InstrT
+                  [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SpanT (MEMTYPE (RepS (PrimR I32R)) ImDrop) (RepS (PrimR I32R))))]
+                  []));
+              (ILocalGet (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 3);
+              (ILocalSet (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
+              (ILocalGet (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
+              (ILocalGet (InstrT [] [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
+              (INum
+                (InstrT
+                  [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T));
+                    (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]
+                  [ (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))])
+                (IInt2 I32T AddI))];
+        |}];
+      m_table := [];
+      m_exports := [ 0];
+    |}
     -----------print_10-----------
     FAILURE (InvalidTableIdx 0)
     -----------factorial_program-----------
@@ -570,7 +648,7 @@ let%expect_test "examples" =
     -----------safe_div-----------
     FAILURE (TODO elab_local_fx)
     -----------incr_n-----------
-    FAILURE (TODO swap)
+    FAILURE (TODO pack)
     -----------fix_factorial[invalid]-----------
     FAILURE (PopEmptyStack LocalSet)
     -----------unboxed_list[invalid]-----------
@@ -588,7 +666,8 @@ let%expect_test "examples" =
               [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                 (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                   [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                    (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]);
+                    (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                      (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]);
           mf_locals := [];
           mf_body :=
             [ (IGroup (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
@@ -597,36 +676,43 @@ let%expect_test "examples" =
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])])
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])])
                 0);
               (IFold
                 (InstrT
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])]
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])]
                   [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                       [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]));
+                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]));
               (INew
                 (InstrT
                   [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                       [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]
+                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]
                   [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
                       (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                         (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                           [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))))]));
+                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))]));
               (IInject
                 (InstrT
                   [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
@@ -634,40 +720,48 @@ let%expect_test "examples" =
                       (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                         (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                           [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))))]
+                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))]
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])])
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])])
                 1);
               (IFold
                 (InstrT
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])]
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])]
                   [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                       [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]));
+                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]));
               (INew
                 (InstrT
                   [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                       [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]
+                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]
                   [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
                       (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                         (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                           [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))))]));
+                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))]));
               (IInject
                 (InstrT
                   [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
@@ -675,40 +769,48 @@ let%expect_test "examples" =
                       (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                         (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                           [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))))]
+                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))]
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])])
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])])
                 1);
               (IFold
                 (InstrT
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])]
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])]
                   [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                       [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]));
+                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]));
               (INew
                 (InstrT
                   [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                       [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]
+                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]
                   [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
                       (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                         (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                           [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))))]));
+                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))]));
               (IInject
                 (InstrT
                   [ (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
@@ -716,28 +818,34 @@ let%expect_test "examples" =
                       (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                         (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                           [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))))]
+                            (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))]
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])])
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])])
                 1);
               (IFold
                 (InstrT
                   [ (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
                       (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                        (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                          (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
-                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                              (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))])))])]
+                        (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop)
+                          (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                            (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
+                                (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))))])]
                   [ (RecT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                     (SumT (VALTYPE (SumR [ (ProdR []); (PrimR PtrR)]) NoCopy ExDrop)
                       [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []);
-                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM) (VarT 0))]))]))];
+                        (RefT (VALTYPE (PrimR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (PrimR PtrR)])) ExDrop) (VarT 0)))]))]))];
         |}];
       m_table := [];
       m_exports := [ 0];

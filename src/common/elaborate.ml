@@ -34,7 +34,8 @@ module Err = struct
     | UngroupNonProd of A.Type.t
     | FoldNonRec of A.Type.t
     | UnfoldNonRec of A.Type.t
-    | LoadNonRef of A.Type.t
+    | NonRef of [ `Load | `Store | `Swap ] * A.Type.t
+    | LoadRefNonSer of A.Type.t
     | FunctionParamMustBeMonoRep
     | CannotResolvePath of
         [ `ExpectedStruct | `OutOfBounds ] * A.Path.t * A.Type.t
@@ -881,13 +882,16 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds [ in_t ] [ out_t ] in
       ret @@ INew it
   | Load (path, consume) ->
-      let* in_t = pop "New" in
-      let* mem, inner_t =
+      let* in_t = pop "Load" in
+      let* mem, t_val =
         match in_t with
         | Ref (mem, Ser t) -> ret (mem, t)
-        | x -> fail (LoadNonRef x)
+        | Ref _ as t -> fail (LoadRefNonSer t)
+        | t -> fail (NonRef (`Load, t))
       in
-      let* inner_t' = elab_type env.kinds inner_t |> lift_result in
+      let* t_ser' = elab_type env.kinds (Ser t_val) |> lift_result in
+      let* t_val' = elab_type env.kinds t_val |> lift_result in
+
       (*
       (HLoadCopy : forall M F L π μ τ τval pr κ κser,
           let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
@@ -900,33 +904,56 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       (* TODO(owen): idt above is subkinding correctly, pretty sure it should be excopy 
         **or** imcopy *)
       (* ALSO: why are we allowing excopy here but now for local.get? *)
-
       let* ex_copyable =
-        copyability_of_typ env.kinds inner_t' |> lift_result >>| function
+        copyability_of_typ env.kinds t_val' |> lift_result >>| function
         | ImCopy | ExCopy -> true
         | _ -> false
       in
       let* should_move = is_effective_move consume ex_copyable |> lift_result in
-      let* pr = resolves_path inner_t path None |> lift_result in
+      let* pr = resolves_path t_val path None |> lift_result in
       let* out_ts, consume' =
         if should_move then
           let* size =
-            size_of_typ env.kinds inner_t' |> lift_result >>| unelab_size
+            size_of_typ env.kinds t_ser' |> lift_result >>| unelab_size
           in
           let+ pr =
-            resolves_path inner_t path (Some (Span size)) |> lift_result
+            resolves_path t_val path (Some (Span size)) |> lift_result
           in
 
-          (A.Type.[ Ref (mem, pr.replaced); inner_t ], B.Consumption.Move)
+          (A.Type.[ Ref (mem, pr.replaced); t_val ], B.Consumption.Move)
         else
-          ret ([ in_t; inner_t ], B.Consumption.Copy)
+          ret ([ in_t; t_val ], B.Consumption.Copy)
       in
       let path' = elab_path path in
       let* it = instr_t_of env.kinds [ in_t ] out_ts in
       let* () = out_ts |> iterM ~f:push in
       ret @@ ILoad (it, path', consume')
-  | Store path -> fail (TODO "store")
-  | Swap path -> fail (TODO "swap")
+  | Store path ->
+      (* TODO: how to deal with HStoreStrong? Would likely need to modify unnanotated AST? *)
+      let* t = pop "Store-1" in
+      let* ref = pop "Store-2" in
+      let* () =
+        match ref with
+        | Ref _ -> ret ()
+        | t -> fail (NonRef (`Store, t))
+      in
+      let path' = elab_path path in
+      let* it = instr_t_of env.kinds [ ref; t ] [ ref ] in
+      let* () = push ref in
+      ret @@ IStore (it, path')
+  | Swap path ->
+      let* t = pop "Swap-1" in
+      let* ref = pop "Swap-2" in
+      let* () =
+        match ref with
+        | Ref _ -> ret ()
+        | t -> fail (NonRef (`Swap, t))
+      in
+      let path' = elab_path path in
+      let* it = instr_t_of env.kinds [ ref; t ] [ ref; t ] in
+      let* () = push ref in
+      let* () = push t in
+      ret @@ IStore (it, path')
 
 let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
     B.Module.Function.t t =
