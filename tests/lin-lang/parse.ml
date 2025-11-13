@@ -4,6 +4,8 @@ open! Test_support
 open! Richwasm_lin_lang
 
 include Test_runner.MultiOutputter.Make (struct
+  include Test_runner.MultiOutputter.DefaultConfig
+
   type syntax = Syntax.Module.t
   type text = string
   type res = Syntax.Module.t

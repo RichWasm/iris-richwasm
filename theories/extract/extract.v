@@ -6,7 +6,7 @@ Extraction Language OCaml.
 (* Set Extraction Optimize. *)
 
 (* HACK: The following are overridding ExtrOcamlNativeString because it doesn't properly qualify 
-  ocaml's Stdlib functions, which can get shadowed by Roqc's Stdlib. *)
+  ocaml's Stdlib functions, which can get shadowed by Rocq's Stdlib. *)
 Extract Inlined Constant String.concat => "Stdlib.String.concat".
 Extract Inlined Constant String.prefix =>
   "(fun s1 s2 -> let l1 = Stdlib.String.length s1 and l2 = Stdlib.String.length s2 in l1 <= l2 && Stdlib.String.sub s2 0 l1 = s1)".

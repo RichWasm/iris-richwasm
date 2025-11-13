@@ -5,6 +5,7 @@ open! Richwasm_lin_lang
 open Cc
 
 include Test_runner.Outputter.Make (struct
+  include Test_runner.Outputter.DefaultConfig
   open Test_utils
 
   type syntax = Syntax.Module.t

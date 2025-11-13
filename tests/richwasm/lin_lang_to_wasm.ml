@@ -4,6 +4,7 @@ open! Test_support
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 
 include Test_runner.MultiOutputter.Make (struct
+  include Test_runner.MultiOutputter.DefaultConfig
   open Test_utils
   open Richwasm_lin_lang
 
@@ -465,7 +466,7 @@ let%expect_test "examples" =
     -----------factorial_program-----------
     FAILURE (TODO pack)
     -----------safe_div-----------
-    FAILURE (TODO "check lfx")
+    FAILURE (TODO elab_local_fx)
     -----------incr_n-----------
     FAILURE (TODO swap)
     -----------fix_factorial[invalid]-----------

@@ -2,7 +2,19 @@ open! Base
 open! Stdlib.Format
 
 module Outputter = struct
+  module type Config = sig
+    val margin : int
+    val max_indent : int
+  end
+
+  module DefaultConfig : Config = struct
+    let margin = 80
+    let max_indent = 80
+  end
+
   module type Core = sig
+    include Config
+
     type syntax
     type text
     type res
@@ -33,8 +45,8 @@ module Outputter = struct
     module Internal = struct
       let mk_ff () =
         let ff = formatter_of_out_channel Stdlib.stdout in
-        pp_set_margin ff 80;
-        pp_set_max_indent ff 80;
+        pp_set_margin ff M.margin;
+        pp_set_max_indent ff M.max_indent;
         ff
     end
 
@@ -61,6 +73,8 @@ module Outputter = struct
 end
 
 module MultiOutputter = struct
+  module DefaultConfig = Outputter.DefaultConfig
+
   module type Core = sig
     include Outputter.Core
 

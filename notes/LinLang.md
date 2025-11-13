@@ -101,7 +101,7 @@ Add dedicated `fix` to the language.
 
 ### 2025-10-03
 
-Write Pretty Printer for annotated AST (to use in Roqc)
+Write Pretty Printer for annotated AST (to use in Rocq)
 
 See if LocalEffects can be entirely infered.
 
@@ -115,7 +115,7 @@ If time, eventually check linearity in the LL type checker.
 - register root -> bump allocator
 - unregster root -> noop
 
-Stil need to pp->roqc for annotated AST
+Stil need to pp->rocq for annotated AST
 
 Need to check if LL lx is less general than general inference.
 

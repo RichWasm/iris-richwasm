@@ -5,6 +5,7 @@ open! Richwasm_lin_lang
 module RichWasm = Richwasm_common.Syntax
 
 include Test_runner.MultiOutputter.Make (struct
+  include Test_runner.MultiOutputter.DefaultConfig
   open Test_utils
 
   type syntax = Syntax.Module.t
