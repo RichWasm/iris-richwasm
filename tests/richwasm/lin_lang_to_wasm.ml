@@ -456,17 +456,18 @@ let%expect_test "examples" =
       (start 8))
 
     -----------add_one_program-----------
-    FAILURE (TODO memory)
+    FAILURE (TODO pack)
     -----------add_tup_ref-----------
-    FAILURE (TODO memory)
+    FAILURE (ExpectedMEMTYPE "size of"
+     (Type (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
     -----------print_10-----------
     FAILURE (InvalidTableIdx 0)
     -----------factorial_program-----------
-    FAILURE (TODO memory)
+    FAILURE (TODO pack)
     -----------safe_div-----------
     FAILURE (TODO "check lfx")
     -----------incr_n-----------
-    FAILURE (TODO memory)
+    FAILURE (TODO swap)
     -----------fix_factorial[invalid]-----------
     FAILURE (PopEmptyStack LocalSet)
     -----------unboxed_list[invalid]-----------
@@ -475,8 +476,9 @@ let%expect_test "examples" =
     -----------boxed_list-----------
     FAILURE (PopEmptyStack LocalSet)
     -----------peano_3-----------
-    FAILURE (TODO memory)
+    Error: 0000155: error: unexpected opcode: 0x7
+
     -----------peano-----------
     FAILURE (TODO elab_local_fx)
     -----------mini_zip-----------
-    FAILURE (TODO memory) |}]
+    FAILURE (TODO pack) |}]

@@ -558,7 +558,7 @@ module Consumption = struct
   type t = [%import: Richwasm_extract.Rw.Core.consumption]
   [@@deriving eq, ord, sexp]
 
-  let pp_print ff : t -> unit = function
+  let pp_roqc ff : t -> unit = function
     | Copy -> fprintf ff "Copy"
     | Move -> fprintf ff "Move"
 end
@@ -609,9 +609,14 @@ module Instruction = struct
           idxs
     | ICallIndirect it -> fprintf ff "(ICallIndirect %a)" pp_it it
     | IInject (it, i) -> fprintf ff "(IInject %a %a)" pp_it it Z.pp_print i
+    | IInjectNew (it, i) ->
+        fprintf ff "(IInjectNew %a %a)" pp_it it Z.pp_print i
     | ICase (it, lfx, cases) ->
         fprintf ff "(ICase %a %a %a)" pp_it it pp_lfx lfx
           (pp_roqc_list pp_instrs) cases
+    | ICaseLoad (it, c, lfx, cases) ->
+        fprintf ff "(ICaseLoad %a %a %a %a)" pp_it it Consumption.pp_roqc c
+          pp_lfx lfx (pp_roqc_list pp_instrs) cases
     | IGroup it -> fprintf ff "(IGroup %a)" pp_it it
     | IUngroup it -> fprintf ff "(IUngroup %a)" pp_it it
     | IFold it -> fprintf ff "(IFold %a)" pp_it it
@@ -625,7 +630,7 @@ module Instruction = struct
     | INew it -> fprintf ff "(INew %a)" pp_it it
     | ILoad (it, p, c) ->
         fprintf ff "(ILoad %a %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
-          Consumption.pp_print c
+          Consumption.pp_roqc c
     | IStore (it, p) ->
         fprintf ff "(IStore %a %a)" pp_it it (pp_roqc_list Z.pp_print) p
     | ISwap (it, p) ->

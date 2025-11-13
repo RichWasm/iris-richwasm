@@ -5,6 +5,13 @@ module A = Syntax
 module B = Annotated_syntax
 
 module Err = struct
+  type kind_ctx =
+    [ `Type of B.Type.t
+    | `TypeA of A.Type.t
+    | `Kind of B.Kind.t
+    ]
+  [@@deriving sexp]
+
   type t =
     | TODO of string
     | InvalidLocalFx of (int * (int * A.Type.t) list)
@@ -20,15 +27,17 @@ module Err = struct
     | InstNonCoderef of A.Type.t
     | InvalidFunctionIdx of int
     | CallNotFullyInstanciated of A.FunctionType.t
-    | ExpectedVALTYPE of string * B.Type.t
-    | ExpectedMEMTYPE of string * B.Type.t
+    | ExpectedVALTYPE of string * kind_ctx
+    | ExpectedMEMTYPE of string * kind_ctx
     | CannotMeet of string * B.Kind.t
     | ExpectedUnqualidfiedCoderef of A.Type.t
     | UngroupNonProd of A.Type.t
     | FoldNonRec of A.Type.t
     | UnfoldNonRec of A.Type.t
+    | LoadNonRef of A.Type.t
     | FunctionParamMustBeMonoRep
-    | ParamMustBeMemType of B.Kind.t
+    | CannotResolvePath of
+        [ `ExpectedStruct | `OutOfBounds ] * A.Path.t * A.Type.t
   [@@deriving sexp]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
@@ -52,7 +61,7 @@ end
 
 module State = struct
   type t = {
-    locals : (A.Type.t * bool) option list;
+    locals : A.Type.t option list;
     stack : A.Type.t list;
   }
   [@@deriving make, sexp]
@@ -75,13 +84,13 @@ module InstrM = struct
         let+ () = put { st with stack = rst } in
         top
 
-  let set_local (i : int) (t : Type.t) (c : bool) : unit t =
+  let set_local (i : int) (t : Type.t) : unit t =
     let* st = get in
     let* () =
       fail_if (List.length st.locals <= i) (InvalidLocalIdx (i, `Set))
     in
     let locals' =
-      List.mapi st.locals ~f:(fun i' x -> if i <> i' then x else Some (t, c))
+      List.mapi st.locals ~f:(fun i' x -> if i <> i' then x else Some t)
     in
     modify (fun st -> { st with locals = locals' })
 
@@ -149,6 +158,13 @@ let rec elab_size : A.Size.t -> B.Size.t = function
   | Prod sizes -> ProdS (List.map ~f:elab_size sizes)
   | Rep rep -> RepS (elab_representation rep)
   | Const s -> ConstS (Z.of_int s)
+
+let rec unelab_size : B.Size.t -> A.Size.t = function
+  | VarS x -> Var (Z.to_int x)
+  | SumS sizes -> Sum (List.map ~f:unelab_size sizes)
+  | ProdS sizes -> Prod (List.map ~f:unelab_size sizes)
+  | RepS rep -> Rep (unelab_representation rep)
+  | ConstS s -> Const (Z.to_int s)
 
 let elab_kind : A.Kind.t -> B.Kind.t = function
   | VALTYPE (representation, copyability, dropability) ->
@@ -352,7 +368,7 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       let* rep, dropability =
         kind_of_typ env t' >>= function
         | VALTYPE (rep, _, dropability) -> ret (rep, dropability)
-        | _ -> fail (ExpectedVALTYPE ("Ser", t'))
+        | _ -> fail (ExpectedVALTYPE ("Ser", `Type t'))
       in
       ret @@ SerT (MEMTYPE (RepS rep, dropability), t')
   | Plug rep ->
@@ -411,6 +427,9 @@ and elab_function_type
 
   ret @@ go quals
 
+(* The unannotated AST treats local effects as a diff between the current locals 
+   and the state of the locals after the block is run, while the annotated AST
+   expects local effects to be the entire new state of the locals *)
 let elab_local_fx (env : Env.t) (LocalFx fxs : A.LocalFx.t) :
     B.Type.t list Res.t =
   fail (TODO "elab_local_fx")
@@ -575,10 +594,54 @@ let function_typ_inst (idx : A.Index.t) (ft : A.FunctionType.t) =
 let function_typ_insts (idxs : A.Index.t list) (ft : A.FunctionType.t) =
   List.fold ~init:ft ~f:(fun ft idx -> function_typ_inst idx ft) idxs
 
-let is_local_copyable (kinds : A.Kind.t list) t =
-  kind_of_typ kinds t >>| function
-  | VALTYPE (_, ImCopy, _) -> true
-  | _ -> false
+let copyability_of_typ (kinds : A.Kind.t list) t =
+  kind_of_typ kinds t >>= function
+  | VALTYPE (_, c, _) -> ret c
+  | _ -> fail (ExpectedVALTYPE ("copyability of", `Type t))
+
+let is_effective_move (consume : A.Consume.t) copyable =
+  match consume with
+  | Follow -> ret @@ not copyable
+  | Copy -> if not copyable then fail CannotCopyNonCopyable else ret false
+  | Move -> ret true
+
+let size_of_typ (kinds : A.Kind.t list) t =
+  kind_of_typ kinds t >>= function
+  | MEMTYPE (sz, _) -> ret sz
+  | _ -> fail (ExpectedMEMTYPE ("size of", `Type t))
+
+(* This is an executable version of what is found in typing.v but is for the 
+   unnanotated AST. *)
+
+type path_result = {
+  prefix : A.Type.t list;
+  target : A.Type.t;
+  replaced : A.Type.t;
+}
+
+let rec resolves_path
+    (t : A.Type.t)
+    (Path path : A.Path.t)
+    (replacement : A.Type.t option) : path_result t =
+  match (path, replacement) with
+  | [], None -> ret { prefix = []; target = t; replaced = t }
+  | [], Some t' -> ret { prefix = []; target = t; replaced = t' }
+  | i :: p', _ -> (
+      match t with
+      | Struct ts -> (
+          let ts0, rest = List.split_n ts i in
+          match rest with
+          | [] -> fail (CannotResolvePath (`OutOfBounds, Path path, t))
+          | t_field :: ts' ->
+              let+ pr = resolves_path t_field (Path p') replacement in
+              {
+                pr with
+                prefix = ts0 @ pr.prefix;
+                replaced = Struct (ts0 @ (pr.replaced :: ts'));
+              })
+      | _ -> fail (CannotResolvePath (`ExpectedStruct, Path path, t)))
+
+(* /end *)
 
 let[@warning "-27"] rec elab_instruction (env : Env.t) :
     A.Instruction.t -> B.Instruction.t InstrM.t =
@@ -629,9 +692,9 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* instrs', st' =
         lift_result @@ mapM ~f:(elab_instruction env') instrs st_inner
       in
-      let* () = fail (TODO "check lfx") in
       let* lfx' = lift_result @@ elab_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
+      let* () = fail (TODO "propogate lfx") in
       ret @@ IBlock (it, lfx', instrs')
   | Loop (bt, instrs) ->
       let* consume, result, env', st_inner = handle_bt bt in
@@ -648,9 +711,9 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* els', els_st =
         lift_result @@ mapM ~f:(elab_instruction env') els st_inner
       in
-      let* () = fail (TODO "check lfx") in
       let* lfx' = lift_result @@ elab_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
+      let* () = fail (TODO "propogate lfx") in
       ret @@ IIte (it, lfx', thn', els')
   | Br label ->
       let* st = get in
@@ -665,32 +728,25 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       ret @@ IReturn it
   | LocalGet (i, consume) ->
       let* st = get in
-      let* t, copyable =
+      let* t =
         List.nth st.locals i
         |> lift_option (InvalidLocalIdx (i, `Get))
         >>= lift_option (UnexpectedUnitializedLocal i)
       in
-      let* is_effective_consume =
-        A.Consume.(
-          match consume with
-          | Follow -> ret @@ not copyable
-          | Copy ->
-              if not copyable then fail CannotCopyNonCopyable else ret false
-          | Move -> ret true)
+      let* t' = lift_result @@ elab_type env.kinds t in
+      let* im_copyable =
+        copyability_of_typ env.kinds t' |> lift_result >>| function
+        | ImCopy -> true
+        | _ -> false
       in
-      let* () =
-        if is_effective_consume then
-          reset_local i
-        else
-          ret ()
-      in
+      let* should_move = is_effective_move consume im_copyable |> lift_result in
+      let* () = if should_move then reset_local i else ret () in
       let* it = mono_in_out env.kinds "LocalGet" [] [ t ] in
       ret @@ ILocalGet (it, Z.of_int i)
   | LocalSet i ->
       let* t = pop "LocalSet" in
       let* t' = lift_result @@ elab_type env.kinds t in
-      let* copyable = is_local_copyable env.kinds t' |> lift_result in
-      let* () = set_local i t copyable in
+      let* () = set_local i t in
       ret @@ ILocalSet (InstrT ([], [ t' ]), Z.of_int i)
   | CodeRef i ->
       let* ft = List.nth env.table i |> lift_option (InvalidTableIdx i) in
@@ -738,8 +794,9 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let t_out = A.Type.(Ref (Base mem, Variant ts)) in
       let* () = push t_out in
       let* it = instr_t_of env.kinds [ t_in ] [ t_out ] in
-      ret @@ IInject (it, Z.of_int i)
+      ret @@ IInjectNew (it, Z.of_int i)
   | Case (bt, lfx, cases) ->
+      (* TODO: use ICaseLoad when appropriate, or seperate instruction? *)
       let* consume, result, env', st_inner = handle_bt bt in
       let* lfx' = elab_local_fx env lfx |> lift_result in
       let* cases' =
@@ -747,7 +804,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
             let* case', st' =
               mapM ~f:(elab_instruction env') case st_inner |> lift_result
             in
-            fail (TODO "case: check lfx, st management"))
+            fail (TODO "case: st management"))
       in
       let* it = instr_t_of env.kinds consume result in
       ret @@ ICase (it, lfx', cases')
@@ -812,11 +869,73 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | Untag ->
       let* it = mono_in_out env.kinds "Untag" [ I31 ] [ Num (Int I32) ] in
       ret @@ IUntag it
-  | Cast _ -> fail (TODO "cast")
-  | New _ | Load (_, _) | Store _ | Swap _ -> fail (TODO "memory")
+  | Cast typ ->
+      let* in_t = pop "Cast" in
+      let* () = push typ in
+      let* it = instr_t_of env.kinds [ in_t ] [ typ ] in
+      ret @@ ICast it
+  | New m ->
+      let* in_t = pop "New" in
+      let out_t : A.Type.t = Ref (Base m, Ser in_t) in
+      let* () = push out_t in
+      let* it = instr_t_of env.kinds [ in_t ] [ out_t ] in
+      ret @@ INew it
+  | Load (path, consume) ->
+      let* in_t = pop "New" in
+      let* mem, inner_t =
+        match in_t with
+        | Ref (mem, Ser t) -> ret (mem, t)
+        | x -> fail (LoadNonRef x)
+      in
+      let* inner_t' = elab_type env.kinds inner_t |> lift_result in
+      (*
+      (HLoadCopy : forall M F L π μ τ τval pr κ κser,
+          let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
+          has_copyability F τval ExCopy ->
+          resolves_path τ π None pr ->
+          pr.(pr_target) = SerT κser τval ->
+          Forall (has_mono_size F) pr.(pr_prefix) ->
+          has_instruction_type_ok F ψ L ->
+          P1 M F L (ILoad ψ π Copy) ψ L) *)
+      (* TODO(owen): idt above is subkinding correctly, pretty sure it should be excopy 
+        **or** imcopy *)
+      (* ALSO: why are we allowing excopy here but now for local.get? *)
 
-let function_param_reps (FunctionType (qs, in_t, _) : A.FunctionType.t) :
-    (A.Type.t * bool) option list t =
+      let* ex_copyable =
+        copyability_of_typ env.kinds inner_t' |> lift_result >>| function
+        | ImCopy | ExCopy -> true
+        | _ -> false
+      in
+      let* should_move = is_effective_move consume ex_copyable |> lift_result in
+      let* pr = resolves_path inner_t path None |> lift_result in
+      let* out_ts, consume' =
+        if should_move then
+          let* size =
+            size_of_typ env.kinds inner_t' |> lift_result >>| unelab_size
+          in
+          let+ pr =
+            resolves_path inner_t path (Some (Span size)) |> lift_result
+          in
+
+          (A.Type.[ Ref (mem, pr.replaced); inner_t ], B.Consumption.Move)
+        else
+          ret ([ in_t; inner_t ], B.Consumption.Copy)
+      in
+      let path' = elab_path path in
+      let* it = instr_t_of env.kinds [ in_t ] out_ts in
+      let* () = out_ts |> iterM ~f:push in
+      ret @@ ILoad (it, path', consume')
+  | Store path -> fail (TODO "store")
+  | Swap path -> fail (TODO "swap")
+
+let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
+    B.Module.Function.t t =
+  let* mf_type = elab_function_type [] typ in
+  let mf_locals = List.map ~f:elab_representation locals in
+  let (FunctionType (qs, in_t, return)) = typ in
+  let param_locals = in_t |> List.map ~f:Option.return in
+  let init_locals = param_locals @ List.map ~f:(fun _ -> None) locals in
+  let init_state = State.make ~locals:init_locals () in
   let kinds =
     List.filter_map
       ~f:(function
@@ -825,26 +944,18 @@ let function_param_reps (FunctionType (qs, in_t, _) : A.FunctionType.t) :
       qs
     |> List.rev
   in
-
-  mapM ~f:(elab_type kinds) in_t
-  >>= mapM ~f:(is_local_copyable kinds)
-  >>| List.zip_exn in_t
-  >>| List.map ~f:Option.return
-
-let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
-    B.Module.Function.t t =
-  let* mf_type = elab_function_type [] typ in
-  let mf_locals = List.map ~f:elab_representation locals in
-  let (FunctionType (_, _, return)) = typ in
-  let* param_locals = function_param_reps typ in
-  let init_locals = param_locals @ List.map ~f:(fun _ -> None) locals in
-  let init_state = State.make ~locals:init_locals () in
-  (* TODO: setup qual env *)
-
-  let init_env = { env with return; local_offset = List.length param_locals } in
+  let local_offset = List.length param_locals in
+  let init_env = { env with return; kinds; local_offset } in
   let* mf_body, _ =
-    InstrM.mapM body ~f:(elab_instruction init_env) init_state
+    let open InstrM in
+    mapM body
+      ~f:(fun x ->
+        elab_instruction init_env x >>| fun x ->
+        (* fprintf std_formatter "%a@," B.Instruction.pp_sexp x; *)
+        x)
+      init_state
   in
+
   ret @@ B.Module.Function.{ mf_type; mf_locals; mf_body }
 
 let elab_module ({ imports; functions; table; exports } : A.Module.t) :
