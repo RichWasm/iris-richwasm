@@ -85,4 +85,58 @@ let return_one =
 
 let%expect_test "return_one" =
   run "return_one" return_one;
-  [%expect ""]
+  [%expect
+    {|
+  return_one
+  (module
+               (func ((ref (base gc) (prod)) -> i31) (local ptr)
+                 i32.const 1
+                 tag)
+               (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local
+                   ptr ptr ptr ptr)
+                 group 0
+                 new gc
+                 coderef 0
+                 group 2
+                 new gc
+                 pack (Type (ref (base gc) (prod)))
+                   (ref (base gc)
+                     (exists type (VALTYPE (ptr, excopy, exdrop))
+                       (ref (base gc)
+                         (prod (ser (var 0))
+                           (ser
+                             (coderef
+                               ((ref (base gc)
+                                  (prod (ser (var 0))
+                                    (ser (ref (base gc) (prod)))))
+                               -> i31)))))))
+                 new gc
+                 load (Path []) follow
+                 unpack (<1> -> i31) (LocalFx [(1, (prod))])
+                   local.set 1
+                   local.get 1 move
+                   copy
+                   local.set 1
+                   load (Path [0]) follow
+                   local.set 2
+                   local.get 1 move
+                   copy
+                   local.set 1
+                   load (Path [1]) follow
+                   local.set 3
+                   group 0
+                   new gc
+                   local.get 3 move
+                   copy
+                   local.set 3
+                   call_indirect
+                   local.get 3 move
+                   drop
+                   local.get 2 move
+                   drop
+                   local.get 1 move
+                   drop
+                 end)
+               (table)
+               (export 0 1))
+  ---|}]

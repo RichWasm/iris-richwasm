@@ -33,13 +33,12 @@ let rec type_subst var replacement tau =
 let rec type_of_v gamma v =
   let open Closed in
   match v with
+  | Value.Inj (_, _, t) | Value.Pack (_, _, t) | Value.Coderef (t, _) -> t
   | Value.Int _ -> PreType.Int
   | Value.Tuple vs -> PreType.Prod (List.map ~f:(type_of_v gamma) vs)
-  | Value.Inj (_, _, t) -> t
-  | Value.Pack (_, _, t) -> t
-  | Value.Fun { foralls; arg = _, t; ret_type; _ } ->
-      PreType.Code { foralls; arg = t; ret = ret_type }
-  | Value.Var v -> List.Assoc.find_exn ~equal:equal_string gamma v
+  | Value.Var v ->
+      (try List.Assoc.find_exn ~equal:equal_string gamma v
+       with Not_found_s _ -> failwith ("unbound variable: " ^ v))
 
 let rec type_of_e gamma e =
   let open Closed.Expr in
@@ -50,7 +49,12 @@ let rec type_of_e gamma e =
       (match type_of_v gamma f with
       | Exists (_, Prod [ _; Code { foralls; ret; _ } ]) ->
           List.fold_right2_exn ~init:ret ~f:type_subst foralls ts
-      | _ -> failwith "application should be on a existential/closure")
+      | t ->
+          failwith
+            ("application should be on a closure, got: "
+            ^ Sexp.to_string (Closed.PreType.sexp_of_t t)
+            ^ "\nexpression: "
+            ^ Sexp.to_string (Closed.Expr.sexp_of_t e)))
   | Project (i, v) ->
       (match type_of_v gamma v with
       | Prod ts -> List.nth_exn ts i
@@ -126,7 +130,6 @@ let rec compile_value delta gamma locals functions v =
       r v @ [ Inject (Some GC, i, types) ]
   | Pack (witness, v, _) ->
       r v @ [ Pack (Index.Type (compile_type delta witness), rw_t); New GC ]
-  | Fun _ -> failwith "functions should be compiled with [compile_fun]"
   | Var v ->
       let idx =
         List.find_map_exn
@@ -135,6 +138,15 @@ let rec compile_value delta gamma locals functions v =
       in
       (* local.get sets the value to unit, so we have to copy and put it back *)
       [ LocalGet (idx, Move); Copy; LocalSet idx ]
+  | Coderef (_, f) ->
+      let idx =
+        List.find_mapi_exn
+          ~f:(fun i -> function
+            | Closed.Function.Function { name; _ } ->
+                Option.some_if (equal_string name f) i)
+          functions
+      in
+      [ CodeRef idx ]
 
 let rec compile_expr delta gamma locals functions e =
   let open Closed.Expr in
@@ -171,6 +183,7 @@ let rec compile_expr delta gamma locals functions e =
   | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path []) ], locals, [])
   | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals, [])
   | Unfold v -> (cv v @ [ Unfold ], locals, [])
+  | Apply (f, _, arg) -> (cv arg @ cv f @ [ CallIndirect ], locals, [])
   | Unpack (var, (n, t), v, e) ->
       let e', locals', fx =
         compile_expr (var :: delta)
@@ -233,37 +246,10 @@ let rec compile_expr delta gamma locals functions e =
       ( cv v @ [ Case (ArrowType (1, [ rw_t ]), LocalFx fx, branches') ],
         locals',
         fx )
-  | Apply (f, ts, arg) ->
-      let fn_name =
-        match f with
-        | Closed.Value.Var v -> v
-        | _ -> failwith "apply must be on a function name"
-      in
-      let fn_idx =
-        try
-          List.find_mapi_exn
-            ~f:(fun i (n, _) -> Option.some_if (equal_string n fn_name) i)
-            functions
-        with Not_found_s _ ->
-          failwith
-            ("cannot find "
-            ^ fn_name
-            ^ " in "
-            ^ List.fold_left ~f:( ^ ) ~init:"" (List.map ~f:fst functions))
-      in
-      ( cv f
-        @ cv arg
-        @ [
-            Call
-              ( fn_idx,
-                List.map ~f:(fun t -> Index.Type (compile_type delta t)) ts );
-          ],
-        locals,
-        [] )
 
-let compile_fun (functions : 'a) : Closed.Value.t -> Module.Function.t =
-  function
-  | Closed.Value.Fun { foralls; arg = arg_name, arg_type; ret_type; body } ->
+let compile_fun functions : Closed.Function.t -> Module.Function.t = function
+  | Closed.Function.Function
+      { name = _; foralls; arg = arg_name, arg_type; ret_type; body } ->
       let open FunctionType in
       let arg_rw_type = compile_type foralls arg_type in
       let ret_rw_type = compile_type foralls ret_type in
@@ -282,13 +268,11 @@ let compile_fun (functions : 'a) : Closed.Value.t -> Module.Function.t =
         locals = List.map ~f:(Fn.const rep) locals;
         body = body';
       }
-  | v -> failwith (Closed.Value.sexp_of_t v |> Sexplib.Std.string_of_sexp)
 
 let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
   let open Closed.Module in
-  let open Closed.Expr in
   let open Closed.PreType in
-  let open Closed.Value in
+  let open Closed.Function in
   let closed_unit = Prod [] in
   let imports =
     List.map
@@ -307,29 +291,26 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
             Export
               ( ( "_start",
                   Code { foralls = []; arg = closed_unit; ret = closed_unit } ),
-                Value
-                  (Fun
-                     {
-                       foralls = [];
-                       arg = ("_", closed_unit);
-                       ret_type = closed_unit;
-                       body;
-                     }) );
+                Function
+                  {
+                    name = "_start";
+                    foralls = [];
+                    arg = ("_", closed_unit);
+                    ret_type = closed_unit;
+                    body;
+                  } );
           ]
   in
   let functions =
     List.map
       ~f:(function
-        | Export ((n, t), _) | Private ((n, t), _) -> (n, t))
+        | Export (_, f) | Private (_, f) -> f)
       fns
   in
   let functions =
-    (* FIXME: update source syntax to make sure these are always functions
-     *  (or at least values) *)
     List.map
       ~f:(function
-        | Export (_, Value v) | Private (_, Value v) -> compile_fun functions v
-        | _ -> failwith "expected function value here")
+        | Export (_, f) | Private (_, f) -> compile_fun functions f)
       fns
   in
   let exports =

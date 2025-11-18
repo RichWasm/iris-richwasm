@@ -171,12 +171,7 @@ module Closed = struct
       | Var of Variable.t
       | Tuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
-      | Fun of {
-          foralls : Variable.t list;
-          arg : Binding.t;
-          ret_type : Type.t;
-          body : Expr.t;
-        }
+      | Coderef of PreType.t * Variable.t
       | Pack of Type.t * Value.t * Type.t
     [@@deriving sexp]
   end = struct
@@ -185,12 +180,7 @@ module Closed = struct
       | Var of Variable.t
       | Tuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
-      | Fun of {
-          foralls : Variable.t list;
-          arg : Binding.t;
-          ret_type : Type.t;
-          body : Expr.t;
-        }
+      | Coderef of PreType.t * Variable.t
       | Pack of Type.t * Value.t * Type.t
     [@@deriving sexp]
   end
@@ -229,12 +219,24 @@ module Closed = struct
     [@@deriving sexp]
   end
 
+  module Function = struct
+    type t =
+      | Function of {
+          name : Variable.t;
+          foralls : Variable.t list;
+          arg : Binding.t;
+          ret_type : Type.t;
+          body : Expr.t;
+        }
+    [@@deriving sexp]
+  end
+
   module Module = struct
     type import = Import of Binding.t [@@deriving sexp]
 
     type item =
-      | Export of Binding.t * Expr.t
-      | Private of Binding.t * Expr.t
+      | Export of Binding.t * Function.t
+      | Private of Binding.t * Function.t
     [@@deriving sexp]
 
     type t = Module of import list * item list * Expr.t option
