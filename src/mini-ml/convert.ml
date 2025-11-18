@@ -97,12 +97,16 @@ and cc_pt pt =
       Closed.(
         PreType.Exists
           ( "#cc-env",
-            PreType.Code
-              {
-                foralls;
-                arg = PreType.Prod [ PreType.Var "#cc-env"; cc_t arg ];
-                ret = cc_t ret;
-              } ))
+            PreType.Prod
+              [
+                PreType.Var "#cc-env";
+                PreType.Code
+                  {
+                    foralls;
+                    arg = PreType.Prod [ PreType.Var "#cc-env"; cc_t arg ];
+                    ret = cc_t ret;
+                  };
+              ] ))
 
 let rec cc_v gamma tagger acc v =
   match v with
@@ -160,7 +164,7 @@ let rec cc_v gamma tagger acc v =
                 ret_type = cc_t ret_type;
                 body =
                   Expr.Let
-                    ( ("#env", PreType.Var "#cc-env"),
+                    ( ("#env", env_prod),
                       Expr.Project (0, Value.Var "#env_and_arg"),
                       Expr.Let
                         ( (n, cc_t t),
@@ -259,14 +263,40 @@ let cc_imp (Source.Module.Import (n, t)) = Closed.Module.Import (n, cc_t t)
 let cc_item gamma tagger acc =
   let open Source.Module in
   function
-  | Export ((n, t), e) ->
-      ( (fun ((n, t), e) -> Closed.Module.Export ((n, t), e)),
-        (n, cc_t t),
-        cc_e gamma tagger acc e )
-  | Private ((n, t), e) ->
-      ( (fun ((n, t), e) -> Closed.Module.Private ((n, t), e)),
-        (n, cc_t t),
-        cc_e gamma tagger acc e )
+  (* items will have no closed-over variables *)
+  | Export
+      ((n, t), Value (Fun { foralls; arg = arg_name, arg_type; ret_type; body }))
+    ->
+      let body', extra = cc_e gamma tagger acc body in
+      ( Closed.(
+          Module.Export
+            ( (n, cc_t t),
+              Expr.Value
+                (Value.Fun
+                   {
+                     foralls;
+                     arg = (arg_name, cc_t arg_type);
+                     ret_type = cc_t ret_type;
+                     body = body';
+                   }) )),
+        extra )
+  | Private
+      ((n, t), Value (Fun { foralls; arg = arg_name, arg_type; ret_type; body }))
+    ->
+      let body', extra = cc_e gamma tagger acc body in
+      ( Closed.(
+          Module.Private
+            ( (n, cc_t t),
+              Expr.Value
+                (Value.Fun
+                   {
+                     foralls;
+                     arg = (arg_name, cc_t arg_type);
+                     ret_type = cc_t ret_type;
+                     body = body';
+                   }) )),
+        extra )
+  | _ -> failwith "items must be function"
 
 let cc_module (Source.Module.Module (imps, items, body)) =
   let mk_private =
@@ -294,8 +324,7 @@ let cc_module (Source.Module.Module (imps, items, body)) =
   let items' =
     List.fold_left
       ~f:(fun acc item ->
-        let repack, bind, (e, extra) = cc_item initial_gamma tagger [] item in
-        let item' = repack (bind, e) in
+        let item', extra = cc_item initial_gamma tagger [] item in
         let extra = List.map ~f:mk_private extra in
         acc @ extra @ [ item' ])
       ~init:[] items

@@ -1,6 +1,8 @@
+open! Base
+
 module Source = struct
   module Variable = struct
-    type t = string [@@deriving sexp]
+    type t = string [@@deriving sexp, eq]
   end
 
   module rec PreType : sig
@@ -16,7 +18,7 @@ module Source = struct
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end = struct
     type t =
       | Int
@@ -30,13 +32,13 @@ module Source = struct
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end
 
   and Type : sig
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end = struct
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end
 
   module Binding = struct
@@ -118,7 +120,7 @@ end
 
 module Closed = struct
   module Variable = struct
-    type t = string [@@deriving sexp]
+    type t = string [@@deriving sexp, eq]
   end
 
   module rec PreType : sig
@@ -135,7 +137,7 @@ module Closed = struct
       | Ref of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end = struct
     type t =
       | Int
@@ -150,13 +152,13 @@ module Closed = struct
       | Ref of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end
 
   and Type : sig
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end = struct
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end
 
   module Binding = struct
@@ -241,7 +243,7 @@ module Closed = struct
 end
 
 module Tag = struct
-  type t = int [@@deriving sexp, equal]
+  type t = int [@@deriving sexp, eq]
 
   let new_counter () : unit -> t =
     let x = ref 0 in

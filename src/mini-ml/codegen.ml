@@ -175,7 +175,7 @@ let rec compile_expr delta gamma locals functions e =
       let e', locals', fx =
         compile_expr (var :: delta)
           ((n, t, new_local_idx) :: gamma)
-          (locals @ [ (n, compile_type delta t) ])
+          (locals @ [ (n, compile_type (var :: delta) t) ])
           functions e
       in
       let fx = fx @ [ (new_local_idx, rw_unit) ] in
@@ -240,9 +240,16 @@ let rec compile_expr delta gamma locals functions e =
         | _ -> failwith "apply must be on a function name"
       in
       let fn_idx =
-        List.find_mapi_exn
-          ~f:(fun i (n, _) -> Option.some_if (equal_string n fn_name) i)
-          functions
+        try
+          List.find_mapi_exn
+            ~f:(fun i (n, _) -> Option.some_if (equal_string n fn_name) i)
+            functions
+        with Not_found_s _ ->
+          failwith
+            ("cannot find "
+            ^ fn_name
+            ^ " in "
+            ^ List.fold_left ~f:( ^ ) ~init:"" (List.map ~f:fst functions))
       in
       ( cv f
         @ cv arg
@@ -254,28 +261,28 @@ let rec compile_expr delta gamma locals functions e =
         locals,
         [] )
 
-let[@warning "-8"] compile_fun
-    functions
-    (Closed.Value.Fun { foralls; arg = arg_name, arg_type; ret_type; body }) :
-    Module.Function.t =
-  let open FunctionType in
-  let arg_rw_type = compile_type foralls arg_type in
-  let ret_rw_type = compile_type foralls ret_type in
-  let body', locals, _ =
-    compile_expr foralls
-      [ (arg_name, arg_type, 0) ]
-      [ (arg_name, arg_rw_type) ]
-      functions body
-  in
-  {
-    typ =
-      FunctionType
-        ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
-          [ arg_rw_type ],
-          [ ret_rw_type ] );
-    locals = List.map ~f:(Fn.const rep) locals;
-    body = body';
-  }
+let compile_fun (functions : 'a) : Closed.Value.t -> Module.Function.t =
+  function
+  | Closed.Value.Fun { foralls; arg = arg_name, arg_type; ret_type; body } ->
+      let open FunctionType in
+      let arg_rw_type = compile_type foralls arg_type in
+      let ret_rw_type = compile_type foralls ret_type in
+      let body', locals, _ =
+        compile_expr foralls
+          [ (arg_name, arg_type, 0) ]
+          [ (arg_name, arg_rw_type) ]
+          functions body
+      in
+      {
+        typ =
+          FunctionType
+            ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
+              [ arg_rw_type ],
+              [ ret_rw_type ] );
+        locals = List.map ~f:(Fn.const rep) locals;
+        body = body';
+      }
+  | v -> failwith (Closed.Value.sexp_of_t v |> Sexplib.Std.string_of_sexp)
 
 let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
   let open Closed.Module in

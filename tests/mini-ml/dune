@@ -1,0 +1,6 @@
+(library
+ (name mini_ml_pp_tests)
+ (inline_tests)
+ (preprocess
+  (pps ppx_expect))
+ (libraries iris-richwasm.mini-ml))
