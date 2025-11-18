@@ -140,3 +140,161 @@ let%expect_test "return_one" =
                (table)
                (export 0 1))
   ---|}]
+
+let apply_id =
+  Module.Module
+    ( [],
+      [
+        Module.Export
+          ( ( "id",
+              PreType.Fun
+                {
+                  foralls = [ "a" ];
+                  arg = PreType.Var "a";
+                  ret = PreType.Var "a";
+                } ),
+            Expr.Value
+              (Value.Fun
+                 {
+                   foralls = [ "a" ];
+                   arg = ("x", PreType.Var "a");
+                   ret_type = PreType.Var "a";
+                   body = Expr.Value (Value.Var "x");
+                 }) );
+      ],
+      Some (Expr.Apply (Value.Var "id", [ PreType.Int ], Value.Int 42)) )
+
+let%expect_test "apply_id" =
+  run "apply_id" apply_id;
+  [%expect
+    {|
+  apply_id
+  (module
+             (func
+                 (forall.type (VALTYPE (ptr, excopy, exdrop))(var 0) ->
+                 (var 0)) (local ptr)
+               local.get 0 move
+               copy
+               local.set 0)
+             (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local
+                 ptr ptr ptr ptr)
+               group 0
+               new gc
+               coderef 0
+               group 2
+               new gc
+               pack (Type (ref (base gc) (prod)))
+                 (ref (base gc)
+                   (exists type (VALTYPE (ptr, excopy, exdrop))
+                     (ref (base gc)
+                       (prod (ser (var 0))
+                         (ser
+                           (coderef
+                             (forall.type (VALTYPE (ptr, excopy, exdrop))
+                             (ref (base gc) (prod (ser (var 1)) (ser (var 0))))
+                             -> (var 0))))))))
+               new gc
+               load (Path []) follow
+               unpack (<1> -> i31) (LocalFx [(1, (prod))])
+                 local.set 1
+                 local.get 1 move
+                 copy
+                 local.set 1
+                 load (Path [0]) follow
+                 local.set 2
+                 local.get 1 move
+                 copy
+                 local.set 1
+                 load (Path [1]) follow
+                 local.set 3
+                 i32.const 42
+                 tag
+                 local.get 3 move
+                 copy
+                 local.set 3
+                 call_indirect
+                 local.get 3 move
+                 drop
+                 local.get 2 move
+                 drop
+                 local.get 1 move
+                 drop
+               end)
+             (table)
+             (export 0 1))
+  --- |}]
+
+let tuple_and_project =
+  Module.Module
+    ([], [], Some (Expr.Project (1, Value.Tuple [ Value.Int 42; Value.Int 7 ])))
+
+let%expect_test "tuple_and_project" =
+  run "tuple_and_project" tuple_and_project;
+  [%expect
+    {|
+  tuple_and_project
+  (module
+                      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod)))
+                          (local ptr)
+                        i32.const 7
+                        tag
+                        i32.const 42
+                        tag
+                        group 2
+                        new gc
+                        load (Path [1]) follow)
+                      (table)
+                      (export 0))
+  --- |}]
+
+let opt_case =
+  let option_type = PreType.Sum [ PreType.Prod []; PreType.Int ] in
+  Module.Module
+    ( [],
+      [],
+      Some
+        (Expr.Let
+           ( ("option", option_type),
+             Expr.Value (Value.Inj (1, Value.Int 42, option_type)),
+             Expr.Cases
+               ( Value.Var "option",
+                 [
+                   (("_", PreType.Prod []), Expr.Value (Value.Int 0));
+                   (("v", PreType.Int), Expr.Value (Value.Var "v"));
+                 ] ) )) )
+
+let%expect_test "opt_case" =
+  run "opt_case" opt_case;
+  [%expect
+    {|
+  opt_case
+  (module
+             (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local
+                 ptr ptr ptr ptr)
+               i32.const 42
+               tag
+               inject gc 1 (ref (base gc) (prod)) i31
+               local.set 1
+               local.get 1 move
+               copy
+               local.set 1
+               case (<1> -> i31) (LocalFx [])
+                 (0
+                   local.set 3
+                   i32.const 0
+                   tag
+                   local.get 3 move
+                   drop)
+                 (1
+                   local.set 2
+                   local.get 2 move
+                   copy
+                   local.set 2
+                   local.get 2 move
+                   drop)
+               end
+               local.get 1 move
+               drop)
+             (table)
+             (export 0))
+  --- |}]
