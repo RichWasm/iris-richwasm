@@ -2,4 +2,6 @@
  (name richwasm_mini_ml)
  (public_name iris-richwasm.mini-ml)
  (modules main :standard)
- (libraries iris-richwasm.common base))
+ (libraries iris-richwasm.common base)
+ (preprocess
+  (staged_pps ppx_deriving.eq ppx_sexp_conv)))

@@ -1,6 +1,8 @@
+open! Base
+
 module Source = struct
   module Variable = struct
-    type t = string [@@deriving sexp]
+    type t = string [@@deriving sexp, eq]
   end
 
   module rec PreType : sig
@@ -16,7 +18,7 @@ module Source = struct
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end = struct
     type t =
       | Int
@@ -30,13 +32,13 @@ module Source = struct
       | Sum of Type.t list
       | Ref of Type.t
       | Rec of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end
 
   and Type : sig
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end = struct
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end
 
   module Binding = struct
@@ -118,7 +120,7 @@ end
 
 module Closed = struct
   module Variable = struct
-    type t = string [@@deriving sexp]
+    type t = string [@@deriving sexp, eq]
   end
 
   module rec PreType : sig
@@ -135,7 +137,7 @@ module Closed = struct
       | Ref of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end = struct
     type t =
       | Int
@@ -150,13 +152,13 @@ module Closed = struct
       | Ref of Type.t
       | Rec of Variable.t * Type.t
       | Exists of Variable.t * Type.t
-    [@@deriving sexp, equal]
+    [@@deriving sexp, eq]
   end
 
   and Type : sig
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end = struct
-    type t = PreType.t [@@deriving sexp, equal]
+    type t = PreType.t [@@deriving sexp, eq]
   end
 
   module Binding = struct
@@ -169,12 +171,7 @@ module Closed = struct
       | Var of Variable.t
       | Tuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
-      | Fun of {
-          foralls : Variable.t list;
-          arg : Binding.t;
-          ret_type : Type.t;
-          body : Expr.t;
-        }
+      | Coderef of PreType.t * Variable.t
       | Pack of Type.t * Value.t * Type.t
     [@@deriving sexp]
   end = struct
@@ -183,12 +180,7 @@ module Closed = struct
       | Var of Variable.t
       | Tuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
-      | Fun of {
-          foralls : Variable.t list;
-          arg : Binding.t;
-          ret_type : Type.t;
-          body : Expr.t;
-        }
+      | Coderef of PreType.t * Variable.t
       | Pack of Type.t * Value.t * Type.t
     [@@deriving sexp]
   end
@@ -227,12 +219,24 @@ module Closed = struct
     [@@deriving sexp]
   end
 
+  module Function = struct
+    type t =
+      | Function of {
+          name : Variable.t;
+          foralls : Variable.t list;
+          arg : Binding.t;
+          ret_type : Type.t;
+          body : Expr.t;
+        }
+    [@@deriving sexp]
+  end
+
   module Module = struct
     type import = Import of Binding.t [@@deriving sexp]
 
     type item =
-      | Export of Binding.t * Expr.t
-      | Private of Binding.t * Expr.t
+      | Export of Binding.t * Function.t
+      | Private of Binding.t * Function.t
     [@@deriving sexp]
 
     type t = Module of import list * item list * Expr.t option
@@ -241,7 +245,7 @@ module Closed = struct
 end
 
 module Tag = struct
-  type t = int [@@deriving sexp, equal]
+  type t = int [@@deriving sexp, eq]
 
   let new_counter () : unit -> t =
     let x = ref 0 in
