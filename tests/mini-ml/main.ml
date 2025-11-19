@@ -2,6 +2,7 @@ open! Base
 open! Richwasm_mini_ml
 open Stdlib.Format
 open Syntax.Source
+open Parse
 
 let pipeline x = x |> Convert.cc_module |> Codegen.compile_module
 
@@ -10,6 +11,7 @@ let run name ast =
   |> pipeline
   |> printf "%s\n%a\n---\n" name Richwasm_common.Syntax.Module.pp
 
+let run_str name source = source |> from_string_exn |> run name
 let one = Module.Module ([], [], Some (Expr.Int 1))
 
 let%expect_test "test_one" =
@@ -294,4 +296,117 @@ let%expect_test "opt_case" =
                drop)
              (table)
              (export 0))
+  --- |}]
+
+let%expect_test "poly len" =
+  run_str "len"
+    {|
+  (export (len : ((a) (rec (b) (+ (*) (+ a b))) -> int))
+    (fun (a) (x : (rec (b) (+ (*) (+ a b)))) : a
+      (cases (unfold x)
+        ((_ : (*)) 0)
+        ((y : (+ a (rec (b) (+ (*) (+ a b)))))
+          (op + 1 (app len (a) (fold (rec (b) (+ (*) (+ a b))) y)))))))
+  |};
+  [%expect
+    {|
+  len
+  (module
+        (func
+            (forall.type (VALTYPE (ptr, excopy, exdrop))(rec
+                                                          (VALTYPE (ptr,
+                                                             excopy, exdrop))
+                                                          (ref (base gc)
+                                                            (sum
+                                                              (ser
+                                                                (ref (base gc)
+                                                                  (prod)))
+                                                              (ser
+                                                                (ref (base gc)
+                                                                  (sum
+                                                                    (ser
+                                                                      (var 1))
+                                                                    (ser
+                                                                      (var 0))))))))
+            -> (var 0)) (local ptr ptr ptr ptr ptr ptr)
+          local.get 0 move
+          copy
+          local.set 0
+          unfold
+          case (<1> -> i31) (LocalFx [(2, (prod))])
+            (0
+              local.set 5
+              i32.const 0
+              tag
+              local.get 5 move
+              drop)
+            (1
+              local.set 1
+              i32.const 1
+              tag
+              untag
+              group 0
+              new gc
+              coderef 0
+              group 2
+              new gc
+              pack (Type (ref (base gc) (prod)))
+                (ref (base gc)
+                  (exists type (VALTYPE (ptr, excopy, exdrop))
+                    (ref (base gc)
+                      (prod (ser (var 0))
+                        (ser
+                          (coderef
+                            (forall.type (VALTYPE (ptr, excopy, exdrop))
+                            (ref (base gc)
+                              (prod (ser (var 1))
+                                (ser
+                                  (rec (VALTYPE (ptr, excopy, exdrop))
+                                    (ref (base gc)
+                                      (sum (ser (ref (base gc) (prod)))
+                                        (ser
+                                          (ref (base gc)
+                                            (sum (ser (var 1)) (ser (var 0)))))))))))
+                            -> i31)))))))
+              new gc
+              load (Path []) follow
+              unpack (<1> -> i31) (LocalFx [(2, (prod))])
+                local.set 2
+                local.get 2 move
+                copy
+                local.set 2
+                load (Path [0]) follow
+                local.set 3
+                local.get 2 move
+                copy
+                local.set 2
+                load (Path [1]) follow
+                local.set 4
+                local.get 1 move
+                copy
+                local.set 1
+                fold
+                  (rec (VALTYPE (ptr, excopy, exdrop))
+                    (ref (base gc)
+                      (sum (ser (ref (base gc) (prod)))
+                        (ser (ref (base gc) (sum (ser (var 2)) (ser (var 0))))))))
+                local.get 4 move
+                copy
+                local.set 4
+                call_indirect
+                local.get 4 move
+                drop
+                local.get 3 move
+                drop
+                local.get 2 move
+                drop
+              end
+              untag
+              i32.add
+              tag
+              local.get 1 move
+              drop)
+          end)
+        (table)
+        (export 0))
   --- |}]
