@@ -2,10 +2,10 @@ open! Core
 open! Core_unix
 open! Stdlib.Format
 
-let wasm2wat (wasm : string) : (string, string) Result.t =
+let wat2wasm (wasm : string) : (string, string) Result.t =
   let Core_unix.Process_info.{ pid; stdin; stdout; stderr } =
-    Core_unix.create_process ~prog:"wasm2wat"
-      ~args:[ "--enable-multi-memory"; "-" ]
+    Core_unix.create_process ~prog:"wat2wasm"
+      ~args:[ "--enable-multi-memory"; "--output=-";"-" ]
   in
   let oc = Core_unix.out_channel_of_descr stdin in
   Out_channel.output_string oc wasm;
@@ -24,7 +24,7 @@ let wasm2wat (wasm : string) : (string, string) Result.t =
   | Ok () -> Ok (out ^ err)
   | Error _ -> Error (out ^ err)
 
-let pp_as_wat ff (wasm : string) =
-  match wasm2wat wasm with
+let pp_as_wasm ff (wasm : string) =
+  match wat2wasm wasm with
   | Ok out -> fprintf ff "%s" out
-  | Error err -> fprintf ff "wasm2wat Error: %s" err
+  | Error err -> fprintf ff "wat2wasm Error: %s" err

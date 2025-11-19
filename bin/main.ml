@@ -5,7 +5,9 @@ let lin_lang =
   Command.basic ~summary:""
     (let%map_open.Command filename = anon ("file_name" %: string)
      and output = anon ("output" %: string) in
-     fun () -> print_endline filename)
+     fun () ->
+       print_endline filename;
+       print_endline output)
 
 let mini_ml =
   Command.basic ~summary:""

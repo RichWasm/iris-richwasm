@@ -15,4 +15,5 @@ let compile modul =
   | Coq_inl err -> Error err
   | Coq_inr (_, modul) -> Ok modul
 
-let serialize = Richwasm_extract.Binary_format_printer.binary_of_module
+let wasm_serialize = Richwasm_extract.Binary_format_printer.binary_of_module
+let wasm_ugly_printer = Wasm_ugly_printer.ugly_module
