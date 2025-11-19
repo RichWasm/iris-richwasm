@@ -563,3 +563,106 @@ let%expect_test "poly len" =
         (table)
         (export 0 1))
   --- |}]
+
+let%expect_test "add1" =
+  run_str "add1"
+    {|
+  (export (add1 : (() int -> int))
+    (fun () (x : int) : int
+      (op + x 1)))
+  |};
+  [%expect
+    {|
+    add1
+    (module
+           (func
+               ((ref (base gc) (prod (ser (ref (base gc) (prod))) (ser i31))) ->
+               i31) (local ptr ptr)
+             local.get 0 move
+             copy
+             local.set 0
+             load (Path [1]) follow
+             local.set 1
+             local.get 1 move
+             copy
+             local.set 1
+             untag
+             i32.const 1
+             tag
+             untag
+             i32.add
+             tag
+             local.get 1 move
+             drop)
+           (table)
+           (export 0))
+    --- |}]
+
+let%expect_test "mini_zip" =
+  run_str "mini_zip"
+    {|
+  (export (mini_zip : ((a b) (* (ref a) (ref b)) -> (ref (* a b))))
+    (fun (a b) (x : (* (ref a) (ref b))) : (ref (* a b))
+      (new (tup (! (proj 0 x)) (! (proj 1 x))))))
+  |};
+  [%expect
+    {|
+    mini_zip
+    (module
+               (func
+                   (forall.type (VALTYPE (ptr, excopy, exdrop))(forall.type (
+                                                               VALTYPE (ptr,
+                                                                 excopy, exdrop))
+                                                               (ref (base gc)
+                                                                 (prod
+                                                                   (ser
+                                                                     (ref
+                                                                       (base gc)
+                                                                       (prod)))
+                                                                   (ser
+                                                                     (ref
+                                                                       (base gc)
+                                                                       (prod
+                                                                        (ser
+                                                                        (ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (var 0))))
+                                                                        (ser
+                                                                        (ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (var 1)))))))))
+                                                               ->
+                                                               (ref (base gc)
+                                                                 (ser
+                                                                   (ref (base gc)
+                                                                     (prod
+                                                                       (ser
+                                                                        (var 0))
+                                                                       (ser
+                                                                        (var 1))))))))
+                   (local ptr ptr)
+                 local.get 0 move
+                 copy
+                 local.set 0
+                 load (Path [1]) follow
+                 local.set 1
+                 local.get 1 move
+                 copy
+                 local.set 1
+                 load (Path [1]) follow
+                 load (Path []) follow
+                 local.get 1 move
+                 copy
+                 local.set 1
+                 load (Path [0]) follow
+                 load (Path []) follow
+                 group 2
+                 new gc
+                 new gc
+                 local.get 1 move
+                 drop)
+               (table)
+               (export 0))
+    --- |}]
