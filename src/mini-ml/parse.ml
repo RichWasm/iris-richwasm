@@ -159,7 +159,6 @@ let rec parse_type p : Sexp.t -> Source.PreType.t Res.t =
 
 let parse_bind p : Sexp.t -> Source.Binding.t Res.t =
   let open Res in
-  let open Path in
   function
   | List [ Atom var; Atom ":"; t ] ->
       let* t' =
@@ -315,7 +314,6 @@ let parse_fun p : Sexp.t -> Source.Module.item Res.t =
 
 let parse_module p : Sexp.t list -> Source.Module.t Res.t =
   let open Res in
-  let open Path in
   let open Source.Module in
   function
   | [] -> ret @@ Module ([], [], None)
