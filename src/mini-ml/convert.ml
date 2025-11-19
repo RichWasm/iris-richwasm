@@ -103,16 +103,20 @@ let rec cc_e user_fns gamma tagger acc e =
   match e with
   | Int i -> (Closed.Expr.Int i, acc)
   | Var v ->
-      (match List.Assoc.find ~equal:equal_string user_fns v with
-      (* manually pack user-written/imported function *)
-      | Some t ->
-          ( Closed.(
-              Expr.Pack
-                ( PreType.Prod [],
-                  Expr.Tuple [ Expr.Tuple []; Expr.Coderef (cc_t t, v) ],
-                  cc_t t )),
-            acc )
-      | None -> (Closed.Expr.Var v, acc))
+      if List.Assoc.mem ~equal:equal_string gamma v then
+        (Closed.Expr.Var v, acc)
+      else (
+        match
+          List.Assoc.find ~equal:equal_string user_fns v
+        with
+        | Some t ->
+            ( Closed.(
+                Expr.Pack
+                  ( PreType.Prod [],
+                    Expr.Tuple [ Expr.Tuple []; Expr.Coderef (cc_t t, v) ],
+                    cc_t t )),
+              acc )
+        | None -> failwith ("unbound identifier " ^ v))
   | Tuple vs ->
       let vs, code =
         List.fold_left
@@ -213,7 +217,7 @@ let rec cc_e user_fns gamma tagger acc e =
   | Let ((n, t), e1, e2) ->
       let t' = cc_t t in
       let e1', acc' = r acc e1 in
-      let e2', code = r acc' e2 in
+      let e2', code = cc_e user_fns ((n, t) :: gamma) tagger acc' e2 in
       (Closed.Expr.Let ((n, t'), e1', e2'), code)
   | Cases (v, branches) ->
       let v', acc' = r acc v in
@@ -221,7 +225,7 @@ let rec cc_e user_fns gamma tagger acc e =
         List.fold_left
           ~f:(fun (branches, code) ((n, t), e) ->
             let t' = cc_t t in
-            let e', new_code = r code e in
+            let e', new_code = cc_e user_fns ((n, t) :: gamma) tagger code e in
             (((n, t'), e') :: branches, new_code))
           ~init:([], acc') branches
       in
@@ -262,7 +266,9 @@ let cc_item user_fns gamma tagger acc item =
   | Private
       ((n, t), Expr.Fun { foralls; arg = arg_name, arg_type; ret_type; body })
     ->
-      let body', extra = cc_e user_fns gamma tagger acc body in
+      let body', extra =
+        cc_e user_fns ((arg_name, arg_type) :: gamma) tagger acc body
+      in
       let packer =
         match item with
         | Export _ -> fun (a, b) -> Closed.Module.Export (a, b)
@@ -289,7 +295,7 @@ let cc_module (Source.Module.Module (imps, items, body)) =
           ((name, Closed.PreType.Code { foralls; arg = t; ret = ret_type }), f)
   in
   let tagger = Tag.new_counter () in
-  let initial_gamma =
+  let user_fns =
     let open Source.Module in
     List.map ~f:(fun (Import (n, t)) -> (n, t)) imps
     @ List.map
@@ -305,7 +311,7 @@ let cc_module (Source.Module.Module (imps, items, body)) =
   let items' =
     List.fold_left
       ~f:(fun acc item ->
-        let item', extra = cc_item initial_gamma initial_gamma tagger [] item in
+        let item', extra = cc_item user_fns [] tagger [] item in
         let extra = List.map ~f:mk_private extra in
         acc @ extra @ [ item' ])
       ~init:[] items
@@ -314,7 +320,7 @@ let cc_module (Source.Module.Module (imps, items, body)) =
   match body with
   | None -> Module (imps', items', None)
   | Some body ->
-      let body', extra = cc_e initial_gamma initial_gamma tagger [] body in
+      let body', extra = cc_e user_fns [] tagger [] body in
       let extra = List.map ~f:mk_private extra in
       let items' = items' @ extra in
       Module (imps', items', Some body')
