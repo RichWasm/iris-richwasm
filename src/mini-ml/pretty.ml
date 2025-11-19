@@ -27,48 +27,43 @@ let pp_op ff op =
   | `Div -> "/" )
   |> pp_print_string ff
 
-let rec pp_value ff v =
-  let open Source.Value in
-  match v with
+let rec pp_expr ff e =
+  let open Source.Expr in
+  match e with
   | Int i -> fprintf ff "%i" i
   | Var v -> fprintf ff "%s" v
-  | Tuple vs -> fprintf ff "@[<hov 2>(tuple@ %a)@]" (pp_print_list pp_value) vs
+  | Tuple vs -> fprintf ff "@[<hov 2>(tuple@ %a)@]" (pp_print_list pp_expr) vs
   | Inj (case, v, t) ->
-      fprintf ff "@[<hov 2>(inj@ %i@ %a@ %a)@]" case pp_value v pp_type t
+      fprintf ff "@[<hov 2>(inj@ %i@ %a@ %a)@]" case pp_expr v pp_type t
   | Fun { foralls; arg; ret_type; body } ->
       fprintf ff "@[<hov 2>(λ@ [%a]@ @[<hov 2>(:@ (%a)@ %a)@]@,@[<v 2>%a@])]"
         (pp_print_list pp_print_string)
         foralls
         (pp_print_list (fun ff (v, t) -> fprintf ff "[:@ %s@ %a]" v pp_type t))
         [ arg ] pp_type ret_type pp_expr body
-
-and pp_expr ff e =
-  let open Source.Expr in
-  match e with
-  | Value v -> fprintf ff "%a" pp_value v
   | Apply (f, ts, arg) ->
-      fprintf ff "@[<hov 2>(%a@ [%a]@ %a)@]" pp_value f (pp_print_list pp_type)
-        ts pp_value arg
-  | Project (pos, v) -> fprintf ff "@[<hov 2>(π@ %i@ %a)@]" pos pp_value v
+      fprintf ff "@[<hov 2>(%a@ [%a]@ %a)@]" pp_expr f (pp_print_list pp_type)
+        ts pp_expr arg
+  | Project (pos, v) -> fprintf ff "@[<hov 2>(π@ %i@ %a)@]" pos pp_expr v
   | Op (op, l, r) ->
-      fprintf ff "@[<hov 2>(%a@ %a@ %a)@]" pp_op op pp_value l pp_value r
+      fprintf ff "@[<hov 2>(%a@ %a@ %a)@]" pp_op op pp_expr l pp_expr r
   | If0 (c, thn, els) ->
-      fprintf ff "@[<hov 2>(if0@ %a@,@[<v 2>%a@]@,@[<v 2>%a@])@]" pp_value c
+      fprintf ff "@[<hov 2>(if0@ %a@,@[<v 2>%a@]@,@[<v 2>%a@])@]" pp_expr c
         pp_expr thn pp_expr els
   | Cases (v, branches) ->
-      fprintf ff "@[<hov 2>(cases@ %a%a)@]" pp_value v
+      fprintf ff "@[<hov 2>(cases@ %a%a)@]" pp_expr v
         (pp_print_list (fun ff ((v, t), e) ->
              fprintf ff "@,@[<v 2>[@[<hov 2>(:@ %s@ %a)@]@ %a]@]" v pp_type t
                pp_expr e))
         branches
-  | New v -> fprintf ff "@[<hov 2>(new@ %a)@]" pp_value v
-  | Deref v -> fprintf ff "@[<hov 2>(!@ %a)@]" pp_value v
-  | Assign (r, v) -> fprintf ff "@[<hov 2>(:=@ %a@  %a)@]" pp_value r pp_value v
+  | New v -> fprintf ff "@[<hov 2>(new@ %a)@]" pp_expr v
+  | Deref v -> fprintf ff "@[<hov 2>(!@ %a)@]" pp_expr v
+  | Assign (r, v) -> fprintf ff "@[<hov 2>(:=@ %a@  %a)@]" pp_expr r pp_expr v
   | Let ((name, ty), v, body) ->
       fprintf ff "@[<hov 2>(let@ @[<hov 2>([:@ %s@ %a]@ %a)@]@,@[<v 2>%a@])@]"
         name pp_type ty pp_expr v pp_expr body
-  | Fold (t, v) -> fprintf ff "@[<hov 2>(fold@ [%a]@ %a)@]" pp_type t pp_value v
-  | Unfold v -> fprintf ff "@[<hov 2>(unfold@ %a)@]" pp_value v
+  | Fold (t, v) -> fprintf ff "@[<hov 2>(fold@ [%a]@ %a)@]" pp_type t pp_expr v
+  | Unfold v -> fprintf ff "@[<hov 2>(unfold@ %a)@]" pp_expr v
 
 let pp_import ff (Source.Module.Import (v, t)) =
   fprintf ff "@[<hov 2>(import@ %s@ %a)@]" v pp_type t

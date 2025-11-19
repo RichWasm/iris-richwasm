@@ -45,7 +45,7 @@ module Source = struct
     type t = Variable.t * Type.t [@@deriving sexp]
   end
 
-  module rec Value : sig
+  module Expr = struct
     type t =
       | Int of int
       | Var of Variable.t
@@ -55,53 +55,19 @@ module Source = struct
           foralls : Variable.t list;
           arg : Binding.t;
           ret_type : Type.t;
-          body : Expr.t;
+          body : t;
         }
-    [@@deriving sexp]
-  end = struct
-    type t =
-      | Int of int
-      | Var of Variable.t
-      | Tuple of t list
-      | Inj of int * t * Type.t (* declare the other cases of the sum *)
-      | Fun of {
-          foralls : Variable.t list;
-          arg : Binding.t;
-          ret_type : Type.t;
-          body : Expr.t;
-        }
-    [@@deriving sexp]
-  end
-
-  and Expr : sig
-    type t =
-      | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t
-      | Project of int * Value.t
-      | Op of [ `Add | `Sub | `Mul | `Div ] * Value.t * Value.t
-      | If0 of Value.t * Expr.t * Expr.t
-      | Cases of Value.t * (Binding.t * Expr.t) list
-      | New of Value.t
-      | Deref of Value.t
-      | Assign of Value.t * Value.t
-      | Let of Binding.t * Expr.t * Expr.t
-      | Fold of Type.t * Value.t
-      | Unfold of Value.t
-    [@@deriving sexp]
-  end = struct
-    type t =
-      | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t
-      | Project of int * Value.t
-      | Op of [ `Add | `Sub | `Mul | `Div ] * Value.t * Value.t
-      | If0 of Value.t * Expr.t * Expr.t
-      | Cases of Value.t * (Binding.t * Expr.t) list
-      | New of Value.t
-      | Deref of Value.t
-      | Assign of Value.t * Value.t
-      | Let of Binding.t * Expr.t * Expr.t
-      | Fold of Type.t * Value.t
-      | Unfold of Value.t
+      | Apply of t * Type.t list * t
+      | Project of int * t
+      | Op of [ `Add | `Sub | `Mul | `Div ] * t * t
+      | If0 of t * t * t
+      | Cases of t * (Binding.t * t) list
+      | New of t
+      | Deref of t
+      | Assign of t * t
+      | Let of Binding.t * t * t
+      | Fold of Type.t * t
+      | Unfold of t
     [@@deriving sexp]
   end
 
@@ -165,57 +131,26 @@ module Closed = struct
     type t = Variable.t * Type.t [@@deriving sexp]
   end
 
-  module rec Value : sig
+  module Expr = struct
     type t =
       | Int of int
       | Var of Variable.t
       | Tuple of t list
       | Inj of int * t * Type.t (* declare the other cases of the sum *)
       | Coderef of PreType.t * Variable.t
-      | Pack of Type.t * Value.t * Type.t
-    [@@deriving sexp]
-  end = struct
-    type t =
-      | Int of int
-      | Var of Variable.t
-      | Tuple of t list
-      | Inj of int * t * Type.t (* declare the other cases of the sum *)
-      | Coderef of PreType.t * Variable.t
-      | Pack of Type.t * Value.t * Type.t
-    [@@deriving sexp]
-  end
-
-  and Expr : sig
-    type t =
-      | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t
-      | Project of int * Value.t
-      | Op of [ `Add | `Sub | `Mul | `Div ] * Value.t * Value.t
-      | If0 of Value.t * Expr.t * Expr.t
-      | Cases of Value.t * (Binding.t * Expr.t) list
-      | New of Value.t
-      | Deref of Value.t
-      | Assign of Value.t * Value.t
-      | Let of Binding.t * Expr.t * Expr.t
-      | Fold of Type.t * Value.t
-      | Unfold of Value.t
-      | Unpack of Variable.t * Binding.t * Value.t * Expr.t
-    [@@deriving sexp]
-  end = struct
-    type t =
-      | Value of Value.t
-      | Apply of Value.t * Type.t list * Value.t
-      | Project of int * Value.t
-      | Op of [ `Add | `Sub | `Mul | `Div ] * Value.t * Value.t
-      | If0 of Value.t * Expr.t * Expr.t
-      | Cases of Value.t * (Binding.t * Expr.t) list
-      | New of Value.t
-      | Deref of Value.t
-      | Assign of Value.t * Value.t
-      | Let of Binding.t * Expr.t * Expr.t
-      | Fold of Type.t * Value.t
-      | Unfold of Value.t
-      | Unpack of Variable.t * Binding.t * Value.t * Expr.t
+      | Pack of Type.t * t * Type.t
+      | Apply of t * Type.t list * t
+      | Project of int * t
+      | Op of [ `Add | `Sub | `Mul | `Div ] * t * t
+      | If0 of t * t * t
+      | Cases of t * (Binding.t * t) list
+      | New of t
+      | Deref of t
+      | Assign of t * t
+      | Let of Binding.t * t * t
+      | Fold of Type.t * t
+      | Unfold of t
+      | Unpack of Variable.t * Binding.t * t * t
     [@@deriving sexp]
   end
 
