@@ -30,23 +30,18 @@ let rec type_subst var replacement tau =
           ret = type_subst var replacement ret;
         }
 
-let rec type_of_v gamma v =
-  let open Closed in
-  match v with
-  | Value.Inj (_, _, t) | Value.Pack (_, _, t) | Value.Coderef (t, _) -> t
-  | Value.Int _ -> PreType.Int
-  | Value.Tuple vs -> PreType.Prod (List.map ~f:(type_of_v gamma) vs)
-  | Value.Var v ->
-      (try List.Assoc.find_exn ~equal:equal_string gamma v
-       with Not_found_s _ -> failwith ("unbound variable: " ^ v))
-
 let rec type_of_e gamma e =
   let open Closed.Expr in
   let open Closed.PreType in
   match e with
-  | Value v -> type_of_v gamma v
+  | Inj (_, _, t) | Pack (_, _, t) | Coderef (t, _) -> t
+  | Int _ -> Int
+  | Tuple vs -> Prod (List.map ~f:(type_of_e gamma) vs)
+  | Var v ->
+      (try List.Assoc.find_exn ~equal:equal_string gamma v
+       with Not_found_s _ -> failwith ("unbound variable: " ^ v))
   | Apply (f, ts, _) ->
-      (match type_of_v gamma f with
+      (match type_of_e gamma f with
       | Exists (_, Prod [ _; Code { foralls; ret; _ } ]) ->
           List.fold_right2_exn ~init:ret ~f:type_subst foralls ts
       | t ->
@@ -56,23 +51,23 @@ let rec type_of_e gamma e =
             ^ "\nexpression: "
             ^ Sexp.to_string (Closed.Expr.sexp_of_t e)))
   | Project (i, v) ->
-      (match type_of_v gamma v with
+      (match type_of_e gamma v with
       | Prod ts -> List.nth_exn ts i
       | _ -> failwith "projection should be on a product")
   | Op _ -> Int
   | If0 (_, e, _) -> type_of_e gamma e
   | Cases (_, ((n, t), e) :: _) -> type_of_e ((n, t) :: gamma) e
   | Cases _ -> failwith "no empty cases"
-  | New v -> Ref (type_of_v gamma v)
+  | New v -> Ref (type_of_e gamma v)
   | Deref v ->
-      (match type_of_v gamma v with
+      (match type_of_e gamma v with
       | Ref t -> t
       | _ -> failwith "deref should be on a ref")
   | Assign _ -> Prod []
   | Let ((n, t), _, e) -> type_of_e ((n, t) :: gamma) e
   | Fold (t, _) -> t
   | Unfold v ->
-      (match type_of_v gamma v with
+      (match type_of_e gamma v with
       | Rec (var, t) as tau -> type_subst var tau t
       | _ -> failwith "unfold should be on a µ-type")
   | Unpack (_, (n, t), _, e) -> type_of_e ((n, t) :: gamma) e
@@ -107,29 +102,45 @@ let rec compile_type delta t =
           Option.some_if (equal_string name v) i)
       |> fun x -> Type.Var x
 
-let rec compile_value delta gamma locals functions v =
-  let open Closed.Value in
+let rec compile_expr delta gamma locals functions e =
+  let open Closed.Expr in
   let open Instruction in
+  let open BlockType in
+  let open LocalFx in
   let unindexed = List.map ~f:(fun (n, t, _) -> (n, t)) gamma in
-  let r = compile_value delta gamma locals functions in
-  let t = type_of_v unindexed v in
+  let r = compile_expr delta gamma locals functions in
+  let t = type_of_e unindexed e in
   let rw_t = compile_type delta t in
-  match v with
+  let new_local_idx = List.length locals in
+  let rw_unit = Type.Prod [] in
+  match e with
   | Int i ->
       let open NumType in
-      [ NumConst (Int I32, i); Tag ]
+      ([ NumConst (Int I32, i); Tag ], locals, [])
   | Tuple vs ->
-      let items = List.concat_map ~f:r vs in
-      items @ [ Group (List.length vs); New GC ]
+      let vs', locals', fx =
+        List.fold_left
+          ~f:(fun (instrs, locals, fx) item ->
+            let v', locals', fx' =
+              compile_expr delta gamma locals functions item
+            in
+            (instrs @ v', locals', fx @ fx'))
+          ~init:([], locals, []) vs
+      in
+      (vs' @ [ Group (List.length vs); New GC ], locals', fx)
   | Inj (i, v, t) ->
       let types =
         match t with
         | Closed.PreType.Sum ts -> List.map ~f:(compile_type delta) ts
         | _ -> failwith "inj should be annotated with sum type"
       in
-      r v @ [ Inject (Some GC, i, types) ]
+      let v', locals', fx = r v in
+      (v' @ [ Inject (Some GC, i, types) ], locals', fx)
   | Pack (witness, v, _) ->
-      r v @ [ Pack (Index.Type (compile_type delta witness), rw_t); New GC ]
+      let v', locals', fx = r v in
+      ( v' @ [ Pack (Index.Type (compile_type delta witness), rw_t); New GC ],
+        locals',
+        fx )
   | Var v ->
       let idx =
         List.find_map_exn
@@ -137,7 +148,7 @@ let rec compile_value delta gamma locals functions v =
           gamma
       in
       (* local.get sets the value to unit, so we have to copy and put it back *)
-      [ LocalGet (idx, Move); Copy; LocalSet idx ]
+      ([ LocalGet (idx, Move); Copy; LocalSet idx ], locals, [])
   | Coderef (_, f) ->
       let idx =
         List.find_mapi_exn
@@ -146,23 +157,8 @@ let rec compile_value delta gamma locals functions v =
                 Option.some_if (equal_string name f) i)
           functions
       in
-      [ CodeRef idx ]
-
-let rec compile_expr delta gamma locals functions e =
-  let open Closed.Expr in
-  let open Instruction in
-  let open BlockType in
-  let open LocalFx in
-  let unindexed = List.map ~f:(fun (n, t, _) -> (n, t)) gamma in
-  let cv = compile_value delta gamma locals functions in
-  let r = compile_expr delta gamma locals functions in
-  let t = type_of_e unindexed e in
-  let rw_t = compile_type delta t in
-  let new_local_idx = List.length locals in
-  let rw_unit = Type.Prod [] in
-  match e with
-  | Value v -> (cv v, locals, [])
-  | Op (o, l, r) ->
+      ([ CodeRef idx ], locals, [])
+  | Op (o, left, right) ->
       let o' =
         Int.Binop.(
           match o with
@@ -171,28 +167,49 @@ let rec compile_expr delta gamma locals functions e =
           | `Mul -> Mul
           | `Div -> Div Sign.Signed)
       in
-      ( cv l
-        @ [ Untag ]
-        @ cv r
+      let left', locals', fx_l = r left in
+      let right', locals', fx_r =
+        compile_expr delta gamma locals' functions right
+      in
+      ( left' @ [ Untag ] @ right'
         @ [ Untag; Num (NumInstruction.Int2 (Int.Type.I32, o')); Tag ],
-        locals,
-        [] )
-  | Project (n, v) -> (cv v @ [ Load (Path.Path [ n ], Follow) ], locals, [])
-  | New v -> (cv v @ [ New BaseMemory.GC ], locals, [])
-  | Deref v -> (cv v @ [ Load (Path.Path [], Follow) ], locals, [])
-  | Assign (r, v) -> (cv r @ cv v @ [ Store (Path.Path []) ], locals, [])
-  | Fold (_, v) -> (cv v @ [ Fold rw_t ], locals, [])
-  | Unfold v -> (cv v @ [ Unfold ], locals, [])
-  | Apply (f, _, arg) -> (cv arg @ cv f @ [ CallIndirect ], locals, [])
+        locals',
+        fx_l @ fx_r )
+  | Project (n, v) ->
+      let v', locals', fx = r v in
+      (v' @ [ Load (Path.Path [ n ], Follow) ], locals', fx)
+  | New v ->
+      let v', locals', fx = r v in
+      (v' @ [ New BaseMemory.GC ], locals', fx)
+  | Deref v ->
+      let v', locals', fx = r v in
+      (v' @ [ Load (Path.Path [], Follow) ], locals', fx)
+  | Assign (re, v) ->
+      let re', locals', fx_re = r re in
+      let v', locals', fx_v = compile_expr delta gamma locals' functions v in
+      (re' @ v' @ [ Store (Path.Path []) ], locals', fx_re @ fx_v)
+  | Fold (_, v) ->
+      let v', locals', fx = r v in
+      (v' @ [ Fold rw_t ], locals', fx)
+  | Unfold v ->
+      let v', locals', fx = r v in
+      (v' @ [ Unfold ], locals', fx)
+  | Apply (f, _, arg) ->
+      let f', locals', fx_f = r f in
+      let arg', locals', fx_arg =
+        compile_expr delta gamma locals' functions arg
+      in
+      (arg' @ f' @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
-      let e', locals', fx =
+      let v', locals', fx_v = r v in
+      let e', locals', fx_e =
         compile_expr (var :: delta)
           ((n, t, new_local_idx) :: gamma)
-          (locals @ [ (n, compile_type (var :: delta) t) ])
+          (locals' @ [ (n, compile_type (var :: delta) t) ])
           functions e
       in
-      let fx = fx @ [ (new_local_idx, rw_unit) ] in
-      ( cv v
+      let fx = fx_v @ fx_e @ [ (new_local_idx, rw_unit) ] in
+      ( v'
         @ [
             Load (Path.Path [], Follow);
             Unpack
@@ -214,18 +231,22 @@ let rec compile_expr delta gamma locals functions e =
         locals',
         fx1 @ fx2 )
   | If0 (c, thn, els) ->
-      let thn', locals', fx_t = r thn in
+      let c', locals', fx_c = r c in
+      let thn', locals', fx_t =
+        compile_expr delta gamma locals' functions thn
+      in
       let els', locals', fx_e =
         compile_expr delta gamma locals' functions els
       in
-      ( cv c
+      ( c'
         @ [
             Untag;
             Ite (ArrowType (1, [ rw_t ]), LocalFx (fx_t @ fx_e), thn', els');
           ],
         locals',
-        fx_t @ fx_e )
+        fx_c @ fx_t @ fx_e )
   | Cases (v, branches) ->
+      let v', locals', fx_v = r v in
       let branches', locals', fx =
         List.fold_left branches
           ~f:(fun (branches', locals, fx) ((n, t), e) ->
@@ -241,11 +262,11 @@ let rec compile_expr delta gamma locals functions e =
               :: branches',
               locals',
               fx @ fx' ))
-          ~init:([], locals, [])
+          ~init:([], locals', [])
       in
-      ( cv v @ [ Case (ArrowType (1, [ rw_t ]), LocalFx fx, branches') ],
+      ( v' @ [ Case (ArrowType (1, [ rw_t ]), LocalFx fx, branches') ],
         locals',
-        fx )
+        fx_v @ fx )
 
 let compile_fun functions : Closed.Function.t -> Module.Function.t = function
   | Closed.Function.Function

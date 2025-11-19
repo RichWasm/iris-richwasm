@@ -10,7 +10,7 @@ let run name ast =
   |> pipeline
   |> printf "%s\n%a\n---\n" name Richwasm_common.Syntax.Module.pp
 
-let one = Module.Module ([], [], Some (Expr.Value (Value.Int 1)))
+let one = Module.Module ([], [], Some (Expr.Int 1))
 
 let%expect_test "test_one" =
   run "one" one;
@@ -37,14 +37,13 @@ let identity =
                   arg = PreType.Var "a";
                   ret = PreType.Var "a";
                 } ),
-            Expr.Value
-              (Value.Fun
-                 {
-                   foralls = [ "a" ];
-                   arg = ("x", PreType.Var "a");
-                   ret_type = PreType.Var "a";
-                   body = Expr.Value (Value.Var "x");
-                 }) );
+            Expr.Fun
+              {
+                foralls = [ "a" ];
+                arg = ("x", PreType.Var "a");
+                ret_type = PreType.Var "a";
+                body = Expr.Var "x";
+              } );
       ],
       None )
 
@@ -72,16 +71,15 @@ let return_one =
           ( ( "one",
               PreType.Fun
                 { foralls = []; arg = PreType.Prod []; ret = PreType.Int } ),
-            Expr.Value
-              (Value.Fun
-                 {
-                   foralls = [];
-                   arg = ("_", PreType.Prod []);
-                   ret_type = PreType.Int;
-                   body = Expr.Value (Value.Int 1);
-                 }) );
+            Expr.Fun
+              {
+                foralls = [];
+                arg = ("_", PreType.Prod []);
+                ret_type = PreType.Int;
+                body = Expr.Int 1;
+              } );
       ],
-      Some (Expr.Apply (Value.Var "one", [], Value.Tuple [])) )
+      Some (Expr.Apply (Expr.Var "one", [], Expr.Tuple [])) )
 
 let%expect_test "return_one" =
   run "return_one" return_one;
@@ -153,16 +151,15 @@ let apply_id =
                   arg = PreType.Var "a";
                   ret = PreType.Var "a";
                 } ),
-            Expr.Value
-              (Value.Fun
-                 {
-                   foralls = [ "a" ];
-                   arg = ("x", PreType.Var "a");
-                   ret_type = PreType.Var "a";
-                   body = Expr.Value (Value.Var "x");
-                 }) );
+            Expr.Fun
+              {
+                foralls = [ "a" ];
+                arg = ("x", PreType.Var "a");
+                ret_type = PreType.Var "a";
+                body = Expr.Var "x";
+              } );
       ],
-      Some (Expr.Apply (Value.Var "id", [ PreType.Int ], Value.Int 42)) )
+      Some (Expr.Apply (Expr.Var "id", [ PreType.Int ], Expr.Int 42)) )
 
 let%expect_test "apply_id" =
   run "apply_id" apply_id;
@@ -226,7 +223,7 @@ let%expect_test "apply_id" =
 
 let tuple_and_project =
   Module.Module
-    ([], [], Some (Expr.Project (1, Value.Tuple [ Value.Int 42; Value.Int 7 ])))
+    ([], [], Some (Expr.Project (1, Expr.Tuple [ Expr.Int 42; Expr.Int 7 ])))
 
 let%expect_test "tuple_and_project" =
   run "tuple_and_project" tuple_and_project;
@@ -255,12 +252,12 @@ let opt_case =
       Some
         (Expr.Let
            ( ("option", option_type),
-             Expr.Value (Value.Inj (1, Value.Int 42, option_type)),
+             Expr.Inj (1, Expr.Int 42, option_type),
              Expr.Cases
-               ( Value.Var "option",
+               ( Expr.Var "option",
                  [
-                   (("_", PreType.Prod []), Expr.Value (Value.Int 0));
-                   (("v", PreType.Int), Expr.Value (Value.Var "v"));
+                   (("_", PreType.Prod []), Expr.Int 0);
+                   (("v", PreType.Int), Expr.Var "v");
                  ] ) )) )
 
 let%expect_test "opt_case" =
