@@ -259,30 +259,40 @@ let cc_imp (Source.Module.Import (n, t)) = Closed.Module.Import (n, cc_t t)
 let cc_item user_fns gamma tagger acc item =
   let open Source in
   let open Module in
+  let unit_type = PreType.Prod [] in
   match item with
-  (* items will have no closed-over variables *)
   | Export
       ((n, t), Expr.Fun { foralls; arg = arg_name, arg_type; ret_type; body })
   | Private
       ((n, t), Expr.Fun { foralls; arg = arg_name, arg_type; ret_type; body })
     ->
+      (* top-level functions have a unit environment, but it still needs to
+         be added to the argument type for uniformity *)
       let body', extra =
-        cc_e user_fns ((arg_name, arg_type) :: gamma) tagger acc body
+        cc_e user_fns
+          (("#env", unit_type) :: (arg_name, arg_type) :: gamma)
+          tagger acc body
       in
       let packer =
         match item with
         | Export _ -> fun (a, b) -> Closed.Module.Export (a, b)
         | Private _ -> fun (a, b) -> Closed.Module.Private (a, b)
       in
+      let arg_type' = PreType.Prod [ PreType.Prod []; arg_type ] in
       ( packer
           ( (n, cc_t t),
             Function
               {
                 name = n;
                 foralls;
-                arg = (arg_name, cc_t arg_type);
+                arg = ("#env_and_arg", cc_t arg_type');
                 ret_type = cc_t ret_type;
-                body = body';
+                body =
+                  Closed.(
+                    Expr.Let
+                      ( (arg_name, cc_t arg_type),
+                        Expr.Project (1, Expr.Var "#env_and_arg"),
+                        body' ));
               } ),
         extra )
   | _ -> failwith "items must be function"
