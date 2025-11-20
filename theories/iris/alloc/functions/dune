@@ -6,19 +6,8 @@
     -w -ambiguous-paths
     -w -notation-overridden)
   (theories
-    iris
-    stdpp
-    Ltac2
-    compcert
-    Flocq
+    RichWasm
+    RichWasm.iris.alloc
     Wasm.iris.examples.stack
     Wasm.iris.logrel
-    Wasm.iris.rules
-    mathcomp
-    HB
-    elpi
-    elpi_elpi
-    parseque
-    RichWasm.iris.alloc
-    ITree
-    Paco))
+    Wasm.iris.rules))

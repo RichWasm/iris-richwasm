@@ -1,5 +1,5 @@
-(lang dune 3.16)
-(using coq 0.9)
+(lang dune 3.20)
+(using coq 0.10)
 
 (name iris-richwasm)
 (version 0.1)
@@ -10,6 +10,7 @@
 (package
   (name iris-richwasm)
   (depends
+    iris-wasm
     (coq-record-update (>= 0.3.6))
     (core_unix (>= 0.17.1))
     (ppx_expect (>= 0.17.3))

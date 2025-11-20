@@ -11,7 +11,4 @@
     RichWasm.iris.language
     RichWasm.iris.helpers
     RichWasm.iris.rules
-    RichWasm
-    Stdlib
-    ITree
-    Paco))
+    RichWasm))

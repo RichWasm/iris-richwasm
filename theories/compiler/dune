@@ -2,18 +2,6 @@
  (name RichWasm.compiler)
  (package iris-richwasm)
  (theories
-  iris
-  Wasm
-  elpi
-  compcert
-  Flocq
-  parseque
-  HB
-  mathcomp
-  mathcomp.ssreflect
-  elpi
-  elpi_elpi
-  stdpp
   RichWasm
-  ITree
-  Paco))
+  RichWasm.syntax
+  Wasm))

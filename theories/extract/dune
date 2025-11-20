@@ -94,7 +94,7 @@
   parseque
   HB
   mathcomp
-  mathcomp.ssreflect
+  mathcomp.boot
   elpi
   elpi_elpi
   stdpp

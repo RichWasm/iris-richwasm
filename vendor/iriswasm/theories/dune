@@ -9,7 +9,8 @@
     compcert
     Flocq
     mathcomp
-    mathcomp.ssreflect
+    mathcomp.boot
+    mathcomp.order
     HB
     elpi
     elpi_elpi

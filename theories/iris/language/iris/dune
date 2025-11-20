@@ -9,6 +9,4 @@
     -w -extraction-reserved-identifier)
   (theories
     RichWasm
-    RichWasm.iris.helpers.lfill_prelude
-    ITree
-    Paco))
+    RichWasm.iris.helpers.lfill_prelude))

@@ -7,7 +7,5 @@
     -w -notation-overridden
     -w -abstract-large-number
     -w -extraction-reserved-identifier)
- (theories
-   RichWasm
-   ITree
-   Paco))
+ (theories 
+   RichWasm))

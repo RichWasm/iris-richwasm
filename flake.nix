@@ -12,20 +12,17 @@
     let
       project = "iris-richwasm";
       version = "0.1.0";
-      lib = nixpkgs.lib;
-      eachSystem =
-        f:
-        lib.genAttrs (import systems) (
-          system:
-          f (
-            import nixpkgs {
-              inherit system;
-              config.allowUnfree = true; # compcert
-              overlays = [ ];
-            }
-          )
-        );
-
+      inherit (nixpkgs.lib) genAttrs fileset;
+      eachSystem = genAttrs (import systems);
+      pkgsFor = eachSystem (
+        system:
+        import nixpkgs {
+          inherit system;
+          config.allowUnfree = true; # compcert
+          overlays = [ ];
+        }
+      );
+      eachPkgs = f: eachSystem (s: f (pkgsFor.${s} // self.packages.${s}));
       pinned-versions = pkgs: rec {
         coq = pkgs.coq_9_0;
         coqPackages = pkgs.coqPackages_9_0;
@@ -35,8 +32,9 @@
     in
     {
       packages = eachSystem (
-        pkgs:
+        system:
         let
+          pkgs = pkgsFor.${system};
           inherit (pinned-versions pkgs) coqPackages ocamlPackages;
 
           iris-wasm-deps = with coqPackages; [
@@ -52,7 +50,8 @@
             coq-elpi
             ExtLib
             hierarchy-builder
-            mathcomp-ssreflect
+            mathcomp-boot
+            mathcomp-order
             coq-record-update
             flocq
             autosubst-ocaml
@@ -74,7 +73,7 @@
           ];
         in
         rec {
-          default = self.packages.${pkgs.system}.${project};
+          default = iris-richwasm;
 
           # NOTE(owen): this doesn't need to be seperate but since it rarely
           # chanages, it greatly reduces build time
@@ -91,40 +90,109 @@
             meta.excludeFromDevShell = true;
           };
 
-          ${project} = coqPackages.mkCoqDerivation {
+          iris-richwasm-build =
+            (coqPackages.mkCoqDerivation {
+              pname = project;
+              version = version;
+
+              namePrefix = [ ];
+
+              src = fileset.toSource {
+                root = ./.;
+                fileset = fileset.unions [
+                  ./bin
+                  ./src
+                  ./tests
+                  ./theories
+                  ./dune
+                  ./dune-project
+                  ./iris-richwasm.opam
+                ];
+              };
+              useDune = true;
+
+              postPatch = ''
+                sed -i '/(vendored_dirs vendor)/d' dune
+              '';
+
+              preBuild = ''
+                export DUNE_CACHE=disabled
+              '';
+
+              buildInputs = [
+                iris-wasm
+              ]
+              ++ iris-wasm-deps
+              ++ iris-richwasm-deps
+              ++ richwasm-ocaml-deps;
+
+              # NOTE(owen): let dune manage the iris-wasm vendor in the devshell
+              passthru.devShellDeps = [
+              ]
+              ++ iris-wasm-deps
+              ++ iris-richwasm-deps
+              ++ richwasm-ocaml-deps;
+            }).overrideAttrs
+              (old: {
+                pname = project + "-build";
+
+                outputs = [
+                  "out"
+                  "build"
+                ];
+                postBuild = (old.postBuild or "") + ''
+                  mkdir -p $build
+                  cp -r _build $build/_build
+                '';
+              });
+
+          iris-richwasm = pkgs.stdenv.mkDerivation {
             pname = project;
             version = version;
+            src = iris-richwasm-build;
+            dontBuild = true;
 
-            namePrefix = [ ];
-
-            src = ./.;
-            useDune = true;
-
-            postPatch = ''
-              sed -i '/(vendored_dirs vendor)/d' dune
+            installPhase = ''
+              rm -rf build
+              cp -r . $out
             '';
 
-            preBuild = ''
-              export DUNE_CACHE=disabled
-            '';
-
-            buildInputs = [
-              iris-wasm
-            ]
-            ++ iris-richwasm-deps
-            ++ richwasm-ocaml-deps;
-
-            # NOTE(owen): let dune manage the iris-wasm vendor in the devshell
-            passthru.devShellDeps = [
-            ]
-            ++ iris-wasm-deps
-            ++ iris-richwasm-deps
-            ++ richwasm-ocaml-deps;
+            passthru.devShellDeps = iris-richwasm-build.passthru.devShellDeps;
           };
         }
       );
 
-      devShells = eachSystem (
+      checks = eachPkgs (pkgs: {
+        default = pkgs.iris-richwasm-build.overrideAttrs (old: {
+          pname = project + "-check";
+          name = project + "-check";
+
+          buildInputs = old.buildInputs ++ [
+            pkgs.wabt
+          ];
+
+          doCheck = true;
+
+          patchPhase = ''
+            mkdir -p _build
+            cp -rT --no-preserve=mode,ownership ${pkgs.iris-richwasm-build.build}/_build _build
+          '';
+
+          buildPhase = "";
+
+          checkPhase = ''
+            runHook preCheck
+            dune runtest --no-buffer
+            runHook postCheck
+          '';
+
+          installPhase = ''
+            mkdir -p $out
+          '';
+        });
+      });
+
+      devShells = eachPkgs (
         pkgs:
         let
           inherit (pinned-versions pkgs)

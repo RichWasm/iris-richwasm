@@ -6,18 +6,13 @@
     -w -ambiguous-paths
     -w -redundant-canonical-projection)
   (theories
-    ExtLib.Core
-    ExtLib.Data
-    ExtLib.Structures
-    iris
-    ITree
-    Ltac2
-    Paco
-    RichWasm
-    RichWasm.compiler
-    RichWasm.iris.logrel
-    stdpp
     Wasm.iris.helpers
     Wasm.iris.host
     Wasm.iris.language
-    Wasm.iris.rules))
+    Wasm.iris.rules
+    RichWasm
+    RichWasm.compiler
+    RichWasm.iris.logrel
+    RichWasm.iris.language
+    RichWasm.iris.rules
+    RichWasm.iris.alloc.functions))

@@ -413,4 +413,3 @@ Ltac convert_pickable H :=
       end in
     aux H
   end.
-

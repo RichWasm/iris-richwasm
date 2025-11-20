@@ -10,6 +10,4 @@
     Wasm
     Wasm.iris.logrel
     Wasm.iris.rules
-    Wasm.iris.host
-    ITree
-    Paco))
+    Wasm.iris.host))

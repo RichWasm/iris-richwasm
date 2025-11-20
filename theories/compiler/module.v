@@ -1,7 +1,7 @@
 From Stdlib Require Import String.
 Require Import Stdlib.ZArith.BinInt.
 
-Require Import mathcomp.ssreflect.seq.
+Require Import mathcomp.boot.seq.
 
 Require Import stdpp.list.
 

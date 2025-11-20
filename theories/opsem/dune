@@ -7,21 +7,7 @@
     -w -notation-incompatible-prefix
     -w -notation-overridden)
   (theories
+    RichWasm
     Wasm
-    Wasm.iris.language
-    Stdlib
-    stdpp
-    mathcomp.ssreflect
-    HB
-    elpi
-    elpi_elpi
-    compcert
-    Flocq
-    parseque
-    ITree
-    ExtLib.Structures
-    ExtLib.Core
-    ExtLib.Data
-    Paco
-    iris
-    Ltac2))
+    Wasm.iris.logrel
+    Wasm.iris.language))

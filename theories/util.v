@@ -1,6 +1,6 @@
 From stdpp Require Import gmap list.
 
-From mathcomp Require Import eqtype ssreflect.seq.
+From mathcomp Require Import eqtype boot.seq.
 
 Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.WriterMonad.
