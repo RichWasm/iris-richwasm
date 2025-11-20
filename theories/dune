@@ -6,7 +6,6 @@
    -w -ambiguous-paths)
  (theories
    Wasm
-   Wasm.iris
    mathcomp.boot
    RecordUpdate
    stdpp
