@@ -11,6 +11,14 @@ let run name ast =
   |> pipeline
   |> printf "%s\n%a\n---\n" name Richwasm_common.Syntax.Module.pp
 
+let to_converted src =
+  src
+  |> from_string_exn
+  |> Convert.cc_module
+  |> Syntax.Closed.Module.sexp_of_t
+  |> Sexp.to_string_hum
+  |> Stdlib.print_endline
+
 let run_str name source = source |> from_string_exn |> run name
 let one = Module.Module ([], [], Some (Expr.Int 1))
 
@@ -665,4 +673,327 @@ let%expect_test "mini_zip" =
                  drop)
                (table)
                (export 0))
+    --- |}]
+
+let%expect_test "simple closure" =
+  run_str "simple closure"
+    {|
+    (let (x : int) 1
+      (let (f : (() (*) -> int))
+        (fun () (_ : (*)) : int
+          x)
+        (app f () (tup))))
+  |};
+  [%expect
+    {|
+    simple closure
+    (module
+                     (func
+                         ((ref (base gc)
+                            (prod (ser (ref (base gc) (prod (ser i31))))
+                              (ser (ref (base gc) (prod)))))
+                         -> i31) (local ptr ptr ptr ptr)
+                       local.get 0 move
+                       copy
+                       local.set 0
+                       load (Path [0]) follow
+                       local.set 1
+                       local.get 0 move
+                       copy
+                       local.set 0
+                       load (Path [1]) follow
+                       local.set 2
+                       local.get 1 move
+                       copy
+                       local.set 1
+                       load (Path [0]) follow
+                       local.set 3
+                       local.get 3 move
+                       copy
+                       local.set 3
+                       local.get 3 move
+                       drop
+                       local.get 2 move
+                       drop
+                       local.get 1 move
+                       drop)
+                     (func ((ref (base gc) (prod)) -> (ref (base gc) (prod)))
+                         (local ptr ptr ptr ptr ptr ptr)
+                       i32.const 1
+                       tag
+                       local.set 1
+                       local.get 1 move
+                       copy
+                       local.set 1
+                       group 1
+                       new gc
+                       coderef 0
+                       group 2
+                       new gc
+                       pack (Type (ref (base gc) (prod (ser i31))))
+                         (ref (base gc)
+                           (exists type (VALTYPE (ptr, excopy, exdrop))
+                             (coderef
+                               ((ref (base gc)
+                                  (prod (ser (var 0))
+                                    (ser (ref (base gc) (prod)))))
+                               -> i31))))
+                       new gc
+                       local.set 2
+                       local.get 2 move
+                       copy
+                       local.set 2
+                       load (Path []) follow
+                       unpack (<1> -> i31) (LocalFx [(3, (prod))])
+                         local.set 3
+                         local.get 3 move
+                         copy
+                         local.set 3
+                         load (Path [0]) follow
+                         local.set 4
+                         local.get 3 move
+                         copy
+                         local.set 3
+                         load (Path [1]) follow
+                         local.set 5
+                         group 0
+                         new gc
+                         local.get 5 move
+                         copy
+                         local.set 5
+                         call_indirect
+                         local.get 5 move
+                         drop
+                         local.get 4 move
+                         drop
+                         local.get 3 move
+                         drop
+                       end
+                       local.get 2 move
+                       drop
+                       local.get 1 move
+                       drop)
+                     (table)
+                     (export 1))
+    --- |}]
+
+let%expect_test "complex closure" =
+  run_str ""
+    {|
+    (let (x : int) 1
+      (let (f : (() int -> int))
+        (fun () (y : int) : int
+          (op + x y))
+        (let (g : (() int -> int))
+          (fun () (z : int) : int
+            (op + (app f () z) x))
+          (app g () 3))))
+  |};
+  [%expect {|
+    (module
+       (func
+           ((ref (base gc)
+              (prod
+                (ser
+                  (ref (base gc)
+                    (prod
+                      (ser
+                        (ref (base gc)
+                          (exists type (VALTYPE (ptr, excopy, exdrop))
+                            (ref (base gc)
+                              (prod (ser (var 0))
+                                (ser
+                                  (coderef
+                                    ((ref (base gc)
+                                       (prod (ser (var 0)) (ser i31)))
+                                    -> i31))))))))
+                      (ser i31))))
+                (ser i31)))
+           -> i31) (local ptr ptr ptr ptr ptr ptr ptr ptr)
+         local.get 0 move
+         copy
+         local.set 0
+         load (Path [0]) follow
+         local.set 1
+         local.get 0 move
+         copy
+         local.set 0
+         load (Path [1]) follow
+         local.set 2
+         local.get 1 move
+         copy
+         local.set 1
+         load (Path [0]) follow
+         local.set 3
+         local.get 1 move
+         copy
+         local.set 1
+         load (Path [1]) follow
+         local.set 4
+         local.get 3 move
+         copy
+         local.set 3
+         load (Path []) follow
+         unpack (<1> -> i31) (LocalFx [(5, (prod))])
+           local.set 5
+           local.get 5 move
+           copy
+           local.set 5
+           load (Path [0]) follow
+           local.set 6
+           local.get 5 move
+           copy
+           local.set 5
+           load (Path [1]) follow
+           local.set 7
+           local.get 2 move
+           copy
+           local.set 2
+           local.get 7 move
+           copy
+           local.set 7
+           call_indirect
+           local.get 7 move
+           drop
+           local.get 6 move
+           drop
+           local.get 5 move
+           drop
+         end
+         untag
+         local.get 4 move
+         copy
+         local.set 4
+         untag
+         i32.add
+         tag
+         local.get 4 move
+         drop
+         local.get 3 move
+         drop
+         local.get 2 move
+         drop
+         local.get 1 move
+         drop)
+       (func
+           ((ref (base gc)
+              (prod (ser (ref (base gc) (prod (ser i31)))) (ser i31)))
+           -> i31) (local ptr ptr ptr ptr)
+         local.get 0 move
+         copy
+         local.set 0
+         load (Path [0]) follow
+         local.set 1
+         local.get 0 move
+         copy
+         local.set 0
+         load (Path [1]) follow
+         local.set 2
+         local.get 1 move
+         copy
+         local.set 1
+         load (Path [0]) follow
+         local.set 3
+         local.get 3 move
+         copy
+         local.set 3
+         untag
+         local.get 2 move
+         copy
+         local.set 2
+         untag
+         i32.add
+         tag
+         local.get 3 move
+         drop
+         local.get 2 move
+         drop
+         local.get 1 move
+         drop)
+       (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr ptr
+           ptr ptr ptr ptr ptr)
+         i32.const 1
+         tag
+         local.set 1
+         local.get 1 move
+         copy
+         local.set 1
+         group 1
+         new gc
+         coderef 1
+         group 2
+         new gc
+         pack (Type (ref (base gc) (prod (ser i31))))
+           (ref (base gc)
+             (exists type (VALTYPE (ptr, excopy, exdrop))
+               (coderef ((ref (base gc) (prod (ser (var 0)) (ser i31))) -> i31))))
+         new gc
+         local.set 2
+         local.get 2 move
+         copy
+         local.set 2
+         local.get 1 move
+         copy
+         local.set 1
+         group 2
+         new gc
+         coderef 0
+         group 2
+         new gc
+         pack
+           (Type
+              (ref (base gc)
+                (prod
+                  (ser
+                    (ref (base gc)
+                      (exists type (VALTYPE (ptr, excopy, exdrop))
+                        (ref (base gc)
+                          (prod (ser (var 0))
+                            (ser
+                              (coderef
+                                ((ref (base gc) (prod (ser (var 0)) (ser i31)))
+                                -> i31))))))))
+                  (ser i31))))
+           (ref (base gc)
+             (exists type (VALTYPE (ptr, excopy, exdrop))
+               (coderef ((ref (base gc) (prod (ser (var 0)) (ser i31))) -> i31))))
+         new gc
+         local.set 3
+         local.get 3 move
+         copy
+         local.set 3
+         load (Path []) follow
+         unpack (<1> -> i31) (LocalFx [(4, (prod))])
+           local.set 4
+           local.get 4 move
+           copy
+           local.set 4
+           load (Path [0]) follow
+           local.set 5
+           local.get 4 move
+           copy
+           local.set 4
+           load (Path [1]) follow
+           local.set 6
+           i32.const 3
+           tag
+           local.get 6 move
+           copy
+           local.set 6
+           call_indirect
+           local.get 6 move
+           drop
+           local.get 5 move
+           drop
+           local.get 4 move
+           drop
+         end
+         local.get 3 move
+         drop
+         local.get 2 move
+         drop
+         local.get 1 move
+         drop)
+       (table)
+       (export 2))
     --- |}]

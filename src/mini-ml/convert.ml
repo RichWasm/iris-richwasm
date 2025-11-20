@@ -131,7 +131,7 @@ let rec cc_e user_fns gamma tagger acc e =
       (Closed.Expr.Inj (i, v, cc_t t), code)
   | Fun { foralls; arg = (n, t) as arg; ret_type; body } ->
       let gamma = arg :: gamma in
-      let free_vars = fv body in
+      let free_vars = fv ~bound:[ n ] body in
       let free_type_vars = ftv_e body in
       let closure_id = Int.to_string (tagger ()) in
       let code_name = "closure#fn" ^ closure_id in
@@ -159,7 +159,15 @@ let rec cc_e user_fns gamma tagger acc e =
                   Expr.Tuple (List.map ~f:(fun v -> Expr.Var v) free_vars);
                   Expr.Coderef (function_type, code_name);
                 ],
-              PreType.Exists ("#cc-env", function_type) ),
+              PreType.(
+                Exists
+                  ( "#cc-env",
+                    Code
+                      {
+                        foralls = free_type_vars @ foralls;
+                        arg = Prod [ Var "#cc-env"; cc_t t ];
+                        ret = cc_t ret_type;
+                      } )) ),
           Function.Function
             {
               name = code_name;

@@ -316,7 +316,7 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
                   {
                     name = "_start";
                     foralls = [];
-                    arg = ("_", closed_unit);
+                    arg = ("#_env", closed_unit);
                     ret_type = closed_unit;
                     body;
                   } );
