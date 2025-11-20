@@ -47,6 +47,7 @@ n.b. the grammar is in Monadic Normal Form
 - sexp-based parser
 - de bruijn index
 - closure conversion
+- typechecker/elaboration
 - code gen into RichWasm
 
 ## Type System
@@ -62,7 +63,7 @@ stack--might mean that RW will need to be tweaked for the lin-lang compiler.
 
 ### 2025-09-18
 
-Make calling convension uniform
+Make calling convention uniform
 
 just make n-ary tuples
 
@@ -72,7 +73,7 @@ All calls are indirect since that is the most general case
 
 All functions get placed into the table, and map fname to idx.
 
-When typing tuples, `ref` propogrates linearity to outer.
+When typing tuples, `ref` propagates linearity to outer.
 
 Linear local.get consumes local, annotation needs to reflect this.
 
@@ -81,7 +82,7 @@ Linear local.get consumes local, annotation needs to reflect this.
 Language changes:
 - remove globals (only have top level *functions*)
 - add recursive types and sum types
-- add recrusive functions
+- add recursive functions
 
 ### 2025-09-30
 
@@ -89,7 +90,7 @@ closures must be boxed to maintain a uniform kind
 
 ---
 
-See if annotating local effects is strictly needed? Can this be infered?
+See if annotating local effects is strictly needed? Can this be inferred?
 
 See what WAT does with block types.
 
@@ -103,54 +104,18 @@ Add dedicated `fix` to the language.
 
 Write Pretty Printer for annotated AST (to use in Rocq)
 
-See if LocalEffects can be entirely infered.
+See if LocalEffects can be entirely inferred.
 
 If time, eventually check linearity in the LL type checker.
-
-### 2025-10-07
-
-2 bump allocators:
-- alloc -> bump allocator
-- free -> noop
-- register root -> bump allocator
-- unregster root -> noop
-
-Stil need to pp->rocq for annotated AST
-
-Need to check if LL lx is less general than general inference.
-
-fix free to temporarily save to reg
 
 ### 2025-10-09
 
 will need to serialize sums before allocating them -- this avoids the rwasm -> wasm compiler having to implicitly casing...
-
-### 2025-10-14
-
-- can just use nodejs to run -- v8 has wasm support -- WASI not needed
-- existentials in locals? -- yes -> weakens env
-- elab_type:
-  - are size, mem, dropability propogated in MEMTYPE
-  - how to find the kind of an Exists instruction?
-- block type does in-fact need input
-- clarification on LocalFx -> is the annotation the new locals or just the changes?
-  - annotated is whole local ctx, unnanotated is a diff
-
-Changes:
-- mem to ser
-- kind to rec
-- extract subst_type, etc from rw.v
-- add tables to env
-- add functions to env
-- add kind to fold
-- modify unnanotated to have `Copy` vs `Move` for local.get and 
-- `Inject` and `New` should take `ConcreteMemory`
-
 
 # Thoughts for later
 
 ## Tail calls
 
 - top level functions need 0-sized allocations every time
-- also call-indicirect when call could work
+- also call-indirect when call could work
 
