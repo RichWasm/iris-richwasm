@@ -3,4 +3,9 @@
  (inline_tests)
  (preprocess
   (pps ppx_expect))
- (libraries iris-richwasm.mini-ml))
+ (libraries
+  base
+  iris-richwasm.test-support
+  iris-richwasm.test-examples
+  iris-richwasm.common
+  iris-richwasm.mini-ml))
