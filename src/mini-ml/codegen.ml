@@ -80,15 +80,17 @@ let rec compile_type delta t =
   | Int -> Type.I31
   | Prod ts ->
       let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
-      Type.(Ref (Base GC, Prod ts'))
+      Type.(Ref (Base GC, Ser (Prod ts')))
   | Sum ts ->
       let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
-      Type.(Ref (Base GC, Sum ts'))
+      Type.(Ref (Base GC, Ser (Sum ts')))
   | Ref t -> Type.(Ref (Base GC, Ser (r t)))
   | Rec (v, t) -> Type.Rec (kind, compile_type (v :: delta) t)
   | Exists (v, t) ->
       Type.(
-        Ref (Base GC, Exists (Quantifier.Type kind, compile_type (v :: delta) t)))
+        Ref
+          ( Base GC,
+            Ser (Exists (Quantifier.Type kind, compile_type (v :: delta) t)) ))
   | Code { foralls; arg; ret } ->
       let r = compile_type (foralls @ delta) in
       Type.CodeRef
@@ -199,6 +201,7 @@ let rec compile_expr delta gamma locals functions e =
       let arg', locals', fx_arg =
         compile_expr delta gamma locals' functions arg
       in
+      (* FIXME: figure out why [Inst] only takes one index *)
       (arg' @ f' @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
       let v', locals', fx_v = r v in

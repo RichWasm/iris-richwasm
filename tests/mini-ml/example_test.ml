@@ -24,14 +24,16 @@ let%expect_test "examples" =
     {|
     -----------one-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 1
         tag)
       (table)
       (export 0))
     -----------tuple-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 4
         tag
         i32.const 3
@@ -46,7 +48,8 @@ let%expect_test "examples" =
       (export 0))
     -----------tuple_nested-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 4
         tag
         i32.const 3
@@ -65,7 +68,8 @@ let%expect_test "examples" =
       (export 0))
     -----------tuple_project-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 7
         tag
         i32.const 42
@@ -77,23 +81,26 @@ let%expect_test "examples" =
       (export 0))
     -----------sum_unit-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         group 0
         new gc
-        inject gc 0 (ref (base gc) (prod)))
+        inject gc 0 (ref (base gc) (ser (prod))))
       (table)
       (export 0))
     -----------sum_option-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 15
         tag
-        inject gc 1 (ref (base gc) (prod)) i31)
+        inject gc 1 (ref (base gc) (ser (prod))) i31)
       (table)
       (export 0))
     -----------add-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 1
         tag
         untag
@@ -106,7 +113,8 @@ let%expect_test "examples" =
       (export 0))
     -----------sub-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 1
         tag
         untag
@@ -119,7 +127,8 @@ let%expect_test "examples" =
       (export 0))
     -----------mul-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 1
         tag
         untag
@@ -132,7 +141,8 @@ let%expect_test "examples" =
       (export 0))
     -----------div-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 1
         tag
         untag
@@ -145,7 +155,8 @@ let%expect_test "examples" =
       (export 0))
     -----------math-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         i32.const 2
         tag
         untag
@@ -164,7 +175,8 @@ let%expect_test "examples" =
       (export 0))
     -----------basic_let-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr ptr)
         i32.const 10
         tag
         local.set 1
@@ -179,7 +191,9 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc)
-             (prod (ser (ref (base gc) (prod))) (ser (ref (base gc) (prod)))))
+             (ser
+               (prod (ser (ref (base gc) (ser (prod))))
+                 (ser (ref (base gc) (ser (prod)))))))
           -> i31) (local ptr ptr ptr)
         local.get 0 move
         copy
@@ -197,25 +211,30 @@ let%expect_test "examples" =
         drop
         local.get 1 move
         drop)
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr)
         group 0
         new gc
         coderef 0
         group 2
         new gc
-        pack (Type (ref (base gc) (prod)))
+        pack (Type (ref (base gc) (ser (prod))))
           (ref (base gc)
-            (exists type (VALTYPE (ptr, excopy, exdrop))
-              (coderef
-                ((ref (base gc) (prod (ser (var 0)) (ser (ref (base gc) (prod)))))
-                -> i31))))
+            (ser
+              (exists type (VALTYPE (ptr, excopy, exdrop))
+                (coderef
+                  ((ref (base gc)
+                     (ser (prod (ser (var 0)) (ser (ref (base gc) (ser (prod)))))))
+                  -> i31)))))
         new gc)
       (table)
       (export 1))
     -----------add_one-----------
     (module
-      (func ((ref (base gc) (prod (ser (ref (base gc) (prod))) (ser i31))) -> i31)
-          (local ptr ptr)
+      (func
+          ((ref (base gc)
+             (ser (prod (ser (ref (base gc) (ser (prod)))) (ser i31))))
+          -> i31) (local ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -238,10 +257,12 @@ let%expect_test "examples" =
     (module
       (func
           (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                        (prod
-                                                          (ser
-                                                            (ref (base gc) (prod)))
-                                                          (ser (var 0))))
+                                                        (ser
+                                                          (prod
+                                                            (ser
+                                                              (ref (base gc)
+                                                                (ser (prod))))
+                                                            (ser (var 0)))))
           -> (var 0)) (local ptr ptr)
         local.get 0 move
         copy
@@ -259,10 +280,12 @@ let%expect_test "examples" =
     (module
       (func
           (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                        (prod
-                                                          (ser
-                                                            (ref (base gc) (prod)))
-                                                          (ser (var 0))))
+                                                        (ser
+                                                          (prod
+                                                            (ser
+                                                              (ref (base gc)
+                                                                (ser (prod))))
+                                                            (ser (var 0)))))
           -> (var 0)) (local ptr ptr)
         local.get 0 move
         copy
@@ -274,25 +297,31 @@ let%expect_test "examples" =
         local.set 1
         local.get 1 move
         drop)
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr ptr ptr
-          ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr ptr ptr ptr)
         group 0
         new gc
         coderef 0
         group 2
         new gc
-        pack (Type (ref (base gc) (prod)))
+        pack (Type (ref (base gc) (ser (prod))))
           (ref (base gc)
-            (exists type (VALTYPE (ptr, excopy, exdrop))
-              (ref (base gc)
-                (prod (ser (var 0))
+            (ser
+              (exists type (VALTYPE (ptr, excopy, exdrop))
+                (ref (base gc)
                   (ser
-                    (coderef
-                      (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                    (prod
-                                                                      (ser (var 1))
-                                                                      (ser (var 0))))
-                      -> (var 0))))))))
+                    (prod (ser (var 0))
+                      (ser
+                        (coderef
+                          (forall.type (VALTYPE (ptr, excopy, exdrop))(ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (prod
+                                                                        (ser
+                                                                        (var 1))
+                                                                        (ser
+                                                                        (var 0)))))
+                          -> (var 0))))))))))
         new gc
         load (Path []) follow
         unpack (<1> -> i31) (LocalFx [(1, (prod))])
@@ -324,11 +353,11 @@ let%expect_test "examples" =
       (export 0 1))
     -----------opt_case-----------
     (module
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr ptr ptr
-          ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr ptr ptr ptr)
         i32.const 42
         tag
-        inject gc 1 (ref (base gc) (prod)) i31
+        inject gc 1 (ref (base gc) (ser (prod))) i31
         local.set 1
         local.get 1 move
         copy
@@ -356,27 +385,32 @@ let%expect_test "examples" =
     (module
       (func
           (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                        (prod
-                                                          (ser
-                                                            (ref (base gc) (prod)))
-                                                          (ser
-                                                            (rec
-                                                              (VALTYPE (ptr,
-                                                                 excopy, exdrop))
+                                                        (ser
+                                                          (prod
+                                                            (ser
                                                               (ref (base gc)
-                                                                (sum
+                                                                (ser (prod))))
+                                                            (ser
+                                                              (rec
+                                                                (VALTYPE (ptr,
+                                                                   excopy, exdrop))
+                                                                (ref (base gc)
                                                                   (ser
-                                                                    (ref
-                                                                      (base gc)
-                                                                      (prod)))
-                                                                  (ser
-                                                                    (ref
-                                                                      (base gc)
-                                                                      (sum
+                                                                    (sum
+                                                                      (ser
+                                                                        (ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (prod))))
+                                                                      (ser
+                                                                        (ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (sum
                                                                         (ser
                                                                         (var 1))
                                                                         (ser
-                                                                        (var 0)))))))))))
+                                                                        (var 0))))))))))))))
           -> i31) (local ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
@@ -404,40 +438,30 @@ let%expect_test "examples" =
             coderef 0
             group 2
             new gc
-            pack (Type (ref (base gc) (prod)))
+            pack (Type (ref (base gc) (ser (prod))))
               (ref (base gc)
-                (exists type (VALTYPE (ptr, excopy, exdrop))
-                  (ref (base gc)
-                    (prod (ser (var 0))
+                (ser
+                  (exists type (VALTYPE (ptr, excopy, exdrop))
+                    (ref (base gc)
                       (ser
-                        (coderef
-                          (forall.type (VALTYPE (ptr, excopy, exdrop))(ref
-                                                                        (base gc)
-                                                                        (prod
-                                                                        (ser
-                                                                        (var 1))
-                                                                        (ser
-                                                                        (rec
-                                                                        (VALTYPE (
-                                                                        ptr,
-                                                                        excopy,
-                                                                        exdrop))
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (sum
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (prod)))
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (sum
-                                                                        (ser
-                                                                        (var 1))
-                                                                        (ser
-                                                                        (var 0)))))))))))
-                          -> i31)))))))
+                        (prod (ser (var 0))
+                          (ser
+                            (coderef
+                              (forall.type (VALTYPE (ptr, excopy, exdrop))
+                              (ref (base gc)
+                                (ser
+                                  (prod (ser (var 1))
+                                    (ser
+                                      (rec (VALTYPE (ptr, excopy, exdrop))
+                                        (ref (base gc)
+                                          (ser
+                                            (sum (ser (ref (base gc) (ser (prod))))
+                                              (ser
+                                                (ref (base gc)
+                                                  (ser
+                                                    (sum (ser (var 1))
+                                                      (ser (var 0))))))))))))))
+                              -> i31)))))))))
             new gc
             load (Path []) follow
             unpack (<1> -> i31) (LocalFx [(3, (prod))])
@@ -458,8 +482,10 @@ let%expect_test "examples" =
               fold
                 (rec (VALTYPE (ptr, excopy, exdrop))
                   (ref (base gc)
-                    (sum (ser (ref (base gc) (prod)))
-                      (ser (ref (base gc) (sum (ser (var 2)) (ser (var 0))))))))
+                    (ser
+                      (sum (ser (ref (base gc) (ser (prod))))
+                        (ser
+                          (ref (base gc) (ser (sum (ser (var 2)) (ser (var 0))))))))))
               local.get 5 move
               copy
               local.set 5
@@ -479,24 +505,29 @@ let%expect_test "examples" =
         end
         local.get 1 move
         drop)
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr ptr ptr
-          ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr ptr ptr ptr)
         group 0
         new gc
         coderef 0
         group 2
         new gc
-        pack (Type (ref (base gc) (prod)))
+        pack (Type (ref (base gc) (ser (prod))))
           (ref (base gc)
-            (exists type (VALTYPE (ptr, excopy, exdrop))
-              (ref (base gc)
-                (prod (ser (var 0))
+            (ser
+              (exists type (VALTYPE (ptr, excopy, exdrop))
+                (ref (base gc)
                   (ser
-                    (coderef
-                      (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                    (prod
-                                                                      (ser (var 1))
-                                                                      (ser
+                    (prod (ser (var 0))
+                      (ser
+                        (coderef
+                          (forall.type (VALTYPE (ptr, excopy, exdrop))(ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (prod
+                                                                        (ser
+                                                                        (var 1))
+                                                                        (ser
                                                                         (rec
                                                                         (VALTYPE (
                                                                         ptr,
@@ -504,20 +535,23 @@ let%expect_test "examples" =
                                                                         exdrop))
                                                                         (ref
                                                                         (base gc)
+                                                                        (ser
                                                                         (sum
                                                                         (ser
                                                                         (ref
                                                                         (base gc)
-                                                                        (prod)))
+                                                                        (ser
+                                                                        (prod))))
                                                                         (ser
                                                                         (ref
                                                                         (base gc)
+                                                                        (ser
                                                                         (sum
                                                                         (ser
                                                                         (var 1))
                                                                         (ser
-                                                                        (var 0)))))))))))
-                      -> i31)))))))
+                                                                        (var 0))))))))))))))
+                          -> i31)))))))))
         new gc
         load (Path []) follow
         unpack (<1> -> i31) (LocalFx [(1, (prod))])
@@ -535,36 +569,52 @@ let%expect_test "examples" =
           group 0
           new gc
           inject gc
-            0 (ref (base gc) (prod)) (rec (VALTYPE (ptr, excopy, exdrop))
-                                       (ref (base gc)
-                                         (sum (ser (ref (base gc) (prod)))
-                                           (ser
+            0 (ref (base gc) (ser (prod))) (rec (VALTYPE (ptr, excopy, exdrop))
                                              (ref (base gc)
-                                               (sum (ser i31) (ser (var 0))))))))
+                                               (ser
+                                                 (sum
+                                                   (ser
+                                                     (ref (base gc) (ser (prod))))
+                                                   (ser
+                                                     (ref (base gc)
+                                                       (ser
+                                                         (sum (ser i31)
+                                                           (ser (var 0))))))))))
           fold
             (rec (VALTYPE (ptr, excopy, exdrop))
               (ref (base gc)
-                (sum (ser (ref (base gc) (prod)))
-                  (ser (ref (base gc) (sum (ser i31) (ser (var 0))))))))
+                (ser
+                  (sum (ser (ref (base gc) (ser (prod))))
+                    (ser (ref (base gc) (ser (sum (ser i31) (ser (var 0))))))))))
           i32.const 1
           tag
           group 2
           new gc
           inject gc
-            1 (ref (base gc) (prod)) (ref (base gc)
-                                       (sum (ser i31)
-                                         (ser
-                                           (rec (VALTYPE (ptr, excopy, exdrop))
-                                             (ref (base gc)
-                                               (sum (ser (ref (base gc) (prod)))
+            1 (ref (base gc) (ser (prod))) (ref (base gc)
+                                             (ser
+                                               (sum (ser i31)
                                                  (ser
-                                                   (ref (base gc)
-                                                     (sum (ser i31) (ser (var 0)))))))))))
+                                                   (rec
+                                                     (VALTYPE (ptr, excopy, exdrop
+                                                        ))
+                                                     (ref (base gc)
+                                                       (ser
+                                                         (sum
+                                                           (ser
+                                                             (ref (base gc)
+                                                               (ser (prod))))
+                                                           (ser
+                                                             (ref (base gc)
+                                                               (ser
+                                                                 (sum (ser i31)
+                                                                   (ser (var 0))))))))))))))
           fold
             (rec (VALTYPE (ptr, excopy, exdrop))
               (ref (base gc)
-                (sum (ser (ref (base gc) (prod)))
-                  (ser (ref (base gc) (sum (ser i31) (ser (var 0))))))))
+                (ser
+                  (sum (ser (ref (base gc) (ser (prod))))
+                    (ser (ref (base gc) (ser (sum (ser i31) (ser (var 0))))))))))
           local.get 3 move
           copy
           local.set 3
@@ -585,24 +635,32 @@ let%expect_test "examples" =
                                                                       excopy,
                                                                       exdrop))
                                                       (ref (base gc)
-                                                        (prod
-                                                          (ser
-                                                            (ref (base gc) (prod)))
-                                                          (ser
-                                                            (ref (base gc)
-                                                              (prod
+                                                        (ser
+                                                          (prod
+                                                            (ser
+                                                              (ref (base gc)
+                                                                (ser (prod))))
+                                                            (ser
+                                                              (ref (base gc)
                                                                 (ser
-                                                                  (ref (base gc)
-                                                                    (ser (var 0))))
-                                                                (ser
-                                                                  (ref (base gc)
-                                                                    (ser (var 1)))))))))
+                                                                  (prod
+                                                                    (ser
+                                                                      (ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (var 0))))
+                                                                    (ser
+                                                                      (ref
+                                                                        (base gc)
+                                                                        (ser
+                                                                        (var 1)))))))))))
                                                       ->
                                                       (ref (base gc)
                                                         (ser
                                                           (ref (base gc)
-                                                            (prod (ser (var 0))
-                                                              (ser (var 1))))))))
+                                                            (ser
+                                                              (prod (ser (var 0))
+                                                                (ser (var 1)))))))))
           (local ptr ptr)
         local.get 0 move
         copy
@@ -630,8 +688,9 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc)
-             (prod (ser (ref (base gc) (prod (ser i31))))
-               (ser (ref (base gc) (prod)))))
+             (ser
+               (prod (ser (ref (base gc) (ser (prod (ser i31)))))
+                 (ser (ref (base gc) (ser (prod)))))))
           -> i31) (local ptr ptr ptr ptr)
         local.get 0 move
         copy
@@ -657,8 +716,8 @@ let%expect_test "examples" =
         drop
         local.get 1 move
         drop)
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr ptr ptr
-          ptr ptr ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr ptr ptr ptr ptr ptr)
         i32.const 1
         tag
         local.set 1
@@ -670,12 +729,14 @@ let%expect_test "examples" =
         coderef 0
         group 2
         new gc
-        pack (Type (ref (base gc) (prod (ser i31))))
+        pack (Type (ref (base gc) (ser (prod (ser i31)))))
           (ref (base gc)
-            (exists type (VALTYPE (ptr, excopy, exdrop))
-              (coderef
-                ((ref (base gc) (prod (ser (var 0)) (ser (ref (base gc) (prod)))))
-                -> i31))))
+            (ser
+              (exists type (VALTYPE (ptr, excopy, exdrop))
+                (coderef
+                  ((ref (base gc)
+                     (ser (prod (ser (var 0)) (ser (ref (base gc) (ser (prod)))))))
+                  -> i31)))))
         new gc
         local.set 2
         local.get 2 move
@@ -717,21 +778,26 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc)
-             (prod
-               (ser
-                 (ref (base gc)
-                   (prod
+             (ser
+               (prod
+                 (ser
+                   (ref (base gc)
                      (ser
-                       (ref (base gc)
-                         (exists type (VALTYPE (ptr, excopy, exdrop))
+                       (prod
+                         (ser
                            (ref (base gc)
-                             (prod (ser (var 0))
-                               (ser
-                                 (coderef
-                                   ((ref (base gc) (prod (ser (var 0)) (ser i31)))
-                                   -> i31))))))))
-                     (ser i31))))
-               (ser i31)))
+                             (ser
+                               (exists type (VALTYPE (ptr, excopy, exdrop))
+                                 (ref (base gc)
+                                   (ser
+                                     (prod (ser (var 0))
+                                       (ser
+                                         (coderef
+                                           ((ref (base gc)
+                                              (ser (prod (ser (var 0)) (ser i31))))
+                                           -> i31))))))))))
+                         (ser i31)))))
+                 (ser i31))))
           -> i31) (local ptr ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
@@ -799,7 +865,8 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (func
-          ((ref (base gc) (prod (ser (ref (base gc) (prod (ser i31)))) (ser i31)))
+          ((ref (base gc)
+             (ser (prod (ser (ref (base gc) (ser (prod (ser i31))))) (ser i31))))
           -> i31) (local ptr ptr ptr ptr)
         local.get 0 move
         copy
@@ -832,8 +899,8 @@ let%expect_test "examples" =
         drop
         local.get 1 move
         drop)
-      (func ((ref (base gc) (prod)) -> (ref (base gc) (prod))) (local ptr ptr ptr
-          ptr ptr ptr ptr)
+      (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
+          ptr ptr ptr ptr ptr ptr ptr)
         i32.const 1
         tag
         local.set 1
@@ -845,10 +912,12 @@ let%expect_test "examples" =
         coderef 1
         group 2
         new gc
-        pack (Type (ref (base gc) (prod (ser i31))))
+        pack (Type (ref (base gc) (ser (prod (ser i31)))))
           (ref (base gc)
-            (exists type (VALTYPE (ptr, excopy, exdrop))
-              (coderef ((ref (base gc) (prod (ser (var 0)) (ser i31))) -> i31))))
+            (ser
+              (exists type (VALTYPE (ptr, excopy, exdrop))
+                (coderef
+                  ((ref (base gc) (ser (prod (ser (var 0)) (ser i31)))) -> i31)))))
         new gc
         local.set 2
         local.get 2 move
@@ -865,20 +934,26 @@ let%expect_test "examples" =
         pack
           (Type
              (ref (base gc)
-               (prod
-                 (ser
-                   (ref (base gc)
-                     (exists type (VALTYPE (ptr, excopy, exdrop))
-                       (ref (base gc)
-                         (prod (ser (var 0))
-                           (ser
-                             (coderef
-                               ((ref (base gc) (prod (ser (var 0)) (ser i31))) ->
-                               i31))))))))
-                 (ser i31))))
+               (ser
+                 (prod
+                   (ser
+                     (ref (base gc)
+                       (ser
+                         (exists type (VALTYPE (ptr, excopy, exdrop))
+                           (ref (base gc)
+                             (ser
+                               (prod (ser (var 0))
+                                 (ser
+                                   (coderef
+                                     ((ref (base gc)
+                                        (ser (prod (ser (var 0)) (ser i31))))
+                                     -> i31))))))))))
+                   (ser i31)))))
           (ref (base gc)
-            (exists type (VALTYPE (ptr, excopy, exdrop))
-              (coderef ((ref (base gc) (prod (ser (var 0)) (ser i31))) -> i31))))
+            (ser
+              (exists type (VALTYPE (ptr, excopy, exdrop))
+                (coderef
+                  ((ref (base gc) (ser (prod (ser (var 0)) (ser i31)))) -> i31)))))
         new gc
         local.set 3
         local.get 3 move

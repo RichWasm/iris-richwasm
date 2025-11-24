@@ -30,7 +30,8 @@ end)
 
 let%expect_test "examples" =
   output_examples ();
-  [%expect {xxx|
+  [%expect
+    {xxx|
     -----------one-----------
     {|
       m_imports := [];
@@ -38,9 +39,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
               (ITag
@@ -57,9 +60,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
               (ITag
@@ -113,9 +118,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
               (ITag
@@ -215,9 +222,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
               (ITag
@@ -253,9 +262,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
               (ITag
@@ -291,9 +302,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
               (ITag
@@ -329,9 +342,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
               (ITag
@@ -367,9 +382,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
               (ITag
@@ -424,9 +441,11 @@ let%expect_test "examples" =
         [ {|
           mf_type :=
             (MonoFunT
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]
-              [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) []))]);
-          mf_locals := [ (AtomR PtrR); (AtomR PtrR)];
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+              [ (RefT (VALTYPE (PrimR PtrR) ExCopy ExDrop) (BaseM MemGC)
+                (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]);
+          mf_locals := [ (PrimR PtrR); (PrimR PtrR)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 10);
               (ITag
