@@ -344,7 +344,7 @@ module Representation = struct
     | VarR x -> fprintf ff "@[<2>(VarR@ %a)@]" Z.pp_print x
     | SumR rs -> fprintf ff "@[<2>(SumR@ %a)@]" (pp_rocq_list pp_rocq) rs
     | ProdR rs -> fprintf ff "@[<2>(ProdR@ %a)@]" (pp_rocq_list pp_rocq) rs
-    | AtomR a -> fprintf ff "@[<2>(PrimR@ %a)@]" AtomicRep.pp_rocq a
+    | AtomR a -> fprintf ff "@[<2>(AtomR@ %a)@]" AtomicRep.pp_rocq a
 
   let subst = Richwasm_extract.Rw.Core.subst_representation
   let ren = Richwasm_extract.Rw.Core.ren_representation

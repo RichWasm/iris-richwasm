@@ -5,15 +5,18 @@ Set Bullet Behavior "Strict Subproofs".
 
 Definition ll_1_plus_2 := {|
   m_imports := [];
-  m_functions := [ {|
-    mf_type := (MonoFunT [] [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]);
+  m_functions := [{|
+    mf_type := (MonoFunT [] [(NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]);
     mf_locals := [];
     mf_body := [
-      (INumConst (InstrT [] [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
-      (INumConst (InstrT [] [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
-      (INum (InstrT [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T));
-                          (NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]
-                [(NumT (VALTYPE (PrimR I32R) ImCopy ImDrop) (IntT I32T))]) (IInt2 I32T AddI))
+      (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
+      (INumConst (InstrT [] [(NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
+      (INum
+        (InstrT
+          [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T));
+            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]
+          [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])
+        (IInt2 I32T AddI))
     ];
   |}];
   m_table := [];
