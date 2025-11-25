@@ -79,10 +79,10 @@ let rec compile_type delta t =
   match t with
   | Int -> Type.I31
   | Prod ts ->
-      let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
+      let ts' = List.map ~f:r ts in
       Type.(Ref (Base GC, Ser (Prod ts')))
   | Sum ts ->
-      let ts' = List.map ~f:(fun x -> Type.Ser (r x)) ts in
+      let ts' = List.map ~f:r ts in
       Type.(Ref (Base GC, Ser (Sum ts')))
   | Ref t -> Type.(Ref (Base GC, Ser (r t)))
   | Rec (v, t) -> Type.Rec (kind, compile_type (v :: delta) t)

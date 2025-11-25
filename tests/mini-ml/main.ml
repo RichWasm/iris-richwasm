@@ -68,12 +68,9 @@ let%expect_test "id_fun" =
                (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
                                                              (ser
                                                                (prod
-                                                                 (ser
-                                                                   (ref
-                                                                     (base gc)
-                                                                     (ser
-                                                                      (prod))))
-                                                                 (ser (var 0)))))
+                                                                 (ref (base gc)
+                                                                   (ser (prod)))
+                                                                 (var 0))))
                -> (var 0)) (local ptr ptr)
              local.get 0 move
              copy
@@ -116,8 +113,8 @@ let%expect_test "return_one" =
                (func
                    ((ref (base gc)
                       (ser
-                        (prod (ser (ref (base gc) (ser (prod))))
-                          (ser (ref (base gc) (ser (prod)))))))
+                        (prod (ref (base gc) (ser (prod)))
+                          (ref (base gc) (ser (prod))))))
                    -> i31) (local ptr ptr)
                  local.get 0 move
                  copy
@@ -142,14 +139,13 @@ let%expect_test "return_one" =
                        (exists type (VALTYPE (ptr, excopy, exdrop))
                          (ref (base gc)
                            (ser
-                             (prod (ser (var 0))
-                               (ser
-                                 (coderef
-                                   ((ref (base gc)
-                                      (ser
-                                        (prod (ser (var 0))
-                                          (ser (ref (base gc) (ser (prod)))))))
-                                   -> i31)))))))))
+                             (prod (var 0)
+                               (coderef
+                                 ((ref (base gc)
+                                    (ser
+                                      (prod (var 0)
+                                        (ref (base gc) (ser (prod))))))
+                                 -> i31))))))))
                  new gc
                  load (Path []) follow
                  unpack (<1> -> i31) (LocalFx [(1, (prod))])
@@ -213,13 +209,11 @@ let%expect_test "apply_id" =
                  (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
                                                                (ser
                                                                  (prod
-                                                                   (ser
-                                                                     (ref
-                                                                      (base gc)
-                                                                      (ser
-                                                                      (prod))))
-                                                                   (ser
-                                                                     (var 0)))))
+                                                                   (ref
+                                                                     (base gc)
+                                                                     (ser
+                                                                      (prod)))
+                                                                   (var 0))))
                  -> (var 0)) (local ptr ptr)
                local.get 0 move
                copy
@@ -245,13 +239,11 @@ let%expect_test "apply_id" =
                      (exists type (VALTYPE (ptr, excopy, exdrop))
                        (ref (base gc)
                          (ser
-                           (prod (ser (var 0))
-                             (ser
-                               (coderef
-                                 (forall.type (VALTYPE (ptr, excopy, exdrop))
-                                 (ref (base gc)
-                                   (ser (prod (ser (var 1)) (ser (var 0)))))
-                                 -> (var 0))))))))))
+                           (prod (var 0)
+                             (coderef
+                               (forall.type (VALTYPE (ptr, excopy, exdrop))
+                               (ref (base gc) (ser (prod (var 1) (var 0)))) ->
+                               (var 0)))))))))
                new gc
                load (Path []) follow
                unpack (<1> -> i31) (LocalFx [(1, (prod))])

@@ -464,20 +464,54 @@ let%expect_test "examples" =
       m_exports := [ 0];
     |}
     -----------return_one-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ExDrop))
+    FAILURE (CannotResolvePath ExpectedStruct (Path (0))
+     (Prod ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ()))))))
     -----------add_one-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ExDrop))
+    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
+     (Prod ((Ref (Base GC) (Ser (Prod ()))) I31)))
     -----------id-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ExDrop))
+    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
+     (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))
     -----------apply_id-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ExDrop))
+    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
+     (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))
     -----------opt_case-----------
     FAILURE (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop))
     -----------poly_len-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ExDrop))
+    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
+     (Prod
+      ((Ref (Base GC) (Ser (Prod ())))
+       (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+        (Ref (Base GC)
+         (Ser
+          (Sum
+           ((Ref (Base GC) (Ser (Prod ())))
+            (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0)))))))))))))
     -----------mini_zip-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ExDrop))
+    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
+     (Prod
+      ((Ref (Base GC) (Ser (Prod ())))
+       (Ref (Base GC)
+        (Ser
+         (Prod ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))
     -----------closure_simpl-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ImDrop))
+    FAILURE (CannotResolvePath ExpectedStruct (Path (0))
+     (Prod ((Ref (Base GC) (Ser (Prod (I31)))) (Ref (Base GC) (Ser (Prod ()))))))
     -----------closure_complex-----------
-    FAILURE (CannotMeet "expected valtype" (MEMTYPE (RepS (AtomR PtrR)) ExDrop)) |xxx}]
+    FAILURE (CannotResolvePath ExpectedStruct (Path (0))
+     (Prod
+      ((Ref (Base GC)
+        (Ser
+         (Prod
+          ((Ref (Base GC)
+            (Ser
+             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+              (Ref (Base GC)
+               (Ser
+                (Prod
+                 ((Var 0)
+                  (CodeRef
+                   (FunctionType () ((Ref (Base GC) (Ser (Prod ((Var 0) I31)))))
+                    (I31))))))))))
+           I31))))
+       I31))) |xxx}]
