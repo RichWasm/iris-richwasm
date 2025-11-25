@@ -83,11 +83,13 @@
       (else))
     global.get $gc_ptr)
 
-  (; table.set was only introduced in wasm 2.0 but that's fine since our runtime supports it.
-     if we were strictly using wasm 1.0 this would be implemented using the host language. ;)
+  (; table.set was only introduced in wasm 2.0 but that's fine since our runtime
+     supports it. if we were strictly using wasm 1.0 this would be implemented
+     using the host language. ;)
   (func (export "tableset") (param i32 i32) (result)
     (; grow table if necessary to ensure index fits ;)
-    (local $diff (i32.const 0))
+    (local $diff i32)
+    (local.set $diff (i32.const 0))
     table.size $table (; max index + 1 ;)
     i32.const 1
     i32.sub (; max index ;)
@@ -115,7 +117,18 @@
     nop)
 
   (func (export "registerroot") (param i32) (result i32)
-    unreachable)
+    global.get $root_ptr
+    copy
+    i32.const 4
+    i32.add
+    copy
+    global.get $root_end
+    i32.ge_s
+    (if
+      (then unreachable)
+      (else))
+    global.set $root_ptr
+    (; the initial global.get remains on the stack here ;))
 
   (func (export "unregisterroot") (param i32) (result i32)
     nop)
@@ -125,11 +138,14 @@
   (global (export "tablenext") (mut i32) (i32.const 0))
 
   (global $mm_ptr (mut i32) (i32.const 0))
-  (global $gc_ptr (mut i32) (i32.const 0))
+  (global $gc_ptr (mut i32) (i32.const 65536))
+  (global $root_ptr (mut i32) (i32.const 0))
   (global $mm_end (mut i32) (i32.const 0))
   (global $gc_end (mut i32) (i32.const 0))
-  
+
+  (; gc roots are first page of gc mem ;)
+  (global $root_end i32 (i32.const 65535))
   (global $page_size i32 (i32.const 65536))
 
   (memory $mmmem (export "mmmem") 0)
-  (memory $gcmem (export "gcmem") 0))
+  (memory $gcmem (export "gcmem") 1) (; pre-allocate root section ;))
