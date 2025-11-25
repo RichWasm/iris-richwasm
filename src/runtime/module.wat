@@ -86,8 +86,27 @@
   (; table.set was only introduced in wasm 2.0 but that's fine since our runtime supports it.
      if we were strictly using wasm 1.0 this would be implemented using the host language. ;)
   (func (export "tableset") (param i32 i32) (result)
-    unreachable
-    (;  table.set   ;))
+    (; grow table if necessary to ensure index fits ;)
+    (local $diff (i32.const 0))
+    table.size $table (; max index + 1 ;)
+    i32.const 1
+    i32.sub (; max index ;)
+    local.get 0
+    i32.sub
+    local.tee $diff
+    i32.const 0
+    i32.lt_s
+    (if
+      (then
+        local.get $diff
+        i32.abs
+        table.grow $table)
+      (else))
+
+    (; set value ;)
+    local.get 0
+    local.get 1
+    table.set $table)
 
   (func (export "free") (param i32) (result)
     nop)
