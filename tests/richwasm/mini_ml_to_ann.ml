@@ -210,11 +210,45 @@ let%expect_test "examples" =
       m_exports := [ 0];
     |}
     -----------tuple_project-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (1)) (Prod (I31 I31)))
+    FAILURE (InstrErr
+     (error (CannotResolvePath ExpectedStruct (Path (1)) (Ser (Prod (I31 I31)))))
+     (instr (Load (Path (1)) Follow))
+     (env
+      ((local_offset 1) (kinds ()) (labels ())
+       (return ((Ref (Base GC) (Ser (Prod ())))))
+       (functions
+        ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals (((Ref (Base GC) (Ser (Prod ())))) ()))
+       (stack ((Ref (Base GC) (Ser (Prod (I31 I31)))))))))
     -----------sum_unit-----------
-    FAILURE (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop))
+    FAILURE (InstrErr
+     (error (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+     (instr (Inject (GC) 0 ((Ref (Base GC) (Ser (Prod ()))))))
+     (env
+      ((local_offset 1) (kinds ()) (labels ())
+       (return ((Ref (Base GC) (Ser (Prod ())))))
+       (functions
+        ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals (((Ref (Base GC) (Ser (Prod ())))) ()))
+       (stack ((Ref (Base GC) (Ser (Prod ()))))))))
     -----------sum_option-----------
-    FAILURE (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop))
+    FAILURE (InstrErr
+     (error (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+     (instr (Inject (GC) 1 ((Ref (Base GC) (Ser (Prod ()))) I31)))
+     (env
+      ((local_offset 1) (kinds ()) (labels ())
+       (return ((Ref (Base GC) (Ser (Prod ())))))
+       (functions
+        ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state ((locals (((Ref (Base GC) (Ser (Prod ())))) ())) (stack (I31)))))
     -----------add-----------
     {|
       m_imports := [];
@@ -464,54 +498,341 @@ let%expect_test "examples" =
       m_exports := [ 0];
     |}
     -----------return_one-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (0))
-     (Prod ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ()))))))
-    -----------add_one-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
-     (Prod ((Ref (Base GC) (Ser (Prod ()))) I31)))
-    -----------id-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
-     (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))
-    -----------apply_id-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
-     (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))
-    -----------opt_case-----------
-    FAILURE (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop))
-    -----------poly_len-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
-     (Prod
-      ((Ref (Base GC) (Ser (Prod ())))
-       (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-        (Ref (Base GC)
-         (Ser
-          (Sum
-           ((Ref (Base GC) (Ser (Prod ())))
-            (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0)))))))))))))
-    -----------mini_zip-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (1))
-     (Prod
-      ((Ref (Base GC) (Ser (Prod ())))
-       (Ref (Base GC)
-        (Ser
-         (Prod ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))
-    -----------closure_simpl-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (0))
-     (Prod ((Ref (Base GC) (Ser (Prod (I31)))) (Ref (Base GC) (Ser (Prod ()))))))
-    -----------closure_complex-----------
-    FAILURE (CannotResolvePath ExpectedStruct (Path (0))
-     (Prod
-      ((Ref (Base GC)
-        (Ser
-         (Prod
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (0))
+       (Ser
+        (Prod ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ()))))))))
+     (instr (Load (Path (0)) Follow))
+     (env
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
+       (functions
+        ((FunctionType ()
           ((Ref (Base GC)
             (Ser
-             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+             (Prod
+              ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ()))))))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC)
+           (Ser
+            (Prod
+             ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ()))))))))
+         () () ()))
+       (stack
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ()))))))))))))
+    -----------add_one-----------
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (1))
+       (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31)))))
+     (instr (Load (Path (1)) Follow))
+     (env
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
+       (functions
+        ((FunctionType ()
+          ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31)))))
+          (I31))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31))))) ()
+         ()))
+       (stack
+        ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31)))))))))
+    -----------id-----------
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (1))
+       (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
+     (instr (Load (Path (1)) Follow))
+     (env
+      ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop))) (labels ())
+       (return ((Var 0)))
+       (functions
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
+          ((Var 0)))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
+         () ()))
+       (stack
+        ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))))))
+    -----------apply_id-----------
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (1))
+       (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
+     (instr (Load (Path (1)) Follow))
+     (env
+      ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop))) (labels ())
+       (return ((Var 0)))
+       (functions
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
+          ((Var 0)))
+         (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
+         () ()))
+       (stack
+        ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))))))
+    -----------opt_case-----------
+    FAILURE (InstrErr
+     (error (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+     (instr (Inject (GC) 1 ((Ref (Base GC) (Ser (Prod ()))) I31)))
+     (env
+      ((local_offset 1) (kinds ()) (labels ())
+       (return ((Ref (Base GC) (Ser (Prod ())))))
+       (functions
+        ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals (((Ref (Base GC) (Ser (Prod ())))) () () () ())) (stack (I31)))))
+    -----------poly_len-----------
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (1))
+       (Ser
+        (Prod
+         ((Ref (Base GC) (Ser (Prod ())))
+          (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+           (Ref (Base GC)
+            (Ser
+             (Sum
+              ((Ref (Base GC) (Ser (Prod ())))
+               (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0)))))))))))))))
+     (instr (Load (Path (1)) Follow))
+     (env
+      ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop))) (labels ())
+       (return (I31))
+       (functions
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((Ref (Base GC)
+            (Ser
+             (Prod
+              ((Ref (Base GC) (Ser (Prod ())))
+               (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                (Ref (Base GC)
+                 (Ser
+                  (Sum
+                   ((Ref (Base GC) (Ser (Prod ())))
+                    (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0)))))))))))))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC)
+           (Ser
+            (Prod
+             ((Ref (Base GC) (Ser (Prod ())))
+              (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+               (Ref (Base GC)
+                (Ser
+                 (Sum
+                  ((Ref (Base GC) (Ser (Prod ())))
+                   (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0)))))))))))))))
+         () () () () () () ()))
+       (stack
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod ())))
+             (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+              (Ref (Base GC)
+               (Ser
+                (Sum
+                 ((Ref (Base GC) (Ser (Prod ())))
+                  (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0)))))))))))))))))))
+    -----------mini_zip-----------
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (1))
+       (Ser
+        (Prod
+         ((Ref (Base GC) (Ser (Prod ())))
+          (Ref (Base GC)
+           (Ser
+            (Prod ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))))
+     (instr (Load (Path (1)) Follow))
+     (env
+      ((local_offset 1)
+       (kinds
+        ((VALTYPE (Atom Ptr) ExCopy ExDrop) (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+       (labels ())
+       (return
+        ((Ref (Base GC) (Ser (Ref (Base GC) (Ser (Prod ((Var 0) (Var 1)))))))))
+       (functions
+        ((FunctionType
+          ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+           (Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((Ref (Base GC)
+            (Ser
+             (Prod
+              ((Ref (Base GC) (Ser (Prod ())))
+               (Ref (Base GC)
+                (Ser
+                 (Prod
+                  ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))))
+          ((Ref (Base GC) (Ser (Ref (Base GC) (Ser (Prod ((Var 0) (Var 1)))))))))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC)
+           (Ser
+            (Prod
+             ((Ref (Base GC) (Ser (Prod ())))
               (Ref (Base GC)
                (Ser
                 (Prod
-                 ((Var 0)
-                  (CodeRef
-                   (FunctionType () ((Ref (Base GC) (Ser (Prod ((Var 0) I31)))))
-                    (I31))))))))))
-           I31))))
-       I31))) |xxx}]
+                 ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))))
+         () ()))
+       (stack
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod ())))
+             (Ref (Base GC)
+              (Ser
+               (Prod
+                ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))))))))
+    -----------closure_simpl-----------
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (0))
+       (Ser
+        (Prod
+         ((Ref (Base GC) (Ser (Prod (I31)))) (Ref (Base GC) (Ser (Prod ()))))))))
+     (instr (Load (Path (0)) Follow))
+     (env
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
+       (functions
+        ((FunctionType ()
+          ((Ref (Base GC)
+            (Ser
+             (Prod
+              ((Ref (Base GC) (Ser (Prod (I31))))
+               (Ref (Base GC) (Ser (Prod ()))))))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC)
+           (Ser
+            (Prod
+             ((Ref (Base GC) (Ser (Prod (I31)))) (Ref (Base GC) (Ser (Prod ()))))))))
+         () () () ()))
+       (stack
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod (I31)))) (Ref (Base GC) (Ser (Prod ()))))))))))))
+    -----------closure_complex-----------
+    FAILURE (InstrErr
+     (error
+      (CannotResolvePath ExpectedStruct (Path (0))
+       (Ser
+        (Prod
+         ((Ref (Base GC)
+           (Ser
+            (Prod
+             ((Ref (Base GC)
+               (Ser
+                (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                 (Ref (Base GC)
+                  (Ser
+                   (Prod
+                    ((Var 0)
+                     (CodeRef
+                      (FunctionType ()
+                       ((Ref (Base GC) (Ser (Prod ((Var 0) I31))))) (I31))))))))))
+              I31))))
+          I31)))))
+     (instr (Load (Path (0)) Follow))
+     (env
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
+       (functions
+        ((FunctionType ()
+          ((Ref (Base GC)
+            (Ser
+             (Prod
+              ((Ref (Base GC)
+                (Ser
+                 (Prod
+                  ((Ref (Base GC)
+                    (Ser
+                     (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                      (Ref (Base GC)
+                       (Ser
+                        (Prod
+                         ((Var 0)
+                          (CodeRef
+                           (FunctionType ()
+                            ((Ref (Base GC) (Ser (Prod ((Var 0) I31)))))
+                            (I31))))))))))
+                   I31))))
+               I31)))))
+          (I31))
+         (FunctionType ()
+          ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod (I31)))) I31)))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
+          ((Ref (Base GC) (Ser (Prod ())))))))
+       (table ())))
+     (state
+      ((locals
+        (((Ref (Base GC)
+           (Ser
+            (Prod
+             ((Ref (Base GC)
+               (Ser
+                (Prod
+                 ((Ref (Base GC)
+                   (Ser
+                    (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                     (Ref (Base GC)
+                      (Ser
+                       (Prod
+                        ((Var 0)
+                         (CodeRef
+                          (FunctionType ()
+                           ((Ref (Base GC) (Ser (Prod ((Var 0) I31))))) (I31))))))))))
+                  I31))))
+              I31)))))
+         () () () () () () () ()))
+       (stack
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC)
+              (Ser
+               (Prod
+                ((Ref (Base GC)
+                  (Ser
+                   (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                    (Ref (Base GC)
+                     (Ser
+                      (Prod
+                       ((Var 0)
+                        (CodeRef
+                         (FunctionType ()
+                          ((Ref (Base GC) (Ser (Prod ((Var 0) I31))))) (I31))))))))))
+                 I31))))
+             I31))))))))) |xxx}]

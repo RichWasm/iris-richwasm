@@ -4,6 +4,30 @@ open Stdlib.Format
 module A = Syntax
 module B = Annotated_syntax
 
+module Env = struct
+  type t = {
+    local_offset : int;
+    kinds : A.Kind.t list;
+    labels : A.Type.t list list;
+    return : A.Type.t list;
+    functions : A.FunctionType.t list;
+    table : A.FunctionType.t list;
+  }
+  [@@deriving make, sexp]
+
+  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+end
+
+module State = struct
+  type t = {
+    locals : A.Type.t option list;
+    stack : A.Type.t list;
+  }
+  [@@deriving make, sexp]
+
+  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+end
+
 module Err = struct
   type kind_ctx =
     [ `Type of B.Type.t
@@ -39,36 +63,18 @@ module Err = struct
     | FunctionParamMustBeMonoRep
     | CannotResolvePath of
         [ `ExpectedStruct | `OutOfBounds ] * A.Path.t * A.Type.t
+    | InstrErr of {
+        error : t;
+        instr : A.Instruction.t;
+        env : Env.t;
+        state : State.t;
+      }
   [@@deriving sexp]
 
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 end
 
 module Res = ResultM (Err)
-
-module Env = struct
-  type t = {
-    local_offset : int;
-    kinds : A.Kind.t list;
-    labels : A.Type.t list list;
-    return : A.Type.t list;
-    functions : A.FunctionType.t list;
-    table : A.FunctionType.t list;
-  }
-  [@@deriving make, sexp]
-
-  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-end
-
-module State = struct
-  type t = {
-    locals : A.Type.t option list;
-    stack : A.Type.t list;
-  }
-  [@@deriving make, sexp]
-
-  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-end
 
 module InstrM = struct
   include StateM (State) (Err)
@@ -665,6 +671,8 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
     let st_inner = { init_st with stack = consume } in
     (consume, result, env', st_inner)
   in
+  let ( >>=^ ) m f = m >>= fun x -> f x |> lift_result in
+  let ( >>^| ) r f = r |> Result.map ~f |> lift_result in
   function
   | Nop -> ret @@ INop (InstrT ([], []))
   | Unreachable ->
@@ -736,7 +744,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       in
       let* t' = lift_result @@ elab_type env.kinds t in
       let* im_copyable =
-        copyability_of_typ env.kinds t' |> lift_result >>| function
+        copyability_of_typ env.kinds t' >>^| function
         | ImCopy -> true
         | _ -> false
       in
@@ -883,41 +891,33 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       ret @@ INew it
   | Load (path, consume) ->
       let* in_t = pop "Load" in
-      let* mem, t_val =
+      let* mem, t_targ =
         match in_t with
-        | Ref (mem, Ser t) -> ret (mem, t)
-        | Ref _ as t -> fail (LoadRefNonSer t)
+        | Ref (mem, t) -> ret (mem, t)
         | t -> fail (NonRef (`Load, t))
       in
-      let* t_ser' = elab_type env.kinds (Ser t_val) |> lift_result in
-      let* t_val' = elab_type env.kinds t_val |> lift_result in
+      let* t_targ' = elab_type env.kinds t_targ |> lift_result in
 
-      (*
-      (HLoadCopy : forall M F L π μ τ τval pr κ κser,
-          let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-          has_copyability F τval ExCopy ->
-          resolves_path τ π None pr ->
-          pr.(pr_target) = SerT κser τval ->
-          Forall (has_mono_size F) pr.(pr_prefix) ->
-          has_instruction_type_ok F ψ L ->
-          P1 M F L (ILoad ψ π Copy) ψ L) *)
-      (* TODO(owen): idt above is subkinding correctly, pretty sure it should be excopy 
-        **or** imcopy *)
-      (* ALSO: why are we allowing excopy here but now for local.get? *)
+      let* pr_copy = resolves_path t_targ path None |> lift_result in
+      let* t_val =
+        match pr_copy.target with
+        | Ser t -> ret t
+        | x -> fail @@ LoadRefNonSer x
+      in
+      let* t_val' = elab_type env.kinds t_val |> lift_result in
       let* ex_copyable =
-        copyability_of_typ env.kinds t_val' |> lift_result >>| function
+        ret t_val' >>=^ copyability_of_typ env.kinds >>| function
         | ImCopy | ExCopy -> true
         | _ -> false
       in
       let* should_move = is_effective_move consume ex_copyable |> lift_result in
-      let* pr = resolves_path t_val path None |> lift_result in
       let* out_ts, consume' =
         if should_move then
-          let* size =
-            size_of_typ env.kinds t_ser' |> lift_result >>| unelab_size
+          let* replaced_size =
+            ret t_targ' >>=^ size_of_typ env.kinds >>| unelab_size
           in
           let+ pr =
-            resolves_path t_val path (Some (Span size)) |> lift_result
+            resolves_path t_targ path (Some (Span replaced_size)) |> lift_result
           in
 
           (A.Type.[ Ref (mem, pr.replaced); t_val ], B.Consumption.Move)
@@ -976,10 +976,13 @@ let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
   let* mf_body, _ =
     let open InstrM in
     mapM body
-      ~f:(fun x ->
-        elab_instruction init_env x >>| fun x ->
-        (* fprintf std_formatter "%a@," B.Instruction.pp_sexp x; *)
-        x)
+      ~f:(fun instr ->
+        fun state ->
+         let res = elab_instruction init_env instr state in
+         match res with
+         | Ok x -> Ok x
+         | Error error ->
+             Error (InstrErr { error; instr; env = init_env; state }))
       init_state
   in
 
