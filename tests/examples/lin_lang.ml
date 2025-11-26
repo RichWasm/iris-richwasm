@@ -28,6 +28,16 @@ let print_10 : Module.t =
       (print 10)
     |}
 
+let closure : Module.t =
+  Parse.from_string_exn
+    {|
+      (let (x : int) = 10 in
+      (app
+        (lam (_ : ()) : int .
+          x)
+        ()))
+    |}
+
 let factorial_program : Module.t =
   Parse.from_string_exn
     {|
@@ -240,6 +250,7 @@ let all : (string * Module.t) list =
       ("add_one_program", add_one_program);
       ("add_tup_ref", add_tup_ref);
       ("print_10", print_10);
+      ("closure", closure);
       ("factorial_program", factorial_program);
       ("safe_div", safe_div);
       ("incr_n", incr_n);

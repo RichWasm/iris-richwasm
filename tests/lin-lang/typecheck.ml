@@ -88,6 +88,13 @@ let%expect_test "examples" =
     -----------print_10-----------
     ((imports (((name print) (input Int) (output (Prod ()))))) (functions ())
      (main ((App (Coderef print (Lollipop Int (Prod ()))) (Int 10 Int) (Prod ())))))
+    -----------closure-----------
+    ((imports ()) (functions ())
+     (main
+      ((Let Int (Int 10 Int)
+        (App (Lam (Prod ()) Int (Var (1 (x)) Int) (Lollipop (Prod ()) Int))
+         (Tuple () (Prod ())) Int)
+        Int))))
     -----------factorial_program-----------
     ((imports ())
      (functions

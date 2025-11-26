@@ -196,6 +196,10 @@ let%expect_test "pretty prints examples" =
     (import (int ⊸ ()) as print)
 
     (app print 10)
+    -----------closure-----------
+    (let (x : int) = 10 in
+    (app (λ (_ : ()) : int .
+           x) ()))
     -----------factorial_program-----------
     (export fun factorial (n : int) : int .
       (if0 n then 1 else

@@ -50,6 +50,7 @@ module Err = struct
     | UnexpectedOpenType of Cc.LVar.t
     | CannotFindRep of Cc.IR.Type.t
     | CannotResolveRepOfRecTypeWithoutIndirection of Cc.IR.Type.t
+    | InvalidPackAnn of RichWasm.Type.t
     | Ctx of t * Cc.IR.Type.t * [ `Let | `Split | `Cases | `Free ]
   [@@deriving sexp]
 
@@ -102,7 +103,8 @@ module Compile = struct
     | Rec t ->
         let env' = { env with type_map = None :: env.type_map } in
         let* rep = rep_of_typ env' t in
-        (* FIXME: if this has an inner coderef thing *)
+        (* NOTE: if coderef is used for indirection, then could have less
+           restrictive copyability and dropability *)
         let kind : B.Kind.t = VALTYPE (rep, NoCopy, ExDrop) in
         let env'' = Env.add_type env rep in
         let* t' = compile_type env'' t in
@@ -187,7 +189,12 @@ module Compile = struct
         let* expr' = compile_expr env expr in
         let* witness' = compile_type env witness |> lift_result in
         let* t' = compile_type env t |> lift_result in
-        ret @@ expr' @ [ Pack (Type witness', t') ]
+        let* mu' =
+          match t' with
+          | Exists (_, t) -> ret t
+          | x -> fail (InvalidPackAnn x)
+        in
+        ret @@ expr' @ [ Pack (Type witness', mu') ]
     | App (applicand, applicant, _) ->
         let* applicand' = compile_expr env applicand in
         let* applicant' = compile_expr env applicant in
@@ -337,6 +344,7 @@ module Compile = struct
     let functions_only_map =
       List.mapi functions ~f:(fun i f -> (f.name, import_offset + i))
     in
+    (* FIXME: add imported functions to table *)
     let table = List.map functions_only_map ~f:snd in
     let* function_map =
       imports_only_map @ functions_only_map

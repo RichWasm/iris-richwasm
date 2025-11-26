@@ -221,7 +221,7 @@ let%expect_test "examples" =
           ((Ref (Base GC) (Ser (Prod ())))))))
        (table ())))
      (state
-      ((locals (((Ref (Base GC) (Ser (Prod ())))) ()))
+      ((locals ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr))))
        (stack ((Ref (Base GC) (Ser (Prod (I31 I31)))))))))
     -----------sum_unit-----------
     FAILURE (InstrErr
@@ -235,7 +235,7 @@ let%expect_test "examples" =
           ((Ref (Base GC) (Ser (Prod ())))))))
        (table ())))
      (state
-      ((locals (((Ref (Base GC) (Ser (Prod ())))) ()))
+      ((locals ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr))))
        (stack ((Ref (Base GC) (Ser (Prod ()))))))))
     -----------sum_option-----------
     FAILURE (InstrErr
@@ -248,7 +248,9 @@ let%expect_test "examples" =
         ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
        (table ())))
-     (state ((locals (((Ref (Base GC) (Ser (Prod ())))) ())) (stack (I31)))))
+     (state
+      ((locals ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr))))
+       (stack (I31)))))
     -----------add-----------
     {|
       m_imports := [];
@@ -518,11 +520,11 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC)
-           (Ser
-            (Prod
-             ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ()))))))))
-         () () ()))
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod ()))) (Ref (Base GC) (Ser (Prod ())))))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC)
           (Ser
@@ -543,8 +545,8 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31))))) ()
-         ()))
+        ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31)))))))))
     -----------id-----------
@@ -563,8 +565,8 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
-         () ()))
+        ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0)))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))))))
     -----------apply_id-----------
@@ -585,8 +587,8 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
-         () ()))
+        ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0)))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))))))
     -----------opt_case-----------
@@ -601,7 +603,10 @@ let%expect_test "examples" =
           ((Ref (Base GC) (Ser (Prod ())))))))
        (table ())))
      (state
-      ((locals (((Ref (Base GC) (Ser (Prod ())))) () () () ())) (stack (I31)))))
+      ((locals
+        ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr)) (Plug (Atom Ptr))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr))))
+       (stack (I31)))))
     -----------poly_len-----------
     FAILURE (InstrErr
      (error
@@ -637,17 +642,18 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC)
-           (Ser
-            (Prod
-             ((Ref (Base GC) (Ser (Prod ())))
-              (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-               (Ref (Base GC)
-                (Ser
-                 (Sum
-                  ((Ref (Base GC) (Ser (Prod ())))
-                   (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0)))))))))))))))
-         () () () () () () ()))
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod ())))
+             (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+              (Ref (Base GC)
+               (Ser
+                (Sum
+                 ((Ref (Base GC) (Ser (Prod ())))
+                  (Ref (Base GC) (Ser (Sum ((Var 1) (Var 0))))))))))))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC)
           (Ser
@@ -693,15 +699,15 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC)
-           (Ser
-            (Prod
-             ((Ref (Base GC) (Ser (Prod ())))
-              (Ref (Base GC)
-               (Ser
-                (Prod
-                 ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))))
-         () ()))
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod ())))
+             (Ref (Base GC)
+              (Ser
+               (Prod
+                ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1)))))))))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC)
           (Ser
@@ -734,11 +740,11 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC)
-           (Ser
-            (Prod
-             ((Ref (Base GC) (Ser (Prod (I31)))) (Ref (Base GC) (Ser (Prod ()))))))))
-         () () () ()))
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC) (Ser (Prod (I31)))) (Ref (Base GC) (Ser (Prod ())))))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC)
           (Ser
@@ -798,25 +804,26 @@ let%expect_test "examples" =
        (table ())))
      (state
       ((locals
-        (((Ref (Base GC)
-           (Ser
-            (Prod
-             ((Ref (Base GC)
-               (Ser
-                (Prod
-                 ((Ref (Base GC)
-                   (Ser
-                    (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                     (Ref (Base GC)
-                      (Ser
-                       (Prod
-                        ((Var 0)
-                         (CodeRef
-                          (FunctionType ()
-                           ((Ref (Base GC) (Ser (Prod ((Var 0) I31))))) (I31))))))))))
-                  I31))))
-              I31)))))
-         () () () () () () () ()))
+        ((Ref (Base GC)
+          (Ser
+           (Prod
+            ((Ref (Base GC)
+              (Ser
+               (Prod
+                ((Ref (Base GC)
+                  (Ser
+                   (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                    (Ref (Base GC)
+                     (Ser
+                      (Prod
+                       ((Var 0)
+                        (CodeRef
+                         (FunctionType ()
+                          ((Ref (Base GC) (Ser (Prod ((Var 0) I31))))) (I31))))))))))
+                 I31))))
+             I31))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack
         ((Ref (Base GC)
           (Ser

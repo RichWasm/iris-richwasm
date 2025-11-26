@@ -36,18 +36,21 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod ())) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod ())) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod ())) Int) (Var (0 ()) (Prod ((Ref (Prod ())) Int)))
-          (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ())) (Int 69 Int) Int)
+          (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
+           (Let Int (Var (0 ()) Int) (Int 69 Int) Int) Int)
           Int)))))
      (main
-      ((Pack (Ref (Prod ()))
+      ((Pack (Prod ())
         (Tuple
-         ((Coderef lam_1 (Lollipop (Prod ()) Int))
+         ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod ())) Int)) Int))
           (New (Tuple () (Prod ())) (Ref (Prod ()))))
-         (Prod ((Lollipop (Prod ()) Int) (Ref (Prod ())))))
-        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))) |}];
+         (Prod ((Lollipop (Prod ((Ref (Prod ())) Int)) Int) (Ref (Prod ())))))
+        (Exists
+         (Prod ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))))) |}];
 
   output_syntax
     (mk
@@ -61,22 +64,28 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod (Int))) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod (Int))) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod (Int))) Int)
           (Var (0 ()) (Prod ((Ref (Prod (Int))) Int)))
           (Split (Int) (Free (Var (1 ()) (Ref (Prod (Int)))) (Prod (Int)))
-           (Binop Add (Var (0 (x)) Int) (Var (2 (y)) Int) Int) Int)
+           (Let Int (Var (1 ()) Int)
+            (Binop Add (Var (0 (x)) Int) (Var (1 (y)) Int) Int) Int)
+           Int)
           Int)))))
      (main
       ((Let Int (Int 67 Int)
-        (Pack (Ref (Prod (Int)))
+        (Pack (Prod (Int))
          (Tuple
-          ((Coderef lam_1 (Lollipop (Prod (Int)) Int))
+          ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod (Int))) Int)) Int))
            (New (Tuple ((Var (0 (y)) Int)) (Prod (Int))) (Ref (Prod (Int)))))
-          (Prod ((Lollipop (Prod (Int)) Int) (Ref (Prod (Int))))))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))) |}];
+          (Prod
+           ((Lollipop (Prod ((Ref (Prod (Int))) Int)) Int) (Ref (Prod (Int))))))
+         (Exists
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
+        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))) |}];
 
   output_syntax
     (mk
@@ -99,28 +108,35 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod (Int Int))) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod (Int Int))) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod (Int Int))) Int)
           (Var (0 ()) (Prod ((Ref (Prod (Int Int))) Int)))
           (Split (Int Int)
            (Free (Var (1 ()) (Ref (Prod (Int Int)))) (Prod (Int Int)))
-           (Let Int (Binop Add (Var (0 (x)) Int) (Var (3 (y)) Int) Int)
-            (Binop Mul (Var (3 (z)) Int) (Var (0 (r)) Int) Int) Int)
+           (Let Int (Var (2 ()) Int)
+            (Let Int (Binop Add (Var (0 (x)) Int) (Var (1 (y)) Int) Int)
+             (Binop Mul (Var (3 (z)) Int) (Var (0 (r)) Int) Int) Int)
+            Int)
            Int)
           Int)))))
      (main
       ((Let Int (Int 420 Int)
         (Let Int (Int 67 Int)
-         (Pack (Ref (Prod (Int Int)))
+         (Pack (Prod (Int Int))
           (Tuple
-           ((Coderef lam_1 (Lollipop (Prod (Int Int)) Int))
+           ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod (Int Int))) Int)) Int))
             (New (Tuple ((Var (0 (y)) Int) (Var (1 (z)) Int)) (Prod (Int Int)))
              (Ref (Prod (Int Int)))))
-           (Prod ((Lollipop (Prod (Int Int)) Int) (Ref (Prod (Int Int))))))
-          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))) |}];
+           (Prod
+            ((Lollipop (Prod ((Ref (Prod (Int Int))) Int)) Int)
+             (Ref (Prod (Int Int))))))
+          (Exists
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
+         (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))) |}];
   output_syntax
     (mk
        ~main:
@@ -139,25 +155,31 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod (Int))) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod (Int))) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod (Int))) Int)
           (Var (0 ()) (Prod ((Ref (Prod (Int))) Int)))
           (Split (Int) (Free (Var (1 ()) (Ref (Prod (Int)))) (Prod (Int)))
-           (Split (Int Int)
-            (Tuple ((Var (0 (x)) Int) (Var (2 (y)) Int)) (Prod (Int Int)))
-            (Binop Add (Var (1 (a)) Int) (Var (0 (b)) Int) Int) Int)
+           (Let Int (Var (1 ()) Int)
+            (Split (Int Int)
+             (Tuple ((Var (0 (x)) Int) (Var (1 (y)) Int)) (Prod (Int Int)))
+             (Binop Add (Var (1 (a)) Int) (Var (0 (b)) Int) Int) Int)
+            Int)
            Int)
           Int)))))
      (main
       ((Let Int (Int 67 Int)
-        (Pack (Ref (Prod (Int)))
+        (Pack (Prod (Int))
          (Tuple
-          ((Coderef lam_1 (Lollipop (Prod (Int)) Int))
+          ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod (Int))) Int)) Int))
            (New (Tuple ((Var (0 (y)) Int)) (Prod (Int))) (Ref (Prod (Int)))))
-          (Prod ((Lollipop (Prod (Int)) Int) (Ref (Prod (Int))))))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))) |}];
+          (Prod
+           ((Lollipop (Prod ((Ref (Prod (Int))) Int)) Int) (Ref (Prod (Int))))))
+         (Exists
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
+        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))) |}];
   output_syntax
     (mk
        ~main:
@@ -170,21 +192,27 @@ let%expect_test "simple" =
     {|
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod ())) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod ())) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod ())) Int) (Var (0 ()) (Prod ((Ref (Prod ())) Int)))
           (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
-           (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int) Int)
+           (Let Int (Var (0 ()) Int) (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int)
+            Int)
+           Int)
           Int)))))
      (main
-      ((Let (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-        (Pack (Ref (Prod ()))
+      ((Let (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+        (Pack (Prod ())
          (Tuple
-          ((Coderef lam_1 (Lollipop (Prod ()) Int))
+          ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod ())) Int)) Int))
            (New (Tuple () (Prod ())) (Ref (Prod ()))))
-          (Prod ((Lollipop (Prod ()) Int) (Ref (Prod ())))))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-        (Unpack (Var (0 (add1)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+          (Prod ((Lollipop (Prod ((Ref (Prod ())) Int)) Int) (Ref (Prod ())))))
+         (Exists
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
+        (Unpack
+         (Var (0 (add1)) (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
          (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
           (Var (0 ())
            (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
@@ -239,20 +267,23 @@ let%expect_test "examples" =
     -----------app_ident-----------
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod ())) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod ())) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod ())) Int) (Var (0 ()) (Prod ((Ref (Prod ())) Int)))
-          (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ())) (Var (0 (x)) Int)
-           Int)
+          (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
+           (Let Int (Var (0 ()) Int) (Var (0 (x)) Int) Int) Int)
           Int)))))
      (main
       ((Unpack
-        (Pack (Ref (Prod ()))
+        (Pack (Prod ())
          (Tuple
-          ((Coderef lam_1 (Lollipop (Prod ()) Int))
+          ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod ())) Int)) Int))
            (New (Tuple () (Prod ())) (Ref (Prod ()))))
-          (Prod ((Lollipop (Prod ()) Int) (Ref (Prod ())))))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+          (Prod ((Lollipop (Prod ((Ref (Prod ())) Int)) Int) (Ref (Prod ())))))
+         (Exists
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
         (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
          (Var (0 ())
           (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
@@ -280,10 +311,12 @@ let%expect_test "examples" =
       ((Unpack
         (Pack (Prod ())
          (Tuple
-          ((Coderef add-one (Lollipop Int Int))
+          ((Coderef add-one (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
            (New (Tuple () (Prod ())) (Ref (Prod ()))))
-          (Prod ((Lollipop Int Int) (Ref (Prod ())))))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+          (Prod ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Prod ())))))
+         (Exists
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
         (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
          (Var (0 ())
           (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
@@ -311,10 +344,14 @@ let%expect_test "examples" =
       ((Unpack
         (Pack (Prod ())
          (Tuple
-          ((Coderef print (Lollipop Int (Prod ())))
+          ((Coderef print (Lollipop (Prod ((Ref (Var (0 ()))) Int)) (Prod ())))
            (New (Tuple () (Prod ())) (Ref (Prod ()))))
-          (Prod ((Lollipop Int (Prod ())) (Ref (Prod ())))))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) (Prod ()))))
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) (Prod ())) (Ref (Prod ())))))
+         (Exists
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) (Prod ()))
+            (Ref (Var (0 ())))))))
         (Split ((Lollipop (Prod ((Var (0 ())) Int)) (Prod ())) (Var (0 ())))
          (Var (0 ())
           (Prod ((Lollipop (Prod ((Var (0 ())) Int)) (Prod ())) (Var (0 ())))))
@@ -324,6 +361,41 @@ let%expect_test "examples" =
           (Prod ()))
          (Prod ()))
         (Prod ())))))
+    -----------closure-----------
+    ((imports ())
+     (functions
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod (Int))) (Prod ()))))
+        (return Int)
+        (body
+         (Split ((Ref (Prod (Int))) (Prod ()))
+          (Var (0 ()) (Prod ((Ref (Prod (Int))) (Prod ()))))
+          (Split (Int) (Free (Var (1 ()) (Ref (Prod (Int)))) (Prod (Int)))
+           (Let (Prod ()) (Var (1 ()) (Prod ())) (Var (1 (x)) Int) Int) Int)
+          Int)))))
+     (main
+      ((Let Int (Int 10 Int)
+        (Unpack
+         (Pack (Prod (Int))
+          (Tuple
+           ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod (Int))) (Prod ()))) Int))
+            (New (Tuple ((Var (0 (x)) Int)) (Prod (Int))) (Ref (Prod (Int)))))
+           (Prod
+            ((Lollipop (Prod ((Ref (Prod (Int))) (Prod ()))) Int)
+             (Ref (Prod (Int))))))
+          (Exists
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) (Prod ()))) Int)
+             (Ref (Var (0 ())))))))
+         (Split ((Lollipop (Prod ((Var (0 ())) (Prod ()))) Int) (Var (0 ())))
+          (Var (0 ())
+           (Prod ((Lollipop (Prod ((Var (0 ())) (Prod ()))) Int) (Var (0 ())))))
+          (App (Var (1 ()) (Lollipop (Prod ((Var (0 ())) (Prod ()))) Int))
+           (Tuple ((Var (0 ()) (Var (0 ()))) (Tuple () (Prod ())))
+            (Prod ((Var (0 ())) (Prod ()))))
+           Int)
+          Int)
+         Int)
+        Int))))
     -----------factorial_program-----------
     ((imports ())
      (functions
@@ -337,10 +409,14 @@ let%expect_test "examples" =
              (Unpack
               (Pack (Prod ())
                (Tuple
-                ((Coderef factorial (Lollipop Int Int))
+                ((Coderef factorial (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                  (New (Tuple () (Prod ())) (Ref (Prod ()))))
-                (Prod ((Lollipop Int Int) (Ref (Prod ())))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Prod ())))))
+               (Exists
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)
+                  (Ref (Var (0 ())))))))
               (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
                (Var (0 ())
                 (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
@@ -358,10 +434,12 @@ let%expect_test "examples" =
       ((Unpack
         (Pack (Prod ())
          (Tuple
-          ((Coderef factorial (Lollipop Int Int))
+          ((Coderef factorial (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
            (New (Tuple () (Prod ())) (Ref (Prod ()))))
-          (Prod ((Lollipop Int Int) (Ref (Prod ())))))
-         (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+          (Prod ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Prod ())))))
+         (Exists
+          (Prod
+           ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
         (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
          (Var (0 ())
           (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
@@ -400,12 +478,19 @@ let%expect_test "examples" =
         (Unpack
          (Pack (Prod ())
           (Tuple
-           ((Coderef safe_div (Lollipop (Prod (Int Int)) (Sum (Int (Prod ())))))
+           ((Coderef safe_div
+             (Lollipop (Prod ((Ref (Var (0 ()))) (Prod (Int Int))))
+              (Sum (Int (Prod ())))))
             (New (Tuple () (Prod ())) (Ref (Prod ()))))
            (Prod
-            ((Lollipop (Prod (Int Int)) (Sum (Int (Prod ())))) (Ref (Prod ())))))
+            ((Lollipop (Prod ((Ref (Var (0 ()))) (Prod (Int Int))))
+              (Sum (Int (Prod ()))))
+             (Ref (Prod ())))))
           (Exists
-           (Lollipop (Prod ((Var (0 ())) (Prod (Int Int)))) (Sum (Int (Prod ()))))))
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) (Prod (Int Int))))
+              (Sum (Int (Prod ()))))
+             (Ref (Var (0 ())))))))
          (Split
           ((Lollipop (Prod ((Var (0 ())) (Prod (Int Int)))) (Sum (Int (Prod ()))))
            (Var (0 ())))
@@ -427,10 +512,16 @@ let%expect_test "examples" =
         (Unpack
          (Pack (Prod ())
           (Tuple
-           ((Coderef from_either (Lollipop (Sum (Int (Prod ()))) Int))
+           ((Coderef from_either
+             (Lollipop (Prod ((Ref (Var (0 ()))) (Sum (Int (Prod ()))))) Int))
             (New (Tuple () (Prod ())) (Ref (Prod ()))))
-           (Prod ((Lollipop (Sum (Int (Prod ()))) Int) (Ref (Prod ())))))
-          (Exists (Lollipop (Prod ((Var (0 ())) (Sum (Int (Prod ()))))) Int)))
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) (Sum (Int (Prod ()))))) Int)
+             (Ref (Prod ())))))
+          (Exists
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) (Sum (Int (Prod ()))))) Int)
+             (Ref (Var (0 ())))))))
          (Split
           ((Lollipop (Prod ((Var (0 ())) (Sum (Int (Prod ()))))) Int) (Var (0 ())))
           (Var (0 ())
@@ -474,10 +565,16 @@ let%expect_test "examples" =
              (Unpack
               (Pack (Prod ())
                (Tuple
-                ((Coderef incr_1 (Lollipop (Ref Int) (Ref Int)))
+                ((Coderef incr_1
+                  (Lollipop (Prod ((Ref (Var (0 ()))) (Ref Int))) (Ref Int)))
                  (New (Tuple () (Prod ())) (Ref (Prod ()))))
-                (Prod ((Lollipop (Ref Int) (Ref Int)) (Ref (Prod ())))))
-               (Exists (Lollipop (Prod ((Var (0 ())) (Ref Int))) (Ref Int))))
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) (Ref Int))) (Ref Int))
+                  (Ref (Prod ())))))
+               (Exists
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) (Ref Int))) (Ref Int))
+                  (Ref (Var (0 ())))))))
               (Split
                ((Lollipop (Prod ((Var (0 ())) (Ref Int))) (Ref Int)) (Var (0 ())))
                (Var (0 ())
@@ -495,11 +592,19 @@ let%expect_test "examples" =
               (Unpack
                (Pack (Prod ())
                 (Tuple
-                 ((Coderef incr_n (Lollipop (Prod ((Ref Int) Int)) Int))
+                 ((Coderef incr_n
+                   (Lollipop (Prod ((Ref (Var (0 ()))) (Prod ((Ref Int) Int))))
+                    Int))
                   (New (Tuple () (Prod ())) (Ref (Prod ()))))
-                 (Prod ((Lollipop (Prod ((Ref Int) Int)) Int) (Ref (Prod ())))))
+                 (Prod
+                  ((Lollipop (Prod ((Ref (Var (0 ()))) (Prod ((Ref Int) Int))))
+                    Int)
+                   (Ref (Prod ())))))
                 (Exists
-                 (Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)))
+                 (Prod
+                  ((Lollipop (Prod ((Ref (Var (0 ()))) (Prod ((Ref Int) Int))))
+                    Int)
+                   (Ref (Var (0 ())))))))
                (Split
                 ((Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)
                  (Var (0 ())))
@@ -528,10 +633,16 @@ let%expect_test "examples" =
         (Unpack
          (Pack (Prod ())
           (Tuple
-           ((Coderef incr_n (Lollipop (Prod ((Ref Int) Int)) Int))
+           ((Coderef incr_n
+             (Lollipop (Prod ((Ref (Var (0 ()))) (Prod ((Ref Int) Int)))) Int))
             (New (Tuple () (Prod ())) (Ref (Prod ()))))
-           (Prod ((Lollipop (Prod ((Ref Int) Int)) Int) (Ref (Prod ())))))
-          (Exists (Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)))
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) (Prod ((Ref Int) Int)))) Int)
+             (Ref (Prod ())))))
+          (Exists
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) (Prod ((Ref Int) Int)))) Int)
+             (Ref (Var (0 ())))))))
          (Split
           ((Lollipop (Prod ((Var (0 ())) (Prod ((Ref Int) Int)))) Int)
            (Var (0 ())))
@@ -555,12 +666,19 @@ let%expect_test "examples" =
       (((export false) (name lam_2)
         (param
          (Prod
-          ((Exists
-            (Lollipop
-             (Prod
-              ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-        (return (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+          ((Ref
+            (Prod
+             ((Exists
+               (Lollipop
+                (Prod
+                 ((Ref (Var (0 ())))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+           (Rec
+            (Exists
+             (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))))
+        (return (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
         (body
          (Split
           ((Ref
@@ -568,12 +686,13 @@ let%expect_test "examples" =
              ((Exists
                (Lollipop
                 (Prod
-                 ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+                 ((Ref (Var (0 ())))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
            (Rec
             (Exists
-             (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+             (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
           (Var (0 ())
            (Prod
             ((Ref
@@ -581,18 +700,20 @@ let%expect_test "examples" =
                ((Exists
                  (Lollipop
                   (Prod
-                   ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+                   ((Ref (Var (0 ())))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
              (Rec
               (Exists
-               (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))
+               (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))))
           (Split
            ((Exists
              (Lollipop
               (Prod
-               ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+               ((Ref (Var (0 ())))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
            (Free
             (Var (1 ())
              (Ref
@@ -600,64 +721,317 @@ let%expect_test "examples" =
                ((Exists
                  (Lollipop
                   (Prod
-                   ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))
+                   ((Ref (Var (0 ())))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))))
             (Prod
              ((Exists
                (Lollipop
                 (Prod
-                 ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+                 ((Ref (Var (0 ())))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+           (Let
+            (Rec
+             (Exists
+              (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+            (Var (1 ())
+             (Rec
+              (Exists
+               (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+            (Let
+             (Exists
+              (Lollipop
+               (Prod
+                ((Ref (Var (0 ())))
+                 (Rec
+                  (Exists
+                   (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+             (Unfold
+              (Rec
+               (Exists
+                (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+              (Var (0 (x))
+               (Rec
+                (Exists
+                 (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+              (Exists
+               (Lollipop
+                (Prod
+                 ((Ref (Var (0 ())))
+                  (Rec
+                   (Exists
+                    (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+             (Let (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+              (Unpack
+               (Var (0 (ux))
+                (Exists
+                 (Lollipop
+                  (Prod
+                   ((Ref (Var (0 ())))
+                    (Rec
+                     (Exists
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+               (Split
+                ((Lollipop
+                  (Prod
+                   ((Var (0 ()))
+                    (Rec
+                     (Exists
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                 (Var (0 ())))
+                (Var (0 ())
+                 (Prod
+                  ((Lollipop
+                    (Prod
+                     ((Var (0 ()))
+                      (Rec
+                       (Exists
+                        (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                         (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                   (Var (0 ())))))
+                (App
+                 (Var (1 ())
+                  (Lollipop
+                   (Prod
+                    ((Var (0 ()))
+                     (Rec
+                      (Exists
+                       (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Tuple
+                  ((Var (0 ()) (Var (0 ())))
+                   (Var (1 (x))
+                    (Rec
+                     (Exists
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                  (Prod
+                   ((Var (0 ()))
+                    (Rec
+                     (Exists
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+              (Unpack
+               (Var (3 (f))
+                (Exists
+                 (Lollipop
+                  (Prod
+                   ((Ref (Var (0 ())))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+               (Split
+                ((Lollipop
+                  (Prod
+                   ((Var (0 ()))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                 (Var (0 ())))
+                (Var (0 ())
+                 (Prod
+                  ((Lollipop
+                    (Prod
+                     ((Var (0 ()))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                   (Var (0 ())))))
+                (App
+                 (Var (1 ())
+                  (Lollipop
+                   (Prod
+                    ((Var (0 ()))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Tuple
+                  ((Var (0 ()) (Var (0 ())))
+                   (Var (0 (xx))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                  (Prod
+                   ((Var (0 ()))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+            (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+          (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+       ((export false) (name lam_1)
+        (param
+         (Prod
+          ((Ref (Prod ()))
+           (Exists
+            (Lollipop
+             (Prod
+              ((Ref (Var (0 ())))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+        (return (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+        (body
+         (Split
+          ((Ref (Prod ()))
+           (Exists
+            (Lollipop
+             (Prod
+              ((Ref (Var (0 ())))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+          (Var (0 ())
+           (Prod
+            ((Ref (Prod ()))
+             (Exists
+              (Lollipop
+               (Prod
+                ((Ref (Var (0 ())))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+          (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
            (Let
             (Exists
              (Lollipop
               (Prod
-               ((Var (0 ()))
-                (Rec
-                 (Exists
-                  (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-            (Unfold
-             (Rec
-              (Exists
-               (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-             (Var (0 (x))
-              (Rec
-               (Exists
-                (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+               ((Ref (Var (0 ())))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+            (Var (0 ())
              (Exists
               (Lollipop
                (Prod
-                ((Var (0 ()))
+                ((Ref (Var (0 ())))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+            (Let
+             (Exists
+              (Lollipop
+               (Prod
+                ((Ref (Var (0 ())))
                  (Rec
                   (Exists
-                   (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                    (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-            (Let (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                   (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+             (Pack
+              (Prod
+               ((Exists
+                 (Lollipop
+                  (Prod
+                   ((Ref (Var (0 ())))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+              (Tuple
+               ((Coderef lam_2
+                 (Lollipop
+                  (Prod
+                   ((Ref
+                     (Prod
+                      ((Exists
+                        (Lollipop
+                         (Prod
+                          ((Ref (Var (0 ())))
+                           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                         (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                    (Rec
+                     (Exists
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                (New
+                 (Tuple
+                  ((Var (0 (f))
+                    (Exists
+                     (Lollipop
+                      (Prod
+                       ((Ref (Var (0 ())))
+                        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+                  (Prod
+                   ((Exists
+                     (Lollipop
+                      (Prod
+                       ((Ref (Var (0 ())))
+                        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                 (Ref
+                  (Prod
+                   ((Exists
+                     (Lollipop
+                      (Prod
+                       ((Ref (Var (0 ())))
+                        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))))
+               (Prod
+                ((Lollipop
+                  (Prod
+                   ((Ref
+                     (Prod
+                      ((Exists
+                        (Lollipop
+                         (Prod
+                          ((Ref (Var (0 ())))
+                           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                         (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                    (Rec
+                     (Exists
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                 (Ref
+                  (Prod
+                   ((Exists
+                     (Lollipop
+                      (Prod
+                       ((Ref (Var (0 ())))
+                        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))))))
+              (Exists
+               (Prod
+                ((Lollipop
+                  (Prod
+                   ((Ref (Var (0 ())))
+                    (Rec
+                     (Exists
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                 (Ref (Var (0 ())))))))
              (Unpack
-              (Var (0 (ux))
+              (Var (0 (omega))
                (Exists
                 (Lollipop
                  (Prod
-                  ((Var (0 ()))
+                  ((Ref (Var (0 ())))
                    (Rec
                     (Exists
-                     (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+                     (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
               (Split
                ((Lollipop
                  (Prod
                   ((Var (0 ()))
                    (Rec
                     (Exists
-                     (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                     (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
                 (Var (0 ())))
                (Var (0 ())
                 (Prod
@@ -666,9 +1040,9 @@ let%expect_test "examples" =
                     ((Var (0 ()))
                      (Rec
                       (Exists
-                       (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                        (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                       (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                        (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
                   (Var (0 ())))))
                (App
                 (Var (1 ())
@@ -677,339 +1051,204 @@ let%expect_test "examples" =
                    ((Var (0 ()))
                     (Rec
                      (Exists
-                      (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                      (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                       (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
                 (Tuple
                  ((Var (0 ()) (Var (0 ())))
-                  (Var (1 (x))
+                  (Fold
                    (Rec
                     (Exists
-                     (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+                     (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+                   (Var (0 (omega))
+                    (Exists
+                     (Lollipop
+                      (Prod
+                       ((Ref (Var (0 ())))
+                        (Rec
+                         (Exists
+                          (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+                   (Rec
+                    (Exists
+                     (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
                  (Prod
                   ((Var (0 ()))
                    (Rec
                     (Exists
-                     (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-             (Unpack
-              (Var (4 (f))
-               (Exists
-                (Lollipop
-                 (Prod
-                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-              (Split
-               ((Lollipop
-                 (Prod
-                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-                (Var (0 ())))
-               (Var (0 ())
-                (Prod
-                 ((Lollipop
-                   (Prod
-                    ((Var (0 ()))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-                  (Var (0 ())))))
-               (App
-                (Var (1 ())
-                 (Lollipop
-                  (Prod
-                   ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                (Tuple
-                 ((Var (0 ()) (Var (0 ())))
-                  (Var (0 (xx)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                 (Prod
-                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-       ((export false) (name lam_1) (param (Prod ()))
-        (return (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-        (body
-         (Split
-          ((Ref (Prod ()))
-           (Exists
-            (Lollipop
-             (Prod
-              ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-          (Var (0 ())
-           (Prod
-            ((Ref (Prod ()))
-             (Exists
-              (Lollipop
-               (Prod
-                ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-          (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
-           (Let
-            (Exists
-             (Lollipop
-              (Prod
-               ((Var (0 ()))
-                (Rec
-                 (Exists
-                  (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-            (Pack
-             (Ref
-              (Prod
-               ((Exists
-                 (Lollipop
-                  (Prod
-                   ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-             (Tuple
-              ((Coderef lam_2
-                (Lollipop
-                 (Prod
-                  ((Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-               (New
-                (Tuple
-                 ((Var (0 (f))
-                   (Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-                 (Prod
-                  ((Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                (Ref
-                 (Prod
-                  ((Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))))
-              (Prod
-               ((Lollipop
-                 (Prod
-                  ((Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-                (Ref
-                 (Prod
-                  ((Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))))
-             (Exists
-              (Lollipop
-               (Prod
-                ((Var (0 ()))
-                 (Rec
-                  (Exists
-                   (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                    (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-            (Unpack
-             (Var (0 (omega))
-              (Exists
-               (Lollipop
-                (Prod
-                 ((Var (0 ()))
-                  (Rec
-                   (Exists
-                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-             (Split
-              ((Lollipop
-                (Prod
-                 ((Var (0 ()))
-                  (Rec
-                   (Exists
-                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-               (Var (0 ())))
-              (Var (0 ())
-               (Prod
-                ((Lollipop
-                  (Prod
-                   ((Var (0 ()))
-                    (Rec
-                     (Exists
-                      (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                       (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-                 (Var (0 ())))))
-              (App
-               (Var (1 ())
-                (Lollipop
-                 (Prod
-                  ((Var (0 ()))
-                   (Rec
-                    (Exists
-                     (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                      (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-               (Tuple
-                ((Var (0 ()) (Var (0 ())))
-                 (Fold
-                  (Rec
-                   (Exists
-                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-                  (Var (0 (omega))
-                   (Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
-                       (Rec
-                        (Exists
-                         (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-                  (Rec
-                   (Exists
-                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-                (Prod
-                 ((Var (0 ()))
-                  (Rec
-                   (Exists
-                    (Lollipop (Prod ((Var (0 ())) (Var (1 (a)))))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+                     (Lollipop (Prod ((Ref (Var (0 ()))) (Var (1 (a)))))
+                      (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+            (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+          (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
        ((export false) (name lam_4)
-        (param (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+        (param
+         (Prod
+          ((Ref (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+           Int)))
         (return Int)
         (body
          (Split
-          ((Ref (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))) Int)
+          ((Ref (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+           Int)
           (Var (0 ())
            (Prod
-            ((Ref (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))) Int)))
-          (Split ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+            ((Ref (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+             Int)))
+          (Split ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
            (Free
             (Var (1 ())
-             (Ref (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-            (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-           (If0 (Var (0 (n)) Int) (Int 1 Int)
-            (Let Int (Binop Sub (Var (0 (n)) Int) (Int 1 Int) Int)
-             (Let Int
-              (Unpack
-               (Var (3 (rec)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-               (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
-                (Var (0 ())
-                 (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
-                (App (Var (1 ()) (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                 (Tuple ((Var (0 ()) (Var (0 ()))) (Var (0 (n-sub1)) Int))
-                  (Prod ((Var (0 ())) Int)))
+             (Ref (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+            (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+           (Let Int (Var (1 ()) Int)
+            (If0 (Var (0 (n)) Int) (Int 1 Int)
+             (Let Int (Binop Sub (Var (0 (n)) Int) (Int 1 Int) Int)
+              (Let Int
+               (Unpack
+                (Var (2 (rec))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
+                 (Var (0 ())
+                  (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
+                 (App (Var (1 ()) (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                  (Tuple ((Var (0 ()) (Var (0 ()))) (Var (0 (n-sub1)) Int))
+                   (Prod ((Var (0 ())) Int)))
+                  Int)
                  Int)
                 Int)
-               Int)
-              (Binop Mul (Var (2 (n)) Int) (Var (0 (rec-res)) Int) Int) Int)
+               (Binop Mul (Var (2 (n)) Int) (Var (0 (rec-res)) Int) Int) Int)
+              Int)
              Int)
             Int)
            Int)
           Int)))
-       ((export false) (name lam_3) (param (Prod ()))
-        (return (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+       ((export false) (name lam_3)
+        (param
+         (Prod
+          ((Ref (Prod ())) (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+        (return (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
         (body
-         (Split ((Ref (Prod ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+         (Split
+          ((Ref (Prod ())) (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
           (Var (0 ())
            (Prod
-            ((Ref (Prod ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+            ((Ref (Prod ()))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
           (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
-           (Pack (Ref (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-            (Tuple
-             ((Coderef lam_4
-               (Lollipop (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                Int))
-              (New
-               (Tuple
-                ((Var (0 (rec)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-               (Ref (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+           (Let (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+            (Var (0 ()) (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+            (Pack (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+             (Tuple
+              ((Coderef lam_4
+                (Lollipop
+                 (Prod
+                  ((Ref
+                    (Prod
+                     ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+                   Int))
+                 Int))
+               (New
+                (Tuple
+                 ((Var (0 (rec))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+                (Ref
+                 (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))))
+              (Prod
+               ((Lollipop
+                 (Prod
+                  ((Ref
+                    (Prod
+                     ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
+                   Int))
+                 Int)
+                (Ref
+                 (Prod ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))))
+             (Exists
+              (Prod
+               ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
+            (Exists
              (Prod
-              ((Lollipop (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                Int)
-               (Ref (Prod ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))))
-            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
+              ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
+           (Exists
+            (Prod
+             ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))
+          (Exists
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Var (0 ())))))))))))
      (main
       ((Let
         (Exists
          (Lollipop
           (Prod
-           ((Var (0 ()))
+           ((Ref (Var (0 ())))
             (Exists
              (Lollipop
               (Prod
-               ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-        (Pack (Ref (Prod ()))
+               ((Ref (Var (0 ())))
+                (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+          (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+        (Pack (Prod ())
          (Tuple
           ((Coderef lam_1
-            (Lollipop (Prod ()) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+            (Lollipop
+             (Prod
+              ((Ref (Prod ()))
+               (Exists
+                (Lollipop
+                 (Prod
+                  ((Ref (Var (0 ())))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
            (New (Tuple () (Prod ())) (Ref (Prod ()))))
           (Prod
-           ((Lollipop (Prod ()) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+           ((Lollipop
+             (Prod
+              ((Ref (Prod ()))
+               (Exists
+                (Lollipop
+                 (Prod
+                  ((Ref (Var (0 ())))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
             (Ref (Prod ())))))
          (Exists
-          (Lollipop
-           (Prod
-            ((Var (0 ()))
-             (Exists
-              (Lollipop
-               (Prod
-                ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
-        (Let (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+          (Prod
+           ((Lollipop
+             (Prod
+              ((Ref (Var (0 ())))
+               (Exists
+                (Lollipop
+                 (Prod
+                  ((Ref (Var (0 ())))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+            (Ref (Var (0 ())))))))
+        (Let (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
          (Unpack
           (Var (0 (fix))
            (Exists
             (Lollipop
              (Prod
-              ((Var (0 ()))
+              ((Ref (Var (0 ())))
                (Exists
                 (Lollipop
                  (Prod
-                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))
+                  ((Ref (Var (0 ())))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))))
           (Split
            ((Lollipop
              (Prod
@@ -1017,9 +1256,10 @@ let%expect_test "examples" =
                (Exists
                 (Lollipop
                  (Prod
-                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-             (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                  ((Ref (Var (0 ())))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                 (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+             (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
             (Var (0 ())))
            (Var (0 ())
             (Prod
@@ -1029,10 +1269,10 @@ let%expect_test "examples" =
                  (Exists
                   (Lollipop
                    (Prod
-                    ((Var (0 ()))
-                     (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                    ((Ref (Var (0 ())))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+               (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
               (Var (0 ())))))
            (App
             (Var (1 ())
@@ -1042,38 +1282,52 @@ let%expect_test "examples" =
                 (Exists
                  (Lollipop
                   (Prod
-                   ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                  (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
-              (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                   ((Ref (Var (0 ())))
+                    (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                  (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))))
+              (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
             (Tuple
              ((Var (0 ()) (Var (0 ())))
-              (Pack (Ref (Prod ()))
+              (Pack (Prod ())
                (Tuple
                 ((Coderef lam_3
-                  (Lollipop (Prod ())
-                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
+                  (Lollipop
+                   (Prod
+                    ((Ref (Prod ()))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
                  (New (Tuple () (Prod ())) (Ref (Prod ()))))
                 (Prod
-                 ((Lollipop (Prod ())
-                   (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                 ((Lollipop
+                   (Prod
+                    ((Ref (Prod ()))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
                   (Ref (Prod ())))))
                (Exists
-                (Lollipop
-                 (Prod
-                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))))
+                (Prod
+                 ((Lollipop
+                   (Prod
+                    ((Ref (Var (0 ())))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                  (Ref (Var (0 ()))))))))
              (Prod
               ((Var (0 ()))
                (Exists
-                (Lollipop
-                 (Prod
-                  ((Var (0 ())) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))))
-                 (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))))))
-            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
-          (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                (Prod
+                 ((Lollipop
+                   (Prod
+                    ((Ref (Var (0 ())))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))))
+                   (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+                  (Ref (Var (0 ())))))))))
+            (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
+          (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
          (Unpack
-          (Var (0 (factorial)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+          (Var (0 (factorial))
+           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
           (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
            (Var (0 ())
             (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
@@ -1088,38 +1342,41 @@ let%expect_test "examples" =
     -----------unboxed_list[invalid]-----------
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod ())) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod ())) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod ())) Int) (Var (0 ()) (Prod ((Ref (Prod ())) Int)))
           (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
-           (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int) Int)
+           (Let Int (Var (0 ()) Int) (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int)
+            Int)
+           Int)
           Int)))
        ((export false) (name map_int)
         (param
          (Prod
           ((Ref (Prod ()))
            (Prod
-            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+            ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
              (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))))
         (return (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
         (body
          (Split
           ((Ref (Prod ()))
            (Prod
-            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+            ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
              (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))
           (Var (0 ())
            (Prod
             ((Ref (Prod ()))
              (Prod
-              ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+              ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))))
           (Split
-           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+           ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
             (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
            (Var (0 (p))
             (Prod
-             ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+             ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
               (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))
            (Fold (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))
             (Cases
@@ -1147,7 +1404,8 @@ let%expect_test "examples" =
                 (Inj 1
                  (Tuple
                   ((Unpack
-                    (Var (4 (f)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                    (Var (4 (f))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
                     (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
                      (Var (0 ())
                       (Prod
@@ -1164,36 +1422,46 @@ let%expect_test "examples" =
                       ((Coderef map_int
                         (Lollipop
                          (Prod
-                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                           (Rec
-                            (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
+                          ((Ref (Var (0 ())))
+                           (Prod
+                            ((Exists
+                              (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                             (Rec
+                              (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
                          (Rec
                           (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
                        (New (Tuple () (Prod ())) (Ref (Prod ()))))
                       (Prod
                        ((Lollipop
                          (Prod
-                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                           (Rec
-                            (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
+                          ((Ref (Var (0 ())))
+                           (Prod
+                            ((Exists
+                              (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                             (Rec
+                              (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
                          (Rec
                           (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
                         (Ref (Prod ())))))
                      (Exists
-                      (Lollipop
-                       (Prod
-                        ((Var (0 ()))
+                      (Prod
+                       ((Lollipop
                          (Prod
-                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                           (Rec
-                            (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
-                       (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))
+                          ((Ref (Var (0 ())))
+                           (Prod
+                            ((Exists
+                              (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                             (Rec
+                              (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
+                         (Rec
+                          (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
+                        (Ref (Var (0 ())))))))
                     (Split
                      ((Lollipop
                        (Prod
                         ((Var (0 ()))
                          (Prod
-                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                          ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                            (Rec
                             (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
                        (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
@@ -1204,7 +1472,8 @@ let%expect_test "examples" =
                          (Prod
                           ((Var (0 ()))
                            (Prod
-                            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                            ((Exists
+                              (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                              (Rec
                               (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
                          (Rec
@@ -1216,7 +1485,7 @@ let%expect_test "examples" =
                         (Prod
                          ((Var (0 ()))
                           (Prod
-                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                             (Rec
                              (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
                         (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
@@ -1224,18 +1493,18 @@ let%expect_test "examples" =
                        ((Var (0 ()) (Var (0 ())))
                         (Tuple
                          ((Var (4 (f))
-                           (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                           (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
                           (Var (0 (tl))
                            (Rec
                             (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
                          (Prod
-                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                          ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                            (Rec
                             (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
                        (Prod
                         ((Var (0 ()))
                          (Prod
-                          ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                          ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                            (Rec
                             (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))))
                       (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
@@ -1276,31 +1545,37 @@ let%expect_test "examples" =
            ((Coderef map_int
              (Lollipop
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
+               ((Ref (Var (0 ())))
+                (Prod
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                  (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
               (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
             (New (Tuple () (Prod ())) (Ref (Prod ()))))
            (Prod
             ((Lollipop
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
+               ((Ref (Var (0 ())))
+                (Prod
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                  (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
               (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
              (Ref (Prod ())))))
           (Exists
-           (Lollipop
-            (Prod
-             ((Var (0 ()))
+           (Prod
+            ((Lollipop
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
-            (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))
+               ((Ref (Var (0 ())))
+                (Prod
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                  (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
+              (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
+             (Ref (Var (0 ())))))))
          (Split
           ((Lollipop
             (Prod
              ((Var (0 ()))
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+               ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                 (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
             (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
            (Var (0 ())))
@@ -1310,7 +1585,7 @@ let%expect_test "examples" =
               (Prod
                ((Var (0 ()))
                 (Prod
-                 ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                   (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
               (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
              (Var (0 ())))))
@@ -1320,27 +1595,31 @@ let%expect_test "examples" =
              (Prod
               ((Var (0 ()))
                (Prod
-                ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                  (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
              (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
            (Tuple
             ((Var (0 ()) (Var (0 ())))
              (Tuple
-              ((Pack (Ref (Prod ()))
+              ((Pack (Prod ())
                 (Tuple
-                 ((Coderef lam_1 (Lollipop (Prod ()) Int))
+                 ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod ())) Int)) Int))
                   (New (Tuple () (Prod ())) (Ref (Prod ()))))
-                 (Prod ((Lollipop (Prod ()) Int) (Ref (Prod ())))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                 (Prod
+                  ((Lollipop (Prod ((Ref (Prod ())) Int)) Int) (Ref (Prod ())))))
+                (Exists
+                 (Prod
+                  ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)
+                   (Ref (Var (0 ())))))))
                (Var (0 (lst))
                 (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+               ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                 (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))
             (Prod
              ((Var (0 ()))
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+               ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                 (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))))
            (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
           (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
@@ -1349,38 +1628,41 @@ let%expect_test "examples" =
     -----------boxed_list-----------
     ((imports ())
      (functions
-      (((export false) (name lam_1) (param (Prod ())) (return Int)
+      (((export false) (name lam_1) (param (Prod ((Ref (Prod ())) Int)))
+        (return Int)
         (body
          (Split ((Ref (Prod ())) Int) (Var (0 ()) (Prod ((Ref (Prod ())) Int)))
           (Split () (Free (Var (1 ()) (Ref (Prod ()))) (Prod ()))
-           (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int) Int)
+           (Let Int (Var (0 ()) Int) (Binop Add (Var (0 (x)) Int) (Int 1 Int) Int)
+            Int)
+           Int)
           Int)))
        ((export false) (name map_int)
         (param
          (Prod
           ((Ref (Prod ()))
            (Prod
-            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+            ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
         (return (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
         (body
          (Split
           ((Ref (Prod ()))
            (Prod
-            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+            ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
           (Var (0 ())
            (Prod
             ((Ref (Prod ()))
              (Prod
-              ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+              ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
           (Split
-           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+           ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
             (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
            (Var (0 (p))
             (Prod
-             ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+             ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
               (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
            (Fold (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
             (Cases
@@ -1421,7 +1703,8 @@ let%expect_test "examples" =
                 (Inj 1
                  (Tuple
                   ((Unpack
-                    (Var (4 (f)) (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                    (Var (4 (f))
+                     (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
                     (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
                      (Var (0 ())
                       (Prod
@@ -1439,10 +1722,14 @@ let%expect_test "examples" =
                        ((Coderef map_int
                          (Lollipop
                           (Prod
-                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                            (Rec
-                             (Sum
-                              ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                           ((Ref (Var (0 ())))
+                            (Prod
+                             ((Exists
+                               (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                              (Rec
+                               (Sum
+                                ((Prod ())
+                                 (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
                           (Rec
                            (Sum
                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
@@ -1450,32 +1737,40 @@ let%expect_test "examples" =
                        (Prod
                         ((Lollipop
                           (Prod
-                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                            (Rec
-                             (Sum
-                              ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+                           ((Ref (Var (0 ())))
+                            (Prod
+                             ((Exists
+                               (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                              (Rec
+                               (Sum
+                                ((Prod ())
+                                 (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
                           (Rec
                            (Sum
                             ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
                          (Ref (Prod ())))))
                       (Exists
-                       (Lollipop
-                        (Prod
-                         ((Var (0 ()))
+                       (Prod
+                        ((Lollipop
                           (Prod
-                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                            (Rec
-                             (Sum
-                              ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
-                        (Rec
-                         (Sum
-                          ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+                           ((Ref (Var (0 ())))
+                            (Prod
+                             ((Exists
+                               (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                              (Rec
+                               (Sum
+                                ((Prod ())
+                                 (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+                          (Rec
+                           (Sum
+                            ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+                         (Ref (Var (0 ())))))))
                      (Split
                       ((Lollipop
                         (Prod
                          ((Var (0 ()))
                           (Prod
-                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                             (Rec
                              (Sum
                               ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
@@ -1489,7 +1784,8 @@ let%expect_test "examples" =
                           (Prod
                            ((Var (0 ()))
                             (Prod
-                             ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                             ((Exists
+                               (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                               (Rec
                                (Sum
                                 ((Prod ())
@@ -1504,7 +1800,8 @@ let%expect_test "examples" =
                          (Prod
                           ((Var (0 ()))
                            (Prod
-                            ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                            ((Exists
+                              (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                              (Rec
                               (Sum
                                ((Prod ())
@@ -1516,7 +1813,7 @@ let%expect_test "examples" =
                         ((Var (0 ()) (Var (0 ())))
                          (Tuple
                           ((Var (4 (f))
-                            (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                            (Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)))
                            (Free
                             (Var (0 (tl))
                              (Ref
@@ -1528,14 +1825,14 @@ let%expect_test "examples" =
                              (Sum
                               ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
                           (Prod
-                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                             (Rec
                              (Sum
                               ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
                         (Prod
                          ((Var (0 ()))
                           (Prod
-                           ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                           ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                             (Rec
                              (Sum
                               ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
@@ -1613,31 +1910,37 @@ let%expect_test "examples" =
            ((Coderef map_int
              (Lollipop
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+               ((Ref (Var (0 ())))
+                (Prod
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                  (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
               (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
             (New (Tuple () (Prod ())) (Ref (Prod ()))))
            (Prod
             ((Lollipop
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
+               ((Ref (Var (0 ())))
+                (Prod
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                  (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
               (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
              (Ref (Prod ())))))
           (Exists
-           (Lollipop
-            (Prod
-             ((Var (0 ()))
+           (Prod
+            ((Lollipop
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
-                (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
-            (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
+               ((Ref (Var (0 ())))
+                (Prod
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
+                  (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
+              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
+             (Ref (Var (0 ())))))))
          (Split
           ((Lollipop
             (Prod
              ((Var (0 ()))
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+               ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
             (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
            (Var (0 ())))
@@ -1647,7 +1950,7 @@ let%expect_test "examples" =
               (Prod
                ((Var (0 ()))
                 (Prod
-                 ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                 ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                   (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
               (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
              (Var (0 ())))))
@@ -1657,27 +1960,31 @@ let%expect_test "examples" =
              (Prod
               ((Var (0 ()))
                (Prod
-                ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+                ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                  (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
            (Tuple
             ((Var (0 ()) (Var (0 ())))
              (Tuple
-              ((Pack (Ref (Prod ()))
+              ((Pack (Prod ())
                 (Tuple
-                 ((Coderef lam_1 (Lollipop (Prod ()) Int))
+                 ((Coderef lam_1 (Lollipop (Prod ((Ref (Prod ())) Int)) Int))
                   (New (Tuple () (Prod ())) (Ref (Prod ()))))
-                 (Prod ((Lollipop (Prod ()) Int) (Ref (Prod ())))))
-                (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                 (Prod
+                  ((Lollipop (Prod ((Ref (Prod ())) Int)) Int) (Ref (Prod ())))))
+                (Exists
+                 (Prod
+                  ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)
+                   (Ref (Var (0 ())))))))
                (Var (0 (lst))
                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+               ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))
             (Prod
              ((Var (0 ()))
               (Prod
-               ((Exists (Lollipop (Prod ((Var (0 ())) Int)) Int))
+               ((Exists (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))
            (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
           (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
@@ -1755,25 +2062,31 @@ let%expect_test "examples" =
                     ((Coderef add
                       (Lollipop
                        (Prod
-                        ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-                         (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                        ((Ref (Var (0 ())))
+                         (Prod
+                          ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+                           (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
                        (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
                      (New (Tuple () (Prod ())) (Ref (Prod ()))))
                     (Prod
                      ((Lollipop
                        (Prod
-                        ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-                         (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                        ((Ref (Var (0 ())))
+                         (Prod
+                          ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+                           (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
                        (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
                       (Ref (Prod ())))))
                    (Exists
-                    (Lollipop
-                     (Prod
-                      ((Var (0 ()))
+                    (Prod
+                     ((Lollipop
                        (Prod
-                        ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-                         (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
-                     (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))
+                        ((Ref (Var (0 ())))
+                         (Prod
+                          ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+                           (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
+                       (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+                      (Ref (Var (0 ())))))))
                   (Split
                    ((Lollipop
                      (Prod
@@ -1842,14 +2155,18 @@ let%expect_test "examples" =
                (Pack (Prod ())
                 (Tuple
                  ((Coderef from-int
-                   (Lollipop Int (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                   (Lollipop (Prod ((Ref (Var (0 ()))) Int))
+                    (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
                   (New (Tuple () (Prod ())) (Ref (Prod ()))))
                  (Prod
-                  ((Lollipop Int (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+                  ((Lollipop (Prod ((Ref (Var (0 ()))) Int))
+                    (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
                    (Ref (Prod ())))))
                 (Exists
-                 (Lollipop (Prod ((Var (0 ())) Int))
-                  (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))
+                 (Prod
+                  ((Lollipop (Prod ((Ref (Var (0 ()))) Int))
+                    (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+                   (Ref (Var (0 ())))))))
                (Split
                 ((Lollipop (Prod ((Var (0 ())) Int))
                   (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
@@ -1894,15 +2211,27 @@ let%expect_test "examples" =
                (Pack (Prod ())
                 (Tuple
                  ((Coderef to-int
-                   (Lollipop (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) Int))
+                   (Lollipop
+                    (Prod
+                     ((Ref (Var (0 ())))
+                      (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                    Int))
                   (New (Tuple () (Prod ())) (Ref (Prod ()))))
                  (Prod
-                  ((Lollipop (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) Int)
+                  ((Lollipop
+                    (Prod
+                     ((Ref (Var (0 ())))
+                      (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                    Int)
                    (Ref (Prod ())))))
                 (Exists
-                 (Lollipop
-                  (Prod ((Var (0 ())) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
-                  Int)))
+                 (Prod
+                  ((Lollipop
+                    (Prod
+                     ((Ref (Var (0 ())))
+                      (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                    Int)
+                   (Ref (Var (0 ())))))))
                (Split
                 ((Lollipop
                   (Prod ((Var (0 ())) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
@@ -1940,14 +2269,18 @@ let%expect_test "examples" =
          (Pack (Prod ())
           (Tuple
            ((Coderef from-int
-             (Lollipop Int (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+             (Lollipop (Prod ((Ref (Var (0 ()))) Int))
+              (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
             (New (Tuple () (Prod ())) (Ref (Prod ()))))
            (Prod
-            ((Lollipop Int (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+            ((Lollipop (Prod ((Ref (Var (0 ()))) Int))
+              (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
              (Ref (Prod ())))))
           (Exists
-           (Lollipop (Prod ((Var (0 ())) Int))
-            (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))
+           (Prod
+            ((Lollipop (Prod ((Ref (Var (0 ()))) Int))
+              (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+             (Ref (Var (0 ())))))))
          (Split
           ((Lollipop (Prod ((Var (0 ())) Int))
             (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
@@ -1971,14 +2304,18 @@ let%expect_test "examples" =
           (Pack (Prod ())
            (Tuple
             ((Coderef from-int
-              (Lollipop Int (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+              (Lollipop (Prod ((Ref (Var (0 ()))) Int))
+               (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
              (New (Tuple () (Prod ())) (Ref (Prod ()))))
             (Prod
-             ((Lollipop Int (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+             ((Lollipop (Prod ((Ref (Var (0 ()))) Int))
+               (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
               (Ref (Prod ())))))
            (Exists
-            (Lollipop (Prod ((Var (0 ())) Int))
-             (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))
+            (Prod
+             ((Lollipop (Prod ((Ref (Var (0 ()))) Int))
+               (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+              (Ref (Var (0 ())))))))
           (Split
            ((Lollipop (Prod ((Var (0 ())) Int))
              (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
@@ -2004,25 +2341,31 @@ let%expect_test "examples" =
              ((Coderef add
                (Lollipop
                 (Prod
-                 ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-                  (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                 ((Ref (Var (0 ())))
+                  (Prod
+                   ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+                    (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
                 (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
               (New (Tuple () (Prod ())) (Ref (Prod ()))))
              (Prod
               ((Lollipop
                 (Prod
-                 ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-                  (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                 ((Ref (Var (0 ())))
+                  (Prod
+                   ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+                    (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
                 (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
                (Ref (Prod ())))))
             (Exists
-             (Lollipop
-              (Prod
-               ((Var (0 ()))
+             (Prod
+              ((Lollipop
                 (Prod
-                 ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-                  (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
-              (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))
+                 ((Ref (Var (0 ())))
+                  (Prod
+                   ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
+                    (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
+                (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
+               (Ref (Var (0 ())))))))
            (Split
             ((Lollipop
               (Prod
@@ -2071,15 +2414,24 @@ let%expect_test "examples" =
            (Pack (Prod ())
             (Tuple
              ((Coderef to-int
-               (Lollipop (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) Int))
+               (Lollipop
+                (Prod
+                 ((Ref (Var (0 ()))) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                Int))
               (New (Tuple () (Prod ())) (Ref (Prod ()))))
              (Prod
-              ((Lollipop (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) Int)
+              ((Lollipop
+                (Prod
+                 ((Ref (Var (0 ()))) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                Int)
                (Ref (Prod ())))))
             (Exists
-             (Lollipop
-              (Prod ((Var (0 ())) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
-              Int)))
+             (Prod
+              ((Lollipop
+                (Prod
+                 ((Ref (Var (0 ()))) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
+                Int)
+               (Ref (Var (0 ())))))))
            (Split
             ((Lollipop
               (Prod ((Var (0 ())) (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))
@@ -2124,10 +2476,14 @@ let%expect_test "examples" =
             ((Unpack
               (Pack (Prod ())
                (Tuple
-                ((Coderef add1 (Lollipop Int Int))
+                ((Coderef add1 (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                  (New (Tuple () (Prod ())) (Ref (Prod ()))))
-                (Prod ((Lollipop Int Int) (Ref (Prod ())))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Prod ())))))
+               (Exists
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)
+                  (Ref (Var (0 ())))))))
               (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
                (Var (0 ())
                 (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))
@@ -2140,10 +2496,14 @@ let%expect_test "examples" =
              (Unpack
               (Pack (Prod ())
                (Tuple
-                ((Coderef add1 (Lollipop Int Int))
+                ((Coderef add1 (Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int))
                  (New (Tuple () (Prod ())) (Ref (Prod ()))))
-                (Prod ((Lollipop Int Int) (Ref (Prod ())))))
-               (Exists (Lollipop (Prod ((Var (0 ())) Int)) Int)))
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int) (Ref (Prod ())))))
+               (Exists
+                (Prod
+                 ((Lollipop (Prod ((Ref (Var (0 ()))) Int)) Int)
+                  (Ref (Var (0 ())))))))
               (Split ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))
                (Var (0 ())
                 (Prod ((Lollipop (Prod ((Var (0 ())) Int)) Int) (Var (0 ())))))

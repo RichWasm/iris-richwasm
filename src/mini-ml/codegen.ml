@@ -72,29 +72,26 @@ let rec type_of_e gamma e =
       | _ -> failwith "unfold should be on a µ-type")
   | Unpack (_, (n, t), _, e) -> type_of_e ((n, t) :: gamma) e
 
-let rec compile_type delta t =
+let rec compile_type delta t : Type.t =
   let open Closed.PreType in
   let open Memory in
   let r = compile_type delta in
   match t with
-  | Int -> Type.I31
+  | Int -> I31
   | Prod ts ->
       let ts' = List.map ~f:r ts in
-      Type.(Ref (Base GC, Ser (Prod ts')))
+      Ref (Base GC, Ser (Prod ts'))
   | Sum ts ->
       let ts' = List.map ~f:r ts in
-      Type.(Ref (Base GC, Ser (Sum ts')))
-  | Ref t -> Type.(Ref (Base GC, Ser (r t)))
-  | Rec (v, t) -> Type.Rec (kind, compile_type (v :: delta) t)
+      Ref (Base GC, Ser (Sum ts'))
+  | Ref t -> Ref (Base GC, Ser (r t))
+  | Rec (v, t) -> Rec (kind, compile_type (v :: delta) t)
   | Exists (v, t) ->
-      Type.(
-        Ref
-          ( Base GC,
-            Ser (Exists (Quantifier.Type kind, compile_type (v :: delta) t)) ))
+      Ref (Base GC, Ser (Exists (Type kind, compile_type (v :: delta) t)))
   | Code { foralls; arg; ret } ->
       let r = compile_type (foralls @ delta) in
-      Type.CodeRef
-        (FunctionType.FunctionType
+      CodeRef
+        (FunctionType
            ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
              [ r arg ],
              [ r ret ] ))
@@ -102,7 +99,7 @@ let rec compile_type delta t =
       delta
       |> List.find_mapi_exn ~f:(fun i name ->
           Option.some_if (equal_string name v) i)
-      |> fun x -> Type.Var x
+      |> Type.var
 
 let rec compile_expr delta gamma locals functions e =
   let open Closed.Expr in

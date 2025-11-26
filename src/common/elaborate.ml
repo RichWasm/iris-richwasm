@@ -20,7 +20,7 @@ end
 
 module State = struct
   type t = {
-    locals : A.Type.t option list;
+    locals : A.Type.t list;
     stack : A.Type.t list;
   }
   [@@deriving make, sexp]
@@ -38,12 +38,13 @@ module Err = struct
 
   type t =
     | TODO of string
+    | InternalErr of string
     | InvalidLocalFx of (int * (int * A.Type.t) list)
     | TVarNotInEnv of (int * A.Kind.t list)
     | PopEmptyStack of string
     | ExpectedEqStack of (string * A.Type.t * A.Type.t)
     | InvalidLabel of int
-    | UnexpectedUnitializedLocal of int
+    | UnexpectedPlugLocal of int * A.Representation.t
     | InvalidLocalIdx of (int * [ `Set | `Get | `Reset ])
     | CannotCopyNonCopyable
     | InvalidTableIdx of int
@@ -63,9 +64,19 @@ module Err = struct
     | FunctionParamMustBeMonoRep
     | CannotResolvePath of
         [ `ExpectedStruct | `OutOfBounds ] * A.Path.t * A.Type.t
+    | UnpackExpectsExists of A.Type.t
+    | PackMismatch of A.Type.t * A.Type.t
+    | IncorrectLocalFx of String.t * Int.t * A.Type.t List.t * A.Type.t List.t
+    | LfxInvalidIndex of int * A.Type.t List.t
     | InstrErr of {
         error : t;
         instr : A.Instruction.t;
+        env : Env.t;
+        state : State.t;
+      }
+    | BlockErr of {
+        error : t;
+        block : A.Instruction.t list;
         env : Env.t;
         state : State.t;
       }
@@ -75,43 +86,6 @@ module Err = struct
 end
 
 module Res = ResultM (Err)
-
-module InstrM = struct
-  include StateM (State) (Err)
-  open A
-
-  let push (t : Type.t) : unit t =
-    modify (fun s -> { s with stack = t :: s.stack })
-
-  let pop (ctx : string) : Type.t t =
-    let* st = get in
-    match st.stack with
-    | [] -> fail (PopEmptyStack ctx)
-    | top :: rst ->
-        let+ () = put { st with stack = rst } in
-        top
-
-  let set_local (i : int) (t : Type.t) : unit t =
-    let* st = get in
-    let* () =
-      fail_if (List.length st.locals <= i) (InvalidLocalIdx (i, `Set))
-    in
-    let locals' =
-      List.mapi st.locals ~f:(fun i' x -> if i <> i' then x else Some t)
-    in
-    modify (fun st -> { st with locals = locals' })
-
-  let reset_local (i : int) : unit t =
-    let* st = get in
-    let* () =
-      fail_if (List.length st.locals <= i) (InvalidLocalIdx (i, `Reset))
-    in
-    let locals' =
-      List.mapi st.locals ~f:(fun i' x -> if i <> i' then x else None)
-    in
-    modify (fun st -> { st with locals = locals' })
-end
-
 open Res
 
 let elab_copyability : A.Copyability.t -> B.Copyability.t = function
@@ -138,13 +112,6 @@ let elab_atomic_rep : A.AtomicRep.t -> B.AtomicRep.t = function
   | F32 -> F32R
   | F64 -> F64R
 
-let unelab_atomic_rep : B.AtomicRep.t -> A.AtomicRep.t = function
-  | PtrR -> Ptr
-  | I32R -> I32
-  | I64R -> I64
-  | F32R -> F32
-  | F64R -> F64
-
 let rec elab_representation : A.Representation.t -> B.Representation.t =
   function
   | Var x -> VarR (Z.of_int x)
@@ -152,26 +119,12 @@ let rec elab_representation : A.Representation.t -> B.Representation.t =
   | Prod reps -> ProdR (List.map ~f:elab_representation reps)
   | Atom rep -> AtomR (elab_atomic_rep rep)
 
-let rec unelab_representation : B.Representation.t -> A.Representation.t =
-  function
-  | VarR x -> Var (Z.to_int x)
-  | SumR reps -> Sum (List.map ~f:unelab_representation reps)
-  | ProdR reps -> Prod (List.map ~f:unelab_representation reps)
-  | AtomR rep -> Atom (unelab_atomic_rep rep)
-
 let rec elab_size : A.Size.t -> B.Size.t = function
   | Var x -> VarS (Z.of_int x)
   | Sum sizes -> SumS (List.map ~f:elab_size sizes)
   | Prod sizes -> ProdS (List.map ~f:elab_size sizes)
   | Rep rep -> RepS (elab_representation rep)
   | Const s -> ConstS (Z.of_int s)
-
-let rec unelab_size : B.Size.t -> A.Size.t = function
-  | VarS x -> Var (Z.to_int x)
-  | SumS sizes -> Sum (List.map ~f:unelab_size sizes)
-  | ProdS sizes -> Prod (List.map ~f:unelab_size sizes)
-  | RepS rep -> Rep (unelab_representation rep)
-  | ConstS s -> Const (Z.to_int s)
 
 let elab_kind : A.Kind.t -> B.Kind.t = function
   | VALTYPE (representation, copyability, dropability) ->
@@ -181,6 +134,53 @@ let elab_kind : A.Kind.t -> B.Kind.t = function
           elab_dropability dropability )
   | MEMTYPE (size, dropability) ->
       MEMTYPE (elab_size size, elab_dropability dropability)
+
+let unelab_copyability : B.Copyability.t -> A.Copyability.t = function
+  | NoCopy -> NoCopy
+  | ImCopy -> ImCopy
+  | ExCopy -> ExCopy
+
+let unelab_dropability : B.Dropability.t -> A.Dropability.t = function
+  | ImDrop -> ImDrop
+  | ExDrop -> ExDrop
+
+let unelab_base_memory : B.BaseMemory.t -> A.BaseMemory.t = function
+  | MemMM -> MM
+  | MemGC -> GC
+
+let unelab_memory : B.Memory.t -> A.Memory.t = function
+  | VarM x -> Var (Z.to_int x)
+  | BaseM m -> Base (unelab_base_memory m)
+
+let unelab_atomic_rep : B.AtomicRep.t -> A.AtomicRep.t = function
+  | PtrR -> Ptr
+  | I32R -> I32
+  | I64R -> I64
+  | F32R -> F32
+  | F64R -> F64
+
+let rec unelab_representation : B.Representation.t -> A.Representation.t =
+  function
+  | VarR x -> Var (Z.to_int x)
+  | SumR reps -> Sum (List.map ~f:unelab_representation reps)
+  | ProdR reps -> Prod (List.map ~f:unelab_representation reps)
+  | AtomR rep -> Atom (unelab_atomic_rep rep)
+
+let rec unelab_size : B.Size.t -> A.Size.t = function
+  | VarS x -> Var (Z.to_int x)
+  | SumS sizes -> Sum (List.map ~f:unelab_size sizes)
+  | ProdS sizes -> Prod (List.map ~f:unelab_size sizes)
+  | RepS rep -> Rep (unelab_representation rep)
+  | ConstS s -> Const (Z.to_int s)
+
+let unelab_kind : B.Kind.t -> A.Kind.t = function
+  | VALTYPE (representation, copyability, dropability) ->
+      VALTYPE
+        ( unelab_representation representation,
+          unelab_copyability copyability,
+          unelab_dropability dropability )
+  | MEMTYPE (size, dropability) ->
+      MEMTYPE (unelab_size size, unelab_dropability dropability)
 
 let elab_sign : A.Sign.t -> B.Sign.t = function
   | Unsigned -> SignU
@@ -434,12 +434,107 @@ and elab_function_type
 
   ret @@ go quals
 
-(* The unannotated AST treats local effects as a diff between the current locals 
+let representation_of_typ (kinds : A.Kind.t list) t =
+  kind_of_typ kinds t >>= function
+  | VALTYPE (r, _, _) -> ret r
+  | _ -> fail (ExpectedVALTYPE ("representation of ", `Type t))
+
+let copyability_of_typ (kinds : A.Kind.t list) t =
+  kind_of_typ kinds t >>= function
+  | VALTYPE (_, c, _) -> ret c
+  | _ -> fail (ExpectedVALTYPE ("copyability of", `Type t))
+
+let size_of_typ (kinds : A.Kind.t list) t =
+  kind_of_typ kinds t >>= function
+  | MEMTYPE (sz, _) -> ret sz
+  | _ -> fail (ExpectedMEMTYPE ("size of", `Type t))
+
+module InstrM = struct
+  include StateM (State) (Err)
+  open A
+
+  let push (t : Type.t) : unit t =
+    modify (fun s -> { s with stack = t :: s.stack })
+
+  let pop (ctx : string) : Type.t t =
+    let* st = get in
+    match st.stack with
+    | [] -> fail (PopEmptyStack ctx)
+    | top :: rst ->
+        let+ () = put { st with stack = rst } in
+        top
+
+  let set_local (i : int) (t : Type.t) : unit t =
+    let* st = get in
+    let* () =
+      fail_if (List.length st.locals <= i) (InvalidLocalIdx (i, `Set))
+    in
+    let locals' =
+      List.mapi st.locals ~f:(fun i' x -> if i <> i' then x else t)
+    in
+    modify (fun st -> { st with locals = locals' })
+
+  let reset_local (i : int) (env : Env.t) : unit t =
+    let* st = get in
+    let* () =
+      fail_if (List.length st.locals <= i) (InvalidLocalIdx (i, `Reset))
+    in
+    let* locals' =
+      mapiM st.locals ~f:(fun i' t ->
+          if i <> i' then
+            ret t
+          else
+            let* rep =
+              Res.(
+                elab_type env.kinds t
+                >>= representation_of_typ env.kinds
+                >>| unelab_representation)
+              |> lift_result
+            in
+            ret @@ A.Type.Plug rep)
+    in
+    modify (fun st -> { st with locals = locals' })
+end
+
+(* The unannotated AST treats local effects as a diff between the current locals
    and the state of the locals after the block is run, while the annotated AST
    expects local effects to be the entire new state of the locals *)
-let elab_local_fx (env : Env.t) (LocalFx fxs : A.LocalFx.t) :
-    B.Type.t list Res.t =
-  fail (TODO "elab_local_fx")
+let calculate_locals (locals : A.Type.t list) (LocalFx fxs : A.LocalFx.t) :
+    A.Type.t List.t Res.t =
+  let locals_arr = Array.of_list locals in
+  let+ () =
+    iterM
+      ~f:(fun (idx, t) ->
+        try
+          locals_arr.(idx) <- t;
+          ret ()
+        with _ -> fail (LfxInvalidIndex (idx, locals)))
+      fxs
+  in
+  List.of_array locals_arr
+
+let handle_local_fx (env : Env.t) (lfx : A.LocalFx.t) : B.Type.t List.t InstrM.t
+    =
+  let open InstrM in
+  let* outer_st = get in
+  let* locals = calculate_locals outer_st.locals lfx |> lift_result in
+  let* () = modify (fun st -> { st with locals }) in
+  let* locals' = Res.mapM ~f:(elab_type env.kinds) locals |> lift_result in
+  ret locals'
+
+let verify_lfx (inner_st : State.t) (lfx : A.LocalFx.t) ctx : Unit.t InstrM.t =
+  let open InstrM in
+  let* outer_st = get in
+  let* expected_locals = calculate_locals outer_st.locals lfx |> lift_result in
+  let actual_locals = inner_st.locals in
+  List.zip expected_locals actual_locals
+  |> ( function
+  | Ok l -> ret l
+  | Unequal_lengths -> fail (InternalErr "locals length mismatch") )
+  >>= iteriM ~f:(fun i (expected, actual) ->
+      fail_ifn
+        (A.Type.equal expected actual)
+        (IncorrectLocalFx (ctx, i, expected_locals, actual_locals)))
 
 let elab_index (env : A.Kind.t list) : A.Index.t -> B.Index.t t =
   let open B.Index in
@@ -585,26 +680,26 @@ let elab_num_instruction (kenv : A.Kind.t list) :
       let ni = ICvt (CReinterpret (elab_num_type num_type)) in
       ret (it, ni)
 
+module ASubst = struct
+  include A.Unscoped
+  module M = A.Memory
+  module R = A.Representation
+  module S = A.Size
+  module T = A.Type
+  module FT = A.FunctionType
+end
+
 let function_typ_inst (idx : A.Index.t) (ft : A.FunctionType.t) =
-  let open A in
-  let open FunctionType in
-  let open Unscoped in
+  let open ASubst in
   (match idx with
-  | Mem mem -> subst (scons mem Memory.var) Representation.var Size.var Type.var
-  | Rep rep -> subst Memory.var (scons rep Representation.var) Size.var Type.var
-  | Size size ->
-      subst Memory.var Representation.var (scons size Size.var) Type.var
-  | Type typ ->
-      subst Memory.var Representation.var Size.var (scons typ Type.var))
+  | Mem mem -> FT.subst (scons mem M.var) R.var S.var T.var
+  | Rep rep -> FT.subst M.var (scons rep R.var) S.var T.var
+  | Size size -> FT.subst M.var R.var (scons size S.var) T.var
+  | Type typ -> FT.subst M.var R.var S.var (scons typ T.var))
     ft
 
 let function_typ_insts (idxs : A.Index.t list) (ft : A.FunctionType.t) =
   List.fold ~init:ft ~f:(fun ft idx -> function_typ_inst idx ft) idxs
-
-let copyability_of_typ (kinds : A.Kind.t list) t =
-  kind_of_typ kinds t >>= function
-  | VALTYPE (_, c, _) -> ret c
-  | _ -> fail (ExpectedVALTYPE ("copyability of", `Type t))
 
 let is_effective_move (consume : A.Consume.t) copyable =
   match consume with
@@ -612,12 +707,7 @@ let is_effective_move (consume : A.Consume.t) copyable =
   | Copy -> if not copyable then fail CannotCopyNonCopyable else ret false
   | Move -> ret true
 
-let size_of_typ (kinds : A.Kind.t list) t =
-  kind_of_typ kinds t >>= function
-  | MEMTYPE (sz, _) -> ret sz
-  | _ -> fail (ExpectedMEMTYPE ("size of", `Type t))
-
-(* This is an executable version of what is found in typing.v but is for the 
+(* This is an executable version of what is found in typing.v but is for the
    unnanotated AST. *)
 
 type path_result = {
@@ -673,6 +763,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   in
   let ( >>=^ ) m f = m >>= fun x -> f x |> lift_result in
   let ( >>^| ) r f = r |> Result.map ~f |> lift_result in
+  let mapM_st ~f x st = mapM ~f x st |> lift_result in
   function
   | Nop -> ret @@ INop (InstrT ([], []))
   | Unreachable ->
@@ -698,31 +789,24 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       ret @@ INumConst (it, Z.of_int i)
   | Block (bt, lfx, instrs) ->
       let* consume, result, env', st_inner = handle_bt bt in
-      let* instrs', st' =
-        lift_result @@ mapM ~f:(elab_instruction env') instrs st_inner
-      in
-      let* lfx' = lift_result @@ elab_local_fx env lfx in
+      let* instrs', st' = mapM_st ~f:(elab_instruction env') instrs st_inner in
+      let* () = verify_lfx st' lfx "block" in
+      let* lfx' = handle_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
-      let* () = fail (TODO "propogate lfx") in
       ret @@ IBlock (it, lfx', instrs')
   | Loop (bt, instrs) ->
       let* consume, result, env', st_inner = handle_bt bt in
-      let* instrs', _ =
-        lift_result @@ mapM ~f:(elab_instruction env') instrs st_inner
-      in
+      let* instrs', _ = mapM_st ~f:(elab_instruction env') instrs st_inner in
       let* it = instr_t_of env.kinds consume result in
       ret @@ ILoop (it, instrs')
   | Ite (bt, lfx, thn, els) ->
       let* consume, result, env', st_inner = handle_bt bt in
-      let* thn', thn_st =
-        lift_result @@ mapM ~f:(elab_instruction env') thn st_inner
-      in
-      let* els', els_st =
-        lift_result @@ mapM ~f:(elab_instruction env') els st_inner
-      in
-      let* lfx' = lift_result @@ elab_local_fx env lfx in
+      let* thn', thn_st = mapM_st ~f:(elab_instruction env') thn st_inner in
+      let* els', els_st = mapM_st ~f:(elab_instruction env') els st_inner in
+      let* () = verify_lfx thn_st lfx "ite::thn" in
+      let* () = verify_lfx els_st lfx "ite::els" in
+      let* lfx' = handle_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
-      let* () = fail (TODO "propogate lfx") in
       ret @@ IIte (it, lfx', thn', els')
   | Br label ->
       let* st = get in
@@ -738,9 +822,11 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | LocalGet (i, consume) ->
       let* st = get in
       let* t =
-        List.nth st.locals i
-        |> lift_option (InvalidLocalIdx (i, `Get))
-        >>= lift_option (UnexpectedUnitializedLocal i)
+        List.nth st.locals i |> lift_option (InvalidLocalIdx (i, `Get))
+        (* NOTE: we don't *have* to error here but it makes debugging much easier *)
+        >>= function
+        | Plug rep -> fail (UnexpectedPlugLocal (i, rep))
+        | x -> ret x
       in
       let* t' = lift_result @@ elab_type env.kinds t in
       let* im_copyable =
@@ -749,7 +835,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
         | _ -> false
       in
       let* should_move = is_effective_move consume im_copyable |> lift_result in
-      let* () = if should_move then reset_local i else ret () in
+      let* () = if should_move then reset_local i env else ret () in
       let* it = mono_in_out env.kinds "LocalGet" [] [ t ] in
       ret @@ ILocalGet (it, Z.of_int i)
   | LocalSet i ->
@@ -805,23 +891,25 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds [ t_in ] [ t_out ] in
       ret @@ IInjectNew (it, Z.of_int i)
   | Case (bt, lfx, cases) ->
-      (* TODO: use ICaseLoad when appropriate, or seperate instruction? *)
       let* consume, result, env', st_inner = handle_bt bt in
-      let* lfx' = elab_local_fx env lfx |> lift_result in
       let* cases' =
-        foldM cases ~init:[] ~f:(fun acc case ->
+        foldiM cases ~init:[] ~f:(fun i acc case ->
             let* case', st' =
-              mapM ~f:(elab_instruction env') case st_inner |> lift_result
+              mapM_st ~f:(elab_instruction env') case st_inner
             in
-            fail (TODO "case: st management"))
+            let+ () = verify_lfx st' lfx (sprintf "case::%i" i) in
+            case' :: acc)
+        >>| List.rev
       in
+      let* lfx' = handle_local_fx env lfx in
       let* it = instr_t_of env.kinds consume result in
       ret @@ ICase (it, lfx', cases')
+  | CaseLoad (bt, consume, lfx, cases) -> fail (TODO "case_load")
   | Group i ->
-      (* top .... bottom -> bottom .... top *)
+      (* top ... bottom -> bottom ... top *)
       let* ts =
         List.init i ~f:(fun _ -> ())
-        |> mapM ~f:(fun _ -> pop "Group")
+        |> mapiM ~f:(fun i _ -> pop (sprintf "Group-%i" i))
         >>| List.rev
       in
       let* () = push (Prod ts) in
@@ -843,10 +931,8 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
         | x -> fail (FoldNonRec x)
       in
       let expected_in =
-        let open A in
-        Type.subst Memory.var Representation.var Size.var
-          Type.(Unscoped.scons (Rec (k, t_inner)) var)
-          t_inner
+        let open ASubst in
+        T.subst M.var R.var S.var (scons (T.Rec (k, t_inner)) T.var) t_inner
       in
       let* it =
         mono_in_out env.kinds "Fold" [ expected_in ] [ Rec (k, t_inner) ]
@@ -859,19 +945,77 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
         | x -> fail (UnfoldNonRec x)
       in
       let out =
-        let open A in
-        Type.subst Memory.var Representation.var Size.var
-          Type.(Unscoped.scons (Rec (k, t_inner)) var)
-          t_inner
+        let open ASubst in
+        T.subst M.var R.var S.var (scons (T.Rec (k, t_inner)) T.var) t_inner
       in
       let* () = push out in
       let* it = instr_t_of env.kinds [ Rec (k, t_inner) ] [ out ] in
       ret @@ IUnfold it
-  | Pack (Mem mem, t) -> fail (TODO "pack")
-  | Pack (Rep rep, t) -> fail (TODO "pack")
-  | Pack (Size sz, t) -> fail (TODO "pack")
-  | Pack (Type typ, t) -> fail (TODO "pack")
-  | Unpack (bt, lfx, instrs) -> fail (TODO "unpack")
+  | Pack (witness, t) ->
+      let* tau = pop "Pack" in
+      let tau0 =
+        let open ASubst in
+        (match witness with
+          | Mem mem -> T.subst (scons mem M.var) R.var S.var T.var
+          | Rep rep -> T.subst M.var (scons rep R.var) S.var T.var
+          | Size sz -> T.subst M.var R.var (scons sz S.var) T.var
+          | Type typ -> T.subst M.var R.var S.var (scons typ T.var))
+        @@ t
+      in
+      let* () = fail_ifn (A.Type.equal tau tau0) (PackMismatch (tau, tau0)) in
+      let* quanitfier =
+        let open A.Quantifier in
+        match witness with
+        | Mem _ -> ret Memory
+        | Rep _ -> ret Representation
+        | Size _ -> ret Size
+        | Type t ->
+            let* kind =
+              let open Result in
+              elab_type env.kinds t
+              >>= kind_of_typ env.kinds
+              >>| unelab_kind
+              |> lift_result
+            in
+            ret (Type kind)
+      in
+      let out_t : A.Type.t = Exists (quanitfier, t) in
+      let* () = push out_t in
+      let* it = instr_t_of env.kinds [ tau ] [ out_t ] in
+      ret @@ IPack it
+  | Unpack (bt, lfx, instrs) ->
+      let* t_pkg = pop "Unpack" in
+      let* shift_fn, t_body, new_k =
+        let open ASubst in
+        let add1 i = i + 1 in
+        match t_pkg with
+        | Exists (Memory, t) -> ret (T.ren add1 id id id, t, None)
+        | Exists (Representation, t) -> ret (T.ren id add1 id id, t, None)
+        | Exists (Size, t) -> ret (T.ren id id add1 id, t, None)
+        | Exists (Type k, t) -> ret (T.ren id id id add1, t, Some k)
+        | x -> fail (UnpackExpectsExists x)
+      in
+
+      let* st = get in
+      let shifted_stack = List.map ~f:shift_fn st.stack in
+      let st_inner_init = { st with stack = t_body :: shifted_stack } in
+      let* () = put st_inner_init in
+      let* consume, result, env_with_labels, st_ready = handle_bt bt in
+      let env_inner =
+        match new_k with
+        | Some k -> { env_with_labels with kinds = k :: env_with_labels.kinds }
+        | None -> env_with_labels
+      in
+      let* instrs', st' =
+        mapM_st ~f:(elab_instruction env_inner) instrs st_ready
+      in
+
+      let* () = modify (fun new_st -> { new_st with stack = st.stack }) in
+      let* () = verify_lfx st' lfx "unpack" in
+      let* lfx' = handle_local_fx env lfx in
+      let* () = iterM result ~f:push in
+      let* it = instr_t_of env.kinds [ t_pkg ] result in
+      ret @@ IUnpack (it, lfx', instrs')
   | Tag ->
       let* it = mono_in_out env.kinds "Tag" [ Num (Int I32) ] [ I31 ] in
       ret @@ ITag it
@@ -929,17 +1073,19 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* () = out_ts |> iterM ~f:push in
       ret @@ ILoad (it, path', consume')
   | Store path ->
-      (* TODO: how to deal with HStoreStrong? Would likely need to modify unnanotated AST? *)
+      (* NOTE: always treat as HStoreStrong; type checker will reject if invalid *)
       let* t = pop "Store-1" in
       let* ref = pop "Store-2" in
-      let* () =
+      let* mem, inner_t =
         match ref with
-        | Ref _ -> ret ()
+        | Ref (mem, t) -> ret (mem, t)
         | t -> fail (NonRef (`Store, t))
       in
+      let* pr = resolves_path inner_t path (Some (Ser t)) |> lift_result in
       let path' = elab_path path in
-      let* it = instr_t_of env.kinds [ ref; t ] [ ref ] in
-      let* () = push ref in
+      let res : A.Type.t = Ref (mem, pr.replaced) in
+      let* it = instr_t_of env.kinds [ ref; t ] [ res ] in
+      let* () = push res in
       ret @@ IStore (it, path')
   | Swap path ->
       let* t = pop "Swap-1" in
@@ -960,8 +1106,7 @@ let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
   let* mf_type = elab_function_type [] typ in
   let mf_locals = List.map ~f:elab_representation locals in
   let (FunctionType (qs, in_t, return)) = typ in
-  let param_locals = in_t |> List.map ~f:Option.return in
-  let init_locals = param_locals @ List.map ~f:(fun _ -> None) locals in
+  let init_locals = in_t @ List.map ~f:(fun rep -> A.Type.Plug rep) locals in
   let init_state = State.make ~locals:init_locals () in
   let kinds =
     List.filter_map
@@ -971,7 +1116,7 @@ let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
       qs
     |> List.rev
   in
-  let local_offset = List.length param_locals in
+  let local_offset = List.length in_t in
   let init_env = { env with return; kinds; local_offset } in
   let* mf_body, _ =
     let open InstrM in

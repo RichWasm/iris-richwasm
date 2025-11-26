@@ -69,6 +69,8 @@ module IR = struct
 
     let mk_split_var ~split_t ~i ?n body =
       Split (split_t, Var ((i, n), Prod split_t), body, type_of body)
+
+    let mk_let_var ~t ~i ?n body = Let (t, Var ((i, n), t), body, type_of body)
   end
 
   include Index.IR.Mk (Type) (Expr)
@@ -129,15 +131,17 @@ module Compile = struct
   let rec compile_typ : A.Type.t -> B.Type.t = function
     | Int -> Int
     | Var x -> Var x
-    | Lollipop (t1, t2) ->
-        Exists
-          (Lollipop
-             ( Prod [ Var (0, None); compile_typ t1 |> shift_tidx 1 0 ],
-               compile_typ t2 |> shift_tidx 1 0 ))
+    | Lollipop (t1, t2) -> Exists (compile_lolipop_unwrapped t1 t2)
     | Prod ts -> Prod (List.map ~f:compile_typ ts)
     | Sum ts -> Sum (List.map ~f:compile_typ ts)
     | Ref t -> Ref (compile_typ t)
     | Rec t -> Rec (compile_typ t)
+
+  and compile_lolipop_unwrapped t1 t2 : B.Type.t =
+    Lollipop
+      (Prod [ Ref (Var (0, None)); compile_typ_shift t1 ], compile_typ_shift t2)
+
+  and compile_typ_shift t : B.Type.t = compile_typ t |> shift_tidx 1 0
 
   module Env = struct
     type t = {
@@ -222,23 +226,21 @@ module Compile = struct
 
   let compile_var (env : Env.t) (((i, x), t) : AnnVar.t) : B.Expr.t t =
     let fbinders = env.vdepth - env.lambda_base in
-    let k = Map.length env.vmap in
     let open B.Expr in
     let t' = compile_typ t in
     if i < fbinders then
       ret @@ Var ((i, x), t')
-    else
+    else (* Captured Variable. *)
       let key = i - fbinders in
       match Map.find env.vmap key with
-      | Some slot -> ret (Var ((slot + fbinders, x), t'))
-      | None -> ret @@ Var ((i + k, x), t')
+      | Some slot -> ret (Var ((fbinders + slot, x), t'))
+      | None -> fail (InternalError "variable not found")
 
   let build_vmap (fvs : LS.t) : Int.t Map.M(Int).t t =
     let fv_list = LS.elements fvs in
-    let k = LS.length fvs in
     foldiM
       ~f:(fun i acc ((fv, _), _) ->
-        match Map.add acc ~key:(fv + 1) ~data:(k - 1 - i) with
+        match Map.add acc ~key:fv ~data:i with
         | `Ok m -> ret m
         | `Duplicate -> fail (InternalError "duplicate vmap"))
       ~init:(Map.empty (module Int))
@@ -256,9 +258,11 @@ module Compile = struct
           | Lollipop (in_t, out_t) -> ret @@ (in_t, out_t)
           | _ -> fail (InvalidCoderefAnn t)
         in
-        let coderef_t = B.Type.Lollipop (compile_typ in_t, compile_typ out_t) in
+        let coderef_t = compile_lolipop_unwrapped in_t out_t in
         let tuple = mk_tuple [ Coderef (n, coderef_t); mk_new (mk_tuple []) ] in
-        ret @@ Pack (Prod [], tuple, compile_typ t)
+        ret
+        @@ Pack
+             (Prod [], tuple, Exists (Prod [ coderef_t; Ref (Var (0, None)) ]))
     | Int (n, t) -> ret (Int (n, compile_typ t))
     | Tuple (es, t) ->
         let* es' = mapM ~f:(compile_expr env) es in
@@ -273,7 +277,7 @@ module Compile = struct
     | New (expr, t) ->
         let* expr' = compile_expr env expr in
         ret @@ New (expr', compile_typ t)
-    | Lam (arg_t, ret_t, body, t) ->
+    | Lam (arg_t, ret_t, body, _) ->
         let fvs = fv_expr 1 body in
         let* fname = fresh "lam" in
         let orig_arg_t' = compile_typ arg_t in
@@ -282,7 +286,7 @@ module Compile = struct
         let clos_typ = B.Type.Prod split_clos_typs in
         let ref_clos_typ = B.Type.Ref clos_typ in
         let split_clos_tup_typs = [ ref_clos_typ; orig_arg_t' ] in
-        let clos_tup_typ = B.Type.(Prod split_clos_typs) in
+        let clos_tup_typ = B.Type.(Prod split_clos_tup_typs) in
         let* body' =
           let* vmap = build_vmap fvs in
           let env' = Env.add_var env arg_t in
@@ -291,14 +295,17 @@ module Compile = struct
           mk_split_var ~split_t:split_clos_tup_typs ~i:0
             (mk_split split_clos_typs
                (Free (Var ((1, None), ref_clos_typ), clos_typ))
-               body')
+               (mk_let_var ~t:orig_arg_t'
+                  ~i:(List.length split_clos_typs)
+                  body'))
         in
 
         (*
           #`(func #,name (#,param -> #,return)
               (split (closure : #,ref_clos_typs) (orig_param : #,arg_t) = #,param in
                 (split #,@split_clos_typs = (free closure) in
-                  #,body)))
+                  (let (orig_param : #,arg_t) = orig_param in
+                    #,body))))
           *)
         let+ () =
           let param = clos_tup_typ in
@@ -306,15 +313,18 @@ module Compile = struct
           emit { export = false; name = fname; param; return; body = body' }
         in
 
-        (* #`(pack #,closure (new #,clos) as #,(lower clos)) *)
+        (* #`(pack #,closure (new #,clos) as #,(exists (prod (shift (#,param -> #,return)) (ref (var 0)))) *)
         Pack
-          ( ref_clos_typ,
+          ( clos_typ,
             mk_tuple
               [
                 Coderef (fname, Lollipop (clos_tup_typ, ret_t'));
                 mk_new (build_closure fvs);
               ],
-            compile_typ t )
+            Exists
+              (Prod
+                 [ compile_lolipop_unwrapped arg_t ret_t; Ref (Var (0, None)) ])
+          )
     | App (applicand, applicant, _) ->
         let* applicand' = compile_expr env applicand in
         let* applicant' = compile_expr env applicant in
