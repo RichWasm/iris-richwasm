@@ -1,6 +1,7 @@
 # Lin Lang
 
-Simple linear lambda calculus with 32-bit integers and n-ary tuples.
+Simple linear lambda calculus with 32-bit integers, n-ary sums and products,
+and recursive types.
 
 ## Grammar
 
@@ -40,14 +41,12 @@ fn := ([export] fun x₁ (x₂ : τ₁) : τ₂ . e)
 m := im* fn* [e]
 ```
 
-n.b. the grammar is in Monadic Normal Form
-
 ## Phases
 
 - sexp-based parser
 - de bruijn index
-- closure conversion
 - typechecker/elaboration
+- closure conversion
 - code gen into RichWasm
 
 ## Type System

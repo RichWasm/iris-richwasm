@@ -12,6 +12,7 @@ module Env = struct
     return : A.Type.t list;
     functions : A.FunctionType.t list;
     table : A.FunctionType.t list;
+    lfx : A.LocalFx.t Option.t;
   }
   [@@deriving make, sexp]
 
@@ -68,6 +69,11 @@ module Err = struct
     | PackMismatch of A.Type.t * A.Type.t
     | IncorrectLocalFx of String.t * Int.t * A.Type.t List.t * A.Type.t List.t
     | LfxInvalidIndex of int * A.Type.t List.t
+    | CannotInferLfx of
+        [ `Ite of A.Type.t List.t * A.Type.t List.t
+        | `Case of int * int * A.Type.t List.t * A.Type.t List.t
+        ]
+    | NonTrivialLfxInfer of [ `Unreachable | `Br | `Return ]
     | InstrErr of {
         error : t;
         instr : A.Instruction.t;
@@ -499,7 +505,7 @@ end
 (* The unannotated AST treats local effects as a diff between the current locals
    and the state of the locals after the block is run, while the annotated AST
    expects local effects to be the entire new state of the locals *)
-let calculate_locals (locals : A.Type.t list) (LocalFx fxs : A.LocalFx.t) :
+let calculate_locals (locals : A.Type.t list) (fxs : (int * A.Type.t) list) :
     A.Type.t List.t Res.t =
   let locals_arr = Array.of_list locals in
   let+ () =
@@ -513,28 +519,37 @@ let calculate_locals (locals : A.Type.t list) (LocalFx fxs : A.LocalFx.t) :
   in
   List.of_array locals_arr
 
-let handle_local_fx (env : Env.t) (lfx : A.LocalFx.t) : B.Type.t List.t InstrM.t
-    =
+let handle_new_locals (env : Env.t) (locals : A.Type.t list) =
   let open InstrM in
-  let* outer_st = get in
-  let* locals = calculate_locals outer_st.locals lfx |> lift_result in
   let* () = modify (fun st -> { st with locals }) in
   let* locals' = Res.mapM ~f:(elab_type env.kinds) locals |> lift_result in
   ret locals'
 
-let verify_lfx (inner_st : State.t) (lfx : A.LocalFx.t) ctx : Unit.t InstrM.t =
+let handle_local_fx (env : Env.t) (lfx : (int * A.Type.t) list) :
+    B.Type.t List.t InstrM.t =
   let open InstrM in
   let* outer_st = get in
-  let* expected_locals = calculate_locals outer_st.locals lfx |> lift_result in
-  let actual_locals = inner_st.locals in
-  List.zip expected_locals actual_locals
+  let* locals = calculate_locals outer_st.locals lfx |> lift_result in
+  handle_new_locals env locals
+
+let compare_lfx f a b =
+  let open InstrM in
+  List.zip a b
   |> ( function
   | Ok l -> ret l
   | Unequal_lengths -> fail (InternalErr "locals length mismatch") )
   >>= iteriM ~f:(fun i (expected, actual) ->
-      fail_ifn
-        (A.Type.equal expected actual)
-        (IncorrectLocalFx (ctx, i, expected_locals, actual_locals)))
+      fail_ifn (A.Type.equal expected actual) (f i a b))
+
+let verify_lfx (inner_st : State.t) (lfx : (int * A.Type.t) list) ctx :
+    Unit.t InstrM.t =
+  let open InstrM in
+  let* outer_st = get in
+  let actual_locals = inner_st.locals in
+  let* expected_locals = calculate_locals outer_st.locals lfx |> lift_result in
+  compare_lfx
+    (fun i a b -> IncorrectLocalFx (ctx, i, a, b))
+    expected_locals actual_locals
 
 let elab_index (env : A.Kind.t list) : A.Index.t -> B.Index.t t =
   let open B.Index in
@@ -744,7 +759,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
     A.Instruction.t -> B.Instruction.t InstrM.t =
   let open InstrM in
   let open B.Instruction in
-  let handle_bt (bt : A.BlockType.t) =
+  let handle_bt ?(lfx : A.LocalFx.t Option.t) (bt : A.BlockType.t) =
     let* init_st = get in
     let* consume, result =
       match bt with
@@ -757,16 +772,29 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
           >>| fun x -> (x, res)
     in
     let+ () = iterM result ~f:push in
-    let env' = { env with labels = result :: env.labels } in
+    let env' =
+      {
+        env with
+        labels = result :: env.labels;
+        lfx =
+          (match lfx with
+          | Some lfx -> Some lfx
+          | None -> env.lfx);
+      }
+    in
     let st_inner = { init_st with stack = consume } in
     (consume, result, env', st_inner)
   in
   let ( >>=^ ) m f = m >>= fun x -> f x |> lift_result in
   let ( >>^| ) r f = r |> Result.map ~f |> lift_result in
   let mapM_st ~f x st = mapM ~f x st |> lift_result in
+  let have_to_infer_lfx =
+    Option.value_map ~default:false ~f:A.LocalFx.is_inferfx env.lfx
+  in
   function
   | Nop -> ret @@ INop (InstrT ([], []))
   | Unreachable ->
+      let* () = fail_if have_to_infer_lfx (NonTrivialLfxInfer `Unreachable) in
       let* st = get in
       let* it = mono_in_out env.kinds "Unreachable" st.stack env.return in
       ret @@ IUnreachable it
@@ -788,10 +816,15 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds [] [ Num nt ] in
       ret @@ INumConst (it, Z.of_int i)
   | Block (bt, lfx, instrs) ->
-      let* consume, result, env', st_inner = handle_bt bt in
+      let* consume, result, env', st_inner = handle_bt ~lfx bt in
       let* instrs', st' = mapM_st ~f:(elab_instruction env') instrs st_inner in
-      let* () = verify_lfx st' lfx "block" in
-      let* lfx' = handle_local_fx env lfx in
+      let* lfx' =
+        match lfx with
+        | LocalFx lfx ->
+            let* () = verify_lfx st' lfx "block" in
+            handle_local_fx env lfx
+        | InferFx -> handle_new_locals env st'.locals
+      in
       let* it = instr_t_of env.kinds consume result in
       ret @@ IBlock (it, lfx', instrs')
   | Loop (bt, instrs) ->
@@ -800,15 +833,27 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds consume result in
       ret @@ ILoop (it, instrs')
   | Ite (bt, lfx, thn, els) ->
-      let* consume, result, env', st_inner = handle_bt bt in
+      let* consume, result, env', st_inner = handle_bt ~lfx bt in
       let* thn', thn_st = mapM_st ~f:(elab_instruction env') thn st_inner in
       let* els', els_st = mapM_st ~f:(elab_instruction env') els st_inner in
-      let* () = verify_lfx thn_st lfx "ite::thn" in
-      let* () = verify_lfx els_st lfx "ite::els" in
-      let* lfx' = handle_local_fx env lfx in
+      let* lfx' =
+        match lfx with
+        | LocalFx lfx ->
+            let* () = verify_lfx thn_st lfx "ite::thn" in
+            let* () = verify_lfx els_st lfx "ite::els" in
+            handle_local_fx env lfx
+        | InferFx ->
+            let* () =
+              compare_lfx
+                (fun i a b -> CannotInferLfx (`Ite (a, b)))
+                thn_st.locals els_st.locals
+            in
+            handle_new_locals env thn_st.locals
+      in
       let* it = instr_t_of env.kinds consume result in
       ret @@ IIte (it, lfx', thn', els')
   | Br label ->
+      let* () = fail_if have_to_infer_lfx (NonTrivialLfxInfer `Br) in
       let* st = get in
       let* result =
         List.nth env.labels label |> lift_option (InvalidLabel label)
@@ -816,6 +861,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* it = mono_in_out env.kinds "Br" st.stack result in
       ret @@ IBr (it, Z.of_int label)
   | Return ->
+      let* () = fail_if have_to_infer_lfx (NonTrivialLfxInfer `Return) in
       let* st = get in
       let* it = mono_in_out env.kinds "Return" st.stack env.return in
       ret @@ IReturn it
@@ -824,9 +870,9 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* t =
         List.nth st.locals i |> lift_option (InvalidLocalIdx (i, `Get))
         (* NOTE: we don't *have* to error here but it makes debugging much easier *)
-        >>= function
-        | Plug rep -> fail (UnexpectedPlugLocal (i, rep))
-        | x -> ret x
+        (* >>= function *)
+        (* | Plug rep -> fail (UnexpectedPlugLocal (i, rep)) *)
+        (* | x -> ret x *)
       in
       let* t' = lift_result @@ elab_type env.kinds t in
       let* im_copyable =
@@ -891,17 +937,34 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds [ t_in ] [ t_out ] in
       ret @@ IInjectNew (it, Z.of_int i)
   | Case (bt, lfx, cases) ->
-      let* consume, result, env', st_inner = handle_bt bt in
-      let* cases' =
-        foldiM cases ~init:[] ~f:(fun i acc case ->
-            let* case', st' =
+      let* consume, result, env', st_inner = handle_bt ~lfx bt in
+      let* cases', st's =
+        foldM cases ~init:[] ~f:(fun acc case ->
+            let+ case', st' =
               mapM_st ~f:(elab_instruction env') case st_inner
             in
-            let+ () = verify_lfx st' lfx (sprintf "case::%i" i) in
-            case' :: acc)
+            (case', st') :: acc)
         >>| List.rev
+        >>| List.unzip
       in
-      let* lfx' = handle_local_fx env lfx in
+      let* locals =
+        let* curr_locals = get >>| fun st -> st.locals in
+        foldiM st's ~init:None ~f:(fun i acc st ->
+            let+ () =
+              match lfx with
+              | LocalFx lfx -> verify_lfx st lfx (sprintf "case::%i" i)
+              | InferFx ->
+                  (match acc with
+                  | None -> ret ()
+                  | Some prev_locals ->
+                      compare_lfx
+                        (fun j a b -> CannotInferLfx (`Case (i, j, a, b)))
+                        st.locals prev_locals)
+            in
+            Some st.locals)
+        >>| Option.value ~default:curr_locals
+      in
+      let* lfx' = handle_new_locals env locals in
       let* it = instr_t_of env.kinds consume result in
       ret @@ ICase (it, lfx', cases')
   | CaseLoad (bt, consume, lfx, cases) -> fail (TODO "case_load")
@@ -1000,19 +1063,23 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let shifted_stack = List.map ~f:shift_fn st.stack in
       let st_inner_init = { st with stack = t_body :: shifted_stack } in
       let* () = put st_inner_init in
-      let* consume, result, env_with_labels, st_ready = handle_bt bt in
-      let env_inner =
+      let* consume, result, env', st_inner = handle_bt ~lfx bt in
+      let env'' =
         match new_k with
-        | Some k -> { env_with_labels with kinds = k :: env_with_labels.kinds }
-        | None -> env_with_labels
+        | Some k -> { env' with kinds = k :: env'.kinds }
+        | None -> env'
       in
-      let* instrs', st' =
-        mapM_st ~f:(elab_instruction env_inner) instrs st_ready
-      in
+      let* instrs', st' = mapM_st ~f:(elab_instruction env'') instrs st_inner in
 
+      (* unshift stack *)
       let* () = modify (fun new_st -> { new_st with stack = st.stack }) in
-      let* () = verify_lfx st' lfx "unpack" in
-      let* lfx' = handle_local_fx env lfx in
+      let* lfx' =
+        match lfx with
+        | LocalFx lfx ->
+            let* () = verify_lfx st' lfx "unpack" in
+            handle_local_fx env lfx
+        | InferFx -> handle_new_locals env st'.locals
+      in
       let* () = iterM result ~f:push in
       let* it = instr_t_of env.kinds [ t_pkg ] result in
       ret @@ IUnpack (it, lfx', instrs')
@@ -1144,7 +1211,8 @@ let elab_module ({ imports; functions; table; exports } : A.Module.t) :
           List.nth functions_typs i |> lift_option (InvalidTableIdxModule i))
         table
     in
-    Env.make ~functions:functions_typs ~table:table_typs ~local_offset:0 ()
+    Env.make ~functions:functions_typs ~table:table_typs ~local_offset:0
+      ~lfx:None ()
   in
   let* m_functions = mapM ~f:(elab_function env) functions in
   let m_table = List.map ~f:Z.of_int table in

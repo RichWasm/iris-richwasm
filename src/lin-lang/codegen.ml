@@ -242,12 +242,12 @@ module Compile = struct
               let env' = Env.add_local env fresh_idx in
               let* body' = compile_expr env' body in
               (* NOTE: binding is already on the stack *)
-              ret @@ [ LocalSet fresh_idx ] @ body')
+              ret @@ [ LocalSet fresh_idx ] @ body'
+              @ [ LocalGet (fresh_idx, Move); Drop ])
             cases
         in
         let* bt = compile_type env t |> lift_result in
-        (* FIXME: local effects *)
-        ret @@ scrutinee' @ [ Case (ArrowType (1, [ bt ]), LocalFx [], cases') ]
+        ret @@ scrutinee' @ [ Case (ArrowType (1, [ bt ]), InferFx, cases') ]
     | Unfold (_, expr, _) ->
         let* expr' = compile_expr env expr in
         ret @@ expr' @ [ Unfold ]
@@ -264,7 +264,10 @@ module Compile = struct
         ret @@ rhs'
         @ [
             Unpack
-              (ArrowType (1, [ bt ]), LocalFx [], LocalSet fresh_idx :: body');
+              ( ArrowType (1, [ bt ]),
+                InferFx,
+                [ LocalSet fresh_idx ] @ body'
+                @ [ LocalGet (fresh_idx, Move); Drop ] );
           ]
     | If0 (v, e1, e2, t) ->
         let* v' = compile_expr env v in
@@ -274,7 +277,7 @@ module Compile = struct
         (* FIXME: local effects *)
         ret @@ v'
         @ [ NumConst (Int I32, 0); Num (IntTest (I32, Eqz)) ]
-        @ [ Ite (ArrowType (1, [ bt ]), LocalFx [], e1', e2') ]
+        @ [ Ite (ArrowType (1, [ bt ]), InferFx, e1', e2') ]
     | Binop (op, v1, v2, _) ->
         let op' = compile_binop op in
         let* v1' = compile_expr env v1 in

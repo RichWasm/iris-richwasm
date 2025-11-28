@@ -10,7 +10,7 @@ module Unscoped = struct
     | a :: l0 -> f a :: map f l0
 
   let funcomp g f x = g (f x)
-  let id x = x
+  let id = Fn.id
   let shift = ( + ) 1
   let var_zero = 0
 
@@ -758,7 +758,9 @@ module BlockType = struct
 end
 
 module LocalFx = struct
-  type t = LocalFx of (int * Type.t) list
+  type t =
+    | LocalFx of (int * Type.t) list
+    | InferFx
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
