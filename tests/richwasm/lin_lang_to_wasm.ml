@@ -388,45 +388,7 @@ let%expect_test "examples" =
       (start 8))
 
     -----------app_ident-----------
-    FAILURE (InstrErr
-     (error
-      (IncorrectLocalFx unpack 0
-       ((Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-        (Plug (Atom Ptr)))
-       ((Plug (Prod ((Atom I32) (Atom Ptr))))
-        (CodeRef
-         (FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-          ((Num (Int I32)))))
-        (Plug (Atom Ptr)))))
-     (instr
-      (Unpack (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
-       ((LocalSet 0) (LocalGet 0 Follow) Ungroup (LocalSet 2) (LocalSet 1)
-        (LocalGet 2 Follow) (NumConst (Int I32) 10) (Group 2) (LocalGet 1 Follow)
-        CallIndirect)))
-     (env
-      ((local_offset 0) (kinds ()) (labels ()) (return ((Num (Int I32))))
-       (functions
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Num (Int I32))))
-         (FunctionType () () ((Num (Int I32))))))
-       (table
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Num (Int I32))))))))
-     (state
-      ((locals
-        ((Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr))))
-       (stack
-        ((Exists (Type (VALTYPE (Prod ()) ImCopy ImDrop))
-          (Prod
-           ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-              ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0)))))))))))
+    FAILURE EFail
     -----------nested_arith-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -486,7 +448,9 @@ let%expect_test "examples" =
         (local i32)
         i32.const 10
         local.set 0
-        local.get 0)
+        local.get 0
+        local.get 0
+        drop)
       (func (;8;) (type 5)
         global.get 0
         global.set 1
@@ -499,47 +463,9 @@ let%expect_test "examples" =
       (start 8))
 
     -----------add_one_program-----------
-    FAILURE (InstrErr
-     (error
-      (IncorrectLocalFx unpack 0
-       ((Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-        (Plug (Atom Ptr)))
-       ((Plug (Prod ((Atom I32) (Atom Ptr))))
-        (CodeRef
-         (FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-          ((Num (Int I32)))))
-        (Plug (Atom Ptr)))))
-     (instr
-      (Unpack (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
-       ((LocalSet 0) (LocalGet 0 Follow) Ungroup (LocalSet 2) (LocalSet 1)
-        (LocalGet 2 Follow) (NumConst (Int I32) 42) (Group 2) (LocalGet 1 Follow)
-        CallIndirect)))
-     (env
-      ((local_offset 0) (kinds ()) (labels ()) (return ((Num (Int I32))))
-       (functions
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Num (Int I32))))
-         (FunctionType () () ((Num (Int I32))))))
-       (table
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Num (Int I32))))))))
-     (state
-      ((locals
-        ((Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr))))
-       (stack
-        ((Exists (Type (VALTYPE (Prod ()) ImCopy ImDrop))
-          (Prod
-           ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-              ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0)))))))))))
+    FAILURE EFail
     -----------add_tup_ref-----------
-    wat2wasm Error: -:1:1115: error: type mismatch in local.set, expected [i32] but got []
+    wat2wasm Error: -:1:1123: error: type mismatch in local.set, expected [i32] but got []
     ... local.tee 9 end end local.set 3 local.set 10 local.get 10 i32.const 1 i32...
                                         ^^^^^^^^^
 
@@ -547,53 +473,34 @@ let%expect_test "examples" =
     FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
      (env
       ((local_offset 0) (kinds ()) (labels ()) (return ((Prod ())))
-       (functions ((FunctionType () () ((Prod ()))))) (table ())))
+       (functions ((FunctionType () () ((Prod ()))))) (table ()) (lfx ())))
      (state
       ((locals
-        ((Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr))))
+        ((Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+         (Plug
+          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
        (stack ()))))
     -----------closure-----------
+    FAILURE EFail
+    -----------factorial_program-----------
     FAILURE (InstrErr
      (error
-      (IncorrectLocalFx unpack 1
-       ((Num (Int I32)) (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-        (Plug (Atom Ptr)))
-       ((Num (Int I32)) (Plug (Prod ((Atom I32) (Atom Ptr))))
-        (CodeRef
-         (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Prod ()))))
-          ((Num (Int I32)))))
-        (Plug (Atom Ptr)))))
+      (CannotInferLfx
+       (Ite
+        (4
+         ((Plug (Prod ((Atom Ptr) (Atom I32)))) (Ref (Base MM) (Ser (Prod ())))
+          (Num (Int I32)) (Plug (Atom I32))
+          (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+          (Plug
+           (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+          (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+          (Plug (Atom I32)))
+         ((Plug (Prod ((Atom Ptr) (Atom I32)))) (Ref (Base MM) (Ser (Prod ())))
+          (Num (Int I32)) (Plug (Atom I32)) (Plug (Prod ((Atom I32) (Atom Ptr))))
+          (Plug (Atom I32)) (Plug (Atom Ptr)) (Plug (Atom I32)))))))
      (instr
-      (Unpack (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
-       ((LocalSet 1) (LocalGet 1 Follow) Ungroup (LocalSet 3) (LocalSet 2)
-        (LocalGet 3 Follow) (Group 0) (Group 2) (LocalGet 2 Follow) CallIndirect)))
-     (env
-      ((local_offset 0) (kinds ()) (labels ()) (return ((Num (Int I32))))
-       (functions
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ((Num (Int I32)))))) (Prod ()))))
-          ((Num (Int I32))))
-         (FunctionType () () ((Num (Int I32))))))
-       (table
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ((Num (Int I32)))))) (Prod ()))))
-          ((Num (Int I32))))))))
-     (state
-      ((locals
-        ((Num (Int I32)) (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr))))
-       (stack
-        ((Exists (Type (VALTYPE (Prod ((Atom I32))) ImCopy ImDrop))
-          (Prod
-           ((CodeRef
-             (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Prod ()))))
-              ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0)))))))))))
-    -----------factorial_program-----------
-    FAILURE (InstrErr (error (UnexpectedPlugLocal 6 (Atom Ptr)))
-     (instr
-      (Ite (ArrowType 1 ((Num (Int I32)))) (LocalFx ()) ((NumConst (Int I32) 1))
+      (Ite (ArrowType 1 ((Num (Int I32)))) InferFx ((NumConst (Int I32) 1))
        ((LocalGet 2 Follow) (NumConst (Int I32) 1) (Num (Int2 I32 Sub))
         (LocalSet 3) (CodeRef 0) (Group 0) (New MM) (Group 2)
         (Pack (Type (Prod ()))
@@ -603,12 +510,13 @@ let%expect_test "examples" =
              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
              ((Num (Int I32)))))
            (Ref (Base MM) (Ser (Var 0))))))
-        (Unpack (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
+        (Unpack (ArrowType 1 ((Num (Int I32)))) InferFx
          ((LocalSet 4) (LocalGet 4 Follow) Ungroup (LocalSet 6) (LocalSet 5)
           (LocalGet 6 Follow) (LocalGet 6 Follow) (Group 2) (LocalGet 5 Follow)
-          CallIndirect))
-        (LocalSet 7) (LocalGet 2 Follow) (LocalGet 7 Follow)
-        (Num (Int2 I32 Mul)))))
+          CallIndirect (LocalGet 5 Move) Drop (LocalGet 6 Move) Drop
+          (LocalGet 4 Move) Drop))
+        (LocalSet 7) (LocalGet 2 Follow) (LocalGet 7 Follow) (Num (Int2 I32 Mul))
+        (LocalGet 7 Move) Drop (LocalGet 3 Move) Drop)))
      (env
       ((local_offset 1) (kinds ()) (labels ()) (return ((Num (Int I32))))
        (functions
@@ -619,33 +527,36 @@ let%expect_test "examples" =
        (table
         ((FunctionType ()
           ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Num (Int I32))))))))
+          ((Num (Int I32))))))
+       (lfx ())))
      (state
       ((locals
         ((Plug (Prod ((Atom Ptr) (Atom I32)))) (Ref (Base MM) (Ser (Prod ())))
-         (Num (Int I32)) (Plug (Atom I32)) (Plug (Atom Ptr))
-         (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
+         (Num (Int I32)) (Plug (Atom I32))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+         (Plug
+          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
          (Plug (Atom I32))))
        (stack ((Num (Int I32)) (Num (Int I32)))))))
     -----------safe_div-----------
     FAILURE (InstrErr
      (error
-      (IncorrectLocalFx ite::els 5
-       ((Plug (Prod ((Atom Ptr) (Prod ((Atom I32) (Atom I32))))))
-        (Ref (Base MM) (Ser (Prod ()))) (Prod ((Num (Int I32)) (Num (Int I32))))
-        (Num (Int I32)) (Num (Int I32)) (Plug (Atom I32)))
-       ((Plug (Prod ((Atom Ptr) (Prod ((Atom I32) (Atom I32))))))
-        (Ref (Base MM) (Ser (Prod ()))) (Prod ((Num (Int I32)) (Num (Int I32))))
-        (Num (Int I32)) (Num (Int I32)) (Num (Int I32)))))
+      (CannotInferLfx
+       (Case
+        (1 3
+         ((Plug (Prod ((Atom Ptr) (Sum ((Atom I32) (Prod ()))))))
+          (Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ())))
+          (Plug (Atom I32)) (Plug (Sum ((Atom I32) (Prod ())))))
+         ((Plug (Prod ((Atom Ptr) (Sum ((Atom I32) (Prod ()))))))
+          (Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ())))
+          (Plug (Sum ((Atom I32) (Prod ())))) (Plug (Prod ())))))))
      (instr
-      (Ite (ArrowType 1 ((Sum ((Num (Int I32)) (Prod ()))))) (LocalFx ())
-       ((Group 0) (Inject () 1 ((Num (Int I32)) (Prod ()))))
-       ((LocalGet 3 Follow) (LocalGet 4 Follow) (Num (Int2 I32 (Div Signed)))
-        (LocalSet 5) (LocalGet 5 Follow)
-        (Inject () 0 ((Num (Int I32)) (Prod ()))))))
+      (Case (ArrowType 1 ((Num (Int I32)))) InferFx
+       (((LocalSet 3) (LocalGet 3 Follow) (LocalGet 3 Move) Drop)
+        ((LocalSet 4) (NumConst (Int I32) 0) (LocalGet 4 Move) Drop))))
      (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return ((Sum ((Num (Int I32)) (Prod ())))))
+      ((local_offset 1) (kinds ()) (labels ()) (return ((Num (Int I32))))
        (functions
         ((FunctionType ()
           ((Prod
@@ -666,36 +577,41 @@ let%expect_test "examples" =
          (FunctionType ()
           ((Prod
             ((Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ()))))))
-          ((Num (Int I32))))))))
+          ((Num (Int I32))))))
+       (lfx ())))
      (state
       ((locals
-        ((Plug (Prod ((Atom Ptr) (Prod ((Atom I32) (Atom I32))))))
-         (Ref (Base MM) (Ser (Prod ()))) (Prod ((Num (Int I32)) (Num (Int I32))))
-         (Num (Int I32)) (Num (Int I32)) (Plug (Atom I32))))
-       (stack ((Num (Int I32)) (Num (Int I32)))))))
+        ((Plug (Prod ((Atom Ptr) (Sum ((Atom I32) (Prod ()))))))
+         (Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ())))
+         (Plug (Atom I32)) (Plug (Prod ()))))
+       (stack ((Sum ((Num (Int I32)) (Prod ()))))))))
     -----------incr_n-----------
     FAILURE (InstrErr
      (error
-      (IncorrectLocalFx unpack 6
-       ((Plug (Prod ((Atom Ptr) (Prod ((Atom Ptr) (Atom I32))))))
-        (Ref (Base MM) (Ser (Prod ()))) (Plug (Prod ((Atom Ptr) (Atom I32))))
-        (Ref (Base MM) (Ser (Num (Int I32)))) (Num (Int I32)) (Plug (Atom I32))
-        (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-        (Plug (Atom Ptr)) (Plug (Atom I32)) (Plug (Atom Ptr))
-        (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr)))
-       ((Plug (Prod ((Atom Ptr) (Prod ((Atom Ptr) (Atom I32))))))
-        (Ref (Base MM) (Ser (Prod ()))) (Plug (Prod ((Atom Ptr) (Atom I32))))
-        (Ref (Base MM) (Ser (Num (Int I32)))) (Num (Int I32)) (Plug (Atom I32))
-        (Plug (Prod ((Atom I32) (Atom Ptr))))
-        (CodeRef
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Var 0))) (Ref (Base MM) (Ser (Num (Int I32)))))))
-          ((Ref (Base MM) (Ser (Num (Int I32)))))))
-        (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom I32)) (Plug (Atom Ptr))
-        (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr)))))
+      (CannotInferLfx
+       (Ite
+        (3
+         ((Plug (Prod ((Atom Ptr) (Prod ((Atom Ptr) (Atom I32))))))
+          (Ref (Base MM) (Ser (Prod ()))) (Plug (Prod ((Atom Ptr) (Atom I32))))
+          (Plug (Atom Ptr)) (Num (Int I32)) (Plug (Atom I32))
+          (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+          (Plug
+           (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+          (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+          (Plug (Atom Ptr)) (Plug (Atom I32))
+          (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+          (Plug
+           (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+          (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr)))))
+         ((Plug (Prod ((Atom Ptr) (Prod ((Atom Ptr) (Atom I32))))))
+          (Ref (Base MM) (Ser (Prod ()))) (Plug (Prod ((Atom Ptr) (Atom I32))))
+          (Ref (Base MM) (Ser (Num (Int I32)))) (Num (Int I32)) (Plug (Atom I32))
+          (Plug (Prod ((Atom I32) (Atom Ptr)))) (Plug (Atom I32))
+          (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom I32))
+          (Plug (Prod ((Atom I32) (Atom Ptr)))) (Plug (Atom I32))
+          (Plug (Atom Ptr)))))))
      (instr
-      (Ite (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
+      (Ite (ArrowType 1 ((Num (Int I32)))) InferFx
        ((LocalGet 3 Follow) (Load (Path ()) Move) (LocalSet 5) Drop
         (LocalGet 5 Move))
        ((CodeRef 0) (Group 0) (New MM) (Group 2)
@@ -708,11 +624,11 @@ let%expect_test "examples" =
                 (Ref (Base MM) (Ser (Num (Int I32)))))))
              ((Ref (Base MM) (Ser (Num (Int I32)))))))
            (Ref (Base MM) (Ser (Var 0))))))
-        (Unpack (ArrowType 1 ((Ref (Base MM) (Ser (Num (Int I32))))))
-         (LocalFx ())
+        (Unpack (ArrowType 1 ((Ref (Base MM) (Ser (Num (Int I32)))))) InferFx
          ((LocalSet 6) (LocalGet 6 Follow) Ungroup (LocalSet 8) (LocalSet 7)
           (LocalGet 8 Follow) (LocalGet 7 Follow) (Group 2) (LocalGet 7 Follow)
-          CallIndirect))
+          CallIndirect (LocalGet 7 Move) Drop (LocalGet 8 Move) Drop
+          (LocalGet 6 Move) Drop))
         (LocalSet 9) (LocalGet 4 Follow) (NumConst (Int I32) 1)
         (Num (Int2 I32 Sub)) (LocalSet 10) (CodeRef 1) (Group 0) (New MM)
         (Group 2)
@@ -725,10 +641,13 @@ let%expect_test "examples" =
                 (Prod ((Ref (Base MM) (Ser (Num (Int I32)))) (Num (Int I32)))))))
              ((Num (Int I32)))))
            (Ref (Base MM) (Ser (Var 0))))))
-        (Unpack (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
+        (Unpack (ArrowType 1 ((Num (Int I32)))) InferFx
          ((LocalSet 11) (LocalGet 11 Follow) Ungroup (LocalSet 13) (LocalSet 12)
           (LocalGet 13 Follow) (LocalGet 12 Follow) (LocalGet 13 Follow)
-          (Group 2) (Group 2) (LocalGet 12 Follow) CallIndirect)))))
+          (Group 2) (Group 2) (LocalGet 12 Follow) CallIndirect
+          (LocalGet 12 Move) Drop (LocalGet 13 Move) Drop (LocalGet 11 Move)
+          Drop))
+        (LocalGet 10 Move) Drop (LocalGet 9 Move) Drop)))
      (env
       ((local_offset 1) (kinds ()) (labels ()) (return ((Num (Int I32))))
        (functions
@@ -753,38 +672,337 @@ let%expect_test "examples" =
           ((Prod
             ((Ref (Base MM) (Ser (Prod ())))
              (Prod ((Ref (Base MM) (Ser (Num (Int I32)))) (Num (Int I32)))))))
-          ((Num (Int I32))))))))
+          ((Num (Int I32))))))
+       (lfx ())))
      (state
       ((locals
         ((Plug (Prod ((Atom Ptr) (Prod ((Atom Ptr) (Atom I32))))))
          (Ref (Base MM) (Ser (Prod ()))) (Plug (Prod ((Atom Ptr) (Atom I32))))
          (Ref (Base MM) (Ser (Num (Int I32)))) (Num (Int I32)) (Plug (Atom I32))
-         (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom I32)) (Plug (Atom Ptr))
-         (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+         (Plug
+          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+         (Plug (Atom Ptr)) (Plug (Atom I32))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+         (Plug
+          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
        (stack ((Num (Int I32)) (Num (Int I32)))))))
     -----------fix_factorial[invalid]-----------
     FAILURE (InstrErr
      (error
-      (UngroupNonProd
-       (CodeRef
-        (FunctionType ()
-         ((Prod
-           ((Ref (Base MM) (Ser (Var 0)))
-            (Rec (VALTYPE (Prod ((Atom Ptr) (Atom I32))) NoCopy ExDrop)
-             (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+      (BlockErr
+       (error
+        (UngroupNonProd
+         (CodeRef
+          (FunctionType ()
+           ((Prod
+             ((Ref (Base MM) (Ser (Var 0)))
+              (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+               (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                (CodeRef
+                 (FunctionType ()
+                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                      ((Num (Int I32))))))))))))))
+           ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+             (CodeRef
+              (FunctionType ()
+               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               ((Num (Int I32)))))))))))
+       (instr Ungroup)
+       (env
+        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) NoCopy ExDrop)))
+         (labels
+          (((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+             (CodeRef
+              (FunctionType ()
+               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               ((Num (Int I32)))))))))
+         (return
+          ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+            (CodeRef
+             (FunctionType ()
+              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+              ((Num (Int I32))))))))
+         (functions
+          ((FunctionType ()
+            ((Prod
+              ((Ref (Base MM)
+                (Ser
+                 (Prod
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod
+                        ((Ref (Base MM) (Ser (Var 0)))
+                         (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                          (CodeRef
+                           (FunctionType ()
+                            ((Prod
+                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                            ((Num (Int I32)))))))))
+                      ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                        (CodeRef
+                         (FunctionType ()
+                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                          ((Num (Int I32))))))))))))))
+               (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+                (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                 (CodeRef
+                  (FunctionType ()
+                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                   ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                     (CodeRef
+                      (FunctionType ()
+                       ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       ((Num (Int I32))))))))))))))
+            ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
               (CodeRef
-               (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
-                ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+               (FunctionType ()
+                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                ((Num (Int I32))))))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                (CodeRef
+                 (FunctionType ()
+                  ((Prod
+                    ((Ref (Base MM) (Ser (Var 0)))
+                     (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                      (CodeRef
+                       (FunctionType ()
+                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        ((Num (Int I32)))))))))
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                      ((Num (Int I32)))))))))))))
+            ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+              (CodeRef
+               (FunctionType ()
+                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                ((Num (Int I32))))))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM)
+                (Ser
+                 (Prod
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                      ((Num (Int I32))))))))))
+               (Num (Int I32)))))
+            ((Num (Int I32))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                (CodeRef
+                 (FunctionType ()
+                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                  ((Num (Int I32)))))))))
+            ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+              (CodeRef
+               (FunctionType ()
+                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                ((Num (Int I32))))))))
+           (FunctionType () () ((Num (Int I32))))))
+         (table
+          ((FunctionType ()
+            ((Prod
+              ((Ref (Base MM)
+                (Ser
+                 (Prod
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod
+                        ((Ref (Base MM) (Ser (Var 0)))
+                         (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                          (CodeRef
+                           (FunctionType ()
+                            ((Prod
+                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                            ((Num (Int I32)))))))))
+                      ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                        (CodeRef
+                         (FunctionType ()
+                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                          ((Num (Int I32))))))))))))))
+               (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+                (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                 (CodeRef
+                  (FunctionType ()
+                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                   ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                     (CodeRef
+                      (FunctionType ()
+                       ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       ((Num (Int I32))))))))))))))
+            ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+              (CodeRef
+               (FunctionType ()
+                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                ((Num (Int I32))))))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                (CodeRef
+                 (FunctionType ()
+                  ((Prod
+                    ((Ref (Base MM) (Ser (Var 0)))
+                     (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                      (CodeRef
+                       (FunctionType ()
+                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        ((Num (Int I32)))))))))
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                      ((Num (Int I32)))))))))))))
+            ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+              (CodeRef
+               (FunctionType ()
+                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                ((Num (Int I32))))))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM)
+                (Ser
+                 (Prod
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                      ((Num (Int I32))))))))))
+               (Num (Int I32)))))
+            ((Num (Int I32))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                (CodeRef
+                 (FunctionType ()
+                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                  ((Num (Int I32)))))))))
+            ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+              (CodeRef
+               (FunctionType ()
+                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                ((Num (Int I32))))))))))
+         (lfx (InferFx))))
+       (state
+        ((locals
+          ((Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
+           (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+            (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+             (CodeRef
+              (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+               ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                 (CodeRef
+                  (FunctionType ()
+                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   ((Num (Int I32)))))))))))
+           (Plug (Prod ((Atom I32))))
+           (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+            (CodeRef
+             (FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Var 0)))
+                 (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
                   (CodeRef
                    (FunctionType ()
                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-                    ((Num (Int I32))))))))))))))
-         ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    ((Num (Int I32)))))))))
+              ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                (CodeRef
+                 (FunctionType ()
+                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                  ((Num (Int I32))))))))))
+           (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+            (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+             (CodeRef
+              (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+               ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                 (CodeRef
+                  (FunctionType ()
+                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   ((Num (Int I32)))))))))))
+           (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+            (CodeRef
+             (FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Var 0)))
+                 (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+                  (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                   (CodeRef
+                    (FunctionType ()
+                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                     ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                       (CodeRef
+                        (FunctionType ()
+                         ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         ((Num (Int I32))))))))))))))
+              ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                (CodeRef
+                 (FunctionType ()
+                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                  ((Num (Int I32))))))))))
            (CodeRef
             (FunctionType ()
-             ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-             ((Num (Int I32)))))))))))
+             ((Prod
+               ((Ref (Base MM) (Ser (Var 0)))
+                (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+                 (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                  (CodeRef
+                   (FunctionType ()
+                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                    ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                      (CodeRef
+                       (FunctionType ()
+                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        ((Num (Int I32))))))))))))))
+             ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+               (CodeRef
+                (FunctionType ()
+                 ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 ((Num (Int I32)))))))))
+           (Plug (Prod ((Atom I32) (Prod ((Atom I32) (Atom Ptr))))))
+           (Plug (Prod ((Atom I32) (Atom Ptr))))
+           (Plug (Prod ((Atom I32) (Atom Ptr))))
+           (Plug (Prod ((Atom I32) (Atom Ptr))))
+           (Plug (Prod ((Atom I32) (Prod ((Atom I32) (Atom Ptr))))))
+           (Plug (Prod ((Atom I32) (Atom Ptr))))))
+         (stack
+          ((CodeRef
+            (FunctionType ()
+             ((Prod
+               ((Ref (Base MM) (Ser (Var 0)))
+                (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
+                 (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                  (CodeRef
+                   (FunctionType ()
+                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                    ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                      (CodeRef
+                       (FunctionType ()
+                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        ((Num (Int I32))))))))))))))
+             ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+               (CodeRef
+                (FunctionType ()
+                 ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 ((Num (Int I32)))))))))))))))
      (instr
       (Unpack
        (ArrowType 1
@@ -793,10 +1011,11 @@ let%expect_test "examples" =
            (FunctionType ()
             ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
             ((Num (Int I32))))))))
-       (LocalFx ())
+       InferFx
        ((LocalSet 7) (LocalGet 7 Follow) Ungroup (LocalSet 9) (LocalSet 8)
         (LocalGet 9 Follow) (LocalGet 8 Follow) (Group 2) (LocalGet 8 Follow)
-        CallIndirect)))
+        CallIndirect (LocalGet 8 Move) Drop (LocalGet 9 Move) Drop
+        (LocalGet 7 Move) Drop)))
      (env
       ((local_offset 1) (kinds ()) (labels ())
        (return
@@ -826,7 +1045,7 @@ let%expect_test "examples" =
                        (FunctionType ()
                         ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
                         ((Num (Int I32))))))))))))))
-             (Rec (VALTYPE (Prod ((Atom Ptr) (Atom I32))) NoCopy ExDrop)
+             (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
               (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
                (CodeRef
                 (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
@@ -910,7 +1129,7 @@ let%expect_test "examples" =
                        (FunctionType ()
                         ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
                         ((Num (Int I32))))))))))))))
-             (Rec (VALTYPE (Prod ((Atom Ptr) (Atom I32))) NoCopy ExDrop)
+             (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
               (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
                (CodeRef
                 (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
@@ -971,11 +1190,12 @@ let%expect_test "examples" =
             (CodeRef
              (FunctionType ()
               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-              ((Num (Int I32))))))))))))
+              ((Num (Int I32))))))))))
+       (lfx ())))
      (state
       ((locals
         ((Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-         (Rec (VALTYPE (Prod ((Atom Ptr) (Atom I32))) NoCopy ExDrop)
+         (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
           (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
            (CodeRef
             (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
@@ -1000,7 +1220,7 @@ let%expect_test "examples" =
                (FunctionType ()
                 ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
                 ((Num (Int I32))))))))))
-         (Rec (VALTYPE (Prod ((Atom Ptr) (Atom I32))) NoCopy ExDrop)
+         (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
           (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
            (CodeRef
             (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
@@ -1014,7 +1234,7 @@ let%expect_test "examples" =
            (FunctionType ()
             ((Prod
               ((Ref (Base MM) (Ser (Var 0)))
-               (Rec (VALTYPE (Prod ((Atom Ptr) (Atom I32))) NoCopy ExDrop)
+               (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
                 (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
                  (CodeRef
                   (FunctionType ()
@@ -1029,17 +1249,20 @@ let%expect_test "examples" =
                (FunctionType ()
                 ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
                 ((Num (Int I32))))))))))
-         (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr))))
+         (Plug (Prod ((Atom I32) (Atom Ptr))))
+         (Plug (Prod ((Atom I32) (Prod ((Atom I32) (Atom Ptr))))))
+         (Plug (Prod ((Atom I32) (Atom Ptr))))
+         (Plug (Prod ((Atom I32) (Atom Ptr))))
+         (Plug (Prod ((Atom I32) (Atom Ptr))))
+         (Plug (Prod ((Atom I32) (Prod ((Atom I32) (Atom Ptr))))))
+         (Plug (Prod ((Atom I32) (Atom Ptr))))))
        (stack
         ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
           (CodeRef
            (FunctionType ()
             ((Prod
               ((Ref (Base MM) (Ser (Var 0)))
-               (Rec (VALTYPE (Prod ((Atom Ptr) (Atom I32))) NoCopy ExDrop)
+               (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) NoCopy ExDrop)
                 (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
                  (CodeRef
                   (FunctionType ()
@@ -1060,42 +1283,139 @@ let%expect_test "examples" =
     -----------boxed_list-----------
     FAILURE (InstrErr
      (error
-      (IncorrectLocalFx case::0 5
-       ((Plug
-         (Prod
-          ((Atom Ptr)
-           (Prod ((Atom I32) (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))))
-        (Ref (Base MM) (Ser (Prod ())))
-        (Plug
-         (Prod ((Atom I32) (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))
-        (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
-         (CodeRef
-          (FunctionType ()
-           ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-           ((Num (Int I32))))))
-        (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))) (Plug (Prod ()))
-        (Plug (Prod ((Atom I32) (Atom Ptr)))) (Plug (Atom I32)) (Plug (Atom Ptr))
-        (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-        (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-        (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))))
-       ((Plug
-         (Prod
-          ((Atom Ptr)
-           (Prod ((Atom I32) (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))))
-        (Ref (Base MM) (Ser (Prod ())))
-        (Plug
-         (Prod ((Atom I32) (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))
-        (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
-         (CodeRef
-          (FunctionType ()
-           ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-           ((Num (Int I32))))))
-        (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))
-        (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))
-        (Plug (Prod ((Atom I32) (Atom Ptr)))) (Plug (Atom I32)) (Plug (Atom Ptr))
-        (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-        (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-        (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))))))
+      (BlockErr
+       (error
+        (UngroupNonProd
+         (Sum
+          ((Prod ())
+           (Prod
+            ((Num (Int I32))
+             (Ref (Base MM)
+              (Ser
+               (Rec
+                (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+                 ExDrop)
+                (Sum
+                 ((Prod ())
+                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))))
+       (instr Ungroup)
+       (env
+        ((local_offset 1) (kinds ())
+         (labels
+          (((Sum
+             ((Prod ())
+              (Prod
+               ((Num (Int I32))
+                (Ref (Base MM)
+                 (Ser
+                  (Rec
+                   (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
+                    NoCopy ExDrop)
+                   (Sum
+                    ((Prod ())
+                     (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))))))))
+         (return
+          ((Rec
+            (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+             ExDrop)
+            (Sum
+             ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))
+         (functions
+          ((FunctionType ()
+            ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+            ((Num (Int I32))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Prod
+                ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                  (CodeRef
+                   (FunctionType ()
+                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    ((Num (Int I32))))))
+                 (Rec
+                  (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
+                   NoCopy ExDrop)
+                  (Sum
+                   ((Prod ())
+                    (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))))
+            ((Rec
+              (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+               ExDrop)
+              (Sum
+               ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))
+           (FunctionType () ()
+            ((Rec
+              (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+               ExDrop)
+              (Sum
+               ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))
+         (table
+          ((FunctionType ()
+            ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+            ((Num (Int I32))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Prod
+                ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                  (CodeRef
+                   (FunctionType ()
+                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    ((Num (Int I32))))))
+                 (Rec
+                  (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
+                   NoCopy ExDrop)
+                  (Sum
+                   ((Prod ())
+                    (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))))
+            ((Rec
+              (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+               ExDrop)
+              (Sum
+               ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))
+         (lfx (InferFx))))
+       (state
+        ((locals
+          ((Plug
+            (Prod
+             ((Atom Ptr)
+              (Prod
+               ((Atom I32) (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))))
+           (Ref (Base MM) (Ser (Prod ())))
+           (Plug
+            (Prod ((Atom I32) (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))
+           (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+            (CodeRef
+             (FunctionType ()
+              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+              ((Num (Int I32))))))
+           (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))
+           (Plug (Prod ()))
+           (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))
+           (Plug (Atom I32)) (Plug (Atom Ptr))
+           (Plug (Prod ((Atom I32) (Atom Ptr))))
+           (Plug (Prod ((Atom I32) (Prod ((Atom I32) (Atom Ptr))))))
+           (Plug (Prod ((Atom I32) (Atom Ptr))))
+           (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+           (Plug
+            (Prod
+             ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+           (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+           (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))
+         (stack
+          ((Sum
+            ((Prod ())
+             (Prod
+              ((Num (Int I32))
+               (Ref (Base MM)
+                (Ser
+                 (Rec
+                  (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
+                   NoCopy ExDrop)
+                  (Sum
+                   ((Prod ())
+                    (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))))))))
      (instr
       (Case
        (ArrowType 1
@@ -1111,7 +1431,7 @@ let%expect_test "examples" =
                 (Sum
                  ((Prod ())
                   (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))))
-       (LocalFx ())
+       InferFx
        (((LocalSet 5) (LocalGet 5 Follow)
          (Inject () 0
           ((Prod ())
@@ -1124,13 +1444,15 @@ let%expect_test "examples" =
                  ExDrop)
                 (Sum
                  ((Prod ())
-                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))))))
+                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))
+         (LocalGet 5 Move) Drop)
         ((LocalSet 6) (LocalGet 6 Follow) Ungroup (LocalSet 8) (LocalSet 7)
          (LocalGet 3 Follow)
-         (Unpack (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
+         (Unpack (ArrowType 1 ((Num (Int I32)))) InferFx
           ((LocalSet 9) (LocalGet 9 Follow) Ungroup (LocalSet 11) (LocalSet 10)
            (LocalGet 11 Follow) (LocalGet 10 Follow) (Group 2)
-           (LocalGet 10 Follow) CallIndirect))
+           (LocalGet 10 Follow) CallIndirect (LocalGet 10 Move) Drop
+           (LocalGet 11 Move) Drop (LocalGet 9 Move) Drop))
          (CodeRef 1) (Group 0) (New MM) (Group 2)
          (Pack (Type (Prod ()))
           (Prod
@@ -1164,11 +1486,12 @@ let%expect_test "examples" =
               ExDrop)
              (Sum
               ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))
-          (LocalFx ())
+          InferFx
           ((LocalSet 12) (LocalGet 12 Follow) Ungroup (LocalSet 14) (LocalSet 13)
            (LocalGet 14 Follow) (LocalGet 7 Follow) (LocalGet 14 Follow)
            (Load (Path ()) Move) (LocalSet 15) Drop (LocalGet 15 Move) (Group 2)
-           (Group 2) (LocalGet 13 Follow) CallIndirect))
+           (Group 2) (LocalGet 13 Follow) CallIndirect (LocalGet 13 Move) Drop
+           (LocalGet 14 Move) Drop (LocalGet 12 Move) Drop))
          (New MM) (Group 2)
          (Inject () 1
           ((Prod ())
@@ -1181,7 +1504,8 @@ let%expect_test "examples" =
                  ExDrop)
                 (Sum
                  ((Prod ())
-                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))))))
+                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))
+         (LocalGet 7 Move) Drop (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop))))
      (env
       ((local_offset 1) (kinds ()) (labels ())
        (return
@@ -1243,7 +1567,8 @@ let%expect_test "examples" =
             (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
              ExDrop)
             (Sum
-             ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))
+             ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))
+       (lfx ())))
      (state
       ((locals
         ((Plug
@@ -1260,10 +1585,13 @@ let%expect_test "examples" =
             ((Num (Int I32))))))
          (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))) (Plug (Prod ()))
          (Plug (Prod ((Atom I32) (Atom Ptr)))) (Plug (Atom I32))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr))
+         (Plug (Atom Ptr)) (Plug (Prod ((Atom I32) (Atom Ptr))))
+         (Plug (Prod ((Atom I32) (Prod ((Atom I32) (Atom Ptr))))))
+         (Plug (Prod ((Atom I32) (Atom Ptr))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+         (Plug
+          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
          (Plug (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))))))
        (stack
         ((Sum
@@ -1385,41 +1713,208 @@ let%expect_test "examples" =
     -----------peano-----------
     FAILURE (InstrErr
      (error
-      (IncorrectLocalFx case::0 4
-       ((Plug
-         (Prod
-          ((Atom Ptr)
-           (Prod ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))))
-        (Ref (Base MM) (Ser (Prod ())))
-        (Plug (Prod ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))
-        (Plug (Sum ((Prod ()) (Atom Ptr))))
-        (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-         (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-        (Plug (Prod ())) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-        (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-        (Plug (Sum ((Prod ()) (Atom Ptr)))))
-       ((Plug
-         (Prod
-          ((Atom Ptr)
-           (Prod ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))))
-        (Ref (Base MM) (Ser (Prod ())))
-        (Plug (Prod ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))
-        (Plug (Sum ((Prod ()) (Atom Ptr)))) (Plug (Sum ((Prod ()) (Atom Ptr))))
-        (Sum
-         ((Prod ())
-          (Ref (Base MM)
-           (Ser
-            (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-             (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))))
-        (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-        (Plug (Atom Ptr)) (Plug (Sum ((Prod ()) (Atom Ptr)))))))
+      (BlockErr
+       (error
+        (BlockErr (error (NonRef Load (Plug (Atom Ptr))))
+         (instr (Load (Path ()) Move))
+         (env
+          ((local_offset 1) (kinds ((VALTYPE (Prod ()) ImCopy ImDrop)))
+           (labels
+            (((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+               (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))
+             ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+               (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+           (return
+            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+           (functions
+            ((FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Prod ())))
+                 (Prod
+                  ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                    (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+                   (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                    (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
+              ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+             (FunctionType ()
+              ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+              ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+             (FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Prod ())))
+                 (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+              ((Num (Int I32))))
+             (FunctionType () () ((Num (Int I32))))))
+           (table
+            ((FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Prod ())))
+                 (Prod
+                  ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                    (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+                   (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                    (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
+              ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+             (FunctionType ()
+              ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+              ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+             (FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Prod ())))
+                 (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+              ((Num (Int I32))))))
+           (lfx (InferFx))))
+         (state
+          ((locals
+            ((Plug
+              (Prod
+               ((Atom Ptr)
+                (Prod
+                 ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))))
+             (Ref (Base MM) (Ser (Prod ())))
+             (Plug
+              (Prod ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))
+             (Plug (Sum ((Prod ()) (Atom Ptr))))
+             (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+             (Plug (Prod ()))
+             (Sum
+              ((Prod ())
+               (Ref (Base MM)
+                (Ser
+                 (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))))
+             (Plug (Prod ((Atom I32) (Atom Ptr))))
+             (CodeRef
+              (FunctionType ()
+               ((Prod
+                 ((Ref (Base MM) (Ser (Var 0)))
+                  (Prod
+                   ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                     (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+                    (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                     (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
+               ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                 (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+             (Plug (Atom Ptr)) (Plug (Sum ((Prod ()) (Atom Ptr))))))
+           (stack ((Plug (Atom Ptr)) (Ref (Base MM) (Ser (Var 0)))))))))
+       (instr
+        (Unpack
+         (ArrowType 1
+          ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+         InferFx
+         ((LocalSet 7) (LocalGet 7 Follow) Ungroup (LocalSet 9) (LocalSet 8)
+          (LocalGet 9 Follow) (LocalGet 9 Follow) (Load (Path ()) Move)
+          (LocalSet 10) Drop (LocalGet 10 Move) (LocalGet 8 Follow) (Group 2)
+          (Group 2) (LocalGet 8 Follow) CallIndirect (LocalGet 8 Move) Drop
+          (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop)))
+       (env
+        ((local_offset 1) (kinds ())
+         (labels
+          (((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+             (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+         (return
+          ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+         (functions
+          ((FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Prod
+                ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+                 (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
+            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+           (FunctionType ()
+            ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+            ((Num (Int I32))))
+           (FunctionType () () ((Num (Int I32))))))
+         (table
+          ((FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Prod
+                ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+                 (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
+            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+           (FunctionType ()
+            ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
+           (FunctionType ()
+            ((Prod
+              ((Ref (Base MM) (Ser (Prod ())))
+               (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+            ((Num (Int I32))))))
+         (lfx (InferFx))))
+       (state
+        ((locals
+          ((Plug
+            (Prod
+             ((Atom Ptr)
+              (Prod ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))))
+           (Ref (Base MM) (Ser (Prod ())))
+           (Plug
+            (Prod ((Sum ((Prod ()) (Atom Ptr))) (Sum ((Prod ()) (Atom Ptr))))))
+           (Plug (Sum ((Prod ()) (Atom Ptr))))
+           (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+           (Plug (Prod ()))
+           (Sum
+            ((Prod ())
+             (Ref (Base MM)
+              (Ser
+               (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))))
+           (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+           (Plug
+            (Prod
+             ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+           (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+           (Plug (Sum ((Prod ()) (Atom Ptr))))))
+         (stack
+          ((Exists (Type (VALTYPE (Prod ()) ImCopy ImDrop))
+            (Prod
+             ((CodeRef
+               (FunctionType ()
+                ((Prod
+                  ((Ref (Base MM) (Ser (Var 0)))
+                   (Prod
+                    ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                      (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
+                     (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                      (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
+                ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
+                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
+              (Ref (Base MM) (Ser (Var 0))))))))))))
      (instr
       (Case
        (ArrowType 1
         ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
           (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-       (LocalFx ())
-       (((LocalSet 5) (LocalGet 4 Follow))
+       InferFx
+       (((LocalSet 5) (LocalGet 4 Follow) (LocalGet 5 Move) Drop)
         ((LocalSet 6) (CodeRef 0) (Group 0) (New MM) (Group 2)
          (Pack (Type (Prod ()))
           (Prod
@@ -1439,11 +1934,12 @@ let%expect_test "examples" =
           (ArrowType 1
            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-          (LocalFx ())
+          InferFx
           ((LocalSet 7) (LocalGet 7 Follow) Ungroup (LocalSet 9) (LocalSet 8)
            (LocalGet 9 Follow) (LocalGet 9 Follow) (Load (Path ()) Move)
            (LocalSet 10) Drop (LocalGet 10 Move) (LocalGet 8 Follow) (Group 2)
-           (Group 2) (LocalGet 8 Follow) CallIndirect))
+           (Group 2) (LocalGet 8 Follow) CallIndirect (LocalGet 8 Move) Drop
+           (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop))
          (New MM)
          (Inject () 1
           ((Prod ())
@@ -1453,7 +1949,8 @@ let%expect_test "examples" =
               (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))))
          (Fold
           (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-           (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
+           (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))
+         (LocalGet 6 Move) Drop))))
      (env
       ((local_offset 1) (kinds ()) (labels ())
        (return
@@ -1501,7 +1998,8 @@ let%expect_test "examples" =
             ((Ref (Base MM) (Ser (Prod ())))
              (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
               (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
-          ((Num (Int I32))))))))
+          ((Num (Int I32))))))
+       (lfx ())))
      (state
       ((locals
         ((Plug
@@ -1514,8 +2012,11 @@ let%expect_test "examples" =
          (Plug (Sum ((Prod ()) (Atom Ptr))))
          (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
           (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-         (Plug (Prod ())) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
+         (Plug (Prod ())) (Plug (Atom Ptr))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
+         (Plug
+          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
+         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
          (Plug (Sum ((Prod ()) (Atom Ptr))))))
        (stack
         ((Sum
@@ -1525,78 +2026,4 @@ let%expect_test "examples" =
              (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
               (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))))))
     -----------mini_zip-----------
-    FAILURE (InstrErr
-     (error
-      (IncorrectLocalFx unpack 5
-       ((Plug (Prod ((Atom Ptr) (Prod ((Atom I32) (Atom I32))))))
-        (Ref (Base MM) (Ser (Prod ()))) (Prod ((Num (Int I32)) (Num (Int I32))))
-        (Num (Int I32)) (Num (Int I32)) (Plug (Atom Ptr))
-        (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-        (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr)))
-       ((Plug (Prod ((Atom Ptr) (Prod ((Atom I32) (Atom I32))))))
-        (Ref (Base MM) (Ser (Prod ()))) (Prod ((Num (Int I32)) (Num (Int I32))))
-        (Num (Int I32)) (Num (Int I32)) (Plug (Prod ((Atom I32) (Atom Ptr))))
-        (CodeRef
-         (FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-          ((Num (Int I32)))))
-        (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-        (Plug (Atom Ptr)))))
-     (instr
-      (Unpack (ArrowType 1 ((Num (Int I32)))) (LocalFx ())
-       ((LocalSet 5) (LocalGet 5 Follow) Ungroup (LocalSet 7) (LocalSet 6)
-        (LocalGet 7 Follow) (LocalGet 6 Follow) (Group 2) (LocalGet 6 Follow)
-        CallIndirect)))
-     (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return ((Prod ((Num (Int I32)) (Num (Int I32))))))
-       (functions
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Num (Int I32))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod ((Num (Int I32)) (Num (Int I32)))))))
-          ((Prod ((Num (Int I32)) (Num (Int I32))))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod
-              ((Ref (Base MM) (Ser (Num (Int I32))))
-               (Ref (Base MM) (Ser (Ref (Base MM) (Ser (Num (Int I32)))))))))))
-          ((Ref (Base MM)
-            (Ser (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Num (Int I32))))))))))))
-       (table
-        ((FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Num (Int I32))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod ((Num (Int I32)) (Num (Int I32)))))))
-          ((Prod ((Num (Int I32)) (Num (Int I32))))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod
-              ((Ref (Base MM) (Ser (Num (Int I32))))
-               (Ref (Base MM) (Ser (Ref (Base MM) (Ser (Num (Int I32)))))))))))
-          ((Ref (Base MM)
-            (Ser (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Num (Int I32))))))))))))))
-     (state
-      ((locals
-        ((Plug (Prod ((Atom Ptr) (Prod ((Atom I32) (Atom I32))))))
-         (Ref (Base MM) (Ser (Prod ()))) (Prod ((Num (Int I32)) (Num (Int I32))))
-         (Num (Int I32)) (Num (Int I32)) (Plug (Atom Ptr))
-         (Plug (Prod ((Atom Ptr) (Atom I32)))) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Prod ((Atom Ptr) (Atom I32))))
-         (Plug (Atom Ptr))))
-       (stack
-        ((Exists (Type (VALTYPE (Prod ()) ImCopy ImDrop))
-          (Prod
-           ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
-              ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0))))))))))) |}]
+    FAILURE EFail |}]

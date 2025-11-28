@@ -219,13 +219,18 @@ let%expect_test "examples" =
        (functions
         ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr))))
        (stack ((Ref (Base GC) (Ser (Prod (I31 I31)))))))))
     -----------sum_unit-----------
     FAILURE (InstrErr
-     (error (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+     (error
+      (Ctx
+       (error
+        (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+       (ctx
+        (InstrTOut ((Ref (Base GC) (Variant ((Ref (Base GC) (Ser (Prod ())))))))))))
      (instr (Inject (GC) 0 ((Ref (Base GC) (Ser (Prod ()))))))
      (env
       ((local_offset 1) (kinds ()) (labels ())
@@ -233,13 +238,19 @@ let%expect_test "examples" =
        (functions
         ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr))))
        (stack ((Ref (Base GC) (Ser (Prod ()))))))))
     -----------sum_option-----------
     FAILURE (InstrErr
-     (error (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+     (error
+      (Ctx
+       (error
+        (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+       (ctx
+        (InstrTOut
+         ((Ref (Base GC) (Variant ((Ref (Base GC) (Ser (Prod ()))) I31))))))))
      (instr (Inject (GC) 1 ((Ref (Base GC) (Ser (Prod ()))) I31)))
      (env
       ((local_offset 1) (kinds ()) (labels ())
@@ -247,7 +258,7 @@ let%expect_test "examples" =
        (functions
         ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr))))
        (stack (I31)))))
@@ -517,7 +528,7 @@ let%expect_test "examples" =
           (I31))
          (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC)
@@ -542,7 +553,7 @@ let%expect_test "examples" =
         ((FunctionType ()
           ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31)))))
           (I31))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) I31))))
@@ -562,7 +573,7 @@ let%expect_test "examples" =
         ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
           ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))
           ((Var 0)))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0)))))
@@ -584,7 +595,7 @@ let%expect_test "examples" =
           ((Var 0)))
          (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0)))))
@@ -593,7 +604,13 @@ let%expect_test "examples" =
         ((Ref (Base GC) (Ser (Prod ((Ref (Base GC) (Ser (Prod ()))) (Var 0))))))))))
     -----------opt_case-----------
     FAILURE (InstrErr
-     (error (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+     (error
+      (Ctx
+       (error
+        (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
+       (ctx
+        (InstrTOut
+         ((Ref (Base GC) (Variant ((Ref (Base GC) (Ser (Prod ()))) I31))))))))
      (instr (Inject (GC) 1 ((Ref (Base GC) (Ser (Prod ()))) I31)))
      (env
       ((local_offset 1) (kinds ()) (labels ())
@@ -601,7 +618,7 @@ let%expect_test "examples" =
        (functions
         ((FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC) (Ser (Prod ()))) (Plug (Atom Ptr)) (Plug (Atom Ptr))
@@ -639,7 +656,7 @@ let%expect_test "examples" =
           (I31))
          (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC)
@@ -696,7 +713,7 @@ let%expect_test "examples" =
                  (Prod
                   ((Ref (Base GC) (Ser (Var 0))) (Ref (Base GC) (Ser (Var 1))))))))))))
           ((Ref (Base GC) (Ser (Ref (Base GC) (Ser (Prod ((Var 0) (Var 1)))))))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC)
@@ -737,7 +754,7 @@ let%expect_test "examples" =
           (I31))
          (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC)
@@ -801,7 +818,7 @@ let%expect_test "examples" =
           (I31))
          (FunctionType () ((Ref (Base GC) (Ser (Prod ()))))
           ((Ref (Base GC) (Ser (Prod ())))))))
-       (table ())))
+       (table ()) (lfx ())))
      (state
       ((locals
         ((Ref (Base GC)

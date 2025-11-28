@@ -37,6 +37,16 @@ module Err = struct
     ]
   [@@deriving sexp]
 
+  type wrap_ctx =
+    [ `InstrTIn of A.Type.t list
+    | `InstrTOut of A.Type.t list
+    | `ElabTyp of A.Type.t
+    | `HandleBT of A.BlockType.t
+    | `HandleNewLocals of Env.t * A.Type.t list
+    | `ElabTypElabKinds of B.Type.typ list
+    ]
+  [@@deriving sexp]
+
   type t =
     | TODO of string
     | InternalErr of string
@@ -70,7 +80,7 @@ module Err = struct
     | IncorrectLocalFx of String.t * Int.t * A.Type.t List.t * A.Type.t List.t
     | LfxInvalidIndex of int * A.Type.t List.t
     | CannotInferLfx of
-        [ `Ite of A.Type.t List.t * A.Type.t List.t
+        [ `Ite of int * A.Type.t List.t * A.Type.t List.t
         | `Case of int * int * A.Type.t List.t * A.Type.t List.t
         ]
     | NonTrivialLfxInfer of [ `Unreachable | `Br | `Return ]
@@ -82,9 +92,13 @@ module Err = struct
       }
     | BlockErr of {
         error : t;
-        block : A.Instruction.t list;
+        instr : A.Instruction.t;
         env : Env.t;
         state : State.t;
+      }
+    | Ctx of {
+        error : t;
+        ctx : wrap_ctx;
       }
   [@@deriving sexp]
 
@@ -93,6 +107,10 @@ end
 
 module Res = ResultM (Err)
 open Res
+
+let wrap_result ctx = function
+  | Ok x -> Ok x
+  | Error error -> Error (Err.Ctx { error; ctx })
 
 let elab_copyability : A.Copyability.t -> B.Copyability.t = function
   | NoCopy -> NoCopy
@@ -341,6 +359,10 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
   in
   let id x = x in
 
+  let elab_kinds ts' =
+    mapM ~f:(kind_of_typ env) ts' |> wrap_result (`ElabTypElabKinds ts')
+  in
+
   let open B.Type in
   function
   | Var x -> ret @@ VarT (Z.of_int x)
@@ -350,19 +372,19 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       NumT (VALTYPE (AtomR (rep_of_nt nt), ImCopy, ImDrop), elab_num_type nt)
   | Sum ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_valtypes sumR in
+      let* k = elab_kinds ts' >>= meet_valtypes sumR in
       ret @@ SumT (k, ts')
   | Variant ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_memtypes sumS in
+      let* k = elab_kinds ts' >>= meet_memtypes sumS in
       ret @@ VariantT (k, ts')
   | Prod ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_valtypes prodR in
+      let* k = elab_kinds ts' >>= meet_valtypes prodR in
       ret @@ ProdT (k, ts')
   | Struct ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
-      let* k = mapM ~f:(kind_of_typ env) ts' >>= meet_memtypes prodS in
+      let* k = elab_kinds ts' >>= meet_memtypes prodS in
       ret @@ StructT (k, ts')
   | Ref (Base MM, t) ->
       let+ t' = elab_type env t in
@@ -500,6 +522,12 @@ module InstrM = struct
             ret @@ A.Type.Plug rep)
     in
     modify (fun st -> { st with locals = locals' })
+
+  let wrap_ctx (ctx : Err.wrap_ctx) (v : 'a t) : 'a t =
+   fun state -> wrap_result ctx (v state)
+
+  let wrap_lift (ctx : Err.wrap_ctx) (r : 'a Res.t) : 'a t =
+    lift_result r |> wrap_ctx ctx
 end
 
 (* The unannotated AST treats local effects as a diff between the current locals
@@ -522,7 +550,10 @@ let calculate_locals (locals : A.Type.t list) (fxs : (int * A.Type.t) list) :
 let handle_new_locals (env : Env.t) (locals : A.Type.t list) =
   let open InstrM in
   let* () = modify (fun st -> { st with locals }) in
-  let* locals' = Res.mapM ~f:(elab_type env.kinds) locals |> lift_result in
+  let* locals' =
+    Res.mapM ~f:(elab_type env.kinds) locals
+    |> wrap_lift (`HandleNewLocals (env, locals))
+  in
   ret locals'
 
 let handle_local_fx (env : Env.t) (lfx : (int * A.Type.t) list) :
@@ -563,8 +594,10 @@ let elab_path (Path ns : A.Path.t) : Z.t list = List.map ~f:Z.of_int ns
 
 let instr_t_of env t_in t_out : B.InstructionType.t InstrM.t =
   let open InstrM in
-  let* t_in' = lift_result @@ Res.mapM ~f:(elab_type env) t_in in
-  let* t_out' = lift_result @@ Res.mapM ~f:(elab_type env) t_out in
+  let* t_in' = Res.mapM ~f:(elab_type env) t_in |> wrap_lift (`InstrTIn t_in) in
+  let* t_out' =
+    Res.mapM ~f:(elab_type env) t_out |> wrap_lift (`InstrTOut t_out)
+  in
   ret @@ B.InstructionType.InstrT (t_in', t_out')
 
 let mono_in_out (kenv : A.Kind.t list) ctx t_in t_out :
@@ -771,7 +804,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
           >>| List.rev
           >>| fun x -> (x, res)
     in
-    let+ () = iterM result ~f:push in
+    let+ () = iterM result ~f:push |> wrap_ctx (`HandleBT bt) in
     let env' =
       {
         env with
@@ -788,6 +821,16 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   let ( >>=^ ) m f = m >>= fun x -> f x |> lift_result in
   let ( >>^| ) r f = r |> Result.map ~f |> lift_result in
   let mapM_st ~f x st = mapM ~f x st |> lift_result in
+  let elab_block env instrs st =
+    mapM_st instrs
+      ~f:(fun instr ->
+        fun state ->
+         let res = elab_instruction env instr state in
+         match res with
+         | Ok x -> Ok x
+         | Error error -> Error (BlockErr { error; instr; env; state }))
+      st
+  in
   let have_to_infer_lfx =
     Option.value_map ~default:false ~f:A.LocalFx.is_inferfx env.lfx
   in
@@ -817,7 +860,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       ret @@ INumConst (it, Z.of_int i)
   | Block (bt, lfx, instrs) ->
       let* consume, result, env', st_inner = handle_bt ~lfx bt in
-      let* instrs', st' = mapM_st ~f:(elab_instruction env') instrs st_inner in
+      let* instrs', st' = elab_block env' instrs st_inner in
       let* lfx' =
         match lfx with
         | LocalFx lfx ->
@@ -829,13 +872,13 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       ret @@ IBlock (it, lfx', instrs')
   | Loop (bt, instrs) ->
       let* consume, result, env', st_inner = handle_bt bt in
-      let* instrs', _ = mapM_st ~f:(elab_instruction env') instrs st_inner in
+      let* instrs', _ = elab_block env' instrs st_inner in
       let* it = instr_t_of env.kinds consume result in
       ret @@ ILoop (it, instrs')
   | Ite (bt, lfx, thn, els) ->
       let* consume, result, env', st_inner = handle_bt ~lfx bt in
-      let* thn', thn_st = mapM_st ~f:(elab_instruction env') thn st_inner in
-      let* els', els_st = mapM_st ~f:(elab_instruction env') els st_inner in
+      let* thn', thn_st = elab_block env' thn st_inner in
+      let* els', els_st = elab_block env' els st_inner in
       let* lfx' =
         match lfx with
         | LocalFx lfx ->
@@ -845,7 +888,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
         | InferFx ->
             let* () =
               compare_lfx
-                (fun i a b -> CannotInferLfx (`Ite (a, b)))
+                (fun i a b -> CannotInferLfx (`Ite (i, a, b)))
                 thn_st.locals els_st.locals
             in
             handle_new_locals env thn_st.locals
@@ -870,9 +913,9 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* t =
         List.nth st.locals i |> lift_option (InvalidLocalIdx (i, `Get))
         (* NOTE: we don't *have* to error here but it makes debugging much easier *)
-        (* >>= function *)
-        (* | Plug rep -> fail (UnexpectedPlugLocal (i, rep)) *)
-        (* | x -> ret x *)
+        (* >>= function
+        | Plug rep -> fail (UnexpectedPlugLocal (i, rep))
+        | x -> ret x *)
       in
       let* t' = lift_result @@ elab_type env.kinds t in
       let* im_copyable =
@@ -940,9 +983,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* consume, result, env', st_inner = handle_bt ~lfx bt in
       let* cases', st's =
         foldM cases ~init:[] ~f:(fun acc case ->
-            let+ case', st' =
-              mapM_st ~f:(elab_instruction env') case st_inner
-            in
+            let+ case', st' = elab_block env' case st_inner in
             (case', st') :: acc)
         >>| List.rev
         >>| List.unzip
@@ -1069,7 +1110,7 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
         | Some k -> { env' with kinds = k :: env'.kinds }
         | None -> env'
       in
-      let* instrs', st' = mapM_st ~f:(elab_instruction env'') instrs st_inner in
+      let* instrs', st' = elab_block env'' instrs st_inner in
 
       (* unshift stack *)
       let* () = modify (fun new_st -> { new_st with stack = st.stack }) in

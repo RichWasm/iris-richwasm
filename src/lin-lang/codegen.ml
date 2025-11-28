@@ -51,6 +51,7 @@ module Err = struct
     | CannotFindRep of Cc.IR.Type.t
     | CannotResolveRepOfRecTypeWithoutIndirection of Cc.IR.Type.t
     | InvalidPackAnn of RichWasm.Type.t
+    | UnpackNonExistential of Cc.IR.Type.t
     | Ctx of t * Cc.IR.Type.t * [ `Let | `Split | `Cases | `Free ]
   [@@deriving sexp]
 
@@ -128,7 +129,7 @@ module Compile = struct
     (* NOTE: a coderef doesn't have ptr rep *)
     | Lollipop (Prod [ closure; _ ], _) ->
         let* closure' = rep_of_typ env closure in
-        ret @@ Prod [ closure'; Atom I32 ]
+        ret @@ Prod [ Atom I32; closure' ]
     | Prod ts ->
         let* rs = mapM ~f:(rep_of_typ env) ts in
         ret @@ Prod rs
@@ -209,7 +210,8 @@ module Compile = struct
         let* fresh_idx = new_local rep in
         let env' = Env.add_local env fresh_idx in
         let* body' = compile_expr env' body in
-        ret @@ rhs' @ [ LocalSet fresh_idx ] @ body'
+        let cleanup = [ LocalGet (fresh_idx, Move); Drop ] in
+        ret @@ rhs' @ [ LocalSet fresh_idx ] @ body' @ cleanup
     | Split (ts, rhs, body, _) ->
         let* rhs' = compile_expr env rhs in
         let* reps =
@@ -223,11 +225,16 @@ module Compile = struct
         let* fresh_idxs = mapM ~f:new_local reps in
         let env' = Env.add_locals env fresh_idxs in
         let* body' = compile_expr env' body in
+        let cleanup =
+          List.map fresh_idxs ~f:(fun idx -> [ LocalGet (idx, Move); Drop ])
+          |> List.concat
+        in
         ret
         @@ rhs'
         @ [ Ungroup ]
         @ List.map ~f:(fun idx -> LocalSet idx) (fresh_idxs |> List.rev)
         @ body'
+        @ cleanup
     | Cases (scrutinee, cases, t) ->
         let* scrutinee' = compile_expr env scrutinee in
         let* cases' =
@@ -253,14 +260,19 @@ module Compile = struct
         ret @@ expr' @ [ Unfold ]
     | Unpack (rhs, body, t) ->
         let* rhs' = compile_expr env rhs in
-        (* HACK: we will only ever have boxed existentials *)
-        let rep = B.Representation.Atom Ptr in
+        let* rep =
+          let pkg_type = A.Expr.type_of rhs in
+          match pkg_type with
+          | Exists t_inner ->
+              let env' = Env.add_type env (Atom Ptr) in
+              rep_of_typ env' t_inner |> lift_result
+          | t -> fail (UnpackNonExistential t)
+        in
         let* fresh_idx = new_local rep in
         let env' = Env.add_local env fresh_idx in
         let env' = Env.add_type env' rep in
         let* body' = compile_expr env' body in
         let* bt = compile_type env t |> lift_result in
-        (* FIXME: local fx *)
         ret @@ rhs'
         @ [
             Unpack
