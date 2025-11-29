@@ -71,6 +71,11 @@
             janeStreet.sexplib
             janeStreet.parsexp
           ];
+
+          richwasm-test-deps = with pkgs; [
+            wabt
+            nodejs_24
+          ];
         in
         rec {
           default = iris-richwasm;
@@ -132,6 +137,8 @@
               ++ iris-wasm-deps
               ++ iris-richwasm-deps
               ++ richwasm-ocaml-deps;
+
+              passthru.testDeps = richwasm-test-deps;
             }).overrideAttrs
               (old: {
                 pname = project + "-build";
@@ -167,9 +174,7 @@
           pname = project + "-check";
           name = project + "-check";
 
-          buildInputs = old.buildInputs ++ [
-            pkgs.wabt
-          ];
+          buildInputs = old.buildInputs ++ old.passthru.testDeps;
 
           doCheck = true;
 
