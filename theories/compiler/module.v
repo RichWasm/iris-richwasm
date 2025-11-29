@@ -192,9 +192,10 @@ Definition compile_table
   let es2 := flatten (imap table_set tab) in
   add_func (W.Build_module_func tid [] (es1 ++ es2)).
 
-Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (i : nat) : modgen unit :=
-  let ed := W.MED_func (W.Mk_funcidx (funcimm fid_user + i)) in
-  add_export (W.Build_module_export [] ed).
+Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (export : module_export) : modgen unit :=
+  let ed := W.MED_func (W.Mk_funcidx (funcimm fid_user + (me_desc export))) in
+  let name := list_byte_of_string (me_name export) in
+  add_export (W.Build_module_export name ed).
 
 Definition compile_module (m : module) : modgen unit :=
   (* Runtime Imports *)

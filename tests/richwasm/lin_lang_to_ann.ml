@@ -41,7 +41,9 @@ let%expect_test "basic functionality" =
           mf_body := [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1)];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |} |xxx}];
   next ();
   [%expect
@@ -50,7 +52,7 @@ let%expect_test "basic functionality" =
      (m_functions
       (((mf_type (MonoFunT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))))
         (mf_locals ()) (mf_body ((INumConst (InstrT () ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))) 1))))))
-     (m_table ()) (m_exports (0))) |}];
+     (m_table ()) (m_exports (((me_name _start) (me_desc 0))))) |}];
 
   run {| (1, 2, 3, 4) |};
   [%expect
@@ -85,7 +87,9 @@ let%expect_test "basic functionality" =
                       (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |} |xxx}];
   next ();
   [%expect
@@ -116,7 +120,7 @@ let%expect_test "basic functionality" =
                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))
                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))))))))
-     (m_table ()) (m_exports (0))) |}];
+     (m_table ()) (m_exports (((me_name _start) (me_desc 0))))) |}];
 
   run {| (tup (tup 1 (tup 2 3) 4 5) (tup 6 7)) |};
   [%expect
@@ -219,7 +223,9 @@ let%expect_test "basic functionality" =
                           (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])])]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |} |xxx}];
 
   run {| (new 10) |};
@@ -242,7 +248,9 @@ let%expect_test "basic functionality" =
                     (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |} |xxx}];
 
   run {| (1 + 2) |};
@@ -265,7 +273,9 @@ let%expect_test "basic functionality" =
                 (IInt2 I32T AddI))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |} |xxx}];
   next ();
   [%expect
@@ -283,7 +293,7 @@ let%expect_test "basic functionality" =
              (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T)))
             ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
            (IInt2 I32T AddI)))))))
-     (m_table ()) (m_exports (0))) |}];
+     (m_table ()) (m_exports (((me_name _start) (me_desc 0))))) |}];
 
   (* run {| (fun foo ()) |}; *)
   (* [%expect {| *)
@@ -304,7 +314,9 @@ let%expect_test "examples" =
           mf_body := [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1)];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------flat_tuple-----------
     {|
@@ -337,7 +349,9 @@ let%expect_test "examples" =
                       (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------nested_tuple-----------
     {|
@@ -393,7 +407,9 @@ let%expect_test "examples" =
                           (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])])]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------single_sum-----------
     {|
@@ -411,7 +427,9 @@ let%expect_test "examples" =
                 0)];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------double_sum-----------
     {|
@@ -432,7 +450,9 @@ let%expect_test "examples" =
                 1)];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------arith_add-----------
     {|
@@ -452,7 +472,9 @@ let%expect_test "examples" =
                 (IInt2 I32T AddI))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------arith_sub-----------
     {|
@@ -472,7 +494,9 @@ let%expect_test "examples" =
                 (IInt2 I32T SubI))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------arith_mul-----------
     {|
@@ -492,7 +516,9 @@ let%expect_test "examples" =
                 (IInt2 I32T MulI))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------arith_div-----------
     {|
@@ -512,7 +538,9 @@ let%expect_test "examples" =
                 (IInt2 I32T (DivI SignS)))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------app_ident-----------
     {|
@@ -794,7 +822,9 @@ let%expect_test "examples" =
                         []))])];
           |}];
       m_table := [ 0];
-      m_exports := [ 1];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 1;
+                   |}];
     |}
     -----------nested_arith-----------
     {|
@@ -821,7 +851,9 @@ let%expect_test "examples" =
                 (IInt2 I32T MulI))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------let_bind-----------
     {|
@@ -838,7 +870,9 @@ let%expect_test "examples" =
               (IDrop (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------add_one_program-----------
     {|
@@ -1110,7 +1144,11 @@ let%expect_test "examples" =
                         []))])];
           |}];
       m_table := [ 0];
-      m_exports := [ 0; 1];
+      m_exports := [ {|
+                     me_name := "add-one"; me_desc := 0;
+                   |}; {|
+                         me_name := "_start"; me_desc := 1;
+                       |}];
     |}
     -----------add_tup_ref-----------
     {|
@@ -1199,7 +1237,9 @@ let%expect_test "examples" =
               (IDrop (InstrT [ (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))] []))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------print_10-----------
     FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
@@ -1551,7 +1591,9 @@ let%expect_test "examples" =
                 (IDrop (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []))];
           |}];
       m_table := [ 0];
-      m_exports := [ 1];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 1;
+                   |}];
     |}
     -----------factorial_program-----------
     FAILURE (InstrErr
@@ -2868,7 +2910,9 @@ let%expect_test "examples" =
                           (SerT (MEMTYPE (RepS (SumR [ (ProdR []); (AtomR PtrR)])) ExDrop) (VarT 0)))]))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------peano-----------
     FAILURE (InstrErr
@@ -4033,5 +4077,7 @@ let%expect_test "examples" =
                     []))];
           |}];
       m_table := [ 0; 1; 2];
-      m_exports := [ 1];
+      m_exports := [ {|
+                     me_name := "typle_add1"; me_desc := 1;
+                   |}];
     |} |xxx}]

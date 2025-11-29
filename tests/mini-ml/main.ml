@@ -33,7 +33,7 @@ let%expect_test "test_one" =
       i32.const 1
       tag)
     (table)
-    (export 0))|}]
+    (export "_start" (func 0)))|}]
 
 let identity =
   Module.Module
@@ -82,7 +82,7 @@ let%expect_test "id_fun" =
       local.get 1 move
       drop)
     (table)
-    (export 0))|}]
+    (export "id" (func 0)))|}]
 
 let return_one =
   Module.Module
@@ -168,7 +168,8 @@ let%expect_test "return_one" =
         drop
       end)
     (table)
-    (export 0 1))|}]
+    (export "one" (func 0))
+    (export "_start" (func 1)))|}]
 
 let apply_id =
   Module.Module
@@ -266,7 +267,8 @@ let%expect_test "apply_id" =
         drop
       end)
     (table)
-    (export 0 1)) |}]
+    (export "id" (func 0))
+    (export "_start" (func 1))) |}]
 
 let tuple_and_project =
   Module.Module
@@ -288,7 +290,7 @@ let%expect_test "tuple_and_project" =
       new gc
       load (Path [1]) follow)
     (table)
-    (export 0)) |}]
+    (export "_start" (func 0))) |}]
 
 let opt_case =
   let option_type = PreType.Sum [ PreType.Prod []; PreType.Int ] in
@@ -339,4 +341,4 @@ let%expect_test "opt_case" =
       local.get 1 move
       drop)
     (table)
-    (export 0)) |}]
+    (export "_start" (func 0))) |}]

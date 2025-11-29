@@ -37,7 +37,7 @@ let%expect_test "basic functionality" =
       (func (-> i32)
         i32.const 1)
       (table)
-      (export 0)) |}];
+      (export "_start" (func 0))) |}];
   next ();
   [%expect
     {|
@@ -45,7 +45,7 @@ let%expect_test "basic functionality" =
      (functions
       (((typ (FunctionType () () ((Num (Int I32))))) (locals ())
         (body ((NumConst (Int I32) 1))))))
-     (table ()) (exports (0))) |}];
+     (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
 
   run {| (1, 2, 3, 4) |};
   [%expect
@@ -58,7 +58,7 @@ let%expect_test "basic functionality" =
         i32.const 4
         group 4)
       (table)
-      (export 0)) |}];
+      (export "_start" (func 0))) |}];
   next ();
   [%expect
     {|
@@ -71,7 +71,7 @@ let%expect_test "basic functionality" =
         (body
          ((NumConst (Int I32) 1) (NumConst (Int I32) 2) (NumConst (Int I32) 3)
           (NumConst (Int I32) 4) (Group 4))))))
-     (table ()) (exports (0))) |}];
+     (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
 
   run {| (tup (tup 1 (tup 2 3) 4 5) (tup 6 7)) |};
   [%expect
@@ -90,7 +90,7 @@ let%expect_test "basic functionality" =
         group 2
         group 2)
       (table)
-      (export 0)) |}];
+      (export "_start" (func 0))) |}];
 
   run {| (new 10) |};
   [%expect
@@ -100,7 +100,7 @@ let%expect_test "basic functionality" =
         i32.const 10
         new mm)
       (table)
-      (export 0)) |}];
+      (export "_start" (func 0))) |}];
 
   run {| (1 + 2) |};
   [%expect
@@ -111,7 +111,7 @@ let%expect_test "basic functionality" =
         i32.const 2
         i32.add)
       (table)
-      (export 0)) |}];
+      (export "_start" (func 0))) |}];
   next ();
   [%expect
     {|
@@ -119,7 +119,7 @@ let%expect_test "basic functionality" =
      (functions
       (((typ (FunctionType () () ((Num (Int I32))))) (locals ())
         (body ((NumConst (Int I32) 1) (NumConst (Int I32) 2) (Num (Int2 I32 Add)))))))
-     (table ()) (exports (0))) |}];
+     (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
 
   ()
 
@@ -132,7 +132,7 @@ let%expect_test "examples" =
       (func (-> i32)
         i32.const 1)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------flat_tuple-----------
     (module
       (func (-> (prod i32 i32 i32 i32))
@@ -142,7 +142,7 @@ let%expect_test "examples" =
         i32.const 4
         group 4)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------nested_tuple-----------
     (module
       (func (-> (prod (prod i32 i32) (prod i32 i32)))
@@ -154,21 +154,21 @@ let%expect_test "examples" =
         group 2
         group 2)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------single_sum-----------
     (module
       (func (-> (sum (prod)))
         group 0
         inject 0 (prod))
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------double_sum-----------
     (module
       (func (-> (sum (prod) i32))
         i32.const 15
         inject 1 (prod) i32)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------arith_add-----------
     (module
       (func (-> i32)
@@ -176,7 +176,7 @@ let%expect_test "examples" =
         i32.const 10
         i32.add)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------arith_sub-----------
     (module
       (func (-> i32)
@@ -184,7 +184,7 @@ let%expect_test "examples" =
         i32.const 41
         i32.sub)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------arith_mul-----------
     (module
       (func (-> i32)
@@ -192,7 +192,7 @@ let%expect_test "examples" =
         i32.const 10
         i32.mul)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------arith_div-----------
     (module
       (func (-> i32)
@@ -200,7 +200,7 @@ let%expect_test "examples" =
         i32.const 10
         i32.div_s)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------app_ident-----------
     (module
       (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
@@ -252,7 +252,7 @@ let%expect_test "examples" =
           drop
         end)
       (table 0)
-      (export 1))
+      (export "_start" (func 1)))
     -----------nested_arith-----------
     (module
       (func (-> i32)
@@ -262,7 +262,7 @@ let%expect_test "examples" =
         i32.const 5
         i32.mul)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------let_bind-----------
     (module
       (func (-> i32) (local i32)
@@ -272,7 +272,7 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------add_one_program-----------
     (module
       (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32)
@@ -315,7 +315,8 @@ let%expect_test "examples" =
           drop
         end)
       (table 0)
-      (export 0 1))
+      (export "add-one" (func 0))
+      (export "_start" (func 1)))
     -----------add_tup_ref-----------
     (module
       (func (-> i32) (local ptr i32 ptr i32 i32)
@@ -346,7 +347,7 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------print_10-----------
     (module
       (import ((prod (ref (base mm) (ser (prod))) i32) -> (prod))
@@ -378,7 +379,7 @@ let%expect_test "examples" =
           drop
         end)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------closure-----------
     (module
       (func ((prod (ref (base mm) (ser (prod i32))) (prod)) -> i32) (local ptr
@@ -438,7 +439,7 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (table 0)
-      (export 1))
+      (export "_start" (func 1)))
     -----------factorial_program-----------
     (module
       (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32 i32
@@ -524,7 +525,8 @@ let%expect_test "examples" =
           drop
         end)
       (table 0)
-      (export 0 1))
+      (export "factorial" (func 0))
+      (export "_start" (func 1)))
     -----------safe_div-----------
     (module
       (func
@@ -650,7 +652,7 @@ let%expect_test "examples" =
         local.get 3 move
         drop)
       (table 0 1)
-      (export 2))
+      (export "_start" (func 2)))
     -----------incr_n-----------
     (module
       (func
@@ -833,7 +835,8 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (table 0 1)
-      (export 1 2))
+      (export "incr_n" (func 1))
+      (export "_start" (func 2)))
     -----------fix_factorial[invalid]-----------
     (module
       (func
@@ -1228,7 +1231,7 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (table 0 1 2 3)
-      (export 4))
+      (export "_start" (func 4)))
     -----------unboxed_list[invalid]-----------
     FAILURE (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177"))))
     -----------boxed_list-----------
@@ -1485,7 +1488,7 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (table 0 1)
-      (export 2))
+      (export "_start" (func 2)))
     -----------peano_3-----------
     (module
       (func
@@ -1529,7 +1532,7 @@ let%expect_test "examples" =
           (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
             (sum (prod) (ref (base mm) (ser (var 0))))))
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------peano-----------
     (module
       (func
@@ -1929,7 +1932,7 @@ let%expect_test "examples" =
         local.get 3 move
         drop)
       (table 0 1 2)
-      (export 3))
+      (export "_start" (func 3)))
     -----------mini_zip-----------
     (module
       (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32)
@@ -2051,4 +2054,4 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (table 0 1 2)
-      (export 1)) |}]
+      (export "typle_add1" (func 1))) |}]

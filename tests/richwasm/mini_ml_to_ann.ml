@@ -51,7 +51,9 @@ let%expect_test "examples" =
                   [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------tuple-----------
     {|
@@ -109,7 +111,9 @@ let%expect_test "examples" =
                           (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))])))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------tuple_nested-----------
     {|
@@ -207,7 +211,9 @@ let%expect_test "examples" =
                                 [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop)); (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))])))])))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------tuple_project-----------
     FAILURE (InstrErr
@@ -300,7 +306,9 @@ let%expect_test "examples" =
                   [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------sub-----------
     {|
@@ -340,7 +348,9 @@ let%expect_test "examples" =
                   [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------mul-----------
     {|
@@ -380,7 +390,9 @@ let%expect_test "examples" =
                   [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------div-----------
     {|
@@ -420,7 +432,9 @@ let%expect_test "examples" =
                   [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------math-----------
     {|
@@ -479,7 +493,9 @@ let%expect_test "examples" =
                   [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------basic_let-----------
     {|
@@ -508,7 +524,9 @@ let%expect_test "examples" =
               (IDrop (InstrT [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))] []))];
         |}];
       m_table := [];
-      m_exports := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
     |}
     -----------return_one-----------
     FAILURE (InstrErr

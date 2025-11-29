@@ -29,7 +29,7 @@ let%expect_test "examples" =
         i32.const 1
         tag)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------tuple-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -45,7 +45,7 @@ let%expect_test "examples" =
         group 4
         new gc)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------tuple_nested-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -65,7 +65,7 @@ let%expect_test "examples" =
         group 2
         new gc)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------tuple_project-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -78,7 +78,7 @@ let%expect_test "examples" =
         new gc
         load (Path [1]) follow)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------sum_unit-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -87,7 +87,7 @@ let%expect_test "examples" =
         new gc
         inject gc 0 (ref (base gc) (ser (prod))))
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------sum_option-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -96,7 +96,7 @@ let%expect_test "examples" =
         tag
         inject gc 1 (ref (base gc) (ser (prod))) i31)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------add-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -110,7 +110,7 @@ let%expect_test "examples" =
         i32.add
         tag)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------sub-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -124,7 +124,7 @@ let%expect_test "examples" =
         i32.sub
         tag)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------mul-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -138,7 +138,7 @@ let%expect_test "examples" =
         i32.mul
         tag)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------div-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -152,7 +152,7 @@ let%expect_test "examples" =
         i32.div_s
         tag)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------math-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -172,7 +172,7 @@ let%expect_test "examples" =
         i32.div_s
         tag)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------basic_let-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -186,7 +186,7 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------return_one-----------
     (module
       (func
@@ -226,7 +226,7 @@ let%expect_test "examples" =
                   -> i31)))))
         new gc)
       (table)
-      (export 1))
+      (export "_start" (func 1)))
     -----------add_one-----------
     (module
       (func ((ref (base gc) (ser (prod (ref (base gc) (ser (prod))) i31))) -> i31)
@@ -248,7 +248,7 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (table)
-      (export 0))
+      (export "add1" (func 0)))
     -----------id-----------
     (module
       (func
@@ -270,7 +270,7 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (table)
-      (export 0))
+      (export "id" (func 0)))
     -----------apply_id-----------
     (module
       (func
@@ -341,7 +341,8 @@ let%expect_test "examples" =
           drop
         end)
       (table)
-      (export 0 1))
+      (export "id" (func 0))
+      (export "_start" (func 1)))
     -----------opt_case-----------
     (module
       (func ((ref (base gc) (ser (prod))) -> (ref (base gc) (ser (prod)))) (local
@@ -371,7 +372,7 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (table)
-      (export 0))
+      (export "_start" (func 0)))
     -----------poly_len-----------
     (module
       (func
@@ -601,7 +602,8 @@ let%expect_test "examples" =
           drop
         end)
       (table)
-      (export 0 1))
+      (export "len" (func 0))
+      (export "_start" (func 1)))
     -----------mini_zip-----------
     (module
       (func
@@ -649,7 +651,7 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (table)
-      (export 0))
+      (export "mini_zip" (func 0)))
     -----------closure_simpl-----------
     (module
       (func
@@ -738,7 +740,7 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (table)
-      (export 1))
+      (export "_start" (func 1)))
     -----------closure_complex-----------
     (module
       (func
@@ -946,4 +948,4 @@ let%expect_test "examples" =
         local.get 1 move
         drop)
       (table)
-      (export 2)) |}]
+      (export "_start" (func 2))) |}]

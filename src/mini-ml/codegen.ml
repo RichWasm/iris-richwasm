@@ -337,7 +337,7 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
   let exports =
     List.filter_mapi
       ~f:(fun i -> function
-        | Export _ -> Some i
+        | Export ((name, _), _) -> Some Module.Export.{ name; desc = Func i }
         | Private _ -> None)
       fns
   in

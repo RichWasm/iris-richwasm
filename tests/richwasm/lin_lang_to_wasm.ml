@@ -66,11 +66,11 @@ let%expect_test "simple programs" =
           i32.add
           global.set 0)
         (global (;1;) (mut i32) (i32.const 0))
-        (export "" (func 7))
+        (export "_start" (func 7))
         (start 8)) |}];
   next ();
   [%expect
-    {| (module (import "richwasm" "mmmem"(memory 0))(import "richwasm" "gcmem"(memory 0))(import "richwasm" "tablenext"(global (mut i32)))(import "richwasm" "tableset"(func (type 0)))(import "richwasm" "mmalloc"(func (type 1)))(import "richwasm" "gcalloc"(func (type 1)))(import "richwasm" "setflag"(func (type 2)))(import "richwasm" "free"(func (type 3)))(import "richwasm" "registerroot"(func (type 1)))(import "richwasm" "unregisterroot"(func (type 3)))(import "richwasm" "table"(table 0 funcref))(func (type 4) (local ) i32.const 1)(func (type 5) (local ) global.get 0 global.set 1 global.get 1 i32.const 0 i32.add global.set 0)(global (mut i32) i32.const 0)(start 8)(export "" (func 7))(type (func (param i32 i32) (result )))(type (func (param i32) (result i32)))(type (func (param i32 i32 i32) (result )))(type (func (param i32) (result )))(type (func (param ) (result i32)))(type (func (param ) (result )))) |}]
+    {| (module (import "richwasm" "mmmem"(memory 0))(import "richwasm" "gcmem"(memory 0))(import "richwasm" "tablenext"(global (mut i32)))(import "richwasm" "tableset"(func (type 0)))(import "richwasm" "mmalloc"(func (type 1)))(import "richwasm" "gcalloc"(func (type 1)))(import "richwasm" "setflag"(func (type 2)))(import "richwasm" "free"(func (type 3)))(import "richwasm" "registerroot"(func (type 1)))(import "richwasm" "unregisterroot"(func (type 3)))(import "richwasm" "table"(table 0 funcref))(func (type 4) (local ) i32.const 1)(func (type 5) (local ) global.get 0 global.set 1 global.get 1 i32.const 0 i32.add global.set 0)(global (mut i32) i32.const 0)(start 8)(export "_start" (func 7))(type (func (param i32 i32) (result )))(type (func (param i32) (result i32)))(type (func (param i32 i32 i32) (result )))(type (func (param i32) (result )))(type (func (param ) (result i32)))(type (func (param ) (result )))) |}]
 
 let%expect_test "examples" =
   output_examples ();
@@ -105,7 +105,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------flat_tuple-----------
@@ -141,7 +141,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------nested_tuple-----------
@@ -179,7 +179,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------single_sum-----------
@@ -212,7 +212,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------double_sum-----------
@@ -248,7 +248,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------arith_add-----------
@@ -282,7 +282,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------arith_sub-----------
@@ -316,7 +316,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------arith_mul-----------
@@ -350,7 +350,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------arith_div-----------
@@ -384,7 +384,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------app_ident-----------
@@ -422,7 +422,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------let_bind-----------
@@ -459,7 +459,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------add_one_program-----------
@@ -1707,7 +1707,7 @@ let%expect_test "examples" =
         i32.add
         global.set 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "" (func 7))
+      (export "_start" (func 7))
       (start 8))
 
     -----------peano-----------

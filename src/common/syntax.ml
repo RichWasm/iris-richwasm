@@ -937,11 +937,33 @@ module Module = struct
       fprintf ff ")@]"
   end
 
+  module Export = struct
+    module Desc = struct
+      type t = Func of int [@@deriving eq, ord, variants, sexp]
+
+      let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+      let pp ff : t -> unit = function
+        | Func funcidx -> fprintf ff "(@[func %a@])" Base.Int.pp funcidx
+    end
+
+    type t = {
+      name : string;
+      desc : Desc.t;
+    }
+    [@@deriving eq, ord, make, sexp]
+
+    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+    let pp ff ({ name; desc } : t) : unit =
+      fprintf ff "(@[export %a@ %a@])" String.pp name Desc.pp desc
+  end
+
   type t = {
     imports : FunctionType.t list;
     functions : Function.t list;
     table : int list;
-    exports : int list;
+    exports : Export.t list;
   }
   [@@deriving eq, ord, make, sexp]
 
@@ -966,8 +988,6 @@ module Module = struct
     fprintf ff "@;@[(table@[<hv 2>";
     print_sep ~f:(Base.Int.pp ff) ~sep:space_hint table;
     fprintf ff "@])@]";
-    fprintf ff "@;@[(export@[<hv 2>";
-    print_sep ~f:(Base.Int.pp ff) ~sep:space_hint exports;
-    fprintf ff "@])@]";
+    print_sep ~f:(Export.pp ff) ~sep:break_hint exports;
     fprintf ff "@])@]"
 end

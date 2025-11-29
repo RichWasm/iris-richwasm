@@ -24,13 +24,13 @@ Section Relations.
        (* TODO: Assert that indices in the module point to the global runtime funcaddrs. *)
        ([∗ list] i ↦ ϕ ∈ ω.(mt_imports),
           ∃ bs j cl,
-            N.of_nat i ↪[vis] Build_module_export bs (MED_func j) ∗
+            N.of_nat i ↪[vis] datatypes.Build_module_export bs (MED_func j) ∗
               N.of_nat (funcimm j) ↦[wf] cl ∗
               closure_interp rti sr senv_empty ϕ cl ∗
               ⌜imports !! (funcimm mr.(mr_func_user) + i)%nat = Some (N.of_nat (funcimm j))⌝) -∗
        ([∗ list] i ↦ '_ ∈ ω.(mt_exports),
           ∃ bs j,
-            N.of_nat i ↪[vis] Build_module_export bs (MED_func j) ∗
+            N.of_nat i ↪[vis] datatypes.Build_module_export bs (MED_func j) ∗
               ⌜exports !! i = Some (N.of_nat (funcimm j))⌝) -∗
        WP (([ID_instantiate exports i imports], []) : host_expr) @ top
           {{ v, ⌜v = immHV []⌝ ∗

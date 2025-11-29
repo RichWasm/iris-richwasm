@@ -690,12 +690,29 @@ module Module = struct
       fprintf ff "@]@,|}@]"
   end
 
+  module Export = struct
+    type t =
+      [%import:
+        (Richwasm_extract.Module.module_export
+        [@with Big_int_Z.big_int := Big_int_Z'.big_int])]
+    [@@deriving eq, ord, sexp]
+
+    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+    let pp_rocq ff ({ me_name; me_desc } : t) : unit =
+      fprintf ff "@[<v 0>{|@,@[<hv 2>  ";
+      fprintf ff "@[<2>me_name :=@ %a;@]@ " String.pp me_name;
+      fprintf ff "@[<2>me_desc :=@ %a;@]@ " Z.pp_print me_desc;
+      fprintf ff "@]@,|}@]"
+  end
+
   type t =
     [%import:
       (Richwasm_extract.Module.coq_module
       [@with
         Richwasm_extract.Rw.Core.function_type := FunctionType.t;
         module_function := Function.t;
+        module_export := Export.t;
         Big_int_Z.big_int := Big_int_Z'.big_int])]
   [@@deriving eq, ord, sexp]
 
@@ -710,6 +727,8 @@ module Module = struct
       (pp_rocq_list Function.pp_rocq)
       m_functions;
     fprintf ff "@[<2>m_table :=@ %a;@]@ " (pp_rocq_list Z.pp_print) m_table;
-    fprintf ff "@[<2>m_exports :=@ %a;@]" (pp_rocq_list Z.pp_print) m_exports;
+    fprintf ff "@[<2>m_exports :=@ %a;@]"
+      (pp_rocq_list Export.pp_rocq)
+      m_exports;
     fprintf ff "@]@,|}@]"
 end

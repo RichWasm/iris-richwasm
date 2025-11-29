@@ -1312,7 +1312,7 @@ Inductive has_module_type : module -> module_type -> Prop :=
 | TModule m table exports :
   let ϕs := m.(m_imports) ++ map mf_type m.(m_functions) in
   nths_error ϕs m.(m_table) = Some table ->
-  nths_error ϕs m.(m_exports) = Some exports ->
+  nths_error ϕs (map me_desc m.(m_exports)) = Some exports ->
   let M := Build_module_ctx ϕs table in
   Forall (fun mf => has_function_type M mf mf.(mf_type)) m.(m_functions) ->
   has_module_type m (Build_module_type m.(m_imports) exports).

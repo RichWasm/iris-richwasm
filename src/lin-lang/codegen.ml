@@ -385,13 +385,14 @@ module Compile = struct
     let* imports = mapM ~f:compile_import imports in
     let main_export =
       main
-      |> Option.map ~f:(fun _ -> List.length functions' - 1)
+      |> Option.map ~f:(fun _ : B.Module.Export.t ->
+          { name = "_start"; desc = Func (List.length functions' - 1) })
       |> Option.map ~f:List.return
       |> Option.value_or_thunk ~default:(fun () -> [])
     in
     let exports =
-      List.filter_mapi functions ~f:(fun i A.Function.{ export; _ } ->
-          Option.some_if export i)
+      List.filter_mapi functions ~f:(fun i A.Function.{ export; name; _ } ->
+          Option.some_if export B.Module.Export.{ name; desc = Func i })
       @ main_export
     in
     ret @@ B.Module.{ imports; exports; functions = functions'; table }

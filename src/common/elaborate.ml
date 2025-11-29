@@ -1241,6 +1241,10 @@ let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
 
   ret @@ B.Module.Function.{ mf_type; mf_locals; mf_body }
 
+let elab_module_export ({ name; desc = Func desc } : A.Module.Export.t) :
+    B.Module.Export.t =
+  { me_name = name; me_desc = Z.of_int desc }
+
 let elab_module ({ imports; functions; table; exports } : A.Module.t) :
     B.Module.t t =
   let* m_imports = mapM ~f:(elab_function_type []) imports in
@@ -1257,5 +1261,5 @@ let elab_module ({ imports; functions; table; exports } : A.Module.t) :
   in
   let* m_functions = mapM ~f:(elab_function env) functions in
   let m_table = List.map ~f:Z.of_int table in
-  let m_exports = List.map ~f:Z.of_int exports in
+  let m_exports = List.map ~f:elab_module_export exports in
   ret @@ B.Module.{ m_imports; m_functions; m_table; m_exports }
