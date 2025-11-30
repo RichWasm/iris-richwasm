@@ -76,16 +76,17 @@ let rec compile_type delta t : Type.t =
   let open Closed.PreType in
   let open Memory in
   let r = compile_type delta in
+  let r_ser t = Type.Ser (r t) in
   match t with
   | Int -> I31
   | Prod ts ->
-      let ts' = List.map ~f:r ts in
-      Ref (Base GC, Ser (Prod ts'))
+      let ts' = List.map ~f:r_ser ts in
+      Type.(Ref (Base GC, Struct ts'))
   | Sum ts ->
-      let ts' = List.map ~f:r ts in
-      Ref (Base GC, Ser (Sum ts'))
-  | Ref t -> Ref (Base GC, Ser (r t))
-  | Rec (v, t) -> Rec (kind, compile_type (v :: delta) t)
+      let ts' = List.map ~f:r_ser ts in
+      Type.(Ref (Base GC, Variant ts'))
+  | Ref t -> Type.(Ref (Base GC, Ser (r t)))
+  | Rec (v, t) -> Type.Rec (kind, compile_type (v :: delta) t)
   | Exists (v, t) ->
       Ref (Base GC, Ser (Exists (Type kind, compile_type (v :: delta) t)))
   | Code { foralls; arg; ret } ->
@@ -126,7 +127,7 @@ let rec compile_expr delta gamma locals functions e =
             (instrs @ v', locals', fx @ fx'))
           ~init:([], locals, []) vs
       in
-      (vs' @ [ Group (List.length vs); New GC ], locals', fx)
+      (vs' @ [ Group (List.length vs); New GC; Cast rw_t ], locals', fx)
   | Inj (i, v, t) ->
       let types =
         match t with
@@ -193,13 +194,16 @@ let rec compile_expr delta gamma locals functions e =
   | Unfold v ->
       let v', locals', fx = r v in
       (v' @ [ Unfold ], locals', fx)
-  | Apply (f, _, arg) ->
+  | Apply (f, ts, arg) ->
       let f', locals', fx_f = r f in
       let arg', locals', fx_arg =
         compile_expr delta gamma locals' functions arg
       in
+      let insts =
+        List.map ~f:(fun t -> Inst (Index.Type (compile_type delta t))) ts
+      in
       (* FIXME: figure out why [Inst] only takes one index *)
-      (arg' @ f' @ [ CallIndirect ], locals', fx_arg @ fx_f)
+      (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
       let v', locals', fx_v = r v in
       let e', locals', fx_e =
