@@ -72,7 +72,8 @@
         i32.mul
         global.get $mm_end
         i32.add
-        global.set $mm_end)
+        global.set $mm_end
+        drop)
       (else))
     global.get $mm_ptr)
 
@@ -114,7 +115,8 @@
         i32.mul
         global.get $gc_end
         i32.add
-        global.set $gc_end)
+        global.set $gc_end
+        drop)
       (else))
     global.get $gc_ptr)
 
@@ -143,9 +145,11 @@
     i32.lt_s
     (if
       (then
+        ref.null func
         local.get $diff
         call $i32_abs
-        table.grow $table)
+        table.grow $table
+        drop)
       (else))
 
     (; set value ;)

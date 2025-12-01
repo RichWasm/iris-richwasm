@@ -4,14 +4,13 @@
  (modules :standard)
  (libraries base))
 
-; FIXME: uncomment once wat file is valid
-;# (rule
-;  (targets richwasm.wasm)
-;  (deps richwasm.wat)
-;  (action
-;   (run wat2wasm --enable-multi-memory %{dep:richwasm.wat} -o %{targets})))
+(rule
+ (targets richwasm.wasm)
+ (deps richwasm.wat)
+ (action
+  (run wat2wasm --enable-multi-memory %{dep:richwasm.wat} -o %{targets})))
 
 ; (env
 ;  (_
 ;   (env-vars
-;    (RW_RUNTIME_WASM_PATH %{lib-private:runtime:richwasm.wasm}))))
+;    (RW_RUNTIME_WASM_PATH "%{lib-private:runtime:richwasm.wasm}"))))
