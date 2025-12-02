@@ -14,7 +14,35 @@ let%expect_test "runtime" =
   | Error _ -> print_endline "Failed running test harness");
   [%expect
     {|
+      mmalloc tests, allocate 4, 4, 1, 2
       [ 0, 4, 8, 9 ]
+      mmmem size 65536
+      mmalloc 16384 (one whole page)
+      11
+      mmmem size 131072
+      ---
+      gcalloc tests, allocate 4, 4, 1, 2
       [ 65536, 65540, 65544, 65545 ]
+      gcmem size 196608
+      gcalloc 65536 (four pages)
+      65547
+      gcmem size 458752
+      ---
+      make sure mmmem hasn't changed when working with gc: true
+      ---
+      registerroot: numbers should just incrememnt by 4
       [ 0, 4, 8, 12 ]
+      ---
+      tableset
+      set index 1, check length
+      2
+      set index 0, check length
+      2
+      now set index 8
+      9
+      index 8 should be gcalloc, call it (ptr should be >100k)
+      131083
+      ---
+      make sure free, setflag, and unregisterroot don't trap
+      ---
     |}]
