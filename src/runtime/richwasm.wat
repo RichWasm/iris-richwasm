@@ -75,7 +75,11 @@
         global.set $mm_end
         drop)
       (else))
-    global.get $mm_ptr)
+    global.get $mm_ptr
+    global.get $mm_ptr
+    local.get $size
+    i32.add
+    global.set $mm_ptr)
 
   (func (export "gcalloc") (param $size i32) (result i32)
     (local $diff i32)
@@ -118,7 +122,11 @@
         global.set $gc_end
         drop)
       (else))
-    global.get $gc_ptr)
+    global.get $gc_ptr
+    global.get $gc_ptr
+    local.get $size
+    i32.add
+    global.set $gc_ptr)
 
   (func $i32_abs (param $x i32) (result i32)
     (i32.sub
