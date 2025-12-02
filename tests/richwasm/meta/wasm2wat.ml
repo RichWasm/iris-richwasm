@@ -2,13 +2,23 @@ open! Core
 open! Core_unix
 open! Stdlib.Format
 
-let wasm2wat (wasm : string) : (string, string) Result.t =
+let wasm2wat ?(check = true) (wasm : string) : (string, string) Result.t =
   let Core_unix.Process_info.{ pid; stdin; stdout; stderr } =
     let show_nicely = false in
-    let extra_args = if show_nicely then ["--inline-exports"; "--inline-imports"; "--generate-names"; "--fold-exprs" ] else [] in
-
+    let extra_args =
+      if show_nicely then
+        [
+          "--inline-exports";
+          "--inline-imports";
+          "--generate-names";
+          "--fold-exprs";
+        ]
+      else
+        []
+    in
+    let should_check = if check then [] else [ "--no-check" ] in
     Core_unix.create_process ~prog:"wasm2wat"
-      ~args:([ "--enable-multi-memory"; ] @ extra_args @ ["-"])
+      ~args:([ "--enable-multi-memory" ] @ extra_args @ should_check @ [ "-" ])
   in
   let oc = Core_unix.out_channel_of_descr stdin in
   Out_channel.output_string oc wasm;
@@ -27,7 +37,7 @@ let wasm2wat (wasm : string) : (string, string) Result.t =
   | Ok () -> Ok (out ^ err)
   | Error _ -> Error (out ^ err)
 
-let pp_as_wat ff (wasm : string) =
-  match wasm2wat wasm with
+let pp_as_wat ?(check = true) ff (wasm : string) =
+  match wasm2wat ~check wasm with
   | Ok out -> fprintf ff "%s" out
   | Error err -> fprintf ff "wasm2wat Error: %s" err

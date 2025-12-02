@@ -2,10 +2,11 @@ open! Core
 open! Core_unix
 open! Stdlib.Format
 
-let wat2wasm (wasm : string) : (string, string) Result.t =
+let wat2wasm ?(check = true) (wasm : string) : (string, string) Result.t =
+  let args = [ "--enable-multi-memory"; "--output=-"; "-" ] in
+  let args = if check then args else "--no-check" :: args in
   let Core_unix.Process_info.{ pid; stdin; stdout; stderr } =
-    Core_unix.create_process ~prog:"wat2wasm"
-      ~args:[ "--enable-multi-memory"; "--output=-"; "-" ]
+    Core_unix.create_process ~prog:"wat2wasm" ~args
   in
   let oc = Core_unix.out_channel_of_descr stdin in
   Out_channel.output_string oc wasm;
