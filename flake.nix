@@ -221,6 +221,7 @@
               nixd
               nil
               nixfmt
+              nodejs_24
             ])
             ++ (with coqPackages; [
               vscoq-language-server
@@ -233,6 +234,11 @@
               utop
             ])
             ++ self.packages.${system}.${project}.passthru.devShellDeps;
+
+            shellHook = ''
+              npm install --package-lock-only
+              npm ci
+            '';
           };
         }
       );

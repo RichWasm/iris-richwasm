@@ -36,7 +36,8 @@ end)
 
 let%expect_test "examples" =
   output_examples ();
-  [%expect {|
+  [%expect
+    {|
     -----------one-----------
     (module
       (type (;0;) (func (param i32 i32)))
