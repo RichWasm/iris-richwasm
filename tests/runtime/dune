@@ -1,7 +1,7 @@
 (library
  (name runtime_pp_tests)
  (inline_tests
-  (deps harness.ts))
+  (deps harness.ts ../../src/runtime/richwasm.wasm))
  (preprocess
   (pps ppx_expect))
  (libraries core core_unix iris-richwasm.runtime))
