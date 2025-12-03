@@ -15,18 +15,21 @@ let%expect_test "runtime" =
   [%expect
     {|
       mmalloc tests, allocate 4, 4, 1, 2
-      [ 0, 4, 8, 9 ]
+      [ 0, 4, 8, 10 ]
       mmmem size 65536
       mmalloc 16384 (one whole page)
-      11
+      12
       mmmem size 131072
       ---
-      gcalloc tests, allocate 4, 4, 1, 2
-      [ 65536, 65540, 65544, 65545 ]
-      gcmem size 196608
+      original gcmem size 65536
+      gcalloc 4 65537
+      gcmem size 131072
+      gcalloc tests, allocate 4, 1, 2
+      [ 65541, 65545, 65547 ]
+      gcmem size 131072
       gcalloc 65536 (four pages)
-      65547
-      gcmem size 458752
+      65549
+      gcmem size 393216
       ---
       make sure mmmem hasn't changed when working with gc: true
       ---
@@ -41,7 +44,7 @@ let%expect_test "runtime" =
       now set index 8
       9
       index 8 should be gcalloc, call it (ptr should be >100k)
-      131083
+      131085
       ---
       make sure free, setflag, and unregisterroot don't trap
       ---

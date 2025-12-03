@@ -4,10 +4,10 @@
   (global (export "tablenext") (mut i32) (i32.const 0))
 
   (global $mm_ptr (mut i32) (i32.const 0))
-  (global $gc_ptr (mut i32) (i32.const 65536))
+  (global $gc_ptr (mut i32) (i32.const 65537))
   (global $root_ptr (mut i32) (i32.const 0))
   (global $mm_end (mut i32) (i32.const 0))
-  (global $gc_end (mut i32) (i32.const 0))
+  (global $gc_end (mut i32) (i32.const 65536))
 
   (; gc roots are first page of gc mem ;)
   (global $root_end i32 (i32.const 65535))
@@ -38,9 +38,7 @@
     (local $diff i32)
     (local $quotient i32)
     (local $grown i32)
-    (local.set $diff (i32.const 0))
-    (local.set $quotient (i32.const 0))
-    (local.set $grown (i32.const 0))
+    (local $raw_next i32)
     local.get $size
     i32.const 4
     i32.mul
@@ -79,15 +77,24 @@
     global.get $mm_ptr
     local.get $size
     i32.add
+    ;; align mm pointers to even addresses
+    local.tee $raw_next
+    i32.const 1
+    i32.and
+    i32.eqz
+    (if (result i32)
+      (then local.get $raw_next)
+      (else
+        local.get $raw_next
+        i32.const 1
+        i32.add))
     global.set $mm_ptr)
 
   (func (export "gcalloc") (param $size i32) (result i32)
     (local $diff i32)
     (local $quotient i32)
     (local $grown i32)
-    (local.set $diff (i32.const 0))
-    (local.set $quotient (i32.const 0))
-    (local.set $grown (i32.const 0))
+    (local $raw_next i32)
     local.get $size
     i32.const 4
     i32.mul
@@ -126,6 +133,17 @@
     global.get $gc_ptr
     local.get $size
     i32.add
+    ;; align gc pointers to odd addresses
+    local.tee $raw_next
+    i32.const 1
+    i32.and
+    i32.eqz
+    (if (result i32)
+      (then
+        local.get $raw_next
+        i32.const 1
+        i32.add)
+      (else local.get $raw_next))
     global.set $gc_ptr)
 
   (func $i32_abs (param $x i32) (result i32)

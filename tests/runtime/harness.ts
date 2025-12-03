@@ -46,13 +46,12 @@ const mmSize = runtime.mmmem.buffer.byteLength;
 console.log("mmmem size", mmSize);
 console.log("---");
 
-console.log("gcalloc tests, allocate 4, 4, 1, 2");
-console.log([
-  runtime.gcalloc(4),
-  runtime.gcalloc(4),
-  runtime.gcalloc(1),
-  runtime.gcalloc(2),
-]);
+console.log("original gcmem size", runtime.gcmem.buffer.byteLength);
+console.log("gcalloc 4", runtime.gcalloc(4));
+console.log("gcmem size", runtime.gcmem.buffer.byteLength);
+
+console.log("gcalloc tests, allocate 4, 1, 2");
+console.log([runtime.gcalloc(4), runtime.gcalloc(1), runtime.gcalloc(2)]);
 console.log("gcmem size", runtime.gcmem.buffer.byteLength);
 console.log("gcalloc 65536 (four pages)");
 console.log(runtime.gcalloc(65536));
