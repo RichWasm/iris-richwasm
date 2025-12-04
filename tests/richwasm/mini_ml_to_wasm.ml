@@ -79,21 +79,20 @@ let%expect_test "examples" =
       (start 8))
 
     -----------tuple-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
       (type (;2;) (func (param i32 i32 i32)))
       (type (;3;) (func (param i32)))
       (type (;4;) (func))
-      (type (;5;) (func (param i32)))
-      (type (;6;) (func (param i32)))
-      (type (;7;) (func (param i32)))
-      (type (;8;) (func (param i32)))
-      (type (;9;) (func (param i32)))
-      (type (;10;) (func (param i32)))
-      (type (;11;) (func (param i32)))
-      (type (;12;) (func (param i32)))
+      (type (;5;) (func (param i32 i32)))
+      (type (;6;) (func (param i32 i32)))
+      (type (;7;) (func (param i32 i32)))
+      (type (;8;) (func (param i32 i32)))
+      (type (;9;) (func (param i32 i32)))
+      (type (;10;) (func (param i32 i32)))
+      (type (;11;) (func (param i32 i32)))
+      (type (;12;) (func (param i32 i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -149,14 +148,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=1 align=2
         else
           local.get 4
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=1 align=2
           else
             i32.load offset=1 align=2
@@ -171,14 +170,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=5 align=2
         else
           local.get 3
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=5 align=2
           else
             i32.load offset=1 align=2
@@ -193,14 +192,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=9 align=2
         else
           local.get 2
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=9 align=2
           else
             i32.load offset=1 align=2
@@ -215,14 +214,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=13 align=2
         else
           local.get 1
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=13 align=2
           else
             i32.load offset=1 align=2
@@ -243,66 +242,26 @@ let%expect_test "examples" =
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
-    Wat2wasm Error: -:1:999: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 5) i32.store 0 offset=1 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:1084: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 2 i32.and i32.eqz if(type 6) i32.store 0 offset=1 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:1146: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=1 align=2 local.get 4 ...
-                                        ^^^^^^^^^
-    -:1:1277: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 7) i32.store 0 offset=5 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:1362: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 2 i32.and i32.eqz if(type 8) i32.store 0 offset=5 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:1424: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=5 align=2 local.get 3 ...
-                                        ^^^^^^^^^
-    -:1:1555: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 9) i32.store 0 offset=9 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:1641: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 10) i32.store 0 offset=9 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:1703: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=9 align=2 local.get 2 ...
-                                        ^^^^^^^^^
-    -:1:1835: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 1 i32.and i32.eqz if(type 11) i32.store 0 offset=13 align=2 else local....
-                                        ^^^^^^^^^
-    -:1:1922: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 12) i32.store 0 offset=13 align=2 else i32.lo...
-                                        ^^^^^^^^^
-    -:1:1985: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=13 align=2 local.get 1...
-                                        ^^^^^^^^^
-    -:1:2054: error: type mismatch at end of function, expected [] but got [i32, i32, i32, i32]
-    ...l.get 1 call 6 end end local.get 5 call 5)(func (type 4) (local ) global.g...
-                                          ^^^^
 
     -----------tuple_nested-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
       (type (;2;) (func (param i32 i32 i32)))
       (type (;3;) (func (param i32)))
       (type (;4;) (func))
-      (type (;5;) (func (param i32)))
-      (type (;6;) (func (param i32)))
-      (type (;7;) (func (param i32)))
-      (type (;8;) (func (param i32)))
-      (type (;9;) (func (param i32)))
-      (type (;10;) (func (param i32)))
-      (type (;11;) (func (param i32)))
-      (type (;12;) (func (param i32)))
-      (type (;13;) (func (param i32)))
-      (type (;14;) (func (param i32)))
-      (type (;15;) (func (param i32)))
-      (type (;16;) (func (param i32)))
+      (type (;5;) (func (param i32 i32)))
+      (type (;6;) (func (param i32 i32)))
+      (type (;7;) (func (param i32 i32)))
+      (type (;8;) (func (param i32 i32)))
+      (type (;9;) (func (param i32 i32)))
+      (type (;10;) (func (param i32 i32)))
+      (type (;11;) (func (param i32 i32)))
+      (type (;12;) (func (param i32 i32)))
+      (type (;13;) (func (param i32 i32)))
+      (type (;14;) (func (param i32 i32)))
+      (type (;15;) (func (param i32 i32)))
+      (type (;16;) (func (param i32 i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -342,14 +301,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=1 align=2
         else
           local.get 2
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=1 align=2
           else
             i32.load offset=1 align=2
@@ -364,14 +323,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=5 align=2
         else
           local.get 1
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=5 align=2
           else
             i32.load offset=1 align=2
@@ -408,14 +367,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=1 align=2
         else
           local.get 5
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=1 align=2
           else
             i32.load offset=1 align=2
@@ -430,14 +389,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=5 align=2
         else
           local.get 4
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=5 align=2
           else
             i32.load offset=1 align=2
@@ -468,14 +427,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=1 align=2
         else
           local.get 8
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=1 align=2
           else
             i32.load offset=1 align=2
@@ -490,14 +449,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=5 align=2
         else
           local.get 7
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=5 align=2
           else
             i32.load offset=1 align=2
@@ -518,76 +477,18 @@ let%expect_test "examples" =
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
-    Wat2wasm Error: -:1:841: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 5) i32.store 0 offset=1 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:926: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 2 i32.and i32.eqz if(type 6) i32.store 0 offset=1 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:988: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=1 align=2 local.get 2 ...
-                                        ^^^^^^^^^
-    -:1:1119: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 7) i32.store 0 offset=5 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:1204: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 2 i32.and i32.eqz if(type 8) i32.store 0 offset=5 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:1266: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=5 align=2 local.get 1 ...
-                                        ^^^^^^^^^
-    -:1:1625: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 9) i32.store 0 offset=1 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:1711: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 10) i32.store 0 offset=1 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:1773: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=1 align=2 local.get 5 ...
-                                        ^^^^^^^^^
-    -:1:1905: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 1 i32.and i32.eqz if(type 11) i32.store 0 offset=5 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:1991: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 12) i32.store 0 offset=5 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:2053: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=5 align=2 local.get 4 ...
-                                        ^^^^^^^^^
-    -:1:2349: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 1 i32.and i32.eqz if(type 13) i32.store 0 offset=1 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:2435: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 14) i32.store 0 offset=1 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:2497: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=1 align=2 local.get 8 ...
-                                        ^^^^^^^^^
-    -:1:2629: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 1 i32.and i32.eqz if(type 15) i32.store 0 offset=5 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:2715: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 16) i32.store 0 offset=5 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:2777: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=5 align=2 local.get 7 ...
-                                        ^^^^^^^^^
-    -:1:2845: error: type mismatch at end of function, expected [] but got [... i32, i32, i32, i32]
-    ...l.get 7 call 6 end end local.get 9 call 5)(func (type 4) (local ) global.g...
-                                          ^^^^
 
     -----------tuple_project-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
       (type (;2;) (func (param i32 i32 i32)))
       (type (;3;) (func (param i32)))
       (type (;4;) (func))
-      (type (;5;) (func (param i32)))
-      (type (;6;) (func (param i32)))
-      (type (;7;) (func (param i32)))
-      (type (;8;) (func (param i32)))
+      (type (;5;) (func (param i32 i32)))
+      (type (;6;) (func (param i32 i32)))
+      (type (;7;) (func (param i32 i32)))
+      (type (;8;) (func (param i32 i32)))
       (type (;9;) (func (param i32) (result i32)))
       (type (;10;) (func (param i32) (result i32)))
       (type (;11;) (func (param i32) (result i32)))
@@ -631,14 +532,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=1 align=2
         else
           local.get 2
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=1 align=2
           else
             i32.load offset=1 align=2
@@ -653,14 +554,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=5 align=2
         else
           local.get 1
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=5 align=2
           else
             i32.load offset=1 align=2
@@ -734,27 +635,6 @@ let%expect_test "examples" =
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
-    Wat2wasm Error: -:1:830: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 5) i32.store 0 offset=1 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:915: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 2 i32.and i32.eqz if(type 6) i32.store 0 offset=1 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:977: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=1 align=2 local.get 2 ...
-                                        ^^^^^^^^^
-    -:1:1108: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 1 i32.and i32.eqz if(type 7) i32.store 0 offset=5 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:1193: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...nst 2 i32.and i32.eqz if(type 8) i32.store 0 offset=5 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:1255: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=5 align=2 local.get 1 ...
-                                        ^^^^^^^^^
-    -:1:1382: error: type mismatch at end of function, expected [] but got [i32, i32]
-    ...l.get 4 i32.const 1 i32.and i32.eqz if(result i32) unreachable else local....
-                                           ^^
 
     -----------sum_unit-----------
     FAILURE (InstrErr
@@ -1679,7 +1559,6 @@ let%expect_test "examples" =
                 ((Ser (Ref (Base GC) (Struct ())))
                  (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))))))
     -----------mini_zip-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
@@ -1712,12 +1591,12 @@ let%expect_test "examples" =
       (type (;28;) (func (param i32) (result i32)))
       (type (;29;) (func (param i32) (result i32)))
       (type (;30;) (func (param i32) (result i32)))
-      (type (;31;) (func (param i32)))
-      (type (;32;) (func (param i32)))
-      (type (;33;) (func (param i32)))
-      (type (;34;) (func (param i32)))
-      (type (;35;) (func (param i32)))
-      (type (;36;) (func (param i32)))
+      (type (;31;) (func (param i32 i32)))
+      (type (;32;) (func (param i32 i32)))
+      (type (;33;) (func (param i32 i32)))
+      (type (;34;) (func (param i32 i32)))
+      (type (;35;) (func (param i32 i32)))
+      (type (;36;) (func (param i32 i32)))
       (type (;37;) (func))
       (type (;38;) (func))
       (import "richwasm" "mmmem" (memory (;0;) 0))
@@ -2088,14 +1967,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=1 align=2
         else
           local.get 21
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=1 align=2
           else
             i32.load offset=1 align=2
@@ -2110,14 +1989,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=5 align=2
         else
           local.get 20
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=5 align=2
           else
             i32.load offset=1 align=2
@@ -2142,14 +2021,14 @@ let%expect_test "examples" =
         i32.const 1
         i32.and
         i32.eqz
-        if (param i32)  ;; label = @1
+        if (param i32 i32)  ;; label = @1
           i32.store offset=1 align=2
         else
           local.get 23
           i32.const 2
           i32.and
           i32.eqz
-          if (param i32)  ;; label = @2
+          if (param i32 i32)  ;; label = @2
             i32.store offset=1 align=2
           else
             i32.load offset=1 align=2
@@ -2190,36 +2069,6 @@ let%expect_test "examples" =
       (global (;1;) (mut i32) (i32.const 0))
       (export "mini_zip" (func 7))
       (start 8))
-    Wat2wasm Error: -:1:4330: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 1 i32.and i32.eqz if(type 31) i32.store 0 offset=1 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:4417: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 32) i32.store 0 offset=1 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:4479: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=1 align=2 local.get 21...
-                                        ^^^^^^^^^
-    -:1:4615: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 1 i32.and i32.eqz if(type 33) i32.store 0 offset=5 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:4702: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 34) i32.store 0 offset=5 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:4764: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=5 align=2 local.get 20...
-                                        ^^^^^^^^^
-    -:1:5009: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 1 i32.and i32.eqz if(type 35) i32.store 0 offset=1 align=2 else local.g...
-                                        ^^^^^^^^^
-    -:1:5096: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...st 2 i32.and i32.eqz if(type 36) i32.store 0 offset=1 align=2 else i32.loa...
-                                        ^^^^^^^^^
-    -:1:5158: error: type mismatch in i32.store, expected [i32, i32] but got [i32]
-    ...else i32.load 0 offset=1 align=2 i32.store 0 offset=1 align=2 local.get 23...
-                                        ^^^^^^^^^
-    -:1:5301: error: type mismatch at end of function, expected [] but got [i32, i32, i32]
-    ....get 25 i32.const 1 i32.and i32.eqz if(type 37) else local.get 25 i32.cons...
-                                           ^^
 
     -----------closure_simpl-----------
     FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
