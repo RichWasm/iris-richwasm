@@ -77,6 +77,7 @@ module Err = struct
     | CannotResolvePath of
         [ `ExpectedStruct | `OutOfBounds ] * A.Path.t * A.Type.t
     | UnpackExpectsExists of A.Type.t
+    | TypeEscape of A.Type.t
     | PackMismatch of A.Type.t * A.Type.t
     | IncorrectLocalFx of String.t * Int.t * A.Type.t List.t * A.Type.t List.t
     | LfxInvalidIndex of int * A.Type.t List.t
@@ -789,7 +790,7 @@ let rec resolves_path
 
 (* /end *)
 
-let[@warning "-27"] rec elab_instruction (env : Env.t) :
+let rec elab_instruction (env : Env.t) :
     A.Instruction.t -> B.Instruction.t InstrM.t =
   let open InstrM in
   let open B.Instruction in
@@ -1122,18 +1123,27 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   | Unpack (bt, lfx, instrs) ->
       let* t_pkg = pop "Unpack" in
       let* shift_fn, t_body, new_k =
+        let+ q, t =
+          match t_pkg with
+          | Exists (q, t) -> ret (q, t)
+          | x -> fail (UnpackExpectsExists x)
+        in
         let open ASubst in
-        let add1 i = i + 1 in
-        match t_pkg with
-        | Exists (Memory, t) -> ret (T.ren add1 id id id, t, None)
-        | Exists (Representation, t) -> ret (T.ren id add1 id id, t, None)
-        | Exists (Size, t) -> ret (T.ren id id add1 id, t, None)
-        | Exists (Type k, t) -> ret (T.ren id id id add1, t, Some k)
-        | x -> fail (UnpackExpectsExists x)
+        let shift_fn, new_k =
+          match q with
+          | Memory -> ((fun fn -> T.ren fn id id id), None)
+          | Representation -> ((fun fn -> T.ren id fn id id), None)
+          | Size -> ((fun fn -> T.ren id id fn id), None)
+          | Type k -> ((fun fn -> T.ren id id id fn), Some k)
+        in
+        (shift_fn, t, new_k)
       in
-
       let* st = get in
-      let shifted_stack = List.map ~f:shift_fn st.stack in
+      let shift_ty =
+        let add1 x = x + 1 in
+        shift_fn add1
+      in
+      let shifted_stack = List.map ~f:shift_ty st.stack in
       let st_inner_init = { st with stack = t_body :: shifted_stack } in
       let* () = put st_inner_init in
       let* consume, result, env', st_inner = handle_bt ~lfx bt in
@@ -1144,8 +1154,25 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       in
       let* instrs', st' = elab_block env'' instrs st_inner in
 
-      (* unshift stack *)
+      (* reset stack (unshifted) *)
       let* () = modify (fun new_st -> { new_st with stack = st.stack }) in
+
+      let unshift_ty t =
+        let exception Escape in
+        let sub1 i = if i = 0 then raise Escape else i - 1 in
+        try ret (shift_fn sub1 t) with Escape -> fail (TypeEscape t)
+      in
+
+      let* outer_consume =
+        let+ prefix =
+          match List.rev consume with
+          | [] -> ret []
+          | _ :: rest -> mapM (List.rev rest) ~f:unshift_ty
+        in
+        prefix @ [ t_pkg ]
+      in
+      let* outer_result = mapM result ~f:unshift_ty in
+
       let* lfx' =
         match lfx with
         | LocalFx lfx ->
@@ -1153,8 +1180,8 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
             handle_local_fx env lfx
         | InferFx -> handle_new_locals env st'.locals
       in
-      let* () = iterM result ~f:push in
-      let* it = instr_t_of env.kinds [ t_pkg ] result in
+      let* () = iterM outer_result ~f:push in
+      let* it = instr_t_of env.kinds outer_consume outer_result in
       ret @@ IUnpack (it, lfx', instrs')
   | Tag ->
       let* it = mono_in_out env.kinds "Tag" [ Num (Int I32) ] [ I31 ] in
