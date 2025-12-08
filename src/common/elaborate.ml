@@ -907,6 +907,7 @@ let rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds consume result in
       ret @@ ILoop (it, instrs')
   | Ite (bt, lfx, thn, els) ->
+      let* cond = pop "Ite" in
       let* consume, result, env', st_inner = handle_bt ~lfx bt in
       let* thn', thn_st = elab_block env' thn st_inner in
       let* els', els_st = elab_block env' els st_inner in
@@ -924,7 +925,7 @@ let rec elab_instruction (env : Env.t) :
             in
             handle_new_locals env thn_st.locals
       in
-      let* it = instr_t_of env.kinds consume result in
+      let* it = instr_t_of env.kinds (consume @ [ cond ]) result in
       ret @@ IIte (it, lfx', thn', els')
   | Br label ->
       let* () = fail_if have_to_infer_lfx (NonTrivialLfxInfer `Br) in
@@ -958,7 +959,7 @@ let rec elab_instruction (env : Env.t) :
       let* t = pop "LocalSet" in
       let* t' = lift_result @@ elab_type env.kinds t in
       let* () = set_local i t in
-      ret @@ ILocalSet (InstrT ([], [ t' ]), Z.of_int i)
+      ret @@ ILocalSet (InstrT ([ t' ], []), Z.of_int i)
   | CodeRef i ->
       let* ft = List.nth env.table i |> lift_option (InvalidTableIdx i) in
       let* it = mono_in_out env.kinds "CodeRef" [] [ CodeRef ft ] in
@@ -987,13 +988,14 @@ let rec elab_instruction (env : Env.t) :
       let* it = mono_in_out env.kinds "Call" ts1 ts2 in
       ret @@ ICall (it, Z.of_int i, idxs')
   | CallIndirect ->
+      let* coderef_t = pop "CallIndirect" in
       let* ts1, ts2 =
-        pop "CallIndirect" >>= function
+        match coderef_t with
         | CodeRef (FunctionType ([], ts1, ts2)) -> ret (ts1, ts2)
         | x -> fail (ExpectedUnqualidfiedCoderef x)
       in
       let* () = iterM ~f:push ts2 in
-      let* it = instr_t_of env.kinds ts1 ts2 in
+      let* it = instr_t_of env.kinds (ts1 @ [ coderef_t ]) ts2 in
       ret @@ ICallIndirect it
   | Inject (i, ts) ->
       let* t_in = pop "Inject" in
@@ -1262,7 +1264,7 @@ let rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds [ ref; t ] [ ref; t ] in
       let* () = push ref in
       let* () = push t in
-      ret @@ IStore (it, path')
+      ret @@ ISwap (it, path')
 
 let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
     B.Module.Function.t t =

@@ -572,11 +572,12 @@ let%expect_test "examples" =
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
                     (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 2);
               (ILocalSet
-                (InstrT []
+                (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                    (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))])
+                    (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+                  [])
                 1);
               (ILocalGet
                 (InstrT []
@@ -591,7 +592,7 @@ let%expect_test "examples" =
                     (SpanT (MEMTYPE (RepS (ProdR [])) ImDrop) (RepS (ProdR []))));
                     (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])
                 [] Move);
-              (ILocalSet (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]) 3);
+              (ILocalSet (InstrT [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])] []) 3);
               (IDrop
                 (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
@@ -600,7 +601,7 @@ let%expect_test "examples" =
               (ILocalGet (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]) 3);
               (IUngroup (InstrT [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])] []));
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 4);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
               (IDrop (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []));
@@ -695,7 +696,7 @@ let%expect_test "examples" =
                   (PlugT (VALTYPE (AtomR I32R) ImCopy ImDrop) (AtomR I32R))
                   (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
                   [ (ILocalSet
-                    (InstrT []
+                    (InstrT
                       [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
@@ -705,7 +706,8 @@ let%expect_test "examples" =
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
                             [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])])
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])]
+                      [])
                     0);
                     (ILocalGet
                       (InstrT []
@@ -742,19 +744,21 @@ let%expect_test "examples" =
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]));
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]
+                        [])
                       2);
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
                             [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                               [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
                                 (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
-                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))])
+                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
+                        [])
                       1);
                     (ILocalGet
                       (InstrT []
@@ -786,7 +790,14 @@ let%expect_test "examples" =
                         [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                           [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
-                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]);
+                          (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                              [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
                         [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                     (ILocalGet
                       (InstrT []
@@ -864,7 +875,7 @@ let%expect_test "examples" =
           mf_locals := [ (AtomR I32R)];
           mf_body :=
             [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 10);
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 0);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 0);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 0);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 0);
               (IDrop (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []))];
@@ -904,11 +915,12 @@ let%expect_test "examples" =
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
                     (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 2);
               (ILocalSet
-                (InstrT []
+                (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                    (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))])
+                    (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+                  [])
                 1);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
               (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
@@ -1017,7 +1029,7 @@ let%expect_test "examples" =
                   (PlugT (VALTYPE (AtomR I32R) ImCopy ImDrop) (AtomR I32R))
                   (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
                   [ (ILocalSet
-                    (InstrT []
+                    (InstrT
                       [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
@@ -1027,7 +1039,8 @@ let%expect_test "examples" =
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
                             [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])])
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])]
+                      [])
                     0);
                     (ILocalGet
                       (InstrT []
@@ -1064,19 +1077,21 @@ let%expect_test "examples" =
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]));
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]
+                        [])
                       2);
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
                             [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                               [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
                                 (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
-                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))])
+                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
+                        [])
                       1);
                     (ILocalGet
                       (InstrT []
@@ -1108,7 +1123,14 @@ let%expect_test "examples" =
                         [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                           [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
-                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]);
+                          (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                              [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
                         [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                     (ILocalGet
                       (InstrT []
@@ -1164,9 +1186,10 @@ let%expect_test "examples" =
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))]));
               (ILocalSet
-                (InstrT []
+                (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                    (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))])
+                    (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))]
+                  [])
                 0);
               (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
               (ILocalGet
@@ -1193,11 +1216,12 @@ let%expect_test "examples" =
                     (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                       (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))]));
               (ILocalSet
-                (InstrT []
+                (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                    (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))])
+                    (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))]
+                  [])
                 2);
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 1);
               (ILocalGet
                 (InstrT []
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
@@ -1211,14 +1235,14 @@ let%expect_test "examples" =
                     (SpanT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (RepS (AtomR I32R))));
                     (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])
                 [] Move);
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 3);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 3);
               (IDrop
                 (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SpanT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (RepS (AtomR I32R))))]
                   []));
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 3);
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 4);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
               (INum
@@ -1291,13 +1315,14 @@ let%expect_test "examples" =
                       (ProdT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop)
                         [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])));
                     (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
-              (ILocalSet (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]) 2);
+              (ILocalSet (InstrT [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])] []) 2);
               (ILocalSet
-                (InstrT []
+                (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop)
                       (ProdT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop)
-                        [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])))])
+                        [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])))]
+                  [])
                 1);
               (ILocalGet
                 (InstrT []
@@ -1318,9 +1343,10 @@ let%expect_test "examples" =
                       [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])])
                 [] Move);
               (ILocalSet
-                (InstrT []
+                (InstrT
                   [ (ProdT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop)
-                    [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])])
+                    [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                  [])
                 3);
               (IDrop
                 (InstrT
@@ -1337,9 +1363,9 @@ let%expect_test "examples" =
                   [ (ProdT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop)
                     [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
                   [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 4);
               (ILocalGet (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]) 2);
-              (ILocalSet (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]) 5);
+              (ILocalSet (InstrT [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])] []) 5);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
               (ILocalGet (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]) 5);
               (IDrop (InstrT [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])] []));
@@ -1359,7 +1385,7 @@ let%expect_test "examples" =
                 (ProdR [ (ProdR [ (AtomR I32R); (AtomR PtrR)]); (AtomR PtrR)])];
             mf_body :=
               [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 10);
-                (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 0);
+                (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 0);
                 (ICodeRef
                   (InstrT []
                     [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
@@ -1462,7 +1488,7 @@ let%expect_test "examples" =
                   (PlugT (VALTYPE (AtomR I32R) ImCopy ImDrop) (AtomR I32R))
                   (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
                   [ (ILocalSet
-                    (InstrT []
+                    (InstrT
                       [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
@@ -1472,7 +1498,8 @@ let%expect_test "examples" =
                                 (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])]
                             [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                            (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)))])])
+                            (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)))])]
+                      [])
                     1);
                     (ILocalGet
                       (InstrT []
@@ -1509,19 +1536,21 @@ let%expect_test "examples" =
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)))]));
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                          (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)))])
+                          (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)))]
+                        [])
                       3);
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
                             [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (ProdR [])]) NoCopy ExDrop)
                               [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
                                 (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)));
                                 (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])]
-                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))])
+                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
+                        [])
                       2);
                     (ILocalGet
                       (InstrT []
@@ -1553,7 +1582,14 @@ let%expect_test "examples" =
                         [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (ProdR [])]) NoCopy ExDrop)
                           [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)));
-                            (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])]
+                            (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]);
+                          (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (ProdR [])]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [ (AtomR I32R)])) ImDrop) (VarT 0)));
+                                  (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])]
+                              [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
                         [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                     (ILocalGet
                       (InstrT []
@@ -3259,11 +3295,12 @@ let%expect_test "examples" =
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                     (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
                     (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
-              (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
+              (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 2);
               (ILocalSet
-                (InstrT []
+                (InstrT
                   [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                    (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))])
+                    (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+                  [])
                 1);
               (ILocalGet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
               (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
@@ -3333,15 +3370,17 @@ let%expect_test "examples" =
                         [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T));
                           (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]));
                 (ILocalSet
-                  (InstrT []
+                  (InstrT
                     [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR I32R)]) ImCopy ImDrop)
                       [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T));
-                        (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])])
+                        (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                    [])
                   2);
                 (ILocalSet
-                  (InstrT []
+                  (InstrT
                     [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                      (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))])
+                      (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+                    [])
                   1);
                 (ILocalGet
                   (InstrT []
@@ -3356,8 +3395,8 @@ let%expect_test "examples" =
                         (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
                     [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T));
                       (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
-                (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 4);
-                (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 3);
+                (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 4);
+                (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 3);
                 (ICodeRef
                   (InstrT []
                     [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
@@ -3454,7 +3493,7 @@ let%expect_test "examples" =
                   (PlugT (VALTYPE (ProdR [ (ProdR [ (AtomR I32R); (AtomR PtrR)]); (AtomR PtrR)]) ImCopy ImDrop)
                     (ProdR [ (ProdR [ (AtomR I32R); (AtomR PtrR)]); (AtomR PtrR)]))
                   [ (ILocalSet
-                    (InstrT []
+                    (InstrT
                       [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
@@ -3464,7 +3503,8 @@ let%expect_test "examples" =
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
                             [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])])
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])]
+                      [])
                     5);
                     (ILocalGet
                       (InstrT []
@@ -3501,19 +3541,21 @@ let%expect_test "examples" =
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]));
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]
+                        [])
                       7);
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
                             [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                               [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
                                 (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
-                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))])
+                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
+                        [])
                       6);
                     (ILocalGet
                       (InstrT []
@@ -3566,7 +3608,14 @@ let%expect_test "examples" =
                         [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                           [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
-                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]);
+                          (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                              [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
                         [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                     (ILocalGet
                       (InstrT []
@@ -3691,7 +3740,7 @@ let%expect_test "examples" =
                   (PlugT (VALTYPE (AtomR I32R) ImCopy ImDrop) (AtomR I32R))
                   (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
                   [ (ILocalSet
-                    (InstrT []
+                    (InstrT
                       [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
@@ -3701,7 +3750,8 @@ let%expect_test "examples" =
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
                             [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])])
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])]
+                      [])
                     8);
                     (ILocalGet
                       (InstrT []
@@ -3738,19 +3788,21 @@ let%expect_test "examples" =
                           (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]));
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]
+                        [])
                       10);
                     (ILocalSet
-                      (InstrT []
+                      (InstrT
                         [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
                           (MonoFunT
                             [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                               [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
                                 (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
                                 (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
-                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))])
+                            [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
+                        [])
                       9);
                     (ILocalGet
                       (InstrT []
@@ -3782,7 +3834,14 @@ let%expect_test "examples" =
                         [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
                           [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                             (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
-                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]);
+                          (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                              [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]))]
                         [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
                     (ILocalGet
                       (InstrT []
@@ -3918,7 +3977,7 @@ let%expect_test "examples" =
                                 (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop)
                                   (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))])]));
                 (ILocalSet
-                  (InstrT []
+                  (InstrT
                     [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR PtrR)]) NoCopy ExDrop)
                       [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                         (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))));
@@ -3926,12 +3985,14 @@ let%expect_test "examples" =
                           (SerT (MEMTYPE (RepS (AtomR PtrR)) ExDrop)
                             (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                               (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop)
-                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))])])
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))])]
+                    [])
                   2);
                 (ILocalSet
-                  (InstrT []
+                  (InstrT
                     [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                      (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))])
+                      (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+                    [])
                   1);
                 (ILocalGet
                   (InstrT []
@@ -3962,17 +4023,19 @@ let%expect_test "examples" =
                             (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop)
                               (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))]));
                 (ILocalSet
-                  (InstrT []
+                  (InstrT
                     [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                       (SerT (MEMTYPE (RepS (AtomR PtrR)) ExDrop)
                         (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
                           (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop)
-                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))])
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))))]
+                    [])
                   4);
                 (ILocalSet
-                  (InstrT []
+                  (InstrT
                     [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                      (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))])
+                      (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))]
+                    [])
                   3);
                 (ILocalGet
                   (InstrT []
@@ -3987,7 +4050,7 @@ let%expect_test "examples" =
                       (SpanT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (RepS (AtomR I32R))));
                       (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])
                   [] Move);
-                (ILocalSet (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 5);
+                (ILocalSet (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))] []) 5);
                 (IDrop
                   (InstrT
                     [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
@@ -4015,9 +4078,10 @@ let%expect_test "examples" =
                         (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))])
                   [] Move);
                 (ILocalSet
-                  (InstrT []
+                  (InstrT
                     [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
-                      (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))])
+                      (SerT (MEMTYPE (RepS (AtomR I32R)) ImDrop) (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))]
+                    [])
                   6);
                 (IDrop
                   (InstrT
