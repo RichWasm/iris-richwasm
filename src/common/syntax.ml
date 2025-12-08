@@ -816,7 +816,8 @@ module Instruction = struct
     | Inst of Index.t
     | Call of int * Index.t list
     | CallIndirect
-    | Inject of BaseMemory.t option * int * Type.t list
+    | Inject of int * Type.t list
+    | InjectNew of BaseMemory.t * int * Type.t list
     | Case of BlockType.t * LocalFx.t * t list list
     | CaseLoad of BlockType.t * Consume.t * LocalFx.t * t list list
     | Group of int
@@ -872,12 +873,12 @@ module Instruction = struct
         List.iter ~f:(fprintf ff "@ %a" Index.pp) idxs;
         fprintf ff "@]"
     | CallIndirect -> fprintf ff "call_indirect"
-    | Inject (None, i, typs) ->
+    | Inject (i, typs) ->
         fprintf ff "@[<2>inject@ %a" pp_int i;
         List.iter ~f:(fprintf ff " %a" Type.pp) typs;
         fprintf ff "@]"
-    | Inject (Some mem, i, typs) ->
-        fprintf ff "@[<2>inject@ %a@ %a" BaseMemory.pp mem pp_int i;
+    | InjectNew (mem, i, typs) ->
+        fprintf ff "@[<2>inject_new@ %a@ %a" BaseMemory.pp mem pp_int i;
         List.iter ~f:(fprintf ff " %a" Type.pp) typs;
         fprintf ff "@]"
     | Case (bt, lfx, cases) ->

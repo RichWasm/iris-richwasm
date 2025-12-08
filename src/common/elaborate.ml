@@ -70,7 +70,8 @@ module Err = struct
     | UngroupNonProd of A.Type.t
     | FoldNonRec of A.Type.t
     | UnfoldNonRec of A.Type.t
-    | NonRef of [ `Load | `Store | `Swap ] * A.Type.t
+    | NonRef of [ `Load | `Store | `Swap | `CaseLoad ] * A.Type.t
+    | CaseLoadExpectedSingleRef of A.Type.t list
     | LoadRefNonSer of A.Type.t
     | FunctionParamMustBeMonoRep
     | CannotResolvePath of
@@ -834,6 +835,35 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
   let have_to_infer_lfx =
     Option.value_map ~default:false ~f:A.LocalFx.is_inferfx env.lfx
   in
+  let handle_case_bt ~(lfx : A.LocalFx.t) (bt : A.BlockType.t) cases =
+    let* stack_consume, stack_result, env', st_inner = handle_bt ~lfx bt in
+    let* cases', st's =
+      foldM cases ~init:[] ~f:(fun acc case ->
+          let+ case', st' = elab_block env' case st_inner in
+          (case', st') :: acc)
+      >>| List.rev
+      >>| List.unzip
+    in
+    let* locals =
+      let* curr_locals = get >>| fun st -> st.locals in
+      foldiM st's ~init:None ~f:(fun i acc st ->
+          let+ () =
+            match lfx with
+            | LocalFx lfx -> verify_lfx st lfx (sprintf "case::%i" i)
+            | InferFx ->
+                (match acc with
+                | None -> ret ()
+                | Some prev_locals ->
+                    compare_lfx
+                      (fun j a b -> CannotInferLfx (`Case (i, j, a, b)))
+                      st.locals prev_locals)
+          in
+          Some st.locals)
+      >>| Option.value ~default:curr_locals
+    in
+    let* lfx' = handle_new_locals env locals in
+    ret (stack_consume, stack_result, cases', lfx')
+  in
   function
   | Nop -> ret @@ INop (InstrT ([], []))
   | Unreachable ->
@@ -968,47 +998,49 @@ let[@warning "-27"] rec elab_instruction (env : Env.t) :
       let* () = iterM ~f:push ts2 in
       let* it = instr_t_of env.kinds ts1 ts2 in
       ret @@ ICallIndirect it
-  | Inject (None, i, ts) ->
+  | Inject (i, ts) ->
       let* t_in = pop "Inject" in
       let* () = push (Sum ts) in
       let* it = instr_t_of env.kinds [ t_in ] [ Sum ts ] in
       ret @@ IInject (it, Z.of_int i)
-  | Inject (Some mem, i, ts) ->
-      let* t_in = pop "Inject" in
-      let t_out = A.Type.(Ref (Base mem, Variant ts)) in
+  | InjectNew (mem, i, ts) ->
+      let* t_in = pop "InjectNew" in
+      let ts' = List.map ~f:A.Type.ser ts in
+      let t_out = A.Type.(Ref (Base mem, Variant ts')) in
       let* () = push t_out in
       let* it = instr_t_of env.kinds [ t_in ] [ t_out ] in
       ret @@ IInjectNew (it, Z.of_int i)
   | Case (bt, lfx, cases) ->
-      let* consume, result, env', st_inner = handle_bt ~lfx bt in
-      let* cases', st's =
-        foldM cases ~init:[] ~f:(fun acc case ->
-            let+ case', st' = elab_block env' case st_inner in
-            (case', st') :: acc)
-        >>| List.rev
-        >>| List.unzip
-      in
-      let* locals =
-        let* curr_locals = get >>| fun st -> st.locals in
-        foldiM st's ~init:None ~f:(fun i acc st ->
-            let+ () =
-              match lfx with
-              | LocalFx lfx -> verify_lfx st lfx (sprintf "case::%i" i)
-              | InferFx ->
-                  (match acc with
-                  | None -> ret ()
-                  | Some prev_locals ->
-                      compare_lfx
-                        (fun j a b -> CannotInferLfx (`Case (i, j, a, b)))
-                        st.locals prev_locals)
-            in
-            Some st.locals)
-        >>| Option.value ~default:curr_locals
-      in
-      let* lfx' = handle_new_locals env locals in
-      let* it = instr_t_of env.kinds consume result in
+      let* stack_in, stack_out, cases', lfx' = handle_case_bt bt ~lfx cases in
+      let* it = instr_t_of env.kinds stack_in stack_out in
       ret @@ ICase (it, lfx', cases')
-  | CaseLoad (bt, consume, lfx, cases) -> fail (TODO "case_load")
+  | CaseLoad (bt, consume, lfx, cases) ->
+      let* stack_in, stack_out, cases', lfx' = handle_case_bt bt ~lfx cases in
+      let* mem, t_targ =
+        match stack_in with
+        | [ Ref (mem, t) ] -> ret (mem, t)
+        | t :: [] -> fail (NonRef (`CaseLoad, t))
+        | ts -> fail (CaseLoadExpectedSingleRef ts)
+      in
+      let* t_val =
+        match t_targ with
+        | Ser t -> ret t
+        | x -> fail @@ LoadRefNonSer x
+      in
+      let* t_val' = elab_type env.kinds t_val |> lift_result in
+      let* ex_copyable =
+        ret t_val' >>=^ copyability_of_typ env.kinds >>| function
+        | ImCopy | ExCopy -> true
+        | _ -> false
+      in
+      let* should_move = is_effective_move consume ex_copyable |> lift_result in
+      let t_out, (consume' : B.Consumption.t) =
+        match should_move with
+        | true -> (stack_out, Move)
+        | false -> (A.Type.Ref (mem, t_targ) :: stack_out, Copy)
+      in
+      let* it = instr_t_of env.kinds stack_in t_out in
+      ret @@ ICaseLoad (it, consume', lfx', cases')
   | Group i ->
       (* top ... bottom -> bottom ... top *)
       let* ts =

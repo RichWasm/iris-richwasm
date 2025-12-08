@@ -181,7 +181,7 @@ module Compile = struct
            | _ -> fail (InjInvalidAnn t))
           |> lift_result
         in
-        ret @@ expr' @ [ Inject (None, i, ts) ]
+        ret @@ expr' @ [ Inject (i, ts) ]
     | Fold (mu, expr, _) ->
         let* mu' = compile_type env mu |> lift_result in
         let* expr' = compile_expr env expr in

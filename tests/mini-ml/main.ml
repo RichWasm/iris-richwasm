@@ -352,7 +352,7 @@ let%expect_test "opt_case" =
         ptr ptr)
       i32.const 42
       tag
-      inject gc 1 (ref (base gc) (struct)) i31
+      inject_new gc 1 (ref (base gc) (struct)) i31
       local.set 1
       local.get 1 move
       copy

@@ -89,7 +89,7 @@ let%expect_test "examples" =
         group 0
         new gc
         cast (ref (base gc) (struct))
-        inject gc 0 (ref (base gc) (struct)))
+        inject_new gc 0 (ref (base gc) (struct)))
       (table)
       (export "_start" (func 0)))
     -----------sum_option-----------
@@ -97,7 +97,7 @@ let%expect_test "examples" =
       (func ((ref (base gc) (struct)) -> (ref (base gc) (struct))) (local ptr)
         i32.const 15
         tag
-        inject gc 1 (ref (base gc) (struct)) i31)
+        inject_new gc 1 (ref (base gc) (struct)) i31)
       (table)
       (export "_start" (func 0)))
     -----------add-----------
@@ -373,7 +373,7 @@ let%expect_test "examples" =
           ptr ptr)
         i32.const 42
         tag
-        inject gc 1 (ref (base gc) (struct)) i31
+        inject_new gc 1 (ref (base gc) (struct)) i31
         local.set 1
         local.get 1 move
         copy
@@ -633,7 +633,7 @@ let%expect_test "examples" =
           group 0
           new gc
           cast (ref (base gc) (struct))
-          inject gc
+          inject_new gc
             0 (ref (base gc) (struct)) (rec (VALTYPE (ptr, excopy, exdrop))
                                          (ref (base gc)
                                            (variant (ser (ref (base gc) (struct)))
@@ -658,7 +658,7 @@ let%expect_test "examples" =
                       (variant (ser (ref (base gc) (struct)))
                         (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))
                 (ser i31)))
-          inject gc
+          inject_new gc
             1 (ref (base gc) (struct)) (ref (base gc)
                                          (variant (ser i31)
                                            (ser

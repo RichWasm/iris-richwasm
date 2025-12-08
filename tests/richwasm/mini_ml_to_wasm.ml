@@ -637,42 +637,154 @@ let%expect_test "examples" =
       (start 8))
 
     -----------sum_unit-----------
-    FAILURE (InstrErr
-     (error
-      (Ctx
-       (error
-        (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
-       (ctx
-        (InstrTOut ((Ref (Base GC) (Variant ((Ref (Base GC) (Struct ()))))))))))
-     (instr (Inject (GC) 0 ((Ref (Base GC) (Struct ())))))
-     (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return ((Ref (Base GC) (Struct ()))))
-       (functions
-        ((FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
-     (state
-      ((locals ((Ref (Base GC) (Struct ())) (Plug (Atom Ptr))))
-       (stack ((Ref (Base GC) (Struct ())))))))
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func))
+      (type (;5;) (func (param i32 i32)))
+      (type (;6;) (func (param i32 i32)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 1) (param i32) (result i32)
+        (local i32 i32 i32 i32 i32)
+        nop
+        i32.const 0
+        call 2
+        local.set 1
+        local.get 1
+        call 5
+        local.set 2
+        i32.const 2
+        call 2
+        local.set 3
+        local.get 3
+        i32.const 1
+        i32.const 1
+        call 3
+        i32.const 0
+        local.set 4
+        local.get 3
+        local.get 4
+        i32.store offset=1 align=2
+        local.get 3
+        local.get 2
+        local.get 2
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (param i32 i32)  ;; label = @1
+          i32.store offset=5 align=2
+        else
+          local.get 2
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store offset=5 align=2
+          else
+            i32.load offset=1 align=2
+            i32.store offset=5 align=2
+            local.get 2
+            call 6
+          end
+        end
+        local.get 3
+        call 5)
+      (func (;8;) (type 4)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 0
+        i32.add
+        global.set 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 7))
+      (start 8))
+
     -----------sum_option-----------
-    FAILURE (InstrErr
-     (error
-      (Ctx
-       (error
-        (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
-       (ctx
-        (InstrTOut ((Ref (Base GC) (Variant ((Ref (Base GC) (Struct ())) I31))))))))
-     (instr (Inject (GC) 1 ((Ref (Base GC) (Struct ())) I31)))
-     (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return ((Ref (Base GC) (Struct ()))))
-       (functions
-        ((FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
-     (state
-      ((locals ((Ref (Base GC) (Struct ())) (Plug (Atom Ptr)))) (stack (I31)))))
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func))
+      (type (;5;) (func (param i32 i32)))
+      (type (;6;) (func (param i32 i32)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 1) (param i32) (result i32)
+        (local i32 i32 i32 i32)
+        i32.const 15
+        i32.const 1
+        i32.shl
+        local.set 1
+        i32.const 2
+        call 2
+        local.set 2
+        local.get 2
+        i32.const 1
+        i32.const 1
+        call 3
+        i32.const 1
+        local.set 3
+        local.get 2
+        local.get 3
+        i32.store offset=1 align=2
+        local.get 2
+        local.get 1
+        local.get 1
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (param i32 i32)  ;; label = @1
+          i32.store offset=5 align=2
+        else
+          local.get 1
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store offset=5 align=2
+          else
+            i32.load offset=1 align=2
+            i32.store offset=5 align=2
+            local.get 1
+            call 6
+          end
+        end
+        local.get 2
+        call 5)
+      (func (;8;) (type 4)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 0
+        i32.add
+        global.set 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 7))
+      (start 8))
+
     -----------add-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -1354,26 +1466,7 @@ let%expect_test "examples" =
          (Plug (Atom Ptr)) (Plug (Atom Ptr))))
        (stack ((Ref (Base GC) (Struct ())))))))
     -----------opt_case-----------
-    FAILURE (InstrErr
-     (error
-      (Ctx
-       (error
-        (CannotMeet "expected memtype" (VALTYPE (AtomR PtrR) ExCopy ExDrop)))
-       (ctx
-        (InstrTOut ((Ref (Base GC) (Variant ((Ref (Base GC) (Struct ())) I31))))))))
-     (instr (Inject (GC) 1 ((Ref (Base GC) (Struct ())) I31)))
-     (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return ((Ref (Base GC) (Struct ()))))
-       (functions
-        ((FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
-     (state
-      ((locals
-        ((Ref (Base GC) (Struct ())) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr))))
-       (stack (I31)))))
+    FAILURE EFail
     -----------poly_len-----------
     FAILURE (InstrErr
      (error

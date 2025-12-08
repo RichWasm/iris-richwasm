@@ -1433,7 +1433,7 @@ let%expect_test "examples" =
                   (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))))))
        InferFx
        (((LocalSet 5) (LocalGet 5 Follow)
-         (Inject () 0
+         (Inject 0
           ((Prod ())
            (Prod
             ((Num (Int I32))
@@ -1493,7 +1493,7 @@ let%expect_test "examples" =
            (Group 2) (LocalGet 13 Follow) CallIndirect (LocalGet 13 Move) Drop
            (LocalGet 14 Move) Drop (LocalGet 12 Move) Drop))
          (New MM) (Group 2)
-         (Inject () 1
+         (Inject 1
           ((Prod ())
            (Prod
             ((Num (Int I32))
@@ -1941,7 +1941,7 @@ let%expect_test "examples" =
            (Group 2) (LocalGet 8 Follow) CallIndirect (LocalGet 8 Move) Drop
            (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop))
          (New MM)
-         (Inject () 1
+         (Inject 1
           ((Prod ())
            (Ref (Base MM)
             (Ser

@@ -135,7 +135,7 @@ let rec compile_expr delta gamma locals functions e =
         | _ -> failwith "inj should be annotated with sum type"
       in
       let v', locals', fx = r v in
-      (v' @ [ Inject (Some GC, i, types) ], locals', fx)
+      (v' @ [ InjectNew (GC, i, types) ], locals', fx)
   | Pack (witness, v, _) ->
       let v', locals', fx = r v in
       ( v' @ [ Pack (Index.Type (compile_type delta witness), rw_t); New GC ],
