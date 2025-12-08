@@ -943,10 +943,6 @@ let rec elab_instruction (env : Env.t) :
       let* st = get in
       let* t =
         List.nth st.locals i |> lift_option (InvalidLocalIdx (i, `Get))
-        (* NOTE: we don't *have* to error here but it makes debugging much easier *)
-        (* >>= function
-        | Plug rep -> fail (UnexpectedPlugLocal (i, rep))
-        | x -> ret x *)
       in
       let* t' = lift_result @@ elab_type env.kinds t in
       let* im_copyable =
