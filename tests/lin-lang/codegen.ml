@@ -351,6 +351,9 @@ let%expect_test "examples" =
     -----------print_10-----------
     (module
       (import ((prod (ref (base mm) (ser (prod))) i32) -> (prod))
+      (func ((prod (ref (base mm) (ser (prod))) i32) -> (prod))
+        local.get 0 move
+        call 0)
       (func (-> (prod)) (local (prod (prod i32 ptr) ptr)
           (prod i32 (prod (prod i32 ptr) ptr)) (prod (prod i32 ptr) ptr))
         coderef 0
@@ -378,8 +381,8 @@ let%expect_test "examples" =
           local.get 0 move
           drop
         end)
-      (table)
-      (export "_start" (func 0)))
+      (table 0)
+      (export "_start" (func 1)))
     -----------closure-----------
     (module
       (func ((prod (ref (base mm) (ser (prod i32))) (prod)) -> i32) (local ptr

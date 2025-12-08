@@ -359,8 +359,20 @@ module Compile = struct
     let functions_only_map =
       List.mapi functions ~f:(fun i f -> (f.name, import_offset + i))
     in
-    (* FIXME: add imported functions to table *)
-    let table = List.map functions_only_map ~f:snd in
+    let* import_function_wrapped =
+      mapiM imports ~f:(fun i { input; output; _ } ->
+          let* input' = compile_type Env.empty input in
+          let* output' = compile_type Env.empty output in
+          ret
+            B.Module.Function.
+              {
+                typ = FunctionType ([], [ input' ], [ output' ]);
+                locals = [];
+                body = [ LocalGet (0, Move); Call (i, []) ];
+              })
+    in
+    let import_table_indices = List.mapi imports ~f:(fun i _ -> i) in
+    let table = import_table_indices @ List.map functions_only_map ~f:snd in
     let* function_map =
       imports_only_map @ functions_only_map
       |> Map.of_list_with_key ~get_key:fst (module String)
@@ -381,7 +393,7 @@ module Compile = struct
     let main_fn = main' |> Option.value_map ~default:[] ~f:(fun x -> [ x ]) in
 
     let* functions' = mapM ~f:(compile_function env) functions in
-    let functions' = functions' @ main_fn in
+    let functions' = import_function_wrapped @ functions' @ main_fn in
     let* imports = mapM ~f:compile_import imports in
     let main_export =
       main

@@ -470,17 +470,7 @@ let%expect_test "examples" =
                                         ^^^^^^^^^
 
     -----------print_10-----------
-    FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
-     (env
-      ((local_offset 0) (kinds ()) (labels ()) (return ((Prod ())))
-       (functions ((FunctionType () () ((Prod ()))))) (table ()) (lfx ())))
-     (state
-      ((locals
-        ((Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
-         (Plug
-          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
-         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
-       (stack ()))))
+    FAILURE EFail
     -----------closure-----------
     FAILURE EFail
     -----------factorial_program-----------

@@ -1266,17 +1266,268 @@ let%expect_test "examples" =
                    |}];
     |}
     -----------print_10-----------
-    FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
-     (env
-      ((local_offset 0) (kinds ()) (labels ()) (return ((Prod ())))
-       (functions ((FunctionType () () ((Prod ()))))) (table ()) (lfx ())))
-     (state
-      ((locals
-        ((Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))
-         (Plug
-          (Prod ((Atom I32) (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
-         (Plug (Prod ((Prod ((Atom I32) (Atom Ptr))) (Atom Ptr))))))
-       (stack ()))))
+    {|
+      m_imports :=
+        [ (MonoFunT
+          [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+            [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+              (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+          [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])];
+      m_functions :=
+        [ {|
+          mf_type :=
+            (MonoFunT
+              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                  (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]);
+          mf_locals := [];
+          mf_body :=
+            [ (ILocalGet
+              (InstrT []
+                [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                  [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                    (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+                    (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])])
+              0);
+              (ICall
+                (InstrT
+                  [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                    [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                      (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+                      (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                  [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])
+                0 [])];
+        |};
+          {|
+            mf_type := (MonoFunT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]);
+            mf_locals :=
+              [ (ProdR [ (ProdR [ (AtomR I32R); (AtomR PtrR)]); (AtomR PtrR)]);
+                (ProdR [ (AtomR I32R); (ProdR [ (ProdR [ (AtomR I32R); (AtomR PtrR)]); (AtomR PtrR)])]);
+                (ProdR [ (ProdR [ (AtomR I32R); (AtomR PtrR)]); (AtomR PtrR)])];
+            mf_body :=
+              [ (ICodeRef
+                (InstrT []
+                  [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                    (MonoFunT
+                      [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                        [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+                          (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                      [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]))])
+                0);
+                (IGroup (InstrT [] [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                (INew
+                  (InstrT [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]
+                    [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                      (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]));
+                (IGroup
+                  (InstrT
+                    [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                      (MonoFunT
+                        [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                          [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                        [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                      (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                        (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))]
+                    [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                      [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                        (MonoFunT
+                          [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                            [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+                              (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                          [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                        (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))])]));
+                (IPack
+                  (InstrT
+                    [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                      [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                        (MonoFunT
+                          [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                            [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])));
+                              (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                          [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                        (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])))])]
+                    [ (ExistsTypeT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                      (VALTYPE (ProdR []) ImCopy ImDrop)
+                      (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                          (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]))]));
+                (IUnpack
+                  (InstrT
+                    [ (ExistsTypeT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                      (VALTYPE (ProdR []) ImCopy ImDrop)
+                      (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                          (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]))]
+                    [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])])
+                  (PlugT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) ImCopy ImDrop) (ProdR [ (AtomR I32R); (AtomR PtrR)]))
+                  (PlugT (VALTYPE (AtomR I32R) ImCopy ImDrop) (AtomR I32R))
+                  (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
+                  [ (ILocalSet
+                    (InstrT
+                      [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                          (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])]
+                      [])
+                    0);
+                    (ILocalGet
+                      (InstrT []
+                        [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                          [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                            (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])])
+                      0);
+                    (IUngroup
+                      (InstrT
+                        [ (ProdT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) NoCopy ExDrop)
+                          [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                            (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                              (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])]
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                          (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]));
+                    (ILocalSet
+                      (InstrT
+                        [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))]
+                        [])
+                      2);
+                    (ILocalSet
+                      (InstrT
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]))]
+                        [])
+                      1);
+                    (ILocalGet
+                      (InstrT []
+                        [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)))])
+                      2);
+                    (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 10);
+                    (IGroup
+                      (InstrT
+                        [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                          (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                          (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]
+                        [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                          [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]));
+                    (ILocalGet
+                      (InstrT []
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]))])
+                      1);
+                    (ICallIndirect
+                      (InstrT
+                        [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                          [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop) (BaseM MemMM)
+                            (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                            (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]);
+                          (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                            (MonoFunT
+                              [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                                [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                  (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                  (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                              [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]))]
+                        [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]));
+                    (ILocalGet
+                      (InstrT []
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]))])
+                      1);
+                    (IDrop
+                      (InstrT
+                        [ (CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop)
+                          (MonoFunT
+                            [ (ProdT (VALTYPE (ProdR [ (AtomR PtrR); (AtomR I32R)]) NoCopy ExDrop)
+                              [ (RefT (VALTYPE (AtomR PtrR) NoCopy ExDrop)
+                                (BaseM MemMM) (SerT (MEMTYPE (RepS (ProdR [])) ImDrop) (VarT 0)));
+                                (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])]
+                            [ (ProdT (VALTYPE (ProdR []) ImCopy ImDrop) [])]))]
+                        []));
+                    (ILocalGet (InstrT [] [ (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))]) 2);
+                    (IDrop (InstrT [ (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))] []));
+                    (ILocalGet
+                      (InstrT []
+                        [ (PlugT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) ImCopy ImDrop)
+                          (ProdR [ (AtomR I32R); (AtomR PtrR)]))])
+                      0);
+                    (IDrop
+                      (InstrT
+                        [ (PlugT (VALTYPE (ProdR [ (AtomR I32R); (AtomR PtrR)]) ImCopy ImDrop)
+                          (ProdR [ (AtomR I32R); (AtomR PtrR)]))]
+                        []))])];
+          |}];
+      m_table := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 1;
+                   |}];
+    |}
     -----------closure-----------
     {|
       m_imports := [];

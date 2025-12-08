@@ -869,7 +869,7 @@ module Instruction = struct
     | CodeRef i -> fprintf ff "@[<2>coderef@ %a@]" pp_int i
     | Inst idx -> fprintf ff "@[<2>inst@ %a@]" Index.pp idx
     | Call (i, idxs) ->
-        fprintf ff "@[<v 2>call@ %a" pp_int i;
+        fprintf ff "@[<2>call@ %a" pp_int i;
         List.iter ~f:(fprintf ff "@ %a" Index.pp) idxs;
         fprintf ff "@]"
     | CallIndirect -> fprintf ff "call_indirect"
