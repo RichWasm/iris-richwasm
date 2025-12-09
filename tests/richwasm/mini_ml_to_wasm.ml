@@ -71,9 +71,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -236,9 +241,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -471,9 +481,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -629,9 +644,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -705,9 +725,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -778,9 +803,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -822,9 +852,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -866,9 +901,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -910,9 +950,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -954,9 +999,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -1008,9 +1058,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
@@ -1090,18 +1145,68 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
       (start 8))
 
     -----------return_one-----------
-    FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
+    FAILURE (InstrErr
+     (error
+      (PackMismatch
+       (Ref (Base GC)
+        (Struct
+         ((Ser (Ref (Base GC) (Struct ())))
+          (Ser
+           (CodeRef
+            (FunctionType ()
+             ((Ref (Base GC)
+               (Struct
+                ((Ser (Ref (Base GC) (Struct ())))
+                 (Ser (Ref (Base GC) (Struct ())))))))
+             (I31)))))))
+       (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+        (Ref (Base GC)
+         (Struct
+          ((Ser (Var 0))
+           (Ser
+            (CodeRef
+             (FunctionType ()
+              ((Ref (Base GC)
+                (Struct ((Ser (Var 0)) (Ser (Ref (Base GC) (Struct ())))))))
+              (I31))))))))))
+     (instr
+      (Pack (Type (Ref (Base GC) (Struct ())))
+       (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+        (Ref (Base GC)
+         (Struct
+          ((Ser (Var 0))
+           (Ser
+            (CodeRef
+             (FunctionType ()
+              ((Ref (Base GC)
+                (Struct ((Ser (Var 0)) (Ser (Ref (Base GC) (Struct ())))))))
+              (I31))))))))))
      (env
       ((local_offset 1) (kinds ()) (labels ())
-       (return ((Ref (Base GC) (Struct ()))))
+       (return
+        ((Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+          (Ref (Base GC)
+           (Struct
+            ((Ser (Var 0))
+             (Ser
+              (CodeRef
+               (FunctionType ()
+                ((Ref (Base GC)
+                  (Struct ((Ser (Var 0)) (Ser (Ref (Base GC) (Struct ())))))))
+                (I31))))))))))
        (functions
         ((FunctionType ()
           ((Ref (Base GC)
@@ -1110,11 +1215,49 @@ let%expect_test "examples" =
               (Ser (Ref (Base GC) (Struct ())))))))
           (I31))
          (FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
+          ((Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+            (Ref (Base GC)
+             (Struct
+              ((Ser (Var 0))
+               (Ser
+                (CodeRef
+                 (FunctionType ()
+                  ((Ref (Base GC)
+                    (Struct ((Ser (Var 0)) (Ser (Ref (Base GC) (Struct ())))))))
+                  (I31))))))))))))
+       (table
+        ((FunctionType ()
+          ((Ref (Base GC)
+            (Struct
+             ((Ser (Ref (Base GC) (Struct ())))
+              (Ser (Ref (Base GC) (Struct ())))))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Struct ())))
+          ((Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+            (Ref (Base GC)
+             (Struct
+              ((Ser (Var 0))
+               (Ser
+                (CodeRef
+                 (FunctionType ()
+                  ((Ref (Base GC)
+                    (Struct ((Ser (Var 0)) (Ser (Ref (Base GC) (Struct ())))))))
+                  (I31))))))))))))
+       (lfx ())))
      (state
       ((locals ((Ref (Base GC) (Struct ())) (Plug (Atom Ptr))))
-       (stack ((Ref (Base GC) (Struct ())))))))
+       (stack
+        ((Ref (Base GC)
+          (Struct
+           ((Ser (Ref (Base GC) (Struct ())))
+            (Ser
+             (CodeRef
+              (FunctionType ()
+               ((Ref (Base GC)
+                 (Struct
+                  ((Ser (Ref (Base GC) (Struct ())))
+                   (Ser (Ref (Base GC) (Struct ())))))))
+               (I31))))))))))))
     -----------add_one-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -1279,9 +1422,14 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "add1" (func 7))
       (start 8))
@@ -1440,37 +1588,172 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "id" (func 7))
       (start 8))
 
     -----------apply_id-----------
-    FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
+    FAILURE (InstrErr
+     (error
+      (PackMismatch
+       (Ref (Base GC)
+        (Struct
+         ((Ser (Ref (Base GC) (Struct ())))
+          (Ser
+           (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+            (Ref (Base GC)
+             (Struct
+              ((Ser (Var 0))
+               (Ser
+                (CodeRef
+                 (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                  ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0))))))
+                  ((Var 0)))))))))))))
+       (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+        (Ref (Base GC)
+         (Struct
+          ((Ser (Var 0))
+           (Ser
+            (CodeRef
+             (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+              ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0)))))) ((Var 0)))))))))))
+     (instr
+      (Pack (Type (Ref (Base GC) (Struct ())))
+       (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+        (Ref (Base GC)
+         (Struct
+          ((Ser (Var 0))
+           (Ser
+            (CodeRef
+             (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+              ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0)))))) ((Var 0)))))))))))
      (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return ((Ref (Base GC) (Struct ()))))
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
        (functions
         ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
           ((Ref (Base GC)
             (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser (Var 0))))))
           ((Var 0)))
-         (FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (table
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((Ref (Base GC)
+            (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser (Var 0))))))
+          ((Var 0)))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (lfx ())))
      (state
       ((locals
         ((Ref (Base GC) (Struct ())) (Plug (Atom Ptr)) (Plug (Atom Ptr))
          (Plug (Atom Ptr)) (Plug (Atom Ptr))))
-       (stack ((Ref (Base GC) (Struct ())))))))
+       (stack
+        ((Ref (Base GC)
+          (Struct
+           ((Ser (Ref (Base GC) (Struct ())))
+            (Ser
+             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+              (Ref (Base GC)
+               (Struct
+                ((Ser (Var 0))
+                 (Ser
+                  (CodeRef
+                   (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                    ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0))))))
+                    ((Var 0))))))))))))))))))
     -----------opt_case-----------
-    FAILURE EFail
+    FAILURE (InstrErr
+     (error
+      (LoadRefNonSer (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+     (instr
+      (CaseLoad (ArrowType 1 (I31)) Follow InferFx
+       (((LocalSet 3) (NumConst (Int I32) 0) Tag (LocalGet 3 Move) Drop)
+        ((LocalSet 2) (LocalGet 2 Move) Copy (LocalSet 2) (LocalGet 2 Move) Drop))))
+     (env
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
+       (functions ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (table ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31)))) (lfx ())))
+     (state
+      ((locals
+        ((Ref (Base GC) (Struct ()))
+         (Ref (Base GC) (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31))))
+         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))))
+       (stack
+        ((Ref (Base GC) (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))))))
     -----------poly_len-----------
     FAILURE (InstrErr
      (error
-      (BlockErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
+      (BlockErr
+       (error
+        (PackMismatch
+         (Ref (Base GC)
+          (Struct
+           ((Ser (Ref (Base GC) (Struct ())))
+            (Ser
+             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+              (Ref (Base GC)
+               (Struct
+                ((Ser (Var 0))
+                 (Ser
+                  (CodeRef
+                   (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                    ((Ref (Base GC)
+                      (Struct
+                       ((Ser (Var 1))
+                        (Ser
+                         (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                          (Ref (Base GC)
+                           (Variant
+                            ((Ser (Ref (Base GC) (Struct ())))
+                             (Ser
+                              (Ref (Base GC)
+                               (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+                    (I31))))))))))))
+         (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+          (Ref (Base GC)
+           (Struct
+            ((Ser (Var 0))
+             (Ser
+              (CodeRef
+               (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                ((Ref (Base GC)
+                  (Struct
+                   ((Ser (Var 1))
+                    (Ser
+                     (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                      (Ref (Base GC)
+                       (Variant
+                        ((Ser (Ref (Base GC) (Struct ())))
+                         (Ser
+                          (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+                (I31))))))))))
+       (instr
+        (Pack (Type (Ref (Base GC) (Struct ())))
+         (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+          (Ref (Base GC)
+           (Struct
+            ((Ser (Var 0))
+             (Ser
+              (CodeRef
+               (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                ((Ref (Base GC)
+                  (Struct
+                   ((Ser (Var 1))
+                    (Ser
+                     (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                      (Ref (Base GC)
+                       (Variant
+                        ((Ser (Ref (Base GC) (Struct ())))
+                         (Ser
+                          (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+                (I31))))))))))
        (env
         ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop)))
          (labels ((I31))) (return (I31))
@@ -1487,9 +1770,22 @@ let%expect_test "examples" =
                      (Ser
                       (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
             (I31))
-           (FunctionType () ((Ref (Base GC) (Struct ())))
-            ((Ref (Base GC) (Struct ()))))))
-         (table ()) (lfx ((LocalFx ((3 (Prod ()))))))))
+           (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+         (table
+          ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+            ((Ref (Base GC)
+              (Struct
+               ((Ser (Ref (Base GC) (Struct ())))
+                (Ser
+                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                  (Ref (Base GC)
+                   (Variant
+                    ((Ser (Ref (Base GC) (Struct ())))
+                     (Ser
+                      (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+            (I31))
+           (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+         (lfx (InferFx))))
        (state
         ((locals
           ((Ref (Base GC)
@@ -1522,9 +1818,33 @@ let%expect_test "examples" =
                         (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))))))
            (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
            (Plug (Atom Ptr)) (Plug (Atom Ptr))))
-         (stack ((Ref (Base GC) (Struct ())) (Num (Int I32))))))))
+         (stack
+          ((Ref (Base GC)
+            (Struct
+             ((Ser (Ref (Base GC) (Struct ())))
+              (Ser
+               (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                (Ref (Base GC)
+                 (Struct
+                  ((Ser (Var 0))
+                   (Ser
+                    (CodeRef
+                     (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                      ((Ref (Base GC)
+                        (Struct
+                         ((Ser (Var 1))
+                          (Ser
+                           (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                            (Ref (Base GC)
+                             (Variant
+                              ((Ser (Ref (Base GC) (Struct ())))
+                               (Ser
+                                (Ref (Base GC)
+                                 (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+                      (I31))))))))))))
+           (Num (Int I32))))))))
      (instr
-      (Case (ArrowType 1 (I31)) (LocalFx ((3 (Prod ()))))
+      (CaseLoad (ArrowType 1 (I31)) Follow InferFx
        (((LocalSet 6) (NumConst (Int I32) 0) Tag (LocalGet 6 Move) Drop)
         ((LocalSet 2) (NumConst (Int I32) 1) Tag Untag (Group 0) (New GC)
          (Cast (Ref (Base GC) (Struct ()))) (CodeRef 0) (Group 2) (New GC)
@@ -1533,51 +1853,47 @@ let%expect_test "examples" =
            (Struct
             ((Ser (Ref (Base GC) (Struct ())))
              (Ser
-              (Ref (Base GC)
-               (Ser
-                (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                 (Ref (Base GC)
-                  (Struct
-                   ((Ser (Var 0))
-                    (Ser
-                     (CodeRef
-                      (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
-                       ((Ref (Base GC)
-                         (Struct
-                          ((Ser (Var 1))
-                           (Ser
-                            (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                             (Ref (Base GC)
-                              (Variant
-                               ((Ser (Ref (Base GC) (Struct ())))
-                                (Ser
-                                 (Ref (Base GC)
-                                  (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                       (I31)))))))))))))))
+              (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+               (Ref (Base GC)
+                (Struct
+                 ((Ser (Var 0))
+                  (Ser
+                   (CodeRef
+                    (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                     ((Ref (Base GC)
+                       (Struct
+                        ((Ser (Var 1))
+                         (Ser
+                          (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                           (Ref (Base GC)
+                            (Variant
+                             ((Ser (Ref (Base GC) (Struct ())))
+                              (Ser
+                               (Ref (Base GC)
+                                (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+                     (I31)))))))))))))
          (Pack (Type (Ref (Base GC) (Struct ())))
-          (Ref (Base GC)
-           (Ser
-            (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-             (Ref (Base GC)
-              (Struct
-               ((Ser (Var 0))
-                (Ser
-                 (CodeRef
-                  (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
-                   ((Ref (Base GC)
-                     (Struct
-                      ((Ser (Var 1))
-                       (Ser
-                        (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                         (Ref (Base GC)
-                          (Variant
-                           ((Ser (Ref (Base GC) (Struct ())))
-                            (Ser
-                             (Ref (Base GC)
-                              (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                   (I31)))))))))))
+          (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+           (Ref (Base GC)
+            (Struct
+             ((Ser (Var 0))
+              (Ser
+               (CodeRef
+                (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                 ((Ref (Base GC)
+                   (Struct
+                    ((Ser (Var 1))
+                     (Ser
+                      (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                       (Ref (Base GC)
+                        (Variant
+                         ((Ser (Ref (Base GC) (Struct ())))
+                          (Ser
+                           (Ref (Base GC)
+                            (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+                 (I31)))))))))
          (New GC) (Load (Path ()) Follow)
-         (Unpack (ArrowType 1 (I31)) (LocalFx ((3 (Prod ()))))
+         (Unpack (ArrowType 1 (I31)) InferFx
           ((LocalSet 3) (LocalGet 3 Move) Copy (LocalSet 3)
            (Load (Path (0)) Follow) (LocalSet 4) (LocalGet 3 Move) Copy
            (LocalSet 3) (Load (Path (1)) Follow) (LocalSet 5) (LocalGet 2 Move)
@@ -1606,9 +1922,21 @@ let%expect_test "examples" =
                   ((Ser (Ref (Base GC) (Struct ())))
                    (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
           (I31))
-         (FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (table
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((Ref (Base GC)
+            (Struct
+             ((Ser (Ref (Base GC) (Struct ())))
+              (Ser
+               (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                (Ref (Base GC)
+                 (Variant
+                  ((Ser (Ref (Base GC) (Struct ())))
+                   (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (lfx ())))
      (state
       ((locals
         ((Ref (Base GC)
@@ -2156,18 +2484,57 @@ let%expect_test "examples" =
         global.get 0
         global.set 1
         global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
         i32.const 0
         i32.add
-        global.set 0)
+        i32.const 7
+        call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "mini_zip" (func 7))
       (start 8))
 
     -----------closure_simpl-----------
-    FAILURE (InstrErr (error (InvalidTableIdx 0)) (instr (CodeRef 0))
+    FAILURE (InstrErr
+     (error
+      (PackMismatch
+       (Ref (Base GC)
+        (Struct
+         ((Ser (Ref (Base GC) (Struct ((Ser I31)))))
+          (Ser
+           (CodeRef
+            (FunctionType ()
+             ((Ref (Base GC)
+               (Struct
+                ((Ser (Ref (Base GC) (Struct ((Ser I31)))))
+                 (Ser (Ref (Base GC) (Struct ())))))))
+             (I31)))))))
+       (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+        (Ref (Base GC)
+         (Struct
+          ((Ser (Var 0))
+           (Ser
+            (CodeRef
+             (FunctionType ()
+              ((Ref (Base GC)
+                (Struct ((Ser (Var 0)) (Ser (Ref (Base GC) (Struct ())))))))
+              (I31))))))))))
+     (instr
+      (Pack (Type (Ref (Base GC) (Struct ((Ser I31)))))
+       (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+        (Ref (Base GC)
+         (Struct
+          ((Ser (Var 0))
+           (Ser
+            (CodeRef
+             (FunctionType ()
+              ((Ref (Base GC)
+                (Struct ((Ser (Var 0)) (Ser (Ref (Base GC) (Struct ())))))))
+              (I31))))))))))
      (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return ((Ref (Base GC) (Struct ()))))
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
        (functions
         ((FunctionType ()
           ((Ref (Base GC)
@@ -2175,118 +2542,45 @@ let%expect_test "examples" =
              ((Ser (Ref (Base GC) (Struct ((Ser I31)))))
               (Ser (Ref (Base GC) (Struct ())))))))
           (I31))
-         (FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (table
+        ((FunctionType ()
+          ((Ref (Base GC)
+            (Struct
+             ((Ser (Ref (Base GC) (Struct ((Ser I31)))))
+              (Ser (Ref (Base GC) (Struct ())))))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (lfx ())))
      (state
       ((locals
         ((Ref (Base GC) (Struct ())) I31 (Plug (Atom Ptr)) (Plug (Atom Ptr))
          (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))))
-       (stack ((Ref (Base GC) (Struct ((Ser I31)))))))))
+       (stack
+        ((Ref (Base GC)
+          (Struct
+           ((Ser (Ref (Base GC) (Struct ((Ser I31)))))
+            (Ser
+             (CodeRef
+              (FunctionType ()
+               ((Ref (Base GC)
+                 (Struct
+                  ((Ser (Ref (Base GC) (Struct ((Ser I31)))))
+                   (Ser (Ref (Base GC) (Struct ())))))))
+               (I31))))))))))))
     -----------closure_complex-----------
     FAILURE (InstrErr
      (error
-      (IncorrectLocalFx unpack 5
-       ((Ref (Base GC)
-         (Struct
-          ((Ser
-            (Ref (Base GC)
-             (Struct
-              ((Ser
-                (Ref (Base GC)
-                 (Ser
-                  (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                   (Ref (Base GC)
-                    (Struct
-                     ((Ser (Var 0))
-                      (Ser
-                       (CodeRef
-                        (FunctionType ()
-                         ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                         (I31)))))))))))
-               (Ser I31)))))
-           (Ser I31))))
+      (NonRef Load
+       (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
         (Ref (Base GC)
          (Struct
-          ((Ser
-            (Ref (Base GC)
-             (Ser
-              (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-               (Ref (Base GC)
-                (Struct
-                 ((Ser (Var 0))
-                  (Ser
-                   (CodeRef
-                    (FunctionType ()
-                     ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                     (I31)))))))))))
-           (Ser I31))))
-        I31
-        (Ref (Base GC)
-         (Ser
-          (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-           (Ref (Base GC)
-            (Struct
-             ((Ser (Var 0))
-              (Ser
-               (CodeRef
-                (FunctionType ()
-                 ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))))
-        I31 (Prod ()) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)))
-       ((Ref (Base GC)
-         (Struct
-          ((Ser
-            (Ref (Base GC)
-             (Struct
-              ((Ser
-                (Ref (Base GC)
-                 (Ser
-                  (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                   (Ref (Base GC)
-                    (Struct
-                     ((Ser (Var 0))
-                      (Ser
-                       (CodeRef
-                        (FunctionType ()
-                         ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                         (I31)))))))))))
-               (Ser I31)))))
-           (Ser I31))))
-        (Ref (Base GC)
-         (Struct
-          ((Ser
-            (Ref (Base GC)
-             (Ser
-              (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-               (Ref (Base GC)
-                (Struct
-                 ((Ser (Var 0))
-                  (Ser
-                   (CodeRef
-                    (FunctionType ()
-                     ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                     (I31)))))))))))
-           (Ser I31))))
-        I31
-        (Ref (Base GC)
-         (Ser
-          (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-           (Ref (Base GC)
-            (Struct
-             ((Ser (Var 0))
-              (Ser
-               (CodeRef
-                (FunctionType ()
-                 ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))))
-        I31 (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom I32))
-        (Plug (Atom Ptr)))))
-     (instr
-      (Unpack (ArrowType 1 (I31)) (LocalFx ((5 (Prod ()))))
-       ((LocalSet 5) (LocalGet 5 Move) Copy (LocalSet 5) (Load (Path (0)) Follow)
-        (LocalSet 6) (LocalGet 5 Move) Copy (LocalSet 5) (Load (Path (1)) Follow)
-        (LocalSet 7) (LocalGet 2 Move) Copy (LocalSet 2) (LocalGet 7 Move) Copy
-        (LocalSet 7) CallIndirect (LocalGet 7 Move) Drop (LocalGet 6 Move) Drop
-        (LocalGet 5 Move) Drop)))
+          ((Ser (Var 0))
+           (Ser
+            (CodeRef
+             (FunctionType ()
+              ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))))
+     (instr (Load (Path ()) Follow))
      (env
       ((local_offset 1) (kinds ()) (labels ()) (return (I31))
        (functions
@@ -2297,37 +2591,6 @@ let%expect_test "examples" =
                (Ref (Base GC)
                 (Struct
                  ((Ser
-                   (Ref (Base GC)
-                    (Ser
-                     (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                      (Ref (Base GC)
-                       (Struct
-                        ((Ser (Var 0))
-                         (Ser
-                          (CodeRef
-                           (FunctionType ()
-                            ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                            (I31)))))))))))
-                  (Ser I31)))))
-              (Ser I31)))))
-          (I31))
-         (FunctionType ()
-          ((Ref (Base GC)
-            (Struct ((Ser (Ref (Base GC) (Struct ((Ser I31))))) (Ser I31)))))
-          (I31))
-         (FunctionType () ((Ref (Base GC) (Struct ())))
-          ((Ref (Base GC) (Struct ()))))))
-       (table ()) (lfx ())))
-     (state
-      ((locals
-        ((Ref (Base GC)
-          (Struct
-           ((Ser
-             (Ref (Base GC)
-              (Struct
-               ((Ser
-                 (Ref (Base GC)
-                  (Ser
                    (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
                     (Ref (Base GC)
                      (Struct
@@ -2336,35 +2599,82 @@ let%expect_test "examples" =
                         (CodeRef
                          (FunctionType ()
                           ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                          (I31)))))))))))
+                          (I31)))))))))
+                  (Ser I31)))))
+              (Ser I31)))))
+          (I31))
+         (FunctionType ()
+          ((Ref (Base GC)
+            (Struct ((Ser (Ref (Base GC) (Struct ((Ser I31))))) (Ser I31)))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (table
+        ((FunctionType ()
+          ((Ref (Base GC)
+            (Struct
+             ((Ser
+               (Ref (Base GC)
+                (Struct
+                 ((Ser
+                   (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                    (Ref (Base GC)
+                     (Struct
+                      ((Ser (Var 0))
+                       (Ser
+                        (CodeRef
+                         (FunctionType ()
+                          ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+                          (I31)))))))))
+                  (Ser I31)))))
+              (Ser I31)))))
+          (I31))
+         (FunctionType ()
+          ((Ref (Base GC)
+            (Struct ((Ser (Ref (Base GC) (Struct ((Ser I31))))) (Ser I31)))))
+          (I31))
+         (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (lfx ())))
+     (state
+      ((locals
+        ((Ref (Base GC)
+          (Struct
+           ((Ser
+             (Ref (Base GC)
+              (Struct
+               ((Ser
+                 (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                  (Ref (Base GC)
+                   (Struct
+                    ((Ser (Var 0))
+                     (Ser
+                      (CodeRef
+                       (FunctionType ()
+                        ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+                        (I31)))))))))
                 (Ser I31)))))
             (Ser I31))))
          (Ref (Base GC)
           (Struct
            ((Ser
-             (Ref (Base GC)
-              (Ser
-               (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                (Ref (Base GC)
-                 (Struct
-                  ((Ser (Var 0))
-                   (Ser
-                    (CodeRef
-                     (FunctionType ()
-                      ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                      (I31)))))))))))
+             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+              (Ref (Base GC)
+               (Struct
+                ((Ser (Var 0))
+                 (Ser
+                  (CodeRef
+                   (FunctionType ()
+                    ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+                    (I31)))))))))
             (Ser I31))))
          I31
-         (Ref (Base GC)
-          (Ser
-           (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-            (Ref (Base GC)
-             (Struct
-              ((Ser (Var 0))
-               (Ser
-                (CodeRef
-                 (FunctionType ()
-                  ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))))
+         (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+          (Ref (Base GC)
+           (Struct
+            ((Ser (Var 0))
+             (Ser
+              (CodeRef
+               (FunctionType ()
+                ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))
          I31 (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
          (Plug (Atom Ptr))))
        (stack
@@ -2377,44 +2687,30 @@ let%expect_test "examples" =
                (FunctionType ()
                 ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))
          (Ref (Base GC)
-          (Ser
-           (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-            (Ref (Base GC)
-             (Struct
-              ((Ser (Var 0))
-               (Ser
-                (CodeRef
-                 (FunctionType ()
-                  ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))))
-         (Ref (Base GC)
           (Struct
            ((Ser
-             (Ref (Base GC)
-              (Ser
-               (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                (Ref (Base GC)
-                 (Struct
-                  ((Ser (Var 0))
-                   (Ser
-                    (CodeRef
-                     (FunctionType ()
-                      ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                      (I31)))))))))))
+             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+              (Ref (Base GC)
+               (Struct
+                ((Ser (Var 0))
+                 (Ser
+                  (CodeRef
+                   (FunctionType ()
+                    ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+                    (I31)))))))))
             (Ser I31))))
          (Ref (Base GC)
           (Struct
            ((Ser
-             (Ref (Base GC)
-              (Ser
-               (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                (Ref (Base GC)
-                 (Struct
-                  ((Ser (Var 0))
-                   (Ser
-                    (CodeRef
-                     (FunctionType ()
-                      ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                      (I31)))))))))))
+             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+              (Ref (Base GC)
+               (Struct
+                ((Ser (Var 0))
+                 (Ser
+                  (CodeRef
+                   (FunctionType ()
+                    ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+                    (I31)))))))))
             (Ser I31))))
          (Ref (Base GC)
           (Struct
@@ -2422,17 +2718,15 @@ let%expect_test "examples" =
              (Ref (Base GC)
               (Struct
                ((Ser
-                 (Ref (Base GC)
-                  (Ser
-                   (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                    (Ref (Base GC)
-                     (Struct
-                      ((Ser (Var 0))
-                       (Ser
-                        (CodeRef
-                         (FunctionType ()
-                          ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                          (I31)))))))))))
+                 (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                  (Ref (Base GC)
+                   (Struct
+                    ((Ser (Var 0))
+                     (Ser
+                      (CodeRef
+                       (FunctionType ()
+                        ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+                        (I31)))))))))
                 (Ser I31)))))
             (Ser I31))))
          (Ref (Base GC)
@@ -2441,16 +2735,14 @@ let%expect_test "examples" =
              (Ref (Base GC)
               (Struct
                ((Ser
-                 (Ref (Base GC)
-                  (Ser
-                   (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                    (Ref (Base GC)
-                     (Struct
-                      ((Ser (Var 0))
-                       (Ser
-                        (CodeRef
-                         (FunctionType ()
-                          ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
-                          (I31)))))))))))
+                 (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+                  (Ref (Base GC)
+                   (Struct
+                    ((Ser (Var 0))
+                     (Ser
+                      (CodeRef
+                       (FunctionType ()
+                        ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+                        (I31)))))))))
                 (Ser I31)))))
             (Ser I31))))))))) |}]

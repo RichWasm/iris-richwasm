@@ -88,7 +88,8 @@ let rec compile_type delta t : Type.t =
   | Ref t -> Type.(Ref (Base GC, Ser (r t)))
   | Rec (v, t) -> Type.Rec (kind, compile_type (v :: delta) t)
   | Exists (v, t) ->
-      Ref (Base GC, Ser (Exists (Type kind, compile_type (v :: delta) t)))
+      (* Ref (Base GC, Ser (Exists (Type kind, compile_type (v :: delta) t))) *)
+      Exists (Type kind, compile_type (v :: delta) t)
   | Code { foralls; arg; ret } ->
       let r = compile_type (foralls @ delta) in
       CodeRef
@@ -202,7 +203,6 @@ let rec compile_expr delta gamma locals functions e =
       let insts =
         List.map ~f:(fun t -> Inst (Index.Type (compile_type delta t))) ts
       in
-      (* FIXME: figure out why [Inst] only takes one index *)
       (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
       let v', locals', fx_v = r v in
@@ -218,7 +218,7 @@ let rec compile_expr delta gamma locals functions e =
             Load (Path.Path [], Follow);
             Unpack
               ( ArrowType (1, [ rw_t ]),
-                LocalFx fx,
+                InferFx,
                 [ LocalSet new_local_idx ] @ e'
                 @ [ LocalGet (new_local_idx, Move); Drop ] );
           ],
@@ -242,11 +242,7 @@ let rec compile_expr delta gamma locals functions e =
       let els', locals', fx_e =
         compile_expr delta gamma locals' functions els
       in
-      ( c'
-        @ [
-            Untag;
-            Ite (ArrowType (1, [ rw_t ]), LocalFx (fx_t @ fx_e), thn', els');
-          ],
+      ( c' @ [ Untag; Ite (ArrowType (1, [ rw_t ]), InferFx, thn', els') ],
         locals',
         fx_c @ fx_t @ fx_e )
   | Cases (v, branches) ->
@@ -268,7 +264,7 @@ let rec compile_expr delta gamma locals functions e =
               fx @ fx' ))
           ~init:([], locals', [])
       in
-      ( v' @ [ Case (ArrowType (1, [ rw_t ]), LocalFx fx, branches') ],
+      ( v' @ [ CaseLoad (ArrowType (1, [ rw_t ]), Follow, InferFx, branches') ],
         locals',
         fx_v @ fx )
 
@@ -311,17 +307,25 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
     match body with
     | None -> fns
     | Some body ->
+        let body_gamma =
+          List.map ~f:(fun (Import (n, t)) -> (n, t)) imps
+          @ List.map
+              ~f:(function
+                | Export ((n, t), _) | Private ((n, t), _) -> (n, t))
+              fns
+        in
+        let ret_type = type_of_e body_gamma body in
         fns
         @ [
             Export
               ( ( "_start",
-                  Code { foralls = []; arg = closed_unit; ret = closed_unit } ),
+                  Code { foralls = []; arg = closed_unit; ret = ret_type } ),
                 Function
                   {
                     name = "_start";
                     foralls = [];
                     arg = ("#_env", closed_unit);
-                    ret_type = closed_unit;
+                    ret_type;
                     body;
                   } );
           ]
@@ -345,4 +349,6 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
         | Private _ -> None)
       fns
   in
-  { imports; functions; table = []; exports }
+  let import_offset = List.length imps in
+  let table = List.mapi ~f:(fun i _ -> import_offset + i) fns in
+  { imports; functions; table; exports }

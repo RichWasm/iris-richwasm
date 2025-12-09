@@ -156,7 +156,6 @@ Section Compiler.
     match μ with
     | MemMM => store_w μ t off
     | MemGC =>
-        (* FIXME: make sure this is always the correct type *)
         ite_gc_ptr ι v (W.Tf [W.T_i32; t] [])
           (loadroot;; store_w μ t off;; emit (W.BI_get_local (localimm v));; unregisterroot)
           (store_w μ t off)

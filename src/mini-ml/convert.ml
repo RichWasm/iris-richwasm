@@ -162,12 +162,16 @@ let rec cc_e user_fns gamma tagger acc e =
               PreType.(
                 Exists
                   ( "#cc-env",
-                    Code
-                      {
-                        foralls = free_type_vars @ foralls;
-                        arg = Prod [ Var "#cc-env"; cc_t t ];
-                        ret = cc_t ret_type;
-                      } )) ),
+                    Prod
+                      [
+                        Var "#cc-env";
+                        Code
+                          {
+                            foralls = free_type_vars @ foralls;
+                            arg = Prod [ Var "#cc-env"; cc_t t ];
+                            ret = cc_t ret_type;
+                          };
+                      ] )) ),
           Function.Function
             {
               name = code_name;
