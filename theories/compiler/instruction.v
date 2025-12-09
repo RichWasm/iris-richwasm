@@ -220,7 +220,7 @@ Section Compiler.
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
     ιs ← try_option EFail (eval_rep EmptyEnv ρ);
     a ← wlalloc fe W.T_i32;
-    emit (W.BI_set_local (localimm a));;
+    emit (W.BI_tee_local (localimm a));;
     match con with
     | Copy => ret tt
     | Move => set_pointer_flags mr a off (repeat FlagInt (areps_size ιs))

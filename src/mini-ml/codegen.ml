@@ -148,7 +148,7 @@ let rec compile_expr delta gamma locals functions e =
           ~f:(fun (name, _, i) -> Option.some_if (equal_string name v) i)
           gamma
       in
-      (* local.get sets the value to unit, so we have to copy and put it back *)
+      (* local.get sets the value to plug so we have to copy and put it back *)
       ([ LocalGet (idx, Move); Copy; LocalSet idx ], locals, [])
   | Coderef (_, f) ->
       let idx =
@@ -178,13 +178,33 @@ let rec compile_expr delta gamma locals functions e =
         fx_l @ fx_r )
   | Project (n, v) ->
       let v', locals', fx = r v in
-      (v' @ [ Load (Path.Path [ n ], Follow) ], locals', fx)
+      let temp_idx = List.length locals' in
+      let locals'' = locals' @ [ ("#temp", Type.Prod []) ] in
+      ( v'
+        @ [
+            Load (Path.Path [ n ], Follow);
+            LocalSet temp_idx;
+            Drop;
+            LocalGet (temp_idx, Move);
+          ],
+        locals'',
+        fx @ [ (temp_idx, rw_unit) ] )
   | New v ->
       let v', locals', fx = r v in
       (v' @ [ New BaseMemory.GC ], locals', fx)
   | Deref v ->
       let v', locals', fx = r v in
-      (v' @ [ Load (Path.Path [], Follow) ], locals', fx)
+      let temp_idx = List.length locals' in
+      let locals'' = locals' @ [ ("#temp", Type.Prod []) ] in
+      ( v'
+        @ [
+            Load (Path.Path [], Follow);
+            LocalSet temp_idx;
+            Drop;
+            LocalGet (temp_idx, Move);
+          ],
+        locals'',
+        fx @ [ (temp_idx, rw_unit) ] )
   | Assign (re, v) ->
       let re', locals', fx_re = r re in
       let v', locals', fx_v = compile_expr delta gamma locals' functions v in
@@ -206,33 +226,41 @@ let rec compile_expr delta gamma locals functions e =
       (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
       let v', locals', fx_v = r v in
-      let e', locals', fx_e =
+      let temp_idx = List.length locals' in
+      let locals'' = locals' @ [ ("#temp", Type.Prod []) ] in
+      let var_idx = List.length locals'' in
+      let e', locals''', fx_e =
         compile_expr (var :: delta)
-          ((n, t, new_local_idx) :: gamma)
-          (locals' @ [ (n, compile_type (var :: delta) t) ])
+          ((n, t, var_idx) :: gamma)
+          (locals'' @ [ (n, compile_type (var :: delta) t) ])
           functions e
       in
-      let fx = fx_v @ fx_e @ [ (new_local_idx, rw_unit) ] in
+      let fx_body = fx_e @ [ (var_idx, rw_unit) ] in
+      let fx = fx_v @ [ (temp_idx, rw_unit) ] @ fx_body in
       ( v'
         @ [
             Load (Path.Path [], Follow);
+            LocalSet temp_idx;
+            Drop;
+            LocalGet (temp_idx, Move);
             Unpack
               ( ArrowType (1, [ rw_t ]),
                 InferFx,
                 [ LocalSet new_local_idx ] @ e'
                 @ [ LocalGet (new_local_idx, Move); Drop ] );
           ],
-        locals',
+        locals''',
         fx )
   | Let ((n, t), e1, e2) ->
       let e1', locals', fx1 = r e1 in
-      let locals' = locals' @ [ (n, compile_type delta t) ] in
-      let e2', locals', fx2 =
-        compile_expr delta ((n, t, new_local_idx) :: gamma) locals' functions e2
+      let var_idx = List.length locals' in
+      let locals'' = locals' @ [ (n, compile_type delta t) ] in
+      let e2', locals''', fx2 =
+        compile_expr delta ((n, t, var_idx) :: gamma) locals'' functions e2
       in
-      ( e1' @ [ LocalSet new_local_idx ] @ e2'
-        @ [ LocalGet (new_local_idx, Move); Drop ],
-        locals',
+      ( e1' @ [ LocalSet var_idx ] @ e2'
+        @ [ LocalGet (var_idx, Move); Drop ],
+        locals''',
         fx1 @ fx2 )
   | If0 (c, thn, els) ->
       let c', locals', fx_c = r c in

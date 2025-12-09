@@ -465,9 +465,158 @@ let%expect_test "examples" =
     -----------add_one_program-----------
     FAILURE EFail
     -----------add_tup_ref-----------
-    wat2wasm Error: -:1:1123: error: type mismatch in local.set, expected [i32] but got []
-    ... local.tee 9 end end local.set 3 local.set 10 local.get 10 i32.const 1 i32...
-                                        ^^^^^^^^^
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (result i32)))
+      (type (;5;) (func))
+      (type (;6;) (func))
+      (type (;7;) (func))
+      (type (;8;) (func))
+      (type (;9;) (func))
+      (type (;10;) (func))
+      (type (;11;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 2
+        local.set 5
+        i32.const 1
+        call 1
+        local.set 6
+        local.get 6
+        i32.const 0
+        i32.const 0
+        call 3
+        local.get 6
+        local.get 5
+        i32.store offset=3 align=2
+        local.get 6
+        local.set 0
+        i32.const 1
+        local.get 0
+        nop
+        nop
+        local.set 2
+        local.set 1
+        local.get 2
+        local.tee 7
+        local.get 7
+        i32.const 0
+        i32.const 0
+        call 3
+        local.get 7
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (result i32)  ;; label = @1
+          unreachable
+        else
+          local.get 7
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            local.get 7
+            i32.load offset=3 align=2
+            local.tee 8
+          else
+            local.get 7
+            i32.load offset=1 align=2
+            local.tee 9
+          end
+        end
+        local.set 3
+        local.set 10
+        local.get 10
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 10
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 10
+            call 4
+          else
+            local.get 10
+            call 6
+          end
+        end
+        local.get 3
+        local.set 4
+        local.get 1
+        local.get 4
+        i32.add
+        local.get 4
+        drop
+        local.get 1
+        drop
+        local.get 2
+        local.set 11
+        local.get 11
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 11
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 11
+            call 4
+          else
+            local.get 11
+            call 6
+          end
+        end
+        local.get 0
+        local.set 12
+        local.get 12
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 12
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 12
+            call 4
+          else
+            local.get 12
+            call 6
+          end
+        end)
+      (func (;8;) (type 5)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 0
+        i32.add
+        global.set 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 7))
+      (start 8))
 
     -----------print_10-----------
     FAILURE EFail
