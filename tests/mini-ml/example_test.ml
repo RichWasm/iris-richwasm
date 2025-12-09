@@ -425,7 +425,7 @@ let%expect_test "examples" =
         local.get 1 move
         copy
         local.set 1
-        case_load (<1> -> i31) follow InferFx
+        case_load (<1> -> i31) copy InferFx
           (0
             local.set 3
             i32.const 0
@@ -483,7 +483,7 @@ let%expect_test "examples" =
         copy
         local.set 2
         unfold
-        case_load (<1> -> i31) follow InferFx
+        case_load (<1> -> i31) copy InferFx
           (0
             local.set 10
             i32.const 0

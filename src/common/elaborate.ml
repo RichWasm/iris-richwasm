@@ -86,6 +86,7 @@ module Err = struct
         | `Case of int * int * A.Type.t List.t * A.Type.t List.t
         ]
     | NonTrivialLfxInfer of [ `Unreachable | `Br | `Return ]
+    | FollowNotSupportedForCaseLoad
     | InstrErr of {
         error : t;
         instr : A.Instruction.t;
@@ -1021,22 +1022,11 @@ let rec elab_instruction (env : Env.t) :
         | t :: [] -> fail (NonRef (`CaseLoad, t))
         | ts -> fail (CaseLoadExpectedSingleRef ts)
       in
-      let* t_val =
-        match t_targ with
-        | Ser t -> ret t
-        | x -> fail @@ LoadRefNonSer x
-      in
-      let* t_val' = elab_type env.kinds t_val |> lift_result in
-      let* ex_copyable =
-        ret t_val' >>=^ copyability_of_typ env.kinds >>| function
-        | ImCopy | ExCopy -> true
-        | _ -> false
-      in
-      let* should_move = is_effective_move consume ex_copyable |> lift_result in
-      let t_out, (consume' : B.Consumption.t) =
-        match should_move with
-        | true -> (stack_out, Move)
-        | false -> (A.Type.Ref (mem, t_targ) :: stack_out, Copy)
+      let* t_out, consume' =
+        match consume with
+        | Move -> ret (stack_out, B.Consumption.Move)
+        | Copy -> ret (A.Type.Ref (mem, t_targ) :: stack_out, B.Consumption.Copy)
+        | Follow -> fail (FollowNotSupportedForCaseLoad)
       in
       let* it = instr_t_of env.kinds stack_in t_out in
       ret @@ ICaseLoad (it, consume', lfx', cases')

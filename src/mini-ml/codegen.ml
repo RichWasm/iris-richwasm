@@ -292,7 +292,7 @@ let rec compile_expr delta gamma locals functions e =
               fx @ fx' ))
           ~init:([], locals', [])
       in
-      ( v' @ [ CaseLoad (ArrowType (1, [ rw_t ]), Follow, InferFx, branches') ],
+      ( v' @ [ CaseLoad (ArrowType (1, [ rw_t ]), Copy, InferFx, branches') ],
         locals',
         fx_v @ fx )
 

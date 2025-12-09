@@ -1739,24 +1739,7 @@ let%expect_test "examples" =
                     ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0))))))
                     ((Var 0))))))))))))))))))
     -----------opt_case-----------
-    FAILURE (InstrErr
-     (error
-      (LoadRefNonSer (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
-     (instr
-      (CaseLoad (ArrowType 1 (I31)) Follow InferFx
-       (((LocalSet 3) (NumConst (Int I32) 0) Tag (LocalGet 3 Move) Drop)
-        ((LocalSet 2) (LocalGet 2 Move) Copy (LocalSet 2) (LocalGet 2 Move) Drop))))
-     (env
-      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
-       (functions ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
-       (table ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31)))) (lfx ())))
-     (state
-      ((locals
-        ((Ref (Base GC) (Struct ()))
-         (Ref (Base GC) (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31))))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))))
-       (stack
-        ((Ref (Base GC) (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))))))
+    FAILURE EFail
     -----------poly_len-----------
     FAILURE (InstrErr
      (error
@@ -1916,7 +1899,7 @@ let%expect_test "examples" =
                       (I31))))))))))))
            (Num (Int I32))))))))
      (instr
-      (CaseLoad (ArrowType 1 (I31)) Follow InferFx
+      (CaseLoad (ArrowType 1 (I31)) Copy InferFx
        (((LocalSet 10) (NumConst (Int I32) 0) Tag (LocalGet 10 Move) Drop)
         ((LocalSet 3) (NumConst (Int I32) 1) Tag Untag (Group 0) (New GC)
          (Cast (Ref (Base GC) (Struct ()))) (CodeRef 0) (Group 2) (New GC)

@@ -377,7 +377,7 @@ let%expect_test "opt_case" =
       local.get 1 move
       copy
       local.set 1
-      case_load (<1> -> i31) follow InferFx
+      case_load (<1> -> i31) copy InferFx
         (0
           local.set 3
           i32.const 0
