@@ -1,4 +1,5 @@
 Require Import RecordUpdate.RecordUpdate.
+From Stdlib Require Import String.
 
 From ExtLib.Structures Require Import Monads.
 
@@ -69,25 +70,25 @@ Section Compiler.
 
   Definition compile_block (fe : function_env) (ψ : instruction_type) (c : codegen unit) :
     codegen unit :=
-    tf ← try_option EFail (translate_instr_type fe.(fe_type_vars) ψ);
+    tf ← try_option (ECannotTranslateInstrT "IBlock") (translate_instr_type fe.(fe_type_vars) ψ);
     block_c tf c.
 
   Definition compile_loop (fe : function_env) (ψ : instruction_type) (c : codegen unit) :
     codegen unit :=
-    tf ← try_option EFail (translate_instr_type fe.(fe_type_vars) ψ);
+    tf ← try_option (ECannotTranslateInstrT "ILoop") (translate_instr_type fe.(fe_type_vars) ψ);
     loop_c tf c.
 
   Definition compile_ite
     (fe : function_env) '(InstrT τs1 τs2 : instruction_type) (c1 c2 : codegen unit) : codegen unit :=
-    ts1 ← try_option EFail (translate_types fe.(fe_type_vars) (removelast τs1));
-    ts2 ← try_option EFail (translate_types fe.(fe_type_vars) τs2);
+    ts1 ← try_option (ECannotTranslateInstrT "Ite::thn") (translate_types fe.(fe_type_vars) (removelast τs1));
+    ts2 ← try_option (ECannotTranslateInstrT "Ite::els") (translate_types fe.(fe_type_vars) τs2);
     ignore (if_c (W.Tf ts1 ts2) c1 c2).
 
   Definition compile_local_get (fe : function_env) (i : nat) : codegen unit :=
-    try_option EFail (local_indices fe i) ≫= get_locals_w.
+    try_option (EInvalidLocal "get" fe i) (local_indices fe i) ≫= get_locals_w.
 
   Definition compile_local_set (fe : function_env) (i : nat) : codegen unit :=
-    try_option EFail (local_indices fe i) ≫= set_locals_w.
+    try_option (EInvalidLocal "set" fe i) (local_indices fe i) ≫= set_locals_w.
 
   Definition compile_coderef (i : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
@@ -270,12 +271,12 @@ Section Compiler.
     | INop _ => emit W.BI_nop
     | IUnreachable _ => emit W.BI_unreachable
     | ICopy (InstrT [τ] _) => compile_copy fe τ
-    | ICopy _ => raise EFail
+    | ICopy _ => raise (EInvalidInstrT "ICopy")
     | IDrop (InstrT [τ] _) => compile_drop fe τ
-    | IDrop _ => raise EFail
+    | IDrop _ => raise (EInvalidInstrT "IDrop")
     | INum _ e' => compile_num e'
     | INumConst (InstrT _ [NumT _ ν]) n => compile_num_const ν n
-    | INumConst _ _ => raise EFail
+    | INumConst _ _ => raise (EInvalidInstrT "INumConst")
     | IBlock ψ _ es => compile_block fe ψ (compile_instrs fe es)
     | ILoop ψ es => compile_loop fe ψ (compile_instrs fe es)
     | IIte ψ _ es1 es2 => compile_ite fe ψ (compile_instrs fe es1) (compile_instrs fe es2)
@@ -288,18 +289,18 @@ Section Compiler.
     | ICall _ i _ => compile_call i
     | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
-    | IInject _ _ => raise EFail
+    | IInject _ _ => raise (EInvalidInstrT "IInject")
     | IInjectNew (InstrT [τ] [RefT _ (BaseM μ) (VariantT (MEMTYPE σ _) _)]) i =>
         compile_inject_new fe μ i τ σ
-    | IInjectNew _ _ => raise EFail
+    | IInjectNew _ _ => raise (EInvalidInstrT "IInjectNew")
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] [τ']) _ ess =>
         compile_case fe ρs τ' (compile_cases fe ess)
-    | ICase _ _ _ => raise EFail
+    | ICase _ _ _ => raise (EInvalidInstrT "ICase")
     | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>
         compile_case_load fe σ τs τ' Copy (compile_cases fe ess)
     | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [τ']) Move _ ess =>
         compile_case_load fe σ τs τ' Move (compile_cases fe ess)
-    | ICaseLoad _ _ _ _ => raise EFail
+    | ICaseLoad _ _ _ _ => raise (EInvalidInstrT "ICaseLoad")
     | IGroup _ => erased_in_wasm_nop
     | IUngroup _ => erased_in_wasm_nop
     | IFold _ => erased_in_wasm
@@ -310,13 +311,13 @@ Section Compiler.
     | IUntag _ => compile_untag
     | ICast _ => erased_in_wasm
     | INew (InstrT [τ] [RefT _ (BaseM μ) _]) => compile_new fe μ τ
-    | INew _ => raise EFail
+    | INew _ => raise (EInvalidInstrT "INew")
     | ILoad (InstrT [RefT _ _ τ] [_; τval]) π con => compile_load fe τ τval π con
-    | ILoad _ _ _ => raise EFail
+    | ILoad _ _ _ => raise (EInvalidInstrT "ILoad")
     | IStore (InstrT [RefT _ _ τ; τval] _) π => compile_store fe τ τval π
-    | IStore _ _ => raise EFail
+    | IStore _ _ => raise (EInvalidInstrT "IStore")
     | ISwap (InstrT [RefT _ _ τ; τval] _) π => compile_swap fe τ τval π
-    | ISwap _ _ => raise EFail
+    | ISwap _ _ => raise (EInvalidInstrT "ISwap")
     end.
 
   Definition compile_instrs (fe : function_env) : list instruction -> codegen unit :=

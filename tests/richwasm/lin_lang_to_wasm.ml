@@ -17,7 +17,7 @@ include Test_runner.MultiOutputter.Make (struct
     |> Richwasm_common.Elaborate.elab_module
     |> or_fail_pp Richwasm_common.Elaborate.Err.pp
     |> Richwasm_common.Main.compile
-    |> or_fail_pp Richwasm_common.Main.pp_compile_err
+    |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
     |> Richwasm_common.Main.wasm_ugly_printer
 
   let syntax_pipeline x =
@@ -74,8 +74,7 @@ let%expect_test "simple programs" =
 
 let%expect_test "examples" =
   output_examples ();
-  [%expect
-    {|
+  [%expect{|
     -----------one-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -388,7 +387,11 @@ let%expect_test "examples" =
       (start 8))
 
     -----------app_ident-----------
-    FAILURE EFail
+    FAILURE (EInvalidLocal set
+     ((fe_type_vars ())
+      (fe_return ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
+      (fe_locals ((I32P) (I32P) () (I32P))) (fe_br_skip 0))
+     4)
     -----------nested_arith-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -463,7 +466,11 @@ let%expect_test "examples" =
       (start 8))
 
     -----------add_one_program-----------
-    FAILURE EFail
+    FAILURE (EInvalidLocal set
+     ((fe_type_vars ())
+      (fe_return ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
+      (fe_locals ((I32P) (I32P))) (fe_br_skip 0))
+     2)
     -----------add_tup_ref-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -619,9 +626,17 @@ let%expect_test "examples" =
       (start 8))
 
     -----------print_10-----------
-    FAILURE EFail
+    FAILURE (EInvalidLocal get
+     ((fe_type_vars ())
+      (fe_return ((ProdT (VALTYPE (ProdR ()) ImCopy ImDrop) ()))) (fe_locals ())
+      (fe_br_skip 0))
+     0)
     -----------closure-----------
-    FAILURE EFail
+    FAILURE (EInvalidLocal set
+     ((fe_type_vars ())
+      (fe_return ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
+      (fe_locals ((I32P) () (I32P) (I32P) ())) (fe_br_skip 0))
+     5)
     -----------factorial_program-----------
     FAILURE (InstrErr
      (error
@@ -2165,4 +2180,8 @@ let%expect_test "examples" =
              (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
               (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))))))
     -----------mini_zip-----------
-    FAILURE EFail |}]
+    FAILURE (EInvalidLocal set
+     ((fe_type_vars ())
+      (fe_return ((NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))))
+      (fe_locals ((I32P) (I32P))) (fe_br_skip 0))
+     2) |}]

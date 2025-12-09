@@ -17,7 +17,7 @@ include Test_runner.MultiOutputter.Make (struct
     |> Richwasm_common.Elaborate.elab_module
     |> or_fail_pp Richwasm_common.Elaborate.Err.pp
     |> Richwasm_common.Main.compile
-    |> or_fail_pp Richwasm_common.Main.pp_compile_err
+    |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
     |> Richwasm_common.Main.wasm_ugly_printer
 
   let syntax_pipeline x =

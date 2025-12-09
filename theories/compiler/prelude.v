@@ -1,4 +1,5 @@
 Require Import Stdlib.Numbers.BinNums.
+From Stdlib Require Import String.
 
 Require Import stdpp.list_numbers.
 
@@ -8,10 +9,6 @@ Require Import Wasm.numerics.
 From RichWasm Require Import layout syntax typing.
 
 Module W := Wasm.datatypes.
-
-Inductive error :=
-| EFail
-| ETodo.
 
 Record module_runtime :=
   { mr_mmmem : W.memidx;
@@ -32,6 +29,13 @@ Record function_env :=
     fe_return : list type;
     fe_locals : list (list primitive);
     fe_br_skip : nat }.
+
+Inductive error :=
+| EFail
+| EInvalidInstrT (instr : string)
+| ECannotTranslateInstrT (instr : string)
+| EInvalidLocal (ctx : string) (fe : function_env) (i : nat)
+| ETodo.
 
 Definition fe_of_module_func (mf : module_function) : option function_env :=
   ηss ← mapM (eval_rep_prim EmptyEnv) mf.(mf_locals);
