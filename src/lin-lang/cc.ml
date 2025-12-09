@@ -338,21 +338,22 @@ module Compile = struct
         let open B.Type in
         (*
         #`(unpack (package : α) from #,applicand where
-            (split (coderef : ((α ⊗ #,tin) -> #,tout)) (closure : α) = package in
+            (split (coderef : (((ref α) ⊗ #,tin) -> #,tout)) (closure : (ref α)) = package in
               (app coderef (closure, #,applicant))))
         *)
         let package_t = Var (0, None) in
-        let in_t = Prod [ package_t; compile_typ arg |> shift_tidx 1 0 ] in
+        let ref_package_t = Ref package_t in
+        let in_t = Prod [ ref_package_t; compile_typ arg |> shift_tidx 1 0 ] in
         let out_t = compile_typ return |> shift_tidx 1 0 in
 
         let real_ft = Lollipop (in_t, out_t) in
         let body : B.Expr.t =
           mk_split_var
-            ~split_t:[ real_ft; Var (0, None) ]
+            ~split_t:[ real_ft; ref_package_t ]
             ~i:0
             (App
                ( Var ((1, None), real_ft),
-                 mk_tuple [ Var ((0, None), package_t); applicant' ],
+                 mk_tuple [ Var ((0, None), ref_package_t); applicant' ],
                  out_t ))
         in
         ret (Unpack (applicand', body, compile_typ return))

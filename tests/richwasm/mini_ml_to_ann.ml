@@ -751,7 +751,7 @@ let%expect_test "examples" =
                   (I31))))))))))))
        (lfx ())))
      (state
-      ((locals ((Ref (Base GC) (Struct ())) (Plug (Atom Ptr))))
+      ((locals ((Ref (Base GC) (Struct ())) (Plug (Prod ((Atom I32))))))
        (stack
         ((Ref (Base GC)
           (Struct
@@ -1008,9 +1008,10 @@ let%expect_test "examples" =
        (lfx ())))
      (state
       ((locals
-        ((Ref (Base GC) (Struct ())) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr))))
+        ((Ref (Base GC) (Struct ())) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
        (stack
         ((Ref (Base GC)
           (Struct
@@ -1109,9 +1110,9 @@ let%expect_test "examples" =
                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) ExDrop)
                       (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (MEMTYPE (ProdS []) ImDrop) [])));
                       (SerT (MEMTYPE (RepS (AtomR PtrR)) ImDrop) (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop)))]))
-                (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
-                (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
-                (PlugT (VALTYPE (AtomR PtrR) ImCopy ImDrop) (AtomR PtrR))
+                (PlugT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop) (ProdR [ (AtomR I32R)]))
+                (PlugT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop) (ProdR [ (AtomR I32R)]))
+                (PlugT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop) (ProdR [ (AtomR I32R)]))
                 [ [ (ILocalSet
                   (InstrT
                     [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC)
@@ -1339,7 +1340,7 @@ let%expect_test "examples" =
                  (Variant
                   ((Ser (Ref (Base GC) (Struct ())))
                    (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-           (Plug (Atom Ptr))
+           (Plug (Prod ((Atom I32))))
            (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
             (Ref (Base GC)
              (Variant
@@ -1359,9 +1360,10 @@ let%expect_test "examples" =
                       ((Ser (Ref (Base GC) (Struct ())))
                        (Ser
                         (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))))))
-           (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-           (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-           (Plug (Atom Ptr)) (Plug (Atom Ptr))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
          (stack
           ((Ref (Base GC)
             (Struct
@@ -1493,15 +1495,17 @@ let%expect_test "examples" =
                (Variant
                 ((Ser (Ref (Base GC) (Struct ())))
                  (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-         (Plug (Atom Ptr))
+         (Plug (Prod ((Atom I32))))
          (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
           (Ref (Base GC)
            (Variant
             ((Ser (Ref (Base GC) (Struct ())))
              (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32))))))
        (stack
         ((Ref (Base GC)
           (Variant
@@ -2038,9 +2042,11 @@ let%expect_test "examples" =
        (lfx ())))
      (state
       ((locals
-        ((Ref (Base GC) (Struct ())) I31 (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr))))
+        ((Ref (Base GC) (Struct ())) I31 (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32))))))
        (stack
         ((Ref (Base GC)
           (Struct
@@ -2138,7 +2144,7 @@ let%expect_test "examples" =
                         (I31)))))))))
                 (Ser I31)))))
             (Ser I31))))
-         (Plug (Atom Ptr))
+         (Plug (Prod ((Atom I32))))
          (Ref (Base GC)
           (Struct
            ((Ser
@@ -2152,7 +2158,7 @@ let%expect_test "examples" =
                     ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
                     (I31)))))))))
             (Ser I31))))
-         (Plug (Atom Ptr)) I31 (Plug (Atom Ptr))
+         (Plug (Prod ((Atom I32)))) I31 (Plug (Prod ((Atom I32))))
          (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
           (Ref (Base GC)
            (Struct
@@ -2161,9 +2167,10 @@ let%expect_test "examples" =
               (CodeRef
                (FunctionType ()
                 ((Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))) (I31))))))))
-         (Plug (Atom Ptr)) I31 (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr)) (Plug (Atom Ptr))
-         (Plug (Atom Ptr))))
+         (Plug (Prod ((Atom I32)))) I31 (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
        (stack
         ((Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
           (Ref (Base GC)

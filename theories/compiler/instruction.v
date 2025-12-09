@@ -28,8 +28,9 @@ Section Compiler.
     end.
 
   Definition local_indices (fe : function_env) (i : nat) : option (list W.localidx) :=
-    let i' := sum_list_with length (take i fe.(fe_locals)) in
-    ιs ← fe.(fe_locals) !! i;
+    let all_locals := fe.(fe_params) ++ fe.(fe_locals) in
+    let i' := sum_list_with length (take i all_locals) in
+    ιs ← all_locals !! i;
     Some (map W.Mk_localidx (seq i' (length ιs))).
 
   Definition fe_extend_unpack (fe : function_env) (τ : type) : function_env :=

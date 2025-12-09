@@ -156,8 +156,8 @@ let rec ugly_instruction (instr : Ast.basic_instruction) : t =
         (pp_print_list ~pp_sep:pp_print_hard_space Z.pp_print)
         labels Z.pp_print final_label
   | BI_call func_idx -> appendf "call %a" Z.pp_print func_idx
-  | BI_call_indirect table_idx ->
-      appendf "call_indirect %a" Z.pp_print table_idx
+  | BI_call_indirect type_idx ->
+      appendf "call_indirect (type %a)" Z.pp_print type_idx
   | BI_get_local local_idx -> appendf "local.get %a" Z.pp_print local_idx
   | BI_set_local local_idx -> appendf "local.set %a" Z.pp_print local_idx
   | BI_tee_local local_idx -> appendf "local.tee %a" Z.pp_print local_idx

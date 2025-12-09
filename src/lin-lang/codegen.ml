@@ -127,9 +127,7 @@ module Compile = struct
         >>= lift_option (CannotResolveRepOfRecTypeWithoutIndirection typ)
     | Int -> ret @@ Atom I32
     (* NOTE: a coderef doesn't have ptr rep *)
-    | Lollipop (Prod [ closure; _ ], _) ->
-        let* closure' = rep_of_typ env closure in
-        ret @@ Prod [ Atom I32; closure' ]
+    | Lollipop _ -> ret @@ Atom I32
     | Prod ts ->
         let* rs = mapM ~f:(rep_of_typ env) ts in
         ret @@ Prod rs
@@ -143,7 +141,6 @@ module Compile = struct
     | Exists t ->
         let env' = Env.add_type env (Atom Ptr) in
         rep_of_typ env' t
-    | x -> fail @@ CannotFindRep x
 
   let compile_binop (binop : A.Binop.t) : B.Instruction.t list =
     let binop' : B.Int.Binop.t =
@@ -254,7 +251,7 @@ module Compile = struct
             cases
         in
         let* bt = compile_type env t |> lift_result in
-        ret @@ scrutinee' @ [ Case (ArrowType (1, [ bt ]), InferFx, cases') ]
+        ret @@ scrutinee' @ [ Case (ValType [ bt ], InferFx, cases') ]
     | Unfold (_, expr, _) ->
         let* expr' = compile_expr env expr in
         ret @@ expr' @ [ Unfold ]
@@ -276,6 +273,7 @@ module Compile = struct
         ret @@ rhs'
         @ [
             Unpack
+              (* TODO: this arrow type is weird *)
               ( ArrowType (1, [ bt ]),
                 InferFx,
                 [ LocalSet fresh_idx ] @ body'
@@ -286,9 +284,9 @@ module Compile = struct
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in
         let* bt = compile_type env t |> lift_result in
-        (* FIXME: local effects *)
         ret @@ v'
         @ [ NumConst (Int I32, 0); Num (IntTest (I32, Eqz)) ]
+        (* This is the only time we actually need an ArrowType *)
         @ [ Ite (ArrowType (1, [ bt ]), InferFx, e1', e2') ]
     | Binop (op, v1, v2, _) ->
         let op' = compile_binop op in

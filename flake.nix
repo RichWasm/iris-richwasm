@@ -236,8 +236,8 @@
             ++ self.packages.${system}.${project}.passthru.devShellDeps;
 
             shellHook = ''
-              npm install --package-lock-only
-              npm ci
+              # npm install --package-lock-only
+              # npm ci
             '';
           };
         }

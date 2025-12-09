@@ -26,6 +26,8 @@ Module rw_module_syntax := module.
 From RichWasm.compiler Require module.
 Module rw_module_compiler := module.
 
+From RichWasm Require layout.
+
 From Wasm Require binary_format_printer.
 
 Separate Extraction
@@ -46,4 +48,6 @@ Separate Extraction
   rw.Core.ren_representation
   rw_module_syntax.module
   rw_module_compiler.compile_module
+  layout.eval_rep_prim_empty
+  layout.prim_to_arep
   binary_format_printer.binary_of_module.

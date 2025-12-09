@@ -248,3 +248,7 @@ End Eval.
 Inductive empty_env : Type := EmptyEnv.
 
 Instance empty_env_lookup {K A} : Lookup K A empty_env := λ k m, None.
+
+(* Resolve type classes here, rather than manually in the OCaml code: *)
+Definition eval_rep_prim_empty (ρ : representation) : option (list primitive) :=
+  eval_rep_prim EmptyEnv ρ.

@@ -230,8 +230,7 @@ let rec compile_expr delta gamma locals functions e =
       let locals'' = locals' @ [ ("#temp", Type.Prod []) ] in
       let var_idx = List.length locals'' in
       let e', locals''', fx_e =
-        compile_expr (var :: delta)
-          ((n, t, var_idx) :: gamma)
+        compile_expr (var :: delta) ((n, t, var_idx) :: gamma)
           (locals'' @ [ (n, compile_type (var :: delta) t) ])
           functions e
       in
@@ -258,8 +257,7 @@ let rec compile_expr delta gamma locals functions e =
       let e2', locals''', fx2 =
         compile_expr delta ((n, t, var_idx) :: gamma) locals'' functions e2
       in
-      ( e1' @ [ LocalSet var_idx ] @ e2'
-        @ [ LocalGet (var_idx, Move); Drop ],
+      ( e1' @ [ LocalSet var_idx ] @ e2' @ [ LocalGet (var_idx, Move); Drop ],
         locals''',
         fx1 @ fx2 )
   | If0 (c, thn, els) ->

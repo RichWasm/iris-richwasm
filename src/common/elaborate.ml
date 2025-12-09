@@ -57,6 +57,7 @@ module Err = struct
     | InvalidLabel of int
     | UnexpectedPlugLocal of int * A.Representation.t
     | InvalidLocalIdx of (int * [ `Set | `Get | `Reset ])
+    | InvalidLocalRep of (int * A.Type.t * A.Type.t)
     | CannotCopyNonCopyable
     | InvalidTableIdx of int
     | InvalidTableIdxModule of int
@@ -86,6 +87,7 @@ module Err = struct
         | `Case of int * int * A.Type.t List.t * A.Type.t List.t
         ]
     | NonTrivialLfxInfer of [ `Unreachable | `Br | `Return ]
+    | CouldntResolveRep
     | FollowNotSupportedForCaseLoad
     | InstrErr of {
         error : t;
@@ -360,7 +362,6 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
     else
       Z.sub Z.one n
   in
-  let id x = x in
 
   let elab_kinds ts' =
     mapM ~f:(kind_of_typ env) ts' |> wrap_result (`ElabTypElabKinds ts')
@@ -426,15 +427,15 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
      type variables appropriately--idx 0 must not be used *)
   | Exists (Memory, t) ->
       let* t' = elab_type env t in
-      let* k = kind_of_typ env t' >>| B.Kind.ren id id in
+      let* k = kind_of_typ env t' >>| B.Kind.ren Fn.id Fn.id in
       ret @@ ExistsMemT (k, t')
   | Exists (Representation, t) ->
       let* t' = elab_type env t in
-      let* k = kind_of_typ env t' >>| B.Kind.ren unshift id in
-      ret @@ ExistsMemT (k, t')
+      let* k = kind_of_typ env t' >>| B.Kind.ren unshift Fn.id in
+      ret @@ ExistsRepT (k, t')
   | Exists (Size, t) ->
       let* t' = elab_type env t in
-      let* k = kind_of_typ env t' >>| B.Kind.ren id unshift in
+      let* k = kind_of_typ env t' >>| B.Kind.ren Fn.id unshift in
       ret @@ ExistsSizeT (k, t')
   | Exists (Type k, t) ->
       let env' = k :: env in
@@ -480,6 +481,20 @@ let size_of_typ (kinds : A.Kind.t list) t =
   | MEMTYPE (sz, _) -> ret sz
   | _ -> fail (ExpectedMEMTYPE ("size of", `Type t))
 
+let normalize_local_rep rep : A.Type.t t =
+  let module Layout = Richwasm_extract.Layout in
+  ret rep
+  >>| Layout.eval_rep_prim_empty
+  >>= lift_option CouldntResolveRep
+  >>| List.map
+        ~f:(Layout.prim_to_arep >> unelab_atomic_rep >> A.Representation.atom)
+  >>| fun x -> A.Type.Plug (Prod x)
+
+let normalized_rep_of_t (env : Env.t) t : A.Type.t t =
+  elab_type env.kinds t
+  >>= representation_of_typ env.kinds
+  >>= normalize_local_rep
+
 module InstrM = struct
   include StateM (State) (Err)
   open A
@@ -515,14 +530,7 @@ module InstrM = struct
           if i <> i' then
             ret t
           else
-            let* rep =
-              Res.(
-                elab_type env.kinds t
-                >>= representation_of_typ env.kinds
-                >>| unelab_representation)
-              |> lift_result
-            in
-            ret @@ A.Type.Plug rep)
+            normalized_rep_of_t env t |> lift_result)
     in
     modify (fun st -> { st with locals = locals' })
 
@@ -958,9 +966,21 @@ let rec elab_instruction (env : Env.t) :
       ret @@ ILocalGet (it, Z.of_int i)
   | LocalSet i ->
       let* t = pop "LocalSet" in
-      let* t' = lift_result @@ elab_type env.kinds t in
+      let* curr_rep_t =
+        get
+        >>= (fun st ->
+        List.nth st.locals i |> lift_option (InvalidLocalIdx (i, `Set)))
+        >>= (normalized_rep_of_t env >> lift_result)
+      in
+      let* new_rep_t = normalized_rep_of_t env t |> lift_result in
+      let* () =
+        fail_ifn
+          (A.Type.equal curr_rep_t new_rep_t)
+          (InvalidLocalRep (i, curr_rep_t, new_rep_t))
+      in
       let* () = set_local i t in
-      ret @@ ILocalSet (InstrT ([ t' ], []), Z.of_int i)
+      let* it = instr_t_of env.kinds [ t ] [] in
+      ret @@ ILocalSet (it, Z.of_int i)
   | CodeRef i ->
       let* ft = List.nth env.table i |> lift_option (InvalidTableIdx i) in
       let* it = mono_in_out env.kinds "CodeRef" [] [ CodeRef ft ] in
@@ -1026,7 +1046,7 @@ let rec elab_instruction (env : Env.t) :
         match consume with
         | Move -> ret (stack_out, B.Consumption.Move)
         | Copy -> ret (A.Type.Ref (mem, t_targ) :: stack_out, B.Consumption.Copy)
-        | Follow -> fail (FollowNotSupportedForCaseLoad)
+        | Follow -> fail FollowNotSupportedForCaseLoad
       in
       let* it = instr_t_of env.kinds stack_in t_out in
       ret @@ ICaseLoad (it, consume', lfx', cases')
@@ -1261,7 +1281,7 @@ let elab_function (env : Env.t) ({ typ; locals; body } : A.Module.Function.t) :
   let* mf_type = elab_function_type [] typ in
   let mf_locals = List.map ~f:elab_representation locals in
   let (FunctionType (qs, in_t, return)) = typ in
-  let init_locals = in_t @ List.map ~f:(fun rep -> A.Type.Plug rep) locals in
+  let* init_locals = mapM ~f:normalize_local_rep mf_locals >>| ( @ ) in_t in
   let init_state = State.make ~locals:init_locals () in
   let kinds =
     List.filter_map

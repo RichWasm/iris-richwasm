@@ -1,5 +1,8 @@
 open! Base
 
+let ( << ) g f x = g (f x)
+let ( >> ) f g x = g (f x)
+
 module Monad = struct
   module type Basic = sig
     type 'a t
