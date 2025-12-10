@@ -35,8 +35,6 @@ module Outputter = struct
     val output : text -> unit
     val output_syntax : syntax -> unit
     val output_examples : unit -> unit
-
-
     val output_unsafe : text -> unit
     val output_syntax_unsafe : syntax -> unit
   end
@@ -53,7 +51,6 @@ module Outputter = struct
         pp_set_max_indent ff M.max_indent;
         ff
     end
-
 
     let mk_output (pipeline : 'a -> res) =
       let ff = Internal.mk_ff () in
@@ -75,10 +72,9 @@ module Outputter = struct
             with Failure msg ->
               fprintf ff "-----------%s-----------@.FAILURE %s@." n msg)
 
-    let mk_output_unsafe (pipeline : 'a -> res)= 
+    let mk_output_unsafe (pipeline : 'a -> res) =
       let ff = Internal.mk_ff () in
-      fun (x : 'a) ->
-        x |> pipeline |> fprintf ff "@.%a@." M.pp
+      fun (x : 'a) -> x |> pipeline |> fprintf ff "@.%a@." M.pp
 
     let output_unsafe = mk_output_unsafe M.string_pipeline
     let output_syntax_unsafe = mk_output_unsafe M.syntax_pipeline
@@ -100,7 +96,6 @@ module MultiOutputter = struct
     val output : text -> unit
     val output_syntax : syntax -> unit
     val output_examples : unit -> unit
-
     val output_unsafe : text -> unit
     val output_syntax_unsafe : syntax -> unit
     val run : text -> unit

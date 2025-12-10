@@ -66,7 +66,6 @@
             ppx_deriving
             janeStreet.ppx_sexp_conv
             janeStreet.ppx_let
-            janeStreet.ppx_expect
             janeStreet.ppx_variants_conv
             janeStreet.sexplib
             janeStreet.parsexp
@@ -75,6 +74,8 @@
           richwasm-test-deps = with pkgs; [
             wabt
             nodejs_24
+            ocamlPackages.alcotest
+            ocamlPackages.janeStreet.ppx_expect
           ];
         in
         rec {
@@ -136,7 +137,8 @@
               ]
               ++ iris-wasm-deps
               ++ iris-richwasm-deps
-              ++ richwasm-ocaml-deps;
+              ++ richwasm-ocaml-deps
+              ++ richwasm-test-deps;
 
               passthru.testDeps = richwasm-test-deps;
             }).overrideAttrs
@@ -217,11 +219,9 @@
             ++ (with pkgs; [
               git
               dune_3
-              wabt
               nixd
               nil
               nixfmt
-              nodejs_24
             ])
             ++ (with coqPackages; [
               vscoq-language-server

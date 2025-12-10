@@ -15,7 +15,7 @@
 
   (memory $mmmem (export "mmmem") 0)
   (memory $gcmem (export "gcmem") 1) (; pre-allocate root section ;)
-  
+
   (func (export "registerroot") (param i32) (result i32)
     (local $old i32)
     (local $new i32)
@@ -159,7 +159,7 @@
   (func (export "tableset") (param i32 funcref) (result)
     (; grow table if necessary to ensure index fits ;)
     (local $diff i32)
-    (local.set $diff 
+    (local.set $diff
       (i32.const 0))
     table.size $table (; max index + 1 ;)
     i32.const 1

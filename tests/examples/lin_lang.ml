@@ -38,8 +38,9 @@ let closure : Module.t =
         ()))
     |}
 
-let closure_call_var : Module.t = 
-  Parse.from_string_exn {|
+let closure_call_var : Module.t =
+  Parse.from_string_exn
+    {|
     (let (input : int) = 21 in
     (let (add-amount : int) = 1 in
     (app

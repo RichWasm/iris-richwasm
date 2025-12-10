@@ -27,16 +27,16 @@ include Test_runner.MultiOutputter.Make (struct
   let examples = Test_examples.Lin_lang.all
 
   let pp ff x =
-    match Meta.Wat2wasm.wat2wasm x with
-    | Ok wasm -> Meta.Wasm2wat.pp_as_wat ff wasm
+    match Wat2wasm.wat2wasm x with
+    | Ok wasm -> Wasm2wat.pp_as_wat ff wasm
     | Error _ ->
         fprintf ff "FAILURE wat2wasm2wat validation!@.";
-        (match Meta.Wat2wasm.wat2wasm ~check:false x with
+        (match Wat2wasm.wat2wasm ~check:false x with
         | Ok wasm ->
-            (match Meta.Wasm2wat.wasm2wat ~check:false wasm with
+            (match Wasm2wat.wasm2wat ~check:false wasm with
             | Ok wat ->
                 let err =
-                  Meta.Wat2wasm.wat2wasm wat |> Result.error |> Option.value_exn
+                  Wat2wasm.wat2wasm wat |> Result.error |> Option.value_exn
                 in
                 fprintf ff "%s\n\n%s" wat err
             | Error err -> fprintf ff "UNCHECKED wasm2wat Error: %s" err)

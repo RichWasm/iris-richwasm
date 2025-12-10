@@ -1,0 +1,12 @@
+(library
+ (name test_e2e)
+ (public_name iris-richwasm.test-e2e)
+ (modules main :standard)
+ (libraries
+  core
+  core_unix
+  alcotest
+  iris-richwasm.test-examples
+  iris-richwasm.test-support
+  iris-richwasm.lin-lang
+  iris-richwasm.mini-ml))

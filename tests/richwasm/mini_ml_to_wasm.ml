@@ -27,13 +27,13 @@ include Test_runner.MultiOutputter.Make (struct
   let examples = Test_examples.Mini_ml.all
 
   let pp ff x =
-    match Meta.Wat2wasm.wat2wasm x with
-    | Ok wasm -> Meta.Wasm2wat.pp_as_wat ff wasm
+    match Wat2wasm.wat2wasm x with
+    | Ok wasm -> Wasm2wat.pp_as_wat ff wasm
     | Error err ->
         fprintf ff "FAILURE wat2wasm2wat validation!\n";
-        (match Meta.Wat2wasm.wat2wasm ~check:false x with
+        (match Wat2wasm.wat2wasm ~check:false x with
         | Ok wasm ->
-            Meta.Wasm2wat.pp_as_wat ~check:false ff wasm;
+            Wasm2wat.pp_as_wat ~check:false ff wasm;
             fprintf ff "Wat2wasm Error: %s" err
         | Error err -> fprintf ff "UNCHECKED Wat2wasm Error: %s" err)
 

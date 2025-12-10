@@ -10,7 +10,7 @@
  (action
   (run wat2wasm --enable-multi-memory %{dep:richwasm.wat} -o %{targets})))
 
-; (env
-;  (_
-;   (env-vars
-;    (RW_RUNTIME_WASM_PATH "%{lib-private:runtime:richwasm.wasm}"))))
+(install
+ (section lib)
+ (package iris-richwasm)
+ (files (richwasm.wasm as runtime/richwasm.wasm)))

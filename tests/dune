@@ -1,4 +1,18 @@
 (test
  (name main)
  (modules main :standard)
- (libraries iris-richwasm.common))
+ (libraries
+  core
+  core_unix
+  iris-richwasm.common
+  iris-richwasm.runtime
+  iris-richwasm.test-e2e)
+ (deps %{lib:iris-richwasm.runtime:richwasm.wasm})
+ (action
+  (setenv
+   RW_RUNTIME_WASM_PATH
+   %{lib:iris-richwasm.runtime:richwasm.wasm}
+   (setenv
+    WASM_HOST_RUNTIME_PATH
+    %{dep:support/simple_host.js}
+    (run %{test})))))

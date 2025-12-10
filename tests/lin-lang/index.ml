@@ -23,8 +23,7 @@ end)
 let%expect_test "basic indexing" =
   let mk = Syntax.Module.make in
   output_syntax (mk ~main:(Let (("a", Int), Int 10, Var "a")) ());
-  [%expect
-    {|
+  [%expect {|
       (let (<> : int) = 10 in
       <0:a>) |}];
 
@@ -41,8 +40,7 @@ let%expect_test "basic indexing" =
            };
          ]
        ());
-  [%expect
-    {|
+  [%expect {|
       (export fun foo (<> : int) : int .
         10) |}]
 
