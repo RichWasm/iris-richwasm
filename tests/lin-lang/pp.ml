@@ -198,6 +198,11 @@ let%expect_test "pretty prints examples" =
     (let (x : int) = 10 in
     (app (λ (_ : ()) : int .
            x) ()))
+    -----------closure_call_var-----------
+    (let (input : int) = 21 in
+    (let (add-amount : int) = 1 in
+    (app (λ (x : int) : int .
+           (x + add-amount)) input)))
     -----------factorial_program-----------
     (export fun factorial (n : int) : int .
       (if0 n then 1 else

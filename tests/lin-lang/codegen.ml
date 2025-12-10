@@ -439,6 +439,71 @@ let%expect_test "examples" =
         drop)
       (table 0)
       (export "_start" (func 1)))
+    -----------closure_call_var-----------
+    (module
+      (func ((prod (ref (base mm) (ser (prod i32))) i32) -> i32) (local ptr i32
+          (prod i32) i32 i32)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 1 follow
+        load (Path []) move
+        local.set 3
+        drop
+        local.get 3 move
+        ungroup
+        local.set 4
+        local.get 2 follow
+        local.set 5
+        local.get 5 follow
+        local.get 4 follow
+        i32.add
+        local.get 5 move
+        drop
+        local.get 4 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func (-> i32) (local i32 i32 (prod i32 ptr) i32 ptr)
+        i32.const 21
+        local.set 0
+        i32.const 1
+        local.set 1
+        coderef 0
+        local.get 1 follow
+        group 1
+        new mm
+        group 2
+        pack (Type (prod i32))
+          (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+            (ref (base mm) (ser (var 0))))
+        unpack (<1> -> i32) InferFx
+          local.set 2
+          local.get 2 follow
+          ungroup
+          local.set 4
+          local.set 3
+          local.get 4 follow
+          local.get 0 follow
+          group 2
+          local.get 3 follow
+          call_indirect
+          local.get 3 move
+          drop
+          local.get 4 move
+          drop
+          local.get 2 move
+          drop
+        end
+        local.get 1 move
+        drop
+        local.get 0 move
+        drop)
+      (table 0)
+      (export "_start" (func 1)))
     -----------factorial_program-----------
     (module
       (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32 i32
@@ -471,7 +536,7 @@ let%expect_test "examples" =
             local.set 6
             local.set 5
             local.get 6 follow
-            local.get 6 follow
+            local.get 3 follow
             group 2
             local.get 5 follow
             call_indirect
@@ -633,7 +698,7 @@ let%expect_test "examples" =
           local.set 6
           local.set 5
           local.get 6 follow
-          local.get 6 follow
+          local.get 3 follow
           group 2
           local.get 5 follow
           call_indirect
@@ -729,7 +794,7 @@ let%expect_test "examples" =
             local.set 8
             local.set 7
             local.get 8 follow
-            local.get 7 follow
+            local.get 3 follow
             group 2
             local.get 7 follow
             call_indirect
@@ -763,8 +828,8 @@ let%expect_test "examples" =
             local.set 13
             local.set 12
             local.get 13 follow
-            local.get 12 follow
-            local.get 13 follow
+            local.get 9 follow
+            local.get 10 follow
             group 2
             group 2
             local.get 12 follow
@@ -811,7 +876,7 @@ let%expect_test "examples" =
           local.set 3
           local.set 2
           local.get 3 follow
-          local.get 3 follow
+          local.get 0 follow
           i32.const 3
           group 2
           group 2
@@ -884,7 +949,7 @@ let%expect_test "examples" =
           local.set 9
           local.set 8
           local.get 9 follow
-          local.get 8 follow
+          local.get 5 follow
           group 2
           local.get 8 follow
           call_indirect
@@ -908,7 +973,7 @@ let%expect_test "examples" =
           local.set 13
           local.set 12
           local.get 13 follow
-          local.get 13 follow
+          local.get 10 follow
           group 2
           local.get 12 follow
           call_indirect
@@ -1000,7 +1065,7 @@ let%expect_test "examples" =
           local.set 8
           local.set 7
           local.get 8 follow
-          local.get 8 follow
+          local.get 5 follow
           fold
             (rec (VALTYPE (i32, nocopy, exdrop))
               (exists type (VALTYPE (ptr, nocopy, exdrop))
@@ -1066,7 +1131,7 @@ let%expect_test "examples" =
             local.set 9
             local.set 8
             local.get 9 follow
-            local.get 9 follow
+            local.get 6 follow
             group 2
             local.get 8 follow
             call_indirect
@@ -1304,7 +1369,7 @@ let%expect_test "examples" =
               local.set 11
               local.set 10
               local.get 11 follow
-              local.get 10 follow
+              local.get 7 follow
               group 2
               local.get 10 follow
               call_indirect
@@ -1344,8 +1409,8 @@ let%expect_test "examples" =
               local.set 14
               local.set 13
               local.get 14 follow
-              local.get 7 follow
-              local.get 14 follow
+              local.get 3 follow
+              local.get 8 follow
               load (Path []) move
               local.set 15
               drop
@@ -1455,7 +1520,7 @@ let%expect_test "examples" =
           pack (Type (prod))
             (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
               (ref (base mm) (ser (var 0))))
-          local.get 3 follow
+          local.get 0 follow
           group 2
           group 2
           local.get 2 follow
@@ -1579,12 +1644,12 @@ let%expect_test "examples" =
               local.set 9
               local.set 8
               local.get 9 follow
-              local.get 9 follow
+              local.get 6 follow
               load (Path []) move
               local.set 10
               drop
               local.get 10 move
-              local.get 8 follow
+              local.get 4 follow
               group 2
               group 2
               local.get 8 follow
@@ -1665,7 +1730,7 @@ let%expect_test "examples" =
             local.set 5
             local.set 4
             local.get 5 follow
-            local.get 5 follow
+            local.get 2 follow
             i32.const 1
             i32.sub
             group 2
@@ -1732,7 +1797,7 @@ let%expect_test "examples" =
               local.set 7
               local.set 6
               local.get 7 follow
-              local.get 7 follow
+              local.get 4 follow
               load (Path []) move
               local.set 8
               drop
@@ -1854,8 +1919,8 @@ let%expect_test "examples" =
           local.set 10
           local.set 9
           local.get 10 follow
-          local.get 9 follow
-          local.get 10 follow
+          local.get 3 follow
+          local.get 7 follow
           group 2
           group 2
           local.get 9 follow
@@ -1887,7 +1952,7 @@ let%expect_test "examples" =
           local.set 14
           local.set 13
           local.get 14 follow
-          local.get 14 follow
+          local.get 11 follow
           group 2
           local.get 13 follow
           call_indirect
@@ -1945,7 +2010,7 @@ let%expect_test "examples" =
           local.set 7
           local.set 6
           local.get 7 follow
-          local.get 6 follow
+          local.get 3 follow
           group 2
           local.get 6 follow
           call_indirect
@@ -1970,7 +2035,7 @@ let%expect_test "examples" =
           local.set 10
           local.set 9
           local.get 10 follow
-          local.get 10 follow
+          local.get 4 follow
           group 2
           local.get 9 follow
           call_indirect

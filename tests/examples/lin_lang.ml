@@ -38,6 +38,16 @@ let closure : Module.t =
         ()))
     |}
 
+let closure_call_var : Module.t = 
+  Parse.from_string_exn {|
+    (let (input : int) = 21 in
+    (let (add-amount : int) = 1 in
+    (app
+      (lam (x : int) : int .
+        (+ x add-amount))
+      input)))
+  |}
+
 let factorial_program : Module.t =
   Parse.from_string_exn
     {|
@@ -251,6 +261,7 @@ let all : (string * Module.t) list =
       ("add_tup_ref", add_tup_ref);
       ("print_10", print_10);
       ("closure", closure);
+      ("closure_call_var", closure_call_var);
       ("factorial_program", factorial_program);
       ("safe_div", safe_div);
       ("incr_n", incr_n);

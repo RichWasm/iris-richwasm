@@ -96,7 +96,8 @@ module IR = struct
       | Unfold (t0, e, t) ->
           fprintf ff "(@[<2>unfold@ %a@ %a@ : %a@])" Type.pp t0 pp e Type.pp t
       | Unpack (witness, e, t) ->
-          fprintf ff "(@[<2>unpack@ %a@ %a@ : %a@])" pp witness pp e Type.pp t
+          fprintf ff "(@[<2>unpack@ %a@ <> %a@ : %a@])" pp witness pp e Type.pp
+            t
       | If0 (e1, e2, e3, t) ->
           fprintf ff
             "(@[<v 0>@[<2>if0 %a@]@,\
@@ -279,6 +280,58 @@ module Compile = struct
 
   open M
 
+  let rec shift_expr ~type_d ~type_c ~term_d ~term_c (e : B.Expr.t) : B.Expr.t =
+    let shift_t = shift_tidx type_d type_c in
+    let shift_e
+        ?(type_d = type_d)
+        ?(type_c = type_c)
+        ?(term_d = term_d)
+        ?(term_c = term_c) =
+      shift_expr ~type_d ~type_c ~term_d ~term_c
+    in
+    match e with
+    | Int (n, t) -> Int (n, shift_t t)
+    | Var ((i, n), t) ->
+        Var (((if i >= term_c then i + term_d else i), n), shift_t t)
+    | Coderef (s, t) -> Coderef (s, shift_t t)
+    | Tuple (es, t) -> Tuple (List.map ~f:shift_e es, shift_t t)
+    | Inj (i, e, t) -> Inj (i, shift_e e, shift_t t)
+    | Fold (t1, e, t2) -> Fold (shift_t t1, shift_e e, shift_t t2)
+    | Pack (t1, e, t2) -> Pack (shift_t t1, shift_e e, shift_t t2)
+    | App (e1, e2, t) -> App (shift_e e1, shift_e e2, shift_t t)
+    | Let (binding_t, rhs, body, t) ->
+        Let
+          ( shift_t binding_t,
+            shift_e rhs,
+            shift_e ~term_c:(term_c + 1) body,
+            shift_t t )
+    | Split (binding_ts, rhs, body, t) ->
+        let n = List.length binding_ts in
+        Split
+          ( List.map ~f:shift_t binding_ts,
+            shift_e rhs,
+            shift_e ~term_c:(term_c + n) body,
+            shift_t t )
+    | Cases (scrutinee, cases, t) ->
+        Cases
+          ( shift_e scrutinee,
+            List.map
+              ~f:(fun (case_t, body) ->
+                (shift_t case_t, shift_e ~term_c:(term_c + 1) body))
+              cases,
+            shift_t t )
+    | Unfold (t1, e, t2) -> Unfold (shift_t t1, shift_e e, shift_t t2)
+    | Unpack (witness, body, t) ->
+        Unpack
+          ( shift_e witness,
+            shift_e ~type_c:(type_c + 1) ~term_c:(term_c + 1) body,
+            shift_t t )
+    | If0 (e1, e2, e3, t) -> If0 (shift_e e1, shift_e e2, shift_e e3, shift_t t)
+    | Binop (op, e1, e2, t) -> Binop (op, shift_e e1, shift_e e2, shift_t t)
+    | New (e, t) -> New (shift_e e, shift_t t)
+    | Swap (e1, e2, t) -> Swap (shift_e e1, shift_e e2, shift_t t)
+    | Free (e, t) -> Free (shift_e e, shift_t t)
+
   let split_clos_typs (fvs : LS.t) : B.Type.t list =
     let fv_list = LS.elements fvs in
     List.map ~f:(fun (_, t) -> compile_typ t) fv_list
@@ -398,6 +451,9 @@ module Compile = struct
     | App (applicand, applicant, _) ->
         let* applicand' = compile_expr env applicand in
         let* applicant' = compile_expr env applicant in
+        let applicant'' =
+          shift_expr ~type_d:1 ~type_c:0 ~term_d:3 ~term_c:0 applicant'
+        in
 
         let* arg, return =
           match A.Expr.type_of applicand with
@@ -421,7 +477,7 @@ module Compile = struct
           mk_split_var ~split_t:[ real_ft; ref_package_t ] ~i:0
             (App
                ( Var ((1, None), real_ft),
-                 mk_tuple [ Var ((0, None), ref_package_t); applicant' ],
+                 mk_tuple [ Var ((0, None), ref_package_t); applicant'' ],
                  out_t ))
         in
         ret (Unpack (applicand', body, compile_typ return))

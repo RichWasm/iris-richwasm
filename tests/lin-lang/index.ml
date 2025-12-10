@@ -94,6 +94,11 @@ let%expect_test "examples" =
     (let (<> : int) = 10 in
     (app (λ (<> : (⊗)) : int .
            <1:x>) ()))
+    -----------closure_call_var-----------
+    (let (<> : int) = 21 in
+    (let (<> : int) = 1 in
+    (app (λ (<> : int) : int .
+           (<0:x> + <1:add-amount>)) <1:input>)))
     -----------factorial_program-----------
     (export fun factorial (<> : int) : int .
       (if0 <0:n> then 1 else
