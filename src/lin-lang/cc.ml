@@ -1,4 +1,6 @@
 open! Base
+open Stdlib.Format
+open Util
 module LVar = Typecheck.LVar
 
 module IR = struct
@@ -14,7 +16,24 @@ module IR = struct
       | Ref of t
     [@@deriving eq, ord, variants, sexp]
 
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    let rec pp ff : t -> unit = function
+      | Int -> fprintf ff "int"
+      | Var x -> fprintf ff "%a" (LVar.pp ~space:`Type) x
+      | Lollipop (t1, t2) -> fprintf ff "@[<2>(%a@ ⊸@ %a)@]" pp t1 pp t2
+      | Prod ts ->
+          fprintf ff "@[<2>(⊗%a)@]"
+            (pp_print_list_pre ~pp_sep:pp_print_space pp)
+            ts
+      | Sum ts ->
+          fprintf ff "@[<2>(⊕%a)@]"
+            (pp_print_list_pre ~pp_sep:pp_print_space pp)
+            ts
+      | Exists t -> fprintf ff "@[<2>(exists@ []@ %a)@]" pp t
+      | Rec t -> fprintf ff "@[<2>(rec@ []@ %a)@]" pp t
+      | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp t
+
+    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    let pp_binding ff (typ : t) : unit = fprintf ff "(<> : %a)" pp typ
   end
 
   module Binop = Index.IR.Binop
@@ -41,7 +60,58 @@ module IR = struct
       | Free of t * Type.t
     [@@deriving eq, ord, variants, sexp]
 
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    let rec pp ff (e : t) =
+      match e with
+      | Int (n, t) -> fprintf ff "(@[<2>%d@ : %a@])" n Type.pp t
+      | Var (x, t) ->
+          fprintf ff "(@[<2>%a@ : %a@])" (LVar.pp ~space:`Term) x Type.pp t
+      | Coderef (str, t) -> fprintf ff "(@[<2>coderef %s@ : %a@])" str Type.pp t
+      | Tuple (es, t) ->
+          fprintf ff "(@[<hv 0>@[<2>tup%a@]@ : @[<2>%a@]@])"
+            (pp_print_list_pre ~pp_sep:pp_print_space pp)
+            es Type.pp t
+      | Inj (i, e, t) ->
+          fprintf ff "(@[<2>inj@ %a@ %a@ : %a@])" Int.pp i pp e Type.pp t
+      | Fold (t0, e, t) ->
+          fprintf ff "(@[<2>fold@ %a@ %a@ : %a@])" Type.pp t0 pp e Type.pp t
+      | Pack (t0, e, t) ->
+          fprintf ff "(@[<2>pack@ %a@ %a@ : %a@])" Type.pp t0 pp e Type.pp t
+      | App (l, r, t) ->
+          fprintf ff "(@[<2>app@ %a@ %a@ : %a@])" pp l pp r Type.pp t
+      | Let (binding, e, body, t) ->
+          fprintf ff
+            "(@[<v 0>@[<2>let@ %a@ =@ %a@ in@]@;@[<2>%a@]@ : @[<2>%a@]@])"
+            Type.pp_binding binding pp e pp body Type.pp t
+      | Split (bs, e, b, t) ->
+          fprintf ff "(@[<v 0>@[<2>split@ %a@ =@ %a@ in@]@;@[<2>%a@]@]@ : %a)"
+            (pp_print_list ~pp_sep:pp_print_space Type.pp_binding)
+            bs pp e pp b Type.pp t
+      | Cases (scrutinee, cases, t) ->
+          fprintf ff "(@[<v 0>@[<v 2>@[<2>cases %a@]@,%a@]@ : @[<2>%a@]@])" pp
+            scrutinee
+            (pp_print_list ~pp_sep:pp_print_cut (fun ff (binding, body) ->
+                 fprintf ff "@[<2>(case %a@ %a)@]" Type.pp_binding binding pp
+                   body))
+            cases Type.pp t
+      | Unfold (t0, e, t) ->
+          fprintf ff "(@[<2>unfold@ %a@ %a@ : %a@])" Type.pp t0 pp e Type.pp t
+      | Unpack (witness, e, t) ->
+          fprintf ff "(@[<2>unpack@ %a@ %a@ : %a@])" pp witness pp e Type.pp t
+      | If0 (e1, e2, e3, t) ->
+          fprintf ff
+            "(@[<v 0>@[<2>if0 %a@]@,\
+             @[<2>then %a@]@,\
+             @[<2>else@ %a@]@,\
+             @[<2>: %a@]@])"
+            pp e1 pp e2 pp e3 Type.pp t
+      | Binop (op, l, r, t) ->
+          fprintf ff "(@[<2>%a@ %a@ %a@ : %a@])" Binop.pp op pp l pp r Type.pp t
+      | New (e, t) -> fprintf ff "(@[<2>new@ %a@ : %a@])" pp e Type.pp t
+      | Swap (l, r, t) ->
+          fprintf ff "(@[<2>swap@ %a@ %a@ : %a@])" pp l pp r Type.pp t
+      | Free (e, t) -> fprintf ff "(@[<2>free@ %a@ : %a@])" pp e Type.pp t
+
+    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
     let type_of : t -> Type.t = function
       | Var (_, t)
@@ -348,9 +418,7 @@ module Compile = struct
 
         let real_ft = Lollipop (in_t, out_t) in
         let body : B.Expr.t =
-          mk_split_var
-            ~split_t:[ real_ft; ref_package_t ]
-            ~i:0
+          mk_split_var ~split_t:[ real_ft; ref_package_t ] ~i:0
             (App
                ( Var ((1, None), real_ft),
                  mk_tuple [ Var ((0, None), ref_package_t); applicant' ],

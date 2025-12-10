@@ -1,14 +1,6 @@
 open! Base
 open Stdlib.Format
-
-module Internal = struct
-  let pp_list pp sep xs =
-    List.iteri
-      ~f:(fun i x ->
-        if i > 0 then sep ();
-        pp x)
-      xs
-end
+open Util
 
 module Variable = struct
   type t = string [@@deriving eq, ord, sexp]
@@ -29,21 +21,12 @@ module Type = struct
     | Ref of t
   [@@deriving eq, ord, variants, sexp]
 
-  let rec pp ff : t -> unit =
-    let pp_sep ~(sep : string) ts =
-      fprintf ff "@[(";
-      Internal.pp_list
-        (fun x -> fprintf ff "%a" pp x)
-        (fun () -> fprintf ff "@ %s@ " sep)
-        ts;
-      fprintf ff ")@]"
-    in
-    function
+  let rec pp ff : t -> unit = function
     | Int -> fprintf ff "@[int@]"
     | Var x -> fprintf ff "@[%a@]" Variable.pp x
     | Lollipop (t1, t2) -> fprintf ff "@[(%a@ ⊸@ %a)@]" pp t1 pp t2
-    | Prod ts -> pp_sep ~sep:"⊗" ts
-    | Sum ts -> pp_sep ~sep:"⊕" ts
+    | Prod ts -> pp_sep pp ff ~sep:"⊗" ts
+    | Sum ts -> pp_sep pp ff ~sep:"⊕" ts
     | Rec (x, t) -> fprintf ff "@[(rec %a %a)@]" Variable.pp x pp t
     | Ref t -> fprintf ff "@[(ref@ %a)@]" pp t
 
@@ -103,17 +86,14 @@ module Expr = struct
     | Var x -> Variable.pp ff x
     | Int n -> fprintf ff "%d" n
     | Lam (bind, ret, body) ->
-        fprintf ff "@[<v 2>@[<2>(λ@ %a@ :@ %a@ @].@;@[<2>%a@])@]@]" Binding.pp
+        fprintf ff "@[<v 2>@[<2>(λ@ %a@ :@ %a@ @].@;@[<2>%a@])@]" Binding.pp
           bind Type.pp ret pp body
     | Tuple es ->
         fprintf ff "@[<2>(";
-        Internal.pp_list
-          (fun x -> fprintf ff "%a" pp x)
-          (fun () -> fprintf ff ",@ ")
-          es;
+        pp_list (fun x -> fprintf ff "%a" pp x) (fun () -> fprintf ff ",@ ") es;
         fprintf ff ")@]"
     | Inj (i, e, t) ->
-        fprintf ff "@[<2>(inj %a@ %a@ :@ %a)" Int.pp i pp e Type.pp t
+        fprintf ff "@[<2>(inj %a@ %a@ :@ %a)@]" Int.pp i pp e Type.pp t
     | Fold (t, e) -> fprintf ff "@[<2>(fold %a@ %a)@]" Type.pp t pp e
     | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" pp l pp r
     | Let (bind, e, body) ->
@@ -121,14 +101,14 @@ module Expr = struct
           bind pp e pp body
     | Split (bs, e, b) ->
         fprintf ff "@[<v 0>@[<2>(split@ ";
-        Internal.pp_list
+        pp_list
           (fun x -> fprintf ff "%a" Binding.pp x)
           (fun () -> fprintf ff "@ ")
           bs;
         fprintf ff "@ =@ %a@ in@]@;@[<2>%a)@]@]" pp e pp b
     | Cases (scrutinee, cases) ->
         fprintf ff "@[<v 2>@[<2>(cases %a@]@;" pp scrutinee;
-        Internal.pp_list
+        pp_list
           (fun (binding, body) ->
             fprintf ff "@[<2>(case %a@ %a)@]" Binding.pp binding pp body)
           (fun () -> fprintf ff "@;")
@@ -204,7 +184,7 @@ module Module = struct
       fprintf ff "@.@.");
     if not (List.is_empty functions) then (
       pp_m_list Function.pp ff functions;
-      fprintf ff "@.@.");
+      Option.iter ~f:(fun _ -> fprintf ff "@.") main);
     Option.iter ~f:(fun e -> fprintf ff "%a" Expr.pp e) main;
     fprintf ff "@]"
 

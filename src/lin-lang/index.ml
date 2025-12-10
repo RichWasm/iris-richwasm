@@ -1,4 +1,6 @@
 open! Base
+open Stdlib.Format
+open Util
 
 module LVar = struct
   module T = struct
@@ -10,6 +12,17 @@ module LVar = struct
 
   include T
   include Comparator.Make (T)
+
+  let pp ~(space : [ `Term | `Type ]) ff (lvar : t) : unit =
+    (match space with
+    | `Term -> fprintf ff "<"
+    | `Type -> fprintf ff "[");
+    (match lvar with
+    | i, Some n -> fprintf ff "%i:%s" i n
+    | i, None -> fprintf ff "%i" i);
+    match space with
+    | `Term -> fprintf ff ">"
+    | `Type -> fprintf ff "]"
 end
 
 module type Ast = sig
@@ -32,14 +45,25 @@ module IR = struct
       | Ref of t
     [@@deriving eq, ord, variants, sexp]
 
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    let rec pp ff : t -> unit = function
+      | Int -> fprintf ff "int"
+      | Var x -> fprintf ff "%a" (LVar.pp ~space:`Type) x
+      | Lollipop (t1, t2) -> fprintf ff "@[<2>(%a@ ⊸@ %a)@]" pp t1 pp t2
+      | Prod ts ->
+          fprintf ff "@[<2>(⊗%a)@]"
+            (pp_print_list_pre ~pp_sep:pp_print_space pp)
+            ts
+      | Sum ts ->
+          fprintf ff "@[<2>(⊕%a)@]"
+            (pp_print_list_pre ~pp_sep:pp_print_space pp)
+            ts
+      | Rec t -> fprintf ff "@[<2>(rec@ []@ %a)@]" pp t
+      | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp t
+
+    let pp_binding ff (typ : t) : unit = fprintf ff "(<> : %a)" pp typ
   end
 
-  module Binop = struct
-    include Syntax.Binop
-
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
-  end
+  module Binop = Syntax.Binop
 
   module Expr = struct
     type t =
@@ -63,7 +87,51 @@ module IR = struct
       | Free of t
     [@@deriving eq, ord, variants, sexp]
 
-    let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    let rec pp ff (e : t) =
+      match e with
+      | Int n -> fprintf ff "%d" n
+      | Var x -> (LVar.pp ~space:`Term) ff x
+      | Coderef str -> fprintf ff "@[(coderef %s)@]" str
+      | Lam (binding, ret, body) ->
+          fprintf ff "@[<v 2>@[<2>(λ@ (<> : %a) :@ %a@ @].@;@[<2>%a@])@]"
+            Type.pp binding Type.pp ret pp body
+      | Tuple es ->
+          fprintf ff "@[<2>(";
+          pp_list
+            (fun x -> fprintf ff "%a" pp x)
+            (fun () -> fprintf ff ",@ ")
+            es;
+          fprintf ff ")@]"
+      | Inj (i, e, t) ->
+          fprintf ff "@[<2>(inj %a@ %a@ :@ %a)@]" Int.pp i pp e Type.pp t
+      | Fold (t, e) -> fprintf ff "@[<2>(fold %a@ %a)@]" Type.pp t pp e
+      | App (l, r) -> fprintf ff "@[<2>(app@ %a@ %a)@]" pp l pp r
+      | Let (binding, e, body) ->
+          fprintf ff "@[<v 0>@[<2>(let@ %a@ =@ %a@ in@]@;@[<2>%a)@]@]"
+            Type.pp_binding binding pp e pp body
+      | Split (bs, e, b) ->
+          fprintf ff "@[<v 0>@[<2>(split@ ";
+          pp_list
+            (fun x -> fprintf ff "%a" Type.pp_binding x)
+            (fun () -> fprintf ff "@ ")
+            bs;
+          fprintf ff "@ =@ %a@ in@]@;@[<2>%a)@]@]" pp e pp b
+      | Cases (scrutinee, cases) ->
+          fprintf ff "@[<v 2>@[<2>(cases %a@]@;" pp scrutinee;
+          pp_list
+            (fun (binding, body) ->
+              fprintf ff "@[<2>(case %a@ %a)@]" Type.pp_binding binding pp body)
+            (fun () -> fprintf ff "@;")
+            cases;
+          fprintf ff "@[<2>)@]@]"
+      | Unfold (t, e) -> fprintf ff "@[(unfold %a %a)@]" Type.pp t pp e
+      | If0 (e1, e2, e3) ->
+          fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" pp e1 pp e2 pp e3
+      | Binop (op, l, r) ->
+          fprintf ff "@[<2>(%a@ %a@ %a)@]" pp l Binop.pp op pp r
+      | New e -> fprintf ff "@[(new@ %a)@]" pp e
+      | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp l pp r
+      | Free e -> fprintf ff "@[<2>(free@ %a)@]" pp e
   end
 
   module Mk (Type : Ast) (Expr : Ast) = struct
@@ -75,7 +143,11 @@ module IR = struct
       }
       [@@deriving eq, ord, sexp, make]
 
-      let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+      let pp ff ({ name; input; output } : t) =
+        fprintf ff "@[<2>(import@ (%a@ ⊸@ %a) as@ %s@,)@]" Type.pp input Type.pp
+          output name
+
+      let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
     end
 
     module Function = struct
@@ -88,7 +160,13 @@ module IR = struct
       }
       [@@deriving eq, ord, sexp]
 
-      let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+      let pp (ff : formatter) ({ export; name; param; return; body } : t) =
+        let export_str = if export then "export " else "" in
+        fprintf ff
+          "@[<v 0>@[<2>(%sfun %s@ (<> : %a) :@ %a@ .@]@,@[<v 2>  %a)@]@,@]"
+          export_str name Type.pp param Type.pp return Expr.pp body
+
+      let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
     end
 
     module Module = struct
@@ -99,7 +177,25 @@ module IR = struct
       }
       [@@deriving eq, ord, sexp]
 
-      let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+      let pp ff ({ imports; functions; main } : t) =
+        let pp_m_list pp ff xs =
+          List.iteri
+            ~f:(fun i x ->
+              if i > 0 then fprintf ff "@.";
+              pp ff x)
+            xs
+        in
+        fprintf ff "@[<v 0>";
+        if not (List.is_empty imports) then (
+          pp_m_list Import.pp ff imports;
+          fprintf ff "@.@.");
+        if not (List.is_empty functions) then (
+          pp_m_list Function.pp ff functions;
+          Option.iter ~f:(fun _ -> fprintf ff "@.") main);
+        Option.iter ~f:(fun e -> fprintf ff "%a" Expr.pp e) main;
+        fprintf ff "@]"
+
+      let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
     end
   end
 

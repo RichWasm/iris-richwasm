@@ -25,7 +25,8 @@ let%expect_test "basic indexing" =
   output_syntax (mk ~main:(Let (("a", Int), Int 10, Var "a")) ());
   [%expect
     {|
-      ((imports ()) (functions ()) (main ((Let Int (Int 10) (Var (0 (a))))))) |}];
+      (let (<> : int) = 10 in
+      <0:a>) |}];
 
   output_syntax
     (mk
@@ -42,345 +43,233 @@ let%expect_test "basic indexing" =
        ());
   [%expect
     {|
-      ((imports ())
-       (functions
-        (((export true) (name foo) (param Int) (return Int) (body (Int 10)))))
-       (main ())) |}]
+      (export fun foo (<> : int) : int .
+        10) |}]
 
 let%expect_test "examples" =
   output_examples ();
   [%expect
     {|
     -----------one-----------
-    ((imports ()) (functions ()) (main ((Int 1))))
+    1
     -----------flat_tuple-----------
-    ((imports ()) (functions ())
-     (main ((Tuple ((Int 1) (Int 2) (Int 3) (Int 4))))))
+    (1, 2, 3, 4)
     -----------nested_tuple-----------
-    ((imports ()) (functions ())
-     (main ((Tuple ((Tuple ((Int 1) (Int 2))) (Tuple ((Int 3) (Int 4))))))))
+    ((1, 2), (3, 4))
     -----------single_sum-----------
-    ((imports ()) (functions ()) (main ((Inj 0 (Tuple ()) (Sum ((Prod ())))))))
+    (inj 0 () : (⊕ (⊗)))
     -----------double_sum-----------
-    ((imports ()) (functions ()) (main ((Inj 1 (Int 15) (Sum ((Prod ()) Int))))))
+    (inj 1 15 : (⊕ (⊗) int))
     -----------arith_add-----------
-    ((imports ()) (functions ()) (main ((Binop Add (Int 9) (Int 10)))))
+    (9 + 10)
     -----------arith_sub-----------
-    ((imports ()) (functions ()) (main ((Binop Sub (Int 67) (Int 41)))))
+    (67 - 41)
     -----------arith_mul-----------
-    ((imports ()) (functions ()) (main ((Binop Mul (Int 42) (Int 10)))))
+    (42 × 10)
     -----------arith_div-----------
-    ((imports ()) (functions ()) (main ((Binop Div (Int -30) (Int 10)))))
+    (-30 ÷ 10)
     -----------app_ident-----------
-    ((imports ()) (functions ())
-     (main ((App (Lam Int Int (Var (0 (x)))) (Int 10)))))
+    (app (λ (<> : int) : int .
+           <0:x>) 10)
     -----------nested_arith-----------
-    ((imports ()) (functions ())
-     (main ((Binop Mul (Binop Add (Int 9) (Int 10)) (Int 5)))))
+    ((9 + 10) × 5)
     -----------let_bind-----------
-    ((imports ()) (functions ()) (main ((Let Int (Int 10) (Var (0 (x)))))))
+    (let (<> : int) = 10 in
+    <0:x>)
     -----------add_one_program-----------
-    ((imports ())
-     (functions
-      (((export true) (name add-one) (param Int) (return Int)
-        (body (Binop Add (Var (0 (x))) (Int 1))))))
-     (main ((App (Coderef add-one) (Int 42)))))
+    (export fun add-one (<> : int) : int .
+      (<0:x> + 1))
+
+    (app (coderef add-one) 42)
     -----------add_tup_ref-----------
-    ((imports ()) (functions ())
-     (main
-      ((Let (Ref Int) (New (Int 2))
-        (Split (Int (Ref Int)) (Tuple ((Int 1) (Var (0 (r)))))
-         (Let Int (Free (Var (0 (x2)))) (Binop Add (Var (2 (x1))) (Var (0 (x2'))))))))))
+    (let (<> : (ref int)) = (new 2) in
+    (split (<> : int) (<> : (ref int)) = (1, <0:r>) in
+    (let (<> : int) = (free <0:x2>) in
+    (<2:x1> + <0:x2'>))))
     -----------print_10-----------
-    ((imports (((name print) (input Int) (output (Prod ()))))) (functions ())
-     (main ((App (Coderef print) (Int 10)))))
+    (import (int ⊸ (⊗)) as print)
+
+    (app (coderef print) 10)
     -----------closure-----------
-    ((imports ()) (functions ())
-     (main ((Let Int (Int 10) (App (Lam (Prod ()) Int (Var (1 (x)))) (Tuple ()))))))
+    (let (<> : int) = 10 in
+    (app (λ (<> : (⊗)) : int .
+           <1:x>) ()))
     -----------factorial_program-----------
-    ((imports ())
-     (functions
-      (((export true) (name factorial) (param Int) (return Int)
-        (body
-         (If0 (Var (0 (n))) (Int 1)
-          (Let Int (Binop Sub (Var (0 (n))) (Int 1))
-           (Let Int (App (Coderef factorial) (Var (0 (n-sub1))))
-            (Binop Mul (Var (2 (n))) (Var (0 (rec-res)))))))))))
-     (main ((App (Coderef factorial) (Int 5)))))
+    (export fun factorial (<> : int) : int .
+      (if0 <0:n> then 1 else
+        (let (<> : int) = (<0:n> - 1) in
+        (let (<> : int) = (app (coderef factorial) <0:n-sub1>) in
+        (<2:n> × <0:rec-res>)))))
+
+    (app (coderef factorial) 5)
     -----------safe_div-----------
-    ((imports ())
-     (functions
-      (((export false) (name safe_div) (param (Prod (Int Int)))
-        (return (Sum (Int (Prod ()))))
-        (body
-         (Split (Int Int) (Var (0 (p)))
-          (If0 (Var (0 (y))) (Inj 1 (Tuple ()) (Sum (Int (Prod ()))))
-           (Let Int (Binop Div (Var (1 (x))) (Var (0 (y))))
-            (Inj 0 (Var (0 (q))) (Sum (Int (Prod ())))))))))
-       ((export false) (name from_either) (param (Sum (Int (Prod ()))))
-        (return Int)
-        (body (Cases (Var (0 (e))) ((Int (Var (0 (ok)))) ((Prod ()) (Int 0))))))))
-     (main
-      ((Let (Sum (Int (Prod ())))
-        (App (Coderef safe_div) (Tuple ((Int 10) (Int 0))))
-        (App (Coderef from_either) (Var (0 (r))))))))
+    (fun safe_div (<> : (⊗ int int)) : (⊕ int (⊗)) .
+      (split (<> : int) (<> : int) = <0:p> in
+      (if0 <0:y> then (inj 1 () : (⊕ int (⊗))) else
+        (let (<> : int) = (<1:x> ÷ <0:y>) in
+        (inj 0 <0:q> : (⊕ int (⊗)))))))
+
+    (fun from_either (<> : (⊕ int (⊗))) : int .
+      (cases <0:e>
+        (case (<> : int) <0:ok>)
+        (case (<> : (⊗)) 0)))
+
+    (let (<> : (⊕ int (⊗))) = (app (coderef safe_div) (10, 0)) in
+    (app (coderef from_either) <0:r>))
     -----------incr_n-----------
-    ((imports ())
-     (functions
-      (((export false) (name incr_1) (param (Ref Int)) (return (Ref Int))
-        (body
-         (Split ((Ref Int) Int) (Swap (Var (0 (r))) (Int 0))
-          (Let Int (Binop Add (Var (0 (old))) (Int 1))
-           (Split ((Ref Int) Int) (Swap (Var (2 (r1))) (Var (0 (new))))
-            (Var (1 (r2))))))))
-       ((export true) (name incr_n) (param (Prod ((Ref Int) Int))) (return Int)
-        (body
-         (Split ((Ref Int) Int) (Var (0 (p)))
-          (If0 (Var (0 (n))) (Free (Var (1 (r))))
-           (Let (Ref Int) (App (Coderef incr_1) (Var (1 (r))))
-            (Let Int (Binop Sub (Var (1 (n))) (Int 1))
-             (App (Coderef incr_n) (Tuple ((Var (1 (r1))) (Var (0 (n1))))))))))))))
-     (main
-      ((Let (Ref Int) (New (Int 10))
-        (App (Coderef incr_n) (Tuple ((Var (0 (r0))) (Int 3))))))))
+    (fun incr_1 (<> : (ref int)) : (ref int) .
+      (split (<> : (ref int)) (<> : int) = (swap <0:r> 0) in
+      (let (<> : int) = (<0:old> + 1) in
+      (split (<> : (ref int)) (<> : int) = (swap <2:r1> <0:new>) in
+      <1:r2>))))
+
+    (export fun incr_n (<> : (⊗ (ref int) int)) : int .
+      (split (<> : (ref int)) (<> : int) = <0:p> in
+      (if0 <0:n> then (free <1:r>) else
+        (let (<> : (ref int)) = (app (coderef incr_1) <1:r>) in
+        (let (<> : int) = (<1:n> - 1) in
+        (app (coderef incr_n) (<1:r1>, <0:n1>)))))))
+
+    (let (<> : (ref int)) = (new 10) in
+    (app (coderef incr_n) (<0:r0>, 3)))
     -----------fix_factorial[invalid]-----------
-    ((imports ()) (functions ())
-     (main
-      ((Let
-        (Lollipop (Lollipop (Lollipop Int Int) (Lollipop Int Int))
-         (Lollipop Int Int))
-        (Lam (Lollipop (Lollipop Int Int) (Lollipop Int Int)) (Lollipop Int Int)
-         (Let
-          (Lollipop (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
-           (Lollipop Int Int))
-          (Lam (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int))) (Lollipop Int Int)
-           (Let
-            (Lollipop (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
-             (Lollipop Int Int))
-            (Unfold (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
-             (Var (0 (x))))
-            (Let (Lollipop Int Int) (App (Var (0 (ux))) (Var (1 (x))))
-             (App (Var (3 (f))) (Var (0 (xx)))))))
-          (App (Var (0 (omega)))
-           (Fold (Rec (Lollipop (Var (0 (a))) (Lollipop Int Int)))
-            (Var (0 (omega)))))))
-        (Let (Lollipop Int Int)
-         (App (Var (0 (fix)))
-          (Lam (Lollipop Int Int) (Lollipop Int Int)
-           (Lam Int Int
-            (If0 (Var (0 (n))) (Int 1)
-             (Let Int (Binop Sub (Var (0 (n))) (Int 1))
-              (Let Int (App (Var (2 (rec))) (Var (0 (n-sub1))))
-               (Binop Mul (Var (2 (n))) (Var (0 (rec-res))))))))))
-         (App (Var (0 (factorial))) (Int 5)))))))
+    (let (<> : (((int ⊸ int) ⊸ (int ⊸ int)) ⊸ (int ⊸ int))) =
+      (λ (<> : ((int ⊸ int) ⊸ (int ⊸ int))) : (int ⊸ int) .
+        (let (<> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int))) =
+          (λ (<> : (rec [] ([0:a] ⊸ (int ⊸ int)))) : (int ⊸ int) .
+            (let (<> : ((rec [] ([0:a] ⊸ (int ⊸ int))) ⊸ (int ⊸ int))) =
+              (unfold (rec [] ([0:a] ⊸ (int ⊸ int))) <0:x>) in
+            (let (<> : (int ⊸ int)) = (app <0:ux> <1:x>) in
+            (app <3:f> <0:xx>))))
+          in
+        (app <0:omega> (fold (rec [] ([0:a] ⊸ (int ⊸ int))) <0:omega>))))
+      in
+    (let (<> : (int ⊸ int)) =
+      (app <0:fix>
+        (λ (<> : (int ⊸ int)) : (int ⊸ int) .
+          (λ (<> : int) : int .
+            (if0 <0:n> then 1 else
+              (let (<> : int) = (<0:n> - 1) in
+              (let (<> : int) = (app <2:rec> <0:n-sub1>) in
+              (<2:n> × <0:rec-res>)))))))
+      in
+    (app <0:factorial> 5)))
     -----------unboxed_list[invalid]-----------
-    ((imports ())
-     (functions
-      (((export false) (name map_int)
-        (param
-         (Prod
-          ((Lollipop Int Int)
-           (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))
-        (return (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
-        (body
-         (Split
-          ((Lollipop Int Int)
-           (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
-          (Var (0 (p)))
-          (Fold (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))
-           (Cases
-            (Unfold (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))
-             (Var (0 (lst))))
-            (((Prod ())
-              (Inj 0 (Var (0 (nil)))
-               (Sum
-                ((Prod ())
-                 (Prod
-                  (Int (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))))
-             ((Prod
-               (Int (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))
-              (Split
-               (Int (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))
-               (Var (0 (cons)))
-               (Inj 1
-                (Tuple
-                 ((App (Var (4 (f))) (Var (1 (hd))))
-                  (App (Coderef map_int) (Tuple ((Var (4 (f))) (Var (0 (tl))))))))
-                (Sum
-                 ((Prod ())
-                  (Prod
-                   (Int
-                    (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177")))))))))))))))))))))))
-     (main
-      ((Let (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))
-        (Fold (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))
-         (Inj 0 (Tuple ())
-          (Sum
-           ((Prod ())
-            (Prod
-             (Int (Rec (Sum ((Prod ()) (Prod (Int (Var (0 ("\206\177"))))))))))))))
-        (App (Coderef map_int)
-         (Tuple ((Lam Int Int (Binop Add (Var (0 (x))) (Int 1))) (Var (0 (lst))))))))))
+    (fun map_int (<> : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int [0:α]))))) :
+      (rec [] (⊕ (⊗) (⊗ int [0:α]))) .
+      (split (<> : (int ⊸ int)) (<> : (rec [] (⊕ (⊗) (⊗ int [0:α])))) =
+        <0:p> in
+      (fold (rec [] (⊕ (⊗) (⊗ int [0:α])))
+        (cases (unfold (rec [] (⊕ (⊗) (⊗ int [0:α]))) <0:lst>)
+          (case (<> : (⊗))
+            (inj 0 <0:nil> :
+              (⊕ (⊗) (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α])))))))
+          (case (<> : (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+            (split (<> : int) (<> : (rec [] (⊕ (⊗) (⊗ int [0:α])))) =
+              <0:cons> in
+            (inj 1 ((app <4:f> <1:hd>), (app (coderef map_int) (<4:f>, <0:tl>))) :
+              (⊕ (⊗) (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α]))))))))
+          ))))
+
+    (let (<> : (rec [] (⊕ (⊗) (⊗ int [0:α])))) =
+      (fold (rec [] (⊕ (⊗) (⊗ int [0:α])))
+        (inj 0 () : (⊕ (⊗) (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α])))))))
+      in
+    (app (coderef map_int) ((λ (<> : int) : int .
+                              (<0:x> + 1)), <0:lst>)))
     -----------boxed_list-----------
-    ((imports ())
-     (functions
-      (((export false) (name map_int)
-        (param
-         (Prod
-          ((Lollipop Int Int)
-           (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
-        (return (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
-        (body
-         (Split
-          ((Lollipop Int Int)
-           (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))
-          (Var (0 (p)))
-          (Fold (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
-           (Cases
-            (Unfold
-             (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
-             (Var (0 (lst))))
-            (((Prod ())
-              (Inj 0 (Var (0 (nil)))
-               (Sum
-                ((Prod ())
-                 (Prod
-                  (Int
-                   (Ref
-                    (Rec
-                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))))
-             ((Prod
-               (Int
-                (Ref
-                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))
-              (Split
-               (Int
-                (Ref
-                 (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))
-               (Var (0 (cons)))
-               (Inj 1
-                (Tuple
-                 ((App (Var (4 (f))) (Var (1 (hd))))
-                  (New
-                   (App (Coderef map_int)
-                    (Tuple ((Var (4 (f))) (Free (Var (0 (tl))))))))))
-                (Sum
-                 ((Prod ())
-                  (Prod
-                   (Int
-                    (Ref
-                     (Rec
-                      (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))))))))))))
-     (main
-      ((Let (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
-        (Fold (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
-         (Inj 1
-          (Tuple
-           ((Int 5)
-            (New
-             (Fold
-              (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))
-              (Inj 0 (Tuple ())
-               (Sum
-                ((Prod ())
-                 (Prod
-                  (Int
-                   (Ref
-                    (Rec
-                     (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177")))))))))))))))))))
-          (Sum
-           ((Prod ())
-            (Prod
-             (Int
-              (Ref
-               (Rec (Sum ((Prod ()) (Prod (Int (Ref (Var (0 ("\206\177"))))))))))))))))
-        (App (Coderef map_int)
-         (Tuple ((Lam Int Int (Binop Add (Var (0 (x))) (Int 1))) (Var (0 (lst))))))))))
+    (fun map_int
+      (<> : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) :
+      (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))) .
+      (split (<> : (int ⊸ int))
+        (<> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) = <0:p> in
+      (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
+        (cases (unfold (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))) <0:lst>)
+          (case (<> : (⊗))
+            (inj 0 <0:nil> :
+              (⊕ (⊗)
+                (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))
+          (case (<> : (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
+            (split (<> : int)
+              (<> : (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) = <0:cons>
+              in
+            (inj 1
+              ((app <4:f> <1:hd>),
+                (new (app (coderef map_int) (<4:f>, (free <0:tl>)))))
+              :
+              (⊕ (⊗)
+                (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))))))
+          ))))
+
+    (let (<> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) =
+      (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
+        (inj 1
+          (5,
+            (new
+            (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
+              (inj 0 () :
+                (⊕ (⊗)
+                  (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))))
+          :
+          (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))
+      in
+    (app (coderef map_int) ((λ (<> : int) : int .
+                              (<0:x> + 1)), <0:lst>)))
     -----------peano_3-----------
-    ((imports ()) (functions ())
-     (main
-      ((Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-        (Inj 1
-         (New
-          (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-           (Inj 1
-            (New
-             (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-              (Inj 1
-               (New
-                (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-                 (Inj 0 (Tuple ())
-                  (Sum
-                   ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))
-               (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))
-            (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))
-         (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))))
+    (fold (rec [] (⊕ (⊗) (ref [0:a])))
+      (inj 1
+        (new
+        (fold (rec [] (⊕ (⊗) (ref [0:a])))
+          (inj 1
+            (new
+            (fold (rec [] (⊕ (⊗) (ref [0:a])))
+              (inj 1
+                (new
+                (fold (rec [] (⊕ (⊗) (ref [0:a])))
+                  (inj 0 () : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
+                : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
+            : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
+        : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a])))))))
     -----------peano-----------
-    ((imports ())
-     (functions
-      (((export false) (name add)
-        (param
-         (Prod
-          ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-           (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))
-        (return (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
-        (body
-         (Split
-          ((Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-           (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
-          (Var (0 (p)))
-          (Cases
-           (Unfold (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) (Var (1 (left))))
-           (((Prod ()) (Var (1 (right))))
-            ((Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
-             (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-              (Inj 1
-               (New
-                (App (Coderef add)
-                 (Tuple ((Free (Var (0 (succ)))) (Var (1 (right)))))))
-               (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))))))))))))
-       ((export false) (name from-int) (param Int)
-        (return (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
-        (body
-         (Fold (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-          (If0 (Var (0 (int)))
-           (Inj 0 (Tuple ())
-            (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))
-           (Inj 1
-            (New (App (Coderef from-int) (Binop Sub (Var (0 (int))) (Int 1))))
-            (Sum ((Prod ()) (Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))))))))))
-       ((export false) (name to-int)
-        (param (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))) (return Int)
-        (body
-         (Cases
-          (Unfold (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))) (Var (0 (peano))))
-          (((Prod ()) (Int 0))
-           ((Ref (Rec (Sum ((Prod ()) (Ref (Var (0 (a))))))))
-            (Binop Add (Int 1) (App (Coderef to-int) (Free (Var (0 (succ)))))))))))))
-     (main
-      ((Let (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-        (App (Coderef from-int) (Int 6))
-        (Let (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-         (App (Coderef from-int) (Int 7))
-         (Let (Rec (Sum ((Prod ()) (Ref (Var (0 (a)))))))
-          (App (Coderef add) (Tuple ((Var (1 (six))) (Var (0 (seven))))))
-          (App (Coderef to-int) (Var (0 (sum))))))))))
+    (fun add
+      (<> : (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) :
+      (rec [] (⊕ (⊗) (ref [0:a]))) .
+      (split (<> : (rec [] (⊕ (⊗) (ref [0:a]))))
+        (<> : (rec [] (⊕ (⊗) (ref [0:a])))) = <0:p> in
+      (cases (unfold (rec [] (⊕ (⊗) (ref [0:a]))) <1:left>)
+        (case (<> : (⊗)) <1:right>)
+        (case (<> : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
+          (fold (rec [] (⊕ (⊗) (ref [0:a])))
+            (inj 1 (new (app (coderef add) ((free <0:succ>), <1:right>))) :
+              (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a])))))))))))
+
+    (fun from-int (<> : int) : (rec [] (⊕ (⊗) (ref [0:a]))) .
+      (fold (rec [] (⊕ (⊗) (ref [0:a])))
+        (if0 <0:int>
+          then (inj 0 () : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a])))))) else
+          (inj 1 (new (app (coderef from-int) (<0:int> - 1))) :
+            (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a])))))))))
+
+    (fun to-int (<> : (rec [] (⊕ (⊗) (ref [0:a])))) : int .
+      (cases (unfold (rec [] (⊕ (⊗) (ref [0:a]))) <0:peano>)
+        (case (<> : (⊗)) 0)
+        (case (<> : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
+          (1 + (app (coderef to-int) (free <0:succ>))))))
+
+    (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) = (app (coderef from-int) 6) in
+    (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) = (app (coderef from-int) 7) in
+    (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
+      (app (coderef add) (<1:six>, <0:seven>)) in
+    (app (coderef to-int) <0:sum>))))
     -----------mini_zip-----------
-    ((imports ())
-     (functions
-      (((export false) (name add1) (param Int) (return Int)
-        (body (Binop Add (Var (0 (x))) (Int 1))))
-       ((export true) (name typle_add1) (param (Prod (Int Int)))
-        (return (Prod (Int Int)))
-        (body
-         (Split (Int Int) (Var (0 (x)))
-          (Tuple
-           ((App (Coderef add1) (Var (1 (x1))))
-            (App (Coderef add1) (Var (0 (x2)))))))))
-       ((export false) (name mini_zip_specialized)
-        (param (Prod ((Ref Int) (Ref (Ref Int)))))
-        (return (Ref (Prod (Int (Ref Int)))))
-        (body
-         (Split ((Ref Int) (Ref (Ref Int))) (Var (0 (p)))
-          (New (Tuple ((Free (Var (1 (a)))) (Free (Var (0 (b))))))))))))
-     (main ())) |}]
+    (fun add1 (<> : int) : int .
+      (<0:x> + 1))
+
+    (export fun typle_add1 (<> : (⊗ int int)) : (⊗ int int) .
+      (split (<> : int) (<> : int) = <0:x> in
+      ((app (coderef add1) <1:x1>), (app (coderef add1) <0:x2>))))
+
+    (fun mini_zip_specialized (<> : (⊗ (ref int) (ref (ref int)))) :
+      (ref (⊗ int (ref int))) .
+      (split (<> : (ref int)) (<> : (ref (ref int))) = <0:p> in
+      (new ((free <1:a>), (free <0:b>))))) |}]
