@@ -183,6 +183,13 @@ Definition compile_func (mr : module_runtime) (mf : module_function) : modgen W.
   let ls' := flat_map (map translate_arep) ls ++ wl in
   add_func (W.Build_module_func tid ls' body).
 
+Definition export_table_func (fid_user : W.funcidx) (off : nat) : modgen unit :=
+  let idx := funcimm fid_user + off in
+  let name :=
+    list_byte_of_string ("__rw_table_func_" ++ pretty.pretty idx)
+  in
+  add_export (W.Build_module_export name (W.MED_func (W.Mk_funcidx idx))).
+
 Definition compile_table
   (gid_tablenext gid_table_off : W.globalidx) (fid_user fid_tableset : W.funcidx) (tab : list nat) :
   modgen W.funcidx :=
@@ -190,6 +197,10 @@ Definition compile_table
   let es1 := table_alloc gid_tablenext gid_table_off (length tab) in
   let table_set i fid := call_table_set gid_table_off fid_tableset i (funcimm fid_user + fid) in
   let es2 := flatten (imap table_set tab) in
+
+  (* HACK: since we can't use `ref.func`, we must export our functions for the host to add to the table. *)
+  _ ← mapM_ (export_table_func fid_user) tab;
+
   add_func (W.Build_module_func tid [] (es1 ++ es2)).
 
 Definition compile_export (gid_user : W.globalidx) (fid_user : W.funcidx) (export : module_export) : modgen unit :=

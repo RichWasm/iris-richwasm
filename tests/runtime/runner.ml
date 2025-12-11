@@ -36,16 +36,6 @@ let%expect_test "runtime" =
       registerroot: numbers should just incrememnt by 4
       [ 0, 4, 8, 12 ]
       ---
-      tableset
-      set index 1, check length
-      2
-      set index 0, check length
-      2
-      now set index 8
-      9
-      index 8 should be gcalloc, call it (ptr should be >100k)
-      131085
-      ---
       make sure free, setflag, and unregisterroot don't trap
       ---
     |}]

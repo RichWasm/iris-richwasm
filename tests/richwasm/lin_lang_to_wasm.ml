@@ -522,6 +522,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
       (start 9))
 
     -----------nested_arith-----------
@@ -700,6 +701,7 @@ let%expect_test "examples" =
       (global (;1;) (mut i32) (i32.const 0))
       (export "add-one" (func 7))
       (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
       (start 9))
 
     -----------add_tup_ref-----------
@@ -887,6 +889,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
       (start 10))
 
     -----------closure-----------
@@ -1031,6 +1034,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
       (start 9))
 
     -----------closure_call_var-----------
@@ -1190,6 +1194,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
       (start 9))
 
     -----------factorial_program-----------
@@ -1345,6 +1350,7 @@ let%expect_test "examples" =
       (global (;1;) (mut i32) (i32.const 0))
       (export "factorial" (func 7))
       (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
       (start 9))
 
 
@@ -1810,6 +1816,8 @@ let%expect_test "examples" =
       (global (;1;) (mut i32) (i32.const 0))
       (export "incr_n" (func 8))
       (export "_start" (func 9))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
       (start 10))
 
 
@@ -3359,4 +3367,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "typle_add1" (func 8))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (export "__rw_table_func_9" (func 9))
       (start 10)) |}]

@@ -84,7 +84,9 @@
   ZArith_dec
   Zaux
   Zbits
-  Zpower)
+  Zpower
+  pretty
+  numbers)
  (theories Stdlib RichWasm.syntax RichWasm.compiler
   iris
   Wasm

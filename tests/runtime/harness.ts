@@ -1,19 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-
-interface Runtime {
-  tablenext: number;
-  table: WebAssembly.Table;
-  mmmem: WebAssembly.Memory;
-  gcmem: WebAssembly.Memory;
-  registerroot: (address: number) => number;
-  unregisterroot: (address: number) => number;
-  mmalloc: (bytes: number) => number;
-  gcalloc: (bytes: number) => number;
-  tableset: (idx: number, f: Function) => void;
-  free: (address: number) => void;
-  setflag: (a: number, b: number, c: number) => void;
-}
+import type { Runtime } from "../../src/runtime/interface.d.ts";
 
 const WASM_PATH = resolve(
   import.meta.url.slice(5),
@@ -71,21 +58,6 @@ console.log([
   runtime.registerroot(1),
   runtime.registerroot(5),
 ]);
-console.log("---");
-
-console.log("tableset");
-console.log("set index 1, check length");
-runtime.tableset(1, runtime.free);
-console.log(runtime.table.length);
-console.log("set index 0, check length");
-runtime.tableset(0, runtime.setflag);
-console.log(runtime.table.length);
-console.log("now set index 8");
-runtime.tableset(8, runtime.gcalloc);
-console.log(runtime.table.length);
-
-console.log("index 8 should be gcalloc, call it (ptr should be >100k)");
-console.log(runtime.table.get(8)(4));
 console.log("---");
 
 console.log("make sure free, setflag, and unregisterroot don't trap");

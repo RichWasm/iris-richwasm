@@ -7,12 +7,12 @@
   iris-richwasm.common
   iris-richwasm.runtime
   iris-richwasm.test-e2e)
- (deps %{lib:iris-richwasm.runtime:richwasm.wasm})
+ (deps %{dep:support/tableset.ts})
  (action
   (setenv
    RW_RUNTIME_WASM_PATH
    %{lib:iris-richwasm.runtime:richwasm.wasm}
    (setenv
     WASM_HOST_RUNTIME_PATH
-    %{dep:support/simple_host.js}
+    %{dep:support/simple_host.ts}
     (run %{test})))))

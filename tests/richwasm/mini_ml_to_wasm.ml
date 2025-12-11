@@ -81,6 +81,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------tuple-----------
@@ -251,6 +252,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------tuple_nested-----------
@@ -491,6 +493,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------tuple_project-----------
@@ -677,6 +680,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------sum_unit-----------
@@ -758,6 +762,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------sum_option-----------
@@ -836,6 +841,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------add-----------
@@ -885,6 +891,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------sub-----------
@@ -934,6 +941,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------mul-----------
@@ -983,6 +991,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------div-----------
@@ -1032,6 +1041,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------math-----------
@@ -1091,6 +1101,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------basic_let-----------
@@ -1178,6 +1189,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------return_one-----------
@@ -1478,6 +1490,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "add1" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------id-----------
@@ -1667,6 +1680,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "id" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------apply_id-----------
@@ -2662,6 +2676,7 @@ let%expect_test "examples" =
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
       (export "mini_zip" (func 7))
+      (export "__rw_table_func_7" (func 7))
       (start 8))
 
     -----------closure_simpl-----------

@@ -19,6 +19,25 @@ Extract Inlined Constant String.string_of_list_byte =>
 Extract Inlined Constant String.list_byte_of_string =>
   "(fun s -> Stdlib.List.init (Stdlib.String.length s) (fun i -> Stdlib.String.get s i))".
 
+From Stdlib Require Import Ascii String.
+
+Extract Inductive string => "string"
+[
+(* EmptyString *)
+"(* If this appears, you're using String internals. Please don't *)
+  """"
+"
+(* String *)
+"(* If this appears, you're using String internals. Please don't *)
+  (fun (c, s) -> Stdlib.String.make 1 c ^ s)
+"
+]
+"(* If this appears, you're using String internals. Please don't *)
+ (fun f0 f1 s ->
+    let l = Stdlib.String.length s in
+    if l = 0 then f0 () else f1 (Stdlib.String.get s 0) (Stdlib.String.sub s 1 (l-1)))
+".
+
 
 From RichWasm.syntax Require rw module.
 Module rw_module_syntax := module.
