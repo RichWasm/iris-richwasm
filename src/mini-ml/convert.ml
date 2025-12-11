@@ -152,26 +152,27 @@ let rec cc_e user_fns gamma tagger acc e =
           }
       in
       Closed.
-        ( Expr.Pack
-            ( env_prod,
-              Expr.Tuple
-                [
-                  Expr.Tuple (List.map ~f:(fun v -> Expr.Var v) free_vars);
-                  Expr.Coderef (function_type, code_name);
-                ],
-              PreType.(
-                Exists
-                  ( "#cc-env",
-                    Prod
-                      [
-                        Var "#cc-env";
-                        Code
-                          {
-                            foralls = free_type_vars @ foralls;
-                            arg = Prod [ Var "#cc-env"; cc_t t ];
-                            ret = cc_t ret_type;
-                          };
-                      ] )) ),
+        ( Expr.(
+            Pack
+              ( env_prod,
+                Tuple
+                  [
+                    Tuple (List.map ~f:(fun v -> Var v) free_vars);
+                    Coderef (function_type, code_name);
+                  ],
+                PreType.(
+                  Exists
+                    ( "#cc-env",
+                      Prod
+                        [
+                          Var "#cc-env";
+                          Code
+                            {
+                              foralls = free_type_vars @ foralls;
+                              arg = Prod [ Var "#cc-env"; cc_t t ];
+                              ret = cc_t ret_type;
+                            };
+                        ] )) )),
           Function.Function
             {
               name = code_name;

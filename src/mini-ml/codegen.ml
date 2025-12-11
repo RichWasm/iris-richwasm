@@ -139,7 +139,12 @@ let rec compile_expr delta gamma locals functions e =
       (v' @ [ InjectNew (GC, i, types) ], locals', fx)
   | Pack (witness, v, _) ->
       let v', locals', fx = r v in
-      ( v' @ [ Pack (Index.Type (compile_type delta witness), rw_t); New GC ],
+      let raw_t =
+        match rw_t with
+        | Exists (_, t) -> t
+        | _ -> failwith "pack should be of existential type"
+      in
+      ( v' @ [ Pack (Index.Type (compile_type delta witness), raw_t) ],
         locals',
         fx )
   | Var v ->
@@ -226,29 +231,22 @@ let rec compile_expr delta gamma locals functions e =
       (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
       let v', locals', fx_v = r v in
-      let temp_idx = List.length locals' in
-      let locals'' = locals' @ [ ("#temp", Type.Prod []) ] in
-      let var_idx = List.length locals'' in
-      let e', locals''', fx_e =
-        compile_expr (var :: delta) ((n, t, var_idx) :: gamma)
-          (locals'' @ [ (n, compile_type (var :: delta) t) ])
+      let e', locals'', fx_e =
+        compile_expr (var :: delta)
+          ((n, t, new_local_idx) :: gamma)
+          (locals' @ [ ("#unpack-tmp", compile_type (var :: delta) t) ])
           functions e
       in
-      let fx_body = fx_e @ [ (var_idx, rw_unit) ] in
-      let fx = fx_v @ [ (temp_idx, rw_unit) ] @ fx_body in
+      let fx = fx_v @ fx_e in
       ( v'
         @ [
-            Load (Path.Path [], Follow);
-            LocalSet temp_idx;
-            Drop;
-            LocalGet (temp_idx, Move);
             Unpack
               ( ArrowType (1, [ rw_t ]),
                 InferFx,
                 [ LocalSet new_local_idx ] @ e'
                 @ [ LocalGet (new_local_idx, Move); Drop ] );
           ],
-        locals''',
+        locals'',
         fx )
   | Let ((n, t), e1, e2) ->
       let e1', locals', fx1 = r e1 in
@@ -290,8 +288,20 @@ let rec compile_expr delta gamma locals functions e =
               fx @ fx' ))
           ~init:([], locals', [])
       in
-      ( v' @ [ CaseLoad (ArrowType (1, [ rw_t ]), Copy, InferFx, branches') ],
-        locals',
+      let tmp_local = List.length locals' in
+      ( v'
+        @ [
+            CaseLoad
+              ( ArrowType
+                  (1, [ v |> type_of_e unindexed |> compile_type delta; rw_t ]),
+                Copy,
+                InferFx,
+                branches' );
+            LocalSet tmp_local;
+            Drop;
+            LocalGet (tmp_local, Move);
+          ],
+        locals' @ [ ("#cases-tmp", Prod []) ],
         fx_v @ fx )
 
 let compile_fun functions : Closed.Function.t -> Module.Function.t = function
