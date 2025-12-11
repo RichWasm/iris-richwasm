@@ -3,8 +3,8 @@
 
   (global (export "tablenext") (mut i32) (i32.const 0))
 
-  (global $mm_ptr (mut i32) (i32.const 0))
-  (global $gc_ptr (mut i32) (i32.const 65537))
+  (global $mm_ptr (mut i32) (i32.const 1))
+  (global $gc_ptr (mut i32) (i32.const 65539))
   (global $root_ptr (mut i32) (i32.const 0))
   (global $mm_end (mut i32) (i32.const 0))
   (global $gc_end (mut i32) (i32.const 65536))
@@ -77,17 +77,8 @@
     global.get $mm_ptr
     local.get $size
     i32.add
-    ;; align mm pointers to even addresses
-    local.tee $raw_next
-    i32.const 1
-    i32.and
-    i32.eqz
-    (if (result i32)
-      (then local.get $raw_next)
-      (else
-        local.get $raw_next
-        i32.const 1
-        i32.add))
+    i32.const 1 ;; 0b01
+    call $align
     global.set $mm_ptr)
 
   (func (export "gcalloc") (param $size i32) (result i32)
@@ -133,21 +124,22 @@
     global.get $gc_ptr
     local.get $size
     i32.add
-    ;; align gc pointers to odd addresses
-    local.tee $raw_next
-    i32.const 1
-    i32.and
-    i32.eqz
-    (if (result i32)
-      (then
-        local.get $raw_next
-        i32.const 1
-        i32.add)
-      (else local.get $raw_next))
+    i32.const 3 ;; 0b11
+    call $align
     global.set $gc_ptr)
 
   (func (export "free") (param i32) (result)
     nop)
 
   (func (export "setflag") (param i32 i32 i32) (result)
-    nop))
+    nop)
+
+  (func $align (param $value i32) (param $alignment i32) (result i32)
+    ;; internal helper to align the next pointer
+    local.get $value
+    local.get $alignment
+    local.get $value
+    i32.sub
+    i32.const 3
+    i32.and
+    i32.add))
