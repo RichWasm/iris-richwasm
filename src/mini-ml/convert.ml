@@ -109,13 +109,26 @@ let rec cc_e user_fns gamma tagger acc e =
         match
           List.Assoc.find ~equal:equal_string user_fns v
         with
-        | Some t ->
+        | Some (Source.PreType.Fun { foralls; arg; ret } as t) ->
             ( Closed.(
                 Expr.Pack
                   ( PreType.Prod [],
-                    Expr.Tuple [ Expr.Tuple []; Expr.Coderef (cc_t t, v) ],
+                    Expr.Tuple
+                      [
+                        Expr.Tuple [];
+                        Expr.Coderef
+                          ( PreType.(
+                              Code
+                                {
+                                  foralls;
+                                  arg = Prod [ Prod []; cc_t arg ];
+                                  ret = cc_t ret;
+                                }),
+                            v );
+                      ],
                     cc_t t )),
               acc )
+        | Some _ -> failwith "user-fns contains non-function"
         | None -> failwith ("unbound identifier " ^ v))
   | Tuple vs ->
       let vs, code =
