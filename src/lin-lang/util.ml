@@ -22,7 +22,7 @@ let pp_sep pp ff ~(sep : string) ts =
   pp_list (fun x -> fprintf ff "%a" pp x) (fun () -> fprintf ff "@ %s@ " sep) ts;
   fprintf ff ")@]"
 
-let rec pp_print_list_pre ?(pp_sep = pp_print_cut) pp_v ppf v =
+let pp_print_list_pre ?(pp_sep = pp_print_cut) pp_v ppf v =
   List.iter
     ~f:(fun x ->
       pp_sep ppf ();

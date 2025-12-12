@@ -232,7 +232,7 @@ let%expect_test "examples" =
         pack (Type (prod))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 0
           local.get 0 follow
           ungroup
@@ -294,7 +294,7 @@ let%expect_test "examples" =
         pack (Type (prod))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 0
           local.get 0 follow
           ungroup
@@ -360,7 +360,7 @@ let%expect_test "examples" =
         pack (Type (prod))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> (prod)))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> (prod)) InferFx
+        unpack (result (prod)) InferFx
           local.set 0
           local.get 0 follow
           ungroup
@@ -417,7 +417,7 @@ let%expect_test "examples" =
         pack (Type (prod i32))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) (prod)) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 1
           local.get 1 follow
           ungroup
@@ -480,7 +480,7 @@ let%expect_test "examples" =
         pack (Type (prod i32))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 2
           local.get 2 follow
           ungroup
@@ -515,7 +515,7 @@ let%expect_test "examples" =
         local.get 2 follow
         i32.const 0
         i32.eqz
-        if (<1> -> i32) InferFx
+        if (result i32) InferFx
           i32.const 1
         else
           local.get 2 follow
@@ -529,7 +529,7 @@ let%expect_test "examples" =
           pack (Type (prod))
             (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
               (ref (base mm) (ser (var 0))))
-          unpack (<1> -> i32) InferFx
+          unpack (result i32) InferFx
             local.set 4
             local.get 4 follow
             ungroup
@@ -568,7 +568,7 @@ let%expect_test "examples" =
         pack (Type (prod))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 0
           local.get 0 follow
           ungroup
@@ -605,7 +605,7 @@ let%expect_test "examples" =
         local.get 4 follow
         i32.const 0
         i32.eqz
-        if (<1> -> (sum i32 (prod))) InferFx
+        if (result (sum i32 (prod))) InferFx
           group 0
           inject 1 i32 (prod)
         else
@@ -661,7 +661,7 @@ let%expect_test "examples" =
               ((prod (ref (base mm) (ser (var 0))) (prod i32 i32)) ->
               (sum i32 (prod))))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> (sum i32 (prod))) InferFx
+        unpack (result (sum i32 (prod))) InferFx
           local.set 0
           local.get 0 follow
           ungroup
@@ -691,7 +691,7 @@ let%expect_test "examples" =
             (coderef
               ((prod (ref (base mm) (ser (var 0))) (sum i32 (prod))) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 4
           local.get 4 follow
           ungroup
@@ -770,7 +770,7 @@ let%expect_test "examples" =
         local.get 4 follow
         i32.const 0
         i32.eqz
-        if (<1> -> i32) InferFx
+        if (result i32) InferFx
           local.get 3 follow
           load (Path []) move
           local.set 5
@@ -787,7 +787,7 @@ let%expect_test "examples" =
                 ((prod (ref (base mm) (ser (var 0))) (ref (base mm) (ser i32))) ->
                 (ref (base mm) (ser i32))))
               (ref (base mm) (ser (var 0))))
-          unpack (<1> -> (ref (base mm) (ser i32))) InferFx
+          unpack (result (ref (base mm) (ser i32))) InferFx
             local.set 6
             local.get 6 follow
             ungroup
@@ -821,7 +821,7 @@ let%expect_test "examples" =
                    (prod (ref (base mm) (ser i32)) i32))
                 -> i32))
               (ref (base mm) (ser (var 0))))
-          unpack (<1> -> i32) InferFx
+          unpack (result i32) InferFx
             local.set 11
             local.get 11 follow
             ungroup
@@ -869,7 +869,7 @@ let%expect_test "examples" =
                  (prod (ref (base mm) (ser i32)) i32))
               -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 1
           local.get 1 follow
           ungroup
@@ -939,9 +939,9 @@ let%expect_test "examples" =
         local.set 6
         local.get 6 follow
         unpack
-          (<1> ->
-          (exists type (VALTYPE (ptr, nocopy, exdrop))
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+          (result
+           (exists type (VALTYPE (ptr, nocopy, exdrop))
+             (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
           InferFx
           local.set 7
           local.get 7 follow
@@ -963,9 +963,9 @@ let%expect_test "examples" =
         local.set 10
         local.get 4 follow
         unpack
-          (<1> ->
-          (exists type (VALTYPE (ptr, nocopy, exdrop))
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+          (result
+           (exists type (VALTYPE (ptr, nocopy, exdrop))
+             (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
           InferFx
           local.set 11
           local.get 11 follow
@@ -1055,9 +1055,9 @@ let%expect_test "examples" =
         local.set 5
         local.get 5 follow
         unpack
-          (<1> ->
-          (exists type (VALTYPE (ptr, nocopy, exdrop))
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+          (result
+           (exists type (VALTYPE (ptr, nocopy, exdrop))
+             (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
           InferFx
           local.set 6
           local.get 6 follow
@@ -1116,7 +1116,7 @@ let%expect_test "examples" =
         local.get 5 follow
         i32.const 0
         i32.eqz
-        if (<1> -> i32) InferFx
+        if (result i32) InferFx
           i32.const 1
         else
           local.get 5 follow
@@ -1124,7 +1124,7 @@ let%expect_test "examples" =
           i32.sub
           local.set 6
           local.get 4 follow
-          unpack (<1> -> i32) InferFx
+          unpack (result i32) InferFx
             local.set 7
             local.get 7 follow
             ungroup
@@ -1222,9 +1222,9 @@ let%expect_test "examples" =
         local.set 0
         local.get 0 follow
         unpack
-          (<1> ->
-          (exists type (VALTYPE (ptr, nocopy, exdrop))
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+          (result
+           (exists type (VALTYPE (ptr, nocopy, exdrop))
+             (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
           InferFx
           local.set 1
           local.get 1 follow
@@ -1258,7 +1258,7 @@ let%expect_test "examples" =
         end
         local.set 4
         local.get 4 follow
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 5
           local.get 5 follow
           ungroup
@@ -1362,7 +1362,7 @@ let%expect_test "examples" =
             local.set 8
             local.set 7
             local.get 3 follow
-            unpack (<1> -> i32) InferFx
+            unpack (result i32) InferFx
               local.set 9
               local.get 9 follow
               ungroup
@@ -1399,9 +1399,9 @@ let%expect_test "examples" =
                     (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
                 (ref (base mm) (ser (var 0))))
             unpack
-              (<1> ->
-              (rec (VALTYPE ((sum (prod) (prod i32 ptr)), nocopy, exdrop))
-                (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
+              (result
+               (rec (VALTYPE ((sum (prod) (prod i32 ptr)), nocopy, exdrop))
+                 (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
               InferFx
               local.set 12
               local.get 12 follow
@@ -1503,9 +1503,9 @@ let%expect_test "examples" =
                 (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
             (ref (base mm) (ser (var 0))))
         unpack
-          (<1> ->
-          (rec (VALTYPE ((sum (prod) (prod i32 ptr)), nocopy, exdrop))
-            (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
+          (result
+           (rec (VALTYPE ((sum (prod) (prod i32 ptr)), nocopy, exdrop))
+             (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
           InferFx
           local.set 1
           local.get 1 follow
@@ -1634,9 +1634,9 @@ let%expect_test "examples" =
                     (sum (prod) (ref (base mm) (ser (var 0)))))))
                 (ref (base mm) (ser (var 0))))
             unpack
-              (<1> ->
-              (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
-                (sum (prod) (ref (base mm) (ser (var 0))))))
+              (result
+               (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                 (sum (prod) (ref (base mm) (ser (var 0))))))
               InferFx
               local.set 7
               local.get 7 follow
@@ -1694,12 +1694,12 @@ let%expect_test "examples" =
         i32.const 0
         i32.eqz
         if
-          (<1> ->
-          (sum (prod)
-            (ref (base mm)
-              (ser
-                (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
-                  (sum (prod) (ref (base mm) (ser (var 0)))))))))
+          (result
+           (sum (prod)
+             (ref (base mm)
+               (ser
+                 (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+                   (sum (prod) (ref (base mm) (ser (var 0)))))))))
           InferFx
           group 0
           inject
@@ -1720,9 +1720,9 @@ let%expect_test "examples" =
                   (sum (prod) (ref (base mm) (ser (var 0)))))))
               (ref (base mm) (ser (var 0))))
           unpack
-            (<1> ->
-            (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
-              (sum (prod) (ref (base mm) (ser (var 0))))))
+            (result
+             (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+               (sum (prod) (ref (base mm) (ser (var 0))))))
             InferFx
             local.set 3
             local.get 3 follow
@@ -1790,7 +1790,7 @@ let%expect_test "examples" =
                        (sum (prod) (ref (base mm) (ser (var 0))))))
                   -> i32))
                 (ref (base mm) (ser (var 0))))
-            unpack (<1> -> i32) InferFx
+            unpack (result i32) InferFx
               local.set 5
               local.get 5 follow
               ungroup
@@ -1835,9 +1835,9 @@ let%expect_test "examples" =
                 (sum (prod) (ref (base mm) (ser (var 0)))))))
             (ref (base mm) (ser (var 0))))
         unpack
-          (<1> ->
-          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+          (result
+           (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+             (sum (prod) (ref (base mm) (ser (var 0))))))
           InferFx
           local.set 0
           local.get 0 follow
@@ -1869,9 +1869,9 @@ let%expect_test "examples" =
                 (sum (prod) (ref (base mm) (ser (var 0)))))))
             (ref (base mm) (ser (var 0))))
         unpack
-          (<1> ->
-          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+          (result
+           (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+             (sum (prod) (ref (base mm) (ser (var 0))))))
           InferFx
           local.set 4
           local.get 4 follow
@@ -1909,9 +1909,9 @@ let%expect_test "examples" =
                 (sum (prod) (ref (base mm) (ser (var 0)))))))
             (ref (base mm) (ser (var 0))))
         unpack
-          (<1> ->
-          (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+          (result
+           (rec (VALTYPE ((sum (prod) ptr), nocopy, exdrop))
+             (sum (prod) (ref (base mm) (ser (var 0))))))
           InferFx
           local.set 8
           local.get 8 follow
@@ -1945,7 +1945,7 @@ let%expect_test "examples" =
                    (sum (prod) (ref (base mm) (ser (var 0))))))
               -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 12
           local.get 12 follow
           ungroup
@@ -2003,7 +2003,7 @@ let%expect_test "examples" =
         pack (Type (prod))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 5
           local.get 5 follow
           ungroup
@@ -2028,7 +2028,7 @@ let%expect_test "examples" =
         pack (Type (prod))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
             (ref (base mm) (ser (var 0))))
-        unpack (<1> -> i32) InferFx
+        unpack (result i32) InferFx
           local.set 8
           local.get 8 follow
           ungroup

@@ -241,7 +241,7 @@ let rec compile_expr delta gamma locals functions e =
       ( v'
         @ [
             Unpack
-              ( ArrowType (1, [ rw_t ]),
+              ( ValType [ rw_t ],
                 InferFx,
                 [ LocalSet new_local_idx ] @ e'
                 @ [ LocalGet (new_local_idx, Move); Drop ] );
@@ -271,7 +271,7 @@ let rec compile_expr delta gamma locals functions e =
             Untag;
             NumConst (Int I32, 0);
             Num (NumInstruction.IntRel (Int.Type.I32, Int.Relop.Eq));
-            Ite (ArrowType (0, [ rw_t ]), InferFx, thn', els');
+            Ite (ValType [ rw_t ], InferFx, thn', els');
           ],
         locals',
         fx_c @ fx_t @ fx_e )
@@ -297,7 +297,7 @@ let rec compile_expr delta gamma locals functions e =
       let tmp_local = List.length locals' in
       ( v'
         @ [
-            CaseLoad (ArrowType (0, [ rw_t ]), Copy, InferFx, branches');
+            CaseLoad (ValType [ rw_t ], Copy, InferFx, branches');
             LocalSet tmp_local;
             Drop;
             LocalGet (tmp_local, Move);

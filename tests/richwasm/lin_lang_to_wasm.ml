@@ -1207,11 +1207,10 @@ let%expect_test "examples" =
       (type (;4;) (func (param i32 i32) (result i32)))
       (type (;5;) (func (result i32)))
       (type (;6;) (func))
-      (type (;7;) (func (param i32) (result i32)))
-      (type (;8;) (func (param i32 i32) (result i32)))
+      (type (;7;) (func (param i32 i32) (result i32)))
+      (type (;8;) (func))
       (type (;9;) (func))
-      (type (;10;) (func))
-      (type (;11;) (func (param i32 i32) (result i32)))
+      (type (;10;) (func (param i32 i32) (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -1233,7 +1232,7 @@ let%expect_test "examples" =
         local.get 3
         i32.const 0
         i32.eqz
-        if (param i32) (result i32)  ;; label = @1
+        if (result i32)  ;; label = @1
           i32.const 1
         else
           local.get 3
@@ -1354,82 +1353,264 @@ let%expect_test "examples" =
       (start 9))
 
 
-    -:36:7: error: type mismatch at end of `if true` branch, expected [] but got [i32]
-          i32.const 1
-          ^^^^^^^^^
-    -:81:5: error: type mismatch at end of `if false` branch, expected [] but got [i32]
-        end
-        ^^^
+    -:102:5: error: type mismatch at end of function, expected [] but got [i32]
+        drop)
+        ^^^^
 
     -----------safe_div-----------
-    FAILURE (InstrErr
-     (error
-      (BlockErr (error (PopEmptyStack LocalSet)) (instr (LocalSet 3))
-       (env
-        ((local_offset 1) (kinds ()) (labels (((Num (Int I32)))))
-         (return ((Num (Int I32))))
-         (functions
-          ((FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ())))
-               (Prod ((Num (Int I32)) (Num (Int I32)))))))
-            ((Sum ((Num (Int I32)) (Prod ())))))
-           (FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ()))))))
-            ((Num (Int I32))))
-           (FunctionType () () ((Num (Int I32))))))
-         (table
-          ((FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ())))
-               (Prod ((Num (Int I32)) (Num (Int I32)))))))
-            ((Sum ((Num (Int I32)) (Prod ())))))
-           (FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ()))))))
-            ((Num (Int I32))))))
-         (lfx (InferFx))))
-       (state
-        ((locals
-          ((Plug (Prod ((Atom I32) (Atom I32) (Atom I32))))
-           (Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ())))
-           (Plug (Prod ((Atom I32)))) (Plug (Prod ()))))
-         (stack ())))))
-     (instr
-      (Case (ValType ((Num (Int I32)))) InferFx
-       (((LocalSet 3) (LocalGet 3 Follow) (LocalGet 3 Move) Drop)
-        ((LocalSet 4) (NumConst (Int I32) 0) (LocalGet 4 Move) Drop))))
-     (env
-      ((local_offset 1) (kinds ()) (labels ()) (return ((Num (Int I32))))
-       (functions
-        ((FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod ((Num (Int I32)) (Num (Int I32)))))))
-          ((Sum ((Num (Int I32)) (Prod ())))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ()))))))
-          ((Num (Int I32))))
-         (FunctionType () () ((Num (Int I32))))))
-       (table
-        ((FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod ((Num (Int I32)) (Num (Int I32)))))))
-          ((Sum ((Num (Int I32)) (Prod ())))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ()))))))
-          ((Num (Int I32))))))
-       (lfx ())))
-     (state
-      ((locals
-        ((Plug (Prod ((Atom I32) (Atom I32) (Atom I32))))
-         (Ref (Base MM) (Ser (Prod ()))) (Sum ((Num (Int I32)) (Prod ())))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ()))))
-       (stack ((Sum ((Num (Int I32)) (Prod ()))))))))
+    FAILURE wat2wasm2wat validation!
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32 i32) (result i32 i32)))
+      (type (;5;) (func (param i32 i32 i32) (result i32)))
+      (type (;6;) (func (result i32)))
+      (type (;7;) (func))
+      (type (;8;) (func (result i32 i32)))
+      (type (;9;) (func))
+      (type (;10;) (func))
+      (type (;11;) (func (param i32) (result i32)))
+      (type (;12;) (func (param i32) (result i32)))
+      (type (;13;) (func (param i32)))
+      (type (;14;) (func))
+      (type (;15;) (func))
+      (type (;16;) (func (param i32 i32) (result i32 i32)))
+      (type (;17;) (func (param i32 i32) (result i32)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32 i32) (result i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        nop
+        local.set 5
+        local.set 4
+        local.set 3
+        local.get 4
+        local.get 5
+        nop
+        local.set 7
+        local.set 6
+        local.get 7
+        i32.const 0
+        i32.eqz
+        if (result i32 i32)  ;; label = @1
+          nop
+          i32.const 1
+          local.get 9
+        else
+          local.get 6
+          local.get 7
+          i32.div_s
+          local.set 8
+          local.get 8
+          local.set 10
+          i32.const 0
+          local.get 10
+          local.get 8
+          drop
+        end
+        local.get 6
+        drop
+        local.get 7
+        drop
+        local.get 3
+        local.set 11
+        local.get 11
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 11
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 11
+            call 4
+          else
+            local.get 11
+            call 6
+          end
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;8;) (type 5) (param i32 i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        nop
+        local.set 5
+        local.set 4
+        local.set 3
+        local.get 4
+        local.get 5
+        local.set 7
+        block (param i32) (result i32)  ;; label = @1
+          block (param i32) (result i32)  ;; label = @2
+            block (param i32)  ;; label = @3
+              block (result i32)  ;; label = @4
+                br_table 1 (;@3;) 20 (; INVALID ;)
+              end
+              unreachable
+            end
+            i32.const 0
+            br 1 (;@1;)
+          end
+          local.get 7
+          local.set 6
+          local.get 6
+          local.get 6
+          drop
+          br 0 (;@1;)
+        end
+        local.get 3
+        local.set 8
+        local.get 8
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 8
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 8
+            call 4
+          else
+            local.get 8
+            call 6
+          end
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;9;) (type 6) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 0
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 10
+        local.get 10
+        nop
+        block (param i32 i32) (result i32 i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 10
+          i32.const 0
+          nop
+          nop
+          local.get 2
+          call_indirect (type 4)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end
+        local.set 5
+        local.set 4
+        i32.const 1
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 11
+        local.get 11
+        nop
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 7
+          local.set 6
+          local.get 6
+          local.get 7
+          nop
+          local.set 9
+          local.set 8
+          local.get 9
+          local.get 4
+          local.get 5
+          nop
+          local.get 8
+          call_indirect (type 5)
+          local.get 8
+          drop
+          local.get 9
+          drop
+          local.get 6
+          local.get 7
+          drop
+          drop
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;10;) (type 7)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 2
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 9))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (start 10))
+
+
+    -:91:5: error: type mismatch at end of function, expected [] but got [i32]
+        drop)
+        ^^^^
+    -:108:13: error: type mismatch in br_table, expected [i32] but got []
+                br_table 1 (;@3;) 20 (; INVALID ;)
+                ^^^^^^^^
+    -:108:13: error: invalid depth: 20 (max 4)
+                br_table 1 (;@3;) 20 (; INVALID ;)
+                ^^^^^^^^
+
     -----------incr_n-----------
     FAILURE wat2wasm2wat validation!
     (module
@@ -1443,14 +1624,13 @@ let%expect_test "examples" =
       (type (;7;) (func))
       (type (;8;) (func))
       (type (;9;) (func))
-      (type (;10;) (func (param i32) (result i32)))
+      (type (;10;) (func))
       (type (;11;) (func))
-      (type (;12;) (func))
+      (type (;12;) (func (param i32 i32) (result i32)))
       (type (;13;) (func (param i32 i32) (result i32)))
-      (type (;14;) (func (param i32 i32) (result i32)))
+      (type (;14;) (func))
       (type (;15;) (func))
-      (type (;16;) (func))
-      (type (;17;) (func (param i32 i32) (result i32)))
+      (type (;16;) (func (param i32 i32) (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -1593,7 +1773,7 @@ let%expect_test "examples" =
         local.get 7
         i32.const 0
         i32.eqz
-        if (param i32) (result i32)  ;; label = @1
+        if (result i32)  ;; label = @1
           local.get 6
           local.tee 19
           local.get 19
@@ -1821,18 +2001,15 @@ let%expect_test "examples" =
       (start 10))
 
 
-    -:72:5: error: type mismatch in local.set, expected [i32] but got []
+    -:71:5: error: type mismatch in local.set, expected [i32] but got []
         local.set 4
         ^^^^^^^^^
-    -:111:5: error: type mismatch in local.set, expected [i32] but got []
+    -:110:5: error: type mismatch in local.set, expected [i32] but got []
         local.set 7
         ^^^^^^^^^
-    -:210:7: error: type mismatch at end of `if true` branch, expected [] but got [i32]
-          local.get 8
-          ^^^^^^^^^
-    -:285:5: error: type mismatch at end of `if false` branch, expected [] but got [i32]
-        end
-        ^^^
+    -:312:5: error: type mismatch at end of function, expected [] but got [i32]
+        drop)
+        ^^^^
 
     -----------fix_factorial[invalid]-----------
     FAILURE (InstrErr
@@ -2147,7 +2324,7 @@ let%expect_test "examples" =
                  ((Num (Int I32)))))))))))))))
      (instr
       (Unpack
-       (ArrowType 1
+       (ValType
         ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
           (CodeRef
            (FunctionType ()
@@ -2422,7 +2599,136 @@ let%expect_test "examples" =
     -----------boxed_list-----------
     FAILURE (InstrErr
      (error
-      (BlockErr (error (PopEmptyStack LocalSet)) (instr (LocalSet 5))
+      (BlockErr
+       (error
+        (BlockErr
+         (error
+          (UngroupNonProd
+           (CodeRef
+            (FunctionType ()
+             ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+             ((Num (Int I32)))))))
+         (instr Ungroup)
+         (env
+          ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) NoCopy ExDrop)))
+           (labels
+            (((Num (Int I32)))
+             ((Sum
+               ((Prod ())
+                (Prod
+                 ((Num (Int I32))
+                  (Ref (Base MM)
+                   (Ser
+                    (Rec
+                     (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
+                      NoCopy ExDrop)
+                     (Sum
+                      ((Prod ())
+                       (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))))))))
+           (return
+            ((Rec
+              (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+               ExDrop)
+              (Sum
+               ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))
+           (functions
+            ((FunctionType ()
+              ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+              ((Num (Int I32))))
+             (FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Prod ())))
+                 (Prod
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                      ((Num (Int I32))))))
+                   (Rec
+                    (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
+                     NoCopy ExDrop)
+                    (Sum
+                     ((Prod ())
+                      (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))))
+              ((Rec
+                (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+                 ExDrop)
+                (Sum
+                 ((Prod ())
+                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))
+             (FunctionType () ()
+              ((Rec
+                (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+                 ExDrop)
+                (Sum
+                 ((Prod ())
+                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))
+           (table
+            ((FunctionType ()
+              ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+              ((Num (Int I32))))
+             (FunctionType ()
+              ((Prod
+                ((Ref (Base MM) (Ser (Prod ())))
+                 (Prod
+                  ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+                    (CodeRef
+                     (FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                      ((Num (Int I32))))))
+                   (Rec
+                    (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
+                     NoCopy ExDrop)
+                    (Sum
+                     ((Prod ())
+                      (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))))
+              ((Rec
+                (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+                 ExDrop)
+                (Sum
+                 ((Prod ())
+                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))))
+           (lfx (InferFx))))
+         (state
+          ((locals
+            ((Plug
+              (Prod ((Atom I32) (Atom I32) (Atom I32) (Atom I32) (Atom I32))))
+             (Ref (Base MM) (Ser (Prod ())))
+             (Plug (Prod ((Atom I32) (Atom I32) (Atom I32) (Atom I32))))
+             (Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+              (CodeRef
+               (FunctionType ()
+                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                ((Num (Int I32))))))
+             (Plug (Prod ((Atom I32) (Atom I32) (Atom I32)))) (Plug (Prod ()))
+             (Plug (Prod ((Atom I32) (Atom I32)))) (Num (Int I32))
+             (Ref (Base MM)
+              (Ser
+               (Rec
+                (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+                 ExDrop)
+                (Sum
+                 ((Prod ())
+                  (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))
+             (CodeRef
+              (FunctionType ()
+               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               ((Num (Int I32)))))
+             (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+             (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
+             (Plug (Prod ((Atom I32))))
+             (Plug (Prod ((Atom I32) (Atom I32) (Atom I32))))))
+           (stack
+            ((CodeRef
+              (FunctionType ()
+               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               ((Num (Int I32)))))))))))
+       (instr
+        (Unpack (ValType ((Num (Int I32)))) InferFx
+         ((LocalSet 9) (LocalGet 9 Follow) Ungroup (LocalSet 11) (LocalSet 10)
+          (LocalGet 11 Follow) (LocalGet 7 Follow) (Group 2) (LocalGet 10 Follow)
+          CallIndirect (LocalGet 10 Move) Drop (LocalGet 11 Move) Drop
+          (LocalGet 9 Move) Drop)))
        (env
         ((local_offset 1) (kinds ())
          (labels
@@ -2510,13 +2816,24 @@ let%expect_test "examples" =
               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
               ((Num (Int I32))))))
            (Plug (Prod ((Atom I32) (Atom I32) (Atom I32)))) (Plug (Prod ()))
-           (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
+           (Plug (Prod ((Atom I32) (Atom I32)))) (Num (Int I32))
+           (Ref (Base MM)
+            (Ser
+             (Rec
+              (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
+               ExDrop)
+              (Sum
+               ((Prod ()) (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0))))))))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32) (Atom I32))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32))))
            (Plug (Prod ((Atom I32) (Atom I32) (Atom I32))))))
-         (stack ())))))
+         (stack
+          ((Exists (Type (VALTYPE (Atom Ptr) NoCopy ExDrop))
+            (CodeRef
+             (FunctionType ()
+              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+              ((Num (Int I32))))))))))))
      (instr
       (Case
        (ValType
@@ -2549,7 +2866,7 @@ let%expect_test "examples" =
          (LocalGet 5 Move) Drop)
         ((LocalSet 6) (LocalGet 6 Follow) Ungroup (LocalSet 8) (LocalSet 7)
          (LocalGet 3 Follow)
-         (Unpack (ArrowType 1 ((Num (Int I32)))) InferFx
+         (Unpack (ValType ((Num (Int I32)))) InferFx
           ((LocalSet 9) (LocalGet 9 Follow) Ungroup (LocalSet 11) (LocalSet 10)
            (LocalGet 11 Follow) (LocalGet 7 Follow) (Group 2)
            (LocalGet 10 Follow) CallIndirect (LocalGet 10 Move) Drop
@@ -2581,7 +2898,7 @@ let%expect_test "examples" =
                   (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))
             (Ref (Base MM) (Ser (Var 0))))))
          (Unpack
-          (ArrowType 1
+          (ValType
            ((Rec
              (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr))))) NoCopy
               ExDrop)
@@ -2805,183 +3122,750 @@ let%expect_test "examples" =
       (start 8))
 
     -----------peano-----------
-    FAILURE (InstrErr
-     (error
-      (BlockErr (error (PopEmptyStack LocalSet)) (instr (LocalSet 5))
-       (env
-        ((local_offset 1) (kinds ())
-         (labels
-          (((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-             (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
-         (return
-          ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-         (functions
-          ((FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ())))
-               (Prod
-                ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-                 (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
-            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-           (FunctionType ()
-            ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-           (FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ())))
-               (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
-            ((Num (Int I32))))
-           (FunctionType () () ((Num (Int I32))))))
-         (table
-          ((FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ())))
-               (Prod
-                ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-                 (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                  (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
-            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-           (FunctionType ()
-            ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-            ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-           (FunctionType ()
-            ((Prod
-              ((Ref (Base MM) (Ser (Prod ())))
-               (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
-            ((Num (Int I32))))))
-         (lfx (InferFx))))
-       (state
-        ((locals
-          ((Plug (Prod ((Atom I32) (Atom I32) (Atom I32) (Atom I32) (Atom I32))))
-           (Ref (Base MM) (Ser (Prod ())))
-           (Plug (Prod ((Atom I32) (Atom I32) (Atom I32) (Atom I32))))
-           (Plug (Prod ((Atom I32) (Atom I32))))
-           (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-           (Plug (Prod ())) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32) (Atom I32))))))
-         (stack ())))))
-     (instr
-      (Case
-       (ValType
-        ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-          (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-       InferFx
-       (((LocalSet 5) (LocalGet 4 Follow) (LocalGet 5 Move) Drop)
-        ((LocalSet 6) (CodeRef 0) (Group 0) (New MM) (Group 2)
-         (Pack (Type (Prod ()))
-          (Prod
-           ((CodeRef
-             (FunctionType ()
-              ((Prod
-                ((Ref (Base MM) (Ser (Var 0)))
-                 (Prod
-                  ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                    (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-                   (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                    (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
-              ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
-            (Ref (Base MM) (Ser (Var 0))))))
-         (Unpack
-          (ArrowType 1
-           ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-             (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-          InferFx
-          ((LocalSet 7) (LocalGet 7 Follow) Ungroup (LocalSet 9) (LocalSet 8)
-           (LocalGet 9 Follow) (LocalGet 6 Follow) (Load (Path ()) Move)
-           (LocalSet 10) Drop (LocalGet 10 Move) (LocalGet 4 Follow) (Group 2)
-           (Group 2) (LocalGet 8 Follow) CallIndirect (LocalGet 8 Move) Drop
-           (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop))
-         (New MM)
-         (Inject 1
-          ((Prod ())
-           (Ref (Base MM)
-            (Ser
-             (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))))
-         (Fold
-          (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-           (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))
-         (LocalGet 6 Move) Drop))))
-     (env
-      ((local_offset 1) (kinds ()) (labels ())
-       (return
-        ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-          (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-       (functions
-        ((FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod
-              ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-               (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
-          ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-         (FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
-          ((Num (Int I32))))
-         (FunctionType () () ((Num (Int I32))))))
-       (table
-        ((FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Prod
-              ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-               (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-                (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))
-          ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-         (FunctionType ()
-          ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
-          ((Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-            (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))))
-         (FunctionType ()
-          ((Prod
-            ((Ref (Base MM) (Ser (Prod ())))
-             (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))
-          ((Num (Int I32))))))
-       (lfx ())))
-     (state
-      ((locals
-        ((Plug (Prod ((Atom I32) (Atom I32) (Atom I32) (Atom I32) (Atom I32))))
-         (Ref (Base MM) (Ser (Prod ())))
-         (Plug (Prod ((Atom I32) (Atom I32) (Atom I32) (Atom I32))))
-         (Plug (Prod ((Atom I32) (Atom I32))))
-         (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-          (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0))))))
-         (Plug (Prod ())) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32) (Atom I32))))))
-       (stack
-        ((Sum
-          ((Prod ())
-           (Ref (Base MM)
-            (Ser
-             (Rec (VALTYPE (Sum ((Prod ()) (Atom Ptr))) NoCopy ExDrop)
-              (Sum ((Prod ()) (Ref (Base MM) (Ser (Var 0)))))))))))))))
+    FAILURE wat2wasm2wat validation!
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32 i32 i32 i32) (result i32 i32)))
+      (type (;5;) (func (param i32 i32) (result i32 i32)))
+      (type (;6;) (func (param i32 i32 i32) (result i32)))
+      (type (;7;) (func (result i32)))
+      (type (;8;) (func))
+      (type (;9;) (func (param i32) (result i32 i32)))
+      (type (;10;) (func (param i32) (result i32 i32)))
+      (type (;11;) (func (param i32)))
+      (type (;12;) (func (result i32 i32)))
+      (type (;13;) (func (param i32 i32) (result i32 i32)))
+      (type (;14;) (func (result i32 i32)))
+      (type (;15;) (func (result i32 i32)))
+      (type (;16;) (func (param i32) (result i32)))
+      (type (;17;) (func (param i32) (result i32)))
+      (type (;18;) (func (param i32) (result i32)))
+      (type (;19;) (func (param i32) (result i32)))
+      (type (;20;) (func))
+      (type (;21;) (func))
+      (type (;22;) (func))
+      (type (;23;) (func))
+      (type (;24;) (func (result i32 i32)))
+      (type (;25;) (func (param i32 i32) (result i32 i32)))
+      (type (;26;) (func))
+      (type (;27;) (func))
+      (type (;28;) (func (param i32) (result i32)))
+      (type (;29;) (func (param i32) (result i32)))
+      (type (;30;) (func (param i32)))
+      (type (;31;) (func (param i32 i32) (result i32)))
+      (type (;32;) (func (result i32 i32)))
+      (type (;33;) (func (result i32 i32)))
+      (type (;34;) (func (param i32) (result i32)))
+      (type (;35;) (func (param i32) (result i32)))
+      (type (;36;) (func (param i32) (result i32)))
+      (type (;37;) (func (param i32) (result i32)))
+      (type (;38;) (func))
+      (type (;39;) (func))
+      (type (;40;) (func))
+      (type (;41;) (func))
+      (type (;42;) (func (param i32 i32) (result i32 i32)))
+      (type (;43;) (func (param i32 i32) (result i32 i32)))
+      (type (;44;) (func (param i32 i32) (result i32 i32)))
+      (type (;45;) (func (param i32 i32) (result i32)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32 i32 i32 i32) (result i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        local.get 3
+        local.get 4
+        nop
+        local.set 9
+        local.set 8
+        local.set 7
+        local.set 6
+        local.set 5
+        local.get 6
+        local.get 7
+        local.get 8
+        local.get 9
+        nop
+        local.set 13
+        local.set 12
+        local.set 11
+        local.set 10
+        local.get 10
+        local.get 11
+        local.set 21
+        block (param i32) (result i32 i32)  ;; label = @1
+          block (param i32) (result i32 i32)  ;; label = @2
+            block (param i32)  ;; label = @3
+              block (result i32 i32)  ;; label = @4
+                br_table 1 (;@3;) 20 (; INVALID ;)
+              end
+              unreachable
+            end
+            local.get 21
+            local.set 14
+            i32.const 0
+            global.get 1
+            i32.add
+            nop
+            i32.const 0
+            call 1
+            local.set 22
+            local.get 22
+            nop
+            block (param i32 i32) (result i32 i32)  ;; label = @3
+              local.set 16
+              local.set 15
+              local.get 15
+              local.get 16
+              nop
+              local.set 18
+              local.set 17
+              local.get 18
+              local.get 14
+              local.tee 23
+              local.get 23
+              i32.const 0
+              i32.const 0
+              call 3
+              local.get 23
+              i32.const 1
+              i32.const 0
+              call 3
+              local.get 23
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (result i32 i32)  ;; label = @4
+                unreachable
+              else
+                local.get 23
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (result i32 i32)  ;; label = @5
+                  local.get 23
+                  i32.load offset=3 align=2
+                  local.tee 24
+                  local.get 24
+                  i32.const 1
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    local.get 24
+                    i32.const 2
+                    i32.and
+                    i32.eqz
+                    if (param i32) (result i32)  ;; label = @7
+                    end
+                  end
+                  local.get 23
+                  i32.load offset=7 align=2
+                  local.tee 25
+                else
+                  local.get 23
+                  i32.load offset=1 align=2
+                  local.tee 26
+                  local.get 26
+                  i32.const 1
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    local.get 26
+                    i32.const 2
+                    i32.and
+                    i32.eqz
+                    if (param i32) (result i32)  ;; label = @7
+                    else
+                      call 5
+                    end
+                  end
+                  local.get 23
+                  i32.load offset=5 align=2
+                  local.tee 27
+                end
+              end
+              local.set 20
+              local.set 19
+              local.set 28
+              local.get 28
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 28
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                  local.get 28
+                  call 4
+                else
+                  local.get 28
+                  call 6
+                end
+              end
+              local.get 19
+              local.get 20
+              local.get 12
+              local.get 13
+              nop
+              nop
+              local.get 17
+              call_indirect (type 4)
+              local.get 17
+              drop
+              local.get 18
+              drop
+              local.get 15
+              local.get 16
+              drop
+              drop
+            end
+            local.set 30
+            local.set 29
+            i32.const 2
+            call 1
+            local.set 31
+            local.get 31
+            i32.const 0
+            i32.const 0
+            call 3
+            local.get 31
+            i32.const 1
+            i32.const 1
+            call 3
+            local.get 31
+            local.get 30
+            i32.store offset=3 align=2
+            local.get 31
+            local.get 29
+            i32.store offset=7 align=2
+            local.get 31
+            local.set 32
+            i32.const 1
+            local.get 32
+            local.get 14
+            drop
+            br 1 (;@1;)
+          end
+          local.get 12
+          local.get 13
+          br 0 (;@1;)
+        end
+        local.get 10
+        local.get 11
+        drop
+        drop
+        local.get 12
+        local.get 13
+        drop
+        drop
+        local.get 5
+        local.set 33
+        local.get 33
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 33
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 33
+            call 4
+          else
+            local.get 33
+            call 6
+          end
+        end
+        local.get 6
+        local.get 7
+        local.get 8
+        local.get 9
+        drop
+        drop
+        drop
+        drop)
+      (func (;8;) (type 5) (param i32 i32) (result i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 3
+        i32.const 0
+        i32.eqz
+        if (result i32 i32)  ;; label = @1
+          nop
+          i32.const 0
+          local.get 8
+        else
+          i32.const 1
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 9
+          local.get 9
+          nop
+          block (param i32 i32) (result i32 i32)  ;; label = @2
+            local.set 5
+            local.set 4
+            local.get 4
+            local.get 5
+            nop
+            local.set 7
+            local.set 6
+            local.get 7
+            local.get 3
+            i32.const 1
+            i32.sub
+            nop
+            local.get 6
+            call_indirect (type 5)
+            local.get 6
+            drop
+            local.get 7
+            drop
+            local.get 4
+            local.get 5
+            drop
+            drop
+          end
+          local.set 11
+          local.set 10
+          i32.const 2
+          call 1
+          local.set 12
+          local.get 12
+          i32.const 0
+          i32.const 0
+          call 3
+          local.get 12
+          i32.const 1
+          i32.const 1
+          call 3
+          local.get 12
+          local.get 11
+          i32.store offset=3 align=2
+          local.get 12
+          local.get 10
+          i32.store offset=7 align=2
+          local.get 12
+          local.set 13
+          i32.const 1
+          local.get 13
+        end
+        local.get 2
+        local.set 14
+        local.get 14
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 14
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 14
+            call 4
+          else
+            local.get 14
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;9;) (type 6) (param i32 i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        nop
+        local.set 5
+        local.set 4
+        local.set 3
+        local.get 4
+        local.get 5
+        local.set 13
+        block (param i32) (result i32)  ;; label = @1
+          block (param i32) (result i32)  ;; label = @2
+            block (param i32)  ;; label = @3
+              block (result i32)  ;; label = @4
+                br_table 1 (;@3;) 20 (; INVALID ;)
+              end
+              unreachable
+            end
+            local.get 13
+            local.set 6
+            i32.const 1
+            i32.const 2
+            global.get 1
+            i32.add
+            nop
+            i32.const 0
+            call 1
+            local.set 14
+            local.get 14
+            nop
+            block (param i32 i32) (result i32)  ;; label = @3
+              local.set 8
+              local.set 7
+              local.get 7
+              local.get 8
+              nop
+              local.set 10
+              local.set 9
+              local.get 10
+              local.get 6
+              local.tee 15
+              local.get 15
+              i32.const 0
+              i32.const 0
+              call 3
+              local.get 15
+              i32.const 1
+              i32.const 0
+              call 3
+              local.get 15
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (result i32 i32)  ;; label = @4
+                unreachable
+              else
+                local.get 15
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (result i32 i32)  ;; label = @5
+                  local.get 15
+                  i32.load offset=3 align=2
+                  local.tee 16
+                  local.get 16
+                  i32.const 1
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    local.get 16
+                    i32.const 2
+                    i32.and
+                    i32.eqz
+                    if (param i32) (result i32)  ;; label = @7
+                    end
+                  end
+                  local.get 15
+                  i32.load offset=7 align=2
+                  local.tee 17
+                else
+                  local.get 15
+                  i32.load offset=1 align=2
+                  local.tee 18
+                  local.get 18
+                  i32.const 1
+                  i32.and
+                  i32.eqz
+                  if (param i32) (result i32)  ;; label = @6
+                  else
+                    local.get 18
+                    i32.const 2
+                    i32.and
+                    i32.eqz
+                    if (param i32) (result i32)  ;; label = @7
+                    else
+                      call 5
+                    end
+                  end
+                  local.get 15
+                  i32.load offset=5 align=2
+                  local.tee 19
+                end
+              end
+              local.set 12
+              local.set 11
+              local.set 20
+              local.get 20
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 20
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                  local.get 20
+                  call 4
+                else
+                  local.get 20
+                  call 6
+                end
+              end
+              local.get 11
+              local.get 12
+              nop
+              local.get 9
+              call_indirect (type 6)
+              local.get 9
+              drop
+              local.get 10
+              drop
+              local.get 7
+              local.get 8
+              drop
+              drop
+            end
+            i32.add
+            local.get 6
+            drop
+            br 1 (;@1;)
+          end
+          i32.const 0
+          br 0 (;@1;)
+        end
+        local.get 3
+        local.set 21
+        local.get 21
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 21
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 21
+            call 4
+          else
+            local.get 21
+            call 6
+          end
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;10;) (type 7) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 1
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 22
+        local.get 22
+        nop
+        block (param i32 i32) (result i32 i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 6
+          nop
+          local.get 2
+          call_indirect (type 5)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end
+        local.set 5
+        local.set 4
+        i32.const 1
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 23
+        local.get 23
+        nop
+        block (param i32 i32) (result i32 i32)  ;; label = @1
+          local.set 7
+          local.set 6
+          local.get 6
+          local.get 7
+          nop
+          local.set 9
+          local.set 8
+          local.get 9
+          i32.const 7
+          nop
+          local.get 8
+          call_indirect (type 5)
+          local.get 8
+          drop
+          local.get 9
+          drop
+          local.get 6
+          local.get 7
+          drop
+          drop
+        end
+        local.set 11
+        local.set 10
+        i32.const 0
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 24
+        local.get 24
+        nop
+        block (param i32 i32) (result i32 i32)  ;; label = @1
+          local.set 13
+          local.set 12
+          local.get 12
+          local.get 13
+          nop
+          local.set 15
+          local.set 14
+          local.get 15
+          local.get 4
+          local.get 5
+          local.get 10
+          local.get 11
+          nop
+          nop
+          local.get 14
+          call_indirect (type 4)
+          local.get 14
+          drop
+          local.get 15
+          drop
+          local.get 12
+          local.get 13
+          drop
+          drop
+        end
+        local.set 17
+        local.set 16
+        i32.const 2
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 25
+        local.get 25
+        nop
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 19
+          local.set 18
+          local.get 18
+          local.get 19
+          nop
+          local.set 21
+          local.set 20
+          local.get 21
+          local.get 16
+          local.get 17
+          nop
+          local.get 20
+          call_indirect (type 6)
+          local.get 20
+          drop
+          local.get 21
+          drop
+          local.get 18
+          local.get 19
+          drop
+          drop
+        end
+        local.get 16
+        local.get 17
+        drop
+        drop
+        local.get 10
+        local.get 11
+        drop
+        drop
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;11;) (type 8)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 3
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0
+        global.get 1
+        i32.const 2
+        i32.add
+        i32.const 9
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 10))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (export "__rw_table_func_9" (func 9))
+      (start 11))
+
+
+    -:88:13: error: type mismatch in br_table, expected [i32] but got []
+                br_table 1 (;@3;) 20 (; INVALID ;)
+                ^^^^^^^^
+    -:88:13: error: invalid depth: 20 (max 4)
+                br_table 1 (;@3;) 20 (; INVALID ;)
+                ^^^^^^^^
+    -:375:5: error: type mismatch at end of function, expected [] but got [i32]
+        drop)
+        ^^^^
+    -:392:13: error: type mismatch in br_table, expected [i32] but got []
+                br_table 1 (;@3;) 20 (; INVALID ;)
+                ^^^^^^^^
+    -:392:13: error: invalid depth: 20 (max 4)
+                br_table 1 (;@3;) 20 (; INVALID ;)
+                ^^^^^^^^
+
     -----------mini_zip-----------
     (module
       (type (;0;) (func (param i32 i32)))

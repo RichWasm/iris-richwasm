@@ -13,4 +13,5 @@
 (install
  (section lib)
  (package iris-richwasm)
- (files (richwasm.wasm as runtime/richwasm.wasm)))
+ (files
+  (richwasm.wasm as runtime/richwasm.wasm)))

@@ -273,8 +273,7 @@ module Compile = struct
         ret @@ rhs'
         @ [
             Unpack
-              (* TODO: this arrow type is weird *)
-              ( ArrowType (1, [ bt ]),
+              ( ValType [ bt ],
                 InferFx,
                 [ LocalSet fresh_idx ] @ body'
                 @ [ LocalGet (fresh_idx, Move); Drop ] );
@@ -286,8 +285,7 @@ module Compile = struct
         let* bt = compile_type env t |> lift_result in
         ret @@ v'
         @ [ NumConst (Int I32, 0); Num (IntTest (I32, Eqz)) ]
-        (* This is the only time we actually need an ArrowType *)
-        @ [ Ite (ArrowType (1, [ bt ]), InferFx, e1', e2') ]
+        @ [ Ite (ValType [ bt ], InferFx, e1', e2') ]
     | Binop (op, v1, v2, _) ->
         let op' = compile_binop op in
         let* v1' = compile_expr env v1 in

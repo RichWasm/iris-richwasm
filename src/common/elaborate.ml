@@ -72,7 +72,11 @@ module Err = struct
     | FoldNonRec of A.Type.t
     | UnfoldNonRec of A.Type.t
     | NonRef of [ `Load | `Store | `Swap | `CaseLoad ] * A.Type.t
-    | CaseLoadExpectedSingleRef of A.Type.t list
+    | CaseEmptyStack
+    | CaseMismatch of int * A.Type.t list
+    | CaseInvalid of A.Type.t
+    | CaseLoadVariantNonSer of int * A.Type.t
+    | CaseLoadInvalid of A.Type.t
     | LoadRefNonSer of A.Type.t
     | FunctionParamMustBeMonoRep
     | CannotResolvePath of
@@ -799,21 +803,29 @@ let rec resolves_path
 
 (* /end *)
 
+(* TODO: `br`, `return`, `unreachable` have not been tested *)
 let rec elab_instruction (env : Env.t) :
     A.Instruction.t -> B.Instruction.t InstrM.t =
   let open InstrM in
   let open B.Instruction in
-  let handle_bt ?(lfx : A.LocalFx.t Option.t) (bt : A.BlockType.t) =
+  let handle_bt
+      ?(lfx : A.LocalFx.t Option.t)
+      ?(inject : int = 0)
+      (bt : A.BlockType.t) =
     let* init_st = get in
     let* consume, result =
-      match bt with
-      | ValType res -> ret ([], res)
-      | ArrowType (num, res) ->
-          List.init ~f:(fun x -> x) num
-          |> List.rev
-          |> mapM ~f:(fun i -> pop (sprintf "Block-n%i" i))
-          >>| List.rev
-          >>| fun x -> (x, res)
+      let num_in, res =
+        match bt with
+        | ValType res -> (0, res)
+        | ArrowType (num, res) -> (num, res)
+      in
+      let+ consume =
+        List.init ~f:Fn.id (num_in + inject)
+        |> List.rev
+        |> mapM ~f:(fun i -> pop (sprintf "Block-n%i" i))
+        >>| List.rev
+      in
+      (consume, res)
     in
     let+ () = iterM result ~f:push |> wrap_ctx (`HandleBT bt) in
     let env' =
@@ -845,11 +857,21 @@ let rec elab_instruction (env : Env.t) :
   let have_to_infer_lfx =
     Option.value_map ~default:false ~f:A.LocalFx.is_inferfx env.lfx
   in
-  let handle_case_bt ~(lfx : A.LocalFx.t) (bt : A.BlockType.t) cases =
-    let* stack_consume, stack_result, env', st_inner = handle_bt ~lfx bt in
+  let handle_case_bt ~(lfx : A.LocalFx.t) ~f (bt : A.BlockType.t) cases =
+    let* stack_consume, stack_result, env', st_inner =
+      handle_bt ~lfx ~inject:1 bt
+    in
     let* cases', st's =
-      foldM cases ~init:[] ~f:(fun acc case ->
-          let+ case', st' = elab_block env' case st_inner in
+      foldiM cases ~init:[] ~f:(fun i acc case ->
+          let* st_inner' =
+            let+ stack =
+              match st_inner.stack with
+              | [] -> fail CaseEmptyStack
+              | top :: rst -> f i top >>| fun top' -> top' :: rst
+            in
+            { st_inner with stack }
+          in
+          let+ case', st' = elab_block env' case st_inner' in
           (case', st') :: acc)
       >>| List.rev
       >>| List.unzip
@@ -1031,16 +1053,33 @@ let rec elab_instruction (env : Env.t) :
       let* it = instr_t_of env.kinds [ t_in ] [ t_out ] in
       ret @@ IInjectNew (it, Z.of_int i)
   | Case (bt, lfx, cases) ->
-      let* stack_in, stack_out, cases', lfx' = handle_case_bt bt ~lfx cases in
+      let f i : A.Type.t -> _ = function
+        | Sum ts -> List.nth ts i |> lift_option (CaseMismatch (i, ts))
+        | t -> fail (CaseInvalid t)
+      in
+      let* stack_in, stack_out, cases', lfx' =
+        handle_case_bt bt ~lfx ~f cases
+      in
       let* it = instr_t_of env.kinds stack_in stack_out in
       ret @@ ICase (it, lfx', cases')
   | CaseLoad (bt, consume, lfx, cases) ->
-      let* stack_in, stack_out, cases', lfx' = handle_case_bt bt ~lfx cases in
+      let* ref = pop "CaseLoad" in
+      let* () = push ref in
+      let f i : A.Type.t -> _ = function
+        | Ref (_, Variant ts_ser) ->
+            (match List.nth ts_ser i with
+            | Some (Ser t) -> ret t
+            | Some t -> fail (CaseLoadVariantNonSer (i, t))
+            | None -> fail (CaseMismatch (i, ts_ser)))
+        | t -> fail (CaseLoadInvalid t)
+      in
+      let* stack_in, stack_out, cases', lfx' =
+        handle_case_bt bt ~lfx ~f cases
+      in
       let* mem, t_targ =
-        match stack_in with
-        | [ Ref (mem, t) ] -> ret (mem, t)
-        | t :: [] -> fail (NonRef (`CaseLoad, t))
-        | ts -> fail (CaseLoadExpectedSingleRef ts)
+        match ref with
+        | Ref (mem, t) -> ret (mem, t)
+        | t -> fail (NonRef (`CaseLoad, t))
       in
       let* t_out, consume' =
         match consume with
@@ -1154,7 +1193,7 @@ let rec elab_instruction (env : Env.t) :
       let shifted_stack = List.map ~f:shift_ty st.stack in
       let st_inner_init = { st with stack = t_body :: shifted_stack } in
       let* () = put st_inner_init in
-      let* consume, result, env', st_inner = handle_bt ~lfx bt in
+      let* consume, result, env', st_inner = handle_bt ~lfx ~inject:1 bt in
       let env'' =
         match new_k with
         | Some k -> { env' with kinds = k :: env'.kinds }

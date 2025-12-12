@@ -124,7 +124,7 @@ let%expect_test "examples" =
         untag
         i32.const 0
         i32.eq
-        if (<0> -> i31) InferFx
+        if (result i31) InferFx
           i32.const 1
           tag
         else
@@ -333,7 +333,7 @@ let%expect_test "examples" =
                   ((ref (base gc)
                      (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
                   -> i31)))))
-        unpack (<1> -> i31) InferFx
+        unpack (result i31) InferFx
           local.set 1
           local.get 1 move
           copy
@@ -471,7 +471,7 @@ let%expect_test "examples" =
                                                                   (ser (var 1))
                                                                   (ser (var 0))))
                   -> (var 0))))))
-        unpack (<1> -> i31) InferFx
+        unpack (result i31) InferFx
           local.set 1
           local.get 1 move
           copy
@@ -516,7 +516,7 @@ let%expect_test "examples" =
         local.get 1 move
         copy
         local.set 1
-        case_load (<0> -> i31) copy InferFx
+        case_load (result i31) copy InferFx
           (0
             local.set 3
             i32.const 0
@@ -577,7 +577,7 @@ let%expect_test "examples" =
         copy
         local.set 2
         unfold
-        case_load (<0> -> i31) copy InferFx
+        case_load (result i31) copy InferFx
           (0
             local.set 9
             i32.const 0
@@ -658,7 +658,7 @@ let%expect_test "examples" =
                                                                         (ser
                                                                         (var 0)))))))))))
                       -> i31)))))
-            unpack (<1> -> i31) InferFx
+            unpack (result i31) InferFx
               local.set 4
               local.get 4 move
               copy
@@ -777,7 +777,7 @@ let%expect_test "examples" =
                                                                         (ser
                                                                         (var 0)))))))))))
                   -> i31)))))
-        unpack (<1> -> i31) InferFx
+        unpack (result i31) InferFx
           local.set 1
           local.get 1 move
           copy
@@ -995,7 +995,7 @@ let%expect_test "examples" =
         local.get 2 move
         copy
         local.set 2
-        unpack (<1> -> i31) InferFx
+        unpack (result i31) InferFx
           local.set 3
           local.get 3 move
           copy
@@ -1087,7 +1087,7 @@ let%expect_test "examples" =
         local.get 6 move
         copy
         local.set 6
-        unpack (<1> -> i31) InferFx
+        unpack (result i31) InferFx
           local.set 9
           local.get 9 move
           copy
@@ -1283,7 +1283,7 @@ let%expect_test "examples" =
         local.get 3 move
         copy
         local.set 3
-        unpack (<1> -> i31) InferFx
+        unpack (result i31) InferFx
           local.set 4
           local.get 4 move
           copy

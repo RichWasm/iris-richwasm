@@ -151,7 +151,7 @@ let%expect_test "return_one" =
                 ((ref (base gc)
                    (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
                 -> i31)))))
-      unpack (<1> -> i31) InferFx
+      unpack (result i31) InferFx
         local.set 1
         local.get 1 move
         copy
@@ -266,7 +266,7 @@ let%expect_test "apply_id" =
                                                                 (ser (var 1))
                                                                 (ser (var 0))))
                 -> (var 0))))))
-      unpack (<1> -> i31) InferFx
+      unpack (result i31) InferFx
         local.set 1
         local.get 1 move
         copy
@@ -357,7 +357,7 @@ let%expect_test "opt_case" =
       local.get 1 move
       copy
       local.set 1
-      case_load (<0> -> i31) copy InferFx
+      case_load (result i31) copy InferFx
         (0
           local.set 3
           i32.const 0
