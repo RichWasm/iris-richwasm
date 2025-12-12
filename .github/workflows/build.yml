@@ -18,6 +18,15 @@ jobs:
           coq_version: "9.0"
           ocaml_version: default
           before_install: |
-            sudo apt-get install -y wabt
-            opam update -y
-            opam install -y --deps-only vendor/iriswasm
+            # default
+            startGroup "Print opam config"
+              opam config list; opam repo list; opam list
+            endGroup
+            startGroup "Install vendor dependencies"
+              opam update -y
+              opam install -y --deps-only vendor/iriswasm
+            endGroup
+          before_script: |
+            startGroup "install system dependencies"
+              sudo apt-get install -y wabt
+            endGroup
