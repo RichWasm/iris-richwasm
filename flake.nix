@@ -69,12 +69,12 @@
             janeStreet.ppx_variants_conv
             janeStreet.sexplib
             janeStreet.parsexp
+            pkgs.wabt
+            alcotest
           ];
 
           richwasm-test-deps = with pkgs; [
-            wabt
             nodejs_24
-            ocamlPackages.alcotest
             ocamlPackages.janeStreet.ppx_expect
           ];
         in
