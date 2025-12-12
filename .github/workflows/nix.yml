@@ -14,5 +14,5 @@ jobs:
       with:
         name: iris-richwasm
         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-    - run: nix build
-    - run: nix flake check
+    - run: nix build -L
+    - run: nix flake check -L
