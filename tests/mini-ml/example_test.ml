@@ -417,10 +417,7 @@ let%expect_test "examples" =
         local.get 1 move
         copy
         local.set 1
-        case_load
-          (<1> ->
-          (ref (base gc) (variant (ser (ref (base gc) (struct))) (ser i31))) i31)
-          copy InferFx
+        case_load (<0> -> i31) copy InferFx
           (0
             local.set 3
             i32.const 0
@@ -481,20 +478,7 @@ let%expect_test "examples" =
         copy
         local.set 2
         unfold
-        case_load
-          (<1> ->
-          (ref (base gc)
-            (variant (ser (ref (base gc) (struct)))
-              (ser
-                (ref (base gc)
-                  (variant (ser (var 0))
-                    (ser
-                      (rec (VALTYPE (ptr, excopy, exdrop))
-                        (ref (base gc)
-                          (variant (ser (ref (base gc) (struct)))
-                            (ser
-                              (ref (base gc) (variant (ser (var 1)) (ser (var 0))))))))))))))
-          i31) copy InferFx
+        case_load (<0> -> i31) copy InferFx
           (0
             local.set 9
             i32.const 0

@@ -365,10 +365,7 @@ let%expect_test "opt_case" =
       local.get 1 move
       copy
       local.set 1
-      case_load
-        (<1> ->
-        (ref (base gc) (variant (ser (ref (base gc) (struct))) (ser i31))) i31)
-        copy InferFx
+      case_load (<0> -> i31) copy InferFx
         (0
           local.set 3
           i32.const 0

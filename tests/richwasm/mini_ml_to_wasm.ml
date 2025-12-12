@@ -2009,91 +2009,45 @@ let%expect_test "examples" =
                     ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0))))))
                     ((Var 0))))))))))))))))))
     -----------opt_case-----------
-    FAILURE (EInvalidInstrT ICaseLoad)
+    FAILURE (InstrErr
+     (error
+      (BlockErr (error (PopEmptyStack LocalSet)) (instr (LocalSet 3))
+       (env
+        ((local_offset 1) (kinds ()) (labels ((I31))) (return (I31))
+         (functions ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+         (table ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+         (lfx (InferFx))))
+       (state
+        ((locals
+          ((Ref (Base GC) (Struct ()))
+           (Ref (Base GC)
+            (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
+         (stack ())))))
+     (instr
+      (CaseLoad (ArrowType 0 (I31)) Copy InferFx
+       (((LocalSet 3) (NumConst (Int I32) 0) Tag (LocalGet 3 Move) Drop)
+        ((LocalSet 2) (LocalGet 2 Move) Copy (LocalSet 2) (LocalGet 2 Move) Drop))))
+     (env
+      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
+       (functions ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
+       (table ((FunctionType () ((Ref (Base GC) (Struct ()))) (I31)))) (lfx ())))
+     (state
+      ((locals
+        ((Ref (Base GC) (Struct ()))
+         (Ref (Base GC) (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
+       (stack
+        ((Ref (Base GC) (Variant ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))))))
     -----------poly_len-----------
     FAILURE (InstrErr
      (error
-      (BlockErr
-       (error
-        (PackMismatch
-         (Ref (Base GC)
-          (Struct
-           ((Ser (Ref (Base GC) (Struct ())))
-            (Ser
-             (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-              (Ref (Base GC)
-               (Struct
-                ((Ser (Var 0))
-                 (Ser
-                  (CodeRef
-                   (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
-                    ((Ref (Base GC)
-                      (Struct
-                       ((Ser (Var 1))
-                        (Ser
-                         (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                          (Ref (Base GC)
-                           (Variant
-                            ((Ser (Ref (Base GC) (Struct ())))
-                             (Ser
-                              (Ref (Base GC)
-                               (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                    (I31))))))))))))
-         (Ref (Base GC)
-          (Struct
-           ((Ser (Ref (Base GC) (Struct ())))
-            (Ser
-             (CodeRef
-              (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
-               ((Ref (Base GC)
-                 (Struct
-                  ((Ser (Ref (Base GC) (Struct ())))
-                   (Ser
-                    (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                     (Ref (Base GC)
-                      (Variant
-                       ((Ser (Ref (Base GC) (Struct ())))
-                        (Ser
-                         (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-               (I31)))))))))
-       (instr
-        (Pack (Type (Ref (Base GC) (Struct ())))
-         (Ref (Base GC)
-          (Struct
-           ((Ser (Var 0))
-            (Ser
-             (CodeRef
-              (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
-               ((Ref (Base GC)
-                 (Struct
-                  ((Ser (Var 1))
-                   (Ser
-                    (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                     (Ref (Base GC)
-                      (Variant
-                       ((Ser (Ref (Base GC) (Struct ())))
-                        (Ser
-                         (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-               (I31)))))))))
+      (BlockErr (error (PopEmptyStack LocalSet)) (instr (LocalSet 9))
        (env
         ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop)))
-         (labels
-          (((Ref (Base GC)
-             (Variant
-              ((Ser (Ref (Base GC) (Struct ())))
-               (Ser
-                (Ref (Base GC)
-                 (Variant
-                  ((Ser (Var 0))
-                   (Ser
-                    (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                     (Ref (Base GC)
-                      (Variant
-                       ((Ser (Ref (Base GC) (Struct ())))
-                        (Ser
-                         (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))))))
-            I31)))
-         (return (I31))
+         (labels ((I31))) (return (I31))
          (functions
           ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
             ((Ref (Base GC)
@@ -2140,68 +2094,14 @@ let%expect_test "examples" =
              (Variant
               ((Ser (Ref (Base GC) (Struct ())))
                (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))
-           (Ref (Base GC)
-            (Variant
-             ((Ser (Ref (Base GC) (Struct ())))
-              (Ser
-               (Ref (Base GC)
-                (Variant
-                 ((Ser (Var 0))
-                  (Ser
-                   (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                    (Ref (Base GC)
-                     (Variant
-                      ((Ser (Ref (Base GC) (Struct ())))
-                       (Ser
-                        (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
-         (stack
-          ((Ref (Base GC)
-            (Struct
-             ((Ser (Ref (Base GC) (Struct ())))
-              (Ser
-               (Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
-                (Ref (Base GC)
-                 (Struct
-                  ((Ser (Var 0))
-                   (Ser
-                    (CodeRef
-                     (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
-                      ((Ref (Base GC)
-                        (Struct
-                         ((Ser (Var 1))
-                          (Ser
-                           (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                            (Ref (Base GC)
-                             (Variant
-                              ((Ser (Ref (Base GC) (Struct ())))
-                               (Ser
-                                (Ref (Base GC)
-                                 (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                      (I31))))))))))))
-           (Num (Int I32))))))))
+           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
+           (Plug (Prod ((Atom I32))))))
+         (stack ())))))
      (instr
-      (CaseLoad
-       (ArrowType 1
-        ((Ref (Base GC)
-          (Variant
-           ((Ser (Ref (Base GC) (Struct ())))
-            (Ser
-             (Ref (Base GC)
-              (Variant
-               ((Ser (Var 0))
-                (Ser
-                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                  (Ref (Base GC)
-                   (Variant
-                    ((Ser (Ref (Base GC) (Struct ())))
-                     (Ser
-                      (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))))))
-         I31))
-       Copy InferFx
+      (CaseLoad (ArrowType 0 (I31)) Copy InferFx
        (((LocalSet 9) (NumConst (Int I32) 0) Tag (LocalGet 9 Move) Drop)
         ((LocalSet 3) (NumConst (Int I32) 1) Tag Untag (Group 0) (New GC)
          (Cast (Ref (Base GC) (Struct ()))) (CodeRef 0) (Group 2) (New GC)

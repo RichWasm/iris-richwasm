@@ -266,7 +266,7 @@ let rec compile_expr delta gamma locals functions e =
       let els', locals', fx_e =
         compile_expr delta gamma locals' functions els
       in
-      ( c' @ [ Untag; Ite (ArrowType (1, [ rw_t ]), InferFx, thn', els') ],
+      ( c' @ [ Untag; Ite (ArrowType (0, [ rw_t ]), InferFx, thn', els') ],
         locals',
         fx_c @ fx_t @ fx_e )
   | Cases (v, branches) ->
@@ -291,12 +291,7 @@ let rec compile_expr delta gamma locals functions e =
       let tmp_local = List.length locals' in
       ( v'
         @ [
-            CaseLoad
-              ( ArrowType
-                  (1, [ v |> type_of_e unindexed |> compile_type delta; rw_t ]),
-                Copy,
-                InferFx,
-                branches' );
+            CaseLoad (ArrowType (0, [ rw_t ]), Copy, InferFx, branches');
             LocalSet tmp_local;
             Drop;
             LocalGet (tmp_local, Move);
