@@ -138,15 +138,11 @@ let%expect_test "return_one" =
         (ref (base gc)
           (struct (ser (ref (base gc) (struct)))
             (ser
-              (exists type (VALTYPE (ptr, excopy, exdrop))
-                (ref (base gc)
-                  (struct (ser (var 0))
-                    (ser
-                      (coderef
-                        ((ref (base gc)
-                           (struct (ser (var 0))
-                             (ser (ref (base gc) (struct)))))
-                        -> i31)))))))))
+              (coderef
+                ((ref (base gc)
+                   (struct (ser (ref (base gc) (struct)))
+                     (ser (ref (base gc) (struct)))))
+                -> i31)))))
       pack (Type (ref (base gc) (struct)))
         (ref (base gc)
           (struct (ser (var 0))
@@ -251,19 +247,15 @@ let%expect_test "apply_id" =
         (ref (base gc)
           (struct (ser (ref (base gc) (struct)))
             (ser
-              (exists type (VALTYPE (ptr, excopy, exdrop))
-                (ref (base gc)
-                  (struct (ser (var 0))
-                    (ser
-                      (coderef
-                        (forall.type (VALTYPE (ptr, excopy, exdrop))(ref
-                                                                      (base gc)
-                                                                      (struct
-                                                                      (ser
-                                                                      (var 1))
-                                                                      (ser
-                                                                      (var 0))))
-                        -> (var 0))))))))))
+              (coderef
+                (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
+                                                              (struct
+                                                                (ser
+                                                                  (ref
+                                                                    (base gc)
+                                                                    (struct)))
+                                                                (ser (var 0))))
+                -> (var 0))))))
       pack (Type (ref (base gc) (struct)))
         (ref (base gc)
           (struct (ser (var 0))
