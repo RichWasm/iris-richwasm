@@ -116,6 +116,23 @@ let%expect_test "examples" =
         inject_new gc 1 (ref (base gc) (struct)) i31)
       (table 0)
       (export "_start" (func 0)))
+    -----------basic_if-----------
+    (module
+      (func ((ref (base gc) (struct)) -> i31) (local ptr)
+        i32.const 0
+        tag
+        untag
+        i32.const 0
+        i32.eq
+        if (<0> -> i31) InferFx
+          i32.const 1
+          tag
+        else
+          i32.const 2
+          tag
+        end)
+      (table 0)
+      (export "_start" (func 0)))
     -----------add-----------
     (module
       (func ((ref (base gc) (struct)) -> i31) (local ptr)

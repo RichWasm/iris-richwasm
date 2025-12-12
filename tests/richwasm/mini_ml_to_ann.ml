@@ -421,6 +421,49 @@ let%expect_test "examples" =
                      me_name := "_start"; me_desc := 0;
                    |}];
     |}
+    -----------basic_if-----------
+    {|
+      m_imports := [];
+      m_functions :=
+        [ {|
+          mf_type :=
+            (MonoFunT [ (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (MEMTYPE (ProdS []) ImDrop) []))]
+              [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]);
+          mf_locals := [ (AtomR PtrR)];
+          mf_body :=
+            [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 0);
+              (ITag
+                (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]
+                  [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]));
+              (IUntag
+                (InstrT [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]
+                  [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]));
+              (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 0);
+              (INum
+                (InstrT
+                  [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T));
+                    (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]
+                  [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))])
+                (IIntRel I32T EqI));
+              (IIte
+                (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]
+                  [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))])
+                (RefT (VALTYPE (AtomR PtrR) ExCopy ExDrop) (BaseM MemGC) (ProdT (MEMTYPE (ProdS []) ImDrop) []))
+                (PlugT (VALTYPE (ProdR [ (AtomR I32R)]) ImCopy ImDrop) (ProdR [ (AtomR I32R)]))
+                [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 1);
+                  (ITag
+                    (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]
+                      [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))]
+                [ (INumConst (InstrT [] [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]) 2);
+                  (ITag
+                    (InstrT [ (NumT (VALTYPE (AtomR I32R) ImCopy ImDrop) (IntT I32T))]
+                      [ (I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop))]))])];
+        |}];
+      m_table := [ 0];
+      m_exports := [ {|
+                     me_name := "_start"; me_desc := 0;
+                   |}];
+    |}
     -----------add-----------
     {|
       m_imports := [];

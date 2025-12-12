@@ -93,6 +93,7 @@ let simple =
     ("tuple_project", "(proj 1 (tup 42 7))");
     ("sum_unit", "(inj 0 (tup) : (+ (*)))");
     ("sum_option", "(inj 1 15 : (+ (*) int))");
+    ("basic_if", "(if 0 1 2)");
     ("add", "(op + 1 2)");
     ("sub", "(op - 1 2)");
     ("mul", "(op * 1 2)");

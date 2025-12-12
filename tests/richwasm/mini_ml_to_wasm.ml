@@ -844,6 +844,59 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (start 8))
 
+    -----------basic_if-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 1) (param i32) (result i32)
+        (local i32)
+        i32.const 0
+        i32.const 1
+        i32.shl
+        i32.const 1
+        i32.shr_u
+        i32.const 0
+        i32.eq
+        if (result i32)  ;; label = @1
+          i32.const 1
+          i32.const 1
+          i32.shl
+        else
+          i32.const 2
+          i32.const 1
+          i32.shl
+        end)
+      (func (;8;) (type 4)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
+      (start 8))
+
     -----------add-----------
     (module
       (type (;0;) (func (param i32 i32)))

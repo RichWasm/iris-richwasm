@@ -266,7 +266,13 @@ let rec compile_expr delta gamma locals functions e =
       let els', locals', fx_e =
         compile_expr delta gamma locals' functions els
       in
-      ( c' @ [ Untag; Ite (ArrowType (0, [ rw_t ]), InferFx, thn', els') ],
+      ( c'
+        @ [
+            Untag;
+            NumConst (Int I32, 0);
+            Num (NumInstruction.IntRel (Int.Type.I32, Int.Relop.Eq));
+            Ite (ArrowType (0, [ rw_t ]), InferFx, thn', els');
+          ],
         locals',
         fx_c @ fx_t @ fx_e )
   | Cases (v, branches) ->
