@@ -19,7 +19,8 @@
     (ppx_variants_conv (>= 0.17.1))
     (rocq-autosubst-ocaml (>= 1.1+9.0))
     (sexplib (>= 0.17.0))
-    (alcotest (>= 1.9.1)))
+    (alcotest (>= 1.9.1))
+    (ocolor (>= 1.3.1)))
   (synopsis "RichWasm formalization in Coq and Iris")
   (description "RichWasm formalization in Coq based on Iris-Wasm.")
   (maintainers

@@ -97,7 +97,12 @@ let%expect_test "examples" =
     (let (<> : int) = 1 in
     (app (λ (<> : int) : int .
            (<0:x> + <1:add-amount>)) <1:input>)))
-    -----------factorial_program-----------
+    -----------triangle_tl-----------
+    (fun triangle (<> : int) : int .
+      (if0 <0:n> then 0 else (<0:n> + (app (coderef triangle) (<0:n> - 1)))))
+
+    (app (coderef triangle) 10)
+    -----------factorial_tl-----------
     (export fun factorial (<> : int) : int .
       (if0 <0:n> then 1 else
         (let (<> : int) = (<0:n> - 1) in

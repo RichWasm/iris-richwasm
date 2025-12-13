@@ -21,7 +21,12 @@ include Test_runner.MultiOutputter.Make (struct
     |> Richwasm_common.Main.wasm_ugly_printer
 
   let syntax_pipeline x =
-    x |> Main.compile_ast |> or_fail_pp Main.CompileErr.pp |> elab
+    x
+    |> Main.compile_ast
+    |> Main.Res.run
+    |> fst
+    |> or_fail_pp Main.CompileErr.pp
+    |> elab
 
   let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
   let examples = Test_examples.Lin_lang.all
@@ -1197,7 +1202,158 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (start 9))
 
-    -----------factorial_program-----------
+    -----------triangle_tl-----------
+    FAILURE wat2wasm2wat validation!
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32) (result i32)))
+      (type (;5;) (func (result i32)))
+      (type (;6;) (func))
+      (type (;7;) (func (param i32 i32) (result i32)))
+      (type (;8;) (func))
+      (type (;9;) (func))
+      (type (;10;) (func (param i32 i32) (result i32)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 3
+        i32.const 0
+        i32.eqz
+        if (result i32)  ;; label = @1
+          i32.const 0
+        else
+          local.get 3
+          i32.const 0
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 8
+          local.get 8
+          nop
+          block (param i32 i32) (result i32)  ;; label = @2
+            local.set 5
+            local.set 4
+            local.get 4
+            local.get 5
+            nop
+            local.set 7
+            local.set 6
+            local.get 7
+            local.get 3
+            i32.const 1
+            i32.sub
+            nop
+            local.get 6
+            call_indirect (type 4)
+            local.get 6
+            drop
+            local.get 7
+            drop
+            local.get 4
+            local.get 5
+            drop
+            drop
+          end
+          i32.add
+        end
+        local.get 2
+        local.set 9
+        local.get 9
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 9
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 9
+            call 4
+          else
+            local.get 9
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;8;) (type 5) (result i32)
+        (local i32 i32 i32 i32 i32)
+        i32.const 0
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 4
+        local.get 4
+        nop
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 10
+          nop
+          local.get 2
+          call_indirect (type 4)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end)
+      (func (;9;) (type 6)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
+      (start 9))
+
+
+    -:94:5: error: type mismatch at end of function, expected [] but got [i32]
+        drop)
+        ^^^^
+
+    -----------factorial_tl-----------
     FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))

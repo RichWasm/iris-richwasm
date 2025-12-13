@@ -23,7 +23,10 @@ let run (rw_runtime_path : string) (host_runtime_path : string) =
             test_case name `Quick (fun () ->
                 let result = LLSinglee2e.run src in
                 match result with
-                | Ok res -> (check string) "equal" res expected
-                | Error err -> fail (asprintf "%a" LLSinglee2e.E2Err.pp err)))
-      );
+                | Ok (res, _) -> (check string) "equal" res expected
+                | Error (err, logs) ->
+                    fail
+                      (asprintf "%a@.@.%a" LLSinglee2e.E2Err.pp err
+                         (pp_print_list pp_print_string)
+                         logs))) );
     ]

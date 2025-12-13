@@ -71,6 +71,7 @@
             janeStreet.parsexp
             pkgs.wabt
             alcotest
+            ocolor
           ];
 
           richwasm-test-deps = with pkgs; [

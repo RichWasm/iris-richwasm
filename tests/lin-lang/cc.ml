@@ -307,7 +307,37 @@ let%expect_test "examples" =
          : int) : int)
       : int)
      : int)
-    -----------factorial_program-----------
+    -----------triangle_tl-----------
+    (fun triangle (<> : (⊗ (ref (⊗)) int)) : int .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (if0 (<0:n> : int)
+        then (0 : int)
+        else
+          (+ (<0:n> : int)
+             (unpack
+                (pack (⊗)
+                   (tup (coderef triangle : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                    : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
+                   : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
+                      (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
+                    (app (<1> : ((⊗ (ref [0]) int) ⊸ int))
+                       (tup (<0> : (ref [0])) (- (<3:n> : int) (1 : int) : int) : (⊗ (ref [0]) int)) : int)
+                : int) : int)
+             : int)
+        : int)
+      : int))
+
+    (unpack
+       (pack (⊗)
+          (tup (coderef triangle : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+       <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
+             (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
+           (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (10 : int) : (⊗ (ref [0]) int)) : int)
+       : int) : int)
+    -----------factorial_tl-----------
     (export fun factorial (<> : (⊗ (ref (⊗)) int)) : int .
       (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
        (if0 (<0:n> : int)

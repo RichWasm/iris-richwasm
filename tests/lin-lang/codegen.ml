@@ -504,7 +504,83 @@ let%expect_test "examples" =
         drop)
       (table 0)
       (export "_start" (func 1)))
-    -----------factorial_program-----------
+    -----------triangle_tl-----------
+    (module
+      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+          (prod i32 ptr) i32 ptr)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 2 follow
+        i32.const 0
+        i32.eqz
+        if (result i32) InferFx
+          i32.const 0
+        else
+          local.get 2 follow
+          coderef 0
+          group 0
+          new mm
+          group 2
+          pack (Type (prod))
+            (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+              (ref (base mm) (ser (var 0))))
+          unpack (result i32) InferFx
+            local.set 3
+            local.get 3 follow
+            ungroup
+            local.set 5
+            local.set 4
+            local.get 5 follow
+            local.get 2 follow
+            i32.const 1
+            i32.sub
+            group 2
+            local.get 4 follow
+            call_indirect
+            local.get 4 move
+            drop
+            local.get 5 move
+            drop
+            local.get 3 move
+            drop
+          end
+          i32.add
+        end
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func (-> i32) (local (prod i32 ptr) i32 ptr)
+        coderef 0
+        group 0
+        new mm
+        group 2
+        pack (Type (prod))
+          (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+            (ref (base mm) (ser (var 0))))
+        unpack (result i32) InferFx
+          local.set 0
+          local.get 0 follow
+          ungroup
+          local.set 2
+          local.set 1
+          local.get 2 follow
+          i32.const 10
+          group 2
+          local.get 1 follow
+          call_indirect
+          local.get 1 move
+          drop
+          local.get 2 move
+          drop
+          local.get 0 move
+          drop
+        end)
+      (table 0)
+      (export "_start" (func 1)))
+    -----------factorial_tl-----------
     (module
       (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32 i32
           (prod i32 ptr) i32 ptr i32)

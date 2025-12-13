@@ -1,11 +1,16 @@
 open! Core
+module Expl = Test_examples.Lin_lang
 
 let simple_tests =
   [
     ("one", "1", "1");
     ("add", "(6 + 7)", "13");
     ("tuple", "(1, 2, 3)", "[ 1, 2, 3 ]");
-    ("nested_arith", "((9 + 10) * 5)", "95");
-    ("let_bind", "(let (x : int) = 21 in x)", "21");
+    ("nested arith", "((9 + 10) * 5)", "95");
+    ("let bind", "(let (x : int) = 21 in x)", "21");
     ("app_id", "((lam (x : int) : int . x) 67)", "67");
+    ("closure", Expl.closure, "10");
+    ("closure call var", Expl.closure_call_var, "22");
+    (* ("top-level triangle", Expl.triangle_tl, "55"); *)
+    (* ("top-level facorial", Expl.factorial_tl, "120"); *)
   ]

@@ -203,7 +203,12 @@ let%expect_test "pretty prints examples" =
     (let (add-amount : int) = 1 in
     (app (λ (x : int) : int .
            (x + add-amount)) input)))
-    -----------factorial_program-----------
+    -----------triangle_tl-----------
+    (fun triangle (n : int) : int .
+      (if0 n then 0 else (n + (app triangle (n - 1)))))
+
+    (app triangle 10)
+    -----------factorial_tl-----------
     (export fun factorial (n : int) : int .
       (if0 n then 1 else
         (let (n-sub1 : int) = (n - 1) in

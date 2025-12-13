@@ -120,6 +120,7 @@ module Monad_with_fail = struct
     type error
 
     val fail : error -> 'a t
+    val map_error : 'a t -> f:(error -> error) -> 'a t
   end
 
   module Make (M : Basic) = struct
@@ -131,6 +132,27 @@ module Monad_with_fail = struct
     let lift_option err : 'a Option.t -> 'a t = function
       | Some x -> ret x
       | None -> fail err
+  end
+end
+
+module Monad_with_fail_and_log = struct
+  module type Basic = sig
+    include Monad_with_fail.Basic
+
+    type log_item
+
+    val tell : log_item -> unit t
+  end
+
+  module Make (M : Basic) = struct
+    include M
+    include Monad.Make (M)
+    include Monad_with_fail.Make (M)
+
+    let tap (item_of : 'a -> log_item) (m : 'a t) : 'a t =
+      let* x = m in
+      let* () = tell (item_of x) in
+      ret x
   end
 end
 
@@ -147,11 +169,57 @@ module ResultM (E : T) = struct
       | Ok x -> f x
 
     let fail err : 'a t = Error err
+    let map_error = Result.map_error
   end
 
   include T
   include Monad.Make (T)
   include Monad_with_fail.Make (T)
+end
+
+module LogResultM (E : T) (L : T) = struct
+  module T = struct
+    type error = E.t
+    type log_item = L.t
+    type 'a t = ('a * log_item list, error * log_item list) Result.t
+
+    let ret x = Ok (x, [])
+    let fail e = Error (e, [])
+
+    let bind m f =
+      match m with
+      | Error (e, log) -> Error (e, log)
+      | Ok (x, log1) ->
+          (match f x with
+          | Ok (y, log2) -> Ok (y, log1 @ log2)
+          | Error (e, log2) -> Error (e, log1 @ log2))
+
+    let tell item = Ok ((), [ item ])
+
+    let map_error (m : 'a t) ~(f : error -> error) : 'a t =
+      match m with
+      | Ok _ as ok -> ok
+      | Error (e, log) -> Error (f e, log)
+
+    let lift_result (r : ('a, error) Result.t) : 'a t =
+      match r with
+      | Ok x -> ret x
+      | Error e -> fail e
+
+    let run (m : 'a t) : ('a, error) Result.t * log_item list =
+      match m with
+      | Ok (x, log) -> (Ok x, log)
+      | Error (e, log) -> (Error e, log)
+  end
+
+  include T
+  include Monad_with_fail_and_log.Make (T)
+
+  let map_error_to (type e2) ~(f : error -> e2) (m : 'a t) :
+      ('a * log_item list, e2 * log_item list) Result.t =
+    match m with
+    | Ok (x, log) -> Ok (x, log)
+    | Error (e, log) -> Error (f e, log)
 end
 
 module StateM (S : T) (E : T) = struct
@@ -168,6 +236,13 @@ module StateM (S : T) (E : T) = struct
       | Ok (x, e') -> f x e'
 
     let fail err : 'a t = fun _ -> Error err
+
+    let map_error (m : 'a t) ~f : 'a t =
+     fun s ->
+      match m s with
+      | Ok _ as ok -> ok
+      | Error e -> Error (f e)
+
     let get : S.t t = fun s -> Ok (s, s)
     let put (s : S.t) : unit t = fun _ -> Ok ((), s)
     let modify (f : S.t -> S.t) : unit t = fun s -> Ok ((), f s)
