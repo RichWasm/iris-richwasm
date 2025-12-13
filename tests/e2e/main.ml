@@ -2,6 +2,18 @@ open! Core
 open! Test_support
 open! Stdlib.Format
 
+module IDontRespectLibraryInternals = struct
+  module Core = Alcotest_engine__Core
+  module Pp = Alcotest_engine__Pp
+
+  (* if this ever breaks, its safe to go back to using `fail`.
+     it just reports errors twice which is annoying *)
+  let custom_fail header msg =
+    raise
+      (Core.Check_error
+         (fun ppf () -> Fmt.pf ppf "%a %s@.%s" Pp.tag `Fail header msg))
+end
+
 module LL = struct
   module CompilerError = Richwasm_lin_lang.Main.CompileErr
 
@@ -25,7 +37,8 @@ let run (rw_runtime_path : string) (host_runtime_path : string) =
                 match result with
                 | Ok (res, _) -> (check string) "equal" res expected
                 | Error (err, logs) ->
-                    fail
+                    IDontRespectLibraryInternals.custom_fail
+                      (asprintf "Expected %a, but errored:" String.pp expected)
                       (asprintf "%a@.@.%a" LLSinglee2e.E2Err.pp err
                          (pp_print_list pp_print_string)
                          logs))) );
