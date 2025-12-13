@@ -2,7 +2,7 @@
  (name richwasm_lin_lang)
  (public_name iris-richwasm.lin-lang)
  (modules main :standard)
- (libraries iris-richwasm.common sexplib base ocolor)
+ (libraries iris-richwasm.common sexplib base)
  (preprocess
   (staged_pps
    ppx_deriving.show

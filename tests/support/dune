@@ -2,7 +2,7 @@
  (name test_support)
  (public_name iris-richwasm.test-support)
  (modules :standard)
- (libraries base core core_unix iris-richwasm.common ocolor)
+ (libraries base core core_unix iris-richwasm.common)
  (preprocess
   (staged_pps ppx_sexp_conv ppx_variants_conv)))
 

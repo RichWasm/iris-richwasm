@@ -5,7 +5,9 @@
  (libraries
   core
   core_unix
+  core_unix.linux_ext
   alcotest
+  ocolor
   iris-richwasm.test-examples
   iris-richwasm.test-support
   iris-richwasm.lin-lang

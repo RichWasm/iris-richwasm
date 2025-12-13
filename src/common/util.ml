@@ -32,3 +32,24 @@ let pad ?(fill = ' ') n =
     ""
   else
     String.make n fill
+
+let pp_pad ff ?(fill = ' ') ~len is_right =
+  let margin = pp_get_margin ff () in
+  let pad = pad ~fill ((margin - 2 - len) / 2) in
+  fprintf ff "%s" pad;
+  if is_right && len % 2 = 1 then fprintf ff "%c" fill
+
+let kasprintf_cust
+    ~cust
+    (type a)
+    (type b)
+    (k : string -> a)
+    (f : (b, Stdlib.Format.formatter, unit, a) format4) : b =
+  let buf = Buffer.create 512 in
+  let fmt = formatter_of_buffer buf in
+  cust fmt;
+  kfprintf
+    (fun fmt ->
+      pp_print_flush fmt ();
+      buf |> Buffer.contents |> k)
+    fmt f

@@ -19,6 +19,9 @@ module UnnanotatedRW = Richwasm_common.Syntax
 module AnnotatedRW = Richwasm_common.Annotated_syntax
 
 module EndToEnd = struct
+  (* need rank2 polymorphism *)
+  type asprintf = { asprintf : 'a. ('a, formatter, unit, string) format4 -> 'a }
+
   module type SurfaceLang = sig
     module CompilerError : sig
       type t [@@deriving sexp_of]
@@ -27,7 +30,9 @@ module EndToEnd = struct
     end
 
     val compile_to_richwasm :
-      String.t -> UnnanotatedRW.Module.t LogResultM(CompilerError)(String).t
+      asprintf:asprintf ->
+      String.t ->
+      UnnanotatedRW.Module.t LogResultM(CompilerError)(String).t
   end
 
   module type Runner = sig
@@ -57,41 +62,43 @@ module EndToEnd = struct
         | Runtime err -> fprintf ff "Runtime:@ %s" err
     end
 
-    module SurfM = LogResultM (Surface.CompilerError) (String)
     module M = LogResultM (E2Err) (String)
 
-    let lift_result_map_err (r : ('a, 'e) Result.t) ~(err_map : 'e -> M.error) :
-        'a M.t =
-      match r with
-      | Ok x -> M.ret x
-      | Error e -> M.fail (err_map e)
-
-    let ( >>?! ) x (name, f, pp, err_map) =
+    let run ?(asprintf : asprintf = { asprintf }) (src : String.t) :
+        String.t M.t =
+      let module SurfM = LogResultM (Surface.CompilerError) (String) in
       let open M in
-      let log_pp ~name (pp : formatter -> 'a -> unit) (x : 'a) : unit t =
-        let len = String.length name in
-        let lpad = Util.pad ~fill:'=' ((78 - len) / 2) in
-        let rpad = lpad ^ if len % 2 = 0 then "" else "=" in
-        tell
-          (Ocolor_format.asprintf "@{<cyan>%s@} @{<yellow>%s@} @{<cyan>%s@}@.%a"
-             lpad name rpad pp x)
+      let lift_result_map_err r ~err_map =
+        match r with
+        | Ok x -> ret x
+        | Error e -> fail (err_map e)
+      in
+      let ( >>? ) x (f, err_map) =
+        x >>= fun v -> lift_result_map_err (f v) ~err_map
       in
 
-      x >>= fun v ->
-      lift_result_map_err (f v) ~err_map >>= fun out ->
-      let+ () = log_pp ~name pp out in
-      out
+      let ( >>?! ) x (name, f, pp, err_map) =
+        let log_pp (type a) ~name (pp : formatter -> a -> unit) (x : a) : unit t
+            =
+          let len = String.length name in
+          let fill = '=' in
+          tell
+            (asprintf.asprintf "@{<cyan>%a@} @{<yellow>%s@} @{<cyan>%a@}@.%a"
+               (Util.pp_pad ~fill ~len) false name (Util.pp_pad ~fill ~len) true
+               pp x)
+        in
 
-    let ( >>? ) x (f, err_map) =
-      let open M in
-      x >>= fun v -> lift_result_map_err (f v) ~err_map
+        x >>= fun v ->
+        lift_result_map_err (f v) ~err_map >>= fun out ->
+        let+ () = log_pp ~name pp out in
+        out
+      in
 
-    let run (src : String.t) : String.t M.t =
-      let open M in
-      SurfM.map_error_to ~f:E2Err.surface (Surface.compile_to_richwasm src)
+      SurfM.map_error_to ~f:E2Err.surface
+        (Surface.compile_to_richwasm ~asprintf src)
       >>?! ( "elaborate",
              Elaborate.elab_module,
-             Richwasm_common.Annotated_syntax.Module.pp_sexp,
+             Richwasm_common.Annotated_syntax.Module.pp,
              E2Err.elaborate )
       >>? (Main.compile, E2Err.richwasm)
       >>| Main.wasm_ugly_printer
