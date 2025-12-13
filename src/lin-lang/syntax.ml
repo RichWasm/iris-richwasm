@@ -21,7 +21,7 @@ module Type = struct
     | Ref of t
   [@@deriving eq, ord, variants, sexp]
 
-  let rec pp ff : t -> unit = function
+  let rec pp ff : t -> _ = function
     | Int -> fprintf ff "@[int@]"
     | Var x -> fprintf ff "@[%a@]" Variable.pp x
     | Lollipop (t1, t2) -> fprintf ff "@[(%a@ ⊸@ %a)@]" pp t1 pp t2
@@ -49,7 +49,7 @@ module Binop = struct
     | Div
   [@@deriving eq, ord, variants, sexp]
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | Add -> fprintf ff "+"
     | Sub -> fprintf ff "-"
     | Mul -> fprintf ff "×"
@@ -81,8 +81,7 @@ module Expr = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let rec pp ff (e : t) =
-    match e with
+  let rec pp ff : t -> _ = function
     | Var x -> Variable.pp ff x
     | Int n -> fprintf ff "%d" n
     | Lam (bind, ret, body) ->

@@ -55,7 +55,7 @@ module Err = struct
     | Ctx of t * Cc.IR.Type.t * [ `Let | `Split | `Cases | `Free ]
   [@@deriving sexp]
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | UnmappedLocal ((de_bruijn, Some orig_name), env) ->
         fprintf ff "Local %d (originally %s) is not mapped in env: %a" de_bruijn
           orig_name Env.pp env

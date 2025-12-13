@@ -1,5 +1,6 @@
 open! Base
 open! Stdlib.Format
+open Util
 
 module Unscoped = struct
   let scons (x : 'a) (xi : int -> 'a) (n : int) : 'a =
@@ -27,7 +28,7 @@ module Copyability = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | NoCopy -> fprintf ff "nocopy"
     | ExCopy -> fprintf ff "excopy"
     | ImCopy -> fprintf ff "imcopy"
@@ -41,7 +42,7 @@ module Dropability = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | ExDrop -> fprintf ff "exdrop"
     | ImDrop -> fprintf ff "imdrop"
 end
@@ -54,7 +55,7 @@ module BaseMemory = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | MM -> fprintf ff "mm"
     | GC -> fprintf ff "gc"
 end
@@ -67,9 +68,9 @@ module Memory = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
-    | Var i -> fprintf ff "@[(var %a)@]" Base.Int.pp i
-    | Base m -> fprintf ff "@[(base %a)@]" BaseMemory.pp m
+  let pp ff : t -> _ = function
+    | Var i -> fprintf ff "@[<2>(var %a)@]" Base.Int.pp i
+    | Base m -> fprintf ff "@[<2>(base %a)@]" BaseMemory.pp m
 
   (* autosubst: *)
   open Unscoped
@@ -118,15 +119,9 @@ module Representation = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp ff = function
-    | Var x -> fprintf ff "@[(var %a)@]" Base.Int.pp x
-    | Sum rs ->
-        fprintf ff "@[(sum";
-        List.iter ~f:(fprintf ff "@ %a" pp) rs;
-        fprintf ff ")@]"
-    | Prod rs ->
-        fprintf ff "@[(prod";
-        List.iter ~f:(fprintf ff "@ %a" pp) rs;
-        fprintf ff ")@]"
+    | Var x -> fprintf ff "@[<2>(var %a)@]" Base.Int.pp x
+    | Sum rs -> fprintf ff "@[<2>(sum%a)@]" (pp_print_list_pre_space pp) rs
+    | Prod rs -> fprintf ff "@[<2>(prod%a)@]" (pp_print_list_pre_space pp) rs
     | Atom prim -> AtomicRep.pp ff prim
 
   (* autosubst: *)
@@ -162,17 +157,11 @@ module Size = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp ff = function
-    | Var x -> fprintf ff "@[(var %a)@]" Base.Int.pp x
-    | Sum rs ->
-        fprintf ff "@[(sum";
-        List.iter ~f:(fprintf ff "@ %a" pp) rs;
-        fprintf ff ")@]"
-    | Prod rs ->
-        fprintf ff "@[(prod";
-        List.iter ~f:(fprintf ff "@ %a" pp) rs;
-        fprintf ff ")@]"
-    | Rep r -> fprintf ff "@[(rep %a)@]" Representation.pp r
-    | Const prim -> fprintf ff "@[(const %a)@]" Base.Int.pp prim
+    | Var x -> fprintf ff "@[<2>(var %a)@]" Base.Int.pp x
+    | Sum rs -> fprintf ff "@[<2>(sum%a)@]" (pp_print_list_pre_space pp) rs
+    | Prod rs -> fprintf ff "@[<2>(prod%a)@]" (pp_print_list_pre_space pp) rs
+    | Rep r -> fprintf ff "@[<2>(rep %a)@]" Representation.pp r
+    | Const prim -> fprintf ff "@[<2>(const %a)@]" Base.Int.pp prim
 
   (* autosubst: *)
   open Unscoped
@@ -205,6 +194,12 @@ module Kind = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
+  let pp ff = function
+    | VALTYPE (r, c, d) ->
+        fprintf ff "@[<2>(val@ %a@ %a@ %a)@]" Representation.pp r Copyability.pp
+          c Dropability.pp d
+    | MEMTYPE (s, d) ->
+        fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s Dropability.pp d
   (* autosubst: *)
 
   let ren xi_representation xi_size = function
@@ -229,11 +224,11 @@ module Quantifier = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | Memory -> fprintf ff "mem"
     | Representation -> fprintf ff "rep"
     | Size -> fprintf ff "size"
-    | Type k -> fprintf ff "type %a" Kind.pp k
+    | Type k -> fprintf ff "type@ %a" Kind.pp k
 end
 
 module Sign = struct
@@ -244,7 +239,7 @@ module Sign = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | Unsigned -> fprintf ff "u"
     | Signed -> fprintf ff "s"
 end
@@ -258,7 +253,7 @@ module Int = struct
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | I32 -> fprintf ff "i32"
       | I64 -> fprintf ff "i64"
   end
@@ -272,7 +267,7 @@ module Int = struct
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | Clz -> fprintf ff "clz"
       | Ctz -> fprintf ff "ctz"
       | Popcnt -> fprintf ff "popcnt"
@@ -296,7 +291,7 @@ module Int = struct
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | Add -> fprintf ff "add"
       | Sub -> fprintf ff "sub"
       | Mul -> fprintf ff "mul"
@@ -316,7 +311,7 @@ module Int = struct
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | Eqz -> fprintf ff "eqz"
   end
 
@@ -332,7 +327,7 @@ module Int = struct
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | Eq -> fprintf ff "eq"
       | Ne -> fprintf ff "ne"
       | Lt s -> fprintf ff "lt_%a" Sign.pp s
@@ -351,7 +346,7 @@ module Float = struct
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | F32 -> fprintf ff "f32"
       | F64 -> fprintf ff "f64"
   end
@@ -369,7 +364,7 @@ module Float = struct
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | Neg -> fprintf ff "neg"
       | Abs -> fprintf ff "abs"
       | Ceil -> fprintf ff "ceil"
@@ -390,7 +385,7 @@ module Float = struct
       | CopySign
     [@@deriving eq, ord, variants, sexp]
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | Add -> fprintf ff "add"
       | Sub -> fprintf ff "sub"
       | Mul -> fprintf ff "mul"
@@ -410,7 +405,7 @@ module Float = struct
       | Ge
     [@@deriving eq, ord, variants, sexp]
 
-    let pp ff : t -> unit = function
+    let pp ff : t -> _ = function
       | Eq -> fprintf ff "eq"
       | Ne -> fprintf ff "ne"
       | Lt -> fprintf ff "lt"
@@ -428,7 +423,7 @@ module NumType = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | Int it -> Int.Type.pp ff it
     | Float ft -> Float.Type.pp ff ft
 end
@@ -446,7 +441,7 @@ module ConversionOp = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | Wrap -> fprintf ff "i32.wrap_i64"
     | Extend s -> fprintf ff "i64.extend_i32_%a" Sign.pp s
     | Trunc (ft, it, sign) ->
@@ -476,7 +471,7 @@ module NumInstruction = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | Int1 (t, o) -> fprintf ff "%a.%a" Int.Type.pp t Int.Unop.pp o
     | Int2 (t, o) -> fprintf ff "%a.%a" Int.Type.pp t Int.Binop.pp o
     | IntTest (t, o) -> fprintf ff "%a.%a" Int.Type.pp t Int.Testop.pp o
@@ -543,26 +538,16 @@ end = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let rec pp ff : t -> unit = function
-    | Var i -> fprintf ff "@[<2>(var %a)@]" Base.Int.pp i
+  let rec pp ff : t -> _ = function
+    | Var i -> fprintf ff "@[<2>(var@ %a)@]" Base.Int.pp i
     | I31 -> fprintf ff "i31"
     | Num nt -> fprintf ff "%a" NumType.pp nt
-    | Sum ts ->
-        fprintf ff "@[<2>(sum";
-        List.iter ~f:(fprintf ff "@ %a" pp) ts;
-        fprintf ff ")@]"
+    | Sum ts -> fprintf ff "@[<2>(sum%a)@]" (pp_print_list_pre_space pp) ts
     | Variant ts ->
-        fprintf ff "@[<2>(variant";
-        List.iter ~f:(fprintf ff "@ %a" pp) ts;
-        fprintf ff ")@]"
-    | Prod ts ->
-        fprintf ff "@[<2>(prod";
-        List.iter ~f:(fprintf ff "@ %a" pp) ts;
-        fprintf ff ")@]"
+        fprintf ff "@[<2>(variant%a)@]" (pp_print_list_pre_space pp) ts
+    | Prod ts -> fprintf ff "@[<2>(prod%a)@]" (pp_print_list_pre_space pp) ts
     | Struct ts ->
-        fprintf ff "@[<2>(struct";
-        List.iter ~f:(fprintf ff "@ %a" pp) ts;
-        fprintf ff ")@]"
+        fprintf ff "@[<2>(struct%a)@]" (pp_print_list_pre_space pp) ts
     | Ref (m, t) -> fprintf ff "@[<2>(ref@ %a@ %a)@]" Memory.pp m pp t
     | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
     | Ser t -> fprintf ff "@[<2>(ser@ %a)@]" pp t
@@ -672,13 +657,15 @@ end = struct
   let pp ff (FunctionType (quals, ts1, ts2)) =
     let rec go ?(top = false) = function
       | [] ->
-          if top then fprintf ff "@[(";
-          List.iter ~f:(fprintf ff "%a@ " Type.pp) ts1;
-          fprintf ff "->";
-          List.iter ~f:(fprintf ff "@ %a" Type.pp) ts2;
+          if top then fprintf ff "@[<2>(";
+          fprintf ff "%a->%a"
+            (pp_print_list_post_space Type.pp)
+            ts1
+            (pp_print_list_pre_space Type.pp)
+            ts2;
           if top then fprintf ff ")@]"
       | x :: xs ->
-          fprintf ff "@[(forall.%a" Quantifier.pp x;
+          fprintf ff "@[<2>(forall.%a@ " Quantifier.pp x;
           go xs;
           fprintf ff ")@]"
     in
@@ -744,17 +731,13 @@ module BlockType = struct
     | ArrowType of int * Type.t list
   [@@deriving eq, ord, variants, sexp]
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | ValType res ->
-        fprintf ff "(@[result";
-        List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
-        fprintf ff "@])"
+        fprintf ff "@[(result%a@])" (pp_print_list_pre_space Type.pp) res
     | ArrowType (inputs, res) ->
-        fprintf ff "@[(";
-        fprintf ff "<%a>@ " Base.Int.pp inputs;
-        fprintf ff "->";
-        List.iter ~f:(fprintf ff "@ %a" Type.pp) res;
-        fprintf ff ")@]"
+        fprintf ff "@[(<%a>@ ->%a)@]" Base.Int.pp inputs
+          (pp_print_list_pre_space Type.pp)
+          res
 end
 
 module LocalFx = struct
@@ -764,6 +747,12 @@ module LocalFx = struct
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff : t -> _ = function
+    | LocalFx fxs ->
+        let fmt ff (idx, typ) = fprintf ff "[%i@ @[<2>=>@ %a]@]" idx Type.pp typ in
+        fprintf ff "@[<2>(localfx%a)@]" (pp_print_list_pre_space fmt) fxs
+    | InferFx -> fprintf ff "inferfx"
 end
 
 module Index = struct
@@ -775,6 +764,12 @@ module Index = struct
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff : t -> _ = function
+    | Mem mem -> fprintf ff "@[<2>(mem@ %a)@]" Memory.pp mem
+    | Rep rep -> fprintf ff "@[<2>(rep@ %a)@]" Representation.pp rep
+    | Size sz -> fprintf ff "@[<2>(size@ %a)@]" Size.pp sz
+    | Type ty -> fprintf ff "@[<2>(type@ %a)@]" Type.pp ty
 end
 
 module Path = struct
@@ -791,7 +786,7 @@ module Consume = struct
     | Move
   [@@deriving eq, ord, variants, sexp]
 
-  let pp ff : t -> unit = function
+  let pp ff : t -> _ = function
     | Follow -> fprintf ff "follow"
     | Copy -> fprintf ff "copy"
     | Move -> fprintf ff "move"
@@ -837,7 +832,7 @@ module Instruction = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let rec pp ff : t -> unit =
+  let rec pp ff : t -> _ =
     let pp_instrs ff (instrs : t list) =
       List.iteri
         ~f:(fun i -> if i = 0 then fprintf ff "%a" pp else fprintf ff "@,%a" pp)
@@ -869,18 +864,18 @@ module Instruction = struct
     | CodeRef i -> fprintf ff "@[<2>coderef@ %a@]" pp_int i
     | Inst idx -> fprintf ff "@[<2>inst@ %a@]" Index.pp idx
     | Call (i, idxs) ->
-        fprintf ff "@[<2>call@ %a" pp_int i;
-        List.iter ~f:(fprintf ff "@ %a" Index.pp) idxs;
-        fprintf ff "@]"
+        fprintf ff "@[<2>call@ %a@ (inst%a)@]" pp_int i
+          (pp_print_list_pre_space Index.pp)
+          idxs
     | CallIndirect -> fprintf ff "call_indirect"
     | Inject (i, typs) ->
-        fprintf ff "@[<2>inject@ %a" pp_int i;
-        List.iter ~f:(fprintf ff " %a" Type.pp) typs;
-        fprintf ff "@]"
+        fprintf ff "@[<2>inject@ %a%a@]" pp_int i
+          (pp_print_list_pre_space Type.pp)
+          typs
     | InjectNew (mem, i, typs) ->
-        fprintf ff "@[<2>inject_new@ %a@ %a" BaseMemory.pp mem pp_int i;
-        List.iter ~f:(fprintf ff " %a" Type.pp) typs;
-        fprintf ff "@]"
+        fprintf ff "@[<2>inject_new@ %a@ %a%a@]" BaseMemory.pp mem pp_int i
+          (pp_print_list_pre_space Type.pp)
+          typs
     | Case (bt, lfx, cases) ->
         fprintf ff "@[<v 0>@[<2>case@ %a@ %a@]@,@[<v 2>  " BlockType.pp bt
           LocalFx.pp lfx;
@@ -929,10 +924,10 @@ module Module = struct
 
     let pp ff ({ typ; locals; body } : t) : unit =
       fprintf ff "@[<v 2>@[<4>(func@ %a" FunctionType.pp typ;
-      if not @@ List.is_empty locals then (
-        fprintf ff "@ (local";
-        List.iter ~f:(fprintf ff "@ %a" Representation.pp) locals;
-        fprintf ff ")");
+      if not @@ List.is_empty locals then
+        fprintf ff "@ (local%a)"
+          (pp_print_list_pre_space Representation.pp)
+          locals;
       fprintf ff "@]";
       List.iter ~f:(fprintf ff "@,%a" Instruction.pp) body;
       fprintf ff ")@]"
@@ -944,7 +939,7 @@ module Module = struct
 
       let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-      let pp ff : t -> unit = function
+      let pp ff : t -> _ = function
         | Func funcidx -> fprintf ff "(@[func %a@])" Base.Int.pp funcidx
     end
 
@@ -971,24 +966,11 @@ module Module = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp ff ({ imports; functions; table; exports } : t) : unit =
-    let print_sep ~f ~sep lst =
-      List.iter
-        ~f:(fun x ->
-          sep ();
-          f x)
-        lst
-    in
-    let space_hint () = fprintf ff "@ " in
-    let break_hint () = fprintf ff "@;" in
-
-    fprintf ff "@[<v 2>@[(module @]";
-    print_sep
-      ~f:(fprintf ff "(import %a" FunctionType.pp)
-      ~sep:break_hint imports;
-    print_sep ~f:(Function.pp ff) ~sep:break_hint functions;
-    fprintf ff "@;@[(table@[<hv 2>";
-    print_sep ~f:(Base.Int.pp ff) ~sep:space_hint table;
-    fprintf ff "@])@]";
-    print_sep ~f:(Export.pp ff) ~sep:break_hint exports;
-    fprintf ff "@])@]"
+    let ppl_pre_cut = pp_print_list_pre in
+    let ppl_pre_space = pp_print_list_pre_space in
+    fprintf ff "@[<v 2>@[(module @]%a%a@,(table@[<2>%a@])%a)@]"
+      (ppl_pre_cut (fun ff -> fprintf ff "(import %a)" FunctionType.pp))
+      imports (ppl_pre_cut Function.pp) functions
+      (ppl_pre_space Base.Int.pp)
+      table (ppl_pre_cut Export.pp) exports
 end

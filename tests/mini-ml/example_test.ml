@@ -33,8 +33,8 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc) (struct)) ->
-          (ref (base gc) (struct (ser i31) (ser i31) (ser i31) (ser i31)))) (local
-          ptr)
+            (ref (base gc) (struct (ser i31) (ser i31) (ser i31) (ser i31))))
+          (local ptr)
         i32.const 4
         tag
         i32.const 3
@@ -52,9 +52,9 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc) (struct)) ->
-          (ref (base gc)
-            (struct (ser (ref (base gc) (struct (ser i31) (ser i31))))
-              (ser (ref (base gc) (struct (ser i31) (ser i31)))))))
+            (ref (base gc)
+              (struct (ser (ref (base gc) (struct (ser i31) (ser i31))))
+                (ser (ref (base gc) (struct (ser i31) (ser i31)))))))
           (local ptr)
         i32.const 4
         tag
@@ -98,7 +98,8 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc) (struct)) ->
-          (ref (base gc) (variant (ser (ref (base gc) (struct)))))) (local ptr)
+            (ref (base gc) (variant (ser (ref (base gc) (struct))))))
+          (local ptr)
         group 0
         new gc
         cast (ref (base gc) (struct))
@@ -109,7 +110,7 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc) (struct)) ->
-          (ref (base gc) (variant (ser (ref (base gc) (struct))) (ser i31))))
+            (ref (base gc) (variant (ser (ref (base gc) (struct))) (ser i31))))
           (local ptr)
         i32.const 15
         tag
@@ -124,7 +125,7 @@ let%expect_test "examples" =
         untag
         i32.const 0
         i32.eq
-        if (result i31) InferFx
+        if (result i31) inferfx
           i32.const 1
           tag
         else
@@ -222,7 +223,8 @@ let%expect_test "examples" =
       (func
           ((ref (base gc)
              (struct (ser (ref (base gc) (struct))) (ser (ref (base gc) (struct)))))
-          -> i31) (local ptr ptr ptr ptr ptr)
+            -> i31)
+          (local ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -247,14 +249,14 @@ let%expect_test "examples" =
         drop)
       (func
           ((ref (base gc) (struct)) ->
-          (exists type (VALTYPE (ptr, excopy, exdrop))
-            (ref (base gc)
-              (struct (ser (var 0))
-                (ser
-                  (coderef
-                    ((ref (base gc)
-                       (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
-                    -> i31)))))))
+            (exists type (val ptr excopy exdrop)
+              (ref (base gc)
+                (struct (ser (var 0))
+                  (ser
+                    (coderef
+                      ((ref (base gc)
+                         (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
+                        -> i31)))))))
           (local ptr)
         group 0
         new gc
@@ -270,15 +272,15 @@ let%expect_test "examples" =
                   ((ref (base gc)
                      (struct (ser (ref (base gc) (struct)))
                        (ser (ref (base gc) (struct)))))
-                  -> i31)))))
-        pack (Type (ref (base gc) (struct)))
+                    -> i31)))))
+        pack (type (ref (base gc) (struct)))
           (ref (base gc)
             (struct (ser (var 0))
               (ser
                 (coderef
                   ((ref (base gc)
                      (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
-                  -> i31))))))
+                    -> i31))))))
       (table 0 1)
       (export "_start" (func 1)))
     -----------iife-----------
@@ -286,7 +288,8 @@ let%expect_test "examples" =
       (func
           ((ref (base gc)
              (struct (ser (ref (base gc) (struct))) (ser (ref (base gc) (struct)))))
-          -> i31) (local ptr ptr ptr ptr ptr)
+            -> i31)
+          (local ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -324,16 +327,16 @@ let%expect_test "examples" =
                   ((ref (base gc)
                      (struct (ser (ref (base gc) (struct)))
                        (ser (ref (base gc) (struct)))))
-                  -> i31)))))
-        pack (Type (ref (base gc) (struct)))
+                    -> i31)))))
+        pack (type (ref (base gc) (struct)))
           (ref (base gc)
             (struct (ser (var 0))
               (ser
                 (coderef
                   ((ref (base gc)
                      (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
-                  -> i31)))))
-        unpack (result i31) InferFx
+                    -> i31)))))
+        unpack (result i31) inferfx
           local.set 1
           local.get 1 move
           copy
@@ -371,7 +374,8 @@ let%expect_test "examples" =
     (module
       (func
           ((ref (base gc) (struct (ser (ref (base gc) (struct))) (ser i31))) ->
-          i31) (local ptr ptr ptr)
+            i31)
+          (local ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -396,13 +400,10 @@ let%expect_test "examples" =
     -----------id-----------
     (module
       (func
-          (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                        (struct
-                                                          (ser
-                                                            (ref (base gc)
-                                                              (struct)))
-                                                          (ser (var 0))))
-          -> (var 0)) (local ptr ptr ptr)
+          (forall.type (val ptr excopy exdrop)
+            (ref (base gc) (struct (ser (ref (base gc) (struct))) (ser (var 0))))
+            -> (var 0))
+          (local ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -421,13 +422,10 @@ let%expect_test "examples" =
     -----------apply_id-----------
     (module
       (func
-          (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                        (struct
-                                                          (ser
-                                                            (ref (base gc)
-                                                              (struct)))
-                                                          (ser (var 0))))
-          -> (var 0)) (local ptr ptr ptr)
+          (forall.type (val ptr excopy exdrop)
+            (ref (base gc) (struct (ser (ref (base gc) (struct))) (ser (var 0))))
+            -> (var 0))
+          (local ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -453,25 +451,19 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) (struct)))
               (ser
                 (coderef
-                  (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                (struct
-                                                                  (ser
-                                                                    (ref
-                                                                      (base gc)
-                                                                      (struct)))
-                                                                  (ser (var 0))))
-                  -> (var 0))))))
-        pack (Type (ref (base gc) (struct)))
+                  (forall.type (val ptr excopy exdrop)
+                    (ref (base gc)
+                      (struct (ser (ref (base gc) (struct))) (ser (var 0))))
+                    -> (var 0))))))
+        pack (type (ref (base gc) (struct)))
           (ref (base gc)
             (struct (ser (var 0))
               (ser
                 (coderef
-                  (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                (struct
-                                                                  (ser (var 1))
-                                                                  (ser (var 0))))
-                  -> (var 0))))))
-        unpack (result i31) InferFx
+                  (forall.type (val ptr excopy exdrop)
+                    (ref (base gc) (struct (ser (var 1)) (ser (var 0)))) ->
+                    (var 0))))))
+        unpack (result i31) inferfx
           local.set 1
           local.get 1 move
           copy
@@ -494,7 +486,7 @@ let%expect_test "examples" =
           local.get 5 move
           copy
           local.set 5
-          inst (Type i31)
+          inst (type i31)
           call_indirect
           local.get 5 move
           drop
@@ -516,7 +508,7 @@ let%expect_test "examples" =
         local.get 1 move
         copy
         local.set 1
-        case_load (result i31) copy InferFx
+        case_load (result i31) copy inferfx
           (0
             local.set 3
             i32.const 0
@@ -541,30 +533,16 @@ let%expect_test "examples" =
     -----------poly_len-----------
     (module
       (func
-          (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                        (struct
-                                                          (ser
-                                                            (ref (base gc)
-                                                              (struct)))
-                                                          (ser
-                                                            (rec
-                                                              (VALTYPE (ptr,
-                                                                 excopy, exdrop))
-                                                              (ref (base gc)
-                                                                (variant
-                                                                  (ser
-                                                                    (ref
-                                                                      (base gc)
-                                                                      (struct)))
-                                                                  (ser
-                                                                    (ref
-                                                                      (base gc)
-                                                                      (variant
-                                                                        (ser
-                                                                        (var 1))
-                                                                        (ser
-                                                                        (var 0)))))))))))
-          -> i31) (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr)
+          (forall.type (val ptr excopy exdrop)
+            (ref (base gc)
+              (struct (ser (ref (base gc) (struct)))
+                (ser
+                  (rec (val ptr excopy exdrop)
+                    (ref (base gc)
+                      (variant (ser (ref (base gc) (struct)))
+                        (ser (ref (base gc) (variant (ser (var 1)) (ser (var 0)))))))))))
+            -> i31)
+          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -577,7 +555,7 @@ let%expect_test "examples" =
         copy
         local.set 2
         unfold
-        case_load (result i31) copy InferFx
+        case_load (result i31) copy inferfx
           (0
             local.set 9
             i32.const 0
@@ -600,65 +578,34 @@ let%expect_test "examples" =
                 (struct (ser (ref (base gc) (struct)))
                   (ser
                     (coderef
-                      (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                    (struct
-                                                                      (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (struct)))
-                                                                      (ser
-                                                                        (rec
-                                                                        (VALTYPE (
-                                                                        ptr,
-                                                                        excopy,
-                                                                        exdrop))
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (struct)))
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (var 1))
-                                                                        (ser
-                                                                        (var 0)))))))))))
-                      -> i31)))))
-            pack (Type (ref (base gc) (struct)))
+                      (forall.type (val ptr excopy exdrop)
+                        (ref (base gc)
+                          (struct (ser (ref (base gc) (struct)))
+                            (ser
+                              (rec (val ptr excopy exdrop)
+                                (ref (base gc)
+                                  (variant (ser (ref (base gc) (struct)))
+                                    (ser
+                                      (ref (base gc)
+                                        (variant (ser (var 1)) (ser (var 0)))))))))))
+                        -> i31)))))
+            pack (type (ref (base gc) (struct)))
               (ref (base gc)
                 (struct (ser (var 0))
                   (ser
                     (coderef
-                      (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                    (struct
-                                                                      (ser (var 1))
-                                                                      (ser
-                                                                        (rec
-                                                                        (VALTYPE (
-                                                                        ptr,
-                                                                        excopy,
-                                                                        exdrop))
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (struct)))
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (var 1))
-                                                                        (ser
-                                                                        (var 0)))))))))))
-                      -> i31)))))
-            unpack (result i31) InferFx
+                      (forall.type (val ptr excopy exdrop)
+                        (ref (base gc)
+                          (struct (ser (var 1))
+                            (ser
+                              (rec (val ptr excopy exdrop)
+                                (ref (base gc)
+                                  (variant (ser (ref (base gc) (struct)))
+                                    (ser
+                                      (ref (base gc)
+                                        (variant (ser (var 1)) (ser (var 0)))))))))))
+                        -> i31)))))
+            unpack (result i31) inferfx
               local.set 4
               local.get 4 move
               copy
@@ -680,14 +627,14 @@ let%expect_test "examples" =
               copy
               local.set 3
               fold
-                (rec (VALTYPE (ptr, excopy, exdrop))
+                (rec (val ptr excopy exdrop)
                   (ref (base gc)
                     (variant (ser (ref (base gc) (struct)))
                       (ser (ref (base gc) (variant (ser (var 2)) (ser (var 0))))))))
               local.get 8 move
               copy
               local.set 8
-              inst (Type (var 1))
+              inst (type (var 1))
               call_indirect
               local.get 8 move
               drop
@@ -719,65 +666,34 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) (struct)))
               (ser
                 (coderef
-                  (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                (struct
-                                                                  (ser
-                                                                    (ref
-                                                                      (base gc)
-                                                                      (struct)))
-                                                                  (ser
-                                                                    (rec
-                                                                      (VALTYPE (
-                                                                        ptr,
-                                                                        excopy,
-                                                                        exdrop))
-                                                                      (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (struct)))
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (var 1))
-                                                                        (ser
-                                                                        (var 0)))))))))))
-                  -> i31)))))
-        pack (Type (ref (base gc) (struct)))
+                  (forall.type (val ptr excopy exdrop)
+                    (ref (base gc)
+                      (struct (ser (ref (base gc) (struct)))
+                        (ser
+                          (rec (val ptr excopy exdrop)
+                            (ref (base gc)
+                              (variant (ser (ref (base gc) (struct)))
+                                (ser
+                                  (ref (base gc)
+                                    (variant (ser (var 1)) (ser (var 0)))))))))))
+                    -> i31)))))
+        pack (type (ref (base gc) (struct)))
           (ref (base gc)
             (struct (ser (var 0))
               (ser
                 (coderef
-                  (forall.type (VALTYPE (ptr, excopy, exdrop))(ref (base gc)
-                                                                (struct
-                                                                  (ser (var 1))
-                                                                  (ser
-                                                                    (rec
-                                                                      (VALTYPE (
-                                                                        ptr,
-                                                                        excopy,
-                                                                        exdrop))
-                                                                      (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (struct)))
-                                                                        (ser
-                                                                        (ref
-                                                                        (base gc)
-                                                                        (variant
-                                                                        (ser
-                                                                        (var 1))
-                                                                        (ser
-                                                                        (var 0)))))))))))
-                  -> i31)))))
-        unpack (result i31) InferFx
+                  (forall.type (val ptr excopy exdrop)
+                    (ref (base gc)
+                      (struct (ser (var 1))
+                        (ser
+                          (rec (val ptr excopy exdrop)
+                            (ref (base gc)
+                              (variant (ser (ref (base gc) (struct)))
+                                (ser
+                                  (ref (base gc)
+                                    (variant (ser (var 1)) (ser (var 0)))))))))))
+                    -> i31)))))
+        unpack (result i31) inferfx
           local.set 1
           local.get 1 move
           copy
@@ -798,15 +714,13 @@ let%expect_test "examples" =
           group 0
           new gc
           cast (ref (base gc) (struct))
-          inject_new gc
-            0 (ref (base gc) (struct)) (rec (VALTYPE (ptr, excopy, exdrop))
-                                         (ref (base gc)
-                                           (variant (ser (ref (base gc) (struct)))
-                                             (ser
-                                               (ref (base gc)
-                                                 (variant (ser i31) (ser (var 0))))))))
+          inject_new gc 0 (ref (base gc) (struct))
+            (rec (val ptr excopy exdrop)
+              (ref (base gc)
+                (variant (ser (ref (base gc) (struct)))
+                  (ser (ref (base gc) (variant (ser i31) (ser (var 0))))))))
           fold
-            (rec (VALTYPE (ptr, excopy, exdrop))
+            (rec (val ptr excopy exdrop)
               (ref (base gc)
                 (variant (ser (ref (base gc) (struct)))
                   (ser (ref (base gc) (variant (ser i31) (ser (var 0))))))))
@@ -818,32 +732,28 @@ let%expect_test "examples" =
             (ref (base gc)
               (struct
                 (ser
-                  (rec (VALTYPE (ptr, excopy, exdrop))
+                  (rec (val ptr excopy exdrop)
                     (ref (base gc)
                       (variant (ser (ref (base gc) (struct)))
                         (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))
                 (ser i31)))
-          inject_new gc
-            1 (ref (base gc) (struct)) (ref (base gc)
-                                         (variant (ser i31)
-                                           (ser
-                                             (rec (VALTYPE (ptr, excopy, exdrop))
-                                               (ref (base gc)
-                                                 (variant
-                                                   (ser (ref (base gc) (struct)))
-                                                   (ser
-                                                     (ref (base gc)
-                                                       (variant (ser i31)
-                                                         (ser (var 0)))))))))))
+          inject_new gc 1 (ref (base gc) (struct))
+            (ref (base gc)
+              (variant (ser i31)
+                (ser
+                  (rec (val ptr excopy exdrop)
+                    (ref (base gc)
+                      (variant (ser (ref (base gc) (struct)))
+                        (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))))
           fold
-            (rec (VALTYPE (ptr, excopy, exdrop))
+            (rec (val ptr excopy exdrop)
               (ref (base gc)
                 (variant (ser (ref (base gc) (struct)))
                   (ser (ref (base gc) (variant (ser i31) (ser (var 0))))))))
           local.get 5 move
           copy
           local.set 5
-          inst (Type i31)
+          inst (type i31)
           call_indirect
           local.get 5 move
           drop
@@ -858,29 +768,17 @@ let%expect_test "examples" =
     -----------mini_zip-----------
     (module
       (func
-          (forall.type (VALTYPE (ptr, excopy, exdrop))(forall.type (VALTYPE (ptr,
-                                                                      excopy,
-                                                                      exdrop))
-                                                      (ref (base gc)
-                                                        (struct
-                                                          (ser
-                                                            (ref (base gc)
-                                                              (struct)))
-                                                          (ser
-                                                            (ref (base gc)
-                                                              (struct
-                                                                (ser
-                                                                  (ref (base gc)
-                                                                    (ser (var 0))))
-                                                                (ser
-                                                                  (ref (base gc)
-                                                                    (ser (var 1)))))))))
-                                                      ->
-                                                      (ref (base gc)
-                                                        (ser
-                                                          (ref (base gc)
-                                                            (struct (ser (var 0))
-                                                              (ser (var 1))))))))
+          (forall.type (val ptr excopy exdrop)
+            (forall.type (val ptr excopy exdrop)
+              (ref (base gc)
+                (struct (ser (ref (base gc) (struct)))
+                  (ser
+                    (ref (base gc)
+                      (struct (ser (ref (base gc) (ser (var 0))))
+                        (ser (ref (base gc) (ser (var 1)))))))))
+              ->
+              (ref (base gc)
+                (ser (ref (base gc) (struct (ser (var 0)) (ser (var 1))))))))
           (local ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
@@ -926,7 +824,8 @@ let%expect_test "examples" =
           ((ref (base gc)
              (struct (ser (ref (base gc) (struct (ser i31))))
                (ser (ref (base gc) (struct)))))
-          -> i31) (local ptr ptr ptr ptr ptr ptr ptr)
+            -> i31)
+          (local ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -982,20 +881,20 @@ let%expect_test "examples" =
                   ((ref (base gc)
                      (struct (ser (ref (base gc) (struct (ser i31))))
                        (ser (ref (base gc) (struct)))))
-                  -> i31)))))
-        pack (Type (ref (base gc) (struct (ser i31))))
+                    -> i31)))))
+        pack (type (ref (base gc) (struct (ser i31))))
           (ref (base gc)
             (struct (ser (var 0))
               (ser
                 (coderef
                   ((ref (base gc)
                      (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
-                  -> i31)))))
+                    -> i31)))))
         local.set 2
         local.get 2 move
         copy
         local.set 2
-        unpack (result i31) InferFx
+        unpack (result i31) inferfx
           local.set 3
           local.get 3 move
           copy
@@ -1042,16 +941,17 @@ let%expect_test "examples" =
                  (ref (base gc)
                    (struct
                      (ser
-                       (exists type (VALTYPE (ptr, excopy, exdrop))
+                       (exists type (val ptr excopy exdrop)
                          (ref (base gc)
                            (struct (ser (var 0))
                              (ser
                                (coderef
                                  ((ref (base gc) (struct (ser (var 0)) (ser i31)))
-                                 -> i31)))))))
+                                   -> i31)))))))
                      (ser i31))))
                (ser i31)))
-          -> i31) (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr)
+            -> i31)
+          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -1087,7 +987,7 @@ let%expect_test "examples" =
         local.get 6 move
         copy
         local.set 6
-        unpack (result i31) InferFx
+        unpack (result i31) inferfx
           local.set 9
           local.get 9 move
           copy
@@ -1137,7 +1037,8 @@ let%expect_test "examples" =
       (func
           ((ref (base gc)
              (struct (ser (ref (base gc) (struct (ser i31)))) (ser i31)))
-          -> i31) (local ptr ptr ptr ptr ptr ptr ptr)
+            -> i31)
+          (local ptr ptr ptr ptr ptr ptr ptr)
         local.get 0 move
         copy
         local.set 0
@@ -1199,8 +1100,8 @@ let%expect_test "examples" =
                 (coderef
                   ((ref (base gc)
                      (struct (ser (ref (base gc) (struct (ser i31)))) (ser i31)))
-                  -> i31)))))
-        pack (Type (ref (base gc) (struct (ser i31))))
+                    -> i31)))))
+        pack (type (ref (base gc) (struct (ser i31))))
           (ref (base gc)
             (struct (ser (var 0))
               (ser
@@ -1218,7 +1119,7 @@ let%expect_test "examples" =
           (ref (base gc)
             (struct
               (ser
-                (exists type (VALTYPE (ptr, excopy, exdrop))
+                (exists type (val ptr excopy exdrop)
                   (ref (base gc)
                     (struct (ser (var 0))
                       (ser
@@ -1235,13 +1136,13 @@ let%expect_test "examples" =
                 (ref (base gc)
                   (struct
                     (ser
-                      (exists type (VALTYPE (ptr, excopy, exdrop))
+                      (exists type (val ptr excopy exdrop)
                         (ref (base gc)
                           (struct (ser (var 0))
                             (ser
                               (coderef
                                 ((ref (base gc) (struct (ser (var 0)) (ser i31)))
-                                -> i31)))))))
+                                  -> i31)))))))
                     (ser i31))))
               (ser
                 (coderef
@@ -1251,30 +1152,30 @@ let%expect_test "examples" =
                          (ref (base gc)
                            (struct
                              (ser
-                               (exists type (VALTYPE (ptr, excopy, exdrop))
+                               (exists type (val ptr excopy exdrop)
                                  (ref (base gc)
                                    (struct (ser (var 0))
                                      (ser
                                        (coderef
                                          ((ref (base gc)
                                             (struct (ser (var 0)) (ser i31)))
-                                         -> i31)))))))
+                                           -> i31)))))))
                              (ser i31))))
                        (ser i31)))
-                  -> i31)))))
+                    -> i31)))))
         pack
-          (Type
-             (ref (base gc)
-               (struct
-                 (ser
-                   (exists type (VALTYPE (ptr, excopy, exdrop))
-                     (ref (base gc)
-                       (struct (ser (var 0))
-                         (ser
-                           (coderef
-                             ((ref (base gc) (struct (ser (var 0)) (ser i31))) ->
-                             i31)))))))
-                 (ser i31))))
+          (type
+            (ref (base gc)
+              (struct
+                (ser
+                  (exists type (val ptr excopy exdrop)
+                    (ref (base gc)
+                      (struct (ser (var 0))
+                        (ser
+                          (coderef
+                            ((ref (base gc) (struct (ser (var 0)) (ser i31))) ->
+                              i31)))))))
+                (ser i31))))
           (ref (base gc)
             (struct (ser (var 0))
               (ser
@@ -1283,7 +1184,7 @@ let%expect_test "examples" =
         local.get 3 move
         copy
         local.set 3
-        unpack (result i31) InferFx
+        unpack (result i31) inferfx
           local.set 4
           local.get 4 move
           copy

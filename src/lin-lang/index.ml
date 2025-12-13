@@ -45,7 +45,7 @@ module IR = struct
       | Ref of t
     [@@deriving eq, ord, variants, sexp]
 
-    let rec pp ff : t -> unit = function
+    let rec pp ff : t -> _ = function
       | Int -> fprintf ff "int"
       | Var x -> fprintf ff "%a" (LVar.pp ~space:`Type) x
       | Lollipop (t1, t2) -> fprintf ff "@[<2>(%a@ ⊸@ %a)@]" pp t1 pp t2
@@ -87,8 +87,7 @@ module IR = struct
       | Free of t
     [@@deriving eq, ord, variants, sexp]
 
-    let rec pp ff (e : t) =
-      match e with
+    let rec pp ff : t -> _ = function
       | Int n -> fprintf ff "%d" n
       | Var x -> (LVar.pp ~space:`Term) ff x
       | Coderef str -> fprintf ff "@[(coderef %s)@]" str

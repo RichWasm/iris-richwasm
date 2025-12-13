@@ -44,8 +44,7 @@ module IR = struct
       | Free of t * Type.t
     [@@deriving eq, ord, variants, sexp]
 
-    let rec pp ff (e : t) =
-      match e with
+    let rec pp ff : t -> _ = function
       | Int (n, t) -> fprintf ff "(@[<2>%d@ : %a@])" n Type.pp t
       | Var (x, t) ->
           fprintf ff "(@[<2>%a@ : %a@])" (LVar.pp ~space:`Term) x Type.pp t
@@ -72,12 +71,12 @@ module IR = struct
             Type.pp_binding binding pp e pp body Type.pp t
       | Split (bs, e, b, t) ->
           fprintf ff "(@[<v 0>@[<2>split@ %a@ =@ %a@ in@]@;@[<2>%a@]@]@ : %a)"
-            (pp_print_list ~pp_sep:pp_print_space Type.pp_binding)
+            (pp_print_list_space Type.pp_binding)
             bs pp e pp b Type.pp t
       | Cases (scrutinee, cases, t) ->
           fprintf ff "(@[<v 0>@[<v 2>@[<2>cases %a@]@,%a@]@ : @[<2>%a@]@])" pp
             scrutinee
-            (pp_print_list ~pp_sep:pp_print_cut (fun ff (binding, body) ->
+            (pp_print_list (fun ff (binding, body) ->
                  fprintf ff "@[<2>(case %a@ %a)@]" Type.pp_binding binding pp
                    body))
             cases Type.pp t
