@@ -16,4 +16,13 @@ let simple_tests =
     ("top-level triangle", Expl.triangle_tl, "55");
     ("top-level factorial", Expl.factorial_tl, "120");
     ("top-level mk_add", Expl.mk_add_tl, "25");
+    ("expr mk_add", Expl.mk_add_expr, "25");
+    ("expr mk_add3", Expl.mk_add3_expr, "54");
+    ("new then free", "(free (new 10))", "10");
+    ("swap", {|
+      (let (r : (ref int)) = (new 21) in
+      (split (r' : (ref int)) (_ : int) = (swap r 67) in
+      (free r')))
+    |}, "67");
+    ("incr_n", Expl.incr_n, "13");
   ]

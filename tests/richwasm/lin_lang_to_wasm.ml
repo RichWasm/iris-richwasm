@@ -1750,7 +1750,6 @@ let%expect_test "examples" =
                 ^^^^^^^^
 
     -----------incr_n-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
@@ -1790,7 +1789,7 @@ let%expect_test "examples" =
         local.get 3
         i32.const 0
         local.set 8
-        local.set 9
+        local.tee 9
         local.get 9
         i32.const 1
         i32.and
@@ -1827,7 +1826,7 @@ let%expect_test "examples" =
         i32.const 1
         i32.add
         local.set 12
-        local.set 13
+        local.tee 13
         local.get 13
         i32.const 1
         i32.and
@@ -2124,14 +2123,6 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (export "__rw_table_func_8" (func 8))
       (start 10))
-
-
-    -:71:5: error: type mismatch in local.set, expected [i32] but got []
-        local.set 4
-        ^^^^^^^^^
-    -:108:5: error: type mismatch in local.set, expected [i32] but got []
-        local.set 6
-        ^^^^^^^^^
 
     -----------fix_factorial[invalid]-----------
     FAILURE (InstrErr

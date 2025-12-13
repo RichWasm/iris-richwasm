@@ -52,6 +52,30 @@ let mk_add_tl =
   (add5 20))
 |}
 
+let mk_add_expr =
+  {|
+  (let (mk-add : (int -> (int -> int))) = 
+    (lam (a : int) : (int -> int) .
+      (lam (b : int) : int .
+        (a + b)))
+  in
+  (let (add5 : (int -> int)) = (mk-add 5) in
+  (add5 20)))
+|}
+
+let mk_add3_expr =
+  {|
+  (let (mk-add : (int -> (int -> (int -> int)))) = 
+    (lam (a : int) : (int -> (int -> int)) .
+      (lam (b : int) : (int -> int) .
+        (lam (c : int) : int .
+          ((a + b) + c))))
+  in
+  (let (f : (int -> (int -> int))) = (mk-add 6) in
+  (let (g : (int -> int)) = (f 7) in
+  (g 41))))
+|}
+
 let triangle_tl =
   {|
     (fun triangle (n : int) : int .

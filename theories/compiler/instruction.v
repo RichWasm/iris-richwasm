@@ -249,7 +249,7 @@ Section Compiler.
     off ← try_option EFail (path_offset fe τ π);
     vs ← save_stack_arep fe ιs;
     a ← wlalloc fe W.T_i32;
-    emit (W.BI_set_local (localimm a));;
+    emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr a (W.Tf [] (map translate_arep ιs))
       (emit W.BI_unreachable)
       (fun μ => load mr fe μ Move a off ιs;; store mr μ a off vs ιs).
