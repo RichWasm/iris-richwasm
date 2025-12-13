@@ -284,7 +284,7 @@ module Compile = struct
         let* e2' = compile_expr env e2 in
         let* bt = compile_type env t |> lift_result in
         ret @@ v'
-        @ [ NumConst (Int I32, 0); Num (IntTest (I32, Eqz)) ]
+        @ [ Num (IntTest (I32, Eqz)) ]
         @ [ Ite (ValType [ bt ], InferFx, e1', e2') ]
     | Binop (op, v1, v2, _) ->
         let op' = compile_binop op in

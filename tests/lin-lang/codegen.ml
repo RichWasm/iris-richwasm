@@ -513,7 +513,6 @@ let%expect_test "examples" =
         local.set 2
         local.set 1
         local.get 2 follow
-        i32.const 0
         i32.eqz
         if (result i32) inferfx
           i32.const 0
@@ -589,7 +588,6 @@ let%expect_test "examples" =
         local.set 2
         local.set 1
         local.get 2 follow
-        i32.const 0
         i32.eqz
         if (result i32) inferfx
           i32.const 1
@@ -679,7 +677,6 @@ let%expect_test "examples" =
         local.set 4
         local.set 3
         local.get 4 follow
-        i32.const 0
         i32.eqz
         if (result (sum i32 (prod))) inferfx
           group 0
@@ -846,7 +843,6 @@ let%expect_test "examples" =
         local.set 4
         local.set 3
         local.get 4 follow
-        i32.const 0
         i32.eqz
         if (result i32) inferfx
           local.get 3 follow
@@ -1193,7 +1189,6 @@ let%expect_test "examples" =
         local.get 2 follow
         local.set 5
         local.get 5 follow
-        i32.const 0
         i32.eqz
         if (result i32) inferfx
           i32.const 1
@@ -1763,7 +1758,6 @@ let%expect_test "examples" =
         local.set 2
         local.set 1
         local.get 2 follow
-        i32.const 0
         i32.eqz
         if
           (result

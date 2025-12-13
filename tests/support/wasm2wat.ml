@@ -2,11 +2,11 @@ open! Core
 open! Core_unix
 open! Stdlib.Format
 
-let wasm2wat ?(check = true) (wasm : string) : (string, string) Result.t =
+let wasm2wat ?(pretty = false) ?(check = true) (wasm : string) :
+    (string, string) Result.t =
   let args =
-    let show_nicely = false in
     let extra_args =
-      if show_nicely then
+      if pretty then
         [
           "--inline-exports";
           "--inline-imports";

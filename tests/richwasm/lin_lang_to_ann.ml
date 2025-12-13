@@ -1339,7 +1339,6 @@ let%expect_test "examples" =
                           (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
                        -> []
         local.get 2 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
-        num_const 0 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         i32.eqz ;; [(num (val i32 imcopy imdrop) i32)] -> [(num (val i32 imcopy imdrop) i32)]
         if
           (localfx [0 => (plug (val (prod i32 i32) imcopy imdrop) (prod i32 i32))]
@@ -1661,7 +1660,6 @@ let%expect_test "examples" =
                           (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
                        -> []
         local.get 2 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
-        num_const 0 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         i32.eqz ;; [(num (val i32 imcopy imdrop) i32)] -> [(num (val i32 imcopy imdrop) i32)]
         if
           (localfx [0 => (plug (val (prod i32 i32) imcopy imdrop) (prod i32 i32))]
@@ -2010,7 +2008,6 @@ let%expect_test "examples" =
         local.set 4 ;; [(num (val i32 imcopy imdrop) i32)] -> []
         local.set 3 ;; [(num (val i32 imcopy imdrop) i32)] -> []
         local.get 4 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
-        num_const 0 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         i32.eqz ;; [(num (val i32 imcopy imdrop) i32)] -> [(num (val i32 imcopy imdrop) i32)]
         if
           (localfx [0 => (plug (val (prod i32 i32 i32) imcopy imdrop) (prod i32 i32 i32))]
@@ -2641,7 +2638,6 @@ let%expect_test "examples" =
                           (ser (mem (rep i32) imdrop) (num (val i32 imcopy imdrop) i32)))]
                        -> []
         local.get 4 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
-        num_const 0 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         i32.eqz ;; [(num (val i32 imcopy imdrop) i32)] -> [(num (val i32 imcopy imdrop) i32)]
         if
           (localfx [0 => (plug (val (prod i32 i32 i32) imcopy imdrop) (prod i32 i32 i32))]
@@ -5090,7 +5086,6 @@ let%expect_test "examples" =
                           (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
                        -> []
         local.get 2 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
-        num_const 0 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         i32.eqz ;; [(num (val i32 imcopy imdrop) i32)] -> [(num (val i32 imcopy imdrop) i32)]
         if
           (localfx [0 => (plug (val (prod i32 i32) imcopy imdrop) (prod i32 i32))]

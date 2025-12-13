@@ -9,8 +9,10 @@ let simple_tests =
     ("nested arith", "((9 + 10) * 5)", "95");
     ("let bind", "(let (x : int) = 21 in x)", "21");
     ("app_id", "((lam (x : int) : int . x) 67)", "67");
+    ("if thn", "(if0 0 0 1)", "0");
+    ("if els", "(if0 1 0 1)", "1");
     ("closure", Expl.closure, "10");
     ("closure call var", Expl.closure_call_var, "22");
-    (* ("top-level triangle", Expl.triangle_tl, "55"); *)
-    (* ("top-level facorial", Expl.factorial_tl, "120"); *)
+    ("top-level triangle", Expl.triangle_tl, "55");
+    ("top-level factorial", Expl.factorial_tl, "120");
   ]

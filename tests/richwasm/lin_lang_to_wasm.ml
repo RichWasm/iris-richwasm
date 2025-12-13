@@ -1203,7 +1203,6 @@ let%expect_test "examples" =
       (start 9))
 
     -----------triangle_tl-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
@@ -1235,7 +1234,6 @@ let%expect_test "examples" =
         local.set 3
         local.set 2
         local.get 3
-        i32.const 0
         i32.eqz
         if (result i32)  ;; label = @1
           i32.const 0
@@ -1348,13 +1346,7 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (start 9))
 
-
-    -:94:5: error: type mismatch at end of function, expected [] but got [i32]
-        drop)
-        ^^^^
-
     -----------factorial_tl-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
@@ -1386,7 +1378,6 @@ let%expect_test "examples" =
         local.set 3
         local.set 2
         local.get 3
-        i32.const 0
         i32.eqz
         if (result i32)  ;; label = @1
           i32.const 1
@@ -1508,11 +1499,6 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (start 9))
 
-
-    -:102:5: error: type mismatch at end of function, expected [] but got [i32]
-        drop)
-        ^^^^
-
     -----------safe_div-----------
     FAILURE wat2wasm2wat validation!
     (module
@@ -1560,7 +1546,6 @@ let%expect_test "examples" =
         local.set 7
         local.set 6
         local.get 7
-        i32.const 0
         i32.eqz
         if (result i32 i32)  ;; label = @1
           nop
@@ -1757,13 +1742,10 @@ let%expect_test "examples" =
       (start 10))
 
 
-    -:91:5: error: type mismatch at end of function, expected [] but got [i32]
-        drop)
-        ^^^^
-    -:108:13: error: type mismatch in br_table, expected [i32] but got []
+    -:107:13: error: type mismatch in br_table, expected [i32] but got []
                 br_table 1 (;@3;) 20 (; INVALID ;)
                 ^^^^^^^^
-    -:108:13: error: invalid depth: 20 (max 4)
+    -:107:13: error: invalid depth: 20 (max 4)
                 br_table 1 (;@3;) 20 (; INVALID ;)
                 ^^^^^^^^
 
@@ -1927,7 +1909,6 @@ let%expect_test "examples" =
         local.set 7
         local.set 6
         local.get 7
-        i32.const 0
         i32.eqz
         if (result i32)  ;; label = @1
           local.get 6
@@ -2163,9 +2144,6 @@ let%expect_test "examples" =
     -:110:5: error: type mismatch in local.set, expected [i32] but got []
         local.set 7
         ^^^^^^^^^
-    -:312:5: error: type mismatch at end of function, expected [] but got [i32]
-        drop)
-        ^^^^
 
     -----------fix_factorial[invalid]-----------
     FAILURE (InstrErr
@@ -3568,7 +3546,6 @@ let%expect_test "examples" =
         local.set 3
         local.set 2
         local.get 3
-        i32.const 0
         i32.eqz
         if (result i32 i32)  ;; label = @1
           nop
@@ -4012,13 +3989,10 @@ let%expect_test "examples" =
     -:88:13: error: invalid depth: 20 (max 4)
                 br_table 1 (;@3;) 20 (; INVALID ;)
                 ^^^^^^^^
-    -:375:5: error: type mismatch at end of function, expected [] but got [i32]
-        drop)
-        ^^^^
-    -:392:13: error: type mismatch in br_table, expected [i32] but got []
+    -:391:13: error: type mismatch in br_table, expected [i32] but got []
                 br_table 1 (;@3;) 20 (; INVALID ;)
                 ^^^^^^^^
-    -:392:13: error: invalid depth: 20 (max 4)
+    -:391:13: error: invalid depth: 20 (max 4)
                 br_table 1 (;@3;) 20 (; INVALID ;)
                 ^^^^^^^^
 

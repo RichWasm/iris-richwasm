@@ -104,7 +104,7 @@ module EndToEnd = struct
       >>| Main.wasm_ugly_printer
       >>? (Wat2wasm.wat2wasm ~check:false, E2Err.wat2wasmunchecked)
       >>?! ( "wat",
-             Wasm2wat.wasm2wat ~check:false,
+             Wasm2wat.wasm2wat ~pretty:true ~check:false,
              pp_print_string,
              E2Err.wasm2watunchecked )
       >>? (Wat2wasm.wat2wasm ~check:true, E2Err.wat2wasm)
