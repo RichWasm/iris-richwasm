@@ -233,16 +233,12 @@ let%expect_test "pretty prints examples" =
     -----------incr_n-----------
     (fun incr_1 (r : (ref int)) : (ref int) .
       (split (r1 : (ref int)) (old : int) = (swap r 0) in
-      (let (new : int) = (old + 1) in
-      (split (r2 : (ref int)) (_ : int) = (swap r1 new) in
-      r2))))
+      (split (r2 : (ref int)) (_ : int) = (swap r1 (old + 1)) in
+      r2)))
 
     (export fun incr_n (p : ((ref int) ⊗ int)) : int .
       (split (r : (ref int)) (n : int) = p in
-      (if0 n then (free r) else
-        (let (r1 : (ref int)) = (app incr_1 r) in
-        (let (n1 : int) = (n - 1) in
-        (app incr_n (r1, n1)))))))
+      (if0 n then (free r) else (app incr_n ((app incr_1 r), (n - 1))))))
 
     (let (r0 : (ref int)) = (new 10) in
     (app incr_n (r0, 3)))

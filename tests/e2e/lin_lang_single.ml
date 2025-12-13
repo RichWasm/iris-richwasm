@@ -15,4 +15,5 @@ let simple_tests =
     ("closure call var", Expl.closure_call_var, "22");
     ("top-level triangle", Expl.triangle_tl, "55");
     ("top-level factorial", Expl.factorial_tl, "120");
+    ("top-level mk_add", Expl.mk_add_tl, "25");
   ]

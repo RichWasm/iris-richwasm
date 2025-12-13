@@ -127,16 +127,13 @@ let%expect_test "examples" =
     -----------incr_n-----------
     (fun incr_1 (<> : (ref int)) : (ref int) .
       (split (<> : (ref int)) (<> : int) = (swap <0:r> 0) in
-      (let (<> : int) = (<0:old> + 1) in
-      (split (<> : (ref int)) (<> : int) = (swap <2:r1> <0:new>) in
-      <1:r2>))))
+      (split (<> : (ref int)) (<> : int) = (swap <1:r1> (<0:old> + 1)) in
+      <1:r2>)))
 
     (export fun incr_n (<> : (⊗ (ref int) int)) : int .
       (split (<> : (ref int)) (<> : int) = <0:p> in
       (if0 <0:n> then (free <1:r>) else
-        (let (<> : (ref int)) = (app (coderef incr_1) <1:r>) in
-        (let (<> : int) = (<1:n> - 1) in
-        (app (coderef incr_n) (<1:r1>, <0:n1>)))))))
+        (app (coderef incr_n) ((app (coderef incr_1) <1:r>), (<0:n> - 1))))))
 
     (let (<> : (ref int)) = (new 10) in
     (app (coderef incr_n) (<0:r0>, 3)))

@@ -147,11 +147,11 @@ let%expect_test "examples" =
     (fun incr_1 (<> : (ref int)) : (ref int) .
       (split (<> : (ref int)) (<> : int) =
          (swap (<0:r> : (ref int)) (0 : int) : (⊗ (ref int) int)) in
-       (let (<> : int) = (+ (<0:old> : int) (1 : int) : int) in
-        (split (<> : (ref int)) (<> : int) =
-           (swap (<2:r1> : (ref int)) (<0:new> : int) : (⊗ (ref int) int)) in
-         (<1:r2> : (ref int)) : (ref int))
-        : (ref int))
+       (split (<> : (ref int)) (<> : int) =
+          (swap (<1:r1> : (ref int)) (+ (<0:old> : int) (1 : int) : int)
+             : (⊗ (ref int) int))
+          in
+        (<1:r2> : (ref int)) : (ref int))
       : (ref int)))
 
     (export fun incr_n (<> : (⊗ (ref int) int)) : int .
@@ -159,16 +159,13 @@ let%expect_test "examples" =
        (if0 (<0:n> : int)
         then (free (<1:r> : (ref int)) : int)
         else
-          (let (<> : (ref int)) =
-             (app (coderef incr_1 : ((ref int) ⊸ (ref int))) (<1:r> : (ref int))
-                : (ref int))
-             in
-           (let (<> : int) = (- (<1:n> : int) (1 : int) : int) in
-            (app (coderef incr_n : ((⊗ (ref int) int) ⊸ int))
-               (tup (<1:r1> : (ref int)) (<0:n1> : int) : (⊗ (ref int) int))
-               : int)
-            : int)
-           : int)
+          (app (coderef incr_n : ((⊗ (ref int) int) ⊸ int))
+             (tup
+                (app (coderef incr_1 : ((ref int) ⊸ (ref int)))
+                   (<1:r> : (ref int)) : (ref int))
+                (- (<0:n> : int) (1 : int) : int)
+              : (⊗ (ref int) int))
+             : int)
         : int)
       : int))
 

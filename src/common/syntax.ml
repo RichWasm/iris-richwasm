@@ -750,7 +750,9 @@ module LocalFx = struct
 
   let pp ff : t -> _ = function
     | LocalFx fxs ->
-        let fmt ff (idx, typ) = fprintf ff "[%i@ @[<2>=>@ %a]@]" idx Type.pp typ in
+        let fmt ff (idx, typ) =
+          fprintf ff "[%i@ @[<2>=>@ %a]@]" idx Type.pp typ
+        in
         fprintf ff "@[<2>(localfx%a)@]" (pp_print_list_pre_space fmt) fxs
     | InferFx -> fprintf ff "inferfx"
 end

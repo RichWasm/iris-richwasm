@@ -201,7 +201,8 @@ module Compile = struct
   let rec compile_typ : A.Type.t -> B.Type.t = function
     | Int -> Int
     | Var x -> Var x
-    | Lollipop (t1, t2) -> Exists (compile_lolipop_unwrapped t1 t2)
+    | Lollipop (t1, t2) ->
+        Exists (Prod [ compile_lolipop_unwrapped t1 t2; Ref (Var (0, None)) ])
     | Prod ts -> Prod (List.map ~f:compile_typ ts)
     | Sum ts -> Sum (List.map ~f:compile_typ ts)
     | Ref t -> Ref (compile_typ t)
@@ -482,7 +483,7 @@ module Compile = struct
         ret (Unpack (applicand', body, compile_typ return))
     | Let (b_t, rhs, body, t) ->
         let* rhs' = compile_expr env rhs in
-        let env' = Env.add_var env t in
+        let env' = Env.add_var env b_t in
         let* body' = compile_expr env' body in
         ret @@ Let (compile_typ b_t, rhs', body', compile_typ t)
     | Split (es, rhs, body, t) ->

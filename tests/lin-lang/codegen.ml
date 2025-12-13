@@ -791,7 +791,7 @@ let%expect_test "examples" =
       (func
           ((prod (ref (base mm) (ser (prod))) (ref (base mm) (ser i32))) ->
             (ref (base mm) (ser i32)))
-          (local ptr ptr ptr i32 i32 ptr i32)
+          (local ptr ptr ptr i32 ptr i32)
         local.get 0 follow
         ungroup
         local.set 2
@@ -803,23 +803,19 @@ let%expect_test "examples" =
         ungroup
         local.set 4
         local.set 3
+        local.get 3 follow
         local.get 4 follow
         i32.const 1
         i32.add
-        local.set 5
-        local.get 3 follow
-        local.get 5 follow
         swap (Path [])
         group 2
         ungroup
-        local.set 7
         local.set 6
-        local.get 6 follow
-        local.get 6 move
-        drop
-        local.get 7 move
-        drop
+        local.set 5
+        local.get 5 follow
         local.get 5 move
+        drop
+        local.get 6 move
         drop
         local.get 3 move
         drop
@@ -832,7 +828,7 @@ let%expect_test "examples" =
       (func
           ((prod (ref (base mm) (ser (prod))) (prod (ref (base mm) (ser i32)) i32))
             -> i32)
-          (local ptr (prod ptr i32) ptr i32 i32 (prod i32 ptr) i32 ptr ptr i32
+          (local ptr (prod ptr i32) ptr i32 i32 (prod i32 ptr) i32 ptr
           (prod i32 ptr) i32 ptr)
         local.get 0 follow
         ungroup
@@ -851,39 +847,6 @@ let%expect_test "examples" =
           drop
           local.get 5 move
         else
-          coderef 0
-          group 0
-          new mm
-          group 2
-          pack (type (prod))
-            (prod
-              (coderef
-                ((prod (ref (base mm) (ser (var 0))) (ref (base mm) (ser i32))) ->
-                  (ref (base mm) (ser i32))))
-              (ref (base mm) (ser (var 0))))
-          unpack (result (ref (base mm) (ser i32))) inferfx
-            local.set 6
-            local.get 6 follow
-            ungroup
-            local.set 8
-            local.set 7
-            local.get 8 follow
-            local.get 3 follow
-            group 2
-            local.get 7 follow
-            call_indirect
-            local.get 7 move
-            drop
-            local.get 8 move
-            drop
-            local.get 6 move
-            drop
-          end
-          local.set 9
-          local.get 4 follow
-          i32.const 1
-          i32.sub
-          local.set 10
           coderef 1
           group 0
           new mm
@@ -896,29 +859,54 @@ let%expect_test "examples" =
                   -> i32))
               (ref (base mm) (ser (var 0))))
           unpack (result i32) inferfx
-            local.set 11
-            local.get 11 follow
+            local.set 6
+            local.get 6 follow
             ungroup
-            local.set 13
-            local.set 12
-            local.get 13 follow
-            local.get 9 follow
-            local.get 10 follow
+            local.set 8
+            local.set 7
+            local.get 8 follow
+            coderef 0
+            group 0
+            new mm
+            group 2
+            pack (type (prod))
+              (prod
+                (coderef
+                  ((prod (ref (base mm) (ser (var 0))) (ref (base mm) (ser i32)))
+                    -> (ref (base mm) (ser i32))))
+                (ref (base mm) (ser (var 0))))
+            unpack (result (ref (base mm) (ser i32))) inferfx
+              local.set 9
+              local.get 9 follow
+              ungroup
+              local.set 11
+              local.set 10
+              local.get 11 follow
+              local.get 3 follow
+              group 2
+              local.get 10 follow
+              call_indirect
+              local.get 10 move
+              drop
+              local.get 11 move
+              drop
+              local.get 9 move
+              drop
+            end
+            local.get 4 follow
+            i32.const 1
+            i32.sub
             group 2
             group 2
-            local.get 12 follow
+            local.get 7 follow
             call_indirect
-            local.get 12 move
+            local.get 7 move
             drop
-            local.get 13 move
+            local.get 8 move
             drop
-            local.get 11 move
+            local.get 6 move
             drop
           end
-          local.get 10 move
-          drop
-          local.get 9 move
-          drop
         end
         local.get 3 move
         drop
@@ -976,25 +964,39 @@ let%expect_test "examples" =
                (ser
                  (prod
                    (exists type (val ptr nocopy exdrop)
-                     (coderef
-                       ((prod (ref (base mm) (ser (var 0)))
-                          (exists type (val ptr nocopy exdrop)
-                            (coderef
-                              ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
-                         ->
-                         (exists type (val ptr nocopy exdrop)
-                           (coderef
-                             ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))))))
-             (rec (val i32 nocopy exdrop)
+                     (prod
+                       (coderef
+                         ((prod (ref (base mm) (ser (var 0)))
+                            (exists type (val ptr nocopy exdrop)
+                              (prod
+                                (coderef
+                                  ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                                (ref (base mm) (ser (var 0))))))
+                           ->
+                           (exists type (val ptr nocopy exdrop)
+                             (prod
+                               (coderef
+                                 ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                               (ref (base mm) (ser (var 0)))))))
+                       (ref (base mm) (ser (var 0))))))))
+             (rec (val (prod i32 ptr) nocopy exdrop)
                (exists type (val ptr nocopy exdrop)
-                 (coderef
-                   ((prod (ref (base mm) (ser (var 0))) (var 1)) ->
-                     (exists type (val ptr nocopy exdrop)
-                       (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))))))
+                 (prod
+                   (coderef
+                     ((prod (ref (base mm) (ser (var 0))) (var 1)) ->
+                       (exists type (val ptr nocopy exdrop)
+                         (prod
+                           (coderef
+                             ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                           (ref (base mm) (ser (var 0)))))))
+                   (ref (base mm) (ser (var 0)))))))
             ->
             (exists type (val ptr nocopy exdrop)
-              (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
-          (local ptr i32 (prod i32) i32 i32 i32 i32 i32 ptr i32 i32 i32 ptr)
+              (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                (ref (base mm) (ser (var 0))))))
+          (local ptr (prod i32 ptr) (prod (prod i32 ptr)) (prod i32 ptr)
+          (prod i32 ptr) (prod i32 ptr) (prod i32 ptr) i32 ptr (prod i32 ptr)
+          (prod i32 ptr) i32 ptr)
         local.get 0 follow
         ungroup
         local.set 2
@@ -1015,7 +1017,8 @@ let%expect_test "examples" =
         unpack
           (result
           (exists type (val ptr nocopy exdrop)
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+            (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+              (ref (base mm) (ser (var 0))))))
           inferfx
           local.set 7
           local.get 7 follow
@@ -1039,7 +1042,8 @@ let%expect_test "examples" =
         unpack
           (result
           (exists type (val ptr nocopy exdrop)
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+            (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+              (ref (base mm) (ser (var 0))))))
           inferfx
           local.set 11
           local.get 11 follow
@@ -1073,17 +1077,27 @@ let%expect_test "examples" =
       (func
           ((prod (ref (base mm) (ser (prod)))
              (exists type (val ptr nocopy exdrop)
-               (coderef
-                 ((prod (ref (base mm) (ser (var 0)))
-                    (exists type (val ptr nocopy exdrop)
-                      (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
-                   ->
-                   (exists type (val ptr nocopy exdrop)
-                     (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))))
+               (prod
+                 (coderef
+                   ((prod (ref (base mm) (ser (var 0)))
+                      (exists type (val ptr nocopy exdrop)
+                        (prod
+                          (coderef
+                            ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                          (ref (base mm) (ser (var 0))))))
+                     ->
+                     (exists type (val ptr nocopy exdrop)
+                       (prod
+                         (coderef
+                           ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                         (ref (base mm) (ser (var 0)))))))
+                 (ref (base mm) (ser (var 0))))))
             ->
             (exists type (val ptr nocopy exdrop)
-              (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
-          (local ptr i32 (prod) i32 i32 i32 i32 ptr)
+              (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                (ref (base mm) (ser (var 0))))))
+          (local ptr (prod i32 ptr) (prod) (prod i32 ptr) (prod i32 ptr)
+          (prod i32 ptr) i32 ptr)
         local.get 0 follow
         ungroup
         local.set 2
@@ -1105,33 +1119,47 @@ let%expect_test "examples" =
           (type
             (prod
               (exists type (val ptr nocopy exdrop)
-                (coderef
-                  ((prod (ref (base mm) (ser (var 0)))
-                     (exists type (val ptr nocopy exdrop)
-                       (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
-                    ->
-                    (exists type (val ptr nocopy exdrop)
-                      (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))))))
+                (prod
+                  (coderef
+                    ((prod (ref (base mm) (ser (var 0)))
+                       (exists type (val ptr nocopy exdrop)
+                         (prod
+                           (coderef
+                             ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                           (ref (base mm) (ser (var 0))))))
+                      ->
+                      (exists type (val ptr nocopy exdrop)
+                        (prod
+                          (coderef
+                            ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                          (ref (base mm) (ser (var 0)))))))
+                  (ref (base mm) (ser (var 0)))))))
           (prod
             (coderef
               ((prod (ref (base mm) (ser (var 0)))
-                 (rec (val i32 nocopy exdrop)
+                 (rec (val (prod i32 ptr) nocopy exdrop)
                    (exists type (val ptr nocopy exdrop)
-                     (coderef
-                       ((prod (ref (base mm) (ser (var 0))) (var 1)) ->
-                         (exists type (val ptr nocopy exdrop)
-                           (coderef
-                             ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))))))
+                     (prod
+                       (coderef
+                         ((prod (ref (base mm) (ser (var 0))) (var 1)) ->
+                           (exists type (val ptr nocopy exdrop)
+                             (prod
+                               (coderef
+                                 ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                               (ref (base mm) (ser (var 0)))))))
+                       (ref (base mm) (ser (var 0)))))))
                 ->
                 (exists type (val ptr nocopy exdrop)
-                  (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))
+                  (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                    (ref (base mm) (ser (var 0)))))))
             (ref (base mm) (ser (var 0))))
         local.set 5
         local.get 5 follow
         unpack
           (result
           (exists type (val ptr nocopy exdrop)
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+            (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+              (ref (base mm) (ser (var 0))))))
           inferfx
           local.set 6
           local.get 6 follow
@@ -1141,12 +1169,17 @@ let%expect_test "examples" =
           local.get 8 follow
           local.get 5 follow
           fold
-            (rec (val i32 nocopy exdrop)
+            (rec (val (prod i32 ptr) nocopy exdrop)
               (exists type (val ptr nocopy exdrop)
-                (coderef
-                  ((prod (ref (base mm) (ser (var 0))) (var 1)) ->
-                    (exists type (val ptr nocopy exdrop)
-                      (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))))
+                (prod
+                  (coderef
+                    ((prod (ref (base mm) (ser (var 0))) (var 1)) ->
+                      (exists type (val ptr nocopy exdrop)
+                        (prod
+                          (coderef
+                            ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                          (ref (base mm) (ser (var 0)))))))
+                  (ref (base mm) (ser (var 0))))))
           group 2
           local.get 7 follow
           call_indirect
@@ -1171,10 +1204,13 @@ let%expect_test "examples" =
                (ser
                  (prod
                    (exists type (val ptr nocopy exdrop)
-                     (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))))
+                     (prod
+                       (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                       (ref (base mm) (ser (var 0))))))))
              i32)
             -> i32)
-          (local ptr i32 (prod i32) i32 i32 i32 i32 i32 ptr i32)
+          (local ptr i32 (prod (prod i32 ptr)) (prod i32 ptr) i32 i32
+          (prod i32 ptr) i32 ptr i32)
         local.get 0 follow
         ungroup
         local.set 2
@@ -1236,11 +1272,13 @@ let%expect_test "examples" =
       (func
           ((prod (ref (base mm) (ser (prod)))
              (exists type (val ptr nocopy exdrop)
-               (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+               (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                 (ref (base mm) (ser (var 0))))))
             ->
             (exists type (val ptr nocopy exdrop)
-              (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
-          (local ptr i32 (prod) i32)
+              (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                (ref (base mm) (ser (var 0))))))
+          (local ptr (prod i32 ptr) (prod) (prod i32 ptr))
         local.get 0 follow
         ungroup
         local.set 2
@@ -1262,7 +1300,8 @@ let%expect_test "examples" =
           (type
             (prod
               (exists type (val ptr nocopy exdrop)
-                (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))
+                (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                  (ref (base mm) (ser (var 0)))))))
           (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
             (ref (base mm) (ser (var 0))))
         local.get 4 move
@@ -1271,7 +1310,8 @@ let%expect_test "examples" =
         drop
         local.get 2 move
         drop)
-      (func (-> i32) (local i32 i32 i32 ptr i32 i32 i32 ptr)
+      (func (-> i32) (local (prod i32 ptr) (prod i32 ptr) i32 ptr (prod i32 ptr)
+          (prod i32 ptr) i32 ptr)
         coderef 1
         group 0
         new mm
@@ -1281,25 +1321,33 @@ let%expect_test "examples" =
             (coderef
               ((prod (ref (base mm) (ser (var 0)))
                  (exists type (val ptr nocopy exdrop)
-                   (coderef
-                     ((prod (ref (base mm) (ser (var 0)))
-                        (exists type (val ptr nocopy exdrop)
-                          (coderef
-                            ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
-                       ->
-                       (exists type (val ptr nocopy exdrop)
-                         (coderef
-                           ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))))
+                   (prod
+                     (coderef
+                       ((prod (ref (base mm) (ser (var 0)))
+                          (exists type (val ptr nocopy exdrop)
+                            (prod
+                              (coderef
+                                ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                              (ref (base mm) (ser (var 0))))))
+                         ->
+                         (exists type (val ptr nocopy exdrop)
+                           (prod
+                             (coderef
+                               ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                             (ref (base mm) (ser (var 0)))))))
+                     (ref (base mm) (ser (var 0))))))
                 ->
                 (exists type (val ptr nocopy exdrop)
-                  (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))
+                  (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                    (ref (base mm) (ser (var 0)))))))
             (ref (base mm) (ser (var 0))))
         local.set 0
         local.get 0 follow
         unpack
           (result
           (exists type (val ptr nocopy exdrop)
-            (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+            (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+              (ref (base mm) (ser (var 0))))))
           inferfx
           local.set 1
           local.get 1 follow
@@ -1316,10 +1364,14 @@ let%expect_test "examples" =
               (coderef
                 ((prod (ref (base mm) (ser (var 0)))
                    (exists type (val ptr nocopy exdrop)
-                     (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))))
+                     (prod
+                       (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                       (ref (base mm) (ser (var 0))))))
                   ->
                   (exists type (val ptr nocopy exdrop)
-                    (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))))
+                    (prod
+                      (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                      (ref (base mm) (ser (var 0)))))))
               (ref (base mm) (ser (var 0))))
           group 2
           local.get 2 follow
@@ -1388,15 +1440,17 @@ let%expect_test "examples" =
           ((prod (ref (base mm) (ser (prod)))
              (prod
                (exists type (val ptr nocopy exdrop)
-                 (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))
+                 (prod (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                   (ref (base mm) (ser (var 0)))))
                (rec (val (sum (prod) (prod i32 ptr)) nocopy exdrop)
                  (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
             ->
             (rec (val (sum (prod) (prod i32 ptr)) nocopy exdrop)
               (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
-          (local ptr (prod i32 (sum (prod) (prod i32 ptr))) i32
-          (sum (prod) (prod i32 ptr)) (prod) (prod i32 ptr) i32 ptr i32 i32 ptr
-          (prod i32 ptr) i32 ptr (sum (prod) (prod i32 ptr)))
+          (local ptr (prod (prod i32 ptr) (sum (prod) (prod i32 ptr)))
+          (prod i32 ptr) (sum (prod) (prod i32 ptr)) (prod) (prod i32 ptr) i32 ptr
+          (prod i32 ptr) i32 ptr (prod i32 ptr) i32 ptr
+          (sum (prod) (prod i32 ptr)))
         local.get 0 follow
         ungroup
         local.set 2
@@ -1462,8 +1516,10 @@ let%expect_test "examples" =
                   ((prod (ref (base mm) (ser (var 0)))
                      (prod
                        (exists type (val ptr nocopy exdrop)
-                         (coderef
-                           ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))
+                         (prod
+                           (coderef
+                             ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                           (ref (base mm) (ser (var 0)))))
                        (rec (val (sum (prod) (prod i32 ptr)) nocopy exdrop)
                          (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
                     ->
@@ -1562,7 +1618,9 @@ let%expect_test "examples" =
               ((prod (ref (base mm) (ser (var 0)))
                  (prod
                    (exists type (val ptr nocopy exdrop)
-                     (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32)))
+                     (prod
+                       (coderef ((prod (ref (base mm) (ser (var 0))) i32) -> i32))
+                       (ref (base mm) (ser (var 0)))))
                    (rec (val (sum (prod) (prod i32 ptr)) nocopy exdrop)
                      (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
                 ->
