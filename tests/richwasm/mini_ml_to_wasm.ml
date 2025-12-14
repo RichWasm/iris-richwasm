@@ -27,15 +27,17 @@ include Test_runner.MultiOutputter.Make (struct
   let examples = Test_examples.Mini_ml.all
 
   let pp ff x =
-    match Wat2wasm.wat2wasm x with
-    | Ok wasm -> Wasm2wat.pp_as_wat ff wasm
-    | Error err ->
-        fprintf ff "FAILURE wat2wasm2wat validation!\n";
-        (match Wat2wasm.wat2wasm ~check:false x with
-        | Ok wasm ->
-            Wasm2wat.pp_as_wat ~check:false ff wasm;
-            fprintf ff "Wat2wasm Error: %s" err
-        | Error err -> fprintf ff "UNCHECKED Wat2wasm Error: %s" err)
+    let fmted =
+      Wat2wasm.wat2wasm ~check:false x
+      |> Result.map_error ~f:(asprintf "wat2wasm(unchecked): %s")
+      |> Result.bind ~f:(Wasm2wat.wasm2wat ~check:false)
+      |> Result.map_error ~f:(asprintf "wasm2wat(unchecked): %s")
+      |> or_fail_pp pp_print_string
+    in
+    fmted
+    |> Wat2wasm.wat2wasm
+    |> or_fail_pp (fun ff x -> fprintf ff "wat2wasm: %s@.%s" x fmted)
+    |> Wasm2wat.pp_as_wat ff
 
   let pp_raw ff x = fprintf ff "%s" x
 end)

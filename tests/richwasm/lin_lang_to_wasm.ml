@@ -32,20 +32,17 @@ include Test_runner.MultiOutputter.Make (struct
   let examples = Test_examples.Lin_lang.all
 
   let pp ff x =
-    match Wat2wasm.wat2wasm x with
-    | Ok wasm -> Wasm2wat.pp_as_wat ff wasm
-    | Error _ ->
-        fprintf ff "FAILURE wat2wasm2wat validation!@.";
-        (match Wat2wasm.wat2wasm ~check:false x with
-        | Ok wasm ->
-            (match Wasm2wat.wasm2wat ~check:false wasm with
-            | Ok wat ->
-                let err =
-                  Wat2wasm.wat2wasm wat |> Result.error |> Option.value_exn
-                in
-                fprintf ff "%s\n\n%s" wat err
-            | Error err -> fprintf ff "UNCHECKED wasm2wat Error: %s" err)
-        | Error err -> fprintf ff "UNCHECKED Wat2wasm Error: %s" err)
+    let fmted =
+      Wat2wasm.wat2wasm ~check:false x
+      |> Result.map_error ~f:(asprintf "wat2wasm(unchecked): %s")
+      |> Result.bind ~f:(Wasm2wat.wasm2wat ~check:false)
+      |> Result.map_error ~f:(asprintf "wasm2wat(unchecked): %s")
+      |> or_fail_pp pp_print_string
+    in
+    fmted
+    |> Wat2wasm.wat2wasm
+    |> or_fail_pp (fun ff x -> fprintf ff "wat2wasm: %s\n%s" x fmted)
+    |> Wasm2wat.pp_as_wat ff
 
   let pp_raw ff x = fprintf ff "%s" x
 end)
@@ -1500,7 +1497,6 @@ let%expect_test "examples" =
       (start 9))
 
     -----------safe_div-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
@@ -1514,7 +1510,7 @@ let%expect_test "examples" =
       (type (;9;) (func))
       (type (;10;) (func))
       (type (;11;) (func (param i32) (result i32)))
-      (type (;12;) (func (param i32) (result i32)))
+      (type (;12;) (func (param i32)))
       (type (;13;) (func (param i32)))
       (type (;14;) (func))
       (type (;15;) (func))
@@ -1604,22 +1600,20 @@ let%expect_test "examples" =
         local.get 5
         local.set 7
         block (param i32) (result i32)  ;; label = @1
-          block (param i32) (result i32)  ;; label = @2
+          block (param i32)  ;; label = @2
             block (param i32)  ;; label = @3
-              block (result i32)  ;; label = @4
-                br_table 1 (;@3;) 20 (; INVALID ;)
-              end
+              br_table 1 (;@2;) 0 (;@3;) 0 (;@3;)
               unreachable
             end
             i32.const 0
-            br 1 (;@1;)
+            br 2 (;@0;)
           end
           local.get 7
           local.set 6
           local.get 6
           local.get 6
           drop
-          br 0 (;@1;)
+          br 1 (;@0;)
         end
         local.get 3
         local.set 8
@@ -1740,14 +1734,6 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (export "__rw_table_func_8" (func 8))
       (start 10))
-
-
-    -:107:13: error: type mismatch in br_table, expected [i32] but got []
-                br_table 1 (;@3;) 20 (; INVALID ;)
-                ^^^^^^^^
-    -:107:13: error: invalid depth: 20 (max 4)
-                br_table 1 (;@3;) 20 (; INVALID ;)
-                ^^^^^^^^
 
     -----------incr_n-----------
     (module
@@ -3105,7 +3091,6 @@ let%expect_test "examples" =
       (start 8))
 
     -----------peano-----------
-    FAILURE wat2wasm2wat validation!
     (module
       (type (;0;) (func (param i32 i32)))
       (type (;1;) (func (param i32) (result i32)))
@@ -3117,42 +3102,41 @@ let%expect_test "examples" =
       (type (;7;) (func (result i32)))
       (type (;8;) (func))
       (type (;9;) (func (param i32) (result i32 i32)))
-      (type (;10;) (func (param i32) (result i32 i32)))
+      (type (;10;) (func (param i32)))
       (type (;11;) (func (param i32)))
-      (type (;12;) (func (result i32 i32)))
-      (type (;13;) (func (param i32 i32) (result i32 i32)))
+      (type (;12;) (func (param i32 i32) (result i32 i32)))
+      (type (;13;) (func (result i32 i32)))
       (type (;14;) (func (result i32 i32)))
-      (type (;15;) (func (result i32 i32)))
+      (type (;15;) (func (param i32) (result i32)))
       (type (;16;) (func (param i32) (result i32)))
       (type (;17;) (func (param i32) (result i32)))
       (type (;18;) (func (param i32) (result i32)))
-      (type (;19;) (func (param i32) (result i32)))
+      (type (;19;) (func))
       (type (;20;) (func))
       (type (;21;) (func))
       (type (;22;) (func))
-      (type (;23;) (func))
-      (type (;24;) (func (result i32 i32)))
-      (type (;25;) (func (param i32 i32) (result i32 i32)))
+      (type (;23;) (func (result i32 i32)))
+      (type (;24;) (func (param i32 i32) (result i32 i32)))
+      (type (;25;) (func))
       (type (;26;) (func))
-      (type (;27;) (func))
-      (type (;28;) (func (param i32) (result i32)))
-      (type (;29;) (func (param i32) (result i32)))
-      (type (;30;) (func (param i32)))
-      (type (;31;) (func (param i32 i32) (result i32)))
+      (type (;27;) (func (param i32) (result i32)))
+      (type (;28;) (func (param i32)))
+      (type (;29;) (func (param i32)))
+      (type (;30;) (func (param i32 i32) (result i32)))
+      (type (;31;) (func (result i32 i32)))
       (type (;32;) (func (result i32 i32)))
-      (type (;33;) (func (result i32 i32)))
+      (type (;33;) (func (param i32) (result i32)))
       (type (;34;) (func (param i32) (result i32)))
       (type (;35;) (func (param i32) (result i32)))
       (type (;36;) (func (param i32) (result i32)))
-      (type (;37;) (func (param i32) (result i32)))
+      (type (;37;) (func))
       (type (;38;) (func))
       (type (;39;) (func))
       (type (;40;) (func))
-      (type (;41;) (func))
+      (type (;41;) (func (param i32 i32) (result i32 i32)))
       (type (;42;) (func (param i32 i32) (result i32 i32)))
       (type (;43;) (func (param i32 i32) (result i32 i32)))
-      (type (;44;) (func (param i32 i32) (result i32 i32)))
-      (type (;45;) (func (param i32 i32) (result i32)))
+      (type (;44;) (func (param i32 i32) (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -3190,11 +3174,9 @@ let%expect_test "examples" =
         local.get 11
         local.set 21
         block (param i32) (result i32 i32)  ;; label = @1
-          block (param i32) (result i32 i32)  ;; label = @2
+          block (param i32)  ;; label = @2
             block (param i32)  ;; label = @3
-              block (result i32 i32)  ;; label = @4
-                br_table 1 (;@3;) 20 (; INVALID ;)
-              end
+              br_table 1 (;@2;) 0 (;@3;) 0 (;@3;)
               unreachable
             end
             local.get 21
@@ -3345,11 +3327,11 @@ let%expect_test "examples" =
             local.get 32
             local.get 14
             drop
-            br 1 (;@1;)
+            br 2 (;@0;)
           end
           local.get 12
           local.get 13
-          br 0 (;@1;)
+          br 1 (;@0;)
         end
         local.get 10
         local.get 11
@@ -3493,11 +3475,9 @@ let%expect_test "examples" =
         local.get 5
         local.set 13
         block (param i32) (result i32)  ;; label = @1
-          block (param i32) (result i32)  ;; label = @2
+          block (param i32)  ;; label = @2
             block (param i32)  ;; label = @3
-              block (result i32)  ;; label = @4
-                br_table 1 (;@3;) 20 (; INVALID ;)
-              end
+              br_table 1 (;@2;) 0 (;@3;) 0 (;@3;)
               unreachable
             end
             local.get 13
@@ -3624,10 +3604,10 @@ let%expect_test "examples" =
             i32.add
             local.get 6
             drop
-            br 1 (;@1;)
+            br 2 (;@0;)
           end
           i32.const 0
-          br 0 (;@1;)
+          br 1 (;@0;)
         end
         local.get 3
         local.set 21
@@ -3830,20 +3810,6 @@ let%expect_test "examples" =
       (export "__rw_table_func_8" (func 8))
       (export "__rw_table_func_9" (func 9))
       (start 11))
-
-
-    -:88:13: error: type mismatch in br_table, expected [i32] but got []
-                br_table 1 (;@3;) 20 (; INVALID ;)
-                ^^^^^^^^
-    -:88:13: error: invalid depth: 20 (max 4)
-                br_table 1 (;@3;) 20 (; INVALID ;)
-                ^^^^^^^^
-    -:391:13: error: type mismatch in br_table, expected [i32] but got []
-                br_table 1 (;@3;) 20 (; INVALID ;)
-                ^^^^^^^^
-    -:391:13: error: invalid depth: 20 (max 4)
-                br_table 1 (;@3;) 20 (; INVALID ;)
-                ^^^^^^^^
 
     -----------mini_zip-----------
     (module

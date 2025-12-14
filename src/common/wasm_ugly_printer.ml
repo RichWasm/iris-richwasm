@@ -151,10 +151,10 @@ let rec ugly_instruction (instr : Ast.basic_instruction) : t =
       append " end"
   | BI_br label -> appendf "br %a" Z.pp_print label
   | BI_br_if label -> appendf "br_if %a" Z.pp_print label
-  | BI_br_table (labels, final_label) ->
-      appendf "br_table %a%a"
+  | BI_br_table (labels, default_label) ->
+      appendf "br_table %a %a"
         (pp_print_list ~pp_sep:pp_print_hard_space Z.pp_print)
-        labels Z.pp_print final_label
+        labels Z.pp_print default_label
   | BI_call func_idx -> appendf "call %a" Z.pp_print func_idx
   | BI_call_indirect type_idx ->
       appendf "call_indirect (type %a)" Z.pp_print type_idx

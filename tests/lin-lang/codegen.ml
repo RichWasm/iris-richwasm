@@ -121,6 +121,63 @@ let%expect_test "basic functionality" =
         (body ((NumConst (Int I32) 1) (NumConst (Int I32) 2) (Num (Int2 I32 Add)))))))
      (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
 
+  run
+    {|
+      (cases (inj 0 -1 : (sum int int int int))
+        (case (_ : int) 0)
+        (case (_ : int) 1)
+        (case (_ : int) 2)
+        (case (_ : int) 3))
+      |};
+  [%expect
+    {|
+    (module
+      (func (-> i32) (local i32 i32 i32 i32)
+        i32.const -1
+        inject 0 i32 i32 i32 i32
+        case (result i32) inferfx
+          (0
+            local.set 0
+            i32.const 0
+            local.get 0 move
+            drop)
+          (1
+            local.set 1
+            i32.const 1
+            local.get 1 move
+            drop)
+          (2
+            local.set 2
+            i32.const 2
+            local.get 2 move
+            drop)
+          (3
+            local.set 3
+            i32.const 3
+            local.get 3 move
+            drop)
+        end)
+      (table)
+      (export "_start" (func 0))) |}];
+
+  next ();
+  [%expect
+    {|
+    ((imports ())
+     (functions
+      (((typ (FunctionType () () ((Num (Int I32)))))
+        (locals ((Atom I32) (Atom I32) (Atom I32) (Atom I32)))
+        (body
+         ((NumConst (Int I32) -1)
+          (Inject 0
+           ((Num (Int I32)) (Num (Int I32)) (Num (Int I32)) (Num (Int I32))))
+          (Case (ValType ((Num (Int I32)))) InferFx
+           (((LocalSet 0) (NumConst (Int I32) 0) (LocalGet 0 Move) Drop)
+            ((LocalSet 1) (NumConst (Int I32) 1) (LocalGet 1 Move) Drop)
+            ((LocalSet 2) (NumConst (Int I32) 2) (LocalGet 2 Move) Drop)
+            ((LocalSet 3) (NumConst (Int I32) 3) (LocalGet 3 Move) Drop))))))))
+     (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
+
   ()
 
 let%expect_test "examples" =

@@ -21,7 +21,7 @@ let wasm2wat ?(pretty = false) ?(check = true) (wasm : string) :
   in
   Utils.Process_capture.run_concat ~input:wasm ~prog:"wasm2wat" ~args ()
 
-let pp_as_wat ?(check = true) ff (wasm : string) =
-  match wasm2wat ~check wasm with
+let pp_as_wat ?pretty ?check ff (wasm : string) =
+  match wasm2wat ?pretty ?check wasm with
   | Ok out -> fprintf ff "%s" out
   | Error err -> fprintf ff "wasm2wat Error: %s" err

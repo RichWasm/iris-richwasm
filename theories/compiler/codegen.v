@@ -99,17 +99,17 @@ Definition case_blocks (result : W.result_type) (cases : list (nat -> codegen un
   let fix go depth cases :=
     match cases with
     | [] =>
-        block_c (W.Tf [W.T_i32] [])
-          (block_c (W.Tf [] result) (emit (W.BI_br_table (seq 1 depth) 0));;
-           emit W.BI_unreachable)
+        emit (W.BI_br_table (rev (seq 0 depth)) 0);;
+        emit W.BI_unreachable
     | c :: cases' =>
-        block_c (W.Tf [W.T_i32] result)
-          (go (depth + 1) cases';;
-           c depth;;
-           emit (W.BI_br depth))
+        block_c (W.Tf [W.T_i32] [])
+          (go (depth + 1) cases');;
+        c depth;;
+        emit (W.BI_br (depth + 1))
     end
   in
-  go 0 cases.
+  block_c (W.Tf [W.T_i32] result)
+    (go 0 cases).
 
 Lemma runWriterT_sum_bind_dist {A B L E}
   (m : Monoid L)
