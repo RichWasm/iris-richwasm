@@ -23,7 +23,7 @@ include Test_runner.MultiOutputter.Make (struct
   let syntax_pipeline x =
     x
     |> Main.compile_ast
-    |> Main.Res.run
+    |> Main.Res.T.run
     |> fst
     |> or_fail_pp Main.CompileErr.pp
     |> elab

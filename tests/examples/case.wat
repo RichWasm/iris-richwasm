@@ -1,0 +1,28 @@
+(module
+  (func $_start (export "_start") (result i32)
+    (local $tag i32)
+    (local $data i32)
+
+    (local.set $tag 
+      (i32.const 0))
+    (local.set $data 
+      (i32.const -1))
+    (local.get $tag)
+    (block $done (param i32) (result i32)
+      (block $case0 (param i32)
+        (block $case1 (param i32)
+          (block $case2 (param i32)
+            (br_table $case0 $case1 $case2 $case2)
+            (unreachable))
+          (local.get $data)
+          (drop)
+          (i32.const 2)
+          (br $done))
+        (local.get $data)
+        (drop)
+        (i32.const 1)
+        (br $done))
+      (local.get $data)
+      (drop)
+      (i32.const 0)
+      (br $done))))

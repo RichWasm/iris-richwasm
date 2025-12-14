@@ -181,45 +181,44 @@ module LogResultM (E : T) (L : T) = struct
   module T = struct
     type error = E.t
     type log_item = L.t
-    type 'a t = ('a * log_item list, error * log_item list) Result.t
+    type 'a t = log_item list -> ('a, error) Result.t * log_item list
 
-    let ret x = Ok (x, [])
-    let fail e = Error (e, [])
+    let ret x : 'a t = fun log -> (Ok x, log)
+    let fail e : 'a t = fun log -> (Error e, log)
 
     let bind m f =
-      match m with
-      | Error (e, log) -> Error (e, log)
-      | Ok (x, log1) ->
-          (match f x with
-          | Ok (y, log2) -> Ok (y, log1 @ log2)
-          | Error (e, log2) -> Error (e, log1 @ log2))
+     fun log0 ->
+      match m log0 with
+      | Error e, log1 -> (Error e, log1)
+      | Ok x, log1 -> f x log1
 
-    let tell item = Ok ((), [ item ])
+    let tell item = fun log -> (Ok (), log @ [ item ])
 
     let map_error (m : 'a t) ~(f : error -> error) : 'a t =
-      match m with
-      | Ok _ as ok -> ok
-      | Error (e, log) -> Error (f e, log)
+     fun log0 ->
+      match m log0 with
+      | Ok x, log1 -> (Ok x, log1)
+      | Error e, log1 -> (Error (f e), log1)
 
     let lift_result (r : ('a, error) Result.t) : 'a t =
       match r with
       | Ok x -> ret x
       | Error e -> fail e
 
-    let run (m : 'a t) : ('a, error) Result.t * log_item list =
-      match m with
-      | Ok (x, log) -> (Ok x, log)
-      | Error (e, log) -> (Error e, log)
+    let run (m : 'a t) : ('a, error) Result.t * log_item list = m []
   end
+
+  let map_error_into
+      (f : 'e1 -> 'e2)
+      (m : 'l list -> ('a, 'e1) Result.t * 'l list) :
+      'l list -> ('a, 'e2) Result.t * 'l list =
+   fun log0 ->
+    match m log0 with
+    | Ok x, log1 -> (Ok x, log1)
+    | Error e, log1 -> (Error (f e), log1)
 
   include T
   include Monad_with_fail_and_log.Make (T)
-
-  let map_error_to (type e2) ~(f : error -> e2) (m : 'a t) :
-      ('a * log_item list, e2 * log_item list) Result.t =
-    match m with
-    | Ok (x, log) -> Ok (x, log)
-    | Error (e, log) -> Error (f e, log)
 end
 
 module StateM (S : T) (E : T) = struct

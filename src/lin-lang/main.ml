@@ -22,16 +22,9 @@ type compile_res = RichWasmSyntax.Module.t Res.t
 (* need rank2 polymorphism *)
 type asprintf = { asprintf : 'a. ('a, formatter, unit, string) format4 -> 'a }
 
-let ( >>? ) ~(asprintf : asprintf) x (name, f, pp, err_map) =
+let ( >>? ) ~(asprintf : asprintf) m (name, f, pp, err_map) =
   let open Res in
-  let lift_result_map_err (r : ('a, 'e) Result.t) ~(err_map : 'e -> error) :
-      'a t =
-    match r with
-    | Ok x -> ret x
-    | Error e -> fail (err_map e)
-  in
-
-  let log_pp ~name (pp : formatter -> 'a -> unit) (x : 'a) : unit t =
+  let log_pp x : unit t =
     let len = String.length name in
     let fill = '=' in
     tell
@@ -39,10 +32,9 @@ let ( >>? ) ~(asprintf : asprintf) x (name, f, pp, err_map) =
          (Util.pp_pad ~fill ~len) false name (Util.pp_pad ~fill ~len) true pp x)
   in
 
-  x >>= fun v ->
-  lift_result_map_err (f v) ~err_map >>= fun out ->
-  let+ () = log_pp ~name pp out in
-  out
+  m >>= fun x ->
+  f x |> Result.map_error ~f:err_map |> lift_result >>= fun y ->
+  log_pp y >>= fun () -> ret y
 
 let compile_ast
     ?(asprintf : asprintf = { asprintf })

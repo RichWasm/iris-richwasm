@@ -120,7 +120,9 @@ let%expect_test "basic functionality" =
       (((typ (FunctionType () () ((Num (Int I32))))) (locals ())
         (body ((NumConst (Int I32) 1) (NumConst (Int I32) 2) (Num (Int2 I32 Add)))))))
      (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
+  ()
 
+let%expect_test "debugging" =
   run
     {|
       (cases (inj 0 -1 : (sum int int int int))
@@ -178,6 +180,56 @@ let%expect_test "basic functionality" =
             ((LocalSet 3) (NumConst (Int I32) 3) (LocalGet 3 Move) Drop))))))))
      (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
 
+  run Test_examples.Lin_lang.heap_sum;
+  [%expect {|
+    (module
+      (func (-> i32) (local ptr (sum i32 i32) (sum i32 i32) i32 i32)
+        i32.const 7
+        inject 0 i32 i32
+        new mm
+        local.set 0
+        local.get 0 follow
+        load (Path []) move
+        local.set 1
+        drop
+        local.get 1 move
+        local.set 2
+        local.get 2 follow
+        case (result i32) inferfx
+          (0
+            local.set 3
+            local.get 3 follow
+            local.get 3 move
+            drop)
+          (1
+            local.set 4
+            local.get 4 follow
+            local.get 4 move
+            drop)
+        end
+        local.get 2 move
+        drop
+        local.get 0 move
+        drop)
+      (table)
+      (export "_start" (func 0))) |}];
+  next ();
+  [%expect {|
+    ((imports ())
+     (functions
+      (((typ (FunctionType () () ((Num (Int I32)))))
+        (locals
+         ((Atom Ptr) (Sum ((Atom I32) (Atom I32))) (Sum ((Atom I32) (Atom I32)))
+          (Atom I32) (Atom I32)))
+        (body
+         ((NumConst (Int I32) 7) (Inject 0 ((Num (Int I32)) (Num (Int I32))))
+          (New MM) (LocalSet 0) (LocalGet 0 Follow) (Load (Path ()) Move)
+          (LocalSet 1) Drop (LocalGet 1 Move) (LocalSet 2) (LocalGet 2 Follow)
+          (Case (ValType ((Num (Int I32)))) InferFx
+           (((LocalSet 3) (LocalGet 3 Follow) (LocalGet 3 Move) Drop)
+            ((LocalSet 4) (LocalGet 4 Follow) (LocalGet 4 Move) Drop)))
+          (LocalGet 2 Move) Drop (LocalGet 0 Move) Drop)))))
+     (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
   ()
 
 let%expect_test "examples" =

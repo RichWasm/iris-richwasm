@@ -22,7 +22,7 @@ include Test_runner.MultiOutputter.Make (struct
   let syntax_pipeline x =
     x
     |> Main.compile_ast
-    |> Main.Res.run
+    |> Main.Res.T.run
     |> fst
     |> or_fail_pp Main.CompileErr.pp
     |> elab
@@ -194,9 +194,7 @@ let%expect_test "basic functionality" =
            (IInt2 I32T AddI)))))))
      (m_table ()) (m_exports (((me_name _start) (me_desc 0))))) |}];
 
-  (* run {| (fun foo ()) |}; *)
-  (* [%expect {| *)
-    (* FAILURE (TODO memory) |}]; *)
+  (* [%expect {| |}]; *)
   ()
 
 let%expect_test "examples" =

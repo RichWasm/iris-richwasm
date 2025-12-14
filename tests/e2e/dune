@@ -11,4 +11,6 @@
   iris-richwasm.test-examples
   iris-richwasm.test-support
   iris-richwasm.lin-lang
-  iris-richwasm.mini-ml))
+  iris-richwasm.mini-ml)
+ (preprocess
+  (staged_pps ppx_sexp_conv ppx_variants_conv)))

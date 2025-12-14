@@ -68,18 +68,12 @@ module EndToEnd = struct
         String.t M.t =
       let module SurfM = LogResultM (Surface.CompilerError) (String) in
       let open M in
-      let lift_result_map_err r ~err_map =
-        match r with
-        | Ok x -> ret x
-        | Error e -> fail (err_map e)
-      in
-      let ( >>? ) x (f, err_map) =
-        x >>= fun v -> lift_result_map_err (f v) ~err_map
+      let ( >>? ) (type a) (m : a t) (f, err_map) =
+        m >>= fun x -> f x |> Result.map_error ~f:err_map |> lift_result
       in
 
-      let ( >>?! ) x (name, f, pp, err_map) =
-        let log_pp (type a) ~name (pp : formatter -> a -> unit) (x : a) : unit t
-            =
+      let ( >>?! ) (type a) (m : a t) (name, f, pp, err_map) =
+        let log_pp x : unit t =
           let len = String.length name in
           let fill = '=' in
           tell
@@ -88,14 +82,12 @@ module EndToEnd = struct
                pp x)
         in
 
-        x >>= fun v ->
-        lift_result_map_err (f v) ~err_map >>= fun out ->
-        let+ () = log_pp ~name pp out in
-        out
+        m >>= fun x ->
+        f x |> Result.map_error ~f:err_map |> lift_result >>= fun y ->
+        log_pp y >>= fun () -> ret y
       in
 
-      SurfM.map_error_to ~f:E2Err.surface
-        (Surface.compile_to_richwasm ~asprintf src)
+      map_error_into E2Err.surface (Surface.compile_to_richwasm ~asprintf src)
       >>?! ( "elaborate",
              Elaborate.elab_module,
              Richwasm_common.Annotated_syntax.Module.pp,

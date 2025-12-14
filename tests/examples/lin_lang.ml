@@ -201,6 +201,27 @@ let boxed_list =
     (app map_int ((lam (x : int) : int . (x + 1)), lst)))
   |}
 
+let heap_sum =
+  {|
+    (let (r : (ref (sum int int))) =
+      (new (inj 0 7 : (sum int int)))
+    in
+    (let (s : (sum int int)) = (free r) in
+    (cases s
+      (case (x : int) x)
+      (case (y : int) y))))
+  |}
+
+let fold_unfold =
+  {|
+    (let (peano : (rec a . (() + (ref a)))) = 
+      (fold (rec a . (() + (ref a))) (inj 0 () : (() + (ref (rec a . (() + (ref a)))))))
+    in
+    (cases (unfold (rec a . (() + (ref a))) peano)
+      (case (zero : ()) 0)
+      (case (succ : (ref (rec a . (() + (ref a))))) -1)))
+  |}
+
 let peano_3 =
   {|
     (fold (rec a . (() + (ref a)))
@@ -215,6 +236,62 @@ let peano_3 =
             : (() + (ref (rec a . (() + (ref a))))))))
         : (() + (ref (rec a . (() + (ref a)))))))
   |}
+
+let rec_peano_3 =
+  {|
+    (let (three : (rec a . (() + (ref a)))) = 
+      (fold (rec a . (() + (ref a)))
+        (inj 1 (new
+          (fold (rec a . (() + (ref a)))
+            (inj 1 (new
+              (fold (rec a . (() + (ref a)))
+                (inj 1 (new
+                  (fold (rec a . (() + (ref a)))
+                    (inj 0 () : (() + (ref (rec a . (() + (ref a))))))))
+                  : (() + (ref (rec a . (() + (ref a))))))))
+              : (() + (ref (rec a . (() + (ref a))))))))
+          : (() + (ref (rec a . (() + (ref a)))))))
+    in
+    (cases (unfold (rec a . (() + (ref a))) three)
+      (case (zero : ()) -1000)
+      (case (succ1 : (ref (rec a . (() + (ref a)))))
+        (let (p1 : (rec a . (() + (ref a)))) = (free succ1) in
+         (cases (unfold (rec a . (() + (ref a))) p1)
+           (case (zero : ()) -1001)
+           (case (succ2 : (ref (rec a . (() + (ref a)))))
+             (let (p2 : (rec a . (() + (ref a)))) = (free succ2) in
+              (cases (unfold (rec a . (() + (ref a))) p2)
+                (case (zero : ()) -1002)
+                (case (succ3 : (ref (rec a . (() + (ref a)))))
+                  (let (p3 : (rec a . (() + (ref a)))) = (free succ3) in
+                   (cases (unfold (rec a . (() + (ref a))) p3)
+                     (case (zero : ()) -1003)
+                     (case (_ : (ref (rec a . (() + (ref a))))) -1004))))))))))))
+  |}
+(* let rec_peano_3 =
+  {|
+    (fun to-int (peano : (rec a . (() + (ref a)))) : int .
+      (cases (unfold (rec a . (() + (ref a))) peano)
+        (case (zero : ()) 0)
+        (case (succ : (ref (rec a . (() + (ref a)))))
+          (1 + (app to-int (free succ))))))
+    (let (three : (rec a . (() + (ref a)))) = 
+      (fold (rec a . (() + (ref a)))
+        (inj 1 (new
+          (fold (rec a . (() + (ref a)))
+            (inj 1 (new
+              (fold (rec a . (() + (ref a)))
+                (inj 1 (new
+                  (fold (rec a . (() + (ref a)))
+                    (inj 0 () : (() + (ref (rec a . (() + (ref a))))))))
+                  : (() + (ref (rec a . (() + (ref a))))))))
+              : (() + (ref (rec a . (() + (ref a))))))))
+          : (() + (ref (rec a . (() + (ref a)))))))
+    in
+    (to-int three))
+  |}
+ *)
+(* let peano_from_int *)
 
 let peano =
   {|
