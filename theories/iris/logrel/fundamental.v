@@ -703,7 +703,6 @@ by iApply "Hcast".
     by rewrite Z.even_even.
   Qed.
 
-  Close Scope Z_scope.
 
   Lemma wp_case_ptr {A B} s E idx tf (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
     run_codegen (memory.case_ptr idx tf c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
@@ -795,8 +794,15 @@ by iApply "Hcast".
         simpl.
         rewrite Z_mod_even_mod_2; last by rewrite <- Z.even_spec.
         destruct μ; simpl.
-        - admit.
-        - admit.
+        1,2: apply N.Div0.mod_divides in Hmod as [c ->].
+        1,2: rewrite N2Z.inj_mul.
+        1,2: simpl.
+        1,2: rewrite Zmod_even.
+        1,2: rewrite Z.even_sub.
+        1,2: replace 4 with (2 * 2); last done.
+        1,2: rewrite <- Z.mul_assoc.
+        1,2: rewrite Z.even_even.
+        1,2: done.
       }
       { cbn. iIntros (?) "?". done. }
       iIntros (w f') "Hnotrap Hf _".
@@ -865,6 +871,9 @@ by iApply "Hcast".
           by admit.
         admit.
   Admitted.
+  
+  Close Scope Z_scope.
+
 
   Lemma wp_map_cg_ptr_duproot ι idx wt wl res wt' wl' es:
     run_codegen (memory.map_gc_ptr ι idx (memory.duproot mr)) wt wl = inr (res, wt', wl', es) ->
