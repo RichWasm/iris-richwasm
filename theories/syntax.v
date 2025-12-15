@@ -104,3 +104,29 @@ Section RepInd.
     end.
 
 End RepInd.
+
+Section SizeInd.
+
+  Variables (P : size -> Prop)
+            (HVarS : forall idx, P (VarS idx))
+            (HSumS : forall σs, Forall P σs -> P (SumS σs))
+            (HProdS : forall σs, Forall P σs -> P (ProdS σs))
+            (HRepS : forall ρ, P (RepS ρ))
+            (HConstS : forall n, P (ConstS n)).
+
+  Fixpoint size_ind (σ: size) : P σ :=
+    let fix sizes_ind σs : Forall P σs :=
+      match σs with
+      | [] => ListDef.Forall_nil _
+      | s :: ss => ListDef.Forall_cons _ (size_ind s) (sizes_ind ss)
+      end
+    in
+    match σ with
+    | VarS idx => HVarS idx
+    | SumS σs => HSumS σs (sizes_ind σs)
+    | ProdS σs => HProdS σs (sizes_ind σs)
+    | RepS ρ => HRepS ρ
+    | ConstS n => HConstS n
+    end.
+
+End SizeInd.
