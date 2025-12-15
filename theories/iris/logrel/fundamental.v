@@ -703,6 +703,8 @@ by iApply "Hcast".
     by rewrite Z.even_even.
   Qed.
 
+  Close Scope Z_scope.
+
   Lemma wp_case_ptr {A B} s E idx tf (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
     run_codegen (memory.case_ptr idx tf c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
