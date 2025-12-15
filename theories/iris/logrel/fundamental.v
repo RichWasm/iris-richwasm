@@ -650,30 +650,57 @@ by iApply "Hcast".
 
   Require Import ZArith.
   Open Scope Z_scope.
-  (* yikes... *)
+
+  Lemma Z_even_mod_even :
+    forall n k : Z,
+    Z.even k = true ->
+    Z.even (n mod k) = Z.even n.
+  Proof.
+    intros n k Hk.
+    apply Bool.eq_true_iff_eq.
+
+    assert (Hk2 : k mod 2 = 0).
+    { rewrite Zmod_even. by rewrite Hk. }
+    destruct (Z.eq_dec k 0) as [Hk0 | Hk0].
+    { subst. by rewrite Zmod_0_r. }
+
+    rewrite (Z.mod_eq n k); last done.
+
+    replace (n - k * (n / k)) with (n + (k * -(n / k))); last lia.
+    rewrite Z.even_add_mul_even.
+    2: { rewrite <- Z.even_spec. rewrite Zeven_mod. lia. }
+    done.
+  Qed.
+
+
+  Lemma Z_Even_mod_Even :
+    forall n k, Z.Even k -> Z.Even (n mod k) <-> Z.Even n.
+  Proof.
+    intros n k Hk.
+    do 2 rewrite <- Z.even_spec.
+    rewrite Z_even_mod_even; first done.
+    by apply Z.even_spec.
+  Qed.
+
+  Lemma Z_mod_even_mod_2 :
+    forall n k,
+    Z.Even k ->
+    (n mod k) mod 2 = n mod 2.
+  Proof.
+    intros n k Hk.
+    rewrite Zmod_even.
+    rewrite Z_even_mod_even; last by rewrite Z.even_spec.
+    symmetry.
+    apply Zmod_even.
+  Qed.
+
+
   Lemma mod32_mod2 (n: Z) :
     (((2 * n) mod 4294967296) mod 2) = 0.
   Proof.
-    set (m := 4294967296%Z).
-    assert (Hm_even : exists k, m = 2 * k) by (exists 2147483648%Z; reflexivity).
-    destruct Hm_even as [k Hk].
-
-    pose proof (Z.mod_eq (2 * n) m) as Hmod.
-    rewrite Hmod; last done.
-
-    assert (Hmod2 : (2 * n) mod 2 = 0).
-    { rewrite Z.mul_comm. rewrite Z.mod_mul; try lia. }
-
-    rewrite Hk.
-    rewrite Z.add_mod; last done.
-    rewrite Hmod2.
-    rewrite Z.add_0_l.
-    set (q := (2 * n / (2 * k))).
-    assert ((- (2 * k * q)) = (2 * (-(k * q)))) as H; first lia.
-    rewrite H.
-    set (c := - (k * q)).
-    rewrite Z.mul_comm.
-    rewrite Z.mod_mul; done.
+    rewrite Z_mod_even_mod_2; last by rewrite <- Z.even_spec.
+    rewrite Zmod_even.
+    by rewrite Z.even_even.
   Qed.
 
   Lemma wp_case_ptr {A B} s E idx tf (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
@@ -764,7 +791,10 @@ by iApply "Hcast".
         unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
         unfold two_power_nat.
         simpl.
-        admit.
+        rewrite Z_mod_even_mod_2; last by rewrite <- Z.even_spec.
+        destruct μ; simpl.
+        - admit.
+        - admit.
       }
       { cbn. iIntros (?) "?". done. }
       iIntros (w f') "Hnotrap Hf _".
