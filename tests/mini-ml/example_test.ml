@@ -626,11 +626,12 @@ let%expect_test "examples" =
               local.get 3 move
               copy
               local.set 3
+              load (Path []) follow
               fold
-                (rec (val ptr excopy exdrop)
-                  (ref (base gc)
-                    (variant (ser (ref (base gc) (struct)))
-                      (ser (ref (base gc) (variant (ser (var 2)) (ser (var 0))))))))
+                (ref (base gc)
+                  (variant (ser (ref (base gc) (struct)))
+                    (ser (ref (base gc) (variant (ser (var 2)) (ser (var 0)))))))
+              new gc
               local.get 8 move
               copy
               local.set 8
@@ -719,11 +720,12 @@ let%expect_test "examples" =
               (ref (base gc)
                 (variant (ser (ref (base gc) (struct)))
                   (ser (ref (base gc) (variant (ser i31) (ser (var 0))))))))
+          load (Path []) follow
           fold
-            (rec (val ptr excopy exdrop)
-              (ref (base gc)
-                (variant (ser (ref (base gc) (struct)))
-                  (ser (ref (base gc) (variant (ser i31) (ser (var 0))))))))
+            (ref (base gc)
+              (variant (ser (ref (base gc) (struct)))
+                (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))
+          new gc
           i32.const 1
           tag
           group 2
@@ -745,11 +747,12 @@ let%expect_test "examples" =
                     (ref (base gc)
                       (variant (ser (ref (base gc) (struct)))
                         (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))))
+          load (Path []) follow
           fold
-            (rec (val ptr excopy exdrop)
-              (ref (base gc)
-                (variant (ser (ref (base gc) (struct)))
-                  (ser (ref (base gc) (variant (ser i31) (ser (var 0))))))))
+            (ref (base gc)
+              (variant (ser (ref (base gc) (struct)))
+                (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))
+          new gc
           local.get 5 move
           copy
           local.set 5

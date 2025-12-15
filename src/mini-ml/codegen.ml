@@ -215,8 +215,13 @@ let rec compile_expr delta gamma locals functions e =
       let v', locals', fx_v = compile_expr delta gamma locals' functions v in
       (re' @ v' @ [ Store (Path.Path []) ], locals', fx_re @ fx_v)
   | Fold (_, v) ->
+      let raw_t =
+        match rw_t with
+        | Rec (_, t) -> t
+        | _ -> failwith "fold expects Rec type"
+      in
       let v', locals', fx = r v in
-      (v' @ [ Fold rw_t ], locals', fx)
+      (v' @ [ Load (Path.Path [], Follow); Fold raw_t; New GC ], locals', fx)
   | Unfold v ->
       let v', locals', fx = r v in
       (v' @ [ Unfold ], locals', fx)

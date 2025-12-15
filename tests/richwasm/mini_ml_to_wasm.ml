@@ -2571,38 +2571,16 @@ let%expect_test "examples" =
        (error
         (BlockErr
          (error
-          (ExpectedEqStack
-           (Fold0
-            (Ref (Base GC)
-             (Variant
-              ((Ser (Ref (Base GC) (Struct ())))
-               (Ser
-                (Ref (Base GC)
-                 (Variant
-                  ((Ser (Var 1))
-                   (Ser
-                    (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                     (Ref (Base GC)
-                      (Variant
-                       ((Ser (Ref (Base GC) (Struct ())))
-                        (Ser
-                         (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))))))))))
-            (Ref (Base GC)
-             (Variant
-              ((Ser (Var 0))
-               (Ser
-                (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-                 (Ref (Base GC)
-                  (Variant
-                   ((Ser (Ref (Base GC) (Struct ())))
-                    (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))))
-         (instr
-          (Fold
-           (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-            (Ref (Base GC)
-             (Variant
-              ((Ser (Ref (Base GC) (Struct ())))
-               (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))))
+          (LoadRefNonSer
+           (Variant
+            ((Ser (Var 0))
+             (Ser
+              (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+               (Ref (Base GC)
+                (Variant
+                 ((Ser (Ref (Base GC) (Struct ())))
+                  (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
+         (instr (Load (Path ()) Follow))
          (env
           ((local_offset 1)
            (kinds
@@ -2718,14 +2696,15 @@ let%expect_test "examples" =
           (LocalSet 6) (LocalGet 4 Move) Copy (LocalSet 4)
           (Load (Path (1)) Follow) (LocalSet 7) Drop (LocalGet 7 Move)
           (LocalSet 8) (LocalGet 3 Move) Copy (LocalSet 3)
+          (Load (Path ()) Follow)
           (Fold
-           (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-            (Ref (Base GC)
-             (Variant
-              ((Ser (Ref (Base GC) (Struct ())))
-               (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))
-          (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1))) CallIndirect
-          (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop (LocalGet 4 Move) Drop)))
+           (Ref (Base GC)
+            (Variant
+             ((Ser (Ref (Base GC) (Struct ())))
+              (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
+          (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
+          CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
+          (LocalGet 4 Move) Drop)))
        (env
         ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop)))
          (labels ((I31))) (return (I31))
@@ -2856,14 +2835,15 @@ let%expect_test "examples" =
            (LocalSet 6) (LocalGet 4 Move) Copy (LocalSet 4)
            (Load (Path (1)) Follow) (LocalSet 7) Drop (LocalGet 7 Move)
            (LocalSet 8) (LocalGet 3 Move) Copy (LocalSet 3)
+           (Load (Path ()) Follow)
            (Fold
-            (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
-             (Ref (Base GC)
-              (Variant
-               ((Ser (Ref (Base GC) (Struct ())))
-                (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))
-           (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1))) CallIndirect
-           (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop (LocalGet 4 Move) Drop))
+            (Ref (Base GC)
+             (Variant
+              ((Ser (Ref (Base GC) (Struct ())))
+               (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
+           (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
+           CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
+           (LocalGet 4 Move) Drop))
          Untag (Num (Int2 I32 Add)) Tag (LocalGet 3 Move) Drop))))
      (env
       ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop))) (labels ())
