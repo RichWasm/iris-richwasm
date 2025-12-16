@@ -99,7 +99,8 @@ Definition case_blocks (result : W.result_type) (cases : list (nat -> codegen un
   let fix go depth cases :=
     match cases with
     | [] =>
-        emit (W.BI_br_table (rev (seq 0 depth)) 0);;
+        block_c (W.Tf [W.T_i32] [])
+          (emit (W.BI_br_table (rev (seq 1 depth)) 0));;
         emit W.BI_unreachable
     | c :: cases' =>
         block_c (W.Tf [W.T_i32] [])

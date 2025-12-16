@@ -3,16 +3,17 @@
     (local $tag i32)
     (local $data i32)
 
-    (local.set $tag 
+    (local.set $tag
       (i32.const 0))
-    (local.set $data 
+    (local.set $data
       (i32.const -1))
     (local.get $tag)
     (block $done (param i32) (result i32)
       (block $case0 (param i32)
         (block $case1 (param i32)
           (block $case2 (param i32)
-            (br_table $case0 $case1 $case2 $case2)
+            (block $default (param i32)
+              (br_table $case0 $case1 $case2 $default))
             (unreachable))
           (local.get $data)
           (drop)

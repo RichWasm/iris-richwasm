@@ -74,6 +74,7 @@ let%expect_test "simple cases" =
       (type $t8 (func (param i32)))
       (type $t9 (func (param i32)))
       (type $t10 (func (param i32)))
+      (type $t11 (func (param i32)))
       (memory $richwasm.mmmem (import "richwasm" "mmmem") 0)
       (memory $richwasm.gcmem (import "richwasm" "gcmem") 0)
       (global $richwasm.tablenext (import "richwasm" "tablenext") (mut i32))
@@ -97,7 +98,8 @@ let%expect_test "simple cases" =
             (block $B2 (param i32)
               (block $B3 (param i32)
                 (block $B4 (param i32)
-                  (br_table $B1 $B2 $B3 $B4 $B4)
+                  (block $B5 (param i32)
+                    (br_table $B1 $B2 $B3 $B4 $B5))
                   (unreachable))
                 (drop
                   (local.get $l1))
@@ -127,7 +129,7 @@ let%expect_test "simple cases" =
 
 let%expect_test "debug: boxed sum" =
   output
-    {| 
+    {|
       ((imports ())
        (functions
         (((typ (FunctionType () () ((Num (Int I32)))))
@@ -142,7 +144,7 @@ let%expect_test "debug: boxed sum" =
             (New MM)
             (Load (Path ()) Move)
             (LocalSet 1)
-            Drop 
+            Drop
             (LocalGet 1 Move)
             (Case (ValType ((Num (Int I32)))) InferFx
              ((Nop)
@@ -165,6 +167,7 @@ let%expect_test "debug: boxed sum" =
       (type $t10 (func (param i32) (result i32)))
       (type $t11 (func (param i32)))
       (type $t12 (func (param i32)))
+      (type $t13 (func (param i32)))
       (memory $richwasm.mmmem (import "richwasm" "mmmem") 0)
       (memory $richwasm.gcmem (import "richwasm" "gcmem") 0)
       (global $richwasm.tablenext (import "richwasm" "tablenext") (mut i32))
@@ -265,7 +268,8 @@ let%expect_test "debug: boxed sum" =
         (block $B4 (param i32) (result i32)
           (block $B5 (param i32)
             (block $B6 (param i32)
-              (br_table $B5 $B6 $B6)
+              (block $B7 (param i32)
+                (br_table $B5 $B6 $B7))
               (unreachable))
             (local.get $l17)
             (nop)

@@ -1512,10 +1512,11 @@ let%expect_test "examples" =
       (type (;11;) (func (param i32) (result i32)))
       (type (;12;) (func (param i32)))
       (type (;13;) (func (param i32)))
-      (type (;14;) (func))
+      (type (;14;) (func (param i32)))
       (type (;15;) (func))
-      (type (;16;) (func (param i32 i32) (result i32 i32)))
-      (type (;17;) (func (param i32 i32) (result i32)))
+      (type (;16;) (func))
+      (type (;17;) (func (param i32 i32) (result i32 i32)))
+      (type (;18;) (func (param i32 i32) (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -1602,7 +1603,9 @@ let%expect_test "examples" =
         block (param i32) (result i32)  ;; label = @1
           block (param i32)  ;; label = @2
             block (param i32)  ;; label = @3
-              br_table 1 (;@2;) 0 (;@3;) 0 (;@3;)
+              block (param i32)  ;; label = @4
+                br_table 2 (;@2;) 1 (;@3;) 0 (;@4;)
+              end
               unreachable
             end
             i32.const 0
@@ -3104,39 +3107,41 @@ let%expect_test "examples" =
       (type (;9;) (func (param i32) (result i32 i32)))
       (type (;10;) (func (param i32)))
       (type (;11;) (func (param i32)))
-      (type (;12;) (func (param i32 i32) (result i32 i32)))
-      (type (;13;) (func (result i32 i32)))
+      (type (;12;) (func (param i32)))
+      (type (;13;) (func (param i32 i32) (result i32 i32)))
       (type (;14;) (func (result i32 i32)))
-      (type (;15;) (func (param i32) (result i32)))
+      (type (;15;) (func (result i32 i32)))
       (type (;16;) (func (param i32) (result i32)))
       (type (;17;) (func (param i32) (result i32)))
       (type (;18;) (func (param i32) (result i32)))
-      (type (;19;) (func))
+      (type (;19;) (func (param i32) (result i32)))
       (type (;20;) (func))
       (type (;21;) (func))
       (type (;22;) (func))
-      (type (;23;) (func (result i32 i32)))
-      (type (;24;) (func (param i32 i32) (result i32 i32)))
-      (type (;25;) (func))
+      (type (;23;) (func))
+      (type (;24;) (func (result i32 i32)))
+      (type (;25;) (func (param i32 i32) (result i32 i32)))
       (type (;26;) (func))
-      (type (;27;) (func (param i32) (result i32)))
-      (type (;28;) (func (param i32)))
+      (type (;27;) (func))
+      (type (;28;) (func (param i32) (result i32)))
       (type (;29;) (func (param i32)))
-      (type (;30;) (func (param i32 i32) (result i32)))
-      (type (;31;) (func (result i32 i32)))
-      (type (;32;) (func (result i32 i32)))
-      (type (;33;) (func (param i32) (result i32)))
-      (type (;34;) (func (param i32) (result i32)))
+      (type (;30;) (func (param i32)))
+      (type (;31;) (func (param i32)))
+      (type (;32;) (func (param i32 i32) (result i32)))
+      (type (;33;) (func (result i32 i32)))
+      (type (;34;) (func (result i32 i32)))
       (type (;35;) (func (param i32) (result i32)))
       (type (;36;) (func (param i32) (result i32)))
-      (type (;37;) (func))
-      (type (;38;) (func))
+      (type (;37;) (func (param i32) (result i32)))
+      (type (;38;) (func (param i32) (result i32)))
       (type (;39;) (func))
       (type (;40;) (func))
-      (type (;41;) (func (param i32 i32) (result i32 i32)))
-      (type (;42;) (func (param i32 i32) (result i32 i32)))
+      (type (;41;) (func))
+      (type (;42;) (func))
       (type (;43;) (func (param i32 i32) (result i32 i32)))
-      (type (;44;) (func (param i32 i32) (result i32)))
+      (type (;44;) (func (param i32 i32) (result i32 i32)))
+      (type (;45;) (func (param i32 i32) (result i32 i32)))
+      (type (;46;) (func (param i32 i32) (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -3176,7 +3181,9 @@ let%expect_test "examples" =
         block (param i32) (result i32 i32)  ;; label = @1
           block (param i32)  ;; label = @2
             block (param i32)  ;; label = @3
-              br_table 1 (;@2;) 0 (;@3;) 0 (;@3;)
+              block (param i32)  ;; label = @4
+                br_table 2 (;@2;) 1 (;@3;) 0 (;@4;)
+              end
               unreachable
             end
             local.get 21
@@ -3477,7 +3484,9 @@ let%expect_test "examples" =
         block (param i32) (result i32)  ;; label = @1
           block (param i32)  ;; label = @2
             block (param i32)  ;; label = @3
-              br_table 1 (;@2;) 0 (;@3;) 0 (;@3;)
+              block (param i32)  ;; label = @4
+                br_table 2 (;@2;) 1 (;@3;) 0 (;@4;)
+              end
               unreachable
             end
             local.get 13
