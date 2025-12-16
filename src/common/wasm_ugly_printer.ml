@@ -2,31 +2,16 @@ open! Base
 open! Stdlib.Format
 open Monads
 module Ast = Richwasm_extract.Datatypes0
-
-(* HACK(owen 2025-11-18): the WasmCert AST incorrectly inlines block types as
-   function types despite the spec defining them as; this worked fine for
-   Wasm 1.0 (without multi-value extension), but RichWasm uses multiple values
-   extensively.
-
-   blocktype ::= valtype?
-               | typeidx
-
-   To support multi-value correctly, we *lift* these inlined function types into
-   the module’s type section, assign them a fresh type index, and then print the
-   blocktype as a typeidx. *)
+open Util
 
 module State = struct
   type t = {
-    types : Ast.function_type list;
-    next_type_idx : int;
     output : string;
   }
 
-  let init ?(types = []) ?(output = "") () : t =
-    let types' = List.rev types in
-    { types = types'; next_type_idx = List.length types; output }
+  let init ?(output = "") () : t =
+    {output }
 
-  let correct st = { st with types = List.rev st.types }
 end
 
 module Void = struct
@@ -39,18 +24,10 @@ module M = struct
 
   type t = unit Inner.t
 
-  let append (str : String.t) : t =
+  let[@warning "-23"] append (str : String.t) : t =
     modify (fun s -> { s with output = s.output ^ str })
 
   let appendf fmt = kasprintf (fun s -> append s) fmt
-
-  let emit (typ : Ast.function_type) : int Inner.t =
-    let* st = get in
-    let idx = st.next_type_idx in
-    let+ () =
-      put { st with next_type_idx = idx + 1; types = typ :: st.types }
-    in
-    idx
 end
 
 open M
@@ -120,10 +97,10 @@ let rec ugly_instruction (instr : Ast.basic_instruction) : t =
     | T_f32 | T_f64 -> true
   in
   let handle_bt : Ast.function_type -> t = function
-    | Tf ([], [ vt ]) -> appendf "(result %a)" pp_value_type vt
-    | ft ->
-        let* ft_idx = emit ft in
-        appendf "(type %i)" ft_idx
+    | Tf (param, result)->
+        let* () = appendf "(param%a)" (pp_print_list_pre_space pp_value_type) param in
+        let* () = appendf "(result%a)" (pp_print_list_pre_space pp_value_type) result in
+        ret ()
   in
 
   match instr with
@@ -345,14 +322,12 @@ let ugly_module
     in
     let* () = iterM ~f:ugly_export mod_exports in
 
-    let* st = get in
-    (* INVARIANT: `ugly_type` doesn't add more types *)
-    let* () = iterM ~f:ugly_type (State.correct st).types in
+    let* () = iterM ~f:ugly_type mod_types in
 
     let* () = append ")" in
     ret ()
   in
-  let init_st = State.init ~types:mod_types () in
+  let init_st = State.init () in
   match m init_st with
-  | Ok ((), st) -> (State.correct st).output
+  | Ok ((), st) -> st.output
   | _ -> .
