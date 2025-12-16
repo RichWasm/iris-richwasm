@@ -842,11 +842,18 @@ Section Fundamental.
           lwp_chomp 4%nat.
           rewrite take_0 drop_0.
           iApply (lenient_wp_seq with "[Hf Hrun]").
-          -- iApply (wp_mod4_sub3_test with "[//] [] [] [$] [$]").
-             ++ replace 4%Z with (Z.of_N 4%N) by auto.
-                rewrite -N2Z.inj_mod.
-                by rewrite Hmod.
-             ++ admit.
+          -- iApply (wp_mod4_sub3_test with "[//] [] [$] [$]").
+             iPureIntro.
+             unfold Wasm_int.Int32.repr; simpl.
+             rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+             unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+             unfold two_power_nat; simpl.
+             replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
+             rewrite Z.mul_comm.
+             rewrite Zaux.Zmod_mod_mult; try done.
+             apply N2Z.inj_iff in Hmod.
+             rewrite N2Z.inj_mod in Hmod.
+             done.
           -- iIntros (?) "?". done.
           -- iIntros (w f') "Ht Hf' Hfrinv".
              destruct w; cbn; try done; try (iDestruct "Ht" as "(? & ?)"; done).
@@ -857,6 +864,7 @@ Section Fundamental.
              iSplit; auto.
              iIntros "!> Hf Hrun".
              iSpecialize ("Hptr" with "Hf Hrun").
+             Search lenient_wp.
              iApply (wp_wand with "Hptr").
              iIntros (w) "HP".
              destruct w; simpl.
