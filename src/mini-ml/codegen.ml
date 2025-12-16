@@ -112,7 +112,6 @@ let rec compile_expr delta gamma locals functions e =
   let r = compile_expr delta gamma locals functions in
   let t = type_of_e unindexed e in
   let rw_t = compile_type delta t in
-  let new_local_idx = List.length locals in
   let rw_unit = Type.Prod [] in
   match e with
   | Int i ->
@@ -236,9 +235,10 @@ let rec compile_expr delta gamma locals functions e =
       (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
       let v', locals', fx_v = r v in
+      let tmp_local = List.length locals' in
       let e', locals'', fx_e =
         compile_expr (var :: delta)
-          ((n, t, new_local_idx) :: gamma)
+          ((n, t, tmp_local) :: gamma)
           (locals' @ [ ("#unpack-tmp", compile_type (var :: delta) t) ])
           functions e
       in
@@ -248,8 +248,8 @@ let rec compile_expr delta gamma locals functions e =
             Unpack
               ( ValType [ rw_t ],
                 InferFx,
-                [ LocalSet new_local_idx ] @ e'
-                @ [ LocalGet (new_local_idx, Move); Drop ] );
+                [ LocalSet tmp_local ] @ e'
+                @ [ LocalGet (tmp_local, Move); Drop ] );
           ],
         locals'',
         fx )
