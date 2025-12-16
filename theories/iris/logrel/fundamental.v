@@ -395,41 +395,24 @@ Section Fundamental.
           rewrite Zmod_divides in Hmod; last done.
           destruct Hmod as [? ->].
           unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize, two_power_nat; simpl.
-
-          (* TODO: finish proof *)
-          Search (_ mod _ = _)%Z.
-          admit.
-
-          (*unfold Wasm_int.Int32.Z_mod_modulus.*)
-          (*rewrite (Z.land_ones _ 1); lias.*)
-          (*apply Z.bits_inj_iff.*)
-          (*intros i.*)
-          (*rewrite Z.land_spec.*)
-          (*rewrite Wasm_int.Int32.unsigned_repr; [|by auto].*)
-          (*rewrite (Wasm_int.Int32.unsigned_repr 2); [|by auto].*)
-          (*set (a := (k `div` 4)%Z).*)
-          (*assert (k = (a * 2) * 2 ^ 1)%Z.*)
-          (*{*)
-          (*  unfold a.*)
-          (*  pose proof (Z.div_mod k 4 ltac:(done)).*)
-          (*  lia.*)
-          (*}*)
-          (*destruct (Z.eq_dec i 1); [subst i|].*)
-          (*-- apply andb_false_intro1.*)
-          (*   rewrite Z.add_bit1.*)
-          (*   simpl (Z.testbit (- (3)) _).*)
-          (*   rewrite H.*)
-          (*   rewrite Z.mul_pow2_bits; [| lia].*)
-          (*   change (1 - 1)%Z with 0%Z.*)
-          (*   cbn.*)
-          (*   rewrite Z.mul_comm Z.odd_even.*)
-          (*   rewrite andb_true_r.*)
-          (*   rewrite xorb_false_l xorb_false_l.*)
-          (*   replace (2 * a * 2 ^ 1)%Z with (2 * (a * 2))%Z by lia.*)
-          (*   by rewrite Z.odd_even.*)
-          (*-- rewrite (Z.pow2_bits_false 1 i); [|lia].*)
-          (*   rewrite Z.bits_0.*)
-          (*   apply andb_false_r.*)
+          apply Z.bits_inj_iff.
+          intros i.
+          rewrite Z.land_spec.
+          simpl.
+          cbn.
+          rewrite Z.testbit_0_l.
+          destruct (Z.eq_dec i 1) as [-> | Hi].
+          ** apply andb_false_intro1.
+             replace (4294967296)%Z with (2 ^ 32)%Z; last lia.
+             rewrite Z.mod_pow2_bits_low; last lia.
+             replace (4)%Z with (2 ^ 2)%Z; last lia.
+             rewrite Z.mul_comm.
+             rewrite Z.add_bit1.
+             rewrite Z.mul_pow2_bits_low; last lia.
+             rewrite Z.mul_pow2_bits_low; last lia.
+             done.
+          ** rewrite (Z.pow2_bits_false 1 i); [|lia].
+             apply andb_false_r.
     - done.
     - iIntros (w f') "Hnotrap Hf' _".
       destruct w; iEval (cbn) in "Hnotrap"; try done;
