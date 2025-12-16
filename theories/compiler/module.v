@@ -62,14 +62,23 @@ Definition get_id_func (imd : W.import_desc) : option nat :=
   | _ => None
   end.
 
+Definition get_id_mem (imd : W.import_desc) : option W.memory_type :=
+  match imd with
+  | W.ID_mem mt => Some mt
+  | _ => None
+  end.
+
 Definition count_global_imports (m : W.module) : nat :=
   length (pmap (get_id_global ∘ W.imp_desc) m.(W.mod_imports)).
 
 Definition count_func_imports (m : W.module) : nat :=
   length (pmap (get_id_func ∘ W.imp_desc) m.(W.mod_imports)).
 
+Definition count_mem_imports (m : W.module) : nat :=
+  length (pmap (get_id_mem ∘ W.imp_desc) m.(W.mod_imports)).
+
 Definition next_memidx_import : modgen W.memidx :=
-  gets (W.Mk_memidx ∘ length ∘ W.mod_mems).
+  gets (W.Mk_memidx ∘ count_mem_imports).
 
 Definition next_globalidx_import : modgen W.globalidx :=
   gets (W.Mk_globalidx ∘ count_global_imports).
