@@ -5,7 +5,7 @@
 
   (global $mm_ptr (mut i32) (i32.const 1))
   (global $gc_ptr (mut i32) (i32.const 65539))
-  (global $root_ptr (mut i32) (i32.const 0))
+  (global $root_ptr (mut i32) (i32.const 4))
   (global $mm_end (mut i32) (i32.const 0))
   (global $gc_end (mut i32) (i32.const 65536))
 
@@ -29,7 +29,9 @@
     (if (then unreachable) (else))
     local.get $new
     global.set $root_ptr
-    local.get $old)
+    local.get $old
+    i32.const 1
+    i32.sub)
 
   (func (export "unregisterroot") (param i32) (result)
     nop)
@@ -77,7 +79,7 @@
     global.get $mm_ptr
     local.get $size
     i32.add
-    i32.const 1 ;; 0b01
+    i32.const 3 ;; 0b11
     call $align
     global.set $mm_ptr)
 
@@ -124,7 +126,7 @@
     global.get $gc_ptr
     local.get $size
     i32.add
-    i32.const 3 ;; 0b11
+    i32.const 1 ;; 0b01
     call $align
     global.set $gc_ptr)
 
