@@ -1,7 +1,7 @@
 From ExtLib.Structures Require Import Monads Reducible.
 
 Require Import stdpp.list.
-
+Require Import ExtLib.Data.List.
 From Wasm Require datatypes operations.
 Require Import Wasm.numerics.
 
@@ -145,7 +145,7 @@ Section Compiler.
     ignore $ foldM
       (fun ι off => load1 fe μ con a off ι;; ret (off + arep_size ι))
       (ret off)
-      ιs.
+      (rev ιs). (* TODO: hack until we have foldlM *)
 
   Definition store1
     (μ : base_memory) (a : W.localidx) (off : nat) (v : W.localidx) (ι : atomic_rep) :
@@ -165,6 +165,7 @@ Section Compiler.
     (μ : base_memory) (a : W.localidx) (off : nat)
     (vs : list W.localidx) (ιs : list atomic_rep) :
     codegen unit :=
+    (* TODO: check fold direction *)
     ignore $ foldM
       (fun '(v, ι) off => store1 μ a off v ι;; ret (off + arep_size ι))
       (ret off)
