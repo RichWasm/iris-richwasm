@@ -236,8 +236,7 @@ Section Fundamental.
 
   Lemma wp_mod4_sub1_test f (idx: nat) k E :
     ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 1)))⌝ →
-      ⌜(k `mod` 4 = 0)%Z⌝ →
-      ⌜(0 ≤ k - 1 ≤ Wasm_int.Int32.max_unsigned)%Z⌝ →
+      ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 4 = 0)%Z⌝ →
       ↪[frame] f -∗
       ↪[RUN] -∗
       lenient_wp NotStuck E
@@ -252,7 +251,7 @@ Section Fundamental.
            lp_ret := λ _, False;
            lp_host := λ _ _ _ _, False; |}%I.
   Proof.
-    iIntros (Hidx Hmod Hbdd) "Hf Hrun".
+    iIntros (Hidx Hmod) "Hf Hrun".
     lwp_chomp 3.
     iApply (lenient_wp_seq with "[Hf Hrun]").
     - lwp_chomp 1.
@@ -290,32 +289,28 @@ Section Fundamental.
           unfold Wasm_int.Int32.iand.
           unfold Wasm_int.Int32.and.
           f_equal.
+          unfold Wasm_int.Int32.repr, Wasm_int.Int32.unsigned in *; simpl in *.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq in Hmod.
+          replace (Wasm_int.Int32.modulus) with (4 * 1073741824)%Z in Hmod; last done.
+          rewrite Z.mul_comm in Hmod.
+          rewrite Zaux.Zmod_mod_mult in Hmod; try done.
+          rewrite Zmod_divides in Hmod; last done.
+          destruct Hmod as [? ->].
+          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize, two_power_nat; simpl.
           apply Z.bits_inj_iff.
           intros i.
           rewrite Z.land_spec.
-          rewrite Wasm_int.Int32.unsigned_repr; [|by auto].
-          set (a := (k `div` 4)%Z).
-          assert (k = (a * 2) * 2 ^ 1)%Z.
-          {
-            unfold a.
-            pose proof (Z.div_mod k 4 ltac:(done)).
-            lia.
-          }
-          destruct (Z.eq_dec i 1); [subst i|].
-          -- apply andb_true_intro; split; [|done].
+          destruct (Z.eq_dec i 1) as [-> | Hi].
+          ** replace (4294967296)%Z with (2 ^ 32)%Z; last lia.
+             rewrite Z.mod_pow2_bits_low; last lia.
+             replace (4)%Z with (2 ^ 2)%Z; last lia.
+             rewrite Z.mul_comm.
              rewrite Z.add_bit1.
-             simpl (Z.testbit (- (1)) _).
-             rewrite H.
-             rewrite Z.mul_pow2_bits; [| lia].
-             change (1 - 1)%Z with 0%Z.
-             cbn.
-             rewrite Z.mul_comm Z.odd_even.
-             rewrite andb_true_r.
-             rewrite xorb_false_l xorb_true_l.
-             rewrite -Z.mul_assoc Z.odd_even.
+             rewrite Z.mul_pow2_bits_low; last lia.
+             rewrite Z.mul_pow2_bits_low; last lia.
              done.
-          -- cbn.
-             rewrite (Z.pow2_bits_false 1 i); [|lia].
+          ** rewrite (Z.pow2_bits_false 1 i); [|lia].
              apply andb_false_r.
     - done.
     - iIntros (w f') "Hnotrap Hf' _".
@@ -398,8 +393,6 @@ Section Fundamental.
           apply Z.bits_inj_iff.
           intros i.
           rewrite Z.land_spec.
-          simpl.
-          cbn.
           rewrite Z.testbit_0_l.
           destruct (Z.eq_dec i 1) as [-> | Hi].
           ** apply andb_false_intro1.
