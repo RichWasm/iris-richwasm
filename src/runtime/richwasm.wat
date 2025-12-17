@@ -3,8 +3,8 @@
 
   (global (export "tablenext") (mut i32) (i32.const 0))
 
-  (global $mm_ptr (mut i32) (i32.const 1))
-  (global $gc_ptr (mut i32) (i32.const 65539))
+  (global $mm_ptr (mut i32) (i32.const 4))
+  (global $gc_ptr (mut i32) (i32.const 65536))
   (global $root_ptr (mut i32) (i32.const 4))
   (global $mm_end (mut i32) (i32.const 0))
   (global $gc_end (mut i32) (i32.const 65536))
@@ -40,11 +40,14 @@
     (local $diff i32)
     (local $quotient i32)
     (local $grown i32)
-    (local $raw_next i32)
+    (local $old i32)
+    (local $size_bytes i32)
     local.get $size
     i32.const 4
     i32.mul
+    local.tee $size_bytes
     global.get $mm_ptr
+    local.tee $old
     i32.add
     global.get $mm_end
     i32.sub
@@ -75,23 +78,26 @@
         global.set $mm_end
         drop)
       (else))
-    global.get $mm_ptr
-    global.get $mm_ptr
-    local.get $size
+    local.get $old
+    local.get $size_bytes
     i32.add
-    i32.const 3 ;; 0b11
-    call $align
-    global.set $mm_ptr)
+    global.set $mm_ptr
+    local.get $old
+    i32.const 3
+    i32.sub)
 
   (func (export "gcalloc") (param $size i32) (result i32)
     (local $diff i32)
     (local $quotient i32)
     (local $grown i32)
-    (local $raw_next i32)
+    (local $old i32)
+    (local $size_bytes i32)
     local.get $size
     i32.const 4
     i32.mul
+    local.tee $size_bytes
     global.get $gc_ptr
+    local.tee $old
     i32.add
     global.get $gc_end
     i32.sub
@@ -122,26 +128,16 @@
         global.set $gc_end
         drop)
       (else))
-    global.get $gc_ptr
-    global.get $gc_ptr
-    local.get $size
+    local.get $old
+    local.get $size_bytes
     i32.add
-    i32.const 1 ;; 0b01
-    call $align
-    global.set $gc_ptr)
+    global.set $gc_ptr
+    local.get $old
+    i32.const 1
+    i32.sub)
 
   (func (export "free") (param i32) (result)
     nop)
 
   (func (export "setflag") (param i32 i32 i32) (result)
-    nop)
-
-  (func $align (param $value i32) (param $alignment i32) (result i32)
-    ;; internal helper to align the next pointer
-    local.get $value
-    local.get $alignment
-    local.get $value
-    i32.sub
-    i32.const 3
-    i32.and
-    i32.add))
+    nop))
