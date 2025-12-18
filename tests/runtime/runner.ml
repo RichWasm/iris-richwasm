@@ -15,20 +15,20 @@ let%expect_test "runtime" =
   [%expect
     {|
       mmalloc tests, allocate 4, 4, 1, 2
-      [ 1, 7, 11, 15 ]
+      [ 1, 17, 33, 37 ]
       mmmem size 65536
       mmalloc 16384 (one whole page)
-      19
+      45
       mmmem size 131072
       ---
       original gcmem size 65536
-      gcalloc 4 65539
+      gcalloc 4 65535
       gcmem size 131072
       gcalloc tests, allocate 4, 1, 2
-      [ 65545, 65549, 65553 ]
+      [ 65551, 65567, 65571 ]
       gcmem size 131072
       gcalloc 65536 (four pages)
-      65557
+      65579
       gcmem size 393216
       ---
       make sure mmmem hasn't changed when working with gc: true
