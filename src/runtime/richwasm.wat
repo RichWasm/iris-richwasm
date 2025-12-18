@@ -16,11 +16,14 @@
   (memory $mmmem (export "mmmem") 0)
   (memory $gcmem (export "gcmem") 1) (; pre-allocate root section ;)
 
-  (func (export "registerroot") (param i32) (result i32)
+  (func (export "registerroot") (param $ptr i32) (result i32)
     (local $old i32)
     (local $new i32)
     global.get $root_ptr
     local.tee $old
+    local.get $ptr
+    i32.store $gcmem
+    local.get $old
     i32.const 4
     i32.add
     local.tee $new
