@@ -25,6 +25,7 @@ if (
   "_start" in module.instance.exports &&
   typeof module.instance.exports._start === "function"
 ) {
+  debugger;
   const result = module.instance.exports._start();
   process.stdout.write(inspect(result, { depth: null }));
 } else {

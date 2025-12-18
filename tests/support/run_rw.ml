@@ -8,11 +8,13 @@ module SingleRichWasm (Config : sig
   val host_runtime_path : string
 end) =
 struct
+  let inspect = false
+
   let run_wasm (wasm : string) =
     let open Config in
     Utils.Process_capture.run_concat
       ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
-      ~input:wasm ~prog:"node" ~args:[ host_runtime_path ] ()
+      ~input:wasm ~prog:"node" ~args:((if inspect then ["--inspect-wait"] else []) @ [host_runtime_path] ) ()
 end
 
 module UnnanotatedRW = Richwasm_common.Syntax
