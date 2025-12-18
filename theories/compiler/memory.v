@@ -165,10 +165,9 @@ Section Compiler.
     (μ : base_memory) (a : W.localidx) (off : nat)
     (vs : list W.localidx) (ιs : list atomic_rep) :
     codegen unit :=
-    (* TODO: check fold direction *)
     ignore $ foldM
       (fun '(v, ι) off => store1 μ a off v ι;; ret (off + arep_size ι))
       (ret off)
-      (zip vs ιs).
+      (rev (zip vs ιs)). (* TODO: hack until we have foldlM *)
 
 End Compiler.
