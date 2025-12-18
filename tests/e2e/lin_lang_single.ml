@@ -52,12 +52,12 @@ let simple_tests =
       "67" );
     ("incr_n", Expl.incr_n, "13");
     ("fold_unfold", Expl.fold_unfold, "0");
-    (* ("heap_sum", Expl.heap_sum, "7"); *)
+    ("heap_sum", Expl.heap_sum, "7");
     (* ("rec_peano_3", Expl.rec_peano_3, "3"); *)
     (* ("rec", {|
 
     |}, "") *)
     (* ("peano_3", Expl.peano_3, ""); *)
     (* ("boxed_list", Expl.boxed_list, ""); *)
-    (* ("peano", Expl.peano, "13"); *)
+    ("peano", Expl.peano, "13");
   ]

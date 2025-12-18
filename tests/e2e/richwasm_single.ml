@@ -20,8 +20,8 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "0" );
-    (* ( "boxed sum",
-      {| 
+    ( "boxed sum",
+      {|
       ((imports ())
        (functions
         (((typ (FunctionType () () ((Num (Int I32)))))
@@ -36,12 +36,68 @@ let simple_tests =
             (New MM)
             (Load (Path ()) Move)
             (LocalSet 1)
-            Drop 
+            Drop
             (LocalGet 1 Move)
             (Case (ValType ((Num (Int I32)))) InferFx
              ((Nop)
               (Nop))))))))
        (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
-      "7" ); *)
+      "7" );
+
+    ( "copy tuple",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () ()
+              ((Prod
+                ((Prod ((Num (Int I32)) (Num (Int I64))))
+                 (Prod ((Num (Int I32)) (Num (Int I64)))))))))
+            (locals ())
+            (body
+             ((NumConst (Int I32) 1)
+              (NumConst (Int I64) 2)
+              (Group 2)
+              Copy)))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "[ 1, 2n, 1, 2n ]" );
+     ( "alloc tuple mm",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () ()
+              ((Prod ((Num (Int I32)) (Num (Int I64)))))))
+            (locals ((Prod ((Atom I32) (Atom I64)))))
+            (body
+             ((NumConst (Int I32) 1)
+              (NumConst (Int I64) 2)
+              (Group 2)
+              (New MM)
+              (Load (Path ()) Move)
+              (LocalSet 0)
+              Drop
+              (LocalGet 0 Move))))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "[ 1, 2n ]" );
+    ( "alloc tuple gc",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () ()
+              ((Prod ((Num (Int I32)) (Num (Int I64)))))))
+            (locals ((Prod ((Atom I32) (Atom I64)))))
+            (body
+             ((NumConst (Int I32) 1)
+              (NumConst (Int I64) 2)
+              (Group 2)
+              (New GC)
+              (Load (Path ()) Move)
+              (LocalSet 0)
+              Drop
+              (LocalGet 0 Move))))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "[ 1, 2n ]" );
   ]

@@ -125,6 +125,10 @@ Section Compiler.
     (a : W.localidx) (off : nat) (ι : atomic_rep) :
     codegen unit :=
     emit (W.BI_get_local (localimm a));;
+    match μ with
+    | MemGC => loadroot
+    | _ => ret tt
+    end;;
     let t := translate_arep ι in
     load_w μ t off;;
     v ← wlalloc fe t;
