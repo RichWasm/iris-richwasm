@@ -85,6 +85,14 @@ let closure_complex =
             (app g () 3))))
     |}
 
+let assign =
+  from_string_exn
+    {|
+      (let (r : (ref int)) (new 0)
+        (let (_ : (*)) (assign r 1)
+          (! r)))
+    |}
+
 let simple =
   [
     ("one", "1");
@@ -110,6 +118,7 @@ let all =
   @ [
       ("add_one", add_one);
       ("id", id);
+      ("assign", assign);
       ("apply_id", apply_id);
       ("opt_case", opt_case);
       ("poly_len", poly_len);

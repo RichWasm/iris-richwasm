@@ -28,6 +28,26 @@ module LL : Run_rw.EndToEnd.SurfaceLang = struct
       ~asprintf:{ asprintf = asprintf.asprintf }
 end
 
+module MM : Run_rw.EndToEnd.SurfaceLang = struct
+  open Richwasm_mini_ml
+
+  module CompilerError = struct
+    type t = | [@@deriving sexp_of]
+
+    let pp _ _ = ()
+  end
+
+  module M = LogResultM (CompilerError) (String)
+
+  let compile_to_richwasm ~(asprintf : EndToEnd.asprintf) src =
+    ignore asprintf;
+    src
+    |> Parse.from_string_exn
+    |> Convert.cc_module
+    |> Codegen.compile_module
+    |> M.ret
+end
+
 module RW : Run_rw.EndToEnd.SurfaceLang = struct
   module CompilerError = struct
     type t =
@@ -116,6 +136,9 @@ let run (rw_runtime_path : string) (host_runtime_path : string) =
     [
       ( "lin-lang-single",
         Lin_lang_single.simple_tests |> List.map ~f:(simple_mapper (module LL))
+      );
+      ( "mini-ml-single",
+        Mini_ml_single.simple_tests |> List.map ~f:(simple_mapper (module MM))
       );
       ( "richwasm-single",
         Richwasm_single.simple_tests |> List.map ~f:(simple_mapper (module RW))

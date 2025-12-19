@@ -51,13 +51,13 @@ let%expect_test "examples" =
               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))
               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
           (local ptr)
-        num_const 4 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
-        tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
-        num_const 3 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        num_const 1 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         num_const 2 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
-        num_const 1 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        num_const 3 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
+        num_const 4 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         group ;; [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))
                  (i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))] ->
@@ -104,9 +104,9 @@ let%expect_test "examples" =
                     (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))
                     (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))))))
           (local ptr)
-        num_const 4 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        num_const 1 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
-        num_const 3 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        num_const 2 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         group ;; [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))] ->
                  [(prod (val (prod ptr ptr) imcopy imdrop) (i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop)))]
@@ -122,9 +122,9 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) imdrop)
                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))
                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))]
-        num_const 2 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        num_const 3 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
-        num_const 1 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        num_const 4 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         group ;; [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))] ->
                  [(prod (val (prod ptr ptr) imcopy imdrop) (i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop)))]
@@ -209,9 +209,9 @@ let%expect_test "examples" =
     (module
       (func ((ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))) -> (i31 (val ptr imcopy imdrop))) (local
           ptr ptr)
-        num_const 7 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
-        tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         num_const 42 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
+        num_const 7 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         group ;; [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))] ->
                  [(prod (val (prod ptr ptr) imcopy imdrop) (i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop)))]
@@ -526,11 +526,6 @@ let%expect_test "examples" =
                          (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
                     -> (i31 (val ptr imcopy imdrop)))))))))
           (local ptr)
-        group ;; [] -> [(prod (val (prod) imcopy imdrop))]
-        new ;; [(prod (val (prod) imcopy imdrop))] ->
-               [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
-        cast ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
-                -> [(ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))]
         coderef 0 ;; [] ->
                      [(coderef (val i32 imcopy imdrop)
                         ((ref (val ptr excopy exdrop) (base gc)
@@ -540,16 +535,19 @@ let%expect_test "examples" =
                              (ser (mem (rep ptr) exdrop)
                                (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
                         -> (i31 (val ptr imcopy imdrop))))]
-        group ;; [(ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
-                 (coderef (val i32 imcopy imdrop)
-                   ((ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                        (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
-                        (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                   -> (i31 (val ptr imcopy imdrop))))]
-                 ->
-                 [(prod (val (prod ptr i32) excopy exdrop)
-                    (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+        group ;; [] -> [(prod (val (prod) imcopy imdrop))]
+        new ;; [(prod (val (prod) imcopy imdrop))] ->
+               [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
+        cast ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
+                -> [(ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))]
+        group ;; [(coderef (val i32 imcopy imdrop)
+                    ((ref (val ptr excopy exdrop) (base gc)
+                       (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                         (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
+                         (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
+                    -> (i31 (val ptr imcopy imdrop))))
+                 (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))] ->
+                 [(prod (val (prod i32 ptr) excopy exdrop)
                     (coderef (val i32 imcopy imdrop)
                       ((ref (val ptr excopy exdrop) (base gc)
                          (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -557,20 +555,20 @@ let%expect_test "examples" =
                              (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                            (ser (mem (rep ptr) exdrop)
                              (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                      -> (i31 (val ptr imcopy imdrop)))))]
-        new ;; [(prod (val (prod ptr i32) excopy exdrop)
-                  (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+                      -> (i31 (val ptr imcopy imdrop))))
+                    (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))]
+        new ;; [(prod (val (prod i32 ptr) excopy exdrop)
                   (coderef (val i32 imcopy imdrop)
                     ((ref (val ptr excopy exdrop) (base gc)
                        (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                          (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                          (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                    -> (i31 (val ptr imcopy imdrop)))))]
+                    -> (i31 (val ptr imcopy imdrop))))
+                  (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))]
                ->
                [(ref (val ptr excopy exdrop) (base gc)
-                  (ser (mem (rep (prod ptr i32)) exdrop)
-                    (prod (val (prod ptr i32) excopy exdrop)
-                      (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+                  (ser (mem (rep (prod i32 ptr)) exdrop)
+                    (prod (val (prod i32 ptr) excopy exdrop)
                       (coderef (val i32 imcopy imdrop)
                         ((ref (val ptr excopy exdrop) (base gc)
                            (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -578,11 +576,11 @@ let%expect_test "examples" =
                                (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                              (ser (mem (rep ptr) exdrop)
                                (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                        -> (i31 (val ptr imcopy imdrop)))))))]
+                        -> (i31 (val ptr imcopy imdrop))))
+                      (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))]
         cast ;; [(ref (val ptr excopy exdrop) (base gc)
-                   (ser (mem (rep (prod ptr i32)) exdrop)
-                     (prod (val (prod ptr i32) excopy exdrop)
-                       (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+                   (ser (mem (rep (prod i32 ptr)) exdrop)
+                     (prod (val (prod i32 ptr) excopy exdrop)
                        (coderef (val i32 imcopy imdrop)
                          ((ref (val ptr excopy exdrop) (base gc)
                             (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -590,7 +588,8 @@ let%expect_test "examples" =
                                 (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                               (ser (mem (rep ptr) exdrop)
                                 (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                         -> (i31 (val ptr imcopy imdrop)))))))]
+                         -> (i31 (val ptr imcopy imdrop))))
+                       (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))]
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep i32)) exdrop)
@@ -744,11 +743,6 @@ let%expect_test "examples" =
         drop ;; [(ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))] -> [])
       (func ((ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))) -> (i31 (val ptr imcopy imdrop))) (local
           ptr ptr ptr ptr ptr ptr)
-        group ;; [] -> [(prod (val (prod) imcopy imdrop))]
-        new ;; [(prod (val (prod) imcopy imdrop))] ->
-               [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
-        cast ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
-                -> [(ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))]
         coderef 0 ;; [] ->
                      [(coderef (val i32 imcopy imdrop)
                         ((ref (val ptr excopy exdrop) (base gc)
@@ -758,16 +752,19 @@ let%expect_test "examples" =
                              (ser (mem (rep ptr) exdrop)
                                (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
                         -> (i31 (val ptr imcopy imdrop))))]
-        group ;; [(ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
-                 (coderef (val i32 imcopy imdrop)
-                   ((ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                        (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
-                        (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                   -> (i31 (val ptr imcopy imdrop))))]
-                 ->
-                 [(prod (val (prod ptr i32) excopy exdrop)
-                    (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+        group ;; [] -> [(prod (val (prod) imcopy imdrop))]
+        new ;; [(prod (val (prod) imcopy imdrop))] ->
+               [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
+        cast ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep (prod)) imdrop) (prod (val (prod) imcopy imdrop))))]
+                -> [(ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))]
+        group ;; [(coderef (val i32 imcopy imdrop)
+                    ((ref (val ptr excopy exdrop) (base gc)
+                       (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                         (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
+                         (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
+                    -> (i31 (val ptr imcopy imdrop))))
+                 (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))] ->
+                 [(prod (val (prod i32 ptr) excopy exdrop)
                     (coderef (val i32 imcopy imdrop)
                       ((ref (val ptr excopy exdrop) (base gc)
                          (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -775,20 +772,20 @@ let%expect_test "examples" =
                              (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                            (ser (mem (rep ptr) exdrop)
                              (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                      -> (i31 (val ptr imcopy imdrop)))))]
-        new ;; [(prod (val (prod ptr i32) excopy exdrop)
-                  (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+                      -> (i31 (val ptr imcopy imdrop))))
+                    (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))]
+        new ;; [(prod (val (prod i32 ptr) excopy exdrop)
                   (coderef (val i32 imcopy imdrop)
                     ((ref (val ptr excopy exdrop) (base gc)
                        (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                          (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                          (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                    -> (i31 (val ptr imcopy imdrop)))))]
+                    -> (i31 (val ptr imcopy imdrop))))
+                  (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))]
                ->
                [(ref (val ptr excopy exdrop) (base gc)
-                  (ser (mem (rep (prod ptr i32)) exdrop)
-                    (prod (val (prod ptr i32) excopy exdrop)
-                      (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+                  (ser (mem (rep (prod i32 ptr)) exdrop)
+                    (prod (val (prod i32 ptr) excopy exdrop)
                       (coderef (val i32 imcopy imdrop)
                         ((ref (val ptr excopy exdrop) (base gc)
                            (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -796,11 +793,11 @@ let%expect_test "examples" =
                                (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                              (ser (mem (rep ptr) exdrop)
                                (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                        -> (i31 (val ptr imcopy imdrop)))))))]
+                        -> (i31 (val ptr imcopy imdrop))))
+                      (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))]
         cast ;; [(ref (val ptr excopy exdrop) (base gc)
-                   (ser (mem (rep (prod ptr i32)) exdrop)
-                     (prod (val (prod ptr i32) excopy exdrop)
-                       (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop)))
+                   (ser (mem (rep (prod i32 ptr)) exdrop)
+                     (prod (val (prod i32 ptr) excopy exdrop)
                        (coderef (val i32 imcopy imdrop)
                          ((ref (val ptr excopy exdrop) (base gc)
                             (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -808,7 +805,8 @@ let%expect_test "examples" =
                                 (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))
                               (ser (mem (rep ptr) exdrop)
                                 (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                         -> (i31 (val ptr imcopy imdrop)))))))]
+                         -> (i31 (val ptr imcopy imdrop))))
+                       (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))]
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep i32)) exdrop)
@@ -1313,6 +1311,54 @@ let%expect_test "examples" =
         drop ;; [(var 0)] -> [])
       (table 0)
       (export "id" (func 0)))
+    -----------assign-----------
+    (module
+      (func ((ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))) -> (i31 (val ptr imcopy imdrop))) (local
+          ptr ptr ptr ptr)
+        num_const 0 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
+        new ;; [(i31 (val ptr imcopy imdrop))] ->
+               [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        local.set 1 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+                       -> []
+        local.get 1 ;; [] ->
+                       [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        copy ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))] ->
+                [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))
+                (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        local.set 1 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+                       -> []
+        num_const 1 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
+        tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
+        store (path) ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))
+                        (i31 (val ptr imcopy imdrop))] ->
+                        [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        local.set 2 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+                       -> []
+        local.get 1 ;; [] ->
+                       [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        copy ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))] ->
+                [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))
+                (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        local.set 1 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+                       -> []
+        load (path) copy ;; [(ref (val ptr excopy exdrop) (base gc)
+                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+                            ->
+                            [(ref (val ptr excopy exdrop) (base gc)
+                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))
+                            (i31 (val ptr imcopy imdrop))]
+        local.set 3 ;; [(i31 (val ptr imcopy imdrop))] -> []
+        drop ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))] -> []
+        local.get 3 ;; [] -> [(i31 (val ptr imcopy imdrop))]
+        local.get 2 ;; [] ->
+                       [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        drop ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))] -> []
+        local.get 1 ;; [] ->
+                       [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))]
+        drop ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))] -> [])
+      (table 0)
+      (export "_start" (func 0)))
     -----------apply_id-----------
     FAILURE (InstrErr
      (error
@@ -1639,8 +1685,8 @@ let%expect_test "examples" =
      (instr
       (CaseLoad (ValType (I31)) Copy InferFx
        (((LocalSet 9) (NumConst (Int I32) 0) Tag (LocalGet 9 Move) Drop)
-        ((LocalSet 3) (NumConst (Int I32) 1) Tag Untag (Group 0) (New GC)
-         (Cast (Ref (Base GC) (Struct ()))) (CodeRef 0) (Group 2) (New GC)
+        ((LocalSet 3) (NumConst (Int I32) 1) Tag Untag (CodeRef 0) (Group 0)
+         (New GC) (Cast (Ref (Base GC) (Struct ()))) (Group 2) (New GC)
          (Cast
           (Ref (Base GC)
            (Struct
@@ -1935,7 +1981,7 @@ let%expect_test "examples" =
                             (ser (mem (rep ptr) exdrop)
                               (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1))))))]
                        -> []
-        load (path 1) copy ;; [(ref (val ptr excopy exdrop) (base gc)
+        load (path 0) copy ;; [(ref (val ptr excopy exdrop) (base gc)
                                  (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                                    (ser (mem (rep ptr) exdrop)
                                      (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0))))
@@ -1948,8 +1994,8 @@ let%expect_test "examples" =
                                      (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0))))
                                    (ser (mem (rep ptr) exdrop)
                                      (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1))))))
-                              (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))]
-        local.set 3 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))] -> []
+                              (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))]
+        local.set 5 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))] -> []
         drop ;; [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                      (ser (mem (rep ptr) exdrop)
@@ -1957,13 +2003,13 @@ let%expect_test "examples" =
                      (ser (mem (rep ptr) exdrop)
                        (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1))))))]
                 -> []
-        local.get 3 ;; [] -> [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))]
-        load (path) copy ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))] ->
-                            [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))
-                            (var 1)]
-        local.set 4 ;; [(var 1)] -> []
-        drop ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))] -> []
-        local.get 4 ;; [] -> [(var 1)]
+        local.get 5 ;; [] -> [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))]
+        load (path) copy ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))] ->
+                            [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))
+                            (var 0)]
+        local.set 6 ;; [(var 0)] -> []
+        drop ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))] -> []
+        local.get 6 ;; [] -> [(var 0)]
         local.get 2 ;; [] ->
                        [(ref (val ptr excopy exdrop) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -1997,7 +2043,7 @@ let%expect_test "examples" =
                             (ser (mem (rep ptr) exdrop)
                               (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1))))))]
                        -> []
-        load (path 0) copy ;; [(ref (val ptr excopy exdrop) (base gc)
+        load (path 1) copy ;; [(ref (val ptr excopy exdrop) (base gc)
                                  (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                                    (ser (mem (rep ptr) exdrop)
                                      (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0))))
@@ -2010,8 +2056,8 @@ let%expect_test "examples" =
                                      (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0))))
                                    (ser (mem (rep ptr) exdrop)
                                      (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1))))))
-                              (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))]
-        local.set 5 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))] -> []
+                              (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))]
+        local.set 3 ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))] -> []
         drop ;; [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                      (ser (mem (rep ptr) exdrop)
@@ -2019,19 +2065,19 @@ let%expect_test "examples" =
                      (ser (mem (rep ptr) exdrop)
                        (ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1))))))]
                 -> []
-        local.get 5 ;; [] -> [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))]
-        load (path) copy ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))] ->
-                            [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))
-                            (var 0)]
-        local.set 6 ;; [(var 0)] -> []
-        drop ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 0)))] -> []
-        local.get 6 ;; [] -> [(var 0)]
-        group ;; [(var 1) (var 0)] -> [(prod (val (prod ptr ptr) excopy exdrop) (var 1) (var 0))]
-        new ;; [(prod (val (prod ptr ptr) excopy exdrop) (var 1) (var 0))] ->
+        local.get 3 ;; [] -> [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))]
+        load (path) copy ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))] ->
+                            [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))
+                            (var 1)]
+        local.set 4 ;; [(var 1)] -> []
+        drop ;; [(ref (val ptr excopy exdrop) (base gc) (ser (mem (rep ptr) exdrop) (var 1)))] -> []
+        local.get 4 ;; [] -> [(var 1)]
+        group ;; [(var 0) (var 1)] -> [(prod (val (prod ptr ptr) excopy exdrop) (var 0) (var 1))]
+        new ;; [(prod (val (prod ptr ptr) excopy exdrop) (var 0) (var 1))] ->
                [(ref (val ptr excopy exdrop) (base gc)
-                  (ser (mem (rep (prod ptr ptr)) exdrop) (prod (val (prod ptr ptr) excopy exdrop) (var 1) (var 0))))]
+                  (ser (mem (rep (prod ptr ptr)) exdrop) (prod (val (prod ptr ptr) excopy exdrop) (var 0) (var 1))))]
         cast ;; [(ref (val ptr excopy exdrop) (base gc)
-                   (ser (mem (rep (prod ptr ptr)) exdrop) (prod (val (prod ptr ptr) excopy exdrop) (var 1) (var 0))))]
+                   (ser (mem (rep (prod ptr ptr)) exdrop) (prod (val (prod ptr ptr) excopy exdrop) (var 0) (var 1))))]
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop) (ser (mem (rep ptr) exdrop) (var 1))
@@ -2254,6 +2300,17 @@ let%expect_test "examples" =
         num_const 1 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         local.set 1 ;; [(i31 (val ptr imcopy imdrop))] -> []
+        coderef 0 ;; [] ->
+                     [(coderef (val i32 imcopy imdrop)
+                        ((ref (val ptr excopy exdrop) (base gc)
+                           (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                             (ser (mem (rep ptr) exdrop)
+                               (ref (val ptr excopy exdrop) (base gc)
+                                 (struct (mem (prod (rep ptr)) imdrop)
+                                   (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
+                             (ser (mem (rep ptr) exdrop)
+                               (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
+                        -> (i31 (val ptr imcopy imdrop))))]
         local.get 1 ;; [] -> [(i31 (val ptr imcopy imdrop))]
         copy ;; [(i31 (val ptr imcopy imdrop))] -> [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))]
         local.set 1 ;; [(i31 (val ptr imcopy imdrop))] -> []
@@ -2266,32 +2323,19 @@ let%expect_test "examples" =
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))]
-        coderef 0 ;; [] ->
-                     [(coderef (val i32 imcopy imdrop)
-                        ((ref (val ptr excopy exdrop) (base gc)
-                           (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                             (ser (mem (rep ptr) exdrop)
-                               (ref (val ptr excopy exdrop) (base gc)
-                                 (struct (mem (prod (rep ptr)) imdrop)
-                                   (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
-                             (ser (mem (rep ptr) exdrop)
-                               (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                        -> (i31 (val ptr imcopy imdrop))))]
-        group ;; [(ref (val ptr excopy exdrop) (base gc)
-                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                 (coderef (val i32 imcopy imdrop)
-                   ((ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                        (ser (mem (rep ptr) exdrop)
-                          (ref (val ptr excopy exdrop) (base gc)
-                            (struct (mem (prod (rep ptr)) imdrop)
-                              (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
-                        (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                   -> (i31 (val ptr imcopy imdrop))))]
+        group ;; [(coderef (val i32 imcopy imdrop)
+                    ((ref (val ptr excopy exdrop) (base gc)
+                       (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                         (ser (mem (rep ptr) exdrop)
+                           (ref (val ptr excopy exdrop) (base gc)
+                             (struct (mem (prod (rep ptr)) imdrop)
+                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
+                         (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
+                    -> (i31 (val ptr imcopy imdrop))))
+                 (ref (val ptr excopy exdrop) (base gc)
+                   (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))]
                  ->
-                 [(prod (val (prod ptr i32) excopy exdrop)
-                    (ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                 [(prod (val (prod i32 ptr) excopy exdrop)
                     (coderef (val i32 imcopy imdrop)
                       ((ref (val ptr excopy exdrop) (base gc)
                          (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -2301,10 +2345,10 @@ let%expect_test "examples" =
                                  (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                            (ser (mem (rep ptr) exdrop)
                              (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                      -> (i31 (val ptr imcopy imdrop)))))]
-        new ;; [(prod (val (prod ptr i32) excopy exdrop)
-                  (ref (val ptr excopy exdrop) (base gc)
-                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                      -> (i31 (val ptr imcopy imdrop))))
+                    (ref (val ptr excopy exdrop) (base gc)
+                      (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))]
+        new ;; [(prod (val (prod i32 ptr) excopy exdrop)
                   (coderef (val i32 imcopy imdrop)
                     ((ref (val ptr excopy exdrop) (base gc)
                        (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -2313,13 +2357,13 @@ let%expect_test "examples" =
                              (struct (mem (prod (rep ptr)) imdrop)
                                (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                          (ser (mem (rep ptr) exdrop) (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                    -> (i31 (val ptr imcopy imdrop)))))]
+                    -> (i31 (val ptr imcopy imdrop))))
+                  (ref (val ptr excopy exdrop) (base gc)
+                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))]
                ->
                [(ref (val ptr excopy exdrop) (base gc)
-                  (ser (mem (rep (prod ptr i32)) exdrop)
-                    (prod (val (prod ptr i32) excopy exdrop)
-                      (ref (val ptr excopy exdrop) (base gc)
-                        (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                  (ser (mem (rep (prod i32 ptr)) exdrop)
+                    (prod (val (prod i32 ptr) excopy exdrop)
                       (coderef (val i32 imcopy imdrop)
                         ((ref (val ptr excopy exdrop) (base gc)
                            (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -2329,12 +2373,12 @@ let%expect_test "examples" =
                                    (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                              (ser (mem (rep ptr) exdrop)
                                (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                        -> (i31 (val ptr imcopy imdrop)))))))]
+                        -> (i31 (val ptr imcopy imdrop))))
+                      (ref (val ptr excopy exdrop) (base gc)
+                        (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))))]
         cast ;; [(ref (val ptr excopy exdrop) (base gc)
-                   (ser (mem (rep (prod ptr i32)) exdrop)
-                     (prod (val (prod ptr i32) excopy exdrop)
-                       (ref (val ptr excopy exdrop) (base gc)
-                         (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                   (ser (mem (rep (prod i32 ptr)) exdrop)
+                     (prod (val (prod i32 ptr) excopy exdrop)
                        (coderef (val i32 imcopy imdrop)
                          ((ref (val ptr excopy exdrop) (base gc)
                             (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -2344,7 +2388,9 @@ let%expect_test "examples" =
                                     (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                               (ser (mem (rep ptr) exdrop)
                                 (ref (val ptr excopy exdrop) (base gc) (struct (mem (prod) imdrop))))))
-                         -> (i31 (val ptr imcopy imdrop)))))))]
+                         -> (i31 (val ptr imcopy imdrop))))
+                       (ref (val ptr excopy exdrop) (base gc)
+                         (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))))]
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep i32)) exdrop)
@@ -4240,6 +4286,16 @@ let%expect_test "examples" =
         num_const 1 ;; [] -> [(num (val i32 imcopy imdrop) i32)]
         tag ;; [(num (val i32 imcopy imdrop) i32)] -> [(i31 (val ptr imcopy imdrop))]
         local.set 1 ;; [(i31 (val ptr imcopy imdrop))] -> []
+        coderef 1 ;; [] ->
+                     [(coderef (val i32 imcopy imdrop)
+                        ((ref (val ptr excopy exdrop) (base gc)
+                           (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                             (ser (mem (rep ptr) exdrop)
+                               (ref (val ptr excopy exdrop) (base gc)
+                                 (struct (mem (prod (rep ptr)) imdrop)
+                                   (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
+                             (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                        -> (i31 (val ptr imcopy imdrop))))]
         local.get 1 ;; [] -> [(i31 (val ptr imcopy imdrop))]
         copy ;; [(i31 (val ptr imcopy imdrop))] -> [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))]
         local.set 1 ;; [(i31 (val ptr imcopy imdrop))] -> []
@@ -4252,31 +4308,19 @@ let%expect_test "examples" =
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))]
-        coderef 1 ;; [] ->
-                     [(coderef (val i32 imcopy imdrop)
-                        ((ref (val ptr excopy exdrop) (base gc)
-                           (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                             (ser (mem (rep ptr) exdrop)
-                               (ref (val ptr excopy exdrop) (base gc)
-                                 (struct (mem (prod (rep ptr)) imdrop)
-                                   (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
-                             (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                        -> (i31 (val ptr imcopy imdrop))))]
-        group ;; [(ref (val ptr excopy exdrop) (base gc)
-                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                 (coderef (val i32 imcopy imdrop)
-                   ((ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                        (ser (mem (rep ptr) exdrop)
-                          (ref (val ptr excopy exdrop) (base gc)
-                            (struct (mem (prod (rep ptr)) imdrop)
-                              (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
-                        (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                   -> (i31 (val ptr imcopy imdrop))))]
+        group ;; [(coderef (val i32 imcopy imdrop)
+                    ((ref (val ptr excopy exdrop) (base gc)
+                       (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                         (ser (mem (rep ptr) exdrop)
+                           (ref (val ptr excopy exdrop) (base gc)
+                             (struct (mem (prod (rep ptr)) imdrop)
+                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
+                         (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                    -> (i31 (val ptr imcopy imdrop))))
+                 (ref (val ptr excopy exdrop) (base gc)
+                   (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))]
                  ->
-                 [(prod (val (prod ptr i32) excopy exdrop)
-                    (ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                 [(prod (val (prod i32 ptr) excopy exdrop)
                     (coderef (val i32 imcopy imdrop)
                       ((ref (val ptr excopy exdrop) (base gc)
                          (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4285,10 +4329,10 @@ let%expect_test "examples" =
                                (struct (mem (prod (rep ptr)) imdrop)
                                  (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                            (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                      -> (i31 (val ptr imcopy imdrop)))))]
-        new ;; [(prod (val (prod ptr i32) excopy exdrop)
-                  (ref (val ptr excopy exdrop) (base gc)
-                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                      -> (i31 (val ptr imcopy imdrop))))
+                    (ref (val ptr excopy exdrop) (base gc)
+                      (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))]
+        new ;; [(prod (val (prod i32 ptr) excopy exdrop)
                   (coderef (val i32 imcopy imdrop)
                     ((ref (val ptr excopy exdrop) (base gc)
                        (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4297,13 +4341,13 @@ let%expect_test "examples" =
                              (struct (mem (prod (rep ptr)) imdrop)
                                (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                          (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                    -> (i31 (val ptr imcopy imdrop)))))]
+                    -> (i31 (val ptr imcopy imdrop))))
+                  (ref (val ptr excopy exdrop) (base gc)
+                    (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))]
                ->
                [(ref (val ptr excopy exdrop) (base gc)
-                  (ser (mem (rep (prod ptr i32)) exdrop)
-                    (prod (val (prod ptr i32) excopy exdrop)
-                      (ref (val ptr excopy exdrop) (base gc)
-                        (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                  (ser (mem (rep (prod i32 ptr)) exdrop)
+                    (prod (val (prod i32 ptr) excopy exdrop)
                       (coderef (val i32 imcopy imdrop)
                         ((ref (val ptr excopy exdrop) (base gc)
                            (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4312,12 +4356,12 @@ let%expect_test "examples" =
                                  (struct (mem (prod (rep ptr)) imdrop)
                                    (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                              (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                        -> (i31 (val ptr imcopy imdrop)))))))]
+                        -> (i31 (val ptr imcopy imdrop))))
+                      (ref (val ptr excopy exdrop) (base gc)
+                        (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))))]
         cast ;; [(ref (val ptr excopy exdrop) (base gc)
-                   (ser (mem (rep (prod ptr i32)) exdrop)
-                     (prod (val (prod ptr i32) excopy exdrop)
-                       (ref (val ptr excopy exdrop) (base gc)
-                         (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                   (ser (mem (rep (prod i32 ptr)) exdrop)
+                     (prod (val (prod i32 ptr) excopy exdrop)
                        (coderef (val i32 imcopy imdrop)
                          ((ref (val ptr excopy exdrop) (base gc)
                             (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4326,7 +4370,9 @@ let%expect_test "examples" =
                                   (struct (mem (prod (rep ptr)) imdrop)
                                     (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                         -> (i31 (val ptr imcopy imdrop)))))))]
+                         -> (i31 (val ptr imcopy imdrop))))
+                       (ref (val ptr excopy exdrop) (base gc)
+                         (struct (mem (prod (rep ptr)) imdrop) (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))))]
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep i32)) exdrop)
@@ -4381,6 +4427,33 @@ let%expect_test "examples" =
                                        (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
                                   -> (i31 (val ptr imcopy imdrop))))))))]
                        -> []
+        coderef 0 ;; [] ->
+                     [(coderef (val i32 imcopy imdrop)
+                        ((ref (val ptr excopy exdrop) (base gc)
+                           (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                             (ser (mem (rep ptr) exdrop)
+                               (ref (val ptr excopy exdrop) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                   (ser (mem (rep ptr) exdrop)
+                                     (exists.type (val ptr excopy exdrop)
+                                       (val ptr excopy exdrop)
+                                       (ref (val ptr excopy exdrop) (base gc)
+                                         (struct (mem (prod (rep ptr) (rep i32)) exdrop)
+                                           (ser (mem (rep ptr) exdrop) (var 0))
+                                           (ser (mem (rep i32) imdrop)
+                                             (coderef (val i32 imcopy imdrop)
+                                               ((ref (val ptr excopy exdrop)
+                                                  (base gc)
+                                                  (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                                    (ser (mem (rep ptr) exdrop) (var 0))
+                                                    (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                                               -> (i31 (val ptr imcopy imdrop)))))))))
+                                   (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
+                             (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                        -> (i31 (val ptr imcopy imdrop))))]
+        local.get 1 ;; [] -> [(i31 (val ptr imcopy imdrop))]
+        copy ;; [(i31 (val ptr imcopy imdrop))] -> [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))]
+        local.set 1 ;; [(i31 (val ptr imcopy imdrop))] -> []
         local.get 2 ;; [] ->
                        [(exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
                           (ref (val ptr excopy exdrop) (base gc)
@@ -4436,21 +4509,19 @@ let%expect_test "examples" =
                                        (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
                                   -> (i31 (val ptr imcopy imdrop))))))))]
                        -> []
-        local.get 1 ;; [] -> [(i31 (val ptr imcopy imdrop))]
-        copy ;; [(i31 (val ptr imcopy imdrop))] -> [(i31 (val ptr imcopy imdrop)) (i31 (val ptr imcopy imdrop))]
-        local.set 1 ;; [(i31 (val ptr imcopy imdrop))] -> []
-        group ;; [(exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
-                    (ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr) (rep i32)) exdrop) (ser (mem (rep ptr) exdrop) (var 0))
-                        (ser (mem (rep i32) imdrop)
-                          (coderef (val i32 imcopy imdrop)
-                            ((ref (val ptr excopy exdrop) (base gc)
-                               (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                 (ser (mem (rep ptr) exdrop) (var 0))
-                                 (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                            -> (i31 (val ptr imcopy imdrop))))))))
-                 (i31 (val ptr imcopy imdrop))] ->
-                 [(prod (val (prod ptr ptr) excopy exdrop)
+        group ;; [(i31 (val ptr imcopy imdrop))
+                 (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
+                   (ref (val ptr excopy exdrop) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) exdrop) (ser (mem (rep ptr) exdrop) (var 0))
+                       (ser (mem (rep i32) imdrop)
+                         (coderef (val i32 imcopy imdrop)
+                           ((ref (val ptr excopy exdrop) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                (ser (mem (rep ptr) exdrop) (var 0))
+                                (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                           -> (i31 (val ptr imcopy imdrop))))))))]
+                 ->
+                 [(prod (val (prod ptr ptr) excopy exdrop) (i31 (val ptr imcopy imdrop))
                     (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
                       (ref (val ptr excopy exdrop) (base gc)
                         (struct (mem (prod (rep ptr) (rep i32)) exdrop) (ser (mem (rep ptr) exdrop) (var 0))
@@ -4460,9 +4531,8 @@ let%expect_test "examples" =
                                  (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                                    (ser (mem (rep ptr) exdrop) (var 0))
                                    (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                              -> (i31 (val ptr imcopy imdrop))))))))
-                    (i31 (val ptr imcopy imdrop)))]
-        new ;; [(prod (val (prod ptr ptr) excopy exdrop)
+                              -> (i31 (val ptr imcopy imdrop)))))))))]
+        new ;; [(prod (val (prod ptr ptr) excopy exdrop) (i31 (val ptr imcopy imdrop))
                   (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
                     (ref (val ptr excopy exdrop) (base gc)
                       (struct (mem (prod (rep ptr) (rep i32)) exdrop) (ser (mem (rep ptr) exdrop) (var 0))
@@ -4472,12 +4542,11 @@ let%expect_test "examples" =
                                (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                                  (ser (mem (rep ptr) exdrop) (var 0))
                                  (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                            -> (i31 (val ptr imcopy imdrop))))))))
-                  (i31 (val ptr imcopy imdrop)))]
+                            -> (i31 (val ptr imcopy imdrop)))))))))]
                ->
                [(ref (val ptr excopy exdrop) (base gc)
                   (ser (mem (rep (prod ptr ptr)) exdrop)
-                    (prod (val (prod ptr ptr) excopy exdrop)
+                    (prod (val (prod ptr ptr) excopy exdrop) (i31 (val ptr imcopy imdrop))
                       (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
                         (ref (val ptr excopy exdrop) (base gc)
                           (struct (mem (prod (rep ptr) (rep i32)) exdrop)
@@ -4488,11 +4557,10 @@ let%expect_test "examples" =
                                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                                      (ser (mem (rep ptr) exdrop) (var 0))
                                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                -> (i31 (val ptr imcopy imdrop))))))))
-                      (i31 (val ptr imcopy imdrop)))))]
+                                -> (i31 (val ptr imcopy imdrop)))))))))))]
         cast ;; [(ref (val ptr excopy exdrop) (base gc)
                    (ser (mem (rep (prod ptr ptr)) exdrop)
-                     (prod (val (prod ptr ptr) excopy exdrop)
+                     (prod (val (prod ptr ptr) excopy exdrop) (i31 (val ptr imcopy imdrop))
                        (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
                          (ref (val ptr excopy exdrop) (base gc)
                            (struct (mem (prod (rep ptr) (rep i32)) exdrop)
@@ -4503,8 +4571,7 @@ let%expect_test "examples" =
                                     (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                                       (ser (mem (rep ptr) exdrop) (var 0))
                                       (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                 -> (i31 (val ptr imcopy imdrop))))))))
-                       (i31 (val ptr imcopy imdrop)))))]
+                                 -> (i31 (val ptr imcopy imdrop)))))))))))]
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4521,83 +4588,45 @@ let%expect_test "examples" =
                                       (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
                                  -> (i31 (val ptr imcopy imdrop)))))))))
                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))]
-        coderef 0 ;; [] ->
-                     [(coderef (val i32 imcopy imdrop)
-                        ((ref (val ptr excopy exdrop) (base gc)
-                           (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                             (ser (mem (rep ptr) exdrop)
-                               (ref (val ptr excopy exdrop) (base gc)
-                                 (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                   (ser (mem (rep ptr) exdrop)
-                                     (exists.type (val ptr excopy exdrop)
-                                       (val ptr excopy exdrop)
-                                       (ref (val ptr excopy exdrop) (base gc)
-                                         (struct (mem (prod (rep ptr) (rep i32)) exdrop)
-                                           (ser (mem (rep ptr) exdrop) (var 0))
-                                           (ser (mem (rep i32) imdrop)
-                                             (coderef (val i32 imcopy imdrop)
-                                               ((ref (val ptr excopy exdrop)
-                                                  (base gc)
-                                                  (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                                    (ser (mem (rep ptr) exdrop) (var 0))
-                                                    (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                               -> (i31 (val ptr imcopy imdrop)))))))))
-                                   (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
-                             (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                        -> (i31 (val ptr imcopy imdrop))))]
-        group ;; [(ref (val ptr excopy exdrop) (base gc)
-                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                      (ser (mem (rep ptr) exdrop)
-                        (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
-                          (ref (val ptr excopy exdrop) (base gc)
-                            (struct (mem (prod (rep ptr) (rep i32)) exdrop)
-                              (ser (mem (rep ptr) exdrop) (var 0))
-                              (ser (mem (rep i32) imdrop)
-                                (coderef (val i32 imcopy imdrop)
-                                  ((ref (val ptr excopy exdrop) (base gc)
-                                     (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+        group ;; [(coderef (val i32 imcopy imdrop)
+                    ((ref (val ptr excopy exdrop) (base gc)
+                       (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                         (ser (mem (rep ptr) exdrop)
+                           (ref (val ptr excopy exdrop) (base gc)
+                             (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                               (ser (mem (rep ptr) exdrop)
+                                 (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
+                                   (ref (val ptr excopy exdrop) (base gc)
+                                     (struct (mem (prod (rep ptr) (rep i32)) exdrop)
                                        (ser (mem (rep ptr) exdrop) (var 0))
-                                       (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                  -> (i31 (val ptr imcopy imdrop)))))))))
-                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                 (coderef (val i32 imcopy imdrop)
-                   ((ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                        (ser (mem (rep ptr) exdrop)
-                          (ref (val ptr excopy exdrop) (base gc)
-                            (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                              (ser (mem (rep ptr) exdrop)
-                                (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
-                                  (ref (val ptr excopy exdrop) (base gc)
-                                    (struct (mem (prod (rep ptr) (rep i32)) exdrop)
+                                       (ser (mem (rep i32) imdrop)
+                                         (coderef (val i32 imcopy imdrop)
+                                           ((ref (val ptr excopy exdrop)
+                                              (base gc)
+                                              (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                                (ser (mem (rep ptr) exdrop) (var 0))
+                                                (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                                           -> (i31 (val ptr imcopy imdrop)))))))))
+                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
+                         (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                    -> (i31 (val ptr imcopy imdrop))))
+                 (ref (val ptr excopy exdrop) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                     (ser (mem (rep ptr) exdrop)
+                       (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
+                         (ref (val ptr excopy exdrop) (base gc)
+                           (struct (mem (prod (rep ptr) (rep i32)) exdrop)
+                             (ser (mem (rep ptr) exdrop) (var 0))
+                             (ser (mem (rep i32) imdrop)
+                               (coderef (val i32 imcopy imdrop)
+                                 ((ref (val ptr excopy exdrop) (base gc)
+                                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
                                       (ser (mem (rep ptr) exdrop) (var 0))
-                                      (ser (mem (rep i32) imdrop)
-                                        (coderef (val i32 imcopy imdrop)
-                                          ((ref (val ptr excopy exdrop) (base gc)
-                                             (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                               (ser (mem (rep ptr) exdrop) (var 0))
-                                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                          -> (i31 (val ptr imcopy imdrop)))))))))
-                              (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
-                        (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                   -> (i31 (val ptr imcopy imdrop))))]
+                                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                                 -> (i31 (val ptr imcopy imdrop)))))))))
+                     (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))]
                  ->
-                 [(prod (val (prod ptr i32) excopy exdrop)
-                    (ref (val ptr excopy exdrop) (base gc)
-                      (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                        (ser (mem (rep ptr) exdrop)
-                          (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
-                            (ref (val ptr excopy exdrop) (base gc)
-                              (struct (mem (prod (rep ptr) (rep i32)) exdrop)
-                                (ser (mem (rep ptr) exdrop) (var 0))
-                                (ser (mem (rep i32) imdrop)
-                                  (coderef (val i32 imcopy imdrop)
-                                    ((ref (val ptr excopy exdrop) (base gc)
-                                       (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                         (ser (mem (rep ptr) exdrop) (var 0))
-                                         (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                    -> (i31 (val ptr imcopy imdrop)))))))))
-                        (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                 [(prod (val (prod i32 ptr) excopy exdrop)
                     (coderef (val i32 imcopy imdrop)
                       ((ref (val ptr excopy exdrop) (base gc)
                          (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4619,23 +4648,23 @@ let%expect_test "examples" =
                                              -> (i31 (val ptr imcopy imdrop)))))))))
                                  (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                            (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                      -> (i31 (val ptr imcopy imdrop)))))]
-        new ;; [(prod (val (prod ptr i32) excopy exdrop)
-                  (ref (val ptr excopy exdrop) (base gc)
-                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                      (ser (mem (rep ptr) exdrop)
-                        (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
-                          (ref (val ptr excopy exdrop) (base gc)
-                            (struct (mem (prod (rep ptr) (rep i32)) exdrop)
-                              (ser (mem (rep ptr) exdrop) (var 0))
-                              (ser (mem (rep i32) imdrop)
-                                (coderef (val i32 imcopy imdrop)
-                                  ((ref (val ptr excopy exdrop) (base gc)
-                                     (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                       (ser (mem (rep ptr) exdrop) (var 0))
-                                       (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                  -> (i31 (val ptr imcopy imdrop)))))))))
-                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                      -> (i31 (val ptr imcopy imdrop))))
+                    (ref (val ptr excopy exdrop) (base gc)
+                      (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                        (ser (mem (rep ptr) exdrop)
+                          (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
+                            (ref (val ptr excopy exdrop) (base gc)
+                              (struct (mem (prod (rep ptr) (rep i32)) exdrop)
+                                (ser (mem (rep ptr) exdrop) (var 0))
+                                (ser (mem (rep i32) imdrop)
+                                  (coderef (val i32 imcopy imdrop)
+                                    ((ref (val ptr excopy exdrop) (base gc)
+                                       (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                         (ser (mem (rep ptr) exdrop) (var 0))
+                                         (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                                    -> (i31 (val ptr imcopy imdrop)))))))))
+                        (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))]
+        new ;; [(prod (val (prod i32 ptr) excopy exdrop)
                   (coderef (val i32 imcopy imdrop)
                     ((ref (val ptr excopy exdrop) (base gc)
                        (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4657,26 +4686,26 @@ let%expect_test "examples" =
                                            -> (i31 (val ptr imcopy imdrop)))))))))
                                (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                          (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                    -> (i31 (val ptr imcopy imdrop)))))]
+                    -> (i31 (val ptr imcopy imdrop))))
+                  (ref (val ptr excopy exdrop) (base gc)
+                    (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                      (ser (mem (rep ptr) exdrop)
+                        (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
+                          (ref (val ptr excopy exdrop) (base gc)
+                            (struct (mem (prod (rep ptr) (rep i32)) exdrop)
+                              (ser (mem (rep ptr) exdrop) (var 0))
+                              (ser (mem (rep i32) imdrop)
+                                (coderef (val i32 imcopy imdrop)
+                                  ((ref (val ptr excopy exdrop) (base gc)
+                                     (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                       (ser (mem (rep ptr) exdrop) (var 0))
+                                       (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                                  -> (i31 (val ptr imcopy imdrop)))))))))
+                      (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))]
                ->
                [(ref (val ptr excopy exdrop) (base gc)
-                  (ser (mem (rep (prod ptr i32)) exdrop)
-                    (prod (val (prod ptr i32) excopy exdrop)
-                      (ref (val ptr excopy exdrop) (base gc)
-                        (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                          (ser (mem (rep ptr) exdrop)
-                            (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
-                              (ref (val ptr excopy exdrop) (base gc)
-                                (struct (mem (prod (rep ptr) (rep i32)) exdrop)
-                                  (ser (mem (rep ptr) exdrop) (var 0))
-                                  (ser (mem (rep i32) imdrop)
-                                    (coderef (val i32 imcopy imdrop)
-                                      ((ref (val ptr excopy exdrop) (base gc)
-                                         (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                           (ser (mem (rep ptr) exdrop) (var 0))
-                                           (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                      -> (i31 (val ptr imcopy imdrop)))))))))
-                          (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                  (ser (mem (rep (prod i32 ptr)) exdrop)
+                    (prod (val (prod i32 ptr) excopy exdrop)
                       (coderef (val i32 imcopy imdrop)
                         ((ref (val ptr excopy exdrop) (base gc)
                            (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4699,25 +4728,25 @@ let%expect_test "examples" =
                                                -> (i31 (val ptr imcopy imdrop)))))))))
                                    (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                              (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                        -> (i31 (val ptr imcopy imdrop)))))))]
+                        -> (i31 (val ptr imcopy imdrop))))
+                      (ref (val ptr excopy exdrop) (base gc)
+                        (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                          (ser (mem (rep ptr) exdrop)
+                            (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
+                              (ref (val ptr excopy exdrop) (base gc)
+                                (struct (mem (prod (rep ptr) (rep i32)) exdrop)
+                                  (ser (mem (rep ptr) exdrop) (var 0))
+                                  (ser (mem (rep i32) imdrop)
+                                    (coderef (val i32 imcopy imdrop)
+                                      ((ref (val ptr excopy exdrop) (base gc)
+                                         (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                           (ser (mem (rep ptr) exdrop) (var 0))
+                                           (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                                      -> (i31 (val ptr imcopy imdrop)))))))))
+                          (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))))]
         cast ;; [(ref (val ptr excopy exdrop) (base gc)
-                   (ser (mem (rep (prod ptr i32)) exdrop)
-                     (prod (val (prod ptr i32) excopy exdrop)
-                       (ref (val ptr excopy exdrop) (base gc)
-                         (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                           (ser (mem (rep ptr) exdrop)
-                             (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
-                               (ref (val ptr excopy exdrop) (base gc)
-                                 (struct (mem (prod (rep ptr) (rep i32)) exdrop)
-                                   (ser (mem (rep ptr) exdrop) (var 0))
-                                   (ser (mem (rep i32) imdrop)
-                                     (coderef (val i32 imcopy imdrop)
-                                       ((ref (val ptr excopy exdrop) (base gc)
-                                          (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
-                                            (ser (mem (rep ptr) exdrop) (var 0))
-                                            (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                                       -> (i31 (val ptr imcopy imdrop)))))))))
-                           (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                   (ser (mem (rep (prod i32 ptr)) exdrop)
+                     (prod (val (prod i32 ptr) excopy exdrop)
                        (coderef (val i32 imcopy imdrop)
                          ((ref (val ptr excopy exdrop) (base gc)
                             (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
@@ -4740,7 +4769,22 @@ let%expect_test "examples" =
                                                 -> (i31 (val ptr imcopy imdrop)))))))))
                                     (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))
                               (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
-                         -> (i31 (val ptr imcopy imdrop)))))))]
+                         -> (i31 (val ptr imcopy imdrop))))
+                       (ref (val ptr excopy exdrop) (base gc)
+                         (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                           (ser (mem (rep ptr) exdrop)
+                             (exists.type (val ptr excopy exdrop) (val ptr excopy exdrop)
+                               (ref (val ptr excopy exdrop) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep i32)) exdrop)
+                                   (ser (mem (rep ptr) exdrop) (var 0))
+                                   (ser (mem (rep i32) imdrop)
+                                     (coderef (val i32 imcopy imdrop)
+                                       ((ref (val ptr excopy exdrop) (base gc)
+                                          (struct (mem (prod (rep ptr) (rep ptr)) exdrop)
+                                            (ser (mem (rep ptr) exdrop) (var 0))
+                                            (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop)))))
+                                       -> (i31 (val ptr imcopy imdrop)))))))))
+                           (ser (mem (rep ptr) imdrop) (i31 (val ptr imcopy imdrop))))))))]
                 ->
                 [(ref (val ptr excopy exdrop) (base gc)
                    (struct (mem (prod (rep ptr) (rep i32)) exdrop)

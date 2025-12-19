@@ -126,10 +126,10 @@ let%expect_test "return_one" =
       local.get 2 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
+      coderef 0
       group 0
       new gc
       cast (ref (base gc) (struct))
-      coderef 0
       group 2
       new gc
       cast
@@ -232,10 +232,10 @@ let%expect_test "apply_id" =
       local.get 2 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
+      coderef 0
       group 0
       new gc
       cast (ref (base gc) (struct))
-      coderef 0
       group 2
       new gc
       cast
@@ -302,9 +302,9 @@ let%expect_test "tuple_and_project" =
   -------[tuple_and_project]-------
   (module
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr)
-      i32.const 7
-      tag
       i32.const 42
+      tag
+      i32.const 7
       tag
       group 2
       new gc

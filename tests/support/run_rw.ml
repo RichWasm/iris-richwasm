@@ -14,7 +14,10 @@ struct
     let open Config in
     Utils.Process_capture.run_concat
       ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
-      ~input:wasm ~prog:"node" ~args:((if inspect then ["--inspect-wait"] else []) @ [host_runtime_path] ) ()
+      ~input:wasm ~prog:"node"
+      ~args:
+        ((if inspect then [ "--inspect-wait" ] else []) @ [ host_runtime_path ])
+      ()
 end
 
 module UnnanotatedRW = Richwasm_common.Syntax

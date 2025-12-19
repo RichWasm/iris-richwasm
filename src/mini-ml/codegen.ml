@@ -124,7 +124,7 @@ let rec compile_expr delta gamma locals functions e =
             let v', locals', fx' =
               compile_expr delta gamma locals functions item
             in
-            (instrs @ v', locals', fx @ fx'))
+            (v' @ instrs, locals', fx @ fx'))
           ~init:([], locals, []) vs
       in
       (vs' @ [ Group (List.length vs); New GC; Cast rw_t ], locals', fx)
