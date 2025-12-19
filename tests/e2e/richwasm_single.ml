@@ -44,7 +44,6 @@ let simple_tests =
        (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "7" );
-
     ( "copy tuple",
       {|
         ((imports ())
@@ -62,7 +61,7 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "[ 1, 2n, 1, 2n ]" );
-     ( "alloc tuple mm",
+    ( "alloc tuple mm",
       {|
         ((imports ())
          (functions

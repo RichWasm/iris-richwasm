@@ -1,5 +1,5 @@
 open! Core
-open Test_examples.Mini_ml
+open! Test_examples.Mini_ml
 
 let simple_tests =
   [

@@ -1355,7 +1355,9 @@ let elab_module ({ imports; functions; table; exports } : A.Module.t) :
     B.Module.t t =
   let* m_imports = mapM ~f:(elab_function_type []) imports in
   let* env =
-    let functions_typs = List.map ~f:(fun { typ; _ } -> typ) functions in
+    let functions_typs =
+      imports @ List.map ~f:(fun { typ; _ } -> typ) functions
+    in
     let+ table_typs =
       mapM
         ~f:(fun i ->

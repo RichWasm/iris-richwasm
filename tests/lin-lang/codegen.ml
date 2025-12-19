@@ -181,7 +181,8 @@ let%expect_test "debugging" =
      (table ()) (exports (((name _start) (desc (Func 0)))))) |}];
 
   run Test_examples.Lin_lang.heap_sum;
-  [%expect {|
+  [%expect
+    {|
     (module
       (func (-> i32) (local ptr (sum i32 i32) (sum i32 i32) i32 i32)
         i32.const 7
@@ -214,7 +215,8 @@ let%expect_test "debugging" =
       (table)
       (export "_start" (func 0))) |}];
   next ();
-  [%expect {|
+  [%expect
+    {|
     ((imports ())
      (functions
       (((typ (FunctionType () () ((Num (Int I32)))))

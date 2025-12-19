@@ -342,7 +342,11 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =
       ~f:(fun (Import (_, t)) ->
         match compile_type [] t with
         | Type.CodeRef ft -> ft
-        | _ -> failwith "imports must be functions")
+        | x ->
+            failwith
+              (failwith
+                 (Stdlib.Format.asprintf "imports must be functions: %a" Type.pp
+                    x)))
       imps
   in
   let fns =

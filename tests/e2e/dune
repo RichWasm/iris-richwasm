@@ -14,3 +14,5 @@
   iris-richwasm.mini-ml)
  (preprocess
   (staged_pps ppx_sexp_conv ppx_variants_conv)))
+
+(include_subdirs qualified)

@@ -10,5 +10,6 @@
  (section lib)
  (package iris-richwasm)
  (files
-  (simple_host.ts as tests/simple_host.ts)
+  (host_single.ts as tests/host_single.ts)
+  (host_triple.ts as tests/host_triple.ts)
   (tableset.ts as tests/tableset.ts)))

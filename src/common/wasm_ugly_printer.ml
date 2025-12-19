@@ -5,13 +5,9 @@ module Ast = Richwasm_extract.Datatypes0
 open Util
 
 module State = struct
-  type t = {
-    output : string;
-  }
+  type t = { output : string }
 
-  let init ?(output = "") () : t =
-    {output }
-
+  let init ?(output = "") () : t = { output }
 end
 
 module Void = struct
@@ -97,9 +93,13 @@ let rec ugly_instruction (instr : Ast.basic_instruction) : t =
     | T_f32 | T_f64 -> true
   in
   let handle_bt : Ast.function_type -> t = function
-    | Tf (param, result)->
-        let* () = appendf "(param%a)" (pp_print_list_pre_space pp_value_type) param in
-        let* () = appendf "(result%a)" (pp_print_list_pre_space pp_value_type) result in
+    | Tf (param, result) ->
+        let* () =
+          appendf "(param%a)" (pp_print_list_pre_space pp_value_type) param
+        in
+        let* () =
+          appendf "(result%a)" (pp_print_list_pre_space pp_value_type) result
+        in
         ret ()
   in
 

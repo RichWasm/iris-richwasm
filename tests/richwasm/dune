@@ -13,5 +13,3 @@
   iris-richwasm.runtime
   iris-richwasm.lin-lang
   iris-richwasm.mini-ml))
-
-(include_subdirs qualified)

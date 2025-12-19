@@ -13,6 +13,9 @@
    RW_RUNTIME_WASM_PATH
    %{lib:iris-richwasm.runtime:richwasm.wasm}
    (setenv
-    WASM_HOST_RUNTIME_PATH
-    %{dep:support/simple_host.ts}
-    (run %{test})))))
+    HOST_SINGLE_PATH
+    %{dep:support/host_single.ts}
+    (setenv
+     HOST_TRIPLE_PATH
+     %{dep:support/host_triple.ts}
+     (run %{test}))))))
