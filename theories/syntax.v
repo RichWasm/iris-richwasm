@@ -131,8 +131,6 @@ Section SizeInd.
 
 End SizeInd.
 
-Print type.
-
 Section TypeInd.
 
   Variables
