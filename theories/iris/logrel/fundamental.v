@@ -172,8 +172,33 @@ Section Fundamental.
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (IUnreachable ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
-  Admitted.
- 
+  Proof.
+    intros fe WT WL Hok Hcompile.
+    inv_cg_emit Hcompile; subst.
+    unfold have_instruction_type_sem.
+    destruct ψ eqn:Hψ.
+    iIntros (? ? ? ? ? ? ? ?) "Hinst Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
+    unfold expr_interp.
+    iApply wp_mono.
+    2: {
+      iApply wp_val_app_trap_post'.
+      iFrame "Hf".
+      iIntros "Hf".
+      iApply wp_mono.
+      2: iApply (wp_unreachable with "[$] [$]").
+      - iIntros (?) "[[Hv Hbail] Hframe]".
+        iFrame.
+        instantiate (1 := λ _, ↪[BAIL]).
+        iFrame.
+        auto.
+      - done.
+    }
+    iIntros (?) "[-> [Hbail Hframe]]".
+    unfold denote_logpred. simpl.
+    iFrame.
+  Qed.
+
+
   Lemma eval_rep_emptyenv :
     forall ρ ιs,
       eval_rep EmptyEnv ρ = Some ιs ->
