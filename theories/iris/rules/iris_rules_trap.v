@@ -221,19 +221,21 @@ Section trap_rules.
         iApply wp_trap;auto. }
   Qed.
 
-  Lemma wp_val_trap (s : stuckness) (E : coPset) v0 (es1 : language.expr wasm_lang) (f f' : frame):
+  Lemma wp_val_trap_post (s : stuckness) (E : coPset) v0 Ψ (es1 : language.expr wasm_lang) (f f' : frame):
     ↪[frame] f ∗
-     (↪[frame] f -∗ WP es1 @ NotStuck; E {{ w, ⌜w = trapV⌝ ∗ ↪[frame] f' }})
-     ⊢ WP ((AI_basic (BI_const v0)) :: es1) @ s; E {{ w, ⌜w = trapV⌝ ∗ ↪[frame] f' }}.
+     (↪[frame] f -∗ WP es1 @ NotStuck; E {{ w, Ψ w ∗ ⌜w = trapV⌝ ∗ ↪[frame] f' }})
+     ⊢ WP ((AI_basic (BI_const v0)) :: es1) @ s; E {{ w, Ψ w ∗ ⌜w = trapV⌝ ∗ ↪[frame] f' }}.
   Proof.
   iLöb as "IH" forall (v0 es1 f f').
   iIntros "(Hntrap & H)".
   destruct (iris.to_val es1) as [vs|] eqn:Hes.
   { repeat rewrite wp_unfold /wp_pre /= Hes.
-    iMod ("H"  with "Hntrap") as "[%Hcontr Hf]". subst.
+    iMod ("H"  with "Hntrap") as "[HΨ [%Hcontr Hf]]". subst.
     apply to_val_trap_is_singleton in Hes as ->.
     rewrite -(app_nil_r [AI_trap]). rewrite separate1.
-    iApply (wp_trap with "[] [Hf]");auto. }
+    iApply wp_mono.
+    { iIntros (v). rewrite bi.sep_assoc. auto. }
+    iApply (wp_trap with "[HΨ] [Hf]");auto. }
   { repeat rewrite wp_unfold /wp_pre /= Hes.
     iApply wp_unfold. rewrite /wp_pre /=.
     rewrite to_val_cons_None//.
@@ -276,13 +278,35 @@ Section trap_rules.
       iSplit => //. iIntros "Hf".
       iDestruct ("Ha" with "Hf") as "Ha".
       rewrite wp_unfold /wp_pre /=.
-      iMod "Ha" as "[_ Hf]".
+      iMod "Ha" as "[HΨ [_ Hf]]".
       erewrite cons_middle.
-      iApply wp_trap;auto. } 
+      iApply wp_mono.
+      { iIntros (v). rewrite bi.sep_assoc. auto. }
+      iApply (wp_trap with "[HΨ] [Hf]");auto. }
     auto.
   }
   Qed.
-      
+
+  Lemma wp_val_trap (s : stuckness) (E : coPset) v0 (es1 : language.expr wasm_lang) (f f' : frame):
+    ↪[frame] f ∗
+     (↪[frame] f -∗ WP es1 @ NotStuck; E {{ w, ⌜w = trapV⌝ ∗ ↪[frame] f' }})
+     ⊢ WP ((AI_basic (BI_const v0)) :: es1) @ s; E {{ w, ⌜w = trapV⌝ ∗ ↪[frame] f' }}.
+  Proof.
+    iIntros "[Hframe Hwp]".
+    iApply wp_mono.
+    2: {
+      iApply wp_val_trap_post.
+      instantiate (2 := λ _, True%I).
+      simpl.
+      iFrame.
+      iIntros "Hframe".
+      iApply (wp_wand with "[Hwp Hframe]"); first by iApply "Hwp".
+      auto.
+    }
+    iIntros (v) "(_ & ? & ?)".
+    iFrame.
+  Qed.
+
   Lemma wp_val_app_trap' (s : stuckness) (E : coPset) vs (es : language.expr wasm_lang) (f f' : frame) :
     ↪[frame] f ∗
      (↪[frame] f -∗ WP es @ NotStuck ; E {{ w, ⌜w = trapV⌝ ∗ ↪[frame] f' }}%I)
@@ -318,6 +342,31 @@ Section trap_rules.
     apply iris.of_to_val in Hves; subst.
     iApply wp_val_app_trap'.
     by iFrame.
+  Qed.
+
+  Lemma wp_val_app_trap_post' (s : stuckness) (E : coPset) vs Ψ (es : language.expr wasm_lang) (f f' : frame) :
+    ↪[frame] f ∗
+    (↪[frame] f -∗ WP es @ NotStuck ; E {{ w, Ψ w ∗ ⌜w = trapV⌝ ∗ ↪[frame] f' }}%I)
+    ⊢ WP ((v_to_e_list vs) ++ es) @ s ; E {{ w, Ψ w ∗ ⌜w = trapV⌝ ∗ ↪[frame] f' }}%I.
+  Proof.
+    iInduction vs as [|c vs] "IH" forall (s E es).
+    { simpl.
+      iIntros "[Hf HWP]".
+      destruct s.
+      2: iApply wp_stuck_weaken.
+      all: iDestruct ("HWP" with "Hf") as "HWP".
+      all: iApply (wp_wand with "HWP").
+      all: iIntros (v).
+      all: destruct v => /=.
+      all: iIntros "HΦ" => //.
+    }
+    { iIntros "[Hf HWP]".
+      iSimpl.
+      iApply wp_val_trap_post.
+      iFrame. iIntros "Hf".
+      iApply ("IH" $! _ _ _ with "[Hf HWP]") => //=.
+      iFrame.
+    }
   Qed.
 
   Lemma wp_label_trap s E LI vs n es' es'' (f f': frame):

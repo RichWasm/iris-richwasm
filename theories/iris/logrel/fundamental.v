@@ -193,7 +193,7 @@ Section Fundamental.
         auto.
       - done.
     }
-    iIntros (?) "[-> [Hbail Hframe]]".
+    iIntros (?) "[Hbail [-> Hframe]]".
     unfold denote_logpred. simpl.
     iFrame.
   Qed.
