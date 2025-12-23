@@ -130,3 +130,85 @@ Section SizeInd.
     end.
 
 End SizeInd.
+
+Print type.
+
+Section TypeInd.
+
+  Variables
+    (P : type -> Prop)
+    (P0: function_type -> Prop)
+    (HVarT : forall idx, P (VarT idx))
+    (HI31T : forall κ, P (I31T κ))
+    (HNumT : forall κ nt, P (NumT κ nt))
+    (HSumT : forall κ τs, Forall P τs -> P (SumT κ τs) )
+    (HVariantT : forall κ τs, Forall P τs -> P (VariantT κ τs) )
+    (HProdT : forall κ τs, Forall P τs -> P (ProdT κ τs) )
+    (HStructT : forall κ τs, Forall P τs -> P (StructT κ τs) )
+    (HRefT : forall κ m t, P t -> P (RefT κ m t))
+    (HCodeRefT : forall κ ft, P0 ft -> P (CodeRefT κ ft) )
+    (*coderef might be wrong*)
+    (HSerT : forall κ t, P t -> P (SerT κ t))
+    (HPlugT : forall κ rep, P (PlugT κ rep))
+    (HSpanT : forall κ s, P (SpanT κ s))
+    (HRecT : forall κ t, P t -> P (RecT κ t))
+    (HExistsMemT : forall κ t, P t -> P (ExistsMemT κ t))
+    (HExistsRepT : forall κ t, P t -> P (ExistsRepT κ t))
+    (HExistsSizeT : forall κ t, P t -> P (ExistsSizeT κ t))
+    (HExistsTypeT : forall κ1 κ2 t, P t -> P (ExistsTypeT κ1 κ2 t))
+
+    (HOKMonoFunT : forall τs1 τs2,
+        Forall P τs1 -> Forall P τs2 -> P0 (MonoFunT τs1 τs2))
+    (HOKForallMemT : forall ft, P0 ft -> P0 (ForallMemT ft))
+    (HOKForallRepT : forall ft, P0 ft -> P0 (ForallRepT ft))
+    (HOKForallSizeT : forall ft, P0 ft -> P0 (ForallSizeT ft))
+    (HOKForallTypeT : forall κ ft, P0 ft -> P0 (ForallTypeT κ ft))
+  .
+
+  Fixpoint type_ind (t:type) : P t :=
+    let fix types_ind ts : Forall P ts :=
+      match ts with
+      | [] => ListDef.Forall_nil _
+      | b :: bs => ListDef.Forall_cons _ (type_ind b) (types_ind bs)
+      end
+    in
+    match t with
+    | VarT idx => HVarT idx
+    | I31T κ => HI31T κ
+    | NumT κ nt => HNumT κ nt
+    | SumT κ ts => HSumT κ ts (types_ind ts)
+    | VariantT κ ts => HVariantT κ ts (types_ind ts)
+    | ProdT κ ts => HProdT κ ts (types_ind ts)
+    | StructT κ ts => HStructT κ ts (types_ind ts)
+    | RefT κ m t => HRefT κ m t (type_ind t)
+    | CodeRefT κ ft => HCodeRefT κ ft (function_type_ind ft)
+    | SerT κ t => HSerT κ t (type_ind t)
+    | PlugT κ ρ => HPlugT κ ρ
+    | SpanT κ σ => HSpanT κ σ
+    | RecT κ t => HRecT κ t (type_ind t)
+    | ExistsMemT κ t => HExistsMemT κ t (type_ind t)
+    | ExistsRepT κ t => HExistsRepT κ t (type_ind t)
+    | ExistsSizeT κ t => HExistsSizeT κ t (type_ind t)
+    | ExistsTypeT κ1 κ2 t => HExistsTypeT κ1 κ2 t (type_ind t)
+    end
+  with function_type_ind (ft: function_type) : P0 ft :=
+      let fix types_ind ts : Forall P ts :=
+      match ts with
+      | [] => ListDef.Forall_nil _
+      | b :: bs => ListDef.Forall_cons _ (type_ind b) (types_ind bs)
+      end
+    in
+         match ft with
+         | MonoFunT τs1 τs2 => HOKMonoFunT τs1 τs2 (types_ind τs1) (types_ind τs2)
+         | ForallMemT ft => HOKForallMemT ft (function_type_ind ft)
+         | ForallRepT ft => HOKForallRepT ft (function_type_ind ft)
+         | ForallSizeT ft => HOKForallSizeT ft (function_type_ind ft)
+         | ForallTypeT κ ft => HOKForallTypeT κ ft (function_type_ind ft)
+         end.
+
+  Lemma type_and_function_ind : (forall t, P t) /\ (forall ft, P0 ft).
+  Proof.
+    split; intros; [apply type_ind|apply function_type_ind]; assumption.
+  Qed.
+
+End TypeInd.
