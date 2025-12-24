@@ -737,8 +737,8 @@ Section Fundamental.
   Qed.
 
 
-  Lemma wp_case_ptr {A B} s E idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
-    run_codegen (memory.case_ptr idx (Tf [] []) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
+  Lemma wp_case_ptr {A B} E idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ ts1 ts2 vs :
+    run_codegen (memory.case_ptr idx (Tf ts1 ts2) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
       run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
@@ -753,12 +753,12 @@ Section Fundamental.
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
-            | PtrInt z => lenient_wp s E [AI_basic (BI_block (Tf [] []) es1)] Φ
-            | PtrHeap MemMM l => lenient_wp s E [AI_basic (BI_block (Tf [] []) es2)] (lp_bind s E 1 (LH_rec [] 0 [] (LH_base [] []) []) Φ)
-            | PtrHeap MemGC l => lenient_wp s E [AI_basic (BI_block (Tf [] []) es3)] (lp_bind s E 1 (LH_rec [] 0 [] (LH_base [] []) []) Φ)
+            | PtrInt z => lenient_wp NotStuck E (v_to_e_list vs ++ [AI_basic (BI_block (Tf ts1 ts2) es1)]) Φ
+            | PtrHeap MemMM l => lenient_wp NotStuck E (v_to_e_list vs ++ [AI_basic (BI_block (Tf ts1 ts2) es2)]) (lp_bind NotStuck E 1 (LH_rec [] 0 [] (LH_base [] []) []) Φ)
+            | PtrHeap MemGC l => lenient_wp NotStuck E (v_to_e_list vs ++ [AI_basic (BI_block (Tf ts1 ts2) es3)]) (lp_bind NotStuck E 1 (LH_rec [] 0 [] (LH_base [] []) []) Φ)
             end) -∗
         atom_interp (PtrA ptr) v ∗
-        lenient_wp s E (to_e_list es) Φ.
+        lenient_wp NotStuck E (v_to_e_list vs ++ to_e_list es) Φ.
   Proof.
     intros Hcg.
     unfold memory.case_ptr in Hcg.
@@ -766,13 +766,13 @@ Section Fundamental.
     subst.
 
     rewrite -> !app_nil_l, !app_nil_r in *.
-    eapply (lwp_if_c s E) in Hcg_if_isptr.
+    eapply (lwp_if_c NotStuck E) in Hcg_if_isptr.
     destruct Hcg_if_isptr as (?wt & ?wt & ?wl & ?wl & es_int & es_case_m & Hcg_int & Hcg_case_m & -> & -> & Hwp_if_isptr).
     inv_cg_bind Hcg_case_m [] ?wt ?wt ?wl ?wl ?es_mm_or_gc es_if_m Hcg_mm_or_gc Hcg_if_m.
     inv_cg_emit_all Hcg_mm_or_gc.
     subst.
 
-    eapply (lwp_if_c s E) in Hcg_if_m.
+    eapply (lwp_if_c NotStuck E) in Hcg_if_m.
     destruct Hcg_if_m as (?wt & ?wt & ?wl & ?wl & es_mm & es_gc & Hcg_mm & Hcg_gc & -> & -> & Hwp_if_m).
     rewrite <- !app_assoc, !app_nil_r, !app_nil_l in *.
 
@@ -792,6 +792,7 @@ Section Fundamental.
         iSplitR.
         * cbn; eauto.
         * rewrite to_e_list_app.
+          iApply lenient_wp_val_app'.
           iApply (lenient_wp_seq with "[Hframe Hrun]").
           {
             iApply (wp_mod2_test_1 with "[] [] [$] [$]"); eauto.
@@ -816,6 +817,7 @@ Section Fundamental.
       iSplitL "Hroot"; first (iExists _; by iFrame).
       inversion Hrep as [|? ? Hmod]; subst.
       rewrite to_e_list_app.
+      iApply lenient_wp_val_app'.
       iApply (lenient_wp_seq with "[Hframe Hrun]").
       {
         iApply (wp_mod2_test_1_2 with "[] [] [$] [$]"); eauto.
