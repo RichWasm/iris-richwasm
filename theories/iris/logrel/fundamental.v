@@ -2905,6 +2905,43 @@ Section Fundamental.
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L.
   Admitted.
 
+  Lemma compat_binary_case M F L L' wt wt' wtf wl wl' wlf es' ess es1 es2 τs τ1 τ2 τs' κ :
+    ess = [es1; es2] ->
+    τs = [τ1; τ2] ->
+    let fe := fe_of_context F in
+    let WT := wt ++ wt' ++ wtf in
+    let WL := wl ++ wl' ++ wlf in
+    let F' := F <| fc_labels ::= cons (τs', L') |> in
+    let ψ := InstrT [SumT κ τs] τs' in
+    Forall2
+      (fun τ es =>
+         (forall wt wt' wtf wl wl' wlf es',
+            let fe' := fe_of_context F' in
+            let WT := wt ++ wt' ++ wtf in
+            let WL := wl ++ wl' ++ wlf in
+            run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
+            ⊢ have_instruction_type_sem rti sr mr M F' L WT WL (to_e_list es') (InstrT [τ] τs') L'))
+      τs ess ->
+    has_instruction_type_ok F ψ L' ->
+    run_codegen (compile_instr mr fe (ICase ψ L' ess)) wt wl = inr ((), wt', wl', es') ->
+    ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
+  Proof.
+    intros -> -> fe WT WL F' Ψ Hforall Hok Hcg.
+    rewrite Forall2_cons_iff in Hforall.
+    destruct Hforall as [Hes1 H2].
+    rewrite Forall2_cons_iff in H2.
+    destruct H2 as [Hes2 _].
+    subst Ψ.
+    cbn [compile_instr] in Hcg.
+    destruct κ; last inversion Hcg.
+    destruct r; try done.
+    destruct τs'; first done.
+    destruct τs'; last done.
+
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hoff Hcompile.
+
+  Admitted.
+
   Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
