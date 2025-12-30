@@ -2938,9 +2938,97 @@ Section Fundamental.
     destruct τs'; first done.
     destruct τs'; last done.
 
-    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hoff Hcompile.
+    (* TODO: this is a mess... update variable names and maybe use more automation *)
 
-  Admitted.
+    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcg.
+    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcg.
+    inv_cg_try_option Hoff.
+    inv_cg_try_option Hoff0.
+    subst.
+    inv_cg_bind Hcg vs ?wt ?wt ?wl ?wl  es_save ?es_rest Hsave Hcg.
+    repeat rewrite app_nil_r in Hsave.
+
+    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hcg.
+    destruct ρ1, u.
+    inv_cg_emit Hcg.
+    subst.
+    apply run_codegen_capture in Hcases as [Hcases ->].
+    unfold map in Hcases.
+    repeat rewrite app_nil_r in Hcases.
+
+    repeat rewrite app_nil_l.
+
+    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcase_es1.
+    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcase_es1.
+    inv_cg_emit Hcase_es1.
+    subst.
+
+    inv_cg_bind Hoff0 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff0.
+    inv_cg_try_option Hoff1; subst.
+
+    inv_cg_bind Hoff0 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff0.
+    inv_cg_try_option Hoff1; subst.
+
+    inv_cg_bind Hoff0 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff0.
+    inv_cg_bind Hoff1 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff1.
+    inv_cg_try_option Hoff2; subst.
+
+
+
+    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
+    destruct ρ7, u.
+    inv_cg_emit Hoff; subst.
+
+    apply run_codegen_capture in Hoff2 as [Hoff2 ->].
+    inv_cg_bind Hoff2 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff2.
+    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
+    destruct ρ7, u.
+    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
+    inv_cg_emit Hoff4; subst.
+
+    apply run_codegen_capture in Hoff3 as [Hoff3 ->].
+    inv_cg_bind Hoff3 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff3.
+
+    inv_cg_emit Hoff3; subst.
+
+    inv_cg_ret Hoff; subst.
+
+    inv_cg_bind Hoff2 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff2.
+    inv_cg_emit Hoff2; subst.
+
+    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
+    inv_cg_try_option Hoff2; subst.
+
+    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
+    inv_cg_try_option Hoff2; subst.
+
+    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
+    inv_cg_bind Hoff2 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff2.
+    inv_cg_try_option Hoff3; subst.
+
+    inv_cg_bind Hoff4 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff4.
+    destruct ρ12, u.
+    inv_cg_bind Hoff4 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff4.
+    inv_cg_emit Hoff5; subst.
+    inv_cg_ret Hoff4; subst.
+
+    apply run_codegen_capture in Hoff3 as [Hoff3 ->].
+    inv_cg_emit Hoff3; subst.
+
+
+    repeat rewrite app_nil_r in Hoff0, Hoff1, Hoff, Hoff2.
+    repeat rewrite app_nil_r.
+
+    repeat rewrite app_nil_l in Hoff0, Hoff1, Hoff, Hoff2.
+    repeat rewrite app_nil_l.
+
+    set (x := (rev (seq 1 (0 + 1 + 1)))).
+    simpl in x.
+    subst x.
+
+    (* TODO: clean up proofstate *)
+
+Admitted.
 
   Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
     let fe := fe_of_context F in
