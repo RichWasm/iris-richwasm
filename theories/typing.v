@@ -196,6 +196,7 @@ with function_type_ok : function_ctx -> function_type -> Prop :=
 
 Definition mono_mem (μ : memory) : Prop := exists bm, μ = BaseM bm.
 
+(*This is not reflective or transitive; maybe it should be*)
 Inductive subkind_of : kind -> kind -> Prop :=
 | KSubValExCopy ρ δ :
   subkind_of (VALTYPE ρ ImCopy δ) (VALTYPE ρ ExCopy δ)
