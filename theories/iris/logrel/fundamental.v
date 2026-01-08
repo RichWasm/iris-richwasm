@@ -2940,86 +2940,87 @@ Section Fundamental.
 
     (* TODO: this is a mess... update variable names and maybe use more automation *)
 
-    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcg.
-    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcg.
-    inv_cg_try_option Hoff.
-    inv_cg_try_option Hoff0.
-    subst.
-    inv_cg_bind Hcg vs ?wt ?wt ?wl ?wl  es_save ?es_rest Hsave Hcg.
+    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
+    inv_cg_try_option Hres_type; subst.
+    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
+    inv_cg_try_option Hιs; subst.
+    inv_cg_bind Hcg vs ?wt ?wt ?wl ?wl es_save ?es Hsave Hcg.
     repeat rewrite app_nil_r in Hsave.
 
-    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hcg.
+    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es es_done Hcases Hcg.
     destruct ρ1, u.
-    inv_cg_emit Hcg.
-    subst.
+    inv_cg_emit Hcg; subst.
+
     apply run_codegen_capture in Hcases as [Hcases ->].
     unfold map in Hcases.
     repeat rewrite app_nil_r in Hcases.
 
     repeat rewrite app_nil_l.
 
-    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcase_es1.
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hcase_es1.
-    inv_cg_emit Hcase_es1.
-    subst.
+    (* Case es1 *)
+    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hcase_es1.
 
-    inv_cg_bind Hoff0 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff0.
-    inv_cg_try_option Hoff1; subst.
+    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hcase_es1_br.
+    inv_cg_emit Hcase_es1_br; subst.
 
-    inv_cg_bind Hoff0 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff0.
-    inv_cg_try_option Hoff1; subst.
+    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hlookup_l_0 Hcase_es1.
+    inv_cg_try_option Hlookup_l_0; subst.
 
-    inv_cg_bind Hoff0 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff0.
-    inv_cg_bind Hoff1 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff1.
-    inv_cg_try_option Hoff2; subst.
+    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es1.
+    inv_cg_try_option Hinject; subst.
 
+    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es es_case_1 Hget_locals_1 Hcase_es1.
+    inv_cg_bind Hget_locals_1 ?ρ ?wt ?wt ?wl ?wl ?es es_get_locals_1 Hnths_error Hget_locals_1.
+    inv_cg_try_option Hnths_error; subst.
 
-
-    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
+    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hblock_case1.
     destruct ρ7, u.
+    inv_cg_emit Hblock_case1; subst.
+
+    apply run_codegen_capture in Hcases as [Hcases ->].
+
+
+    (* Case es2 *)
+    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hcase_es2.
+
+    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hcase_es2_br.
+    inv_cg_emit Hcase_es2_br; subst.
+
+    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hlookup_l_1 Hcase_es2.
+    inv_cg_try_option Hlookup_l_1; subst.
+
+    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es2.
+    inv_cg_try_option Hinject; subst.
+
+    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es es_case_2 Hget_locals_2 Hcase_es2.
+    inv_cg_bind Hget_locals_2 ?ρ ?wt ?wt ?wl ?wl ?es es_get_locals_2 Hnths_error Hget_locals_2.
+    inv_cg_try_option Hnths_error; subst.
+
+    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hblock_case2.
+    destruct ρ12, u.
+    inv_cg_emit Hblock_case2; subst.
+
+    apply run_codegen_capture in Hcases as [Hcases ->].
+
+
+    (* br_table *)
+
+    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hbr_table Hunreachable.
+    inv_cg_emit Hunreachable; subst.
+
+    inv_cg_bind Hbr_table ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff3.
+
+    destruct ρ12, u.
+    inv_cg_emit Hoff3; subst.
+
+    apply run_codegen_capture in Hoff as [Hoff ->].
     inv_cg_emit Hoff; subst.
 
-    apply run_codegen_capture in Hoff2 as [Hoff2 ->].
-    inv_cg_bind Hoff2 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff2.
-    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
-    destruct ρ7, u.
-    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
-    inv_cg_emit Hoff4; subst.
-
-    apply run_codegen_capture in Hoff3 as [Hoff3 ->].
-    inv_cg_bind Hoff3 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff3.
-
-    inv_cg_emit Hoff3; subst.
-
-    inv_cg_ret Hoff; subst.
-
-    inv_cg_bind Hoff2 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff2.
-    inv_cg_emit Hoff2; subst.
-
-    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
-    inv_cg_try_option Hoff2; subst.
-
-    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
-    inv_cg_try_option Hoff2; subst.
-
-    inv_cg_bind Hoff ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff.
-    inv_cg_bind Hoff2 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff2.
-    inv_cg_try_option Hoff3; subst.
-
-    inv_cg_bind Hoff4 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff4.
-    destruct ρ12, u.
-    inv_cg_bind Hoff4 ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff4.
-    inv_cg_emit Hoff5; subst.
-    inv_cg_ret Hoff4; subst.
-
-    apply run_codegen_capture in Hoff3 as [Hoff3 ->].
-    inv_cg_emit Hoff3; subst.
-
-
-    repeat rewrite app_nil_r in Hoff0, Hoff1, Hoff, Hoff2.
+    (* clean up *)
+    repeat rewrite app_nil_r in Hcase_es1, Hget_locals_1, Hcase_es2, Hget_locals_2.
     repeat rewrite app_nil_r.
 
-    repeat rewrite app_nil_l in Hoff0, Hoff1, Hoff, Hoff2.
+    repeat rewrite app_nil_l in Hcase_es1, Hget_locals_1, Hcase_es2, Hget_locals_2.
     repeat rewrite app_nil_l.
 
     set (x := (rev (seq 1 (0 + 1 + 1)))).
@@ -3027,6 +3028,8 @@ Section Fundamental.
     subst x.
 
     (* TODO: clean up proofstate *)
+
+    iIntros (? ? ? ? ? ? ? ?) "Hinst Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
 
 Admitted.
 
