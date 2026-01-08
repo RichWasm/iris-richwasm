@@ -3016,6 +3016,7 @@ Section Fundamental.
     inv_cg_emit Hbr_table; subst.
 
     (* clean up *)
+    subst WT WL.
     repeat rewrite app_nil_r in Hcase_es1, Hget_locals_1, Hcase_es2, Hget_locals_2.
     repeat rewrite app_nil_r.
 
@@ -3025,6 +3026,9 @@ Section Fundamental.
     set (x := (rev (seq 1 (0 + 1 + 1)))).
     simpl in x.
     subst x.
+
+    simplify_eq.
+    destruct ρ2, ρ5, ρ7, ρ10.
 
     (* TODO: clean up proofstate *)
 
