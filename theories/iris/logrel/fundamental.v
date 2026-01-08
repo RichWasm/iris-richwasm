@@ -2938,7 +2938,6 @@ Section Fundamental.
     destruct τs'; first done.
     destruct τs'; last done.
 
-    (* TODO: this is a mess... update variable names and maybe use more automation *)
 
     inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
@@ -3008,13 +3007,13 @@ Section Fundamental.
     inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hbr_table Hunreachable.
     inv_cg_emit Hunreachable; subst.
 
-    inv_cg_bind Hbr_table ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hoff Hoff3.
+    inv_cg_bind Hbr_table ?ρ ?wt ?wt ?wl ?wl ?es ?es ?Hbr_table Hblock_default.
 
     destruct ρ12, u.
-    inv_cg_emit Hoff3; subst.
+    inv_cg_emit Hblock_default; subst.
 
-    apply run_codegen_capture in Hoff as [Hoff ->].
-    inv_cg_emit Hoff; subst.
+    apply run_codegen_capture in Hbr_table as [Hbr_table ->].
+    inv_cg_emit Hbr_table; subst.
 
     (* clean up *)
     repeat rewrite app_nil_r in Hcase_es1, Hget_locals_1, Hcase_es2, Hget_locals_2.
