@@ -366,3 +366,31 @@ Proof.
   rewrite app_nil_r.
   repeat split; exact eq_refl.
 Qed.
+
+
+Lemma run_codegen_get_locals ρ wt wl x wt' wl' es' :
+  run_codegen (get_locals_w ρ) wt wl = inr (x, wt', wl', es') ->
+  x = tt /\
+    wt' = [] /\
+    wl' = [].
+Proof.
+  intros Hcg.
+  unfold get_locals_w, mapM_ in Hcg.
+  inv_cg_bind Hcg ?vs ?wt ?wt ?wl ?wl ?es ?es ?H ?H.
+  inv_cg_ret H0; subst.
+  split; first done.
+  do 2 rewrite app_nil_r.
+
+  revert vs wt wl wt0 wl0 es H.
+  induction ρ; intros vs wt wl wt' wl' es' Hcg.
+  - by inversion Hcg.
+  - cbn [mapM] in Hcg.
+    inv_cg_bind Hcg ?vs ?wt ?wt ?wl ?wl ?es ?es ?H ?H.
+    inv_cg_emit_all H; subst.
+    inv_cg_bind H0 ?vs ?wt ?wt ?wl ?wl ?es ?es ?H ?H.
+    inv_cg_ret H0; subst.
+    repeat rewrite app_nil_r, app_nil_l.
+    eapply IHρ.
+    apply H.
+Qed.
+

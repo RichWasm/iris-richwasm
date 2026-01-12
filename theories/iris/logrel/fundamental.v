@@ -2976,6 +2976,8 @@ Section Fundamental.
     destruct ρ7, u.
     inv_cg_emit Hblock_case1; subst.
 
+    destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_1) as [_ [-> ->]].
+
     apply run_codegen_capture in Hcases as [Hcases ->].
 
 
@@ -2998,6 +3000,8 @@ Section Fundamental.
     inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hblock_case2.
     destruct ρ12, u.
     inv_cg_emit Hblock_case2; subst.
+
+    destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_2) as [_ [-> ->]].
 
     apply run_codegen_capture in Hcases as [Hcases ->].
 
