@@ -3031,12 +3031,24 @@ Section Fundamental.
     simpl in x.
     subst x.
 
+    set (x := (0 + 1)).
+    simpl in x.
+    subst x.
+
+    set (x := (1 + 1)).
+    simpl in x.
+    subst x.
+
     simplify_eq.
     destruct ρ2, ρ5, ρ7, ρ10.
 
-    (* TODO: clean up proofstate *)
+    simpl in Heq_some4.
 
-    iIntros (? ? ? ? ? ? ? ?) "Hinst Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
+    (* Iris Proof *)
+    iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
+    replace (language.of_val (immV vs0)) with (v_to_e_list vs0); last done.
+    unfold expr_interp.
+    iSimpl.
 
 Admitted.
 
