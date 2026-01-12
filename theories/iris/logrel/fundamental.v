@@ -2943,7 +2943,7 @@ Section Fundamental.
     inv_cg_try_option Hres_type; subst.
     inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
     inv_cg_try_option Hιs; subst.
-    inv_cg_bind Hcg vs ?wt ?wt ?wl ?wl es_save ?es Hsave Hcg.
+    inv_cg_bind Hcg vs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
     repeat rewrite app_nil_r in Hsave.
 
     inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es es_done Hcases Hcg.
@@ -2968,8 +2968,8 @@ Section Fundamental.
     inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es1.
     inv_cg_try_option Hinject; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es es_case_1 Hget_locals_1 Hcase_es1.
-    inv_cg_bind Hget_locals_1 ?ρ ?wt ?wt ?wl ?wl ?es es_get_locals_1 Hnths_error Hget_locals_1.
+    inv_cg_bind Hcase_es1 ?ρ ?wt wt_case_1 ?wl wl_case_1 ?es es_case_1 Hget_locals_1 Hcase_es1.
+    inv_cg_bind Hget_locals_1 ?ρ ?wt wt_getlocals_1 ?wl wl_getlocals_1 ?es es_get_locals_1 Hnths_error Hget_locals_1.
     inv_cg_try_option Hnths_error; subst.
 
     inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hblock_case1.
@@ -2991,8 +2991,8 @@ Section Fundamental.
     inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es2.
     inv_cg_try_option Hinject; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es es_case_2 Hget_locals_2 Hcase_es2.
-    inv_cg_bind Hget_locals_2 ?ρ ?wt ?wt ?wl ?wl ?es es_get_locals_2 Hnths_error Hget_locals_2.
+    inv_cg_bind Hcase_es2 ?ρ ?wt wt_case_2 ?wl wl_case_2 ?es es_case_2 Hget_locals_2 Hcase_es2.
+    inv_cg_bind Hget_locals_2 ?ρ ?wt wt_getlocals_2 ?wl wl_get_locals_2 ?es es_get_locals_2 Hnths_error Hget_locals_2.
     inv_cg_try_option Hnths_error; subst.
 
     inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcases Hblock_case2.
