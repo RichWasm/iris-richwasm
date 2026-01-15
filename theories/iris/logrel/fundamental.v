@@ -2946,6 +2946,7 @@ Section Fundamental.
     inv_cg_bind Hcg vs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
     repeat rewrite app_nil_r in Hsave.
 
+    (* Case blocks *)
     inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es es_done Hcases Hcg.
     destruct ρ1, u.
     inv_cg_emit Hcg; subst.
@@ -3021,11 +3022,7 @@ Section Fundamental.
 
     (* clean up *)
     subst WT WL.
-    repeat rewrite app_nil_r in Hcase_es1, Hget_locals_1, Hcase_es2, Hget_locals_2.
-    repeat rewrite app_nil_r.
-
-    repeat rewrite app_nil_l in Hcase_es1, Hget_locals_1, Hcase_es2, Hget_locals_2.
-    repeat rewrite app_nil_l.
+    clear_nils.
 
     set (x := (rev (seq 1 (0 + 1 + 1)))).
     simpl in x.
@@ -3048,6 +3045,10 @@ Section Fundamental.
     iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
     replace (language.of_val (immV vs0)) with (v_to_e_list vs0); last done.
     unfold expr_interp.
+
+
+    iDestruct (Hes1 _ _ wtf _ _ wlf _ Hcase_es1) as "Hsem_es1".
+    (*iDestruct (Hes2 _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".*)
     iSimpl.
 
 Admitted.
