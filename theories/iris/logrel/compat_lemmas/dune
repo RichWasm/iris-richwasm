@@ -1,10 +1,10 @@
 (coq.theory
-  (name RichWasm.iris.logrel)
+  (name RichWasm.iris.logrel.compat_lemmas)
   (package iris-richwasm)
   (flags
     :standard
     -w -ambiguous-paths
     -w -redundant-canonical-projection)
   (theories
-    RichWasm.compiler
-    RichWasm.iris.logrel.compat_lemmas))
+    RichWasm.compiler))
+
