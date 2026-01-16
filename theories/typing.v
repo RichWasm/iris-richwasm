@@ -697,16 +697,16 @@ Inductive has_instruction_type_num : num_instruction -> instruction_type -> Prop
 | TIntRel νi op :
   let τ := int_type_type νi in
   has_instruction_type_num (IIntRel νi op) (InstrT [τ; τ] [type_i32])
-| IFloat1 νf op :
+| TFloat1 νf op :
   let τ := float_type_type νf in
   has_instruction_type_num (IFloat1 νf op) (InstrT [τ] [τ])
-| IFloat2 νf op :
+| TFloat2 νf op :
   let τ := float_type_type νf in
   has_instruction_type_num (IFloat2 νf op) (InstrT [τ; τ] [τ])
-| IFloatRel νf op :
+| TFloatRel νf op :
   let τ := float_type_type νf in
   has_instruction_type_num (IFloatRel νf op) (InstrT [τ; τ] [type_i32])
-| ICvt op ψ :
+| TCvt op ψ :
   has_instruction_type_cvt op ψ ->
   has_instruction_type_num (ICvt op) ψ.
 
