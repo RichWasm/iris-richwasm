@@ -215,8 +215,8 @@ Section Fundamental.
     iClear "Hrvs"; iClear "Hvs".
 
 
-  Lemma compat_num M F L wt wt' wtf wl wl' wlf ψ e es' :
-    let fe := fe_of_context F in
+  Lemma compat_num M F L n_skip wt wt' wtf wl wl' wlf ψ e es' :
+    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     has_instruction_type_num e ψ ->

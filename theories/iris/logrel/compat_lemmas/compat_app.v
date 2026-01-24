@@ -25,8 +25,8 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_app M F L1 L2 L3 wt wt' wtf wl wl' wlf es' es1 es2 τs1 τs2 τs3 :
-    let fe := fe_of_context F in
+  Lemma compat_app M F L1 L2 L3 n_skip wt wt' wtf wl wl' wlf es' es1 es2 τs1 τs2 τs3 :
+    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     (forall wt wt' wtf wl wl' wlf es',

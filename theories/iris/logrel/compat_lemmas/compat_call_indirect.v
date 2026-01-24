@@ -25,8 +25,8 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_call_indirect M F L wt wt' wtf wl wl' wlf es' τs1 τs2 :
-    let fe := fe_of_context F in
+  Lemma compat_call_indirect n_skip M F L wt wt' wtf wl wl' wlf es' τs1 τs2 :
+    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in

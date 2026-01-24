@@ -25,8 +25,8 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_new M F L wt wt' wtf wl wl' wlf κ κser μ τ es' :
-    let fe := fe_of_context F in
+  Lemma compat_new M F L n_skip wt wt' wtf wl wl' wlf κ κser μ τ es' :
+    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [τ] [RefT κ μ (SerT κser τ)] in

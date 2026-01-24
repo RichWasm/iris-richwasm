@@ -25,15 +25,15 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_block M F L L' wt wt' wtf wl wl' wlf τs1 τs2 es es' :
-    let fe := fe_of_context F in
+  Lemma compat_block M F L L' n_skip wt wt' wtf wl wl' wlf τs1 τs2 es es' :
+    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
     has_instruction_type_ok F ψ L' ->
-    (forall wt wt' wtf wl wl' wlf es',
-        let fe' := fe_of_context F' in
+    (forall m_skip wt wt' wtf wl wl' wlf es',
+        let fe' := fe_of_context F' <| fe_br_skip := m_skip |> in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
         run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
@@ -327,6 +327,6 @@ Section Fundamental.
       iIntros (fr fr') "Hf Hrun".
       admit. (* generalise s in IH? Check out interp_return_label in iris-wasm *)
     - iSimpl in "Hv". iDestruct "Hv" as "[_ ?]" => //.
-  Admitted. 
+  Admitted.
 
 End Fundamental.

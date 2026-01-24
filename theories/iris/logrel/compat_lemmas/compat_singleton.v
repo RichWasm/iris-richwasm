@@ -25,12 +25,12 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_singleton M F L L' wt wt' wtf wl wl' wlf e ψ es' :
-    let fe := fe_of_context F in
+  Lemma compat_singleton M F L L' n_skip wt wt' wtf wl wl' wlf e ψ es' :
+    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    (forall wt wt' wtf wl wl' wlf es',
-       let fe := fe_of_context F in
+    (forall m_skip wt wt' wtf wl wl' wlf es',
+       let fe := fe_of_context F <| fe_br_skip := m_skip |> in
        let WT := wt ++ wt' ++ wtf in
        let WL := wl ++ wl' ++ wlf in
        run_codegen (compile_instr mr fe e) wt wl = inr ((), wt', wl', es') ->
@@ -45,7 +45,7 @@ Section Fundamental.
     apply wp_mapM_cons in Hcg.
     destruct Hcg as ([] & ? & ? & ? & yss_xs & ? & ? & ? & He & Hret & -> & Hwt & Hwl & ->).
     cbn in Hret; inversion Hret; subst; clear Hret.
-    apply IH.
+    eapply IH.
     rewrite -> !app_nil_r in *.
     eauto.
   Qed.

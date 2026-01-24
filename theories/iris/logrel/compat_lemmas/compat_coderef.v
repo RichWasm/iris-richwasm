@@ -26,8 +26,8 @@ Section Fundamental.
   Variable mr : module_runtime.
 
 
-  Lemma compat_coderef M F L wt wt' wtf wl wl' wlf es' i ϕ :
-    let fe := fe_of_context F in
+  Lemma compat_coderef M F L n_skip wt wt' wtf wl wl' wlf es' i ϕ :
+    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let τ := CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop) ϕ in
