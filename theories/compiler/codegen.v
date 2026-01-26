@@ -99,11 +99,16 @@ Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : cod
 
 Definition case_block (tag_idx : W.localidx) (case : (nat -> codegen unit)) (tag_counter : nat) :=
   block_c (W.Tf [] []) (
+    (* Check if tag matches the current case *)
     emit (W.BI_get_local $ localimm tag_idx);;
     emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat tag_counter);;
-    emit (W.BI_testop W.T_i32 W.TO_eqz);;
+    emit (W.BI_relop W.T_i32 (W.Relop_i W.ROI_ne));;
+    (* If it doesn't, branch out of the block *)
     emit (W.BI_br_if 0);;
+    (* If it does, do the case *)
     case 2;;
+    (* Break out of the block representing the ICase, so that we don't try any of the others Blocks *)
+    (* NOTE: semantically speaking, this br doesn't matter; each block has a different tag_counter, so only one will match. *)
     emit (W.BI_br 1)
   ).
 
