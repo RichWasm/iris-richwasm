@@ -106,7 +106,7 @@ Definition case_block (tag_idx : W.localidx) (case : (nat -> codegen unit)) (tag
     (* If it doesn't, branch out of the block *)
     emit (W.BI_br_if 0);;
     (* If it does, do the case *)
-    case 2;;
+    case tag_counter;;
     (* Break out of the block representing the ICase, so that we don't try any of the others Blocks *)
     (* NOTE: semantically speaking, this br doesn't matter; each block has a different tag_counter, so only one will match. *)
     emit (W.BI_br 1)
