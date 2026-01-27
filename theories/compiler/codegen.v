@@ -116,7 +116,8 @@ Definition case_block (tag_idx : W.localidx) (case : (nat -> codegen unit)) (tag
 Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
   tag_idx ← save_stack1 fe W.T_i32;
   block_c (W.Tf [] result) (
-    mapM_ (uncurry (case_block tag_idx)) (zip cases (seq 0 (length cases)))
+    mapM_ (uncurry (case_block tag_idx)) (zip cases (seq 0 (length cases)));;
+    emit W.BI_unreachable
   ).
 
 (*
