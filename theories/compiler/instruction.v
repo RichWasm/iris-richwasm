@@ -265,7 +265,7 @@ Section Compiler.
     let fix compile_cases fe ess :=
       match ess with
       | [] => []
-      | es :: ess' => compile_instrs fe es :: compile_cases (fe <| fe_br_skip ::= S |>) ess'
+      | es :: ess' => compile_instrs (fe <| fe_br_skip ::= S ∘ S |>) es :: compile_cases fe ess'
       end
     in
     match e with
