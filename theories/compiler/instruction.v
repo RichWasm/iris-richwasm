@@ -151,7 +151,7 @@ Section Compiler.
       try_option EFail (nths_error ixs ixs') ≫= get_locals_w;;
       c
     in
-    case_blocks res (map do_case cases).
+    case_blocks fe res (map do_case cases).
 
   Definition compile_case_load
     (fe : function_env) (σ : size) (τs : list type) (τ' : type) (con : consumption)
@@ -182,7 +182,7 @@ Section Compiler.
     ignore $ case_ptr a (W.Tf [] res)
       (emit W.BI_unreachable)
       (fun μ => load1 mr fe μ Copy a 0 I32R;;
-             case_blocks res (map (do_case μ) cases);;
+             case_blocks fe res (map (do_case μ) cases);;
              cleanup).
 
   Definition compile_unpack
@@ -265,7 +265,7 @@ Section Compiler.
     let fix compile_cases fe ess :=
       match ess with
       | [] => []
-      | es :: ess' => compile_instrs fe es :: compile_cases (fe <| fe_br_skip ::= S |>) ess'
+      | es :: ess' => compile_instrs (fe <| fe_br_skip ::= S ∘ S |>) es :: compile_cases fe ess'
       end
     in
     match e with

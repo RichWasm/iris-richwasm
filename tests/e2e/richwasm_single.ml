@@ -20,6 +20,40 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "0" );
+    ( "cases br",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+               (Block (ValType ((Num (Int I32)))) (LocalFx ())
+               (
+                (Block (ValType ((Num (Int I32)))) (LocalFx ())
+                 (
+                  (Block (ValType ((Num (Int I32)))) (LocalFx ())
+                   (
+                    (NumConst (Int I32) -1)
+                    (Inject 0 ((Num (Int I32))))
+                    (Case (ValType ((Num (Int I32)))) (LocalFx ())
+                     ((Drop (NumConst (Int I32) 67) (Br 1))))
+                   )
+                  )
+                  (NumConst (Int I32) 0)
+                  Return
+                 )
+                )
+                (NumConst (Int I32) 42)
+                Return
+               )
+              )
+              (NumConst (Int I32) 2)
+              Return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "42" );
     ( "boxed sum",
       {|
       ((imports ())

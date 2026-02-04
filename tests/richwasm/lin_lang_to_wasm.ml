@@ -1560,7 +1560,7 @@ let%expect_test "examples" =
         drop
         drop)
       (func (;8;) (type 5) (param i32 i32 i32) (result i32)
-        (local i32 i32 i32 i32 i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
         local.get 2
@@ -1571,41 +1571,47 @@ let%expect_test "examples" =
         local.get 4
         local.get 5
         local.set 7
-        block (param i32) (result i32)  ;; label = @1
-          block (param i32)  ;; label = @2
-            block (param i32)  ;; label = @3
-              block (param i32)  ;; label = @4
-                br_table 2 (;@2;) 1 (;@3;) 0 (;@4;)
-              end
-              unreachable
-            end
+        local.set 8
+        block (result i32)  ;; label = @1
+          block  ;; label = @2
+            local.get 8
             i32.const 0
-            br 2 (;@0;)
+            i32.ne
+            br_if 0 (;@2;)
+            local.get 7
+            local.set 6
+            local.get 6
+            local.get 6
+            drop
+            br 1 (;@1;)
           end
-          local.get 7
-          local.set 6
-          local.get 6
-          local.get 6
-          drop
-          br 1 (;@0;)
+          block  ;; label = @2
+            local.get 8
+            i32.const 1
+            i32.ne
+            br_if 0 (;@2;)
+            i32.const 0
+            br 1 (;@1;)
+          end
+          unreachable
         end
         local.get 3
-        local.set 8
-        local.get 8
+        local.set 9
+        local.get 9
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 8
+          local.get 9
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 8
+            local.get 9
             call 4
           else
-            local.get 8
+            local.get 9
             call 6
           end
         end
@@ -3069,9 +3075,8 @@ let%expect_test "examples" =
       (type (;6;) (func (param i32 i32 i32) (result i32)))
       (type (;7;) (func (result i32)))
       (type (;8;) (func))
-      (type (;9;) (func (param i32) (result i32 i32)))
-      (type (;10;) (func (result i32 i32)))
-      (type (;11;) (func (param i32 i32) (result i32)))
+      (type (;9;) (func (result i32 i32)))
+      (type (;10;) (func (param i32 i32) (result i32)))
       (import "richwasm" "mmmem" (memory (;0;) 0))
       (import "richwasm" "gcmem" (memory (;1;) 0))
       (import "richwasm" "tablenext" (global (;0;) (mut i32)))
@@ -3084,7 +3089,7 @@ let%expect_test "examples" =
       (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 4) (param i32 i32 i32 i32 i32) (result i32 i32)
-        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
         local.get 2
@@ -3108,14 +3113,22 @@ let%expect_test "examples" =
         local.get 10
         local.get 11
         local.set 21
-        block (param i32) (result i32 i32)  ;; label = @1
-          block (param i32)  ;; label = @2
-            block (param i32)  ;; label = @3
-              block (param i32)  ;; label = @4
-                br_table 2 (;@2;) 1 (;@3;) 0 (;@4;)
-              end
-              unreachable
-            end
+        local.set 22
+        block (result i32 i32)  ;; label = @1
+          block  ;; label = @2
+            local.get 22
+            i32.const 0
+            i32.ne
+            br_if 0 (;@2;)
+            local.get 12
+            local.get 13
+            br 1 (;@1;)
+          end
+          block  ;; label = @2
+            local.get 22
+            i32.const 1
+            i32.ne
+            br_if 0 (;@2;)
             local.get 21
             local.set 14
             i32.const 0
@@ -3124,8 +3137,8 @@ let%expect_test "examples" =
             nop
             i32.const 0
             call 1
-            local.set 22
-            local.get 22
+            local.set 23
+            local.get 23
             nop
             block (param i32 i32) (result i32 i32)  ;; label = @3
               local.set 16
@@ -3137,40 +3150,40 @@ let%expect_test "examples" =
               local.set 17
               local.get 18
               local.get 14
-              local.tee 23
-              local.get 23
+              local.tee 24
+              local.get 24
               i32.const 0
               i32.const 0
               call 3
-              local.get 23
+              local.get 24
               i32.const 1
               i32.const 0
               call 3
-              local.get 23
+              local.get 24
               i32.const 1
               i32.and
               i32.eqz
               if (result i32 i32)  ;; label = @4
                 unreachable
               else
-                local.get 23
+                local.get 24
                 i32.const 2
                 i32.and
                 i32.eqz
                 if (result i32 i32)  ;; label = @5
-                  local.get 23
+                  local.get 24
                   i32.load offset=3 align=2
-                  local.tee 24
-                  local.get 23
-                  i32.load offset=7 align=2
                   local.tee 25
-                  local.get 25
+                  local.get 24
+                  i32.load offset=7 align=2
+                  local.tee 26
+                  local.get 26
                   i32.const 1
                   i32.and
                   i32.eqz
                   if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 25
+                    local.get 26
                     i32.const 2
                     i32.and
                     i32.eqz
@@ -3178,21 +3191,21 @@ let%expect_test "examples" =
                     end
                   end
                 else
-                  local.get 23
+                  local.get 24
                   i32.load 1 offset=1 align=2
                   i32.load 1 offset=1 align=2
-                  local.tee 26
-                  local.get 23
+                  local.tee 27
+                  local.get 24
                   i32.load 1 offset=1 align=2
                   i32.load 1 offset=5 align=2
-                  local.tee 27
-                  local.get 27
+                  local.tee 28
+                  local.get 28
                   i32.const 1
                   i32.and
                   i32.eqz
                   if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 27
+                    local.get 28
                     i32.const 2
                     i32.and
                     i32.eqz
@@ -3205,22 +3218,22 @@ let%expect_test "examples" =
               end
               local.set 20
               local.set 19
-              local.set 28
-              local.get 28
+              local.set 29
+              local.get 29
               i32.const 1
               i32.and
               i32.eqz
               if  ;; label = @4
               else
-                local.get 28
+                local.get 29
                 i32.const 2
                 i32.and
                 i32.eqz
                 if  ;; label = @5
-                  local.get 28
+                  local.get 29
                   call 4
                 else
-                  local.get 28
+                  local.get 29
                   call 6
                 end
               end
@@ -3241,36 +3254,34 @@ let%expect_test "examples" =
               drop
               drop
             end
+            local.set 31
             local.set 30
-            local.set 29
             i32.const 2
             call 1
-            local.set 31
-            local.get 31
-            i32.const 0
-            i32.const 0
-            call 3
-            local.get 31
-            i32.const 1
-            i32.const 1
-            call 3
-            local.get 31
-            local.get 29
-            i32.store offset=3 align=2
-            local.get 31
-            local.get 30
-            i32.store offset=7 align=2
-            local.get 31
             local.set 32
-            i32.const 1
             local.get 32
+            i32.const 0
+            i32.const 0
+            call 3
+            local.get 32
+            i32.const 1
+            i32.const 1
+            call 3
+            local.get 32
+            local.get 30
+            i32.store offset=3 align=2
+            local.get 32
+            local.get 31
+            i32.store offset=7 align=2
+            local.get 32
+            local.set 33
+            i32.const 1
+            local.get 33
             local.get 14
             drop
-            br 2 (;@0;)
+            br 1 (;@1;)
           end
-          local.get 12
-          local.get 13
-          br 1 (;@0;)
+          unreachable
         end
         local.get 10
         local.get 11
@@ -3281,22 +3292,22 @@ let%expect_test "examples" =
         drop
         drop
         local.get 5
-        local.set 33
-        local.get 33
+        local.set 34
+        local.get 34
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 33
+          local.get 34
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 33
+            local.get 34
             call 4
           else
-            local.get 33
+            local.get 34
             call 6
           end
         end
@@ -3402,7 +3413,7 @@ let%expect_test "examples" =
         local.get 3
         drop)
       (func (;9;) (type 6) (param i32 i32 i32) (result i32)
-        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
         local.get 2
@@ -3413,14 +3424,21 @@ let%expect_test "examples" =
         local.get 4
         local.get 5
         local.set 13
-        block (param i32) (result i32)  ;; label = @1
-          block (param i32)  ;; label = @2
-            block (param i32)  ;; label = @3
-              block (param i32)  ;; label = @4
-                br_table 2 (;@2;) 1 (;@3;) 0 (;@4;)
-              end
-              unreachable
-            end
+        local.set 14
+        block (result i32)  ;; label = @1
+          block  ;; label = @2
+            local.get 14
+            i32.const 0
+            i32.ne
+            br_if 0 (;@2;)
+            i32.const 0
+            br 1 (;@1;)
+          end
+          block  ;; label = @2
+            local.get 14
+            i32.const 1
+            i32.ne
+            br_if 0 (;@2;)
             local.get 13
             local.set 6
             i32.const 1
@@ -3430,8 +3448,8 @@ let%expect_test "examples" =
             nop
             i32.const 0
             call 1
-            local.set 14
-            local.get 14
+            local.set 15
+            local.get 15
             nop
             block (param i32 i32) (result i32)  ;; label = @3
               local.set 8
@@ -3443,40 +3461,40 @@ let%expect_test "examples" =
               local.set 9
               local.get 10
               local.get 6
-              local.tee 15
-              local.get 15
+              local.tee 16
+              local.get 16
               i32.const 0
               i32.const 0
               call 3
-              local.get 15
+              local.get 16
               i32.const 1
               i32.const 0
               call 3
-              local.get 15
+              local.get 16
               i32.const 1
               i32.and
               i32.eqz
               if (result i32 i32)  ;; label = @4
                 unreachable
               else
-                local.get 15
+                local.get 16
                 i32.const 2
                 i32.and
                 i32.eqz
                 if (result i32 i32)  ;; label = @5
-                  local.get 15
+                  local.get 16
                   i32.load offset=3 align=2
-                  local.tee 16
-                  local.get 15
-                  i32.load offset=7 align=2
                   local.tee 17
-                  local.get 17
+                  local.get 16
+                  i32.load offset=7 align=2
+                  local.tee 18
+                  local.get 18
                   i32.const 1
                   i32.and
                   i32.eqz
                   if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 17
+                    local.get 18
                     i32.const 2
                     i32.and
                     i32.eqz
@@ -3484,21 +3502,21 @@ let%expect_test "examples" =
                     end
                   end
                 else
-                  local.get 15
+                  local.get 16
                   i32.load 1 offset=1 align=2
                   i32.load 1 offset=1 align=2
-                  local.tee 18
-                  local.get 15
+                  local.tee 19
+                  local.get 16
                   i32.load 1 offset=1 align=2
                   i32.load 1 offset=5 align=2
-                  local.tee 19
-                  local.get 19
+                  local.tee 20
+                  local.get 20
                   i32.const 1
                   i32.and
                   i32.eqz
                   if (param i32) (result i32)  ;; label = @6
                   else
-                    local.get 19
+                    local.get 20
                     i32.const 2
                     i32.and
                     i32.eqz
@@ -3511,22 +3529,22 @@ let%expect_test "examples" =
               end
               local.set 12
               local.set 11
-              local.set 20
-              local.get 20
+              local.set 21
+              local.get 21
               i32.const 1
               i32.and
               i32.eqz
               if  ;; label = @4
               else
-                local.get 20
+                local.get 21
                 i32.const 2
                 i32.and
                 i32.eqz
                 if  ;; label = @5
-                  local.get 20
+                  local.get 21
                   call 4
                 else
-                  local.get 20
+                  local.get 21
                   call 6
                 end
               end
@@ -3547,28 +3565,27 @@ let%expect_test "examples" =
             i32.add
             local.get 6
             drop
-            br 2 (;@0;)
+            br 1 (;@1;)
           end
-          i32.const 0
-          br 1 (;@0;)
+          unreachable
         end
         local.get 3
-        local.set 21
-        local.get 21
+        local.set 22
+        local.get 22
         i32.const 1
         i32.and
         i32.eqz
         if  ;; label = @1
         else
-          local.get 21
+          local.get 22
           i32.const 2
           i32.and
           i32.eqz
           if  ;; label = @2
-            local.get 21
+            local.get 22
             call 4
           else
-            local.get 21
+            local.get 22
             call 6
           end
         end
