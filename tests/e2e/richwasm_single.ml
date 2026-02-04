@@ -28,16 +28,16 @@ let simple_tests =
             (locals ())
             (body
              (
-               (Block (ValType ()) (LocalFx ())
+               (Block (ValType ((Num (Int I32)))) (LocalFx ())
                (
-                (Block (ValType ()) (LocalFx ())
+                (Block (ValType ((Num (Int I32)))) (LocalFx ())
                  (
-                  (Block (ValType ()) (LocalFx ())
+                  (Block (ValType ((Num (Int I32)))) (LocalFx ())
                    (
                     (NumConst (Int I32) -1)
                     (Inject 0 ((Num (Int I32))))
-                    (Case (ValType ()) (LocalFx ())
-                     ((Drop (Br 1))))
+                    (Case (ValType ((Num (Int I32)))) (LocalFx ())
+                     ((Drop (NumConst (Int I32) 67) (Br 1))))
                    )
                   )
                   (NumConst (Int I32) 0)
