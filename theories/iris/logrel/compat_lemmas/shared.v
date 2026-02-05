@@ -860,7 +860,7 @@ Section Fundamental_Shared.
   Qed.
 
   (* This version of the lemma is proved in terms of the existing lemma
-     wp_case_ptr. This makes the proof artifically short. *)
+     wp_case_ptr. This makes the proof artificially short. *)
   Lemma wp_case_ptr_wp_sem_ctx_derived {A B} s E LS idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
     run_codegen (memory.case_ptr idx (Tf [] []) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
@@ -906,19 +906,77 @@ Section Fundamental_Shared.
     - iIntros "Hwp Hf Hrun".
       iApply (lwp_wand with "[Hwp Hf Hrun]").
       { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
-      instantiate (1:= LS).
+      instantiate (1:= []).
       iIntros "%lv H".
       destruct lv.
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
-        admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-    - admit. (* identical to previous case *)
-  Abort.
+        iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+        iExists f'; iFrame; iIntros "Hf Hrun _".
+        iApply (wp_val_return with "[$] [$]").
+        { apply v_to_e_is_const_list. }
+        iIntros "Hf Hrun".
+        iApply wp_value.
+        {
+          rewrite app_nil_l app_nil_r.
+          by rewrite of_val_imm.
+        }
+        cbn.
+        iFrame.
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+        iFrame.
+        iIntros (f'') "Hf Hbail _".
+        replace [AI_trap] with ([] ++ [AI_trap] ++ []) by auto.
+        unfold lenient_wp_ctx.
+        iApply (wp_wand_ctx with "[Hf]").
+        { iApply wp_trap_ctx; done. }
+        iIntros (w) "(-> & Hf)".
+        iExists f''; iFrame; done.
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+        by rewrite lookup_nil.
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+    - iIntros "Hwp Hf Hrun".
+      iApply (lwp_wand with "[Hwp Hf Hrun]").
+      { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
+      instantiate (1:= []).
+      iIntros "%lv H".
+      destruct lv.
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+        iExists f'; iFrame; iIntros "Hf Hrun _".
+        iApply (wp_val_return with "[$] [$]").
+        { apply v_to_e_is_const_list. }
+        iIntros "Hf Hrun".
+        iApply wp_value.
+        {
+          rewrite app_nil_l app_nil_r.
+          by rewrite of_val_imm.
+        }
+        cbn.
+        iFrame.
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+        iFrame.
+        iIntros (f'') "Hf Hbail _".
+        replace [AI_trap] with ([] ++ [AI_trap] ++ []) by auto.
+        unfold lenient_wp_ctx.
+        iApply (wp_wand_ctx with "[Hf]").
+        { iApply wp_trap_ctx; done. }
+        iIntros (w) "(-> & Hf)".
+        iExists f''; iFrame; done.
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+        by rewrite lookup_nil.
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+      + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
+        by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+  Qed.
 
- 
   Close Scope Z_scope.
 
 
