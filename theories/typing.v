@@ -780,10 +780,11 @@ Inductive has_instruction_type :
   L !! i = Some τ ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ILocalGet ψ i) ψ L'
-| TLocalSet M F L i τ :
+| TLocalSet M F L i τ τ0 :
   let ψ := InstrT [τ] [] in
   let L' := <[ i := τ ]> L in
-  (forall τ0, L !! i = Some τ0 -> has_dropability F τ0 ImDrop) ->
+  L !! i = Some τ0 ->
+  has_dropability F τ0 ImDrop ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ILocalSet ψ i) ψ L'
 | TCodeRef M F L i ϕ :
@@ -1025,10 +1026,11 @@ Section HasHaveInstructionTypeMind.
           L !! i = Some τ ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ILocalGet ψ i) ψ L')
-      (HLocalSet : forall M F L i τ,
+      (HLocalSet : forall M F L i τ τ0,
           let ψ := InstrT [τ] [] in
           let L' := <[ i := τ ]> L in
-          (forall τ0, L !! i = Some τ0 -> has_dropability F τ0 ImDrop) ->
+          L !! i = Some τ0 ->
+          has_dropability F τ0 ImDrop ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ILocalSet ψ i) ψ L')
       (HCodeRef : forall M F L i ϕ,
@@ -1217,7 +1219,7 @@ Section HasHaveInstructionTypeMind.
     | TReturn M F L L' τs τs1 τs2 H1 H2 H3 => HReturn M F L L' τs τs1 τs2 H1 H2 H3
     | TLocalGetCopy M F L i τ H1 H2 H3 => HLocalGetCopy M F L i τ H1 H2 H3
     | TLocalGetMove M F L i τ ηs H1 H2 H3 => HLocalGetMove M F L i τ ηs H1 H2 H3
-    | TLocalSet M F L i τ H1 H2 => HLocalSet M F L i τ H1 H2
+    | TLocalSet M F L i τ H1 H2 H3 H4 => HLocalSet M F L i τ H1 H2 H3 H4
     | TCodeRef M F L i ϕ H1 H2 => HCodeRef M F L i ϕ H1 H2
     | TInst M F L ix ϕ ϕ' H1 H2 => HInst M F L ix ϕ ϕ' H1 H2
     | TCall M F L i ixs ϕ τs1 τs2 H1 H2 H3 => HCall M F L i ixs ϕ τs1 τs2 H1 H2 H3
