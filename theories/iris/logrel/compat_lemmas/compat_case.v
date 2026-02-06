@@ -53,24 +53,24 @@ Section Fundamental.
     destruct H2 as [Hes2 _].
     subst Ψ.
     cbn [compile_instr] in Hcg.
-    destruct κ; last inversion Hcg.
-    destruct r; try done.
-    destruct τs'; first done.
+    destruct κ as [ ρ c d | ]; last inversion Hcg.
+    destruct ρ  as [ | ρs_sum | | ]; try done.
+    destruct τs' as [ | τ_res τs' ]; first done.
     destruct τs'; last done.
 
 
-    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
+    inv_cg_bind Hcg wt_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
-    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
+    inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
     inv_cg_try_option Hιs; subst.
-    inv_cg_bind Hcg vs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
+    inv_cg_bind Hcg val_idxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
     repeat rewrite app_nil_r in Hsave.
 
 
     (* Case blocks *)
-    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl es_save_tag ?es HsaveTag Hcg.
-    inv_cg_bind Hcg ?ρ ?wt ?wt ?wl ?wl ?es es_done_bl Hcases HdoneBlock.
-    destruct ρ2, u.
+    inv_cg_bind Hcg tag_idx ?wt ?wt ?wl ?wl es_save_tag ?es HsaveTag Hcg.
+    inv_cg_bind Hcg pair ?wt ?wt ?wl ?wl ?es es_done_bl Hcases HdoneBlock.
+    destruct pair, u.
     inv_cg_emit HdoneBlock; subst.
 
     apply run_codegen_capture in Hcases as [Hcases ->].
@@ -78,44 +78,44 @@ Section Fundamental.
 
     clear_nils.
 
-    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es es_unr Hcases Hunreachable.
+    inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es es_unr Hcases Hunreachable.
     inv_cg_emit Hunreachable; subst.
 
-    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret.
+    inv_cg_bind Hcases ?units ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret.
     inv_cg_ret Hret; subst.
 
 
     (* Case es1 *)
-    inv_cg_bind Hcases ?ρ ?wt ?wt ?wl ?wl ?es es_case1 Hcase_es1 Hcase_es2.
+    inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es es_case1 Hcase_es1 Hcase_es2.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hcase_es1_block.
-    destruct ρ4, u.
+    inv_cg_bind Hcase_es1 ?pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hcase_es1_block.
+    destruct pair, u.
     inv_cg_emit Hcase_es1_block; subst.
     apply run_codegen_capture in Hcase_es1 as [Hcase_es1 ->].
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es1.
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es1.
     inv_cg_emit Hget_tag; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es1.
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es1.
     inv_cg_emit Htag0; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es1.
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es1.
     inv_cg_emit Hcompare_tag; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es1.
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es1.
     inv_cg_emit Hbr_case; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hbr_cases.
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hbr_cases.
     inv_cg_emit Hbr_cases; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hlookup_l_0 Hcase_es1.
-    inv_cg_try_option Hlookup_l_0; subst.
+    inv_cg_bind Hcase_es1 ρ_case1 ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es1.
+    inv_cg_try_option Hlookup; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es1.
+    inv_cg_bind Hcase_es1 case_1_sum_locals ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es1.
     inv_cg_try_option Hinject; subst.
 
-    inv_cg_bind Hcase_es1 ?ρ ?wt wt_case_1 ?wl wl_case_1 ?es es_case_1 Hget_locals_1 Hcase_es1.
-    inv_cg_bind Hget_locals_1 ?ρ ?wt wt_get_locals_1 ?wl wl_get_locals_1 ?es es_get_locals_1 Hnths_error Hget_locals_1.
+    inv_cg_bind Hcase_es1 [] ?wt wt_case_1 ?wl wl_case_1 ?es es_case_1 Hget_locals_1 Hcase_es1.
+    inv_cg_bind Hget_locals_1 case_1_val_idxs ?wt wt_get_locals_1 ?wl wl_get_locals_1 ?es es_get_locals_1 Hnths_error Hget_locals_1.
     inv_cg_try_option Hnths_error; subst.
 
     clear_nils.
@@ -125,40 +125,40 @@ Section Fundamental.
 
     (* Case es2 *)
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hmret.
+    inv_cg_bind Hcase_es2 ?units ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hmret.
     inv_cg_ret Hmret; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hmret.
+    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hmret.
     inv_cg_ret Hmret; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hcase_es2_block.
-    destruct ρ8, u.
+    inv_cg_bind Hcase_es2 pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hcase_es2_block.
+    destruct pair, u.
     inv_cg_emit Hcase_es2_block; subst.
     apply run_codegen_capture in Hcase_es2 as [Hcase_es2 ->].
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es2.
+    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es2.
     inv_cg_emit Hget_tag; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es2.
+    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es2.
     inv_cg_emit Htag0; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es2.
+    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es2.
     inv_cg_emit Hcompare_tag; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es2.
+    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es2.
     inv_cg_emit Hbr_case; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hbr_cases.
+    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hbr_cases.
     inv_cg_emit Hbr_cases; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hlookup_l_0 Hcase_es2.
-    inv_cg_try_option Hlookup_l_0; subst.
+    inv_cg_bind Hcase_es2 ρ_case2 ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es2.
+    inv_cg_try_option Hlookup; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es2.
+    inv_cg_bind Hcase_es2 case_2_sum_locals ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es2.
     inv_cg_try_option Hinject; subst.
 
-    inv_cg_bind Hcase_es2 ?ρ ?wt wt_case_2 ?wl wl_case_2 ?es es_case_2 Hget_locals_2 Hcase_es2.
-    inv_cg_bind Hget_locals_2 ?ρ ?wt wt_get_locals_2 ?wl wl_get_locals_2 ?es es_get_locals_2 Hnths_error Hget_locals_2.
+    inv_cg_bind Hcase_es2 [] ?wt wt_case_2 ?wl wl_case_2 ?es es_case_2 Hget_locals_2 Hcase_es2.
+    inv_cg_bind Hget_locals_2 case_2_val_idxs ?wt wt_get_locals_2 ?wl wl_get_locals_2 ?es es_get_locals_2 Hnths_error Hget_locals_2.
     inv_cg_try_option Hnths_error; subst.
 
     clear_nils.
@@ -168,9 +168,7 @@ Section Fundamental.
     (* clean up *)
     subst WT WL.
     clear_nils.
-
     simplify_eq.
-    destruct ρ2, ρ3, ρ6, ρ10.
 
     (* Iris Proof *)
     iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
