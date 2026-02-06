@@ -43,36 +43,48 @@ Section wp_sem_ctx.
   Definition wp_sem_ctx s E es S Φ :=
     lenient_wp s E (to_e_list es) (wp_sem_ctx_post S Φ).
 
-  Lemma wp_label_peel (f: datatypes.frame) s E m ces es Φ :
-    ⊢ ↪[frame] f -∗
-      ↪[RUN] -∗
-      WP es @ s; E {{ v, Φ v ∗ ⌜match v with
-                                | trapV | immV _ => True
-                                | retV _ | brV _ _ | callHostV _ _ _ _ => False
-                                end⌝ }} -∗
-      WP [AI_label m ces es] @ s; E {{ w, Φ w }}.
+  Lemma wp_label_peel s E m ces es Φ :
+    ⊢ WP es @ s; E {{ v, ∃ (f: datatypes.frame),
+                         ↪[frame] f ∗
+                         match v with
+                         | trapV => ↪[BAIL]
+                         | immV _ => ↪[RUN]
+                         | _ => False
+                         end ∗
+                         Φ f v }} -∗
+      WP [AI_label m ces es] @ s; E {{ w, ∃ (f: datatypes.frame),
+                                          ↪[frame] f ∗
+                                          match w with
+                                          | immV _ => ↪[RUN]
+                                          | trapV =>  ↪[BAIL]
+                                          | _ => False
+                                          end ∗
+                                          Φ f w }}.
   Proof.
-    iIntros "Hfr Hrun Hes".
+    iIntros "Hes".
     iApply wp_wasm_empty_ctx.
     iApply wp_label_push_nil.
     cbn.
-    iApply (wp_ctx_bind s E Φ es 1 _); first done.
+    iApply (wp_ctx_bind s E _ es 1 _); first done.
     iApply (wp_wand with "[$Hes]").
-    iIntros (w) "[HΦ %Hnobr]".
+    iIntros (w) "(%f & Hfr & HΦ & Hnobr)".
     destruct w.
     - iApply (wp_val_return with "[$] [$]").
       apply v_to_e_is_const_list.
       iIntros "Hfr Hrun".
       rewrite app_nil_r app_nil_l.
-      iApply wp_value; done.
+      iApply wp_value; try iFrame.
+      reflexivity.
+      auto.
     - change (iris.of_val trapV) with ([] ++ [AI_trap] ++ []).
       iApply (wp_wand_ctx with "[Hfr]").
       + iApply wp_trap_ctx; done.
       + iIntros (w) "[-> Hf]".
-        done.
-    - by exfalso.
-    - by exfalso.
-    - by exfalso.
+        iExists f.
+        iFrame.
+    - iDestruct "HΦ" as "[]".
+    - iDestruct "HΦ" as "[]".
+    - iDestruct "HΦ" as "[]".
   Qed.
 
   Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS k P Q vs Φ :
@@ -107,31 +119,46 @@ Section wp_sem_ctx.
   Qed.
 
   Lemma wp_sem_ctx_block_peel (f: datatypes.frame) s E es LS ts Φ :
-    ⊢ ↪[frame] f -∗
-      ↪[RUN] -∗
-      wp_sem_ctx s E es [] Φ -∗
+    ⊢ (↪[frame] f -∗ ↪[RUN] -∗
+      wp_sem_ctx s E es [] Φ) -∗
+      ↪[frame] f -∗ ↪[RUN] -∗
       wp_sem_ctx s E [BI_block (Tf [] ts) es] LS Φ.
   Proof.
-    iIntros "Hf Hrun Hes".
+    iIntros "Hes Hf Hrun".
     unfold wp_sem_ctx.
     cbn.
     unfold lenient_wp.
     iApply (wp_block _ _ _ [] with "[$] [$]"); eauto.
     iIntros "!> Hf Hrun".
     cbn.
-    iApply (wp_label_peel with "[$] [$]").
-    iApply (wp_wand with "[$Hes]").
+    iSpecialize ("Hes" with "[$] [$]").
+    iApply (wp_wand with "[Hes]").
+    iApply wp_label_peel.
+    {
+      instantiate (1:= λ f w, match w with immV vs => Φ f vs | trapV => True | _ => False end).
+      iApply (wp_wand with "[$Hes]").
+      iIntros (w) "HΦ".
+      unfold denote_logpred.
+      iDestruct "HΦ" as "(%f' & Hf & H)".
+      destruct w; cbn; try iFrame.
+      - iDestruct "H" as "(? & ? & ?)"; iFrame.
+      - iDestruct "H" as "(? & ? & ?)"; iFrame.
+      - rewrite lookup_nil.
+        iDestruct "H" as "(_ & _ & [])".
+      - iDestruct "H" as "(_ & _ & [])".
+      - iDestruct "H" as "(_ & _ & [])".
+    }
     iIntros (w) "HΦ".
     destruct w.
-    - iFrame.
-    - iFrame.
-    - unfold wp_sem_ctx_post, denote_logpred; cbn.
-      rewrite lookup_nil.
-      iDestruct "HΦ" as "(%f' & Hf & _ & Hrun & %Hcontra)".
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & HΦ)".
+      iFrame.
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & HΦ)".
+      iFrame.
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
       done.
-    - iDestruct "HΦ" as "(%f' & Hf & _ & Hrun & %Hcontra)".
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
       done.
-    - iDestruct "HΦ" as "(%f' & Hf & _ & Hrun & %Hcontra)".
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
       done.
   Qed.
 

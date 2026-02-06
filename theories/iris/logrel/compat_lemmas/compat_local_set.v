@@ -25,13 +25,14 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_local_set M F L n_skip wt wt' wtf wl wl' wlf es' i τ :
+  Lemma compat_local_set M F L n_skip wt wt' wtf wl wl' wlf es' i τ τ0 :
     let fe := fe_of_context F <| fe_br_skip := n_skip |> in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [τ] [] in
     let L' := <[ i := τ ]> L in
-    (∀ τ0, L !! i = Some τ0 → has_dropability F τ0 ImDrop) ->
+    L !! i = Some τ0 ->
+    has_dropability F τ0 ImDrop ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalSet ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
