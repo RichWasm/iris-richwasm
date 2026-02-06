@@ -175,7 +175,7 @@ Section Fundamental.
     iDestruct (Hes1 _ _ _ wtf _ _ wlf _ Hcase_es1) as "Hsem_es1".
     iDestruct (Hes2 _ _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".
 
-    replace (language.of_val (immV vs0)) with (v_to_e_list vs0); last done.
+    replace (language.of_val (immV vs)) with (v_to_e_list vs); last done.
     unfold expr_interp.
 
 
