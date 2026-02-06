@@ -66,9 +66,20 @@ Section Fundamental.
     inv_cg_bind Hcg val_idxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
     repeat rewrite app_nil_r in Hsave.
 
+    (* Save tag *)
+    inv_cg_bind Hcg tag_idx ?wt ?wt ?wl ?wl ?es ?es HsaveTag Hcg.
+    unfold save_stack1 in HsaveTag.
+    inv_cg_bind HsaveTag tag_idx' ?wt ?wt ?wl ?wl ?es ?es Halloc_tag HsaveTag.
+    apply wp_wlalloc in Halloc_tag as [Hlocal_tag_idx [-> [-> ->]]].
+    inv_cg_bind HsaveTag [] ?wt ?wt ?wl ?wl es_set_tag ?es HsetTag HretTagIdx.
+    inv_cg_emit HsetTag; subst.
+    inv_cg_ret HretTagIdx; subst.
+
+    clear_nils.
+    set (tag_idx := (Mk_localidx (fe_wlocal_offset fe + length (wl ++ wl_save)))).
+    replace (Mk_localidx (fe_wlocal_offset fe + length (wl ++ wl_save))) with tag_idx in *; last done.
 
     (* Case blocks *)
-    inv_cg_bind Hcg tag_idx ?wt ?wt ?wl ?wl es_save_tag ?es HsaveTag Hcg.
     inv_cg_bind Hcg pair ?wt ?wt ?wl ?wl ?es es_done_bl Hcases HdoneBlock.
     destruct pair, u.
     inv_cg_emit HdoneBlock; subst.
