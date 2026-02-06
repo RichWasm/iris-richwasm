@@ -664,8 +664,12 @@ Section Fundamental_Shared.
   Qed.
 
 
-  Lemma wp_case_ptr {A B} s E idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
-    run_codegen (memory.case_ptr idx (Tf [] []) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
+  (**
+     Note: The lemma assumes no input values to the case_ptr as no use case of it has needed it.
+     It should, however, be possible to prove a version  that assumes values on the stack.
+  *)
+  Lemma wp_case_ptr {A B} s E idx t2s (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+    run_codegen (memory.case_ptr idx (Tf [] t2s) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
       run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
@@ -680,9 +684,9 @@ Section Fundamental_Shared.
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
-            | PtrInt z => lenient_wp s E [AI_basic (BI_block (Tf [] []) es1)] Φ
-            | PtrHeap MemMM l => lenient_wp s E [AI_basic (BI_block (Tf [] []) es2)] (lp_bind s E 1 (LH_rec [] 0 [] (LH_base [] []) []) Φ)
-            | PtrHeap MemGC l => lenient_wp s E [AI_basic (BI_block (Tf [] []) es3)] (lp_bind s E 1 (LH_rec [] 0 [] (LH_base [] []) []) Φ)
+            | PtrInt z => lenient_wp s E [AI_basic (BI_block (Tf [] t2s) es1)] Φ
+            | PtrHeap MemMM l => lenient_wp s E [AI_basic (BI_block (Tf [] t2s) es2)] (lp_bind s E 1 (LH_rec [] (length t2s) [] (LH_base [] []) []) Φ)
+            | PtrHeap MemGC l => lenient_wp s E [AI_basic (BI_block (Tf [] t2s) es3)] (lp_bind s E 1 (LH_rec [] (length t2s) [] (LH_base [] []) []) Φ)
             end) -∗
         atom_interp (PtrA ptr) v ∗
         lenient_wp s E (to_e_list es) Φ.
@@ -861,8 +865,8 @@ Section Fundamental_Shared.
 
   (* This version of the lemma is proved in terms of the existing lemma
      wp_case_ptr. This makes the proof artificially short. *)
-  Lemma wp_case_ptr_wp_sem_ctx_derived {A B} s E LS idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
-    run_codegen (memory.case_ptr idx (Tf [] []) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
+  Lemma wp_case_ptr_wp_sem_ctx_derived {A B} s E LS idx t2s (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+    run_codegen (memory.case_ptr idx (Tf [] t2s) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
       run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
