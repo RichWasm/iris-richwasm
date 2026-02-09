@@ -32,8 +32,7 @@ Section wp_sem_ctx.
       lp_val := Φ;
       lp_br := λ k lh,
         match S !! k with
-        | Some (P, Q) =>
-          P (get_base_l lh) ∗ (∀ f vs, Q f vs -∗ Φ f vs)
+        | Some (P, Q) => P (get_base_l lh)
         | None => False
         end;
       lp_ret := λ _, False;
@@ -161,5 +160,20 @@ Section wp_sem_ctx.
     - iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
       done.
   Qed.
+
+  Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
+  Admitted.
+
+  Lemma sem_ctx_imp_bot LS :
+    ⊢ sem_ctx_imp [] LS.
+  Admitted.
+
+  Lemma wp_sem_ctx_mono s E es LS LS' Φ Φ' :
+    ⊢ sem_ctx_imp LS LS' -∗
+      (∀ f vs, Φ f vs -∗ Φ' f vs) -∗
+      wp_sem_ctx s E es LS Φ -∗
+      wp_sem_ctx s E es LS' Φ'.
+  Proof.
+  Admitted.
 
 End wp_sem_ctx.
