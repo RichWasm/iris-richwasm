@@ -855,7 +855,7 @@ Section Fundamental_Shared.
 
   (* This version of the lemma is proved in terms of the existing lemma
      wp_case_ptr. This makes the proof artificially short. *)
-  Lemma wp_case_ptr_wp_sem_ctx_derived {A B} s E LS idx t2s (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+  Lemma wp_case_ptr_wp_sem_ctx_derived {A B} s E LS RS idx t2s (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
     run_codegen (memory.case_ptr idx (Tf [] t2s) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
@@ -871,14 +871,14 @@ Section Fundamental_Shared.
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
-            | PtrInt z => wp_sem_ctx s E es1 []  Φ
+            | PtrInt z => wp_sem_ctx s E es1 ([], None)  Φ
             | PtrHeap MemMM l =>
-                wp_sem_ctx s E es2 [] Φ
+                wp_sem_ctx s E es2 ([], None) Φ
             | PtrHeap MemGC l =>
-                wp_sem_ctx s E es3 [] Φ
+                wp_sem_ctx s E es3 ([], None) Φ
             end) -∗
         atom_interp (PtrA ptr) v ∗
-        wp_sem_ctx s E es LS Φ.
+        wp_sem_ctx s E es (LS, RS) Φ.
   Proof.
     intros Hcomp.
     eapply (wp_case_ptr s E) in Hcomp.
@@ -900,7 +900,8 @@ Section Fundamental_Shared.
     - iIntros "Hwp Hf Hrun".
       iApply (lwp_wand with "[Hwp Hf Hrun]").
       { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
-      instantiate (1:= []).
+      instantiate (1 := None).
+      instantiate (1 := []).
       iIntros "%lv H".
       destruct lv.
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
@@ -936,7 +937,8 @@ Section Fundamental_Shared.
     - iIntros "Hwp Hf Hrun".
       iApply (lwp_wand with "[Hwp Hf Hrun]").
       { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
-      instantiate (1:= []).
+      instantiate (1 := None).
+      instantiate (1 := []).
       iIntros "%lv H".
       destruct lv.
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
@@ -971,14 +973,22 @@ Section Fundamental_Shared.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
   Qed.
 
-  Lemma wp_sem_ctx_seq s E es1 es2 LS Φ1 Φ :
-    wp_sem_ctx NotStuck E es1 LS Φ1 -∗
+  Lemma simple_get_base_l_append s es :
+    wp_sem_ctx.simple_get_base_l (sh_append s (to_e_list es)) =
+      wp_sem_ctx.simple_get_base_l s.
+  Proof.
+    induction s; first done.
+    cbn. by rewrite <- IHs.
+  Qed.
+
+  Lemma wp_sem_ctx_seq s E es1 es2 LS RS Φ1 Φ :
+    wp_sem_ctx NotStuck E es1 (LS, RS) Φ1 -∗
     (∀ vs (f: datatypes.frame),
        Φ1 f vs -∗
        ↪[frame]f -∗
        ↪[RUN] -∗
-       wp_sem_ctx s E (map BI_const vs ++ es2) LS Φ) -∗
-    wp_sem_ctx s E (es1 ++ es2) LS Φ.
+       wp_sem_ctx s E (map BI_const vs ++ es2) (LS, RS) Φ) -∗
+    wp_sem_ctx s E (es1 ++ es2) (LS, RS) Φ.
   Proof.
     iIntros "Hes1 Hes2".
     unfold wp_sem_ctx.
@@ -1007,9 +1017,14 @@ Section Fundamental_Shared.
         destruct (LS !! i) eqn:?; [|done].
         destruct p as [Pre Post].
         by rewrite get_base_l_append.
-      + cbn.
-        iDestruct "Hw" as "[? ?]".
-        done.
+      + rewrite of_val_ret_app_r.
+        iApply lenient_wp_value; first done.
+        iDestruct "Hw" as "[Hrun Hret]".
+        iExists f; iFrame.
+        cbn.
+        destruct RS; [|done].
+        destruct r as [Pre Post].
+        by rewrite simple_get_base_l_append.
       + cbn.
         iDestruct "Hw" as "[? ?]".
         done.
@@ -1042,7 +1057,7 @@ Section Fundamental_Shared.
          memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
          memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
          memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
-        []
+        ([], None)
         (λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝%I).
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
@@ -1108,7 +1123,7 @@ Section Fundamental_Shared.
          memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
          memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
          memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
-        []
+        ([], None)
         (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
@@ -1176,7 +1191,7 @@ Section Fundamental_Shared.
          memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
          memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
          memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
-        []
+        ([], None)
         (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝).
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
@@ -1220,7 +1235,7 @@ Section Fundamental_Shared.
        memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
        memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
        memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
-      []
+      ([], None)
       (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝%I).
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
@@ -1280,7 +1295,7 @@ Section Fundamental_Shared.
     iApply (Hwp with "[$] [$]"); eauto.
   Qed.
 
-  Lemma wp_case_ptr_wp_sem_ctx_direct {A B} s E LS idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+  Lemma wp_case_ptr_wp_sem_ctx_direct {A B} s E LS RS idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
     run_codegen (memory.case_ptr idx (Tf [] []) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
@@ -1296,12 +1311,12 @@ Section Fundamental_Shared.
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
-            | PtrInt z => wp_sem_ctx s E es1 []  Φ
-            | PtrHeap MemMM l => wp_sem_ctx s E es2 [] Φ
-            | PtrHeap MemGC l => wp_sem_ctx s E es3 [] Φ
+            | PtrInt z => wp_sem_ctx s E es1 ([], None)  Φ
+            | PtrHeap MemMM l => wp_sem_ctx s E es2 ([], None) Φ
+            | PtrHeap MemGC l => wp_sem_ctx s E es3 ([], None) Φ
             end) -∗
         atom_interp (PtrA ptr) v ∗
-        wp_sem_ctx s E es LS Φ.
+        wp_sem_ctx s E es (LS, RS) Φ.
   Proof.
     intros Hcg.
     unfold memory.case_ptr in Hcg.

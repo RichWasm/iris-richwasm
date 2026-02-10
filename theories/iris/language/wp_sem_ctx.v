@@ -20,22 +20,35 @@ Section wp_sem_ctx.
   Open Scope bi_scope.
   (* Specification for a label. *)
   (* "protocol" from logics for effect handlers? *) 
-  Definition lb_spec : Type :=
-    (list value -> iProp Σ) * (datatypes.frame -> list value -> iProp Σ).
-  
-  Definition sem_ctx := list lb_spec.
+  Definition lb_spec : Type := (list value -> iProp Σ) * (datatypes.frame -> list value -> iProp Σ).
 
-  Definition wp_sem_ctx_post (S: sem_ctx) Φ :=
+  (* TODO: is postcondition the right shape? *)
+  Definition ret_spec : Type := (list value -> iProp Σ) * (datatypes.frame -> list value -> iProp Σ).
+
+  Definition sem_ctx : Type := list lb_spec * option ret_spec.
+
+  (* TODO: duplicate in relations.v *)
+  Fixpoint simple_get_base_l (lh : simple_valid_holed) :=
+    match lh with
+    | SH_base vs _ => vs
+    | SH_rec _ _ _ lh' _ => simple_get_base_l lh'
+    end.
+
+  Definition wp_sem_ctx_post '((LS, RS) : sem_ctx) Φ :=
     {|
       lp_fr_inv := λ _, True;
       lp_trap := True;
       lp_val := Φ;
       lp_br := λ k lh,
-        match S !! k with
+        match LS !! k with
         | Some (P, Q) => P (get_base_l lh)
         | None => False
         end;
-      lp_ret := λ _, False;
+      lp_ret := λ svh,
+        match RS with
+        | Some (P, Q) => P (simple_get_base_l svh)
+        | None => False
+        end;
       lp_host := λ _ _ _ _, False;
     |}.
 
@@ -86,13 +99,13 @@ Section wp_sem_ctx.
     - iDestruct "HΦ" as "[]".
   Qed.
 
-  Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS k P Q vs Φ :
+  Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS k P Q vs Φ :
     ⊢ ↪[frame] f -∗
       ↪[RUN] -∗
       ⌜LS !! k = Some (P, Q)⌝ -∗
       P vs -∗
       (∀ f' vs', Q f' vs' -∗ Φ f' vs') -∗
-      wp_sem_ctx s E (map BI_const vs ++ [BI_br k]) LS Φ.
+      wp_sem_ctx s E (map BI_const vs ++ [BI_br k]) (LS, RS) Φ.
   Proof.
     iIntros "Hf Hrun %Hlb HP HQ".
     unfold wp_sem_ctx, lenient_wp.
@@ -117,11 +130,11 @@ Section wp_sem_ctx.
     iFrame.
   Qed.
 
-  Lemma wp_sem_ctx_block_peel (f: datatypes.frame) s E es LS ts Φ :
+  Lemma wp_sem_ctx_block_peel (f: datatypes.frame) s E es LS RS ts Φ :
     ⊢ (↪[frame] f -∗ ↪[RUN] -∗
-      wp_sem_ctx s E es [] Φ) -∗
+      wp_sem_ctx s E es ([], None) Φ) -∗
       ↪[frame] f -∗ ↪[RUN] -∗
-      wp_sem_ctx s E [BI_block (Tf [] ts) es] LS Φ.
+      wp_sem_ctx s E [BI_block (Tf [] ts) es] (LS, RS) Φ.
   Proof.
     iIntros "Hes Hf Hrun".
     unfold wp_sem_ctx.
@@ -165,7 +178,7 @@ Section wp_sem_ctx.
   Admitted.
 
   Lemma sem_ctx_imp_bot LS :
-    ⊢ sem_ctx_imp [] LS.
+    ⊢ sem_ctx_imp ([], None) LS.
   Admitted.
 
   Lemma wp_sem_ctx_mono s E es LS LS' Φ Φ' :
