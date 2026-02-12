@@ -57,6 +57,12 @@ Section Fundamental_Shared.
       eauto.
   Qed.
 
+  Lemma frame_interp_wl_interp se F L WL inst fr :
+    frame_interp rti sr se L WL inst fr -∗
+    ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
+  Proof.
+  Admitted.
+
   (* useful lemma for proving compat lemmas for instructions erased by the compiler. *)
   Lemma sem_type_erased M F L WT WL ψ τs1 τs2 :
     ψ = InstrT τs1 τs2 ->

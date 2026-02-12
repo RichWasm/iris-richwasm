@@ -182,13 +182,67 @@ Section Fundamental.
     simplify_eq.
 
     (* Iris Proof *)
-    iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hf Hrun".
+    iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hfr Hrun".
     iDestruct (Hes1 _ _ _ wtf _ _ wlf _ Hcase_es1) as "Hsem_es1".
     iDestruct (Hes2 _ _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".
 
     replace (language.of_val (immV vs)) with (v_to_e_list vs); last done.
     unfold expr_interp.
 
+    rewrite to_e_list_app.
+    rewrite (app_assoc (v_to_e_list _)).
+
+    (* Our values are in the value interpretation for our specific SumT *)
+    (* This means that the values represent the tag and the payload. *)
+    iDestruct (values_interp_one_eq with "Hvs") as "Hvs".
+    iDestruct (value_interp_eq with "Hvs") as "Hvs".
+    unfold value_interp0, value_se_interp0.
+    iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
+    (*unfold type_skind in Hkind_sum.*)
+    iDestruct "Hsum_interp" as (i os0 os_i τ_i ιs ιs_i ixs  HSAtoms Htype_lookup Htype_arep Heval_rep_tail Hinject_sum_arep Hos0_ixs) "Hvalue_interp_os_i".
+    (*assert (os = I32A (Wasm_int.int_of_Z i32m i) :: os0) as ->; first by inversion HSAtoms.*)
+    simplify_eq.
+
+    iDestruct (big_sepL2_length with "Hrvs") as "%Hlen".
+    destruct vs as [|v_tag vs_payload]; first inversion Hlen.
+    clear Hlen.
+    iDestruct (atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
+
+
+
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
+    set (Φ := {| lp_fr_inv := λ _, True;
+                lp_val := λ f vs',
+                    ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                    ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ ∗
+                    ⌜vs' = [VAL_int32 (Wasm_int.Int32.repr i)]⌝;
+                lp_trap := False;
+                lp_br := λ _ _, False;
+                lp_ret := λ _, False;
+                lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+    iApply (lenient_wp_seq with "[Hfr Hrun]").
+    {
+      iSimpl.
+      iApply lenient_wp_val_cons.
+      eapply (lwp_save_stack_w _ (lp_combine Φ [VAL_int32 (Wasm_int.Int32.repr i)])) in Hsave; eauto.
+      + destruct Hsave as (-> & -> & -> & Hsave).
+        iApply (Hsave with "[$] [$]").
+        iIntros (f' [Hfsame Hfchanged]).
+        done.
+      + apply Hwl.
+      + admit. (* easy pure conseqeunce of value_interp and
+      rep_values_interp, should be proved above the first wp_seq
+      rule *)
+    }
+    { by iIntros (fr') "Htrap". }
+    iIntros (w fr_saved) "Hnotrap Hfr _".
+    subst Φ.
+    destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+    iDestruct "Hnotrap" as "(Hrun & %Hsame & %Hsaved & ->)".
+    replace (language.of_val) with (of_val); last done.
+    cbn [of_val].
+    rewrite v_to_e_list1.
 
 Admitted.
 

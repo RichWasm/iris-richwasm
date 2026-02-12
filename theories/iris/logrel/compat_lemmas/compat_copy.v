@@ -25,11 +25,6 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma frame_interp_wl_interp se F L WL inst fr :
-    frame_interp rti sr se L WL inst fr -∗
-    ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
-  Proof.
-  Admitted.
 
   Lemma compat_copy M F L n_skip wt wt' wtf wl wl' wlf τ es' :
     let fe := fe_of_context F <| fe_br_skip := n_skip |> in
@@ -82,7 +77,7 @@ Section Fundamental.
     iEval (cbn -[return_interp br_interp values_interp atoms_interp frame_interp]).
     rewrite to_e_list_app.
     rewrite (app_assoc (v_to_e_list _)).
-    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
     set (Φ := {| lp_fr_inv := λ _, True;
                lp_val := λ f vs', 
                   ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
