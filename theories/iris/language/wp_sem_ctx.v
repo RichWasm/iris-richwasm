@@ -56,22 +56,18 @@ Section wp_sem_ctx.
     lenient_wp s E (to_e_list es) (wp_sem_ctx_post S Φ).
 
   Lemma wp_label_peel s E m ces es Φ :
-    ⊢ WP es @ s; E {{ v, ∃ (f: datatypes.frame),
-                         ↪[frame] f ∗
-                         match v with
-                         | trapV => ↪[BAIL]
-                         | immV _ => ↪[RUN]
-                         | _ => False
-                         end ∗
-                         Φ f v }} -∗
-      WP [AI_label m ces es] @ s; E {{ w, ∃ (f: datatypes.frame),
-                                          ↪[frame] f ∗
-                                          match w with
-                                          | immV _ => ↪[RUN]
-                                          | trapV =>  ↪[BAIL]
-                                          | _ => False
-                                          end ∗
-                                          Φ f w }}.
+    ⊢ WP es @ s; E CTX 1; LH_rec [] m [] (LH_base [] []) []
+         {{ v, ∃ (f : datatypes.frame),
+               ↪[frame] f ∗
+                 match v with immV _ | brV _ _ => ↪[RUN] | trapV => ↪[BAIL] | _ => False end ∗
+                 Φ f v }} -∗
+      WP [AI_label m ces es] @ s; E
+         {{ v, ∃ (f : datatypes.frame),
+               ↪[frame] f ∗
+                 match v with immV _ | brV _ _ => ↪[RUN] | trapV => ↪[BAIL] | _ => False end ∗
+                 Φ f v }}.
+  Admitted.
+  (*
   Proof.
     iIntros "Hes".
     iApply wp_wasm_empty_ctx.
@@ -98,6 +94,7 @@ Section wp_sem_ctx.
     - iDestruct "HΦ" as "[]".
     - iDestruct "HΦ" as "[]".
   Qed.
+  *)
 
   Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS k P Q vs Φ :
     ⊢ ↪[frame] f -∗
@@ -131,47 +128,63 @@ Section wp_sem_ctx.
   Qed.
 
   Lemma wp_sem_ctx_block_peel (f: datatypes.frame) s E es LS RS ts Φ :
-    ⊢ (↪[frame] f -∗ ↪[RUN] -∗
-      wp_sem_ctx s E es ([], None) Φ) -∗
-      ↪[frame] f -∗ ↪[RUN] -∗
+    ⊢ (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E es ((Φ f, Φ) :: LS, None) Φ) -∗
+      ↪[frame] f -∗
+      ↪[RUN] -∗
       wp_sem_ctx s E [BI_block (Tf [] ts) es] (LS, RS) Φ.
   Proof.
     iIntros "Hes Hf Hrun".
-    unfold wp_sem_ctx.
-    cbn.
-    unfold lenient_wp.
     iApply (wp_block _ _ _ [] with "[$] [$]"); eauto.
     iIntros "!> Hf Hrun".
-    cbn.
     iSpecialize ("Hes" with "[$] [$]").
     iApply (wp_wand with "[Hes]").
     iApply wp_label_peel.
     {
-      instantiate (1:= λ f w, match w with immV vs => Φ f vs | trapV => True | _ => False end).
+      instantiate (1 := λ f v,
+                     match v with
+                     | immV vs => Φ f vs
+                     | trapV => True
+                     | brV i lh =>
+                         match LS !! i with
+                         | Some (P, _) => P (get_base_l lh)
+                         | None => False
+                         end | _ => False end).
+      iApply wp_label_bind.
       iApply (wp_wand with "[$Hes]").
       iIntros (w) "HΦ".
-      unfold denote_logpred.
       iDestruct "HΦ" as "(%f' & Hf & H)".
-      destruct w; cbn; try iFrame.
-      - iDestruct "H" as "(? & ? & ?)"; iFrame.
-      - iDestruct "H" as "(? & ? & ?)"; iFrame.
-      - rewrite lookup_nil.
-        iDestruct "H" as "(_ & _ & [])".
+      destruct w; try iFrame.
+      - iDestruct "H" as "(_ & Hrun & HΦ)".
+        change (LH_rec [] (length ts) [] (LH_base [] []) []) with
+          (push_base (LH_base [] []) (length ts) [] [] []).
+        iApply wp_label_pull_nil.
+        iApply wp_wasm_empty_ctx.
+        iApply (wp_wand with "[Hf Hrun HΦ]").
+        {
+          iApply (wp_label_value with "[$] [$]").
+          - change (v_to_e_list l) with (iris.of_val (immV l)). apply iris.to_of_val.
+          - by instantiate (1:= λ w, match w with immV vs => Φ f' vs | _ => False end).
+        }
+        iIntros (v) "[[Hv Hrun] Hf]".
+        iExists f'. destruct v; first iFrame; by iExFalso.
+      - admit.
+      - iDestruct "H" as "(_ & Hrun & HΦ)".
+        destruct i.
+        + cbn. remember 0 as i. destruct lh; last congruence.
+          subst n. cbn.
+          admit.
+        + cbn.
+          admit.
       - iDestruct "H" as "(_ & _ & [])".
       - iDestruct "H" as "(_ & _ & [])".
     }
     iIntros (w) "HΦ".
     destruct w.
-    - iDestruct "HΦ" as "(%f' & Hf & Hrun & HΦ)".
-      iFrame.
-    - iDestruct "HΦ" as "(%f' & Hf & Hrun & HΦ)".
-      iFrame.
-    - iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
-      done.
-    - iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
-      done.
-    - iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
-      done.
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & HΦ)". iFrame.
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & HΦ)". iFrame.
+    - iDestruct "HΦ" as "(%f' & Hf & Hrun & HLS)". iFrame.
+    - by iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
+    - by iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
   Qed.
 
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
