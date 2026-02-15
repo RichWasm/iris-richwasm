@@ -31,7 +31,8 @@ depends: [
   "coq-iris" {>= "4.3.0"}
   "coq-itree" {>= "5.2.0"}
   "mdx" {>= "2.5.0"}
-  "rocq-mathcomp-ssreflect" {>= "2.4.0"}
+  "rocq-mathcomp-boot" {>= "2.5.0"}
+  "rocq-mathcomp-order" {>= "2.5.0"}
   "rocq-parseque" {>= "0.3.0"}
   "rocq-prover" {>= "9.0.0"}
   "odoc" {with-doc}
