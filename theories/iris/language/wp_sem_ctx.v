@@ -39,9 +39,9 @@ Section wp_sem_ctx.
       lp_fr_inv := λ _, True;
       lp_trap := True;
       lp_val := Φ;
-      lp_br := λ k lh,
-        match LS !! k with
-        | Some (P, Q) => P (get_base_l lh)
+      lp_br := λ i vh,
+        match LS !! (i - lh_depth (lh_of_vh vh)) with
+        | Some (P, Q) => P (get_base_l vh)
         | None => False
         end;
       lp_ret := λ svh,
@@ -123,6 +123,7 @@ Section wp_sem_ctx.
     rewrite Heqes'.
     iApply wp_value'.
     unfold wp_sem_ctx_post, denote_logpred; cbn.
+    rewrite Nat.sub_0_r.
     rewrite Hlb.
     iFrame.
   Qed.
@@ -144,9 +145,9 @@ Section wp_sem_ctx.
                      match v with
                      | immV vs => Φ f vs
                      | trapV => True
-                     | brV i lh =>
-                         match LS !! i with
-                         | Some (P, _) => P (get_base_l lh)
+                     | brV i vh =>
+                         match LS !! (i - lh_depth (lh_of_vh vh)) with
+                         | Some (P, _) => P (get_base_l vh)
                          | None => False
                          end | _ => False end).
       iApply wp_label_bind.
