@@ -193,7 +193,7 @@ Section wp_sem_ctx.
       + admit.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
-  Admitted.
+  Abort.
 
   (*
     iApply (wp_wand with "[Hes]").
