@@ -128,6 +128,26 @@ Section wp_sem_ctx.
     iFrame.
   Qed.
 
+  Lemma wp_vfill_push es n (vh : valid_holed n) s E Φ :
+    WP es @ s; E CTX (lh_depth (lh_of_vh vh)); lh_of_vh vh {{ v, Φ v}} ⊢
+    WP vfill vh es @ s; E {{ v, Φ v }}.
+  Admitted.
+
+  Lemma wp_ctx_vfill_push es n (vh : valid_holed n) s E Φ lh lh' d1 d2 :
+    d1 = lh_depth (lh_plug lh (lh_of_vh vh)) ->
+    d2 = lh_depth lh ->
+    lh' = lh_plug lh (lh_of_vh vh) ->
+    WP es @ s; E CTX d1; lh' {{ v, Φ v }} ⊢
+    WP vfill vh es @ s; E CTX d2; lh {{ v, Φ v }}.
+  Admitted.
+
+  Lemma wp_ctx_br_stuck i j brV s E lh lh0 vh :
+    lh = lh_plug lh0 vh ->
+    i >= j ->
+    (* vs ++ [br ...] *)
+    ⊢ WP [AI_basic (BI_br i)] @ s; E CTX j; lh {{ v, ⌜v = brV vh⌝ }}.
+  Admitted.
+
   Lemma wp_sem_ctx_block_peel (f: datatypes.frame) s E es LS RS ts Φ :
     ⊢ (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E es ((Φ f, Φ) :: LS, None) Φ) -∗
       ↪[frame] f -∗
@@ -174,7 +194,14 @@ Section wp_sem_ctx.
         + cbn. remember 0 as i. destruct lh; last congruence.
           subst n. cbn.
           admit.
-        + cbn.
+        + cbn. iApply wp_ctx_vfill_push; try done.
+          iApply wp_wand_ctx.
+          {
+            iApply wp_ctx_br_stuck; first done.
+            admit.
+          }
+          iIntros (v ->).
+          iExists f'. iFrame.
           admit.
       - iDestruct "H" as "(_ & _ & [])".
       - iDestruct "H" as "(_ & _ & [])".
@@ -186,7 +213,7 @@ Section wp_sem_ctx.
     - iDestruct "HΦ" as "(%f' & Hf & Hrun & HLS)". iFrame.
     - by iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
     - by iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
-  Qed.
+  Abort.
 
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
   Admitted.
