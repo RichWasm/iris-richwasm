@@ -141,8 +141,8 @@ Section wp_sem_ctx.
     WP vfill vh es @ s; E CTX d2; lh {{ v, Φ v }}.
   Admitted.
 
-  Lemma wp_ctx_br_stuck i j brV s E lh lh0 vh :
-    lh = lh_plug lh0 vh ->
+  Lemma wp_ctx_br_stuck i j s E lh lh0 (vh : valid_holed i) :
+    lh = lh_plug lh0 (lh_of_vh vh) ->
     i >= j ->
     (* vs ++ [br ...] *)
     ⊢ WP [AI_basic (BI_br i)] @ s; E CTX j; lh {{ v, ⌜v = brV vh⌝ }}.
@@ -158,6 +158,44 @@ Section wp_sem_ctx.
     iApply (wp_block _ _ _ [] with "[$] [$]"); eauto.
     iIntros "!> Hf Hrun".
     iSpecialize ("Hes" with "[$] [$]").
+    iApply wp_wasm_empty_ctx.
+    iApply wp_label_push_nil.
+    iApply wp_label_bind.
+    iApply (wp_wand with "Hes").
+    iIntros (v) "HΦ".
+    change (LH_rec [] (length ts) [] (LH_base [] []) []) with
+      (push_base (LH_base [] []) (length ts) [] [] []).
+    iApply wp_label_pull_nil.
+    iApply wp_wasm_empty_ctx.
+    destruct v.
+    - iApply wp_wand.
+      + iApply wp_label_value.
+        * by rewrite iris.to_of_val.
+        * admit. (* frame *)
+        * admit. (* run *)
+        * admit. (* goal *)
+      + iIntros (v) "[[Hϕ Hrun] Hf]".
+        admit. (* postcondition on value *)
+    - admit. (* trap *)
+    - destruct (Nat.eqb (lh_depth (lh_of_vh lh)) i) eqn:Hlh.
+      + rewrite Nat.eqb_eq in Hlh.
+        iApply wp_br.
+        3: {
+          instantiate (2 := []).
+          destruct (vfill_to_lfilled lh [AI_basic (BI_br i)]) as [Hdepth Hfilled].
+          by rewrite Hlh in Hfilled.
+        }
+        * admit.
+        * admit.
+        * admit. (* frame *)
+        * admit. (* run *)
+        * iIntros "!> Hf Hrun". admit.
+      + admit.
+    - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
+    - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
+  Admitted.
+
+  (*
     iApply (wp_wand with "[Hes]").
     iApply wp_label_peel.
     {
@@ -214,6 +252,7 @@ Section wp_sem_ctx.
     - by iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
     - by iDestruct "HΦ" as "(%f' & Hf & Hrun & %Hcontra)".
   Abort.
+  *)
 
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
   Admitted.
