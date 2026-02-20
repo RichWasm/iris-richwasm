@@ -2172,18 +2172,20 @@ Proof.
     + right; right. by apply type_eq_convert.
 Qed.
 
-Fixpoint check_recursion_single_inner (inst:instruction) : bool :=
-  let fix check_recursion_list_inner insts : bool :=
-    match insts with
+Fixpoint lifted_check_recursion (insts:list instruction) (func: instruction -> bool) : bool :=
+   match insts with
     | [] => true
-    | e :: es => andb (check_recursion_single_inner e) (check_recursion_list_inner es)
-    end
-  in
+    | e :: es => andb (func e) (lifted_check_recursion es func)
+    end.
+
+(* TODO ask john *)
+Fixpoint check_recursion_single_inner (inst:instruction) : bool :=
   match inst with
   | IUnreachable _ => false
-  | IBlock _ _ es => check_recursion_list_inner es
+  | IBlock _ _ es => (lifted_check_recursion es check_recursion_single_inner)
   | _ => true
   end.
+
 
 Fail Fixpoint check_recursion_single_outer (inst:instruction) : bool :=
   match inst with
@@ -2195,6 +2197,31 @@ with check_recursion_list_outer insts : bool :=
   match insts with
   | [] => true
   | e :: es => andb (check_recursion_single_outer e) (check_recursion_list_outer es)
+  end.
+
+Fail Fixpoint check2_recursion_list_outer (insts:list instruction) : bool :=
+  match insts with
+  | [] => true
+  | e :: es => andb (check2_recursion_single_outer e) (check2_recursion_list_outer es)
+  end
+with check2_recursion_single_outer (inst:instruction) : bool :=
+  match inst with
+  | IUnreachable _ => false
+  | IBlock _ _ es => check2_recursion_list_outer es
+  | _ => true
+  end.
+
+Fail Fixpoint check2_recursion_list_inner (insts:list instruction) : bool :=
+  let fix check2_recursion_single_inner (inst:instruction) : bool :=
+    match inst with
+    | IUnreachable _ => false
+    | IBlock _ _ es5 => check2_recursion_list_inner es5
+    | _ => true
+    end
+  in
+  match insts with
+  | [] => true
+  | e :: es => andb (check2_recursion_single_inner e) (check2_recursion_list_inner es)
   end.
 
 
@@ -2336,27 +2363,13 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
   | ISwap _ _ => inl (Some L)
   end.
 
-(* Will need a mutually recursive have_instruction_type too *)
-Fixpoint has_instruction_type_checker
-    (M:module_ctx) (F:function_ctx) (L:local_ctx)
-    (inst:instruction) (ψ:instruction_type) (L':local_ctx) {struct inst} : type_checker_res :=
-  let fix have_instruction_type_checker
-    (M:module_ctx) (F:function_ctx) (L:local_ctx)
-    (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
-    match insts with
-    | [] =>
-        if andb (instruction_type_beq ψ (InstrT [] [])) (local_ctx_beq L L')
-        then local_ctx_ok_checker F L
-        else INR "bad empty instructions type"
-    (*| [e] => has_instruction_type_checker M F L e ψ L'*)
-    | e :: es => (* NOTE THIS IS FUNDAMENTALLY INCORRECT!!! THIS IS TEMPORARY FOR CHECKING RECURSION *)
-        let e_ψ := proj_instr_ty e in
-        match synth_possible_resulting_local_ctx F e L with
-        | inr _ => INR "this is either local get/set that is bad, so error?"
-        | inl None => INR "this is either uncreachable, break, or return. unsure how to deal with rn TODO"
-        | inl (Some L_e) =>
-            match has_instruction_type_checker M F L e e_ψ L_e with
-            | inl () =>
+
+Example a := (list_suffix (type_i32 :: type_i32 :: type_i64 :: [])
+                          (type_i32 :: type_i32 :: type_i64 :: [])  ).
+Example ayeah: a = Some [].
+Proof. unfold a. by cbn. Qed.
+
+(* this is the old version with arity. just list_suffix is the same
                 let (e_n1, e_n2) := get_instruction_type_arity e_ψ in
                 let (es_n1, es_n2) := get_instruction_type_arity ψ in
                 if es_n1 <? e_n1
@@ -2375,9 +2388,56 @@ Fixpoint has_instruction_type_checker
                     | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
                         match list_suffix τs1_es τs1_e with (* ts1_es = ts_pref ++ ts1_e*)
                         | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
-                        | None => INR "can't frame out"
+                        | None => INR "can't frame out (multiple instructions)"
                         end
+                    end *)
+
+
+
+(* Will need a mutually recursive have_instruction_type too *)
+Fixpoint has_instruction_type_checker
+    (M:module_ctx) (F:function_ctx) (L:local_ctx)
+    (inst:instruction) (ψ:instruction_type) (L':local_ctx) {struct inst} : type_checker_res :=
+  let fix have_instruction_type_checker
+    (M:module_ctx) (F:function_ctx) (L:local_ctx)
+    (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
+    match insts with
+    | [] =>
+        if andb (instruction_type_beq ψ (InstrT [] [])) (local_ctx_beq L L')
+        then local_ctx_ok_checker F L
+        else INR "bad empty instructions type"
+    | [e] =>
+        let e_ψ := proj_instr_ty e in
+        match has_instruction_type_checker M F L e e_ψ L' with
+        | inl () => (* now just to check if we need to frame stuff out *)
+            match e_ψ, ψ with
+            | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                match list_suffix τs1_es τs1_e, list_suffix τs2_es τs2_e with
+                | Some τs1_pref, Some τs2_pref =>
+                    (* ts1_es = ts1_pref ++ ts1_e, ts2_es = ts2_pref ++ ts2_e*)
+                    (* just need to check that ts1_pref = ts2_pref *)
+                    if list_beq type type_beq τs1_pref τs2_pref
+                    then ok_term
+                    else INR "can't frame out (single instruction)"
+                | _, _ => INR "inner instruction type doesn't match"
+                end
+            end
+        | err => err
+        end
+    | e :: es =>
+        let e_ψ := proj_instr_ty e in
+        match synth_possible_resulting_local_ctx F e L with
+        | inr _ => INR "this is either local get/set that is bad, so error?"
+        | inl None => INR "the instr we're processing is either uncreachable, break, or return. unsure how to deal with rn TODO"
+        | inl (Some L_e) =>
+            match has_instruction_type_checker M F L e e_ψ L_e with
+            | inl () =>                 match e_ψ, ψ with
+                | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                    match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
+                    | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                    | None => INR "instruction has more arguments than large have_instruction type has, or can't frame out"
                     end
+                end
             | err => err
             end
         end
@@ -2806,6 +2866,7 @@ Ltac my_auto5 :=
   | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
   | H: (function_type_beq _ _ = true) |- _ => apply function_type_eq_convert in H; subst; auto
   | H: (type_beq _ _ = true) |- _ => apply type_eq_convert in H; subst; auto
+  | H: (list_beq type type_beq _ _ = true) |- _ => apply list_eq_convert_type in H; subst; auto
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -2855,7 +2916,9 @@ Proof.
     unfold has_instruction_type_checker in H; repeat my_auto5.
     apply has_num_type_type_correct in HMatch4. destruct HMatch4 as [ν HMatch4]; subst.
     by constructor.
-  - admit.
+  - unfold has_instruction_type_checker in H.
+    unfold has_instruction_type_checker in H; repeat my_auto5.
+    apply list_eq_convert_type in H6.
   - admit.
   - Opaque have_instruction_type_checker.
     unfold has_instruction_type_checker in H; repeat my_auto5.
