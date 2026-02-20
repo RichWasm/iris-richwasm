@@ -244,6 +244,42 @@ Section Fundamental.
     cbn [of_val].
     rewrite v_to_e_list1.
 
+    (* Store tag *)
+    lwp_chomp 2.
+    iApply (lenient_wp_seq with "[Hfr Hrun]").
+    {
+      set (Φ := {| lp_fr_inv := λ _, True;
+                  lp_val := λ f vs',
+                    ⌜∀ j, j ≠ (fe_wlocal_offset fe + length (wl ++ wl_save))%nat -> f_locs f !! j = f_locs fr_saved !! j⌝ ∗
+                    ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ ∗
+                    ⌜vs' = []⌝;
+                  lp_trap := False;
+                  lp_br := λ _ _, False;
+                  lp_ret := λ _, False;
+                  lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+      iApply (lenient_wp_set_local _ _ _ Φ); last iFrame.
+      1: admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *)
+      unfold lp_val, Φ.
+      iSplit.
+      - iIntros "!> %j".
+        iPureIntro.
+        intros Hneq.
+        simpl.
+        apply util.set_nth_neq; try done.
+        admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *)
+      - iSimpl.
+        iSplit; last done.
+        iPureIntro.
+        apply set_nth_read.
+    }
+    { by iIntros. }
+    iIntros (w fr_saved_and_tag) "Hnotrap Hfr _".
+    destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+    iDestruct "Hnotrap" as "(Hrun & %Hsame' & %Hsaved_and_tag' & ->)".
+    clear_nils.
+
+
 Admitted.
 
   Lemma compat_case M F L L' n_skip wt wt' wtf wl wl' wlf es' ess τs τs' κ :

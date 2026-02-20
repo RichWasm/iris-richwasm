@@ -115,6 +115,18 @@ Proof.
   destruct (@ssrnat.ltP x y); auto.
 Qed.
 
+Lemma set_nth_neq:
+  ∀ {A : Type} (l : seq.seq A) (i j : nat) (x : A),
+    i < length l ->
+    i <> j ->
+    seq.set_nth x l i x !! j = l !! j.
+Proof.
+  intros.
+  rewrite properties.update_list_at_is_set_nth.
+    rewrite stdpp_aux.update_ne; auto.
+    auto using lt_ssrleq.
+Qed.
+
 Lemma set_nth_read_neq:
   ∀ {A : Type} (l : seq.seq A) (i j : nat) (x y : A),
     i <> j ->
