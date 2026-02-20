@@ -1098,7 +1098,7 @@ Definition size_leq_checker σ1 σ2 : type_checker_res :=
   | Some n1 =>
       match eval_size EmptyEnv σ2 with
       | Some n2 =>
-          if n1 <? n2
+          if n1 <=? n2
           then ok_term
           else INR "unequal sizes"
       | None => INR "bad size"
@@ -1108,7 +1108,12 @@ Definition size_leq_checker σ1 σ2 : type_checker_res :=
 
 Lemma size_leq_checker_correct :
   ∀ σ1 σ2, size_leq_checker σ1 σ2 = ok_term -> size_leq σ1 σ2.
-Proof. (* easy *) Admitted.
+Proof. (* easy *)
+  intros. unfold size_leq_checker in *.
+  repeat my_auto3.
+  apply Nat.leb_le in HMatch1.
+  by (exists n; exists n0).
+Qed.
 
 Definition type_size_eq_checker F τ1 τ2 : type_checker_res :=
   match grab_size F τ1 with
@@ -2259,11 +2264,77 @@ Proof.
     + intros.
       inversion H; subst.
       specialize (IHlfull lpre lsuf eq_refl).
-      (* yeah this is right *)
+      (* yeah this is right, I just need theorems about lengths of lists *)
       admit.
 Admitted.
 
+Definition get_instruction_type_arity (ψ:instruction_type) : nat * nat :=
+  match ψ with
+  | InstrT τs1 τs2 => (Init.Datatypes.length τs1, Init.Datatypes.length τs2)
+  end.
 
+(* inl means no error. None just means can't synth (uncreachable,
+   break, return). inr means error in synthesizing (possible in
+   local set and get).
+
+   VERY BIG NOTE: THIS DOES NOT ACTUALLY CHECK IF THIS IS THE
+   CORRECT L'. JUST SYNTHESIZES WHAT IT WOULD HAVE TO BE IF
+   IT IS CORRECT.
+
+ *)
+Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx) : (option local_ctx) + type_error :=
+  match inst with
+  | INop _ => inl (Some L)
+  | IUnreachable _ => inl None
+  | ICopy _
+  | IDrop _
+  | INum _ _
+  | INumConst _ _ => inl (Some L)
+  | IBlock _ L' _ => inl (Some L')
+  | ILoop _ _ => inl (Some L)
+  | IIte _ L' _ _ => inl (Some L')
+  | IBr _ _
+  | IReturn _ => inl None
+  | ILocalGet ψ i =>
+      match ψ with
+      | InstrT [] [τ] =>
+          match has_copyability_checker F τ ImCopy with
+          | inl () => inl (Some L)
+          | _ =>
+              match F.(fc_locals) !! i with
+              | Some ηs => inl (Some (<[ i := type_plug_prim ηs ]> L))
+              | _ => inr "NO"%string
+              end
+          end
+      | _ => inr "NO"%string
+      end
+  | ILocalSet ψ i =>
+      match ψ with
+      | InstrT [τ] [] => inl (Some (<[ i := τ ]> L))
+      | _ => inr "NO"%string
+      end
+  | ICodeRef _ _
+  | IInst _ _
+  | ICall _ _ _
+  | ICallIndirect _
+  | IInject _ _
+  | IInjectNew _ _ => inl (Some L)
+  | ICase _ L' _
+  | ICaseLoad _ _ L' _ => inl (Some L')
+  | IGroup _
+  | IUngroup _
+  | IFold _
+  | IUnfold _
+  | IPack _ => inl (Some L)
+  | IUnpack _ L' _ => inl (Some L')
+  | ITag _
+  | IUntag _
+  | ICast _
+  | INew _
+  | ILoad _ _ _
+  | IStore _ _
+  | ISwap _ _ => inl (Some L)
+  end.
 
 (* Will need a mutually recursive have_instruction_type too *)
 Fixpoint has_instruction_type_checker
@@ -2279,9 +2350,36 @@ Fixpoint has_instruction_type_checker
         else INR "bad empty instructions type"
     (*| [e] => has_instruction_type_checker M F L e ψ L'*)
     | e :: es => (* NOTE THIS IS FUNDAMENTALLY INCORRECT!!! THIS IS TEMPORARY FOR CHECKING RECURSION *)
-        match have_instruction_type_checker M F L es ψ L' with
-        | inl () => has_instruction_type_checker M F L e ψ L'
-        | err => err
+        let e_ψ := proj_instr_ty e in
+        match synth_possible_resulting_local_ctx F e L with
+        | inr _ => INR "this is either local get/set that is bad, so error?"
+        | inl None => INR "this is either uncreachable, break, or return. unsure how to deal with rn TODO"
+        | inl (Some L_e) =>
+            match has_instruction_type_checker M F L e e_ψ L_e with
+            | inl () =>
+                let (e_n1, e_n2) := get_instruction_type_arity e_ψ in
+                let (es_n1, es_n2) := get_instruction_type_arity ψ in
+                if es_n1 <? e_n1
+                then INR "instruction has more arguments than large have_instruction type has"
+                else
+                  if es_n1 =? e_n1
+                  then (* equal arity case *)
+                    match e_ψ, ψ with
+                    | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                        if list_beq type type_beq τs1_e τs1_es
+                        then have_instruction_type_checker M F L_e es (InstrT τs2_e τs2_es) L'
+                        else INR "instruction arguments do not match large have_instruction arguments (exact case)"
+                    end
+                  else (* frame rule case *)
+                    match e_ψ, ψ with
+                    | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                        match list_suffix τs1_es τs1_e with (* ts1_es = ts_pref ++ ts1_e*)
+                        | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                        | None => INR "can't frame out"
+                        end
+                    end
+            | err => err
+            end
         end
     end
   in
@@ -2451,6 +2549,7 @@ Fixpoint has_instruction_type_checker
         | None => INR "incorrect instruction type for local get (i not in local context)"
         end
       else INR "incorrect instruction type for local get"
+  | ILocalSet _ _ => INR "incomplete"
   | ICodeRef ψ_inner i =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
@@ -2666,11 +2765,10 @@ Fixpoint has_instruction_type_checker
       INR "incomplete"
   | IStore ψ_inner π => (* note this will be both TStoreWeak and TStoreStrong *)
       INR "incomplete"
-  | TSwap ψ_inner π =>
+  | ISwap ψ_inner π =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then INR "incomplete"
       else INR "incorrect instruction type for swap"
-  | _ => INR "incomplete"
   end.
 (*
 with have_instruction_type_checker
