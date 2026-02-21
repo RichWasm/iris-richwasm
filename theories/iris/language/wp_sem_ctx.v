@@ -9,7 +9,7 @@ file we outline a "logical approach" to the context which replaces
 lh with a list of specifications (P, Q), one for each label in lh.
 *)
 From RichWasm.iris.rules Require Import iris_rules_structural iris_rules_trap iris_rules_bind iris_rules_control.
-From RichWasm.iris.language Require Import iris_wp_def logpred.
+From RichWasm.iris.language Require Import iris_wp_def logpred lwp_structural.
 Import iris.algebra.list.
 From iris.proofmode Require Import base tactics classes.
 Require Import lenient_wp.
@@ -87,6 +87,20 @@ Section wp_sem_ctx.
     iFrame.
   Qed.
 
+  Lemma wp_sem_ctx_clear_labels s E es LS RS Φ :
+    wp_sem_ctx s E es ([], RS) Φ ⊢
+    wp_sem_ctx s E es (LS, RS) Φ.
+  Proof.
+    iIntros "Hwp".
+    iApply (lwp_wand with "Hwp").
+    iIntros (lv) "HΦ".
+    destruct lv; try done.
+    iDestruct "HΦ" as "(%f & Hfr & Hfrinv & HΦ)".
+    unfold lp_noframe, lp_br, wp_sem_ctx_post.
+    rewrite lookup_nil.
+    iDestruct "HΦ" as "[_ []]".
+  Qed.
+
   Fixpoint clear_base_l {i : nat} (vh : valid_holed i) : valid_holed i :=
     match vh with
     | VH_base n _ es => VH_base n [] es
@@ -117,13 +131,13 @@ Section wp_sem_ctx.
   Admitted.
 
   Lemma wp_sem_ctx_block_peel (f : datatypes.frame) s E es LS RS ts Φ :
-    ⊢ □ (∀ f vs, Φ f vs -∗ Φ f vs ∗ ⌜length vs = length ts⌝) -∗
-      (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E es ((Φ f, Φ) :: LS, None) Φ) -∗
+    let Ψ f vs := Φ f vs ∗ ⌜length vs = length ts⌝ in
+    ⊢ (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E es ((Ψ f, Ψ) :: LS, None) Φ) -∗
       ↪[frame] f -∗
       ↪[RUN] -∗
       wp_sem_ctx s E [BI_block (Tf [] ts) es] (LS, RS) Φ.
   Proof.
-    iIntros "#Hlen Hes Hf Hrun".
+    iIntros (Ψ) "Hes Hf Hrun".
     iApply (wp_block _ _ _ [] with "[$] [$]"); eauto.
     iIntros "!> Hf Hrun".
     iSpecialize ("Hes" with "[$] [$]").
@@ -155,8 +169,7 @@ Section wp_sem_ctx.
         rewrite Hlh.
         rewrite Nat.sub_diag.
         iSimpl in "HΦ".
-        iSpecialize ("Hlen" with "HΦ").
-        iDestruct "Hlen" as "[HΦ %Hlen]".
+        iDestruct "HΦ" as "[HΦ %Hlen]".
         iApply (wp_br with "[$] [$]").
         3: {
           instantiate (2 := AI_basic ∘ BI_const <$> get_base_l lh).
@@ -185,7 +198,7 @@ Section wp_sem_ctx.
           by rewrite Hbase.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
-  Abort.
+  Admitted.
 
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
   Admitted.

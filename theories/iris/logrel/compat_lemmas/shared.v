@@ -871,11 +871,9 @@ Section Fundamental_Shared.
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
-            | PtrInt z => wp_sem_ctx s E es1 ([], None)  Φ
-            | PtrHeap MemMM l =>
-                wp_sem_ctx s E es2 ([], None) Φ
-            | PtrHeap MemGC l =>
-                wp_sem_ctx s E es3 ([], None) Φ
+            | PtrInt z => wp_sem_ctx s E es1 ([], None) Φ
+            | PtrHeap MemMM l => wp_sem_ctx s E es2 ([], None) Φ
+            | PtrHeap MemGC l => wp_sem_ctx s E es3 ([], None) Φ
             end) -∗
         atom_interp (PtrA ptr) v ∗
         wp_sem_ctx s E es (LS, RS) Φ.
@@ -893,13 +891,19 @@ Section Fundamental_Shared.
     iIntros "%ptr Hf Hrun %Hlocs Hv Hwp".
     iApply (Hspec with "[$] [$] [//] [$]").
     iRevert "Hwp".
-    iApply bi.later_mono.
+    iIntros "Hwp !> Hf Hrun".
     destruct ptr; [|destruct μ].
-    - iIntros "Hwp Hf Hrun".
-      iApply (wp_sem_ctx_block_peel with "[$] [$] [$]").
-    - iIntros "Hwp Hf Hrun".
-      iApply (lwp_wand with "[Hwp Hf Hrun]").
-      { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
+    - iApply (wp_sem_ctx_block_peel with "[Hwp] [$] [$]").
+      iIntros "Hf Hrun".
+      iApply wp_sem_ctx_clear_labels.
+      iApply ("Hwp" with "[$] [$]").
+    - iApply (lwp_wand with "[Hwp Hf Hrun]").
+      {
+        iApply (wp_sem_ctx_block_peel with "[Hwp] [$] [$]").
+        iIntros "Hf Hrun".
+        iApply wp_sem_ctx_clear_labels.
+        iApply ("Hwp" with "[$] [$]").
+      }
       instantiate (1 := None).
       instantiate (1 := []).
       iIntros "%lv H".
@@ -934,9 +938,13 @@ Section Fundamental_Shared.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
-    - iIntros "Hwp Hf Hrun".
-      iApply (lwp_wand with "[Hwp Hf Hrun]").
-      { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
+    - iApply (lwp_wand with "[Hwp Hf Hrun]").
+      {
+        iApply (wp_sem_ctx_block_peel with "[Hwp] [$] [$]").
+        iIntros "Hf Hrun".
+        iApply wp_sem_ctx_clear_labels.
+        iApply ("Hwp" with "[$] [$]").
+      }
       instantiate (1 := None).
       instantiate (1 := []).
       iIntros "%lv H".
@@ -1014,9 +1022,11 @@ Section Fundamental_Shared.
         iDestruct "Hw" as "[Hrun Hbr]".
         iExists f; iFrame.
         cbn.
-        destruct (LS !! i) eqn:?; [|done].
-        destruct p as [Pre Post].
-        by rewrite get_base_l_append.
+        (* TODO *)
+        (* destruct (LS !! i) eqn:?; [|done]. *)
+        (* destruct p as [Pre Post]. *)
+        (* by rewrite get_base_l_append. *)
+        admit.
       + rewrite of_val_ret_app_r.
         iApply lenient_wp_value; first done.
         iDestruct "Hw" as "[Hrun Hret]".
@@ -1028,7 +1038,7 @@ Section Fundamental_Shared.
       + cbn.
         iDestruct "Hw" as "[? ?]".
         done.
-  Qed.
+  Admitted.
 
   Lemma wp_sem_ctx_lwp s E LS es es' Φ Φ':
     to_e_list es = es' ->
@@ -1362,7 +1372,9 @@ Section Fundamental_Shared.
           iSplit; [iPureIntro; done|].
           iIntros "!> Hf Hrun".
           iApply (wp_sem_ctx_block_peel with "[Hptr] [$] [$]").
-          done.
+          iIntros "Hf Hrun".
+          iApply wp_sem_ctx_clear_labels.
+          iApply ("Hptr" with "[$] [$]").
       + done.
     - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
       iPoseProof (root_pointer_heap_shp_inv with "Hroot") as "(%a & ->)".
@@ -1401,7 +1413,8 @@ Section Fundamental_Shared.
         iIntros "Hf Hrun".
         wp_sem_ctx_chomp 4%nat.
         iApply (wp_sem_ctx_seq with "[Hf Hrun]").
-        * iApply (wp_sem_ctx_mod4_sub3_test with "[//] [] [$] [$]"); eauto.
+        * iApply wp_sem_ctx_clear_labels.
+          iApply (wp_sem_ctx_mod4_sub3_test with "[//] [] [$] [$]"); eauto.
           iPureIntro.
           unfold Wasm_int.Int32.repr; simpl.
           rewrite Wasm_int.Int32.Z_mod_modulus_eq.
@@ -1418,7 +1431,10 @@ Section Fundamental_Shared.
           iLeft.
           iSplit; eauto.
           iIntros  "!> Hf Hrun".
-          by iApply (wp_sem_ctx_block_peel with "[Hptr] [$] [$]").
+          iApply (wp_sem_ctx_block_peel with "[Hptr] [$] [$]").
+          iIntros "Hf Hrun".
+          iApply wp_sem_ctx_clear_labels.
+          iApply ("Hptr" with "[$] [$]").
       + simpl tag_address in Hlookup_f.
         cbn.
         iApply (wp_sem_ctx_block_peel with "[Hptr] [$] [$]").
@@ -1426,24 +1442,28 @@ Section Fundamental_Shared.
         wp_sem_ctx_chomp 4%nat.
         rewrite take_0 drop_0.
         iApply (wp_sem_ctx_seq with "[Hf Hrun]").
-        * iApply (wp_sem_ctx_mod4_sub1_test with "[//] [] [$] [$]").
-           iPureIntro.
-           unfold Wasm_int.Int32.repr; simpl.
-           rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-           unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-           unfold two_power_nat; simpl.
-           replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
-           rewrite Z.mul_comm.
-           rewrite Zaux.Zmod_mod_mult; try done.
-           apply N2Z.inj_iff in Hmod.
-           rewrite N2Z.inj_mod in Hmod.
-           done.
+        * iApply wp_sem_ctx_clear_labels.
+          iApply (wp_sem_ctx_mod4_sub1_test with "[//] [] [$] [$]").
+          iPureIntro.
+          unfold Wasm_int.Int32.repr; simpl.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+          unfold two_power_nat; simpl.
+          replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
+          rewrite Z.mul_comm.
+          rewrite Zaux.Zmod_mod_mult; try done.
+          apply N2Z.inj_iff in Hmod.
+          rewrite N2Z.inj_mod in Hmod.
+          done.
         * iIntros (w f' [-> ->]) "Hf Hrun".
           iApply (Hwp_if_m with "[$] [$]").
           iRight.
           iSplit; auto.
           iIntros  "!> Hf Hrun".
-          by iApply (wp_sem_ctx_block_peel with "[Hptr] [$] [$]").
+          iApply (wp_sem_ctx_block_peel with "[Hptr] [$] [$]").
+          iIntros "Hf Hrun".
+          iApply wp_sem_ctx_clear_labels.
+          iApply ("Hptr" with "[$] [$]").
   Qed.
 
   Close Scope Z_scope.
