@@ -55,47 +55,6 @@ Section wp_sem_ctx.
   Definition wp_sem_ctx s E es S Φ :=
     lenient_wp s E (to_e_list es) (wp_sem_ctx_post S Φ).
 
-  Lemma wp_label_peel s E m ces es Φ :
-    ⊢ WP es @ s; E CTX 1; LH_rec [] m [] (LH_base [] []) []
-         {{ v, ∃ (f : datatypes.frame),
-               ↪[frame] f ∗
-                 match v with immV _ | brV _ _ => ↪[RUN] | trapV => ↪[BAIL] | _ => False end ∗
-                 Φ f v }} -∗
-      WP [AI_label m ces es] @ s; E
-         {{ v, ∃ (f : datatypes.frame),
-               ↪[frame] f ∗
-                 match v with immV _ | brV _ _ => ↪[RUN] | trapV => ↪[BAIL] | _ => False end ∗
-                 Φ f v }}.
-  Admitted.
-  (*
-  Proof.
-    iIntros "Hes".
-    iApply wp_wasm_empty_ctx.
-    iApply wp_label_push_nil.
-    cbn.
-    iApply (wp_ctx_bind s E _ es 1 _); first done.
-    iApply (wp_wand with "[$Hes]").
-    iIntros (w) "(%f & Hfr & HΦ & Hnobr)".
-    destruct w.
-    - iApply (wp_val_return with "[$] [$]").
-      apply v_to_e_is_const_list.
-      iIntros "Hfr Hrun".
-      rewrite app_nil_r app_nil_l.
-      iApply wp_value; try iFrame.
-      reflexivity.
-      auto.
-    - change (iris.of_val trapV) with ([] ++ [AI_trap] ++ []).
-      iApply (wp_wand_ctx with "[Hfr]").
-      + iApply wp_trap_ctx; done.
-      + iIntros (w) "[-> Hf]".
-        iExists f.
-        iFrame.
-    - iDestruct "HΦ" as "[]".
-    - iDestruct "HΦ" as "[]".
-    - iDestruct "HΦ" as "[]".
-  Qed.
-  *)
-
   Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS k P Q vs Φ :
     ⊢ ↪[frame] f -∗
       ↪[RUN] -∗
@@ -142,14 +101,14 @@ Section wp_sem_ctx.
     vfill vh es = vfill (clear_base_l vh) (seq.cat (AI_basic ∘ BI_const <$> get_base_l vh) es).
   Admitted.
 
-  Lemma wp_br_wrap s E n i j lh LI :
-    j < i ->
-    is_true (lfilled j lh [AI_basic (BI_br i)] LI) ->
-    ⊢ WP [AI_label n [] LI]
+  Lemma wp_br_wrap s E n i (vh : valid_holed i) es :
+    lh_depth (lh_of_vh vh) < i ->
+    es = vfill vh [AI_basic (BI_br i)] ->
+    ⊢ WP [AI_label n [] es]
          @ s; E
-         {{ v, ∃ vh, ⌜v = @brV i vh⌝ ∗
-                     ⌜lh_depth (lh_of_vh vh) = S j⌝ (* ∗
-                     ⌜get_base_l vh = get_base_l lh⌝ *) }}.
+         {{ v, ∃ vh', ⌜v = @brV i vh'⌝ ∗
+                      ⌜lh_depth (lh_of_vh vh') = S (lh_depth (lh_of_vh vh))⌝ ∗
+                      ⌜get_base_l vh = get_base_l vh'⌝ }}.
   Admitted.
 
   Lemma cons_lookup_sub_lt {A} i j x (xs : list A) :
@@ -211,23 +170,19 @@ Section wp_sem_ctx.
       + destruct (vfill_to_lfilled lh []) as [Hi _].
         rewrite Nat.eqb_neq in Hlh.
         rename Hlh into Hlh'.
-        assert (lh_depth (lh_of_vh lh) <= i /\ lh_depth (lh_of_vh lh) <> i) as Hlh.
-        { done. }
+        assert (lh_depth (lh_of_vh lh) <= i /\ lh_depth (lh_of_vh lh) <> i) as Hlh; first done.
         apply Nat.le_neq in Hlh.
         clear Hi Hlh'.
         iApply wp_wand.
-        * iApply wp_br_wrap.
-          -- exact Hlh.
-          -- by destruct (vfill_to_lfilled lh [AI_basic (BI_br i)]) as [_ H].
-        * iIntros (v) "(%vh & -> & %Hdepth)".
+        * iApply wp_br_wrap; [exact Hlh | done].
+        * iIntros (v) "(%vh & -> & %Hdepth & %Hbase)".
           unfold denote_logpred.
           iDestruct "HΦ" as "(%f' & Hfr & _ & [Hrun HΦ])".
           iExists f'. iFrame.
           unfold wp_sem_ctx_post, lp_br.
           rewrite Hdepth.
           rewrite (cons_lookup_sub_lt _ _ _ _ Hlh).
-          (* bases should be the same *)
-          admit.
+          by rewrite Hbase.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
   Abort.
