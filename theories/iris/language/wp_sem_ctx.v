@@ -247,14 +247,24 @@ Section wp_sem_ctx.
         iDestruct "HΦ" as "[HΦ %Hlen]".
         iApply (wp_br with "[$] [$]").
         3: {
-          instantiate (2 := AI_basic ∘ BI_const <$> get_base_l lh).
-          destruct (vfill_to_lfilled (clear_base_l lh) (seq.cat (AI_basic ∘ BI_const <$> get_base_l lh) [AI_basic (BI_br i)])) as [Hdepth Hfilled].
+          instantiate (2 := v_to_e_list (get_base_l lh)).
+          destruct (vfill_to_lfilled (clear_base_l lh) (seq.cat (v_to_e_list (get_base_l lh)) [AI_basic (BI_br i)])) as [Hdepth Hfilled].
           rewrite clear_base_l_depth in Hlh.
           by rewrite Hlh in Hfilled.
         }
-        * admit. (* const_list *)
-        * admit. (* length *)
-        * iIntros "!> Hf Hrun". admit.
+        * apply forallb_forall.
+          apply List.Forall_forall.
+          apply Forall_forall.
+          intros e He.
+          rewrite elem_of_list_fmap in He.
+          by destruct He as (v & -> & Hv).
+        * by rewrite length_fmap.
+        * iIntros "!> Hf Hrun".
+          rewrite app_nil_r.
+          iApply wp_value.
+          -- instantiate (1 := immV (get_base_l lh)). by unfold IntoVal.
+          -- iExists f'. iFrame. unfold wp_sem_ctx_post, lp_val.
+             admit. (* frames are different *)
       + destruct (vfill_to_lfilled lh []) as [Hi _].
         rewrite Nat.eqb_neq in Hlh.
         rename Hlh into Hlh'.
