@@ -989,6 +989,12 @@ Section Fundamental_Shared.
     cbn. by rewrite <- IHs.
   Qed.
 
+  Lemma append_lh_depth {i : nat} (lh : valid_holed i) e :
+    lh_depth (lh_of_vh lh) = lh_depth (lh_of_vh (vh_append lh e)).
+  Proof.
+    induction lh; simpl; auto.
+  Qed.
+
   Lemma wp_sem_ctx_seq s E es1 es2 LS RS Φ1 Φ :
     wp_sem_ctx NotStuck E es1 (LS, RS) Φ1 -∗
     (∀ vs (f: datatypes.frame),
@@ -1022,11 +1028,8 @@ Section Fundamental_Shared.
         iDestruct "Hw" as "[Hrun Hbr]".
         iExists f; iFrame.
         cbn.
-        (* TODO *)
-        (* destruct (LS !! i) eqn:?; [|done]. *)
-        (* destruct p as [Pre Post]. *)
-        (* by rewrite get_base_l_append. *)
-        admit.
+        rewrite get_base_l_append.
+        by rewrite <- append_lh_depth.
       + rewrite of_val_ret_app_r.
         iApply lenient_wp_value; first done.
         iDestruct "Hw" as "[Hrun Hret]".
@@ -1038,7 +1041,7 @@ Section Fundamental_Shared.
       + cbn.
         iDestruct "Hw" as "[? ?]".
         done.
-  Admitted.
+  Qed.
 
   Lemma wp_sem_ctx_lwp s E LS es es' Φ Φ':
     to_e_list es = es' ->
