@@ -111,9 +111,70 @@ Section wp_sem_ctx.
     lh_depth (lh_of_vh vh) = lh_depth (lh_of_vh (clear_base_l vh)).
   Admitted.
 
-  Lemma vfill_move_base {i} (vh : valid_holed i) (es : list administrative_instruction) :
+  Lemma vfill_move_base {i : nat} (vh : valid_holed i) (es : list administrative_instruction) :
     vfill vh es = vfill (clear_base_l vh) (seq.cat (AI_basic ∘ BI_const <$> get_base_l vh) es).
   Admitted.
+
+  (* Copied from get_base_vh_decrease. *)
+  Lemma lh_depth_vh_decrease {m : nat} (vh : valid_holed (S m)) vh' :
+    vh_decrease vh = Some vh' ->
+    lh_depth (lh_of_vh vh') = lh_depth (lh_of_vh vh).
+  Proof.
+    set (n := S m) in vh.
+    pose (Logic.eq_refl : n = S m) as Hn.
+    change vh with (match Hn in _ = w return valid_holed w with
+                    | Logic.eq_refl => vh end).
+    clearbody n Hn.
+    generalize dependent m.
+    induction vh; intros m vh' Hn.
+    - destruct n => //=.
+      pose proof (eq_add_S _ _ Hn) as Hm.
+      assert (Hn = f_equal S Hm) as Hproof.
+      apply Eqdep.EqdepTheory.UIP.
+      replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                            | Logic.eq_refl => VH_base (S n) l l0 end)) with
+        (match Hm in _ = w return (option (valid_holed w)) with
+         | Logic.eq_refl => vh_decrease (VH_base (S n) l l0) end);
+        last by rewrite Hproof; destruct Hm.
+      destruct Hm; simpl. intros H; inversion H; subst vh'.
+      clear. destruct Hn. done.
+    - pose proof (eq_add_S _ _ Hn) as Hm.
+      assert (Hn = f_equal S Hm) as Hproof.
+      apply Eqdep.EqdepTheory.UIP.
+      replace (vh_decrease (match Hn in _ = w return (valid_holed w) with
+                            | Logic.eq_refl => VH_rec l n0 l0 vh l1 end)) with
+        (match Hm in _ = w return (option (valid_holed w)) with
+         | Logic.eq_refl => vh_decrease (VH_rec l n0 l0 vh l1) end);
+        last by rewrite Hproof ; destruct Hm.
+      replace (get_base_l match Hn in (_ = w) return (valid_holed w) with
+                 | Logic.eq_refl => VH_rec l n0 l0 vh l1
+                 end) with
+        (match Hm in _ = w return (list value) with
+         | Logic.eq_refl => get_base_l (VH_rec l n0 l0 vh l1) end);
+        last by rewrite Hproof; destruct Hm.
+      destruct Hm => //=.
+      destruct n => //=.
+      destruct (vh_decrease vh) eqn:Hvh => //.
+      intros H; inversion H; subst vh'.
+      simpl.
+      pose proof (eq_add_S _ _ Hn) as Hm.
+      pose proof (eq_add_S _ _ Hm) as Hp.
+      assert (Hm = f_equal S Hp) as Hproof'.
+      apply Eqdep.EqdepTheory.UIP.
+      specialize (IHvh n v Hm).
+      rewrite IHvh.
+      (* This is the only line that's different... *)
+      { clear. destruct Hm. by destruct Hn. }
+      replace (vh_decrease match Hm in (_ = w) return (valid_holed w) with
+                 | Logic.eq_refl => vh
+                 end) with
+        (match Hp in (_ = w) return (option (valid_holed w)) with
+         | Logic.eq_refl => vh_decrease vh end); last by rewrite Hproof'; clear; destruct Hp.
+      rewrite Hvh. clear.
+      assert (Hp = Logic.eq_refl).
+      apply Eqdep.EqdepTheory.UIP.
+      rewrite H. done.
+  Qed.
 
   Lemma wp_br_wrap s E n i (vh : valid_holed i) es :
     lh_depth (lh_of_vh vh) < i ->
@@ -123,7 +184,21 @@ Section wp_sem_ctx.
          {{ v, ∃ vh', ⌜v = @brV i vh'⌝ ∗
                       ⌜lh_depth (lh_of_vh vh') = S (lh_depth (lh_of_vh vh))⌝ ∗
                       ⌜get_base_l vh = get_base_l vh'⌝ }}.
-  Admitted.
+    iIntros (Hdepth ->) "*".
+    destruct (Nat.lt_exists_pred _ _ Hdepth) as [j [-> _]].
+    destruct (vh_decrease vh) as [vh' |] eqn:Hvh.
+    - iApply wp_value.
+      + instantiate (1 := brV (VH_rec [] n [] vh' [])).
+        by rewrite (vfill_decrease _ Hvh).
+      + iExists (VH_rec [] n [] vh' []).
+        repeat iSplit; iPureIntro.
+        * done.
+        * cbn. by rewrite (lh_depth_vh_decrease vh).
+        * cbn. by rewrite (get_base_vh_decrease Hvh).
+    - exfalso. eapply vh_depth_can_decrease.
+      + exact Hdepth.
+      + exact Hvh.
+  Qed.
 
   Lemma cons_lookup_sub_lt {A} i j x (xs : list A) :
     j < i ->
