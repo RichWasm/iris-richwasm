@@ -323,9 +323,47 @@ Section Fundamental.
         iSimpl.
         auto_logp Σ.
       }
-      { admit. }
-      admit.
+      { by iIntros. }
+      iIntros (w ?fr) "Hnotrap Hf _".
+      destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+      iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+      replace (language.of_val) with (of_val); last done.
+      iSimpl.
 
+      lwp_chomp 2%nat; rewrite take_0; rewrite drop_0.
+
+      (* Case analysis: Is tag 0? *)
+      destruct (Datatypes.negb _); cbn [wasm_bool]; last first.
+
+      - (* Case: Tag it 0 *)
+        iApply (lenient_wp_seq with "[Hf Hrun]").
+        {
+          iApply lenient_wp_br_if_false; first done.
+          iFrame.
+          auto_logp Σ.
+        }
+        { by iIntros. }
+        iIntros (w ?fr) "Hnotrap Hf _".
+        destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+        iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+        replace (language.of_val) with (of_val); last done.
+        iSimpl.
+
+        (* Reason about code for case 1 *)
+        admit.
+
+      - (* Case: Tag is not 0 *)
+        iApply (lenient_wp_seq with "[Hf Hrun]").
+        {
+          iApply lenient_wp_br_if_true; first done.
+          iFrame.
+          iIntros "!> Hf Hr".
+          admit.
+        }
+        { admit. }
+        admit.
     }
 
 Admitted.
