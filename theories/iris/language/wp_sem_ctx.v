@@ -232,15 +232,18 @@ Section wp_sem_ctx.
     iApply wp_label_pull_nil.
     iApply wp_wasm_empty_ctx.
     destruct v.
-    - iApply wp_wand.
-      + iApply wp_label_value.
-        * by rewrite iris.to_of_val.
-        * admit. (* frame *)
-        * admit. (* run *)
-        * admit. (* goal *)
-      + iIntros (v) "[[Hϕ Hrun] Hf]".
-        admit. (* postcondition on value *)
-    - admit. (* trap *)
+    - iDestruct "HΦ" as "(%f' & Hfr & _ & Hrun & HΦ)".
+      iApply (wp_wand with "[Hfr Hrun HΦ]").
+      + iApply (wp_label_value with "[$] [$]"); first by rewrite iris.to_of_val.
+        instantiate (1 := fun v => (∃ vs, ⌜v = immV vs⌝ ∗ Φ f' vs)%I).
+        by iFrame.
+      + iIntros (v) "[[(%vs & -> & Hϕ) Hrun] Hf]". iExists f'. iFrame.
+    - iDestruct "HΦ" as "(%f' & Hfr & _ & Hbail & _)".
+      iApply (wp_wand with "[Hfr]").
+      + iApply (wp_label_trap with "[$]"); first done.
+        by instantiate (1 := fun v => (⌜v = trapV⌝)%I).
+      + iIntros (v) "(-> & Hfr)".
+        iExists f'. by iFrame.
     - destruct (Nat.eqb (lh_depth (lh_of_vh lh)) i) eqn:Hlh.
       + rewrite Nat.eqb_eq in Hlh.
         iDestruct "HΦ" as "(%f' & Hf & _ & [Hrun HΦ])".
@@ -288,7 +291,7 @@ Section wp_sem_ctx.
           by rewrite Hbase.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
-  Admitted.
+  Qed.
 
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
   Admitted.
