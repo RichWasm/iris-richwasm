@@ -8,19 +8,25 @@ Unfortunately, the hole-filling operation renders proofs difficult. In this
 file we outline a "logical approach" to the context which replaces
 lh with a list of specifications (P, Q), one for each label in lh.
 *)
+
 From RichWasm.iris.rules Require Import iris_rules_structural iris_rules_trap iris_rules_bind iris_rules_control.
 From RichWasm.iris.language Require Import iris_wp_def logpred lwp_structural.
 Import iris.algebra.list.
 From iris.proofmode Require Import base tactics classes.
 Require Import lenient_wp.
+
 Set Bullet Behavior "Strict Subproofs".
 
 Section wp_sem_ctx.
+
   Context `{!wasmG Σ}.
-  Open Scope bi_scope.
+
   (* Specification for a label. *)
   (* "protocol" from logics for effect handlers? *) 
-  Definition lb_spec : Type := (list value -> iProp Σ) * (datatypes.frame -> list value -> iProp Σ).
+  Definition lb_spec : Type :=
+    nat *
+      (datatypes.frame -> list value -> iProp Σ) *
+      (datatypes.frame -> list value -> iProp Σ).
 
   (* TODO: is postcondition the right shape? *)
   Definition ret_spec : Type := (list value -> iProp Σ) * (datatypes.frame -> list value -> iProp Σ).
@@ -39,31 +45,32 @@ Section wp_sem_ctx.
       lp_fr_inv := λ _, True;
       lp_trap := True;
       lp_val := Φ;
-      lp_br := λ i vh,
+      lp_br := λ fr i vh,
         match LS !! (i - lh_depth (lh_of_vh vh)) with
-        | Some (P, Q) => P (get_base_l vh)
+        | Some (n, P, _) => (⌜length (get_base_l vh) = n⌝ ∗ P fr (get_base_l vh))
         | None => False
         end;
       lp_ret := λ svh,
         match RS with
-        | Some (P, Q) => P (simple_get_base_l svh)
+        | Some (P, _) => P (simple_get_base_l svh)
         | None => False
         end;
       lp_host := λ _ _ _ _, False;
-    |}.
+    |}%I.
 
   Definition wp_sem_ctx s E es S Φ :=
     lenient_wp s E (to_e_list es) (wp_sem_ctx_post S Φ).
 
-  Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS k P Q vs Φ :
-    ⊢ ↪[frame] f -∗
-      ↪[RUN] -∗
-      ⌜LS !! k = Some (P, Q)⌝ -∗
-      P vs -∗
-      (∀ f' vs', Q f' vs' -∗ Φ f' vs') -∗
-      wp_sem_ctx s E (map BI_const vs ++ [BI_br k]) (LS, RS) Φ.
+  Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS n k P Q vs Φ :
+    LS !! k = Some (n, P, Q) ->
+    length vs = n ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    P f vs -∗
+    (∀ f' vs', Q f' vs' -∗ Φ f' vs') -∗
+    wp_sem_ctx s E (map BI_const vs ++ [BI_br k]) (LS, RS) Φ.
   Proof.
-    iIntros "Hf Hrun %Hlb HP HQ".
+    iIntros (Hlb Hlen) "Hf Hrun HP HQ".
     unfold wp_sem_ctx, lenient_wp.
     unfold to_e_list.
     rewrite seq_map_fmap.
@@ -84,7 +91,7 @@ Section wp_sem_ctx.
     unfold wp_sem_ctx_post, denote_logpred; cbn.
     rewrite Nat.sub_0_r.
     rewrite Hlb.
-    iFrame.
+    by iFrame.
   Qed.
 
   Lemma wp_sem_ctx_clear_labels s E es LS RS Φ :
@@ -206,13 +213,12 @@ Section wp_sem_ctx.
   Admitted.
 
   Lemma wp_sem_ctx_block_peel (f : datatypes.frame) s E es LS RS ts Φ :
-    let Ψ f vs := Φ f vs ∗ ⌜length vs = length ts⌝ in
-    ⊢ (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E es ((Ψ f, Ψ) :: LS, None) Φ) -∗
-      ↪[frame] f -∗
-      ↪[RUN] -∗
-      wp_sem_ctx s E [BI_block (Tf [] ts) es] (LS, RS) Φ.
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E es ((length ts, Φ, Φ) :: LS, None) Φ) -∗
+    wp_sem_ctx s E [BI_block (Tf [] ts) es] (LS, RS) Φ.
   Proof.
-    iIntros (Ψ) "Hes Hf Hrun".
+    iIntros "Hf Hrun Hes".
     iApply (wp_block _ _ _ [] with "[$] [$]"); eauto.
     iIntros "!> Hf Hrun".
     iSpecialize ("Hes" with "[$] [$]").
@@ -244,7 +250,7 @@ Section wp_sem_ctx.
         rewrite Hlh.
         rewrite Nat.sub_diag.
         iSimpl in "HΦ".
-        iDestruct "HΦ" as "[HΦ %Hlen]".
+        iDestruct "HΦ" as "[%Hlen HΦ]".
         iApply (wp_br with "[$] [$]").
         3: {
           instantiate (2 := v_to_e_list (get_base_l lh)).
@@ -263,8 +269,7 @@ Section wp_sem_ctx.
           rewrite app_nil_r.
           iApply wp_value.
           -- instantiate (1 := immV (get_base_l lh)). by unfold IntoVal.
-          -- iExists f'. iFrame. unfold wp_sem_ctx_post, lp_val.
-             admit. (* frames are different *)
+          -- iExists f'. iFrame.
       + destruct (vfill_to_lfilled lh []) as [Hi _].
         rewrite Nat.eqb_neq in Hlh.
         rename Hlh into Hlh'.

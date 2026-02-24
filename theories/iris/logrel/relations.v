@@ -305,7 +305,7 @@ Section Relations.
                      ∃ os2 θ',
                        atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2 ∗ rt_token rti sr θ';
                  lp_trap := True;
-                 lp_br := fun _ _ => False;
+                 lp_br := fun _ _ _ => False;
                  lp_ret := fun _ => False;
                  lp_host := fun _ _ _ _ => False |}
         | FC_func_host _ _ => False
@@ -551,15 +551,14 @@ Section Relations.
                NotStuck top
                (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
                {| lp_fr_inv := const True;
-                  lp_val :=
-                    fun fr vs' =>
-                      frame_interp se L WL inst fr ∗
-                      ∃ τs' os' θ',
-                        atoms_interp os' vs' ∗ values_interp se τs' os' ∗ rt_token rti sr θ';
+                  lp_val fr vs' :=
+                   frame_interp se L WL inst fr ∗
+                     ∃ τs' os' θ',
+                       atoms_interp os' vs' ∗ values_interp se τs' os' ∗ rt_token rti sr θ';
                   lp_trap := True;
-                  lp_br := br_interp lh'' (drop (S (j - p)) τc);
+                  lp_br _ := br_interp lh'' (drop (S (j - p)) τc);
                   lp_ret := return_interp se τr;
-                  lp_host := fun _ _ _ _ => False |}
+                  lp_host _ _ _ _ := False |}
                (S (lh_depth lh')) (LH_rec es0 k es lh' es'))%I.
 
   (* TODO *)
@@ -596,14 +595,13 @@ Section Relations.
     λne es,
       lenient_wp NotStuck top es
         {| lp_fr_inv := const True;
-           lp_val :=
-             fun fr vs =>
-               frame_interp se L WL inst fr ∗ 
-               ∃ os θ, values_interp se τs os ∗ atoms_interp os vs ∗ rt_token rti sr θ;
+           lp_val fr vs :=
+            frame_interp se L WL inst fr ∗ 
+              ∃ os θ, values_interp se τs os ∗ atoms_interp os vs ∗ rt_token rti sr θ;
            lp_trap := True;
-           lp_br := br_interp se τr L WL inst lh τc;
+           lp_br _ := br_interp se τr L WL inst lh τc;
            lp_ret := return_interp se τr;
-           lp_host := fun _ _ _ _ => False |}%I.
+           lp_host _ _ _ _ := False |}%I.
 
   Definition instance_rt_func_interp
     (i : funcidx) (a : funcaddr) (spec : function_closure -> Prop) (inst : instance) : iProp Σ :=

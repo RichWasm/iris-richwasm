@@ -83,15 +83,15 @@ Section Fundamental.
     rewrite to_e_list_app.
     rewrite (app_assoc (v_to_e_list _)).
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
-    set (Φ := {| lp_fr_inv := λ _, True;
-               lp_val := λ f vs', 
-                  ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-                  ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ ∗
-                  ⌜vs' = []⌝;
-               lp_trap := False;
-               lp_br := λ _ _, False;
-               lp_ret := λ _, False;
-                lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+    set (Φ := {| lp_fr_inv _ := True;
+                 lp_val f vs' :=
+                   ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                   ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ ∗
+                   ⌜vs' = []⌝;
+                 lp_trap := False;
+                 lp_br _ _ _ := False;
+                 lp_ret _ := False;
+                 lp_host _ _ _ _ := False |}%I : @logpred Σ).
     iApply (lenient_wp_seq with "[Hfr Hrun]").
     {
       eapply (lwp_save_stack_w _ Φ) in Hsave; eauto.
@@ -108,15 +108,15 @@ Section Fundamental.
     iIntros (w fr_saved) "Hnotrap Hfr _".
     rewrite to_e_list_app.
     rewrite (app_assoc (of_val _)).
-    set (Φ2 := {| lp_fr_inv := λ _, True;
-                 lp_val := λ f vs',
-                   ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-                   ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ ∗
-                   ⌜vs' = vs⌝;
-                 lp_trap := False;
-                 lp_br := λ _ _, False;
-                 lp_ret := λ _, False;
-                 lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+    set (Φ2 := {| lp_fr_inv _ := True;
+                  lp_val f vs' :=
+                    ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                    ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ ∗
+                    ⌜vs' = vs⌝;
+                  lp_trap := False;
+                  lp_br _ _ _ := False;
+                  lp_ret _ := False;
+                  lp_host _ _ _ _ := False |}%I : @logpred Σ).
     destruct w; iEval (cbn) in "Hnotrap"; try done;
       try (iDestruct "Hnotrap" as "[? ?]"; done).
     iDestruct "Hnotrap" as "(Hrun & %Hsame & %Hsaved & ->)".
