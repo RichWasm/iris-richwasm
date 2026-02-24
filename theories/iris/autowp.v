@@ -2,7 +2,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.bi Require Export weakestpre.
 From Wasm Require Import datatypes.
 From RichWasm.iris.rules Require Export proofmode iris_rules.
-From RichWasm.iris.language Require Export iris_wp_def lenient_wp.
+From RichWasm.iris.language Require Export iris_wp_def lenient_wp logpred.
 
 Inductive arity :=
 | Ar (i: nat) (o: nat)
@@ -81,8 +81,25 @@ Ltac wp_chomp n :=
   end.
 
 Ltac fill_imm_pred :=
-  match goal with 
+  match goal with
   | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
+  end.
+
+(* TODO: remove Σ *)
+Ltac auto_logp Σ :=
+  match goal with
+  | |- context [lp_val ?r ?fr ?vs] =>
+      let Φ :=
+        constr:({|
+          lp_fr_inv := (λ _, True);
+          lp_val := (λ fr' vs', ⌜fr' = fr /\ vs' = vs⌝);
+          lp_trap := False;
+          lp_br := (λ _ _, False);
+          lp_ret := (λ _, False);
+          lp_host := (λ _ _ _ _, False)
+        |}%I : @logpred Σ) in
+        instantiate (1 := Φ);
+        auto
   end.
 
 Ltac seq_sz n m := 

@@ -287,8 +287,8 @@ Section Fundamental.
     iApply lwp_wasm_empty_ctx.
     iApply lwp_label_push_nil.
     iApply lwp_ctx_bind; first done.
-    lwp_chomp 1%nat.
     (* -------- Case 1 -------- *)
+    lwp_chomp 1%nat.
     iApply (lenient_wp_seq with "[Hf Hrun]").
     {
       rewrite <- (app_nil_l [AI_basic _]).
@@ -298,16 +298,34 @@ Section Fundamental.
       iApply lwp_wasm_empty_ctx.
       iApply lwp_label_push_nil.
       iApply lwp_ctx_bind; first done.
-      lwp_chomp 1%nat.
       (* Get tag from local *)
+      lwp_chomp 1%nat.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       {
         iApply lenient_wp_get_local; first apply Hsaved_and_tag'.
         iFrame.
-        admit.
+        auto_logp Σ.
+      }
+      { by iIntros (fr') "Htrap". }
+      iIntros (w ?fr) "Hnotrap Hf _".
+      destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+      iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+      replace (language.of_val) with (of_val); last done.
+      iSimpl.
+
+      (* compare tag with case number: 0 *)
+      lwp_chomp 3%nat.
+      iApply (lenient_wp_seq with "[Hf Hrun]").
+      {
+        iApply lwp_relop; first done.
+        iFrame.
+        iSimpl.
+        auto_logp Σ.
       }
       { admit. }
       admit.
+
     }
 
 Admitted.
