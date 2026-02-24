@@ -891,13 +891,17 @@ Section Fundamental_Shared.
     iRevert "Hwp".
     iIntros "Hwp !> Hf Hrun".
     destruct ptr; [|destruct μ].
-    - iApply (wp_sem_ctx_block_peel with "[$] [$] [Hwp]").
+    - change [AI_basic (BI_block (Tf [] t2s) es1)] with (to_e_list ([] ++ [BI_block (Tf [] t2s) es1])).
+      iApply (wp_sem_ctx_block_peel with "[$] [$] [Hwp]").
+      1, 2: done.
       iIntros "Hf Hrun".
       iApply wp_sem_ctx_clear_labels.
       iApply ("Hwp" with "[$] [$]").
     - iApply (lwp_wand with "[Hwp Hf Hrun]").
       {
+        change [AI_basic (BI_block (Tf [] t2s) es2)] with (to_e_list ([] ++ [BI_block (Tf [] t2s) es2])).
         iApply (wp_sem_ctx_block_peel with "[$] [$] [Hwp]").
+        1, 2: done.
         iIntros "Hf Hrun".
         iApply wp_sem_ctx_clear_labels.
         iApply ("Hwp" with "[$] [$]").
@@ -938,7 +942,9 @@ Section Fundamental_Shared.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
     - iApply (lwp_wand with "[Hwp Hf Hrun]").
       {
+        change [AI_basic (BI_block (Tf [] t2s) es3)] with (to_e_list ([] ++ [BI_block (Tf [] t2s) es3])).
         iApply (wp_sem_ctx_block_peel with "[$] [$] [Hwp]").
+        1, 2: done.
         iIntros "Hf Hrun".
         iApply wp_sem_ctx_clear_labels.
         iApply ("Hwp" with "[$] [$]").
@@ -1372,7 +1378,9 @@ Section Fundamental_Shared.
           iLeft.
           iSplit; [iPureIntro; done|].
           iIntros "!> Hf Hrun".
+          rewrite <- (app_nil_l [_]).
           iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+          1, 2: done.
           iIntros "Hf Hrun".
           iApply wp_sem_ctx_clear_labels.
           iApply ("Hptr" with "[$] [$]").
@@ -1410,7 +1418,9 @@ Section Fundamental_Shared.
       destruct μ.
       + simpl tag_address in Hlookup_f.
         cbn.
+        rewrite <- (app_nil_l [_]).
         iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+        1, 2: done.
         iIntros "Hf Hrun".
         wp_sem_ctx_chomp 4%nat.
         iApply (wp_sem_ctx_seq with "[Hf Hrun]").
@@ -1432,13 +1442,17 @@ Section Fundamental_Shared.
           iLeft.
           iSplit; eauto.
           iIntros  "!> Hf Hrun".
+          change [AI_basic (BI_block (Tf [] []) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_mm])).
           iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+          1, 2: done.
           iIntros "Hf Hrun".
           iApply wp_sem_ctx_clear_labels.
           iApply ("Hptr" with "[$] [$]").
       + simpl tag_address in Hlookup_f.
         cbn.
+        rewrite <- (app_nil_l [_]).
         iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+        1, 2: done.
         iIntros "Hf Hrun".
         wp_sem_ctx_chomp 4%nat.
         rewrite take_0 drop_0.
@@ -1461,7 +1475,9 @@ Section Fundamental_Shared.
           iRight.
           iSplit; auto.
           iIntros  "!> Hf Hrun".
+          change [AI_basic (BI_block (Tf [] []) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_gc])).
           iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+          1, 2: done.
           iIntros "Hf Hrun".
           iApply wp_sem_ctx_clear_labels.
           iApply ("Hptr" with "[$] [$]").

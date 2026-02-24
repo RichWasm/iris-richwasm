@@ -212,14 +212,45 @@ Section wp_sem_ctx.
     (x :: xs) !! (i - j) = xs !! (i - S j).
   Admitted.
 
-  Lemma wp_sem_ctx_block_peel (f : datatypes.frame) s E es LS RS ts Φ :
+  Definition is_basic_const (e : basic_instruction) : bool :=
+    match e with
+    | BI_const _ => true
+    | _ => false
+    end.
+
+  Definition basic_const_list (es : list basic_instruction) : bool :=
+    forallb is_basic_const es.
+
+  Lemma const_list_map_basic vs :
+    is_true (basic_const_list vs) ->
+    is_true (const_list (map AI_basic vs)).
+  Proof.
+    intros Hvs.
+    apply forallb_forall.
+    intros e He.
+    unfold is_true, basic_const_list in Hvs.
+    rewrite forallb_forall in Hvs.
+    apply in_map_iff in He.
+    destruct He as (e' & <- & He').
+    specialize Hvs with e'.
+    by apply Hvs in He'.
+  Qed.
+
+  Lemma wp_sem_ctx_block_peel (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ :
+    is_true (basic_const_list vs) ->
+    length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E es ((length ts, Φ, Φ) :: LS, None) Φ) -∗
-    wp_sem_ctx s E [BI_block (Tf [] ts) es] (LS, RS) Φ.
+    (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E (vs ++ es) ((length ts2, Φ, Φ) :: LS, None) Φ) -∗
+    wp_sem_ctx s E (vs ++ [BI_block (Tf ts1 ts2) es]) (LS, RS) Φ.
   Proof.
-    iIntros "Hf Hrun Hes".
-    iApply (wp_block _ _ _ [] with "[$] [$]"); eauto.
+    iIntros (Hconst Hlen) "Hf Hrun Hes".
+    unfold wp_sem_ctx, to_e_list.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite !map_app.
+    iApply (lenient_wp_block _ _ _ _ with "[$] [$]"); eauto.
+    { by apply const_list_map_basic. }
+    { by rewrite length_map. }
     iIntros "!> Hf Hrun".
     iSpecialize ("Hes" with "[$] [$]").
     iApply wp_wasm_empty_ctx.
@@ -227,8 +258,8 @@ Section wp_sem_ctx.
     iApply wp_label_bind.
     iApply (wp_wand with "Hes").
     iIntros (v) "HΦ".
-    change (LH_rec [] (length ts) [] (LH_base [] []) []) with
-      (push_base (LH_base [] []) (length ts) [] [] []).
+    change (LH_rec [] (length ts2) [] (LH_base [] []) []) with
+      (push_base (LH_base [] []) (length ts2) [] [] []).
     iApply wp_label_pull_nil.
     iApply wp_wasm_empty_ctx.
     destruct v.
@@ -237,7 +268,7 @@ Section wp_sem_ctx.
       + iApply (wp_label_value with "[$] [$]"); first by rewrite iris.to_of_val.
         instantiate (1 := fun v => (∃ vs, ⌜v = immV vs⌝ ∗ Φ f' vs)%I).
         by iFrame.
-      + iIntros (v) "[[(%vs & -> & Hϕ) Hrun] Hf]". iExists f'. iFrame.
+      + iIntros (v) "[[(%vs' & -> & Hϕ) Hrun] Hf]". iExists f'. iFrame.
     - iDestruct "HΦ" as "(%f' & Hfr & _ & Hbail & _)".
       iApply (wp_wand with "[Hfr]").
       + iApply (wp_label_trap with "[$]"); first done.
@@ -253,7 +284,7 @@ Section wp_sem_ctx.
         rewrite Hlh.
         rewrite Nat.sub_diag.
         iSimpl in "HΦ".
-        iDestruct "HΦ" as "[%Hlen HΦ]".
+        iDestruct "HΦ" as "[%Hlen2 HΦ]".
         iApply (wp_br with "[$] [$]").
         3: {
           instantiate (2 := v_to_e_list (get_base_l lh)).
