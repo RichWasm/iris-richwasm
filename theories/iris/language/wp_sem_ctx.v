@@ -42,20 +42,20 @@ Section wp_sem_ctx.
 
   Definition wp_sem_ctx_post '((LS, RS) : sem_ctx) Φ :=
     {|
-      lp_fr_inv := λ _, True;
+      lp_fr_inv _ := True;
       lp_trap := True;
       lp_val := Φ;
-      lp_br := λ fr i vh,
+      lp_br fr i vh :=
         match LS !! (i - lh_depth (lh_of_vh vh)) with
-        | Some (n, P, _) => (⌜length (get_base_l vh) = n⌝ ∗ P fr (get_base_l vh))
+        | Some (n, P, _) => ⌜length (get_base_l vh) = n⌝ ∗ P fr (get_base_l vh)
         | None => False
         end;
-      lp_ret := λ svh,
+      lp_ret svh :=
         match RS with
         | Some (P, _) => P (simple_get_base_l svh)
         | None => False
         end;
-      lp_host := λ _ _ _ _, False;
+      lp_host _ _ _ _ := False;
     |}%I.
 
   Definition wp_sem_ctx s E es S Φ :=
@@ -183,21 +183,22 @@ Section wp_sem_ctx.
       rewrite H. done.
   Qed.
 
-  Lemma wp_br_wrap s E n i (vh : valid_holed i) es :
+  Lemma wp_br_wrap s E n i (vh : valid_holed i) es esk :
     lh_depth (lh_of_vh vh) < i ->
     es = vfill vh [AI_basic (BI_br i)] ->
-    ⊢ WP [AI_label n [] es]
+    ⊢ WP [AI_label n esk es]
          @ s; E
          {{ v, ∃ vh', ⌜v = @brV i vh'⌝ ∗
                       ⌜lh_depth (lh_of_vh vh') = S (lh_depth (lh_of_vh vh))⌝ ∗
                       ⌜get_base_l vh = get_base_l vh'⌝ }}.
+  Proof.
     iIntros (Hdepth ->) "*".
     destruct (Nat.lt_exists_pred _ _ Hdepth) as [j [-> _]].
     destruct (vh_decrease vh) as [vh' |] eqn:Hvh.
     - iApply wp_value.
-      + instantiate (1 := brV (VH_rec [] n [] vh' [])).
+      + instantiate (1 := brV (VH_rec [] n esk vh' [])).
         by rewrite (vfill_decrease _ Hvh).
-      + iExists (VH_rec [] n [] vh' []).
+      + iExists (VH_rec [] n esk vh' []).
         repeat iSplit; iPureIntro.
         * done.
         * cbn. by rewrite (lh_depth_vh_decrease vh).
@@ -304,6 +305,106 @@ Section wp_sem_ctx.
           iApply wp_value.
           -- instantiate (1 := immV (get_base_l lh)). by unfold IntoVal.
           -- iExists f'. iFrame.
+      + destruct (vfill_to_lfilled lh []) as [Hi _].
+        rewrite Nat.eqb_neq in Hlh.
+        rename Hlh into Hlh'.
+        assert (lh_depth (lh_of_vh lh) <= i /\ lh_depth (lh_of_vh lh) <> i) as Hlh; first done.
+        apply Nat.le_neq in Hlh.
+        clear Hi Hlh'.
+        iApply wp_wand.
+        * iApply wp_br_wrap; [exact Hlh | done].
+        * iIntros (v) "(%vh & -> & %Hdepth & %Hbase)".
+          unfold denote_logpred.
+          iDestruct "HΦ" as "(%f' & Hfr & _ & [Hrun HΦ])".
+          iExists f'. iFrame.
+          unfold wp_sem_ctx_post, lp_br.
+          rewrite Hdepth.
+          rewrite (cons_lookup_sub_lt _ _ _ _ Hlh).
+          by rewrite Hbase.
+    - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
+    - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
+  Qed.
+
+  Lemma wp_semctx_loop (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ Ψ :
+    length vs = length ts1 ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    Ψ f vs -∗
+    □ (∀ f' vs',
+         ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
+         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
+    wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
+  Proof.
+    iIntros (Hlen) "Hfr Hrun HΨ #Hloop".
+    unfold wp_sem_ctx, lenient_wp, to_e_list.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite !map_app.
+    change (map AI_basic [BI_loop (Tf ts1 ts2) es]) with [AI_basic (BI_loop (Tf ts1 ts2) es)].
+    rewrite map_map.
+    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
+    fold (v_to_e_list vs).
+    iLöb as "IH" forall (f vs Hlen).
+    iApply (wp_loop with "[$] [$]").
+    { apply v_to_e_is_const_list. }
+    { by rewrite length_map. }
+    { done. }
+    { done. }
+    iIntros "!> Hfr Hrun".
+    iPoseProof ("Hloop" with "[$] [$] [$]") as "Hes".
+    iApply wp_wasm_empty_ctx.
+    iApply wp_label_push_nil.
+    iApply wp_label_bind.
+    rewrite map_app.
+    rewrite map_map.
+    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
+    fold (v_to_e_list vs).
+    iApply (wp_wand with "Hes").
+    iIntros (v) "HΦ".
+    change (LH_rec [] (length ts1) [AI_basic (BI_loop (Tf ts1 ts2) es)] (LH_base [] []) []) with
+      (push_base (LH_base [] []) (length ts1) [AI_basic (BI_loop (Tf ts1 ts2) es)] [] []).
+    iApply wp_label_pull_nil.
+    iApply wp_wasm_empty_ctx.
+    destruct v.
+    - iDestruct "HΦ" as "(%f' & Hfr & _ & Hrun & HΦ)".
+      iApply (wp_wand with "[Hfr Hrun HΦ]").
+      + iApply (wp_label_value with "[$] [$]"); first by rewrite iris.to_of_val.
+        instantiate (1 := fun v => (∃ vs, ⌜v = immV vs⌝ ∗ Φ f' vs)%I).
+        by iFrame.
+      + iIntros (v) "[[(%vs' & -> & Hϕ) Hrun] Hf]". iExists f'. iFrame.
+    - iDestruct "HΦ" as "(%f' & Hfr & _ & Hbail & _)".
+      iApply (wp_wand with "[Hfr]").
+      + iApply (wp_label_trap with "[$]"); first done.
+        by instantiate (1 := fun v => (⌜v = trapV⌝)%I).
+      + iIntros (v) "(-> & Hfr)".
+        iExists f'. by iFrame.
+    - destruct (Nat.eqb (lh_depth (lh_of_vh lh)) i) eqn:Hlh.
+      + rewrite Nat.eqb_eq in Hlh.
+        iDestruct "HΦ" as "(%f' & Hf & _ & [Hrun HΦ])".
+        unfold iris.of_val.
+        rewrite vfill_move_base.
+        iSimpl in "HΦ".
+        rewrite Hlh.
+        rewrite Nat.sub_diag.
+        iSimpl in "HΦ".
+        iDestruct "HΦ" as "[%Hlen_lh HΦ]".
+        iApply (wp_br with "[$] [$]").
+        3: {
+          instantiate (2 := v_to_e_list (get_base_l lh)).
+          destruct (vfill_to_lfilled (clear_base_l lh) (seq.cat (v_to_e_list (get_base_l lh)) [AI_basic (BI_br i)])) as [Hdepth Hfilled].
+          rewrite clear_base_l_depth in Hlh.
+          by rewrite Hlh in Hfilled.
+        }
+        {
+          apply forallb_forall.
+          apply List.Forall_forall.
+          apply Forall_forall.
+          intros e He.
+          rewrite elem_of_list_fmap in He.
+          by destruct He as (v & -> & Hv).
+        }
+        { by rewrite map_length. }
+        iIntros "!> Hf Hrun".
+        iApply ("IH" with "[] [$] [$]"); done.
       + destruct (vfill_to_lfilled lh []) as [Hi _].
         rewrite Nat.eqb_neq in Hlh.
         rename Hlh into Hlh'.
