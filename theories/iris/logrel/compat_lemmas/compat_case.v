@@ -279,6 +279,36 @@ Section Fundamental.
     iDestruct "Hnotrap" as "(Hrun & %Hsame' & %Hsaved_and_tag' & ->)".
     clear_nils.
 
+    (* -------- Case blocks -------- *)
+    rewrite <- (app_nil_l [AI_basic _]).
+    iApply (lenient_wp_block with "[$] [$]"); auto.
+    iIntros "!> Hf Hrun".
+    rewrite app_nil_l.
+    iApply lwp_wasm_empty_ctx.
+    iApply lwp_label_push_nil.
+    iApply lwp_ctx_bind; first done.
+    lwp_chomp 1%nat.
+    (* -------- Case 1 -------- *)
+    iApply (lenient_wp_seq with "[Hf Hrun]").
+    {
+      rewrite <- (app_nil_l [AI_basic _]).
+      iApply (lenient_wp_block with "[$] [$]"); auto.
+      iIntros "!> Hf Hrun".
+      rewrite app_nil_l.
+      iApply lwp_wasm_empty_ctx.
+      iApply lwp_label_push_nil.
+      iApply lwp_ctx_bind; first done.
+      lwp_chomp 1%nat.
+      (* Get tag from local *)
+      iApply (lenient_wp_seq with "[Hf Hrun]").
+      {
+        iApply lenient_wp_get_local; first apply Hsaved_and_tag'.
+        iFrame.
+        admit.
+      }
+      { admit. }
+      admit.
+    }
 
 Admitted.
 
