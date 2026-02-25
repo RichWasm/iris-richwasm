@@ -226,12 +226,7 @@ Section Fundamental_Shared.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr_inv _ := True;
-                                lp_val f' vs := ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝;
-                                lp_trap := False;
-                                lp_br _ _ _ := False;
-                                lp_ret _ := False;
-                                lp_host _ _ _ _ := False; |}%I).
+        auto_logp.
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
@@ -316,12 +311,7 @@ Section Fundamental_Shared.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr_inv _ := True;
-                                lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝;
-                                lp_trap := False;
-                                lp_br _ _ _ := False;
-                                lp_ret _ := False;
-                                lp_host _ _ _ _ := False; |}%I).
+        auto_logp.
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
@@ -408,12 +398,7 @@ Section Fundamental_Shared.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr_inv _ := True;
-                                lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
-                                lp_trap := False;
-                                lp_br _ _ _ := False;
-                                lp_ret _ := False;
-                                lp_host _ _ _ _ := False; |}%I).
+        auto_logp.
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
@@ -477,12 +462,7 @@ Section Fundamental_Shared.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr_inv := λ _, True;
-                                lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
-                                lp_trap := False;
-                                lp_br _ _ _ := False;
-                                lp_ret _ := False;
-                                lp_host _ _ _ _ := False; |}%I).
+        auto_logp.
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";

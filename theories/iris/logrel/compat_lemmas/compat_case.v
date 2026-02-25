@@ -304,7 +304,7 @@ Section Fundamental.
       {
         iApply lenient_wp_get_local; first apply Hsaved_and_tag'.
         iFrame.
-        auto_logp Σ.
+        auto_logp.
       }
       { by iIntros (fr') "Htrap". }
       iIntros (w ?fr) "Hnotrap Hf _".
@@ -321,7 +321,7 @@ Section Fundamental.
         iApply lwp_relop; first done.
         iFrame.
         iSimpl.
-        auto_logp Σ.
+        auto_logp.
       }
       { by iIntros. }
       iIntros (w ?fr) "Hnotrap Hf _".
@@ -341,7 +341,7 @@ Section Fundamental.
         {
           iApply lenient_wp_br_if_false; first done.
           iFrame.
-          auto_logp Σ.
+          auto_logp.
         }
         { by iIntros. }
         iIntros (w ?fr) "Hnotrap Hf _".
