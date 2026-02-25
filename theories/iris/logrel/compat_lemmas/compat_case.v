@@ -217,7 +217,7 @@ Section Fundamental.
                     ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ ∗
                     ⌜vs' = [VAL_int32 (Wasm_int.Int32.repr i)]⌝;
                 lp_trap := False;
-                lp_br := λ _ _, False;
+                lp_br := λ _ _ _, False;
                 lp_ret := λ _, False;
                 lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
     iApply (lenient_wp_seq with "[Hfr Hrun]").
@@ -254,7 +254,7 @@ Section Fundamental.
                     ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ ∗
                     ⌜vs' = []⌝;
                   lp_trap := False;
-                  lp_br := λ _ _, False;
+                  lp_br := λ _ _ _, False;
                   lp_ret := λ _, False;
                   lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
       iApply (lenient_wp_set_local _ _ _ Φ); last iFrame.

@@ -9,7 +9,7 @@ Section logpred.
         lp_fr_inv: datatypes.frame -> A;
         lp_val: datatypes.frame -> list value -> A;
         lp_trap: A;
-        lp_br: forall n, valid_holed n -> A;
+        lp_br: datatypes.frame -> forall n, valid_holed n -> A;
         lp_ret: simple_valid_holed -> A;
         lp_host: function_type -> hostfuncidx -> list value -> llholed -> A;
       }.
@@ -28,7 +28,7 @@ Section logpred.
       match w with
       | immV vs => ↪[RUN] ∗ Φ.(lp_val) f vs
       | trapV => ↪[BAIL] ∗ Φ.(lp_trap)
-      | brV i lh => ↪[RUN] ∗ Φ.(lp_br) i lh
+      | brV i lh => ↪[RUN] ∗ Φ.(lp_br) f i lh
       | retV lh => ↪[RUN] ∗ Φ.(lp_ret) lh
       | callHostV ft hidx vs lh => ↪[RUN] ∗ Φ.(lp_host) ft hidx vs lh
       end.
@@ -45,7 +45,7 @@ Section logpred.
       lp_fr_inv := λ fr, f (lp_fr_inv p fr);
       lp_val := λ fr vs, f (lp_val p fr vs);
       lp_trap := f (lp_trap p);
-      lp_br := λ n lh, f (lp_br p n lh);
+      lp_br := λ fr n lh, f (lp_br p fr n lh);
       lp_ret := λ lh, f (lp_ret p lh);
       lp_host := λ ft hf vs lh, f (lp_host p ft hf vs lh)
     |}.
@@ -55,13 +55,13 @@ Section logpred.
       lp_fr_inv := λ fr, f (lp_fr_inv Φ1 fr) (lp_fr_inv Φ2 fr);
       lp_val := λ fr vs, f (lp_val Φ1 fr vs) (lp_val Φ2 fr vs);
       lp_trap := f (lp_trap Φ1) (lp_trap Φ2);
-      lp_br := λ n lh, f (lp_br Φ1 n lh) (lp_br Φ2 n lh);
+      lp_br := λ fr n lh, f (lp_br Φ1 fr n lh) (lp_br Φ2 fr n lh);
       lp_ret := λ lh, f (lp_ret Φ1 lh) (lp_ret Φ2 lh);
       lp_host := λ ft hf vs lh, f (lp_host Φ1 ft hf vs lh) (lp_host Φ2 ft hf vs lh)
     |}.
 
   Definition lp_const (Φ: iProp Σ) : logpred :=
-    MkLP (λ fr, ⌜True⌝) (λ f vs, Φ) Φ (λ n lh, Φ) (λ lh, Φ) (λ ft hf vs lh, Φ).
+    MkLP (λ fr, ⌜True⌝) (λ f vs, Φ) Φ (λ f n lh, Φ) (λ lh, Φ) (λ ft hf vs lh, Φ).
 
   Definition lp_emp : logpred :=
     lp_const emp.
@@ -102,7 +102,7 @@ Section logpred.
       lp_fr_inv := λ fr a, lp_fr_inv (p a) fr;
       lp_val := λ fr vs a, lp_val (p a) fr vs;
       lp_trap := λ a, lp_trap (p a);
-      lp_br := λ n lh a, lp_br (p a) n lh;
+      lp_br := λ fr n lh a, lp_br (p a) fr n lh;
       lp_ret := λ lh a, lp_ret (p a) lh;
       lp_host := λ ft hf vs lh a, lp_host (p a) ft hf vs lh;
     |}.

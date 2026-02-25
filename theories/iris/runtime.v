@@ -34,7 +34,7 @@ Section Runtime.
                     ℓ ↦layout repeat FlagInt sz' ∗
                     ℓ ↦heap ws;
            lp_trap := True;
-           lp_br := fun _ _ => False;
+           lp_br := fun _ _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -59,7 +59,7 @@ Section Runtime.
                      ℓ ↦layout repeat FlagInt sz' ∗
                      ℓ ↦heap ws;
            lp_trap := True;
-           lp_br := fun _ _ => False;
+           lp_br := fun _ _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -79,7 +79,7 @@ Section Runtime.
              fun fr vs =>
                ⌜vs = []⌝ ∗ ↪[RUN] ∗ N.of_nat sr.(sr_func_free) ↦[wf] cl ∗ ∃ θ', rt_token rti sr θ';
            lp_trap := True;
-           lp_br := fun _ _ => False;
+           lp_br := fun _ _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -107,7 +107,7 @@ Section Runtime.
                  ℓ ↦layout <[ i' := flag_of_i32 f ]> fs ∗
                  ∃ θ', rt_token rti sr θ';
            lp_trap := True;
-           lp_br := fun _ _ => False;
+           lp_br := fun _ _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -132,7 +132,7 @@ Section Runtime.
                      ar ↦root ℓ ∗
                      rt_token rti sr θ';
            lp_trap := True;
-           lp_br := fun _ _ => False;
+           lp_br := fun _ _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 
@@ -155,7 +155,7 @@ Section Runtime.
                  N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl ∗
                  ∃ θ', rt_token rti sr θ';
            lp_trap := True;
-           lp_br := fun _ _ => False;
+           lp_br := fun _ _ _ => False;
            lp_ret := fun _ => False;
            lp_host := fun _ _ _ _ => False |}.
 

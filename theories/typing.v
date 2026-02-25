@@ -817,7 +817,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (IInject ψ i) ψ L
 | TInjectNew M F L μ i τ τs κr κv κs :
   let τs' := zip_with SerT κs τs in
-  let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs)] in
+  let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs')] in
   τs !! i = Some τ ->
   mono_mem μ ->
   has_instruction_type_ok F ψ L ->
@@ -1063,7 +1063,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (IInject ψ i) ψ L)
       (HInjectNew : forall M F L μ i τ τs κr κv κs,
           let τs' := zip_with SerT κs τs in
-          let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs)] in
+          let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs')] in
           τs !! i = Some τ ->
           mono_mem μ ->
           has_instruction_type_ok F ψ L ->

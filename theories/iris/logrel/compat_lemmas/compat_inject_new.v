@@ -30,7 +30,7 @@ Section Fundamental.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let τs' := zip_with SerT κs τs in
-    let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs)] in
+    let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs')] in
     τs !! i = Some τ ->
     mono_mem μ ->
     has_instruction_type_ok F ψ L ->

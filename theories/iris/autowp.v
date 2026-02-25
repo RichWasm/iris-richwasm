@@ -94,7 +94,7 @@ Ltac auto_logp Σ :=
           lp_fr_inv := (λ _, True);
           lp_val := (λ fr' vs', ⌜fr' = fr /\ vs' = vs⌝);
           lp_trap := False;
-          lp_br := (λ _ _, False);
+          lp_br := (λ _ _ _, False);
           lp_ret := (λ _, False);
           lp_host := (λ _ _ _ _, False)
         |}%I : @logpred Σ) in

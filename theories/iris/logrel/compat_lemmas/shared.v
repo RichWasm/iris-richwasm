@@ -3,11 +3,12 @@ From stdpp Require Import base list.
 
 From iris.proofmode Require Import base tactics classes.
 From Wasm Require Import operations.
+From Wasm.iris.logrel Require Import iris_fundamental_composition.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural lwp_resources logpred wp_sem_ctx.
+From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural lwp_resources logpred wp_sem_ctx lwp_trap.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -15,6 +16,14 @@ Set Default Goal Selector "!".
 
 Ltac clear_nils :=
   repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
+
+(* TODO relocate *)
+Lemma get_base_l_append {i : nat} (lh : valid_holed i) e :
+  get_base_l (vh_append lh e) = get_base_l lh.
+Proof.
+  induction lh;simpl;auto.
+Qed.
+
 
 Section Fundamental_Shared.
 
@@ -203,12 +212,12 @@ Section Fundamental_Shared.
                     memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
                     memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
                     memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-        {| lp_fr_inv := λ _, True;
-           lp_val := λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+        {| lp_fr_inv _ := True;
+           lp_val f' vs := ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
            lp_trap := False;
-           lp_br := λ _ _, False;
-           lp_ret := λ _, False;
-           lp_host := λ _ _ _ _, False; |}%I.
+           lp_br _ _ _ := False;
+           lp_ret _ := False;
+           lp_host _ _ _ _ := False; |}%I.
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
     lwp_chomp 3.
@@ -217,12 +226,12 @@ Section Fundamental_Shared.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr_inv := λ _, True;
-                               lp_val := λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝;
-                               lp_trap := False;
-                               lp_br := λ _ _, False;
-                               lp_ret := λ _, False;
-                               lp_host := λ _ _ _ _, False; |}%I).
+        by instantiate (1 := {| lp_fr_inv _ := True;
+                                lp_val f' vs := ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝;
+                                lp_trap := False;
+                                lp_br _ _ _ := False;
+                                lp_ret _ := False;
+                                lp_host _ _ _ _ := False; |}%I).
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
@@ -233,13 +242,12 @@ Section Fundamental_Shared.
         * cbn.
           reflexivity.
         * iFrame.
-          (*Eval vm_compute in (let k := 8%Z in Z.land (k - 1) 2%Z).*)
-          instantiate (1 := {| lp_fr_inv := λ _, True;
-                              lp_val := λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 2)]⌝;
+          instantiate (1 := {| lp_fr_inv _ := True;
+                               lp_val f' vs := ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 2)]⌝;
                                lp_trap := False;
-                               lp_br := λ _ _, False;
-                               lp_ret := λ _, False;
-                               lp_host := λ _ _ _ _, False; |}%I).
+                               lp_br _ _ _ := False;
+                               lp_ret _ := False;
+                               lp_host _ _ _ _ := False; |}%I).
           cbn.
           iSplit; [|done].
           iSplit; [done|].
@@ -294,12 +302,12 @@ Section Fundamental_Shared.
                     memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
                     memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
         {| 
-            lp_fr_inv := λ _, True;
-            lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
+            lp_fr_inv _ := True;
+            lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
             lp_trap := False;
-            lp_br := λ _ _, False;
-            lp_ret := λ _, False;
-            lp_host := λ _ _ _ _, False; |}%I.
+            lp_br _ _ _ := False;
+            lp_ret _ := False;
+            lp_host _ _ _ _ := False; |}%I.
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
     lwp_chomp 3.
@@ -308,13 +316,12 @@ Section Fundamental_Shared.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| 
-                               lp_fr_inv := λ _, True;
-                               lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝;
-                               lp_trap := False;
-                               lp_br := λ _ _, False;
-                               lp_ret := λ _, False;
-                               lp_host := λ _ _ _ _, False; |}%I).
+        by instantiate (1 := {| lp_fr_inv _ := True;
+                                lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝;
+                                lp_trap := False;
+                                lp_br _ _ _ := False;
+                                lp_ret _ := False;
+                                lp_host _ _ _ _ := False; |}%I).
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
@@ -326,12 +333,12 @@ Section Fundamental_Shared.
           reflexivity.
         * iFrame.
           (*Eval vm_compute in (let k := 8%Z in Z.land (k - 1) 2%Z).*)
-          instantiate (1 := {| lp_fr_inv := λ _, True;
-                               lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+          instantiate (1 := {| lp_fr_inv _ := True;
+                               lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
                                lp_trap := False;
-                               lp_br := λ _ _, False;
-                               lp_ret := λ _, False;
-                               lp_host := λ _ _ _ _, False; |}%I).
+                               lp_br _ _ _ := False;
+                               lp_ret _ := False;
+                               lp_host _ _ _ _ := False; |}%I).
           cbn.
           iSplit; [|done].
           iSplit; [done|].
@@ -387,12 +394,12 @@ Section Fundamental_Shared.
                     memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
                     memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
                     memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-        {| lp_fr_inv := λ _, True;
-           lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
+        {| lp_fr_inv _ := True;
+           lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
            lp_trap := False;
-           lp_br := λ _ _, False;
-           lp_ret := λ _, False;
-           lp_host := λ _ _ _ _, False; |}%I.
+           lp_br _ _ _  := False;
+           lp_ret _ := False;
+           lp_host _ _ _ _ := False; |}%I.
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
     lwp_chomp 3.
@@ -401,12 +408,12 @@ Section Fundamental_Shared.
       iApply (lenient_wp_seq with "[Hf Hrun]").
       + iApply lenient_wp_get_local; eauto.
         iFrame.
-        by instantiate (1 := {| lp_fr_inv := λ _, True;
-                               lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
-                               lp_trap := False;
-                               lp_br := λ _ _, False;
-                               lp_ret := λ _, False;
-                               lp_host := λ _ _ _ _, False; |}%I).
+        by instantiate (1 := {| lp_fr_inv _ := True;
+                                lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
+                                lp_trap := False;
+                                lp_br _ _ _ := False;
+                                lp_ret _ := False;
+                                lp_host _ _ _ _ := False; |}%I).
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
@@ -417,12 +424,12 @@ Section Fundamental_Shared.
         * cbn.
           reflexivity.
         * iFrame.
-          instantiate (1 := {| lp_fr_inv := λ _, True;
-                              lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
-                              lp_trap := False;
-                              lp_br := λ _ _, False;
-                              lp_ret := λ _, False;
-                              lp_host := λ _ _ _ _, False; |}%I).
+          instantiate (1 := {| lp_fr_inv _ := True;
+                               lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+                               lp_trap := False;
+                               lp_br _ _ _ := False;
+                               lp_ret _ := False;
+                               lp_host _ _ _ _ := False; |}%I).
           cbn.
           iSplit; [|done].
           iSplit; [done|].
@@ -456,12 +463,12 @@ Section Fundamental_Shared.
     memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
     memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
     memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz])
-    {| lp_fr_inv := λ _, True;
-      lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
-      lp_trap := False;
-      lp_br := λ _ _, False;
-      lp_ret := λ _, False;
-      lp_host := λ _ _ _ _, False; |}%I.
+    {| lp_fr_inv _ := True;
+       lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝;
+       lp_trap := False;
+       lp_br _ _ _ := False;
+       lp_ret _ := False;
+       lp_host _ _ _ _ := False; |}%I.
   Proof.
     iIntros (Hidx Hmod) "Hf Hrun".
     lwp_chomp 3.
@@ -471,11 +478,11 @@ Section Fundamental_Shared.
       + iApply lenient_wp_get_local; eauto.
         iFrame.
         by instantiate (1 := {| lp_fr_inv := λ _, True;
-          lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
-          lp_trap := False;
-          lp_br := λ _ _, False;
-          lp_ret := λ _, False;
-          lp_host := λ _ _ _ _, False; |}%I).
+                                lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝;
+                                lp_trap := False;
+                                lp_br _ _ _ := False;
+                                lp_ret _ := False;
+                                lp_host _ _ _ _ := False; |}%I).
       + cbn; iIntros (?) "?"; done.
       + iIntros (w f') "Hpre".
         destruct w; iEval (cbn) in "Hpre";
@@ -486,12 +493,12 @@ Section Fundamental_Shared.
         * cbn.
           reflexivity.
         * iFrame.
-          instantiate (1 := {| lp_fr_inv := λ _, True;
-            lp_val := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
-            lp_trap := False;
-            lp_br := λ _ _, False;
-            lp_ret := λ _, False;
-            lp_host := λ _ _ _ _, False; |}%I).
+          instantiate (1 := {| lp_fr_inv _ := True;
+                               lp_val f' vs := ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝;
+                               lp_trap := False;
+                               lp_br _ _ _ := False;
+                               lp_ret _ := False;
+                               lp_host _ _ _ _ := False; |}%I).
             cbn.
             iSplit; [|done].
             iSplit; [done|].
@@ -577,11 +584,11 @@ Section Fundamental_Shared.
                        lenient_wp_ctx s E e Φ i lh)%I in
     {|
       lp_fr_inv := Φ.(lp_fr_inv);
-      lp_val := λ f v, wp_val f (v_to_e_list v);
+      lp_val f v := wp_val f (v_to_e_list v);
       lp_trap := wp_trap [AI_trap];
-      lp_br := λ n vh, wp (vfill vh [AI_basic (BI_br n)]);
-      lp_ret := λ sh, wp (sfill sh [AI_basic BI_return]);
-      lp_host := λ tf h vcs sh, wp (llfill sh [AI_call_host tf h vcs])
+      lp_br _ n vh := wp (vfill vh [AI_basic (BI_br n)]);
+      lp_ret sh := wp (sfill sh [AI_basic BI_return]);
+      lp_host tf h vcs sh := wp (llfill sh [AI_call_host tf h vcs])
     |}.
 
   Lemma lwp_ctx_bind s E Φ i lh es:
@@ -782,24 +789,6 @@ Section Fundamental_Shared.
       iRight.
       iSplit; first done.
       iIntros "!> Hframe Hrun".
-      (*rewrite <- (app_nil_l [AI_basic (BI_block tf (_ ++ _))]).*)
-      (*destruct tf as [tf1 tf2].*)
-      (*iApply (lenient_wp_block with "[$] [$]"); auto.*)
-      (*{ admit. }*)
-      (*iIntros "!> Hframe Hrun".*)
-      (*rewrite app_nil_l.*)
-      (*iApply lwp_wasm_empty_ctx.*)
-      (*iApply lwp_label_push_nil.*)
-      (*iApply lwp_ctx_bind; first done.*)
-      (*rewrite to_e_list_app.*)
-      (*iApply (lenient_wp_seq with "[Hframe Hrun]").*)
-      (*{*)
-      (*  iApply wp_mod2_test_2 with .*)
-      (*}*)
-      (*lwp_chomp 4%nat.*)
-      (*rewrite take_0 drop_0.*)
-      (*iApply (lenient_wp_seq with "[Hframe Hrun]").*)
-
       destruct μ.
       + simpl tag_address in Hlookup_f.
         cbn.
@@ -840,7 +829,6 @@ Section Fundamental_Shared.
         iApply (lenient_wp_block with "[$] [$]"); auto.
         iIntros "!> Hf Hrun".
         rewrite app_nil_l.
-
         iApply lwp_wasm_empty_ctx.
         iApply lwp_label_push_nil.
         iApply lwp_ctx_bind; first done.
@@ -871,7 +859,7 @@ Section Fundamental_Shared.
 
   (* This version of the lemma is proved in terms of the existing lemma
      wp_case_ptr. This makes the proof artificially short. *)
-  Lemma wp_case_ptr_wp_sem_ctx_derived {A B} s E LS idx t2s (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+  Lemma wp_case_ptr_wp_sem_ctx_derived {A B} s E LS RS idx t2s (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
     run_codegen (memory.case_ptr idx (Tf [] t2s) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
@@ -887,14 +875,12 @@ Section Fundamental_Shared.
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
             match ptr with
-            | PtrInt z => wp_sem_ctx s E es1 []  Φ
-            | PtrHeap MemMM l =>
-                wp_sem_ctx s E es2 [] Φ
-            | PtrHeap MemGC l =>
-                wp_sem_ctx s E es3 [] Φ
+            | PtrInt z => wp_sem_ctx s E es1 ([], None) Φ
+            | PtrHeap MemMM l => wp_sem_ctx s E es2 ([], None) Φ
+            | PtrHeap MemGC l => wp_sem_ctx s E es3 ([], None) Φ
             end) -∗
         atom_interp (PtrA ptr) v ∗
-        wp_sem_ctx s E es LS Φ.
+        wp_sem_ctx s E es (LS, RS) Φ.
   Proof.
     intros Hcomp.
     eapply (wp_case_ptr s E) in Hcomp.
@@ -909,14 +895,25 @@ Section Fundamental_Shared.
     iIntros "%ptr Hf Hrun %Hlocs Hv Hwp".
     iApply (Hspec with "[$] [$] [//] [$]").
     iRevert "Hwp".
-    iApply bi.later_mono.
+    iIntros "Hwp !> Hf Hrun".
     destruct ptr; [|destruct μ].
-    - iIntros "Hwp Hf Hrun".
-      iApply (wp_sem_ctx_block_peel with "[$] [$] [$]").
-    - iIntros "Hwp Hf Hrun".
-      iApply (lwp_wand with "[Hwp Hf Hrun]").
-      { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
-      instantiate (1:= []).
+    - change [AI_basic (BI_block (Tf [] t2s) es1)] with (to_e_list ([] ++ [BI_block (Tf [] t2s) es1])).
+      iApply (wp_sem_ctx_block_peel with "[$] [$] [Hwp]").
+      1, 2: done.
+      iIntros "Hf Hrun".
+      iApply wp_sem_ctx_clear_labels.
+      iApply ("Hwp" with "[$] [$]").
+    - iApply (lwp_wand with "[Hwp Hf Hrun]").
+      {
+        change [AI_basic (BI_block (Tf [] t2s) es2)] with (to_e_list ([] ++ [BI_block (Tf [] t2s) es2])).
+        iApply (wp_sem_ctx_block_peel with "[$] [$] [Hwp]").
+        1, 2: done.
+        iIntros "Hf Hrun".
+        iApply wp_sem_ctx_clear_labels.
+        iApply ("Hwp" with "[$] [$]").
+      }
+      instantiate (1 := None).
+      instantiate (1 := []).
       iIntros "%lv H".
       destruct lv.
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
@@ -949,10 +946,17 @@ Section Fundamental_Shared.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
-    - iIntros "Hwp Hf Hrun".
-      iApply (lwp_wand with "[Hwp Hf Hrun]").
-      { iApply (wp_sem_ctx_block_peel with "[$] [$] [$]"). }
-      instantiate (1:= []).
+    - iApply (lwp_wand with "[Hwp Hf Hrun]").
+      {
+        change [AI_basic (BI_block (Tf [] t2s) es3)] with (to_e_list ([] ++ [BI_block (Tf [] t2s) es3])).
+        iApply (wp_sem_ctx_block_peel with "[$] [$] [Hwp]").
+        1, 2: done.
+        iIntros "Hf Hrun".
+        iApply wp_sem_ctx_clear_labels.
+        iApply ("Hwp" with "[$] [$]").
+      }
+      instantiate (1 := None).
+      instantiate (1 := []).
       iIntros "%lv H".
       destruct lv.
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
@@ -985,6 +989,504 @@ Section Fundamental_Shared.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
       + unfold wp_sem_ctx_post, lp_bind, denote_logpred; cbn.
         by iDestruct "H" as (f') "(Hf & _ & Hrun & HΦ)".
+  Qed.
+
+  Lemma simple_get_base_l_append s es :
+    wp_sem_ctx.simple_get_base_l (sh_append s (to_e_list es)) =
+      wp_sem_ctx.simple_get_base_l s.
+  Proof.
+    induction s; first done.
+    cbn. by rewrite <- IHs.
+  Qed.
+
+  Lemma append_lh_depth {i : nat} (lh : valid_holed i) e :
+    lh_depth (lh_of_vh lh) = lh_depth (lh_of_vh (vh_append lh e)).
+  Proof.
+    induction lh; simpl; auto.
+  Qed.
+
+  Lemma wp_sem_ctx_seq s E es1 es2 LS RS Φ1 Φ :
+    wp_sem_ctx NotStuck E es1 (LS, RS) Φ1 -∗
+    (∀ vs (f: datatypes.frame),
+       Φ1 f vs -∗
+       ↪[frame]f -∗
+       ↪[RUN] -∗
+       wp_sem_ctx s E (map BI_const vs ++ es2) (LS, RS) Φ) -∗
+    wp_sem_ctx s E (es1 ++ es2) (LS, RS) Φ.
+  Proof.
+    iIntros "Hes1 Hes2".
+    unfold wp_sem_ctx.
+    rewrite to_e_list_app.
+    iApply (lenient_wp_seq with "[$Hes1] [] [Hes2]").
+    - done.
+    - cbn.
+      iIntros (w f) "Hw Hf _".
+      destruct w.
+      + cbn.
+        unfold v_to_e_list, to_e_list.
+        change @seq.map with @map.
+        setoid_rewrite map_app.
+        setoid_rewrite map_comp.
+        iDestruct "Hw" as "[Hrun HΦ1]".
+        iApply ("Hes2" with "[$] [$] [$]").
+      + simpl of_val.
+        change [AI_trap] with ([] ++ [AI_trap]).
+        rewrite <- app_assoc.
+        iApply (lwp_trap with "[] [] [$Hf]"); auto.
+      + rewrite of_val_br_app_r.
+        iApply lenient_wp_value; first done.
+        iDestruct "Hw" as "[Hrun Hbr]".
+        iExists f; iFrame.
+        cbn.
+        rewrite get_base_l_append.
+        by rewrite <- append_lh_depth.
+      + rewrite of_val_ret_app_r.
+        iApply lenient_wp_value; first done.
+        iDestruct "Hw" as "[Hrun Hret]".
+        iExists f; iFrame.
+        cbn.
+        destruct RS; [|done].
+        destruct r as [Pre Post].
+        by rewrite simple_get_base_l_append.
+      + cbn.
+        iDestruct "Hw" as "[? ?]".
+        done.
+  Qed.
+
+  Lemma wp_sem_ctx_lwp s E LS es es' Φ Φ':
+    to_e_list es = es' ->
+    lenient_wp s E es' Φ' -∗
+    lp_wand' Φ' (wp_sem_ctx_post LS Φ) -∗
+    wp_sem_ctx s E es LS Φ.
+  Proof.
+    unfold wp_sem_ctx.
+    iIntros (->) "Hes' Hwand".
+    iApply (lwp_wand with "[$] [$]").
+  Qed.
+
+  Ltac wp_sem_ctx_chomp n :=
+    match goal with
+    | |- context [ environments.envs_entails _ (wp_sem_ctx _ _ ?es _ _) ] =>
+        iEval (rewrite -(take_drop n es); simpl firstn; simpl skipn)
+    end.
+
+  Lemma wp_sem_ctx_mod4_sub1_test f (idx: nat) k E :
+    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 1)))⌝ →
+      ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 4 = 0)%Z⌝ →
+      ↪[frame] f -∗
+      ↪[RUN] -∗
+      wp_sem_ctx NotStuck E
+        [memory.W.BI_get_local idx;
+         memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
+         memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+         memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
+        ([], None)
+        (λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝%I).
+  Proof.
+    iIntros (Hidx Hmod) "Hf Hrun".
+    wp_sem_ctx_chomp 3%nat.
+    iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+    - wp_sem_ctx_chomp 1%nat.
+      iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+      + iApply lenient_wp_get_local; eauto.
+        iFrame.
+        by instantiate (1 := (λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝)%I).
+      + iIntros (w f' [-> ->]) "Hf Hrun".
+        iApply lwp_binop.
+        * cbn.
+          reflexivity.
+        * iFrame.
+          instantiate (1 := (λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 2)]⌝)%I).
+          cbn.
+          iSplit; [|done].
+          iSplit; [done|].
+          iPureIntro.
+          do 2 f_equal.
+          unfold Wasm_int.Int32.iand.
+          unfold Wasm_int.Int32.and.
+          f_equal.
+          unfold Wasm_int.Int32.repr, Wasm_int.Int32.unsigned in *; simpl in *.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq in Hmod.
+          replace (Wasm_int.Int32.modulus) with (4 * 1073741824)%Z in Hmod; last done.
+          rewrite Z.mul_comm in Hmod.
+          rewrite Zaux.Zmod_mod_mult in Hmod; try done.
+          rewrite Zmod_divides in Hmod; last done.
+          destruct Hmod as [? ->].
+          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize, two_power_nat; simpl.
+          apply Z.bits_inj_iff.
+          intros i.
+          rewrite Z.land_spec.
+          destruct (Z.eq_dec i 1) as [-> | Hi].
+          ** replace (4294967296)%Z with (2 ^ 32)%Z; last lia.
+             rewrite Z.mod_pow2_bits_low; last lia.
+             replace (4)%Z with (2 ^ 2)%Z; last lia.
+             rewrite Z.mul_comm.
+             rewrite Z.add_bit1.
+             rewrite Z.mul_pow2_bits_low; last lia.
+             rewrite Z.mul_pow2_bits_low; last lia.
+             done.
+          ** rewrite (Z.pow2_bits_false 1 i); [|lia].
+             apply andb_false_r.
+    - iIntros (w f' [-> ->]) "Hf Hrun".
+      iApply lwp_testop_i32.
+      + reflexivity.
+      + cbn.
+        iFrame.
+        iSplit; eauto.
+  Qed.
+
+  Lemma wp_sem_ctx_mod4_sub3_test f (idx: nat) k E :
+    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 3)))⌝ →
+      ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 4 = 0)%Z⌝ →
+      ↪[frame] f -∗
+      ↪[RUN] -∗
+      wp_sem_ctx NotStuck E
+        [memory.W.BI_get_local idx;
+         memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
+         memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+         memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
+        ([], None)
+        (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
+  Proof.
+    iIntros (Hidx Hmod) "Hf Hrun".
+    wp_sem_ctx_chomp 3%nat.
+    iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+    - wp_sem_ctx_chomp 1%nat.
+      iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+      + iApply lenient_wp_get_local; eauto.
+        iFrame.
+        by instantiate (1 := (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝)%I).
+      + iIntros (w f' [-> ->]) "Hf Hrun".
+        iApply lwp_binop.
+        * cbn.
+          reflexivity.
+        * iFrame.
+          instantiate (1 := (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝)%I).
+          cbn.
+          iSplit; [|done].
+          iSplit; [done|].
+          iPureIntro.
+          do 2 f_equal.
+          unfold Wasm_int.Int32.iand.
+          unfold Wasm_int.Int32.and.
+          f_equal.
+          unfold Wasm_int.Int32.repr, Wasm_int.Int32.unsigned in *; simpl in *.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq in Hmod.
+          replace (Wasm_int.Int32.modulus) with (4 * 1073741824)%Z in Hmod; last done.
+          rewrite Z.mul_comm in Hmod.
+          rewrite Zaux.Zmod_mod_mult in Hmod; try done.
+          rewrite Zmod_divides in Hmod; last done.
+          destruct Hmod as [? ->].
+          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize, two_power_nat; simpl.
+          apply Z.bits_inj_iff.
+          intros i.
+          rewrite Z.land_spec.
+          rewrite Z.testbit_0_l.
+          destruct (Z.eq_dec i 1) as [-> | Hi].
+          ** apply andb_false_intro1.
+             replace (4294967296)%Z with (2 ^ 32)%Z; last lia.
+             rewrite Z.mod_pow2_bits_low; last lia.
+             replace (4)%Z with (2 ^ 2)%Z; last lia.
+             rewrite Z.mul_comm.
+             rewrite Z.add_bit1.
+             rewrite Z.mul_pow2_bits_low; last lia.
+             rewrite Z.mul_pow2_bits_low; last lia.
+             done.
+          ** rewrite (Z.pow2_bits_false 1 i); [|lia].
+             apply andb_false_r.
+    - iIntros (w f' [-> ->]) "Hf Hrun".
+      iApply lwp_testop_i32.
+      + reflexivity.
+      + cbn.
+        iFrame.
+        iSplit; eauto.
+  Qed.
+
+  Lemma wp_sem_ctx_mod2_test_1 f (idx: nat) k E :
+    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr k))⌝ →
+      ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 2 = 0)%Z⌝ →
+      ↪[frame] f -∗
+      ↪[RUN] -∗
+      wp_sem_ctx NotStuck E
+        [memory.W.BI_get_local idx;
+         memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+         memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+         memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
+        ([], None)
+        (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝).
+  Proof.
+    iIntros (Hidx Hmod) "Hf Hrun".
+    wp_sem_ctx_chomp 3%nat.
+    iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+    - wp_sem_ctx_chomp 1%nat.
+      iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+      + iApply lenient_wp_get_local; eauto.
+        iFrame.
+        by instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+      + iIntros (w f' [-> ->]) "Hf Hrun".
+        iApply lwp_binop.
+        * cbn.
+          reflexivity.
+        * iFrame.
+          instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝%I).
+          cbn.
+          iSplit; [|done].
+          iSplit; [done|].
+          iPureIntro.
+          do 2 f_equal.
+          unfold Wasm_int.Int32.iand.
+          unfold Wasm_int.Int32.and.
+          f_equal.
+          rewrite (Z.land_ones _ 1); lias.
+    - iIntros (w f' [-> ->]) "Hf' Hrun".
+      iApply lwp_testop_i32.
+      + reflexivity.
+      + cbn.
+        iFrame.
+        iSplit; eauto.
+  Qed.
+
+  Lemma wp_sem_ctx_mod2_test_1_2 f (idx: nat) k E :
+    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr k))⌝ →
+    ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 2 = 1)%Z⌝ →
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    wp_sem_ctx NotStuck E
+      [memory.W.BI_get_local idx;
+       memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+       memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+       memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
+      ([], None)
+      (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝%I).
+  Proof.
+    iIntros (Hidx Hmod) "Hf Hrun".
+    wp_sem_ctx_chomp 3%nat.
+    iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+    - wp_sem_ctx_chomp 1%nat.
+      iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+      + iApply lenient_wp_get_local; eauto.
+        iFrame.
+        by instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+      + iIntros (w f' [-> ->]) "Hf Hrun".
+        iApply lwp_binop.
+        * cbn.
+          reflexivity.
+        * iFrame.
+          instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
+          cbn.
+          iSplit; [|done].
+          iSplit; [done|].
+          iPureIntro.
+          do 2 f_equal.
+          unfold Wasm_int.Int32.iand.
+          unfold Wasm_int.Int32.and.
+          f_equal.
+          rewrite (Z.land_ones _ 1); lias.
+    - iIntros (w f' [-> ->]) "Hf' Hrun".
+      iApply lwp_testop_i32.
+      + reflexivity.
+      + cbn.
+        iFrame.
+        iSplit; eauto.
+  Qed.
+
+  Lemma wp_sem_ctx_if_c_weak {A B} s E tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y LS :
+    run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
+    exists wt1 wt2 wl1 wl2 es1 es2,
+      run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
+      run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
+      wt' = wt1 ++ wt2 /\
+      wl' = wl1 ++ wl2 /\
+      ⊢ ∀ Φ (f: frame) i,
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
+              ▷ (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E [BI_block tf es1] LS Φ)) ∨
+             (⌜i = Wasm_int.int_zero i32m⌝ ∧
+                ▷ (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E [BI_block tf es2] LS Φ))) -∗
+          wp_sem_ctx s E (BI_const (VAL_int32 i) :: es) LS Φ.
+  Proof.
+    intros Hcg.
+    unfold wp_sem_ctx.
+    eapply lwp_if_c in Hcg.
+    destruct Hcg as (wt1 & wt2 & wl1 & wl2 & es1 & es2 & Hcg1 & Hcg2 & Hwt' & Hwl' & Hwp).
+    do 6 eexists; split; eauto.
+    do 3 (split; eauto).
+    iIntros (Φ f i) "Hf Hrun Hbranches".
+    iApply (Hwp with "[$] [$]"); eauto.
+  Qed.
+
+  Lemma wp_case_ptr_wp_sem_ctx_direct {A B} s E LS RS idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
+    run_codegen (memory.case_ptr idx (Tf [] []) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
+    exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
+      run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
+      run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
+      run_codegen (c2 MemGC) (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2) = inr (z, wt3, wl3, es3) /\
+      wt' = wt1 ++ wt2 ++ wt3 /\
+      wl' = wl1 ++ wl2 ++ wl3 /\
+      ⊢ ∀ ptr,
+        ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜f.(f_locs) !! localimm idx = Some v⌝ -∗
+        atom_interp (PtrA ptr) v -∗
+        ▷ (↪[frame]f -∗
+            ↪[RUN] -∗
+            match ptr with
+            | PtrInt z => wp_sem_ctx s E es1 ([], None)  Φ
+            | PtrHeap MemMM l => wp_sem_ctx s E es2 ([], None) Φ
+            | PtrHeap MemGC l => wp_sem_ctx s E es3 ([], None) Φ
+            end) -∗
+        atom_interp (PtrA ptr) v ∗
+        wp_sem_ctx s E es (LS, RS) Φ.
+  Proof.
+    intros Hcg.
+    unfold memory.case_ptr in Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es_isptr ?es_if_isptr Hcg_isptr Hcg_if_isptr. inv_cg_emit_all Hcg_isptr.
+    subst.
+    rewrite -> !app_nil_l, !app_nil_r in *.
+    eapply (wp_sem_ctx_if_c_weak s E) in Hcg_if_isptr.
+    destruct Hcg_if_isptr as (?wt & ?wt & ?wl & ?wl & es_int & es_case_m & Hcg_int & Hcg_case_m & -> & -> & Hwp_if_isptr).
+    inv_cg_bind Hcg_case_m [] ?wt ?wt ?wl ?wl ?es_mm_or_gc es_if_m Hcg_mm_or_gc Hcg_if_m.
+    inv_cg_emit_all Hcg_mm_or_gc.
+    subst.
+    eapply (lwp_if_c s E) in Hcg_if_m.
+    destruct Hcg_if_m as (?wt & ?wt & ?wl & ?wl & es_mm & es_gc & Hcg_mm & Hcg_gc & -> & -> & Hwp_if_m).
+    rewrite <- !app_assoc, !app_nil_r, !app_nil_l in *.
+    exists wt0, wt1, wt2, wl0, wl1, wl2.
+    exists es_int, es_mm, es_gc.
+    do 5 (split; first done).
+    clear Hcg_int Hcg_mm Hcg_gc Hretval Hretval0.
+    iIntros (ptr) "Hframe Hrun %Hlookup_f Hrep Hptr".
+    destruct ptr.
+    - iEval (cbn) in "Hrep".
+      iDestruct "Hrep" as "(%vn & -> & %rp & %Hrp & Hrep)".
+      destruct rp as [r|? ?].
+      + iPoseProof "Hrep" as "->".
+        inversion Hrp; subst.
+        iSplitR.
+        * cbn; eauto.
+        * iApply (wp_sem_ctx_seq with "[Hframe Hrun]").
+          {
+            iApply wp_sem_ctx_mono; [by iApply sem_ctx_imp_bot | eauto | ].
+            iApply (wp_sem_ctx_mod2_test_1 with "[] [] [$] [$]"); eauto.
+            iPureIntro.
+            unfold Wasm_int.Int32.repr; simpl.
+            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+            unfold two_power_nat.
+            simpl.
+            apply mod32_mod2.
+          }
+          iIntros (vs f') "[-> ->] Hf Hrun".
+          iApply (Hwp_if_isptr with "[$] [$]").
+          iLeft.
+          iSplit; [iPureIntro; done|].
+          iIntros "!> Hf Hrun".
+          rewrite <- (app_nil_l [_]).
+          iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+          1, 2: done.
+          iIntros "Hf Hrun".
+          iApply wp_sem_ctx_clear_labels.
+          iApply ("Hptr" with "[$] [$]").
+      + done.
+    - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
+      iPoseProof (root_pointer_heap_shp_inv with "Hroot") as "(%a & ->)".
+      iSplitL "Hroot"; first (iExists _; by iFrame).
+      inversion Hrep as [|? ? Hmod]; subst.
+      iApply (wp_sem_ctx_seq with "[Hframe Hrun]").
+      {
+        iApply wp_sem_ctx_mono; [by iApply sem_ctx_imp_bot | eauto | ].
+        iApply (wp_sem_ctx_mod2_test_1_2 with "[] [] [$] [$]"); eauto.
+        unfold Wasm_int.Int32.repr; simpl.
+        rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+        unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+        unfold two_power_nat.
+        simpl.
+        rewrite Z_mod_even_mod_2; last by rewrite <- Z.even_spec.
+        destruct μ; simpl.
+        1,2: apply N.Div0.mod_divides in Hmod as [c ->].
+        1,2: rewrite N2Z.inj_mul.
+        1,2: simpl.
+        1,2: rewrite Zmod_even.
+        1,2: rewrite Z.even_sub.
+        1,2: replace 4 with (2 * 2); last done.
+        1,2: rewrite <- Z.mul_assoc.
+        1,2: rewrite Z.even_even.
+        1,2: done.
+      }
+      iIntros (w f' [-> ->]) "Hf Hrun".
+      iApply (Hwp_if_isptr with "[$] [$]").
+      iRight.
+      iSplit; first done.
+      iIntros "!> Hframe Hrun".
+      destruct μ.
+      + simpl tag_address in Hlookup_f.
+        cbn.
+        rewrite <- (app_nil_l [_]).
+        iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+        1, 2: done.
+        iIntros "Hf Hrun".
+        wp_sem_ctx_chomp 4%nat.
+        iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+        * iApply wp_sem_ctx_clear_labels.
+          iApply (wp_sem_ctx_mod4_sub3_test with "[//] [] [$] [$]"); eauto.
+          iPureIntro.
+          unfold Wasm_int.Int32.repr; simpl.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+          unfold two_power_nat; simpl.
+          replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
+          rewrite Z.mul_comm.
+          rewrite Zaux.Zmod_mod_mult; try done.
+          apply N2Z.inj_iff in Hmod.
+          rewrite N2Z.inj_mod in Hmod.
+          done.
+        * iIntros (w f' [-> ->]) "Hf Hrun".
+          iApply (Hwp_if_m with "[$] [$]").
+          iLeft.
+          iSplit; eauto.
+          iIntros  "!> Hf Hrun".
+          change [AI_basic (BI_block (Tf [] []) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_mm])).
+          iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+          1, 2: done.
+          iIntros "Hf Hrun".
+          iApply wp_sem_ctx_clear_labels.
+          iApply ("Hptr" with "[$] [$]").
+      + simpl tag_address in Hlookup_f.
+        cbn.
+        rewrite <- (app_nil_l [_]).
+        iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+        1, 2: done.
+        iIntros "Hf Hrun".
+        wp_sem_ctx_chomp 4%nat.
+        rewrite take_0 drop_0.
+        iApply (wp_sem_ctx_seq with "[Hf Hrun]").
+        * iApply wp_sem_ctx_clear_labels.
+          iApply (wp_sem_ctx_mod4_sub1_test with "[//] [] [$] [$]").
+          iPureIntro.
+          unfold Wasm_int.Int32.repr; simpl.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+          unfold two_power_nat; simpl.
+          replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
+          rewrite Z.mul_comm.
+          rewrite Zaux.Zmod_mod_mult; try done.
+          apply N2Z.inj_iff in Hmod.
+          rewrite N2Z.inj_mod in Hmod.
+          done.
+        * iIntros (w f' [-> ->]) "Hf Hrun".
+          iApply (Hwp_if_m with "[$] [$]").
+          iRight.
+          iSplit; auto.
+          iIntros  "!> Hf Hrun".
+          change [AI_basic (BI_block (Tf [] []) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_gc])).
+          iApply (wp_sem_ctx_block_peel with "[$] [$] [Hptr]").
+          1, 2: done.
+          iIntros "Hf Hrun".
+          iApply wp_sem_ctx_clear_labels.
+          iApply ("Hptr" with "[$] [$]").
   Qed.
 
   Close Scope Z_scope.
@@ -1591,15 +2093,15 @@ Section Fundamental_Shared.
     set (Φ :=
            {|
              lp_fr_inv := const True%I;
-             lp_val := λ f vs0, 
+             lp_val f vs0 :=
                (frame_interp rti sr se L WL inst f ∗
                 ∃ os θ, values_interp rti sr se τs os ∗
                         atoms_interp os vs0 ∗
                         rt_token rti sr θ)%I;
              lp_trap := True%I;
-             lp_br := λ n, br_interp rti sr se τr L WL inst lh τc n;
+             lp_br fr n := br_interp rti sr se τr L WL inst lh τc n;
              lp_ret := return_interp rti sr se τr;
-             lp_host := λ _ _ _ _, False%I
+             lp_host _ _ _ _ := False%I
            |}).
     set (Ψ := lp_combine _ _).
     iIntros (lv) "(%f & Hf & Hfrinv & HΦ)".
