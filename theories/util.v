@@ -107,6 +107,61 @@ Proof.
   done.
 Qed.
 
+Lemma nths_error_zip {A : Type} (l1 l2 l1' l2' : list A) (ixs : list nat) :
+  nths_error l1 ixs = Some l1' ->
+  nths_error l2 ixs = Some l2' ->
+  nths_error (base.zip l1 l2) ixs = Some (base.zip l1' l2').
+Proof.
+  intros H1 H2.
+  apply mapM_Some.
+  apply mapM_Some in H1, H2.
+  revert l2' H2.
+  induction H1 as [|i y1 ixs l1' Hi1 Hrest IH];
+    intros l2' H2.
+  - inversion H2; constructor.
+  - inversion H2 as [|i' y2 ixs' l2'' Hi2 Hrest2]; subst.
+    constructor.
+    + rewrite stdpp_aux.nth_error_lookup.
+      rewrite lookup_zip_Some.
+      by do 2 rewrite <- stdpp_aux.nth_error_lookup.
+    + apply IH; assumption.
+Qed.
+
+Lemma nths_error_Forall {A : Type} Φ (l l' : list A) (ixs : list nat) :
+  Forall Φ l ->
+  nths_error l ixs = Some l' ->
+  Forall Φ l'.
+Proof.
+  revert l l'.
+  induction ixs; intros l l' Hf Hnerr.
+  - simpl in *.
+    by inversion Hnerr.
+  - simpl in *.
+    simplify_option_eq.
+    constructor.
+    + rewrite Forall_lookup in Hf.
+      eapply Hf.
+      simplify_eq.
+      by rewrite <- stdpp_aux.nth_error_lookup.
+    + eapply IHixs; eauto.
+Qed.
+
+(* How is this not a lemma in stdpp? *)
+(* The other direction is proven (Forall2_Forall) *)
+Lemma Forall_Forall2 {A : Type} (P : A → A → Prop) (l1 l2 : seq.seq A) :
+  length l1 = length l2 ->
+  Forall (uncurry P) (base.zip l1 l2) ->
+  Forall2 P l1 l2.
+Proof.
+  revert l2.
+  induction l1 as [|x l1 IH]; intros l2 Hlen Hf.
+  - destruct l2; simpl in *; first done.
+    discriminate.
+  - destruct l2 as [|y l2]; simpl in *; first discriminate.
+    inversion Hlen as [Hlen'].
+    inversion Hf as [|[x' y'] zs HPxy Hf_rest]; subst.
+    auto.
+Qed.
 
 Lemma nths_error_Forall2 {A : Type} Φ (l1 l2 l1' l2' : list A) (ixs : list nat) :
   Forall2 Φ l1 l2 ->
@@ -114,22 +169,13 @@ Lemma nths_error_Forall2 {A : Type} Φ (l1 l2 l1' l2' : list A) (ixs : list nat)
   nths_error l2 ixs = Some l2' ->
   Forall2 Φ l1' l2'.
 Proof.
-  revert l1 l2 l1' l2'.
-  induction ixs; intros l1 l2 l1' l2' Hf2 Hnerr1 Hnerr2.
-  - simpl in *.
-    inversion Hnerr1.
-    inversion Hnerr2.
-    done.
-  - simpl in *.
-    simplify_option_eq.
-    constructor.
-    + eapply Forall2_lookup in Hf2.
-      instantiate (1 := a) in Hf2.
-      do 2 rewrite <- stdpp_aux.nth_error_lookup in Hf2.
-      rewrite Heqo1 in Hf2.
-      rewrite Heqo in Hf2.
-      by inversion Hf2.
-    + eapply IHixs; eauto.
+  intros.
+  apply Forall_Forall2.
+  - apply nths_error_length in H0, H1.
+    by rewrite <- H0, H1.
+  - eapply (nths_error_Forall _ (base.zip l1 l2) _ ixs).
+    + by apply Forall2_Forall.
+    + by apply nths_error_zip.
 Qed.
 
 Lemma nths_error_Forall2_exists {A : Type} Φ (l1 l2 l1' : list A) (ixs : list nat) :
