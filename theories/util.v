@@ -81,6 +81,70 @@ Definition option_last {A : Type} (a : option A) (b : option A) : option A :=
 Definition nths_error {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
   mapM (nth_error l) ixs.
 
+Lemma nths_error_length {A : Type} (l l': list A) (ixs : list nat) :
+  nths_error l ixs = Some l' ->
+  length ixs = length l'.
+Proof. apply length_mapM. Qed.
+
+Lemma nths_error_exists {A : Type} (l1 l2 l1' : list A) (ixs : list nat) :
+  length l1 = length l2 ->
+  nths_error l1 ixs = Some l1' ->
+  is_Some (nths_error l2 ixs).
+Proof.
+  intros Hlen Hnths_error.
+  apply mapM_is_Some.
+  rewrite <- (Forall_iff (λ i : nat, is_Some (nth_error l1 i))).
+  2: {
+    intros x; simpl.
+    rewrite stdpp_aux.nth_error_lookup.
+    rewrite lookup_lt_is_Some.
+    rewrite Hlen.
+    symmetry.
+    rewrite stdpp_aux.nth_error_lookup.
+    apply lookup_lt_is_Some.
+  }
+  apply mapM_is_Some.
+  done.
+Qed.
+
+
+Lemma nths_error_Forall2 {A : Type} Φ (l1 l2 l1' l2' : list A) (ixs : list nat) :
+  Forall2 Φ l1 l2 ->
+  nths_error l1 ixs = Some l1' ->
+  nths_error l2 ixs = Some l2' ->
+  Forall2 Φ l1' l2'.
+Proof.
+  revert l1 l2 l1' l2'.
+  induction ixs; intros l1 l2 l1' l2' Hf2 Hnerr1 Hnerr2.
+  - simpl in *.
+    inversion Hnerr1.
+    inversion Hnerr2.
+    done.
+  - simpl in *.
+    simplify_option_eq.
+    constructor.
+    + eapply Forall2_lookup in Hf2.
+      instantiate (1 := a) in Hf2.
+      do 2 rewrite <- stdpp_aux.nth_error_lookup in Hf2.
+      rewrite Heqo1 in Hf2.
+      rewrite Heqo in Hf2.
+      by inversion Hf2.
+    + eapply IHixs; eauto.
+Qed.
+
+Lemma nths_error_Forall2_exists {A : Type} Φ (l1 l2 l1' : list A) (ixs : list nat) :
+  Forall2 Φ l1 l2 ->
+  nths_error l1 ixs = Some l1' ->
+  ∃ l2', nths_error l2 ixs = Some l2' ∧ Forall2 Φ l1' l2'.
+Proof.
+  intros Hf2 Hnerr.
+  apply (list_relations.Forall2_length) in Hf2 as Hlen.
+  edestruct (nths_error_exists l1) as [l2' Hsome]; try done.
+  exists l2'.
+  split; first done.
+  eapply nths_error_Forall2; done.
+Qed.
+
 Definition gmap_injective `{Countable K} {V} (m : gmap K V) :=
   ∀ k1 k2 v, m !! k1 = Some v -> m !! k2 = Some v -> k1 = k2.
 
