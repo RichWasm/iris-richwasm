@@ -237,30 +237,22 @@ Section wp_sem_ctx.
     by apply Hvs in He'.
   Qed.
 
-  Lemma wp_sem_ctx_block_peel (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ :
-    is_true (basic_const_list vs) ->
-    length vs = length ts1 ->
+  Lemma lwp_label_semctx s E (f : datatypes.frame) es esk n LS RS Ψ Φ :
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E (vs ++ es) ((length ts2, Φ, Φ) :: LS, None) Φ) -∗
-    wp_sem_ctx s E (vs ++ [BI_block (Tf ts1 ts2) es]) (LS, RS) Φ.
+    (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E es (wp_sem_ctx_post ((n, Ψ, Φ) :: LS, None) Φ)) -∗
+    (∀ f' vs, ⌜length vs = n⌝ -∗ ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs -∗
+              lenient_wp s E (v_to_e_list vs ++ esk) (wp_sem_ctx_post (LS, RS) Φ)) -∗
+    lenient_wp s E [AI_label n esk es] (wp_sem_ctx_post (LS, RS) Φ).
   Proof.
-    iIntros (Hconst Hlen) "Hf Hrun Hes".
-    unfold wp_sem_ctx, to_e_list.
-    change seq.map with (@map basic_instruction administrative_instruction).
-    rewrite !map_app.
-    iApply (lenient_wp_block _ _ _ _ with "[$] [$]"); eauto.
-    { by apply const_list_map_basic. }
-    { by rewrite length_map. }
-    iIntros "!> Hf Hrun".
+    iIntros "Hfr Hrun Hes Hesk".
     iSpecialize ("Hes" with "[$] [$]").
     iApply wp_wasm_empty_ctx.
     iApply wp_label_push_nil.
     iApply wp_label_bind.
     iApply (wp_wand with "Hes").
     iIntros (v) "HΦ".
-    change (LH_rec [] (length ts2) [] (LH_base [] []) []) with
-      (push_base (LH_base [] []) (length ts2) [] [] []).
+    change (LH_rec [] n esk (LH_base [] []) []) with (push_base (LH_base [] []) n esk [] []).
     iApply wp_label_pull_nil.
     iApply wp_wasm_empty_ctx.
     destruct v.
@@ -301,10 +293,8 @@ Section wp_sem_ctx.
           by destruct He as (v & -> & Hv).
         * by rewrite length_fmap.
         * iIntros "!> Hf Hrun".
-          rewrite app_nil_r.
-          iApply wp_value.
-          -- instantiate (1 := immV (get_base_l lh)). by unfold IntoVal.
-          -- iExists f'. iFrame.
+          iSpecialize ("Hesk" with "[] [$] [$] [$]"); first done.
+          iApply "Hesk".
       + destruct (vfill_to_lfilled lh []) as [Hi _].
         rewrite Nat.eqb_neq in Hlh.
         rename Hlh into Hlh'.
@@ -325,109 +315,31 @@ Section wp_sem_ctx.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
   Qed.
 
-  Lemma wp_semctx_loop (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ Ψ :
+  Lemma wp_sem_ctx_block_peel (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ :
+    is_true (basic_const_list vs) ->
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    Ψ f vs -∗
-    □ (∀ f' vs',
-         ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
-         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
-    wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
+    (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E (vs ++ es) ((length ts2, Φ, Φ) :: LS, None) Φ) -∗
+    wp_sem_ctx s E (vs ++ [BI_block (Tf ts1 ts2) es]) (LS, RS) Φ.
   Proof.
-    iIntros (Hlen) "Hfr Hrun HΨ #Hloop".
-    unfold wp_sem_ctx, lenient_wp, to_e_list.
+    iIntros (Hconst Hlen) "Hf Hrun Hes".
+    unfold wp_sem_ctx, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite !map_app.
-    change (map AI_basic [BI_loop (Tf ts1 ts2) es]) with [AI_basic (BI_loop (Tf ts1 ts2) es)].
-    rewrite map_map.
-    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
-    fold (v_to_e_list vs).
-    iLöb as "IH" forall (f vs Hlen).
-    iApply (wp_loop with "[$] [$]").
-    { apply v_to_e_is_const_list. }
+    iApply (lenient_wp_block _ _ _ _ with "[$] [$]"); eauto.
+    { by apply const_list_map_basic. }
     { by rewrite length_map. }
-    { done. }
-    { done. }
     iIntros "!> Hfr Hrun".
-    iPoseProof ("Hloop" with "[$] [$] [$]") as "Hes".
-    iApply wp_wasm_empty_ctx.
-    iApply wp_label_push_nil.
-    iApply wp_label_bind.
-    rewrite map_app.
-    rewrite map_map.
-    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
-    fold (v_to_e_list vs).
-    iApply (wp_wand with "Hes").
-    iIntros (v) "HΦ".
-    change (LH_rec [] (length ts1) [AI_basic (BI_loop (Tf ts1 ts2) es)] (LH_base [] []) []) with
-      (push_base (LH_base [] []) (length ts1) [AI_basic (BI_loop (Tf ts1 ts2) es)] [] []).
-    iApply wp_label_pull_nil.
-    iApply wp_wasm_empty_ctx.
-    destruct v.
-    - iDestruct "HΦ" as "(%f' & Hfr & _ & Hrun & HΦ)".
-      iApply (wp_wand with "[Hfr Hrun HΦ]").
-      + iApply (wp_label_value with "[$] [$]"); first by rewrite iris.to_of_val.
-        instantiate (1 := fun v => (∃ vs, ⌜v = immV vs⌝ ∗ Φ f' vs)%I).
-        by iFrame.
-      + iIntros (v) "[[(%vs' & -> & Hϕ) Hrun] Hf]". iExists f'. iFrame.
-    - iDestruct "HΦ" as "(%f' & Hfr & _ & Hbail & _)".
-      iApply (wp_wand with "[Hfr]").
-      + iApply (wp_label_trap with "[$]"); first done.
-        by instantiate (1 := fun v => (⌜v = trapV⌝)%I).
-      + iIntros (v) "(-> & Hfr)".
-        iExists f'. by iFrame.
-    - destruct (Nat.eqb (lh_depth (lh_of_vh lh)) i) eqn:Hlh.
-      + rewrite Nat.eqb_eq in Hlh.
-        iDestruct "HΦ" as "(%f' & Hf & _ & [Hrun HΦ])".
-        unfold iris.of_val.
-        rewrite vfill_move_base.
-        iSimpl in "HΦ".
-        rewrite Hlh.
-        rewrite Nat.sub_diag.
-        iSimpl in "HΦ".
-        iDestruct "HΦ" as "[%Hlen_lh HΦ]".
-        iApply (wp_br with "[$] [$]").
-        3: {
-          instantiate (2 := v_to_e_list (get_base_l lh)).
-          destruct (vfill_to_lfilled (clear_base_l lh) (seq.cat (v_to_e_list (get_base_l lh)) [AI_basic (BI_br i)])) as [Hdepth Hfilled].
-          rewrite clear_base_l_depth in Hlh.
-          by rewrite Hlh in Hfilled.
-        }
-        {
-          apply forallb_forall.
-          apply List.Forall_forall.
-          apply Forall_forall.
-          intros e He.
-          rewrite elem_of_list_fmap in He.
-          by destruct He as (v & -> & Hv).
-        }
-        { by rewrite map_length. }
-        iIntros "!> Hf Hrun".
-        iApply ("IH" with "[] [$] [$]"); done.
-      + destruct (vfill_to_lfilled lh []) as [Hi _].
-        rewrite Nat.eqb_neq in Hlh.
-        rename Hlh into Hlh'.
-        assert (lh_depth (lh_of_vh lh) <= i /\ lh_depth (lh_of_vh lh) <> i) as Hlh; first done.
-        apply Nat.le_neq in Hlh.
-        clear Hi Hlh'.
-        iApply wp_wand.
-        * iApply wp_br_wrap; [exact Hlh | done].
-        * iIntros (v) "(%vh & -> & %Hdepth & %Hbase)".
-          unfold denote_logpred.
-          iDestruct "HΦ" as "(%f' & Hfr & _ & [Hrun HΦ])".
-          iExists f'. iFrame.
-          unfold wp_sem_ctx_post, lp_br.
-          rewrite Hdepth.
-          rewrite (cons_lookup_sub_lt _ _ _ _ Hlh).
-          by rewrite Hbase.
-    - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
-    - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
+    iApply (lwp_label_semctx with "[$] [$] [Hes]"); first done.
+    iIntros (f' vs' Hlen') "Hfr Hrun HΨ".
+    rewrite app_nil_r.
+    iApply lenient_wp_value.
+    - by instantiate (1 := immV vs').
+    - iExists f'. iFrame.
   Qed.
 
-  (* TODO: This should replace wp_semctx_loop because it's more general and
-           wp_semctx_loop can be derived from it (see wp_semctx_loop' below). *)
-  Lemma wp_semctx_loop_new (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ Ψ :
+  Lemma wp_semctx_loop (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ Ψ :
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -437,7 +349,39 @@ Section wp_sem_ctx.
          ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
          wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
     wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
-  Admitted.
+  Proof.
+    iIntros (Hlen) "Hfr Hrun Hes #Hloop".
+    unfold wp_sem_ctx, lenient_wp, to_e_list.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite !map_app.
+    change (map AI_basic [BI_loop (Tf ts1 ts2) es]) with [AI_basic (BI_loop (Tf ts1 ts2) es)].
+    rewrite map_map.
+    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
+    fold (v_to_e_list vs).
+    iApply (wp_loop with "[$] [$]").
+    { apply v_to_e_is_const_list. }
+    { by rewrite length_map. }
+    { done. }
+    { done. }
+    iIntros "!> Hfr Hrun".
+    iApply (lwp_label_semctx with "[$] [$] [Hes]").
+    - iIntros "Hfr Hrun". iApply ("Hes" with "[$] [$]").
+    - iIntros (f' vs' Hlen') "Hfr Hrun HΨ".
+      iLöb as "IH" forall (f' vs' Hlen').
+      iApply (wp_loop with "[$] [$]").
+      { apply v_to_e_is_const_list. }
+      { by rewrite length_map. }
+      { done. }
+      { done. }
+      iIntros "!> Hfr Hrun".
+      iApply (lwp_label_semctx with "[$] [$] [HΨ]").
+      + iIntros "Hfr Hrun".
+        iPoseProof ("Hloop" with "[$] [$] [$]") as "Hes".
+        rewrite map_app.
+        rewrite map_map.
+        iApply "Hes".
+      + iApply "IH".
+  Qed.
 
   Lemma wp_semctx_loop' (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ Ψ :
     length vs = length ts1 ->
@@ -450,7 +394,7 @@ Section wp_sem_ctx.
     wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
   Proof.
     iIntros (Hlen) "Hfr Hrun HΨ #Hloop".
-    iApply (wp_semctx_loop_new with "[$] [$] [HΨ]").
+    iApply (wp_semctx_loop with "[$] [$] [HΨ]").
     - done.
     - iIntros "Hfr Hrun".
       by iPoseProof ("Hloop" with "[$] [$] [$]") as "Hes".
