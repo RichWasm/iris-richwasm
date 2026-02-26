@@ -425,6 +425,38 @@ Section wp_sem_ctx.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
   Qed.
 
+  (* TODO: This should replace wp_semctx_loop because it's more general and
+           wp_semctx_loop can be derived from it (see wp_semctx_loop' below). *)
+  Lemma wp_semctx_loop_new (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ Ψ :
+    length vs = length ts1 ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    (↪[frame] f -∗ ↪[RUN] -∗
+     wp_sem_ctx s E (map BI_const vs ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
+    □ (∀ f' vs',
+         ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
+         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
+    wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
+  Admitted.
+
+  Lemma wp_semctx_loop' (f : datatypes.frame) s E es LS RS vs ts1 ts2 Φ Ψ :
+    length vs = length ts1 ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    Ψ f vs -∗
+    □ (∀ f' vs',
+         ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
+         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
+    wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
+  Proof.
+    iIntros (Hlen) "Hfr Hrun HΨ #Hloop".
+    iApply (wp_semctx_loop_new with "[$] [$] [HΨ]").
+    - done.
+    - iIntros "Hfr Hrun".
+      by iPoseProof ("Hloop" with "[$] [$] [$]") as "Hes".
+    - done.
+  Qed.
+
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
   Admitted.
 
