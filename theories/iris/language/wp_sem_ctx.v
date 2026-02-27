@@ -499,6 +499,29 @@ Section wp_sem_ctx.
       iDestruct "HΦ" as "[_ []]".
   Qed.
 
+  Lemma wp_semctx_return s E vs (f : datatypes.frame) n P Q LS Φ :
+    length vs = n ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    P vs -∗
+    wp_sem_ctx s E (map BI_const vs ++ [BI_return]) (LS, Some (n, P, Q)) Φ.
+  Proof.
+    iIntros (Hlen) "Hf Hrun HP".
+    unfold wp_sem_ctx, lenient_wp.
+    iApply wp_value.
+    - instantiate (1 := retV (SH_base vs [])).
+      unfold IntoVal.
+      cbn.
+      unfold v_to_e_list, to_e_list.
+      change (@seq.map basic_instruction administrative_instruction) with (@map basic_instruction administrative_instruction).
+      rewrite map_app.
+      by rewrite map_map.
+    - unfold denote_logpred.
+      iExists f.
+      iFrame.
+      by iPureIntro.
+  Qed.
+
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
   Admitted.
 
