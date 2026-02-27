@@ -107,7 +107,7 @@ Proof.
   done.
 Qed.
 
-Lemma nths_error_zip {A : Type} (l1 l2 l1' l2' : list A) (ixs : list nat) :
+Lemma nths_error_zip {A B : Type} (l1 l1' : list A) (l2 l2' : list B) (ixs : list nat) :
   nths_error l1 ixs = Some l1' ->
   nths_error l2 ixs = Some l2' ->
   nths_error (base.zip l1 l2) ixs = Some (base.zip l1' l2').
@@ -147,8 +147,7 @@ Proof.
 Qed.
 
 (* How is this not a lemma in stdpp? *)
-(* The other direction is proven (Forall2_Forall) *)
-Lemma Forall_Forall2 {A : Type} (P : A → A → Prop) (l1 l2 : seq.seq A) :
+Lemma Forall_Forall2 {A B : Type} (P : A → B → Prop) (l1 : list A) (l2 : list B) :
   length l1 = length l2 ->
   Forall (uncurry P) (base.zip l1 l2) ->
   Forall2 P l1 l2.
@@ -163,7 +162,12 @@ Proof.
     auto.
 Qed.
 
-Lemma nths_error_Forall2 {A : Type} Φ (l1 l2 l1' l2' : list A) (ixs : list nat) :
+(* This direction is proven in stdpp, but requires l1 and l2 to be lists of the same type...*)
+Lemma Forall2_Forall {A B} P (l1 : list A) (l2 : list B) :
+  Forall2 P l1 l2 → Forall (uncurry P) (base.zip l1 l2).
+Proof. induction 1; constructor; auto. Qed.
+
+Lemma nths_error_Forall2 {A B : Type} (Φ : A -> B -> Prop) (l1 l1' : list A) (l2 l2' : list B) (ixs : list nat) :
   Forall2 Φ l1 l2 ->
   nths_error l1 ixs = Some l1' ->
   nths_error l2 ixs = Some l2' ->
