@@ -359,6 +359,7 @@ Section Fundamental.
         iDestruct (Hget_locals_1 with "[$] [$] []") as "Hget_locals_1"; clear Hget_locals_1.
         {
           iPureIntro.
+          destruct (util.nths_error_Forall2_exists _ val_idxs case_1_val_idxs vs_payload case_1_sum_locals Hsaved) as (case_1_vs_payload & Hnerr_payload_c1 & Hf_c1); try done.
           admit.
         }
         admit.

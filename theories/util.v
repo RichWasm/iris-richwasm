@@ -86,7 +86,7 @@ Lemma nths_error_length {A : Type} (l l': list A) (ixs : list nat) :
   length ixs = length l'.
 Proof. apply length_mapM. Qed.
 
-Lemma nths_error_exists {A : Type} (l1 l2 l1' : list A) (ixs : list nat) :
+Lemma nths_error_exists {A B : Type} (l1 l1' : list A) (l2 : list B) (ixs : list nat) :
   length l1 = length l2 ->
   nths_error l1 ixs = Some l1' ->
   is_Some (nths_error l2 ixs).
@@ -182,14 +182,14 @@ Proof.
     + by apply nths_error_zip.
 Qed.
 
-Lemma nths_error_Forall2_exists {A : Type} Φ (l1 l2 l1' : list A) (ixs : list nat) :
+Lemma nths_error_Forall2_exists {A B : Type} (Φ : A -> B -> Prop) (l1 l1' : list A) (l2 : list B) (ixs : list nat) :
   Forall2 Φ l1 l2 ->
   nths_error l1 ixs = Some l1' ->
   ∃ l2', nths_error l2 ixs = Some l2' ∧ Forall2 Φ l1' l2'.
 Proof.
   intros Hf2 Hnerr.
   apply (list_relations.Forall2_length) in Hf2 as Hlen.
-  edestruct (nths_error_exists l1) as [l2' Hsome]; try done.
+  edestruct (nths_error_exists l1 l1' l2) as [l2' Hsome]; try done.
   exists l2'.
   split; first done.
   eapply nths_error_Forall2; done.
