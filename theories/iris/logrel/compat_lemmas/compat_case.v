@@ -351,8 +351,19 @@ Section Fundamental.
         replace (language.of_val) with (of_val); last done.
         iSimpl.
 
-        (* Reason about code for case 1 *)
+        (* get locals corresponding to payload of sum *)
+        eapply lwp_restore_stack_w in Hget_locals_1; eauto using Forall2_length.
+        2: { admit. }
+        instantiate (2 := fr_saved_and_tag) in Hget_locals_1.
+        destruct Hget_locals_1 as (_ & _ & _ & Hget_locals_1).
+        iDestruct (Hget_locals_1 with "[$] [$] []") as "Hget_locals_1"; clear Hget_locals_1.
+        {
+          iPureIntro.
+          admit.
+        }
         admit.
+
+        (* Reason about code for case 1 *)
 
       - (* Case: Tag is not 0 *)
         iApply (lenient_wp_seq with "[Hf Hrun]").
@@ -360,11 +371,35 @@ Section Fundamental.
           iApply lenient_wp_br_if_true; first done.
           iFrame.
           iIntros "!> Hf Hr".
+          iApply lenient_wp_value; first by instantiate (1 := brV (VH_base 0 [] [])).
+          iFrame.
+          auto_logp.
+        }
+        { by iIntros. }
+        iIntros (w ?fr) "Hnotrap Hf _".
+        destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+        iDestruct "Hnotrap" as "(Hrun & %Hfr_vh)".
+        destruct Hfr_vh as [-> [-> Hvh]].
+        simpl in Hvh; simplify_eq.
+        replace (language.of_val) with (of_val); last done.
+        iSimpl.
+        iApply lwp_wasm_empty_ctx.
+
+          (* iApply (wp_br_ctx with "[$] [$]"). *)
+          (* 1: by instantiate (1 := []). *)
+          (* 1: done. *)
+          (* 2: { *)
+          (*   iPureIntro. *)
+          (*   instantiate (1 := 0). *)
+          (*   instantiate (1 := []). *)
+          (*   instantiate (1 := LH_base [] _). *)
+          (*   unfold lfilled, lfill => //=. *)
+          (* } *)
           admit.
         }
         { admit. }
         admit.
-    }
 
 Admitted.
 

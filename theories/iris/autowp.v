@@ -89,17 +89,36 @@ Ltac fill_imm_pred :=
   | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
   end.
 
+
+(* TODO :
+  It should test for existence of lp_val/lp_br/lp_frame/...
+   For the ones that exist, it should generate the proof-dependent canonical predicate for the respective field
+   Then combine them all in a final logp.
+*)
 Ltac auto_logp :=
   match goal with
   | |- context [lp_val ?r ?fr ?vs] =>
-        instantiate (1 := (MkLP
-             (λ _, ⌜True⌝)
-             (λ fr' vs', ⌜fr' = fr /\ vs' = vs⌝)
-             False
-             (λ _ _ _, False)
-             (λ _, False)
-             (λ _ _ _ _, False))%I);
-        auto
+      instantiate (1 := (MkLP
+      (λ _, ⌜True⌝)
+      (λ fr' vs', ⌜fr' = fr ∧  vs' = vs⌝)
+      False
+      (λ _ _ _, False)
+      (λ _, False)
+      (λ _ _ _ _, False))%I);
+      auto
+  | |- context [lp_br ?r ?fr ?i ?vh] =>
+      instantiate (1 := (MkLP
+      (λ _, ⌜True⌝)
+      (λ _ _, False)
+      False
+      (* (λ _ _ _, False) *)
+      (λ fr' i' vh',
+      ⌜∃ H : i' = i,
+      fr' = fr ∧
+      eq_rect i' valid_holed vh' i H = vh⌝)
+      (λ _, False)
+      (λ _ _ _ _, False))%I);
+      try (iSimpl; iSplit; auto; iExists eq_refl; auto)
   end.
 
 Ltac seq_sz n m := 
