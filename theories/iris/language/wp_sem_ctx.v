@@ -23,15 +23,9 @@ Section wp_sem_ctx.
 
   (* Specification for a label. *)
   (* "protocol" from logics for effect handlers? *) 
-  Definition lb_spec : Type :=
-    nat *
-      (datatypes.frame -> list value -> iProp Σ) *
-      (datatypes.frame -> list value -> iProp Σ).
+  Definition lb_spec : Type := nat * (datatypes.frame -> list value -> iProp Σ).
 
-  Definition ret_spec : Type :=
-    nat *
-      (list value -> iProp Σ) *
-      (datatypes.frame -> list value -> iProp Σ).
+  Definition ret_spec : Type := nat * (list value -> iProp Σ).
 
   Definition sem_ctx : Type := list lb_spec * option ret_spec.
 
@@ -49,12 +43,12 @@ Section wp_sem_ctx.
       lp_val := Φ;
       lp_br fr i vh :=
         match LS !! (i - lh_depth (lh_of_vh vh)) with
-        | Some (n, P, _) => ⌜length (get_base_l vh) = n⌝ ∗ P fr (get_base_l vh)
+        | Some (n, P) => ⌜length (get_base_l vh) = n⌝ ∗ P fr (get_base_l vh)
         | None => False
         end;
       lp_ret svh :=
         match RS with
-        | Some (n, P, _) => ⌜length (simple_get_base_l svh) = n⌝ ∗ P (simple_get_base_l svh)
+        | Some (n, P) => ⌜length (simple_get_base_l svh) = n⌝ ∗ P (simple_get_base_l svh)
         | None => False
         end;
       lp_host _ _ _ _ := False;
@@ -63,16 +57,15 @@ Section wp_sem_ctx.
   Definition wp_sem_ctx s E es S Φ :=
     lenient_wp s E (to_e_list es) (wp_sem_ctx_post S Φ).
 
-  Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS n k P Q vs Φ :
-    LS !! k = Some (n, P, Q) ->
+  Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS n k P vs Φ :
+    LS !! k = Some (n, P) ->
     length vs = n ->
     ↪[frame] f -∗
     ↪[RUN] -∗
     P f vs -∗
-    (∀ f' vs', Q f' vs' -∗ Φ f' vs') -∗
     wp_sem_ctx s E (map BI_const vs ++ [BI_br k]) (LS, RS) Φ.
   Proof.
-    iIntros (Hlb Hlen) "Hf Hrun HP HQ".
+    iIntros (Hlb Hlen) "Hf Hrun HP".
     unfold wp_sem_ctx, lenient_wp.
     unfold to_e_list.
     rewrite seq_map_fmap.
@@ -252,7 +245,7 @@ Section wp_sem_ctx.
   Lemma lwp_label_semctx s E (f : datatypes.frame) es esk n LS RS Ψ Φ :
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E es (wp_sem_ctx_post ((n, Ψ, Φ) :: LS, None) Φ)) -∗
+    (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E es (wp_sem_ctx_post ((n, Ψ) :: LS, None) Φ)) -∗
     (∀ f' vs, ⌜length vs = n⌝ -∗ ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs -∗
               lenient_wp s E (v_to_e_list vs ++ esk) (wp_sem_ctx_post (LS, RS) Φ)) -∗
     lenient_wp s E [AI_label n esk es] (wp_sem_ctx_post (LS, RS) Φ).
@@ -332,7 +325,7 @@ Section wp_sem_ctx.
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E (vs ++ es) ((length ts2, Φ, Φ) :: LS, None) Φ) -∗
+    (↪[frame] f -∗ ↪[RUN] -∗ wp_sem_ctx s E (vs ++ es) ((length ts2, Φ) :: LS, None) Φ) -∗
     wp_sem_ctx s E (vs ++ [BI_block (Tf ts1 ts2) es]) (LS, RS) Φ.
   Proof.
     iIntros (Hconst Hlen) "Hf Hrun Hes".
@@ -356,10 +349,10 @@ Section wp_sem_ctx.
     ↪[frame] f -∗
     ↪[RUN] -∗
     (↪[frame] f -∗ ↪[RUN] -∗
-     wp_sem_ctx s E (map BI_const vs ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
+     wp_sem_ctx s E (map BI_const vs ++ es) ((length ts1, Ψ) :: LS, None) Φ) -∗
     □ (∀ f' vs',
          ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
-         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
+         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ) :: LS, None) Φ) -∗
     wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
   Proof.
     iIntros (Hlen) "Hfr Hrun Hes #Hloop".
@@ -402,7 +395,7 @@ Section wp_sem_ctx.
     Ψ f vs -∗
     □ (∀ f' vs',
          ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
-         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ, Φ) :: LS, None) Φ) -∗
+         wp_sem_ctx s E (map BI_const vs' ++ es) ((length ts1, Ψ) :: LS, None) Φ) -∗
     wp_sem_ctx s E (map BI_const vs ++ [BI_loop (Tf ts1 ts2) es]) (LS, RS) Φ.
   Proof.
     iIntros (Hlen) "Hfr Hrun HΨ #Hloop".
@@ -425,7 +418,7 @@ Section wp_sem_ctx.
     (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
      ↪[RUN] -∗
      N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-     wp_sem_ctx s E [BI_block (Tf [] ts2) es] ([], Some (length ts2, Φ f0, Φ))
+     wp_sem_ctx s E [BI_block (Tf [] ts2) es] ([], Some (length ts2, Φ f0))
                 (fun _ vs => Φ f0 vs ∗ ⌜length vs = length ts2⌝)) -∗
     wp_sem_ctx s E (map BI_const vs ++ [BI_call i]) (LS, RS) Φ.
   Proof.
@@ -499,12 +492,12 @@ Section wp_sem_ctx.
       iDestruct "HΦ" as "[_ []]".
   Qed.
 
-  Lemma wp_semctx_return s E vs (f : datatypes.frame) n P Q LS Φ :
+  Lemma wp_semctx_return s E vs (f : datatypes.frame) n P LS Φ :
     length vs = n ->
     ↪[frame] f -∗
     ↪[RUN] -∗
     P vs -∗
-    wp_sem_ctx s E (map BI_const vs ++ [BI_return]) (LS, Some (n, P, Q)) Φ.
+    wp_sem_ctx s E (map BI_const vs ++ [BI_return]) (LS, Some (n, P)) Φ.
   Proof.
     iIntros (Hlen) "Hf Hrun HP".
     unfold wp_sem_ctx, lenient_wp.
