@@ -244,6 +244,10 @@ Section Fundamental.
     cbn [of_val].
     rewrite v_to_e_list1.
 
+    edestruct (util.nths_error_exists val_idxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done.
+
+    edestruct (util.nths_error_exists val_idxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done.
+
     (* Store tag *)
     lwp_chomp 2.
     iApply (lenient_wp_seq with "[Hfr Hrun]").
@@ -354,12 +358,18 @@ Section Fundamental.
         (* get locals corresponding to payload of sum *)
         eapply lwp_restore_stack_w in Hget_locals_1; eauto using Forall2_length.
         2: { admit. }
-        instantiate (2 := fr_saved_and_tag) in Hget_locals_1.
+        instantiate (1 := case_1_vs_payload) in Hget_locals_1.
+        instantiate (1 := fr_saved_and_tag) in Hget_locals_1.
+
+
         destruct Hget_locals_1 as (_ & _ & _ & Hget_locals_1).
         iDestruct (Hget_locals_1 with "[$] [$] []") as "Hget_locals_1"; clear Hget_locals_1.
         {
           iPureIntro.
-          destruct (util.nths_error_Forall2_exists _ val_idxs case_1_val_idxs vs_payload case_1_sum_locals Hsaved) as (case_1_vs_payload & Hnerr_payload_c1 & Hf_c1); try done.
+          pose proof (util.nths_error_Forall2 _ val_idxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1.
+          eapply Forall2_impl.
+          1: apply Hf_c1.
+          instantiate (1 := case_1_vs_payload).
           admit.
         }
         admit.
