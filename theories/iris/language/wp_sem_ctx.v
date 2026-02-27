@@ -9,7 +9,7 @@ file we outline a "logical approach" to the context which replaces
 lh with a list of specifications (P, Q), one for each label in lh.
 *)
 
-From RichWasm.iris.rules Require Import iris_rules_structural iris_rules_trap iris_rules_bind iris_rules_control.
+From RichWasm.iris.rules Require Import iris_rules_structural iris_rules_trap iris_rules_bind iris_rules_control iris_rules_calls.
 From RichWasm.iris.language Require Import iris_wp_def logpred lwp_structural.
 Import iris.algebra.list.
 From iris.proofmode Require Import base tactics classes.
@@ -28,8 +28,10 @@ Section wp_sem_ctx.
       (datatypes.frame -> list value -> iProp Σ) *
       (datatypes.frame -> list value -> iProp Σ).
 
-  (* TODO: is postcondition the right shape? *)
-  Definition ret_spec : Type := (list value -> iProp Σ) * (datatypes.frame -> list value -> iProp Σ).
+  Definition ret_spec : Type :=
+    nat *
+      (list value -> iProp Σ) *
+      (datatypes.frame -> list value -> iProp Σ).
 
   Definition sem_ctx : Type := list lb_spec * option ret_spec.
 
@@ -52,7 +54,7 @@ Section wp_sem_ctx.
         end;
       lp_ret svh :=
         match RS with
-        | Some (P, _) => P (simple_get_base_l svh)
+        | Some (n, P, _) => ⌜length (simple_get_base_l svh) = n⌝ ∗ P (simple_get_base_l svh)
         | None => False
         end;
       lp_host _ _ _ _ := False;
@@ -114,12 +116,22 @@ Section wp_sem_ctx.
     | VH_rec _ vs n es1 lh' es2 => VH_rec vs n es1 (clear_base_l lh') es2
     end.
 
+  Fixpoint simple_clear_base_l (sh : simple_valid_holed) : simple_valid_holed :=
+    match sh with
+    | SH_base _ es => SH_base [] es
+    | SH_rec vs n es1 sh' es2 => SH_rec vs n es1 (simple_clear_base_l sh') es2
+    end.
+
   Lemma clear_base_l_depth {i: nat} (vh : valid_holed i) :
     lh_depth (lh_of_vh vh) = lh_depth (lh_of_vh (clear_base_l vh)).
   Admitted.
 
   Lemma vfill_move_base {i : nat} (vh : valid_holed i) (es : list administrative_instruction) :
-    vfill vh es = vfill (clear_base_l vh) (seq.cat (AI_basic ∘ BI_const <$> get_base_l vh) es).
+    vfill vh es = vfill (clear_base_l vh) (seq.cat (v_to_e_list (get_base_l vh)) es).
+  Admitted.
+
+  Lemma sfill_move_base sh es :
+    sfill sh es = sfill (simple_clear_base_l sh) (seq.cat (v_to_e_list (simple_get_base_l sh)) es).
   Admitted.
 
   (* Copied from get_base_vh_decrease. *)
@@ -399,6 +411,92 @@ Section wp_sem_ctx.
     - iIntros "Hfr Hrun".
       by iPoseProof ("Hloop" with "[$] [$] [$]") as "Hes".
     - done.
+  Qed.
+
+  Lemma to_val_v_to_e_list vs : iris.to_val (v_to_e_list vs) = Some (immV vs).
+  Admitted.
+
+  Lemma wp_semctx_call s E (f0 : datatypes.frame) inst vs es ts1 ts2 ts i a LS RS Φ :
+    inst_funcs (f_inst f0) !! i = Some a ->
+    length vs = length ts1 ->
+    ↪[frame] f0 -∗
+    ↪[RUN] -∗
+    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+    (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
+     ↪[RUN] -∗
+     N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+     wp_sem_ctx s E [BI_block (Tf [] ts2) es] ([], Some (length ts2, Φ f0, Φ))
+                (fun _ vs => Φ f0 vs ∗ ⌜length vs = length ts2⌝)) -∗
+    wp_sem_ctx s E (map BI_const vs ++ [BI_call i]) (LS, RS) Φ.
+  Proof.
+    iIntros (Hi Hlen) "Hfr Hrun Ha Hes".
+    unfold wp_sem_ctx.
+    unfold to_e_list.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite map_app.
+    rewrite map_map.
+    change (map AI_basic [BI_call i]) with [AI_basic (BI_call i)].
+    iApply wp_wasm_empty_ctx.
+    rewrite <- (app_nil_r [AI_basic (BI_call i)]).
+    iApply wp_base_push; first apply v_to_e_is_const_list.
+    iApply (wp_call_ctx with "[$] [$]"); first done.
+    iIntros "!> Hfr Hrun".
+    iApply wp_base_pull.
+    iApply wp_wasm_empty_ctx.
+    iApply (wp_invoke_native with "[$] [$] [$]").
+    { apply to_val_v_to_e_list. }
+    { done. }
+    { done. }
+    iIntros "!> (Hfr & Hrun & Ha)".
+    iApply (wp_frame_bind with "[$]"); first done.
+    iIntros "Hfr".
+    iSpecialize ("Hes" with "[$] [$] [$]").
+    iApply (wp_wand with "[Hes]"); first iApply "Hes".
+    iIntros (v) "(%f & Hfr & _ & HΦ)".
+    iExists f.
+    iFrame.
+    iIntros "Hfr".
+    destruct v.
+    - iDestruct "HΦ" as "(Hrun & HΦ & %Hlen2)".
+      iApply (wp_wand with "[HΦ Hfr Hrun]").
+      + iApply (wp_frame_value with "[$] [$]").
+        * apply iris.to_of_val.
+        * by rewrite length_map.
+        * instantiate (1 := fun v => (∃ vs, ⌜v = immV vs⌝ ∗ Φ f0 vs)%I).
+          iModIntro. iExists l. by iFrame.
+      + iIntros (v) "([(%vs' & -> & HΦ) Hrun] & Hfr)".
+        iExists f0. iFrame.
+    - iDestruct "HΦ" as "[Hbail _]".
+      iApply (wp_wand with "[Hfr]").
+      + iApply (wp_frame_trap with "[$]").
+        by instantiate (1 := fun v => ⌜v = trapV⌝%I).
+      + iIntros (v) "[-> Hfr]". iExists f0. by iFrame.
+    - iUnfold lp_noframe, lp_br, wp_sem_ctx_post in "HΦ".
+      rewrite lookup_nil.
+      iDestruct "HΦ" as "[_ []]".
+    - iDestruct "HΦ" as "(Hrun & %Hlen2 & HΦ)".
+      iApply (wp_wand with "[HΦ Hrun Hfr]").
+      + iApply wp_frame_return.
+        {
+          instantiate (2 := v_to_e_list (simple_get_base_l s0)).
+          instantiate (1 := simple_get_base_l s0).
+          apply to_val_v_to_e_list.
+        }
+        { by rewrite length_map. }
+        {
+          unfold iris.of_val.
+          rewrite sfill_move_base.
+          apply sfill_to_lfilled.
+        }
+        iFrame.
+        iApply wp_value.
+        { by instantiate (1 := immV (simple_get_base_l s0)). }
+        instantiate (1 := fun v => (⌜v = immV (simple_get_base_l s0)⌝ ∗ Φ f0 (simple_get_base_l s0))%I).
+        by iFrame.
+      + iIntros (v) "[[[-> HΦ] Hrun] Hfr]".
+        iExists f0. iFrame.
+    - iUnfold lp_noframe, lp_host, wp_sem_ctx_post in "HΦ".
+      iDestruct "HΦ" as "[_ []]".
   Qed.
 
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
