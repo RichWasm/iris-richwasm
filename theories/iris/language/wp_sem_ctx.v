@@ -115,17 +115,29 @@ Section wp_sem_ctx.
     | SH_rec vs n es1 sh' es2 => SH_rec vs n es1 (simple_clear_base_l sh') es2
     end.
 
-  Lemma clear_base_l_depth {i: nat} (vh : valid_holed i) :
+  Lemma clear_base_l_depth {i : nat} (vh : valid_holed i) :
     lh_depth (lh_of_vh vh) = lh_depth (lh_of_vh (clear_base_l vh)).
-  Admitted.
+  Proof.
+    induction vh.
+    - done.
+    - cbn. by rewrite IHvh.
+  Qed.
 
   Lemma vfill_move_base {i : nat} (vh : valid_holed i) (es : list administrative_instruction) :
     vfill vh es = vfill (clear_base_l vh) (seq.cat (v_to_e_list (get_base_l vh)) es).
-  Admitted.
+  Proof.
+    induction vh.
+    - cbn. change seq.cat with (@app administrative_instruction). by rewrite app_assoc.
+    - cbn. by rewrite IHvh.
+  Qed.
 
   Lemma sfill_move_base sh es :
     sfill sh es = sfill (simple_clear_base_l sh) (seq.cat (v_to_e_list (simple_get_base_l sh)) es).
-  Admitted.
+  Proof.
+    induction sh.
+    - cbn. change seq.cat with (@app administrative_instruction). by rewrite app_assoc.
+    - cbn. by rewrite IHsh.
+  Qed.
 
   (* Copied from get_base_vh_decrease. *)
   Lemma lh_depth_vh_decrease {m : nat} (vh : valid_holed (S m)) vh' :
