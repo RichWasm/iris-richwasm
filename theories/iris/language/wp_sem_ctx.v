@@ -43,19 +43,113 @@ Section wp_sem_ctx.
       lp_val := Φ;
       lp_br fr i vh :=
         match LS !! (i - lh_depth (lh_of_vh vh)) with
-        | Some (n, P) => ⌜length (get_base_l vh) = n⌝ ∗ P fr (get_base_l vh)
+        | Some (n, P) => ∃ vs0 vs, ⌜get_base_l vh = vs0 ++ vs⌝ ∗ ⌜length vs = n⌝ ∗ P fr vs
         | None => False
         end;
       lp_ret svh :=
         match RS with
-        | Some (n, P) => ⌜length (simple_get_base_l svh) = n⌝ ∗ P (simple_get_base_l svh)
+        | Some (n, P) => ∃ vs0 vs, ⌜simple_get_base_l svh = vs0 ++ vs⌝ ∗ ⌜length vs = n⌝ ∗ P vs
         | None => False
         end;
       lp_host _ _ _ _ := False;
     |}%I.
 
+  Definition scpred_combine (Φ : datatypes.frame -> list value -> iPropI Σ) vs0 f vs :=
+    Φ f (vs0 ++ vs).
+
   Definition wp_sem_ctx s E es S Φ :=
     lenient_wp s E (to_e_list es) (wp_sem_ctx_post S Φ).
+
+  Lemma to_val_v_to_e_list vs : iris.to_val (v_to_e_list vs) = Some (immV vs).
+  Admitted.
+
+  (* duplicate in compat_lemmas/shared.v *)
+  Lemma push_const_lh_depth {i : nat} (lh : valid_holed i) w :
+    lh_depth (lh_of_vh lh) = lh_depth (lh_of_vh (vh_push_const lh w)).
+  Proof.
+    induction lh;simpl;auto.
+  Qed.
+
+  (* duplicate in compat_lemmas/shared.v *)
+  Lemma get_base_l_push_const {i : nat} (lh : valid_holed i) w :
+    get_base_l (vh_push_const lh w) = (w ++ get_base_l lh) ∨
+      get_base_l (vh_push_const lh w) = get_base_l lh.
+  Proof.
+    induction lh.
+    { left. auto. }
+    { simpl. by right. }
+  Qed.
+
+  (* duplicate in compat_lemmas/shared.v *)
+  Lemma simple_get_base_l_push_const (lh : simple_valid_holed) w :
+    simple_get_base_l (sh_push_const lh w) = (w ++ simple_get_base_l lh) ∨
+    simple_get_base_l (sh_push_const lh w) = simple_get_base_l lh.
+  Proof.
+    induction lh.
+    { left. auto. }
+    { simpl. by right. }
+  Qed.
+
+  Lemma wp_sem_ctx_val_app E vs es LS RS Φ :
+    wp_sem_ctx NotStuck E es (LS, RS) (scpred_combine Φ vs) -∗
+    wp_sem_ctx NotStuck E (map BI_const vs ++ es) (LS, RS) Φ.
+  Proof.
+    iIntros "Hes".
+    unfold wp_sem_ctx, to_e_list.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite map_app.
+    rewrite map_map.
+    iApply lenient_wp_val_app; first apply to_val_v_to_e_list.
+    iApply lenient_wp_wand; last iApply "Hes".
+    iIntros (lv) "(%f & Hfr & Hfr_inv & HΦ)".
+    iExists f.
+    iFrame.
+    destruct lv.
+    - done.
+    - done.
+    - iDestruct "HΦ" as "[Hrun HΦ]".
+      iFrame.
+      unfold lp_br, wp_sem_ctx_post, lp_combine, lp_br.
+      rewrite <- push_const_lh_depth.
+      destruct (LS !! (i - lh_depth (lh_of_vh lh))); last done.
+      destruct p as [n P].
+      iDestruct "HΦ" as "(%vs0 & %vs1 & %Hbase & %Hlen & HP)".
+      pose proof (get_base_l_push_const lh vs) as [Hbase' | Hbase'].
+      + iExists (vs ++ vs0), vs1.
+        iFrame.
+        iPureIntro.
+        split; last done.
+        rewrite Hbase'.
+        rewrite Hbase.
+        by rewrite app_assoc.
+      + iExists vs0, vs1.
+        iFrame.
+        iPureIntro.
+        split; last done.
+        rewrite Hbase'.
+        by rewrite Hbase.
+    - iDestruct "HΦ" as "[Hrun HΦ]".
+      iFrame.
+      unfold lp_ret, wp_sem_ctx_post, lp_combine, lp_ret.
+      destruct RS; last done.
+      destruct r as [n P].
+      iDestruct "HΦ" as "(%vs0 & %vs1 & %Hbase & %Hlen & HP)".
+      pose proof (simple_get_base_l_push_const s vs) as [Hbase' | Hbase'].
+      + iExists (vs ++ vs0), vs1.
+        iFrame.
+        iPureIntro.
+        split; last done.
+        rewrite Hbase'.
+        rewrite Hbase.
+        by rewrite app_assoc.
+      + iExists vs0, vs1.
+        iFrame.
+        iPureIntro.
+        split; last done.
+        rewrite Hbase'.
+        by rewrite Hbase.
+    - done.
+  Qed.
 
   Lemma wp_sem_ctx_br (f: datatypes.frame) s E LS RS n k P vs Φ :
     LS !! k = Some (n, P) ->
@@ -86,7 +180,8 @@ Section wp_sem_ctx.
     unfold wp_sem_ctx_post, denote_logpred; cbn.
     rewrite Nat.sub_0_r.
     rewrite Hlb.
-    by iFrame.
+    iFrame.
+    by iExists [].
   Qed.
 
   Lemma wp_sem_ctx_clear_labels s E es LS RS Φ :
@@ -103,40 +198,62 @@ Section wp_sem_ctx.
     iDestruct "HΦ" as "[_ []]".
   Qed.
 
-  Fixpoint clear_base_l {i : nat} (vh : valid_holed i) : valid_holed i :=
+  Fixpoint set_base_l {i : nat} (vs : list value) (vh : valid_holed i) : valid_holed i :=
     match vh with
-    | VH_base n _ es => VH_base n [] es
-    | VH_rec _ vs n es1 lh' es2 => VH_rec vs n es1 (clear_base_l lh') es2
+    | VH_base n _ es => VH_base n vs es
+    | VH_rec _ vs0 n es1 lh' es2 => VH_rec vs0 n es1 (set_base_l vs lh') es2
     end.
 
-  Fixpoint simple_clear_base_l (sh : simple_valid_holed) : simple_valid_holed :=
+  Fixpoint simple_set_base_l (vs : list value) (sh : simple_valid_holed) : simple_valid_holed :=
     match sh with
-    | SH_base _ es => SH_base [] es
-    | SH_rec vs n es1 sh' es2 => SH_rec vs n es1 (simple_clear_base_l sh') es2
+    | SH_base _ es => SH_base vs es
+    | SH_rec vs0 n es1 sh' es2 => SH_rec vs0 n es1 (simple_set_base_l vs sh') es2
     end.
 
-  Lemma clear_base_l_depth {i : nat} (vh : valid_holed i) :
-    lh_depth (lh_of_vh vh) = lh_depth (lh_of_vh (clear_base_l vh)).
+  Lemma set_base_l_depth {i : nat} vs (vh : valid_holed i) :
+    lh_depth (lh_of_vh vh) = lh_depth (lh_of_vh (set_base_l vs vh)).
   Proof.
     induction vh.
     - done.
     - cbn. by rewrite IHvh.
   Qed.
 
-  Lemma vfill_move_base {i : nat} (vh : valid_holed i) (es : list administrative_instruction) :
-    vfill vh es = vfill (clear_base_l vh) (seq.cat (v_to_e_list (get_base_l vh)) es).
+  Lemma vfill_take_base {i : nat} (vh : valid_holed i) vs0 vs es :
+    get_base_l vh = vs0 ++ vs ->
+    vfill vh es = vfill (set_base_l vs0 vh) (seq.cat (v_to_e_list vs) es).
   Proof.
+    intros Hbase.
     induction vh.
-    - cbn. change seq.cat with (@app administrative_instruction). by rewrite app_assoc.
-    - cbn. by rewrite IHvh.
+    - cbn. cbn in Hbase. rewrite Hbase.
+      unfold v_to_e_list.
+      change seq.map with (@map value administrative_instruction).
+      rewrite map_app.
+      change seq.cat with (@app administrative_instruction).
+      rewrite <- app_assoc.
+      by rewrite <- app_assoc.
+    - cbn.
+      do 3 f_equal.
+      apply IHvh.
+      by cbn in Hbase.
   Qed.
 
-  Lemma sfill_move_base sh es :
-    sfill sh es = sfill (simple_clear_base_l sh) (seq.cat (v_to_e_list (simple_get_base_l sh)) es).
+  Lemma sfill_take_base sh vs0 vs es :
+    simple_get_base_l sh = vs0 ++ vs ->
+    sfill sh es = sfill (simple_set_base_l vs0 sh) (seq.cat (v_to_e_list vs) es).
   Proof.
+    intros Hbase.
     induction sh.
-    - cbn. change seq.cat with (@app administrative_instruction). by rewrite app_assoc.
-    - cbn. by rewrite IHsh.
+    - cbn. cbn in Hbase. rewrite Hbase.
+      unfold v_to_e_list.
+      change seq.map with (@map value administrative_instruction).
+      rewrite map_app.
+      change seq.cat with (@app administrative_instruction).
+      rewrite <- app_assoc.
+      by rewrite <- app_assoc.
+    - cbn.
+      do 3 f_equal.
+      apply IHsh.
+      by cbn in Hbase.
   Qed.
 
   (* Copied from get_base_vh_decrease. *)
@@ -289,17 +406,16 @@ Section wp_sem_ctx.
       + rewrite Nat.eqb_eq in Hlh.
         iDestruct "HΦ" as "(%f' & Hf & _ & [Hrun HΦ])".
         unfold iris.of_val.
-        rewrite vfill_move_base.
         iSimpl in "HΦ".
         rewrite Hlh.
         rewrite Nat.sub_diag.
-        iSimpl in "HΦ".
-        iDestruct "HΦ" as "[%Hlen2 HΦ]".
+        iDestruct "HΦ" as "(%vs0 & %vs & %Hbase & %Hlen & HΦ)".
+        rewrite (vfill_take_base _ _ _ _ Hbase).
         iApply (wp_br with "[$] [$]").
         3: {
-          instantiate (2 := v_to_e_list (get_base_l lh)).
-          destruct (vfill_to_lfilled (clear_base_l lh) (seq.cat (v_to_e_list (get_base_l lh)) [AI_basic (BI_br i)])) as [Hdepth Hfilled].
-          rewrite clear_base_l_depth in Hlh.
+          instantiate (2 := v_to_e_list vs).
+          destruct (vfill_to_lfilled (set_base_l vs0 lh) (seq.cat (v_to_e_list vs) [AI_basic (BI_br i)])) as [Hdepth Hfilled].
+          rewrite (set_base_l_depth vs0) in Hlh.
           by rewrite Hlh in Hfilled.
         }
         * apply forallb_forall.
@@ -418,9 +534,6 @@ Section wp_sem_ctx.
     - done.
   Qed.
 
-  Lemma to_val_v_to_e_list vs : iris.to_val (v_to_e_list vs) = Some (immV vs).
-  Admitted.
-
   Lemma wp_semctx_call s E (f0 : datatypes.frame) inst vs es ts1 ts2 ts i a LS RS Φ :
     inst_funcs (f_inst f0) !! i = Some a ->
     length vs = length ts1 ->
@@ -479,24 +592,24 @@ Section wp_sem_ctx.
     - iUnfold lp_noframe, lp_br, wp_sem_ctx_post in "HΦ".
       rewrite lookup_nil.
       iDestruct "HΦ" as "[_ []]".
-    - iDestruct "HΦ" as "(Hrun & %Hlen2 & HΦ)".
+    - iDestruct "HΦ" as "(Hrun & %vs0 & %vs' & %Hbase & %Hlen' & HΦ)".
       iApply (wp_wand with "[HΦ Hrun Hfr]").
       + iApply wp_frame_return.
         {
-          instantiate (2 := v_to_e_list (simple_get_base_l s0)).
-          instantiate (1 := simple_get_base_l s0).
+          instantiate (2 := v_to_e_list vs').
+          instantiate (1 := vs').
           apply to_val_v_to_e_list.
         }
         { by rewrite length_map. }
         {
           unfold iris.of_val.
-          rewrite sfill_move_base.
+          rewrite (sfill_take_base _ _ _ _ Hbase).
           apply sfill_to_lfilled.
         }
         iFrame.
         iApply wp_value.
-        { by instantiate (1 := immV (simple_get_base_l s0)). }
-        instantiate (1 := fun v => (⌜v = immV (simple_get_base_l s0)⌝ ∗ Φ f0 (simple_get_base_l s0))%I).
+        { by instantiate (1 := immV vs'). }
+        instantiate (1 := fun v => (⌜v = immV vs'⌝ ∗ Φ f0 vs')%I).
         by iFrame.
       + iIntros (v) "[[[-> HΦ] Hrun] Hfr]".
         iExists f0. iFrame.
@@ -524,7 +637,7 @@ Section wp_sem_ctx.
     - unfold denote_logpred.
       iExists f.
       iFrame.
-      by iPureIntro.
+      by iExists [].
   Qed.
 
   Definition sem_ctx_imp : sem_ctx -> sem_ctx -> iProp Σ.
