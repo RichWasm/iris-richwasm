@@ -2179,7 +2179,7 @@ Fixpoint lifted_check_recursion (insts:list instruction) (func: instruction -> b
     end.
 
 (* TODO ask john *)
-Fixpoint check_recursion_single_inner (inst:instruction) : bool :=
+Fail Fixpoint check_recursion_single_inner (inst:instruction) : bool :=
   match inst with
   | IUnreachable _ => false
   | IBlock _ _ es => (lifted_check_recursion es check_recursion_single_inner)
@@ -2403,9 +2403,15 @@ Fixpoint has_instruction_type_checker
     (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
     match insts with
     | [] =>
-        if andb (instruction_type_beq ψ (InstrT [] [])) (local_ctx_beq L L')
-        then local_ctx_ok_checker F L
-        else INR "bad empty instructions type"
+        if (local_ctx_beq L L')
+        then
+          match ψ with
+          | InstrT τs1 τs2 =>
+              if list_beq type type_beq τs1 τs2
+              then local_ctx_ok_checker F L
+              else INR "bad empty instructions type (not empties or frame)"
+          end
+        else INR "bad empty instructions type (local contexts don't match)"
     | [e] =>
         let e_ψ := proj_instr_ty e in
         match has_instruction_type_checker M F L e e_ψ L' with
@@ -2428,7 +2434,7 @@ Fixpoint has_instruction_type_checker
         let e_ψ := proj_instr_ty e in
         match synth_possible_resulting_local_ctx F e L with
         | inr _ => INR "this is either local get/set that is bad, so error?"
-        | inl None => INR "the instr we're processing is either uncreachable, break, or return. unsure how to deal with rn TODO"
+        | inl None => INR "the instr we're processing is either uncreachable, break, or return, with more commands to follow. unsure how to deal with rn TODO"
         | inl (Some L_e) =>
             match has_instruction_type_checker M F L e e_ψ L_e with
             | inl () =>                 match e_ψ, ψ with
@@ -2847,6 +2853,58 @@ with have_instruction_type_checker
       end
   end.
   *)
+Fixpoint have_instruction_type_checker
+    (M:module_ctx) (F:function_ctx) (L:local_ctx)
+    (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
+    match insts with
+    | [] =>
+        if (local_ctx_beq L L')
+        then
+          match ψ with
+          | InstrT τs1 τs2 =>
+              if list_beq type type_beq τs1 τs2
+              then local_ctx_ok_checker F L
+              else INR "bad empty instructions type (not empties or frame)"
+          end
+        else INR "bad empty instructions type (local contexts don't match)"
+    | [e] =>
+        let e_ψ := proj_instr_ty e in
+        match has_instruction_type_checker M F L e e_ψ L' with
+        | inl () => (* now just to check if we need to frame stuff out *)
+            match e_ψ, ψ with
+            | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                match list_suffix τs1_es τs1_e, list_suffix τs2_es τs2_e with
+                | Some τs1_pref, Some τs2_pref =>
+                    (* ts1_es = ts1_pref ++ ts1_e, ts2_es = ts2_pref ++ ts2_e*)
+                    (* just need to check that ts1_pref = ts2_pref *)
+                    if list_beq type type_beq τs1_pref τs2_pref
+                    then ok_term
+                    else INR "can't frame out (single instruction)"
+                | _, _ => INR "inner instruction type doesn't match"
+                end
+            end
+        | err => err
+        end
+    | e :: es =>
+        let e_ψ := proj_instr_ty e in
+        match synth_possible_resulting_local_ctx F e L with
+        | inr _ => INR "this is either local get/set that is bad, so error?"
+        | inl None => INR "the instr we're processing is either uncreachable, break, or return, with more commands to follow. unsure how to deal with rn TODO"
+        | inl (Some L_e) =>
+            match has_instruction_type_checker M F L e e_ψ L_e with
+            | inl () =>                 match e_ψ, ψ with
+                | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                    match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
+                    | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                    | None => INR "instruction has more arguments than large have_instruction type has, or can't frame out"
+                    end
+                end
+            | err => err
+            end
+        end
+    end.
+
+
 Ltac my_auto5 :=
   match goal with
   | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
@@ -2917,23 +2975,131 @@ Proof.
     apply has_num_type_type_correct in HMatch4. destruct HMatch4 as [ν HMatch4]; subst.
     by constructor.
   - unfold has_instruction_type_checker in H.
-    unfold has_instruction_type_checker in H; repeat my_auto5.
-    apply list_eq_convert_type in H6.
+    admit.
   - admit.
   - Opaque have_instruction_type_checker.
-    unfold has_instruction_type_checker in H; repeat my_auto5.
+    admit.
 Admitted.
+
+Lemma have_instruction_type_checker_correct :
+  ∀ M F L insts ψ L',
+    have_instruction_type_checker M F L insts ψ L' = ok_term ->
+    have_instruction_type M F L insts ψ L'.
+Proof. Admitted.
+
+Fixpoint synth_possible_resulting_local_ctx_insts F insts L : (option local_ctx) + type_error :=
+  match insts with
+  | [] => inl (Some L)
+  | i :: rest =>
+      match synth_possible_resulting_local_ctx F i L with
+      | inl (Some L') => synth_possible_resulting_local_ctx_insts F rest L'
+      | inl (None) => inl (None)
+      | inr a => inr a
+      end
+  end.
 
 Definition has_function_type_checker
     (M:module_ctx) (mf:module_function) (ft:function_type) : type_checker_res :=
-  INR "incomplete".
+  if function_type_beq mf.(mf_type) ft
+  then
+    let ϕ := flatten_function_type mf.(mf_type) in
+    let K := kc_of_fft ϕ in
+    match mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) with
+    | Some ηss =>
+        let F := Build_function_ctx ϕ.(fft_out) ηss [] K ϕ.(fft_type_vars) in
+        let L := map type_plug_prim ηss in
+        let ψ := InstrT ϕ.(fft_in) ϕ.(fft_out) in
+        match synth_possible_resulting_local_ctx_insts F (mf.(mf_body)) L with
+        | inl (Some L') =>
+            if (foldr (λ t:type, andb (check_ok_output (has_dropability_checker F t ImDrop))) true L')
+            then have_instruction_type_checker M F L mf.(mf_body) ψ L'
+            else INR "bad"
+        | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
+        | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
+        end
+    | None => INR "can't give function type"
+    end
+  else INR "bad".
 Lemma has_function_type_checker_correct :
   ∀ M mf ft, has_function_type_checker M mf ft = ok_term ->
              has_function_type M mf ft.
-Proof. Admitted.
+Proof.
+  intros.
+  Opaque have_instruction_type_checker.
+  unfold has_function_type_checker in H.
+  repeat my_auto5.
+  rename l into ηss. rename l0 into L'.
+  clear H1 H2 H3 H4 H5.
+  apply (TFunction M mf ηss L'); auto.
+  - admit. (* just a foldr lemma *)
+  - by apply have_instruction_type_checker_correct in H.
+Admitted.
+
+Definition module_type_beq (m1:module_type) (m2:module_type) : bool :=
+  andb (list_beq function_type function_type_beq m1.(mt_imports) m2.(mt_imports))
+       (list_beq function_type function_type_beq m1.(mt_exports) m2.(mt_exports)).
+Lemma module_type_eq_convert :
+  ∀ m1 m2, module_type_beq m1 m2 = true <-> m1 = m2.
+Proof.
+  split; intros.
+  - destruct m1, m2.
+    unfold module_type_beq in H. my_auto5.
+    cbn in H1. cbn in H2.
+    (* yup the things that are equal are equal *)
+    admit.
+  - subst.
+    destruct m2.
+    unfold module_type_beq. cbn.
+    (* yup it's equal *)
+    admit.
+    (* to complete this, it's a list_beq thing *)
+Admitted.
+
 
 Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_res :=
-  INR "incomplete".
+  let ϕs := m.(m_imports) ++ map mf_type m.(m_functions) in
+  match nths_error ϕs m.(m_table) with
+  | Some table =>
+      match nths_error ϕs (map me_desc m.(m_exports)) with
+      | Some exports =>
+          if module_type_beq mt (Build_module_type m.(m_imports) exports)
+          then
+            let M := Build_module_ctx ϕs table in
+            if (foldr (λ mf, andb (check_ok_output (has_function_type_checker M mf mf.(mf_type))))
+                      true m.(m_functions))
+            then ok_term
+            else INR "function types don't equal"
+          else INR "suggested module type not equal to what it needs to be"
+      | None => INR "bad exports"
+      end
+  | None => INR "bad table"
+  end
+.
 Lemma has_module_type_checker_correct :
   ∀ m mt, has_module_type_checker m mt = ok_term -> has_module_type m mt.
-Proof. Admitted.
+Proof.
+  intros.
+  Opaque has_function_type_checker. Opaque module_type_beq.
+  unfold has_module_type_checker in H.
+  repeat my_auto5.
+  apply module_type_eq_convert in HMatch1; subst.
+  rename l into table.
+  rename l0 into exports.
+  apply (TModule m table exports); auto.
+  (* and this is just a foldr lemma *)
+
+Admitted.
+
+Definition synth_module_type (m:module) : option module_type :=
+  let ϕs := m.(m_imports) ++ map mf_type m.(m_functions) in
+      match nths_error ϕs (map me_desc m.(m_exports)) with
+      | Some exports =>
+          Some (Build_module_type m.(m_imports) exports)
+      | None => None
+      end.
+
+Definition has_module_type_checker_with_synth (m:module) : type_checker_res :=
+  match synth_module_type m with
+  | Some mt => has_module_type_checker m mt
+  | None => INR "couldn't synthesize module type"
+  end.
