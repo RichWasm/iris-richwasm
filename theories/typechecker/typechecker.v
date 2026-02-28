@@ -3090,3 +3090,5 @@ Definition has_module_type_checker_with_synth (m:module) : type_checker_res :=
   | Some mt => has_module_type_checker m mt
   | None => INR "couldn't synthesize module type"
   end.
+
+(* rebasing went okay *)
