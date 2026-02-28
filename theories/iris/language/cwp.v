@@ -520,11 +520,10 @@ Section rules.
     by apply Hvs in He'.
   Qed.
 
-  (* TODO: Preserve return spec. *)
   Lemma lwp_label_cwp_post s E (f : datatypes.frame) es esk n L R Ψ Φ :
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E es (cwp_post_lp ((n, Ψ) :: L) None Φ)) -∗
+    (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E es (cwp_post_lp ((n, Ψ) :: L) R Φ)) -∗
     (∀ f' vs, ⌜length vs = n⌝ -∗ ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs -∗
               lenient_wp s E (v_to_e_list vs ++ esk) (cwp_post_lp L R Φ)) -∗
     lenient_wp s E [AI_label n esk es] (cwp_post_lp L R Φ).
@@ -595,17 +594,22 @@ Section rules.
           rewrite Hdepth.
           rewrite (cons_lookup_sub_lt _ _ _ _ Hlh).
           by rewrite Hbase.
-    - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
+    - iDestruct "HΦ" as "(%f' & Hfr & _ & [Hrun HΦ])".
+      destruct R; last done.
+      destruct r as [n' P].
+      iDestruct "HΦ" as "(%vs0 & %vs & %Hbase & %Hlen & HP)".
+      iApply wp_value; first by instantiate (1 := retV (SH_rec [] n esk s0 [])).
+      iFrame.
+      by iExists vs0.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
   Qed.
 
-  (* TODO: Preserve return spec. *)
   Lemma cwp_block (f : datatypes.frame) s E es L R vs ts1 ts2 Φ :
     is_true (basic_const_list vs) ->
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗ CWP vs ++ es @ s; E UNDER (length ts2, Φ) :: L; None {{ Φ }}) -∗
+    (↪[frame] f -∗ ↪[RUN] -∗ CWP vs ++ es @ s; E UNDER (length ts2, Φ) :: L; R {{ Φ }}) -∗
     CWP vs ++ [BI_block (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hconst Hlen) "Hf Hrun Hes".
@@ -624,16 +628,15 @@ Section rules.
     - iExists f'. iFrame.
   Qed.
 
-  (* TODO: Preserve return spec. *)
   Lemma cwp_loop (f : datatypes.frame) s E es L R vs ts1 ts2 Φ Ψ :
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
     (↪[frame] f -∗ ↪[RUN] -∗
-     CWP map BI_const vs ++ es @ s; E UNDER (length ts1, Ψ) :: L; None {{ Φ }}) -∗
+     CWP map BI_const vs ++ es @ s; E UNDER (length ts1, Ψ) :: L; R {{ Φ }}) -∗
     □ (∀ f' vs',
          ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
-         CWP map BI_const vs' ++ es @ s; E UNDER (length ts1, Ψ) :: L; None {{ Φ }}) -∗
+         CWP map BI_const vs' ++ es @ s; E UNDER (length ts1, Ψ) :: L; R {{ Φ }}) -∗
     CWP map BI_const vs ++ [BI_loop (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hlen) "Hfr Hrun Hes #Hloop".
@@ -669,7 +672,6 @@ Section rules.
       + iApply "IH".
   Qed.
 
-  (* TODO: Preserve return spec. *)
   Lemma cwp_loop' (f : datatypes.frame) s E es L R vs ts1 ts2 Φ Ψ :
     length vs = length ts1 ->
     ↪[frame] f -∗
@@ -677,7 +679,7 @@ Section rules.
     Ψ f vs -∗
     □ (∀ f' vs',
          ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
-         CWP map BI_const vs' ++ es @ s; E UNDER (length ts1, Ψ) :: L; None {{ Φ }}) -∗
+         CWP map BI_const vs' ++ es @ s; E UNDER (length ts1, Ψ) :: L; R {{ Φ }}) -∗
     CWP map BI_const vs ++ [BI_loop (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hlen) "Hfr Hrun HΨ #Hloop".

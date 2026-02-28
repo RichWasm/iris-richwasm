@@ -1184,6 +1184,7 @@ Section Fundamental_Shared.
           iIntros "Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).
+          iApply cwp_return_none.
           iApply ("Hptr" with "[$] [$]").
       + done.
     - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
@@ -1266,6 +1267,7 @@ Section Fundamental_Shared.
         iApply (cwp_seq with "[Hf Hrun]").
         * iApply cwp_label_take.
           instantiate (2 := 0%nat).
+          iApply cwp_return_none.
           iApply (cwp_mod4_sub1_test with "[//] [] [$] [$]").
           iPureIntro.
           unfold Wasm_int.Int32.repr; simpl.
@@ -1289,6 +1291,7 @@ Section Fundamental_Shared.
           iIntros "Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).
+          iApply cwp_return_none.
           iApply ("Hptr" with "[$] [$]").
   Qed.
 
