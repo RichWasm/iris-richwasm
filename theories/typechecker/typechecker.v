@@ -78,7 +78,7 @@ Proof.
   by apply check_ok_true_to_prop.
 Qed.
 
-(* A few tactics *)
+(** TACTICS **)
 Ltac solve_Forall_foldr HForall Hfoldr checker proper :=
   apply (Forall_impl _ (λ x, check_ok checker x = true -> proper x)) in HForall;
   [ eapply Forall_foldr_bool_to_prop; [apply HForall | apply Hfoldr] |
@@ -88,8 +88,281 @@ Ltac solve_Forall_foldr HForall Hfoldr checker proper :=
 Ltac destruct_on_if_equal resname :=
   match goal with
     | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:resname
+  end.
+
+Ltac stupid_unit o :=
+  unfold ok in o; assert (HO: o = tt) by (by destruct o); subst.
+
+
+Ltac structural_auto :=
+   match goal with
+  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
+  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
+  | o:ok |- _ => stupid_unit o
+  | H: ok_term = ok_term |- _ => clear H
+  | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
+  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
+  | H: true = false |- _ => inversion H
+  | H: false = true |- _ => inversion H
+   end.
+
+
+
+
+(** BOOLEAN EQUALITIES **)
+Scheme Equality for copyability.
+Scheme Equality for dropability.
+Scheme Equality for atomic_rep.
+Scheme Equality for base_memory.
+Scheme Equality for memory.
+Scheme Equality for list.
+Scheme Equality for num_type.
+Scheme Equality for primitive.
+
+Lemma copyability_eq_convert :
+  ∀ c1 c2, copyability_beq c1 c2 = true <-> c1 = c2.
+Proof.
+  split; intros;
+    [by apply internal_copyability_dec_bl in H | by apply internal_copyability_dec_lb in H].
+Qed.
+Lemma dropability_eq_convert :
+  ∀ d1 d2, dropability_beq d1 d2 = true <-> d1 = d2.
+Proof.
+  split; intros;
+   [by apply internal_dropability_dec_bl in H | by apply internal_dropability_dec_lb in H].
+Qed.
+
+
+Fixpoint representation_beq (r1:representation) (r2:representation) : bool :=
+  match r1, r2 with
+  | VarR i1, VarR i2 => (i1 =? i2)
+  | SumR r1s, SumR r2s => list_beq representation representation_beq r1s r2s
+  | ProdR r1s, ProdR r2s => list_beq representation representation_beq r1s r2s
+  | AtomR a1, AtomR a2 => atomic_rep_beq a1 a2
+  | _, _ => false
+  end.
+
+Lemma representation_eq_convert_forward :
+  ∀ r1, (∀ r2, representation_beq r1 r2 = true -> r1 = r2).
+Proof.
+  induction r1 using rep_ind.
+  * intros; destruct r2; simpl in H; try inversion H. apply Nat.eqb_eq in H; by subst.
+  * intros. destruct r2; simpl in H0; try inversion H0. clear H2.
+    pose proof internal_list_dec_bl as ToUse.
+    specialize (ToUse representation representation_beq).
+
+    (* I'm confused actually. To use internal_list_dec_bl, I need to
+       have a proof of representation_beq r1 r2 = true -> r1 = r2, but the
+       IH is specific to ρs.
+       TODO *)
+Admitted.
+
+Lemma representation_eq_convert_backward :
+  ∀ r1 r2, r1 = r2 -> representation_beq r1 r2 = true.
+Proof.
+  intros; subst.
+  induction r2 using rep_ind.
+  * simpl. apply Nat.eqb_refl.
+  * simpl.
+    (* Hm once again a similar issue. *)
+Admitted.
+
+Lemma representation_eq_convert :
+  ∀ r1 r2, representation_beq r1 r2 = true <-> r1 = r2.
+Proof.
+  split; [apply representation_eq_convert_forward | apply representation_eq_convert_backward].
+Qed.
+
+Fixpoint size_beq (s1:size) (s2:size) : bool :=
+  match s1, s2 with
+  | VarS i1, VarS i2 => (i1 =? i2)
+  | SumS s1s, SumS s2s => list_beq size size_beq s1s s2s
+  | ProdS s1s, ProdS s2s => list_beq size size_beq s1s s2s
+  | RepS r1, RepS r2 => representation_beq r1 r2
+  | ConstS n1, ConstS n2 => (n1 =? n2)
+  | _, _ => false
+  end.
+
+Lemma size_eq_convert :
+  ∀ s1 s2, size_beq s1 s2 = true <-> s1 = s2.
+Proof.
+  (* Same issue happens here *)
+Admitted.
+
+Fixpoint kind_beq (k1:kind) (k2:kind) : bool :=
+  match k1, k2 with
+  | VALTYPE r1 c1 d1, VALTYPE r2 c2 d2 =>
+      andb (representation_beq r1 r2) (andb (copyability_beq c1 c2) (dropability_beq d1 d2))
+  | MEMTYPE s1 d1, MEMTYPE s2 d2 =>
+      andb (size_beq s1 s2) (dropability_beq d1 d2)
+  | _, _ => false
+  end.
+
+Lemma kind_eq_convert :
+  ∀ k1 k2, kind_beq k1 k2 = true <-> k1 = k2.
+Proof.
+  split.
+  - intros. destruct k1, k2; simpl in H; try inversion H; clear H1; repeat structural_auto.
+    * apply representation_eq_convert in H1.
+      apply copyability_eq_convert in H0.
+      apply internal_dropability_dec_bl in H2. subst; auto.
+    * apply size_eq_convert in H1.
+      apply internal_dropability_dec_bl in H2. subst; auto.
+  - intros; subst. destruct k2; simpl.
+    * apply andb_true_intro; split; [|apply andb_true_intro; split].
+      + assert (H:r=r) by auto. apply representation_eq_convert in H. auto.
+      + assert (H:c=c) by auto. apply copyability_eq_convert in H; auto.
+      + assert (H:d=d) by auto. apply internal_dropability_dec_lb in H. auto.
+    * apply andb_true_intro; split.
+      + assert (H:s=s) by auto. apply size_eq_convert in H; auto.
+      + assert (H:d=d) by auto. apply internal_dropability_dec_lb in H; auto.
+Qed.
+
+Lemma kind_neq_convert :
+  ∀ k1 k2, kind_beq k1 k2 = false <-> k1 <> k2.
+Proof.
+  split; intros.
+  (* there's some decidability lemmas that would need to be done. This is fine to leave. *)
+Admitted.
+
+
+Lemma num_type_eq_convert :
+  ∀ nt1 nt2, num_type_beq nt1 nt2 = true <-> nt1 = nt2.
+Proof.
+  split; intros;
+    [by apply internal_num_type_dec_bl in H | by apply internal_num_type_dec_lb in H].
+Admitted.
+
+(* type beq. Oh boy. Let's go. *)
+Fixpoint type_beq (τ1:type) (τ2:type) : bool :=
+  match τ1, τ2 with
+  | VarT i1, VarT i2 => i1 =? i2
+  | I31T κ1, I31T κ2 => kind_beq κ1 κ2
+  | NumT κ1 nt1, NumT κ2 nt2 => andb (kind_beq κ1 κ2) (num_type_beq nt1 nt2)
+  | SumT κ1 τs1, SumT κ2 τs2
+  | VariantT κ1 τs1, VariantT κ2 τs2
+  | ProdT κ1 τs1, ProdT κ2 τs2
+  | StructT κ1 τs1, StructT κ2 τs2 =>
+      andb (kind_beq κ1 κ2) (list_beq type type_beq τs1 τs2)
+  | RefT κ1 m1 τ1, RefT κ2 m2 τ2 =>
+      andb (andb (kind_beq κ1 κ2) (memory_beq m1 m2)) (type_beq τ1 τ2)
+  | CodeRefT κ1 ft1, CodeRefT κ2 ft2 =>
+      andb (kind_beq κ1 κ2) (function_type_beq ft1 ft2)
+  | SerT κ1 t1, SerT κ2 t2 => andb (kind_beq κ1 κ2) (type_beq t1 t2)
+  | PlugT κ1 ρ1, PlugT κ2 ρ2 => andb (kind_beq κ1 κ2) (representation_beq ρ1 ρ2)
+  | SpanT κ1 σ1, SpanT κ2 σ2 => andb (kind_beq κ1 κ2) (size_beq σ1 σ2)
+  | RecT κ1 t1, RecT κ2 t2
+  | ExistsMemT κ1 t1, ExistsMemT κ2 t2
+  | ExistsRepT κ1 t1, ExistsRepT κ2 t2
+  | ExistsSizeT κ1 t1, ExistsSizeT κ2 t2 =>
+      andb (kind_beq κ1 κ2) (type_beq t1 t2)
+  | ExistsTypeT κ11 κ12 t1, ExistsTypeT κ21 κ22 t2 =>
+      andb (andb (kind_beq κ11 κ21) (kind_beq κ12 κ22)) (type_beq t1 t2)
+  | _, _ => false
   end
-.
+with function_type_beq (fτ1:function_type) (fτ2:function_type) : bool :=
+  match fτ1, fτ2 with
+  | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
+      andb (list_beq type type_beq τs11 τs21) (list_beq type type_beq τs12 τs22)
+  | ForallMemT ft1, ForallMemT ft2
+  | ForallRepT ft1, ForallRepT ft2
+  | ForallSizeT ft1, ForallSizeT ft2 => function_type_beq ft1 ft2
+  | ForallTypeT κ1 ft1, ForallTypeT κ2 ft2 =>
+      andb (kind_beq κ1 κ2) (function_type_beq ft1 ft2)
+  | _, _ => false
+  end.
+
+
+
+
+
+(* I should prove these eventually. Mainly to convince myself that
+list_beq will do what I want it to do. Although I think it's just fine.
+
+ TODO *)
+Lemma type_eq_convert :
+  ∀ τ1 τ2, type_beq τ1 τ2 = true <-> τ1 = τ2.
+Proof. Admitted.
+
+Lemma function_type_eq_convert :
+  ∀ ft1 ft2, function_type_beq ft1 ft2 = true <-> ft1 = ft2.
+Proof. Admitted.
+
+
+Lemma memory_eq_convert :
+  ∀ m1 m2, memory_beq m1 m2 = true <-> m1 = m2.
+Proof.
+   split; intros;
+    [by apply internal_memory_dec_bl in H | by apply internal_memory_dec_lb in H].
+Qed.
+
+(* I'm bad at everything so monomorphic *)
+Lemma list_eq_convert_type :
+  ∀ τs1 τs2, list_beq type type_beq τs1 τs2 = true <-> τs1 = τs2.
+Proof. Admitted.
+Lemma list_eq_convert_size :
+  ∀ τs1 τs2, list_beq size size_beq τs1 τs2 = true <-> τs1 = τs2.
+Proof. Admitted.
+Definition local_ctx_beq (L L':local_ctx) : bool := list_beq type type_beq L L'.
+Lemma local_ctx_eq_convert :
+  ∀ L L', local_ctx_beq L L' = true <-> L = L'.
+Proof.
+  split; intros; unfold local_ctx_beq in *.
+  - apply list_eq_convert_type in H; subst; auto.
+  - subst; apply list_eq_convert_type; auto.
+Qed.
+Definition module_type_beq (m1:module_type) (m2:module_type) : bool :=
+  andb (list_beq function_type function_type_beq m1.(mt_imports) m2.(mt_imports))
+       (list_beq function_type function_type_beq m1.(mt_exports) m2.(mt_exports)).
+Lemma module_type_eq_convert :
+  ∀ m1 m2, module_type_beq m1 m2 = true <-> m1 = m2.
+Proof.
+  split; intros.
+  - destruct m1, m2.
+    unfold module_type_beq in H.
+    (* yup the things that are equal are equal *)
+    admit.
+  - subst.
+    destruct m2.
+    unfold module_type_beq. cbn.
+    (* yup it's equal *)
+    admit.
+    (* to complete this, it's a list_beq thing *)
+Admitted.
+Definition instruction_type_beq (inst1 inst2:instruction_type) : bool :=
+  match inst1, inst2 with
+  | InstrT τs11 τs12, InstrT τs21 τs22 =>
+      andb (list_beq type type_beq τs11 τs21) (list_beq type type_beq τs12 τs22)
+  end.
+Lemma instruction_type_eq_convert :
+  ∀ inst1 inst2, instruction_type_beq inst1 inst2 = true <-> inst1 = inst2.
+Proof.
+  split; intros; destruct inst1, inst2; unfold instruction_type_beq in *; simpl in *.
+  - repeat structural_auto. apply list_eq_convert_type in H1, H2. subst; auto.
+  - inversion H; subst.
+    apply andb_true_intro; split; apply list_eq_convert_type; auto.
+Qed.
+
+
+Ltac boolean_equality_auto :=
+  match goal with
+  | H: (kind_beq _ _ = true) |- _ => apply kind_eq_convert in H; subst; auto
+  | H: (instruction_type_beq _ _ = true) |- _ => apply instruction_type_eq_convert in H; subst; auto
+  | H: (local_ctx_beq _ _ = true) |- _ => apply local_ctx_eq_convert in H; subst; auto
+  | H: (representation_beq _ _ = true) |- _ => apply representation_eq_convert in H; subst; auto
+  | H: (dropability_beq _ _ = true) |- _ => apply dropability_eq_convert in H; subst; auto
+  | H: (copyability_beq _ _ = true) |- _ => apply copyability_eq_convert in H; subst; auto
+  | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
+  | H: (function_type_beq _ _ = true) |- _ => apply function_type_eq_convert in H; subst; auto
+  | H: (type_beq _ _ = true) |- _ => apply type_eq_convert in H; subst; auto
+  | H: (instruction_type_beq _ _ = true) |- _ => apply instruction_type_eq_convert in H; subst; auto
+  | H: (module_type_beq _ _ = true) |- _ => apply module_type_eq_convert in H; subst; auto
+  | H: (memory_beq _ _ = true) |- _ => apply memory_eq_convert in H; subst; auto
+  | H: (num_type_beq _ _ = true) |- _ => apply num_type_eq_convert in H; subst; auto
+  | H: (list_beq type type_beq _ _ = true) |- _ => apply list_eq_convert_type in H; subst; auto
+  | H: (list_beq size size_beq _ _ = true) |- _ => apply list_eq_convert_size in H; subst; auto
+  end.
+
 
 
 
@@ -312,17 +585,13 @@ Ltac destruct_on_match_equal resname :=
   | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:resname
   end.
 
-Ltac stupid_unit o :=
-  unfold ok in o; assert (HO: o = tt) by (by destruct o); subst.
 
 Ltac destruct_match_unit Hmatch resname o :=
   destruct_on_match_equal resname; [stupid_unit o | inversion Hmatch].
 
 Ltac my_auto :=
-  match goal with
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; [ | inversion H ]
-  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; [ | inversion H ]
-  | o:ok |- _ => stupid_unit o
+  try structural_auto; try boolean_equality_auto;
+  try match goal with
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -372,74 +641,6 @@ Proof.
   apply type_ok_checker_correct_basic.
 Qed.
 
-Scheme Equality for copyability.
-Scheme Equality for dropability.
-Scheme Equality for atomic_rep.
-Scheme Equality for base_memory.
-Scheme Equality for memory.
-
-Scheme Equality for list.
-
-
-Fixpoint representation_beq (r1:representation) (r2:representation) : bool :=
-  match r1, r2 with
-  | VarR i1, VarR i2 => (i1 =? i2)
-  | SumR r1s, SumR r2s => list_beq representation representation_beq r1s r2s
-  | ProdR r1s, ProdR r2s => list_beq representation representation_beq r1s r2s
-  | AtomR a1, AtomR a2 => atomic_rep_beq a1 a2
-  | _, _ => false
-  end.
-
-Lemma representation_eq_convert :
-  ∀ r1 r2, representation_beq r1 r2 = true <-> r1 = r2.
-Proof.
-  split; intros.
-  - induction r1 using rep_ind; induction r2 using rep_ind; simpl in H; try inversion H.
-    * apply Nat.eqb_eq in H; by subst.
-    * (* okay this is doable, but not worth it rn *)
-      admit.
-    * admit.
-    * (* doable almost certainly *) admit.
-  - subst.
-    induction r2 using rep_ind.
-    * simpl. by apply Nat.eqb_eq.
-    * simpl. (* it gotta be but not worth it rn honestly *)
-Admitted.
-
-Fixpoint size_beq (s1:size) (s2:size) : bool :=
-  match s1, s2 with
-  | VarS i1, VarS i2 => (i1 =? i2)
-  | SumS s1s, SumS s2s => list_beq size size_beq s1s s2s
-  | ProdS s1s, ProdS s2s => list_beq size size_beq s1s s2s
-  | RepS r1, RepS r2 => representation_beq r1 r2
-  | ConstS n1, ConstS n2 => (n1 =? n2)
-  | _, _ => false
-  end.
-
-Lemma size_eq_convert :
-  ∀ s1 s2, size_beq s1 s2 = true <-> s1 = s2.
-Proof.
-Admitted.
-
-Fixpoint kind_beq (k1:kind) (k2:kind) : bool :=
-  match k1, k2 with
-  | VALTYPE r1 c1 d1, VALTYPE r2 c2 d2 =>
-      andb (representation_beq r1 r2) (andb (copyability_beq c1 c2) (dropability_beq d1 d2))
-  | MEMTYPE s1 d1, MEMTYPE s2 d2 =>
-      andb (size_beq s1 s2) (dropability_beq d1 d2)
-  | _, _ => false
-  end.
-
-Lemma kind_eq_convert :
-  ∀ k1 k2, kind_beq k1 k2 = true <-> k1 = k2.
-Proof. Admitted.
-
-Lemma kind_neq_convert :
-  ∀ k1 k2, kind_beq k1 k2 = false <-> k1 <> k2.
-Proof.
-  split; intros.
-  (* there's some decidability lemmas that need to be done. This is fine to leave. *)
-Admitted.
 
 
 Definition mono_mem_checker (μ:memory) : type_checker_res :=
@@ -467,41 +668,11 @@ Definition subkind_of_checker (κ1:kind) (κ2:kind) : type_checker_res :=
   end.
 
 
-Lemma dropability_eq_convert :
-  ∀ d1 d2, dropability_beq d1 d2 = true <-> d1 = d2.
-Proof.
-  split; intros.
-  - by apply internal_dropability_dec_bl in H.
-  - by apply internal_dropability_dec_lb in H.
-Qed.
-
-Lemma copyability_eq_convert :
-  ∀ c1 c2, copyability_beq c1 c2 = true <-> c1 = c2.
-Proof.
-  split; intros;
-    [by apply internal_copyability_dec_bl in H | by apply internal_copyability_dec_lb in H].
-Qed.
-
-Lemma memory_eq_convert :
-  ∀ m1 m2, memory_beq m1 m2 = true <-> m1 = m2.
-Proof. Admitted.
 
 
 Ltac my_auto2 :=
-  match goal with
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; [ | inversion H ]; simpl in *
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; [ inversion H | ]; simpl in *
-  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; [ | inversion H ]
-  | o:ok |- _ => stupid_unit o
-  | H: ok_term = ok_term |- _ => clear H
-  | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: true = false |- _ => inversion H
-  | H: false = true |- _ => inversion H
-  | H: (representation_beq _ _ = true) |- _ => apply representation_eq_convert in H; subst; auto
-  | H: (dropability_beq _ _ = true) |- _ => apply dropability_eq_convert in H; subst; auto
-  | H: (copyability_beq _ _ = true) |- _ => apply copyability_eq_convert in H; subst; auto
-  | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
+  try structural_auto; try boolean_equality_auto;
+  try match goal with
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -526,7 +697,6 @@ Proof.
     repeat my_auto2;
     try apply KSubValExCopy; try apply KSubValNoCopy; try apply KSubValExDrop; try apply KSubMemExDrop;
     repeat my_auto2.
-  1-4: destruct c; simpl in *; inversion H.
 Qed.
 
 Definition has_kind_ok_checker (F:function_ctx) (t:type) (k:kind) : type_checker_res :=
@@ -544,30 +714,12 @@ Qed.
 
 
 
-(* Time for has-kind oh boy oh boy *)
 
 
 (* This function just grabs the kind out of the type *)
 Definition grab_kind (F:function_ctx) (t:type) : option kind :=
-  match t with
-  | I31T k => Some k
-  | NumT k _ => Some k
-  | SumT k _ => Some k
-  | VariantT k _ => Some k
-  | ProdT k _ => Some k
-  | StructT k _ => Some k
-  | RefT k _ _ => Some k
-  | CodeRefT k _ => Some k
-  | SerT k _ => Some k
-  | PlugT k _ => Some k
-  | SpanT k _ => Some k
-  | RecT k _ => Some k
-  | ExistsMemT k _ => Some k
-  | ExistsRepT k _ => Some k
-  | ExistsSizeT k _ => Some k
-  | ExistsTypeT k _ _ => Some k
-  | VarT t => (F.(fc_type_vars)) !! t
-  end.
+  type_kind (F.(fc_type_vars)) t.
+
 
 
 (* A thing that helps with subkinding *)
@@ -609,8 +761,9 @@ Lemma check_if_subkind_works_with_has_kind :
 Proof.
   intros.
   destruct k1, k2; simpl in H; inversion H.
-  - repeat my_auto2. rename r0 into r.
-    destruct c, c0, d, d0; simpl in *; auto; repeat my_auto2; try inversion H.
+  - repeat my_auto2; rename r0 into r;
+    destruct c, c0, d, d0; simpl in *; auto; repeat my_auto2; try inversion H;
+      try inversion HMatch; try inversion HMatch0; try inversion HMatch1; try inversion HMatch2.
     (* Look I know this probably should be ltacable but I couldn't be bothered *)
     + apply (KSub _ _ (VALTYPE r NoCopy ImDrop) _); try constructor; auto.
     + apply (KSub _ _ (VALTYPE r ExCopy ExDrop) _); try constructor; auto.
@@ -620,18 +773,17 @@ Proof.
     + apply (KSub _ _ (VALTYPE r ExCopy ImDrop) _); try constructor; auto.
     + apply (KSub _ _ (VALTYPE r ExCopy ExDrop) _); try constructor; auto.
       apply (KSub _ _ (VALTYPE r ImCopy ExDrop) _); try constructor; auto.
+    + apply (KSub _ _ (VALTYPE r ImCopy ExDrop) _); try constructor; auto.
     + apply (KSub _ _ (VALTYPE r ExCopy ExDrop) _); try constructor; auto.
       apply (KSub _ _ (VALTYPE r ExCopy ImDrop) _); try constructor; auto.
       apply (KSub _ _ (VALTYPE r ImCopy ImDrop) _); try constructor; auto.
     + apply (KSub _ _ (VALTYPE r ExCopy ImDrop) _); try constructor; auto.
       apply (KSub _ _ (VALTYPE r ImCopy ImDrop) _); try constructor; auto.
     + apply (KSub _ _ (VALTYPE r ImCopy ExDrop) _); try constructor; auto.
-    + apply (KSub _ _ (VALTYPE r ExCopy ImDrop) _); try constructor; auto.
       apply (KSub _ _ (VALTYPE r ImCopy ImDrop) _); try constructor; auto.
     + apply (KSub _ _ (VALTYPE r ImCopy ImDrop) _); try constructor; auto.
     + apply (KSub _ _ (VALTYPE r ImCopy ImDrop) _); try constructor; auto.
-  - repeat my_auto2.
-    destruct d0; auto.
+  - repeat my_auto2; destruct d0; auto.
     apply (KSub _ _ (MEMTYPE s0 ImDrop) _); try constructor; auto.
 Qed.
 
@@ -992,6 +1144,7 @@ Proof.
   - admit.
 Admitted.
 
+(* I think type_size can do this but oh well *)
 Definition grab_size F τ : option size :=
   match grab_kind F τ with
   | Some κ =>
@@ -1037,7 +1190,6 @@ Proof.
   by apply (MonoSizeMEMTYPE _ _ s ImDrop).
 Qed.
 
-Scheme Equality for primitive.
 
 Definition type_rep_eq_prim_checker F τ ηs : type_checker_res :=
   match grab_rep F τ with
@@ -1068,7 +1220,7 @@ Proof.
   admit.
 Admitted.
 
-(* NOTE: not a bit of confusing terminology. size_beq is actual equality.
+(* NOTE:  a bit of confusing terminology. size_beq is actual equality.
  size_eq_checker will be about it evalling to the same n *)
 
 Definition size_eq_checker σ1 σ2 : type_checker_res :=
@@ -1231,66 +1383,6 @@ Proof.
 Qed.
 
 
-Scheme Equality for num_type.
-
-Lemma num_type_eq_convert :
-  ∀ nt1 nt2, num_type_beq nt1 nt2 = true <-> nt1 = nt2.
-Proof. Admitted.
-
-(* type beq. Oh boy. Let's go. *)
-Fixpoint type_beq (τ1:type) (τ2:type) : bool :=
-  match τ1, τ2 with
-  | VarT i1, VarT i2 => i1 =? i2
-  | I31T κ1, I31T κ2 => kind_beq κ1 κ2
-  | NumT κ1 nt1, NumT κ2 nt2 => andb (kind_beq κ1 κ2) (num_type_beq nt1 nt2)
-  | SumT κ1 τs1, SumT κ2 τs2
-  | VariantT κ1 τs1, VariantT κ2 τs2
-  | ProdT κ1 τs1, ProdT κ2 τs2
-  | StructT κ1 τs1, StructT κ2 τs2 =>
-      andb (kind_beq κ1 κ2) (list_beq type type_beq τs1 τs2)
-  | RefT κ1 m1 τ1, RefT κ2 m2 τ2 =>
-      andb (andb (kind_beq κ1 κ2) (memory_beq m1 m2)) (type_beq τ1 τ2)
-  | CodeRefT κ1 ft1, CodeRefT κ2 ft2 =>
-      andb (kind_beq κ1 κ2) (function_type_beq ft1 ft2)
-  | SerT κ1 t1, SerT κ2 t2 => andb (kind_beq κ1 κ2) (type_beq t1 t2)
-  | PlugT κ1 ρ1, PlugT κ2 ρ2 => andb (kind_beq κ1 κ2) (representation_beq ρ1 ρ2)
-  | SpanT κ1 σ1, SpanT κ2 σ2 => andb (kind_beq κ1 κ2) (size_beq σ1 σ2)
-  | RecT κ1 t1, RecT κ2 t2
-  | ExistsMemT κ1 t1, ExistsMemT κ2 t2
-  | ExistsRepT κ1 t1, ExistsRepT κ2 t2
-  | ExistsSizeT κ1 t1, ExistsSizeT κ2 t2 =>
-      andb (kind_beq κ1 κ2) (type_beq t1 t2)
-  | ExistsTypeT κ11 κ12 t1, ExistsTypeT κ21 κ22 t2 =>
-      andb (andb (kind_beq κ11 κ21) (kind_beq κ12 κ22)) (type_beq t1 t2)
-  | _, _ => false
-  end
-with function_type_beq (fτ1:function_type) (fτ2:function_type) : bool :=
-  match fτ1, fτ2 with
-  | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
-      andb (list_beq type type_beq τs11 τs21) (list_beq type type_beq τs12 τs22)
-  | ForallMemT ft1, ForallMemT ft2
-  | ForallRepT ft1, ForallRepT ft2
-  | ForallSizeT ft1, ForallSizeT ft2 => function_type_beq ft1 ft2
-  | ForallTypeT κ1 ft1, ForallTypeT κ2 ft2 =>
-      andb (kind_beq κ1 κ2) (function_type_beq ft1 ft2)
-  | _, _ => false
-  end.
-
-
-
-
-
-(* I should prove these eventually. Mainly to convince myself that
-list_beq will do what I want it to do. Although I think it's just fine.
-
- TODO *)
-Lemma type_eq_convert :
-  ∀ τ1 τ2, type_beq τ1 τ2 = true <-> τ1 = τ2.
-Proof. Admitted.
-
-Lemma function_type_eq_convert :
-  ∀ ft1 ft2, function_type_beq ft1 ft2 = true <-> ft1 = ft2.
-Proof. Admitted.
 
 Ltac my_auto3_5 :=
   match goal with
@@ -1568,13 +1660,6 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
 
   end.
 
-(* I'm bad at everything so monomorphic *)
-Lemma list_eq_convert_type :
-  ∀ τs1 τs2, list_beq type type_beq τs1 τs2 = true <-> τs1 = τs2.
-Proof. Admitted.
-Lemma list_eq_convert_size :
-  ∀ τs1 τs2, list_beq size size_beq τs1 τs2 = true <-> τs1 = τs2.
-Proof. Admitted.
 
 
 (* NOTE: the reason this has such a weird set up is because this
@@ -1728,7 +1813,6 @@ Admitted.
 Lemma resolves_path_checker_correct :
   ∀ τ p oτ pres, resolves_path_checker τ p oτ pres = ok_term -> resolves_path τ p oτ pres.
 Proof. intros. apply resolves_path_checker_correct_basic. auto. Qed.
-
 
 Definition grab_inner_ft (ft:function_type) : option function_type :=
   match ft with
@@ -2123,29 +2207,7 @@ Proof.
 Qed.
 
 (* You know all the previous should have instead been using an instruction_type_beq. Oops.*)
-Definition instruction_type_beq (inst1 inst2:instruction_type) : bool :=
-  match inst1, inst2 with
-  | InstrT τs11 τs12, InstrT τs21 τs22 =>
-      andb (list_beq type type_beq τs11 τs21) (list_beq type type_beq τs12 τs22)
-  end.
-Lemma instruction_type_eq_convert :
-  ∀ inst1 inst2, instruction_type_beq inst1 inst2 = true <-> inst1 = inst2.
-Proof.
-  split; intros; destruct inst1, inst2; unfold instruction_type_beq in *; simpl in *.
-  - repeat my_auto3_5. apply list_eq_convert_type in H1, H2. subst; auto.
-  - inversion H; subst.
-    apply andb_true_intro; split; apply list_eq_convert_type; auto.
-Qed.
 
-About local_ctx.
-Definition local_ctx_beq (L L':local_ctx) : bool := list_beq type type_beq L L'.
-Lemma local_ctx_eq_convert :
-  ∀ L L', local_ctx_beq L L' = true <-> L = L'.
-Proof.
-  split; intros; unfold local_ctx_beq in *.
-  - apply list_eq_convert_type in H; subst; auto.
-  - subst; apply list_eq_convert_type; auto.
-Qed.
 
 (* I'm going to do this really stupidly *)
 Definition has_num_type_type (τ:type) : bool :=
@@ -2172,57 +2234,6 @@ Proof.
     + right; right. by apply type_eq_convert.
 Qed.
 
-Fixpoint lifted_check_recursion (insts:list instruction) (func: instruction -> bool) : bool :=
-   match insts with
-    | [] => true
-    | e :: es => andb (func e) (lifted_check_recursion es func)
-    end.
-
-(* TODO ask john *)
-Fail Fixpoint check_recursion_single_inner (inst:instruction) : bool :=
-  match inst with
-  | IUnreachable _ => false
-  | IBlock _ _ es => (lifted_check_recursion es check_recursion_single_inner)
-  | _ => true
-  end.
-
-
-Fail Fixpoint check_recursion_single_outer (inst:instruction) : bool :=
-  match inst with
-  | IUnreachable _ => false
-  | IBlock _ _ es => check_recursion_list_outer es
-  | _ => true
-  end
-with check_recursion_list_outer insts : bool :=
-  match insts with
-  | [] => true
-  | e :: es => andb (check_recursion_single_outer e) (check_recursion_list_outer es)
-  end.
-
-Fail Fixpoint check2_recursion_list_outer (insts:list instruction) : bool :=
-  match insts with
-  | [] => true
-  | e :: es => andb (check2_recursion_single_outer e) (check2_recursion_list_outer es)
-  end
-with check2_recursion_single_outer (inst:instruction) : bool :=
-  match inst with
-  | IUnreachable _ => false
-  | IBlock _ _ es => check2_recursion_list_outer es
-  | _ => true
-  end.
-
-Fail Fixpoint check2_recursion_list_inner (insts:list instruction) : bool :=
-  let fix check2_recursion_single_inner (inst:instruction) : bool :=
-    match inst with
-    | IUnreachable _ => false
-    | IBlock _ _ es5 => check2_recursion_list_inner es5
-    | _ => true
-    end
-  in
-  match insts with
-  | [] => true
-  | e :: es => andb (check2_recursion_single_inner e) (check2_recursion_list_inner es)
-  end.
 
 
 Fixpoint split_list_all_last {A:Type} (l:list A) : option (list A * A) :=
@@ -2295,10 +2306,10 @@ Proof.
       admit.
 Admitted.
 
-Definition get_instruction_type_arity (ψ:instruction_type) : nat * nat :=
+(*Definition get_instruction_type_arity (ψ:instruction_type) : nat * nat :=
   match ψ with
   | InstrT τs1 τs2 => (Init.Datatypes.length τs1, Init.Datatypes.length τs2)
-  end.
+  end.*)
 
 (* inl means no error. None just means can't synth (uncreachable,
    break, return). inr means error in synthesizing (possible in
@@ -2363,11 +2374,6 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
   | ISwap _ _ => inl (Some L)
   end.
 
-
-Example a := (list_suffix (type_i32 :: type_i32 :: type_i64 :: [])
-                          (type_i32 :: type_i32 :: type_i64 :: [])  ).
-Example ayeah: a = Some [].
-Proof. unfold a. by cbn. Qed.
 
 (* this is the old version with arity. just list_suffix is the same
                 let (e_n1, e_n2) := get_instruction_type_arity e_ψ in
@@ -3035,25 +3041,6 @@ Proof.
   - by apply have_instruction_type_checker_correct in H.
 Admitted.
 
-Definition module_type_beq (m1:module_type) (m2:module_type) : bool :=
-  andb (list_beq function_type function_type_beq m1.(mt_imports) m2.(mt_imports))
-       (list_beq function_type function_type_beq m1.(mt_exports) m2.(mt_exports)).
-Lemma module_type_eq_convert :
-  ∀ m1 m2, module_type_beq m1 m2 = true <-> m1 = m2.
-Proof.
-  split; intros.
-  - destruct m1, m2.
-    unfold module_type_beq in H. my_auto5.
-    cbn in H1. cbn in H2.
-    (* yup the things that are equal are equal *)
-    admit.
-  - subst.
-    destruct m2.
-    unfold module_type_beq. cbn.
-    (* yup it's equal *)
-    admit.
-    (* to complete this, it's a list_beq thing *)
-Admitted.
 
 
 Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_res :=
