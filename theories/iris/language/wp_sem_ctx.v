@@ -60,8 +60,22 @@ Section wp_sem_ctx.
   Definition wp_sem_ctx s E es S Φ :=
     lenient_wp s E (to_e_list es) (wp_sem_ctx_post S Φ).
 
-  Lemma to_val_v_to_e_list vs : iris.to_val (v_to_e_list vs) = Some (immV vs).
-  Admitted.
+  (* copied from compat_lemmas/shared.v *)
+  Lemma to_val_v_to_e vs :
+    to_val (v_to_e_list vs) = Some (immV vs).
+  Proof.
+    induction vs => //=.
+    unfold to_val.
+    unfold RichWasm.iris.language.iris.iris.to_val.
+    rewrite (separate1 (AI_basic _)).
+    rewrite map_app.
+    rewrite -cat_app.
+    rewrite merge_app.
+    unfold to_val, RichWasm.iris.language.iris.iris.to_val in IHvs.
+    destruct (merge_values_list _) eqn:Hvs => //.
+    inversion IHvs; subst v.
+    simpl. done.
+  Qed.
 
   (* duplicate in compat_lemmas/shared.v *)
   Lemma push_const_lh_depth {i : nat} (lh : valid_holed i) w :
@@ -99,7 +113,7 @@ Section wp_sem_ctx.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite map_app.
     rewrite map_map.
-    iApply lenient_wp_val_app; first apply to_val_v_to_e_list.
+    iApply lenient_wp_val_app; first apply to_val_v_to_e.
     iApply lenient_wp_wand; last iApply "Hes".
     iIntros (lv) "(%f & Hfr & Hfr_inv & HΦ)".
     iExists f.
@@ -345,7 +359,14 @@ Section wp_sem_ctx.
   Lemma cons_lookup_sub_lt {A} i j x (xs : list A) :
     j < i ->
     (x :: xs) !! (i - j) = xs !! (i - S j).
-  Admitted.
+  Proof.
+    intros H.
+    apply Nat.sub_gt in H.
+    destruct (i - j) eqn:Hsub; first done.
+    clear H.
+    rewrite Nat.sub_succ_r.
+    by rewrite Hsub.
+  Qed.
 
   Definition is_basic_const (e : basic_instruction) : bool :=
     match e with
@@ -562,7 +583,7 @@ Section wp_sem_ctx.
     iApply wp_base_pull.
     iApply wp_wasm_empty_ctx.
     iApply (wp_invoke_native with "[$] [$] [$]").
-    { apply to_val_v_to_e_list. }
+    { apply to_val_v_to_e. }
     { done. }
     { done. }
     iIntros "!> (Hfr & Hrun & Ha)".
@@ -598,7 +619,7 @@ Section wp_sem_ctx.
         {
           instantiate (2 := v_to_e_list vs').
           instantiate (1 := vs').
-          apply to_val_v_to_e_list.
+          apply to_val_v_to_e.
         }
         { by rewrite length_map. }
         {
