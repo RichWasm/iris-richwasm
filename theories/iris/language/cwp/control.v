@@ -352,6 +352,61 @@ Section control.
     by iExists [].
   Qed.
 
+  Lemma cwp_br_if_nonzero s E (f : frame) c i L R Φ :
+    c <> Wasm_int.int_zero i32m ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_br i] @ s; E UNDER L; R {{ Φ }}) -∗
+    CWP [BI_const (VAL_int32 c); BI_br_if i] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hc) "Hf Hrun Hbr".
+    iApply (wp_br_if_true with "[$] [$]"); first done.
+    iIntros "!> Hf Hrun".
+    by iSpecialize ("Hbr" with "[$] [$]").
+  Qed.
+
+  Lemma cwp_br_if_zero s E (f : frame) c i L R Φ :
+    c = Wasm_int.int_zero i32m ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    ▷ Φ f [] -∗
+    CWP [BI_const (VAL_int32 c); BI_br_if i] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hc) "Hf Hrun HΦ".
+    iApply (wp_wand with "[Hf Hrun HΦ]").
+    - iApply (wp_br_if_false with "[$] [$]"); first done.
+      instantiate (1 := fun v => (⌜v = immV []⌝ ∗ Φ f [])%I).
+      iModIntro.
+      by iFrame.
+    - iIntros (v) "[[[-> HΦ] Hrun] Hf]". iFrame.
+  Qed.
+
+  Lemma cwp_br_table s E (f : frame) ixs c i j L R Φ :
+    ixs !! Wasm_int.nat_of_uint i32m c = Some j ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_br j] @ s; E UNDER L; R {{ Φ }}) -∗
+    CWP [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hc) "Hf Hrun Hbr".
+    iApply (wp_br_table with "[$] [$]"); first by rewrite nth_error_lookup.
+    iIntros "!> Hf Hrun".
+    by iSpecialize ("Hbr" with "[$] [$]").
+  Qed.
+
+  Lemma cwp_br_table_default s E (f : frame) ixs c i L R Φ :
+    length ixs <= Wasm_int.nat_of_uint i32m c ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_br i] @ s; E UNDER L; R {{ Φ }}) -∗
+    CWP [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hc) "Hf Hrun Hbr".
+    iApply (wp_br_table_length with "[$] [$]"); first done.
+    iIntros "!> Hf Hrun".
+    by iSpecialize ("Hbr" with "[$] [$]").
+  Qed.
+
   Lemma cwp_return s E vs (f : frame) n P L Φ :
     length vs = n ->
     ↪[frame] f -∗
