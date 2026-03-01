@@ -35,7 +35,7 @@ Section control.
       + exact Hvh.
   Qed.
 
-  Lemma lwp_cwp_label s E (f : datatypes.frame) es esk n L R Ψ Φ :
+  Lemma lwp_cwp_label s E (f : frame) es esk n L R Ψ Φ :
     ↪[frame] f -∗
     ↪[RUN] -∗
     (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E es (cwp_post_lp ((n, Ψ) :: L) R Φ)) -∗
@@ -119,6 +119,71 @@ Section control.
     - iDestruct "HΦ" as "(%_ & _ & _ & [_ []])".
   Qed.
 
+  Lemma lwp_cwp_local s E f0 vs es ts ts2 inst L R Φ :
+    ↪[frame] f0 -∗
+    ↪[RUN] -∗
+    (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗ ↪[RUN] -∗
+     lenient_wp s E
+       (map AI_basic [BI_block (Tf [] ts2) es])
+       (cwp_post_lp [] (Some (length ts2, Φ f0))
+                    (fun _ vs0 => Φ f0 vs0 ∗ ⌜length vs0 = length ts2⌝))) -∗
+    lenient_wp s E
+      [AI_local (length ts2) (Build_frame (vs ++ n_zeros ts) inst)
+         [AI_basic (BI_block (Tf [] ts2) es)]]
+      (cwp_post_lp L R Φ).
+  Proof.
+    iIntros "Hfr Hrun Hes".
+    iApply (wp_frame_bind with "[$]"); first done.
+    iIntros "Hfr".
+    iSpecialize ("Hes" with "[$] [$]").
+    iApply (wp_wand with "[Hes]"); first iApply "Hes".
+    iIntros (v) "(%f & Hfr & _ & HΦ)".
+    iExists f.
+    iFrame.
+    iIntros "Hfr".
+    destruct v.
+    - iDestruct "HΦ" as "(Hrun & HΦ & %Hlen2)".
+      iApply (wp_wand with "[HΦ Hfr Hrun]").
+      + iApply (wp_frame_value with "[$] [$]").
+        * apply iris.to_of_val.
+        * by rewrite length_map.
+        * instantiate (1 := fun v => (∃ vs, ⌜v = immV vs⌝ ∗ Φ f0 vs)%I).
+          iModIntro. iExists l. by iFrame.
+      + iIntros (v) "([(%vs' & -> & HΦ) Hrun] & Hfr)".
+        iExists f0. iFrame.
+    - iDestruct "HΦ" as "[Hbail _]".
+      iApply (wp_wand with "[Hfr]").
+      + iApply (wp_frame_trap with "[$]").
+        by instantiate (1 := fun v => ⌜v = trapV⌝%I).
+      + iIntros (v) "[-> Hfr]". iExists f0. by iFrame.
+    - iUnfold lp_noframe, lp_br, cwp_post_lp, cwp_post_br in "HΦ".
+      rewrite lookup_nil.
+      iDestruct "HΦ" as "[_ []]".
+    - iDestruct "HΦ" as "(Hrun & %vs0 & %vs' & %Hbase & %Hlen' & HΦ)".
+      iApply (wp_wand with "[HΦ Hrun Hfr]").
+      + iApply wp_frame_return.
+        {
+          instantiate (2 := v_to_e_list vs').
+          instantiate (1 := vs').
+          apply to_val_v_to_e.
+        }
+        { by rewrite length_map. }
+        {
+          unfold iris.of_val.
+          rewrite (sfill_take_base _ _ _ _ Hbase).
+          apply sfill_to_lfilled.
+        }
+        iFrame.
+        iApply wp_value.
+        { by instantiate (1 := immV vs'). }
+        instantiate (1 := fun v => (⌜v = immV vs'⌝ ∗ Φ f0 vs')%I).
+        by iFrame.
+      + iIntros (v) "[[[-> HΦ] Hrun] Hfr]".
+        iExists f0. iFrame.
+    - iUnfold lp_noframe, lp_host, cwp_post_lp in "HΦ".
+      iDestruct "HΦ" as "[_ []]".
+  Qed.
+
   Lemma cwp_block (f : frame) s E es L R vs ts1 ts2 Φ :
     is_true (basic_const_list vs) ->
     length vs = length ts1 ->
@@ -143,7 +208,7 @@ Section control.
     - iExists f'. iFrame.
   Qed.
 
-  Lemma cwp_loop (f : datatypes.frame) s E es L R vs ts1 ts2 Φ Ψ :
+  Lemma cwp_loop (f : frame) s E es L R vs ts1 ts2 Φ Ψ :
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -187,7 +252,7 @@ Section control.
       + iApply "IH".
   Qed.
 
-  Lemma cwp_loop' (f : datatypes.frame) s E es L R vs ts1 ts2 Φ Ψ :
+  Lemma cwp_loop' (f : frame) s E es L R vs ts1 ts2 Φ Ψ :
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -238,7 +303,7 @@ Section control.
     by iExists [].
   Qed.
 
-  Lemma cwp_return s E vs (f : datatypes.frame) n P L Φ :
+  Lemma cwp_return s E vs (f : frame) n P L Φ :
     length vs = n ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -261,20 +326,20 @@ Section control.
       by iExists [].
   Qed.
 
-  Lemma cwp_call s E (f0 : datatypes.frame) inst vs es ts1 ts2 ts i a L R Φ :
-    inst_funcs (f_inst f0) !! i = Some a ->
+  Lemma cwp_call s E (f0 : frame) inst vs es ts1 ts2 ts i a L R Φ :
+    f0.(f_inst).(inst_funcs) !! i = Some a ->
     length vs = length ts1 ->
+    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-    (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
+    (N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+     ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
      ↪[RUN] -∗
-     N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
      CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
          {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
     CWP map BI_const vs ++ [BI_call i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hi Hlen) "Hfr Hrun Ha Hes".
+    iIntros (Hi Hlen) "Ha Hfr Hrun Hes".
     unfold cwp_wasm, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite map_app.
@@ -292,55 +357,51 @@ Section control.
     { done. }
     { done. }
     iIntros "!> (Hfr & Hrun & Ha)".
-    iApply (wp_frame_bind with "[$]"); first done.
-    iIntros "Hfr".
-    iSpecialize ("Hes" with "[$] [$] [$]").
-    iApply (wp_wand with "[Hes]"); first iApply "Hes".
-    iIntros (v) "(%f & Hfr & _ & HΦ)".
-    iExists f.
-    iFrame.
-    iIntros "Hfr".
-    destruct v.
-    - iDestruct "HΦ" as "(Hrun & HΦ & %Hlen2)".
-      iApply (wp_wand with "[HΦ Hfr Hrun]").
-      + iApply (wp_frame_value with "[$] [$]").
-        * apply iris.to_of_val.
-        * by rewrite length_map.
-        * instantiate (1 := fun v => (∃ vs, ⌜v = immV vs⌝ ∗ Φ f0 vs)%I).
-          iModIntro. iExists l. by iFrame.
-      + iIntros (v) "([(%vs' & -> & HΦ) Hrun] & Hfr)".
-        iExists f0. iFrame.
-    - iDestruct "HΦ" as "[Hbail _]".
-      iApply (wp_wand with "[Hfr]").
-      + iApply (wp_frame_trap with "[$]").
-        by instantiate (1 := fun v => ⌜v = trapV⌝%I).
-      + iIntros (v) "[-> Hfr]". iExists f0. by iFrame.
-    - iUnfold lp_noframe, lp_br, cwp_post_lp, cwp_post_br in "HΦ".
-      rewrite lookup_nil.
-      iDestruct "HΦ" as "[_ []]".
-    - iDestruct "HΦ" as "(Hrun & %vs0 & %vs' & %Hbase & %Hlen' & HΦ)".
-      iApply (wp_wand with "[HΦ Hrun Hfr]").
-      + iApply wp_frame_return.
-        {
-          instantiate (2 := v_to_e_list vs').
-          instantiate (1 := vs').
-          apply to_val_v_to_e.
-        }
-        { by rewrite length_map. }
-        {
-          unfold iris.of_val.
-          rewrite (sfill_take_base _ _ _ _ Hbase).
-          apply sfill_to_lfilled.
-        }
-        iFrame.
-        iApply wp_value.
-        { by instantiate (1 := immV vs'). }
-        instantiate (1 := fun v => (⌜v = immV vs'⌝ ∗ Φ f0 vs')%I).
-        by iFrame.
-      + iIntros (v) "[[[-> HΦ] Hrun] Hfr]".
-        iExists f0. iFrame.
-    - iUnfold lp_noframe, lp_host, cwp_post_lp in "HΦ".
-      iDestruct "HΦ" as "[_ []]".
+    iApply (lwp_cwp_local with "[$] [$]").
+    iIntros "Hfr Hrun".
+    by iSpecialize ("Hes" with "[$] [$] [$]").
+  Qed.
+
+  Lemma cwp_call_indirect s E (f0 : frame) inst vs es ts1 ts2 ts c i j a L R Φ :
+    f0.(f_inst).(inst_funcs) !! i = Some a ->
+    f0.(f_inst).(inst_types) !! i = Some (Tf ts1 ts2) ->
+    f0.(f_inst).(inst_tab) !! 0 = Some j ->
+    length vs = length ts1 ->
+    N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
+    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+    ↪[frame] f0 -∗
+    ↪[RUN] -∗
+    (N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
+     N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+     ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
+     ↪[RUN] -∗
+     CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
+         {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
+    CWP map BI_const vs ++ [BI_const (VAL_int32 c); BI_call_indirect i] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hfuncs Htypes Htab Hvs) "Hj Ha Hfr Hrun Hes".
+    iApply wp_wasm_empty_ctx.
+    unfold to_e_list.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite map_app.
+    rewrite map_map.
+    rewrite <- (app_nil_r (map AI_basic _)).
+    iApply wp_base_push; first apply v_to_e_is_const_list.
+    iApply (wp_call_indirect_success_ctx with "[$] [$] [$] [$]").
+    1, 2: done.
+    iIntros "!> (Hj & Ha & Hfr) Hrun".
+    iApply wp_base_pull.
+    iApply wp_wasm_empty_ctx.
+    simpl seq.cat.
+    rewrite app_nil_r.
+    iApply (wp_invoke_native with "[$] [$] [$]").
+    { apply to_val_v_to_e. }
+    { done. }
+    { done. }
+    iIntros "!> (Hfr & Hrun & Ha)".
+    iApply (lwp_cwp_local with "[$] [$]").
+    iIntros "Hfr Hrun".
+    by iSpecialize ("Hes" with "[$] [$] [$] [$]").
   Qed.
 
 End control.
