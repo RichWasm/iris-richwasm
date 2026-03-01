@@ -82,8 +82,8 @@
         rec {
           default = iris-richwasm;
 
-          # NOTE(owen): this doesn't need to be seperate but since it rarely
-          # chanages, it greatly reduces build time
+          # NOTE(owen): this doesn't need to be separate but since it rarely
+          # changes, it greatly reduces build time
           iris-wasm = coqPackages.mkCoqDerivation {
             pname = "iris-wasm";
             version = "2.0";

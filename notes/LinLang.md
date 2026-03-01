@@ -17,7 +17,7 @@ and recursive types.
 
 binop := + | - | × | ÷
 
-v ::=
+e ::=
     | n
     | x
     | (λ (x : τ₁) : τ₂ . e)
@@ -27,7 +27,7 @@ v ::=
     | (app v₁ v₂)
     | (let (x : τ) = e₁ in e₂)
     | (split (x₁ : τ₁) ... (xₙ : τₙ) = e₁ in e₂)
-    | (cases v (case (x₁ : τ₁) e₁) ... (case (xₙ : τₙ) eₙ))
+    | (cases e (case (x₁ : τ₁) e₁) ... (case (xₙ : τₙ) eₙ))
     | (unfold τ e)
     | (if0 e₁ then e₂ else e₃)
     | (e₁ binop e₂)

@@ -21,6 +21,6 @@ dune build
 
 ## Additional Dependencies
 
-The cli and certian tests require `wabt` (WebAssembly Binary Toolkit) to
+The cli and certain tests require `wabt` (WebAssembly Binary Toolkit) to
 convert between the produced binary and WebAssembly text format.
 
