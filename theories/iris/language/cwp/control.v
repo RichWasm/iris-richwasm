@@ -1,10 +1,10 @@
 Require Import iris.proofmode.tactics.
 
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
-From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_structural lwp_trap.
+From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_pure lwp_structural lwp_trap.
 From RichWasm.iris.language.cwp Require Import base def util.
 From RichWasm.iris.rules Require Import
-  iris_rules_bind iris_rules_calls iris_rules_trap iris_rules_control.
+  iris_rules_bind iris_rules_calls iris_rules_pure iris_rules_trap iris_rules_control.
 
 Set Bullet Behavior "Strict Subproofs".
 
@@ -184,6 +184,29 @@ Section control.
         iExists f0. iFrame.
     - iUnfold lp_noframe, lp_host, cwp_post_lp in "HΦ".
       iDestruct "HΦ" as "[_ []]".
+  Qed.
+
+  Lemma cwp_nop s E (f : frame) L R Φ :
+    ↪[frame] f -∗ ↪[RUN] -∗ ▷ Φ f [] -∗ CWP [BI_nop] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros "Hf Hrun HΦ".
+    unfold cwp_wasm.
+    iApply (lenient_wp_nop with "[$] [$] [HΦ]").
+    - by iModIntro.
+    - done.
+  Qed.
+
+  Lemma cwp_unreachable s E (f : frame) L R Φ :
+    ↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_unreachable] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros "Hf Hrun".
+    unfold cwp_wasm, lenient_wp.
+    simpl to_e_list.
+    iApply (wp_wand with "[Hf Hrun]").
+    - iApply (wp_unreachable with "[$] [$]").
+      by instantiate (1 := fun v => ⌜v = trapV⌝%I).
+    - iIntros (v) "[[-> Hbail] Hf]".
+      by iFrame.
   Qed.
 
   Lemma cwp_block (f : frame) s E es L R vs ts1 ts2 Φ :
