@@ -171,6 +171,10 @@ Section Relations.
   Definition atoms_interp (os : list atom) : leibnizO (list value) -n> iPropO Σ :=
     λne vs, big_sepL2 (const atom_interp) os vs.
 
+  Lemma atoms_interp_cons o os v vs:
+    atoms_interp (o :: os) (v :: vs) ⊣⊢ atom_interp o v ∗ atoms_interp os vs.
+  Proof. done. Qed.
+
   Definition atom_fits_prim (η : primitive) (a : atom) : Prop :=
     match η, a with
     | I32P, PtrA _
