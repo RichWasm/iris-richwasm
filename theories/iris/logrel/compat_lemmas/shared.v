@@ -1182,7 +1182,7 @@ Section Fundamental_Shared.
           rewrite <- (app_nil_l [_]).
           iApply (cwp_block with "[$] [$] [Hptr]").
           1, 2: done.
-          iIntros "Hf Hrun".
+          iIntros "!> Hf Hrun".
           iApply cwp_weak_take_labels.
           instantiate (1 := 0%nat).
           iApply cwp_weak_no_return.
@@ -1226,7 +1226,7 @@ Section Fundamental_Shared.
         rewrite <- (app_nil_l [_]).
         iApply (cwp_block with "[$] [$] [Hptr]").
         1, 2: done.
-        iIntros "Hf Hrun".
+        iIntros "!> Hf Hrun".
         cwp_chomp 4%nat.
         iApply (cwp_seq with "[Hf Hrun]").
         * iApply cwp_weak_take_labels.
@@ -1252,7 +1252,7 @@ Section Fundamental_Shared.
           change [AI_basic (BI_block (Tf [] []) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_mm])).
           iApply (cwp_block with "[$] [$] [Hptr]").
           1, 2: done.
-          iIntros "Hf Hrun".
+          iIntros "!> Hf Hrun".
           iApply cwp_weak_take_labels.
           instantiate (1 := 0%nat).
           iApply cwp_weak_no_return.
@@ -1262,7 +1262,7 @@ Section Fundamental_Shared.
         rewrite <- (app_nil_l [_]).
         iApply (cwp_block with "[$] [$] [Hptr]").
         1, 2: done.
-        iIntros "Hf Hrun".
+        iIntros "!> Hf Hrun".
         cwp_chomp 4%nat.
         rewrite take_0 drop_0.
         iApply (cwp_seq with "[Hf Hrun]").
@@ -1289,7 +1289,7 @@ Section Fundamental_Shared.
           change [AI_basic (BI_block (Tf [] []) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_gc])).
           iApply (cwp_block with "[$] [$] [Hptr]").
           1, 2: done.
-          iIntros "Hf Hrun".
+          iIntros "!> Hf Hrun".
           iApply cwp_weak_take_labels.
           instantiate (1 := 0%nat).
           iApply cwp_weak_no_return.

@@ -96,8 +96,9 @@ Section structural.
 
   Lemma cwp_seq s E es1 es2 L R Φ1 Φ2 :
     CWP es1 @ E UNDER L; R {{ Φ1 }} -∗
-    (∀ f vs, Φ1 f vs -∗ ↪[frame] f -∗ ↪[RUN] -∗
-             CWP map BI_const vs ++ es2 @ s; E UNDER L; R {{ Φ2 }}) -∗
+    (∀ f vs,
+     Φ1 f vs -∗ ↪[frame] f -∗ ↪[RUN] -∗
+     CWP map BI_const vs ++ es2 @ s; E UNDER L; R {{ Φ2 }}) -∗
     CWP es1 ++ es2 @ s; E UNDER L; R {{ Φ2 }}.
   Proof.
     iIntros "Hes1 Hes2".

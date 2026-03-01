@@ -214,7 +214,7 @@ Section control.
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗ CWP vs ++ es @ s; E UNDER (length ts2, Φ) :: L; R {{ Φ }}) -∗
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP vs ++ es @ s; E UNDER (length ts2, Φ) :: L; R {{ Φ }}) -∗
     CWP vs ++ [BI_block (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hconst Hlen) "Hf Hrun Hes".
@@ -237,9 +237,9 @@ Section control.
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    (↪[frame] f -∗ ↪[RUN] -∗
-     CWP map BI_const vs ++ es @ s; E UNDER (length ts1, Ψ) :: L; R {{ Φ }}) -∗
-    □ (∀ f' vs',
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗
+       CWP map BI_const vs ++ es @ s; E UNDER (length ts1, Ψ) :: L; R {{ Φ }}) -∗
+    ▷ □ (∀ f' vs',
          ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
          CWP map BI_const vs' ++ es @ s; E UNDER (length ts1, Ψ) :: L; R {{ Φ }}) -∗
     CWP map BI_const vs ++ [BI_loop (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
@@ -281,8 +281,8 @@ Section control.
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    Ψ f vs -∗
-    □ (∀ f' vs',
+    ▷ Ψ f vs -∗
+    ▷ □ (∀ f' vs',
          ↪[frame] f' -∗ ↪[RUN] -∗ Ψ f' vs' -∗
          CWP map BI_const vs' ++ es @ s; E UNDER (length ts1, Ψ) :: L; R {{ Φ }}) -∗
     CWP map BI_const vs ++ [BI_loop (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
@@ -290,7 +290,7 @@ Section control.
     iIntros (Hlen) "Hfr Hrun HΨ #Hloop".
     iApply (cwp_loop with "[$] [$] [HΨ]").
     - done.
-    - iIntros "Hfr Hrun".
+    - iIntros "!> Hfr Hrun".
       by iPoseProof ("Hloop" with "[$] [$] [$]") as "Hes".
     - done.
   Qed.
@@ -357,11 +357,11 @@ Section control.
     N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    (N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-     ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
-     ↪[RUN] -∗
-     CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
-         {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
+    ▷ (N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+       ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
+       ↪[RUN] -∗
+       CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
+           {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
     CWP map BI_const vs ++ [BI_call i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hi Hlen) "Ha Hfr Hrun Hes".
@@ -396,12 +396,12 @@ Section control.
     N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    (N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
-     N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-     ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
-     ↪[RUN] -∗
-     CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
-         {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
+    ▷ (N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
+       N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+       ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
+       ↪[RUN] -∗
+       CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
+           {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
     CWP map BI_const vs ++ [BI_const (VAL_int32 c); BI_call_indirect i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hfuncs Htypes Htab Hvs) "Hj Ha Hfr Hrun Hes".
