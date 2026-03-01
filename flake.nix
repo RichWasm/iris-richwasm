@@ -24,10 +24,11 @@
       );
       eachPkgs = f: eachSystem (s: f (pkgsFor.${s} // self.packages.${s}));
       pinned-versions = pkgs: rec {
-        coq = pkgs.coq_9_0;
-        coqPackages = pkgs.coqPackages_9_0;
+        coq = pkgs.coq_9_1;
+        coqPackages = pkgs.coqPackages_9_1;
         ocamlPackages = coq.ocamlPackages;
         ocaml = ocamlPackages.ocaml;
+        inherit (pkgs.coqPackages_9_0) autosubst-ocaml;
       };
     in
     {
@@ -35,7 +36,7 @@
         system:
         let
           pkgs = pkgsFor.${system};
-          inherit (pinned-versions pkgs) coqPackages ocamlPackages;
+          inherit (pinned-versions pkgs) coqPackages ocamlPackages autosubst-ocaml;
 
           iris-wasm-deps = with coqPackages; [
             stdlib
