@@ -295,6 +295,30 @@ Section control.
     - done.
   Qed.
 
+  Lemma cwp_if_nonzero s E (f : frame) c tf es1 es2 L R Φ :
+    c <> Wasm_int.int_zero i32m ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_block tf es1] @ s; E UNDER L; R {{ Φ }}) -∗
+    CWP [BI_const (VAL_int32 c); BI_if tf es1 es2] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hc) "Hf Hrun Hes1".
+    iApply lenient_wp_if_true; first done.
+    iFrame.
+  Qed.
+
+  Lemma cwp_if_zero s E (f : frame) c tf es1 es2 L R Φ :
+    c = Wasm_int.int_zero i32m ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_block tf es2] @ s; E UNDER L; R {{ Φ }}) -∗
+    CWP [BI_const (VAL_int32 c); BI_if tf es1 es2] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hc) "Hf Hrun Hes1".
+    iApply lenient_wp_if_false; first done.
+    iFrame.
+  Qed.
+
   Lemma cwp_br (f : frame) s E L R n i P vs Φ :
     L !! i = Some (n, P) ->
     length vs = n ->
