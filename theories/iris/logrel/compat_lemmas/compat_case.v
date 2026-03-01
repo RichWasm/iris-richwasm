@@ -367,9 +367,6 @@ Section Fundamental.
         {
           iPureIntro.
           pose proof (util.nths_error_Forall2 _ val_idxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1.
-          eapply Forall2_impl.
-          1: apply Hf_c1.
-          instantiate (1 := case_1_vs_payload).
           admit.
         }
         admit.
