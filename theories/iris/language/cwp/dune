@@ -1,0 +1,11 @@
+(coq.theory
+  (name RichWasm.iris.language.cwp)
+  (package iris-richwasm)
+  (flags
+    :standard
+    -w -ambiguous-paths
+    -w -notation-overridden
+    -w -abstract-large-number
+    -w -extraction-reserved-identifier)
+  (theories
+    RichWasm))

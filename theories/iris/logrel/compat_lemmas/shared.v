@@ -8,7 +8,8 @@ From Wasm.iris.logrel Require Import iris_fundamental_composition.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural lwp_resources logpred cwp lwp_trap.
+From RichWasm.iris.language Require Import
+  cwp lenient_wp lwp_pure lwp_structural lwp_resources logpred lwp_trap.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -1161,9 +1162,9 @@ Section Fundamental_Shared.
         * cbn; eauto.
         * iApply (cwp_seq with "[Hframe Hrun]").
           {
-            iApply cwp_label_take.
+            iApply cwp_weak_take_labels.
             instantiate (2 := 0%nat).
-            iApply cwp_return_none.
+            iApply cwp_weak_no_return.
             iApply (cwp_mod2_test_1 with "[] [] [$] [$]"); eauto.
             iPureIntro.
             unfold Wasm_int.Int32.repr; simpl.
@@ -1182,9 +1183,9 @@ Section Fundamental_Shared.
           iApply (cwp_block with "[$] [$] [Hptr]").
           1, 2: done.
           iIntros "Hf Hrun".
-          iApply cwp_label_take.
+          iApply cwp_weak_take_labels.
           instantiate (1 := 0%nat).
-          iApply cwp_return_none.
+          iApply cwp_weak_no_return.
           iApply ("Hptr" with "[$] [$]").
       + done.
     - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
@@ -1193,9 +1194,9 @@ Section Fundamental_Shared.
       inversion Hrep as [|? ? Hmod]; subst.
       iApply (cwp_seq with "[Hframe Hrun]").
       {
-        iApply cwp_label_take.
+        iApply cwp_weak_take_labels.
         instantiate (2 := 0%nat).
-        iApply cwp_return_none.
+        iApply cwp_weak_no_return.
         iApply (cwp_mod2_test_1_2 with "[] [] [$] [$]"); eauto.
         unfold Wasm_int.Int32.repr; simpl.
         rewrite Wasm_int.Int32.Z_mod_modulus_eq.
@@ -1228,9 +1229,9 @@ Section Fundamental_Shared.
         iIntros "Hf Hrun".
         cwp_chomp 4%nat.
         iApply (cwp_seq with "[Hf Hrun]").
-        * iApply cwp_label_take.
+        * iApply cwp_weak_take_labels.
           instantiate (2 := 0%nat).
-          iApply cwp_return_none.
+          iApply cwp_weak_no_return.
           iApply (cwp_mod4_sub3_test with "[//] [] [$] [$]"); eauto.
           iPureIntro.
           unfold Wasm_int.Int32.repr; simpl.
@@ -1252,9 +1253,9 @@ Section Fundamental_Shared.
           iApply (cwp_block with "[$] [$] [Hptr]").
           1, 2: done.
           iIntros "Hf Hrun".
-          iApply cwp_label_take.
+          iApply cwp_weak_take_labels.
           instantiate (1 := 0%nat).
-          iApply cwp_return_none.
+          iApply cwp_weak_no_return.
           iApply ("Hptr" with "[$] [$]").
       + simpl tag_address in Hlookup_f.
         cbn.
@@ -1265,9 +1266,9 @@ Section Fundamental_Shared.
         cwp_chomp 4%nat.
         rewrite take_0 drop_0.
         iApply (cwp_seq with "[Hf Hrun]").
-        * iApply cwp_label_take.
+        * iApply cwp_weak_take_labels.
           instantiate (2 := 0%nat).
-          iApply cwp_return_none.
+          iApply cwp_weak_no_return.
           iApply (cwp_mod4_sub1_test with "[//] [] [$] [$]").
           iPureIntro.
           unfold Wasm_int.Int32.repr; simpl.
@@ -1289,9 +1290,9 @@ Section Fundamental_Shared.
           iApply (cwp_block with "[$] [$] [Hptr]").
           1, 2: done.
           iIntros "Hf Hrun".
-          iApply cwp_label_take.
+          iApply cwp_weak_take_labels.
           instantiate (1 := 0%nat).
-          iApply cwp_return_none.
+          iApply cwp_weak_no_return.
           iApply ("Hptr" with "[$] [$]").
   Qed.
 
