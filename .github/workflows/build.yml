@@ -15,7 +15,7 @@ jobs:
       - uses: coq-community/docker-coq-action@v1
         with:
           opam_file: iris-richwasm.opam
-          coq_version: "9.0"
+          coq_version: "9.1"
           ocaml_version: default
           before_install: |
             # default

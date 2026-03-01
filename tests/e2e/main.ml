@@ -221,6 +221,9 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   (app add1 () 1)
                 |}
               in
+              ignore module1;
+              ignore module2;
+              ignore module3;
               (* let result, logs =
                 Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
               in
