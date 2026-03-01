@@ -4,9 +4,34 @@ Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_structural lwp_trap.
 From RichWasm.iris.language.cwp Require Import base def util.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Section structural.
 
   Context `{!wasmG Σ}.
+
+  Lemma cwp_nil s E (f : frame) L R Φ :
+    ↪[frame] f -∗ ↪[RUN] -∗ Φ f [] -∗ CWP [] @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros "Hf Hrun HΦ".
+    iApply lenient_wp_nil.
+    iFrame.
+  Qed.
+
+  Lemma cwp_val s E f vs L R Φ :
+    ↪[frame] f -∗ ↪[RUN] -∗ Φ f vs -∗ CWP (map BI_const vs) @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros "Hf Hrun HΦ".
+    iApply lenient_wp_value.
+    - instantiate (1 := immV vs).
+      unfold IntoVal.
+      cbn.
+      unfold v_to_e_list, to_e_list.
+      change (@seq.map value _) with (@map value administrative_instruction).
+      change (@seq.map basic_instruction _) with (@map basic_instruction administrative_instruction).
+      by rewrite map_map.
+    - iFrame.
+  Qed.
 
   Lemma cwp_val_app E vs es L R Φ :
     CWP es @ E UNDER L; R {{ fvs_combine Φ vs }} -∗

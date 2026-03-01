@@ -6,6 +6,8 @@ From RichWasm.iris.language.cwp Require Import base def util.
 From RichWasm.iris.rules Require Import
   iris_rules_bind iris_rules_calls iris_rules_trap iris_rules_control.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Section control.
 
   Context `{!wasmG Σ}.
