@@ -27,9 +27,28 @@ Section common.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma translate_types_interp_length F τs ts se os :
+  Lemma values_interp_app se τs1 τs2 os :
+    values_interp rti sr se (τs1 ++ τs2) os -∗
+    ∃ os1 os2,
+      ⌜os = os1 ++ os2⌝ ∗
+      values_interp rti sr se τs1 os1 ∗
+      values_interp rti sr se τs2 os2.
+  Admitted.
+
+  Lemma atoms_interp_app os1 os2 vs :
+    atoms_interp (os1 ++ os2) vs -∗
+    ∃ vs1 vs2, ⌜vs = vs1 ++ vs2⌝ ∗ atoms_interp os1 vs1 ∗ atoms_interp os2 vs2.
+  Admitted.
+
+  Lemma translate_types_comp_interp_length F τs ts se os :
     sem_env_interp F se ->
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->
+    values_interp rti sr se τs os -∗
+    ⌜length os = length ts⌝.
+  Admitted.
+
+  Lemma translate_types_sem_interp_length se τs ts os :
+    translate_types se τs = Some ts ->
     values_interp rti sr se τs os -∗
     ⌜length os = length ts⌝.
   Admitted.

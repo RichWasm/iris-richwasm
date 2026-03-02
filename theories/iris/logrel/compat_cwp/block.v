@@ -67,7 +67,7 @@ Section Fundamental.
     subst tf.
     subst fe.
     cbn in Hts1, Hts2.
-    iDestruct (translate_types_interp_length with "HIos") as "%Hoslen".
+    iDestruct (translate_types_comp_interp_length with "HIos") as "%Hoslen".
     1, 2, 3: done.
     iDestruct (big_sepL2_length with "HIvs") as "%Hvslen".
     unfold ofe_car in Hvslen.
