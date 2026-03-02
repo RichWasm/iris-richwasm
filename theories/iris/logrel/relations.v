@@ -734,6 +734,16 @@ Section Relations.
     kind_ctx_interp F.(fc_kind_ctx) se /\
     type_ctx_interp F.(fc_type_vars) se.
 
+  Lemma sem_env_interp_fc_labels_irrelevant F F' se :
+    F.(fc_kind_ctx) = F'.(fc_kind_ctx) →
+    F.(fc_type_vars) = F'.(fc_type_vars) →
+    sem_env_interp F se →
+    sem_env_interp F' se.
+  Proof.
+    unfold sem_env_interp; intros -> -> H; exact H.
+  Qed.
+
+
   Definition have_instruction_type_sem
     (mr : module_runtime)
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WT : wtype_ctx) (WL : wlocal_ctx)
@@ -751,5 +761,6 @@ Section Relations.
        ↪[frame] fr -∗
        ↪[RUN] -∗
        expr_interp se F.(fc_return) F.(fc_labels) L' WL τs2 inst lh (of_val (immV vs) ++ es))%I.
+
 
 End Relations.

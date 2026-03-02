@@ -293,7 +293,7 @@ Section Fundamental.
     iApply lwp_ctx_bind; first done.
     (* -------- Case 1 -------- *)
     lwp_chomp 1%nat.
-    iApply (lenient_wp_seq with "[Hf Hrun]").
+    iApply (lenient_wp_seq with "[-]").
     {
       rewrite <- (app_nil_l [AI_basic _]).
       iApply (lenient_wp_block with "[$] [$]"); auto.
@@ -387,10 +387,16 @@ Section Fundamental.
 
         (* Reason about case 1 code *)
 
-        iApply (lenient_wp_seq with "[Hf Hrun]").
+        iApply (lenient_wp_seq with "[-]").
         {
-          iApply ("Hsem_es1" with "[] [] [] [] [] [] [] [$] [$]"); admit.
-          (* TODO *)
+          iApply ("Hsem_es1" with "[] [] [] [] [] [] [] [$] [$]").
+          - iPureIntro. by eapply sem_env_interp_fc_labels_irrelevant.
+          - admit.
+          - admit.
+          - admit.
+          - admit.
+          - admit.
+          - admit.
         }
         { admit. }
         admit.
