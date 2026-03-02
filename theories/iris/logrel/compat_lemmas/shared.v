@@ -1166,8 +1166,8 @@ Section Fundamental_Shared.
           iSplit; [iPureIntro; done|].
           iIntros "!> Hf Hrun".
           rewrite <- (app_nil_l [_]).
-          iApply (cwp_block with "[$] [$] [Hptr]").
-          1, 2: done.
+          change (@nil basic_instruction) with (map BI_const []).
+          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
           iIntros "!> Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).
@@ -1210,8 +1210,8 @@ Section Fundamental_Shared.
       + simpl tag_address in Hlookup_f.
         cbn.
         rewrite <- (app_nil_l [_]).
-        iApply (cwp_block with "[$] [$] [Hptr]").
-        1, 2: done.
+        change (@nil basic_instruction) with (map BI_const []).
+        iApply (cwp_block with "[$] [$] [Hptr]"); first done.
         iIntros "!> Hf Hrun".
         cwp_chomp 4%nat.
         iApply (cwp_seq with "[Hf Hrun]").
@@ -1236,8 +1236,8 @@ Section Fundamental_Shared.
           iSplit; eauto.
           iIntros  "!> Hf Hrun".
           change [AI_basic (BI_block (Tf [] []) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_mm])).
-          iApply (cwp_block with "[$] [$] [Hptr]").
-          1, 2: done.
+          change (@nil basic_instruction) with (map BI_const []).
+          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
           iIntros "!> Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).
@@ -1246,8 +1246,8 @@ Section Fundamental_Shared.
       + simpl tag_address in Hlookup_f.
         cbn.
         rewrite <- (app_nil_l [_]).
-        iApply (cwp_block with "[$] [$] [Hptr]").
-        1, 2: done.
+        change (@nil basic_instruction) with (map BI_const []).
+        iApply (cwp_block with "[$] [$] [Hptr]"); first done.
         iIntros "!> Hf Hrun".
         cwp_chomp 4%nat.
         rewrite take_0 drop_0.
@@ -1273,8 +1273,8 @@ Section Fundamental_Shared.
           iSplit; auto.
           iIntros  "!> Hf Hrun".
           change [AI_basic (BI_block (Tf [] []) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_gc])).
-          iApply (cwp_block with "[$] [$] [Hptr]").
-          1, 2: done.
+          change (@nil basic_instruction) with (map BI_const []).
+          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
           iIntros "!> Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).

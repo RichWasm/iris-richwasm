@@ -210,20 +210,20 @@ Section control.
   Qed.
 
   Lemma cwp_block (f : frame) s E es L R vs ts1 ts2 Φ :
-    is_true (basic_const_list vs) ->
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP vs ++ es @ s; E UNDER (length ts2, Φ) :: L; R {{ Φ }}) -∗
-    CWP vs ++ [BI_block (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗
+       CWP map BI_const vs ++ es @ s; E UNDER (length ts2, Φ) :: L; R {{ Φ }}) -∗
+    CWP map BI_const vs ++ [BI_block (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hconst Hlen) "Hf Hrun Hes".
+    iIntros (Hlen) "Hf Hrun Hes".
     unfold cwp_wasm, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite !map_app.
     iApply (lenient_wp_block _ _ _ _ with "[$] [$]"); eauto.
-    { by apply const_list_map_basic. }
-    { by rewrite length_map. }
+    { rewrite map_map. apply v_to_e_is_const_list. }
+    { rewrite map_map. by rewrite length_map. }
     iIntros "!> Hfr Hrun".
     iApply (lwp_cwp_label with "[$] [$] [Hes]"); first done.
     iIntros (f' vs' Hlen') "Hfr Hrun HΨ".

@@ -566,18 +566,21 @@ Section Relations.
     typeclasses eauto.
   Defined.
 
-  Definition labels_interp
-    (se : semantic_env) (inst : instance) (WL : wlocal_ctx) (labels : list (list type * local_ctx))
-    (B : list label_spec) :
+  Definition label_interp
+    (se : semantic_env) (inst : instance) (WL : wlocal_ctx)
+    '((τs, L) : list type * local_ctx) '((n, P) : label_spec) :
     iProp Σ :=
-    [∗ list] '(n, P); '(τs, L) ∈ B; labels,
-      match translate_types se τs with Some ts => ⌜length ts = n⌝ | None => False end ∗
-        ∀ fr vs os θ,
-          atoms_interp os vs -∗
-          values_interp se τs os -∗
-          frame_interp se L WL inst fr -∗
-          rt_token rti sr θ -∗
-          P fr vs.
+    (match translate_types se τs with Some ts => ⌜length ts = n⌝ | None => False end ∗
+       ∀ fr vs os θ,
+         atoms_interp os vs -∗
+         values_interp se τs os -∗
+         frame_interp se L WL inst fr -∗
+         rt_token rti sr θ -∗
+         P fr vs)%I.
+
+  Definition labels_interp (se : semantic_env) (inst : instance) (WL : wlocal_ctx) :
+    list (list type * local_ctx) -> list label_spec -> iProp Σ :=
+    big_sepL2 (const (label_interp se inst WL)).
 
   Definition return_interp (se : semantic_env) (τr : list type) (R : option return_spec) :
     iProp Σ :=
