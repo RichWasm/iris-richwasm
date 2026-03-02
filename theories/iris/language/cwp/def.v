@@ -74,3 +74,10 @@ Notation "'CWP' es @ E 'UNDER' L ; R {{ Φ } }" :=
 Notation "'CWP' es @ E 'UNDER' L ; R {{ f ; vs , Φ } }" :=
   (cwp_wasm NotStuck E es L R (fun f vs => Φ))
     (at level 20, format "'CWP'  es  @  E  'UNDER'  L ;  R  {{  f ;  vs ,  Φ  } }") : bi_scope.
+
+Notation "'CWP' es 'UNDER' L ; R {{ Φ } }" :=
+  (cwp_wasm NotStuck top es L R Φ) (at level 20, only parsing) : bi_scope.
+
+Notation "'CWP' es 'UNDER' L ; R {{ f ; vs , Φ } }" :=
+  (cwp_wasm NotStuck top es L R (fun f vs => Φ))
+    (at level 20, format "'CWP'  es  'UNDER'  L ;  R  {{  f ;  vs ,  Φ  } }") : bi_scope.
