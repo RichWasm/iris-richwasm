@@ -357,18 +357,42 @@ Section Fundamental.
 
         (* get locals corresponding to payload of sum *)
         eapply lwp_restore_stack_w in Hget_locals_1; eauto using Forall2_length.
-        2: { admit. }
-        instantiate (1 := case_1_vs_payload) in Hget_locals_1.
-        instantiate (1 := fr_saved_and_tag) in Hget_locals_1.
-
-
+        2 : {
+          instantiate (1 := case_1_vs_payload).
+          pose proof (util.nths_error_length _ _ _ Heq_some3) as Hlen_c1vi.
+          pose proof (util.nths_error_length _ _ _ Hnerr_payload_c1) as Hlen_c1vp.
+          by rewrite <- Hlen_c1vi.
+        }
         destruct Hget_locals_1 as (_ & _ & _ & Hget_locals_1).
         iDestruct (Hget_locals_1 with "[$] [$] []") as "Hget_locals_1"; clear Hget_locals_1.
         {
           iPureIntro.
           pose proof (util.nths_error_Forall2 _ val_idxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1.
           admit.
+          (* TODO: should be provable, but will probably be a bit annoying *)
         }
+        rewrite util.to_e_list_app.
+
+        iApply (lenient_wp_seq with "[Hget_locals_1]").
+        1: iApply "Hget_locals_1".
+        { by iIntros. }
+        iIntros (w ?fr) "Hnotrap Hf _".
+        destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+        iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+        replace (language.of_val) with (of_val); last done.
+        iSimpl.
+        rewrite util.to_e_list_app.
+        rewrite (app_assoc (v_to_e_list _)); iSimpl.
+
+        (* Reason about case 1 code *)
+
+        iApply (lenient_wp_seq with "[Hf Hrun]").
+        {
+          iApply ("Hsem_es1" with "[] [] [] [] [] [] [] [$] [$]"); admit.
+          (* TODO *)
+        }
+        { admit. }
         admit.
 
         (* Reason about code for case 1 *)
