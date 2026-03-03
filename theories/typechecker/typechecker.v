@@ -96,14 +96,14 @@ Ltac stupid_unit o :=
 
 Ltac structural_auto :=
    match goal with
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
+  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
   | o:ok |- _ => stupid_unit o
   | H: ok_term = ok_term |- _ => clear H
   | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
   | H: true = false |- _ => inversion H
   | H: false = true |- _ => inversion H
+  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
+  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try (inversion H; [idtac]; clear H); simpl in *
    end.
 
 
@@ -342,6 +342,30 @@ Proof.
   - inversion H; subst.
     apply andb_true_intro; split; apply list_eq_convert_type; auto.
 Qed.
+Definition path_result_beq (pres1 pres2:path_result) : bool :=
+  andb (andb (list_beq type type_beq pres1.(pr_prefix) pres2.(pr_prefix))
+             (type_beq pres1.(pr_target) pres2.(pr_target)))
+             (type_beq pres1.(pr_replaced) pres2.(pr_replaced)).
+
+Lemma path_result_eq_convert :
+  ∀ pres1 pres2, path_result_beq pres1 pres2 = true <-> pres1 = pres2.
+Proof.
+  split; intros.
+  - unfold path_result_beq in H.
+    repeat structural_auto.
+    apply list_eq_convert_type in H1.
+    apply type_eq_convert in H0, H2.
+    destruct pres1, pres2.
+    simpl in *. subst.
+    auto.
+  - destruct pres1, pres2.
+    inversion H; subst.
+    unfold path_result_beq. simpl.
+    apply andb_true_intro. split; [apply andb_true_intro; split |].
+    + apply list_eq_convert_type. auto.
+    + apply type_eq_convert; auto.
+    + apply type_eq_convert; auto.
+Qed.
 
 
 Ltac boolean_equality_auto :=
@@ -359,6 +383,7 @@ Ltac boolean_equality_auto :=
   | H: (module_type_beq _ _ = true) |- _ => apply module_type_eq_convert in H; subst; auto
   | H: (memory_beq _ _ = true) |- _ => apply memory_eq_convert in H; subst; auto
   | H: (num_type_beq _ _ = true) |- _ => apply num_type_eq_convert in H; subst; auto
+  | H: (path_result_beq _ _ = true) |- _ => apply path_result_eq_convert in H; subst; auto
   | H: (list_beq type type_beq _ _ = true) |- _ => apply list_eq_convert_type in H; subst; auto
   | H: (list_beq size size_beq _ _ = true) |- _ => apply list_eq_convert_size in H; subst; auto
   end.
@@ -426,12 +451,7 @@ Fixpoint size_ok_checker (k:kind_ctx) (s:size) : type_checker_res :=
   match s with
   | ConstS n => ok_term
   | VarS r => if r <? k.(kc_size_vars) then ok_term else INR "size_ok error"
-  | RepS ρ => match (rep_ok_checker k ρ) with
-              | inl _ => ok_term
-              | err => err (* this allows propagation*)
-                         (* you could also just ret rep_ok_checker. Idk which would be
-                          better for future changeability. I'll do just ret later*)
-              end
+  | RepS ρ => rep_ok_checker k ρ
   | SumS σs =>
       if (foldr (λ i:size, andb (check_ok (size_ok_checker k) i)) true σs)
            then ok_term else INR "size_ok error"
@@ -444,21 +464,13 @@ Lemma size_ok_checker_correct (k:kind_ctx) (s:size) :
   (size_ok_checker k s = ok_term) -> size_ok k s.
 Proof.
   intros.
-  induction s using size_ind; simpl in H.
-  - apply OKVarS.
-    destruct_on_if_equal H'; [apply Nat.ltb_lt in H'; auto | inversion H].
+  induction s using size_ind; simpl in H; repeat structural_auto.
+  - apply Nat.ltb_lt in HMatch; auto; by constructor.
   - apply OKSumS.
-    destruct_on_if_equal Hfoldr; [solve_Forall_foldr H0 Hfoldr (size_ok_checker k) (size_ok k) | inversion H].
+    solve_Forall_foldr H0 HMatch (size_ok_checker k) (size_ok k).
   - apply OKProdS.
-    destruct_on_if_equal Hfoldr; [solve_Forall_foldr H0 Hfoldr (size_ok_checker k) (size_ok k) | inversion H].
-  - apply OKRepS.
-    simpl in H.
-    destruct (rep_ok_checker k ρ) eqn:H'.
-    + apply rep_ok_checker_correct.
-      unfold ok in o.
-      assert (o = tt) by (by destruct o).
-      subst; auto.
-    + inversion H.
+    solve_Forall_foldr H0 HMatch (size_ok_checker k) (size_ok k).
+  - apply OKRepS. apply rep_ok_checker_correct in H; auto.
   - apply OKConstS.
 Qed.
 
@@ -1004,20 +1016,8 @@ Fixpoint has_kind_checker (F:function_ctx) (t:type) (k:kind) : type_checker_res 
   end.
 
 Ltac my_auto3 :=
+  try structural_auto; try boolean_equality_auto; try
   match goal with
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H: (kind_beq _ _ = true) |- _ => apply kind_eq_convert in H; subst; auto
-  | o:ok |- _ => stupid_unit o
-  | H: ok_term = ok_term |- _ => clear H
-  | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: true = false |- _ => inversion H
-  | H: false = true |- _ => inversion H
-  | H: (representation_beq _ _ = true) |- _ => apply representation_eq_convert in H; subst; auto
-  | H: (dropability_beq _ _ = true) |- _ => apply dropability_eq_convert in H; subst; auto
-  | H: (copyability_beq _ _ = true) |- _ => apply copyability_eq_convert in H; subst; auto
-  | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -1290,7 +1290,7 @@ Lemma type_size_eq_checker_correct :
 Proof.
   intros. unfold type_size_eq_checker in H.
   repeat my_auto3.
-  apply has_size_checker_correct in HMatch1, HMatch3.
+  apply has_size_checker_correct in HMatch1, HMatch2.
   apply size_eq_checker_correct in H.
   exists s, s0. split; auto.
 Qed.
@@ -1385,25 +1385,8 @@ Qed.
 
 
 Ltac my_auto3_5 :=
+  try structural_auto; try boolean_equality_auto; try
   match goal with
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H: (kind_beq _ _ = true) |- _ => apply kind_eq_convert in H; subst; auto
-  | o:ok |- _ => stupid_unit o
-  | H: ok_term = ok_term |- _ => clear H
-  | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: (_ =? _ = true) |- _ => apply Nat.eqb_eq in H; subst; auto
-  | H: true = false |- _ => inversion H
-  | H: false = true |- _ => inversion H
-  | H: (num_type_beq _ _ = true) |- _ => apply num_type_eq_convert in H; subst; auto
-  | H: (type_beq _ _ = true) |- _ => apply type_eq_convert in H; subst; auto
-  | H: (function_type_beq _ _ = true) |- _ => apply function_type_eq_convert in H; subst; auto
-  | H: (representation_beq _ _ = true) |- _ => apply representation_eq_convert in H; subst; auto
-  | H: (dropability_beq _ _ = true) |- _ => apply dropability_eq_convert in H; subst; auto
-  | H: (copyability_beq _ _ = true) |- _ => apply copyability_eq_convert in H; subst; auto
-  | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
-  | H: (memory_beq _ _ = true) |- _ => apply memory_eq_convert in H; subst; auto
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -1712,25 +1695,21 @@ Proof.
 
   all: idtac. (* this is here because doom emacs despises the match goal above *)
 
-  (* ser struct case *)
+  (* struct ser case *)
   6: {
-    simpl in H0. destruct t; simpl in H0; repeat my_auto3_5.
-    apply get_list_of_reps_matches_map in HMatch2; subst.
-    apply list_eq_convert_type in HMatch4; subst.
-    apply list_eq_convert_size in H1; subst.
-    apply (TEqSerProd _ _ l2 ImCopy d0 _).
+    simpl in H0. destruct τ2; simpl in H0; repeat my_auto3_5.
+    apply get_list_of_reps_matches_map in HMatch1; subst.
+    apply TEqSym.
+    apply (TEqSerProd _ _ l1 ImCopy d _).
     (* this then relies on some foldr2 lemmas *)
     admit.
   }
-  (* struct ser case *)
-  5: {
-
-    simpl in H0. destruct τ2; simpl in H0; repeat my_auto3_5.
-    apply get_list_of_reps_matches_map in HMatch2; subst.
-    apply list_eq_convert_type in HMatch4; subst.
-    apply list_eq_convert_size in H1; subst.
-    apply TEqSym.
-    apply (TEqSerProd _ _ l1 ImCopy d0 _).
+  (* ser struct case *)
+  6: {
+    Opaque has_kind_checker.
+    simpl in H0. destruct t; simpl in H0; repeat my_auto3_5.
+    apply get_list_of_reps_matches_map in HMatch1; subst.
+    apply (TEqSerProd _ _ l2 ImCopy d _).
     (* this then relies on some foldr2 lemmas *)
     admit.
 
@@ -1751,68 +1730,270 @@ Proof.
   auto.
 Qed.
 
+Fixpoint split_into_three (τs:list type) (i:nat) : option (list type * type * list type) :=
+  match i with
+  | O =>
+      match τs with
+      | [] => None
+      | τ :: τs' => Some ([], τ, τs')
+      end
+  | S n =>
+      match τs with
+      | [] => None
+      | t :: ts =>
+          match split_into_three ts n with
+          | None => None
+          | Some (τs0, τ, τs) => Some (t :: τs0, τ, τs)
+          end
+      end
+  end.
 
-Definition path_result_beq (pres1 pres2:path_result) : bool :=
-  andb (andb (list_beq type type_beq pres1.(pr_prefix) pres2.(pr_prefix))
-             (type_beq pres1.(pr_target) pres2.(pr_target)))
-             (type_beq pres1.(pr_replaced) pres2.(pr_replaced)).
-
-Lemma path_result_eq_convert :
-  ∀ pres1 pres2, path_result_beq pres1 pres2 = true <-> pres1 = pres2.
+Lemma split_into_three_correct :
+  ∀ τs i τs0 τ τs',
+    split_into_three τs i = Some (τs0, τ, τs') ->
+    Init.Datatypes.length τs0 = i /\ τs = τs0 ++ τ :: τs'.
 Proof.
-  split; intros.
-  - unfold path_result_beq in H.
-    repeat my_auto3_5.
-    apply list_eq_convert_type in H1.
-    destruct pres1, pres2.
-    simpl in *. subst.
-    auto.
-  - destruct pres1, pres2.
-    inversion H; subst.
-    unfold path_result_beq. simpl.
-    apply andb_true_intro. split; [apply andb_true_intro; split |].
-    + apply list_eq_convert_type. auto.
-    + apply type_eq_convert; auto.
-    + apply type_eq_convert; auto.
+  intros τs. induction τs.
+  - intros. destruct i; simpl in H; try inversion H.
+  - intros. destruct i; simpl in H.
+    + inversion H; subst.
+      split; auto.
+    + structural_auto. clear H1.
+      destruct p. destruct p.
+      apply IHτs in HMatch. destruct HMatch as [HL Hyeah].
+      inversion H.
+      subst.
+      split; auto.
+Qed.
+
+Fixpoint list_prefix (lfull lpre : list type) : option (list type) :=
+  match lfull, lpre with
+  | τ1 :: fullrest, τ2 :: prerest =>
+      if type_beq τ1 τ2
+      then list_prefix fullrest prerest
+      else None
+  | lfull, [] => Some lfull
+  | _, _ => None
+  end.
+
+Lemma list_prefix_correct_for :
+  ∀ lfull lpre lsuff,
+    list_prefix lfull lpre = Some lsuff -> lfull = lpre ++ lsuff.
+Proof.
+  induction lfull.
+  - intros. destruct lpre, lsuff; simpl in H; try inversion H. auto.
+  - intros.
+    destruct lpre.
+    + simpl in *. inversion H; auto.
+    + simpl in *. structural_auto. clear H1.
+      apply IHlfull in H. boolean_equality_auto.
+Qed.
+
+Lemma list_prefix_correct_back :
+  ∀ lfull lpre lsuff,
+    lfull = lpre ++ lsuff -> list_prefix lfull lpre = Some lsuff.
+Proof.
+  induction lfull.
+  - intros. destruct lpre, lsuff; try inversion H. auto.
+  - intros.
+    destruct lpre.
+    + simpl. rewrite app_nil_l in H. subst; auto.
+    + inversion H; subst.
+      specialize (IHlfull lpre lsuff eq_refl).
+      simpl.
+      assert (Stupid:t=t) by auto; apply type_eq_convert in Stupid.
+      rewrite Stupid. auto.
 Qed.
 
 Fixpoint resolves_path_checker
-  (τ:type) (p:path) (oτ:option type) (pres:path_result) : type_checker_res :=
+  (τ:type) (p:path) (oτ:option type) (pr':path_result) : type_checker_res :=
   match p with
   | [] =>
       match oτ with
       | Some τ' =>
-          if path_result_beq pres (Build_path_result [] τ τ')
+          if path_result_beq pr' (Build_path_result [] τ τ')
           then ok_term
           else INR "does not resolve path"
       | None =>
-          if path_result_beq pres (Build_path_result [] τ τ)
+          if path_result_beq pr' (Build_path_result [] τ τ)
           then ok_term
           else INR "does not resolve path"
       end
-  | i :: p => (* this is INCORRECT but temporary to allow for proving base case TODO *)
+  | i :: p =>
       match τ with
-      | StructT κ τs_full => resolves_path_checker τ p oτ pres
+      | StructT κ τs_full =>
+          match split_into_three τs_full i with
+          | Some (τs0, τ_inner, τs') =>
+              match list_prefix pr'.(pr_prefix) τs0 with
+              | Some prprefix =>
+                  match pr'.(pr_replaced) with
+                  | StructT κ0 inner_τs =>
+                      if kind_beq κ κ0
+                      then
+                      match split_into_three inner_τs i with
+                      | Some (τs0', prreplaced, τs'') =>
+                          if andb (list_beq type type_beq τs0 τs0') (list_beq type type_beq τs' τs'')
+                          then
+                            let pr := {| pr_prefix := prprefix;
+                                         pr_target := pr'.(pr_target);
+                                         pr_replaced := prreplaced |} in
+                            resolves_path_checker τ_inner p oτ pr
+                          else INR "bad path resolution"
+                      | None => INR "bad replacement or smthn"
+                      end
+                      else INR "bad path stuff"
+                  | _ => INR "improper path replacement"
+                  end
+              | None => INR "can't prefix?"
+              end
+          | None => INR "does not resolve path"
+          end
       | _ => INR "does not resolves path"
       end
   end.
-
 Lemma resolves_path_checker_correct_basic :
   ∀ p τ oτ pres, resolves_path_checker τ p oτ pres = ok_term -> resolves_path τ p oτ pres.
 Proof.
   intros p.
   induction p.
   - intros. unfold resolves_path_checker in H.
-    destruct oτ; repeat my_auto3_5; apply path_result_eq_convert in HMatch; subst.
+    destruct oτ; repeat my_auto3_5.
     + apply PathNilSome.
     + apply PathNilNone.
-  -
+  - intros.
+    simpl in H. Opaque resolves_path_checker.
+    repeat structural_auto. subst.
+    clear H1 H2 H3 H4 H5 H6 H7 H8 H9 H10.
+    repeat boolean_equality_auto; subst.
+    rename l into τs_full; rename a into i; rename l5 into τs0; rename l4 into τs'.
+    rename l2 into prprefix. apply list_prefix_correct_for in HMatch3. rename l3 into oldprreplaced.
+    apply split_into_three_correct in HMatch0, HMatch6. destruct HMatch0 as [Hlen Htsfull].
+    destruct HMatch6 as [_ Holdpr]. rename k0 into k.
+    set (pr := {| pr_prefix := prprefix; pr_target := pr_target pres; pr_replaced := t0 |}).
+    assert (Hmaybe : pres =
+                       {| pr_prefix := τs0 ++ pr.(pr_prefix);
+                          pr_target := pr.(pr_target);
+                          pr_replaced := StructT k (τs0 ++ pr.(pr_replaced) :: τs')
+                       |}
+           ).
+    {
+      destruct pres. subst.
+      simpl in *. subst. auto.
+    }
+    rewrite Htsfull. rewrite Hmaybe.
+    apply (PathStruct pr i p oτ τs0 t τs' k); auto.
 
-Admitted.
+Qed.
 
 Lemma resolves_path_checker_correct :
   ∀ τ p oτ pres, resolves_path_checker τ p oτ pres = ok_term -> resolves_path τ p oτ pres.
 Proof. intros. apply resolves_path_checker_correct_basic. auto. Qed.
+
+Fixpoint synth_resolving_path
+  (τ:type) (p:path) (oτ:option type) : option path_result :=
+  match p with
+  | [] =>
+      match oτ with
+      | Some τ' => Some (Build_path_result [] τ τ')
+      | None => Some (Build_path_result [] τ τ)
+      end
+  | i :: p =>
+      match τ with
+      | StructT κ τs_full =>
+          match split_into_three τs_full i with
+          | Some (τs0, τ_inner, τs') =>
+              match synth_resolving_path τ_inner p oτ with
+              | Some pr =>
+                  let pr' :=
+                    {| pr_prefix := τs0 ++ pr.(pr_prefix);
+                      pr_target := pr.(pr_target);
+                      pr_replaced := StructT κ (τs0 ++ pr.(pr_replaced) :: τs') |} in
+                  Some pr'
+              | None => None
+              end
+          | None => None
+          end
+      | _ => None
+      end
+  end
+.
+Lemma synth_resolving_path_correct :
+  ∀ p τ oτ pres, synth_resolving_path τ p oτ = Some pres -> resolves_path τ p oτ pres.
+Proof.
+  induction p.
+  - intros. destruct oτ.
+    + simpl in H. inversion H; subst. constructor.
+    + simpl in H; inversion H; subst. constructor.
+  - intros. simpl in H. repeat structural_auto. clear H H1 H2 H3 H4.
+    apply IHp in HMatch3.
+    apply split_into_three_correct in HMatch0. destruct HMatch0 as [Hlen Hsubs].
+    subst.
+    constructor; auto.
+Qed.
+
+(* This is hyper specific fixpoint, used for TStoreStrong *)
+Fixpoint synth_resolving_with_outer_replaced
+  (τ:type) (p:path) (prreplaced:type) (τval:type) : option (path_result * kind) :=
+  match p with
+  | [] =>
+      match prreplaced with
+      | SerT κser τval_inner =>
+          if type_beq τval τval_inner
+          then Some (Build_path_result [] τ (SerT κser τval), κser)
+          else None
+      | _ => None
+      end
+  | i :: p =>
+      match τ with
+      | StructT κ τs_full =>
+          match split_into_three τs_full i with
+          | Some (τs0, τ_inner, τs') =>
+              match prreplaced with
+              | StructT κ' τs_full' =>
+                  match split_into_three τs_full' i with
+                  | Some (τs0', innerprreplaced, τs'') =>
+                      if andb (andb (list_beq type type_beq τs0 τs0') (kind_beq κ κ'))
+                              (list_beq type type_beq τs' τs'')
+                      then
+                        match synth_resolving_with_outer_replaced τ_inner p innerprreplaced τval with
+                        | Some (pr, κser) =>
+                            let pr' :=
+                              {| pr_prefix := τs0 ++ pr.(pr_prefix);
+                                pr_target := pr.(pr_target);
+                                pr_replaced := StructT κ (τs0 ++ pr.(pr_replaced) :: τs') |} in
+                            Some (pr', κser)
+                        | None => None
+                        end
+                      else None
+                  | None => None
+                  end
+              | _ => None
+              end
+          | None => None
+          end
+      | _ => None
+      end
+
+  end.
+
+Lemma synth_resolving_with_outer_replaced_correct :
+  ∀ p τ prreplaced τval pr κser,
+    synth_resolving_with_outer_replaced τ p prreplaced τval = Some (pr, κser) ->
+    resolves_path τ p (Some (SerT κser τval)) pr /\ pr.(pr_replaced) = prreplaced.
+Proof.
+  induction p.
+  - intros. destruct prreplaced; simpl in *; try inversion H. repeat structural_auto. split.
+    + constructor.
+    + boolean_equality_auto.
+  - intros. simpl in H. repeat structural_auto.
+    apply split_into_three_correct in HMatch0; destruct HMatch0 as [Hlen Htosubst].
+    apply split_into_three_correct in HMatch4; destruct HMatch4 as [Hlen' Htosubst'].
+    repeat boolean_equality_auto.
+    apply IHp in HMatch7 as [ha hi].
+    split.
+    + constructor; auto.
+    + subst; auto.
+Qed.
 
 Definition grab_inner_ft (ft:function_type) : option function_type :=
   match ft with
@@ -1824,22 +2005,8 @@ Definition grab_inner_ft (ft:function_type) : option function_type :=
   end.
 
 Ltac my_auto4 :=
+  try structural_auto; try boolean_equality_auto; try
   match goal with
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H: (kind_beq _ _ = true) |- _ => apply kind_eq_convert in H; subst; auto
-  | o:ok |- _ => stupid_unit o
-  | H: ok_term = ok_term |- _ => clear H
-  | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: true = false |- _ => inversion H
-  | H: false = true |- _ => inversion H
-  | H: (representation_beq _ _ = true) |- _ => apply representation_eq_convert in H; subst; auto
-  | H: (dropability_beq _ _ = true) |- _ => apply dropability_eq_convert in H; subst; auto
-  | H: (copyability_beq _ _ = true) |- _ => apply copyability_eq_convert in H; subst; auto
-  | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
-  | H: (function_type_beq _ _ = true) |- _ => apply function_type_eq_convert in H; subst; auto
-  | H: (type_beq _ _ = true) |- _ => apply type_eq_convert in H; subst; auto
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -2034,7 +2201,6 @@ Proof.
   intros. unfold has_instruction_type_ok_checker in H.
   repeat my_auto3.
   apply has_mono_rep_instr_checker_correct in HMatch.
-  clear H1 H2.
   apply local_ctx_ok_checker_correct in H.
   constructor; auto.
 Qed.
@@ -2398,7 +2564,31 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
                         end
                     end *)
 
+Fixpoint unzip_sert (τs:list type) : option ((list kind) * (list type)) :=
+  match τs with
+  | [] => Some ([], [])
+  | τ :: τs =>
+      match τ with
+      | SerT k t =>
+          match unzip_sert τs with
+          | Some (ks, ts) => Some (k::ks, t::ts)
+          | None => None
+          end
+      | _ => None
+      end
+  end.
 
+Lemma unzip_sert_correct :
+  ∀ τs' κs τs, unzip_sert τs' = Some (κs, τs) -> τs' = zip_with SerT κs τs.
+Proof.
+  induction τs'.
+  - simpl. intros; inversion H. auto.
+  - intros. simpl in H. destruct a; try (by inversion H).
+    structural_auto. destruct p. clear H1.
+    inversion H. subst.
+    specialize (IHτs' l l0 eq_refl). subst.
+    auto.
+Qed.
 
 (* Will need a mutually recursive have_instruction_type too *)
 Fixpoint has_instruction_type_checker
@@ -2440,7 +2630,7 @@ Fixpoint has_instruction_type_checker
         let e_ψ := proj_instr_ty e in
         match synth_possible_resulting_local_ctx F e L with
         | inr _ => INR "this is either local get/set that is bad, so error?"
-        | inl None => INR "the instr we're processing is either uncreachable, break, or return, with more commands to follow. unsure how to deal with rn TODO"
+        | inl None => INR "the type checker does not support break/return/unreachable in the middle of a block"
         | inl (Some L_e) =>
             match has_instruction_type_checker M F L e e_ψ L_e with
             | inl () =>                 match e_ψ, ψ with
@@ -2621,7 +2811,24 @@ Fixpoint has_instruction_type_checker
         | None => INR "incorrect instruction type for local get (i not in local context)"
         end
       else INR "incorrect instruction type for local get"
-  | ILocalSet _ _ => INR "incomplete"
+  | ILocalSet ψ_inner i =>
+      if instruction_type_beq ψ ψ_inner
+      then
+        match L !! i with
+        | Some τ0 =>
+            match has_dropability_checker F τ0 ImDrop with
+            | inl () =>
+                match ψ with
+                | InstrT [τ] [] =>
+                    let L' := <[ i := τ ]> L in
+                    has_instruction_type_ok_checker F ψ L'
+                | _ => INR "incorrect instruction type for local set (shape not [τ] -> [])"
+                end
+            | err => err
+            end
+        | None => INR "bad instruction type for local set (not enough locals)"
+        end
+      else INR "incorrection instruction type for local set"
   | ICodeRef ψ_inner i =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
@@ -2704,7 +2911,33 @@ Fixpoint has_instruction_type_checker
         | _ => INR "incorrect instruction type for inject (wrong shape)"
         end
       else INR "incorrect instruction type for inject"
-  | IInjectNew ψ_inner i => INR "incomplete" (* TODO do i have smthn for zip_with already *)
+  | IInjectNew ψ_inner i =>
+      if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
+      then
+        match ψ with
+        | InstrT [τ] [ref] =>
+            match ref with
+            | RefT κr μ (VariantT κv τs') =>
+                match unzip_sert τs' with
+                | Some (κs, τs) =>
+                    match τs !! i with
+                    | Some τ' =>
+                        if type_beq τ τ'
+                        then
+                          match mono_mem_checker μ with
+                          | inl () => has_instruction_type_ok_checker F ψ L
+                          | err => err
+                          end
+                        else INR "incorrect instruction type for inject new (not matching injections?)"
+                    | None => INR "incorrect instruction type for inject new (i out of bounds)"
+                    end
+                | None => INR "incorrect instruction type for inject new (variant is not all sered or smthn)"
+                end
+            | _ => INR "inocrrect instruction type for inject new (result isn't proper ref shape)"
+            end
+        | _ => INR "inocrrect instruction type for inject new (wrong shape)"
+        end
+      else INR "incorrect instruction type for inject new"
   | ICase ψ_inner L_inner ess => INR "incomplete"
   | ICaseLoad ψ_inner cm L_inner ess => INR "incomplete"
   | IGroup ψ_inner =>
@@ -2836,29 +3069,108 @@ Fixpoint has_instruction_type_checker
   | ILoad ψ_inner π cm => (* note this will be both TLoadCopy and TLoadMove *)
       INR "incomplete"
   | IStore ψ_inner π => (* note this will be both TStoreWeak and TStoreStrong *)
-      INR "incomplete"
+      if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
+      then
+        match ψ with
+        | InstrT [reft1; τval] [reft2] =>
+            if type_beq reft1 reft2 (* true = store weak *) (* false = store strong *)
+            then (* store weak *)
+              match reft1 with
+              | RefT κ μ τ =>
+                  match synth_resolving_path τ π None with
+                  | Some pr =>
+                      match has_dropability_checker F pr.(pr_target) ImDrop with
+                      | inl () =>
+                          match pr.(pr_target) with
+                          | SerT κser τval_inner =>
+                              if type_beq τval τval_inner
+                              then
+                                if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
+                                then has_instruction_type_ok_checker F ψ L
+                                else INR "incorrect instruction type for weak store (prefix not all mono size)"
+                              else INR "incorrect instruction type for weak store (target ser bad inner type)"
+                          | _ => INR "inocrrect instruction type for weak store (target not ser)"
+                          end
+                      | err => err
+                      end
+                  | None => INR "incorrect instruction type for weak store (can't synth path)"
+                  end
+              | _ => INR "incorrect instruction type for weak store (not ref type)"
+              end
+            else (* store strong. Note: SerT kser tval = pr.(pr_replaced) *)
+              match reft1 with (* doing this in steps for automation. Might not help anyway lol *)
+              | RefT κ (BaseM MemMM) τ =>
+                  match reft2 with
+                  | RefT κ' (BaseM MemMM) prreplaced =>
+                      if true
+                      then (* we can finally start doing things omg *)
+                        match synth_resolving_with_outer_replaced τ π prreplaced τval  with
+                        | Some (pr, κser) =>
+                            match has_dropability_checker F pr.(pr_target) ImDrop with
+                            | inl () =>
+                                match grab_size F pr.(pr_target) with
+                                | Some σ =>
+                                    match grab_rep F τval with
+                                    | Some ρ =>
+                                        match eval_size EmptyEnv σ, eval_rep_size EmptyEnv ρ with
+                                        | Some n1, Some n2 =>
+                                            if andb (n1 =? n2) (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
+                                            then has_instruction_type_ok_checker F ψ L
+                                            else INR "incorrect instruction type for strong store (prefix not all mono size)"
+                                        | _, _ => INR "inc instr type for strong store (unmatching sizes)"
+                                        end
+                                    | None => INR "inc instr type for strong store"
+                                    end
+                                | None => INR "inc instr type for strong store"
+                                end
+                            | err => err
+                            end
+                        | None => INR "incorrect instruction type for strong store (can't synth path)"
+                        end
+                      else INR "incorrect instruction type for strong store (stored types don't match)"
+                  | _ => INR "inocrrect instruction type for strong store (second not ref with sert)"
+                  end
+              | _ => INR "incorrect instruction type for strong store (first not ref)"
+              end
+        | _ => INR "incorrect instruction type for store (wrong shape)"
+        end
+      else INR "incorrection instruction type for store (both types)"
   | ISwap ψ_inner π =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
-      then INR "incomplete"
+      then
+        match ψ with
+        | InstrT τs1 τs2 =>
+            if list_beq type type_beq τs1 τs2
+            then
+              match τs1 with (* note: doing this in multiple steps for automation purposes *)
+              | [reff; τval] =>
+                  match reff with
+                  | RefT κ μ τ =>
+                      match synth_resolving_path τ π None with
+                      | Some pr => (* now to match that pr has the right things *)
+                          match pr.(pr_target) with
+                          | SerT κser τval_inner =>
+                              if type_beq τval τval_inner
+                              then
+                                if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
+                                then has_instruction_type_ok_checker F ψ L
+                                else INR "improper synthesized path target"
+                              else INR "improper synthesized path target"
+                          | _ => INR "improper synthesized path target"
+                          end
+                      | None => INR "couldn't synthesize path"
+                      end
+                  | _ => INR "bad instruction type for swap (first arg not ref)"
+                  end
+              | _ => INR "bad instruction type for swap (wrong shape)"
+              end
+            else INR "bad instruction type for swap"
+        end
       else INR "incorrect instruction type for swap"
   end.
-(*
-with have_instruction_type_checker
-    (M:module_ctx) (F:function_ctx) (L:local_ctx)
-    (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
-  match insts with
-  | [] =>
-      if andb (instruction_type_beq ψ (InstrT [] [])) (local_ctx_beq L L')
-      then local_ctx_ok_checker F L
-      else INR "bad empty instructions type"
-  (*| [e] => has_instruction_type_checker M F L e ψ L'*)
-  | e :: es => (* NOTE THIS IS FUNDAMENTALLY INCORRECT!!! THIS IS TEMPORARY FOR STRUCTURE *)
-      match has_instruction_type_checker M F L e ψ L' with
-      | inl () => have_instruction_type_checker M F L es ψ L'
-      | err => err
-      end
-  end.
-  *)
+
+
+(* TODO at the end make sure this is a direct copy of above *)
 Fixpoint have_instruction_type_checker
     (M:module_ctx) (F:function_ctx) (L:local_ctx)
     (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
@@ -2912,25 +3224,10 @@ Fixpoint have_instruction_type_checker
 
 
 Ltac my_auto5 :=
+  try structural_auto; try boolean_equality_auto; try
   match goal with
-  | H: ((match ?key with |_=>_ end) = _) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try inversion H; simpl in *
-  | H: (kind_beq _ _ = true) |- _ => apply kind_eq_convert in H; subst; auto
-  | o:ok |- _ => stupid_unit o
-  | H: ok_term = ok_term |- _ => clear H
-  | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
-  | H: true = false |- _ => inversion H
-  | H: false = true |- _ => inversion H
-  | H: (instruction_type_beq _ _ = true) |- _ => apply instruction_type_eq_convert in H; subst; auto
-  | H: (local_ctx_beq _ _ = true) |- _ => apply local_ctx_eq_convert in H; subst; auto
-  | H: (representation_beq _ _ = true) |- _ => apply representation_eq_convert in H; subst; auto
-  | H: (dropability_beq _ _ = true) |- _ => apply dropability_eq_convert in H; subst; auto
-  | H: (copyability_beq _ _ = true) |- _ => apply copyability_eq_convert in H; subst; auto
-  | H: (size_beq _ _ = true) |- _ => apply size_eq_convert in H; subst; auto
-  | H: (function_type_beq _ _ = true) |- _ => apply function_type_eq_convert in H; subst; auto
-  | H: (type_beq _ _ = true) |- _ => apply type_eq_convert in H; subst; auto
-  | H: (list_beq type type_beq _ _ = true) |- _ => apply list_eq_convert_type in H; subst; auto
+  | H: (synth_resolving_path _ _ _ = Some _) |- _ => apply synth_resolving_path_correct in H; auto
+  | H: (synth_resolving_with_outer_replaced _ _ _ _ = Some (_, _)) |- _ => apply synth_resolving_with_outer_replaced_correct in H; auto
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -2951,6 +3248,8 @@ Ltac my_auto5 :=
   | H: (has_instruction_type_num_checker _ _ = inl ()) |- _ => apply has_instruction_type_num_checker_correct in H; auto
   | H: (has_copyability_checker _ _ _ = ok_term) |- _ => apply has_copyability_checker_correct in H; auto
   | H: (has_copyability_checker _ _ _ = inl ()) |- _ => apply has_copyability_checker_correct in H; auto
+  | H: (has_dropability_checker _ _ _ = inl ()) |- _ => apply has_dropability_checker_correct in H; auto
+  | H: (has_num_type_type _ = true) |- _ => apply has_num_type_type_correct in H; destruct H as [ν H]; subst; auto
   | H: (check_if_subkind _ _ = inl ()) |- _ =>
       try( by (eapply check_if_subkind_works_with_has_kind; try constructor; auto))
   | H: (check_if_subkind _ _ = ok_term) |- _ =>
@@ -2964,28 +3263,34 @@ Lemma has_instruction_type_checker_correct :
     has_instruction_type M F L inst ψ L'.
 Proof.
   intros.
-  destruct inst.
-  - (* nop, using destruct inst, without have_instruction_type *)
-    unfold has_instruction_type_checker in H.
-    repeat my_auto5. by constructor.
-  - (* unreachable, using destruct inst, without have-instruction_type*)
-    unfold has_instruction_type_checker in H; repeat my_auto5; by constructor.
-  - (* copy, using destruct inst, without have_instruction_type *)
-    unfold has_instruction_type_checker in H; repeat my_auto5; by constructor.
-  - (* drop, using destruct inst, without have_instruction_type *)
-    unfold has_instruction_type_checker in H; repeat my_auto5; by constructor.
-  - (* num, using destruct inst, withut have_instruction_type *)
-    unfold has_instruction_type_checker in H; repeat my_auto5; by constructor.
-  - (* numconst, using destruct inst, without have_instruction_type *)
-    unfold has_instruction_type_checker in H; repeat my_auto5.
-    apply has_num_type_type_correct in HMatch4. destruct HMatch4 as [ν HMatch4]; subst.
-    by constructor.
-  - unfold has_instruction_type_checker in H.
+  Opaque have_instruction_type_checker.
+  induction inst; unfold has_instruction_type_checker in H.
+  1-5: repeat my_auto5; by constructor.
+  29: {
+    repeat my_auto5. apply (TSwap _ _ _ _ _ _ p k k0 _); auto. (* foldr lemma *)
     admit.
+    }
+  28: {
+    structural_auto. clear H1. structural_auto. repeat boolean_equality_auto.
+    repeat my_auto5.
+    - clear H1 H2 H3 H4 H5 H6 H7 H8 H9 H10.
+      clear H12 H13.
+      apply (TStoreWeak _ _ _ _ _ _ _ p _ k0 ); auto; [rewrite HMatch; auto |].
+      (* foldr lemma *)
+      admit.
+    - clear H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11 H12 H13 H14 H15 H16.
+      clear H18 H19 H20 H21.
+      apply Nat.eqb_eq in H0.
+      destruct HMatch12 as [Hres Htosub]; subst.
+
+      apply (TStoreStrong M F L' l t2 t0 p0 s r k k0 k1); auto.
+      (* some boring stuff *)
+      all: admit.
+  }
+  23-24: repeat my_auto5; by constructor.
   - admit.
-  - Opaque have_instruction_type_checker.
-    admit.
 Admitted.
+
 
 Lemma have_instruction_type_checker_correct :
   ∀ M F L insts ψ L',
@@ -2996,10 +3301,16 @@ Proof. Admitted.
 Fixpoint synth_possible_resulting_local_ctx_insts F insts L : (option local_ctx) + type_error :=
   match insts with
   | [] => inl (Some L)
+  | [i] =>
+      match synth_possible_resulting_local_ctx F i L with
+      | inl (Some L') => inl (Some L')
+      | inl (None) => inl (Some L) (* IF LAST INSTR IS BREAK/RETURN, JUST KEEP SAME LOCAL CTX *)
+      | inr a => inr a
+      end
   | i :: rest =>
       match synth_possible_resulting_local_ctx F i L with
       | inl (Some L') => synth_possible_resulting_local_ctx_insts F rest L'
-      | inl (None) => inl (None)
+      | inl (None) => inl (None) (* IF BREAK/RETURN IN THE MIDDLE, FAIL *)
       | inr a => inr a
       end
   end.
@@ -3069,7 +3380,6 @@ Proof.
   Opaque has_function_type_checker. Opaque module_type_beq.
   unfold has_module_type_checker in H.
   repeat my_auto5.
-  apply module_type_eq_convert in HMatch1; subst.
   rename l into table.
   rename l0 into exports.
   apply (TModule m table exports); auto.

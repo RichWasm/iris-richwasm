@@ -49,6 +49,8 @@ Definition ll_1_plus_2_bad := {|
   m_exports := [{| me_name := "test"%string; me_desc := 0 |}];
 |}.
 
+
+
 Compute (has_module_type_checker_with_synth ll_1_plus_2_bad).
 (* ==> inr "function types don't equal" : type_checker_res *)
 (* which I recognize isn't insanely helpful *)
