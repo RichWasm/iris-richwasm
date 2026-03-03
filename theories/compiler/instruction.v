@@ -262,10 +262,12 @@ Section Compiler.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
     let compile_instrs fe := mapM_ (compile_instr fe) in
+    let corrected_idx fe i := i + (length $ seq.filter id $ take i fe.(fe_br_skip)) in
+    let compile_instrs fe := mapM_ (compile_instr fe) in
     let fix compile_cases fe ess :=
       match ess with
       | [] => []
-      | es :: ess' => compile_instrs (fe <| fe_br_skip ::= S ∘ S |>) es :: compile_cases fe ess'
+      | es :: ess' => compile_instrs (fe <| fe_br_skip ::= cons true |>) es :: compile_cases fe ess'
       end
     in
     match e with
@@ -278,10 +280,10 @@ Section Compiler.
     | INum _ e' => compile_num e'
     | INumConst (InstrT _ [NumT _ ν]) n => compile_num_const ν n
     | INumConst _ _ => raise (EInvalidInstrT "INumConst")
-    | IBlock ψ _ es => compile_block fe ψ (compile_instrs fe es)
+    | IBlock ψ _ es => compile_block (fe <| fe_br_skip ::= cons false |>) ψ (compile_instrs fe es)
     | ILoop ψ es => compile_loop fe ψ (compile_instrs fe es)
     | IIte ψ _ es1 es2 => compile_ite fe ψ (compile_instrs fe es1) (compile_instrs fe es2)
-    | IBr _ i => emit (W.BI_br (fe.(fe_br_skip) + i))
+    | IBr _ i => emit (W.BI_br $ corrected_idx fe i)
     | IReturn _ => emit W.BI_return
     | ILocalGet _ i => compile_local_get fe i
     | ILocalSet _ i => compile_local_set fe i

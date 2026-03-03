@@ -149,7 +149,7 @@ Section Fundamental.
     run_codegen (compile_instrs mr fe es) wt wl = inr (tt, wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') tf L'.
   Proof.
-    apply fundamental_theorem_aux with (n_skip := 0).
+    apply fundamental_theorem_aux with (n_skip := []).
   Qed.
 
 End Fundamental.

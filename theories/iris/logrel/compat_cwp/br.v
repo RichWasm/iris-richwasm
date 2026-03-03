@@ -42,9 +42,11 @@ Section Fundamental.
     clear Hcg.
     clear_nils.
     (* TODO: labels_interp doesn't account for br_skip. *)
-    assert (n_skip = 0) by admit.
+    assert (n_skip = []) by admit.
     subst n_skip.
-    rewrite Nat.add_0_l.
+    rewrite take_nil.
+    cbn [seq.filter length].
+    rewrite Nat.add_0_r.
     apply lookup_lt_Some in Hi as Hilen.
     iDestruct (big_sepL2_length with "HIB") as "%HBlen".
     assert (is_Some (B !! i)) as [[n P] HBi].
