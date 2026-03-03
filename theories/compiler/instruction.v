@@ -261,7 +261,6 @@ Section Compiler.
   Definition erased_in_wasm_nop : codegen unit := emit W.BI_nop.
 
   Fixpoint compile_instr (fe : function_env) (e : instruction) : codegen unit :=
-    let compile_instrs fe := mapM_ (compile_instr fe) in
     let corrected_idx fe i := i + (length $ seq.filter id $ take i fe.(fe_br_skip)) in
     let compile_instrs fe := mapM_ (compile_instr fe) in
     let fix compile_cases fe ess :=
