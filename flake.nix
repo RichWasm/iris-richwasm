@@ -234,12 +234,6 @@
               utop
             ])
             ++ self.packages.${system}.${project}.passthru.devShellDeps;
-
-            shellHook = ''
-              unset DEVELOPER_DIR
-              # npm install --package-lock-only
-              # npm ci
-            '';
           };
         }
       );
