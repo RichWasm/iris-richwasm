@@ -9,6 +9,7 @@ From ExtLib.Data Require Import List PPair.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
 From ExtLib.Structures Require Import Monoid Monads.
 
+Require Import Wasm.numerics.
 From Wasm Require datatypes_properties.
 
 From RichWasm Require Import syntax util.
@@ -95,22 +96,44 @@ Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : cod
   emit (W.BI_if tf es1 es2);;
   ret (x1, x2).
 
-Definition case_blocks (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
-  let fix go depth cases :=
+
+Definition case_block (tag_idx : W.localidx) (case : (nat -> codegen unit)) (tag_counter : nat) :=
+  block_c (W.Tf [] []) (
+    (* Check if tag matches the current case *)
+    emit (W.BI_get_local $ localimm tag_idx);;
+    emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat tag_counter);;
+    emit (W.BI_relop W.T_i32 (W.Relop_i W.ROI_ne));;
+    (* If it doesn't, branch out of the block *)
+    emit (W.BI_br_if 0);;
+    (* If it does, do the case *)
+    case tag_counter;;
+    (* Break out of the block representing the ICase, so that we don't try any of the others Blocks *)
+    (* NOTE: this br matters! even though each block has a different tag_counter (meaning only one will match),
+       if we don't break out, we might 'give' the other blocks values that they are not expecting in their types *)
+    emit (W.BI_br 1)
+  ).
+
+Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
+  tag_idx ← save_stack1 fe W.T_i32;
+  block_c (W.Tf [] result) (
+    mapM_ (uncurry (case_block tag_idx)) (zip cases (seq 0 (length cases)));;
+    emit W.BI_unreachable
+  ).
+
+(*
+Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
+  tag_idx ← save_stack1 fe W.T_i32;
+  let fix go cases tag_counter :=
     match cases with
-    | [] =>
-        block_c (W.Tf [W.T_i32] [])
-          (emit (W.BI_br_table (rev (seq 1 depth)) 0));;
-        emit W.BI_unreachable
+    | [] => ret ()
     | c :: cases' =>
-        block_c (W.Tf [W.T_i32] [])
-          (go (depth + 1) cases');;
-        c depth;;
-        emit (W.BI_br (depth + 1))
+        case_block tag_idx c tag_counter;;
+        (go cases' (S tag_counter))
     end
   in
-  block_c (W.Tf [W.T_i32] result)
-    (go 0 cases).
+  block_c (W.Tf [] result)
+    (go cases 0).
+*)
 
 Lemma runWriterT_sum_bind_dist {A B L E}
   (m : Monoid L)
@@ -366,3 +389,31 @@ Proof.
   rewrite app_nil_r.
   repeat split; exact eq_refl.
 Qed.
+
+
+Lemma run_codegen_get_locals ρ wt wl x wt' wl' es' :
+  run_codegen (get_locals_w ρ) wt wl = inr (x, wt', wl', es') ->
+  x = tt /\
+    wt' = [] /\
+    wl' = [].
+Proof.
+  intros Hcg.
+  unfold get_locals_w, mapM_ in Hcg.
+  inv_cg_bind Hcg ?vs ?wt ?wt ?wl ?wl ?es ?es ?H ?H.
+  inv_cg_ret H0; subst.
+  split; first done.
+  do 2 rewrite app_nil_r.
+
+  revert vs wt wl wt0 wl0 es H.
+  induction ρ; intros vs wt wl wt' wl' es' Hcg.
+  - by inversion Hcg.
+  - cbn [mapM] in Hcg.
+    inv_cg_bind Hcg ?vs ?wt ?wt ?wl ?wl ?es ?es ?H ?H.
+    inv_cg_emit_all H; subst.
+    inv_cg_bind H0 ?vs ?wt ?wt ?wl ?wl ?es ?es ?H ?H.
+    inv_cg_ret H0; subst.
+    repeat rewrite app_nil_r, app_nil_l.
+    eapply IHρ.
+    apply H.
+Qed.
+

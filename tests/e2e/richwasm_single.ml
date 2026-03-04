@@ -20,6 +20,101 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "0" );
+    ( "cases br outer",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+               (Block (ValType ((Num (Int I32)))) (LocalFx ())
+               (
+                (Block (ValType ((Num (Int I32)))) (LocalFx ())
+                 (
+                  (Block (ValType ((Num (Int I32)))) (LocalFx ())
+                   (
+                    (NumConst (Int I32) -1)
+                    (Inject 0 ((Num (Int I32))))
+                    (Case (ValType ((Num (Int I32)))) (LocalFx ())
+                     ((Drop (NumConst (Int I32) 67) (Br 2))))
+                   )
+                  )
+                  (NumConst (Int I32) 0)
+                  Return
+                 )
+                )
+                (NumConst (Int I32) 42)
+                Return
+               )
+              )
+              (NumConst (Int I32) 2)
+              Return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "42" );
+    ( "cases br inner",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+              (Block (ValType ((Num (Int I32)))) (LocalFx ())
+               (
+                (NumConst (Int I32) -1)
+                (Inject 0 ((Num (Int I32))))
+                (Case (ValType ((Num (Int I32)))) (LocalFx ())
+                  ((Drop
+                    (Block (ValType ((Num (Int I32)))) (LocalFx ()) (
+                      (NumConst (Int I32) 67)
+                      (Br 0))
+                    )
+                    return
+                  ))
+                )
+               )
+              )
+              (NumConst (Int I32) 0)
+              Return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "67" );
+    ( "cases br",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+              (Block (ValType ((Num (Int I32)))) (LocalFx ())
+               (
+                (NumConst (Int I32) -1)
+                (Inject 0 ((Num (Int I32))))
+                (Case (ValType ((Num (Int I32)))) (LocalFx ())
+                  ((Drop
+                    (Block (ValType ((Num (Int I32)))) (LocalFx ()) (
+                      (NumConst (Int I32) 67)
+                      (Br 1))
+                    )
+                    return
+                  ))
+                )
+                drop
+                (NumConst (Int I32) 34)
+                return
+               )
+              )
+              (NumConst (Int I32) 0)
+              Return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "34" );
     ( "boxed sum",
       {|
       ((imports ())

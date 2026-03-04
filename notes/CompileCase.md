@@ -32,6 +32,42 @@ Should be roughly compiled into the following Wasm:
       (i32.const 0))
     (local.set $data
       (i32.const -1))
+    (block $done (param []) (result i32)
+      (block $case0 (param [])
+        (br_if $case0 (i32.ne (local.get $tag) (i32.const 0)))
+        (local.get $data)
+        (drop)
+        (i32.const 0)
+        (br $done))
+      (block $case1 (param [])
+        (br_if $case1 (i32.ne (local.get $tag) (i32.const 1)))
+        (local.get $data)
+        (drop)
+        (i32.const 1)
+        (br $done))
+      (block $case2 (param [])
+        (br_if $case2 (i32.ne (local.get $tag) (i32.const 2)))
+        (local.get $data)
+        (drop)
+        (i32.const 2)
+        (br $done))
+      (unreachable))))
+```
+
+
+Note: previously, the compilation strategy was to have the cases in nested blocks.
+The above example would have looked as follows:
+
+```wat
+(module
+  (func $_start (export "_start") (result i32)
+    (local $tag i32)
+    (local $data i32)
+
+    (local.set $tag
+      (i32.const 0))
+    (local.set $data
+      (i32.const -1))
     (local.get $tag)
     (block $done (param i32) (result i32)
       (block $case0 (param i32)
@@ -53,3 +89,6 @@ Should be roughly compiled into the following Wasm:
       (i32.const 0)
       (br $done))))
 ```
+
+
+

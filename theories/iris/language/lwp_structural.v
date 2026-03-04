@@ -138,6 +138,38 @@ Section lwp_structural.
     iIntros (Hc) "(Hf & Hrun & Hwp)".
     by iApply (wp_if_false with "[$] [$] [$]").
   Qed.
+
+  Lemma lenient_wp_br_if_true s E Φ c i (f: datatypes.frame):
+    c ≠ Wasm_int.int_zero i32m ->
+    ↪[frame] f ∗
+    ↪[RUN] ∗
+     ▷ (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E [AI_basic (BI_br i)] Φ)
+     ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_br_if i)] Φ.
+  Proof.
+    iIntros (Hc) "(Hf & Hrun & Hwp)".
+    by iApply (wp_br_if_true with "[$] [$] [$]").
+  Qed.
+
+  Lemma lenient_wp_br_if_false (s : stuckness) (E : coPset) Φ c i (f: datatypes.frame):
+    c = Wasm_int.int_zero i32m ->
+    ↪[frame] f ∗
+    ↪[RUN] ∗
+     ▷ Φ.(lp_val) f [] ∗
+       Φ.(lp_fr_inv) f
+     ⊢ lenient_wp s E [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_br_if i)] Φ.
+  Proof.
+    iIntros (Hc) "(Hf & Hrun & Hval & Hfrinv)".
+    unfold lenient_wp.
+    iApply (wp_wand with "[Hrun Hval Hf]").
+    - iApply (wp_br_if_false with "[$] [$] [Hval]"); try done.
+      iFrame.
+      instantiate (1:= (λ v, ↪[RUN] -∗ lp_noframe Φ f v)).
+      cbn.
+      iIntros "!> ?"; iFrame.
+    - iIntros (v0) "[(Hnoframe & Hrun) Hf]".
+      iSpecialize ("Hnoframe" with "Hrun").
+      iFrame.
+  Qed.
   
   Lemma lenient_wp_block s E Φ vs es n m t1s t2s (f: datatypes.frame) :
     is_true (const_list vs) →

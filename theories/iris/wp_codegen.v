@@ -752,12 +752,12 @@ Section CodeGen.
         (* this condition appears in the postcondition of the save_stack wp lemma. *)
         ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
         lenient_wp NotStuck E (to_e_list es)
-          {| lp_fr_inv := λ _, True;
-             lp_val := λ f' vs', ⌜f' = f /\ vs' = vs⌝%I;
+          {| lp_fr_inv _ := True;
+             lp_val f' vs' := ⌜f' = f /\ vs' = vs⌝%I;
              lp_trap := False;
-             lp_br := λ _ _, False;
-             lp_ret := λ _, False;
-             lp_host := λ _ _ _ _, False |}.
+             lp_br _ _ _ := False;
+             lp_ret _ := False;
+             lp_host _ _ _ _ := False |}.
   Proof.
     intros.
     eapply (wp_restore_stack_w _ _ _ _ _ _ _ E _ f (λ vs', ⌜vs' = immV vs⌝%I)) in H0; [|eassumption].
