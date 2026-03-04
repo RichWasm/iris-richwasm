@@ -33,12 +33,48 @@ Section common.
       ⌜os = os1 ++ os2⌝ ∗
       values_interp rti sr se τs1 os1 ∗
       values_interp rti sr se τs2 os2.
+  Proof.
   Admitted.
 
+  (* There's gotta be a clearner way to do it *)
   Lemma atoms_interp_app os1 os2 vs :
     atoms_interp (os1 ++ os2) vs -∗
     ∃ vs1 vs2, ⌜vs = vs1 ++ vs2⌝ ∗ atoms_interp os1 vs1 ∗ atoms_interp os2 vs2.
-  Admitted.
+  Proof.
+    Search atoms_interp.
+    generalize dependent os1; generalize dependent os2.
+    induction vs; intros.
+    - iIntros "Hat".
+      iExists []; iExists [].
+      iPoseProof (big_sepL2_length with "[$Hat]") as "%Hlens".
+      simpl in Hlens. apply nil_length_inv in Hlens.
+      destruct os1, os2; try inversion Hlens. clear_nils. auto.
+    - iIntros "Hat".
+      destruct os1.
+      + clear_nils.
+        destruct os2.
+        * iPoseProof (big_sepL2_length with "[$Hat]") as "%Hlens".
+          inversion Hlens.
+        * iEval (unfold atoms_interp) in "Hat".
+          iDestruct (big_sepL2_cons with "Hat") as "[Ha Hhyp]".
+          specialize (IHvs os2 []).
+          iPoseProof IHvs as "IHvs".
+          clear_nils.
+          iSpecialize ("IHvs" with "Hhyp").
+          iDestruct "IHvs" as "(%vs1 & %vs2 & %Hlen & Hvs1 & Hvs2)".
+          destruct vs1; iSimpl in "Hvs1"; auto.
+          iExists []; iExists (a :: vs2).
+          simpl; iFrame. iPureIntro; clear_nils; subst; auto.
+      + rewrite <- app_comm_cons.
+        iEval (unfold atoms_interp) in "Hat".
+        iDestruct (big_sepL2_cons with "Hat") as "[Ha Hhyp]".
+        specialize (IHvs os2 os1).
+        iPoseProof IHvs as "IHvs".
+        iSpecialize ("IHvs" with "Hhyp").
+        iDestruct "IHvs" as "(%vs1 & %vs2 & %Hlen & Hvs1 & Hvs2)".
+        iExists (a :: vs1); iExists vs2.
+        iFrame. iPureIntro; simpl. subst. auto.
+  Qed.
 
   Lemma translate_types_comp_interp_length F τs ts se os :
     sem_env_interp F se ->
