@@ -94,7 +94,6 @@ Section Fundamental.
         iApply (Hsave with "[$] [$]").
         iIntros (f' [Hfsame Hfchanged]).
         done.
-      + apply Hwl.
       + admit. (* easy pure conseqeunce of value_interp and
       rep_values_interp, should be proved above the first wp_seq
       rule *)
