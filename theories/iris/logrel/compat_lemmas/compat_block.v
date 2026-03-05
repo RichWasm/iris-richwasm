@@ -32,7 +32,7 @@ Section Fundamental.
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
     has_instruction_type_ok F ψ L' ->
-    (forall m_skip wt wt' wtf wl wl' wlf es',
+    (forall wt wt' wtf wl wl' wlf es',
         let fe' := fe_of_context F' in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in

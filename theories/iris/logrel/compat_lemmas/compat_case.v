@@ -25,7 +25,7 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_binary_case M F L L' n_skip wt wt' wtf wl wl' wlf es' ess es1 es2 τs τ1 τ2 τs' κ :
+  Lemma compat_binary_case M F L L' wt wt' wtf wl wl' wlf es' ess es1 es2 τs τ1 τ2 τs' κ :
     ess = [es1; es2] ->
     τs = [τ1; τ2] ->
     let fe := fe_of_context F in
@@ -35,7 +35,7 @@ Section Fundamental.
     let ψ := InstrT [SumT κ τs] τs' in
     Forall2
       (fun τ es =>
-         (forall m_skip wt wt' wtf wl wl' wlf es',
+         (forall wt wt' wtf wl wl' wlf es',
             let fe' := fe_of_context F' in
             let WT := wt ++ wt' ++ wtf in
             let WL := wl ++ wl' ++ wlf in
@@ -411,7 +411,7 @@ Section Fundamental.
 
 Admitted.
 
-  Lemma compat_case M F L L' n_skip wt wt' wtf wl wl' wlf es' ess τs τs' κ :
+  Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
@@ -419,7 +419,7 @@ Admitted.
     let ψ := InstrT [SumT κ τs] τs' in
     Forall2
       (fun τ es =>
-         (forall m_skip wt wt' wtf wl wl' wlf es',
+         (forall wt wt' wtf wl wl' wlf es',
             let fe' := fe_of_context F' in
             let WT := wt ++ wt' ++ wtf in
             let WL := wl ++ wl' ++ wlf in

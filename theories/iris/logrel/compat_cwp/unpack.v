@@ -31,7 +31,7 @@ Section Fundamental.
     let ψ := InstrT τs1 τs2 in
     unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
     has_instruction_type_ok F ψ L' ->
-    (forall m_skip wt wt' wtf wl wl' wlf es',
+    (forall wt wt' wtf wl wl' wlf es',
         let fe0' := fe_of_context F0' in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in

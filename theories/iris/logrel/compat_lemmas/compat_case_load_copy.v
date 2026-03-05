@@ -35,7 +35,7 @@ Section Fundamental.
     Forall (fun τ => has_copyability F τ ExCopy) τs ->
     Forall2
       (fun τ es =>
-         (forall m_skip wt wt' wtf wl wl' wlf es',
+         (forall wt wt' wtf wl wl' wlf es',
             let fe' := fe_of_context F' in
             let WT := wt ++ wt' ++ wtf in
             let WL := wl ++ wl' ++ wlf in
