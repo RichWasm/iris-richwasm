@@ -183,7 +183,7 @@ Section Fundamental.
 
     (* Iris Proof *)
     iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hfr Hrun".
-    iDestruct (Hes1 _ _ _ wtf _ _ wlf _ Hcase_es1) as "Hsem_es1".
+    iDestruct (Hes1 _ _ _ (wt_case_2 ++ wtf) _ _ (wl_case_2 ++ wlf) _ Hcase_es1) as "Hsem_es1".
     iDestruct (Hes2 _ _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".
 
     replace (language.of_val (immV vs)) with (v_to_e_list vs); last done.
@@ -391,7 +391,7 @@ Section Fundamental.
         {
           iApply ("Hsem_es1" with "[] [] [] [] [] [] [] [$] [$]").
           - iPureIntro. by eapply sem_env_interp_fc_labels_irrelevant.
-          - admit.
+          - done.
           - admit.
           - admit.
           - admit.
