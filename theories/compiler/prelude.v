@@ -28,8 +28,8 @@ Record function_env :=
   { fe_type_vars : list kind;
     fe_return : list type;
     fe_params : list (list primitive);
-    fe_locals : list (list primitive);
-    fe_br_skip : list bool }.
+    fe_locals : list (list primitive)
+  }.
 
 Inductive error :=
 | EFail
@@ -43,14 +43,13 @@ Definition fe_of_module_func (mf : module_function) : option function_env :=
   let ϕ := flatten_function_type mf.(mf_type) in
   ρs ← mapM (type_rep ϕ.(fft_type_vars)) ϕ.(fft_in);
   ηss_params ← mapM eval_rep_prim_empty ρs;
-  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) ηss_params ηss_locals []).
+  Some (Build_function_env ϕ.(fft_type_vars) ϕ.(fft_out) ηss_params ηss_locals).
 
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);
      fe_return := F.(fc_return);
      fe_params := [];
-     fe_locals := F.(fc_locals);
-     fe_br_skip := [] |}.
+     fe_locals := F.(fc_locals) |}.
 
 Definition fe_wlocal_offset (fe : function_env) : nat :=
   sum_list_with length (fe.(fe_params) ++ fe.(fe_locals)).

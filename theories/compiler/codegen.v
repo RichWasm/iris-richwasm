@@ -46,6 +46,10 @@ Definition emit (e : W.basic_instruction) : codegen unit := tell [e].
 
 Definition emit_all : W.expr -> codegen unit := tell.
 
+Definition alloc_res_w (fe : function_env) (ts : W.result_type) : codegen (list W.localidx) :=
+  ixs ← mapM (wlalloc fe) ts;
+  ret ixs.
+
 Definition get_locals_w : list W.localidx -> codegen unit :=
   mapM_ (emit ∘ W.BI_get_local ∘ localimm).
 
@@ -97,7 +101,7 @@ Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : cod
   ret (x1, x2).
 
 
-Definition case_block (tag_idx : W.localidx) (case : (nat -> codegen unit)) (tag_counter : nat) :=
+Definition case_block (tag_idx : W.localidx) (res_idxs : list W.localidx) (case : (nat -> codegen unit)) (tag_counter : nat) :=
   block_c (W.Tf [] []) (
     (* Check if tag matches the current case *)
     emit (W.BI_get_local $ localimm tag_idx);;
@@ -107,33 +111,28 @@ Definition case_block (tag_idx : W.localidx) (case : (nat -> codegen unit)) (tag
     emit (W.BI_br_if 0);;
     (* If it does, do the case *)
     case tag_counter;;
-    (* Break out of the block representing the ICase, so that we don't try any of the others Blocks *)
-    (* NOTE: this br matters! even though each block has a different tag_counter (meaning only one will match),
-       if we don't break out, we might 'give' the other blocks values that they are not expecting in their types *)
-    emit (W.BI_br 1)
+    (* Save result in local(s) *)
+    set_locals_w res_idxs
   ).
 
 Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
+  (* Store tag in local *)
   tag_idx ← save_stack1 fe W.T_i32;
-  block_c (W.Tf [] result) (
-    mapM_ (uncurry (case_block tag_idx)) (zip cases (seq 0 (length cases)));;
-    emit W.BI_unreachable
-  ).
-
-(*
-Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
-  tag_idx ← save_stack1 fe W.T_i32;
-  let fix go cases tag_counter :=
-    match cases with
-    | [] => ret ()
-    | c :: cases' =>
-        case_block tag_idx c tag_counter;;
-        (go cases' (S tag_counter))
-    end
-  in
-  block_c (W.Tf [] result)
-    (go cases 0).
-*)
+  (* Allocate space for result *)
+  res_idxs ← alloc_res_w fe result;
+  (* Code for each case *)
+  mapM_ (uncurry (case_block tag_idx res_idxs)) (zip cases (seq 0 (length cases)));;
+  (* Check that tag is in-bounds *)
+  block_c (W.Tf [] []) (
+    emit (W.BI_get_local $ localimm tag_idx);;
+    emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat $ length cases);;
+    emit (W.BI_relop W.T_i32 (W.Relop_i $ W.ROI_lt W.SX_S));;
+    emit (W.BI_br_if 0);;
+    emit (W.BI_unreachable)
+  );;
+  (* Put result on stack *)
+  get_locals_w res_idxs
+.
 
 Lemma runWriterT_sum_bind_dist {A B L E}
   (m : Monoid L)

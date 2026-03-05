@@ -26,8 +26,8 @@ Section Fundamental.
   Variable mr : module_runtime.
 
 
-  Lemma compat_copy M F L n_skip wt wt' wtf wl wl' wlf τ es' :
-    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
+  Lemma compat_copy M F L wt wt' wtf wl wl' wlf τ es' :
+    let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [τ] [τ; τ] in
@@ -94,7 +94,6 @@ Section Fundamental.
         iApply (Hsave with "[$] [$]").
         iIntros (f' [Hfsame Hfchanged]).
         done.
-      + apply Hwl.
       + admit. (* easy pure conseqeunce of value_interp and
       rep_values_interp, should be proved above the first wp_seq
       rule *)
