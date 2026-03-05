@@ -55,7 +55,6 @@ Section Fundamental.
     1, 2: done.
     iDestruct (values_interp_app with "HIos") as "(%os1 & %os2 & -> & HIos1 & HIos2)"; first done.
     iDestruct (atoms_interp_app with "HIvs") as "(%vs1 & %vs2 & -> & HIvs1 & HIvs2)".
-    1, 2, 3: done.
     iDestruct "Hbr" as "[Htslen HP]".
     destruct (translate_types se τs) as [ts|] eqn:Hts; last done.
     iDestruct (translate_types_sem_interp_length with "HIos2") as "%Hos2len".
