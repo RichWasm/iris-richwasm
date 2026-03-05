@@ -210,20 +210,20 @@ Section control.
   Qed.
 
   Lemma cwp_block (f : frame) s E es L R vs ts1 ts2 Φ :
-    is_true (basic_const_list vs) ->
     length vs = length ts1 ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP vs ++ es @ s; E UNDER (length ts2, Φ) :: L; R {{ Φ }}) -∗
-    CWP vs ++ [BI_block (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
+    ▷ (↪[frame] f -∗ ↪[RUN] -∗
+       CWP map BI_const vs ++ es @ s; E UNDER (length ts2, Φ) :: L; R {{ Φ }}) -∗
+    CWP map BI_const vs ++ [BI_block (Tf ts1 ts2) es] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hconst Hlen) "Hf Hrun Hes".
+    iIntros (Hlen) "Hf Hrun Hes".
     unfold cwp_wasm, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite !map_app.
     iApply (lenient_wp_block _ _ _ _ with "[$] [$]"); eauto.
-    { by apply const_list_map_basic. }
-    { by rewrite length_map. }
+    { rewrite map_map. apply v_to_e_is_const_list. }
+    { rewrite map_map. by rewrite length_map. }
     iIntros "!> Hfr Hrun".
     iApply (lwp_cwp_label with "[$] [$] [Hes]"); first done.
     iIntros (f' vs' Hlen') "Hfr Hrun HΨ".
@@ -433,17 +433,17 @@ Section control.
   Lemma cwp_call s E (f0 : frame) inst vs es ts1 ts2 ts i a L R Φ :
     f0.(f_inst).(inst_funcs) !! i = Some a ->
     length vs = length ts1 ->
-    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    ▷ (N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-       ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
+    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+    ▷ (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
        ↪[RUN] -∗
+       N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
        CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
            {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
     CWP map BI_const vs ++ [BI_call i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hi Hlen) "Ha Hfr Hrun Hes".
+    iIntros (Hi Hlen) "Hfr Hrun Ha Hes".
     unfold cwp_wasm, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite map_app.
@@ -471,19 +471,19 @@ Section control.
     f0.(f_inst).(inst_types) !! i = Some (Tf ts1 ts2) ->
     f0.(f_inst).(inst_tab) !! 0 = Some j ->
     length vs = length ts1 ->
-    N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
-    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    ▷ (N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
-       N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-       ↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
+    N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
+    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+    ▷ (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
        ↪[RUN] -∗
+       N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
+       N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
        CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
            {{ _; vs, Φ f0 vs ∗ ⌜length vs = length ts2⌝ }}) -∗
     CWP map BI_const vs ++ [BI_const (VAL_int32 c); BI_call_indirect i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hfuncs Htypes Htab Hvs) "Hj Ha Hfr Hrun Hes".
+    iIntros (Hfuncs Htypes Htab Hvs) "Hfr Hrun Hj Ha Hes".
     iApply wp_wasm_empty_ctx.
     unfold to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).

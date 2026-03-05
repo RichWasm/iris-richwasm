@@ -143,35 +143,117 @@ Section structural.
         done.
   Qed.
 
-  Lemma cwp_weak_take_labels s E es n L R Φ :
+  Lemma cwp_wand s E es L R Φ Ψ :
+    CWP es @ s; E UNDER L; R {{ Φ }} -∗
+    (∀ f v, Φ f v -∗ Ψ f v) -∗
+    CWP es @ s; E UNDER L; R {{ Ψ }}.
+  Proof.
+    iIntros "Hes HΨ".
+    iApply (wp_wand with "[Hes]"); first done.
+    iIntros (v) "(%f & Hf & _ & HΦ)".
+    iFrame.
+    iSplitR; first done.
+    destruct v; try done.
+    iDestruct "HΦ" as "[Hrun HΦ]".
+    iFrame.
+    by iApply "HΨ".
+  Qed.
+
+  Lemma cwp_label_wand s E es L L' R Φ :
+    CWP es @ s; E UNDER L; R {{ Φ }} -∗
+    label_ctx_wand L L' -∗
+    CWP es @ s; E UNDER L'; R {{ Φ }}.
+  Proof.
+    iIntros "Hes HL".
+    iApply (wp_wand with "[Hes]"); first iApply "Hes".
+    iIntros (v) "(%f & Hf & _ & HΦ)".
+    iFrame.
+    iSplitR; first done.
+    destruct v; try done.
+    iDestruct "HΦ" as "[Hrun HΦ]".
+    iFrame.
+    unfold cwp_post_lp, cwp_post_br, lp_br.
+    destruct (L !! (i - vh_depth lh)) eqn:HLi; last done.
+    destruct p as [n P].
+    iDestruct "HΦ" as "(%vs0 & %vs & %Hbase & %Hlen & HP)".
+    iDestruct "HL" as "[%Hlen' HL]".
+    apply lookup_lt_Some in HLi as Hi.
+    pose proof (Nat.lt_le_trans _ _ _ Hi Hlen') as Hi'.
+    apply lookup_lt_is_Some in Hi' as [l HLi'].
+    rewrite HLi'.
+    destruct l as [m Q].
+    iExists vs0, vs.
+    iSplitR; first done.
+    iDestruct (big_sepL2_lookup_acc with "HL") as "[[%Hnm HPQ] HL]".
+    { exact HLi. }
+    { rewrite lookup_take; done. }
+    cbn in Hnm.
+    subst m.
+    iSplitR; first done.
+    by iApply "HPQ".
+  Qed.
+
+  Lemma label_ctx_refl L : ⊢ [∗ list] l ∈ L, @label_wand Σ l l.
+  Proof.
+    induction L; first done.
+    iApply big_sepL_cons.
+    iSplitL; last done.
+    iSplitL; first done.
+    by iIntros (f vs) "H".
+  Qed.
+
+  Lemma cwp_label_take s E es n L R Φ :
     CWP es @ s; E UNDER take n L; R {{ Φ }} -∗
     CWP es @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros "Hwp".
-    iApply (lwp_wand with "Hwp").
-    iIntros (lv) "HΦ".
-    destruct lv; try done.
-    iDestruct "HΦ" as "(%f & Hfr & _ & Hrun & HΦ)".
-    unfold cwp_post_lp, denote_logpred, lp_fr_inv, lp_noframe, lp_br, cwp_post_br.
-    iFrame.
-    destruct (take n L !! _) eqn:Htake; last done.
-    destruct p as [n' P].
-    iDestruct "HΦ" as "(%vs0 & %vs' & %Hbase & %Hlen & HP)".
-    apply lookup_take_Some in Htake as [HLi Hn].
-    rewrite HLi.
-    iFrame.
-    by iExists vs0.
+    iApply (cwp_label_wand with "Hwp").
+    destruct (le_ge_dec n (length L)) as [Hn | Hn].
+    - iSplitR; first by rewrite length_take_le.
+      rewrite length_take_le; last done.
+      iApply big_sepL_sepL2_diag.
+      iApply label_ctx_refl.
+    - iSplitR; first by rewrite take_ge.
+      rewrite take_ge; last done.
+      rewrite firstn_all.
+      iApply big_sepL_sepL2_diag.
+      iApply label_ctx_refl.
   Qed.
 
-  Lemma cwp_weak_no_return s E es L R Φ :
+  Lemma cwp_return_wand s E es L R R' Φ :
+    CWP es @ s; E UNDER L; R {{ Φ }} -∗
+    return_ctx_wand R R' -∗
+    CWP es @ s; E UNDER L; R' {{ Φ }}.
+  Proof.
+    iIntros "Hes HR".
+    iApply (wp_wand with "[Hes]"); first iApply "Hes".
+    iIntros (v) "(%f & Hf & _ & HΦ)".
+    iFrame.
+    iSplitR; first done.
+    destruct v; try done.
+    iDestruct "HΦ" as "[Hrun HP]".
+    iFrame.
+    destruct R; last done.
+    destruct R'; last done.
+    destruct r as [n P].
+    destruct r0 as [m Q].
+    iDestruct "HP" as "(%vs0 & %vs & %Hbase & %Hlen & HP)".
+    iExists vs0, vs.
+    iSplitR; first done.
+    iDestruct "HR" as "[%Hnm HQ]".
+    cbn in Hnm.
+    subst m.
+    iSplitR; first done.
+    by iApply "HQ".
+  Qed.
+
+  Lemma cwp_return_none s E es L R Φ :
     CWP es @ s; E UNDER L; None {{ Φ }} -∗
     CWP es @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros "Hes".
-    iApply (lwp_wand with "Hes").
-    iIntros (lv) "HΦ".
-    destruct lv; try done.
-    by iDestruct "HΦ" as "(%f & Hf & _ & Hrun & HΦ)".
+    iIntros "H".
+    iApply (cwp_return_wand with "H").
+    by destruct R.
   Qed.
 
 End structural.

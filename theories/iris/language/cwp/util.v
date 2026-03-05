@@ -217,28 +217,4 @@ Section util.
     by rewrite Hsub.
   Qed.
 
-  Definition is_basic_const (e : basic_instruction) : bool :=
-    match e with
-    | BI_const _ => true
-    | _ => false
-    end.
-
-  Definition basic_const_list (es : list basic_instruction) : bool :=
-    forallb is_basic_const es.
-
-  Lemma const_list_map_basic vs :
-    is_true (basic_const_list vs) ->
-    is_true (const_list (map AI_basic vs)).
-  Proof.
-    intros Hvs.
-    apply forallb_forall.
-    intros e He.
-    unfold is_true, basic_const_list in Hvs.
-    rewrite forallb_forall in Hvs.
-    apply in_map_iff in He.
-    destruct He as (e' & <- & He').
-    specialize Hvs with e'.
-    by apply Hvs in He'.
-  Qed.
-
 End util.
