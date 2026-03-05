@@ -25,8 +25,8 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma compat_case_load_move M F L L' n_skip wt wt' wtf wl wl' wlf ess es' τs τs' κr κv κs :
-    let fe := fe_of_context F <| fe_br_skip := n_skip |> in
+  Lemma compat_case_load_move M F L L' wt wt' wtf wl wl' wlf ess es' τs τs' κr κv κs :
+    let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let F' := F <| fc_labels ::= cons (τs', L') |> in
@@ -35,7 +35,7 @@ Section Fundamental.
     Forall2
       (fun τ es =>
          (forall m_skip wt wt' wtf wl wl' wlf es',
-            let fe' := fe_of_context F' <| fe_br_skip := m_skip |> in
+            let fe' := fe_of_context F' in
             let WT := wt ++ wt' ++ wtf in
             let WL := wl ++ wl' ++ wlf in
             run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
