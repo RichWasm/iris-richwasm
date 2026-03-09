@@ -1097,8 +1097,8 @@ Section Fundamental_Shared.
     iApply (Hwp with "[$] [$]"); eauto.
   Qed.
 
-  Lemma wp_case_ptr_cwp_direct {A B} s E L R idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' es x y z v (f: frame) Φ :
-    run_codegen (memory.case_ptr idx (Tf [] []) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
+  Lemma wp_case_ptr_cwp_direct {A B} s E L R idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' ts es x y z v (f: frame) Φ :
+    run_codegen (memory.case_ptr idx (Tf [] ts) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
       run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
@@ -1235,7 +1235,7 @@ Section Fundamental_Shared.
           iLeft.
           iSplit; eauto.
           iIntros  "!> Hf Hrun".
-          change [AI_basic (BI_block (Tf [] []) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_mm])).
+          change [AI_basic (BI_block (Tf [] ts) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] ts) es_mm])).
           change (@nil basic_instruction) with (map BI_const []).
           iApply (cwp_block with "[$] [$] [Hptr]"); first done.
           iIntros "!> Hf Hrun".
@@ -1272,7 +1272,7 @@ Section Fundamental_Shared.
           iRight.
           iSplit; auto.
           iIntros  "!> Hf Hrun".
-          change [AI_basic (BI_block (Tf [] []) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] []) es_gc])).
+          change [AI_basic (BI_block (Tf [] ts) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] ts) es_gc])).
           change (@nil basic_instruction) with (map BI_const []).
           iApply (cwp_block with "[$] [$] [Hptr]"); first done.
           iIntros "!> Hf Hrun".
