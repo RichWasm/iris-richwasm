@@ -82,19 +82,20 @@ Section Fundamental.
 
     (* Allocate result locals *)
     inv_cg_bind Hcg result_idxs ?wt ?wt ?wl ?wl ?es ?es Halloc_res Hcg.
-    (* TODO: reason about allocate *)
+    apply wp_wlallocs in Halloc_res as (Hres_idxs & -> & -> & ->).
 
 
     (* Case blocks *)
     cbv [map length seq zip Datatypes.uncurry] in Hcg.
-    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hcases.
-    inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hunreachable.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcases Hrest.
+    inv_cg_bind Hrest [] ?wt ?wt ?wl ?wl ?es es_get_result Hunreachable Hget_result.
+    destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_result) as [_ [-> ->]].
 
     (* apply run_codegen_capture in Hcases as [Hcases ->]. *)
     (* cbv [map length seq zip Datatypes.uncurry] in Hcases. *)
-    (**)
+
     (* clear_nils. *)
-    (**)
+
     (* inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es es_unr Hcases Hunreachable. *)
     (* inv_cg_emit Hunreachable; subst. *)
     (**)
@@ -138,10 +139,10 @@ Section Fundamental.
     (* clear_nils. *)
     (**)
     (* destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_1) as [_ [-> ->]]. *)
-    (**)
-    (**)
-    (* (* Case es2 *) *)
-    (**)
+
+
+    (* Case es2 *)
+
     (* inv_cg_bind Hcase_es2 ?units ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hmret. *)
     (* inv_cg_ret Hmret; subst. *)
     (**)
