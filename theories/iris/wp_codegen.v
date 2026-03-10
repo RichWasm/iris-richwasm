@@ -218,7 +218,7 @@ Section CodeGen.
   Qed.
 
   Lemma wp_wlallocs fe tys wt wl idxs wt' wl' es :
-    run_codegen (mapM (wlalloc fe) tys) wt wl = inr (idxs, wt', wl', es) ->
+    run_codegen (wlallocs fe tys) wt wl = inr (idxs, wt', wl', es) ->
     idxs = imap (λ i _, Mk_localidx (fe_wlocal_offset fe + length wl + i)) tys /\
       wt' = [] /\
       wl' = tys /\
