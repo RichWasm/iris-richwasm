@@ -46,31 +46,50 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (ICase ψ L' ess)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L'.
   Proof.
-    (* inv_cg_bind Hcg wt_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg. *)
-    (* inv_cg_try_option Hres_type; subst. *)
-    (* inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg. *)
-    (* inv_cg_try_option Hιs; subst. *)
-    (* inv_cg_bind Hcg val_idxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg. *)
-    (* repeat rewrite app_nil_r in Hsave. *)
-    (**)
-    (* (* Save tag *) *)
-    (* inv_cg_bind Hcg tag_idx ?wt ?wt ?wl ?wl ?es ?es HsaveTag Hcg. *)
-    (* unfold save_stack1 in HsaveTag. *)
-    (* inv_cg_bind HsaveTag tag_idx' ?wt ?wt ?wl ?wl ?es ?es Halloc_tag HsaveTag. *)
-    (* apply wp_wlalloc in Halloc_tag as [Hlocal_tag_idx [-> [-> ->]]]. *)
-    (* inv_cg_bind HsaveTag [] ?wt ?wt ?wl ?wl es_set_tag ?es HsetTag HretTagIdx. *)
-    (* inv_cg_emit HsetTag; subst. *)
-    (* inv_cg_ret HretTagIdx; subst. *)
-    (**)
-    (* clear_nils. *)
-    (* set (tag_idx := (Mk_localidx (fe_wlocal_offset fe + length (wl ++ wl_save)))). *)
-    (* replace (Mk_localidx (fe_wlocal_offset fe + length (wl ++ wl_save))) with tag_idx in *; last done. *)
-    (**)
-    (* (* Case blocks *) *)
-    (* inv_cg_bind Hcg pair ?wt ?wt ?wl ?wl ?es es_done_bl Hcases HdoneBlock. *)
-    (* destruct pair, u. *)
-    (* inv_cg_emit HdoneBlock; subst. *)
-    (**)
+    intros -> -> fe WT WL F' Ψ Hforall Hok Hcg.
+    rewrite Forall2_cons_iff in Hforall.
+    destruct Hforall as [Hes1 H2].
+    rewrite Forall2_cons_iff in H2.
+    destruct H2 as [Hes2 _].
+    subst Ψ.
+    cbn [compile_instr] in Hcg.
+    destruct κ as [ ρ c d | ]; last inversion Hcg.
+    destruct ρ  as [ | ρs_sum | | ]; try done.
+    destruct τs' as [ | τ_res τs' ]; first done.
+    destruct τs'; last done.
+
+
+
+    inv_cg_bind Hcg wt_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
+    inv_cg_try_option Hres_type; subst.
+    inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
+    inv_cg_try_option Hιs; subst.
+    inv_cg_bind Hcg val_idxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
+    repeat rewrite app_nil_r in Hsave.
+
+    (* Save tag *)
+    inv_cg_bind Hcg tag_idx ?wt ?wt ?wl ?wl ?es ?es HsaveTag Hcg.
+    unfold save_stack1 in HsaveTag.
+    inv_cg_bind HsaveTag tag_idx' ?wt ?wt ?wl ?wl ?es ?es Halloc_tag HsaveTag.
+    apply wp_wlalloc in Halloc_tag as [Hlocal_tag_idx [-> [-> ->]]].
+    inv_cg_bind HsaveTag [] ?wt ?wt ?wl ?wl es_set_tag ?es HsetTag HretTagIdx.
+    inv_cg_emit HsetTag; subst.
+    inv_cg_ret HretTagIdx; subst.
+
+    clear_nils.
+    set (tag_idx := (Mk_localidx (fe_wlocal_offset fe + length (wl ++ wl_save)))).
+    replace (Mk_localidx (fe_wlocal_offset fe + length (wl ++ wl_save))) with tag_idx in *; last done.
+
+    (* Allocate result locals *)
+    inv_cg_bind Hcg result_idxs ?wt ?wt ?wl ?wl ?es ?es Halloc_res Hcg.
+    (* TODO: reason about allocate *)
+
+
+    (* Case blocks *)
+    cbv [map length seq zip Datatypes.uncurry] in Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hcases.
+    inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hunreachable.
+
     (* apply run_codegen_capture in Hcases as [Hcases ->]. *)
     (* cbv [map length seq zip Datatypes.uncurry] in Hcases. *)
     (**)
