@@ -628,25 +628,14 @@ Section CodeGen.
     by iApply "Hfr".
   Qed.
 
-  Lemma wp_set_locals_w tys :
-    forall s E Φ fe wt wl lidxs idxs wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w lidxs) wt wl = inr (idxs, wt', wl', es) ->
-      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
-      result_type_interp tys vs ->
-      idxs = () ∧
-        wt' = [] /\
-        wl' = [] /\
-        ⊢ ↪[frame] fr -∗
-          ↪[RUN] -∗
-          Φ (immV []) -∗
-          WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
-             {{ v, Φ v ∗ ↪[RUN] ∗
-                   ∃ f, ↪[frame] f  ∗
-                          ⌜∀ i, i ∉ lidxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-                          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) lidxs vs⌝ }}.
-  Proof.
+
+Lemma run_codegen_set_locals idxs wt wl x wt' wl' es' :
+  run_codegen (set_locals_w idxs) wt wl = inr (x, wt', wl', es') ->
+  x = tt /\
+    wt' = [] /\
+    wl' = [].
+Proof.
     intros * Hcg.
-    unfold save_stack_w in Hcg.
     (* apply wps/inversion principles *)
     unfold set_locals_w in Hcg.
     cbn in Hcg.
@@ -660,8 +649,28 @@ Section CodeGen.
     inv_cg_ret Hcg1; subst.
     apply wp_mapM_emit in Hcg.
     destruct Hcg as (Hres & Hwt & Hwl & Hes); subst res3 wt3 wl3 es5.
-    repeat rewrite !app_nil_r !app_nil_l.
-    intros.
+    done.
+Qed.
+
+  Lemma wp_set_locals_w tys :
+    forall s E Φ fe wt wl idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      v = () ∧
+        wt' = [] /\
+        wl' = [] /\
+        ⊢ ↪[frame] fr -∗
+          ↪[RUN] -∗
+          Φ (immV []) -∗
+          WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
+             {{ v, Φ v ∗ ↪[RUN] ∗
+                   ∃ f, ↪[frame] f  ∗
+                          ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ }}.
+  Proof.
+    intros * Hcg.
+    apply run_codegen_set_locals in Hcg as (-> & -> & ->).
     split; auto.
     split; auto.
     split; auto.
@@ -704,6 +713,40 @@ Section CodeGen.
     (*       destruct Hx as [-> Hlen]. *)
     (*       rewrite lookup_seq; eauto. *)
   (* Qed. *)
+
+  Lemma lwp_set_locals_w tys Φ :
+    forall s E fe wt wl idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      v = () ∧
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f, 
+            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f []) -∗
+        lenient_wp s E (W.v_to_e_list vs ++ to_e_list es) Φ.
+  Proof.
+    intros.
+    eapply wp_set_locals_w in H; eauto.
+    destruct H as (Hidxs & Hwt' & Hwl' & Hwp).
+    split; auto.
+    split; auto.
+    split; auto.
+    iIntros "Hf Hrun Hfr".
+    iApply (wp_wand with "[Hf Hrun]").
+    {
+      iApply (Hwp with "[$] [$]").
+      fill_imm_pred.
+    }
+    iIntros (v') "(-> & Hrun & %f & Hf & %Hold & %Hsaved)".
+    unfold denote_logpred.
+    iFrame.
+    by iApply "Hfr".
+  Qed.
 
   Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
     run_codegen (ignore c) wt wl = inr (ret, wt', wl', es) ->
