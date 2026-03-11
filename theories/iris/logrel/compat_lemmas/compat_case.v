@@ -99,46 +99,47 @@ Section Fundamental.
     (* inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es es_unr Hcases Hunreachable. *)
     (* inv_cg_emit Hunreachable; subst. *)
     (**)
-    (* inv_cg_bind Hcases ?units ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret. *)
-    (* inv_cg_ret Hret; subst. *)
-    (**)
-    (**)
-    (* (* Case es1 *) *)
-    (* inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es es_case1 Hcase_es1 Hcase_es2. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 ?pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hcase_es1_block. *)
-    (* destruct pair, u. *)
-    (* inv_cg_emit Hcase_es1_block; subst. *)
-    (* apply run_codegen_capture in Hcase_es1 as [Hcase_es1 ->]. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es1. *)
-    (* inv_cg_emit Hget_tag; subst. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es1. *)
-    (* inv_cg_emit Htag0; subst. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es1. *)
-    (* inv_cg_emit Hcompare_tag; subst. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es1. *)
-    (* inv_cg_emit Hbr_case; subst. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hbr_cases. *)
-    (* inv_cg_emit Hbr_cases; subst. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 ρ_case1 ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es1. *)
-    (* inv_cg_try_option Hlookup; subst. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 case_1_sum_locals ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es1. *)
-    (* inv_cg_try_option Hinject; subst. *)
-    (**)
-    (* inv_cg_bind Hcase_es1 [] ?wt wt_case_1 ?wl wl_case_1 ?es es_case_1 Hget_locals_1 Hcase_es1. *)
-    (* inv_cg_bind Hget_locals_1 case_1_val_idxs ?wt wt_get_locals_1 ?wl wl_get_locals_1 ?es es_get_locals_1 Hnths_error Hget_locals_1. *)
-    (* inv_cg_try_option Hnths_error; subst. *)
-    (**)
-    (* clear_nils. *)
-    (**)
-    (* destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_1) as [_ [-> ->]]. *)
+    inv_cg_bind Hcases ?units ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret.
+    inv_cg_ret Hret; subst.
+
+
+    (* Case es1 *)
+    inv_cg_bind Hcases [] ?wt ?wt ?wl ?wl ?es es_case2 Hcase_es1 Hcase_es2.
+
+    inv_cg_bind Hcase_es1 ?pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hcase_es1_block.
+    destruct pair, u.
+    inv_cg_emit Hcase_es1_block; subst.
+    apply run_codegen_capture in Hcase_es1 as [Hcase_es1 ->].
+
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hcase_es1.
+    inv_cg_emit Hget_tag; subst.
+
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hcase_es1.
+    inv_cg_emit Htag0; subst.
+
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hcase_es1.
+    inv_cg_emit Hcompare_tag; subst.
+
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es1.
+    inv_cg_emit Hbr_case; subst.
+
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hcase_es1 Hsave_result.
+
+    inv_cg_bind Hcase_es1 ρ_case1 ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es1.
+    inv_cg_try_option Hlookup; subst.
+
+    inv_cg_bind Hcase_es1 case_1_sum_locals ?wt ?wt ?wl ?wl ?es ?es Hinject Hcase_es1.
+    inv_cg_try_option Hinject; subst.
+
+    inv_cg_bind Hcase_es1 [] ?wt wt_case_1 ?wl wl_case_1 ?es es_case_1 Hget_locals_1 Hcase_es1.
+    inv_cg_bind Hget_locals_1 case_1_val_idxs ?wt wt_get_locals_1 ?wl wl_get_locals_1 ?es es_get_locals_1 Hnths_error Hget_locals_1.
+    inv_cg_try_option Hnths_error; subst.
+
+    clear_nils.
+
+
+
+    destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_1) as [_ [-> ->]].
 
 
     (* Case es2 *)

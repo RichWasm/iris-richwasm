@@ -628,6 +628,83 @@ Section CodeGen.
     by iApply "Hfr".
   Qed.
 
+  Lemma wp_set_locals_w tys :
+    forall s E Φ fe wt wl lidxs idxs wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w lidxs) wt wl = inr (idxs, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      idxs = () ∧
+        wt' = [] /\
+        wl' = [] /\
+        ⊢ ↪[frame] fr -∗
+          ↪[RUN] -∗
+          Φ (immV []) -∗
+          WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
+             {{ v, Φ v ∗ ↪[RUN] ∗
+                   ∃ f, ↪[frame] f  ∗
+                          ⌜∀ i, i ∉ lidxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) lidxs vs⌝ }}.
+  Proof.
+    intros * Hcg.
+    unfold save_stack_w in Hcg.
+    (* apply wps/inversion principles *)
+    unfold set_locals_w in Hcg.
+    cbn in Hcg.
+    rewrite -rev_reverse in Hcg.
+    unfold mapM_ in Hcg.
+    do 2 rewrite mapM_comp in Hcg.
+    rewrite map_comp in Hcg.
+    rewrite rev_reverse in Hcg.
+    rewrite map_rev in Hcg.
+    inv_cg_bind Hcg res3 wt3 wt3' wl3 wl3' es5 es6 Hcg Hcg1.
+    inv_cg_ret Hcg1; subst.
+    apply wp_mapM_emit in Hcg.
+    destruct Hcg as (Hres & Hwt & Hwl & Hes); subst res3 wt3 wl3 es5.
+    repeat rewrite !app_nil_r !app_nil_l.
+    intros.
+    split; auto.
+    split; auto.
+    split; auto.
+    iIntros "Hfr Hrun HΦ".
+  Admitted.
+    (* TODO: finish proof. *)
+    (* iApply (wp_wand with "[Hfr Hrun HΦ]"). *)
+    (* iApply (wp_save_stack_w_ind with "[$] [$] [HΦ]"). *)
+    (* - symmetry. eapply Forall2_length; eauto. *)
+    (* - apply interp_wl_length in H. *)
+    (*   rewrite !length_app in H. *)
+    (*   lia. *)
+    (* - eauto. *)
+    (* - iIntros (v) "((HΦ & Hrun) & %f & Hfr & Hpre & Hvs)". *)
+    (*   repeat rewrite big_andL_pure; eauto. *)
+    (*   iFrame. *)
+    (*   iDestruct "Hvs" as "%Hvs". *)
+    (*   iDestruct "Hpre" as "%Hpre". *)
+    (*   iSplit. *)
+    (*   + iPureIntro. *)
+    (*     intros i Hi. *)
+    (*     destruct i. *)
+    (*     setoid_rewrite elem_of_list_fmap_inj in Hi; *)
+    (*       [| intros x y Hinj; by injection Hinj]. *)
+    (*     by apply Hpre in Hi. *)
+    (*   + iPureIntro. *)
+    (*     apply Forall2_same_length_lookup. *)
+    (*     split. *)
+    (*     * rewrite length_fmap. *)
+    (*       rewrite length_seq. *)
+    (*       eapply Forall2_length. *)
+    (*       eapply H0. *)
+    (*     * intros i x y Hx Hy. *)
+    (*       erewrite Hvs; eauto. *)
+    (*       rewrite list_lookup_fmap in Hx. *)
+    (*       apply fmap_Some_1 in Hx. *)
+    (*       destruct Hx as (ximm & Hx & ->). *)
+    (*       cbn in *. *)
+    (*       rewrite lookup_seq in Hx. *)
+    (*       destruct Hx as [-> Hlen]. *)
+    (*       rewrite lookup_seq; eauto. *)
+  (* Qed. *)
+
   Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
     run_codegen (ignore c) wt wl = inr (ret, wt', wl', es) ->
     ret = tt /\
