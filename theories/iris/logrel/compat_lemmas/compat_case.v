@@ -235,7 +235,6 @@ Section Fundamental.
     iDestruct (atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
 
 
-
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
     set (Φ := {| lp_fr_inv := λ _, True;
                 lp_val := λ f vs',
@@ -255,7 +254,6 @@ Section Fundamental.
         iApply (Hsave with "[$] [$]").
         iIntros (f' [Hfsame Hfchanged]).
         done.
-      + apply Hwl.
       + admit. (* easy pure conseqeunce of value_interp and
       rep_values_interp, should be proved above the first wp_seq
       rule *)
@@ -309,14 +307,6 @@ Section Fundamental.
     iDestruct "Hnotrap" as "(Hrun & %Hsame' & %Hsaved_and_tag' & ->)".
     clear_nils.
 
-    (* -------- Case blocks -------- *)
-    rewrite <- (app_nil_l [AI_basic _]).
-    iApply (lenient_wp_block with "[$] [$]"); auto.
-    iIntros "!> Hf Hrun".
-    rewrite app_nil_l.
-    iApply lwp_wasm_empty_ctx.
-    iApply lwp_label_push_nil.
-    iApply lwp_ctx_bind; first done.
     (* -------- Case 1 -------- *)
     lwp_chomp 1%nat.
     iApply (lenient_wp_seq with "[-]").
