@@ -60,7 +60,7 @@ Section Fundamental.
 
 
 
-    inv_cg_bind Hcg wt_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
+    inv_cg_bind Hcg wl_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
     inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
     inv_cg_try_option Hιs; subst.
@@ -89,7 +89,7 @@ Section Fundamental.
       (λ (i : nat) (_ : prelude.W.value_type),
          Mk_localidx
            (fe_wlocal_offset fe + length (wl ++ wl_save ++ [prelude.W.T_i32]) +
-            i)) wt_ret).
+            i)) wl_ret).
     replace result_idxs with res_idxs in *.
     clear Hres_idxs.
 
@@ -183,271 +183,287 @@ Section Fundamental.
     clear_nils.
 
     (* Unreachable *)
-    (* TODO *)
+    inv_cg_bind Hunreachable ?pair ?wt ?wt ?wl ?wl ?es ?es Hunreachable Hunreachable_block.
+    destruct pair, u.
+    inv_cg_emit Hunreachable_block; subst.
+    apply run_codegen_capture in Hunreachable as [Hunreachable ->].
 
-   (**)
-    (* (* clean up *) *)
-    (* subst WT WL. *)
-    (* clear_nils. *)
-    (* simplify_eq. *)
-    (**)
-    (* (* Iris Proof *) *)
-    (* iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hfr Hrun". *)
-    (* iDestruct (Hes1 _ _ _ (wt_case_2 ++ wtf) _ _ (wl_case_2 ++ wlf) _ Hcase_es1) as "Hsem_es1". *)
-    (* iDestruct (Hes2 _ _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2". *)
-    (**)
-    (* replace (language.of_val (immV vs)) with (v_to_e_list vs); last done. *)
-    (* unfold expr_interp. *)
-    (**)
-    (* rewrite to_e_list_app. *)
-    (* rewrite (app_assoc (v_to_e_list _)). *)
-    (**)
-    (* (* Our values are in the value interpretation for our specific SumT *) *)
-    (* (* This means that the values represent the tag and the payload. *) *)
-    (* iDestruct (values_interp_one_eq with "Hvs") as "Hvs". *)
-    (* iDestruct (value_interp_eq with "Hvs") as "Hvs". *)
-    (* unfold value_interp0, value_se_interp0. *)
-    (* iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)". *)
-    (* (*unfold type_skind in Hkind_sum.*) *)
-    (* iDestruct "Hsum_interp" as (i os0 os_i τ_i ιs ιs_i ixs  HSAtoms Htype_lookup Htype_arep Heval_rep_tail Hinject_sum_arep Hos0_ixs) "Hvalue_interp_os_i". *)
-    (* (*assert (os = I32A (Wasm_int.int_of_Z i32m i) :: os0) as ->; first by inversion HSAtoms.*) *)
-    (* simplify_eq. *)
-    (**)
-    (* iDestruct (big_sepL2_length with "Hrvs") as "%Hlen". *)
-    (* destruct vs as [|v_tag vs_payload]; first inversion Hlen. *)
-    (* clear Hlen. *)
-    (* iDestruct (atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]". *)
-    (**)
-    (**)
-    (**)
-    (* iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done. *)
-    (* set (Φ := {| lp_fr_inv := λ _, True; *)
-    (*             lp_val := λ f vs', *)
-    (*                 ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗ *)
-    (*                 ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ ∗ *)
-    (*                 ⌜vs' = [VAL_int32 (Wasm_int.Int32.repr i)]⌝; *)
-    (*             lp_trap := False; *)
-    (*             lp_br := λ _ _ _, False; *)
-    (*             lp_ret := λ _, False; *)
-    (*             lp_host := λ _ _ _ _, False |}%I : @logpred Σ). *)
-    (* iApply (lenient_wp_seq with "[Hfr Hrun]"). *)
-    (* { *)
-    (*   iSimpl. *)
-    (*   iApply lenient_wp_val_cons. *)
-    (*   eapply (lwp_save_stack_w _ (lp_combine Φ [VAL_int32 (Wasm_int.Int32.repr i)])) in Hsave; eauto. *)
-    (*   + destruct Hsave as (-> & -> & -> & Hsave). *)
-    (*     iApply (Hsave with "[$] [$]"). *)
-    (*     iIntros (f' [Hfsame Hfchanged]). *)
-    (*     done. *)
-    (*   + apply Hwl. *)
-    (*   + admit. (* easy pure conseqeunce of value_interp and *)
-    (*   rep_values_interp, should be proved above the first wp_seq *)
-    (*   rule *) *)
-    (* } *)
-    (* { by iIntros (fr') "Htrap". } *)
-    (* iIntros (w fr_saved) "Hnotrap Hfr _". *)
-    (* subst Φ. *)
-    (* destruct w; iEval (cbn) in "Hnotrap"; try done; *)
-    (*   try (iDestruct "Hnotrap" as "[? ?]"; done). *)
-    (* iDestruct "Hnotrap" as "(Hrun & %Hsame & %Hsaved & ->)". *)
-    (* replace (language.of_val) with (of_val); last done. *)
-    (* cbn [of_val]. *)
-    (* rewrite v_to_e_list1. *)
-    (**)
-    (* edestruct (util.nths_error_exists val_idxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done. *)
-    (**)
-    (* edestruct (util.nths_error_exists val_idxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done. *)
-    (**)
-    (* (* Store tag *) *)
-    (* lwp_chomp 2. *)
-    (* iApply (lenient_wp_seq with "[Hfr Hrun]"). *)
-    (* { *)
-    (*   set (Φ := {| lp_fr_inv := λ _, True; *)
-    (*               lp_val := λ f vs', *)
-    (*                 ⌜∀ j, j ≠ (fe_wlocal_offset fe + length (wl ++ wl_save))%nat -> f_locs f !! j = f_locs fr_saved !! j⌝ ∗ *)
-    (*                 ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ ∗ *)
-    (*                 ⌜vs' = []⌝; *)
-    (*               lp_trap := False; *)
-    (*               lp_br := λ _ _ _, False; *)
-    (*               lp_ret := λ _, False; *)
-    (*               lp_host := λ _ _ _ _, False |}%I : @logpred Σ). *)
-    (*   iApply (lenient_wp_set_local _ _ _ Φ); last iFrame. *)
-    (*   1: admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *) *)
-    (*   unfold lp_val, Φ. *)
-    (*   iSplit. *)
-    (*   - iIntros "!> %j". *)
-    (*     iPureIntro. *)
-    (*     intros Hneq. *)
-    (*     simpl. *)
-    (*     apply util.set_nth_neq; try done. *)
-    (*     admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *) *)
-    (*   - iSimpl. *)
-    (*     iSplit; last done. *)
-    (*     iPureIntro. *)
-    (*     apply set_nth_read. *)
-    (* } *)
-    (* { by iIntros. } *)
-    (* iIntros (w fr_saved_and_tag) "Hnotrap Hfr _". *)
-    (* destruct w; iEval (cbn) in "Hnotrap"; try done; *)
-    (*   try (iDestruct "Hnotrap" as "[? ?]"; done). *)
-    (* iDestruct "Hnotrap" as "(Hrun & %Hsame' & %Hsaved_and_tag' & ->)". *)
-    (* clear_nils. *)
-    (**)
-    (* (* -------- Case blocks -------- *) *)
-    (* rewrite <- (app_nil_l [AI_basic _]). *)
-    (* iApply (lenient_wp_block with "[$] [$]"); auto. *)
-    (* iIntros "!> Hf Hrun". *)
-    (* rewrite app_nil_l. *)
-    (* iApply lwp_wasm_empty_ctx. *)
-    (* iApply lwp_label_push_nil. *)
-    (* iApply lwp_ctx_bind; first done. *)
-    (* (* -------- Case 1 -------- *) *)
-    (* lwp_chomp 1%nat. *)
-    (* iApply (lenient_wp_seq with "[-]"). *)
-    (* { *)
-    (*   rewrite <- (app_nil_l [AI_basic _]). *)
-    (*   iApply (lenient_wp_block with "[$] [$]"); auto. *)
-    (*   iIntros "!> Hf Hrun". *)
-    (*   rewrite app_nil_l. *)
-    (*   iApply lwp_wasm_empty_ctx. *)
-    (*   iApply lwp_label_push_nil. *)
-    (*   iApply lwp_ctx_bind; first done. *)
-    (*   (* Get tag from local *) *)
-    (*   lwp_chomp 1%nat. *)
-    (*   iApply (lenient_wp_seq with "[Hf Hrun]"). *)
-    (*   { *)
-    (*     iApply lenient_wp_get_local; first apply Hsaved_and_tag'. *)
-    (*     iFrame. *)
-    (*     auto_logp. *)
-    (*   } *)
-    (*   { by iIntros (fr') "Htrap". } *)
-    (*   iIntros (w ?fr) "Hnotrap Hf _". *)
-    (*   destruct w; iEval (cbn) in "Hnotrap"; try done; *)
-    (*   try (iDestruct "Hnotrap" as "[? ?]"; done). *)
-    (*   iDestruct "Hnotrap" as "(Hrun & -> & ->)". *)
-    (*   replace (language.of_val) with (of_val); last done. *)
-    (*   iSimpl. *)
-    (**)
-    (*   (* compare tag with case number: 0 *) *)
-    (*   lwp_chomp 3%nat. *)
-    (*   iApply (lenient_wp_seq with "[Hf Hrun]"). *)
-    (*   { *)
-    (*     iApply lwp_relop; first done. *)
-    (*     iFrame. *)
-    (*     iSimpl. *)
-    (*     auto_logp. *)
-    (*   } *)
-    (*   { by iIntros. } *)
-    (*   iIntros (w ?fr) "Hnotrap Hf _". *)
-    (*   destruct w; iEval (cbn) in "Hnotrap"; try done; *)
-    (*   try (iDestruct "Hnotrap" as "[? ?]"; done). *)
-    (*   iDestruct "Hnotrap" as "(Hrun & -> & ->)". *)
-    (*   replace (language.of_val) with (of_val); last done. *)
-    (*   iSimpl. *)
-    (**)
-    (*   lwp_chomp 2%nat; rewrite take_0; rewrite drop_0. *)
-    (**)
-    (*   (* Case analysis: Is tag 0? *) *)
-    (*   destruct (Datatypes.negb _); cbn [wasm_bool]; last first. *)
-    (**)
-    (*   - (* Case: Tag it 0 *) *)
-    (*     iApply (lenient_wp_seq with "[Hf Hrun]"). *)
-    (*     { *)
-    (*       iApply lenient_wp_br_if_false; first done. *)
-    (*       iFrame. *)
-    (*       auto_logp. *)
-    (*     } *)
-    (*     { by iIntros. } *)
-    (*     iIntros (w ?fr) "Hnotrap Hf _". *)
-    (*     destruct w; iEval (cbn) in "Hnotrap"; try done; *)
-    (*     try (iDestruct "Hnotrap" as "[? ?]"; done). *)
-    (*     iDestruct "Hnotrap" as "(Hrun & -> & ->)". *)
-    (*     replace (language.of_val) with (of_val); last done. *)
-    (*     iSimpl. *)
-    (**)
-    (*     (* get locals corresponding to payload of sum *) *)
-    (*     eapply lwp_restore_stack_w in Hget_locals_1; eauto using Forall2_length. *)
-    (*     2 : { *)
-    (*       instantiate (1 := case_1_vs_payload). *)
-    (*       pose proof (util.nths_error_length _ _ _ Heq_some3) as Hlen_c1vi. *)
-    (*       pose proof (util.nths_error_length _ _ _ Hnerr_payload_c1) as Hlen_c1vp. *)
-    (*       by rewrite <- Hlen_c1vi. *)
-    (*     } *)
-    (*     destruct Hget_locals_1 as (_ & _ & _ & Hget_locals_1). *)
-    (*     iDestruct (Hget_locals_1 with "[$] [$] []") as "Hget_locals_1"; clear Hget_locals_1. *)
-    (*     { *)
-    (*       iPureIntro. *)
-    (*       pose proof (util.nths_error_Forall2 _ val_idxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1. *)
-    (*       admit. *)
-    (*       (* TODO: should be provable, but will probably be a bit annoying *) *)
-    (*     } *)
-    (*     rewrite util.to_e_list_app. *)
-    (**)
-    (*     iApply (lenient_wp_seq with "[Hget_locals_1]"). *)
-    (*     1: iApply "Hget_locals_1". *)
-    (*     { by iIntros. } *)
-    (*     iIntros (w ?fr) "Hnotrap Hf _". *)
-    (*     destruct w; iEval (cbn) in "Hnotrap"; try done; *)
-    (*     try (iDestruct "Hnotrap" as "[? ?]"; done). *)
-    (*     iDestruct "Hnotrap" as "(Hrun & -> & ->)". *)
-    (*     replace (language.of_val) with (of_val); last done. *)
-    (*     iSimpl. *)
-    (*     rewrite util.to_e_list_app. *)
-    (*     rewrite (app_assoc (v_to_e_list _)); iSimpl. *)
-    (**)
-    (*     (* Reason about case 1 code *) *)
-    (**)
-    (*     iApply (lenient_wp_seq with "[-]"). *)
-    (*     { *)
-    (*       iApply ("Hsem_es1" with "[] [] [] [] [] [] [] [$] [$]"). *)
-    (*       - iPureIntro. by eapply sem_env_interp_fc_labels_irrelevant. *)
-    (*       - done. *)
-    (*       - admit. *)
-    (*       - admit. *)
-    (*       - admit. *)
-    (*       - admit. *)
-    (*       - admit. *)
-    (*     } *)
-    (*     { admit. } *)
-    (*     admit. *)
-    (**)
-    (*     (* Reason about code for case 1 *) *)
-    (**)
-    (*   - (* Case: Tag is not 0 *) *)
-    (*     iApply (lenient_wp_seq with "[Hf Hrun]"). *)
-    (*     { *)
-    (*       iApply lenient_wp_br_if_true; first done. *)
-    (*       iFrame. *)
-    (*       iIntros "!> Hf Hr". *)
-    (*       iApply lenient_wp_value; first by instantiate (1 := brV (VH_base 0 [] [])). *)
-    (*       iFrame. *)
-    (*       auto_logp. *)
-    (*     } *)
-    (*     { by iIntros. } *)
-    (*     iIntros (w ?fr) "Hnotrap Hf _". *)
-    (*     destruct w; iEval (cbn) in "Hnotrap"; try done; *)
-    (*     try (iDestruct "Hnotrap" as "[? ?]"; done). *)
-    (*     iDestruct "Hnotrap" as "(Hrun & %Hfr_vh)". *)
-    (*     destruct Hfr_vh as [-> [-> Hvh]]. *)
-    (*     simpl in Hvh; simplify_eq. *)
-    (*     replace (language.of_val) with (of_val); last done. *)
-    (*     iSimpl. *)
-    (*     iApply lwp_wasm_empty_ctx. *)
-    (**)
-    (*       (* iApply (wp_br_ctx with "[$] [$]"). *) *)
-    (*       (* 1: by instantiate (1 := []). *) *)
-    (*       (* 1: done. *) *)
-    (*       (* 2: { *) *)
-    (*       (*   iPureIntro. *) *)
-    (*       (*   instantiate (1 := 0). *) *)
-    (*       (*   instantiate (1 := []). *) *)
-    (*       (*   instantiate (1 := LH_base [] _). *) *)
-    (*       (*   unfold lfilled, lfill => //=. *) *)
-    (*       (* } *) *)
-    (*       admit. *)
-    (*     } *)
-    (*     { admit. } *)
-    (*     admit. *)
+    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hunreachable.
+    inv_cg_emit Hget_tag; subst.
+
+    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hunreachable.
+    inv_cg_emit Htag0; subst.
+
+    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hunreachable.
+    inv_cg_emit Hcompare_tag; subst.
+
+    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hunreachable.
+    inv_cg_emit Hbr_case; subst.
+    inv_cg_emit Hunreachable; subst.
+
+
+    (* clean up *)
+    subst WT WL.
+    clear_nils.
+    simplify_eq.
+
+    (* Iris Proof *)
+    iIntros (? ? ? ? ? ? ? ?) "#Hinst #Hctx Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iDestruct (Hes1 _ _ (wt_case_2 ++ wtf) _ _ (wl_case_2 ++ wlf) _ Hcase_es1) as "Hsem_es1".
+    iDestruct (Hes2 _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".
+
+    replace (language.of_val (immV vs)) with (v_to_e_list vs); last done.
+    unfold expr_interp.
+
+    rewrite to_e_list_app.
+    rewrite (app_assoc (v_to_e_list _)).
+
+    (* Our values are in the value interpretation for our specific SumT *)
+    (* This means that the values represent the tag and the payload. *)
+    iDestruct (values_interp_one_eq with "Hvs") as "Hvs".
+    iDestruct (value_interp_eq with "Hvs") as "Hvs".
+    unfold value_interp0, value_se_interp0.
+    iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
+    (*unfold type_skind in Hkind_sum.*)
+    iDestruct "Hsum_interp" as (i os0 os_i τ_i ιs ιs_i ixs  HSAtoms Htype_lookup Htype_arep Heval_rep_tail Hinject_sum_arep Hos0_ixs) "Hvalue_interp_os_i".
+    (*assert (os = I32A (Wasm_int.int_of_Z i32m i) :: os0) as ->; first by inversion HSAtoms.*)
+    simplify_eq.
+
+    iDestruct (big_sepL2_length with "Hrvs") as "%Hlen".
+    destruct vs as [|v_tag vs_payload]; first inversion Hlen.
+    clear Hlen.
+    iDestruct (atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
+
+
+
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
+    set (Φ := {| lp_fr_inv := λ _, True;
+                lp_val := λ f vs',
+                    ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                    ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ ∗
+                    ⌜vs' = [VAL_int32 (Wasm_int.Int32.repr i)]⌝;
+                lp_trap := False;
+                lp_br := λ _ _ _, False;
+                lp_ret := λ _, False;
+                lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+    iApply (lenient_wp_seq with "[Hfr Hrun]").
+    {
+      iSimpl.
+      iApply lenient_wp_val_cons.
+      eapply (lwp_save_stack_w _ (lp_combine Φ [VAL_int32 (Wasm_int.Int32.repr i)])) in Hsave; eauto.
+      + destruct Hsave as (-> & -> & -> & Hsave).
+        iApply (Hsave with "[$] [$]").
+        iIntros (f' [Hfsame Hfchanged]).
+        done.
+      + apply Hwl.
+      + admit. (* easy pure conseqeunce of value_interp and
+      rep_values_interp, should be proved above the first wp_seq
+      rule *)
+    }
+    { by iIntros (fr') "Htrap". }
+    iIntros (w fr_saved) "Hnotrap Hfr _".
+    subst Φ.
+    destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+    iDestruct "Hnotrap" as "(Hrun & %Hsame & %Hsaved & ->)".
+    replace (language.of_val) with (of_val); last done.
+    cbn [of_val].
+    rewrite v_to_e_list1.
+
+    edestruct (util.nths_error_exists val_idxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done.
+
+    edestruct (util.nths_error_exists val_idxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done.
+
+    (* Store tag *)
+    lwp_chomp 2.
+    iApply (lenient_wp_seq with "[Hfr Hrun]").
+    {
+      set (Φ := {| lp_fr_inv := λ _, True;
+                  lp_val := λ f vs',
+                    ⌜∀ j, j ≠ (fe_wlocal_offset fe + length (wl ++ wl_save))%nat -> f_locs f !! j = f_locs fr_saved !! j⌝ ∗
+                    ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ ∗
+                    ⌜vs' = []⌝;
+                  lp_trap := False;
+                  lp_br := λ _ _ _, False;
+                  lp_ret := λ _, False;
+                  lp_host := λ _ _ _ _, False |}%I : @logpred Σ).
+      iApply (lenient_wp_set_local _ _ _ Φ); last iFrame.
+      1: admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *)
+      unfold lp_val, Φ.
+      iSplit.
+      - iIntros "!> %j".
+        iPureIntro.
+        intros Hneq.
+        simpl.
+        apply util.set_nth_neq; try done.
+        admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *)
+      - iSimpl.
+        iSplit; last done.
+        iPureIntro.
+        apply set_nth_read.
+    }
+    { by iIntros. }
+    iIntros (w fr_saved_and_tag) "Hnotrap Hfr _".
+    destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+    iDestruct "Hnotrap" as "(Hrun & %Hsame' & %Hsaved_and_tag' & ->)".
+    clear_nils.
+
+    (* -------- Case blocks -------- *)
+    rewrite <- (app_nil_l [AI_basic _]).
+    iApply (lenient_wp_block with "[$] [$]"); auto.
+    iIntros "!> Hf Hrun".
+    rewrite app_nil_l.
+    iApply lwp_wasm_empty_ctx.
+    iApply lwp_label_push_nil.
+    iApply lwp_ctx_bind; first done.
+    (* -------- Case 1 -------- *)
+    lwp_chomp 1%nat.
+    iApply (lenient_wp_seq with "[-]").
+    {
+      rewrite <- (app_nil_l [AI_basic _]).
+      iApply (lenient_wp_block with "[$] [$]"); auto.
+      iIntros "!> Hf Hrun".
+      rewrite app_nil_l.
+      iApply lwp_wasm_empty_ctx.
+      iApply lwp_label_push_nil.
+      iApply lwp_ctx_bind; first done.
+      (* Get tag from local *)
+      lwp_chomp 1%nat.
+      iApply (lenient_wp_seq with "[Hf Hrun]").
+      {
+        iApply lenient_wp_get_local; first apply Hsaved_and_tag'.
+        iFrame.
+        auto_logp.
+      }
+      { by iIntros (fr') "Htrap". }
+      iIntros (w ?fr) "Hnotrap Hf _".
+      destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+      iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+      replace (language.of_val) with (of_val); last done.
+      iSimpl.
+
+      (* compare tag with case number: 0 *)
+      lwp_chomp 3%nat.
+      iApply (lenient_wp_seq with "[Hf Hrun]").
+      {
+        iApply lwp_relop; first done.
+        iFrame.
+        iSimpl.
+        auto_logp.
+      }
+      { by iIntros. }
+      iIntros (w ?fr) "Hnotrap Hf _".
+      destruct w; iEval (cbn) in "Hnotrap"; try done;
+      try (iDestruct "Hnotrap" as "[? ?]"; done).
+      iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+      replace (language.of_val) with (of_val); last done.
+      iSimpl.
+
+      lwp_chomp 2%nat; rewrite take_0; rewrite drop_0.
+
+      (* Case analysis: Is tag 0? *)
+      destruct (Datatypes.negb _); cbn [wasm_bool]; last first.
+
+      - (* Case: Tag it 0 *)
+        iApply (lenient_wp_seq with "[Hf Hrun]").
+        {
+          iApply lenient_wp_br_if_false; first done.
+          iFrame.
+          auto_logp.
+        }
+        { by iIntros. }
+        iIntros (w ?fr) "Hnotrap Hf _".
+        destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+        iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+        replace (language.of_val) with (of_val); last done.
+        iSimpl.
+
+        (* get locals corresponding to payload of sum *)
+        eapply lwp_restore_stack_w in Hget_locals_1; eauto using Forall2_length.
+        2 : {
+          instantiate (1 := case_1_vs_payload).
+          pose proof (util.nths_error_length _ _ _ Heq_some3) as Hlen_c1vi.
+          pose proof (util.nths_error_length _ _ _ Hnerr_payload_c1) as Hlen_c1vp.
+          by rewrite <- Hlen_c1vi.
+        }
+        destruct Hget_locals_1 as (_ & _ & _ & Hget_locals_1).
+        iDestruct (Hget_locals_1 with "[$] [$] []") as "Hget_locals_1"; clear Hget_locals_1.
+        {
+          iPureIntro.
+          pose proof (util.nths_error_Forall2 _ val_idxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1.
+          admit.
+          (* TODO: should be provable, but will probably be a bit annoying *)
+        }
+        rewrite util.to_e_list_app.
+
+        iApply (lenient_wp_seq with "[Hget_locals_1]").
+        1: iApply "Hget_locals_1".
+        { by iIntros. }
+        iIntros (w ?fr) "Hnotrap Hf _".
+        destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+        iDestruct "Hnotrap" as "(Hrun & -> & ->)".
+        replace (language.of_val) with (of_val); last done.
+        iSimpl.
+        rewrite util.to_e_list_app.
+        rewrite (app_assoc (v_to_e_list _)); iSimpl.
+
+        (* Reason about case 1 code *)
+
+        iApply (lenient_wp_seq with "[-]").
+        {
+          iApply ("Hsem_es1" with "[] [] [] [] [] [] [] [$] [$]").
+          - iPureIntro. by eapply sem_env_interp_fc_labels_irrelevant.
+          - done.
+          - admit.
+          - admit.
+          - admit.
+          - admit.
+          - admit.
+        }
+        { admit. }
+        admit.
+
+        (* Reason about code for case 1 *)
+
+      - (* Case: Tag is not 0 *)
+        iApply (lenient_wp_seq with "[Hf Hrun]").
+        {
+          iApply lenient_wp_br_if_true; first done.
+          iFrame.
+          iIntros "!> Hf Hr".
+          iApply lenient_wp_value; first by instantiate (1 := brV (VH_base 0 [] [])).
+          iFrame.
+          auto_logp.
+        }
+        { by iIntros. }
+        iIntros (w ?fr) "Hnotrap Hf _".
+        destruct w; iEval (cbn) in "Hnotrap"; try done;
+        try (iDestruct "Hnotrap" as "[? ?]"; done).
+        iDestruct "Hnotrap" as "(Hrun & %Hfr_vh)".
+        destruct Hfr_vh as [-> [-> Hvh]].
+        simpl in Hvh; simplify_eq.
+        replace (language.of_val) with (of_val); last done.
+        iSimpl.
+        iApply lwp_wasm_empty_ctx.
+
+          (* iApply (wp_br_ctx with "[$] [$]"). *)
+          (* 1: by instantiate (1 := []). *)
+          (* 1: done. *)
+          (* 2: { *)
+          (*   iPureIntro. *)
+          (*   instantiate (1 := 0). *)
+          (*   instantiate (1 := []). *)
+          (*   instantiate (1 := LH_base [] _). *)
+          (*   unfold lfilled, lfill => //=. *)
+          (* } *)
+          admit.
+        }
+        { admit. }
+        admit.
 
 Admitted.
 
