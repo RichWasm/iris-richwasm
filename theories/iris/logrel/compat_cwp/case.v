@@ -216,7 +216,7 @@ Section Fundamental.
 
     (* Our values are in the value interpretation for our specific SumT *)
     (* This means that the values represent the tag and the payload. *)
-    iDestruct (values_interp_singleton with "Hvs") as "Hvs"; first done.
+    iDestruct (values_interp_one_eq with "Hvs") as "Hvs".
     iDestruct (value_interp_eq with "Hvs") as "Hvs".
     unfold value_interp0, value_se_interp0.
     iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
