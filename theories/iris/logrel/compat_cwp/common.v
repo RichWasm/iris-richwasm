@@ -36,6 +36,28 @@ Section common.
   Proof.
   Admitted.
 
+  Lemma values_interp_one_eq se τ os :
+    values_interp rti sr se [τ] os ⊣⊢ value_interp rti sr se τ (SAtoms os).
+  Proof.
+    unfold values_interp, values_interp0.
+    iSplit.
+    - iIntros "(%oss & %Hconcat & Hbig)".
+      iDestruct (big_sepL2_length with "Hbig") as "%Hlen".
+      simpl in Hlen.
+      destruct oss as [| os_single [| ? ?]]; simpl in Hlen; try lia.
+      iDestruct (big_sepL2_cons with "Hbig") as "[Hτ _]".
+      simpl in Hconcat. rewrite app_nil_r in Hconcat. subst.
+      iExact "Hτ".
+    - iIntros "Hτ".
+      iExists [os].
+      iSplit.
+      + iSimpl. by clear_nils.
+      + iApply big_sepL2_cons.
+        iFrame.
+        iApply big_sepL2_nil.
+        done.
+  Qed.
+
   (* There's gotta be a clearner way to do it *)
   Lemma atoms_interp_app os1 os2 vs :
     atoms_interp (os1 ++ os2) vs -∗
