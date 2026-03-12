@@ -899,6 +899,36 @@ Qed.
       done.
   Qed.
 
+  Lemma lwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f Φ :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
+    ret = tt /\
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+        Φ.(lp_fr_inv) f -∗
+        Φ.(lp_val) f vs -∗
+        lenient_wp NotStuck E (to_e_list es) Φ.
+  Proof.
+    intros Hlen Hcodegen.
+    eapply (wp_restore_stack_w _ _ _ _ _ _ _ E _ f
+    (λ w, ⌜w = immV vs⌝ ∗ Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f vs)%I)
+    in Hcodegen; [| eassumption].
+    destruct Hcodegen as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun Hidxs Hfr_inv Hval".
+    unfold lenient_wp.
+    iApply (wp_wand with "[Hfr Hrun Hidxs Hfr_inv Hval]").
+    - iApply (Hwp with "[$] [$] [Hfr_inv Hval] [$]").
+      by iFrame.
+    - iIntros (v) "((-> & Hfr_inv & Hval) & Hrun & Hfr)".
+      unfold denote_logpred; cbn.
+      iExists f.
+      iFrame.
+  Qed.
+
   Lemma lwp_restore_stack_w idxs vs wt wt' wl wl' es E ret f :
     length idxs = length vs ->
     run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
@@ -917,19 +947,56 @@ Qed.
              lp_ret _ := False;
              lp_host _ _ _ _ := False |}.
   Proof.
-    intros.
-    eapply (wp_restore_stack_w _ _ _ _ _ _ _ E _ f (λ vs', ⌜vs' = immV vs⌝%I)) in H0; [|eassumption].
-    destruct H0 as (-> & -> & -> & Hwp).
-    split; [done | split; [done | split; [done|]]].
-    iIntros "Hf Hrun Hvs".
-    unfold lenient_wp.
-    iApply (wp_wand with "[Hf Hrun Hvs]").
-    - iApply (Hwp with "[$] [$]").
-      done.
-      eauto.
-    - iIntros (v) "(-> & Hrun & Hfr)".
-      unfold denote_logpred; cbn.
-      by iFrame.
+    intros Hlen Hcodegen.
+    edestruct (lwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f) as (-> & -> & -> & Hwp); try done.
+    do 3 split; try done.
+    iIntros "Hfr Hrun Hidxs".
+    by iApply (Hwp with "Hfr Hrun Hidxs").
+  Qed.
+
+  Lemma cwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f L R Φ :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
+    ret = tt /\
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] f -∗
+        ↪[RUN] -∗
+        Φ f vs -∗
+        ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+        CWP es @ NotStuck; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros Hlen Hcodegen.
+    destruct (lwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f
+    (cwp_post_lp L R Φ) Hlen Hcodegen)
+    as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun HΦ Hidxs".
+    unfold cwp_wasm.
+    iApply (Hwp with "Hfr Hrun Hidxs").
+    - simpl. done.
+    - simpl. iExact "HΦ".
+  Qed.
+
+  Lemma cwp_restore_stack_w idxs vs wt wt' wl wl' es E ret f L R :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
+    ret = tt /\
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+        CWP es @ NotStuck; E UNDER L; R {{ f'; vs', ⌜f' = f /\ vs' = vs⌝ }}.
+  Proof.
+    intros Hlen Hcodegen.
+    destruct (cwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f L R
+                (fun f' vs' => ⌜f' = f /\ vs' = vs⌝)%I
+                Hlen Hcodegen)
+      as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun Hidxs".
+    by iApply (Hwp with "[$] [$] [//]").
   Qed.
 
   Lemma wp_bind_err {A B} c (f : A -> codegen B) wt wl err :
