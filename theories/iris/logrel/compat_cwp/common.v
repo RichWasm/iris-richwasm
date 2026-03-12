@@ -27,6 +27,33 @@ Section common.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma value_interp_i32 se os :
+    value_interp rti sr se type_i32 (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
+  Admitted.
+
+  Lemma values_interp_nil se os :
+    values_interp rti sr se [] os -∗ ⌜os = []⌝.
+  Proof.
+    iIntros "Hos".
+    iDestruct "Hos" as "(%oss & -> & Hoss)".
+    by iDestruct (big_sepL2_nil_inv_l with "Hoss") as "->".
+  Qed.
+
+  Lemma values_interp_cons se τ τs os :
+    values_interp rti sr se (τ :: τs) os -∗
+    ∃ os1 os2,
+      ⌜os = os1 ++ os2⌝ ∗
+      value_interp rti sr se τ (SAtoms os1) ∗
+      values_interp rti sr se τs os2.
+  Proof.
+    iIntros "Hos".
+    iDestruct "Hos" as "(%oss & -> & Hoss)".
+    iDestruct (big_sepL2_cons_inv_l with "Hoss") as "(%os & %oss' & -> & Hos & Hoss')".
+    iExists os, (concat oss').
+    rewrite concat_cons.
+    by iFrame.
+  Qed.
+
   Lemma values_interp_app se τs1 τs2 os :
     values_interp rti sr se (τs1 ++ τs2) os -∗
     ∃ os1 os2,
@@ -35,6 +62,26 @@ Section common.
       values_interp rti sr se τs2 os2.
   Proof.
   Admitted.
+
+  Lemma atoms_interp_nil vs :
+    atoms_interp [] vs -∗ ⌜vs = []⌝.
+  Proof.
+    iIntros "Hvs".
+    by iDestruct (big_sepL2_nil_inv_l with "Hvs") as "->".
+  Qed.
+
+  Lemma atoms_interp_cons o os vs :
+    atoms_interp (o :: os) vs -∗
+    ∃ v vs',
+      ⌜vs = v :: vs'⌝ ∗
+      atom_interp o v ∗
+      atoms_interp os vs'.
+  Proof.
+    iIntros "Hvs".
+    iDestruct (big_sepL2_cons_inv_l with "Hvs") as "(%v & %vs' & -> & Hv & Hvs')".
+    iExists v, vs'.
+    by iFrame.
+  Qed.
 
   (* There's gotta be a clearner way to do it *)
   Lemma atoms_interp_app os1 os2 vs :

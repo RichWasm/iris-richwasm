@@ -2,6 +2,7 @@ Require Import iris.proofmode.tactics.
 
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_structural lwp_trap.
+From RichWasm.iris.rules Require Import iris_rules_control iris_rules_structural iris_rules_bind.
 From RichWasm.iris.language.cwp Require Import base def util.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -93,6 +94,25 @@ Section structural.
         by rewrite Hbase.
     - done.
   Qed.
+
+  Lemma cwp_val_frame s E vs es es' B R Φ :
+    CWP map BI_const vs ++ es' @ s; E UNDER B; R {{ Φ }} -∗
+    (CWP es' @ s; E UNDER B; R {{ Φ }} -∗ CWP es @ s; E UNDER B; R {{ Φ }}) -∗
+    CWP map BI_const vs ++ es @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    iIntros "Hes' Hes".
+    unfold cwp_wasm, lenient_wp, to_e_list.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite !map_app.
+    rewrite !map_map.
+    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
+    fold (v_to_e_list vs).
+    iApply wp_wasm_empty_ctx.
+    rewrite <- (app_nil_r (map AI_basic es)).
+    iApply wp_base_push; first apply v_to_e_is_const_list.
+    simpl frame_base.
+    iApply wp_ctx_bind.
+  Admitted.
 
   Lemma cwp_seq s E es1 es2 L R Φ1 Φ2 :
     CWP es1 @ E UNDER L; R {{ Φ1 }} -∗

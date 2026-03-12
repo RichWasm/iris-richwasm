@@ -9,6 +9,7 @@ From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.language Require Import cwp logpred.
 From RichWasm.iris.logrel Require Import relations_cwp fundamental_kinding.
+Require Import RichWasm.iris.logrel.compat_cwp.common.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -45,6 +46,47 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
   Proof.
+    iIntros (fe WT WL F' Ψ Hok IH1 IH2 Hcg se inst fr os vs θ B R Hse)
+      "#Hinst Hlabels Hretun Hvs Hos Hframe Hrti Hfr Hrun".
+    inv_cg_bind Hcg res1 wt1 wt2 wl1 wl2 es1' es2' Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res2 wt3 wt4 wl3 wl4 es3' es4' Hcg2 Hcg3.
+    apply wp_ignore in Hcg3 as (_ & [] & Hcg3).
+    destruct u, u0.
+    inv_cg_try_option Hcg1.
+    inv_cg_try_option Hcg2.
+    subst wt1 wl1 es1' wt3 wl3 es3' wt2 wl2 es2' wt' wl' es' WT WL.
+    clear_nils.
+    iDestruct (values_interp_app with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hos2)"; first done.
+    iDestruct (atoms_interp_app with "Hvs") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)".
+    rewrite map_app.
+    rewrite <- app_assoc.
+    iDestruct (values_interp_cons with "Hos2") as "(%os1a & %os1b & -> & Hos1a & Hos1b)".
+    iDestruct (atoms_interp_app with "Hvs2") as "(%vs1a & %vs1b & -> & Hvs1a & Hvs1b)".
+    iDestruct (values_interp_nil with "Hos1b") as "->".
+    iClear "Hos1b".
+    iDestruct (big_sepL2_nil_inv_l with "Hvs1b") as "->".
+    iClear "Hvs1b".
+    rewrite app_nil_r.
+    iDestruct (value_interp_i32 with "Hos1a") as "(%n & ->)"; first done.
+    iClear "Hos1a".
+    iDestruct (atoms_interp_cons with "Hvs1a") as "(%v & %vs' & -> & Hv & Hvs1a')".
+    iDestruct (atoms_interp_nil with "Hvs1a'") as "->".
+    iClear "Hvs1a'".
+    change (map BI_const [v]) with [BI_const v].
+    iDestruct "Hv" as "->".
+    iApply cwp_val_app.
+    eapply cwp_if_c in Hcg3 as (wt5 & wt6 & wl5 & wl6 & es5 & es6 & Hes1 & Hes2 & -> & -> & Hite).
+    iApply (Hite with "[$] [$]").
+    clear Hite.
+    destruct (value_eq_dec (VAL_int32 n) (VAL_int32 (Wasm_int.int_zero i32m))) as [Hvn|Hvn].
+    - inversion Hvn as [Hn]. subst n. clear Hvn Hes1 IH1.
+      iRight. iSplitR; first done.
+      iIntros "!> Hfr Hrun".
+      eapply IH2 in Hes2.
+      iApply cwp_block.
+      admit.
+    - iLeft. admit.
+
     (* intros fe WT WL F' ψ Hok Hthen Helse Hcodegen. *)
     (* iIntros (se inst lh fr rvs vs θ Henv) "#Hinst #Hctxt Hrvs Hvss Hvsl Hrt Hfr Hrun". *)
     (* iDestruct "Hvss" as (vss) "(-> & Hvss)". *)

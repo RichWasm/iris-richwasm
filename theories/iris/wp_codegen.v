@@ -3,7 +3,7 @@ Require Import iris.proofmode.tactics.
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
 From RichWasm.compiler Require Import prelude accum codegen.
-From RichWasm.iris Require Import autowp lenient_wp logpred.
+From RichWasm.iris Require Import autowp cwp lenient_wp logpred.
 From RichWasm.iris.logrel Require Import relations.
 
 Module W := Wasm.operations.
@@ -94,6 +94,30 @@ Section CodeGen.
     split; eauto.
     iIntros (Φ f i) "Hf Hrun Hbranches".
     iApply (Hwp with "[$] [$] [$]").
+  Qed.
+
+  Lemma cwp_if_c {T U} s E tf (c1 : codegen T) (c2 : codegen U) wt wt' wl wl' es x y B R :
+    run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
+    exists wt1 wt2 wl1 wl2 es1 es2,
+      run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
+      run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
+      wt' = wt1 ++ wt2 /\
+      wl' = wl1 ++ wl2 /\
+      ∀ Φ (f : frame) i,
+        ↪[frame] f -∗
+        ↪[RUN] -∗
+        ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
+          ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_block tf es1] @ s; E UNDER B; R {{ Φ }})) ∨
+         (⌜i = Wasm_int.int_zero i32m⌝ ∧
+          ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_block tf es2] @ s; E UNDER B; R {{ Φ }}))) -∗
+        CWP BI_const (VAL_int32 i) :: es @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    eapply lwp_if_c in Hcg as (wt1 & wt2 & wl1 & wl2 & es1 & es2 & Hcg1 & Hcg2 & -> & -> & Hite).
+    exists wt1, wt2, wl1, wl2, es1, es2.
+    do 4 (split; first done).
+    iIntros (Φ f i) "Hfr Hrun Hes12".
+    by iApply (Hite with "[$] [$]").
   Qed.
 
   (* Generic monad operations. *)
@@ -628,6 +652,7 @@ Section CodeGen.
     by iApply "Hfr".
   Qed.
 
+  (* TODO: This isn't a WP rule. *)
   Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
     run_codegen (ignore c) wt wl = inr (ret, wt', wl', es) ->
     ret = tt /\
