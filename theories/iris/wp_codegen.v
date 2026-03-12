@@ -3,7 +3,7 @@ Require Import iris.proofmode.tactics.
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
 From RichWasm.compiler Require Import prelude accum codegen.
-From RichWasm.iris Require Import autowp lenient_wp logpred.
+From RichWasm.iris Require Import autowp lenient_wp cwp logpred.
 From RichWasm.iris.logrel Require Import relations.
 
 Module W := Wasm.operations.
@@ -628,6 +628,44 @@ Section CodeGen.
     by iApply "Hfr".
   Qed.
 
+  Lemma to_e_list_map_BI_const vs :
+  to_e_list (map BI_const vs) = W.v_to_e_list vs.
+Proof.
+  induction vs as [| v vs IH].
+  - reflexivity.
+  - simpl. f_equal. exact IH.
+Qed.
+
+  Lemma cwp_save_stack_w tys Φ L R :
+    forall s E fe wt wl idxs wt' wl' wlf es fr vs,
+      run_codegen (save_stack_w fe tys) wt wl = inr (idxs, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
+      wt' = [] /\
+      wl' = tys /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            Φ f []) -∗
+        CWP ((map BI_const vs) ++ es) @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys.
+    destruct (lwp_save_stack_w tys (cwp_post_lp L R Φ) s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys) as (Hidxs & Hwt' & Hwl' & Hwp).
+    refine (conj Hidxs (conj Hwt' (conj Hwl' _))).
+    iIntros "Hfr Hrun HΦ".
+    unfold cwp_wasm.
+    rewrite util.to_e_list_app.
+    rewrite to_e_list_map_BI_const.
+    iApply (Hwp with "[$] [$] [-]").
+    iIntros (f) "Hinv".
+    iSpecialize ("HΦ" $! f with "Hinv").
+    simpl lp_val.
+    iFrame.
+    done.
+  Qed.
 
 Lemma run_codegen_set_locals idxs wt wl x wt' wl' es' :
   run_codegen (set_locals_w idxs) wt wl = inr (x, wt', wl', es') ->
