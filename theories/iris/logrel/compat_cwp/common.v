@@ -95,4 +95,43 @@ Section common.
     @translate_types Σ se τs = Some ts.
   Admitted.
 
+  Lemma values_interp_cons_inv se τ τs os :
+    ⊢ values_interp rti sr se (τ :: τs) os -∗
+      ∃ os1 os2,
+        ⌜os = os1 ++ os2⌝ ∗
+        value_interp rti sr se τ (SAtoms os1) ∗
+        values_interp rti sr se τs os2.
+  Proof.
+    iIntros "(%vss & %Hconcat & Hval)".
+    rewrite big_sepL2_cons_inv_l.
+    iDestruct "Hval" as "(%vs1 & %vss2 & %Hvss & Hvs1 & Hvss2)".
+    iExists vs1, (concat vss2).
+    iSplit; first by rewrite Hconcat Hvss.
+    iSplitL "Hvs1".
+    - done.
+    - iExists _.
+      iSplit; done.
+  Qed.
+
+  Lemma values_interp_one_eq se τ os :
+    values_interp rti sr se [τ] os ⊣⊢ value_interp rti sr se τ (SAtoms os).
+  Proof.
+    unfold values_interp.
+    iSplit.
+    - iIntros "(%vss & -> & H)".
+      rewrite big_sepL2_cons_inv_l.
+      iDestruct "H" as "(%vs & %lnil & -> & Hv & Hnils)".
+      rewrite big_sepL2_nil_inv_l.
+      iDestruct "Hnils" as "->".
+      cbn.
+      by rewrite app_nil_r.
+    - iIntros "H".
+      iExists [os].
+      iSplit.
+      + cbn. by rewrite app_nil_r.
+      + iApply big_sepL2_cons.
+        iFrame.
+        by iApply big_sepL2_nil.
+  Qed.
+
 End common.
