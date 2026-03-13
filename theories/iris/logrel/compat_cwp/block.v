@@ -80,18 +80,9 @@ Section Fundamental.
       ("IH" with "[] [$HIinst] [HIB] [$HIR] [$HIvs] [$HIos] [$HIfr] [$Hrt] [$Hfr] [$Hrun]");
       first done;
       last iApply "IH".
-    unfold labels_interp.
-    subst F'.
-    assert (fc_labels (F <| fc_labels ::= cons (τs2, L') |>) = (τs2, L') :: fc_labels F) as HB' by
-          by rewrite <- set_get.
-    rewrite HB'.
-    clear HB'.
-    unfold const.
-    rewrite big_sepL2_cons.
-    iSplitR; last done.
-    iSplitL.
-    - by erewrite translate_types_comp_sem.
-    - iIntros (fr' vs' os' θ') "HIvs' HIos' HIfr' Hrt". iFrame.
+    iApply labels_interp_cons.
+    4: by iIntros (fr' vs') "H".
+    all: done.
   Qed.
 
 End Fundamental.

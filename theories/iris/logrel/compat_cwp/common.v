@@ -142,4 +142,25 @@ Section common.
     @translate_types Σ se τs = Some ts.
   Admitted.
 
+  Lemma labels_interp_cons se inst wl F L B τs ts Φ :
+    sem_env_interp F se ->
+    prelude.translate_types (fc_type_vars F) τs = Some ts ->
+    (∀ fr' vs',
+       (frame_interp rti sr se L wl inst fr' ∗
+        ∃ os' θ0, values_interp rti sr se τs os' ∗ atoms_interp os' vs' ∗ rt_token rti sr θ0) -∗
+       Φ fr' vs') -∗
+    labels_interp rti sr se inst wl F.(fc_labels) B -∗
+    labels_interp rti sr se inst wl ((τs, L) :: F.(fc_labels)) ((length ts, Φ) :: B).
+  Proof.
+    iIntros (Hse Hts) "HΦ Hlabels".
+    unfold labels_interp.
+    unfold const.
+    rewrite big_sepL2_cons.
+    iSplitL "HΦ".
+    - iSplitR.
+      + by erewrite translate_types_comp_sem.
+      + iIntros (fr vs os θ) "Hvs Hos Hframe Hrti". iApply "HΦ". iFrame.
+    - done.
+  Qed.
+
 End common.
