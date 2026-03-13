@@ -81,12 +81,71 @@ Section common.
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->
     values_interp rti sr se τs os -∗
     ⌜length os = length ts⌝.
+  Proof.
+    intros. iIntros "Hval".
+    cbn.
   Admitted.
+
+  Lemma values_interp_one_eq se τ os :
+    values_interp rti sr se [τ] os ⊣⊢ value_interp rti sr se τ (SAtoms os).
+  Proof.
+    unfold values_interp.
+    iSplit.
+    - iIntros "(%vss & -> & H)".
+      rewrite big_sepL2_cons_inv_l.
+      iDestruct "H" as "(%vs & %lnil & -> & Hv & Hnils)".
+      rewrite big_sepL2_nil_inv_l.
+      iDestruct "Hnils" as "->".
+      cbn.
+      by rewrite app_nil_r.
+    - iIntros "H".
+      iExists [os].
+      iSplit.
+      + cbn. by rewrite app_nil_r.
+      + iApply big_sepL2_cons.
+        iFrame.
+        by iApply big_sepL2_nil.
+  Qed.
 
   Lemma translate_types_sem_interp_length se τs ts os :
     translate_types se τs = Some ts ->
     values_interp rti sr se τs os -∗
     ⌜length os = length ts⌝.
+  Proof.
+    generalize dependent se; generalize dependent ts; generalize dependent os.
+    induction τs.
+    - intros.
+      iIntros  "(%oss & %ossconc & Hval)".
+      iPoseProof (big_sepL2_length with "[$Hval]") as "%osslen".
+      simpl in osslen; destruct oss; [ | inversion osslen].
+      simpl in ossconc; subst; iPureIntro.
+      cbn in H.
+      inversion H; auto.
+    - intros.
+      rewrite separate1.
+      iIntros "Hval".
+      iPoseProof (values_interp_app with "[$Hval]") as "(%os1 & %os2 & %Hoslen & Ha & Hτs)".
+      rewrite values_interp_one_eq.
+
+      unfold translate_types in H.
+      rewrite fmap_Some in H.
+      destruct H as (tss & Hmapm & Htsconcat).
+      About bind_Some.
+      simpl in Hmapm.
+      apply bind_Some in Hmapm.
+      destruct Hmapm as (ts1 & Htranslate & Hmapτs).
+      set (asdf := translate_types se τs).
+      assert (H: asdf = Some ts). {
+        admit.
+      }
+      (* NOTE: I need to turn Hmapτs back into translate_types se τs = Some _. Or get it out of
+         there at least. Not rn. For now I'll just show stuff about a, aka that os1 = ts1. *)
+
+      subst.
+      (* induction on a? I need to prove that length os1 = length ts1, and that'll
+       depend on what sort of instruction a is. There's some annoying fixpoint here and there. *)
+
+
   Admitted.
 
   Lemma translate_types_comp_sem F τs ts se :
@@ -113,25 +172,5 @@ Section common.
       iSplit; done.
   Qed.
 
-  Lemma values_interp_one_eq se τ os :
-    values_interp rti sr se [τ] os ⊣⊢ value_interp rti sr se τ (SAtoms os).
-  Proof.
-    unfold values_interp.
-    iSplit.
-    - iIntros "(%vss & -> & H)".
-      rewrite big_sepL2_cons_inv_l.
-      iDestruct "H" as "(%vs & %lnil & -> & Hv & Hnils)".
-      rewrite big_sepL2_nil_inv_l.
-      iDestruct "Hnils" as "->".
-      cbn.
-      by rewrite app_nil_r.
-    - iIntros "H".
-      iExists [os].
-      iSplit.
-      + cbn. by rewrite app_nil_r.
-      + iApply big_sepL2_cons.
-        iFrame.
-        by iApply big_sepL2_nil.
-  Qed.
 
 End common.
