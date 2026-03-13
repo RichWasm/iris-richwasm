@@ -582,6 +582,17 @@ Section Relations.
     list (list type * local_ctx) -> list label_spec -> iProp Σ :=
     big_sepL2 (const (label_interp se inst WL)).
 
+  Lemma labels_interp_cons se inst WL τ_res L' i P lctxs B :
+    label_interp se inst WL ([τ_res], L') (i, P) -∗
+    labels_interp se inst WL lctxs B -∗
+    labels_interp se inst WL (([τ_res], L') :: lctxs) ((i, P) :: B).
+  Proof.
+    iIntros "Hlbl Hrest".
+    unfold labels_interp.
+    rewrite big_sepL2_cons.
+    iFrame.
+  Qed.
+
   Definition return_interp (se : semantic_env) (τr : list type) (R : option return_spec) :
     iProp Σ :=
     match R with

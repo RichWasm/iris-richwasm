@@ -285,7 +285,6 @@ Section Fundamental.
     clear_nils.
 
     (* -------- Case 1 -------- *)
-    (* TODO: consider having a lemma for the check on the tag, and then do case distinction here *)
     iApply (cwp_seq with "[-]").
     {
       rewrite <- (app_nil_l [prelude.W.BI_block _ _]).
@@ -354,7 +353,7 @@ Section Fundamental.
         rewrite (app_assoc (map _ _)).
         iApply (cwp_seq with "[-]").
         {
-          iApply ("Hsem_es1" with "[//] [$] [] [] [] [] [] [$] [$] [$]").
+          iApply ("Hsem_es1" with "[//] [$] [Hctx] [] [] [] [] [$] [$] [$]").
           - admit.
           - admit.
           - admit.

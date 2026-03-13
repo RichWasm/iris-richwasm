@@ -762,7 +762,7 @@ Qed.
       wl' = [] /\
       ⊢ ↪[frame] fr -∗
         ↪[RUN] -∗
-        (∀ f, 
+        (∀ f,
             ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
             ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
             Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f []) -∗
@@ -784,6 +784,40 @@ Qed.
     unfold denote_logpred.
     iFrame.
     by iApply "Hfr".
+  Qed.
+
+  Lemma cwp_set_locals_w tys L R Φ :
+    forall s E fe wt wl idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      v = () ∧
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            Φ f []) -∗
+            CWP (map BI_const vs) ++ es @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros s E fe wt wl idxs v wt' wl' wlf es fr vs Hcg Hwl Hrt.
+    destruct (lwp_set_locals_w tys (cwp_post_lp L R Φ)
+                s E fe wt wl idxs v wt' wl' wlf es fr vs
+                Hcg Hwl Hrt)
+                as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun H".
+    unfold cwp_wasm.
+    rewrite util.to_e_list_app.
+    rewrite to_e_list_map_BI_const.
+    iApply (Hwp with "[$] [$] [-]").
+    iIntros (f) "H'".
+    iSpecialize ("H" $! f with "H'").
+    simpl lp_val.
+    iFrame.
+    done.
   Qed.
 
   Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
