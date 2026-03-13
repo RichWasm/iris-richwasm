@@ -8,7 +8,7 @@ From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.language Require Import cwp logpred.
-From RichWasm.iris.logrel Require Import relations_cwp fundamental_kinding.
+From RichWasm.iris.logrel Require Import relations_cwp fundamental_kinding compat_lemmas.shared.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -22,6 +22,9 @@ Section Fundamental.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
+
+  Lemma something_about_setflags: False.
+  Abort.
 
   Lemma compat_load_move M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ τ τval π pr :
     let fe := fe_of_context F in
@@ -56,10 +59,18 @@ Section Fundamental.
     cbn in Hignore; inversion Hignore; subst; clear Hignore.
 
     (* Some clean up *)
-    assert (Hu: u = ()). { admit. }
-    assert (Hp: p = ((),())). { admit. }
-    subst.
-    (* clear_nils. *)
+    destruct u.
+    destruct p as [[] []].
+
+    eapply wp_case_ptr_cwp_direct in Hcompile.
+    destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & es_unr & es_mm & es_gc & Hcompile).
+    rewrite !app_nil_r !app_nil_l.
+    rewrite !app_nil_r in Hcompile.
+    rewrite !app_nil_r in Hptr_flags.
+    destruct Hcompile as (Hcomp_int & Hcomp_mm & Hcomp_gc & Hwt4 & Hwl4 & Hspec).
+
+    unfold have_instr_type_sem; destruct ψ as [τs1 τs2].
+    iIntros (se inst fr os vs θ B R Hse) "Hinst Hlab Hret Hat Hstk Hfr Hrt Hf Hrun".
 
     (* Next is case ptr *)
     (* WAITING FOE LEMMA *)
