@@ -74,18 +74,36 @@ Section Fundamental.
     iClear "Hvs1a'".
     change (map BI_const [v]) with [BI_const v].
     iDestruct "Hv" as "->".
-    iApply cwp_val_app.
     eapply cwp_if_c in Hcg3 as (wt5 & wt6 & wl5 & wl6 & es5 & es6 & Hes1 & Hes2 & -> & -> & Hite).
-    iApply (Hite with "[$] [$]").
-    clear Hite.
     destruct (value_eq_dec (VAL_int32 n) (VAL_int32 (Wasm_int.int_zero i32m))) as [Hvn|Hvn].
-    - inversion Hvn as [Hn]. subst n. clear Hvn Hes1 IH1.
-      iRight. iSplitR; first done.
-      iIntros "!> Hfr Hrun".
-      eapply IH2 in Hes2.
-      iApply cwp_block.
-      admit.
-    - iLeft. admit.
+    - iApply (cwp_val_frame with "[$] [$]").
+      + iIntros (f') "Hfr Hrun Hblock".
+        iApply (Hite with "[$] [$]").
+        clear Hite.
+        inversion Hvn as [Hn]. subst n. clear Hvn Hes1 IH1.
+        iRight. iSplitR; first done.
+        iIntros "!> Hfr Hrun".
+        iApply "Hblock".
+      + iIntros (f') "Hfr Hrun".
+        iApply (cwp_block with "[$] [$]").
+        { admit. }
+        iIntros "!> Hfr Hrun".
+        admit.
+    - iApply (cwp_val_frame with "[$] [$]").
+      + iIntros (f') "Hfr Hrun Hblock".
+        iApply (Hite with "[$] [$]").
+        clear Hite.
+        assert (n <> Wasm_int.int_zero i32m) as Hn.
+        { intros Hcontra. apply Hvn. by rewrite Hcontra. }
+        clear Hvn Hes2 IH2.
+        iLeft. iSplitR; first done.
+        iIntros "!> Hfr Hrun".
+        iApply "Hblock".
+      + iIntros (f') "Hfr Hrun".
+        iApply (cwp_block with "[$] [$]").
+        { admit. }
+        iIntros "!> Hfr Hrun".
+        admit.
 
     (* intros fe WT WL F' ψ Hok Hthen Helse Hcodegen. *)
     (* iIntros (se inst lh fr rvs vs θ Henv) "#Hinst #Hctxt Hrvs Hvss Hvsl Hrt Hfr Hrun". *)

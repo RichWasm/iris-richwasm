@@ -95,12 +95,16 @@ Section structural.
     - done.
   Qed.
 
-  Lemma cwp_val_frame s E vs es es' B R Φ :
-    CWP map BI_const vs ++ es' @ s; E UNDER B; R {{ Φ }} -∗
-    (CWP es' @ s; E UNDER B; R {{ Φ }} -∗ CWP es @ s; E UNDER B; R {{ Φ }}) -∗
+  Lemma cwp_val_frame s E (f : frame) vs es es' B R Φ :
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    (∀ (f : frame), ↪[frame] f -∗ ↪[RUN] -∗
+     CWP es' @ s; E UNDER B; R {{ Φ }} -∗
+     CWP es @ s; E UNDER B; R {{ Φ }}) -∗
+    (∀ (f : frame), ↪[frame] f -∗ ↪[RUN] -∗ CWP map BI_const vs ++ es' @ s; E UNDER B; R {{ Φ }}) -∗
     CWP map BI_const vs ++ es @ s; E UNDER B; R {{ Φ }}.
   Proof.
-    iIntros "Hes' Hes".
+    iIntros "Hfr Hrun Hes Hes'".
     unfold cwp_wasm, lenient_wp, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite !map_app.
@@ -110,8 +114,9 @@ Section structural.
     iApply wp_wasm_empty_ctx.
     rewrite <- (app_nil_r (map AI_basic es)).
     iApply wp_base_push; first apply v_to_e_is_const_list.
+    rewrite app_nil_r.
     simpl frame_base.
-    iApply wp_ctx_bind.
+    iApply wp_ctx_bind'.
   Admitted.
 
   Lemma cwp_seq s E es1 es2 L R Φ1 Φ2 :
