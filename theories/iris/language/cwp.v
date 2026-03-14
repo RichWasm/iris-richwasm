@@ -1,1 +1,2 @@
-From RichWasm.iris.language.cwp Require Export control def memory parametric structural variable.
+From RichWasm.iris.language.cwp Require Export
+  base control def memory numeric parametric structural variable.
