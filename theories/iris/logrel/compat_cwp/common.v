@@ -88,7 +88,6 @@ Section common.
     atoms_interp (os1 ++ os2) vs -∗
     ∃ vs1 vs2, ⌜vs = vs1 ++ vs2⌝ ∗ atoms_interp os1 vs1 ∗ atoms_interp os2 vs2.
   Proof.
-    Search atoms_interp.
     generalize dependent os1; generalize dependent os2.
     induction vs; intros.
     - iIntros "Hat".
@@ -177,7 +176,6 @@ Section common.
       unfold translate_types in H.
       rewrite fmap_Some in H.
       destruct H as (tss & Hmapm & Htsconcat).
-      About bind_Some.
       simpl in Hmapm.
       apply bind_Some in Hmapm.
       destruct Hmapm as (ts1 & Htranslate & Hmapτs).
