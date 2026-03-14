@@ -48,7 +48,7 @@ Section Fundamental.
     iPoseProof (Hcg $! se inst fr os2 vs2 θ B R Hse with
                  "HIinst HIB HIR Hatomτs1 Hvalτs1 HIfr Hrt Hfr Hrun") as "Hff".
     rewrite map_app. rewrite <- app_assoc.
-    iApply cwp_val_app.
+    iApply cwp_val_app; first apply has_values_consts.
     (* Now it's time to rebuild it *)
     iApply (cwp_wand with "[$Hff]"). clear os2 vs2 θ.
     iIntros (f vs2) "(Hfr & (%os2 & %θ & Hvalτs1 & Hosτs1 & Hrt))".

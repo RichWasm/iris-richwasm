@@ -59,7 +59,7 @@ Section Fundamental.
     iClear "HIos1 HIvs1 HIR".
     rewrite map_app.
     rewrite <- app_assoc.
-    iApply cwp_val_app.
+    iApply cwp_val_app; first apply has_values_consts.
     iApply (cwp_br with "[$] [$]").
     { done. }
     { rewrite <- Htslen. by rewrite <- Hos2len. }

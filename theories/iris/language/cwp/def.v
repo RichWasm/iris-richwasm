@@ -59,6 +59,18 @@ Section def.
     iProp Σ :=
     lenient_wp s E (to_e_list es) (cwp_post_lp L R Φ).
 
+  Definition has_value (e : basic_instruction) (v : value) : bool :=
+    match e with
+    | BI_const v' => value_eqb v v'
+    | _ => false
+    end.
+
+  Definition has_values (es : list basic_instruction) (vs : list value) : bool :=
+    seq.all2 has_value es vs.
+
+  Definition to_consts : list value -> list basic_instruction :=
+    map BI_const.
+
 End def.
 
 Notation "'CWP' es @ s ; E 'UNDER' L ; R {{ Φ } }" :=
