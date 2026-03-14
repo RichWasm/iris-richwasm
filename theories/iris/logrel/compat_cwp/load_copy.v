@@ -97,7 +97,7 @@ Section Fundamental.
     rewrite ?app_nil_r ?app_nil_l -?app_assoc in Hcompile.
     simpl app.
     unfold have_instr_type_sem.
-    iIntros (se inst fr os vs θ B R Hse) "Hinst Hlbl Hret Hats Hvals Hfr Hrt Hf Hrun".
+    iIntros (se inst fr os vs evs θ B R Hse Hevs) "Hinst Hlbl Hret Hats Hvals Hfr Hrt Hf Hrun".
     iEval (rewrite values_interp_one_eq value_interp_eq; cbn) in "Hvals".
     iDestruct "Hvals" as (κ' Hκ') "[Harep Href]".
     destruct κ'; [|done].

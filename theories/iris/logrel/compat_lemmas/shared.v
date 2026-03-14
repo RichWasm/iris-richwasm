@@ -1167,7 +1167,8 @@ Section Fundamental_Shared.
           iIntros "!> Hf Hrun".
           rewrite <- (app_nil_l [_]).
           change (@nil basic_instruction) with (map BI_const []).
-          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
+          iApply (cwp_block with "[$] [$] [Hptr]").
+          1, 2: done.
           iIntros "!> Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).
@@ -1211,7 +1212,8 @@ Section Fundamental_Shared.
         cbn.
         rewrite <- (app_nil_l [_]).
         change (@nil basic_instruction) with (map BI_const []).
-        iApply (cwp_block with "[$] [$] [Hptr]"); first done.
+        iApply (cwp_block with "[$] [$] [Hptr]").
+        1, 2: done.
         iIntros "!> Hf Hrun".
         cwp_chomp 4%nat.
         iApply (cwp_seq with "[Hf Hrun]").
@@ -1237,7 +1239,8 @@ Section Fundamental_Shared.
           iIntros  "!> Hf Hrun".
           change [AI_basic (BI_block (Tf [] ts) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] ts) es_mm])).
           change (@nil basic_instruction) with (map BI_const []).
-          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
+          iApply (cwp_block with "[$] [$] [Hptr]").
+          1, 2: done.
           iIntros "!> Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).
@@ -1247,7 +1250,8 @@ Section Fundamental_Shared.
         cbn.
         rewrite <- (app_nil_l [_]).
         change (@nil basic_instruction) with (map BI_const []).
-        iApply (cwp_block with "[$] [$] [Hptr]"); first done.
+        iApply (cwp_block with "[$] [$] [Hptr]").
+        1, 2: done.
         iIntros "!> Hf Hrun".
         cwp_chomp 4%nat.
         rewrite take_0 drop_0.
@@ -1274,7 +1278,8 @@ Section Fundamental_Shared.
           iIntros  "!> Hf Hrun".
           change [AI_basic (BI_block (Tf [] ts) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] ts) es_gc])).
           change (@nil basic_instruction) with (map BI_const []).
-          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
+          iApply (cwp_block with "[$] [$] [Hptr]").
+          1, 2: done.
           iIntros "!> Hf Hrun".
           iApply cwp_label_take.
           instantiate (1 := 0%nat).

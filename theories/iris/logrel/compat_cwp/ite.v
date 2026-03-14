@@ -46,7 +46,7 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
   Proof.
-    iIntros (fe WT WL F' Ψ Hok IH1 IH2 Hcg se inst fr os vs θ B R Hse)
+    iIntros (fe WT WL F' Ψ Hok IH1 IH2 Hcg se inst fr os vs evs θ B R Hse Hevs)
       "#Hinst Hlabels Hretun Hvs Hos Hframe Hrti Hfr Hrun".
     inv_cg_bind Hcg res1 wt1 wt2 wl1 wl2 es1' es2' Hcg1 Hcg2.
     inv_cg_bind Hcg2 res2 wt3 wt4 wl3 wl4 es3' es4' Hcg2 Hcg3.
@@ -58,6 +58,9 @@ Section Fundamental.
     clear_nils.
     iDestruct (values_interp_app with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hos2)"; first done.
     iDestruct (atoms_interp_app with "Hvs") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)".
+    apply has_values_to_consts_inv in Hevs.
+    subst evs.
+    unfold to_consts.
     rewrite map_app.
     rewrite <- app_assoc.
     iDestruct (values_interp_cons with "Hos2") as "(%os1a & %os1b & -> & Hos1a & Hos1b)".
@@ -88,8 +91,9 @@ Section Fundamental.
         iIntros "!> Hfr Hrun".
         rewrite (app_assoc wt wt5).
         rewrite (app_assoc wl wl5).
-        iApply (IH2 with "[] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+        iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
         1, 2: done.
+        { iPureIntro. apply has_values_to_consts. }
         iApply labels_interp_cons.
         4: by iIntros (fr' vs') "H".
         all: done.
@@ -100,12 +104,14 @@ Section Fundamental.
         clear Hvn Hes2 IH2.
         iLeft. iSplitR; first done.
         iIntros "!> Hfr Hrun".
-        iApply (IH1 with "[] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+        iApply (IH1 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
         1, 2: done.
+        { iPureIntro. apply has_values_to_consts. }
         iApply labels_interp_cons.
         4: by iIntros (fr' vs') "H".
         all: done.
-    - by rewrite <- Hlen_res.
+    - apply is_consts_to_consts.
+    - rewrite length_map. by rewrite <- Hlen_res.
   Qed.
 
 End Fundamental.

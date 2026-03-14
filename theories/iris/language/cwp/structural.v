@@ -5,66 +5,13 @@ Require Import iris.proofmode.tactics.
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_structural lwp_trap.
 From RichWasm.iris.rules Require Import iris_rules_control iris_rules_structural iris_rules_bind.
-From RichWasm.iris.language.cwp Require Import base def util.
+From RichWasm.iris.language.cwp Require Import base const def util.
 
 Set Bullet Behavior "Strict Subproofs".
 
 Section structural.
 
   Context `{!wasmG Σ}.
-
-  Lemma has_values_iff_map_const es vs :
-    has_values es vs <-> es = map BI_const vs.
-  Proof.
-    split.
-    {
-      generalize dependent vs. induction es.
-      - intros vs H.
-        apply Is_true_true in H.
-        apply all2_size in H.
-        symmetry in H.
-        apply seq.size0nil in H.
-        by rewrite H.
-      - intros vs H. destruct vs.
-        + apply Is_true_true in H. apply all2_size in H. inversion H.
-        + cbn in H.
-          apply andb_True in H as [Hv Hvs].
-          apply IHes in Hvs.
-          subst es.
-          rewrite map_cons.
-          destruct a; try inversion Hv.
-          cbn in Hv.
-          destruct (value_eq_dec v v0) as [-> | Hv0] eqn:Heq; first done.
-          unfold value_eqb in Hv.
-          by rewrite Heq in Hv.
-    }
-    {
-      generalize dependent vs. induction es.
-      - intros vs H. symmetry in H. apply map_eq_nil in H. by subst vs.
-      - intros vs H. destruct vs.
-        + inversion H.
-        + rewrite map_cons in H.
-          inversion H.
-          apply IHes in H2.
-          subst a.
-          cbn.
-          apply andb_True.
-          split.
-          * unfold value_eqb. by destruct (value_eq_dec v v).
-          * inversion H. by rewrite <- H1.
-    }
-  Qed.
-
-  Lemma has_values_consts vs :
-    has_values (to_consts vs) vs.
-  Proof.
-    induction vs; first done.
-    cbn.
-    apply andb_True.
-    split.
-    - unfold value_eqb. by destruct (value_eq_dec a a).
-    - apply IHvs.
-  Qed.
 
   Lemma cwp_nil s E (f : frame) L R Φ :
     ↪[frame] f -∗ ↪[RUN] -∗ Φ f [] -∗ CWP [] @ s; E UNDER L; R {{ Φ }}.
@@ -89,7 +36,7 @@ Section structural.
       unfold v_to_e_list, to_e_list.
       change (@seq.map value _) with (@map value administrative_instruction).
       change (@seq.map basic_instruction _) with (@map basic_instruction administrative_instruction).
-      apply has_values_iff_map_const in Hevs.
+      apply has_values_iff_to_consts in Hevs.
       subst evs.
       by rewrite map_map.
     - iFrame.
@@ -101,7 +48,7 @@ Section structural.
     CWP evs ++ es @ E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hevs) "Hes".
-    apply has_values_iff_map_const in Hevs.
+    apply has_values_iff_to_consts in Hevs.
     subst evs.
     unfold cwp_wasm, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).

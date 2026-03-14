@@ -35,7 +35,7 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IBr ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
   Proof.
-    iIntros (fe WT WL Ψ Hi _ Hok Hcg se inst fr os vs θ B R Hse)
+    iIntros (fe WT WL Ψ Hi _ Hok Hcg se inst fr os vs evs θ B R Hse Hevs)
       "#HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
     inversion Hcg.
     subst WT WL Ψ wt' wl' es'.
@@ -57,12 +57,13 @@ Section Fundamental.
     iSpecialize ("HP" with "[$HIvs2] [$HIos2] [$HIfr] [$Hrt]").
     iDestruct "Htslen" as "%Htslen".
     iClear "HIos1 HIvs1 HIR".
-    rewrite map_app.
+    apply has_values_app_inv in Hevs as (evs1 & evs2 & -> & Hevs1 & Hevs2).
     rewrite <- app_assoc.
-    iApply cwp_val_app; first apply has_values_consts.
+    iApply cwp_val_app; first done.
     iApply (cwp_br with "[$] [$]").
     { done. }
-    { rewrite <- Htslen. by rewrite <- Hos2len. }
+    { done. }
+    { rewrite <- Htslen. rewrite <- Hos2len. rewrite Hvs2len. by apply has_values_length in Hevs2. }
     done.
   Qed.
 

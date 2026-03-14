@@ -39,18 +39,19 @@ Section Fundamental.
   Proof.
     intros fe WT WL Hmono IH Hcg.
     eapply (IH _ _ _ _ _ wlf) in Hcg.
-    iIntros (se inst fr os vs θ B R Hse) "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
+    iIntros (se inst fr os vs evs θ B R Hse Hevs) "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
     (* Need to split up values_interp and atoms_interp now *)
     rewrite separate1.
     iPoseProof (values_interp_app with "[$HIos]") as "(%os1 & %os2 & -> & Hvalτ & Hvalτs1)"; auto.
     iPoseProof (atoms_interp_app with "[$HIvs]") as "(%vs1 & %vs2 & -> & Hatomτ & Hatomτs1)".
+    apply has_values_app_inv in Hevs as (evs1 & evs2 & -> & Hevs1 & Hevs2).
     (* Apply IH with os2 τs2 *)
-    iPoseProof (Hcg $! se inst fr os2 vs2 θ B R Hse with
+    iPoseProof (Hcg $! se inst fr os2 vs2 evs2 θ B R Hse Hevs2 with
                  "HIinst HIB HIR Hatomτs1 Hvalτs1 HIfr Hrt Hfr Hrun") as "Hff".
-    rewrite map_app. rewrite <- app_assoc.
-    iApply cwp_val_app; first apply has_values_consts.
+    rewrite <- app_assoc.
+    iApply cwp_val_app; first done.
     (* Now it's time to rebuild it *)
-    iApply (cwp_wand with "[$Hff]"). clear os2 vs2 θ.
+    iApply (cwp_wand with "[$Hff]"). clear Hevs2 os2 evs2 vs2 θ.
     iIntros (f vs2) "(Hfr & (%os2 & %θ & Hvalτs1 & Hosτs1 & Hrt))".
     unfold fvs_combine. iFrame.
     iExists (os1 ++ os2).
