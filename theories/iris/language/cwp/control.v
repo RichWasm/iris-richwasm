@@ -408,21 +408,43 @@ Section control.
     by iExists [].
   Qed.
 
-  (* TODO: May need to include the values for the br. *)
-  Lemma cwp_br_if_nonzero s E (f : frame) c i L R Φ :
+  Lemma cwp_br_if_nonzero s E (f : frame) evs vs c i n P L R Φ :
+    L !! i = Some (n, P) ->
+    has_values evs vs ->
+    length evs = n ->
     c <> Wasm_int.int_zero i32m ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_br i] @ s; E UNDER L; R {{ Φ }}) -∗
-    CWP [BI_const (VAL_int32 c); BI_br_if i] @ s; E UNDER L; R {{ Φ }}.
+    P f vs -∗
+    CWP evs ++ [BI_const (VAL_int32 c); BI_br_if i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hc) "Hf Hrun Hbr".
-    iApply (wp_br_if_true with "[$] [$]"); first done.
+    iIntros (Hi Hevs Hlen Hc) "Hf Hrun HP".
+    apply has_values_iff_to_consts in Hevs as ->.
+    unfold cwp_wasm, lenient_wp, to_e_list, to_consts.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite map_app.
+    rewrite map_map.
+    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
+    fold (v_to_e_list vs).
+    simpl map.
+    rewrite <- (app_nil_r [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_br_if i)]).
+    iApply wp_wasm_empty_ctx.
+    iApply wp_base_push; first apply v_to_e_is_const_list.
+    iApply (wp_br_if_true_ctx with "[$] [$]"); first done.
     iIntros "!> Hf Hrun".
-    by iSpecialize ("Hbr" with "[$] [$]").
+    iApply wp_base_pull.
+    iApply wp_wasm_empty_ctx.
+    simpl seq.cat.
+    rewrite app_nil_r.
+    unfold v_to_e_list.
+    rewrite <- map_map.
+    change [AI_basic (BI_br i)] with (map AI_basic [BI_br i]).
+    rewrite <- map_app.
+    iApply (cwp_br with "[$] [$]").
+    2: apply has_values_to_consts.
+    all: done.
   Qed.
 
-  (* TODO: May need to include the values for the br. *)
   Lemma cwp_br_if_zero s E (f : frame) c i L R Φ :
     c = Wasm_int.int_zero i32m ->
     ↪[frame] f -∗
@@ -439,32 +461,88 @@ Section control.
     - iIntros (v) "[[[-> HΦ] Hrun] Hf]". iFrame.
   Qed.
 
-  (* TODO: May need to include the values for the br. *)
-  Lemma cwp_br_table s E (f : frame) ixs c i j L R Φ :
+  Lemma cwp_br_table s E (f : frame) evs vs ixs c i j n P L R Φ :
+    L !! j = Some (n, P) ->
+    has_values evs vs ->
+    length evs = n ->
     ixs !! Wasm_int.nat_of_uint i32m c = Some j ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_br j] @ s; E UNDER L; R {{ Φ }}) -∗
-    CWP [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
+    P f vs -∗
+    CWP evs ++ [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hc) "Hf Hrun Hbr".
-    iApply (wp_br_table with "[$] [$]"); first by rewrite nth_error_lookup.
+    iIntros (Hj Hevs Hlen Hc) "Hf Hrun HP".
+    apply has_values_iff_to_consts in Hevs as ->.
+    unfold cwp_wasm, lenient_wp, to_e_list, to_consts.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite map_app.
+    rewrite map_map.
+    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
+    fold (v_to_e_list vs).
+    simpl map.
+    rewrite <- (app_nil_r [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_br_table ixs i)]).
+    iApply wp_wasm_empty_ctx.
+    iApply wp_base_push; first apply v_to_e_is_const_list.
+    iApply (wp_br_table_ctx with "[$] [$]").
+    {
+      case: ssrnat.leP; first done.
+      intros Hcontra.
+      apply Is_true_true.
+      apply Hcontra.
+      apply Nat.le_succ_l.
+      by eapply lookup_lt_Some.
+    }
+    { by rewrite nth_error_lookup. }
     iIntros "!> Hf Hrun".
-    by iSpecialize ("Hbr" with "[$] [$]").
+    iApply wp_base_pull.
+    iApply wp_wasm_empty_ctx.
+    simpl seq.cat.
+    rewrite app_nil_r.
+    unfold v_to_e_list.
+    rewrite <- map_map.
+    change [AI_basic (BI_br j)] with (map AI_basic [BI_br j]).
+    rewrite <- map_app.
+    iApply (cwp_br with "[$] [$]").
+    2: apply has_values_to_consts.
+    all: done.
   Qed.
 
-  (* TODO: May need to include the values for the br. *)
-  Lemma cwp_br_table_default s E (f : frame) ixs c i L R Φ :
+  Lemma cwp_br_table_default s E (f : frame) evs vs ixs c i n P L R Φ :
+    L !! i = Some (n, P) ->
+    has_values evs vs ->
+    length evs = n ->
     length ixs <= Wasm_int.nat_of_uint i32m c ->
     ↪[frame] f -∗
     ↪[RUN] -∗
-    ▷ (↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_br i] @ s; E UNDER L; R {{ Φ }}) -∗
-    CWP [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
+    P f vs -∗
+    CWP evs ++ [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hc) "Hf Hrun Hbr".
-    iApply (wp_br_table_length with "[$] [$]"); first done.
+    iIntros (Hi Hevs Hlen Hc) "Hf Hrun HP".
+    apply has_values_iff_to_consts in Hevs as ->.
+    unfold cwp_wasm, lenient_wp, to_e_list, to_consts.
+    change seq.map with (@map basic_instruction administrative_instruction).
+    rewrite map_app.
+    rewrite map_map.
+    change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
+    fold (v_to_e_list vs).
+    simpl map.
+    rewrite <- (app_nil_r [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_br_table ixs i)]).
+    iApply wp_wasm_empty_ctx.
+    iApply wp_base_push; first apply v_to_e_is_const_list.
+    iApply (wp_br_table_length_ctx with "[$] [$]").
+    { case: ssrnat.leP; done. }
     iIntros "!> Hf Hrun".
-    by iSpecialize ("Hbr" with "[$] [$]").
+    iApply wp_base_pull.
+    iApply wp_wasm_empty_ctx.
+    simpl seq.cat.
+    rewrite app_nil_r.
+    unfold v_to_e_list.
+    rewrite <- map_map.
+    change [AI_basic (BI_br i)] with (map AI_basic [BI_br i]).
+    rewrite <- map_app.
+    iApply (cwp_br with "[$] [$]").
+    2: apply has_values_to_consts.
+    all: done.
   Qed.
 
   Lemma cwp_return s E (f : frame) evs vs n P L Φ :
