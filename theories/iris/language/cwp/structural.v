@@ -9,6 +9,12 @@ From RichWasm.iris.language.cwp Require Import base const def util.
 
 Set Bullet Behavior "Strict Subproofs".
 
+Ltac cwp_chomp n :=
+  match goal with
+  | |- context [ environments.envs_entails _ (cwp_wasm _ _ ?es _ _ _) ] =>
+      iEval (rewrite -(take_drop n es); simpl firstn; simpl skipn)
+  end.
+
 Section structural.
 
   Context `{!wasmG Σ}.
@@ -169,6 +175,37 @@ Section structural.
     iDestruct "HΦ" as "[Hrun HΦ]".
     iFrame.
     by iApply "HΨ".
+  Qed.
+
+  Lemma label_ctx_wand_nil L :
+    ⊢ label_ctx_wand (Σ:=Σ) [] L.
+  Proof.
+    unfold label_ctx_wand.
+    iSplit; auto.
+    rewrite length_nil; iPureIntro; lia.
+  Qed.
+
+  Lemma label_wand_refl (l: label_spec) :
+    ⊢ label_wand (Σ:=Σ) l l.
+  Proof.
+    unfold label_wand.
+    eauto.
+  Qed.
+
+  Lemma label_ctx_wand_refl L :
+    ⊢ label_ctx_wand (Σ:=Σ) L L.
+  Proof.
+    unfold label_ctx_wand.
+    rewrite firstn_all.
+    iSplit; auto.
+    iStopProof.
+    induction L.
+    - auto.
+    - rewrite big_sepL2_cons.
+      iIntros.
+      iSplitL.
+      + iApply label_wand_refl.
+      + by iApply IHL.
   Qed.
 
   Lemma cwp_label_wand s E es L L' R Φ :

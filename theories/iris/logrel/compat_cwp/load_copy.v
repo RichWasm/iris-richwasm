@@ -8,7 +8,8 @@ From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module memory.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.language Require Import cwp logpred.
-From RichWasm.iris.logrel Require Import relations_cwp fundamental_kinding.
+From RichWasm.iris.logrel Require Import relations_cwp.
+From RichWasm.iris.logrel.compat_lemmas Require Import shared.
 From RichWasm.iris.logrel.compat_cwp Require Import common.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -43,6 +44,12 @@ Section Fundamental.
     iExists v, vs'; iFrame; done.
   Qed.
 
+  Lemma atoms_interp_length os vs :
+    ⊢ atoms_interp os vs -∗ ⌜length os = length vs⌝.
+  Proof.
+    iApply big_sepL2_length.
+  Qed.
+
   Lemma atoms_interp_one_inv o vs :
     atoms_interp [o] vs ⊣⊢ ∃ v, ⌜vs = [v]⌝ ∗ atom_interp o v.
   Proof.
@@ -54,6 +61,40 @@ Section Fundamental.
       iExists v; auto.
     - iIntros "(%v & -> & Hv)".
       cbn; auto.
+  Qed.
+
+  Lemma value_interp_ref_sz se κ μ τ os :
+    ⊢ value_interp rti sr se (RefT κ μ τ) (SAtoms os) -∗ ⌜length os = 1⌝.
+  Proof.
+    iIntros "Hv".
+    rewrite value_interp_eq; cbn.
+    iDestruct "Hv" as "(%κ0 & %Heval & Hkind & Hmem)".
+    destruct μ as [| [|]]; auto.
+    - iDestruct "Hmem" as "(%ℓ & %fs & %ws & %Hos & _)".
+      by inversion Hos.
+    - iDestruct "Hmem" as "(%ℓ & %fs & %Hos & _)".
+      by inversion Hos.
+  Qed.
+
+  Lemma rep_ref_kind_ptr F κ μ τ ρ χ δ :
+    has_kind F (RefT κ μ τ) (VALTYPE ρ χ δ) ->
+    ρ = AtomR PtrR /\
+    exists χ', κ = VALTYPE (AtomR PtrR) χ' ExDrop.
+  Proof.
+    intros Hkind.
+    remember (RefT κ μ τ) as ref.
+    remember (VALTYPE ρ χ δ) as val.
+    revert Heqval Heqref.
+    revert ρ χ δ.
+    induction Hkind using has_kind_ind'; intros; try congruence.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
+    - subst κ'.
+      inversion H; subst; eapply IHHkind; eauto.
   Qed.
 
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
@@ -90,15 +131,17 @@ Section Fundamental.
     cbn in Hignore; inversion Hignore; subst; clear Hignore.
 
     (* Some clean up *)
-    assert (Hu: u = ()). { admit. }
-    assert (Hp: p = ((),())). { admit. }
+    assert (Hu: u = ()). { by destruct u. }
+    assert (Hp: p = ((),())). { by destruct p as [[] []]. }
     subst.
     rewrite ?app_nil_r ?app_nil_l -?app_assoc.
     rewrite ?app_nil_r ?app_nil_l -?app_assoc in Hcompile.
     simpl app.
     unfold have_instr_type_sem.
     iIntros (se inst fr os vs evs θ B R Hse Hevs) "Hinst Hlbl Hret Hats Hvals Hfr Hrt Hf Hrun".
-    iEval (rewrite values_interp_one_eq value_interp_eq; cbn) in "Hvals".
+    iEval (rewrite values_interp_one_eq; cbn) in "Hvals".
+    iPoseProof (value_interp_ref_sz with "Hvals") as "%Hlen_os".
+    iEval (rewrite value_interp_eq) in "Hvals".
     iDestruct "Hvals" as (κ' Hκ') "[Harep Href]".
     destruct κ'; [|done].
     iDestruct "Harep" as "%Harep".
@@ -106,15 +149,74 @@ Section Fundamental.
     change prelude.W.Mk_localidx with Mk_localidx in *.
     change instruction.W.BI_unreachable with BI_unreachable in *.
     change instruction.W.BI_tee_local with BI_tee_local in *.
+    set (ptr_local := sum_list_with length (typing.fc_locals F) + length wl) in *.
+
+    cbn in Hκ'.
+    iAssert (⌜ptr_local < length (f_locs fr)⌝%I) as "%Hlen".
+    {
+      (* need a lemma about frame_interp, I think? *)
+      admit.
+    }
+    assert (Hκ: eval_rep se (AtomR PtrR) = Some l).
+    {
+      inversion Htype as [? ? ? Hmono Hctx]; subst.
+      destruct Hmono as [Hmono _].
+      rewrite Forall_singleton in Hmono.
+      inversion Hmono as [? ? ? Hrep Hismono]; subst.
+      inversion Hrep; subst.
+      apply rep_ref_kind_ptr in H; subst.
+      destruct H as [-> [χ' ->]].
+      unfold eval_kind in Hκ'.
+      apply bind_Some in Hκ'; destruct Hκ' as [l' [Heval Hret]].
+      inversion Hret; subst; auto.
+    }
+    cbn in Hκ; inversion Hκ; subst l.
+    destruct Harep as [os' [Hos Hareps]].
+    inversion Hos; subst os'; clear Hos.
+    iPoseProof (atoms_interp_length os vs with "Hats") as "%Hlen_os_vs".
+    pose proof (has_values_length _ _ Hevs) as Hlen_evs_vs.
+    destruct evs as [|ev [|ev' evs]]; try (cbn in *; congruence).
+    destruct vs as [|v [|v' vs]]; try (cbn in *; congruence).
+    destruct os as [|o [|o' os]]; try (cbn in *; congruence).
+    inversion Hareps as [| ? ? ? ? Harep _]; subst.
+    destruct o; inversion Harep; clear Harep Hareps.
+    cbn [app].
+    change (?x :: ?y :: ?z) with ([x; y] ++ z).
+    set (f' := {| f_locs := <[ptr_local:=v ]> (f_locs fr);
+                  f_inst := f_inst fr |}).
+    iApply (cwp_seq with "[Hf Hrun]").
+    {
+      change ([?ev; ?x]) with ([ev] ++ [x]).
+      rewrite (has_values_to_consts_inv _ _ Hevs).
+      iApply (cwp_tee_local with "[ ] [$] [$]"); eauto.
+      by instantiate (1:= λ f'' vs', ⌜f'' = f' /\ vs' = [v]⌝%I).
+    }
+    iIntros (f vs) "[-> ->] Hf Hrun".
+    eapply cwp_case_ptr in Hcompile; eauto.
+    destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+    destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
+    erewrite <- has_values_to_consts_inv by eauto.
+    rewrite atoms_interp_one_inv.
+    iDestruct "Hats" as "(%v' & %Hv' & Hat)".
+    inversion Hv'; subst v'; clear Hv'.
+    iApply (Hspec with "[$] [$] [] [$Hat]").
+    {
+      iPureIntro; cbn.
+      by rewrite list_lookup_insert.
+    }
+    iIntros "!> Hf Hrun Hat".
+    iEval (cbn) in "Href".
     destruct μ as [|[|]]; first done.
     - unfold ref_mm_interp.
       iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
-      inversion Hsv; subst os.
-      iPoseProof (atoms_interp_one_inv with "Hats") as (v ->) "Hv".
-      iDestruct "Hv" as (n -> rp Hrep) "Hroot".
-      simpl map; simpl app.
+      inversion Hsv; subst.
+      (* need lemma about memory.load *)
       admit.
-    - admit.
+    - unfold ref_gc_interp.
+      iDestruct "Href" as (ℓ fs Hsv) "Hinv".
+      inversion Hsv; subst.
+      (* need lemma about memory.load *)
+      admit.
   Admitted.
 
 End Fundamental.

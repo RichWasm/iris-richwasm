@@ -4,6 +4,7 @@ Require Import iris.proofmode.tactics.
 
 Require Import RichWasm.iris.language.lwp_resources.
 Require Import RichWasm.iris.language.cwp.def.
+Require Import RichWasm.iris.language.cwp.structural.
 Require Import RichWasm.iris.rules.iris_rules_resources.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -49,6 +50,26 @@ Section variable.
     iIntros (Hi) "Hf Hrun Hset".
     iApply lenient_wp_tee_local; first done.
     iFrame.
+  Qed.
+
+  Lemma cwp_tee_local E (f : frame) i v L R Φ :
+    i < length f.(f_locs) ->
+    let f' := Build_frame (<[ i := v ]> f.(f_locs)) f.(f_inst) in
+    ▷▷ Φ f' [v] -∗
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    CWP [BI_const v; BI_tee_local i] @ E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hlen f') "HΦ Hf Hrun".
+    iApply (cwp_local_tee with "[$] [$]"); eauto.
+    iIntros "!> Hf Hrun".
+    cwp_chomp 1.
+    iApply cwp_val_app.
+    {
+      change [BI_const v] with (map BI_const [v]).
+      apply const.has_values_to_consts.
+    }
+    iApply (cwp_local_set with "[HΦ] [$]"); eauto.
   Qed.
 
   Lemma cwp_global_get s E (f : frame) i j v g L R Φ :
