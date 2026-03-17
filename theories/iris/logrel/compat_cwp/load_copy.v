@@ -210,6 +210,7 @@ Section Fundamental.
     - unfold ref_mm_interp.
       iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
       inversion Hsv; subst.
+      rewrite value_interp_eq.
       (* need lemma about memory.load *)
       admit.
     - unfold ref_gc_interp.

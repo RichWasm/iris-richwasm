@@ -52,20 +52,33 @@ Class richwasmG (Σ : gFunctors) :=
     rw_heapG :: ghost_mapG Σ location (list word) }.
 
 Notation "ℓ ↦addr{ q } a" :=
-  (ℓ ↪[rw_addr]{q} a)%I (at level 20, format "ℓ  ↦addr{ q }  a") : bi_scope.
-Notation "ℓ ↦addr a" := (ℓ ↪[rw_addr] a)%I (at level 20, format "ℓ  ↦addr  a") : bi_scope.
+  (ghost_map_elem (H0 := rw_addrG) rw_addr ℓ q a)
+    (at level 20, format "ℓ  ↦addr{ q }  a") : bi_scope.
+Notation "ℓ ↦addr a" :=
+  (ℓ ↦addr{DfracOwn 1} a)%I
+    (at level 20, format "ℓ  ↦addr  a") : bi_scope.
 
 Notation "a ↦root{ q } ℓ" :=
-  (a ↪[rw_root]{q} ℓ)%I (at level 20, format "a  ↦root{ q }  ℓ") : bi_scope.
-Notation "a ↦root ℓ" := (a ↪[rw_root] ℓ)%I (at level 20, format "a  ↦root  ℓ") : bi_scope.
+  (ghost_map_elem (H0 := rw_rootG) rw_root a q ℓ)
+    (at level 20, format "a  ↦root{ q }  ℓ") : bi_scope.
+Notation "a ↦root ℓ" :=
+  (a ↦root{DfracOwn 1} ℓ)%I
+    (at level 20, format "a  ↦root  ℓ") : bi_scope.
 
 Notation "ℓ ↦layout{ q } fs" :=
-  (ℓ ↪[rw_layout]{q} fs)%I (at level 20, format "ℓ  ↦layout{ q }  fs") : bi_scope.
-Notation "ℓ ↦layout fs" := (ℓ ↪[rw_layout] fs)%I (at level 20, format "ℓ  ↦layout  fs") : bi_scope.
+  (ghost_map_elem (H0 := rw_layoutG) rw_layout ℓ q fs)
+  (at level 20, format "ℓ  ↦layout{ q }  fs") : bi_scope.
+
+Notation "ℓ ↦layout fs" :=
+  (ℓ ↦layout{DfracOwn 1} fs)%I
+    (at level 20, format "ℓ  ↦layout  fs") : bi_scope.
 
 Notation "ℓ ↦heap{ q } ws" :=
-  (ℓ ↪[rw_heap]{q} ws)%I (at level 20, format "ℓ  ↦heap{ q }  ws") : bi_scope.
-Notation "ℓ ↦heap ws" := (ℓ ↪[rw_heap] ws)%I (at level 20, format "ℓ  ↦heap  ws") : bi_scope.
+  (ghost_map_elem (H0 := rw_heapG) rw_heap ℓ q ws)
+    (at level 20, format "ℓ  ↦heap{ q }  ws") : bi_scope.
+Notation "ℓ ↦heap ws" :=
+  (ℓ ↦heap{DfracOwn 1} ws)%I
+    (at level 20, format "ℓ  ↦heap  ws") : bi_scope.
 
 Definition word_has_flag (f : pointer_flag) (w : word) : bool :=
   match f, w with
