@@ -32,28 +32,13 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (INop ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.
   Proof.
-    (* (* This is currently following the compat_copy lemma very closely *) *)
-    (* intros fe WT WL ψ Hok Hcompile. *)
-    (* inv_cg_emit Hcompile; subst. *)
-    (* unfold have_instruction_type_sem. *)
-    (* destruct ψ eqn:Hψ. *)
-    (* inversion Hψ; subst l l0. *)
-    (* iIntros (? ? ? ? ? ? ? ?) "Hinst Hctx Hrvs Hvs Hframe Hrt Hf Hrun". *)
-    (* unfold expr_interp. *)
-    (* iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs". *)
-    (* iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)". *)
-    (* iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss". *)
-    (* iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs". *)
-    (* cbn in Hlens_rvss. *)
-    (* destruct rvss, os; cbn in Hconcat, Hlens_rvss; try congruence. *)
-    (* cbn in Hlens_rvs_vs. destruct vs; cbn in Hlens_rvs_vs; try congruence. *)
-    (* iApply (lenient_wp_nop with "[$] [$] [Hframe Hrt] []"). *)
-    (* - iModIntro. *)
-    (*   iFrame. *)
-    (*   iExists []; cbn. *)
-    (*   iSplitR; [|done]. *)
-    (*   iExists []; auto. *)
-    (* - done. *)
-  Admitted.
+    intros fe WT WL ψ Hok Hcg.
+    iIntros (se inst fr os vs evs θ B R Hse Hevs) "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
+    inv_cg_emit Hcg; subst.
+    iApply cwp_val_app; first done.
+    iApply (cwp_nop with "[$Hfr] [$Hrun]").
+    iFrame.
+    rewrite app_nil_r; iFrame.
+  Qed.
 
 End Fundamental.

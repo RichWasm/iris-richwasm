@@ -18,6 +18,7 @@ Set Default Goal Selector "!".
 Ltac clear_nils :=
   repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
 
+
 (* TODO relocate *)
 Lemma get_base_l_append {i : nat} (lh : valid_holed i) e :
   get_base_l (vh_append lh e) = get_base_l lh.
@@ -844,12 +845,6 @@ Section Fundamental_Shared.
     induction lh; simpl; auto.
   Qed.
 
-  Ltac cwp_chomp n :=
-    match goal with
-    | |- context [ environments.envs_entails _ (cwp_wasm _ _ ?es _ _ _) ] =>
-        iEval (rewrite -(take_drop n es); simpl firstn; simpl skipn)
-    end.
-
   Lemma cwp_mod4_sub1_test f (idx: nat) k E :
     ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 1)))⌝ →
       ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 4 = 0)%Z⌝ →
@@ -1097,8 +1092,11 @@ Section Fundamental_Shared.
     iApply (Hwp with "[$] [$]"); eauto.
   Qed.
 
-  Lemma wp_case_ptr_cwp_direct {A B} s E L R idx (c1 : codegen B) (c2: base_memory -> codegen A) wt wt' wl wl' ts es x y z v (f: frame) Φ :
-    run_codegen (memory.case_ptr idx (Tf [] ts) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
+  Lemma cwp_case_ptr {A B} s E L R idx (c1 : codegen B) (c2: base_memory -> codegen A)
+    wt wt' wl wl' ts1 ts2 evs vs es x y z v (f: frame) Φ :
+    run_codegen (memory.case_ptr idx (Tf ts1 ts2) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
+    has_values evs vs ->
+    length ts1 = length vs ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
       run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
@@ -1112,25 +1110,30 @@ Section Fundamental_Shared.
         atom_interp (PtrA ptr) v -∗
         ▷ (↪[frame]f -∗
             ↪[RUN] -∗
+            atom_interp (PtrA ptr) v -∗
             match ptr with
-            | PtrInt z => CWP es1 @ s; E UNDER []; None {{ Φ }}
-            | PtrHeap MemMM l => CWP es2 @ s; E UNDER []; None {{ Φ }}
-            | PtrHeap MemGC l => CWP es3 @ s; E UNDER []; None {{ Φ }}
+            | PtrInt z => CWP evs ++ es1 @ s; E UNDER []; R {{ Φ }}
+            | PtrHeap MemMM l => CWP evs ++ es2 @ s; E UNDER []; R {{ Φ }}
+            | PtrHeap MemGC l => CWP evs ++ es3 @ s; E UNDER []; R {{ Φ }}
             end) -∗
-        atom_interp (PtrA ptr) v ∗
-        CWP es @ s; E UNDER L; R {{ Φ }}.
+        CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros Hcg.
+    intros Hcg Hevs Hlen.
+    assert (is_consts evs)
+      by (eauto using has_values_is_consts).
+    assert (length evs = length ts1)
+      by (erewrite has_values_length; eauto).
     unfold memory.case_ptr in Hcg.
-    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es_isptr ?es_if_isptr Hcg_isptr Hcg_if_isptr. inv_cg_emit_all Hcg_isptr.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es_isptr ?es_if_isptr Hcg_isptr Hcg_if_isptr.
+    inv_cg_emit_all Hcg_isptr.
     subst.
     rewrite -> !app_nil_l, !app_nil_r in *.
-    eapply (cwp_if_c_weak s E) in Hcg_if_isptr.
+    eapply (cwp_if_c s E) in Hcg_if_isptr; eauto.
     destruct Hcg_if_isptr as (?wt & ?wt & ?wl & ?wl & es_int & es_case_m & Hcg_int & Hcg_case_m & -> & -> & Hwp_if_isptr).
     inv_cg_bind Hcg_case_m [] ?wt ?wt ?wl ?wl ?es_mm_or_gc es_if_m Hcg_mm_or_gc Hcg_if_m.
     inv_cg_emit_all Hcg_mm_or_gc.
     subst.
-    eapply (lwp_if_c s E) in Hcg_if_m.
+    eapply (cwp_if_c s E) in Hcg_if_m; eauto.
     destruct Hcg_if_m as (?wt & ?wt & ?wl & ?wl & es_mm & es_gc & Hcg_mm & Hcg_gc & -> & -> & Hwp_if_m).
     rewrite <- !app_assoc, !app_nil_r, !app_nil_l in *.
     exists wt0, wt1, wt2, wl0, wl1, wl2.
@@ -1144,13 +1147,15 @@ Section Fundamental_Shared.
       destruct rp as [r|? ?].
       + iPoseProof "Hrep" as "->".
         inversion Hrp; subst.
-        iSplitR.
-        * cbn; eauto.
-        * iApply (cwp_seq with "[Hframe Hrun]").
+        rewrite app_assoc.
+        iApply (cwp_seq with "[Hframe Hrun]").
+        {
+          iApply cwp_val_app; eauto.
+          iApply cwp_label_take.
+          instantiate (2 := 0%nat).
+          iApply cwp_return_none.
+          iApply (cwp_wand with "[Hframe Hrun]").
           {
-            iApply cwp_label_take.
-            instantiate (2 := 0%nat).
-            iApply cwp_return_none.
             iApply (cwp_mod2_test_1 with "[] [] [$] [$]"); eauto.
             iPureIntro.
             unfold Wasm_int.Int32.repr; simpl.
@@ -1160,126 +1165,146 @@ Section Fundamental_Shared.
             simpl.
             apply mod32_mod2.
           }
-          iIntros (vs f') "[-> ->] Hf Hrun".
-          iApply (Hwp_if_isptr with "[$] [$]").
-          iLeft.
-          iSplit; [iPureIntro; done|].
-          iIntros "!> Hf Hrun".
-          rewrite <- (app_nil_l [_]).
-          change (@nil basic_instruction) with (map BI_const []).
-          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
-          iIntros "!> Hf Hrun".
-          iApply cwp_label_take.
-          instantiate (1 := 0%nat).
-          iApply cwp_return_none.
-          iApply ("Hptr" with "[$] [$]").
+          cbn.
+          instantiate (1:= λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
+          iIntros (vs' f') "[-> ->]".
+          unfold fvs_combine; simpl; auto.
+        }
+        iIntros (vs' f') "[-> ->] Hf Hrun".
+        unfold to_consts; rewrite map_app -app_assoc.
+        erewrite <- has_values_to_consts_inv by eauto.
+        iApply (Hwp_if_isptr with "[$] [$]").
+        iLeft.
+        iSplit; [iPureIntro; done|].
+        iIntros "!> Hf Hrun".
+        iApply (cwp_label_wand with "[Hptr Hf Hrun]");
+          [| iApply label_ctx_wand_nil].
+        iApply ("Hptr" with "[$] [$]").
+        iExists _; eauto.
       + done.
     - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
       iPoseProof (root_pointer_heap_shp_inv with "Hroot") as "(%a & ->)".
-      iSplitL "Hroot"; first (iExists _; by iFrame).
       inversion Hrep as [|? ? Hmod]; subst.
+      rewrite app_assoc.
       iApply (cwp_seq with "[Hframe Hrun]").
       {
-        iApply cwp_label_take.
-        instantiate (2 := 0%nat).
-        iApply cwp_return_none.
-        iApply (cwp_mod2_test_1_2 with "[] [] [$] [$]"); eauto.
-        unfold Wasm_int.Int32.repr; simpl.
-        rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-        unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-        unfold two_power_nat.
-        simpl.
-        rewrite Z_mod_even_mod_2; last by rewrite <- Z.even_spec.
-        destruct μ; simpl.
-        1,2: apply N.Div0.mod_divides in Hmod as [c ->].
-        1,2: rewrite N2Z.inj_mul.
-        1,2: simpl.
-        1,2: rewrite Zmod_even.
-        1,2: rewrite Z.even_sub.
-        1,2: replace 4 with (2 * 2); last done.
-        1,2: rewrite <- Z.mul_assoc.
-        1,2: rewrite Z.even_even.
-        1,2: done.
+        iApply cwp_val_app; [eauto|].
+        iApply (cwp_wand with "[Hframe Hrun]").
+        {
+          iApply cwp_label_take.
+          instantiate (2 := 0%nat).
+          iApply cwp_return_none.
+          iApply (cwp_mod2_test_1_2 with "[] [] [$] [$]"); eauto.
+          unfold Wasm_int.Int32.repr; simpl.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+          unfold two_power_nat.
+          simpl.
+          rewrite Z_mod_even_mod_2; last by rewrite <- Z.even_spec.
+          destruct μ; simpl.
+          1,2: apply N.Div0.mod_divides in Hmod as [c ->].
+          1,2: rewrite N2Z.inj_mul.
+          1,2: simpl.
+          1,2: rewrite Zmod_even.
+          1,2: rewrite Z.even_sub.
+          1,2: replace 4 with (2 * 2); last done.
+          1,2: rewrite <- Z.mul_assoc.
+          1,2: rewrite Z.even_even.
+          1,2: done.
+        }
+        unfold fvs_combine.
+        instantiate (1:= (λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 0)]⌝ )%I).
+        by iIntros (f' v') "[-> ->]".
       }
       iIntros (w f' [-> ->]) "Hf Hrun".
+      unfold to_consts; rewrite map_app -app_assoc.
+      erewrite <- has_values_to_consts_inv by eauto.
       iApply (Hwp_if_isptr with "[$] [$]").
       iRight.
       iSplit; first done.
       iIntros "!> Hframe Hrun".
+      rewrite app_assoc.
       destruct μ.
-      + simpl tag_address in Hlookup_f.
-        cbn.
-        rewrite <- (app_nil_l [_]).
-        change (@nil basic_instruction) with (map BI_const []).
-        iApply (cwp_block with "[$] [$] [Hptr]"); first done.
-        iIntros "!> Hf Hrun".
-        cwp_chomp 4%nat.
-        iApply (cwp_seq with "[Hf Hrun]").
-        * iApply cwp_label_take.
-          instantiate (2 := 0%nat).
-          iApply cwp_return_none.
-          iApply (cwp_mod4_sub3_test with "[//] [] [$] [$]"); eauto.
-          iPureIntro.
-          unfold Wasm_int.Int32.repr; simpl.
-          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-          unfold two_power_nat; simpl.
-          replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
-          rewrite Z.mul_comm.
-          rewrite Zaux.Zmod_mod_mult; try done.
-          apply N2Z.inj_iff in Hmod.
-          rewrite N2Z.inj_mod in Hmod.
-          done.
-        * iIntros (w f' [-> ->]) "Hf Hrun".
-          iApply (Hwp_if_m with "[$] [$]").
-          iLeft.
-          iSplit; eauto.
-          iIntros  "!> Hf Hrun".
-          change [AI_basic (BI_block (Tf [] ts) es_mm)] with (to_e_list ([] ++ [BI_block (Tf [] ts) es_mm])).
-          change (@nil basic_instruction) with (map BI_const []).
-          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
-          iIntros "!> Hf Hrun".
-          iApply cwp_label_take.
-          instantiate (1 := 0%nat).
-          iApply cwp_return_none.
-          iApply ("Hptr" with "[$] [$]").
-      + simpl tag_address in Hlookup_f.
-        cbn.
-        rewrite <- (app_nil_l [_]).
-        change (@nil basic_instruction) with (map BI_const []).
-        iApply (cwp_block with "[$] [$] [Hptr]"); first done.
-        iIntros "!> Hf Hrun".
-        cwp_chomp 4%nat.
-        rewrite take_0 drop_0.
-        iApply (cwp_seq with "[Hf Hrun]").
-        * iApply cwp_label_take.
-          instantiate (2 := 0%nat).
-          iApply cwp_return_none.
-          iApply (cwp_mod4_sub1_test with "[//] [] [$] [$]").
-          iPureIntro.
-          unfold Wasm_int.Int32.repr; simpl.
-          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-          unfold two_power_nat; simpl.
-          replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
-          rewrite Z.mul_comm.
-          rewrite Zaux.Zmod_mod_mult; try done.
-          apply N2Z.inj_iff in Hmod.
-          rewrite N2Z.inj_mod in Hmod.
-          done.
-        * iIntros (w f' [-> ->]) "Hf Hrun".
-          iApply (Hwp_if_m with "[$] [$]").
-          iRight.
-          iSplit; auto.
-          iIntros  "!> Hf Hrun".
-          change [AI_basic (BI_block (Tf [] ts) es_gc)] with (to_e_list ([] ++ [BI_block (Tf [] ts) es_gc])).
-          change (@nil basic_instruction) with (map BI_const []).
-          iApply (cwp_block with "[$] [$] [Hptr]"); first done.
-          iIntros "!> Hf Hrun".
-          iApply cwp_label_take.
-          instantiate (1 := 0%nat).
-          iApply cwp_return_none.
-          iApply ("Hptr" with "[$] [$]").
+      + iApply (cwp_seq with "[Hframe Hrun]").
+        {
+          iApply cwp_val_app; eauto.
+          iApply (cwp_wand with "[Hframe Hrun]").
+          {
+            simpl tag_address in Hlookup_f.
+            cbn.
+            rewrite <- (app_nil_l [_]).
+            rewrite app_nil_l.
+            iApply cwp_label_take.
+            instantiate (2 := 0%nat).
+            iApply cwp_return_none.
+            iApply (cwp_mod4_sub3_test with "[] [] [$] [$]"); eauto.
+            iPureIntro.
+            unfold Wasm_int.Int32.repr; simpl.
+            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+            unfold two_power_nat; simpl.
+            replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
+            rewrite Z.mul_comm.
+            rewrite Zaux.Zmod_mod_mult; try done.
+            apply N2Z.inj_iff in Hmod.
+            rewrite N2Z.inj_mod in Hmod.
+            done.
+          }
+          iIntros (f' vs') "[-> ->]".
+          instantiate (1 := λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
+          auto.
+        }
+        iIntros (w f' [-> ->]) "Hf Hrun".
+        unfold to_consts; rewrite map_app -app_assoc.
+        erewrite <- has_values_to_consts_inv by eauto.
+        iApply (Hwp_if_m with "[$] [$]").
+        iLeft.
+        iSplit; eauto.
+        iIntros  "!> Hf Hrun".
+        iApply (cwp_label_wand with "[Hptr Hroot Hf Hrun]");
+          [| iApply label_ctx_wand_nil].
+        iApply ("Hptr" with "[$] [$]").
+        iExists _; eauto.
+      + iApply (cwp_seq with "[Hframe Hrun]").
+        {
+          iApply cwp_val_app; eauto.
+          iApply (cwp_wand with "[Hframe Hrun]").
+          {
+            simpl tag_address in Hlookup_f.
+            cbn.
+            rewrite <- (app_nil_l [_]).
+            rewrite app_nil_l.
+            iApply cwp_label_take.
+            instantiate (2 := 0%nat).
+            iApply cwp_return_none.
+            iApply (cwp_mod4_sub1_test with "[//] [] [$] [$]").
+            iPureIntro.
+            unfold Wasm_int.Int32.repr; simpl.
+            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
+            unfold two_power_nat; simpl.
+            replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
+            rewrite Z.mul_comm.
+            rewrite Zaux.Zmod_mod_mult; try done.
+            apply N2Z.inj_iff in Hmod.
+            rewrite N2Z.inj_mod in Hmod.
+            done.
+          }
+          iIntros (f' vs') "[-> ->]".
+          instantiate (1 := λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 0)]⌝%I).
+          auto.
+        }
+        iIntros (w f' [-> ->]) "Hf Hrun".
+        unfold to_consts; rewrite map_app -app_assoc.
+        erewrite <- has_values_to_consts_inv by eauto.
+        iApply (Hwp_if_m with "[$] [$]").
+        iRight.
+        iSplit; eauto.
+        iIntros  "!> Hf Hrun".
+        iApply (cwp_label_wand with "[Hptr Hroot Hf Hrun]");
+          [| iApply label_ctx_wand_nil].
+        iApply ("Hptr" with "[$] [$]").
+        iExists _; eauto.
   Qed.
 
   Close Scope Z_scope.

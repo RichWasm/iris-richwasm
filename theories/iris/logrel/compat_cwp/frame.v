@@ -9,6 +9,7 @@ From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.language Require Import cwp logpred.
 From RichWasm.iris.logrel Require Import relations_cwp fundamental_kinding.
+Require Import RichWasm.iris.logrel.compat_cwp.common.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -36,21 +37,31 @@ Section Fundamental.
     run_codegen (compile_instrs mr fe es) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' (InstrT (τ :: τs1) (τ :: τs2)) L'.
   Proof.
-    (* intros fe WT WL Hmono IH Hcg. *)
-    (* eapply (IH _ _ _ _ _ wlf) in Hcg. *)
-    (* iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun". *)
-    (* iPoseProof (values_interp_cons_inv with "Hvs") as "(%rvs1 & %rvs2 & %Hvs & Hty1 & Hty2)". *)
-    (* subst rvs. *)
-    (* iPoseProof (big_sepL2_app_inv_l with "Hrvs") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)". *)
-    (* iPoseProof (Hcg $! se inst lh fr rvs2 vs2 θ Henv with "Hinst Hlf") as "IH". *)
-    (* iSpecialize ("IH" with "Hvs2 Hty2 [$] [$] [$] [$]"). *)
-    (* simpl language.of_val. *)
-    (* iEval (repeat rewrite -cat_app). *)
-    (* rewrite -v_to_e_cat. *)
-    (* repeat rewrite cat_app. *)
-    (* rewrite -app_assoc. *)
-    (* iEval (cbn [List.map]). *)
-    (* iApply (expr_interp_val_app with "[$] [$] [$]"). *)
-  Admitted.
+    intros fe WT WL Hmono IH Hcg.
+    eapply (IH _ _ _ _ _ wlf) in Hcg.
+    iIntros (se inst fr os vs evs θ B R Hse Hevs) "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
+    (* Need to split up values_interp and atoms_interp now *)
+    rewrite separate1.
+    iPoseProof (values_interp_app with "[$HIos]") as "(%os1 & %os2 & -> & Hvalτ & Hvalτs1)"; auto.
+    iPoseProof (atoms_interp_app with "[$HIvs]") as "(%vs1 & %vs2 & -> & Hatomτ & Hatomτs1)".
+    apply has_values_app_inv in Hevs as (evs1 & evs2 & -> & Hevs1 & Hevs2).
+    (* Apply IH with os2 τs2 *)
+    iPoseProof (Hcg $! se inst fr os2 vs2 evs2 θ B R Hse Hevs2 with
+                 "HIinst HIB HIR Hatomτs1 Hvalτs1 HIfr Hrt Hfr Hrun") as "Hff".
+    rewrite <- app_assoc.
+    iApply cwp_val_app; first done.
+    (* Now it's time to rebuild it *)
+    iApply (cwp_wand with "[$Hff]"). clear Hevs2 os2 evs2 vs2 θ.
+    iIntros (f vs2) "(Hfr & (%os2 & %θ & Hvalτs1 & Hosτs1 & Hrt))".
+    unfold fvs_combine. iFrame.
+    iExists (os1 ++ os2).
+    iSplitL "Hvalτ Hvalτs1".
+    - simpl. iEval (rewrite separate1).
+      iDestruct "Hvalτ" as "(%oss1 & -> & Hvalτ)".
+      iDestruct "Hvalτs1" as "(%oss2 & -> & Hvalτs2)".
+      iExists (oss1 ++ oss2). iFrame.
+      iPureIntro; rewrite concat_app; auto.
+    - iFrame.
+  Qed.
 
 End Fundamental.

@@ -1,10 +1,19 @@
+Require Import stdpp.base.
+
 Require Import iris.proofmode.tactics.
 
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_structural lwp_trap.
-From RichWasm.iris.language.cwp Require Import base def util.
+From RichWasm.iris.rules Require Import iris_rules_control iris_rules_structural iris_rules_bind.
+From RichWasm.iris.language.cwp Require Import base const def util.
 
 Set Bullet Behavior "Strict Subproofs".
+
+Ltac cwp_chomp n :=
+  match goal with
+  | |- context [ environments.envs_entails _ (cwp_wasm _ _ ?es _ _ _) ] =>
+      iEval (rewrite -(take_drop n es); simpl firstn; simpl skipn)
+  end.
 
 Section structural.
 
@@ -18,10 +27,14 @@ Section structural.
     iFrame.
   Qed.
 
-  Lemma cwp_val s E f vs L R Φ :
-    ↪[frame] f -∗ ↪[RUN] -∗ Φ f vs -∗ CWP (map BI_const vs) @ s; E UNDER L; R {{ Φ }}.
+  Lemma cwp_val s E f vs evs L R Φ :
+    has_values evs vs ->
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    Φ f vs -∗
+    CWP evs @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros "Hf Hrun HΦ".
+    iIntros (Hevs) "Hf Hrun HΦ".
     iApply lenient_wp_value.
     - instantiate (1 := immV vs).
       unfold IntoVal.
@@ -29,15 +42,20 @@ Section structural.
       unfold v_to_e_list, to_e_list.
       change (@seq.map value _) with (@map value administrative_instruction).
       change (@seq.map basic_instruction _) with (@map basic_instruction administrative_instruction).
+      apply has_values_iff_to_consts in Hevs.
+      subst evs.
       by rewrite map_map.
     - iFrame.
   Qed.
 
-  Lemma cwp_val_app E vs es L R Φ :
+  Lemma cwp_val_app E vs evs es L R Φ :
+    has_values evs vs ->
     CWP es @ E UNDER L; R {{ fvs_combine Φ vs }} -∗
-    CWP (map BI_const vs ++ es) @ E UNDER L; R {{ Φ }}.
+    CWP evs ++ es @ E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros "Hes".
+    iIntros (Hevs) "Hes".
+    apply has_values_iff_to_consts in Hevs.
+    subst evs.
     unfold cwp_wasm, to_e_list.
     change seq.map with (@map basic_instruction administrative_instruction).
     rewrite map_app.
@@ -98,7 +116,7 @@ Section structural.
     CWP es1 @ E UNDER L; R {{ Φ1 }} -∗
     (∀ f vs,
      Φ1 f vs -∗ ↪[frame] f -∗ ↪[RUN] -∗
-     CWP map BI_const vs ++ es2 @ s; E UNDER L; R {{ Φ2 }}) -∗
+     CWP to_consts vs ++ es2 @ s; E UNDER L; R {{ Φ2 }}) -∗
     CWP es1 ++ es2 @ s; E UNDER L; R {{ Φ2 }}.
   Proof.
     iIntros "Hes1 Hes2".
@@ -157,6 +175,37 @@ Section structural.
     iDestruct "HΦ" as "[Hrun HΦ]".
     iFrame.
     by iApply "HΨ".
+  Qed.
+
+  Lemma label_ctx_wand_nil L :
+    ⊢ label_ctx_wand (Σ:=Σ) [] L.
+  Proof.
+    unfold label_ctx_wand.
+    iSplit; auto.
+    rewrite length_nil; iPureIntro; lia.
+  Qed.
+
+  Lemma label_wand_refl (l: label_spec) :
+    ⊢ label_wand (Σ:=Σ) l l.
+  Proof.
+    unfold label_wand.
+    eauto.
+  Qed.
+
+  Lemma label_ctx_wand_refl L :
+    ⊢ label_ctx_wand (Σ:=Σ) L L.
+  Proof.
+    unfold label_ctx_wand.
+    rewrite firstn_all.
+    iSplit; auto.
+    iStopProof.
+    induction L.
+    - auto.
+    - rewrite big_sepL2_cons.
+      iIntros.
+      iSplitL.
+      + iApply label_wand_refl.
+      + by iApply IHL.
   Qed.
 
   Lemma cwp_label_wand s E es L L' R Φ :

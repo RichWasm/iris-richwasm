@@ -632,8 +632,9 @@ Section Relations.
     (es : list basic_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
-    (∀ se inst fr os vs θ B R,
+    (∀ se inst fr os vs evs θ B R,
        ⌜sem_env_interp F se⌝ -∗
+       ⌜has_values evs vs⌝ -∗
        instance_interp mr M WT inst -∗
        labels_interp se inst WL F.(fc_labels) B -∗
        return_interp se F.(fc_return) R -∗
@@ -643,7 +644,7 @@ Section Relations.
        rt_token rti sr θ -∗
        ↪[frame] fr -∗
        ↪[RUN] -∗
-       CWP map BI_const vs ++ es UNDER B; R
+       CWP evs ++ es UNDER B; R
            {{ fr'; vs',
               frame_interp se L' WL inst fr' ∗
               ∃ os' θ, values_interp se τs2 os' ∗ atoms_interp os' vs' ∗ rt_token rti sr θ }})%I.

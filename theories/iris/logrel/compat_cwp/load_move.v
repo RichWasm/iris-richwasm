@@ -62,16 +62,6 @@ Section Fundamental.
     destruct u.
     destruct p as [[] []].
 
-    eapply wp_case_ptr_cwp_direct in Hcompile.
-    destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & es_unr & es_mm & es_gc & Hcompile).
-    rewrite !app_nil_r !app_nil_l.
-    rewrite !app_nil_r in Hcompile.
-    rewrite !app_nil_r in Hptr_flags.
-    destruct Hcompile as (Hcomp_int & Hcomp_mm & Hcomp_gc & Hwt4 & Hwl4 & Hspec).
-
-    unfold have_instr_type_sem; destruct ψ as [τs1 τs2].
-    iIntros (se inst fr os vs θ B R Hse) "Hinst Hlab Hret Hat Hstk Hfr Hrt Hf Hrun".
-
     (* Next is case ptr *)
     (* WAITING FOE LEMMA *)
   Admitted.

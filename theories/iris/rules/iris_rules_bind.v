@@ -304,6 +304,10 @@ Context `{!wasmG Σ}.
       iApply wp_label_bind_next;eauto. }
   Qed.
 
+  (* TODO *)
+  Lemma wp_ctx_bind' (s : stuckness) (E : coPset) (Φ : iris.val -> iProp Σ) e i lh :
+    WP e @ s; E {{ w, WP of_val w @ s; E CTX i; lh {{ w, Φ w }} }} -∗
+    WP e @ s; E CTX i; lh {{ w, Φ w }}.
+  Admitted.
 
-    
 End bind_rules.

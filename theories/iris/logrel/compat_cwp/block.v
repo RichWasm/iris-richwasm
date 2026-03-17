@@ -40,7 +40,7 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IBlock ψ L' es)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
   Proof.
-    iIntros (fe WT WL F' Ψ Hok IH Hrun se inst fr os vs θ B R Hse)
+    iIntros (fe WT WL F' Ψ Hok IH Hrun se inst fr os vs evs θ B R Hse Hevs)
       "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
     cbn [compile_instr] in Hrun.
     inv_cg_bind Hrun tf wt0 wt0' wl0 wl0' es_nil es0' Hrun1 Hrun2.
@@ -72,26 +72,19 @@ Section Fundamental.
     iDestruct (big_sepL2_length with "HIvs") as "%Hvslen".
     unfold ofe_car in Hvslen.
     iApply (cwp_block with "[$] [$]").
-    { by rewrite <- Hvslen. }
+    { by eapply has_values_is_consts. }
+    { rewrite <- Hoslen. rewrite Hvslen. by apply has_values_length in Hevs. }
     iIntros "!> Hfr Hrun".
     iPoseProof Hrun1 as "IH".
     clear Hrun1.
     iSpecialize
-      ("IH" with "[] [$HIinst] [HIB] [$HIR] [$HIvs] [$HIos] [$HIfr] [$Hrt] [$Hfr] [$Hrun]");
+      ("IH" with "[] [] [$HIinst] [HIB] [$HIR] [$HIvs] [$HIos] [$HIfr] [$Hrt] [$Hfr] [$Hrun]");
+      first done;
       first done;
       last iApply "IH".
-    unfold labels_interp.
-    subst F'.
-    assert (fc_labels (F <| fc_labels ::= cons (τs2, L') |>) = (τs2, L') :: fc_labels F) as HB' by
-          by rewrite <- set_get.
-    rewrite HB'.
-    clear HB'.
-    unfold const.
-    rewrite big_sepL2_cons.
-    iSplitR; last done.
-    iSplitL.
-    - by erewrite translate_types_comp_sem.
-    - iIntros (fr' vs' os' θ') "HIvs' HIos' HIfr' Hrt". iFrame.
+    iApply labels_interp_cons.
+    4: by iIntros (fr' vs') "H".
+    all: done.
   Qed.
 
 End Fundamental.
