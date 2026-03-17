@@ -207,7 +207,7 @@ Section Fundamental.
     simplify_eq.
 
     (* Iris Proof *)
-    iIntros (? ? ? ? ? ? ? ?) "%Hsem #Hinst Hctx Hreturn Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst Hctx Hreturn Hrvs Hvs Hframe Hrt Hfr Hrun".
     iDestruct (Hes1 _ _ (wt_case_2 ++ wtf) _ _ (wl_case_2 ++ wlf) _ Hcase_es1) as "Hsem_es1".
     iDestruct (Hes2 _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".
 
@@ -225,9 +225,12 @@ Section Fundamental.
     iDestruct (big_sepL2_length with "Hrvs") as "%Hlen".
     destruct vs as [|v_tag vs_payload]; first inversion Hlen.
     clear Hlen.
-    iDestruct (atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
+    iDestruct (relations_cwp.atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
 
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
+    (* apply has_values_to_consts_inv in Hhas_values. *)
+    (* subst evs. *)
+    (* unfold to_consts. *)
 
     rewrite (separate1 (VAL_int32 _)).
     rewrite map_app.
