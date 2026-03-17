@@ -83,7 +83,7 @@ Section Fundamental.
       first done;
       last iApply "IH".
     iApply labels_interp_cons.
-    4: by iIntros (fr' vs') "H".
+    4: by iIntros (fr' vs') "!> H".
     all: done.
   Qed.
 

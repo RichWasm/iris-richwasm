@@ -95,7 +95,7 @@ Section Fundamental.
         1, 2: done.
         { iPureIntro. apply has_values_to_consts. }
         iApply labels_interp_cons.
-        4: by iIntros (fr' vs') "H".
+        4: by iIntros (fr' vs') "!> H".
         all: done.
       + iApply (Hite with "[$] [$]").
         clear Hite.
@@ -108,7 +108,7 @@ Section Fundamental.
         1, 2: done.
         { iPureIntro. apply has_values_to_consts. }
         iApply labels_interp_cons.
-        4: by iIntros (fr' vs') "H".
+        4: by iIntros (fr' vs') "!> H".
         all: done.
     - apply is_consts_to_consts.
     - rewrite length_map. by rewrite <- Hlen_res.

@@ -571,29 +571,46 @@ Section Relations.
     '((τs, L) : list type * local_ctx) '((n, P) : label_spec) :
     iProp Σ :=
     (match translate_types se τs with Some ts => ⌜length ts = n⌝ | None => False end ∗
-       ∀ fr vs os θ,
-         atoms_interp os vs -∗
-         values_interp se τs os -∗
-         frame_interp se L WL inst fr -∗
-         rt_token rti sr θ -∗
-         P fr vs)%I.
+       □ (∀ fr vs os θ,
+            atoms_interp os vs -∗
+            values_interp se τs os -∗
+            frame_interp se L WL inst fr -∗
+            rt_token rti sr θ -∗
+            P fr vs))%I.
+
+  Global Instance Persistent_label_interp se inst WL a b : Persistent (label_interp se inst WL a b).
+  Proof.
+    destruct a, b.
+    typeclasses eauto.
+  Defined.
 
   Definition labels_interp (se : semantic_env) (inst : instance) (WL : wlocal_ctx) :
     list (list type * local_ctx) -> list label_spec -> iProp Σ :=
     big_sepL2 (const (label_interp se inst WL)).
+
+  Global Instance Persistent_labels_interp se inst WL l a : Persistent (labels_interp se inst WL l a).
+  Proof.
+    apply big_sepL2_persistent'. intros; cbn.
+    typeclasses eauto.
+  Defined.
 
   Definition return_interp (se : semantic_env) (τr : list type) (R : option return_spec) :
     iProp Σ :=
     match R with
     | Some (n, P) =>
         match translate_types se τr with Some ts => ⌜length ts = n⌝ | None => False end ∗
-          ∀ vs os θ,
+          □ (∀ vs os θ,
             atoms_interp os vs -∗
             values_interp se τr os -∗
             rt_token rti sr θ -∗
-            P vs
+            P vs)
     | None => True
     end%I.
+
+  Global Instance Persistent_return_interp se τr R : Persistent (return_interp se τr R).
+  Proof.
+    typeclasses eauto.
+  Defined.
 
   Definition memory_closed (m : memory) : Prop :=
     match m with
