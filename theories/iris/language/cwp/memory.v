@@ -13,7 +13,7 @@ Section memory.
   Lemma cwp_load s E (f : frame) v k32 k n nN i t a off L R Φ :
     types_agree t v ->
     N_i32_repr k k32 ->
-    nN = N.of_nat n ->
+    N_nat_repr n nN ->
     f.(f_inst).(inst_memory) !! i = Some n ->
     nN ↦[wms][k + off] bits v -∗
     ▷ (nN ↦[wms][k + off] bits v -∗ Φ f [v]) -∗
@@ -23,18 +23,19 @@ Section memory.
         @ s; E UNDER L; R
         {{ f; vs, Φ f vs }}.
   Proof.
-    iIntros (Htv Hrep -> Hi) "Hn HΦ Hf Hrun".
+    iIntros (Htv Hrep Hn Hi) "Hn HΦ Hf Hrun".
     iApply lenient_wp_load.
     { by apply Is_true_true. }
     { done. }
     erewrite N_i32_repr_N_of_uint by eauto.
+    rewrite Hn.
     iFrame.
   Qed.
 
   Lemma cwp_store s E (f : frame) bs v k k32 nN n i t a off L R Φ :
     types_agree t v ->
     N_i32_repr k k32 ->
-    nN = N.of_nat n ->
+    N_nat_repr n nN ->
     length bs = length_t t ->
     f.(f_inst).(inst_memory) !! i = Some n ->
     nN ↦[wms][k + off] bs -∗
@@ -45,12 +46,13 @@ Section memory.
         @ s; E UNDER L; R
         {{ f; vs, Φ f vs }}.
   Proof.
-    iIntros (Htv Hrep -> Hlen Hi) "Hn HΦ Hf Hrun".
+    iIntros (Htv Hrep Hn Hlen Hi) "Hn HΦ Hf Hrun".
     iApply lenient_wp_store.
     { by apply Is_true_true. }
     { done. }
     { done. }
     erewrite N_i32_repr_N_of_uint by eauto.
+    rewrite Hn.
     iFrame.
   Qed.
 

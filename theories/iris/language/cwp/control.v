@@ -1,6 +1,7 @@
 Require Import iris.proofmode.tactics.
 
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
+From RichWasm.iris Require Import numerics.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_pure lwp_structural lwp_trap.
 From RichWasm.iris.language.cwp Require Import base const def util.
 From RichWasm.iris.rules Require Import
@@ -461,17 +462,18 @@ Section control.
     - iIntros (v) "[[[-> HΦ] Hrun] Hf]". iFrame.
   Qed.
 
-  Lemma cwp_br_table s E (f : frame) evs vs ixs c i j n P L R Φ :
+  Lemma cwp_br_table s E (f : frame) evs vs ixs c32 c i j n P L R Φ :
     L !! j = Some (n, P) ->
     has_values evs vs ->
     length evs = n ->
-    ixs !! Wasm_int.nat_of_uint i32m c = Some j ->
+    nat_i32_repr c c32 ->
+    ixs !! c = Some j ->
     ↪[frame] f -∗
     ↪[RUN] -∗
     P f vs -∗
-    CWP evs ++ [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
+    CWP evs ++ [BI_const (VAL_int32 c32); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hj Hevs Hlen Hc) "Hf Hrun HP".
+    iIntros (Hj Hevs Hlen Hrepr Hc) "Hf Hrun HP".
     apply has_values_iff_to_consts in Hevs as ->.
     unfold cwp_wasm, lenient_wp, to_e_list, to_consts.
     change seq.map with (@map basic_instruction administrative_instruction).
@@ -480,19 +482,20 @@ Section control.
     change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
     fold (v_to_e_list vs).
     simpl map.
-    rewrite <- (app_nil_r [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_br_table ixs i)]).
+    rewrite <- (app_nil_r [AI_basic (BI_const (VAL_int32 c32)); AI_basic (BI_br_table ixs i)]).
     iApply wp_wasm_empty_ctx.
     iApply wp_base_push; first apply v_to_e_is_const_list.
     iApply (wp_br_table_ctx with "[$] [$]").
     {
       case: ssrnat.leP; first done.
       intros Hcontra.
+      rewrite <- Hrepr in Hcontra.
       apply Is_true_true.
       apply Hcontra.
       apply Nat.le_succ_l.
-      by eapply lookup_lt_Some.
+      eapply lookup_lt_Some; eauto.
     }
-    { by rewrite nth_error_lookup. }
+    { by rewrite <- Hrepr, nth_error_lookup. }
     iIntros "!> Hf Hrun".
     iApply wp_base_pull.
     iApply wp_wasm_empty_ctx.
@@ -507,17 +510,20 @@ Section control.
     all: done.
   Qed.
 
-  Lemma cwp_br_table_default s E (f : frame) evs vs ixs c i n P L R Φ :
+  Lemma cwp_br_table_default s E (f : frame) evs vs ixs c c32 i n P L R Φ :
     L !! i = Some (n, P) ->
     has_values evs vs ->
     length evs = n ->
-    length ixs <= Wasm_int.nat_of_uint i32m c ->
+    nat_i32_repr c c32 ->
+    length ixs <= c ->
     ↪[frame] f -∗
     ↪[RUN] -∗
     P f vs -∗
-    CWP evs ++ [BI_const (VAL_int32 c); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
+    CWP evs ++ [BI_const (VAL_int32 c32); BI_br_table ixs i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hi Hevs Hlen Hc) "Hf Hrun HP".
+    iIntros (Hi Hevs Hlen Hrep Hc) "Hf Hrun HP".
+    unfold nat_i32_repr in Hrep.
+    subst c.
     apply has_values_iff_to_consts in Hevs as ->.
     unfold cwp_wasm, lenient_wp, to_e_list, to_consts.
     change seq.map with (@map basic_instruction administrative_instruction).
@@ -526,7 +532,7 @@ Section control.
     change (@map value administrative_instruction) with (@seq.map value administrative_instruction).
     fold (v_to_e_list vs).
     simpl map.
-    rewrite <- (app_nil_r [AI_basic (BI_const (VAL_int32 c)); AI_basic (BI_br_table ixs i)]).
+    rewrite <- (app_nil_r [AI_basic (BI_const (VAL_int32 c32)); AI_basic (BI_br_table ixs i)]).
     iApply wp_wasm_empty_ctx.
     iApply wp_base_push; first apply v_to_e_is_const_list.
     iApply (wp_br_table_length_ctx with "[$] [$]").
@@ -572,21 +578,22 @@ Section control.
       by iExists [].
   Qed.
 
-  Lemma cwp_call s E (f0 : frame) inst vs evs es ts1 ts2 ts i a L R Φ :
+  Lemma cwp_call s E (f0 : frame) inst vs evs es ts1 ts2 ts i a aN L R Φ :
     f0.(f_inst).(inst_funcs) !! i = Some a ->
     has_values evs vs ->
     length evs = length ts1 ->
+    N_nat_repr a aN ->
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+    aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ▷ (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
        ↪[RUN] -∗
-       N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+       aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
        CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
            {{ _; vs', Φ f0 vs' ∗ ⌜length vs' = length ts2⌝ }}) -∗
     CWP evs ++ [BI_call i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hi Hevs Hlen) "Hfr Hrun Ha Hes".
+    iIntros (Hi Hevs Hlen <-) "Hfr Hrun Ha Hes".
     apply has_values_to_consts_inv in Hevs.
     subst evs.
     unfold cwp_wasm, to_e_list.
@@ -611,25 +618,28 @@ Section control.
     by iSpecialize ("Hes" with "[$] [$] [$]").
   Qed.
 
-  Lemma cwp_call_indirect s E (f0 : frame) inst vs evs es ts1 ts2 ts c i j a L R Φ :
+  Lemma cwp_call_indirect s E (f0 : frame) inst vs evs es ts1 ts2 ts c c32 i j jN a aN L R Φ :
     f0.(f_inst).(inst_funcs) !! i = Some a ->
     f0.(f_inst).(inst_types) !! i = Some (Tf ts1 ts2) ->
     f0.(f_inst).(inst_tab) !! 0 = Some j ->
     has_values evs vs ->
     length evs = length ts1 ->
+    N_nat_repr j jN ->
+    N_nat_repr a aN ->
+    N_i32_repr c c32 ->
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
-    N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+    jN ↦[wt][c] Some a -∗
+    aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ▷ (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
        ↪[RUN] -∗
-       N.of_nat j ↦[wt][N.of_nat (Wasm_int.nat_of_uint i32m c)] Some a -∗
-       N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+       jN ↦[wt][c] Some a -∗
+       aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
        CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
            {{ _; vs', Φ f0 vs' ∗ ⌜length vs' = length ts2⌝ }}) -∗
-    CWP evs ++ [BI_const (VAL_int32 c); BI_call_indirect i] @ s; E UNDER L; R {{ Φ }}.
+    CWP evs ++ [BI_const (VAL_int32 c32); BI_call_indirect i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hfuncs Htypes Htab Hevs Hlen) "Hfr Hrun Hj Ha Hes".
+    iIntros (Hfuncs Htypes Htab Hevs Hlen Hj Ha Hc) "Hfr Hrun Hj Ha Hes".
     iApply wp_wasm_empty_ctx.
     apply has_values_to_consts_inv in Hevs.
     subst evs.
@@ -638,9 +648,15 @@ Section control.
     rewrite map_app.
     rewrite map_map.
     rewrite <- (app_nil_r (map AI_basic _)).
+    unfold N_nat_repr in *.
+    subst jN aN.
     iApply wp_base_push; first apply v_to_e_is_const_list.
-    iApply (wp_call_indirect_success_ctx with "[$] [$] [$] [$]").
+    iApply (wp_call_indirect_success_ctx with "[Hj] [$Ha] [$] [$]").
     1, 2: done.
+    {
+      rewrite Hc.
+      now rewrite Z_nat_N.
+    }
     iIntros "!> (Hj & Ha & Hfr) Hrun".
     iApply wp_base_pull.
     iApply wp_wasm_empty_ctx.
@@ -653,7 +669,10 @@ Section control.
     iIntros "!> (Hfr & Hrun & Ha)".
     iApply (lwp_cwp_local with "[$] [$]").
     iIntros "Hfr Hrun".
-    by iSpecialize ("Hes" with "[$] [$] [$] [$]").
+    rewrite Hc.
+    cbn.
+    rewrite Z_nat_N.
+    now iSpecialize ("Hes" with "[$] [$] [$] [$]").
   Qed.
 
 End control.

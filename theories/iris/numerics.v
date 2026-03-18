@@ -18,6 +18,12 @@ Definition Z_i32_repr (z : Z) (z32 : i32) : Prop :=
 Definition N_i32_repr (n : N) (n32 : i32) : Prop :=
   n = Wasm_int.N_of_uint i32m n32.
 
+Definition nat_i32_repr (n : nat) (n32 : i32) : Prop :=
+  n = Wasm_int.nat_of_uint i32m n32.
+
+Definition N_nat_repr (n: nat) (nN: N) : Prop :=
+  N.of_nat n = nN.
+
 (* Defining congruences for given pairs of operations. *)
 Definition unop_cong_spec {A}
   (repr: A -> i32 -> Prop)
@@ -120,6 +126,16 @@ Proof.
   rewrite <- Hnz, Hni; cbn.
   rewrite Z2N.id; eauto.
   apply Wasm_int.Int32.unsigned_range.
+Qed.
+
+Lemma N_i32_nat_comp {n nN i} :
+  N_i32_repr nN i ->
+  nat_i32_repr n i ->
+  N_nat_repr n nN.
+Proof.
+  unfold N_nat_repr, N_i32_repr, nat_i32_repr.
+  intros HN Hnat; subst.
+  apply Z_nat_N.
 Qed.
 
 (* numbers related to i32s are between 0 and 2^32-1 *)
