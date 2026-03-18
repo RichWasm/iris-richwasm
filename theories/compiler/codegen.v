@@ -46,9 +46,8 @@ Definition emit (e : W.basic_instruction) : codegen unit := tell [e].
 
 Definition emit_all : W.expr -> codegen unit := tell.
 
-Definition alloc_res_w (fe : function_env) (ts : W.result_type) : codegen (list W.localidx) :=
-  ixs ← mapM (wlalloc fe) ts;
-  ret ixs.
+Definition wlallocs (fe : function_env) (ts : W.result_type) : codegen (list W.localidx) :=
+  mapM (wlalloc fe) ts.
 
 Definition get_locals_w : list W.localidx -> codegen unit :=
   mapM_ (emit ∘ W.BI_get_local ∘ localimm).
@@ -119,7 +118,7 @@ Definition case_blocks (fe : function_env) (result : W.result_type) (cases : lis
   (* Store tag in local *)
   tag_idx ← save_stack1 fe W.T_i32;
   (* Allocate space for result *)
-  res_idxs ← alloc_res_w fe result;
+  res_idxs ← wlallocs fe result;
   (* Code for each case *)
   mapM_ (uncurry (case_block tag_idx res_idxs)) (zip cases (seq 0 (length cases)));;
   (* Check that tag is in-bounds *)

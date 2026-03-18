@@ -122,6 +122,12 @@ Section common.
         iFrame. iPureIntro; simpl. subst. auto.
   Qed.
 
+  Lemma frame_interp_wl_interp se F L WL inst fr :
+    frame_interp rti sr se L WL inst fr -∗
+    ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
+  Proof.
+  Admitted.
+
   Lemma translate_types_comp_interp_length F τs ts se os :
     sem_env_interp F se ->
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->

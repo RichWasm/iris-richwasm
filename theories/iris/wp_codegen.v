@@ -264,7 +264,7 @@ Section CodeGen.
   Qed.
 
   Lemma wp_wlallocs fe tys wt wl idxs wt' wl' es :
-    run_codegen (mapM (wlalloc fe) tys) wt wl = inr (idxs, wt', wl', es) ->
+    run_codegen (wlallocs fe tys) wt wl = inr (idxs, wt', wl', es) ->
     idxs = imap (λ i _, Mk_localidx (fe_wlocal_offset fe + length wl + i)) tys /\
       wt' = [] /\
       wl' = tys /\
@@ -674,6 +674,192 @@ Section CodeGen.
     by iApply "Hfr".
   Qed.
 
+  Lemma cwp_save_stack_w esv tys Φ L R :
+    forall s E fe wt wl idxs wt' wl' wlf es fr vs,
+      run_codegen (save_stack_w fe tys) wt wl = inr (idxs, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      has_values esv vs ->
+      idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
+      wt' = [] /\
+      wl' = tys /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            Φ f []) -∗
+        CWP (esv ++ es) @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys Hhv.
+    destruct (lwp_save_stack_w tys (cwp_post_lp L R Φ) s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys) as (Hidxs & Hwt' & Hwl' & Hwp).
+    refine (conj Hidxs (conj Hwt' (conj Hwl' _))).
+    iIntros "Hfr Hrun HΦ".
+    unfold cwp_wasm.
+    rewrite util.to_e_list_app.
+    apply (has_values_to_consts_inv) in Hhv as ->.
+    rewrite to_e_list_map_BI_const.
+    iApply (Hwp with "[$] [$] [-]").
+    iIntros (f) "Hinv".
+    iSpecialize ("HΦ" $! f with "Hinv").
+    simpl lp_val.
+    iFrame.
+    done.
+  Qed.
+
+Lemma run_codegen_set_locals idxs wt wl x wt' wl' es' :
+  run_codegen (set_locals_w idxs) wt wl = inr (x, wt', wl', es') ->
+  x = tt /\
+    wt' = [] /\
+    wl' = [].
+Proof.
+    intros * Hcg.
+    (* apply wps/inversion principles *)
+    unfold set_locals_w in Hcg.
+    cbn in Hcg.
+    rewrite -rev_reverse in Hcg.
+    unfold mapM_ in Hcg.
+    do 2 rewrite mapM_comp in Hcg.
+    rewrite map_comp in Hcg.
+    rewrite rev_reverse in Hcg.
+    rewrite map_rev in Hcg.
+    inv_cg_bind Hcg res3 wt3 wt3' wl3 wl3' es5 es6 Hcg Hcg1.
+    inv_cg_ret Hcg1; subst.
+    apply wp_mapM_emit in Hcg.
+    destruct Hcg as (Hres & Hwt & Hwl & Hes); subst res3 wt3 wl3 es5.
+    done.
+Qed.
+
+  Lemma wp_set_locals_w tys :
+    forall s E Φ fe wt wl idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      v = () ∧
+        wt' = [] /\
+        wl' = [] /\
+        ⊢ ↪[frame] fr -∗
+          ↪[RUN] -∗
+          Φ (immV []) -∗
+          WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
+             {{ v, Φ v ∗ ↪[RUN] ∗
+                   ∃ f, ↪[frame] f  ∗
+                          ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+                          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ }}.
+  Proof.
+    intros * Hcg.
+    apply run_codegen_set_locals in Hcg as (-> & -> & ->).
+    split; auto.
+    split; auto.
+    split; auto.
+    iIntros "Hfr Hrun HΦ".
+  Admitted.
+    (* TODO: finish proof. *)
+    (* iApply (wp_wand with "[Hfr Hrun HΦ]"). *)
+    (* iApply (wp_save_stack_w_ind with "[$] [$] [HΦ]"). *)
+    (* - symmetry. eapply Forall2_length; eauto. *)
+    (* - apply interp_wl_length in H. *)
+    (*   rewrite !length_app in H. *)
+    (*   lia. *)
+    (* - eauto. *)
+    (* - iIntros (v) "((HΦ & Hrun) & %f & Hfr & Hpre & Hvs)". *)
+    (*   repeat rewrite big_andL_pure; eauto. *)
+    (*   iFrame. *)
+    (*   iDestruct "Hvs" as "%Hvs". *)
+    (*   iDestruct "Hpre" as "%Hpre". *)
+    (*   iSplit. *)
+    (*   + iPureIntro. *)
+    (*     intros i Hi. *)
+    (*     destruct i. *)
+    (*     setoid_rewrite elem_of_list_fmap_inj in Hi; *)
+    (*       [| intros x y Hinj; by injection Hinj]. *)
+    (*     by apply Hpre in Hi. *)
+    (*   + iPureIntro. *)
+    (*     apply Forall2_same_length_lookup. *)
+    (*     split. *)
+    (*     * rewrite length_fmap. *)
+    (*       rewrite length_seq. *)
+    (*       eapply Forall2_length. *)
+    (*       eapply H0. *)
+    (*     * intros i x y Hx Hy. *)
+    (*       erewrite Hvs; eauto. *)
+    (*       rewrite list_lookup_fmap in Hx. *)
+    (*       apply fmap_Some_1 in Hx. *)
+    (*       destruct Hx as (ximm & Hx & ->). *)
+    (*       cbn in *. *)
+    (*       rewrite lookup_seq in Hx. *)
+    (*       destruct Hx as [-> Hlen]. *)
+    (*       rewrite lookup_seq; eauto. *)
+  (* Qed. *)
+
+  Lemma lwp_set_locals_w tys Φ :
+    forall s E fe wt wl idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      v = () ∧
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f []) -∗
+        lenient_wp s E (W.v_to_e_list vs ++ to_e_list es) Φ.
+  Proof.
+    intros.
+    eapply wp_set_locals_w in H; eauto.
+    destruct H as (Hidxs & Hwt' & Hwl' & Hwp).
+    split; auto.
+    split; auto.
+    split; auto.
+    iIntros "Hf Hrun Hfr".
+    iApply (wp_wand with "[Hf Hrun]").
+    {
+      iApply (Hwp with "[$] [$]").
+      fill_imm_pred.
+    }
+    iIntros (v') "(-> & Hrun & %f & Hf & %Hold & %Hsaved)".
+    unfold denote_logpred.
+    iFrame.
+    by iApply "Hfr".
+  Qed.
+
+  Lemma cwp_set_locals_w tys L R Φ :
+    forall s E fe wt wl idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
+      result_type_interp tys vs ->
+      v = () ∧
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            Φ f []) -∗
+            CWP (map BI_const vs) ++ es @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros s E fe wt wl idxs v wt' wl' wlf es fr vs Hcg Hwl Hrt.
+    destruct (lwp_set_locals_w tys (cwp_post_lp L R Φ)
+                s E fe wt wl idxs v wt' wl' wlf es fr vs
+                Hcg Hwl Hrt)
+                as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun H".
+    unfold cwp_wasm.
+    rewrite util.to_e_list_app.
+    rewrite to_e_list_map_BI_const.
+    iApply (Hwp with "[$] [$] [-]").
+    iIntros (f) "H'".
+    iSpecialize ("H" $! f with "H'").
+    simpl lp_val.
+    iFrame.
+    done.
+  Qed.
+
   (* TODO: This isn't a WP rule. *)
   Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
     run_codegen (ignore c) wt wl = inr (ret, wt', wl', es) ->
@@ -788,6 +974,36 @@ Section CodeGen.
       done.
   Qed.
 
+  Lemma lwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f Φ :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
+    ret = tt /\
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+        Φ.(lp_fr_inv) f -∗
+        Φ.(lp_val) f vs -∗
+        lenient_wp NotStuck E (to_e_list es) Φ.
+  Proof.
+    intros Hlen Hcodegen.
+    eapply (wp_restore_stack_w _ _ _ _ _ _ _ E _ f
+    (λ w, ⌜w = immV vs⌝ ∗ Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f vs)%I)
+    in Hcodegen; [| eassumption].
+    destruct Hcodegen as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun Hidxs Hfr_inv Hval".
+    unfold lenient_wp.
+    iApply (wp_wand with "[Hfr Hrun Hidxs Hfr_inv Hval]").
+    - iApply (Hwp with "[$] [$] [Hfr_inv Hval] [$]").
+      by iFrame.
+    - iIntros (v) "((-> & Hfr_inv & Hval) & Hrun & Hfr)".
+      unfold denote_logpred; cbn.
+      iExists f.
+      iFrame.
+  Qed.
+
   Lemma lwp_restore_stack_w idxs vs wt wt' wl wl' es E ret f :
     length idxs = length vs ->
     run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
@@ -806,19 +1022,56 @@ Section CodeGen.
              lp_ret _ := False;
              lp_host _ _ _ _ := False |}.
   Proof.
-    intros.
-    eapply (wp_restore_stack_w _ _ _ _ _ _ _ E _ f (λ vs', ⌜vs' = immV vs⌝%I)) in H0; [|eassumption].
-    destruct H0 as (-> & -> & -> & Hwp).
-    split; [done | split; [done | split; [done|]]].
-    iIntros "Hf Hrun Hvs".
-    unfold lenient_wp.
-    iApply (wp_wand with "[Hf Hrun Hvs]").
-    - iApply (Hwp with "[$] [$]").
-      done.
-      eauto.
-    - iIntros (v) "(-> & Hrun & Hfr)".
-      unfold denote_logpred; cbn.
-      by iFrame.
+    intros Hlen Hcodegen.
+    edestruct (lwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f) as (-> & -> & -> & Hwp); try done.
+    do 3 split; try done.
+    iIntros "Hfr Hrun Hidxs".
+    by iApply (Hwp with "Hfr Hrun Hidxs").
+  Qed.
+
+  Lemma cwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f L R Φ :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
+    ret = tt /\
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] f -∗
+        ↪[RUN] -∗
+        Φ f vs -∗
+        ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+        CWP es @ NotStuck; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros Hlen Hcodegen.
+    destruct (lwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f
+    (cwp_post_lp L R Φ) Hlen Hcodegen)
+    as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun HΦ Hidxs".
+    unfold cwp_wasm.
+    iApply (Hwp with "Hfr Hrun Hidxs").
+    - simpl. done.
+    - simpl. iExact "HΦ".
+  Qed.
+
+  Lemma cwp_restore_stack_w idxs vs wt wt' wl wl' es E ret f L R :
+    length idxs = length vs ->
+    run_codegen (restore_stack idxs) wt wl = inr (ret, wt', wl', es) ->
+    ret = tt /\
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+        CWP es @ NotStuck; E UNDER L; R {{ f'; vs', ⌜f' = f /\ vs' = vs⌝ }}.
+  Proof.
+    intros Hlen Hcodegen.
+    destruct (cwp_restore_stack_w_generic idxs vs wt wt' wl wl' es E ret f L R
+                (fun f' vs' => ⌜f' = f /\ vs' = vs⌝)%I
+                Hlen Hcodegen)
+      as (-> & -> & -> & Hwp).
+    do 3 split; try done.
+    iIntros "Hfr Hrun Hidxs".
+    by iApply (Hwp with "[$] [$] [//]").
   Qed.
 
   Lemma wp_bind_err {A B} c (f : A -> codegen B) wt wl err :
