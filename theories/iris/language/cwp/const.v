@@ -69,6 +69,14 @@ Proof.
   { intros ->. apply has_values_to_consts. }
 Qed.
 
+Lemma to_e_list_map_BI_const vs :
+  to_e_list $ to_consts vs = v_to_e_list vs.
+Proof.
+  induction vs as [| v vs IH].
+  - reflexivity.
+  - simpl. f_equal. exact IH.
+Qed.
+
 Lemma is_consts_to_consts vs :
   is_consts (to_consts vs).
 Proof.

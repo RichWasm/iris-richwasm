@@ -674,14 +674,6 @@ Section CodeGen.
     by iApply "Hfr".
   Qed.
 
-  Lemma to_e_list_map_BI_const vs :
-  to_e_list (map BI_const vs) = W.v_to_e_list vs.
-Proof.
-  induction vs as [| v vs IH].
-  - reflexivity.
-  - simpl. f_equal. exact IH.
-Qed.
-
   Lemma cwp_save_stack_w esv tys Φ L R :
     forall s E fe wt wl idxs wt' wl' wlf es fr vs,
       run_codegen (save_stack_w fe tys) wt wl = inr (idxs, wt', wl', es) ->
