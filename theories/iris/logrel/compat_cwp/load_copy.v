@@ -25,6 +25,114 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma atoms_interp_nil_inv vs :
+    atoms_interp [] vs ⊣⊢ ⌜vs = []⌝ .
+  Proof.
+    iSplit.
+    - setoid_rewrite big_sepL2_nil_inv_l.
+      done.
+    - iIntros (->); cbn; done.
+  Qed.
+
+  Lemma atoms_interp_cons_inv o os vs :
+    ⊢ atoms_interp (o :: os) vs -∗ ∃ v vs', ⌜vs = v :: vs'⌝ ∗ atom_interp o v ∗ atoms_interp os vs'.
+  Proof.
+    iIntros "Hat".
+    iEval (unfold atoms_interp) in "Hat".
+    setoid_rewrite big_sepL2_cons_inv_l.
+    iDestruct "Hat" as (v vs' Hvs) "(Hv & Hvs')".
+    iExists v, vs'; iFrame; done.
+  Qed.
+
+  Lemma atoms_interp_length os vs :
+    ⊢ atoms_interp os vs -∗ ⌜length os = length vs⌝.
+  Proof.
+    iApply big_sepL2_length.
+  Qed.
+
+  Lemma atoms_interp_one_inv o vs :
+    atoms_interp [o] vs ⊣⊢ ∃ v, ⌜vs = [v]⌝ ∗ atom_interp o v.
+  Proof.
+    iSplit.
+    - iIntros "Hvs".
+      iPoseProof (atoms_interp_cons_inv with "Hvs") as (v vs' Heq) "[Hv Hnil]".
+      rewrite atoms_interp_nil_inv.
+      iDestruct "Hnil" as "%Hnil"; subst.
+      iExists v; auto.
+    - iIntros "(%v & -> & Hv)".
+      cbn; auto.
+  Qed.
+
+  Lemma value_interp_ref_sz se κ μ τ os :
+    ⊢ value_interp rti sr se (RefT κ μ τ) (SAtoms os) -∗ ⌜length os = 1⌝.
+  Proof.
+    iIntros "Hv".
+    rewrite value_interp_eq; cbn.
+    iDestruct "Hv" as "(%κ0 & %Heval & Hkind & Hmem)".
+    destruct μ as [| [|]]; auto.
+    - iDestruct "Hmem" as "(%ℓ & %fs & %ws & %Hos & _)".
+      by inversion Hos.
+    - iDestruct "Hmem" as "(%ℓ & %fs & %Hos & _)".
+      by inversion Hos.
+  Qed.
+
+  Lemma rep_ref_kind_ptr F κ μ τ ρ χ δ :
+    has_kind F (RefT κ μ τ) (VALTYPE ρ χ δ) ->
+    ρ = AtomR PtrR /\
+    exists χ', κ = VALTYPE (AtomR PtrR) χ' ExDrop.
+  Proof.
+    intros Hkind.
+    remember (RefT κ μ τ) as ref.
+    remember (VALTYPE ρ χ δ) as val.
+    revert Heqval Heqref.
+    revert ρ χ δ.
+    induction Hkind using has_kind_ind'; intros; try congruence.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
+    - subst κ'.
+      inversion H; subst; eapply IHHkind; eauto.
+  Qed.
+
+  Lemma wp_mem_load1_copy_mm se fe lidx off ι wt wl ret wt' wl' es fs ws ℓ τ π ev B R :
+    run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\
+    ⊢ ℓ ↦layout fs -∗
+      ℓ ↦heap ws -∗
+      ▷ value_interp rti sr se τ (SWords ws) -∗
+      ⌜path_offset fe τ π = Some off⌝ -∗
+      CWP ev :: es UNDER B; R {{ fr'; vs', True }}.
+  Proof.
+    unfold load1.
+    intros Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_get ?es_rest Hget Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_ret ?es_rest Hret Hcompile.
+    cbn in Hret; inversion Hret; subst; clear Hret.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_load_w ?es_rest Hload_w Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_wlalloc ?es_rest Hwlalloc Hcompile.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_save ?es_rest Hsave Hcompile.
+    subst.
+    inv_cg_emit Hget; subst.
+    inv_cg_emit Hsave; subst.
+    clear Hretval.
+    clear_nils.
+    unfold Monad.ret in Hcompile.
+  Abort.
+
+  Lemma mem_load_copy_mm_spec se fe lidx off ιs wt wl ret wt' wl' es fs ws ℓ τ π ev B R :
+    run_codegen (memory.load mr fe MemMM Copy lidx off ιs) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\
+    ⊢ ℓ ↦layout fs -∗
+      ℓ ↦heap ws -∗
+      ▷ value_interp rti sr se τ (SWords ws) -∗
+      ⌜path_offset fe τ π = Some off⌝ -∗
+      CWP ev :: es UNDER B; R {{ fr'; vs', True }}.
+  Proof.
+  Abort.
+
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -140,6 +248,11 @@ Section Fundamental.
       inversion Hsv; subst.
       rewrite value_interp_eq.
       (* need lemma about memory.load *)
+      assert (Hlenιs: length ιs = 1) by admit.
+      destruct ιs as [| ι [| ? ? ]]; try discriminate Hlenιs.
+      Search Reducible.foldM.
+
+      cbn in Hload1.
       admit.
     - unfold ref_gc_interp.
       iDestruct "Href" as (ℓ fs Hsv) "Hinv".

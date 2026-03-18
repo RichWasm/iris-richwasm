@@ -165,6 +165,9 @@ Section Token.
   Definition root_ok (θ : address_map) : root_map -> Prop :=
     map_Forall (fun _ ℓ => exists a, θ !! ℓ = Some (MemGC, a)).
 
+
+  Definition serialize_Z_i32 : Z -> bytes := serialise_i32 ∘ Wasm_int.int_of_Z i32m.
+
   Definition root_memory (θ : address_map) (rm : root_map) : iProp Σ :=
     [∗ map] ar ↦ ℓ ∈ rm,
       ∃ bs ah,
