@@ -146,9 +146,10 @@ Qed.
 Lemma N_i32_repr_N_of_uint :
   forall n n32,
     N_i32_repr n n32 ->
-    n = Wasm_int.N_of_uint i32m n32.
+    Wasm_int.N_of_uint i32m n32 = n.
 Proof.
   unfold N_i32_repr.
+  symmetry.
   tauto.
 Qed.
 
@@ -315,8 +316,6 @@ Proof.
   eapply binop_Z_N_cong; eauto using and_Z_cong, N2Z.inj_land.
 Qed.
 
-Check (Wasm_int.Int32.eq Wasm_int.Int32.zero).
-
 Lemma eqz_Z_cong:
   testop_Z_cong_spec (Wasm_int.Int32.eq Wasm_int.Int32.zero) (Z.eqb 0).
 Proof.
@@ -326,4 +325,18 @@ Proof.
   rewrite <- Hrep.
   destruct (Z.eq_dec 0 x); subst; eauto.
   now eapply Z.eqb_neq.
+Qed.
+
+Lemma eqz_N_cong:
+  testop_N_cong_spec (Wasm_int.Int32.eq Wasm_int.Int32.zero) (N.eqb 0).
+Proof.
+  unfold testop_N_cong_spec, testop_cong_spec; intros x x32 Hrep.
+  assert (Hz: Z_i32_repr (Z.of_N x) x32).
+  {
+    eapply Z_N_i32_comp; eauto.
+    reflexivity.
+  }
+  eapply eqz_Z_cong in Hz.
+  rewrite <- Hz.
+  destruct x; cbn; auto.
 Qed.

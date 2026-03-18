@@ -1,6 +1,7 @@
 Require Import iris.proofmode.tactics.
 
 From RichWasm.iris.language Require Import iris_wp_def lwp_pure.
+Require Import RichWasm.iris.numerics.
 Require Import RichWasm.iris.language.cwp.def.
 Require Import RichWasm.iris.rules.iris_rules_pure.
 
@@ -123,6 +124,81 @@ Section numeric.
     { done. }
     { by apply Is_true_true. }
     iFrame.
+  Qed.
+
+  (* Lemmas for specific operators with lemmas proved in theories/numerics.v *)
+  Lemma cwp_add32 s E L R (f: frame) x x32 y y32 Φ :
+    N_i32_repr x x32 ->
+    N_i32_repr y y32 ->
+    (Z.of_N (x + y) < Wasm_int.Int32.modulus)%Z ->
+    ▷ (∀ z32, ⌜N_i32_repr (x + y) z32⌝ -∗ Φ f [VAL_int32 z32]) -∗
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    CWP [BI_const (VAL_int32 x32);
+         BI_const (VAL_int32 y32);
+         BI_binop T_i32 (Binop_i BOI_add)]
+      @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hrx Hry Hbdd) "HΦ Hf Hrun".
+    iApply (cwp_binop with "[$] [$]"); eauto.
+    iModIntro.
+    iApply "HΦ".
+    iPureIntro.
+    apply iadd_N_cong; eauto.
+  Qed.
+
+  Lemma cwp_shl32 s E L R (f: frame) x x32 y y32 Φ :
+    N_i32_repr x x32 ->
+    N_i32_repr y y32 ->
+    (Z.of_N (N.shiftl x y) < Wasm_int.Int32.modulus)%Z ->
+    ▷ (∀ z32, ⌜N_i32_repr (N.shiftl x y) z32⌝ -∗ Φ f [VAL_int32 z32]) -∗
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    CWP [BI_const (VAL_int32 x32);
+         BI_const (VAL_int32 y32);
+         BI_binop T_i32 (Binop_i BOI_shl)]
+      @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hrx Hry Hbdd) "HΦ Hf Hrun".
+    iApply (cwp_binop with "[$] [$]"); eauto.
+    iModIntro.
+    iApply "HΦ".
+    iPureIntro.
+    apply shl_N_cong; eauto.
+  Qed.
+
+  Lemma cwp_shr32 s E L R (f: frame) x x32 y y32 Φ :
+    N_i32_repr x x32 ->
+    N_i32_repr y y32 ->
+    (Z.of_N (N.shiftr x y) < Wasm_int.Int32.modulus)%Z ->
+    ▷ (∀ z32, ⌜N_i32_repr (N.shiftr x y) z32⌝ -∗ Φ f [VAL_int32 z32]) -∗
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    CWP [BI_const (VAL_int32 x32);
+         BI_const (VAL_int32 y32);
+         BI_binop T_i32 (Binop_i (BOI_shr Wasm.datatypes.SX_U))]
+      @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hrx Hry Hbdd) "HΦ Hf Hrun".
+    iApply (cwp_binop with "[$] [$]"); eauto.
+    iModIntro.
+    iApply "HΦ".
+    iPureIntro.
+    apply shru_N_cong; eauto.
+  Qed.
+
+  Lemma cwp_eqz s E L R (f: frame) x x32 Φ :
+    N_i32_repr x x32 ->
+    ▷ Φ f [VAL_int32 (wasm_bool (N.eqb 0 x))] -∗
+    ↪[frame] f -∗
+    ↪[RUN] -∗
+    CWP [BI_const (VAL_int32 x32);
+         BI_testop T_i32 TO_eqz]
+      @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros (Hrx) "HΦ Hf Hrun".
+    iApply (cwp_testop_i32 with "[$] [$]"); eauto.
+    now rewrite (eqz_N_cong _ _ Hrx).
   Qed.
 
 End numeric.
