@@ -150,7 +150,7 @@ Section Relations.
         match p with
         | PtrHeap μ' ℓ =>
             ⌜μ = μ'⌝ ∗ match μ with
-                       | MemMM => ℓ ↦addr a
+                       | MemMM => ℓ ↦addr (μ, a)
                        | MemGC => a ↦root ℓ
                        end
         | _ => False

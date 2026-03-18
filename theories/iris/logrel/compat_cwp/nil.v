@@ -30,29 +30,14 @@ Section Fundamental.
     run_codegen (compile_instrs mr fe []) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' (InstrT [] []) L.
   Proof.
-    (* intros fe WT WL Hcompile. *)
-    (* cbn in Hcompile. *)
-    (* inversion Hcompile. *)
+    intros fe WT WL Hcg.
+    cbn in Hcg; inversion Hcg; subst.
+    iIntros (se inst fr os vs evs θ B R Hse Hevs) "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
 
-    (* iIntros (se inst lh fr rvs vs θ) "%Henv #Hinst #Hlf Hrvs Hvs Hframe Hrt Hfr Hrun". *)
+    iApply cwp_val_app; first done.
+    iApply (cwp_nil with "[$] [$]").
+    iFrame. rewrite app_nil_r; iFrame.
 
-    (* iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs". *)
-    (* iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)". *)
-    (* iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss". *)
-    (* iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs". *)
-    (* cbn in Hlens_rvss. *)
-    (* destruct rvss, rvs; cbn in Hconcat, Hlens_rvss; try congruence. *)
-    (* cbn in Hlens_rvs_vs. destruct vs; cbn in Hlens_rvs_vs; try congruence. *)
-
-    (* rewrite !app_nil_l. *)
-    (* unfold expr_interp. *)
-
-    (* iApply lenient_wp_nil. *)
-    (* unfold lp_combine, denote_logpred; cbn. *)
-    (* iFrame. *)
-    (* iExists []; auto. *)
-    (* iSplit; auto. *)
-    (* iExists []; auto. *)
-  Admitted.
+  Qed.
 
 End Fundamental.
