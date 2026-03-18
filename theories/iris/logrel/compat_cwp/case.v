@@ -228,22 +228,19 @@ Section Fundamental.
     iDestruct (relations_cwp.atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
 
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
-    (* apply has_values_to_consts_inv in Hhas_values. *)
-    (* subst evs. *)
-    (* unfold to_consts. *)
+    rewrite list_extra.cons_app in Hhas_values.
+    apply has_values_app_inv in Hhas_values as (e_tag & es_payload & -> & Hhv_tag & Hhvs_payload).
 
-    rewrite (separate1 (VAL_int32 _)).
-    rewrite map_app.
-    rewrite (app_assoc (map _ _ ++ _)).
+    rewrite (app_assoc (e_tag ++ _)).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
-      rewrite <- (app_assoc (map _ _)).
+      rewrite <- (app_assoc e_tag).
       instantiate (1 := λ f vs, (
         ⌜vs = [VAL_int32 (Wasm_int.Int32.repr i)]⌝ ∗
         ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
         ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝
         )%I).
-      iApply cwp_val_app.
+      iApply cwp_val_app; first done.
       eapply cwp_save_stack_w in Hsave; eauto.
       + destruct Hsave as (-> & -> & -> & Hsave).
         iApply (Hsave with "[$] [$]").
@@ -291,7 +288,6 @@ Section Fundamental.
     iApply (cwp_seq with "[-]").
     {
       rewrite <- (app_nil_l [prelude.W.BI_block _ _]).
-      replace [] with (map BI_const []); last done. (* TODO: This is nasty *)
       iApply (cwp_block with "[$] [$]"); auto.
       iIntros "!> Hf Hrun".
       rewrite app_nil_l.
@@ -356,7 +352,8 @@ Section Fundamental.
         rewrite (app_assoc (map _ _)).
         iApply (cwp_seq with "[-]").
         {
-          iApply ("Hsem_es1" with "[//] [$] [Hctx] [] [] [] [] [$] [$] [$]").
+          iApply ("Hsem_es1" with "[//] [] [$] [Hctx] [] [] [] [] [$] [$] [$]").
+          - instantiate (1 := case_1_vs_payload); iPureIntro; simpl; rewrite has_values_iff_to_consts; done.
           - admit.
           - admit.
           - admit.
@@ -372,12 +369,9 @@ Section Fundamental.
         rewrite (separate2).
         iApply (cwp_seq with "[Hf Hrun]").
         {
-          iApply (cwp_br_if_nonzero with "[$] [$]"); first done.
-          iIntros "!> Hf Hr".
-          rewrite <- (app_nil_l [BI_br _]).
-          replace [] with (map BI_const []); last done. (* TODO: This is nasty *)
-          instantiate (1 := λ f v, False%I).
-          iApply (cwp_br with "[$] [$]"); try done.
+          rewrite <- (app_nil_l [_; _]).
+          iApply (cwp_br_if_nonzero with "[$] [$]"); try done.
+          { by instantiate (1 := []). }
           by instantiate (1 := λ f v, (⌜v = []⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
         }
         iIntros (?fr w) "[]".

@@ -682,11 +682,12 @@ Proof.
   - simpl. f_equal. exact IH.
 Qed.
 
-  Lemma cwp_save_stack_w tys Φ L R :
+  Lemma cwp_save_stack_w esv tys Φ L R :
     forall s E fe wt wl idxs wt' wl' wlf es fr vs,
       run_codegen (save_stack_w fe tys) wt wl = inr (idxs, wt', wl', es) ->
       wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
       result_type_interp tys vs ->
+      has_values esv vs ->
       idxs = map W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length tys)) ∧
       wt' = [] /\
       wl' = tys /\
@@ -696,14 +697,15 @@ Qed.
             ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
             ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
             Φ f []) -∗
-        CWP ((map BI_const vs) ++ es) @ s; E UNDER L; R {{ Φ }}.
+        CWP (esv ++ es) @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys.
+    intros s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys Hhv.
     destruct (lwp_save_stack_w tys (cwp_post_lp L R Φ) s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys) as (Hidxs & Hwt' & Hwl' & Hwp).
     refine (conj Hidxs (conj Hwt' (conj Hwl' _))).
     iIntros "Hfr Hrun HΦ".
     unfold cwp_wasm.
     rewrite util.to_e_list_app.
+    apply (has_values_to_consts_inv) in Hhv as ->.
     rewrite to_e_list_map_BI_const.
     iApply (Hwp with "[$] [$] [-]").
     iIntros (f) "Hinv".
