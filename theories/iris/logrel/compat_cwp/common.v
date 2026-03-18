@@ -220,6 +220,7 @@ Section common.
     - done.
   Qed.
 
+(* This is a copy of values_interp_cons
   Lemma values_interp_cons_inv se τ τs os :
     ⊢ values_interp rti sr se (τ :: τs) os -∗
       ∃ os1 os2,
@@ -236,6 +237,58 @@ Section common.
     - done.
     - iExists _.
       iSplit; done.
+  Qed. *)
+  Lemma atoms_interp_length os vs :
+    ⊢ atoms_interp os vs -∗ ⌜length os = length vs⌝.
+  Proof.
+    iApply big_sepL2_length.
   Qed.
+
+  Lemma atoms_interp_one_inv o vs :
+    atoms_interp [o] vs ⊣⊢ ∃ v, ⌜vs = [v]⌝ ∗ atom_interp o v.
+  Proof.
+    iSplit.
+    - iIntros "Hvs".
+      iPoseProof (atoms_interp_cons with "Hvs") as (v vs' Heq) "[Hv Hnil]".
+      iPoseProof (atoms_interp_nil with "Hnil") as "->".
+      iExists v; auto.
+    - iIntros "(%v & -> & Hv)".
+      cbn; auto.
+  Qed.
+
+  Lemma value_interp_ref_sz se κ μ τ os :
+    ⊢ value_interp rti sr se (RefT κ μ τ) (SAtoms os) -∗ ⌜length os = 1⌝.
+  Proof.
+    iIntros "Hv".
+    rewrite value_interp_eq; cbn.
+    iDestruct "Hv" as "(%κ0 & %Heval & Hkind & Hmem)".
+    destruct μ as [| [|]]; auto.
+    - iDestruct "Hmem" as "(%ℓ & %fs & %ws & %Hos & _)".
+      by inversion Hos.
+    - iDestruct "Hmem" as "(%ℓ & %fs & %Hos & _)".
+      by inversion Hos.
+  Qed.
+
+  Lemma rep_ref_kind_ptr F κ μ τ ρ χ δ :
+    has_kind F (RefT κ μ τ) (VALTYPE ρ χ δ) ->
+    ρ = AtomR PtrR /\
+    exists χ', κ = VALTYPE (AtomR PtrR) χ' ExDrop.
+  Proof.
+    intros Hkind.
+    remember (RefT κ μ τ) as ref.
+    remember (VALTYPE ρ χ δ) as val.
+    revert Heqval Heqref.
+    revert ρ χ δ.
+    induction Hkind using has_kind_ind'; intros; try congruence.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
+    - subst κ'.
+      inversion H; subst; eapply IHHkind; eauto.
+  Qed.
+
 
 End common.
