@@ -6,7 +6,7 @@ From Wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module memory.
-From RichWasm.iris Require Import autowp memory util wp_codegen.
+From RichWasm.iris Require Import autowp memory util wp_codegen numerics.
 From RichWasm.iris.language Require Import cwp logpred.
 From RichWasm.iris.logrel Require Import relations_cwp.
 From RichWasm.iris.logrel.compat_lemmas Require Import shared.
@@ -97,14 +97,51 @@ Section Fundamental.
       inversion H; subst; eapply IHHkind; eauto.
   Qed.
 
-  Lemma wp_mem_load1_copy_mm se fe lidx off ι wt wl ret wt' wl' es fs ws ℓ τ π ev B R :
-    run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
+  Lemma wp_load_w μ t off wt wl wt' wl' es ret :
+    run_codegen (load_w mr μ t off) wt wl = inr (ret, wt', wl', es) ->
     ret = () /\
-    ⊢ ℓ ↦layout fs -∗
+    wt' = [] /\
+    wl' = [] /\
+    forall ℓ ℓ32 memidx memidxN (f: frame) B R Φ v,
+        N_i32_repr ℓ ℓ32 ->
+        N_nat_repr memidx memidxN ->
+        inst_memory (f_inst f) !! base_mem_idx mr μ = Some memidx ->
+        types_agree t v ->
+        ⊢ ↪[frame] f -∗
+          ↪[RUN] -∗
+          memidxN ↦[wms][ℓ + byte_offset μ off]bits v -∗
+          ▷ (memidxN↦[wms][ℓ + byte_offset μ off]bits v -∗ Φ f [v]) -∗
+          CWP W.BI_const (VAL_int32 ℓ32) :: es UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    unfold load_w in Hcg.
+    inv_cg_emit Hcg; subst es wt' wl' ret.
+    split; [auto|].
+    split; [auto|].
+    split; [auto|].
+    intros * Hℓ Hmemidx Hmem Hty.
+    iIntros "Hf Hrun Hptr HΦ".
+    iApply (cwp_load with "[$] [$] [$] [$]"); eauto.
+  Qed.
+
+  Lemma wp_mem_load1_copy_mm
+    se fe lidx off ι wt wl ret wt' wl' es fs ws ℓ ℓ32 τ π B R
+    (f: frame) memidx memidxN v Φ :
+    run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
+    N_i32_repr ℓ ℓ32 ->
+    N_nat_repr memidx memidxN ->
+    inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some memidx ->
+    f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) ->
+    types_agree (translate_arep ι) v ->
+    ret = () /\
+    ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
+      ℓ ↦layout fs -∗
       ℓ ↦heap ws -∗
+      memidxN ↦[wms][ℓ + byte_offset MemMM off]bits v -∗
       ▷ value_interp rti sr se τ (SWords ws) -∗
       ⌜path_offset fe τ π = Some off⌝ -∗
-      CWP ev :: es UNDER B; R {{ fr'; vs', True }}.
+      CWP es UNDER B; R {{ Φ }}.
   Proof.
     unfold load1.
     intros Hcompile.
@@ -115,11 +152,49 @@ Section Fundamental.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_wlalloc ?es_rest Hwlalloc Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_save ?es_rest Hsave Hcompile.
     subst.
+    apply wp_wlalloc in Hwlalloc.
+    destruct Hwlalloc as (Hidx & -> & -> & ->).
+    eapply wp_load_w in Hload_w.
+    destruct Hload_w as (_ & -> & -> & Hload_w).
+    inversion Hidx; subst n.
     inv_cg_emit Hget; subst.
     inv_cg_emit Hsave; subst.
-    clear Hretval.
+    clear Hretval Hretval0.
     clear_nils.
-    unfold Monad.ret in Hcompile.
+    destruct ret.
+    split; [reflexivity|].
+    iIntros "Hf Hrun Hfs Hws Hmem Hval %Hpath".
+    iApply (cwp_seq with "[Hf Hrun]").
+    {
+      iApply (cwp_local_get with "[] [$] [$]"); eauto.
+      now instantiate (1:= λ f' v', ⌜f' = f /\ v' = [VAL_int32 ℓ32]⌝%I).
+    }
+    iIntros (f' vs') "[-> ->] Hf Hrun".
+    rewrite app_assoc.
+    iApply (cwp_seq with "[Hf Hrun Hmem]").
+    {
+      iApply (Hload_w with "[$] [$] [$]"); eauto.
+      iIntros "!> Hmem".
+      instantiate (1:= λ f' v', (⌜f' = f⌝ ∗ ⌜v' = [v]⌝ ∗ _)%I).
+      cbn.
+      iSplit; [done|].
+      iSplit; [done|].
+      iApply "Hmem".
+    }
+    iIntros (? ?) "(-> & -> & Hmem) Hf Hrun".
+    rewrite app_assoc.
+    set (vloc := localimm (W.Mk_localidx (fe_wlocal_offset fe + length wl))).
+    set (f' := {| f_locs := <[vloc := v]> (f_locs f);
+                  f_inst := f_inst f |}).
+    iApply (cwp_seq with "[Hf Hrun]").
+    {
+      iApply (cwp_tee_local with "[] [$] [$]").
+      - admit.
+      - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
+    }
+    iIntros (? ?) "(-> & ->) Hf Hrun".
+    unfold ite_gc_ptr in Hcompile.
+    admit.
   Abort.
 
   Lemma mem_load_copy_mm_spec se fe lidx off ιs wt wl ret wt' wl' es fs ws ℓ τ π ev B R :
@@ -250,8 +325,6 @@ Section Fundamental.
       (* need lemma about memory.load *)
       assert (Hlenιs: length ιs = 1) by admit.
       destruct ιs as [| ι [| ? ? ]]; try discriminate Hlenιs.
-      Search Reducible.foldM.
-
       cbn in Hload1.
       admit.
     - unfold ref_gc_interp.

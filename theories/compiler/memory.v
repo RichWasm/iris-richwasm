@@ -20,26 +20,27 @@ Section Compiler.
     | MemGC => offset_gc + 4 * N.of_nat off
     end%N.
 
-  Definition load_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
-    let off' := byte_offset μ off in
+  Definition base_mem_idx (μ: base_memory) : W.immediate :=
     match μ with
-    | MemMM => emit (W.BI_load (memimm mr.(mr_mmmem)) t None align_word off')
-    | MemGC => emit (W.BI_load (memimm mr.(mr_gcmem)) t None align_word off')
+    | MemMM => memimm mr.(mr_mmmem)
+    | MemGC => memimm mr.(mr_gcmem)
     end.
 
-  Definition store_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
-    let off' := byte_offset μ off in
+  Definition base_mem_alloc (μ: base_memory) : W.immediate :=
     match μ with
-    | MemMM => emit (W.BI_store (memimm mr.(mr_mmmem)) t None align_word off')
-    | MemGC => emit (W.BI_store (memimm mr.(mr_gcmem)) t None align_word off')
+    | MemMM => funcimm mr.(mr_func_mmalloc)
+    | MemGC => funcimm mr.(mr_func_gcalloc)
     end.
+
+  Definition load_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
+    emit (W.BI_load (base_mem_idx μ) t None align_word (byte_offset μ off)).
+
+  Definition store_w (μ : base_memory) (t : W.value_type) (off : nat) : codegen unit :=
+    emit (W.BI_store (base_mem_idx μ) t None align_word (byte_offset μ off)).
 
   Definition alloc (μ : base_memory) (n : nat) : codegen unit :=
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n))));;
-    match μ with
-    | MemMM => emit (W.BI_call (funcimm mr.(mr_func_mmalloc)))
-    | MemGC => emit (W.BI_call (funcimm mr.(mr_func_gcalloc)))
-    end.
+    emit (W.BI_call (base_mem_alloc μ)).
 
   Definition free : codegen unit := emit (W.BI_call (funcimm mr.(mr_func_free))).
 
