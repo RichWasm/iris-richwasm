@@ -14,5 +14,4 @@
     RichWasm.compiler
     RichWasm.iris.logrel
     RichWasm.iris.language
-    RichWasm.iris.rules
-    RichWasm.iris.alloc.functions))
+    RichWasm.iris.rules))
