@@ -38,7 +38,7 @@ Section control.
       + exact Hvh.
   Qed.
 
-  Lemma lwp_cwp_label s E (f : frame) es esk n L R Ψ Φ :
+  Lemma lwp_cwp_label s E f es esk n L R Ψ Φ :
     ↪[frame] f -∗
     ↪[RUN] -∗
     (↪[frame] f -∗ ↪[RUN] -∗ lenient_wp s E es (cwp_post_lp ((n, Ψ) :: L) R Φ)) -∗
@@ -187,7 +187,7 @@ Section control.
       iDestruct "HΦ" as "[_ []]".
   Qed.
 
-  Lemma cwp_nop s E (f : frame) L R Φ :
+  Lemma cwp_nop s E f L R Φ :
     ↪[frame] f -∗ ↪[RUN] -∗ ▷ Φ f [] -∗ CWP [BI_nop] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros "Hf Hrun HΦ".
@@ -197,7 +197,7 @@ Section control.
     - done.
   Qed.
 
-  Lemma cwp_unreachable s E (f : frame) L R Φ :
+  Lemma cwp_unreachable s E f L R Φ :
     ↪[frame] f -∗ ↪[RUN] -∗ CWP [BI_unreachable] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros "Hf Hrun".
@@ -210,7 +210,7 @@ Section control.
       by iFrame.
   Qed.
 
-  Lemma cwp_block (f : frame) s E evs es L R ts1 ts2 Φ :
+  Lemma cwp_block f s E evs es L R ts1 ts2 Φ :
     is_consts evs ->
     length evs = length ts1 ->
     ↪[frame] f -∗
@@ -235,7 +235,7 @@ Section control.
     - iExists f'. iFrame.
   Qed.
 
-  Lemma cwp_loop (f : frame) s E evs es L R ts1 ts2 Φ Ψ :
+  Lemma cwp_loop f s E evs es L R ts1 ts2 Φ Ψ :
     is_consts evs ->
     length evs = length ts1 ->
     ↪[frame] f -∗
@@ -277,7 +277,7 @@ Section control.
       + iApply "IH".
   Qed.
 
-  Lemma cwp_loop' (f : frame) s E vs evs es L R ts1 ts2 Φ Ψ :
+  Lemma cwp_loop' f s E vs evs es L R ts1 ts2 Φ Ψ :
     has_values evs vs ->
     length evs = length ts1 ->
     ↪[frame] f -∗
@@ -300,7 +300,7 @@ Section control.
     - done.
   Qed.
 
-  Lemma cwp_if_nonzero s E (f : frame) c ts1 ts2 evs es1 es2 L R Φ :
+  Lemma cwp_if_nonzero s E f c ts1 ts2 evs es1 es2 L R Φ :
     is_consts evs ->
     length evs = length ts1 ->
     c <> Wasm_int.int_zero i32m ->
@@ -335,7 +335,7 @@ Section control.
     iApply ("Hes1" with "[$] [$]").
   Qed.
 
-  Lemma cwp_if_zero s E (f : frame) c ts1 ts2 evs es1 es2 L R Φ :
+  Lemma cwp_if_zero s E f c ts1 ts2 evs es1 es2 L R Φ :
     is_consts evs ->
     length evs = length ts1 ->
     c = Wasm_int.int_zero i32m ->
@@ -370,7 +370,7 @@ Section control.
     iApply ("Hes2" with "[$] [$]").
   Qed.
 
-  Lemma cwp_br (f : frame) s E L R n i P evs vs Φ :
+  Lemma cwp_br f s E L R n i P evs vs Φ :
     L !! i = Some (n, P) ->
     has_values evs vs ->
     length evs = n ->
@@ -409,7 +409,7 @@ Section control.
     by iExists [].
   Qed.
 
-  Lemma cwp_br_if_nonzero s E (f : frame) evs vs c i n P L R Φ :
+  Lemma cwp_br_if_nonzero s E f evs vs c i n P L R Φ :
     L !! i = Some (n, P) ->
     has_values evs vs ->
     length evs = n ->
@@ -446,7 +446,7 @@ Section control.
     all: done.
   Qed.
 
-  Lemma cwp_br_if_zero s E (f : frame) c i L R Φ :
+  Lemma cwp_br_if_zero s E f c i L R Φ :
     c = Wasm_int.int_zero i32m ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -462,7 +462,7 @@ Section control.
     - iIntros (v) "[[[-> HΦ] Hrun] Hf]". iFrame.
   Qed.
 
-  Lemma cwp_br_table s E (f : frame) evs vs ixs c32 c i j n P L R Φ :
+  Lemma cwp_br_table s E f evs vs ixs c32 c i j n P L R Φ :
     L !! j = Some (n, P) ->
     has_values evs vs ->
     length evs = n ->
@@ -510,7 +510,7 @@ Section control.
     all: done.
   Qed.
 
-  Lemma cwp_br_table_default s E (f : frame) evs vs ixs c c32 i n P L R Φ :
+  Lemma cwp_br_table_default s E f evs vs ixs c c32 i n P L R Φ :
     L !! i = Some (n, P) ->
     has_values evs vs ->
     length evs = n ->
@@ -551,7 +551,7 @@ Section control.
     all: done.
   Qed.
 
-  Lemma cwp_return s E (f : frame) evs vs n P L Φ :
+  Lemma cwp_return s E f evs vs n P L Φ :
     has_values evs vs ->
     length evs = n ->
     ↪[frame] f -∗

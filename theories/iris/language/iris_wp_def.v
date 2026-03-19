@@ -139,18 +139,18 @@ Notation "n ↦[wg]{ q } v" := (pointsto (L:=N) (V:=global) n q v%V)
                            (at level 20, q at level 5, format "n ↦[wg]{ q } v").
 Notation "n ↦[wg] v" := (pointsto (L:=N) (V:=global) n (DfracOwn 1) v%V)
                       (at level 20, format "n ↦[wg] v") .
-Notation " ↪[frame]{ q } v" := (ghost_map_elem frameGName tt q v%V)
+Notation " ↪[frame]{ q } v" := (ghost_map_elem (V:=frame) frameGName tt q v%V)
                            (at level 20, q at level 5, format " ↪[frame]{ q } v") .
-Notation " ↪[frame] v" := (ghost_map_elem frameGName tt (DfracOwn 1) v%V)
+Notation " ↪[frame] v" := (ghost_map_elem (V:=frame) frameGName tt (DfracOwn 1) v%V)
                             (at level 20, format " ↪[frame] v").
 
-Notation "↪[RUN]" := (ghost_map_elem obsGName tt (DfracOwn 1) Run%V)
+Notation "↪[RUN]" := (ghost_map_elem (V:=obs) obsGName tt (DfracOwn 1) Run%V)
                        (at level 20, format " ↪[RUN]").
 
-Notation "↪[BAIL]" := (ghost_map_elem obsGName tt (DfracOwn 1) Bail%V)
+Notation "↪[BAIL]" := (ghost_map_elem (V:=obs) obsGName tt (DfracOwn 1) Bail%V)
                        (at level 20, format " ↪[BAIL]").
 
-Notation "↪[CRASH]" := (ghost_map_elem obsGName tt (DfracOwn 1) Crash%V)
+Notation "↪[CRASH]" := (ghost_map_elem (V:=obs) obsGName tt (DfracOwn 1) Crash%V)
                        (at level 20, format " ↪[CRASH]").
 
 

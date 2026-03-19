@@ -19,7 +19,7 @@ Section structural.
 
   Context `{!wasmG Σ}.
 
-  Lemma cwp_nil s E (f : frame) L R Φ :
+  Lemma cwp_nil s E f L R Φ :
     ↪[frame] f -∗ ↪[RUN] -∗ Φ f [] -∗ CWP [] @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros "Hf Hrun HΦ".

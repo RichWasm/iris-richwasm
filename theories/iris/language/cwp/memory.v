@@ -10,7 +10,7 @@ Section memory.
 
   Context `{!wasmG Σ}.
 
-  Lemma cwp_load s E (f : frame) v k32 k n nN i t a off L R Φ :
+  Lemma cwp_load s E f v k32 k n nN i t a off L R Φ :
     types_agree t v ->
     N_i32_repr k k32 ->
     N_nat_repr n nN ->
@@ -32,7 +32,7 @@ Section memory.
     iFrame.
   Qed.
 
-  Lemma cwp_store s E (f : frame) bs v k k32 nN n i t a off L R Φ :
+  Lemma cwp_store s E f bs v k k32 nN n i t a off L R Φ :
     types_agree t v ->
     N_i32_repr k k32 ->
     N_nat_repr n nN ->

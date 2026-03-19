@@ -13,7 +13,7 @@ Section variable.
 
   Context `{!wasmG Σ}.
 
-  Lemma cwp_local_get s E (f : frame) v i L R Φ :
+  Lemma cwp_local_get s E f v i L R Φ :
     f.(f_locs) !! i = Some v ->
     ▷ Φ f [v] -∗
     ↪[frame] f -∗
@@ -25,7 +25,7 @@ Section variable.
     iFrame.
   Qed.
 
-  Lemma cwp_local_set s E (f : frame) i v L R Φ :
+  Lemma cwp_local_set s E f i v L R Φ :
     i < length f.(f_locs) ->
     let f' := Build_frame (<[ i := v ]> f.(f_locs)) f.(f_inst) in
     ▷ Φ f' [] -∗
@@ -39,7 +39,7 @@ Section variable.
     iFrame.
   Qed.
 
-  Lemma cwp_local_tee s E (f : frame) i v L R Φ :
+  Lemma cwp_local_tee s E f i v L R Φ :
     i < length f.(f_locs) ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -52,7 +52,7 @@ Section variable.
     iFrame.
   Qed.
 
-  Lemma cwp_tee_local E (f : frame) i v L R Φ :
+  Lemma cwp_tee_local E f i v L R Φ :
     i < length f.(f_locs) ->
     let f' := Build_frame (<[ i := v ]> f.(f_locs)) f.(f_inst) in
     ▷▷ Φ f' [v] -∗
@@ -72,7 +72,7 @@ Section variable.
     iApply (cwp_local_set with "[HΦ] [$]"); eauto.
   Qed.
 
-  Lemma cwp_global_get s E (f : frame) i j v g L R Φ :
+  Lemma cwp_global_get s E f i j v g L R Φ :
     f.(f_inst).(inst_globs) !! i = Some j ->
     g.(g_val) = v ->
     N.of_nat j ↦[wg] g -∗
@@ -91,7 +91,7 @@ Section variable.
       iFrame.
   Qed.
 
-  Lemma cwp_global_set s E (f : frame) g i j v L R Φ :
+  Lemma cwp_global_set s E f g i j v L R Φ :
     f.(f_inst).(inst_globs) !! i = Some j ->
     N.of_nat j ↦[wg] g -∗
     ▷ Φ f [] -∗

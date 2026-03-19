@@ -10,7 +10,7 @@ Section parametric.
 
   Context `{!wasmG Σ}.
 
-  Lemma cwp_drop s E (f : frame) v L R Φ :
+  Lemma cwp_drop s E f v L R Φ :
     ↪[frame] f -∗
     ↪[RUN] -∗
     ▷ Φ f [] -∗
@@ -24,7 +24,7 @@ Section parametric.
     - iIntros (v') "[[[-> HΦ] Hrun] Hf]". iFrame.
   Qed.
 
-  Lemma cwp_select_nonzero s E (f : frame) v1 v2 c L R Φ :
+  Lemma cwp_select_nonzero s E f v1 v2 c L R Φ :
     c <> Wasm_int.int_zero i32m ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -39,7 +39,7 @@ Section parametric.
     - iIntros (v') "[[[-> HΦ] Hrun] Hf]". iFrame.
   Qed.
 
-  Lemma cwp_select_zero s E (f : frame) v1 v2 c L R Φ :
+  Lemma cwp_select_zero s E f v1 v2 c L R Φ :
     c = Wasm_int.int_zero i32m ->
     ↪[frame] f -∗
     ↪[RUN] -∗

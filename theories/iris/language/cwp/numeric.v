@@ -11,7 +11,7 @@ Section numeric.
 
   Context `{!wasmG Σ}.
 
-  Lemma cwp_unop s E (f : frame) v v' t op L R Φ :
+  Lemma cwp_unop s E f v v' t op L R Φ :
     app_unop op v = v' ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -23,7 +23,7 @@ Section numeric.
     iFrame.
   Qed.
 
-  Lemma cwp_binop s E (f : frame) v1 v2 v t op L R Φ :
+  Lemma cwp_binop s E f v1 v2 v t op L R Φ :
     app_binop op v1 v2 = Some v ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -35,7 +35,7 @@ Section numeric.
     iFrame.
   Qed.
 
-  Lemma cwp_binop_fail s E (f : frame) v1 v2 t op L R Φ :
+  Lemma cwp_binop_fail s E f v1 v2 t op L R Φ :
     app_binop op v1 v2 = None ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -46,7 +46,7 @@ Section numeric.
     by iFrame.
   Qed.
 
-  Lemma cwp_testop_i32 s E (f : frame) v b op L R Φ :
+  Lemma cwp_testop_i32 s E f v b op L R Φ :
     app_testop_i op v = b ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -58,7 +58,7 @@ Section numeric.
     iFrame.
   Qed.
 
-  Lemma cwp_testop_i64 s E (f : frame) v b op L R Φ :
+  Lemma cwp_testop_i64 s E f v b op L R Φ :
     app_testop_i op v = b ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -70,7 +70,7 @@ Section numeric.
     iFrame.
   Qed.
 
-  Lemma cwp_relop s E (f : frame) v1 v2 b t op L R Φ :
+  Lemma cwp_relop s E f v1 v2 b t op L R Φ :
     app_relop op v1 v2 = b ->
     ↪[frame] f -∗
     ↪[RUN] -∗
@@ -82,7 +82,7 @@ Section numeric.
     iFrame.
   Qed.
 
-  Lemma cwp_cvtop_convert s E (f : frame) v v' t1 t2 sx L R Φ :
+  Lemma cwp_cvtop_convert s E f v v' t1 t2 sx L R Φ :
     cvt t2 sx v = Some v' ->
     types_agree t1 v ->
     ↪[frame] f -∗
@@ -97,7 +97,7 @@ Section numeric.
     iFrame.
   Qed.
 
-  Lemma cwp_cvtop_convert_fail s E (f : frame) v t1 t2 sx L R Φ :
+  Lemma cwp_cvtop_convert_fail s E f v t1 t2 sx L R Φ :
     cvt t2 sx v = None ->
     types_agree t1 v ->
     ↪[frame] f -∗
@@ -111,7 +111,7 @@ Section numeric.
     by iFrame.
   Qed.
 
-  Lemma cwp_cvtop_reinterpret s E (f : frame) v v' t1 t2 L R Φ :
+  Lemma cwp_cvtop_reinterpret s E f v v' t1 t2 L R Φ :
     wasm_deserialise (bits v) t2 = v' ->
     types_agree t1 v ->
     ↪[frame] f -∗

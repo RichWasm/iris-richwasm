@@ -105,7 +105,7 @@ Section CodeGen.
       run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
       wt' = wt1 ++ wt2 /\
       wl' = wl1 ++ wl2 /\
-      ∀ Φ (f : frame) i,
+      ∀ Φ f i,
         ↪[frame] f -∗
         ↪[RUN] -∗
         ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
@@ -424,7 +424,7 @@ Section CodeGen.
       Φ (immV []) -∗
       WP W.v_to_e_list vs ++ to_e_list (rev (map W.BI_set_local (seq start len))) @ s; E
       {{ v, (Φ v ∗  ↪[RUN]) ∗
-              ∃ f : frame,
+              ∃ f,
                 ↪[frame]f ∗
                   ⌜∀ i, i ∉ seq start len -> f_locs f !! i = f_locs fr !! i⌝ ∗
                   [∧ list] k↦i ∈ seq start len, ⌜f_locs f !! i = vs !! k⌝ }}.
