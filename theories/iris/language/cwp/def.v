@@ -66,18 +66,18 @@ Notation "'CWP' es @ s ; E 'UNDER' L ; R {{ Φ } }" :=
 
 Notation "'CWP' es @ s ; E 'UNDER' L ; R {{ f ; vs , Φ } }" :=
   (cwp_wasm s E es L R (fun f vs => Φ))
-    (at level 20, format "'CWP'  es  @  s ;  E  'UNDER'  L ;  R  {{  f ;  vs ,  Φ  } }") : bi_scope.
+    (at level 20, format "'CWP'  '[hv' es  '/' @  '[hv' s ;  '/' E  ']' '/' 'UNDER'  '[hv' L ;  '/' R ']'  '/' {{  '[' f ;  vs ,  '/' Φ  ']' } } ']'") : bi_scope.
 
 Notation "'CWP' es @ E 'UNDER' L ; R {{ Φ } }" :=
   (cwp_wasm NotStuck E es L R Φ) (at level 20, only parsing) : bi_scope.
 
 Notation "'CWP' es @ E 'UNDER' L ; R {{ f ; vs , Φ } }" :=
   (cwp_wasm NotStuck E es L R (fun f vs => Φ))
-    (at level 20, format "'CWP'  es  @  E  'UNDER'  L ;  R  {{  f ;  vs ,  Φ  } }") : bi_scope.
+    (at level 20, format "'CWP'  '[hv' es  '/' @  E  '/' 'UNDER'  '[hv' L ;  '/' R ']'  '/' {{  '[' f ;  vs ,  '/' Φ  ']' } } ']'") : bi_scope.
 
 Notation "'CWP' es 'UNDER' L ; R {{ Φ } }" :=
   (cwp_wasm NotStuck top es L R Φ) (at level 20, only parsing) : bi_scope.
 
 Notation "'CWP' es 'UNDER' L ; R {{ f ; vs , Φ } }" :=
   (cwp_wasm NotStuck top es L R (fun f vs => Φ))
-    (at level 20, format "'CWP'  es  'UNDER'  L ;  R  {{  f ;  vs ,  Φ  } }") : bi_scope.
+    (at level 20, format "'CWP'  '[hv' es  '/' 'UNDER'  '[hv' L ;  '/' R ']'  '/' {{  '[' f ;  vs ,  '/' Φ  ']' } } ']'") : bi_scope.
