@@ -1,5 +1,7 @@
 Require Import RecordUpdate.RecordUpdate.
 
+From mathcomp Require Import ssrbool eqtype.
+
 Require Import iris.proofmode.tactics.
 
 Require Import RichWasm.iris.language.lwp_resources.
@@ -39,37 +41,24 @@ Section variable.
     iFrame.
   Qed.
 
-  Lemma cwp_local_tee s E f i v L R Φ :
-    i < length f.(f_locs) ->
-    ↪[frame] f -∗
-    ↪[RUN] -∗
-    ▷ (↪[frame] f -∗ ↪[RUN] -∗
-       CWP [BI_const v; BI_const v; BI_set_local i] @ s; E UNDER L; R {{ Φ }}) -∗
-    CWP [BI_const v; BI_tee_local i] @ s; E UNDER L; R {{ Φ }}.
-  Proof.
-    iIntros (Hi) "Hf Hrun Hset".
-    iApply lenient_wp_tee_local; first done.
-    iFrame.
-  Qed.
-
-  Lemma cwp_tee_local E f i v L R Φ :
+  Lemma cwp_local_tee E f i v L R Φ :
     i < length f.(f_locs) ->
     let f' := Build_frame (<[ i := v ]> f.(f_locs)) f.(f_inst) in
-    ▷▷ Φ f' [v] -∗
+    ▷ Φ f' [v] -∗
     ↪[frame] f -∗
     ↪[RUN] -∗
     CWP [BI_const v; BI_tee_local i] @ E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hlen f') "HΦ Hf Hrun".
-    iApply (cwp_local_tee with "[$] [$]"); eauto.
+    iApply lenient_wp_tee_local; first done.
+    iFrame.
     iIntros "!> Hf Hrun".
-    cwp_chomp 1.
+    change [AI_basic (BI_const v); AI_basic (BI_const v); AI_basic (BI_set_local i)] with
+      (map AI_basic [BI_const v; BI_const v; BI_set_local i]).
+    rewrite (separate1 (BI_const v)).
     iApply cwp_val_app.
-    {
-      change [BI_const v] with (map BI_const [v]).
-      apply const.has_values_to_consts.
-    }
-    iApply (cwp_local_set with "[HΦ] [$]"); eauto.
+    { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
+    by iApply (cwp_local_set with "[HΦ] [$] [$]").
   Qed.
 
   Lemma cwp_global_get s E f i j v g L R Φ :

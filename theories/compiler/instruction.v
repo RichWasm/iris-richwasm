@@ -227,7 +227,7 @@ Section Compiler.
     | Copy => ret tt
     | Move => set_pointer_flags mr a off (repeat FlagInt (areps_size ιs))
     end;;
-    ignore $ case_ptr a (W.Tf [W.T_i32] (map translate_arep ιs))
+    ignore $ case_ptr a (W.Tf [] (map translate_arep ιs))
       (emit W.BI_unreachable)
       (fun μ => load mr fe μ con a off ιs).
 

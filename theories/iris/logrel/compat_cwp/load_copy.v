@@ -1,4 +1,7 @@
 Require Import RecordUpdate.RecordUpdate.
+
+From mathcomp Require Import ssrbool eqtype.
+
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base tactics classes.
@@ -188,7 +191,7 @@ Section Fundamental.
                   f_inst := f_inst f |}).
     iApply (cwp_seq with "[Hf Hrun]").
     {
-      iApply (cwp_tee_local with "[] [$] [$]").
+      iApply (cwp_local_tee with "[] [$] [$]").
       - admit.
       - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
     }
@@ -299,17 +302,20 @@ Section Fundamental.
     {
       change ([?ev; ?x]) with ([ev] ++ [x]).
       rewrite (has_values_to_consts_inv _ _ Hevs).
-      iApply (cwp_tee_local with "[ ] [$] [$]"); eauto.
+      iApply (cwp_local_tee with "[ ] [$] [$]"); eauto.
       by instantiate (1:= λ f'' vs', ⌜f'' = f' /\ vs' = [v]⌝%I).
     }
     iIntros (f vs) "[-> ->] Hf Hrun".
-    eapply cwp_case_ptr in Hcompile; eauto.
+    eapply cwp_case_ptr in Hcompile.
+    2: do 2 instantiate (1 := []).
+    2, 3: done.
     destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
     destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
-    erewrite <- has_values_to_consts_inv by eauto.
     rewrite atoms_interp_one_inv.
     iDestruct "Hats" as "(%v' & %Hv' & Hat)".
     inversion Hv'; subst v'; clear Hv'.
+    iApply cwp_val_app.
+    { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
     iApply (Hspec with "[$] [$] [] [$Hat]").
     {
       iPureIntro; cbn.
