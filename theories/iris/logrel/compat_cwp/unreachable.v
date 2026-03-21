@@ -31,29 +31,12 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IUnreachable ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
   Proof.
-    (* intros fe WT WL Hok Hcompile. *)
-    (* inv_cg_emit Hcompile; subst. *)
-    (* unfold have_instruction_type_sem. *)
-    (* destruct ψ eqn:Hψ. *)
-    (* iIntros (? ? ? ? ? ? ? ?) "Hinst Hctx Hrvs Hvs Hframe Hrt Hf Hrun". *)
-    (* unfold expr_interp. *)
-    (* iApply wp_mono. *)
-    (* 2: { *)
-    (*   iApply wp_val_app_trap_post'. *)
-    (*   iFrame "Hf". *)
-    (*   iIntros "Hf". *)
-    (*   iApply wp_mono. *)
-    (*   2: iApply (wp_unreachable with "[$] [$]"). *)
-    (*   - iIntros (?) "[[Hv Hbail] Hframe]". *)
-    (*     iFrame. *)
-    (*     instantiate (1 := λ _, ↪[BAIL]). *)
-    (*     iFrame. *)
-    (*     auto. *)
-    (*   - done. *)
-    (* } *)
-    (* iIntros (?) "[Hbail [-> Hframe]]". *)
-    (* unfold denote_logpred. simpl. *)
-    (* iFrame. *)
-  Admitted.
+    intros fe WT WL Hok Hcg.
+    inv_cg_emit Hcg; subst.
+    destruct ψ as [τs1 τs2].
+    iIntros (???????????) "Hinst Hlab Hret Hvs Hos Hframe Hrt Hfr Hrun".
+    iApply cwp_val_app; first done.
+    iApply (cwp_unreachable with "[$] [$]").
+  Qed.
 
 End Fundamental.
