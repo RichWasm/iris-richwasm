@@ -4,7 +4,7 @@ From stdpp Require Import base.
 
 From mathcomp Require Import ssreflect ssrbool.
 
-From Wasm Require Import common datatypes datatypes_properties operations.
+From RichWasm.wasm Require Import common datatypes datatypes_properties operations.
 
 Set Bullet Behavior "Strict Subproofs".
 

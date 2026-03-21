@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From Wasm Require Export stdpp_aux.
+From RichWasm.wasm Require Export stdpp_aux.
 Require Export lfilled_reduce iris_split_reduce.
 
 Ltac solve_prim_step_split_reduce_r H objs Heqf0 :=

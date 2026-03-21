@@ -7,7 +7,4 @@
     -w -notation-incompatible-prefix
     -w -notation-overridden)
   (theories
-    RichWasm
-    Wasm
-    Wasm.iris.logrel
-    Wasm.iris.language))
+    RichWasm))

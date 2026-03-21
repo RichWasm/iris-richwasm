@@ -1,7 +1,7 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From Stdlib Require Import List.
 From stdpp Require Import base list.
-From Wasm Require Export stdpp_aux datatypes operations.
+From RichWasm.wasm Require Export stdpp_aux datatypes operations.
 From RichWasm.opsem Require Export instr properties.
 From RichWasm.iris.helpers.lfill_prelude Require Export lfill_prelude.
 

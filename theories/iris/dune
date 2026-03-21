@@ -6,10 +6,6 @@
     -w -ambiguous-paths
     -w -redundant-canonical-projection)
   (theories
-    Wasm.iris.helpers
-    Wasm.iris.host
-    Wasm.iris.language
-    Wasm.iris.rules
     RichWasm
     RichWasm.compiler
     RichWasm.iris.logrel

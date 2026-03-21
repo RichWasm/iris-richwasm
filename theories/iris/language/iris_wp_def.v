@@ -4,7 +4,7 @@ From iris.proofmode Require Import base tactics classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map na_invariants.
 From iris.base_logic.lib Require Export fancy_updates.
 From RichWasm.iris.helpers Require Import iris_properties.
-From Wasm Require Import stdpp_aux (* datatypes common operations properties memory_list *).
+From RichWasm.wasm Require Import stdpp_aux (* datatypes common operations properties memory_list *).
 From RichWasm.iris.language.iris Require Export iris_locations iris.
 From RichWasm.iris.language Require Export iris_wp.
 

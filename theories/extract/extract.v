@@ -47,7 +47,7 @@ Module rw_module_compiler := module.
 
 From RichWasm Require layout.
 
-From Wasm Require binary_format_printer.
+From RichWasm.wasm Require binary_format_printer.
 
 Separate Extraction
   rw.Core.instruction

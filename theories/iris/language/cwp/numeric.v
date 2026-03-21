@@ -176,7 +176,7 @@ Section numeric.
     ↪[RUN] -∗
     CWP [BI_const (VAL_int32 x32);
          BI_const (VAL_int32 y32);
-         BI_binop T_i32 (Binop_i (BOI_shr Wasm.datatypes.SX_U))]
+         BI_binop T_i32 (Binop_i (BOI_shr SX_U))]
       @ s; E UNDER L; R {{ Φ }}.
   Proof.
     iIntros (Hrx Hry Hbdd) "HΦ Hf Hrun".

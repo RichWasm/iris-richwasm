@@ -2,8 +2,7 @@ From Stdlib Require Import ZArith.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base tactics classes.
-From Wasm Require Import operations.
-From Wasm.iris.logrel Require Import iris_fundamental_composition.
+From RichWasm.wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
@@ -295,6 +294,5 @@ Section common.
     - subst κ'.
       inversion H; subst; eapply IHHkind; eauto.
   Qed.
-
 
 End common.

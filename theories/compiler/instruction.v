@@ -5,13 +5,13 @@ From ExtLib.Structures Require Import Monads.
 
 Require Import stdpp.list.
 
-From Wasm Require datatypes operations.
-Require Import Wasm.numerics.
+From RichWasm.wasm Require datatypes operations.
+Require Import RichWasm.wasm.numerics.
 
 From RichWasm Require Import prelude layout syntax util.
 From RichWasm.compiler Require Import prelude codegen memory.
 
-Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
+Module W. Include RichWasm.wasm.datatypes <+ RichWasm.wasm.operations. End W.
 
 Section Compiler.
 

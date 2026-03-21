@@ -5,7 +5,7 @@ From mathcomp Require Import ssrbool eqtype.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base tactics classes.
-From Wasm Require Import operations.
+From RichWasm.wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module memory.

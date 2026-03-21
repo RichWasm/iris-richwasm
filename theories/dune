@@ -5,7 +5,6 @@
    :standard
    -w -ambiguous-paths)
  (theories
-   Wasm
    mathcomp.boot
    RecordUpdate
    stdpp

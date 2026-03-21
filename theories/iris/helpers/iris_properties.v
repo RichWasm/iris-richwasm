@@ -3,8 +3,8 @@ From iris.program_logic Require Import language.
 From iris.proofmode Require Import tactics.
 From iris.base_logic Require Export gen_heap proph_map.
 From RichWasm.iris.language.iris Require Export iris iris_locations.
-From Wasm Require Export stdpp_aux.
-From Wasm Require Export datatypes operations.
+From RichWasm.wasm Require Export stdpp_aux.
+From RichWasm.wasm Require Export datatypes operations.
 From RichWasm.opsem Require Export properties instr.
 Require Export iris_lfilled_properties
         iris_wasm_lang_properties

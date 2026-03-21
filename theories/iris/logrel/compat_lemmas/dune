@@ -6,5 +6,5 @@
     -w -ambiguous-paths
     -w -redundant-canonical-projection)
   (theories
-    RichWasm.compiler))
-
+    RichWasm.compiler
+    RichWasm.wasm))

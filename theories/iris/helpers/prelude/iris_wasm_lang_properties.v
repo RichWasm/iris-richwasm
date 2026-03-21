@@ -1,7 +1,7 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
 From RichWasm.iris.language.iris Require Export iris.
-From Wasm Require Export stdpp_aux.
+From RichWasm.wasm Require Export stdpp_aux.
 Require Export iris_lfilled_properties.
 
 Ltac false_assumption := exfalso ; apply ssrbool.not_false_is_true ; assumption.

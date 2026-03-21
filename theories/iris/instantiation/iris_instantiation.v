@@ -7,11 +7,11 @@ From RichWasm.iris.language.iris Require Export iris_locations iris.
 From RichWasm.iris.helpers Require Export iris_properties.
 From RichWasm.iris.rules Require Export iris_rules_resources.
 From RichWasm.iris.language Require Export iris_wp_def.
-From Wasm Require Export stdpp_aux.
-From Wasm Require Export instantiation.
+From RichWasm.wasm Require Export stdpp_aux.
+From RichWasm.wasm Require Export instantiation.
 Require Export instantiation_properties.
 Require Import Stdlib.Program.Equality.
-From Wasm Require Export type_preservation.
+From RichWasm.wasm Require Export type_preservation.
 
 Close Scope byte.
 

@@ -3,12 +3,12 @@ From Stdlib Require Import String.
 
 Require Import stdpp.list_numbers.
 
-Require Wasm.datatypes.
-Require Import Wasm.numerics.
+Require RichWasm.wasm.datatypes.
+Require Import RichWasm.wasm.numerics.
 
 From RichWasm Require Import layout syntax typing.
 
-Module W := Wasm.datatypes.
+Module W := RichWasm.wasm.datatypes.
 
 Record module_runtime :=
   { mr_mmmem : W.memidx;

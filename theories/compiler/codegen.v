@@ -9,13 +9,13 @@ From ExtLib.Data Require Import List PPair.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
 From ExtLib.Structures Require Import Monoid Monads.
 
-Require Import Wasm.numerics.
-From Wasm Require datatypes_properties.
+Require Import RichWasm.wasm.numerics.
+From RichWasm.wasm Require datatypes_properties.
 
 From RichWasm Require Import syntax util.
 From RichWasm.compiler Require Import prelude accum.
 
-Module W := Wasm.datatypes_properties.
+Module W := RichWasm.wasm.datatypes_properties.
 
 Definition wtype_ctx : Type := list W.function_type.
 
@@ -414,4 +414,3 @@ Proof.
     eapply IHρ.
     apply H.
 Qed.
-

@@ -1,7 +1,7 @@
 Require Import iris.algebra.list.
 Require Import iris.proofmode.tactics.
 
-From Wasm.iris.helpers Require Import iris_properties.
+From RichWasm.iris.helpers Require Import iris_properties.
 
 From RichWasm.compiler Require Import prelude codegen.
 From RichWasm.iris Require Import memory runtime util.

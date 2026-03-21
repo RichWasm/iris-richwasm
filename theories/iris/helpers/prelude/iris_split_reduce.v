@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import base list.
-From Wasm Require Export stdpp_aux.
+From RichWasm.wasm Require Export stdpp_aux.
 Require Export iris_reduce_properties.
 
 

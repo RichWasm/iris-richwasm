@@ -1,6 +1,6 @@
 From iris.proofmode Require Import base tactics classes.
 From iris.bi Require Export weakestpre.
-From Wasm Require Import datatypes.
+From RichWasm.wasm Require Import datatypes.
 From RichWasm.iris.rules Require Export proofmode iris_rules.
 From RichWasm.iris.language Require Export iris_wp_def lenient_wp logpred.
 

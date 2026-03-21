@@ -4,7 +4,7 @@ From mathcomp Require Import eqtype boot.seq.
 From Stdlib Require Import Lia.
 Require Import Stdlib.ZArith.ZArith.
 Require Import Stdlib.NArith.NArith.
-Require Import Wasm.numerics.
+Require Import RichWasm.wasm.numerics.
 
 Set Bullet Behavior "Strict Subproofs".
 

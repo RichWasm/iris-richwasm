@@ -89,7 +89,6 @@
   numbers)
  (theories Stdlib RichWasm.syntax RichWasm.compiler
   iris
-  Wasm
   elpi
   compcert
   Flocq

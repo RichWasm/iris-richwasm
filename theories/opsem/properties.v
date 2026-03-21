@@ -4,7 +4,7 @@ From Stdlib Require Import Bool Program.Equality Lia.
 
 From mathcomp Require Import ssreflect ssrfun ssrnat ssrbool eqtype seq.
 
-From Wasm Require Export datatypes_properties operations typing common.
+From RichWasm.wasm Require Export datatypes_properties operations typing common.
 
 From RichWasm.opsem Require Export instr.
 

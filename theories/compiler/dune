@@ -3,5 +3,4 @@
  (package iris-richwasm)
  (theories
   RichWasm
-  RichWasm.syntax
-  Wasm))
+  RichWasm.syntax))

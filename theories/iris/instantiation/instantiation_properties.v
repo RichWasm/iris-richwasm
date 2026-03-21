@@ -1,10 +1,10 @@
 Require Import Stdlib.Program.Equality.
 
 From mathcomp Require Import ssreflect eqtype seq ssrbool .
-From Wasm Require Export datatypes operations properties opsem instantiation.
+From RichWasm.wasm Require Export datatypes operations properties opsem instantiation.
 From stdpp Require Import list fin_maps gmap.
-From Wasm Require Export stdpp_aux.
-From Wasm Require Export type_preservation type_progress.
+From RichWasm.wasm Require Export stdpp_aux.
+From RichWasm.wasm Require Export type_preservation type_progress.
 
 
 Section module_typing_det.

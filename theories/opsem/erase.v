@@ -1,5 +1,5 @@
-From Wasm Require Import logrel.iris_logrel.
-Require Wasm.opsem.
+From RichWasm.wasm Require Import logrel.iris_logrel.
+Require RichWasm.wasm.opsem.
 
 From RichWasm Require Import obs obs_properties.
 Require RichWasm.opsem.instr.
@@ -7,7 +7,7 @@ Require RichWasm.opsem.instr.
 Set Bullet Behavior "Strict Subproofs".
 
 (** [R]eduction semantics *)
-Module R := Wasm.opsem.
+Module R := RichWasm.wasm.opsem.
 (** [I]nstrumented reduction semantics *)
 Module I := RichWasm.opsem.instr.
 

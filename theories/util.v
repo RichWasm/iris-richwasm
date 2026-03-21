@@ -6,8 +6,8 @@ Require Import ExtLib.Data.List.
 Require Import ExtLib.Data.Monads.WriterMonad.
 From ExtLib.Structures Require Import Functor Monads Monoid.
 
-From Wasm Require common stdpp_aux.
-Require Import Wasm.numerics.
+From RichWasm.wasm Require common stdpp_aux.
+Require Import RichWasm.wasm.numerics.
 
 Require Import RichWasm.syntax.
 

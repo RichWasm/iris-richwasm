@@ -2,8 +2,7 @@ From Stdlib Require Import ZArith.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base tactics classes.
-From Wasm Require Import operations.
-From Wasm.iris.logrel Require Import iris_fundamental_composition.
+From RichWasm.wasm Require Import operations properties.
 
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
@@ -1826,7 +1825,7 @@ Section Fundamental_Shared.
   Proof.
     induction ws1.
     - done.
-    - by rewrite Wasm.properties.const_list_cons.
+    - by rewrite const_list_cons.
   Qed.
 
   Lemma lfilled_simple_get_base_pull j sh e LI ws1 ws2 :

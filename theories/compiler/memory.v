@@ -2,13 +2,13 @@ From ExtLib.Structures Require Import Monads Reducible.
 
 Require Import stdpp.list.
 Require Import ExtLib.Data.List.
-From Wasm Require datatypes operations.
-Require Import Wasm.numerics.
+From RichWasm.wasm Require datatypes operations.
+Require Import RichWasm.wasm.numerics.
 
 From RichWasm Require Import prelude layout syntax util.
 From RichWasm.compiler Require Import prelude codegen.
 
-Module W. Include Wasm.datatypes <+ Wasm.operations. End W.
+Module W. Include RichWasm.wasm.datatypes <+ RichWasm.wasm.operations. End W.
 
 Section Compiler.
 

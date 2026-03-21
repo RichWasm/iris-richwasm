@@ -37,16 +37,13 @@
           pkgs = pkgsFor.${system};
           inherit (pinned-versions pkgs) coqPackages ocamlPackages;
 
-          iris-wasm-deps = with coqPackages; [
+          iris-richwasm-deps = with coqPackages; [
             stdlib
             iris
             compcert
             mathcomp
             ITree
             parseque
-          ];
-
-          iris-richwasm-deps = with coqPackages; [
             coq-elpi
             ExtLib
             hierarchy-builder
@@ -82,21 +79,6 @@
         rec {
           default = iris-richwasm;
 
-          # NOTE(owen): this doesn't need to be separate but since it rarely
-          # changes, it greatly reduces build time
-          iris-wasm = coqPackages.mkCoqDerivation {
-            pname = "iris-wasm";
-            version = "2.0";
-
-            namePrefix = [ ];
-
-            src = ./vendor/iriswasm;
-            useDune = true;
-
-            propagatedBuildInputs = iris-wasm-deps;
-            meta.excludeFromDevShell = true;
-          };
-
           iris-richwasm-build =
             (coqPackages.mkCoqDerivation {
               pname = project;
@@ -118,25 +100,17 @@
               };
               useDune = true;
 
-              postPatch = ''
-                sed -i '/(vendored_dirs vendor)/d' dune
-              '';
-
               preBuild = ''
                 export DUNE_CACHE=disabled
               '';
 
               buildInputs = [
-                iris-wasm
               ]
-              ++ iris-wasm-deps
               ++ iris-richwasm-deps
               ++ richwasm-ocaml-deps;
 
-              # NOTE(owen): let dune manage the iris-wasm vendor in the devshell
               passthru.devShellDeps = [
               ]
-              ++ iris-wasm-deps
               ++ iris-richwasm-deps
               ++ richwasm-ocaml-deps
               ++ richwasm-test-deps;

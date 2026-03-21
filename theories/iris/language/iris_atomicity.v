@@ -4,7 +4,7 @@ From iris.proofmode Require Import tactics.
 From iris.base_logic Require Export gen_heap proph_map.
 Require Export iris iris_locations.
 From RichWasm.iris.helpers Require Export iris_properties.
-From Wasm Require Export datatypes operations.
+From RichWasm.wasm Require Export datatypes operations.
 From RichWasm.opsem Require Export properties instr.
 
 

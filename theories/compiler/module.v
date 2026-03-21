@@ -9,13 +9,13 @@ Require Import RecordUpdate.RecordUpdate.
 
 From ExtLib.Structures Require Import MonadTrans Monoid.
 
-Require Wasm.datatypes.
-Require Import Wasm.numerics.
+Require RichWasm.wasm.datatypes.
+Require Import RichWasm.wasm.numerics.
 
 From RichWasm Require Import layout syntax typing util.
 From RichWasm.compiler Require Import prelude accum codegen instruction.
 
-Module W := Wasm.datatypes.
+Module W := RichWasm.wasm.datatypes.
 
 Definition modgen : Type -> Type := accumT W.module (sum error).
 

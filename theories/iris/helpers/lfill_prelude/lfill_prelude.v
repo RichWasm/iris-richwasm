@@ -1,7 +1,7 @@
 From mathcomp Require Import ssreflect ssrbool eqtype seq.
 From Stdlib Require Import Eqdep_dec.
 From stdpp Require Import base list.
-From Wasm Require Export common operations list_extra stdpp_aux.
+From RichWasm.wasm Require Export common operations list_extra stdpp_aux.
 From RichWasm.opsem Require Export instr properties.
 Require Export lfill_extension.
 Require Import Stdlib.Program.Equality.

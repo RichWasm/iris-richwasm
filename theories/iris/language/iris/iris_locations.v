@@ -6,7 +6,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
 
-From Wasm Require Export common operations datatypes datatypes_properties memory_list stdpp_aux.
+From RichWasm.wasm Require Export common operations datatypes datatypes_properties memory_list stdpp_aux.
 From stdpp Require Import gmap.
 
 Definition create_table (len: N) : tableinst :=
