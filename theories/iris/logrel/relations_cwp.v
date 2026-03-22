@@ -3,6 +3,8 @@ Require Import iris.proofmode.proofmode.
 
 From RichWasm.iris.helpers Require Import iris_properties.
 
+From RichWasm.named_props Require Import named_props.
+
 From RichWasm.compiler Require Import prelude codegen.
 From RichWasm.iris Require Import memory runtime util.
 From RichWasm.iris.language Require Import cwp iris_wp_def logpred.
@@ -639,17 +641,17 @@ Section Relations.
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
     (∀ se inst fr os vs evs θ B R,
-       ⌜sem_env_interp F se⌝ -∗
-       ⌜has_values evs vs⌝ -∗
-       instance_interp mr M WT inst -∗
-       labels_interp se inst WL F.(fc_labels) B -∗
-       return_interp se F.(fc_return) R -∗
-       atoms_interp os vs -∗
-       values_interp se τs1 os -∗
-       frame_interp se L WL inst fr -∗
-       rt_token rti sr θ -∗
-       ↪[frame] fr -∗
-       ↪[RUN] -∗
+       "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+       "%Hevs" ∷ ⌜has_values evs vs⌝ -∗
+       "#Hinst" ∷ instance_interp mr M WT inst -∗
+       "#Hlabels" ∷ labels_interp se inst WL F.(fc_labels) B -∗
+       "#Hreturn" ∷ return_interp se F.(fc_return) R -∗
+       "Hvs" ∷ atoms_interp os vs -∗
+       "Hos" ∷ values_interp se τs1 os -∗
+       "Hframe" ∷ frame_interp se L WL inst fr -∗
+       "Hrt" ∷ rt_token rti sr θ -∗
+       "Hfr" ∷ ↪[frame] fr -∗
+       "Hrun" ∷ ↪[RUN] -∗
        CWP evs ++ es UNDER B; R
            {{ fr'; vs',
               frame_interp se L' WL inst fr' ∗

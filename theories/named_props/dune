@@ -1,0 +1,12 @@
+(coq.theory
+  (name RichWasm.named_props)
+  (package iris-richwasm)
+  (flags
+    :standard
+    -w -ambiguous-paths
+    -w -redundant-canonical-projection)
+  (theories
+    Ltac2
+    Stdlib
+    iris
+    stdpp))

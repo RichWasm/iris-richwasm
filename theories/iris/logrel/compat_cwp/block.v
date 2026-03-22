@@ -2,8 +2,9 @@ Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base proofmode classes.
-From RichWasm.wasm Require Import operations.
 
+From RichWasm.named_props Require Import named_props custom_syntax.
+From RichWasm.wasm Require Import operations.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
@@ -40,26 +41,25 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IBlock ψ L' es)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
   Proof.
-    iIntros (fe WT WL F' Ψ Hok IH Hrun se inst fr os vs evs θ B R Hse Hevs)
-      "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
-    cbn [compile_instr] in Hrun.
-    inv_cg_bind Hrun tf wt0 wt0' wl0 wl0' es_nil es0' Hrun1 Hrun2.
-    inv_cg_try_option Hrun1.
+    iIntros (????? Hok IH Hcg ?????????) "@@@@@@@@@@@".
+    cbn [compile_instr] in Hcg.
+    inv_cg_bind Hcg tf wt0 wt0' wl0 wl0' es_nil es0' Hcg1 Hcg2.
+    inv_cg_try_option Hcg1.
     subst wt0 wl0 es_nil wt' wl' es'.
-    inv_cg_bind Hrun2 res0 wt0 wt1 wl0 wl1 es1 es0 Hrun1 Hrun2.
+    inv_cg_bind Hcg2 res0 wt0 wt1 wl0 wl1 es1 es0 Hcg1 Hcg2.
     subst wt0' wl0' es0'.
     destruct res0 as [[] esb].
-    inv_cg_emit Hrun2.
+    inv_cg_emit Hcg2.
     subst wt1 wl1 es0.
-    apply run_codegen_capture in Hrun1 as [Hrun1 ->].
-    eapply IH in Hrun1.
-    instantiate (1 := wlf) in Hrun1.
-    instantiate (1 := wtf) in Hrun1.
+    apply run_codegen_capture in Hcg1 as [Hcg1 ->].
+    eapply IH in Hcg1.
+    instantiate (1 := wlf) in Hcg1.
+    instantiate (1 := wtf) in Hcg1.
     subst WT WL.
     clear IH.
     clear Hretval.
     clear_nils.
-    subst Ψ.
+    subst ψ.
     apply bind_Some in Heq_some as (ts1 & Hts1 & Htrans).
     apply bind_Some in Htrans as (ts2 & Hts2 & HSometf).
     inversion HSometf as [Htf].
@@ -67,23 +67,21 @@ Section Fundamental.
     subst tf.
     subst fe.
     cbn in Hts1, Hts2.
-    iDestruct (translate_types_comp_interp_length with "HIos") as "%Hoslen".
+    iDestruct (translate_types_comp_interp_length with "Hos") as "%Hoslen".
     1, 2, 3: done.
-    iDestruct (big_sepL2_length with "HIvs") as "%Hvslen".
+    iDestruct (big_sepL2_length with "Hvs") as "%Hvslen".
     unfold ofe_car in Hvslen.
     iApply (cwp_block with "[$] [$]").
     { by eapply has_values_is_consts. }
     { rewrite <- Hoslen. rewrite Hvslen. by apply has_values_length in Hevs. }
     iIntros "!> Hfr Hrun".
-    iPoseProof Hrun1 as "IH".
-    clear Hrun1.
-    iSpecialize
-      ("IH" with "[] [] [$HIinst] [HIB] [$HIR] [$HIvs] [$HIos] [$HIfr] [$Hrt] [$Hfr] [$Hrun]");
-      first done;
-      first done;
-      last iApply "IH".
+    iPoseProof Hcg1 as "IH".
+    clear Hcg1.
+    iSpecialize ("IH" with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+    1, 2: done.
+    2: iApply "IH".
     iApply labels_interp_cons.
-    4: by iIntros (fr' vs') "!> H".
+    4: by iIntros (??) "!> ?".
     all: done.
   Qed.
 

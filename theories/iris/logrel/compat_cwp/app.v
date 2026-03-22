@@ -2,8 +2,9 @@ Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base proofmode classes.
-From RichWasm.wasm Require Import operations.
 
+From RichWasm.named_props Require Import named_props custom_syntax.
+From RichWasm.wasm Require Import operations.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
@@ -61,18 +62,16 @@ Section Fundamental.
     assert (tt: WL = wl ++ (wl1 ++ wl2) ++ wlf) by auto; rewrite tt; clear tt.
     repeat rewrite <- app_assoc.
 
-    iIntros (se inst fr os vs evs θ B R Hse Hevs) "#HIinst #HIB #HIR HIvs HIos HIfr Hrt Hfr Hrun".
+    iIntros (?????????) "@@@@@@@@@@@".
     iSpecialize ("Hcompile_es1" $! se inst fr os vs evs θ B R Hse Hevs
-                  with "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun").
+                  with "Hinst Hlabels Hreturn Hvs Hos Hframe Hrt Hfr Hrun").
     iEval (rewrite app_assoc).
 
     iApply (cwp_seq with "[$Hcompile_es1]"). clear θ fr.
     iIntros (fr vs2) "[HIfr (%os2 & %θ & HIhvs & HIos & Hrt)] Hfr Hrun".
 
-
     iApply ("Hcompile_es2" with "[] [] [$] [$] [$] [$] [$] [$] [$] [$] [$]"); iPureIntro; auto.
     apply has_values_to_consts.
-
   Admitted.
 
 End Fundamental.
