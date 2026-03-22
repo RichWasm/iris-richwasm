@@ -601,12 +601,8 @@ Section Relations.
     match R with
     | Some (n, P) =>
         match translate_types se τr with Some ts => ⌜length ts = n⌝ | None => False end ∗
-          □ (∀ vs os θ,
-            atoms_interp os vs -∗
-            values_interp se τr os -∗
-            rt_token rti sr θ -∗
-            P vs)
-    | None => True
+          □ (∀ vs os θ, atoms_interp os vs -∗ values_interp se τr os -∗ rt_token rti sr θ -∗ P vs)
+    | None => False
     end%I.
 
   Global Instance Persistent_return_interp se τr R : Persistent (return_interp se τr R).
