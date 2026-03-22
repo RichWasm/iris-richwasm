@@ -707,12 +707,12 @@ Section CodeGen.
     done.
   Qed.
 
-Lemma run_codegen_set_locals idxs wt wl x wt' wl' es' :
-  run_codegen (set_locals_w idxs) wt wl = inr (x, wt', wl', es') ->
-  x = tt /\
-    wt' = [] /\
-    wl' = [].
-Proof.
+  Lemma run_codegen_set_locals idxs wt wl x wt' wl' es' :
+    run_codegen (set_locals_w idxs) wt wl = inr (x, wt', wl', es') ->
+    x = tt /\
+      wt' = [] /\
+      wl' = [].
+  Proof.
     intros * Hcg.
     (* apply wps/inversion principles *)
     unfold set_locals_w in Hcg.
@@ -728,7 +728,7 @@ Proof.
     apply wp_mapM_emit in Hcg.
     destruct Hcg as (Hres & Hwt & Hwl & Hes); subst res3 wt3 wl3 es5.
     done.
-Qed.
+  Qed.
 
   Lemma wp_set_locals_w tys :
     forall s E Φ fe wt wl idxs v wt' wl' wlf es fr vs,
