@@ -2,8 +2,9 @@ Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base proofmode classes.
-From RichWasm.wasm Require Import operations.
 
+From RichWasm.named_props Require Import named_props custom_syntax.
+From RichWasm.wasm Require Import operations.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
@@ -34,7 +35,7 @@ Section Fundamental.
     intros fe WT WL Hok Hcg.
     inv_cg_emit Hcg; subst.
     destruct ψ as [τs1 τs2].
-    iIntros (???????????) "Hinst Hlab Hret Hvs Hos Hframe Hrt Hfr Hrun".
+    iIntros (?????????) "@@@@@@@@@@@".
     iApply cwp_val_app; first done.
     iApply (cwp_unreachable with "[$] [$]").
   Qed.

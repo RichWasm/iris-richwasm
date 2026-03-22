@@ -2,8 +2,9 @@ Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base proofmode classes.
-From RichWasm.wasm Require Import operations.
 
+From RichWasm.named_props Require Import named_props custom_syntax.
+From RichWasm.wasm Require Import operations.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
@@ -39,15 +40,15 @@ Section Fundamental.
   Proof.
     intros fe WT WL Hmono IH Hcg.
     eapply (IH _ _ _ _ _ wlf) in Hcg.
-    iIntros (se inst fr os vs evs θ B R Hse Hevs) "HIinst HIB HIR HIvs HIos HIfr Hrt Hfr Hrun".
+    iIntros (?????????) "@@@@@@@@@@@".
     (* Need to split up values_interp and atoms_interp now *)
     rewrite separate1.
-    iPoseProof (values_interp_app with "[$HIos]") as "(%os1 & %os2 & -> & Hvalτ & Hvalτs1)"; auto.
-    iPoseProof (atoms_interp_app with "[$HIvs]") as "(%vs1 & %vs2 & -> & Hatomτ & Hatomτs1)".
+    iPoseProof (values_interp_app with "[$]") as "(%os1 & %os2 & -> & Hvalτ & Hvalτs1)"; auto.
+    iPoseProof (atoms_interp_app with "[$]") as "(%vs1 & %vs2 & -> & Hatomτ & Hatomτs1)".
     apply has_values_app_inv in Hevs as (evs1 & evs2 & -> & Hevs1 & Hevs2).
     (* Apply IH with os2 τs2 *)
     iPoseProof (Hcg $! se inst fr os2 vs2 evs2 θ B R Hse Hevs2 with
-                 "HIinst HIB HIR Hatomτs1 Hvalτs1 HIfr Hrt Hfr Hrun") as "Hff".
+                 "Hinst Hlabels Hreturn Hatomτs1 Hvalτs1 Hframe Hrt Hfr Hrun") as "Hff".
     rewrite <- app_assoc.
     iApply cwp_val_app; first done.
     (* Now it's time to rebuild it *)

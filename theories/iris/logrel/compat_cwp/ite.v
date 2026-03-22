@@ -2,8 +2,9 @@ Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
 From iris.proofmode Require Import base proofmode classes.
-From RichWasm.wasm Require Import operations.
 
+From RichWasm.named_props Require Import named_props custom_syntax.
+From RichWasm.wasm Require Import operations.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
@@ -46,8 +47,7 @@ Section Fundamental.
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
   Proof.
-    iIntros (fe WT WL F' Ψ Hok IH1 IH2 Hcg se inst fr os vs evs θ B R Hse Hevs)
-      "#Hinst Hlabels Hretun Hvs Hos Hframe Hrti Hfr Hrun".
+    iIntros (????? Hok IH1 IH2 Hcg ?????????) "@@@@@@@@@@@".
     inv_cg_bind Hcg res1 wt1 wt2 wl1 wl2 es1' es2' Hcg1 Hcg2.
     inv_cg_bind Hcg2 res2 wt3 wt4 wl3 wl4 es3' es4' Hcg2 Hcg3.
     apply wp_ignore in Hcg3 as (_ & [] & Hcg3).
