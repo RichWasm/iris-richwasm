@@ -1,7 +1,7 @@
 From RichWasm.iris.rules Require Import iris_rules_structural iris_rules_trap.
 From RichWasm.iris.language Require Import iris_wp_def logpred.
 Import iris.algebra.list.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 Set Bullet Behavior "Strict Subproofs".
 
 Section lenient_wp.

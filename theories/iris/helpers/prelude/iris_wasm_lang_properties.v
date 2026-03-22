@@ -175,7 +175,7 @@ Section wasm_lang_properties.
     unfold const_list in Hes.
     edestruct forallb_forall.
     eapply H in Hes ; last first.
-    by apply elem_of_list_In.
+    by apply list_elem_of_In.
     rewrite Hes in Hv => //. 
   Qed.
 
@@ -1058,12 +1058,12 @@ Section wasm_lang_properties.
     { rewrite Heq. apply elem_of_app. right. constructor. }
     
     apply elem_of_app in Hin as [Hcontr | Hin].
-    { apply elem_of_list_split in Hcontr as [l1 [l2 Hl]]. subst.
+    { apply list_elem_of_split in Hcontr as [l1 [l2 Hl]]. subst.
       apply const_list_app in H as [_ H]. done. }
 
     apply elem_of_app_l in Hin as [Hin | [Hin Hnin]].
     { left.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin]]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin]]].
       rewrite (app_assoc _ es2) in Heq.
       apply const_list_l_snoc_eq3 in Heq;auto; try by intros [? ?].
       2: apply v_to_e_is_const_list.
@@ -1083,7 +1083,7 @@ Section wasm_lang_properties.
       exists l1,l2. split;auto. }
     apply elem_of_app_l in Hin as [Hin | [Hin Hnin2]].
     { right;left.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin']]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin']]].
       rewrite separate1 in Heq. rewrite -!app_assoc in Heq.
       do 2 rewrite app_assoc in Heq. exists l1,l2. split;auto.
       apply const_list_l_snoc_eq3 in Heq;auto; try by intros [? ?].
@@ -1099,7 +1099,7 @@ Section wasm_lang_properties.
       rewrite -to_e_list_fmap Heq1 in Hc.
       apply const_list_app in Hc as [[? ?]%const_list_app ?]. auto. }
     { right;right.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin']]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin']]].
       rewrite separate1 in Heq.
       do 3 rewrite app_assoc in Heq.
       exists l1,l2. split;auto.
@@ -1144,12 +1144,12 @@ Section wasm_lang_properties.
     { rewrite Heq. apply elem_of_app. right. constructor. }
     
     apply elem_of_app in Hin as [Hcontr | Hin].
-    { apply elem_of_list_split in Hcontr as [l1 [l2 Hl]]. subst.
+    { apply list_elem_of_split in Hcontr as [l1 [l2 Hl]]. subst.
       apply const_list_app in H as [_ H]. done. }
 
     apply elem_of_app_l in Hin as [Hin | [Hin Hnin]].
     { left.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin]]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin]]].
       rewrite (app_assoc _ es2) in Heq.
       apply const_list_l_snoc_eq3 in Heq;auto; try by intros [? ?].
       2: apply v_to_e_is_const_list.
@@ -1168,7 +1168,7 @@ Section wasm_lang_properties.
       exists l1,l2. split;auto. }
     apply elem_of_app_l in Hin as [Hin | [Hin Hnin2]].
     { right;left.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin']]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin']]].
       rewrite separate1 in Heq. rewrite -!app_assoc in Heq.
       do 2 rewrite app_assoc in Heq. exists l1,l2. split;auto.
       apply const_list_l_snoc_eq3 in Heq;auto; try by intros [? ?].
@@ -1184,7 +1184,7 @@ Section wasm_lang_properties.
       rewrite -to_e_list_fmap Heq1 in Hc.
       apply const_list_app in Hc as [[? ?]%const_list_app ?]. auto. }
     { right;right.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin']]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin']]].
       rewrite separate1 in Heq.
       do 3 rewrite app_assoc in Heq.
       exists l1,l2. split;auto.
@@ -1230,12 +1230,12 @@ Section wasm_lang_properties.
     { rewrite Heq. apply elem_of_app. right. constructor. }
     
     apply elem_of_app in Hin as [Hcontr | Hin].
-    { apply elem_of_list_split in Hcontr as [l1 [l2 Hl]]. subst.
+    { apply list_elem_of_split in Hcontr as [l1 [l2 Hl]]. subst.
       apply const_list_app in H as [_ H]. done. }
 
     apply elem_of_app_l in Hin as [Hin | [Hin Hnin]].
     { left.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin]]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin]]].
       rewrite (app_assoc _ es2) in Heq.
       apply const_list_l_snoc_eq3 in Heq;auto; try by intros [? ?].
       2: apply v_to_e_is_const_list.
@@ -1253,7 +1253,7 @@ Section wasm_lang_properties.
       exists l1,l2. split;auto. }
     apply elem_of_app_l in Hin as [Hin | [Hin Hnin2]].
     { right;left.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin']]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin']]].
       rewrite separate1 in Heq. rewrite -!app_assoc in Heq.
       do 2 rewrite app_assoc in Heq. exists l1,l2. split;auto.
       apply const_list_l_snoc_eq3 in Heq;auto; try by intros [? ?].
@@ -1269,7 +1269,7 @@ Section wasm_lang_properties.
       rewrite -to_e_list_fmap Heq1 in Hc.
       apply const_list_app in Hc as [[? ?]%const_list_app ?]. auto. }
     { right;right.
-      eapply elem_of_list_split_l in Hin as [l1 [l2 [-> Hnin']]].
+      eapply list_elem_of_split_l in Hin as [l1 [l2 [-> Hnin']]].
       rewrite separate1 in Heq.
       do 3 rewrite app_assoc in Heq.
       exists l1,l2. split;auto.

@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 Require Export iris_rules_structural.
@@ -455,7 +455,7 @@ Section control_rules.
     2: apply Hstep.
     inversion Heq; subst; clear Heq.
     iExists f.
-    iFrame. iSplit => //.
+    iFrame.
     iIntros "Hf".
     iSpecialize ("HΦ" with "[$] [$]").
     iSpecialize ("HΦ" $! _ Hfill2').
@@ -501,7 +501,6 @@ Section control_rules.
         last (by eapply r_simple, rs_block) ;
         first (inversion H; subst; clear H ; iExists f; iFrame) ;
         try rewrite first_instr_const in Hstart => //=.
-      iSplitL; last done.
       iIntros "?".
       iSpecialize ("HΦ" with "[$] [$]").
       iFrame.
@@ -731,7 +730,7 @@ Section control_rules.
               rewrite Hfill'' in Hstart ; inversion Hstart => //=).
     inversion H; subst; clear H.
     iExists f0.
-    iFrame. iSimpl. iSplit => //.
+    iFrame. iSimpl.
     iIntros "Hf0".
     iSpecialize ("HWP" with "[$] [$]").
     by iSpecialize ("HWP" with "[%]").
@@ -801,7 +800,7 @@ Section control_rules.
     2: { eapply r_local. eapply r_label. apply r_simple. eapply rs_block;eauto. all: eauto. }
     inversion H; subst; clear H.
     all: iExists f0.
-    all: iFrame. iSplit => //.
+    all: iFrame.
     iIntros "Hf0".
     iSpecialize ("HWP" with "[$] [$]").
     by iSpecialize ("HWP" with "[%]").
@@ -875,7 +874,7 @@ Section control_rules.
       rewrite Hfilln in Hstart ; inversion Hstart => //=. 
     inversion H; subst; clear H.
     iExists f0.
-    iFrame. iSplit => //.
+    iFrame.
     iIntros "Hf0".
     iSpecialize ("HΦ" with "[$] [$]").
     by erewrite !app_assoc.
@@ -957,7 +956,7 @@ Section control_rules.
          apply r_simple. eapply rs_br. apply Hvs. all:eauto. }
     inversion H; subst; clear H.
     iExists f0.
-    iFrame. iSplit => //.
+    iFrame.
     iIntros "Hf0".
     iSpecialize ("HΦ" with "[$] [$]").
     by erewrite !app_assoc.
@@ -1017,7 +1016,7 @@ Section control_rules.
         rewrite Hfill'' in Hstart ; inversion Hstart => //=.
       inversion H; subst; clear H.
       iExists f0.
-      iFrame. iSplit => //.
+      iFrame.
       iIntros "Hf0".
       iSpecialize ("HP" with "[$] [$]").
       by iSpecialize ("HP" with "[%]").
@@ -1079,7 +1078,7 @@ Section control_rules.
            eauto. eauto. }
       inversion H; subst; clear H.
       iExists f0.
-      iFrame. iSplit => //.
+      iFrame.
       iIntros "Hf0".
       iSpecialize ("HP" with "[$] [$]").
       by iSpecialize ("HP" with "[%]").
@@ -1206,7 +1205,7 @@ Section control_rules.
            eauto. eauto. }
       inversion H; subst; clear H.
       iExists f0.
-      iFrame. iSplit => //.
+      iFrame.
       iIntros "Hf0".
       iSpecialize ("HP" with "[$] [$]").
       by iSpecialize ("HP" with "[%]").
@@ -1275,7 +1274,6 @@ Section control_rules.
       inversion H; subst; clear H.
       iExists f0.
       iFrame.
-      iSplit => //.
       iIntros "?"; iSpecialize ("HP" with "[$] [$]").
       by iApply "HP".
   Qed.
@@ -1335,7 +1333,6 @@ Section control_rules.
       inversion H; subst; clear H.
       iExists f0.
       iFrame.
-      iSplit => //.
       iIntros "?"; iSpecialize ("HP" with "[$] [$]").
       by iApply "HP".
   Qed.
@@ -1456,7 +1453,6 @@ Section control_rules.
       inversion H; subst; clear H.
       iExists f0.
       iFrame.
-      iSplit => //.
       iIntros "?"; iSpecialize ("HP" with "[$] [$]").
       by iApply "HP".
   Qed.
@@ -1613,7 +1609,6 @@ Section control_rules.
       inversion H; subst; clear H.
       iExists f0.
       iFrame.
-      iSplit => //.
       iIntros "?"; iSpecialize ("HP" with "[$] [$]").
       by iApply "HP".
   Qed.
@@ -1733,7 +1728,6 @@ Section control_rules.
       inversion H; subst; clear H.
       iExists f0.
       iFrame.
-      iSplit => //.
       iIntros "?"; iSpecialize ("HP" with "[$] [$]").
       by iApply "HP".
   Qed.

@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 Require Export iris_rules_control.
@@ -35,7 +35,9 @@ Context `{!wasmG Σ}.
       rewrite wp_frame_rewrite.
       iDestruct (ghost_map_lookup with "Hff Hf") as %Hlook'.
       iMod (ghost_map_update f0 with "Hff Hf") as "[Hff Hf]".
-      rewrite !insert_insert. rewrite lookup_insert in Hlook'. inversion Hlook'.
+      rewrite insert_insert. erewrite decide_True; last done.
+      rewrite insert_insert. erewrite decide_True; last done.
+      rewrite lookup_insert in Hlook'. inversion Hlook'.
       iDestruct ("H" with "Hf") as "H".
       iDestruct (wp_unfold with "H") as "H".
       rewrite /wp_pre /=.
@@ -303,11 +305,5 @@ Context `{!wasmG Σ}.
       { iIntros (LI HLI%lfilled_Ind_Equivalent);inversion HLI;inversion H8. }
       iApply wp_label_bind_next;eauto. }
   Qed.
-
-  (* TODO *)
-  Lemma wp_ctx_bind' (s : stuckness) (E : coPset) (Φ : iris.val -> iProp Σ) e i lh :
-    WP e @ s; E {{ w, WP of_val w @ s; E CTX i; lh {{ w, Φ w }} }} -∗
-    WP e @ s; E CTX i; lh {{ w, Φ w }}.
-  Admitted.
 
 End bind_rules.

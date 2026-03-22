@@ -1,4 +1,4 @@
-Require Import iris.proofmode.tactics.
+Require Import iris.proofmode.proofmode.
 
 Require Import RichWasm.iris.language.iris_wp_def.
 Require Import RichWasm.iris.language.cwp.def.

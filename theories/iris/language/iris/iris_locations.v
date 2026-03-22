@@ -93,7 +93,7 @@ Proof with resolve_finmap.
     by apply Nat2N.inj in H1.
   - destruct (l !! (N.to_nat n)) eqn: Hlookup => //.
     exfalso. apply H2. clear H2.
-    apply elem_of_list_fmap.
+    apply list_elem_of_fmap.
     exists (n, t). split => //.
     apply elem_of_lookup_imap.
     exists (N.to_nat n), t. split => //.
@@ -109,7 +109,7 @@ Proof with resolve_finmap.
   apply map_eq. move => i.
   rewrite gmap_of_list_lookup.
   destruct (decide (i = n)).
-  - subst. rewrite lookup_insert. by rewrite list_lookup_insert.
+  - subst. rewrite lookup_insert. rewrite list_lookup_insert. by rewrite !decide_True.
   - rewrite lookup_insert_ne => //.
     rewrite list_lookup_insert_ne => //.
     + by rewrite gmap_of_list_lookup.
@@ -125,7 +125,8 @@ Proof with resolve_finmap.
   destruct (decide (i = N.of_nat (length l))).
   - subst. rewrite Nat2N.id. rewrite lookup_insert.
     rewrite lookup_app_r => //=.
-    by replace (length l - length l) with 0; last lia.
+    replace (length l - length l) with 0; last lia.
+    by rewrite decide_True.
   - remember_lookup. symmetry.
     destruct lookup_res...
     + assert (N.to_nat i < length l) as HLength.
@@ -175,7 +176,7 @@ Lemma flatten_2d_list_i_acc_shift {T: Type} (l: list (list T)) n i t acc:
   (N.of_nat n, i, t) ∈ flatten_2d_list_i l acc.
 Proof.
   rewrite flatten_2d_list_i_acc_shift_spec.
-  rewrite elem_of_list_fmap.
+  rewrite list_elem_of_fmap.
   split.
   - move => [[[n' i'] t'] [Heq Helem]].
     inversion Heq; subst; clear Heq.
@@ -234,7 +235,7 @@ Proof.
         destruct Helem as [Helem|Helem]; resolve_finmap; subst.
         -- inversion Heq. subst.
           by rewrite Nat2N.id.
-        -- apply elem_of_list_lookup_2 in Helem0.
+        -- apply list_elem_of_lookup_2 in Helem0.
           apply flatten_2d_list_i_acc_domain1 in Helem0.
           lia.
       * assert (n = N.of_nat (S n0)); first lia; subst; clear Hn.
@@ -243,7 +244,7 @@ Proof.
         apply flatten_2d_list_i_acc_shift.
         apply elem_of_app in Helem.
         destruct Helem as [Helem|Helem]; resolve_finmap; subst; first by destruct x.
-        apply elem_of_list_lookup_2 in Helem0.
+        apply list_elem_of_lookup_2 in Helem0.
         replace (N.of_nat (n0+1)) with (N.pos (Pos.of_succ_nat n0)) => //.
         lia.
   - move: n i t.
@@ -252,7 +253,7 @@ Proof.
     + assert (n=0%N); first lia. subst; clear Hn.
       simpl in Hl.
       apply elem_of_app; left.
-      apply elem_of_list_fmap.
+      apply list_elem_of_fmap.
       exists (i, t).
       split => //.
       unfold flatten_list.
@@ -277,7 +278,7 @@ Lemma flatten_2d_list_inj12 {T: Type} (l: list (list T)) x1 x2 p t1 t2:
 Proof.
   destruct p as [n i].
   move => Hl1 Hl2.
-  apply elem_of_list_lookup_2 in Hl1, Hl2.
+  apply list_elem_of_lookup_2 in Hl1, Hl2.
   apply flatten_2d_list_lookup in Hl1, Hl2.
   rewrite Hl1 in Hl2.
   by inversion Hl2.
@@ -327,7 +328,7 @@ Proof with resolve_finmap.
   remember_lookup.
   destruct lookup_res...
   - symmetry. apply flatten_2d_list_lookup.
-    apply elem_of_list_lookup.
+    apply list_elem_of_lookup.
     destruct x as [[j k] x].
     inversion Heq; subst; clear Heq.
     exists x0.
@@ -354,9 +355,9 @@ Proof with resolve_finmap.
   - destruct (l !! (N.to_nat (n-off))) eqn: Hlookup => //.
     destruct (l0 !! (N.to_nat i)) eqn: Hlookup2 => //.
     exfalso. apply H2. clear H2.
-    apply elem_of_list_fmap.
+    apply list_elem_of_fmap.
     exists (n, i, t). split => //.
-    apply elem_of_list_fmap.
+    apply list_elem_of_fmap.
     exists ((n-off)%N, i, t).
     split => //; first ((repeat f_equal); by lias).
     apply flatten_2d_list_lookup.
@@ -619,15 +620,18 @@ Proof.
   - inversion e; subst; clear e.
     repeat rewrite Nat2N.id.
     rewrite lookup_insert.
-    rewrite list_lookup_insert => /=; last by apply lookup_lt_Some in HLookup.
-    by rewrite list_lookup_insert.
+    rewrite list_lookup_insert => /=.
+    rewrite decide_True; last by apply lookup_lt_Some in HLookup.
+    rewrite list_lookup_insert.
+    by rewrite !decide_True.
   - rewrite lookup_insert_ne in Hlookup => //.
     destruct (decide (n = m)); subst.
-    + rewrite list_lookup_insert => /=; last by apply lookup_lt_Some in HLookup.
+    + rewrite list_lookup_insert => /=.
       destruct (decide (i = j)).
       * exfalso. apply n0. subst.
         by repeat rewrite N2Nat.id.
-      * rewrite list_lookup_insert_ne; last lia.
+      * rewrite decide_True; last by apply lookup_lt_Some in HLookup.
+        rewrite list_lookup_insert_ne; last lia.
         rewrite gmap_of_list_2d_lookup.
         by rewrite HLookup.
     + rewrite list_lookup_insert_ne; last lia.
@@ -730,7 +734,8 @@ Proof.
   repeat rewrite list_lookup_fmap.
   destruct (decide (n = N.to_nat i)) eqn:Hn; subst.
   - clear Hn.
-    rewrite N2Nat.id new_2d_gmap_at_n_lookup list_lookup_insert => /=; last by eapply lookup_lt_Some.
+    rewrite N2Nat.id new_2d_gmap_at_n_lookup list_lookup_insert => /=.
+    rewrite decide_True; last by (split; last by eapply lookup_lt_Some).
     rewrite Hmem.
     destruct (ml_data (mem_data m) !! N.to_nat j) eqn:Hlookup => //=.
     + by repeat destruct (_ !! _) => //=.
@@ -841,8 +846,10 @@ Proof.
   unfold memory_to_list.
   destruct (decide (N.to_nat i = mn)); subst.
   - rewrite list_lookup_insert => //=.
+    rewrite decide_True; last done.
     destruct (decide (N.to_nat j < length m.(mem_data).(memory_list.ml_data))).
-    + destruct (_ !! N.to_nat j) eqn:Hl; last by apply lookup_ge_None in Hl; lia.
+    + cbn.
+      destruct (_ !! N.to_nat j) eqn:Hl; last by apply lookup_ge_None in Hl; lia.
       apply lookup_union_Some_r; first by eapply mem_grow_appendix_disjoint.
       rewrite gmap_of_list_2d_lookup.
       rewrite list_lookup_fmap.
@@ -850,7 +857,8 @@ Proof.
       rewrite Hmemgrowdata in Hl.
       by rewrite lookup_app_l in Hl.
     + destruct (decide (N.to_nat j < length m'.(mem_data).(memory_list.ml_data))).
-      * destruct (_ !! N.to_nat j) eqn:Hl; last by apply lookup_ge_None in Hl; lia.
+      * cbn.
+        destruct (_ !! N.to_nat j) eqn:Hl; last by apply lookup_ge_None in Hl; lia.
         apply lookup_union_Some_l.
         apply elem_of_list_to_map; resolve_finmap.
         -- assert (x0 = x2); first lia.
@@ -878,7 +886,8 @@ Proof.
               rewrite length_mem_divisible => //.
               unfold length_mem, memory_list.length_mem.
               lia.
-      * destruct (_ !! N.to_nat j) eqn:Hl; first by apply lookup_lt_Some in Hl; lia.
+      * cbn.
+        destruct (_ !! N.to_nat j) eqn:Hl; first by apply lookup_lt_Some in Hl; lia.
         apply lookup_union_None.
         split.
         -- apply not_elem_of_list_to_map.
@@ -940,7 +949,7 @@ Proof.
       * rewrite lookup_union_r.
         { rewrite <- not_elem_of_list_to_map.
           move => Hcontra.
-          rewrite -> elem_of_list_fmap in Hcontra.
+          rewrite -> list_elem_of_fmap in Hcontra.
           destruct Hcontra as [[n t] [Heq Helem]].
           apply elem_of_lookup_imap in Helem.
           destruct Helem as [i [y [Heq2 Hlookup]]].

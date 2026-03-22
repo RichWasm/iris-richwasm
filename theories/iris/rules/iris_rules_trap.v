@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 Require Export iris_rules_control.
@@ -48,7 +48,7 @@ Section trap_rules.
       simpl in *. destruct Hstep as [Hstep [-> ->]].
       eapply trap_reduce in Hstep as Hred;[|apply Hfill].
       destruct Hred as [lh' [Hfill' Heq]]. simplify_eq.
-      iApply bi.sep_exist_l. iExists _. iFrame. iSplit => //.
+      iApply bi.sep_exist_l. iExists _. iFrame.
       iIntros "Hf".
       apply lfilled_Ind_Equivalent in Hfill';inversion Hfill';subst.
       iApply ("IH" with "[] HΦ Hf"). auto.
@@ -94,7 +94,7 @@ Section trap_rules.
       simpl in *. destruct Hstep as [Hstep [-> ->]].
       eapply trap_reduce in Hstep as Hred;[|apply Hfill].
       destruct Hred as [lh' [Hfill' Heq]]. simplify_eq.
-      iApply bi.sep_exist_l. iExists _. iFrame. iSplit => //.
+      iApply bi.sep_exist_l. iExists _. iFrame.
       iIntros "Hf".
       apply lfilled_Ind_Equivalent in Hfill';inversion Hfill';subst.
       iApply ("IH" with "[] HΦ Hf"). auto.
@@ -151,7 +151,7 @@ Section trap_rules.
       eapply trap_reduce in Hstep as Hred;[|apply Hfill].
       destruct Hred as [lh' [Hfill' Heq]]. simplify_eq.
       apply lfilled_Ind_Equivalent in Hfill'. inversion Hfill';subst.
-      iApply bi.sep_exist_l. iExists f'. iFrame. iSplit => //.
+      iApply bi.sep_exist_l. iExists f'. iFrame.
       iIntros "Hf". erewrite app_assoc.
       iApply ("IH" with "[$Hf]").
       iIntros "Hf".
@@ -561,7 +561,9 @@ Section trap_rules.
         repeat split => //. apply r_simple. apply rs_local_trap; auto.
       - iIntros "!>" (es2 σ2 efs HStep). destruct σ2 as [[[? ws'] locs'] inst'].
         iMod (ghost_map_update f0 with "Hff Hf") as "[Hff Hframe]".
-        rewrite !insert_insert. iFrame.
+        rewrite insert_insert. erewrite decide_True; last done.
+        rewrite insert_insert. erewrite decide_True; last done.
+        iFrame.
         destruct HStep as (H & -> & ->).
         apply reduce_det_local_trap in H as [?[?[??]]]. simplify_eq.
         rewrite lookup_insert in Hlook. inversion Hlook. iFrame.
@@ -767,7 +769,6 @@ Section trap_rules.
               iDestruct "H2" as "(Hσ & Hes)".
               iDestruct "Hes" as (f1) "(Hf & Hes'' & Hefs)".
               iFrame. (* iExists _. iFrame. *) 
-              iSplit => //.
               iIntros "Hf".
               iSpecialize ("Hes''" with "Hf").
               iDestruct ("IH" with "[$Hntrap] [Ht] [$Hes''] [$Hes2 ]") as "Hcont". 
@@ -952,7 +953,6 @@ Section trap_rules.
         iDestruct "H" as  (f1) "(Hf1 & Hes & Hefs)".
         iSimpl.
         iFrame. (* iExists _. iFrame. *) 
-        iSplit => //.
         iIntros "Hf".
         iSpecialize ("Hes" with  "Hf").
         iApply "IH".
@@ -979,7 +979,6 @@ Section trap_rules.
         iDestruct "H" as (f1) "(Hf1 & Hes & Hefs)".
         iFrame.
         iModIntro. (* iExists _. iFrame. *) 
-        iSplit => //.
         iIntros "Hf".
         iSpecialize ("Hes" with "[$]").
         iDestruct (wp_unfold with "Hes") as "Hes".

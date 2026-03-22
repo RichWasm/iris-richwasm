@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
@@ -96,7 +96,6 @@ Proof.
         iDestruct "H" as  (f1) "(Hf1 & Hes & Hefs)".
         iSimpl.
         iFrame. (* iExists _. iFrame. *)
-        iSplit => //. 
         iIntros "?"; iSpecialize ("Hes" with "[$]").
         iApply "IH".
         by iFrame.
@@ -122,7 +121,6 @@ Proof.
         iDestruct "H" as (f1) "(Hf1 & Hes & Hefs)".
         iFrame.
         iModIntro. (* iExists _. iFrame. *)
-        iSplit => //.
         iIntros "?"; iSpecialize ("Hes" with "[$]").
         repeat rewrite wp_unfold /wp_pre /=.
         destruct (iris.to_val (vs ++ AI_trap :: es')%SEQ) eqn:Hx.
@@ -243,7 +241,6 @@ Proof.
         iDestruct "H2" as "(Hσ & Hes)".
         iDestruct "Hes" as (f1) "(Hf & Hes'' & Hefs)".
         iFrame. (* iExists _. iFrame. *) 
-        iSplit =>//.
         iIntros "?"; iSpecialize ("Hes''" with "[$]").
         iDestruct ("IH" with "[$Hntrap $Hes'' $Hes2]") as "Hcont"; by iApply "Hcont".
       + assert (iris.prim_step es1 σ [] [AI_trap] σ []) as HStep2.
@@ -423,6 +420,7 @@ Proof.
         iDestruct (wp_unfold with "Hes''") as "Hes''".
         rewrite /wp_pre /= HLI.
         iMod "Hes''" as "[HPsi Hf]".
+        clear Hlook'.
         iDestruct (ghost_map_lookup with "Hframe Hf") as %Hlook';rewrite lookup_insert in Hlook';inversion Hlook'.
         subst f1.
         iMod (ghost_map_update (Build_frame locs2 inst2) with "Hframe Hf") as "[Hframe Hf]"; rewrite insert_insert.
@@ -462,7 +460,7 @@ Proof.
       iModIntro. iFrame.
       
 (*      iExists _. iFrame. *)
-      iSplit => //. iIntros "Hf".
+      iIntros "Hf".
       iApply ("IH" with "[] [$] []");auto.
       iPureIntro. intros LI HLI.
       eapply lfilled_inj in Hfill;eauto.

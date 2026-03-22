@@ -1,5 +1,5 @@
 Require Import iris.algebra.list.
-Require Import iris.proofmode.tactics.
+Require Import iris.proofmode.proofmode.
 
 From RichWasm.iris.helpers Require Import iris_properties.
 

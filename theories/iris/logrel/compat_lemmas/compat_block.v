@@ -1,7 +1,7 @@
 Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From RichWasm.wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.
@@ -166,8 +166,8 @@ Section Fundamental.
       iSimpl in "Hv".
       iDestruct "Hv" as "[Hbail _]".
       iApply (wp_wand with "[Hf]").
-      { iApply (wp_label_trap with "Hf") => //.
-        by instantiate (1 := λ v, ⌜ v = trapV ⌝%I). }
+      { instantiate (1 := λ v, (⌜v = trapV⌝ ∗ ↪[frame] f)%I).
+        iApply (wp_label_trap with "Hf") => //. }
       iIntros (v) "[-> Hf]".
       iFrame. 
     - (* brV case *)

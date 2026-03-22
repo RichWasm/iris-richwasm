@@ -1,7 +1,7 @@
 From Stdlib Require Import ZArith.
 From stdpp Require Import base list.
 
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From RichWasm.wasm Require Import operations properties.
 
 From RichWasm Require Import layout syntax typing.
@@ -862,9 +862,9 @@ Section Fundamental_Shared.
     iApply (cwp_seq with "[Hf Hrun]").
     - cwp_chomp 1%nat.
       iApply (cwp_seq with "[Hf Hrun]").
-      + iApply lenient_wp_get_local; eauto.
-        iFrame.
-        by instantiate (1 := (λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝)%I).
+      + iApply lenient_wp_get_local; first done.
+        instantiate (1 := (λ f' vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr (k - 1))]⌝)%I).
+        by iFrame.
       + iIntros (w f' [-> ->]) "Hf Hrun".
         iApply lwp_binop.
         * cbn.
@@ -928,9 +928,9 @@ Section Fundamental_Shared.
     iApply (cwp_seq with "[Hf Hrun]").
     - cwp_chomp 1%nat.
       iApply (cwp_seq with "[Hf Hrun]").
-      + iApply lenient_wp_get_local; eauto.
-        iFrame.
-        by instantiate (1 := (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝)%I).
+      + iApply lenient_wp_get_local; first done.
+        instantiate (1 := (λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr (k - 3))]⌝)%I).
+        by iFrame.
       + iIntros (w f' [-> ->]) "Hf Hrun".
         iApply lwp_binop.
         * cbn.
@@ -996,9 +996,9 @@ Section Fundamental_Shared.
     iApply (cwp_seq with "[Hf Hrun]").
     - cwp_chomp 1%nat.
       iApply (cwp_seq with "[Hf Hrun]").
-      + iApply lenient_wp_get_local; eauto.
-        iFrame.
-        by instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+      + iApply lenient_wp_get_local; first done.
+        instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+        by iFrame.
       + iIntros (w f' [-> ->]) "Hf Hrun".
         iApply lwp_binop.
         * cbn.
@@ -1040,9 +1040,9 @@ Section Fundamental_Shared.
     iApply (cwp_seq with "[Hf Hrun]").
     - cwp_chomp 1%nat.
       iApply (cwp_seq with "[Hf Hrun]").
-      + iApply lenient_wp_get_local; eauto.
-        iFrame.
-        by instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+      + iApply lenient_wp_get_local; first done.
+        instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+        by iFrame.
       + iIntros (w f' [-> ->]) "Hf Hrun".
         iApply lwp_binop.
         * cbn.

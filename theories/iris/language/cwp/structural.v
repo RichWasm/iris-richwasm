@@ -1,6 +1,6 @@
 Require Import stdpp.base.
 
-Require Import iris.proofmode.tactics.
+Require Import iris.proofmode.proofmode.
 
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_structural lwp_trap.
@@ -235,7 +235,7 @@ Section structural.
     iSplitR; first done.
     iDestruct (big_sepL2_lookup_acc with "HL") as "[[%Hnm HPQ] HL]".
     { exact HLi. }
-    { rewrite lookup_take; done. }
+    { rewrite lookup_take. by rewrite decide_True. }
     cbn in Hnm.
     subst m.
     iSplitR; first done.

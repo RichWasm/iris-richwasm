@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
@@ -39,21 +39,21 @@ End Examples.
 Ltac take_drop_app_rewrite n :=
   match goal with
   | |- context [ WP ?e @ _; _ CTX _; _ {{ _ }} %I ] =>
-      rewrite -(list_basics.take_drop n e);simpl take; simpl drop
+      rewrite -(take_drop n e);simpl take; simpl drop
   | |- context [ WP ?e @ _; _ {{ _ }} %I ] =>
-      rewrite -(list_basics.take_drop n e);simpl take; simpl drop
+      rewrite -(take_drop n e);simpl take; simpl drop
   | |- context [ WP ?e @ _; _ FRAME _; _ CTX _; _  {{ _, _ }} %I ] =>
-      rewrite -(list_basics.take_drop n e);simpl take; simpl drop
+      rewrite -(take_drop n e);simpl take; simpl drop
   | |- context [ WP ?e @ _; _ FRAME _; _ {{ _ }} %I ] =>
-      rewrite -(list_basics.take_drop n e);simpl take; simpl drop
+      rewrite -(take_drop n e);simpl take; simpl drop
   end.
 
 Ltac take_drop_app_rewrite_twice n m :=
   take_drop_app_rewrite n;
   match goal with
   | |- context [ WP _ ++ ?e @ _; _ CTX _; _ {{ _ }} %I ] =>
-      rewrite -(list_basics.take_drop (length e - m) e);simpl take; simpl drop
+      rewrite -(take_drop (length e - m) e);simpl take; simpl drop
   | |- context [ WP _ ++ ?e @ _; _ {{ _ }} %I ] =>
-      rewrite -(list_basics.take_drop (length e - m) e);simpl take; simpl drop
+      rewrite -(take_drop (length e - m) e);simpl take; simpl drop
   end.
 

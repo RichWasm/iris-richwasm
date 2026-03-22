@@ -2,7 +2,7 @@ Require Import RecordUpdate.RecordUpdate.
 
 From mathcomp Require Import ssrbool eqtype.
 
-Require Import iris.proofmode.tactics.
+Require Import iris.proofmode.proofmode.
 
 Require Import RichWasm.iris.language.lwp_resources.
 Require Import RichWasm.iris.language.cwp.def.
@@ -56,6 +56,9 @@ Section variable.
     change [AI_basic (BI_const v); AI_basic (BI_const v); AI_basic (BI_set_local i)] with
       (map AI_basic [BI_const v; BI_const v; BI_set_local i]).
     rewrite (separate1 (BI_const v)).
+    change (@map _ _) with (@seq.map basic_instruction administrative_instruction).
+    fold (to_e_list ([BI_const v] ++ [BI_const v; BI_set_local i])).
+    fold (cwp_wasm NotStuck E ([BI_const v] ++ [BI_const v; BI_set_local i]) L R Φ).
     iApply cwp_val_app.
     { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
     by iApply (cwp_local_set with "[HΦ] [$] [$]").

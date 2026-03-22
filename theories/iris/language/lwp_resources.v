@@ -1,4 +1,4 @@
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 Import iris.algebra.list.
 From RichWasm.iris.rules Require Import iris_rules_resources.
@@ -78,11 +78,12 @@ Section lwp_resources.
   Proof.
     iIntros (R Hag Hmem) "(Hrun & HR & Hval & Hfrinv & Hf)".
     iApply (wp_wand with "[Hrun HR Hval Hf]").
-    iApply wp_load; eauto.
-    - iFrame.
-      instantiate (1:= (λ v, ↪[RUN] -∗ R -∗ lp_noframe Φ f v)).
-      cbn.
-      iIntros "!> ?"; iFrame.
+    iApply wp_load.
+    1, 2: done.
+    - instantiate (1 := λ v, ↪[RUN] -∗ R -∗ lp_noframe Φ f v).
+      iSplitL "Hval".
+      + iIntros "!> Hrun HR". iFrame. by iApply "Hval".
+      + iFrame.
     - iIntros (v0) "[(Hnoframe & HR & Hrun) Hf]".
       iSpecialize ("Hnoframe" with "Hrun").
       iFrame.
@@ -107,11 +108,12 @@ Section lwp_resources.
   Proof.
     iIntros (R R' Hag Hlen Hmem) "(HR & Hrun & Hval & Hfrinv & Hf)".
     iApply (wp_wand with "[HR Hrun Hval Hf]").
-    - iApply wp_store; eauto.
-      iFrame.
-      instantiate (1:= (λ v, ↪[RUN] -∗ R' -∗ lp_noframe Φ f v)).
-      cbn.
-      iIntros "!> ?"; iFrame.
+    - iApply wp_store.
+      1, 2, 3: done.
+      instantiate (1 := λ v, ↪[RUN] -∗ R' -∗ lp_noframe Φ f v).
+      iSplitL "Hval".
+      + iIntros "!> Hrun HR'". iFrame. by iApply "Hval".
+      + iFrame.
     - iIntros (v0) "[[Hnoframe [Hptr Hrun]] Hf]".
       iFrame.
       iApply ("Hnoframe" with "[$] [$]").

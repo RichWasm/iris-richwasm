@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 Require Import Stdlib.Program.Equality.
@@ -729,7 +729,7 @@ Proof.
   split; (do 2 f_equal); rewrite - list_insert_destruct; try by lias.
   rewrite list_insert_destruct; last by lias.
   simpl.
-  rewrite list_insert_commute; last by lias.
+  rewrite list_insert_insert_ne; last by lias.
   rewrite - (list_insert_destruct (N.to_nat k)) => //.
   by rewrite length_insert.
 Qed.
@@ -1051,9 +1051,11 @@ Proof.
   rewrite <- H1.
   erewrite gmap_of_memory_insert => //.
   - rewrite Nat2N.id.
-    by rewrite list_insert_insert.
+    rewrite list_insert_insert.
+    by rewrite decide_True.
   - rewrite Nat2N.id.
-    rewrite list_lookup_insert => //; last by apply lookup_lt_Some in Hmemsn.
+    rewrite list_lookup_insert => //.
+    by rewrite decide_True; last apply lookup_lt_Some in Hmemsn.
   - simpl in Hlen0.
     move/N.leb_spec0 in Hlen0.
     unfold length_mem, memory_list.length_mem in Hlen0.
@@ -2396,6 +2398,7 @@ Proof.
                  rewrite lookup_app_r ; last by rewrite length_repeat.
                  rewrite length_repeat.
                  rewrite PeanoNat.Nat.sub_diag => //=.
+                 by rewrite decide_True.
                  unfold length_mem, memory_list.length_mem ; lia.
               ** rewrite lookup_insert_ne ; last by intro H ; inversion H ; apply n2.
                  rewrite gmap_of_list_2d_lookup.
@@ -2502,6 +2505,7 @@ Proof.
                  rewrite lookup_app_r ; last by rewrite length_repeat.
                  rewrite length_repeat.
                  rewrite PeanoNat.Nat.sub_diag => //=.
+                 by rewrite decide_True.
                  unfold length_mem, memory_list.length_mem ; lia.
               ** rewrite lookup_insert_ne ; last by intro H ; inversion H ; apply n1.
                  rewrite gmap_of_list_2d_lookup.

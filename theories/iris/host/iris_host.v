@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language weakestpre lifting.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 From RichWasm.iris.language Require Export iris_wp_def iris.
@@ -581,8 +581,7 @@ Proof.
     eapply call_host_reduce_det in HStep ; last first.
     eapply HR_call_host_action => //=.
     exact HLI. inversion HStep ; subst.
-    iFrame. iSplitL. by iApply "Hwp".
-    done.
+    iFrame. by iApply "Hwp".
 Qed.
 
 Lemma wp_get_global_host s E g v vs (Φ : host_val -> iProp Σ) :
@@ -687,7 +686,7 @@ Proof.
     eapply call_host_reduce_det in HStep ; last first.
     eapply HR_call_host_instantiate => //=.
     exact HLI. inversion HStep ; subst.
-    iFrame. iSplit; last done. iApply ("Hwp" with "[$]"). 
+    iFrame. iApply ("Hwp" with "[$]").
 Qed.
 
 Lemma wp_call_host_modify_table s E h hi tab_idx func_idx LI LI' llh (f0: frame) n func_idx0 hes a Φ :

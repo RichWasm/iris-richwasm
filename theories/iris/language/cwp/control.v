@@ -1,4 +1,4 @@
-Require Import iris.proofmode.tactics.
+Require Import iris.proofmode.proofmode.
 
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
 From RichWasm.iris Require Import numerics.
@@ -90,7 +90,7 @@ Section control.
           apply List.Forall_forall.
           apply Forall_forall.
           intros e He.
-          rewrite elem_of_list_fmap in He.
+          rewrite list_elem_of_fmap in He.
           by destruct He as (v & -> & Hv).
         * by rewrite length_fmap.
         * iIntros "!> Hf Hrun".
@@ -405,7 +405,7 @@ Section control.
     rewrite Hlb.
     iFrame.
     unfold to_consts in Hlen.
-    rewrite map_length in Hlen.
+    rewrite length_map in Hlen.
     by iExists [].
   Qed.
 

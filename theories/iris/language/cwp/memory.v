@@ -1,4 +1,4 @@
-Require Import iris.proofmode.tactics.
+Require Import iris.proofmode.proofmode.
 
 From RichWasm.iris Require Import numerics.
 From RichWasm.iris.language Require Import iris_wp_def lwp_resources.

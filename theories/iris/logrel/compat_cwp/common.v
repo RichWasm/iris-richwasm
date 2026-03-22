@@ -1,7 +1,7 @@
 From Stdlib Require Import ZArith.
 From stdpp Require Import base list.
 
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From RichWasm.wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.

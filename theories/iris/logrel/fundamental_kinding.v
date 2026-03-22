@@ -1,7 +1,7 @@
 (* Fundamental theorem for the kind system:
      well-kinded syntactic types are semantically well-kinded *)
 
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module codegen.
 From RichWasm.iris Require Import autowp memory util wp_codegen lenient_wp logpred.

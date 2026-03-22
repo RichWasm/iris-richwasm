@@ -1,7 +1,7 @@
 Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
 
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From RichWasm.wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.
@@ -370,14 +370,14 @@ Section Fundamental.
         iApply (cwp_seq with "[Hf Hrun]").
         {
           rewrite <- (app_nil_l [_; _]).
-          iApply (cwp_br_if_nonzero with "[$] [$]"); try done.
+          iApply (cwp_br_if_nonzero with "[$] [$]").
+          1, 3, 4: done.
           { by instantiate (1 := []). }
           by instantiate (1 := λ f v, (⌜v = []⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
         }
         iIntros (?fr w) "[]".
     }
     admit.
-
   Admitted.
 
   Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :

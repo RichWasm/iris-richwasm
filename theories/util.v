@@ -188,7 +188,7 @@ Lemma nths_error_Forall2_exists {A B : Type} (Φ : A -> B -> Prop) (l1 l1' : lis
   ∃ l2', nths_error l2 ixs = Some l2' ∧ Forall2 Φ l1' l2'.
 Proof.
   intros Hf2 Hnerr.
-  apply (list_relations.Forall2_length) in Hf2 as Hlen.
+  apply Forall2_length in Hf2 as Hlen.
   edestruct (nths_error_exists l1 l1' l2) as [l2' Hsome]; try done.
   exists l2'.
   split; first done.

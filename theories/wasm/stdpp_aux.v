@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From stdpp Require Import list fin_maps gmap.
-Require Import list_extra properties.
+From RichWasm.wasm Require Import list_extra properties.
 
 Set Bullet Behavior "Strict Subproofs".
 (* Additional lemmas to reduce friction among stdpp/ssreflect/coq*)
@@ -30,7 +30,7 @@ Ltac resolve_finmap :=
          | H: _ ∈ fmap _ _ |- _ =>
            let Heq := fresh "Heq" in
            let Helem := fresh "Helem" in
-           apply elem_of_list_fmap in H; destruct H as [? [Heq Helem]]; subst; simpl in *
+           apply list_elem_of_fmap in H; destruct H as [? [Heq Helem]]; subst; simpl in *
          | H: ?x ∈ map_to_list _ |- _ =>
            destruct x; apply elem_of_map_to_list in H
          | H: _ ∈ imap _ _ |- _ =>
@@ -51,7 +51,7 @@ Ltac resolve_finmap :=
            apply elem_of_map_to_list
          | H: _ ∈ ?l |- _ =>
            let Helem := fresh "Helem" in
-           try is_var l; apply elem_of_list_lookup in H; destruct H as [? Helem]
+           try is_var l; apply list_elem_of_lookup in H; destruct H as [? Helem]
          | _ => simpl in *; try by eauto
          end.
 
@@ -280,7 +280,7 @@ Proof.
   destruct Hl as [k' [Hl1 Hl2]].
   rewrite <- elem_of_list_to_map; last first.
   { rewrite fst_zip => //; by lias. }
-  apply elem_of_list_lookup.
+  apply list_elem_of_lookup.
   exists k'.
   by apply zip_lookup_Some.
 Qed.
@@ -297,11 +297,14 @@ Proof.
   move => i.
   destruct (decide (i=k)); subst => //=.
   - rewrite lookup_insert.
+    rewrite decide_True; last done.
     symmetry.
     rewrite list_to_map_zip_lookup => //.
     + exists k'.
       split => //.
       rewrite list_lookup_insert => //.
+      rewrite decide_True; first done.
+      split; first done.
       by apply lookup_lt_Some in Hk; lias.
     + by rewrite length_insert.
   - rewrite lookup_insert_ne => //.
@@ -311,7 +314,7 @@ Proof.
       { by rewrite length_insert. }
       { apply elem_of_list_to_map in Hli; last first.
         { rewrite fst_zip => //; by lias. }
-        apply elem_of_list_lookup in Hli.
+        apply list_elem_of_lookup in Hli.
         destruct Hli as [j Hli].
         apply zip_lookup_Some_inv in Hli.
         exists j.
@@ -472,7 +475,8 @@ Proof.
   rewrite update_list_at_insert; last first.
   { rewrite update_list_at_insert => //; by rewrite length_insert. }
   repeat rewrite update_list_at_insert => //.
-  by rewrite list_insert_insert.
+  rewrite list_insert_insert.
+  by rewrite decide_True.
 Qed.
 
 

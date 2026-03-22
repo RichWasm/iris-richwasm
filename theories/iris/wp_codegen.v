@@ -1,4 +1,4 @@
-Require Import iris.proofmode.tactics.
+Require Import iris.proofmode.proofmode.
 
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
@@ -619,7 +619,7 @@ Section CodeGen.
       + iPureIntro.
         intros i Hi.
         destruct i.
-        setoid_rewrite elem_of_list_fmap_inj in Hi;
+        setoid_rewrite list_elem_of_fmap_inj in Hi;
           [| intros x y Hinj; by injection Hinj].
         by apply Hpre in Hi.
       + iPureIntro.

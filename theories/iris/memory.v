@@ -2,7 +2,7 @@ From stdpp Require Import gmap.
 
 From mathcomp Require Import eqtype.
 
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 
 From RichWasm Require Import syntax util iris.util.
 From RichWasm.iris.rules Require Import iris_rules proofmode.

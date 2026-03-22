@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import tactics.
+From iris.proofmode Require Import proofmode.
 From iris.base_logic Require Export gen_heap proph_map.
 Require Export iris iris_locations.
 From RichWasm.iris.helpers Require Export iris_properties.

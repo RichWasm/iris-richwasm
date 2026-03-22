@@ -1,7 +1,7 @@
 From RichWasm.iris.rules Require Import iris_rules_trap.
 From RichWasm.iris.language Require Import iris_wp_def logpred lenient_wp.
 Import iris.algebra.list.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 Set Bullet Behavior "Strict Subproofs".
 
 Section lwp_trap.
@@ -18,7 +18,7 @@ Section lwp_trap.
   Proof.
     iIntros (Hvs) "Htrap Hfr Hf Hbail".
     iApply (wp_wand with "[Htrap Hf Hbail]").
-    - iApply (wp_trap_frame with "[Htrap Hbail] [$]"); auto.
+    - iApply (wp_trap_frame with "[Htrap Hbail] [$]"); first done.
       instantiate (1:= lp_noframe Φ).
       iFrame.
     - iIntros (w) "(Hnof & Hf)".

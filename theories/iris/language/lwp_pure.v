@@ -1,7 +1,7 @@
 From RichWasm.iris.rules Require Import iris_rules_pure iris_rules_trap.
 From RichWasm.iris.language Require Import iris_wp_def logpred lenient_wp.
 Import iris.algebra.list.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 Set Bullet Behavior "Strict Subproofs".
 
 Section lwp_pure.
@@ -128,8 +128,8 @@ Section lwp_pure.
   Proof.
     iIntros (Happ) "(Hf & Hrun & Hval & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval]").
-    - iApply (wp_unop with "[$] [$]"); eauto.
-      instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
+    - iApply (wp_unop with "[$] [$]"); first done.
+      instantiate (1 := λ v, ↪[RUN] -∗ lp_noframe Φ f v).
       iFrame.
       by iIntros "!> ?".
     - iIntros (w) "[[Hnofr Hrun] Hf]".
@@ -149,7 +149,7 @@ Section lwp_pure.
   Proof.
     iIntros (Happ) "(Hf & Hrun & Hval & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval]").
-    - iApply (wp_testop_i32 with "[$] [$]"); eauto.
+    - iApply (wp_testop_i32 with "[$] [$]"); first done.
       instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
       iFrame.
       by iIntros "!> ?".
@@ -157,6 +157,7 @@ Section lwp_pure.
       iSpecialize ("Hnofr" with "Hrun").
       iFrame.
   Qed.
+
   Lemma lwp_testop_i64 s E Φ op v b f :
     app_testop_i (e:=i64t) op v = b →
     ↪[frame] f ∗
@@ -168,7 +169,7 @@ Section lwp_pure.
   Proof.
     iIntros (Happ) "(Hf & Hrun & Hval & Hfrinv)".
     iApply (wp_wand with "[Hf Hrun Hval]").
-    - iApply (wp_testop_i64 with "[$] [$]"); eauto.
+    - iApply (wp_testop_i64 with "[$] [$]"); first done.
       instantiate (1:= λ v, ↪[RUN] -∗ lp_noframe Φ f v).
       iFrame.
       by iIntros "!> ?".
@@ -176,8 +177,6 @@ Section lwp_pure.
       iSpecialize ("Hnofr" with "Hrun").
       iFrame.
   Qed.
-
-
 
   Lemma lwp_relop s E Φ op t v1 v2 b (f: datatypes.frame) :
     app_relop op v1 v2 = b →

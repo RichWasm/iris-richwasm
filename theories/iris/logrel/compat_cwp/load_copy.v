@@ -4,7 +4,7 @@ From mathcomp Require Import ssrbool eqtype.
 
 From stdpp Require Import base list.
 
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From RichWasm.wasm Require Import operations.
 
 From RichWasm Require Import layout syntax typing.
@@ -176,7 +176,8 @@ Section Fundamental.
     rewrite app_assoc.
     iApply (cwp_seq with "[Hf Hrun Hmem]").
     {
-      iApply (Hload_w with "[$] [$] [$]"); eauto.
+      iApply (Hload_w with "[$] [$] [$]").
+      1, 2, 3, 4: done.
       iIntros "!> Hmem".
       instantiate (1:= λ f' v', (⌜f' = f⌝ ∗ ⌜v' = [v]⌝ ∗ _)%I).
       cbn.
@@ -319,7 +320,8 @@ Section Fundamental.
     iApply (Hspec with "[$] [$] [] [$Hat]").
     {
       iPureIntro; cbn.
-      by rewrite list_lookup_insert.
+      rewrite list_lookup_insert.
+      by rewrite decide_True.
     }
     iIntros "!> Hf Hrun Hat".
     iEval (cbn) in "Href".

@@ -1,6 +1,6 @@
 From mathcomp Require Import ssreflect eqtype seq ssrbool.
 From iris.program_logic Require Import language.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 From iris.base_logic Require Export gen_heap ghost_map proph_map.
 From iris.base_logic.lib Require Export fancy_updates.
 From iris.bi Require Export weakestpre.
@@ -92,7 +92,7 @@ Context `{!wasmG Σ}.
       eapply reduce_det in H as HH;[|apply Hred].
       destruct HH as [HH | [(? & ? & Hstart) |  (?&?&?&Hstart & Hstart1 & Hstart2 & Hσ)]]; try done.
       simplify_eq. iApply bi.sep_exist_l. iExists f. iFrame.
-      iSplit => //. iIntros "Hf".
+      iIntros "Hf".
       iSpecialize ("HΦ" with "[$]"). iFrame.
       rewrite Hf in Hstart. done.
   Qed.
@@ -164,7 +164,6 @@ Proof.
     iApply bi.sep_exist_l. iExists _.
     iDestruct ("Hwp" with "Ha") as "Hwp".
     iFrame.
-    iSplitL; last done.
     iIntros "Hf".
     iSpecialize ("Hwp" with "[$] [$]").
     iFrame.
@@ -216,7 +215,7 @@ Qed.
       eapply reduce_det in H as HH;[|eapply r_label;[|eauto..];apply r_call; rewrite /= nth_error_lookup //]. 
       destruct HH as [HH | [(?&?& Hstart) | (?&?&? & Hstart & Hstart1 & Hstart2 & Hσ)  ]]; try done; try congruence.
       simplify_eq. iApply bi.sep_exist_l. iExists _. iFrame.
-      iSplit => //. iIntros "?". iApply ("HΦ" with "[$] [$]"). auto.
+      iIntros "?". iApply ("HΦ" with "[$] [$]"). auto.
   Qed.
   Lemma wp_call (s : stuckness) (E : coPset) (Φ : val -> iProp Σ) f0 (i : nat) a :
     (inst_funcs (f_inst f0)) !! i = Some a -> 
@@ -270,7 +269,7 @@ Qed.
     { eapply r_call_indirect_success;eauto.
       { unfold stab_addr. destruct i0. simpl in *. destruct inst_tab;[done|]. inversion Hc.
         unfold stab_index. rewrite nth_error_lookup.
-        apply list_lookup_fmap_inv in Heq as [ti [Hti Heq]].
+        apply list_lookup_fmap_Some_1 in Heq as [ti [Hti Heq]].
         rewrite Heq /=. rewrite nth_error_lookup. subst.
         by rewrite Hlook /=. }
       { rewrite nth_error_lookup. eauto. }
@@ -296,7 +295,7 @@ Qed.
       { eapply starts_with_lfilled;eauto. by cbn. }
       destruct HH as [HH | [(?&?& Hstart) | (?&?&? & Hstart & Hstart1 & Hstart2 & Hσ)  ]]; try done; try congruence.
       simplify_eq. iApply bi.sep_exist_l. iExists _. iFrame.
-      iSplit => //. iIntros "Hf".
+      iIntros "Hf".
       iSpecialize ("Hcont" with "[$] [$]").
       iSpecialize ("Hcont" $! _ Hfill'). iFrame.      
   Qed.
@@ -353,7 +352,7 @@ Qed.
     { eapply r_call_indirect_failure1.
       { unfold stab_addr. instantiate (1:=a). destruct i0. simpl in *. destruct inst_tab;[done|]. inversion Hc.
         unfold stab_index. rewrite nth_error_lookup.
-        apply list_lookup_fmap_inv in Heq as [ti [Hti Heq]].
+        apply list_lookup_fmap_Some_1 in Heq as [ti [Hti Heq]].
         rewrite Heq /=. rewrite nth_error_lookup. subst.
         by rewrite Hlook /=. }
       { rewrite nth_error_lookup. eauto. }
@@ -415,7 +414,7 @@ Qed.
       destruct HStep as (H & -> & ->).
       eapply reduce_det in H as HH;[|apply Hred].
       destruct HH as [HH | [(?&?& Hstart) | (?&?&? & Hstart & Hstart1 & Hstart2 & Hσ) ]]; try done; try congruence.
-      simplify_eq. iFrame. done.
+      simplify_eq. iFrame.
   Qed.
 
   Lemma wp_call_indirect_failure_noindex (s : stuckness) (E : coPset) (Φ : val -> iProp Σ) (f0 : frame) (i j : immediate) c :
@@ -444,7 +443,7 @@ Qed.
     { eapply r_call_indirect_failure2.
       { unfold stab_addr. destruct i0. simpl in *. destruct inst_tab;[done|]. inversion Hc.
         unfold stab_index. rewrite nth_error_lookup.
-        apply list_lookup_fmap_inv in Heq as [ti [Hti Heq]].
+        apply list_lookup_fmap_Some_1 in Heq as [ti [Hti Heq]].
         rewrite Heq /=. rewrite nth_error_lookup. subst.
         by rewrite Hlook /=. } }
     iSplit.
@@ -461,7 +460,7 @@ Qed.
       destruct HStep as (H & -> & ->).
       eapply reduce_det in H as HH;[|apply Hred].
       destruct HH as [HH | [(?&?& Hstart) | (?&?&? & Hstart & Hstart1 & Hstart2 & Hσ) ]]; try done; try congruence.
-      simplify_eq. iFrame. done.
+      simplify_eq. iFrame.
   Qed.
 
   Lemma wp_call_indirect_failure_outofbounds (s : stuckness) (E : coPset) (Φ : val -> iProp Σ) (f0 : frame) (i j : immediate) c max :
@@ -511,7 +510,7 @@ Qed.
       destruct HStep as (H & -> & ->).
       eapply reduce_det in H as HH;[|apply Hred].
       destruct HH as [HH | [(?&?& Hstart) | (?&?&? & Hstart & Hstart1 & Hstart2 & Hσ) ]]; try done; try congruence.
-      simplify_eq. iFrame. done.
+      simplify_eq. iFrame.
   Qed.
 
 End iris_rules_calls.

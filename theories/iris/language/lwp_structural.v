@@ -1,7 +1,7 @@
 From RichWasm.iris.rules Require Import iris_rules_structural iris_rules_trap.
 From RichWasm.iris.language Require Import iris_wp_def logpred lenient_wp.
 Import iris.algebra.list.
-From iris.proofmode Require Import base tactics classes.
+From iris.proofmode Require Import base proofmode classes.
 Set Bullet Behavior "Strict Subproofs".
 
 Section lwp_structural.
@@ -161,11 +161,10 @@ Section lwp_structural.
     iIntros (Hc) "(Hf & Hrun & Hval & Hfrinv)".
     unfold lenient_wp.
     iApply (wp_wand with "[Hrun Hval Hf]").
-    - iApply (wp_br_if_false with "[$] [$] [Hval]"); try done.
+    - iApply (wp_br_if_false with "[$] [$] [Hval]"); first done.
+      instantiate (1 := λ v, ↪[RUN] -∗ lp_noframe Φ f v).
       iFrame.
-      instantiate (1:= (λ v, ↪[RUN] -∗ lp_noframe Φ f v)).
-      cbn.
-      iIntros "!> ?"; iFrame.
+      by iIntros "!> ?".
     - iIntros (v0) "[(Hnoframe & Hrun) Hf]".
       iSpecialize ("Hnoframe" with "Hrun").
       iFrame.
