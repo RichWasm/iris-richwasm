@@ -10,7 +10,7 @@ Install the dependencies using opam:
 opam switch create iris-richwasm 4.14.2
 opam switch link iris-richwasm .
 opam repo add coq-released https://coq.inria.fr/opam/released
-opam install --deps-only vendor/iriswasm .
+opam install --deps-only .
 ```
 
 Then you can build the project with Dune:
@@ -23,4 +23,3 @@ dune build
 
 The cli and certain tests require `wabt` (WebAssembly Binary Toolkit) to
 convert between the produced binary and WebAssembly text format.
-
