@@ -1091,55 +1091,57 @@ Section Fundamental_Shared.
     iApply (Hwp with "[$] [$]"); eauto.
   Qed.
 
-  Lemma cwp_case_ptr {A B} s E L R idx (c1 : codegen B) (c2: base_memory -> codegen A)
-    wt wt' wl wl' ts1 ts2 evs vs es x y z v (f: frame) Φ :
+  Lemma cwp_case_ptr {A B} (c1 : codegen B) (c2: base_memory -> codegen A) idx
+    wt wt' wl wl' ts1 ts2 es x y z :
     run_codegen (memory.case_ptr idx (Tf ts1 ts2) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
-    has_values evs vs ->
-    length ts1 = length vs ->
     exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
       run_codegen (c2 MemMM) (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
       run_codegen (c2 MemGC) (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2) = inr (z, wt3, wl3, es3) /\
       wt' = wt1 ++ wt2 ++ wt3 /\
       wl' = wl1 ++ wl2 ++ wl3 /\
-      ⊢ ∀ ptr,
-        ↪[frame] f -∗
-        ↪[RUN] -∗
-        ⌜f.(f_locs) !! localimm idx = Some v⌝ -∗
-        atom_interp (PtrA ptr) v -∗
-        ▷ (↪[frame]f -∗
-            ↪[RUN] -∗
-            atom_interp (PtrA ptr) v -∗
-            match ptr with
-            | PtrInt z => CWP evs ++ es1 @ s; E UNDER []; R {{ Φ }}
-            | PtrHeap MemMM l => CWP evs ++ es2 @ s; E UNDER []; R {{ Φ }}
-            | PtrHeap MemGC l => CWP evs ++ es3 @ s; E UNDER []; R {{ Φ }}
-            end) -∗
-        CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
+      forall evs vs,
+        has_values evs vs ->
+        length ts1 = length vs ->
+        ⊢ ∀ (s: stuckness) E L R (ptr: pointer) Φ (v: value) (f: frame),
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          ⌜f.(f_locs) !! localimm idx = Some v⌝ -∗
+          atom_interp (PtrA ptr) v -∗
+          ▷ (↪[frame]f -∗
+              ↪[RUN] -∗
+              atom_interp (PtrA ptr) v -∗
+              match ptr with
+              | PtrInt z => CWP evs ++ es1 @ s; E UNDER []; R {{ Φ }}
+              | PtrHeap MemMM l => CWP evs ++ es2 @ s; E UNDER []; R {{ Φ }}
+              | PtrHeap MemGC l => CWP evs ++ es3 @ s; E UNDER []; R {{ Φ }}
+              end) -∗
+          CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros Hcg Hevs Hlen.
-    assert (is_consts evs)
-      by (eauto using has_values_is_consts).
-    assert (length evs = length ts1)
-      by (erewrite has_values_length; eauto).
+    intros Hcg.
     unfold memory.case_ptr in Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es_isptr ?es_if_isptr Hcg_isptr Hcg_if_isptr.
     inv_cg_emit_all Hcg_isptr.
     subst.
     rewrite -> !app_nil_l, !app_nil_r in *.
-    eapply (cwp_if_c s E) in Hcg_if_isptr; eauto.
+    eapply cwp_if_c in Hcg_if_isptr; eauto.
     destruct Hcg_if_isptr as (?wt & ?wt & ?wl & ?wl & es_int & es_case_m & Hcg_int & Hcg_case_m & -> & -> & Hwp_if_isptr).
     inv_cg_bind Hcg_case_m [] ?wt ?wt ?wl ?wl ?es_mm_or_gc es_if_m Hcg_mm_or_gc Hcg_if_m.
     inv_cg_emit_all Hcg_mm_or_gc.
     subst.
-    eapply (cwp_if_c s E) in Hcg_if_m; eauto.
+    eapply cwp_if_c in Hcg_if_m; eauto.
     destruct Hcg_if_m as (?wt & ?wt & ?wl & ?wl & es_mm & es_gc & Hcg_mm & Hcg_gc & -> & -> & Hwp_if_m).
     rewrite <- !app_assoc, !app_nil_r, !app_nil_l in *.
     exists wt0, wt1, wt2, wl0, wl1, wl2.
     exists es_int, es_mm, es_gc.
     do 5 (split; first done).
+    intros evs vs Hval Hlen.
+    assert (is_consts evs)
+      by (eauto using has_values_is_consts).
+    assert (length evs = length ts1)
+      by (erewrite has_values_length; eauto).
     clear Hcg_int Hcg_mm Hcg_gc Hretval Hretval0.
-    iIntros (ptr) "Hframe Hrun %Hlookup_f Hrep Hptr".
+    iIntros (s E L R ptr Φ v f) "Hframe Hrun %Hlookup_f Hrep Hptr".
     destruct ptr.
     - iEval (cbn) in "Hrep".
       iDestruct "Hrep" as "(%vn & -> & %rp & %Hrp & Hrep)".
@@ -1172,7 +1174,7 @@ Section Fundamental_Shared.
         iIntros (vs' f') "[-> ->] Hf Hrun".
         unfold to_consts; rewrite map_app -app_assoc.
         erewrite <- has_values_to_consts_inv by eauto.
-        iApply (Hwp_if_isptr with "[$] [$]").
+        iApply (Hwp_if_isptr with "[$] [$]"); auto.
         iLeft.
         iSplit; [iPureIntro; done|].
         iIntros "!> Hf Hrun".
@@ -1218,7 +1220,7 @@ Section Fundamental_Shared.
       iIntros (w f' [-> ->]) "Hf Hrun".
       unfold to_consts; rewrite map_app -app_assoc.
       erewrite <- has_values_to_consts_inv by eauto.
-      iApply (Hwp_if_isptr with "[$] [$]").
+      iApply (Hwp_if_isptr with "[$] [$]"); auto.
       iRight.
       iSplit; first done.
       iIntros "!> Hframe Hrun".
@@ -1256,7 +1258,7 @@ Section Fundamental_Shared.
         iIntros (w f' [-> ->]) "Hf Hrun".
         unfold to_consts; rewrite map_app -app_assoc.
         erewrite <- has_values_to_consts_inv by eauto.
-        iApply (Hwp_if_m with "[$] [$]").
+        iApply (Hwp_if_m with "[$] [$]"); auto.
         iLeft.
         iSplit; eauto.
         iIntros  "!> Hf Hrun".
@@ -1296,7 +1298,7 @@ Section Fundamental_Shared.
         iIntros (w f' [-> ->]) "Hf Hrun".
         unfold to_consts; rewrite map_app -app_assoc.
         erewrite <- has_values_to_consts_inv by eauto.
-        iApply (Hwp_if_m with "[$] [$]").
+        iApply (Hwp_if_m with "[$] [$]"); auto.
         iRight.
         iSplit; eauto.
         iIntros  "!> Hf Hrun".

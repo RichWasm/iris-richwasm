@@ -82,36 +82,39 @@ Section Fundamental.
     1, 2, 3: done.
     iDestruct (big_sepL2_length with "Hvs1") as "%Hlen_vs1".
     eapply cwp_if_c in Hcg3 as (wt5 & wt6 & wl5 & wl6 & es5 & es6 & Hes1 & Hes2 & -> & -> & Hite).
-    - do 2 rewrite <- app_assoc.
-      destruct (value_eq_dec (VAL_int32 n) (VAL_int32 (Wasm_int.int_zero i32m))) as [Hvn|Hvn].
-      + iApply (Hite with "[$] [$]").
-        clear Hite.
-        inversion Hvn as [Hn]. subst n. clear Hvn Hes1 IH1.
-        iRight. iSplitR; first done.
-        iIntros "!> Hfr Hrun".
-        rewrite (app_assoc wt wt5).
-        rewrite (app_assoc wl wl5).
-        iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
-        1, 2: done.
-        { iPureIntro. apply has_values_to_consts. }
-        iApply labels_interp_cons.
-        4: by iIntros (fr' vs') "!> H".
-        all: done.
-      + iApply (Hite with "[$] [$]").
-        clear Hite.
-        assert (n <> Wasm_int.int_zero i32m).
-        { intros Hcontra. apply Hvn. by rewrite Hcontra. }
-        clear Hvn Hes2 IH2.
-        iLeft. iSplitR; first done.
-        iIntros "!> Hfr Hrun".
-        iApply (IH1 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
-        1, 2: done.
-        { iPureIntro. apply has_values_to_consts. }
-        iApply labels_interp_cons.
-        4: by iIntros (fr' vs') "!> H".
-        all: done.
-    - apply is_consts_to_consts.
-    - rewrite length_map. by rewrite <- Hlen_res.
+    do 2 rewrite <- app_assoc.
+    assert (Hconsts: is_consts (map BI_const vs1))
+      by apply is_consts_to_consts.
+    assert (Hlens: length (map BI_const vs1) = length res1)
+      by (rewrite length_map -Hlen_res; auto).
+    specialize (Hite _ Hconsts Hlens).
+    destruct (value_eq_dec (VAL_int32 n) (VAL_int32 (Wasm_int.int_zero i32m))) as [Hvn|Hvn].
+    + iApply (Hite with "[$] [$]").
+      clear Hite.
+      inversion Hvn as [Hn]. subst n. clear Hvn Hes1 IH1.
+      iRight. iSplitR; first done.
+      iIntros "!> Hfr Hrun".
+      rewrite (app_assoc wt wt5).
+      rewrite (app_assoc wl wl5).
+      iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+      1, 2: done.
+      { iPureIntro. apply has_values_to_consts. }
+      iApply labels_interp_cons.
+      4: by iIntros (fr' vs') "!> H".
+      all: done.
+    + iApply (Hite with "[$] [$]").
+      clear Hite.
+      assert (n <> Wasm_int.int_zero i32m).
+      { intros Hcontra. apply Hvn. by rewrite Hcontra. }
+      clear Hvn Hes2 IH2.
+      iLeft. iSplitR; first done.
+      iIntros "!> Hfr Hrun".
+      iApply (IH1 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+      1, 2: done.
+      { iPureIntro. apply has_values_to_consts. }
+      iApply labels_interp_cons.
+      4: by iIntros (fr' vs') "!> H".
+      all: done.
   Qed.
 
 End Fundamental.

@@ -96,27 +96,28 @@ Section CodeGen.
     iApply (Hwp with "[$] [$] [$]").
   Qed.
 
-  Lemma cwp_if_c {T U} s E (c1 : codegen T) (c2 : codegen U) wt wt' wl wl' ts1 ts2 evs es x y B R :
-    is_consts evs ->
-    length evs = length ts1 ->
+  Lemma cwp_if_c {T U} (c1 : codegen T) (c2 : codegen U) wt wt' wl wl' ts1 ts2 es x y :
     run_codegen (if_c (Tf ts1 ts2) c1 c2) wt wl = inr (x, y, wt', wl', es) ->
     exists wt1 wt2 wl1 wl2 es1 es2,
       run_codegen c1 wt wl = inr (x, wt1, wl1, es1) /\
       run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
       wt' = wt1 ++ wt2 /\
       wl' = wl1 ++ wl2 /\
-      ∀ Φ f i,
-        ↪[frame] f -∗
-        ↪[RUN] -∗
-        ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
-          ▷ (↪[frame] f -∗ ↪[RUN] -∗
-             CWP evs ++ es1 @ s; E UNDER (length ts2, Φ) :: B; R {{ Φ }})) ∨
-         (⌜i = Wasm_int.int_zero i32m⌝ ∧
-          ▷ (↪[frame] f -∗ ↪[RUN] -∗
-             CWP evs ++ es2 @ s; E UNDER (length ts2, Φ) :: B; R {{ Φ }}))) -∗
-        CWP evs ++ BI_const (VAL_int32 i) :: es @ s; E UNDER B; R {{ Φ }}.
+      forall evs,
+        is_consts evs ->
+        length evs = length ts1 ->
+        ∀ s E B R Φ f i,
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
+            ▷ (↪[frame] f -∗ ↪[RUN] -∗
+              CWP evs ++ es1 @ s; E UNDER (length ts2, Φ) :: B; R {{ Φ }})) ∨
+          (⌜i = Wasm_int.int_zero i32m⌝ ∧
+            ▷ (↪[frame] f -∗ ↪[RUN] -∗
+              CWP evs ++ es2 @ s; E UNDER (length ts2, Φ) :: B; R {{ Φ }}))) -∗
+          CWP evs ++ BI_const (VAL_int32 i) :: es @ s; E UNDER B; R {{ Φ }}.
   Proof.
-    intros Hevs Hlen Hcg.
+    intros Hcg.
     inv_cg_bind Hcg [x1 x2] wt1 wt2 wl1 wl2 es1 es2 Hcg1 Hcg2.
     inv_cg_bind Hcg2 [x3 x4] wt3 wt4 wl3 wl4 es3 es4 Hcg2 Hcg3.
     inv_cg_bind Hcg3 [] wt5 wt6 wl5 wl6 es5 es6 Hcg3 Hcg4.
@@ -131,7 +132,7 @@ Section CodeGen.
     rewrite !app_nil_l.
     exists wt1, wt3, wl1, wl3, x2, x4.
     do 4 (split; first done).
-    iIntros (Φ f i) "Hfr Hrun [[%Hi Hwp]|[%Hi Hwp]]".
+    iIntros (evs Hevs Hlen s E B R Φ f i) "Hfr Hrun [[%Hi Hwp]|[%Hi Hwp]]".
     - iApply (cwp_if_nonzero with "[$] [$]").
       1, 2, 3: done.
       iIntros "!> Hfr Hrun".

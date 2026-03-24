@@ -128,6 +128,61 @@ Section Fundamental.
     iApply (cwp_load with "[$] [$] [$] [$]"); eauto.
   Qed.
 
+  Lemma wp_ite_gc_ptr_ptr i ts1 ts2 do_gc do_nongc ret wt wl wt' wl' es evs vs s E R L Φ f v:
+    run_codegen (ite_gc_ptr PtrR i (W.Tf ts1 ts2) do_gc do_nongc) wt wl = inr (ret, wt', wl', es) ->
+    has_values evs vs ->
+    length ts1 = length vs ->
+    ∃ wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
+      run_codegen do_nongc wt wl = inr ((), wt1, wl1, es1) ∧
+      run_codegen do_nongc (wt ++ wt1) (wl ++ wl1) = inr ((), wt2, wl2, es2) /\
+        run_codegen do_gc (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2) = inr ((), wt3, wl3, es3) /\
+      wt' = wt1 ++ wt2 ++ wt3 /\
+        wl' = wl1 ++ wl2 ++ wl3 ∧
+        ⊢ ∀ ptr,
+            ↪[frame]f -∗
+             ↪[RUN] -∗
+            ⌜f_locs f !! localimm i = Some v⌝ -∗
+            relations.atom_interp (PtrA ptr) v -∗
+            ▷ ( ↪[frame]f -∗
+                ↪[RUN] -∗
+               relations.atom_interp (PtrA ptr) v -∗
+               match ptr with
+               | PtrInt _ => CWP evs ++ es1 @ s; E UNDER []; R {{ f; vs, Φ f vs }}
+               | PtrHeap MemMM _ => CWP evs ++ es2 @ s; E UNDER []; R {{ f; vs, Φ f vs }}
+               | PtrHeap MemGC _ => CWP evs ++ es3 @ s; E UNDER []; R {{ f; vs, Φ f vs }}
+               end) -∗
+            CWP evs ++ es @ s; E UNDER L; R {{ f; vs, Φ f vs }}.
+  Proof.
+    unfold ite_gc_ptr.
+    intros Hcg Hevs Hlen.
+    apply wp_ignore in Hcg.
+    destruct Hcg as ([] & [ [] [[] []]] & Hcg).
+    eapply cwp_case_ptr in Hcg; eauto.
+    destruct Hcg as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcg).
+    destruct ret.
+    exists wt0, wt1, wt2, wl0, wl1, wl2, es0, es1, es2.
+    destruct Hcg as (Hnon1 & Hnon2 & Hgc & Hwt' & Hwl' & Hspec).
+    split; first auto.
+    split; first auto.
+    split; first auto.
+    split; first auto.
+    split; first auto.
+    iIntros (ptr) "Hf Hrun %Hi Hat Hbr".
+    iApply (Hspec with "[$] [$] [//] [$]");
+      try eapply Hlen;
+      first by rewrite -> Hevs.
+    destruct ptr as [| [|] ]; iApply "Hbr".
+  Qed.
+
+  Lemma wp_ite_gc_ptr_nonptr ι i ts1 ts2 do_gc do_nongc ret wt wl wt' wl' es :
+    ι <> PtrR ->
+    run_codegen (ite_gc_ptr ι i (W.Tf ts1 ts2) do_gc do_nongc) wt wl = inr (ret, wt', wl', es) ->
+    run_codegen (do_nongc) wt wl = inr (ret, wt', wl', es).
+  Proof.
+    intros Hι Hcg.
+    destruct ι; solve [exfalso; by apply Hι | by apply Hcg].
+  Qed.
+
   Lemma wp_mem_load1_copy_mm
     se fe lidx off ι wt wl ret wt' wl' es fs ws ℓ ℓ32 τ π B R
     (f: frame) memidx memidxN v Φ :
@@ -198,8 +253,11 @@ Section Fundamental.
       - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
-    unfold ite_gc_ptr in Hcompile.
-    admit.
+    destruct (atomic_rep_eq_dec ι PtrR).
+    - subst ι.
+      eapply wp_ite_gc_ptr_ptr with (evs:= to_consts [v]) (vs:=[v]) in Hcompile; auto; last admit.
+      admit.
+    - admit.
   Abort.
 
   Lemma mem_load_copy_mm_spec se fe lidx off ιs wt wl ret wt' wl' es fs ws ℓ τ π ev B R :
@@ -309,10 +367,10 @@ Section Fundamental.
     }
     iIntros (f vs) "[-> ->] Hf Hrun".
     eapply cwp_case_ptr in Hcompile.
-    2: do 2 instantiate (1 := []).
-    2, 3: done.
     destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
     destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
+    specialize (Hspec [] [] ltac:(done) ltac:(done)).
+    clear_nils.
     rewrite atoms_interp_one_inv.
     iDestruct "Hats" as "(%v' & %Hv' & Hat)".
     inversion Hv'; subst v'; clear Hv'.
