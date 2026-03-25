@@ -200,7 +200,7 @@ Proof.
     simplify_eq.
 
     (* Iris Proof *)
-    iIntros (? ? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst Hctx Hreturn Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hrvs Hvs Hframe Hrt Hfr Hrun".
     iDestruct (Hes1 _ _ (wt_case_2 ++ wtf) _ _ (wl_case_2 ++ wlf) _ Hcase_es1) as "Hsem_es1".
     iDestruct (Hes2 _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".
 
@@ -383,20 +383,24 @@ Proof.
         iIntros (?fr w) "(-> & ->) Hf Hrun".
 
         (* Reason about case 1 code *)
-        iApply ("Hsem_es1" with "[//] [] [$] [Hctx] [] [] [] [] [$] [$] [$]").
+        iApply ("Hsem_es1" with "[//] [] [$] [] [] [Hatoms_interp_payload] [Hvalue_interp_os_i] [Hframe] [$] [$] [$]").
         + instantiate (1 := case_1_vs_payload); iPureIntro; simpl; rewrite has_values_iff_to_consts; done.
-        + admit.
-          (* subst F'. *)
-          (* replace (fc_labels (F <| fc_labels ::= cons ([τ_res], L') |>)) with *)
-          (*         (([τ_res], L') :: fc_labels F); last done. *)
-          (*         erewrite <- length_nil. *)
-          (* iApply labels_interp_cons; try done. *)
-          (* * admit. *)
-          (* * iIntros "!>" (fr' vs') "(Hframe & %os & %Θ & Hvalues & Hatoms & Hrt)". *)
-          (*   by instantiate (1 := λ f v, True%I). *)
-        + admit.
-        + admit.
-        + admit.
+        + subst F'.
+          replace (fc_labels (F <| fc_labels ::= cons ([τ_res], L') |>)) with
+                  (([τ_res], L') :: fc_labels F); last done.
+          iApply labels_interp_cons; try done.
+          * subst fe. rewrite -Heq_some. simpl.
+            unfold prelude.translate_types.
+            simpl.
+            destruct (prelude.translate_type (fc_type_vars F) τ_res); simpl; try done.
+            by rewrite app_nil_r.
+          * iIntros "!>" (fr' vs') "(Hframe & %os & %Θ & Hvalues & Hatoms & Hrt)".
+            iFrame.
+            (* by instantiate (1 := λ f v, True%I). *)
+        + done.
+        + instantiate (1 := os_i). admit. (* TODO: should be provable, but might be a little annoying *)
+        + iApply values_interp_one_eq.
+          by inversion Htype_lookup; subst.
         + admit.
 
 
