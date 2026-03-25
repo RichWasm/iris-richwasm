@@ -3,9 +3,11 @@ Require Import iris.proofmode.proofmode.
 
 From RichWasm.iris.helpers Require Import iris_properties.
 
+From RichWasm.named_props Require Import named_props.
+
 From RichWasm.compiler Require Import prelude codegen.
 From RichWasm.iris Require Import memory runtime util.
-From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
+From RichWasm.iris.language Require Import cwp iris_wp_def logpred.
 From RichWasm Require Import syntax typing layout util.
 
 Require Import Corelib.Init.Datatypes.
@@ -171,10 +173,6 @@ Section Relations.
   Definition atoms_interp (os : list atom) : leibnizO (list value) -n> iPropO Σ :=
     λne vs, big_sepL2 (const atom_interp) os vs.
 
-  Lemma atoms_interp_cons o os v vs:
-    atoms_interp (o :: os) (v :: vs) ⊣⊢ atom_interp o v ∗ atoms_interp os vs.
-  Proof. done. Qed.
-
   Definition atom_fits_prim (η : primitive) (a : atom) : Prop :=
     match η, a with
     | I32P, PtrA _
@@ -294,24 +292,19 @@ Section Relations.
     λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
-          □ ∀ vs1 os1 fr θ,
+          □ ∀ vs1 os1 fr a i B R θ,
+            ⌜fr.(f_inst).(inst_funcs) !! i = Some a⌝ -∗
             ⌜translate_types se τs1 = Some tfs1⌝ -∗
             ⌜translate_types se τs2 = Some tfs2⌝ -∗
             atoms_interp os1 vs1 -∗
             values_interp0 vrel se τs1 os1 -∗
             rt_token rti sr θ -∗
             ↪[frame] fr -∗
-            lenient_wp NotStuck top
-              [AI_local (length tfs2) (Build_frame (vs1 ++ n_zeros tlocs) inst) (to_e_list es)]
-              {| lp_fr_inv := fun fr' => ⌜fr = fr'⌝;
-                 lp_val :=
-                   fun fr vs2 =>
-                     ∃ os2 θ',
-                       atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2 ∗ rt_token rti sr θ';
-                 lp_trap := True;
-                 lp_br := fun _ _ _ => False;
-                 lp_ret := fun _ => False;
-                 lp_host := fun _ _ _ _ => False |}
+            ↪[RUN] -∗
+            N.of_nat a ↦[wf] FC_func_native inst (Tf tfs1 tfs2) tlocs es -∗
+            CWP map BI_const vs1 ++ [BI_call i] UNDER B; R
+                {{ _; vs2, ∃ os2 θ',
+                   atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2 ∗ rt_token rti sr θ' }}
         | FC_func_host _ _ => False
         end%I.
 
@@ -515,98 +508,6 @@ Section Relations.
     | SH_rec _ _ _ lh' _ => simple_get_base_l lh'
     end.
 
-  Definition return_interp (se : semantic_env) (τr : list type) :
-    leibnizO simple_valid_holed -n> iPropO Σ :=
-    λne svh,
-      (∃ vs0 vs os,
-         ⌜simple_get_base_l svh = vs0 ++ vs⌝ ∗
-           atoms_interp os vs ∗
-           values_interp se τr os ∗
-           ∀ fr fr',
-             ↪[frame] fr -∗
-             ↪[RUN] -∗
-             WP [AI_local (length vs) fr' (of_val (retV svh))]
-                {{ lv,
-                     ∃ os' vs',
-                       ⌜lv = immV vs'⌝ ∗
-                       atoms_interp os' vs' ∗
-                       values_interp se τr os' ∗
-                       ↪[frame] fr }})%I.
-
-  Program Definition br_interp0
-    (se : semantic_env) (τr : list type) (L : local_ctx) (WL : wlocal_ctx)
-    (inst : instance) (br_interp : BR) :
-    BR :=
-    λne lh τc, λ j, λne (vh : leibnizO (valid_holed j)),
-      (∃ k p lh' lh'' τs es0 es es' vs0 vs os,
-         ⌜get_base_l vh = vs0 ++ vs⌝ ∗
-           ⌜lh_depth (lh_of_vh vh) = p⌝ ∗
-           ⌜τc !! (j - p) = Some (τs, L)⌝ ∗
-           ⌜get_layer lh (lh_depth lh - S (j - p)) = Some (es0, k, es, lh', es')⌝ ∗
-           ⌜lh_depth lh'' = lh_depth lh - S (j - p)⌝ ∗
-           ⌜is_Some (lh_minus lh lh'')⌝ ∗
-           atoms_interp os vs ∗
-           values_interp se τs os ∗
-           ∀ fr θ,
-             frame_interp se L WL inst fr -∗
-             rt_token rti sr θ -∗
-             ↪[frame] fr -∗
-             lenient_wp_ctx
-               NotStuck top
-               (of_val (immV vs) ++ [AI_basic (BI_br (j - p))])
-               {| lp_fr_inv := const True;
-                  lp_val fr vs' :=
-                   frame_interp se L WL inst fr ∗
-                     ∃ τs' os' θ',
-                       atoms_interp os' vs' ∗ values_interp se τs' os' ∗ rt_token rti sr θ';
-                  lp_trap := True;
-                  lp_br _ := br_interp lh'' (drop (S (j - p)) τc);
-                  lp_ret := return_interp se τr;
-                  lp_host _ _ _ _ := False |}
-               (S (lh_depth lh')) (LH_rec es0 k es lh' es'))%I.
-
-  (* TODO *)
-  Instance Contractive_br_interp0 se τr L WL inst : Contractive (br_interp0 se τr L WL inst).
-  Admitted.
-
-  Definition br_interp
-    (se : semantic_env) (τr : list type) (L : local_ctx) (WL : wlocal_ctx) (inst : instance) :
-    BR :=
-    fixpoint (br_interp0 se τr L WL inst).
-
-  Lemma br_interp_eq se τr L WL inst n lh l vh :
-    br_interp se τr L WL inst lh l n vh ⊣⊢
-      br_interp0 se τr L WL inst (br_interp se τr L WL inst) lh l n vh.
-  Proof.
-    f_equiv.
-    (* f_equiv has some trouble with discrete_funO equivalences *)
-    cut (br_interp se τr L WL inst lh l
-           ≡ br_interp0 se τr L WL inst (br_interp se τr L WL inst) lh l).
-    { intros H.
-      unfold equiv, ofe_equiv, discrete_funO, discrete_fun_equiv in H.
-      apply H.
-    }
-    f_equiv.
-    f_equiv.
-    by rewrite -fixpoint_unfold.
-  Qed.
-
-  Definition expr_interp
-    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
-    (L : local_ctx) (WL : wlocal_ctx)
-    (τs : list type) (inst : instance) (lh : lholed) :
-    leibnizO (list administrative_instruction) -n> iPropO Σ :=
-    λne es,
-      lenient_wp NotStuck top es
-        {| lp_fr_inv := const True;
-           lp_val fr vs :=
-            frame_interp se L WL inst fr ∗ 
-              ∃ os θ, values_interp se τs os ∗ atoms_interp os vs ∗ rt_token rti sr θ;
-           lp_trap := True;
-           lp_br _ := br_interp se τr L WL inst lh τc;
-           lp_ret := return_interp se τr;
-           lp_host _ _ _ _ := False |}%I.
-
   Definition instance_rt_func_interp
     (i : funcidx) (a : funcaddr) (spec : function_closure -> Prop) (inst : instance) : iProp Σ :=
     ∃ cl,
@@ -663,56 +564,47 @@ Section Relations.
     typeclasses eauto.
   Defined.
 
-  Fixpoint lholed_valid (lh : lholed) : Prop :=
-    match lh with
-    | LH_base vs _ => is_true (const_list vs)
-    | LH_rec vs _ _ lh' _ => is_true (const_list vs) ∧ lholed_valid lh'
-    end.
-
-  Fixpoint length_lholeds (se : semantic_env) (τc : list (list type * local_ctx)) (lh : lholed) :
-    Prop :=
-    match τc, lh with
-    | [], LH_base _ _ => True
-    | (τs, _) :: τc', LH_rec _ n _ lh' _ =>
-        (forall rvs, values_interp se τs rvs -∗ ⌜length rvs = n⌝) /\ length_lholeds se τc' lh'
-    | _, _ => False
-    end.
-
-  Definition continuation_interp
-    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
-    (L : local_ctx) (WL : wlocal_ctx)
-    (inst : instance) (lh : lholed) (k : nat) (τs : list type) :
+  Definition label_interp
+    (se : semantic_env) (inst : instance) (WL : wlocal_ctx)
+    '((τs, L) : list type * local_ctx) '((n, P) : label_spec) :
     iProp Σ :=
-    (∃ j es0 es es' lh' lh'',
-       ⌜get_layer lh (lh_depth lh - S k) = Some (es0, j, es, lh', es')⌝ ∧
-         ⌜lh_depth lh'' = lh_depth lh - S k⌝ ∧
-         ⌜is_Some (lh_minus lh lh'')⌝ ∧
-         □ ∀ fr vs os θ,
-             atoms_interp os vs -∗
-             values_interp se τs os -∗
-             frame_interp se L WL inst fr -∗
-             rt_token rti sr θ -∗
-             ↪[frame] fr -∗
-             ↪[RUN] -∗
-             ∃ τs',
-               expr_interp se τr (drop (S k) τc) L WL τs' inst lh''
-                 (es0 ++ of_val (immV vs) ++ es ++ es'))%I.
+    (match translate_types se τs with Some ts => ⌜length ts = n⌝ | None => False end ∗
+       □ (∀ fr vs os θ,
+            atoms_interp os vs -∗
+            values_interp se τs os -∗
+            frame_interp se L WL inst fr -∗
+            rt_token rti sr θ -∗
+            P fr vs))%I.
 
-  Definition continuations_interp
-    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
-    (WL : wlocal_ctx) (inst : instance) :
-    CtxR :=
-    λne lh, ([∗ list] k ↦ '(τs, L) ∈ τc, continuation_interp se τr τc L WL inst lh k τs)%I.
+  Global Instance Persistent_label_interp se inst WL a b : Persistent (label_interp se inst WL a b).
+  Proof.
+    destruct a, b.
+    typeclasses eauto.
+  Defined.
 
-  Definition labels_interp
-    (se : semantic_env) (τr : list type) (τc : list (list type * local_ctx))
-    (WL : wlocal_ctx) (inst : instance) :
-    CtxR :=
-    λne lh,
-      (⌜base_is_empty lh⌝ ∗
-         ⌜length_lholeds se (rev τc) lh⌝ ∗
-         ⌜lholed_valid lh⌝ ∗
-         continuations_interp se τr τc WL inst lh)%I.
+  Definition labels_interp (se : semantic_env) (inst : instance) (WL : wlocal_ctx) :
+    list (list type * local_ctx) -> list label_spec -> iProp Σ :=
+    big_sepL2 (const (label_interp se inst WL)).
+
+  Global Instance Persistent_labels_interp se inst WL l a : Persistent (labels_interp se inst WL l a).
+  Proof.
+    apply big_sepL2_persistent'. intros; cbn.
+    typeclasses eauto.
+  Defined.
+
+  Definition return_interp (se : semantic_env) (τr : list type) (R : option return_spec) :
+    iProp Σ :=
+    match R with
+    | Some (n, P) =>
+        match translate_types se τr with Some ts => ⌜length ts = n⌝ | None => False end ∗
+          □ (∀ vs os θ, atoms_interp os vs -∗ values_interp se τr os -∗ rt_token rti sr θ -∗ P vs)
+    | None => False
+    end%I.
+
+  Global Instance Persistent_return_interp se τr R : Persistent (return_interp se τr R).
+  Proof.
+    typeclasses eauto.
+  Defined.
 
   Definition memory_closed (m : memory) : Prop :=
     match m with
@@ -734,33 +626,27 @@ Section Relations.
     kind_ctx_interp F.(fc_kind_ctx) se /\
     type_ctx_interp F.(fc_type_vars) se.
 
-  Lemma sem_env_interp_fc_labels_irrelevant F F' se :
-    F.(fc_kind_ctx) = F'.(fc_kind_ctx) →
-    F.(fc_type_vars) = F'.(fc_type_vars) →
-    sem_env_interp F se →
-    sem_env_interp F' se.
-  Proof.
-    unfold sem_env_interp; intros -> -> H; exact H.
-  Qed.
-
-
-  Definition have_instruction_type_sem
+  Definition have_instr_type_sem
     (mr : module_runtime)
     (M : module_ctx) (F : function_ctx) (L : local_ctx) (WT : wtype_ctx) (WL : wlocal_ctx)
-    (es : list administrative_instruction)
+    (es : list basic_instruction)
     '(InstrT τs1 τs2 : instruction_type) (L' : local_ctx) :
     iProp Σ :=
-    (∀ se inst lh fr os vs θ,
-       ⌜sem_env_interp F se⌝ -∗
-       instance_interp mr M WT inst -∗
-       labels_interp se F.(fc_return) F.(fc_labels) WL inst lh -∗
-       atoms_interp os vs -∗
-       values_interp se τs1 os -∗
-       frame_interp se L WL inst fr -∗
-       rt_token rti sr θ -∗
-       ↪[frame] fr -∗
-       ↪[RUN] -∗
-       expr_interp se F.(fc_return) F.(fc_labels) L' WL τs2 inst lh (of_val (immV vs) ++ es))%I.
-
+    (∀ se inst fr os vs evs θ B R,
+       "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+       "%Hevs" ∷ ⌜has_values evs vs⌝ -∗
+       "#Hinst" ∷ instance_interp mr M WT inst -∗
+       "#Hlabels" ∷ labels_interp se inst WL F.(fc_labels) B -∗
+       "#Hreturn" ∷ return_interp se F.(fc_return) R -∗
+       "Hvs" ∷ atoms_interp os vs -∗
+       "Hos" ∷ values_interp se τs1 os -∗
+       "Hframe" ∷ frame_interp se L WL inst fr -∗
+       "Hrt" ∷ rt_token rti sr θ -∗
+       "Hfr" ∷ ↪[frame] fr -∗
+       "Hrun" ∷ ↪[RUN] -∗
+       CWP evs ++ es UNDER B; R
+           {{ fr'; vs',
+              frame_interp se L' WL inst fr' ∗
+              ∃ os' θ, values_interp se τs2 os' ∗ atoms_interp os' vs' ∗ rt_token rti sr θ }})%I.
 
 End Relations.

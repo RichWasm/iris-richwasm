@@ -1,5 +1,5 @@
 (coq.theory
-  (name RichWasm.iris.logrel)
+  (name RichWasm.iris.logrel.compat)
   (package iris-richwasm)
   (flags
     :standard
@@ -7,3 +7,4 @@
     -w -redundant-canonical-projection)
   (theories
     RichWasm.compiler))
+

@@ -7,53 +7,52 @@ From RichWasm.wasm Require Import operations.
 From RichWasm Require Import layout syntax typing.
 From RichWasm.compiler Require Import prelude codegen instruction module.
 From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import lenient_wp lwp_pure lwp_structural lwp_resources logpred.
+From RichWasm.iris.language Require Import cwp logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
-Require Import
-  compat_nop
-  compat_unreachable
-  compat_copy
-  compat_drop
-  compat_num
-  compat_num_const
-  compat_block
-  compat_loop
-  compat_ite
-  compat_br
-  compat_return
-  compat_local_get_copy
-  compat_local_get_move
-  compat_local_set
-  compat_coderef
-  compat_inst
-  compat_call
-  compat_call_indirect
-  compat_inject
-  compat_inject_new
-  compat_case
-  compat_case_load_copy
-  compat_case_load_move
-  compat_group
-  compat_ungroup
-  compat_fold
-  compat_unfold
-  compat_pack
-  compat_unpack
-  compat_tag
-  compat_untag
-  compat_cast
-  compat_new
-  compat_load_copy
-  compat_load_move
-  compat_store_weak
-  compat_store_strong
-  compat_swap
-  compat_nil
-  compat_app
-  compat_singleton
-  compat_frame.
-
+From RichWasm.iris.logrel.compat Require Import
+  nop
+  unreachable
+  copy
+  drop
+  num
+  num_const
+  block
+  loop
+  ite
+  br
+  return_
+  local_get_copy
+  local_get_move
+  local_set
+  coderef
+  inst
+  call
+  call_indirect
+  inject
+  inject_new
+  case
+  case_load_copy
+  case_load_move
+  group
+  ungroup
+  fold
+  unfold
+  pack
+  unpack
+  tag
+  untag
+  cast
+  new
+  load_copy
+  load_move
+  store_weak
+  store_strong
+  swap
+  nil
+  app
+  singleton
+  frame.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -74,7 +73,7 @@ Section Fundamental.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     run_codegen (compile_instrs mr fe es) wt wl = inr (tt, wt', wl', es') ->
-    ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') tf L'.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' tf L'.
   Proof.
     intros Htype.
     generalize dependent es'.
@@ -91,7 +90,7 @@ Section Fundamental.
                  let WT := wt ++ wt' ++ wtf in
                  let WL := wl ++ wl' ++ wlf in
                  run_codegen (compile_instr mr fe e) wt wl = inr (tt, wt', wl', es') ->
-                 ⊢ have_instruction_type_sem rti sr mr M F L WT WL (to_e_list es') ψ L');
+                 ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L');
       intros wt wt' wtf wl wl' wlf wes fe WT WL Hcomp.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.
