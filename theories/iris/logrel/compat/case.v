@@ -26,6 +26,338 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+
+  (* Lemma block M F' L wt wt_save wt_cases wtf tag_idx tag fr_saved_and_tag i wl_ret es_i es_case_i B R se L' wl wl_save wl_cases wlf τ_i τ_res inst val_idxs ρs_sum : *)
+  (*   let fe := fe_of_context F' in *)
+  (*   f_locs fr_saved_and_tag !! tag_idx = Some (VAL_int32 (Wasm_int.Int32.repr $ Z.of_nat tag)) -> *)
+  (*   run_codegen *)
+  (*       (case_block tag_idx wl_ret *)
+  (*          (λ i : nat, *)
+  (*             util.try_option EFail (ρs_sum !! i) *)
+  (*             ≫= λ ρ : representation, *)
+  (*                  util.try_option EFail (inject_sum_rep EmptyEnv ρs_sum ρ) *)
+  (*                  ≫= λ ixs' : list nat, *)
+  (*                       (util.try_option EFail (util.nths_error val_idxs ixs') *)
+  (*                        ≫= get_locals_w) *)
+  (*                       ≫= λ _ : (), util.mapM_ (compile_instr mr fe) es_i) *)
+  (*          i) *)
+  (*       (wt ++ wt_save) (wl ++ wl_save ++ [prelude.W.T_i32]) = *)
+  (*     inr ((), [], [], es_case_i) -> *)
+  (*     (forall wt wt' wtf wl wl' wlf es', *)
+  (*        let fe' := fe_of_context F' in *)
+  (*        let WT := wt ++ wt' ++ wtf in *)
+  (*        let WL := wl ++ wl' ++ wlf in *)
+  (*        run_codegen (compile_instrs mr fe' es_i) wt wl = inr ((), wt', wl', es') -> *)
+  (*        ⊢ have_instr_type_sem rti sr mr M F' L WT WL es' (InstrT [τ_i] [τ_res]) L') -> *)
+  (*   ⊢ *)
+  (*   ↪[frame]fr_saved_and_tag -∗ *)
+  (*   ↪[RUN] -∗ *)
+  (**)
+  (*     CWP to_consts (map default_of_value_type wl_ret) ++ es_case_i *)
+  (*       UNDER B; R *)
+  (*       {{ fr'; vs', *)
+  (*         ( *)
+  (*          ⌜i = tag⌝ ∗ *)
+  (*          frame_interp rti sr se L' *)
+  (*            (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_cases ++ wlf) *)
+  (*            inst fr' ∗ *)
+  (*          ∃ (os' : leibnizO (list atom)) (θ0 : address_map), *)
+  (*            values_interp rti sr se [τ_res] os' ∗ atoms_interp os' vs' ∗ *)
+  (*            rt_token rti sr θ0 *)
+  (*         ) *)
+  (*         ∨ *)
+  (*         (⌜i ≠ tag⌝ ∗ *)
+  (*          True *)
+  (*         ) *)
+  (*       }}. *)
+  (* Proof. *)
+  (*   Admitted. *)
+
+  (* TODO: should probably be written using run_codegen somehow *)
+  Lemma compat_case_block M F L wt wt_save wt_cases wtf tag_idx tag fr_saved_and_tag i wl_ret es_drop_i es_get_locals_i es_case_i B R se L' wl wl_save wl_cases wlf τ_i τ_res os_payload os_i inst val_idxs case_i_val_idxs case_i_sum_locals (vs_payload case_i_vs_payload : list value) θ :
+    let F' := F <| fc_labels ::= cons ([τ_res], L') |> in
+    let fe := fe_of_context F in
+    f_locs fr_saved_and_tag !! tag_idx = Some (VAL_int32 (Wasm_int.Int32.repr tag)) ->
+    run_codegen (get_locals_w case_i_val_idxs) (wt ++ wt_save)
+      (wl ++ wl_save ++ [prelude.W.T_i32]) = inr ((), [], [], es_get_locals_i) ->
+    run_codegen (drop_consts wl_ret) (wt ++ wt_save)
+      (wl ++ wl_save ++ [prelude.W.T_i32]) = inr ((), [], [], es_drop_i) ->
+    util.nths_error val_idxs case_i_sum_locals = Some case_i_val_idxs ->
+    util.nths_error vs_payload case_i_sum_locals = Some case_i_vs_payload ->
+    prelude.translate_type (fe_type_vars fe) τ_res = Some wl_ret ->
+    Forall2
+      (λ (i : prelude.W.localidx) (v : value),
+         f_locs fr_saved_and_tag !! localimm i = Some v)
+       case_i_val_idxs case_i_vs_payload ->
+     sem_env_interp F se ->
+    ⊢
+    have_instr_type_sem rti sr mr M F' L
+               (wt ++ wt_save ++ wt_cases ++ wtf)
+               (wl ++
+                wl_save ++ [prelude.W.T_i32] ++ wl_cases ++ wlf)
+               es_case_i (InstrT [τ_i] [τ_res]) L' -∗
+    instance_interp rti sr mr M (wt ++ wt_save ++ wt_cases ++ wtf) inst -∗
+    labels_interp rti sr se inst (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_cases ++ wlf)
+      (fc_labels F) B -∗
+    return_interp rti sr se (fc_return F) R -∗
+    rt_token rti sr θ -∗
+    value_interp rti sr se τ_i (SAtoms os_i) -∗
+    atoms_interp os_payload vs_payload -∗
+    frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_cases ++ wlf)
+      inst fr_saved_and_tag -∗
+    ↪[frame]fr_saved_and_tag -∗
+    ↪[RUN] -∗
+      CWP to_consts (map default_of_value_type wl_ret) ++
+        [prelude.W.BI_block (prelude.W.Tf wl_ret wl_ret)
+           ([prelude.W.BI_get_local (localimm $ Mk_localidx tag_idx)] ++
+            [prelude.W.BI_const
+               (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m i%nat))] ++
+            [prelude.W.BI_relop prelude.W.T_i32
+               (prelude.W.Relop_i prelude.W.ROI_ne)] ++
+            [prelude.W.BI_br_if 0] ++ es_drop_i ++ es_get_locals_i ++ es_case_i)]
+        UNDER B; R
+        {{ fr'; vs',
+          ( ⌜i = tag⌝ ∗
+            frame_interp rti sr se L'
+             (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_cases ++ wlf)
+             inst fr' ∗
+            ∃ (os' : leibnizO (list atom)) (θ : address_map),
+             values_interp rti sr se [τ_res] os' ∗ atoms_interp os' vs' ∗
+             rt_token rti sr θ
+          )
+          ∨
+          ( ⌜i ≠ tag⌝ ∗
+            ⌜fr' = fr_saved_and_tag⌝ ∗
+            ⌜vs' = (map default_of_value_type wl_ret)⌝ ∗
+            frame_interp rti sr se L
+              (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_cases ++ wlf)
+              inst fr_saved_and_tag ∗
+            value_interp rti sr se τ_i (SAtoms os_i) ∗
+            atoms_interp os_payload vs_payload ∗
+            rt_token rti sr θ
+          )
+        }}.
+  Proof.
+    intros F' fe Hlookup_saved_and_tag Hget_locals_i Hdrop_consts_i Hnerr_val_idxs Hnerr_payload_ci Htranslate_type_fe Hsaved_and_tag Hsem.
+    iIntros "Hsem_es_i #Hinst #Hlabels #Hreturn Hrt Hvalue_interp_os_i Hatoms_interp_payload Hframe_saved_and_tag Hfr Hrun".
+
+    iApply (cwp_block with "[$] [$]"); auto.
+    { apply is_consts_to_consts. }
+    { by do 2 rewrite length_map. }
+    iIntros "!> Hf Hrun".
+
+    (* Case analysis: Is tag = i? *)
+    destruct (Z.eq_dec i tag) as [-> | Hne].
+    - (* Case: Tag is i *)
+
+      (* TODO: ... *)
+      replace (to_consts (map default_of_value_type wl_ret) ++
+      [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
+      [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m tag))] ++
+      [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)] ++
+      [prelude.W.BI_br_if 0] ++ _)
+      with ((to_consts (map default_of_value_type wl_ret) ++
+      [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
+      [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m tag))] ++
+      [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)] ++
+      [prelude.W.BI_br_if 0]) ++ es_drop_i ++ es_get_locals_i ++ es_case_i); last admit.
+
+      iApply (cwp_seq with "[Hf Hrun]").
+      {
+        iApply cwp_val_app; first apply has_values_to_consts.
+
+        (* Get tag from local *)
+        rewrite (separate1 (prelude.W.BI_get_local _)).
+        iApply (cwp_seq with "[Hf Hrun]").
+        {
+          iApply (cwp_local_get with "[] [$] [$]"); first apply Hlookup_saved_and_tag.
+          by instantiate (1 := λ f v, (⌜v = [_]⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
+        }
+        iIntros (?fr w) "(-> & ->) Hf Hrun".
+        iSimpl.
+
+        (* compare tag with case number: i *)
+        rewrite separate3.
+        iApply (cwp_seq with "[Hf Hrun]").
+        {
+          iApply (cwp_relop with "[$] [$]"); first done.
+          iSimpl.
+          by instantiate (1 := λ f v, (⌜v = [_]⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
+        }
+        iIntros (?fr w) "(-> & ->) Hf Hrun".
+        iSimpl.
+        iApply (cwp_br_if_zero with "[$] [$]").
+        - by rewrite Wasm_int.Int32.eq_true.
+        - instantiate (1 := λ f v, (⌜v = (map default_of_value_type wl_ret)⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
+          unfold fvs_combine.
+          by rewrite app_nil_r.
+      }
+      iIntros (?fr w) "(-> & ->) Hf Hrun".
+
+      (* drop default values *)
+      rewrite (app_assoc (to_consts _)).
+      iApply (cwp_seq with "[Hf Hrun]").
+      {
+        instantiate (1 := λ f vs, (⌜f = fr_saved_and_tag⌝ ∗ ⌜vs = []⌝)%I).
+        eapply cwp_drop_consts in Hdrop_consts_i as (_ & _ & _ & Hdrop_consts_i).
+        - iDestruct (Hdrop_consts_i with "[$] [$] []") as "Hdrop_consts_i".
+          2: iApply "Hdrop_consts_i".
+          done.
+        - by do 2 rewrite length_map.
+        - apply is_consts_to_consts.
+      }
+      iIntros (?fr w) "(-> & ->) Hf Hrun".
+      iSimpl.
+
+      (* get locals corresponding to payload of sum *)
+      eapply cwp_restore_stack_w in Hget_locals_i; eauto using Forall2_length.
+      (* 2 : { *)
+      (*   instantiate (1 := case_i_vs_payload). *)
+      (*   pose proof (util.nths_error_length _ _ _ Hnerr_val_idxs) as Hlen_civi. *)
+      (*   pose proof (util.nths_error_length _ _ _ Hnerr_payload_ci) as Hlen_civp. *)
+      (*   by rewrite <- Hlen_civi. *)
+      (* } *)
+      destruct Hget_locals_i as (_ & _ & _ & Hget_locals_i).
+      iDestruct (Hget_locals_i with "[$] [$] []") as "Hget_locals_1"; clear Hget_locals_i; first done.
+
+      iApply (cwp_seq with "[Hget_locals_1]").
+      1: iApply "Hget_locals_1".
+      iIntros (?fr w) "(-> & ->) Hf Hrun".
+
+      (* Reason about case 1 code *)
+      iApply (cwp_wand with "[-]").
+      {
+        iApply ("Hsem_es_i" with "[//] [] [$] [] [] [Hatoms_interp_payload] [Hvalue_interp_os_i] [Hframe_saved_and_tag] [$] [$] [$]").
+        + instantiate (1 := case_i_vs_payload); iPureIntro; simpl; rewrite has_values_iff_to_consts; done.
+        + subst F'.
+          replace (fc_labels (F <| fc_labels ::= cons ([τ_res], L') |>)) with
+              (([τ_res], L') :: fc_labels F); last done.
+              iApply labels_interp_cons; try done.
+              * subst fe. rewrite -Htranslate_type_fe. simpl.
+                unfold prelude.translate_types.
+                simpl.
+                destruct (prelude.translate_type (fc_type_vars F) τ_res); simpl; try done.
+                by rewrite app_nil_r.
+              * iIntros "!>" (fr' vs') "(Hframe & %os & %Θ & Hvalues & Hatoms & Hrt)".
+                iFrame.
+                iLeft.
+                iSplit; first done.
+                iFrame.
+  (* by instantiate (1 := λ f v, True%I). *)
+        + done.
+        + instantiate (1 := os_i). admit. (* TODO: should be provable, but might be a little annoying *)
+        + by iApply values_interp_one_eq.
+        + done.
+      }
+      iIntros (??) "[Hframe Hother]".
+      iLeft.
+      iSplit; first done.
+      iFrame.
+
+    - (* Case: Tag is not 0 *)
+
+      (* TODO: ... *)
+      replace (to_consts (map default_of_value_type wl_ret) ++
+      [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
+      [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m i))] ++
+      [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)] ++ _)
+      with ((to_consts (map default_of_value_type wl_ret) ++
+      [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
+      [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m i))] ++
+      [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)]) ++
+      [prelude.W.BI_br_if 0] ++ es_drop_i ++ es_get_locals_i ++ es_case_i); last admit.
+
+      iApply (cwp_seq with "[Hf Hrun]").
+      {
+        iApply cwp_val_app; first apply has_values_to_consts.
+
+        (* Get tag from local *)
+        rewrite (separate1 (prelude.W.BI_get_local _)).
+        iApply (cwp_seq with "[Hf Hrun]").
+        {
+          iApply (cwp_local_get with "[] [$] [$]"); first apply Hlookup_saved_and_tag.
+          by instantiate (1 := λ f v, (⌜v = [_]⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
+        }
+        iIntros (?fr w) "(-> & ->) Hf Hrun".
+        iSimpl.
+
+        (* compare tag with case number: 0 *)
+        rewrite separate3.
+        iApply (cwp_seq with "[Hf Hrun]").
+        {
+          iApply (cwp_relop with "[$] [$]"); first done.
+          iSimpl.
+          rewrite Wasm_int.Int32.eq_false.
+          2: admit. (* TODO: this is not actually provable. We need to know tags aren't huge... Maybe a different approach than destruct i *)
+          iSimpl.
+          by instantiate (1 := λ f v, (⌜v = [_]⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
+        }
+        iIntros (?fr w) "(-> & ->) Hf Hrun".
+        iSimpl.
+        iApply (cwp_val with "[$] [$]").
+        - by instantiate (1 := [(VAL_int32 Wasm_int.Int32.one)]).
+        - unfold fvs_combine.
+          by instantiate (1 := λ f v, (⌜v = _ ++ [_]⌝ ∗ ⌜f = fr_saved_and_tag⌝)%I).
+      }
+      iIntros (?fr w) "(-> & ->) Hf Hrun".
+
+      (* TODO: ... *)
+      replace (to_consts
+      (map default_of_value_type wl_ret ++ [VAL_int32 Wasm_int.Int32.one]) ++
+      [prelude.W.BI_br_if 0] ++ _)
+      with ((to_consts
+      (map default_of_value_type wl_ret ++ [VAL_int32 Wasm_int.Int32.one]) ++
+      [prelude.W.BI_br_if 0]) ++ es_drop_i ++ es_get_locals_i ++ es_case_i); last admit.
+      iApply (cwp_seq with "[-]").
+      2: {
+        instantiate (1 := λ f vs, False%I).
+        by iIntros.
+      }
+      unfold to_consts.
+      rewrite map_app.
+      rewrite -app_assoc.
+      replace (map BI_const [VAL_int32 Wasm_int.Int32.one] ++ [prelude.W.BI_br_if 0])
+      with [BI_const (VAL_int32 Wasm_int.Int32.one); prelude.W.BI_br_if 0]; last done.
+
+      iApply (cwp_br_if_nonzero with "[$] [$]"); try done.
+      1: apply has_values_to_consts.
+      1: by do 2 rewrite length_map.
+      iRight.
+      iFrame.
+      done.
+    Admitted.
+
+
+  (* Lemma compat_block M F L L' wt wt' wtf wl wl' wlf es' es_i τs τ_i τs' κ : *)
+  (*   let fe := fe_of_context F in *)
+  (*   let WT := wt ++ wt' ++ wtf in *)
+  (*   let WL := wl ++ wl' ++ wlf in *)
+  (*   let F' := F <| fc_labels ::= cons (τs', L') |> in *)
+  (*   let ψ := InstrT [SumT κ τs] τs' in *)
+  (*   (forall wt wt' wtf wl wl' wlf es', *)
+  (*      let fe' := fe_of_context F' in *)
+  (*      let WT := wt ++ wt' ++ wtf in *)
+  (*      let WL := wl ++ wl' ++ wlf in *)
+  (*      run_codegen (compile_instrs mr fe' es_i) wt wl = inr ((), wt', wl', es') -> *)
+  (*      ⊢ have_instr_type_sem rti sr mr M F' L WT WL es' (InstrT [τ_i] τs') L') *)
+  (*      -> *)
+  (*   has_instruction_type_ok F ψ L' -> *)
+  (*   run_codegen *)
+  (*       (case_block tag_idx wl_ret *)
+  (*          (λ i : nat, *)
+  (*             util.try_option EFail (ρs_sum !! i) *)
+  (*             ≫= λ ρ : representation, *)
+  (*                  util.try_option EFail (inject_sum_rep EmptyEnv ρs_sum ρ) *)
+  (*                  ≫= λ ixs' : list nat, *)
+  (*                       (util.try_option EFail (util.nths_error val_idxs ixs') *)
+  (*                        ≫= get_locals_w) *)
+  (*                       ≫= λ _ : (), util.mapM_ (compile_instr mr fe) es_i) *)
+  (*          i) *)
+  (*       (wt ++ wt_save) (wl ++ wl_save ++ [prelude.W.T_i32]) = *)
+  (*     inr ((), wt0, wl0, es) -> *)
+  (*   ⊢ have_instr_type_sem rti sr mr M F L WT WL es ψ L'. *)
+
+
   Lemma compat_binary_case M F L L' wt wt' wtf wl wl' wlf es' ess es1 es2 τs τ1 τ2 τs' κ :
     ess = [es1; es2] ->
     τs = [τ1; τ2] ->
@@ -224,6 +556,7 @@ Proof.
     rewrite list_extra.cons_app in Hhas_values.
     apply has_values_app_inv in Hhas_values as (e_tag & es_payload & -> & Hhv_tag & Hhvs_payload).
 
+    (* save payload *)
     rewrite (app_assoc (e_tag ++ _)).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
@@ -245,6 +578,10 @@ Proof.
       rule *)
     }
     iIntros (fr_saved w) "(-> & %Hsame & %Hsaved) Hfr Hrun".
+    iAssert
+      (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf) inst fr_saved)
+      with "[Hframe]" as "Hframe_saved".
+    { admit. } (* TODO: Not really sure how to prove this. Definitely need helper lemma *)
 
     edestruct (util.nths_error_exists val_idxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done.
 
@@ -276,6 +613,10 @@ Proof.
     }
     iIntros (fr_saved_and_tag w) "(-> & %Hsame' & %Hsaved_and_tag) Hfr Hrun".
     clear_nils.
+    iAssert
+      (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf) inst fr_saved_and_tag)
+      with "[Hframe_saved]" as "Hframe_saved_and_tag".
+    { admit. } (* TODO: Not really sure how to prove this. Definitely need helper lemma *)
 
     (* Create defaults *)
     iApply (cwp_seq with "[Hfr Hrun]").
@@ -383,7 +724,7 @@ Proof.
         iIntros (?fr w) "(-> & ->) Hf Hrun".
 
         (* Reason about case 1 code *)
-        iApply ("Hsem_es1" with "[//] [] [$] [] [] [Hatoms_interp_payload] [Hvalue_interp_os_i] [Hframe] [$] [$] [$]").
+        iApply ("Hsem_es1" with "[//] [] [$] [] [] [Hatoms_interp_payload] [Hvalue_interp_os_i] [Hframe_saved_and_tag] [$] [$] [$]").
         + instantiate (1 := case_1_vs_payload); iPureIntro; simpl; rewrite has_values_iff_to_consts; done.
         + subst F'.
           replace (fc_labels (F <| fc_labels ::= cons ([τ_res], L') |>)) with
@@ -401,7 +742,7 @@ Proof.
         + instantiate (1 := os_i). admit. (* TODO: should be provable, but might be a little annoying *)
         + iApply values_interp_one_eq.
           by inversion Htype_lookup; subst.
-        + admit.
+        + done.
 
 
       - (* Case: Tag is not 0 *)
@@ -458,7 +799,7 @@ Proof.
         with ((to_consts
         (map default_of_value_type wl_ret ++ [VAL_int32 Wasm_int.Int32.one]) ++
         [prelude.W.BI_br_if 0]) ++ es_drop_1 ++ es_get_locals_1 ++ es_case_1); last admit.
-        iApply (cwp_seq with "[Hf Hrun]").
+        iApply (cwp_seq with "[-]").
         2: {
           instantiate (1 := λ f vs, False%I).
           by iIntros.
