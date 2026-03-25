@@ -30,7 +30,7 @@ Section Fundamental.
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [] [τ] in
     L !! i = Some τ ->
-    has_copyability F τ ImCopy ->
+    has_ref_flag F τ NoRefs ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILocalGet ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.

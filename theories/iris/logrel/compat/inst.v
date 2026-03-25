@@ -28,7 +28,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+    let κ := VALTYPE (AtomR I32R) NoRefs in
     let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
     function_type_inst F ix ϕ ϕ' ->
     has_instruction_type_ok F ψ L ->

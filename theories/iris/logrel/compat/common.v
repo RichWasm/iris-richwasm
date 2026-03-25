@@ -281,25 +281,4 @@ Section common.
       by inversion Hos.
   Qed.
 
-  Lemma rep_ref_kind_ptr F κ μ τ ρ χ δ :
-    has_kind F (RefT κ μ τ) (VALTYPE ρ χ δ) ->
-    ρ = AtomR PtrR /\
-    exists χ', κ = VALTYPE (AtomR PtrR) χ' ExDrop.
-  Proof.
-    intros Hkind.
-    remember (RefT κ μ τ) as ref.
-    remember (VALTYPE ρ χ δ) as val.
-    revert Heqval Heqref.
-    revert ρ χ δ.
-    induction Hkind using has_kind_ind'; intros; try congruence.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
-    - subst κ0.
-      split; try congruence.
-      inversion Heqref; eauto.
-    - subst κ'.
-      inversion H; subst; eapply IHHkind; eauto.
-  Qed.
-
 End common.

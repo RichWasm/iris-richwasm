@@ -199,24 +199,46 @@ Section Relations.
   Definition forall_satoms (sv : semantic_value) (P : atom -> Prop) : Prop :=
     exists os, sv = SAtoms os /\ Forall P os.
 
-  Definition ex_copy_interp (o : atom) : Prop :=
+  Definition forall_swords (sv : semantic_value) (P : word -> Prop) : Prop :=
+    exists ws, sv = SWords ws /\ Forall P ws.
+
+  Definition forall_ptr_atom (P : pointer -> Prop) (o : atom) : Prop :=
     match o with
-    | PtrA (PtrHeap MemMM _) => False
+    | PtrA p => P p
     | _ => True
     end.
 
-  Definition im_copy_interp (o : atom) : Prop :=
-    match o with
-    | PtrA (PtrHeap _ _) => False
+  Definition forall_ptr_word (P : pointer -> Prop) (w : word) : Prop :=
+    match w with
+    | WordPtr p => P p
     | _ => True
     end.
 
-  Definition copyability_interp (χ : copyability) (T : semantic_type) : Prop :=
-    match χ with
-    | NoCopy => True
-    | ExCopy => forall sv, T sv ⊢ T sv ∗ T sv ∗ ⌜forall_satoms sv ex_copy_interp⌝
-    | ImCopy => forall sv, T sv ⊢ T sv ∗ T sv ∗ ⌜forall_satoms sv im_copy_interp⌝
+  Definition norefs_ptr_interp (p : pointer) : Prop :=
+    match p with
+    | PtrInt _ => True
+    | PtrHeap _ _ => False
     end.
+
+  Definition gcrefs_ptr_interp (p : pointer) : Prop :=
+    match p with
+    | PtrInt _ => True
+    | PtrHeap MemMM _ => False
+    | PtrHeap MemGC _ => True
+    end.
+
+  Definition ref_flag_interp (ξ : ref_flag) : pointer -> Prop :=
+    match ξ with
+    | NoRefs => norefs_ptr_interp
+    | GCRefs => gcrefs_ptr_interp
+    | AnyRefs => const True
+    end.
+
+  Definition ref_flag_atoms_interp (ξ : ref_flag) (sv : semantic_value) : Prop :=
+    forall_satoms sv (forall_ptr_atom (ref_flag_interp ξ)).
+
+  Definition ref_flag_words_interp (ξ : ref_flag) (sv : semantic_value) : Prop :=
+    forall_swords sv (forall_ptr_word (ref_flag_interp ξ)).
 
   Definition ssize_interp (n : nat) (sv : semantic_value) : Prop :=
     match sv with
@@ -233,17 +255,12 @@ Section Relations.
   Definition skind_as_type_interp (κ : skind) : semantic_type :=
     λne sv,
       match κ with
-      | SVALTYPE ιs _ _ => ⌜has_areps ιs sv⌝
-      | SMEMTYPE n _ => ⌜ssize_interp n sv⌝
+      | SVALTYPE ιs ξ => ⌜has_areps ιs sv⌝ ∗ ⌜ref_flag_atoms_interp ξ sv⌝
+      | SMEMTYPE n ξ => ⌜ssize_interp n sv⌝ ∗ ⌜ref_flag_words_interp ξ sv⌝
       end%I.
 
   Definition skind_interp (κ : skind) : semantic_kind :=
-    fun T =>
-      T ⊑ skind_as_type_interp κ /\
-        match κ with
-        | SVALTYPE _ χ _ => copyability_interp χ T
-        | SMEMTYPE _ _ => True
-        end.
+    fun T => T ⊑ skind_as_type_interp κ.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> OsR :=
@@ -273,7 +290,7 @@ Section Relations.
 
   Definition skind_rep (κ: skind) : option (list atomic_rep) :=
     match κ with
-    | SVALTYPE ιs _ _ => Some ιs
+    | SVALTYPE ιs _ => Some ιs
     | _ => None
     end.
 
@@ -428,7 +445,7 @@ Section Relations.
       | VarT t => type_var_interp se t
       | I31T _
       | NumT _ _ => λne _, True
-      | SumT (VALTYPE (SumR ρs) _ _) τs => sum_interp vrel se ρs τs
+      | SumT (VALTYPE (SumR ρs) _) τs => sum_interp vrel se ρs τs
       | SumT _ _ => λne _, False
       | VariantT _ τs => variant_interp vrel se τs
       | ProdT _ τs => prod_interp vrel se τs

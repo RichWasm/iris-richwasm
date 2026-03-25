@@ -2765,20 +2765,20 @@ let%expect_test "examples" =
        (error
         (ExpectedUnqualidfiedCoderef
          (CodeRef
-          (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
            ((Ref (Base GC) (Struct ((Ser I31) (Ser (Var 0)))))) ((Var 0))))))
        (instr CallIndirect)
        (env
-        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop)))
-         (labels ((I31))) (return (I31))
+        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ((I31)))
+         (return (I31))
          (functions
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
             ((Ref (Base GC)
               (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser (Var 0))))))
             ((Var 0)))
            (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
          (table
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
             ((Ref (Base GC)
               (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser (Var 0))))))
             ((Var 0)))
@@ -2792,17 +2792,17 @@ let%expect_test "examples" =
              ((Ser (Var 0))
               (Ser
                (CodeRef
-                (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
                  ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0))))))
                  ((Var 0))))))))
            (Plug (Prod ((Atom I32)))) (Var 0) (Plug (Prod ((Atom I32))))
            (CodeRef
-            (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+            (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
              ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0)))))) ((Var 0))))
            (Plug (Prod ((Atom I32))))))
          (stack
           ((CodeRef
-            (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+            (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
              ((Ref (Base GC) (Struct ((Ser I31) (Ser (Var 0)))))) ((Var 0))))
            I31))))))
      (instr
@@ -2816,13 +2816,13 @@ let%expect_test "examples" =
      (env
       ((local_offset 1) (kinds ()) (labels ()) (return (I31))
        (functions
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
           ((Ref (Base GC)
             (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser (Var 0))))))
           ((Var 0)))
          (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
        (table
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
           ((Ref (Base GC)
             (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser (Var 0))))))
           ((Var 0)))
@@ -2835,13 +2835,13 @@ let%expect_test "examples" =
          (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
          (Plug (Prod ((Atom I32))))))
        (stack
-        ((Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+        ((Exists (Type (VALTYPE (Atom Ptr) GCRefs))
           (Ref (Base GC)
            (Struct
             ((Ser (Var 0))
              (Ser
               (CodeRef
-               (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+               (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
                 ((Ref (Base GC) (Struct ((Ser (Var 1)) (Ser (Var 0))))))
                 ((Var 0))))))))))))))
     -----------opt_case-----------
@@ -2868,7 +2868,7 @@ let%expect_test "examples" =
            (Variant
             ((Ser (Var 0))
              (Ser
-              (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+              (Rec (VALTYPE (Atom Ptr) GCRefs)
                (Ref (Base GC)
                 (Variant
                  ((Ser (Ref (Base GC) (Struct ())))
@@ -2876,17 +2876,15 @@ let%expect_test "examples" =
          (instr (Load (Path ()) Follow))
          (env
           ((local_offset 1)
-           (kinds
-            ((VALTYPE (Atom Ptr) ExCopy ExDrop)
-             (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+           (kinds ((VALTYPE (Atom Ptr) GCRefs) (VALTYPE (Atom Ptr) GCRefs)))
            (labels ((I31) (I31))) (return (I31))
            (functions
-            ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+            ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
               ((Ref (Base GC)
                 (Struct
                  ((Ser (Ref (Base GC) (Struct ())))
                   (Ser
-                   (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                   (Rec (VALTYPE (Atom Ptr) GCRefs)
                     (Ref (Base GC)
                      (Variant
                       ((Ser (Ref (Base GC) (Struct ())))
@@ -2895,12 +2893,12 @@ let%expect_test "examples" =
               (I31))
              (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
            (table
-            ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+            ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
               ((Ref (Base GC)
                 (Struct
                  ((Ser (Ref (Base GC) (Struct ())))
                   (Ser
-                   (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                   (Rec (VALTYPE (Atom Ptr) GCRefs)
                     (Ref (Base GC)
                      (Variant
                       ((Ser (Ref (Base GC) (Struct ())))
@@ -2915,14 +2913,14 @@ let%expect_test "examples" =
               (Struct
                ((Ser (Ref (Base GC) (Struct ())))
                 (Ser
-                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                 (Rec (VALTYPE (Atom Ptr) GCRefs)
                   (Ref (Base GC)
                    (Variant
                     ((Ser (Ref (Base GC) (Struct ())))
                      (Ser
                       (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
              (Plug (Prod ((Atom I32))))
-             (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+             (Rec (VALTYPE (Atom Ptr) GCRefs)
               (Ref (Base GC)
                (Variant
                 ((Ser (Ref (Base GC) (Struct ())))
@@ -2931,7 +2929,7 @@ let%expect_test "examples" =
               (Variant
                ((Ser (Var 0))
                 (Ser
-                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                 (Rec (VALTYPE (Atom Ptr) GCRefs)
                   (Ref (Base GC)
                    (Variant
                     ((Ser (Ref (Base GC) (Struct ())))
@@ -2942,12 +2940,12 @@ let%expect_test "examples" =
                ((Ser (Var 0))
                 (Ser
                  (CodeRef
-                  (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                  (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
                    ((Ref (Base GC)
                      (Struct
                       ((Ser (Var 1))
                        (Ser
-                        (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                        (Rec (VALTYPE (Atom Ptr) GCRefs)
                          (Ref (Base GC)
                           (Variant
                            ((Ser (Ref (Base GC) (Struct ())))
@@ -2957,12 +2955,12 @@ let%expect_test "examples" =
                    (I31)))))))
              (Plug (Prod ((Atom I32)))) (Var 0) (Plug (Prod ((Atom I32))))
              (CodeRef
-              (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+              (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
                ((Ref (Base GC)
                  (Struct
                   ((Ser (Var 1))
                    (Ser
-                    (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                    (Rec (VALTYPE (Atom Ptr) GCRefs)
                      (Ref (Base GC)
                       (Variant
                        ((Ser (Ref (Base GC) (Struct ())))
@@ -2976,7 +2974,7 @@ let%expect_test "examples" =
               (Variant
                ((Ser (Var 0))
                 (Ser
-                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                 (Rec (VALTYPE (Atom Ptr) GCRefs)
                   (Ref (Base GC)
                    (Variant
                     ((Ser (Ref (Base GC) (Struct ())))
@@ -2999,15 +2997,15 @@ let%expect_test "examples" =
           CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
           (LocalGet 4 Move) Drop)))
        (env
-        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop)))
-         (labels ((I31))) (return (I31))
+        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ((I31)))
+         (return (I31))
          (functions
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
             ((Ref (Base GC)
               (Struct
                ((Ser (Ref (Base GC) (Struct ())))
                 (Ser
-                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                 (Rec (VALTYPE (Atom Ptr) GCRefs)
                   (Ref (Base GC)
                    (Variant
                     ((Ser (Ref (Base GC) (Struct ())))
@@ -3016,12 +3014,12 @@ let%expect_test "examples" =
             (I31))
            (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
          (table
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
             ((Ref (Base GC)
               (Struct
                ((Ser (Ref (Base GC) (Struct ())))
                 (Ser
-                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                 (Rec (VALTYPE (Atom Ptr) GCRefs)
                   (Ref (Base GC)
                    (Variant
                     ((Ser (Ref (Base GC) (Struct ())))
@@ -3036,13 +3034,13 @@ let%expect_test "examples" =
             (Struct
              ((Ser (Ref (Base GC) (Struct ())))
               (Ser
-               (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+               (Rec (VALTYPE (Atom Ptr) GCRefs)
                 (Ref (Base GC)
                  (Variant
                   ((Ser (Ref (Base GC) (Struct ())))
                    (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
            (Plug (Prod ((Atom I32))))
-           (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+           (Rec (VALTYPE (Atom Ptr) GCRefs)
             (Ref (Base GC)
              (Variant
               ((Ser (Ref (Base GC) (Struct ())))
@@ -3051,7 +3049,7 @@ let%expect_test "examples" =
             (Variant
              ((Ser (Var 0))
               (Ser
-               (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+               (Rec (VALTYPE (Atom Ptr) GCRefs)
                 (Ref (Base GC)
                  (Variant
                   ((Ser (Ref (Base GC) (Struct ())))
@@ -3061,18 +3059,18 @@ let%expect_test "examples" =
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
          (stack
-          ((Exists (Type (VALTYPE (Atom Ptr) ExCopy ExDrop))
+          ((Exists (Type (VALTYPE (Atom Ptr) GCRefs))
             (Ref (Base GC)
              (Struct
               ((Ser (Var 0))
                (Ser
                 (CodeRef
-                 (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+                 (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
                   ((Ref (Base GC)
                     (Struct
                      ((Ser (Var 1))
                       (Ser
-                       (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                       (Rec (VALTYPE (Atom Ptr) GCRefs)
                         (Ref (Base GC)
                          (Variant
                           ((Ser (Ref (Base GC) (Struct ())))
@@ -3092,12 +3090,12 @@ let%expect_test "examples" =
             ((Ser (Ref (Base GC) (Struct ())))
              (Ser
               (CodeRef
-               (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+               (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
                 ((Ref (Base GC)
                   (Struct
                    ((Ser (Ref (Base GC) (Struct ())))
                     (Ser
-                     (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                     (Rec (VALTYPE (Atom Ptr) GCRefs)
                       (Ref (Base GC)
                        (Variant
                         ((Ser (Ref (Base GC) (Struct ())))
@@ -3110,12 +3108,12 @@ let%expect_test "examples" =
             ((Ser (Var 0))
              (Ser
               (CodeRef
-               (FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+               (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
                 ((Ref (Base GC)
                   (Struct
                    ((Ser (Var 1))
                     (Ser
-                     (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                     (Rec (VALTYPE (Atom Ptr) GCRefs)
                       (Ref (Base GC)
                        (Variant
                         ((Ser (Ref (Base GC) (Struct ())))
@@ -3139,15 +3137,15 @@ let%expect_test "examples" =
            (LocalGet 4 Move) Drop))
          Untag (Num (Int2 I32 Add)) Tag (LocalGet 3 Move) Drop))))
      (env
-      ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) ExCopy ExDrop))) (labels ())
+      ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ())
        (return (I31))
        (functions
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
           ((Ref (Base GC)
             (Struct
              ((Ser (Ref (Base GC) (Struct ())))
               (Ser
-               (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+               (Rec (VALTYPE (Atom Ptr) GCRefs)
                 (Ref (Base GC)
                  (Variant
                   ((Ser (Ref (Base GC) (Struct ())))
@@ -3155,12 +3153,12 @@ let%expect_test "examples" =
           (I31))
          (FunctionType () ((Ref (Base GC) (Struct ()))) (I31))))
        (table
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) ExCopy ExDrop)))
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
           ((Ref (Base GC)
             (Struct
              ((Ser (Ref (Base GC) (Struct ())))
               (Ser
-               (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+               (Rec (VALTYPE (Atom Ptr) GCRefs)
                 (Ref (Base GC)
                  (Variant
                   ((Ser (Ref (Base GC) (Struct ())))
@@ -3174,13 +3172,13 @@ let%expect_test "examples" =
           (Struct
            ((Ser (Ref (Base GC) (Struct ())))
             (Ser
-             (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+             (Rec (VALTYPE (Atom Ptr) GCRefs)
               (Ref (Base GC)
                (Variant
                 ((Ser (Ref (Base GC) (Struct ())))
                  (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
          (Plug (Prod ((Atom I32))))
-         (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+         (Rec (VALTYPE (Atom Ptr) GCRefs)
           (Ref (Base GC)
            (Variant
             ((Ser (Ref (Base GC) (Struct ())))
@@ -3199,7 +3197,7 @@ let%expect_test "examples" =
               (Variant
                ((Ser (Var 0))
                 (Ser
-                 (Rec (VALTYPE (Atom Ptr) ExCopy ExDrop)
+                 (Rec (VALTYPE (Atom Ptr) GCRefs)
                   (Ref (Base GC)
                    (Variant
                     ((Ser (Ref (Base GC) (Struct ())))

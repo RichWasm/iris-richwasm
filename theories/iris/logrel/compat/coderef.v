@@ -28,7 +28,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
-    let τ := CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop) ϕ in
+    let τ := CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ in
     let ψ := InstrT [] [τ] in
     M.(mc_table) !! i = Some ϕ ->
     has_instruction_type_ok F ψ L ->

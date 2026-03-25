@@ -31,7 +31,7 @@ Section Fundamental.
     let F' := F <| fc_labels ::= cons (τs', L') |> in
     let τs_ser := zip_with SerT κs τs in
     let ψ := InstrT [RefT κr μ (VariantT κv τs_ser)] (RefT κr μ (VariantT κv τs') :: τs') in
-    Forall (fun τ => has_copyability F τ ExCopy) τs ->
+    Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
     Forall2
       (fun τ es =>
          (forall wt wt' wtf wl wl' wlf es',

@@ -73,13 +73,13 @@ Definition inject_areps (slots : arep_dist) (ιs : list atomic_rep) : option (li
 
 Definition kind_rep (κ : kind) : option representation :=
   match κ with
-  | VALTYPE ρ _ _ => Some ρ
+  | VALTYPE ρ _ => Some ρ
   | MEMTYPE _ _ => None
   end.
 
 Definition kind_size (κ : kind) : option size :=
   match κ with
-  | VALTYPE _ _ _ => None
+  | VALTYPE _ _ => None
   | MEMTYPE σ _ => Some σ
   end.
 
@@ -112,7 +112,7 @@ Definition int_type_arep (νi : int_type) : atomic_rep :=
 
 Definition int_type_type (νi : int_type) : type :=
   let ι := int_type_arep νi in
-  NumT (VALTYPE (AtomR ι) ImCopy ImDrop) (IntT νi).
+  NumT (VALTYPE (AtomR ι) NoRefs) (IntT νi).
 
 Definition float_type_arep (νf : float_type) : atomic_rep :=
   match νf with
@@ -122,7 +122,7 @@ Definition float_type_arep (νf : float_type) : atomic_rep :=
 
 Definition float_type_type (νf : float_type) : type :=
   let ι := float_type_arep νf in
-  NumT (VALTYPE (AtomR ι) ImCopy ImDrop) (FloatT νf).
+  NumT (VALTYPE (AtomR ι) NoRefs) (FloatT νf).
 
 Definition num_type_type (ν : num_type) : type :=
   match ν with
@@ -130,13 +130,13 @@ Definition num_type_type (ν : num_type) : type :=
   | FloatT νf => float_type_type νf
   end.
 
-Definition type_i31 : type := I31T (VALTYPE (AtomR PtrR) ImCopy ImDrop).
+Definition type_i31 : type := I31T (VALTYPE (AtomR PtrR) NoRefs).
 Definition type_i32 : type := int_type_type I32T.
 Definition type_i64 : type := int_type_type I64T.
 Definition type_f32 : type := float_type_type F32T.
 Definition type_f64 : type := float_type_type F64T.
-Definition type_plug (ρ : representation) : type := PlugT (VALTYPE ρ ImCopy ImDrop) ρ.
-Definition type_span (σ : size) : type := SpanT (MEMTYPE σ ImDrop) σ.
+Definition type_plug (ρ : representation) : type := PlugT (VALTYPE ρ NoRefs) ρ.
+Definition type_span (σ : size) : type := SpanT (MEMTYPE σ NoRefs) σ.
 
 (* Fact: If |- NumT ν : κ, then Some [num_type_rep ν] = type_rep (NumT ν). *)
 Definition num_type_arep (ν : num_type) : atomic_rep :=
@@ -224,12 +224,12 @@ Section Eval.
 
   Definition eval_kind (κ : kind) : option skind :=
     match κ with
-    | VALTYPE ρ χ δ => 
+    | VALTYPE ρ ξ =>
         sρ ← eval_rep ρ;
-        mret $ SVALTYPE sρ χ δ 
-    | MEMTYPE σ δ =>
+        mret $ SVALTYPE sρ ξ
+    | MEMTYPE σ ξ =>
         n ← eval_size σ;
-        mret $ SMEMTYPE n δ
+        mret $ SMEMTYPE n ξ
     end.
 
   Definition inject_sum_arep (ιs : list atomic_rep) (ιs0 : list atomic_rep) : option (list nat) :=

@@ -75,24 +75,23 @@ Section FundamentalKinding.
   Qed.
 
   Lemma subkind_preserves_valtype :
-    forall ρ χ δ κ,
-      clos_refl_trans _ subkind_of κ (VALTYPE ρ χ δ) ->
-      ∃ χ' δ',
-        κ = VALTYPE ρ χ' δ'.
+    forall ρ ξ κ,
+      clos_refl_trans _ subkind_of κ (VALTYPE ρ ξ) ->
+      ∃ ξ', κ = VALTYPE ρ ξ'.
   Proof.
     intros.
-    remember (VALTYPE ρ χ δ) as κ'.
+    remember (VALTYPE ρ ξ) as κ'.
     revert Heqκ'.
-    revert ρ δ χ.
+    revert ρ ξ.
     induction H; intros; subst.
     - inversion H; eauto.
     - eauto.
-    - destruct (IHclos_refl_trans2 _ _ _ eq_refl) as (χ' & δ' & Hy).
+    - destruct (IHclos_refl_trans2 _ _ eq_refl) as (ξ' & Hy).
       eauto.
   Qed.
 
-  Lemma type_rep_has_kind_agree F τ ρ χ δ :
-    has_kind F τ (VALTYPE ρ χ δ) ->
+  Lemma type_rep_has_kind_agree F τ ρ ξ :
+    has_kind F τ (VALTYPE ρ ξ) ->
     type_rep (fe_type_vars (fe_of_context F)) τ = Some ρ.
   Proof.
     intros Hhas_kind.
@@ -234,108 +233,108 @@ Section FundamentalKinding.
   Admitted.
   *)
 
-  Lemma copyability_kind ιs χ δ :
-    copyability_interp (Σ := Σ) χ (skind_as_type_interp (SVALTYPE ιs χ δ)).
-  Proof.
-    unfold copyability_interp.
-    (*
-    rewrite H.
-    destruct χ.
-    - auto.
-    - unfold kind_as_type_interp.
-      cbn.
-      unfold representation_interp.
-      rewrite H.
-      apply explicit_copy_prim_reps_interp.
-    - intros.
-      apply kind_as_type_persistent.
-    *)
-  Admitted.
+  (* Lemma copyability_kind ιs χ δ : *)
+  (*   copyability_interp (Σ := Σ) χ (skind_as_type_interp (SVALTYPE ιs χ δ)). *)
+  (* Proof. *)
+  (*   unfold copyability_interp. *)
+  (*   (* *)
+  (*   rewrite H. *)
+  (*   destruct χ. *)
+  (*   - auto. *)
+  (*   - unfold kind_as_type_interp. *)
+  (*     cbn. *)
+  (*     unfold representation_interp. *)
+  (*     rewrite H. *)
+  (*     apply explicit_copy_prim_reps_interp. *)
+  (*   - intros. *)
+  (*     apply kind_as_type_persistent. *)
+  (*   *) *)
+  (* Admitted. *)
 
-  Lemma copyability_sep χ S T :
-    copyability_interp χ S ->
-    copyability_interp χ T ->
-    copyability_interp (Σ := Σ) χ (λne sv, (S sv ∗ T sv)%I).
-  Proof.
-    destruct χ; cbn.
-    - auto.
-    - admit.
-    - intros HS HT sv.
-      (* typeclasses eauto. *)
-  Admitted.
+  (* Lemma copyability_sep χ S T : *)
+  (*   copyability_interp χ S -> *)
+  (*   copyability_interp χ T -> *)
+  (*   copyability_interp (Σ := Σ) χ (λne sv, (S sv ∗ T sv)%I). *)
+  (* Proof. *)
+  (*   destruct χ; cbn. *)
+  (*   - auto. *)
+  (*   - admit. *)
+  (*   - intros HS HT sv. *)
+  (*     (* typeclasses eauto. *) *)
+  (* Admitted. *)
 
-  Instance copyability_proper : Proper (eq ==> equiv ==> equiv) (copyability_interp (Σ := Σ)).
-  Admitted.
+  (* Instance copyability_proper : Proper (eq ==> equiv ==> equiv) (copyability_interp (Σ := Σ)). *)
+  (* Admitted. *)
 
-  Theorem kinding_copyable F se τ ρ χ δ : 
-    has_kind F τ (VALTYPE ρ χ δ) ->
-    sem_env_interp F se ->
-    copyability_interp χ (value_interp rti sr se τ).
-  Proof.
-    intros Hkind.
-    remember (VALTYPE ρ χ δ) as κ.
-    revert Heqκ.
-    revert ρ χ δ.
-    induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *;
-      intros [Hsubst Henv]; try subst κ; try subst κ'.
-    - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      cbn.
-      intros.
-      rewrite value_interp_eq; cbn.
-      (* typeclasses eauto. *)
-      admit.
-    - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      intros sv.
-      rewrite value_interp_eq; cbn.
-      (* typeclasses eauto. *)
-      admit.
-    - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      intros sv.
-      (* rewrite value_interp_eq; cbn; typeclasses eauto. *)
-      admit.
-    - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      intros sv.
-      (* rewrite value_interp_eq; cbn; typeclasses eauto. *)
-      admit.
-    - unfold copyability_interp; inversion Hκeq; subst; eauto.
-      intros sv.
-      (* rewrite value_interp_eq; cbn; typeclasses eauto. *)
-      admit.
-    - admit. (* sums *)
-    - inversion Hκeq; subst; eauto.
-    - admit. (* products *)
-    - inversion Hκeq; subst; eauto.
-    - inversion Hκeq; subst; done.
-    - admit. (* refs *)
-    - admit. (* coderef *)
-    - cbn in *. 
-      admit.
-    - admit.
-    - unfold copyability_interp; inversion Hκeq; subst; eauto.
-    - admit. (* recursive types *)
-    - admit. (* exists (mem) *)
-    - admit. (* exists (repr) *)
-    - admit. (* exists (size) *)
-    - admit. (* exists (type) *)
-    - inversion H; subst; eauto.
-      + specialize (IHHkind _ _ _ eq_refl).
-        cbn in IHHkind.
-        cbn.
-        admit.
-      + cbn; done.
-      + specialize (IHHkind _ _ _ eq_refl).
-        eapply IHHkind.
-        split; auto.
-    - simpl subst_type.
-      unfold sem_env_interp in Henv.
-      pose proof (Forall2_length _ _ _ Henv) as Hlen.
-      eapply Forall2_lookup_r in H; eauto.
-      destruct H as [[κt' T] [Hκt' [Hκsubst Hκinterp]]].
-      cbn in Hκsubst, Hκinterp.
-      cbn in *; subst.
-      rewrite value_interp_var; eauto.
-      admit.
-  Admitted.
+  (* Theorem kinding_copyable F se τ ρ χ δ :  *)
+  (*   has_kind F τ (VALTYPE ρ χ δ) -> *)
+  (*   sem_env_interp F se -> *)
+  (*   copyability_interp χ (value_interp rti sr se τ). *)
+  (* Proof. *)
+  (*   intros Hkind. *)
+  (*   remember (VALTYPE ρ χ δ) as κ. *)
+  (*   revert Heqκ. *)
+  (*   revert ρ χ δ. *)
+  (*   induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *; *)
+  (*     intros [Hsubst Henv]; try subst κ; try subst κ'. *)
+  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
+  (*     cbn. *)
+  (*     intros. *)
+  (*     rewrite value_interp_eq; cbn. *)
+  (*     (* typeclasses eauto. *) *)
+  (*     admit. *)
+  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
+  (*     intros sv. *)
+  (*     rewrite value_interp_eq; cbn. *)
+  (*     (* typeclasses eauto. *) *)
+  (*     admit. *)
+  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
+  (*     intros sv. *)
+  (*     (* rewrite value_interp_eq; cbn; typeclasses eauto. *) *)
+  (*     admit. *)
+  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
+  (*     intros sv. *)
+  (*     (* rewrite value_interp_eq; cbn; typeclasses eauto. *) *)
+  (*     admit. *)
+  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
+  (*     intros sv. *)
+  (*     (* rewrite value_interp_eq; cbn; typeclasses eauto. *) *)
+  (*     admit. *)
+  (*   - admit. (* sums *) *)
+  (*   - inversion Hκeq; subst; eauto. *)
+  (*   - admit. (* products *) *)
+  (*   - inversion Hκeq; subst; eauto. *)
+  (*   - inversion Hκeq; subst; done. *)
+  (*   - admit. (* refs *) *)
+  (*   - admit. (* coderef *) *)
+  (*   - cbn in *.  *)
+  (*     admit. *)
+  (*   - admit. *)
+  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
+  (*   - admit. (* recursive types *) *)
+  (*   - admit. (* exists (mem) *) *)
+  (*   - admit. (* exists (repr) *) *)
+  (*   - admit. (* exists (size) *) *)
+  (*   - admit. (* exists (type) *) *)
+  (*   - inversion H; subst; eauto. *)
+  (*     + specialize (IHHkind _ _ _ eq_refl). *)
+  (*       cbn in IHHkind. *)
+  (*       cbn. *)
+  (*       admit. *)
+  (*     + cbn; done. *)
+  (*     + specialize (IHHkind _ _ _ eq_refl). *)
+  (*       eapply IHHkind. *)
+  (*       split; auto. *)
+  (*   - simpl subst_type. *)
+  (*     unfold sem_env_interp in Henv. *)
+  (*     pose proof (Forall2_length _ _ _ Henv) as Hlen. *)
+  (*     eapply Forall2_lookup_r in H; eauto. *)
+  (*     destruct H as [[κt' T] [Hκt' [Hκsubst Hκinterp]]]. *)
+  (*     cbn in Hκsubst, Hκinterp. *)
+  (*     cbn in *; subst. *)
+  (*     rewrite value_interp_var; eauto. *)
+  (*     admit. *)
+  (* Admitted. *)
 
   Theorem kinding_sound F se τ κ sκ :
     has_kind F τ κ ->
@@ -343,14 +342,14 @@ Section FundamentalKinding.
     eval_kind se κ = Some sκ ->
     skind_interp sκ (value_interp rti sr se τ).
   Proof.
-    intros Hkind. 
-    intros * Hsubst.
-    split.
-    - eapply kinding_refinement; eauto.
-    - destruct sκ; [| done].
-      cbn.
-      eapply kinding_copyable; eauto.
-      admit.
+    (* intros Hkind.  *)
+    (* intros * Hsubst. *)
+    (* split. *)
+    (* - eapply kinding_refinement; eauto. *)
+    (* - destruct sκ; [| done]. *)
+    (*   cbn. *)
+    (*   eapply kinding_copyable; eauto. *)
+    (*   admit. *)
   Admitted.
 
 End FundamentalKinding.

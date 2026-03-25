@@ -31,7 +31,7 @@ Section Fundamental.
     let ψ := InstrT [τ] [] in
     let L' := <[ i := τ ]> L in
     L !! i = Some τ0 ->
-    has_dropability F τ0 ImDrop ->
+    has_ref_flag F τ0 NoRefs ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalSet ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.

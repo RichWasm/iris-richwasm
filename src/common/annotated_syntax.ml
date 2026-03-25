@@ -42,60 +42,34 @@ module BaseMemory = struct
     | MemGC -> fprintf ff "gc"
 end
 
-module Copyability = struct
-  type t = [%import: Richwasm_extract.Rw.Core.copyability]
-  [@@deriving eq, ord, sexp]
+module RefFlag = struct
+    type t = [%import: Richwasm_extract.Rw.Core.ref_flag]
+    [@@deriving eq, ord, sexp]
 
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp_rocq ff : t -> _ = function
-    | NoCopy -> fprintf ff "NoCopy"
-    | ExCopy -> fprintf ff "ExCopy"
-    | ImCopy -> fprintf ff "ImCopy"
+    let pp_rocq ff : t -> _ = function
+      | NoRefs -> fprintf ff "NoRefs"
+      | GCRefs -> fprintf ff "GCRefs"
+      | AnyRefs -> fprintf ff "AnyRefs"
 
-  let pp ff : t -> _ = function
-    | NoCopy -> fprintf ff "nocopy"
-    | ExCopy -> fprintf ff "excopy"
-    | ImCopy -> fprintf ff "imcopy"
+    let pp ff : t -> _ = function
+      | NoRefs -> fprintf ff "norefs"
+      | GCRefs -> fprintf ff "gcrefs"
+      | AnyRefs -> fprintf ff "anyrefs"
 
-  let le a b =
-    match (a, b) with
-    | ImCopy, _ -> true
-    | ExCopy, (ExCopy | NoCopy) -> true
-    | NoCopy, NoCopy -> true
-    | _ -> false
+    let le a b =
+      match (a, b) with
+      | NoRefs, _ -> true
+      | GCRefs, (GCRefs | AnyRefs) -> true
+      | AnyRefs, AnyRefs -> true
+      | _ -> false
 
-  let meet a b =
-    match (a, b) with
-    | NoCopy, _ | _, NoCopy -> NoCopy
-    | ExCopy, _ | _, ExCopy -> ExCopy
-    | ImCopy, ImCopy -> ImCopy
-end
-
-module Dropability = struct
-  type t = [%import: Richwasm_extract.Rw.Core.dropability]
-  [@@deriving eq, ord, sexp]
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-  let pp_rocq ff : t -> _ = function
-    | ExDrop -> fprintf ff "ExDrop"
-    | ImDrop -> fprintf ff "ImDrop"
-
-  let pp ff : t -> _ = function
-    | ExDrop -> fprintf ff "exdrop"
-    | ImDrop -> fprintf ff "imdrop"
-
-  let le a b =
-    match (a, b) with
-    | ImDrop, _ -> true
-    | ExDrop, ExDrop -> true
-    | _ -> false
-
-  let meet a b =
-    match (a, b) with
-    | ExDrop, _ | _, ExDrop -> ExDrop
-    | ImDrop, ImDrop -> ImDrop
+    let meet a b =
+      match (a, b) with
+      | AnyRefs, _ | _, AnyRefs -> AnyRefs
+      | GCRefs, _ | _, GCRefs -> GCRefs
+      | NoRefs, NoRefs -> NoRefs
 end
 
 module AtomicRep = struct
@@ -532,8 +506,7 @@ module Kind = struct
       (Richwasm_extract.Rw.Core.kind
       [@with
         representation := Representation.t;
-        copyability := Copyability.t;
-        dropability := Dropability.t;
+        ref_flag := RefFlag.t;
         size := Size.t;
         memory := Memory.t])]
   [@@deriving eq, ord, sexp]
@@ -541,19 +514,18 @@ module Kind = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp_rocq ff : t -> _ = function
-    | VALTYPE (rep, copy, drop) ->
-        fprintf ff "@[<2>(VALTYPE@ %a@ %a@ %a)@]" Representation.pp_rocq rep
-          Copyability.pp_rocq copy Dropability.pp_rocq drop
-    | MEMTYPE (size, drop) ->
+    | VALTYPE (rep, rflag) ->
+        fprintf ff "@[<2>(VALTYPE@ %a@ %a)@]" Representation.pp_rocq rep
+          RefFlag.pp_rocq rflag
+    | MEMTYPE (size, rflag) ->
         fprintf ff "@[<2>(MEMTYPE@ %a@ %a)@]" Size.pp_rocq size
-          Dropability.pp_rocq drop
+          RefFlag.pp_rocq rflag
 
   let pp ff = function
-    | VALTYPE (r, c, d) ->
-        fprintf ff "@[<2>(val@ %a@ %a@ %a)@]" Representation.pp r Copyability.pp
-          c Dropability.pp d
-    | MEMTYPE (s, d) ->
-        fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s Dropability.pp d
+    | VALTYPE (r, f) ->
+        fprintf ff "@[<2>(val@ %a@ %a)@]" Representation.pp r RefFlag.pp f
+    | MEMTYPE (s, f) ->
+        fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s RefFlag.pp f
 
   let subst = Richwasm_extract.Rw.Core.subst_kind
   let ren = Richwasm_extract.Rw.Core.ren_kind

@@ -289,12 +289,12 @@ Section Compiler.
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
     | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
-    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
+    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _) _]) i => compile_inject fe ρs τ i
     | IInject _ _ => raise (EInvalidInstrT "IInject")
     | IInjectNew (InstrT [τ] [RefT _ (BaseM μ) (VariantT (MEMTYPE σ _) _)]) i =>
         compile_inject_new fe μ i τ σ
     | IInjectNew _ _ => raise (EInvalidInstrT "IInjectNew")
-    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] [τ']) _ ess =>
+    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _) _] [τ']) _ ess =>
         compile_case fe ρs τ' (compile_cases fe ess)
     | ICase _ _ _ => raise (EInvalidInstrT "ICase")
     | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>

@@ -30,7 +30,7 @@ Section Fundamental.
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [RefT κ (BaseM MemMM) τ; τval] [RefT κ' (BaseM MemMM) (pr_replaced pr)] in
     resolves_path τ π (Some (SerT κser τval)) pr ->
-    has_dropability F pr.(pr_target) ImDrop ->
+    has_ref_flag F pr.(pr_target) GCRefs ->
     has_size F pr.(pr_target) σ ->
     has_rep F τval ρ ->
     eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->

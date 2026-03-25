@@ -81,16 +81,15 @@ Section Fundamental.
       by inversion Hos.
   Qed.
 
-  Lemma rep_ref_kind_ptr F κ μ τ ρ χ δ :
-    has_kind F (RefT κ μ τ) (VALTYPE ρ χ δ) ->
-    ρ = AtomR PtrR /\
-    exists χ', κ = VALTYPE (AtomR PtrR) χ' ExDrop.
+  Lemma rep_ref_kind_ptr F κ μ τ ρ ξ :
+    has_kind F (RefT κ μ τ) (VALTYPE ρ ξ) ->
+    ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
   Proof.
     intros Hkind.
     remember (RefT κ μ τ) as ref.
-    remember (VALTYPE ρ χ δ) as val.
+    remember (VALTYPE ρ ξ) as val.
     revert Heqval Heqref.
-    revert ρ χ δ.
+    revert ρ ξ.
     induction Hkind using has_kind_ind'; intros; try congruence.
     - subst κ0.
       split; try congruence.
@@ -709,7 +708,7 @@ Section Fundamental.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-    has_copyability F τval ExCopy ->
+    has_ref_flag F τval GCRefs ->
     resolves_path τ π None pr ->
     pr.(pr_target) = SerT κser τval ->
     Forall (has_mono_size F) (pr_prefix pr) ->
@@ -750,7 +749,7 @@ Section Fundamental.
     iPoseProof (value_interp_ref_sz with "Hvals") as "%Hlen_os".
     iEval (rewrite value_interp_eq) in "Hvals".
     iDestruct "Hvals" as (κ' Hκ') "[Harep Href]".
-    destruct κ'; [|done].
+    destruct κ'; [|by iDestruct "Harep" as "[[] ?]"].
     iDestruct "Harep" as "%Harep".
     change instruction.W.T_i32 with T_i32 in *.
     change prelude.W.Mk_localidx with Mk_localidx in *.
@@ -771,6 +770,7 @@ Section Fundamental.
       rewrite Forall_singleton in Hmono.
       inversion Hmono as [? ? ? Hrep Hismono]; subst.
       inversion Hrep; subst.
+      cbn.
       apply rep_ref_kind_ptr in H; subst.
       destruct H as [-> [χ' ->]].
       unfold eval_kind in Hκ'.
@@ -778,7 +778,7 @@ Section Fundamental.
       inversion Hret; subst; auto.
     }
     cbn in Hκ; inversion Hκ; subst l.
-    destruct Harep as [os' [Hos Hareps]].
+    destruct Harep as [[os' [Hos Hareps]] Hrefflag].
     inversion Hos; subst os'; clear Hos.
     iPoseProof (atoms_interp_length os vs with "Hats") as "%Hlen_os_vs".
     pose proof (has_values_length _ _ Hevs) as Hlen_evs_vs.

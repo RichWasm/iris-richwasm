@@ -63,7 +63,7 @@ let%expect_test "id_fun" =
   -------[id_fun]-------
   (module
     (func
-        (forall.type (val ptr excopy exdrop)
+        (forall.type (val ptr gcrefs)
           (ref (base gc) (struct (ser (ref (base gc) (struct))) (ser (var 0))))
           -> (var 0))
         (local ptr ptr ptr)
@@ -214,7 +214,7 @@ let%expect_test "apply_id" =
   -------[apply_id]-------
   (module
     (func
-        (forall.type (val ptr excopy exdrop)
+        (forall.type (val ptr gcrefs)
           (ref (base gc) (struct (ser (ref (base gc) (struct))) (ser (var 0))))
           -> (var 0))
         (local ptr ptr ptr)
@@ -243,7 +243,7 @@ let%expect_test "apply_id" =
           (struct (ser (ref (base gc) (struct)))
             (ser
               (coderef
-                (forall.type (val ptr excopy exdrop)
+                (forall.type (val ptr gcrefs)
                   (ref (base gc)
                     (struct (ser (ref (base gc) (struct))) (ser (var 0))))
                   -> (var 0))))))
@@ -252,7 +252,7 @@ let%expect_test "apply_id" =
           (struct (ser (var 0))
             (ser
               (coderef
-                (forall.type (val ptr excopy exdrop)
+                (forall.type (val ptr gcrefs)
                   (ref (base gc) (struct (ser (var 1)) (ser (var 0)))) ->
                   (var 0))))))
       unpack (result i31) inferfx

@@ -46,11 +46,11 @@ Section Fundamental.
 
   Lemma one_rep_in_rvs_vs rvs vs rtii srr se:
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) ImCopy ImDrop) (IntT i)] rvs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) NoRefs) (IntT i)] rvs -∗
     ⌜(exists n, vs = [VAL_int32 n] /\ i = I32T) \/ (exists n, vs = [VAL_int64 n] /\ i = I64T)⌝)
     /\
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) ImCopy ImDrop) (FloatT i)] rvs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) NoRefs) (FloatT i)] rvs -∗
     ⌜(exists n, vs = [VAL_float32 n] /\ i = F32T) \/ (exists n, vs = [VAL_float64 n] /\ i = F64T)⌝)
   .
   Proof.
@@ -79,7 +79,7 @@ Section Fundamental.
     all: iPoseProof "Hkindinterp" as "%Hkindinterp".
     (* Have to dig in and prove rvs is just an integer *)
     all: unfold has_areps in Hkindinterp.
-    all: destruct Hkindinterp as (rvs0 & Hrvs0 & Hprimprep).
+    all: destruct Hkindinterp as [(rvs0 & Hrvs0 & Hprimprep) Hnorefs].
     all: inversion Hrvs0.
     all: rewrite <- H1 in Hprimprep. (* subst does too much here*)
     all: apply Forall2_length in Hprimprep as Hrvslength.
@@ -108,14 +108,14 @@ Section Fundamental.
 
   Lemma two_rep_in_rvs_vs rvs vs rtii srr se :
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) ImCopy ImDrop) (IntT i);
-                               NumT (VALTYPE (AtomR (int_type_arep i)) ImCopy ImDrop) (IntT i)] rvs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) NoRefs) (IntT i);
+                               NumT (VALTYPE (AtomR (int_type_arep i)) NoRefs) (IntT i)] rvs -∗
     ⌜(exists n1 n2, vs = [VAL_int32 n1; VAL_int32 n2] /\ i = I32T) \/
       (exists n1 n2, vs = [VAL_int64 n1; VAL_int64 n2] /\ i = I64T)⌝)
     /\
     (forall i, atoms_interp rvs vs -∗
-    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) ImCopy ImDrop) (FloatT i);
-                               NumT (VALTYPE (AtomR (float_type_arep i)) ImCopy ImDrop) (FloatT i)] rvs -∗
+    values_interp rtii srr se [NumT (VALTYPE (AtomR (float_type_arep i)) NoRefs) (FloatT i);
+                               NumT (VALTYPE (AtomR (float_type_arep i)) NoRefs) (FloatT i)] rvs -∗
     ⌜(exists n1 n2, vs = [VAL_float32 n1; VAL_float32 n2] /\ i = F32T) \/
       (exists n1 n2, vs = [VAL_float64 n1; VAL_float64 n2] /\ i = F64T)⌝)
   .
@@ -157,8 +157,8 @@ Section Fundamental.
     (* Have to dig in and prove rvs1 is just an integer *)
     all: unfold has_areps in Hkindinterp1.
     all: unfold has_areps in Hkindinterp2.
-    all: destruct Hkindinterp1 as (rvs1_0 & Hrvs1 & Hprimprep1).
-    all: destruct Hkindinterp2 as (rvs2_0 & Hrvs2 & Hprimprep2).
+    all: destruct Hkindinterp1 as [(rvs1_0 & Hrvs1 & Hprimprep1) Hnorefs1].
+    all: destruct Hkindinterp2 as [(rvs2_0 & Hrvs2 & Hprimprep2) Hnorefs2].
     all: inversion Hrvs1; rewrite <- H2 in Hprimprep1.
     all: inversion Hrvs2; rewrite <- H3 in Hprimprep2.
     all: apply Forall2_length in Hprimprep1 as Hrvs1length.
@@ -193,7 +193,6 @@ Section Fundamental.
     all: try (right; by repeat eexists).
   Qed.
 
-
   Ltac one_num_set_up τ n :=
     inversion Htypenum; subst;
     unfold τ in *; unfold int_type_type, float_type_type in *;
@@ -203,6 +202,7 @@ Section Fundamental.
     try (iPoseProof (one_rep_in_rvs_vs_ints n with "[$Hrvs] [$Hvs]") as "%Hvs");
     try (iPoseProof (one_rep_in_rvs_vs_floats n with "[$Hrvs] [$Hvs]") as "%Hvs");
     iClear "Hrvs"; iClear "Hvs".
+
   Ltac two_num_set_up τ n :=
     inversion Htypenum; subst;
     unfold τ in *; unfold int_type_type, float_type_type in *;
@@ -212,7 +212,6 @@ Section Fundamental.
     try (iPoseProof (two_rep_in_rvs_vs_ints n with "[$Hrvs] [$Hvs]") as "%Hvs");
     try (iPoseProof (two_rep_in_rvs_vs_floats n with "[$Hrvs] [$Hvs]") as "%Hvs");
     iClear "Hrvs"; iClear "Hvs".
-
 
   Lemma compat_num M F L wt wt' wtf wl wl' wlf ψ e es' :
     let fe := fe_of_context F in

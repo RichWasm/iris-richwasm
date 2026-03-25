@@ -30,7 +30,7 @@ Section Fundamental.
     let WL := wl ++ wl' ++ wlf in
     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
     resolves_path τ π None pr ->
-    has_dropability F pr.(pr_target) ImDrop ->
+    has_ref_flag F pr.(pr_target) GCRefs ->
     pr.(pr_target) = SerT κser τval ->
     Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->

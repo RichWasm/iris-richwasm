@@ -1,15 +1,10 @@
 nat : Type
-
 list : Functor
 
-copyability : Type
-NoCopy : copyability
-ExCopy : copyability
-ImCopy : copyability
-
-dropability : Type
-ExDrop : dropability
-ImDrop : dropability
+ref_flag : Type
+NoRefs : ref_flag
+GCRefs : ref_flag
+AnyRefs : ref_flag
 
 base_memory : Type
 MemMM : base_memory
@@ -37,8 +32,8 @@ RepS : representation -> size
 ConstS : nat -> size
 
 kind : Type
-VALTYPE : representation -> copyability -> dropability -> kind
-MEMTYPE : size -> dropability -> kind
+VALTYPE : representation -> ref_flag -> kind
+MEMTYPE : size -> ref_flag -> kind
 
 int_type : Type
 I32T : int_type
