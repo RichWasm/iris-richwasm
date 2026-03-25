@@ -1074,6 +1074,47 @@ Section CodeGen.
     by iApply (Hwp with "[$] [$] [//]").
   Qed.
 
+  Lemma cwp_create_defaults types wt wl x wt' wl' es s E L R f Φ :
+  run_codegen (create_defaults types) wt wl = inr (x, wt', wl', es) ->
+  x = tt /\
+  wt' = [] /\
+  wl' = [] /\
+  ⊢ ↪[frame] f -∗
+    ↪[RUN] -∗
+    Φ f (map (default_of_value_type) types) -∗
+    CWP es @ s; E UNDER L; R {{ Φ }}.
+Proof.
+  intros Hcg.
+  apply run_codegen_create_defaults in Hcg.
+  destruct Hcg as (-> & -> & -> & ->).
+  do 3 (split; try done).
+  iIntros "Hfr Hrun HΦ".
+  iApply (cwp_val with "[$] [$] HΦ").
+  rewrite -map_comp.
+  apply has_values_to_consts.
+Qed.
+
+Lemma cwp_drop_consts types wt wl x wt' wl' es E L R f Φ evs :
+  length evs = length types ->
+  is_consts evs ->
+  run_codegen (drop_consts types) wt wl = inr (x, wt', wl', es) ->
+  x = tt /\
+  wt' = [] /\
+  wl' = [] /\
+  ⊢ ↪[frame] f -∗
+    ↪[RUN] -∗
+    Φ f [] -∗
+    CWP evs ++ es @ E UNDER L; R {{ Φ }}.
+Proof.
+  intros Hlen Hconsts Hcg.
+  apply run_codegen_drop_consts in Hcg.
+  destruct Hcg as (-> & -> & -> & ->).
+  do 3 (split; try done).
+  iIntros "Hfr Hrun HΦ".
+  rewrite -Hlen.
+  by iApply (cwp_drops with "[$] [$] [HΦ]").
+Qed.
+
   Lemma wp_bind_err {A B} c (f : A -> codegen B) wt wl err :
     run_codegen (c ≫= f) wt wl = inl err ->
     run_codegen c wt wl = inl err \/

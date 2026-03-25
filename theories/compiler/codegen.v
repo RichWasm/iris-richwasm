@@ -98,7 +98,7 @@ Definition create_defaults' (types : W.result_type) : codegen unit :=
 Definition create_defaults (types : W.result_type) : codegen unit :=
   emit_all $ map (W.BI_const ∘ default_of_value_type) types.
 
-Definition drop_defaults (types : W.result_type) : codegen unit :=
+Definition drop_consts (types : W.result_type) : codegen unit :=
   emit_all $ repeat (W.BI_drop) (length types).
 
 Definition capture {A : Type} (c : codegen A) : codegen (A * W.expr) :=
@@ -131,7 +131,7 @@ Definition case_block (tag_idx : W.localidx) (result : W.result_type) (case : (n
     (* If it doesn't, branch out of the block *)
     emit (W.BI_br_if 0);;
     (* If it does, drop the default values on stack... *)
-    drop_defaults result;;
+    drop_consts result;;
     (* ... and do the case *)
     case tag_counter
   ).
@@ -434,4 +434,26 @@ Proof.
     repeat rewrite app_nil_r, app_nil_l.
     eapply IHρ.
     apply H.
+Qed.
+
+Lemma run_codegen_create_defaults types wt wl x wt' wl' es :
+  run_codegen (create_defaults types) wt wl = inr (x, wt', wl', es) ->
+  x = tt /\
+  wt' = [] /\
+  wl' = [] /\
+  es = map (W.BI_const ∘ default_of_value_type) types.
+Proof.
+  intros Hcg.
+  by apply run_codegen_emit_all in Hcg.
+Qed.
+
+Lemma run_codegen_drop_consts types wt wl x wt' wl' es :
+  run_codegen (drop_consts types) wt wl = inr (x, wt', wl', es) ->
+  x = tt /\
+  wt' = [] /\
+  wl' = [] /\
+  es = repeat W.BI_drop (length types).
+Proof.
+  intros Hcg.
+  by apply run_codegen_emit_all in Hcg.
 Qed.

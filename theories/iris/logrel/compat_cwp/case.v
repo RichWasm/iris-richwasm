@@ -112,7 +112,7 @@ Proof.
     inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es1.
     inv_cg_emit Hbr_case; subst.
 
-    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl es_drop_1 ?es Hdrop_defaults_1 Hcase_es1.
+    inv_cg_bind Hcase_es1 [] ?wt ?wt ?wl ?wl es_drop_1 ?es Hdrop_consts_1 Hcase_es1.
 
     inv_cg_bind Hcase_es1 ρ_case1 ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es1.
     inv_cg_try_option Hlookup; subst.
@@ -152,7 +152,7 @@ Proof.
     inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hcase_es2.
     inv_cg_emit Hbr_case; subst.
 
-    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl es_drop_2 ?es Hdrop_defaults_2 Hcase_es2.
+    inv_cg_bind Hcase_es2 [] ?wt ?wt ?wl ?wl es_drop_2 ?es Hdrop_consts_2 Hcase_es2.
 
     inv_cg_bind Hcase_es2 ρ_case2 ?wt ?wt ?wl ?wl ?es ?es Hlookup Hcase_es2.
     inv_cg_try_option Hlookup; subst.
@@ -194,83 +194,83 @@ Proof.
     simplify_eq.
 
     (* Iris Proof *)
-    (* iIntros (? ? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst Hctx Hreturn Hrvs Hvs Hframe Hrt Hfr Hrun". *)
-    (* iDestruct (Hes1 _ _ (wt_case_2 ++ wtf) _ _ (wl_case_2 ++ wlf) _ Hcase_es1) as "Hsem_es1". *)
-    (* iDestruct (Hes2 _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2". *)
-    (**)
-    (* (* Our values are in the value interpretation for our specific SumT *) *)
-    (* (* This means that the values represent the tag and the payload. *) *)
-    (* iDestruct (values_interp_one_eq with "Hvs") as "Hvs". *)
-    (* iDestruct (value_interp_eq with "Hvs") as "Hvs". *)
-    (* unfold value_interp0, value_se_interp0. *)
-    (* iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)". *)
-    (* (*unfold type_skind in Hkind_sum.*) *)
-    (* iDestruct "Hsum_interp" as (i os0 os_i τ_i ιs ιs_i ixs  HSAtoms Htype_lookup Htype_arep Heval_rep_tail Hinject_sum_arep Hos0_ixs) "Hvalue_interp_os_i". *)
-    (* (*assert (os = I32A (Wasm_int.int_of_Z i32m i) :: os0) as ->; first by inversion HSAtoms.*) *)
-    (* simplify_eq. *)
-    (**)
-    (* iDestruct (big_sepL2_length with "Hrvs") as "%Hlen". *)
-    (* destruct vs as [|v_tag vs_payload]; first inversion Hlen. *)
-    (* clear Hlen. *)
-    (* iDestruct (relations_cwp.atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]". *)
-    (**)
-    (* iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done. *)
-    (* rewrite list_extra.cons_app in Hhas_values. *)
-    (* apply has_values_app_inv in Hhas_values as (e_tag & es_payload & -> & Hhv_tag & Hhvs_payload). *)
-    (**)
-    (* rewrite (app_assoc (e_tag ++ _)). *)
-    (* iApply (cwp_seq with "[Hfr Hrun]"). *)
-    (* { *)
-    (*   rewrite <- (app_assoc e_tag). *)
-    (*   instantiate (1 := λ f vs, ( *)
-    (*     ⌜vs = [VAL_int32 (Wasm_int.Int32.repr i)]⌝ ∗ *)
-    (*     ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗ *)
-    (*     ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ *)
-    (*     )%I). *)
-    (*   iApply cwp_val_app; first done. *)
-    (*   eapply cwp_save_stack_w in Hsave; eauto. *)
-    (*   + destruct Hsave as (-> & -> & -> & Hsave). *)
-    (*     iApply (Hsave with "[$] [$]"). *)
-    (*     iIntros (f' [Hfsame Hfchanged]). *)
-    (*     unfold fvs_combine. *)
-    (*     done. *)
-    (*   + admit. (* easy pure conseqeunce of value_interp and *)
-    (*   rep_values_interp, should be proved above the first wp_seq *)
-    (*   rule *) *)
-    (* } *)
-    (* iIntros (fr_saved w) "(-> & %Hsame & %Hsaved) Hfr Hrun". *)
-    (**)
-    (* edestruct (util.nths_error_exists val_idxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done. *)
-    (**)
-    (* edestruct (util.nths_error_exists val_idxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done. *)
-    (**)
-    (* (* Store tag *) *)
-    (* rewrite (app_assoc (map _ _)). *)
-    (* iApply (cwp_seq with "[Hfr Hrun]"). *)
-    (* { *)
-    (*   instantiate (1 := λ f vs, ( *)
-    (*     ⌜vs = []⌝ ∗ *)
-    (*     ⌜∀ j, j ≠ (fe_wlocal_offset fe + length (wl ++ wl_save))%nat -> f_locs f !! j = f_locs fr_saved !! j⌝ ∗ *)
-    (*     ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝ *)
-    (*     )%I). *)
-    (*   iApply (cwp_local_set with "[] [$] [$]"). *)
-    (*   1: admit. (* localimm tag_idx < length (f_locs fr_saved) *) *)
-    (*   iSplit; first done. *)
-    (*   iSplit. *)
-    (*   - iIntros "!> %j". *)
-    (*     iPureIntro. *)
-    (*     intros Hneq. *)
-    (*     simpl. *)
-    (*     rewrite list_lookup_insert_ne; [reflexivity | lia]. *)
-    (*   - iSimpl. *)
-    (*     iPureIntro. *)
-    (*     rewrite list_lookup_insert; try done. *)
-    (*     admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *) *)
-    (*     (* Basically same as above *) *)
-    (* } *)
-    (* iIntros (fr_saved_and_tag w) "(-> & %Hsame' & %Hsaved_and_tag) Hfr Hrun". *)
-    (* clear_nils. *)
-    (**)
+    iIntros (? ? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst Hctx Hreturn Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iDestruct (Hes1 _ _ (wt_case_2 ++ wtf) _ _ (wl_case_2 ++ wlf) _ Hcase_es1) as "Hsem_es1".
+    iDestruct (Hes2 _ _ wtf _ _ wlf _ Hcase_es2) as "Hsem_es2".
+
+    (* Our values are in the value interpretation for our specific SumT *)
+    (* This means that the values represent the tag and the payload. *)
+    iDestruct (values_interp_one_eq with "Hvs") as "Hvs".
+    iDestruct (value_interp_eq with "Hvs") as "Hvs".
+    unfold value_interp0, value_se_interp0.
+    iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
+    (*unfold type_skind in Hkind_sum.*)
+    iDestruct "Hsum_interp" as (i os0 os_i τ_i ιs ιs_i ixs  HSAtoms Htype_lookup Htype_arep Heval_rep_tail Hinject_sum_arep Hos0_ixs) "Hvalue_interp_os_i".
+    (*assert (os = I32A (Wasm_int.int_of_Z i32m i) :: os0) as ->; first by inversion HSAtoms.*)
+    simplify_eq.
+
+    iDestruct (big_sepL2_length with "Hrvs") as "%Hlen".
+    destruct vs as [|v_tag vs_payload]; first inversion Hlen.
+    clear Hlen.
+    iDestruct (relations_cwp.atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
+
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
+    rewrite list_extra.cons_app in Hhas_values.
+    apply has_values_app_inv in Hhas_values as (e_tag & es_payload & -> & Hhv_tag & Hhvs_payload).
+
+    rewrite (app_assoc (e_tag ++ _)).
+    iApply (cwp_seq with "[Hfr Hrun]").
+    {
+      rewrite <- (app_assoc e_tag).
+      instantiate (1 := λ f vs, (
+        ⌜vs = [VAL_int32 (Wasm_int.Int32.repr i)]⌝ ∗
+        ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
+        ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝
+        )%I).
+      iApply cwp_val_app; first done.
+      eapply cwp_save_stack_w in Hsave; eauto.
+      + destruct Hsave as (-> & -> & -> & Hsave).
+        iApply (Hsave with "[$] [$]").
+        iIntros (f' [Hfsame Hfchanged]).
+        unfold fvs_combine.
+        done.
+      + admit. (* easy pure conseqeunce of value_interp and
+      rep_values_interp, should be proved above the first wp_seq
+      rule *)
+    }
+    iIntros (fr_saved w) "(-> & %Hsame & %Hsaved) Hfr Hrun".
+
+    edestruct (util.nths_error_exists val_idxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done.
+
+    edestruct (util.nths_error_exists val_idxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done.
+
+    (* Store tag *)
+    rewrite (app_assoc (map _ _)).
+    iApply (cwp_seq with "[Hfr Hrun]").
+    {
+      instantiate (1 := λ f vs, (
+        ⌜vs = []⌝ ∗
+        ⌜∀ j, j ≠ (fe_wlocal_offset fe + length (wl ++ wl_save))%nat -> f_locs f !! j = f_locs fr_saved !! j⌝ ∗
+        ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝
+        )%I).
+      iApply (cwp_local_set with "[] [$] [$]").
+      1: admit. (* localimm tag_idx < length (f_locs fr_saved) *)
+      iSplit; first done.
+      iSplit.
+      - iIntros "!> %j".
+        iPureIntro.
+        intros Hneq.
+        simpl.
+        rewrite list_lookup_insert_ne; [reflexivity | lia].
+      - iSimpl.
+        iPureIntro.
+        rewrite list_lookup_insert; try done.
+        admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *)
+        (* Basically same as above *)
+    }
+    iIntros (fr_saved_and_tag w) "(-> & %Hsame' & %Hsaved_and_tag) Hfr Hrun".
+    clear_nils.
+
     (* (* -------- Case 1 -------- *) *)
     (* iApply (cwp_seq with "[-]"). *)
     (* { *)
