@@ -79,6 +79,28 @@ Definition save_stack_arep (fe : function_env) (ιs : list atomic_rep) : codegen
 
 Definition restore_stack : list W.localidx -> codegen unit := get_locals_w.
 
+(* TODO: the handling of floats feels odd *)
+Definition default_of_value_type (type : W.value_type) : W.value :=
+  match type with
+  | W.T_i32 => W.VAL_int32 $ Wasm_int.int_zero i32m
+  | W.T_i64 => W.VAL_int64 $ Wasm_int.int_zero i64m
+  | W.T_f32 => W.VAL_float32 $ Wasm_float.FloatSize32.of_bits $ Integers.Int.repr 0
+  | W.T_f64 => W.VAL_float64 $ Wasm_float.FloatSize64.of_bits $ Integers.Int64.repr 0
+  end.
+
+Definition create_default (type : W.value_type) : codegen unit :=
+  emit $ W.BI_const $ default_of_value_type type.
+
+(* TODO: pick one *)
+Definition create_defaults' (types : W.result_type) : codegen unit :=
+  mapM_ (emit ∘ W.BI_const ∘ default_of_value_type) types.
+
+Definition create_defaults (types : W.result_type) : codegen unit :=
+  emit_all $ map (W.BI_const ∘ default_of_value_type) types.
+
+Definition drop_defaults (types : W.result_type) : codegen unit :=
+  emit_all $ repeat (W.BI_drop) (length types).
+
 Definition capture {A : Type} (c : codegen A) : codegen (A * W.expr) :=
   censor (const []) (listen c).
 
@@ -100,37 +122,37 @@ Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : cod
   ret (x1, x2).
 
 
-Definition case_block (tag_idx : W.localidx) (res_idxs : list W.localidx) (case : (nat -> codegen unit)) (tag_counter : nat) :=
-  block_c (W.Tf [] []) (
+Definition case_block (tag_idx : W.localidx) (result : W.result_type) (case : (nat -> codegen unit)) (tag_counter : nat) :=
+  block_c (W.Tf result result) (
     (* Check if tag matches the current case *)
     emit (W.BI_get_local $ localimm tag_idx);;
     emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat tag_counter);;
     emit (W.BI_relop W.T_i32 (W.Relop_i W.ROI_ne));;
     (* If it doesn't, branch out of the block *)
     emit (W.BI_br_if 0);;
-    (* If it does, do the case *)
-    case tag_counter;;
-    (* Save result in local(s) *)
-    set_locals_w res_idxs
+    (* If it does, drop the default values on stack*)
+    drop_defaults result;;
+    (* and do the case *)
+
+    case tag_counter
   ).
 
 Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
   (* Store tag in local *)
   tag_idx ← save_stack1 fe W.T_i32;
-  (* Allocate space for result *)
-  res_idxs ← wlallocs fe result;
+  (* Put default result values on stack *)
+  create_defaults result;;
   (* Code for each case *)
-  mapM_ (uncurry (case_block tag_idx res_idxs)) (zip cases (seq 0 (length cases)));;
+  mapM_ (uncurry (case_block tag_idx result)) (zip cases (seq 0 (length cases)));;
   (* Check that tag is in-bounds *)
-  block_c (W.Tf [] []) (
+  (* TODO: can maybe remove *)
+  block_c (W.Tf result result) (
     emit (W.BI_get_local $ localimm tag_idx);;
     emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat $ length cases);;
     emit (W.BI_relop W.T_i32 (W.Relop_i $ W.ROI_lt W.SX_S));;
     emit (W.BI_br_if 0);;
     emit (W.BI_unreachable)
-  );;
-  (* Put result on stack *)
-  get_locals_w res_idxs
+  )
 .
 
 Lemma runWriterT_sum_bind_dist {A B L E}
