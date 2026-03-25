@@ -93,7 +93,7 @@ Definition create_default (type : W.value_type) : codegen unit :=
 
 (* TODO: pick one *)
 Definition create_defaults' (types : W.result_type) : codegen unit :=
-  mapM_ (emit ∘ W.BI_const ∘ default_of_value_type) types.
+  mapM_ create_default types.
 
 Definition create_defaults (types : W.result_type) : codegen unit :=
   emit_all $ map (W.BI_const ∘ default_of_value_type) types.
@@ -130,10 +130,9 @@ Definition case_block (tag_idx : W.localidx) (result : W.result_type) (case : (n
     emit (W.BI_relop W.T_i32 (W.Relop_i W.ROI_ne));;
     (* If it doesn't, branch out of the block *)
     emit (W.BI_br_if 0);;
-    (* If it does, drop the default values on stack*)
+    (* If it does, drop the default values on stack... *)
     drop_defaults result;;
-    (* and do the case *)
-
+    (* ... and do the case *)
     case tag_counter
   ).
 
