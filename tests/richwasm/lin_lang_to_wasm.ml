@@ -1593,13 +1593,6 @@ let%expect_test "examples" =
           drop
           i32.const 0
         end
-        block (param i32) (result i32)  ;; label = @1
-          local.get 8
-          i32.const 2
-          i32.lt_s
-          br_if 0 (;@1;)
-          unreachable
-        end
         local.get 3
         local.set 9
         local.get 9
@@ -3281,13 +3274,6 @@ let%expect_test "examples" =
           local.get 14
           drop
         end
-        block (param i32 i32) (result i32 i32)  ;; label = @1
-          local.get 22
-          i32.const 2
-          i32.lt_s
-          br_if 0 (;@1;)
-          unreachable
-        end
         local.get 10
         local.get 11
         drop
@@ -3571,13 +3557,6 @@ let%expect_test "examples" =
           i32.add
           local.get 6
           drop
-        end
-        block (param i32) (result i32)  ;; label = @1
-          local.get 14
-          i32.const 2
-          i32.lt_s
-          br_if 0 (;@1;)
-          unreachable
         end
         local.get 3
         local.set 22

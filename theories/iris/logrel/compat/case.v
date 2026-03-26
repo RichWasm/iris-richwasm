@@ -132,13 +132,13 @@ Section Fundamental.
 
 
   (* TODO: should probably be written using run_codegen somehow *)
-  Lemma compat_case_block_success M F L wt wt_save wt_cases wtf tag_idx (tag i : nat) fr_saved_and_tag wl_ret es_drop_i es_get_locals_i es_case_i B R se L' wl wl_save wl_others wl_cases wlf (τs: list type) τ_i τ_tag τ_res os_payload os_i inst val_idxs case_i_val_idxs case_i_sum_locals (vs_res vs_payload case_i_vs_payload : list value) θ :
+  Lemma compat_case_block_success M F L wt wt_save wt_cases wt_others wtf tag_idx (tag i : nat) fr_saved_and_tag wl_ret es_drop_i es_get_locals_i es_case_i B R se L' wl wl_save wl_others wl_cases wlf (τs: list type) τ_i τ_tag τ_res os_payload os_i inst val_idxs case_i_val_idxs case_i_sum_locals (vs_res vs_payload case_i_vs_payload : list value) θ :
     let F' := F <| fc_labels ::= cons ([τ_res], L') |> in
     let fe := fe_of_context F in
     f_locs fr_saved_and_tag !! tag_idx = Some (VAL_int32 (Wasm_int.Int32.repr tag)) ->
-    run_codegen (get_locals_w case_i_val_idxs) (wt ++ wt_save)
+    run_codegen (get_locals_w case_i_val_idxs) (wt ++ wt_save ++ wt_others)
     (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_others) = inr ((), [], [], es_get_locals_i) ->
-    run_codegen (drop_consts wl_ret) (wt ++ wt_save)
+    run_codegen (drop_consts wl_ret) (wt ++ wt_save ++ wt_others)
       (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_others) = inr ((), [], [], es_drop_i) ->
     util.nths_error val_idxs case_i_sum_locals = Some case_i_val_idxs ->
     util.nths_error vs_payload case_i_sum_locals = Some case_i_vs_payload ->
@@ -203,7 +203,8 @@ Section Fundamental.
     inversion Ht_lookup_tag as [Heq].
 
 
-    (* TODO: ... *)
+    (* TODO: fix with iEval *)
+    (* iEval (rewrite app_assoc). *)
     replace (to_consts vs_res ++
     [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
     [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m tag))] ++
@@ -382,11 +383,10 @@ Proof.
 
     (* Case blocks *)
     cbv [map length seq zip Datatypes.uncurry] in Hcg.
-    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcases Hunreachable.
 
     clear_nils.
 
-    inv_cg_bind Hcases ?units ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret.
+    inv_cg_bind Hcg ?units ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret.
     inv_cg_ret Hret; subst.
 
     (* Case es1 *)
@@ -466,28 +466,6 @@ Proof.
     inv_cg_try_option Hnths_error; subst.
 
     destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_2) as ([] & -> & ->).
-
-    clear_nils.
-
-    (* Unreachable *)
-    inv_cg_bind Hunreachable ?pair ?wt ?wt ?wl ?wl ?es ?es Hunreachable Hunreachable_block.
-    destruct pair, u.
-    inv_cg_emit Hunreachable_block; subst.
-    apply run_codegen_capture in Hunreachable as [Hunreachable ->].
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hunreachable.
-    inv_cg_emit Hget_tag; subst.
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hunreachable.
-    inv_cg_emit Htag0; subst.
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hunreachable.
-    inv_cg_emit Hcompare_tag; subst.
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hunreachable.
-    inv_cg_emit Hbr_case; subst.
-    inv_cg_emit Hunreachable; subst.
-
 
     (* clean up *)
     subst WT WL.
@@ -593,8 +571,10 @@ Proof.
     }
     iIntros (??) "[-> ->] Hfr Hrun".
 
-    (* Case analysis: Is tag = 0? *)
-    destruct (Nat.eq_dec 0 i) as [Heq | Hne].
+    (* Case analysis: Is tag = 0 or 1? *)
+
+    apply lookup_lt_Some in Htype_lookup as Hi.
+    destruct i as [| [|]]; last done.
 
     - (* Case: tag = 0 *)
       (* -------- Case 1 -------- *)
@@ -605,26 +585,52 @@ Proof.
         2: instantiate (1 := []).
         all: clear_nils.
         1, 2, 3, 4, 5, 6, 8, 9, 12: done.
+        4: iApply "Hsem_es1".
         1: done.
         1: by rewrite length_map.
-        2: iApply "Hsem_es1".
         admit. (* TODO: should be provable, but will probably be a bit annoying *)
       }
       iIntros (f_es_case_1 vs) "(-> & %Hlen_vs & Hinterps) Hfr Hrun".
 
       (* -------- Case 2 -------- *)
-      rewrite (app_assoc (to_consts _)).
-      iApply (cwp_seq with "[-]").
+      iApply (cwp_wand with "[Hfr Hrun]").
       {
         iApply (compat_case_block_fail with "[$] [$]").
         2, 3, 4, 5, 6, 8: done.
         2: by instantiate (1 := 0).
-        rewrite Heq.
         admit. (* TODO: we need to know that es_case_1 doesn't actually change the tag... *)
+      }
+      (* iIntros (??) "(-> & ->) Hfr Hrun". *)
+      (* TODO: we would probably want fr and run resource back from the block_fail lemma *)
+      iIntros (??) "(-> & ->)".
+      iFrame.
+    - (* Case: tag = 1 *)
+      (* -------- Case 1 -------- *)
+      rewrite (app_assoc (to_consts _)).
+      iApply (cwp_seq with "[Hfr Hrun]").
+      {
+        iApply (compat_case_block_fail with "[$] [$]").
+        7: by instantiate (1 := 1).
+        2: instantiate (1 := []).
+        1, 2, 3, 4, 5, 6: done.
+        by rewrite length_map.
       }
       iIntros (??) "(-> & ->) Hfr Hrun".
 
-    admit.
+      (* -------- Case 2 -------- *)
+      iApply (cwp_wand with "[-]").
+      {
+        iApply (compat_case_block_success with "[] [$] [$] [$] [$] [$] [$] [$] [$] [$]").
+        1: done.
+        1, 2, 3, 4, 5, 8, 11: done.
+        5: iApply "Hsem_es2".
+        2: done.
+        1: done.
+        1: by rewrite length_map.
+        admit. (* TODO: should be provable, but will probably be a bit annoying *)
+      }
+      iIntros (f_es_case_2 vs) "(-> & %Hlen_vs & Hinterps)".
+      iFrame.
   Admitted.
 
 
@@ -690,11 +696,10 @@ Proof.
 
     (* Case blocks *)
     cbv [map length seq zip Datatypes.uncurry] in Hcg.
-    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es ?es Hcases Hunreachable.
 
     clear_nils.
 
-    inv_cg_bind Hcases ?units ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret.
+    inv_cg_bind Hcg ?units ?wt ?wt ?wl ?wl ?es es_case1 Hcases Hret.
     inv_cg_ret Hret; subst.
 
     (* Case es1 *)
@@ -774,28 +779,6 @@ Proof.
     inv_cg_try_option Hnths_error; subst.
 
     destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_2) as ([] & -> & ->).
-
-    clear_nils.
-
-    (* Unreachable *)
-    inv_cg_bind Hunreachable ?pair ?wt ?wt ?wl ?wl ?es ?es Hunreachable Hunreachable_block.
-    destruct pair, u.
-    inv_cg_emit Hunreachable_block; subst.
-    apply run_codegen_capture in Hunreachable as [Hunreachable ->].
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hget_tag Hunreachable.
-    inv_cg_emit Hget_tag; subst.
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Htag0 Hunreachable.
-    inv_cg_emit Htag0; subst.
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hcompare_tag Hunreachable.
-    inv_cg_emit Hcompare_tag; subst.
-
-    inv_cg_bind Hunreachable [] ?wt ?wt ?wl ?wl ?es ?es Hbr_case Hunreachable.
-    inv_cg_emit Hbr_case; subst.
-    inv_cg_emit Hunreachable; subst.
-
 
     (* clean up *)
     subst WT WL.
