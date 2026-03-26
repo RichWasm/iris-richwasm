@@ -118,7 +118,7 @@ Section Fundamental.
 
 
   (* TODO: should probably be written using run_codegen somehow *)
-  Lemma compat_case_block_success M F L wt wt_save wt_cases wt_others wtf tag_idx (tag i : nat) fr_saved_and_tag wl_ret es_drop_i es_get_locals_i es_case_i B R se L' wl wl_save wl_others wl_cases wlf (τs: list type) τ_i τ_tag τ_res os_payload os_i inst val_idxs case_i_val_idxs case_i_sum_locals (vs_res vs_payload case_i_vs_payload : list value) θ :
+  Lemma compat_case_block_success M F L wt wt_save wt_cases wt_others wtf tag_idx (tag i : nat) fr_saved_and_tag wl_ret es_drop_i es_get_locals_i es_case_i B R se L' wl wl_save wl_others wl_cases wlf (τs: list type) τ_i τ_tag τ_res os_payload case_i_os_payload inst val_idxs case_i_val_idxs case_i_sum_locals (vs_res vs_payload case_i_vs_payload : list value) θ :
     let F' := F <| fc_labels ::= cons ([τ_res], L') |> in
     let fe := fe_of_context F in
     f_locs fr_saved_and_tag !! tag_idx = Some (VAL_int32 (Wasm_int.Int32.repr tag)) ->
@@ -149,7 +149,7 @@ Section Fundamental.
       (fc_labels F) B -∗
     return_interp rti sr se (fc_return F) R -∗
     rt_token rti sr θ -∗
-    ▷ value_interp rti sr se τ_tag (SAtoms os_i) -∗
+    ▷ value_interp rti sr se τ_tag (SAtoms case_i_os_payload) -∗
     atoms_interp os_payload vs_payload -∗
     frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_cases ++ wlf)
       inst fr_saved_and_tag -∗
@@ -278,7 +278,7 @@ Section Fundamental.
             iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
             by iFrame.
       + done.
-      + instantiate (1 := os_i). admit. (* TODO: should be provable, but might be a little annoying *)
+      + instantiate (1 := case_i_os_payload). admit. (* TODO: should be provable, but might be a little annoying *)
       + by iApply values_interp_one_eq.
       + done.
     }
