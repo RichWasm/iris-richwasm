@@ -10,49 +10,50 @@ From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.language Require Import cwp logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
-From RichWasm.iris.logrel.compat Require Import
-  nop
-  unreachable
-  copy
-  drop
-  num
-  num_const
-  block
-  loop
-  ite
-  br
-  return_
-  local_get_copy
-  local_get_move
-  local_set
-  coderef
-  inst
-  call
-  call_indirect
-  inject
-  inject_new
-  case
-  case_load_copy
-  case_load_move
-  group
-  ungroup
-  fold
-  unfold
-  pack
-  unpack
-  tag
-  untag
-  cast
-  new
-  load_copy
-  load_move
-  store_weak
-  store_strong
-  swap
-  nil
-  app
-  singleton
-  frame.
+(* From RichWasm.iris.logrel.compat Require Import *)
+  (* nop *)
+  (* unreachable *)
+  (* copy *)
+  (* drop *)
+(*   num *)
+(*   num_const *)
+(*   block *)
+(*   loop *)
+(*   ite *)
+(*   br *)
+(*   return_ *)
+(*   local_get_copy *)
+(*   local_get_move *)
+(*   local_set *)
+(*   coderef *)
+(*   inst *)
+(*   call *)
+(*   call_indirect *)
+(*   inject *)
+(*   inject_new *)
+(*   case *)
+(*   case_load_copy *)
+(*   case_load_move *)
+(*   group *)
+(*   ungroup *)
+(*   fold *)
+(*   unfold *)
+(*   pack *)
+(*   unpack *)
+(*   tag *)
+(*   untag *)
+(*   cast *)
+(*   new *)
+(*   load_copy *)
+(*   load_move *)
+(*   store_weak *)
+(*   store_strong *)
+(*   swap *)
+(*   nil *)
+(*   app *)
+(*   singleton *)
+(*   frame. *)
+(* . *)
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -72,8 +73,9 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     run_codegen (compile_instrs mr fe es) wt wl = inr (tt, wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' tf L'.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' tf L'.
   Proof.
     intros Htype.
     generalize dependent es'.
@@ -89,8 +91,9 @@ Section Fundamental.
                  let fe := fe_of_context F in
                  let WT := wt ++ wt' ++ wtf in
                  let WL := wl ++ wl' ++ wlf in
+                 let lmask := wlmask fe wl in
                  run_codegen (compile_instr mr fe e) wt wl = inr (tt, wt', wl', es') ->
-                 ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L');
+                 ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L');
       intros wt wt' wtf wl wl' wlf wes fe WT WL Hcomp.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.

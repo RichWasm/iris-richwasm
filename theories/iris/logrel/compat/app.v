@@ -29,20 +29,23 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     (forall wt wt' wtf wl wl' wlf es',
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe wl in
         run_codegen (compile_instrs mr fe es1) wt wl = inr ((), wt', wl', es') ->
-        ⊢ have_instr_type_sem rti sr mr M F L1 WT WL es' (InstrT τs1 τs2) L2) ->
+        ⊢ have_instr_type_sem rti sr mr M F L1 WT WL lmask es' (InstrT τs1 τs2) L2) ->
     (forall wt wt' wtf wl wl' wlf es',
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe wl in
         run_codegen (compile_instrs mr fe es2) wt wl = inr ((), wt', wl', es') ->
-        ⊢ have_instr_type_sem rti sr mr M F L2 WT WL es' (InstrT τs2 τs3) L3) ->
+        ⊢ have_instr_type_sem rti sr mr M F L2 WT WL lmask es' (InstrT τs2 τs3) L3) ->
     run_codegen (compile_instrs mr fe (es1 ++ es2)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L1 WT WL es' (InstrT τs1 τs3) L3.
+    ⊢ have_instr_type_sem rti sr mr M F L1 WT WL lmask es' (InstrT τs1 τs3) L3.
   Proof.
-    intros fe WT WL IH1 IH2 Hcg.
+    intros fe WT WL lmask IH1 IH2 Hcg.
     assert (Hcompile_split: exists wt1 wt2 wl1 wl2 es1' es2',
                run_codegen (compile_instrs mr fe es1) wt wl = inr ((), wt1, wl1, es1') /\
                run_codegen (compile_instrs mr fe es2) (wt ++ wt1) (wl ++ wl1) =
@@ -62,16 +65,16 @@ Section Fundamental.
     assert (tt: WL = wl ++ (wl1 ++ wl2) ++ wlf) by auto; rewrite tt; clear tt.
     repeat rewrite <- app_assoc.
 
-    iIntros (?????????) "@@@@@@@@@@@".
-    iSpecialize ("Hcompile_es1" $! se inst fr os vs evs θ B R Hse Hevs
-                  with "Hinst Hlabels Hreturn Hvs Hos Hframe Hrt Hfr Hrun").
-    iEval (rewrite app_assoc).
+    iIntros (????????) "@@@@@@@@@@@".
+    (* iSpecialize ("Hcompile_es1" $! se fr os vs evs θ B R Hse Hevs *)
+    (*              with "Hinst Hlabels Hreturn Hvs Hos Hframe Hrt Hfr Hrun"). *)
+    (* iEval (rewrite app_assoc). *)
 
-    iApply (cwp_seq with "[$Hcompile_es1]"). clear θ fr.
-    iIntros (fr vs2) "[HIfr (%os2 & %θ & HIhvs & HIos & Hrt)] Hfr Hrun".
+    (* iApply (cwp_seq with "[$Hcompile_es1]"). clear θ. *)
+    (* iIntros (fr' vs2) "(%Hlmask & HIfr & (%os2 & HIhvs & HIos) & [%θ' Hrt]) Hfr Hrun". *)
 
-    iApply ("Hcompile_es2" with "[] [] [$] [$] [$] [$] [$] [$] [$] [$] [$]"); iPureIntro; auto.
-    apply has_values_to_consts.
+    (* iApply ("Hcompile_es2" with "[] [] [$] [$] [$] [$] [$] [$] [$] [$] [$]"); iPureIntro; auto. *)
+    (* apply has_values_to_consts. *)
   Admitted.
 
 End Fundamental.

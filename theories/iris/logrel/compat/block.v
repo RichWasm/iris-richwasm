@@ -29,6 +29,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
     has_instruction_type_ok F ψ L' ->
@@ -36,12 +37,13 @@ Section Fundamental.
         let fe' := fe_of_context F' in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe wl in
         run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
-        ⊢ have_instr_type_sem rti sr mr M F' L WT WL es' ψ L') ->
+        ⊢ have_instr_type_sem rti sr mr M F' L WT WL lmask es' ψ L') ->
     run_codegen (compile_instr mr fe (IBlock ψ L' es)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    iIntros (????? Hok IH Hcg ?????????) "@@@@@@@@@@@".
+    iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@".
     cbn [compile_instr] in Hcg.
     inv_cg_bind Hcg tf wt0 wt0' wl0 wl0' es_nil es0' Hcg1 Hcg2.
     inv_cg_try_option Hcg1.
@@ -55,7 +57,7 @@ Section Fundamental.
     eapply IH in Hcg1.
     instantiate (1 := wlf) in Hcg1.
     instantiate (1 := wtf) in Hcg1.
-    subst WT WL.
+    subst WT WL lmask.
     clear IH.
     clear Hretval.
     clear_nils.

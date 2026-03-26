@@ -28,11 +28,12 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let wlm := wlmask fe wl wl' in
     let ψ := InstrT [τ] [τ; τ] in
     has_ref_flag F τ GCRefs ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICopy ψ)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.
+    ⊢ have_instr_type_sem rti sr mr wlm M F L WT WL es' ψ L.
   Proof.
     (* intros fe WT WL ψ Hcopy Hok Hcompile. *)
     (* unfold compile_instr in Hcompile. *)

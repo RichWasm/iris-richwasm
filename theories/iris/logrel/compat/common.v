@@ -128,8 +128,8 @@ Section common.
         iFrame. iPureIntro; simpl. subst. auto.
   Qed.
 
-  Lemma frame_interp_wl_interp se F L WL inst fr :
-    frame_interp rti sr se L WL inst fr -∗
+  Lemma frame_interp_wl_interp se F L WL fr :
+    frame_interp rti sr se L WL fr -∗
     ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
   Proof.
   Admitted.
@@ -211,15 +211,16 @@ Section common.
     @translate_types Σ se τs = Some ts.
   Admitted.
 
-  Lemma labels_interp_cons se inst wl F L B τs ts Φ :
+  Lemma labels_interp_cons se fr wl lmask F L B τs ts Φ :
     sem_env_interp F se ->
-    prelude.translate_types (fc_type_vars F) τs = Some ts ->
+    prelude.translate_types F.(fc_type_vars) τs = Some ts ->
     □ (∀ fr' vs',
-       (frame_interp rti sr se L wl inst fr' ∗
-        ∃ os' θ0, values_interp rti sr se τs os' ∗ atoms_interp os' vs' ∗ rt_token rti sr θ0) -∗
+       (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se L wl fr' ∗
+          (∃ os', values_interp rti sr se τs os' ∗ atoms_interp os' vs') ∗
+          (∃ θ0, rt_token rti sr θ0)) -∗
        Φ fr' vs') -∗
-    labels_interp rti sr se inst wl F.(fc_labels) B -∗
-    labels_interp rti sr se inst wl ((τs, L) :: F.(fc_labels)) ((length ts, Φ) :: B).
+    labels_interp rti sr se fr wl lmask F.(fc_labels) B -∗
+    labels_interp rti sr se fr wl lmask ((τs, L) :: F.(fc_labels)) ((length ts, Φ) :: B).
   Proof.
     iIntros (Hse Hts) "#HΦ Hlabels".
     unfold labels_interp.
@@ -228,8 +229,48 @@ Section common.
     iSplitL "HΦ".
     - iSplitR.
       + by erewrite translate_types_comp_sem.
-      + iIntros (fr vs os θ) "!> Hvs Hos Hframe Hrti". iApply "HΦ". iFrame.
+      + iIntros (fr' vs os θ) "!> %Hlmask Hvs Hos Hframe Hrti".
+        iApply "HΦ".
+        by iFrame.
     - done.
+  Qed.
+
+  Lemma mask_locs_eq_trans lmask fr1 fr2 fr3 :
+    mask_locs_eq lmask fr1 fr2 ->
+    mask_locs_eq lmask fr2 fr3 ->
+    mask_locs_eq lmask fr1 fr3.
+  Proof.
+    intros H12 H23 i Hi.
+    apply H12 in Hi as Hi12.
+    apply H23 in Hi as Hi23.
+    by rewrite Hi12.
+  Qed.
+
+  Lemma frame_rel_trans lmask fr1 fr2 fr3 :
+    frame_rel lmask fr1 fr2 ->
+    frame_rel lmask fr2 fr3 ->
+    frame_rel lmask fr1 fr3.
+  Proof.
+    intros [H12_locs H12_inst] [H23_locs H23_inst].
+    split.
+    - by eapply mask_locs_eq_trans.
+    - by rewrite H12_inst.
+  Qed.
+
+  Lemma labels_interp_trans se wl fr fr' lmask labels B :
+    frame_rel lmask fr fr' ->
+    labels_interp rti sr se fr wl lmask labels B -∗
+    labels_interp rti sr se fr' wl lmask labels B.
+  Proof.
+    iIntros (Heq) "#Hlabels".
+    iApply (big_sepL2_mono with "[$]").
+    iIntros (? [τs L] [n b] Hk_labels Hk_B) "[#Hlen #HP]".
+    iFrame "#".
+    iModIntro.
+    iIntros (?????) "Hframe Hrt Hvs Hos".
+    iApply ("HP" with "[] [$] [$] [$] [$]").
+    iPureIntro.
+    by eapply frame_rel_trans.
   Qed.
 
 (* This is a copy of values_interp_cons

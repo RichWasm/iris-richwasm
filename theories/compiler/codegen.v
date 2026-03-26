@@ -37,6 +37,9 @@ Definition wtinsert (tf : W.function_type) : codegen W.typeidx :=
   | None => acc ([tf], []);; ret (W.Mk_typeidx (length wt))
   end.
 
+Definition wlmask (fe : function_env) (wl : wlocal_ctx) (i : nat) : Prop :=
+  i >= fe_wlocal_offset fe /\ i < fe_wlocal_offset fe + length wl.
+
 Definition wlalloc (fe : function_env) (t : W.value_type) : codegen W.localidx :=
   '(_, wl) ← get;
   acc ([], [t]);;
