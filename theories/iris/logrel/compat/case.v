@@ -62,19 +62,10 @@ Section Fundamental.
     { by rewrite length_map. }
     iIntros "!> Hf Hrun".
 
-    (* TODO: ... *)
-    replace (to_consts vs_res ++
-    [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
-    [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m i))] ++
-    [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)] ++ _)
-    with ((to_consts vs_res ++
-    [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
-    [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m i))] ++
-    [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)]) ++
-    [prelude.W.BI_br_if 0] ++ es_drop_i ++ es_get_locals_i ++ es_case_i); last admit.
-
+    iEval (do 3 rewrite app_assoc).
     iApply (cwp_seq with "[Hf Hrun]").
     {
+      iEval (do 2 rewrite -app_assoc).
       iApply cwp_val_app; first apply has_values_to_consts.
 
       (* Get tag from local *)
@@ -107,13 +98,8 @@ Section Fundamental.
     }
     iIntros (?fr w) "(-> & ->) Hf Hrun".
 
-    (* TODO: ... *)
-    replace (to_consts
-    (vs_res ++ [VAL_int32 Wasm_int.Int32.one]) ++
-    [prelude.W.BI_br_if 0] ++ _)
-    with ((to_consts
-    (vs_res ++ [VAL_int32 Wasm_int.Int32.one]) ++
-    [prelude.W.BI_br_if 0]) ++ es_drop_i ++ es_get_locals_i ++ es_case_i); last admit.
+    iEval (rewrite app_assoc).
+
     iApply (cwp_seq with "[-]").
     2: {
       instantiate (1 := λ f vs, False%I).
@@ -202,22 +188,10 @@ Section Fundamental.
     rewrite Ht_lookup_i in Ht_lookup_tag.
     inversion Ht_lookup_tag as [Heq].
 
-
-    (* TODO: fix with iEval *)
-    (* iEval (rewrite app_assoc). *)
-    replace (to_consts vs_res ++
-    [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
-    [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m tag))] ++
-    [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)] ++
-    [prelude.W.BI_br_if 0] ++ _)
-    with ((to_consts vs_res ++
-    [prelude.W.BI_get_local (localimm (Mk_localidx tag_idx))] ++
-    [prelude.W.BI_const (prelude.W.VAL_int32 (Wasm_int.int_of_Z i32m tag))] ++
-    [prelude.W.BI_relop prelude.W.T_i32 (prelude.W.Relop_i prelude.W.ROI_ne)] ++
-    [prelude.W.BI_br_if 0]) ++ es_drop_i ++ es_get_locals_i ++ es_case_i); last admit.
-
+    iEval (do 4 rewrite app_assoc).
     iApply (cwp_seq with "[Hf Hrun]").
     {
+      iEval (do 3 rewrite -app_assoc).
       iApply cwp_val_app; first apply has_values_to_consts.
 
       (* Get tag from local *)
@@ -278,6 +252,17 @@ Section Fundamental.
     1: iApply "Hget_locals_1".
     iIntros (?fr w) "(-> & ->) Hf Hrun".
 
+    assert (prelude.translate_types (fc_type_vars F) [τ_res] = Some wl_ret) as Htranslate_types_single.
+    {
+      subst fe.
+      unfold fe_of_context, fe_type_vars in Htranslate_type_fe.
+      unfold prelude.translate_types.
+      simpl.
+      rewrite Htranslate_type_fe.
+      simpl.
+      by rewrite app_nil_r.
+    }
+
     (* Reason about case 1 code *)
     iApply (cwp_wand with "[-]").
     {
@@ -287,21 +272,11 @@ Section Fundamental.
         replace (fc_labels (F <| fc_labels ::= cons ([τ_res], L') |>)) with
             (([τ_res], L') :: fc_labels F); last done.
             iApply labels_interp_cons; try done.
-            * subst fe. rewrite -Htranslate_type_fe. simpl.
-              unfold prelude.translate_types.
-              simpl.
-              destruct (prelude.translate_type (fc_type_vars F) τ_res); simpl; try done.
-              by rewrite app_nil_r.
-            * iIntros "!>" (fr' vs') "(Hframe & %os & %Θ & Hvalues & Hatoms & Hrt)".
-              iSplit; first done.
-              iDestruct (atoms_interp_length with "Hatoms") as "<-".
-              iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
-              {
-                subst fe.
-                unfold fe_of_context, fe_type_vars in Htranslate_type_fe.
-                admit. (* TODO: Should be easily provable... *)
-              }
-              by iFrame.
+            iIntros "!>" (fr' vs') "(Hframe & %os & %Θ & Hvalues & Hatoms & Hrt)".
+            iSplit; first done.
+            iDestruct (atoms_interp_length with "Hatoms") as "<-".
+            iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
+            by iFrame.
       + done.
       + instantiate (1 := os_i). admit. (* TODO: should be provable, but might be a little annoying *)
       + by iApply values_interp_one_eq.
@@ -312,11 +287,6 @@ Section Fundamental.
 
     iDestruct (atoms_interp_length with "Hatoms") as "<-".
     iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
-    {
-      subst fe.
-      unfold fe_of_context, fe_type_vars in Htranslate_type_fe.
-      admit. (* TODO: Should be easily provable... *)
-    }
     by iFrame.
   Admitted.
 
@@ -350,11 +320,10 @@ Proof.
     destruct H2 as [Hes2 _].
     subst Ψ.
     cbn [compile_instr] in Hcg.
-    destruct κ as [ ρ c d | ]; last inversion Hcg.
+    destruct κ as [ ρ rf | ]; last inversion Hcg.
     destruct ρ  as [ | ρs_sum | | ]; try done.
     destruct τs' as [ | τ_res τs' ]; first done.
     destruct τs'; last done.
-
 
     inv_cg_bind Hcg wl_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
@@ -426,7 +395,6 @@ Proof.
     destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_1) as ([] & -> & ->).
 
     clear_nils.
-
 
     (* Case es2 *)
     inv_cg_bind Hcase_es2 ?units ?wt ?wt ?wl ?wl ?es ?es Hcase_es2 Hmret.
@@ -571,7 +539,7 @@ Proof.
     }
     iIntros (??) "[-> ->] Hfr Hrun".
 
-    (* Case analysis: Is tag = 0 or 1? *)
+    (* Case analysis: Is tag 0 or 1? *)
 
     apply lookup_lt_Some in Htype_lookup as Hi.
     destruct i as [| [|]]; last done.
@@ -663,7 +631,7 @@ Proof.
     destruct H2 as [Hes2 _].
     subst Ψ.
     cbn [compile_instr] in Hcg.
-    destruct κ as [ ρ c d | ]; last inversion Hcg.
+    destruct κ as [ ρ ref | ]; last inversion Hcg.
     destruct ρ  as [ | ρs_sum | | ]; try done.
     destruct τs' as [ | τ_res τs' ]; first done.
     destruct τs'; last done.
