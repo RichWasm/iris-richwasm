@@ -327,6 +327,11 @@ Proof.
 
     inv_cg_bind Hcg wl_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
+
+    destruct (Wasm_int.Int32.modulus <=? length ρs_sum)%Z eqn:Hcmp; first inversion Hcg.
+    inv_cg_bind Hcg ?units ?wt ?wt ?wl ?wl ?es es_case1 Hret Hcg.
+    inv_cg_ret Hret; subst.
+
     inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
     inv_cg_try_option Hιs; subst.
     inv_cg_bind Hcg val_idxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
@@ -452,7 +457,7 @@ Proof.
     unfold value_interp0, value_se_interp0.
     iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
     (*unfold type_skind in Hkind_sum.*)
-    iDestruct "Hsum_interp" as (i os0 os_i τ_i ιs ιs_i ixs  HSAtoms Htype_lookup Htype_arep Heval_rep_tail Hinject_sum_arep Hos0_ixs) "Hvalue_interp_os_i".
+    iDestruct "Hsum_interp" as (tag os' os_tag τ_tag ιs ιs_tag ixs  HSAtoms Htag_type_lookup Htag_type_arep Heval_rep_tail Hinject_sum_arep Hos'_ixs) "Hvalue_interp_os_i".
     (*assert (os = I32A (Wasm_int.int_of_Z i32m i) :: os0) as ->; first by inversion HSAtoms.*)
     simplify_eq.
 
@@ -471,7 +476,7 @@ Proof.
     {
       rewrite <- (app_assoc e_tag).
       instantiate (1 := λ f vs, (
-        ⌜vs = [VAL_int32 (Wasm_int.Int32.repr i)]⌝ ∗
+        ⌜vs = [VAL_int32 (Wasm_int.Int32.repr tag)]⌝ ∗
         ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
         ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ ∗
         ⌜val_idxs = map prelude.W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length wl_save))⌝
@@ -518,7 +523,7 @@ Proof.
       instantiate (1 := λ f vs, (
         ⌜vs = []⌝ ∗
         ⌜∀ j, j ≠ (fe_wlocal_offset fe + length (wl ++ wl_save))%nat -> f_locs f !! j = f_locs fr_saved !! j⌝ ∗
-        ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝
+        ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr tag))⌝
         )%I).
       iApply (cwp_local_set with "[] [$] [$]"); first done.
       iSplit; first done.
@@ -580,8 +585,8 @@ Proof.
 
     (* Case analysis: Is tag 0 or 1? *)
 
-    apply lookup_lt_Some in Htype_lookup as Hi.
-    destruct i as [| [|]]; last done.
+    apply lookup_lt_Some in Htag_type_lookup as Hi.
+    destruct tag as [| [|]]; last done.
 
     - (* Case: tag = 0 *)
       (* -------- Case 1 -------- *)
