@@ -70,7 +70,7 @@ Section Fundamental.
     iDestruct (big_sepL2_nil_inv_l with "Hvs1b") as "->".
     iClear "Hvs1b".
     rewrite app_nil_r.
-    iDestruct (value_interp_i32 with "Hos1a") as "(%n & ->)"; first done.
+    iDestruct (value_interp_i32 with "Hos1a") as "(%n & ->)".
     iClear "Hos1a".
     iDestruct (atoms_interp_cons_l with "Hvs1a") as "(%v & %vs' & -> & Hv & Hvs1a')".
     iDestruct (atoms_interp_nil_l with "Hvs1a'") as "->".
