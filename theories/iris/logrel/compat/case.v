@@ -473,7 +473,8 @@ Proof.
       instantiate (1 := λ f vs, (
         ⌜vs = [VAL_int32 (Wasm_int.Int32.repr i)]⌝ ∗
         ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-        ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝
+        ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ ∗
+        ⌜val_idxs = map prelude.W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length wl_save))⌝
         )%I).
       iApply cwp_val_app; first done.
       eapply cwp_save_stack_w in Hsave; eauto.
@@ -486,7 +487,7 @@ Proof.
       rep_values_interp, should be proved above the first wp_seq
       rule *)
     }
-    iIntros (fr_saved w) "(-> & %Hsame & %Hsaved) Hfr Hrun".
+    iIntros (fr_saved w) "(-> & %Hsame & %Hsaved & %Hval_idxs_seq) Hfr Hrun".
     iAssert
       (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf) inst fr_saved)
       with "[Hframe]" as "Hframe_saved".
@@ -522,6 +523,33 @@ Proof.
     }
     iIntros (fr_saved_and_tag w) "(-> & %Hsame' & %Hsaved_and_tag) Hfr Hrun".
     clear_nils.
+
+    assert (Forall2 (λ (i : prelude.W.localidx) (v : value), f_locs fr_saved_and_tag !! localimm i = Some v)
+      case_1_val_idxs case_1_vs_payload) as Hf_case_1.
+    {
+      pose proof (util.nths_error_Forall2 _ val_idxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1.
+      eapply forall2_lookup_same.
+      3: done.
+      - intros. apply Hsame'; done.
+      - eapply (util.nths_error_Forall _ val_idxs); last done.
+        rewrite Hval_idxs_seq.
+        rewrite length_app Nat.add_assoc.
+        apply map_seq_forall_localidx_neq.
+    }
+
+    assert (Forall2 (λ (i : prelude.W.localidx) (v : value), f_locs fr_saved_and_tag !! localimm i = Some v)
+      case_2_val_idxs case_2_vs_payload) as Hf_case_2.
+    {
+      pose proof (util.nths_error_Forall2 _ val_idxs case_2_val_idxs vs_payload case_2_vs_payload case_2_sum_locals Hsaved Heq_some6 Hnerr_payload_c2) as Hf_case_2.
+      eapply forall2_lookup_same.
+      3: done.
+      - intros. apply Hsame'; done.
+      - eapply (util.nths_error_Forall _ val_idxs); last done.
+        rewrite Hval_idxs_seq.
+        rewrite length_app Nat.add_assoc.
+        apply map_seq_forall_localidx_neq.
+    }
+
     iAssert
       (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf) inst fr_saved_and_tag)
       with "[Hframe_saved]" as "Hframe_saved_and_tag".
@@ -552,11 +580,10 @@ Proof.
         iApply (compat_case_block_success with "[] [$] [$] [$] [$] [$] [$] [$] [$] [$]").
         2: instantiate (1 := []).
         all: clear_nils.
-        1, 2, 3, 4, 5, 6, 8, 9, 12: done.
-        4: iApply "Hsem_es1".
+        1, 2, 3, 4, 5, 6, 8, 9, 11, 12: done.
+        3: iApply "Hsem_es1".
         1: done.
-        1: by rewrite length_map.
-        admit. (* TODO: should be provable, but will probably be a bit annoying *)
+        by rewrite length_map.
       }
       iIntros (f_es_case_1 vs) "(-> & %Hlen_vs & Hinterps) Hfr Hrun".
 
@@ -590,12 +617,11 @@ Proof.
       {
         iApply (compat_case_block_success with "[] [$] [$] [$] [$] [$] [$] [$] [$] [$]").
         1: done.
-        1, 2, 3, 4, 5, 8, 11: done.
-        5: iApply "Hsem_es2".
+        1, 2, 3, 4, 5, 8, 10, 11: done.
+        4: iApply "Hsem_es2".
         2: done.
         1: done.
-        1: by rewrite length_map.
-        admit. (* TODO: should be provable, but will probably be a bit annoying *)
+        by rewrite length_map.
       }
       iIntros (f_es_case_2 vs) "(-> & %Hlen_vs & Hinterps)".
       iFrame.

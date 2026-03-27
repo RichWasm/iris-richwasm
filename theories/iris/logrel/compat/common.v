@@ -281,4 +281,45 @@ Section common.
       by inversion Hos.
   Qed.
 
+
+  Lemma forall2_lookup_same {A B} (ls ls' : list A) (idxs : list B) (xs : list A) (j_excl : nat) (f: B -> nat) :
+  (∀ j : B, f j ≠ j_excl → ls' !! f j = ls !! f j) ->
+  Forall (λ i, f i ≠ j_excl) idxs ->
+  Forall2 (λ (i : B) (v : A), ls  !! f i = Some v) idxs xs ->
+  Forall2 (λ (i : B) (v : A), ls' !! f i = Some v) idxs xs.
+Proof.
+  intros Hsame Hnotin Hf.
+  induction Hf.
+  - constructor.
+  - inversion Hnotin; subst.
+    constructor.
+    + rewrite Hsame; auto.
+    + apply IHHf; auto.
+Qed.
+
+Lemma seq_forall_leq base len :
+  Forall (λ i, i < base + len) (seq base len).
+Proof.
+  rewrite Forall_seq.
+  intros j Hj.
+  lia.
+Qed.
+
+Lemma map_seq_forall_localidx_leq base len :
+  Forall (λ i : prelude.W.localidx, localimm i < base + len)
+         (map prelude.W.Mk_localidx (seq base len)).
+Proof.
+  apply Forall_map.
+  apply seq_forall_leq.
+Qed.
+
+Lemma map_seq_forall_localidx_neq base len :
+  Forall (λ i : prelude.W.localidx, localimm i ≠ base + len)
+         (map prelude.W.Mk_localidx (seq base len)).
+Proof.
+  eapply Forall_impl; first apply map_seq_forall_localidx_leq.
+  lias.
+Qed.
+
+
 End common.
