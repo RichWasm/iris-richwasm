@@ -639,7 +639,7 @@ Proof.
   Admitted.
 
 
-
+  (* TODO: remove *)
   Lemma compat_binary_case' M F L L' wt wt' wtf wl wl' wlf es' ess es1 es2 τs τ1 τ2 τs' κ :
     ess = [es1; es2] ->
     τs = [τ1; τ2] ->
