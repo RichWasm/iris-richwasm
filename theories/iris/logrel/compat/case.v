@@ -681,6 +681,12 @@ Proof.
 
     inv_cg_bind Hcg wl_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
+
+    destruct (Wasm_int.Int32.modulus <=? length ρs_sum)%Z eqn:Hcmp; first inversion Hcg.
+    clear Hcmp.
+    inv_cg_bind Hcg ?units ?wt ?wt ?wl ?wl ?es es_case1 Hret Hcg.
+    inv_cg_ret Hret; subst.
+
     inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
     inv_cg_try_option Hιs; subst.
     inv_cg_bind Hcg val_idxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
