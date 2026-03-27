@@ -29,7 +29,24 @@ Section common.
 
   Lemma value_interp_i32 se os :
     value_interp rti sr se type_i32 (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
-  Admitted.
+  Proof.
+    iIntros "Hval".
+    iPoseProof (value_interp_eq with "Hval") as "Hval".
+    iEval (cbn) in "Hval".
+    iDestruct "Hval" as "(%κ & %Hκ & Rest)".
+    destruct κ; auto.
+    iDestruct "Rest" as "((%Hareps & %Href) & _)".
+    iPureIntro.
+    inversion Hκ; subst; clear Hκ.
+    destruct Hareps as (os' & Htemp & Harep).
+    inversion Htemp; subst os'; clear Htemp.
+    apply Forall2_length in Harep as Hlen.
+    destruct os as [|o [|os]]; try (inversion Hlen).
+    apply Forall2_cons_1 in Harep as [Harep _].
+    cbn in Harep.
+    destruct o; try (inversion Harep).
+    exists n; auto.
+  Qed.
 
   Lemma values_interp_nil_l se os :
     values_interp rti sr se [] os -∗ ⌜os = []⌝.
@@ -132,6 +149,23 @@ Section common.
     frame_interp rti sr se L WL inst fr -∗
     ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
   Proof.
+    iIntros "Hframe".
+    iDestruct "Hframe" as
+      "(%oss_L & %vss_L & %vs_WL & %Hfr & %Hresult & Hatom & Hval)".
+    unfold wl_interp.
+
+    (* This is my best guess at the exists given Hfr and Hresult. Should be right *)
+    iExists (concat vss_L). iExists vs_WL. iExists [].
+    iSplit; [|iSplit]; clear_nils; subst; auto.
+
+    iEval (cbn).
+    iEval (cbn) in "Hval".
+    iPoseProof (big_sepL2_length with "[$Hval]") as "%HlenossL".
+    iPoseProof (big_sepL2_length with "[$Hatom]") as "%HlenvssL".
+    unfold atoms_interp; unfold value_interp; destruct F; cbn.
+
+    (* Currently unprovable bc there's nothing to relate F fc_locals to *)
+
   Admitted.
 
   Lemma translate_types_comp_interp_length F τs ts se os :
