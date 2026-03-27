@@ -145,16 +145,7 @@ Definition case_blocks (fe : function_env) (result : W.result_type) (cases : lis
   (* Put default result values on stack *)
   create_defaults result;;
   (* Code for each case *)
-  mapM_ (uncurry (case_block tag_idx result)) (zip cases (seq 0 (length cases)));;
-  (* Check that tag is in-bounds *)
-  (* TODO: can maybe remove *)
-  block_c (W.Tf result result) (
-    emit (W.BI_get_local $ localimm tag_idx);;
-    emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat $ length cases);;
-    emit (W.BI_relop W.T_i32 (W.Relop_i $ W.ROI_lt W.SX_S));;
-    emit (W.BI_br_if 0);;
-    emit (W.BI_unreachable)
-  )
+  mapM_ (uncurry (case_block tag_idx result)) (zip cases (seq 0 (length cases)))
 .
 
 Lemma runWriterT_sum_bind_dist {A B L E}

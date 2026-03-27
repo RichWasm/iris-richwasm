@@ -124,13 +124,7 @@ let%expect_test "simple cases" =
             (br_if $B3))
           (drop
             (local.get $l1))
-          (i32.const 3))
-        (block $B4 (param i32) (result i32)
-          (i32.lt_s
-            (local.get $l2)
-            (i32.const 4))
-          (br_if $B4)
-          (unreachable)))
+          (i32.const 3)))
       (func $f8 (type $t5)
         (global.set $g1
           (global.get $richwasm.tablenext))
@@ -291,13 +285,7 @@ let%expect_test "debug: boxed sum" =
           (drop
             (br_if $B5))
           (local.get $l17)
-          (nop))
-        (block $B6 (param i32) (result i32)
-          (i32.lt_s
-            (local.get $l18)
-            (i32.const 2))
-          (br_if $B6)
-          (unreachable)))
+          (nop)))
       (func $f8 (type $t5)
         (global.set $g1
           (global.get $richwasm.tablenext))
