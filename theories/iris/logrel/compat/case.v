@@ -497,6 +497,20 @@ Proof.
 
     edestruct (util.nths_error_exists val_idxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done.
 
+    iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done.
+    pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
+
+    assert (localimm tag_idx < length (f_locs fr_saved)) as Htag_in_fr_saved.
+    {
+      subst tag_idx.
+      simpl.
+      apply Nat.lt_le_trans with (m := fe_wlocal_offset fe + length (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf)).
+      - rewrite app_assoc.
+        rewrite (length_app (wl ++ wl_save) ([prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf)).
+        lias.
+      - exact Hfr_saved_locs_len.
+    }
+
     (* Store tag *)
     rewrite (app_assoc (map _ _)).
     iApply (cwp_seq with "[Hfr Hrun]").
@@ -506,8 +520,7 @@ Proof.
         ⌜∀ j, j ≠ (fe_wlocal_offset fe + length (wl ++ wl_save))%nat -> f_locs f !! j = f_locs fr_saved !! j⌝ ∗
         ⌜f_locs f !! (fe_wlocal_offset fe + length (wl ++ wl_save))%nat = Some (VAL_int32 (Wasm_int.Int32.repr i))⌝
         )%I).
-      iApply (cwp_local_set with "[] [$] [$]").
-      1: admit. (* localimm tag_idx < length (f_locs fr_saved) *)
+      iApply (cwp_local_set with "[] [$] [$]"); first done.
       iSplit; first done.
       iSplit.
       - iIntros "!> %j".
@@ -517,9 +530,7 @@ Proof.
         rewrite list_lookup_insert_ne; [reflexivity | lia].
       - iSimpl.
         iPureIntro.
-        rewrite list_lookup_insert; try done.
-        admit. (* fe_wlocal_offset fe + length (wl ++ wl_save) < length (f_locs fr_saved) *)
-        (* Basically same as above *)
+        rewrite list_lookup_insert_eq; try done.
     }
     iIntros (fr_saved_and_tag w) "(-> & %Hsame' & %Hsaved_and_tag) Hfr Hrun".
     clear_nils.
@@ -628,7 +639,7 @@ Proof.
   Admitted.
 
 
-
+  (* TODO: remove *)
   Lemma compat_binary_case' M F L L' wt wt' wtf wl wl' wlf es' ess es1 es2 τs τ1 τ2 τs' κ :
     ess = [es1; es2] ->
     τs = [τ1; τ2] ->
