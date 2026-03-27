@@ -1,7 +1,7 @@
 From mathcomp Require Import ssreflect.
 From stdpp Require Import base list.
 From RichWasm Require Import syntax typing util.
-From RichWasm.iris.logrel Require Import relations.
+Require RichWasm.iris.logrel.instr.
 
 Ltac fold_subst :=
   fold subst_type subst_size subst_representation subst_function_type.
