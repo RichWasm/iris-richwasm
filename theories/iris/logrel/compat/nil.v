@@ -28,15 +28,20 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     run_codegen (compile_instrs mr fe []) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' (InstrT [] []) L.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' (InstrT [] []) L.
   Proof.
-    intros fe WT WL Hcg.
-    cbn in Hcg; inversion Hcg; subst.
-    iIntros (?????????) "@@@@@@@@@@@".
+    intros fe WT WL lmask Hcg.
+    cbn in Hcg.
+    inversion Hcg.
+    subst.
+    iIntros (????????) "@@@@@@@@@@@".
     iApply cwp_val_app; first done.
     iApply (cwp_nil with "[$] [$]").
-    iFrame. rewrite app_nil_r; iFrame.
+    iFrame.
+    rewrite app_nil_r.
+    by iFrame.
   Qed.
 
 End Fundamental.

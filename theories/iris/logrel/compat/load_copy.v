@@ -707,6 +707,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
     has_ref_flag F τval GCRefs ->
     resolves_path τ π None pr ->
@@ -714,9 +715,9 @@ Section Fundamental.
     Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Copy)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    intros fe WT WL ψ Hcopyability Hresolves Hser Hmonosize Htype Hcompile.
+    intros fe WT WL lmask ψ Hcopyability Hresolves Hser Hmonosize Htype Hcompile.
     unfold WT, WL; clear WT WL. (* If the WT := or WL := become necessary, comment the unfold/clear*)
     cbn in Hcompile.
 
@@ -744,7 +745,7 @@ Section Fundamental.
     rewrite ?app_nil_r ?app_nil_l -?app_assoc in Hcompile.
     simpl app.
     unfold have_instr_type_sem.
-    iIntros (se inst fr os vs evs θ B R Hse Hevs) "Hinst Hlbl Hret Hats Hvals Hfr Hrt Hf Hrun".
+    iIntros (se fr os vs evs θ B R Hse Hevs) "Hinst Hlbl Hret Hats Hvals Hfr Hrt Hf Hrun".
     iEval (rewrite values_interp_one_eq; cbn) in "Hvals".
     iPoseProof (value_interp_ref_sz with "Hvals") as "%Hlen_os".
     iEval (rewrite value_interp_eq) in "Hvals".

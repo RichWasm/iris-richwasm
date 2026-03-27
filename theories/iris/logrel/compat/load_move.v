@@ -31,6 +31,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let ψ := InstrT [RefT κ (BaseM MemMM) τ] [RefT κ' (BaseM MemMM) (pr_replaced pr); τval] in
     resolves_path τ π (Some (type_span σ)) pr ->
     has_size F pr.(pr_target) σ ->
@@ -38,9 +39,9 @@ Section Fundamental.
     Forall (has_mono_size F) (pr_prefix pr) ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ILoad ψ π Move)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    intros fe WT WL ψ Hresolves Hsize Hser Hmonosize Htype Hcompile.
+    intros fe WT WL lmask ψ Hresolves Hsize Hser Hmonosize Htype Hcompile.
     unfold WT, WL; clear WT WL. (* If the WT := or WL := become necessary, comment the unfold/clear*)
     cbn in Hcompile.
 

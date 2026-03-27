@@ -1,6 +1,8 @@
 From Stdlib Require Import ZArith.
 From stdpp Require Import base list.
 
+Require Import RecordUpdate.RecordUpdate.
+
 From iris.proofmode Require Import base proofmode classes.
 
 From RichWasm.named_props Require Import named_props custom_syntax.
@@ -271,6 +273,64 @@ Section common.
     iApply ("HP" with "[] [$] [$] [$] [$]").
     iPureIntro.
     by eapply frame_rel_trans.
+  Qed.
+
+  Lemma wlmask_mono fe wl wl' :
+    length wl <= length wl' ->
+    ∀ i, wlmask fe wl i → wlmask fe wl' i.
+  Proof.
+    intros Hlen i [Hlo Hhi].
+    split; first done.
+    lia.
+  Qed.
+
+  Lemma frame_rel_mask_mono lmask lmask' fr fr' :
+    (forall i, lmask' i -> lmask i) ->
+    frame_rel lmask fr fr' ->
+    frame_rel lmask' fr fr'.
+  Proof.
+    intros Hmask' [Hmask Hinst].
+    split; last done.
+    intros i Hi.
+    apply Hmask.
+    by apply Hmask'.
+  Qed.
+
+  Lemma frame_rel_wlmask_mono fe wl wl' fr fr' :
+    length wl <= length wl' ->
+    frame_rel (wlmask fe wl') fr fr' ->
+    frame_rel (wlmask fe wl) fr fr'.
+  Proof.
+    intros Hlen Hrel.
+    eapply frame_rel_mask_mono; last done.
+    intros i [Hlo Hhi].
+    split; first done.
+    lia.
+  Qed.
+
+  Lemma labels_interp_mono se fr fr' wl lmask lmask' labels B :
+    frame_rel lmask fr fr' ->
+    (forall i, lmask i -> lmask' i) ->
+    labels_interp rti sr se fr wl lmask labels B -∗
+    labels_interp rti sr se fr' wl lmask' labels B.
+  Proof.
+    iIntros (Hrel Hmask) "#Hlabels".
+    iApply big_sepL2_mono; last done.
+    iIntros (? [τs L] [n b] Hk_labels Hk_B) "[Hlen #HP]".
+    iFrame.
+    iModIntro.
+    iIntros (?????) "Hframe Hrt Hvs Hos".
+    iApply ("HP" with "[] [$] [$] [$] [$]").
+    iPureIntro.
+    eapply frame_rel_trans.
+    - exact Hrel.
+    - by eapply frame_rel_mask_mono.
+  Qed.
+
+  Lemma fe_of_context_labels F f :
+    fe_of_context F = fe_of_context (F <| fc_labels ::= f |>).
+  Proof.
+    done.
   Qed.
 
 (* This is a copy of values_interp_cons

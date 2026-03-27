@@ -28,6 +28,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT τs1 τs2 in
     unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
@@ -36,10 +37,11 @@ Section Fundamental.
         let fe0' := fe_of_context F0' in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe0' wl in
         run_codegen (compile_instrs mr fe0' es0) wt wl = inr ((), wt', wl', es') ->
-        ⊢ have_instr_type_sem rti sr mr M F0' L0 WT WL es' ψ0 L0') ->
+        ⊢ have_instr_type_sem rti sr mr M F0' L0 WT WL lmask es' ψ0 L0') ->
     run_codegen (compile_instr mr fe (IUnpack ψ L' es)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Admitted.
 
 End Fundamental.

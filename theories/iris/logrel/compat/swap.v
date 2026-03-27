@@ -28,15 +28,16 @@ Section Fundamental.
      let fe := fe_of_context F in
      let WT := wt ++ wt' ++ wtf in
      let WL := wl ++ wl' ++ wlf in
+     let lmask := wlmask fe wl in
      let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
      resolves_path τ π None pr ->
      Forall (has_mono_size F) (pr_prefix pr) ->
      pr.(pr_target) = SerT κser τval ->
      has_instruction_type_ok F ψ L ->
      run_codegen (compile_instr mr fe (ISwap ψ π)) wt wl = inr ((), wt', wl', es') ->
-     ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.
+     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    intros fe WT WL ψ Hresolves Hmonosize Hser Htype Hcompile. unfold WT, WL; clear WT WL.
+    intros fe WT WL lmask ψ Hresolves Hmonosize Hser Htype Hcompile. unfold WT, WL; clear WT WL.
     (* If the WT := or WL := become necessary, undo the unfold/clear*)
     cbn in Hcompile.
 

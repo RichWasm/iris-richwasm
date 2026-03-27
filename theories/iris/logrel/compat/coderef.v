@@ -28,12 +28,13 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let τ := CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ in
     let ψ := InstrT [] [τ] in
     M.(mc_table) !! i = Some ϕ ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICodeRef ψ i)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Admitted.
 
 End Fundamental.

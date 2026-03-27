@@ -10,50 +10,49 @@ From RichWasm.iris Require Import autowp memory util wp_codegen.
 From RichWasm.iris.language Require Import cwp logpred.
 From RichWasm.iris.logrel Require Import relations fundamental_kinding.
 
-(* From RichWasm.iris.logrel.compat Require Import *)
-  (* nop *)
-  (* unreachable *)
-  (* copy *)
-  (* drop *)
-(*   num *)
-(*   num_const *)
-(*   block *)
-(*   loop *)
-(*   ite *)
-(*   br *)
-(*   return_ *)
-(*   local_get_copy *)
-(*   local_get_move *)
-(*   local_set *)
-(*   coderef *)
-(*   inst *)
-(*   call *)
-(*   call_indirect *)
-(*   inject *)
-(*   inject_new *)
-(*   case *)
-(*   case_load_copy *)
-(*   case_load_move *)
-(*   group *)
-(*   ungroup *)
-(*   fold *)
-(*   unfold *)
-(*   pack *)
-(*   unpack *)
-(*   tag *)
-(*   untag *)
-(*   cast *)
-(*   new *)
-(*   load_copy *)
-(*   load_move *)
-(*   store_weak *)
-(*   store_strong *)
-(*   swap *)
-(*   nil *)
-(*   app *)
-(*   singleton *)
-(*   frame. *)
-(* . *)
+From RichWasm.iris.logrel.compat Require Import
+  nop
+  unreachable
+  copy
+  drop
+  num
+  num_const
+  block
+  loop
+  ite
+  br
+  return_
+  local_get_copy
+  local_get_move
+  local_set
+  coderef
+  inst
+  call
+  call_indirect
+  inject
+  inject_new
+  case
+  case_load_copy
+  case_load_move
+  group
+  ungroup
+  fold
+  unfold
+  pack
+  unpack
+  tag
+  untag
+  cast
+  new
+  load_copy
+  load_move
+  store_weak
+  store_strong
+  swap
+  nil
+  app
+  singleton
+  frame.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -94,7 +93,7 @@ Section Fundamental.
                  let lmask := wlmask fe wl in
                  run_codegen (compile_instr mr fe e) wt wl = inr (tt, wt', wl', es') ->
                  ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L');
-      intros wt wt' wtf wl wl' wlf wes fe WT WL Hcomp.
+      intros wt wt' wtf wl wl' wlf wes fe WT WL lmask Hcg.
     - eapply compat_nop; eassumption.
     - eapply compat_unreachable; eassumption.
     - eapply compat_copy; eassumption.
@@ -103,7 +102,7 @@ Section Fundamental.
     - eapply compat_num_const; eassumption.
     - eapply compat_block; eassumption.
     - eapply compat_loop; eassumption.
-    - eapply compat_ite in Hcomp; eassumption.
+    - eapply compat_ite in Hcg; eassumption.
     - eapply compat_br; eassumption.
     - eapply compat_return; eassumption.
     - eapply compat_local_get_copy; eassumption.
@@ -134,7 +133,7 @@ Section Fundamental.
     - eapply compat_store_strong; eassumption.
     - eapply compat_swap; eassumption.
     - eapply compat_nil; eassumption.
-    - eapply compat_app in Hcomp; eassumption.
+    - eapply compat_app in Hcg; eassumption.
     - eapply compat_singleton; eassumption.
     - eapply compat_frame; try eassumption.
   Qed.

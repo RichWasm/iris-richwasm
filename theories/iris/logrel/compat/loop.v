@@ -29,6 +29,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs1, L) |> in
     let ψ := InstrT τs1 τs2 in
     has_instruction_type_ok F ψ L ->
@@ -36,12 +37,13 @@ Section Fundamental.
         let fe' := fe_of_context F' in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe wl in
         run_codegen (compile_instrs mr fe' es) wt wl = inr ((), wt', wl', es') ->
-        ⊢ have_instr_type_sem rti sr mr M F' L WT WL es' ψ L) ->
+        ⊢ have_instr_type_sem rti sr mr M F' L WT WL lmask es' ψ L) ->
     run_codegen (compile_instr mr fe (ILoop ψ es)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    iIntros (????? Hok IH Hcg ?????????) "@@@@@@@@@@@".
+    iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@".
     inv_cg_bind Hcg ?res ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
     inv_cg_try_option Hcg.
     inv_cg_bind Hcg0 [[] ?res] ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
@@ -61,16 +63,28 @@ Section Fundamental.
     iApply (cwp_loop' with "[$] [$] [Hvs Hos Hframe Hrt]"); first done.
     - rewrite <- Hlen_ts1. rewrite Hlen_vs. by apply has_values_length.
     - instantiate (1 := fun fr' vs' =>
-        (frame_interp rti sr se L (wl ++ wl2 ++ wlf) inst fr' ∗
-           ∃ os' θ', values_interp rti sr se τs1 os' ∗ atoms_interp os' vs' ∗ rt_token rti sr θ')%I).
-      iFrame.
-    - iIntros "!> !> %fr' %vs' Hfr Hrun (Hframe & %os' & %θ' & Hos & Hvs & Hrt)".
-      iApply (Hcg with "[] [] [$] [] [$] [$] [$] [$] [$] [$] [$]"); first done.
+        (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se L (wl ++ wl2 ++ wlf) fr' ∗
+           (∃ os', values_interp rti sr se τs1 os' ∗ atoms_interp os' vs') ∗
+           (∃ θ', rt_token rti sr θ'))%I).
+      by iFrame.
+    - iIntros "!> !> %fr' %vs' Hfr Hrun (%Hrel & Hframe & (%os' & Hos & Hvs) & [%θ' Hrt])".
+      iApply (cwp_wand with "[-]");
+        first iApply (Hcg with "[] [] [] [] [$] [$] [$] [$] [$] [$] [$]").
+      + done.
       + iPureIntro. apply has_values_to_consts.
+      + by destruct Hrel as [_ ->].
       + iApply labels_interp_cons.
-        1, 2, 3, 5: done.
-        iIntros "!> %fr'' %vs'' (Hframe & %os'' & %θ'' & Hos & Hvs & Hrt)".
+        1, 2, 3: done.
+        * iIntros "!> %fr'' %vs'' (%Hfrel & Hframe & (%os'' & Hos & Hvs) & [%θ'' Hrt])".
+          iFrame.
+          iPureIntro.
+          by eapply frame_rel_trans.
+        * by iApply labels_interp_mono.
+      + iIntros (fr'' vs'') "[%Hrel' ?]".
         iFrame.
+        iPureIntro.
+        eapply frame_rel_trans; last done.
+        by eapply frame_rel_mask_mono.
   Qed.
 
 End Fundamental.

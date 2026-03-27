@@ -29,6 +29,7 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs2, L') |> in
     let ψ := InstrT (τs1 ++ [type_i32]) τs2 in
     has_instruction_type_ok F ψ L' ->
@@ -36,18 +37,20 @@ Section Fundamental.
         let fe := fe_of_context F' in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe wl in
         run_codegen (compile_instrs mr fe es1) wt wl = inr ((), wt', wl', es') ->
-        ⊢ have_instr_type_sem rti sr mr M F' L WT WL es' (InstrT τs1 τs2) L') ->
+        ⊢ have_instr_type_sem rti sr mr M F' L WT WL lmask es' (InstrT τs1 τs2) L') ->
     (forall wt wt' wtf wl wl' wlf es',
         let fe := fe_of_context F' in
         let WT := wt ++ wt' ++ wtf in
         let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe wl in
         run_codegen (compile_instrs mr fe es2) wt wl = inr ((), wt', wl', es') ->
-        ⊢ have_instr_type_sem rti sr mr M F' L WT WL es' (InstrT τs1 τs2) L') ->
+        ⊢ have_instr_type_sem rti sr mr M F' L WT WL lmask es' (InstrT τs1 τs2) L') ->
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    iIntros (????? Hok IH1 IH2 Hcg ?????????) "@@@@@@@@@@@".
+    iIntros (?????? Hok IH1 IH2 Hcg ????????) "@@@@@@@@@@@".
     inv_cg_bind Hcg res1 wt1 wt2 wl1 wl2 es1' es2' Hcg1 Hcg2.
     inv_cg_bind Hcg2 res2 wt3 wt4 wl3 wl4 es3' es4' Hcg2 Hcg3.
     apply wp_ignore in Hcg3 as (_ & [] & Hcg3).
@@ -91,12 +94,31 @@ Section Fundamental.
         iIntros "!> Hfr Hrun".
         rewrite (app_assoc wt wt5).
         rewrite (app_assoc wl wl5).
-        iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+        iApply (cwp_wand with "[-]");
+          first iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
         1, 2: done.
-        { iPureIntro. apply has_values_to_consts. }
-        iApply labels_interp_cons.
-        4: by iIntros (fr' vs') "!> H".
-        all: done.
+        * iPureIntro. apply has_values_to_consts.
+        * iApply labels_interp_cons.
+          1, 2, 3: done.
+          -- iModIntro.
+             iIntros (??) "(%Hfrel & Hframe & Hvalues & Hrt)".
+             iFrame.
+             iPureIntro.
+             eapply frame_rel_wlmask_mono; last done.
+             rewrite length_app.
+             lia.
+          -- iApply labels_interp_mono.
+             1, 3: done.
+             apply wlmask_mono.
+             rewrite length_app.
+             lia.
+        * iIntros (??) "[%Hrel H]".
+          iFrame.
+          iPureIntro.
+          eapply frame_rel_mask_mono; last done.
+          apply wlmask_mono.
+          rewrite length_app.
+          lia.
       + iApply (Hite with "[$] [$]").
         clear Hite.
         assert (n <> Wasm_int.int_zero i32m).

@@ -28,16 +28,18 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     (forall wt wt' wtf wl wl' wlf es',
        let fe := fe_of_context F in
        let WT := wt ++ wt' ++ wtf in
        let WL := wl ++ wl' ++ wlf in
+       let lmask := wlmask fe wl in
        run_codegen (compile_instr mr fe e) wt wl = inr ((), wt', wl', es') ->
-       ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L') ->
+       ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L') ->
     run_codegen (compile_instrs mr fe [e]) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    intros fe WT WL IH Hcg.
+    intros fe WT WL lmask IH Hcg.
     unfold compile_instrs, util.mapM_ in Hcg.
     apply wp_ignore in Hcg.
     destruct Hcg as (_ & ? & Hcg).

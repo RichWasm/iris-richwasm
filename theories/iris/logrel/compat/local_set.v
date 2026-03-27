@@ -28,13 +28,14 @@ Section Fundamental.
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
     let ψ := InstrT [τ] [] in
     let L' := <[ i := τ ]> L in
     L !! i = Some τ0 ->
     has_ref_flag F τ0 NoRefs ->
     has_instruction_type_ok F ψ L' ->
     run_codegen (compile_instr mr fe (ILocalSet ψ i)) wt wl = inr ((), wt', wl', es') ->
-    ⊢ have_instr_type_sem rti sr mr M F L WT WL es' ψ L'.
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Admitted.
 
 End Fundamental.
