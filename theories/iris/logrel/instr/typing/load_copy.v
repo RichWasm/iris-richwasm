@@ -1,26 +1,13 @@
-From Stdlib Require Import ZArith.
+From mathcomp Require Import eqtype ssrbool.
 
-Require Import RecordUpdate.RecordUpdate.
-
-From mathcomp Require Import ssrbool eqtype.
-
-From stdpp Require Import base list.
-
-From iris.proofmode Require Import base proofmode classes.
-
-From RichWasm.named_props Require Import named_props custom_syntax.
-From RichWasm.wasm Require Import operations.
-From RichWasm Require Import layout syntax typing.
-From RichWasm.compiler Require Import prelude codegen instruction module memory.
-From RichWasm.iris Require Import autowp memory util wp_codegen numerics.
-From RichWasm.iris.language Require Import cwp logpred.
-Require Import RichWasm.iris.logrel.instr.
+Require Import RichWasm.compiler.memory.
+Require Import RichWasm.iris.numerics.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section Fundamental.
+Section load_copy.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
@@ -835,4 +822,4 @@ Section Fundamental.
       admit.
   Admitted.
 
-End Fundamental.
+End load_copy.

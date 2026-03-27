@@ -1,20 +1,9 @@
-Require Import RecordUpdate.RecordUpdate.
-From stdpp Require Import base list.
-
-From iris.proofmode Require Import base proofmode classes.
-
-From RichWasm.named_props Require Import named_props custom_syntax.
-From RichWasm.wasm Require Import operations.
-From RichWasm Require Import layout syntax typing.
-From RichWasm.compiler Require Import prelude codegen instruction module.
-From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import cwp logpred.
-Require Import RichWasm.iris.logrel.instr.
+Require Import RichWasm.iris.logrel.instr.typing.common.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section Fundamental.
+Section load_move.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
@@ -68,4 +57,4 @@ Section Fundamental.
     (* WAITING FOE LEMMA *)
   Admitted.
 
-End Fundamental.
+End load_move.

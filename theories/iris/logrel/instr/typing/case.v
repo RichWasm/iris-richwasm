@@ -1,21 +1,9 @@
-Require Import RecordUpdate.RecordUpdate.
-From stdpp Require Import base list.
-
-From iris.proofmode Require Import base proofmode classes.
-
-From RichWasm.named_props Require Import named_props custom_syntax.
-From RichWasm.wasm Require Import operations.
-From RichWasm Require Import layout syntax typing.
-From RichWasm.compiler Require Import prelude codegen instruction module.
-From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import cwp logpred.
-Require Import RichWasm.iris.logrel.instr.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section Fundamental.
+Section case.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
@@ -24,7 +12,6 @@ Section Fundamental.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
-
 
   Lemma compat_case_block_fail F wt wt_save tag_idx (tag i : nat) f wl_others wl_ret es_drop_i es_get_locals_i es_case_i B R L' wl wl_save τ_res val_idxs case_i_val_idxs case_i_sum_locals (vs_res vs_payload case_i_vs_payload : list value) :
     let F' := F <| fc_labels ::= cons ([τ_res], L') |> in
@@ -1126,4 +1113,4 @@ Proof.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Admitted.
 
-End Fundamental.
+End case.

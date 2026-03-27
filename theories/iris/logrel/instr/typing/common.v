@@ -1,17 +1,18 @@
-From Stdlib Require Import ZArith.
-From stdpp Require Import base list.
+From Stdlib Require Export ZArith.
 
-Require Import RecordUpdate.RecordUpdate.
+From stdpp Require Export base list.
 
-From iris.proofmode Require Import base proofmode classes.
+Require Export RecordUpdate.RecordUpdate.
 
-From RichWasm.named_props Require Import named_props custom_syntax.
-From RichWasm.wasm Require Import operations.
-From RichWasm Require Import layout syntax typing.
-From RichWasm.compiler Require Import prelude codegen instruction module.
-From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import cwp logpred.
-Require Import RichWasm.iris.logrel.instr.
+From iris.proofmode Require Export base proofmode classes.
+
+From RichWasm.named_props Require Export named_props custom_syntax.
+From RichWasm.wasm Require Export operations.
+From RichWasm Require Export layout syntax typing.
+From RichWasm.compiler Require Export prelude codegen instruction module.
+From RichWasm.iris Require Export autowp memory util wp_codegen.
+From RichWasm.iris.language Require Export cwp logpred.
+Require Export RichWasm.iris.logrel.instr.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -418,43 +419,42 @@ Section common.
 
 
   Lemma forall2_lookup_same {A B} (ls ls' : list A) (idxs : list B) (xs : list A) (j_excl : nat) (f: B -> nat) :
-  (∀ j : B, f j ≠ j_excl → ls' !! f j = ls !! f j) ->
-  Forall (λ i, f i ≠ j_excl) idxs ->
-  Forall2 (λ (i : B) (v : A), ls  !! f i = Some v) idxs xs ->
-  Forall2 (λ (i : B) (v : A), ls' !! f i = Some v) idxs xs.
-Proof.
-  intros Hsame Hnotin Hf.
-  induction Hf.
-  - constructor.
-  - inversion Hnotin; subst.
-    constructor.
-    + rewrite Hsame; auto.
-    + apply IHHf; auto.
-Qed.
+    (∀ j : B, f j ≠ j_excl → ls' !! f j = ls !! f j) ->
+    Forall (λ i, f i ≠ j_excl) idxs ->
+    Forall2 (λ (i : B) (v : A), ls  !! f i = Some v) idxs xs ->
+    Forall2 (λ (i : B) (v : A), ls' !! f i = Some v) idxs xs.
+  Proof.
+    intros Hsame Hnotin Hf.
+    induction Hf.
+    - constructor.
+    - inversion Hnotin; subst.
+      constructor.
+      + rewrite Hsame; auto.
+      + apply IHHf; auto.
+  Qed.
 
-Lemma seq_forall_leq base len :
-  Forall (λ i, i < base + len) (seq base len).
-Proof.
-  rewrite Forall_seq.
-  intros j Hj.
-  lia.
-Qed.
+  Lemma seq_forall_leq base len :
+    Forall (λ i, i < base + len) (seq base len).
+  Proof.
+    rewrite Forall_seq.
+    intros j Hj.
+    lia.
+  Qed.
 
-Lemma map_seq_forall_localidx_leq base len :
-  Forall (λ i : prelude.W.localidx, localimm i < base + len)
-         (map prelude.W.Mk_localidx (seq base len)).
-Proof.
-  apply Forall_map.
-  apply seq_forall_leq.
-Qed.
+  Lemma map_seq_forall_localidx_leq base len :
+    Forall (λ i : prelude.W.localidx, localimm i < base + len)
+      (map prelude.W.Mk_localidx (seq base len)).
+  Proof.
+    apply Forall_map.
+    apply seq_forall_leq.
+  Qed.
 
-Lemma map_seq_forall_localidx_neq base len :
-  Forall (λ i : prelude.W.localidx, localimm i ≠ base + len)
-         (map prelude.W.Mk_localidx (seq base len)).
-Proof.
-  eapply Forall_impl; first apply map_seq_forall_localidx_leq.
-  lias.
-Qed.
-
+  Lemma map_seq_forall_localidx_neq base len :
+    Forall (λ i : prelude.W.localidx, localimm i ≠ base + len)
+      (map prelude.W.Mk_localidx (seq base len)).
+  Proof.
+    eapply Forall_impl; first apply map_seq_forall_localidx_leq.
+    lias.
+  Qed.
 
 End common.

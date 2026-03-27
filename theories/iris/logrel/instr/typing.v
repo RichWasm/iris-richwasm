@@ -1,63 +1,57 @@
-Require Import RecordUpdate.RecordUpdate.
-From stdpp Require Import base list.
-
-From iris.proofmode Require Import base proofmode classes.
-From RichWasm.wasm Require Import operations.
-
-From RichWasm Require Import layout syntax typing.
-From RichWasm.compiler Require Import prelude codegen instruction module.
-From RichWasm.iris Require Import autowp memory util wp_codegen.
-From RichWasm.iris.language Require Import cwp logpred.
+Require Import RichWasm.typing.
+From RichWasm.compiler Require Import codegen instruction prelude.
+From RichWasm.iris Require Import memory util.
 Require Import RichWasm.iris.logrel.instr.
 
 From RichWasm.iris.logrel.instr.typing Require Import
-  nop
-  unreachable
-  copy
-  drop
-  num
-  num_const
+  app
   block
-  loop
-  ite
   br
-  return_
-  local_get_copy
-  local_get_move
-  local_set
-  coderef
-  inst
   call
   call_indirect
-  inject
-  inject_new
   case
   case_load_copy
   case_load_move
-  group
-  ungroup
-  fold
-  unfold
-  pack
-  unpack
-  tag
-  untag
   cast
-  new
+  coderef
+  copy
+  drop
+  fold
+  frame
+  group
+  inject
+  inject_new
+  inst
+  ite
   load_copy
   load_move
-  store_weak
-  store_strong
-  swap
+  local_get_copy
+  local_get_move
+  local_set
+  loop
+  new
   nil
-  app
+  nop
+  num
+  num_const
+  pack
+  return_
   singleton
-  frame.
+  store_strong
+  store_weak
+  swap
+  tag
+  unfold
+  ungroup
+  unpack
+  unreachable
+  untag
+.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section Fundamental.
+Section typing.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
@@ -67,7 +61,7 @@ Section Fundamental.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Theorem fundamental_theorem M F L L' wt wt' wtf wl wl' wlf es es' tf :
+  Theorem fundamental_typing M F L L' wt wt' wtf wl wl' wlf es es' tf :
     have_instruction_type M F L es tf L' ->
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -138,4 +132,4 @@ Section Fundamental.
     - eapply compat_frame; try eassumption.
   Qed.
 
-End Fundamental.
+End typing.
