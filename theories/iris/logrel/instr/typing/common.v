@@ -368,6 +368,16 @@ Section common.
     done.
   Qed.
 
+  Lemma frame_rel_mask_trans_combine lmask1 lmask2 fr1 fr2 fr3:
+    frame_rel lmask1 fr1 fr2 ->
+    frame_rel lmask2 fr2 fr3 ->
+    frame_rel (λ i, lmask1 i ∧ lmask2 i) fr1 fr3.
+  Proof.
+    intros fr12 fr23.
+    eapply frame_rel_trans;
+      (eapply frame_rel_mask_mono; last done; by intros i [H1 H2]).
+  Qed.
+
 (* This is a copy of values_interp_cons
   Lemma values_interp_cons_inv se τ τs os :
     ⊢ values_interp rti sr se (τ :: τs) os -∗
