@@ -322,7 +322,7 @@ Proof.
 
     inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
     inv_cg_try_option Hιs; subst.
-    inv_cg_bind Hcg val_idxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
+    inv_cg_bind Hcg val_localidxs wt_save ?wt wl_save ?wl es_save ?es Hsave Hcg.
     repeat rewrite app_nil_r in Hsave.
 
     (* Save tag *)
@@ -463,11 +463,13 @@ Proof.
     iApply (cwp_seq with "[Hfr Hrun]").
     {
       rewrite <- (app_assoc e_tag).
-      instantiate (1 := λ f vs, (
+      instantiate (1 := λ fr' vs, (
+        ∃ val_idxs,
         ⌜vs = [VAL_int32 (Wasm_int.Int32.repr tag)]⌝ ∗
-        ⌜∀ i, i ∉ val_idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-        ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) val_idxs vs_payload⌝ ∗
-        ⌜val_idxs = map prelude.W.Mk_localidx (seq (fe_wlocal_offset fe + length wl) (length wl_save))⌝
+        ⌜frame_rel (λ i, i ∉ val_idxs) fr fr'⌝ ∗
+        ⌜Forall2 (fun i v => f_locs fr' !! localimm i = Some v) val_localidxs vs_payload⌝ ∗
+        ⌜val_idxs = seq (fe_wlocal_offset fe + length wl) (length wl_save)⌝ ∗
+        ⌜val_localidxs = map prelude.W.Mk_localidx val_idxs⌝
         )%I).
       iApply cwp_val_app; first done.
       eapply cwp_save_stack_w in Hsave; eauto.
@@ -475,20 +477,20 @@ Proof.
         iApply (Hsave with "[$] [$]").
         iIntros (f' [Hfsame Hfchanged]).
         unfold fvs_combine.
-        done.
+        auto.
       + admit. (* easy pure conseqeunce of value_interp and
       rep_values_interp, should be proved above the first wp_seq
       rule *)
     }
-    iIntros (fr_saved w) "(-> & %Hsame & %Hsaved & %Hval_idxs_seq) Hfr Hrun".
+    iIntros (fr_saved w) "(%val_idxs & -> & %Hfrel_fr_saved & %Hsaved & %Hval_idxs_seq) Hfr Hrun".
     iAssert
       (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf) fr_saved)
       with "[Hframe]" as "Hframe_saved".
     { admit. } (* TODO: Not really sure how to prove this. Definitely need helper lemma *)
 
-    edestruct (util.nths_error_exists val_idxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done.
+    edestruct (util.nths_error_exists val_localidxs case_1_val_idxs vs_payload case_1_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_1_vs_payload Hnerr_payload_c1]; try done.
 
-    edestruct (util.nths_error_exists val_idxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done.
+    edestruct (util.nths_error_exists val_localidxs case_2_val_idxs vs_payload case_2_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_2_vs_payload Hnerr_payload_c2]; try done.
 
     iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done.
     pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
@@ -528,31 +530,31 @@ Proof.
     iIntros (fr_saved_and_tag w) "(-> & %Hsame' & %Hsaved_and_tag) Hfr Hrun".
     clear_nils.
 
-    assert (Forall2 (λ (i : prelude.W.localidx) (v : value), f_locs fr_saved_and_tag !! localimm i = Some v)
-      case_1_val_idxs case_1_vs_payload) as Hf_case_1.
-    {
-      pose proof (util.nths_error_Forall2 _ val_idxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1.
-      eapply forall2_lookup_same.
-      3: done.
-      - intros. apply Hsame'; done.
-      - eapply (util.nths_error_Forall _ val_idxs); last done.
-        rewrite Hval_idxs_seq.
-        rewrite length_app Nat.add_assoc.
-        apply map_seq_forall_localidx_neq.
-    }
+    (* assert (Forall2 (λ (i : prelude.W.localidx) (v : value), f_locs fr_saved_and_tag !! localimm i = Some v) *)
+    (*   case_1_val_idxs case_1_vs_payload) as Hf_case_1. *)
+    (* { *)
+    (*   pose proof (util.nths_error_Forall2 _ val_localidxs case_1_val_idxs vs_payload case_1_vs_payload case_1_sum_locals Hsaved Heq_some3 Hnerr_payload_c1) as Hf_case_1. *)
+    (*   eapply forall2_lookup_same. *)
+    (*   3: done. *)
+    (*   - intros. apply Hsame'; done. *)
+    (*   - eapply (util.nths_error_Forall _ val_localidxs); last done. *)
+    (*     rewrite Hval_idxs_seq. *)
+    (*     rewrite length_app Nat.add_assoc. *)
+    (*     apply map_seq_forall_localidx_neq. *)
+    (* } *)
 
-    assert (Forall2 (λ (i : prelude.W.localidx) (v : value), f_locs fr_saved_and_tag !! localimm i = Some v)
-      case_2_val_idxs case_2_vs_payload) as Hf_case_2.
-    {
-      pose proof (util.nths_error_Forall2 _ val_idxs case_2_val_idxs vs_payload case_2_vs_payload case_2_sum_locals Hsaved Heq_some6 Hnerr_payload_c2) as Hf_case_2.
-      eapply forall2_lookup_same.
-      3: done.
-      - intros. apply Hsame'; done.
-      - eapply (util.nths_error_Forall _ val_idxs); last done.
-        rewrite Hval_idxs_seq.
-        rewrite length_app Nat.add_assoc.
-        apply map_seq_forall_localidx_neq.
-    }
+    (* assert (Forall2 (λ (i : prelude.W.localidx) (v : value), f_locs fr_saved_and_tag !! localimm i = Some v) *)
+    (*   case_2_val_idxs case_2_vs_payload) as Hf_case_2. *)
+    (* { *)
+    (*   pose proof (util.nths_error_Forall2 _ val_idxs case_2_val_idxs vs_payload case_2_vs_payload case_2_sum_locals Hsaved Heq_some6 Hnerr_payload_c2) as Hf_case_2. *)
+    (*   eapply forall2_lookup_same. *)
+    (*   3: done. *)
+    (*   - intros. apply Hsame'; done. *)
+    (*   - eapply (util.nths_error_Forall _ val_idxs); last done. *)
+    (*     rewrite Hval_idxs_seq. *)
+    (*     rewrite length_app Nat.add_assoc. *)
+    (*     apply map_seq_forall_localidx_neq. *)
+    (* } *)
 
     iAssert
       (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_case_1 ++ wl_case_2 ++ wlf) fr_saved_and_tag)
@@ -836,7 +838,7 @@ Proof.
         iApply (Hsave with "[$] [$]").
         iIntros (f' [Hfsame Hfchanged]).
         unfold fvs_combine.
-        done.
+        admit.
       + admit. (* easy pure conseqeunce of value_interp and
       rep_values_interp, should be proved above the first wp_seq
       rule *)
