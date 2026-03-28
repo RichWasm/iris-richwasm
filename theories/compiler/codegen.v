@@ -91,15 +91,11 @@ Definition default_of_value_type (type : W.value_type) : W.value :=
   | W.T_f64 => W.VAL_float64 $ Wasm_float.FloatSize64.of_bits $ Integers.Int64.repr 0
   end.
 
-Definition create_default (type : W.value_type) : codegen unit :=
-  emit $ W.BI_const $ default_of_value_type type.
-
-(* TODO: pick one *)
-Definition create_defaults' (types : W.result_type) : codegen unit :=
-  mapM_ create_default types.
+Definition create_default (type : W.value_type) : W.basic_instruction :=
+  W.BI_const $ default_of_value_type type.
 
 Definition create_defaults (types : W.result_type) : codegen unit :=
-  emit_all $ map (W.BI_const ∘ default_of_value_type) types.
+  emit_all $ map create_default types.
 
 Definition drop_consts (types : W.result_type) : codegen unit :=
   emit_all $ repeat (W.BI_drop) (length types).
