@@ -23,7 +23,7 @@ Section case.
     util.nths_error val_idxs case_i_sum_locals = Some case_i_val_idxs ->
     util.nths_error vs_payload case_i_sum_locals = Some case_i_vs_payload ->
     prelude.translate_type (fe_type_vars fe) τ_res = Some wl_ret ->
-    i ≠ tag ->
+    Wasm_int.Int32.repr tag ≠ Wasm_int.Int32.repr i ->
     length vs_res = length wl_ret ->
     ⊢
     ↪[frame]f -∗
@@ -69,8 +69,7 @@ Section case.
       {
         iApply (cwp_relop with "[$] [$]"); first done.
         iSimpl.
-        rewrite Wasm_int.Int32.eq_false.
-        2: admit. (* TODO: this is not actually provable. We need to know tags aren't huge... Maybe a different approach than destruct i *)
+        rewrite Wasm_int.Int32.eq_false; last done.
         iSimpl.
         by instantiate (1 := λ f' v, (⌜v = [_]⌝ ∗ ⌜f' = f⌝)%I).
       }
@@ -99,7 +98,7 @@ Section case.
     iApply (cwp_br_if_nonzero with "[$] [$]"); try done.
     1: apply has_values_to_consts.
     by rewrite length_map.
-  Admitted.
+  Qed.
 
 
   (* TODO: should probably be written using run_codegen somehow *)
@@ -315,9 +314,10 @@ Proof.
     inv_cg_bind Hcg wl_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
 
-    destruct (Wasm_int.Int32.modulus <=? length ρs_sum)%Z eqn:Hcmp; first inversion Hcg.
+    destruct (Wasm_int.Int32.modulus <? length ρs_sum)%Z eqn:Hcmp; first inversion Hcg.
     inv_cg_bind Hcg ?units ?wt ?wt ?wl ?wl ?es es_case1 Hret Hcg.
     inv_cg_ret Hret; subst.
+    apply Z.ltb_ge in Hcmp.
 
     inv_cg_bind Hcg ρs_atom ?wt ?wt ?wl ?wl ?es ?es Hιs Hcg.
     inv_cg_try_option Hιs; subst.
@@ -448,6 +448,11 @@ Proof.
     iDestruct "Hsum_interp" as (tag os' os_tag τ_tag ιs ιs_tag ixs  HSAtoms Htag_type_lookup Htag_type_arep Heval_rep_tail Hinject_sum_arep Hos'_ixs) "Hvalue_interp_os_i".
     (*assert (os = I32A (Wasm_int.int_of_Z i32m i) :: os0) as ->; first by inversion HSAtoms.*)
     simplify_eq.
+
+    apply lookup_lt_Some in Htag_type_lookup as Htag_size_bound.
+
+    (* TODO: at this point, I think we should also know that length τs = length (ρs_sum) *)
+    (* TODO: we should also know that tag < length (ρs_sum). This will follow easily from the above and Htag_type_lookup *)
 
     iDestruct (big_sepL2_length with "Hrvs") as "%Hlen".
     destruct vs as [|v_tag vs_payload]; first inversion Hlen.
@@ -738,7 +743,7 @@ Proof.
     inv_cg_bind Hcg wl_ret ?wt ?wt ?wl ?wl ?es ?es Hres_type Hcg.
     inv_cg_try_option Hres_type; subst.
 
-    destruct (Wasm_int.Int32.modulus <=? length ρs_sum)%Z eqn:Hcmp; first inversion Hcg.
+    destruct (Wasm_int.Int32.modulus <? length ρs_sum)%Z eqn:Hcmp; first inversion Hcg.
     clear Hcmp.
     inv_cg_bind Hcg ?units ?wt ?wt ?wl ?wl ?es es_case1 Hret Hcg.
     inv_cg_ret Hret; subst.

@@ -144,7 +144,7 @@ Section Compiler.
     codegen unit :=
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
     (* Check that the size of the sum fits in an i32 *)
-    if Z.leb (Wasm_int.Int32.modulus) (Z.of_nat (length ρs)) then (raise EFail) else ret ();;
+    if Z.ltb (Wasm_int.Int32.modulus) (Z.of_nat (length ρs)) then (raise EFail) else ret ();;
     ιs ← try_option EFail (eval_rep EmptyEnv (SumR ρs));
     ixs ← save_stack_arep fe (tail ιs);
     let do_case c i :=
