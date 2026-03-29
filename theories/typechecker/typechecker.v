@@ -1942,7 +1942,7 @@ Proof.
 Qed.
 
 (* This is hyper specific fixpoint, used for TStoreStrong *)
-Fixpoint synth_resolving_with_outer_replaced
+Fixpoint synth_resolving_with_outer_replaced_sert
   (τ:type) (p:path) (prreplaced:type) (τval:type) : option (path_result * kind) :=
   match p with
   | [] =>
@@ -1965,7 +1965,7 @@ Fixpoint synth_resolving_with_outer_replaced
                       if andb (andb (list_beq type type_beq τs0 τs0') (kind_beq κ κ'))
                               (list_beq type type_beq τs' τs'')
                       then
-                        match synth_resolving_with_outer_replaced τ_inner p innerprreplaced τval with
+                        match synth_resolving_with_outer_replaced_sert τ_inner p innerprreplaced τval with
                         | Some (pr, κser) =>
                             let pr' :=
                               {| pr_prefix := τs0 ++ pr.(pr_prefix);
@@ -1986,9 +1986,9 @@ Fixpoint synth_resolving_with_outer_replaced
 
   end.
 
-Lemma synth_resolving_with_outer_replaced_correct :
+Lemma synth_resolving_with_outer_replaced_sert_correct :
   ∀ p τ prreplaced τval pr κser,
-    synth_resolving_with_outer_replaced τ p prreplaced τval = Some (pr, κser) ->
+    synth_resolving_with_outer_replaced_sert τ p prreplaced τval = Some (pr, κser) ->
     resolves_path τ p (Some (SerT κser τval)) pr /\ pr.(pr_replaced) = prreplaced.
 Proof.
   induction p.
@@ -2004,6 +2004,79 @@ Proof.
     + constructor; auto.
     + subst; auto.
 Qed.
+
+(* This is hyper specific fixpoint, used for TLoadMove *)
+Fixpoint synth_resolving_with_outer_replaced_spant
+  (τ:type) (p:path) (prreplaced:type) (τval:type) : option (path_result * kind * size) :=
+  match p with
+  | [] =>
+      match prreplaced with
+      | SpanT (MEMTYPE σ NoRefs) σ0 =>
+          if size_beq σ σ0
+          then
+            match τ with
+            | SerT κser τval' =>
+                if type_beq τval τval'
+                then Some (Build_path_result [] τ (SpanT (MEMTYPE σ NoRefs) σ), κser, σ)
+                else None
+            | _ => None
+            end
+          else None
+      | _ => None
+      end
+  | i :: p =>
+      match τ with
+      | StructT κ τs_full =>
+          match split_into_three τs_full i with
+          | Some (τs0, τ_inner, τs') =>
+              match prreplaced with
+              | StructT κ' τs_full' =>
+                  match split_into_three τs_full' i with
+                  | Some (τs0', innerprreplaced, τs'') =>
+                      if andb (andb (list_beq type type_beq τs0 τs0') (kind_beq κ κ'))
+                              (list_beq type type_beq τs' τs'')
+                      then
+                        match synth_resolving_with_outer_replaced_spant τ_inner p innerprreplaced τval with
+                        | Some (pr, κser, σ) =>
+                            let pr' :=
+                              {| pr_prefix := τs0 ++ pr.(pr_prefix);
+                                pr_target := pr.(pr_target);
+                                pr_replaced := StructT κ (τs0 ++ pr.(pr_replaced) :: τs') |} in
+                            Some (pr', κser, σ)
+                        | None => None
+                        end
+                      else None
+                  | None => None
+                  end
+              | _ => None
+              end
+          | None => None
+          end
+      | _ => None
+      end
+
+  end.
+
+Lemma synth_resolving_with_outer_replaced_spant_correct :
+  ∀ p τ prreplaced σ pr τval κser,
+    synth_resolving_with_outer_replaced_spant τ p prreplaced τval = Some (pr, κser, σ) ->
+    resolves_path τ p (Some (type_span σ)) pr /\ pr.(pr_replaced) = prreplaced /\ pr.(pr_target) = SerT κser τval.
+Proof.
+  induction p.
+  - intros. destruct prreplaced; simpl in *; try inversion H. repeat structural_auto. split.
+    + constructor.
+    + repeat boolean_equality_auto.
+  - intros. simpl in H. repeat structural_auto.
+    apply split_into_three_correct in HMatch0; destruct HMatch0 as [Hlen Htosubst].
+    apply split_into_three_correct in HMatch4; destruct HMatch4 as [Hlen' Htosubst'].
+    repeat boolean_equality_auto.
+    apply IHp in HMatch7 as [ha [hi ho]].
+    split.
+    + constructor; auto.
+    + subst; auto.
+Qed.
+
+
 
 Definition grab_inner_ft (ft:function_type) : option function_type :=
   match ft with
@@ -2575,6 +2648,15 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
                         end
                     end *)
 
+
+
+Definition test ψ :=
+  match ψ with
+  | InstrT [a] b::b' => ok_term
+  | _ => INR "no"
+  end.
+Print type_span.
+
 Fixpoint unzip_sert (τs:list type) : option ((list kind) * (list type)) :=
   match τs with
   | [] => Some ([], [])
@@ -2768,7 +2850,7 @@ Fixpoint has_instruction_type_checker
               | InstrT τs1_full τs2 =>
                   match list_suffix τs1_full τs with
                   | Some τs1 =>
-                      if true (* if all ImDrop TODO *)
+                      if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true τs1
                       then has_instruction_type_ok_checker F ψ L'
                       else INR "incorrect instruction type for br"
                   | None => INR "incorrect instruction type for br"
@@ -2786,7 +2868,7 @@ Fixpoint has_instruction_type_checker
         | InstrT τs1_full τs2 =>
             match list_suffix τs1_full τs with
             | Some τs1 =>
-                if true (* if all ImDrop TODO *)
+                if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true τs1
                 then has_instruction_type_ok_checker F ψ L'
                 else INR "incorrect instruction type for return"
             | None => INR "incorrect instruction type for return"
@@ -2949,8 +3031,87 @@ Fixpoint has_instruction_type_checker
         | _ => INR "inocrrect instruction type for inject new (wrong shape)"
         end
       else INR "incorrect instruction type for inject new"
-  | ICase ψ_inner L_inner ess => INR "incomplete"
-  | ICaseLoad ψ_inner cm L_inner ess => INR "incomplete"
+  | ICase ψ_inner L_inner ess =>
+      if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L_inner L')
+      then
+        match ψ with
+        | InstrT [τ] τs' =>
+            match τ with
+            | SumT κ τs =>
+                let F' := F <| fc_labels ::= cons (τs', L') |> in
+                if foldr2
+                     (λ t:type, λ es,
+                           andb (check_ok_output
+                                   (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
+                     ) true τs ess
+                then has_instruction_type_ok_checker F ψ L'
+                else INR "incorrect instruction type for case (failed looping check)"
+            | _ => INR "incorrect instruction type for case (not casing on sum)"
+            end
+        | _ => INR "incorrect isntruction type for case (wrong shape)"
+        end
+      else INR "incorrect instruction type for case"
+  | ICaseLoad ψ_inner cm L_inner ess => (* note: both TCaseLoadCopy and TCaseLoadMove *)
+      (* some of the shared things before casing on cm *)
+      if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L_inner L')
+      then (* oh that's it, τs_ser needs to be gotten out of ψ lmao *)
+        match cm with (* DECISION POINT *)
+        | Copy => (* TCaseLoadCopy *)
+            match ψ with
+            | InstrT [τ1] (τ2::τs') =>
+                match τ1 with
+                | RefT κr μ (VariantT κv τs_ser) =>
+                    match τ2 with
+                    | RefT κr0 μ0 (VariantT κv0 τs'0) =>
+                        (* a bunch of variables have to be equal *)
+                        if andb (kind_beq κr κr0) (andb (kind_beq κv κv0)
+                                  (andb (memory_beq μ μ0) (list_beq type type_beq τs' τs'0)))
+                        then
+                          match unzip_sert τs_ser with
+                          | Some (κs, τs) =>
+                              let F' := F <| fc_labels ::= cons (τs', L') |> in
+                              if foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t GCRefs))) true τs
+                              then
+                                if foldr2
+                                     (λ t:type, λ es,
+                                         andb (check_ok_output
+                                                 (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
+                                     ) true τs ess
+                                then has_instruction_type_ok_checker F ψ L'
+                                else INR "incorrect instruction type for caseloadcopy (failed looping check)"
+                              else INR "incorrect instruction type for caseloadcopy (potentially copying mm refs)"
+                          | None => INR "incorrect instruction type for caseloadcopy (τs_ser isn't all SerT)"
+                          end
+                        else INR "incorrect instruction type for caseloadcopy (input/output don't match)"
+                    | _ => INR "incorrect instruction type for caseloadcopy (wrong output shape)"
+                    end
+                | _ => INR "incorrect instruction type for caseloadcopy (wrong input shape)"
+                end
+            | _ => INR "incorrect instruction type for caseloadcopy (wrong shape)"
+            end
+        | Move => (* TCaseLoadMove *)
+            match ψ with
+            | InstrT [τ1] τs' =>
+                match τ1 with
+                | RefT κr (BaseM MemMM) (VariantT κv τs_ser) =>
+                    match unzip_sert τs_ser with
+                    | Some (κs, τs) =>
+                        let F' := F <| fc_labels ::= cons (τs', L') |> in
+                        if foldr2
+                             (λ t:type, λ es,
+                                 andb (check_ok_output
+                                         (have_instruction_type_checker M F' L es (InstrT [t] τs') L'))
+                             ) true τs ess
+                        then has_instruction_type_ok_checker F ψ L'
+                        else INR "incorrect instruction type for caseloadmove (failed looping check)"
+                    | None => INR "incorrect instruction type for caseloadmove (τs_ser isn't all SerT)"
+                    end
+                | _ => INR "incorrect instruction type for caselaodmove (wrong input shape)"
+                end
+            | _ => INR "incorrect instruction type for caseloadmove (wrong shape)"
+            end
+        end
+      else INR "incorrect instruction type for caseload (either version)"
   | IGroup ψ_inner =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
@@ -3023,7 +3184,7 @@ Fixpoint has_instruction_type_checker
         | _ => INR "incorrect instruction type for pack"
         end
       else INR "incorrect instruction type for pack"
-  | IUnpack ψ_inner L_inner es => INR "incomplete"
+  | IUnpack ψ_inner L_inner es => INR "incomplete" (* NO IDEA HOW TO DO TODO help *)
   | ITag ψ_inner =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
@@ -3078,7 +3239,66 @@ Fixpoint has_instruction_type_checker
         end
       else INR "incorrect instruction type for new"
   | ILoad ψ_inner π cm => (* note this will be both TLoadCopy and TLoadMove *)
-      INR "incomplete"
+      if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
+      then
+        match cm with (* DECISION POINT *)
+        | Copy => (* load copy *)
+            match ψ with
+            | InstrT [τ1] [τ2;τval] =>
+                if type_beq τ1 τ2
+                then
+                  match τ1 with
+                  | RefT κ μ τ =>
+                      match synth_resolving_path τ π None with
+                      | Some pr =>
+                          match pr.(pr_target) with
+                          | SerT κser τval0 =>
+                              if type_beq τval τval0
+                              then
+                                match has_ref_flag_checker F τval GCRefs with
+                                | inl () =>
+                                    if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
+                                    then has_instruction_type_ok_checker F ψ L
+                                    else INR "incorrect instruction type for load copy (prefix not all mono size)"
+                                | inr a => inr a
+                                end
+                              else INR "incorrect instruction type for load copy (target type not equal to instr type) "
+                          | _ => INR "incorrect instruction type for load copy (path result target not SerT)"
+                          end
+                      | None => INR "incorrect instruction type for load copy (couldn't synth path)"
+                      end
+                  | _ => INR "incorrect instruction type for load copy (not ref)"
+                  end
+                else INR "incorrect instruction type for load copy (input output not equal)"
+            | _ => INR "incorrect instruction type for load copy (wrong shape)"
+            end
+        | Move => (* load move *)
+            match ψ with
+            | InstrT [τ1] [τ2; τval] =>
+                match τ1 with
+                | RefT κ (BaseM MemMM) τ =>
+                    match τ2 with
+                    | RefT κ' (BaseM MemMM) prreplaced =>
+                        match synth_resolving_with_outer_replaced_spant τ π prreplaced τval with
+                        | Some (pr, κser, σ) =>
+                            (* from this, we know prreplace = pr.pr_replaced; pr.pr_target = SerT κser τval *)
+                            match has_size_checker F pr.(pr_target) σ with
+                            | inl () =>
+                                if (foldr (λ t:type, andb (check_ok_output (has_mono_size_checker F t))) true (pr.(pr_prefix)))
+                                    then has_instruction_type_ok_checker F ψ L
+                                    else INR "incorrect instruction type for load move (prefix not all mono size)"
+                            | inr a => inr a
+                            end
+                        | _ => INR "incorrect instruction type for load move (couldn't synth path)"
+                        end
+                    | _ => INR "incorrect instruction type for load move (output not mm ref)"
+                    end
+                | _ => INR "incorrect instruction type for load move (input not mm ref)"
+                end
+            | _ => INR "incorrect instruction type for load move (wrong shape)"
+            end
+        end
+      else INR "incorrect instruction type for load"
   | IStore ψ_inner π => (* note this will be both TStoreWeak and TStoreStrong *)
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
@@ -3115,7 +3335,7 @@ Fixpoint has_instruction_type_checker
                   | RefT κ' (BaseM MemMM) prreplaced =>
                       if true
                       then (* we can finally start doing things omg *)
-                        match synth_resolving_with_outer_replaced τ π prreplaced τval  with
+                        match synth_resolving_with_outer_replaced_sert τ π prreplaced τval  with
                         | Some (pr, κser) =>
                             match has_ref_flag_checker F pr.(pr_target) GCRefs with
                             | inl () =>
@@ -3238,7 +3458,8 @@ Ltac my_auto5 :=
   try structural_auto; try boolean_equality_auto; try
   match goal with
   | H: (synth_resolving_path _ _ _ = Some _) |- _ => apply synth_resolving_path_correct in H; auto
-  | H: (synth_resolving_with_outer_replaced _ _ _ _ = Some (_, _)) |- _ => apply synth_resolving_with_outer_replaced_correct in H; auto
+  | H: (synth_resolving_with_outer_replaced_sert _ _ _ _ = Some (_, _)) |- _ => apply synth_resolving_with_outer_replaced_sert_correct in H; auto
+  | H: (synth_resolving_with_outer_replaced_spant _ _ _ _ = Some (_, _, _)) |- _ => apply synth_resolving_with_outer_replaced_spant_correct in H; auto
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
