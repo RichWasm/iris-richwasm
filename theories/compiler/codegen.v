@@ -82,7 +82,6 @@ Definition save_stack_arep (fe : function_env) (ιs : list atomic_rep) : codegen
 
 Definition restore_stack : list W.localidx -> codegen unit := get_locals_w.
 
-(* TODO: the handling of floats feels odd *)
 Definition default_of_value_type (type : W.value_type) : W.value :=
   match type with
   | W.T_i32 => W.VAL_int32 $ Wasm_int.int_zero i32m
@@ -135,13 +134,22 @@ Definition case_block (tag_idx : W.localidx) (result : W.result_type) (case : (n
     case tag_counter
   ).
 
+Fixpoint case_blocks_blocks (start : nat) (tag_idx : W.localidx)
+    (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
+  match cases with
+  | [] => mret tt
+  | case :: cases' =>
+      case_block tag_idx result case start ;;
+      case_blocks_blocks (S start) tag_idx result cases'
+  end.
+
 Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
   (* Store tag in local *)
   tag_idx ← save_stack1 fe W.T_i32;
   (* Put default result values on stack *)
   create_defaults result;;
   (* Code for each case *)
-  mapM_ (uncurry (case_block tag_idx result)) (zip cases (seq 0 (length cases)))
+  case_blocks_blocks 0 tag_idx result cases
 .
 
 Lemma runWriterT_sum_bind_dist {A B L E}
@@ -257,6 +265,30 @@ Proof.
   exists x1, wt1, wt2, wl1, wl2, l1, l2.
   rewrite !run_codegen_def.
   repeat split; assumption.
+Qed.
+
+Lemma run_codegen_bind_intro {A B} (c : codegen A) (f : A -> codegen B)
+    wt wt1 wt2 wl wl1 wl2 es1 es2 x1 x :
+  run_codegen c wt wl = inr (x1, wt1, wl1, es1) ->
+  run_codegen (f x1) (wt ++ wt1) (wl ++ wl1) = inr (x, wt2, wl2, es2) ->
+  run_codegen (c ≫= f) wt wl = inr (x, wt1 ++ wt2, wl1 ++ wl2, es1 ++ es2).
+Proof.
+  intros H1 H2.
+  rewrite run_codegen_def in H1.
+  rewrite run_codegen_def.
+  unfold mbind, MBind_Monad, flip, Monad.bind, Monad_writerT, EitherMonad.Monad_either.
+  cbn.
+  destruct (runWriterT (runAccumT c (wt, wl))) eqn:Hc.
+  - congruence.
+  - rewrite H1 in Hc. inversion Hc. subst.
+    unfold mbind, MBind_Monad, flip, Monad.bind, Monad_accumT.
+  cbn.
+  rewrite Hc.
+  cbn.
+  rewrite run_codegen_def in H2.
+  rewrite H2.
+  cbn.
+  by rewrite app_nil_r.
 Qed.
 
 Lemma run_codegen_try_option_inr {A} (c: option A) e x wt wt' wl wl' es :
@@ -446,4 +478,54 @@ Lemma run_codegen_drop_consts types wt wl x wt' wl' es :
 Proof.
   intros Hcg.
   by apply run_codegen_emit_all in Hcg.
+Qed.
+
+(* wow... *)
+Lemma run_codegen_case_blocks_blocks_app start tag_idx result fs_pre f_mid fs_post wt wl x wt' wl' es :
+  run_codegen (case_blocks_blocks start tag_idx result (fs_pre ++ [f_mid] ++ fs_post)) wt wl
+    = inr (x, wt', wl', es) ->
+  exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
+    run_codegen (case_blocks_blocks start tag_idx result fs_pre) wt wl
+      = inr (tt, wt1, wl1, es1) /\
+    run_codegen (case_block tag_idx result f_mid (start + length fs_pre)) (wt ++ wt1) (wl ++ wl1)
+      = inr (tt, wt2, wl2, es2) /\
+    run_codegen (case_blocks_blocks (S (start + length fs_pre)) tag_idx result fs_post)
+      (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2)
+      = inr (x, wt3, wl3, es3) /\
+    wt' = wt1 ++ wt2 ++ wt3 /\ wl' = wl1 ++ wl2 ++ wl3 /\ es = es1 ++ es2 ++ es3.
+Proof.
+  revert start wt wl x wt' wl' es.
+  induction fs_pre as [| f_head fs_pre IH]; intros start wt wl x wt' wl' es H.
+  - change (run_codegen (case_block tag_idx result f_mid start ;;
+                         case_blocks_blocks (S start) tag_idx result fs_post)
+                         wt wl = inr (x, wt', wl', es)) in H.
+    apply run_codegen_bind_dist in H as
+      (x1 & wt1 & wt2 & wl1 & wl2 & es1 & es2 & H1 & H2 & -> & -> & ->).
+    exists [], wt1, wt2, [], wl1, wl2, [], es1, es2.
+    simpl. rewrite Nat.add_0_r.
+    repeat split; try done.
+    do 2 rewrite app_nil_r.
+    destruct x1.
+    done.
+  - change (run_codegen (case_block tag_idx result f_head start ;;
+                         case_blocks_blocks (S start) tag_idx result (fs_pre ++ [f_mid] ++ fs_post))
+                         wt wl = inr (x, wt', wl', es)) in H.
+    apply run_codegen_bind_dist in H as
+      (x1 & wt1 & wt2' & wl1 & wl2' & es1 & es2' & H1 & H2 & Hwt & Hwl & Hes).
+    subst.
+    apply (IH (S start) (wt ++ wt1) (wl ++ wl1)) in H2 as
+      (wt1' & wt2 & wt3 & wl1' & wl2 & wl3 & es1' & es2 & es3 & IH1 & IH2 & IH3 & -> & -> & ->).
+    subst.
+    exists (wt1 ++ wt1'), wt2, wt3, (wl1 ++ wl1'), wl2, wl3, (es1 ++ es1'), es2, es3.
+    repeat split.
+    + change (run_codegen (case_block tag_idx result f_head start ;;
+                           case_blocks_blocks (S start) tag_idx result fs_pre)
+                           wt wl = inr ((), wt1 ++ wt1', wl1 ++ wl1', es1 ++ es1')).
+      eapply run_codegen_bind_intro; [exact H1|].
+      done.
+    + simpl. rewrite Nat.add_succ_r. by rewrite !app_assoc.
+    + simpl. rewrite Nat.add_succ_r. rewrite <- !app_assoc. by rewrite <- !app_assoc in IH3.
+    + by rewrite app_assoc.
+    + by rewrite app_assoc.
+    + by rewrite app_assoc.
 Qed.
