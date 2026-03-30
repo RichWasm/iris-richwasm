@@ -467,4 +467,15 @@ Section common.
     lias.
   Qed.
 
+  (* Ugly lemma dealing with subkinding *)
+  Lemma has_kind_SumT_inv F τs ρs ξ κ :
+    has_kind F (SumT (VALTYPE (SumR ρs) ξ) τs) κ →
+    ∃ rf, Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ rf)) τs ρs.
+  Proof.
+    intros H. remember (SumT (VALTYPE (SumR ρs) ξ) τs) as τ.
+    induction H; try discriminate.
+    - (* KSum *) injection Heqτ; intros; subst. eauto.
+    - (* KSub *) eauto.
+  Qed.
+
 End common.
