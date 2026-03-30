@@ -305,9 +305,9 @@ let%expect_test "pretty prints examples" =
         (inj 1
           (5,
             (new
-            (fold (rec α (() ⊕ (int ⊗ (ref α))))
-              (inj 0 () :
-                (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))))
+              (fold (rec α (() ⊕ (int ⊗ (ref α))))
+                (inj 0 () :
+                  (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))))
           : (() ⊕ (int ⊗ (ref (rec α (() ⊕ (int ⊗ (ref α)))))))))
       in
     (app map_int ((λ (x : int) : int .
@@ -316,16 +316,16 @@ let%expect_test "pretty prints examples" =
     (fold (rec a (() ⊕ (ref a)))
       (inj 1
         (new
-        (fold (rec a (() ⊕ (ref a)))
-          (inj 1
-            (new
-            (fold (rec a (() ⊕ (ref a)))
-              (inj 1
-                (new
+          (fold (rec a (() ⊕ (ref a)))
+            (inj 1
+              (new
                 (fold (rec a (() ⊕ (ref a)))
-                  (inj 0 () : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
-                : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
-            : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
+                  (inj 1
+                    (new
+                      (fold (rec a (() ⊕ (ref a)))
+                        (inj 0 () : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
+                    : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
+              : (() ⊕ (ref (rec a (() ⊕ (ref a))))))))
         : (() ⊕ (ref (rec a (() ⊕ (ref a)))))))
     -----------peano-----------
     (fun add (p : ((rec a (() ⊕ (ref a))) ⊗ (rec a (() ⊕ (ref a))))) :

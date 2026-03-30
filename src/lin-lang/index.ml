@@ -128,7 +128,7 @@ module IR = struct
           fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" pp e1 pp e2 pp e3
       | Binop (op, l, r) ->
           fprintf ff "@[<2>(%a@ %a@ %a)@]" pp l Binop.pp op pp r
-      | New e -> fprintf ff "@[(new@ %a)@]" pp e
+      | New e -> fprintf ff "@[<2>(new@ %a)@]" pp e
       | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp l pp r
       | Free e -> fprintf ff "@[<2>(free@ %a)@]" pp e
   end
