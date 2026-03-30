@@ -2537,7 +2537,7 @@ Definition list_suffix l1 l2 : option (list type) :=
   let l2len := Init.Datatypes.length l2 in
   list_suffix_helper l1 l2 l1len l2len.
 
-Lemma list_suffix_correct :
+Lemma list_suffix_correct_l :
   ∀ lfull lpre lsuf,
     lfull = lpre ++ lsuf -> list_suffix lfull lsuf = Some lpre.
 Proof.
@@ -2554,6 +2554,19 @@ Proof.
       specialize (IHlfull lpre lsuf eq_refl).
       (* yeah this is right, I just need theorems about lengths of lists *)
       admit.
+Admitted.
+
+Lemma list_suffix_correct_r :
+  ∀ lfull lpre lsuf,
+    list_suffix lfull lsuf = Some lpre -> lfull = lpre ++ lsuf.
+Proof.
+  intros lfull; induction lfull.
+  - intros; simpl in *. destruct lpre, lsuf; try inversion H. auto.
+  - intros lprebig.
+    destruct lprebig as [ | a' lpre ].
+    + intros lsuf Hlsuf.
+      admit.
+    + (* yeah this is fine too *) admit.
 Admitted.
 
 (*Definition get_instruction_type_arity (ψ:instruction_type) : nat * nat :=
@@ -2726,7 +2739,8 @@ Fixpoint has_instruction_type_checker
         | inl None => INR "the type checker does not support break/return/unreachable in the middle of a block"
         | inl (Some L_e) =>
             match has_instruction_type_checker M F L e e_ψ L_e with
-            | inl () =>                 match e_ψ, ψ with
+            | inl () =>
+                match e_ψ, ψ with
                 | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
                     match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
                     | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
@@ -3441,7 +3455,8 @@ Fixpoint have_instruction_type_checker
         | inl None => INR "the instr we're processing is either uncreachable, break, or return, with more commands to follow. unsure how to deal with rn TODO"
         | inl (Some L_e) =>
             match has_instruction_type_checker M F L e e_ψ L_e with
-            | inl () =>                 match e_ψ, ψ with
+            | inl () =>
+                match e_ψ, ψ with
                 | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
                     match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
                     | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
@@ -3453,9 +3468,206 @@ Fixpoint have_instruction_type_checker
         end
     end.
 
+(*** Demonstration of the annoyance of rocq fixpoint checker ***)
+
+(* Outer on just instruction, inner fixpoint. Works. *)
+Fixpoint test1 e :=
+  let fix test1_list es :=
+    match es with
+    | [] => True
+    | e::es => test1 e /\ test1_list es
+    end in
+  match e with
+  | IUnreachable _ => False
+  | IBlock _ _ es => test1_list es
+  | _ => True
+  end.
+
+(* Mutual recursion. Fails. *)
+Fail Fixpoint test2 e :=
+  match e with
+  | IUnreachable _ => False
+  | IBlock _ _ es => test2_list es
+  | _ => True
+  end
+with test2_list es :=
+  match es with
+  | [] => True
+  | e::es => test2 e /\ test2_list es
+  end.
+
+(* Outer in list instruction, inner fixpoint on instruction. Fails. *)
+Fail Fixpoint test3_list es :=
+  let test3 e :=
+    match e with
+    | IUnreachable _ => False
+    | IBlock _ _ bs => test3_list bs
+    | _ => True
+    end in
+  match es with
+  | [] => True
+  | e::es => test3 e /\ test3_list es
+  end.
+
+(* Also just mutual recursion, but testing flipping them jic. Fails obviously. *)
+Fail Fixpoint test4_list es :=
+  match es with
+  | [] => True
+  | e::es => test4 e /\ test4_list es
+  end
+with test4 e :=
+  match e with
+  | IUnreachable _ => False
+  | IBlock _ _ bs => test4_list bs
+  | _ => True
+  end.
+
+
+
+Section InstructionMind.
+
+  Variables
+    (P1: instruction -> Prop)
+    (P2: list instruction -> Prop)
+    (HNop : ∀ ψ, P1 (INop ψ))
+    (HUnreachable: ∀ ψ, P1 (IUnreachable ψ))
+    (HCopy: ∀ ψ, P1 (ICopy ψ))
+    (HDrop: ∀ ψ, P1 (IDrop ψ))
+    (HNum: ∀ ψ ni, P1 (INum ψ ni))
+    (HNumConst: ∀ ψ n, P1 (INumConst ψ n))
+    (HBlock : ∀ ψ τs es, P2 es -> P1 (IBlock ψ τs es))
+    (HLoop : ∀ ψ es, P2 es -> P1 (ILoop ψ es))
+    (HIte: ∀ ψ τs es1 es2, P2 es1 -> P2 es2 -> P1 (IIte ψ τs es1 es2))
+    (HBr: ∀ ψ n, P1 (IBr ψ n))
+    (HReturn: ∀ ψ, P1 (IReturn ψ))
+    (HLocalGet: ∀ ψ n, P1 (ILocalGet ψ n))
+    (HLocalSet: ∀ ψ n, P1 (ILocalSet ψ n))
+    (HCodeRef: ∀ ψ n, P1 (ICodeRef ψ n))
+    (HInst: ∀ ψ ix, P1 (IInst ψ ix))
+    (HCall: ∀ ψ n ixs, P1 (ICall ψ n ixs))
+    (HCallIndirect: ∀ ψ, P1 (ICallIndirect ψ))
+    (HInject: ∀ ψ n, P1 (IInject ψ n))
+    (HInjectNew: ∀ ψ n, P1 (IInjectNew ψ n))
+    (HCase: ∀ ψ τs ess, Forall P2 ess -> P1 (ICase ψ τs ess))
+    (HCaseLoad: ∀ ψ c τs ess, Forall P2 ess -> P1 (ICaseLoad ψ c τs ess))
+    (HGroup : ∀ ψ, P1 (IGroup ψ))
+    (HUngroup: ∀ ψ, P1 (IUngroup ψ))
+    (HFold: ∀ ψ, P1 (IFold ψ))
+    (HUnfold: ∀ ψ, P1 (IUnfold ψ))
+    (HPack: ∀ ψ, P1 (IPack ψ))
+    (HUnpack: ∀ ψ τs es, P2 es -> P1 (IUnpack ψ τs es))
+    (HTag: ∀ ψ, P1 (ITag ψ))
+    (HUntag: ∀ ψ, P1 (IUntag ψ))
+    (HCast: ∀ ψ, P1 (ICast ψ))
+    (HNew: ∀ ψ, P1 (INew ψ))
+    (HLoad: ∀ ψ ns c, P1 (ILoad ψ ns c))
+    (HStore: ∀ ψ ns, P1 (IStore ψ ns))
+    (HSwap: ∀ ψ ns, P1 (ISwap ψ ns))
+
+    (HEmpty: P2 [])
+    (HFull: ∀ e es, P1 e -> P2 es -> P2 (e::es) )
+    .
+    Fixpoint instruction_ind (e:instruction) : P1 e :=
+      let fix list_instruction_ind (bs:list instruction) : P2 bs :=
+      match bs with
+      | [] => HEmpty
+      | e::es => HFull e es (instruction_ind e) (list_instruction_ind es)
+      end in
+
+      let fix list_list_instruction_ind (bss:list (list instruction)) : Forall P2 bss :=
+        match bss with
+        | [] => ListDef.Forall_nil _
+        | es :: ess =>
+            ListDef.Forall_cons _ _ _ (list_instruction_ind es) (list_list_instruction_ind ess)
+        end in
+      match e with
+      | INop ψ => HNop ψ
+      | IUnreachable ψ => HUnreachable ψ
+      | ICopy ψ => HCopy ψ
+      | IDrop ψ => HDrop ψ
+      | INum ψ ni => HNum ψ ni
+      | INumConst ψ n => HNumConst ψ n
+      | IBlock ψ τs es => HBlock ψ τs es (list_instruction_ind es)
+      | ILoop ψ es => HLoop ψ es (list_instruction_ind es)
+      | IIte ψ τs es1 es2 =>
+          HIte ψ τs es1 es2
+            (list_instruction_ind es1) (list_instruction_ind es2)
+      | IBr ψ n => HBr ψ n
+      | IReturn ψ => HReturn ψ
+      | ILocalGet ψ n => HLocalGet ψ n
+      | ILocalSet ψ n => HLocalSet ψ n
+      | ICodeRef ψ n => HCodeRef ψ n
+      | IInst ψ ix => HInst ψ ix
+      | ICall ψ n ixs => HCall ψ n ixs
+      | ICallIndirect ψ => HCallIndirect ψ
+      | IInject ψ n => HInject ψ n
+      | IInjectNew ψ n => HInjectNew ψ n
+      | ICase ψ τs ess => HCase ψ τs ess (list_list_instruction_ind ess)
+      | ICaseLoad ψ c τs ess => HCaseLoad ψ c τs ess (list_list_instruction_ind ess)
+      | IGroup ψ => HGroup ψ
+      | IUngroup ψ => HUngroup ψ
+      | IFold ψ => HFold ψ
+      | IUnfold ψ => HUnfold ψ
+      | IPack ψ => HPack ψ
+      | IUnpack ψ τs es => HUnpack ψ τs es (list_instruction_ind es)
+      | ITag ψ => HTag ψ
+      | IUntag ψ => HUntag ψ
+      | ICast ψ => HCast ψ
+      | INew ψ => HNew ψ
+      | ILoad ψ ns c => HLoad ψ ns c
+      | IStore ψ ns => HStore ψ ns
+      | ISwap ψ ns => HSwap ψ ns
+      end
+    .
+    Fixpoint list_instruction_ind es : P2 es :=
+      match es with
+      | [] => HEmpty
+      | e :: es => HFull e es (instruction_ind e) (list_instruction_ind es)
+      end.
+
+
+  
+End InstructionMind.
+
+Ltac structural_auto_2 :=
+   match goal with
+  | H: (_ && _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
+  | o:ok |- _ => stupid_unit o
+  | H: ok_term = ok_term |- _ => clear H
+  | H: (andb _ _ = true) |- _ => apply andb_prop in H; destruct H as [?H1 ?H2]
+  | H: true = false |- _ => inversion H
+  | H: false = true |- _ => inversion H
+  | H: ((match ?key with |_=>_ end) = _) |- _ =>
+      destruct key eqn:?HMatch; try inversion H; simpl in *; clear H
+  | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try (inversion H; [idtac]; clear H); simpl in *
+   end.
+
+Lemma foldr_to_Forall {A} (Pbool: A → bool) (Pprop: A -> Prop) (l : list A) :
+  (foldr (λ x:A, andb (Pbool x)) true l) = true ->
+  (∀ x, (Pbool x = true) ->  Pprop x) ->
+  Forall Pprop l.
+Proof.
+  intros Hfoldr Hprop.
+  apply Forall_fold_right.
+  induction l; simpl; auto.
+  rewrite foldr_cons in Hfoldr. apply andb_prop in Hfoldr as [a_true l_true].
+  auto.
+Qed.
+
+Lemma test_foldr F l2 :
+  foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true l2 = true ->
+  Forall (fun τ => has_ref_flag F τ NoRefs) l2.
+Proof.
+  intros.
+  apply (foldr_to_Forall (λ t:type, check_ok_output (has_ref_flag_checker F t NoRefs))
+           (fun t => has_ref_flag F t NoRefs) l2 ); auto.
+  intros. apply check_ok_output_true_to_prop in H0.
+  apply has_ref_flag_checker_correct in H0; auto.
+Qed.
+
 
 Ltac my_auto5 :=
-  try structural_auto; try boolean_equality_auto; try
+  try structural_auto_2; try boolean_equality_auto; try
   match goal with
   | H: (synth_resolving_path _ _ _ = Some _) |- _ => apply synth_resolving_path_correct in H; auto
   | H: (synth_resolving_with_outer_replaced_sert _ _ _ _ = Some (_, _)) |- _ => apply synth_resolving_with_outer_replaced_sert_correct in H; auto
@@ -3472,6 +3684,10 @@ Ltac my_auto5 :=
   | H: (type_ok_checker _ _ = ok_term) |- _ => apply type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = inl ()) |- _ => apply function_type_ok_checker_correct in H; auto
   | H: (function_type_ok_checker _ _ = ok_term) |- _ => apply function_type_ok_checker_correct in H; auto
+  | H: (function_type_inst_checker _ _ _ _ = inl ()) |- _ => apply function_type_inst_checker_correct in H; auto
+  | H: (function_type_inst_checker _ _ _ _ = ok_term) |- _ => apply function_type_inst_checker_correct in H; auto
+  | H: (function_type_insts_checker _ _ _ _ = inl ()) |- _ => apply function_type_insts_checker_correct in H; auto
+  | H: (function_type_insts_checker _ _ _ _ = ok_term) |- _ => apply function_type_insts_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = inl ()) |- _ => apply has_kind_checker_correct in H; auto
   | H: (has_kind_checker _ _ _ = ok_term) |- _ => apply has_kind_checker_correct in H; auto
   | H: (has_instruction_type_ok_checker _ _ _ = ok_term) |- _ => apply has_instruction_type_ok_checker_correct in H; auto
@@ -3485,41 +3701,91 @@ Ltac my_auto5 :=
       try( by (eapply check_if_subkind_works_with_has_kind; try constructor; auto))
   | H: (check_if_subkind _ _ = ok_term) |- _ =>
       try( by (eapply check_if_subkind_works_with_has_kind; try constructor; auto))
+  | H: (check_ok_output _ = true) |- _ => apply check_ok_output_true_to_prop in H
+  | H: (list_suffix ?x _ = Some _) |- _ => apply list_suffix_correct_r in H; subst x
 end.
+(* Great. Now through tactics. Let's think *)
+Lemma test_foldr2 F l2 :
+  foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true l2 = true ->
+  Forall (fun τ => has_ref_flag F τ NoRefs) l2.
+Proof.
+  intros.
 
+  apply (foldr_to_Forall
+          (λ t:type, check_ok_output (has_ref_flag_checker F t NoRefs))
+          (fun t => has_ref_flag F t NoRefs) l2
+        ) in H; [|intros; repeat my_auto5].
+
+  auto.
+Qed.
+
+Ltac convert_foldr Pbool Pprop l H :=
+  apply (foldr_to_Forall Pbool Pprop l) in H; [|intros; repeat my_auto5].
 
 Lemma has_instruction_type_checker_correct :
   ∀ M F L inst ψ L',
     has_instruction_type_checker M F L inst ψ L' = ok_term ->
     has_instruction_type M F L inst ψ L'.
 Proof.
-  intros.
   Opaque have_instruction_type_checker.
-  induction inst; unfold has_instruction_type_checker in H.
-  1-5: repeat my_auto5; by constructor.
-  29: {
-    repeat my_auto5. apply (TSwap _ _ _ _ _ _ p k k0 _); auto. (* foldr lemma *)
-    admit.
-    }
-  28: {
-    structural_auto. clear H1. structural_auto. repeat boolean_equality_auto.
-    repeat my_auto5.
-    - clear H1 H2 H3 H4 H5 H6 H7 H8 H9 H10.
-      clear H12 H13.
-      apply (TStoreWeak _ _ _ _ _ _ _ p _ k0 ); auto; [rewrite HMatch; auto |].
-      (* foldr lemma *)
-      admit.
-    - clear H1 H2 H3 H4 H5 H6 H7 H8 H9 H10 H11 H12 H13 H14 H15 H16.
-      clear H18 H19 H20 H21.
-      apply Nat.eqb_eq in H0.
-      destruct HMatch12 as [Hres Htosub]; subst.
+  intros.
 
-      apply (TStoreStrong M F L' l t2 t0 p0 s r k k0 k1); auto.
-      (* some boring stuff *)
-      all: admit.
+  induction inst using instruction_ind with
+    (P2 := fun insts => ∀ M F L ψ L', have_instruction_type_checker M F L insts ψ L' = ok_term ->
+    have_instruction_type M F L insts ψ L').
+
+  1: refine ?[Nop]. 2: refine ?[Unreachable]. 3: refine ?[Copy]. 4: refine ?[Drop]. 5: refine ?[Num].
+  6: refine ?[NumConst]. 7: refine ?[Block]. 8: refine ?[Loop]. 9: refine ?[Ite]. 10: refine ?[Br].
+  11: refine ?[Return]. 12: refine ?[LocalGet]. 13: refine ?[LocalSet]. 14: refine ?[CodeRef]. 15: refine ?[Inst].
+  16: refine ?[Call]. 17: refine ?[CallIndirect]. 18: refine ?[Inject]. 19: refine ?[InjectNew]. 20: refine ?[Case].
+  21: refine ?[CaseLoad]. 22: refine ?[Group]. 23: refine ?[Ungroup]. 24: refine ?[Fold]. 25: refine ?[Unfold].
+  26: refine ?[Pack]. 27: refine ?[Unpack]. 28: refine ?[Tag]. 29: refine ?[Untag]. 30: refine ?[Cast].
+  31: refine ?[New]. 32: refine ?[Load]. 33: refine ?[Store]. 34: refine ?[Swap].
+
+  Ltac shred := unfold has_instruction_type_checker in *; repeat my_auto5; by constructor.
+  Ltac eshred := unfold has_instruction_type_checker in *; repeat my_auto5; by econstructor.
+
+  (* First, all the basic ones *)
+  [Nop]: shred.
+  [Unreachable]: shred.
+  [Copy]: shred.
+  [Drop]: shred.
+  [Num]: shred.
+  [NumConst]: shred.
+  [LocalGet]: shred.
+  [Group]: shred.
+  [Ungroup]: shred.
+  [Fold]: shred.
+  [Unfold]: shred.
+  [Tag]: shred.
+  [Untag]: shred.
+  [CodeRef]: shred.
+  [Inst]: shred.
+  [Call]: eshred.
+
+  (* Some of the ones with foldr *)
+  Ltac half_shred := unfold has_instruction_type_checker in *; repeat my_auto5.
+  [Br]: {
+    half_shred.
+    convert_foldr
+      (λ t:type, check_ok_output (has_ref_flag_checker F t NoRefs))
+      (fun t => has_ref_flag F t NoRefs) l2 HMatch1.
+    by constructor.
   }
-  23-24: repeat my_auto5; by constructor.
-  - admit.
+  [Return]: {
+    half_shred.
+    convert_foldr
+      (λ t:type, check_ok_output (has_ref_flag_checker F t NoRefs))
+      (fun t => has_ref_flag F t NoRefs) l1 HMatch0.
+    by constructor.
+  }
+  [CallIndirect]: {
+    half_shred.
+    (* need to do split into three into my_auto5 *)
+    admit.
+  }
+
+
 Admitted.
 
 
@@ -3577,10 +3843,9 @@ Proof.
   unfold has_function_type_checker in H.
   repeat my_auto5.
   rename l into ηss. rename l0 into L'.
-  clear H1 H2 H3 H4 H5.
   apply (TFunction M mf ηss L'); auto.
   - admit. (* just a foldr lemma *)
-  - by apply have_instruction_type_checker_correct in H.
+  - by apply have_instruction_type_checker_correct in H1.
 Admitted.
 
 
@@ -3631,5 +3896,3 @@ Definition has_module_type_checker_with_synth (m:module) : type_checker_res :=
   | Some mt => has_module_type_checker m mt
   | None => INR "couldn't synthesize module type"
   end.
-
-(* rebasing went okay *)
