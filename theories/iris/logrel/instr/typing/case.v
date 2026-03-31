@@ -482,13 +482,21 @@ Lemma compat_case_block_success_cg M F L wt wt_case_tag wtf tag_idx (tag : nat)
          (length ess_pre))
       wt wl =
     inr ((), wt_case_tag, wl_case_tag, es_tag_cg) ->
+    (∀ (wt wt' wtf : list prelude.W.function_type) (wl wl'
+                                                     wlf :
+                                                     list prelude.W.value_type)
+        (es' : prelude.W.expr),
+        let fe' := fe_of_context F' in
+        let WT := wt ++ wt' ++ wtf in
+        let WL := wl ++ wl' ++ wlf in
+        let lmask := wlmask fe wl in
+        run_codegen (compile_instrs mr fe' es_tag) wt wl =
+        inr ((), wt', wl', es')
+        → ⊢ have_instr_type_sem rti sr mr M F' L WT WL lmask es'
+          (InstrT [τ_tag] [τ_res]) L') ->
     ⊢
-    have_instr_type_sem rti sr mr M F' L
-          (wt ++ wt_case_tag ++ wtf)
-          (wl ++ wl_case_tag ++ wlf)
-          lmask es_tag_cg (InstrT [τ_tag] [τ_res]) L' -∗
     instance_interp rti sr mr M (wt ++ wt_case_tag ++ wtf) fr_saved_and_tag.(f_inst) -∗
-      labels_interp rti sr se fr_saved_and_tag (wl ++ wl_case_tag ++ wlf)
+    labels_interp rti sr se fr_saved_and_tag (wl ++ wl_case_tag ++ wlf)
           lmask (fc_labels F) B -∗
     return_interp rti sr se (fc_return F) R -∗
     rt_token rti sr θ -∗
@@ -508,8 +516,8 @@ Lemma compat_case_block_success_cg M F L wt wt_case_tag wtf tag_idx (tag : nat)
                rt_token rti sr θ
         }}.
 Proof.
-  intros F' fe tag_localidx Hlookup_saved_and_tag Htranslate_type_fe Ht_lookup_tag Heq Hsem Hcg_tag.
-    iIntros "Hsem_es_tag #Hinst #Hlabels #Hreturn Hrt Hvalue_interp_os_tag Hatoms_interp_payload Hframe_saved_and_tag Hfr Hrun".
+  intros F' fe tag_localidx Hlookup_saved_and_tag Htranslate_type_fe Ht_lookup_tag Heq Hsem Hcg_tag Hsem_es_tag.
+    iIntros "#Hinst #Hlabels #Hreturn Hrt Hvalue_interp_os_tag Hatoms_interp_payload Hframe_saved_and_tag Hfr Hrun".
 
     (* Case es_tag *)
     inv_cg_bind Hcg_tag ?pair ?wt ?wt ?wl ?wl ?es ?es Hcase_es_tag Hcase_es_tag_block.
@@ -1803,7 +1811,7 @@ Admitted.
     }
     rewrite Nat.add_0_l in Hcg_tag, Hcg_post.
 
-
+    (* Reason about ess_pre *)
     iEval (rewrite app_assoc).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
@@ -1818,6 +1826,65 @@ Admitted.
     }
     iIntros (?fr w) "(-> & ->) Hfr Hrun".
 
+    (* Reason about es_tag *)
+    iEval (rewrite app_assoc).
+    iApply (cwp_seq with "[-]").
+    {
+      (* TODO: fix application *)
+      iApply (compat_case_block_success_cg M F L
+      ((wt ++ wt_save) ++ wt_pre) wt_tag (wt_post ++ wtf)
+      tag_idx tag
+      wl_ret _ B R se L'
+      ((wl ++ wl_save ++ [prelude.W.T_i32]) ++ wl_pre) wl_tag (wl_post ++ wlf)
+      τs τ_tag τ_res os_tag val_localidxs vs_payload
+      ρs_sum fr_saved_and_tag θ
+      os'
+      es_tag_cg
+      ess_pre es_tag with "[] [Hlabels'] [$] [$] [$] [$] [Hframe_saved_and_tag] [$] [$]").
+      - done.
+      - done.
+      - done.
+      - lia.
+      - done.
+      - apply Hcg_tag.
+      - apply Hforall_tag.
+      - by repeat rewrite app_assoc.
+      - by repeat rewrite app_assoc.
+      - by repeat rewrite app_assoc.
+    }
+    iIntros (f_es_case_tag vs) "(%Hlen_vs & %Hfrel_new & Hframe & %os & %θ' & Hos & Hvs & Hrt) Hfr Hrun".
+
+    (* Reason about ess_post *)
+    iApply (cwp_wand with "[Hfr Hrun]").
+    {
+      iApply (compat_case_blocks_fail with "[$] [$]").
+      1: left.
+      8: apply Hcg_post.
+      all: try done.
+      all: try lias.
+      2: { rewrite -Hess_post_τs_post -Htyp_rep_len. subst τs. rewrite length_app. lias. }
+      rewrite -Hsaved_and_tag.
+      destruct Hfrel_new as [Hmask _].
+      symmetry.
+      apply Hmask.
+      subst tag_idx fe.
+      unfold wlmask.
+      repeat rewrite length_app.
+      rewrite -fe_of_context_labels.
+      lias.
+    }
+    iIntros (??) "(-> & ->)".
+    iEval (repeat rewrite -app_assoc) in "Hframe".
+    iEval (repeat rewrite -app_assoc).
+    iFrame.
+    iPureIntro.
+    rewrite -fe_of_context_labels in Hfrel_new.
+    unfold lmask.
+    eapply frame_rel_trans.
+    + eapply frame_rel_mask_mono; [| exact Hfrel_lmask_saved_and_tag].
+      intros i [Hi_lo Hi_hi]. unfold lmask, wlmask. split; exact Hi_lo || exact Hi_hi.
+    + eapply frame_rel_wlmask_mono; [| exact Hfrel_new].
+      rewrite length_app. rewrite length_app. lia.
   Admitted.
 
 End case.
