@@ -671,6 +671,14 @@ Definition mono_mem_checker (μ:memory) : type_checker_res :=
   | _ => INR "not monomem"
   end.
 
+Lemma mono_mem_checker_correct :
+  ∀ μ, (mono_mem_checker μ = ok_term) -> mono_mem μ.
+Proof.
+  intros. unfold mono_mem_checker in H; destruct μ.
+  - inversion H.
+  - by exists b.
+Qed.
+
 Definition subkind_of_checker (κ1:kind) (κ2:kind) : type_checker_res :=
   match κ1, κ2 with
   | (VALTYPE ρ1 NoRefs), (VALTYPE ρ2 GCRefs) =>
@@ -1083,6 +1091,17 @@ Definition grab_rep F τ : option representation :=
   | None => None
   end.
 
+Lemma grab_rep_correct :
+  ∀ F τ ρ, grab_rep F τ = Some ρ -> has_rep F τ ρ.
+Proof.
+  intros.
+  unfold grab_rep in H; repeat structural_auto.
+  eapply RepVALTYPE.
+  unfold grab_kind in *.
+  subst.
+  (* need to prove grab_kind correct later. Mechanical *)
+Admitted.
+
 Definition is_mono_rep_checker :=
   rep_ok_checker kc_empty.
 
@@ -1152,6 +1171,15 @@ Proof.
   unfold has_size.
   by exists NoRefs.
 Qed.
+
+Definition grab_size_correct :
+  ∀ F τ σ, grab_size F τ = Some σ -> has_size F τ σ.
+Proof.
+  intros.
+  unfold grab_size in H; repeat structural_auto. subst.
+  exists r.
+  (* prove grab_kind correct later *)
+Admitted.
 
 Definition is_mono_size_checker := size_ok_checker kc_empty.
 
@@ -2710,7 +2738,10 @@ Fixpoint has_instruction_type_checker
           match ψ with
           | InstrT τs1 τs2 =>
               if list_beq type type_beq τs1 τs2
-              then local_ctx_ok_checker F L
+              then (* Oh and monorep *)
+                if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1
+                then local_ctx_ok_checker F L
+                else INR "bad empty instruction type (can't frame non mono rep)"
               else INR "bad empty instructions type (not empties or frame)"
           end
         else INR "bad empty instructions type (local contexts don't match)"
@@ -2725,7 +2756,10 @@ Fixpoint has_instruction_type_checker
                     (* ts1_es = ts1_pref ++ ts1_e, ts2_es = ts2_pref ++ ts2_e*)
                     (* just need to check that ts1_pref = ts2_pref *)
                     if list_beq type type_beq τs1_pref τs2_pref
-                    then ok_term
+                    then (* oh and monorep *)
+                      if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
+                      then ok_term
+                      else INR "can't frame out (can't frame non mono rep)"
                     else INR "can't frame out (single instruction)"
                 | _, _ => INR "inner instruction type doesn't match"
                 end
@@ -2743,7 +2777,10 @@ Fixpoint has_instruction_type_checker
                 match e_ψ, ψ with
                 | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
                     match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
-                    | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                    | Some τs_pref => (* framed have to be mono rep *)
+                        if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs_pref
+                        then have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                        else INR "can't frame out non mono rep"
                     | None => INR "instruction has more arguments than large have_instruction type has, or can't frame out"
                     end
                 end
@@ -2919,7 +2956,7 @@ Fixpoint has_instruction_type_checker
         end
       else INR "incorrect instruction type for local get"
   | ILocalSet ψ_inner i =>
-      if instruction_type_beq ψ ψ_inner
+      if (instruction_type_beq ψ ψ_inner)
       then
         match L !! i with
         | Some τ0 =>
@@ -2927,8 +2964,10 @@ Fixpoint has_instruction_type_checker
             | inl () =>
                 match ψ with
                 | InstrT [τ] [] =>
-                    let L' := <[ i := τ ]> L in
-                    has_instruction_type_ok_checker F ψ L'
+                    let Ltrue := <[ i := τ ]> L in
+                    if local_ctx_beq L' Ltrue
+                    then has_instruction_type_ok_checker F ψ L'
+                    else INR "incorrect instruction type for local set (bad resulting local context)"
                 | _ => INR "incorrect instruction type for local set (shape not [τ] -> [])"
                 end
             | err => err
@@ -3415,7 +3454,7 @@ Fixpoint has_instruction_type_checker
   end.
 
 
-(* TODO at the end make sure this is a direct copy of above *)
+(* TODO at the end make sure this is a direct copy of above. TODO NOTE IT IS NOT RIGHT NOW REMEMBER *)
 Fixpoint have_instruction_type_checker
     (M:module_ctx) (F:function_ctx) (L:local_ctx)
     (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
@@ -3452,13 +3491,13 @@ Fixpoint have_instruction_type_checker
         let e_ψ := proj_instr_ty e in
         match synth_possible_resulting_local_ctx F e L with
         | inr _ => INR "this is either local get/set that is bad, so error?"
-        | inl None => INR "the instr we're processing is either uncreachable, break, or return, with more commands to follow. unsure how to deal with rn TODO"
+        | inl None => INR "the instr we're processing is either uncklereachable, break, or return, with more commands to follow. unsure how to deal with rn TODO"
         | inl (Some L_e) =>
             match has_instruction_type_checker M F L e e_ψ L_e with
             | inl () =>
                 match e_ψ, ψ with
                 | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
-                    match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
+                    match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_e *)
                     | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
                     | None => INR "instruction has more arguments than large have_instruction type has, or can't frame out"
                     end
@@ -3641,6 +3680,24 @@ Ltac structural_auto_2 :=
       destruct key eqn:?HMatch; try inversion H; simpl in *; clear H
   | H:((if ?key then _ else _)=_) |- _ => destruct key eqn:?HMatch; try (inversion H; [idtac]; clear H); simpl in *
    end.
+Ltac boolean_equality_auto_2 :=
+  match goal with
+  | H: (kind_beq ?x _ = true) |- _ => apply kind_eq_convert in H; subst x; auto
+  | H: (instruction_type_beq ?x _ = true) |- _ => apply instruction_type_eq_convert in H; subst x; auto
+  | H: (local_ctx_beq ?x _ = true) |- _ => apply local_ctx_eq_convert in H; subst x; auto
+  | H: (representation_beq ?x _ = true) |- _ => apply representation_eq_convert in H; subst x; auto
+  | H: (ref_flag_beq ?x _ = true) |- _ => apply ref_flag_eq_convert in H; subst x; auto
+  | H: (size_beq ?x _ = true) |- _ => apply size_eq_convert in H; subst x; auto
+  | H: (function_type_beq ?x _ = true) |- _ => apply function_type_eq_convert in H; subst x; auto
+  | H: (type_beq ?x _ = true) |- _ => apply type_eq_convert in H; subst x; auto
+  | H: (instruction_type_beq ?x _ = true) |- _ => apply instruction_type_eq_convert in H; subst x; auto
+  | H: (module_type_beq ?x _ = true) |- _ => apply module_type_eq_convert in H; subst x; auto
+  | H: (memory_beq ?x _ = true) |- _ => apply memory_eq_convert in H; subst x; auto
+  | H: (num_type_beq ?x _ = true) |- _ => apply num_type_eq_convert in H; subst x; auto
+  | H: (path_result_beq ?x _ = true) |- _ => apply path_result_eq_convert in H; subst x; auto
+  | H: (list_beq type type_beq ?x _ = true) |- _ => apply list_eq_convert_type in H; subst x; auto
+  | H: (list_beq size size_beq ?x _ = true) |- _ => apply list_eq_convert_size in H; subst x; auto
+  end.
 
 Lemma foldr_to_Forall {A} (Pbool: A → bool) (Pprop: A -> Prop) (l : list A) :
   (foldr (λ x:A, andb (Pbool x)) true l) = true ->
@@ -3667,11 +3724,13 @@ Qed.
 
 
 Ltac my_auto5 :=
-  try structural_auto_2; try boolean_equality_auto; try
+  try structural_auto_2; try boolean_equality_auto_2; try
   match goal with
   | H: (synth_resolving_path _ _ _ = Some _) |- _ => apply synth_resolving_path_correct in H; auto
-  | H: (synth_resolving_with_outer_replaced_sert _ _ _ _ = Some (_, _)) |- _ => apply synth_resolving_with_outer_replaced_sert_correct in H; auto
-  | H: (synth_resolving_with_outer_replaced_spant _ _ _ _ = Some (_, _, _)) |- _ => apply synth_resolving_with_outer_replaced_spant_correct in H; auto
+  | H: (synth_resolving_with_outer_replaced_sert _ _ _ _ = Some (_, _)) |- _ =>
+      apply synth_resolving_with_outer_replaced_sert_correct in H; destruct H as [H1 H2]; auto
+  | H: (synth_resolving_with_outer_replaced_spant _ _ _ _ = Some (_, _, _)) |- _ =>
+      apply synth_resolving_with_outer_replaced_spant_correct in H; destruct H as [H1 [H2 H3]]; auto
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -3703,6 +3762,23 @@ Ltac my_auto5 :=
       try( by (eapply check_if_subkind_works_with_has_kind; try constructor; auto))
   | H: (check_ok_output _ = true) |- _ => apply check_ok_output_true_to_prop in H
   | H: (list_suffix ?x _ = Some _) |- _ => apply list_suffix_correct_r in H; subst x
+  | H: (split_into_three ?τ _ = Some (_, _, _)) |- _ => apply split_into_three_correct in H; destruct H as [H1 H2]; subst τ
+  | H: (split_list_all_last ?l = Some (_, _)) |- _ => apply split_list_all_last_correct in H; subst l
+  | H: (unzip_sert ?l = Some (_, _)) |- _ => apply unzip_sert_correct in H; subst l
+  | H: (mono_mem_checker _ = ok_term) |- _ => apply mono_mem_checker_correct in H; auto
+  | H: (mono_mem_checker _ = inl ()) |- _ => apply mono_mem_checker_correct in H; auto
+  | H: (type_eq_checker _ _ _ = inl ()) |- _ => apply type_eq_checker_correct in H; auto
+  | H: (type_eq_checker _ _ _ = ok_term) |- _ => apply type_eq_checker_correct in H; auto
+  | H: (has_mono_size_checker _ _ = ok_term) |- _ => apply has_mono_size_checker_correct in H; auto
+  | H: (has_mono_size_checker _ _ = inl ()) |- _ => apply has_mono_size_checker_correct in H; auto
+  | H: (has_mono_rep_checker _ _ = ok_term) |- _ => apply has_mono_rep_checker_correct in H; auto
+  | H: (has_mono_rep_checker _ _ = inl ()) |- _ => apply has_mono_rep_checker_correct in H; auto
+  | H: (local_ctx_ok_checker _ _ = ok_term) |- _ => apply local_ctx_ok_checker_correct in H; auto
+  | H: (local_ctx_ok_checker _ _ = inl ()) |- _ => apply local_ctx_ok_checker_correct in H; auto
+  | H: (has_size_checker _ _ _ = inl ()) |- _ => apply has_size_checker_correct in H; auto
+  | H: (has_size_checker _ _ _ = ok_term) |- _ => apply has_size_checker_correct in H; auto
+  | H: (grab_size _ _ = Some _) |- _ => apply grab_size_correct in H; auto
+  | H: (grab_rep _ _ = Some _) |- _ => apply grab_rep_correct in H; auto
 end.
 (* Great. Now through tactics. Let's think *)
 Lemma test_foldr2 F l2 :
@@ -3719,19 +3795,96 @@ Proof.
   auto.
 Qed.
 
+Lemma framing_helper :
+  ∀ M F L es τs_pref τs1 τs2 L',
+    foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs_pref = true ->
+    have_instruction_type M F L es (InstrT τs1 τs2) L' ->
+    have_instruction_type M F L es (InstrT (τs_pref ++ τs1) (τs_pref ++ τs2)) L'.
+Proof.
+  induction τs_pref.
+  - intros. repeat rewrite app_nil_l. done.
+  - intros.
+    rewrite foldr_cons in H. repeat my_auto5.
+    apply TFrame; auto.
+Qed.
+
 Ltac convert_foldr Pbool Pprop l H :=
   apply (foldr_to_Forall Pbool Pprop l) in H; [|intros; repeat my_auto5].
 
 Lemma has_instruction_type_checker_correct :
-  ∀ M F L inst ψ L',
+  ∀ inst M F L ψ L',
     has_instruction_type_checker M F L inst ψ L' = ok_term ->
     has_instruction_type M F L inst ψ L'.
 Proof.
   Opaque have_instruction_type_checker.
-  intros.
+  intros inst.
+
+  set ( hitc :=
+(fix have_instruction_type_checker
+    (M:module_ctx) (F:function_ctx) (L:local_ctx)
+    (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
+    match insts with
+    | [] =>
+        if (local_ctx_beq L L')
+        then
+          match ψ with
+          | InstrT τs1 τs2 =>
+              if list_beq type type_beq τs1 τs2
+              then
+                if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1
+                then local_ctx_ok_checker F L
+                else INR "bad empty instruction type (can't frame non mono rep)"
+              else INR "bad empty instructions type (not empties or frame)"
+          end
+        else INR "bad empty instructions type (local contexts don't match)"
+    | [e] =>
+        let e_ψ := proj_instr_ty e in
+        match has_instruction_type_checker M F L e e_ψ L' with
+        | inl () => (* now just to check if we need to frame stuff out *)
+            match e_ψ, ψ with
+            | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                match list_suffix τs1_es τs1_e, list_suffix τs2_es τs2_e with
+                | Some τs1_pref, Some τs2_pref =>
+                    (* ts1_es = ts1_pref ++ ts1_e, ts2_es = ts2_pref ++ ts2_e*)
+                    (* just need to check that ts1_pref = ts2_pref *)
+                    if list_beq type type_beq τs1_pref τs2_pref
+                    then (* oh and monorep *)
+                      if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
+                      then ok_term
+                      else INR "can't frame out (can't frame non mono rep)"
+                    else INR "can't frame out (single instruction)"
+                | _, _ => INR "inner instruction type doesn't match"
+                end
+            end
+        | err => err
+        end
+    | e :: es =>
+        let e_ψ := proj_instr_ty e in
+        match synth_possible_resulting_local_ctx F e L with
+        | inr _ => INR "this is either local get/set that is bad, so error?"
+        | inl None => INR "the type checker does not support break/return/unreachable in the middle of a block"
+        | inl (Some L_e) =>
+            match has_instruction_type_checker M F L e e_ψ L_e with
+            | inl () =>
+                match e_ψ, ψ with
+                | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
+                    match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
+                    | Some τs_pref =>
+                        if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs_pref
+                        then have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                        else INR "can't frame out non mono rep"
+                    | None => INR "instruction has more arguments than large have_instruction type has, or can't frame out"
+                    end
+                end
+            | err => err
+            end
+        end
+    end
+)
+    ) in *.
 
   induction inst using instruction_ind with
-    (P2 := fun insts => ∀ M F L ψ L', have_instruction_type_checker M F L insts ψ L' = ok_term ->
+    (P2 := fun insts => ∀ M F L ψ L', hitc M F L insts ψ L' = ok_term ->
     have_instruction_type M F L insts ψ L').
 
   1: refine ?[Nop]. 2: refine ?[Unreachable]. 3: refine ?[Copy]. 4: refine ?[Drop]. 5: refine ?[Num].
@@ -3741,11 +3894,135 @@ Proof.
   21: refine ?[CaseLoad]. 22: refine ?[Group]. 23: refine ?[Ungroup]. 24: refine ?[Fold]. 25: refine ?[Unfold].
   26: refine ?[Pack]. 27: refine ?[Unpack]. 28: refine ?[Tag]. 29: refine ?[Untag]. 30: refine ?[Cast].
   31: refine ?[New]. 32: refine ?[Load]. 33: refine ?[Store]. 34: refine ?[Swap].
+  35: refine ?[Nil]. 36: refine ?[Cons].
 
-  Ltac shred := unfold has_instruction_type_checker in *; repeat my_auto5; by constructor.
-  Ltac eshred := unfold has_instruction_type_checker in *; repeat my_auto5; by econstructor.
+  Ltac shred := intros; simpl in *; repeat my_auto5; by constructor.
+  Ltac eshred := intros; simpl in *; repeat my_auto5; by econstructor.
+  Ltac half_shred := intros; simpl in *; repeat my_auto5.
+  Ltac clear_nils :=
+    repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
 
-  (* First, all the basic ones *)
+  (* Have instr cases *)
+  [Nil]: {
+    half_shred.
+    rename L' into L; rename l0 into τs. subst.
+    convert_foldr
+      (λ t:type, check_ok_output (has_mono_rep_checker F t ))
+      (fun t => has_mono_rep F t) τs HMatch0.
+    induction τs.
+    - by constructor.
+    - apply Forall_cons_1 in HMatch0 as [Ha Hτs].
+      apply IHτs in Hτs.
+      eapply TFrame; done.
+  }
+
+  [Cons]: {
+    Opaque have_instruction_type_checker.
+    destruct es. (* I don't think we need induction? IHes is just wrong so *)
+    - (* singleton case, which is unique bc of break and the like *)
+      clear IHinst0. (* we don't need this guy actually! just clogs proof state up *)
+      half_shred.
+      apply IHinst in HMatch.
+      subst.
+      apply framing_helper; auto.
+      apply TSingleton; auto.
+
+    - (* actual cons case *)
+      (* shred infinite loops lol *)
+      intros.
+      rename i into e.
+      Opaque synth_possible_resulting_local_ctx.
+      Opaque has_instruction_type_checker.
+
+      (* the goal is to get hitc (e :: es) out of H.
+         However. Because rocq hates me. I think I'm literally
+         going to have to completely destruct H, then reconstruct hitc (e::es)
+         out of it.
+       *)
+
+      simpl in H.
+
+      do 2 (structural_auto_2).
+      rename l into L_inst.
+
+      do 5 (structural_auto_2).
+      rename l into τs1_inst; rename l0 into τs2_inst.
+      rename l1 into τs1_full; rename l2 into τs2_full.
+      rename l3 into τs1_inst_pref.
+      apply list_suffix_correct_r in HMatch3.
+      apply IHinst in HMatch1.
+      subst.
+      (* Okay. now we split es. Hate that we have to but oh well. *)
+      destruct es.
+      + repeat my_auto5.
+        apply list_suffix_correct_r in HMatch5.
+        specialize (IHinst0 M F L_inst (InstrT l l0) L').
+        rewrite HMatch3 in IHinst0.
+
+        assert (Temp: l = [] ++ l) by (clear_nils; auto).
+        apply list_suffix_correct_l in Temp.
+        rewrite Temp in IHinst0. clear Temp.
+        assert (Temp: l0 = [] ++ l0) by (clear_nils; auto).
+        apply list_suffix_correct_l in Temp.
+        rewrite Temp in IHinst0. clear Temp.
+
+        cbn in IHinst0.
+        specialize (IHinst0 eq_refl).
+        (* okay I think I have enough now.... backwards frame soon *)
+        rename l into τs1_e; rename l0 into τs2_e.
+        rename l2 into τs1_e_pref.
+
+        change ([?x;?y]) with ([x] ++ [y]).
+        apply TApp with (L2:=L_inst) (τs2:=(τs1_inst_pref ++ τs2_inst)).
+        * apply framing_helper; auto.
+          apply TSingleton; auto.
+        * rewrite HMatch5.
+          apply framing_helper; auto.
+      + admit.
+
+
+  }
+  Transparent has_instruction_type_checker.
+  (* Some of the ones that need the IH. *)
+  [Block]: {
+    half_shred.
+    apply IHinst in HMatch0.
+    by constructor.
+  }
+  [Loop]: {
+    half_shred.
+    apply IHinst in HMatch0.
+    by constructor.
+  }
+  [Ite]: {
+    half_shred.
+    apply IHinst in HMatch0.
+    apply IHinst0 in HMatch.
+    by constructor.
+  }
+
+  (* The IH + foldr2 lemma folks *)
+  [Case]: {
+    half_shred.
+    subst.
+    (* this needs a foldr2+Forall lemma, but it should just work *)
+    admit.
+  }
+  [CaseLoad]: {
+    half_shred.
+    - (* case load copy *)
+      convert_foldr
+        (λ t:type, check_ok_output (has_ref_flag_checker F t GCRefs))
+        (fun t => has_ref_flag F t GCRefs) l5 HMatch8.
+      (* foldr2+Forall lemma, then should be good *)
+      admit.
+    - (* case load move *)
+      subst.
+      (* similar foldr2+Forall lemma. Slight concert: rocq "simplified" hitc a bit. Hopefully no issue *)
+      admit.
+  }
+
+  (* All the basic ones *)
   [Nop]: shred.
   [Unreachable]: shred.
   [Copy]: shred.
@@ -3761,15 +4038,24 @@ Proof.
   [Untag]: shred.
   [CodeRef]: shred.
   [Inst]: shred.
-  [Call]: eshred.
+  [CallIndirect]: shred.
+  [Inject]: shred.
+  [InjectNew]: shred.
+  [Cast]: shred.
+  [New]: shred.
 
-  (* Some of the ones with foldr *)
-  Ltac half_shred := unfold has_instruction_type_checker in *; repeat my_auto5.
+  (* Next, almost basic *)
+  [Call]: eshred.
+  [LocalSet]: eshred.
+
+
+
+  (* Some of the ones with pure foldr *)
   [Br]: {
     half_shred.
     convert_foldr
       (λ t:type, check_ok_output (has_ref_flag_checker F t NoRefs))
-      (fun t => has_ref_flag F t NoRefs) l2 HMatch1.
+      (fun t => has_ref_flag F t NoRefs) l2 HMatch2.
     by constructor.
   }
   [Return]: {
@@ -3779,11 +4065,51 @@ Proof.
       (fun t => has_ref_flag F t NoRefs) l1 HMatch0.
     by constructor.
   }
-  [CallIndirect]: {
+  [Load]: {
     half_shred.
-    (* need to do split into three into my_auto5 *)
-    admit.
+    - (* GC case *)
+      convert_foldr
+        (λ t:type, check_ok_output (has_mono_size_checker F t))
+        (fun t => has_mono_size F t) (pr_prefix p) HMatch.
+      by eapply TLoadCopy.
+    - (* MM case *)
+      convert_foldr
+        (λ t:type, check_ok_output (has_mono_size_checker F t))
+        (fun t => has_mono_size F t) (pr_prefix p1) HMatch.
+      by eapply TLoadMove.
   }
+  [Store]: {
+    half_shred.
+    - (* store weak case *)
+      convert_foldr
+        (λ t:type, check_ok_output (has_mono_size_checker F t))
+        (fun t => has_mono_size F t) (pr_prefix p) HMatch0.
+      rewrite <- HMatch in HMatch7.
+      by eapply TStoreWeak.
+    - (* store strong case *)
+      convert_foldr
+        (λ t:type, check_ok_output (has_mono_size_checker F t))
+        (fun t => has_mono_size F t) (pr_prefix p0) H3.
+      apply Nat.eqb_eq in H2; subst.
+      rewrite <- HMatch1 in HMatch2.
+      by eapply TStoreStrong.
+  }
+  [Swap]: {
+    half_shred.
+    convert_foldr
+      (λ t:type, check_ok_output (has_mono_size_checker F t))
+      (fun t => has_mono_size F t) (pr_prefix p) HMatch6.
+    by econstructor.
+  }
+
+
+  (* Existentials are INCOMPLETE *)
+  [Pack]: admit.
+  [Unpack]: admit.
+
+
+
+
 
 
 Admitted.
@@ -3842,7 +4168,7 @@ Proof.
   Opaque have_instruction_type_checker.
   unfold has_function_type_checker in H.
   repeat my_auto5.
-  rename l into ηss. rename l0 into L'.
+  rename l into ηss. rename l0 into L'. boolean_equality_auto.
   apply (TFunction M mf ηss L'); auto.
   - admit. (* just a foldr lemma *)
   - by apply have_instruction_type_checker_correct in H1.
