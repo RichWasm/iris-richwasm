@@ -120,6 +120,9 @@ Scheme Equality for memory.
 Scheme Equality for list.
 Scheme Equality for num_type.
 Scheme Equality for primitive.
+Scheme Equality for num_instruction.
+Scheme Equality for consumption.
+
 
 (*
 Lemma copyability_eq_convert :
@@ -135,6 +138,9 @@ Proof.
    [by apply internal_dropability_dec_bl in H | by apply internal_dropability_dec_lb in H].
 Qed.
 *)
+Lemma num_instruction_eq_convert :
+  ∀ n1 n2, num_instruction_beq n1 n2 = true <-> n1 = n2. Proof. Admitted.
+
 Lemma ref_flag_eq_convert :
   ∀ ξ1 ξ2, ref_flag_beq ξ1 ξ2 = true <-> ξ1 = ξ2.
 Proof.
@@ -378,6 +384,92 @@ Proof.
     + apply type_eq_convert; auto.
 Qed.
 
+Definition kind_ctx_beq ah1 ah2 : bool :=
+  (ah1.(kc_mem_vars) =? ah2.(kc_mem_vars)) &&
+  (ah1.(kc_rep_vars) =? ah2.(kc_rep_vars)) &&
+  (ah1.(kc_size_vars) =? ah2.(kc_size_vars)).
+
+Definition function_ctx_beq F1 F2 : bool :=
+  (list_beq type type_beq F1.(fc_return) F2.(fc_return)) &&
+  (list_beq (list primitive) (list_beq primitive primitive_beq) F1.(fc_locals) F2.(fc_locals)) &&
+  (list_beq (list type * local_ctx)
+     (λ p1, λ p2, let (lt1, L1):=p1 in let (lt2, L2):=p2 in
+        (list_beq type type_beq lt1 lt2) && (local_ctx_beq L1 L2))
+     F1.(fc_labels) F2.(fc_labels)) &&
+  (kind_ctx_beq F1.(fc_kind_ctx) F2.(fc_kind_ctx)) &&
+  (list_beq kind kind_beq F1.(fc_type_vars) F2.(fc_type_vars)).
+
+Lemma function_ctx_eq_convert :
+  ∀ F1 F2, function_ctx_beq F1 F2 = true <-> F1 = F2.
+Proof. Admitted.
+
+Definition index_beq ix1 ix2 :=
+  match ix1, ix2 with
+  | MemI m1, MemI m2 => memory_beq m1 m2
+  | RepI r1, RepI r2 => representation_beq r1 r2
+  | SizeI s1, SizeI s2 => size_beq s1 s2
+  | TypeI t1, TypeI t2 => type_beq t1 t2
+  | _, _ => false
+  end.
+
+Fixpoint instruction_beq e1 e2 : bool :=
+ match e1, e2 with
+ | INop ϕ1, INop ϕ2
+ | IUnreachable ϕ1, IUnreachable ϕ2
+ | ICopy ϕ1, ICopy ϕ2
+ | IDrop ϕ1, IDrop ϕ2
+ | IReturn ϕ1, IReturn ϕ2
+ | ICallIndirect ϕ1, ICallIndirect ϕ2
+ | IGroup ϕ1, IGroup ϕ2
+ | IUngroup ϕ1, IUngroup ϕ2
+ | IFold ϕ1, IFold ϕ2
+ | IUnfold ϕ1, IUnfold ϕ2
+ | IPack ϕ1, IPack ϕ2
+ | ITag ϕ1, ITag ϕ2
+ | IUntag ϕ1, IUntag ϕ2
+ | ICast ϕ1, ICast ϕ2
+ | INew ϕ1, INew ϕ2
+   => instruction_type_beq ϕ1 ϕ2
+ | INum ϕ1 n1, INum ϕ2 n2 => instruction_type_beq ϕ1 ϕ2 && num_instruction_beq n1 n2
+ | INumConst ϕ1 n1, INumConst ϕ2 n2
+ | IBr ϕ1 n1, IBr ϕ2 n2
+ | ILocalGet ϕ1 n1, ILocalGet ϕ2 n2
+ | ILocalSet ϕ1 n1, ILocalSet ϕ2 n2
+ | ICodeRef ϕ1 n1, ICodeRef ϕ2 n2
+ | IInject ϕ1 n1, IInject ϕ2 n2
+ | IInjectNew ϕ1 n1, IInjectNew ϕ2 n2
+   => instruction_type_beq ϕ1 ϕ2 && (n1 =? n2)
+ | IUnpack ϕ1 τs1 es1, IUnpack ϕ2 τs2 es2
+ | IBlock ϕ1 τs1 es1, IBlock ϕ2 τs2 es2 =>
+     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2) && (list_beq instruction instruction_beq es1 es2)
+ | ILoop ϕ1 es1, ILoop ϕ2 es2 =>
+     instruction_type_beq ϕ1 ϕ2 && (list_beq instruction instruction_beq es1 es2)
+ | IIte ϕ1 τs1 es11 es12, IIte ϕ2 τs2 es21 es22 =>
+     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2)
+     && (list_beq instruction instruction_beq es11 es21)
+     && (list_beq instruction instruction_beq es12 es22)
+ | IInst ϕ1 ix1, IInst ϕ2 ix2 => instruction_type_beq ϕ1 ϕ2 && index_beq ix1 ix2
+ | ICall ϕ1 n1 ixs1, ICall ϕ2 n2 ixs2 =>
+     instruction_type_beq ϕ1 ϕ2 && (n1 =? n2) && (list_beq index index_beq ixs1 ixs2)
+ | ICase ϕ1 τs1 ees1, ICase ϕ2 τs2 ees2 =>
+     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2) &&
+       (list_beq (list instruction) (list_beq instruction instruction_beq) ees1 ees2)
+ | ICaseLoad ϕ1 c1 τs1 ees1, ICaseLoad ϕ2 c2 τs2 ees2 =>
+     instruction_type_beq ϕ1 ϕ2 && (list_beq type type_beq τs1 τs2) &&
+       (list_beq (list instruction) (list_beq instruction instruction_beq) ees1 ees2) && consumption_beq c1 c2
+ | ILoad ϕ1 ns1 c1, ILoad ϕ2 ns2 c2 =>
+     instruction_type_beq ϕ1 ϕ2 && (list_beq nat Nat.eqb ns1 ns2) && consumption_beq c1 c2
+ | IStore ϕ1 ns1, IStore ϕ2 ns2
+ | ISwap ϕ1 ns1, ISwap ϕ2 ns2 =>
+     instruction_type_beq ϕ1 ϕ2 && (list_beq nat Nat.eqb ns1 ns2)
+ | _, _ => false
+ end.
+
+Lemma instruction_eq_convert :
+  ∀ e1 e2, instruction_beq e1 e2 = true <-> e1 = e2. Proof. Admitted.
+
+Lemma list_eq_convert_instruction :
+  ∀ es1 es2, list_beq instruction instruction_beq es1 es2 = true <-> es1 = es2. Proof. Admitted.
 
 Ltac boolean_equality_auto :=
   match goal with
@@ -396,7 +488,94 @@ Ltac boolean_equality_auto :=
   | H: (path_result_beq _ _ = true) |- _ => apply path_result_eq_convert in H; subst; auto
   | H: (list_beq type type_beq _ _ = true) |- _ => apply list_eq_convert_type in H; subst; auto
   | H: (list_beq size size_beq _ _ = true) |- _ => apply list_eq_convert_size in H; subst; auto
+  | H: (function_ctx_beq _ _ = true) |- _ => apply function_ctx_eq_convert in H; subst; auto
+  | H: (instruction_beq _ _ = true) |- _ => apply instruction_eq_convert in H; subst; auto
+  | H: (list_beq instruction instruction_beq _ _ = true) |- _ => apply list_eq_convert_instruction in H; subst; auto
   end.
+
+
+Fixpoint split_list_all_last {A:Type} (l:list A) : option (list A * A) :=
+  match l with
+  | [] => None
+  | [a] => Some ([], a)
+  | h :: rest =>
+      match split_list_all_last rest with
+      | Some (ll, last) => Some (h::ll, last)
+      | None => None
+      end
+  end.
+
+Lemma split_list_all_last_correct :
+  ∀ (A:Type) (l ls:list A) (last:A),
+    split_list_all_last l = Some (ls, last) -> l = ls ++ [last].
+Proof.
+  intros A l.
+  induction l.
+  - intros. simpl in H; inversion H.
+  - intros.
+    simpl in H.
+    destruct l.
+    + inversion H; subst.
+      by rewrite app_nil_l.
+    + Opaque split_list_all_last.
+      structural_auto. clear H1.
+      destruct p. inversion H. subst.
+      specialize (IHl l0 last0 eq_refl).
+      rewrite IHl. auto.
+Qed.
+
+Fixpoint list_suffix_helper (l1 l2: list type) (l1len l2len: nat) : option (list type) :=
+  if l1len =? l2len
+  then
+    if list_beq type type_beq l1 l2
+    then Some []
+    else None
+  else
+    match l1, l1len with
+    | h::rest, S n =>
+        match list_suffix_helper rest l2 n l2len with
+        | Some pr => Some (h::pr)
+        | None => None
+        end
+    | _, _ => None
+    end.
+
+Definition list_suffix l1 l2 : option (list type) :=
+  let l1len := Init.Datatypes.length l1 in
+  let l2len := Init.Datatypes.length l2 in
+  list_suffix_helper l1 l2 l1len l2len.
+
+Lemma list_suffix_correct_l :
+  ∀ lfull lpre lsuf,
+    lfull = lpre ++ lsuf -> list_suffix lfull lsuf = Some lpre.
+Proof.
+  intros lfull.
+  induction lfull.
+  - intros.
+    destruct lpre, lsuf; try inversion H.
+    auto.
+  - intros lprebig.
+    destruct lprebig as [ | a' lpre ].
+    + admit.
+    + intros.
+      inversion H; subst.
+      specialize (IHlfull lpre lsuf eq_refl).
+      (* yeah this is right, I just need theorems about lengths of lists *)
+      admit.
+Admitted.
+
+Lemma list_suffix_correct_r :
+  ∀ lfull lpre lsuf,
+    list_suffix lfull lsuf = Some lpre -> lfull = lpre ++ lsuf.
+Proof.
+  intros lfull; induction lfull.
+  - intros; simpl in *. destruct lpre, lsuf; try inversion H. auto.
+  - intros lprebig.
+    destruct lprebig as [ | a' lpre ].
+    + intros lsuf Hlsuf.
+      admit.
+    + (* yeah this is fine too *) admit.
+Admitted.
 
 
 
@@ -2118,6 +2297,7 @@ Definition grab_inner_ft (ft:function_type) : option function_type :=
 Ltac my_auto4 :=
   try structural_auto; try boolean_equality_auto; try
   match goal with
+  | H: (split_list_all_last ?l = Some (_, _)) |- _ => apply split_list_all_last_correct in H; subst l
   | H: (kind_ok_checker _ _ = inl ()) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (kind_ok_checker _ _ = ok_term) |- _ => apply kind_ok_checker_correct in H; auto
   | H: (mem_ok_checker _ _ = inl ()) |- _ => apply mem_ok_checker_correct in H; auto
@@ -2245,44 +2425,491 @@ Proof.
     apply (FTCons _ _ f _ _ _); auto.
 Qed.
 
+(* Note: *second* one has to be the one with vars *)
+Definition memory_find_0 m1 m2 : option memory :=
+  match m2 with
+  | VarM n =>
+      if (n =? 0) then Some m1 else None
+  | _ => None
+  end.
 
-(* TODO THIS IS SOMETHING I ACTUALLY AM UNSURE HOW TO DO *)
-Definition packed_existential_checker (F:function_ctx) (τ1 τ2:type) : type_checker_res :=
+Definition rep_find_0 r1 r2 : option representation :=
+  match r2 with
+  | VarR n =>
+      if (n =? 0) then Some r1 else None
+  | _ => None
+  end.
+
+Definition size_find_0 s1 s2 : option size :=
+  match s2 with
+  | VarS n =>
+      if (n =? 0) then Some s1 else None
+  | _ => None
+  end.
+
+Definition kind_find_rep_0 k1 k2 : option representation :=
+  match k1, k2 with
+  | VALTYPE ρ1 _, VALTYPE ρ2 _ => rep_find_0 ρ1 ρ2
+  | _, _ => None
+  end.
+Definition kind_find_size_0 k1 k2 : option size :=
+  match k1, k2 with
+  | MEMTYPE σ1 _, MEMTYPE σ2 _ => size_find_0 σ1 σ2
+  | _, _ => None
+  end.
+
+(* NOTE: if there's a bug, it's in finding the substs stuff *)
+Fixpoint traverse_type_find_memory_0 τ1 τ2 : option memory :=
+  match τ1, τ2 with
+  | RefT _ m1 τa, RefT _ m2 τb =>
+      match memory_find_0 m1 m2 with
+      | None => traverse_type_find_memory_0 τa τb
+      | Some a => Some a
+      end
+  | SumT _ τs1, SumT _ τs2
+  | VariantT _ τs1, VariantT _ τs2
+  | ProdT _ τs1, ProdT _ τs2
+  | StructT _ τs1, StructT _ τs2 => traverse_types_find_memory τs1 τs2
+  | SerT _ τa, SerT _ τb
+  | RecT _ τa, RecT _ τb
+  | ExistsMemT _ τa, ExistsMemT _ τb
+  | ExistsRepT _ τa, ExistsRepT _ τb
+  | ExistsSizeT _ τa, ExistsSizeT _ τb
+  | ExistsTypeT _ _ τa, ExistsTypeT _ _ τb => traverse_type_find_memory_0 τa τb
+  | CodeRefT _ ϕ1, CodeRefT _ ϕ2 => traverse_function_type_find_memory ϕ1 ϕ2
+  | _, _ => None
+  end
+with traverse_types_find_memory τs1 τs2 : option memory :=
+  match τs1, τs2 with
+  | [], _ => None
+  | _, [] => None
+  | t1::ts1, t2::ts2 =>
+      (* f: type -> type -> option memory -> option memory *)
+      foldr2 (λ t1:type, λ t2:type, λ acc:option memory,
+        match acc with
+        | None => traverse_type_find_memory_0 t1 t2
+        | Some a => Some a
+        end
+        ) None τs1 τs2
+  end
+with traverse_function_type_find_memory ϕ1 ϕ2 : option memory :=
+  match ϕ1, ϕ2 with
+  | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
+      match traverse_types_find_memory τs11 τs21 with
+      | None => traverse_types_find_memory τs12 τs22
+      | Some a => Some a
+      end
+  | ForallMemT f1, ForallMemT f2
+  | ForallRepT f1, ForallRepT f2
+  | ForallSizeT f1, ForallSizeT f2
+  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_function_type_find_memory f1 f2
+  | _, _ => None
+  end.
+
+(* NOTE: if there's a bug, it's in finding the substs stuff *)
+Fixpoint traverse_type_find_type_0 τ1 τ2 : option type :=
+  match τ1, τ2 with
+  | _, VarT n => if (n =? 0) then Some τ1 else None
+  | SumT _ τs1, SumT _ τs2
+  | VariantT _ τs1, VariantT _ τs2
+  | ProdT _ τs1, ProdT _ τs2
+  | StructT _ τs1, StructT _ τs2 => traverse_types_find_type τs1 τs2
+  | SerT _ τa, SerT _ τb
+  | RecT _ τa, RecT _ τb
+  | RefT _ _ τa, RefT _ _ τb
+  | ExistsMemT _ τa, ExistsMemT _ τb
+  | ExistsRepT _ τa, ExistsRepT _ τb
+  | ExistsSizeT _ τa, ExistsSizeT _ τb
+  | ExistsTypeT _ _ τa, ExistsTypeT _ _ τb => traverse_type_find_type_0 τa τb
+  | CodeRefT _ ϕ1, CodeRefT _ ϕ2 => traverse_function_type_find_type ϕ1 ϕ2
+  | _, _ => None
+  end
+with traverse_types_find_type τs1 τs2 : option type :=
+  match τs1, τs2 with
+  | [], _ => None
+  | _, [] => None
+  | t1::ts1, t2::ts2 =>
+      (* f: type -> type -> option memory -> option memory *)
+      foldr2 (λ t1:type, λ t2:type, λ acc:option type,
+        match acc with
+        | None => traverse_type_find_type_0 t1 t2
+        | Some a => Some a
+        end
+        ) None τs1 τs2
+  end
+with traverse_function_type_find_type ϕ1 ϕ2 : option type :=
+  match ϕ1, ϕ2 with
+  | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
+      match traverse_types_find_type τs11 τs21 with
+      | None => traverse_types_find_type τs12 τs22
+      | Some a => Some a
+      end
+  | ForallMemT f1, ForallMemT f2
+  | ForallRepT f1, ForallRepT f2
+  | ForallSizeT f1, ForallSizeT f2
+  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_function_type_find_type f1 f2
+  | _, _ => None
+  end.
+
+(* NOTE: if there's a bug, it's in finding the substs stuff *)
+Fixpoint traverse_type_find_size_0 τ1 τ2 : option size :=
+  match τ1, τ2 with
+  | SpanT k1 s1, SpanT k2 s2 =>
+      match size_find_0 s1 s2 with
+      | Some a => Some a
+      | None => kind_find_size_0 k1 k2
+      end
+  | I31T k1, I31T k2
+  | NumT k1 _, NumT k2 _
+  | PlugT k1 _, PlugT k2 _ => kind_find_size_0 k1 k2
+  | SumT k1 τs1, SumT k2 τs2
+  | VariantT k1 τs1, VariantT k2 τs2
+  | ProdT k1 τs1, ProdT k2 τs2
+  | StructT k1 τs1, StructT k2 τs2 =>
+      match kind_find_size_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_types_find_size τs1 τs2
+      end
+  | SerT k1 τa, SerT k2 τb
+  | RecT k1 τa, RecT k2 τb
+  | RefT k1 _ τa, RefT k2 _ τb
+  | ExistsMemT k1 τa, ExistsMemT k2 τb
+  | ExistsRepT k1 τa, ExistsRepT k2 τb
+  | ExistsSizeT k1 τa, ExistsSizeT k2 τb =>
+      match kind_find_size_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_type_find_size_0 τa τb
+      end
+  | ExistsTypeT k11 k12 τa, ExistsTypeT k21 k22 τb =>
+      match kind_find_size_0 k11 k21 with
+      | Some a => Some a
+      | None =>
+          match kind_find_size_0 k12 k22 with
+          | Some a => Some a
+          | None => traverse_type_find_size_0 τa τb
+          end
+      end
+  | CodeRefT k1 ϕ1, CodeRefT k2 ϕ2 =>
+      match kind_find_size_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_function_type_find_size ϕ1 ϕ2
+      end
+  | _, _ => None
+  end
+with traverse_types_find_size τs1 τs2 : option size :=
+  match τs1, τs2 with
+  | [], _ => None
+  | _, [] => None
+  | t1::ts1, t2::ts2 =>
+      (* f: type -> type -> option memory -> option memory *)
+      foldr2 (λ t1:type, λ t2:type, λ acc:option size,
+        match acc with
+        | None => traverse_type_find_size_0 t1 t2
+        | Some a => Some a
+        end
+        ) None τs1 τs2
+  end
+with traverse_function_type_find_size ϕ1 ϕ2 : option size :=
+  match ϕ1, ϕ2 with
+  | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
+      match traverse_types_find_size τs11 τs21 with
+      | None => traverse_types_find_size τs12 τs22
+      | Some a => Some a
+      end
+  | ForallMemT f1, ForallMemT f2
+  | ForallRepT f1, ForallRepT f2
+  | ForallSizeT f1, ForallSizeT f2 =>
+      traverse_function_type_find_size f1 f2
+  | ForallTypeT k1 f1, ForallTypeT k2 f2 =>
+      match kind_find_size_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_function_type_find_size f1 f2
+      end
+  | _, _ => None
+  end.
+
+
+(* NOTE: if there's a bug, it's in finding the substs stuff *)
+Fixpoint traverse_type_find_rep_0 τ1 τ2 : option representation :=
+  match τ1, τ2 with
+  | PlugT k1 r1, PlugT k2 r2 =>
+      match rep_find_0 r1 r2 with
+      | Some a => Some a
+      | None => kind_find_rep_0 k1 k2
+      end
+  | I31T k1, I31T k2
+  | NumT k1 _, NumT k2 _
+  | SpanT k1 _, SpanT k2 _ => kind_find_rep_0 k1 k2
+  | SumT k1 τs1, SumT k2 τs2
+  | VariantT k1 τs1, VariantT k2 τs2
+  | ProdT k1 τs1, ProdT k2 τs2
+  | StructT k1 τs1, StructT k2 τs2 =>
+      match kind_find_rep_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_types_find_rep τs1 τs2
+      end
+  | SerT k1 τa, SerT k2 τb
+  | RecT k1 τa, RecT k2 τb
+  | RefT k1 _ τa, RefT k2 _ τb
+  | ExistsMemT k1 τa, ExistsMemT k2 τb
+  | ExistsRepT k1 τa, ExistsRepT k2 τb
+  | ExistsSizeT k1 τa, ExistsSizeT k2 τb =>
+      match kind_find_rep_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_type_find_rep_0 τa τb
+      end
+  | ExistsTypeT k11 k12 τa, ExistsTypeT k21 k22 τb =>
+      match kind_find_rep_0 k11 k21 with
+      | Some a => Some a
+      | None =>
+          match kind_find_rep_0 k12 k22 with
+          | Some a => Some a
+          | None => traverse_type_find_rep_0 τa τb
+          end
+      end
+  | CodeRefT k1 ϕ1, CodeRefT k2 ϕ2 =>
+      match kind_find_rep_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_function_type_find_rep ϕ1 ϕ2
+      end
+  | _, _ => None
+  end
+with traverse_types_find_rep τs1 τs2 : option representation :=
+  match τs1, τs2 with
+  | [], _ => None
+  | _, [] => None
+  | t1::ts1, t2::ts2 =>
+      (* f: type -> type -> option rep -> option rep *)
+      foldr2 (λ t1:type, λ t2:type, λ acc:option representation,
+        match acc with
+        | None => traverse_type_find_rep_0 t1 t2
+        | Some a => Some a
+        end
+        ) None τs1 τs2
+  end
+with traverse_function_type_find_rep ϕ1 ϕ2 : option representation :=
+  match ϕ1, ϕ2 with
+  | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
+      match traverse_types_find_rep τs11 τs21 with
+      | None => traverse_types_find_rep τs12 τs22
+      | Some a => Some a
+      end
+  | ForallMemT f1, ForallMemT f2
+  | ForallRepT f1, ForallRepT f2
+  | ForallSizeT f1, ForallSizeT f2 =>
+      traverse_function_type_find_rep f1 f2
+  | ForallTypeT k1 f1, ForallTypeT k2 f2 =>
+      match kind_find_rep_0 k1 k2 with
+      | Some a => Some a
+      | None => traverse_function_type_find_rep f1 f2
+      end
+  | _, _ => None
+  end.
+
+(* TODO man I should do some sort of proof about these find reps but oh well *)
+
+(* Technically.... done? *)
+Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_checker_res :=
   match τ2 with
   | ExistsMemT κ' τ' =>
       match has_kind_checker F τ' κ' with
       | inl () =>
-          if true (* TODO HOW DO I GET THE MU OUT OF THERE *)
-            (*list_beq τ1 (subst_type (unscoped.scons μ VarM) VarR VarS VarT τ')*)
-          then ok_term
-          else INR "bad packed existential"
+          match traverse_type_find_memory_0 τ0 τ' with
+          | Some μ =>
+              if type_beq τ0 ((subst_type (unscoped.scons μ VarM) VarR VarS VarT) τ')
+              then ok_term
+              else INR "something went wrong with packed mem"
+          | None => INR "couldn't find μ for packed mem"
+          end
       | err => err
       end
-  | ExistsRepT κ' τ' => INR "incomplete"
-  | ExistsSizeT κ' τ' => INR "incomplete"
-  | ExistsTypeT κ' κ τ' => INR "incomplete"
+  | ExistsRepT κ' τ' =>
+      match has_kind_checker F τ' κ' with
+      | inl () =>
+          match traverse_type_find_rep_0 τ0 τ' with
+          | Some ρ =>
+              if type_beq τ0 ((subst_type VarM (unscoped.scons ρ VarR) VarS VarT) τ')
+              then ok_term
+              else INR "something went wrong with packed mem"
+          | None => INR "couldn't find μ for packed mem"
+          end
+      | err => err
+      end
+  | ExistsSizeT κ' τ' =>
+      match has_kind_checker F τ' κ' with
+      | inl () =>
+          match traverse_type_find_size_0 τ0 τ' with
+          | Some σ =>
+              if type_beq τ0 ((subst_type VarM VarR (unscoped.scons σ VarS) VarT) τ')
+              then ok_term
+              else INR "something went wrong with packed mem"
+          | None => INR "couldn't find μ for packed mem"
+          end
+      | err => err
+      end
+  | ExistsTypeT κ' κ τ' =>
+      match has_kind_checker F τ' κ' with
+      | inl () =>
+          match traverse_type_find_type_0 τ0 τ' with
+          | Some τ =>
+              if type_beq τ0 ((subst_type VarM VarR VarS (unscoped.scons τ VarT) ) τ')
+              then has_kind_checker F τ κ
+              else INR "something went wrong with packed mem"
+          | None => INR "couldn't find μ for packed mem"
+          end
+      | err => err
+      end
   | _ => INR "trying to check existential type, but not existential"
   end.
 
 Lemma packed_existential_checker_correct :
   ∀ F τ1 τ2, packed_existential_checker F τ1 τ2 = ok_term -> packed_existential F τ1 τ2.
 Proof.
-
-Admitted.
+  intros.
+  destruct τ2; simpl in *; try (by inversion H); try (repeat my_auto4; by constructor).
+Qed.
 
 
 (* This one has the reverse list stuff which I'm unsure how to do exactly *)
 Definition unpacked_existential_checker
- (F:function_ctx) (L1:local_ctx) (insts:list instruction) (instt : instruction_type) (L2:local_ctx)
- (F':function_ctx) (L1':local_ctx) (insts':list instruction) (instt': instruction_type) (L2':local_ctx)
+ (F:function_ctx) (L:local_ctx) (es:list instruction) (ϕ : instruction_type) (L':local_ctx)
+ (F0_tocheck:function_ctx) (L_tocheck:local_ctx) (es0:list instruction) (ϕ0: instruction_type) (L'_tocheck:local_ctx)
   :=
-  INR "incomplete".
+  match ϕ, ϕ0 with
+  | InstrT τs1_full τs2, InstrT τs1_full_check τs2_check =>
+      match split_list_all_last τs1_full with
+      | Some (τs1, τex) =>
+          match split_list_all_last τs1_full_check with
+          | Some (τs1_check, τ) =>
+              (* now we have to split on the τex *)
+              match τex with
+              | ExistsMemT κ τ_check =>
+                  let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
+                              <| fc_kind_ctx ::= set kc_mem_vars S |> in
+                  let es0_check := map (subst_instruction (up_memory VarM) VarR VarS VarT) es in
+                  let up := subst_type (up_memory VarM) VarR VarS VarT in
+                  (* HUGE amount of equalities *)
+                  if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
+                     && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
+                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                  then ok_term
+                  else INR "something in unpacked existential didn't match up"
+              | ExistsRepT κ τ_check =>
+                  let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
+                              <| fc_kind_ctx ::= set kc_rep_vars S |> in
+                  let es0_check := map (subst_instruction VarM (up_representation VarR) VarS VarT) es in
+                  let up := subst_type VarM (up_representation VarR) VarS VarT in
+                  (* HUGE amount of equalities *)
+                  if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
+                     && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
+                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                  then ok_term
+                  else INR "something in unpacked existential didn't match up"
+              | ExistsSizeT κ τ_check =>
+                  let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
+                              <| fc_kind_ctx ::= set kc_size_vars S |> in
+                  let es0_check := map (subst_instruction VarM VarR (up_size VarS) VarT) es in
+                  let up := subst_type VarM VarR (up_size VarS) VarT in
+                  (* HUGE amount of equalities *)
+                  if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
+                     && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
+                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                  then ok_term
+                  else INR "something in unpacked existential didn't match up"
+              | ExistsTypeT κ κ0 τ_check =>
+                  let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
+                  let es0_check := map (subst_instruction VarM VarR VarS (up_type VarT)) es in
+                  let up := subst_type VarM VarR VarS (up_type VarT) in
+                  (* HUGE amount of equalities *)
+                  if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
+                     && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
+                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                  then ok_term
+                  else INR "something in unpacked existential didn't match up"
+              | _ => INR "trying to check unpack existential, but last type not existential"
+              end
+          | None => INR "bad instruction in unpacked existential (empty) p2"
+          end
+      | None => INR "bad instruction in unpacked existential (empty)"
+      end
+  end.
 
 Lemma unpacked_existential_checker_correct :
-  ∀ F L1 insts instt L2 F' L1' insts' instt' L2',
-    unpacked_existential_checker F L1 insts instt L2 F' L1' insts' instt' L2' = ok_term ->
-    unpacked_existential F L2 insts instt L2 F' L1' insts' instt' L2'.
-Proof. Admitted.
+  ∀ F L es ϕ L' F0 L_tocheck es0 ϕ0 L'_tocheck,
+    unpacked_existential_checker F L es ϕ L' F0 L_tocheck es0 ϕ0 L'_tocheck = ok_term ->
+    unpacked_existential F L es ϕ L' F0 L_tocheck es0 ϕ0 L'_tocheck.
+Proof.
+  Opaque split_list_all_last.
+  intros. unfold unpacked_existential_checker in H.
+  repeat my_auto4.
+  - apply UnpackMem.
+  - apply UnpackRep.
+  - apply UnpackSize.
+  - apply UnpackType.
+Qed.
+
+Definition unpacked_existential_getter F L es ϕ L' :
+  option (function_ctx * local_ctx * (list instruction) * instruction_type * local_ctx) :=
+  match ϕ with
+  | InstrT τs1_full τs2 =>
+      match split_list_all_last τs1_full with
+      | Some (τs1, τex) =>
+          (* now we have to split on the τex *)
+          match τex with
+          | ExistsMemT κ τ =>
+              let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
+                          <| fc_kind_ctx ::= set kc_mem_vars S |> in
+              let es0 := map (subst_instruction (up_memory VarM) VarR VarS VarT) es in
+              let up := subst_type (up_memory VarM) VarR VarS VarT in
+              let L0 := (map up L) in
+              let L'0 := (map up L') in
+              let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
+              Some (F0, L0, es0, ϕ0, L'0)
+          | ExistsRepT κ τ =>
+              let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
+                          <| fc_kind_ctx ::= set kc_rep_vars S |> in
+              let es0 := map (subst_instruction VarM (up_representation VarR) VarS VarT) es in
+              let up := subst_type VarM (up_representation VarR) VarS VarT in
+              let L0 := (map up L) in
+              let L'0 := (map up L') in
+              let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
+              Some (F0, L0, es0, ϕ0, L'0)
+          | ExistsSizeT κ τ =>
+              let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
+                          <| fc_kind_ctx ::= set kc_size_vars S |> in
+              let es0 := map (subst_instruction VarM VarR (up_size VarS) VarT) es in
+              let up := subst_type VarM VarR (up_size VarS) VarT in
+              let L0 := (map up L) in
+              let L'0 := (map up L') in
+              let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
+              Some (F0, L0, es0, ϕ0, L'0)
+          | ExistsTypeT κ κ0 τ =>
+              let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
+              let es0 := map (subst_instruction VarM VarR VarS (up_type VarT)) es in
+              let up := subst_type VarM VarR VarS (up_type VarT) in
+              let L0 := (map up L) in
+              let L'0 := (map up L') in
+              let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
+              Some (F0, L0, es0, ϕ0, L'0)
+          | _ => None
+          end
+      | None => None
+      end
+  end.
+
+Lemma unpacked_existential_getter_correct :
+  ∀ F L es ϕ L' F0 L0 es0 ϕ0 L'0,
+    unpacked_existential_getter F L es ϕ L' = Some (F0, L0, es0, ϕ0, L'0) ->
+    unpacked_existential F L es ϕ L' F0 L0 es0 ϕ0 L'0.
+Proof.
+  intros. unfold unpacked_existential_getter in H.
+  repeat my_auto4; subst.
+  - apply UnpackMem.
+  - apply UnpackRep.
+  - apply UnpackSize.
+  - apply UnpackType.
+Qed.
+
 
 Definition local_ctx_ok_checker (F:function_ctx) (L:local_ctx) : type_checker_res :=
   if foldr2
@@ -2514,88 +3141,6 @@ Qed.
 
 
 
-Fixpoint split_list_all_last {A:Type} (l:list A) : option (list A * A) :=
-  match l with
-  | [] => None
-  | [a] => Some ([], a)
-  | h :: rest =>
-      match split_list_all_last rest with
-      | Some (ll, last) => Some (h::ll, last)
-      | None => None
-      end
-  end.
-
-Lemma split_list_all_last_correct :
-  ∀ (A:Type) (l ls:list A) (last:A),
-    split_list_all_last l = Some (ls, last) -> l = ls ++ [last].
-Proof.
-  intros A l.
-  induction l.
-  - intros. simpl in H; inversion H.
-  - intros.
-    simpl in H.
-    destruct l.
-    + inversion H; subst.
-      by rewrite app_nil_l.
-    + my_auto4.
-      clear H1.
-      destruct p. inversion H. subst.
-      specialize (IHl l0 last0 eq_refl).
-      rewrite IHl. auto.
-Qed.
-
-Fixpoint list_suffix_helper (l1 l2: list type) (l1len l2len: nat) : option (list type) :=
-  if l1len =? l2len
-  then
-    if list_beq type type_beq l1 l2
-    then Some []
-    else None
-  else
-    match l1, l1len with
-    | h::rest, S n =>
-        match list_suffix_helper rest l2 n l2len with
-        | Some pr => Some (h::pr)
-        | None => None
-        end
-    | _, _ => None
-    end.
-
-Definition list_suffix l1 l2 : option (list type) :=
-  let l1len := Init.Datatypes.length l1 in
-  let l2len := Init.Datatypes.length l2 in
-  list_suffix_helper l1 l2 l1len l2len.
-
-Lemma list_suffix_correct_l :
-  ∀ lfull lpre lsuf,
-    lfull = lpre ++ lsuf -> list_suffix lfull lsuf = Some lpre.
-Proof.
-  intros lfull.
-  induction lfull.
-  - intros.
-    destruct lpre, lsuf; try inversion H.
-    auto.
-  - intros lprebig.
-    destruct lprebig as [ | a' lpre ].
-    + admit.
-    + intros.
-      inversion H; subst.
-      specialize (IHlfull lpre lsuf eq_refl).
-      (* yeah this is right, I just need theorems about lengths of lists *)
-      admit.
-Admitted.
-
-Lemma list_suffix_correct_r :
-  ∀ lfull lpre lsuf,
-    list_suffix lfull lsuf = Some lpre -> lfull = lpre ++ lsuf.
-Proof.
-  intros lfull; induction lfull.
-  - intros; simpl in *. destruct lpre, lsuf; try inversion H. auto.
-  - intros lprebig.
-    destruct lprebig as [ | a' lpre ].
-    + intros lsuf Hlsuf.
-      admit.
-    + (* yeah this is fine too *) admit.
-Admitted.
 
 (*Definition get_instruction_type_arity (ψ:instruction_type) : nat * nat :=
   match ψ with
@@ -3237,7 +3782,23 @@ Fixpoint has_instruction_type_checker
         | _ => INR "incorrect instruction type for pack"
         end
       else INR "incorrect instruction type for pack"
-  | IUnpack ψ_inner L_inner es => INR "incomplete" (* NO IDEA HOW TO DO TODO help *)
+  | IUnpack ψ_inner L_inner es => (* SAVE *)
+      if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L_inner L')
+      then
+        match ψ with
+        | InstrT τs1 τs2 =>
+            let F' := F <| fc_labels ::= cons (τs2, L') |> in
+            match unpacked_existential_getter F' L es ψ L' with
+            | Some (F0', L0, es0, ψ0, L0') =>
+                (* ISSUE RIGHT HERE: the es should be es0 TODO but bad fixpoint  *)
+                match have_instruction_type_checker M F0' L0 es ψ0 L0' with
+                | inl () => has_instruction_type_ok_checker F ψ L'
+                | err => err
+                end
+            | None => INR "incorrect instruction type for unpack (can't construct unpacked)"
+            end
+        end
+      else INR "incorrect instruction type for unpack"
   | ITag ψ_inner =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
@@ -3507,6 +4068,8 @@ Fixpoint have_instruction_type_checker
         end
     end.
 
+
+Locate subst_type.
 (*** Demonstration of the annoyance of rocq fixpoint checker ***)
 
 (* Outer on just instruction, inner fixpoint. Works. *)
@@ -3697,6 +4260,7 @@ Ltac boolean_equality_auto_2 :=
   | H: (path_result_beq ?x _ = true) |- _ => apply path_result_eq_convert in H; subst x; auto
   | H: (list_beq type type_beq ?x _ = true) |- _ => apply list_eq_convert_type in H; subst x; auto
   | H: (list_beq size size_beq ?x _ = true) |- _ => apply list_eq_convert_size in H; subst x; auto
+  | H: (function_ctx_beq ?x _ = true) |- _ => apply function_ctx_eq_convert in H; subst x; auto
   end.
 
 Lemma foldr_to_Forall {A} (Pbool: A → bool) (Pprop: A -> Prop) (l : list A) :
@@ -3918,9 +4482,12 @@ Proof.
 
   [Cons]: {
     Opaque have_instruction_type_checker.
-    destruct es. (* I don't think we need induction? IHes is just wrong so *)
+    Opaque synth_possible_resulting_local_ctx.
+    Opaque has_instruction_type_checker.
+
+    destruct es. (* don't need induction! *)
     - (* singleton case, which is unique bc of break and the like *)
-      clear IHinst0. (* we don't need this guy actually! just clogs proof state up *)
+      clear IHinst0. (* just clogs proof state up *)
       half_shred.
       apply IHinst in HMatch.
       subst.
@@ -3931,57 +4498,26 @@ Proof.
       (* shred infinite loops lol *)
       intros.
       rename i into e.
-      Opaque synth_possible_resulting_local_ctx.
-      Opaque has_instruction_type_checker.
-
-      (* the goal is to get hitc (e :: es) out of H.
-         However. Because rocq hates me. I think I'm literally
-         going to have to completely destruct H, then reconstruct hitc (e::es)
-         out of it.
-       *)
-
       simpl in H.
 
-      do 2 (structural_auto_2).
+      (* the goal is to get hitc (e :: es) out of H. *)
+      do 8 (structural_auto_2).
       rename l into L_inst.
-
-      do 5 (structural_auto_2).
-      rename l into τs1_inst; rename l0 into τs2_inst.
-      rename l1 into τs1_full; rename l2 into τs2_full.
-      rename l3 into τs1_inst_pref.
+      rename l0 into τs1_inst; rename l1 into τs2_inst;
+      rename l2 into τs1_full; rename l3 into τs2_full;
+      rename l4 into τs1_inst_pref.
       apply list_suffix_correct_r in HMatch3.
       apply IHinst in HMatch1.
-      subst.
-      (* Okay. now we split es. Hate that we have to but oh well. *)
-      destruct es.
-      + repeat my_auto5.
-        apply list_suffix_correct_r in HMatch5.
-        specialize (IHinst0 M F L_inst (InstrT l l0) L').
-        rewrite HMatch3 in IHinst0.
 
-        assert (Temp: l = [] ++ l) by (clear_nils; auto).
-        apply list_suffix_correct_l in Temp.
-        rewrite Temp in IHinst0. clear Temp.
-        assert (Temp: l0 = [] ++ l0) by (clear_nils; auto).
-        apply list_suffix_correct_l in Temp.
-        rewrite Temp in IHinst0. clear Temp.
-
-        cbn in IHinst0.
-        specialize (IHinst0 eq_refl).
-        (* okay I think I have enough now.... backwards frame soon *)
-        rename l into τs1_e; rename l0 into τs2_e.
-        rename l2 into τs1_e_pref.
-
-        change ([?x;?y]) with ([x] ++ [y]).
-        apply TApp with (L2:=L_inst) (τs2:=(τs1_inst_pref ++ τs2_inst)).
-        * apply framing_helper; auto.
-          apply TSingleton; auto.
-        * rewrite HMatch5.
-          apply framing_helper; auto.
-      + admit.
-
+      change (?x::?r) with ([x]++r).
+      apply TApp with (L2:=L_inst) (τs2:= τs1_inst_pref ++ τs2_inst).
+      * subst τs1_full.
+        apply framing_helper; auto.
+        apply TSingleton; auto.
+      * apply IHinst0. auto.
 
   }
+
   Transparent has_instruction_type_checker.
   (* Some of the ones that need the IH. *)
   [Block]: {
@@ -4005,7 +4541,7 @@ Proof.
   [Case]: {
     half_shred.
     subst.
-    (* this needs a foldr2+Forall lemma, but it should just work *)
+    (* this needs a foldr2+Forall2 lemma, but it should just work *)
     admit.
   }
   [CaseLoad]: {
@@ -4014,11 +4550,11 @@ Proof.
       convert_foldr
         (λ t:type, check_ok_output (has_ref_flag_checker F t GCRefs))
         (fun t => has_ref_flag F t GCRefs) l5 HMatch8.
-      (* foldr2+Forall lemma, then should be good *)
+      (* foldr2+Forall2 lemma, then should be good *)
       admit.
     - (* case load move *)
       subst.
-      (* similar foldr2+Forall lemma. Slight concert: rocq "simplified" hitc a bit. Hopefully no issue *)
+      (* similar foldr2+Forall2 lemma. Slight concert: rocq "simplified" hitc a bit. Hopefully no issue *)
       admit.
   }
 
