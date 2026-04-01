@@ -92,8 +92,8 @@ module IR = struct
       | Var x -> (LVar.pp ~space:`Term) ff x
       | Coderef str -> fprintf ff "@[(coderef %s)@]" str
       | Lam (binding, ret, body) ->
-          fprintf ff "@[<v 2>@[<2>(λ@ (<> : %a) :@ %a@ @].@;@[<2>%a@])@]"
-            Type.pp binding Type.pp ret pp body
+          fprintf ff "@[<v 2>@[<2>(λ@ %a :@ %a@ @].@;@[<2>%a@])@]"
+            Type.pp_binding binding Type.pp ret pp body
       | Tuple es ->
           fprintf ff "@[<2>(";
           pp_list
