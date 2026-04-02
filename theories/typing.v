@@ -29,6 +29,7 @@ Definition kc_of_fft (fft : flat_function_type) : kind_ctx :=
 
 Record function_ctx :=
   { fc_return : list type;
+    fc_params : list (list primitive);
     fc_locals : list (list primitive);
     fc_labels : list (list type * local_ctx);
     fc_kind_ctx : kind_ctx;
@@ -38,6 +39,7 @@ Arguments function_ctx : clear implicits.
 
 Definition fc_empty : function_ctx :=
   {| fc_return := [];
+     fc_params := [];
      fc_locals := [];
      fc_labels := [];
      fc_kind_ctx := kc_empty;
@@ -45,6 +47,7 @@ Definition fc_empty : function_ctx :=
 
 Definition fc_clear_kind (F : function_ctx) : function_ctx :=
   {| fc_return := F.(fc_return);
+     fc_params := F.(fc_params);
      fc_locals := F.(fc_locals);
      fc_labels := F.(fc_labels);
      fc_kind_ctx := kc_empty;
@@ -56,6 +59,7 @@ Definition subst_function_ctx
   function_ctx :=
   let sub := subst_type s__mem s__rep s__size s__type in
   {| fc_return := map sub F.(fc_return);
+     fc_params := F.(fc_params);
      fc_locals := F.(fc_locals);
      fc_labels := map (fun '(τs, L) => (map sub τs, map sub L)) F.(fc_labels);
      fc_kind_ctx := F.(fc_kind_ctx);
@@ -646,7 +650,7 @@ Inductive unpacked_existential :
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L').
 
 Definition local_ctx_ok (F : function_ctx) (L : local_ctx) : Prop :=
-  Forall2 (type_rep_eq_prim F) L F.(fc_locals).
+  Forall2 (type_rep_eq_prim F) L (F.(fc_params) ++ F.(fc_locals)).
 
 Inductive has_instruction_type_ok : function_ctx -> instruction_type -> local_ctx -> Prop :=
 | OKHasInstructionType F ψ L' :
@@ -1291,13 +1295,15 @@ Proof.
 Qed.
 
 Inductive has_function_type : module_ctx -> module_function -> function_type -> Prop :=
-| TFunction M mf ηss L' :
+| TFunction M mf ηss_L ηss_P ρs_P L' :
   let ϕ := flatten_function_type mf.(mf_type) in
   let K := kc_of_fft ϕ in
-  let F := Build_function_ctx ϕ.(fft_out) ηss [] K ϕ.(fft_type_vars) in
-  let L := map type_plug_prim ηss in
-  let ψ := InstrT ϕ.(fft_in) ϕ.(fft_out) in
-  mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) = Some ηss ->
+  let F := Build_function_ctx ϕ.(fft_out) ηss_P ηss_L [] K ϕ.(fft_type_vars) in
+  let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
+  let ψ := InstrT [] ϕ.(fft_out) in
+  mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) = Some ηss_L ->
+  Forall2 (has_rep F) ϕ.(fft_in) ρs_P ->
+  mapM (eval_rep_prim EmptyEnv) ρs_P = Some ηss_P ->
   Forall (fun τ => has_ref_flag F τ NoRefs) L' ->
   have_instruction_type M F L mf.(mf_body) ψ L' ->
   has_function_type M mf mf.(mf_type).

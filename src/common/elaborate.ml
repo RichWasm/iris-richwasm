@@ -157,11 +157,8 @@ let rec elab_size : A.Size.t -> B.Size.t = function
 
 let elab_kind : A.Kind.t -> B.Kind.t = function
   | VALTYPE (representation, ref_flag) ->
-      VALTYPE
-        ( elab_representation representation,
-          elab_ref_flag ref_flag )
-  | MEMTYPE (size, ref_flag) ->
-      MEMTYPE (elab_size size, elab_ref_flag ref_flag)
+      VALTYPE (elab_representation representation, elab_ref_flag ref_flag)
+  | MEMTYPE (size, ref_flag) -> MEMTYPE (elab_size size, elab_ref_flag ref_flag)
 
 let unelab_ref_flag : B.RefFlag.t -> A.RefFlag.t = function
   | NoRefs -> NoRefs
@@ -199,9 +196,7 @@ let rec unelab_size : B.Size.t -> A.Size.t = function
 
 let unelab_kind : B.Kind.t -> A.Kind.t = function
   | VALTYPE (representation, ref_flag) ->
-      VALTYPE
-        ( unelab_representation representation,
-          unelab_ref_flag ref_flag )
+      VALTYPE (unelab_representation representation, unelab_ref_flag ref_flag)
   | MEMTYPE (size, ref_flag) ->
       MEMTYPE (unelab_size size, unelab_ref_flag ref_flag)
 
@@ -317,9 +312,7 @@ let meet_valtypes
     function
     | [] -> Kind.VALTYPE (combine_rep (List.rev reps), ref_flag) |> ret
     | VALTYPE (rep, ref_flag') :: xs ->
-        go (rep :: reps)
-          (RefFlag.meet ref_flag ref_flag')
-          xs
+        go (rep :: reps) (RefFlag.meet ref_flag ref_flag') xs
     | x :: _ -> fail (CannotMeet ("expected valtype", x))
   in
   go [] NoRefs kinds
