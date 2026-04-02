@@ -790,7 +790,7 @@ module Instruction = struct
 
   let rec pp_rocq ff : t -> _ =
     let pp_it = InstructionType.pp_rocq in
-    let pp_lfx = pp_print_list Type.pp_rocq in
+    let pp_lfx = pp_rocq_list Type.pp_rocq in
     let pp_instrs = pp_rocq_list pp_rocq in
     function
     | INop it -> fprintf ff "@[<2>(INop@ %a)@]" pp_it it
