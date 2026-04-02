@@ -4688,21 +4688,31 @@ Definition has_function_type_checker
     let ϕ := flatten_function_type mf.(mf_type) in
     let K := kc_of_fft ϕ in
     match mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) with
-    | Some ηss =>
-        let F := Build_function_ctx ϕ.(fft_out) ηss [] K ϕ.(fft_type_vars) in
-        let L := map type_plug_prim ηss in
-        let ψ := InstrT ϕ.(fft_in) ϕ.(fft_out) in
-        match synth_possible_resulting_local_ctx_insts F (mf.(mf_body)) L with
-        | inl (Some L') =>
-            if (foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true L')
-            then have_instruction_type_checker M F L mf.(mf_body) ψ L'
-            else INR "bad"
-        | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
-        | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
+    | Some ηss_L =>
+        let tempF := Build_function_ctx [] [] [] [] K ϕ.(fft_type_vars) in
+        match mapM (grab_rep tempF) ϕ.(fft_in) with
+        | Some ρs_P =>
+            match mapM (eval_rep_prim EmptyEnv) ρs_P with
+            | Some ηss_P =>
+                let F := Build_function_ctx ϕ.(fft_out) ηss_P ηss_L [] K ϕ.(fft_type_vars) in
+                let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
+                let ψ := InstrT [] ϕ.(fft_out) in
+                match synth_possible_resulting_local_ctx_insts F (mf.(mf_body)) L with
+                | inl (Some L') =>
+                    if (foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true L')
+                    then have_instruction_type_checker M F L mf.(mf_body) ψ L'
+                    else INR "bad"
+                | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
+                | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
+                end
+            | None => INR "AAAAAAAAAAAAA"
+            end
+        | None => INR "aaaaaa"
         end
     | None => INR "can't give function type"
     end
   else INR "bad".
+
 Lemma has_function_type_checker_correct :
   ∀ M mf ft, has_function_type_checker M mf ft = ok_term ->
              has_function_type M mf ft.
@@ -4711,10 +4721,14 @@ Proof.
   Opaque have_instruction_type_checker.
   unfold has_function_type_checker in H.
   repeat my_auto5.
-  rename l into ηss. rename l0 into L'. boolean_equality_auto.
-  apply (TFunction M mf ηss L'); auto.
-  - admit. (* just a foldr lemma *)
-  - by apply have_instruction_type_checker_correct in H1.
+  rename l into ηss_L; rename l0 into ρs_P; rename l1 into ηss_P.
+  rename l2 into L'.
+  apply function_type_eq_convert in HMatch. subst ft.
+  apply (TFunction M mf ηss_L ηss_P ρs_P L'); auto.
+  - cbn. (* lemma: prove that grab rep with messed up F is correct *) admit.
+  - (* foldr *) admit.
+  - apply have_instruction_type_checker_correct in H1.
+    auto.
 Admitted.
 
 
