@@ -596,58 +596,54 @@ Inductive function_type_insts : function_ctx -> list index -> function_type -> f
 
 Inductive packed_existential : function_ctx -> type -> type -> Prop :=
 | PackMem F μ τ' κ' :
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ' κ' ->
   let τ0 := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ' in
   packed_existential F τ0 (ExistsMemT κ' τ')
 | PackRep F ρ τ' κ' :
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ' κ' ->
   let τ0 := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ' in
   packed_existential F τ0 (ExistsRepT κ' τ')
 | PackSize F σ τ' κ' :
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ' κ' ->
   let τ0 := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' in
   packed_existential F τ0 (ExistsSizeT κ' τ')
 | PackType F τ τ' κ κ' :
   has_kind F τ κ ->
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_type_vars ::= cons κ |>) τ' κ' ->
   let τ0 := subst_type VarM VarR VarS (unscoped.scons τ VarT) τ' in
   packed_existential F τ0 (ExistsTypeT κ' κ τ').
 
 Inductive unpacked_existential :
-  function_ctx -> local_ctx -> list instruction -> instruction_type -> local_ctx ->
-  function_ctx -> local_ctx -> list instruction -> instruction_type -> local_ctx ->
+  function_ctx -> local_ctx -> instruction_type -> local_ctx ->
+  function_ctx -> local_ctx -> instruction_type -> local_ctx ->
   Prop :=
-| UnpackMem F L L' es τs1 κ τ τs2 :
+| UnpackMem F L L' τs1 κ τ τs2 :
   let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
               <| fc_kind_ctx ::= set kc_mem_vars S |> in
-  let es0 := map (subst_instruction (up_memory VarM) VarR VarS VarT) es in
-  let up := subst_type (up_memory VarM) VarR VarS VarT in
+  let up := ren_type S id id id in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsMemT κ τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
-| UnpackRep F L L' es τs1 κ τ τs2 :
+    F L (InstrT (τs1 ++ [ExistsMemT κ τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
+| UnpackRep F L L' τs1 κ τ τs2 :
   let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
               <| fc_kind_ctx ::= set kc_rep_vars S |> in
-  let es0 := map (subst_instruction VarM (up_representation VarR) VarS VarT) es in
-  let up := subst_type VarM (up_representation VarR) VarS VarT in
+  let up := ren_type id S id id in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsRepT κ τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
-| UnpackSize F L L' es τs1 κ τ τs2 :
+    F L (InstrT (τs1 ++ [ExistsRepT κ τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
+| UnpackSize F L L' τs1 κ τ τs2 :
   let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
               <| fc_kind_ctx ::= set kc_size_vars S |> in
-  let es0 := map (subst_instruction VarM VarR (up_size VarS) VarT) es in
-  let up := subst_type VarM VarR (up_size VarS) VarT in
+  let up := ren_type id id S id in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
-| UnpackType F L L' es τs1 κ κ0 τ τs2 :
+    F L (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
+| UnpackType F L L' τs1 κ κ0 τ τs2 :
   let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
-  let es0 := map (subst_instruction VarM VarR VarS (up_type VarT)) es in
-  let up := subst_type VarM VarR VarS (up_type VarT) in
+  let up := ren_type id id id S in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L').
+    F L (InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L').
 
 Definition local_ctx_ok (F : function_ctx) (L : local_ctx) : Prop :=
   Forall2 (type_rep_eq_prim F) L F.(fc_locals).
@@ -862,11 +858,11 @@ Inductive has_instruction_type :
   packed_existential F τ τ' ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IPack ψ) ψ L
-| TUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 :
+| TUnpack M F F0' L L' L0 L0' es τs1 τs2 ψ0 :
   let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT τs1 τs2 in
-  unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
-  have_instruction_type M F0' L0 es0 ψ0 L0' ->
+  unpacked_existential F' L ψ L' F0' L0 ψ0 L0' ->
+  have_instruction_type M F0' L0 es ψ0 L0' ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IUnpack ψ L' es) ψ L'
 | TTag M F L :
@@ -1108,11 +1104,11 @@ Section HasHaveInstructionTypeMind.
           packed_existential F τ τ' ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IPack ψ) ψ L)
-      (HUnpack : forall M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0,
+      (HUnpack : forall M F F0' L L' L0 L0' es τs1 τs2 ψ0,
           let F' := F <| fc_labels ::= cons (τs2, L') |> in
           let ψ := InstrT τs1 τs2 in
-          unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
-          P2 M F0' L0 es0 ψ0 L0' ->
+          unpacked_existential F' L ψ L' F0' L0 ψ0 L0' ->
+          P2 M F0' L0 es ψ0 L0' ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IUnpack ψ L' es) ψ L')
       (HTag : forall M F L,
@@ -1240,8 +1236,8 @@ Section HasHaveInstructionTypeMind.
     | TFold M F L τs κ H1 => HFold M F L τs κ H1
     | TUnfold M F L τ κ H1 => HUnfold M F L τ κ H1
     | TPack M F L τ τ' H1 H2 => HPack M F L τ τ' H1 H2
-    | TUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 H1 H2 H3 =>
-        HUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 H1
+    | TUnpack M F F0' L L' L0 L0' es τs1 τs2 ψ0 H1 H2 H3 =>
+        HUnpack M F F0' L L' L0 L0' es τs1 τs2 ψ0 H1
           (have_instruction_type_mind _ _ _ _ _ _ H2)
           H3
     | TTag M F L H1 => HTag M F L H1

@@ -1,0 +1,990 @@
+((m_imports ())
+ (m_functions
+  (((mf_type
+     (MonoFunT
+      ((ProdT
+        (VALTYPE (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+         AnyRefs)
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+         (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+      ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+        ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+         (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+    (mf_locals
+     ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R))) (AtomR I32R)
+      (AtomR I32R) (AtomR I32R)))
+    (mf_body
+     ((ILocalGet
+       (InstrT ()
+        ((ProdT
+          (VALTYPE (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+           AnyRefs)
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+           (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))))
+       0)
+      (IUngroup
+       (InstrT
+        ((ProdT
+          (VALTYPE (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+           AnyRefs)
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+           (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+         (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+      (ILocalSet
+       (InstrT
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+        ())
+       2)
+      (ILocalSet
+       (InstrT
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ())
+       1)
+      (ILocalGet
+       (InstrT ()
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
+       2)
+      (IUngroup
+       (InstrT
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+        ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+         (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+      (ILocalSet (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ())
+       4)
+      (ILocalSet (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ())
+       3)
+      (ILocalGet (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+       4)
+      (INum
+       (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))
+        ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+       (IIntTest I32T EqzI))
+      (IIte
+       (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+       ((PlugT
+         (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R))) NoRefs)
+         (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R))))
+        (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+         (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+          (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+        (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+         ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+          (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+        (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+        (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R)))))
+       ((IGroup (InstrT () ((ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        (IInject
+         (InstrT ((ProdT (VALTYPE (ProdR ()) NoRefs) ()))
+          ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+         1))
+       ((ILocalGet
+         (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 3)
+        (ILocalGet
+         (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 4)
+        (INum
+         (InstrT
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+         (IInt2 I32T (DivI SignS)))
+        (ILocalSet
+         (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ()) 5)
+        (ILocalGet
+         (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 5)
+        (IInject
+         (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))
+          ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+         0)
+        (ILocalGet
+         (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 5)
+        (IDrop (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ()))))
+      (ILocalGet (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+       3)
+      (IDrop (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ()))
+      (ILocalGet (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+       4)
+      (IDrop (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ()))
+      (ILocalGet
+       (InstrT ()
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+       1)
+      (IDrop
+       (InstrT
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ()))
+      (ILocalGet
+       (InstrT ()
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
+       2)
+      (IDrop
+       (InstrT
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+        ())))))
+   ((mf_type
+     (MonoFunT
+      ((ProdT
+        (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+         AnyRefs)
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+         (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+      ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+    (mf_locals
+     ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ()))) (AtomR I32R) (ProdR ())))
+    (mf_body
+     ((ILocalGet
+       (InstrT ()
+        ((ProdT
+          (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+           AnyRefs)
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+           (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))))
+       0)
+      (IUngroup
+       (InstrT
+        ((ProdT
+          (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+           AnyRefs)
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+           (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+         (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+      (ILocalSet
+       (InstrT
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ())
+       2)
+      (ILocalSet
+       (InstrT
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ())
+       1)
+      (ILocalGet
+       (InstrT ()
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+       2)
+      (ICase
+       (InstrT
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+       ((PlugT
+         (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R))) NoRefs)
+         (ProdR ((AtomR I32R) (AtomR I32R) (AtomR I32R))))
+        (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+         (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+          (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+        (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+         ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+          (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ()) NoRefs) (ProdR ())))
+       (((ILocalSet
+          (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ()) 3)
+         (ILocalGet
+          (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 3)
+         (ILocalGet
+          (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 3)
+         (IDrop (InstrT ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))) ())))
+        ((ILocalSet (InstrT ((ProdT (VALTYPE (ProdR ()) NoRefs) ())) ()) 4)
+         (INumConst
+          (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 0)
+         (ILocalGet (InstrT () ((ProdT (VALTYPE (ProdR ()) NoRefs) ()))) 4)
+         (IDrop (InstrT ((ProdT (VALTYPE (ProdR ()) NoRefs) ())) ())))))
+      (ILocalGet
+       (InstrT ()
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+       1)
+      (IDrop
+       (InstrT
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ()))
+      (ILocalGet
+       (InstrT ()
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+       2)
+      (IDrop
+       (InstrT
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ())))))
+   ((mf_type (MonoFunT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+    (mf_locals
+     ((ProdR ((AtomR I32R) (AtomR PtrR))) (AtomR I32R) (AtomR PtrR)
+      (SumR ((AtomR I32R) (ProdR ()))) (ProdR ((AtomR I32R) (AtomR PtrR)))
+      (AtomR I32R) (AtomR PtrR)))
+    (mf_body
+     ((ICodeRef
+       (InstrT ()
+        ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+          (MonoFunT
+           ((ProdT
+             (VALTYPE
+              (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+              AnyRefs)
+             ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+               (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+              (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+           ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+              (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))))
+       0)
+      (IGroup (InstrT () ((ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+      (INew
+       (InstrT ((ProdT (VALTYPE (ProdR ()) NoRefs) ()))
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+      (IGroup
+       (InstrT
+        ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+          (MonoFunT
+           ((ProdT
+             (VALTYPE
+              (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+              AnyRefs)
+             ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+               (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+              (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+           ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+              (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+         (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+           (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))))
+      (IPack
+       (InstrT
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+           (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+        ((ExistsTypeT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          (VALTYPE (ProdR ()) NoRefs)
+          (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+           ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+             (MonoFunT
+              ((ProdT
+                (VALTYPE
+                 (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                 AnyRefs)
+                ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                  (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                 (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                  ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                   (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+              ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                 (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+            (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+             (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))))))
+      (IUnpack
+       (InstrT
+        ((ExistsTypeT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          (VALTYPE (ProdR ()) NoRefs)
+          (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+           ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+             (MonoFunT
+              ((ProdT
+                (VALTYPE
+                 (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                 AnyRefs)
+                ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                  (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                 (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                  ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                   (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+              ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                 (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+            (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+             (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))))
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+       ((PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+         (ProdR ((AtomR I32R) (AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+         (ProdR ((AtomR I32R) (AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+         (ProdR ((AtomR I32R) (AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R)))))
+       ((ILocalSet
+         (InstrT
+          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+            ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+              (MonoFunT
+               ((ProdT
+                 (VALTYPE
+                  (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                  AnyRefs)
+                 ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                   (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                  (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                   ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                    (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+               ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))))
+          ())
+         0)
+        (ILocalGet
+         (InstrT ()
+          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+            ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+              (MonoFunT
+               ((ProdT
+                 (VALTYPE
+                  (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                  AnyRefs)
+                 ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                   (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                  (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                   ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                    (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+               ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))))
+         0)
+        (IUngroup
+         (InstrT
+          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+            ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+              (MonoFunT
+               ((ProdT
+                 (VALTYPE
+                  (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                  AnyRefs)
+                 ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                   (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                  (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                   ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                    (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+               ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))))
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+           (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))))
+        (ILocalSet
+         (InstrT
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))
+          ())
+         2)
+        (ILocalSet
+         (InstrT
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))))
+          ())
+         1)
+        (ILocalGet
+         (InstrT ()
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))
+         2)
+        (INumConst
+         (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 10)
+        (INumConst
+         (InstrT () ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))) 0)
+        (IGroup
+         (InstrT
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))
+          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+        (IGroup
+         (InstrT
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+           (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+          ((ProdT
+            (VALTYPE (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+             AnyRefs)
+            ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+             (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+              ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+               (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))))
+        (ILocalGet
+         (InstrT ()
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))))
+         1)
+        (ICallIndirect
+         (InstrT
+          ((ProdT
+            (VALTYPE (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+             AnyRefs)
+            ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+             (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+              ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+               (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
+           (CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))))
+          ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+        (ILocalGet
+         (InstrT ()
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))))
+         1)
+        (IDrop
+         (InstrT
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE
+                (ProdR ((AtomR PtrR) (ProdR ((AtomR I32R) (AtomR I32R)))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+             ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))))
+          ()))
+        (ILocalGet
+         (InstrT ()
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R))))))
+         2)
+        (IDrop
+         (InstrT
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R)))))
+          ()))
+        (ILocalGet
+         (InstrT ()
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R) (AtomR I32R))))))
+         0)
+        (IDrop
+         (InstrT
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R) (AtomR I32R)))))
+          ()))))
+      (ILocalSet
+       (InstrT
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ())
+       3)
+      (ICodeRef
+       (InstrT ()
+        ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+          (MonoFunT
+           ((ProdT
+             (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+              AnyRefs)
+             ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+               (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+              (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+           ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+       1)
+      (IGroup (InstrT () ((ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+      (INew
+       (InstrT ((ProdT (VALTYPE (ProdR ()) NoRefs) ()))
+        ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+      (IGroup
+       (InstrT
+        ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+          (MonoFunT
+           ((ProdT
+             (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+              AnyRefs)
+             ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+               (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+              (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+           ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+         (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+          (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+           (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))))
+      (IPack
+       (InstrT
+        ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+           (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs)
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+        ((ExistsTypeT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          (VALTYPE (ProdR ()) NoRefs)
+          (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+           ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+             (MonoFunT
+              ((ProdT
+                (VALTYPE
+                 (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                 AnyRefs)
+                ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                  (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                 (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                  ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                   (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+              ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+            (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+             (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))))))
+      (IUnpack
+       (InstrT
+        ((ExistsTypeT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+          (VALTYPE (ProdR ()) NoRefs)
+          (ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+           ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+             (MonoFunT
+              ((ProdT
+                (VALTYPE
+                 (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                 AnyRefs)
+                ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                  (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                 (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                  ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                   (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+              ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+            (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+             (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))))
+        ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))
+       ((PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+         (ProdR ((AtomR I32R) (AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R))))
+        (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+         ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+          (ProdT (VALTYPE (ProdR ()) NoRefs) ())))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+         (ProdR ((AtomR I32R) (AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R))))
+        (PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs) (ProdR ((AtomR I32R)))))
+       ((ILocalSet
+         (InstrT
+          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+            ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+              (MonoFunT
+               ((ProdT
+                 (VALTYPE
+                  (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                  AnyRefs)
+                 ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                   (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                  (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                   ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                    (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+             (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))))
+          ())
+         4)
+        (ILocalGet
+         (InstrT ()
+          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+            ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+              (MonoFunT
+               ((ProdT
+                 (VALTYPE
+                  (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                  AnyRefs)
+                 ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                   (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                  (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                   ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                    (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+             (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))))
+         4)
+        (IUngroup
+         (InstrT
+          ((ProdT (VALTYPE (ProdR ((AtomR I32R) (AtomR PtrR))) AnyRefs)
+            ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+              (MonoFunT
+               ((ProdT
+                 (VALTYPE
+                  (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                  AnyRefs)
+                 ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                   (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                  (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                   ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                    (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+               ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+             (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))))
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+           (RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))))
+        (ILocalSet
+         (InstrT
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0))))
+          ())
+         6)
+        (ILocalSet
+         (InstrT
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
+          ())
+         5)
+        (ILocalGet
+         (InstrT ()
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))))
+         6)
+        (ILocalGet
+         (InstrT ()
+          ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+         3)
+        (IGroup
+         (InstrT
+          ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+            (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+           (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+            ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+             (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+          ((ProdT
+            (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+             AnyRefs)
+            ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+             (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+              ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+               (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))))
+        (ILocalGet
+         (InstrT ()
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+         5)
+        (ICallIndirect
+         (InstrT
+          ((ProdT
+            (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+             AnyRefs)
+            ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+              (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+             (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+              ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+               (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+           (CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))
+        (ILocalGet
+         (InstrT ()
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T)))))))
+         5)
+        (IDrop
+         (InstrT
+          ((CodeRefT (VALTYPE (AtomR I32R) NoRefs)
+            (MonoFunT
+             ((ProdT
+               (VALTYPE (ProdR ((AtomR PtrR) (SumR ((AtomR I32R) (ProdR ())))))
+                AnyRefs)
+               ((RefT (VALTYPE (AtomR PtrR) AnyRefs) (BaseM MemMM)
+                 (SerT (MEMTYPE (RepS (ProdR ())) NoRefs) (VarT 0)))
+                (SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+                 ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+                  (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))))
+             ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))))))
+          ()))
+        (ILocalGet
+         (InstrT ()
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R))))))
+         6)
+        (IDrop
+         (InstrT
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R)))))
+          ()))
+        (ILocalGet
+         (InstrT ()
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R) (AtomR I32R))))))
+         4)
+        (IDrop
+         (InstrT
+          ((PlugT (VALTYPE (ProdR ((AtomR I32R) (AtomR I32R))) NoRefs)
+            (ProdR ((AtomR I32R) (AtomR I32R)))))
+          ()))))
+      (ILocalGet
+       (InstrT ()
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ())))))
+       3)
+      (IDrop
+       (InstrT
+        ((SumT (VALTYPE (SumR ((AtomR I32R) (ProdR ()))) NoRefs)
+          ((NumT (VALTYPE (AtomR I32R) NoRefs) (IntT I32T))
+           (ProdT (VALTYPE (ProdR ()) NoRefs) ()))))
+        ())))))))
+ (m_table (0 1)) (m_exports (((me_name _start) (me_desc 2)))))
