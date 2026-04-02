@@ -2712,7 +2712,7 @@ with traverse_function_type_find_rep ϕ1 ϕ2 : option representation :=
 Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_checker_res :=
   match τ2 with
   | ExistsMemT κ' τ' =>
-      match has_kind_checker F τ' κ' with
+      match has_kind_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ' κ' with
       | inl () =>
           match traverse_type_find_memory_0 τ0 τ' with
           | Some μ =>
@@ -2724,7 +2724,7 @@ Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_che
       | err => err
       end
   | ExistsRepT κ' τ' =>
-      match has_kind_checker F τ' κ' with
+      match has_kind_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ' κ' with
       | inl () =>
           match traverse_type_find_rep_0 τ0 τ' with
           | Some ρ =>
@@ -2736,7 +2736,7 @@ Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_che
       | err => err
       end
   | ExistsSizeT κ' τ' =>
-      match has_kind_checker F τ' κ' with
+      match has_kind_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ' κ' with
       | inl () =>
           match traverse_type_find_size_0 τ0 τ' with
           | Some σ =>
@@ -2748,7 +2748,7 @@ Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_che
       | err => err
       end
   | ExistsTypeT κ' κ τ' =>
-      match has_kind_checker F τ' κ' with
+      match has_kind_checker (F <| fc_type_vars ::= cons κ |>) τ' κ' with
       | inl () =>
           match traverse_type_find_type_0 τ0 τ' with
           | Some τ =>
@@ -2772,8 +2772,8 @@ Qed.
 
 (* This one has the reverse list stuff which I'm unsure how to do exactly *)
 Definition unpacked_existential_checker
- (F:function_ctx) (L:local_ctx) (es:list instruction) (ϕ : instruction_type) (L':local_ctx)
- (F0_tocheck:function_ctx) (L_tocheck:local_ctx) (es0:list instruction) (ϕ0: instruction_type) (L'_tocheck:local_ctx)
+ (F:function_ctx) (L:local_ctx) (ϕ : instruction_type) (L':local_ctx)
+ (F0_tocheck:function_ctx) (L_tocheck:local_ctx) (ϕ0: instruction_type) (L'_tocheck:local_ctx)
   :=
   match ϕ, ϕ0 with
   | InstrT τs1_full τs2, InstrT τs1_full_check τs2_check =>
@@ -2786,44 +2786,40 @@ Definition unpacked_existential_checker
               | ExistsMemT κ τ_check =>
                   let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
                               <| fc_kind_ctx ::= set kc_mem_vars S |> in
-                  let es0_check := map (subst_instruction (up_memory VarM) VarR VarS VarT) es in
-                  let up := subst_type (up_memory VarM) VarR VarS VarT in
+                  let up := ren_type S id id id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
                      && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
-                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                     && function_ctx_beq F0 F0_tocheck
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsRepT κ τ_check =>
                   let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
                               <| fc_kind_ctx ::= set kc_rep_vars S |> in
-                  let es0_check := map (subst_instruction VarM (up_representation VarR) VarS VarT) es in
-                  let up := subst_type VarM (up_representation VarR) VarS VarT in
+                  let up := ren_type id S id id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
                      && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
-                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                     && function_ctx_beq F0 F0_tocheck
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsSizeT κ τ_check =>
                   let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
                               <| fc_kind_ctx ::= set kc_size_vars S |> in
-                  let es0_check := map (subst_instruction VarM VarR (up_size VarS) VarT) es in
-                  let up := subst_type VarM VarR (up_size VarS) VarT in
+                  let up := ren_type id id S id in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
                      && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
-                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                     && function_ctx_beq F0 F0_tocheck
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | ExistsTypeT κ κ0 τ_check =>
                   let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
-                  let es0_check := map (subst_instruction VarM VarR VarS (up_type VarT)) es in
-                  let up := subst_type VarM VarR VarS (up_type VarT) in
+                  let up := ren_type id id id S in
                   (* HUGE amount of equalities *)
                   if type_beq τ τ_check && local_ctx_beq L_tocheck (map up L) && local_ctx_beq L'_tocheck (map up L')
                      && list_beq type type_beq τs1_check (map up τs1) && list_beq type type_beq τs2_check (map up τs2)
-                     && function_ctx_beq F0 F0_tocheck && list_beq instruction instruction_beq es0 es0_check
+                     && function_ctx_beq F0 F0_tocheck
                   then ok_term
                   else INR "something in unpacked existential didn't match up"
               | _ => INR "trying to check unpack existential, but last type not existential"
@@ -2835,9 +2831,9 @@ Definition unpacked_existential_checker
   end.
 
 Lemma unpacked_existential_checker_correct :
-  ∀ F L es ϕ L' F0 L_tocheck es0 ϕ0 L'_tocheck,
-    unpacked_existential_checker F L es ϕ L' F0 L_tocheck es0 ϕ0 L'_tocheck = ok_term ->
-    unpacked_existential F L es ϕ L' F0 L_tocheck es0 ϕ0 L'_tocheck.
+  ∀ F L ϕ L' F0 L_tocheck ϕ0 L'_tocheck,
+    unpacked_existential_checker F L ϕ L' F0 L_tocheck ϕ0 L'_tocheck = ok_term ->
+    unpacked_existential F L ϕ L' F0 L_tocheck ϕ0 L'_tocheck.
 Proof.
   Opaque split_list_all_last.
   intros. unfold unpacked_existential_checker in H.
@@ -2848,8 +2844,8 @@ Proof.
   - apply UnpackType.
 Qed.
 
-Definition unpacked_existential_getter F L es ϕ L' :
-  option (function_ctx * local_ctx * (list instruction) * instruction_type * local_ctx) :=
+Definition unpacked_existential_getter F L ϕ L' :
+  option (function_ctx * local_ctx * instruction_type * local_ctx) :=
   match ϕ with
   | InstrT τs1_full τs2 =>
       match split_list_all_last τs1_full with
@@ -2859,38 +2855,34 @@ Definition unpacked_existential_getter F L es ϕ L' :
           | ExistsMemT κ τ =>
               let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
                           <| fc_kind_ctx ::= set kc_mem_vars S |> in
-              let es0 := map (subst_instruction (up_memory VarM) VarR VarS VarT) es in
-              let up := subst_type (up_memory VarM) VarR VarS VarT in
+              let up := ren_type S id id id in
               let L0 := (map up L) in
               let L'0 := (map up L') in
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
-              Some (F0, L0, es0, ϕ0, L'0)
+              Some (F0, L0, ϕ0, L'0)
           | ExistsRepT κ τ =>
               let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
                           <| fc_kind_ctx ::= set kc_rep_vars S |> in
-              let es0 := map (subst_instruction VarM (up_representation VarR) VarS VarT) es in
-              let up := subst_type VarM (up_representation VarR) VarS VarT in
+              let up := ren_type id S id id in
               let L0 := (map up L) in
               let L'0 := (map up L') in
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
-              Some (F0, L0, es0, ϕ0, L'0)
+              Some (F0, L0, ϕ0, L'0)
           | ExistsSizeT κ τ =>
               let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
                           <| fc_kind_ctx ::= set kc_size_vars S |> in
-              let es0 := map (subst_instruction VarM VarR (up_size VarS) VarT) es in
-              let up := subst_type VarM VarR (up_size VarS) VarT in
+              let up := ren_type id id S id in
               let L0 := (map up L) in
               let L'0 := (map up L') in
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
-              Some (F0, L0, es0, ϕ0, L'0)
+              Some (F0, L0, ϕ0, L'0)
           | ExistsTypeT κ κ0 τ =>
               let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
-              let es0 := map (subst_instruction VarM VarR VarS (up_type VarT)) es in
-              let up := subst_type VarM VarR VarS (up_type VarT) in
+              let up := ren_type id id id S in
               let L0 := (map up L) in
               let L'0 := (map up L') in
               let ϕ0 := InstrT (map up τs1 ++ [τ]) (map up τs2) in
-              Some (F0, L0, es0, ϕ0, L'0)
+              Some (F0, L0, ϕ0, L'0)
           | _ => None
           end
       | None => None
@@ -2898,9 +2890,9 @@ Definition unpacked_existential_getter F L es ϕ L' :
   end.
 
 Lemma unpacked_existential_getter_correct :
-  ∀ F L es ϕ L' F0 L0 es0 ϕ0 L'0,
-    unpacked_existential_getter F L es ϕ L' = Some (F0, L0, es0, ϕ0, L'0) ->
-    unpacked_existential F L es ϕ L' F0 L0 es0 ϕ0 L'0.
+  ∀ F L ϕ L' F0 L0 ϕ0 L'0,
+    unpacked_existential_getter F L ϕ L' = Some (F0, L0, ϕ0, L'0) ->
+    unpacked_existential F L ϕ L' F0 L0 ϕ0 L'0.
 Proof.
   intros. unfold unpacked_existential_getter in H.
   repeat my_auto4; subst.
@@ -3788,8 +3780,8 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT τs1 τs2 =>
             let F' := F <| fc_labels ::= cons (τs2, L') |> in
-            match unpacked_existential_getter F' L es ψ L' with
-            | Some (F0', L0, es0, ψ0, L0') =>
+            match unpacked_existential_getter F' L ψ L' with
+            | Some (F0', L0, ψ0, L0') =>
                 (* ISSUE RIGHT HERE: the es should be es0 TODO but bad fixpoint  *)
                 match have_instruction_type_checker M F0' L0 es ψ0 L0' with
                 | inl () => has_instruction_type_ok_checker F ψ L'
@@ -4124,7 +4116,7 @@ with test4 e :=
   | _ => True
   end.
 
-Fixpoint test5 ns :=
+Fail Fixpoint test5 ns :=
   match ns with
   | [] => true
   | n::ns => (n =? 5) && test5 (map (λ x,x) ns)
@@ -4347,6 +4339,11 @@ Ltac my_auto5 :=
   | H: (local_ctx_ok_checker _ _ = inl ()) |- _ => apply local_ctx_ok_checker_correct in H; auto
   | H: (has_size_checker _ _ _ = inl ()) |- _ => apply has_size_checker_correct in H; auto
   | H: (has_size_checker _ _ _ = ok_term) |- _ => apply has_size_checker_correct in H; auto
+  | H: (packed_existential_checker _ _ _ = inl ()) |- _ => apply packed_existential_checker_correct in H; auto
+  | H: (packed_existential_checker _ _ _ = ok_term) |- _ => apply packed_existential_checker_correct in H; auto
+  | H: (unpacked_existential_checker _ _ _ _ _ _ _ _ = inl ()) |- _ => apply unpacked_existential_checker_correct in H; auto
+  | H: (unpacked_existential_checker _ _ _ _ _ _ _ _ = ok_term) |- _ => apply unpacked_existential_checker_correct in H; auto
+  | H: (unpacked_existential_getter _ _ _ _ = Some (_, _, _, _)) |- _ => apply unpacked_existential_getter_correct in H; auto
   | H: (grab_size _ _ = Some _) |- _ => apply grab_size_correct in H; auto
   | H: (grab_rep _ _ = Some _) |- _ => apply grab_rep_correct in H; auto
 end.
@@ -4471,6 +4468,14 @@ Proof.
   Ltac half_shred := intros; simpl in *; repeat my_auto5.
   Ltac clear_nils :=
     repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
+
+  [Pack]: shred.
+  [Unpack]: {
+    Opaque unpacked_existential_getter.
+    half_shred.
+    apply IHinst in HMatch4.
+    by econstructor.
+  }
 
   (* Have instr cases *)
   [Nil]: {
@@ -4644,10 +4649,6 @@ Proof.
     by econstructor.
   }
 
-
-  (* Existentials are INCOMPLETE *)
-  [Pack]: admit.
-  [Unpack]: admit.
 
 
 
