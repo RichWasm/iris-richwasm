@@ -43,33 +43,33 @@ module BaseMemory = struct
 end
 
 module RefFlag = struct
-    type t = [%import: Richwasm_extract.Rw.Core.ref_flag]
-    [@@deriving eq, ord, sexp]
+  type t = [%import: Richwasm_extract.Rw.Core.ref_flag]
+  [@@deriving eq, ord, sexp]
 
-    let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-    let pp_rocq ff : t -> _ = function
-      | NoRefs -> fprintf ff "NoRefs"
-      | GCRefs -> fprintf ff "GCRefs"
-      | AnyRefs -> fprintf ff "AnyRefs"
+  let pp_rocq ff : t -> _ = function
+    | NoRefs -> fprintf ff "NoRefs"
+    | GCRefs -> fprintf ff "GCRefs"
+    | AnyRefs -> fprintf ff "AnyRefs"
 
-    let pp ff : t -> _ = function
-      | NoRefs -> fprintf ff "norefs"
-      | GCRefs -> fprintf ff "gcrefs"
-      | AnyRefs -> fprintf ff "anyrefs"
+  let pp ff : t -> _ = function
+    | NoRefs -> fprintf ff "norefs"
+    | GCRefs -> fprintf ff "gcrefs"
+    | AnyRefs -> fprintf ff "anyrefs"
 
-    let le a b =
-      match (a, b) with
-      | NoRefs, _ -> true
-      | GCRefs, (GCRefs | AnyRefs) -> true
-      | AnyRefs, AnyRefs -> true
-      | _ -> false
+  let le a b =
+    match (a, b) with
+    | NoRefs, _ -> true
+    | GCRefs, (GCRefs | AnyRefs) -> true
+    | AnyRefs, AnyRefs -> true
+    | _ -> false
 
-    let meet a b =
-      match (a, b) with
-      | AnyRefs, _ | _, AnyRefs -> AnyRefs
-      | GCRefs, _ | _, GCRefs -> GCRefs
-      | NoRefs, NoRefs -> NoRefs
+  let meet a b =
+    match (a, b) with
+    | AnyRefs, _ | _, AnyRefs -> AnyRefs
+    | GCRefs, _ | _, GCRefs -> GCRefs
+    | NoRefs, NoRefs -> NoRefs
 end
 
 module AtomicRep = struct
@@ -386,28 +386,24 @@ module NumInstruction = struct
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
-  let pp_rocq ff : t -> _ = function
+  let pp_rocq ff : t -> _ =
+    let pp_it = Int.Type.pp_rocq in
+    let pp_ft = Float.Type.pp_rocq in
+    function
     | IInt1 (t, o) ->
-        fprintf ff "@[<2>(IInt1@ %a@ %a)@]" Int.Type.pp_rocq t Int.Unop.pp_rocq
-          o
+        fprintf ff "@[<2>(IInt1@ %a@ %a)@]" pp_it t Int.Unop.pp_rocq o
     | IInt2 (t, o) ->
-        fprintf ff "@[<2>(IInt2@ %a@ %a)@]" Int.Type.pp_rocq t Int.Binop.pp_rocq
-          o
+        fprintf ff "@[<2>(IInt2@ %a@ %a)@]" pp_it t Int.Binop.pp_rocq o
     | IIntTest (t, o) ->
-        fprintf ff "@[<2>(IIntTest@ %a@ %a)@]" Int.Type.pp_rocq t
-          Int.Testop.pp_rocq o
+        fprintf ff "@[<2>(IIntTest@ %a@ %a)@]" pp_it t Int.Testop.pp_rocq o
     | IIntRel (t, o) ->
-        fprintf ff "@[<2>(IIntRel@ %a@ %a)@]" Int.Type.pp_rocq t
-          Int.Relop.pp_rocq o
+        fprintf ff "@[<2>(IIntRel@ %a@ %a)@]" pp_it t Int.Relop.pp_rocq o
     | IFloat1 (t, o) ->
-        fprintf ff "@[<2>(IFloat1@ %a@ %a)@]" Float.Type.pp_rocq t
-          Float.Unop.pp_rocq o
+        fprintf ff "@[<2>(IFloat1@ %a@ %a)@]" pp_ft t Float.Unop.pp_rocq o
     | IFloat2 (t, o) ->
-        fprintf ff "@[<2>(IFloat2@ %a@ %a)@]" Float.Type.pp_rocq t
-          Float.Binop.pp_rocq o
+        fprintf ff "@[<2>(IFloat2@ %a@ %a)@]" pp_ft t Float.Binop.pp_rocq o
     | IFloatRel (t, o) ->
-        fprintf ff "@[<2>(IFloatRel@ %a@ %a)@]" Float.Type.pp_rocq t
-          Float.Relop.pp_rocq o
+        fprintf ff "@[<2>(IFloatRel@ %a@ %a)@]" pp_ft t Float.Relop.pp_rocq o
     | ICvt o -> fprintf ff "@[<2>(ICvt@ %a)@]" ConversionOp.pp_rocq o
 
   let pp ff : t -> _ = function
@@ -518,14 +514,13 @@ module Kind = struct
         fprintf ff "@[<2>(VALTYPE@ %a@ %a)@]" Representation.pp_rocq rep
           RefFlag.pp_rocq rflag
     | MEMTYPE (size, rflag) ->
-        fprintf ff "@[<2>(MEMTYPE@ %a@ %a)@]" Size.pp_rocq size
-          RefFlag.pp_rocq rflag
+        fprintf ff "@[<2>(MEMTYPE@ %a@ %a)@]" Size.pp_rocq size RefFlag.pp_rocq
+          rflag
 
   let pp ff = function
     | VALTYPE (r, f) ->
         fprintf ff "@[<2>(val@ %a@ %a)@]" Representation.pp r RefFlag.pp f
-    | MEMTYPE (s, f) ->
-        fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s RefFlag.pp f
+    | MEMTYPE (s, f) -> fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s RefFlag.pp f
 
   let subst = Richwasm_extract.Rw.Core.subst_kind
   let ren = Richwasm_extract.Rw.Core.ren_kind
@@ -620,27 +615,19 @@ module Internal = struct
           fprintf ff "@[<2>(ForallTypeT@ %a@ %a)@]" Kind.pp_rocq kind
             pp_rocq_function_typ ft
 
-    let rec pp_typ ff : typ -> unit = function
+    let rec pp_typ ff : typ -> unit =
+      let pp_typs = pp_print_list_pre_space pp_typ in
+      function
       | VarT i -> fprintf ff "@[<2>(var@ %a)@]" Z.pp_print i
       | I31T k -> fprintf ff "@[<2>(i31@ %a)@]" Kind.pp k
       | NumT (k, nt) ->
           fprintf ff "@[<2>(num@ %a@ %a)@]" Kind.pp k NumType.pp nt
-      | SumT (k, ts) ->
-          fprintf ff "@[<2>(sum@ %a@ %a)@]" Kind.pp k
-            (pp_print_list_pre_space pp_typ)
-            ts
+      | SumT (k, ts) -> fprintf ff "@[<2>(sum@ %a@ %a)@]" Kind.pp k pp_typs ts
       | VariantT (k, ts) ->
-          fprintf ff "@[<2>(variant@ %a%a)@]" Kind.pp k
-            (pp_print_list_pre_space pp_typ)
-            ts
-      | ProdT (k, ts) ->
-          fprintf ff "@[<2>(prod@ %a%a)@]" Kind.pp k
-            (pp_print_list_pre_space pp_typ)
-            ts
+          fprintf ff "@[<2>(variant@ %a%a)@]" Kind.pp k pp_typs ts
+      | ProdT (k, ts) -> fprintf ff "@[<2>(prod@ %a%a)@]" Kind.pp k pp_typs ts
       | StructT (k, ts) ->
-          fprintf ff "@[<2>(struct@ %a%a)@]" Kind.pp k
-            (pp_print_list_pre_space pp_typ)
-            ts
+          fprintf ff "@[<2>(struct@ %a%a)@]" Kind.pp k pp_typs ts
       | RefT (k, m, t) ->
           fprintf ff "@[<2>(ref@ %a@ %a@ %a)@]" Kind.pp k Memory.pp m pp_typ t
       | CodeRefT (k, ft) ->
@@ -789,6 +776,7 @@ module Instruction = struct
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let rec pp_rocq ff : t -> _ =
+    let pp_int = Z.pp_print in
     let pp_it = InstructionType.pp_rocq in
     let pp_lfx = pp_rocq_list Type.pp_rocq in
     let pp_instrs = pp_rocq_list pp_rocq in
@@ -809,14 +797,14 @@ module Instruction = struct
     | IIte (it, lfx, e_thn, e_els) ->
         fprintf ff "@[<2>(IIte@ %a@ %a@ %a@ %a)@]" pp_it it pp_lfx lfx pp_instrs
           e_thn pp_instrs e_els
-    | IBr (it, i) -> fprintf ff "@[<2>(IBr@ %a@ %a)@]" pp_it it Z.pp_print i
+    | IBr (it, i) -> fprintf ff "@[<2>(IBr@ %a@ %a)@]" pp_it it pp_int i
     | IReturn it -> fprintf ff "@[<2>(IReturn@ %a)@]" pp_it it
     | ILocalGet (it, i) ->
-        fprintf ff "@[<2>(ILocalGet@ %a@ %a)@]" pp_it it Z.pp_print i
+        fprintf ff "@[<2>(ILocalGet@ %a@ %a)@]" pp_it it pp_int i
     | ILocalSet (it, i) ->
-        fprintf ff "@[<2>(ILocalSet@ %a@ %a)@]" pp_it it Z.pp_print i
+        fprintf ff "@[<2>(ILocalSet@ %a@ %a)@]" pp_it it pp_int i
     | ICodeRef (it, i) ->
-        fprintf ff "@[<2>(ICodeRef@ %a@ %a)@]" pp_it it Z.pp_print i
+        fprintf ff "@[<2>(ICodeRef@ %a@ %a)@]" pp_it it pp_int i
     | IInst (it, idx) ->
         fprintf ff "@[<2>(IInst@ %a@ %a)@]" pp_it it Index.pp_rocq idx
     | ICall (it, i, idxs) ->
@@ -847,12 +835,12 @@ module Instruction = struct
     | ICast it -> fprintf ff "@[<2>(ICast@ %a)@]" pp_it it
     | INew it -> fprintf ff "@[<2>(INew@ %a)@]" pp_it it
     | ILoad (it, p, c) ->
-        fprintf ff "@[<2>(ILoad@ %a@ %a@ %a)@]" pp_it it
-          (pp_rocq_list Z.pp_print) p Consumption.pp_rocq c
+        fprintf ff "@[<2>(ILoad@ %a@ %a@ %a)@]" pp_it it (pp_rocq_list pp_int) p
+          Consumption.pp_rocq c
     | IStore (it, p) ->
-        fprintf ff "@[<2>(IStore@ %a@ %a)" pp_it it (pp_rocq_list Z.pp_print) p
+        fprintf ff "@[<2>(IStore@ %a@ %a)" pp_it it (pp_rocq_list pp_int) p
     | ISwap (it, p) ->
-        fprintf ff "@[<2>(ISwap@ %a@ %a)@]" pp_it it (pp_rocq_list Z.pp_print) p
+        fprintf ff "@[<2>(ISwap@ %a@ %a)@]" pp_it it (pp_rocq_list pp_int) p
 
   let rec pp ff : t -> _ =
     let pp_instrs ff (instrs : t list) =

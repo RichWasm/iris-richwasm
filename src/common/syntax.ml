@@ -184,8 +184,7 @@ module Kind = struct
   let pp ff = function
     | VALTYPE (r, f) ->
         fprintf ff "@[<2>(val@ %a@ %a)@]" Representation.pp r RefFlag.pp f
-    | MEMTYPE (s, f) ->
-        fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s RefFlag.pp f
+    | MEMTYPE (s, f) -> fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s RefFlag.pp f
   (* autosubst: *)
 
   let ren xi_representation xi_size = function
