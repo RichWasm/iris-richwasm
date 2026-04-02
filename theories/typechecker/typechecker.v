@@ -4124,6 +4124,12 @@ with test4 e :=
   | _ => True
   end.
 
+Fixpoint test5 ns :=
+  match ns with
+  | [] => true
+  | n::ns => (n =? 5) && test5 (map (λ x,x) ns)
+  end.
+
 
 
 Section InstructionMind.
