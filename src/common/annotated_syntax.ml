@@ -799,8 +799,9 @@ module Instruction = struct
           e_thn pp_instrs e_els
     | IBr (it, i) -> fprintf ff "@[<2>(IBr@ %a@ %a)@]" pp_it it pp_int i
     | IReturn it -> fprintf ff "@[<2>(IReturn@ %a)@]" pp_it it
-    | ILocalGet (it, i) ->
-        fprintf ff "@[<2>(ILocalGet@ %a@ %a)@]" pp_it it pp_int i
+    | ILocalGet (it, c, i) ->
+        fprintf ff "@[<2>(ILocalGet@ %a@ %a@ %a)@]" pp_it it Consumption.pp_rocq
+          c pp_int i
     | ILocalSet (it, i) ->
         fprintf ff "@[<2>(ILocalSet@ %a@ %a)@]" pp_it it pp_int i
     | ICodeRef (it, i) ->
@@ -879,8 +880,9 @@ module Instruction = struct
           pp_lfx lfx pp_instrs e_thn pp_instrs e_els pp_it_comment it
     | IBr (it, i) -> fprintf ff "@[<2>br@ %a@]%a" pp_int i pp_it_comment it
     | IReturn it -> fprintf ff "return%a" pp_it_comment it
-    | ILocalGet (it, i) ->
-        fprintf ff "@[<2>local.get@ %a@]%a" pp_int i pp_it_comment it
+    | ILocalGet (it, consume, i) ->
+        fprintf ff "@[<2>local.get@ %a@ %a@]%a" Consumption.pp consume pp_int i
+          pp_it_comment it
     | ILocalSet (it, i) ->
         fprintf ff "@[<2>local.set@ %a@]%a" pp_int i pp_it_comment it
     | ICodeRef (it, i) ->

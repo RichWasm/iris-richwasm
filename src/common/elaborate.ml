@@ -967,7 +967,10 @@ let rec elab_instruction (env : Env.t) :
       let* should_move = is_effective_move consume im_copyable |> lift_result in
       let* () = if should_move then reset_local i env else ret () in
       let* it = mono_in_out env.kinds "LocalGet" [] [ t ] in
-      ret @@ ILocalGet (it, Z.of_int i)
+      let consume' =
+        if should_move then B.Consumption.Move else B.Consumption.Copy
+      in
+      ret @@ ILocalGet (it, consume', Z.of_int i)
   | LocalSet i ->
       let* t = pop "LocalSet" in
       let* curr_rep_t =

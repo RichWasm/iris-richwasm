@@ -176,7 +176,7 @@ ILoop : instruction_type -> "list" (instruction) -> instruction
 IIte : instruction_type -> "list" (type) -> "list" (instruction) -> "list" (instruction) -> instruction
 IBr : instruction_type -> nat -> instruction
 IReturn : instruction_type -> instruction
-ILocalGet : instruction_type -> nat -> instruction
+ILocalGet : instruction_type -> consumption -> nat -> instruction
 ILocalSet : instruction_type -> nat -> instruction
 ICodeRef : instruction_type -> nat -> instruction
 IInst : instruction_type -> index -> instruction
