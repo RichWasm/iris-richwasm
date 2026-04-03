@@ -3233,7 +3233,6 @@ Definition test ψ :=
   | InstrT [a] b::b' => ok_term
   | _ => INR "no"
   end.
-Print type_span.
 
 Fixpoint unzip_sert (τs:list type) : option ((list kind) * (list type)) :=
   match τs with
@@ -4018,7 +4017,10 @@ Fixpoint have_instruction_type_checker
           match ψ with
           | InstrT τs1 τs2 =>
               if list_beq type type_beq τs1 τs2
-              then local_ctx_ok_checker F L
+              then
+                if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1
+                then local_ctx_ok_checker F L
+                else INR "bad empty instruction type (can't frame non mono rep)"
               else INR "bad empty instructions type (not empties or frame)"
           end
         else INR "bad empty instructions type (local contexts don't match)"
@@ -4033,7 +4035,10 @@ Fixpoint have_instruction_type_checker
                     (* ts1_es = ts1_pref ++ ts1_e, ts2_es = ts2_pref ++ ts2_e*)
                     (* just need to check that ts1_pref = ts2_pref *)
                     if list_beq type type_beq τs1_pref τs2_pref
-                    then ok_term
+                    then (* oh and monorep *)
+                      if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
+                      then ok_term
+                      else INR "can't frame out (can't frame non mono rep)"
                     else INR "can't frame out (single instruction)"
                 | _, _ => INR "inner instruction type doesn't match"
                 end
@@ -4044,14 +4049,17 @@ Fixpoint have_instruction_type_checker
         let e_ψ := proj_instr_ty e in
         match synth_possible_resulting_local_ctx F e L with
         | inr _ => INR "this is either local get/set that is bad, so error?"
-        | inl None => INR "the instr we're processing is either uncklereachable, break, or return, with more commands to follow. unsure how to deal with rn TODO"
+        | inl None => INR "the type checker does not support break/return/unreachable in the middle of a block"
         | inl (Some L_e) =>
             match has_instruction_type_checker M F L e e_ψ L_e with
             | inl () =>
                 match e_ψ, ψ with
                 | InstrT τs1_e τs2_e, InstrT τs1_es τs2_es =>
-                    match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_e *)
-                    | Some τs_pref => have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                    match list_suffix τs1_es τs1_e with (* τs1_es = τs_pref ++ τs1_es *)
+                    | Some τs_pref =>
+                        if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs_pref
+                        then have_instruction_type_checker M F L_e es (InstrT (τs_pref ++ τs2_e) τs2_es) L'
+                        else INR "can't frame out non mono rep"
                     | None => INR "instruction has more arguments than large have_instruction type has, or can't frame out"
                     end
                 end
@@ -4061,7 +4069,6 @@ Fixpoint have_instruction_type_checker
     end.
 
 
-Locate subst_type.
 (*** Demonstration of the annoyance of rocq fixpoint checker ***)
 
 (* Outer on just instruction, inner fixpoint. Works. *)
@@ -4659,10 +4666,44 @@ Admitted.
 
 
 Lemma have_instruction_type_checker_correct :
-  ∀ M F L insts ψ L',
+  ∀ insts M F L ψ L',
     have_instruction_type_checker M F L insts ψ L' = ok_term ->
     have_instruction_type M F L insts ψ L'.
-Proof. Admitted.
+Proof.
+  induction insts.
+  Transparent have_instruction_type_checker.
+  - half_shred.
+    rename L' into L; rename l0 into τs. subst.
+    convert_foldr
+      (λ t:type, check_ok_output (has_mono_rep_checker F t ))
+      (fun t => has_mono_rep F t) τs HMatch0.
+    induction τs.
+    + by constructor.
+    + apply Forall_cons_1 in HMatch0 as [Ha Hτs].
+      apply IHτs in Hτs.
+      eapply TFrame; done.
+  - destruct insts.
+    + clear IHinsts.
+      half_shred.
+      apply has_instruction_type_checker_correct in HMatch.
+      apply framing_helper; auto.
+      apply TSingleton; auto.
+    + intros. rename i into e; simpl in H.
+      do 8 (structural_auto_2).
+      rename l into L_inst.
+      rename l0 into τs1_inst; rename l1 into τs2_inst;
+      rename l2 into τs1_full; rename l3 into τs2_full;
+      rename l4 into τs1_inst_pref.
+      apply list_suffix_correct_r in HMatch3.
+      apply has_instruction_type_checker_correct in HMatch1.
+
+      change (?x::?r) with ([x]++r).
+      apply TApp with (L2:=L_inst) (τs2:= τs1_inst_pref ++ τs2_inst).
+      * subst τs1_full.
+        apply framing_helper; auto.
+        apply TSingleton; auto.
+      * apply IHinsts. auto.
+Qed.
 
 Fixpoint synth_possible_resulting_local_ctx_insts F insts L : (option local_ctx) + type_error :=
   match insts with
