@@ -2907,7 +2907,7 @@ Definition local_ctx_ok_checker (F:function_ctx) (L:local_ctx) : type_checker_re
   if foldr2
        (λ t:type, λ p:list primitive,
              andb (check_ok_output (type_rep_eq_prim_checker F t p))
-       ) true L (F.(fc_locals))
+       ) true L (F.(fc_params) ++ F.(fc_locals))
   then ok_term
   else INR "local context not ok".
 Lemma local_ctx_ok_checker_correct :
@@ -3353,13 +3353,16 @@ Fixpoint has_instruction_type_checker
         end
       else INR "incorrect instruction type for copy"
   | IDrop ψ_inner =>
-      if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
+      if (instruction_type_beq ψ ψ_inner)
       then
-        match ψ with
-        | InstrT [τ] [] => has_instruction_type_ok_checker F ψ L
-        | _ => INR "incorrect instruction type for drop"
-        end
-      else INR "incorrect instruction type for drop"
+        if (local_ctx_beq L L')
+        then
+          match ψ with
+          | InstrT [τ] [] => has_instruction_type_ok_checker F ψ L
+          | _ => INR "incorrect instruction type for drop (bad shape)"
+          end
+        else INR "incorrect instruction type for drop (local ctxs not equal)"
+      else INR "incorrect instruction type for drop (inner ψ not equal to outer ψ)"
   | INum ψ_inner e =>
       if andb (instruction_type_beq ψ ψ_inner) (local_ctx_beq L L')
       then
