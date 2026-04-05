@@ -27,8 +27,10 @@ Definition ll_1_plus_2 := {|
   m_exports := [{| me_name := "test"%string; me_desc := 0 |}];
 |}.
 
-Compute (has_module_type_checker_with_synth ll_1_plus_2).
-(* ==> inl () : type_checker_res *)
+(*Compute (has_module_type_checker_with_synth ll_1_plus_2).
+(* ==> inl () : type_checker_res *) *)
+Example a: has_module_type_checker_with_synth ll_1_plus_2 = inl ().
+Proof. by cbn. Qed.
 
 Definition ll_1_plus_2_bad := {|
   m_imports := [];
@@ -52,9 +54,12 @@ Definition ll_1_plus_2_bad := {|
 
 
 
-Compute (has_module_type_checker_with_synth ll_1_plus_2_bad).
-(* ==> inr "function types don't equal" : type_checker_res *)
+(* Compute (has_module_type_checker_with_synth ll_1_plus_2_bad).
+(* ==> inr "function types don't equal" : type_checker_res *) *)
 (* which I recognize isn't insanely helpful *)
+Example b: exists s,
+    has_module_type_checker_with_synth ll_1_plus_2_bad = inr s.
+Proof. cbn. eexists. auto. Qed.
 
 
 Definition m := {|
@@ -81,7 +86,9 @@ Definition m := {|
 |}.
 
 
-Compute (has_module_type_checker_with_synth m).
+(*Compute (has_module_type_checker_with_synth m).*)
+Example c: has_module_type_checker_with_synth m = inl ().
+Proof. by cbn. Qed.
 
 
 Definition my_unpack :=
@@ -112,8 +119,9 @@ Definition my_unpack :=
                |}];
   |}.
 
-Compute (has_module_type_checker_with_synth my_unpack).
-
+(*Compute (has_module_type_checker_with_synth my_unpack).*)
+Example d: has_module_type_checker_with_synth my_unpack = inl ().
+Proof. by cbn. Qed.
 
 Definition my_unpack3 := {|
   m_imports := [];
@@ -170,4 +178,6 @@ Definition my_unpack3 := {|
                |}];
 |}.
 
-Compute (has_module_type_checker_with_synth my_unpack3).
+(*Compute (has_module_type_checker_with_synth my_unpack3).*)
+Example e: has_module_type_checker_with_synth my_unpack3 = inl ().
+Proof. by cbn. Qed.
