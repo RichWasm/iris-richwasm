@@ -433,7 +433,9 @@ Fixpoint instruction_beq e1 e2 : bool :=
  | INum ϕ1 n1, INum ϕ2 n2 => instruction_type_beq ϕ1 ϕ2 && num_instruction_beq n1 n2
  | INumConst ϕ1 n1, INumConst ϕ2 n2
  | IBr ϕ1 n1, IBr ϕ2 n2
- | ILocalGet ϕ1 n1, ILocalGet ϕ2 n2
+   => instruction_type_beq ϕ1 ϕ2 && (n1 =? n2)
+ | ILocalGet ϕ1 cm1 n1, ILocalGet ϕ2 cm2 n2
+   => instruction_type_beq ϕ1 ϕ2 && consumption_beq cm1 cm2 && (n1 =? n2)
  | ILocalSet ϕ1 n1, ILocalSet ϕ2 n2
  | ICodeRef ϕ1 n1, ICodeRef ϕ2 n2
  | IInject ϕ1 n1, IInject ϕ2 n2
@@ -470,7 +472,6 @@ Lemma instruction_eq_convert :
 
 Lemma list_eq_convert_instruction :
   ∀ es1 es2, list_beq instruction instruction_beq es1 es2 = true <-> es1 = es2. Proof. Admitted.
-
 Ltac boolean_equality_auto :=
   match goal with
   | H: (kind_beq _ _ = true) |- _ => apply kind_eq_convert in H; subst; auto
@@ -3161,12 +3162,12 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
   | IIte _ L' _ _ => inl (Some L')
   | IBr _ _
   | IReturn _ => inl None
-  | ILocalGet ψ i =>
+  | ILocalGet ψ cm i =>
       match ψ with
       | InstrT [] [τ] =>
-          match has_ref_flag_checker F τ NoRefs with
-          | inl () => inl (Some L)
-          | _ =>
+          match cm with
+          | Copy => inl (Some L)
+          | Move =>
               match F.(fc_locals) !! i with
               | Some ηs => inl (Some (<[ i := type_plug_prim ηs ]> L))
               | _ => inr "NO"%string
@@ -3465,7 +3466,7 @@ Fixpoint has_instruction_type_checker
             end
         end
       else INR "incorrect instruction type for return"
-  | ILocalGet ψ_inner i => (* note this is for both TLocalGetMove and TLocalGetCopy *)
+  | ILocalGet ψ_inner cm i => (* note this is for both TLocalGetMove and TLocalGetCopy *)
       if andb (instruction_type_beq ψ ψ_inner) (true)
       then
         match L !! i with
@@ -3474,12 +3475,16 @@ Fixpoint has_instruction_type_checker
             | InstrT [] [τ'] =>
                 if type_beq τ τ'
                 then
-                  match has_ref_flag_checker F τ NoRefs with (* decision point *)
-                  | inl () =>
-                      if local_ctx_beq L L'
-                      then has_instruction_type_ok_checker F ψ L
-                      else INR "incorrect instruction type for local get"
-                  | inr _ =>
+                  match cm with (* decision point *)
+                  | Copy =>
+                      match has_ref_flag_checker F τ NoRefs with
+                      | inl () =>
+                          if local_ctx_beq L L'
+                          then has_instruction_type_ok_checker F ψ L
+                          else INR "incorrect instruction type for local get"
+                      | inr a => inr a
+                      end
+                  | Move =>
                       match F.(fc_locals) !! i with
                       | Some ηs =>
                           if local_ctx_beq L' (<[ i := type_plug_prim ηs ]> L)
@@ -4150,7 +4155,7 @@ Section InstructionMind.
     (HIte: ∀ ψ τs es1 es2, P2 es1 -> P2 es2 -> P1 (IIte ψ τs es1 es2))
     (HBr: ∀ ψ n, P1 (IBr ψ n))
     (HReturn: ∀ ψ, P1 (IReturn ψ))
-    (HLocalGet: ∀ ψ n, P1 (ILocalGet ψ n))
+    (HLocalGet: ∀ ψ cm n, P1 (ILocalGet ψ cm n))
     (HLocalSet: ∀ ψ n, P1 (ILocalSet ψ n))
     (HCodeRef: ∀ ψ n, P1 (ICodeRef ψ n))
     (HInst: ∀ ψ ix, P1 (IInst ψ ix))
@@ -4204,7 +4209,7 @@ Section InstructionMind.
             (list_instruction_ind es1) (list_instruction_ind es2)
       | IBr ψ n => HBr ψ n
       | IReturn ψ => HReturn ψ
-      | ILocalGet ψ n => HLocalGet ψ n
+      | ILocalGet ψ cm n => HLocalGet ψ cm n
       | ILocalSet ψ n => HLocalSet ψ n
       | ICodeRef ψ n => HCodeRef ψ n
       | IInst ψ ix => HInst ψ ix
