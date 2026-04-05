@@ -52,7 +52,7 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
   | IIte ψ _ _ _
   | IBr ψ _
   | IReturn ψ
-  | ILocalGet ψ _
+  | ILocalGet ψ _ _
   | ILocalSet ψ _
   | ICodeRef ψ _
   | IInst ψ _

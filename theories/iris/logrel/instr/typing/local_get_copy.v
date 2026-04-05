@@ -22,7 +22,7 @@ Section local_get_copy.
     L !! i = Some τ ->
     has_ref_flag F τ NoRefs ->
     has_instruction_type_ok F ψ L ->
-    run_codegen (compile_instr mr fe (ILocalGet ψ i)) wt wl = inr ((), wt', wl', es') ->
+    run_codegen (compile_instr mr fe (ILocalGet ψ Copy i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Admitted.
 

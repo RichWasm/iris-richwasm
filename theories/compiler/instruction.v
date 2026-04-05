@@ -285,7 +285,7 @@ Section Compiler.
     | IIte ψ _ es1 es2 => compile_ite fe ψ (compile_instrs fe es1) (compile_instrs fe es2)
     | IBr _ i => emit (W.BI_br i)
     | IReturn _ => emit W.BI_return
-    | ILocalGet _ i => compile_local_get fe i
+    | ILocalGet _ _ i => compile_local_get fe i
     | ILocalSet _ i => compile_local_set fe i
     | ICodeRef _ i => compile_coderef i
     | IInst _ _ => erased_in_wasm

@@ -72,9 +72,13 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   | Fold (_, v) -> r v
   | Unfold v -> r v
 
-let rec cc_t t = cc_pt t
+let rec cc_t ?(pack = true) t = cc_pt ~pack t
 
-and cc_pt pt =
+and cc_pt ?(pack = true) pt =
+  (* the ~pack argument is basically a hack, and doesn't wrap function types
+     in an existential for imports. but any function types referenced inside
+     that function _should_ get treated normally. *)
+  let cc_t = cc_t ~pack:true in
   match pt with
   | Source.PreType.Int -> Closed.PreType.Int
   | Source.PreType.Var v -> Closed.PreType.Var v
@@ -83,19 +87,23 @@ and cc_pt pt =
   | Source.PreType.Ref t -> Closed.PreType.Ref (cc_t t)
   | Source.PreType.Rec (v, t) -> Closed.PreType.Rec (v, cc_t t)
   | Source.PreType.Fun { foralls; arg; ret } ->
-      Closed.(
-        PreType.Exists
-          ( "#cc-env",
-            PreType.Prod
-              [
-                PreType.Var "#cc-env";
-                PreType.Code
-                  {
-                    foralls;
-                    arg = PreType.Prod [ PreType.Var "#cc-env"; cc_t arg ];
-                    ret = cc_t ret;
-                  };
-              ] ))
+      if pack then
+        Closed.PreType.(
+          Exists
+            ( "#cc-env",
+              Prod
+                [
+                  Var "#cc-env";
+                  Code
+                    {
+                      foralls;
+                      arg = Prod [ Var "#cc-env"; cc_t arg ];
+                      ret = cc_t ret;
+                    };
+                ] ))
+      else
+        Closed.PreType.(
+          Code { foralls; arg = Prod [ Prod []; cc_t arg ]; ret = cc_t ret })
 
 let rec cc_e user_fns gamma tagger acc e =
   let open Source.Expr in
@@ -341,7 +349,10 @@ let cc_module (Source.Module.Module (imps, items, body)) =
   in
   let imps' =
     List.map
-      ~f:(fun (Source.Module.Import (n, t)) -> Closed.Module.Import (n, cc_t t))
+      ~f:(fun (Source.Module.Import (n, t)) ->
+        (* imports are of actual function type, not packed existential. they're
+           added in [user_fns] so they get packed on use. *)
+        Closed.Module.Import (n, cc_t ~pack:false t))
       imps
   in
   let items' =

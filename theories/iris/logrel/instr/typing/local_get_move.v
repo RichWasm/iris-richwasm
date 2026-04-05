@@ -23,7 +23,7 @@ Section local_get_move.
     F.(typing.fc_locals) !! i = Some ηs ->
     L !! i = Some τ ->
     has_instruction_type_ok F ψ L' ->
-    run_codegen (compile_instr mr fe (ILocalGet ψ i)) wt wl = inr ((), wt', wl', es') ->
+    run_codegen (compile_instr mr fe (ILocalGet ψ Move i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Admitted.
 

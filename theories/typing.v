@@ -768,14 +768,14 @@ Inductive has_instruction_type :
   L !! i = Some τ ->
   has_ref_flag F τ NoRefs ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (ILocalGet ψ i) ψ L
+  has_instruction_type M F L (ILocalGet ψ Copy i) ψ L
 | TLocalGetMove M F L i τ ηs :
   let ψ := InstrT [] [τ] in
   let L' := <[ i := type_plug_prim ηs ]> L in
   F.(fc_locals) !! i = Some ηs ->
   L !! i = Some τ ->
   has_instruction_type_ok F ψ L' ->
-  has_instruction_type M F L (ILocalGet ψ i) ψ L'
+  has_instruction_type M F L (ILocalGet ψ Move i) ψ L'
 | TLocalSet M F L i τ τ0 :
   let ψ := InstrT [τ] [] in
   let L' := <[ i := τ ]> L in
@@ -1014,14 +1014,14 @@ Section HasHaveInstructionTypeMind.
           L !! i = Some τ ->
           has_ref_flag F τ NoRefs ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (ILocalGet ψ i) ψ L)
+          P1 M F L (ILocalGet ψ Copy i) ψ L)
       (HLocalGetMove : forall M F L i τ ηs,
           let ψ := InstrT [] [τ] in
           let L' := <[ i := type_plug_prim ηs ]> L in
           F.(fc_locals) !! i = Some ηs ->
           L !! i = Some τ ->
           has_instruction_type_ok F ψ L' ->
-          P1 M F L (ILocalGet ψ i) ψ L')
+          P1 M F L (ILocalGet ψ Move i) ψ L')
       (HLocalSet : forall M F L i τ τ0,
           let ψ := InstrT [τ] [] in
           let L' := <[ i := τ ]> L in
