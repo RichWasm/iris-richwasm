@@ -125,6 +125,7 @@ Section Compiler.
     (fe : function_env) (μ : base_memory) (con : consumption)
     (a : W.localidx) (off : nat) (ι : atomic_rep) :
     codegen unit :=
+
     emit (W.BI_get_local (localimm a));;
     match μ with
     | MemGC => loadroot
@@ -147,10 +148,10 @@ Section Compiler.
     (fe : function_env) (μ : base_memory) (con : consumption)
     (a : W.localidx) (off : nat) (ιs : list atomic_rep) :
     codegen unit :=
-    ignore $ foldM
-      (fun ι off => load1 fe μ con a off ι;; ret (off + arep_size ι))
-      (ret off)
-      (rev ιs). (* TODO: hack until we have foldlM *)
+    ignore $ foldlM
+      (fun off ι => load1 fe μ con a off ι;; ret (off + arep_size ι))
+      off
+      ιs.
 
   Definition store1
     (μ : base_memory) (a : W.localidx) (off : nat) (v : W.localidx) (ι : atomic_rep) :
@@ -170,9 +171,9 @@ Section Compiler.
     (μ : base_memory) (a : W.localidx) (off : nat)
     (vs : list W.localidx) (ιs : list atomic_rep) :
     codegen unit :=
-    ignore $ foldM
-      (fun '(v, ι) off => store1 μ a off v ι;; ret (off + arep_size ι))
-      (ret off)
-      (rev (zip vs ιs)). (* TODO: hack until we have foldlM *)
+    ignore $ foldlM
+      (fun off '(v, ι) => store1 μ a off v ι;; ret (off + arep_size ι))
+      off
+      (zip vs ιs).
 
 End Compiler.

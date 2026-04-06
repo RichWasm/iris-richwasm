@@ -1,7 +1,7 @@
 Require Import iris.proofmode.proofmode.
 
 Require Import RichWasm.iris.language.iris_wp_def.
-Require Import RichWasm.iris.language.cwp.def.
+From RichWasm.iris.language.cwp Require Import base const def util structural.
 Require Import RichWasm.iris.rules.iris_rules_pure.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -23,6 +23,52 @@ Section parametric.
       by iFrame.
     - iIntros (v') "[[[-> HΦ] Hrun] Hf]". iFrame.
   Qed.
+
+  Lemma cwp_drops evs E L R f Φ :
+  is_consts evs ->
+  ⊢ ↪[frame] f -∗
+    ↪[RUN] -∗
+    Φ f [] -∗
+    CWP evs ++ repeat BI_drop (length evs) @ E UNDER L; R {{ Φ }}.
+Proof.
+  induction evs as [| ev evs IH] using rev_ind.
+  - iIntros (_) "Hfr Hrun HΦ".
+    cbn.
+    by iApply (cwp_val with "[$] [$] HΦ").
+  - iIntros (Hconsts) "Hfr Hrun HΦ".
+    replace (length (evs ++ [ev])) with (S (length (evs))).
+    2: {
+      rewrite <- (length_rev (_ ++ _)).
+      rewrite rev_unit.
+      simpl.
+      by rewrite length_rev.
+    }
+    cbn.
+    rewrite -app_assoc.
+    apply is_consts_app in Hconsts as [Hconsts_evs Hconst_ev].
+    apply is_consts_exists in Hconsts_evs as H.
+    destruct H as [vs Hvs].
+    cbn in Hconst_ev.
+    rewrite andb_true_r in Hconst_ev.
+    apply is_const_exists in Hconst_ev as H.
+    destruct H as [v Hv].
+    rewrite Hvs Hv.
+    rewrite (separate1 BI_drop).
+    do 2 rewrite app_assoc.
+    iApply (cwp_seq with "[Hfr Hrun]").
+    {
+      rewrite -app_assoc.
+      iApply cwp_val_app; first apply has_values_to_consts.
+      cbn.
+      iApply (cwp_drop with "[$] [$] []").
+      instantiate (1 := λ f' vs', (⌜f' = f⌝ ∗ ⌜vs' = vs⌝)%I).
+      unfold fvs_combine.
+      by rewrite app_nil_r.
+    }
+    iIntros (??) "[-> ->] Hfr Hrun".
+    rewrite -Hvs.
+    by iApply (IH with "[$] [$] [$]").
+Qed.
 
   Lemma cwp_select_nonzero s E f v1 v2 c L R Φ :
     c <> Wasm_int.int_zero i32m ->

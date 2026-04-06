@@ -5,8 +5,8 @@ open Richwasm_common.Syntax
 let rep = Representation.Atom AtomicRep.Ptr
 
 let kind =
-  (* the kind of all mini-ml types: [VALTYPE ptr ExCopy ExDrop] *)
-  Kind.VALTYPE (rep, Copyability.ExCopy, Dropability.ExDrop)
+  (* the kind of all mini-ml types: [VALTYPE ptr gcrefs] *)
+  Kind.VALTYPE (rep, RefFlag.GCRefs)
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in

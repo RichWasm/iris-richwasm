@@ -81,56 +81,50 @@ let%expect_test "simple cases" =
       (func $richwasm.unregisterroot (import "richwasm" "unregisterroot") (type $t3) (param i32))
       (table $richwasm.table (import "richwasm" "table") 0 funcref)
       (func $_start (export "_start") (type $t4) (result i32)
-        (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32)
+        (local $l0 i32) (local $l1 i32) (local $l2 i32)
         (local.set $l0
           (i32.const 0))
         (i32.const 0)
         (local.set $l1
           (local.get $l0))
         (local.set $l2)
-        (block $B0
-          (br_if $B0
-            (i32.ne
-              (local.get $l2)
-              (i32.const 0)))
+        (i32.const 0)
+        (block $B0 (param i32) (result i32)
+          (i32.ne
+            (local.get $l2)
+            (i32.const 0))
+          (drop
+            (br_if $B0))
           (drop
             (local.get $l1))
-          (local.set $l3
-            (i32.const 0)))
-        (block $B1
-          (br_if $B1
-            (i32.ne
-              (local.get $l2)
-              (i32.const 1)))
+          (i32.const 0))
+        (block $B1 (param i32) (result i32)
+          (i32.ne
+            (local.get $l2)
+            (i32.const 1))
+          (drop
+            (br_if $B1))
           (drop
             (local.get $l1))
-          (local.set $l3
-            (i32.const 1)))
-        (block $B2
-          (br_if $B2
-            (i32.ne
-              (local.get $l2)
-              (i32.const 2)))
+          (i32.const 1))
+        (block $B2 (param i32) (result i32)
+          (i32.ne
+            (local.get $l2)
+            (i32.const 2))
+          (drop
+            (br_if $B2))
           (drop
             (local.get $l1))
-          (local.set $l3
-            (i32.const 2)))
-        (block $B3
-          (br_if $B3
-            (i32.ne
-              (local.get $l2)
-              (i32.const 3)))
+          (i32.const 2))
+        (block $B3 (param i32) (result i32)
+          (i32.ne
+            (local.get $l2)
+            (i32.const 3))
+          (drop
+            (br_if $B3))
           (drop
             (local.get $l1))
-          (local.set $l3
-            (i32.const 3)))
-        (block $B4
-          (br_if $B4
-            (i32.lt_s
-              (local.get $l2)
-              (i32.const 4)))
-          (unreachable))
-        (local.get $l3))
+          (i32.const 3)))
       (func $f8 (type $t5)
         (global.set $g1
           (global.get $richwasm.tablenext))
@@ -187,7 +181,7 @@ let%expect_test "debug: boxed sum" =
       (func $richwasm.unregisterroot (import "richwasm" "unregisterroot") (type $t3) (param i32))
       (table $richwasm.table (import "richwasm" "table") 0 funcref)
       (func $_start (export "_start") (type $t4) (result i32)
-        (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32) (local $l10 i32) (local $l11 i32) (local $l12 i32) (local $l13 i32) (local $l14 i32) (local $l15 i32) (local $l16 i32) (local $l17 i32) (local $l18 i32) (local $l19 i32)
+        (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32) (local $l10 i32) (local $l11 i32) (local $l12 i32) (local $l13 i32) (local $l14 i32) (local $l15 i32) (local $l16 i32) (local $l17 i32) (local $l18 i32)
         (local.set $l7
           (i32.const 7))
         (i32.const 0)
@@ -275,29 +269,23 @@ let%expect_test "debug: boxed sum" =
         (local.set $l17
           (local.get $l2))
         (local.set $l18)
-        (block $B4
-          (br_if $B4
-            (i32.ne
-              (local.get $l18)
-              (i32.const 0)))
+        (i32.const 0)
+        (block $B4 (param i32) (result i32)
+          (i32.ne
+            (local.get $l18)
+            (i32.const 0))
+          (drop
+            (br_if $B4))
           (local.get $l17)
-          (nop)
-          (local.set $l19))
-        (block $B5
-          (br_if $B5
-            (i32.ne
-              (local.get $l18)
-              (i32.const 1)))
+          (nop))
+        (block $B5 (param i32) (result i32)
+          (i32.ne
+            (local.get $l18)
+            (i32.const 1))
+          (drop
+            (br_if $B5))
           (local.get $l17)
-          (nop)
-          (local.set $l19))
-        (block $B6
-          (br_if $B6
-            (i32.lt_s
-              (local.get $l18)
-              (i32.const 2)))
-          (unreachable))
-        (local.get $l19))
+          (nop)))
       (func $f8 (type $t5)
         (global.set $g1
           (global.get $richwasm.tablenext))
@@ -307,3 +295,98 @@ let%expect_test "debug: boxed sum" =
             (i32.const 0))))
       (global $g1 (mut i32) (i32.const 0))
       (start $f8)) |}]
+
+let%expect_test "unpack argument" =
+  output
+    {|
+      ((imports ())
+       (functions
+        (((typ (FunctionType () ((Exists (Type (VALTYPE (Atom I32) NoRefs)) (Var 0))) ()))
+          (locals ())
+          (body
+           ((LocalGet 0 Move)
+            (Unpack (ValType ()) InferFx
+             (Drop)))))))
+       (table ())
+       (exports (((name _start) (desc (Func 0))))))
+    |};
+  [%expect
+    {|
+      (module
+        (type $t0 (func (param i32 i32)))
+        (type $t1 (func (param i32) (result i32)))
+        (type $t2 (func (param i32 i32 i32)))
+        (type $t3 (func (param i32)))
+        (type $t4 (func))
+        (memory $richwasm.mmmem (import "richwasm" "mmmem") 0)
+        (memory $richwasm.gcmem (import "richwasm" "gcmem") 0)
+        (global $richwasm.tablenext (import "richwasm" "tablenext") (mut i32))
+        (func $richwasm.tableset (import "richwasm" "tableset") (type $t0) (param i32 i32))
+        (func $richwasm.mmalloc (import "richwasm" "mmalloc") (type $t1) (param i32) (result i32))
+        (func $richwasm.gcalloc (import "richwasm" "gcalloc") (type $t1) (param i32) (result i32))
+        (func $richwasm.setflag (import "richwasm" "setflag") (type $t2) (param i32 i32 i32))
+        (func $richwasm.free (import "richwasm" "free") (type $t3) (param i32))
+        (func $richwasm.registerroot (import "richwasm" "registerroot") (type $t1) (param i32) (result i32))
+        (func $richwasm.unregisterroot (import "richwasm" "unregisterroot") (type $t3) (param i32))
+        (table $richwasm.table (import "richwasm" "table") 0 funcref)
+        (func $_start (export "_start") (type $t3) (param $p0 i32)
+          (local.get $p0)
+          (block $B0 (param i32)
+            (drop)))
+        (func $f8 (type $t4)
+          (global.set $g1
+            (global.get $richwasm.tablenext))
+          (global.set $richwasm.tablenext
+            (i32.add
+              (global.get $g1)
+              (i32.const 0))))
+        (global $g1 (mut i32) (i32.const 0))
+        (start $f8)) |}]
+
+let%expect_test "pack unpack" =
+  output
+    {|
+      ((imports ())
+       (functions
+        (((typ (FunctionType () () ()))
+          (locals ())
+          (body
+           ((NumConst (Int I32) 5)
+            (Pack (Type (Num (Int I32))) (Var 0))
+            (Unpack (ValType ()) InferFx
+             (Drop)))))))
+       (table ())
+       (exports (((name _start) (desc (Func 0))))))
+    |};
+  [%expect
+    {|
+      (module
+        (type $t0 (func (param i32 i32)))
+        (type $t1 (func (param i32) (result i32)))
+        (type $t2 (func (param i32 i32 i32)))
+        (type $t3 (func (param i32)))
+        (type $t4 (func))
+        (memory $richwasm.mmmem (import "richwasm" "mmmem") 0)
+        (memory $richwasm.gcmem (import "richwasm" "gcmem") 0)
+        (global $richwasm.tablenext (import "richwasm" "tablenext") (mut i32))
+        (func $richwasm.tableset (import "richwasm" "tableset") (type $t0) (param i32 i32))
+        (func $richwasm.mmalloc (import "richwasm" "mmalloc") (type $t1) (param i32) (result i32))
+        (func $richwasm.gcalloc (import "richwasm" "gcalloc") (type $t1) (param i32) (result i32))
+        (func $richwasm.setflag (import "richwasm" "setflag") (type $t2) (param i32 i32 i32))
+        (func $richwasm.free (import "richwasm" "free") (type $t3) (param i32))
+        (func $richwasm.registerroot (import "richwasm" "registerroot") (type $t1) (param i32) (result i32))
+        (func $richwasm.unregisterroot (import "richwasm" "unregisterroot") (type $t3) (param i32))
+        (table $richwasm.table (import "richwasm" "table") 0 funcref)
+        (func $_start (export "_start") (type $t4)
+          (i32.const 5)
+          (block $B0 (param i32)
+            (drop)))
+        (func $f8 (type $t4)
+          (global.set $g1
+            (global.get $richwasm.tablenext))
+          (global.set $richwasm.tablenext
+            (i32.add
+              (global.get $g1)
+              (i32.const 0))))
+        (global $g1 (mut i32) (i32.const 0))
+        (start $f8)) |}]

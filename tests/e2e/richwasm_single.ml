@@ -115,6 +115,28 @@ let simple_tests =
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "34" );
+    ( "cases br val",
+      {|
+        ((imports ())
+         (functions
+          (((typ (FunctionType () () ((Num (Int I32)))))
+            (locals ())
+            (body
+             (
+              (NumConst (Int I32) -1)
+              (Inject 0 ((Num (Int I32))))
+              (Case (ValType ((Num (Int I32)))) (LocalFx ())
+               ((
+                 (NumConst (Int I32) 67)
+                 (Br 0)
+                )
+               )
+              )
+              return
+             )))))
+         (table ()) (exports (((name _start) (desc (Func 0))))))
+      |},
+      "67" );
     ( "boxed sum",
       {|
       ((imports ())

@@ -29,6 +29,7 @@ Definition kc_of_fft (fft : flat_function_type) : kind_ctx :=
 
 Record function_ctx :=
   { fc_return : list type;
+    fc_params : list (list primitive);
     fc_locals : list (list primitive);
     fc_labels : list (list type * local_ctx);
     fc_kind_ctx : kind_ctx;
@@ -38,6 +39,7 @@ Arguments function_ctx : clear implicits.
 
 Definition fc_empty : function_ctx :=
   {| fc_return := [];
+     fc_params := [];
      fc_locals := [];
      fc_labels := [];
      fc_kind_ctx := kc_empty;
@@ -45,6 +47,7 @@ Definition fc_empty : function_ctx :=
 
 Definition fc_clear_kind (F : function_ctx) : function_ctx :=
   {| fc_return := F.(fc_return);
+     fc_params := F.(fc_params);
      fc_locals := F.(fc_locals);
      fc_labels := F.(fc_labels);
      fc_kind_ctx := kc_empty;
@@ -56,6 +59,7 @@ Definition subst_function_ctx
   function_ctx :=
   let sub := subst_type s__mem s__rep s__size s__type in
   {| fc_return := map sub F.(fc_return);
+     fc_params := F.(fc_params);
      fc_locals := F.(fc_locals);
      fc_labels := map (fun '(τs, L) => (map sub τs, map sub L)) F.(fc_labels);
      fc_kind_ctx := F.(fc_kind_ctx);
@@ -98,12 +102,12 @@ Inductive size_ok : kind_ctx -> size -> Prop :=
   size_ok K (ConstS n).
 
 Inductive kind_ok : kind_ctx -> kind -> Prop :=
-| OKVALTYPE K ρ χ δ :
+| OKVALTYPE K ρ ξ :
   rep_ok K ρ ->
-  kind_ok K (VALTYPE ρ χ δ)
-| OKMEMTYPE K σ δ :
+  kind_ok K (VALTYPE ρ ξ)
+| OKMEMTYPE K σ ξ :
   size_ok K σ ->
-  kind_ok K (MEMTYPE σ δ).
+  kind_ok K (MEMTYPE σ ξ).
 
 Inductive type_ok : function_ctx -> type -> Prop :=
 | OKVarT F t κ :
@@ -198,14 +202,14 @@ Definition mono_mem (μ : memory) : Prop := exists bm, μ = BaseM bm.
 
 (*This is not reflective or transitive; maybe it should be*)
 Inductive subkind_of : kind -> kind -> Prop :=
-| KSubValExCopy ρ δ :
-  subkind_of (VALTYPE ρ ImCopy δ) (VALTYPE ρ ExCopy δ)
-| KSubValNoCopy ρ δ :
-  subkind_of (VALTYPE ρ ExCopy δ) (VALTYPE ρ NoCopy δ)
-| KSubValExDrop ρ χ :
-  subkind_of (VALTYPE ρ χ ImDrop) (VALTYPE ρ χ ExDrop)
-| KSubMemExDrop σ :
-  subkind_of (MEMTYPE σ ImDrop) (MEMTYPE σ ExDrop).
+| KSubValGCRefs ρ :
+  subkind_of (VALTYPE ρ NoRefs) (VALTYPE ρ GCRefs)
+| KSubValAnyRefs ρ :
+  subkind_of (VALTYPE ρ GCRefs) (VALTYPE ρ AnyRefs)
+| KSubMemGCRefs σ :
+  subkind_of (MEMTYPE σ NoRefs) (MEMTYPE σ GCRefs)
+| KSubMemAnyRefs σ :
+  subkind_of (MEMTYPE σ GCRefs) (MEMTYPE σ AnyRefs).
 
 Inductive has_kind_ok : function_ctx -> type -> kind -> Prop :=
 | OKHasKind F τ κ :
@@ -215,60 +219,60 @@ Inductive has_kind_ok : function_ctx -> type -> kind -> Prop :=
 
 Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KI31 F :
-  let κ := VALTYPE (AtomR PtrR) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR PtrR) NoRefs in
   has_kind F (I31T κ) κ
 | KI32 F :
-  let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR I32R) NoRefs in
   has_kind F (NumT κ (IntT I32T)) κ
 | KI64 F :
-  let κ := VALTYPE (AtomR I64R) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR I64R) NoRefs in
   has_kind F (NumT κ (IntT I64T)) κ
 | KF32 F :
-  let κ := VALTYPE (AtomR F32R) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR F32R) NoRefs in
   has_kind F (NumT κ (FloatT F32T)) κ
 | KF64 F :
-  let κ := VALTYPE (AtomR F64R) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR F64R) NoRefs in
   has_kind F (NumT κ (FloatT F64T)) κ
-| KSum F τs ρs χ δ :
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-  let κ := VALTYPE (SumR ρs) χ δ in
+| KSum F τs ρs ξ :
+  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ->
+  let κ := VALTYPE (SumR ρs) ξ in
   has_kind F (SumT κ τs) κ
-| KVariant F τs σs δ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ δ)) τs σs ->
-  let κ := MEMTYPE (SumS σs) δ in
+| KVariant F τs σs ξ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ)) τs σs ->
+  let κ := MEMTYPE (SumS σs) ξ in
   has_kind F (VariantT κ τs) κ
-| KProd F τs ρs χ δ :
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-  let κ := VALTYPE (ProdR ρs) χ δ in
+| KProd F τs ρs ξ :
+  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ->
+  let κ := VALTYPE (ProdR ρs) ξ in
   has_kind F (ProdT κ τs) κ
-| KStruct F τs σs δ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ δ)) τs σs ->
-  let κ := MEMTYPE (ProdS σs) δ in
+| KStruct F τs σs ξ :
+  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ)) τs σs ->
+  let κ := MEMTYPE (ProdS σs) ξ in
   has_kind F (StructT κ τs) κ
-| KRef F μ τ σ δ :
+| KRef F μ τ σ ξ :
   mem_ok F.(fc_kind_ctx) μ ->
-  has_kind F τ (MEMTYPE σ δ) ->
-  let κ := VALTYPE (AtomR PtrR) NoCopy ExDrop in
+  has_kind F τ (MEMTYPE σ ξ) ->
+  let κ := VALTYPE (AtomR PtrR) AnyRefs in
   has_kind F (RefT κ μ τ) κ
-| KRefGC F τ σ δ :
-  has_kind F τ (MEMTYPE σ δ) ->
-  let κ := VALTYPE (AtomR PtrR) ExCopy ExDrop in
+| KRefGC F τ σ ξ :
+  has_kind F τ (MEMTYPE σ ξ) ->
+  let κ := VALTYPE (AtomR PtrR) GCRefs in
   has_kind F (RefT κ (BaseM MemGC) τ) κ
 | KCodeRef F ϕ :
   function_type_ok F ϕ ->
-  let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR I32R) NoRefs in
   has_kind F (CodeRefT κ ϕ) κ
-| KSer F τ ρ χ δ :
-  has_kind F τ (VALTYPE ρ χ δ) ->
-  let κ := MEMTYPE (RepS ρ) δ in
+| KSer F τ ρ ξ :
+  has_kind F τ (VALTYPE ρ ξ) ->
+  let κ := MEMTYPE (RepS ρ) ξ in
   has_kind F (SerT κ τ) κ
 | KPlug F ρ :
   rep_ok F.(fc_kind_ctx) ρ ->
-  let κ := VALTYPE ρ ImCopy ImDrop in
+  let κ := VALTYPE ρ NoRefs in
   has_kind F (PlugT κ ρ) κ
 | KSpan F σ :
   size_ok F.(fc_kind_ctx) σ ->
-  let κ := MEMTYPE σ ImDrop in
+  let κ := MEMTYPE σ NoRefs in
   has_kind F (SpanT κ σ) κ
 | KRec F τ κ :
   has_kind (F <| fc_type_vars ::= cons κ |>) τ κ ->
@@ -304,46 +308,46 @@ Section HasKindInd.
   Variable P : function_ctx -> type -> kind -> Prop.
 
   Hypotheses
-      (HI31 : forall F, let κ := VALTYPE (AtomR PtrR) ImCopy ImDrop in
+      (HI31 : forall F, let κ := VALTYPE (AtomR PtrR) NoRefs in
                    P F (I31T κ) κ)
-      (HI32 : forall F, let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+      (HI32 : forall F, let κ := VALTYPE (AtomR I32R) NoRefs in
                    P F (NumT κ (IntT I32T)) κ)
-      (HI64 : forall F, let κ := VALTYPE (AtomR I64R) ImCopy ImDrop in
+      (HI64 : forall F, let κ := VALTYPE (AtomR I64R) NoRefs in
                    P F (NumT κ (IntT I64T)) κ)
-      (HF32 : forall F, let κ := VALTYPE (AtomR F32R) ImCopy ImDrop in
+      (HF32 : forall F, let κ := VALTYPE (AtomR F32R) NoRefs in
                    P F (NumT κ (FloatT F32T)) κ)
-      (HF64 : forall F, let κ := VALTYPE (AtomR F64R) ImCopy ImDrop in
+      (HF64 : forall F, let κ := VALTYPE (AtomR F64R) NoRefs in
                    P F (NumT κ (FloatT F64T)) κ)
-      (HSum : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
-                             let κ := VALTYPE (SumR ρs) χ δ in
-                             P F (SumT κ τs) κ)
-      (HVariant : forall F τs σs δ, Forall2 (fun τ σ => P F τ (MEMTYPE σ δ)) τs σs ->
-                               let κ := MEMTYPE (SumS σs) δ in
+      (HSum : forall F τs ρs ξ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ ξ)) τs ρs ->
+                           let κ := VALTYPE (SumR ρs) ξ in
+                           P F (SumT κ τs) κ)
+      (HVariant : forall F τs σs ξ, Forall2 (fun τ σ => P F τ (MEMTYPE σ ξ)) τs σs ->
+                               let κ := MEMTYPE (SumS σs) ξ in
                                P F (VariantT κ τs) κ)
-      (HProd : forall F τs ρs χ δ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ χ δ)) τs ρs ->
-                              let κ := VALTYPE (ProdR ρs) χ δ in
-                              P F (ProdT κ τs) κ)
-      (HStruct : forall F τs σs δ, Forall2 (fun τ σ => P F τ (MEMTYPE σ δ)) τs σs ->
-                              let κ := MEMTYPE (ProdS σs) δ in
+      (HProd : forall F τs ρs ξ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ ξ)) τs ρs ->
+                            let κ := VALTYPE (ProdR ρs) ξ in
+                            P F (ProdT κ τs) κ)
+      (HStruct : forall F τs σs ξ, Forall2 (fun τ σ => P F τ (MEMTYPE σ ξ)) τs σs ->
+                              let κ := MEMTYPE (ProdS σs) ξ in
                               P F (StructT κ τs) κ)
-      (HRef : forall F μ τ σ δ, mem_ok F.(fc_kind_ctx) μ ->
-                           P F τ (MEMTYPE σ δ) ->
-                           let κ := VALTYPE (AtomR PtrR) NoCopy ExDrop in
-                         P F (RefT κ μ τ) κ)
-      (HRefGC : forall F τ σ δ, P F τ (MEMTYPE σ δ) ->
-                           let κ := VALTYPE (AtomR PtrR) ExCopy ExDrop in
+      (HRef : forall F μ τ σ ξ, mem_ok F.(fc_kind_ctx) μ ->
+                           P F τ (MEMTYPE σ ξ) ->
+                           let κ := VALTYPE (AtomR PtrR) AnyRefs in
+                           P F (RefT κ μ τ) κ)
+      (HRefGC : forall F τ σ ξ, P F τ (MEMTYPE σ ξ) ->
+                           let κ := VALTYPE (AtomR PtrR) GCRefs in
                            P F (RefT κ (BaseM MemGC) τ) κ)
       (HCodeRef : forall F ϕ, function_type_ok F ϕ ->
-                         let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+                         let κ := VALTYPE (AtomR I32R) NoRefs in
                          P F (CodeRefT κ ϕ) κ)
-      (HSer : forall F τ ρ χ δ, P F τ (VALTYPE ρ χ δ) ->
-                           let κ := MEMTYPE (RepS ρ) δ in
+      (HSer : forall F τ ρ ξ, P F τ (VALTYPE ρ ξ) ->
+                           let κ := MEMTYPE (RepS ρ) ξ in
                            P F (SerT κ τ) κ)
       (HPlug : forall F ρ, rep_ok F.(fc_kind_ctx) ρ ->
-                      let κ := VALTYPE ρ ImCopy ImDrop in
+                      let κ := VALTYPE ρ NoRefs in
                       P F (PlugT κ ρ) κ)
       (HSpan : forall F σ, size_ok F.(fc_kind_ctx) σ ->
-                      let κ := MEMTYPE σ ImDrop in
+                      let κ := MEMTYPE σ NoRefs in
                       P F (SpanT κ σ) κ)
       (HRec : forall F τ κ, P (F <| fc_type_vars ::= cons κ |>) τ κ ->
                        P F (RecT κ τ) κ)
@@ -372,18 +376,18 @@ Section HasKindInd.
     | KI64 F => HI64 F
     | KF32 F => HF32 F
     | KF64 F => HF64 F
-    | KSum F τs ρs χ δ H1 =>
-        HSum F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KVariant F τs σs δ H1 =>
-        HVariant F τs σs δ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
-    | KProd F τs ρs χ δ H1 H2 =>
-        HProd F τs ρs χ δ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KStruct F τs σs δ H1 =>
-        HStruct F τs σs δ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
-    | KRef F μ τ σ δ H1 H2 => HRef F μ τ σ δ H1 (has_kind_ind' _ _ _ H2)
-    | KRefGC F τ σ δ H1 => HRefGC F τ σ δ (has_kind_ind' _ _ _ H1)
+    | KSum F τs ρs ξ H1 =>
+        HSum F τs ρs ξ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
+    | KVariant F τs σs ξ H1 =>
+        HVariant F τs σs ξ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
+    | KProd F τs ρs ξ H1 H2 =>
+        HProd F τs ρs ξ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
+    | KStruct F τs σs ξ H1 =>
+        HStruct F τs σs ξ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
+    | KRef F μ τ σ ξ H1 H2 => HRef F μ τ σ ξ H1 (has_kind_ind' _ _ _ H2)
+    | KRefGC F τ σ ξ H1 => HRefGC F τ σ ξ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
-    | KSer F τ ρ χ δ H1 => HSer F τ ρ χ δ (has_kind_ind' _ _ _ H1)
+    | KSer F τ ρ ξ H1 => HSer F τ ρ ξ (has_kind_ind' _ _ _ H1)
     | KPlug F ρ H1 => HPlug F ρ H1
     | KSpan F σ H1 => HSpan F σ H1
     | KRec F τ κ H1 => HRec F τ κ (has_kind_ind' _ _ _ H1)
@@ -440,8 +444,8 @@ Proof.
 Qed.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
-| RepVALTYPE F τ ρ χ δ :
-  has_kind F τ (VALTYPE ρ χ δ) ->
+| RepVALTYPE F τ ρ ξ :
+  has_kind F τ (VALTYPE ρ ξ) ->
   has_rep F τ ρ.
 
 Definition is_mono_rep : representation -> Prop :=
@@ -457,14 +461,14 @@ Definition has_mono_rep_instr (F : function_ctx) '(InstrT τs1 τs2 : instructio
   Forall (has_mono_rep F) τs1 /\ Forall (has_mono_rep F) τs2.
 
 Definition has_size (F : function_ctx) (τ : type) (σ : size) : Prop :=
-  exists δ, has_kind F τ (MEMTYPE σ δ).
+  exists ξ, has_kind F τ (MEMTYPE σ ξ).
 
 Definition is_mono_size : size -> Prop :=
   size_ok kc_empty.
 
 Inductive has_mono_size : function_ctx -> type -> Prop :=
-| MonoSizeMEMTYPE F τ σ δ :
-  has_kind F τ (MEMTYPE σ δ) ->
+| MonoSizeMEMTYPE F τ σ ξ :
+  has_kind F τ (MEMTYPE σ ξ) ->
   is_mono_size σ ->
   has_mono_size F τ.
 
@@ -483,18 +487,13 @@ Definition size_leq (σ1 σ2 : size) : Prop :=
 Definition type_size_eq (F : function_ctx) (τ1 τ2 : type) : Prop :=
   exists σ1 σ2, has_size F τ1 σ1 /\ has_size F τ2 σ2 /\ size_eq σ1 σ2.
 
-Inductive has_copyability : function_ctx -> type -> copyability -> Prop :=
-| CopyVALTYPE F τ ρ χ δ :
-  has_kind F τ (VALTYPE ρ χ δ) ->
-  has_copyability F τ χ.
-
-Inductive has_dropability : function_ctx -> type -> dropability -> Prop :=
-| DropVALTYPE F τ ρ χ δ :
-  has_kind F τ (VALTYPE ρ χ δ) ->
-  has_dropability F τ δ
-| DropMEMTYPE F τ σ δ :
-  has_kind F τ (MEMTYPE σ δ) ->
-  has_dropability F τ δ.
+Inductive has_ref_flag : function_ctx -> type -> ref_flag -> Prop :=
+| MemtypeHasRefFlag F τ ρ ξ :
+  has_kind F τ (VALTYPE ρ ξ) ->
+  has_ref_flag F τ ξ
+| ValtypeHasRefFlag F τ σ ξ :
+  has_kind F τ (MEMTYPE σ ξ) ->
+  has_ref_flag F τ ξ.
 
 Record path_result :=
   { pr_prefix : list type;
@@ -570,10 +569,10 @@ Inductive type_eq : function_ctx -> type -> type -> Prop :=
   has_kind F (ExistsTypeT κ κτ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ')
-| TEqSerProd F κp ρs χ δ τs :
-  let κ := MEMTYPE (ProdS (map RepS ρs)) δ in
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ χ δ)) τs ρs ->
-  let τs' := zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) δ) τ) τs ρs in
+| TEqSerProd F κp ρs ξ τs :
+  let κ := MEMTYPE (ProdS (map RepS ρs)) ξ in
+  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ->
+  let τs' := zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ) τ) τs ρs in
   type_eq F (SerT κ (ProdT κp τs)) (StructT κ τs').
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
@@ -601,61 +600,57 @@ Inductive function_type_insts : function_ctx -> list index -> function_type -> f
 
 Inductive packed_existential : function_ctx -> type -> type -> Prop :=
 | PackMem F μ τ' κ' :
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ' κ' ->
   let τ0 := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ' in
   packed_existential F τ0 (ExistsMemT κ' τ')
 | PackRep F ρ τ' κ' :
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ' κ' ->
   let τ0 := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ' in
   packed_existential F τ0 (ExistsRepT κ' τ')
 | PackSize F σ τ' κ' :
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ' κ' ->
   let τ0 := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' in
   packed_existential F τ0 (ExistsSizeT κ' τ')
 | PackType F τ τ' κ κ' :
   has_kind F τ κ ->
-  has_kind F τ' κ' ->
+  has_kind (F <| fc_type_vars ::= cons κ |>) τ' κ' ->
   let τ0 := subst_type VarM VarR VarS (unscoped.scons τ VarT) τ' in
   packed_existential F τ0 (ExistsTypeT κ' κ τ').
 
 Inductive unpacked_existential :
-  function_ctx -> local_ctx -> list instruction -> instruction_type -> local_ctx ->
-  function_ctx -> local_ctx -> list instruction -> instruction_type -> local_ctx ->
+  function_ctx -> local_ctx -> instruction_type -> local_ctx ->
+  function_ctx -> local_ctx -> instruction_type -> local_ctx ->
   Prop :=
-| UnpackMem F L L' es τs1 κ τ τs2 :
+| UnpackMem F L L' τs1 κ τ τs2 :
   let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
               <| fc_kind_ctx ::= set kc_mem_vars S |> in
-  let es0 := map (subst_instruction (up_memory VarM) VarR VarS VarT) es in
-  let up := subst_type (up_memory VarM) VarR VarS VarT in
+  let up := ren_type S id id id in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsMemT κ τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
-| UnpackRep F L L' es τs1 κ τ τs2 :
+    F L (InstrT (τs1 ++ [ExistsMemT κ τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
+| UnpackRep F L L' τs1 κ τ τs2 :
   let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
               <| fc_kind_ctx ::= set kc_rep_vars S |> in
-  let es0 := map (subst_instruction VarM (up_representation VarR) VarS VarT) es in
-  let up := subst_type VarM (up_representation VarR) VarS VarT in
+  let up := ren_type id S id id in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsRepT κ τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
-| UnpackSize F L L' es τs1 κ τ τs2 :
+    F L (InstrT (τs1 ++ [ExistsRepT κ τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
+| UnpackSize F L L' τs1 κ τ τs2 :
   let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
               <| fc_kind_ctx ::= set kc_size_vars S |> in
-  let es0 := map (subst_instruction VarM VarR (up_size VarS) VarT) es in
-  let up := subst_type VarM VarR (up_size VarS) VarT in
+  let up := ren_type id id S id in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
-| UnpackType F L L' es τs1 κ κ0 τ τs2 :
+    F L (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
+| UnpackType F L L' τs1 κ κ0 τ τs2 :
   let F0 := subst_function_ctx VarM VarR VarS (up_type VarT) F <| fc_type_vars ::= cons κ0 |> in
-  let es0 := map (subst_instruction VarM VarR VarS (up_type VarT)) es in
-  let up := subst_type VarM VarR VarS (up_type VarT) in
+  let up := ren_type id id id S in
   unpacked_existential
-    F L es (InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2) L'
-    F0 (map up L) es0 (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L').
+    F L (InstrT (τs1 ++ [ExistsTypeT κ κ0 τ]) τs2) L'
+    F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L').
 
 Definition local_ctx_ok (F : function_ctx) (L : local_ctx) : Prop :=
-  Forall2 (type_rep_eq_prim F) L F.(fc_locals).
+  Forall2 (type_rep_eq_prim F) L (F.(fc_params) ++ F.(fc_locals)).
 
 Inductive has_instruction_type_ok : function_ctx -> instruction_type -> local_ctx -> Prop :=
 | OKHasInstructionType F ψ L' :
@@ -722,7 +717,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (IUnreachable ψ) ψ L'
 | TCopy M F L τ :
   let ψ := InstrT [τ] [τ; τ] in
-  has_copyability F τ ExCopy ->
+  has_ref_flag F τ GCRefs ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICopy ψ) ψ L
 | TDrop M F L τ :
@@ -759,43 +754,43 @@ Inductive has_instruction_type :
 | TBr M F L L' i τs τs1 τs2 :
   let ψ := InstrT (τs1 ++ τs) τs2 in
   F.(fc_labels) !! i = Some (τs, L) ->
-  Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
+  Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IBr ψ i) ψ L'
 | TReturn M F L L' τs τs1 τs2 :
   let ψ := InstrT (τs1 ++ τs) τs2 in
   F.(fc_return) = τs ->
-  Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
+  Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IReturn ψ) ψ L'
 | TLocalGetCopy M F L i τ :
   let ψ := InstrT [] [τ] in
   L !! i = Some τ ->
-  has_copyability F τ ImCopy ->
+  has_ref_flag F τ NoRefs ->
   has_instruction_type_ok F ψ L ->
-  has_instruction_type M F L (ILocalGet ψ i) ψ L
+  has_instruction_type M F L (ILocalGet ψ Copy i) ψ L
 | TLocalGetMove M F L i τ ηs :
   let ψ := InstrT [] [τ] in
   let L' := <[ i := type_plug_prim ηs ]> L in
   F.(fc_locals) !! i = Some ηs ->
   L !! i = Some τ ->
   has_instruction_type_ok F ψ L' ->
-  has_instruction_type M F L (ILocalGet ψ i) ψ L'
+  has_instruction_type M F L (ILocalGet ψ Move i) ψ L'
 | TLocalSet M F L i τ τ0 :
   let ψ := InstrT [τ] [] in
   let L' := <[ i := τ ]> L in
   L !! i = Some τ0 ->
-  has_dropability F τ0 ImDrop ->
+  has_ref_flag F τ0 NoRefs ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ILocalSet ψ i) ψ L'
 | TCodeRef M F L i ϕ :
-  let τ := CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop) ϕ in
+  let τ := CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ in
   let ψ := InstrT [] [τ] in
   M.(mc_table) !! i = Some ϕ ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICodeRef ψ i) ψ L
 | TInst M F L ix ϕ ϕ' :
-  let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR I32R) NoRefs in
   let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
   function_type_inst F ix ϕ ϕ' ->
   has_instruction_type_ok F ψ L ->
@@ -807,7 +802,7 @@ Inductive has_instruction_type :
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICall ψ i ixs) ψ L
 | TCallIndirect M F L τs1 τs2 :
-  let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+  let κ := VALTYPE (AtomR I32R) NoRefs in
   let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICallIndirect ψ) ψ L
@@ -833,7 +828,7 @@ Inductive has_instruction_type :
   let F' := F <| fc_labels ::= cons (τs', L') |> in
   let τs_ser := zip_with SerT κs τs in
   let ψ := InstrT [RefT κr μ (VariantT κv τs_ser)] (RefT κr μ (VariantT κv τs') :: τs') in
-  Forall (fun τ => has_copyability F τ ExCopy) τs ->
+  Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
   Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (ICaseLoad ψ Copy L' ess) ψ L'
@@ -867,11 +862,11 @@ Inductive has_instruction_type :
   packed_existential F τ τ' ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IPack ψ) ψ L
-| TUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 :
+| TUnpack M F F0' L L' L0 L0' es τs1 τs2 ψ0 :
   let F' := F <| fc_labels ::= cons (τs2, L') |> in
   let ψ := InstrT τs1 τs2 in
-  unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
-  have_instruction_type M F0' L0 es0 ψ0 L0' ->
+  unpacked_existential F' L ψ L' F0' L0 ψ0 L0' ->
+  have_instruction_type M F0' L0 es ψ0 L0' ->
   has_instruction_type_ok F ψ L' ->
   has_instruction_type M F L (IUnpack ψ L' es) ψ L'
 | TTag M F L :
@@ -894,7 +889,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (INew ψ) ψ L
 | TLoadCopy M F L π μ τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-  has_copyability F τval ExCopy ->
+  has_ref_flag F τval GCRefs ->
   resolves_path τ π None pr ->
   pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
@@ -911,7 +906,7 @@ Inductive has_instruction_type :
 | TStoreWeak M F L π μ τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
   resolves_path τ π None pr ->
-  has_dropability F pr.(pr_target) ImDrop ->
+  has_ref_flag F pr.(pr_target) GCRefs ->
   pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
@@ -919,7 +914,7 @@ Inductive has_instruction_type :
 | TStoreStrong M F L π τ τval pr σ ρ κ κ' κser :
   let ψ := InstrT [RefT κ (BaseM MemMM) τ; τval] [RefT κ' (BaseM MemMM) pr.(pr_replaced)] in
   resolves_path τ π (Some (SerT κser τval)) pr ->
-  has_dropability F pr.(pr_target) ImDrop ->
+  has_ref_flag F pr.(pr_target) GCRefs ->
   has_size F pr.(pr_target) σ ->
   has_rep F τval ρ ->
   eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
@@ -968,7 +963,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (IUnreachable ψ) ψ L')
       (HCopy : forall M F L τ,
           let ψ := InstrT [τ] [τ; τ] in
-          has_copyability F τ ExCopy ->
+          has_ref_flag F τ GCRefs ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICopy ψ) ψ L)
       (HDrop : forall M F L τ,
@@ -1005,43 +1000,43 @@ Section HasHaveInstructionTypeMind.
       (HBr : forall M F L L' i τs τs1 τs2,
           let ψ := InstrT (τs1 ++ τs) τs2 in
           F.(fc_labels) !! i = Some (τs, L) ->
-          Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
+          Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IBr ψ i) ψ L')
       (HReturn : forall M F L L' τs τs1 τs2,
           let ψ := InstrT (τs1 ++ τs) τs2 in
           F.(fc_return) = τs ->
-          Forall (fun τ => has_dropability F τ ImDrop) τs1 ->
+          Forall (fun τ => has_ref_flag F τ NoRefs) τs1 ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IReturn ψ) ψ L')
       (HLocalGetCopy : forall M F L i τ,
           let ψ := InstrT [] [τ] in
           L !! i = Some τ ->
-          has_copyability F τ ImCopy ->
+          has_ref_flag F τ NoRefs ->
           has_instruction_type_ok F ψ L ->
-          P1 M F L (ILocalGet ψ i) ψ L)
+          P1 M F L (ILocalGet ψ Copy i) ψ L)
       (HLocalGetMove : forall M F L i τ ηs,
           let ψ := InstrT [] [τ] in
           let L' := <[ i := type_plug_prim ηs ]> L in
           F.(fc_locals) !! i = Some ηs ->
           L !! i = Some τ ->
           has_instruction_type_ok F ψ L' ->
-          P1 M F L (ILocalGet ψ i) ψ L')
+          P1 M F L (ILocalGet ψ Move i) ψ L')
       (HLocalSet : forall M F L i τ τ0,
           let ψ := InstrT [τ] [] in
           let L' := <[ i := τ ]> L in
           L !! i = Some τ0 ->
-          has_dropability F τ0 ImDrop ->
+          has_ref_flag F τ0 NoRefs ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ILocalSet ψ i) ψ L')
       (HCodeRef : forall M F L i ϕ,
-          let τ := CodeRefT (VALTYPE (AtomR I32R) ImCopy ImDrop) ϕ in
+          let τ := CodeRefT (VALTYPE (AtomR I32R) NoRefs) ϕ in
           let ψ := InstrT [] [τ] in
           M.(mc_table) !! i = Some ϕ ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICodeRef ψ i) ψ L)
       (HInst : forall M F L ix ϕ ϕ',
-          let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+          let κ := VALTYPE (AtomR I32R) NoRefs in
           let ψ := InstrT [CodeRefT κ ϕ] [CodeRefT κ ϕ'] in
           function_type_inst F ix ϕ ϕ' ->
           has_instruction_type_ok F ψ L ->
@@ -1053,7 +1048,7 @@ Section HasHaveInstructionTypeMind.
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICall ψ i ixs) ψ L)
       (HCallIndirect : forall M F L τs1 τs2,
-          let κ := VALTYPE (AtomR I32R) ImCopy ImDrop in
+          let κ := VALTYPE (AtomR I32R) NoRefs in
           let ψ := InstrT (τs1 ++ [CodeRefT κ (MonoFunT τs1 τs2)]) τs2 in
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICallIndirect ψ) ψ L)
@@ -1079,7 +1074,7 @@ Section HasHaveInstructionTypeMind.
           let F' := F <| fc_labels ::= cons (τs', L') |> in
           let τs_ser := zip_with SerT κs τs in
           let ψ := InstrT [RefT κr μ (VariantT κv τs_ser)] (RefT κr μ (VariantT κv τs') :: τs') in
-          Forall (fun τ => has_copyability F τ ExCopy) τs ->
+          Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
           Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (ICaseLoad ψ Copy L' ess) ψ L')
@@ -1113,11 +1108,11 @@ Section HasHaveInstructionTypeMind.
           packed_existential F τ τ' ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (IPack ψ) ψ L)
-      (HUnpack : forall M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0,
+      (HUnpack : forall M F F0' L L' L0 L0' es τs1 τs2 ψ0,
           let F' := F <| fc_labels ::= cons (τs2, L') |> in
           let ψ := InstrT τs1 τs2 in
-          unpacked_existential F' L es ψ L' F0' L0 es0 ψ0 L0' ->
-          P2 M F0' L0 es0 ψ0 L0' ->
+          unpacked_existential F' L ψ L' F0' L0 ψ0 L0' ->
+          P2 M F0' L0 es ψ0 L0' ->
           has_instruction_type_ok F ψ L' ->
           P1 M F L (IUnpack ψ L' es) ψ L')
       (HTag : forall M F L,
@@ -1140,7 +1135,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (INew ψ) ψ L)
       (HLoadCopy : forall M F L π μ τ τval pr κ κser,
           let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
-          has_copyability F τval ExCopy ->
+          has_ref_flag F τval GCRefs ->
           resolves_path τ π None pr ->
           pr.(pr_target) = SerT κser τval ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
@@ -1157,7 +1152,7 @@ Section HasHaveInstructionTypeMind.
       (HStoreWeak : forall M F L π μ τ τval pr κ κser,
           let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
           resolves_path τ π None pr ->
-          has_dropability F pr.(pr_target) ImDrop ->
+          has_ref_flag F pr.(pr_target) GCRefs ->
           pr.(pr_target) = SerT κser τval ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
           has_instruction_type_ok F ψ L ->
@@ -1165,7 +1160,7 @@ Section HasHaveInstructionTypeMind.
       (HStoreStrong : forall M F L π τ τval pr σ ρ κ κ' κser,
           let ψ := InstrT [RefT κ (BaseM MemMM) τ; τval] [RefT κ' (BaseM MemMM) pr.(pr_replaced)] in
           resolves_path τ π (Some (SerT κser τval)) pr ->
-          has_dropability F pr.(pr_target) ImDrop ->
+          has_ref_flag F pr.(pr_target) GCRefs ->
           has_size F pr.(pr_target) σ ->
           has_rep F τval ρ ->
           eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
@@ -1245,8 +1240,8 @@ Section HasHaveInstructionTypeMind.
     | TFold M F L τs κ H1 => HFold M F L τs κ H1
     | TUnfold M F L τ κ H1 => HUnfold M F L τ κ H1
     | TPack M F L τ τ' H1 H2 => HPack M F L τ τ' H1 H2
-    | TUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 H1 H2 H3 =>
-        HUnpack M F F0' L L' L0 L0' es es0 τs1 τs2 ψ0 H1
+    | TUnpack M F F0' L L' L0 L0' es τs1 τs2 ψ0 H1 H2 H3 =>
+        HUnpack M F F0' L L' L0 L0' es τs1 τs2 ψ0 H1
           (have_instruction_type_mind _ _ _ _ _ _ H2)
           H3
     | TTag M F L H1 => HTag M F L H1
@@ -1300,14 +1295,16 @@ Proof.
 Qed.
 
 Inductive has_function_type : module_ctx -> module_function -> function_type -> Prop :=
-| TFunction M mf ηss L' :
+| TFunction M mf ηss_L ηss_P ρs_P L' :
   let ϕ := flatten_function_type mf.(mf_type) in
   let K := kc_of_fft ϕ in
-  let F := Build_function_ctx ϕ.(fft_out) ηss [] K ϕ.(fft_type_vars) in
-  let L := map type_plug_prim ηss in
-  let ψ := InstrT ϕ.(fft_in) ϕ.(fft_out) in
-  mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) = Some ηss ->
-  Forall (fun τ => has_dropability F τ ImDrop) L' ->
+  let F := Build_function_ctx ϕ.(fft_out) ηss_P ηss_L [] K ϕ.(fft_type_vars) in
+  let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
+  let ψ := InstrT [] ϕ.(fft_out) in
+  mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) = Some ηss_L ->
+  Forall2 (has_rep F) ϕ.(fft_in) ρs_P ->
+  mapM (eval_rep_prim EmptyEnv) ρs_P = Some ηss_P ->
+  Forall (fun τ => has_ref_flag F τ NoRefs) L' ->
   have_instruction_type M F L mf.(mf_body) ψ L' ->
   has_function_type M mf mf.(mf_type).
 

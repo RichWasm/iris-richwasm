@@ -106,12 +106,12 @@ module Compile = struct
         let* rep = rep_of_typ env' t in
         (* NOTE: if coderef is used for indirection, then could have less
            restrictive copyability and dropability *)
-        let kind : B.Kind.t = VALTYPE (rep, NoCopy, ExDrop) in
+        let kind : B.Kind.t = VALTYPE (rep, AnyRefs) in
         let env'' = Env.add_type env rep in
         let* t' = compile_type env'' t in
         Rec (kind, t') |> ret
     | Exists t ->
-        let kind : B.Kind.t = VALTYPE (Atom Ptr, NoCopy, ExDrop) in
+        let kind : B.Kind.t = VALTYPE (Atom Ptr, AnyRefs) in
         let env' = Env.add_type env (Atom Ptr) in
         let* t' = compile_type env' t in
         ret @@ Exists (Type kind, t')

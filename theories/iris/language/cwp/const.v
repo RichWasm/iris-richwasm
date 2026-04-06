@@ -20,6 +20,40 @@ Definition is_consts : list basic_instruction -> bool :=
 Definition to_consts : list value -> list basic_instruction :=
   map BI_const.
 
+
+Lemma is_const_exists ev :
+  is_const ev -> ∃ v, ev = BI_const v.
+Proof.
+  intros.
+  destruct ev; try done.
+  by eexists.
+Qed.
+
+Lemma is_consts_exists evs :
+  is_consts evs -> ∃ vs, evs = to_consts vs.
+Proof.
+  induction evs as [| ev evs IH].
+  - intros _. exists []. done.
+  - intros Hconsts.
+    unfold is_consts in Hconsts.
+    cbn in Hconsts.
+    apply andb_True in Hconsts as [Hev Hevs].
+    apply IH in Hevs as [vs' Hevs'].
+    apply is_const_exists in Hev as [v ->].
+    exists (v :: vs').
+    unfold to_consts.
+    rewrite map_cons.
+    by f_equal.
+Qed.
+
+Lemma is_consts_app evs1 evs2 :
+  is_consts (evs1 ++ evs2) <-> is_consts evs1 /\ is_consts evs2.
+Proof.
+  unfold is_consts.
+  rewrite forallb_app.
+  apply andb_True.
+Qed.
+
 Definition has_value (e : basic_instruction) (v : value) : bool :=
   match e with
   | BI_const v' => value_eqb v v'

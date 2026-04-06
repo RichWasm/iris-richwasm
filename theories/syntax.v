@@ -52,7 +52,7 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
   | IIte ψ _ _ _
   | IBr ψ _
   | IReturn ψ
-  | ILocalGet ψ _
+  | ILocalGet ψ _ _
   | ILocalSet ψ _
   | ICodeRef ψ _
   | IInst ψ _
@@ -78,8 +78,8 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
   end.
 
 Inductive skind :=
-| SVALTYPE : list atomic_rep -> copyability -> dropability -> skind
-| SMEMTYPE : nat -> dropability -> skind.
+| SVALTYPE : list atomic_rep -> ref_flag -> skind
+| SMEMTYPE : nat -> ref_flag -> skind.
 
 Section RepInd.
 

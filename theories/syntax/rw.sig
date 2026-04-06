@@ -1,15 +1,10 @@
 nat : Type
-
 list : Functor
 
-copyability : Type
-NoCopy : copyability
-ExCopy : copyability
-ImCopy : copyability
-
-dropability : Type
-ExDrop : dropability
-ImDrop : dropability
+ref_flag : Type
+NoRefs : ref_flag
+GCRefs : ref_flag
+AnyRefs : ref_flag
 
 base_memory : Type
 MemMM : base_memory
@@ -37,8 +32,8 @@ RepS : representation -> size
 ConstS : nat -> size
 
 kind : Type
-VALTYPE : representation -> copyability -> dropability -> kind
-MEMTYPE : size -> dropability -> kind
+VALTYPE : representation -> ref_flag -> kind
+MEMTYPE : size -> ref_flag -> kind
 
 int_type : Type
 I32T : int_type
@@ -181,7 +176,7 @@ ILoop : instruction_type -> "list" (instruction) -> instruction
 IIte : instruction_type -> "list" (type) -> "list" (instruction) -> "list" (instruction) -> instruction
 IBr : instruction_type -> nat -> instruction
 IReturn : instruction_type -> instruction
-ILocalGet : instruction_type -> nat -> instruction
+ILocalGet : instruction_type -> consumption -> nat -> instruction
 ILocalSet : instruction_type -> nat -> instruction
 ICodeRef : instruction_type -> nat -> instruction
 IInst : instruction_type -> index -> instruction

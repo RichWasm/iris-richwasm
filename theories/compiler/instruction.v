@@ -143,6 +143,8 @@ Section Compiler.
     (fe : function_env) (ρs : list representation) (τ' : type) (cases : list (codegen unit)) :
     codegen unit :=
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
+    (* Check that the size of the sum fits in an i32 *)
+    if Z.ltb (Wasm_int.Int32.modulus) (Z.of_nat (length ρs)) then (raise EFail) else ret ();;
     ιs ← try_option EFail (eval_rep EmptyEnv (SumR ρs));
     ixs ← save_stack_arep fe (tail ιs);
     let do_case c i :=
@@ -283,18 +285,18 @@ Section Compiler.
     | IIte ψ _ es1 es2 => compile_ite fe ψ (compile_instrs fe es1) (compile_instrs fe es2)
     | IBr _ i => emit (W.BI_br i)
     | IReturn _ => emit W.BI_return
-    | ILocalGet _ i => compile_local_get fe i
+    | ILocalGet _ _ i => compile_local_get fe i
     | ILocalSet _ i => compile_local_set fe i
     | ICodeRef _ i => compile_coderef i
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
     | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
-    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _ _) _]) i => compile_inject fe ρs τ i
+    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _) _]) i => compile_inject fe ρs τ i
     | IInject _ _ => raise (EInvalidInstrT "IInject")
     | IInjectNew (InstrT [τ] [RefT _ (BaseM μ) (VariantT (MEMTYPE σ _) _)]) i =>
         compile_inject_new fe μ i τ σ
     | IInjectNew _ _ => raise (EInvalidInstrT "IInjectNew")
-    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _ _) _] [τ']) _ ess =>
+    | ICase (InstrT [SumT (VALTYPE (SumR ρs) _) _] [τ']) _ ess =>
         compile_case fe ρs τ' (compile_cases fe ess)
     | ICase _ _ _ => raise (EInvalidInstrT "ICase")
     | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>

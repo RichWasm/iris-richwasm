@@ -1,0 +1,135 @@
+Require Import RichWasm.typing.
+From RichWasm.compiler Require Import codegen instruction prelude.
+From RichWasm.iris Require Import memory util.
+Require Import RichWasm.iris.logrel.instr.
+
+From RichWasm.iris.logrel.instr.typing Require Import
+  app
+  block
+  br
+  call
+  call_indirect
+  case
+  case_load_copy
+  case_load_move
+  cast
+  coderef
+  copy
+  drop
+  fold
+  frame
+  group
+  inject
+  inject_new
+  inst
+  ite
+  load_copy
+  load_move
+  local_get_copy
+  local_get_move
+  local_set
+  loop
+  new
+  nil
+  nop
+  num
+  num_const
+  pack
+  return_
+  singleton
+  store_strong
+  store_weak
+  swap
+  tag
+  unfold
+  ungroup
+  unpack
+  unreachable
+  untag
+.
+
+Set Bullet Behavior "Strict Subproofs".
+Set Default Goal Selector "!".
+
+Section typing.
+
+  Context `{!logrel_na_invs Σ}.
+  Context `{!wasmG Σ}.
+  Context `{!richwasmG Σ}.
+
+  Variable rti : rt_invariant Σ.
+  Variable sr : store_runtime.
+  Variable mr : module_runtime.
+
+  Theorem fundamental_typing M F L L' wt wt' wtf wl wl' wlf es es' tf :
+    have_instruction_type M F L es tf L' ->
+    let fe := fe_of_context F in
+    let WT := wt ++ wt' ++ wtf in
+    let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
+    run_codegen (compile_instrs mr fe es) wt wl = inr (tt, wt', wl', es') ->
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' tf L'.
+  Proof.
+    intros Htype.
+    generalize dependent es'.
+    generalize dependent wlf.
+    generalize dependent wl'.
+    generalize dependent wl.
+    generalize dependent wtf.
+    generalize dependent wt'.
+    generalize dependent wt.
+    induction Htype using have_instruction_type_mind with
+      (P1 := fun M F L e ψ L' =>
+               forall wt wt' wtf wl wl' wlf es',
+                 let fe := fe_of_context F in
+                 let WT := wt ++ wt' ++ wtf in
+                 let WL := wl ++ wl' ++ wlf in
+                 let lmask := wlmask fe wl in
+                 run_codegen (compile_instr mr fe e) wt wl = inr (tt, wt', wl', es') ->
+                 ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L');
+      intros wt wt' wtf wl wl' wlf wes fe WT WL lmask Hcg.
+    - eapply compat_nop; eassumption.
+    - eapply compat_unreachable; eassumption.
+    - eapply compat_copy; eassumption.
+    - eapply compat_drop; eassumption.
+    - eapply compat_num; eassumption.
+    - eapply compat_num_const; eassumption.
+    - eapply compat_block; eassumption.
+    - eapply compat_loop; eassumption.
+    - eapply compat_ite in Hcg; eassumption.
+    - eapply compat_br; eassumption.
+    - eapply compat_return; eassumption.
+    - eapply compat_local_get_copy; eassumption.
+    - eapply compat_local_get_move; eassumption.
+    - eapply compat_local_set; eassumption.
+    - eapply compat_coderef; eassumption.
+    - eapply compat_inst; eassumption.
+    - eapply compat_call; eassumption.
+    - eapply compat_call_indirect; eassumption.
+    - eapply compat_inject; eassumption.
+    - eapply compat_inject_new; eassumption.
+    - eapply compat_case; eassumption.
+    - eapply compat_case_load_copy; eassumption.
+    - eapply compat_case_load_move; eassumption.
+    - eapply compat_group; eassumption.
+    - eapply compat_ungroup; eassumption.
+    - eapply compat_fold; eassumption.
+    - eapply compat_unfold; eassumption.
+    - eapply compat_pack; eassumption.
+    - eapply compat_unpack; eassumption.
+    - eapply compat_tag; eassumption.
+    - eapply compat_untag; eassumption.
+    - eapply compat_cast; eassumption.
+    - eapply compat_new; eassumption.
+    - eapply compat_load_copy; eassumption.
+    - eapply compat_load_move; eassumption.
+    - eapply compat_store_weak; eassumption.
+    - eapply compat_store_strong; eassumption.
+    - eapply compat_swap; eassumption.
+    - eapply compat_nil; eassumption.
+    - eapply compat_app in Hcg; eassumption.
+    - eapply compat_singleton; eassumption.
+    - eapply compat_frame; try eassumption.
+  Qed.
+
+End typing.

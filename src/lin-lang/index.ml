@@ -92,8 +92,8 @@ module IR = struct
       | Var x -> (LVar.pp ~space:`Term) ff x
       | Coderef str -> fprintf ff "@[(coderef %s)@]" str
       | Lam (binding, ret, body) ->
-          fprintf ff "@[<v 2>@[<2>(λ@ (<> : %a) :@ %a@ @].@;@[<2>%a@])@]"
-            Type.pp binding Type.pp ret pp body
+          fprintf ff "@[<v 2>@[<2>(λ@ %a :@ %a@ @].@;@[<2>%a@])@]"
+            Type.pp_binding binding Type.pp ret pp body
       | Tuple es ->
           fprintf ff "@[<2>(";
           pp_list
@@ -128,7 +128,7 @@ module IR = struct
           fprintf ff "@[<2>(if0 %a@;then %a@;else@ %a)@]" pp e1 pp e2 pp e3
       | Binop (op, l, r) ->
           fprintf ff "@[<2>(%a@ %a@ %a)@]" pp l Binop.pp op pp r
-      | New e -> fprintf ff "@[(new@ %a)@]" pp e
+      | New e -> fprintf ff "@[<2>(new@ %a)@]" pp e
       | Swap (l, r) -> fprintf ff "@[<2>(swap@ %a@ %a)@]" pp l pp r
       | Free e -> fprintf ff "@[<2>(free@ %a)@]" pp e
   end

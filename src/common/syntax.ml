@@ -19,32 +19,19 @@ module Unscoped = struct
     scons 0 (funcomp (fun x -> x + 1) xi)
 end
 
-module Copyability = struct
+module RefFlag = struct
   type t =
-    | NoCopy
-    | ExCopy
-    | ImCopy
+    | NoRefs
+    | GCRefs
+    | AnyRefs
   [@@deriving eq, ord, variants, sexp]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp ff : t -> _ = function
-    | NoCopy -> fprintf ff "nocopy"
-    | ExCopy -> fprintf ff "excopy"
-    | ImCopy -> fprintf ff "imcopy"
-end
-
-module Dropability = struct
-  type t =
-    | ExDrop
-    | ImDrop
-  [@@deriving eq, ord, variants, sexp]
-
-  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-
-  let pp ff : t -> _ = function
-    | ExDrop -> fprintf ff "exdrop"
-    | ImDrop -> fprintf ff "imdrop"
+    | NoRefs -> fprintf ff "norefs"
+    | GCRefs -> fprintf ff "gcrefs"
+    | AnyRefs -> fprintf ff "anyrefs"
 end
 
 module BaseMemory = struct
@@ -188,28 +175,25 @@ end
 
 module Kind = struct
   type t =
-    | VALTYPE of Representation.t * Copyability.t * Dropability.t
-    | MEMTYPE of Size.t * Dropability.t
+    | VALTYPE of Representation.t * RefFlag.t
+    | MEMTYPE of Size.t * RefFlag.t
   [@@deriving eq, ord, variants, sexp, show { with_path = false }]
 
   let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let pp ff = function
-    | VALTYPE (r, c, d) ->
-        fprintf ff "@[<2>(val@ %a@ %a@ %a)@]" Representation.pp r Copyability.pp
-          c Dropability.pp d
-    | MEMTYPE (s, d) ->
-        fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s Dropability.pp d
+    | VALTYPE (r, f) ->
+        fprintf ff "@[<2>(val@ %a@ %a)@]" Representation.pp r RefFlag.pp f
+    | MEMTYPE (s, f) -> fprintf ff "@[<2>(mem@ %a@ %a)@]" Size.pp s RefFlag.pp f
   (* autosubst: *)
 
   let ren xi_representation xi_size = function
-    | VALTYPE (s0, s1, s2) ->
-        VALTYPE (Representation.ren xi_representation s0, s1, s2)
+    | VALTYPE (s0, s1) -> VALTYPE (Representation.ren xi_representation s0, s1)
     | MEMTYPE (s0, s1) -> MEMTYPE (Size.ren xi_representation xi_size s0, s1)
 
   let subst sigma_representation sigma_size = function
-    | VALTYPE (s0, s1, s2) ->
-        VALTYPE (Representation.subst sigma_representation s0, s1, s2)
+    | VALTYPE (s0, s1) ->
+        VALTYPE (Representation.subst sigma_representation s0, s1)
     | MEMTYPE (s0, s1) ->
         MEMTYPE (Size.subst sigma_representation sigma_size s0, s1)
 end

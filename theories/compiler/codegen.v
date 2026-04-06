@@ -37,6 +37,9 @@ Definition wtinsert (tf : W.function_type) : codegen W.typeidx :=
   | None => acc ([tf], []);; ret (W.Mk_typeidx (length wt))
   end.
 
+Definition wlmask (fe : function_env) (wl : wlocal_ctx) (i : nat) : Prop :=
+  i >= fe_wlocal_offset fe /\ i < fe_wlocal_offset fe + length wl.
+
 Definition wlalloc (fe : function_env) (t : W.value_type) : codegen W.localidx :=
   '(_, wl) ← get;
   acc ([], [t]);;
@@ -79,6 +82,23 @@ Definition save_stack_arep (fe : function_env) (ιs : list atomic_rep) : codegen
 
 Definition restore_stack : list W.localidx -> codegen unit := get_locals_w.
 
+Definition default_of_value_type (type : W.value_type) : W.value :=
+  match type with
+  | W.T_i32 => W.VAL_int32 $ Wasm_int.int_zero i32m
+  | W.T_i64 => W.VAL_int64 $ Wasm_int.int_zero i64m
+  | W.T_f32 => W.VAL_float32 $ Wasm_float.FloatSize32.of_bits $ Integers.Int.repr 0
+  | W.T_f64 => W.VAL_float64 $ Wasm_float.FloatSize64.of_bits $ Integers.Int64.repr 0
+  end.
+
+Definition create_default (type : W.value_type) : W.basic_instruction :=
+  W.BI_const $ default_of_value_type type.
+
+Definition create_defaults (types : W.result_type) : codegen unit :=
+  emit_all $ map create_default types.
+
+Definition drop_consts (types : W.result_type) : codegen unit :=
+  emit_all $ repeat (W.BI_drop) (length types).
+
 Definition capture {A : Type} (c : codegen A) : codegen (A * W.expr) :=
   censor (const []) (listen c).
 
@@ -100,37 +120,36 @@ Definition if_c {A B : Type} (tf : W.function_type) (thn : codegen A) (els : cod
   ret (x1, x2).
 
 
-Definition case_block (tag_idx : W.localidx) (res_idxs : list W.localidx) (case : (nat -> codegen unit)) (tag_counter : nat) :=
-  block_c (W.Tf [] []) (
+Definition case_block (tag_idx : W.localidx) (result : W.result_type) (case : (nat -> codegen unit)) (tag_counter : nat) :=
+  block_c (W.Tf result result) (
     (* Check if tag matches the current case *)
     emit (W.BI_get_local $ localimm tag_idx);;
     emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat tag_counter);;
     emit (W.BI_relop W.T_i32 (W.Relop_i W.ROI_ne));;
     (* If it doesn't, branch out of the block *)
     emit (W.BI_br_if 0);;
-    (* If it does, do the case *)
-    case tag_counter;;
-    (* Save result in local(s) *)
-    set_locals_w res_idxs
+    (* If it does, drop the default values on stack... *)
+    drop_consts result;;
+    (* ... and do the case *)
+    case tag_counter
   ).
+
+Fixpoint case_blocks_blocks (start : nat) (tag_idx : W.localidx)
+    (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
+  match cases with
+  | [] => mret tt
+  | case :: cases' =>
+      case_block tag_idx result case start ;;
+      case_blocks_blocks (S start) tag_idx result cases'
+  end.
 
 Definition case_blocks (fe : function_env) (result : W.result_type) (cases : list (nat -> codegen unit)) : codegen unit :=
   (* Store tag in local *)
   tag_idx ← save_stack1 fe W.T_i32;
-  (* Allocate space for result *)
-  res_idxs ← wlallocs fe result;
+  (* Put default result values on stack *)
+  create_defaults result;;
   (* Code for each case *)
-  mapM_ (uncurry (case_block tag_idx res_idxs)) (zip cases (seq 0 (length cases)));;
-  (* Check that tag is in-bounds *)
-  block_c (W.Tf [] []) (
-    emit (W.BI_get_local $ localimm tag_idx);;
-    emit (W.BI_const $ W.VAL_int32 $ Wasm_int.int_of_Z i32m $ Z.of_nat $ length cases);;
-    emit (W.BI_relop W.T_i32 (W.Relop_i $ W.ROI_lt W.SX_S));;
-    emit (W.BI_br_if 0);;
-    emit (W.BI_unreachable)
-  );;
-  (* Put result on stack *)
-  get_locals_w res_idxs
+  case_blocks_blocks 0 tag_idx result cases
 .
 
 Lemma runWriterT_sum_bind_dist {A B L E}
@@ -246,6 +265,30 @@ Proof.
   exists x1, wt1, wt2, wl1, wl2, l1, l2.
   rewrite !run_codegen_def.
   repeat split; assumption.
+Qed.
+
+Lemma run_codegen_bind_intro {A B} (c : codegen A) (f : A -> codegen B)
+    wt wt1 wt2 wl wl1 wl2 es1 es2 x1 x :
+  run_codegen c wt wl = inr (x1, wt1, wl1, es1) ->
+  run_codegen (f x1) (wt ++ wt1) (wl ++ wl1) = inr (x, wt2, wl2, es2) ->
+  run_codegen (c ≫= f) wt wl = inr (x, wt1 ++ wt2, wl1 ++ wl2, es1 ++ es2).
+Proof.
+  intros H1 H2.
+  rewrite run_codegen_def in H1.
+  rewrite run_codegen_def.
+  unfold mbind, MBind_Monad, flip, Monad.bind, Monad_writerT, EitherMonad.Monad_either.
+  cbn.
+  destruct (runWriterT (runAccumT c (wt, wl))) eqn:Hc.
+  - congruence.
+  - rewrite H1 in Hc. inversion Hc. subst.
+    unfold mbind, MBind_Monad, flip, Monad.bind, Monad_accumT.
+  cbn.
+  rewrite Hc.
+  cbn.
+  rewrite run_codegen_def in H2.
+  rewrite H2.
+  cbn.
+  by rewrite app_nil_r.
 Qed.
 
 Lemma run_codegen_try_option_inr {A} (c: option A) e x wt wt' wl wl' es :
@@ -413,4 +456,76 @@ Proof.
     repeat rewrite app_nil_r, app_nil_l.
     eapply IHρ.
     apply H.
+Qed.
+
+Lemma run_codegen_create_defaults types wt wl x wt' wl' es :
+  run_codegen (create_defaults types) wt wl = inr (x, wt', wl', es) ->
+  x = tt /\
+  wt' = [] /\
+  wl' = [] /\
+  es = map (W.BI_const ∘ default_of_value_type) types.
+Proof.
+  intros Hcg.
+  by apply run_codegen_emit_all in Hcg.
+Qed.
+
+Lemma run_codegen_drop_consts types wt wl x wt' wl' es :
+  run_codegen (drop_consts types) wt wl = inr (x, wt', wl', es) ->
+  x = tt /\
+  wt' = [] /\
+  wl' = [] /\
+  es = repeat W.BI_drop (length types).
+Proof.
+  intros Hcg.
+  by apply run_codegen_emit_all in Hcg.
+Qed.
+
+(* wow... *)
+Lemma run_codegen_case_blocks_blocks_app start tag_idx result fs_pre f_mid fs_post wt wl x wt' wl' es :
+  run_codegen (case_blocks_blocks start tag_idx result (fs_pre ++ [f_mid] ++ fs_post)) wt wl
+    = inr (x, wt', wl', es) ->
+  exists wt1 wt2 wt3 wl1 wl2 wl3 es1 es2 es3,
+    run_codegen (case_blocks_blocks start tag_idx result fs_pre) wt wl
+      = inr (tt, wt1, wl1, es1) /\
+    run_codegen (case_block tag_idx result f_mid (start + length fs_pre)) (wt ++ wt1) (wl ++ wl1)
+      = inr (tt, wt2, wl2, es2) /\
+    run_codegen (case_blocks_blocks (S (start + length fs_pre)) tag_idx result fs_post)
+      (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2)
+      = inr (x, wt3, wl3, es3) /\
+    wt' = wt1 ++ wt2 ++ wt3 /\ wl' = wl1 ++ wl2 ++ wl3 /\ es = es1 ++ es2 ++ es3.
+Proof.
+  revert start wt wl x wt' wl' es.
+  induction fs_pre as [| f_head fs_pre IH]; intros start wt wl x wt' wl' es H.
+  - change (run_codegen (case_block tag_idx result f_mid start ;;
+                         case_blocks_blocks (S start) tag_idx result fs_post)
+                         wt wl = inr (x, wt', wl', es)) in H.
+    apply run_codegen_bind_dist in H as
+      (x1 & wt1 & wt2 & wl1 & wl2 & es1 & es2 & H1 & H2 & -> & -> & ->).
+    exists [], wt1, wt2, [], wl1, wl2, [], es1, es2.
+    simpl. rewrite Nat.add_0_r.
+    repeat split; try done.
+    do 2 rewrite app_nil_r.
+    destruct x1.
+    done.
+  - change (run_codegen (case_block tag_idx result f_head start ;;
+                         case_blocks_blocks (S start) tag_idx result (fs_pre ++ [f_mid] ++ fs_post))
+                         wt wl = inr (x, wt', wl', es)) in H.
+    apply run_codegen_bind_dist in H as
+      (x1 & wt1 & wt2' & wl1 & wl2' & es1 & es2' & H1 & H2 & Hwt & Hwl & Hes).
+    subst.
+    apply (IH (S start) (wt ++ wt1) (wl ++ wl1)) in H2 as
+      (wt1' & wt2 & wt3 & wl1' & wl2 & wl3 & es1' & es2 & es3 & IH1 & IH2 & IH3 & -> & -> & ->).
+    subst.
+    exists (wt1 ++ wt1'), wt2, wt3, (wl1 ++ wl1'), wl2, wl3, (es1 ++ es1'), es2, es3.
+    repeat split.
+    + change (run_codegen (case_block tag_idx result f_head start ;;
+                           case_blocks_blocks (S start) tag_idx result fs_pre)
+                           wt wl = inr ((), wt1 ++ wt1', wl1 ++ wl1', es1 ++ es1')).
+      eapply run_codegen_bind_intro; [exact H1|].
+      done.
+    + simpl. rewrite Nat.add_succ_r. by rewrite !app_assoc.
+    + simpl. rewrite Nat.add_succ_r. rewrite <- !app_assoc. by rewrite <- !app_assoc in IH3.
+    + by rewrite app_assoc.
+    + by rewrite app_assoc.
+    + by rewrite app_assoc.
 Qed.

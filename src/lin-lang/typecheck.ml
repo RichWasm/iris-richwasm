@@ -51,10 +51,8 @@ module IR = struct
       | Coderef (str, t) -> fprintf ff "(@[<2>coderef %s@ : %a@])" str Type.pp t
       | Lam (binding, ret, body, t) ->
           fprintf ff
-            "(@[<v 0>@[<v 2>@[<2>λ@ (<> : %a) :@ %a@ @].@;\
-             @[<2>%a@]@]@,\
-             : @[<2>%a@]@])"
-            Type.pp binding Type.pp ret pp body Type.pp t
+            "(@[<v 0>@[<v 2>@[<2>λ@ %a :@ %a@ @].@;@[<2>%a@]@]@,: @[<2>%a@]@])"
+            Type.pp_binding binding Type.pp ret pp body Type.pp t
       | Tuple (es, t) ->
           fprintf ff "(@[<hv 0>@[<2>tup%a@]@ : @[<2>%a@]@])"
             (pp_print_list_pre ~pp_sep:pp_print_space pp)

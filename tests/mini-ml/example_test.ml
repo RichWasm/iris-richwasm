@@ -249,7 +249,7 @@ let%expect_test "examples" =
         drop)
       (func
           ((ref (base gc) (struct)) ->
-            (exists type (val ptr excopy exdrop)
+            (exists type (val ptr gcrefs)
               (ref (base gc)
                 (struct (ser (var 0))
                   (ser
@@ -400,7 +400,7 @@ let%expect_test "examples" =
     -----------id-----------
     (module
       (func
-          (forall.type (val ptr excopy exdrop)
+          (forall.type (val ptr gcrefs)
             (ref (base gc) (struct (ser (ref (base gc) (struct))) (ser (var 0))))
             -> (var 0))
           (local ptr ptr ptr)
@@ -449,7 +449,7 @@ let%expect_test "examples" =
     -----------apply_id-----------
     (module
       (func
-          (forall.type (val ptr excopy exdrop)
+          (forall.type (val ptr gcrefs)
             (ref (base gc) (struct (ser (ref (base gc) (struct))) (ser (var 0))))
             -> (var 0))
           (local ptr ptr ptr)
@@ -478,7 +478,7 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) (struct)))
               (ser
                 (coderef
-                  (forall.type (val ptr excopy exdrop)
+                  (forall.type (val ptr gcrefs)
                     (ref (base gc)
                       (struct (ser (ref (base gc) (struct))) (ser (var 0))))
                     -> (var 0))))))
@@ -487,7 +487,7 @@ let%expect_test "examples" =
             (struct (ser (var 0))
               (ser
                 (coderef
-                  (forall.type (val ptr excopy exdrop)
+                  (forall.type (val ptr gcrefs)
                     (ref (base gc) (struct (ser (var 1)) (ser (var 0)))) ->
                     (var 0))))))
         unpack (result i31) inferfx
@@ -560,11 +560,11 @@ let%expect_test "examples" =
     -----------poly_len-----------
     (module
       (func
-          (forall.type (val ptr excopy exdrop)
+          (forall.type (val ptr gcrefs)
             (ref (base gc)
               (struct (ser (ref (base gc) (struct)))
                 (ser
-                  (rec (val ptr excopy exdrop)
+                  (rec (val ptr gcrefs)
                     (ref (base gc)
                       (variant (ser (ref (base gc) (struct)))
                         (ser (ref (base gc) (variant (ser (var 1)) (ser (var 0)))))))))))
@@ -605,11 +605,11 @@ let%expect_test "examples" =
                 (struct (ser (ref (base gc) (struct)))
                   (ser
                     (coderef
-                      (forall.type (val ptr excopy exdrop)
+                      (forall.type (val ptr gcrefs)
                         (ref (base gc)
                           (struct (ser (ref (base gc) (struct)))
                             (ser
-                              (rec (val ptr excopy exdrop)
+                              (rec (val ptr gcrefs)
                                 (ref (base gc)
                                   (variant (ser (ref (base gc) (struct)))
                                     (ser
@@ -621,11 +621,11 @@ let%expect_test "examples" =
                 (struct (ser (var 0))
                   (ser
                     (coderef
-                      (forall.type (val ptr excopy exdrop)
+                      (forall.type (val ptr gcrefs)
                         (ref (base gc)
                           (struct (ser (var 1))
                             (ser
-                              (rec (val ptr excopy exdrop)
+                              (rec (val ptr gcrefs)
                                 (ref (base gc)
                                   (variant (ser (ref (base gc) (struct)))
                                     (ser
@@ -694,11 +694,11 @@ let%expect_test "examples" =
             (struct (ser (ref (base gc) (struct)))
               (ser
                 (coderef
-                  (forall.type (val ptr excopy exdrop)
+                  (forall.type (val ptr gcrefs)
                     (ref (base gc)
                       (struct (ser (ref (base gc) (struct)))
                         (ser
-                          (rec (val ptr excopy exdrop)
+                          (rec (val ptr gcrefs)
                             (ref (base gc)
                               (variant (ser (ref (base gc) (struct)))
                                 (ser
@@ -710,11 +710,11 @@ let%expect_test "examples" =
             (struct (ser (var 0))
               (ser
                 (coderef
-                  (forall.type (val ptr excopy exdrop)
+                  (forall.type (val ptr gcrefs)
                     (ref (base gc)
                       (struct (ser (var 1))
                         (ser
-                          (rec (val ptr excopy exdrop)
+                          (rec (val ptr gcrefs)
                             (ref (base gc)
                               (variant (ser (ref (base gc) (struct)))
                                 (ser
@@ -745,7 +745,7 @@ let%expect_test "examples" =
           new gc
           cast (ref (base gc) (struct))
           inject_new gc 0 (ref (base gc) (struct))
-            (rec (val ptr excopy exdrop)
+            (rec (val ptr gcrefs)
               (ref (base gc)
                 (variant (ser (ref (base gc) (struct)))
                   (ser (ref (base gc) (variant (ser i31) (ser (var 0))))))))
@@ -761,7 +761,7 @@ let%expect_test "examples" =
             (ref (base gc)
               (struct
                 (ser
-                  (rec (val ptr excopy exdrop)
+                  (rec (val ptr gcrefs)
                     (ref (base gc)
                       (variant (ser (ref (base gc) (struct)))
                         (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))
@@ -770,7 +770,7 @@ let%expect_test "examples" =
             (ref (base gc)
               (variant (ser i31)
                 (ser
-                  (rec (val ptr excopy exdrop)
+                  (rec (val ptr gcrefs)
                     (ref (base gc)
                       (variant (ser (ref (base gc) (struct)))
                         (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))))
@@ -798,8 +798,8 @@ let%expect_test "examples" =
     -----------mini_zip-----------
     (module
       (func
-          (forall.type (val ptr excopy exdrop)
-            (forall.type (val ptr excopy exdrop)
+          (forall.type (val ptr gcrefs)
+            (forall.type (val ptr gcrefs)
               (ref (base gc)
                 (struct (ser (ref (base gc) (struct)))
                   (ser
@@ -971,7 +971,7 @@ let%expect_test "examples" =
                  (ref (base gc)
                    (struct
                      (ser
-                       (exists type (val ptr excopy exdrop)
+                       (exists type (val ptr gcrefs)
                          (ref (base gc)
                            (struct (ser (var 0))
                              (ser
@@ -1150,7 +1150,7 @@ let%expect_test "examples" =
           (ref (base gc)
             (struct
               (ser
-                (exists type (val ptr excopy exdrop)
+                (exists type (val ptr gcrefs)
                   (ref (base gc)
                     (struct (ser (var 0))
                       (ser
@@ -1166,7 +1166,7 @@ let%expect_test "examples" =
                 (ref (base gc)
                   (struct
                     (ser
-                      (exists type (val ptr excopy exdrop)
+                      (exists type (val ptr gcrefs)
                         (ref (base gc)
                           (struct (ser (var 0))
                             (ser
@@ -1182,7 +1182,7 @@ let%expect_test "examples" =
                          (ref (base gc)
                            (struct
                              (ser
-                               (exists type (val ptr excopy exdrop)
+                               (exists type (val ptr gcrefs)
                                  (ref (base gc)
                                    (struct (ser (var 0))
                                      (ser
@@ -1198,7 +1198,7 @@ let%expect_test "examples" =
             (ref (base gc)
               (struct
                 (ser
-                  (exists type (val ptr excopy exdrop)
+                  (exists type (val ptr gcrefs)
                     (ref (base gc)
                       (struct (ser (var 0))
                         (ser

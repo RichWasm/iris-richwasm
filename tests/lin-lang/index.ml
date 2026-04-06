@@ -211,10 +211,10 @@ let%expect_test "examples" =
         (inj 1
           (5,
             (new
-            (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
-              (inj 0 () :
-                (⊕ (⊗)
-                  (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))))
+              (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
+                (inj 0 () :
+                  (⊕ (⊗)
+                    (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))))
           :
           (⊕ (⊗) (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))))
       in
@@ -224,16 +224,17 @@ let%expect_test "examples" =
     (fold (rec [] (⊕ (⊗) (ref [0:a])))
       (inj 1
         (new
-        (fold (rec [] (⊕ (⊗) (ref [0:a])))
-          (inj 1
-            (new
-            (fold (rec [] (⊕ (⊗) (ref [0:a])))
-              (inj 1
-                (new
+          (fold (rec [] (⊕ (⊗) (ref [0:a])))
+            (inj 1
+              (new
                 (fold (rec [] (⊕ (⊗) (ref [0:a])))
-                  (inj 0 () : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
-                : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
-            : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
+                  (inj 1
+                    (new
+                      (fold (rec [] (⊕ (⊗) (ref [0:a])))
+                        (inj 0 () :
+                          (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
+                    : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
+              : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a]))))))))
         : (⊕ (⊗) (ref (rec [] (⊕ (⊗) (ref [0:a])))))))
     -----------peano-----------
     (fun add

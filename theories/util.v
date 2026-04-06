@@ -257,3 +257,10 @@ Proof.
       apply lookup_lt_is_Some_1; auto.
     + replace @seq.size with @length in n; [lia | done].
 Qed.
+
+  Definition foldlM `{MRet M, MBind M} {A B: Type}
+    : (A -> B -> M A) -> A -> list B -> M A :=
+    λ f a l,
+      foldl
+        (λ acc b, mbind (λ a', f a' b) acc)
+        (mret a) l.

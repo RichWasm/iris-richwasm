@@ -121,14 +121,10 @@ let wrap_result ctx = function
   | Ok x -> Ok x
   | Error error -> Error (Err.Ctx { error; ctx })
 
-let elab_copyability : A.Copyability.t -> B.Copyability.t = function
-  | NoCopy -> NoCopy
-  | ImCopy -> ImCopy
-  | ExCopy -> ExCopy
-
-let elab_dropability : A.Dropability.t -> B.Dropability.t = function
-  | ImDrop -> ImDrop
-  | ExDrop -> ExDrop
+let elab_ref_flag : A.RefFlag.t -> B.RefFlag.t = function
+  | NoRefs -> NoRefs
+  | GCRefs -> GCRefs
+  | AnyRefs -> AnyRefs
 
 let elab_base_memory : A.BaseMemory.t -> B.BaseMemory.t = function
   | MM -> MemMM
@@ -160,22 +156,14 @@ let rec elab_size : A.Size.t -> B.Size.t = function
   | Const s -> ConstS (Z.of_int s)
 
 let elab_kind : A.Kind.t -> B.Kind.t = function
-  | VALTYPE (representation, copyability, dropability) ->
-      VALTYPE
-        ( elab_representation representation,
-          elab_copyability copyability,
-          elab_dropability dropability )
-  | MEMTYPE (size, dropability) ->
-      MEMTYPE (elab_size size, elab_dropability dropability)
+  | VALTYPE (representation, ref_flag) ->
+      VALTYPE (elab_representation representation, elab_ref_flag ref_flag)
+  | MEMTYPE (size, ref_flag) -> MEMTYPE (elab_size size, elab_ref_flag ref_flag)
 
-let unelab_copyability : B.Copyability.t -> A.Copyability.t = function
-  | NoCopy -> NoCopy
-  | ImCopy -> ImCopy
-  | ExCopy -> ExCopy
-
-let unelab_dropability : B.Dropability.t -> A.Dropability.t = function
-  | ImDrop -> ImDrop
-  | ExDrop -> ExDrop
+let unelab_ref_flag : B.RefFlag.t -> A.RefFlag.t = function
+  | NoRefs -> NoRefs
+  | GCRefs -> GCRefs
+  | AnyRefs -> AnyRefs
 
 let unelab_base_memory : B.BaseMemory.t -> A.BaseMemory.t = function
   | MemMM -> MM
@@ -207,13 +195,10 @@ let rec unelab_size : B.Size.t -> A.Size.t = function
   | ConstS s -> Const (Z.to_int s)
 
 let unelab_kind : B.Kind.t -> A.Kind.t = function
-  | VALTYPE (representation, copyability, dropability) ->
-      VALTYPE
-        ( unelab_representation representation,
-          unelab_copyability copyability,
-          unelab_dropability dropability )
-  | MEMTYPE (size, dropability) ->
-      MEMTYPE (unelab_size size, unelab_dropability dropability)
+  | VALTYPE (representation, ref_flag) ->
+      VALTYPE (unelab_representation representation, unelab_ref_flag ref_flag)
+  | MEMTYPE (size, ref_flag) ->
+      MEMTYPE (unelab_size size, unelab_ref_flag ref_flag)
 
 let elab_sign : A.Sign.t -> B.Sign.t = function
   | Unsigned -> SignU
@@ -322,31 +307,28 @@ let kind_of_typ (env : 'a list) : B.Type.t -> B.Kind.t t = function
 let meet_valtypes
     (combine_rep : B.Representation.t list -> B.Representation.t)
     (kinds : B.Kind.t list) : B.Kind.t t =
-  let rec go reps copy drop : B.Kind.t list -> B.Kind.t t =
+  let rec go reps ref_flag : B.Kind.t list -> B.Kind.t t =
     let open B in
     function
-    | [] -> Kind.VALTYPE (combine_rep (List.rev reps), copy, drop) |> ret
-    | VALTYPE (rep, copy', drop') :: xs ->
-        go (rep :: reps)
-          (Copyability.meet copy copy')
-          (Dropability.meet drop drop')
-          xs
+    | [] -> Kind.VALTYPE (combine_rep (List.rev reps), ref_flag) |> ret
+    | VALTYPE (rep, ref_flag') :: xs ->
+        go (rep :: reps) (RefFlag.meet ref_flag ref_flag') xs
     | x :: _ -> fail (CannotMeet ("expected valtype", x))
   in
-  go [] ImCopy ImDrop kinds
+  go [] NoRefs kinds
 
 let meet_memtypes
     (combine_sizes : B.Size.t list -> B.Size.t)
     (kinds : B.Kind.t list) : B.Kind.t t =
-  let rec go sizes drop : B.Kind.t list -> B.Kind.t t =
+  let rec go sizes ref_flag : B.Kind.t list -> B.Kind.t t =
     let open B in
     function
-    | [] -> Kind.MEMTYPE (combine_sizes (List.rev sizes), drop) |> ret
-    | MEMTYPE (size, drop') :: xs ->
-        go (size :: sizes) (Dropability.meet drop drop') xs
+    | [] -> Kind.MEMTYPE (combine_sizes (List.rev sizes), ref_flag) |> ret
+    | MEMTYPE (size, ref_flag') :: xs ->
+        go (size :: sizes) (RefFlag.meet ref_flag ref_flag') xs
     | x :: _ -> fail (CannotMeet ("expected memtype", x))
   in
-  go [] ImDrop kinds
+  go [] NoRefs kinds
 
 (* TODO: this needs to be double checked *)
 let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
@@ -374,10 +356,10 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
   let open B.Type in
   function
   | Var x -> ret @@ VarT (Z.of_int x)
-  | I31 -> ret @@ I31T (VALTYPE (AtomR PtrR, ImCopy, ImDrop))
+  | I31 -> ret @@ I31T (VALTYPE (AtomR PtrR, NoRefs))
   | Num nt ->
       let+ () = ret () in
-      NumT (VALTYPE (AtomR (rep_of_nt nt), ImCopy, ImDrop), elab_num_type nt)
+      NumT (VALTYPE (AtomR (rep_of_nt nt), NoRefs), elab_num_type nt)
   | Sum ts ->
       let* ts' = mapM ~f:(elab_type env) ts in
       let* k = elab_kinds ts' >>= meet_valtypes sumR in
@@ -396,30 +378,30 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       ret @@ StructT (k, ts')
   | Ref (Base MM, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, NoCopy, ExDrop), BaseM MemMM, t')
+      RefT (VALTYPE (AtomR PtrR, AnyRefs), BaseM MemMM, t')
   | Ref (Base GC, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, ExCopy, ExDrop), BaseM MemGC, t')
+      RefT (VALTYPE (AtomR PtrR, GCRefs), BaseM MemGC, t')
   | Ref (mem, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, NoCopy, ExDrop), elab_memory mem, t')
+      RefT (VALTYPE (AtomR PtrR, AnyRefs), elab_memory mem, t')
   | CodeRef ft ->
       let+ ft' = elab_function_type env ft in
-      CodeRefT (VALTYPE (AtomR I32R, ImCopy, ImDrop), ft')
+      CodeRefT (VALTYPE (AtomR I32R, NoRefs), ft')
   | Ser t ->
       let* t' = elab_type env t in
-      let* rep, dropability =
+      let* rep, rflag =
         kind_of_typ env t' >>= function
-        | VALTYPE (rep, _, dropability) -> ret (rep, dropability)
+        | VALTYPE (rep, rflag) -> ret (rep, rflag)
         | _ -> fail (ExpectedVALTYPE ("Ser", `Type t'))
       in
-      ret @@ SerT (MEMTYPE (RepS rep, dropability), t')
+      ret @@ SerT (MEMTYPE (RepS rep, rflag), t')
   | Plug rep ->
       let rep' = elab_representation rep in
-      ret @@ PlugT (VALTYPE (rep', ImCopy, ImDrop), rep')
+      ret @@ PlugT (VALTYPE (rep', NoRefs), rep')
   | Span size ->
       let size' = elab_size size in
-      ret @@ SpanT (MEMTYPE (size', ImDrop), size')
+      ret @@ SpanT (MEMTYPE (size', NoRefs), size')
   | Rec (kind, t) ->
       let env' = kind :: env in
       let* t' = elab_type env' t in
@@ -472,13 +454,13 @@ and elab_function_type
 
 let representation_of_typ (kinds : A.Kind.t list) t =
   kind_of_typ kinds t >>= function
-  | VALTYPE (r, _, _) -> ret r
+  | VALTYPE (r, _) -> ret r
   | _ -> fail (ExpectedVALTYPE ("representation of ", `Type t))
 
-let copyability_of_typ (kinds : A.Kind.t list) t =
+let ref_flag_of_typ (kinds : A.Kind.t list) t =
   kind_of_typ kinds t >>= function
-  | VALTYPE (_, c, _) -> ret c
-  | _ -> fail (ExpectedVALTYPE ("copyability of", `Type t))
+  | VALTYPE (_, f) -> ret f
+  | MEMTYPE (_, f) -> ret f
 
 let size_of_typ (kinds : A.Kind.t list) t =
   kind_of_typ kinds t >>= function
@@ -978,14 +960,17 @@ let rec elab_instruction (env : Env.t) :
       in
       let* t' = lift_result @@ elab_type env.kinds t in
       let* im_copyable =
-        copyability_of_typ env.kinds t' >>^| function
-        | ImCopy -> true
+        ref_flag_of_typ env.kinds t' >>^| function
+        | NoRefs -> true
         | _ -> false
       in
       let* should_move = is_effective_move consume im_copyable |> lift_result in
       let* () = if should_move then reset_local i env else ret () in
       let* it = mono_in_out env.kinds "LocalGet" [] [ t ] in
-      ret @@ ILocalGet (it, Z.of_int i)
+      let consume' =
+        if should_move then B.Consumption.Move else B.Consumption.Copy
+      in
+      ret @@ ILocalGet (it, consume', Z.of_int i)
   | LocalSet i ->
       let* t = pop "LocalSet" in
       let* curr_rep_t =
@@ -1264,8 +1249,8 @@ let rec elab_instruction (env : Env.t) :
       in
       let* t_val' = elab_type env.kinds t_val |> lift_result in
       let* ex_copyable =
-        ret t_val' >>=^ copyability_of_typ env.kinds >>| function
-        | ImCopy | ExCopy -> true
+        ret t_val' >>=^ ref_flag_of_typ env.kinds >>| function
+        | NoRefs | GCRefs -> true
         | _ -> false
       in
       let* should_move = is_effective_move consume ex_copyable |> lift_result in

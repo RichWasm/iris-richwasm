@@ -1,0 +1,58 @@
+Require Import RichWasm.iris.logrel.instr.typing.common.
+
+Set Bullet Behavior "Strict Subproofs".
+Set Default Goal Selector "!".
+
+Section store_strong.
+
+  Context `{!logrel_na_invs Σ}.
+  Context `{!wasmG Σ}.
+  Context `{!richwasmG Σ}.
+
+  Variable rti : rt_invariant Σ.
+  Variable sr : store_runtime.
+  Variable mr : module_runtime.
+
+  Lemma compat_store_strong M F L wt wt' wtf wl wl' wlf es' κ κ' κser σ ρ τ τval π pr :
+    let fe := fe_of_context F in
+    let WT := wt ++ wt' ++ wtf in
+    let WL := wl ++ wl' ++ wlf in
+    let lmask := wlmask fe wl in
+    let ψ := InstrT [RefT κ (BaseM MemMM) τ; τval] [RefT κ' (BaseM MemMM) (pr_replaced pr)] in
+    resolves_path τ π (Some (SerT κser τval)) pr ->
+    has_ref_flag F pr.(pr_target) GCRefs ->
+    has_size F pr.(pr_target) σ ->
+    has_rep F τval ρ ->
+    eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
+    Forall (has_mono_size F) (pr_prefix pr) ->
+    has_instruction_type_ok F ψ L ->
+    run_codegen (compile_instr mr fe (IStore ψ π)) wt wl = inr ((), wt', wl', es') ->
+    ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
+  Proof.
+    intros fe WT WL lmask ψ Hresolves Hdrop Hsize Hrep Henv Hmonosize Htype Hcompile.
+    unfold WT, WL; clear WT WL.
+    (* If the WT := or WL := become necessary, undo the unfold/clear*)
+    cbn in Hcompile.
+
+    (* Mechanically get through some of the first few things in compile_swap *)
+    inv_cg_bind Hcompile ρ_inner ?wt ?wt ?wl ?wl es_off ?es_rest Hρ_inner Hcompile.
+    inv_cg_bind Hcompile ιs ?wt ?wt ?wl ?wl es_ρ ?es_rest Hιs Hcompile.
+    inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
+    inv_cg_try_option Hρ_inner; rename Heq_some into Hρ_inner.
+    inv_cg_try_option Hιs; rename Heq_some into Hιs.
+    inv_cg_try_option Hoff; rename Heq_some into Hoff.
+    inv_cg_bind Hcompile vs ?wt ?wt ?wl ?wl  es_save ?es_rest Hsave Hcompile.
+    inv_cg_bind Hcompile a ?wt ?wt ?wl ?wl  es_a ?es_rest Ha Hcompile.
+    cbn in Ha; inversion Ha; subst; clear Ha.
+    inv_cg_bind Hcompile res_emit ?wt ?wt ?wl ?wl  es_emit ?es_rest Hemit Hcompile.
+    inv_cg_emit Hemit.
+    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_case_ptr es_ptr_flags Hcompile Hptr_flags.
+
+    (* Some clean up *)
+    subst.
+    (* clear_nils. *)
+
+    (* The next step is a case_ptr, for which a lemma is currently being proven about *)
+  Admitted.
+
+End store_strong.
