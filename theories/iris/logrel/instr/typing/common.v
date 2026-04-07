@@ -13,6 +13,7 @@ From RichWasm.compiler Require Export prelude codegen instruction module.
 From RichWasm.iris Require Export autowp memory util wp_codegen.
 From RichWasm.iris.language Require Export cwp logpred.
 Require Export RichWasm.iris.logrel.instr.
+Require Import RichWasm.util.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -677,5 +678,16 @@ Section common.
       apply b2p in IHvh as <-.
       done.
   Qed.
+
+  Lemma atoms_interp_nths_error vs os vs' os' ixs :
+    nths_error vs ixs = Some vs' ->
+    nths_error os ixs = Some os' ->
+    atoms_interp os vs -∗
+    atoms_interp os' vs'.
+  Proof.
+    iIntros (Hnerr1 Hneer2) "Hatoms".
+    (* TODO: unprovable: ixs might contain duplicates *)
+  Admitted.
+
 
 End common.
