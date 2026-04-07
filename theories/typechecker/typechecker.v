@@ -113,16 +113,6 @@ Ltac structural_auto :=
 (*
 Scheme Equality for copyability.
 Scheme Equality for dropability.*)
-Scheme Equality for ref_flag.
-Scheme Equality for atomic_rep.
-Scheme Equality for base_memory.
-Scheme Equality for memory.
-Scheme Equality for list.
-Scheme Equality for num_type.
-Scheme Equality for primitive.
-Scheme Equality for num_instruction.
-Scheme Equality for consumption.
-
 
 (*
 Lemma copyability_eq_convert :

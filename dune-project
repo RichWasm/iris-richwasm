@@ -27,7 +27,7 @@
     (rocq-mathcomp-boot (>= 2.5.0))
     (rocq-mathcomp-order (>= 2.5.0))
     (rocq-parseque (>= 0.3.0))
-    (rocq-prover (>= 9.0.0))
+    (rocq-prover (>= 9.0.1))
     (sexplib (>= 0.17.0)))
   (synopsis "RichWasm formalization in Coq and Iris")
   (description "RichWasm formalization in Coq based on Iris-Wasm.")

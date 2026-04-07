@@ -211,6 +211,12 @@ Section TypeInd.
 
 End TypeInd.
 
-Definition atomic_rep_eq_dec : forall (ι1 ι2 : atomic_rep),
-    {ι1 = ι2} + {ι1 <> ι2}.
-Proof. decide equality. Defined.
+Scheme Equality for ref_flag.
+Scheme Equality for atomic_rep.
+Scheme Equality for base_memory.
+Scheme Equality for memory.
+Scheme Equality for list.
+Scheme Equality for num_type.
+Scheme Equality for primitive.
+Scheme Equality for num_instruction.
+Scheme Equality for consumption.

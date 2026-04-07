@@ -26,7 +26,7 @@ depends: [
   "rocq-mathcomp-boot" {>= "2.5.0"}
   "rocq-mathcomp-order" {>= "2.5.0"}
   "rocq-parseque" {>= "0.3.0"}
-  "rocq-prover" {>= "9.0.0"}
+  "rocq-prover" {>= "9.0.1"}
   "sexplib" {>= "0.17.0"}
   "odoc" {with-doc}
 ]
