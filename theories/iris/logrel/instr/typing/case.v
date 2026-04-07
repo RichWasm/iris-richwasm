@@ -446,24 +446,24 @@ Section case.
             by iFrame.
       + done.
       + instantiate (1 := case_tag_os_payload). (* TODO: should be provable, but might be a little annoying *)
-        assert (case_tag_sum_locals = ixs) as ->.
-        {
-          unfold inject_sum_rep in Heq_some0.
-          apply bind_Some in Heq_some0.
-          destruct Heq_some0 as [ιs' [H_tail H_rest]].
-          apply bind_Some in H_rest.
-          destruct H_rest as [ιs_tag' [H_eval H_inject]].
-
-          apply eval_rep_emptyenv with (se:=se) in H_eval.
-          apply fmap_Some in H_tail.
-          destruct H_tail as [full_list [H_eval_sum H_tail_eq]].
-          apply eval_rep_emptyenv with (se := se) in H_eval_sum.
-          have H_tail' : tail <$> eval_rep se (SumR ρs_sum) = Some ιs' by
-          rewrite H_eval_sum; simpl; rewrite H_tail_eq; reflexivity.
-          rewrite H_tail' in Heval_rep.
-          simplify_eq.
-          admit.
-        }
+        (* assert (case_tag_sum_locals = ixs) as ->. *)
+        (* { *)
+        (*   unfold inject_sum_rep in Heq_some0. *)
+        (*   apply bind_Some in Heq_some0. *)
+        (*   destruct Heq_some0 as [ιs' [H_tail H_rest]]. *)
+        (*   apply bind_Some in H_rest. *)
+        (*   destruct H_rest as [ιs_tag' [H_eval H_inject]]. *)
+        (**)
+        (*   apply eval_rep_emptyenv with (se:=se) in H_eval. *)
+        (*   apply fmap_Some in H_tail. *)
+        (*   destruct H_tail as [full_list [H_eval_sum H_tail_eq]]. *)
+        (*   apply eval_rep_emptyenv with (se := se) in H_eval_sum. *)
+        (*   have H_tail' : tail <$> eval_rep se (SumR ρs_sum) = Some ιs' by *)
+        (*   rewrite H_eval_sum; simpl; rewrite H_tail_eq; reflexivity. *)
+        (*   rewrite H_tail' in Heval_rep. *)
+        (*   simplify_eq. *)
+        (*   admit. *)
+        (* } *)
         admit.
         (*
           has_instruction_type_ok F (InstrT [SumT (VALTYPE (SumR ρs_sum) rf) τs] [τ_res]) L'
@@ -659,8 +659,41 @@ Section case.
     apply Forall2_length in Hforall_post as Hess_post_τs_post.
     clear Hforall_pre Hforall_post.
 
+    destruct κ; last first.
+    {
+      unfold skind_as_type_interp, ssize_interp.
+      iDestruct "Hskind_as_type" as "[[] _]".
+    }
+    unfold type_skind, eval_kind in Hkind_sum.
+    apply bind_Some in Hkind_sum.
+    destruct Hkind_sum as (l' & Heval & Hret).
+    unfold eval_rep in Heval.
+
+    apply bind_Some in Heval.
+    destruct Heval as (l''' & Heval' & Hret').
+    inversion Hret'; subst l'.
+    clear Hret'.
+    inversion Hret; subst l r.
+    clear Hret.
+
+    unfold skind_as_type_interp.
+    iDestruct "Hskind_as_type" as "[%Hhas_areps %Href]".
+    apply has_areps_cons in Hhas_areps as [Hhas_areps Hhas_arep].
+
+    apply eval_rep_emptyenv with (se:=se) in Heq_some0.
+    rewrite Heq_some0 in Heval_rep_tail.
+    simpl in Heval_rep_tail.
+    inversion Heval_rep_tail as [Hιs_atom_tail].
+
+    iAssert (⌜result_type_interp (map translate_prim (map arep_to_prim (tail ρs_atom))) vs_payload⌝%I) as "%Hres_type_vs_payload".
+    {
+      (* TODO: result_type_interp *)
+      admit.
+    }
 
     (* save payload *)
+    eapply cwp_save_stack_w in Hsave; eauto.
+    destruct Hsave as (Hval_localidxs_seq & -> & Hwl_save & Hsave).
     rewrite (app_assoc (e_tag ++ _)).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
@@ -674,23 +707,17 @@ Section case.
         ⌜val_localidxs = map prelude.W.Mk_localidx val_idxs⌝
         )%I).
       iApply cwp_val_app; first done.
-      eapply cwp_save_stack_w in Hsave; eauto.
-      + destruct Hsave as (-> & -> & -> & Hsave).
-        iApply (Hsave with "[$] [$]").
-        iIntros (f' [Hfsame Hfchanged]).
-        unfold fvs_combine.
-        auto.
-      + admit. (* easy pure conseqeunce of value_interp and
-      rep_values_interp, should be proved above the first wp_seq
-      rule *)
+      iApply (Hsave with "[$] [$]").
+      iIntros (f' [Hfsame Hfchanged]).
+      unfold fvs_combine.
+      subst val_localidxs wl_save.
+      auto.
     }
     iIntros (fr_saved w) "(%val_idxs & -> & %Hfrel_fr_saved & %Hsaved & %Hval_idxs_seq & %Hval_localidxs) Hfr Hrun".
-    iAssert
-    (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl1 ++ wlf) fr_saved)
-      with "[Hframe]" as "Hframe_saved".
-    { admit. } (* TODO: Not really sure how to prove this. Definitely need helper lemma *)
+    clear Hsave.
 
-    (* edestruct (util.nths_error_exists val_localidxs case_i_val_idxs vs_payload case_i_sum_locals (Forall2_length _ _ _ Hsaved)) as [case_i_vs_payload Hnerr_payload_ci]; try done. *)
+    iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved"; try done.
+    { by subst wl_save. }
 
     iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done.
     pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
@@ -767,13 +794,29 @@ Section case.
         destruct Hfrel_fr_saved_and_tag as [-> _]; done.
       - subst val_idxs val_localidxs tag_idx.
         rewrite length_app Nat.add_assoc.
+        subst wl_save.
         apply map_seq_forall_localidx_neq.
     }
 
-    iAssert
-    (frame_interp rti sr se L (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl1 ++ wlf) fr_saved_and_tag)
-      with "[Hframe_saved]" as "Hframe_saved_and_tag".
-    { admit. } (* TODO: Not really sure how to prove this. Definitely need helper lemma *)
+    iEval (rewrite app_assoc) in "Hframe_saved".
+    iPoseProof (frame_interp_update_frame' with "Hframe_saved") as "Hframe_saved_and_tag".
+    6: {
+      instantiate (1 := fr_saved_and_tag).
+      instantiate (1 := [tag_idx]).
+      eapply frame_rel_mask_mono; last done.
+      intros i H ->.
+      destruct H. by rewrite list_elem_of_singleton.
+    }
+    all: try done.
+    1: {
+      simpl.
+      instantiate (1 := [_]).
+      by apply Forall2_cons.
+    }
+    1: {
+      apply Forall2_cons; split; last done.
+      by eexists.
+    }
 
     (* Create defaults *)
     iApply (cwp_seq with "[Hfr Hrun]").
@@ -804,7 +847,7 @@ Section case.
     iEval (rewrite app_assoc).
     iApply (cwp_seq with "[Hfr Hrun]").
     {
-      iApply (compat_case_blocks_fail F (wt ++ wt_save) wt_pre tag_idx tag
+      iApply (compat_case_blocks_fail F wt wt_pre tag_idx tag
       wl_ret (wl ++ wl_save ++ [prelude.W.T_i32]) wl_pre
       ρs_sum val_localidxs (map default_of_value_type wl_ret)
       ess_pre es_pre 0 fr_saved_and_tag B R τ_res with "[$] [$]").
@@ -832,9 +875,9 @@ Section case.
     iEval (rewrite app_assoc).
     iApply (cwp_seq with "[-]").
     {
-      (* TODO: fix application *)
+      (* TODO: clean up application *)
       iApply (compat_case_block_success M F L
-      ((wt ++ wt_save) ++ wt_pre) wt_tag (wt_post ++ wtf)
+      (wt ++ wt_pre) wt_tag (wt_post ++ wtf)
       tag_idx tag
       wl_ret B R se L'
       ((wl ++ wl_save ++ [prelude.W.T_i32]) ++ wl_pre) wl_tag (wl_post ++ wlf)
@@ -852,11 +895,11 @@ Section case.
       - done.
       - done.
       - done.
+      - by rewrite Heq_some0.
       - done.
       - done.
-      - done.
-      - subst val_localidxs tag_idx.
-        rewrite Hval_idxs_seq.
+      - rewrite Hval_localidxs.
+        subst val_idxs tag_idx.
         rewrite length_app Nat.add_assoc.
         apply map_seq_forall_localidx_neq.
       - done.

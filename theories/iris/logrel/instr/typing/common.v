@@ -92,6 +92,46 @@ Section common.
   Proof.
   Admitted.
 
+  Lemma result_type_interp_split wl1 wl2 vs_wl :
+    result_type_interp (wl1 ++ wl2) vs_wl ->
+    ∃ vs_wl1 vs_wl2, vs_wl = vs_wl1 ++ vs_wl2 /\
+    result_type_interp wl1 vs_wl1 /\
+    result_type_interp wl2 vs_wl2.
+  Proof.
+    intros H.
+    unfold result_type_interp in H.
+    apply Forall2_app_inv_l in H.
+    destruct H as [vs_wl1 [vs_wl2 [HF1 [HF2 ->]]]].
+    exists vs_wl1, vs_wl2.
+    eauto.
+  Qed.
+
+  Lemma result_type_interp_combine wl1 wl2 vs_wl1 vs_wl2 :
+    result_type_interp wl1 vs_wl1 →
+    result_type_interp wl2 vs_wl2 →
+    result_type_interp (wl1 ++ wl2) (vs_wl1 ++ vs_wl2).
+  Proof.
+    intros H1 H2.
+    unfold result_type_interp in *.
+    apply Forall2_app; eauto.
+  Qed.
+
+  Lemma has_areps_cons ls ι o os:
+    has_areps (ι :: ls) (SAtoms (o :: os)) ->
+    has_areps ls (SAtoms os) /\
+    has_arep ι o.
+  Proof.
+    intros H.
+    unfold has_areps in H.
+    destruct H as [os' [Heq HF]].
+    injection Heq as <-.
+    inversion HF as [| ?? ?? Hhead Htail]; subst.
+    split.
+    - unfold has_areps. eauto.
+    - exact Hhead.
+  Qed.
+
+
   Lemma atoms_interp_nil_l vs :
     atoms_interp [] vs -∗ ⌜vs = []⌝.
   Proof.
@@ -441,6 +481,69 @@ Section common.
       (eapply frame_rel_mask_mono; last done; by intros i [H1 H2]).
   Qed.
 
+  Lemma frame_f_locs_update fr fr' vs1 vs_new vs_old vs2 val_idxs :
+    val_idxs = seq (length vs1) (length vs_old) ->
+    frame_rel (λ i, i ∉ val_idxs) fr fr' ->
+    Forall2 (λ i v, f_locs fr' !! i = Some v) val_idxs vs_new ->
+    f_locs fr  = vs1 ++ vs_old ++ vs2 ->
+    f_locs fr' = vs1 ++ vs_new ++ vs2.
+  Proof.
+    intros Hval_idxs [Hmask _] HF Hfr.
+    (* First extract length vs_new = length vs_old from Forall2 *)
+    have Hlen : length vs_new = length vs_old.
+    { have := Forall2_length _ _ _ HF. rewrite Hval_idxs length_seq. lia. }
+    (* Prove equality pointwise *)
+    apply list_eq. intros i.
+    destruct (decide (i ∈ val_idxs)) as [Hin | Hout].
+    - (* i is in val_idxs, so fr' !! i = Some (vs_new !! ...) *)
+      rewrite Hval_idxs in Hin.
+      apply elem_of_seq in Hin as [Hlo Hhi].
+      (* j is the position of i in val_idxs *)
+      set j := i - length vs1.
+      have Hj : j < length vs_old by unfold j; lia.
+      have Hseq : seq (length vs1) (length vs_old) !! j = Some i.
+      { rewrite lookup_seq. unfold j. split; lia. }
+      rewrite <- Hval_idxs in Hseq.
+      destruct (Forall2_lookup_l _ _ _ _ _ HF Hseq) as [v [Hv HP]].
+      (* HP : f_locs fr' !! i = Some v *)
+      rewrite HP.
+      (* now show (vs1 ++ vs_new ++ vs2) !! i = Some v *)
+      rewrite lookup_app_r; [|lia].
+      rewrite lookup_app_l; [|rewrite Hlen; lia].
+      (* vs_new !! j = Some v from Hv via HP *)
+      by rewrite Hv.
+    - (* i is not in val_idxs: fr and fr' agree *)
+      rewrite <- Hmask; [|exact Hout].
+      rewrite Hfr.
+      rewrite Hval_idxs in Hout.
+      have Hout' : i < length vs1 ∨ length vs1 + length vs_old ≤ i.
+      { rewrite elem_of_seq in Hout.
+        lia. }
+      destruct Hout' as [Hlt | Hge].
+      + (* i < length vs1: in the vs1 segment, both sides agree *)
+        rewrite !lookup_app_l; lias.
+      + (* i ≥ length vs1 + length vs_old: in the vs2 segment *)
+        rewrite !lookup_app_r; [|lia..].
+        f_equal. lia.
+  Qed.
+
+  Lemma frame_f_locs_update' fr fr' vs1 vs_new vs_old vs2 val_idxs val_localidxs :
+    val_idxs = seq (length vs1) (length vs_old) ->
+    val_localidxs = map prelude.W.Mk_localidx val_idxs ->
+    frame_rel (λ i, i ∉ val_idxs) fr fr' ->
+    Forall2 (λ i v, f_locs fr' !! localimm i = Some v) val_localidxs vs_new ->
+    f_locs fr  = vs1 ++ vs_old ++ vs2 ->
+    f_locs fr' = vs1 ++ vs_new ++ vs2.
+  Proof.
+    intros Hval_idxs Hval_localidxs Hframe_rel HF Hfr.
+    eapply frame_f_locs_update; eauto.
+    subst val_localidxs.
+    rewrite Forall2_fmap_l in HF.
+    eapply Forall2_impl; [exact HF|].
+    done.
+  Qed.
+
+
 (* This is a copy of values_interp_cons
   Lemma values_interp_cons_inv se τ τs os :
     ⊢ values_interp rti sr se (τ :: τs) os -∗
@@ -679,15 +782,87 @@ Section common.
       done.
   Qed.
 
-  Lemma atoms_interp_nths_error vs os vs' os' ixs :
-    nths_error vs ixs = Some vs' ->
-    nths_error os ixs = Some os' ->
-    atoms_interp os vs -∗
-    atoms_interp os' vs'.
+  (* TODO: fix lemma *)
+  (* Lemma atoms_interp_nths_error vs os vs' os' ixs : *)
+  (*   nths_error vs ixs = Some vs' -> *)
+  (*   nths_error os ixs = Some os' -> *)
+  (*   atoms_interp os vs -∗ *)
+  (*   atoms_interp os' vs'. *)
+  (* Proof. *)
+  (*   iIntros (Hnerr1 Hneer2) "Hatoms". *)
+  (*   (* TODO: unprovable: ixs might contain duplicates *) *)
+  (* Admitted. *)
+
+
+  (* TODO: remove if not needed in fraem_interp_update_frame *)
+  (* Lemma locals_length_offset F se oss L : *)
+  (*   sem_env_interp F se -> *)
+  (*   locals_interp rti sr se L oss -∗ *)
+  (*   ⌜length (concat oss) = fe_wlocal_offset (fe_of_context F)⌝. *)
+  (* Proof. *)
+  (* Admitted. *)
+  (**)
+  (* Lemma locals_length_offset' F se oss vss L : *)
+  (*   sem_env_interp F se -> *)
+  (*   atoms_interp (concat oss) (concat vss) -∗ *)
+  (*   locals_interp rti sr se L oss -∗ *)
+  (*   ⌜length (concat vss) = fe_wlocal_offset (fe_of_context F)⌝. *)
+  (* Proof. *)
+  (*   iIntros (Hsem) "Hatoms Hlocals". *)
+  (*   iPoseProof (atoms_interp_length with "Hatoms") as "<-". *)
+  (*   by iApply locals_length_offset. *)
+  (* Qed. *)
+
+  Lemma frame_interp_update_frame fe se L wl1 wl2 wl vs_idxs vs_wl fr fr' :
+    vs_idxs = seq (fe_wlocal_offset fe + length wl1) (length wl) ->
+    Forall2 (λ i v, f_locs fr' !! i = Some v) vs_idxs vs_wl ->
+    result_type_interp wl vs_wl ->
+    frame_rel (λ i, i ∉ vs_idxs) fr fr' ->
+    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr -∗
+    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr'.
   Proof.
-    iIntros (Hnerr1 Hneer2) "Hatoms".
-    (* TODO: unprovable: ixs might contain duplicates *)
+    intros Hvs_idxs_wl Hnew_vals Hres Hfrel.
+    iIntros "Hframe".
+    iDestruct "Hframe" as
+      "(%oss_L & %vss_L & %vs_WL_old & %Hfr & %Hresult & Hatom & Hval)".
+    apply result_type_interp_split in Hresult.
+    destruct Hresult as [vs_wl1 [vs_rest [-> [Hvs_wl1 Hresult]]]].
+    apply result_type_interp_split in Hresult.
+    destruct Hresult as [vs_wl' [vs_wl2 [-> [Hvs_wl' Hvs_wl2]]]].
+    iAssert (⌜length (concat vss_L) = fe_wlocal_offset fe⌝%I) as "%Hoffset".
+    {
+      (* TODO: how to prove this? *)
+      admit.
+    }
+    iFrame.
+    iExists (vs_wl1 ++ vs_wl ++ vs_wl2).
+    iPureIntro; split.
+    - rewrite app_assoc.
+      eapply (frame_f_locs_update); [ | done | done | by rewrite -app_assoc].
+      rewrite length_app.
+      apply Forall2_length in Hvs_wl' as <-.
+      apply Forall2_length in Hvs_wl1 as <-.
+      by rewrite Hoffset.
+    - apply result_type_interp_combine; first done.
+      apply result_type_interp_combine; last done.
+      done.
   Admitted.
 
+  Lemma frame_interp_update_frame' fe se L wl1 wl2 wl vs_localidxs vs_idxs vs_wl fr fr' :
+    vs_idxs = seq (fe_wlocal_offset fe + length wl1) (length wl) ->
+    vs_localidxs = map prelude.W.Mk_localidx vs_idxs ->
+    Forall2 (λ i v, f_locs fr' !! localimm i = Some v) vs_localidxs vs_wl ->
+    result_type_interp wl vs_wl ->
+    frame_rel (λ i, i ∉ vs_idxs) fr fr' ->
+    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr -∗
+    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr'.
+  Proof.
+    iIntros (Hvs_idxs Hvs_localidxs HF Hres Hframe_rel) "Hfr".
+    iApply frame_interp_update_frame; eauto.
+    subst vs_localidxs.
+    rewrite Forall2_fmap_l in HF.
+    eapply Forall2_impl; [exact HF|].
+    done.
+  Qed.
 
 End common.
