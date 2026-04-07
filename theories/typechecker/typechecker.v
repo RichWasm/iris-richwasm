@@ -4004,7 +4004,7 @@ Fixpoint has_instruction_type_checker
   end.
 
 
-(* TODO at the end make sure this is a direct copy of above. TODO NOTE IT IS NOT RIGHT NOW REMEMBER *)
+(* TODO at the end make sure this is a direct copy of above *)
 Fixpoint have_instruction_type_checker
     (M:module_ctx) (F:function_ctx) (L:local_ctx)
     (insts:list instruction) (ψ:instruction_type) (L':local_ctx) {struct insts} : type_checker_res :=
@@ -4752,6 +4752,30 @@ Definition has_function_type_checker
     end
   else INR "bad".
 
+
+Lemma grab_rep_in_messed_up_F :
+  ∀ ϕ_out ηss_P ηss_L K ϕ_type_vars ϕ_in ρs_P,
+    let halfF := Build_function_ctx [] [] [] [] K ϕ_type_vars in
+    let fullF := Build_function_ctx ϕ_out ηss_P ηss_L [] K ϕ_type_vars in
+    grab_rep halfF ϕ_in = Some ρs_P <-> grab_rep fullF ϕ_in = Some ρs_P.
+Proof.
+  split; intros.
+  all: unfold grab_rep in *; unfold grab_kind in *.
+  all: cbn in *; auto.
+Qed.
+
+Lemma mapM_grab_rep_in_messed_up_F :
+  ∀ ϕ_out ηss_P ηss_L K ϕ_type_vars ϕ_in ρs_P,
+    let halfF := Build_function_ctx [] [] [] [] K ϕ_type_vars in
+    let fullF := Build_function_ctx ϕ_out ηss_P ηss_L [] K ϕ_type_vars in
+    mapM (grab_rep halfF) ϕ_in = Some ρs_P <-> mapM (grab_rep fullF) ϕ_in = Some ρs_P.
+Proof.
+  split; intros.
+  all: unfold grab_rep, grab_kind in *.
+  all: cbn in *.
+  all: done.
+Qed.
+
 Lemma has_function_type_checker_correct :
   ∀ M mf ft, has_function_type_checker M mf ft = ok_term ->
              has_function_type M mf ft.
@@ -4764,7 +4788,41 @@ Proof.
   rename l2 into L'.
   apply function_type_eq_convert in HMatch. subst ft.
   apply (TFunction M mf ηss_L ηss_P ρs_P L'); auto.
-  - cbn. (* lemma: prove that grab rep with messed up F is correct *) admit.
+  - cbn. (* lemma: prove that grab rep with messed up F is correct *)
+    clear H1 HMatch5 HMatch3 HMatch2 HMatch4 o L'.
+    rewrite (mapM_grab_rep_in_messed_up_F
+             (fft_out (flatten_function_type (mf_type mf)))
+             ηss_P
+             ηss_L
+             (kc_of_fft (flatten_function_type (mf_type mf)))
+             (fft_type_vars (flatten_function_type (mf_type mf)))
+             (fft_in (flatten_function_type (mf_type mf)))
+             ρs_P
+          ) in HMatch1.
+    (* the lemma: grab_rep_correct *)
+    set (F := {|
+           fc_return := fft_out (flatten_function_type (mf_type mf));
+           fc_params := ηss_P;
+           fc_locals := ηss_L;
+           fc_labels := [];
+           fc_kind_ctx := kc_of_fft (flatten_function_type (mf_type mf));
+           fc_type_vars := fft_type_vars (flatten_function_type (mf_type mf))
+         |}) in *.
+    set (ϕ_in := fft_in (flatten_function_type (mf_type mf)) ) in *.
+    (* now it's just a grab_rep has_rep situation through a mapM *)
+    generalize dependent ρs_P.
+    induction ϕ_in as [|ϕ1 ϕ_inrest]; intros.
+    + cbn in HMatch1. inversion HMatch1.
+      by apply Forall2_nil.
+    + cbn in HMatch1.
+      apply bind_Some in HMatch1.
+      destruct HMatch1 as [ρ1 [Hϕ1_ρ1 Hrest]].
+      apply bind_Some in Hrest.
+      destruct Hrest as [ρ_rest [H1 H2]].
+      apply IHϕ_inrest in H1.
+      inversion H2.
+      apply Forall2_cons; split; auto.
+      apply grab_rep_correct; auto.
   - (* foldr *) admit.
   - apply have_instruction_type_checker_correct in H1.
     auto.
