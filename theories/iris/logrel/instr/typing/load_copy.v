@@ -805,7 +805,7 @@ Section load_copy.
     change prelude.W.Mk_localidx with Mk_localidx in *.
     change instruction.W.BI_unreachable with BI_unreachable in *.
     change instruction.W.BI_tee_local with BI_tee_local in *.
-    set (ptr_local := sum_list_with length (typing.fc_locals F) + length wl) in *.
+    set (ptr_local := sum_list_with length (F.(fc_params) ++ F.(typing.fc_locals)) + length wl) in *.
 
     cbn in Hκ'.
     iAssert (⌜ptr_local < length (f_locs fr)⌝%I) as "%Hlen".

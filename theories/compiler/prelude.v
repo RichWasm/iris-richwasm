@@ -48,7 +48,7 @@ Definition fe_of_module_func (mf : module_function) : option function_env :=
 Definition fe_of_context (F : function_ctx) : function_env :=
   {| fe_type_vars := F.(fc_type_vars);
      fe_return := F.(fc_return);
-     fe_params := [];
+     fe_params := F.(fc_params);
      fe_locals := F.(fc_locals) |}.
 
 Definition fe_wlocal_offset (fe : function_env) : nat :=

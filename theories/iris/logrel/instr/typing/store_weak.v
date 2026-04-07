@@ -82,7 +82,7 @@ Section store_weak.
     rename a into o1.
     iEval (rewrite atoms_interp_one_inv) in "Hvs1".
     iDestruct "Hvs1" as "(%v1 & -> & Hv1)".
-    set (ptr_local := sum_list_with length (typing.fc_locals F) + length (wl ++ wl6) ) in *.
+    set (ptr_local := sum_list_with length (F.(fc_params) ++ F.(typing.fc_locals)) + length (wl ++ wl6) ) in *.
     iEval (rewrite value_interp_eq) in "Hos1".
     iDestruct "Hos1" as (κ' Hκ') "[Harepos1 Hrefos1]".
     destruct κ'; [|by iDestruct "Harepos1" as "[[] ?]"].
