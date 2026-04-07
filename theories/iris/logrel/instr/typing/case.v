@@ -839,6 +839,7 @@ Section case.
       wl_ret B R se L'
       ((wl ++ wl_save ++ [prelude.W.T_i32]) ++ wl_pre) wl_tag (wl_post ++ wlf)
       τs τ_tag τ_res case_tag_os_payload val_localidxs vs_payload _
+      _ _ _
       ρs_sum fr_saved_and_tag θ
       os_payload
       es_tag_cg
@@ -848,8 +849,13 @@ Section case.
       - done.
       - lia.
       - by rewrite length_map.
-      - 
-        subst val_localidxs tag_idx.
+      - done.
+      - done.
+      - done.
+      - done.
+      - done.
+      - done.
+      - subst val_localidxs tag_idx.
         rewrite Hval_idxs_seq.
         rewrite length_app Nat.add_assoc.
         apply map_seq_forall_localidx_neq.
