@@ -51,7 +51,7 @@ Section loop.
     iApply (cwp_loop' with "[$] [$] [Hvs Hos Hframe Hrt]"); first done.
     - rewrite <- Hlen_ts1. rewrite Hlen_vs. by apply has_values_length.
     - instantiate (1 := fun fr' vs' =>
-        (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(fc_params) F.(typing.fc_locals) L (wl ++ wl2 ++ wlf) fr' ∗
+        (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L (wl ++ wl2 ++ wlf) fr' ∗
            (∃ os', values_interp rti sr se τs1 os' ∗ atoms_interp os' vs') ∗
            (∃ θ', rt_token rti sr θ'))%I).
       by iFrame.

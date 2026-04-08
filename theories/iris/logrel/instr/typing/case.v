@@ -282,12 +282,12 @@ Section case.
           (InstrT [τ_tag] [τ_res]) L') ->
     ⊢
     instance_interp rti sr mr M (wt ++ wt_case_tag ++ wtf) fr_saved_and_tag.(f_inst) -∗
-    labels_interp rti sr se F.(fc_params) F.(typing.fc_locals) fr_saved_and_tag (wl ++ wl_case_tag ++ wlf) lmask (fc_labels F) B -∗
+    labels_interp rti sr se F.(typing.fc_locals) fr_saved_and_tag (wl ++ wl_case_tag ++ wlf) lmask (fc_labels F) B -∗
     return_interp rti sr se (fc_return F) R -∗
     rt_token rti sr θ -∗
     ▷ value_interp rti sr se τ_tag (SAtoms case_tag_os_payload) -∗
     atoms_interp os_payload vs_payload -∗
-    frame_interp rti sr se F.(fc_params) F.(typing.fc_locals) L (wl ++ wl_case_tag ++ wlf) fr_saved_and_tag -∗
+    frame_interp rti sr se F.(typing.fc_locals) L (wl ++ wl_case_tag ++ wlf) fr_saved_and_tag -∗
     ↪[frame]fr_saved_and_tag -∗
     ↪[RUN] -∗
       CWP to_consts vs_res ++ es_tag_cg
@@ -295,7 +295,7 @@ Section case.
         {{ fr'; vs',
               ⌜length vs' = length wl_ret⌝ ∗
               ⌜frame_rel lmask fr_saved_and_tag fr'⌝ ∗
-              frame_interp rti sr se F.(fc_params) F.(typing.fc_locals) L' (wl ++ wl_case_tag ++ wlf) fr' ∗
+              frame_interp rti sr se F.(typing.fc_locals) L' (wl ++ wl_case_tag ++ wlf) fr' ∗
               ∃ (os' : leibnizO (list atom)) (θ : address_map),
                values_interp rti sr se [τ_res] os' ∗ atoms_interp os' vs' ∗
                rt_token rti sr θ
@@ -772,7 +772,7 @@ Section case.
       + unfold tag_idx. rewrite length_app. lia.
     }
     pose proof Hfrel_fr_and_fr_saved_and_tag as [_ ->].
-    iDestruct (labels_interp_mono _ _ _ _ _ _ fr_saved_and_tag _ _ _ _ with "Hlabels") as "Hlabels'"; first done.
+    iDestruct (labels_interp_mono _ _ _ _ _ fr_saved_and_tag _ _ _ _ with "Hlabels") as "Hlabels'"; first done.
     {
       instantiate (1 := (wlmask (fe_of_context F') (wl ++ wl_save ++ [prelude.W.T_i32]))).
       intros i [Hi_lo Hi_hi].
@@ -858,7 +858,7 @@ Section case.
     }
     iIntros (?fr w) "(-> & ->) Hfr Hrun".
 
-    iDestruct (labels_interp_mono _ _ _ _ _ _ fr_saved_and_tag _ _ _ _ with "Hlabels") as "Hlabels'''"; first done.
+    iDestruct (labels_interp_mono _ _ _ _ _ fr_saved_and_tag _ _ _ _ with "Hlabels") as "Hlabels'''"; first done.
     {
       instantiate (1 := (wlmask (fe_of_context F') (wl ++ wl_save ++ [prelude.W.T_i32] ++ wl_pre))).
       intros i [Hi_lo Hi_hi].

@@ -2898,7 +2898,7 @@ Definition local_ctx_ok_checker (F:function_ctx) (L:local_ctx) : type_checker_re
   if foldr2
        (λ t:type, λ p:list primitive,
              andb (check_ok_output (type_rep_eq_prim_checker F t p))
-       ) true L (F.(fc_params) ++ F.(fc_locals))
+       ) true L F.(fc_locals)
   then ok_term
   else INR "local context not ok".
 Lemma local_ctx_ok_checker_correct :
@@ -4728,12 +4728,12 @@ Definition has_function_type_checker
     let K := kc_of_fft ϕ in
     match mapM (eval_rep_prim EmptyEnv) mf.(mf_locals) with
     | Some ηss_L =>
-        let tempF := Build_function_ctx [] [] [] [] K ϕ.(fft_type_vars) in
+        let tempF := Build_function_ctx [] [] [] K ϕ.(fft_type_vars) in
         match mapM (grab_rep tempF) ϕ.(fft_in) with
         | Some ρs_P =>
             match mapM (eval_rep_prim EmptyEnv) ρs_P with
             | Some ηss_P =>
-                let F := Build_function_ctx ϕ.(fft_out) ηss_P ηss_L [] K ϕ.(fft_type_vars) in
+                let F := Build_function_ctx ϕ.(fft_out) (ηss_P ++ ηss_L) [] K ϕ.(fft_type_vars) in
                 let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
                 let ψ := InstrT [] ϕ.(fft_out) in
                 match synth_possible_resulting_local_ctx_insts F (mf.(mf_body)) L with
@@ -4755,8 +4755,8 @@ Definition has_function_type_checker
 
 Lemma grab_rep_in_messed_up_F :
   ∀ ϕ_out ηss_P ηss_L K ϕ_type_vars ϕ_in ρs_P,
-    let halfF := Build_function_ctx [] [] [] [] K ϕ_type_vars in
-    let fullF := Build_function_ctx ϕ_out ηss_P ηss_L [] K ϕ_type_vars in
+    let halfF := Build_function_ctx [] [] [] K ϕ_type_vars in
+    let fullF := Build_function_ctx ϕ_out (ηss_P ++ ηss_L) [] K ϕ_type_vars in
     grab_rep halfF ϕ_in = Some ρs_P <-> grab_rep fullF ϕ_in = Some ρs_P.
 Proof.
   split; intros.
@@ -4766,8 +4766,8 @@ Qed.
 
 Lemma mapM_grab_rep_in_messed_up_F :
   ∀ ϕ_out ηss_P ηss_L K ϕ_type_vars ϕ_in ρs_P,
-    let halfF := Build_function_ctx [] [] [] [] K ϕ_type_vars in
-    let fullF := Build_function_ctx ϕ_out ηss_P ηss_L [] K ϕ_type_vars in
+    let halfF := Build_function_ctx [] [] [] K ϕ_type_vars in
+    let fullF := Build_function_ctx ϕ_out (ηss_P ++ ηss_L) [] K ϕ_type_vars in
     mapM (grab_rep halfF) ϕ_in = Some ρs_P <-> mapM (grab_rep fullF) ϕ_in = Some ρs_P.
 Proof.
   split; intros.
@@ -4789,7 +4789,7 @@ Proof.
   apply function_type_eq_convert in HMatch. subst ft.
   apply (TFunction M mf ηss_L ηss_P ρs_P L'); auto.
   - cbn. (* lemma: prove that grab rep with messed up F is correct *)
-    clear H1 HMatch5 HMatch3 HMatch2 HMatch4 o L'.
+    clear H1 HMatch5 HMatch3 HMatch2 HMatch4 o.
     rewrite (mapM_grab_rep_in_messed_up_F
              (fft_out (flatten_function_type (mf_type mf)))
              ηss_P
@@ -4802,8 +4802,7 @@ Proof.
     (* the lemma: grab_rep_correct *)
     set (F := {|
            fc_return := fft_out (flatten_function_type (mf_type mf));
-           fc_params := ηss_P;
-           fc_locals := ηss_L;
+           fc_locals := ηss_P ++ ηss_L;
            fc_labels := [];
            fc_kind_ctx := kc_of_fft (flatten_function_type (mf_type mf));
            fc_type_vars := fft_type_vars (flatten_function_type (mf_type mf))
