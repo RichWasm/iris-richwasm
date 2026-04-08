@@ -662,23 +662,42 @@ Section load_copy.
     destruct ι; solve [exfalso; by apply Hι | by apply Hcg].
   Qed.
 
+  Lemma arep_types_agree ι o v :
+    has_arep ι o ->
+    atom_interp o v -∗
+    ⌜types_agree (translate_arep ι) v⌝.
+  Proof.
+    destruct ι, o; cbn;
+      iIntros "%Harep ->" || iIntros "%Harep Hat";
+      auto.
+    iDestruct "Hat" as "(%n & -> & _)".
+    auto.
+  Qed.
+
   Lemma wp_mem_load1_copy_mm
-    se fe lidx off ι wt wl ret wt' wl' es fs ws ℓ ℓ32 τ π B R
+    se fe lidx off ι o wt wl ret wt' wl' es fs ws ℓ ℓ32 τ π B R
     (f: frame) memidx memidxN v Φ :
     run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
     N_i32_repr ℓ ℓ32 ->
     N_nat_repr memidx memidxN ->
     inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some memidx ->
+    fe_wlocal_offset fe + length wl < length (f_locs f) ->
     f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) ->
-    types_agree (translate_arep ι) v ->
+    has_arep ι o ->
     ret = () /\
     ⊢ ↪[frame] f -∗
       ↪[RUN] -∗
+      atom_interp o v -∗
       ℓ ↦layout fs -∗
       ℓ ↦heap ws -∗
       memidxN ↦[wms][ℓ + byte_offset MemMM off]bits v -∗
       ▷ value_interp rti sr se τ (SWords ws) -∗
       ⌜path_offset fe τ π = Some off⌝ -∗
+      (if atomic_rep_eq_dec ι PtrR
+       then True
+       else Φ {| W.f_locs := <[(fe_wlocal_offset fe + length wl) := v]>(f_locs f);
+                 W.f_inst := f_inst f |}
+              [v]) -∗
       CWP es UNDER B; R {{ Φ }}.
   Proof.
     unfold load1.
@@ -701,7 +720,7 @@ Section load_copy.
     clear_nils.
     destruct ret.
     split; [reflexivity|].
-    iIntros "Hf Hrun Hfs Hws Hmem Hval %Hpath".
+    iIntros "Hf Hrun Ho Hfs Hws Hmem Hval %Hpath HΦ".
     iApply (cwp_seq with "[Hf Hrun]").
     {
       iApply (cwp_local_get with "[] [$] [$]"); eauto.
@@ -709,10 +728,10 @@ Section load_copy.
     }
     iIntros (f' vs') "[-> ->] Hf Hrun".
     rewrite app_assoc.
+    iPoseProof (arep_types_agree with "Ho") as "%Hag"; eauto.
     iApply (cwp_seq with "[Hf Hrun Hmem]").
     {
-      iApply (Hload_w with "[$] [$] [$]").
-      1, 2, 3, 4: done.
+      iApply (Hload_w with "[$] [$] [$]"); try done.
       iIntros "!> Hmem".
       instantiate (1:= λ f' v', (⌜f' = f⌝ ∗ ⌜v' = [v]⌝ ∗ _)%I).
       cbn.
@@ -728,15 +747,32 @@ Section load_copy.
     iApply (cwp_seq with "[Hf Hrun]").
     {
       iApply (cwp_local_tee with "[] [$] [$]").
-      - admit.
+      - auto.
       - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
     destruct (atomic_rep_eq_dec ι PtrR).
     - subst ι.
-      eapply wp_ite_gc_ptr_ptr with (evs:= to_consts [v]) (vs:=[v]) in Hcompile; auto; last admit.
-      admit.
-    - admit.
+      destruct o; try tauto.
+      eapply wp_ite_gc_ptr_ptr with (evs:= to_consts [v]) (vs:=[v]) in Hcompile;
+        [|apply Is_true_true, has_values_to_consts|auto].
+      destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+      destruct Hcompile as (Hcg1 & Hcg2 & Hcg3 & Hwt7 & Hwl7 & Hes_rest2).
+      iApply (Hes_rest2 with "[$] [$] [] [$]").
+      + iPureIntro; cbn.
+        rewrite list_lookup_insert.
+        by rewrite decide_True.
+      + iIntros "!> Hf Hrun Hat".
+        unfold atom_interp.
+        subst wt7 wl7.
+        inv_cg_ret Hcg1.
+        inv_cg_ret Hcg2.
+        clear_nils.
+        admit.
+    - eapply wp_ite_gc_ptr_nonptr in Hcompile; last assumption.
+      inv_cg_ret Hcompile; subst.
+      clear_nils.
+      iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
   Abort.
 
   Lemma mem_load_copy_mm_spec se fe lidx off ιs wt wl ret wt' wl' es fs ws ℓ τ π ev B R :
@@ -749,8 +785,6 @@ Section load_copy.
       CWP ev :: es UNDER B; R {{ fr'; vs', True }}.
   Proof.
   Abort.
-
-
 
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
