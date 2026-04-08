@@ -659,6 +659,7 @@ Section case.
     apply Forall2_length in Hforall_post as Hess_post_τs_post.
     clear Hforall_pre Hforall_post.
 
+    (* TODO start: this could use a little cleanup + abstract into lemmas? *)
     destruct κ; last first.
     {
       unfold skind_as_type_interp, ssize_interp.
@@ -667,32 +668,28 @@ Section case.
     unfold type_skind, eval_kind in Hkind_sum.
     apply bind_Some in Hkind_sum.
     destruct Hkind_sum as (l' & Heval & Hret).
-    unfold eval_rep in Heval.
-
-    apply bind_Some in Heval.
-    destruct Heval as (l''' & Heval' & Hret').
-    inversion Hret'; subst l'.
-    clear Hret'.
     inversion Hret; subst l r.
     clear Hret.
 
     unfold skind_as_type_interp.
     iDestruct "Hskind_as_type" as "[%Hhas_areps %Href]".
-    apply has_areps_cons in Hhas_areps as [Hhas_areps Hhas_arep].
-
+    apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag).
     apply eval_rep_emptyenv with (se:=se) in Heq_some0.
+    rewrite Heq_some0 in Heval.
+    inversion Heval as [Hρs_atom_l'].
     rewrite Heq_some0 in Heval_rep_tail.
     simpl in Heval_rep_tail.
     inversion Heval_rep_tail as [Hιs_atom_tail].
+    rewrite Hρs_atom_l' in Hιs_atom_tail.
+    simpl in Hιs_atom_tail.
+    subst ρs_atom.
+    (* TODO end *)
 
-    iAssert (⌜result_type_interp (map translate_prim (map arep_to_prim (tail ρs_atom))) vs_payload⌝%I) as "%Hres_type_vs_payload".
-    {
-      (* TODO: result_type_interp *)
-      admit.
-    }
+    iDestruct (result_type_interp_of_atoms_interp with "Hatoms_interp_payload") as "%Hres_type_vs_payload"; first done.
 
     (* save payload *)
     eapply cwp_save_stack_w in Hsave; eauto.
+    2: { by rewrite map_comp. }
     destruct Hsave as (Hval_localidxs_seq & -> & Hwl_save & Hsave).
     rewrite (app_assoc (e_tag ++ _)).
     iApply (cwp_seq with "[Hfr Hrun]").
@@ -719,7 +716,7 @@ Section case.
     iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved".
     2, 3, 5: done.
     { subst val_idxs fe. by rewrite fe_wlocal_offset_length. }
-    { by subst wl_save. }
+    { subst wl_save. by rewrite map_comp. }
 
     iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done.
     pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
@@ -948,6 +945,6 @@ Section case.
       intros i [Hi_lo Hi_hi]. unfold lmask, wlmask. split; exact Hi_lo || exact Hi_hi.
     + eapply frame_rel_wlmask_mono; [| exact Hfrel_new].
       rewrite length_app. rewrite length_app. lia.
-  Admitted.
+  Qed.
 
 End case.

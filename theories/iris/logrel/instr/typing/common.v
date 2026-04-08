@@ -116,9 +116,9 @@ Section common.
     apply Forall2_app; eauto.
   Qed.
 
-  Lemma has_areps_cons ls ι o os:
-    has_areps (ι :: ls) (SAtoms (o :: os)) ->
-    has_areps ls (SAtoms os) /\
+  Lemma has_areps_cons ιs ι o os:
+    has_areps (ι :: ιs) (SAtoms (o :: os)) ->
+    has_areps ιs (SAtoms os) /\
     has_arep ι o.
   Proof.
     intros H.
@@ -131,6 +131,21 @@ Section common.
     - exact Hhead.
   Qed.
 
+  Lemma has_areps_cons_exists ιs o os:
+    has_areps ιs (SAtoms (o :: os)) ->
+    ∃ ι ιs' , ιs = ι :: ιs' /\
+    has_areps ιs' (SAtoms os) /\
+    has_arep ι o.
+  Proof.
+    intros H.
+    destruct ιs as [| ι ιs'].
+    - destruct H as [os' [Heq HF]].
+      inversion Heq; subst.
+      inversion HF.
+    - do 2 eexists.
+      split; first done.
+      by apply has_areps_cons.
+  Qed.
 
   Lemma atoms_interp_nil_l vs :
     atoms_interp [] vs -∗ ⌜vs = []⌝.
@@ -867,6 +882,53 @@ Section common.
   Proof.
     unfold fe_wlocal_offset. simpl.
     apply sum_list_with_length_concat.
+  Qed.
+
+  Lemma atom_interp_value_type_interp (ι : atomic_rep) (o : atom) (v : value) :
+    has_arep ι o →
+    atom_interp o v -∗
+    ⌜value_type_interp (translate_arep ι) v⌝.
+  Proof.
+    intros Harep.
+    destruct ι, o; simpl in *; try done.
+    {
+      iIntros "(%n & -> & %rp & _ & _)".
+      iPureIntro. exists (Wasm_int.int_of_Z i32m n). done.
+    }
+    all: iIntros "->"; iPureIntro; exists n; done.
+  Qed.
+
+  Lemma result_type_interp_of_atoms_interp ιs os vs :
+    has_areps ιs (SAtoms os) ->
+    atoms_interp os vs -∗
+    ⌜result_type_interp (map translate_arep ιs) vs⌝.
+  Proof.
+    revert os vs.
+    induction ιs as [| ι ιs' IH]; intros os vs Hιs'.
+    - (* ιs = [] *)
+      destruct Hιs' as (os' & Heq & Hfa).
+      inversion Heq; subst.
+      inversion Hfa; subst.
+      iIntros "Hinterp".
+      iDestruct (atoms_interp_nil_l with "Hinterp") as "->".
+      iPureIntro.
+      constructor.
+    - (* ιs = ι :: ιs' *)
+      destruct os as [| o os].
+      {
+        destruct Hιs' as (os' & Heq & Hfa).
+        inversion Heq; subst.
+        inversion Hfa.
+      }
+      apply has_areps_cons in Hιs' as [Hιs'_tl Hιs'_hd].
+      iIntros "Hinterp".
+      iDestruct (atoms_interp_cons_l with "Hinterp") as
+      "(%v & %vs' & -> & Hv & Hos)".
+      iDestruct (IH _ _ Hιs'_tl with "Hos") as "%Htl".
+      iDestruct (atom_interp_value_type_interp ι o v Hιs'_hd with "Hv") as "%Hhd".
+      iPureIntro.
+      simpl.
+      by constructor.
   Qed.
 
 End common.
