@@ -234,25 +234,28 @@ Section case.
   Qed.
 
   Lemma compat_case_block_success M F L wt wt_case_tag wtf tag_idx (tag : nat)
-    wl_ret B R se L' wl wl_case_tag wlf
-    (τs: list type) τ_tag τ_res case_tag_os_payload val_localidxs vs_payload vs_res
-    ιs_tag ιs ixs
+    wl_ret B R se L' wl wl_case_tag wlf rf
+    (τs: list type) τ_case_tag τ_res case_tag_os_payload val_localidxs vs_payload vs_res
+    ιs_case_tag ι_tag ιs_payload ixs
     ρs_sum fr_saved_and_tag θ os_payload es_tag_cg (ess_pre : list (list instruction))
     (es_tag : list instruction) :
     let F' := F <| fc_labels ::= cons ([τ_res], L') |> in
     let fe := fe_of_context F in
     let lmask := wlmask fe wl in
     let tag_localidx := Mk_localidx tag_idx in
+    has_instruction_type_ok F
+      (InstrT [SumT (VALTYPE (SumR ρs_sum) rf) τs] [τ_res]) L' ->
     f_locs fr_saved_and_tag !! tag_idx = Some (VAL_int32 (Wasm_int.Int32.repr tag)) ->
     prelude.translate_type (fe_type_vars fe) τ_res = Some wl_ret ->
-    τs !! tag = Some τ_tag ->
+    τs !! tag = Some τ_case_tag ->
     length ess_pre = tag ->
     length vs_res = length wl_ret ->
     length τs = length ρs_sum ->
-    τs !! tag = Some τ_tag ->
-    type_arep se τ_tag = Some ιs_tag ->
-    tail <$> eval_rep se (SumR ρs_sum) = Some ιs ->
-    inject_sum_arep ιs ιs_tag = Some ixs ->
+    τs !! tag = Some τ_case_tag ->
+    type_arep se τ_case_tag = Some ιs_case_tag ->
+    (* tail <$> eval_rep se (SumR ρs_sum) = Some ιs -> *)
+    eval_rep se (SumR ρs_sum) = Some (ι_tag :: ιs_payload) ->
+    inject_sum_arep ιs_payload ιs_case_tag = Some ixs ->
     nths_error os_payload ixs = Some case_tag_os_payload ->
     Forall (λ i : prelude.W.localidx, localimm i ≠ tag_idx) val_localidxs ->
     Forall2
@@ -279,13 +282,13 @@ Section case.
         let lmask := wlmask fe wl in
         run_codegen (compile_instrs mr fe' es_tag) wt wl = inr ((), wt', wl', es')
         → ⊢ have_instr_type_sem rti sr mr M F' L WT WL lmask es'
-          (InstrT [τ_tag] [τ_res]) L') ->
+          (InstrT [τ_case_tag] [τ_res]) L') ->
     ⊢
     instance_interp rti sr mr M (wt ++ wt_case_tag ++ wtf) fr_saved_and_tag.(f_inst) -∗
     labels_interp rti sr se F.(typing.fc_locals) fr_saved_and_tag (wl ++ wl_case_tag ++ wlf) lmask (fc_labels F) B -∗
     return_interp rti sr se (fc_return F) R -∗
     rt_token rti sr θ -∗
-    ▷ value_interp rti sr se τ_tag (SAtoms case_tag_os_payload) -∗
+    ▷ value_interp rti sr se τ_case_tag (SAtoms case_tag_os_payload) -∗
     atoms_interp os_payload vs_payload -∗
     frame_interp rti sr se F.(typing.fc_locals) L (wl ++ wl_case_tag ++ wlf) fr_saved_and_tag -∗
     ↪[frame]fr_saved_and_tag -∗
@@ -301,7 +304,7 @@ Section case.
                rt_token rti sr θ
         }}.
   Proof.
-    intros F' fe lmask tag_localidx Hlookup_saved_and_tag Htranslate_type_fe Ht_lookup_tag Heq Hvs_res_len Htyp_rep_len Hlookup_typs Htype_arep Heval_rep Hinject_sum_arep Hnerr_os Htag_not_val_localidx Hsaved Hsem Hcg_tag Hsem_es_tag.
+    intros F' fe lmask tag_localidx Hok Hlookup_saved_and_tag Htranslate_type_fe Ht_lookup_tag Heq Hvs_res_len Htyp_rep_len Hlookup_typs Htype_arep Heval_rep Hinject_sum_arep Hnerr_os Htag_not_val_localidx Hsaved Hsem Hcg_tag Hsem_es_tag.
     iIntros "#Hinst #Hlabels #Hreturn Hrt Hvalue_interp_os_tag Hatoms_interp_payload Hframe_saved_and_tag Hfr Hrun".
 
     (* Case es_tag *)
@@ -446,95 +449,38 @@ Section case.
             by iFrame.
       + done.
       + instantiate (1 := case_tag_os_payload). (* TODO: should be provable, but might be a little annoying *)
-        (* assert (case_tag_sum_locals = ixs) as ->. *)
-        (* { *)
-        (*   unfold inject_sum_rep in Heq_some0. *)
-        (*   apply bind_Some in Heq_some0. *)
-        (*   destruct Heq_some0 as [ιs' [H_tail H_rest]]. *)
-        (*   apply bind_Some in H_rest. *)
-        (*   destruct H_rest as [ιs_tag' [H_eval H_inject]]. *)
-        (**)
-        (*   apply eval_rep_emptyenv with (se:=se) in H_eval. *)
-        (*   apply fmap_Some in H_tail. *)
-        (*   destruct H_tail as [full_list [H_eval_sum H_tail_eq]]. *)
-        (*   apply eval_rep_emptyenv with (se := se) in H_eval_sum. *)
-        (*   have H_tail' : tail <$> eval_rep se (SumR ρs_sum) = Some ιs' by *)
-        (*   rewrite H_eval_sum; simpl; rewrite H_tail_eq; reflexivity. *)
-        (*   rewrite H_tail' in Heval_rep. *)
-        (*   simplify_eq. *)
-        (*   admit. *)
-        (* } *)
-        admit.
-        (*
-          has_instruction_type_ok F (InstrT [SumT (VALTYPE (SumR ρs_sum) rf) τs] [τ_res]) L'
-          type_skind se (SumT (VALTYPE (SumR ρs_sum) rf) τs) = Some κ
+        apply inject_sum_rep_emptyenv with (se:=se)in Heq_some0.
+        unfold inject_sum_rep in Heq_some0.
+        rewrite Heval_rep in Heq_some0.
+        simpl in Heq_some0.
 
-          length τs = length ρs_sum
-          ρs_sum !! tag = Some ρ_case_tag
-          τs     !! tag = Some τ_tag
+        assert (eval_rep se ρ_case_tag = Some ιs_case_tag) as Heval_rep_case_tag.
+        {
+          inversion Hok; subst.
+          unfold has_mono_rep_instr in H.
+          destruct H as [H H'].
+          rewrite Forall_singleton in H.
+          inversion H; subst.
+          inversion H1; subst.
+          apply has_kind_SumT_inv in H3 as (rf' & HF2).
+          eapply Forall2_lookup_lr in HF2; try done.
+          eapply has_kind_eval_rep; done.
+        }
+        rewrite Heval_rep_case_tag in Heq_some0.
+        simpl in Heq_some0.
 
-          eval_rep  se ρ_case_tag = Some ιs_tag'
-          type_arep se τ_tag      = Some ιs_tag
+        assert (case_tag_sum_locals = ixs) as ->.
+        {
+          rewrite Hinject_sum_arep in Heq_some0.
+          by inversion Heq_some0.
+        }
+        iApply atoms_interp_nths_error; try done.
+        admit. (* TODO: NoDup ixs *)
 
-           ιs_tag' = ιs_tag
-         *)
-
-
-        (*
-          has_instruction_type_ok F (InstrT [SumT (VALTYPE (SumR ρs_sum) rf) τs] [τ_res]) L'
-          type_skind se (SumT (VALTYPE (SumR ρs_sum) rf) τs) = Some κ
-
-          tail <$> eval_rep se (SumR ρs_sum) = Some ιs'
-          tail <$> eval_rep se (SumR ρs_sum) = Some ιs
-
-          length τs = length ρs_sum
-          ρs_sum !! tag = Some ρ_case_tag
-          τs     !! tag = Some τ_tag
-
-          eval_rep  se ρ_case_tag = Some ιs_tag'
-          type_arep se τ_tag      = Some ιs_tag
-
-          inject_sum_arep ιs' ιs_tag' = Some case_tag_sum_locals
-          inject_sum_arep ιs  ιs_tag  = Some ixs
-
-
-          case_tag_sum_locals =?= ixs
-        *)
-
-        (* TODO
-           Goal:
-           tag < length τs
-           length τs = length (ess_pre ++ es_tag :: ess_post)
-           tag = length ess_pre
-
-
-            length τs = length ρs_sum
-
-            τs !! tag = Some τ_tag
-            type_arep se τ_tag = Some ιs_tag
-            ρs_sum !! tag = Some ρ_case_tag
-
-            tail <$> eval_rep se (SumR ρs_sum) = Some ιs
-
-            inject_sum_arep         ιs     ιs_tag     = Some ixs
-            inject_sum_rep EmptyEnv ρs_sum ρ_case_tag = Some case_tag_sum_locals
-
-
-            nths_error vs_payload case_tag_sum_locals = Some case_tag_vs_payload
-            nths_error os_payload ixs                 = Some case_tag_os_payload
-
-            case_tag_sum_locals =?= ixs
-
-            atoms_interp os_payload vs_payload
-            --------------------------------------∗
-            atoms_interp case_tag_os_payload case_tag_vs_payload
-
-         *)
       + by iApply values_interp_one_eq.
       + done.
     }
     iIntros (f vs) "(%Hfrel & Hframe & (%os' & Hvalues & Hatoms) & [%θ' Hrt])".
-
     iDestruct (atoms_interp_length with "Hatoms") as "<-".
     iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
     by iFrame.
@@ -614,8 +560,8 @@ Section case.
     iDestruct (value_interp_eq with "Hvs") as "Hvs".
     unfold value_interp0, value_se_interp0.
     iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
-    (*unfold type_skind in Hkind_sum.*)
-    iDestruct "Hsum_interp" as (tag os_payload case_tag_os_payload τ_tag ιs ιs_tag ixs  HSAtoms Htag_type_lookup Htag_type_arep Heval_rep_tail Hinject_sum_arep Hnerr_tag_os_payload) "Hvalue_interp_os_tag".
+
+    iDestruct "Hsum_interp" as (tag os_payload case_tag_os_payload τ_case_tag ιs ιs_case_tag ixs  HSAtoms Htag_type_lookup Htag_type_arep Heval_rep_tail Hinject_sum_arep Hnerr_tag_os_payload) "Hvalue_interp_os_tag".
     simplify_eq.
 
     apply lookup_lt_Some in Htag_type_lookup as Htag_size_bound.
@@ -624,7 +570,6 @@ Section case.
       inversion Hok; subst.
       unfold has_mono_rep_instr in H.
       destruct H as [H _].
-      simpl in H.
       rewrite Forall_singleton in H.
       inversion H; subst.
       inversion H1; subst.
@@ -683,6 +628,7 @@ Section case.
     rewrite Hρs_atom_l' in Hιs_atom_tail.
     simpl in Hιs_atom_tail.
     subst ρs_atom.
+    subst ιs.
     (* TODO end *)
 
     iDestruct (result_type_interp_of_atoms_interp with "Hatoms_interp_payload") as "%Hres_type_vs_payload"; first done.
@@ -883,13 +829,14 @@ Section case.
       (wt ++ wt_pre) wt_tag (wt_post ++ wtf)
       tag_idx tag
       wl_ret B R se L'
-      ((wl ++ wl_save ++ [prelude.W.T_i32]) ++ wl_pre) wl_tag (wl_post ++ wlf)
-      τs τ_tag τ_res case_tag_os_payload val_localidxs vs_payload _
-      _ _ _
+      ((wl ++ wl_save ++ [prelude.W.T_i32]) ++ wl_pre) wl_tag (wl_post ++ wlf) _
+      τs τ_case_tag τ_res case_tag_os_payload val_localidxs vs_payload _
+      _ _ _ _
       ρs_sum fr_saved_and_tag θ
       os_payload
       es_tag_cg
       ess_pre es_tag with "[] [Hlabels'] [$] [$] [$] [$] [Hframe_saved_and_tag] [$] [$]").
+      - done.
       - done.
       - done.
       - done.

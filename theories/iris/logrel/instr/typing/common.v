@@ -303,6 +303,32 @@ Section common.
     - done.
   Qed.
 
+  Lemma inject_sum_rep_emptyenv ρs ρ ixs (se : semantic_env (Σ:=Σ)) :
+    inject_sum_rep EmptyEnv ρs ρ = Some ixs ->
+    inject_sum_rep se ρs ρ = Some ixs.
+  Proof.
+    unfold inject_sum_rep.
+    destruct (eval_rep EmptyEnv (SumR ρs)) as [ιs|] eqn:Hsum; [|done].
+    apply eval_rep_emptyenv with (se := se) in Hsum.
+    rewrite Hsum.
+    simpl.
+    destruct (eval_rep EmptyEnv ρ) as [ιs0|] eqn:Hrep; simpl; [|done].
+    apply eval_rep_emptyenv with (se := se) in Hrep.
+    rewrite Hrep.
+    simpl.
+    done.
+  Qed.
+
+  Lemma inject_sum_rep_noDup ιs ιs' ixs :
+    inject_sum_arep ιs ιs' = Some ixs ->
+    NoDup ixs.
+  Proof.
+    intros H.
+    unfold inject_sum_arep in H.
+    destruct (inject_areps (count_areps ιs) ιs') eqn:Hinj; try discriminate.
+    inversion H; subst; clear H.
+  Admitted.
+
   Lemma to_e_list_app es1 es2 :
     to_e_list (es1 ++ es2) = to_e_list es1 ++ to_e_list es2.
   Proof.
@@ -798,36 +824,16 @@ Section common.
       done.
   Qed.
 
-  (* TODO: fix lemma *)
-  (* Lemma atoms_interp_nths_error vs os vs' os' ixs : *)
-  (*   nths_error vs ixs = Some vs' -> *)
-  (*   nths_error os ixs = Some os' -> *)
-  (*   atoms_interp os vs -∗ *)
-  (*   atoms_interp os' vs'. *)
-  (* Proof. *)
-  (*   iIntros (Hnerr1 Hneer2) "Hatoms". *)
-  (*   (* TODO: unprovable: ixs might contain duplicates *) *)
-  (* Admitted. *)
-
-
-  (* TODO: remove if not needed in fraem_interp_update_frame *)
-  (* Lemma locals_length_offset F se oss L : *)
-  (*   sem_env_interp F se -> *)
-  (*   locals_interp rti sr se L oss -∗ *)
-  (*   ⌜length (concat oss) = fe_wlocal_offset (fe_of_context F)⌝. *)
-  (* Proof. *)
-  (* Admitted. *)
-  (**)
-  (* Lemma locals_length_offset' F se oss vss L : *)
-  (*   sem_env_interp F se -> *)
-  (*   atoms_interp (concat oss) (concat vss) -∗ *)
-  (*   locals_interp rti sr se L oss -∗ *)
-  (*   ⌜length (concat vss) = fe_wlocal_offset (fe_of_context F)⌝. *)
-  (* Proof. *)
-  (*   iIntros (Hsem) "Hatoms Hlocals". *)
-  (*   iPoseProof (atoms_interp_length with "Hatoms") as "<-". *)
-  (*   by iApply locals_length_offset. *)
-  (* Qed. *)
+  (* TODO: Not really nice to have the NoDup... *)
+  Lemma atoms_interp_nths_error vs os vs' os' ixs :
+    NoDup ixs ->
+    nths_error vs ixs = Some vs' ->
+    nths_error os ixs = Some os' ->
+    atoms_interp os vs -∗
+    atoms_interp os' vs'.
+  Proof.
+    iIntros (Hnodup Hnerr1 Hneer2) "Hatoms".
+  Admitted.
 
   Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
     vs_idxs = seq ((length $ concat ηss) + length wl1) (length wl) ->
@@ -930,5 +936,31 @@ Section common.
       simpl.
       by constructor.
   Qed.
+
+  (* TODO: is this true? And how to prove it? *)
+  Lemma has_kind_eval_rep F τ ρ rf (se : semantic_env (Σ:=Σ)) ιs :
+    has_kind F τ (VALTYPE ρ rf) ->
+    type_arep se τ = Some ιs ->
+    eval_rep se ρ = Some ιs.
+  Proof.
+    intros Hkind Hta.
+    unfold type_arep in Hta.
+    apply bind_Some in Hta as [κ [Hts Hsr]].
+    unfold skind_rep in Hsr.
+    destruct κ as [ιs' rf' | ]; last done.
+    inversion Hsr; subst.
+    clear Hsr.
+  Admitted.
+
+  Lemma has_rep_eval_rep F τ ρ (se : semantic_env (Σ:=Σ)) ιs :
+    has_rep F τ ρ ->
+    type_arep se τ = Some ιs ->
+    eval_rep se ρ = Some ιs.
+  Proof.
+    intros Hrep Hta.
+    inversion Hrep; subst.
+    eapply has_kind_eval_rep; try done.
+  Qed.
+
 
 End common.
