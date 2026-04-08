@@ -91,27 +91,27 @@ Section ite.
         first iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
       1,2: done.
       + iPureIntro. apply has_values_to_consts.
-      + iApply labels_interp_cons.
-          1, 2, 3: done.
-          * iModIntro.
-            iIntros (??) "(%Hfrel & Hframe & Hvalues & Hrt)".
-            iFrame.
-            iPureIntro.
-            eapply frame_rel_wlmask_mono; last done.
-            rewrite length_app.
-            lia.
-          * iApply labels_interp_mono.
-            1, 3: done.
-            apply wlmask_mono.
-            rewrite length_app.
-            lia.
-        + iIntros (??) "[%Hrel H]".
+      + iSimpl. iApply labels_interp_cons.
+        1, 2, 3: done.
+        * iModIntro.
+          iIntros (??) "(%Hfrel & Hframe & Hvalues & Hrt)".
           iFrame.
           iPureIntro.
-          eapply frame_rel_mask_mono; last done.
+          eapply frame_rel_wlmask_mono; last done.
+          rewrite length_app.
+          lia.
+        * iApply labels_interp_mono.
+          1, 3: done.
           apply wlmask_mono.
           rewrite length_app.
           lia.
+      + iIntros (??) "[%Hrel H]".
+        iFrame.
+        iPureIntro.
+        eapply frame_rel_mask_mono; last done.
+        apply wlmask_mono.
+        rewrite length_app.
+        lia.
     - iApply (Hite with "[$] [$]").
       clear Hite.
       assert (n <> Wasm_int.int_zero i32m).
@@ -122,6 +122,7 @@ Section ite.
       iApply (IH1 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
       1, 2: done.
       { iPureIntro. apply has_values_to_consts. }
+      iSimpl.
       iApply labels_interp_cons.
       4: by iIntros (fr' vs') "!> H".
       all: done.

@@ -70,6 +70,7 @@ Section block.
     iSpecialize ("IH" with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
     1, 2: done.
     2: iApply "IH".
+    iSimpl.
     iApply labels_interp_cons.
     4: by iIntros (??) "!> ?".
     all: done.

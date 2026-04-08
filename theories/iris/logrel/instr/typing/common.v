@@ -197,17 +197,17 @@ Section common.
         iFrame. iPureIntro; simpl. subst. auto.
   Qed.
 
-  Lemma frame_interp_wl_interp se F L WL fr :
-    frame_interp rti sr se L WL fr -∗
+  Lemma frame_interp_wl_interp se F L WL ηss_P ηss_L fr :
+    frame_interp rti sr se ηss_P ηss_L L WL fr -∗
     ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
   Proof.
     iIntros "Hframe".
     iDestruct "Hframe" as
-      "(%oss_L & %vss_L & %vs_WL & %Hfr & %Hresult & Hatom & Hval)".
+      "(%oss & %vs_L & %vs_WL & %Hfr & %Hprims & %Hresult & Hatom & Hval)".
     unfold wl_interp.
 
     (* This is my best guess at the exists given Hfr and Hresult. Should be right *)
-    iExists (concat vss_L). iExists vs_WL. iExists [].
+    iExists vs_L. iExists vs_WL. iExists [].
     iSplit; [|iSplit]; clear_nils; subst; auto.
 
     iEval (cbn).
@@ -355,12 +355,12 @@ Section common.
     sem_env_interp F se ->
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->
     □ (∀ fr' vs',
-       (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se L wl fr' ∗
+       (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(fc_params) F.(typing.fc_locals) L wl fr' ∗
           (∃ os', values_interp rti sr se τs os' ∗ atoms_interp os' vs') ∗
           (∃ θ0, rt_token rti sr θ0)) -∗
        Φ fr' vs') -∗
-    labels_interp rti sr se fr wl lmask F.(fc_labels) B -∗
-    labels_interp rti sr se fr wl lmask ((τs, L) :: F.(fc_labels)) ((length ts, Φ) :: B).
+    labels_interp rti sr se F.(fc_params) F.(typing.fc_locals) fr wl lmask F.(fc_labels) B -∗
+    labels_interp rti sr se F.(fc_params) F.(typing.fc_locals) fr wl lmask ((τs, L) :: F.(fc_labels)) ((length ts, Φ) :: B).
   Proof.
     iIntros (Hse Hts) "#HΦ Hlabels".
     unfold labels_interp.
@@ -397,10 +397,10 @@ Section common.
     - by rewrite H12_inst.
   Qed.
 
-  Lemma labels_interp_trans se wl fr fr' lmask labels B :
+  Lemma labels_interp_trans se wl ηss_P ηss_L fr fr' lmask labels B :
     frame_rel lmask fr fr' ->
-    labels_interp rti sr se fr wl lmask labels B -∗
-    labels_interp rti sr se fr' wl lmask labels B.
+    labels_interp rti sr se ηss_P ηss_L fr wl lmask labels B -∗
+    labels_interp rti sr se ηss_P ηss_L fr' wl lmask labels B.
   Proof.
     iIntros (Heq) "#Hlabels".
     iApply (big_sepL2_mono with "[$]").
@@ -446,11 +446,11 @@ Section common.
     lia.
   Qed.
 
-  Lemma labels_interp_mono se fr fr' wl lmask lmask' labels B :
+  Lemma labels_interp_mono se ηss_P ηss_L fr fr' wl lmask lmask' labels B :
     frame_rel lmask fr fr' ->
     (forall i, lmask i -> lmask' i) ->
-    labels_interp rti sr se fr wl lmask labels B -∗
-    labels_interp rti sr se fr' wl lmask' labels B.
+    labels_interp rti sr se ηss_P ηss_L fr wl lmask labels B -∗
+    labels_interp rti sr se ηss_P ηss_L fr' wl lmask' labels B.
   Proof.
     iIntros (Hrel Hmask) "#Hlabels".
     iApply big_sepL2_mono; last done.
@@ -813,49 +813,49 @@ Section common.
   (*   by iApply locals_length_offset. *)
   (* Qed. *)
 
-  Lemma frame_interp_update_frame fe se L wl1 wl2 wl vs_idxs vs_wl fr fr' :
+  Lemma frame_interp_update_frame fe se ηss_P ηss_L L wl1 wl2 wl vs_idxs vs_wl fr fr' :
     vs_idxs = seq (fe_wlocal_offset fe + length wl1) (length wl) ->
     Forall2 (λ i v, f_locs fr' !! i = Some v) vs_idxs vs_wl ->
     result_type_interp wl vs_wl ->
     frame_rel (λ i, i ∉ vs_idxs) fr fr' ->
-    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr -∗
-    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr'.
+    frame_interp rti sr se ηss_P ηss_L L (wl1 ++ wl ++ wl2) fr -∗
+    frame_interp rti sr se ηss_P ηss_L L (wl1 ++ wl ++ wl2) fr'.
   Proof.
     intros Hvs_idxs_wl Hnew_vals Hres Hfrel.
     iIntros "Hframe".
     iDestruct "Hframe" as
-      "(%oss_L & %vss_L & %vs_WL_old & %Hfr & %Hresult & Hatom & Hval)".
+      "(%oss & %vs_L & %vs_WL_old & %Hfr & %Hprims & %Hresult & Hatom & Hval)".
     apply result_type_interp_split in Hresult.
     destruct Hresult as [vs_wl1 [vs_rest [-> [Hvs_wl1 Hresult]]]].
     apply result_type_interp_split in Hresult.
     destruct Hresult as [vs_wl' [vs_wl2 [-> [Hvs_wl' Hvs_wl2]]]].
-    iAssert (⌜length (concat vss_L) = fe_wlocal_offset fe⌝%I) as "%Hoffset".
+    iAssert (⌜length vs_L = fe_wlocal_offset fe⌝%I) as "%Hoffset".
     {
       (* TODO: how to prove this? *)
       admit.
     }
     iFrame.
     iExists (vs_wl1 ++ vs_wl ++ vs_wl2).
-    iPureIntro; split.
+    iPureIntro; split; last split.
     - rewrite app_assoc.
       eapply (frame_f_locs_update); [ | done | done | by rewrite -app_assoc].
       rewrite length_app.
       apply Forall2_length in Hvs_wl' as <-.
       apply Forall2_length in Hvs_wl1 as <-.
       by rewrite Hoffset.
+    - done.
     - apply result_type_interp_combine; first done.
-      apply result_type_interp_combine; last done.
-      done.
+      by apply result_type_interp_combine; last done.
   Admitted.
 
-  Lemma frame_interp_update_frame' fe se L wl1 wl2 wl vs_localidxs vs_idxs vs_wl fr fr' :
+  Lemma frame_interp_update_frame' fe se ηss_P ηss_L L wl1 wl2 wl vs_localidxs vs_idxs vs_wl fr fr' :
     vs_idxs = seq (fe_wlocal_offset fe + length wl1) (length wl) ->
     vs_localidxs = map prelude.W.Mk_localidx vs_idxs ->
     Forall2 (λ i v, f_locs fr' !! localimm i = Some v) vs_localidxs vs_wl ->
     result_type_interp wl vs_wl ->
     frame_rel (λ i, i ∉ vs_idxs) fr fr' ->
-    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr -∗
-    frame_interp rti sr se L (wl1 ++ wl ++ wl2) fr'.
+    frame_interp rti sr se ηss_P ηss_L L (wl1 ++ wl ++ wl2) fr -∗
+    frame_interp rti sr se ηss_P ηss_L L (wl1 ++ wl ++ wl2) fr'.
   Proof.
     iIntros (Hvs_idxs Hvs_localidxs HF Hres Hframe_rel) "Hfr".
     iApply frame_interp_update_frame; eauto.

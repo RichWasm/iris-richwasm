@@ -183,15 +183,27 @@ Section Relations.
     | _, _ => False
     end.
 
+  Definition has_prim (η : primitive) (v : value) : Prop :=
+    match η, v with
+    | I32P, VAL_int32 _
+    | I64P, VAL_int64 _
+    | F32P, VAL_float32 _
+    | F64P, VAL_float64 _ => True
+    | _, _ => False
+    end.
+
+  Definition has_prims (ηs : list primitive) (vs : list value) : Prop :=
+    Forall2 has_prim ηs vs.
+
   Definition has_arep (ι : atomic_rep) (a : atom) : Prop :=
-      match ι, a with
-      | PtrR, PtrA _
-      | I32R, I32A _
-      | I64R, I64A _
-      | F32R, F32A _
-      | F64R, F64A _ => True
-      | _, _ => False
-      end.
+    match ι, a with
+    | PtrR, PtrA _
+    | I32R, I32A _
+    | I64R, I64A _
+    | F32R, F32A _
+    | F64R, F64A _ => True
+    | _, _ => False
+    end.
 
   Definition has_areps (ιs : list atomic_rep) (sv : semantic_value) : Prop :=
     exists os, sv = SAtoms os /\ Forall2 has_arep ιs os.
@@ -510,14 +522,19 @@ Section Relations.
     λne L oss, ([∗ list] τ; os ∈ L; oss, value_interp se τ (SAtoms os))%I.
 
   Definition frame_interp (se : semantic_env) :
-    leibnizO local_ctx -n> leibnizO wlocal_ctx -n> leibnizO frame -n>
+    leibnizO (list (list primitive)) -n>
+      leibnizO (list (list primitive)) -n>
+      leibnizO local_ctx -n>
+      leibnizO wlocal_ctx -n>
+      leibnizO frame -n>
       iPropO Σ :=
-    λne L WL fr,
-      (∃ oss_L vss_L vs_WL,
-         ⌜fr.(f_locs) = concat vss_L ++ vs_WL⌝ ∗
+    λne (ηss_P ηss_L : leibnizO (list (list primitive))) L WL fr,
+      (∃ oss vs_L vs_WL,
+         ⌜fr.(f_locs) = vs_L ++ vs_WL⌝ ∗
+           ⌜has_prims (concat ηss_P ++ concat ηss_L) vs_L⌝ ∗
            ⌜result_type_interp WL vs_WL⌝ ∗
-           atoms_interp (concat oss_L) (concat vss_L) ∗
-           locals_interp se L oss_L)%I.
+           atoms_interp (concat oss) vs_L ∗
+           locals_interp se L oss)%I.
 
   Fixpoint simple_get_base_l (lh : simple_valid_holed) :=
     match lh with
@@ -588,32 +605,33 @@ Section Relations.
     mask_locs_eq lmask fr fr' /\ fr.(f_inst) = fr'.(f_inst).
 
   Definition label_interp
-    (se : semantic_env) (fr0 : frame) (WL : wlocal_ctx) (lmask : nat -> Prop)
-    '((τs, L) : list type * local_ctx) '((n, P) : label_spec) :
+    (se : semantic_env) (ηss_P ηss_L : list (list primitive)) (fr0 : frame) (WL : wlocal_ctx)
+    (lmask : nat -> Prop) '((τs, L) : list type * local_ctx) '((n, P) : label_spec) :
     iProp Σ :=
     (match translate_types se τs with Some ts => ⌜length ts = n⌝ | None => False end ∗
        □ (∀ fr vs os θ,
             ⌜frame_rel lmask fr0 fr⌝ -∗
-            frame_interp se L WL fr -∗
+            frame_interp se ηss_P ηss_L L WL fr -∗
             rt_token rti sr θ -∗
             atoms_interp os vs -∗
             values_interp se τs os -∗
             P fr vs))%I.
 
-  Global Instance Persistent_label_interp se fr0 WL lmask a b :
-    Persistent (label_interp se fr0 WL lmask a b).
+  Global Instance Persistent_label_interp se ηss_P ηss_L fr0 WL lmask a b :
+    Persistent (label_interp se ηss_P ηss_L fr0 WL lmask a b).
   Proof.
     destruct a, b.
     typeclasses eauto.
   Defined.
 
   Definition labels_interp
-    (se : semantic_env) (fr : frame) (WL : wlocal_ctx) (lmask : nat -> Prop) :
+    (se : semantic_env) (ηss_P ηss_L : list (list primitive)) (fr : frame) (WL : wlocal_ctx)
+    (lmask : nat -> Prop) :
     list (list type * local_ctx) -> list label_spec -> iProp Σ :=
-    big_sepL2 (const (label_interp se fr WL lmask)).
+    big_sepL2 (const (label_interp se ηss_P ηss_L fr WL lmask)).
 
-  Global Instance Persistent_labels_interp se fr WL lmask l a :
-    Persistent (labels_interp se fr WL lmask l a).
+  Global Instance Persistent_labels_interp se ηss_P ηss_L fr WL lmask l a :
+    Persistent (labels_interp se ηss_P ηss_L fr WL lmask l a).
   Proof.
     apply big_sepL2_persistent'. intros; cbn.
     typeclasses eauto.
@@ -664,17 +682,17 @@ Section Relations.
        "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
        "%Hevs" ∷ ⌜has_values evs vs⌝ -∗
        "#Hinst" ∷ instance_interp mr M WT fr.(f_inst) -∗
-       "#Hlabels" ∷ labels_interp se fr WL lmask F.(fc_labels) B -∗
+       "#Hlabels" ∷ labels_interp se F.(fc_params) F.(fc_locals) fr WL lmask F.(fc_labels) B -∗
        "#Hreturn" ∷ return_interp se F.(fc_return) R -∗
        "Hvs" ∷ atoms_interp os vs -∗
        "Hos" ∷ values_interp se τs1 os -∗
-       "Hframe" ∷ frame_interp se L WL fr -∗
+       "Hframe" ∷ frame_interp se F.(fc_params) F.(fc_locals) L WL fr -∗
        "Hrt" ∷ rt_token rti sr θ -∗
        "Hfr" ∷ ↪[frame] fr -∗
        "Hrun" ∷ ↪[RUN] -∗
        CWP evs ++ es UNDER B; R
            {{ fr'; vs',
-              ⌜frame_rel lmask fr fr'⌝ ∗ frame_interp se L' WL fr' ∗
+              ⌜frame_rel lmask fr fr'⌝ ∗ frame_interp se F.(fc_params) F.(fc_locals) L' WL fr' ∗
                 (∃ os', values_interp se τs2 os' ∗ atoms_interp os' vs') ∗
                 (∃ θ', rt_token rti sr θ') }})%I.
 
