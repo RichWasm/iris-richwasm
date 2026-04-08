@@ -716,7 +716,9 @@ Section case.
     iIntros (fr_saved w) "(%val_idxs & -> & %Hfrel_fr_saved & %Hsaved & %Hval_idxs_seq & %Hval_localidxs) Hfr Hrun".
     clear Hsave.
 
-    iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved"; try done.
+    iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved".
+    2, 3, 5: done.
+    { subst val_idxs fe. by rewrite fe_wlocal_offset_length. }
     { by subst wl_save. }
 
     iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done.
@@ -800,7 +802,7 @@ Section case.
 
     iEval (rewrite app_assoc) in "Hframe_saved".
     iPoseProof (frame_interp_update_frame' with "Hframe_saved") as "Hframe_saved_and_tag".
-    6: {
+    5: {
       instantiate (1 := fr_saved_and_tag).
       instantiate (1 := [tag_idx]).
       eapply frame_rel_mask_mono; last done.
@@ -808,14 +810,18 @@ Section case.
       destruct H. by rewrite list_elem_of_singleton.
     }
     all: try done.
-    1: {
+    2: {
       simpl.
       instantiate (1 := [_]).
       by apply Forall2_cons.
     }
-    1: {
+    2: {
       apply Forall2_cons; split; last done.
       by eexists.
+    }
+    {
+      subst tag_idx val_idxs fe.
+      by rewrite fe_wlocal_offset_length.
     }
 
     (* Create defaults *)

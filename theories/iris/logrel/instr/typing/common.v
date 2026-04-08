@@ -814,8 +814,8 @@ Section common.
   (*   by iApply locals_length_offset. *)
   (* Qed. *)
 
-  Lemma frame_interp_update_frame fe se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
-    vs_idxs = seq (fe_wlocal_offset fe + length wl1) (length wl) ->
+  Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
+    vs_idxs = seq ((length $ concat ηss) + length wl1) (length wl) ->
     Forall2 (λ i v, f_locs fr' !! i = Some v) vs_idxs vs_wl ->
     result_type_interp wl vs_wl ->
     frame_rel (λ i, i ∉ vs_idxs) fr fr' ->
@@ -830,11 +830,6 @@ Section common.
     destruct Hresult as [vs_wl1 [vs_rest [-> [Hvs_wl1 Hresult]]]].
     apply result_type_interp_split in Hresult.
     destruct Hresult as [vs_wl' [vs_wl2 [-> [Hvs_wl' Hvs_wl2]]]].
-    iAssert (⌜length vs_L = fe_wlocal_offset fe⌝%I) as "%Hoffset".
-    {
-      (* TODO: how to prove this? *)
-      admit.
-    }
     iFrame.
     iExists (vs_wl1 ++ vs_wl ++ vs_wl2).
     iPureIntro; split; last split.
@@ -843,14 +838,15 @@ Section common.
       rewrite length_app.
       apply Forall2_length in Hvs_wl' as <-.
       apply Forall2_length in Hvs_wl1 as <-.
-      by rewrite Hoffset.
+      apply Forall2_length in Hprims as <-.
+      done.
     - done.
     - apply result_type_interp_combine; first done.
       by apply result_type_interp_combine; last done.
-  Admitted.
+  Qed.
 
-  Lemma frame_interp_update_frame' fe se ηss L wl1 wl2 wl vs_localidxs vs_idxs vs_wl fr fr' :
-    vs_idxs = seq (fe_wlocal_offset fe + length wl1) (length wl) ->
+  Lemma frame_interp_update_frame' se ηss L wl1 wl2 wl vs_localidxs vs_idxs vs_wl fr fr' :
+    vs_idxs = seq ((length $ concat ηss) + length wl1) (length wl) ->
     vs_localidxs = map prelude.W.Mk_localidx vs_idxs ->
     Forall2 (λ i v, f_locs fr' !! localimm i = Some v) vs_localidxs vs_wl ->
     result_type_interp wl vs_wl ->
@@ -864,6 +860,13 @@ Section common.
     rewrite Forall2_fmap_l in HF.
     eapply Forall2_impl; [exact HF|].
     done.
+  Qed.
+
+  Lemma fe_wlocal_offset_length F :
+    fe_wlocal_offset (fe_of_context F) = length $ concat (typing.fc_locals F).
+  Proof.
+    unfold fe_wlocal_offset. simpl.
+    apply sum_list_with_length_concat.
   Qed.
 
 End common.

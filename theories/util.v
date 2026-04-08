@@ -258,6 +258,15 @@ Proof.
     + replace @seq.size with @length in n; [lia | done].
 Qed.
 
+Lemma sum_list_with_length_concat {A} (lls : list (list A)) :
+  sum_list_with length lls = length (concat lls).
+Proof.
+  induction lls as [| hd tl IH]; simpl; try done.
+  rewrite IH.
+  rewrite length_app.
+  lia.
+Qed.
+
   Definition foldlM `{MRet M, MBind M} {A B: Type}
     : (A -> B -> M A) -> A -> list B -> M A :=
     λ f a l,
