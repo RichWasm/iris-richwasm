@@ -39,6 +39,27 @@ Section common.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma value_interp_i31 se os :
+    value_interp rti sr se type_i31 (SAtoms os) -∗ ∃ n, ⌜os = [PtrA n]⌝.
+  Proof.
+    iIntros "Hval".
+    iPoseProof (value_interp_eq with "Hval") as "Hval".
+    iEval (cbn) in "Hval".
+    iDestruct "Hval" as "(%κ & %Hκ & Rest)".
+    destruct κ; auto.
+    iDestruct "Rest" as "((%Hareps & %Href) & _)".
+    iPureIntro.
+    inversion Hκ; subst; clear Hκ.
+    destruct Hareps as (os' & Htemp & Harep).
+    inversion Htemp; subst os'; clear Htemp.
+    apply Forall2_length in Harep as Hlen.
+    destruct os as [|o [|os]]; try (inversion Hlen).
+    apply Forall2_cons_1 in Harep as [Harep _].
+    cbn in Harep.
+    destruct o; try (inversion Harep).
+    exists p; auto.
+  Qed.
+
   Lemma value_interp_i32 se os :
     value_interp rti sr se type_i32 (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
   Proof.
