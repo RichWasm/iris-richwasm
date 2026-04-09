@@ -296,20 +296,17 @@ Section common.
     induction ρ using rep_ind; intros * Hev *; cbn in Hev; cbn.
     - inversion Hev.
     - rewrite -Hev.
-      do 2 f_equal.
-      rewrite bind_Some in Hev.
-      destruct Hev as (pdist & Hmax & Hret).
-      admit.
-      (* rewrite fmap_Some in Hmax. *)
-      (* destruct Hmax as (ιss & Hevals & Hmax). *)
-      (* assert (Hdefd: is_Some (mapM (eval_rep EmptyEnv) ρs)) by (eexists; eapply Hevals). *)
-      (* apply mapM_is_Some_1 in Hdefd. *)
-      (* apply Forall_mapM_ext. *)
-      (* eapply Forall_impl. *)
-      (* { eapply (List.Forall_and H Hdefd). } *)
-      (* cbn. *)
-      (* intros ρ [Hev [ιs' Hempty]]. *)
-      (* erewrite Hev; eauto. *)
+      f_equal.
+      apply fmap_Some in Hev.
+      destruct Hev as (ιss & Hev & _).
+      apply mk_is_Some in Hev.
+      apply mapM_is_Some_1 in Hev.
+      apply Forall_mapM_ext.
+      eapply Forall_impl.
+      { eapply (List.Forall_and H Hev). }
+      cbn.
+      intros ρ [Hev' [ιs' Hempty]].
+      erewrite Hev'; eauto.
     - rewrite -Hev.
       f_equal.
       apply fmap_Some in Hev.
@@ -323,7 +320,7 @@ Section common.
       intros ρ [Hev' [ιs' Hempty]].
       erewrite Hev'; eauto.
     - done.
-  Admitted.
+  Qed.
 
   Lemma to_e_list_app es1 es2 :
     to_e_list (es1 ++ es2) = to_e_list es1 ++ to_e_list es2.
