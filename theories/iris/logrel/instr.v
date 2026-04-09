@@ -321,7 +321,7 @@ Section Relations.
     λne τs1 τs2 cl,
       match cl with
       | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
-          □ ∀ vs1 os1 fr a i B R θ,
+          ▷ □ ∀ vs1 os1 fr a i B R θ,
             ⌜fr.(f_inst).(inst_funcs) !! i = Some a⌝ -∗
             ⌜translate_types se τs1 = Some tfs1⌝ -∗
             ⌜translate_types se τs2 = Some tfs2⌝ -∗
@@ -411,7 +411,7 @@ Section Relations.
     λne sv,
       (∃ i j cl,
          ⌜sv = SAtoms [I32A (Wasm_int.int_of_Z i32m (Z.of_N i))]⌝ ∗
-           ▷ closure_interp0 vrel se ϕ cl ∗
+           closure_interp0 vrel se ϕ cl ∗
            na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
            na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl))%I.
 
