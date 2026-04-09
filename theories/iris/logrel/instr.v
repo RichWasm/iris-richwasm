@@ -370,9 +370,9 @@ Section Relations.
     λne sv,
       (∃ i os off count τi,
          ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
-           ⌜Some (S off) = sum_offset se ρs i⌝ ∗
-           ⌜Some count = length <$> ρs !! i ≫= eval_rep se⌝ ∗
-           ⌜Some τi = τs !! i⌝ ∗
+           ⌜sum_offset se ρs i = Some off⌝ ∗
+           ⌜length <$> ρs !! i ≫= eval_rep se = Some count⌝ ∗
+           ⌜τs !! i = Some τi⌝ ∗
            ▷ vrel se τi (SAtoms (take count (drop off os))))%I.
 
   Definition variant_interp
