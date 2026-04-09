@@ -23,57 +23,46 @@ Section num_const.
     run_codegen (compile_instr mr fe (INumConst ψ n)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    (* intros fe WT WL ψ Hok Hcompile. cbn in Hcompile. *)
-    (* (* Immediately, we must destruct ν *) *)
-    (* destruct ν; cbn in Hcompile; inversion Hcompile. *)
-    (* (* From here on out, we have an integer case and a float case (until we split *)
-    (*    further into 32/64 *) *)
+    intros fe WT WL lmask ψ Hok Hcg.
+    destruct ν; cbn in Hcg; inversion Hcg; subst; clear Hcg.
 
-    (* (* Some basic intros, unfolds, proving empty lists empty *) *)
-    (* all: unfold have_instruction_type_sem. *)
-    (* all: iIntros (? ? ? ? ? ? ?) "Henv Hinst Hctx Hrvs Hvs Hfr Hrt Hf Hrun". *)
-    (* all: iEval (cbn) in "Hrvs"; iEval (cbn) in "Hvs". *)
-    (* all: iDestruct "Hvs" as "(%rvss & %Hconcat & Hrvss)". *)
-    (* all: iPoseProof (big_sepL2_length with "[$Hrvss]") as "%Hlens_rvss"; *)
-    (*   iPoseProof (big_sepL2_length with "[$Hrvs]") as "%Hlens_rvs_vs". *)
-    (* all: cbn in Hlens_rvss; destruct rvss, os; cbn in Hconcat, Hlens_rvss; *)
-    (*   try congruence. *)
-    (* all: cbn in Hlens_rvs_vs; destruct vs; cbn in Hlens_rvs_vs; try congruence. *)
+    all: iIntros (??????????) "@@@@@@@@@".
+    all: iPoseProof (values_interp_nil_l with "Hos") as "->".
+    all: iPoseProof (atoms_interp_nil_l with "Hvs") as "->".
+    all: apply has_values_to_consts_inv in H0; subst evs.
+    all: change (to_consts []) with ([]:(list basic_instruction)).
+    all: clear_nils.
 
-    (* (* Now it's time to apply lenient_wp *) *)
-    (* all: iApply lenient_wp_value. *)
-    (* (* In int case, instantiate value with int value. Float in float case *) *)
-    (* (* Automatics don't work great here *) *)
-    (* 1: by instantiate (1 := (immV [(value_of_Z (translate_num_type (IntT i)) n)])%I). *)
-    (* 2: by instantiate (1 := (immV [(value_of_Z (translate_num_type (FloatT f)) n)])%I). *)
+    all: iApply (cwp_val with "[$Hfr] [$Hrun]").
+    1: instantiate (1 := ([value_of_Z (translate_num_type (IntT i)) n])%I).
+    3: instantiate (1 := ([value_of_Z (translate_num_type (FloatT f)) n])%I).
 
-    (* all: unfold denote_logpred; iFrame; iEval (cbn). *)
-    (* (* Split into 32/64 cases *) *)
-    (* 1: destruct i. *)
-    (* 3: destruct f. *)
-    (* all: iEval (cbn). *)
-    (* (* automatic exists don't work well here unfortunately *) *)
-    (* 1: iExists [I32A (Wasm_int.Int32.repr n)]. *)
-    (* 2: iExists [I64A (Wasm_int.Int64.repr n)]. *)
-    (* 3: iExists [F32A (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))]. *)
-    (* 4: iExists [F64A (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))]. *)
-    (* all: iEval (cbn). *)
-    (* all: iSplitL; try iSplitL; auto. *)
-    (* (* once again, automatic exists don't work great *) *)
-    (* 1: iExists [[I32A (Wasm_int.Int32.repr n)]]. *)
-    (* 2: iExists [[I64A (Wasm_int.Int64.repr n)]]. *)
-    (* 3: iExists [[F32A (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))]]. *)
-    (* 4: iExists [[F64A (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))]]. *)
-    (* all: iEval (cbn); iSplitR; auto; iSplitL; auto. *)
-    (* (* Dig into value interp a bit, then smooth sailing *) *)
-    (* all: iApply value_interp_eq; iEval (cbn). *)
-    (* all: iExists _. *)
-    (* all: iSplitR; auto; iSplitL; auto; iEval (cbn). *)
-    (* all: iPureIntro. *)
-    (* all: eexists; split; auto. *)
-    (* all: apply Forall2_cons_iff. *)
-    (* all: split; try (by apply Forall2_nill). *)
-    (* all: done. *)
-  Admitted.
+    1,3: apply has_values_iff_to_consts; auto.
+
+    all: iFrame.
+    all: iSplitR; auto.
+    1: destruct i.
+    3: destruct f.
+    all: iEval (cbn).
+    1: iExists [I32A (Wasm_int.Int32.repr n)].
+    2: iExists [I64A (Wasm_int.Int64.repr n)].
+    3: iExists [F32A (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))].
+    4: iExists [F64A (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))].
+    all: iEval (cbn).
+    all: iSplitL; try iSplitL; auto.
+    1: iExists [[I32A (Wasm_int.Int32.repr n)]].
+    2: iExists [[I64A (Wasm_int.Int64.repr n)]].
+    3: iExists [[F32A (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))]].
+    4: iExists [[F64A (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))]].
+    all: iEval (cbn); iSplitR; auto; iSplitL; auto.
+    all: iApply value_interp_eq; iEval (cbn).
+    all: iExists _.
+    all: iSplitR; auto; iSplitL; auto; iEval (cbn).
+    all: iPureIntro.
+    all: split;
+      [ eexists; split; auto; apply Forall2_cons; split;[|by apply Forall2_nil]; by cbn
+      | eexists; split; auto; apply Forall_cons; split;[|by apply Forall_nil]; by cbn].
+
+  Qed.
 
 End num_const.
