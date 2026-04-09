@@ -6,8 +6,8 @@ Require Export RecordUpdate.RecordUpdate.
 
 From iris.proofmode Require Export base proofmode classes.
 
-From RichWasm.named_props Require Export named_props custom_syntax.
 From RichWasm.wasm Require Export operations.
+From RichWasm.named_props Require Export named_props custom_syntax.
 From RichWasm Require Export layout syntax typing.
 From RichWasm.compiler Require Export prelude codegen instruction module.
 From RichWasm.iris Require Export autowp memory util wp_codegen.
@@ -38,6 +38,27 @@ Section common.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
+
+  Lemma value_interp_i31 se os :
+    value_interp rti sr se type_i31 (SAtoms os) -∗ ∃ n, ⌜os = [PtrA n]⌝.
+  Proof.
+    iIntros "Hval".
+    iPoseProof (value_interp_eq with "Hval") as "Hval".
+    iEval (cbn) in "Hval".
+    iDestruct "Hval" as "(%κ & %Hκ & Rest)".
+    destruct κ; auto.
+    iDestruct "Rest" as "((%Hareps & %Href) & _)".
+    iPureIntro.
+    inversion Hκ; subst; clear Hκ.
+    destruct Hareps as (os' & Htemp & Harep).
+    inversion Htemp; subst os'; clear Htemp.
+    apply Forall2_length in Harep as Hlen.
+    destruct os as [|o [|os]]; try (inversion Hlen).
+    apply Forall2_cons_1 in Harep as [Harep _].
+    cbn in Harep.
+    destruct o; try (inversion Harep).
+    exists p; auto.
+  Qed.
 
   Lemma value_interp_i32 se os :
     value_interp rti sr se type_i32 (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
@@ -723,7 +744,7 @@ Section common.
     induction lh; simpl; auto.
   Qed.
 
-  Lemma wp_map_cg_ptr_duproot ι idx wt wl res wt' wl' es:
+  Lemma wp_map_gc_ptr_duproot ι idx wt wl res wt' wl' es:
     run_codegen (memory.map_gc_ptr ι idx (memory.duproot mr)) wt wl = inr (res, wt', wl', es) ->
     res = () /\ wt' = [] /\ wl' = [].
   Proof.
@@ -763,7 +784,7 @@ Section common.
       eapply IHιidxs in Hcg; eauto.
       destruct Hcg as (_ & -> & ->).
       split; auto.
-      apply wp_map_cg_ptr_duproot in Hdup.
+      apply wp_map_gc_ptr_duproot in Hdup.
       destruct Hdup as (-> & -> & ->).
       done.
   Qed.
