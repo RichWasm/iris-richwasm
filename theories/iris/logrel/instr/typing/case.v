@@ -252,7 +252,6 @@ Section case.
     length vs_res = length wl_ret ->
     length τs = length ρs_sum ->
     τs !! tag = Some τ_case_tag ->
-    (* type_arep se τ_case_tag = Some ιs_case_tag -> *)
     mapM (eval_rep se) ρs_sum = Some ιss ->
     sum_offset se ρs_sum tag = Some off ->
     length <$> ιss !! tag = Some count ->
