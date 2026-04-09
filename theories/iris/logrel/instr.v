@@ -545,8 +545,8 @@ Section Relations.
     (i : funcidx) (a : funcaddr) (spec : function_closure -> Prop) (inst : instance) : iProp Σ :=
     ∃ cl,
       ⌜spec cl⌝ ∗
-        ⌜inst.(inst_funcs) !! funcimm i = Some a⌝ ∗
-        na_inv logrel_nais (ns_fun (N.of_nat a)) (N.of_nat a ↦[wf] cl).
+      ⌜inst.(inst_funcs) !! funcimm i = Some a⌝ ∗
+      na_inv logrel_nais (ns_fun (N.of_nat a)) (N.of_nat a ↦[wf] cl).
 
   Definition instance_runtime_interp (mr : module_runtime) (inst : instance) : iProp Σ :=
     instance_rt_func_interp mr.(mr_func_mmalloc) sr.(sr_func_mmalloc) (spec_mmalloc rti sr) inst ∗

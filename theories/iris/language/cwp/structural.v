@@ -305,4 +305,24 @@ Section structural.
     by destruct R.
   Qed.
 
+  (* Interactions with the fancy update modality. *)
+  Lemma cwp_fupd s E es L R Φ :
+    (|={E}=> cwp_wasm s E es L R Φ)
+    ⊢ cwp_wasm s E es L R Φ.
+  Proof.
+    unfold cwp_wasm, lenient_wp.
+    iIntros "Hwp".
+    by iApply fupd_wp.
+  Qed.
+
+  (* todo: rename this to cwp_wand_strong *)
+  Lemma cwp_wand_strong s1 s2 E1 E2 es L R Φ Ψ :
+    CWP es @ s1; E1 UNDER L; R {{ Φ }} -∗
+    ⌜s1 ⊑ s2⌝ -∗
+    ⌜E1 ⊆ E2⌝ -∗
+    (∀ f v, Φ f v ={E2}=∗ Ψ f v) -∗
+    CWP es @ s2; E2 UNDER L; R {{ Ψ }}.
+  Proof.
+  Admitted.
+
 End structural.

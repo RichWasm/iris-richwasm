@@ -2,6 +2,7 @@ From mathcomp Require Import eqtype ssrbool.
 
 Require Import RichWasm.compiler.memory.
 Require Import RichWasm.iris.numerics.
+Require Import RichWasm.iris.runtime.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -674,8 +675,97 @@ Section load_copy.
     auto.
   Qed.
 
+  Lemma wp_loadroot wt wl ret wt' wl' es_load :
+    run_codegen (loadroot mr) wt wl = inr (ret, wt', wl', es_load) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    ∀ ev v,
+      has_value ev v ->
+      ⊢ ∀ B R Φ, CWP ev :: es_load UNDER B; R {{ Φ }}.
+  Proof.
+    unfold loadroot.
+    intros Hcg.
+    inv_cg_emit Hcg; subst.
+    repeat (split; first done).
+    iIntros (evs v Hevs B R Φ).
+    admit.
+  Abort.
+
+  Lemma wp_registerroot wt wl ret wt' wl' es_register :
+    run_codegen (registerroot mr) wt wl = inr (ret, wt', wl', es_register) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+      ∀ e evs ℓ ℓ32,
+      repr_pointer e (PtrHeap MemGC ℓ) (Wasm_int.Z_of_uint i32m ℓ32) ->
+      has_values evs [VAL_int32 ℓ32] ->
+      ⊢ ∀ f B R E Φ,
+        (∀ ar e',
+            ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
+            ar ↦root ℓ -∗ rt_token rti sr e' -∗ na_own logrel_nais E -∗
+          Φ f [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemGC ar))]) -∗
+        ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+        na_own logrel_nais E  -∗
+        rt_token rti sr e -∗
+        instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+        CWP evs ++ es_register @ NotStuck; E UNDER B; R {{ Φ }}.
+  Proof.
+    unfold registerroot.
+    intros Hcg.
+    inv_cg_emit Hcg; subst.
+    repeat (split; first done).
+    intros * Hptr * Hevs.
+    iIntros (f B R E Φ) "HΦ Hf Hrun %HE Htok Hrt Hreg".
+    apply Is_true_true in Hevs.
+    rewrite (has_values_to_consts_inv _ _ Hevs).
+    clear Hevs evs.
+    unfold instance_rt_func_interp.
+    iDestruct "Hreg" as "(%cl & %Hregspc & %Hcl & Hinv)".
+    iPoseProof (na_inv_acc with "Hinv Htok") as "Hopen"; eauto.
+    iApply cwp_fupd.
+    iMod "Hopen".
+    unfold spec_registerroot in Hregspc.
+    iDestruct "Hopen" as "[Hop Hcl]".
+    iDestruct "Hcl" as "[Htok Hsave]".
+    iMod "Hop".
+    iModIntro.
+    iAssert ((▷ N.of_nat (sr_func_registerroot sr)↦[wf]cl ={E}=∗ na_own logrel_nais E)%I) with "[Hsave Htok]" as "Hsave".
+    {
+      iIntros "Hcl".
+      iApply "Hsave".
+      iFrame.
+    }
+    iApply (cwp_wand_strong with "[Hrt Hop Hf Hrun]").
+    { iApply (Hregspc with "[$] [$] [$] [$] []"); eauto. }
+    { eauto. }
+    { eauto. }
+    {
+      iIntros (f' v) "(<- & Hcl' & %e' & %ar & -> & %Hrepr & Hroot & Hrt)".
+      iSpecialize ("Hsave" with "Hcl'").
+      iMod "Hsave".
+      iApply ("HΦ" with "[//] [$] [$] [$]").
+    }
+  Qed.
+
+  Lemma wp_duproot wt wl ret wt' wl' es_dup :
+    run_codegen (duproot mr) wt wl = inr (ret, wt', wl', es_dup) ->
+    ret = () /\
+    wt' = wt /\
+    wl' = wl /\
+    ∀ evs v,
+      has_values evs [v] ->
+      ⊢ ∀ B R Φ, CWP evs ++ es_dup UNDER B; R {{ Φ }}.
+  Proof.
+    unfold duproot.
+    intros Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es_load ?es_reg Hload Hreg.
+  Abort.
+
   Lemma wp_mem_load1_copy_mm
-    se fe lidx off ι o wt wl ret wt' wl' es fs ws ℓ ℓ32 τ π B R
+    fe lidx off ι o wt wl ret wt' wl' es ℓ ℓ32 B R
     (f: frame) memidx memidxN v Φ :
     run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
     N_i32_repr ℓ ℓ32 ->
@@ -684,20 +774,17 @@ Section load_copy.
     fe_wlocal_offset fe + length wl < length (f_locs f) ->
     f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) ->
     has_arep ι o ->
+    let vloc := localimm (W.Mk_localidx (fe_wlocal_offset fe + length wl)) in
+    let f' := {| f_locs := <[vloc := v]> (f_locs f);
+                 f_inst := f_inst f |} in
     ret = () /\
     ⊢ ↪[frame] f -∗
       ↪[RUN] -∗
       atom_interp o v -∗
-      ℓ ↦layout fs -∗
-      ℓ ↦heap ws -∗
       memidxN ↦[wms][ℓ + byte_offset MemMM off]bits v -∗
-      ▷ value_interp rti sr se τ (SWords ws) -∗
-      ⌜path_offset fe τ π = Some off⌝ -∗
       (if atomic_rep_eq_dec ι PtrR
-       then True
-       else Φ {| W.f_locs := <[(fe_wlocal_offset fe + length wl) := v]>(f_locs f);
-                 W.f_inst := f_inst f |}
-              [v]) -∗
+       then Φ f' [v]
+       else Φ f' [v]) -∗
       CWP es UNDER B; R {{ Φ }}.
   Proof.
     unfold load1.
@@ -708,7 +795,6 @@ Section load_copy.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_load_w ?es_rest Hload_w Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_wlalloc ?es_rest Hwlalloc Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_save ?es_rest Hsave Hcompile.
-    subst.
     apply wp_wlalloc in Hwlalloc.
     destruct Hwlalloc as (Hidx & -> & -> & ->).
     eapply wp_load_w in Hload_w.
@@ -720,7 +806,7 @@ Section load_copy.
     clear_nils.
     destruct ret.
     split; [reflexivity|].
-    iIntros "Hf Hrun Ho Hfs Hws Hmem Hval %Hpath HΦ".
+    iIntros "Hf Hrun Ho Hmem HΦ".
     iApply (cwp_seq with "[Hf Hrun]").
     {
       iApply (cwp_local_get with "[] [$] [$]"); eauto.
@@ -734,9 +820,7 @@ Section load_copy.
       iApply (Hload_w with "[$] [$] [$]"); try done.
       iIntros "!> Hmem".
       instantiate (1:= λ f' v', (⌜f' = f⌝ ∗ ⌜v' = [v]⌝ ∗ _)%I).
-      cbn.
-      iSplit; [done|].
-      iSplit; [done|].
+      repeat iSplit; auto.
       iApply "Hmem".
     }
     iIntros (? ?) "(-> & -> & Hmem) Hf Hrun".
@@ -759,21 +843,32 @@ Section load_copy.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hcg1 & Hcg2 & Hcg3 & Hwt7 & Hwl7 & Hes_rest2).
       iApply (Hes_rest2 with "[$] [$] [] [$]").
-      + iPureIntro; cbn.
+      {
+        iPureIntro; cbn.
         rewrite list_lookup_insert.
         by rewrite decide_True.
-      + iIntros "!> Hf Hrun Hat".
-        unfold atom_interp.
-        subst wt7 wl7.
-        inv_cg_ret Hcg1.
-        inv_cg_ret Hcg2.
-        clear_nils.
+      }
+      iIntros "!> Hf Hrun Hat".
+      subst wt7 wl7.
+      inv_cg_ret Hcg1.
+      inv_cg_ret Hcg2.
+      clear_nils.
+      iDestruct "Hat" as "(%n & -> & %rp & %Hrp & Hrpp)".
+      unfold root_pointer_interp.
+      destruct rp, p; try done; [|destruct μ].
+      + iDestruct "Hrpp" as "->".
+        iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
+      + iDestruct "Hrpp" as "(<- & Hrpp)".
+        iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
+      + iDestruct "Hrpp" as "(<- & Hrpp)".
+        (* need lemma about duproot. *)
+        unfold duproot, registerroot in *.
         admit.
     - eapply wp_ite_gc_ptr_nonptr in Hcompile; last assumption.
       inv_cg_ret Hcompile; subst.
       clear_nils.
       iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
-  Abort.
+  Admitted.
 
   Lemma mem_load_copy_mm_spec se fe lidx off ιs wt wl ret wt' wl' es fs ws ℓ τ π ev B R :
     run_codegen (memory.load mr fe MemMM Copy lidx off ιs) wt wl = inr (ret, wt', wl', es) ->

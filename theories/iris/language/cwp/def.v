@@ -1,3 +1,4 @@
+From iris.proofmode Require Import base proofmode classes.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 Require Import RichWasm.iris.language.cwp.base.
 
@@ -58,7 +59,6 @@ Section def.
     (R : option return_spec) (Φ : fvs_pred) :
     iProp Σ :=
     lenient_wp s E (to_e_list es) (cwp_post_lp L R Φ).
-
 End def.
 
 Notation "'CWP' es @ s ; E 'UNDER' L ; R {{ Φ } }" :=

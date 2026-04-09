@@ -585,7 +585,7 @@ Section control.
     N_nat_repr a aN ->
     ↪[frame] f0 -∗
     ↪[RUN] -∗
-    aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
+    ▷ aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ▷ (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
        ↪[RUN] -∗
        aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
@@ -627,8 +627,8 @@ Section control.
     N_nat_repr j jN ->
     N_nat_repr a aN ->
     N_i32_repr c c32 ->
-    ↪[frame] f0 -∗
     ↪[RUN] -∗
+    ↪[frame] f0 -∗
     jN ↦[wt][c] Some a -∗
     aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
     ▷ (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗

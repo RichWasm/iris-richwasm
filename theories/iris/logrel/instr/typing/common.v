@@ -6,8 +6,8 @@ Require Export RecordUpdate.RecordUpdate.
 
 From iris.proofmode Require Export base proofmode classes.
 
-From RichWasm.named_props Require Export named_props custom_syntax.
 From RichWasm.wasm Require Export operations.
+From RichWasm.named_props Require Export named_props custom_syntax.
 From RichWasm Require Export layout syntax typing.
 From RichWasm.compiler Require Export prelude codegen instruction module.
 From RichWasm.iris Require Export autowp memory util wp_codegen.
@@ -769,7 +769,7 @@ Section common.
     induction lh; simpl; auto.
   Qed.
 
-  Lemma wp_map_cg_ptr_duproot ι idx wt wl res wt' wl' es:
+  Lemma wp_map_gc_ptr_duproot ι idx wt wl res wt' wl' es:
     run_codegen (memory.map_gc_ptr ι idx (memory.duproot mr)) wt wl = inr (res, wt', wl', es) ->
     res = () /\ wt' = [] /\ wl' = [].
   Proof.
@@ -809,7 +809,7 @@ Section common.
       eapply IHιidxs in Hcg; eauto.
       destruct Hcg as (_ & -> & ->).
       split; auto.
-      apply wp_map_cg_ptr_duproot in Hdup.
+      apply wp_map_gc_ptr_duproot in Hdup.
       destruct Hdup as (-> & -> & ->).
       done.
   Qed.

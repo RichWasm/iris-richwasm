@@ -23,7 +23,7 @@ Section CodeGen.
         run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
         wt' = wt1 ++ wt2 /\
         wl' = wl1 ++ wl2 /\
-        ⊢ ∀ Φ (f: frame) i,
+        ⊢ ∀ Φ f i,
           ↪[frame] f -∗
           ↪[RUN] -∗
           ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
@@ -76,7 +76,7 @@ Section CodeGen.
         run_codegen c2 (wt ++ wt1) (wl ++ wl1) = inr (y, wt2, wl2, es2) /\
         wt' = wt1 ++ wt2 /\
         wl' = wl1 ++ wl2 /\
-        ⊢ ∀ Φ (f: frame) i,
+        ⊢ ∀ Φ f i,
           ↪[frame] f -∗
           ↪[RUN] -∗
           ((⌜i <> Wasm_int.int_zero i32m⌝ ∧
