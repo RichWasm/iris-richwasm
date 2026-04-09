@@ -155,7 +155,7 @@ Section Eval.
 
   Definition sum_offset (ρs : list representation) (i : nat) : option nat :=
     ιss ← mapM eval_rep (take i ρs);
-    Some (1 + length (concat ιss)).
+    Some (length (concat ιss)).
 
 End Eval.
 

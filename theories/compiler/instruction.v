@@ -110,10 +110,7 @@ Section Compiler.
     ιss ← try_option EFail (mapM (eval_rep EmptyEnv) ρs);
     off ← try_option EFail (sum_offset EmptyEnv ρs i);
     count ← try_option EFail (length <$> ιss !! i);
-    let ιs := concat ιss in
-    let tys := map translate_arep ιs in
-    create_defaults tys;;
-    ixs ← save_stack_arep fe ιs;
+    ixs ← mapM (wlalloc fe) (map translate_arep (concat ιss));
     mapM (emit ∘ W.BI_set_local ∘ localimm) (rev (take count (drop off ixs)));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs.
