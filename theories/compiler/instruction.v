@@ -106,16 +106,17 @@ Section Compiler.
     i ← wtinsert tf;
     emit (W.BI_call_indirect (typeimm i)).
 
-  Definition compile_inject (fe : function_env) (ρs : list representation) (τ : type) (i : nat) :
-    codegen unit :=
-    ιs_sum ← try_option EFail (eval_rep EmptyEnv (SumR ρs));
-    ixs_sum ← mapM (wlalloc fe) (map translate_arep (tail ιs_sum));
-    ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
-    ixs ← try_option EFail (inject_sum_rep EmptyEnv ρs ρ);
-    ixs' ← mapM (try_option EFail ∘ nth_error ixs_sum) ixs;
-    mapM (emit ∘ W.BI_set_local ∘ localimm) (rev ixs');;
+  Definition compile_inject (fe : function_env) (ρs : list representation) (i : nat) : codegen unit :=
+    ιss ← try_option EFail (mapM (eval_rep EmptyEnv) ρs);
+    off ← try_option EFail (sum_offset EmptyEnv ρs i);
+    count ← try_option EFail (length <$> ιss !! i);
+    let ιs := concat ιss in
+    let tys := map translate_arep ιs in
+    create_defaults tys;;
+    ixs ← save_stack_arep fe ιs;
+    mapM (emit ∘ W.BI_set_local ∘ localimm) (rev (take count (drop off ixs)));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
-    restore_stack ixs_sum.
+    restore_stack ixs.
 
   Definition compile_inject_new
     (fe : function_env) (μ : base_memory) (i : nat) (τ : type) (σ : size) : codegen unit :=
@@ -143,13 +144,13 @@ Section Compiler.
     codegen unit :=
     res ← try_option EFail (translate_type fe.(fe_type_vars) τ');
     (* Check that the size of the sum fits in an i32 *)
-    if Z.ltb (Wasm_int.Int32.modulus) (Z.of_nat (length ρs)) then (raise EFail) else ret ();;
-    ιs ← try_option EFail (eval_rep EmptyEnv (SumR ρs));
-    ixs ← save_stack_arep fe (tail ιs);
+    if Z.ltb (Wasm_int.Int32.modulus) (Z.of_nat (length ρs)) then raise EFail else ret ();;
+    ιss ← try_option EFail (mapM (eval_rep EmptyEnv) ρs);
+    ixs ← save_stack_arep fe (concat ιss);
     let do_case c i :=
-      ρ ← try_option EFail (ρs !! i);
-      ixs' ← try_option EFail (inject_sum_rep EmptyEnv ρs ρ);
-      try_option EFail (nths_error ixs ixs') ≫= get_locals_w;;
+      off ← try_option EFail (sum_offset EmptyEnv ρs i);
+      count ← try_option EFail (length <$> ιss !! i);
+      restore_stack (take count (drop off ixs));;
       c
     in
     case_blocks fe res (map do_case cases).
@@ -290,7 +291,7 @@ Section Compiler.
     | IInst _ _ => erased_in_wasm
     | ICall _ i _ => compile_call i
     | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
-    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _) _]) i => compile_inject fe ρs τ i
+    | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _) _]) i => compile_inject fe ρs i
     | IInject _ _ => raise (EInvalidInstrT "IInject")
     | IInjectNew (InstrT [τ] [RefT _ (BaseM μ) (VariantT (MEMTYPE σ _) _)]) i =>
         compile_inject_new fe μ i τ σ

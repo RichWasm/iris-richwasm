@@ -368,14 +368,12 @@ Section Relations.
   Definition sum_interp
     (vrel : value_relation) (se : semantic_env) (ρs : list representation) (τs : list type) : SVR :=
     λne sv,
-      (∃ i os os_i τ_i ιs ιs_i ixs,
+      (∃ i os off count τi,
          ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
-           ⌜τs !! i = Some τ_i⌝ ∗
-           ⌜type_arep se τ_i = Some ιs_i⌝ ∗
-           ⌜tail <$> eval_rep se (SumR ρs) = Some ιs⌝ ∗
-           ⌜inject_sum_arep ιs ιs_i = Some ixs⌝ ∗
-           ⌜nths_error os ixs = Some os_i⌝ ∗
-           ▷ vrel se τ_i (SAtoms os_i))%I.
+           ⌜Some (S off) = sum_offset se ρs i⌝ ∗
+           ⌜Some count = length <$> ρs !! i ≫= eval_rep se⌝ ∗
+           ⌜Some τi = τs !! i⌝ ∗
+           ▷ vrel se τi (SAtoms (take count (drop off os))))%I.
 
   Definition variant_interp
     (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
