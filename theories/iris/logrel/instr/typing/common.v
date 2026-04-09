@@ -296,19 +296,17 @@ Section common.
     induction ρ using rep_ind; intros * Hev *; cbn in Hev; cbn.
     - inversion Hev.
     - rewrite -Hev.
-      do 2 f_equal.
-      rewrite bind_Some in Hev.
-      destruct Hev as (pdist & Hmax & Hret).
-      rewrite fmap_Some in Hmax.
-      destruct Hmax as (ιss & Hevals & Hmax).
-      assert (Hdefd: is_Some (mapM (eval_rep EmptyEnv) ρs)) by (eexists; eapply Hevals).
-      apply mapM_is_Some_1 in Hdefd.
+      f_equal.
+      apply fmap_Some in Hev.
+      destruct Hev as (ιss & Hev & _).
+      apply mk_is_Some in Hev.
+      apply mapM_is_Some_1 in Hev.
       apply Forall_mapM_ext.
       eapply Forall_impl.
-      { eapply (List.Forall_and H Hdefd). }
+      { eapply (List.Forall_and H Hev). }
       cbn.
-      intros ρ [Hev [ιs' Hempty]].
-      erewrite Hev; eauto.
+      intros ρ [Hev' [ιs' Hempty]].
+      erewrite Hev'; eauto.
     - rewrite -Hev.
       f_equal.
       apply fmap_Some in Hev.
@@ -323,32 +321,6 @@ Section common.
       erewrite Hev'; eauto.
     - done.
   Qed.
-
-  Lemma inject_sum_rep_emptyenv ρs ρ ixs (se : semantic_env (Σ:=Σ)) :
-    inject_sum_rep EmptyEnv ρs ρ = Some ixs ->
-    inject_sum_rep se ρs ρ = Some ixs.
-  Proof.
-    unfold inject_sum_rep.
-    destruct (eval_rep EmptyEnv (SumR ρs)) as [ιs|] eqn:Hsum; [|done].
-    apply eval_rep_emptyenv with (se := se) in Hsum.
-    rewrite Hsum.
-    simpl.
-    destruct (eval_rep EmptyEnv ρ) as [ιs0|] eqn:Hrep; simpl; [|done].
-    apply eval_rep_emptyenv with (se := se) in Hrep.
-    rewrite Hrep.
-    simpl.
-    done.
-  Qed.
-
-  Lemma inject_sum_rep_noDup ιs ιs' ixs :
-    inject_sum_arep ιs ιs' = Some ixs ->
-    NoDup ixs.
-  Proof.
-    intros H.
-    unfold inject_sum_arep in H.
-    destruct (inject_areps (count_areps ιs) ιs') eqn:Hinj; try discriminate.
-    inversion H; subst; clear H.
-  Admitted.
 
   Lemma to_e_list_app es1 es2 :
     to_e_list (es1 ++ es2) = to_e_list es1 ++ to_e_list es2.

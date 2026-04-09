@@ -1,75 +1,6 @@
+From stdpp Require Import base list.
 
-Require Import stdpp.base stdpp.list.
-
-From RichWasm Require Import syntax.
-
-Record arep_dist :=
-  { ad_ptr : nat;
-    ad_i32 : nat;
-    ad_i64 : nat;
-    ad_f32 : nat;
-    ad_f64 : nat }.
-
-Definition ad_empty : arep_dist :=
-  {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 0; ad_f32 := 0; ad_f64 := 0 |}.
-
-Definition ad_singleton (ι : atomic_rep) : arep_dist :=
-  match ι with
-  | PtrR => {| ad_ptr := 1; ad_i32 := 0; ad_i64 := 0; ad_f32 := 0; ad_f64 := 0 |}
-  | I32R => {| ad_ptr := 0; ad_i32 := 1; ad_i64 := 0; ad_f32 := 0; ad_f64 := 0 |}
-  | I64R => {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 1; ad_f32 := 0; ad_f64 := 0 |}
-  | F32R => {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 0; ad_f32 := 1; ad_f64 := 0 |}
-  | F64R => {| ad_ptr := 0; ad_i32 := 0; ad_i64 := 0; ad_f32 := 0; ad_f64 := 1 |}
-  end.
-
-Definition ad_plus (ad1 ad2 : arep_dist) : arep_dist :=
-  {| ad_ptr := ad1.(ad_ptr) + ad2.(ad_ptr);
-     ad_i32 := ad1.(ad_i32) + ad2.(ad_i32);
-     ad_i64 := ad1.(ad_i64) + ad2.(ad_i64);
-     ad_f32 := ad1.(ad_f32) + ad2.(ad_f32);
-     ad_f64 := ad1.(ad_f64) + ad2.(ad_f64) |}.
-
-Definition ad_max (ad1 ad2 : arep_dist) : arep_dist :=
-  {| ad_ptr := max ad1.(ad_ptr) ad2.(ad_ptr);
-     ad_i32 := max ad1.(ad_i32) ad2.(ad_i32);
-     ad_i64 := max ad1.(ad_i64) ad2.(ad_i64);
-     ad_f32 := max ad1.(ad_f32) ad2.(ad_f32);
-     ad_f64 := max ad1.(ad_f64) ad2.(ad_f64) |}.
-
-Definition ad_le (ad1 ad2 : arep_dist) : bool :=
-  (ad1.(ad_ptr) <=? ad2.(ad_ptr)) &&
-    (ad1.(ad_i32) <=? ad2.(ad_i32)) &&
-    (ad1.(ad_i64) <=? ad2.(ad_i64)) &&
-    (ad1.(ad_f32) <=? ad2.(ad_f32)) &&
-    (ad1.(ad_f64) <=? ad2.(ad_f64)).
-
-Definition count_areps (ιs : list atomic_rep) : arep_dist :=
-  fold_left ad_plus (map ad_singleton ιs) ad_empty.
-
-Definition max_areps (ιss : list (list atomic_rep)) : arep_dist :=
-  fold_left ad_max (map count_areps ιss) ad_empty.
-
-Definition inject_arep (slots : arep_dist) (used : arep_dist) (ι : atomic_rep) : nat :=
-  match ι with
-  | PtrR => used.(ad_ptr)
-  | I32R => slots.(ad_ptr) + used.(ad_i32)
-  | I64R => slots.(ad_ptr) + slots.(ad_i32) + used.(ad_i64)
-  | F32R => slots.(ad_ptr) + slots.(ad_i32) + slots.(ad_i64) + used.(ad_f32)
-  | F64R => slots.(ad_ptr) + slots.(ad_i32) + slots.(ad_i64) + slots.(ad_f32) + used.(ad_f64)
-  end.
-
-Definition inject_areps (slots : arep_dist) (ιs : list atomic_rep) : option (list nat) :=
-  let fix go used ιs :=
-    match ιs with
-    | [] => Some []
-    | ι :: ιs' =>
-        let ix := inject_arep slots used ι in
-        let used' := ad_plus used (ad_singleton ι) in
-        guard (ad_le used' slots);;
-        cons ix <$> go used' ιs'
-    end
-  in
-  go ad_empty ιs.
+Require Import RichWasm.syntax.
 
 Definition kind_rep (κ : kind) : option representation :=
   match κ with
@@ -179,7 +110,7 @@ Section Eval.
   Context `{Lookup nat base_memory Env}.
   Context `{Lookup nat (list atomic_rep) Env}.
   Context `{Lookup nat nat Env}.
-  Variable (env : Env).
+  Variable env : Env.
 
   Definition eval_mem (μ : memory) : option base_memory :=
     match μ with
@@ -190,14 +121,7 @@ Section Eval.
   Fixpoint eval_rep (ρ : representation) : option (list atomic_rep) :=
     match ρ with
     | VarR x => env !! x
-    | SumR ρs =>
-        slots ← max_areps <$> mapM eval_rep ρs;
-        mret $ I32R ::
-          repeat PtrR slots.(ad_ptr) ++
-          repeat I32R slots.(ad_i32) ++
-          repeat I64R slots.(ad_i64) ++
-          repeat F32R slots.(ad_f32) ++
-          repeat F64R slots.(ad_f64)
+    | SumR ρs => cons I32R ∘ @concat _ <$> mapM eval_rep ρs
     | ProdR ρs => @concat _ <$> mapM eval_rep ρs
     | AtomR ι => Some [ι]
     end.
@@ -214,11 +138,8 @@ Section Eval.
     | SumS σs =>
         ns ← mapM eval_size σs;
         Some (1 + list_max ns)
-    | ProdS σs =>
-        list_sum <$> mapM eval_size σs
-    | RepS ρ =>
-        ιs ← eval_rep ρ;
-        Some (list_sum (map arep_size ιs))
+    | ProdS σs => list_sum <$> mapM eval_size σs
+    | RepS ρ => list_sum ∘ map arep_size <$> eval_rep ρ
     | ConstS n => Some n
     end.
 
@@ -232,14 +153,9 @@ Section Eval.
         mret $ SMEMTYPE n ξ
     end.
 
-  Definition inject_sum_arep (ιs : list atomic_rep) (ιs0 : list atomic_rep) : option (list nat) :=
-    let slots := count_areps ιs in
-    inject_areps slots ιs0.
-
-  Definition inject_sum_rep (ρs : list representation) (ρ : representation) : option (list nat) :=
-    ιs ← tail <$> eval_rep (SumR ρs);
-    ιs0 ← eval_rep ρ;
-    inject_sum_arep ιs ιs0.
+  Definition sum_offset (ρs : list representation) (i : nat) : option nat :=
+    ιss ← mapM eval_rep (take i ρs);
+    Some (length (concat ιss)).
 
 End Eval.
 

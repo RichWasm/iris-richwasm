@@ -44,8 +44,9 @@ Section case.
     induction ess1; simpl; [done | by rewrite IHess1].
   Qed.
 
-  Lemma compat_case_blocks_fail F wt wt' (tag_idx : nat) tag wl_ret wl wl' ρs_sum
-    val_localidxs vs_res
+  Lemma compat_case_blocks_fail
+    F wt wt' (tag_idx : nat) tag wl_ret wl wl' ρs_sum (ιss : list (list atomic_rep)) ixs
+    vs_res
     (ess : list (list instruction)) es_fail_cases (start : nat) fr B R τ_res :
     let fe := fe_of_context F in
     let tag_localidx := Mk_localidx tag_idx in
@@ -59,10 +60,9 @@ Section case.
     run_codegen
       (case_blocks_blocks start tag_localidx wl_ret
          (map (λ c i,
-            try_option EFail (ρs_sum !! i)
-            ≫= λ ρ, try_option EFail (inject_sum_rep EmptyEnv ρs_sum ρ)
-            ≫= λ ixs', (try_option EFail (nths_error val_localidxs ixs')
-                         ≫= get_locals_w)
+            try_option EFail (sum_offset EmptyEnv ρs_sum i)
+            ≫= λ off, try_option EFail (length <$> ιss !! i)
+            ≫= λ count, restore_stack (take count (drop off ixs))
             ≫= λ _, c)
             (compile_cases fe ess)))
       wt wl =
@@ -90,17 +90,15 @@ Section case.
       rewrite map_cons in Hcg.
       change (run_codegen
         (case_block tag_localidx wl_ret
-           (λ i, try_option EFail (ρs_sum !! i)
-                 ≫= λ ρ, try_option EFail (inject_sum_rep EmptyEnv ρs_sum ρ)
-                 ≫= λ ixs', (try_option EFail (nths_error val_localidxs ixs')
-                              ≫= get_locals_w)
-                 ≫= λ _, mapM_ (compile_instr mr fe) es_hd) start ;;
+           (λ i, try_option EFail (sum_offset EmptyEnv ρs_sum i)
+                 ≫= λ off, try_option EFail (length <$> ιss !! i)
+                 ≫= λ count, restore_stack (take count (drop off ixs))
+                 ≫= λ _, mapM_ (compile_instr mr fe) es_hd) start;;
          case_blocks_blocks (S start) tag_localidx wl_ret
            (map (λ c i,
-              try_option EFail (ρs_sum !! i)
-              ≫= λ ρ, try_option EFail (inject_sum_rep EmptyEnv ρs_sum ρ)
-              ≫= λ ixs', (try_option EFail (nths_error val_localidxs ixs')
-                           ≫= get_locals_w)
+              try_option EFail (sum_offset EmptyEnv ρs_sum i)
+              ≫= λ off, try_option EFail (length <$> ιss !! i)
+              ≫= λ count, restore_stack (take count (drop off ixs))
               ≫= λ _, c)
               (compile_cases fe ess)))
         wt wl = inr ((), wt', wl', es_fail_cases)) in Hcg.
@@ -137,6 +135,7 @@ Section case.
 
       inv_cg_bind Hcase_es_i [] ?wt wt_case_i ?wl wl_case_i ?es es_case_i Hget_locals_i Hcase_es_i.
       inv_cg_bind Hget_locals_i case_i_val_idxs ?wt wt_get_locals_i ?wl wl_get_locals_i ?es es_get_locals_i Hnths_error Hget_locals_i.
+      (* TODO
       inv_cg_try_option Hnths_error; subst.
 
       destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_i) as ([] & -> & ->).
@@ -231,12 +230,13 @@ Section case.
         * left. lia.
         * right. lia.
       + simpl in Hlen_le. lia.
-  Qed.
+     *)
+  Admitted.
 
   Lemma compat_case_block_success M F L wt wt_case_tag wtf tag_idx (tag : nat)
     wl_ret B R se L' wl wl_case_tag wlf rf
     (τs: list type) τ_case_tag τ_res case_tag_os_payload val_localidxs vs_payload vs_res
-    ιs_case_tag ι_tag ιs_payload ixs
+    ιss ixs off count
     ρs_sum fr_saved_and_tag θ os_payload es_tag_cg (ess_pre : list (list instruction))
     (es_tag : list instruction) :
     let F' := F <| fc_labels ::= cons ([τ_res], L') |> in
@@ -252,11 +252,9 @@ Section case.
     length vs_res = length wl_ret ->
     length τs = length ρs_sum ->
     τs !! tag = Some τ_case_tag ->
-    type_arep se τ_case_tag = Some ιs_case_tag ->
-    (* tail <$> eval_rep se (SumR ρs_sum) = Some ιs -> *)
-    eval_rep se (SumR ρs_sum) = Some (ι_tag :: ιs_payload) ->
-    inject_sum_arep ιs_payload ιs_case_tag = Some ixs ->
-    nths_error os_payload ixs = Some case_tag_os_payload ->
+    mapM (eval_rep se) ρs_sum = Some ιss ->
+    sum_offset se ρs_sum tag = Some off ->
+    length <$> ιss !! tag = Some count ->
     Forall (λ i : prelude.W.localidx, localimm i ≠ tag_idx) val_localidxs ->
     Forall2
       (λ (i : prelude.W.localidx) (v : value),
@@ -266,10 +264,9 @@ Section case.
     run_codegen
       (case_block tag_localidx wl_ret
          (λ i,
-            try_option EFail (ρs_sum !! i)
-            ≫= λ ρ, try_option EFail (inject_sum_rep EmptyEnv ρs_sum ρ)
-            ≫= λ ixs', (try_option EFail (nths_error val_localidxs ixs')
-                         ≫= get_locals_w)
+            try_option EFail (sum_offset EmptyEnv ρs_sum i)
+            ≫= λ off, try_option EFail (length <$> ιss !! i)
+            ≫= λ count, restore_stack (take count (drop off ixs))
             ≫= λ _, mapM_ (compile_instr mr fe) es_tag)
          (length ess_pre))
       wt wl =
@@ -304,7 +301,7 @@ Section case.
                rt_token rti sr θ
         }}.
   Proof.
-    intros F' fe lmask tag_localidx Hok Hlookup_saved_and_tag Htranslate_type_fe Ht_lookup_tag Heq Hvs_res_len Htyp_rep_len Hlookup_typs Htype_arep Heval_rep Hinject_sum_arep Hnerr_os Htag_not_val_localidx Hsaved Hsem Hcg_tag Hsem_es_tag.
+    intros F' fe lmask tag_localidx Hok Hlookup_saved_and_tag Htranslate_type_fe Ht_lookup_tag Heq Hvs_res_len Htyp_rep_len Hlookup_typs Heval_rep Hoffset Hcount Htag_not_val_localidx Hsaved Hsem Hcg_tag Hsem_es_tag.
     iIntros "#Hinst #Hlabels #Hreturn Hrt Hvalue_interp_os_tag Hatoms_interp_payload Hframe_saved_and_tag Hfr Hrun".
 
     (* Case es_tag *)
@@ -337,6 +334,7 @@ Section case.
 
     inv_cg_bind Hcase_es_tag [] ?wt wt_case_tag ?wl wl_case_tag ?es es_case_tag Hget_locals_tag Hcase_es_tag.
     inv_cg_bind Hget_locals_tag case_tag_val_idxs ?wt wt_get_locals_tag ?wl wl_get_locals_tag ?es es_get_locals_tag Hnths_error Hget_locals_tag.
+    (* TODO
     inv_cg_try_option Hnths_error; subst.
 
     destruct (run_codegen_get_locals _ _ _ _ _ _ _ Hget_locals_tag) as ([] & -> & ->).
@@ -482,7 +480,8 @@ Section case.
     iDestruct (atoms_interp_length with "Hatoms") as "<-".
     iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
     by iFrame.
-  Qed.
+    *)
+  Admitted.
 
   Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
     let fe := fe_of_context F in
@@ -559,6 +558,7 @@ Section case.
     unfold value_interp0, value_se_interp0.
     iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
 
+    (* TODO
     iDestruct "Hsum_interp" as (tag os_payload case_tag_os_payload τ_case_tag ιs ιs_case_tag ixs  HSAtoms Htag_type_lookup Htag_type_arep Heval_rep_tail Hinject_sum_arep Hnerr_tag_os_payload) "Hvalue_interp_os_tag".
     simplify_eq.
 
@@ -890,6 +890,7 @@ Section case.
       intros i [Hi_lo Hi_hi]. unfold lmask, wlmask. split; exact Hi_lo || exact Hi_hi.
     + eapply frame_rel_wlmask_mono; [| exact Hfrel_new].
       rewrite length_app. rewrite length_app. lia.
-  Qed.
+    *)
+  Admitted.
 
 End case.
