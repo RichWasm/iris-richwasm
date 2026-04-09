@@ -824,15 +824,15 @@ Section common.
       done.
   Qed.
 
-  (* TODO: Not really nice to have the NoDup... *)
   Lemma atoms_interp_nths_error vs os vs' os' ixs :
-    NoDup ixs ->
     nths_error vs ixs = Some vs' ->
     nths_error os ixs = Some os' ->
     atoms_interp os vs -∗
     atoms_interp os' vs'.
   Proof.
-    iIntros (Hnodup Hnerr1 Hneer2) "Hatoms".
+    iIntros (Hnerr1 Hnerr2) "Hatoms".
+    apply nths_error_some_iff in Hnerr1 as [Hnd Hnerr1].
+    apply nths_error_some_iff in Hnerr2 as [_ Hnerr2].
   Admitted.
 
   Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
@@ -939,11 +939,12 @@ Section common.
 
   (* TODO: is this true? And how to prove it? *)
   Lemma has_kind_eval_rep F τ ρ rf (se : semantic_env (Σ:=Σ)) ιs :
+    sem_env_interp F se ->
     has_kind F τ (VALTYPE ρ rf) ->
     type_arep se τ = Some ιs ->
     eval_rep se ρ = Some ιs.
   Proof.
-    intros Hkind Hta.
+    intros Hse Hkind Hta.
     unfold type_arep in Hta.
     apply bind_Some in Hta as [κ [Hts Hsr]].
     unfold skind_rep in Hsr.
@@ -953,14 +954,14 @@ Section common.
   Admitted.
 
   Lemma has_rep_eval_rep F τ ρ (se : semantic_env (Σ:=Σ)) ιs :
+    sem_env_interp F se ->
     has_rep F τ ρ ->
     type_arep se τ = Some ιs ->
     eval_rep se ρ = Some ιs.
   Proof.
-    intros Hrep Hta.
+    intros Hse Hrep Hta.
     inversion Hrep; subst.
     eapply has_kind_eval_rep; try done.
   Qed.
-
 
 End common.

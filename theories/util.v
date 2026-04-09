@@ -78,18 +78,55 @@ Definition option_last {A : Type} (a : option A) (b : option A) : option A :=
   | _ => b
   end.
 
-Definition nths_error {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
+Definition nths_error_dup {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
   mapM (nth_error l) ixs.
+
+Definition nths_error {A : Type} (l : list A) (ixs : list nat) : option (list A) :=
+  if NoDup_dec ixs
+  then nths_error_dup l ixs
+  else None.
+
+Lemma nths_error_some_dup {A : Type} (l : list A) (ixs : list nat) (l' : list A) :
+  nths_error l ixs = Some l' ->
+  nths_error_dup l ixs = Some l'.
+Proof.
+  intros Hnerr.
+  unfold nths_error in Hnerr.
+  by destruct (NoDup_dec ixs) as [Hnodup | Hdup].
+Qed.
+
+Lemma nths_error_some_iff {A : Type} (l : list A) (ixs : list nat) (l' : list A) :
+  nths_error l ixs = Some l' <->
+  base.NoDup ixs /\ nths_error_dup l ixs = Some l'.
+Proof.
+  unfold nths_error.
+  destruct (NoDup_dec ixs) as [Hnodup | Hdup].
+  - split.
+    + intro H. split; [exact Hnodup | exact H].
+    + intros [_ H]. exact H.
+  - split.
+    + discriminate.
+    + intros [Hnodup _]. contradiction.
+Qed.
+
+Lemma nths_error_dup_length {A : Type} (l l': list A) (ixs : list nat) :
+  nths_error_dup l ixs = Some l' ->
+  length ixs = length l'.
+Proof. apply length_mapM. Qed.
 
 Lemma nths_error_length {A : Type} (l l': list A) (ixs : list nat) :
   nths_error l ixs = Some l' ->
   length ixs = length l'.
-Proof. apply length_mapM. Qed.
+Proof.
+  intros Hnerr.
+  eapply nths_error_dup_length.
+  by apply nths_error_some_dup.
+Qed.
 
-Lemma nths_error_exists {A B : Type} (l1 l1' : list A) (l2 : list B) (ixs : list nat) :
+Lemma nths_error_dup_exists {A B : Type} (l1 l1' : list A) (l2 : list B) (ixs : list nat) :
   length l1 = length l2 ->
-  nths_error l1 ixs = Some l1' ->
-  is_Some (nths_error l2 ixs).
+  nths_error_dup l1 ixs = Some l1' ->
+  is_Some (nths_error_dup l2 ixs).
 Proof.
   intros Hlen Hnths_error.
   apply mapM_is_Some.
@@ -107,10 +144,24 @@ Proof.
   done.
 Qed.
 
-Lemma nths_error_zip {A B : Type} (l1 l1' : list A) (l2 l2' : list B) (ixs : list nat) :
+Lemma nths_error_exists {A B : Type} (l1 l1' : list A) (l2 : list B) (ixs : list nat) :
+  length l1 = length l2 ->
   nths_error l1 ixs = Some l1' ->
-  nths_error l2 ixs = Some l2' ->
-  nths_error (base.zip l1 l2) ixs = Some (base.zip l1' l2').
+  is_Some (nths_error l2 ixs).
+Proof.
+  intros Hlen Hnths_error.
+  apply nths_error_some_iff in Hnths_error as [Hnd Hnerrd].
+  eapply nths_error_dup_exists in Hnerrd; try done.
+  destruct Hnerrd as [x H].
+  unfold is_Some.
+  exists x.
+  by rewrite nths_error_some_iff.
+Qed.
+
+Lemma nths_error_dup_zip {A B : Type} (l1 l1' : list A) (l2 l2' : list B) (ixs : list nat) :
+  nths_error_dup l1 ixs = Some l1' ->
+  nths_error_dup l2 ixs = Some l2' ->
+  nths_error_dup (base.zip l1 l2) ixs = Some (base.zip l1' l2').
 Proof.
   intros H1 H2.
   apply mapM_Some.
@@ -127,9 +178,22 @@ Proof.
     + apply IH; assumption.
 Qed.
 
-Lemma nths_error_Forall {A : Type} Φ (l l' : list A) (ixs : list nat) :
+Lemma nths_error_zip {A B : Type} (l1 l1' : list A) (l2 l2' : list B) (ixs : list nat) :
+  nths_error l1 ixs = Some l1' ->
+  nths_error l2 ixs = Some l2' ->
+  nths_error (base.zip l1 l2) ixs = Some (base.zip l1' l2').
+Proof.
+  intros Hner1 Hner2.
+  apply nths_error_some_iff in Hner1 as [Hnd Hner1d].
+  apply nths_error_some_iff in Hner2 as [_ Hner2d].
+  rewrite nths_error_some_iff.
+  split; first done.
+  by apply nths_error_dup_zip.
+Qed.
+
+Lemma nths_error_dup_Forall {A : Type} Φ (l l' : list A) (ixs : list nat) :
   Forall Φ l ->
-  nths_error l ixs = Some l' ->
+  nths_error_dup l ixs = Some l' ->
   Forall Φ l'.
 Proof.
   revert l l'.
@@ -144,6 +208,16 @@ Proof.
       simplify_eq.
       by rewrite <- stdpp_aux.nth_error_lookup.
     + eapply IHixs; eauto.
+Qed.
+
+Lemma nths_error_Forall {A : Type} Φ (l l' : list A) (ixs : list nat) :
+  Forall Φ l ->
+  nths_error l ixs = Some l' ->
+  Forall Φ l'.
+Proof.
+  intros HF Hnerr.
+  apply nths_error_some_iff in Hnerr as [Hnd Hnerrd].
+  by eapply nths_error_dup_Forall.
 Qed.
 
 (* How is this not a lemma in stdpp? *)
@@ -167,6 +241,22 @@ Lemma Forall2_Forall {A B} P (l1 : list A) (l2 : list B) :
   Forall2 P l1 l2 → Forall (uncurry P) (base.zip l1 l2).
 Proof. induction 1; constructor; auto. Qed.
 
+Lemma nths_error_dup_Forall2 {A B : Type} (Φ : A -> B -> Prop) (l1 l1' : list A) (l2 l2' : list B) (ixs : list nat) :
+  Forall2 Φ l1 l2 ->
+  nths_error_dup l1 ixs = Some l1' ->
+  nths_error_dup l2 ixs = Some l2' ->
+  Forall2 Φ l1' l2'.
+Proof.
+  intros.
+  apply Forall_Forall2.
+  - apply nths_error_dup_length in H0, H1.
+    by rewrite <- H0, H1.
+  - eapply (nths_error_dup_Forall _ (base.zip l1 l2) _ ixs).
+    + by apply Forall2_Forall.
+    + by apply nths_error_dup_zip.
+Qed.
+
+
 Lemma nths_error_Forall2 {A B : Type} (Φ : A -> B -> Prop) (l1 l1' : list A) (l2 l2' : list B) (ixs : list nat) :
   Forall2 Φ l1 l2 ->
   nths_error l1 ixs = Some l1' ->
@@ -180,6 +270,19 @@ Proof.
   - eapply (nths_error_Forall _ (base.zip l1 l2) _ ixs).
     + by apply Forall2_Forall.
     + by apply nths_error_zip.
+Qed.
+
+Lemma nths_error_dup_Forall2_exists {A B : Type} (Φ : A -> B -> Prop) (l1 l1' : list A) (l2 : list B) (ixs : list nat) :
+  Forall2 Φ l1 l2 ->
+  nths_error_dup l1 ixs = Some l1' ->
+  ∃ l2', nths_error_dup l2 ixs = Some l2' ∧ Forall2 Φ l1' l2'.
+Proof.
+  intros Hf2 Hnerr.
+  apply Forall2_length in Hf2 as Hlen.
+  edestruct (nths_error_dup_exists l1 l1' l2) as [l2' Hsome]; try done.
+  exists l2'.
+  split; first done.
+  eapply nths_error_dup_Forall2; done.
 Qed.
 
 Lemma nths_error_Forall2_exists {A B : Type} (Φ : A -> B -> Prop) (l1 l1' : list A) (l2 : list B) (ixs : list nat) :

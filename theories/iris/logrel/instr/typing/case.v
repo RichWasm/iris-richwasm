@@ -474,9 +474,7 @@ Section case.
           rewrite Hinject_sum_arep in Heq_some0.
           by inversion Heq_some0.
         }
-        iApply atoms_interp_nths_error; try done.
-        admit. (* TODO: NoDup ixs *)
-
+        iApply atoms_interp_nths_error; done.
       + by iApply values_interp_one_eq.
       + done.
     }
@@ -484,7 +482,7 @@ Section case.
     iDestruct (atoms_interp_length with "Hatoms") as "<-".
     iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
     by iFrame.
-  Admitted.
+  Qed.
 
   Lemma compat_case M F L L' wt wt' wtf wl wl' wlf es' ess τs τs' κ :
     let fe := fe_of_context F in

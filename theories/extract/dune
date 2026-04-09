@@ -46,6 +46,7 @@
   list_misc
   list_monad
   list_numbers
+  list_relations
   ListDef
   Memdata
   memory
