@@ -320,20 +320,20 @@ Section Relations.
     leibnizO (list type) -n> leibnizO (list type) -n> ClR :=
     λne τs1 τs2 cl,
       match cl with
-      | FC_func_native inst (Tf tfs1 tfs2) tlocs es =>
-          ▷ □ ∀ vs1 os1 fr a i B R θ,
-            ⌜fr.(f_inst).(inst_funcs) !! i = Some a⌝ -∗
-            ⌜translate_types se τs1 = Some tfs1⌝ -∗
-            ⌜translate_types se τs2 = Some tfs2⌝ -∗
-            atoms_interp os1 vs1 -∗
-            values_interp0 vrel se τs1 os1 -∗
-            rt_token rti sr θ -∗
-            ↪[frame] fr -∗
-            ↪[RUN] -∗
-            N.of_nat a ↦[wf] FC_func_native inst (Tf tfs1 tfs2) tlocs es -∗
-            CWP map BI_const vs1 ++ [BI_call i] UNDER B; R
-                {{ _; vs2, ∃ os2 θ',
-                   atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2 ∗ rt_token rti sr θ' }}
+      | FC_func_native inst (Tf ts1 ts2) tlocs es =>
+          ⌜translate_types se τs1 = Some ts1⌝ ∗
+            ⌜translate_types se τs2 = Some ts2⌝ ∗
+            ▷ □ ∀ i a fr vs1 os1 B R θ,
+              ⌜fr.(f_inst).(inst_funcs) !! i = Some a⌝ -∗
+              atoms_interp os1 vs1 -∗
+              values_interp0 vrel se τs1 os1 -∗
+              rt_token rti sr θ -∗
+              ↪[frame] fr -∗
+              ↪[RUN] -∗
+              N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) tlocs es -∗
+              CWP map BI_const vs1 ++ [BI_call i] UNDER B; R
+                  {{ _; vs2, ∃ os2 θ',
+                     atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2 ∗ rt_token rti sr θ' }}
         | FC_func_host _ _ => False
         end%I.
 
