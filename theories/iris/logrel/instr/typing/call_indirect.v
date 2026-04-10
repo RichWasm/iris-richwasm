@@ -1,4 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
+From mathcomp Require Import ssrbool eqtype.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -84,6 +85,8 @@ Section call_indirect.
 
    apply has_values_app_inv in H0 as (evs1 & evs2 & -> & Hevs1 & Hevs2).
    iEval (rewrite values_interp_one_eq; cbn) in "HosCoderef".
+   set (CodeRefsType := MonoFunT τs1 τs2) in *.
+   assert (HCodeRefsType: CodeRefsType = MonoFunT τs1 τs2) by auto.
 
    (* I need to break it up actually so coopy pasting
    iPoseProof (value_interp_coderef with "HosCoderef") as "[%n %Hoscoderef]". *)
@@ -92,6 +95,7 @@ Section call_indirect.
    destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
    iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
 
+   (* Note: closure interp shows up here, introducing cl *)
    iDestruct "Oh" as "(%i2 & %j & %cl & %toinv & what & nstab & nsfun)".
    inversion toinv; subst; clear toinv.
    inversion Hκ; subst.
@@ -100,10 +104,32 @@ Section call_indirect.
    iDestruct "HvsCoderef" as "[%v [-> HvsCoderef]]".
    apply has_values_to_consts_inv in Hevs2 as Evs2Singleton.
    cbn in Evs2Singleton. subst evs2.
-   (* now need to unfold atom_interp a bit *)
    iEval (cbn) in "HvsCoderef".
    iDestruct "HvsCoderef" as "->".
 
+   (* Note: InnerFunc shows up here after destructing cl *)
+   destruct cl; last done.
+   cbn in Haccum; inversion Haccum; subst; clear Haccum.
+   clear_nils.
+   (* note: es_rest is also empty, but I only learn that after
+      destructing the list_find *)
+
+
+   (* let's rename some things for my own sake *)
+   rename i0 into inst.
+   rename f into InnerFunc.
+   rename l0 into ts.
+   rename l1 into es.
+   rename i2 into c.
+   rename j into a.
+   rename evs1 into evs.
+   rename vs1 into vs.
+   rename fr into f0.
+   set (TheIndex := (typeimm i)) in *.
+
+   (* I think the first three things will fome out of instance interp *)
+   (* instance_interp -> instance_functions_interp has inst_funcs *)
+   (* the other two are top level instance_interp *)
 
 
 
@@ -113,13 +139,66 @@ Section call_indirect.
       destruct p.
       cbn in Hi. inversion Hi. subst.
       clear Hi.
-      cbn in Haccum. inversion Haccum. subst. clear Haccum.
       clear_nils.
+      rename n into i.
+      set (c32 := Wasm_int.Int32.repr (Z.of_N c)) in *.
+      rename f into FoundFunction.
+      unfold instance_interp.
+
+
+      (* First save that l's length is shorter *)
+      pose proof Hmaybe as Hhello.
+      apply list_find_Some in Hmaybe as (LatI & FuncsEqual & EarlierNot).
+
+      apply list_find_app_l with (l2:=wtf) in Hhello.
+
+      iDestruct "Hinst" as "[%tosubst Hinst]".
+      rewrite <- tosubst in Hhello.
+      apply Is_true_true in FuncsEqual.
+      move/eqP in FuncsEqual.
+
+      subst ϕ_W.
+
+      destruct InnerFunc eqn:HInnerFunc.
+
+      rename r into τs1_inner; rename r0 into τs2_inner.
+      rewrite HCodeRefsType.
+      unfold closure_interp0.
+      iEval (cbn) in "what".
+      iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
+
+
+      (* we need to connect the foundfunction to the inner func. I'm like
+         almost certain they're equal.
+
+         okay they HAVE to be equal, but I'm not sure how to show that... *)
+      (* one thing I figure out actually is that I can't use what in the proof
+         bc to use anything in what, I need to already have proven that
+         found function and inner funct are equal.
+       *)
+      iAssert ((⌜InnerFunc = FoundFunction⌝)%I ) with "[]" as "%Yeah". {
+        iPureIntro.
+        rewrite HCodeRefsType in Hoff.
+        cbn in Hoff.
+        apply bind_Some in Hoff as (x & transts1 & rest).
+        apply bind_Some in rest as (x2 & transts2 & rest).
+        rename x into ts1_tounify.
+        rename x2 into ts2_tounify.
+        inversion rest.
+        eapply (translate_types_comp_sem _ _ _ _ _ _ _ H) in transts1; auto.
+        eapply (translate_types_comp_sem _ _ _ _ _ _ _ H) in transts2; auto.
+        subst; auto.
+        rewrite Hts1inner in transts1.
+        rewrite Hts2inner in transts2.
+        inversion transts1; subst. inversion transts2; subst. done.
+      }
+      idtac.
+      subst InnerFunc.
+
+
+      (* we need to get some of the f0 stuff out now *)
 
       change (?x ++ [?y] ++ [?z]) with (x ++ [y;z]).
-      iEval (cbn) in "what".
-      destruct cl; last done.
-      destruct f0.
       iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [nstab] [nsfun]"); auto.
       4: exact.
 
@@ -130,7 +209,6 @@ Section call_indirect.
     - (* the thing is None *)
       cbn in Hi. inversion Hi; subst; clear Hi.
       clear_nils.
-      cbn in Haccum; inversion Haccum; subst; clear Haccum. clear_nils.
       admit.
 
 
