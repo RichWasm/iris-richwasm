@@ -34,7 +34,7 @@ Section untag.
     iEval (rewrite atoms_interp_one_inv) in "Hvs".
     iDestruct "Hvs" as "[%v [-> Hvs]]".
     iEval (cbn) in "Hvs".
-    iDestruct "Hvs" as "[%n (-> & %rp & %Hrp & Hrpinterp)]".
+    iDestruct "Hvs" as "(%n & %n32 & %Hn & -> & %rp & %Hrp & Hrpinterp)".
 
     (* need to show evs is a number *)
     apply has_values_to_consts_inv in H0.
@@ -45,7 +45,7 @@ Section untag.
     - by cbn.
     - iFrame. iModIntro.
       iSplitR; auto.
-      iExists [I32A (Wasm_int.Int32.ishr_u (Wasm_int.Int32.repr n) (Wasm_int.Int32.repr 1))].
+      iExists [I32A (Wasm_int.Int32.ishr_u n32 (Wasm_int.Int32.repr 1))].
       iSplitL.
       + iApply values_interp_one_eq.
         iApply value_interp_eq.

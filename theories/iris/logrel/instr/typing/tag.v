@@ -1,4 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.numerics.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -45,7 +46,11 @@ Section tag.
     - by cbn.
     - iFrame. iModIntro.
       iSplitR; auto.
-      iExists [PtrA (PtrInt (Wasm_int.Int32.unsigned n))].
+      set (nN := Wasm_int.N_of_uint i32m n).
+      assert (N_i32_repr nN n) by reflexivity.
+      (* wrapped to 2^31 *)
+      set (n_wr := (nN `mod` (2 ^ 31))%N).
+      iExists [PtrA (PtrInt n_wr)].
       iSplitL.
       + iApply values_interp_one_eq.
         iApply value_interp_eq.
@@ -60,12 +65,29 @@ Section tag.
           by cbn.
       + cbn.
         iSplit; auto.
-        iExists _; iSplit.
+        iExists (2 * n_wr)%N, _; iSplit; [|iSplit]; [| eauto | ].
         * iPureIntro.
-          unfold Wasm_int.Int32.ishl, Wasm_int.Int32.shl, Z.shiftl; cbn.
-          done.
-        * iExists (RootInt (Wasm_int.Int32.unsigned n)); cbn.
-          iSplit; auto using ReprRootInt.
+          unfold Wasm_int.Int32.ishl; cbn.
+          unfold Wasm_int.Int32.shl.
+          cbn.
+          rewrite Z.shiftl_mul_pow2; last done.
+          rewrite Z.pow_1_r.
+          unfold N_i32_repr, n_wr, Wasm_int.Int32.repr; cbn.
+          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+          change Wasm_int.Int32.modulus with (2^31 * 2)%Z.
+          rewrite Zmult_mod_distr_r.
+          replace (2%N) with (Z.to_N 2%Z) by done.
+          rewrite Z.mul_comm.
+          rewrite Z2N.inj_mul; try lia.
+          {
+            f_equal.
+            destruct n; cbn.
+            rewrite Z2N.inj_mod; auto; lia.
+          }
+          by apply Z.mod_pos.
+        * iExists (RootInt n_wr).
+          iPureIntro; split; eauto.
+          constructor.
   Qed.
 
 End tag.

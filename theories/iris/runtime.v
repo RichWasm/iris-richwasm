@@ -24,8 +24,9 @@ Section Runtime.
           {{ fr'; vs,
                ⌜fr' = fr⌝ ∗
                N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl ∗
-               ∃ θ' ℓ a ws,
-                 ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemMM a))]⌝ ∗
+               ∃ θ' ℓ a ptr32 ws,
+                 ⌜N_i32_repr (tag_address MemMM a) ptr32⌝ ∗
+                 ⌜vs = [VAL_int32 ptr32]⌝ ∗
                  ⌜repr_root_pointer (RootHeap MemMM a) (tag_address MemMM a)⌝ ∗
                  rt_token rti sr θ' ∗
                  ℓ ↦addr (MemMM, a) ∗
@@ -44,16 +45,17 @@ Section Runtime.
         {{ fr'; vs,
              ⌜fr = fr'⌝ ∗
              N.of_nat sr.(sr_func_gcalloc) ↦[wf] cl ∗
-             ∃ θ' ℓ ta ws,
-               ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m ta)]⌝ ∗
-                 ⌜repr_pointer θ' (PtrHeap MemGC ℓ) ta⌝ ∗
-                 rt_token rti sr θ' ∗
-                 ℓ ↦layout repeat FlagInt sz' ∗
-                 ℓ ↦heap ws }}.
+             ∃ θ' ℓ ta ta32 ws,
+               ⌜N_i32_repr ta ta32⌝ ∗
+               ⌜vs = [VAL_int32 ta32]⌝ ∗
+               ⌜repr_pointer θ' (PtrHeap MemGC ℓ) ta⌝ ∗
+               rt_token rti sr θ' ∗
+               ℓ ↦layout repeat FlagInt sz' ∗
+               ℓ ↦heap ws }}.
 
   Definition spec_free (cl : function_closure) : Prop :=
-    forall s E B R fr i θ ℓ a ta,
-      ta = Wasm_int.int_of_Z i32m (tag_address MemMM a) ->
+    forall s E B R fr i θ ℓ a ta32,
+      N_i32_repr (tag_address MemMM a) ta32 ->
       repr_root_pointer (RootHeap MemMM a) (tag_address MemMM a) ->
       rt_token rti sr θ -∗
       N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl -∗
@@ -62,16 +64,16 @@ Section Runtime.
       ↪[RUN] -∗
       ⌜inst_funcs (f_inst fr) !! i = Some sr.(sr_func_free)⌝ -∗
       CWP
-        [BI_const (VAL_int32 ta); BI_call i]
+        [BI_const (VAL_int32 ta32); BI_call i]
         @ s; E UNDER B; R
         {{ fr'; vs, ⌜fr = fr'⌝ ∗
              ⌜vs = []⌝ ∗ N.of_nat sr.(sr_func_free) ↦[wf] cl ∗ ∃ θ', rt_token rti sr θ' }}.
 
   Definition spec_setflag (cl : function_closure) : Prop :=
-    forall s E B R fr idx θ ℓ fs μ ta i f,
-      let ta' := Wasm_int.Z_of_uint i32m ta in
+    forall s E B R fr idx θ ℓ fs μ ta ta32 i f,
       let i' := Wasm_int.nat_of_uint i32m i in
-      repr_pointer θ (PtrHeap μ ℓ) ta' ->
+      repr_pointer θ (PtrHeap μ ℓ) ta ->
+      N_i32_repr ta ta32 ->
       rt_token rti sr θ -∗
       ℓ ↦layout fs -∗
       N.of_nat sr.(sr_func_setflag) ↦[wf] cl ∗
@@ -79,7 +81,7 @@ Section Runtime.
       ↪[RUN] -∗
       ⌜inst_funcs (f_inst fr) !! idx = Some sr.(sr_func_setflag)⌝ -∗
       CWP
-        [BI_const (VAL_int32 ta);
+        [BI_const (VAL_int32 ta32);
          BI_const (VAL_int32 i);
          BI_const (VAL_int32 f);
          BI_call idx]
@@ -91,35 +93,36 @@ Section Runtime.
              ∃ θ', rt_token rti sr θ' }}.
 
   Definition spec_registerroot (cl : function_closure) : Prop :=
-    forall s E B R fr idx θ ℓ tah,
-      let tah' := Wasm_int.Z_of_uint i32m tah in
-      repr_pointer θ (PtrHeap MemGC ℓ) tah' ->
+    forall s E B R fr idx θ ℓ tah tah32,
+      repr_pointer θ (PtrHeap MemGC ℓ) tah ->
+      N_i32_repr tah tah32 ->
       rt_token rti sr θ -∗
       N.of_nat sr.(sr_func_registerroot) ↦[wf] cl -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       ⌜inst_funcs (f_inst fr) !! idx = Some sr.(sr_func_registerroot)⌝ -∗
-      CWP [BI_const (VAL_int32 tah); BI_call idx]
+      CWP [BI_const (VAL_int32 tah32); BI_call idx]
           @ s; E UNDER B; R
           {{ fr'; vs, ⌜fr = fr'⌝ ∗
                N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
-               ∃ θ' ar,
-                 ⌜vs = [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemGC ar))]⌝ ∗
+               ∃ θ' ar tar32,
+                 ⌜N_i32_repr (tag_address MemGC ar) tar32⌝ ∗
+                 ⌜vs = [VAL_int32 tar32]⌝ ∗
                  ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ ∗
                  ar ↦root ℓ ∗
                  rt_token rti sr θ' }}.
 
   Definition spec_unregisterroot (cl : function_closure) : Prop :=
-    forall s E B R fr idx θ ℓ ar tar,
-      let tar' := Wasm_int.Z_of_uint i32m tar in
-      repr_root_pointer (RootHeap MemGC ar) tar' ->
+    forall s E B R fr idx θ ℓ ar tar tar32,
+      repr_root_pointer (RootHeap MemGC ar) tar ->
+      N_i32_repr tar tar32 ->
       rt_token rti sr θ -∗
       ar ↦root ℓ -∗
       N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       ⌜inst_funcs (f_inst fr) !! idx = Some sr.(sr_func_unregisterroot)⌝ -∗
-      CWP [BI_const (VAL_int32 tar); BI_call sr.(sr_func_unregisterroot)]
+      CWP [BI_const (VAL_int32 tar32); BI_call sr.(sr_func_unregisterroot)]
         @ s; E UNDER B; R
         {{ fr'; vs,
              ⌜fr = fr'⌝ ∗

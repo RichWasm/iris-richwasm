@@ -891,8 +891,8 @@ Section common.
     intros Harep.
     destruct ι, o; simpl in *; try done.
     {
-      iIntros "(%n & -> & %rp & _ & _)".
-      iPureIntro. exists (Wasm_int.int_of_Z i32m n). done.
+      iIntros "(%n & %n32 & %Hrep & -> & _)".
+      iExists _; eauto.
     }
     all: iIntros "->"; iPureIntro; exists n; done.
   Qed.

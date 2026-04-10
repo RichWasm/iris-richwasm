@@ -5,6 +5,7 @@ From mathcomp Require Import eqtype.
 From iris.proofmode Require Import base proofmode classes.
 
 From RichWasm Require Import syntax util iris.util.
+From RichWasm.iris Require Import numerics.
 From RichWasm.iris.rules Require Import iris_rules proofmode.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -15,11 +16,11 @@ Definition location := N.
 Definition address := N.
 
 Inductive pointer :=
-| PtrInt (n : Z)
+| PtrInt (n : N)
 | PtrHeap (μ : base_memory) (ℓ : location).
 
 Inductive root_pointer :=
-| RootInt (n : Z)
+| RootInt (n : N)
 | RootHeap (μ : base_memory) (a : address).
 
 Inductive atom :=
@@ -31,7 +32,7 @@ Inductive atom :=
 
 Inductive word :=
 | WordPtr (p : pointer)
-| WordInt (n : Z).
+| WordInt (n : N).
 
 Definition address_map : Type := gmap location (base_memory * address).
 Definition root_map : Type := gmap address location.
@@ -87,40 +88,43 @@ Definition word_has_flag (f : pointer_flag) (w : word) : bool :=
   | _, _ => false
   end.
 
-Definition tag_address (μ : base_memory) (a : address) : Z :=
+(* Requires a != 0 *)
+Definition tag_address (μ : base_memory) (a : address) : N :=
   match μ with
-  | MemMM => Z.of_N a - 3
-  | MemGC => Z.of_N a - 1
+  | MemMM => a - 3
+  | MemGC => a - 1
   end.
 
 Definition index_address (i : nat) : N := N.of_nat (4 * i).
 
-Inductive repr_pointer : address_map -> pointer -> Z -> Prop :=
+Inductive repr_pointer : address_map -> pointer -> N -> Prop :=
 | ReprPtrInt θ n :
-  repr_pointer θ (PtrInt n) (2 * n)
+  repr_pointer θ (PtrInt n) (2 * n)%N
 | RepPtrHeap θ ℓ μ a :
   θ !! ℓ = Some (μ, a) ->
   (a `mod` 4 = 0)%N ->
+  (a <> 0)%N ->
   repr_pointer θ (PtrHeap μ ℓ) (tag_address μ a).
 
-Inductive repr_root_pointer : root_pointer -> Z -> Prop :=
+Inductive repr_root_pointer : root_pointer -> N -> Prop :=
 | ReprRootInt n :
   repr_root_pointer (RootInt n) (2 * n)
 | ReprRootHeap μ a :
   (a `mod` 4 = 0)%N ->
+  (a <> 0)%N ->
   repr_root_pointer (RootHeap μ a) (tag_address μ a).
 
 Definition serialize_atom (o : atom) : list word :=
   match o with
   | PtrA p => [WordPtr p]
-  | I32A n => [WordInt (Wasm_int.Z_of_uint i32m n)]
+  | I32A n => [WordInt (Wasm_int.N_of_uint i32m n)]
   | I64A n =>
       let n' := Wasm_int.Z_of_uint i64m n in
-      [WordInt (Wasm_int.Int32.Z_mod_modulus n'); WordInt (n' ≫ 32)%Z]
-  | F32A n => [WordInt (Integers.Int.intval (Wasm_float.FloatSize32.to_bits n))]
+      [WordInt (Z.to_N (Wasm_int.Int32.Z_mod_modulus n')); WordInt (Z.to_N (n' ≫ 32)%Z)]
+  | F32A n => [WordInt (Z.to_N (Integers.Int.intval (Wasm_float.FloatSize32.to_bits n)))]
   | F64A n =>
       let n' := Integers.Int64.intval (Wasm_float.FloatSize64.to_bits n) in
-      [WordInt (Wasm_int.Int32.Z_mod_modulus n'); WordInt (n' ≫ 32)%Z]
+      [WordInt (Z.to_N (Wasm_int.Int32.Z_mod_modulus n')); WordInt (Z.to_N (n' ≫ 32))%Z]
   end.
 
 Section Token.
@@ -131,7 +135,7 @@ Section Token.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
-  Definition word_interp (θ : address_map) (μ : base_memory) (w : word) (n : Z) : iProp Σ :=
+  Definition word_interp (θ : address_map) (μ : base_memory) (w : word) (n : N) : iProp Σ :=
     match w with
     | WordInt m => ⌜n = m⌝
     | WordPtr p =>
@@ -165,16 +169,13 @@ Section Token.
   Definition root_ok (θ : address_map) : root_map -> Prop :=
     map_Forall (fun _ ℓ => exists a, θ !! ℓ = Some (MemGC, a)).
 
-
-  Definition serialize_Z_i32 : Z -> bytes := serialise_i32 ∘ Wasm_int.int_of_Z i32m.
-
   Definition root_memory (θ : address_map) (rm : root_map) : iProp Σ :=
     [∗ map] ar ↦ ℓ ∈ rm,
-      ∃ bs ah,
-        ⌜θ !! ℓ = Some (MemGC, Z.to_N ah)⌝ ∗
+      ∃ ah ah32,
+        (*⌜θ !! ℓ = Some (MemGC, Z.to_N ah)⌝ ∗ TODO redundant/conflicting with repr_pointer below? *)
           ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
-          ⌜bs = serialize_Z_i32 ah⌝ ∗
-          N.of_nat sr.(sr_mem_gc) ↦[wms][ar] bs.
+          ⌜N_i32_repr ah ah32⌝ ∗
+          N.of_nat sr.(sr_mem_gc) ↦[wms][ar] bits (VAL_int32 ah32).
 
   Definition heap_ok (θ : address_map) (lm : layout_map) (hm : heap_map) : Prop :=
     map_Forall2 (const (Forall2 word_has_flag)) lm hm /\
@@ -183,25 +184,25 @@ Section Token.
 
   Definition heap_memory (θ : address_map) (hm : heap_map) : iProp Σ :=
     [∗ map] ℓ ↦ '(μ, a); ws ∈ θ; hm,
-      ∃ bs ns,
-        rt_memaddr μ ↦[wms][a] bs ∗
-          ⌜bs = flat_map serialize_Z_i32 ns⌝ ∗
-          big_sepL2 (const (word_interp θ μ)) ws ns.
+      ∃ ns ns32,
+        ⌜Forall2 N_i32_repr ns ns32⌝ ∗
+        rt_memaddr μ ↦[wms][a] flat_map bits (map VAL_int32 ns32) ∗
+        big_sepL2 (const (word_interp θ μ)) ws ns.
 
   Definition rt_token (θ : address_map) : iProp Σ :=
     ∃ rm lm hm,
       ghost_map_auth rw_addr (1/2) θ ∗
-        ghost_map_auth rw_root (1/2) rm ∗
-        ghost_map_auth rw_layout (1/2) lm ∗
-        ghost_map_auth rw_heap 1 hm ∗
-        rti θ rm lm ∗
-        ⌜gmap_injective θ⌝ ∗
-        own_addr_mm θ hm ∗
-        own_addr_gc θ ∗
-        ⌜root_ok θ rm⌝ ∗
-        root_memory θ rm ∗
-        ⌜heap_ok θ lm hm⌝ ∗
-        heap_memory θ hm.
+      ghost_map_auth rw_root (1/2) rm ∗
+      ghost_map_auth rw_layout (1/2) lm ∗
+      ghost_map_auth rw_heap 1 hm ∗
+      rti θ rm lm ∗
+      ⌜gmap_injective θ⌝ ∗
+      own_addr_mm θ hm ∗
+      own_addr_gc θ ∗
+      ⌜root_ok θ rm⌝ ∗
+      root_memory θ rm ∗
+      ⌜heap_ok θ lm hm⌝ ∗
+      heap_memory θ hm.
 
 End Token.
 

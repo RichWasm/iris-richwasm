@@ -18,10 +18,40 @@ Section load_copy.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma cwp_mod2_test_1 f (idx: nat) k E :
-    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr k))⌝ →
-      ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 2 = 0)%Z⌝ →
-      ↪[frame] f -∗
+  Lemma Z_i32_repr_inj2 z i j:
+    Z_i32_repr z i ->
+    Z_i32_repr z j ->
+    i = j.
+  Proof.
+    unfold Z_i32_repr, Wasm_int.Int32.unsigned.
+    intros Hi Hj.
+    destruct i as [i ibdd].
+    destruct j as [j jbdd].
+    simpl in Hi, Hj; subst.
+    destruct ibdd, jbdd.
+    f_equal; f_equal; eauto using Wasm_int.Int32.Z_lt_irrelevant.
+  Qed.
+
+  Lemma N_i32_repr_inj2 n i j:
+    N_i32_repr n i ->
+    N_i32_repr n j ->
+    i = j.
+  Proof.
+    unfold N_i32_repr, Wasm_int.N_of_uint; cbn.
+    intros Hi Hj.
+    destruct i as [i ibdd].
+    destruct j as [j jbdd].
+    simpl in Hi, Hj; subst.
+    destruct ibdd, jbdd.
+    assert (i = j) by lia; subst i.
+    f_equal; f_equal; eauto using Wasm_int.Int32.Z_lt_irrelevant.
+  Qed.
+
+  Lemma cwp_mod2_test_1 f (idx: nat) k k32 E :
+    N_i32_repr k k32 ->
+    f.(f_locs) !! idx = Some (VAL_int32 k32) →
+    (k `mod` 2 = 0)%N →
+    ⊢ ↪[frame] f -∗
       ↪[RUN] -∗
       CWP [memory.W.BI_get_local idx;
            memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
@@ -31,15 +61,17 @@ Section load_copy.
           UNDER []; None
           {{ f'; vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝ }}.
   Proof.
-    iIntros (Hidx Hmod) "Hf Hrun".
+    iIntros (Hk Hidx Hmod) "Hf Hrun".
     cwp_chomp 3%nat.
     iApply (cwp_seq with "[Hf Hrun]").
     - cwp_chomp 1%nat.
       iApply (cwp_seq with "[Hf Hrun]").
       + iApply (cwp_local_get with "[] [$] [$]"); first done.
-        instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+        instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 k32]⌝%I).
         by iFrame.
       + iIntros (w f' [-> ->]) "Hf Hrun".
+        assert (Hlandz: N.land k 1 = 0%N).
+        { by rewrite (N.land_ones _ 1) Hmod. }
         iApply (cwp_binop with "[$] [$]").
         * cbn.
           reflexivity.
@@ -49,9 +81,14 @@ Section load_copy.
           split; first done.
           do 2 f_equal.
           unfold Wasm_int.Int32.iand.
-          unfold Wasm_int.Int32.and.
-          f_equal.
-          rewrite (Z.land_ones _ 1); lias.
+          pose proof (and_N_cong k 1%N k32 (Wasm_int.Int32.repr 1)
+                        ltac:(assumption)
+                               ltac:(apply N_repr_i32repr; by vm_compute))
+                     as Hrep.
+          rewrite Hlandz in Hrep.
+          specialize (Hrep ltac:(by vm_compute)).
+          eapply N_i32_repr_inj2; eauto.
+          constructor.
     - iIntros (w f' [-> ->]) "Hf' Hrun".
       iApply (cwp_testop_i32 with "[$] [$]").
       + reflexivity.
@@ -60,26 +97,27 @@ Section load_copy.
         iSplit; eauto.
   Qed.
 
-  Lemma cwp_mod2_test_1_2 f (idx: nat) k E :
-    ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr k))⌝ →
-    ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 2 = 1)%Z⌝ →
-    ↪[frame] f -∗
-    ↪[RUN] -∗
-    CWP [memory.W.BI_get_local idx;
-         memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
-         memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
-         memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
-        @ E
-        UNDER []; None
-        {{ f'; vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝ }}.
+  Lemma cwp_mod2_test_1_2 f (idx: nat) k k32 E :
+    N_i32_repr k k32 ->
+    f.(f_locs) !! idx = Some (VAL_int32 k32) ->
+    (k `mod` 2 = 1)%N ->
+    ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
+      CWP [memory.W.BI_get_local idx;
+           memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 1));
+           memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+           memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
+          @ E
+          UNDER []; None
+          {{ f'; vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝ }}.
   Proof.
-    iIntros (Hidx Hmod) "Hf Hrun".
+    iIntros (Hk Hidx Hmod) "Hf Hrun".
     cwp_chomp 3%nat.
     iApply (cwp_seq with "[Hf Hrun]").
     - cwp_chomp 1%nat.
       iApply (cwp_seq with "[Hf Hrun]").
       + iApply (cwp_local_get with "[] [$] [$]"); first done.
-        by instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr k)]⌝%I).
+        by instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 k32]⌝%I).
       + iIntros (w f' [-> ->]) "Hf Hrun".
         iApply (cwp_binop with "[$] [$]"); first done.
         instantiate (1 := λ f' vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
@@ -88,9 +126,16 @@ Section load_copy.
         do 2 f_equal.
         cbn.
         unfold Wasm_int.Int32.iand.
-        unfold Wasm_int.Int32.and.
-        f_equal.
-        rewrite (Z.land_ones _ 1); lias.
+        assert (Hlandz: N.land k 1 = 1%N).
+        { by rewrite (N.land_ones _ 1) Hmod. }
+        pose proof (and_N_cong k 1%N k32 (Wasm_int.Int32.repr 1)
+                      ltac:(assumption)
+                             ltac:(apply N_repr_i32repr; by vm_compute))
+                   as Hrep.
+        rewrite Hlandz in Hrep.
+        specialize (Hrep ltac:(by vm_compute)).
+        eapply N_i32_repr_inj2; eauto.
+        constructor.
     - iIntros (w f' [-> ->]) "Hf' Hrun".
       iApply (cwp_testop_i32 with "[$] [$]").
       + reflexivity.
@@ -99,7 +144,7 @@ Section load_copy.
         iSplit; eauto.
   Qed.
 
-  Lemma cwp_mod4_sub3_test f (idx: nat) k E :
+  Lemma cwp_mod4_sub3_test_old f (idx: nat) k E :
     ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 3)))⌝ →
       ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 4 = 0)%Z⌝ →
       ↪[frame] f -∗
@@ -165,7 +210,47 @@ Section load_copy.
         iSplit; eauto.
   Qed.
 
-    Lemma cwp_mod4_sub1_test f (idx: nat) k E :
+  Lemma cwp_mod4_sub3_test f (idx: nat) k k32 E :
+    N_i32_repr (k - 3) k32 ->
+    f.(f_locs) !! idx = Some (VAL_int32 k32) ->
+    (k `mod` 4 = 0)%N →
+    k <> 0%N ->
+    ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
+      CWP [memory.W.BI_get_local idx;
+           memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
+           memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+           memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
+          @ E
+          UNDER []; None
+          {{ f'; vs, ⌜f' = f /\ vs = [VAL_int32 (Wasm_int.Int32.repr 1)]⌝ }}.
+  Proof.
+    intros Hrep Hloc Hmod Hnz.
+    iApply (cwp_mod4_sub3_test_old _ _ (Z.of_N k)); iPureIntro.
+    - rewrite Hloc; do 2 f_equal.
+      eapply N_i32_repr_inj2; eauto.
+      assert (Hsub: (Z.of_N k - 3 = Z.of_N (k - 3))%Z).
+      {
+        rewrite N2Z.inj_sub; first done.
+        eapply N_i32_repr_bdd in Hrep.
+        destruct k; try lia.
+        destruct p as [? | ? |]; try (vm_compute in Hmod; lia).
+        destruct p as [? | ? |]; try (vm_compute in Hmod; lia).
+      }
+      rewrite Hsub.
+      apply N_repr_i32repr.
+      + eapply N_i32_repr_bdd; eauto.
+      + by apply N_Z_repr_of_N.
+    - cbn.
+      rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+      rewrite Z.mod_mod_divide.
+      + change 4%Z with (Z.of_N 4%N).
+        by rewrite -N2Z.inj_mod Hmod.
+      + apply Z.divide_gcd_iff; first lia.
+        by vm_compute.
+  Qed.
+
+  Lemma cwp_mod4_sub1_test_old f (idx: nat) k E :
     ⊢ ⌜f.(f_locs) !! idx = Some (VAL_int32 (Wasm_int.Int32.repr (k - 1)))⌝ →
       ⌜((Wasm_int.Int32.unsigned (Wasm_int.Int32.repr k)) `mod` 4 = 0)%Z⌝ →
       ↪[frame] f -∗
@@ -228,6 +313,44 @@ Section load_copy.
       + cbn.
         iFrame.
         iSplit; eauto.
+  Qed.
+
+  Lemma cwp_mod4_sub1_test f (idx: nat) k k32 E :
+    N_i32_repr (k - 1) k32 ->
+    f.(f_locs) !! idx = Some (VAL_int32 k32) ->
+    (k `mod` 4 = 0)%N →
+    k <> 0%N ->
+    ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
+      CWP [memory.W.BI_get_local idx;
+           memory.W.BI_const (memory.W.VAL_int32 (Wasm_int.int_of_Z i32m 2));
+           memory.W.BI_binop memory.W.T_i32 (memory.W.Binop_i memory.W.BOI_and);
+           memory.W.BI_testop memory.W.T_i32 memory.W.TO_eqz]
+          @ E
+          UNDER []; None
+          {{ f'; vs, ⌜f' = f⌝ ∗ ⌜vs = [VAL_int32 (Wasm_int.Int32.repr 0)]⌝ }}.
+  Proof.
+    intros Hrep Hloc Hmod Hnz.
+    iApply (cwp_mod4_sub1_test_old _ _ (Z.of_N k)); iPureIntro.
+    - rewrite Hloc; do 2 f_equal.
+      eapply N_i32_repr_inj2; eauto.
+      assert (Hsub: (Z.of_N k - 1 = Z.of_N (k - 1))%Z).
+      {
+        rewrite N2Z.inj_sub; first done.
+        eapply N_i32_repr_bdd in Hrep.
+        destruct k; try lia.
+      }
+      rewrite Hsub.
+      apply N_repr_i32repr.
+      + eapply N_i32_repr_bdd; eauto.
+      + by apply N_Z_repr_of_N.
+    - cbn.
+      rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+      rewrite Z.mod_mod_divide.
+      + change 4%Z with (Z.of_N 4%N).
+        by rewrite -N2Z.inj_mod Hmod.
+      + apply Z.divide_gcd_iff; first lia.
+        by vm_compute.
   Qed.
 
   Lemma atoms_interp_nil_inv vs :
@@ -389,6 +512,13 @@ Section load_copy.
     iApply (cwp_load with "[$] [$] [$] [$]"); eauto.
   Qed.
 
+  Lemma tag_address_odd μ a :
+    (a `mod` 4 = 0 ->
+     a <> 0 ->
+     tag_address μ a `mod` 2 = 1)%N.
+  Proof.
+  Admitted.
+
   Lemma cwp_case_ptr {A B} (c1 : codegen B) (c2: base_memory -> codegen A) idx
     wt wt' wl wl' ts1 ts2 es x y z :
     run_codegen (memory.case_ptr idx (Tf ts1 ts2) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
@@ -447,11 +577,9 @@ Section load_copy.
     iIntros (s E L R ptr Φ v f) "Hframe Hrun %Hlookup_f Hrep Hptr".
     destruct ptr.
     - iEval (cbn) in "Hrep".
-      iDestruct "Hrep" as "(%vn & -> & %rp & %Hrp & Hrep)".
+      iDestruct "Hrep" as "(%vn & %vn32 & %Hvn & -> & %rp & %Hrep & Hroot)".
       destruct rp as [r|? ?].
-      + iPoseProof "Hrep" as "->".
-        inversion Hrp; subst.
-        rewrite app_assoc.
+      + rewrite app_assoc.
         iApply (cwp_seq with "[Hframe Hrun]").
         {
           iApply cwp_val_app; eauto.
@@ -460,14 +588,10 @@ Section load_copy.
           iApply cwp_return_none.
           iApply (cwp_wand with "[Hframe Hrun]").
           {
-            iApply (cwp_mod2_test_1 with "[] [] [$] [$]"); eauto.
-            iPureIntro.
-            unfold Wasm_int.Int32.repr; simpl.
-            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-            unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-            unfold two_power_nat.
-            simpl.
-            apply mod32_mod2.
+            iApply (cwp_mod2_test_1 with "[$] [$]"); eauto.
+            inversion Hrep.
+            rewrite N.mul_comm.
+            apply N.Div0.mod_mul.
           }
           cbn.
           instantiate (1:= λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
@@ -481,12 +605,12 @@ Section load_copy.
         iLeft.
         iSplit; [iPureIntro; done|].
         iIntros "!> Hf Hrun".
-        iApply (cwp_label_wand with "[Hptr Hf Hrun]");
+        iApply (cwp_label_wand with "[-]");
           [| iApply label_ctx_wand_nil].
         iApply ("Hptr" with "[$] [$]").
-        iExists _; eauto.
+        iExists vn, vn32; auto.
       + done.
-    - iDestruct "Hrep" as "(%l & -> & %rp & %Hrep & Hroot)".
+    - iDestruct "Hrep" as "(%vn & %vn32 & %Hvn & -> & %rp & %Hrep & Hroot)".
       iPoseProof (root_pointer_heap_shp_inv with "Hroot") as "(%a & ->)".
       inversion Hrep as [|? ? Hmod]; subst.
       rewrite app_assoc.
@@ -498,23 +622,8 @@ Section load_copy.
           iApply cwp_label_take.
           instantiate (2 := 0%nat).
           iApply cwp_return_none.
-          iApply (cwp_mod2_test_1_2 with "[] [] [$] [$]"); eauto.
-          unfold Wasm_int.Int32.repr; simpl.
-          rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-          unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-          unfold two_power_nat.
-          simpl.
-          rewrite Z_mod_even_mod_2; last by rewrite <- Z.even_spec.
-          destruct μ; simpl.
-          1,2: apply N.Div0.mod_divides in Hmod as [c ->].
-          1,2: rewrite N2Z.inj_mul.
-          1,2: simpl.
-          1,2: rewrite Zmod_even.
-          1,2: rewrite Z.even_sub.
-          1,2: replace 4%Z with (2 * 2)%Z; last done.
-          1,2: rewrite <- Z.mul_assoc.
-          1,2: rewrite Z.even_even.
-          1,2: done.
+          iApply (cwp_mod2_test_1_2 with "[$] [$]"); eauto.
+          apply tag_address_odd; eauto.
         }
         unfold fvs_combine.
         instantiate (1:= (λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 0)]⌝ )%I).
@@ -541,18 +650,7 @@ Section load_copy.
             iApply cwp_label_take.
             instantiate (2 := 0%nat).
             iApply cwp_return_none.
-            iApply (cwp_mod4_sub3_test with "[] [] [$] [$]"); eauto.
-            iPureIntro.
-            unfold Wasm_int.Int32.repr; simpl.
-            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-            unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-            unfold two_power_nat; simpl.
-            replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
-            rewrite Z.mul_comm.
-            rewrite Zaux.Zmod_mod_mult; try done.
-            apply N2Z.inj_iff in Hmod.
-            rewrite N2Z.inj_mod in Hmod.
-            done.
+            iApply (cwp_mod4_sub3_test with "[$] [$]"); eauto.
           }
           iIntros (f' vs') "[-> ->]".
           instantiate (1 := λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
@@ -568,7 +666,7 @@ Section load_copy.
         iApply (cwp_label_wand with "[Hptr Hroot Hf Hrun]");
           [| iApply label_ctx_wand_nil].
         iApply ("Hptr" with "[$] [$]").
-        iExists _; eauto.
+        iExists _, _; eauto.
       + iApply (cwp_seq with "[Hframe Hrun]").
         {
           iApply cwp_val_app; eauto.
@@ -581,18 +679,7 @@ Section load_copy.
             iApply cwp_label_take.
             instantiate (2 := 0%nat).
             iApply cwp_return_none.
-            iApply (cwp_mod4_sub1_test with "[//] [] [$] [$]").
-            iPureIntro.
-            unfold Wasm_int.Int32.repr; simpl.
-            rewrite Wasm_int.Int32.Z_mod_modulus_eq.
-            unfold Wasm_int.Int32.modulus, Wasm_int.Int32.wordsize, Integers.Wordsize_32.wordsize.
-            unfold two_power_nat; simpl.
-            replace (4294967296)%Z with (4 * 1073741824)%Z; last done.
-            rewrite Z.mul_comm.
-            rewrite Zaux.Zmod_mod_mult; try done.
-            apply N2Z.inj_iff in Hmod.
-            rewrite N2Z.inj_mod in Hmod.
-            done.
+            iApply (cwp_mod4_sub1_test with "[$] [$]"); eauto.
           }
           iIntros (f' vs') "[-> ->]".
           instantiate (1 := λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 0)]⌝%I).
@@ -608,7 +695,7 @@ Section load_copy.
         iApply (cwp_label_wand with "[Hptr Hroot Hf Hrun]");
           [| iApply label_ctx_wand_nil].
         iApply ("Hptr" with "[$] [$]").
-        iExists _; eauto.
+        iExists _, _; eauto.
   Qed.
 
   Lemma wp_ite_gc_ptr_ptr i ts1 ts2 do_gc do_nongc ret wt wl wt' wl' es evs vs s E R L Φ f v:
@@ -671,8 +758,37 @@ Section load_copy.
     destruct ι, o; cbn;
       iIntros "%Harep ->" || iIntros "%Harep Hat";
       auto.
-    iDestruct "Hat" as "(%n & -> & _)".
+    iDestruct "Hat" as "(%n & %n32 & %nrep & -> & _)".
     auto.
+  Qed.
+
+  Lemma extract_root_pointer a ℓ e :
+    a ↦root ℓ -∗
+    rt_token rti sr e -∗
+    ∃ ah ah32,
+      ⌜repr_pointer e (PtrHeap MemGC ℓ) ah⌝ ∗
+      ⌜N_i32_repr ah ah32⌝ ∗
+      N.of_nat (sr_mem_gc sr)↦[wms][a] bits (VAL_int32 ah32) ∗
+      (N.of_nat (sr_mem_gc sr)↦[wms][a] bits (VAL_int32 ah32) -∗
+       a ↦root ℓ ∗
+       rt_token rti sr e).
+  Proof.
+    iIntros "Hr Htok".
+    unfold rt_token.
+    iDestruct "Htok" as "(%rm & %lm & %hm & Haddrs & Hroots & Hlayouts & Hheaps & Htok)".
+    iDestruct "Htok" as "(Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootm & %Hheapok & Hheapm)".
+    iCombine "Hr" "Hroots" gives "%Hrm".
+    pose proof (map_Forall_lookup_1 _ _ _ _ Hrootok Hrm) as [a' He].
+    iPoseProof (big_sepM_lookup_acc _ _ _ _ Hrm with "Hrootm") as "[Ha Hrootm]".
+    iDestruct "Ha" as "(%ah & %ah32 & %Hrep & %Hah32 & Hptr)".
+    iExists ah, ah32.
+    iFrame.
+    repeat (iSplit; first by auto).
+    iIntros "Hpt".
+    iExists _, _, _.
+    iFrame.
+    repeat (iSplit; auto).
+    iApply "Hrootm"; auto.
   Qed.
 
   Lemma wp_loadroot wt wl ret wt' wl' es_load :
@@ -680,25 +796,44 @@ Section load_copy.
     ret = () /\
     wt' = [] /\
     wl' = [] /\
-    ∀ ev v,
-      has_value ev v ->
-      ⊢ ∀ B R Φ, CWP ev :: es_load UNDER B; R {{ Φ }}.
+    ∀ evs a n n32,
+      N_i32_repr n n32 ->
+      has_values evs [VAL_int32 n32] ->
+      repr_root_pointer (RootHeap MemGC a) n ->
+      ⊢ ∀ B R Φ e f ℓ,
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          a ↦root ℓ -∗
+          rt_token rti sr e -∗
+          CWP evs ++ es_load UNDER B; R {{ Φ }}.
   Proof.
     unfold loadroot.
     intros Hcg.
     inv_cg_emit Hcg; subst.
     repeat (split; first done).
-    iIntros (evs v Hevs B R Φ).
-    admit.
+    intros * Hn32 Hevs Han.
+    iIntros (B R Φ e f ℓ) "Hf Hrun Hroot Htok".
+    iPoseProof (extract_root_pointer with "Hroot Htok")
+      as "(%ah & %bs & %Hrep & %Hbs & Hroot & Hsave)".
+    apply Is_true_true in Hevs.
+    rewrite (has_values_to_consts_inv _ _ Hevs).
+    iApply (cwp_load with "[Hroot] [Hsave] [$] [$]").
+    - admit.
+    - apply Hn32.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
   Abort.
 
+  (*
   Lemma wp_registerroot wt wl ret wt' wl' es_register :
     run_codegen (registerroot mr) wt wl = inr (ret, wt', wl', es_register) ->
     ret = () /\
     wt' = [] /\
     wl' = [] /\
       ∀ e evs ℓ ℓ32,
-      repr_pointer e (PtrHeap MemGC ℓ) (Wasm_int.Z_of_uint i32m ℓ32) ->
+      repr_pointer e (PtrHeap MemGC ℓ)  ->
       has_values evs [VAL_int32 ℓ32] ->
       ⊢ ∀ f B R E Φ,
         (∀ ar e',
@@ -749,6 +884,7 @@ Section load_copy.
       iApply ("HΦ" with "[//] [$] [$] [$]").
     }
   Qed.
+  *)
 
   Lemma wp_duproot wt wl ret wt' wl' es_dup :
     run_codegen (duproot mr) wt wl = inr (ret, wt', wl', es_dup) ->
@@ -853,7 +989,7 @@ Section load_copy.
       inv_cg_ret Hcg1.
       inv_cg_ret Hcg2.
       clear_nils.
-      iDestruct "Hat" as "(%n & -> & %rp & %Hrp & Hrpp)".
+      iDestruct "Hat" as "(%n & %n32 & %Hn & -> & %rp & %Hrp & Hrpp)".
       unfold root_pointer_interp.
       destruct rp, p; try done; [|destruct μ].
       + iDestruct "Hrpp" as "->".

@@ -6,7 +6,7 @@ From RichWasm.iris.helpers Require Import iris_properties.
 From RichWasm.named_props Require Import named_props.
 
 From RichWasm.compiler Require Import prelude codegen.
-From RichWasm.iris Require Import memory runtime util.
+From RichWasm.iris Require Import memory runtime util numerics.
 From RichWasm.iris.language Require Import cwp iris_wp_def logpred.
 From RichWasm Require Import syntax typing layout util.
 
@@ -162,8 +162,11 @@ Section Relations.
   Definition atom_interp (o : atom) : leibnizO value -n> iPropO Σ :=
     λne v,
       match o with
-      | PtrA p => ∃ n, ⌜v = VAL_int32 (Wasm_int.int_of_Z i32m n)⌝ ∗
-                        ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp p
+      | PtrA p =>
+          ∃ n n32,
+            ⌜N_i32_repr n n32⌝ ∗
+            ⌜v = VAL_int32 n32⌝ ∗
+            ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp p
       | I32A n => ⌜v = VAL_int32 n⌝
       | I64A n => ⌜v = VAL_int64 n⌝
       | F32A n => ⌜v = VAL_float32 n⌝
@@ -378,10 +381,11 @@ Section Relations.
   Definition variant_interp
     (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,
-      (∃ i ws ws' τ,
-         ⌜sv = SWords (WordInt (Z.of_nat i) :: ws ++ ws')⌝ ∗
-           ⌜τs !! i = Some τ⌝ ∗
-           ▷ vrel se τ (SWords ws))%I.
+      (∃ i n ws ws' τ,
+         ⌜N_nat_repr i n⌝ ∗
+         ⌜sv = SWords (WordInt n :: ws ++ ws')⌝ ∗
+         ⌜τs !! i = Some τ⌝ ∗
+         ▷ vrel se τ (SWords ws))%I.
 
   Definition prod_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,
