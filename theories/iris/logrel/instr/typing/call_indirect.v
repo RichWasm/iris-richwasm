@@ -200,7 +200,6 @@ Section call_indirect.
 
       change (?x ++ [?y] ++ [?z]) with (x ++ [y;z]).
       iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [nstab] [nsfun]"); auto.
-      4: exact.
 
 
 

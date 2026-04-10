@@ -619,7 +619,6 @@ Section control.
   Qed.
 
   Lemma cwp_call_indirect s E (f0 : frame) inst vs evs es ts1 ts2 ts c c32 i j jN a aN L R Φ :
-    f0.(f_inst).(inst_funcs) !! i = Some a ->
     f0.(f_inst).(inst_types) !! i = Some (Tf ts1 ts2) ->
     f0.(f_inst).(inst_tab) !! 0 = Some j ->
     has_values evs vs ->
@@ -639,7 +638,7 @@ Section control.
            {{ _; vs', Φ f0 vs' ∗ ⌜length vs' = length ts2⌝ }}) -∗
     CWP evs ++ [BI_const (VAL_int32 c32); BI_call_indirect i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    iIntros (Hfuncs Htypes Htab Hevs Hlen Hj Ha Hc) "Hfr Hrun Hj Ha Hes".
+    iIntros (Htypes Htab Hevs Hlen Hj Ha Hc) "Hfr Hrun Hj Ha Hes".
     iApply wp_wasm_empty_ctx.
     apply has_values_to_consts_inv in Hevs.
     subst evs.
