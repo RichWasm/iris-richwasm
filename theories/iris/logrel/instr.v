@@ -578,7 +578,7 @@ Section Relations.
         na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
   Definition instance_table_interp (M : module_ctx) (mr : module_runtime) (inst : instance) : iProp Σ :=
-    ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
+    ⌜inst.(inst_tab) !! 0 = Some sr.(sr_table)⌝ ∗
       ∃ i_off off,
         let g_off := Build_global MUT_mut (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat off))) in
         ([∗ list] i ↦ ϕ ∈ M.(mc_table), table_entry_interp off i ϕ) ∗
@@ -590,7 +590,6 @@ Section Relations.
     ⌜inst.(inst_types) = WT⌝ ∗
       instance_runtime_interp mr inst ∗
       instance_functions_interp M mr inst ∗
-      ⌜inst.(inst_tab) !! tableimm mr.(mr_table) = Some sr.(sr_table)⌝ ∗
       instance_table_interp M mr inst ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mmmem) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_gcmem) = Some sr.(sr_mem_gc)⌝.

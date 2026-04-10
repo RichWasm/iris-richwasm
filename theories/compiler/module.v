@@ -229,7 +229,7 @@ Definition compile_module (m : module) : modgen unit :=
   fid_free ← add_rt_func_import "free" (W.Tf [W.T_i32] []);
   fid_registerroot ← add_rt_func_import "registerroot" (W.Tf [W.T_i32] [W.T_i32]);
   fid_unregisterroot ← add_rt_func_import "unregisterroot" (W.Tf [W.T_i32] []);
-  tid_table ← add_rt_table_import "table" (W.Build_table_type (W.Build_limits 0 None) W.ELT_funcref);
+  add_rt_table_import "table" (W.Build_table_type (W.Build_limits 0 None) W.ELT_funcref);;
 
   (* Save the offsets of user imports and definitions. After this point:
      - No more runtime imports.
@@ -260,7 +260,6 @@ Definition compile_module (m : module) : modgen unit :=
        mr_func_registerroot := fid_registerroot;
        mr_func_unregisterroot := fid_unregisterroot;
        mr_func_user := fid_user;
-       mr_table := tid_table;
        mr_global_table_off := gid_table_off;
        mr_global_user := gid_user |}
   in
