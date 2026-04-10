@@ -326,17 +326,18 @@ Section Relations.
       | FC_func_native inst (Tf ts1 ts2) tlocs es =>
           ⌜translate_types se τs1 = Some ts1⌝ ∗
             ⌜translate_types se τs2 = Some ts2⌝ ∗
-            ▷ □ ∀ i a fr vs1 os1 B R θ,
-              ⌜fr.(f_inst).(inst_funcs) !! i = Some a⌝ -∗
+            ▷ □ ∀ vs1 os1 θ,
               atoms_interp os1 vs1 -∗
               values_interp0 vrel se τs1 os1 -∗
               rt_token rti sr θ -∗
-              ↪[frame] fr -∗
+              ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
               ↪[RUN] -∗
-              N.of_nat a ↦[wf] FC_func_native inst (Tf ts1 ts2) tlocs es -∗
-              CWP map BI_const vs1 ++ [BI_call i] UNDER B; R
-                  {{ _; vs2, ∃ os2 θ',
-                     atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2 ∗ rt_token rti sr θ' }}
+              let P vs2 :=
+                (∃ os2, atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2) ∗
+                  (∃ θ', rt_token rti sr θ')
+              in
+              CWP [BI_block (Tf [] ts2) es] UNDER []; Some (length ts2, P)
+                  {{ _; vs2, P vs2 }}
         | FC_func_host _ _ => False
         end%I.
 
