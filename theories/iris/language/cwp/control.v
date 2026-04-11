@@ -3,7 +3,7 @@ Require Import iris.proofmode.proofmode.
 Require Import RichWasm.iris.helpers.prelude.iris_wasm_lang_properties.
 From RichWasm.iris Require Import numerics.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred lwp_pure lwp_structural lwp_trap.
-From RichWasm.iris.language.cwp Require Import base const def util.
+From RichWasm.iris.language.cwp Require Import base const def structural util.
 From RichWasm.iris.rules Require Import
   iris_rules_bind iris_rules_calls iris_rules_pure iris_rules_trap iris_rules_control.
 
@@ -578,7 +578,7 @@ Section control.
       by iExists [].
   Qed.
 
-  Lemma cwp_call s E (f0 : frame) inst vs evs es ts1 ts2 ts i a aN L R Φ :
+  Lemma cwp_call s E f0 inst vs evs es ts1 ts2 ts i a aN L R Φ :
     f0.(f_inst).(inst_funcs) !! i = Some a ->
     has_values evs vs ->
     length evs = length ts1 ->
@@ -589,7 +589,7 @@ Section control.
     ▷ (↪[frame] Build_frame (vs ++ n_zeros ts) inst -∗
        ↪[RUN] -∗
        aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-       CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
+       CWP es @ s; E UNDER [(length ts2, const (Φ f0))]; Some (length ts2, Φ f0)
            {{ _; vs', Φ f0 vs' ∗ ⌜length vs' = length ts2⌝ }}) -∗
     CWP evs ++ [BI_call i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
@@ -615,10 +615,23 @@ Section control.
     iIntros "!> (Hfr & Hrun & Ha)".
     iApply (lwp_cwp_local with "[$] [$]").
     iIntros "Hfr Hrun".
-    by iSpecialize ("Hes" with "[$] [$] [$]").
+    change (@map _ _) with (@seq.map basic_instruction administrative_instruction).
+    fold (to_e_list [BI_block (Tf [] ts2) es]).
+    rewrite <- (app_nil_l [BI_block _ _]).
+    iApply (cwp_block with "[$] [$]").
+    1, 2: done.
+    iIntros "!> Hfr Hrun".
+    rewrite app_nil_l.
+    iApply (cwp_label_wand with "[-]").
+    { iApply ("Hes" with "[$] [$] [$]"). }
+    iSplitL; first done.
+    iApply big_sepL2_singleton.
+    iSplitL; first done.
+    iIntros (f vs') "%Hlen' HΦ".
+    by iFrame.
   Qed.
 
-  Lemma cwp_call_indirect s E (f0 : frame) inst vs evs es ts1 ts2 ts c c32 i j jN a aN L R Φ :
+  Lemma cwp_call_indirect s E f0 inst vs evs es ts1 ts2 ts c c32 i j jN a aN L R Φ :
     f0.(f_inst).(inst_types) !! i = Some (Tf ts1 ts2) ->
     f0.(f_inst).(inst_tab) !! 0 = Some j ->
     has_values evs vs ->
@@ -634,7 +647,7 @@ Section control.
        ↪[RUN] -∗
        jN ↦[wt][c] Some a -∗
        aN ↦[wf] FC_func_native inst (Tf ts1 ts2) ts es -∗
-       CWP [BI_block (Tf [] ts2) es] @ s; E UNDER []; Some (length ts2, Φ f0)
+       CWP es @ s; E UNDER [(length ts2, const (Φ f0))]; Some (length ts2, Φ f0)
            {{ _; vs', Φ f0 vs' ∗ ⌜length vs' = length ts2⌝ }}) -∗
     CWP evs ++ [BI_const (VAL_int32 c32); BI_call_indirect i] @ s; E UNDER L; R {{ Φ }}.
   Proof.
@@ -671,7 +684,19 @@ Section control.
     rewrite Hc.
     cbn.
     rewrite Z_nat_N.
-    now iSpecialize ("Hes" with "[$] [$] [$] [$]").
+    change [AI_basic (BI_block (Tf [] ts2) es)] with (to_e_list [BI_block (Tf [] ts2) es]).
+    rewrite <- (app_nil_l [BI_block _ _]).
+    iApply (cwp_block with "[$] [$]").
+    1, 2: done.
+    iIntros "!> Hfr Hrun".
+    rewrite app_nil_l.
+    iApply (cwp_label_wand with "[-]").
+    { iApply ("Hes" with "[$] [$] [$] [$]"). }
+    iSplitL; first done.
+    iApply big_sepL2_singleton.
+    iSplitL; first done.
+    iIntros (f vs') "%Hlen' HΦ".
+    by iFrame.
   Qed.
 
 End control.

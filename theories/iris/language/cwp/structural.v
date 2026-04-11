@@ -248,7 +248,7 @@ Section structural.
     iApply big_sepL_cons.
     iSplitL; last done.
     iSplitL; first done.
-    by iIntros (f vs) "H".
+    by iIntros.
   Qed.
 
   Lemma cwp_label_take s E es n L R Φ :

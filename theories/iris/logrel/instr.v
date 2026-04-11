@@ -332,14 +332,13 @@ Section Relations.
               rt_token rti sr θ -∗
               ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
               ↪[RUN] -∗
-              let P vs2 :=
+              let Φ vs2 :=
                 (∃ os2, atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2) ∗
                   (∃ θ', rt_token rti sr θ')
               in
-              CWP [BI_block (Tf [] ts2) es] UNDER []; Some (length ts2, P)
-                  {{ _; vs2, P vs2 }}
-        | FC_func_host _ _ => False
-        end%I.
+              CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
+      | FC_func_host _ _ => False
+      end%I.
 
   Fixpoint closure_interp0
     (vrel : value_relation) (se : semantic_env) (ϕ : leibnizO function_type) : ClR :=

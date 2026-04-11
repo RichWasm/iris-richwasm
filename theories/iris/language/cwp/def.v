@@ -15,13 +15,13 @@ Section def.
   Definition fvs_pred : Type := frame -> list value -> iProp Σ.
 
   Definition label_wand (l1 l2 : label_spec) : iProp Σ :=
-    ⌜fst l1 = fst l2⌝ ∗ ∀ f vs, snd l1 f vs -∗ snd l2 f vs.
+    ⌜fst l1 = fst l2⌝ ∗ ∀ f vs, ⌜length vs = fst l1⌝ -∗ snd l1 f vs -∗ snd l2 f vs.
 
   Definition label_ctx_wand (L1 L2 : list label_spec) : iProp Σ :=
     ⌜length L1 <= length L2⌝ ∗ [∗ list] l1; l2 ∈ L1; take (length L1) L2, label_wand l1 l2.
 
   Definition return_wand (r1 r2 : return_spec) : iProp Σ :=
-    ⌜fst r1 = fst r2⌝ ∗ ∀ vs, snd r1 vs -∗ snd r2 vs.
+    ⌜fst r1 = fst r2⌝ ∗ ∀ vs, ⌜length vs = fst r1⌝ -∗ snd r1 vs -∗ snd r2 vs.
 
   Definition return_ctx_wand (R1 R2 : option return_spec) : iProp Σ :=
     match R1, R2 with
