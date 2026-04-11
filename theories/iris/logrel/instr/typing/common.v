@@ -322,6 +322,22 @@ Section common.
     - done.
   Qed.
 
+  Lemma mapM_eval_rep_emptyenv ρs ιss (se: semantic_env (Σ:=Σ)) :
+    mapM (eval_rep EmptyEnv) ρs = Some ιss ->
+    mapM (eval_rep se) ρs = Some ιss.
+  Proof.
+    intros Hemp.
+    rewrite mapM_Some in Hemp.
+    rewrite mapM_Some.
+    eapply Forall2_impl.
+    2: {
+      intros.
+      apply eval_rep_emptyenv.
+      apply H.
+    }
+    done.
+  Qed.
+
   Lemma to_e_list_app es1 es2 :
     to_e_list (es1 ++ es2) = to_e_list es1 ++ to_e_list es2.
   Proof.
