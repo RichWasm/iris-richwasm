@@ -39,6 +39,19 @@ Section common.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma mapM_lookup {A B} f (l : list A) (k : list B) (i : nat) :
+    mapM f l = Some k ->
+    (l !! i) ≫= f = k !! i.
+  Proof.
+    intros Hm%mapM_Some_1.
+    destruct (l !! i) as [a|] eqn:Hl; simpl.
+    - eapply Forall2_lookup_l in Hm as [b [-> Hab]]; eauto.
+    - apply lookup_ge_None_1 in Hl.
+      symmetry.
+      apply lookup_ge_None_2.
+      by rewrite -(Forall2_length _ _ _ Hm).
+  Qed.
+
   Lemma value_interp_i31 se os :
     value_interp rti sr se type_i31 (SAtoms os) -∗ ∃ n, ⌜os = [PtrA n]⌝.
   Proof.
@@ -336,6 +349,17 @@ Section common.
       apply H.
     }
     done.
+  Qed.
+
+  Lemma sum_offset_emptyenv ρs i off (se: semantic_env (Σ:=Σ)) :
+    sum_offset EmptyEnv ρs i = Some off ->
+    sum_offset se ρs i = Some off.
+  Proof.
+    intros Hso.
+    apply bind_Some in Hso as [ιss [Her H]].
+    eapply mapM_eval_rep_emptyenv in Her.
+    apply bind_Some.
+    eauto.
   Qed.
 
   Lemma to_e_list_app es1 es2 :
@@ -833,16 +857,27 @@ Section common.
       done.
   Qed.
 
-  Lemma atoms_interp_nths_error vs os vs' os' ixs :
-    nths_error vs ixs = Some vs' ->
-    nths_error os ixs = Some os' ->
+  Lemma atoms_interp_take os vs count :
     atoms_interp os vs -∗
-    atoms_interp os' vs'.
+    atoms_interp (take count os) (take count vs) ∗
+    atoms_interp (drop count os) (drop count vs).
   Proof.
-    iIntros (Hnerr1 Hnerr2) "Hatoms".
-    apply nths_error_some_iff in Hnerr1 as [Hnd Hnerr1].
-    apply nths_error_some_iff in Hnerr2 as [_ Hnerr2].
-  Admitted.
+    iIntros "Hatoms".
+    iDestruct (big_sepL2_length with "Hatoms") as %Hlen.
+    rewrite -{1}(take_drop count os) -{1}(take_drop count vs).
+    iDestruct (big_sepL2_app_inv with "Hatoms") as "[Htake Hdrop]".
+    { rewrite !length_take. lia. }
+    iFrame.
+  Qed.
+
+  Lemma atoms_interp_take_drop os vs off count :
+    atoms_interp os vs -∗
+    atoms_interp (take count (drop off os)) (take count (drop off vs)).
+  Proof.
+    iIntros "Hatoms".
+    iDestruct (atoms_interp_take with "Hatoms") as "[_ Hdrop]".
+    by iDestruct (atoms_interp_take with "Hdrop") as "[Htake_drop _]".
+  Qed.
 
   Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
     vs_idxs = seq ((length $ concat ηss) + length wl1) (length wl) ->
@@ -944,33 +979,6 @@ Section common.
       iPureIntro.
       simpl.
       by constructor.
-  Qed.
-
-  (* TODO: is this true? And how to prove it? *)
-  Lemma has_kind_eval_rep F τ ρ rf (se : semantic_env (Σ:=Σ)) ιs :
-    sem_env_interp F se ->
-    has_kind F τ (VALTYPE ρ rf) ->
-    type_arep se τ = Some ιs ->
-    eval_rep se ρ = Some ιs.
-  Proof.
-    intros Hse Hkind Hta.
-    unfold type_arep in Hta.
-    apply bind_Some in Hta as [κ [Hts Hsr]].
-    unfold skind_rep in Hsr.
-    destruct κ as [ιs' rf' | ]; last done.
-    inversion Hsr; subst.
-    clear Hsr.
-  Admitted.
-
-  Lemma has_rep_eval_rep F τ ρ (se : semantic_env (Σ:=Σ)) ιs :
-    sem_env_interp F se ->
-    has_rep F τ ρ ->
-    type_arep se τ = Some ιs ->
-    eval_rep se ρ = Some ιs.
-  Proof.
-    intros Hse Hrep Hta.
-    inversion Hrep; subst.
-    eapply has_kind_eval_rep; try done.
   Qed.
 
 End common.
