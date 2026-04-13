@@ -266,7 +266,6 @@ Section call_indirect.
         iIntros (f v) "(%FrameRel & HVals & Htok)".
         iFrame.
         iSplitR; auto.
-        Search frame_rel.
         admit.
       }
 
