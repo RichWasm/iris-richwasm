@@ -34,11 +34,21 @@ Section call_indirect.
     destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
     iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
 
-    iDestruct "Oh" as "(%i & %j & %cl & %toinv & what & nstab & nsfun)".
+    iDestruct "Oh" as "(%i & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
 
-    inversion toinv; subst; clear toinv.
+    inversion nos; subst; clear nos.
     auto.
 
+  Qed.
+
+  Lemma has_values_length evs vs :
+    has_values evs vs -> length evs = length vs.
+  Proof.
+    intros.
+    unfold has_values in H.
+    apply Is_true_true in H.
+    apply all2_size in H.
+    auto.
   Qed.
 
   Lemma compat_call_indirect M F L wt wt' wtf wl wl' wlf es' τs1 τs2 :
@@ -96,8 +106,8 @@ Section call_indirect.
    iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
 
    (* Note: closure interp shows up here, introducing cl *)
-   iDestruct "Oh" as "(%i2 & %j & %cl & %toinv & what & nstab & nsfun)".
-   inversion toinv; subst; clear toinv.
+    iDestruct "Oh" as "(%i2 & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
+   inversion nos; subst; clear nos.
    inversion Hκ; subst.
 
    iEval (rewrite atoms_interp_one_inv) in "HvsCoderef".
@@ -121,6 +131,7 @@ Section call_indirect.
    rename l0 into ts.
    rename l1 into es.
    rename i2 into c.
+   rename i32 into c32.
    rename j into a.
    rename evs1 into evs.
    rename vs1 into vs.
@@ -141,7 +152,6 @@ Section call_indirect.
       clear Hi.
       clear_nils.
       rename n into i.
-      set (c32 := Wasm_int.Int32.repr (Z.of_N c)) in *.
       rename f into FoundFunction.
       unfold instance_interp.
 
@@ -164,7 +174,6 @@ Section call_indirect.
       rename r into τs1_inner; rename r0 into τs2_inner.
       rewrite HCodeRefsType.
       unfold closure_interp0.
-      iEval (cbn) in "what".
       iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
 
 
@@ -195,16 +204,103 @@ Section call_indirect.
       idtac.
       subst InnerFunc.
 
+      (* For the first goal *)
+      pose proof (LatI) as InstTypesFound.
+      apply lookup_app_l_Some with (l2:=wtf) in InstTypesFound.
+      rewrite <- Yeah in InstTypesFound.
+      rewrite <- tosubst in InstTypesFound.
+      (* InstTypesFound is the first goal *)
 
-      (* we need to get some of the f0 stuff out now *)
+      (* For the second *)
+      unfold instance_table_interp.
+      iDestruct "Hinst" as "(H1 & H2 & (%InstTab0 & H3) & %HMMMem & %HGCMem)".
+      (* InstTab0 is the second goal *)
+
+      (* The third goal is exactly Hevs1 *)
+
+      (* Fourth goal: length evs = length τs1_inner *)
+      (* The things we have to use:
+         - has_values evs vs
+         - atoms_interp os1 vs
+         - values_interp τs1 os1
+         - translate_types se τs1 = Some τs1_inner
+
+         Using translate_types_sem_interp_length we can have
+         - length os1 = length τs1_inner
+
+         Using atoms_interp_length we have
+         - length os1 = length vs
+
+         Then our helper, has_values_length, finishes it :)
+       *)
+      iPoseProof
+        (translate_types_sem_interp_length _ _ _ _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
+      iPoseProof (atoms_interp_length with "Hvsτs1") as "%Hi2".
+      apply has_values_length in Hevs1 as Hevs_τs1inner.
+      rewrite <- Hi2 in Hevs_τs1inner.
+      rewrite Hi in Hevs_τs1inner. (* okay that's goal 4 *)
+
+      (* Goal 5 and 6 are just instantiating the right things and unfolding *)
+      (* Goal 7 is just apply nrepr *)
+
+      (* Goals 8 and 9 will be slightly interesting. no idea how to open
+         the invariants rn... *)
+      (* iInv "nstab" as "hope". doesn't work *)
+
+ 
+
+
+      (* I think we need to cwp_wand to get the frame_interp and frame_rel_mask out of there *)
+      set (temp :=
+             (fun (fr':leibnizO frame) vs' =>
+                ( ⌜ frame_rel lmask f0 fr' ⌝ ∗
+                  (∃ os' : leibnizO (list atom), values_interp rti sr se τs2 os' ∗
+                                                  atoms_interp os' vs') ∗
+                   ∃ θ' : address_map, rt_token rti sr θ')%I)).
+      iApply (cwp_wand with "[Hrt Hfr Hrun Hosτs1 Hvsτs1 what nstab nsfun] [Hframe]"); last first.
+      {
+        instantiate (1:= temp).
+        unfold temp.
+        (* So I added frame_rel mask into here and now this is maybe provable
+           if the directions are right. *)
+        iIntros (f v) "(%FrameRel & HVals & Htok)".
+        iFrame.
+        iSplitR; auto.
+        Search frame_rel.
+        admit.
+      }
 
       change (?x ++ [?y] ++ [?z]) with (x ++ [y;z]).
       iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [nstab] [nsfun]"); auto.
+      + cbn. apply InstTypesFound.
+      + apply InstTab0.
+      + apply Hevs1.
+      + apply Hevs_τs1inner.
+      + instantiate (1:= N.of_nat (sr_table sr)).
+        by unfold numerics.N_nat_repr.
+      + instantiate (2:= a).
+        instantiate (1:= N.of_nat a).
+        by unfold numerics.N_nat_repr.
+      + apply nrepr.
+      + admit. (* one invariant to open *)
+      + instantiate (3:=inst).
+        instantiate (1:= es).
+        instantiate (1:= ts).
+        admit. (* second invariant to open *)
+      + iModIntro.
+        iIntros "Hfr Hrun Hnata Hfuncnative".
+        iDestruct "what" as "#what".
+        iEval (unfold values_interp) in "Hosτs1".
+        iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hfr] [$Hrun]") as "huh".
+        unfold temp.
+        (* okay we need to do a three step combo *)
+        (* cwp_label_wand to flip L (the first list) *)
+        (* cwp_return_wand to flip R (the Some) *)
+        (* cwp_wand to flip the post condition *)
+        (* wait....... there's too many frame interps.
+         this is where I created the temp variable and tried cwp_wand up above *)
+        admit.
 
-
-
-
-      all: admit.
     - (* the thing is None *)
       cbn in Hi. inversion Hi; subst; clear Hi.
       clear_nils.
