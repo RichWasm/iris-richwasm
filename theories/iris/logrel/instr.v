@@ -413,8 +413,9 @@ Section Relations.
 
   Definition coderef_interp (vrel : value_relation) (se : semantic_env) (ϕ : function_type) : SVR :=
     λne sv,
-      (∃ i j cl,
-         ⌜sv = SAtoms [I32A (Wasm_int.int_of_Z i32m (Z.of_N i))]⌝ ∗
+      (∃ i i32 j cl,
+         ⌜N_i32_repr i i32⌝ ∗
+         ⌜sv = SAtoms [I32A i32]⌝ ∗
            closure_interp0 vrel se ϕ cl ∗
            na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
            na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl))%I.
