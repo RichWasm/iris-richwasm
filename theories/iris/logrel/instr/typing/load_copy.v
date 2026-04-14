@@ -803,8 +803,15 @@ Section load_copy.
       ⊢ ∀ B R Φ e f ℓ,
           ↪[frame] f -∗
           ↪[RUN] -∗
+          ⌜f.(f_inst).(inst_memory) !! memimm mr.(mr_gcmem) = Some sr.(sr_mem_gc)⌝ -∗
           a ↦root ℓ -∗
           rt_token rti sr e -∗
+          ▷ (∀ ah ah32,
+              ⌜repr_pointer e (PtrHeap MemGC ℓ) ah⌝ -∗
+              ⌜N_i32_repr ah ah32⌝ -∗
+              a ↦root ℓ -∗
+              rt_token rti sr e -∗
+              Φ f [VAL_int32 ah32]) -∗
           CWP evs ++ es_load UNDER B; R {{ Φ }}.
   Proof.
     unfold loadroot.
@@ -812,19 +819,21 @@ Section load_copy.
     inv_cg_emit Hcg; subst.
     repeat (split; first done).
     intros * Hn32 Hevs Han.
-    iIntros (B R Φ e f ℓ) "Hf Hrun Hroot Htok".
+    iIntros (B R Φ e f ℓ) "Hf Hrun %Hmem Hroot Htok HΦ".
     iPoseProof (extract_root_pointer with "Hroot Htok")
       as "(%ah & %bs & %Hrep & %Hbs & Hroot & Hsave)".
+    inversion Han; subst.
+    cbn in Hn32.
     apply Is_true_true in Hevs.
     rewrite (has_values_to_consts_inv _ _ Hevs).
-    iApply (cwp_load with "[Hroot] [Hsave] [$] [$]").
-    - admit.
-    - apply Hn32.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-  Abort.
+    replace a with ((a - 1) + 1)%N by lia.
+    iApply (cwp_load with "[$Hroot] [Hsave HΦ] [$Hf] [$Hrun]"); eauto.
+    - by f_equal.
+    - replace ((a - 1) + 1)%N with a by lia.
+      iIntros "!> Hpt".
+      iPoseProof ("Hsave" with "Hpt") as "[Hroot Htok]".
+      iApply ("HΦ" with "[//] [//] [$] [$]"); eauto.
+  Qed.
 
   (*
   Lemma wp_registerroot wt wl ret wt' wl' es_register :
