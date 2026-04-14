@@ -24,7 +24,7 @@ Section nop.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
     intros fe WT WL lmask ψ Hok Hcg.
-    iIntros (????????) "@@@@@@@@@@@".
+    iIntros (????????) "@@@@@@@@@@@@".
     inv_cg_emit Hcg.
     subst.
     iApply cwp_val_app; first done.

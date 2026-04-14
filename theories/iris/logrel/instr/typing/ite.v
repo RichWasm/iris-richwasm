@@ -38,7 +38,7 @@ Section ite.
     run_codegen (compile_instr mr fe (IIte ψ L' es1 es2)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    iIntros (?????? Hok IH1 IH2 Hcg ????????) "@@@@@@@@@@@".
+    iIntros (?????? Hok IH1 IH2 Hcg ????????) "@@@@@@@@@@@@".
     inv_cg_bind Hcg res1 wt1 wt2 wl1 wl2 es1' es2' Hcg1 Hcg2.
     inv_cg_bind Hcg2 res2 wt3 wt4 wl3 wl4 es3' es4' Hcg2 Hcg3.
     apply wp_ignore in Hcg3 as (_ & [] & Hcg3).
@@ -89,7 +89,7 @@ Section ite.
       rewrite (app_assoc wl wl5).
       iApply (cwp_wand with "[-]");
         first iApply (IH2 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
-      1,2: done.
+      1, 2, 5: done.
       + iPureIntro. apply has_values_to_consts.
       + iSimpl. iApply labels_interp_cons.
         1, 2, 3: done.
@@ -119,7 +119,7 @@ Section ite.
       clear Hvn Hes2 IH2.
       iLeft. iSplitR; first done.
       iIntros "!> Hfr Hrun".
-      iApply (IH1 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+      iApply (IH1 with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$] [$]").
       1, 2: done.
       { iPureIntro. apply has_values_to_consts. }
       iSimpl.

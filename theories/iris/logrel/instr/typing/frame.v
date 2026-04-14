@@ -30,7 +30,7 @@ Section frame.
   Proof.
     intros fe WT WL lmask Hmono IH Hcg.
     eapply (IH _ _ _ _ _ wlf) in Hcg.
-    iIntros (????????) "@@@@@@@@@@@".
+    iIntros (????????) "@@@@@@@@@@@@".
     (* Need to split up values_interp and atoms_interp now *)
     rewrite separate1.
     iPoseProof (values_interp_app_l with "[$]") as "(%os1 & %os2 & -> & Hvalτ & Hvalτs1)"; auto.
@@ -38,12 +38,12 @@ Section frame.
     apply has_values_app_inv in Hevs as (evs1 & evs2 & -> & Hevs1 & Hevs2).
     (* Apply IH with os2 τs2 *)
     iPoseProof (Hcg $! se fr os2 vs2 evs2 θ B R Hse Hevs2 with
-                 "Hinst Hlabels Hreturn Hatomτs1 Hvalτs1 Hframe Hrt Hfr Hrun") as "Hff".
+                 "Hinst Hlabels Hreturn Hatomτs1 Hvalτs1 Hframe Hrt Hown Hfr Hrun") as "Hff".
     rewrite <- app_assoc.
     iApply cwp_val_app; first done.
     (* Now it's time to rebuild it *)
     iApply (cwp_wand with "[$Hff]"). clear Hevs2 os2 evs2 vs2 θ.
-    iIntros (f vs2) "(%Hfrel & Hfr & (%os2 & Hvalτs1 & Hosτs1) & [%θ Hrt])".
+    iIntros (f vs2) "(%Hfrel & Hfr & (%os2 & Hvalτs1 & Hosτs1) & [%θ Hrt] & Hown)".
     unfold fvs_combine.
     iFrame.
     iFrame "%".

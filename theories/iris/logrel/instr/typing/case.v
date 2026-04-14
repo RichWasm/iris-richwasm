@@ -296,7 +296,7 @@ Section case.
     simplify_eq.
 
     (* Iris Proof *)
-    iIntros (? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hrvs Hvs Hframe Hrt Hfr Hrun".
+    iIntros (? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hrvs Hvs Hframe Hrt Hown Hfr Hrun".
 
     (* Our values are in the value interpretation for our specific SumT *)
     (* This means that the values represent the tag and the payload. *)
@@ -727,14 +727,14 @@ Section case.
               (([τ_res], L') :: fc_labels F); last done.
               iSimpl. iEval (repeat rewrite -app_assoc).
               iApply labels_interp_cons; try done.
-              iIntros "!>" (fr' vs') "(%Hfrel & Hframe & (%os & Hvalues & Hatoms) & [%Θ Hrt])".
+              iIntros "!>" (fr' vs') "(%Hfrel & Hframe & (%os & Hvalues & Hatoms) & [%Θ Hrt] & Hown)".
               instantiate (1 := λ fr' vs', (
                 ⌜length vs' = length wl_ret⌝ ∗
                 ⌜frame_rel (wlmask fe _) fr_saved_and_tag fr'⌝ ∗
                 frame_interp rti sr se F.(typing.fc_locals) L' _ fr' ∗
                 ∃ (os' : leibnizO (list atom)) (θ : address_map),
                 values_interp rti sr se [τ_res] os' ∗ atoms_interp os' vs' ∗
-                rt_token rti sr θ
+                rt_token rti sr θ ∗ na_own logrel_nais ⊤
               )%I).
               iDestruct (atoms_interp_length with "Hatoms") as "<-".
               iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
@@ -743,8 +743,9 @@ Section case.
           by iApply atoms_interp_take_drop.
         + by iApply values_interp_one_eq.
         + by iEval (repeat rewrite -app_assoc).
+        + done.
       }
-      iIntros (f vs) "(%Hfrel & Hframe & (%os' & Hvalues & Hatoms) & [%θ' Hrt])".
+      iIntros (f vs) "(%Hfrel & Hframe & (%os' & Hvalues & Hatoms) & [%θ' Hrt] & Hown)".
       iDestruct (atoms_interp_length with "Hatoms") as "<-".
       iDestruct (translate_types_comp_interp_length with "Hvalues") as "<-"; try done.
       iFrame.
@@ -753,7 +754,7 @@ Section case.
       by iEval (repeat rewrite -app_assoc) in "Hframe".
     }
  
-    iIntros (f_es_case_tag vs) "(%Hlen_vs & %Hfrel_new & Hframe & %os & %θ' & Hos & Hvs & Hrt) Hfr Hrun".
+    iIntros (f_es_case_tag vs) "(%Hlen_vs & %Hfrel_new & Hframe & %os & %θ' & Hos & Hvs & Hrt & Hown) Hfr Hrun".
 
     (* Reason about ess_post *)
     iApply (cwp_wand with "[Hfr Hrun]").

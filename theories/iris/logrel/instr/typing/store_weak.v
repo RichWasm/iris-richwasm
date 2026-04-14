@@ -73,7 +73,7 @@ Section store_weak.
 
     (* Let's dig into some of the atoms/values that are floating around *)
     unfold have_instr_type_sem.
-    iIntros (??????????) "@@@@@@@@@".
+    iIntros (??????????) "@@@@@@@@@@".
     iPoseProof (values_interp_cons_l with "[$Hos]") as "(%os1 & %os2 & -> & Hos1 & Hos2)".
     iEval (rewrite values_interp_one_eq; cbn) in "Hos2".
     iPoseProof (atoms_interp_app_l with "[$Hvs]") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)".

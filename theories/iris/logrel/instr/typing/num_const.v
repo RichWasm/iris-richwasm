@@ -26,7 +26,7 @@ Section num_const.
     intros fe WT WL lmask ψ Hok Hcg.
     destruct ν; cbn in Hcg; inversion Hcg; subst; clear Hcg.
 
-    all: iIntros (??????????) "@@@@@@@@@".
+    all: iIntros (??????????) "@@@@@@@@@@".
     all: iPoseProof (values_interp_nil_l with "Hos") as "->".
     all: iPoseProof (atoms_interp_nil_l with "Hvs") as "->".
     all: apply has_values_to_consts_inv in H0; subst evs.

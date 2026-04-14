@@ -26,7 +26,7 @@ Section unreachable.
     inv_cg_emit Hcg.
     subst.
     destruct ψ as [τs1 τs2].
-    iIntros (????????) "@@@@@@@@@@@".
+    iIntros (????????) "@@@@@@@@@@@@".
     iApply cwp_val_app; first done.
     iApply (cwp_unreachable with "[$] [$]").
   Qed.

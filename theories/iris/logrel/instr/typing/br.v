@@ -25,7 +25,7 @@ Section br.
     run_codegen (compile_instr mr fe (IBr ψ i)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    iIntros (????? Hi Hdrop Hok Hcg ????????) "@@@@@@@@@@@".
+    iIntros (????? Hi Hdrop Hok Hcg ????????) "@@@@@@@@@@@@".
     inversion Hcg.
     subst WT WL ψ wt' wl' es'.
     clear Hcg.
@@ -43,7 +43,7 @@ Section br.
     iDestruct (translate_types_sem_interp_length with "HIos2") as "%Hos2len".
     1, 2: done.
     iDestruct (big_sepL2_length with "HIvs2") as "%Hvs2len".
-    iSpecialize ("HP" with "[] [$] [$] [$] [$]"); first done.
+    iSpecialize ("HP" with "[] [$] [$] [$] [$] [$]"); first done.
     iDestruct "Htslen" as "%Htslen".
     iClear "HIos1 HIvs1".
     apply has_values_app_inv in Hevs as (evs1 & evs2 & -> & Hevs1 & Hevs2).

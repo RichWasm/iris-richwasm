@@ -25,7 +25,7 @@ Section return_.
     run_codegen (compile_instr mr fe (IReturn ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    iIntros (????? Hreturn Hdrop Hok Hcg ????????) "@@@@@@@@@@@".
+    iIntros (????? Hreturn Hdrop Hok Hcg ????????) "@@@@@@@@@@@@".
     inversion Hcg.
     subst fe WT WL ψ wt' wl' es'.
     clear Hcg.
@@ -46,7 +46,7 @@ Section return_.
     iApply (cwp_return with "[$] [$]").
     - done.
     - rewrite <- Hlen_ts. rewrite <- Hlen_os2. rewrite Hlen_vs2. by apply has_values_length.
-    - iApply ("HP" with "[$] [$] [$]").
+    - iApply ("HP" with "[$] [$] [$] [$]").
   Qed.
 
 End return_.

@@ -86,7 +86,7 @@ Section call_indirect.
     inv_cg_bind Hi huh ?wt ?wt ?wl ?wl es_what2 ?es_rest Haccum Hi.
     destruct huh. subst.
 
-    iIntros (??????????) "@@@@@@@@@".
+    iIntros (??????????) "@@@@@@@@@@".
     (* okay we need to clear out evs *)
     iPoseProof (values_interp_app_l with "Hos")
       as "(%os1 & %os2 & -> & Hosτs1 & HosCoderef)"; auto.
@@ -246,9 +246,13 @@ Section call_indirect.
       (* Goals 8 and 9 will be slightly interesting. no idea how to open
          the invariants rn... *)
       (* iInv "nstab" as "hope". doesn't work *)
-
- 
-
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "nstab Hown") as "(nstab & Hown & Hclose1)".
+      1, 2: done.
+      iMod (na_inv_acc with "nsfun Hown") as "(nsfun & Hown & Hclose2)".
+      { done. }
+      { solve_ndisj. }
+      iModIntro.
 
       (* I think we need to cwp_wand to get the frame_interp and frame_rel_mask out of there *)
       set (temp :=
@@ -290,7 +294,8 @@ Section call_indirect.
         iIntros "Hfr Hrun Hnata Hfuncnative".
         iDestruct "what" as "#what".
         iEval (unfold values_interp) in "Hosτs1".
-        iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hfr] [$Hrun]") as "huh".
+        iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [] [$Hfr] [$Hrun]") as "huh".
+        { admit. }
         unfold temp.
         (* okay we need to do a three step combo *)
         (* cwp_label_wand to flip L (the first list) *)

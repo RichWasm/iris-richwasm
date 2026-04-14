@@ -1059,7 +1059,7 @@ Section load_copy.
     rewrite ?app_nil_r ?app_nil_l -?app_assoc in Hcompile.
     simpl app.
     unfold have_instr_type_sem.
-    iIntros (se fr os vs evs θ B R Hse Hevs) "Hinst Hlbl Hret Hats Hvals Hfr Hrt Hf Hrun".
+    iIntros (se fr os vs evs θ B R Hse Hevs) "Hinst Hlbl Hret Hats Hvals Hfr Hrt Hown Hf Hrun".
     iEval (rewrite values_interp_one_eq; cbn) in "Hvals".
     iPoseProof (value_interp_ref_sz with "Hvals") as "%Hlen_os".
     iEval (rewrite value_interp_eq) in "Hvals".

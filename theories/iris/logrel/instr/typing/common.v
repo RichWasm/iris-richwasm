@@ -431,7 +431,7 @@ Section common.
     □ (∀ fr' vs',
        (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L wl fr' ∗
           (∃ os', values_interp rti sr se τs os' ∗ atoms_interp os' vs') ∗
-          (∃ θ0, rt_token rti sr θ0)) -∗
+          (∃ θ0, rt_token rti sr θ0) ∗ na_own logrel_nais ⊤) -∗
        Φ fr' vs') -∗
     labels_interp rti sr se F.(typing.fc_locals) fr wl lmask F.(fc_labels) B -∗
     labels_interp rti sr se F.(typing.fc_locals) fr wl lmask
@@ -444,7 +444,7 @@ Section common.
     iSplitL "HΦ".
     - iSplitR.
       + by erewrite translate_types_comp_sem.
-      + iIntros (fr' vs os θ) "!> %Hlmask Hvs Hos Hframe Hrti".
+      + iIntros (fr' vs os θ) "!> %Hlmask Hvs Hos Hown Hframe Hrti".
         iApply "HΦ".
         by iFrame.
     - done.
@@ -677,7 +677,7 @@ Section common.
       have_instr_type_sem rti sr mr M F L WT WL lmask [] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (se inst lh Henv fr rvs vs θ) "@@@@@@@@@@@".
+    iIntros (se inst lh Henv fr rvs vs θ) "@@@@@@@@@@@@".
     rewrite app_nil_r.
     iApply (cwp_val with "[$] [$]"); first done.
     iFrame.
@@ -697,7 +697,7 @@ Section common.
       have_instr_type_sem rti sr mr M F L WT WL lmask [BI_nop] ψ L.
   Proof.
     iIntros (->) "Hcast".
-    iIntros (se inst lh fr rvs vs θ Henv) "@@@@@@@@@@@".
+    iIntros (se inst lh fr rvs vs θ Henv) "@@@@@@@@@@@@".
     iApply cwp_val_app; first done.
     iApply (cwp_nop with "[$] [$]").
     iFrame.

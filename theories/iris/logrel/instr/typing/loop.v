@@ -31,7 +31,7 @@ Section loop.
     run_codegen (compile_instr mr fe (ILoop ψ es)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@".
+    iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@@".
     inv_cg_bind Hcg ?res ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
     inv_cg_try_option Hcg.
     inv_cg_bind Hcg0 [[] ?res] ?wt ?wt ?wl ?wl ?es ?es ?Hcg ?Hcg.
@@ -48,14 +48,14 @@ Section loop.
     1, 2, 3: done.
     iDestruct (big_sepL2_length with "Hvs") as "%Hlen_vs".
     eapply IH in Hcg.
-    iApply (cwp_loop' with "[$] [$] [Hvs Hos Hframe Hrt]"); first done.
+    iApply (cwp_loop' with "[$] [$] [Hvs Hos Hframe Hown Hrt]"); first done.
     - rewrite <- Hlen_ts1. rewrite Hlen_vs. by apply has_values_length.
     - instantiate (1 := fun fr' vs' =>
         (⌜frame_rel lmask fr fr'⌝ ∗ frame_interp rti sr se F.(typing.fc_locals) L (wl ++ wl2 ++ wlf) fr' ∗
            (∃ os', values_interp rti sr se τs1 os' ∗ atoms_interp os' vs') ∗
-           (∃ θ', rt_token rti sr θ'))%I).
+           (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I).
       by iFrame.
-    - iIntros "!> !> %fr' %vs' Hfr Hrun (%Hrel & Hframe & (%os' & Hos & Hvs) & [%θ' Hrt])".
+    - iIntros "!> !> %fr' %vs' Hfr Hrun (%Hrel & Hframe & (%os' & Hos & Hvs) & [%θ' Hrt] & Hown)".
       iApply (cwp_wand with "[-]");
         first iApply (Hcg with "[] [] [] [] [$] [$] [$] [$] [$] [$] [$]").
       + done.
@@ -63,11 +63,12 @@ Section loop.
       + by destruct Hrel as [_ ->].
       + iSimpl. iApply labels_interp_cons.
         1, 2, 3: done.
-        * iIntros "!> %fr'' %vs'' (%Hfrel & Hframe & (%os'' & Hos & Hvs) & [%θ'' Hrt])".
+        * iIntros "!> %fr'' %vs'' (%Hfrel & Hframe & (%os'' & Hos & Hvs) & [%θ'' Hrt] & Hown)".
           iFrame.
           iPureIntro.
           by eapply frame_rel_trans.
         * by iApply labels_interp_mono.
+      + done.
       + iIntros (fr'' vs'') "[%Hrel' ?]".
         iFrame.
         iPureIntro.

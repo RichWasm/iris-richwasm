@@ -25,7 +25,7 @@ Section nil.
     cbn in Hcg.
     inversion Hcg.
     subst.
-    iIntros (????????) "@@@@@@@@@@@".
+    iIntros (????????) "@@@@@@@@@@@@".
     iApply cwp_val_app; first done.
     iApply (cwp_nil with "[$] [$]").
     iFrame.

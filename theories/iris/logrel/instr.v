@@ -330,6 +330,7 @@ Section Relations.
               atoms_interp os1 vs1 -∗
               values_interp0 vrel se τs1 os1 -∗
               rt_token rti sr θ -∗
+              na_own logrel_nais ⊤ -∗
               ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
               ↪[RUN] -∗
               let Φ vs2 :=
@@ -614,6 +615,7 @@ Section Relations.
             ⌜frame_rel lmask fr0 fr⌝ -∗
             frame_interp se ηss L WL fr -∗
             rt_token rti sr θ -∗
+            na_own logrel_nais ⊤ -∗
             atoms_interp os vs -∗
             values_interp se τs os -∗
             P fr vs))%I.
@@ -643,7 +645,12 @@ Section Relations.
     match R with
     | Some (n, P) =>
         match translate_types se τr with Some ts => ⌜length ts = n⌝ | None => False end ∗
-          □ (∀ vs os θ, atoms_interp os vs -∗ values_interp se τr os -∗ rt_token rti sr θ -∗ P vs)
+          □ ∀ vs os θ,
+            atoms_interp os vs -∗
+            values_interp se τr os -∗
+            rt_token rti sr θ -∗
+            na_own logrel_nais ⊤ -∗
+            P vs
     | None => False
     end%I.
 
@@ -689,12 +696,13 @@ Section Relations.
        "Hos" ∷ values_interp se τs1 os -∗
        "Hframe" ∷ frame_interp se F.(fc_locals) L WL fr -∗
        "Hrt" ∷ rt_token rti sr θ -∗
+       "Hown" ∷ na_own logrel_nais ⊤ -∗
        "Hfr" ∷ ↪[frame] fr -∗
        "Hrun" ∷ ↪[RUN] -∗
        CWP evs ++ es UNDER B; R
            {{ fr'; vs',
               ⌜frame_rel lmask fr fr'⌝ ∗ frame_interp se F.(fc_locals) L' WL fr' ∗
                 (∃ os', values_interp se τs2 os' ∗ atoms_interp os' vs') ∗
-                (∃ θ', rt_token rti sr θ') }})%I.
+                (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤ }})%I.
 
 End Relations.

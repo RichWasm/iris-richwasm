@@ -31,7 +31,7 @@ Section block.
     run_codegen (compile_instr mr fe (IBlock ψ L' es)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L'.
   Proof.
-    iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@".
+    iIntros (?????? Hok IH Hcg ????????) "@@@@@@@@@@@@".
     cbn [compile_instr] in Hcg.
     inv_cg_bind Hcg tf wt0 wt0' wl0 wl0' es_nil es0' Hcg1 Hcg2.
     inv_cg_try_option Hcg1.
@@ -67,7 +67,7 @@ Section block.
     iIntros "!> Hfr Hrun".
     iPoseProof Hcg1 as "IH".
     clear Hcg1.
-    iSpecialize ("IH" with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$]").
+    iSpecialize ("IH" with "[] [] [$] [Hlabels] [$] [$] [$] [$] [$] [$] [$] [$]").
     1, 2: done.
     2: iApply "IH".
     iSimpl.

@@ -28,7 +28,7 @@ Section tag.
 
     cbn in Hcg; inversion Hcg; subst; clear Hcg.
 
-    iIntros (??????????) "@@@@@@@@@".
+    iIntros (??????????) "@@@@@@@@@@".
     iEval (rewrite values_interp_one_eq) in "Hos".
     iPoseProof (value_interp_i32 with "Hos") as "[%n %Hos]".
     subst os.
