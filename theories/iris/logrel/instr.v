@@ -335,7 +335,7 @@ Section Relations.
               ↪[RUN] -∗
               let Φ vs2 :=
                 (∃ os2, atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2) ∗
-                  (∃ θ', rt_token rti sr θ')
+                  (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤
               in
               CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
       | FC_func_host _ _ => False
@@ -416,7 +416,7 @@ Section Relations.
     λne sv,
       (∃ i i32 j cl,
          ⌜N_i32_repr i i32⌝ ∗
-         ⌜sv = SAtoms [I32A i32]⌝ ∗
+           ⌜sv = SAtoms [I32A i32]⌝ ∗
            closure_interp0 vrel se ϕ cl ∗
            na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
            na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl))%I.

@@ -278,30 +278,16 @@ Section call_indirect.
         (* cwp_label_wand to flip L (the first list) *)
         (* cwp_return_wand to flip R (the Some) *)
         (* cwp_wand to flip the post condition *)
-        set (tempL := [(length τs2_inner,
-                      const
-                        (λ vs2 : leibnizO (list value),
-                           (∃ os2 : leibnizO (list atom),
-                              atoms_interp os2 vs2 ∗
-                              values_interp0 (value_interp rti sr) se τs2 os2) ∗
-                           ∃ θ' : address_map, rt_token rti sr θ')%I)] ).
-        iApply (cwp_label_wand _ _ _ tempL _ _ _ with "[huh] [Hframe]" ); last first.
+        iApply (cwp_frame_ctx1 with "[huh] [Hframe]").
+        { iApply "huh". }
+        { iApply "Hframe". }
+        { iIntros (??) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }
+        { iIntros (?) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }
         {
-          unfold tempL.
-          unfold label_ctx_wand.
-          iSplitR; auto.
-          change (length [?x]) with (1).
-          change (take 1 [?x]) with ([x]).
-          iApply big_sepL2_singleton.
-          unfold label_wand.
-          iSplitR; auto.
-          (* wait no I have confirmed now that this is backwards *)
+          iIntros (??) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)".
+          iFrame.
           admit.
         }
-
-
-        admit.
-
     - (* the thing is None *)
       cbn in Hi. inversion Hi; subst; clear Hi.
       clear_nils.

@@ -315,6 +315,46 @@ Section structural.
   Proof.
   Admitted.
 
+  (* TODO: Clean up... *)
+  Lemma cwp_frame_ctx1 s E e n P1 P1' P2 P2' R Φ Φ' :
+    CWP e @ s; E UNDER [(n, P1)]; Some (n, P2) {{ Φ }} -∗
+    R -∗
+    (∀ f vs, R -∗ P1 f vs -∗ P1' f vs) -∗
+    (∀ vs, R -∗ P2 vs -∗ P2' vs) -∗
+    (∀ f vs, R -∗ Φ f vs -∗ Φ' f vs) -∗
+    CWP e @ s; E UNDER [(n, P1')]; Some (n, P2') {{ Φ' }}.
+  Proof.
+    iIntros "He HR HP1' HP2' HΦ'".
+    unfold cwp_wasm, cwp_post_lp, lenient_wp, denote_logpred.
+    iApply (wp_wand with "[He]"); first done.
+    iIntros (?) "(%f & Hf & Hfr_inv & H)".
+    iExists f.
+    iFrame.
+    destruct v.
+    - iDestruct "H" as "[Hrun HΦ]". iFrame. by iApply ("HΦ'" with "HR").
+    - by iFrame.
+    - iDestruct "H" as "[Hrun Hbr]".
+      cbn.
+      iFrame.
+      unfold cwp_post_br.
+      destruct (i - vh_depth lh) eqn:Hi.
+      + iDestruct "Hbr" as "(%vs0 & %vs & %Hbase & %Hlen & HP1)".
+        iExists vs0, vs.
+        iSplitR; first done.
+        iSplitR; first done.
+        by iApply ("HP1'" with "HR").
+      + cbn. by rewrite lookup_nil.
+    - iDestruct "H" as "[Hrun Hret]".
+      cbn.
+      iFrame.
+      iDestruct "Hret" as "(%vs0 & %vs & %Hbase & %Hlen & HP2)".
+      iExists vs0, vs.
+      iSplitR; first done.
+      iSplitR; first done.
+      by iApply ("HP2'" with "HR").
+    - iFrame.
+  Qed.
+
   Lemma fupd_cwp s E e L R Φ :
     (|={E}=> CWP e @ s; E UNDER L; R {{ Φ }}) ⊢
     CWP e @ s; E UNDER L; R {{ Φ }}.
