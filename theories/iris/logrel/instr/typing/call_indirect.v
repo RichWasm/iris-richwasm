@@ -81,13 +81,12 @@ Section call_indirect.
 
     rewrite helper in Hτ. inversion Hτ; subst. clear Hτ.
 
-    (* okay let's try wtinsert *)
     unfold wtinsert in Hi.
-    inv_cg_bind Hi huh ?wt ?wt ?wl ?wl es_what2 ?es_rest Haccum Hi.
-    destruct huh. subst.
+    inv_cg_bind Hi temp ?wt ?wt ?wl ?wl es_what2 ?es_rest Haccum Hi.
+    destruct temp; subst.
 
     iIntros (??????????) "@@@@@@@@@@".
-    (* okay we need to clear out evs *)
+    (* clearing out evs *)
     iPoseProof (values_interp_app_l with "Hos")
       as "(%os1 & %os2 & -> & Hosτs1 & HosCoderef)"; auto.
     iPoseProof (atoms_interp_app_l with "Hvs")
@@ -98,15 +97,14 @@ Section call_indirect.
    set (CodeRefsType := MonoFunT τs1 τs2) in *.
    assert (HCodeRefsType: CodeRefsType = MonoFunT τs1 τs2) by auto.
 
-   (* I need to break it up actually so coopy pasting
-   iPoseProof (value_interp_coderef with "HosCoderef") as "[%n %Hoscoderef]". *)
+   (* tried using value_interp_coderef but ended up needing to break stuff up *)
    iPoseProof (value_interp_eq with "HosCoderef") as "HosCoderef".
    iDestruct "HosCoderef" as "(%κ0 & %Hκ & Rest)".
    destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
-   iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
+   iDestruct "Rest" as "((%Hareps & %Href) & Rest)".
 
    (* Note: closure interp shows up here, introducing cl *)
-    iDestruct "Oh" as "(%i2 & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
+    iDestruct "Rest" as "(%i2 & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
    inversion nos; subst; clear nos.
    inversion Hκ; subst.
 
@@ -125,7 +123,7 @@ Section call_indirect.
       destructing the list_find *)
 
 
-   (* let's rename some things for my own sake *)
+   (* let's rename some things for the sake of readability *)
    rename i0 into inst.
    rename f into InnerFunc.
    rename l0 into ts.
@@ -138,32 +136,29 @@ Section call_indirect.
    rename fr into f0.
    set (TheIndex := (typeimm i)) in *.
 
-   (* I think the first three things will fome out of instance interp *)
-   (* instance_interp -> instance_functions_interp has inst_funcs *)
-   (* the other two are top level instance_interp *)
+   (* Now is the best time to destruct whether or not the function type was found *)
 
 
 
 
-    destruct (list_find (λ v2 : function_type, W.function_type_eqb ϕ_W v2) l) eqn:Hmaybe.
+    destruct (list_find (λ v2 : function_type, W.function_type_eqb ϕ_W v2) l) eqn:HFound.
     - (* the thing is Some *)
       destruct p.
-      cbn in Hi. inversion Hi. subst.
-      clear Hi.
-      clear_nils.
+      cbn in Hi. inversion Hi; subst; clear Hi.
       rename n into i.
       rename f into FoundFunction.
+      clear_nils.
       unfold instance_interp.
 
 
       (* First save that l's length is shorter *)
-      pose proof Hmaybe as Hhello.
-      apply list_find_Some in Hmaybe as (LatI & FuncsEqual & EarlierNot).
+      pose proof HFound as HLen.
+      apply list_find_Some in HLen as (LatI & FuncsEqual & EarlierNot).
 
-      apply list_find_app_l with (l2:=wtf) in Hhello.
+      apply list_find_app_l with (l2:=wtf) in HFound.
 
       iDestruct "Hinst" as "[%tosubst Hinst]".
-      rewrite <- tosubst in Hhello.
+      rewrite <- tosubst in HFound.
       apply Is_true_true in FuncsEqual.
       move/eqP in FuncsEqual.
 
@@ -176,15 +171,6 @@ Section call_indirect.
       unfold closure_interp0.
       iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
 
-
-      (* we need to connect the foundfunction to the inner func. I'm like
-         almost certain they're equal.
-
-         okay they HAVE to be equal, but I'm not sure how to show that... *)
-      (* one thing I figure out actually is that I can't use what in the proof
-         bc to use anything in what, I need to already have proven that
-         found function and inner funct are equal.
-       *)
       assert (Yeah:(InnerFunc = FoundFunction) ). {
         rewrite HCodeRefsType in Hoff.
         cbn in Hoff.
@@ -202,6 +188,9 @@ Section call_indirect.
       }
       auto.
       subst InnerFunc.
+
+      (* From here on: we want to get the things necessary for apply cwp_call_indirect *)
+      (* There's 9 goals outside of the CWP one *)
 
       (* For the first goal *)
       pose proof (LatI) as InstTypesFound.
@@ -273,10 +262,7 @@ Section call_indirect.
         iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hown] [$Hfr] [$Hrun]") as "huh".
         iClear "what". (* i don't think we need it but if anything delete this line *)
 
-        (* okay we need to do a three step combo *)
-        (* cwp_label_wand to flip L (the first list) *)
-        (* cwp_return_wand to flip R (the Some) *)
-        (* cwp_wand to flip the post condition *)
+        (* cwp_frame_ctx1 is made for this exact moment *)
         iApply (cwp_frame_ctx1 with "[huh] [Hframe]").
         { iApply "huh". }
         { iApply "Hframe". }
@@ -328,6 +314,10 @@ Section call_indirect.
       idtac.
       subst InnerFunc.
 
+
+      (* From here on: we want to get the things necessary for apply cwp_call_indirect *)
+      (* There's 9 goals outside of the CWP one *)
+
       (* first goal: inst_types (f_inst f0) !! (length l) = Some Tf ... *)
       iDestruct "Hinst" as "[%tosubst Hinst]".
       assert (InstTypesFound: inst_types (f_inst f0) !! (length l) = Some OuterFunc). {
@@ -344,20 +334,6 @@ Section call_indirect.
       (* The third goal is exactly Hevs1 *)
 
       (* Fourth goal: length evs = length τs1_inner *)
-      (* The things we have to use:
-         - has_values evs vs
-         - atoms_interp os1 vs
-         - values_interp τs1 os1
-         - translate_types se τs1 = Some τs1_inner
-
-         Using translate_types_sem_interp_length we can have
-         - length os1 = length τs1_inner
-
-         Using atoms_interp_length we have
-         - length os1 = length vs
-
-         Then our helper, has_values_length, finishes it :)
-       *)
       iPoseProof
         (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
       iPoseProof (atoms_interp_length with "Hvsτs1") as "%Hi2".
@@ -399,10 +375,6 @@ Section call_indirect.
         iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hown] [$Hfr] [$Hrun]") as "huh".
         iClear "what". (* i don't think we need it but if anything delete this line *)
 
-        (* okay we need to do a three step combo *)
-        (* cwp_label_wand to flip L (the first list) *)
-        (* cwp_return_wand to flip R (the Some) *)
-        (* cwp_wand to flip the post condition *)
         iApply (cwp_frame_ctx1 with "[huh] [Hframe]").
         { iApply "huh". }
         { iApply "Hframe". }
