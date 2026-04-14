@@ -243,66 +243,63 @@ Section call_indirect.
       (* Goal 5 and 6 are just instantiating the right things and unfolding *)
       (* Goal 7 is just apply nrepr *)
 
-      (* Goals 8 and 9 will be slightly interesting. no idea how to open
-         the invariants rn... *)
-      (* iInv "nstab" as "hope". doesn't work *)
+      (* Goals 8 and 9 are opening the invariants as follows *)
       iApply fupd_cwp.
-      iMod (na_inv_acc with "nstab Hown") as "(nstab & Hown & Hclose1)".
+      iMod (na_inv_acc with "nstab Hown") as "(>nstab & Hown & Hclose1)".
       1, 2: done.
-      iMod (na_inv_acc with "nsfun Hown") as "(nsfun & Hown & Hclose2)".
+      iMod (na_inv_acc with "nsfun Hown") as "(>nsfun & Hown & Hclose2)".
       { done. }
       { solve_ndisj. }
       iModIntro.
 
-      (* I think we need to cwp_wand to get the frame_interp and frame_rel_mask out of there *)
-      set (temp :=
-             (fun (fr':leibnizO frame) vs' =>
-                ( ⌜ frame_rel lmask f0 fr' ⌝ ∗
-                  (∃ os' : leibnizO (list atom), values_interp rti sr se τs2 os' ∗
-                                                  atoms_interp os' vs') ∗
-                   ∃ θ' : address_map, rt_token rti sr θ')%I)).
-      iApply (cwp_wand with "[Hrt Hfr Hrun Hosτs1 Hvsτs1 what nstab nsfun] [Hframe]"); last first.
-      {
-        instantiate (1:= temp).
-        unfold temp.
-        (* So I added frame_rel mask into here and now this is maybe provable
-           if the directions are right. *)
-        iIntros (f v) "(%FrameRel & HVals & Htok)".
-        iFrame.
-        iSplitR; auto.
-        admit.
-      }
-
       change (?x ++ [?y] ++ [?z]) with (x ++ [y;z]).
-      iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [nstab] [nsfun]"); auto.
+      iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [$nstab] [$nsfun]").
       + cbn. apply InstTypesFound.
       + apply InstTab0.
       + apply Hevs1.
       + apply Hevs_τs1inner.
-      + instantiate (1:= N.of_nat (sr_table sr)).
-        by unfold numerics.N_nat_repr.
-      + instantiate (2:= a).
-        instantiate (1:= N.of_nat a).
-        by unfold numerics.N_nat_repr.
+      + by unfold numerics.N_nat_repr.
+      + by unfold numerics.N_nat_repr.
       + apply nrepr.
-      + admit. (* one invariant to open *)
-      + instantiate (3:=inst).
-        instantiate (1:= es).
-        instantiate (1:= ts).
-        admit. (* second invariant to open *)
       + iModIntro.
         iIntros "Hfr Hrun Hnata Hfuncnative".
         iDestruct "what" as "#what".
         iEval (unfold values_interp) in "Hosτs1".
-        iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [] [$Hfr] [$Hrun]") as "huh".
-        { admit. }
-        unfold temp.
+        (* Now we close the invariants before continuing *)
+        iApply fupd_cwp.
+        iMod ("Hclose2" with "[$Hown $Hfuncnative]") as "Hown".
+        iMod ("Hclose1" with "[$Hown $Hnata]") as "Hown".
+        iModIntro.
+        (* Let's go let's go *)
+        iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hown] [$Hfr] [$Hrun]") as "huh".
+        iClear "what". (* i don't think we need it but if anything delete this line *)
+
         (* okay we need to do a three step combo *)
         (* cwp_label_wand to flip L (the first list) *)
         (* cwp_return_wand to flip R (the Some) *)
         (* cwp_wand to flip the post condition *)
-        (* wait....... there's too many frame interps.
-         this is where I created the temp variable and tried cwp_wand up above *)
+        set (tempL := [(length τs2_inner,
+                      const
+                        (λ vs2 : leibnizO (list value),
+                           (∃ os2 : leibnizO (list atom),
+                              atoms_interp os2 vs2 ∗
+                              values_interp0 (value_interp rti sr) se τs2 os2) ∗
+                           ∃ θ' : address_map, rt_token rti sr θ')%I)] ).
+        iApply (cwp_label_wand _ _ _ tempL _ _ _ with "[huh] [Hframe]" ); last first.
+        {
+          unfold tempL.
+          unfold label_ctx_wand.
+          iSplitR; auto.
+          change (length [?x]) with (1).
+          change (take 1 [?x]) with ([x]).
+          iApply big_sepL2_singleton.
+          unfold label_wand.
+          iSplitR; auto.
+          (* wait no I have confirmed now that this is backwards *)
+          admit.
+        }
+
+
         admit.
 
     - (* the thing is None *)
