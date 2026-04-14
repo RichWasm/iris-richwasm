@@ -284,9 +284,13 @@ Section call_indirect.
         { iIntros (??) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }
         { iIntros (?) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }
         {
-          iIntros (??) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)".
+          iIntros (f vs0) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)".
+          iPoseProof
+            (translate_types_sem_interp_length _ _ _ _ _ _ _ Hts2inner with "Hos2") as "%hi".
+          iPoseProof (atoms_interp_length with "Hvs2") as "%hi2".
+          rewrite hi2 in hi.
           iFrame.
-          admit.
+          iSplitL; auto.
         }
     - (* the thing is None *)
       cbn in Hi. inversion Hi; subst; clear Hi.
