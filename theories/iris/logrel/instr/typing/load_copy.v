@@ -835,20 +835,22 @@ Section load_copy.
       iApply ("HΦ" with "[//] [//] [$] [$]"); eauto.
   Qed.
 
-  (*
   Lemma wp_registerroot wt wl ret wt' wl' es_register :
     run_codegen (registerroot mr) wt wl = inr (ret, wt', wl', es_register) ->
     ret = () /\
     wt' = [] /\
     wl' = [] /\
-      ∀ e evs ℓ ℓ32,
-      repr_pointer e (PtrHeap MemGC ℓ)  ->
-      has_values evs [VAL_int32 ℓ32] ->
+      ∀ e evs ℓ ah ah32,
+        repr_pointer e (PtrHeap MemGC ℓ) ah ->
+        N_i32_repr ah ah32 ->
+        has_values evs [VAL_int32 ah32] ->
       ⊢ ∀ f B R E Φ,
-        (∀ ar e',
+
+        (∀ ar ar32 e',
             ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
             ar ↦root ℓ -∗ rt_token rti sr e' -∗ na_own logrel_nais E -∗
-          Φ f [VAL_int32 (Wasm_int.int_of_Z i32m (tag_address MemGC ar))]) -∗
+            ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
+          Φ f [VAL_int32 ar32]) -∗
         ↪[frame] f -∗
         ↪[RUN] -∗
         ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
@@ -861,7 +863,7 @@ Section load_copy.
     intros Hcg.
     inv_cg_emit Hcg; subst.
     repeat (split; first done).
-    intros * Hptr * Hevs.
+    intros * Hptr Hrah Hevs.
     iIntros (f B R E Φ) "HΦ Hf Hrun %HE Htok Hrt Hreg".
     apply Is_true_true in Hevs.
     rewrite (has_values_to_consts_inv _ _ Hevs).
@@ -869,7 +871,7 @@ Section load_copy.
     unfold instance_rt_func_interp.
     iDestruct "Hreg" as "(%cl & %Hregspc & %Hcl & Hinv)".
     iPoseProof (na_inv_acc with "Hinv Htok") as "Hopen"; eauto.
-    iApply cwp_fupd.
+    iApply fupd_cwp.
     iMod "Hopen".
     unfold spec_registerroot in Hregspc.
     iDestruct "Hopen" as "[Hop Hcl]".
@@ -887,13 +889,13 @@ Section load_copy.
     { eauto. }
     { eauto. }
     {
-      iIntros (f' v) "(<- & Hcl' & %e' & %ar & -> & %Hrepr & Hroot & Hrt)".
+      cbn.
+      iIntros (f' v) "(<- & Hcl' & %e' & %ar & %tar32 & %Hrep & -> & %Hrepr & Hroot & Hrt)".
       iSpecialize ("Hsave" with "Hcl'").
       iMod "Hsave".
-      iApply ("HΦ" with "[//] [$] [$] [$]").
+      iApply ("HΦ" with "[//] [$] [$] [$] [//]").
     }
   Qed.
-  *)
 
   Lemma wp_duproot wt wl ret wt' wl' es_dup :
     run_codegen (duproot mr) wt wl = inr (ret, wt', wl', es_dup) ->
