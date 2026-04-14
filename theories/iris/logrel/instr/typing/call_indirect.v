@@ -185,8 +185,7 @@ Section call_indirect.
          bc to use anything in what, I need to already have proven that
          found function and inner funct are equal.
        *)
-      iAssert ((⌜InnerFunc = FoundFunction⌝)%I ) with "[]" as "%Yeah". {
-        iPureIntro.
+      assert (Yeah:(InnerFunc = FoundFunction) ). {
         rewrite HCodeRefsType in Hoff.
         cbn in Hoff.
         apply bind_Some in Hoff as (x & transts1 & rest).
@@ -194,14 +193,14 @@ Section call_indirect.
         rename x into ts1_tounify.
         rename x2 into ts2_tounify.
         inversion rest.
-        eapply (translate_types_comp_sem _ _ _ _ _ _ _ H) in transts1; auto.
-        eapply (translate_types_comp_sem _ _ _ _ _ _ _ H) in transts2; auto.
+        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
+        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
         subst; auto.
         rewrite Hts1inner in transts1.
         rewrite Hts2inner in transts2.
         inversion transts1; subst. inversion transts2; subst. done.
       }
-      idtac.
+      auto.
       subst InnerFunc.
 
       (* For the first goal *)
@@ -234,7 +233,7 @@ Section call_indirect.
          Then our helper, has_values_length, finishes it :)
        *)
       iPoseProof
-        (translate_types_sem_interp_length _ _ _ _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
+        (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
       iPoseProof (atoms_interp_length with "Hvsτs1") as "%Hi2".
       apply has_values_length in Hevs1 as Hevs_τs1inner.
       rewrite <- Hi2 in Hevs_τs1inner.
@@ -253,14 +252,14 @@ Section call_indirect.
       iModIntro.
 
       change (?x ++ [?y] ++ [?z]) with (x ++ [y;z]).
-      iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [$nstab] [$nsfun]").
-      + cbn. apply InstTypesFound.
+      iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [$nstab] [$nsfun]"); auto.
+      (* + cbn. apply InstTypesFound. *)
       + apply InstTab0.
       + apply Hevs1.
-      + apply Hevs_τs1inner.
+      (* + apply Hevs_τs1inner. *)
       + by unfold numerics.N_nat_repr.
       + by unfold numerics.N_nat_repr.
-      + apply nrepr.
+      (* + apply nrepr. *)
       + iModIntro.
         iIntros "Hfr Hrun Hnata Hfuncnative".
         iDestruct "what" as "#what".
@@ -286,19 +285,139 @@ Section call_indirect.
         {
           iIntros (f vs0) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)".
           iPoseProof
-            (translate_types_sem_interp_length _ _ _ _ _ _ _ Hts2inner with "Hos2") as "%hi".
+            (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts2inner with "Hos2") as "%hi".
           iPoseProof (atoms_interp_length with "Hvs2") as "%hi2".
           rewrite hi2 in hi.
           iFrame.
           iSplitL; auto.
         }
     - (* the thing is None *)
-      cbn in Hi. inversion Hi; subst; clear Hi.
+      cbn in Hi.
+      inversion Hi; subst; clear Hi.
       clear_nils.
-      admit.
+      rename ϕ_W into OuterFunc.
+      set (i := (length l)).
 
+      unfold instance_interp.
 
+      (* Okay first goal: prove that InnerFunc = OuterFunc *)
 
-  Admitted.
+      (* this is copy pasted *)
+      destruct InnerFunc eqn:HInnerFunc.
+
+      rename r into τs1_inner; rename r0 into τs2_inner.
+      rewrite HCodeRefsType.
+      unfold closure_interp0.
+      iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
+
+      assert (Yeah:(InnerFunc = OuterFunc) ). {
+        rewrite HCodeRefsType in Hoff.
+        cbn in Hoff.
+        apply bind_Some in Hoff as (x & transts1 & rest).
+        apply bind_Some in rest as (x2 & transts2 & rest).
+        rename x into ts1_tounify.
+        rename x2 into ts2_tounify.
+        inversion rest.
+        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
+        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
+        subst; auto.
+        rewrite Hts1inner in transts1.
+        rewrite Hts2inner in transts2.
+        inversion transts1; subst. inversion transts2; subst. done.
+      }
+      idtac.
+      subst InnerFunc.
+
+      (* first goal: inst_types (f_inst f0) !! (length l) = Some Tf ... *)
+      iDestruct "Hinst" as "[%tosubst Hinst]".
+      assert (InstTypesFound: inst_types (f_inst f0) !! (length l) = Some OuterFunc). {
+        rewrite tosubst.
+        apply list_lookup_middle; auto.
+      }
+      rewrite <- Yeah in InstTypesFound.
+
+      (* For the second *)
+      unfold instance_table_interp.
+      iDestruct "Hinst" as "(H1 & H2 & (%InstTab0 & H3) & %HMMMem & %HGCMem)".
+      (* InstTab0 is the second goal *)
+
+      (* The third goal is exactly Hevs1 *)
+
+      (* Fourth goal: length evs = length τs1_inner *)
+      (* The things we have to use:
+         - has_values evs vs
+         - atoms_interp os1 vs
+         - values_interp τs1 os1
+         - translate_types se τs1 = Some τs1_inner
+
+         Using translate_types_sem_interp_length we can have
+         - length os1 = length τs1_inner
+
+         Using atoms_interp_length we have
+         - length os1 = length vs
+
+         Then our helper, has_values_length, finishes it :)
+       *)
+      iPoseProof
+        (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
+      iPoseProof (atoms_interp_length with "Hvsτs1") as "%Hi2".
+      apply has_values_length in Hevs1 as Hevs_τs1inner.
+      rewrite <- Hi2 in Hevs_τs1inner.
+      rewrite Hi in Hevs_τs1inner. (* okay that's goal 4 *)
+
+      (* Goal 5 and 6 are just instantiating the right things and unfolding *)
+      (* Goal 7 is just apply nrepr *)
+
+      (* Goals 8 and 9 are opening the invariants as follows *)
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "nstab Hown") as "(>nstab & Hown & Hclose1)".
+      1, 2: done.
+      iMod (na_inv_acc with "nsfun Hown") as "(>nsfun & Hown & Hclose2)".
+      { done. }
+      { solve_ndisj. }
+      iModIntro.
+
+      change (?x ++ [?y] ++ [?z]) with (x ++ [y;z]).
+      iApply (cwp_call_indirect with "[$Hrun] [$Hfr] [$nstab] [$nsfun]"); auto.
+      (* + cbn. apply InstTypesFound. *)
+      + apply InstTab0.
+      + apply Hevs1.
+      (* + apply Hevs_τs1inner. *)
+      + by unfold numerics.N_nat_repr.
+      + by unfold numerics.N_nat_repr.
+      (* + apply nrepr. *)
+      + iModIntro.
+        iIntros "Hfr Hrun Hnata Hfuncnative".
+        iDestruct "what" as "#what".
+        iEval (unfold values_interp) in "Hosτs1".
+        (* Now we close the invariants before continuing *)
+        iApply fupd_cwp.
+        iMod ("Hclose2" with "[$Hown $Hfuncnative]") as "Hown".
+        iMod ("Hclose1" with "[$Hown $Hnata]") as "Hown".
+        iModIntro.
+        (* Let's go let's go *)
+        iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hown] [$Hfr] [$Hrun]") as "huh".
+        iClear "what". (* i don't think we need it but if anything delete this line *)
+
+        (* okay we need to do a three step combo *)
+        (* cwp_label_wand to flip L (the first list) *)
+        (* cwp_return_wand to flip R (the Some) *)
+        (* cwp_wand to flip the post condition *)
+        iApply (cwp_frame_ctx1 with "[huh] [Hframe]").
+        { iApply "huh". }
+        { iApply "Hframe". }
+        { iIntros (??) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }
+        { iIntros (?) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }
+        {
+          iIntros (f vs0) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)".
+          iPoseProof
+            (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts2inner with "Hos2") as "%hi".
+          iPoseProof (atoms_interp_length with "Hvs2") as "%hi2".
+          rewrite hi2 in hi.
+          iFrame.
+          iSplitL; auto.
+        }
+
+  Qed.
 
 End call_indirect.
