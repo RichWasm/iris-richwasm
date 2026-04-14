@@ -105,7 +105,8 @@ Section Runtime.
           @ s; E UNDER B; R
           {{ fr'; vs, ⌜fr = fr'⌝ ∗
                N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗
-               ∃ θ' ar tar32,
+               ∃ ar tar32,
+                 let θ' := <[ℓ := (MemGC, ar)]> θ in
                  ⌜N_i32_repr (tag_address MemGC ar) tar32⌝ ∗
                  ⌜vs = [VAL_int32 tar32]⌝ ∗
                  ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ ∗

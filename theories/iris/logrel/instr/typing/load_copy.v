@@ -800,7 +800,7 @@ Section load_copy.
       N_i32_repr n n32 ->
       has_values evs [VAL_int32 n32] ->
       repr_root_pointer (RootHeap MemGC a) n ->
-      ⊢ ∀ B R Φ e f ℓ,
+      ⊢ ∀ s E B R Φ e f ℓ,
           ↪[frame] f -∗
           ↪[RUN] -∗
           ⌜f.(f_inst).(inst_memory) !! memimm mr.(mr_gcmem) = Some sr.(sr_mem_gc)⌝ -∗
@@ -812,14 +812,14 @@ Section load_copy.
               a ↦root ℓ -∗
               rt_token rti sr e -∗
               Φ f [VAL_int32 ah32]) -∗
-          CWP evs ++ es_load UNDER B; R {{ Φ }}.
+          CWP evs ++ es_load @ s; E UNDER B; R {{ Φ }}.
   Proof.
     unfold loadroot.
     intros Hcg.
     inv_cg_emit Hcg; subst.
     repeat (split; first done).
     intros * Hn32 Hevs Han.
-    iIntros (B R Φ e f ℓ) "Hf Hrun %Hmem Hroot Htok HΦ".
+    iIntros (s E B R Φ e f ℓ) "Hf Hrun %Hmem Hroot Htok HΦ".
     iPoseProof (extract_root_pointer with "Hroot Htok")
       as "(%ah & %bs & %Hrep & %Hbs & Hroot & Hsave)".
     inversion Han; subst.
@@ -844,9 +844,9 @@ Section load_copy.
         repr_pointer e (PtrHeap MemGC ℓ) ah ->
         N_i32_repr ah ah32 ->
         has_values evs [VAL_int32 ah32] ->
-      ⊢ ∀ f B R E Φ,
-
-        (∀ ar ar32 e',
+      ⊢ ∀ f B R s E Φ,
+        (∀ ar ar32,
+           let e' := <[ℓ := (MemGC, ar)]>e in
             ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
             ar ↦root ℓ -∗ rt_token rti sr e' -∗ na_own logrel_nais E -∗
             ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
@@ -857,14 +857,14 @@ Section load_copy.
         na_own logrel_nais E  -∗
         rt_token rti sr e -∗
         instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-        CWP evs ++ es_register @ NotStuck; E UNDER B; R {{ Φ }}.
+        CWP evs ++ es_register @ s; E UNDER B; R {{ Φ }}.
   Proof.
     unfold registerroot.
     intros Hcg.
     inv_cg_emit Hcg; subst.
     repeat (split; first done).
     intros * Hptr Hrah Hevs.
-    iIntros (f B R E Φ) "HΦ Hf Hrun %HE Htok Hrt Hreg".
+    iIntros (f B R s E Φ) "HΦ Hf Hrun %HE Htok Hrt Hreg".
     apply Is_true_true in Hevs.
     rewrite (has_values_to_consts_inv _ _ Hevs).
     clear Hevs evs.
@@ -890,7 +890,7 @@ Section load_copy.
     { eauto. }
     {
       cbn.
-      iIntros (f' v) "(<- & Hcl' & %e' & %ar & %tar32 & %Hrep & -> & %Hrepr & Hroot & Hrt)".
+      iIntros (f' v) "(<- & Hcl' & %ar & %tar32 & %Hrep & -> & %Hrepr & Hroot & Hrt)".
       iSpecialize ("Hsave" with "Hcl'").
       iMod "Hsave".
       iApply ("HΦ" with "[//] [$] [$] [$] [//]").
@@ -900,16 +900,66 @@ Section load_copy.
   Lemma wp_duproot wt wl ret wt' wl' es_dup :
     run_codegen (duproot mr) wt wl = inr (ret, wt', wl', es_dup) ->
     ret = () /\
-    wt' = wt /\
-    wl' = wl /\
-    ∀ evs v,
-      has_values evs [v] ->
-      ⊢ ∀ B R Φ, CWP evs ++ es_dup UNDER B; R {{ Φ }}.
+    wt' = [] /\
+    wl' = [] /\
+    ∀ evs a n n32,
+      N_i32_repr n n32 →
+      has_values evs [VAL_int32 n32] ->
+      repr_root_pointer (RootHeap MemGC a) n ->
+      ⊢ ∀ s E B R Φ f ℓ e,
+        ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜inst_memory (f_inst f) !! memimm (mr_gcmem mr) = Some (sr_mem_gc sr)⌝ -∗
+        ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+        a ↦root ℓ -∗
+        rt_token rti sr e -∗
+        na_own logrel_nais E -∗
+        instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+        (∀ ar ar32,
+           ⌜repr_root_pointer (RootHeap MemGC ar) (tag_address MemGC ar)⌝ -∗
+           ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
+           a ↦root ℓ -∗
+           ar ↦root ℓ -∗
+           rt_token rti sr (<[ℓ:=(MemGC, ar)]> e) -∗
+           na_own logrel_nais E -∗
+           Φ f [VAL_int32 ar32]) -∗
+        CWP evs ++ es_dup @ s; E UNDER B; R {{ Φ }}.
   Proof.
     unfold duproot.
     intros Hcg.
     inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl ?es_load ?es_reg Hload Hreg.
-  Abort.
+    apply wp_loadroot in Hload.
+    destruct Hload as (_ & -> & -> & Hload).
+    clear_nils.
+    apply wp_registerroot in Hreg.
+    destruct Hreg as (-> & -> & -> & Hreg).
+    repeat (split; first reflexivity).
+    intros evs a n n32 Hnrep Hevs Hreproot.
+    specialize (Hload evs a n n32 Hnrep Hevs Hreproot).
+    iIntros (s E B R Φ f ℓ e) "Hf Hrun %Hmems %Hmask Hroot Htok Hinv Hreg HΦ".
+    rewrite app_assoc.
+    iApply (cwp_seq with "[-Hinv Hreg HΦ]").
+    {
+      iApply (Hload with "[$] [$] [//] [$] [$]").
+      iIntros "!>" (ah ah32 Harep Harep32) "Hroot Htok".
+      instantiate (1:= (fun f' v' =>
+                         ⌜f' = f⌝ ∗
+                         ∃ ah' ah32',
+                             ⌜N_i32_repr ah' ah32'⌝ ∗
+                             ⌜v' = [VAL_int32 ah32']⌝ ∗
+                             ⌜repr_pointer e (PtrHeap MemGC ℓ) ah'⌝ ∗
+                             a ↦root ℓ ∗ rt_token rti sr e
+                         )%I).
+      cbn.
+      iSplit; auto.
+      iExists _, _; by iFrame.
+    }
+    cbn; iIntros (f' vs) "(-> & %ah & %ah32 & %Hah & -> & %Hahrep & Hroot & Htok) Hf Hrun".
+    iApply (Hreg with "[Hroot HΦ] [$Hf] [$Hrun] [] [$Hinv] [$Htok] [$Hreg]"); eauto.
+    - apply Is_true_true, has_values_to_consts.
+    - iIntros (ar ar32 Har) "Hroot' Htok' Hown %Harrep".
+      iApply ("HΦ" with "[] [] [$] [$] [$] [$]"); eauto.
+  Qed.
 
   Lemma wp_mem_load1_copy_mm
     fe lidx off ι o wt wl ret wt' wl' es ℓ ℓ32 B R
