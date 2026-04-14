@@ -305,16 +305,6 @@ Section structural.
     by destruct R.
   Qed.
 
-  (* Interactions with the fancy update modality. *)
-  Lemma cwp_fupd s E es L R Φ :
-    (|={E}=> cwp_wasm s E es L R Φ)
-    ⊢ cwp_wasm s E es L R Φ.
-  Proof.
-    unfold cwp_wasm, lenient_wp.
-    iIntros "Hwp".
-    by iApply fupd_wp.
-  Qed.
-
   (* todo: rename this to cwp_wand_strong *)
   Lemma cwp_wand_strong s1 s2 E1 E2 es L R Φ Ψ :
     CWP es @ s1; E1 UNDER L; R {{ Φ }} -∗
@@ -324,5 +314,26 @@ Section structural.
     CWP es @ s2; E2 UNDER L; R {{ Ψ }}.
   Proof.
   Admitted.
+
+  Lemma fupd_cwp s E e L R Φ :
+    (|={E}=> CWP e @ s; E UNDER L; R {{ Φ }}) ⊢
+    CWP e @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros.
+    by iApply fupd_wp.
+  Qed.
+
+  Lemma cwp_fupd s E e L R Φ :
+    CWP e @ s; E UNDER L; R {{ f; v, |={E}=> Φ f v }} ⊢
+    CWP e @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    iIntros.
+    iApply wp_fupd.
+    iApply (wp_wand with "[-]"); first done.
+    iIntros (?) "H".
+    destruct v;
+      first (iDestruct "H" as "(% & ? & _ & ? & ?)"; by iFrame);
+      by iModIntro.
+  Qed.
 
 End structural.
