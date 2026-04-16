@@ -70,7 +70,7 @@ Definition save_stack1 (fe : function_env) (t : W.value_type) : codegen W.locali
   ret i.
 
 Definition save_stack_w (fe : function_env) (ts : W.result_type) : codegen (list W.localidx) :=
-  ixs ← mapM (wlalloc fe) ts;
+  ixs ← wlallocs fe ts;
   set_locals_w ixs;;
   ret ixs.
 

@@ -740,11 +740,12 @@ Section CodeGen.
   Qed.
 
   Lemma wp_set_locals_w tys :
-    forall s E Φ fe wt wl idxs v wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+    forall s E Φ fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
       wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
       result_type_interp tys vs ->
-      v = () ∧
+      localidxs = map W.Mk_localidx idxs ->
+        v = () /\
         wt' = [] /\
         wl' = [] /\
         ⊢ ↪[frame] fr -∗
@@ -753,8 +754,8 @@ Section CodeGen.
           WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
              {{ v, Φ v ∗ ↪[RUN] ∗
                    ∃ f, ↪[frame] f  ∗
-                          ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-                          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) idxs vs⌝ }}.
+                          ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+                          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ }}.
   Proof.
     intros * Hcg.
     apply run_codegen_set_locals in Hcg as (-> & -> & ->).
@@ -802,18 +803,19 @@ Section CodeGen.
   (* Qed. *)
 
   Lemma lwp_set_locals_w tys Φ :
-    forall s E fe wt wl idxs v wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+    forall s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
       wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
       result_type_interp tys vs ->
+      localidxs = map W.Mk_localidx idxs ->
       v = () ∧
       wt' = [] /\
       wl' = [] /\
       ⊢ ↪[frame] fr -∗
         ↪[RUN] -∗
         (∀ f,
-            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
             Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f []) -∗
         lenient_wp s E (W.v_to_e_list vs ++ to_e_list es) Φ.
   Proof.
@@ -836,26 +838,27 @@ Section CodeGen.
   Qed.
 
   Lemma cwp_set_locals_w tys L R Φ :
-    forall s E fe wt wl idxs v wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w idxs) wt wl = inr (v, wt', wl', es) ->
+    forall s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
       wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
       result_type_interp tys vs ->
+      localidxs = map W.Mk_localidx idxs ->
       v = () ∧
       wt' = [] /\
       wl' = [] /\
       ⊢ ↪[frame] fr -∗
         ↪[RUN] -∗
         (∀ f,
-            ⌜∀ i, i ∉ idxs -> f_locs f !! localimm i = f_locs fr !! localimm i⌝ ∗
-            ⌜Forall2 (fun i v => f_locs f !! localimm i = Some v) idxs vs⌝ -∗
+            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
             Φ f []) -∗
             CWP (map BI_const vs) ++ es @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros s E fe wt wl idxs v wt' wl' wlf es fr vs Hcg Hwl Hrt.
+    intros s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs Hcg Hwl Hrt Hlocals.
     destruct (lwp_set_locals_w tys (cwp_post_lp L R Φ)
-                s E fe wt wl idxs v wt' wl' wlf es fr vs
+                s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs
                 Hcg Hwl Hrt)
-                as (-> & -> & -> & Hwp).
+                as (-> & -> & -> & Hwp); first done.
     do 3 split; try done.
     iIntros "Hfr Hrun H".
     unfold cwp_wasm.
