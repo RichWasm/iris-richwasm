@@ -981,4 +981,14 @@ Section common.
       by constructor.
   Qed.
 
+  Lemma empty_closure_interp se ϕ cl :
+    closure_interp rti sr senv_empty ϕ cl -∗
+    closure_interp rti sr se ϕ cl.
+  Proof.
+    (* This seems true? *)
+    iIntros "H".
+    cbn.
+
+  Admitted.
+
 End common.

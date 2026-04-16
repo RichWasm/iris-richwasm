@@ -14,15 +14,6 @@ Section coderef.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma empty_closure_interp se ϕ cl :
-    closure_interp rti sr senv_empty ϕ cl -∗
-    closure_interp rti sr se ϕ cl.
-  Proof.
-    (* This seems true? TODO *)
-    iIntros "H".
-    cbn.
-
-  Admitted.
 
   Lemma compat_coderef M F L wt wt' wtf wl wl' wlf es' i ϕ :
     let fe := fe_of_context F in
@@ -126,13 +117,11 @@ Section coderef.
         iApply (cwp_global_get with "[$Hwg] [] [$Hfr] [$Hrun]").
         - by apply HInstGlobs.
         - done.
-        - (* this might need to change *)
-          by instantiate
+        - by instantiate
             (1 := (λ f' v', (⌜f' = fr⌝ ∗ ⌜v' = [VAL_int32 (Wasm_int.Int32.repr off)]⌝)%I)).
       }
 
       iIntros (f v) "((-> & ->) & Hwg)".
-      (* I need to make sure Hwg is incorporated somehow *)
       iSplitR; auto.
       iSplitR; auto.
       iFrame.
@@ -165,11 +154,8 @@ Section coderef.
       iFrame; auto.
     - iEval (cbn).
       iExists [[_]].
-      iSplit; auto.
-      iEval (cbn).
-      iSplit; auto.
-      iApply value_interp_eq.
-      iEval (cbn).
+      iSplit; auto; iEval (cbn); iSplit; auto.
+      iApply value_interp_eq; iEval (cbn).
       iExists (SVALTYPE [I32R] NoRefs).
       iSplitR; auto.
       iSplitR.
@@ -182,14 +168,15 @@ Section coderef.
         * iPureIntro.
           econstructor; auto. split; auto.
           apply Forall_singleton. econstructor.
-      + clear temp.
-        (* In this section, we need to prove ϕ interp *)
+      + (* In this section, we need to prove ϕ interp *)
         (* all info about ϕ is in table_entry_interp *)
         iPoseProof ((big_sepL_lookup _ _ _ _ Htable) with "HTableEntryInterp")
           as "Hϕ".
         iEval (unfold table_entry_interp) in "Hϕ".
         (* TODO I think table_entry_interp needs a clause about off+i less than 2^32 *)
-        iDestruct "Hϕ" as "(%i' & %cl & #Hclosure & #Hwt & #Hwf)".
+        (* or some sort of repr thing for N.of_nat (off + i) *)
+        iDestruct "Hϕ" as "(%i' & %cl & %nt & %zt &
+          %Hnt & %Hzt & %Hztsmall & #Hclosure & #Hwt & #Hwf)".
 
         (* now let's go *)
         iExists _.
@@ -197,23 +184,72 @@ Section coderef.
         iExists i' , cl.
         iSplitR; [auto|iSplitR;[auto|]].
 
-        (* I'm scared. One goal autos *)
+        (* almost there *)
         iSplitR; [|iSplitR]; auto.
-        * iApply (empty_closure_interp with "[$Hclosure]").
+        * iApply (empty_closure_interp with "[$Hclosure]"); auto.
         *
-          assert (Hopefully: N.of_nat (off+i) =
+          (* this is the worst proof I've ever written *)
+          (* fix it one day but it qeds for now *)
+          assert (Hopefully: nt =
                                Wasm_int.N_of_uint i32m
                                    (Wasm_int.Int32.iadd (Wasm_int.Int32.repr i)
                                       (Wasm_int.Int32.repr off))
                  ). {
             cbn.
-            rewrite Nat.add_comm.
-            (* uhm we need off + i to be guaranteed less than 32 modulus somewhere *)
-            (* this is NOT true currectly TODO *)
-            admit.
+
+            cbn in Hnt. cbn in Hzt. cbn in Hztsmall.
+            unfold numerics.N_nat_repr in *.
+            unfold numerics.N_Z_repr in *.
+            rewrite Nat.add_comm in Hnt.
+            repeat rewrite Wasm_int.Int32.Z_mod_modulus_eq.
+            pose proof Wasm_int.Int32.modulus_pos as HModPos.
+            pose proof (N2Z.is_nonneg nt) as HntPos.
+            apply Z.gt_lt in HModPos.
+            apply Z.lt_le_incl in HModPos.
+            rewrite <- Hzt in Hztsmall.
+            rewrite (Zabs2Nat.inj_lt _ _ HntPos HModPos) in Hztsmall.
+            rewrite <- Hnt in Hztsmall.
+            rewrite nat_N_Z in Hztsmall.
+            rewrite Zabs2Nat.id in Hztsmall.
+            apply Z2Nat.id in HModPos as HModNat.
+            rewrite (Zabs2Nat.abs_nat_nonneg _ HModPos) in Hztsmall.
+            assert (Help1: i < Z.to_nat Wasm_int.Int32.modulus) by lia.
+            assert (Help2: off < Z.to_nat Wasm_int.Int32.modulus) by lia.
+            assert (Help3:
+              ((Z.of_nat i) `mod` Wasm_int.Int32.modulus)%Z = Z.of_nat i). {
+              apply inj_lt in Help1 as Help1Z.
+              assert (aaaaaah: 0 ≤ i) by lia.
+              apply inj_le in aaaaaah.
+              assert (please: (0 ≤ i < Wasm_int.Int32.modulus)%Z) by lia.
+              apply Z.mod_small. auto.
+            }
+            rewrite Help3.
+            assert (Help4:
+              ((Z.of_nat off) `mod` Wasm_int.Int32.modulus)%Z = Z.of_nat off). {
+              apply inj_lt in Help1 as Help1Z.
+              assert (aaaaaah: 0 ≤ off) by lia.
+              apply inj_le in aaaaaah.
+              assert (please: (0 ≤ off < Wasm_int.Int32.modulus)%Z) by lia.
+              apply Z.mod_small. auto.
+            }
+            rewrite Help4.
+            assert (Help5:
+              ((Z.of_nat (i+off)) `mod` Wasm_int.Int32.modulus)%Z = Z.of_nat (i+off)). {
+              apply inj_lt in Help1 as Help1Z.
+              assert (aaaaaah: 0 ≤ (i+off)) by lia.
+              apply inj_le in aaaaaah.
+              assert (please: (0 ≤ (i+off)%nat < Wasm_int.Int32.modulus)%Z) by lia.
+              apply Z.mod_small.
+              auto.
+            }
+            rewrite (Nat2Z.inj_add _ _) in Help5.
+            rewrite Help5.
+
+            lia.
+
           }
           rewrite <- Hopefully. auto.
 
-  Admitted.
+  Qed.
 
 End coderef.
