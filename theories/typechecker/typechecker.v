@@ -2313,43 +2313,54 @@ Definition function_type_inst_checker
   (F:function_ctx) (i:index) (ft1:function_type) (ft2:function_type) : type_checker_res :=
   match i with
   | MemI μ =>
-      match ft1 with
-      | ForallMemT ϕ =>
-          if function_type_beq ft2 (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ)
-          then ok_term
-          else INR "something not matching in function type inst checker"
-      | _ => INR "bad function type inst"
-      end
-  | RepI ρ =>
-      match ft1 with
-      | ForallRepT ϕ =>
-          if function_type_beq ft2 (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ)
-          then ok_term
-          else INR "something not matching in function type inst checker"
-      | _ => INR "bad function type inst"
-      end
-  | SizeI σ =>
-      match ft1 with
-      | ForallSizeT ϕ =>
-          if function_type_beq ft2 (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ)
-          then ok_term
-          else INR "something not matching in function type inst checker"
-      | _ => INR "bad function type inst"
-      end
- | TypeI τ =>
-       match ft1 with
-      | ForallTypeT κ ϕ =>
-          match has_kind_checker F τ κ with
-          | inl () =>
-              if function_type_beq ft2 (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)
+      match mem_ok_checker F.(fc_kind_ctx) μ with
+      | inl () =>
+          match ft1 with
+          | ForallMemT ϕ =>
+              if function_type_beq ft2 (subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ)
               then ok_term
               else INR "something not matching in function type inst checker"
-          | err => err
+          | _ => INR "bad function type inst"
           end
-      | _ => INR "bad function type inst"
+      | err => err
       end
+  | RepI ρ =>
+      match rep_ok_checker F.(fc_kind_ctx) ρ with
+      | inl () =>
+          match ft1 with
+          | ForallRepT ϕ =>
+              if function_type_beq ft2 (subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ)
+              then ok_term
+              else INR "something not matching in function type inst checker"
+          | _ => INR "bad function type inst"
+          end
+      | err => err
+      end
+  | SizeI σ =>
+      match size_ok_checker F.(fc_kind_ctx) σ with
+      | inl () =>
+          match ft1 with
+          | ForallSizeT ϕ =>
+              if function_type_beq ft2 (subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ)
+              then ok_term
+              else INR "something not matching in function type inst checker"
+          | _ => INR "bad function type inst"
+          end
+      | err => err
+      end
+ | TypeI τ =>
+     match ft1 with
+     | ForallTypeT κ ϕ =>
+         match has_kind_checker F τ κ with
+         | inl () =>
+             if function_type_beq ft2 (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)
+             then ok_term
+             else INR "something not matching in function type inst checker"
+         | err => err
+         end
+     | _ => INR "bad function type inst"
+     end
  end.
-
 
 Lemma function_type_inst_checker_correct :
   ∀ F i ft1 ft2, function_type_inst_checker F i ft1 ft2 = ok_term -> function_type_inst F i ft1 ft2.

@@ -573,12 +573,15 @@ Inductive type_eq : function_ctx -> type -> type -> Prop :=
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
 | FTInstMem F ϕ μ :
+  mem_ok F.(fc_kind_ctx) μ ->
   let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
   function_type_inst F (MemI μ) (ForallMemT ϕ) ϕ'
 | FTInstRep F ϕ ρ :
+  rep_ok F.(fc_kind_ctx) ρ ->
   let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
   function_type_inst F (RepI ρ) (ForallRepT ϕ) ϕ'
 | FTInstSize F ϕ σ :
+  size_ok F.(fc_kind_ctx) σ ->
   let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
   function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'
 | FTInstType F ϕ τ κ :

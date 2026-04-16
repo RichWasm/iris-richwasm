@@ -13,6 +13,72 @@ Section inst.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma closure_interp0_subst_senv_mem F se μ ϕ cl :
+    mem_ok F.(fc_kind_ctx) μ ->
+    sem_env_interp F se ->
+    (∀ μ', closure_interp0 rti sr (value_interp rti sr) (senv_insert_mem rti sr μ' se) ϕ cl) -∗
+    let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
+    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+  Proof.
+    iIntros (Hok Hse) "Hcl".
+    destruct μ as [n|μ].
+    - inversion Hok as [K m Hn HK Hm|].
+      subst K m.
+      destruct Hse as [[Hmems _] _].
+      rewrite Hmems in Hn.
+      apply lookup_lt_is_Some in Hn as [μ' Hμ'].
+      iSpecialize ("Hcl" $! μ').
+      induction ϕ.
+      + admit.
+      + cbn.
+        iIntros (?).
+        iSpecialize ("Hcl" $! μ).
+        admit.
+      + admit.
+      + admit.
+      + admit.
+    - iSpecialize ("Hcl" $! μ).
+      induction ϕ.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+  Admitted.
+
+  Lemma closure_interp0_subst_senv_rep F se ρ ϕ cl :
+    rep_ok (fc_kind_ctx F) ρ ->
+    sem_env_interp F se ->
+    (∀ ι, closure_interp0 rti sr (value_interp rti sr) (senv_insert_rep rti sr ι se) ϕ cl) -∗
+    let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
+    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+  Proof.
+    iIntros (Hok Hse) "Hcl".
+  Admitted.
+
+  Lemma closure_interp0_subst_senv_size F se σ ϕ cl :
+    size_ok (fc_kind_ctx F) σ ->
+    sem_env_interp F se ->
+    (∀ n, closure_interp0 rti sr (value_interp rti sr) (senv_insert_size rti sr n se) ϕ cl) -∗
+    let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
+    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+  Proof.
+    iIntros (Hok Hse) "Hcl".
+  Admitted.
+
+  Lemma closure_interp0_subst_senv_type F se τ κ ϕ cl :
+    has_kind F τ κ ->
+    sem_env_interp F se ->
+    (∀ sκ T,
+       ⌜eval_kind se κ = Some sκ⌝ -∗
+       ⌜skind_interp sκ T⌝ -∗
+       closure_interp0 rti sr (value_interp rti sr) (senv_insert_type sκ T se) ϕ cl) -∗
+    let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
+    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+  Proof.
+    iIntros (Hok Hse) "Hcl".
+  Admitted.
+
   Lemma compat_inst M F L wt wt' wtf wl wl' wlf es' ix ϕ ϕ' :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -64,42 +130,10 @@ Section inst.
     all: iFrame.
     all: iSplitR; auto; iSplitR; auto.
 
-    (* these will likely have to be done separately. at the end maybe
-       pull together better *)
-    - destruct μ.
-      + iEval (cbn).
-        (* skipping for now *)
-        admit.
-      + iSpecialize ("Hclosure" $! b).
-
-        admit.
-    all: admit.
-
-
-    
-
-
-    (* intros fe WT WL κ ψ Hfinst Hok Hcg. *)
-    (* cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg. *)
-    (* simpl to_e_list. *)
-    (* iApply sem_type_erased; first done. *)
-    (* iIntros (se vs) "Hrec". *)
-    (* do 2 rewrite values_interp_one_eq value_interp_eq. *)
-    (* cbn [subst_type]. *)
-    (* cbn -[closure_interp0]. *)
-    (* iDestruct "Hrec" as "(%κ' & %Hκ' & Hkindinterp & %i & %j & %cl & %Hvs & Hrec)". *)
-    (* inversion Hκ'; subst κ'; clear Hκ'. *)
-    (* inversion Hvs; subst vs; clear Hvs. *)
-    (* iExists (SVALTYPE [I32R] ImCopy ImDrop). *)
-    (* iSplit; first done. *)
-    (* iFrame. *)
-    (* iExists i, j, cl. *)
-    (* iSplit; first done. *)
-    (* iDestruct "Hrec" as "(Hrec & Hj & Hcl)". *)
-    (* iFrame. *)
-    (* iModIntro. *)
-    (* (* prove that closure interp at ϕ implies closure interp at any instantiation ϕ' *) *)
-    (* (* Will probably want to proceed by induction on function_type_inst? *) *)
-  Admitted.
+    - iApply closure_interp0_subst_senv_mem; [done|done|by inversion Hok].
+    - iApply closure_interp0_subst_senv_rep; [done|done|by inversion Hok].
+    - iApply closure_interp0_subst_senv_size; [done|done|by inversion Hok].
+    - iApply closure_interp0_subst_senv_type; [done|done|by inversion Hok].
+  Qed.
 
 End inst.
