@@ -24,33 +24,6 @@ Section call_indirect.
     destruct (vs ++ [v]); inversion IHvs. auto.
   Qed.
 
-  Lemma value_interp_coderef se os κ τs1 τs2 :
-    value_interp rti sr se (CodeRefT κ (MonoFunT τs1 τs2)) (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
-  Proof.
-    iIntros "Hval".
-    iPoseProof (value_interp_eq with "Hval") as "Hval".
-    iEval (cbn) in "Hval".
-    iDestruct "Hval" as "(%κ0 & %Hκ & Rest)".
-    destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
-    iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
-
-    iDestruct "Oh" as "(%i & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
-
-    inversion nos; subst; clear nos.
-    auto.
-
-  Qed.
-
-  Lemma has_values_length evs vs :
-    has_values evs vs -> length evs = length vs.
-  Proof.
-    intros.
-    unfold has_values in H.
-    apply Is_true_true in H.
-    apply all2_size in H.
-    auto.
-  Qed.
-
   Lemma compat_call_indirect M F L wt wt' wtf wl wl' wlf es' τs1 τs2 :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in

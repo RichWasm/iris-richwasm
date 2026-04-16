@@ -52,6 +52,16 @@ Section common.
       by rewrite -(Forall2_length _ _ _ Hm).
   Qed.
 
+  Lemma has_values_length evs vs :
+    has_values evs vs -> length evs = length vs.
+  Proof.
+    intros.
+    unfold has_values in H.
+    apply Is_true_true in H.
+    apply all2_size in H.
+    auto.
+  Qed.
+
   Lemma value_interp_i31 se os :
     value_interp rti sr se type_i31 (SAtoms os) -∗ ∃ n, ⌜os = [PtrA n]⌝.
   Proof.
@@ -92,6 +102,23 @@ Section common.
     cbn in Harep.
     destruct o; try (inversion Harep).
     exists n; auto.
+  Qed.
+
+  Lemma value_interp_coderef se os κ ϕ :
+    value_interp rti sr se (CodeRefT κ ϕ) (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
+  Proof.
+    iIntros "Hval".
+    iPoseProof (value_interp_eq with "Hval") as "Hval".
+    iEval (cbn) in "Hval".
+    iDestruct "Hval" as "(%κ0 & %Hκ & Rest)".
+    destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
+    iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
+
+    iDestruct "Oh" as "(%i & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
+
+    inversion nos; subst; clear nos.
+    auto.
+
   Qed.
 
   Lemma values_interp_nil_l se os :
