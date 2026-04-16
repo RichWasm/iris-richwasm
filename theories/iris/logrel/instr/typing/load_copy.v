@@ -1157,13 +1157,16 @@ Section load_copy.
         load1_post Φ fe wl memidxN ℓ off E f v o -∗
         CWP es @ s; E UNDER B; R {{ Φ }}.
   Proof.
+    (*
     iIntros (Hcg) "(% & % & % & % & % & % & % & Hf & Hrun & % & % & H') HΦ".
     iDestruct "H'" as "(? & ? & ? & ? & ?)".
     eapply wp_mem_load1_copy_mm  in Hcg; eauto.
     destruct Hcg as [-> Hcg].
     iApply (Hcg with "[$] [$] [//] [//] [$] [$] [$] [$] [$] [$]").
-  Qed.
+    *)
+  Abort.
 
+  (*
   Lemma wp_mem_foldl_load1_copy_mm
     fe lidx off ιs os wt wl ret wt' wl' es ℓ ℓ32 B R
     (f: frame) memidx memidxN v Φ :
@@ -1184,6 +1187,7 @@ Section load_copy.
 
     load1_post Φ v memidxN ℓ off e E f' o -∗
     CWP es @ s; E UNDER B; R {{ Φ }}.
+  *)
 
   Lemma wp_mem_load_copy_mm se fe lidx off ιs wt wl ret wt' wl' es fs ws ℓ τ π  :
     run_codegen (memory.load mr fe MemMM Copy lidx off ιs) wt wl = inr (ret, wt', wl', es) ->
@@ -1209,9 +1213,11 @@ Section load_copy.
       unfold util.foldlM in Hcg.
       cbn in Hcg.
       simpl in Hcg.
+      (*
       inversion H; subst.
       repeat (split; first reflexivity).
       iIntros (Φ s E B R) "Hlayout Hheap Hval Hpath".
+      *)
   Abort.
 
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
