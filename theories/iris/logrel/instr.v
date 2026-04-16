@@ -572,9 +572,11 @@ Section Relations.
           na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
   Definition table_entry_interp (off : nat) (i : nat) (ϕ : function_type) : iProp Σ :=
-    let nt := N.of_nat (off + i) in
-    ∃ i' cl,
-      closure_interp senv_empty ϕ cl ∗
+    ∃ i' cl nt zt,
+      ⌜N_nat_repr (off + i) nt⌝ ∗
+        ⌜N_Z_repr nt zt⌝ ∗
+        ⌜zt < Wasm_int.Int32.modulus⌝%Z ∗
+        closure_interp senv_empty ϕ cl ∗
         na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
         na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
