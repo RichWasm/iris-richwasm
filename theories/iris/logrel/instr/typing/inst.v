@@ -66,34 +66,56 @@ Section inst.
     generalize dependent sub_m.
     generalize dependent se.
     generalize dependent se'.
-    induction ϕ.
-    - iIntros (???????) "Hcl".
-      rename l into τs1; rename l0 into τs2.
-
-      unfold closure_interp0.
-      iEval (cbn).
-      iEval (cbn) in "Hcl".
+    induction ϕ as [τs1 τs2| | | |] .
+    - iIntros (???????) "#Hcl".
       destruct cl; [|auto].
       destruct f as [τs1_trans τs2_trans] eqn:Hf.
       iDestruct "Hcl" as "(%Hτs1 & %Hτs2 & Hcl)".
-
-      iSplitR; [iPureIntro| iSplitR; [iPureIntro|]].
-      + admit.
-      + admit.
-      + admit.
+      iSplitR; [iPureIntro| iSplitR; [iPureIntro|]]; fold (subst_type sub_m sub_r sub_s sub_t).
+      + admit. (* translate_types *)
+      + admit. (* translate_types *)
+      + iIntros "!> !> %%% Hvs Hos Hrt Hown Hfr Hrun".
+        iApply (cwp_label_wand with "[-]").
+        * iApply (cwp_return_wand with "[-]").
+          -- iApply (cwp_wand with "[-]").
+             ++ iApply ("Hcl" with "[$] [Hos] [$] [$] [$] [$]").
+                iClear "Hcl".
+                admit. (* values_interp0 *)
+             ++ iClear "Hcl".
+                iIntros (f' vs) "((%os & Hvs & Hos) & [% Hrt] & Hown)".
+                iSplitL "Hvs Hos"; last iFrame.
+                iExists _.
+                iFrame.
+                admit. (* values_interp0 *)
+          -- iClear "Hcl".
+             iSplitL; first done.
+             iIntros (? Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
+             cbn in Hlen.
+             iSplitL "Hvs Hos"; last iFrame.
+             iExists _.
+             iFrame.
+             admit. (* values_interp0 *)
+        * iClear "Hcl".
+          iSplitL; first done.
+          iApply big_sepL2_singleton.
+          iSplitL; first done.
+          iIntros (f' vs Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
+          cbn in Hlen.
+          iSplitL "Hvs Hos"; last iFrame.
+          iExists _.
+          iFrame.
+          admit. (* values_interp0 *)
     - iIntros (???????) "Hcl".
       cbn.
       iIntros (?).
       iApply IHϕ; last done.
       intros ? Hok'.
-
       destruct i.
       + instantiate (1:= MemMM).
         cbn. lia.
       + apply mem_ok_se_up in Hok'.
         apply Hok in Hok'.
         cbn. lia.
-
     - admit.
     - admit.
     - admit.

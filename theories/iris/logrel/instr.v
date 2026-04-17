@@ -331,7 +331,7 @@ Section Relations.
       | FC_func_native inst (Tf ts1 ts2) tlocs es =>
           ⌜translate_types se τs1 = Some ts1⌝ ∗
             ⌜translate_types se τs2 = Some ts2⌝ ∗
-            ▷ □ ∀ vs1 os1 θ,
+            □ ▷ ∀ vs1 os1 θ,
               atoms_interp os1 vs1 -∗
               values_interp0 vrel se τs1 os1 -∗
               rt_token rti sr θ -∗
