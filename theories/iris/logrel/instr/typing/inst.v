@@ -19,36 +19,82 @@ Section inst.
     | BaseM _ => True
     end.
 
-  Lemma mem_ok_se_up μ se sub_m i :
+  Lemma mem_ok_se_up_mem μ se sub_m i :
     mem_ok_se se (sub_m i) <->
-    mem_ok_se (senv_insert_mem μ se) (up_memory_memory sub_m (S i)).
+      mem_ok_se (senv_insert_mem μ se) (up_memory_memory sub_m (S i)).
+  Proof.
+    unfold mem_ok_se.
+    assert (Hope: ren_memory unscoped.shift (sub_m i) = up_memory_memory sub_m (S i)) by by substify.
+    split.
+    {
+      intros H.
+      rewrite <- Hope.
+      cbn.
+      destruct (sub_m i) eqn:Hsubi.
+      - cbn. unfold unscoped.shift. lia.
+      - cbn. auto.
+    }
+    {
+      intros H.
+      rewrite <- Hope in H.
+      cbn in *.
+      destruct (sub_m i) eqn:Hsubi.
+      - cbn in H. unfold unscoped.shift in H. lia.
+      - auto.
+    }
+  Qed.
+
+  Lemma mem_ok_se_up_rep ρ se sub_m i :
+    mem_ok_se se (sub_m i) <->
+      mem_ok_se (senv_insert_rep ρ se) (up_representation_memory sub_m i).
   Proof.
     unfold mem_ok_se.
     split.
     {
       intros H.
-      assert (Hope: (ren_memory unscoped.shift) (sub_m i) = up_memory_memory sub_m (S i)). {
-        substify. done.
-      }
-      rewrite <- Hope.
-      cbn.
-      destruct (sub_m i) eqn:Hsubi.
-      - cbn.
-        unfold unscoped.shift.
-        lia.
-      - cbn. auto.
+      unfold up_representation_memory, core.funcomp.
+      by rewrite rinstId'_memory.
     }
     {
       intros H.
-      assert (Hope: (ren_memory unscoped.shift) (sub_m i) = up_memory_memory sub_m (S i)). {
-        substify. done.
-      }
-      rewrite <- Hope in H.
+      unfold up_representation_memory, core.funcomp in H.
+      by rewrite rinstId'_memory in H.
+    }
+  Qed.
 
-      cbn in *.
-      destruct (sub_m i) eqn:Hsubi.
-      - cbn in H. unfold unscoped.shift in H. lia.
-      - auto.
+  Lemma mem_ok_se_up_size ρ se sub_m i :
+    mem_ok_se se (sub_m i) <->
+      mem_ok_se (senv_insert_size ρ se) (up_size_memory sub_m i).
+  Proof.
+    unfold mem_ok_se.
+    split.
+    {
+      intros H.
+      unfold up_size_memory, core.funcomp.
+      by rewrite rinstId'_memory.
+    }
+    {
+      intros H.
+      unfold up_size_memory, core.funcomp in H.
+      by rewrite rinstId'_memory in H.
+    }
+  Qed.
+
+  Lemma mem_ok_se_up_type sκ T se sub_m i :
+    mem_ok_se se (sub_m i) <->
+      mem_ok_se (senv_insert_type sκ T se) (up_type_memory sub_m i).
+  Proof.
+    unfold mem_ok_se.
+    split.
+    {
+      intros H.
+      unfold up_type_memory, core.funcomp.
+      by rewrite rinstId'_memory.
+    }
+    {
+      intros H.
+      unfold up_type_memory, core.funcomp in H.
+      by rewrite rinstId'_memory in H.
     }
   Qed.
 
@@ -66,7 +112,7 @@ Section inst.
     generalize dependent sub_m.
     generalize dependent se.
     generalize dependent se'.
-    induction ϕ as [τs1 τs2| | | |] .
+    induction ϕ as [τs1 τs2| | | |κ] .
     - iIntros (???????) "#Hcl".
       destruct cl; [|auto].
       destruct f as [τs1_trans τs2_trans] eqn:Hf.
@@ -105,20 +151,26 @@ Section inst.
           iExists _.
           iFrame.
           admit. (* values_interp0 *)
-    - iIntros (???????) "Hcl".
-      cbn.
-      iIntros (?).
+    - iIntros (???????) "Hcl %".
       iApply IHϕ; last done.
       intros ? Hok'.
       destruct i.
-      + instantiate (1:= MemMM).
-        cbn. lia.
-      + apply mem_ok_se_up in Hok'.
-        apply Hok in Hok'.
-        cbn. lia.
-    - admit.
-    - admit.
-    - admit.
+      + instantiate (1 := MemMM). cbn. lia.
+      + apply mem_ok_se_up_mem in Hok'. apply Hok in Hok'. cbn. lia.
+    - iIntros (???????) "Hcl %".
+      iApply IHϕ; last done.
+      intros ? Hok'.
+      apply Hok.
+      by rewrite mem_ok_se_up_rep.
+    - iIntros (???????) "Hcl %".
+      iApply IHϕ; last done.
+      intros ? Hok'.
+      apply Hok.
+      by rewrite mem_ok_se_up_size.
+    - iIntros (???????) "Hcl % % %Hsκ %HT".
+      iApply IHϕ; last iApply "Hcl"; last done.
+      + intros i Hok'. apply Hok. by rewrite mem_ok_se_up_type.
+      + iPureIntro. rewrite <- Hsκ. admit. (* eval_kind *)
   Admitted.
 
   Lemma closure_interp0_scons_insert_mem F se μ ϕ cl :
@@ -133,9 +185,7 @@ Section inst.
     intros i Hok_se.
     destruct i.
     - cbn. lia.
-    - instantiate (1:=MemMM).
-      cbn in *.
-      lia.
+    - instantiate (1:=MemMM). cbn in *. lia.
   Qed.
 
   Lemma closure_interp0_scons_insert_rep F se ρ ϕ cl :
