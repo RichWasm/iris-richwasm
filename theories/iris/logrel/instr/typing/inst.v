@@ -19,24 +19,38 @@ Section inst.
     | BaseM _ => True
     end.
 
-  (* TODO: Both directions? Not sure... *)
   Lemma mem_ok_se_up μ se sub_m i :
     mem_ok_se se (sub_m i) <->
-    mem_ok_se (senv_insert_mem rti sr μ se) (up_memory_memory sub_m i).
+    mem_ok_se (senv_insert_mem μ se) (up_memory_memory sub_m (S i)).
   Proof.
     unfold mem_ok_se.
     split.
     {
       intros H.
-      destruct i.
-      - cbn. unfold unscoped.var_zero. admit.
-      - cbn. admit.
+      assert (Hope: (ren_memory unscoped.shift) (sub_m i) = up_memory_memory sub_m (S i)). {
+        substify. done.
+      }
+      rewrite <- Hope.
+      cbn.
+      destruct (sub_m i) eqn:Hsubi.
+      - cbn.
+        unfold unscoped.shift.
+        lia.
+      - cbn. auto.
     }
     {
       intros H.
-      admit.
+      assert (Hope: (ren_memory unscoped.shift) (sub_m i) = up_memory_memory sub_m (S i)). {
+        substify. done.
+      }
+      rewrite <- Hope in H.
+
+      cbn in *.
+      destruct (sub_m i) eqn:Hsubi.
+      - cbn in H. unfold unscoped.shift in H. lia.
+      - auto.
     }
-  Admitted.
+  Qed.
 
   (* TODO: Might need to be simultaneous in all sorts. *)
   Lemma closure_interp0_subst_senv_mem se se' ϕ cl sub_m sub_r sub_s sub_t :
@@ -53,16 +67,33 @@ Section inst.
     generalize dependent se.
     generalize dependent se'.
     induction ϕ.
-    - admit.
+    - iIntros (???????) "Hcl".
+      rename l into τs1; rename l0 into τs2.
+
+      unfold closure_interp0.
+      iEval (cbn).
+      iEval (cbn) in "Hcl".
+      destruct cl; [|auto].
+      destruct f as [τs1_trans τs2_trans] eqn:Hf.
+      iDestruct "Hcl" as "(%Hτs1 & %Hτs2 & Hcl)".
+
+      iSplitR; [iPureIntro| iSplitR; [iPureIntro|]].
+      + admit.
+      + admit.
+      + admit.
     - iIntros (???????) "Hcl".
       cbn.
       iIntros (?).
       iApply IHϕ; last done.
       intros ? Hok'.
-      apply mem_ok_se_up in Hok'.
-      apply Hok in Hok'.
-      (* i < n -> i < S n *)
-      admit.
+
+      destruct i.
+      + instantiate (1:= MemMM).
+        cbn. lia.
+      + apply mem_ok_se_up in Hok'.
+        apply Hok in Hok'.
+        cbn. lia.
+
     - admit.
     - admit.
     - admit.
@@ -71,7 +102,7 @@ Section inst.
   Lemma closure_interp0_scons_insert_mem F se μ ϕ cl :
     mem_ok F.(fc_kind_ctx) μ ->
     sem_env_interp F se ->
-    (∀ μ', closure_interp0 rti sr (value_interp rti sr) (senv_insert_mem rti sr μ' se) ϕ cl) -∗
+    (∀ μ', closure_interp0 rti sr (value_interp rti sr) (senv_insert_mem μ' se) ϕ cl) -∗
     let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
@@ -79,14 +110,16 @@ Section inst.
     iApply closure_interp0_subst_senv_mem; last done.
     intros i Hok_se.
     destruct i.
-    - admit. (* senv_insert_mem ... se is nonempty *)
-    - cbn in Hok_se. admit. (* i < n -> S i < S n *)
-  Admitted.
+    - cbn. lia.
+    - instantiate (1:=MemMM).
+      cbn in *.
+      lia.
+  Qed.
 
   Lemma closure_interp0_scons_insert_rep F se ρ ϕ cl :
     rep_ok (fc_kind_ctx F) ρ ->
     sem_env_interp F se ->
-    (∀ ι, closure_interp0 rti sr (value_interp rti sr) (senv_insert_rep rti sr ι se) ϕ cl) -∗
+    (∀ ι, closure_interp0 rti sr (value_interp rti sr) (senv_insert_rep ι se) ϕ cl) -∗
     let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
@@ -96,7 +129,7 @@ Section inst.
   Lemma closure_interp0_scons_insert_size F se σ ϕ cl :
     size_ok (fc_kind_ctx F) σ ->
     sem_env_interp F se ->
-    (∀ n, closure_interp0 rti sr (value_interp rti sr) (senv_insert_size rti sr n se) ϕ cl) -∗
+    (∀ n, closure_interp0 rti sr (value_interp rti sr) (senv_insert_size n se) ϕ cl) -∗
     let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
