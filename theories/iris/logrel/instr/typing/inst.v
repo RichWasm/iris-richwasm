@@ -13,7 +13,62 @@ Section inst.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma closure_interp0_subst_senv_mem F se μ ϕ cl :
+  Definition mem_ok_se (se : semantic_env) (μ : Core.memory) : Prop :=
+    match μ with
+    | VarM i => i < length (senv_mems (Σ:=Σ) se)
+    | BaseM _ => True
+    end.
+
+  (* TODO: Both directions? Not sure... *)
+  Lemma mem_ok_se_up μ se sub_m i :
+    mem_ok_se se (sub_m i) <->
+    mem_ok_se (senv_insert_mem rti sr μ se) (up_memory_memory sub_m i).
+  Proof.
+    unfold mem_ok_se.
+    split.
+    {
+      intros H.
+      destruct i.
+      - cbn. unfold unscoped.var_zero. admit.
+      - cbn. admit.
+    }
+    {
+      intros H.
+      admit.
+    }
+  Admitted.
+
+  (* TODO: Might need to be simultaneous in all sorts. *)
+  Lemma closure_interp0_subst_senv_mem se se' ϕ cl sub_m sub_r sub_s sub_t :
+    (forall i, mem_ok_se se (sub_m i) -> i < length (senv_mems se')) ->
+    closure_interp0 rti sr (value_interp rti sr) se' ϕ cl -∗
+    let ϕ' := subst_function_type sub_m sub_r sub_s sub_t ϕ in
+    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+  Proof.
+    intros Hok.
+    generalize dependent sub_t.
+    generalize dependent sub_s.
+    generalize dependent sub_r.
+    generalize dependent sub_m.
+    generalize dependent se.
+    generalize dependent se'.
+    induction ϕ.
+    - admit.
+    - iIntros (???????) "Hcl".
+      cbn.
+      iIntros (?).
+      iApply IHϕ; last done.
+      intros ? Hok'.
+      apply mem_ok_se_up in Hok'.
+      apply Hok in Hok'.
+      (* i < n -> i < S n *)
+      admit.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
+
+  Lemma closure_interp0_scons_insert_mem F se μ ϕ cl :
     mem_ok F.(fc_kind_ctx) μ ->
     sem_env_interp F se ->
     (∀ μ', closure_interp0 rti sr (value_interp rti sr) (senv_insert_mem rti sr μ' se) ϕ cl) -∗
@@ -21,32 +76,14 @@ Section inst.
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
     iIntros (Hok Hse) "Hcl".
-    destruct μ as [n|μ].
-    - inversion Hok as [K m Hn HK Hm|].
-      subst K m.
-      destruct Hse as [[Hmems _] _].
-      rewrite Hmems in Hn.
-      apply lookup_lt_is_Some in Hn as [μ' Hμ'].
-      iSpecialize ("Hcl" $! μ').
-      induction ϕ.
-      + admit.
-      + cbn.
-        iIntros (?).
-        iSpecialize ("Hcl" $! μ).
-        admit.
-      + admit.
-      + admit.
-      + admit.
-    - iSpecialize ("Hcl" $! μ).
-      induction ϕ.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
+    iApply closure_interp0_subst_senv_mem; last done.
+    intros i Hok_se.
+    destruct i.
+    - admit. (* senv_insert_mem ... se is nonempty *)
+    - cbn in Hok_se. admit. (* i < n -> S i < S n *)
   Admitted.
 
-  Lemma closure_interp0_subst_senv_rep F se ρ ϕ cl :
+  Lemma closure_interp0_scons_insert_rep F se ρ ϕ cl :
     rep_ok (fc_kind_ctx F) ρ ->
     sem_env_interp F se ->
     (∀ ι, closure_interp0 rti sr (value_interp rti sr) (senv_insert_rep rti sr ι se) ϕ cl) -∗
@@ -56,7 +93,7 @@ Section inst.
     iIntros (Hok Hse) "Hcl".
   Admitted.
 
-  Lemma closure_interp0_subst_senv_size F se σ ϕ cl :
+  Lemma closure_interp0_scons_insert_size F se σ ϕ cl :
     size_ok (fc_kind_ctx F) σ ->
     sem_env_interp F se ->
     (∀ n, closure_interp0 rti sr (value_interp rti sr) (senv_insert_size rti sr n se) ϕ cl) -∗
@@ -66,7 +103,7 @@ Section inst.
     iIntros (Hok Hse) "Hcl".
   Admitted.
 
-  Lemma closure_interp0_subst_senv_type F se τ κ ϕ cl :
+  Lemma closure_interp0_scons_insert_type F se τ κ ϕ cl :
     has_kind F τ κ ->
     sem_env_interp F se ->
     (∀ sκ T,
@@ -130,10 +167,10 @@ Section inst.
     all: iFrame.
     all: iSplitR; auto; iSplitR; auto.
 
-    - iApply closure_interp0_subst_senv_mem; [done|done|by inversion Hok].
-    - iApply closure_interp0_subst_senv_rep; [done|done|by inversion Hok].
-    - iApply closure_interp0_subst_senv_size; [done|done|by inversion Hok].
-    - iApply closure_interp0_subst_senv_type; [done|done|by inversion Hok].
+    - iApply closure_interp0_scons_insert_mem; [done|done|by inversion Hok].
+    - iApply closure_interp0_scons_insert_rep; [done|done|by inversion Hok].
+    - iApply closure_interp0_scons_insert_size; [done|done|by inversion Hok].
+    - iApply closure_interp0_scons_insert_type; [done|done|by inversion Hok].
   Qed.
 
 End inst.
