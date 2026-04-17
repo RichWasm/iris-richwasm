@@ -98,6 +98,224 @@ Section inst.
     }
   Qed.
 
+  Lemma eval_rep_mem_irrel se ρ ιs μ :
+    eval_rep se ρ = Some ιs ->
+    eval_rep (senv_insert_mem (Σ:=Σ) μ se) ρ = Some ιs.
+  Proof.
+    by induction ρ using rep_ind.
+  Qed.
+
+  Lemma eval_size_mem_irrel se σ n μ :
+    eval_size se σ = Some n ->
+    eval_size (senv_insert_mem (Σ:=Σ) μ se) σ = Some n.
+  Proof.
+    by induction σ using size_ind.
+  Qed.
+
+  (* TODO: Is the assumption too strong? We only care about the free variables in ρ. *)
+  Lemma eval_rep_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r ρ ιs :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    eval_rep se' ρ = Some ιs ->
+    eval_rep se (subst_representation sub_r ρ) = Some ιs.
+  Proof.
+    intros Hsub.
+    generalize dependent ιs.
+    induction ρ as [n|ρs IH|ρs IH|ιs' IH] using rep_ind.
+    - intros ? H. cbn in *. by apply Hsub.
+    - intros ? H.
+      cbn in *.
+      apply fmap_Some in H as (ιss & Hρs & ->).
+      apply fmap_Some.
+      eexists.
+      split; last done.
+      apply mapM_Some in Hρs.
+      apply mapM_Some.
+      rewrite <- (list_fmap_id ιss).
+      rewrite map_fmap.
+      apply Forall2_fmap.
+      eapply Forall2_impl; first done.
+      intros ρ ιs H.
+      cbn in H.
+  Admitted.
+
+  Lemma eval_size_subst_env (se se' : semantic_env (Σ:=Σ)) sub_r sub_s σ n :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    eval_size se' σ = Some n ->
+    eval_size se (subst_size sub_r sub_s σ) = Some n.
+  Proof.
+    intros Hsub_r Hsub_s.
+    generalize dependent n.
+    induction σ using size_ind.
+    - intros ? H. cbn in *. by apply Hsub_s.
+    - admit.
+    - admit.
+    - intros ??.
+      cbn in *.
+      apply fmap_Some in H as (ιss & Hρ & ->).
+      apply fmap_Some.
+      eexists.
+      split; last done.
+      eapply eval_rep_subst_senv; last done.
+      apply Hsub_r.
+    - done.
+  Admitted.
+
+  Lemma eval_kind_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r sub_s κ sκ :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    eval_kind se' κ = Some sκ ->
+    eval_kind se (subst_kind sub_r sub_s κ) = Some sκ.
+  Proof.
+    unfold eval_kind.
+    intros Hsub_r Hsub_s H.
+    destruct κ as [ρ rf|σ rf].
+    - apply bind_Some in H as (ιs & Hρ & <-).
+      apply bind_Some.
+      eexists.
+      split; last done.
+      by eapply eval_rep_subst_senv.
+    - apply bind_Some in H as (n & Hσ & <-).
+      apply bind_Some.
+      eexists.
+      split; last done.
+      by eapply eval_size_subst_env.
+  Qed.
+
+  Lemma type_skind_subst_senv se se' sub_m sub_r sub_s sub_t τ sκ :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    (forall i sκ', se' !! i = Some sκ' -> type_skind se (sub_t i) = Some sκ') ->
+    type_skind (Σ:=Σ) se' τ = Some sκ ->
+    type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some sκ.
+  Proof.
+    unfold type_skind.
+    intros Hsub_r Hsub_s Hsub_t H.
+    destruct τ.
+    1: by apply Hsub_t.
+    all: by eapply eval_kind_subst_senv.
+  Qed.
+
+  Lemma type_arep_subst_senv se se' sub_m sub_r sub_s sub_t τ ιs :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    (forall i sκ', se' !! i = Some sκ' -> type_skind se (sub_t i) = Some sκ') ->
+    type_arep (Σ:=Σ) se' τ = Some ιs ->
+    type_arep (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ιs.
+  Proof.
+    unfold type_arep.
+    intros Hsub_r Hsub_s Hsub_t H.
+    apply bind_Some in H as (sκ & Hsκ & Hιs).
+    apply bind_Some.
+    eexists.
+    split; last done.
+    by eapply type_skind_subst_senv.
+  Qed.
+
+  Lemma translate_type_subst_senv se se' sub_m sub_r sub_s sub_t τ ts :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    (forall i sκ', se' !! i = Some sκ' -> type_skind se (sub_t i) = Some sκ') ->
+    translate_type (Σ:=Σ) se' τ = Some ts ->
+    translate_type (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ts.
+  Proof.
+    unfold translate_type.
+    intros Hsub_r Hsub_s Hsub_t H.
+    apply fmap_Some in H as (ιs & H & ->).
+    apply fmap_Some.
+    eexists.
+    split; last done.
+    by eapply type_arep_subst_senv.
+  Qed.
+
+  Lemma translate_types_subst_senv se se' sub_m sub_r sub_s sub_t τs ts :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    (forall i sκ', se' !! i = Some sκ' -> type_skind se (sub_t i) = Some sκ') ->
+    translate_types (Σ:=Σ) se' τs = Some ts ->
+    translate_types (Σ:=Σ) se (map (subst_type sub_m sub_r sub_s sub_t) τs) = Some ts.
+  Proof.
+    unfold translate_types.
+    intros Hsub_r Hsub_s Hsub_t H.
+    apply fmap_Some in H as (tss & H & ->).
+    apply fmap_Some.
+    eexists.
+    split; last done.
+    apply mapM_Some in H.
+    apply mapM_Some.
+    rewrite <- (list_fmap_id tss).
+    rewrite map_fmap.
+    apply Forall2_fmap.
+    eapply Forall2_impl; first done.
+    clear H.
+    intros τ ts H.
+    cbn in H.
+    by eapply translate_type_subst_senv.
+  Qed.
+
+  Lemma closure_interp0_subst_senv se se' ϕ cl sub_m sub_r sub_s sub_t :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    (forall i sκ', se' !! i = Some sκ' -> type_skind se (sub_t i) = Some sκ') ->
+    closure_interp0 rti sr (value_interp rti sr) se' ϕ cl -∗
+    let ϕ' := subst_function_type sub_m sub_r sub_s sub_t ϕ in
+    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+  Proof.
+    generalize dependent sub_t.
+    generalize dependent sub_s.
+    generalize dependent sub_r.
+    generalize dependent sub_m.
+    generalize dependent se.
+    generalize dependent se'.
+    induction ϕ as [τs1 τs2| | | |κ] .
+    - iIntros (?????? Hsub_r Hsub_s Hsub_t) "#Hcl".
+      destruct cl; [|auto].
+      destruct f as [τs1_trans τs2_trans] eqn:Hf.
+      iDestruct "Hcl" as "(%Hτs1 & %Hτs2 & Hcl)".
+      iSplitR; [iPureIntro| iSplitR; [iPureIntro|]]; fold (subst_type sub_m sub_r sub_s sub_t).
+      + by eapply translate_types_subst_senv.
+      + by eapply translate_types_subst_senv.
+      + iIntros "!> !> %%% Hvs Hos Hrt Hown Hfr Hrun".
+        iApply (cwp_label_wand with "[-]").
+        * iApply (cwp_return_wand with "[-]").
+          -- iApply (cwp_wand with "[-]").
+             ++ iApply ("Hcl" with "[$] [Hos] [$] [$] [$] [$]").
+                iClear "Hcl".
+                admit. (* values_interp0 *)
+             ++ iClear "Hcl".
+                iIntros (f' vs) "((%os & Hvs & Hos) & [% Hrt] & Hown)".
+                iSplitL "Hvs Hos"; last iFrame.
+                iExists _.
+                iFrame.
+                admit. (* values_interp0 *)
+          -- iClear "Hcl".
+             iSplitL; first done.
+             iIntros (? Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
+             cbn in Hlen.
+             iSplitL "Hvs Hos"; last iFrame.
+             iExists _.
+             iFrame.
+             admit. (* values_interp0 *)
+        * iClear "Hcl".
+          iSplitL; first done.
+          iApply big_sepL2_singleton.
+          iSplitL; first done.
+          iIntros (f' vs Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
+          cbn in Hlen.
+          iSplitL "Hvs Hos"; last iFrame.
+          iExists _.
+          iFrame.
+          admit. (* values_interp0 *)
+    - iIntros (?????? Hsub_r Hsub_s Hsub_t) "#Hcl %".
+      iApply IHϕ; last done.
+      + intros ?? H. asimpl'. apply eval_rep_mem_irrel. by apply Hsub_r.
+      + intros ?? H. asimpl'. apply eval_size_mem_irrel. by apply Hsub_s.
+      + intros ?? H. asimpl'. admit.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
+
   (* TODO: Might need to be simultaneous in all sorts. *)
   Lemma closure_interp0_subst_senv_mem se se' ϕ cl sub_m sub_r sub_s sub_t :
     (forall i, mem_ok_se se (sub_m i) -> i < length (senv_mems se')) ->
@@ -170,7 +388,7 @@ Section inst.
     - iIntros (???????) "Hcl % % %Hsκ %HT".
       iApply IHϕ; last iApply "Hcl"; last done.
       + intros i Hok'. apply Hok. by rewrite mem_ok_se_up_type.
-      + iPureIntro. rewrite <- Hsκ. admit. (* eval_kind *)
+      + iPureIntro. admit. (* eval_kind *)
   Admitted.
 
   Lemma closure_interp0_scons_insert_mem F se μ ϕ cl :
