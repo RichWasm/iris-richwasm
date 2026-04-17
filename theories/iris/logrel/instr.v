@@ -63,10 +63,15 @@ Section Relations.
   Definition senv_insert_type : skind -> semantic_type -> semantic_env -> semantic_env :=
     λ κ T se,
       (senv_mems se, senv_reps se, senv_sizes se, (κ, T) :: senv_types se).
-
-  Definition senv_insert_mem : base_memory → semantic_env → semantic_env. Admitted.
-  Definition senv_insert_rep : list atomic_rep → semantic_env → semantic_env. Admitted.
-  Definition senv_insert_size : nat → semantic_env → semantic_env. Admitted.
+  Definition senv_insert_mem : base_memory → semantic_env → semantic_env :=
+    λ μ se,
+      (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).
+  Definition senv_insert_rep : list atomic_rep → semantic_env → semantic_env :=
+    λ ιs se,
+      (senv_mems se, ιs :: senv_reps se, senv_sizes se, senv_types se).
+  Definition senv_insert_size : nat → semantic_env → semantic_env :=
+    λ n se,
+      (senv_mems se, senv_reps se, n :: senv_sizes se, senv_types se).
 
   #[global]
   Instance senv_mem_lookup : Lookup nat base_memory semantic_env :=
