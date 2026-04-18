@@ -228,6 +228,39 @@ Section inst.
     - admit.
   Admitted.
 
+  Lemma eval_rep_up_size se sub_r ιs i n :
+    eval_rep se (sub_r i) = Some ιs ->
+    eval_rep (senv_insert_size (Σ:=Σ) n se) (up_size_representation sub_r i) = Some ιs.
+  Proof.
+    by asimpl'.
+  Qed.
+
+  Lemma eval_size_up_rep se sub_s ιs i n :
+    eval_size se (sub_s i) = Some n ->
+    eval_size (senv_insert_rep (Σ:=Σ) ιs se) (up_representation_size sub_s i) = Some n.
+  Proof.
+    intros H.
+    asimpl'.
+    unfold core.funcomp.
+    remember (sub_s i) as σ.
+    induction σ using size_ind.
+    - done.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
+
+  Lemma type_skind_up_rep se sub_t ιs sκ i :
+    type_skind se (sub_t i) = Some sκ ->
+    type_skind (Σ:=Σ) (senv_insert_rep ιs se) (up_representation_type sub_t i) = Some sκ.
+  Proof.
+    intros H.
+    asimpl'.
+    unfold core.funcomp.
+    remember (sub_t i) as τ.
+  Admitted.
+
   Lemma eval_rep_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r ρ ιs :
     (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     eval_rep se' ρ = Some ιs ->
@@ -434,9 +467,13 @@ Section inst.
         destruct i.
         * cbn. by rewrite <- H.
         * apply eval_rep_up_rep. by apply Hsub_r.
-      + intros ?? H. admit.
+      + intros ?? H. apply eval_size_up_rep. by apply Hsub_s.
+      + intros ?? H. apply type_skind_up_rep. by apply Hsub_t.
+    - iIntros (?????? Hsub_r Hsub_s Hsub_t) "#Hcl %".
+      iApply IHϕ; last done.
+      + intros ?? H. apply eval_rep_up_size. admit.
       + admit.
-    - admit.
+      + admit.
     - admit.
   Admitted.
 
