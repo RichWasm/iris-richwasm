@@ -98,6 +98,36 @@ Section inst.
     }
   Qed.
 
+  Lemma eval_rep_ok_Some F se ρ :
+    rep_ok F.(fc_kind_ctx) ρ ->
+    sem_env_interp (Σ:=Σ) F se ->
+    is_Some (eval_rep se ρ).
+  Proof.
+    intros Hok Hse.
+    induction ρ using rep_ind.
+    - inversion Hok as [K n Hidx HK Hn| | |].
+      subst K n.
+      destruct Hse as [(_ & Hrepv & _) _].
+      rewrite Hrepv in Hidx.
+      apply list_lookup_lookup_total_lt in Hidx.
+      by eexists.
+    - inversion Hok as [|K ρs' Hρs HK Hρs'| |].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K ρs' Hρs HK Hρs'|].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - done.
+  Qed.
+
   Lemma eval_rep_mem_irrel se ρ ιs μ :
     eval_rep se ρ = Some ιs ->
     eval_rep (senv_insert_mem (Σ:=Σ) μ se) ρ = Some ιs.
@@ -112,7 +142,32 @@ Section inst.
     by induction σ using size_ind.
   Qed.
 
-  (* TODO: Is the assumption too strong? We only care about the free variables in ρ. *)
+  Lemma type_skind_mem_irrel se μ τ sκ :
+    type_skind (Σ:=Σ) se τ = Some sκ ->
+    type_skind (Σ:=Σ) (senv_insert_mem μ se)
+      (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id τ) = Some sκ.
+  Proof.
+    intros H.
+    destruct τ.
+    1: done.
+    all: cbn; unfold eval_kind; by rewrite rinstId'_kind.
+  Qed.
+
+  Lemma eval_rep_up_rep se sub_r ιs0 i ιs :
+    eval_rep se (sub_r i) = Some ιs ->
+    eval_rep (senv_insert_rep (Σ:=Σ) ιs0 se) (up_representation_representation sub_r (S i)) = Some ιs.
+  Proof.
+    intros H.
+    asimpl'.
+    unfold core.funcomp, unscoped.scons.
+    remember (sub_r i) as ρ.
+    induction ρ using rep_ind.
+    - done.
+    - admit.
+    - admit.
+    - admit.
+  Admitted.
+
   Lemma eval_rep_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r ρ ιs :
     (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     eval_rep se' ρ = Some ιs ->
@@ -310,85 +365,17 @@ Section inst.
       iApply IHϕ; last done.
       + intros ?? H. asimpl'. apply eval_rep_mem_irrel. by apply Hsub_r.
       + intros ?? H. asimpl'. apply eval_size_mem_irrel. by apply Hsub_s.
-      + intros ?? H. asimpl'. admit.
+      + intros ?? H. asimpl'. apply type_skind_mem_irrel. by apply Hsub_t.
+    - iIntros (?????? Hsub_r Hsub_s Hsub_t) "#Hcl %".
+      iApply IHϕ; last done.
+      + intros ?? H.
+        destruct i.
+        * cbn. by rewrite <- H.
+        * apply eval_rep_up_rep. by apply Hsub_r.
+      + intros ?? H. admit.
+      + admit.
     - admit.
     - admit.
-    - admit.
-  Admitted.
-
-  (* TODO: Might need to be simultaneous in all sorts. *)
-  Lemma closure_interp0_subst_senv_mem se se' ϕ cl sub_m sub_r sub_s sub_t :
-    (forall i, mem_ok_se se (sub_m i) -> i < length (senv_mems se')) ->
-    closure_interp0 rti sr (value_interp rti sr) se' ϕ cl -∗
-    let ϕ' := subst_function_type sub_m sub_r sub_s sub_t ϕ in
-    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
-  Proof.
-    intros Hok.
-    generalize dependent sub_t.
-    generalize dependent sub_s.
-    generalize dependent sub_r.
-    generalize dependent sub_m.
-    generalize dependent se.
-    generalize dependent se'.
-    induction ϕ as [τs1 τs2| | | |κ] .
-    - iIntros (???????) "#Hcl".
-      destruct cl; [|auto].
-      destruct f as [τs1_trans τs2_trans] eqn:Hf.
-      iDestruct "Hcl" as "(%Hτs1 & %Hτs2 & Hcl)".
-      iSplitR; [iPureIntro| iSplitR; [iPureIntro|]]; fold (subst_type sub_m sub_r sub_s sub_t).
-      + admit. (* translate_types *)
-      + admit. (* translate_types *)
-      + iIntros "!> !> %%% Hvs Hos Hrt Hown Hfr Hrun".
-        iApply (cwp_label_wand with "[-]").
-        * iApply (cwp_return_wand with "[-]").
-          -- iApply (cwp_wand with "[-]").
-             ++ iApply ("Hcl" with "[$] [Hos] [$] [$] [$] [$]").
-                iClear "Hcl".
-                admit. (* values_interp0 *)
-             ++ iClear "Hcl".
-                iIntros (f' vs) "((%os & Hvs & Hos) & [% Hrt] & Hown)".
-                iSplitL "Hvs Hos"; last iFrame.
-                iExists _.
-                iFrame.
-                admit. (* values_interp0 *)
-          -- iClear "Hcl".
-             iSplitL; first done.
-             iIntros (? Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
-             cbn in Hlen.
-             iSplitL "Hvs Hos"; last iFrame.
-             iExists _.
-             iFrame.
-             admit. (* values_interp0 *)
-        * iClear "Hcl".
-          iSplitL; first done.
-          iApply big_sepL2_singleton.
-          iSplitL; first done.
-          iIntros (f' vs Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
-          cbn in Hlen.
-          iSplitL "Hvs Hos"; last iFrame.
-          iExists _.
-          iFrame.
-          admit. (* values_interp0 *)
-    - iIntros (???????) "Hcl %".
-      iApply IHϕ; last done.
-      intros ? Hok'.
-      destruct i.
-      + instantiate (1 := MemMM). cbn. lia.
-      + apply mem_ok_se_up_mem in Hok'. apply Hok in Hok'. cbn. lia.
-    - iIntros (???????) "Hcl %".
-      iApply IHϕ; last done.
-      intros ? Hok'.
-      apply Hok.
-      by rewrite mem_ok_se_up_rep.
-    - iIntros (???????) "Hcl %".
-      iApply IHϕ; last done.
-      intros ? Hok'.
-      apply Hok.
-      by rewrite mem_ok_se_up_size.
-    - iIntros (???????) "Hcl % % %Hsκ %HT".
-      iApply IHϕ; last iApply "Hcl"; last done.
-      + intros i Hok'. apply Hok. by rewrite mem_ok_se_up_type.
-      + iPureIntro. admit. (* eval_kind *)
   Admitted.
 
   Lemma closure_interp0_scons_insert_mem F se μ ϕ cl :
@@ -399,21 +386,23 @@ Section inst.
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
     iIntros (Hok Hse) "Hcl".
-    iApply closure_interp0_subst_senv_mem; last done.
-    intros i Hok_se.
-    destruct i.
-    - cbn. lia.
-    - instantiate (1:=MemMM). cbn in *. lia.
+    iApply closure_interp0_subst_senv; last done; done.
+    Unshelve.
+    exact MemMM.
   Qed.
 
   Lemma closure_interp0_scons_insert_rep F se ρ ϕ cl :
     rep_ok (fc_kind_ctx F) ρ ->
     sem_env_interp F se ->
-    (∀ ι, closure_interp0 rti sr (value_interp rti sr) (senv_insert_rep ι se) ϕ cl) -∗
+    (∀ ιs, closure_interp0 rti sr (value_interp rti sr) (senv_insert_rep ιs se) ϕ cl) -∗
     let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
     iIntros (Hok Hse) "Hcl".
+    iApply closure_interp0_subst_senv; last done.
+    - intros ?? H.
+      destruct i.
+      + cbn. admit.
   Admitted.
 
   Lemma closure_interp0_scons_insert_size F se σ ϕ cl :
