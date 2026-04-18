@@ -352,8 +352,8 @@ Section Relations.
       match ϕ with
       | MonoFunT τs1 τs2 => mono_closure_interp0 vrel se τs1 τs2 cl
       | ForallMemT ϕ' => ∀ μ, closure_interp0 vrel (senv_insert_mem μ se) ϕ' cl
-      | ForallRepT ϕ' => ∀ ρ, closure_interp0 vrel (senv_insert_rep ρ se) ϕ' cl
-      | ForallSizeT ϕ' => ∀ σ, closure_interp0 vrel (senv_insert_size σ se) ϕ' cl
+      | ForallRepT ϕ' => ∀ ιs, closure_interp0 vrel (senv_insert_rep ιs se) ϕ' cl
+      | ForallSizeT ϕ' => ∀ n, closure_interp0 vrel (senv_insert_size n se) ϕ' cl
       | ForallTypeT κ ϕ' =>
           ∀ sκ T,
             ⌜eval_kind se κ = Some sκ⌝ -∗

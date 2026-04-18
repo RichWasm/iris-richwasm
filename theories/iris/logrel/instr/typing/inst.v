@@ -99,11 +99,11 @@ Section inst.
   Qed.
 
   Lemma eval_rep_ok_Some F se ρ :
-    rep_ok F.(fc_kind_ctx) ρ ->
     sem_env_interp (Σ:=Σ) F se ->
+    rep_ok F.(fc_kind_ctx) ρ ->
     is_Some (eval_rep se ρ).
   Proof.
-    intros Hok Hse.
+    intros Hse Hok.
     induction ρ using rep_ind.
     - inversion Hok as [K n Hidx HK Hn| | |].
       subst K n.
@@ -127,6 +127,66 @@ Section inst.
       + intros ρ [Hsome ?]. by apply Hsome.
     - done.
   Qed.
+
+  Lemma eval_size_ok_Some F se σ :
+    sem_env_interp (Σ:=Σ) F se ->
+    size_ok F.(fc_kind_ctx) σ ->
+    is_Some (eval_size se σ).
+  Proof.
+    intros Hse Hok.
+    induction σ using size_ind.
+    - inversion Hok as [K n Hidx HK Hn| | | |].
+      subst K n.
+      destruct Hse as [(_ & _ & Hsizev) _].
+      rewrite Hsizev in Hidx.
+      apply list_lookup_lookup_total_lt in Hidx.
+      by eexists.
+    - inversion Hok as [|K σs' Hσs HK Hσs'| | |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K σs' Hσs HK Hσs'| |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| | |K ρ' Hok_ρ HK Hρ'|].
+      subst K ρ'.
+      apply fmap_is_Some.
+      by eapply eval_rep_ok_Some.
+    - done.
+  Qed.
+
+  Lemma eval_kind_ok_Some F se κ :
+    sem_env_interp (Σ:=Σ) F se ->
+    kind_ok F.(fc_kind_ctx) κ ->
+    is_Some (eval_kind se κ).
+  Proof.
+    intros Hse Hok.
+    destruct κ as [ρ ξ|].
+    - inversion Hok as [K ρ' ξ' Hok_ρ|].
+      subst K ρ' ξ'.
+      cbn.
+      by eapply eval_rep_ok_Some in Hok_ρ as [ιs ->].
+    - inversion Hok as [|K σ ξ Hok_σ].
+      subst K σ ξ.
+      cbn.
+      by eapply eval_size_ok_Some in Hok_σ as [n ->].
+  Qed.
+
+  Lemma type_skind_has_kind_Some F se τ κ sκ :
+    sem_env_interp F se ->
+    has_kind F τ κ ->
+    eval_kind se κ = Some sκ ->
+    type_skind (Σ:=Σ) se τ = Some sκ.
+  Proof.
+    intros Hse Hκ Hsκ.
+  Admitted.
 
   Lemma eval_rep_mem_irrel se ρ ιs μ :
     eval_rep se ρ = Some ιs ->
@@ -308,6 +368,8 @@ Section inst.
     by eapply translate_type_subst_senv.
   Qed.
 
+  (* TODO: The lemma for values_interp0 might require adding an assumption about
+     the memory substitution? *)
   Lemma closure_interp0_subst_senv se se' ϕ cl sub_m sub_r sub_s sub_t :
     (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
@@ -399,11 +461,16 @@ Section inst.
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
     iIntros (Hok Hse) "Hcl".
+    destruct (eval_rep_ok_Some _ _ _ Hse Hok) as [ιs Hιs].
+    iSpecialize ("Hcl" $! ιs).
     iApply closure_interp0_subst_senv; last done.
     - intros ?? H.
       destruct i.
-      + cbn. admit.
-  Admitted.
+      + by rewrite <- H.
+      + done.
+    - done.
+    - done.
+  Qed.
 
   Lemma closure_interp0_scons_insert_size F se σ ϕ cl :
     size_ok (fc_kind_ctx F) σ ->
@@ -413,7 +480,16 @@ Section inst.
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
     iIntros (Hok Hse) "Hcl".
-  Admitted.
+    destruct (eval_size_ok_Some _ _ _ Hse Hok) as [n Hn].
+    iSpecialize ("Hcl" $! n).
+    iApply closure_interp0_subst_senv; last done.
+    - done.
+    - intros ?? H.
+      destruct i.
+      + by rewrite <- H.
+      + done.
+    - done.
+  Qed.
 
   Lemma closure_interp0_scons_insert_type F se τ κ ϕ cl :
     has_kind F τ κ ->
@@ -426,7 +502,27 @@ Section inst.
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
     iIntros (Hok Hse) "Hcl".
-  Admitted.
+    destruct (has_kind_inv _ _ _ Hok) as [F τ κ Hok_τ Hok_κ].
+    destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
+    pose proof (type_skind_has_kind_Some _ _ _ _ _ Hse Hok Hsκ) as Hskind.
+    set T := value_interp rti sr se τ.
+    iSpecialize ("Hcl" $! sκ T).
+    iApply closure_interp0_subst_senv; last iApply "Hcl".
+    - done.
+    - done.
+    - intros ?? H.
+      destruct i.
+      + by rewrite <- H.
+      + done.
+    - done.
+    - iPureIntro.
+      subst T.
+      iIntros (sv) "H".
+      rewrite value_interp_eq.
+      iDestruct "H" as "(%sκ' & %Hsκ' & Hskind & Htype)".
+      rewrite Hskind in Hsκ'.
+      by inversion Hsκ'.
+  Qed.
 
   Lemma compat_inst M F L wt wt' wtf wl wl' wlf es' ix ϕ ϕ' :
     let fe := fe_of_context F in
