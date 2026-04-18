@@ -53,6 +53,20 @@ Section inject.
     clear_nils.
     simplify_eq.
 
+    rewrite imap_seq map_fmap -fmap_drop -fmap_take -map_rev in Hset_locals.
+
+    set idxs_i :=
+    (rev
+       (take count
+          (drop off
+             (seq (fe_wlocal_offset fe + length wl)
+                (length (translate_arep <$> concat ιss)))))) in Hset_locals.
+
+    rewrite imap_seq map_fmap in Hrestore_stack.
+    set idxs_all :=
+    (seq (fe_wlocal_offset fe + length wl)
+          (length (translate_arep <$> concat ιss))) in Hrestore_stack.
+
     (* Iris Proof *)
     iIntros (? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hvs Hos Hframe Hrt Hown Hfr Hrun".
 
@@ -61,47 +75,29 @@ Section inject.
     unfold value_interp0, value_se_interp0.
     iDestruct "Hos" as "(%κ & %Hkind_payload & Hskind_as_type & Hpayload_interp)".
 
-    (* apply lookup_lt_Some in Htag_type_lookup as Htag_size_bound. *)
-    (* assert (length τs = length ρs_sum) as Htyp_rep_len. *)
-    (* { *)
-    (*   inversion Hok; subst. *)
-    (*   unfold has_mono_rep_instr in H. *)
-    (*   destruct H as [H _]. *)
-    (*   rewrite Forall_singleton in H. *)
-    (*   inversion H; subst. *)
-    (*   inversion H1; subst. *)
-    (*   apply has_kind_SumT_inv in H3 as (rf' & HF2). *)
-    (*   by eapply Forall2_length. *)
-    (* } *)
-    (* assert (tag < Wasm_int.Int32.modulus)%Z as Htag_in_i32_bound. *)
-    (* { rewrite Htyp_rep_len in Htag_size_bound. eapply Z.lt_le_trans; last done. by apply Nat2Z.inj_lt. } *)
-    (* assert (length τs = length ess) as Hess_typ_len; first by eapply List.Forall2_length. *)
-    (**)
-    (* iDestruct (big_sepL2_length with "Hrvs") as "%Hlen". *)
-    (* destruct vs as [|v_tag vs_payload]; first inversion Hlen. *)
-    (* clear Hlen. *)
-    (* iDestruct (atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]". *)
-
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
-    (* rewrite list_extra.cons_app in Hhas_values. *)
     apply has_values_iff_to_consts in Hhas_values as ->.
 
-    (* tag is an index into τs, so we must have: *)
-    (* τs = τs_pre ++ [τ_tag] ++ τs_post *)
-    (* ess = ess_pre ++ [es_tag] ++ ess_post *)
-(*     apply list_elem_of_split_length in Htag_type_lookup as H. *)
-(*     destruct H as (τs_pre & τs_post & Hτs_eq & Htag_len). *)
-(**)
-(*     rewrite Hτs_eq in Hforall. *)
-(*     apply Forall2_app_inv_l in Hforall as *)
-(*       (ess_pre & ess_rest & Hforall_pre & Hforall_rest & ->). *)
-(*     apply Forall2_cons_inv_l in Hforall_rest as *)
-(*       (es_tag & ess_post & Hforall_tag & Hforall_post & ->). *)
-(*     apply Forall2_length in Hforall_pre as Hess_pre_τs_pre. *)
-(*     apply Forall2_length in Hforall_post as Hess_post_τs_post. *)
-(*     clear Hforall_pre Hforall_post. *)
-(**)
-(*     (* TODO start: this could use a little cleanup + abstract into lemmas? *) *)
+    (* i is an index into ιss, so we must have: *)
+    (* τss = τss_pre ++ [τs_tag] ++ τss_post *)
+    (* ιss = ιss_pre ++ [ιs_tag] ++ ιss_post *)
+
+    apply list_elem_of_split_length in Hlookup_i as H.
+    destruct H as (τs_pre & τs_post & Hτs_eq & Htag_len).
+
+    apply fmap_Some_1 in Heq_some1.
+    destruct Heq_some1 as (ιs & Hlookup_ιss & Hcount).
+    apply list_elem_of_split_length in Hlookup_ιss as H.
+    destruct H as (ιss_pre & ιss_post & Hιs_eq & Hi_len).
+
+    assert (map translate_arep (concat ιss) = map translate_arep (concat ιss_pre) ++ map translate_arep ιs ++ map translate_arep (concat ιss_post)) as Htranslate_split.
+    {
+      subst ιss.
+      rewrite concat_app concat_cons.
+      by rewrite !map_app.
+    }
+    rewrite !Htranslate_split.
+
     destruct κ; last first.
     {
       unfold skind_as_type_interp, ssize_interp.
@@ -133,18 +129,31 @@ Section inject.
 (*     apply Some_inj in Heq_some0 as <-. *)
     (* TODO end *)
 
+    unfold sum_offset in Heq_some0.
+    apply bind_Some in Heq_some0.
+    destruct Heq_some0 as (ιss_pre' & Hιss_pre' & Hoff).
+    apply Some_inj in Hoff as <-.
+
+    subst ιss.
+    have Htake : mapM (eval_rep EmptyEnv) (take i ρs_sum) = Some (take i (ιss_pre ++ ιs :: ιss_post)).
+    {
+      eapply mapM_take; eauto.
+    }
+
+    rewrite Hιss_pre' in Htake.
+
+    rewrite Hi_len in Htake.
+    rewrite take_app in Htake.
+    rewrite Nat.sub_diag in Htake.
+    rewrite take_0 in Htake.
+    clear_nils.
+    rewrite firstn_all in Htake.
+    apply Some_inj in Htake as ->.
+
     iDestruct (result_type_interp_of_atoms_interp with "Hvs") as "%Hres_type_vs_payload"; first done.
 
     eapply cwp_set_locals_w in Hset_locals; eauto.
     2: by rewrite -app_assoc.
-    2: {
-      rewrite imap_seq.
-      rewrite map_fmap.
-      rewrite -fmap_drop.
-      rewrite -fmap_take.
-      rewrite -map_rev.
-      reflexivity.
-    }
     destruct Hset_locals as (Hval_localidxs_seq & -> & -> & Hset_locals).
     iEval (rewrite app_assoc).
     iApply (cwp_seq with "[Hfr Hrun]").
@@ -163,6 +172,25 @@ Section inject.
     iIntros (fr' w) "(-> & %Hfrel_fr' & %Hsaved) Hfr Hrun".
     clear Hset_locals.
     clear_nils.
+
+    iEval (rewrite app_assoc) in "Hframe".
+    (* TODO This lemma is not generic enough *)
+    iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved".
+    5: done.
+    {
+      subst idxs_i count.
+
+      rewrite length_app !length_map.
+      rewrite drop_seq take_seq.
+      admit.
+    }
+    2: done.
+    2: admit. (* TODO: need to know more about l above *)
+    1: done.
+
+    (* iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done. *)
+    (* pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len. *)
+
     iApply cwp_val_app.
     {
       instantiate (1 := [(instruction.W.VAL_int32 (Wasm_int.Int32.repr i))]).
@@ -170,26 +198,36 @@ Section inject.
       unfold value_eqb. by destruct (value_eq_dec _ _).
     }
 
-      (* eapply cwp_restore_stack_w in Hrestore_stack. *)
-      (* 2: { *)
-      (*   instantiate (1 := vs). *)
-      (*   instantiate (1 := (take count (drop off vs_payload))). *)
-      (*   repeat rewrite length_take. *)
-      (*   repeat rewrite length_drop. *)
-      (*   by apply Forall2_length in Hsaved as ->. *)
-      (* } *)
-      (* destruct Hget_locals_tag as (_ & _ & _ & Hget_locals_tag). *)
-      (* iDestruct (Hget_locals_tag with "[$] [$] []") as "Hget_locals_tag"; clear Hget_locals_tag. *)
-      (* 1: { *)
-      (*   iPureIntro. *)
-      (*   apply Forall2_take. *)
-      (*   by apply Forall2_drop. *)
-      (* } *)
-      (**)
-      (* iApply (cwp_seq with "[Hget_locals_tag]"). *)
-      (* 1: iApply "Hget_locals_tag". *)
-      (* iIntros (?fr w) "(-> & ->) Hf Hrun". *)
+    set sum_vals :=
+    ((default_of_value_types $ translate_arep <$> concat ιss_pre) ++
+    vs ++
+    (default_of_value_types $ translate_arep <$> concat ιss_post)
+    ).
 
+    eapply cwp_restore_stack_w with (vs := sum_vals) in Hrestore_stack.
+    2: {
+      admit.
+      (* instantiate (1 := vs). *)
+      (* instantiate (1 := (take count (drop off vs_payload))). *)
+      (* repeat rewrite length_take. *)
+      (* repeat rewrite length_drop. *)
+      (* by apply Forall2_length in Hsaved as ->. *)
+    }
+    destruct Hrestore_stack as (_ & -> & -> & Hrestore_stack).
+    iDestruct (Hrestore_stack with "[$] [$] []") as "Hrestore_stack"; clear Hrestore_stack.
+    1: {
+      (* iPureIntro. *)
+      (* apply Forall2_take. *)
+      (* by apply Forall2_drop. *)
+      admit.
+    }
+
+    iApply (cwp_wand with "[Hrestore_stack]").
+    {
+      iApply "Hrestore_stack".
+    }
+    iIntros (?fr w) "(-> & ->)".
+    unfold fvs_combine.
 
   Admitted.
 

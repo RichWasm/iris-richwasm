@@ -90,6 +90,9 @@ Definition default_of_value_type (type : W.value_type) : W.value :=
   | W.T_f64 => W.VAL_float64 $ Wasm_float.FloatSize64.of_bits $ Integers.Int64.repr 0
   end.
 
+Definition default_of_value_types (types : list W.value_type) : list W.value :=
+  map default_of_value_type types.
+
 Definition create_default (type : W.value_type) : W.basic_instruction :=
   W.BI_const $ default_of_value_type type.
 

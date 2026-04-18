@@ -39,6 +39,18 @@ Section common.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+
+
+  Lemma mapM_take {A B : Type} n (f : A → option B) (l : list A) (k : list B) :
+    mapM f l = Some k →
+    mapM f (take n l) = Some (take n k).
+  Proof.
+    intros H.
+    rewrite mapM_Some.
+    apply Forall2_take.
+    by apply mapM_Some.
+  Qed.
+
   Lemma mapM_lookup {A B} f (l : list A) (k : list B) (i : nat) :
     mapM f l = Some k ->
     (l !! i) ≫= f = k !! i.
@@ -905,6 +917,40 @@ Section common.
     iDestruct (atoms_interp_take with "Hatoms") as "[_ Hdrop]".
     by iDestruct (atoms_interp_take with "Hdrop") as "[Htake_drop _]".
   Qed.
+
+
+(* Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' : *)
+(*     vs_idxs = rev (seq ((length $ concat ηss) + length wl1) (length wl)) -> *)
+(*     Forall2 (λ i v, f_locs fr' !! i = Some v) vs_idxs vs_wl -> *)
+(*     result_type_interp wl vs_wl -> *)
+(*     frame_rel (λ i, i ∉ vs_idxs) fr fr' -> *)
+(*     frame_interp rti sr se ηss L (wl1 ++ wl ++ wl2) fr -∗ *)
+(*     frame_interp rti sr se ηss L (wl1 ++ wl ++ wl2) fr'. *)
+(*   Proof. *)
+(*     intros Hvs_idxs_wl Hnew_vals Hres Hfrel. *)
+(*     iIntros "Hframe". *)
+(*     iDestruct "Hframe" as *)
+(*       "(%oss & %vs_L & %vs_WL_old & %Hfr & %Hprims & %Hresult & Hatom & Hval)". *)
+(*     apply result_type_interp_split in Hresult. *)
+(*     destruct Hresult as [vs_wl1 [vs_rest [-> [Hvs_wl1 Hresult]]]]. *)
+(*     apply result_type_interp_split in Hresult. *)
+(*     destruct Hresult as [vs_wl' [vs_wl2 [-> [Hvs_wl' Hvs_wl2]]]]. *)
+(*     iFrame. *)
+(*     iExists (vs_wl1 ++ vs_wl ++ vs_wl2). *)
+(*     iPureIntro; split; last split. *)
+(*     - rewrite app_assoc. *)
+(*       eapply (frame_f_locs_update); [ | done | done | by rewrite -app_assoc]. *)
+(*       rewrite length_app. *)
+(*       apply Forall2_length in Hvs_wl' as <-. *)
+(*       apply Forall2_length in Hvs_wl1 as <-. *)
+(*       apply Forall2_length in Hprims as <-. *)
+(*       apply Forall2_length in Hnew_vals. *)
+(*       rewrite Hvs_idxs_wl length_rev length_seq in Hnew_vals. *)
+(*       lia. *)
+(*     - done. *)
+(*     - apply result_type_interp_combine; first done. *)
+(*       by apply result_type_interp_combine; last done. *)
+(*   Qed. *)
 
   Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
     vs_idxs = seq ((length $ concat ηss) + length wl1) (length wl) ->
