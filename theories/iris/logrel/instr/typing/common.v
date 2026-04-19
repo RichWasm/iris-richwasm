@@ -51,6 +51,16 @@ Section common.
     by apply mapM_Some.
   Qed.
 
+  Lemma mapM_drop {A B : Type} n (f : A → option B) (l : list A) (k : list B) :
+    mapM f l = Some k →
+    mapM f (drop n l) = Some (drop n k).
+  Proof.
+    intros H.
+    rewrite mapM_Some.
+    apply Forall2_drop.
+    by apply mapM_Some.
+  Qed.
+
   Lemma mapM_lookup {A B} f (l : list A) (k : list B) (i : nat) :
     mapM f l = Some k ->
     (l !! i) ≫= f = k !! i.
@@ -62,6 +72,45 @@ Section common.
       symmetry.
       apply lookup_ge_None_2.
       by rewrite -(Forall2_length _ _ _ Hm).
+  Qed.
+
+  Lemma mapM_app {A B : Type} (f : A → option B) (l : list A) (k1 k2 : list B) :
+    mapM f l = Some (k1 ++ k2) →
+    ∃ l1 l2,
+    l = l1 ++ l2 /\
+    mapM f l1 = Some k1 /\
+    mapM f l2 = Some k2.
+  Proof.
+    intros H.
+    exists (take (length k1) l), (drop (length k1) l).
+    split; [by rewrite take_drop |].
+    split.
+    - erewrite mapM_take; [| exact H].
+      by rewrite take_app_length.
+    - erewrite mapM_drop; [| exact H].
+      by rewrite drop_app_length.
+  Qed.
+
+  Lemma mapM_split {A B : Type} (f : A → option B) (l : list A) (b : B) (k1 k2 : list B) :
+    mapM f l = Some (k1 ++ [b] ++ k2) →
+    ∃ l1 l2 a,
+    l = l1 ++ [a] ++ l2 /\
+    mapM f l1 = Some k1 /\
+    f a = Some b /\
+    mapM f l2 = Some k2.
+  Proof.
+    intros H.
+    apply mapM_app in H as (l1 & lrest & Hl & Hk1 & Hrest).
+    apply mapM_app in Hrest as (lmid & l2 & Hlrest & Hmid & Hk2).
+    apply length_mapM in Hmid as Hlen.
+    destruct lmid as [| a [| ? ?]]; try done.
+    subst lrest.
+    exists l1, l2, a.
+    repeat split; try done.
+    simpl in Hmid.
+    apply bind_Some in Hmid as (b' & Hfa & Hsb).
+    inversion Hsb.
+    by subst b'.
   Qed.
 
   Lemma has_values_length evs vs :
@@ -918,7 +967,7 @@ Section common.
     by iDestruct (atoms_interp_take with "Hdrop") as "[Htake_drop _]".
   Qed.
 
-  Lemma atoms_interp_app_split os1 os2 vs1 vs2 :
+  Lemma atoms_interp_app_split_l os1 os2 vs1 vs2 :
     length os1 = length vs1 ->
     atoms_interp (os1 ++ os2) (vs1 ++ vs2) -∗
     atoms_interp os1 vs1 ∗
@@ -929,6 +978,15 @@ Section common.
     rewrite !take_app_length !drop_app_length Hlen !take_app_length !drop_app_length.
     iFrame.
   Qed.
+
+  Lemma atoms_interp_app_split_r os1 os2 vs1 vs2 :
+    atoms_interp os1 vs1 -∗
+    atoms_interp os2 vs2 -∗
+    atoms_interp (os1 ++ os2) (vs1 ++ vs2).
+  Proof.
+  iIntros "H1 H2".
+  iApply (big_sepL2_app with "H1 H2").
+Qed.
 
 (* Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' : *)
 (*     vs_idxs = rev (seq ((length $ concat ηss) + length wl1) (length wl)) -> *)

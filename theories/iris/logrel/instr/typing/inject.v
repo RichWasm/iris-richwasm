@@ -81,14 +81,21 @@ Section inject.
     (* i is an index into ιss, so we must have: *)
     (* τss = τss_pre ++ [τs_tag] ++ τss_post *)
     (* ιss = ιss_pre ++ [ιs_tag] ++ ιss_post *)
+    (* ρs_sum = ρs_sum_pre ++ [ρ_i] ++ ρs_sum_post *)
 
     apply list_elem_of_split_length in Hlookup_i as H.
-    destruct H as (τs_pre & τs_post & Hτs_eq & Htag_len).
+    destruct H as (τs_pre & τs_post & Hτs_eq & Hτs_pre_len).
 
     apply fmap_Some_1 in Heq_some1.
     destruct Heq_some1 as (ιs & Hlookup_ιss & Hcount).
     apply list_elem_of_split_length in Hlookup_ιss as H.
-    destruct H as (ιss_pre & ιss_post & Hιs_eq & Hi_len).
+    destruct H as (ιss_pre & ιss_post & Hιs_eq & Hιss_pre_len).
+
+    rewrite Hιs_eq in Heq_some.
+    apply mapM_split in Heq_some as Heval_ρs_sum.
+    destruct Heval_ρs_sum as (ρs_sum_pre & ρs_sum_post & ρ_i & Hρs_sum_eq & Heval_ρs_sum_pre & Heval_ρ_i & Heval_ρs_sum_post).
+    apply length_mapM in Heval_ρs_sum_pre as Hρs_sum_pre_len.
+    rewrite -Hιss_pre_len in Hρs_sum_pre_len.
 
     assert (map translate_arep (concat ιss) = map translate_arep (concat ιss_pre) ++ map translate_arep ιs ++ map translate_arep (concat ιss_post)) as Htranslate_split.
     {
@@ -129,9 +136,8 @@ Section inject.
 (*     apply Some_inj in Heq_some0 as <-. *)
     (* TODO end *)
 
-    unfold sum_offset in Heq_some0.
-    apply bind_Some in Heq_some0.
-    destruct Heq_some0 as (ιss_pre' & Hιss_pre' & Hoff).
+    apply bind_Some in Heq_some0 as Hsum.
+    destruct Hsum as (ιss_pre' & Hιss_pre' & Hoff).
     apply Some_inj in Hoff as <-.
 
     subst ιss.
@@ -142,7 +148,7 @@ Section inject.
 
     rewrite Hιss_pre' in Htake.
 
-    rewrite Hi_len in Htake.
+    rewrite Hιss_pre_len in Htake.
     rewrite take_app in Htake.
     rewrite Nat.sub_diag in Htake.
     rewrite take_0 in Htake.
@@ -184,9 +190,9 @@ Section inject.
       rewrite drop_seq take_seq.
       admit.
     }
-    2: done.
-    2: admit. (* TODO: need to know more about l above *)
     1: done.
+    1: done.
+    1: admit. (* TODO: need to know more about l above *)
 
     (* iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done. *)
     (* pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len. *)
@@ -206,20 +212,13 @@ Section inject.
 
     eapply cwp_restore_stack_w with (vs := sum_vals) in Hrestore_stack.
     2: {
-      admit.
-      (* instantiate (1 := vs). *)
-      (* instantiate (1 := (take count (drop off vs_payload))). *)
-      (* repeat rewrite length_take. *)
-      (* repeat rewrite length_drop. *)
-      (* by apply Forall2_length in Hsaved as ->. *)
+      admit. (* length (Mk_localidx <$> idxs_all) = length sum_vals *)
     }
     destruct Hrestore_stack as (_ & -> & -> & Hrestore_stack).
+    clear_nils.
     iDestruct (Hrestore_stack with "[$] [$] []") as "Hrestore_stack"; clear Hrestore_stack.
     1: {
-      (* iPureIntro. *)
-      (* apply Forall2_take. *)
-      (* by apply Forall2_drop. *)
-      admit.
+      admit. (* Forall2: (Mk_localidx <$> idxs_all) = sum_vals *)
     }
 
     iApply (cwp_wand with "[Hrestore_stack]").
@@ -228,7 +227,42 @@ Section inject.
     }
     iIntros (?fr w) "(-> & ->)".
     unfold fvs_combine.
-
+    iFrame.
+    iSplit.
+    {
+      admit. (*⌜frame_rel lmask fr fr'⌝ *)
+    }
+    iExists (I32A (Wasm_int.Int32.repr i) :: _ ++ os ++ _).
+    iSplitR "Hvs".
+    - rewrite values_interp_one_eq.
+      rewrite value_interp_eq.
+      iSimpl.
+      iExists (SVALTYPE l r). (* TODO: need to know more about l above *)
+      repeat iSplit.
+      + admit.
+      + admit.
+      + admit.
+      + iExists _, _, _, _, _.
+        iSplit; first done.
+        iSplit.
+        { iPureIntro. by apply sum_offset_emptyenv. }
+        iSplit.
+        {
+          iPureIntro.
+          subst ρs_sum.
+          rewrite list_lookup_middle; last done.
+          simpl.
+          apply eval_rep_emptyenv with (se := se) in Heval_ρ_i.
+          rewrite Heval_ρ_i.
+          done.
+        }
+        iSplit; first done.
+        admit.
+    - iApply atoms_interp_cons.
+      iSplit; first done.
+      iApply atoms_interp_app_split_r.
+      2: iApply (atoms_interp_app_split_r with "Hvs []").
+      1,2: admit.
   Admitted.
 
 End inject.
