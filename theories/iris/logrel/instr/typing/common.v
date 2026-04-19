@@ -918,6 +918,17 @@ Section common.
     by iDestruct (atoms_interp_take with "Hdrop") as "[Htake_drop _]".
   Qed.
 
+  Lemma atoms_interp_app_split os1 os2 vs1 vs2 :
+    length os1 = length vs1 ->
+    atoms_interp (os1 ++ os2) (vs1 ++ vs2) -∗
+    atoms_interp os1 vs1 ∗
+    atoms_interp os2 vs2.
+  Proof.
+    iIntros (Hlen) "Hatoms".
+    iDestruct (atoms_interp_take _ _ (length os1) with "Hatoms") as "[H1 H2]".
+    rewrite !take_app_length !drop_app_length Hlen !take_app_length !drop_app_length.
+    iFrame.
+  Qed.
 
 (* Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' : *)
 (*     vs_idxs = rev (seq ((length $ concat ηss) + length wl1) (length wl)) -> *)
