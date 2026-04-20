@@ -238,7 +238,7 @@ Section common.
     apply Forall2_app; eauto.
   Qed.
 
-  Lemma has_areps_cons ιs ι o os:
+  Lemma has_areps_cons_l ιs ι o os:
     has_areps (ι :: ιs) (SAtoms (o :: os)) ->
     has_areps ιs (SAtoms os) /\
     has_arep ι o.
@@ -251,6 +251,30 @@ Section common.
     split.
     - unfold has_areps. eauto.
     - exact Hhead.
+  Qed.
+
+  Lemma has_areps_cons_r ιs ι o os:
+    has_areps ιs (SAtoms os) ->
+    has_arep ι o ->
+    has_areps (ι :: ιs) (SAtoms (o :: os)).
+  Proof.
+    intros Hareps Harep.
+    unfold has_areps.
+    exists (o :: os).
+    split; first done.
+    apply List.Forall2_cons; first done.
+    destruct Hareps as (? & Heq & Hareps).
+    by inversion Heq; subst.
+  Qed.
+
+  Lemma has_areps_cons ιs ι o os:
+    has_areps ιs (SAtoms os) /\
+    has_arep ι o <->
+    has_areps (ι :: ιs) (SAtoms (o :: os)).
+  Proof.
+    split.
+    - intros [? ?]. by apply has_areps_cons_r.
+    - apply has_areps_cons_l.
   Qed.
 
   Lemma has_areps_cons_exists ιs o os:
@@ -267,6 +291,64 @@ Section common.
     - do 2 eexists.
       split; first done.
       by apply has_areps_cons.
+  Qed.
+
+  Lemma has_areps_exists os :
+    ∃ ιs, has_areps ιs (SAtoms os).
+  Proof.
+    induction os as [| o os' IH].
+    - exists []. exists [].
+      done.
+    - destruct IH as [ιs' IH].
+      destruct o; eexists (_ :: ιs'); apply has_areps_cons; split; try done; unfold has_arep.
+      + by instantiate (1 := PtrR).
+      + by instantiate (1 := I32R).
+      + by instantiate (1 := I64R).
+      + by instantiate (1 := F32R).
+      + by instantiate (1 := F64R).
+  Qed.
+
+  Lemma has_areps_app_l ιs1 os1 ιs2 os2 :
+    has_areps ιs1 (SAtoms os1) ->
+    has_areps ιs2 (SAtoms os2) ->
+    has_areps (ιs1 ++ ιs2) (SAtoms $ os1 ++ os2).
+  Proof.
+    intros [os1' [Heq1 Hf1]] [os2' [Heq2 Hf2]].
+    simplify_eq.
+    exists (os1' ++ os2').
+    split.
+    - done.
+    - by apply Forall2_app.
+  Qed.
+
+  Lemma has_areps_app_r_exists ιs1 ιs2 os :
+    has_areps (ιs1 ++ ιs2) (SAtoms os) ->
+    ∃ os1 os2, os = os1 ++ os2 /\
+    has_areps ιs1 (SAtoms os1) /\
+    has_areps ιs2 (SAtoms os2).
+  Proof.
+    intros [os' [Heq Hf]].
+    simplify_eq.
+    apply Forall2_app_inv_l in Hf as [os1 [os2 [Hf1 [Hf2 ->]]]].
+    exists os1, os2.
+    split; [done|].
+    split.
+    - by exists os1.
+    - by exists os2.
+  Qed.
+
+  Lemma has_areps_app_r_length ιs1 os1 ιs2 os2 :
+    length ιs1 = length os1 ->
+    has_areps (ιs1 ++ ιs2) (SAtoms $ os1 ++ os2) ->
+    has_areps ιs1 (SAtoms os1) /\
+    has_areps ιs2 (SAtoms os2).
+  Proof.
+    intros Hlen [os [Heq Hf]].
+    simplify_eq.
+    apply Forall2_app_inv in Hf as [Hf1 Hf2]; [|done].
+    split.
+    - by exists os1.
+    - by exists os2.
   Qed.
 
   Lemma atoms_interp_nil_l vs :
@@ -332,6 +414,70 @@ Section common.
         iDestruct "IHvs" as "(%vs1 & %vs2 & %Hlen & Hvs1 & Hvs2)".
         iExists (a :: vs1); iExists vs2.
         iFrame. iPureIntro; simpl. subst. auto.
+  Qed.
+
+  Lemma atom_interp_of_default ty :
+    ⊢ ∃ o, atom_interp o (default_of_value_type ty).
+  Proof.
+    unfold default_of_value_types.
+    destruct ty; iExists _.
+    + instantiate (1 := I32A _); simpl; done.
+    + instantiate (1 := I64A _); simpl; done.
+    + instantiate (1 := F32A _); simpl; done.
+    + instantiate (1 := F64A _); simpl; done.
+  Qed.
+
+  Lemma atoms_interp_of_defaults tys :
+    ⊢ ∃ os, atoms_interp os (default_of_value_types tys).
+  Proof.
+    induction tys as [|ty tys' IH].
+    - iExists [].
+      by simpl.
+    - iDestruct IH as "(%os & IH)".
+      unfold default_of_value_types.
+      rewrite map_cons.
+      iDestruct (atom_interp_of_default ty) as "[%o Hatom]".
+      iExists (o :: os).
+      iApply atoms_interp_cons.
+      by iSplitR.
+  Qed.
+
+  Lemma atom_interp_and_arep_of_default_of_arep ι :
+    ⊢ ∃ o, atom_interp o (default_of_value_type $ translate_arep ι) ∗ ⌜has_arep ι o⌝.
+  Proof.
+    destruct ι.
+    - iExists (PtrA _); iSplit; last done.
+      simpl.
+      iExists _, _.
+      iSplit; last iSplit; first done.
+      1: done.
+      iExists (RootInt 0).
+      iSplit; first iPureIntro; simpl.
+      1: constructor.
+      by instantiate (1 := PtrInt _).
+    - by iExists (I32A _).
+    - by iExists (I64A _).
+    - by iExists (F32A _).
+    - by iExists (F64A _).
+  Qed.
+
+  Lemma atoms_interp_and_areps_of_default_of_areps ιs :
+    ⊢ ∃ os, atoms_interp os (default_of_value_types $ translate_arep <$> ιs) ∗ ⌜has_areps ιs (SAtoms os)⌝.
+  Proof.
+    induction ιs as [|ι ιs' IH].
+    - iExists [].
+      iSplit; first by simpl.
+      by iExists [].
+    - iDestruct IH as "(%os' & IHatoms & %IHareps)".
+      iEval (unfold default_of_value_types).
+      rewrite fmap_cons.
+      rewrite map_cons.
+      iDestruct (atom_interp_and_arep_of_default_of_arep ι) as "(%o & Hatom & %Harep)".
+      iExists (o :: os').
+      rewrite atoms_interp_cons.
+      iFrame "#".
+      iPureIntro.
+      by apply has_areps_cons.
   Qed.
 
   Lemma frame_interp_wl_interp se F L WL ηss fr :

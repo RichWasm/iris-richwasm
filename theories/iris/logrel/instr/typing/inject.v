@@ -232,15 +232,24 @@ Section inject.
     {
       admit. (*⌜frame_rel lmask fr fr'⌝ *)
     }
-    iExists (I32A (Wasm_int.Int32.repr i) :: _ ++ os ++ _).
+    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_pre)) as "(%os_pre & Hatoms_pre & %Hareps_pre)".
+    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_post)) as "(%os_post & Hatoms_post & %Hareps_post)".
+    iExists (I32A (Wasm_int.Int32.repr i) :: os_pre ++ os ++ os_post).
     iSplitR "Hvs".
     - rewrite values_interp_one_eq.
       rewrite value_interp_eq.
       iSimpl.
-      iExists (SVALTYPE l r). (* TODO: need to know more about l above *)
+      iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _). (* TODO: need to know more about l above *)
       repeat iSplit.
       + admit.
-      + admit.
+      + iPureIntro.
+        rewrite -has_areps_cons.
+        split.
+        2: by instantiate (1 := I32R).
+        apply has_areps_app_l; first done.
+        apply has_areps_app_l.
+        1: admit. (* TODO: need to know more about l above *)
+        done.
       + admit.
       + iExists _, _, _, _, _.
         iSplit; first done.
