@@ -279,6 +279,12 @@ Section Relations.
       | SMEMTYPE n ξ => ⌜ssize_interp n sv⌝ ∗ ⌜ref_flag_words_interp ξ sv⌝
       end%I.
 
+  Global Instance Persistent_skind_as_type_interp κ sv : Persistent (skind_as_type_interp κ sv).
+  Proof.
+    rewrite /Persistent.
+    destruct κ; simpl; iIntros "#H"; iModIntro; done.
+  Defined.
+
   Definition skind_interp (κ : skind) : semantic_kind :=
     fun T => T ⊑ skind_as_type_interp κ.
 
