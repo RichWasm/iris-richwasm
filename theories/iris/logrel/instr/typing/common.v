@@ -351,6 +351,15 @@ Section common.
     - by exists os2.
   Qed.
 
+  Lemma has_areps_length ιs os :
+    has_areps ιs (SAtoms os) ->
+    length ιs = length os.
+  Proof.
+    intros [os' [Heq Hf]].
+    simplify_eq.
+    by eapply Forall2_length.
+  Qed.
+
   Lemma atoms_interp_nil_l vs :
     atoms_interp [] vs -∗ ⌜vs = []⌝.
   Proof.

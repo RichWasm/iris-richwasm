@@ -73,7 +73,7 @@ Section inject.
     iDestruct (values_interp_one_eq with "Hos") as "Hos".
     iDestruct (value_interp_eq with "Hos") as "Hos".
     unfold value_interp0, value_se_interp0.
-    iDestruct "Hos" as "(%κ & %Hkind_payload & Hskind_as_type & Hpayload_interp)".
+    iDestruct "Hos" as "(%κ & %Hkind_payload & #Hskind_as_type & Hpayload_interp)".
 
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
     apply has_values_iff_to_consts in Hhas_values as ->.
@@ -115,9 +115,11 @@ Section inject.
     (* destruct Hkind_sum as (l' & Heval & Hret). *)
     (* inversion Hret; subst l r. *)
     (* clear Hret. *)
-(**)
-    unfold skind_as_type_interp.
-    iDestruct "Hskind_as_type" as "[%Hhas_areps %Href]".
+    assert (l = ιs) as ->.
+    { admit. } (* TODO *)
+
+    iPoseProof "Hskind_as_type" as "H".
+    iDestruct "H" as "[%Hhas_areps %Href]".
     (* apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag). *)
 (*     apply bind_Some in Hcount as Hcount'. *)
 (*     destruct Hcount' as [ιs_case_tag_payload' [Hlookup_eval Hcase_tag_payload_count]]. *)
@@ -192,7 +194,7 @@ Section inject.
     }
     1: done.
     1: done.
-    1: admit. (* TODO: need to know more about l above *)
+    1: done.
 
     (* iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done. *)
     (* pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len. *)
@@ -239,7 +241,7 @@ Section inject.
     - rewrite values_interp_one_eq.
       rewrite value_interp_eq.
       iSimpl.
-      iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _). (* TODO: need to know more about l above *)
+      iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _).
       repeat iSplit.
       + admit.
       + iPureIntro.
@@ -247,9 +249,7 @@ Section inject.
         split.
         2: by instantiate (1 := I32R).
         apply has_areps_app_l; first done.
-        apply has_areps_app_l.
-        1: admit. (* TODO: need to know more about l above *)
-        done.
+        apply has_areps_app_l; done.
       + admit.
       + iExists _, _, _, _, _.
         iSplit; first done.
@@ -266,12 +266,18 @@ Section inject.
           done.
         }
         iSplit; first done.
-        admit.
+        rewrite (has_areps_length _ _ Hareps_pre).
+        rewrite (has_areps_length _ _ Hhas_areps).
+        rewrite drop_app_length take_app_length.
+        rewrite value_interp_eq.
+        iFrame.
+        iNext.
+        iExists _.
+        iSplit; done.
     - iApply atoms_interp_cons.
       iSplit; first done.
-      iApply atoms_interp_app_split_r.
-      2: iApply (atoms_interp_app_split_r with "Hvs []").
-      1,2: admit.
+      iApply atoms_interp_app_split_r; first done.
+      iApply (atoms_interp_app_split_r with "Hvs Hatoms_post").
   Admitted.
 
 End inject.
