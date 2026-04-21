@@ -887,6 +887,40 @@ Section common.
     done.
   Qed.
 
+  Lemma frame_rel_Forall2_update fr fr' vs (val_idxs1 val_idxs2 : list nat) :
+    frame_rel (λ i, i ∉ val_idxs1) fr fr' ->
+    Forall (λ i, i ∉ val_idxs1) val_idxs2 ->
+    Forall2 (λ i v, f_locs fr !! i = Some v) val_idxs2 vs ->
+    Forall2 (λ i v, f_locs fr' !! i = Some v) val_idxs2 vs.
+  Proof.
+    intros [Hmask _] Hdisjoint Hforall.
+    induction Hforall as [| i v idxs vs Hi Hrest IH].
+    - constructor.
+    - apply Forall_cons in Hdisjoint as [Hnotin Hdisjoint].
+      constructor.
+      + rewrite <- Hmask; last exact Hnotin.
+        exact Hi.
+      + exact (IH Hdisjoint).
+  Qed.
+
+  Lemma frame_rel_Forall2_update' fr fr' vs val_localidxs2 (val_idxs1 val_idxs2 : list nat) :
+    val_localidxs2 = map prelude.W.Mk_localidx val_idxs2 ->
+    frame_rel (λ i, i ∉ val_idxs1) fr fr' ->
+    Forall (λ i, i ∉ val_idxs1) val_idxs2 ->
+    Forall2 (λ i v, f_locs fr !! localimm i = Some v) val_localidxs2 vs ->
+    Forall2 (λ i v, f_locs fr' !! localimm i = Some v) val_localidxs2 vs.
+  Proof.
+    intros -> Hfrel Hdisjoint Hforall.
+    rewrite Forall2_fmap_l in Hforall.
+    rewrite Forall2_fmap_l.
+    eapply Forall2_impl.
+    2: {
+      intros x y Hxy.
+      simpl.
+      apply Hxy.
+    }
+    eapply frame_rel_Forall2_update; try done.
+  Qed.
 
 (* This is a copy of values_interp_cons
   Lemma values_interp_cons_inv se τ τs os :
@@ -1302,6 +1336,20 @@ Qed.
       iPureIntro.
       simpl.
       by constructor.
+  Qed.
+
+
+  Lemma value_type_interp_of_default ty :
+    value_type_interp ty (default_of_value_type ty).
+  Proof. destruct ty; by eexists. Qed.
+
+  Lemma result_type_interp_of_defaults tys :
+    result_type_interp tys (default_of_value_types tys).
+  Proof.
+    induction tys as [| ty tys IH].
+    - constructor.
+    - constructor; last done.
+      apply value_type_interp_of_default.
   Qed.
 
   Lemma empty_closure_interp se ϕ cl :

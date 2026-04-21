@@ -110,7 +110,10 @@ Section Compiler.
     ιss ← try_option EFail (mapM (eval_rep EmptyEnv) ρs);
     off ← try_option EFail (sum_offset EmptyEnv ρs i);
     count ← try_option EFail (length <$> ιss !! i);
-    ixs ← wlallocs fe (map translate_arep (concat ιss));
+    let cases := (map translate_arep (concat ιss)) in
+    ixs ← wlallocs fe cases;
+    create_defaults cases;;
+    set_locals_w ixs;; (* explicitly zero-initialize the locals *)
     set_locals_w (rev (take count (drop off ixs)));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs.
