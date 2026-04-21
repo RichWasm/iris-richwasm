@@ -144,6 +144,20 @@ Section CodeGen.
   Qed.
 
   (* Generic monad operations. *)
+
+  Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
+    run_codegen (ignore c) wt wl = inr (ret, wt', wl', es) ->
+    ret = tt /\
+    exists ret',
+      run_codegen c wt wl = inr (ret', wt', wl', es).
+  Proof.
+    intros Hcg.
+    inv_cg_bind Hcg res' wt'' wt''' wl'' wl'''  es1 es2 Hcg1 Hcg2.
+    inv_cg_ret Hcg2.
+    rewrite !app_nil_r.
+    eauto.
+  Qed.
+
   Lemma wp_ret {A} (a: A) wt wl v wt' wl' es :
     run_codegen (Monad.ret a) wt wl = inr (v, wt', wl', es) ->
     v = a /\ wt' = [] /\ wl' = [] /\ es = [].
@@ -185,6 +199,29 @@ Section CodeGen.
     subst.
     repeat eexists; eauto.
     rewrite !app_nil_r; eauto.
+  Qed.
+
+  Lemma wp_mapM__cons {A B} (f : A -> codegen B) wt wl yss wt' wl' es x xs :
+    run_codegen (mapM_ f (x :: xs)) wt wl = inr (yss, wt', wl', es) ->
+    ∃ ys_x wt_x wl_x es_x wt_xs wl_xs es_xs,
+      run_codegen (f x) wt wl = inr (ys_x, wt_x, wl_x, es_x) /\
+        run_codegen (mapM_ f xs) (wt ++ wt_x) (wl ++ wl_x) = inr ((), wt_xs, wl_xs, es_xs) /\
+        yss = () /\
+        wt' = wt_x ++ wt_xs /\
+        wl' = wl_x ++ wl_xs /\
+        es = es_x ++ es_xs.
+  Proof.
+    intros Hcg.
+    apply wp_ignore in Hcg as (-> & ret & Hcg).
+    apply wp_mapM_cons in Hcg.
+    destruct Hcg as (ys_x & wt_x & wl_x & es_x & yss_xs & wt_xs & wl_xs & es_xs & Hcg & Hcg_rest & Hx & Hwt' & Hwl' & Hes').
+    repeat eexists; try done.
+    subst.
+    unfold mapM_, ignore.
+    rewrite <- app_nil_r with (l := wt_xs).
+    rewrite <- app_nil_r with (l := wl_xs).
+    rewrite <- app_nil_r with (l := es_xs).
+    eapply run_codegen_bind_intro; done.
   Qed.
 
   Lemma wp_mapM_emit wt wl es xs wt' wl' es' :
@@ -368,6 +405,207 @@ Section CodeGen.
   Qed.
 
   (* Saving and restoring the stack. *)
+
+  Lemma map_comp {A B C} (f: A -> B) (g: B -> C) xs :
+    map g (map f xs) = map (g ∘ f) xs.
+  Proof.
+    by apply map_map.
+  Qed.
+
+  Lemma localimm_Mk_localidx :
+    localimm ∘ Mk_localidx = id.
+  Proof.
+    reflexivity.
+  Qed.
+
+  Lemma interp_wl_length offset wl fr :
+    wl_interp offset wl fr ->
+    offset + length wl <= length (f_locs fr).
+  Proof.
+    unfold wl_interp.
+    intros (vs & vs' & vs'' & -> & Hlen & Htyp).
+    eapply Forall2_length in Htyp.
+    rewrite !length_app.
+    lia.
+  Qed.
+
+
+  Lemma run_codegen_set_locals idxs wt wl x wt' wl' es' :
+    run_codegen (set_locals_w idxs) wt wl = inr (x, wt', wl', es') ->
+    x = tt /\
+    wt' = [] /\
+    wl' = [].
+  Proof.
+    intros * Hcg.
+    (* apply wps/inversion principles *)
+    unfold set_locals_w in Hcg.
+    cbn in Hcg.
+    rewrite -rev_reverse in Hcg.
+    unfold mapM_ in Hcg.
+    do 2 rewrite mapM_comp in Hcg.
+    rewrite map_comp in Hcg.
+    rewrite rev_reverse in Hcg.
+    rewrite map_rev in Hcg.
+    inv_cg_bind Hcg res3 wt3 wt3' wl3 wl3' es5 es6 Hcg Hcg1.
+    inv_cg_ret Hcg1; subst.
+    apply wp_mapM_emit in Hcg.
+    destruct Hcg as (Hres & Hwt & Hwl & Hes); subst res3 wt3 wl3 es5.
+    done.
+  Qed.
+
+    (* TODO:
+     need result_type_interp?
+     is it too strict that idxs should be a seq?
+   *)
+  Lemma cwp_set_locals_w tys L R Φ :
+    forall s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
+      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ tys ++ wlf) fr ->
+      idxs = seq (fe_wlocal_offset fe + length wl) (length tys) ->
+      result_type_interp tys vs ->
+      localidxs = map W.Mk_localidx idxs ->
+      v = () ∧
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
+            Φ f []) -∗
+            CWP (map BI_const vs) ++ es @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs Hcg Hwl Hidxs Hrt Hlocals.
+    apply run_codegen_set_locals in Hcg as H.
+    destruct H as (-> & -> & ->).
+    split; auto.
+    split; auto.
+    split; auto.
+    iIntros "Hfr Hrun HΦ".
+    apply interp_wl_length in Hwl.
+    rewrite !length_app in Hwl.
+    iRevert (Hcg Hidxs Hrt Hlocals Hwl).
+    iInduction vs as [| v vs' IH] using rev_ind forall (idxs localidxs es tys fr); iIntros (Hcg Hidxs Hrt Hlocals Hwl).
+    - apply Forall2_length in Hrt as Hlen.
+      destruct tys; last done.
+      simpl in Hidxs.
+      subst idxs localidxs.
+      simpl in Hcg.
+      inversion Hcg.
+      simpl.
+      iApply (cwp_val with "[$] [$]"); try done.
+      1: by instantiate (1 := []).
+      iApply "HΦ".
+      done.
+    - apply Forall2_length in Hrt as Hlen.
+      assert (tys ≠ []) as Hne.
+      { intros Hnil. subst.
+        simpl in Hrt.
+        rewrite length_app in Hlen.
+        simpl in Hrt.
+        rewrite Nat.add_comm in Hlen.
+        done.
+      }
+      apply exists_last in Hne as [tys' [ty Htys]].
+      subst tys.
+      rewrite length_app in Hidxs.
+      simpl in Hidxs.
+      rewrite seq_app in Hidxs.
+      simpl in Hidxs.
+      subst idxs.
+      rewrite map_app in Hlocals.
+      simpl in Hlocals.
+      subst localidxs.
+      simpl in Hcg.
+      unfold set_locals_w in Hcg.
+      unfold compose in Hcg.
+      rewrite rev_unit in Hcg.
+      apply wp_mapM__cons in Hcg.
+      destruct Hcg as (() & wt_a & wl_a & es_set & wt_tys & wl_tys & es_rest & Hcg_set & Hcg_rest & _ & Hwt' & Hwl' & Hes).
+      subst.
+      destruct wt_a as [|]; last done.
+      destruct wl_a as [|]; last done.
+      destruct wt_tys as [|]; last done.
+      destruct wl_tys as [|]; last done.
+      inv_cg_emit Hcg_set; subst.
+      rewrite map_app.
+      rewrite length_app in Hwl. simpl in Hwl.
+      iEval (rewrite app_assoc).
+      iApply (cwp_seq with "[Hfr Hrun]").
+      {
+        iEval (rewrite -app_assoc).
+        iApply cwp_val_app; first apply has_values_to_consts.
+        iSimpl.
+        iApply (cwp_local_set with "[] [$] [$]").
+        - lias.
+        - unfold fvs_combine.
+          instantiate (1 := λ fr' vs, ⌜fr' = {| W.f_locs := _; W.f_inst := _ |} /\ vs = vs'⌝%I).
+          iPureIntro.
+          split; first done.
+          by rewrite app_nil_r.
+      }
+      iIntros (??) "[-> ->] Hfr Hrun".
+      iApply ("IH" with "[$] [$] [HΦ]"); try done.
+      + instantiate (1 := tys').
+        iIntros (f [Hfrel Hf2]).
+        iApply "HΦ".
+        iPureIntro.
+        simpl.
+        destruct Hfrel as [Hfrel_locs Hfinst].
+        unfold mask_locs_eq in Hfrel_locs.
+        specialize (Hfrel_locs (fe_wlocal_offset fe + length wl + length tys')) as Hlast.
+        rewrite list_lookup_insert in Hlast.
+        rewrite decide_True in Hlast.
+        2: lias.
+        rewrite list_elem_of_In in Hlast.
+        rewrite in_seq in Hlast.
+        have Hv : Some v = f_locs f !! (fe_wlocal_offset fe + length wl + length tys').
+        1: apply Hlast; lias.
+        split.
+        2: {
+          apply Forall2_app.
+          - exact Hf2.
+          - apply Forall2_cons; split; last by apply Forall2_nil.
+            done.
+        }
+        unfold frame_rel.
+        simpl in Hfinst.
+        split; last done.
+        unfold mask_locs_eq.
+        intros i Hini.
+        specialize (Hfrel_locs i) as Hi.
+        assert (f_locs
+                      {|
+                        W.f_locs :=
+                          <[fe_wlocal_offset fe + length wl + length tys':=v]> (f_locs fr);
+                        W.f_inst := f_inst fr
+                      |}
+                 !! i = f_locs f !! i) as Hli.
+        {
+          apply Hi.
+          apply not_elem_of_app in Hini.
+          lias.
+        }
+        rewrite -Hli.
+        simpl.
+        apply not_elem_of_app in Hini as [Hini1 Hini2].
+        apply not_elem_of_cons in Hini2 as [Hneq _].
+        rewrite list_lookup_insert_ne; [reflexivity | done].
+      + iPureIntro.
+        unfold set_locals_w.
+        unfold compose.
+        rewrite !app_nil_r in Hcg_rest.
+        done.
+      + iPureIntro.
+        apply Forall2_app_inv in Hrt as [Hrt' _]; first done.
+        rewrite !length_app in Hlen; simpl in Hlen.
+        lias.
+      + iPureIntro.
+        simpl.
+        rewrite length_insert.
+        lias.
+  Qed.
+
  
   Lemma wp_save_stack1 ty :
     forall s E Φ fe wt wl idx wt' wl' es fr (v: value),
@@ -415,6 +653,8 @@ Section CodeGen.
     cbn.
     lia.
   Qed.
+
+  (* TODO: the save_stack_w lemmas below should probably just be proven from cwp_set_locals_w *)
 
   (* Gross internal induction for save_stack_w proof. *)
   Lemma wp_save_stack_w_ind len : forall vs start fr Φ s E,
@@ -538,28 +778,6 @@ Section CodeGen.
       + iIntros "(%Hneq & _)"; congruence.
   Qed.
 
-  Lemma map_comp {A B C} (f: A -> B) (g: B -> C) xs :
-    map g (map f xs) = map (g ∘ f) xs.
-  Proof.
-    by apply map_map.
-  Qed.
-
-  Lemma localimm_Mk_localidx :
-    localimm ∘ Mk_localidx = id.
-  Proof.
-    reflexivity.
-  Qed.
-
-  Lemma interp_wl_length offset wl fr :
-    wl_interp offset wl fr ->
-    offset + length wl <= length (f_locs fr).
-  Proof.
-    unfold wl_interp.
-    intros (vs & vs' & vs'' & -> & Hlen & Htyp).
-    eapply Forall2_length in Htyp.
-    rewrite !length_app.
-    lia.
-  Qed.
 
   Lemma wp_save_stack_w tys localidxs :
     forall s E Φ fe wt wl idxs wt' wl' wlf es fr vs,
@@ -716,175 +934,6 @@ Section CodeGen.
     done.
   Qed.
 
-  Lemma run_codegen_set_locals idxs wt wl x wt' wl' es' :
-    run_codegen (set_locals_w idxs) wt wl = inr (x, wt', wl', es') ->
-    x = tt /\
-      wt' = [] /\
-      wl' = [].
-  Proof.
-    intros * Hcg.
-    (* apply wps/inversion principles *)
-    unfold set_locals_w in Hcg.
-    cbn in Hcg.
-    rewrite -rev_reverse in Hcg.
-    unfold mapM_ in Hcg.
-    do 2 rewrite mapM_comp in Hcg.
-    rewrite map_comp in Hcg.
-    rewrite rev_reverse in Hcg.
-    rewrite map_rev in Hcg.
-    inv_cg_bind Hcg res3 wt3 wt3' wl3 wl3' es5 es6 Hcg Hcg1.
-    inv_cg_ret Hcg1; subst.
-    apply wp_mapM_emit in Hcg.
-    destruct Hcg as (Hres & Hwt & Hwl & Hes); subst res3 wt3 wl3 es5.
-    done.
-  Qed.
-
-  Lemma wp_set_locals_w tys :
-    forall s E Φ fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
-      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
-      result_type_interp tys vs ->
-      localidxs = map W.Mk_localidx idxs ->
-        v = () /\
-        wt' = [] /\
-        wl' = [] /\
-        ⊢ ↪[frame] fr -∗
-          ↪[RUN] -∗
-          Φ (immV []) -∗
-          WP (W.v_to_e_list vs ++ to_e_list es) @ s; E
-             {{ v, Φ v ∗ ↪[RUN] ∗
-                   ∃ f, ↪[frame] f  ∗
-                          ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
-                          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ }}.
-  Proof.
-    intros * Hcg.
-    apply run_codegen_set_locals in Hcg as (-> & -> & ->).
-    split; auto.
-    split; auto.
-    split; auto.
-    iIntros "Hfr Hrun HΦ".
-  Admitted.
-    (* TODO: finish proof. *)
-    (* iApply (wp_wand with "[Hfr Hrun HΦ]"). *)
-    (* iApply (wp_save_stack_w_ind with "[$] [$] [HΦ]"). *)
-    (* - symmetry. eapply Forall2_length; eauto. *)
-    (* - apply interp_wl_length in H. *)
-    (*   rewrite !length_app in H. *)
-    (*   lia. *)
-    (* - eauto. *)
-    (* - iIntros (v) "((HΦ & Hrun) & %f & Hfr & Hpre & Hvs)". *)
-    (*   repeat rewrite big_andL_pure; eauto. *)
-    (*   iFrame. *)
-    (*   iDestruct "Hvs" as "%Hvs". *)
-    (*   iDestruct "Hpre" as "%Hpre". *)
-    (*   iSplit. *)
-    (*   + iPureIntro. *)
-    (*     intros i Hi. *)
-    (*     destruct i. *)
-    (*     setoid_rewrite elem_of_list_fmap_inj in Hi; *)
-    (*       [| intros x y Hinj; by injection Hinj]. *)
-    (*     by apply Hpre in Hi. *)
-    (*   + iPureIntro. *)
-    (*     apply Forall2_same_length_lookup. *)
-    (*     split. *)
-    (*     * rewrite length_fmap. *)
-    (*       rewrite length_seq. *)
-    (*       eapply Forall2_length. *)
-    (*       eapply H0. *)
-    (*     * intros i x y Hx Hy. *)
-    (*       erewrite Hvs; eauto. *)
-    (*       rewrite list_lookup_fmap in Hx. *)
-    (*       apply fmap_Some_1 in Hx. *)
-    (*       destruct Hx as (ximm & Hx & ->). *)
-    (*       cbn in *. *)
-    (*       rewrite lookup_seq in Hx. *)
-    (*       destruct Hx as [-> Hlen]. *)
-    (*       rewrite lookup_seq; eauto. *)
-  (* Qed. *)
-
-  Lemma lwp_set_locals_w tys Φ :
-    forall s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
-      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
-      result_type_interp tys vs ->
-      localidxs = map W.Mk_localidx idxs ->
-      v = () ∧
-      wt' = [] /\
-      wl' = [] /\
-      ⊢ ↪[frame] fr -∗
-        ↪[RUN] -∗
-        (∀ f,
-            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
-            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
-            Φ.(lp_fr_inv) f ∗ Φ.(lp_val) f []) -∗
-        lenient_wp s E (W.v_to_e_list vs ++ to_e_list es) Φ.
-  Proof.
-    intros.
-    eapply wp_set_locals_w in H; eauto.
-    destruct H as (Hidxs & Hwt' & Hwl' & Hwp).
-    split; auto.
-    split; auto.
-    split; auto.
-    iIntros "Hf Hrun Hfr".
-    iApply (wp_wand with "[Hf Hrun]").
-    {
-      iApply (Hwp with "[$] [$]").
-      fill_imm_pred.
-    }
-    iIntros (v') "(-> & Hrun & %f & Hf & %Hold & %Hsaved)".
-    unfold denote_logpred.
-    iFrame.
-    by iApply "Hfr".
-  Qed.
-
-  Lemma cwp_set_locals_w tys L R Φ :
-    forall s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
-      wl_interp (fe_wlocal_offset fe) (wl ++ wl' ++ wlf) fr ->
-      result_type_interp tys vs ->
-      localidxs = map W.Mk_localidx idxs ->
-      v = () ∧
-      wt' = [] /\
-      wl' = [] /\
-      ⊢ ↪[frame] fr -∗
-        ↪[RUN] -∗
-        (∀ f,
-            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
-            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
-            Φ f []) -∗
-            CWP (map BI_const vs) ++ es @ s; E UNDER L; R {{ Φ }}.
-  Proof.
-    intros s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs Hcg Hwl Hrt Hlocals.
-    destruct (lwp_set_locals_w tys (cwp_post_lp L R Φ)
-                s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs
-                Hcg Hwl Hrt)
-                as (-> & -> & -> & Hwp); first done.
-    do 3 split; try done.
-    iIntros "Hfr Hrun H".
-    unfold cwp_wasm.
-    rewrite util.to_e_list_app.
-    rewrite to_e_list_map_BI_const.
-    iApply (Hwp with "[$] [$] [-]").
-    iIntros (f) "H'".
-    iSpecialize ("H" $! f with "H'").
-    simpl lp_val.
-    iFrame.
-    done.
-  Qed.
-
-  (* TODO: This isn't a WP rule. *)
-  Lemma wp_ignore {A} (c : codegen A) wt wl ret wt' wl' es :
-    run_codegen (ignore c) wt wl = inr (ret, wt', wl', es) ->
-    ret = tt /\
-    exists ret',
-      run_codegen c wt wl = inr (ret', wt', wl', es).
-  Proof.
-    intros Hcg.
-    inv_cg_bind Hcg res' wt'' wt''' wl'' wl'''  es1 es2 Hcg1 Hcg2.
-    inv_cg_ret Hcg2.
-    rewrite !app_nil_r.
-    eauto.
-  Qed.
 
   Lemma wp_get_locals vars vals E f :
     Forall2 (fun x v => f.(f_locs) !! x = Some v) vars vals ->
