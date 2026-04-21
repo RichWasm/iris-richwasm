@@ -179,6 +179,7 @@ Section inst.
       by eapply eval_size_ok_Some in Hok_σ as [n ->].
   Qed.
 
+  (* NOTE: not true *)
   Lemma type_skind_has_kind_Some F se τ κ sκ :
     sem_env_interp F se ->
     has_kind F τ κ ->
@@ -242,12 +243,51 @@ Section inst.
     intros H.
     asimpl'.
     unfold core.funcomp.
+    generalize dependent n.
+
+    (* Note: not remembering (sub_s i) as either
+       as remember (sub_s i) as σ or eqn:Hσ doesn't work due
+       to the fourth case. However, if you try to remember it,
+       the inductive hypothesis becomes somewhat nonsenical.
+       I think we'd need a new size_ind in order to get it to work.
+
+       The first three cases, if no remembering is done, work
+       by replacing admit with done. Fourth case should work
+       if sub_s i is remembered, I think? Fifth haven't looked.
+     *)
+
     remember (sub_s i) as σ.
+    generalize dependent i.
+    generalize dependent σ.
     induction σ using size_ind.
-    - done.
-    - admit.
-    - admit.
-    - admit.
+    - intros; done.
+    - intros; cbn in *.
+      apply fmap_Some in H0 as (n2 & Hn2 & ->).
+      apply fmap_Some.
+      exists n2; split; last done.
+      apply mapM_Some in Hn2.
+      apply mapM_Some.
+      rewrite <- (list_fmap_id n2).
+      rewrite map_fmap.
+      apply Forall2_fmap.
+      eapply Forall2_mini_impl_Forall; first done.
+      admit.
+    - intros; cbn in *.
+      apply fmap_Some in H0 as (n2 & Hn2 & ->).
+      apply fmap_Some.
+      exists n2; split; last done.
+      apply mapM_Some in Hn2.
+      apply mapM_Some.
+      rewrite <- (list_fmap_id n2).
+      rewrite map_fmap.
+      apply Forall2_fmap.
+      eapply Forall2_mini_impl_Forall; first done.
+      admit.
+    - intros.
+      apply fmap_Some in H as (n2 & Hn2 & ->).
+      apply fmap_Some.
+      exists n2; split; last done.
+      admit.
     - admit.
   Admitted.
 
@@ -430,6 +470,69 @@ Section inst.
     cbn in H.
     by eapply translate_type_subst_senv.
   Qed.
+
+  (* As mentioned in a lower comment, this might require an additional assumption *)
+  Lemma values_interp0_subst_type se se' τs os sub_m sub_r sub_s sub_t :
+    (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+    (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+    (forall i sκ', se' !! i = Some sκ' -> type_skind se (sub_t i) = Some sκ') ->
+    values_interp0 (value_interp rti sr) se' τs os -∗
+    values_interp0 (value_interp rti sr) se (map (subst_type sub_m sub_r sub_s sub_t) τs) os.
+  Proof.
+    iIntros (Hsub_r Hsub_s Hsub_t) "Hos".
+    generalize dependent os; generalize dependent τs.
+    induction τs as [| τ τs].
+    - intros os. destruct os; done.
+    - intros os_big.
+      cbn.
+      iDestruct "Hos" as "(%oss_big & %Hos_big & Hos)".
+      destruct oss_big as [|o oss]; [done|].
+      iDestruct (big_sepL2_cons with "Hos") as "[Hoa Hτsoss]".
+      cbn in IHτs.
+      iExists (o :: oss); iSplitR; first done.
+      iApply big_sepL2_cons.
+      iSplitL "Hoa"; first last.
+      + specialize (IHτs (concat oss)).
+        (* for some reason this  v   doesn't work *)
+        (* iPoseProof IHτs as "IHτs". *)
+        (* but to finish this proof off, get IHτs into iris proof mode,
+           then iExists oss, put IHτsoss as the hypothesis, and done. *)
+        admit.
+      + (* this is where the fun begins *)
+        clear IHτs Hos_big os_big oss τs.
+        generalize dependent o; generalize dependent τ.
+        induction τ.
+        * (* I'm scared of VarT *)
+          admit.
+        * (* I'm scared of pointer *)
+          admit.
+        * intros. cbn. rename n into numtype.
+          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
+          iApply value_interp_eq.
+          cbn.
+          iDestruct "Hoa" as "(%sk & %HEval & Hoa & _)".
+          destruct sk as [ιs ξ | n ξ]; [|iDestruct "Hoa" as "[[] _]"].
+          iExists (SVALTYPE ιs ξ); cbn; iFrame.
+          iPureIntro.
+          eapply eval_kind_subst_senv; done. (* well at least numbers work *)
+        * intros; cbn.
+          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
+          iApply value_interp_eq.
+          cbn.
+          iDestruct "Hoa" as "(%sk & %HEval & Hoa & Hk)".
+          destruct sk as [ιs ξ | n ξ]; [|iDestruct "Hoa" as "[[] _]"].
+          iExists (SVALTYPE ιs ξ); cbn; iFrame.
+          iSplitR; [iPureIntro; eapply eval_kind_subst_senv; done|].
+          destruct k; [|done].
+          destruct r; try done.
+          cbn.
+          iDestruct "Hk" as "(%i & %os & %off & %count & %τi & H1 & H2 & H3 & H4 & H5)".
+          iExists i, os, off, count, τi.
+          iFrame.
+          (* something is happening that's for sure *)
+
+
+  Admitted.
 
   (* TODO: The lemma for values_interp0 might require adding an assumption about
      the memory substitution? *)
