@@ -82,8 +82,16 @@ let%expect_test "simple cases" =
       (table $richwasm.table (import "richwasm" "table") 0 funcref)
       (func $_start (export "_start") (type $t4) (result i32)
         (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32)
-        (local.set $l0
+        (i32.const 0)
+        (i32.const 0)
+        (i32.const 0)
+        (i32.const 0)
+        (local.set $l3
           (i32.const 0))
+        (local.set $l2)
+        (local.set $l1)
+        (local.set $l0)
+        (local.set $l0)
         (i32.const 0)
         (local.get $l0)
         (local.get $l1)
@@ -188,8 +196,12 @@ let%expect_test "debug: boxed sum" =
       (table $richwasm.table (import "richwasm" "table") 0 funcref)
       (func $_start (export "_start") (type $t4) (result i32)
         (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32) (local $l9 i32) (local $l10 i32) (local $l11 i32) (local $l12 i32) (local $l13 i32) (local $l14 i32) (local $l15 i32) (local $l16 i32) (local $l17 i32) (local $l18 i32) (local $l19 i32) (local $l20 i32) (local $l21 i32) (local $l22 i32) (local $l23 i32) (local $l24 i32) (local $l25 i32)
-        (local.set $l9
-          (i32.const 7))
+        (i32.const 7)
+        (i32.const 0)
+        (local.set $l10
+          (i32.const 0))
+        (local.set $l9)
+        (local.set $l9)
         (i32.const 0)
         (local.get $l9)
         (local.set $l13

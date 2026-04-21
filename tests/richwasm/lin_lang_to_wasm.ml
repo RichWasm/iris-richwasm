@@ -250,6 +250,8 @@ let%expect_test "examples" =
       (func (;7;) (type 4) (result i32 i32)
         (local i32)
         i32.const 15
+        i32.const 0
+        local.set 0
         local.set 0
         i32.const 1
         local.get 0)
@@ -1517,6 +1519,8 @@ let%expect_test "examples" =
         i32.eqz
         if (result i32 i32)  ;; label = @1
           nop
+          i32.const 0
+          local.set 9
           i32.const 1
           local.get 9
         else
@@ -1525,6 +1529,8 @@ let%expect_test "examples" =
           i32.div_s
           local.set 8
           local.get 8
+          i32.const 0
+          local.set 10
           local.set 10
           i32.const 0
           local.get 10
@@ -2973,6 +2979,8 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         nop
         i32.const 0
+        local.set 0
+        i32.const 0
         local.get 0
         local.set 2
         local.set 1
@@ -2994,6 +3002,8 @@ let%expect_test "examples" =
         local.get 2
         i32.store offset=7 align=2
         local.get 3
+        i32.const 0
+        local.set 4
         local.set 4
         i32.const 1
         local.get 4
@@ -3017,6 +3027,8 @@ let%expect_test "examples" =
         local.get 6
         i32.store offset=7 align=2
         local.get 7
+        i32.const 0
+        local.set 8
         local.set 8
         i32.const 1
         local.get 8
@@ -3040,6 +3052,8 @@ let%expect_test "examples" =
         local.get 10
         i32.store offset=7 align=2
         local.get 11
+        i32.const 0
+        local.set 12
         local.set 12
         i32.const 1
         local.get 12)
@@ -3268,6 +3282,8 @@ let%expect_test "examples" =
           local.get 31
           i32.store offset=7 align=2
           local.get 32
+          i32.const 0
+          local.set 33
           local.set 33
           i32.const 1
           local.get 33
@@ -3321,6 +3337,8 @@ let%expect_test "examples" =
         i32.eqz
         if (result i32 i32)  ;; label = @1
           nop
+          i32.const 0
+          local.set 8
           i32.const 0
           local.get 8
         else
@@ -3377,6 +3395,8 @@ let%expect_test "examples" =
           local.get 11
           i32.store offset=7 align=2
           local.get 12
+          i32.const 0
+          local.set 13
           local.set 13
           i32.const 1
           local.get 13
