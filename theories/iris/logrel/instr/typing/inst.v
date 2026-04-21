@@ -281,10 +281,20 @@ Section inst.
       rewrite <- (list_fmap_id ιss).
       rewrite map_fmap.
       apply Forall2_fmap.
-      eapply Forall2_impl; first done.
-      intros ρ ιs H.
-      cbn in H.
-  Admitted.
+      eapply Forall2_mini_impl_Forall; done.
+    - intros ??; cbn in *.
+      apply fmap_Some in H as (ιss & Hρs & ->).
+      apply fmap_Some.
+      eexists.
+      split; last done.
+      apply mapM_Some in Hρs.
+      apply mapM_Some.
+      rewrite <- (list_fmap_id ιss).
+      rewrite map_fmap.
+      apply Forall2_fmap.
+      eapply Forall2_mini_impl_Forall; done.
+    - intros ??; cbn in *; done.
+  Qed.
 
   Lemma eval_size_subst_env (se se' : semantic_env (Σ:=Σ)) sub_r sub_s σ n :
     (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
@@ -296,8 +306,28 @@ Section inst.
     generalize dependent n.
     induction σ using size_ind.
     - intros ? H. cbn in *. by apply Hsub_s.
-    - admit.
-    - admit.
+    - intros ??; cbn in *.
+      apply fmap_Some in H0 as (n2 & Hn2 & ->).
+      apply fmap_Some.
+      exists n2; split; last done.
+      apply mapM_Some in Hn2.
+      apply mapM_Some.
+      rewrite <- (list_fmap_id n2).
+      rewrite map_fmap.
+      apply Forall2_fmap.
+      cbn.
+      eapply Forall2_mini_impl_Forall; done.
+    - intros ??; cbn in *.
+      apply fmap_Some in H0 as (n2 & Hn2 & ->).
+      apply fmap_Some.
+      exists n2; split; last done.
+      apply mapM_Some in Hn2.
+      apply mapM_Some.
+      rewrite <- (list_fmap_id n2).
+      rewrite map_fmap.
+      apply Forall2_fmap.
+      cbn.
+      eapply Forall2_mini_impl_Forall; done.
     - intros ??.
       cbn in *.
       apply fmap_Some in H as (ιss & Hρ & ->).
@@ -307,7 +337,7 @@ Section inst.
       eapply eval_rep_subst_senv; last done.
       apply Hsub_r.
     - done.
-  Admitted.
+  Qed.
 
   Lemma eval_kind_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r sub_s κ sκ :
     (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->

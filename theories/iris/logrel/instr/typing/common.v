@@ -40,6 +40,32 @@ Section common.
   Variable mr : module_runtime.
 
 
+  Lemma Forall2_mini_impl {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
+    Forall2 P l k -> Forall2 (λ a b, P a b → Q a b) l k -> Forall2 Q l k.
+  Proof.
+    generalize dependent k.
+    induction l.
+    - intros k HP Hall.
+      destruct k; [done|by inversion HP].
+    - intros k HP Hall.
+      destruct k as [| b k]; [by inversion HP|].
+      inversion HP; subst.
+      inversion Hall; subst.
+      apply Forall2_cons; auto.
+  Qed.
+  Lemma Forall2_mini_impl_Forall {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
+    Forall2 P l k -> Forall (λ a, ∀ b, P a b → Q a b) l -> Forall2 Q l k.
+  Proof.
+    generalize dependent k.
+    induction l.
+    - intros k HP Hall.
+      destruct k; [done|by inversion HP].
+    - intros k HP Hall.
+      destruct k as [| b k]; [by inversion HP|].
+      inversion HP; subst.
+      inversion Hall; subst.
+      apply Forall2_cons; auto.
+  Qed.
 
   Lemma mapM_take {A B : Type} n (f : A → option B) (l : list A) (k : list B) :
     mapM f l = Some k →
