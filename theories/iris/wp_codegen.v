@@ -458,9 +458,9 @@ Section CodeGen.
      is it too strict that idxs should be a seq?
    *)
   Lemma cwp_set_locals_w tys L R Φ :
-    forall s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs,
-      run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
-      wl_interp (fe_wlocal_offset fe) (wl ++ tys ++ wlf) fr ->
+    forall s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs,
+      run_codegen (set_locals_w localidxs) wt (wl ++ tys ++ wlo) = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ tys ++ wlo ++ wlf) fr ->
       idxs = seq (fe_wlocal_offset fe + length wl) (length tys) ->
       result_type_interp tys vs ->
       localidxs = map W.Mk_localidx idxs ->
@@ -475,7 +475,7 @@ Section CodeGen.
             Φ f []) -∗
             CWP (map BI_const vs) ++ es @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros s E fe wt wl localidxs idxs v wt' wl' wlf es fr vs Hcg Hwl Hidxs Hrt Hlocals.
+    intros s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs Hcg Hwl Hidxs Hrt Hlocals.
     apply run_codegen_set_locals in Hcg as H.
     destruct H as (-> & -> & ->).
     split; auto.
@@ -485,7 +485,7 @@ Section CodeGen.
     apply interp_wl_length in Hwl.
     rewrite !length_app in Hwl.
     iRevert (Hcg Hidxs Hrt Hlocals Hwl).
-    iInduction vs as [| v vs' IH] using rev_ind forall (idxs localidxs es tys fr); iIntros (Hcg Hidxs Hrt Hlocals Hwl).
+    iInduction vs as [| v vs' IH] using rev_ind forall (idxs localidxs es tys wlo fr); iIntros (Hcg Hidxs Hrt Hlocals Hwl).
     - apply Forall2_length in Hrt as Hlen.
       destruct tys; last done.
       simpl in Hidxs.
@@ -595,6 +595,9 @@ Section CodeGen.
         unfold set_locals_w.
         unfold compose.
         rewrite !app_nil_r in Hcg_rest.
+        instantiate (1 := [ty] ++ wlo).
+        rewrite !app_assoc.
+        rewrite !app_assoc in Hcg_rest.
         done.
       + iPureIntro.
         apply Forall2_app_inv in Hrt as [Hrt' _]; first done.
