@@ -114,7 +114,7 @@ Section Compiler.
     ixs ← wlallocs fe cases;
     create_defaults cases;;
     set_locals_w ixs;; (* explicitly zero-initialize the locals *)
-    set_locals_w (rev (take count (drop off ixs)));;
+    set_locals_w (take count (drop off ixs));;
     emit (W.BI_const (W.VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat i))));;
     restore_stack ixs.
 

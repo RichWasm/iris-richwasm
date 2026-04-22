@@ -60,7 +60,7 @@ Section inject.
     clear_nils.
     simplify_eq.
 
-    rewrite -fmap_drop -fmap_take -map_rev in Hset_i_locals.
+    rewrite -fmap_drop -fmap_take in Hset_i_locals.
 
     (* Iris Proof *)
     iIntros (? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hvs Hos Hframe Hrt Hown Hfr Hrun".
@@ -254,7 +254,7 @@ Section inject.
       rewrite !Nat.add_assoc.
       done.
     }
-    4: admit. (* TODO: werid rev *)
+    4: done.
     3: apply Hres_type_vs_payload.
     2: {
       unfold areps_sum in Hwl_init.
@@ -275,7 +275,7 @@ Section inject.
           (λ (i : prelude.W.localidx) (v : value), f_locs fr' !! localimm i = Some v)
           (Mk_localidx <$> idxs_i) vs⌝
         )%I).
-        admit. (* TODO: weird rev *)
+        done.
     }
     iIntros (fr_saved w) "(-> & %Hfrel_fr_saved & %Hsaved) Hfr Hrun".
     clear Hset_i_locals.
@@ -352,7 +352,7 @@ Section inject.
     iDestruct (Hrestore_stack with "[$] [$] []") as "Hrestore_stack"; clear Hrestore_stack.
     1: done.
 
-    (* relate starting frame fr and fr_saved *)
+    (* relate frames *)
     eapply frame_rel_mask_mono in Hfrel_fr_saved as Hfrel_fr_saved_all.
     2: {
       instantiate (1 := λ i, i ∉ idxs_all).
@@ -391,9 +391,6 @@ Section inject.
       apply result_type_interp_combine; last done.
       done.
     }
-
-    (* iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done. *)
-    (* pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len. *)
 
     iApply (cwp_wand with "[Hrestore_stack]").
     {
