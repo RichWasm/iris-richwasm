@@ -453,12 +453,9 @@ Section CodeGen.
     done.
   Qed.
 
-    (* TODO:
-     need result_type_interp?
-     is it too strict that idxs should be a seq?
-   *)
   Lemma cwp_set_locals_w tys L R Φ :
-    forall s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs,
+    forall s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs evs,
+      has_values evs vs ->
       run_codegen (set_locals_w localidxs) wt (wl ++ tys ++ wlo) = inr (v, wt', wl', es) ->
       wl_interp (fe_wlocal_offset fe) (wl ++ tys ++ wlo ++ wlf) fr ->
       idxs = seq (fe_wlocal_offset fe + length wl) (length tys) ->
@@ -473,9 +470,9 @@ Section CodeGen.
             ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
             ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
             Φ f []) -∗
-            CWP (map BI_const vs) ++ es @ s; E UNDER L; R {{ Φ }}.
+            CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs Hcg Hwl Hidxs Hrt Hlocals.
+    intros s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs evs Hhv Hcg Hwl Hidxs Hrt Hlocals.
     apply run_codegen_set_locals in Hcg as H.
     destruct H as (-> & -> & ->).
     split; auto.
@@ -484,8 +481,8 @@ Section CodeGen.
     iIntros "Hfr Hrun HΦ".
     apply interp_wl_length in Hwl.
     rewrite !length_app in Hwl.
-    iRevert (Hcg Hidxs Hrt Hlocals Hwl).
-    iInduction vs as [| v vs' IH] using rev_ind forall (idxs localidxs es tys wlo fr); iIntros (Hcg Hidxs Hrt Hlocals Hwl).
+    iRevert (Hcg Hidxs Hrt Hlocals Hwl Hhv).
+    iInduction vs as [| v vs' IH] using rev_ind forall (idxs localidxs es evs tys wlo fr); iIntros (Hcg Hidxs Hrt Hlocals Hwl Hhv).
     - apply Forall2_length in Hrt as Hlen.
       destruct tys; last done.
       simpl in Hidxs.
@@ -494,11 +491,12 @@ Section CodeGen.
       inversion Hcg.
       simpl.
       iApply (cwp_val with "[$] [$]"); try done.
-      1: by instantiate (1 := []).
+      1: by rewrite app_nil_r.
       iApply "HΦ".
       done.
     - apply Forall2_length in Hrt as Hlen.
-      assert (tys ≠ []) as Hne.
+      (* tys = tys' ++ [ty] *)
+      assert (tys ≠ []) as Htysne.
       { intros Hnil. subst.
         simpl in Hrt.
         rewrite length_app in Hlen.
@@ -506,8 +504,14 @@ Section CodeGen.
         rewrite Nat.add_comm in Hlen.
         done.
       }
-      apply exists_last in Hne as [tys' [ty Htys]].
+      apply exists_last in Htysne as [tys' [ty Htys]].
       subst tys.
+      (* evs = evs' ++ [ev] *)
+      apply has_values_app_inv in Hhv as (evs' & ev & Heq & Hhv' & Hhv_v).
+      apply has_values_length in Hhv_v as Hev_len.
+      destruct ev as [|ev []]; try done.
+      subst evs.
+
       rewrite length_app in Hidxs.
       simpl in Hidxs.
       rewrite seq_app in Hidxs.
@@ -528,14 +532,16 @@ Section CodeGen.
       destruct wt_tys as [|]; last done.
       destruct wl_tys as [|]; last done.
       inv_cg_emit Hcg_set; subst.
-      rewrite map_app.
       rewrite length_app in Hwl. simpl in Hwl.
       iEval (rewrite app_assoc).
       iApply (cwp_seq with "[Hfr Hrun]").
       {
         iEval (rewrite -app_assoc).
-        iApply cwp_val_app; first apply has_values_to_consts.
+        iApply cwp_val_app; first done.
         iSimpl.
+        apply has_values_to_consts_inv in Hhv_v.
+        simpl in Hhv_v.
+        inversion Hhv_v; subst.
         iApply (cwp_local_set with "[] [$] [$]").
         - lias.
         - unfold fvs_combine.
@@ -545,7 +551,7 @@ Section CodeGen.
           by rewrite app_nil_r.
       }
       iIntros (??) "[-> ->] Hfr Hrun".
-      iApply ("IH" with "[$] [$] [HΦ]"); try done.
+      iApply ("IH" with "[$] [$] [HΦ]"); try done; try iPureIntro.
       + instantiate (1 := tys').
         iIntros (f [Hfrel Hf2]).
         iApply "HΦ".
@@ -591,22 +597,20 @@ Section CodeGen.
         apply not_elem_of_app in Hini as [Hini1 Hini2].
         apply not_elem_of_cons in Hini2 as [Hneq _].
         rewrite list_lookup_insert_ne; [reflexivity | done].
-      + iPureIntro.
-        unfold set_locals_w.
+      + unfold set_locals_w.
         unfold compose.
         rewrite !app_nil_r in Hcg_rest.
         instantiate (1 := [ty] ++ wlo).
         rewrite !app_assoc.
         rewrite !app_assoc in Hcg_rest.
         done.
-      + iPureIntro.
-        apply Forall2_app_inv in Hrt as [Hrt' _]; first done.
+      + apply Forall2_app_inv in Hrt as [Hrt' _]; first done.
         rewrite !length_app in Hlen; simpl in Hlen.
         lias.
-      + iPureIntro.
-        simpl.
+      + simpl.
         rewrite length_insert.
         lias.
+      + apply has_values_to_consts.
   Qed.
 
  
@@ -921,20 +925,31 @@ Section CodeGen.
             Φ f []) -∗
         CWP (esv ++ es) @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys Hhv Hidxs.
-    destruct (lwp_save_stack_w tys (cwp_post_lp L R Φ) _ s E fe wt wl idxs wt' wl' wlf es fr vs Hcodegen Hwl Htys Hidxs) as (Hlidxs & Hwt' & Hwl' & Hwp).
-    refine (conj Hlidxs (conj Hwt' (conj Hwl' _))).
+    intros * Hcg Hwl Hresult Hhas_values Hidxs.
+    unfold save_stack_w in Hcg.
+    inv_cg_bind Hcg res wt1 wt1' wl1 wl1' es1 es2 Hcg1 Hcg2.
+    inv_cg_bind Hcg2 res2 wt2 wt2' wl2 wl2' es3 es4 Hcg2 Hcg3.
+    inv_cg_ret Hcg3; subst.
+    apply wp_wlallocs in Hcg1.
+    destruct Hcg1 as (Hres1 & Hwt1 & Hwl1 & Hes1); subst.
+    rewrite imap_seq in Hcg2.
+    rewrite imap_seq.
+    split; first done.
+    rewrite app_nil_r in Hcg2.
+    rewrite -(app_nil_r tys) in Hcg2.
+    rewrite !app_nil_r !app_nil_l.
+    eapply cwp_set_locals_w in Hcg2; try done.
+    2: by rewrite -!app_assoc in Hwl.
+    2: by rewrite app_nil_r.
+    destruct Hcg2 as (-> & -> & -> & H).
+    split; auto.
+    split; first by rewrite app_nil_r.
+    iDestruct H as "Hspec".
     iIntros "Hfr Hrun HΦ".
-    unfold cwp_wasm.
-    rewrite util.to_e_list_app.
-    apply (has_values_to_consts_inv) in Hhv as ->.
-    rewrite to_e_list_map_BI_const.
-    iApply (Hwp with "[$] [$] [-]").
+    iApply ("Hspec" with "[$] [$]").
     iIntros (f) "Hinv".
-    iSpecialize ("HΦ" $! f with "Hinv").
-    simpl lp_val.
-    iFrame.
-    done.
+    iEval (rewrite app_nil_r) in "Hinv".
+    by iSpecialize ("HΦ" $! f with "Hinv").
   Qed.
 
 

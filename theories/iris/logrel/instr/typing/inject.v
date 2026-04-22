@@ -191,6 +191,7 @@ Section inject.
     eapply cwp_set_locals_w in Hset_sum_locals.
     5: done.
     3: done.
+    2: apply has_values_to_consts.
     2: done.
     2: done.
     destruct Hset_sum_locals as (_ & -> & -> & Hset_sum_locals).
@@ -248,14 +249,15 @@ Section inject.
     rewrite !app_assoc in Hset_i_locals.
     rewrite -app_assoc in Hset_i_locals.
     eapply cwp_set_locals_w in Hset_i_locals.
-    3: {
+    4: {
       instantiate (2 := idxs_i).
       rewrite length_app !length_fmap.
       rewrite !Nat.add_assoc.
       done.
     }
-    4: done.
-    3: apply Hres_type_vs_payload.
+    5: done.
+    4: apply Hres_type_vs_payload.
+    2: apply has_values_to_consts.
     2: {
       unfold areps_sum in Hwl_init.
       rewrite -!app_assoc in Hwl_init.
