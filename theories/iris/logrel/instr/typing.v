@@ -1,7 +1,7 @@
 Require Import RichWasm.typing.
 From RichWasm.compiler Require Import codegen instruction prelude.
 From RichWasm.iris Require Import memory util.
-Require Import RichWasm.iris.logrel.instr.
+Require Import RichWasm.iris.logrel.
 
 From RichWasm.iris.logrel.instr.typing Require Import
   app

@@ -5,7 +5,7 @@ From iris.proofmode Require Import base proofmode classes.
 From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module codegen.
 From RichWasm.iris Require Import autowp memory util wp_codegen lenient_wp logpred.
-Require Import RichWasm.iris.logrel.instr.
+Require Import RichWasm.iris.logrel.
 From Stdlib Require Import Relations.Relation_Operators.
 From stdpp Require Import list.
 

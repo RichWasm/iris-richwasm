@@ -12,7 +12,7 @@ From RichWasm Require Export layout syntax typing.
 From RichWasm.compiler Require Export prelude codegen instruction module.
 From RichWasm.iris Require Export autowp memory util wp_codegen.
 From RichWasm.iris.language Require Export cwp logpred.
-Require Export RichWasm.iris.logrel.instr.
+Require Export RichWasm.iris.logrel.
 Require Import RichWasm.util.
 
 Set Bullet Behavior "Strict Subproofs".

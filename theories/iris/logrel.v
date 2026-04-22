@@ -2,6 +2,7 @@ Require Import iris.algebra.list.
 Require Import iris.proofmode.proofmode.
 
 From RichWasm.iris.helpers Require Import iris_properties.
+Require Import RichWasm.iris.host.iris_host.
 
 From RichWasm.named_props Require Import named_props.
 
@@ -15,7 +16,7 @@ Require Import Corelib.Init.Datatypes.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section Relations.
+Section instr.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
@@ -107,25 +108,18 @@ Section Relations.
 
   Implicit Type es : leibnizO (list administrative_instruction).
   Implicit Type sv : leibnizO semantic_value.
-  Implicit Type lv : leibnizO val.
   Implicit Type v : leibnizO value.
   Implicit Type os : leibnizO (list atom).
   Implicit Type oss : leibnizO (list (list atom)).
   Implicit Type vs : leibnizO (list value).
-  Implicit Type vss : leibnizO (list (list value)).
   Implicit Type ws : leibnizO (list word).
-  Implicit Type bs : leibnizO bytes.
   Implicit Type fr : leibnizO frame.
   Implicit Type cl : leibnizO function_closure.
   Implicit Type inst : leibnizO instance.
-  Implicit Type lh : leibnizO lholed.
-  Implicit Type svh : leibnizO simple_valid_holed.
 
   Implicit Type τ : leibnizO type.
   Implicit Type τs : leibnizO (list type).
-  Implicit Type τc : leibnizO (list (list type * local_ctx)).
   Implicit Type ϕ : leibnizO function_type.
-  Implicit Type ιss : leibnizO (list (list atomic_rep)).
   Implicit Type ηss : leibnizO (list (list primitive)).
 
   Definition value_relation : Type := semantic_env -n> leibnizO type -n> SVR.
@@ -718,4 +712,45 @@ Section Relations.
                 (∃ os', values_interp se τs2 os' ∗ atoms_interp os' vs') ∗
                 (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤ }})%I.
 
-End Relations.
+End instr.
+
+Section module.
+
+  Context `{!logrel_na_invs Σ}.
+  Context `{!wasmG Σ}.
+  Context `{!richwasmG Σ}.
+  Context `{!hvisG Σ}.
+  Context `{!hmsG Σ}.
+  Context `{!hasG Σ}.
+
+  Variable rti : rt_invariant Σ.
+  Variable sr : store_runtime.
+
+  (* TODO *)
+  Definition module_interp (ω : module_type) (mr : module_runtime) (m : W.module) : iProp Σ :=
+    (∀ i imports exports,
+       i ↪[mods] m -∗
+       (* TODO: Assert that indices in the module point to the global runtime funcaddrs. *)
+       ([∗ list] i ↦ ϕ ∈ ω.(mt_imports),
+          ∃ bs j cl,
+            N.of_nat i ↪[vis] datatypes.Build_module_export bs (MED_func j) ∗
+              N.of_nat (funcimm j) ↦[wf] cl ∗
+              closure_interp rti sr senv_empty ϕ cl ∗
+              ⌜imports !! (funcimm mr.(mr_func_user) + i)%nat = Some (N.of_nat (funcimm j))⌝) -∗
+       ([∗ list] i ↦ '_ ∈ ω.(mt_exports),
+          ∃ bs j,
+            N.of_nat i ↪[vis] datatypes.Build_module_export bs (MED_func j) ∗
+              ⌜exports !! i = Some (N.of_nat (funcimm j))⌝) -∗
+       WP ([ID_instantiate exports i imports], []) : host_expr @ top
+          {{ v : host_val,
+             ⌜v = immHV []⌝ ∗
+               i ↪[mods] m ∗
+               ([∗ list] i ↦ ϕ ∈ ω.(mt_exports),
+                 ∃ j cl, (* TODO: same j as precond *)
+                   N.of_nat (funcimm j) ↦[wf] cl ∗ closure_interp rti sr senv_empty ϕ cl) }})%I.
+
+  (* TODO *)
+  Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=
+    True%I.
+
+End module.
