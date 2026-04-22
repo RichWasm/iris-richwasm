@@ -168,7 +168,7 @@ Section inject.
       rewrite length_fmap.
       lias.
     }
-    set idxs_i := (rev (seq (fe_wlocal_offset fe + length wl + length (concat ιss_pre)) (length ιs))) in Hset_i_locals.
+    set idxs_i := (seq (fe_wlocal_offset fe + length wl + length (concat ιss_pre)) (length ιs)) in Hset_i_locals.
 
     pose proof (result_type_interp_of_defaults (translate_arep <$> concat ιss_pre)) as Hres_type_pre.
     pose proof (result_type_interp_of_defaults (translate_arep <$> ιs)) as Hres_type_def_payload.
@@ -180,16 +180,18 @@ Section inject.
       vs ++
       (default_of_value_types $ translate_arep <$> concat ιss_post)).
 
-    rewrite <- (app_nil_r areps_sum) in Hset_sum_locals.
-    eapply cwp_set_locals_w in Hset_sum_locals.
-    5: done.
-    3: done.
-    3: {
-      instantiate (1 := sum_vals _).
+    assert (result_type_interp areps_sum (sum_vals (default_of_value_types (translate_arep <$> ιs)))) as Hres_type_default.
+    {
       apply result_type_interp_combine; first done.
       apply result_type_interp_combine; last done.
       apply Hres_type_def_payload.
     }
+
+    rewrite <- (app_nil_r areps_sum) in Hset_sum_locals.
+    eapply cwp_set_locals_w in Hset_sum_locals.
+    5: done.
+    3: done.
+    2: done.
     2: done.
     destruct Hset_sum_locals as (_ & -> & -> & Hset_sum_locals).
 
@@ -230,193 +232,227 @@ Section inject.
     }
     iIntros (fr_init ?) "(-> & %Hfrel_fr_init & %Hsaved_init) Hfr Hrun".
 
-    (* TODO: isolate the ιs part in areps_sum. Then apply the lemma. *)
-    (* eapply cwp_set_locals_w in Hset_i_locals. eauto. *)
-    (* (* 2: by rewrite -app_assoc. *) *)
-    (* 2: admit. (* wl_interp *) *)
-    (* destruct Hset_i_locals as (Hval_localidxs_seq & -> & -> & Hset_i_locals). *)
-    (* iEval (rewrite app_assoc). *)
-    (* iApply (cwp_seq with "[Hfr Hrun]"). *)
-    (* { *)
-    (*   iApply (Hset_i_locals with "[$] [$]"). *)
-    (*   iIntros (f' [Hfsame Hfchanged]). *)
-    (*   instantiate (1 := λ fr' vs', ( *)
-    (*     ⌜vs' = []⌝ ∗ *)
-    (*     ⌜frame_rel (λ i, i ∉ idxs_i) fr_init fr'⌝ ∗ *)
-    (*     ⌜Forall2 *)
-    (*       (λ (i : prelude.W.localidx) (v : value), f_locs fr' !! localimm i = Some v) *)
-    (*       (Mk_localidx <$> idxs_i) vs⌝ *)
-    (*     )%I). *)
-    (*   auto. *)
-    (* } *)
-    (* iIntros (fr_saved w) "(-> & %Hfrel_fr_saved & %Hsaved) Hfr Hrun". *)
-    (* clear Hset_i_locals. *)
-    (* clear_nils. *)
-    (**)
-    (* eapply cwp_restore_stack_w with (vs := sum_vals vs) in Hrestore_stack. *)
-    (* 2: { *)
-    (*   subst idxs_all sum_vals areps_sum. *)
-    (*   rewrite length_fmap. *)
-    (*   rewrite length_seq. *)
-    (*   rewrite !length_app. *)
-    (*   rewrite !length_map. *)
-    (*   f_equal. *)
-    (*   f_equal. *)
-    (*   rewrite -(Forall2_length _ _ _ Hres_type_vs_payload). *)
-    (*   by rewrite length_map. *)
-    (* } *)
-    (* destruct Hrestore_stack as (_ & -> & -> & Hrestore_stack). *)
-    (* clear_nils. *)
-    (**)
-    (* iApply cwp_val_app. *)
-    (* { *)
-    (*   instantiate (1 := [(instruction.W.VAL_int32 (Wasm_int.Int32.repr i))]). *)
-    (*   simpl. *)
-    (*   unfold value_eqb. by destruct (value_eq_dec _ _). *)
-    (* } *)
-    (**)
-    (* assert (Forall2 *)
-    (*  (λ (i : prelude.W.localidx) (v : value), *)
-    (*     f_locs fr_saved !! localimm i = Some v) *)
-    (*  (Mk_localidx <$> idxs_all) (sum_vals vs)) as Hsaved_all. *)
-    (*  { *)
-    (*   subst idxs_all areps_sum idxs_i. *)
-    (*   rewrite !length_app in Hsaved_init. *)
-    (*   rewrite !seq_app in Hsaved_init. *)
-    (*   rewrite fmap_app fmap_app in Hsaved_init. *)
-    (*   apply Forall2_app_inv in Hsaved_init as [Hsaved_init_pre Hsaved_init]. *)
-    (*   2: by rewrite !length_fmap length_seq /default_of_value_types. *)
-    (*   apply Forall2_app_inv in Hsaved_init as [_ Hsaved_init_post]. *)
-    (*   2: by rewrite !length_fmap length_seq /default_of_value_types. *)
-    (**)
-    (*   eapply frame_rel_Forall2_update' in Hsaved_init_pre; try done. *)
-    (*   2: { *)
-    (*     apply Forall_forall. *)
-    (*     intros x Hx. *)
-    (*     rewrite elem_of_seq !length_fmap in Hx. *)
-    (*     rewrite list_elem_of_In -in_rev -list_elem_of_In elem_of_seq. *)
-    (*     lia. *)
-    (*   } *)
-    (**)
-    (*   eapply frame_rel_Forall2_update' in Hsaved_init_post; try done. *)
-    (*   2: { *)
-    (*     apply Forall_forall. *)
-    (*     intros x Hx. *)
-    (*     rewrite elem_of_seq !length_fmap in Hx. *)
-    (*     rewrite list_elem_of_In -in_rev -list_elem_of_In elem_of_seq. *)
-    (*     lia. *)
-    (*   } *)
-    (**)
-    (*   unfold sum_vals. *)
-    (*   rewrite !length_app !length_fmap. *)
-    (*   rewrite !seq_app !fmap_app. *)
-    (*   eapply Forall2_app. *)
-    (*   - by rewrite length_fmap in Hsaved_init_pre. *)
-    (*   - eapply Forall2_app. *)
-    (*     + admit. (* weird rev *) *)
-    (*     + by rewrite !length_fmap in Hsaved_init_post. *)
-    (*  } *)
-    (**)
-    (* iDestruct (Hrestore_stack with "[$] [$] []") as "Hrestore_stack"; clear Hrestore_stack. *)
-    (* 1: done. *)
-    (**)
-    (* (* relate starting frame fr and fr_saved *) *)
-    (* eapply frame_rel_mask_mono in Hfrel_fr_saved as Hfrel_fr_saved_all. *)
-    (* 2: { *)
-    (*   instantiate (1 := λ i, i ∉ idxs_all). *)
-    (*   simpl. *)
-    (*   intros j Hnotinj. *)
-    (*   subst idxs_all idxs_i areps_sum. *)
-    (*   rewrite list_elem_of_In -in_rev -list_elem_of_In elem_of_seq. *)
-    (*   intros Hin. *)
-    (*   apply Hnotinj. *)
-    (*   rewrite list_elem_of_In !length_app !length_fmap. *)
-    (*   apply list_elem_of_In, elem_of_seq. *)
-    (*   lia. *)
-    (* } *)
-    (* pose proof (frame_rel_trans _ _ _ _ Hfrel_fr_init Hfrel_fr_saved_all) as Hfrel_fr_to_saved. *)
-    (**)
-    (* assert (frame_rel lmask fr fr_saved) as Hfrel_fr_to_saved_lmask. *)
-    (* { *)
-    (*   eapply frame_rel_mask_mono; [| exact Hfrel_fr_to_saved]. *)
-    (*   intros j [Hj_lo Hj_hi]. *)
-    (*   subst idxs_all areps_sum. *)
-    (*   rewrite elem_of_seq !length_app !length_fmap. lia. *)
-    (* } *)
-    (* pose proof Hfrel_fr_to_saved_lmask as [_ ->]. *)
-    (* iDestruct (labels_interp_mono _ _ _ _ _ fr_saved _ _ _ _ with "Hlabels") as "Hlabels'"; try done. *)
-    (**)
-    (* iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved". *)
-    (* 5: done. *)
-    (* { *)
-    (*   subst idxs_all. *)
-    (*   by rewrite fe_wlocal_offset_length. *)
-    (* } *)
-    (* 1: done. *)
-    (* 1: done. *)
-    (* 1: admit. (* result_type_interp *) *)
-    (**)
-    (* (* iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done. *) *)
-    (* (* pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len. *) *)
-    (**)
-    (* iApply (cwp_wand with "[Hrestore_stack]"). *)
-    (* { *)
-    (*   iApply "Hrestore_stack". *)
-    (* } *)
-    (* iIntros (?fr w) "(-> & ->)". *)
-    (* unfold fvs_combine. *)
-    (* iFrame. *)
-    (* iSplit; first done. *)
-    (* iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_pre)) as "(%os_pre & Hatoms_pre & %Hareps_pre)". *)
-    (* iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_post)) as "(%os_post & Hatoms_post & %Hareps_post)". *)
-    (* iExists (I32A (Wasm_int.Int32.repr i) :: os_pre ++ os ++ os_post). *)
-    (* iSplitR "Hvs". *)
-    (* - rewrite values_interp_one_eq. *)
-    (*   rewrite value_interp_eq. *)
-    (*   iSimpl. *)
-    (*   iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _). *)
-    (*   repeat iSplit. *)
-    (*   + iPureIntro. *)
-    (*     rewrite bind_Some. *)
-    (*     eexists; split; last done. *)
-    (*     apply mapM_eval_rep_emptyenv with (se := se) in Heq_some. *)
-    (*     rewrite bind_Some. *)
-    (*     eexists; split; first done. *)
-    (*     simpl. *)
-    (*     by rewrite !concat_app concat_cons. *)
-    (*   + iPureIntro. *)
-    (*     rewrite -has_areps_cons. *)
-    (*     split; last done. *)
-    (*     apply has_areps_app_l; first done. *)
-    (*     apply has_areps_app_l; done. *)
-    (*   + admit. (* ref_flag_atoms_interp *) *)
-    (*   + iExists _, _, _, _, _. *)
-    (*     iSplit; first done. *)
-    (*     iSplit. *)
-    (*     { iPureIntro. by apply sum_offset_emptyenv. } *)
-    (*     iSplit. *)
-    (*     { *)
-    (*       iPureIntro. *)
-    (*       subst ρs_sum. *)
-    (*       rewrite list_lookup_middle; last done. *)
-    (*       simpl. *)
-    (*       apply eval_rep_emptyenv with (se := se) in Heval_ρ_i. *)
-    (*       rewrite Heval_ρ_i. *)
-    (*       done. *)
-    (*     } *)
-    (*     iSplit; first done. *)
-    (*     rewrite (has_areps_length _ _ Hareps_pre). *)
-    (*     rewrite (has_areps_length _ _ Hhas_areps). *)
-    (*     rewrite drop_app_length take_app_length. *)
-    (*     rewrite value_interp_eq. *)
-    (*     iFrame. *)
-    (*     iNext. *)
-    (*     iExists _. *)
-    (*     iSplit; done. *)
-    (* - iApply atoms_interp_cons. *)
-    (*   iSplit; first done. *)
-    (*   iApply atoms_interp_app_split_r; first done. *)
-    (*   iApply (atoms_interp_app_split_r with "Hvs Hatoms_post"). *)
+    iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_init".
+    5: done.
+    {
+      subst idxs_all.
+      by rewrite fe_wlocal_offset_length.
+    }
+    1: done.
+    1: done.
+    1: done.
+    iPoseProof (frame_interp_wl_interp _ _ _ _ F with "Hframe_init") as "%Hwl_init".
+
+    unfold areps_sum in Hset_i_locals.
+    clear_nils.
+    rewrite !app_assoc in Hset_i_locals.
+    rewrite -app_assoc in Hset_i_locals.
+    eapply cwp_set_locals_w in Hset_i_locals.
+    3: {
+      instantiate (2 := idxs_i).
+      rewrite length_app !length_fmap.
+      rewrite !Nat.add_assoc.
+      done.
+    }
+    4: admit. (* TODO: werid rev *)
+    3: apply Hres_type_vs_payload.
+    2: {
+      unfold areps_sum in Hwl_init.
+      rewrite -!app_assoc in Hwl_init.
+      rewrite -!app_assoc.
+      done.
+    }
+    destruct Hset_i_locals as (Hval_localidxs_seq & -> & -> & Hset_i_locals).
+    iEval (rewrite app_assoc).
+    iApply (cwp_seq with "[Hfr Hrun]").
+    {
+      iApply (Hset_i_locals with "[$] [$]").
+      iIntros (f' [Hfrel Hfchanged]).
+      instantiate (1 := λ fr' vs', (
+        ⌜vs' = []⌝ ∗
+        ⌜frame_rel (λ i, i ∉ idxs_i) fr_init fr'⌝ ∗
+        ⌜Forall2
+          (λ (i : prelude.W.localidx) (v : value), f_locs fr' !! localimm i = Some v)
+          (Mk_localidx <$> idxs_i) vs⌝
+        )%I).
+        admit. (* TODO: weird rev *)
+    }
+    iIntros (fr_saved w) "(-> & %Hfrel_fr_saved & %Hsaved) Hfr Hrun".
+    clear Hset_i_locals.
+    clear_nils.
+
+    eapply cwp_restore_stack_w with (vs := sum_vals vs) in Hrestore_stack.
+    2: {
+      subst idxs_all sum_vals areps_sum.
+      rewrite length_fmap.
+      rewrite length_seq.
+      rewrite !length_app.
+      rewrite !length_map.
+      f_equal.
+      f_equal.
+      rewrite -(Forall2_length _ _ _ Hres_type_vs_payload).
+      by rewrite length_map.
+    }
+    destruct Hrestore_stack as (_ & -> & -> & Hrestore_stack).
+    clear_nils.
+
+    iApply cwp_val_app.
+    {
+      instantiate (1 := [(instruction.W.VAL_int32 (Wasm_int.Int32.repr i))]).
+      simpl.
+      unfold value_eqb. by destruct (value_eq_dec _ _).
+    }
+
+    (*
+       Locals for the sum now contains (in frame fr_saved):
+       | .. defaults ... | vs | ... defaults ... |
+     *)
+    assert (Forall2
+     (λ (i : prelude.W.localidx) (v : value),
+        f_locs fr_saved !! localimm i = Some v)
+     (Mk_localidx <$> idxs_all) (sum_vals vs)) as Hsaved_all.
+     {
+      subst idxs_all areps_sum idxs_i.
+      rewrite !length_app in Hsaved_init.
+      rewrite !seq_app in Hsaved_init.
+      rewrite fmap_app fmap_app in Hsaved_init.
+      apply Forall2_app_inv in Hsaved_init as [Hsaved_init_pre Hsaved_init].
+      2: by rewrite !length_fmap length_seq /default_of_value_types.
+      apply Forall2_app_inv in Hsaved_init as [_ Hsaved_init_post].
+      2: by rewrite !length_fmap length_seq /default_of_value_types.
+
+      eapply frame_rel_Forall2_update' in Hsaved_init_pre; try done.
+      2: {
+        apply Forall_forall.
+        intros x Hx.
+        rewrite elem_of_seq !length_fmap in Hx.
+        rewrite list_elem_of_In -list_elem_of_In elem_of_seq.
+        lia.
+      }
+
+      eapply frame_rel_Forall2_update' in Hsaved_init_post; try done.
+      2: {
+        apply Forall_forall.
+        intros x Hx.
+        rewrite elem_of_seq !length_fmap in Hx.
+        rewrite list_elem_of_In -list_elem_of_In elem_of_seq.
+        lia.
+      }
+
+      unfold sum_vals.
+      rewrite !length_app !length_fmap.
+      rewrite !seq_app !fmap_app.
+      eapply Forall2_app.
+      - by rewrite length_fmap in Hsaved_init_pre.
+      - eapply Forall2_app.
+        + done.
+        + by rewrite !length_fmap in Hsaved_init_post.
+     }
+
+    iDestruct (Hrestore_stack with "[$] [$] []") as "Hrestore_stack"; clear Hrestore_stack.
+    1: done.
+
+    (* relate starting frame fr and fr_saved *)
+    eapply frame_rel_mask_mono in Hfrel_fr_saved as Hfrel_fr_saved_all.
+    2: {
+      instantiate (1 := λ i, i ∉ idxs_all).
+      simpl.
+      intros j Hnotinj.
+      subst idxs_all idxs_i areps_sum.
+      rewrite list_elem_of_In -list_elem_of_In elem_of_seq.
+      intros Hin.
+      apply Hnotinj.
+      rewrite list_elem_of_In !length_app !length_fmap.
+      apply list_elem_of_In, elem_of_seq.
+      lia.
+    }
+    pose proof (frame_rel_trans _ _ _ _ Hfrel_fr_init Hfrel_fr_saved_all) as Hfrel_fr_to_saved.
+
+    assert (frame_rel lmask fr fr_saved) as Hfrel_fr_to_saved_lmask.
+    {
+      eapply frame_rel_mask_mono; [| exact Hfrel_fr_to_saved].
+      intros j [Hj_lo Hj_hi].
+      subst idxs_all areps_sum.
+      rewrite elem_of_seq !length_app !length_fmap. lia.
+    }
+    pose proof Hfrel_fr_to_saved_lmask as [_ ->].
+    iDestruct (labels_interp_mono _ _ _ _ _ fr_saved _ _ _ _ with "Hlabels") as "Hlabels'"; try done.
+
+    iPoseProof (frame_interp_update_frame' with "Hframe_init") as "Hframe_saved".
+    5: done.
+    {
+      subst idxs_all.
+      by rewrite fe_wlocal_offset_length.
+    }
+    1: done.
+    1: done.
+    {
+      apply result_type_interp_combine; first done.
+      apply result_type_interp_combine; last done.
+      done.
+    }
+
+    (* iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done. *)
+    (* pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len. *)
+
+    iApply (cwp_wand with "[Hrestore_stack]").
+    {
+      iApply "Hrestore_stack".
+    }
+    iIntros (?fr w) "(-> & ->)".
+    unfold fvs_combine.
+    iFrame.
+    iSplit; first done.
+    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_pre)) as "(%os_pre & Hatoms_pre & %Hareps_pre)".
+    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_post)) as "(%os_post & Hatoms_post & %Hareps_post)".
+    iExists (I32A (Wasm_int.Int32.repr i) :: os_pre ++ os ++ os_post).
+    iSplitR "Hvs".
+    - rewrite values_interp_one_eq.
+      rewrite value_interp_eq.
+      iSimpl.
+      iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _).
+      repeat iSplit.
+      + iPureIntro.
+        rewrite bind_Some.
+        eexists; split; last done.
+        apply mapM_eval_rep_emptyenv with (se := se) in Heq_some.
+        rewrite bind_Some.
+        eexists; split; first done.
+        simpl.
+        by rewrite !concat_app concat_cons.
+      + iPureIntro.
+        rewrite -has_areps_cons.
+        split; last done.
+        apply has_areps_app_l; first done.
+        apply has_areps_app_l; done.
+      + admit. (* ref_flag_atoms_interp *)
+      + iExists _, _, _, _, _.
+        iSplit; first done.
+        iSplit.
+        { iPureIntro. by apply sum_offset_emptyenv. }
+        iSplit.
+        {
+          iPureIntro.
+          subst ρs_sum.
+          rewrite list_lookup_middle; last done.
+          simpl.
+          apply eval_rep_emptyenv with (se := se) in Heval_ρ_i.
+          rewrite Heval_ρ_i.
+          done.
+        }
+        iSplit; first done.
+        rewrite (has_areps_length _ _ Hareps_pre).
+        rewrite (has_areps_length _ _ Hhas_areps).
+        rewrite drop_app_length take_app_length.
+        rewrite value_interp_eq.
+        iFrame.
+        iNext.
+        iExists _.
+        iSplit; done.
+    - iApply atoms_interp_cons.
+      iSplit; first done.
+      iApply atoms_interp_app_split_r; first done.
+      iApply (atoms_interp_app_split_r with "Hvs Hatoms_post").
   Admitted.
 
 End inject.
