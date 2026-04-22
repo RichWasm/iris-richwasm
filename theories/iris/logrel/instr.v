@@ -401,7 +401,7 @@ Section Relations.
 
   Definition prod_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,
-      (∃ oss, ⌜sv = SAtoms (concat oss)⌝ ∗ [∗ list] os; τ ∈ oss; τs, ▷ vrel se τ (SAtoms os))%I.
+      (∃ oss, ⌜sv = SAtoms (concat oss)⌝ ∗ [∗ list] τ; os ∈ τs; oss, ▷ vrel se τ (SAtoms os))%I.
 
   Definition struct_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
     λne sv,

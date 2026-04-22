@@ -1362,4 +1362,85 @@ Qed.
 
   Admitted.
 
+  Lemma eval_rep_ok_Some F se ρ :
+    sem_env_interp (Σ:=Σ) F se ->
+    rep_ok F.(fc_kind_ctx) ρ ->
+    is_Some (eval_rep se ρ).
+  Proof.
+    intros Hse Hok.
+    induction ρ using rep_ind.
+    - inversion Hok as [K n Hidx HK Hn| | |].
+      subst K n.
+      destruct Hse as [(_ & Hrepv & _) _].
+      rewrite Hrepv in Hidx.
+      apply list_lookup_lookup_total_lt in Hidx.
+      by eexists.
+    - inversion Hok as [|K ρs' Hρs HK Hρs'| |].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K ρs' Hρs HK Hρs'|].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - done.
+  Qed.
+
+  Lemma eval_size_ok_Some F se σ :
+    sem_env_interp (Σ:=Σ) F se ->
+    size_ok F.(fc_kind_ctx) σ ->
+    is_Some (eval_size se σ).
+  Proof.
+    intros Hse Hok.
+    induction σ using size_ind.
+    - inversion Hok as [K n Hidx HK Hn| | | |].
+      subst K n.
+      destruct Hse as [(_ & _ & Hsizev) _].
+      rewrite Hsizev in Hidx.
+      apply list_lookup_lookup_total_lt in Hidx.
+      by eexists.
+    - inversion Hok as [|K σs' Hσs HK Hσs'| | |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K σs' Hσs HK Hσs'| |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| | |K ρ' Hok_ρ HK Hρ'|].
+      subst K ρ'.
+      apply fmap_is_Some.
+      by eapply eval_rep_ok_Some.
+    - done.
+  Qed.
+
+  Lemma eval_kind_ok_Some F se κ :
+    sem_env_interp (Σ:=Σ) F se ->
+    kind_ok F.(fc_kind_ctx) κ ->
+    is_Some (eval_kind se κ).
+  Proof.
+    intros Hse Hok.
+    destruct κ as [ρ ξ|].
+    - inversion Hok as [K ρ' ξ' Hok_ρ|].
+      subst K ρ' ξ'.
+      cbn.
+      by eapply eval_rep_ok_Some in Hok_ρ as [ιs ->].
+    - inversion Hok as [|K σ ξ Hok_σ].
+      subst K σ ξ.
+      cbn.
+      by eapply eval_size_ok_Some in Hok_σ as [n ->].
+  Qed.
+
 End common.
