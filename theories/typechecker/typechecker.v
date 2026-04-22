@@ -851,18 +851,14 @@ Qed.
 
 Definition subkind_of_checker (κ1:kind) (κ2:kind) : type_checker_res :=
   match κ1, κ2 with
-  | (VALTYPE ρ1 NoRefs), (VALTYPE ρ2 GCRefs) =>
-      if (representation_beq ρ1 ρ2)
-      then ok_term else INR "fail in subkind check"
-  | (VALTYPE ρ1 GCRefs), (VALTYPE ρ2 AnyRefs) =>
-      if (representation_beq ρ1 ρ2)
-      then ok_term else INR "fail in subkind check"
-  | (MEMTYPE σ1 NoRefs), (MEMTYPE σ2 GCRefs) =>
-      if size_beq σ1 σ2
-      then ok_term else INR "fail in subkind check"
-  | (MEMTYPE σ1 GCRefs), (MEMTYPE σ2 AnyRefs) =>
-      if size_beq σ1 σ2
-      then ok_term else INR "fail in subkind check"
+  | VALTYPE ρ1 ξ1, VALTYPE ρ2 ξ2 =>
+      if representation_beq ρ1 ρ2 && ref_flag_le ξ1 ξ2
+      then ok_term
+      else INR "fail in subkind check"
+  | MEMTYPE σ1 ξ1, MEMTYPE σ2 ξ2 =>
+      if size_beq σ1 σ2 && ref_flag_le ξ1 ξ2
+      then ok_term
+      else INR "fail in subkind check"
   | _, _ => INR "no"
   end.
 
@@ -895,6 +891,8 @@ Proof.
   2, 3: cbn in H; repeat structural_auto.
   2: destruct r, r0. 1: destruct r0, r2.
   all: simpl in H; try inversion H; repeat my_auto2; constructor.
+  all: try done.
+  by rewrite H2.
 Qed.
 
 Definition has_kind_ok_checker (F:function_ctx) (t:type) (k:kind) : type_checker_res :=
@@ -958,10 +956,22 @@ Proof.
   
   intros.
   destruct k1, k2; simpl in H; repeat my_auto2; subst; auto; try (inversion H).
-  - destruct r2; auto; local_auto. local_auto.
+  - destruct r2; auto; local_auto.
+    + by instantiate (1 := NoRefs).
+    + done.
+    + by instantiate (1 := NoRefs).
+    + done.
   - local_auto.
-  - destruct r0; auto; local_auto. local_auto.
+    + by instantiate (1 := GCRefs).
+    + done.
+  - destruct r0; auto; local_auto.
+    + by instantiate (1 := NoRefs).
+    + done.
+    + by instantiate (1 := NoRefs).
+    + done.
   - local_auto.
+    + by instantiate (1 := GCRefs).
+    + done.
 Qed.
 
 

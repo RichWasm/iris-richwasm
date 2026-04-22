@@ -12,5 +12,5 @@ Lemma subkind_of_subst s__rep s__size κ κ' :
              (subst_kind s__rep s__size κ').
 Proof.
   intros Hle.
-  destruct Hle; constructor.
+  by destruct Hle; constructor.
 Qed.

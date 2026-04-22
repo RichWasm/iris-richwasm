@@ -196,16 +196,25 @@ with function_type_ok : function_ctx -> function_type -> Prop :=
 
 Definition mono_mem (μ : memory) : Prop := exists bm, μ = BaseM bm.
 
-(*This is not reflective or transitive; maybe it should be*)
+Definition ref_flag_le (ξ ξ' : ref_flag) : bool :=
+  match ξ, ξ' with
+  | NoRefs, _
+  | GCRefs, GCRefs
+  | GCRefs, AnyRefs
+  | AnyRefs, AnyRefs => true
+  | _, _ => false
+  end.
+
+Lemma ref_flag_le_refl ξ : ref_flag_le ξ ξ.
+Proof. by destruct ξ. Qed.
+
 Inductive subkind_of : kind -> kind -> Prop :=
-| KSubValGCRefs ρ :
-  subkind_of (VALTYPE ρ NoRefs) (VALTYPE ρ GCRefs)
-| KSubValAnyRefs ρ :
-  subkind_of (VALTYPE ρ GCRefs) (VALTYPE ρ AnyRefs)
-| KSubMemGCRefs σ :
-  subkind_of (MEMTYPE σ NoRefs) (MEMTYPE σ GCRefs)
-| KSubMemAnyRefs σ :
-  subkind_of (MEMTYPE σ GCRefs) (MEMTYPE σ AnyRefs).
+| KSubVal ρ ξ ξ' :
+  ref_flag_le ξ ξ' ->
+  subkind_of (VALTYPE ρ ξ) (VALTYPE ρ ξ')
+| KSubMem σ ξ ξ' :
+  ref_flag_le ξ ξ' ->
+  subkind_of (MEMTYPE σ ξ) (MEMTYPE σ ξ').
 
 Inductive has_kind_ok : function_ctx -> type -> kind -> Prop :=
 | OKHasKind F τ κ :
