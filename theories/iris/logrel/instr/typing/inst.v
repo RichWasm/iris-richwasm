@@ -1,5 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
-
+Require Import Stdlib.Program.Equality. (* maybe necessary *)
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
@@ -221,6 +221,8 @@ Section inst.
     intros H.
     asimpl'.
     unfold core.funcomp, unscoped.scons.
+    dependent induction H.
+
     remember (sub_r i) as ρ.
     induction ρ using rep_ind.
     - done.
@@ -232,6 +234,20 @@ Section inst.
   Lemma eval_rep_up_size se sub_r ιs i n :
     eval_rep se (sub_r i) = Some ιs ->
     eval_rep (senv_insert_size (Σ:=Σ) n se) (up_size_representation sub_r i) = Some ιs.
+  Proof.
+    by asimpl'.
+  Qed.
+
+  Lemma eval_rep_up_memory se sub_r ιs i μ :
+    eval_rep se (sub_r i) = Some ιs ->
+    eval_rep (senv_insert_mem (Σ:=Σ) μ se) (up_memory_representation sub_r i) = Some ιs.
+  Proof.
+    by asimpl'.
+  Qed.
+
+  Lemma eval_size_up_memory se sub_s n i μ :
+    eval_size se (sub_s i) = Some n ->
+    eval_size (senv_insert_mem (Σ:=Σ) μ se) (up_memory_size sub_s i) = Some n.
   Proof.
     by asimpl'.
   Qed.
@@ -500,13 +516,27 @@ Section inst.
         admit.
       + (* this is where the fun begins *)
         clear IHτs Hos_big os_big oss τs.
-        generalize dependent o; generalize dependent τ.
-        induction τ.
+        generalize dependent o.
+        generalize dependent se'.
+        generalize dependent se.
+        generalize dependent sub_m.
+        generalize dependent sub_s.
+        generalize dependent sub_r.
+        generalize dependent sub_t.
+        generalize dependent τ.
+        induction τ using type_ind with
+          (P0 := λ ft, ∀ se se' cl sub_m sub_r sub_s sub_t,
+               (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
+               (forall i n, se' !! i = Some n -> eval_size se (sub_s i) = Some n) ->
+               (forall i sκ', se' !! i = Some sκ' -> type_skind se (sub_t i) = Some sκ') ->
+               closure_interp0 rti sr (value_interp rti sr) se' ft cl -∗
+               closure_interp0 rti sr (value_interp rti sr) se
+               (subst_function_type sub_m sub_r sub_s sub_t ft) cl).
         * (* I'm scared of VarT *)
           admit.
         * (* I'm scared of pointer *)
           admit.
-        * intros. cbn. rename n into numtype.
+        * intros. cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -523,16 +553,177 @@ Section inst.
           destruct sk as [ιs ξ | n ξ]; [|iDestruct "Hoa" as "[[] _]"].
           iExists (SVALTYPE ιs ξ); cbn; iFrame.
           iSplitR; [iPureIntro; eapply eval_kind_subst_senv; done|].
-          destruct k; [|done].
+          destruct κ; [|done].
           destruct r; try done.
           cbn.
-          iDestruct "Hk" as "(%i & %os & %off & %count & %τi & H1 & H2 & H3 & H4 & H5)".
-          iExists i, os, off, count, τi.
+          iDestruct "Hk" as "(%i & %os & %off & %count & %τi &
+                              %H1 & %H2 & %H3 & %H4 & Hoa)".
+          (* i and os are definitely right *)
+          iExists i, os.
+          (* These are likely to need to change TODO *)
+          iExists off, count.
+          (* I'm just going to make τi what I need it to be *)
+          iExists (subst_type sub_m sub_r sub_s sub_t τi).
+
+          iSplitR; auto.
+
+          (* now these are a bit interesting *)
+          iSplitR; [iPureIntro | iSplitR; [iPureIntro | iSplitR;
+                [iPureIntro|iModIntro]]]; last first.
+          -- (* okay yay, this is exactly what H is for *)
+             (* plan: using that τi is in τs (H4), get H's assertion for
+                τi. Then, specialize with take count (drop off os) *)
+             (* using Forall_lookup_1 *)
+             pose proof (Forall_lookup_1 _ _ i τi H H4).
+             cbn in H0.
+             by specialize (H0 sub_t sub_r sub_s sub_m se se' Hsub_r Hsub_s Hsub_t
+                           (take count (drop off os))).
+          -- (* this is true by H4 and some map lemma *)
+             (* can't find it quickly but it's true *)
+             admit.
+          -- (* UNSURE about this one TODO *)
+             admit.
+          -- (* also unsure about this one TODO *)
+             admit.
+        (* what else would be interesting... *)
+        (* the exists guys probably. Also exists type *)
+        (* coderef to figure to test if P0 is enough *)
+        (* ForallMemT to test if P0 is true *)
+        * admit.
+        * admit.
+        * admit.
+        * admit.
+        * (* coderef case *)
+          (* I think this IH for function types is what we need but we'll see *)
+          intros.
+          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
+          iApply value_interp_eq.
+          cbn.
+          iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & (%i & %i32 & %j & %cl & Hcl))".
+          destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hsκ" as "[[]_]"].
+          iExists (SVALTYPE ιs ξ).
           iFrame.
-          (* something is happening that's for sure *)
+          iSplitR.
+          -- (* yeah bc of the other cases I think so *)
+             admit.
+          -- iExists i, i32, j, cl.
+             iDestruct "Hcl" as "(H1 & H2 & H3 & H4 & H5)".
+             iFrame.
+             specialize (IHτ se se' cl sub_m sub_r sub_s sub_t Hsub_r Hsub_s Hsub_t).
+             iPoseProof IHτ as "IHτ".
+             iApply IHτ; auto.
+
+        * admit.
+        * admit.
+        * admit.
+        * admit.
+        * (* exists mem *)
+          intros.
+          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
+          iApply value_interp_eq.
+          iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & (%μ & Hμ))".
+          destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hsκ" as "[[]_]"].
+          iExists (SVALTYPE ιs ξ).
+          iFrame. (* this does delete some pure things *)
+          iSplitR; [iPureIntro; eapply eval_kind_subst_senv; done|].
+
+          (* this might be wrong *)
+          cbn.
+          iExists μ.
+          iModIntro.
+          iRename "Hμ" into "Hoa".
+
+          specialize (IHτ (up_memory_type sub_t) (up_memory_representation sub_r)
+                     (up_memory_size sub_s) (up_memory_memory sub_m))
+            as IHτ.
+          specialize (IHτ (senv_insert_mem μ se) (senv_insert_mem μ se'))
+            as IHτ.
+          apply IHτ.
+          -- intros.
+             assert (H': se' !! i = Some ιs'). {
+               unfold senv_insert_mem in H.
+               destruct se'.
+               destruct o0. destruct o0.
+               cbn in H.
+
+               (* okay yes. This is true because o3 isn't changed. but
+                  I can't figure out how to tell rocq that the i is indexing
+                  into o3 into both cases.
+                *)
+               admit.
+             }
+             apply Hsub_r in H'.
+             by apply eval_rep_up_memory.
+          -- intros.
+             (* okay similarly thought eval_size_up_memory *)
+             (* with the variables from before, o2 doesn't change *)
+             admit.
+          -- intros.
+             (* I think same deal *)
+             admit.
+        * admit.
+        * admit.
+        * admit.
+        * (* MonoFun *)
+          (* base case for P0 *)
+          iIntros (??????? Hsub_r Hsub_s Hsub_t) "#Hcl".
+          cbn.
+          (* I'm so scared *)
+          destruct cl; [|auto].
+          destruct f as [τs1_trans τs2_trans] eqn:Hf.
+          iDestruct "Hcl" as "(%Hτs1 & %Hτs2 & Hcl)".
+          iSplitR; [iPureIntro| iSplitR; [iPureIntro|]]; fold (subst_type sub_m sub_r sub_s sub_t).
+          -- by eapply translate_types_subst_senv.
+          -- by eapply translate_types_subst_senv.
+          -- iIntros "!> !> %%% Hvs Hos Hrt Hown Hfr Hrun".
+             iApply (cwp_label_wand with "[-]").
+             ++ iApply (cwp_return_wand with "[-]").
+                ** iApply (cwp_wand with "[-]").
+                   --- iApply ("Hcl" with "[$] [Hos] [$] [$] [$] [$]").
+                       iClear "Hcl".
+                       (* IT'S THE OTHER WAY AROUND WHYYYYY :SOB: *)
+                       admit. (* values_interp0 *)
+                   --- iClear "Hcl".
+                       iIntros (f' vs) "((%os & Hvs & Hos) & [% Hrt] & Hown)".
+                       iSplitL "Hvs Hos"; last iFrame.
+                       iExists _.
+                       iFrame.
+                       (* this is the correct direction to use H *)
+                       admit. (* values_interp0 *)
+                ** iClear "Hcl".
+                   iSplitL; first done.
+                   iIntros (? Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
+                   cbn in Hlen.
+                   iSplitL "Hvs Hos"; last iFrame.
+                   iExists _.
+                   iFrame.
+                   (* correct direction to use H0 *)
+                   admit. (* values_interp0 *)
+             ++ iClear "Hcl".
+                iSplitL; first done.
+                iApply big_sepL2_singleton.
+                iSplitL; first done.
+                iIntros (f' vs Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
+                cbn in Hlen.
+                iSplitL "Hvs Hos"; last iFrame.
+                iExists _.
+                iFrame.
+                (* correct direction to use H0 *)
+                admit. (* values_interp0 *)
+        * (* ForallMemT case *)
+          (* this is to test is P0 is reasonable *)
+          intros.
+          iIntros "Hcl".
+          cbn.
+          iIntros.
+          iSpecialize ("Hcl" $! μ).
+
+
+          
 
 
   Admitted.
+
 
   (* TODO: The lemma for values_interp0 might require adding an assumption about
      the memory substitution? *)
