@@ -133,6 +133,17 @@ Section inst.
     all: cbn; unfold eval_kind; by rewrite rinstId'_kind.
   Qed.
 
+  Ltac shred_for_up n2 Hn2 :=
+      apply fmap_Some;
+      exists n2; split; last done;
+      apply mapM_Some in Hn2;
+      apply mapM_Some;
+      rewrite <- (list_fmap_id n2);
+      rewrite map_fmap;
+      apply Forall2_fmap;
+      eapply Forall2_mini_impl_Forall; first done;
+      done.
+
   Lemma eval_rep_up_rep se sub_r ιs0 i ιs :
     eval_rep se (sub_r i) = Some ιs ->
     eval_rep (senv_insert_rep (Σ:=Σ) ιs0 se) (up_representation_representation sub_r (S i)) = Some ιs.
@@ -140,15 +151,18 @@ Section inst.
     intros H.
     asimpl'.
     unfold core.funcomp, unscoped.scons.
-    dependent induction H.
 
-    remember (sub_r i) as ρ.
-    induction ρ using rep_ind.
+    generalize dependent ιs.
+    induction (sub_r i) using rep_ind.
     - done.
-    - admit.
-    - admit.
-    - admit.
-  Admitted.
+    - intros; cbn in *.
+      apply fmap_Some in H0 as (n2 & Hn2 & ->).
+      shred_for_up n2 Hn2.
+    - intros; cbn in *.
+      apply fmap_Some in H0 as (n2 & Hn2 & ->).
+      shred_for_up n2 Hn2.
+    - intros; by cbn in *.
+  Qed.
 
   Lemma eval_rep_up_size se sub_r ιs i n :
     eval_rep se (sub_r i) = Some ιs ->
@@ -180,51 +194,81 @@ Section inst.
     unfold core.funcomp.
     generalize dependent n.
 
-    (* Note: not remembering (sub_s i) as either
-       as remember (sub_s i) as σ or eqn:Hσ doesn't work due
-       to the fourth case. However, if you try to remember it,
-       the inductive hypothesis becomes somewhat nonsenical.
-       I think we'd need a new size_ind in order to get it to work.
-
-       The first three cases, if no remembering is done, work
-       by replacing admit with done. Fourth case should work
-       if sub_s i is remembered, I think? Fifth haven't looked.
-     *)
-
-    remember (sub_s i) as σ.
-    generalize dependent i.
-    generalize dependent σ.
-    induction σ using size_ind.
+    induction (sub_s i) using size_ind.
     - intros; done.
     - intros; cbn in *.
       apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      apply fmap_Some.
-      exists n2; split; last done.
-      apply mapM_Some in Hn2.
-      apply mapM_Some.
-      rewrite <- (list_fmap_id n2).
-      rewrite map_fmap.
-      apply Forall2_fmap.
-      eapply Forall2_mini_impl_Forall; first done.
-      admit.
+      shred_for_up n2 Hn2.
     - intros; cbn in *.
       apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      apply fmap_Some.
-      exists n2; split; last done.
-      apply mapM_Some in Hn2.
-      apply mapM_Some.
-      rewrite <- (list_fmap_id n2).
-      rewrite map_fmap.
-      apply Forall2_fmap.
-      eapply Forall2_mini_impl_Forall; first done.
-      admit.
+      shred_for_up n2 Hn2.
     - intros.
       apply fmap_Some in H as (n2 & Hn2 & ->).
       apply fmap_Some.
       exists n2; split; last done.
-      admit.
-    - admit.
-  Admitted.
+      generalize dependent n2.
+      clear i.
+      clear sub_s.
+      induction ρ using rep_ind; intros; cbn in *; auto.
+      + rename n2 into n; rename Hn2 into Hn.
+        apply fmap_Some in Hn as (ιss & Hιss & ->).
+        shred_for_up ιss Hιss.
+      + rename n2 into n; rename Hn2 into Hn.
+        apply fmap_Some in Hn as (ιss & Hιss & ->).
+        shred_for_up ιss Hιss.
+    - intros; by cbn in *.
+  Qed.
+
+  Lemma eval_rep_up_shift_rep se ρ n ιs :
+    eval_rep se ρ = Some n ->
+    eval_rep (senv_insert_rep (Σ:=Σ) ιs se) (ren_representation unscoped.shift ρ) = Some n.
+  Proof.
+    generalize dependent n.
+    induction ρ using rep_ind.
+    - intros; cbn in *; done.
+    - intros; cbn in *.
+      apply fmap_Some in H0 as (ns & Hns & ->).
+      shred_for_up ns Hns.
+    - intros; cbn in *.
+      apply fmap_Some in H0 as (ns & Hns & ->).
+      shred_for_up ns Hns.
+    - intros; by cbn in *.
+  Qed.
+
+  Lemma eval_kind_up_shift_rep se κ sκ ιs :
+    eval_kind se κ = Some sκ ->
+    eval_kind (senv_insert_rep (Σ:=Σ) ιs se) (ren_kind unscoped.shift unscoped.id κ) = Some sκ.
+  Proof.
+    generalize dependent sκ.
+    destruct κ as [ρ ξ | σ ξ].
+    - intros; cbn in *.
+      apply bind_Some in H as (sρ & Hsρ & toinvert).
+      inversion toinvert; subst; clear toinvert.
+      apply bind_Some.
+      exists sρ; split; auto.
+      by apply eval_rep_up_shift_rep.
+    - intros; cbn in *.
+      apply bind_Some in H as (sσ & Hsσ & toinvert).
+      inversion toinvert; subst; clear toinvert.
+      apply bind_Some.
+      exists sσ; split; auto.
+      generalize dependent sσ.
+      induction σ using size_ind.
+      + intros; cbn in *; done.
+      + intros; cbn in *.
+        apply fmap_Some in Hsσ as (ns & Hns & ->).
+        shred_for_up ns Hns.
+      + intros; cbn in *.
+        apply fmap_Some in Hsσ as (ns & Hns & ->).
+        shred_for_up ns Hns.
+      + intros; cbn in *.
+        apply fmap_Some in Hsσ as (n & Hn & ->).
+        apply fmap_Some.
+        exists n; split; auto.
+        cbn.
+        by apply eval_rep_up_shift_rep.
+      + intros; by cbn in *.
+  Qed.
 
   Lemma type_skind_up_rep se sub_t ιs sκ i :
     type_skind se (sub_t i) = Some sκ ->
@@ -233,8 +277,10 @@ Section inst.
     intros H.
     asimpl'.
     unfold core.funcomp.
-    remember (sub_t i) as τ.
-  Admitted.
+    generalize dependent sκ.
+    induction (sub_t i) using type_ind with (P0 := λ ft, True);
+      intros; cbn in *; auto; try (by apply eval_kind_up_shift_rep).
+  Qed.
 
   Lemma eval_rep_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r ρ ιs :
     (forall i ιs', se' !! i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
@@ -248,26 +294,10 @@ Section inst.
     - intros ? H.
       cbn in *.
       apply fmap_Some in H as (ιss & Hρs & ->).
-      apply fmap_Some.
-      eexists.
-      split; last done.
-      apply mapM_Some in Hρs.
-      apply mapM_Some.
-      rewrite <- (list_fmap_id ιss).
-      rewrite map_fmap.
-      apply Forall2_fmap.
-      eapply Forall2_mini_impl_Forall; done.
+      shred_for_up ιss Hρs.
     - intros ??; cbn in *.
       apply fmap_Some in H as (ιss & Hρs & ->).
-      apply fmap_Some.
-      eexists.
-      split; last done.
-      apply mapM_Some in Hρs.
-      apply mapM_Some.
-      rewrite <- (list_fmap_id ιss).
-      rewrite map_fmap.
-      apply Forall2_fmap.
-      eapply Forall2_mini_impl_Forall; done.
+      shred_for_up ιss Hρs.
     - intros ??; cbn in *; done.
   Qed.
 
@@ -283,26 +313,10 @@ Section inst.
     - intros ? H. cbn in *. by apply Hsub_s.
     - intros ??; cbn in *.
       apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      apply fmap_Some.
-      exists n2; split; last done.
-      apply mapM_Some in Hn2.
-      apply mapM_Some.
-      rewrite <- (list_fmap_id n2).
-      rewrite map_fmap.
-      apply Forall2_fmap.
-      cbn.
-      eapply Forall2_mini_impl_Forall; done.
+      shred_for_up n2 Hn2.
     - intros ??; cbn in *.
       apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      apply fmap_Some.
-      exists n2; split; last done.
-      apply mapM_Some in Hn2.
-      apply mapM_Some.
-      rewrite <- (list_fmap_id n2).
-      rewrite map_fmap.
-      apply Forall2_fmap.
-      cbn.
-      eapply Forall2_mini_impl_Forall; done.
+      shred_for_up n2 Hn2.
     - intros ??.
       cbn in *.
       apply fmap_Some in H as (ιss & Hρ & ->).
