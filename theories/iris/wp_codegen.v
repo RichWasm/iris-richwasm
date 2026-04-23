@@ -453,26 +453,26 @@ Section CodeGen.
     done.
   Qed.
 
-  Lemma cwp_set_locals_w tys L R Φ :
-    forall s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs evs,
-      has_values evs vs ->
-      run_codegen (set_locals_w localidxs) wt (wl ++ tys ++ wlo) = inr (v, wt', wl', es) ->
-      wl_interp (fe_wlocal_offset fe) (wl ++ tys ++ wlo ++ wlf) fr ->
-      idxs = seq (fe_wlocal_offset fe + length wl) (length tys) ->
-      result_type_interp tys vs ->
-      localidxs = map W.Mk_localidx idxs ->
-      v = () ∧
-      wt' = [] /\
-      wl' = [] /\
-      ⊢ ↪[frame] fr -∗
-        ↪[RUN] -∗
-        (∀ f,
-            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
-            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
-            Φ f []) -∗
-            CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
+  Lemma cwp_set_locals_w tys L R Φ s E fe wt wl i localidxs idxs v wt' wl' wlf es fr vs evs :
+    has_values evs vs ->
+    run_codegen (set_locals_w localidxs) wt wl = inr (v, wt', wl', es) ->
+    wl_interp (fe_wlocal_offset fe) (wl ++ wlf) fr ->
+    i + (length tys) <= (fe_wlocal_offset fe) + (length wl) ->
+    idxs = seq i (length tys) ->
+    result_type_interp tys vs ->
+    localidxs = map W.Mk_localidx idxs ->
+    v = () /\
+    wt' = [] /\
+    wl' = [] /\
+    ⊢ ↪[frame] fr -∗
+      ↪[RUN] -∗
+      (∀ f,
+          ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+          ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
+          Φ f []) -∗
+          CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
   Proof.
-    intros s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs evs Hhv Hcg Hwl Hidxs Hrt Hlocals.
+    intros Hhv Hcg Hwl Hin_range Hidxs Hrt Hlocals.
     apply run_codegen_set_locals in Hcg as H.
     destruct H as (-> & -> & ->).
     split; auto.
@@ -481,8 +481,8 @@ Section CodeGen.
     iIntros "Hfr Hrun HΦ".
     apply interp_wl_length in Hwl.
     rewrite !length_app in Hwl.
-    iRevert (Hcg Hidxs Hrt Hlocals Hwl Hhv).
-    iInduction vs as [| v vs' IH] using rev_ind forall (idxs localidxs es evs tys wlo fr); iIntros (Hcg Hidxs Hrt Hlocals Hwl Hhv).
+    iRevert (Hcg Hin_range Hidxs Hrt Hlocals Hwl Hhv).
+    iInduction vs as [| v vs' IH] using rev_ind forall (i idxs localidxs es evs tys fr); iIntros (Hcg Hin_range Hidxs Hrt Hlocals Hwl Hhv).
     - apply Forall2_length in Hrt as Hlen.
       destruct tys; last done.
       simpl in Hidxs.
@@ -532,7 +532,12 @@ Section CodeGen.
       destruct wt_tys as [|]; last done.
       destruct wl_tys as [|]; last done.
       inv_cg_emit Hcg_set; subst.
-      rewrite length_app in Hwl. simpl in Hwl.
+
+      assert (i + length tys' < length (f_locs fr)) as Hin_range'.
+      {
+        rewrite length_app in Hin_range. simpl in Hin_range. lia.
+      }
+
       iEval (rewrite app_assoc).
       iApply (cwp_seq with "[Hfr Hrun]").
       {
@@ -542,75 +547,115 @@ Section CodeGen.
         apply has_values_to_consts_inv in Hhv_v.
         simpl in Hhv_v.
         inversion Hhv_v; subst.
-        iApply (cwp_local_set with "[] [$] [$]").
-        - lias.
-        - unfold fvs_combine.
-          instantiate (1 := λ fr' vs, ⌜fr' = {| W.f_locs := _; W.f_inst := _ |} /\ vs = vs'⌝%I).
-          iPureIntro.
-          split; first done.
-          by rewrite app_nil_r.
+        iApply (cwp_local_set with "[] [$] [$]"); first done.
+        unfold fvs_combine.
+        instantiate (1 := λ fr' vs, ⌜fr' = {| W.f_locs := _; W.f_inst := _ |} /\ vs = vs'⌝%I).
+        iPureIntro.
+        split; first done.
+        by rewrite app_nil_r.
       }
       iIntros (??) "[-> ->] Hfr Hrun".
-      iApply ("IH" with "[$] [$] [HΦ]"); try done; try iPureIntro.
-      + instantiate (1 := tys').
-        iIntros (f [Hfrel Hf2]).
-        iApply "HΦ".
+      iApply ("IH" with "[$] [$] [HΦ]").
+      5: {
         iPureIntro.
-        simpl.
-        destruct Hfrel as [Hfrel_locs Hfinst].
-        unfold mask_locs_eq in Hfrel_locs.
-        specialize (Hfrel_locs (fe_wlocal_offset fe + length wl + length tys')) as Hlast.
-        rewrite list_lookup_insert in Hlast.
-        rewrite decide_True in Hlast.
-        2: lias.
-        rewrite list_elem_of_In in Hlast.
-        rewrite in_seq in Hlast.
-        have Hv : Some v = f_locs f !! (fe_wlocal_offset fe + length wl + length tys').
-        1: apply Hlast; lias.
-        split.
-        2: {
-          apply Forall2_app.
-          - exact Hf2.
-          - apply Forall2_cons; split; last by apply Forall2_nil.
-            done.
-        }
-        unfold frame_rel.
-        simpl in Hfinst.
-        split; last done.
-        unfold mask_locs_eq.
-        intros i Hini.
-        specialize (Hfrel_locs i) as Hi.
-        assert (f_locs
-                      {|
-                        W.f_locs :=
-                          <[fe_wlocal_offset fe + length wl + length tys':=v]> (f_locs fr);
-                        W.f_inst := f_inst fr
-                      |}
-                 !! i = f_locs f !! i) as Hli.
-        {
-          apply Hi.
-          apply not_elem_of_app in Hini.
-          lias.
-        }
-        rewrite -Hli.
-        simpl.
-        apply not_elem_of_app in Hini as [Hini1 Hini2].
-        apply not_elem_of_cons in Hini2 as [Hneq _].
-        rewrite list_lookup_insert_ne; [reflexivity | done].
-      + unfold set_locals_w.
+        apply Forall2_app_inv in Hrt as [Hrt1 Hrt2]; first done.
+        rewrite !length_app in Hlen.
+        simpl in Hlen.
+        lia.
+      }
+      4: instantiate (1 := i); done.
+      4: done.
+      3: {
+        rewrite length_app in Hin_range.
+        simpl in Hin_range.
+        iPureIntro.
+        lias.
+      }
+      2: {
+        iPureIntro.
+        unfold set_locals_w.
         unfold compose.
         rewrite !app_nil_r in Hcg_rest.
-        instantiate (1 := [ty] ++ wlo).
-        rewrite !app_assoc.
-        rewrite !app_assoc in Hcg_rest.
         done.
-      + apply Forall2_app_inv in Hrt as [Hrt' _]; first done.
-        rewrite !length_app in Hlen; simpl in Hlen.
-        lias.
-      + simpl.
+      }
+      3: iPureIntro; apply has_values_to_consts.
+      2: {
+        iPureIntro.
+        simpl.
         rewrite length_insert.
         lias.
-      + apply has_values_to_consts.
+      }
+      iIntros (f [Hfrel Hf2]).
+      iApply "HΦ".
+      iPureIntro.
+      simpl.
+      destruct Hfrel as [Hfrel_locs Hfinst].
+      unfold mask_locs_eq in Hfrel_locs.
+      specialize (Hfrel_locs (i + length tys')) as Hlast.
+      rewrite list_lookup_insert in Hlast.
+      rewrite decide_True in Hlast.
+      2: done.
+      rewrite list_elem_of_In in Hlast.
+      rewrite in_seq in Hlast.
+      have Hv : Some v = f_locs f !! (i + length tys').
+      1: apply Hlast. lias.
+      split.
+      2: {
+        apply Forall2_app.
+        - exact Hf2.
+        - apply Forall2_cons; split; last by apply Forall2_nil.
+          done.
+      }
+      unfold frame_rel.
+      simpl in Hfinst.
+      split; last done.
+      unfold mask_locs_eq.
+      intros j Hinj.
+      specialize (Hfrel_locs j) as Hj.
+      assert (f_locs
+      {|
+        W.f_locs :=
+        <[i + length tys':=v]> (f_locs fr);
+        W.f_inst := f_inst fr
+      |}
+      !! j = f_locs f !! j) as Hlj.
+      {
+        apply Hj.
+        apply not_elem_of_app in Hinj.
+        lias.
+      }
+      rewrite -Hlj.
+      simpl.
+      apply not_elem_of_app in Hinj as [Hinj1 Hinj2].
+      apply not_elem_of_cons in Hinj2 as [Hneq _].
+      rewrite list_lookup_insert_ne; [reflexivity | done].
+  Qed.
+
+  Lemma cwp_set_locals_w_non_fe tys L R Φ s E fe wt wl localidxs idxs v wt' wl' wlo wlf es fr vs evs :
+      has_values evs vs ->
+      run_codegen (set_locals_w localidxs) wt (wl ++ tys ++ wlo) = inr (v, wt', wl', es) ->
+      wl_interp (fe_wlocal_offset fe) (wl ++ tys ++ wlo ++ wlf) fr ->
+      idxs = seq (fe_wlocal_offset fe + length wl) (length tys) ->
+      result_type_interp tys vs ->
+      localidxs = map W.Mk_localidx idxs ->
+      v = () ∧
+      wt' = [] /\
+      wl' = [] /\
+      ⊢ ↪[frame] fr -∗
+        ↪[RUN] -∗
+        (∀ f,
+            ⌜frame_rel (λ i, i ∉ idxs) fr f⌝ ∗
+            ⌜Forall2 (λ i v, f_locs f !! localimm i = Some v) localidxs vs⌝ -∗
+            Φ f []) -∗
+            CWP evs ++ es @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros Hhv Hcg Hwl_interp Hidxs Hrt Hlocalidxs.
+    eapply cwp_set_locals_w with
+      (i := fe_wlocal_offset fe + length wl)
+      (wl := wl ++ tys ++ wlo)
+      (wlf := wlf); try done.
+      - by rewrite -!app_assoc.
+      - rewrite !length_app. rewrite !Nat.add_assoc. lia.
   Qed.
 
   Lemma wp_save_stack1 ty :
@@ -691,7 +736,7 @@ Section CodeGen.
     rewrite app_nil_r in Hcg2.
     rewrite -(app_nil_r tys) in Hcg2.
     rewrite !app_nil_r !app_nil_l.
-    eapply cwp_set_locals_w in Hcg2; try done.
+    eapply cwp_set_locals_w_non_fe in Hcg2; try done.
     2: by rewrite -!app_assoc in Hwl.
     2: by rewrite app_nil_r.
     destruct Hcg2 as (-> & -> & -> & H).

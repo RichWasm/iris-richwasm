@@ -188,7 +188,7 @@ Section inject.
     }
 
     rewrite <- (app_nil_r areps_sum) in Hset_sum_locals.
-    eapply cwp_set_locals_w in Hset_sum_locals.
+    eapply cwp_set_locals_w_non_fe in Hset_sum_locals.
     5: done.
     3: done.
     2: apply has_values_to_consts.
@@ -248,7 +248,7 @@ Section inject.
     clear_nils.
     rewrite !app_assoc in Hset_i_locals.
     rewrite -app_assoc in Hset_i_locals.
-    eapply cwp_set_locals_w in Hset_i_locals.
+    eapply cwp_set_locals_w_non_fe in Hset_i_locals.
     4: {
       instantiate (2 := idxs_i).
       rewrite length_app !length_fmap.
