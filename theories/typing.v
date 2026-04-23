@@ -205,8 +205,20 @@ Definition ref_flag_le (ξ ξ' : ref_flag) : bool :=
   | _, _ => false
   end.
 
-Lemma ref_flag_le_refl ξ : ref_flag_le ξ ξ.
-Proof. by destruct ξ. Qed.
+Lemma ref_flag_le_refl ξ :
+  ref_flag_le ξ ξ.
+Proof.
+  by destruct ξ.
+Qed.
+
+Lemma ref_flag_le_trans ξ1 ξ2 ξ3 :
+  ref_flag_le ξ1 ξ2 ->
+  ref_flag_le ξ2 ξ3 ->
+  ref_flag_le ξ1 ξ3.
+Proof.
+  intros H12 H23.
+  by destruct ξ1; destruct ξ2; destruct ξ3.
+Qed.
 
 Inductive subkind_of : kind -> kind -> Prop :=
 | KSubVal ρ ξ ξ' :

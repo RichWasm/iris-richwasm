@@ -20,29 +20,24 @@ Section FundamentalKinding.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
-  
-  Lemma semantic_type_le_refl :
-    ∀ (T: @semantic_type Σ), 
-      T ⊑ T.
+
+  Lemma semantic_type_le_refl (T : @semantic_type Σ) :
+    T ⊑ T.
   Proof.
-    by iIntros (T sv) "H".
+    by iIntros.
   Qed.
 
-  Lemma semantic_type_le_trans :
-    ∀ (S T U: @semantic_type Σ), 
-      S ⊑ T ->
-      T ⊑ U ->
-      S ⊑ U.
+  Lemma semantic_type_le_trans (S T U : @semantic_type Σ) :
+    S ⊑ T -> T ⊑ U -> S ⊑ U.
   Proof.
-    iIntros (S T U Hst Htu sv) "H".
+    iIntros (Hst Htu sv) "H".
     iApply Htu.
-    iApply Hst.
-    done.
+    by iApply Hst.
   Qed.
 
-  Lemma type_kind_has_kind_Some F τ κ :
+  Lemma type_kind_has_kind_is_Some F τ κ :
     has_kind F τ κ ->
-    ∃ κ', type_kind (fe_type_vars (fe_of_context F)) τ = Some κ'.
+    is_Some (type_kind F.(fc_type_vars) τ).
   Proof.
     induction 1; try solve [eexists; cbn; eauto].
     auto.
@@ -50,7 +45,7 @@ Section FundamentalKinding.
 
   Lemma type_kind_has_kind_agree F τ κ κ' :
     has_kind F τ κ ->
-    type_kind (fe_type_vars (fe_of_context F)) τ = Some κ' ->
+    type_kind F.(fc_type_vars) τ = Some κ' ->
     clos_refl_trans _ subkind_of κ' κ.
   Proof.
     intros Hhas_kind.
@@ -64,71 +59,65 @@ Section FundamentalKinding.
     eapply IHHhas_kind in H0.
     eapply rt_trans; [|apply rt_step]; by eauto.
   Qed.
-  
-  Lemma subkind_rep_inv :
-    forall κ κ',
-      clos_refl_trans _ subkind_of κ κ' ->
-      kind_rep κ = kind_rep κ'.
+
+  Lemma subkind_rep_inv κ κ' :
+    clos_refl_trans _ subkind_of κ κ' ->
+    kind_rep κ = kind_rep κ'.
   Proof.
     induction 1; try congruence.
     inversion H; reflexivity.
   Qed.
 
-  Lemma subkind_preserves_valtype :
-    forall ρ ξ κ,
-      clos_refl_trans _ subkind_of κ (VALTYPE ρ ξ) ->
-      ∃ ξ', κ = VALTYPE ρ ξ'.
+  Lemma subkind_preserves_valtype κ ρ ξ :
+    clos_refl_trans _ subkind_of κ (VALTYPE ρ ξ) ->
+    exists ξ0, κ = VALTYPE ρ ξ0 /\ ref_flag_le ξ0 ξ.
   Proof.
     intros.
     remember (VALTYPE ρ ξ) as κ'.
     revert Heqκ'.
     revert ρ ξ.
     induction H; intros; subst.
-    - inversion H; eauto.
-    - eauto.
-    - destruct (IHclos_refl_trans2 _ _ eq_refl) as (ξ' & Hy).
-      eauto.
+    - inversion H. subst. by eexists.
+    - exists ξ. by split; last apply ref_flag_le_refl.
+    - destruct (IHclos_refl_trans2 _ _ eq_refl) as (ξ' & Hy & Hξ').
+      destruct (IHclos_refl_trans1 _ _ Hy) as (ξ'' & Hx & Hξ'').
+      eexists.
+      split; first done.
+      by eapply ref_flag_le_trans.
   Qed.
 
   Lemma type_rep_has_kind_agree F τ ρ ξ :
     has_kind F τ (VALTYPE ρ ξ) ->
-    type_rep (fe_type_vars (fe_of_context F)) τ = Some ρ.
+    type_rep F.(fc_type_vars) τ = Some ρ.
   Proof.
     intros Hhas_kind.
     unfold type_rep.
-    destruct (type_kind_has_kind_Some _ _ _ Hhas_kind) as [κ' Htk].
+    destruct (type_kind_has_kind_is_Some _ _ _ Hhas_kind) as [κ' Htk].
     rewrite Htk; cbn.
     eapply type_kind_has_kind_agree in Htk; eauto.
     erewrite subkind_rep_inv by eauto.
     done.
   Qed.
-  
-  Theorem kinding_refinement F (se: semantic_env) τ κ sκ : 
+
+  Lemma type_skind_has_kind_refine F se τ κ sκ0 sκ :
+    has_kind F τ κ ->
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    type_skind (Σ:=Σ) se τ = Some sκ0 ->
+    skind_as_type_interp (Σ:=Σ) sκ0 ⊑ skind_as_type_interp sκ.
+  Admitted.
+
+  Theorem kinding_refinement F se τ κ sκ : 
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     value_interp rti sr se τ ⊑ skind_as_type_interp sκ.
   Proof.
-    (*
-    iIntros "%Hhas_kind [%Hsubst Hse]".
-    iPoseProof (subst_interp_kinds_map with "Hse") as "%Hfsteq".
-    unfold sem_env_interp.
-    setoid_rewrite bi.sep_comm.
-    rewrite big_sepL2_sep_sepL_l.
-    iDestruct "Hse" as "[Hkinding Hsubst]".
-    rewrite big_sepL2_pure.
-    iDestruct "Hsubst" as "[%Htylen %Htysub]".
-    iPureIntro.
-    intros sv.
-    iIntros "Hval".
+    iIntros (Hkind Hse Heval sv) "Hsv".
     rewrite value_interp_eq.
-    iDestruct "Hval" as "(%κ' & %Htyk & Hinterp & _)".
-    rewrite Hfsteq in Htyk.
-    eapply has_kind_subst in Hhas_kind; eauto.
-    eapply type_kind_has_kind_agree in Hhas_kind; eauto.
-    by iApply rt_subkind_sound.
-    *)
-  Admitted.
+    iDestruct "Hsv" as "(%κ0 & %Hκ0 & H & _)".
+    by iApply type_skind_has_kind_refine.
+  Qed.
 
   Instance kind_as_type_persistent κ sv :
     @Persistent (iProp Σ) (skind_as_type_interp κ sv).
@@ -136,9 +125,9 @@ Section FundamentalKinding.
     destruct κ, sv; cbn; typeclasses eauto.
   Qed.
 
-  Lemma value_interp_var (se: semantic_env) (t: nat) (κ: skind) (T: semantic_type) :
-    se !! t = Some (κ, T) ->
-    value_interp rti sr se (VarT t) ≡ (λne sv, skind_as_type_interp κ sv ∗ T sv)%I.
+  Lemma value_interp_var se t sκ (T : semantic_type) :
+    se !! t = Some (sκ, T) ->
+    value_interp rti sr se (VarT t) ≡ (λne sv, skind_as_type_interp sκ sv ∗ T sv)%I.
   Proof.
     rewrite value_interp_part_eq.
     cbn.
