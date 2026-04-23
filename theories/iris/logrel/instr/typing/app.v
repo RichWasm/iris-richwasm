@@ -53,16 +53,38 @@ Section app.
     assert (tt: WL = wl ++ (wl1 ++ wl2) ++ wlf) by auto; rewrite tt; clear tt.
     repeat rewrite <- app_assoc.
 
-    iIntros (????????) "@@@@@@@@@@@".
-    (* iSpecialize ("Hcompile_es1" $! se fr os vs evs θ B R Hse Hevs *)
-    (*              with "Hinst Hlabels Hreturn Hvs Hos Hframe Hrt Hfr Hrun"). *)
-    (* iEval (rewrite app_assoc). *)
+    iIntros (????????) "@@@@@@@@@@@@".
+    iSpecialize ("Hcompile_es1" $! se fr os vs evs θ B R Hse Hevs
+                  with "Hinst Hlabels Hreturn Hvs Hos Hframe Hrt Hown Hfr Hrun").
+    iEval (rewrite app_assoc).
+    iApply (cwp_seq with "[$Hcompile_es1]"). clear θ.
+    iIntros (fr' vs2) "(%Hlmask & Hframe & (%os2 & Hos & Hvs) & (%θ' & Hrt) & Hown) Hfr Hrun".
 
-    (* iApply (cwp_seq with "[$Hcompile_es1]"). clear θ. *)
-    (* iIntros (fr' vs2) "(%Hlmask & HIfr & (%os2 & HIhvs & HIos) & [%θ' Hrt]) Hfr Hrun". *)
-
-    (* iApply ("Hcompile_es2" with "[] [] [$] [$] [$] [$] [$] [$] [$] [$] [$]"); iPureIntro; auto. *)
-    (* apply has_values_to_consts. *)
+    unfold lmask in *.
+    iApply (cwp_wand with "[-] []").
+    - iApply ("Hcompile_es2" $! se fr' _ _ _ _ _ _
+             with "[] [] [Hinst] [Hlabels] [$Hreturn] [$Hvs]
+             [$Hos] [$Hframe] [$Hrt] [$Hown] [$Hfr] [$Hrun]");
+        try (iPureIntro; auto); try (apply has_values_to_consts).
+      + destruct Hlmask as [_ ->].
+        done.
+      + iApply (labels_interp_mono _ _ _ _ _ _ _ _ _ _ _ Hlmask).
+        * apply wlmask_mono.
+          rewrite length_app.
+          lia.
+        * done.
+    - iIntros (fr'' vs3) "(%Hlmask2 & Hframe & Hos &
+        Hrt & Hown)".
+      iFrame.
+      iPureIntro.
+      clear os2 θ' vs3.
+      assert (Hllmask: frame_rel (wlmask fe (wl)) fr' fr''). {
+        eapply frame_rel_mask_mono; [|apply Hlmask2].
+        apply wlmask_mono.
+        rewrite length_app.
+        lia.
+      }
+      eapply frame_rel_trans; done.
   Admitted.
 
 End app.
