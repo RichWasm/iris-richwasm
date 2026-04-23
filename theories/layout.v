@@ -105,65 +105,68 @@ Definition arep_size (ι : atomic_rep) : nat :=
 Definition areps_size : list atomic_rep -> nat :=
   list_sum ∘ map arep_size.
 
-Section Eval.
+Class Env E :=
+  {
+    lookup_mem : E -> nat -> option base_memory;
+    lookup_rep : E -> nat -> option (list atomic_rep);
+    lookup_size : E -> nat -> option nat;
+  }.
 
-  Context `{Lookup nat base_memory Env}.
-  Context `{Lookup nat (list atomic_rep) Env}.
-  Context `{Lookup nat nat Env}.
-  Variable env : Env.
+Definition eval_mem `{Env E} (env : E) (μ : memory) : option base_memory :=
+  match μ with
+  | VarM x => lookup_mem env x
+  | BaseM bm => Some bm
+  end.
 
-  Definition eval_mem (μ : memory) : option base_memory :=
-    match μ with
-    | VarM x => env !! x
-    | BaseM bm => mret bm
-    end.
+Fixpoint eval_rep `{Env E} (env : E) (ρ : representation) : option (list atomic_rep) :=
+  match ρ with
+  | VarR x => lookup_rep env x
+  | SumR ρs => cons I32R ∘ @concat _ <$> mapM (eval_rep env) ρs
+  | ProdR ρs => @concat _ <$> mapM (eval_rep env) ρs
+  | AtomR ι => Some [ι]
+  end.
 
-  Fixpoint eval_rep (ρ : representation) : option (list atomic_rep) :=
-    match ρ with
-    | VarR x => env !! x
-    | SumR ρs => cons I32R ∘ @concat _ <$> mapM eval_rep ρs
-    | ProdR ρs => @concat _ <$> mapM eval_rep ρs
-    | AtomR ι => Some [ι]
-    end.
+Definition eval_rep_prim `{Env E} (env : E) (ρ : representation) : option (list primitive) :=
+  map arep_to_prim <$> eval_rep env ρ.
 
-  Definition eval_rep_prim (ρ : representation) : option (list primitive) :=
-    map arep_to_prim <$> eval_rep ρ.
+Definition eval_rep_size `{Env E} (env : E) (ρ : representation) : option nat :=
+  areps_size <$> eval_rep env ρ.
 
-  Definition eval_rep_size (ρ : representation) : option nat :=
-    areps_size <$> eval_rep ρ.
+Fixpoint eval_size `{Env E} (env : E) (σ : size) : option nat :=
+  match σ with
+  | VarS x => lookup_size env x
+  | SumS σs =>
+      ns ← mapM (eval_size env) σs;
+      Some (1 + list_max ns)
+  | ProdS σs => list_sum <$> mapM (eval_size env) σs
+  | RepS ρ => list_sum ∘ map arep_size <$> eval_rep env ρ
+  | ConstS n => Some n
+  end.
 
-  Fixpoint eval_size (σ : size) : option nat :=
-    match σ with
-    | VarS x => env !! x
-    | SumS σs =>
-        ns ← mapM eval_size σs;
-        Some (1 + list_max ns)
-    | ProdS σs => list_sum <$> mapM eval_size σs
-    | RepS ρ => list_sum ∘ map arep_size <$> eval_rep ρ
-    | ConstS n => Some n
-    end.
+Definition eval_kind `{Env E} (env : E) (κ : kind) : option skind :=
+  match κ with
+  | VALTYPE ρ ξ =>
+      sρ ← eval_rep env ρ;
+      mret $ SVALTYPE sρ ξ
+  | MEMTYPE σ ξ =>
+      n ← eval_size env σ;
+      mret $ SMEMTYPE n ξ
+  end.
 
-  Definition eval_kind (κ : kind) : option skind :=
-    match κ with
-    | VALTYPE ρ ξ =>
-        sρ ← eval_rep ρ;
-        mret $ SVALTYPE sρ ξ
-    | MEMTYPE σ ξ =>
-        n ← eval_size σ;
-        mret $ SMEMTYPE n ξ
-    end.
-
-  Definition sum_offset (ρs : list representation) (i : nat) : option nat :=
-    ιss ← mapM eval_rep (take i ρs);
-    Some (length (concat ιss)).
-
-End Eval.
+Definition sum_offset `{Env E} (env : E) (ρs : list representation) (i : nat) : option nat :=
+  ιss ← mapM (eval_rep env) (take i ρs);
+  Some (length (concat ιss)).
 
 (* empty_env is a type of environments that are always empty. It is
    useful for evaluating _closed_ things. *)
 Inductive empty_env : Type := EmptyEnv.
 
-Instance empty_env_lookup {K A} : Lookup K A empty_env := λ k m, None.
+Instance empty_env_env : Env empty_env :=
+  {
+    lookup_mem := fun _ _ => None;
+    lookup_rep := fun _ _ => None;
+    lookup_size := fun _ _ => None;
+  }.
 
 (* Resolve type classes here, rather than manually in the OCaml code: *)
 Definition eval_rep_prim_empty (ρ : representation) : option (list primitive) :=

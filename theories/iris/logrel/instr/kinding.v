@@ -126,14 +126,14 @@ Section FundamentalKinding.
   Qed.
 
   Lemma value_interp_var se t sκ (T : semantic_type) :
-    se !! t = Some (sκ, T) ->
+    lookup_type se t = Some (sκ, T) ->
     value_interp rti sr se (VarT t) ≡ (λne sv, skind_as_type_interp sκ sv ∗ T sv)%I.
   Proof.
     rewrite value_interp_part_eq.
     cbn.
     unfold type_var_interp.
     unfold lookup.
-    unfold senv_kind_lookup, senv_type_lookup.
+    unfold lookup_type.
     intros.
     intros sv.
     rewrite !H.

@@ -46,53 +46,33 @@ Section instr.
 
   Definition senv_empty : semantic_env := ([], [], [], []).
 
-  Definition senv_mems (se : semantic_env) : mem_env :=
-    let '(m, r, s, t) := se in m.
-
-  Definition senv_reps (se: semantic_env) : rep_env :=
-    let '(m, r, s, t) := se in r.
-
-  Definition senv_sizes (se: semantic_env) : size_env :=
-    let '(m, r, s, t) := se in s.
-
-  Definition senv_types (se: semantic_env) : type_env :=
-    let '(m, r, s, t) := se in t.
-
-  Definition senv_kinds (se: semantic_env) : list skind :=
-    map fst (senv_types se).
-
-  Definition senv_insert_type : skind -> semantic_type -> semantic_env -> semantic_env :=
-    λ κ T se,
-      (senv_mems se, senv_reps se, senv_sizes se, (κ, T) :: senv_types se).
-  Definition senv_insert_mem : base_memory → semantic_env → semantic_env :=
-    λ μ se,
-      (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).
-  Definition senv_insert_rep : list atomic_rep → semantic_env → semantic_env :=
-    λ ιs se,
-      (senv_mems se, ιs :: senv_reps se, senv_sizes se, senv_types se).
-  Definition senv_insert_size : nat → semantic_env → semantic_env :=
-    λ n se,
-      (senv_mems se, senv_reps se, n :: senv_sizes se, senv_types se).
+  Definition senv_mems '((m, _, _, _) : semantic_env) : mem_env := m.
+  Definition senv_reps '((_, r, _, _) : semantic_env) : rep_env := r.
+  Definition senv_sizes '((_, _, s, _) : semantic_env) : size_env := s.
+  Definition senv_types '((_, _, _, t) : semantic_env) : type_env := t.
 
   #[global]
-  Instance senv_mem_lookup : Lookup nat base_memory semantic_env :=
-    λ idx se, senv_mems se !! idx.
+  Instance semantic_env_env : Env semantic_env :=
+    {
+      lookup_mem := fun se i => senv_mems se !! i;
+      lookup_rep := fun se i => senv_reps se !! i;
+      lookup_size := fun se i => senv_sizes se !! i;
+    }.
 
-  #[global]
-  Instance senv_rep_lookup : Lookup nat (list atomic_rep) semantic_env :=
-    λ idx se, senv_reps se !! idx.
+  Definition lookup_type (se : semantic_env) (i : nat) : option (skind * semantic_type) :=
+    senv_types se !! i.
 
-  #[global]
-  Instance senv_size_lookup : Lookup nat nat semantic_env :=
-    λ idx se, senv_sizes se !! idx.
+  Definition senv_insert_type (sκ : skind) (T : semantic_type) (se : semantic_env) : semantic_env :=
+    (senv_mems se, senv_reps se, senv_sizes se, (sκ, T) :: senv_types se).
 
-  #[global]
-  Instance senv_type_lookup : Lookup nat (skind * semantic_type) semantic_env :=
-    λ idx se, senv_types se !! idx.
+  Definition senv_insert_mem (μ : base_memory) (se : semantic_env) : semantic_env :=
+    (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).
 
-  #[global]
-  Instance senv_kind_lookup : Lookup nat skind semantic_env :=
-    λ idx se, fst <$> senv_types se !! idx.
+  Definition senv_insert_rep (ιs : list atomic_rep) (se : semantic_env) : semantic_env :=
+    (senv_mems se, ιs :: senv_reps se, senv_sizes se, senv_types se).
+
+  Definition senv_insert_size (n : nat) (se : semantic_env) : semantic_env :=
+    (senv_mems se, senv_reps se, n :: senv_sizes se, senv_types se).
 
   Definition OsR : Type := leibnizO (list atom) -n> iPropO Σ.
   Definition ClR : Type := leibnizO function_closure -n> iPropO Σ.
@@ -287,9 +267,9 @@ Section instr.
     λne τs os,
       (∃ oss, ⌜os = concat oss⌝ ∗ [∗ list] τ; os ∈ τs; oss, vrel se τ (SAtoms os))%I.
 
-  Definition type_skind (se: semantic_env) (τ : type) : option skind :=
+  Definition type_skind (se : semantic_env) (τ : type) : option skind :=
     match τ with
-    | VarT x => se !! x
+    | VarT x => fst <$> lookup_type se x
     | NumT κ _
     | SumT κ _
     | VariantT κ _
@@ -308,7 +288,7 @@ Section instr.
     | ExistsTypeT κ _ _ => eval_kind se κ
     end.
 
-  Definition skind_rep (κ: skind) : option (list atomic_rep) :=
+  Definition skind_rep (κ : skind) : option (list atomic_rep) :=
     match κ with
     | SVALTYPE ιs _ => Some ιs
     | _ => None
@@ -321,7 +301,7 @@ Section instr.
   Definition translate_type (se : semantic_env) (τ : type) : option (list W.value_type) :=
     map translate_arep <$> type_arep se τ.
   
-  Definition translate_types (se: semantic_env) (τs : list type) : option (list W.value_type) :=
+  Definition translate_types (se : semantic_env) (τs : list type) : option (list W.value_type) :=
     @concat _ <$> mapM (translate_type se) τs.
 
   Definition mono_closure_interp0 (vrel : value_relation) (se : semantic_env) :
@@ -369,7 +349,7 @@ Section instr.
   Admitted.
 
   Definition type_var_interp (se : semantic_env) (t : nat) : SVR :=
-    match se !! t with
+    match lookup_type se t with
     | Some (_, T) => T
     | None => λne _, False%I
     end.
