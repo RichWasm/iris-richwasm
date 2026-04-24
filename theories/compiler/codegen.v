@@ -26,9 +26,9 @@ Definition wlocal_ctx : Type := list W.value_type.
 
 Definition codegen : Type -> Type := accumT (wtype_ctx * wlocal_ctx) (writerT W.expr (sum error)).
 
-Instance codegen_monad : Monad codegen := ltac:(typeclasses eauto).
+Instance Monad_codegen : Monad codegen := ltac:(typeclasses eauto).
 
-Instance codegen_monad_laws : MonadLaws codegen_monad.
+Instance MonadLaws_codegen : MonadLaws Monad_codegen.
 Admitted.
 
 Definition run_codegen {A : Type} (c : codegen A) (wt : wtype_ctx) (wl : wlocal_ctx) :
@@ -306,7 +306,7 @@ Proof.
 Qed.
 
 Lemma run_codegen_bind_intro {A B} (c : codegen A) (f : A -> codegen B)
-    wt wt1 wt2 wl wl1 wl2 es1 es2 x1 x :
+  wt wt1 wt2 wl wl1 wl2 es1 es2 x1 x :
   run_codegen c wt wl = inr (x1, wt1, wl1, es1) ->
   run_codegen (f x1) (wt ++ wt1) (wl ++ wl1) = inr (x, wt2, wl2, es2) ->
   run_codegen (c ≫= f) wt wl = inr (x, wt1 ++ wt2, wl1 ++ wl2, es1 ++ es2).
@@ -314,14 +314,9 @@ Proof.
   intros H1 H2.
   rewrite run_codegen_def in H1.
   rewrite run_codegen_def.
-  unfold mbind, MBind_Monad, flip, Monad.bind, Monad_writerT, EitherMonad.Monad_either.
+  unfold mbind.
   cbn.
-  destruct (runWriterT (runAccumT c (wt, wl))) eqn:Hc.
-  - congruence.
-  - rewrite H1 in Hc. inversion Hc. subst.
-    unfold mbind, MBind_Monad, flip, Monad.bind, Monad_accumT.
-  cbn.
-  rewrite Hc.
+  rewrite H1.
   cbn.
   rewrite run_codegen_def in H2.
   rewrite H2.
