@@ -6,14 +6,13 @@ Require Export RecordUpdate.RecordUpdate.
 
 From iris.proofmode Require Export base proofmode classes.
 
-From RichWasm.wasm Require Export operations.
 From RichWasm.named_props Require Export named_props custom_syntax.
-From RichWasm Require Export layout syntax typing.
+From RichWasm Require Export layout syntax typing util.
+Require Export RichWasm.wasm.operations.
 From RichWasm.compiler Require Export prelude codegen instruction module.
-From RichWasm.iris Require Export autowp memory util wp_codegen.
+From RichWasm.iris Require Export autowp memory logrel util wp_codegen.
 From RichWasm.iris.language Require Export cwp logpred.
-Require Export RichWasm.iris.logrel.
-Require Import RichWasm.util.
+Require Export RichWasm.iris.logrel.instr.kinding.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -27,7 +26,6 @@ Lemma get_base_l_append {i : nat} (lh : valid_holed i) e :
 Proof.
   induction lh;simpl;auto.
 Qed.
-
 
 Section common.
 
