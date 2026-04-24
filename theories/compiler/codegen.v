@@ -2,12 +2,13 @@ From Stdlib Require Import List.
 Import ListNotations.
 Require Import Stdlib.Program.Basics.
 Local Open Scope program_scope.
+Require Import Stdlib.Logic.FunctionalExtensionality.
 
 From stdpp Require Import list_misc list_monad.
 
 From ExtLib.Data Require Import List PPair.
 From ExtLib.Data.Monads Require Import EitherMonad StateMonad WriterMonad.
-From ExtLib.Structures Require Import Monoid Monads.
+From ExtLib.Structures Require Import Monoid Monads MonadLaws.
 
 Require Import RichWasm.wasm.numerics.
 From RichWasm.wasm Require datatypes_properties.
@@ -17,11 +18,18 @@ From RichWasm.compiler Require Import prelude accum.
 
 Module W := RichWasm.wasm.datatypes_properties.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Definition wtype_ctx : Type := list W.function_type.
 
 Definition wlocal_ctx : Type := list W.value_type.
 
 Definition codegen : Type -> Type := accumT (wtype_ctx * wlocal_ctx) (writerT W.expr (sum error)).
+
+Instance codegen_monad : Monad codegen := ltac:(typeclasses eauto).
+
+Instance codegen_monad_laws : MonadLaws codegen_monad.
+Admitted.
 
 Definition run_codegen {A : Type} (c : codegen A) (wt : wtype_ctx) (wl : wlocal_ctx) :
   error + A * wtype_ctx * wlocal_ctx * W.expr :=
@@ -152,8 +160,35 @@ Definition case_blocks (fe : function_env) (result : W.result_type) (cases : lis
   (* Put default result values on stack *)
   create_defaults result;;
   (* Code for each case *)
-  case_blocks_blocks 0 tag_idx result cases
-.
+  case_blocks_blocks 0 tag_idx result cases.
+
+Lemma mapM_app {A B} (f : A -> codegen B) (l1 l2 : list A) :
+  mapM f (l1 ++ l2) = r1 ← mapM f l1; r2 ← mapM f l2; mret (r1 ++ r2).
+Proof.
+  induction l1.
+  - rewrite app_nil_l.
+    cbn [mapM].
+    unfold mret, mbind, MBind_Monad, MRet_Monad, flip.
+    rewrite bind_of_return; last typeclasses eauto.
+    by rewrite return_of_bind; last typeclasses eauto.
+  - rewrite <- app_comm_cons.
+    cbn [mapM].
+    rewrite IHl1.
+    clear IHl1.
+    unfold mret, mbind, MBind_Monad, MRet_Monad, flip.
+    rewrite bind_associativity; last typeclasses eauto.
+    f_equal.
+    apply functional_extensionality.
+    intros x.
+    do 2 (rewrite bind_associativity; last typeclasses eauto).
+    f_equal.
+    apply functional_extensionality.
+    clear l1.
+    intros l1.
+    rewrite bind_associativity; last typeclasses eauto.
+    rewrite bind_of_return; last typeclasses eauto.
+    f_equal.
+Qed.
 
 Lemma runWriterT_sum_bind_dist {A B L E}
   (m : Monoid L)
@@ -433,7 +468,6 @@ Proof.
   rewrite app_nil_r.
   repeat split; exact eq_refl.
 Qed.
-
 
 Lemma run_codegen_get_locals ρ wt wl x wt' wl' es' :
   run_codegen (get_locals_w ρ) wt wl = inr (x, wt', wl', es') ->

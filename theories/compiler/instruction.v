@@ -13,6 +13,8 @@ From RichWasm.compiler Require Import prelude codegen memory.
 
 Module W. Include RichWasm.wasm.datatypes <+ RichWasm.wasm.operations. End W.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Section Compiler.
 
   Variable mr : module_runtime.
@@ -326,48 +328,31 @@ Section Compiler.
   Definition compile_instrs (fe : function_env) : list instruction -> codegen unit :=
     mapM_ (compile_instr fe).
 
-
-Lemma run_codegen_compile_instrs_app fe es1 es2 wt wl wt' wl' es' :
+  Lemma run_codegen_compile_instrs_app fe es1 es2 wt wl wt' wl' es' :
     run_codegen (compile_instrs fe (es1 ++ es2)) wt wl = inr ((), wt', wl', es') ->
     exists wt1 wt2 wl1 wl2 es1' es2',
-               run_codegen (compile_instrs fe es1) wt wl = inr ((), wt1, wl1, es1') /\
-               run_codegen (compile_instrs fe es2) (wt ++ wt1) (wl ++ wl1) =
-                 inr ((), wt2, wl2, es2') /\
-               wt' = wt1 ++ wt2 /\ wl' = wl1 ++ wl2  /\  es' = es1' ++ es2'.
-Proof.
-  (* This is mainly a proof about the codegen monad. Weirdly difficult for whatever reason.
-          Come back to it later. *)
-  Ltac clear_nils_local :=
-    repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
-  generalize dependent es2; generalize dependent wt; generalize dependent wl.
-  generalize dependent wt'. generalize dependent wl'. generalize dependent es'.
-  induction es1.
-  - intros.
-    clear_nils_local.
-    exists [], wt', [], wl', [], es'.
-    clear_nils_local. auto.
-  - intros ?????? Hcg.
-    change ((a :: es1) ++ es2) with (a :: (es1 ++ es2)) in Hcg.
-    inv_cg_bind Hcg ?p ?wt ?wt ?wl ?wl ?es ?es Hcg ?H.
-    cbn in H; inversion H; subst; clear H. clear_nils_local.
-    inv_cg_bind Hcg ?p ?wt ?wt ?wl ?wl ?es ?es Hcg ?H.
-
-    inv_cg_bind H ?p ?wt ?wt ?wl ?wl ?es ?es H ?H.
-    cbn in H0; inversion H0; subst; clear H0. clear_nils_local.
-    assert (Hope: run_codegen (compile_instrs fe (es1 ++ es2))
-                    (wt++wt1) (wl++wl1) = inr((),wt3,wl3,es4)). {
-      admit.
-    }
-    apply IHes1 in Hope.
-    destruct Hope as (wt2 & wt4 & wl2 & wl4 & es1' & es2'
-                      & Hes1 & Hes2 & -> & -> & ->).
-    apply (run_codegen_bind_intro _ _ _ _ _ _ _ _ _ _ _ _ Hcg) in Hes1.
-    repeat rewrite <- app_assoc in Hes2.
-    exists (wt1++wt2); eexists; exists (wl1++wl2); eexists;
-      exists (es0++es1'); exists es2'.
-    split; [|split; [done| repeat rewrite app_assoc; done]].
-    (* it's just Hes1 *)
-    (* but I can't figure out how to manipulate the monad *)
-Admitted.
+      run_codegen (compile_instrs fe es1) wt wl = inr ((), wt1, wl1, es1') /\
+        run_codegen (compile_instrs fe es2) (wt ++ wt1) (wl ++ wl1) = inr ((), wt2, wl2, es2') /\
+        wt' = wt1 ++ wt2 /\ wl' = wl1 ++ wl2 /\ es' = es1' ++ es2'.
+  Proof.
+    intros Hcg.
+    inv_cg_bind Hcg ?p ?wt ?wt ?wl ?wl ?es ?es Hcg H.
+    inv_cg_ret H.
+    rewrite mapM_app in Hcg.
+    inv_cg_bind Hcg ?p ?wt ?wt ?wl ?wl ?es ?es Hcg1 Hcg2.
+    inv_cg_bind Hcg2 ?p ?wt ?wt ?wl ?wl ?es ?es Hcg2 Hcg3.
+    inv_cg_ret Hcg3.
+    subst.
+    clear Hretval.
+    exists wt2, wt4, wl2, wl4, es3, es5.
+    split; last split; last split; last split.
+    - rewrite <- (app_nil_r wt2), <- (app_nil_r wl2), <- (app_nil_r es3).
+      by eapply run_codegen_bind_intro.
+    - rewrite <- (app_nil_r wt4), <- (app_nil_r wl4), <- (app_nil_r es5).
+      by eapply run_codegen_bind_intro.
+    - by rewrite !app_nil_r.
+    - by rewrite !app_nil_r.
+    - by rewrite !app_nil_r.
+  Qed.
 
 End Compiler.
