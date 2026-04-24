@@ -34,16 +34,8 @@ Section app.
     ⊢ have_instr_type_sem rti sr mr M F L1 WT WL lmask es' (InstrT τs1 τs3) L3.
   Proof.
     intros fe WT WL lmask IH1 IH2 Hcg.
-    assert (Hcompile_split: exists wt1 wt2 wl1 wl2 es1' es2',
-               run_codegen (compile_instrs mr fe es1) wt wl = inr ((), wt1, wl1, es1') /\
-               run_codegen (compile_instrs mr fe es2) (wt ++ wt1) (wl ++ wl1) =
-                 inr ((), wt2, wl2, es2') /\
-               wt' = wt1 ++ wt2 /\ wl' = wl1 ++ wl2  /\  es' = es1' ++ es2' ).
-     {
-       (* This is mainly a proof about the codegen monad. Weirdly difficult for whatever reason.
-          Come back to it later. *)
-       admit.
-     }
+
+    pose proof (run_codegen_compile_instrs_app _ _ _ _ _ _ _ _ _ Hcg) as Hcompile_split.
     destruct Hcompile_split as (wt1&wt2&wl1&wl2&es1'&es2'&
                                   Hcompile_es1 & Hcompile_es2 & H1 & H2 & H3); subst.
     apply (IH1 _ _ (wt2++wtf) _ _ (wl2++wlf) _) in Hcompile_es1.
@@ -85,6 +77,6 @@ Section app.
         lia.
       }
       eapply frame_rel_trans; done.
-  Admitted.
+  Qed.
 
 End app.
