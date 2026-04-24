@@ -13,26 +13,6 @@ Section num.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Ltac solve_post_lwp_num :=
-    iFrame; iModIntro; cbn;
-    (match goal with
-      | |- context [ (VAL_int32 ?x) ] => iExists [I32A x]
-      | |- context [ (VAL_int64 ?x) ] => iExists [I64A x]
-      | |- context [ (VAL_float32 ?x) ] => iExists [F32A x]
-      | |- context [ (VAL_float64 ?x) ] => iExists [F64A x]
-    end);
-    iEval (cbn); iSplitR; try iSplitR; auto;
-    (match goal with
-      | |- context [ (?x = concat _) ] => iExists [x]
-    end);
-    iEval (cbn); iSplitL; try iSplitL; auto;
-    iApply value_interp_eq; cbn;
-    iExists _; iSplitL; try iSplitL; auto; cbn;
-    iPureIntro;
-    eexists; split; auto;
-    apply Forall2_cons_iff; split; auto;
-    by unfold has_arep.
-
   Lemma one_rep_in_rvs_vs rvs vs rtii srr se:
     (forall i, atoms_interp rvs vs -∗
     values_interp rtii srr se [NumT (VALTYPE (AtomR (int_type_arep i)) NoRefs) (IntT i)] rvs -∗
@@ -186,21 +166,42 @@ Section num.
     inversion Htypenum; subst;
     unfold τ in *; unfold int_type_type, float_type_type in *;
     unfold type_i64, type_i32, type_f64, type_f32 in *;
-    iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun";
+    iIntros (????????) "@@@@@@@@@@@@";
     edestruct (one_rep_in_rvs_vs) as [one_rep_in_rvs_vs_ints one_rep_in_rvs_vs_floats];
-    try (iPoseProof (one_rep_in_rvs_vs_ints n with "[$Hrvs] [$Hvs]") as "%Hvs");
-    try (iPoseProof (one_rep_in_rvs_vs_floats n with "[$Hrvs] [$Hvs]") as "%Hvs");
-    iClear "Hrvs"; iClear "Hvs".
+    try (iPoseProof (one_rep_in_rvs_vs_ints n with "[$Hvs] [$Hos]") as "%Hvs");
+    try (iPoseProof (one_rep_in_rvs_vs_floats n with "[$Hvs] [$Hos]") as "%Hvs");
+    iClear "Hos Hvs".
 
   Ltac two_num_set_up τ n :=
     inversion Htypenum; subst;
     unfold τ in *; unfold int_type_type, float_type_type in *;
     unfold type_i64, type_i32, type_f64, type_f32 in *;
-    iIntros (? ? ? ? ? ? ?) "%Henv #Hinst #Hctx Hrvs Hvs Hfr Hrt Hf Hrun";
+    iIntros (????????) "@@@@@@@@@@@@";
     edestruct (two_rep_in_rvs_vs) as [two_rep_in_rvs_vs_ints two_rep_in_rvs_vs_floats];
-    try (iPoseProof (two_rep_in_rvs_vs_ints n with "[$Hrvs] [$Hvs]") as "%Hvs");
-    try (iPoseProof (two_rep_in_rvs_vs_floats n with "[$Hrvs] [$Hvs]") as "%Hvs");
-    iClear "Hrvs"; iClear "Hvs".
+    try (iPoseProof (two_rep_in_rvs_vs_ints n with "[$Hvs] [$Hos]") as "%Hvs");
+    try (iPoseProof (two_rep_in_rvs_vs_floats n with "[$Hvs] [$Hos]") as "%Hvs");
+    iClear "Hos Hvs".
+
+  Ltac solve_post_cwp_num :=
+    iModIntro; iFrame;
+    iSplitR; auto;
+    (match goal with
+      | |- context [ (VAL_int32 ?x) ] => iExists [I32A x]
+      | |- context [ (VAL_int64 ?x) ] => iExists [I64A x]
+      | |- context [ (VAL_float32 ?x) ] => iExists [F32A x]
+      | |- context [ (VAL_float64 ?x) ] => iExists [F64A x]
+    end);
+    iEval (cbn); iSplitR; try iSplitR; auto;
+    (match goal with
+      | |- context [ (?x = concat _) ] => iExists [x]
+    end);
+    iEval (cbn); iSplitL; try iSplitL; auto;
+    iApply value_interp_eq; cbn;
+    iExists _; iSplitL; try iSplitL; auto; cbn;
+    iPureIntro;
+    split; econstructor; split; auto;
+    try (apply Forall2_cons; split; [|by apply Forall2_nil]; done);
+    try (apply Forall_singleton; done).
 
   Lemma compat_num M F L wt wt' wtf wl wl' wlf ψ e es' :
     let fe := fe_of_context F in
@@ -212,196 +213,209 @@ Section num.
     run_codegen (compile_instr mr fe (INum ψ e)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    (* intros fe WT WL Htypenum Htype Hcompile. *)
-    (* cbn in Hcompile. *)
-    (* (* There are 8 cases for e in the way it can compile. So, destruct and get 8 cases. *) *)
-    (* destruct e; cbn in Hcompile; inversion Hcompile; subst; clear Hcompile. *)
-    (* - rename i0 into unop. *)
+    intros fe WT WL lmask Htypenum Htype Hcg.
+    cbn in Hcg.
 
-    (*   one_num_set_up τ i. *)
-    (*   destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst. *)
+    destruct e; cbn in Hcg; inversion Hcg; subst; clear Hcg.
+    - (* unop int *)
+      rename i0 into unop.
 
-    (*   all: destruct unop; iEval (cbn). *)
-    (*   all: iApply lwp_unop; [cbn; auto | solve_post_lwp_num]. *)
+      one_num_set_up τ i.
+      destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst.
 
-    (* - rename i0 into binop. *)
+      all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+      all: change ([?x]++[?y]) with ([x;y]).
+      all: iApply (cwp_unop with "[$] [$] [-]"); [cbn; auto | solve_post_cwp_num].
+    - (* binop int *)
+      rename i0 into binop.
 
-    (*   two_num_set_up τ i. *)
-    (*   destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst. *)
+      two_num_set_up τ i.
+      destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
+      all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+      all: change ([?x;?z]++[?y]) with ([x;z;y]).
 
-    (*   all: destruct binop; try (destruct s). *)
+      all: destruct binop; try (destruct s).
 
-    (*   (* Gather up all of the partials, as normal lwp_binop does not apply on them *) *)
-    (*   all: match goal with *)
-    (*      | |- context [ (_ (_ I32T) (_ (_ (DivI SignU))) ) ] => *)
-    (*          destruct (Wasm_int.Int32.idiv_u n1 n2) eqn:HPartialResult *)
-    (*      | |- context [ (_ (_ I32T) (_ (_ (DivI SignS))) ) ] => *)
-    (*          destruct (Wasm_int.Int32.idiv_s n1 n2) eqn:HPartialResult *)
-    (*      | |- context [ (_ (_ I32T) (_ (_ (RemI SignU))) ) ] => *)
-    (*          destruct (Wasm_int.Int32.irem_u n1 n2) eqn:HPartialResult *)
-    (*      | |- context [ (_ (_ I32T) (_ (_ (RemI SignS))) ) ] => *)
-    (*          destruct (Wasm_int.Int32.irem_s n1 n2) eqn:HPartialResult *)
-    (*      | |- context [ (_ (_ I64T) (_ (_ (DivI SignU))) ) ] => *)
-    (*          destruct (Wasm_int.Int64.idiv_u n1 n2) eqn:HPartialResult *)
-    (*      | |- context [ (_ (_ I64T) (_ (_ (DivI SignS))) ) ] => *)
-    (*          destruct (Wasm_int.Int64.idiv_s n1 n2) eqn:HPartialResult *)
-    (*      | |- context [ (_ (_ I64T) (_ (_ (RemI SignU))) ) ] => *)
-    (*          destruct (Wasm_int.Int64.irem_u n1 n2) eqn:HPartialResult *)
-    (*      | |- context [ (_ (_ I64T) (_ (_ (RemI SignS))) ) ] => *)
-    (*          destruct (Wasm_int.Int64.irem_s n1 n2) eqn:HPartialResult *)
-    (*       (* Note: this case solves all non-partial binops *) *)
-    (*      | _ => iApply lwp_binop; *)
-    (*             [cbn; (try rewrite HPartialResult); cbn; auto | solve_post_lwp_num] *)
-    (*        end. *)
+      (* Gather up all of the partials, as normal lwp_binop does not apply on them *)
+      all: match goal with
+         | |- context [ (_ (_ I32T) (_ (_ (DivI SignU))) ) ] =>
+             destruct (Wasm_int.Int32.idiv_u n1 n2) eqn:HPartialResult
+         | |- context [ (_ (_ I32T) (_ (_ (DivI SignS))) ) ] =>
+             destruct (Wasm_int.Int32.idiv_s n1 n2) eqn:HPartialResult
+         | |- context [ (_ (_ I32T) (_ (_ (RemI SignU))) ) ] =>
+             destruct (Wasm_int.Int32.irem_u n1 n2) eqn:HPartialResult
+         | |- context [ (_ (_ I32T) (_ (_ (RemI SignS))) ) ] =>
+             destruct (Wasm_int.Int32.irem_s n1 n2) eqn:HPartialResult
+         | |- context [ (_ (_ I64T) (_ (_ (DivI SignU))) ) ] =>
+             destruct (Wasm_int.Int64.idiv_u n1 n2) eqn:HPartialResult
+         | |- context [ (_ (_ I64T) (_ (_ (DivI SignS))) ) ] =>
+             destruct (Wasm_int.Int64.idiv_s n1 n2) eqn:HPartialResult
+         | |- context [ (_ (_ I64T) (_ (_ (RemI SignU))) ) ] =>
+             destruct (Wasm_int.Int64.irem_u n1 n2) eqn:HPartialResult
+         | |- context [ (_ (_ I64T) (_ (_ (RemI SignS))) ) ] =>
+             destruct (Wasm_int.Int64.irem_s n1 n2) eqn:HPartialResult
+          (* Note: this case solves all non-partial binops *)
+         | _ => iApply (cwp_binop with "[$] [$] [-]");
+                [cbn; auto | solve_post_cwp_num]
+           end.
     (*   (* This solves the goals where the result actually exists *) *)
-    (*   all: match type of HPartialResult with *)
-    (*        | (_ = Some _) => iApply lwp_binop; *)
-    (*             [cbn; (try rewrite HPartialResult); cbn; auto | solve_post_lwp_num] *)
-    (*        | _ => idtac *)
-    (*        end. *)
+      all: match type of HPartialResult with
+           | (_ = Some _) => iApply (cwp_binop with "[$] [$] [-]");
+                [cbn; (try rewrite HPartialResult); cbn; auto | solve_post_cwp_num]
+           | _ => idtac
+           end.
 
-    (*   (* Everything remaining is partial binop results *) *)
-    (*   all: iEval (cbn). *)
-    (*   all: iApply lwp_binop_failure; [cbn; unfold option_map; by rewrite HPartialResult |]. *)
-    (*   all: iFrame. *)
-    (*   all: by iEval (cbn). *)
+      (* Everything remaining is partial binop results *)
+      all: iEval (cbn).
+      all: iApply (cwp_binop_fail with "[$] [$]");
+        cbn; unfold option_map; by rewrite HPartialResult.
+    - (* testop int *)
+      rename i0 into testop.
 
-    (* - rename i0 into testop. *)
+      one_num_set_up τ i.
+      destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst.
 
-    (*   one_num_set_up τ i. *)
-    (*   destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst. *)
+      all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+      all: destruct testop; iEval (cbn).
+      + iApply (cwp_testop_i32 with "[$] [$] [-]"); [cbn; auto | solve_post_cwp_num].
+      + iApply (cwp_testop_i64 with "[$] [$] [-]"); [cbn; auto | solve_post_cwp_num].
+    - (* relop int *)
+      rename i0 into relop.
 
-    (*   all: destruct testop; iEval (cbn). *)
-    (*   + iApply lwp_testop_i32; [cbn; auto | solve_post_lwp_num]. *)
-    (*   + iApply lwp_testop_i64; [cbn; auto | solve_post_lwp_num]. *)
+      two_num_set_up τ i.
+      destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
-    (* - rename i0 into relop. *)
+      all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+      all: destruct relop; iEval (cbn).
+      all: iApply (cwp_relop with "[$] [$] [-]"); [cbn; auto | solve_post_cwp_num].
+    - (* unop float *)
+      rename f0 into unop.
 
-    (*   two_num_set_up τ i. *)
-    (*   destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst. *)
+      one_num_set_up τ f.
+      destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst.
 
-    (*   all: destruct relop; iEval (cbn). *)
-    (*   all: iApply lwp_relop; [cbn; auto | solve_post_lwp_num]. *)
+      all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+      all: change ([?x]++[?y]) with ([x;y]).
+      all: iApply (cwp_unop with "[$] [$] [-]"); [cbn; auto | solve_post_cwp_num].
 
-    (* - rename f0 into unop. *)
+    - (* binop float *)
+      rename f0 into relop.
 
-    (*   (* one float set up *) *)
-    (*   one_num_set_up τ f. *)
-    (*   destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; subst. *)
+      two_num_set_up τ f.
+      destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
-    (*   all: destruct unop; iEval (cbn). *)
-    (*   all: iApply lwp_unop; [cbn; auto | solve_post_lwp_num]. *)
+      all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+      all: destruct relop; iEval (cbn).
+      all: iApply (cwp_binop with "[$] [$] [-]"); [cbn; auto | solve_post_cwp_num].
+    - (* relop float *)
+      rename f0 into relop.
 
-    (* - rename f0 into binop. *)
+      two_num_set_up τ f.
+      destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst.
 
-    (*   two_num_set_up τ f. *)
-    (*   destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst. *)
+      all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+      all: destruct relop; iEval (cbn).
+      all: iApply (cwp_relop with "[$] [$] [-]"); [cbn; auto | solve_post_cwp_num].
+    - (* cvt *)
+      inversion Htypenum; subst.
+      rename Htypenum into Htypecvt; rename H0 into Htypenum.
 
-    (*   (* Float binops aren't partial! *) *)
-    (*   all: destruct binop. *)
-    (*   all: iApply lwp_binop; [cbn; auto | solve_post_lwp_num]. *)
+      destruct c.
+      all: cbn [translate_cvt_op].
+      + one_num_set_up type_i64 I64T.
+        destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
 
-    (* - rename f0 into relop. *)
+        apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
+        iEval (cbn).
+        iApply (cwp_cvtop_convert with "[$] [$] [-]");
+          [cbn; auto | cbn; auto | solve_post_cwp_num].
+      + one_num_set_up type_i64 I32T.
+        destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+        apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
 
-    (*   two_num_set_up τ f. *)
-    (*   destruct Hvs as [(n1 & n2 & Hvs & Hi) | (n1 & n2 & Hvs & Hi)]; subst. *)
+        destruct s.
+        all: iEval (cbn).
+        all: iApply (cwp_cvtop_convert with "[$] [$] [-]");
+          [cbn; auto | cbn; auto | solve_post_cwp_num].
+      + one_num_set_up type_i64 f.
+        destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+        all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
 
-    (*   all: destruct relop; iEval (cbn). *)
-    (*   all: iApply lwp_relop; [cbn; auto | solve_post_lwp_num]. *)
+        all: match goal with
+             | |- context [ F32T ] =>
+                 destruct (cvt (translate_int_type i) (Some (translate_sign s)) (VAL_float32 n))
+                       eqn:HPartialResult
+             | |- context [ F64T ] =>
+                 destruct (cvt (translate_int_type i) (Some (translate_sign s)) (VAL_float64 n))
+                       eqn:HPartialResult
+             end.
 
-    (* - (* Conversion operations!  *) *)
-    (*   inversion Htypenum; subst. *)
-    (*   rename Htypenum into Htypecvt; rename H0 into Htypenum. *)
+        all: match type of HPartialResult with
+             (* Actual results! *)
+             | (_ = Some _) =>
+                 try (destruct s; destruct i; iEval (cbn);
+                 iApply (cwp_cvtop_convert with "[$] [$] [-]");
+                      try (unfold cvt in HPartialResult; cbn in *; by rewrite HPartialResult);
+                      try by (cbn;auto);
+                 cbn in HPartialResult; unfold option_map in HPartialResult; cbn in HPartialResult;
+                 match type of HPartialResult with
+                 | (match ?x with |Some _=>_ |None=>_ end = _) =>
+                     destruct x; cbn in HPartialResult; inversion HPartialResult
+                 end;
+                 solve_post_cwp_num)
+             (* Partials! *)
+             | (_ = None) => idtac
+             end.
+        all: iApply (cwp_cvtop_convert_fail with "[$] [$]");
+          [cbn; unfold option_map; by rewrite HPartialResult | cbn; auto].
+      + one_num_set_up type_i64 F64T.
+        destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+        apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
 
-    (*   destruct c. *)
-    (*   all: cbn [translate_cvt_op]. *)
-    (*   + one_num_set_up type_i64 I64T. *)
-    (*     destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst. *)
+        iEval (cbn).
+        iApply (cwp_cvtop_convert with "[$] [$] [-]");
+          [cbn; auto | cbn; auto | solve_post_cwp_num].
+      + one_num_set_up type_i64 F32T.
+        destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+        apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
 
-    (*     iEval (cbn). *)
-    (*     iApply lwp_cvtop_convert; cbn; auto. *)
-    (*     solve_post_lwp_num. *)
-    (*   + one_num_set_up type_i64 I32T. *)
-    (*     destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst. *)
+        iEval (cbn).
+        iApply (cwp_cvtop_convert with "[$] [$] [-]");
+          [cbn; auto | cbn; auto | solve_post_cwp_num].
+      + one_num_set_up type_i64 i.
+        destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+        all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
 
-    (*     destruct s. *)
-    (*     all: iEval (cbn). *)
-    (*     all: iApply lwp_cvtop_convert; cbn; auto. *)
-    (*     all: solve_post_lwp_num. *)
-    (*   + one_num_set_up type_i64 f. *)
-    (*     destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst. *)
+        all: match goal with
+             | |- context [ I32T ] =>
+                 destruct (cvt (translate_float_type f) (Some (translate_sign s)) (VAL_int32 n))
+                       eqn:HPartialResult
+             | |- context [ I64T ] =>
+                 destruct (cvt (translate_float_type f) (Some (translate_sign s)) (VAL_int64 n))
+                       eqn:HPartialResult
+             end.
+        all: match type of HPartialResult with
+             | (_ = Some _) =>
+                 destruct s; destruct f; iEval (cbn);
+                 iApply (cwp_cvtop_convert with "[$] [$] [-]"); cbn; auto;
+                 try (unfold cvt in HPartialResult; cbn in *; by rewrite HPartialResult); auto;
+                 cbn in HPartialResult; inversion HPartialResult;
+                 solve_post_cwp_num
+             | (_ = None) => idtac
+             end.
+         all: iApply (cwp_cvtop_convert_fail with "[$] [$]");
+           [cbn; unfold option_map; by rewrite HPartialResult | cbn; auto ].
+      + (* We'll need to split into cases again. This was the only thing that worked for some reason *)
+        destruct n eqn:Hn;
+          [ destruct i eqn:Hii; [one_num_set_up type_i64 I32T | one_num_set_up type_i64 I64T ] |
+            destruct f eqn:Hf; [one_num_set_up type_i64 F32T | one_num_set_up type_i64 F64T ]  ].
 
-    (*     all: match goal with *)
-    (*          | |- context [ F32T ] => *)
-    (*              destruct (cvt (translate_int_type i) (Some (translate_sign s)) (VAL_float32 n)) *)
-    (*                    eqn:HPartialResult *)
-    (*          | |- context [ F64T ] => *)
-    (*              destruct (cvt (translate_int_type i) (Some (translate_sign s)) (VAL_float64 n)) *)
-    (*                    eqn:HPartialResult *)
-    (*          end. *)
-    (*     all: match type of HPartialResult with *)
-    (*            (* Actual results! *) *)
-    (*          | (_ = Some _) => *)
-    (*              destruct s; destruct i; iEval (cbn); *)
-    (*              iApply lwp_cvtop_convert; cbn; auto; *)
-    (*              try (unfold cvt in HPartialResult; cbn in *; *)
-    (*                   by rewrite HPartialResult); auto; *)
-    (*              cbn in HPartialResult; unfold option_map in HPartialResult; *)
-    (*              cbn in HPartialResult; *)
-    (*              match type of HPartialResult with *)
-    (*              | (match ?x with |Some _=>_ |None=>_ end = _) => *)
-    (*                  destruct x; cbn in HPartialResult; inversion HPartialResult *)
-    (*              end; *)
-    (*              solve_post_lwp_num *)
-    (*         (* Partials! *) *)
-    (*         | (_ = None) => idtac *)
-    (*          end. *)
-    (*     all: iApply lwp_cvtop_convert_failure; [cbn; unfold option_map; by rewrite HPartialResult | cbn; auto |]. *)
-    (*     all: iFrame; by iEval (cbn). *)
-    (*   + one_num_set_up type_i64 F64T. *)
-    (*     destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst. *)
+        all: destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst.
+        all: apply has_values_to_consts_inv in Hevs; cbn in Hevs; rewrite Hevs.
 
-    (*     iEval (cbn). *)
-    (*     iApply lwp_cvtop_convert; cbn; auto. *)
-    (*     solve_post_lwp_num. *)
-    (*   + one_num_set_up type_i64 F32T. *)
-    (*     destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst. *)
-
-    (*     iEval (cbn). *)
-    (*     iApply lwp_cvtop_convert; cbn; auto. *)
-    (*     solve_post_lwp_num. *)
-    (*   + one_num_set_up type_i64 i. *)
-    (*     destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst. *)
-
-    (*     all: match goal with *)
-    (*          | |- context [ I32T ] => *)
-    (*              destruct (cvt (translate_float_type f) (Some (translate_sign s)) (VAL_int32 n)) *)
-    (*                    eqn:HPartialResult *)
-    (*          | |- context [ I64T ] => *)
-    (*              destruct (cvt (translate_float_type f) (Some (translate_sign s)) (VAL_int64 n)) *)
-    (*                    eqn:HPartialResult *)
-    (*          end. *)
-    (*     all: match type of HPartialResult with *)
-    (*          | (_ = Some _) => *)
-    (*              destruct s; destruct f; iEval (cbn); *)
-    (*              iApply lwp_cvtop_convert; cbn; auto; *)
-    (*              try (unfold cvt in HPartialResult; cbn in *; by rewrite HPartialResult); auto; *)
-    (*              cbn in HPartialResult; inversion HPartialResult; *)
-    (*              solve_post_lwp_num *)
-    (*          | (_ = None) => idtac *)
-    (*          end. *)
-    (*      all: iApply lwp_cvtop_convert_failure; [cbn; unfold option_map; by rewrite HPartialResult | cbn; auto |]. *)
-    (*      all: iFrame; by iEval (cbn). *)
-    (*   + (* We'll need to split into cases again. This was the only thing that worked for some reason *) *)
-    (*     destruct n eqn:Hn; *)
-    (*       [ destruct i eqn:Hii; [one_num_set_up type_i64 I32T | one_num_set_up type_i64 I64T ] | *)
-    (*         destruct f eqn:Hf; [one_num_set_up type_i64 F32T | one_num_set_up type_i64 F64T ]  ]. *)
-
-    (*     all: destruct Hvs as [(n & Hvs & Hi) | (n & Hvs & Hi)]; try (inversion Hi); subst. *)
-
-    (*     all: iEval (cbn). *)
-    (*     all: iApply lwp_cvtop_reinterpret; cbn; auto. *)
-    (*     all: solve_post_lwp_num. *)
-  Admitted.
+        all: iEval (cbn).
+        all: iApply (cwp_cvtop_reinterpret with "[$] [$] [-]");
+          [cbn;auto | cbn;auto | solve_post_cwp_num].
+  Qed.
 
 End num.
