@@ -387,15 +387,51 @@ Section kinding.
 
   Admitted.
 
-  Lemma type_skind_has_kind_refine F se τ κ sκ0 sκ :
-    has_kind F τ κ ->
-    sem_env_interp F se ->
-    eval_kind se κ = Some sκ ->
-    type_skind (Σ:=Σ) se τ = Some sκ0 ->
+  Lemma ref_flag_atoms_refine ξ ξ' sv :
+    ref_flag_le ξ ξ' ->
+    ref_flag_atoms_interp ξ sv ->
+    ref_flag_atoms_interp ξ' sv.
+  Proof.
+    intros Hle (os & -> & Hos).
+    exists os.
+    split; first done.
+    eapply Forall_impl; first done.
+    intros o Ho.
+    by destruct o; first (destruct ξ; destruct ξ'; destruct p).
+  Qed.
+
+  Lemma ref_flag_words_refine ξ ξ' sv :
+    ref_flag_le ξ ξ' ->
+    ref_flag_words_interp ξ sv ->
+    ref_flag_words_interp ξ' sv.
+  Proof.
+    intros Hle (ws & -> & Hws).
+    exists ws.
+    split; first done.
+    eapply Forall_impl; first done.
+    intros w Hw.
+    by destruct w; first (destruct ξ; destruct ξ'; destruct p).
+  Qed.
+
+  Lemma skind_as_type_refine sκ0 sκ :
+    subskind_of sκ0 sκ ->
     skind_as_type_interp (Σ:=Σ) sκ0 ⊑ skind_as_type_interp sκ.
   Proof.
-    iIntros (Hhas_kind Hse Heval_kind Htype_skind sv) "Hskind".
-  Admitted.
+    iIntros (Hsub sv) "Hskind".
+    destruct sκ0 as [ιs ξ|n ξ].
+    - inversion Hsub.
+      subst.
+      iDestruct "Hskind" as "[%Hareps %Hrf]".
+      iPureIntro.
+      split; first done.
+      by eapply ref_flag_atoms_refine.
+    - inversion Hsub.
+      subst.
+      iDestruct "Hskind" as "[%Hssize %Hrf]".
+      iPureIntro.
+      split; first done.
+      by eapply ref_flag_words_refine.
+  Qed.
 
   Theorem kinding_refinement F se τ κ sκ : 
     has_kind F τ κ ->
@@ -406,7 +442,8 @@ Section kinding.
     iIntros (Hkind Hse Heval sv) "Hsv".
     rewrite value_interp_eq.
     iDestruct "Hsv" as "(%κ0 & %Hκ0 & H & _)".
-    by iApply type_skind_has_kind_refine.
+    iApply skind_as_type_refine; last done.
+    by eapply type_skind_has_kind_agree.
   Qed.
 
   Instance kind_as_type_persistent κ sv :
@@ -469,7 +506,8 @@ Section kinding.
     iIntros (Hhas_kind Hse Heval_kind sv) "Hval".
     rewrite value_interp_eq.
     iDestruct "Hval" as "(%sκ' & %Hsκ' & Hskind & Htype)".
-    by iApply type_skind_has_kind_refine.
+    iApply skind_as_type_refine; last done.
+    by eapply type_skind_has_kind_agree.
   Qed.
 
 End kinding.
