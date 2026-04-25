@@ -1,5 +1,3 @@
-Require Import Stdlib.Relations.Relation_Operators.
-
 Require Import RichWasm.iris.logrel.instr.typing.common.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -62,8 +60,7 @@ Section group.
     destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
     iExists sκ.
 
-    assert (Hsub : clos_refl_trans kind subkind_of κ (VALTYPE ρ ξ))
-      by by eapply type_kind_has_kind_agree.
+    assert (Hsub : subkind_of κ (VALTYPE ρ ξ)) by by eapply type_kind_has_kind_agree.
     apply subkind_preserves_valtype in Hsub as (ξ0 & -> & Hξ0).
     apply bind_Some in Hsκ as (ιs & Hιs & Hsκ).
     inversion Hsκ.

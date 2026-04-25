@@ -6,7 +6,6 @@ From RichWasm Require Import layout syntax typing kinding_subst.
 From RichWasm.compiler Require Import prelude module codegen.
 From RichWasm.iris Require Import autowp memory util wp_codegen lenient_wp logpred.
 Require Import RichWasm.iris.logrel.
-From Stdlib Require Import Relations.Relation_Operators.
 From stdpp Require Import list.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -46,44 +45,31 @@ Section FundamentalKinding.
   Lemma type_kind_has_kind_agree F τ κ κ' :
     has_kind F τ κ ->
     type_kind F.(fc_type_vars) τ = Some κ' ->
-    clos_refl_trans _ subkind_of κ' κ.
+    subkind_of κ' κ.
   Proof.
     intros Hhas_kind.
     revert κ'.
     induction Hhas_kind;
-      try solve [intros;
-                 replace κ' with κ; 
-                 [by constructor|]; 
-                 cbn in *; congruence].
-    intros.
-    eapply IHHhas_kind in H0.
-    eapply rt_trans; [|apply rt_step]; by eauto.
+      intros;
+      try (replace κ' with κ; first apply subkind_of_refl; cbn in *; congruence).
+    apply IHHhas_kind in H0. by eapply subkind_of_trans.
   Qed.
 
   Lemma subkind_rep_inv κ κ' :
-    clos_refl_trans _ subkind_of κ κ' ->
+    subkind_of κ κ' ->
     kind_rep κ = kind_rep κ'.
   Proof.
-    induction 1; try congruence.
-    inversion H; reflexivity.
+    by induction 1.
   Qed.
 
   Lemma subkind_preserves_valtype κ ρ ξ :
-    clos_refl_trans _ subkind_of κ (VALTYPE ρ ξ) ->
+    subkind_of κ (VALTYPE ρ ξ) ->
     exists ξ0, κ = VALTYPE ρ ξ0 /\ ref_flag_le ξ0 ξ.
   Proof.
     intros.
-    remember (VALTYPE ρ ξ) as κ'.
-    revert Heqκ'.
-    revert ρ ξ.
-    induction H; intros; subst.
-    - inversion H. subst. by eexists.
-    - exists ξ. by split; last apply ref_flag_le_refl.
-    - destruct (IHclos_refl_trans2 _ _ eq_refl) as (ξ' & Hy & Hξ').
-      destruct (IHclos_refl_trans1 _ _ Hy) as (ξ'' & Hx & Hξ'').
-      eexists.
-      split; first done.
-      by eapply ref_flag_le_trans.
+    inversion H.
+    subst.
+    by eexists.
   Qed.
 
   Lemma type_rep_has_kind_agree F τ ρ ξ :
