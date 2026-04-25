@@ -859,7 +859,7 @@ Section inst.
     iIntros (Hok Hse) "Hcl".
     destruct (has_kind_inv _ _ _ Hok) as [F τ κ Hok_τ Hok_κ].
     destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
-    pose proof (type_skind_has_kind_Some rti sr mr _ _ _ _ _ Hok Hse Hsκ) as (sκ' & Hskind' & Hsub).
+    pose proof (type_skind_has_kind_Some _ _ _ _ _ Hok Hse Hsκ) as (sκ' & Hskind' & Hsub).
     set T := value_interp rti sr se τ.
     iSpecialize ("Hcl" $! sκ T).
     iApply closure_interp0_subst_senv; last iApply "Hcl".

@@ -359,18 +359,31 @@ Section kinding.
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    (∃ sκ', type_skind (Σ:=Σ) se τ = Some sκ' /\ subskind_of sκ' sκ).
+    exists sκ', type_skind (Σ:=Σ) se τ = Some sκ' /\ subskind_of sκ' sκ.
   Proof.
     intros Hκ.
     revert sκ se.
     induction Hκ; intros;
       try by (unfold κ in *; exists sκ; split; [cbn in *; done | by apply subskind_of_refl]).
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
-    - admit.
+    - eexists. split; first done. apply subskind_of_refl.
+    - eexists. split; first done. apply subskind_of_refl.
+    - eexists. split; first done. apply subskind_of_refl.
+    - eexists. split; first done. apply subskind_of_refl.
+    - eexists. split; first done. apply subskind_of_refl.
+    - apply has_kind_inv in Hκ as Hhas_kind_ok.
+      inversion Hhas_kind_ok.
+      subst.
+      rename H0 into Hse.
+      rename H1 into Heval'.
+      rename H2 into Hok_τ.
+      rename H3 into Hok_κ.
+      destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ0 Heval0].
+      specialize (IHHκ sκ0 se Hse Heval0).
+      destruct IHHκ as (sκ' & Hskind & Hsub).
+      exists sκ'.
+      split; first done.
+      eapply subkind_subskind in H; last done; last done.
+      by eapply subskind_of_trans.
     - destruct H1 as [boop bap].
       cbn in *.
       unfold lookup_type.
@@ -383,9 +396,7 @@ Section kinding.
       cbn.
       exists sκ0. split; auto.
       apply subskind_of_refl.
-
-
-  Admitted.
+  Qed.
 
   Lemma ref_flag_atoms_refine ξ ξ' sv :
     ref_flag_le ξ ξ' ->
