@@ -355,6 +355,38 @@ Section kinding.
       by inversion hh.
   Qed.
 
+  Lemma type_skind_has_kind_Some F se τ κ sκ :
+    has_kind F τ κ ->
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    (∃ sκ', type_skind (Σ:=Σ) se τ = Some sκ' /\ subskind_of sκ' sκ).
+  Proof.
+    intros Hκ.
+    revert sκ se.
+    induction Hκ; intros;
+      try by (unfold κ in *; exists sκ; split; [cbn in *; done | by apply subskind_of_refl]).
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - admit.
+    - destruct H1 as [boop bap].
+      cbn in *.
+      unfold lookup_type.
+      unfold type_ctx_interp in bap.
+      pose proof (Forall2_lookup_r _ _ _ _ _ bap H) as (x & Hinsenv & (y1 & y2)).
+      destruct x as [sκ0 T].
+      cbn in *.
+      rewrite H2 in y1; inversion y1; subst.
+      rewrite Hinsenv.
+      cbn.
+      exists sκ0. split; auto.
+      apply subskind_of_refl.
+
+
+  Admitted.
+
   Lemma type_skind_has_kind_refine F se τ κ sκ0 sκ :
     has_kind F τ κ ->
     sem_env_interp F se ->
