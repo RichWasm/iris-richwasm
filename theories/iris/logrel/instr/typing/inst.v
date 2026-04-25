@@ -1,5 +1,4 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
-Require Import Stdlib.Program.Equality. (* maybe necessary *)
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
@@ -98,14 +97,15 @@ Section inst.
     }
   Qed.
 
-  (* NOTE: not true *)
-  Lemma type_skind_has_kind_Some F se τ κ sκ :
-    sem_env_interp F se ->
+  (* moved type_skind_has_kind_Some to kinding.v *)
+
+  (* currently not true *)
+  Lemma type_skind_has_kind_Some_False F se τ κ sκ :
     has_kind F τ κ ->
+    sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     type_skind (Σ:=Σ) se τ = Some sκ.
   Proof.
-    intros Hse Hκ Hsκ.
   Admitted.
 
   Lemma eval_rep_mem_irrel se ρ ιs μ :
@@ -466,9 +466,47 @@ Section inst.
                closure_interp0 rti sr (value_interp rti sr) se
                (subst_function_type sub_m sub_r sub_s sub_t ft) cl).
         * (* I'm scared of VarT *)
+          intros; cbn in *.
+          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
+          iApply value_interp_eq.
+          iEval (cbn) in "Hoa".
+          iDestruct "Hoa" as "(%sκ & %Hse'skind & Hoa & Htypevar)".
+          destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hoa" as "[[] _]"].
+          apply Hsub_t in Hse'skind as Htypeskind.
+          (* BIG NOTE: this is using Hsub_t which is a bad hypothesis *)
+
+          iExists (SVALTYPE ιs ξ).
+          iFrame.
+          iSplitR; auto.
+          unfold type_var_interp.
+          (* note to self: T : skind x semantic_type *)
+          (* semantic_type : semantic_value -> iProp  *)
+          (* semantic value: SAtoms/SWords *)
+          destruct (lookup_type se' idx) eqn:Hse'typenv; auto.
+
+          destruct p as [sκ' T].
+
+          (* okay we def need something about se' !! idx = Some . T *)
+          (* Hsub_t probably needs to just talk about both *)
+
+          (* also it's true but maybe not relevant: *)
+          assert (temp: sκ' = SVALTYPE ιs ξ) by admit.
+          subst sκ'.
+
+
+
           admit.
-        * (* I'm scared of pointer *)
-          admit.
+        * (* i31 *)
+          intros; cbn.
+          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
+          iApply value_interp_eq.
+          cbn.
+          iDestruct "Hoa" as "(%sk & %HEval & Hoa & _)".
+          destruct sk as [ιs ξ | n ξ]; [|iDestruct "Hoa" as "[[] _]"].
+
+          iExists (SVALTYPE ιs ξ).
+          iSplitR; [iPureIntro; by eapply eval_kind_subst_senv; done|iFrame].
+
         * intros. cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
@@ -478,7 +516,8 @@ Section inst.
           iExists (SVALTYPE ιs ξ); cbn; iFrame.
           iPureIntro.
           eapply eval_kind_subst_senv; done. (* well at least numbers work *)
-        * intros; cbn.
+        * (* sums *)
+          intros; cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -525,7 +564,31 @@ Section inst.
         * admit.
         * admit.
         * admit.
-        * admit.
+        * (* refT *)
+          intros; cbn.
+          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
+          iApply value_interp_eq.
+          cbn.
+          iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & Hm)".
+          destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hsκ" as "[[]_]"].
+          iExists (SVALTYPE ιs ξ).
+          iFrame.
+          iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
+
+          destruct m; [done|].
+          cbn.
+          destruct b.
+          -- cbn.
+             (* HWY IS IH\TAU SATOMS AAAAAAAAAA *)
+             iDestruct "Hm" as "(%ℓ & %fs & %ws & h1 & h2 & h3 & Hoa)".
+             iFrame.
+             iModIntro.
+             (* this is where you use the IHτ if it was correct *)
+
+             admit.
+          -- cbn.
+             admit.
+
         * (* coderef case *)
           (* I think this IH for function types is what we need but we'll see *)
           intros.
@@ -536,15 +599,13 @@ Section inst.
           destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hsκ" as "[[]_]"].
           iExists (SVALTYPE ιs ξ).
           iFrame.
-          iSplitR.
-          -- (* yeah bc of the other cases I think so *)
-             admit.
-          -- iExists i, i32, j, cl.
-             iDestruct "Hcl" as "(H1 & H2 & H3 & H4 & H5)".
-             iFrame.
-             specialize (IHτ se se' cl sub_m sub_r sub_s sub_t Hsub_r Hsub_s Hsub_t).
-             iPoseProof IHτ as "IHτ".
-             iApply IHτ; auto.
+          iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
+          iExists i, i32, j, cl.
+          iDestruct "Hcl" as "(H1 & H2 & H3 & H4 & H5)".
+          iFrame.
+          specialize (IHτ se se' cl sub_m sub_r sub_s sub_t Hsub_r Hsub_s Hsub_t).
+          iPoseProof IHτ as "IHτ".
+          iApply IHτ; auto.
 
         * admit.
         * admit.
@@ -798,25 +859,31 @@ Section inst.
     iIntros (Hok Hse) "Hcl".
     destruct (has_kind_inv _ _ _ Hok) as [F τ κ Hok_τ Hok_κ].
     destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
-    pose proof (type_skind_has_kind_Some _ _ _ _ _ Hse Hok Hsκ) as Hskind.
+    pose proof (type_skind_has_kind_Some rti sr mr _ _ _ _ _ Hok Hse Hsκ) as (sκ' & Hskind' & Hsub).
     set T := value_interp rti sr se τ.
     iSpecialize ("Hcl" $! sκ T).
     iApply closure_interp0_subst_senv; last iApply "Hcl".
     - done.
     - done.
-    - intros ?? H.
+    - (* this is the incorrect case *)
+      (* next step: change closure_interp0_subst_senv's hypothesis, then slowly
+         change all of them. Hopefully nothing breaks too horribly.
+       *)
+      intros ?? H.
       destruct i.
-      + by rewrite <- H.
+      + rewrite <- H.
+        admit.
       + done.
     - done.
     - iPureIntro.
       subst T.
       iIntros (sv) "H".
       rewrite value_interp_eq.
-      iDestruct "H" as "(%sκ' & %Hsκ' & Hskind & Htype)".
-      rewrite Hskind in Hsκ'.
-      by inversion Hsκ'.
-  Qed.
+      iDestruct "H" as "(%sκ'' & %Hsκ'' & Hskind' & Htype)".
+      rewrite Hskind' in Hsκ''.
+      inversion Hsκ''; subst.
+      iApply skind_as_type_refine; done.
+  Admitted.
 
   Lemma compat_inst M F L wt wt' wtf wl wl' wlf es' ix ϕ ϕ' :
     let fe := fe_of_context F in
