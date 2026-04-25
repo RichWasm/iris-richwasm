@@ -348,7 +348,6 @@ Section kinding.
       destruct Hse as [boop bap].
       unfold type_ctx_interp in bap.
       unfold lookup_type in Htype_skind.
-      Search Forall2 lookup.
       apply fmap_Some in Htype_skind as (x & bofp & borzoi).
       pose proof (Forall2_lookup_lr _ _ _ _ _ _ bap bofp H) as [hh hhhh].
       subst sκ0.
