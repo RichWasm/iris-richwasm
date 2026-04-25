@@ -11,7 +11,8 @@ From stdpp Require Import list.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section FundamentalKinding.
+Section kinding.
+
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
   Context `{!richwasmG Σ}.
@@ -85,12 +86,284 @@ Section FundamentalKinding.
     done.
   Qed.
 
+  Lemma subkind_subskind (se : semantic_env (Σ:=Σ)) κ κ' sκ sκ' :
+    eval_kind se κ = Some sκ ->
+    eval_kind se κ' = Some sκ' ->
+    subkind_of κ κ' ->
+    subskind_of sκ sκ'.
+  Proof.
+    intros Heval_κ Heval_κ' Hsubk.
+    destruct κ.
+    - inversion Hsubk.
+      subst.
+      apply bind_Some in Heval_κ as (ιs & Hιs & Hsκ).
+      apply bind_Some in Heval_κ' as (ιs' & Hιs' & Hsκ').
+      inversion Hsκ.
+      inversion Hsκ'.
+      rewrite Hιs in Hιs'.
+      inversion Hιs'.
+      by constructor.
+    - inversion Hsubk.
+      subst.
+      apply bind_Some in Heval_κ as (n & Hn & Hsκ).
+      apply bind_Some in Heval_κ' as (n' & Hn' & Hsκ').
+      inversion Hsκ.
+      inversion Hsκ'.
+      rewrite Hn in Hn'.
+      inversion Hn'.
+      by constructor.
+  Qed.
+
+  Lemma eval_rep_ok_Some F se ρ :
+    sem_env_interp (Σ:=Σ) F se ->
+    rep_ok F.(fc_kind_ctx) ρ ->
+    is_Some (eval_rep se ρ).
+  Proof.
+    intros Hse Hok.
+    induction ρ using rep_ind.
+    - inversion Hok as [K n Hidx HK Hn| | |].
+      subst K n.
+      destruct Hse as [(_ & Hrepv & _) _].
+      rewrite Hrepv in Hidx.
+      apply list_lookup_lookup_total_lt in Hidx.
+      by eexists.
+    - inversion Hok as [|K ρs' Hρs HK Hρs'| |].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K ρs' Hρs HK Hρs'|].
+      subst K ρs'.
+      pose proof (List.Forall_and H Hρs) as H'.
+      clear H Hρs.
+      apply Forall_impl with (Q := is_Some ∘ eval_rep se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros ρ [Hsome ?]. by apply Hsome.
+    - done.
+  Qed.
+
+  Lemma eval_size_ok_Some F se σ :
+    sem_env_interp (Σ:=Σ) F se ->
+    size_ok F.(fc_kind_ctx) σ ->
+    is_Some (eval_size se σ).
+  Proof.
+    intros Hse Hok.
+    induction σ using size_ind.
+    - inversion Hok as [K n Hidx HK Hn| | | |].
+      subst K n.
+      destruct Hse as [(_ & _ & Hsizev) _].
+      rewrite Hsizev in Hidx.
+      apply list_lookup_lookup_total_lt in Hidx.
+      by eexists.
+    - inversion Hok as [|K σs' Hσs HK Hσs'| | |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| |K σs' Hσs HK Hσs'| |].
+      subst K σs'.
+      pose proof (List.Forall_and H Hσs) as H'.
+      clear H Hσs.
+      apply Forall_impl with (Q := is_Some ∘ eval_size se) in H'.
+      + rewrite <- mapM_is_Some in H'. by apply fmap_is_Some.
+      + intros σ [Hsome ?]. by apply Hsome.
+    - inversion Hok as [| | |K ρ' Hok_ρ HK Hρ'|].
+      subst K ρ'.
+      apply fmap_is_Some.
+      by eapply eval_rep_ok_Some.
+    - done.
+  Qed.
+
+  Lemma eval_kind_ok_Some F se κ :
+    sem_env_interp (Σ:=Σ) F se ->
+    kind_ok F.(fc_kind_ctx) κ ->
+    is_Some (eval_kind se κ).
+  Proof.
+    intros Hse Hok.
+    destruct κ as [ρ ξ|].
+    - inversion Hok as [K ρ' ξ' Hok_ρ|].
+      subst K ρ' ξ'.
+      cbn.
+      by eapply eval_rep_ok_Some in Hok_ρ as [ιs ->].
+    - inversion Hok as [|K σ ξ Hok_σ].
+      subst K σ ξ.
+      cbn.
+      by eapply eval_size_ok_Some in Hok_σ as [n ->].
+  Qed.
+
+  Lemma type_skind_has_kind_agree F se τ κ sκ sκ0 :
+    has_kind F τ κ ->
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    type_skind (Σ:=Σ) se τ = Some sκ0 ->
+    subskind_of sκ0 sκ.
+  Proof.
+    intros Hhas_kind.
+    revert sκ0 sκ.
+    induction Hhas_kind.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
+      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
+      inversion Hsκ0.
+      inversion Hsκ.
+      rewrite Heval_rep0 in Heval_rep.
+      inversion Heval_rep.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
+      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
+      inversion Hsκ0.
+      inversion Hsκ.
+      rewrite Heval_rep0 in Heval_rep.
+      inversion Heval_rep.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
+      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
+      inversion Hsκ0.
+      inversion Hsκ.
+      rewrite Heval_rep0 in Heval_rep.
+      inversion Heval_rep.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
+      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
+      inversion Hsκ0.
+      inversion Hsκ.
+      rewrite Heval_rep0 in Heval_rep.
+      inversion Heval_rep.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply bind_Some in H0 as (n0 & Heval_rep0 & Hsκ0).
+      apply bind_Some in H1 as (n & Heval_rep & Hsκ).
+      inversion Hsκ0.
+      inversion Hsκ.
+      rewrite Heval_rep0 in Heval_rep.
+      inversion Heval_rep.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply bind_Some in H1 as (ιs0 & Heval_rep0 & Hsκ0).
+      apply bind_Some in H2 as (ιs & Heval_rep & Hsκ).
+      inversion Hsκ0.
+      inversion Hsκ.
+      rewrite Heval_rep0 in Heval_rep.
+      inversion Heval_rep.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      inversion Heval_kind.
+      apply bind_Some in H1 as (n0 & Heval_size0 & Hsκ0).
+      apply bind_Some in H2 as (n & Heval_size & Hsκ).
+      inversion Hsκ0.
+      inversion Hsκ.
+      rewrite Heval_size0 in Heval_size.
+      inversion Heval_size.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      rewrite Heval_kind in H0.
+      inversion H0.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      rewrite Heval_kind in H1.
+      inversion H1.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      rewrite Heval_kind in H1.
+      inversion H1.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      rewrite Heval_kind in H1.
+      inversion H1.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
+      rewrite Heval_kind in H2.
+      inversion H2.
+      apply subskind_of_refl.
+    - intros ?? Hse Heval_kind Htype_skind.
+      apply has_kind_inv in Hhas_kind as Hhas_kind_ok.
+      inversion Hhas_kind_ok.
+      subst.
+      rename H0 into Htype_ok.
+      rename H1 into Hkind_ok.
+      destruct (eval_kind_ok_Some _ _ _ Hse Hkind_ok) as [sκ0' Hsκ0'].
+      pose proof (subkind_subskind _ _ _ _ _ Hsκ0' Heval_kind H).
+      pose proof (IHHhas_kind _ _ Hse Hsκ0' Htype_skind) as H'.
+      by eapply subskind_of_trans.
+    - intros ?? Hse Heval_kind Htype_skind.
+      cbn in Htype_skind.
+      replace sκ0 with sκ; first apply subskind_of_refl.
+      destruct Hse as [boop bap].
+      unfold type_ctx_interp in bap.
+      unfold lookup_type in Htype_skind.
+      Search Forall2 lookup.
+      apply fmap_Some in Htype_skind as (x & bofp & borzoi).
+      pose proof (Forall2_lookup_lr _ _ _ _ _ _ bap bofp H) as [hh hhhh].
+      subst sκ0.
+      rewrite Heval_kind in hh.
+      by inversion hh.
+  Qed.
+
   Lemma type_skind_has_kind_refine F se τ κ sκ0 sκ :
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     type_skind (Σ:=Σ) se τ = Some sκ0 ->
     skind_as_type_interp (Σ:=Σ) sκ0 ⊑ skind_as_type_interp sκ.
+  Proof.
+    iIntros (Hhas_kind Hse Heval_kind Htype_skind sv) "Hskind".
   Admitted.
 
   Theorem kinding_refinement F se τ κ sκ : 
@@ -131,20 +404,17 @@ Section FundamentalKinding.
     - eauto.
   Qed.
 
-  (*
-  Lemma prim_rep_val_type ι v :
-    primitive_rep_interp ι v ->
-    value_type_interp (translate_prim_rep ι) v.
+  Lemma prim_value_type ι v :
+    has_prim ι v ->
+    value_type_interp (translate_prim ι) v.
   Proof.
-    destruct ι; cbn; intros; eauto.
-    destruct H as (θ & p & n & -> & Hrep); eauto.
+    intros H.
+    by destruct ι; destruct v; try contradiction; eexists.
   Qed.
-  *)
 
-  (*
-  Lemma prim_reps_result_type ιs vs :
-    prim_reps_interp sr ιs (SValues vs) ->
-    result_type_interp (map translate_prim_rep ιs) vs.
+  Lemma prims_result_type ιs vs :
+    has_prims ιs vs ->
+    result_type_interp (map translate_prim ιs) vs.
   Proof.
     revert vs.
     induction ιs; intros.
@@ -155,161 +425,9 @@ Section FundamentalKinding.
       constructor.
     - inversion H; cbn; subst.
       constructor; cbn; eauto.
-      + apply prim_rep_val_type; eauto.
+      + apply prim_value_type; eauto.
       + eapply IHιs; eauto.
   Qed.
-  *)
-
-  (*
-  Lemma explicit_copy_prim_reps_interp ιs :
-    explicit_copy_spec rti sr ιs (λne (sv: leibnizO semantic_value), ⌜prim_reps_interp sr ιs sv⌝)%I.
-  Proof.
-    unfold explicit_copy_spec; intros.
-    iIntros "%Hcopy %Hwl %Hreg %Hfunc Hregcl Hfr Hrun %Hprim".
-    unfold is_copy_operation in Hcopy.
-    destruct Hcopy as (es' & Hcg & <-).
-    inv_cg_bind Hcg res wl1 wl2 es1 es2 Hcg1 Hcg2.
-    inv_cg_bind Hcg2 res1 wl3 wl4 es3 es4 Hcg2 Hcg3.
-    inv_cg_bind Hcg3 res2 wl5 wl6 es5 es6 Hcg3 Hcg4.
-    subst.
-    rewrite <- !app_assoc in Hwl.
-    eapply lwp_save_stack_w in Hcg1; 
-      [| done |by apply prim_reps_result_type].
-    destruct Hcg1 as (Hres & Hwl1 & Hwpes1).
-    repeat rewrite to_e_list_cat W.cat_app.
-    rewrite app_assoc.
-    iApply (lenient_wp_seq with "[Hfr Hrun]");
-      [ iApply (Hwpes1 with "[$] [$]")
-      | iIntros (?) "%Hfalse"; tauto 
-      | ].
-    clear Hwpes1.
-    cbn.
-    iIntros (w f) "Hnotrap Hfr _".
-    destruct w; cbn; try (done || by iDestruct "Hnotrap" as "[? ?]").
-    iDestruct "Hnotrap" as "([%Hlocs %Hsaved] & Hrun & ->)".
-    rewrite app_nil_l.
-    eapply lwp_restore_stack_w in Hcg2; 
-      [| by eapply Forall2_length].
-    destruct Hcg2 as (-> & -> & Hwpes3).
-    iApply (lenient_wp_seq with "[Hfr Hrun]");
-      [ iApply (Hwpes3 with "[$] [$]"); done
-      | iIntros (?) "%Hfalse"; tauto 
-      | ].
-    clear Hwpes3.
-    iIntros (w f') "Hwes Hfr _".
-    destruct w; cbn; try (done || by iDestruct "Hwes" as "[? ?]").
-    cbn.
-    iDestruct "Hwes" as "(-> & Hrun & ->)".
-    rewrite app_assoc.
-    iApply (lenient_wp_seq with "[Hfr Hrun]").
-    - admit.
-    - admit.
-    - admit.
-  Admitted.
-  *)
-
-  (* Lemma copyability_kind ιs χ δ : *)
-  (*   copyability_interp (Σ := Σ) χ (skind_as_type_interp (SVALTYPE ιs χ δ)). *)
-  (* Proof. *)
-  (*   unfold copyability_interp. *)
-  (*   (* *)
-  (*   rewrite H. *)
-  (*   destruct χ. *)
-  (*   - auto. *)
-  (*   - unfold kind_as_type_interp. *)
-  (*     cbn. *)
-  (*     unfold representation_interp. *)
-  (*     rewrite H. *)
-  (*     apply explicit_copy_prim_reps_interp. *)
-  (*   - intros. *)
-  (*     apply kind_as_type_persistent. *)
-  (*   *) *)
-  (* Admitted. *)
-
-  (* Lemma copyability_sep χ S T : *)
-  (*   copyability_interp χ S -> *)
-  (*   copyability_interp χ T -> *)
-  (*   copyability_interp (Σ := Σ) χ (λne sv, (S sv ∗ T sv)%I). *)
-  (* Proof. *)
-  (*   destruct χ; cbn. *)
-  (*   - auto. *)
-  (*   - admit. *)
-  (*   - intros HS HT sv. *)
-  (*     (* typeclasses eauto. *) *)
-  (* Admitted. *)
-
-  (* Instance copyability_proper : Proper (eq ==> equiv ==> equiv) (copyability_interp (Σ := Σ)). *)
-  (* Admitted. *)
-
-  (* Theorem kinding_copyable F se τ ρ χ δ :  *)
-  (*   has_kind F τ (VALTYPE ρ χ δ) -> *)
-  (*   sem_env_interp F se -> *)
-  (*   copyability_interp χ (value_interp rti sr se τ). *)
-  (* Proof. *)
-  (*   intros Hkind. *)
-  (*   remember (VALTYPE ρ χ δ) as κ. *)
-  (*   revert Heqκ. *)
-  (*   revert ρ χ δ. *)
-  (*   induction Hkind; intros ? ? ? Hκeq; rewrite -> Hκeq in *; *)
-  (*     intros [Hsubst Henv]; try subst κ; try subst κ'. *)
-  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
-  (*     cbn. *)
-  (*     intros. *)
-  (*     rewrite value_interp_eq; cbn. *)
-  (*     (* typeclasses eauto. *) *)
-  (*     admit. *)
-  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
-  (*     intros sv. *)
-  (*     rewrite value_interp_eq; cbn. *)
-  (*     (* typeclasses eauto. *) *)
-  (*     admit. *)
-  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
-  (*     intros sv. *)
-  (*     (* rewrite value_interp_eq; cbn; typeclasses eauto. *) *)
-  (*     admit. *)
-  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
-  (*     intros sv. *)
-  (*     (* rewrite value_interp_eq; cbn; typeclasses eauto. *) *)
-  (*     admit. *)
-  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
-  (*     intros sv. *)
-  (*     (* rewrite value_interp_eq; cbn; typeclasses eauto. *) *)
-  (*     admit. *)
-  (*   - admit. (* sums *) *)
-  (*   - inversion Hκeq; subst; eauto. *)
-  (*   - admit. (* products *) *)
-  (*   - inversion Hκeq; subst; eauto. *)
-  (*   - inversion Hκeq; subst; done. *)
-  (*   - admit. (* refs *) *)
-  (*   - admit. (* coderef *) *)
-  (*   - cbn in *.  *)
-  (*     admit. *)
-  (*   - admit. *)
-  (*   - unfold copyability_interp; inversion Hκeq; subst; eauto. *)
-  (*   - admit. (* recursive types *) *)
-  (*   - admit. (* exists (mem) *) *)
-  (*   - admit. (* exists (repr) *) *)
-  (*   - admit. (* exists (size) *) *)
-  (*   - admit. (* exists (type) *) *)
-  (*   - inversion H; subst; eauto. *)
-  (*     + specialize (IHHkind _ _ _ eq_refl). *)
-  (*       cbn in IHHkind. *)
-  (*       cbn. *)
-  (*       admit. *)
-  (*     + cbn; done. *)
-  (*     + specialize (IHHkind _ _ _ eq_refl). *)
-  (*       eapply IHHkind. *)
-  (*       split; auto. *)
-  (*   - simpl subst_type. *)
-  (*     unfold sem_env_interp in Henv. *)
-  (*     pose proof (Forall2_length _ _ _ Henv) as Hlen. *)
-  (*     eapply Forall2_lookup_r in H; eauto. *)
-  (*     destruct H as [[κt' T] [Hκt' [Hκsubst Hκinterp]]]. *)
-  (*     cbn in Hκsubst, Hκinterp. *)
-  (*     cbn in *; subst. *)
-  (*     rewrite value_interp_var; eauto. *)
-  (*     admit. *)
-  (* Admitted. *)
 
   Theorem kinding_sound F se τ κ sκ :
     has_kind F τ κ ->
@@ -317,14 +435,10 @@ Section FundamentalKinding.
     eval_kind se κ = Some sκ ->
     skind_interp sκ (value_interp rti sr se τ).
   Proof.
-    (* intros Hkind.  *)
-    (* intros * Hsubst. *)
-    (* split. *)
-    (* - eapply kinding_refinement; eauto. *)
-    (* - destruct sκ; [| done]. *)
-    (*   cbn. *)
-    (*   eapply kinding_copyable; eauto. *)
-    (*   admit. *)
-  Admitted.
+    iIntros (Hhas_kind Hse Heval_kind sv) "Hval".
+    rewrite value_interp_eq.
+    iDestruct "Hval" as "(%sκ' & %Hsκ' & Hskind & Htype)".
+    by iApply type_skind_has_kind_refine.
+  Qed.
 
-End FundamentalKinding.
+End kinding.

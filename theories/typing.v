@@ -237,6 +237,27 @@ Proof.
     subst; constructor; eapply ref_flag_le_trans.
 Qed.
 
+Inductive subskind_of : skind -> skind -> Prop :=
+| SKSubVal ιs ξ ξ' :
+  ref_flag_le ξ ξ' ->
+  subskind_of (SVALTYPE ιs ξ) (SVALTYPE ιs ξ')
+| SKSubMem n ξ ξ' :
+  ref_flag_le ξ ξ' ->
+  subskind_of (SMEMTYPE n ξ) (SMEMTYPE n ξ').
+
+Lemma subskind_of_refl κ : subskind_of κ κ.
+Proof.
+  destruct κ; constructor; apply ref_flag_le_refl.
+Qed.
+
+Lemma subskind_of_trans κ1 κ2 κ3 : subskind_of κ1 κ2 -> subskind_of κ2 κ3 -> subskind_of κ1 κ3.
+Proof.
+  intros H12 H23.
+  by destruct κ1; destruct κ2; destruct κ3;
+    inversion H12; inversion H23;
+    subst; constructor; eapply ref_flag_le_trans.
+Qed.
+
 Inductive has_kind_ok : function_ctx -> type -> kind -> Prop :=
 | OKHasKind F τ κ :
   type_ok F τ ->
