@@ -99,31 +99,13 @@ Section inst.
 
   (* moved type_skind_has_kind_Some to kinding.v *)
 
-  Lemma eval_rep_mem_irrel se ρ ιs μ :
-    eval_rep se ρ = Some ιs ->
-    eval_rep (senv_insert_mem (Σ:=Σ) μ se) ρ = Some ιs.
-  Proof.
-    (* by induction ρ using rep_ind. *)
-  Admitted.
-
-  Lemma eval_size_mem_irrel se σ n μ :
-    eval_size se σ = Some n ->
-    eval_size (senv_insert_mem (Σ:=Σ) μ se) σ = Some n.
-  Proof.
-    (* by induction σ using size_ind. *)
-  Admitted.
-
-  Lemma type_skind_mem_irrel se μ τ sκ :
-    type_skind (Σ:=Σ) se τ = Some sκ ->
-    type_skind (Σ:=Σ) (senv_insert_mem μ se)
-      (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id τ) = Some sκ.
-  Proof.
-    intros H.
-    destruct τ.
-    1: done.
-    (* all: cbn; unfold eval_kind; by rewrite rinstId'_kind. *)
-  Admitted.
-
+  Ltac shred_for_up_mini n2 Hn2 :=
+      apply fmap_Some;
+      exists n2; split; last done;
+      apply mapM_Some in Hn2;
+      apply mapM_Some;
+      eapply Forall2_mini_impl_Forall; first done;
+      done.
   Ltac shred_for_up n2 Hn2 :=
       apply fmap_Some;
       exists n2; split; last done;
@@ -134,6 +116,83 @@ Section inst.
       apply Forall2_fmap;
       eapply Forall2_mini_impl_Forall; first done;
       done.
+
+  Lemma eval_rep_mem_irrel se ρ ιs μ :
+    eval_rep se ρ = Some ιs ->
+    eval_rep (senv_insert_mem (Σ:=Σ) μ se) ρ = Some ιs.
+  Proof.
+    revert ιs.
+    induction ρ using rep_ind; intros; auto.
+    - cbn in *.
+      apply fmap_Some in H0 as (ρss & H02 & ->).
+      shred_for_up_mini ρss H02.
+    - cbn in *.
+      apply fmap_Some in H0 as (ιss & H02 & ->).
+      shred_for_up_mini ιss H02.
+  Qed.
+
+  Lemma eval_rep_size_irrel se ρ ιs n :
+    eval_rep se ρ = Some ιs ->
+    eval_rep (senv_insert_size (Σ:=Σ) n se) ρ = Some ιs.
+  Proof.
+    revert ιs.
+    induction ρ using rep_ind; intros; auto.
+    - cbn in *.
+      apply fmap_Some in H0 as (ρss & H02 & ->).
+      shred_for_up_mini ρss H02.
+    - cbn in *.
+      apply fmap_Some in H0 as (ιss & H02 & ->).
+      shred_for_up_mini ιss H02.
+  Qed.
+
+  Lemma eval_size_mem_irrel se σ n μ :
+    eval_size se σ = Some n ->
+    eval_size (senv_insert_mem (Σ:=Σ) μ se) σ = Some n.
+  Proof.
+    revert n.
+    induction σ using size_ind; intros; auto.
+    - cbn in *.
+      apply fmap_Some in H0 as (ρss & H02 & ->).
+      shred_for_up_mini ρss H02.
+    - cbn in *.
+      apply fmap_Some in H0 as (ρss & H02 & ->).
+      shred_for_up_mini ρss H02.
+    - cbn in *.
+      apply fmap_Some in H as (ρss & H02 & ->).
+      apply fmap_Some.
+      exists ρss; split; last done.
+      by apply eval_rep_mem_irrel.
+  Qed.
+
+  Lemma eval_kind_mem_irrel se κ sκ μ :
+    eval_kind se κ = Some sκ ->
+    eval_kind (senv_insert_mem (Σ:=Σ) μ se) κ = Some sκ.
+  Proof.
+    revert sκ.
+    destruct κ; intros; cbn in *.
+    - apply fmap_Some in H as (ρss & H02 & ->).
+      apply fmap_Some.
+      pose proof (eval_rep_mem_irrel _ _ _ μ H02).
+      rewrite H. eexists; split; done.
+    - apply fmap_Some in H as (ρss & H02 & ->).
+      apply fmap_Some.
+      pose proof (eval_size_mem_irrel _ _ _ μ H02).
+      rewrite H. eexists; split; done.
+  Qed.
+
+  Lemma type_skind_mem_irrel se μ τ sκ :
+    type_skind (Σ:=Σ) se τ = Some sκ ->
+    type_skind (Σ:=Σ) (senv_insert_mem μ se)
+      (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id τ) = Some sκ.
+  Proof.
+    revert sκ.
+    destruct τ.
+    1: done.
+    all: intros; cbn in *.
+    all: rewrite rinstId'_kind.
+    all: unfold eval_kind in *.
+    all: by apply eval_kind_mem_irrel.
+  Qed.
 
   Lemma eval_rep_up_rep se sub_r ιs0 i ιs :
     eval_rep se (sub_r i) = Some ιs ->
@@ -159,22 +218,25 @@ Section inst.
     eval_rep se (sub_r i) = Some ιs ->
     eval_rep (senv_insert_size (Σ:=Σ) n se) (up_size_representation sub_r i) = Some ιs.
   Proof.
-    (* by asimpl'. *)
-  Admitted.
+    asimpl'.
+    by apply eval_rep_size_irrel.
+  Qed.
 
   Lemma eval_rep_up_memory se sub_r ιs i μ :
     eval_rep se (sub_r i) = Some ιs ->
     eval_rep (senv_insert_mem (Σ:=Σ) μ se) (up_memory_representation sub_r i) = Some ιs.
   Proof.
-    (* by asimpl'. *)
-  Admitted.
+    asimpl'.
+    by apply eval_rep_mem_irrel.
+  Qed.
 
   Lemma eval_size_up_memory se sub_s n i μ :
     eval_size se (sub_s i) = Some n ->
     eval_size (senv_insert_mem (Σ:=Σ) μ se) (up_memory_size sub_s i) = Some n.
   Proof.
-    (* by asimpl'. *)
-  Admitted.
+    asimpl'.
+    by apply eval_size_mem_irrel.
+  Qed.
 
   Lemma eval_size_up_rep se sub_s ιs i n :
     eval_size se (sub_s i) = Some n ->
@@ -894,11 +956,7 @@ Section inst.
     iApply closure_interp0_subst_senv; last iApply "Hcl".
     - done.
     - done.
-    - (* this is the incorrect case *)
-      (* next step: change closure_interp0_subst_senv's hypothesis, then slowly
-         change all of them. Hopefully nothing breaks too horribly.
-       *)
-      intros ?? H.
+    - intros ?? H.
       destruct i.
       + cbn in H; inversion H; subst.
         exists sκ'.
