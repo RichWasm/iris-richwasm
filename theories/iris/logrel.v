@@ -521,10 +521,10 @@ Section instr.
     λne ηss L WL fr,
       (∃ oss vs_L vs_WL,
          ⌜fr.(f_locs) = vs_L ++ vs_WL⌝ ∗
-           ⌜has_prims (concat ηss) vs_L⌝ ∗
-           ⌜result_type_interp WL vs_WL⌝ ∗
-           atoms_interp (concat oss) vs_L ∗
-           locals_interp se L oss)%I.
+         ⌜has_prims (concat ηss) vs_L⌝ ∗
+         ⌜result_type_interp WL vs_WL⌝ ∗
+         atoms_interp (concat oss) vs_L ∗
+         locals_interp se L oss)%I.
 
   Fixpoint simple_get_base_l (lh : simple_valid_holed) :=
     match lh with

@@ -1536,6 +1536,7 @@ Section load_copy.
           iFrame.
   Qed.
 
+
   Lemma wp_mem_load_copy_mm fe lidx off ιs wt wl ret wt' wl' es :
     run_codegen (memory.load mr fe MemMM Copy lidx off ιs) wt wl = inr (ret, wt', wl', es) ->
     ret = () /\
@@ -1667,17 +1668,29 @@ Section load_copy.
     inversion Hareps as [| ? ? ? ? Harep _]; subst.
     destruct o; inversion Harep; clear Harep Hareps.
     cbn [app].
+    iEval (cbn) in "Href".
+    destruct μ as [|[|]]; first done.
+    - unfold ref_mm_interp.
+      iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
+      inversion Hsv; subst p; clear Hsv.
+      rewrite value_interp_eq.
+
+
     change (?x :: ?y :: ?z) with ([x; y] ++ z).
     set (f' := {| f_locs := <[ptr_local:=v ]> (f_locs fr);
                   f_inst := f_inst fr |}).
-    iApply (cwp_seq with "[Hfr Hrun]").
+    iApply (cwp_seq with "[Hfr Hrun Hws]").
     {
       change ([?ev; ?x]) with ([ev] ++ [x]).
       rewrite (has_values_to_consts_inv _ _ Hevs).
-      iApply (cwp_local_tee with "[ ] [$] [$]"); first eauto.
-      by instantiate (1:= λ f'' vs', ⌜f'' = f' /\ vs' = [v]⌝%I).
+      iApply (cwp_local_tee with "[Hws] [$] [$]"); first eauto.
+      instantiate (1:= λ f'' vs', (⌜f'' = f' /\ vs' = [v]⌝ ∗ value_interp0 rti sr (value_interp rti sr) se τ (SWords ws))%I).
+      by iFrame.
     }
-    iIntros (f vs) "[-> ->] Hf Hrun".
+    iIntros (f vs) "([-> ->] & Hws) Hf Hrun".
+    iEval (cbn) in "Hws".
+    iDestruct "Hws" as "(%κ' & %Hsk & Hk & Ht)".
+
     eapply cwp_case_ptr in Hcompile.
     destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
     destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
@@ -1695,23 +1708,21 @@ Section load_copy.
       by rewrite decide_True.
     }
     iIntros "!> Hf Hrun Hat".
-    iEval (cbn) in "Href".
-    destruct μ as [|[|]]; first done.
-    - unfold ref_mm_interp.
-      iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
-      inversion Hsv; subst.
-      rewrite value_interp_eq.
+    assert (Hκ'': ∃ ξ, κ' = SMEMTYPE (length ws) ξ).
+    { admit. }
+    destruct Hκ'' as [ξ ->].
+
       (* need lemma about memory.load *)
       apply wp_mem_load_copy_mm in Hload1.
       destruct Hload1 as (_ & -> & -> & Hload).
       unfold atom_interp; iEval (cbn) in "Hat".
       iDestruct "Hat" as "(%n & %n32 & %Hrep & -> & Hat')".
       iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
-      iApply (Hload with "[$] [$] [] [Hat'] [Hws] [$] [$] [-]").
-      + eapply Hrep.
+      iApply (Hload with "[$] [$] [] [Hat'] [Ht Hk] [$] [$] [-]").
+      + admit.
       + eauto.
       + eauto.
-      + unfold N_nat_repr; reflexivity.
+      + admit.
       + eauto.
       + simpl.
         by rewrite list_lookup_insert_eq.
@@ -1723,14 +1734,36 @@ Section load_copy.
         admit.
       + admit. (* need to go via kinding theorem *)
       + iApply "Hreg".
-      + erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
+      + admit.
+        (*
+        erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
         iFrame; by eauto.
-      + iEval (cbn) in "Hws".
-        admit.
+        *)
+      + admit.
       + iIntros (f'' e' vs') "-> Hown Htok #Hinst' Hpts Hpost".
         unfold fvs_combine.
         iFrame.
-        admit.
+        iSplitR; [|iSplitL "Hframe"].
+        * admit.
+        * unfold mk_load_frame.
+          cbn [seq.foldl imap].
+          unfold frame_interp.
+          iDestruct "Hframe" as "(%ηss & %L' & %WL' & %fr' & Hframe)".
+          iDestruct "Hframe" as "(%Hprims & %Hres & Hats & Hlocs)".
+          iExists _, L', _.
+          iFrame.
+          iPureIntro.
+          intuition.
+          -- cbn.
+             unfold ptr_local.
+             assert (length L' = length (concat (typing.fc_locals F))).
+             { by eapply Forall2_length in Hprims. }
+             admit.
+          -- unfold result_type_interp in Hres.
+             unfold result_type_interp.
+             admit.
+        * iExists (_ :: _). instantiate (2:=PtrA (PtrHeap MemMM ℓ)).
+          admit.
     - unfold ref_gc_interp.
       iDestruct "Href" as (ℓ fs Hsv) "Hinv".
       inversion Hsv; subst.
