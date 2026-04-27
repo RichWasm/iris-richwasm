@@ -335,6 +335,18 @@ Section inst.
       intros; cbn in *; auto; try (by apply eval_kind_up_shift_rep).
   Qed.
 
+  Lemma type_skind_up_memory se sub_t μ sκ i :
+    type_skind se (sub_t i) = Some sκ ->
+    type_skind (Σ:=Σ) (senv_insert_mem μ se) (up_memory_type sub_t i) = Some sκ.
+  Proof.
+    intros H.
+    asimpl'.
+    unfold core.funcomp.
+    generalize dependent sκ.
+    induction (sub_t i) using type_ind with (P0 := λ ft, True);
+      intros; cbn in *; auto; asimpl'; try (by apply eval_kind_mem_irrel).
+  Qed.
+
   Lemma eval_rep_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r ρ ιs :
     (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     eval_rep se' ρ = Some ιs ->
@@ -491,6 +503,39 @@ Section inst.
     by eapply translate_type_subst_senv.
   Qed.
 
+  Lemma map_lookup_helper {A B:Type} (f:A → B) (l: list A) (i:nat) (a:A) :
+    l !! i = Some a -> map f l !! i = Some (f a).
+  Proof.
+    (* obvious, prove later *)
+  Admitted.
+
+  Lemma ref_flag_le_preserves_atoms_interp ξ ξ' os:
+    ref_flag_le ξ ξ' -> ref_flag_atoms_interp ξ (SAtoms os) ->
+    ref_flag_atoms_interp ξ' (SAtoms os).
+  Proof.
+    intros.
+    destruct ξ, ξ'; try done.
+    - destruct H0 as (os0 & toinvert & H0); inversion toinvert; subst os0; clear toinvert.
+      exists os; split; [done|].
+      unfold ref_flag_interp in *.
+      unfold norefs_ptr_interp in H0.
+      unfold gcrefs_ptr_interp.
+      (* yup okay true *)
+      admit.
+    - destruct H0 as (os0 & toinvert & H0); inversion toinvert; subst os0; clear toinvert.
+      exists os; split; [done|].
+      unfold ref_flag_interp in *.
+      unfold norefs_ptr_interp in H0.
+      (* yup also true *)
+      admit.
+    - destruct H0 as (os0 & toinvert & H0); inversion toinvert; subst os0; clear toinvert.
+      exists os; split; [done|].
+      unfold ref_flag_interp in *.
+      unfold gcrefs_ptr_interp in H0.
+      (* also true *)
+      admit.
+  Admitted.
+
   (* As mentioned in a lower comment, this might require an additional assumption *)
   (* this is also now safe from contamination :3 *)
   Lemma values_interp0_subst_type se se' τs os sub_m sub_r sub_s sub_t :
@@ -545,14 +590,16 @@ Section inst.
           iApply value_interp_eq.
           iEval (cbn) in "Hoa".
           iDestruct "Hoa" as "(%sκ & %Hse'skind & Hoa & Htypevar)".
-          destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hoa" as "[[] _]"].
-          apply Hsub_t in Hse'skind as Htypeskind.
+          destruct sκ as [ιs ξ | n ξ]; [iDestruct "Hoa" as "[%Harep %Hflag]"
+                                       |iDestruct "Hoa" as "[[] _]"].
           (* This is now using the correct Hsub_t *)
+          apply Hsub_t in Hse'skind as Htypeskind.
           destruct Htypeskind as (sκ' & Htypeskind & Hsubsk).
           inversion Hsubsk; subst.
 
+
           iExists (SVALTYPE ιs ξ0).
-          iFrame.
+          iFrame "∗".
           iSplitR; auto.
           unfold type_var_interp.
           (* note to self: T : skind x semantic_type *)
@@ -566,12 +613,17 @@ Section inst.
           (* Hsub_t probably needs to just talk about both *)
 
           (* also it's true but maybe not relevant: *)
-          assert (temp: sκ' = SVALTYPE ιs ξ) by admit.
+          assert (temp: sκ' = SVALTYPE ιs ξ). {
+            cbn in Hse'skind. by inversion Hse'skind.
+          }
           subst sκ'.
 
-
-
-          admit.
+          iSplitR.
+          -- cbn.
+             iSplitL; iPureIntro; [done|].
+             (* WHY IS IT BACKWARDS WHAT HAPPENED TODO *)
+             admit.
+          -- admit.
         * (* i31 *)
           intros; cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
@@ -603,13 +655,13 @@ Section inst.
           iSplitR; [iPureIntro; eapply eval_kind_subst_senv; done|].
           destruct κ; [|done].
           destruct r; try done.
+          rename l into ρs; rename r0 into ξ'.
           cbn.
           iDestruct "Hk" as "(%i & %os & %off & %count & %τi &
                               %H1 & %H2 & %H3 & %H4 & Hoa)".
-          (* i and os are definitely right *)
-          iExists i, os.
-          (* These are likely to need to change TODO *)
-          iExists off, count.
+          (* I've convinced myself these are right *)
+          iExists i, os, off, count.
+
           (* I'm just going to make τi what I need it to be *)
           iExists (subst_type sub_m sub_r sub_s sub_t τi).
 
@@ -626,13 +678,30 @@ Section inst.
              cbn in H0.
              by specialize (H0 sub_t sub_r sub_s sub_m se se' Hsub_r Hsub_s Hsub_t
                            (take count (drop off os))).
-          -- (* this is true by H4 and some map lemma *)
-             (* can't find it quickly but it's true *)
-             admit.
-          -- (* UNSURE about this one TODO *)
-             admit.
-          -- (* also unsure about this one TODO *)
-             admit.
+          -- by apply map_lookup_helper.
+          -- apply fmap_Some.
+             apply fmap_Some in H3 as (ιs_ρ & Hy & Hah).
+             exists ιs_ρ.
+             split; [|done].
+             apply bind_Some.
+             apply bind_Some in Hy as (ρ & Hz & Hbh).
+             cbn in Hbh.
+             (* I hope this is right?? *)
+             exists (subst_representation sub_r ρ).
+             split.
+             ++ by apply map_lookup_helper.
+             ++ eapply eval_rep_subst_senv; done.
+          -- unfold sum_offset in *.
+             apply bind_Some in H2 as (ιss & Hy & Hah).
+             apply bind_Some.
+             (* hopefully *)
+             exists ιss. split; [|done].
+             (* Okay this is true by a combo of mapM lemmas and
+                eval_rep_subst_senv *)
+             apply mapM_Some.
+             apply mapM_Some in Hy.
+             (* seems a bit annoying to prove but definitely true *)
+             admit. (* amazing this means sums are okay *)
         (* what else would be interesting... *)
         (* the exists guys probably. Also exists type *)
         (* coderef to figure to test if P0 is enough *)
@@ -715,22 +784,28 @@ Section inst.
                destruct se'.
                destruct o0. destruct o0.
                cbn in H.
-
-               (* okay yes. This is true because o3 isn't changed. but
-                  I can't figure out how to tell rocq that the i is indexing
-                  into o3 into both cases.
-                *)
-               admit.
+               cbn. done.
              }
              apply Hsub_r in H'.
              by apply eval_rep_up_memory.
           -- intros.
-             (* okay similarly thought eval_size_up_memory *)
-             (* with the variables from before, o2 doesn't change *)
-             admit.
+             assert (H': lookup_size se' i = Some n). {
+               cbn in H. destruct se'; destruct o0; destruct o0.
+               cbn in H; cbn.
+               done.
+             }
+             apply Hsub_s in H'.
+             by apply eval_size_up_memory.
           -- intros.
-             (* I think same deal *)
-             admit.
+             assert (H': fst <$> lookup_type se' i = Some sκ'). {
+               destruct se'; destruct o0; destruct o0.
+               apply fmap_Some; apply fmap_Some in H as (ss & Hss & ->).
+               unfold senv_insert_mem in Hss. cbn in Hss.
+               unfold lookup_type in *; cbn in Hss; cbn.
+               exists ss; split; auto.
+             }
+             apply Hsub_t in H' as (sκ0' & Hsκ0' & Hsubs).
+             exists sκ0'; split; [by apply type_skind_up_memory | done].
         * admit.
         * admit.
         * admit.
@@ -956,7 +1031,8 @@ Section inst.
     iApply closure_interp0_subst_senv; last iApply "Hcl".
     - done.
     - done.
-    - intros ?? H.
+    - (* this is the proof that our substitution satisfies the type_skind hypothesis *)
+      intros ?? H.
       destruct i.
       + cbn in H; inversion H; subst.
         exists sκ'.
