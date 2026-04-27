@@ -370,6 +370,24 @@ Proof.
   lia.
 Qed.
 
+Lemma sum_list_with_take_S_lookup {A} (f : A → nat) (l : list A) (i : nat) (x : A) :
+  l !! i = Some x →
+  sum_list_with f (list.take i l) + f x = sum_list_with f (list.take (S i) l).
+Proof.
+  intros Hlookup.
+  rewrite (take_S_r _ _ _ Hlookup).
+  rewrite sum_list_with_app.
+  simpl. lia.
+Qed.
+
+Lemma sum_list_with_take_le {A} (f : A → nat) (l : list A) (i : nat) :
+  sum_list_with f (list.take i l) ≤ sum_list_with f l.
+Proof.
+  rewrite <- (list.take_drop i l) at 2.
+  rewrite sum_list_with_app.
+  lia.
+Qed.
+
   Definition foldlM `{MRet M, MBind M} {A B: Type}
     : (A -> B -> M A) -> A -> list B -> M A :=
     λ f a l,

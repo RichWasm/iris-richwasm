@@ -629,6 +629,40 @@ Section common.
     eauto.
   Qed.
 
+  Lemma eval_kind_of_eval_rep (se: semantic_env (Σ:=Σ)) ρ ιs :
+    eval_rep se ρ = Some ιs ->
+    forall ξ, eval_kind se (VALTYPE ρ ξ) = Some (SVALTYPE ιs ξ).
+  Proof.
+    intros Heval ξ.
+    unfold eval_kind.
+    apply bind_Some.
+    by eexists.
+  Qed.
+
+  Lemma type_skind_eval_rep (se: semantic_env (Σ:=Σ)) F ρ ιs ξ τ ιs' ξ' :
+    has_kind F τ (VALTYPE ρ ξ) ->
+    sem_env_interp F se ->
+    eval_rep se ρ = Some ιs ->
+    type_skind se τ = Some (SVALTYPE ιs' ξ') ->
+    subskind_of (SVALTYPE ιs' ξ') (SVALTYPE ιs ξ).
+  Proof.
+    intros.
+    eapply type_skind_has_kind_agree; try done.
+    by apply eval_kind_of_eval_rep.
+  Qed.
+
+  Lemma type_skind_eval_rep_emptyenv (se: semantic_env (Σ:=Σ)) F ρ ιs ξ τ ιs' ξ' :
+    has_kind F τ (VALTYPE ρ ξ) ->
+    sem_env_interp F se ->
+    eval_rep EmptyEnv ρ = Some ιs ->
+    type_skind se τ = Some (SVALTYPE ιs' ξ') ->
+    subskind_of (SVALTYPE ιs' ξ') (SVALTYPE ιs ξ).
+  Proof.
+    intros.
+    eapply type_skind_eval_rep; try done.
+    by apply eval_rep_emptyenv.
+  Qed.
+
   Lemma to_e_list_app es1 es2 :
     to_e_list (es1 ++ es2) = to_e_list es1 ++ to_e_list es2.
   Proof.

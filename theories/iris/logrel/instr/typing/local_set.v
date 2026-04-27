@@ -40,9 +40,22 @@ Section local_set.
     apply run_codegen_set_locals in Hset_locals as H.
     destruct H as (_ & -> & ->).
 
+    unfold local_indices in Heq_some.
+    apply bind_Some in Heq_some as [ηs [Hlookup_fe_i Hlocal_ixs]].
+    apply Some_inj in Hlocal_ixs.
+
     subst WT WL.
     clear_nils.
     simplify_eq.
+
+    inversion Hok; subst.
+    apply lookup_lt_Some in Hlookup_L_i as Hlen_L.
+    have Hi := Forall2_lookup_lr _ _ _ _ _ _ H0 (list_lookup_insert_eq L i τ' Hlen_L) Hlookup_fe_i.
+    destruct Hi as (ρ & Hhas_rep & Heval_rep_prim).
+    inversion Hhas_rep; subst.
+    unfold eval_rep_prim in Heval_rep_prim.
+    destruct (eval_rep EmptyEnv ρ) as [ιs|] eqn:Heval_rep; simpl in Heval_rep_prim; [| discriminate].
+    apply Some_inj in Heval_rep_prim.
 
     (* Iris Proof *)
     iIntros (? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hvs Hos Hframe Hrt Hown Hfr Hrun".
@@ -60,100 +73,39 @@ Section local_set.
       unfold skind_as_type_interp, ssize_interp.
       iDestruct "Hskind_as_type" as "[[] _]".
     }
-    (* unfold type_skind, eval_kind in Hkind_sum. *)
-    (* apply bind_Some in Hkind_sum. *)
-    (* destruct Hkind_sum as (l' & Heval & Hret). *)
-    (* inversion Hret; subst l r. *)
-    (* clear Hret. *)
-    (* assert (l = ιs) as ->. *)
-    (* { admit. } (* TODO *) *)
+
+    have : subskind_of (SVALTYPE l r) (SVALTYPE ιs ξ).
+    { by eapply type_skind_eval_rep_emptyenv. }
+    intros Hsubskind.
+    have Hlen_eq : length ιs = length ηs by rewrite <- Heval_rep_prim, length_map.
+    have Hlen_eq' : length (map translate_arep ιs) = length ηs.
+    1: by rewrite length_map.
+    inversion Hsubskind; subst.
 
     iPoseProof "Hskind_as_type" as "H".
     iDestruct "H" as "[%Hhas_areps %Href]".
-    (* apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag). *)
-(*     apply bind_Some in Hcount as Hcount'. *)
-(*     destruct Hcount' as [ιs_case_tag_payload' [Hlookup_eval Hcase_tag_payload_count]]. *)
-(*     apply Some_inj in Hcase_tag_payload_count. *)
-(*     apply bind_Some in Hlookup_eval as Heval_repr. *)
-(*     destruct Heval_repr as [ρ_case_tag_payload' [Hlookup_tag Heval_rep']]. *)
-(**)
-(*     inversion Heval as [Hιs_sum]. *)
-(*     apply bind_Some in Hιs_sum as Hιs_sum. *)
-(*     destruct Hιs_sum as [ιss_payload [Hmap_eval_rep Heq]]. *)
-(*     apply Some_inj in Heq. *)
-(*     simpl in Heq. *)
-(*     injection Heq as Htag Hpayload. *)
-(*     apply mapM_eval_rep_emptyenv with (se := se) in Heq_some0. *)
-(*     rewrite Hmap_eval_rep in Heq_some0. *)
-(*     apply Some_inj in Heq_some0 as <-. *)
-    (* TODO end *)
 
-    (* apply bind_Some in Heq_some0 as Hsum. *)
-    (* destruct Hsum as (ιss_pre' & Hιss_pre' & Hoff). *)
-    (* apply Some_inj in Hoff as <-. *)
-    (**)
-    (* have Htake : mapM (eval_rep EmptyEnv) (take i ρs_sum) = Some (take i (ιss_pre ++ ιs :: ιss_post)). *)
-    (* { *)
-    (*   eapply mapM_take; eauto. *)
-    (* } *)
-    (**)
-    (* rewrite Hιss_pre' in Htake. *)
-    (**)
-    (* rewrite Hιss_pre_len in Htake. *)
-    (* rewrite take_app in Htake. *)
-    (* rewrite Nat.sub_diag in Htake. *)
-    (* rewrite take_0 in Htake. *)
-    (* clear_nils. *)
-    (* rewrite firstn_all in Htake. *)
-    (* apply Some_inj in Htake as ->. *)
-    (**)
-    (* rewrite length_app !length_map in Hset_i_locals. *)
-    (* subst count. *)
-    (* rewrite drop_seq take_seq in Hset_i_locals. *)
-    (* replace (length ιs `min` _) with (length ιs) in Hset_i_locals. *)
-    (* 2: { *)
-    (*   rewrite length_app. *)
-    (*   rewrite length_fmap. *)
-    (*   lias. *)
-    (* } *)
-    (* set idxs_i := (seq (fe_wlocal_offset fe + length wl + length (concat ιss_pre)) (length ιs)) in Hset_i_locals. *)
-    (**)
-    (* pose proof (result_type_interp_of_defaults (translate_arep <$> concat ιss_pre)) as Hres_type_pre. *)
-    (* pose proof (result_type_interp_of_defaults (translate_arep <$> ιs)) as Hres_type_def_payload. *)
-    (* pose proof (result_type_interp_of_defaults (translate_arep <$> concat ιss_post)) as Hres_type_post. *)
     iDestruct (result_type_interp_of_atoms_interp with "Hvs") as "%Hres_type_vs"; first done.
-    (**)
-    (* pose (sum_vals := fun vs => *)
-    (*   (default_of_value_types $ translate_arep <$> concat ιss_pre) ++ *)
-    (*   vs ++ *)
-    (*   (default_of_value_types $ translate_arep <$> concat ιss_post)). *)
-    (**)
-    (* assert (result_type_interp areps_sum (sum_vals (default_of_value_types (translate_arep <$> ιs)))) as Hres_type_default. *)
-    (* { *)
-    (*   apply result_type_interp_combine; first done. *)
-    (*   apply result_type_interp_combine; last done. *)
-    (*   apply Hres_type_def_payload. *)
-    (* } *)
-    (**)
-    (* rewrite <- (app_nil_r areps_sum) in Hset_sum_locals. *)
-    unfold local_indices in Heq_some.
-    apply bind_Some in Heq_some as [ηs [Hlookup_fe_i Hlocal_ixs]].
-    apply Some_inj in Hlocal_ixs.
 
     eapply cwp_set_locals_w in Hset_locals.
     5: {
-      instantiate (1 := map translate_arep l).
+      instantiate (1 := map translate_arep ιs).
       instantiate (1 := (sum_list_with length (take i (fe_locals fe)))).
       done.
     }
-    6: admit.
+    6: by rewrite !length_map.
     5: done.
     3: done.
     2: apply has_values_to_consts.
     2: {
       unfold fe_wlocal_offset.
       subst fe.
-      admit.
+      rewrite !length_map.
+      rewrite Hlen_eq.
+      erewrite sum_list_with_take_S_lookup; last done.
+      etransitivity.
+      2: apply Nat.le_add_r.
+      apply sum_list_with_take_le.
     }
     destruct Hset_locals as (_ & _ & _ & Hset_locals).
     iApply (Hset_locals with "[$] [$]").
@@ -167,8 +119,17 @@ Section local_set.
       eapply frame_rel_mask_mono; last done.
       intros j Hnotinj.
       simpl.
-      admit.
+      destruct Hnotinj as [Hnotinfe _].
+      unfold fe_wlocal_offset in Hnotinfe.
+      intro Hin.
+      rewrite list_elem_of_In in_seq in Hin.
+      rewrite Hlen_eq' in Hin.
+      erewrite sum_list_with_take_S_lookup in Hin; last done.
+      have Hle := sum_list_with_take_le length (fe_locals fe) (S i).
+      subst fe; simpl in Hle, Hnotinfe.
+      lia.
     }
+  admit.
 
   Admitted.
 

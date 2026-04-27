@@ -112,6 +112,18 @@ Section inject.
       unfold skind_as_type_interp, ssize_interp.
       iDestruct "Hskind_as_type" as "[[] _]".
     }
+
+    (* have : subskind_of (SVALTYPE l r) (SVALTYPE ιs rf). *)
+    (* { eapply type_skind_eval_rep_emptyenv; try done. *)
+    (*   inversion Hok; subst. *)
+    (*   inversion H; subst. *)
+    (*   apply Forall_cons in H2 as [Hhmr _]. *)
+    (*   inversion Hhmr; subst. *)
+    (*   inversion H1; subst. *)
+    (*   simpl in H1. *)
+    (**)
+    (* } *)
+    (**)
     (* unfold type_skind, eval_kind in Hkind_sum. *)
     (* apply bind_Some in Hkind_sum. *)
     (* destruct Hkind_sum as (l' & Heval & Hret). *)
