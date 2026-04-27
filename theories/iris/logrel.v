@@ -335,11 +335,12 @@ Section instr.
       | ForallRepT ϕ' => ∀ ιs, closure_interp0 vrel (senv_insert_rep ιs se) ϕ' cl
       | ForallSizeT ϕ' => ∀ n, closure_interp0 vrel (senv_insert_size n se) ϕ' cl
       | ForallTypeT κ ϕ' =>
-          ∀ sκ' sκ T,
-            ⌜eval_kind se κ = Some sκ⌝ -∗
-            ⌜subskind_of sκ' sκ⌝ -∗
-            ⌜skind_interp sκ' T⌝ -∗
-            closure_interp0 vrel (senv_insert_type sκ' T se) ϕ' cl
+          ∃ sκ,
+            ⌜eval_kind se κ = Some sκ⌝ ∗
+              ∀ sκ' T,
+                ⌜subskind_of sκ' sκ⌝ -∗
+                ⌜skind_interp sκ' T⌝ -∗
+                closure_interp0 vrel (senv_insert_type sκ' T se) ϕ' cl
       end%I.
 
   (* TODO *)

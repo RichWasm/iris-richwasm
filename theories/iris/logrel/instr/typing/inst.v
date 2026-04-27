@@ -1023,40 +1023,28 @@ Section inst.
       done.
   Qed.
 
-  Lemma closure_interp0_scons_insert_type F se τ κ ϕ cl :
+  Lemma closure_interp0_scons_insert_type F se τ κ sκ ϕ cl :
     has_kind F τ κ ->
     sem_env_interp F se ->
-    (∀ sκ' sκ T,
-       ⌜eval_kind se κ = Some sκ⌝ -∗
+    eval_kind se κ = Some sκ ->
+    (∀ sκ' T,
        ⌜subskind_of sκ' sκ⌝ -∗
        ⌜skind_interp sκ' T⌝ -∗
        closure_interp0 rti sr (value_interp rti sr) (senv_insert_type sκ' T se) ϕ cl) -∗
     let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
-    iIntros (Hok Hse) "Hcl".
-    destruct (has_kind_inv _ _ _ Hok) as [F τ κ Hok_τ Hok_κ].
-    destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
+    iIntros (Hok Hse Hsκ) "Hcl".
     pose proof (type_skind_has_kind_Some _ _ _ _ _ Hok Hse Hsκ) as (sκ' & Hskind' & Hsub).
     set T := value_interp rti sr se τ.
-    iSpecialize ("Hcl" $! sκ' sκ T).
+    iSpecialize ("Hcl" $! sκ' T).
     iApply closure_interp0_subst_senv; last iApply "Hcl".
     - done.
     - done.
     - (* this is the proof that our substitution satisfies the type_skind hypothesis *)
       (* and now we're back to basics >:) *)
       intros ?? H.
-      destruct i; cbn in H; cbn.
-      + inversion H; subst; done.
-      + done.
-      (* destruct i. *)
-      (* + cbn in H; inversion H; subst sκ'0. *)
-      (*   exists sκ'. *)
-      (*   split; [done|by apply subskind_of_refl]. *)
-      (* + cbn in H. *)
-      (*   cbn. *)
-      (*   eexists; split; [done|by apply subskind_of_refl]. *)
-    - done.
+      by destruct i; cbn in H; cbn; first (inversion H; subst).
     - done.
     - iPureIntro.
       subst T.
@@ -1064,8 +1052,7 @@ Section inst.
       rewrite value_interp_eq.
       iDestruct "H" as "(%sκ'' & %Hsκ'' & Hskind' & Htype)".
       rewrite Hskind' in Hsκ''.
-      inversion Hsκ''; subst.
-      done.
+      by inversion Hsκ''; subst.
   Qed.
 
   Lemma compat_inst M F L wt wt' wtf wl wl' wlf es' ix ϕ ϕ' :
@@ -1119,10 +1106,11 @@ Section inst.
     all: iFrame.
     all: iSplitR; auto; iSplitR; auto.
 
-    - iApply closure_interp0_scons_insert_mem; [done|done|by inversion Hok].
-    - iApply closure_interp0_scons_insert_rep; [done|done|by inversion Hok].
-    - iApply closure_interp0_scons_insert_size; [done|done|by inversion Hok].
-    - iApply closure_interp0_scons_insert_type; [done|done|by inversion Hok].
+    - by iApply closure_interp0_scons_insert_mem; last inversion Hok.
+    - by iApply closure_interp0_scons_insert_rep; last inversion Hok.
+    - by iApply closure_interp0_scons_insert_size; last inversion Hok.
+    - iDestruct "Hclosure" as "(% & % & ?)".
+      by iApply closure_interp0_scons_insert_type; last inversion Hok.
   Qed.
 
 End inst.
