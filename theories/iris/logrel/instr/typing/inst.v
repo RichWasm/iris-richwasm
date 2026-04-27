@@ -429,23 +429,28 @@ Section inst.
     (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) ->
     (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
-                   ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') ->
+                   type_skind se (sub_t i) = Some sκ') ->
+                   (* ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') -> *)
     type_skind (Σ:=Σ) se' τ = Some sκ ->
-    (∃ sκ0, type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some sκ0
-            /\ subskind_of sκ0 sκ).
+    (* (∃ sκ0, type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some sκ0 *)
+            (* /\ subskind_of sκ0 sκ). *)
+    type_skind (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some sκ.
   Proof.
     unfold type_skind.
     intros Hsub_r Hsub_s Hsub_t H.
     destruct τ.
     1: by apply Hsub_t.
-    all: exists sκ; split; [|by apply subskind_of_refl]; by eapply eval_kind_subst_senv.
+    (* all: exists sκ; split; [|by apply subskind_of_refl]; by eapply eval_kind_subst_senv. *)
+    all: cbn.
+    all: by eapply eval_kind_subst_senv.
   Qed.
 
   Lemma type_arep_subst_senv se se' sub_m sub_r sub_s sub_t τ ιs :
     (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) ->
     (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
-                   ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') ->
+                   type_skind se (sub_t i) = Some sκ') ->
+                   (* ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') -> *)
     type_arep (Σ:=Σ) se' τ = Some ιs ->
     type_arep (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ιs.
   Proof.
@@ -454,17 +459,17 @@ Section inst.
     apply bind_Some in H as (sκ & Hsκ & Hιs).
     apply bind_Some.
     pose proof (type_skind_subst_senv se se' sub_m sub_r sub_s sub_t _ _ Hsub_r Hsub_s Hsub_t Hsκ)
-      as (sκ' & Hsκ' & Hsubskind).
-    exists sκ'.
-    split; first done.
-    by eapply skind_rep_subskinds.
+      as Hsκ'.
+    exists sκ.
+    split; done.
   Qed.
 
   Lemma translate_type_subst_senv se se' sub_m sub_r sub_s sub_t τ ts :
     (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) ->
     (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
-                   ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') ->
+                   type_skind se (sub_t i) = Some sκ') ->
+                   (* ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') -> *)
     translate_type (Σ:=Σ) se' τ = Some ts ->
     translate_type (Σ:=Σ) se (subst_type sub_m sub_r sub_s sub_t τ) = Some ts.
   Proof.
@@ -481,7 +486,8 @@ Section inst.
     (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) ->
     (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
-                   ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') ->
+                   type_skind se (sub_t i) = Some sκ') ->
+                   (* ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') -> *)
     translate_types (Σ:=Σ) se' τs = Some ts ->
     translate_types (Σ:=Σ) se (map (subst_type sub_m sub_r sub_s sub_t) τs) = Some ts.
   Proof.
@@ -542,7 +548,8 @@ Section inst.
     (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) ->
     (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
-                   ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') ->
+                   type_skind se (sub_t i) = Some sκ') ->
+                   (* ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') -> *)
     values_interp0 (value_interp rti sr) se' τs os -∗
     values_interp0 (value_interp rti sr) se (map (subst_type sub_m sub_r sub_s sub_t) τs) os.
   Proof.
@@ -580,7 +587,8 @@ Section inst.
                (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
                (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) ->
                (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
-                   ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') ->
+                   type_skind se (sub_t i) = Some sκ') ->
+                   (* ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') -> *)
                closure_interp0 rti sr (value_interp rti sr) se' ft cl -∗
                closure_interp0 rti sr (value_interp rti sr) se
                (subst_function_type sub_m sub_r sub_s sub_t ft) cl).
@@ -594,11 +602,11 @@ Section inst.
                                        |iDestruct "Hoa" as "[[] _]"].
           (* This is now using the correct Hsub_t *)
           apply Hsub_t in Hse'skind as Htypeskind.
-          destruct Htypeskind as (sκ' & Htypeskind & Hsubsk).
-          inversion Hsubsk; subst.
+          (* destruct Htypeskind as (sκ' & Htypeskind & Hsubsk). *)
+          (* inversion Hsubsk; subst. *)
 
 
-          iExists (SVALTYPE ιs ξ0).
+          iExists (SVALTYPE ιs ξ).
           iFrame "∗".
           iSplitR; auto.
           unfold type_var_interp.
@@ -620,9 +628,9 @@ Section inst.
 
           iSplitR.
           -- cbn.
-             iSplitL; iPureIntro; [done|].
-             (* WHY IS IT BACKWARDS WHAT HAPPENED TODO *)
-             admit.
+             iSplitL; iPureIntro; done.
+             (* WHY IS IT BACKWARDS WHAT HAPPENED TODO
+                it's not backwards anymore :) *)
           -- admit.
         * (* i31 *)
           intros; cbn.
@@ -804,8 +812,8 @@ Section inst.
                unfold lookup_type in *; cbn in Hss; cbn.
                exists ss; split; auto.
              }
-             apply Hsub_t in H' as (sκ0' & Hsκ0' & Hsubs).
-             exists sκ0'; split; [by apply type_skind_up_memory | done].
+             apply Hsub_t in H' as Hsκ0'.
+             by apply type_skind_up_memory.
         * admit.
         * admit.
         * admit.
@@ -876,7 +884,8 @@ Section inst.
     (forall i ιs', lookup_rep se' i = Some ιs' -> eval_rep se (sub_r i) = Some ιs') ->
     (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) ->
     (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
-                   ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') ->
+                   type_skind se (sub_t i) = Some sκ') ->
+                   (* ∃ sκ0', type_skind se (sub_t i) = Some sκ0' /\ subskind_of sκ0' sκ') -> *)
     closure_interp0 rti sr (value_interp rti sr) se' ϕ cl -∗
     let ϕ' := subst_function_type sub_m sub_r sub_s sub_t ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
@@ -932,9 +941,9 @@ Section inst.
       + intros ?? H. asimpl'. apply eval_size_mem_irrel. by apply Hsub_s.
       + intros ?? H. asimpl'.
         apply Hsub_t in H.
-        destruct H as (sκ0' & H & Hsubsk).
-        exists sκ0'.
-        split; [by apply type_skind_mem_irrel|done].
+        (* destruct H as (sκ0' & H & Hsubsk). *)
+        unfold core.funcomp.
+        by apply type_skind_mem_irrel.
     - iIntros (?????? Hsub_r Hsub_s Hsub_t) "#Hcl %".
       iApply IHϕ; last done.
       + intros ?? H.
@@ -943,9 +952,11 @@ Section inst.
         * apply eval_rep_up_rep. by apply Hsub_r.
       + intros ?? H. apply eval_size_up_rep. by apply Hsub_s.
       + intros ?? H.
-        apply Hsub_t in H as (sκ0' & H & Hsubsk).
-        exists sκ0'.
-        split; [by apply type_skind_up_rep|done].
+        (* apply Hsub_t in H as (sκ0' & H & Hsubsk). *)
+        apply Hsub_t in H.
+        (* exists sκ0'. *)
+        (* split; [by apply type_skind_up_rep|done]. *)
+        by apply type_skind_up_rep.
     - iIntros (?????? Hsub_r Hsub_s Hsub_t) "#Hcl %".
       iApply IHϕ; last done.
       + intros ?? H. apply eval_rep_up_size. admit.
@@ -963,11 +974,13 @@ Section inst.
   Proof.
     iIntros (Hok Hse) "Hcl".
     iApply closure_interp0_subst_senv; last done; try done.
-    instantiate (1:=MemMM).
-    cbn.
-    intros ?? H.
-    exists sκ'.
-    split; [done|by apply subskind_of_refl].
+    Unshelve.
+    exact MemMM.
+    (* instantiate (1:=MemMM). *)
+    (* cbn. *)
+    (* intros ?? H. *)
+    (* exists sκ'. *)
+    (* split; [done|by apply subskind_of_refl]. *)
   Qed.
 
   Lemma closure_interp0_scons_insert_rep F se ρ ϕ cl :
@@ -987,8 +1000,7 @@ Section inst.
       + done.
     - done.
     - intros ?? H.
-      exists sκ'.
-      split; [done|by apply subskind_of_refl].
+      cbn in *. done.
   Qed.
 
   Lemma closure_interp0_scons_insert_size F se σ ϕ cl :
@@ -1008,17 +1020,17 @@ Section inst.
       + by rewrite <- H.
       + done.
     - intros ?? H.
-      exists sκ'.
-      split; [done|by apply subskind_of_refl].
+      done.
   Qed.
 
   Lemma closure_interp0_scons_insert_type F se τ κ ϕ cl :
     has_kind F τ κ ->
     sem_env_interp F se ->
-    (∀ sκ T,
+    (∀ sκ' sκ T,
        ⌜eval_kind se κ = Some sκ⌝ -∗
-       ⌜skind_interp sκ T⌝ -∗
-       closure_interp0 rti sr (value_interp rti sr) (senv_insert_type sκ T se) ϕ cl) -∗
+       ⌜subskind_of sκ' sκ⌝ -∗
+       ⌜skind_interp sκ' T⌝ -∗
+       closure_interp0 rti sr (value_interp rti sr) (senv_insert_type sκ' T se) ϕ cl) -∗
     let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
@@ -1027,19 +1039,24 @@ Section inst.
     destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
     pose proof (type_skind_has_kind_Some _ _ _ _ _ Hok Hse Hsκ) as (sκ' & Hskind' & Hsub).
     set T := value_interp rti sr se τ.
-    iSpecialize ("Hcl" $! sκ T).
+    iSpecialize ("Hcl" $! sκ' sκ T).
     iApply closure_interp0_subst_senv; last iApply "Hcl".
     - done.
     - done.
     - (* this is the proof that our substitution satisfies the type_skind hypothesis *)
+      (* and now we're back to basics >:) *)
       intros ?? H.
-      destruct i.
-      + cbn in H; inversion H; subst.
-        exists sκ'.
-        by split.
-      + cbn in H.
-        cbn.
-        eexists; split; [done|by apply subskind_of_refl].
+      destruct i; cbn in H; cbn.
+      + inversion H; subst; done.
+      + done.
+      (* destruct i. *)
+      (* + cbn in H; inversion H; subst sκ'0. *)
+      (*   exists sκ'. *)
+      (*   split; [done|by apply subskind_of_refl]. *)
+      (* + cbn in H. *)
+      (*   cbn. *)
+      (*   eexists; split; [done|by apply subskind_of_refl]. *)
+    - done.
     - done.
     - iPureIntro.
       subst T.
@@ -1048,7 +1065,7 @@ Section inst.
       iDestruct "H" as "(%sκ'' & %Hsκ'' & Hskind' & Htype)".
       rewrite Hskind' in Hsκ''.
       inversion Hsκ''; subst.
-      iApply skind_as_type_refine; done.
+      done.
   Qed.
 
   Lemma compat_inst M F L wt wt' wtf wl wl' wlf es' ix ϕ ϕ' :
