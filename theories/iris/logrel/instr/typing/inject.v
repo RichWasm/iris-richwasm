@@ -68,7 +68,7 @@ Section inject.
     iDestruct (values_interp_one_eq with "Hos") as "Hos".
     iDestruct (value_interp_eq with "Hos") as "Hos".
     unfold value_interp0, value_se_interp0.
-    iDestruct "Hos" as "(%κ & %Hkind_payload & #Hskind_as_type & Hpayload_interp)".
+    iDestruct "Hos" as "(%κ & %Hkind_payload & %Hskind_as_type & Hpayload_interp)".
 
     iPoseProof (frame_interp_wl_interp _ _ _ _ F with "Hframe") as "%Hwl".
     apply has_values_iff_to_consts in Hhas_values as ->.
@@ -107,11 +107,7 @@ Section inject.
     }
     set idxs_all := (seq (fe_wlocal_offset fe + length wl) (length areps_sum)) in Hrestore_stack, Hset_sum_locals.
 
-    destruct κ; last first.
-    {
-      unfold skind_as_type_interp, ssize_interp.
-      iDestruct "Hskind_as_type" as "[[] _]".
-    }
+    destruct κ; last destruct Hskind_as_type as [[] _].
 
     (* have : subskind_of (SVALTYPE l r) (SVALTYPE ιs rf). *)
     (* { eapply type_skind_eval_rep_emptyenv; try done. *)
@@ -132,8 +128,7 @@ Section inject.
     assert (l = ιs) as ->.
     { admit. } (* TODO *)
 
-    iPoseProof "Hskind_as_type" as "H".
-    iDestruct "H" as "[%Hhas_areps %Href]".
+    destruct Hskind_as_type as [Hhas_areps Href].
     (* apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag). *)
 (*     apply bind_Some in Hcount as Hcount'. *)
 (*     destruct Hcount' as [ιs_case_tag_payload' [Hlookup_eval Hcase_tag_payload_count]]. *)

@@ -37,7 +37,6 @@ Section instr.
   Definition SVR : Type := leibnizO semantic_value -n> iPropO Σ.
 
   Definition semantic_type : Type := SVR.
-  Definition semantic_kind : Type := semantic_type -> Prop.
   Definition mem_env : Type := listO (leibnizO base_memory).
   Definition rep_env : Type := listO (leibnizO (list atomic_rep)).
   Definition size_env : Type := listO (leibnizO nat).
@@ -240,27 +239,14 @@ Section instr.
     | SWords ws => n = length ws
     end.
 
-  (* S refines T, written S ⊑ T. *)
-  Definition semantic_type_le (S T : semantic_type) : Prop := forall sv, S sv -∗ T sv.
+  Definition svalue_in_skind (sv : semantic_value) (sκ : skind) : Prop :=
+    match sκ with
+    | SVALTYPE ιs ξ => has_areps ιs sv /\ ref_flag_atoms_interp ξ sv
+    | SMEMTYPE n ξ => ssize_interp n sv /\ ref_flag_words_interp ξ sv
+    end.
 
-  #[export]
-  Instance SqSubsetEq_semantic_type : SqSubsetEq semantic_type := semantic_type_le.
-
-  Definition skind_as_type_interp (κ : skind) : semantic_type :=
-    λne sv,
-      match κ with
-      | SVALTYPE ιs ξ => ⌜has_areps ιs sv⌝ ∗ ⌜ref_flag_atoms_interp ξ sv⌝
-      | SMEMTYPE n ξ => ⌜ssize_interp n sv⌝ ∗ ⌜ref_flag_words_interp ξ sv⌝
-      end%I.
-
-  Global Instance Persistent_skind_as_type_interp κ sv : Persistent (skind_as_type_interp κ sv).
-  Proof.
-    rewrite /Persistent.
-    destruct κ; simpl; iIntros "#H"; iModIntro; done.
-  Defined.
-
-  Definition skind_interp (κ : skind) : semantic_kind :=
-    fun T => T ⊑ skind_as_type_interp κ.
+  Definition stype_in_skind (T : semantic_type) (sκ : skind) : Prop :=
+    forall sv, T sv -∗ ⌜svalue_in_skind sv sκ⌝.
 
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> OsR :=
@@ -337,10 +323,10 @@ Section instr.
       | ForallTypeT κ ϕ' =>
           ∃ sκ,
             ⌜eval_kind se κ = Some sκ⌝ ∗
-              ∀ sκ' T,
-                ⌜subskind_of sκ' sκ⌝ -∗
-                ⌜skind_interp sκ' T⌝ -∗
-                closure_interp0 vrel (senv_insert_type sκ' T se) ϕ' cl
+              ∀ sκ_T T,
+                ⌜subskind_of sκ_T sκ⌝ -∗
+                ⌜stype_in_skind T sκ_T⌝ -∗
+                closure_interp0 vrel (senv_insert_type sκ_T T se) ϕ' cl
       end%I.
 
   (* TODO *)
@@ -438,9 +424,11 @@ Section instr.
 
   Definition exists_type_interp
     (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
-    λne sv, (∃ sκ T, ⌜eval_kind se κ = Some sκ⌝ ∗
-                     ⌜skind_interp sκ T⌝ ∗
-                     ▷ vrel (senv_insert_type sκ T se) τ sv)%I.
+    λne sv,
+      (∃ sκ T,
+         ⌜eval_kind se κ = Some sκ⌝ ∗
+           ⌜stype_in_skind T sκ⌝ ∗
+           ▷ vrel (senv_insert_type sκ T se) τ sv)%I.
 
   Definition type_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ,
@@ -469,10 +457,7 @@ Section instr.
 
   Definition value_se_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
     λne τ sv,
-      (∃ κ,
-         ⌜type_skind se τ = Some κ⌝ ∗
-         skind_as_type_interp κ sv ∗
-         type_interp0 vrel se τ sv)%I.
+      (∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜svalue_in_skind sv sκ⌝ ∗ type_interp0 vrel se τ sv)%I.
 
   (* TODO *)
   Local Instance NonExpansive_value_se_interp0 (vrel : value_relation) :
@@ -659,10 +644,11 @@ Section instr.
     K.(kc_rep_vars) = length (senv_reps se) /\
     K.(kc_size_vars) = length (senv_sizes se).
   
-  Definition type_ctx_interp κs (se: semantic_env) : Prop :=
-    Forall2 (fun κT κ => eval_kind se κ = Some (fst κT) /\
-                      skind_interp (fst κT) (snd κT)) 
-      (senv_types se) κs.
+  Definition type_ctx_interp (κs : list kind) (se : semantic_env) : Prop :=
+    Forall2
+      (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ stype_in_skind T sκ)
+      κs
+      (senv_types se).
 
   Definition sem_env_interp (F : function_ctx) (se : semantic_env) : Prop :=
     kind_ctx_interp F.(fc_kind_ctx) se /\

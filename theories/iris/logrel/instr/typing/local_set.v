@@ -63,16 +63,12 @@ Section local_set.
     iDestruct (values_interp_one_eq with "Hos") as "Hos".
     iDestruct (value_interp_eq with "Hos") as "Hos".
     unfold value_interp0, value_se_interp0.
-    iDestruct "Hos" as "(%κ & %Hkind_payload & #Hskind_as_type & Hvs_type_interp)".
+    iDestruct "Hos" as "(%κ & %Hkind_payload & %Hskind_as_type & Hvs_type_interp)".
 
     iPoseProof (frame_interp_wl_interp _ _ _ _ F with "Hframe") as "%Hwl".
     apply has_values_iff_to_consts in Hhas_values as ->.
 
-    destruct κ; last first.
-    {
-      unfold skind_as_type_interp, ssize_interp.
-      iDestruct "Hskind_as_type" as "[[] _]".
-    }
+    destruct κ; last destruct Hskind_as_type as [[] _].
 
     have : subskind_of (SVALTYPE l r) (SVALTYPE ιs ξ).
     { by eapply type_skind_eval_rep_emptyenv. }
@@ -82,8 +78,7 @@ Section local_set.
     1: by rewrite length_map.
     inversion Hsubskind; subst.
 
-    iPoseProof "Hskind_as_type" as "H".
-    iDestruct "H" as "[%Hhas_areps %Href]".
+    destruct Hskind_as_type as [Hhas_areps Href].
 
     iDestruct (result_type_interp_of_atoms_interp with "Hvs") as "%Hres_type_vs"; first done.
 

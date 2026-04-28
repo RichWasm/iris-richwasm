@@ -303,7 +303,7 @@ Section case.
     iDestruct (values_interp_one_eq with "Hvs") as "Hvs".
     iDestruct (value_interp_eq with "Hvs") as "Hvs".
     unfold value_interp0, value_se_interp0.
-    iDestruct "Hvs" as "(%κ & %Hkind_sum & Hskind_as_type & Hsum_interp)".
+    iDestruct "Hvs" as "(%κ & %Hkind_sum & %Hskind_as_type & Hsum_interp)".
 
     iDestruct "Hsum_interp" as (tag os_payload off count τ_case_tag HSAtoms Hsum_offset Hcount Htag_type_lookup) "Hvalue_interp_os_tag".
     simplify_eq.
@@ -349,19 +349,14 @@ Section case.
     clear Hforall_pre Hforall_post.
 
     (* TODO start: this could use a little cleanup + abstract into lemmas? *)
-    destruct κ; last first.
-    {
-      unfold skind_as_type_interp, ssize_interp.
-      iDestruct "Hskind_as_type" as "[[] _]".
-    }
+    destruct κ; last destruct Hskind_as_type as [[] _].
     unfold type_skind, eval_kind in Hkind_sum.
     apply bind_Some in Hkind_sum.
     destruct Hkind_sum as (l' & Heval & Hret).
     inversion Hret; subst l r.
     clear Hret.
 
-    unfold skind_as_type_interp.
-    iDestruct "Hskind_as_type" as "[%Hhas_areps %Href]".
+    destruct Hskind_as_type as [Hhas_areps Href].
     apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag).
     apply bind_Some in Hcount as Hcount'.
     destruct Hcount' as [ιs_case_tag_payload' [Hlookup_eval Hcase_tag_payload_count]].

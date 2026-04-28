@@ -973,7 +973,7 @@ Section inst.
           iExists sκ.
           iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
           iIntros (?? Hsubs Hskind).
-          iSpecialize ("Hcl" $! sκ' T Hsubs Hskind).
+          iSpecialize ("Hcl" $! sκ_T T Hsubs Hskind).
 
           iApply IHτ; last done.
           ++ intros ?? H'; asimpl'. unfold core.funcomp.
@@ -1147,17 +1147,17 @@ Section inst.
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    (∀ sκ' T,
-       ⌜subskind_of sκ' sκ⌝ -∗
-       ⌜skind_interp sκ' T⌝ -∗
-       closure_interp0 rti sr (value_interp rti sr) (senv_insert_type sκ' T se) ϕ cl) -∗
+    (∀ sκ_T T,
+       ⌜subskind_of sκ_T sκ⌝ -∗
+       ⌜stype_in_skind T sκ_T⌝ -∗
+       closure_interp0 rti sr (value_interp rti sr) (senv_insert_type sκ_T T se) ϕ cl) -∗
     let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
     closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
   Proof.
     iIntros (Hok Hse Hsκ) "Hcl".
-    pose proof (type_skind_has_kind_Some _ _ _ _ _ Hok Hse Hsκ) as (sκ' & Hskind' & Hsub).
+    pose proof (type_skind_has_kind_Some _ _ _ _ _ Hok Hse Hsκ) as (sκ_T & Hskind & Hsub).
     set T := value_interp rti sr se τ.
-    iSpecialize ("Hcl" $! sκ' T).
+    iSpecialize ("Hcl" $! sκ_T T).
     iApply closure_interp0_subst_senv; last iApply "Hcl".
     - done.
     - done.
@@ -1170,9 +1170,9 @@ Section inst.
       subst T.
       iIntros (sv) "H".
       rewrite value_interp_eq.
-      iDestruct "H" as "(%sκ'' & %Hsκ'' & Hskind' & Htype)".
-      rewrite Hskind' in Hsκ''.
-      by inversion Hsκ''; subst.
+      iDestruct "H" as "(%sκ' & %Hsκ' & %Hskind' & H)".
+      rewrite Hskind in Hsκ'.
+      by inversion Hsκ'; subst.
   Qed.
 
   Lemma compat_inst M F L wt wt' wtf wl wl' wlf es' ix ϕ ϕ' :
