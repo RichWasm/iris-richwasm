@@ -3,6 +3,7 @@ open! Test_support
 open! Stdlib.Format
 open Richwasm_common.Util
 open Richwasm_common.Monads
+open Richwasm_support
 open Support.Testing
 module EndToEnd = Run_rw.EndToEnd
 

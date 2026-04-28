@@ -19,7 +19,7 @@ let wasm2wat ?(pretty = false) ?(check = true) (wasm : string) :
     let should_check = if check then [] else [ "--no-check" ] in
     [ "--enable-multi-memory" ] @ extra_args @ should_check @ [ "-" ]
   in
-  Utils.Process_capture.run_concat ~input:wasm ~prog:"wasm2wat" ~args ()
+  Process_utils.Process_capture.run_concat ~input:wasm ~prog:"wasm2wat" ~args ()
 
 let pp_as_wat ?pretty ?check ff (wasm : string) =
   match wasm2wat ?pretty ?check wasm with

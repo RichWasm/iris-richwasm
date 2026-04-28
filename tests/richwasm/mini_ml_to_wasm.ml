@@ -1,5 +1,6 @@
 open! Base
 open! Stdlib.Format
+open! Richwasm_support
 open! Test_support
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 

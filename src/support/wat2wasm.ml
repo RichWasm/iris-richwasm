@@ -5,7 +5,7 @@ open! Stdlib.Format
 let wat2wasm ?(check = true) (wasm : string) : (string, string) Result.t =
   let args = [ "--enable-multi-memory"; "--output=-"; "-" ] in
   let args = if check then args else "--no-check" :: args in
-  Utils.Process_capture.run_concat ~input:wasm ~prog:"wat2wasm" ~args ()
+  Process_utils.Process_capture.run_concat ~input:wasm ~prog:"wat2wasm" ~args ()
 
 let pp_as_wasm ff (wasm : string) =
   match wat2wasm wasm with

@@ -19,7 +19,7 @@ module SingleRichWasm (Config : sig
 end) : Runner1 = struct
   let run_wasm (wasm : string) =
     let open Config in
-    Utils.Process_capture.run_concat
+    Process_utils.Process_capture.run_concat
       ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
       ~input:wasm ~prog:"node"
       ~args:
@@ -33,7 +33,7 @@ module TripleRichWasm (Config : sig
 end) : Runner3 = struct
   let run_wasm (module1, module2, module3) =
     let open Config in
-    Utils.Process_capture_three.run_concat
+    Process_utils.Process_capture_three.run_concat
       ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
       ~input1:module1 ~input2:module2 ~input3:module3 ~prog:"node"
       ~args:
