@@ -145,6 +145,20 @@ Section inst.
       shred_for_up_mini ιss H02.
   Qed.
 
+  Lemma eval_rep_type_irrel se ρ ιs sκ T :
+    eval_rep se ρ = Some ιs ->
+    eval_rep (senv_insert_type (Σ:=Σ) sκ T se) ρ = Some ιs.
+  Proof.
+    revert ιs.
+    induction ρ using rep_ind; intros; auto.
+    - cbn in *.
+      apply fmap_Some in H0 as (ρss & H02 & ->).
+      shred_for_up_mini ρss H02.
+    - cbn in *.
+      apply fmap_Some in H0 as (ιss & H02 & ->).
+      shred_for_up_mini ιss H02.
+  Qed.
+
   Lemma eval_size_mem_irrel se σ n μ :
     eval_size se σ = Some n ->
     eval_size (senv_insert_mem (Σ:=Σ) μ se) σ = Some n.
@@ -164,6 +178,25 @@ Section inst.
       by apply eval_rep_mem_irrel.
   Qed.
 
+  Lemma eval_size_type_irrel se σ n sκ T :
+    eval_size se σ = Some n ->
+    eval_size (senv_insert_type (Σ:=Σ) sκ T se) σ = Some n.
+  Proof.
+    revert n.
+    induction σ using size_ind; intros; auto.
+    - cbn in *.
+      apply fmap_Some in H0 as (ρss & H02 & ->).
+      shred_for_up_mini ρss H02.
+    - cbn in *.
+      apply fmap_Some in H0 as (ρss & H02 & ->).
+      shred_for_up_mini ρss H02.
+    - cbn in *.
+      apply fmap_Some in H as (ρss & H02 & ->).
+      apply fmap_Some.
+      exists ρss; split; last done.
+      by apply eval_rep_type_irrel.
+  Qed.
+
   Lemma eval_kind_mem_irrel se κ sκ μ :
     eval_kind se κ = Some sκ ->
     eval_kind (senv_insert_mem (Σ:=Σ) μ se) κ = Some sκ.
@@ -177,6 +210,22 @@ Section inst.
     - apply fmap_Some in H as (ρss & H02 & ->).
       apply fmap_Some.
       pose proof (eval_size_mem_irrel _ _ _ μ H02).
+      rewrite H. eexists; split; done.
+  Qed.
+
+  Lemma eval_kind_type_irrel se κ sκ sκ' T :
+    eval_kind se κ = Some sκ ->
+    eval_kind (senv_insert_type (Σ:=Σ) sκ' T se) κ = Some sκ.
+  Proof.
+    revert sκ.
+    destruct κ; intros; cbn in *.
+    - apply fmap_Some in H as (ρss & H02 & ->).
+      apply fmap_Some.
+      pose proof (eval_rep_type_irrel _ _ _ sκ' T H02).
+      rewrite H. eexists; split; done.
+    - apply fmap_Some in H as (ρss & H02 & ->).
+      apply fmap_Some.
+      pose proof (eval_size_type_irrel _ _ _ sκ' T H02).
       rewrite H. eexists; split; done.
   Qed.
 
@@ -345,6 +394,19 @@ Section inst.
     generalize dependent sκ.
     induction (sub_t i) using type_ind with (P0 := λ ft, True);
       intros; cbn in *; auto; asimpl'; try (by apply eval_kind_mem_irrel).
+  Qed.
+
+  Lemma type_skind_up_type se sub_t sκ' T sκ i :
+    type_skind se (sub_t i) = Some sκ ->
+    type_skind (Σ:=Σ) (senv_insert_type sκ' T se) (up_type_type sub_t (S i)) = Some sκ.
+  Proof.
+    intros H.
+    asimpl'.
+    unfold core.funcomp.
+    generalize dependent sκ.
+    induction (sub_t i) using type_ind with (P0 := λ ft, True).
+    all: intros; cbn in *; auto; asimpl'.
+    all: try (by apply eval_kind_type_irrel).
   Qed.
 
   Lemma eval_rep_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r ρ ιs :
@@ -553,27 +615,38 @@ Section inst.
     values_interp0 (value_interp rti sr) se' τs os -∗
     values_interp0 (value_interp rti sr) se (map (subst_type sub_m sub_r sub_s sub_t) τs) os.
   Proof.
-    iIntros (Hsub_r Hsub_s Hsub_t) "Hos".
+    iIntros (Hsub_r Hsub_s Hsub_t).
     generalize dependent os; generalize dependent τs.
     induction τs as [| τ τs].
-    - intros os. destruct os; done.
-    - intros os_big.
+    - intros os. iIntros "Hos". destruct os; done.
+    - intros os_big; iIntros "Hos".
       cbn.
       iDestruct "Hos" as "(%oss_big & %Hos_big & Hos)".
       destruct oss_big as [|o oss]; [done|].
       iDestruct (big_sepL2_cons with "Hos") as "[Hoa Hτsoss]".
       cbn in IHτs.
-      iExists (o :: oss); iSplitR; first done.
+      specialize (IHτs (concat oss)).
+      iDestruct IHτs as "#IHτs".
+      iAssert (∃ oss0, ⌜concat oss = concat oss0⌝ ∗
+            ([∗ list] τ0;os ∈ τs;oss0, value_interp rti sr se' τ0 (SAtoms os)))%I with "[Hτsoss]"
+        as "Hτs'". {
+        iExists oss; iSplitR; done.
+      }
+      iPoseProof ("IHτs" with "[$Hτs']") as "Hτs''".
+      iDestruct "Hτs''" as "(%oss' & %Hc & Hτoss')".
+      (* note: concat oss = concat oss' does not simply oss = oss'. A bit stupid but okay. *)
+
+      iExists (o :: oss'); iSplitR. {
+        iPureIntro.
+        rewrite concat_cons; rewrite concat_cons in Hos_big. by rewrite <- Hc.
+      }
       iApply big_sepL2_cons.
       iSplitL "Hoa"; first last.
-      + specialize (IHτs (concat oss)).
-        (* for some reason this  v   doesn't work *)
-        (* iPoseProof IHτs as "IHτs". *)
-        (* but to finish this proof off, get IHτs into iris proof mode,
-           then iExists oss, put IHτsoss as the hypothesis, and done. *)
-        admit.
+      + done.
+        (* I could have said first done but then there'd be so many bullets to change... *)
       + (* this is where the fun begins *)
-        clear IHτs Hos_big os_big oss τs.
+        iClear "IHτs".
+        clear IHτs Hos_big Hc os_big oss τs.
         generalize dependent o.
         generalize dependent se'.
         generalize dependent se.
@@ -592,7 +665,7 @@ Section inst.
                closure_interp0 rti sr (value_interp rti sr) se' ft cl -∗
                closure_interp0 rti sr (value_interp rti sr) se
                (subst_function_type sub_m sub_r sub_s sub_t ft) cl).
-        * (* I'm scared of VarT *)
+        * (** vart, need extra hypothesis about semantic types *)
           intros; cbn in *.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
@@ -629,10 +702,8 @@ Section inst.
           iSplitR.
           -- cbn.
              iSplitL; iPureIntro; done.
-             (* WHY IS IT BACKWARDS WHAT HAPPENED TODO
-                it's not backwards anymore :) *)
           -- admit.
-        * (* i31 *)
+        * (* i31, qed *)
           intros; cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
@@ -642,8 +713,8 @@ Section inst.
 
           iExists (SVALTYPE ιs ξ).
           iSplitR; [iPureIntro; by eapply eval_kind_subst_senv; done|iFrame].
-
-        * intros. cbn.
+        * (* numt, qed *)
+          intros. cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -651,8 +722,8 @@ Section inst.
           destruct sk as [ιs ξ | n ξ]; [|iDestruct "Hoa" as "[[] _]"].
           iExists (SVALTYPE ιs ξ); cbn; iFrame.
           iPureIntro.
-          eapply eval_kind_subst_senv; done. (* well at least numbers work *)
-        * (* sums *)
+          eapply eval_kind_subst_senv; done.
+        * (* sum, nearly qed except for map/forall2 lemma *)
           intros; cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
@@ -705,19 +776,25 @@ Section inst.
              (* hopefully *)
              exists ιss. split; [|done].
              (* Okay this is true by a combo of mapM lemmas and
-                eval_rep_subst_senv *)
+                eval_rep_subst_senv:
+                Hsub_r -> eval_rep se' ρ = Some ιs ->
+                eval_rep se (subst_representation sub_r ρ) = Some ιs
+              *)
+
              apply mapM_Some.
              apply mapM_Some in Hy.
-             (* seems a bit annoying to prove but definitely true *)
-             admit. (* amazing this means sums are okay *)
-        (* what else would be interesting... *)
-        (* the exists guys probably. Also exists type *)
-        (* coderef to figure to test if P0 is enough *)
-        (* ForallMemT to test if P0 is true *)
-        * admit.
-        * admit.
-        * admit.
-        * (* refT *)
+             (* seems a bit annoying to prove but definitely true:
+                - take i ρs and take i (map (..) ρs) operate on the same things
+                - On those things, use eval_rep_subst_senv, and you're good
+              *)
+             admit.
+        * (* variant *)
+          admit.
+        * (* prod *)
+          admit.
+        * (* struct *)
+          admit.
+        * (** refT, worried due to SAtoms rather than SWords, aka bad induction *)
           intros; cbn.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
@@ -741,8 +818,7 @@ Section inst.
              admit.
           -- cbn.
              admit.
-
-        * (* coderef case *)
+        * (* coderef, qed *)
           (* I think this IH for function types is what we need but we'll see *)
           intros.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
@@ -759,12 +835,15 @@ Section inst.
           specialize (IHτ se se' cl sub_m sub_r sub_s sub_t Hsub_r Hsub_s Hsub_t).
           iPoseProof IHτ as "IHτ".
           iApply IHτ; auto.
-
-        * admit.
-        * admit.
-        * admit.
-        * admit.
-        * (* exists mem *)
+        * (* sert *)
+          admit.
+        * (* plug *)
+          admit.
+        * (* span *)
+          admit.
+        * (* rec *)
+          admit.
+        * (* exists mem, qed *)
           intros.
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
@@ -814,10 +893,14 @@ Section inst.
              }
              apply Hsub_t in H' as Hsκ0'.
              by apply type_skind_up_memory.
-        * admit.
-        * admit.
-        * admit.
-        * (* MonoFun *)
+        * (* exists rep, not worried *)
+          admit.
+        * (* exists size, not worried *)
+          admit.
+        * (* exists type, should do, not too worried *)
+
+          admit.
+        * (** MonoFun, WORRIED due to potential bi-implication *)
           (* base case for P0 *)
           iIntros (??????? Hsub_r Hsub_s Hsub_t) "#Hcl".
           cbn.
@@ -862,18 +945,51 @@ Section inst.
                 iExists _.
                 iFrame.
                 (* correct direction to use H0 *)
-                admit. (* values_interp0 *)
-        * (* ForallMemT case *)
+                admit.
+        * (* ForallMemT case, qed *)
           (* this is to test is P0 is reasonable *)
-          intros.
+          intros ??????? Hsub_r Hsub_s Hsub_t.
           iIntros "Hcl".
           cbn.
           iIntros.
           iSpecialize ("Hcl" $! μ).
+          iApply IHτ; last done.
+          ++ intros ?? H'. asimpl'. apply eval_rep_mem_irrel. by apply Hsub_r.
+          ++ intros ?? H'. asimpl'.
+             apply eval_size_mem_irrel. by apply Hsub_s.
+          ++ intros ?? H'. asimpl'.
+             apply Hsub_t in H'.
+             (* destruct H as (sκ0' & H & Hsubsk). *)
+             unfold core.funcomp.
+             by apply type_skind_mem_irrel.
+        * (* ForallRepT, not worried *)
+          admit.
+        * (* ForallSizeT, not worried *)
+          admit.
+        * (* ForallTypeT, qed *)
+          intros ??????? Hsub_r Hsub_s Hsub_t.
+          iIntros "Hcl"; cbn.
+          iDestruct "Hcl" as "(%sκ & %Hκ & Hcl)".
+          iExists sκ.
+          iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
+          iIntros (?? Hsubs Hskind).
+          iSpecialize ("Hcl" $! sκ' T Hsubs Hskind).
 
-
-          
-
+          iApply IHτ; last done.
+          ++ intros ?? H'; asimpl'. unfold core.funcomp.
+             cbn in H'.
+             apply eval_rep_type_irrel.
+             by apply Hsub_r.
+          ++ intros ?? H'; asimpl'; unfold core.funcomp.
+             apply eval_size_type_irrel.
+             by apply Hsub_s.
+          ++ intros ?? H'.
+             cbn in H'.
+             destruct i.
+             -- by cbn in *.
+             -- cbn in H'.
+                apply Hsub_t in H'.
+                by apply type_skind_up_type.
 
   Admitted.
 
@@ -896,6 +1012,10 @@ Section inst.
     generalize dependent sub_m.
     generalize dependent se.
     generalize dependent se'.
+
+    (** NOTE: THESE ARE THE SAME CASES AS THE LAST 5 CASES IN VALUE_INTERP0_SUBST_SENV ABOVE
+        So technically more of these are done than it seems
+     *)
     induction ϕ as [τs1 τs2| | | |κ] .
     - iIntros (?????? Hsub_r Hsub_s Hsub_t) "#Hcl".
       destruct cl; [|auto].
