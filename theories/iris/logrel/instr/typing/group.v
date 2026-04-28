@@ -13,6 +13,23 @@ Section group.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma big_sepL2_value_interp_skind se τs oss :
+    ([∗ list] τ;os ∈ τs;oss, value_interp rti sr se τ (SAtoms os)) -∗
+    ⌜Forall2 (fun τ os => exists sκ, type_skind se τ = Some sκ /\ svalue_in_skind (SAtoms os) sκ) τs oss⌝.
+  Proof.
+    iIntros "H".
+    rewrite Forall2_same_length_lookup.
+    rewrite <- big_sepL2_pure.
+    iDestruct (big_sepL2_length with "H") as "%Hlen".
+    iApply (big_sepL2_wand with "[$]").
+    iApply big_sepL2_intro; first done.
+    iIntros "!> %k %τ %os %Hτ %Hos H".
+    setoid_rewrite value_interp_eq.
+    iDestruct "H" as "(% & %Hskind & %Hsvalue & _)".
+    iPureIntro.
+    by eexists.
+  Qed.
+
   Lemma compat_group M F L wt wt' wtf wl wl' wlf es' τs κ :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -67,9 +84,28 @@ Section group.
     subst sκ.
     clear Hsκ.
 
+    apply has_kind_prod_inv in Hkind as (ρs & ξ' & Hsub & Hkinds).
+    inversion Hsub.
+    subst ρ0 ρ ξ1 ξ'0.
+    clear Hsub.
+
+    apply bind_Some in Hιs as (ιss & Hιss & Hιs).
+    inversion Hιs.
+    subst ιs.
+    clear Hιs.
+    fold (eval_rep se) in Hιss.
+
+    iDestruct (big_sepL2_value_interp_skind with "Hos") as "%Hskinds".
+
     iSplitR; last iSplitR.
-    - iPureIntro. cbn. by rewrite Hιs.
-    - cbn. admit.
+    - iPureIntro. cbn. by rewrite Hιss.
+    - iPureIntro. split.
+      + eexists.
+        split; first done.
+        admit.
+      + eexists.
+        split; first done.
+        admit.
     - iExists oss.
       iSplitR; first done.
       iApply (big_sepL2_impl with "[$]").

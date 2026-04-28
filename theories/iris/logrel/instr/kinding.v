@@ -486,6 +486,25 @@ Section kinding.
       + eapply IHιs; eauto.
   Qed.
 
+  Lemma has_kind_prod_inv F κ κ' τs :
+    has_kind F (ProdT κ τs) κ' ->
+    exists ρs ξ, subkind_of (VALTYPE (ProdR ρs) ξ) κ' /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs.
+  Proof.
+    intros H.
+    remember (ProdT κ τs) as τ.
+    induction H; try congruence.
+    - inversion Heqτ.
+      subst κ0 τs0 κ.
+      clear Heqτ.
+      do 2 eexists.
+      by split; first apply subkind_of_refl.
+    - specialize (IHhas_kind Heqτ) as (ρs & ξ & Hsub & Hkinds).
+      subst τ.
+      do 2 eexists.
+      split; last done.
+      by eapply subkind_of_trans.
+  Qed.
+
   Theorem kinding_sound F se τ κ sκ :
     has_kind F τ κ ->
     sem_env_interp F se ->
