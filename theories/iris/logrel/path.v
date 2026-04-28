@@ -140,10 +140,8 @@ Section PathFacts.
     end.
 
   Definition type_sz (fe : function_env) (τ : type) : option nat :=
-    match type_kind fe.(fe_type_vars) τ with
-    | Some (MEMTYPE σ _) => eval_size EmptyEnv σ
-    | _ => None
-    end.
+    σ ← type_size fe.(fe_type_vars) τ;
+    eval_size EmptyEnv σ.
 
   Lemma has_kind_type_sz F τ σ ξ k :
     has_kind F τ (MEMTYPE σ ξ) ->
@@ -160,21 +158,24 @@ Section PathFacts.
       path_offset (fe_of_context F) τ π = Some off /\
       type_sz (fe_of_context F) (pr.(pr_target)) = Some sz /\
       ⊢ ∀ ws,
-          𝕍 τ (SWords ws) -∗
-          𝕍 (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
-          ∀ ws',
-            𝕍 (pr_expected pr τ__π) (SWords ws') -∗
-            𝕍 pr.(pr_replaced) (SWords (update_path_words off ws ws')).
+          ▷ 𝕍 τ (SWords ws) -∗
+          ▷ (𝕍 (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
+             ∀ ws',
+             𝕍 (pr_expected pr τ__π) (SWords ws') -∗
+             𝕍 pr.(pr_replaced) (SWords (update_path_words off ws ws'))).
   Proof.
     intros Hpath.
     induction Hpath; cbn.
+    - admit.
+    - admit.
+    (*
     - intros Hszs Hsz.
       eapply has_mono_size_inv in Hsz.
       destruct Hsz as (σ & ξ & k & Htgtkind & Htgtsz).
       exists 0, k.
       split; first by destruct τ.
       split; first by eapply has_kind_type_sz.
-      iIntros (ws) "Hv".
+      iIntros "!>" (ws) "Hv".
       assert (Hws: length ws = k).
       { admit. }
       iSplitL "Hv".
@@ -191,7 +192,7 @@ Section PathFacts.
       exists 0, k.
       split; first by destruct τ.
       split; first by eapply has_kind_type_sz.
-      iIntros (ws) "Hv".
+      iIntros "!>" (ws) "Hv".
       assert (Hws: length ws = k).
       { admit. }
       iSplitL "Hv".
@@ -202,7 +203,50 @@ Section PathFacts.
         rewrite -Hws in Hws'.
         rewrite -> update_path_words_all by assumption.
         done.
+    *)
     - intros Hszs Hsz.
+      rewrite Forall_app in Hszs.
+      destruct Hszs as [Hszτs0 Hszpr].
+      specialize (IHHpath Hszpr Hsz).
+      destruct IHHpath as (off0 & sz0 & Hoff0 & Hsz0 & IH).
+      assert (Hts: ∃ σs ks,
+                 mapM (type_size (fc_type_vars F)) (take i (τs0 ++ τ :: τs')) = Some σs /\
+                 mapM (eval_size EmptyEnv) σs = Some ks).
+      {
+        admit.
+      }
+      assert (Htsi: (τs0 ++ τ :: τs') !! i = Some τ).
+      {
+        rewrite -H lookup_app_r; [|eauto].
+        by rewrite Nat.sub_diag.
+      }
+      destruct Hts as (σs & ks & Hσs & Hks).
+      exists (list_sum ks + off0), sz0.
+      rewrite Hσs; cbn.
+      rewrite Hks; cbn.
+      rewrite Htsi; cbn.
+      rewrite Hoff0; cbn.
+      split; first done.
+      split; first done.
+      iIntros (ws) "Hws".
+      rewrite value_interp_eq; cbn.
+      iModIntro.
+      iDestruct "Hws" as "(%sκ & %Hevκ & %Hsv & %wss & %Hwss & Hws)".
+      iPoseProof (big_sepL2_length with "Hws") as "%Hlenwss".
+      change (@ofe_car _ (leibnizO type)) with type in Hlenwss.
+      change (@ofe_car _ _) with (list word) in Hlenwss.
+      assert (Hws': ∃ ws', wss !! i = Some ws').
+      {
+        eapply lookup_lt_is_Some_2.
+        rewrite Hlenwss length_app length_cons -H.
+        lia.
+      }
+      destruct Hws' as [ws' Hwssi].
+      iPoseProof (IH $! ws') as "IH".
+      iPoseProof (big_sepL2_lookup_acc with "Hws") as "[Hws' Hdone]";
+        first eassumption;
+        first eassumption.
+      iSpecialize ("IH" with "Hws'").
       admit.
   Admitted.
 
