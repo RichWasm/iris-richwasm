@@ -4761,7 +4761,7 @@ Definition has_function_type_checker
                 | inl (Some L') =>
                     if (foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true L')
                     then have_instruction_type_checker M F L mf.(mf_body) ψ L'
-                    else INR "bad"
+                    else INR "your resulting locals aren't all norefs"
                 | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
                 | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
                 end
@@ -4849,6 +4849,16 @@ Proof.
 Admitted.
 
 
+Fixpoint combine_error_messages (l:list type_checker_res) : string :=
+  match l with
+  | [] => ""%string
+  | r::rs =>
+      match r with
+      | inl () => combine_error_messages rs
+      | inr s => s ++ "; "%string ++ (combine_error_messages rs)
+      end
+  end.
+
 
 Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_res :=
   let ϕs := m.(m_imports) ++ map mf_type m.(m_functions) in
@@ -4859,10 +4869,11 @@ Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_re
           if module_type_beq mt (Build_module_type m.(m_imports) exports)
           then
             let M := Build_module_ctx ϕs table in
-            if (foldr (λ mf, andb (check_ok_output (has_function_type_checker M mf mf.(mf_type))))
-                      true m.(m_functions))
+            let res := map (λ mf, has_function_type_checker M mf mf.(mf_type)) m.(m_functions) in
+            let folded := foldr (λ r, andb (check_ok_output r)) true res in
+            if folded
             then ok_term
-            else INR "function types don't equal"
+            else INR ("can't module check: " ++ (combine_error_messages res))
           else INR "suggested module type not equal to what it needs to be"
       | None => INR "bad exports"
       end
