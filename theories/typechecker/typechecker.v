@@ -674,6 +674,16 @@ Proof.
 Qed.
 
 
+Fixpoint combine_error_messages (l:list type_checker_res) : string :=
+  match l with
+  | [] => ""%string
+  | r::rs =>
+      match r with
+      | inl () => combine_error_messages rs
+      | inr s => s ++ "; "%string ++ (combine_error_messages rs)
+      end
+  end.
+
 (* type_ok *)
 Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
   match t with
@@ -756,8 +766,14 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
            then
               if (foldr (λ t:type, andb (check_ok (type_ok_checker F) t)) true τs2)
               then ok_term
-              else INR "function type ok error"
-           else INR "function type ok error"
+              (* yes this will redo it twice but I didn't want to mess up the proofs *)
+                     (* fix later *)
+              else
+                let res2 := map (type_ok_checker F) τs2 in
+                INR ("function type ok error in τs2 (" ++ (combine_error_messages res2) ++ ")"%string)
+           else
+             let res1 := map (type_ok_checker F) τs1 in
+             INR ("function type ok error in τs1 (" ++ (combine_error_messages res1) ++ ")"%string)
       | ForallMemT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
       | ForallRepT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
       | ForallSizeT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
@@ -1313,8 +1329,8 @@ Definition has_mono_rep_instr_checker F inst : type_checker_res :=
       then
         if (foldr (λ t:type, andb (check_ok (has_mono_rep_checker F) t)) true τs2)
         then ok_term
-        else INR "function type ok error"
-      else INR "function type ok error"
+        else INR "mono rep instr checker error in τs2"
+      else INR "mono rep instr checker error in τs1"
   end.
 
 Lemma has_mono_rep_instr_checker_correct :
@@ -4759,9 +4775,12 @@ Definition has_function_type_checker
                 let ψ := InstrT [] ϕ.(fft_out) in
                 match synth_possible_resulting_local_ctx_insts F (mf.(mf_body)) L with
                 | inl (Some L') =>
-                    if (foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true L')
+                    let res := map (λ t, has_ref_flag_checker F t NoRefs) L' in
+                    let folded := foldr (λ r, andb (check_ok_output r)) true res in
+                    if folded
                     then have_instruction_type_checker M F L mf.(mf_body) ψ L'
-                    else INR "your resulting locals aren't all norefs"
+                    else INR ("your resulting locals aren't all norefs (" ++
+                                (combine_error_messages res) ++ ")"%string)
                 | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
                 | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
                 end
@@ -4848,16 +4867,6 @@ Proof.
     auto.
 Admitted.
 
-
-Fixpoint combine_error_messages (l:list type_checker_res) : string :=
-  match l with
-  | [] => ""%string
-  | r::rs =>
-      match r with
-      | inl () => combine_error_messages rs
-      | inr s => s ++ "; "%string ++ (combine_error_messages rs)
-      end
-  end.
 
 
 Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_res :=
