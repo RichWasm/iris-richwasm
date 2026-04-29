@@ -21,6 +21,15 @@ Section kinding.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma ref_flag_interp_le ξ ξ' p :
+    ref_flag_le ξ' ξ ->
+    ref_flag_interp ξ' p ->
+    ref_flag_interp ξ p.
+  Proof.
+    intros Hle Hinterp.
+    by destruct ξ; destruct ξ'; destruct p.
+  Qed.
+
   Lemma type_kind_has_kind_is_Some F τ κ :
     has_kind F τ κ ->
     is_Some (type_kind F.(fc_type_vars) τ).
@@ -486,7 +495,7 @@ Section kinding.
       + eapply IHιs; eauto.
   Qed.
 
-  Lemma has_kind_prod_inv_nosubkind F κ κ' τs :
+  Lemma has_kind_prod_inv F κ κ' τs :
     has_kind F (ProdT κ τs) κ' ->
     exists ρs ξ, κ = VALTYPE (ProdR ρs) ξ /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs.
   Proof.
@@ -504,23 +513,21 @@ Section kinding.
       by split.
   Qed.
 
-  Lemma has_kind_prod_inv F κ κ' τs :
-    has_kind F (ProdT κ τs) κ' ->
-    exists ρs ξ, subkind_of (VALTYPE (ProdR ρs) ξ) κ' /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs.
+  Lemma big_sepL2_value_interp_skind se τs oss :
+    ([∗ list] τ;os ∈ τs;oss, value_interp rti sr se τ (SAtoms os)) -∗
+    ⌜Forall2 (fun τ os => exists sκ, type_skind se τ = Some sκ /\ svalue_in_skind (SAtoms os) sκ) τs oss⌝.
   Proof.
-    intros H.
-    remember (ProdT κ τs) as τ.
-    induction H; try congruence.
-    - inversion Heqτ.
-      subst κ0 τs0 κ.
-      clear Heqτ.
-      do 2 eexists.
-      by split; first apply subkind_of_refl.
-    - specialize (IHhas_kind Heqτ) as (ρs & ξ & Hsub & Hkinds).
-      subst τ.
-      do 2 eexists.
-      split; last done.
-      by eapply subkind_of_trans.
+    iIntros "H".
+    rewrite Forall2_same_length_lookup.
+    rewrite <- big_sepL2_pure.
+    iDestruct (big_sepL2_length with "H") as "%Hlen".
+    iApply (big_sepL2_wand with "[$]").
+    iApply big_sepL2_intro; first done.
+    iIntros "!> %k %τ %os %Hτ %Hos H".
+    setoid_rewrite value_interp_eq.
+    iDestruct "H" as "(% & %Hskind & %Hsvalue & _)".
+    iPureIntro.
+    by eexists.
   Qed.
 
   Theorem kinding_sound F se τ κ sκ :
