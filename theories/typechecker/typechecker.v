@@ -4778,11 +4778,12 @@ Definition has_function_type_checker
         | Some ρs_P =>
             match mapM (eval_rep_prim EmptyEnv) ρs_P with
             | Some ηss_P =>
-                let F := Build_function_ctx ϕ.(fft_out) (ηss_P ++ ηss_L) [] K ϕ.(fft_type_vars) in
+                let tempF2 := Build_function_ctx ϕ.(fft_out) (ηss_P ++ ηss_L) [] K ϕ.(fft_type_vars) in
                 let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
                 let ψ := InstrT [] ϕ.(fft_out) in
-                match synth_possible_resulting_local_ctx_insts F (mf.(mf_body)) L with
+                match synth_possible_resulting_local_ctx_insts tempF2 (mf.(mf_body)) L with
                 | inl (Some L') =>
+                    let F := tempF2 <| fc_labels := [(ϕ.(fft_out), L')] |> in
                     let res := map (λ t, has_ref_flag_checker F t NoRefs) L' in
                     let folded := foldr (λ r, andb (check_ok_output r)) true res in
                     if folded
