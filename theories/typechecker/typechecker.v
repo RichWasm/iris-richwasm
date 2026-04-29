@@ -945,7 +945,9 @@ Definition check_if_subkind (k1:kind) (k2:kind) : type_checker_res :=
         | GCRefs, GCRefs
         | GCRefs, AnyRefs
         | AnyRefs, AnyRefs => ok_term
-        | _, _ => INR "not subkind"
+        | GCRefs, NoRefs => INR "not subkind (gc no)"
+        | AnyRefs, NoRefs => INR "not subkind (any no)"
+        | AnyRefs, GCRefs => INR "not subkind (any gc)"
         end
       else INR "mismatch in representation for subkinds"
   | MEMTYPE σ1 ξ1, MEMTYPE σ2 ξ2 =>
@@ -956,7 +958,9 @@ Definition check_if_subkind (k1:kind) (k2:kind) : type_checker_res :=
         | GCRefs, GCRefs
         | GCRefs, AnyRefs
         | AnyRefs, AnyRefs => ok_term
-        | _, _ => INR "not subkind"
+        | GCRefs, NoRefs => INR "not subkind (gc no)"
+        | AnyRefs, NoRefs => INR "not subkind (any no)"
+        | AnyRefs, GCRefs => INR "not subkind (any gc)"
         end
       else INR "mismatch in sizity for subkinds"
   | _, _ => INR "mismatch in general kind for subkind"
@@ -1266,7 +1270,7 @@ Qed.
 
 (* Small things before pathing *)
 Definition has_rep_checker F τ ρ : type_checker_res :=
-  has_kind_checker F τ (VALTYPE ρ NoRefs).
+  has_kind_checker F τ (VALTYPE ρ AnyRefs).
 
 Lemma has_rep_checker_correct :
   ∀ F τ ρ, has_rep_checker F τ ρ = ok_term -> has_rep F τ ρ.
@@ -1274,7 +1278,7 @@ Proof.
   intros.
   unfold has_rep_checker in H.
   apply has_kind_checker_correct in H.
-  apply (RepVALTYPE _ _ _ NoRefs); auto.
+  apply (RepVALTYPE _ _ _ AnyRefs); auto.
 Qed.
 
 Definition grab_rep F τ : option representation :=
@@ -1329,8 +1333,12 @@ Definition has_mono_rep_instr_checker F inst : type_checker_res :=
       then
         if (foldr (λ t:type, andb (check_ok (has_mono_rep_checker F) t)) true τs2)
         then ok_term
-        else INR "mono rep instr checker error in τs2"
-      else INR "mono rep instr checker error in τs1"
+        else
+          let res := map (has_mono_rep_checker F) τs2 in
+          INR ("mono rep instr checker error in τs2 (" ++ (combine_error_messages res) ++ ")"%string )
+      else
+        let res := map (has_mono_rep_checker F) τs1 in
+        INR ("mono rep instr checker error in τs1 (" ++ (combine_error_messages res) ++ ")"%string )
   end.
 
 Lemma has_mono_rep_instr_checker_correct :
@@ -1357,7 +1365,7 @@ Definition grab_size F τ : option size :=
   end.
 
 Definition has_size_checker F τ σ : type_checker_res :=
-  has_kind_checker F τ (MEMTYPE σ NoRefs).
+  has_kind_checker F τ (MEMTYPE σ AnyRefs).
 
 Lemma has_size_checker_correct :
   ∀ F τ σ, has_size_checker F τ σ = ok_term -> has_size F τ σ.
@@ -1365,7 +1373,7 @@ Proof.
   intros. unfold has_size_checker in H.
   apply has_kind_checker_correct in H.
   unfold has_size.
-  by exists NoRefs.
+  by exists AnyRefs.
 Qed.
 
 Definition grab_size_correct :
@@ -1397,7 +1405,7 @@ Proof.
   repeat my_auto3.
   unfold is_mono_size_checker in *. unfold has_size_checker in *.
   repeat my_auto3. apply has_kind_checker_correct in HMatch0.
-  by apply (MonoSizeMEMTYPE _ _ s NoRefs).
+  by apply (MonoSizeMEMTYPE _ _ s AnyRefs).
 Qed.
 
 
