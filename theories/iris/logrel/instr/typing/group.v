@@ -13,6 +13,29 @@ Section group.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  (* TODO: Forall2_join? *)
+  Lemma Forall2_concat {A B} P (l1 : list (list A)) (l2 : list (list B)) :
+    Forall2 (Forall2 P) l1 l2 ->
+    Forall2 P (concat l1) (concat l2).
+  Admitted.
+
+  Lemma Some_Forall2_inv {A B : Type} (R : A → B → Prop) (x : A) (y : B) :
+    option_Forall2 R (Some x) (Some y) ->
+    R x y.
+  Proof.
+    intros H.
+    by inversion H.
+  Qed.
+
+  Lemma ref_flag_interp_le ξ ξ' p :
+    ref_flag_le ξ' ξ ->
+    ref_flag_interp ξ' p ->
+    ref_flag_interp ξ p.
+  Proof.
+    intros Hle Hinterp.
+    by destruct ξ; destruct ξ'; destruct p.
+  Qed.
+
   Lemma big_sepL2_value_interp_skind se τs oss :
     ([∗ list] τ;os ∈ τs;oss, value_interp rti sr se τ (SAtoms os)) -∗
     ⌜Forall2 (fun τ os => exists sκ, type_skind se τ = Some sκ /\ svalue_in_skind (SAtoms os) sκ) τs oss⌝.
@@ -100,11 +123,117 @@ Section group.
     iSplitR; last iSplitR.
     - iPureIntro. cbn. by rewrite Hιss.
     - iPureIntro. split.
+      (* TODO: Very messy. Clean up with helper lemmas. *)
       + eexists.
         split; first done.
-        admit.
+        apply mapM_Some in Hιss.
+        apply Forall2_length in Hιss as Hlen_ρs_ιss.
+        apply Forall2_length in Hkinds as Hlen_τs_ρs.
+        apply Forall2_length in Hskinds as Hlen_τs_oss.
+        apply Forall2_concat.
+        apply Forall2_lookup.
+        intros i.
+        destruct (ιss !! i) eqn:Hιss_i.
+        * assert (i < length ιss).
+          { apply lookup_lt_is_Some. by eexists. }
+          assert (is_Some (oss !! i)).
+          {
+            apply lookup_lt_is_Some.
+            rewrite <- Hlen_τs_oss.
+            rewrite Hlen_τs_ρs.
+            by rewrite Hlen_ρs_ιss.
+          }
+          destruct H1 as [os Hoss_i].
+          rewrite Hoss_i.
+          apply Some_Forall2.
+          assert (is_Some (τs !! i)).
+          { apply lookup_lt_is_Some. rewrite Hlen_τs_ρs. by rewrite Hlen_ρs_ιss. }
+          destruct H1 as [τ Hτs_i].
+          assert (is_Some (ρs !! i)).
+          { apply lookup_lt_is_Some. by rewrite Hlen_ρs_ιss. }
+          destruct H1 as [ρ Hρs_i].
+          rewrite Forall2_lookup in Hskinds.
+          specialize (Hskinds i).
+          rewrite Hτs_i in Hskinds.
+          rewrite Hoss_i in Hskinds.
+          apply Some_Forall2_inv in Hskinds as (sκ & Hskind & Hsvalue).
+          rewrite Forall2_lookup in Hιss.
+          specialize (Hιss i).
+          rewrite Hρs_i in Hιss.
+          rewrite Hιss_i in Hιss.
+          apply Some_Forall2_inv in Hιss.
+          destruct sκ.
+          2: { inversion Hsvalue. inversion H1. }
+          destruct Hsvalue as (Hareps & os' & Hos' & Hrfinterp).
+          inversion Hos'.
+          subst os'.
+          clear Hos'.
+          destruct Hareps as (os' & Hos' & Hareps).
+          inversion Hos'.
+          subst os'.
+          clear Hos'.
+          rewrite Forall2_lookup in Hkinds.
+          specialize (Hkinds i).
+          rewrite Hτs_i in Hkinds.
+          rewrite Hρs_i in Hkinds.
+          apply Some_Forall2_inv in Hkinds.
+          pose proof (type_skind_eval_rep _ _ _ _ _ _ _ _ Hkinds Hse Hιss Hskind) as Hyeah.
+          inversion Hyeah.
+          by subst.
+        * apply lookup_ge_None in Hιss_i.
+          rewrite <- Hlen_ρs_ιss in Hιss_i.
+          rewrite <- Hlen_τs_ρs in Hιss_i.
+          rewrite Hlen_τs_oss in Hιss_i.
+          apply lookup_ge_None in Hιss_i.
+          rewrite Hιss_i.
+          constructor.
       + eexists.
         split; first done.
+        apply Forall2_length in Hkinds as Hlen_τs_ρs.
+        apply Forall2_length in Hskinds as Hlen_τs_oss.
+        apply Forall_concat.
+        eapply Forall2_Forall_r; first done.
+        apply Forall_forall.
+        intros τ Hτ os (sκ & Hsκ & Hsvalue).
+        destruct sκ.
+        2: { inversion Hsvalue. inversion H. }
+        destruct Hsvalue as [Hareps (os' & Hos' & Hrfs)].
+        inversion Hos'.
+        subst os'.
+        clear Hos'.
+        eapply Forall_impl; first done.
+        intros o Ho.
+        destruct o; try done.
+        cbn.
+        cbn in Ho.
+        destruct p; first by destruct ξ0.
+        apply list_elem_of_lookup in Hτ as [i Hτs_i].
+        rewrite Forall2_lookup in Hkinds.
+        specialize (Hkinds i).
+        rewrite Hτs_i in Hkinds.
+        assert (is_Some (ρs !! i)).
+        { apply lookup_lt_is_Some. rewrite <- Hlen_τs_ρs. apply lookup_lt_is_Some. by eexists. }
+        destruct H as [ρ Hρs_i].
+        rewrite Hρs_i in Hkinds.
+        apply Some_Forall2_inv in Hkinds.
+        apply mapM_Some in Hιss.
+        apply Forall2_length in Hιss as Hlen_ρs_ιss.
+        rewrite Forall2_lookup in Hιss.
+        specialize (Hιss i).
+        rewrite Hρs_i in Hιss.
+        assert (is_Some (ιss !! i)).
+        { apply lookup_lt_is_Some. rewrite <- Hlen_ρs_ιss. rewrite <- Hlen_τs_ρs.
+          apply lookup_lt_is_Some. by eexists. }
+        destruct H as [ιs Hιss_i].
+        rewrite Hιss_i in Hιss.
+        apply Some_Forall2_inv in Hιss.
+        pose proof (type_skind_eval_rep _ _ _ _ _ _ _ _ Hkinds Hse Hιss Hsκ) as Hyeah.
+        inversion Hyeah.
+        subst.
+        eapply ref_flag_interp_le; last done.
+        eapply ref_flag_le_trans; first done.
+        eapply ref_flag_le_trans; first done.
+        (* Stuck: ref_flag_le in the wrong direction. *)
         admit.
     - iExists oss.
       iSplitR; first done.
