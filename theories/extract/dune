@@ -86,7 +86,9 @@
   Zbits
   Zpower
   pretty
-  numbers)
+  numbers
+  typechecker
+  typing)
  (theories Stdlib RichWasm.syntax RichWasm.compiler RichWasm.typechecker
   iris
   elpi

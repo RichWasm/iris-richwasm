@@ -32,8 +32,12 @@ let parse_richwasm s =
   |> Parsexp.Single.parse_string_exn
   |> Richwasm_common.Syntax.Module.t_of_sexp
 
+let pp_typecheck_fail ff x = fprintf ff "Typechecker failed with error: %s" x
+
 let wasm_pipeline x =
   elab_pipeline x
+  |> (fun x -> Richwasm_common.Main.typecheck x |> Result.map ~f:(fun () -> x))
+  |> or_fail_pp pp_typecheck_fail
   |> Richwasm_common.Main.compile
   |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
   |> Richwasm_common.Main.wasm_ugly_printer

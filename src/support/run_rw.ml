@@ -67,6 +67,7 @@ module EndToEnd = struct
       type t =
         | Surface of Surface.CompilerError.t
         | Elaborate of Elaborate.Err.t
+        | Typecheck of String.t
         | RichWasm of Extract_compat.CompilerError.t
         | Wat2WasmUnchecked of String.t
         | Wasm2WatUnchecked of String.t
@@ -77,6 +78,7 @@ module EndToEnd = struct
       let pp ff = function
         | Surface err -> fprintf ff "Surface:@ %a" Surface.CompilerError.pp err
         | Elaborate err -> fprintf ff "Elaborate:@ %a" Elaborate.Err.pp err
+        | Typecheck err -> fprintf ff "Typecheck:@ %a" String.pp err
         | RichWasm err ->
             fprintf ff "RichWasm:@ %a" Extract_compat.CompilerError.pp err
         | Wat2WasmUnchecked err -> fprintf ff "Wat2WasmUnchecked:@ %s" err
@@ -124,6 +126,9 @@ module EndToEnd = struct
              Elaborate.elab_module,
              Richwasm_common.Annotated_syntax.Module.pp,
              E2Err.elaborate )
+      >>? ( (fun x ->
+              Richwasm_common.Main.typecheck x |> Result.map ~f:(fun () -> x)),
+            E2Err.typecheck )
       >>? (Main.compile, E2Err.richwasm)
       >>| Main.wasm_ugly_printer
       >>? (Wat2wasm.wat2wasm ~check:false, E2Err.wat2wasmunchecked)
