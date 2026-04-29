@@ -2,45 +2,21 @@ open! Base
 open! Stdlib.Format
 open! Richwasm_support
 open! Test_support
+open Richwasm_support.Pipeline
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 
 include Test_runner.Outputter.Make (struct
   include Test_runner.Outputter.DefaultConfig
-  open Test_utils
   open Richwasm_common
 
   type syntax = Syntax.Module.t
   type text = string
   type res = string
 
-  let syntax_pipeline x =
-    x
-    |> Richwasm_common.Elaborate.elab_module
-    |> or_fail_pp Richwasm_common.Elaborate.Err.pp
-    |> Richwasm_common.Main.compile
-    |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
-    |> Richwasm_common.Main.wasm_ugly_printer
-
-  let string_pipeline s =
-    Parsexp.Single.parse_string_exn s
-    |> Syntax.Module.t_of_sexp
-    |> syntax_pipeline
-
+  let syntax_pipeline = wasm_pipeline
+  let string_pipeline s = parse_richwasm s |> wasm_pipeline
   let examples = []
-
-  let pp ff x =
-    let pretty = true in
-    let fmted =
-      Wat2wasm.wat2wasm ~check:false x
-      |> Result.map_error ~f:(asprintf "wat2wasm(unchecked): %s")
-      |> Result.bind ~f:(Wasm2wat.wasm2wat ~pretty ~check:false)
-      |> Result.map_error ~f:(asprintf "wasm2wat(unchecked): %s")
-      |> or_fail_pp pp_print_string
-    in
-    fmted
-    |> Wat2wasm.wat2wasm
-    |> or_fail_pp (fun ff x -> fprintf ff "wat2wasm: %s\n%s" x fmted)
-    |> Wasm2wat.pp_as_wat ~pretty ff
+  let pp ff x = pp_wasm ~pretty:true ff x
 end)
 
 let%expect_test "simple cases" =

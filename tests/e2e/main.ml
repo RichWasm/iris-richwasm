@@ -4,6 +4,7 @@ open! Stdlib.Format
 open Richwasm_common.Util
 open Richwasm_common.Monads
 open Richwasm_support
+open Pipeline
 open Support.Testing
 module EndToEnd = Run_rw.EndToEnd
 
@@ -19,8 +20,6 @@ module LL : SurfaceLang = struct
 end
 
 module MM : SurfaceLang = struct
-  open Richwasm_mini_ml
-
   module CompilerError = struct
     type t = | [@@deriving sexp_of]
 
@@ -32,11 +31,7 @@ module MM : SurfaceLang = struct
   let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) src =
     ignore info;
     ignore asprintf;
-    src
-    |> Parse.from_string_exn
-    |> Convert.cc_module
-    |> Codegen.compile_module
-    |> M.ret
+    src |> ml_str_pipeline |> M.ret
 end
 
 module RW : SurfaceLang = struct
