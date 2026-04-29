@@ -107,9 +107,11 @@ Section group.
     subst sκ.
     clear Hsκ.
 
-    apply has_kind_prod_inv in Hkind as (ρs & ξ' & Hsub & Hkinds).
+    apply has_kind_prod_inv_nosubkind in Hkind as (ρs & ξ' & Hsub & Hkinds).
+    (* apply has_kind_prod_inv in Hkind as (ρs & ξ' & Hsub & Hkinds). *)
     inversion Hsub.
-    subst ρ0 ρ ξ1 ξ'0.
+    subst ρ ξ0.
+    (* subst ρ0 ρ ξ1 ξ'0. *)
     clear Hsub.
 
     apply bind_Some in Hιs as (ιss & Hιss & Hιs).
@@ -143,15 +145,15 @@ Section group.
             rewrite Hlen_τs_ρs.
             by rewrite Hlen_ρs_ιss.
           }
-          destruct H1 as [os Hoss_i].
+          destruct H0 as [os Hoss_i].
           rewrite Hoss_i.
           apply Some_Forall2.
           assert (is_Some (τs !! i)).
           { apply lookup_lt_is_Some. rewrite Hlen_τs_ρs. by rewrite Hlen_ρs_ιss. }
-          destruct H1 as [τ Hτs_i].
+          destruct H0 as [τ Hτs_i].
           assert (is_Some (ρs !! i)).
           { apply lookup_lt_is_Some. by rewrite Hlen_ρs_ιss. }
-          destruct H1 as [ρ Hρs_i].
+          destruct H0 as [ρ Hρs_i].
           rewrite Forall2_lookup in Hskinds.
           specialize (Hskinds i).
           rewrite Hτs_i in Hskinds.
@@ -163,7 +165,7 @@ Section group.
           rewrite Hιss_i in Hιss.
           apply Some_Forall2_inv in Hιss.
           destruct sκ.
-          2: { inversion Hsvalue. inversion H1. }
+          2: { inversion Hsvalue. inversion H0. }
           destruct Hsvalue as (Hareps & os' & Hos' & Hrfinterp).
           inversion Hos'.
           subst os'.
@@ -206,7 +208,7 @@ Section group.
         destruct o; try done.
         cbn.
         cbn in Ho.
-        destruct p; first by destruct ξ0.
+        destruct p; first by destruct ξ'.
         apply list_elem_of_lookup in Hτ as [i Hτs_i].
         rewrite Forall2_lookup in Hkinds.
         specialize (Hkinds i).
@@ -231,15 +233,12 @@ Section group.
         inversion Hyeah.
         subst.
         eapply ref_flag_interp_le; last done.
-        eapply ref_flag_le_trans; first done.
-        eapply ref_flag_le_trans; first done.
-        (* Stuck: ref_flag_le in the wrong direction. *)
-        admit.
+        done.
     - iExists oss.
       iSplitR; first done.
       iApply (big_sepL2_impl with "[$]").
       iModIntro.
       by iIntros.
-  Admitted.
+  Qed.
 
 End group.
