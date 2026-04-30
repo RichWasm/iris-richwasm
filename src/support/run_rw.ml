@@ -67,18 +67,19 @@ module EndToEnd = struct
       type t =
         | Surface of Surface.CompilerError.t
         | Elaborate of Elaborate.Err.t
-        | Typecheck of String.t
+        | Typecheck of Richwasm_extract.Typechecker.type_error List.t
         | RichWasm of Extract_compat.CompilerError.t
         | Wat2WasmUnchecked of String.t
         | Wasm2WatUnchecked of String.t
         | Wat2Wasm of String.t
         | Runtime of String.t
-      [@@deriving sexp_of, variants]
+      [@@deriving variants]
 
       let pp ff = function
         | Surface err -> fprintf ff "Surface:@ %a" Surface.CompilerError.pp err
         | Elaborate err -> fprintf ff "Elaborate:@ %a" Elaborate.Err.pp err
-        | Typecheck err -> fprintf ff "Typecheck:@ %a" String.pp err
+        | Typecheck err ->
+            fprintf ff "Typecheck:@ %a" Pipeline.pp_typecheck_errors err
         | RichWasm err ->
             fprintf ff "RichWasm:@ %a" Extract_compat.CompilerError.pp err
         | Wat2WasmUnchecked err -> fprintf ff "Wat2WasmUnchecked:@ %s" err

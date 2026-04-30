@@ -1,5 +1,6 @@
 open! Core
 open! Stdlib.Format
+open! Richwasm_common.Util
 open Result_utils
 
 let ll_pipeline x =
@@ -32,22 +33,22 @@ let parse_richwasm s =
   |> Parsexp.Single.parse_string_exn
   |> Richwasm_common.Syntax.Module.t_of_sexp
 
-let one_error_string x =
-  match x with
-  | Richwasm_extract.Typechecker.NormalError s -> s
-  | Richwasm_extract.Typechecker.FrameError (s, _, _) -> s
+let pp_typecheck_error ff = function
+  | Richwasm_extract.Typechecker.NormalError s -> fprintf ff "%s" s
+  | Richwasm_extract.Typechecker.FrameError (s, _, _) ->
+      fprintf ff "Frame error: %s" s
 
-let rec make_type_error_string x =
-  match x with
-  | [] -> ""
-  | e::rest -> (one_error_string e) ^ "; " ^ (make_type_error_string rest)
+let pp_typecheck_errors ff =
+  let pp_list = pp_print_list_post ~pp_sep:(fun ff () -> fprintf ff ";@ ") in
+  fprintf ff "%a" (pp_list pp_typecheck_error)
 
-let pp_typecheck_fail ff x = fprintf ff "Typechecker failed with error: %s" (make_type_error_string x)
+let pp_typecheck_errors_prefix ff =
+  fprintf ff "Typechecker failed with error: %a" pp_typecheck_errors
 
 let wasm_pipeline x =
   elab_pipeline x
   |> (fun x -> Richwasm_common.Main.typecheck x |> Result.map ~f:(fun () -> x))
-  |> or_fail_pp pp_typecheck_fail
+  |> or_fail_pp pp_typecheck_errors_prefix
   |> Richwasm_common.Main.compile
   |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
   |> Richwasm_common.Main.wasm_ugly_printer
