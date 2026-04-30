@@ -5,12 +5,15 @@ From Stdlib.Strings Require Import String.
 From RichWasm Require Import layout syntax typing util.
 Set Bullet Behavior "Strict Subproofs".
 
-Definition type_error := string.
+Inductive type_error :=
+| NormalError: string -> type_error
+| FrameError: string -> instruction_type -> instruction_type -> type_error
+.
 Definition ok := unit.
-Definition type_checker_res := sum ok type_error.
+Definition type_checker_res := sum ok (list type_error).
 
 Definition ok_term : type_checker_res := inl ().
-Definition INR (s:string) : type_checker_res := inr s.
+Definition INR (s:string) : type_checker_res := inr [(NormalError s)].
 
 Hint Unfold ok_term : core.
 
@@ -674,13 +677,13 @@ Proof.
 Qed.
 
 
-Fixpoint combine_error_messages (l:list type_checker_res) : string :=
+Fixpoint combine_error_messages (l:list type_checker_res) : list type_error :=
   match l with
-  | [] => ""%string
+  | [] => []
   | r::rs =>
       match r with
       | inl () => combine_error_messages rs
-      | inr s => s ++ "; "%string ++ (combine_error_messages rs)
+      | inr l' => l' ++ combine_error_messages rs
       end
   end.
 
@@ -770,10 +773,12 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
                      (* fix later *)
               else
                 let res2 := map (type_ok_checker F) τs2 in
-                INR ("function type ok error in τs2 (" ++ (combine_error_messages res2) ++ ")"%string)
+                inr ([NormalError "function type ok error in τs2"] ++ combine_error_messages res2)
+                (* INR ("function type ok error in τs2 (" ++ (combine_error_messages res2) ++ ")"%string) *)
            else
              let res1 := map (type_ok_checker F) τs1 in
-             INR ("function type ok error in τs1 (" ++ (combine_error_messages res1) ++ ")"%string)
+             inr ([NormalError "function type ok error in τs1"] ++ combine_error_messages res1)
+             (* INR ("function type ok error in τs1 (" ++ (combine_error_messages res1) ++ ")"%string) *)
       | ForallMemT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
       | ForallRepT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
       | ForallSizeT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
@@ -1335,10 +1340,12 @@ Definition has_mono_rep_instr_checker F inst : type_checker_res :=
         then ok_term
         else
           let res := map (has_mono_rep_checker F) τs2 in
-          INR ("mono rep instr checker error in τs2 (" ++ (combine_error_messages res) ++ ")"%string )
+          inr ([NormalError "mono rep instr checker error in τs2"] ++ combine_error_messages res)
+          (* INR ("mono rep instr checker error in τs2 (" ++ (combine_error_messages res) ++ ")"%string ) *)
       else
         let res := map (has_mono_rep_checker F) τs1 in
-        INR ("mono rep instr checker error in τs1 (" ++ (combine_error_messages res) ++ ")"%string )
+        inr ([NormalError "mono rep instr checker error in τs2"] ++ combine_error_messages res)
+        (* INR ("mono rep instr checker error in τs1 (" ++ (combine_error_messages res) ++ ")"%string ) *)
   end.
 
 Lemma has_mono_rep_instr_checker_correct :
@@ -3205,15 +3212,15 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
           | Move =>
               match F.(fc_locals) !! i with
               | Some ηs => inl (Some (<[ i := type_plug_prim ηs ]> L))
-              | _ => inr "NO"%string
+              | _ => inr (NormalError "NO")
               end
           end
-      | _ => inr "NO"%string
+      | _ => inr (NormalError "NO")
       end
   | ILocalSet ψ i =>
       match ψ with
       | InstrT [τ] [] => inl (Some (<[ i := τ ]> L))
-      | _ => inr "NO"%string
+      | _ => inr (NormalError "NO")
       end
   | ICodeRef _ _
   | IInst _ _
@@ -4788,8 +4795,10 @@ Definition has_function_type_checker
                     let folded := foldr (λ r, andb (check_ok_output r)) true res in
                     if folded
                     then have_instruction_type_checker M F L mf.(mf_body) ψ L'
-                    else INR ("your resulting locals aren't all norefs (" ++
-                                (combine_error_messages res) ++ ")"%string)
+                    else
+                      inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res)
+                      (* INR ("your resulting locals aren't all norefs (" ++ *)
+                      (*           (combine_error_messages res) ++ ")"%string) *)
                 | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
                 | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
                 end
@@ -4891,7 +4900,9 @@ Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_re
             let folded := foldr (λ r, andb (check_ok_output r)) true res in
             if folded
             then ok_term
-            else INR ("can't module check: " ++ (combine_error_messages res))
+            else
+              inr ([NormalError "can't module check"] ++ combine_error_messages res)
+              (* INR ("can't module check: " ++ (combine_error_messages res)) *)
           else INR "suggested module type not equal to what it needs to be"
       | None => INR "bad exports"
       end

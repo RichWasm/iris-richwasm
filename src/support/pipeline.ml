@@ -32,7 +32,17 @@ let parse_richwasm s =
   |> Parsexp.Single.parse_string_exn
   |> Richwasm_common.Syntax.Module.t_of_sexp
 
-let pp_typecheck_fail ff x = fprintf ff "Typechecker failed with error: %s" x
+let one_error_string x =
+  match x with
+  | Richwasm_extract.Typechecker.NormalError s -> s
+  | Richwasm_extract.Typechecker.FrameError (s, _, _) -> s
+
+let rec make_type_error_string x =
+  match x with
+  | [] -> ""
+  | e::rest -> (one_error_string e) ^ "; " ^ (make_type_error_string rest)
+
+let pp_typecheck_fail ff x = fprintf ff "Typechecker failed with error: %s" (make_type_error_string x)
 
 let wasm_pipeline x =
   elab_pipeline x
