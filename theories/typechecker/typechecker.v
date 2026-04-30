@@ -3338,8 +3338,8 @@ Fixpoint has_instruction_type_checker
                     then (* oh and monorep *)
                       if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
                       then ok_term
-                      else INR "can't frame out (can't frame non mono rep)"
-                    else INR "can't frame out (single instruction)"
+                      else inr [(FrameError "non mono rep" e_ψ ψ)]
+                    else inr [(FrameError "single instruction" e_ψ ψ)]
                 | _, _ => INR "inner instruction type doesn't match"
                 end
             end
@@ -4088,8 +4088,8 @@ Fixpoint have_instruction_type_checker
                     then (* oh and monorep *)
                       if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
                       then ok_term
-                      else INR "can't frame out (can't frame non mono rep)"
-                    else INR "can't frame out (single instruction)"
+                      else inr [(FrameError "non mono rep" e_ψ ψ)]
+                    else inr [(FrameError "single instruction" e_ψ ψ)]
                 | _, _ => INR "inner instruction type doesn't match"
                 end
             end
@@ -4475,8 +4475,8 @@ Proof.
                     then (* oh and monorep *)
                       if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
                       then ok_term
-                      else INR "can't frame out (can't frame non mono rep)"
-                    else INR "can't frame out (single instruction)"
+                      else inr [(FrameError "non mono rep" e_ψ ψ)]
+                    else inr [(FrameError "single instruction" e_ψ ψ)]
                 | _, _ => INR "inner instruction type doesn't match"
                 end
             end

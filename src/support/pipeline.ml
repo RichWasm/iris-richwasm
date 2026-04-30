@@ -35,8 +35,9 @@ let parse_richwasm s =
 
 let pp_typecheck_error ff = function
   | Richwasm_extract.Typechecker.NormalError s -> fprintf ff "%s" s
-  | Richwasm_extract.Typechecker.FrameError (s, _, _) ->
-      fprintf ff "Frame error: %s" s
+  | Richwasm_extract.Typechecker.FrameError (s, a, b) ->
+      let pp_it = Richwasm_common.Annotated_syntax.InstructionType.pp in
+      fprintf ff "Frame error: %s (%a, %a)" s pp_it a pp_it b
 
 let pp_typecheck_errors ff =
   let pp_list = pp_print_list_post ~pp_sep:(fun ff () -> fprintf ff ";@ ") in
