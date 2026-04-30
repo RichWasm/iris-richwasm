@@ -8,6 +8,7 @@ Set Bullet Behavior "Strict Subproofs".
 Inductive type_error :=
 | NormalError: string -> type_error
 | FrameError: string -> instruction_type -> instruction_type -> type_error
+| LocalCtxSynthError: string -> local_ctx -> local_ctx -> list type_error -> type_error
 .
 Definition ok := unit.
 Definition type_checker_res := sum ok (list type_error).
@@ -3340,7 +3341,7 @@ Fixpoint has_instruction_type_checker
                       then ok_term
                       else inr [(FrameError "non mono rep" e_ψ ψ)]
                     else inr [(FrameError "single instruction" e_ψ ψ)]
-                | _, _ => INR "inner instruction type doesn't match"
+                | _, _ => inr [(FrameError "inner instruction type doesn't match" e_ψ ψ)]
                 end
             end
         | err => err
@@ -4090,7 +4091,7 @@ Fixpoint have_instruction_type_checker
                       then ok_term
                       else inr [(FrameError "non mono rep" e_ψ ψ)]
                     else inr [(FrameError "single instruction" e_ψ ψ)]
-                | _, _ => INR "inner instruction type doesn't match"
+                | _, _ => inr [(FrameError "inner instruction type doesn't match" e_ψ ψ)]
                 end
             end
         | err => err
@@ -4477,7 +4478,7 @@ Proof.
                       then ok_term
                       else inr [(FrameError "non mono rep" e_ψ ψ)]
                     else inr [(FrameError "single instruction" e_ψ ψ)]
-                | _, _ => INR "inner instruction type doesn't match"
+                | _, _ => inr [(FrameError "inner instruction type doesn't match" e_ψ ψ)]
                 end
             end
         | err => err
@@ -4796,7 +4797,9 @@ Definition has_function_type_checker
                     if folded
                     then have_instruction_type_checker M F L mf.(mf_body) ψ L'
                     else
-                      inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res)
+                      inr ([LocalCtxSynthError "your resulting locals aren't all nonrefs"
+                              L L' (combine_error_messages res)])
+                      (* inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res) *)
                       (* INR ("your resulting locals aren't all norefs (" ++ *)
                       (*           (combine_error_messages res) ++ ")"%string) *)
                 | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"

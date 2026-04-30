@@ -37,7 +37,10 @@ let pp_typecheck_error ff = function
   | Richwasm_extract.Typechecker.NormalError s -> fprintf ff "%s" s
   | Richwasm_extract.Typechecker.FrameError (s, a, b) ->
       let pp_it = Richwasm_common.Annotated_syntax.InstructionType.pp in
-      fprintf ff "Frame error: %s (%a, %a)" s pp_it a pp_it b
+      fprintf ff "Frame error: %s (first instruction %a, second instruction %a)" s pp_it a pp_it b
+  | Richwasm_extract.Typechecker.LocalCtxSynthError (s, l, l', errs) ->
+     let pp_lctx = Richwasm_common.Annotated_syntax.pp_rocq_list Richwasm_common.Annotated_syntax.Type.pp in
+     fprintf ff "Local ctx synth error: %s (initial lctx %a, synthed lctx %a) (put all errs here later)" s pp_lctx l pp_lctx l'
 
 let pp_typecheck_errors ff =
   let pp_list = pp_print_list_post ~pp_sep:(fun ff () -> fprintf ff ";@ ") in
