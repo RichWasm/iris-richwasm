@@ -71,7 +71,6 @@ Section call_indirect.
    assert (HCodeRefsType: CodeRefsType = MonoFunT τs1 τs2) by auto.
 
    (* tried using value_interp_coderef but ended up needing to break stuff up *)
-   iPoseProof (value_interp_eq with "HosCoderef") as "HosCoderef".
    iDestruct "HosCoderef" as "(%κ0 & %Hκ & Rest)".
    destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
    iDestruct "Rest" as "((%Hareps & %Href) & Rest)".
@@ -140,8 +139,6 @@ Section call_indirect.
       destruct InnerFunc eqn:HInnerFunc.
 
       rename r into τs1_inner; rename r0 into τs2_inner.
-      rewrite HCodeRefsType.
-      unfold closure_interp0.
       iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
 
       assert (Yeah:(InnerFunc = FoundFunction) ). {
@@ -265,8 +262,6 @@ Section call_indirect.
       destruct InnerFunc eqn:HInnerFunc.
 
       rename r into τs1_inner; rename r0 into τs2_inner.
-      rewrite HCodeRefsType.
-      unfold closure_interp0.
       iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
 
       assert (Yeah:(InnerFunc = OuterFunc) ). {

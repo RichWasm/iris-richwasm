@@ -155,7 +155,6 @@ Section coderef.
     - iEval (cbn).
       iExists [[_]].
       iSplit; auto; iEval (cbn); iSplit; auto.
-      iApply value_interp_eq; iEval (cbn).
       iExists (SVALTYPE [I32R] NoRefs).
       iSplitR; auto.
       iSplitR.

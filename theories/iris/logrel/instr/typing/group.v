@@ -40,7 +40,6 @@ Section group.
     iSplitR.
     { cbn. by rewrite app_nil_r. }
     iApply big_sepL2_singleton.
-    iApply value_interp_eq.
 
     inversion Hok as [F' ψ L' Hmono Hok_L].
     subst F' ψ L'.
@@ -78,6 +77,7 @@ Section group.
     clear Hιs.
     fold (eval_rep se) in Hιss.
 
+    rewrite big_sepL2_fmap_l.
     iDestruct (big_sepL2_value_interp_skind with "Hos") as "%Hskinds".
 
     iSplitR; last iSplitR.
@@ -202,6 +202,7 @@ Section group.
         by eapply ref_flag_interp_le.
     - iExists oss.
       iSplitR; first done.
+      rewrite big_sepL2_fmap_l.
       iApply (big_sepL2_impl with "[$]").
       iModIntro.
       by iIntros.

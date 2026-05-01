@@ -229,20 +229,19 @@ Section PathFacts.
       split; first done.
       split; first done.
       iIntros (ws) "Hws".
-      rewrite value_interp_eq; cbn.
       iModIntro.
       iDestruct "Hws" as "(%sκ & %Hevκ & %Hsv & %wss & %Hwss & Hws)".
       iPoseProof (big_sepL2_length with "Hws") as "%Hlenwss".
-      change (@ofe_car _ (leibnizO type)) with type in Hlenwss.
-      change (@ofe_car _ _) with (list word) in Hlenwss.
       assert (Hws': ∃ ws', wss !! i = Some ws').
       {
         eapply lookup_lt_is_Some_2.
-        rewrite Hlenwss length_app length_cons -H.
+        rewrite Hlenwss length_map length_app length_cons -H.
+        apply Nat.lt_add_pos_r.
         lia.
       }
       destruct Hws' as [ws' Hwssi].
       iPoseProof (IH $! ws') as "IH".
+      rewrite big_sepL2_fmap_r.
       iPoseProof (big_sepL2_lookup_acc with "Hws") as "[Hws' Hdone]";
         first eassumption;
         first eassumption.

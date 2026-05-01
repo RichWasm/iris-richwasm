@@ -48,7 +48,6 @@ Section untag.
       iExists [I32A (Wasm_int.Int32.ishr_u n32 (Wasm_int.Int32.repr 1))].
       iSplitL.
       + iApply values_interp_one_eq.
-        iApply value_interp_eq.
         iExists (SVALTYPE [I32R] NoRefs).
         iPureIntro.
         repeat split; auto.
