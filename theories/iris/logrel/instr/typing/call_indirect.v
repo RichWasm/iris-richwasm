@@ -151,10 +151,9 @@ Section call_indirect.
         inversion rest.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
-        subst; auto.
-        rewrite Hts1inner in transts1.
-        rewrite Hts2inner in transts2.
-        inversion transts1; subst. inversion transts2; subst. done.
+        cbn in transts1.
+        cbn in transts2.
+        congruence.
       }
       auto.
       subst InnerFunc.
@@ -275,9 +274,8 @@ Section call_indirect.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
         subst; auto.
-        rewrite Hts1inner in transts1.
-        rewrite Hts2inner in transts2.
-        inversion transts1; subst. inversion transts2; subst. done.
+        cbn in transts1, transts2.
+        congruence.
       }
       idtac.
       subst InnerFunc.
