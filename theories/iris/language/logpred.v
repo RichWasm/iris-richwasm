@@ -48,18 +48,66 @@ Section logpred.
   Global Instance logpred_dist : Dist logpred :=
     λ n, logp_relation (dist n).
 
+
+  Ltac split_ands :=
+    repeat
+      match goal with
+      | H : _ /\ _ |- _ => destruct H
+      | |- _ /\ _ => split
+      end.
   Program Definition logpredO : ofe :=
     {| ofe_car := logpred;
        ofe_equiv := logpred_equiv;
        ofe_dist := logpred_dist |}.
   Final Obligation.
-    split.
+    split;
+      unfold equiv, logpred_equiv, dist, logpred_dist, logp_relation.
     - intros x y; split.
-      + admit.
-      + admit.
-    - admit.
-    - admit.
-  Admitted.
+      + intros;
+        split_ands;
+          repeat match goal with
+                 | |- pointwise_relation _ _ _ _ => intros ?
+                 | |- forall _, _ => intros ?
+                 end;
+          eapply (@mixin_equiv_dist _ _ _ _ (ofe_mixin (iPropO Σ)));
+          try match goal with
+              | H : _ |- _ => eapply H
+              end.
+      + intros Hn.
+        repeat (rewrite forall_and_distr in Hn; destruct Hn as [? Hn]).
+        split_ands;
+          repeat match goal with
+                 | |- pointwise_relation _ _ _ _ => intros ?
+                 | |- forall _, _ => intros ?
+                 end;
+          eapply (@mixin_equiv_dist _ _ _ _ (ofe_mixin (iPropO Σ))); intros;
+          try match goal with
+              | H : _ |- _ => eapply H
+              end.
+    - intros n.
+      split.
+      + intros x.
+        split_ands; reflexivity.
+      + intros x y H.
+        split_ands; by symmetry.
+      + intros x y z Hxy Hyz.
+        split_ands; etransitivity; by eauto.
+    - intros n m x y Hxy Hlt.
+      split_ands.
+      + repeat intros ?; eapply mixin_dist_le; eauto; try eapply (iPropO Σ).
+      + intros f vs.
+        specialize (H0 f vs).
+        eapply mixin_dist_le; [| eassumption | eassumption]; try eapply (iPropO Σ).
+      + eapply mixin_dist_le; eauto; try eapply (iPropO Σ).
+      + intros f n' lh.
+        specialize (H2 f n' lh).
+        eapply mixin_dist_le; [| eassumption | eassumption]; try eapply (iPropO Σ).
+      + intros lh.
+        eapply mixin_dist_le; eauto; try eapply (iPropO Σ).
+      + intros ϕ hf vs lh.
+        specialize (H4 ϕ hf vs lh).
+        eapply mixin_dist_le; eauto; try eapply (iPropO Σ).
+  Qed.
 
   Definition lp_noframe (Φ: logpred) : frame -> val -> iProp Σ :=
     λ f w,
