@@ -10,6 +10,7 @@
   iris-richwasm.runtime
   iris-richwasm.common
   iris-richwasm.lin-lang
-  iris-richwasm.mini-ml)
+  iris-richwasm.mini-ml
+  iris-richwasm.support)
  (preprocess
   (pps ppx_jane)))

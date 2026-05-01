@@ -48,6 +48,7 @@ Module rw_module_compiler := module.
 From RichWasm Require layout.
 
 From RichWasm.wasm Require binary_format_printer.
+From RichWasm Require typechecker.
 
 Separate Extraction
   rw.Core.instruction
@@ -69,4 +70,5 @@ Separate Extraction
   rw_module_compiler.compile_module
   layout.eval_rep_prim_empty
   layout.prim_to_arep
-  binary_format_printer.binary_of_module.
+  binary_format_printer.binary_of_module
+  typechecker.has_module_type_checker_with_synth.

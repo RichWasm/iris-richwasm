@@ -46,6 +46,7 @@
   list_misc
   list_monad
   list_numbers
+  list_relations
   ListDef
   Memdata
   memory
@@ -86,7 +87,7 @@
   Zpower
   pretty
   numbers)
- (theories Stdlib RichWasm.syntax RichWasm.compiler
+ (theories Stdlib RichWasm.syntax RichWasm.compiler RichWasm.typechecker
   iris
   elpi
   compcert

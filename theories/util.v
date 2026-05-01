@@ -388,9 +388,23 @@ Proof.
   lia.
 Qed.
 
-  Definition foldlM `{MRet M, MBind M} {A B: Type}
-    : (A -> B -> M A) -> A -> list B -> M A :=
-    λ f a l,
-      foldl
-        (λ acc b, mbind (λ a', f a' b) acc)
-        (mret a) l.
+Definition foldlM `{MRet M, MBind M} {A B: Type} : (A -> B -> M A) -> A -> list B -> M A :=
+  λ f a l, foldl (λ acc b, mbind (λ a', f a' b) acc) (mret a) l.
+
+Lemma concat_mjoin {A} (l : list (list A)) :
+  concat l = base.mjoin l.
+Proof.
+  unfold mjoin.
+  induction l; first done.
+  cbn.
+  by f_equal.
+Qed.
+
+Lemma Forall2_concat {A B} P (l1 : list (list A)) (l2 : list (list B)) :
+  Forall2 (Forall2 P) l1 l2 ->
+  Forall2 P (concat l1) (concat l2).
+Proof.
+  intros.
+  rewrite !concat_mjoin.
+  by apply Forall2_join.
+Qed.
