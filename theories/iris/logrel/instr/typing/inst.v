@@ -30,7 +30,7 @@ Section inst.
       rewrite <- Hope.
       cbn.
       destruct (sub_m i) eqn:Hsubi.
-      - cbn. unfold unscoped.shift. lia.
+      - cbn. unfold unscoped.shift. cbn in H. lia.
       - cbn. auto.
     }
     {
@@ -421,7 +421,7 @@ Section inst.
   Definition sem_env_rel_type (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
     (forall i sκ' T', lookup_type se' i = Some (sκ', T') ->
     type_skind se (sub_t i) = Some sκ' /\
-      (∀ sv, (T' sv -∗ ⌜svalue_in_skind sv sκ'⌝ -∗ value_interp rti sr se (sub_t i) sv))).
+      (∀ sv, (T' sv -∗ ⌜skind_has_svalue sκ' sv⌝ -∗ value_interp rti sr se (sub_t i) sv))).
   Definition sem_env_rel_sκ (se' : @semantic_env Σ) (se : @semantic_env Σ) (sub_t:nat → type) :=
     (forall i sκ', fst <$> lookup_type se' i = Some sκ' ->
     type_skind se (sub_t i) = Some sκ').
@@ -627,12 +627,12 @@ Section inst.
 
   (* As mentioned in a lower comment, this might require an additional assumption *)
   (* this is also now safe from contamination :3 *)
-  Lemma values_interp0_subst_type se se' τs os sub_m sub_r sub_s sub_t :
+  Lemma values_interp_subst_type se se' τs os sub_m sub_r sub_s sub_t :
     (sem_env_rel_rep se' se sub_r) ->
     (sem_env_rel_size se' se sub_s) ->
     (sem_env_rel_type se' se sub_t) ->
-    values_interp0 (value_interp rti sr) se' τs os -∗
-    values_interp0 (value_interp rti sr) se (map (subst_type sub_m sub_r sub_s sub_t) τs) os.
+    values_interp rti sr se' τs os -∗
+    values_interp rti sr se (map (subst_type sub_m sub_r sub_s sub_t) τs) os.
   Proof.
     iIntros (Hsub_r Hsub_s Hsub_T).
     pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
@@ -645,8 +645,11 @@ Section inst.
       cbn.
       iDestruct "Hos" as "(%oss_big & %Hos_big & Hos)".
       destruct oss_big as [|o oss]; [done|].
-      iDestruct (big_sepL2_cons with "Hos") as "[Hoa Hτsoss]".
+      rewrite big_sepL2_cons.
+      rewrite big_sepL2_fmap_l.
+      iDestruct "Hos" as "[Hoa Hτsoss]".
       cbn in IHτs.
+      setoid_rewrite big_sepL2_fmap_l in IHτs.
       specialize (IHτs (concat oss)).
       iDestruct IHτs as "#IHτs".
       iAssert (∃ oss0, ⌜concat oss = concat oss0⌝ ∗
@@ -663,6 +666,7 @@ Section inst.
         rewrite concat_cons; rewrite concat_cons in Hos_big. by rewrite <- Hc.
       }
       iApply big_sepL2_cons.
+      rewrite !big_sepL2_fmap_l.
       iSplitL "Hoa"; first last.
       + done.
         (* I could have said first done but then there'd be so many bullets to change... *)
@@ -686,14 +690,10 @@ Section inst.
                (* (forall i n, lookup_size se' i = Some n -> eval_size se (sub_s i) = Some n) -> *)
                (* (forall i sκ', fst <$> lookup_type se' i = Some sκ' -> *)
                (*     type_skind se (sub_t i) = Some sκ') -> *)
-               closure_interp0 rti sr (value_interp rti sr) se' ft cl -∗
-               closure_interp0 rti sr (value_interp rti sr) se
-               (subst_function_type sub_m sub_r sub_s sub_t ft) cl).
+               closure_interp rti sr ft se' cl -∗
+               closure_interp rti sr (subst_function_type sub_m sub_r sub_s sub_t ft) se cl).
         * (** vart, need extra hypothesis about semantic types *)
           intros; cbn in *.
-          iPoseProof (value_interp_eq with "Hoa") as "Hoa".
-          iApply value_interp_eq.
-          iEval (cbn) in "Hoa".
           iDestruct "Hoa" as "(%sκ & %Hse'skind & Hoa & Htypevar)".
           destruct sκ as [ιs ξ | n ξ]; [iDestruct "Hoa" as "[%Harep %Hflag]"
                                        |iDestruct "Hoa" as "[[] _]"].
