@@ -82,17 +82,45 @@ Section instr.
     λne se i, senv_types se !! i.
   Solve All Obligations with solve_proper.
 
-  Definition senv_insert_type (sκ : skind) (T : SVR) (se : semantic_env) : semantic_env :=
-    (senv_mems se, senv_reps se, senv_sizes se, (sκ, T) :: senv_types se).
+  Program Definition senv_insert_type (sκ : skind) (T : SVR) : semantic_env -n> semantic_env :=
+    λne se,
+      (se.1, (sκ, T) :: senv_types se).
+  Final Obligation.
+    intros * se se' Hse.
+    f_equiv.
+    - apply Hse.
+    - solve_proper.
+  Qed.
 
-  Definition senv_insert_mem (μ : base_memory) (se : semantic_env) : semantic_env :=
-    (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).
+  Program Definition senv_insert_mem (μ : base_memory) : semantic_env -n> semantic_env :=
+    λne se,
+      (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).
+  Final Obligation.
+    intros * se se' [Hse Htys]; cbn.
+    f_equiv.
+    - do 2 f_equiv; by rewrite Hse.
+    - exact Htys.
+  Qed.
 
-  Definition senv_insert_rep (ιs : list atomic_rep) (se : semantic_env) : semantic_env :=
-    (senv_mems se, ιs :: senv_reps se, senv_sizes se, senv_types se).
+  Program Definition senv_insert_rep (ιs : list atomic_rep) : semantic_env -n> semantic_env :=
+    λne se,
+      (senv_mems se, ιs :: senv_reps se, senv_sizes se, senv_types se).
+  Final Obligation.
+    intros * se se' [Hse Htys]; cbn.
+    f_equiv.
+    - do 2 f_equiv; by rewrite Hse.
+    - exact Htys.
+  Qed.
 
-  Definition senv_insert_size (n : nat) (se : semantic_env) : semantic_env :=
-    (senv_mems se, senv_reps se, n :: senv_sizes se, senv_types se).
+  Program Definition senv_insert_size (n : nat) : semantic_env -n> semantic_env :=
+    λne se,
+      (senv_mems se, senv_reps se, n :: senv_sizes se, senv_types se).
+  Final Obligation.
+    intros * se se' [Hse Htys]; cbn.
+    f_equiv.
+    - do 2 f_equiv; by rewrite Hse.
+    - exact Htys.
+  Qed.
 
   Definition OsR : Type := leibnizO (list atom) -n> iPropO Σ.
   Definition ClR : Type := leibnizO function_closure -n> iPropO Σ.
@@ -619,21 +647,37 @@ Section instr.
   Program Definition plug_interp : leibnizO representation -n> semantic_type :=
     λne ρ se sv, (∃ ιs, ⌜eval_rep_se se ρ = Some ιs⌝ ∗ ⌜has_areps ιs sv⌝)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
-  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros ρ n se se' Hse sv; cbn.
+    f_equiv; intros ιs.
+    change (eval_rep se) with (ofe_mor_car _ _ (eval_rep_se se)).
+    change (eval_rep se') with (ofe_mor_car _ _ (eval_rep_se se')).
+    eapply eval_rep_se in Hse.
+    by rewrite Hse.
+  Qed.
+  Final Obligation. solve_proper. Qed.
 
   Program Definition span_interp : leibnizO size -n> semantic_type :=
     λne σ se sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size se σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
-  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn.
+    f_equiv; intros ws; cbn.
+    f_equiv; intros n'; cbn.
+    f_equiv.
+    f_equiv.
+    f_equiv.
+    f_equiv.
+    by eapply eval_size_se.
+  Qed.
+  Final Obligation. solve_proper. Qed.
 
   Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
     (λne T se T0 sv, ▷ T (senv_insert_type sκ T0 se) sv)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation. solve_proper. Qed.
 
   Instance skind_rec_interp1_contractive sκ T se : Contractive (skind_rec_interp1 sκ T se).
   Proof.
@@ -642,10 +686,8 @@ Section instr.
     cbn.
     eapply later_contractive.
     eapply (ne_dist_later (λ svr, T (senv_insert_type sκ svr se) x0)); [|done].
-    repeat intros ?; cbn.
-    eapply (ofe_mor_ne _ _ T).
-    admit.
-  Admitted.
+    solve_proper.
+  Qed.
 
   Program Definition skind_rec_interp sκ : semantic_type -n> semantic_type :=
     λne T se, fixpoint (skind_rec_interp1 sκ T se).
@@ -656,33 +698,37 @@ Section instr.
     intros.
     by eapply (ofe_mor_ne _ _ (skind_rec_interp1 sκ T)).
   Qed.
-  Next Obligation.
+  Final Obligation.
     repeat intros ?.
     f_equiv.
     eapply @fixpoint_ne.
     solve_proper.
   Qed.
 
-  Program Definition rec_interp : leibnizO kind -n> semantic_type -n> semantic_type :=
-    λne κ T se,
+  Program Definition rec_interp (κ : kind) : semantic_type -n> semantic_type :=
+    λne T se,
       match eval_kind_se se κ with
       | Some sκ => skind_rec_interp sκ T se
       | None => λne _, False
       end%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
-    cbn.
-    repeat intros ?.
-    f_equiv.
-    repeat intros ?.
-    pose proof (ofe_mor_ne _ _ (eval_kind_se) n x y H κ).
-    inversion H0 as [Heq].
-    destruct (eval_kind _ _) eqn:Hx.
-    - admit.
-    - admit.
-  Admitted.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
+    intros * se se' Hse.
+    cbn -[eval_kind_se skind_rec_interp].
+    replace (eval_kind_se se' κ) with (eval_kind_se se κ); swap 1 2.
+    { by eapply eval_kind_se. }
+    destruct (eval_kind_se se κ) eqn:Hκ.
+    - by eapply ofe_mor_ne.
+    - done.
+  Qed.
+  Final Obligation.
+    intros * T T' HT se; cbn -[eval_kind_se skind_rec_interp].
+    destruct (eval_kind_se _ _) eqn:Hκ;
+      cbn -[eval_kind_se skind_rec_interp].
+    - f_equiv.
+      by eapply ofe_mor_ne.
+    - solve_proper.
+  Qed.
 
   Program Definition values_interp1 : listO semantic_type -n> semantic_env -n> OsR :=
     (λne τs se os,
@@ -741,20 +787,34 @@ Section instr.
   Program Definition exists_mem_interp : semantic_type -n> semantic_type :=
     (λne T se sv, ∃ μ, T (senv_insert_mem μ se) sv)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
-  Next Obligation. solve_proper. Qed.
-
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_mem].
+    f_equiv; intros μ.
+    apply T.
+    by apply ofe_mor_ne.
+  Qed.
+  Final Obligation. solve_proper. Qed.
 
   Program Definition exists_rep_interp : semantic_type -n> semantic_type :=
     λne T se sv, (∃ ιs, T (senv_insert_rep ιs se) sv)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
-  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_rep].
+    f_equiv; intros ιs.
+    apply T.
+    by apply ofe_mor_ne.
+  Qed.
+  Final Obligation. solve_proper. Qed.
 
   Program Definition exists_size_interp : semantic_type -n> semantic_type :=
     λne T se sv, (∃ n, T (senv_insert_size n se) sv)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_size].
+    f_equiv; intros ?.
+    apply T.
+    by apply ofe_mor_ne.
+  Qed.
   Next Obligation. solve_proper. Qed.
 
   Program Definition exists_type_interp (κ : kind) : semantic_type -n> semantic_type :=
@@ -764,8 +824,16 @@ Section instr.
          ⌜stype_in_skind T' sκ⌝ ∗
          T (senv_insert_type sκ T' se) sv)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
-  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_type].
+    f_equiv; intros T'.
+    f_equiv; intros sκ.
+    f_equiv; last solve_proper.
+    f_equiv.
+    f_equiv.
+    by eapply eval_kind_se.
+  Qed.
+  Final Obligation. solve_proper. Qed.
 
   Program Definition mono_closure_interp (τs1 τs2 : list type) (Ts1 Ts2 : listO semantic_type) : semantic_env -n> ClR :=
     λne se cl,
@@ -788,36 +856,76 @@ Section instr.
              CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
       | FC_func_host _ _ => False
       end%I.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
+  Next Obligation.
+    intros * cl cl' Hcl.
+    inversion Hcl as [Heq].
+    done.
+  Qed.
+  Final Obligation.
+    intros * se se' Hse cl.
+    destruct cl; last done; cbn -[values_interp1 atoms_interp].
+    destruct f.
+    f_equiv.
+    - admit.
+    - f_equiv.
+      + admit.
+      + do 9 f_equiv.
+        f_equiv; first solve_proper.
+        f_equiv.
+        f_equiv.
+        f_equiv.
+        f_equiv.
+        admit.
+  Admitted.
 
   Program Definition forall_mem_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
     (λne FT se cl, ∀ μ, FT (senv_insert_mem μ se) cl)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_mem].
+    f_equiv; intros μ.
+    f_equiv.
+    by do 2 eapply ofe_mor_ne.
+  Qed.
   Final Obligation. solve_proper. Qed.
 
   Program Definition forall_rep_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
     (λne FT se cl, ∀ ρ, FT (senv_insert_rep ρ se) cl)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_rep].
+    f_equiv; intros ?.
+    f_equiv.
+    by do 2 eapply ofe_mor_ne.
+  Qed.
   Final Obligation. solve_proper. Qed.
 
   Program Definition forall_size_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
     (λne FT se cl, ∀ n, FT (senv_insert_size n se) cl)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_size].
+    f_equiv; intros ?.
+    f_equiv.
+    by do 2 eapply ofe_mor_ne.
+  Qed.
   Final Obligation. solve_proper. Qed.
 
   Program Definition forall_type_interp κ : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
     (λne FT se cl, ∃ sκ,
-        ⌜eval_kind se κ = Some sκ⌝ ∗
+        ⌜eval_kind_se se κ = Some sκ⌝ ∗
         ∀ sκ_T T,
           ⌜subskind_of sκ_T sκ⌝ -∗
           ⌜stype_in_skind T sκ_T⌝ -∗
           FT (senv_insert_type sκ_T T se) cl)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. Admitted.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_type eval_kind_se].
+    f_equiv; intros ?.
+    f_equiv; last solve_proper.
+    do 2 f_equiv.
+    by eapply eval_kind_se.
+  Qed.
   Final Obligation. solve_proper. Qed.
 
   Fixpoint type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
@@ -939,7 +1047,15 @@ Section instr.
   Global Instance Persistent_instance_interp mr M WT inst : Persistent (instance_interp mr M WT inst).
   Proof.
     unfold instance_interp.
-    (* typeclasses eauto. *)
+    repeat apply bi.sep_persistent; try by typeclasses eauto.
+    - unfold instance_functions_interp.
+      (* closure_interp ϕ senv_empty cl *)
+      admit.
+    - apply bi.exist_persistent; intros i_off.
+      apply bi.exist_persistent; intros off.
+      repeat apply bi.sep_persistent; try by typeclasses eauto.
+      (* table_entry_interp off i ϕ *)
+      admit.
   Admitted.
 
   Definition mask_locs_eq (lmask : nat -> Prop) (fr fr' : frame) : Prop :=
