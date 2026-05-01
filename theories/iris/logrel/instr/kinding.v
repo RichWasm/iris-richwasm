@@ -411,7 +411,7 @@ Section kinding.
 
   Lemma skind_as_type_refine sκ0 sκ :
     subskind_of sκ0 sκ ->
-    forall sv, svalue_in_skind sv sκ0 -> svalue_in_skind sv sκ.
+    forall sv, skind_has_svalue sκ0 sv -> skind_has_svalue sκ sv.
   Proof.
     intros Hsub sv Hskind.
     destruct sκ0 as [ιs ξ|n ξ].
@@ -431,34 +431,30 @@ Section kinding.
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    stype_in_skind (value_interp rti sr se τ) sκ.
+    skind_has_stype sκ (value_interp rti sr se τ).
   Proof.
     iIntros (Hkind Hse Heval sv) "Hsv".
-    rewrite value_interp_eq.
-    iDestruct "Hsv" as "(% & % & % & _)".
-    iPureIntro.
-    eapply skind_as_type_refine; last done.
-    by eapply type_skind_has_kind_agree.
+    destruct τ;
+      iDestruct "Hsv" as "(% & % & % & _)";
+      iPureIntro;
+      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
   Qed.
 
-  Lemma value_interp_var se t sκ (T : semantic_type) :
+  Lemma value_interp_var se t sκ T :
     lookup_type se t = Some (sκ, T) ->
-    value_interp rti sr se (VarT t) ≡ (λne (sv : leibnizO _), ⌜svalue_in_skind sv sκ⌝ ∗ T sv)%I.
+    value_interp rti sr se (VarT t) ≡ (λne sv, ⌜skind_has_svalue sκ sv⌝ ∗ T sv)%I.
   Proof.
-    rewrite value_interp_part_eq.
-    cbn.
-    unfold type_var_interp.
-    unfold lookup.
     unfold lookup_type.
-    intros.
-    intros sv.
-    rewrite !H.
     cbn.
-    iSplit.
-    - iIntros "(%κ' & %Hfind & Hkt & Htv)".
-      inversion Hfind.
-      iFrame.
-    - eauto.
+    intros H sv.
+    cbn.
+    rewrite H.
+    cbn.
+    iSplit; last eauto.
+    iIntros "(%sκ' & %Hsκ' & %Hskind & HT)".
+    inversion Hsκ'.
+    subst sκ'.
+    by iFrame.
   Qed.
 
   Lemma prim_value_type ι v :
@@ -490,14 +486,13 @@ Section kinding.
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    stype_in_skind (value_interp rti sr se τ) sκ.
+    skind_has_stype sκ (value_interp rti sr se τ).
   Proof.
     iIntros (Hhas_kind Hse Heval_kind sv) "H".
-    rewrite value_interp_eq.
-    iDestruct "H" as "(% & % & % & _)".
-    iPureIntro.
-    eapply skind_as_type_refine; last done.
-    by eapply type_skind_has_kind_agree.
+    destruct τ;
+      iDestruct "H" as "(% & % & % & _)";
+      iPureIntro;
+      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
   Qed.
 
 End kinding.
