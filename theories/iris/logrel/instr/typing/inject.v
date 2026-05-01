@@ -66,9 +66,7 @@ Section inject.
     iIntros (? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hvs Hos Hframe Hrt Hown Hfr Hrun".
 
     iDestruct (values_interp_one_eq with "Hos") as "Hos".
-    iDestruct (value_interp_eq with "Hos") as "Hos".
-    unfold value_interp0, value_se_interp0.
-    iDestruct "Hos" as "(%κ & %Hkind_payload & %Hskind_as_type & Hpayload_interp)".
+    iDestruct (value_interp_skind with "Hos") as "(%κ & %Hkind_payload & %Hskind_as_type)".
 
     iPoseProof (frame_interp_wl_interp _ _ _ _ F with "Hframe") as "%Hwl".
     apply has_values_iff_to_consts in Hhas_values as ->.
@@ -414,7 +412,6 @@ Section inject.
     iExists (I32A (Wasm_int.Int32.repr i) :: os_pre ++ os ++ os_post).
     iSplitR "Hvs".
     - rewrite values_interp_one_eq.
-      rewrite value_interp_eq.
       iSimpl.
       iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _).
       repeat iSplit.
@@ -432,7 +429,7 @@ Section inject.
         apply has_areps_app_l; first done.
         apply has_areps_app_l; done.
       + admit. (* ref_flag_atoms_interp *)
-      + iExists _, _, _, _, _.
+      + iExists _, _, _, _.
         iSplit; first done.
         iSplit.
         { iPureIntro. by apply sum_offset_emptyenv. }
@@ -446,15 +443,12 @@ Section inject.
           rewrite Heval_ρ_i.
           done.
         }
-        iSplit; first done.
+        change (list_lookup i (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! i).
+        rewrite list_lookup_fmap.
+        rewrite Hlookup_i.
         rewrite (has_areps_length _ _ Hareps_pre).
         rewrite (has_areps_length _ _ Hhas_areps).
-        rewrite drop_app_length take_app_length.
-        rewrite value_interp_eq.
-        iFrame.
-        iNext.
-        iExists _.
-        iSplit; done.
+        by rewrite drop_app_length take_app_length.
     - iApply atoms_interp_cons.
       iSplit; first done.
       iApply atoms_interp_app_split_r; first done.

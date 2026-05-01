@@ -509,6 +509,17 @@ Section kinding.
       by split.
   Qed.
 
+  Lemma value_interp_skind se τ sv :
+    value_interp rti sr se τ sv -∗
+    ⌜exists sκ, type_skind se τ = Some sκ /\ skind_has_svalue sκ sv⌝.
+  Proof.
+    iIntros "H".
+    destruct τ;
+      iDestruct "H" as "(% & % & % & _)";
+      iPureIntro;
+      by eexists.
+  Qed.
+
   Lemma big_sepL2_value_interp_skind se τs oss :
     ([∗ list] τ;os ∈ τs;oss, value_interp rti sr se τ (SAtoms os)) -∗
     ⌜Forall2 (fun τ os => exists sκ, type_skind se τ = Some sκ /\ skind_has_svalue sκ (SAtoms os)) τs oss⌝.
