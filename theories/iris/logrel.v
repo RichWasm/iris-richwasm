@@ -788,25 +788,26 @@ Section instr.
   Final Obligation. solve_proper. Qed.
 
   Fixpoint type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
-    match τ with
-    | VarT t => type_var_interp t
-    | I31T _ => i31_interp
-    | NumT _ nt => num_interp nt
-    | SumT κ τs => sum_interp κ (map type_interp τs)
-    | VariantT _ τs => variant_interp (map type_interp τs)
-    | ProdT _ τs => prod_interp (map type_interp τs)
-    | StructT _ τs => struct_interp (map type_interp τs)
-    | RefT _ μ τ => ref_interp μ (type_interp τ)
-    | SerT _ τ => ser_interp (type_interp τ)
-    | PlugT _ ρ => plug_interp ρ
-    | SpanT _ σ => span_interp σ
-    | RecT κ τ => rec_interp κ (type_interp τ)
-    | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
-    | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
-    | ExistsSizeT _ τ => exists_size_interp (type_interp τ)
-    | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
-    | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
-    end%I
+    add_skind_interp τ $
+      match τ with
+      | VarT t => type_var_interp t
+      | I31T _ => i31_interp
+      | NumT _ nt => num_interp nt
+      | SumT κ τs => sum_interp κ (map type_interp τs)
+      | VariantT _ τs => variant_interp (map type_interp τs)
+      | ProdT _ τs => prod_interp (map type_interp τs)
+      | StructT _ τs => struct_interp (map type_interp τs)
+      | RefT _ μ τ => ref_interp μ (type_interp τ)
+      | SerT _ τ => ser_interp (type_interp τ)
+      | PlugT _ ρ => plug_interp ρ
+      | SpanT _ σ => span_interp σ
+      | RecT κ τ => rec_interp κ (type_interp τ)
+      | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
+      | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
+      | ExistsSizeT _ τ => exists_size_interp (type_interp τ)
+      | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
+      | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
+      end%I
   with closure_interp (ϕ : function_type) : semantic_env -n> ClR :=
     match ϕ with
     | MonoFunT τs1 τs2 => mono_closure_interp τs1 τs2 (map type_interp τs1) (map type_interp τs2)
