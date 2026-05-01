@@ -1019,6 +1019,33 @@ Section instr.
     | ForallTypeT κ ϕ' => forall_type_interp κ (closure_interp ϕ')
     end%I.
 
+  Definition pre_type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
+    match τ with
+    | VarT t => type_var_interp t
+    | I31T _ => i31_interp
+    | NumT _ nt => num_interp nt
+    | SumT κ τs => sum_interp κ (map type_interp τs)
+    | VariantT _ τs => variant_interp (map type_interp τs)
+    | ProdT _ τs => prod_interp (map type_interp τs)
+    | StructT _ τs => struct_interp (map type_interp τs)
+    | RefT _ μ τ => ref_interp μ (type_interp τ)
+    | SerT _ τ => ser_interp (type_interp τ)
+    | PlugT _ ρ => plug_interp ρ
+    | SpanT _ σ => span_interp σ
+    | RecT κ τ => rec_interp κ (type_interp τ)
+    | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
+    | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
+    | ExistsSizeT _ τ => exists_size_interp (type_interp τ)
+    | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
+    | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
+    end%I.
+
+  Lemma type_interp_eq τ se sv :
+    type_interp τ se sv ⊣⊢ (add_skind_interp τ $ pre_type_interp τ) se sv.
+  Proof.
+    destruct τ; reflexivity.
+  Qed.
+
   Program Definition value_interp : semantic_env -n> leibnizO type -n> SVR := λne se τ, type_interp τ se.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
