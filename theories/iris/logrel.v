@@ -284,15 +284,15 @@ Section instr.
     | SWords ws => n = length ws
     end.
 
-  Program Definition svalue_in_skind : leibnizO skind -n> leibnizO semantic_value -n> PropO :=
+  Program Definition skind_has_svalue : leibnizO skind -n> leibnizO semantic_value -n> PropO :=
     λne sκ sv,
       match sκ with
       | SVALTYPE ιs ξ => has_areps ιs sv /\ ref_flag_atoms_interp ξ sv
       | SMEMTYPE n ξ => ssize_interp n sv /\ ref_flag_words_interp ξ sv
       end.
 
-  Definition stype_in_skind (T : SVR) (sκ : skind) : Prop :=
-    forall sv, T sv -∗ ⌜svalue_in_skind sκ sv⌝.
+  Definition skind_has_stype (sκ : skind) (T : SVR) : Prop :=
+    forall sv, T sv -∗ ⌜skind_has_svalue sκ sv⌝.
 
   (*
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
@@ -775,7 +775,7 @@ Section instr.
 
   Program Definition add_skind_interp : leibnizO type -n> (semantic_env -n> SVR) -n> semantic_env -n> SVR :=
     (λne τ T se sv,
-      ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜svalue_in_skind sκ sv⌝ ∗ T se sv)%I.
+      ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝ ∗ T se sv)%I.
   Next Obligation.
     intros.
     repeat intros ?.
@@ -783,7 +783,7 @@ Section instr.
     repeat intros ?.
     f_equiv.
     f_equiv.
-    - assert (Hprop: Proper (dist n ==> dist n) (svalue_in_skind a))
+    - assert (Hprop: Proper (dist n ==> dist n) (skind_has_svalue a))
         by apply ofe_mor_ne.
       f_equiv.
       by eapply Hprop.
@@ -794,7 +794,7 @@ Section instr.
     repeat intros ?.
     f_equiv.
     repeat intros ?.
-    cbn -[type_skind svalue_in_skind].
+    cbn -[type_skind skind_has_svalue].
     f_equiv; intros ?.
     f_equiv; [|solve_proper].
     f_equiv.
@@ -848,7 +848,7 @@ Section instr.
     λne T se sv,
       (∃ T' sκ,
          ⌜eval_kind se κ = Some sκ⌝ ∗
-         ⌜stype_in_skind T' sκ⌝ ∗
+         ⌜skind_has_stype sκ T'⌝ ∗
          T (senv_insert_type sκ T' se) sv)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
@@ -977,7 +977,7 @@ Section instr.
         ⌜eval_kind_se se κ = Some sκ⌝ ∗
         □ ∀ sκ_T T,
           ⌜subskind_of sκ_T sκ⌝ -∗
-          ⌜stype_in_skind T sκ_T⌝ -∗
+          ⌜skind_has_stype sκ_T T⌝ -∗
           FT (senv_insert_type sκ_T T se) cl)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
@@ -1188,7 +1188,7 @@ Section instr.
   
   Definition type_ctx_interp (κs : list kind) (se : semantic_env) : Prop :=
     Forall2
-      (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ stype_in_skind T sκ)
+      (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ skind_has_stype sκ T)
       κs
       (senv_types se).
 

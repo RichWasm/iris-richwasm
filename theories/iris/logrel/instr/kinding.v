@@ -21,6 +21,15 @@ Section kinding.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Lemma ref_flag_interp_le ξ ξ' p :
+    ref_flag_le ξ' ξ ->
+    ref_flag_interp ξ' p ->
+    ref_flag_interp ξ p.
+  Proof.
+    intros Hle Hinterp.
+    by destruct ξ; destruct ξ'; destruct p.
+  Qed.
+
   Lemma type_kind_has_kind_is_Some F τ κ :
     has_kind F τ κ ->
     is_Some (type_kind F.(fc_type_vars) τ).
@@ -411,7 +420,7 @@ Section kinding.
 
   Lemma skind_as_type_refine sκ0 sκ :
     subskind_of sκ0 sκ ->
-    forall sv, svalue_in_skind sv sκ0 -> svalue_in_skind sv sκ.
+    forall sv, skind_has_svalue sκ0 sv -> skind_has_svalue sκ sv.
   Proof.
     intros Hsub sv Hskind.
     destruct sκ0 as [ιs ξ|n ξ].
@@ -431,34 +440,30 @@ Section kinding.
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    stype_in_skind (value_interp rti sr se τ) sκ.
+    skind_has_stype sκ (value_interp rti sr se τ).
   Proof.
     iIntros (Hkind Hse Heval sv) "Hsv".
-    rewrite value_interp_eq.
-    iDestruct "Hsv" as "(% & % & % & _)".
-    iPureIntro.
-    eapply skind_as_type_refine; last done.
-    by eapply type_skind_has_kind_agree.
+    destruct τ;
+      iDestruct "Hsv" as "(% & % & % & _)";
+      iPureIntro;
+      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
   Qed.
 
-  Lemma value_interp_var se t sκ (T : semantic_type) :
+  Lemma value_interp_var se t sκ T :
     lookup_type se t = Some (sκ, T) ->
-    value_interp rti sr se (VarT t) ≡ (λne (sv : leibnizO _), ⌜svalue_in_skind sv sκ⌝ ∗ T sv)%I.
+    value_interp rti sr se (VarT t) ≡ (λne sv, ⌜skind_has_svalue sκ sv⌝ ∗ T sv)%I.
   Proof.
-    rewrite value_interp_part_eq.
-    cbn.
-    unfold type_var_interp.
-    unfold lookup.
     unfold lookup_type.
-    intros.
-    intros sv.
-    rewrite !H.
     cbn.
-    iSplit.
-    - iIntros "(%κ' & %Hfind & Hkt & Htv)".
-      inversion Hfind.
-      iFrame.
-    - eauto.
+    intros H sv.
+    cbn.
+    rewrite H.
+    cbn.
+    iSplit; last eauto.
+    iIntros "(%sκ' & %Hsκ' & %Hskind & HT)".
+    inversion Hsκ'.
+    subst sκ'.
+    by iFrame.
   Qed.
 
   Lemma prim_value_type ι v :
@@ -486,18 +491,52 @@ Section kinding.
       + eapply IHιs; eauto.
   Qed.
 
+  Lemma has_kind_prod_inv F κ κ' τs :
+    has_kind F (ProdT κ τs) κ' ->
+    exists ρs ξ, κ = VALTYPE (ProdR ρs) ξ /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs.
+  Proof.
+    intros H.
+    remember (ProdT κ τs) as τ.
+    induction H; try congruence.
+    - inversion Heqτ.
+      subst κ0 τs0 κ.
+      clear Heqτ.
+      do 2 eexists.
+      by split.
+    - specialize (IHhas_kind Heqτ) as (ρs & ξ & Hsub & Hkinds).
+      subst τ.
+      do 2 eexists.
+      by split.
+  Qed.
+
+  Lemma big_sepL2_value_interp_skind se τs oss :
+    ([∗ list] τ;os ∈ τs;oss, value_interp rti sr se τ (SAtoms os)) -∗
+    ⌜Forall2 (fun τ os => exists sκ, type_skind se τ = Some sκ /\ skind_has_svalue sκ (SAtoms os)) τs oss⌝.
+  Proof.
+    iIntros "H".
+    rewrite Forall2_same_length_lookup.
+    rewrite <- big_sepL2_pure.
+    iDestruct (big_sepL2_length with "H") as "%Hlen".
+    iApply (big_sepL2_wand with "[$]").
+    iApply big_sepL2_intro; first done.
+    iIntros "!> %k %τ %os %Hτ %Hos H".
+    destruct τ;
+      iDestruct "H" as "(% & %Hskind & %Hsvalue & _)";
+      iPureIntro;
+      by eexists.
+  Qed.
+
   Theorem kinding_sound F se τ κ sκ :
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    stype_in_skind (value_interp rti sr se τ) sκ.
+    skind_has_stype sκ (value_interp rti sr se τ).
   Proof.
     iIntros (Hhas_kind Hse Heval_kind sv) "H".
-    rewrite value_interp_eq.
-    iDestruct "H" as "(% & % & % & _)".
-    iPureIntro.
-    eapply skind_as_type_refine; last done.
-    by eapply type_skind_has_kind_agree.
+    destruct τ;
+      iDestruct "H" as "(% & % & % & _)";
+      iPureIntro;
+      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
   Qed.
 
 End kinding.

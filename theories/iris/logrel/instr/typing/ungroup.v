@@ -23,16 +23,32 @@ Section ungroup.
     run_codegen (compile_instr mr fe (IUngroup ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    (* intros fe WT WL ψ Hok Hcg. *)
-    (* inversion Hok as [F' ψ' L' Hmono Hok']. *)
-    (* subst F' ψ' L'. *)
-    (* cbn in Hcg; inversion Hcg; subst wt' wl' es'. *)
-    (* simpl to_e_list. *)
-    (* iApply sem_type_erased_nop; first done. *)
-    (* iIntros (se vs) "Hvs". *)
-    (* rewrite values_interp_one_eq value_interp_eq. *)
-    (* cbn. *)
-    (* iDestruct "Hvs" as "(%κ' & %Hκ' & Hkind & Hvs)". *)
-  Admitted.
+    iIntros (????? Hok Hcg ????????) "@@@@@@@@@@@@".
+    inv_cg_emit Hcg.
+    subst ψ WT WL wt' wl' es'.
+    clear Hretval.
+    clear_nils.
+    iApply cwp_val_app; first done.
+    iApply (cwp_nop with "[$] [$]").
+
+    iDestruct "Hos" as "(%oss & -> & Hos)".
+    iDestruct (big_sepL2_cons_inv_l with "Hos") as "(%os & %oss' & %Hoss & Hos & Hemp)".
+    iDestruct (big_sepL2_nil_inv_l with "Hemp") as "->".
+    iClear "Hemp".
+    subst oss.
+    iDestruct "Hos" as "(%sκ & %Hskind & %Hsvalues & %oss & %Hoss & Hoss)".
+    inversion Hoss.
+    subst os.
+    clear Hoss.
+
+    iModIntro.
+    unfold fvs_combine.
+    rewrite app_nil_r.
+    iFrame.
+    iSplitR; first done.
+    iPureIntro.
+    cbn.
+    by rewrite app_nil_r.
+  Qed.
 
 End ungroup.

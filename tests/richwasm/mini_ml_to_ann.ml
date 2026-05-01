@@ -1,6 +1,7 @@
 open! Core
 open! Stdlib.Format
 open! Test_support
+open Richwasm_support.Pipeline
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 
 include Test_runner.MultiOutputter.Make (struct
@@ -14,15 +15,8 @@ include Test_runner.MultiOutputter.Make (struct
   type text = string
   type res = AnnRichWasm.Module.t
 
-  let elab x =
-    x
-    |> Richwasm_common.Elaborate.elab_module
-    |> or_fail_pp Richwasm_common.Elaborate.Err.pp
-
-  let syntax_pipeline x =
-    x |> Convert.cc_module |> Codegen.compile_module |> elab
-
-  let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
+  let syntax_pipeline x = ml_pipeline x |> elab_pipeline
+  let string_pipeline s = ml_str_pipeline s |> elab_pipeline
   let examples = Test_examples.Mini_ml.all
   let pp = AnnRichWasm.Module.pp
   let pp_raw = AnnRichWasm.Module.pp_sexp

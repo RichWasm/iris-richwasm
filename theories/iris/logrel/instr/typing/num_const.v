@@ -55,7 +55,6 @@ Section num_const.
     3: iExists [[F32A (Wasm_float.FloatSize32.of_bits (Integers.Int.repr n))]].
     4: iExists [[F64A (Wasm_float.FloatSize64.of_bits (Integers.Int64.repr n))]].
     all: iEval (cbn); iSplitR; auto; iSplitL; auto.
-    all: iApply value_interp_eq; iEval (cbn).
     all: iExists _.
     all: iSplitR; auto; iSplitL; auto; iEval (cbn).
     all: iPureIntro.

@@ -1,49 +1,22 @@
 open! Base
 open! Stdlib.Format
+open! Richwasm_support
 open! Test_support
+open Richwasm_support.Pipeline
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 
 include Test_runner.MultiOutputter.Make (struct
   include Test_runner.MultiOutputter.DefaultConfig
-  open Test_utils
   open Richwasm_lin_lang
 
   type syntax = Syntax.Module.t
   type text = string
   type res = string
 
-  let elab x =
-    x
-    |> Richwasm_common.Elaborate.elab_module
-    |> or_fail_pp Richwasm_common.Elaborate.Err.pp
-    |> Richwasm_common.Main.compile
-    |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
-    |> Richwasm_common.Main.wasm_ugly_printer
-
-  let syntax_pipeline x =
-    x
-    |> Main.compile_ast
-    |> Main.Res.T.run
-    |> fst
-    |> or_fail_pp Main.CompileErr.pp
-    |> elab
-
-  let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline
+  let syntax_pipeline x = ll_pipeline x |> wasm_pipeline
+  let string_pipeline s = ll_str_pipeline s |> wasm_pipeline
   let examples = Test_examples.Lin_lang.all
-
-  let pp ff x =
-    let fmted =
-      Wat2wasm.wat2wasm ~check:false x
-      |> Result.map_error ~f:(asprintf "wat2wasm(unchecked): %s")
-      |> Result.bind ~f:(Wasm2wat.wasm2wat ~check:false)
-      |> Result.map_error ~f:(asprintf "wasm2wat(unchecked): %s")
-      |> or_fail_pp pp_print_string
-    in
-    fmted
-    |> Wat2wasm.wat2wasm
-    |> or_fail_pp (fun ff x -> fprintf ff "wat2wasm: %s\n%s" x fmted)
-    |> Wasm2wat.pp_as_wat ff
-
+  let pp ff x = pp_wasm ff x
   let pp_raw ff x = fprintf ff "%s" x
 end)
 

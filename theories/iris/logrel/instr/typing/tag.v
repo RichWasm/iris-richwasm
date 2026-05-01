@@ -53,7 +53,6 @@ Section tag.
       iExists [PtrA (PtrInt n_wr)].
       iSplitL.
       + iApply values_interp_one_eq.
-        iApply value_interp_eq.
         iExists (SVALTYPE [PtrR] NoRefs).
         iPureIntro.
         repeat split; auto.

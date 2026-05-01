@@ -1,30 +1,10 @@
 open! Core
 open! Core_unix
 open! Stdlib.Format
-
-let or_fail (p : 'b -> string) : ('a, 'b) Result.t -> 'a = function
-  | Ok x -> x
-  | Error err -> failwith (p err)
-
-let or_fail_pp (pp : formatter -> 'b -> unit) : ('a, 'b) Result.t -> 'a =
-  or_fail (asprintf "%a" pp)
-
+open Richwasm_support.Result_utils
+open Richwasm_support.Pipeline
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 module RichWasm = Richwasm_common.Syntax
-
-let ll_pipeline x =
-  let open Richwasm_lin_lang in
-  x
-  |> Parse.from_string_exn
-  |> Main.compile_ast
-  |> Main.Res.T.run
-  |> fst
-  |> or_fail_pp Main.CompileErr.pp
-
-let elab_pipeline x =
-  x
-  |> Richwasm_common.Elaborate.elab_module
-  |> or_fail_pp Richwasm_common.Elaborate.Err.pp
 
 let pp_rwasm = function
   | `pp -> RichWasm.Module.pp
@@ -83,7 +63,7 @@ let ll2rw =
     (let%map_open.Command linlang = file_or_stdin "linlang"
      and pp = richwasm_pp_spec
      and elab = richwasm_elab_flag in
-     fun () -> get_contents linlang |> ll_pipeline |> handle_rw pp elab)
+     fun () -> get_contents linlang |> ll_str_pipeline |> handle_rw pp elab)
 
 let mml2rw =
   Command.basic ~summary:"Compile a mini-ml module to RichWasm."
@@ -98,23 +78,13 @@ let rw_elab =
     ~summary:"Elaborate a RichWasm module (from sexp unannotated RichWasm)."
     (let%map_open.Command richwasm = file_or_stdin "richwasm"
      and pp = richwasm_pp_spec in
-     fun () ->
-       get_contents richwasm
-       |> Parsexp.Single.parse_string_exn
-       |> RichWasm.Module.t_of_sexp
-       |> handle_rw pp true)
+     fun () -> get_contents richwasm |> parse_richwasm |> handle_rw pp true)
 
 let rw2wasm =
   Command.basic ~summary:"Compile a RichWasm (sexp) module to wasm."
     (let%map_open.Command richwasm = file_or_stdin "richwasm" in
      fun () ->
-       get_contents richwasm
-       |> Parsexp.Single.parse_string_exn
-       |> AnnRichWasm.Module.t_of_sexp
-       |> Richwasm_common.Main.compile
-       |> or_fail_pp Richwasm_common.Extract_compat.CompilerError.pp
-       |> Richwasm_common.Main.wasm_ugly_printer
-       |> print_endline)
+       get_contents richwasm |> parse_richwasm |> wasm_pipeline |> print_endline)
 
 let command =
   Command.group ~summary:"iris-richwasm"

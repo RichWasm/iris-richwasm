@@ -40,8 +40,6 @@ Section num.
     all: rewrite Hrvsss.
     all: iEval (cbn) in "Hrvss".
     all: iDestruct "Hrvss" as "[Hvs _]".
-    all: iPoseProof (value_interp_eq with "Hvs") as "Hvs".
-    all: iEval (cbn) in "Hvs".
     all: iDestruct "Hvs" as "(%k & %Hk & Hkindinterp & _)".
     all: inversion Hk.
     all: iEval (cbn) in "Hkindinterp".
@@ -110,13 +108,9 @@ Section num.
     all: rewrite Hrvsss.
     all: iEval (cbn) in "Hrvss".
     all: iDestruct "Hrvss" as "(Hvs1 & Hvs2 & _)".
-    all: iPoseProof (value_interp_eq with "Hvs1") as "Hvs1".
-    all: iEval (cbn) in "Hvs1".
     all: iDestruct "Hvs1" as "(%k1 & %Hk1 & Hkindinterp1 & _)".
     all: inversion Hk1.
     all: iEval (cbn) in "Hkindinterp1".
-    all: iPoseProof (value_interp_eq with "Hvs2") as "Hvs2".
-    all: iEval (cbn) in "Hvs2".
     all: iDestruct "Hvs2" as "(%k2 & %Hk2 & Hkindinterp2 & _)".
     all: inversion Hk2.
     all: iEval (cbn) in "Hkindinterp2".
@@ -196,7 +190,6 @@ Section num.
       | |- context [ (?x = concat _) ] => iExists [x]
     end);
     iEval (cbn); iSplitL; try iSplitL; auto;
-    iApply value_interp_eq; cbn;
     iExists _; iSplitL; try iSplitL; auto; cbn;
     iPureIntro;
     split; econstructor; split; auto;
