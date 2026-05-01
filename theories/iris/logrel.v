@@ -295,16 +295,37 @@ Section instr.
       by apply H1.
   Qed.
 
-  Program Definition eval_size_se : semantic_env -n> leibnizO size -n> leibnizO (option nat).
-  Admitted.
+  Program Definition eval_size_se : semantic_env -n> leibnizO size -n> leibnizO (option nat) :=
+    λne se n, eval_size se n.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation.
+    intros n se se' Hse sz; cbn.
+    induction sz using size_ind; cbn.
+    - by rewrite Hse.
+    - f_equiv.
+      apply Forall2_mapM_ext, Forall_Forall2_diag, H.
+    - f_equiv.
+      apply Forall2_mapM_ext, Forall_Forall2_diag, H.
+    - f_equiv.
+      by eapply eval_rep_se.
+    - done.
+  Qed.
 
   Program Definition eval_kind_se : semantic_env -n> leibnizO kind -n> leibnizO (option skind) :=
     λne se κ, eval_kind se κ.
   Next Obligation.
     solve_proper.
   Qed.
-  Next Obligation.
-  Admitted.
+  Final Obligation.
+    intros n se se' Hse κ; cbn.
+    induction κ using kind_ind.
+    - cbn.
+      f_equiv.
+      by eapply eval_rep_se.
+    - cbn.
+      f_equiv.
+      by eapply eval_size_se.
+  Qed.
 
   Program Definition type_skind : semantic_env -n> leibnizO type -n> leibnizO (option skind) :=
     λne se τ,
@@ -333,8 +354,18 @@ Section instr.
     rewrite H.
     solve_proper.
   Qed.
-  Next Obligation.
-  Admitted.
+  Final Obligation.
+    intros n se se' [Hse Htys] τ; cbn.
+    destruct τ;
+      try by eapply eval_kind_se.
+    Search lookup.
+    eapply (list_lookup_ne n0) in Htys.
+    inversion Htys as [u v Huv Hl Hr|Hl Hr].
+    - rewrite -Hl -Hr; cbn.
+      f_equiv.
+      by inversion Huv.
+    - by rewrite -Hl -Hr.
+  Qed.
 
   Definition skind_rep (κ : skind) : option (list atomic_rep) :=
     match κ with
@@ -395,10 +426,10 @@ Section instr.
     eapply H.
   Qed.
 
-  Program Definition sum_interp κ : listO SVRO -> SVRO :=
+  Program Definition sum_interp κ : list SVRO -> SVRO :=
     match κ with
     | VALTYPE (SumR ρs) _ =>
-        λne (τs : list SVRO) (se : semantic_env) sv,
+        λ (τs : list SVRO), λne (se : semantic_env) sv,
           ∃ (i : nat) os off count,
             ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
             ⌜sum_offset_se se ρs i = Some off⌝ ∗
@@ -409,13 +440,38 @@ Section instr.
             end
     | _ => λne _ _ _, False
     end%I.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
-  Next Obligation. Admitted.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros.
+    intros se se' Hse sv; cbn.
+    f_equiv; intros i; cbn.
+    f_equiv; intros os; cbn.
+    f_equiv; intros off; cbn.
+    f_equiv; intros count; cbn.
+    f_equiv.
+    f_equiv.
+    {
+      unfold sum_offset.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      apply mapM_ext.
+      by eapply eval_rep_se.
+    }
+    f_equiv.
+    {
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      eapply option_bind_ext; eauto.
+      by eapply eval_rep_se.
+    }
+    destruct (list_lookup i τs) eqn:Hi; solve_proper.
+  Qed.
+  Next Obligation. cbn; congruence. Qed.
+  Next Obligation. cbn; congruence. Qed.
+  Next Obligation. cbn; congruence. Qed.
+  Final Obligation. cbn; congruence. Qed.
 
   Program Definition variant_interp : list semantic_type -> semantic_env -n> SVR :=
     λne (τs : listO semantic_type) se sv,
@@ -540,29 +596,6 @@ Section instr.
     intros k μ μ' <- τ' se sv; cbn.
     solve_proper.
   Qed.
-
-  Definition mono_closure_interp0 :
-    listO semantic_type -n> listO semantic_type -n> semantic_env -n> ClR.
-    Admitted.
-    (*λne τs1 τs2 cl,
-      match cl with
-      | FC_func_native inst (Tf ts1 ts2) tlocs es =>
-          ⌜translate_types se τs1 = Some ts1⌝ ∗
-          ⌜translate_types se τs2 = Some ts2⌝ ∗
-          □ ▷ ∀ vs1 os1 θ,
-            atoms_interp os1 vs1 -∗
-            values_interp0 vrel se τs1 os1 -∗
-            rt_token rti sr θ -∗
-            na_own logrel_nais ⊤ -∗
-            ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
-            ↪[RUN] -∗
-            let Φ vs2 :=
-              (∃ os2, atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2) ∗
-                (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤
-            in
-            CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
-      | FC_func_host _ _ => False
-      end%I.*)
 
   Program Definition coderef_interp : (semantic_env -n> ClR) -n> semantic_type :=
     λne FT se sv,
