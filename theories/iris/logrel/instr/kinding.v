@@ -511,7 +511,7 @@ Section kinding.
 
   Lemma big_sepL2_value_interp_skind se τs oss :
     ([∗ list] τ;os ∈ τs;oss, value_interp rti sr se τ (SAtoms os)) -∗
-    ⌜Forall2 (fun τ os => exists sκ, type_skind se τ = Some sκ /\ svalue_in_skind (SAtoms os) sκ) τs oss⌝.
+    ⌜Forall2 (fun τ os => exists sκ, type_skind se τ = Some sκ /\ skind_has_svalue sκ (SAtoms os)) τs oss⌝.
   Proof.
     iIntros "H".
     rewrite Forall2_same_length_lookup.
@@ -520,10 +520,10 @@ Section kinding.
     iApply (big_sepL2_wand with "[$]").
     iApply big_sepL2_intro; first done.
     iIntros "!> %k %τ %os %Hτ %Hos H".
-    setoid_rewrite value_interp_eq.
-    iDestruct "H" as "(% & %Hskind & %Hsvalue & _)".
-    iPureIntro.
-    by eexists.
+    destruct τ;
+      iDestruct "H" as "(% & %Hskind & %Hsvalue & _)";
+      iPureIntro;
+      by eexists.
   Qed.
 
   Theorem kinding_sound F se τ κ sκ :
