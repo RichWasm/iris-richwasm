@@ -166,7 +166,7 @@ module Err = struct
   end
 
   type t =
-    | IntenalError of string
+    | InternalError of string
     | MissingLocalEnv of LVar.t * Env.t
     | MissingGlobalEnv of string * Env.t
     | CasesEmpty
@@ -388,7 +388,7 @@ module Compile = struct
            ~get_key:(fun (name, _, _) -> name)
            (module String)
       |> function
-      | `Duplicate_key k -> fail (IntenalError ("dup fn " ^ k))
+      | `Duplicate_key k -> fail (InternalError ("dup fn " ^ k))
       | `Ok m -> ret @@ Map.map ~f:(fun (_, param, return) -> (param, return)) m
     in
     let env = { Env.empty with fns = fn_rets } in
