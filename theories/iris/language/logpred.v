@@ -1,5 +1,8 @@
 From RichWasm.iris.language Require Import iris_wp_def.
 Import iris.algebra.list.
+
+Set Bullet Behavior "Strict Subproofs".
+
 Section logpred.
   Context `{!wasmG Σ}.
   Open Scope bi_scope.
@@ -21,7 +24,42 @@ Section logpred.
   Arguments lp_ret {A}.
   Arguments lp_host {A}.
 
+  Section LogpRelation.
+    Context {A : Type} (R : relation A).
+    Definition logp_relation : relation (logp A) :=
+      λ Φ Ψ,
+        pointwise_relation datatypes.frame R Φ.(lp_fr_inv) Ψ.(lp_fr_inv) /\
+        pointwise_relation datatypes.frame (pointwise_relation (list value) R) Φ.(lp_val) Ψ.(lp_val) /\
+        R Φ.(lp_trap) Ψ.(lp_trap) /\
+        (∀ f n (lh: valid_holed n), R (Φ.(lp_br) f n lh) (Ψ.(lp_br) f n lh)) /\
+        pointwise_relation simple_valid_holed R Φ.(lp_ret) Ψ.(lp_ret) /\
+        pointwise_relation function_type
+          (pointwise_relation hostfuncidx
+             (pointwise_relation (list value)
+                (pointwise_relation llholed R)))
+          Φ.(lp_host) Ψ.(lp_host).
+  End LogpRelation.
+
   Definition logpred := logp (iProp Σ).
+
+  Global Instance logpred_equiv : Equiv logpred :=
+    logp_relation equiv.
+
+  Global Instance logpred_dist : Dist logpred :=
+    λ n, logp_relation (dist n).
+
+  Program Definition logpredO : ofe :=
+    {| ofe_car := logpred;
+       ofe_equiv := logpred_equiv;
+       ofe_dist := logpred_dist |}.
+  Final Obligation.
+    split.
+    - intros x y; split.
+      + admit.
+      + admit.
+    - admit.
+    - admit.
+  Admitted.
 
   Definition lp_noframe (Φ: logpred) : frame -> val -> iProp Σ :=
     λ f w,
@@ -33,10 +71,37 @@ Section logpred.
       | callHostV ft hidx vs lh => ↪[RUN] ∗ Φ.(lp_host) ft hidx vs lh
       end.
 
+  Program Definition lp_noframe_ne : logpredO -n> leibnizO frame -n> leibnizO val -n> iPropO Σ :=
+    λne Φ f v, lp_noframe Φ f v.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation.
+    intros n Φ Ψ (Hfr_inv & Hval & Htrap & Hbr & Hret & Hhost) f v; cbn.
+    destruct v; cbn.
+    - f_equiv; apply Hval.
+    - f_equiv; apply Htrap.
+    - f_equiv; apply Hbr.
+    - f_equiv; apply Hret.
+    - f_equiv; apply Hhost.
+  Qed.
+
   Definition denote_logpred (Φ: logpred) : val -> iProp Σ :=
     λ w, ∃ f, ↪[frame] f ∗ 
               Φ.(lp_fr_inv) f ∗ 
               lp_noframe Φ f w.
+
+  Program Definition denote_logpred_ne : logpredO -n> leibnizO val -n> iPropO Σ :=
+    λne Φ w, denote_logpred Φ w.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation.
+    intros n Φ Ψ (Hfr_inv & Hval & Htrap & Hbr & Hret & Hhost) w; cbn.
+    unfold denote_logpred.
+    f_equiv; intros f.
+    f_equiv.
+    f_equiv.
+    - apply Hfr_inv.
+    - by apply lp_noframe_ne.
+  Qed.
 
   Notation "⟦ Φ ⟧" := (denote_logpred Φ).
 
@@ -68,9 +133,6 @@ Section logpred.
 
   Definition lp_pure (φ: Prop) : logpred :=
     lp_const ⌜φ⌝.
-
-  Instance lp_dist : Dist logpred.
-  Admitted.
   (*
     λ (n: nat) (Φ1 Φ2: logpred),
       lp_val Φ1 ≡{n}≡ lp_val Φ2 /\ 
@@ -124,43 +186,6 @@ Section logpred.
 
   Definition lp_later : logpred -> logpred :=
     lp_map bi_later.
-
-  Definition lp_ofe_mixin : OfeMixin logpred.
-  Proof.
-    split.
-    - admit.
-    - admit.
-    - admit.
-  Admitted.
-
-  Instance lp_cofe_aux : Cofe (Ofe logpred lp_ofe_mixin).
-  Admitted.
-
-  Definition lp_bi_mixin : BiMixin lp_entails lp_emp lp_pure lp_and lp_or lp_impl lp_forall lp_exist lp_sep lp_wand.
-  Proof.
-  Admitted.
-
-  Definition lp_bi_persistently_mixin : BiPersistentlyMixin lp_entails lp_emp lp_and lp_exist lp_sep lp_persistently.
-  Admitted.
-
-  Definition lp_bi_later_mixin : BiLaterMixin lp_entails lp_pure lp_or lp_impl lp_forall lp_exist lp_sep lp_persistently lp_later.
-  Admitted.
-
-  Canonical Structure lp_bi : bi :=
-    {|
-      bi_ofe_mixin := lp_ofe_mixin;
-      bi_bi_mixin := lp_bi_mixin;
-      bi_bi_persistently_mixin := lp_bi_persistently_mixin;
-      bi_bi_later_mixin := lp_bi_later_mixin;
-    |}.
-
-  Definition lp_embed_mixin: BiEmbedMixin (iProp Σ) logpred lp_const.
-  Proof.
-  Admitted.
-
-  Global Instance lp_embed : BiEmbed (iProp Σ) logpred :=
-    {| bi_embed_mixin := lp_embed_mixin |}.
-
 End logpred.
 
 Arguments MkLP {A}.

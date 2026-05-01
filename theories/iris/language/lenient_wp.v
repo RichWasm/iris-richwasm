@@ -21,16 +21,18 @@ Section lenient_wp.
     Definition lenient_wp (es: expr) (Φ: logpred): iProp Σ :=
         wp s E es (denote_logpred Φ).
 
+    Global Instance lenient_wp_ne es : NonExpansive (lenient_wp es).
+    Proof.
+      unfold lenient_wp.
+      intros n Φ Ψ (Hfr_inv & Hval & Htrap & Hbr & Hret & Hhost).
+      unfold lenient_wp.
+      eapply wp_ne; intros sv.
+      by eapply denote_logpred_ne.
+    Qed.
+
     Definition lenient_wp_ctx (es: expr) (Φ: logpred) (i: nat) (lh: lholed) : iProp Σ :=
         wp_wasm_ctx s E es (denote_logpred Φ) i lh.
 
-    Lemma lp_trap_sep (Φ Ψ: logpred) :
-        lp_trap (Φ ∗ Ψ) ⊣⊢ lp_trap Φ ∗ lp_trap Ψ.
-    Proof.
-        reflexivity.
-    Qed.
-
-    (* TODO move this to the structural rules file with wp_seq_can_trap_ctx and the rest of those lemmas *)
   End wp_params.
 
   Lemma lenient_wp_seq s E (Φ Ψ: logpred) es1 es2 :

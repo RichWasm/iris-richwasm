@@ -386,7 +386,6 @@ Section instr.
     intros n se se' [Hse Htys] τ; cbn.
     destruct τ;
       try by eapply eval_kind_se.
-    Search lookup.
     eapply (list_lookup_ne n0) in Htys.
     inversion Htys as [u v Huv Hl Hr|Hl Hr].
     - rewrite -Hl -Hr; cbn.
@@ -401,15 +400,43 @@ Section instr.
     | _ => None
     end.
 
-  Definition type_arep (se : semantic_env) (τ : type) : option (list atomic_rep) :=
-    κ ← type_skind se τ;
-    skind_rep κ.
+  Program Definition type_arep : semantic_env -n> leibnizO type -n> leibnizO (option (list atomic_rep)) :=
+    λne se τ,
+      κ ← type_skind se τ;
+      skind_rep κ.
+  Next Obligation.
+    intros * τ τ' Hτ.
+    destruct Hτ; done.
+  Qed.
+  Final Obligation.
+    intros * se se' Hse τ; cbn -[type_skind].
+    eapply option_bind_ext; eauto.
+    by eapply type_skind.
+  Qed.
 
-  Definition translate_type (se : semantic_env) (τ : type) : option (list W.value_type) :=
-    map translate_arep <$> type_arep se τ.
-  
-  Definition translate_types (se : semantic_env) (τs : list type) : option (list W.value_type) :=
-    @concat _ <$> mapM (translate_type se) τs.
+  Program Definition translate_type : semantic_env -n> leibnizO type -n> leibnizO (option (list W.value_type)) :=
+    λne se τ,
+      map translate_arep <$> type_arep se τ.
+  Next Obligation.
+    intros * τ τ' Hτ.
+    destruct Hτ; done.
+  Qed.
+  Final Obligation.
+    intros * se se' Hse τ; cbn -[type_arep].
+    eapply option_bind_ext; eauto.
+    by eapply type_arep.
+  Qed.
+
+  Program Definition translate_types : semantic_env -n> leibnizO (list type) -n> leibnizO (option (list W.value_type)) :=
+    λne se τs,
+      @concat _ <$> mapM (translate_type se) τs.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation.
+    intros * se se' Hse τs.
+    cbn -[translate_type].
+    f_equiv.
+    by eapply mapM_ext, translate_type.
+  Qed.
 
   (* Value type interpretations. *)
   Program Definition type_var_interp : leibnizO nat -n> SVRO :=
@@ -848,14 +875,16 @@ Section instr.
              na_own logrel_nais ⊤ -∗
              ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
              ↪[RUN] -∗
-             let Φ vs2 :=
+             let Φ := λne vs2,
                (∃ os2, atoms_interp os2 vs2 ∗
                        values_interp1 Ts2 se os2) ∗
-                 (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤
+               (∃ θ', rt_token rti sr θ') ∗
+               na_own logrel_nais ⊤
              in
              CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
       | FC_func_host _ _ => False
       end%I.
+  Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros * cl cl' Hcl.
     inversion Hcl as [Heq].
@@ -863,49 +892,81 @@ Section instr.
   Qed.
   Final Obligation.
     intros * se se' Hse cl.
-    destruct cl; last done; cbn -[values_interp1 atoms_interp].
+    destruct cl; last done; cbn -[values_interp1 atoms_interp translate_types].
     destruct f.
     f_equiv.
-    - admit.
-    - f_equiv.
-      + admit.
+    - do 2 f_equiv.
+      by eapply translate_types.
+    -
+      set (Φ1 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (Φ2 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (oΦ1 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (oΦ2 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      assert (HΦs : oΦ1 ≡{n}≡ oΦ2) by solve_proper.
+      set (oL1 := [(length r0, λne _, oΦ1)] : label_ctxO).
+      set (oL2 := [(length r0, λne _, oΦ2)] : label_ctxO).
+      assert (HLs: oL1 ≡{n}≡ oL2).
+      {
+        econstructor; last done.
+        f_equiv; solve_proper.
+      }
+      set (oR1 := Some (length r0, oΦ1) : return_ctxO).
+      set (oR2 := Some (length r0, oΦ2) : return_ctxO).
+      assert (HRs: oR1 ≡{n}≡ oR2) by (econstructor; done).
+      repeat match goal with
+      | |- context[ cwp_wasm _ _ l0 ?L ?R (λ _, Φ1) ] =>
+          set (L1 := L); set (R1 := R)
+      | |- context[ cwp_wasm _ _ l0 ?L ?R (λ _, Φ2) ] =>
+          set (L2 := L); set (R2 := R)
+      end.
+      f_equiv.
+      + do 2 f_equiv.
+        by eapply translate_types.
       + do 9 f_equiv.
         f_equiv; first solve_proper.
-        f_equiv.
-        f_equiv.
-        f_equiv.
-        f_equiv.
-        admit.
-  Admitted.
+        do 4 f_equiv.
+        eapply lenient_wp.lenient_wp_ne.
+        change (cwp_post_lp L1 R1 (λ _ : frame, Φ1))
+          with (cwp_post_lp_ne oL1 oR1 (λne _, oΦ1)).
+        change (cwp_post_lp L2 R2 (λ _ : frame, Φ2))
+          with (cwp_post_lp_ne oL2 oR2 (λne _, oΦ2)).
+        repeat (f_equiv; last solve_proper).
+  Qed.
+
+  Global Instance Persistent_mono_closure_interp τs1 τs2 Ts1 Ts2 se cl :
+    Persistent (mono_closure_interp τs1 τs2 Ts1 Ts2 se cl).
+  Proof.
+    destruct cl; first destruct f; typeclasses eauto.
+  Qed.
 
   Program Definition forall_mem_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
-    (λne FT se cl, ∀ μ, FT (senv_insert_mem μ se) cl)%I.
+    (λne FT se cl, □ ∀ μ, FT (senv_insert_mem μ se) cl)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros * se se' Hse cl; cbn -[senv_insert_mem].
-    f_equiv; intros μ.
+    f_equiv; f_equiv; intros μ.
     f_equiv.
     by do 2 eapply ofe_mor_ne.
   Qed.
   Final Obligation. solve_proper. Qed.
 
   Program Definition forall_rep_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
-    (λne FT se cl, ∀ ρ, FT (senv_insert_rep ρ se) cl)%I.
+    (λne FT se cl, □ ∀ ρ, FT (senv_insert_rep ρ se) cl)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros * se se' Hse cl; cbn -[senv_insert_rep].
-    f_equiv; intros ?.
+    f_equiv; f_equiv; intros ?.
     f_equiv.
     by do 2 eapply ofe_mor_ne.
   Qed.
   Final Obligation. solve_proper. Qed.
 
   Program Definition forall_size_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
-    (λne FT se cl, ∀ n, FT (senv_insert_size n se) cl)%I.
+    (λne FT se cl, □ ∀ n, FT (senv_insert_size n se) cl)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros * se se' Hse cl; cbn -[senv_insert_size].
-    f_equiv; intros ?.
+    f_equiv; f_equiv; intros ?.
     f_equiv.
     by do 2 eapply ofe_mor_ne.
   Qed.
@@ -914,7 +975,7 @@ Section instr.
   Program Definition forall_type_interp κ : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
     (λne FT se cl, ∃ sκ,
         ⌜eval_kind_se se κ = Some sκ⌝ ∗
-        ∀ sκ_T T,
+        □ ∀ sκ_T T,
           ⌜subskind_of sκ_T sκ⌝ -∗
           ⌜stype_in_skind T sκ_T⌝ -∗
           FT (senv_insert_type sκ_T T se) cl)%I.
@@ -1037,26 +1098,23 @@ Section instr.
 
   Definition instance_interp
     (mr : module_runtime) (M : module_ctx) (WT : wtype_ctx) (inst : instance) : iProp Σ :=
-    ⌜inst.(inst_types) = WT⌝ ∗
+      ⌜inst.(inst_types) = WT⌝ ∗
       instance_runtime_interp mr inst ∗
       instance_functions_interp M mr inst ∗
       instance_table_interp M mr inst ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mmmem) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_gcmem) = Some sr.(sr_mem_gc)⌝.
 
-  Global Instance Persistent_instance_interp mr M WT inst : Persistent (instance_interp mr M WT inst).
+  Global Instance Persistent_closure_interp_emp ϕ se cl :
+    Persistent (closure_interp ϕ se cl).
   Proof.
-    unfold instance_interp.
-    repeat apply bi.sep_persistent; try by typeclasses eauto.
-    - unfold instance_functions_interp.
-      (* closure_interp ϕ senv_empty cl *)
-      admit.
-    - apply bi.exist_persistent; intros i_off.
-      apply bi.exist_persistent; intros off.
-      repeat apply bi.sep_persistent; try by typeclasses eauto.
-      (* table_entry_interp off i ϕ *)
-      admit.
-  Admitted.
+    induction ϕ; cbn [closure_interp];
+      typeclasses eauto.
+  Qed.
+
+  Global Instance Persistent_instance_interp mr M WT inst :
+    Persistent (instance_interp mr M WT inst).
+  Proof. typeclasses eauto. Qed.
 
   Definition mask_locs_eq (lmask : nat -> Prop) (fr fr' : frame) : Prop :=
     forall i, lmask i -> fr.(f_locs) !! i = fr'.(f_locs) !! i.
