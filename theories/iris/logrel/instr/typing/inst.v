@@ -704,6 +704,8 @@ Section inst.
           (* inversion Hsubsk; subst. *)
 
 
+          (* TODO: *)
+          (*
           iExists (SVALTYPE ιs ξ).
           iFrame "∗".
           iSplitR; auto.
@@ -741,9 +743,11 @@ Section inst.
              cbn.
              iDestruct "Ho" as "(%sκ & %a & %b & c)".
              done.
-
-        * (* i31, qed *)
+           *)
+          admit.
+        * (* i31, qed, TODO *)
           intros; cbn.
+          (*
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -752,8 +756,11 @@ Section inst.
 
           iExists (SVALTYPE ιs ξ).
           iSplitR; [iPureIntro; by eapply eval_kind_subst_senv; done|iFrame].
-        * (* numt, qed *)
+          *)
+          admit.
+        * (* numt, qed, TODO *)
           intros. cbn.
+          (*
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -762,8 +769,11 @@ Section inst.
           iExists (SVALTYPE ιs ξ); cbn; iFrame.
           iPureIntro.
           eapply eval_kind_subst_senv; done.
-        * (* sum, nearly qed except for map/forall2 lemma *)
+          *)
+          admit.
+        * (* sum, nearly qed except for map/forall2 lemma, TODO *)
           intros; cbn.
+          (*
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -827,6 +837,8 @@ Section inst.
                 - On those things, use eval_rep_subst_senv, and you're good
               *)
              admit.
+          *)
+          admit.
         * (* variant *)
           admit.
         * (* prod *)
@@ -835,6 +847,8 @@ Section inst.
           admit.
         * (** refT, worried due to SAtoms rather than SWords, aka bad induction *)
           intros; cbn.
+          (* TODO: *)
+          (*
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -857,9 +871,12 @@ Section inst.
              admit.
           -- cbn.
              admit.
-        * (* coderef, qed *)
+          *)
+          admit.
+        * (* coderef, qed, TODO *)
           (* I think this IH for function types is what we need but we'll see *)
           intros.
+          (*
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           cbn.
@@ -874,6 +891,8 @@ Section inst.
           specialize (IHτ se se' cl sub_m sub_r sub_s sub_t Hsub_r Hsub_s Hsub_T).
           iPoseProof IHτ as "IHτ".
           iApply IHτ; auto.
+          *)
+          admit.
         * (* sert *)
           admit.
         * (* plug *)
@@ -884,6 +903,8 @@ Section inst.
           admit.
         * (* exists mem, need to fix with new T hypothesis *)
           intros.
+          (* TODO *)
+          (*
           iPoseProof (value_interp_eq with "Hoa") as "Hoa".
           iApply value_interp_eq.
           iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & (%μ & Hμ))".
@@ -938,6 +959,8 @@ Section inst.
                 jeez
               *)
              admit.
+             *)
+          admit.
         * (* exists rep *)
           admit.
         * (* exists size *)
@@ -998,6 +1021,8 @@ Section inst.
           iIntros "Hcl".
           cbn.
           iIntros.
+          (* TODO: *)
+          (*
           iSpecialize ("Hcl" $! μ).
           iApply IHτ; last done.
           ++ intros ?? H'. asimpl'. apply eval_rep_mem_irrel. by apply Hsub_r.
@@ -1010,6 +1035,8 @@ Section inst.
              split; [by apply type_skind_mem_irrel|].
              (* this is going to be a value interp mem shifting thing *)
              admit.
+          *)
+          admit.
         * (* ForallRepT *)
           admit.
         * (* ForallSizeT *)
@@ -1024,6 +1051,8 @@ Section inst.
           iIntros (?? Hsubs Hskind).
           iSpecialize ("Hcl" $! sκ_T T Hsubs Hskind).
 
+          (* TODO: *)
+          (*
           iApply IHτ; last done.
           ++ intros ?? H'; asimpl'. unfold core.funcomp.
              cbn in H'.
@@ -1045,19 +1074,19 @@ Section inst.
                 split; [by apply type_skind_up_type|].
                 (* this is a value interp type shifting thing *)
                 admit.
-
+           *)
   Admitted.
 
 
   (* TODO: The lemma for values_interp0 might require adding an assumption about
      the memory substitution? *)
-  Lemma closure_interp0_subst_senv se se' ϕ cl sub_m sub_r sub_s sub_t :
+  Lemma closure_interp_subst_senv se se' ϕ cl sub_m sub_r sub_s sub_t :
     (sem_env_rel_rep se' se sub_r) ->
     (sem_env_rel_size se' se sub_s) ->
     (sem_env_rel_type se' se sub_t) ->
-    closure_interp0 rti sr (value_interp rti sr) se' ϕ cl -∗
+    closure_interp rti sr ϕ se' cl -∗
     let ϕ' := subst_function_type sub_m sub_r sub_s sub_t ϕ in
-    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+    closure_interp rti sr ϕ' se cl.
   Proof.
     generalize dependent sub_t.
     generalize dependent sub_s.
@@ -1113,6 +1142,8 @@ Section inst.
     - iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl %".
       pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
       unfold_sem_rels.
+      (* TODO: *)
+      (*
       iApply IHϕ; last done.
       + intros ?? H. asimpl'. apply eval_rep_mem_irrel. by apply Hsub_r.
       + intros ?? H. asimpl'. apply eval_size_mem_irrel. by apply Hsub_s.
@@ -1123,9 +1154,13 @@ Section inst.
         split; [by apply type_skind_mem_irrel|].
         (* same uh oh as above *)
         admit.
+      *)
+      admit.
     - iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl %".
       pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
       unfold_sem_rels.
+      (* TODO: *)
+      (*
       iApply IHϕ; last done.
       + intros ?? H.
         destruct i.
@@ -1139,29 +1174,35 @@ Section inst.
         (* split; [by apply type_skind_up_rep|done]. *)
         split; [by apply type_skind_up_rep|].
         admit.
+      *)
+      admit.
     - iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl %".
+      (* TODO: *)
+      (*
       iApply IHϕ; last done.
       + intros ?? H. apply eval_rep_up_size. admit.
       + admit.
       + admit.
+      *)
+      admit.
     - admit.
   Admitted.
 
-  Lemma closure_interp0_scons_insert_mem F se μ ϕ cl :
+  Lemma closure_interp_scons_insert_mem F se μ ϕ cl :
     mem_ok F.(fc_kind_ctx) μ ->
     sem_env_interp F se ->
-    (∀ μ', closure_interp0 rti sr (value_interp rti sr) (senv_insert_mem μ' se) ϕ cl) -∗
+    (∀ μ', closure_interp rti sr ϕ (senv_insert_mem μ' se) cl) -∗
     let ϕ' := subst_function_type (unscoped.scons μ VarM) VarR VarS VarT ϕ in
-    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+    closure_interp rti sr ϕ' se cl.
   Proof using mr. (* NOTE: don't know why rocq wants using mr *)
     iIntros (Hok Hse) "Hcl".
-    iApply closure_interp0_subst_senv; unfold_sem_rels; last done; try done.
+    iApply closure_interp_subst_senv; unfold_sem_rels; last done; try done.
     Unshelve.
     2: exact MemMM.
 
     intros i sκ' T' H.
     split.
-    + destruct se; destruct o; destruct o.
+    + destruct se.
       unfold senv_insert_mem in *; unfold lookup_type in *; cbn in *.
       apply fmap_Some; eexists; split; done.
     + iIntros (sv) "HT' %Hsvalue".
@@ -1171,17 +1212,17 @@ Section inst.
       by iPureIntro.
   Qed.
 
-  Lemma closure_interp0_scons_insert_rep F se ρ ϕ cl :
+  Lemma closure_interp_scons_insert_rep F se ρ ϕ cl :
     rep_ok (fc_kind_ctx F) ρ ->
     sem_env_interp F se ->
-    (∀ ιs, closure_interp0 rti sr (value_interp rti sr) (senv_insert_rep ιs se) ϕ cl) -∗
+    (∀ ιs, closure_interp rti sr ϕ (senv_insert_rep ιs se) cl) -∗
     let ϕ' := subst_function_type VarM (unscoped.scons ρ VarR) VarS VarT ϕ in
-    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+    closure_interp rti sr ϕ' se cl.
   Proof using mr.
     iIntros (Hok Hse) "Hcl".
     destruct (eval_rep_ok_Some _ _ _ Hse Hok) as [ιs Hιs].
     iSpecialize ("Hcl" $! ιs).
-    iApply closure_interp0_subst_senv; unfold_sem_rels; last done.
+    iApply closure_interp_subst_senv; unfold_sem_rels; last done.
     - intros ?? H.
       destruct i.
       + by rewrite <- H.
@@ -1190,7 +1231,7 @@ Section inst.
     - intros ??? H.
       cbn in *.
       split.
-      + destruct se; destruct o; destruct o.
+      + destruct se.
         unfold senv_insert_rep in *; unfold lookup_type in *; cbn in *.
         apply fmap_Some; eexists; split; done.
       + iIntros (sv) "HT' %Hsvalue".
@@ -1200,17 +1241,17 @@ Section inst.
         by iPureIntro.
   Qed.
 
-  Lemma closure_interp0_scons_insert_size F se σ ϕ cl :
+  Lemma closure_interp_scons_insert_size F se σ ϕ cl :
     size_ok (fc_kind_ctx F) σ ->
     sem_env_interp F se ->
-    (∀ n, closure_interp0 rti sr (value_interp rti sr) (senv_insert_size n se) ϕ cl) -∗
+    (∀ n, closure_interp rti sr ϕ (senv_insert_size n se) cl) -∗
     let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
-    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+    closure_interp rti sr ϕ' se cl.
   Proof using mr.
     iIntros (Hok Hse) "Hcl".
     destruct (eval_size_ok_Some _ _ _ Hse Hok) as [n Hn].
     iSpecialize ("Hcl" $! n).
-    iApply closure_interp0_subst_senv; unfold_sem_rels; last done.
+    iApply closure_interp_subst_senv; unfold_sem_rels; last done.
     - done.
     - intros ?? H.
       destruct i.
@@ -1219,7 +1260,7 @@ Section inst.
     - intros ??? H.
       cbn in *.
       split.
-      + destruct se; destruct o; destruct o.
+      + destruct se.
         unfold senv_insert_size in *; unfold lookup_type in *; cbn in *.
         apply fmap_Some; eexists; split; done.
       + iIntros (sv) "HT' %Hsvalue".
@@ -1229,22 +1270,22 @@ Section inst.
         by iPureIntro.
   Qed.
 
-  Lemma closure_interp0_scons_insert_type F se τ κ sκ ϕ cl :
+  Lemma closure_interp_scons_insert_type F se τ κ sκ ϕ cl :
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     (∀ sκ_T T,
        ⌜subskind_of sκ_T sκ⌝ -∗
-       ⌜stype_in_skind T sκ_T⌝ -∗
-       closure_interp0 rti sr (value_interp rti sr) (senv_insert_type sκ_T T se) ϕ cl) -∗
+       ⌜skind_has_stype sκ_T T⌝ -∗
+       closure_interp rti sr ϕ (senv_insert_type sκ_T T se) cl) -∗
     let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
-    closure_interp0 rti sr (value_interp rti sr) se ϕ' cl.
+    closure_interp rti sr ϕ' se cl.
   Proof using mr.
     iIntros (Hok Hse Hsκ) "Hcl".
     pose proof (type_skind_has_kind_Some _ _ _ _ _ Hok Hse Hsκ) as (sκ_T & Hskind & Hsub).
     set T := value_interp rti sr se τ.
     iSpecialize ("Hcl" $! sκ_T T).
-    iApply closure_interp0_subst_senv; unfold_sem_rels; last iApply "Hcl".
+    iApply closure_interp_subst_senv; unfold_sem_rels; last iApply "Hcl".
     - done.
     - done.
     - (* this an attempt to figure out the T hypothesis *)
@@ -1267,8 +1308,7 @@ Section inst.
     - iPureIntro.
       subst T.
       iIntros (sv) "H".
-      rewrite value_interp_eq.
-      iDestruct "H" as "(%sκ' & %Hsκ' & %Hskind' & H)".
+      iDestruct (value_interp_skind with "H") as "(%sκ' & %Hsκ' & %Hskind')".
       rewrite Hskind in Hsκ'.
       by inversion Hsκ'; subst.
   Qed.
@@ -1298,8 +1338,6 @@ Section inst.
     iPoseProof (value_interp_coderef with "Hos") as "%Hos".
     destruct Hos as (n32 & ->).
     iApply values_interp_one_eq.
-    iApply value_interp_eq.
-    iPoseProof (value_interp_eq with "Hos") as "Hos".
 
     (* now we need to use the key hypothesis: Hfinst *)
     destruct Hfinst.
@@ -1324,11 +1362,11 @@ Section inst.
     all: iFrame.
     all: iSplitR; auto; iSplitR; auto.
 
-    - by iApply closure_interp0_scons_insert_mem; last inversion Hok.
-    - by iApply closure_interp0_scons_insert_rep; last inversion Hok.
-    - by iApply closure_interp0_scons_insert_size; last inversion Hok.
+    - by iApply closure_interp_scons_insert_mem; last inversion Hok.
+    - by iApply closure_interp_scons_insert_rep; last inversion Hok.
+    - by iApply closure_interp_scons_insert_size; last inversion Hok.
     - iDestruct "Hclosure" as "(% & % & ?)".
-      by iApply closure_interp0_scons_insert_type; last inversion Hok.
+      by iApply closure_interp_scons_insert_type; last inversion Hok.
   Qed.
 
 End inst.
