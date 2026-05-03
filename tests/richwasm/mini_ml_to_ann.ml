@@ -50,8 +50,7 @@ let%expect_test "examples" =
         tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
         num_const 4 ;; [] -> [(num (val i32 norefs) i32)]
         tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
-        group ;; [(i31 (val ptr norefs)) (i31 (val ptr norefs)) (i31 (val ptr norefs))
-                 (i31 (val ptr norefs))] ->
+        group ;; [(i31 (val ptr norefs)) (i31 (val ptr norefs)) (i31 (val ptr norefs)) (i31 (val ptr norefs))] ->
                  [(prod (val (prod ptr ptr ptr ptr) norefs) (i31 (val ptr norefs))
                     (i31 (val ptr norefs)) (i31 (val ptr norefs)) (i31 (val ptr norefs)))]
         new ;; [(prod (val (prod ptr ptr ptr ptr) norefs) (i31 (val ptr norefs))
@@ -126,9 +125,9 @@ let%expect_test "examples" =
         group ;; [(ref (val ptr gcrefs) (base gc)
                     (struct (mem (prod (rep ptr) (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                 (ref (val ptr gcrefs) (base gc)
-                   (struct (mem (prod (rep ptr) (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
-                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                  (ref (val ptr gcrefs) (base gc)
+                    (struct (mem (prod (rep ptr) (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                  ->
                  [(prod (val (prod ptr ptr) gcrefs)
                     (ref (val ptr gcrefs) (base gc)
@@ -209,7 +208,7 @@ let%expect_test "examples" =
                                  (struct (mem (prod (rep ptr) (rep ptr)) norefs)
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (i31 (val ptr norefs))]
+                               (i31 (val ptr norefs))]
         local.set 1 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
@@ -380,10 +379,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
@@ -402,7 +401,7 @@ let%expect_test "examples" =
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                              (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+                               (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -425,10 +424,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
@@ -447,7 +446,7 @@ let%expect_test "examples" =
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                              (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+                               (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
         local.set 3 ;; [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -492,7 +491,8 @@ let%expect_test "examples" =
                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                     -> (i31 (val ptr norefs))))
-                 (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))] ->
+                  (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+                 ->
                  [(prod (val (prod i32 ptr) gcrefs)
                     (coderef (val i32 norefs)
                       ((ref (val ptr gcrefs) (base gc)
@@ -586,10 +586,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
@@ -608,7 +608,7 @@ let%expect_test "examples" =
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                              (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+                               (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -631,10 +631,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
@@ -653,7 +653,7 @@ let%expect_test "examples" =
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                              (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+                               (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
         local.set 3 ;; [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -688,7 +688,8 @@ let%expect_test "examples" =
                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                     -> (i31 (val ptr norefs))))
-                 (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))] ->
+                  (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+                 ->
                  [(prod (val (prod i32 ptr) gcrefs)
                     (coderef (val i32 norefs)
                       ((ref (val ptr gcrefs) (base gc)
@@ -805,15 +806,15 @@ let%expect_test "examples" =
                                 (ser (mem (rep ptr) gcrefs) (var 0))
                                 (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0))
-                               (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0))
+                                (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 1 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -849,7 +850,7 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs)
                                                 (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                                          -> (i31 (val ptr norefs)))))))
-                                (var 0)]
+                                 (var 0)]
           local.set 2 ;; [(var 0)] -> []
           drop ;; [(ref (val ptr gcrefs) (base gc)
                      (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
@@ -894,15 +895,15 @@ let%expect_test "examples" =
                                 (ser (mem (rep ptr) gcrefs) (var 0))
                                 (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0))
-                               (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0))
+                                (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 1 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -938,13 +939,13 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs)
                                                 (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                                          -> (i31 (val ptr norefs)))))))
-                                (coderef (val i32 norefs)
-                                  ((ref (val ptr gcrefs) (base gc)
-                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                       (ser (mem (rep ptr) gcrefs) (var 0))
-                                       (ser (mem (rep ptr) gcrefs)
-                                         (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                                  -> (i31 (val ptr norefs))))]
+                                 (coderef (val i32 norefs)
+                                   ((ref (val ptr gcrefs) (base gc)
+                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs) (var 0))
+                                        (ser (mem (rep ptr) gcrefs)
+                                          (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                                   -> (i31 (val ptr norefs))))]
           local.set 4 ;; [(coderef (val i32 norefs)
                             ((ref (val ptr gcrefs) (base gc)
                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -1001,11 +1002,11 @@ let%expect_test "examples" =
                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
                           (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                      -> (i31 (val ptr norefs))))
-                  (coderef (val i32 norefs)
-                    ((ref (val ptr gcrefs) (base gc)
-                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                    -> (i31 (val ptr norefs))))]
+                   (coderef (val i32 norefs)
+                     ((ref (val ptr gcrefs) (base gc)
+                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                     -> (i31 (val ptr norefs))))]
           local.set 5 ;; [(coderef (val i32 norefs)
                             ((ref (val ptr gcrefs) (base gc)
                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -1017,13 +1018,13 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0))
                                 (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                           (coderef (val i32 norefs)
-                             ((ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs) (var 0))
-                                  (ser (mem (rep ptr) gcrefs)
-                                    (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                             -> (i31 (val ptr norefs))))]
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                              -> (i31 (val ptr norefs))))]
                            -> [(i31 (val ptr norefs))]
           local.get move 5 ;; [] ->
                               [(coderef (val i32 norefs)
@@ -1098,10 +1099,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
-                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
@@ -1118,7 +1119,7 @@ let%expect_test "examples" =
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (i31 (val ptr norefs))]
+                               (i31 (val ptr norefs))]
         local.set 1 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -1166,10 +1167,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                      (ser (mem (rep ptr) gcrefs) (var 0))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
-                    (ser (mem (rep ptr) gcrefs) (var 0))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
@@ -1186,7 +1187,7 @@ let%expect_test "examples" =
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
                                    (ser (mem (rep ptr) gcrefs) (var 0))))
-                              (var 0)]
+                               (var 0)]
         local.set 1 ;; [(var 0)] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -1214,22 +1215,22 @@ let%expect_test "examples" =
         local.get move 1 ;; [] -> [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
         copy ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))] ->
                 [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))
-                (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
+                 (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))] -> []
         num_const 1 ;; [] -> [(num (val i32 norefs) i32)]
         tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
         store (path) ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))
-                        (i31 (val ptr norefs))] ->
-                        [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
+                         (i31 (val ptr norefs))]
+                        -> [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
         local.set 2 ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))] -> []
         local.get move 1 ;; [] -> [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
         copy ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))] ->
                 [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))
-                (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
+                 (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))] -> []
         load (path) copy ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))] ->
                             [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))
-                            (i31 (val ptr norefs))]
+                             (i31 (val ptr norefs))]
         local.set 3 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))] -> []
         local.get move 3 ;; [] -> [(i31 (val ptr norefs))]
@@ -1742,16 +1743,16 @@ let%expect_test "examples" =
                              (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
                            (ser (mem (rep ptr) gcrefs)
                              (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
-                    (ser (mem (rep ptr) gcrefs)
-                      (ref (val ptr gcrefs) (base gc)
-                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                          (ser (mem (rep ptr) gcrefs)
-                            (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
-                          (ser (mem (rep ptr) gcrefs)
-                            (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc)
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs)
+                             (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
+                           (ser (mem (rep ptr) gcrefs)
+                             (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))))))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))
@@ -1786,12 +1787,12 @@ let%expect_test "examples" =
                                            (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
                                          (ser (mem (rep ptr) gcrefs)
                                            (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))))))))
-                              (ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs)
-                                    (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
-                                  (ser (mem (rep ptr) gcrefs)
-                                    (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))]
+                               (ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -1840,10 +1841,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))]
         local.set 2 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -1864,7 +1865,7 @@ let%expect_test "examples" =
                                      (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))
-                              (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0)))]
+                               (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0)))]
         local.set 5 ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0)))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -1873,8 +1874,7 @@ let%expect_test "examples" =
                 -> []
         local.get move 5 ;; [] -> [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0)))]
         load (path) copy ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0)))] ->
-                            [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0)))
-                            (var 0)]
+                            [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))) (var 0)]
         local.set 6 ;; [(var 0)] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0)))] -> []
         local.get move 6 ;; [] -> [(var 0)]
@@ -1894,10 +1894,10 @@ let%expect_test "examples" =
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))]
         local.set 2 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -1918,7 +1918,7 @@ let%expect_test "examples" =
                                      (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 0))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))))))
-                              (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))]
+                               (ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))]
         local.set 3 ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -1927,8 +1927,7 @@ let%expect_test "examples" =
                 -> []
         local.get move 3 ;; [] -> [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))]
         load (path) copy ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))] ->
-                            [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))
-                            (var 1)]
+                            [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1))) (var 1)]
         local.set 4 ;; [(var 1)] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep ptr) gcrefs) (var 1)))] -> []
         local.get move 4 ;; [] -> [(var 1)]
@@ -1996,12 +1995,12 @@ let%expect_test "examples" =
                        (ref (val ptr gcrefs) (base gc)
                          (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (ref (val ptr gcrefs) (base gc)
-                        (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc)
+                         (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -2026,8 +2025,8 @@ let%expect_test "examples" =
                                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                              (ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                               (ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                        -> []
@@ -2065,12 +2064,12 @@ let%expect_test "examples" =
                        (ref (val ptr gcrefs) (base gc)
                          (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                      (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (ref (val ptr gcrefs) (base gc)
-                        (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
-                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc)
+                         (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -2095,7 +2094,7 @@ let%expect_test "examples" =
                                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                                    (ser (mem (rep ptr) gcrefs)
                                      (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                              (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+                               (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
         local.set 3 ;; [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -2114,8 +2113,8 @@ let%expect_test "examples" =
                 ->
                 [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 2 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                        -> []
@@ -2124,7 +2123,7 @@ let%expect_test "examples" =
                               ->
                               [(ref (val ptr gcrefs) (base gc)
                                  (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (i31 (val ptr norefs))]
+                               (i31 (val ptr norefs))]
         local.set 5 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
@@ -2178,8 +2177,8 @@ let%expect_test "examples" =
                              (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                     -> (i31 (val ptr norefs))))
-                 (ref (val ptr gcrefs) (base gc)
-                   (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                  (ref (val ptr gcrefs) (base gc)
+                    (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                  ->
                  [(prod (val (prod i32 ptr) gcrefs)
                     (coderef (val i32 norefs)
@@ -2320,16 +2319,16 @@ let%expect_test "examples" =
                                 (ser (mem (rep ptr) gcrefs) (var 0))
                                 (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                            -> (i31 (val ptr norefs))))))))
-                (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0))
-                               (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                          -> (i31 (val ptr norefs))))))))]
+                 (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0))
+                                (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                           -> (i31 (val ptr norefs))))))))]
         local.set 2 ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
                           (ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
@@ -2402,15 +2401,15 @@ let%expect_test "examples" =
                                 (ser (mem (rep ptr) gcrefs) (var 0))
                                 (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0))
-                               (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0))
+                                (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 3 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -2446,7 +2445,7 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs)
                                                 (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                                          -> (i31 (val ptr norefs)))))))
-                                (var 0)]
+                                 (var 0)]
           local.set 4 ;; [(var 0)] -> []
           drop ;; [(ref (val ptr gcrefs) (base gc)
                      (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
@@ -2491,15 +2490,15 @@ let%expect_test "examples" =
                                 (ser (mem (rep ptr) gcrefs) (var 0))
                                 (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0))
-                               (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0))
+                                (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 3 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -2535,13 +2534,13 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs)
                                                 (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                                          -> (i31 (val ptr norefs)))))))
-                                (coderef (val i32 norefs)
-                                  ((ref (val ptr gcrefs) (base gc)
-                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                       (ser (mem (rep ptr) gcrefs) (var 0))
-                                       (ser (mem (rep ptr) gcrefs)
-                                         (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                                  -> (i31 (val ptr norefs))))]
+                                 (coderef (val i32 norefs)
+                                   ((ref (val ptr gcrefs) (base gc)
+                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs) (var 0))
+                                        (ser (mem (rep ptr) gcrefs)
+                                          (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                                   -> (i31 (val ptr norefs))))]
           local.set 6 ;; [(coderef (val i32 norefs)
                             ((ref (val ptr gcrefs) (base gc)
                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -2598,11 +2597,11 @@ let%expect_test "examples" =
                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
                           (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
                      -> (i31 (val ptr norefs))))
-                  (coderef (val i32 norefs)
-                    ((ref (val ptr gcrefs) (base gc)
-                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                    -> (i31 (val ptr norefs))))]
+                   (coderef (val i32 norefs)
+                     ((ref (val ptr gcrefs) (base gc)
+                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                     -> (i31 (val ptr norefs))))]
           local.set 7 ;; [(coderef (val i32 norefs)
                             ((ref (val ptr gcrefs) (base gc)
                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -2614,13 +2613,13 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0))
                                 (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                           (coderef (val i32 norefs)
-                             ((ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs) (var 0))
-                                  (ser (mem (rep ptr) gcrefs)
-                                    (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
-                             -> (i31 (val ptr norefs))))]
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))
+                              -> (i31 (val ptr norefs))))]
                            -> [(i31 (val ptr norefs))]
           local.get move 7 ;; [] ->
                               [(coderef (val i32 norefs)
@@ -2782,25 +2781,25 @@ let%expect_test "examples" =
                                        -> (i31 (val ptr norefs)))))))))
                            (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (ref (val ptr gcrefs) (base gc)
-                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                          (ser (mem (rep ptr) gcrefs)
-                            (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                              (ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs) (var 0))
-                                  (ser (mem (rep i32) norefs)
-                                    (coderef (val i32 norefs)
-                                      ((ref (val ptr gcrefs) (base gc)
-                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                           (ser (mem (rep ptr) gcrefs) (var 0))
-                                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                      -> (i31 (val ptr norefs)))))))))
-                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
-                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc)
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs)
+                             (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       ((ref (val ptr gcrefs) (base gc)
+                                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                            (ser (mem (rep ptr) gcrefs) (var 0))
+                                            (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                       -> (i31 (val ptr norefs)))))))))
+                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
+                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -2864,21 +2863,21 @@ let%expect_test "examples" =
                                                      -> (i31 (val ptr norefs)))))))))
                                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs)
-                                    (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                                      (ref (val ptr gcrefs) (base gc)
-                                        (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
-                                          (ser (mem (rep ptr) gcrefs) (var 0))
-                                          (ser (mem (rep i32) norefs)
-                                            (coderef (val i32 norefs)
-                                              ((ref (val ptr gcrefs) (base gc)
-                                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                                   (ser (mem (rep ptr) gcrefs) (var 0))
-                                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                              -> (i31 (val ptr norefs)))))))))
-                                  (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                               (ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                                       (ref (val ptr gcrefs) (base gc)
+                                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs) (var 0))
+                                           (ser (mem (rep i32) norefs)
+                                             (coderef (val i32 norefs)
+                                               ((ref (val ptr gcrefs) (base gc)
+                                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                    (ser (mem (rep ptr) gcrefs) (var 0))
+                                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                               -> (i31 (val ptr norefs)))))))))
+                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -3007,25 +3006,25 @@ let%expect_test "examples" =
                                        -> (i31 (val ptr norefs)))))))))
                            (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (ref (val ptr gcrefs) (base gc)
-                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                          (ser (mem (rep ptr) gcrefs)
-                            (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                              (ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs) (var 0))
-                                  (ser (mem (rep i32) norefs)
-                                    (coderef (val i32 norefs)
-                                      ((ref (val ptr gcrefs) (base gc)
-                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                           (ser (mem (rep ptr) gcrefs) (var 0))
-                                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                      -> (i31 (val ptr norefs)))))))))
-                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
-                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc)
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs)
+                             (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       ((ref (val ptr gcrefs) (base gc)
+                                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                            (ser (mem (rep ptr) gcrefs) (var 0))
+                                            (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                       -> (i31 (val ptr norefs)))))))))
+                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
+                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -3089,7 +3088,7 @@ let%expect_test "examples" =
                                                      -> (i31 (val ptr norefs)))))))))
                                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (i31 (val ptr norefs))]
+                               (i31 (val ptr norefs))]
         local.set 3 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -3160,21 +3159,21 @@ let%expect_test "examples" =
                                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                  -> (i31 (val ptr norefs)))))))))
                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                        (ref (val ptr gcrefs) (base gc)
-                          (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
-                            (ser (mem (rep ptr) gcrefs) (var 0))
-                            (ser (mem (rep i32) norefs)
-                              (coderef (val i32 norefs)
-                                ((ref (val ptr gcrefs) (base gc)
-                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                     (ser (mem (rep ptr) gcrefs) (var 0))
-                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                -> (i31 (val ptr norefs)))))))))
-                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                         (ref (val ptr gcrefs) (base gc)
+                           (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (var 0))
+                             (ser (mem (rep i32) norefs)
+                               (coderef (val i32 norefs)
+                                 ((ref (val ptr gcrefs) (base gc)
+                                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                      (ser (mem (rep ptr) gcrefs) (var 0))
+                                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                 -> (i31 (val ptr norefs)))))))))
+                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 2 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -3222,17 +3221,17 @@ let%expect_test "examples" =
                                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                                -> (i31 (val ptr norefs)))))))))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                                (ref (val ptr gcrefs) (base gc)
-                                  (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
-                                    (ser (mem (rep ptr) gcrefs) (var 0))
-                                    (ser (mem (rep i32) norefs)
-                                      (coderef (val i32 norefs)
-                                        ((ref (val ptr gcrefs) (base gc)
-                                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                             (ser (mem (rep ptr) gcrefs) (var 0))
-                                             (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                        -> (i31 (val ptr norefs))))))))]
+                               (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                                 (ref (val ptr gcrefs) (base gc)
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         ((ref (val ptr gcrefs) (base gc)
+                                            (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                              (ser (mem (rep ptr) gcrefs) (var 0))
+                                              (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                         -> (i31 (val ptr norefs))))))))]
         local.set 5 ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
                           (ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
@@ -3332,21 +3331,21 @@ let%expect_test "examples" =
                                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                  -> (i31 (val ptr norefs)))))))))
                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                        (ref (val ptr gcrefs) (base gc)
-                          (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
-                            (ser (mem (rep ptr) gcrefs) (var 0))
-                            (ser (mem (rep i32) norefs)
-                              (coderef (val i32 norefs)
-                                ((ref (val ptr gcrefs) (base gc)
-                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                     (ser (mem (rep ptr) gcrefs) (var 0))
-                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                -> (i31 (val ptr norefs)))))))))
-                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                         (ref (val ptr gcrefs) (base gc)
+                           (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (var 0))
+                             (ser (mem (rep i32) norefs)
+                               (coderef (val i32 norefs)
+                                 ((ref (val ptr gcrefs) (base gc)
+                                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                      (ser (mem (rep ptr) gcrefs) (var 0))
+                                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                 -> (i31 (val ptr norefs)))))))))
+                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 2 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -3394,7 +3393,7 @@ let%expect_test "examples" =
                                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                                -> (i31 (val ptr norefs)))))))))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (i31 (val ptr norefs))]
+                               (i31 (val ptr norefs))]
         local.set 7 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -3445,15 +3444,15 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                            -> (i31 (val ptr norefs))))))))
-                (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                          -> (i31 (val ptr norefs))))))))]
+                 (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                           -> (i31 (val ptr norefs))))))))]
         local.set 6 ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
                           (ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
@@ -3559,14 +3558,14 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 9 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -3599,7 +3598,7 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs) (var 0))
                                               (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                          -> (i31 (val ptr norefs)))))))
-                                (var 0)]
+                                 (var 0)]
           local.set 10 ;; [(var 0)] -> []
           drop ;; [(ref (val ptr gcrefs) (base gc)
                      (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
@@ -3640,14 +3639,14 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 9 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -3680,12 +3679,12 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs) (var 0))
                                               (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                          -> (i31 (val ptr norefs)))))))
-                                (coderef (val i32 norefs)
-                                  ((ref (val ptr gcrefs) (base gc)
-                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                       (ser (mem (rep ptr) gcrefs) (var 0))
-                                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                  -> (i31 (val ptr norefs))))]
+                                 (coderef (val i32 norefs)
+                                   ((ref (val ptr gcrefs) (base gc)
+                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs) (var 0))
+                                        (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                   -> (i31 (val ptr norefs))))]
           local.set 12 ;; [(coderef (val i32 norefs)
                              ((ref (val ptr gcrefs) (base gc)
                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -3735,11 +3734,11 @@ let%expect_test "examples" =
                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                      -> (i31 (val ptr norefs))))
-                  (coderef (val i32 norefs)
-                    ((ref (val ptr gcrefs) (base gc)
-                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                         (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                    -> (i31 (val ptr norefs))))]
+                   (coderef (val i32 norefs)
+                     ((ref (val ptr gcrefs) (base gc)
+                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                     -> (i31 (val ptr norefs))))]
           local.set 13 ;; [(coderef (val i32 norefs)
                              ((ref (val ptr gcrefs) (base gc)
                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -3749,11 +3748,12 @@ let%expect_test "examples" =
           call_indirect ;; [(ref (val ptr gcrefs) (base gc)
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                           (coderef (val i32 norefs)
-                             ((ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                             -> (i31 (val ptr norefs))))]
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                              -> (i31 (val ptr norefs))))]
                            -> [(i31 (val ptr norefs))]
           local.get move 13 ;; [] ->
                                [(coderef (val i32 norefs)
@@ -3894,12 +3894,12 @@ let%expect_test "examples" =
                        (ref (val ptr gcrefs) (base gc)
                          (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (ref (val ptr gcrefs) (base gc)
-                        (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
-                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc)
+                         (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
+                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -3922,8 +3922,8 @@ let%expect_test "examples" =
                                        (struct (mem (prod (rep ptr)) norefs)
                                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                               (ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 1 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                        -> []
@@ -3961,12 +3961,12 @@ let%expect_test "examples" =
                        (ref (val ptr gcrefs) (base gc)
                          (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                    (ser (mem (rep ptr) gcrefs)
-                      (ref (val ptr gcrefs) (base gc)
-                        (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
-                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc)
+                         (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
+                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 0 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                             (ser (mem (rep ptr) gcrefs)
@@ -3989,7 +3989,7 @@ let%expect_test "examples" =
                                        (struct (mem (prod (rep ptr)) norefs)
                                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (i31 (val ptr norefs))]
+                               (i31 (val ptr norefs))]
         local.set 3 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -4008,8 +4008,8 @@ let%expect_test "examples" =
                 ->
                 [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                (ref (val ptr gcrefs) (base gc)
-                  (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                 (ref (val ptr gcrefs) (base gc)
+                   (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
         local.set 2 ;; [(ref (val ptr gcrefs) (base gc)
                           (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                        -> []
@@ -4018,7 +4018,7 @@ let%expect_test "examples" =
                               ->
                               [(ref (val ptr gcrefs) (base gc)
                                  (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                              (i31 (val ptr norefs))]
+                               (i31 (val ptr norefs))]
         local.set 5 ;; [(i31 (val ptr norefs))] -> []
         drop ;; [(ref (val ptr gcrefs) (base gc)
                    (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
@@ -4079,8 +4079,8 @@ let%expect_test "examples" =
                              (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                     -> (i31 (val ptr norefs))))
-                 (ref (val ptr gcrefs) (base gc)
-                   (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                  (ref (val ptr gcrefs) (base gc)
+                    (struct (mem (prod (rep ptr)) norefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                  ->
                  [(prod (val (prod i32 ptr) gcrefs)
                     (coderef (val i32 norefs)
@@ -4241,15 +4241,15 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                            -> (i31 (val ptr norefs))))))))
-                (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                          -> (i31 (val ptr norefs))))))))]
+                 (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                           -> (i31 (val ptr norefs))))))))]
         local.set 2 ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
                           (ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
@@ -4263,15 +4263,15 @@ let%expect_test "examples" =
                                   -> (i31 (val ptr norefs))))))))]
                        -> []
         group ;; [(i31 (val ptr norefs))
-                 (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                   (ref (val ptr gcrefs) (base gc)
-                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                       (ser (mem (rep i32) norefs)
-                         (coderef (val i32 norefs)
-                           ((ref (val ptr gcrefs) (base gc)
-                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                           -> (i31 (val ptr norefs))))))))]
+                  (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                    (ref (val ptr gcrefs) (base gc)
+                      (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                        (ser (mem (rep i32) norefs)
+                          (coderef (val i32 norefs)
+                            ((ref (val ptr gcrefs) (base gc)
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                            -> (i31 (val ptr norefs))))))))]
                  ->
                  [(prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs))
                     (exists.type (val ptr gcrefs) (val ptr gcrefs)
@@ -4360,21 +4360,21 @@ let%expect_test "examples" =
                                (ser (mem (rep ptr) norefs) (i31 (val ptr norefs))))))
                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                     -> (i31 (val ptr norefs))))
-                 (ref (val ptr gcrefs) (base gc)
-                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                     (ser (mem (rep ptr) gcrefs)
-                       (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                         (ref (val ptr gcrefs) (base gc)
-                           (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
-                             (ser (mem (rep ptr) gcrefs) (var 0))
-                             (ser (mem (rep i32) norefs)
-                               (coderef (val i32 norefs)
-                                 ((ref (val ptr gcrefs) (base gc)
-                                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                      (ser (mem (rep ptr) gcrefs) (var 0))
-                                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                 -> (i31 (val ptr norefs)))))))))
-                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+                  (ref (val ptr gcrefs) (base gc)
+                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                      (ser (mem (rep ptr) gcrefs)
+                        (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc)
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  ((ref (val ptr gcrefs) (base gc)
+                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 0))
+                                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                  -> (i31 (val ptr norefs)))))))))
+                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
                  ->
                  [(prod (val (prod i32 ptr) gcrefs)
                     (coderef (val i32 norefs)
@@ -4663,15 +4663,15 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                            -> (i31 (val ptr norefs))))))))
-                (exists.type (val ptr gcrefs) (val ptr gcrefs)
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                          -> (i31 (val ptr norefs))))))))]
+                 (exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                           -> (i31 (val ptr norefs))))))))]
         local.set 3 ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
                           (ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
@@ -4748,14 +4748,14 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 4 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -4788,7 +4788,7 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs) (var 0))
                                               (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                          -> (i31 (val ptr norefs)))))))
-                                (var 0)]
+                                 (var 0)]
           local.set 5 ;; [(var 0)] -> []
           drop ;; [(ref (val ptr gcrefs) (base gc)
                      (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
@@ -4829,14 +4829,14 @@ let%expect_test "examples" =
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                            -> (i31 (val ptr norefs)))))))
-                  (ref (val ptr gcrefs) (base gc)
-                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                      (ser (mem (rep i32) norefs)
-                        (coderef (val i32 norefs)
-                          ((ref (val ptr gcrefs) (base gc)
-                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                               (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                          -> (i31 (val ptr norefs)))))))]
+                   (ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           ((ref (val ptr gcrefs) (base gc)
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                           -> (i31 (val ptr norefs)))))))]
           local.set 4 ;; [(ref (val ptr gcrefs) (base gc)
                             (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
                               (ser (mem (rep ptr) gcrefs) (var 0))
@@ -4869,12 +4869,12 @@ let%expect_test "examples" =
                                               (ser (mem (rep ptr) gcrefs) (var 0))
                                               (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                                          -> (i31 (val ptr norefs)))))))
-                                (coderef (val i32 norefs)
-                                  ((ref (val ptr gcrefs) (base gc)
-                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                       (ser (mem (rep ptr) gcrefs) (var 0))
-                                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                                  -> (i31 (val ptr norefs))))]
+                                 (coderef (val i32 norefs)
+                                   ((ref (val ptr gcrefs) (base gc)
+                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs) (var 0))
+                                        (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                   -> (i31 (val ptr norefs))))]
           local.set 7 ;; [(coderef (val i32 norefs)
                             ((ref (val ptr gcrefs) (base gc)
                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -4923,11 +4923,11 @@ let%expect_test "examples" =
                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
                      -> (i31 (val ptr norefs))))
-                  (coderef (val i32 norefs)
-                    ((ref (val ptr gcrefs) (base gc)
-                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
-                         (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                    -> (i31 (val ptr norefs))))]
+                   (coderef (val i32 norefs)
+                     ((ref (val ptr gcrefs) (base gc)
+                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                          (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                     -> (i31 (val ptr norefs))))]
           local.set 8 ;; [(coderef (val i32 norefs)
                             ((ref (val ptr gcrefs) (base gc)
                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
@@ -4937,11 +4937,12 @@ let%expect_test "examples" =
           call_indirect ;; [(ref (val ptr gcrefs) (base gc)
                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
                                 (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                           (coderef (val i32 norefs)
-                             ((ref (val ptr gcrefs) (base gc)
-                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
-                                  (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
-                             -> (i31 (val ptr norefs))))]
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc)
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                              -> (i31 (val ptr norefs))))]
                            -> [(i31 (val ptr norefs))]
           local.get move 8 ;; [] ->
                               [(coderef (val i32 norefs)

@@ -60,8 +60,7 @@ let%expect_test "simple programs" =
 
 let%expect_test "examples" =
   output_examples ();
-  [%expect
-    {|
+  [%expect{|
     -----------one-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -1161,6 +1160,181 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (start 9))
 
+    -----------mk_id_tl_anf-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32) (result i32)))
+      (type (;5;) (func (param i32 i32) (result i32 i32)))
+      (type (;6;) (func (result i32)))
+      (type (;7;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 3
+        local.get 2
+        local.set 4
+        local.get 4
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 4
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 4
+            call 4
+          else
+            local.get 4
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;8;) (type 5) (param i32 i32) (result i32 i32)
+        (local i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        i32.const 0
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 4
+        local.get 4
+        nop
+        local.get 2
+        local.set 5
+        local.get 5
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 5
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 5
+            call 4
+          else
+            local.get 5
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;9;) (type 6) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 1
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 10
+        local.get 10
+        nop
+        block (param i32 i32) (result i32 i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 0
+          nop
+          local.get 2
+          call_indirect (type 5)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end
+        local.set 5
+        local.set 4
+        local.get 4
+        local.get 5
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 7
+          local.set 6
+          local.get 6
+          local.get 7
+          nop
+          local.set 9
+          local.set 8
+          local.get 9
+          i32.const 10
+          nop
+          local.get 8
+          call_indirect (type 4)
+          local.get 8
+          drop
+          local.get 9
+          drop
+          local.get 6
+          local.get 7
+          drop
+          drop
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;10;) (type 7)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 2
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 9))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (start 10))
+
     -----------triangle_tl-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -2073,30 +2247,26 @@ let%expect_test "examples" =
             ((CodeRef
               (FunctionType ()
                ((Prod
-                 ((Ref (Base MM) (Ser (Var 0)))
+                 ((Var 0)
                   (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                    (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                       (FunctionType () ((Prod ((Var 0) (Var 1))))
                         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                            (Var 0)))))))
+                      (Var 0))))))))
                ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                      ((Num (Int I32)))))
-                   (Ref (Base MM) (Ser (Var 0)))))))))
-             (Ref (Base MM) (Ser (Var 0))))))
+                   (Var 0)))))))
+             (Var 0))))
           (Plug (Prod ((Atom I32) (Atom I32)))))))
        (instr
         (Fold
@@ -2104,34 +2274,30 @@ let%expect_test "examples" =
           (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
            (Prod
             ((CodeRef
-              (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+              (FunctionType () ((Prod ((Var 0) (Var 1))))
                ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                      ((Num (Int I32)))))
-                   (Ref (Base MM) (Ser (Var 0)))))))))
-             (Ref (Base MM) (Ser (Var 0)))))))))
+                   (Var 0)))))))
+             (Var 0)))))))
        (env
-        ((local_offset 1)
-         (kinds ((VALTYPE (Prod ((Prod ((Atom I32) (Atom Ptr))))) AnyRefs)))
+        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) AnyRefs)))
          (labels
           (((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
              (Prod
               ((CodeRef
-                (FunctionType ()
-                 ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                  ((Num (Int I32)))))
-               (Ref (Base MM) (Ser (Var 0)))))))))
+               (Var 0)))))))
          (return
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (functions
           ((FunctionType ()
             ((Prod
@@ -2143,46 +2309,39 @@ let%expect_test "examples" =
                      ((CodeRef
                        (FunctionType ()
                         ((Prod
-                          ((Ref (Base MM) (Ser (Var 0)))
+                          ((Var 0)
                            (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                             (Prod
                              ((CodeRef
                                (FunctionType ()
-                                ((Prod
-                                  ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                                ((Prod ((Var 0) (Num (Int I32)))))
                                 ((Num (Int I32)))))
-                              (Ref (Base MM) (Ser (Var 0)))))))))
+                              (Var 0)))))))
                         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                            (Var 0)))))))
+                      (Var 0))))))))
                (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                 (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                    (FunctionType () ((Prod ((Var 0) (Var 1))))
                      ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                        (Prod
                         ((CodeRef
-                          (FunctionType ()
-                           ((Prod
-                             ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                          (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                            ((Num (Int I32)))))
-                         (Ref (Base MM) (Ser (Var 0)))))))))
-                   (Ref (Base MM) (Ser (Var 0))))))))))
+                         (Var 0)))))))
+                   (Var 0))))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM) (Ser (Prod ())))
@@ -2191,30 +2350,26 @@ let%expect_test "examples" =
                  ((CodeRef
                    (FunctionType ()
                     ((Prod
-                      ((Ref (Base MM) (Ser (Var 0)))
+                      ((Var 0)
                        (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
+                          (Var 0)))))))
                     ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM)
@@ -2223,10 +2378,9 @@ let%expect_test "examples" =
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                      (Var 0))))))))
                (Num (Int I32)))))
             ((Num (Int I32))))
            (FunctionType ()
@@ -2235,17 +2389,15 @@ let%expect_test "examples" =
                (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType () () ((Num (Int I32))))))
          (table
           ((FunctionType ()
@@ -2258,46 +2410,39 @@ let%expect_test "examples" =
                      ((CodeRef
                        (FunctionType ()
                         ((Prod
-                          ((Ref (Base MM) (Ser (Var 0)))
+                          ((Var 0)
                            (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                             (Prod
                              ((CodeRef
                                (FunctionType ()
-                                ((Prod
-                                  ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                                ((Prod ((Var 0) (Num (Int I32)))))
                                 ((Num (Int I32)))))
-                              (Ref (Base MM) (Ser (Var 0)))))))))
+                              (Var 0)))))))
                         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                            (Var 0)))))))
+                      (Var 0))))))))
                (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                 (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                    (FunctionType () ((Prod ((Var 0) (Var 1))))
                      ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                        (Prod
                         ((CodeRef
-                          (FunctionType ()
-                           ((Prod
-                             ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                          (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                            ((Num (Int I32)))))
-                         (Ref (Base MM) (Ser (Var 0)))))))))
-                   (Ref (Base MM) (Ser (Var 0))))))))))
+                         (Var 0)))))))
+                   (Var 0))))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM) (Ser (Prod ())))
@@ -2306,30 +2451,26 @@ let%expect_test "examples" =
                  ((CodeRef
                    (FunctionType ()
                     ((Prod
-                      ((Ref (Base MM) (Ser (Var 0)))
+                      ((Var 0)
                        (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
+                          (Var 0)))))))
                     ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM)
@@ -2338,10 +2479,9 @@ let%expect_test "examples" =
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                      (Var 0))))))))
                (Num (Int I32)))))
             ((Num (Int I32))))
            (FunctionType ()
@@ -2350,17 +2490,15 @@ let%expect_test "examples" =
                (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))))
+                (Var 0))))))))
          (lfx (InferFx))))
        (state
         ((locals
@@ -2372,42 +2510,36 @@ let%expect_test "examples" =
            (CodeRef
             (FunctionType ()
              ((Prod
-               ((Ref (Base MM) (Ser (Var 0)))
+               ((Var 0)
                 (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                  (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                   (Prod
                    ((CodeRef
-                     (FunctionType ()
-                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                     (FunctionType () ((Prod ((Var 0) (Var 1))))
                       ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                          (Var 0)))))))
+                    (Var 0))))))))
              ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                (Prod
                 ((CodeRef
-                  (FunctionType ()
-                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                  (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                    ((Num (Int I32)))))
-                 (Ref (Base MM) (Ser (Var 0)))))))))
+                 (Var 0)))))))
            (Plug (Prod ((Atom I32))))))
-         (stack
-          ((Plug (Prod ((Atom I32) (Atom I32)))) (Ref (Base MM) (Ser (Var 0)))))))))
+         (stack ((Plug (Prod ((Atom I32) (Atom I32)))) (Var 0)))))))
      (instr
       (Unpack
        (ValType
         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
               ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0))))))))
+            (Var 0))))))
        InferFx
        ((LocalSet 6) (LocalGet 6 Follow) Ungroup (LocalSet 8) (LocalSet 7)
         (LocalGet 8 Follow) (LocalGet 5 Follow)
@@ -2416,15 +2548,14 @@ let%expect_test "examples" =
           (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
            (Prod
             ((CodeRef
-              (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+              (FunctionType () ((Prod ((Var 0) (Var 1))))
                ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                      ((Num (Int I32)))))
-                   (Ref (Base MM) (Ser (Var 0)))))))))
-             (Ref (Base MM) (Ser (Var 0))))))))
+                   (Var 0)))))))
+             (Var 0))))))
         (Group 2) (LocalGet 7 Follow) CallIndirect (LocalGet 7 Move) Drop
         (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop)))
      (env
@@ -2433,10 +2564,9 @@ let%expect_test "examples" =
         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
               ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0))))))))
+            (Var 0))))))
        (functions
         ((FunctionType ()
           ((Prod
@@ -2448,45 +2578,38 @@ let%expect_test "examples" =
                    ((CodeRef
                      (FunctionType ()
                       ((Prod
-                        ((Ref (Base MM) (Ser (Var 0)))
+                        ((Var 0)
                          (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
+                            (Var 0)))))))
                       ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                          (Var 0)))))))
+                    (Var 0))))))))
              (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
               (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                (Prod
                 ((CodeRef
-                  (FunctionType ()
-                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                  (FunctionType () ((Prod ((Var 0) (Var 1))))
                    ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                      (Prod
                       ((CodeRef
-                        (FunctionType ()
-                         ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                          ((Num (Int I32)))))
-                       (Ref (Base MM) (Ser (Var 0)))))))))
-                 (Ref (Base MM) (Ser (Var 0))))))))))
+                       (Var 0)))))))
+                 (Var 0))))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM) (Ser (Prod ())))
@@ -2495,29 +2618,26 @@ let%expect_test "examples" =
                ((CodeRef
                  (FunctionType ()
                   ((Prod
-                    ((Ref (Base MM) (Ser (Var 0)))
+                    ((Var 0)
                      (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0)))))))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                      (Var 0)))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM)
@@ -2526,10 +2646,9 @@ let%expect_test "examples" =
                 ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                   (Prod
                    ((CodeRef
-                     (FunctionType ()
-                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                     (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                       ((Num (Int I32)))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                    (Var 0))))))))
              (Num (Int I32)))))
           ((Num (Int I32))))
          (FunctionType ()
@@ -2538,17 +2657,15 @@ let%expect_test "examples" =
              (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType () () ((Num (Int I32))))))
        (table
         ((FunctionType ()
@@ -2561,45 +2678,38 @@ let%expect_test "examples" =
                    ((CodeRef
                      (FunctionType ()
                       ((Prod
-                        ((Ref (Base MM) (Ser (Var 0)))
+                        ((Var 0)
                          (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
+                            (Var 0)))))))
                       ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                          (Var 0)))))))
+                    (Var 0))))))))
              (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
               (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                (Prod
                 ((CodeRef
-                  (FunctionType ()
-                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                  (FunctionType () ((Prod ((Var 0) (Var 1))))
                    ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                      (Prod
                       ((CodeRef
-                        (FunctionType ()
-                         ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                          ((Num (Int I32)))))
-                       (Ref (Base MM) (Ser (Var 0)))))))))
-                 (Ref (Base MM) (Ser (Var 0))))))))))
+                       (Var 0)))))))
+                 (Var 0))))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM) (Ser (Prod ())))
@@ -2608,29 +2718,26 @@ let%expect_test "examples" =
                ((CodeRef
                  (FunctionType ()
                   ((Prod
-                    ((Ref (Base MM) (Ser (Var 0)))
+                    ((Var 0)
                      (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0)))))))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                      (Var 0)))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM)
@@ -2639,10 +2746,9 @@ let%expect_test "examples" =
                 ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                   (Prod
                    ((CodeRef
-                     (FunctionType ()
-                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                     (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                       ((Num (Int I32)))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                    (Var 0))))))))
              (Num (Int I32)))))
           ((Num (Int I32))))
          (FunctionType ()
@@ -2651,17 +2757,15 @@ let%expect_test "examples" =
              (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))))
+              (Var 0))))))))
        (lfx ())))
      (state
       ((locals
@@ -2672,35 +2776,31 @@ let%expect_test "examples" =
          (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
          (Plug (Prod ((Atom I32))))))
        (stack
-        ((Exists (Type (VALTYPE (Prod ((Prod ((Atom I32) (Atom Ptr))))) AnyRefs))
+        ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
              (FunctionType ()
               ((Prod
-                ((Ref (Base MM) (Ser (Var 0)))
+                ((Var 0)
                  (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                   (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                    (Prod
                     ((CodeRef
-                      (FunctionType ()
-                       ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                      (FunctionType () ((Prod ((Var 0) (Var 1))))
                        ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                          (Prod
                           ((CodeRef
-                            (FunctionType ()
-                             ((Prod
-                               ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                            (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                              ((Num (Int I32)))))
-                           (Ref (Base MM) (Ser (Var 0)))))))))
-                     (Ref (Base MM) (Ser (Var 0))))))))))
+                           (Var 0)))))))
+                     (Var 0))))))))
               ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
-            (Ref (Base MM) (Ser (Var 0)))))))))))
+                  (Var 0)))))))
+            (Var 0)))))))))
     -----------unboxed_list[invalid]-----------
     FAILURE (Codegen
      (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177")))))
@@ -2731,10 +2831,9 @@ let%expect_test "examples" =
           (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
            (Prod
             ((CodeRef
-              (FunctionType ()
-               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+              (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                ((Num (Int I32)))))
-             (Ref (Base MM) (Ser (Var 0))))))
+             (Var 0))))
           (Plug (Prod ((Atom I32) (Atom I32) (Atom I32)))) (Plug (Prod ()))
           (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32) (Atom I32))))
@@ -2780,20 +2879,19 @@ let%expect_test "examples" =
            (LocalGet 10 Follow) CallIndirect (LocalGet 10 Move) Drop
            (LocalGet 11 Move) Drop (LocalGet 9 Move) Drop))
          (CodeRef 1) (Group 0) (New MM) (Group 2)
-         (Pack (Type (Prod ()))
+         (Pack (Type (Ref (Base MM) (Ser (Prod ()))))
           (Prod
            ((CodeRef
              (FunctionType ()
               ((Prod
-                ((Ref (Base MM) (Ser (Var 0)))
+                ((Var 0)
                  (Prod
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0))))))
+                      (Var 0))))
                    (Rec
                     (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
                      AnyRefs)
@@ -2806,7 +2904,7 @@ let%expect_test "examples" =
                 (Sum
                  ((Prod ())
                   (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))
-            (Ref (Base MM) (Ser (Var 0))))))
+            (Var 0))))
          (Unpack
           (ValType
            ((Rec
@@ -2850,10 +2948,9 @@ let%expect_test "examples" =
               ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0))))))
+                  (Var 0))))
                (Rec
                 (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
                  AnyRefs)
@@ -2880,10 +2977,9 @@ let%expect_test "examples" =
               ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0))))))
+                  (Var 0))))
                (Rec
                 (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
                  AnyRefs)
@@ -2905,10 +3001,9 @@ let%expect_test "examples" =
          (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
               ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0))))))
+            (Var 0))))
          (Plug (Prod ((Atom I32) (Atom I32) (Atom I32)))) (Plug (Prod ()))
          (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
          (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32) (Atom I32))))

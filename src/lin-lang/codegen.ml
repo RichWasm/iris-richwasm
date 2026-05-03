@@ -9,7 +9,7 @@ end
 module State = struct
   type t = {
     next_local : int;
-    rev_locals : RichWasm.Representation.t list; (* TODO: local fxs *)
+    rev_locals : RichWasm.Representation.t list;
   }
   [@@deriving sexp, make]
 
@@ -267,7 +267,7 @@ module Compile = struct
         in
         let* fresh_idx = new_local rep in
         let env' = Env.add_local env fresh_idx in
-        let env' = Env.add_type env' rep in
+        let env' = Env.add_type env' (Atom Ptr) in
         let* body' = compile_expr env' body in
         let* bt = compile_type env t |> lift_result in
         ret @@ rhs'

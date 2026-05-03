@@ -3,6 +3,16 @@ open! Stdlib.Format
 open! Richwasm_lin_lang
 open Syntax
 
+let mk_id_tl_anf =
+  {|
+    (fun id (x : int) : int .
+      x)
+    (fun mk-id (_ : int) : (int -> int) .
+      id)
+    (let (id' : (int -> int)) = (mk-id 0) in
+    (id' 10))
+  |}
+
 let add_one_program =
   {|
     (export fun add-one (x : int) : int .
@@ -364,6 +374,7 @@ let all : (string * Module.t) list =
        ("print_10", print_10);
        ("closure", closure);
        ("closure_call_var", closure_call_var);
+       ("mk_id_tl_anf", mk_id_tl_anf);
        ("triangle_tl", triangle_tl);
        ("factorial_tl", factorial_tl);
        ("safe_div", safe_div);

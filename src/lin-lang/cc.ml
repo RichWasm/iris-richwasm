@@ -204,7 +204,7 @@ module Compile = struct
     | Int -> Int
     | Var x -> Var x
     | Lollipop (t1, t2) ->
-        Exists (Prod [ compile_lolipop_unwrapped t1 t2; Ref (Var (0, None)) ])
+        Exists (Prod [ compile_lolipop_unwrapped t1 t2; Var (0, None) ])
     | Prod ts -> Prod (List.map ~f:compile_typ ts)
     | Sum ts -> Sum (List.map ~f:compile_typ ts)
     | Ref t -> Ref (compile_typ t)
@@ -212,7 +212,7 @@ module Compile = struct
 
   and compile_lolipop_unwrapped t1 t2 : B.Type.t =
     Lollipop
-      (Prod [ Ref (Var (0, None)); compile_typ_shift t1 ], compile_typ_shift t2)
+      (Prod [ Var (0, None); compile_typ_shift t1 ], compile_typ_shift t2)
 
   and compile_typ_shift t : B.Type.t = compile_typ t |> shift_tidx 1 0
 
@@ -387,7 +387,7 @@ module Compile = struct
         let tuple = mk_tuple [ Coderef (n, coderef_t); mk_new (mk_tuple []) ] in
         ret
         @@ Pack
-             (Prod [], tuple, Exists (Prod [ coderef_t; Ref (Var (0, None)) ]))
+             (Ref (Prod []), tuple, Exists (Prod [ coderef_t; Var (0, None) ]))
     | Int (n, t) -> ret (Int (n, compile_typ t))
     | Tuple (es, t) ->
         let* es' = mapM ~f:(compile_expr env) es in
@@ -438,9 +438,9 @@ module Compile = struct
           emit { export = false; name = fname; param; return; body = body' }
         in
 
-        (* #`(pack #,closure (new #,clos) as #,(exists (prod (shift (#,param -> #,return)) (ref (var 0)))) *)
+        (* #`(pack #,ref_closure (new #,clos) as #,(exists (prod (shift (#,param -> #,return)) (var 0)))) *)
         Pack
-          ( clos_typ,
+          ( ref_clos_typ,
             mk_tuple
               [
                 Coderef (fname, Lollipop (clos_tup_typ, ret_t'));
@@ -448,7 +448,7 @@ module Compile = struct
               ],
             Exists
               (Prod
-                 [ compile_lolipop_unwrapped arg_t ret_t; Ref (Var (0, None)) ])
+                 [ compile_lolipop_unwrapped arg_t ret_t; Var (0, None) ])
           )
     | App (applicand, applicant, _) ->
         let* applicand' = compile_expr env applicand in
@@ -470,7 +470,7 @@ module Compile = struct
               (app coderef (closure, #,applicant))))
         *)
         let package_t = Var (0, None) in
-        let ref_package_t = Ref package_t in
+        let ref_package_t = package_t in
         let in_t = Prod [ ref_package_t; compile_typ arg |> shift_tidx 1 0 ] in
         let out_t = compile_typ return |> shift_tidx 1 0 in
 

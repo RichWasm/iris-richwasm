@@ -92,6 +92,17 @@ let%expect_test "examples" =
          (<1:input> : int) : int)
       : int)
      : int)
+    -----------mk_id_tl_anf-----------
+    (fun id (<> : int) : int .
+      (<0:x> : int))
+
+    (fun mk-id (<> : int) : (int ⊸ int) .
+      (coderef id : (int ⊸ int)))
+
+    (let (<> : (int ⊸ int)) =
+       (app (coderef mk-id : (int ⊸ (int ⊸ int))) (0 : int) : (int ⊸ int)) in
+     (app (<0:id'> : (int ⊸ int)) (10 : int) : int)
+     : int)
     -----------triangle_tl-----------
     (fun triangle (<> : int) : int .
       (if0 (<0:n> : int)

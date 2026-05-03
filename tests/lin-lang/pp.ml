@@ -203,6 +203,15 @@ let%expect_test "pretty prints examples" =
     (let (add-amount : int) = 1 in
     (app (λ (x : int) : int .
            (x + add-amount)) input)))
+    -----------mk_id_tl_anf-----------
+    (fun id (x : int) : int .
+      x)
+
+    (fun mk-id (_ : int) : (int ⊸ int) .
+      id)
+
+    (let (id' : (int ⊸ int)) = (app mk-id 0) in
+    (app id' 10))
     -----------triangle_tl-----------
     (fun triangle (n : int) : int .
       (if0 n then 0 else (n + (app triangle (n - 1)))))
