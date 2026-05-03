@@ -4,6 +4,7 @@ module Expl = Test_examples.Lin_lang
 let simple_tests =
   [
     ("one", "1", "1");
+    ("neg one", "-1", "-1");
     ("add", "(6 + 7)", "13");
     ("tuple", "(1, 2, 3)", "[ 1, 2, 3 ]");
     ("nested arith", "((9 + 10) * 5)", "95");
@@ -66,7 +67,7 @@ let simple_tests =
     ("incr_n", Expl.incr_n, "13");
     ("fold_unfold", Expl.fold_unfold, "0");
     ("heap_sum", Expl.heap_sum, "7");
-    (* ("rec_peano_3", Expl.rec_peano_3, "3"); *)
+    ("rec_peano_3", Expl.rec_peano_3, "-1003");
     (* ("rec", {|
 
     |}, "") *)

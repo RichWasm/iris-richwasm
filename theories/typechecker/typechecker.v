@@ -426,6 +426,7 @@ Fixpoint instruction_beq e1 e2 : bool :=
    => instruction_type_beq ϕ1 ϕ2
  | INum ϕ1 n1, INum ϕ2 n2 => instruction_type_beq ϕ1 ϕ2 && num_instruction_beq n1 n2
  | INumConst ϕ1 n1, INumConst ϕ2 n2
+   => instruction_type_beq ϕ1 ϕ2 && Z.eqb n1 n2
  | IBr ϕ1 n1, IBr ϕ2 n2
    => instruction_type_beq ϕ1 ϕ2 && (n1 =? n2)
  | ILocalGet ϕ1 cm1 n1, ILocalGet ϕ2 cm2 n2

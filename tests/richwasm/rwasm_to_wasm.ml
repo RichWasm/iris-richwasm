@@ -59,7 +59,7 @@ let%expect_test "simple cases" =
       (table $richwasm.table (import "richwasm" "table") 0 funcref)
       (func $_start (export "_start") (type $t4) (result i32)
         (local $l0 i32) (local $l1 i32) (local $l2 i32) (local $l3 i32) (local $l4 i32) (local $l5 i32) (local $l6 i32) (local $l7 i32) (local $l8 i32)
-        (i32.const 0)
+        (i32.const -1)
         (i32.const 0)
         (i32.const 0)
         (i32.const 0)

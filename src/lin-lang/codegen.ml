@@ -102,6 +102,7 @@ module Compile = struct
     | Prod ts -> mapM ~f:(compile_type env) ts >>| prod
     | Sum ts -> mapM ~f:(compile_type env) ts >>| sum
     | Rec t ->
+        (* bootstrap rep *)
         let env' = { env with type_map = None :: env.type_map } in
         let* rep = rep_of_typ env' t in
         (* NOTE: if coderef is used for indirection, then could have less

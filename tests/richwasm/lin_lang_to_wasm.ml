@@ -360,7 +360,7 @@ let%expect_test "examples" =
       (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 4) (result i32)
-        i32.const 0
+        i32.const -30
         i32.const 10
         i32.div_s)
       (func (;8;) (type 5)
