@@ -1545,7 +1545,7 @@ let%expect_test "examples" =
       (export "_start" (func 4)))
     -----------unboxed_list[invalid]-----------
     FAILURE (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177"))))
-    -----------boxed_list-----------
+    -----------boxed_list[invalid]-----------
     (module
       (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
           (prod) i32)
@@ -2340,4 +2340,612 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (table 0 1 2)
-      (export "typle_add1" (func 1))) |}]
+      (export "typle_add1" (func 1)))
+    -----------apply_hof-----------
+    (module
+      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+          (prod) i32)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 1 follow
+        load (Path []) move
+        local.set 3
+        drop
+        local.get 3 move
+        ungroup
+        local.get 2 follow
+        local.set 4
+        local.get 4 follow
+        i32.const 5
+        i32.add
+        local.get 4 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func
+          ((prod (ref (base mm) (ser (prod)))
+             (prod
+               (exists type (val ptr anyrefs)
+                 (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
+               i32))
+            -> i32)
+          (local ptr (prod (prod i32 ptr) i32) (prod i32 ptr) i32 (prod i32 ptr)
+          i32 ptr)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 2 follow
+        ungroup
+        local.set 4
+        local.set 3
+        local.get 3 follow
+        unpack (result i32) inferfx
+          local.set 5
+          local.get 5 follow
+          ungroup
+          local.set 7
+          local.set 6
+          local.get 7 follow
+          local.get 4 follow
+          group 2
+          local.get 6 follow
+          call_indirect
+          local.get 6 move
+          drop
+          local.get 7 move
+          drop
+          local.get 5 move
+          drop
+        end
+        local.get 3 move
+        drop
+        local.get 4 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func (-> i32) (local (prod i32 ptr) i32 ptr)
+        coderef 1
+        group 0
+        new mm
+        group 2
+        pack (type (ref (base mm) (ser (prod))))
+          (prod
+            (coderef
+              ((prod (var 0)
+                 (prod
+                   (exists type (val ptr anyrefs)
+                     (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
+                   i32))
+                -> i32))
+            (var 0))
+        unpack (result i32) inferfx
+          local.set 0
+          local.get 0 follow
+          ungroup
+          local.set 2
+          local.set 1
+          local.get 2 follow
+          coderef 0
+          group 0
+          new mm
+          group 2
+          pack (type (ref (base mm) (ser (prod))))
+            (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
+          i32.const 10
+          group 2
+          group 2
+          local.get 1 follow
+          call_indirect
+          local.get 1 move
+          drop
+          local.get 2 move
+          drop
+          local.get 0 move
+          drop
+        end)
+      (table 0 1)
+      (export "_start" (func 2)))
+    -----------compose_hof-----------
+    (module
+      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+          (prod) i32)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 1 follow
+        load (Path []) move
+        local.set 3
+        drop
+        local.get 3 move
+        ungroup
+        local.get 2 follow
+        local.set 4
+        local.get 4 follow
+        i32.const 1
+        i32.add
+        local.get 4 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+          (prod) i32)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 1 follow
+        load (Path []) move
+        local.set 3
+        drop
+        local.get 3 move
+        ungroup
+        local.get 2 follow
+        local.set 4
+        local.get 4 follow
+        i32.const 2
+        i32.mul
+        local.get 4 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func
+          ((prod (ref (base mm) (ser (prod)))
+             (prod
+               (exists type (val ptr anyrefs)
+                 (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
+               (exists type (val ptr anyrefs)
+                 (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
+               i32))
+            -> i32)
+          (local ptr (prod (prod i32 ptr) (prod i32 ptr) i32) (prod i32 ptr)
+          (prod i32 ptr) i32 (prod i32 ptr) i32 ptr (prod i32 ptr) i32 ptr)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 2 follow
+        ungroup
+        local.set 5
+        local.set 4
+        local.set 3
+        local.get 3 follow
+        unpack (result i32) inferfx
+          local.set 6
+          local.get 6 follow
+          ungroup
+          local.set 8
+          local.set 7
+          local.get 8 follow
+          local.get 4 follow
+          unpack (result i32) inferfx
+            local.set 9
+            local.get 9 follow
+            ungroup
+            local.set 11
+            local.set 10
+            local.get 11 follow
+            local.get 5 follow
+            group 2
+            local.get 10 follow
+            call_indirect
+            local.get 10 move
+            drop
+            local.get 11 move
+            drop
+            local.get 9 move
+            drop
+          end
+          group 2
+          local.get 7 follow
+          call_indirect
+          local.get 7 move
+          drop
+          local.get 8 move
+          drop
+          local.get 6 move
+          drop
+        end
+        local.get 3 move
+        drop
+        local.get 4 move
+        drop
+        local.get 5 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func (-> i32) (local (prod i32 ptr) i32 ptr)
+        coderef 2
+        group 0
+        new mm
+        group 2
+        pack (type (ref (base mm) (ser (prod))))
+          (prod
+            (coderef
+              ((prod (var 0)
+                 (prod
+                   (exists type (val ptr anyrefs)
+                     (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
+                   (exists type (val ptr anyrefs)
+                     (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
+                   i32))
+                -> i32))
+            (var 0))
+        unpack (result i32) inferfx
+          local.set 0
+          local.get 0 follow
+          ungroup
+          local.set 2
+          local.set 1
+          local.get 2 follow
+          coderef 0
+          group 0
+          new mm
+          group 2
+          pack (type (ref (base mm) (ser (prod))))
+            (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
+          coderef 1
+          group 0
+          new mm
+          group 2
+          pack (type (ref (base mm) (ser (prod))))
+            (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
+          i32.const 5
+          group 3
+          group 2
+          local.get 1 follow
+          call_indirect
+          local.get 1 move
+          drop
+          local.get 2 move
+          drop
+          local.get 0 move
+          drop
+        end)
+      (table 0 1 2)
+      (export "_start" (func 3)))
+    -----------mk_adder_apply_to-----------
+    (module
+      (func ((prod (ref (base mm) (ser (prod i32))) i32) -> i32) (local ptr i32
+          (prod i32) i32 i32)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 1 follow
+        load (Path []) move
+        local.set 3
+        drop
+        local.get 3 move
+        ungroup
+        local.set 4
+        local.get 2 follow
+        local.set 5
+        local.get 5 follow
+        local.get 4 follow
+        i32.add
+        local.get 5 move
+        drop
+        local.get 4 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func
+          ((prod (ref (base mm) (ser (prod))) i32) ->
+            (exists type (val ptr anyrefs)
+              (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
+          (local ptr i32)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        coderef 0
+        local.get 2 follow
+        group 1
+        new mm
+        group 2
+        pack (type (ref (base mm) (ser (prod i32))))
+          (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func
+          ((prod (ref (base mm) (ser (prod)))
+             (exists type (val ptr anyrefs)
+               (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
+            -> i32)
+          (local ptr (prod i32 ptr) (prod i32 ptr) i32 ptr)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 2 follow
+        unpack (result i32) inferfx
+          local.set 3
+          local.get 3 follow
+          ungroup
+          local.set 5
+          local.set 4
+          local.get 5 follow
+          i32.const 100
+          group 2
+          local.get 4 follow
+          call_indirect
+          local.get 4 move
+          drop
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+        end
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func (-> i32) (local (prod i32 ptr) i32 ptr (prod i32 ptr) i32 ptr)
+        coderef 2
+        group 0
+        new mm
+        group 2
+        pack (type (ref (base mm) (ser (prod))))
+          (prod
+            (coderef
+              ((prod (var 0)
+                 (exists type (val ptr anyrefs)
+                   (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
+                -> i32))
+            (var 0))
+        unpack (result i32) inferfx
+          local.set 0
+          local.get 0 follow
+          ungroup
+          local.set 2
+          local.set 1
+          local.get 2 follow
+          coderef 1
+          group 0
+          new mm
+          group 2
+          pack (type (ref (base mm) (ser (prod))))
+            (prod
+              (coderef
+                ((prod (var 0) i32) ->
+                  (exists type (val ptr anyrefs)
+                    (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))))
+              (var 0))
+          unpack
+            (result
+            (exists type (val ptr anyrefs)
+              (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
+            inferfx
+            local.set 3
+            local.get 3 follow
+            ungroup
+            local.set 5
+            local.set 4
+            local.get 5 follow
+            i32.const 7
+            group 2
+            local.get 4 follow
+            call_indirect
+            local.get 4 move
+            drop
+            local.get 5 move
+            drop
+            local.get 3 move
+            drop
+          end
+          group 2
+          local.get 1 follow
+          call_indirect
+          local.get 1 move
+          drop
+          local.get 2 move
+          drop
+          local.get 0 move
+          drop
+        end)
+      (table 0 1 2)
+      (export "_start" (func 3)))
+    -----------closure_with_ref-----------
+    (module
+      (func
+          ((prod (ref (base mm) (ser (prod (ref (base mm) (ser i32))))) (prod)) ->
+            i32)
+          (local ptr (prod) (prod ptr) ptr (prod) i32)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 1 follow
+        load (Path []) move
+        local.set 3
+        drop
+        local.get 3 move
+        ungroup
+        local.set 4
+        local.get 2 follow
+        local.set 5
+        local.get 4 follow
+        load (Path []) move
+        local.set 6
+        drop
+        local.get 6 move
+        local.get 5 move
+        drop
+        local.get 4 move
+        drop
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func (-> i32) (local ptr (prod i32 ptr) (prod i32 ptr) i32 ptr)
+        i32.const 42
+        new mm
+        local.set 0
+        coderef 0
+        local.get 0 follow
+        group 1
+        new mm
+        group 2
+        pack (type (ref (base mm) (ser (prod (ref (base mm) (ser i32))))))
+          (prod (coderef ((prod (var 0) (prod)) -> i32)) (var 0))
+        local.set 1
+        local.get 1 follow
+        unpack (result i32) inferfx
+          local.set 2
+          local.get 2 follow
+          ungroup
+          local.set 4
+          local.set 3
+          local.get 4 follow
+          group 0
+          group 2
+          local.get 3 follow
+          call_indirect
+          local.get 3 move
+          drop
+          local.get 4 move
+          drop
+          local.get 2 move
+          drop
+        end
+        local.get 1 move
+        drop
+        local.get 0 move
+        drop)
+      (table 0)
+      (export "_start" (func 1)))
+    -----------factorial_hof-----------
+    (module
+      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+          (prod i32 ptr) i32 ptr)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 2 follow
+        i32.eqz
+        if (result i32) inferfx
+          i32.const 1
+        else
+          local.get 2 follow
+          coderef 0
+          group 0
+          new mm
+          group 2
+          pack (type (ref (base mm) (ser (prod))))
+            (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
+          unpack (result i32) inferfx
+            local.set 3
+            local.get 3 follow
+            ungroup
+            local.set 5
+            local.set 4
+            local.get 5 follow
+            local.get 2 follow
+            i32.const 1
+            i32.sub
+            group 2
+            local.get 4 follow
+            call_indirect
+            local.get 4 move
+            drop
+            local.get 5 move
+            drop
+            local.get 3 move
+            drop
+          end
+          i32.mul
+        end
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func
+          ((prod (ref (base mm) (ser (prod)))
+             (exists type (val ptr anyrefs)
+               (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
+            -> i32)
+          (local ptr (prod i32 ptr) (prod i32 ptr) i32 ptr)
+        local.get 0 follow
+        ungroup
+        local.set 2
+        local.set 1
+        local.get 2 follow
+        unpack (result i32) inferfx
+          local.set 3
+          local.get 3 follow
+          ungroup
+          local.set 5
+          local.set 4
+          local.get 5 follow
+          i32.const 6
+          group 2
+          local.get 4 follow
+          call_indirect
+          local.get 4 move
+          drop
+          local.get 5 move
+          drop
+          local.get 3 move
+          drop
+        end
+        local.get 1 move
+        drop
+        local.get 2 move
+        drop)
+      (func (-> i32) (local (prod i32 ptr) i32 ptr)
+        coderef 1
+        group 0
+        new mm
+        group 2
+        pack (type (ref (base mm) (ser (prod))))
+          (prod
+            (coderef
+              ((prod (var 0)
+                 (exists type (val ptr anyrefs)
+                   (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
+                -> i32))
+            (var 0))
+        unpack (result i32) inferfx
+          local.set 0
+          local.get 0 follow
+          ungroup
+          local.set 2
+          local.set 1
+          local.get 2 follow
+          coderef 0
+          group 0
+          new mm
+          group 2
+          pack (type (ref (base mm) (ser (prod))))
+            (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
+          group 2
+          local.get 1 follow
+          call_indirect
+          local.get 1 move
+          drop
+          local.get 2 move
+          drop
+          local.get 0 move
+          drop
+        end)
+      (table 0 1)
+      (export "_start" (func 2))) |}]

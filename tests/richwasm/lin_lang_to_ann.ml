@@ -3507,7 +3507,7 @@ let%expect_test "examples" =
     -----------unboxed_list[invalid]-----------
     FAILURE (Codegen
      (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177")))))
-    -----------boxed_list-----------
+    -----------boxed_list[invalid]-----------
     FAILURE (InstrErr
      (error
       (CannotInferLfx
@@ -6128,4 +6128,2815 @@ let%expect_test "examples" =
         local.get move 2 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
         drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> [])
       (table 0 1 2)
-      (export "typle_add1" (func 1))) |xxx}]
+      (export "typle_add1" (func 1)))
+    -----------apply_hof-----------
+    (module
+      (func
+          ((prod (val (prod ptr i32) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (num (val i32 norefs) i32))
+          -> (num (val i32 norefs) i32)) (local ptr i32 (prod) i32)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr i32) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod ptr i32) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (num (val i32 norefs) i32)]
+        local.set 2 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        load (path) move ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                            ->
+                            [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod)) norefs) (rep (prod))))
+                             (prod (val (prod) norefs))]
+        local.set 3 ;; [(prod (val (prod) norefs))] -> []
+        drop ;; [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod)) norefs) (rep (prod))))] -> []
+        local.get move 3 ;; [] -> [(prod (val (prod) norefs))]
+        ungroup ;; [(prod (val (prod) norefs))] -> []
+        local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+        local.set 4 ;; [(num (val i32 norefs) i32)] -> []
+        local.get copy 4 ;; [] -> [(num (val i32 norefs) i32)]
+        num_const 5 ;; [] -> [(num (val i32 norefs) i32)]
+        i32.add ;; [(num (val i32 norefs) i32) (num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+        local.get move 4 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> []
+        local.get move 1 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+        drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+        local.get move 2 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> [])
+      (func
+          ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (prod (val (prod (prod i32 ptr) i32) anyrefs)
+               (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                 (prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))
+                   (var 0)))
+               (num (val i32 norefs) i32)))
+          -> (num (val i32 norefs) i32)) (local ptr (prod (prod i32 ptr) i32)
+          (prod i32 ptr) i32 (prod i32 ptr) i32 ptr)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0)))
+                                 (num (val i32 norefs) i32)))]
+        ungroup ;; [(prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))
+                        (num (val i32 norefs) i32)))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+        local.set 2 ;; [(prod (val (prod (prod i32 ptr) i32) anyrefs)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (num (val i32 norefs) i32))]
+                       -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] ->
+                            [(prod (val (prod (prod i32 ptr) i32) anyrefs)
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0)))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))
+                    (num (val i32 norefs) i32)]
+        local.set 4 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 3 ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))]
+                       -> []
+        local.get move 3 ;; [] ->
+                            [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32 i32 i32) norefs) (prod i32 i32 i32 i32))]
+                 [1 => (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 [2 => (plug (val (prod i32 i32 i32) norefs) (prod i32 i32 i32))]
+                 [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [4 => (num (val i32 norefs) i32)] [5 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [6 => (plug (val (prod i32) norefs) (prod i32))] [7 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 5 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 5 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 7 ;; [(var 0)] -> []
+          local.set 6 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 7 ;; [] -> [(var 0)]
+          local.get copy 4 ;; [] -> [(num (val i32 norefs) i32)]
+          group ;; [(var 0) (num (val i32 norefs) i32)] ->
+                   [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))]
+          local.get copy 6 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 6 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 7 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 5 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                      (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)]
+        local.get move 3 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+        drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        local.get move 4 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> []
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        drop ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] -> [(plug (val (prod i32 i32 i32) norefs) (prod i32 i32 i32))]
+        drop ;; [(plug (val (prod i32 i32 i32) norefs) (prod i32 i32 i32))] -> [])
+      (func (-> (num (val i32 norefs) i32)) (local (prod i32 ptr) i32 ptr)
+        coderef 1 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))
+                             (num (val i32 norefs) i32)))
+                        -> (num (val i32 norefs) i32)))]
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        group ;; [(coderef (val i32 norefs)
+                    ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                       (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                       (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0)))
+                         (num (val i32 norefs) i32)))
+                    -> (num (val i32 norefs) i32)))
+                  (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 ->
+                 [(prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0)))
+                           (num (val i32 norefs) i32)))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+        pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                        (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                        (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (num (val i32 norefs) i32)))
+                     -> (num (val i32 norefs) i32)))
+                   (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                ->
+                [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                   (prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                          (var 0)
+                          (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                            (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                              (prod (val (prod i32 ptr) anyrefs)
+                                (coderef (val i32 norefs)
+                                  ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                  (num (val i32 norefs) i32)))
+                                (var 0)))
+                            (num (val i32 norefs) i32)))
+                       -> (num (val i32 norefs) i32)))
+                     (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 0 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                                 (var 0)
+                                 (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))
+                                   (num (val i32 norefs) i32)))
+                              -> (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 0 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                                      (var 0)
+                                      (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                        (exists.type (val (prod i32 ptr) anyrefs)
+                                          (val ptr anyrefs)
+                                          (prod (val (prod i32 ptr) anyrefs)
+                                            (coderef (val i32 norefs)
+                                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                              (num (val i32 norefs) i32)))
+                                            (var 0)))
+                                        (num (val i32 norefs) i32)))
+                                   -> (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                             (var 0)
+                             (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0)))
+                               (num (val i32 norefs) i32)))
+                          -> (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                           (var 0)
+                           (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))
+                             (num (val i32 norefs) i32)))
+                        -> (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 2 ;; [(var 0)] -> []
+          local.set 1 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                               (var 0)
+                               (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0)))
+                                 (num (val i32 norefs) i32)))
+                            -> (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 2 ;; [] -> [(var 0)]
+          coderef 0 ;; [] ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs)
+                             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                             (num (val i32 norefs) i32))
+                          -> (num (val i32 norefs) i32)))]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          new ;; [(prod (val (prod) norefs))] ->
+                 [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+          group ;; [(coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (num (val i32 norefs) i32))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   ->
+                   [(prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (num (val i32 norefs) i32))
+                        -> (num (val i32 norefs) i32)))
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+          pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                          (num (val i32 norefs) i32))
+                       -> (num (val i32 norefs) i32)))
+                     (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                  ->
+                  [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                     (prod (val (prod i32 ptr) anyrefs)
+                       (coderef (val i32 norefs)
+                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                         (num (val i32 norefs) i32)))
+                       (var 0)))]
+          num_const 10 ;; [] -> [(num (val i32 norefs) i32)]
+          group ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))
+                    (num (val i32 norefs) i32)]
+                   ->
+                   [(prod (val (prod (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+          group ;; [(var 0)
+                    (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                      (var 0)
+                      (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))
+                        (num (val i32 norefs) i32)))]
+          local.get copy 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                                    (var 0)
+                                    (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0)))
+                                      (num (val i32 norefs) i32)))
+                                 -> (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                              (var 0)
+                              (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                (exists.type (val (prod i32 ptr) anyrefs)
+                                  (val ptr anyrefs)
+                                  (prod (val (prod i32 ptr) anyrefs)
+                                    (coderef (val i32 norefs)
+                                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                      (num (val i32 norefs) i32)))
+                                    (var 0)))
+                                (num (val i32 norefs) i32)))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                                 (var 0)
+                                 (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))
+                                   (num (val i32 norefs) i32)))
+                              -> (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                                    (var 0)
+                                    (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0)))
+                                      (num (val i32 norefs) i32)))
+                                 -> (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                        (var 0)
+                        (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (num (val i32 norefs) i32)))
+                     -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 2 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 0 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod (prod i32 ptr) i32)) anyrefs)
+                         (var 0)
+                         (prod (val (prod (prod i32 ptr) i32) anyrefs)
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0)))
+                           (num (val i32 norefs) i32)))
+                      -> (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)])
+      (table 0 1)
+      (export "_start" (func 2)))
+    -----------compose_hof-----------
+    (module
+      (func
+          ((prod (val (prod ptr i32) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (num (val i32 norefs) i32))
+          -> (num (val i32 norefs) i32)) (local ptr i32 (prod) i32)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr i32) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod ptr i32) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (num (val i32 norefs) i32)]
+        local.set 2 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        load (path) move ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                            ->
+                            [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod)) norefs) (rep (prod))))
+                             (prod (val (prod) norefs))]
+        local.set 3 ;; [(prod (val (prod) norefs))] -> []
+        drop ;; [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod)) norefs) (rep (prod))))] -> []
+        local.get move 3 ;; [] -> [(prod (val (prod) norefs))]
+        ungroup ;; [(prod (val (prod) norefs))] -> []
+        local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+        local.set 4 ;; [(num (val i32 norefs) i32)] -> []
+        local.get copy 4 ;; [] -> [(num (val i32 norefs) i32)]
+        num_const 1 ;; [] -> [(num (val i32 norefs) i32)]
+        i32.add ;; [(num (val i32 norefs) i32) (num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+        local.get move 4 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> []
+        local.get move 1 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+        drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+        local.get move 2 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> [])
+      (func
+          ((prod (val (prod ptr i32) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (num (val i32 norefs) i32))
+          -> (num (val i32 norefs) i32)) (local ptr i32 (prod) i32)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr i32) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod ptr i32) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (num (val i32 norefs) i32)]
+        local.set 2 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        load (path) move ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                            ->
+                            [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod)) norefs) (rep (prod))))
+                             (prod (val (prod) norefs))]
+        local.set 3 ;; [(prod (val (prod) norefs))] -> []
+        drop ;; [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod)) norefs) (rep (prod))))] -> []
+        local.get move 3 ;; [] -> [(prod (val (prod) norefs))]
+        ungroup ;; [(prod (val (prod) norefs))] -> []
+        local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+        local.set 4 ;; [(num (val i32 norefs) i32)] -> []
+        local.get copy 4 ;; [] -> [(num (val i32 norefs) i32)]
+        num_const 2 ;; [] -> [(num (val i32 norefs) i32)]
+        i32.mul ;; [(num (val i32 norefs) i32) (num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+        local.get move 4 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> []
+        local.get move 1 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+        drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+        local.get move 2 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> [])
+      (func
+          ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+               (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                 (prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))
+                   (var 0)))
+               (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                 (prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))
+                   (var 0)))
+               (num (val i32 norefs) i32)))
+          -> (num (val i32 norefs) i32)) (local ptr (prod (prod i32 ptr) (prod i32 ptr) i32)
+          (prod i32 ptr) (prod i32 ptr) i32 (prod i32 ptr) i32 ptr (prod i32 ptr) i32 ptr)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0)))
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0)))
+                                 (num (val i32 norefs) i32)))]
+        ungroup ;; [(prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))
+                        (num (val i32 norefs) i32)))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+        local.set 2 ;; [(prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (num (val i32 norefs) i32))]
+                       -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] ->
+                            [(prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0)))
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0)))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))
+                    (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))
+                    (num (val i32 norefs) i32)]
+        local.set 5 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 4 ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))]
+                       -> []
+        local.set 3 ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))]
+                       -> []
+        local.get move 3 ;; [] ->
+                            [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32 i32 i32 i32 i32) norefs) (prod i32 i32 i32 i32 i32 i32))]
+                 [1 => (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 [2 => (plug (val (prod i32 i32 i32 i32 i32) norefs) (prod i32 i32 i32 i32 i32))]
+                 [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [4 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [5 => (num (val i32 norefs) i32)] [6 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [7 => (plug (val (prod i32) norefs) (prod i32))] [8 => (plug (val (prod i32) norefs) (prod i32))]
+                 [9 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [10 => (plug (val (prod i32) norefs) (prod i32))] [11 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 6 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 6 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 8 ;; [(var 0)] -> []
+          local.set 7 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 8 ;; [] -> [(var 0)]
+          local.get move 4 ;; [] ->
+                              [(exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0)))]
+          unpack (localfx [0 => (plug (val (prod i32 i32 i32 i32 i32 i32) norefs) (prod i32 i32 i32 i32 i32 i32))]
+                   [1 => (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   [2 => (plug (val (prod i32 i32 i32 i32 i32) norefs) (prod i32 i32 i32 i32 i32))]
+                   [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [4 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [5 => (num (val i32 norefs) i32)] [6 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [7 =>
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))]
+                   [8 => (plug (val (prod i32) norefs) (prod i32))]
+                   [9 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [10 => (plug (val (prod i32) norefs) (prod i32))] [11 => (plug (val (prod i32) norefs) (prod i32))])
+            local.set 9 ;; [(prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0))]
+                           -> []
+            local.get move 9 ;; [] ->
+                                [(prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0))]
+            ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0))]
+                       ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)]
+            local.set 11 ;; [(var 0)] -> []
+            local.set 10 ;; [(coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))]
+                            -> []
+            local.get move 11 ;; [] -> [(var 0)]
+            local.get copy 5 ;; [] -> [(num (val i32 norefs) i32)]
+            group ;; [(var 0) (num (val i32 norefs) i32)] ->
+                     [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))]
+            local.get copy 10 ;; [] ->
+                                 [(coderef (val i32 norefs)
+                                    ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                    (num (val i32 norefs) i32)))]
+            call_indirect ;; [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))]
+                             -> [(num (val i32 norefs) i32)]
+            local.get move 10 ;; [] ->
+                                 [(coderef (val i32 norefs)
+                                    ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                    (num (val i32 norefs) i32)))]
+            drop ;; [(coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                       (num (val i32 norefs) i32)))]
+                    -> []
+            local.get move 11 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+            drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+            local.get move 9 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+            drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+          end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                    (prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)))]
+                 -> [(num (val i32 norefs) i32)]
+          group ;; [(var 0) (num (val i32 norefs) i32)] ->
+                   [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))]
+          local.get copy 7 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 7 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 8 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 6 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                      (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)]
+        local.get move 3 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+        drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        local.get move 4 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+        drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        local.get move 5 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> []
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        drop ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] -> [(plug (val (prod i32 i32 i32 i32 i32) norefs) (prod i32 i32 i32 i32 i32))]
+        drop ;; [(plug (val (prod i32 i32 i32 i32 i32) norefs) (prod i32 i32 i32 i32 i32))] -> [])
+      (func (-> (num (val i32 norefs) i32)) (local (prod i32 ptr) i32 ptr)
+        coderef 2 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))
+                             (num (val i32 norefs) i32)))
+                        -> (num (val i32 norefs) i32)))]
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        group ;; [(coderef (val i32 norefs)
+                    ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                       (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                       (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0)))
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0)))
+                         (num (val i32 norefs) i32)))
+                    -> (num (val i32 norefs) i32)))
+                  (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 ->
+                 [(prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0)))
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0)))
+                           (num (val i32 norefs) i32)))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+        pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                        (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                        (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (num (val i32 norefs) i32)))
+                     -> (num (val i32 norefs) i32)))
+                   (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                ->
+                [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                   (prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                          (var 0)
+                          (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                            (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                              (prod (val (prod i32 ptr) anyrefs)
+                                (coderef (val i32 norefs)
+                                  ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                  (num (val i32 norefs) i32)))
+                                (var 0)))
+                            (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                              (prod (val (prod i32 ptr) anyrefs)
+                                (coderef (val i32 norefs)
+                                  ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                  (num (val i32 norefs) i32)))
+                                (var 0)))
+                            (num (val i32 norefs) i32)))
+                       -> (num (val i32 norefs) i32)))
+                     (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 0 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                                 (var 0)
+                                 (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))
+                                   (num (val i32 norefs) i32)))
+                              -> (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 0 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                                      (var 0)
+                                      (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                        (exists.type (val (prod i32 ptr) anyrefs)
+                                          (val ptr anyrefs)
+                                          (prod (val (prod i32 ptr) anyrefs)
+                                            (coderef (val i32 norefs)
+                                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                              (num (val i32 norefs) i32)))
+                                            (var 0)))
+                                        (exists.type (val (prod i32 ptr) anyrefs)
+                                          (val ptr anyrefs)
+                                          (prod (val (prod i32 ptr) anyrefs)
+                                            (coderef (val i32 norefs)
+                                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                              (num (val i32 norefs) i32)))
+                                            (var 0)))
+                                        (num (val i32 norefs) i32)))
+                                   -> (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                             (var 0)
+                             (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0)))
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0)))
+                               (num (val i32 norefs) i32)))
+                          -> (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                           (var 0)
+                           (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))
+                             (num (val i32 norefs) i32)))
+                        -> (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 2 ;; [(var 0)] -> []
+          local.set 1 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                               (var 0)
+                               (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0)))
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0)))
+                                 (num (val i32 norefs) i32)))
+                            -> (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 2 ;; [] -> [(var 0)]
+          coderef 0 ;; [] ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs)
+                             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                             (num (val i32 norefs) i32))
+                          -> (num (val i32 norefs) i32)))]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          new ;; [(prod (val (prod) norefs))] ->
+                 [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+          group ;; [(coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (num (val i32 norefs) i32))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   ->
+                   [(prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (num (val i32 norefs) i32))
+                        -> (num (val i32 norefs) i32)))
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+          pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                          (num (val i32 norefs) i32))
+                       -> (num (val i32 norefs) i32)))
+                     (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                  ->
+                  [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                     (prod (val (prod i32 ptr) anyrefs)
+                       (coderef (val i32 norefs)
+                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                         (num (val i32 norefs) i32)))
+                       (var 0)))]
+          coderef 1 ;; [] ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs)
+                             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                             (num (val i32 norefs) i32))
+                          -> (num (val i32 norefs) i32)))]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          new ;; [(prod (val (prod) norefs))] ->
+                 [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+          group ;; [(coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (num (val i32 norefs) i32))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   ->
+                   [(prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (num (val i32 norefs) i32))
+                        -> (num (val i32 norefs) i32)))
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+          pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                          (num (val i32 norefs) i32))
+                       -> (num (val i32 norefs) i32)))
+                     (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                  ->
+                  [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                     (prod (val (prod i32 ptr) anyrefs)
+                       (coderef (val i32 norefs)
+                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                         (num (val i32 norefs) i32)))
+                       (var 0)))]
+          num_const 5 ;; [] -> [(num (val i32 norefs) i32)]
+          group ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))
+                    (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))
+                    (num (val i32 norefs) i32)]
+                   ->
+                   [(prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+          group ;; [(var 0)
+                    (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                      (var 0)
+                      (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))
+                        (num (val i32 norefs) i32)))]
+          local.get copy 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                                    (var 0)
+                                    (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0)))
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0)))
+                                      (num (val i32 norefs) i32)))
+                                 -> (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                              (var 0)
+                              (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                (exists.type (val (prod i32 ptr) anyrefs)
+                                  (val ptr anyrefs)
+                                  (prod (val (prod i32 ptr) anyrefs)
+                                    (coderef (val i32 norefs)
+                                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                      (num (val i32 norefs) i32)))
+                                    (var 0)))
+                                (exists.type (val (prod i32 ptr) anyrefs)
+                                  (val ptr anyrefs)
+                                  (prod (val (prod i32 ptr) anyrefs)
+                                    (coderef (val i32 norefs)
+                                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                      (num (val i32 norefs) i32)))
+                                    (var 0)))
+                                (num (val i32 norefs) i32)))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                                 (var 0)
+                                 (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))
+                                   (num (val i32 norefs) i32)))
+                              -> (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                                    (var 0)
+                                    (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0)))
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0)))
+                                      (num (val i32 norefs) i32)))
+                                 -> (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                        (var 0)
+                        (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))
+                          (num (val i32 norefs) i32)))
+                     -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 2 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 0 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod (prod i32 ptr) (prod i32 ptr) i32)) anyrefs)
+                         (var 0)
+                         (prod (val (prod (prod i32 ptr) (prod i32 ptr) i32) anyrefs)
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0)))
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0)))
+                           (num (val i32 norefs) i32)))
+                      -> (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)])
+      (table 0 1 2)
+      (export "_start" (func 3)))
+    -----------mk_adder_apply_to-----------
+    (module
+      (func
+          ((prod (val (prod ptr i32) anyrefs)
+             (ref (val ptr anyrefs) (base mm)
+               (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+             (num (val i32 norefs) i32))
+          -> (num (val i32 norefs) i32)) (local ptr i32 (prod i32) i32 i32)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr i32) anyrefs)
+                               (ref (val ptr anyrefs) (base mm)
+                                 (ser (mem (rep (prod i32)) norefs)
+                                   (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod ptr i32) anyrefs)
+                      (ref (val ptr anyrefs) (base mm)
+                        (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm)
+                      (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+                    (num (val i32 norefs) i32)]
+        local.set 2 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm)
+                          (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))]
+                       -> []
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm)
+                               (ser (mem (rep (prod i32)) norefs)
+                                 (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))]
+        load (path) move ;; [(ref (val ptr anyrefs) (base mm)
+                               (ser (mem (rep (prod i32)) norefs)
+                                 (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))]
+                            ->
+                            [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod i32)) norefs) (rep (prod i32))))
+                             (prod (val (prod i32) norefs) (num (val i32 norefs) i32))]
+        local.set 3 ;; [(prod (val (prod i32) norefs) (num (val i32 norefs) i32))] -> []
+        drop ;; [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod i32)) norefs) (rep (prod i32))))] -> []
+        local.get move 3 ;; [] -> [(prod (val (prod i32) norefs) (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod i32) norefs) (num (val i32 norefs) i32))] -> [(num (val i32 norefs) i32)]
+        local.set 4 ;; [(num (val i32 norefs) i32)] -> []
+        local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+        local.set 5 ;; [(num (val i32 norefs) i32)] -> []
+        local.get copy 5 ;; [] -> [(num (val i32 norefs) i32)]
+        local.get copy 4 ;; [] -> [(num (val i32 norefs) i32)]
+        i32.add ;; [(num (val i32 norefs) i32) (num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+        local.get move 5 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> []
+        local.get move 4 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> []
+        local.get move 1 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+        drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+        local.get move 2 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> [])
+      (func
+          ((prod (val (prod ptr i32) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (num (val i32 norefs) i32))
+          ->
+          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+            (prod (val (prod i32 ptr) anyrefs)
+              (coderef (val i32 norefs)
+                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))
+              (var 0))))
+          (local ptr i32)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr i32) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod ptr i32) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (num (val i32 norefs) i32)]
+        local.set 2 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        coderef 0 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs)
+                           (ref (val ptr anyrefs) (base mm)
+                             (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+                           (num (val i32 norefs) i32))
+                        -> (num (val i32 norefs) i32)))]
+        local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+        group ;; [(num (val i32 norefs) i32)] -> [(prod (val (prod i32) norefs) (num (val i32 norefs) i32))]
+        new ;; [(prod (val (prod i32) norefs) (num (val i32 norefs) i32))] ->
+               [(ref (val ptr anyrefs) (base mm)
+                  (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))]
+        group ;; [(coderef (val i32 norefs)
+                    ((prod (val (prod ptr i32) anyrefs)
+                       (ref (val ptr anyrefs) (base mm)
+                         (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+                       (num (val i32 norefs) i32))
+                    -> (num (val i32 norefs) i32)))
+                  (ref (val ptr anyrefs) (base mm)
+                    (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))]
+                 ->
+                 [(prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs)
+                         (ref (val ptr anyrefs) (base mm)
+                           (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+                         (num (val i32 norefs) i32))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm)
+                      (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32)))))]
+        pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs)
+                        (ref (val ptr anyrefs) (base mm)
+                          (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32))))
+                        (num (val i32 norefs) i32))
+                     -> (num (val i32 norefs) i32)))
+                   (ref (val ptr anyrefs) (base mm)
+                     (ser (mem (rep (prod i32)) norefs) (prod (val (prod i32) norefs) (num (val i32 norefs) i32)))))]
+                ->
+                [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                   (prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                       (num (val i32 norefs) i32)))
+                     (var 0)))]
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        drop ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> [])
+      (func
+          ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+               (prod (val (prod i32 ptr) anyrefs)
+                 (coderef (val i32 norefs)
+                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))
+                 (var 0))))
+          -> (num (val i32 norefs) i32)) (local ptr (prod i32 ptr) (prod i32 ptr) i32 ptr)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0))))]
+        ungroup ;; [(prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0))))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))]
+        local.set 2 ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))]
+                       -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] ->
+                            [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32 i32) norefs) (prod i32 i32 i32))]
+                 [1 => (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 [2 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [4 => (plug (val (prod i32) norefs) (prod i32))] [5 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 3 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 3 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 5 ;; [(var 0)] -> []
+          local.set 4 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 5 ;; [] -> [(var 0)]
+          num_const 100 ;; [] -> [(num (val i32 norefs) i32)]
+          group ;; [(var 0) (num (val i32 norefs) i32)] ->
+                   [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))]
+          local.get copy 4 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 4 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 5 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 3 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                      (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)]
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        drop ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+        drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> [])
+      (func (-> (num (val i32 norefs) i32)) (local (prod i32 ptr) i32 ptr (prod i32 ptr) i32 ptr)
+        coderef 2 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0))))
+                        -> (num (val i32 norefs) i32)))]
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        group ;; [(coderef (val i32 norefs)
+                    ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                       (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                       (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                         (prod (val (prod i32 ptr) anyrefs)
+                           (coderef (val i32 norefs)
+                             ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                             (num (val i32 norefs) i32)))
+                           (var 0))))
+                    -> (num (val i32 norefs) i32)))
+                  (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 ->
+                 [(prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0))))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+        pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                        (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))))
+                     -> (num (val i32 norefs) i32)))
+                   (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                ->
+                [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                   (prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0))))
+                       -> (num (val i32 norefs) i32)))
+                     (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (plug (val (prod i32) norefs) (prod i32))]
+                 [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [4 => (plug (val (prod i32) norefs) (prod i32))] [5 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 0 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                 (var 0)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0))))
+                              -> (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 0 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                      (var 0)
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0))))
+                                   -> (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                             (var 0)
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0))))
+                          -> (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0))))
+                        -> (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 2 ;; [(var 0)] -> []
+          local.set 1 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                               (var 0)
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0))))
+                            -> (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 2 ;; [] -> [(var 0)]
+          coderef 1 ;; [] ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs)
+                             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                             (num (val i32 norefs) i32))
+                          ->
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))))]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          new ;; [(prod (val (prod) norefs))] ->
+                 [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+          group ;; [(coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (num (val i32 norefs) i32))
+                      ->
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0)))))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   ->
+                   [(prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (num (val i32 norefs) i32))
+                        ->
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))))
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+          pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                          (num (val i32 norefs) i32))
+                       ->
+                       (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                         (prod (val (prod i32 ptr) anyrefs)
+                           (coderef (val i32 norefs)
+                             ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                             (num (val i32 norefs) i32)))
+                           (var 0)))))
+                     (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                  ->
+                  [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                     (prod (val (prod i32 ptr) anyrefs)
+                       (coderef (val i32 norefs)
+                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0)))))
+                       (var 0)))]
+          unpack (localfx [0 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [1 =>
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))))
+                     -> (num (val i32 norefs) i32)))]
+                   [2 => (plug (val (prod i32) norefs) (prod i32))]
+                   [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [4 => (plug (val (prod i32) norefs) (prod i32))] [5 => (plug (val (prod i32) norefs) (prod i32))])
+            local.set 3 ;; [(prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (exists.type (val (prod i32 ptr) anyrefs)
+                                  (val ptr anyrefs)
+                                  (prod (val (prod i32 ptr) anyrefs)
+                                    (coderef (val i32 norefs)
+                                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                      (num (val i32 norefs) i32)))
+                                    (var 0)))))
+                              (var 0))]
+                           -> []
+            local.get move 3 ;; [] ->
+                                [(prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (exists.type (val (prod i32 ptr) anyrefs)
+                                       (val ptr anyrefs)
+                                       (prod (val (prod i32 ptr) anyrefs)
+                                         (coderef (val i32 norefs)
+                                           ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                           (num (val i32 norefs) i32)))
+                                         (var 0)))))
+                                   (var 0))]
+            ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                              (prod (val (prod i32 ptr) anyrefs)
+                                (coderef (val i32 norefs)
+                                  ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                  (num (val i32 norefs) i32)))
+                                (var 0)))))
+                          (var 0))]
+                       ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0)))))
+                        (var 0)]
+            local.set 5 ;; [(var 0)] -> []
+            local.set 4 ;; [(coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                                (prod (val (prod i32 ptr) anyrefs)
+                                  (coderef (val i32 norefs)
+                                    ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                    (num (val i32 norefs) i32)))
+                                  (var 0)))))]
+                           -> []
+            local.get move 5 ;; [] -> [(var 0)]
+            num_const 7 ;; [] -> [(num (val i32 norefs) i32)]
+            group ;; [(var 0) (num (val i32 norefs) i32)] ->
+                     [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))]
+            local.get copy 4 ;; [] ->
+                                [(coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))))]
+            call_indirect ;; [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (exists.type (val (prod i32 ptr) anyrefs)
+                                  (val ptr anyrefs)
+                                  (prod (val (prod i32 ptr) anyrefs)
+                                    (coderef (val i32 norefs)
+                                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                      (num (val i32 norefs) i32)))
+                                    (var 0)))))]
+                             ->
+                             [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                                (prod (val (prod i32 ptr) anyrefs)
+                                  (coderef (val i32 norefs)
+                                    ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                    (num (val i32 norefs) i32)))
+                                  (var 0)))]
+            local.get move 4 ;; [] ->
+                                [(coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (exists.type (val (prod i32 ptr) anyrefs)
+                                     (val ptr anyrefs)
+                                     (prod (val (prod i32 ptr) anyrefs)
+                                       (coderef (val i32 norefs)
+                                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                         (num (val i32 norefs) i32)))
+                                       (var 0)))))]
+            drop ;; [(coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                       (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                         (prod (val (prod i32 ptr) anyrefs)
+                           (coderef (val i32 norefs)
+                             ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                             (num (val i32 norefs) i32)))
+                           (var 0)))))]
+                    -> []
+            local.get move 5 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+            drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+            local.get move 3 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+            drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+          end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                    (prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))))
+                      (var 0)))]
+                 ->
+                 [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                    (prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)))]
+          group ;; [(var 0)
+                    (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))]
+                   ->
+                   [(prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0))))]
+          local.get copy 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                    (var 0)
+                                    (exists.type (val (prod i32 ptr) anyrefs)
+                                      (val ptr anyrefs)
+                                      (prod (val (prod i32 ptr) anyrefs)
+                                        (coderef (val i32 norefs)
+                                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                          (num (val i32 norefs) i32)))
+                                        (var 0))))
+                                 -> (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                              (var 0)
+                              (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                                (prod (val (prod i32 ptr) anyrefs)
+                                  (coderef (val i32 norefs)
+                                    ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                    (num (val i32 norefs) i32)))
+                                  (var 0))))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                 (var 0)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0))))
+                              -> (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                    (var 0)
+                                    (exists.type (val (prod i32 ptr) anyrefs)
+                                      (val ptr anyrefs)
+                                      (prod (val (prod i32 ptr) anyrefs)
+                                        (coderef (val i32 norefs)
+                                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                          (num (val i32 norefs) i32)))
+                                        (var 0))))
+                                 -> (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))))
+                     -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 2 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 0 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0))))
+                      -> (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)])
+      (table 0 1 2)
+      (export "_start" (func 3)))
+    -----------closure_with_ref-----------
+    (module
+      (func
+          ((prod (val (prod ptr (prod)) anyrefs)
+             (ref (val ptr anyrefs) (base mm)
+               (ser (mem (rep (prod ptr)) anyrefs)
+                 (prod (val (prod ptr) anyrefs)
+                   (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+             (prod (val (prod) norefs)))
+          -> (num (val i32 norefs) i32)) (local ptr (prod) (prod ptr) ptr
+          (prod) i32)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr (prod)) anyrefs)
+                               (ref (val ptr anyrefs) (base mm)
+                                 (ser (mem (rep (prod ptr)) anyrefs)
+                                   (prod (val (prod ptr) anyrefs)
+                                     (ref (val ptr anyrefs) (base mm)
+                                       (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+                               (prod (val (prod) norefs)))]
+        ungroup ;; [(prod (val (prod ptr (prod)) anyrefs)
+                      (ref (val ptr anyrefs) (base mm)
+                        (ser (mem (rep (prod ptr)) anyrefs)
+                          (prod (val (prod ptr) anyrefs)
+                            (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+                      (prod (val (prod) norefs)))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm)
+                      (ser (mem (rep (prod ptr)) anyrefs)
+                        (prod (val (prod ptr) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+                    (prod (val (prod) norefs))]
+        local.set 2 ;; [(prod (val (prod) norefs))] -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm)
+                          (ser (mem (rep (prod ptr)) anyrefs)
+                            (prod (val (prod ptr) anyrefs)
+                              (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))]
+                       -> []
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm)
+                               (ser (mem (rep (prod ptr)) anyrefs)
+                                 (prod (val (prod ptr) anyrefs)
+                                   (ref (val ptr anyrefs) (base mm)
+                                     (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))]
+        load (path) move ;; [(ref (val ptr anyrefs) (base mm)
+                               (ser (mem (rep (prod ptr)) anyrefs)
+                                 (prod (val (prod ptr) anyrefs)
+                                   (ref (val ptr anyrefs) (base mm)
+                                     (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))]
+                            ->
+                            [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod ptr)) norefs) (rep (prod ptr))))
+                             (prod (val (prod ptr) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))]
+        local.set 3 ;; [(prod (val (prod ptr) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))]
+                       -> []
+        drop ;; [(ref (val ptr anyrefs) (base mm) (span (mem (rep (prod ptr)) norefs) (rep (prod ptr))))] -> []
+        local.get move 3 ;; [] ->
+                            [(prod (val (prod ptr) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))]
+        ungroup ;; [(prod (val (prod ptr) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))]
+                   -> [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))]
+        local.set 4 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))] -> []
+        local.get copy 2 ;; [] -> [(prod (val (prod) norefs))]
+        local.set 5 ;; [(prod (val (prod) norefs))] -> []
+        local.get move 4 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))]
+        load (path) move ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))] ->
+                            [(ref (val ptr anyrefs) (base mm) (span (mem (rep i32) norefs) (rep i32)))
+                             (num (val i32 norefs) i32)]
+        local.set 6 ;; [(num (val i32 norefs) i32)] -> []
+        drop ;; [(ref (val ptr anyrefs) (base mm) (span (mem (rep i32) norefs) (rep i32)))] -> []
+        local.get move 6 ;; [] -> [(num (val i32 norefs) i32)]
+        local.get move 5 ;; [] -> [(prod (val (prod) norefs))]
+        drop ;; [(prod (val (prod) norefs))] -> []
+        local.get move 4 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+        drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+        local.get move 1 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+        drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+        local.get move 2 ;; [] -> [(prod (val (prod) norefs))]
+        drop ;; [(prod (val (prod) norefs))] -> [])
+      (func (-> (num (val i32 norefs) i32)) (local ptr (prod i32 ptr) (prod i32 ptr) i32 ptr)
+        num_const 42 ;; [] -> [(num (val i32 norefs) i32)]
+        new ;; [(num (val i32 norefs) i32)] ->
+               [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))]
+        local.set 0 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))] -> []
+        coderef 0 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod)) anyrefs)
+                           (ref (val ptr anyrefs) (base mm)
+                             (ser (mem (rep (prod ptr)) anyrefs)
+                               (prod (val (prod ptr) anyrefs)
+                                 (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+                           (prod (val (prod) norefs)))
+                        -> (num (val i32 norefs) i32)))]
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))]
+        group ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))] ->
+                 [(prod (val (prod ptr) anyrefs)
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))]
+        new ;; [(prod (val (prod ptr) anyrefs)
+                  (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))]
+               ->
+               [(ref (val ptr anyrefs) (base mm)
+                  (ser (mem (rep (prod ptr)) anyrefs)
+                    (prod (val (prod ptr) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))]
+        group ;; [(coderef (val i32 norefs)
+                    ((prod (val (prod ptr (prod)) anyrefs)
+                       (ref (val ptr anyrefs) (base mm)
+                         (ser (mem (rep (prod ptr)) anyrefs)
+                           (prod (val (prod ptr) anyrefs)
+                             (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+                       (prod (val (prod) norefs)))
+                    -> (num (val i32 norefs) i32)))
+                  (ref (val ptr anyrefs) (base mm)
+                    (ser (mem (rep (prod ptr)) anyrefs)
+                      (prod (val (prod ptr) anyrefs)
+                        (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))]
+                 ->
+                 [(prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod)) anyrefs)
+                         (ref (val ptr anyrefs) (base mm)
+                           (ser (mem (rep (prod ptr)) anyrefs)
+                             (prod (val (prod ptr) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+                         (prod (val (prod) norefs)))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm)
+                      (ser (mem (rep (prod ptr)) anyrefs)
+                        (prod (val (prod ptr) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))))))]
+        pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod)) anyrefs)
+                        (ref (val ptr anyrefs) (base mm)
+                          (ser (mem (rep (prod ptr)) anyrefs)
+                            (prod (val (prod ptr) anyrefs)
+                              (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32))))))
+                        (prod (val (prod) norefs)))
+                     -> (num (val i32 norefs) i32)))
+                   (ref (val ptr anyrefs) (base mm)
+                     (ser (mem (rep (prod ptr)) anyrefs)
+                       (prod (val (prod ptr) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep i32) norefs) (num (val i32 norefs) i32)))))))]
+                ->
+                [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                   (prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                       (num (val i32 norefs) i32)))
+                     (var 0)))]
+        local.set 1 ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))]
+                       -> []
+        local.get move 1 ;; [] ->
+                            [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32) norefs) (prod i32))]
+                 [1 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [2 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [3 => (plug (val (prod i32) norefs) (prod i32))] [4 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 2 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 2 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 4 ;; [(var 0)] -> []
+          local.set 3 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                            (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 4 ;; [] -> [(var 0)]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          group ;; [(var 0) (prod (val (prod) norefs))] ->
+                   [(prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs)))]
+          local.get copy 3 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                                 (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs)))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                              (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 3 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                                 (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                     (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 4 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 2 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod)) anyrefs) (var 0) (prod (val (prod) norefs))) ->
+                      (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)]
+        local.get move 1 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+        drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        local.get move 0 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+        drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> [])
+      (table 0)
+      (export "_start" (func 1)))
+    -----------factorial_hof-----------
+    (module
+      (func
+          ((prod (val (prod ptr i32) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (num (val i32 norefs) i32))
+          -> (num (val i32 norefs) i32)) (local ptr i32 (prod i32 ptr) i32 ptr)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr i32) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (num (val i32 norefs) i32))]
+        ungroup ;; [(prod (val (prod ptr i32) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (num (val i32 norefs) i32))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (num (val i32 norefs) i32)]
+        local.set 2 ;; [(num (val i32 norefs) i32)] -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+        i32.eqz ;; [(num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+        if
+          (localfx [0 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+            [1 => (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+            [2 => (num (val i32 norefs) i32)] [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+            [4 => (plug (val (prod i32) norefs) (prod i32))] [5 => (plug (val (prod i32) norefs) (prod i32))])
+          num_const 1 ;; [] -> [(num (val i32 norefs) i32)]
+        else
+          local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+          coderef 0 ;; [] ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs)
+                             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                             (num (val i32 norefs) i32))
+                          -> (num (val i32 norefs) i32)))]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          new ;; [(prod (val (prod) norefs))] ->
+                 [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+          group ;; [(coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (num (val i32 norefs) i32))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   ->
+                   [(prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (num (val i32 norefs) i32))
+                        -> (num (val i32 norefs) i32)))
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+          pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                          (num (val i32 norefs) i32))
+                       -> (num (val i32 norefs) i32)))
+                     (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                  ->
+                  [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                     (prod (val (prod i32 ptr) anyrefs)
+                       (coderef (val i32 norefs)
+                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                         (num (val i32 norefs) i32)))
+                       (var 0)))]
+          unpack (localfx [0 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [1 => (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   [2 => (num (val i32 norefs) i32)] [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                   [4 => (plug (val (prod i32) norefs) (prod i32))] [5 => (plug (val (prod i32) norefs) (prod i32))])
+            local.set 3 ;; [(prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0))]
+                           -> []
+            local.get move 3 ;; [] ->
+                                [(prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0))]
+            ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0))]
+                       ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)]
+            local.set 5 ;; [(var 0)] -> []
+            local.set 4 ;; [(coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))]
+                           -> []
+            local.get move 5 ;; [] -> [(var 0)]
+            local.get copy 2 ;; [] -> [(num (val i32 norefs) i32)]
+            num_const 1 ;; [] -> [(num (val i32 norefs) i32)]
+            i32.sub ;; [(num (val i32 norefs) i32) (num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+            group ;; [(var 0) (num (val i32 norefs) i32)] ->
+                     [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))]
+            local.get copy 4 ;; [] ->
+                                [(coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))]
+            call_indirect ;; [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))]
+                             -> [(num (val i32 norefs) i32)]
+            local.get move 4 ;; [] ->
+                                [(coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))]
+            drop ;; [(coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                       (num (val i32 norefs) i32)))]
+                    -> []
+            local.get move 5 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+            drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+            local.get move 3 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+            drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+          end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                    (prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)))]
+                 -> [(num (val i32 norefs) i32)]
+          i32.mul ;; [(num (val i32 norefs) i32) (num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+        end ;; [(num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        drop ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] -> [(num (val i32 norefs) i32)]
+        drop ;; [(num (val i32 norefs) i32)] -> [])
+      (func
+          ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+               (prod (val (prod i32 ptr) anyrefs)
+                 (coderef (val i32 norefs)
+                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))
+                 (var 0))))
+          -> (num (val i32 norefs) i32)) (local ptr (prod i32 ptr) (prod i32 ptr) i32 ptr)
+        local.get move 0 ;; [] ->
+                            [(prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                               (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0))))]
+        ungroup ;; [(prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0))))]
+                   ->
+                   [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                    (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))]
+        local.set 2 ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0)))]
+                       -> []
+        local.set 1 ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] ->
+                            [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32 i32) norefs) (prod i32 i32 i32))]
+                 [1 => (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 [2 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [3 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [4 => (plug (val (prod i32) norefs) (prod i32))] [5 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 3 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 3 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                        (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 5 ;; [(var 0)] -> []
+          local.set 4 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 5 ;; [] -> [(var 0)]
+          num_const 6 ;; [] -> [(num (val i32 norefs) i32)]
+          group ;; [(var 0) (num (val i32 norefs) i32)] ->
+                   [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))]
+          local.get copy 4 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 4 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 5 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 3 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                      (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)]
+        local.get move 1 ;; [] ->
+                            [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        drop ;; [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] -> []
+        local.get move 2 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+        drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> [])
+      (func (-> (num (val i32 norefs) i32)) (local (prod i32 ptr) i32 ptr)
+        coderef 1 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0))))
+                        -> (num (val i32 norefs) i32)))]
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        group ;; [(coderef (val i32 norefs)
+                    ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                       (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                       (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                         (prod (val (prod i32 ptr) anyrefs)
+                           (coderef (val i32 norefs)
+                             ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                             (num (val i32 norefs) i32)))
+                           (var 0))))
+                    -> (num (val i32 norefs) i32)))
+                  (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                 ->
+                 [(prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0))))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+        pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                   (coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                        (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))))
+                     -> (num (val i32 norefs) i32)))
+                   (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                ->
+                [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                   (prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                          (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                            (prod (val (prod i32 ptr) anyrefs)
+                              (coderef (val i32 norefs)
+                                ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                (num (val i32 norefs) i32)))
+                              (var 0))))
+                       -> (num (val i32 norefs) i32)))
+                     (var 0)))]
+        unpack (localfx [0 => (plug (val (prod i32 i32) norefs) (prod i32 i32))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 0 ;; [(prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                 (var 0)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0))))
+                              -> (num (val i32 norefs) i32)))
+                            (var 0))]
+                         -> []
+          local.get move 0 ;; [] ->
+                              [(prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                      (var 0)
+                                      (exists.type (val (prod i32 ptr) anyrefs)
+                                        (val ptr anyrefs)
+                                        (prod (val (prod i32 ptr) anyrefs)
+                                          (coderef (val i32 norefs)
+                                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                            (num (val i32 norefs) i32)))
+                                          (var 0))))
+                                   -> (num (val i32 norefs) i32)))
+                                 (var 0))]
+          ungroup ;; [(prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                             (var 0)
+                             (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                               (prod (val (prod i32 ptr) anyrefs)
+                                 (coderef (val i32 norefs)
+                                   ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                   (num (val i32 norefs) i32)))
+                                 (var 0))))
+                          -> (num (val i32 norefs) i32)))
+                        (var 0))]
+                     ->
+                     [(coderef (val i32 norefs)
+                        ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                           (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                             (prod (val (prod i32 ptr) anyrefs)
+                               (coderef (val i32 norefs)
+                                 ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                 (num (val i32 norefs) i32)))
+                               (var 0))))
+                        -> (num (val i32 norefs) i32)))
+                      (var 0)]
+          local.set 2 ;; [(var 0)] -> []
+          local.set 1 ;; [(coderef (val i32 norefs)
+                            ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                               (var 0)
+                               (exists.type (val (prod i32 ptr) anyrefs)
+                                 (val ptr anyrefs)
+                                 (prod (val (prod i32 ptr) anyrefs)
+                                   (coderef (val i32 norefs)
+                                     ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                     (num (val i32 norefs) i32)))
+                                   (var 0))))
+                            -> (num (val i32 norefs) i32)))]
+                         -> []
+          local.get move 2 ;; [] -> [(var 0)]
+          coderef 0 ;; [] ->
+                       [(coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs)
+                             (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                             (num (val i32 norefs) i32))
+                          -> (num (val i32 norefs) i32)))]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          new ;; [(prod (val (prod) norefs))] ->
+                 [(ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+          group ;; [(coderef (val i32 norefs)
+                      ((prod (val (prod ptr i32) anyrefs)
+                         (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                         (num (val i32 norefs) i32))
+                      -> (num (val i32 norefs) i32)))
+                    (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+                   ->
+                   [(prod (val (prod i32 ptr) anyrefs)
+                      (coderef (val i32 norefs)
+                        ((prod (val (prod ptr i32) anyrefs)
+                           (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                           (num (val i32 norefs) i32))
+                        -> (num (val i32 norefs) i32)))
+                      (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+          pack ;; [(prod (val (prod i32 ptr) anyrefs)
+                     (coderef (val i32 norefs)
+                       ((prod (val (prod ptr i32) anyrefs)
+                          (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))
+                          (num (val i32 norefs) i32))
+                       -> (num (val i32 norefs) i32)))
+                     (ref (val ptr anyrefs) (base mm) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs)))))]
+                  ->
+                  [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                     (prod (val (prod i32 ptr) anyrefs)
+                       (coderef (val i32 norefs)
+                         ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                         (num (val i32 norefs) i32)))
+                       (var 0)))]
+          group ;; [(var 0)
+                    (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                      (prod (val (prod i32 ptr) anyrefs)
+                        (coderef (val i32 norefs)
+                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                          (num (val i32 norefs) i32)))
+                        (var 0)))]
+                   ->
+                   [(prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                      (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                        (prod (val (prod i32 ptr) anyrefs)
+                          (coderef (val i32 norefs)
+                            ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                            (num (val i32 norefs) i32)))
+                          (var 0))))]
+          local.get copy 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                    (var 0)
+                                    (exists.type (val (prod i32 ptr) anyrefs)
+                                      (val ptr anyrefs)
+                                      (prod (val (prod i32 ptr) anyrefs)
+                                        (coderef (val i32 norefs)
+                                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                          (num (val i32 norefs) i32)))
+                                        (var 0))))
+                                 -> (num (val i32 norefs) i32)))]
+          call_indirect ;; [(prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                              (var 0)
+                              (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                                (prod (val (prod i32 ptr) anyrefs)
+                                  (coderef (val i32 norefs)
+                                    ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                    (num (val i32 norefs) i32)))
+                                  (var 0))))
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                 (var 0)
+                                 (exists.type (val (prod i32 ptr) anyrefs)
+                                   (val ptr anyrefs)
+                                   (prod (val (prod i32 ptr) anyrefs)
+                                     (coderef (val i32 norefs)
+                                       ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                       (num (val i32 norefs) i32)))
+                                     (var 0))))
+                              -> (num (val i32 norefs) i32)))]
+                           -> [(num (val i32 norefs) i32)]
+          local.get move 1 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 ((prod (val (prod ptr (prod i32 ptr)) anyrefs)
+                                    (var 0)
+                                    (exists.type (val (prod i32 ptr) anyrefs)
+                                      (val ptr anyrefs)
+                                      (prod (val (prod i32 ptr) anyrefs)
+                                        (coderef (val i32 norefs)
+                                          ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                                          (num (val i32 norefs) i32)))
+                                        (var 0))))
+                                 -> (num (val i32 norefs) i32)))]
+          drop ;; [(coderef (val i32 norefs)
+                     ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                        (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                          (prod (val (prod i32 ptr) anyrefs)
+                            (coderef (val i32 norefs)
+                              ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                              (num (val i32 norefs) i32)))
+                            (var 0))))
+                     -> (num (val i32 norefs) i32)))]
+                  -> []
+          local.get move 2 ;; [] -> [(plug (val (prod i32) norefs) (prod i32))]
+          drop ;; [(plug (val (prod i32) norefs) (prod i32))] -> []
+          local.get move 0 ;; [] -> [(plug (val (prod i32 i32) norefs) (prod i32 i32))]
+          drop ;; [(plug (val (prod i32 i32) norefs) (prod i32 i32))] -> []
+        end ;; [(exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                  (prod (val (prod i32 ptr) anyrefs)
+                    (coderef (val i32 norefs)
+                      ((prod (val (prod ptr (prod i32 ptr)) anyrefs) (var 0)
+                         (exists.type (val (prod i32 ptr) anyrefs) (val ptr anyrefs)
+                           (prod (val (prod i32 ptr) anyrefs)
+                             (coderef (val i32 norefs)
+                               ((prod (val (prod ptr i32) anyrefs) (var 0) (num (val i32 norefs) i32)) ->
+                               (num (val i32 norefs) i32)))
+                             (var 0))))
+                      -> (num (val i32 norefs) i32)))
+                    (var 0)))]
+               -> [(num (val i32 norefs) i32)])
+      (table 0 1)
+      (export "_start" (func 2))) |xxx}]

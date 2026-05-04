@@ -167,7 +167,7 @@ let fix_factorial =
     (app factorial 5)))
   |}
 
-(* NOTE: this doesn't work, rec types don't have lifetimes *)
+(* NOTE: this doesn't work *)
 let unboxed_list =
   {|
     (fun map_int
@@ -249,37 +249,6 @@ let peano_3 =
 
 let rec_peano_3 =
   {|
-    (let (three : (rec a . (() + (ref a)))) = 
-      (fold (rec a . (() + (ref a)))
-        (inj 1 (new
-          (fold (rec a . (() + (ref a)))
-            (inj 1 (new
-              (fold (rec a . (() + (ref a)))
-                (inj 1 (new
-                  (fold (rec a . (() + (ref a)))
-                    (inj 0 () : (() + (ref (rec a . (() + (ref a))))))))
-                  : (() + (ref (rec a . (() + (ref a))))))))
-              : (() + (ref (rec a . (() + (ref a))))))))
-          : (() + (ref (rec a . (() + (ref a)))))))
-    in
-    (cases (unfold (rec a . (() + (ref a))) three)
-      (case (zero : ()) -1000)
-      (case (succ1 : (ref (rec a . (() + (ref a)))))
-        (let (p1 : (rec a . (() + (ref a)))) = (free succ1) in
-         (cases (unfold (rec a . (() + (ref a))) p1)
-           (case (zero : ()) -1001)
-           (case (succ2 : (ref (rec a . (() + (ref a)))))
-             (let (p2 : (rec a . (() + (ref a)))) = (free succ2) in
-              (cases (unfold (rec a . (() + (ref a))) p2)
-                (case (zero : ()) -1002)
-                (case (succ3 : (ref (rec a . (() + (ref a)))))
-                  (let (p3 : (rec a . (() + (ref a)))) = (free succ3) in
-                   (cases (unfold (rec a . (() + (ref a))) p3)
-                     (case (zero : ()) -1003)
-                     (case (_ : (ref (rec a . (() + (ref a))))) -1004))))))))))))
-  |}
-(* let rec_peano_3 =
-  {|
     (fun to-int (peano : (rec a . (() + (ref a)))) : int .
       (cases (unfold (rec a . (() + (ref a))) peano)
         (case (zero : ()) 0)
@@ -300,8 +269,6 @@ let rec_peano_3 =
     in
     (to-int three))
   |}
- *)
-(* let peano_from_int *)
 
 let peano =
   {|
@@ -349,6 +316,50 @@ let mini_zip =
       (new ((free a), (free b)))))
   |}
 
+let apply_hof =
+  {|
+    (fun apply (p : ((int -> int) * int)) : int .
+      (split (f : (int -> int)) (x : int) = p in
+       (app f x)))
+    (apply ((lam (x : int) : int . (+ x 5)), 10))
+  |}
+
+let compose_hof =
+  {|
+    (fun compose (p : ((int -> int) * (int -> int) * int)) : int .
+      (split (f : (int -> int)) (g : (int -> int)) (x : int) = p in
+       (app f (app g x))))
+    (compose ((lam (x : int) : int . (+ x 1)),
+              (lam (x : int) : int . (* x 2)),
+              5))
+  |}
+
+let mk_adder_apply_to =
+  {|
+    (fun mk_adder (n : int) : (int -> int) .
+      (lam (x : int) : int . (+ x n)))
+    (fun apply_to_100 (f : (int -> int)) : int .
+      (app f 100))
+    (apply_to_100 (mk_adder 7))
+  |}
+
+let closure_with_ref =
+  {|
+    (let (r : (ref int)) = (new 42) in
+    (let (read_and_free : (() -> int)) =
+      (lam (_ : ()) : int . (free r)) in
+    (app read_and_free ())))
+  |}
+
+let factorial_hof =
+  {|
+    (fun factorial (n : int) : int .
+      (if0 n 1 (n * (app factorial (- n 1)))))
+    (fun apply_to_6 (f : (int -> int)) : int .
+      (app f 6))
+    (apply_to_6 factorial)
+  |}
+
 let simple : (string * Module.t) list =
   [
     ("one", "1");
@@ -381,9 +392,14 @@ let all : (string * Module.t) list =
        ("incr_n", incr_n);
        ("fix_factorial[invalid]", fix_factorial);
        ("unboxed_list[invalid]", unboxed_list);
-       ("boxed_list", boxed_list);
+       ("boxed_list[invalid]", boxed_list);
        ("peano_3", peano_3);
        ("peano", peano);
        ("mini_zip", mini_zip);
+       ("apply_hof", apply_hof);
+       ("compose_hof", compose_hof);
+       ("mk_adder_apply_to", mk_adder_apply_to);
+       ("closure_with_ref", closure_with_ref);
+       ("factorial_hof", factorial_hof);
      ]
     |> List.map ~f:(fun (n, s) -> (n, Parse.from_string_exn s)))

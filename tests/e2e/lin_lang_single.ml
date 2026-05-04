@@ -67,11 +67,11 @@ let simple_tests =
     ("incr_n", Expl.incr_n, "13");
     ("fold_unfold", Expl.fold_unfold, "0");
     ("heap_sum", Expl.heap_sum, "7");
-    ("rec_peano_3", Expl.rec_peano_3, "-1003");
-    (* ("rec", {|
-
-    |}, "") *)
-    (* ("peano_3", Expl.peano_3, ""); *)
-    (* ("boxed_list", Expl.boxed_list, ""); *)
+    ("rec_peano_3", Expl.rec_peano_3, "3");
     ("peano", Expl.peano, "13");
+    ("apply_hof", Expl.apply_hof, "15");
+    ("compose_hof", Expl.compose_hof, "11");
+    ("mk_adder_apply_to", Expl.mk_adder_apply_to, "107");
+    ("closure_with_ref", Expl.closure_with_ref, "42");
+    ("factorial_hof", Expl.factorial_hof, "720");
   ]
