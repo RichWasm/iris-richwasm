@@ -60,10 +60,9 @@ Section local_set.
     (* Iris Proof *)
     iIntros (? ? ? ? ? ? ? ?) "%Hsem %Hhas_values #Hinst #Hlabels #Hreturn Hvs Hos Hframe Hrt Hown Hfr Hrun".
 
-    iDestruct (values_interp_one_eq with "Hos") as "Hos".
-    iDestruct (value_interp_eq with "Hos") as "Hos".
-    unfold value_interp0, value_se_interp0.
-    iDestruct "Hos" as "(%κ & %Hkind_payload & %Hskind_as_type & Hvs_type_interp)".
+    iDestruct (values_interp_one_eq with "Hos") as "Hvs_type_interp".
+    iSimpl in "Hvs_type_interp".
+    iDestruct (value_interp_skind with "Hvs_type_interp") as "(%κ & %Hkind_payload & %Hskind_as_type)".
 
     iPoseProof (frame_interp_wl_interp _ _ _ _ F with "Hframe") as "%Hwl".
     apply has_values_iff_to_consts in Hhas_values as ->.

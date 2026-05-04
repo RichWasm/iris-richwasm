@@ -301,11 +301,15 @@ Section case.
     (* Our values are in the value interpretation for our specific SumT *)
     (* This means that the values represent the tag and the payload. *)
     iDestruct (values_interp_one_eq with "Hvs") as "Hvs".
-    iDestruct (value_interp_eq with "Hvs") as "Hvs".
-    unfold value_interp0, value_se_interp0.
     iDestruct "Hvs" as "(%κ & %Hkind_sum & %Hskind_as_type & Hsum_interp)".
 
-    iDestruct "Hsum_interp" as (tag os_payload off count τ_case_tag HSAtoms Hsum_offset Hcount Htag_type_lookup) "Hvalue_interp_os_tag".
+    iDestruct "Hsum_interp" as (tag os_payload off count HSAtoms Hsum_offset Hcount) "Hvalue_interp_os_tag".
+    cbn in Hsum_offset.
+    fold (type_interp rti sr).
+    change (list_lookup tag (map (type_interp rti sr) τs)) with ((type_interp rti sr <$> τs) !! tag).
+    rewrite list_lookup_fmap.
+    destruct (τs !! tag) as [τ|] eqn:Htag_type_lookup; rewrite Htag_type_lookup; last done.
+    iSimpl in "Hvalue_interp_os_tag".
     simplify_eq.
 
     apply lookup_lt_Some in Htag_type_lookup as Htag_size_bound.

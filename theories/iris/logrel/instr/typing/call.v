@@ -19,8 +19,10 @@ Section call.
     ∀ F ixs τs1_s τs2_s ϕ se se_cl cl,
       sem_env_interp (Σ:=Σ) F se ->
       function_type_insts F ixs ϕ (MonoFunT τs1_s τs2_s) ->
-      closure_interp0 rti sr (value_interp rti sr) se_cl ϕ cl -∗
-      (∃ se' τs1 τs2, mono_closure_interp0 rti sr (value_interp rti sr) se' τs1 τs2 cl).
+      closure_interp rti sr ϕ se_cl cl -∗
+      ∃ se' τs1 τs2,
+        mono_closure_interp rti sr
+          τs1 τs2 (map (type_interp rti sr) τs1) (map (type_interp rti sr) τs2) se' cl.
   Proof.
     intros.
     generalize dependent se.
@@ -30,7 +32,6 @@ Section call.
     - subst.
       intros.
       iIntros "#Hcl".
-      unfold closure_interp0.
       iExists se_cl, τs1_s, τs2_s.
       done.
     - destruct ϕ.
@@ -49,7 +50,6 @@ Section call.
       + intros.
         iIntros "#Hcl".
         inversion H; subst.
-        unfold closure_interp0.
         (* now I need a sκ and T st
            eval_kind se k = sκ   ==   Heval
            skind_interp sκ T     ==   Hskind
@@ -72,7 +72,7 @@ Section call.
     ∀ F ixs τs1_s τs2_s ϕ se se_cl ft ix,
       sem_env_interp (Σ:=Σ) F se ->
       function_type_insts F ixs ϕ (MonoFunT τs1_s τs2_s) ->
-      closure_interp0 rti sr (value_interp rti sr) se_cl ϕ (FC_func_host ft ix) -∗ False.
+      closure_interp rti sr ϕ se_cl (FC_func_host ft ix) -∗ False.
   Proof.
     intros.
     iIntros "#Hcl".
@@ -161,7 +161,6 @@ Section call.
       as "#Hcl2".
     iDestruct "Hcl2" as "(%se' & %τs1_s & %τs2_s & #Hcl2 )".
     iDestruct "Hcl2" as "(%Htrans1 & %Htrans2 & Hcl2)".
-    unfold mono_closure_interp0.
 
     (* here you can see that we'll need translate_types and some
        connection between τs1_s and τs1. That will need to happen through

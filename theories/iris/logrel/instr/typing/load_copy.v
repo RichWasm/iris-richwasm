@@ -392,19 +392,6 @@ Section load_copy.
       cbn; auto.
   Qed.
 
-  Lemma value_interp_ref_sz se κ μ τ os :
-    ⊢ value_interp rti sr se (RefT κ μ τ) (SAtoms os) -∗ ⌜length os = 1⌝.
-  Proof.
-    iIntros "Hv".
-    rewrite value_interp_eq; cbn.
-    iDestruct "Hv" as "(%κ0 & %Heval & Hkind & Hmem)".
-    destruct μ as [| [|]]; auto.
-    - iDestruct "Hmem" as "(%ℓ & %fs & %ws & %Hos & _)".
-      by inversion Hos.
-    - iDestruct "Hmem" as "(%ℓ & %fs & %Hos & _)".
-      by inversion Hos.
-  Qed.
-
   Lemma rep_ref_kind_ptr F κ μ τ ρ ξ :
     has_kind F (RefT κ μ τ) (VALTYPE ρ ξ) ->
     ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
@@ -1627,7 +1614,6 @@ Section load_copy.
     iIntros (se fr os vs evs θ B R Hse Hevs) "@ @ @ @ @ @ @ @ @ @".
     iEval (rewrite values_interp_one_eq; cbn) in "Hos".
     iPoseProof (value_interp_ref_sz with "Hos") as "%Hlen_os".
-    iEval (rewrite value_interp_eq) in "Hos".
     iDestruct "Hos" as (κ' Hκ') "[Harep Href]".
     destruct κ'; [|by iDestruct "Harep" as "[[] ?]"].
     iDestruct "Harep" as "%Harep".
@@ -1669,48 +1655,46 @@ Section load_copy.
     destruct o; inversion Harep; clear Harep Hareps.
     cbn [app].
     iEval (cbn) in "Href".
-    destruct μ as [|[|]]; first done.
+    destruct (eval_mem se μ) as [[|]|]; last done.
     - unfold ref_mm_interp.
       iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
       inversion Hsv; subst p; clear Hsv.
-      rewrite value_interp_eq.
+      change (?x :: ?y :: ?z) with ([x; y] ++ z).
+      set (f' := {| f_locs := <[ptr_local:=v ]> (f_locs fr);
+                    f_inst := f_inst fr |}).
+      iApply (cwp_seq with "[Hfr Hrun Hws]").
+      {
+        change ([?ev; ?x]) with ([ev] ++ [x]).
+        rewrite (has_values_to_consts_inv _ _ Hevs).
+        iApply (cwp_local_tee with "[Hws] [$] [$]"); first eauto.
+        instantiate (1:= λ f'' vs', (⌜f'' = f' /\ vs' = [v]⌝ ∗ type_interp rti sr τ se (SWords ws))%I).
+        by iFrame.
+      }
+      iIntros (f vs) "([-> ->] & Hws) Hf Hrun".
+      setoid_rewrite type_interp_eq.
+      iEval (unfold type_interp) in "Hws".
+      iDestruct "Hws" as "(%κ' & %Hsk & Hk & Ht)".
 
-
-    change (?x :: ?y :: ?z) with ([x; y] ++ z).
-    set (f' := {| f_locs := <[ptr_local:=v ]> (f_locs fr);
-                  f_inst := f_inst fr |}).
-    iApply (cwp_seq with "[Hfr Hrun Hws]").
-    {
-      change ([?ev; ?x]) with ([ev] ++ [x]).
-      rewrite (has_values_to_consts_inv _ _ Hevs).
-      iApply (cwp_local_tee with "[Hws] [$] [$]"); first eauto.
-      instantiate (1:= λ f'' vs', (⌜f'' = f' /\ vs' = [v]⌝ ∗ value_interp0 rti sr (value_interp rti sr) se τ (SWords ws))%I).
-      by iFrame.
-    }
-    iIntros (f vs) "([-> ->] & Hws) Hf Hrun".
-    iEval (cbn) in "Hws".
-    iDestruct "Hws" as "(%κ' & %Hsk & Hk & Ht)".
-
-    eapply cwp_case_ptr in Hcompile.
-    destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
-    destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
-    rewrite atoms_interp_one_inv.
-    iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
-    inversion Hv'; subst v'; clear Hv'.
-    iApply cwp_val_app.
-    { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
-    specialize (Hspec [] [] ltac:(eauto) ltac:(done)).
-    clear_nils.
-    iApply (Hspec with "[$] [$] [] [$Hat]").
-    {
-      iPureIntro; cbn.
-      rewrite list_lookup_insert.
-      by rewrite decide_True.
-    }
-    iIntros "!> Hf Hrun Hat".
-    assert (Hκ'': ∃ ξ, κ' = SMEMTYPE (length ws) ξ).
-    { admit. }
-    destruct Hκ'' as [ξ ->].
+      eapply cwp_case_ptr in Hcompile.
+      destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+      destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
+      rewrite atoms_interp_one_inv.
+      iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
+      inversion Hv'; subst v'; clear Hv'.
+      iApply cwp_val_app.
+      { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
+      specialize (Hspec [] [] ltac:(eauto) ltac:(done)).
+      clear_nils.
+      iApply (Hspec with "[$] [$] [] [$Hat]").
+      {
+        iPureIntro; cbn.
+        rewrite list_lookup_insert.
+        by rewrite decide_True.
+      }
+      iIntros "!> Hf Hrun Hat".
+      assert (Hκ'': ∃ ξ, κ' = SMEMTYPE (length ws) ξ).
+      { admit. }
+      destruct Hκ'' as [ξ ->].
 
       (* need lemma about memory.load *)
       apply wp_mem_load_copy_mm in Hload1.

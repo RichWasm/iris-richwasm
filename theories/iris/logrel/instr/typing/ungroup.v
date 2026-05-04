@@ -36,12 +36,10 @@ Section ungroup.
     iDestruct (big_sepL2_nil_inv_l with "Hemp") as "->".
     iClear "Hemp".
     subst oss.
-    setoid_rewrite value_interp_eq.
     iDestruct "Hos" as "(%sκ & %Hskind & %Hsvalues & %oss & %Hoss & Hoss)".
     inversion Hoss.
     subst os.
     clear Hoss.
-    iDestruct (big_sepL2_later_2 with "Hoss") as "Hoss".
 
     iModIntro.
     unfold fvs_combine.

@@ -37,7 +37,6 @@ Section common.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-
   Lemma Forall2_mini_impl {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
     Forall2 P l k -> Forall2 (λ a b, P a b → Q a b) l k -> Forall2 Q l k.
   Proof.
@@ -151,8 +150,6 @@ Section common.
     value_interp rti sr se type_i31 (SAtoms os) -∗ ∃ n, ⌜os = [PtrA n]⌝.
   Proof.
     iIntros "Hval".
-    iPoseProof (value_interp_eq with "Hval") as "Hval".
-    iEval (cbn) in "Hval".
     iDestruct "Hval" as "(%κ & %Hκ & Rest)".
     destruct κ; auto.
     iDestruct "Rest" as "((%Hareps & %Href) & _)".
@@ -172,8 +169,6 @@ Section common.
     value_interp rti sr se type_i32 (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
   Proof.
     iIntros "Hval".
-    iPoseProof (value_interp_eq with "Hval") as "Hval".
-    iEval (cbn) in "Hval".
     iDestruct "Hval" as "(%κ & %Hκ & Rest)".
     destruct κ; auto.
     iDestruct "Rest" as "((%Hareps & %Href) & _)".
@@ -193,17 +188,12 @@ Section common.
     value_interp rti sr se (CodeRefT κ ϕ) (SAtoms os) -∗ ∃ n, ⌜os = [I32A n]⌝.
   Proof.
     iIntros "Hval".
-    iPoseProof (value_interp_eq with "Hval") as "Hval".
-    iEval (cbn) in "Hval".
     iDestruct "Hval" as "(%κ0 & %Hκ & Rest)".
     destruct κ0; auto; [ | iDestruct "Rest" as "[[[] _] _]"].
     iDestruct "Rest" as "((%Hareps & %Href) & Oh)".
-
     iDestruct "Oh" as "(%i & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
-
     inversion nos; subst; clear nos.
     auto.
-
   Qed.
 
   Lemma values_interp_nil_l se os :
@@ -991,16 +981,18 @@ Section common.
   Qed.
 
   Lemma value_interp_ref_sz se κ μ τ os :
-    ⊢ value_interp rti sr se (RefT κ μ τ) (SAtoms os) -∗ ⌜length os = 1⌝.
+    value_interp rti sr se (RefT κ μ τ) (SAtoms os) -∗ ⌜length os = 1⌝.
   Proof.
-    iIntros "Hv".
-    rewrite value_interp_eq; cbn.
-    iDestruct "Hv" as "(%κ0 & %Heval & Hkind & Hmem)".
-    destruct μ as [| [|]]; auto.
-    - iDestruct "Hmem" as "(%ℓ & %fs & %ws & %Hos & _)".
-      by inversion Hos.
-    - iDestruct "Hmem" as "(%ℓ & %fs & %Hos & _)".
-      by inversion Hos.
+    iIntros "(%sκ & _ & _ & H)".
+    destruct μ.
+    - destruct (lookup_mem se n) eqn:Hn; cbn in Hn.
+      + cbn. rewrite Hn. destruct b.
+        * iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
+        * iDestruct "H" as "(% & % & %Hos & _)". by inversion Hos.
+      + cbn. by rewrite Hn.
+    - cbn. destruct b.
+      + iDestruct "H" as "(% & % & % & %Hos & _)". by inversion Hos.
+      + iDestruct "H" as "(% & % & %Hos & _)". by inversion Hos.
   Qed.
 
   (* useful lemma for proving compat lemmas for instructions erased by the compiler. *)
@@ -1385,14 +1377,12 @@ Qed.
   Qed.
 
   Lemma empty_closure_interp se ϕ cl :
-    closure_interp rti sr senv_empty ϕ cl -∗
-    closure_interp rti sr se ϕ cl.
+    closure_interp rti sr ϕ senv_empty cl -∗
+    closure_interp rti sr ϕ se cl.
   Proof.
     (* This seems true? *)
     iIntros "H".
     cbn.
-
   Admitted.
-
 
 End common.

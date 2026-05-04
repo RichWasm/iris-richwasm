@@ -34,44 +34,93 @@ Section instr.
   | SAtoms (os : list atom)
   | SWords (ws : list word).
 
-  Definition SVR : Type := leibnizO semantic_value -n> iPropO Σ.
+  Notation SVR := (leibnizO semantic_value -n> iPropO Σ).
 
-  Definition semantic_type : Type := SVR.
-  Definition mem_env : Type := listO (leibnizO base_memory).
-  Definition rep_env : Type := listO (leibnizO (list atomic_rep)).
-  Definition size_env : Type := listO (leibnizO nat).
-  Definition type_env : Type := listO (prodO (leibnizO skind) semantic_type).
-  Definition semantic_env : Type := prodO (prodO (prodO mem_env rep_env) size_env) type_env.
+  Definition mem_env : Type := list base_memory.
+  Definition rep_env : Type := list (list atomic_rep).
+  Definition size_env : Type := list nat.
+  Definition type_env : Type := listO (prodO (leibnizO skind) SVR).
+  Definition semantic_env : Type := prodO (leibnizO (mem_env * rep_env * size_env)) type_env.
+
+  Notation SVRO := (semantic_env -n> SVR).
+
+  Implicit Types vrel : semantic_env -n> SVR.
+  Implicit Types se : semantic_env.
 
   Definition senv_empty : semantic_env := ([], [], [], []).
 
-  Definition senv_mems '((m, _, _, _) : semantic_env) : mem_env := m.
-  Definition senv_reps '((_, r, _, _) : semantic_env) : rep_env := r.
-  Definition senv_sizes '((_, _, s, _) : semantic_env) : size_env := s.
-  Definition senv_types '((_, _, _, t) : semantic_env) : type_env := t.
+  Program Definition senv_mems : semantic_env -n> leibnizO mem_env := λne se, se.1.1.1.
+  Next Obligation.
+    repeat intros ?; cbn.
+    destruct H.
+    by rewrite H.
+  Qed.
+  Program Definition senv_reps : semantic_env -n> leibnizO rep_env := λne se, se.1.1.2.
+  Next Obligation.
+    repeat intros ?; cbn.
+    destruct H.
+    by rewrite H.
+  Qed.
+  Program Definition senv_sizes : semantic_env -n> leibnizO size_env := λne se, se.1.2.
+  Next Obligation.
+    repeat intros ?; cbn.
+    destruct H.
+    by rewrite H.
+  Qed.
+  Program Definition senv_types : semantic_env -n> type_env := λne se, se.2.
+  Solve All Obligations with solve_proper.
 
   #[global]
   Instance semantic_env_env : Env semantic_env :=
     {
-      lookup_mem := fun se i => senv_mems se !! i;
-      lookup_rep := fun se i => senv_reps se !! i;
-      lookup_size := fun se i => senv_sizes se !! i;
+      lookup_mem se i := senv_mems se !! i;
+      lookup_rep se i := senv_reps se !! i;
+      lookup_size se i := senv_sizes se !! i;
     }.
 
-  Definition lookup_type (se : semantic_env) (i : nat) : option (skind * semantic_type) :=
-    senv_types se !! i.
+  Program Definition lookup_type : semantic_env -n> leibnizO nat -n> optionO (prodO (leibnizO skind) SVR) :=
+    λne se i, senv_types se !! i.
+  Solve All Obligations with solve_proper.
 
-  Definition senv_insert_type (sκ : skind) (T : semantic_type) (se : semantic_env) : semantic_env :=
-    (senv_mems se, senv_reps se, senv_sizes se, (sκ, T) :: senv_types se).
+  Program Definition senv_insert_type (sκ : skind) (T : SVR) : semantic_env -n> semantic_env :=
+    λne se,
+      (se.1, (sκ, T) :: senv_types se).
+  Final Obligation.
+    intros * se se' Hse.
+    f_equiv.
+    - apply Hse.
+    - solve_proper.
+  Qed.
 
-  Definition senv_insert_mem (μ : base_memory) (se : semantic_env) : semantic_env :=
-    (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).
+  Program Definition senv_insert_mem (μ : base_memory) : semantic_env -n> semantic_env :=
+    λne se,
+      (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).
+  Final Obligation.
+    intros * se se' [Hse Htys]; cbn.
+    f_equiv.
+    - do 2 f_equiv; by rewrite Hse.
+    - exact Htys.
+  Qed.
 
-  Definition senv_insert_rep (ιs : list atomic_rep) (se : semantic_env) : semantic_env :=
-    (senv_mems se, ιs :: senv_reps se, senv_sizes se, senv_types se).
+  Program Definition senv_insert_rep (ιs : list atomic_rep) : semantic_env -n> semantic_env :=
+    λne se,
+      (senv_mems se, ιs :: senv_reps se, senv_sizes se, senv_types se).
+  Final Obligation.
+    intros * se se' [Hse Htys]; cbn.
+    f_equiv.
+    - do 2 f_equiv; by rewrite Hse.
+    - exact Htys.
+  Qed.
 
-  Definition senv_insert_size (n : nat) (se : semantic_env) : semantic_env :=
-    (senv_mems se, senv_reps se, n :: senv_sizes se, senv_types se).
+  Program Definition senv_insert_size (n : nat) : semantic_env -n> semantic_env :=
+    λne se,
+      (senv_mems se, senv_reps se, n :: senv_sizes se, senv_types se).
+  Final Obligation.
+    intros * se se' [Hse Htys]; cbn.
+    f_equiv.
+    - do 2 f_equiv; by rewrite Hse.
+    - exact Htys.
+  Qed.
 
   Definition OsR : Type := leibnizO (list atom) -n> iPropO Σ.
   Definition ClR : Type := leibnizO function_closure -n> iPropO Σ.
@@ -96,12 +145,8 @@ Section instr.
   Implicit Type cl : leibnizO function_closure.
   Implicit Type inst : leibnizO instance.
 
-  Implicit Type τ : leibnizO type.
-  Implicit Type τs : leibnizO (list type).
-  Implicit Type ϕ : leibnizO function_type.
-  Implicit Type ηss : leibnizO (list (list primitive)).
-
-  Definition value_relation : Type := semantic_env -n> leibnizO type -n> SVR.
+  (*Definition value_relation : Type := leibnizO type -n> semantic_env -n> semantic_type.*)
+  Definition semantic_type := semantic_env -n> SVR.
 
   Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
     match ty with
@@ -239,21 +284,79 @@ Section instr.
     | SWords ws => n = length ws
     end.
 
-  Definition svalue_in_skind (sv : semantic_value) (sκ : skind) : Prop :=
-    match sκ with
-    | SVALTYPE ιs ξ => has_areps ιs sv /\ ref_flag_atoms_interp ξ sv
-    | SMEMTYPE n ξ => ssize_interp n sv /\ ref_flag_words_interp ξ sv
-    end.
+  Program Definition skind_has_svalue : leibnizO skind -n> leibnizO semantic_value -n> PropO :=
+    λne sκ sv,
+      match sκ with
+      | SVALTYPE ιs ξ => has_areps ιs sv /\ ref_flag_atoms_interp ξ sv
+      | SMEMTYPE n ξ => ssize_interp n sv /\ ref_flag_words_interp ξ sv
+      end.
 
-  Definition stype_in_skind (T : semantic_type) (sκ : skind) : Prop :=
-    forall sv, T sv -∗ ⌜svalue_in_skind sv sκ⌝.
+  Definition skind_has_stype (sκ : skind) (T : SVR) : Prop :=
+    forall sv, T sv -∗ ⌜skind_has_svalue sκ sv⌝.
 
+  (*
   Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
     leibnizO (list type) -n> OsR :=
     λne τs os,
-      (∃ oss, ⌜os = concat oss⌝ ∗ [∗ list] τ; os ∈ τs; oss, vrel se τ (SAtoms os))%I.
+      (∃ oss, ⌜os = concat oss⌝ ∗ [∗ list] τ; os ∈ τs; oss, vrel τ se (SAtoms os))%I. *)
+  Program Definition eval_rep_se : semantic_env -n> leibnizO representation -n> leibnizO (option (list atomic_rep)) :=
+    λne se ρ, eval_rep se ρ.
+  Next Obligation.
+    intros.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    repeat intros ?; cbn.
+    revert H.
+    revert x y.
+    induction x0 using rep_ind; intros; cbn; try solve_proper.
+    - by rewrite H.
+    - f_equiv.
+      apply Forall_mapM_ext.
+      eapply Forall_impl; first apply H.
+      cbn; intros.
+      by apply H1.
+    - f_equiv.
+      apply Forall_mapM_ext.
+      eapply Forall_impl; first apply H.
+      cbn; intros.
+      by apply H1.
+  Qed.
 
-  Definition type_skind (se : semantic_env) (τ : type) : option skind :=
+  Program Definition eval_size_se : semantic_env -n> leibnizO size -n> leibnizO (option nat) :=
+    λne se n, eval_size se n.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation.
+    intros n se se' Hse sz; cbn.
+    induction sz using size_ind; cbn.
+    - by rewrite Hse.
+    - f_equiv.
+      apply Forall2_mapM_ext, Forall_Forall2_diag, H.
+    - f_equiv.
+      apply Forall2_mapM_ext, Forall_Forall2_diag, H.
+    - f_equiv.
+      by eapply eval_rep_se.
+    - done.
+  Qed.
+
+  Program Definition eval_kind_se : semantic_env -n> leibnizO kind -n> leibnizO (option skind) :=
+    λne se κ, eval_kind se κ.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Final Obligation.
+    intros n se se' Hse κ; cbn.
+    induction κ using kind_ind.
+    - cbn.
+      f_equiv.
+      by eapply eval_rep_se.
+    - cbn.
+      f_equiv.
+      by eapply eval_size_se.
+  Qed.
+
+  Program Definition type_skind : semantic_env -n> leibnizO type -n> leibnizO (option skind) :=
+    λne se τ,
     match τ with
     | VarT x => fst <$> lookup_type se x
     | NumT κ _
@@ -271,8 +374,25 @@ Section instr.
     | ExistsMemT κ _
     | ExistsRepT κ _
     | ExistsSizeT κ _
-    | ExistsTypeT κ _ _ => eval_kind se κ
+    | ExistsTypeT κ _ _ => eval_kind_se se κ
     end.
+  Next Obligation.
+    cbn.
+    repeat intros ?; cbn.
+    rewrite H.
+    solve_proper.
+  Qed.
+  Final Obligation.
+    intros n se se' [Hse Htys] τ; cbn.
+    destruct τ;
+      try by eapply eval_kind_se.
+    eapply (list_lookup_ne n0) in Htys.
+    inversion Htys as [u v Huv Hl Hr|Hl Hr].
+    - rewrite -Hl -Hr; cbn.
+      f_equiv.
+      by inversion Huv.
+    - by rewrite -Hl -Hr.
+  Qed.
 
   Definition skind_rep (κ : skind) : option (list atomic_rep) :=
     match κ with
@@ -280,224 +400,667 @@ Section instr.
     | _ => None
     end.
 
-  Definition type_arep (se : semantic_env) (τ : type) : option (list atomic_rep) :=
-    κ ← type_skind se τ;
-    skind_rep κ.
+  Program Definition type_arep : semantic_env -n> leibnizO type -n> leibnizO (option (list atomic_rep)) :=
+    λne se τ,
+      κ ← type_skind se τ;
+      skind_rep κ.
+  Next Obligation.
+    intros * τ τ' Hτ.
+    destruct Hτ; done.
+  Qed.
+  Final Obligation.
+    intros * se se' Hse τ; cbn -[type_skind].
+    eapply option_bind_ext; eauto.
+    by eapply type_skind.
+  Qed.
 
-  Definition translate_type (se : semantic_env) (τ : type) : option (list W.value_type) :=
-    map translate_arep <$> type_arep se τ.
-  
-  Definition translate_types (se : semantic_env) (τs : list type) : option (list W.value_type) :=
-    @concat _ <$> mapM (translate_type se) τs.
+  Program Definition translate_type : semantic_env -n> leibnizO type -n> leibnizO (option (list W.value_type)) :=
+    λne se τ,
+      map translate_arep <$> type_arep se τ.
+  Next Obligation.
+    intros * τ τ' Hτ.
+    destruct Hτ; done.
+  Qed.
+  Final Obligation.
+    intros * se se' Hse τ; cbn -[type_arep].
+    eapply option_bind_ext; eauto.
+    by eapply type_arep.
+  Qed.
 
-  Definition mono_closure_interp0 (vrel : value_relation) (se : semantic_env) :
-    leibnizO (list type) -n> leibnizO (list type) -n> ClR :=
-    λne τs1 τs2 cl,
+  Program Definition translate_types : semantic_env -n> leibnizO (list type) -n> leibnizO (option (list W.value_type)) :=
+    λne se τs,
+      @concat _ <$> mapM (translate_type se) τs.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation.
+    intros * se se' Hse τs.
+    cbn -[translate_type].
+    f_equiv.
+    by eapply mapM_ext, translate_type.
+  Qed.
+
+  (* Value type interpretations. *)
+  Program Definition type_var_interp : leibnizO nat -n> SVRO :=
+    λne t se,
+      default (λne _, False%I) (snd <$> lookup_type se t).
+  Solve All Obligations with solve_proper.
+
+  Program Definition i31_interp : semantic_type :=
+    λne _ _, True%I.
+
+  Program Definition num_interp : leibnizO num_type -n> semantic_type :=
+    λne nt se _, True%I.
+
+  Program Definition eval_mem_se : semantic_env -n> leibnizO memory -n> leibnizO (option base_memory) :=
+    λne se ρ, eval_mem se ρ.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    repeat intros ?; cbn.
+    unfold eval_mem.
+    destruct H, x0; auto.
+    solve_proper.
+  Qed.
+
+  Program Definition sum_offset_se : semantic_env -n> leibnizO (list representation) -n> leibnizO nat -n> leibnizO (option nat) :=
+    λne se ρs i, sum_offset se ρs i.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    unfold sum_offset.
+    change (eval_rep) with (λ se ρ, eval_rep_se se ρ).
+    repeat intros ?; cbn.
+    f_equiv.
+    apply eval_rep_se in H.
+    cbn in H.
+    apply Forall_mapM_ext; apply Forall_forall; intros.
+    eapply H.
+  Qed.
+
+  Program Definition sum_interp κ : list SVRO -> SVRO :=
+    match κ with
+    | VALTYPE (SumR ρs) _ =>
+        λ (τs : list SVRO), λne (se : semantic_env) sv,
+          ∃ (i : nat) os off count,
+            ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
+            ⌜sum_offset_se se ρs i = Some off⌝ ∗
+            ⌜length <$> ρs !! i ≫= eval_rep se = Some count⌝ ∗
+            match list_lookup i τs with
+            | Some τi => τi se (SAtoms (take count (drop off os)))
+            | None => False%I
+            end
+    | _ => λne _ _ _, False
+    end%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros.
+    intros se se' Hse sv; cbn.
+    f_equiv; intros i; cbn.
+    f_equiv; intros os; cbn.
+    f_equiv; intros off; cbn.
+    f_equiv; intros count; cbn.
+    f_equiv.
+    f_equiv.
+    {
+      unfold sum_offset.
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      apply mapM_ext.
+      by eapply eval_rep_se.
+    }
+    f_equiv.
+    {
+      f_equiv.
+      f_equiv.
+      f_equiv.
+      eapply option_bind_ext; eauto.
+      by eapply eval_rep_se.
+    }
+    destruct (list_lookup i τs) eqn:Hi; solve_proper.
+  Qed.
+  Next Obligation. cbn; congruence. Qed.
+  Next Obligation. cbn; congruence. Qed.
+  Next Obligation. cbn; congruence. Qed.
+  Final Obligation. cbn; congruence. Qed.
+
+  Program Definition variant_interp : list semantic_type -> semantic_env -n> SVR :=
+    λne (τs : listO semantic_type) se sv,
+      (∃ i n ws ws',
+         ⌜N_nat_repr i n⌝ ∗
+         ⌜sv = SWords (WordInt n :: ws ++ ws')⌝ ∗
+         match list_lookup i τs with
+         | Some τ => τ se (SWords ws)
+         | None => False%I
+         end)%I.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    repeat intros ?.
+    cbn.
+    repeat (f_equiv || solve_proper).
+    destruct (list_lookup _ _); solve_proper.
+  Qed.
+  Next Obligation.
+    intros i τs τs' Hτs se se'.
+    cbn.
+    do 10 f_equiv.
+    eapply (list_lookup_ne a) in Hτs.
+    inversion Hτs as [τi τi' Haa' Ha Ha'|Ha Ha'];
+      unfold lookup in *; rewrite -Ha -Ha'.
+    - solve_proper.
+    - solve_proper.
+  Qed.
+
+  Program Definition prod_interp : listO semantic_type -n> semantic_type :=
+    λne τs se sv,
+      (∃ oss,
+         ⌜sv = SAtoms (concat oss)⌝ ∗
+         [∗ list] (τ : semantic_type); os ∈ τs; oss, τ se (SAtoms os))%I.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    intros k τs τs' Hτs se se'; cbn.
+    f_equiv.
+    f_equiv.
+    f_equiv.
+    erewrite (big_sepL2_ne_2);
+      swap 1 4; swap 1 2; swap 3 2.
+    - eapply Hτs.
+    - reflexivity.
+    - instantiate (1:= fun k0 t0 ats0 => t0 se (SAtoms ats0)).
+      solve_proper.
+    - reflexivity.
+  Qed.
+
+  Program Definition struct_interp : listO semantic_type -n> semantic_type :=
+    λne τs se sv,
+      (∃ wss,
+          ⌜sv = SWords (concat wss)⌝ ∗
+          [∗ list] ws; (τ: semantic_type) ∈ wss; τs, τ se (SWords ws))%I.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    intros k τs τs' Hτs se se'; cbn.
+    f_equiv.
+    f_equiv.
+    f_equiv.
+    erewrite (big_sepL2_ne_2);
+      swap 1 4; swap 1 2; swap 3 2.
+    - reflexivity.
+    - eapply Hτs.
+    - instantiate (1:= fun k0 ws0 t0 => t0 se (SWords ws0)).
+      solve_proper.
+    - reflexivity.
+  Qed.
+
+  Program Definition ref_mm_interp : semantic_type -n> semantic_type :=
+    λne τ se sv,
+      (∃ ℓ fs ws,
+         ⌜sv = SAtoms [PtrA (PtrHeap MemMM ℓ)]⌝ ∗
+         ℓ ↦layout fs ∗
+         ℓ ↦heap ws ∗
+         ▷ τ se (SWords ws))%I.
+  Solve All Obligations with solve_proper.
+
+  Program Definition ref_gc_interp : semantic_type -n> semantic_type :=
+    λne τ se sv,
+      (∃ ℓ fs,
+         ⌜sv = SAtoms [PtrA (PtrHeap MemGC ℓ)]⌝ ∗
+         na_inv logrel_nais (ns_ref ℓ)
+         (∃ ws, ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ τ se (SWords ws)))%I.
+  Solve All Obligations with solve_proper.
+
+  Program Definition ref_interp : leibnizO memory -n> semantic_type -n> semantic_type :=
+    λne (μ : leibnizO memory) τ se,
+      match eval_mem_se se μ with
+      | Some MemMM => ref_mm_interp τ se
+      | Some MemGC => ref_gc_interp τ se
+      | None => λne sv, False%I
+      end.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    cbn.
+    intros μ τ n se se' Hse.
+    replace (eval_mem se' μ) with (eval_mem se μ); swap 1 2.
+    { by eapply eval_mem_se. }
+    destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; cbn; solve_proper.
+  Qed.
+  Next Obligation.
+    cbn.
+    intros μ k τ τ' Hτ se; cbn.
+    destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; cbn; solve_proper.
+  Qed.
+  Next Obligation.
+    cbn.
+    intros k μ μ' <- τ' se sv; cbn.
+    solve_proper.
+  Qed.
+
+  Program Definition coderef_interp : (semantic_env -n> ClR) -n> semantic_type :=
+    λne FT se sv,
+      (∃ i i32 j cl,
+         ⌜N_i32_repr i i32⌝ ∗
+         ⌜sv = SAtoms [I32A i32]⌝ ∗
+         FT se cl ∗
+         na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
+         na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl))%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+
+  Program Definition ser_interp : semantic_type -n> semantic_type :=
+    λne T se sv,
+      (∃ os, ⌜sv = SWords (flat_map serialize_atom os)⌝ ∗ T se (SAtoms os))%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+
+  Program Definition plug_interp : leibnizO representation -n> semantic_type :=
+    λne ρ se sv, (∃ ιs, ⌜eval_rep_se se ρ = Some ιs⌝ ∗ ⌜has_areps ιs sv⌝)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros ρ n se se' Hse sv; cbn.
+    f_equiv; intros ιs.
+    change (eval_rep se) with (ofe_mor_car _ _ (eval_rep_se se)).
+    change (eval_rep se') with (ofe_mor_car _ _ (eval_rep_se se')).
+    eapply eval_rep_se in Hse.
+    by rewrite Hse.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Program Definition span_interp : leibnizO size -n> semantic_type :=
+    λne σ se sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size se σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn.
+    f_equiv; intros ws; cbn.
+    f_equiv; intros n'; cbn.
+    f_equiv.
+    f_equiv.
+    f_equiv.
+    f_equiv.
+    by eapply eval_size_se.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
+    (λne T se T0 sv, ▷ T (senv_insert_type sκ T0 se) sv)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Instance skind_rec_interp1_contractive sκ T se : Contractive (skind_rec_interp1 sκ T se).
+  Proof.
+    unfold semantic_type in *.
+    repeat intros ?.
+    cbn.
+    eapply later_contractive.
+    eapply (ne_dist_later (λ svr, T (senv_insert_type sκ svr se) x0)); [|done].
+    solve_proper.
+  Qed.
+
+  Program Definition skind_rec_interp sκ : semantic_type -n> semantic_type :=
+    λne T se, fixpoint (skind_rec_interp1 sκ T se).
+  Next Obligation.
+    repeat intros ?.
+    f_equiv.
+    eapply @fixpoint_ne.
+    intros.
+    by eapply (ofe_mor_ne _ _ (skind_rec_interp1 sκ T)).
+  Qed.
+  Final Obligation.
+    repeat intros ?.
+    f_equiv.
+    eapply @fixpoint_ne.
+    solve_proper.
+  Qed.
+
+  Program Definition rec_interp (κ : kind) : semantic_type -n> semantic_type :=
+    λne T se,
+      match eval_kind_se se κ with
+      | Some sκ => skind_rec_interp sκ T se
+      | None => λne _, False
+      end%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse.
+    cbn -[eval_kind_se skind_rec_interp].
+    replace (eval_kind_se se' κ) with (eval_kind_se se κ); swap 1 2.
+    { by eapply eval_kind_se. }
+    destruct (eval_kind_se se κ) eqn:Hκ.
+    - by eapply ofe_mor_ne.
+    - done.
+  Qed.
+  Final Obligation.
+    intros * T T' HT se; cbn -[eval_kind_se skind_rec_interp].
+    destruct (eval_kind_se _ _) eqn:Hκ;
+      cbn -[eval_kind_se skind_rec_interp].
+    - f_equiv.
+      by eapply ofe_mor_ne.
+    - solve_proper.
+  Qed.
+
+  Program Definition values_interp1 : listO semantic_type -n> semantic_env -n> OsR :=
+    (λne τs se os,
+      ∃ oss, ⌜os = concat oss⌝ ∗ [∗ list] τ: semantic_type; os ∈ τs; oss, τ se (SAtoms os))%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    repeat intros ?; cbn.
+    f_equiv.
+    intros oss.
+    f_equiv.
+    erewrite (big_sepL2_ne_2); [|eapply H|reflexivity|].
+    - by instantiate (1:= fun k y1 y2 => y1 x0 (SAtoms y2)).
+    - intros.
+      solve_proper.
+  Qed.
+
+  Program Definition add_skind_interp : leibnizO type -n> (semantic_env -n> SVR) -n> semantic_env -n> SVR :=
+    (λne τ T se sv,
+      ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝ ∗ T se sv)%I.
+  Next Obligation.
+    intros.
+    repeat intros ?.
+    f_equiv.
+    repeat intros ?.
+    f_equiv.
+    f_equiv.
+    - assert (Hprop: Proper (dist n ==> dist n) (skind_has_svalue a))
+        by apply ofe_mor_ne.
+      f_equiv.
+      by eapply Hprop.
+    - by eapply ofe_mor_ne.
+  Qed.
+  Next Obligation.
+    intros.
+    repeat intros ?.
+    f_equiv.
+    repeat intros ?.
+    cbn -[type_skind skind_has_svalue].
+    f_equiv; intros ?.
+    f_equiv; [|solve_proper].
+    f_equiv.
+    by setoid_rewrite (ofe_mor_ne _ _ type_skind).
+    Unshelve.
+    exact n.
+  Qed.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    repeat intros ?.
+    rewrite H.
+    solve_proper.
+  Qed.
+
+  Program Definition exists_mem_interp : semantic_type -n> semantic_type :=
+    (λne T se sv, ∃ μ, T (senv_insert_mem μ se) sv)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_mem].
+    f_equiv; intros μ.
+    apply T.
+    by apply ofe_mor_ne.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Program Definition exists_rep_interp : semantic_type -n> semantic_type :=
+    λne T se sv, (∃ ιs, T (senv_insert_rep ιs se) sv)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_rep].
+    f_equiv; intros ιs.
+    apply T.
+    by apply ofe_mor_ne.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Program Definition exists_size_interp : semantic_type -n> semantic_type :=
+    λne T se sv, (∃ n, T (senv_insert_size n se) sv)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_size].
+    f_equiv; intros ?.
+    apply T.
+    by apply ofe_mor_ne.
+  Qed.
+  Next Obligation. solve_proper. Qed.
+
+  Program Definition exists_type_interp (κ : kind) : semantic_type -n> semantic_type :=
+    λne T se sv,
+      (∃ T' sκ,
+         ⌜eval_kind se κ = Some sκ⌝ ∗
+         ⌜skind_has_stype sκ T'⌝ ∗
+         T (senv_insert_type sκ T' se) sv)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse sv; cbn -[senv_insert_type].
+    f_equiv; intros T'.
+    f_equiv; intros sκ.
+    f_equiv; last solve_proper.
+    f_equiv.
+    f_equiv.
+    by eapply eval_kind_se.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Program Definition mono_closure_interp (τs1 τs2 : list type) (Ts1 Ts2 : listO semantic_type) : semantic_env -n> ClR :=
+    λne se cl,
       match cl with
       | FC_func_native inst (Tf ts1 ts2) tlocs es =>
           ⌜translate_types se τs1 = Some ts1⌝ ∗
-            ⌜translate_types se τs2 = Some ts2⌝ ∗
-            □ ▷ ∀ vs1 os1 θ,
+          ⌜translate_types se τs2 = Some ts2⌝ ∗
+          □ ▷ ∀ vs1 os1 θ,
               atoms_interp os1 vs1 -∗
-              values_interp0 vrel se τs1 os1 -∗
-              rt_token rti sr θ -∗
-              na_own logrel_nais ⊤ -∗
-              ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
-              ↪[RUN] -∗
-              let Φ vs2 :=
-                (∃ os2, atoms_interp os2 vs2 ∗ values_interp0 vrel se τs2 os2) ∗
-                  (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤
-              in
-              CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
+              values_interp1 Ts1 se os1 -∗
+             rt_token rti sr θ -∗
+             na_own logrel_nais ⊤ -∗
+             ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
+             ↪[RUN] -∗
+             let Φ := λne vs2,
+               (∃ os2, atoms_interp os2 vs2 ∗
+                       values_interp1 Ts2 se os2) ∗
+               (∃ θ', rt_token rti sr θ') ∗
+               na_own logrel_nais ⊤
+             in
+             CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
       | FC_func_host _ _ => False
       end%I.
-
-  Fixpoint closure_interp0
-    (vrel : value_relation) (se : semantic_env) (ϕ : leibnizO function_type) : ClR :=
-    λne cl,
-      match ϕ with
-      | MonoFunT τs1 τs2 => mono_closure_interp0 vrel se τs1 τs2 cl
-      | ForallMemT ϕ' => ∀ μ, closure_interp0 vrel (senv_insert_mem μ se) ϕ' cl
-      | ForallRepT ϕ' => ∀ ιs, closure_interp0 vrel (senv_insert_rep ιs se) ϕ' cl
-      | ForallSizeT ϕ' => ∀ n, closure_interp0 vrel (senv_insert_size n se) ϕ' cl
-      | ForallTypeT κ ϕ' =>
-          ∃ sκ,
-            ⌜eval_kind se κ = Some sκ⌝ ∗
-              ∀ sκ_T T,
-                ⌜subskind_of sκ_T sκ⌝ -∗
-                ⌜stype_in_skind T sκ_T⌝ -∗
-                closure_interp0 vrel (senv_insert_type sκ_T T se) ϕ' cl
-      end%I.
-
-  (* TODO *)
-  Global Instance Persistent_closure_interp0 vrel se ϕ cl : Persistent (closure_interp0 vrel se ϕ cl).
-  Admitted.
-
-  Global Instance closure_interp0_ne vrel se ϕ : NonExpansive2 (closure_interp0 vrel se).
-  Admitted.
-
-  Definition type_var_interp (se : semantic_env) (t : nat) : SVR :=
-    match lookup_type se t with
-    | Some (_, T) => T
-    | None => λne _, False%I
-    end.
-
-  Definition sum_interp
-    (vrel : value_relation) (se : semantic_env) (ρs : list representation) (τs : list type) : SVR :=
-    λne sv,
-      (∃ i os off count τi,
-         ⌜sv = SAtoms (I32A (Wasm_int.int_of_Z i32m (Z.of_nat i)) :: os)⌝ ∗
-           ⌜sum_offset se ρs i = Some off⌝ ∗
-           ⌜length <$> ρs !! i ≫= eval_rep se = Some count⌝ ∗
-           ⌜τs !! i = Some τi⌝ ∗
-           ▷ vrel se τi (SAtoms (take count (drop off os))))%I.
-
-  Definition variant_interp
-    (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
-    λne sv,
-      (∃ i n ws ws' τ,
-         ⌜N_nat_repr i n⌝ ∗
-         ⌜sv = SWords (WordInt n :: ws ++ ws')⌝ ∗
-         ⌜τs !! i = Some τ⌝ ∗
-         ▷ vrel se τ (SWords ws))%I.
-
-  Definition prod_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
-    λne sv,
-      (∃ oss, ⌜sv = SAtoms (concat oss)⌝ ∗ [∗ list] τ; os ∈ τs; oss, ▷ vrel se τ (SAtoms os))%I.
-
-  Definition struct_interp (vrel : value_relation) (se : semantic_env) (τs : list type) : SVR :=
-    λne sv,
-      (∃ wss,
-         ⌜sv = SWords (concat wss)⌝ ∗ [∗ list] ws; τ ∈ wss; τs, ▷ vrel se τ (SWords ws))%I.
-
-  Definition ref_mm_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv,
-      (∃ ℓ fs ws,
-         ⌜sv = SAtoms [PtrA (PtrHeap MemMM ℓ)]⌝ ∗
-           ℓ ↦layout fs ∗
-           ℓ ↦heap ws ∗
-           ▷ vrel se τ (SWords ws))%I.
-
-  Definition ref_gc_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv,
-      (∃ ℓ fs,
-         ⌜sv = SAtoms [PtrA (PtrHeap MemGC ℓ)]⌝ ∗
-           na_inv logrel_nais (ns_ref ℓ)
-             (∃ ws, ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ vrel se τ (SWords ws)))%I.
-
-  Definition coderef_interp (vrel : value_relation) (se : semantic_env) (ϕ : function_type) : SVR :=
-    λne sv,
-      (∃ i i32 j cl,
-         ⌜N_i32_repr i i32⌝ ∗
-           ⌜sv = SAtoms [I32A i32]⌝ ∗
-           closure_interp0 vrel se ϕ cl ∗
-           na_inv logrel_nais (ns_tab i) (N.of_nat sr.(sr_table) ↦[wt][i] Some j) ∗
-           na_inv logrel_nais (ns_fun (N.of_nat j)) (N.of_nat j ↦[wf] cl))%I.
-
-  Definition ser_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv,
-      (∃ os, ⌜sv = SWords (flat_map serialize_atom os)⌝ ∗ ▷ vrel se τ (SAtoms os))%I.
-
-  Definition plug_interp (se : semantic_env) (ρ : representation) : SVR :=
-    λne sv, (∃ ιs, ⌜eval_rep se ρ = Some ιs⌝ ∗ ⌜has_areps ιs sv⌝)%I.
-
-  Definition span_interp (se : semantic_env) (σ : size) : SVR :=
-    λne sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size se σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
-
-  Definition rec_interp (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
-    λne sv,
-      match eval_kind se κ with
-      | Some sκ =>
-          let T := λne sv, ▷ vrel se (RecT κ τ) sv in
-          vrel (senv_insert_type sκ T se) τ sv
-      | None => False
-      end%I.
-
-  Definition exists_mem_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv, (∃ μ, ▷ vrel (senv_insert_mem μ se) τ sv)%I.
-
-  Definition exists_rep_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv, (∃ ιs, ▷ vrel (senv_insert_rep ιs se) τ sv)%I.
-
-  Definition exists_size_interp (vrel : value_relation) (se : semantic_env) (τ : type) : SVR :=
-    λne sv, (∃ n, ▷ vrel (senv_insert_size n se) τ sv)%I.
-
-  Definition exists_type_interp
-    (vrel : value_relation) (se : semantic_env) (κ : kind) (τ : type) : SVR :=
-    λne sv,
-      (∃ sκ T,
-         ⌜eval_kind se κ = Some sκ⌝ ∗
-           ⌜stype_in_skind T sκ⌝ ∗
-           ▷ vrel (senv_insert_type sκ T se) τ sv)%I.
-
-  Definition type_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
-    λne τ,
-      match τ with
-      | VarT t => type_var_interp se t
-      | I31T _
-      | NumT _ _ => λne _, True
-      | SumT (VALTYPE (SumR ρs) _) τs => sum_interp vrel se ρs τs
-      | SumT _ _ => λne _, False
-      | VariantT _ τs => variant_interp vrel se τs
-      | ProdT _ τs => prod_interp vrel se τs
-      | StructT _ τs => struct_interp vrel se τs
-      | RefT _ (VarM _) _ => λne _, False
-      | RefT _ (BaseM MemMM) τ => ref_mm_interp vrel se τ
-      | RefT _ (BaseM MemGC) τ => ref_gc_interp vrel se τ
-      | CodeRefT _ ϕ => coderef_interp vrel se ϕ
-      | SerT _ τ => ser_interp vrel se τ
-      | PlugT _ ρ => plug_interp se ρ
-      | SpanT _ σ => span_interp se σ
-      | RecT κ τ => rec_interp vrel se κ τ
-      | ExistsMemT _ τ => exists_mem_interp vrel se τ
-      | ExistsRepT _ τ => exists_rep_interp vrel se τ
-      | ExistsSizeT _ τ => exists_size_interp vrel se τ
-      | ExistsTypeT _ κ τ => exists_type_interp vrel se κ τ
-      end%I.
-
-  Definition value_se_interp0 (vrel : value_relation) (se : semantic_env) : leibnizO type -n> SVR :=
-    λne τ sv,
-      (∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜svalue_in_skind sv sκ⌝ ∗ type_interp0 vrel se τ sv)%I.
-
-  (* TODO *)
-  Local Instance NonExpansive_value_se_interp0 (vrel : value_relation) :
-    NonExpansive (λ se, λne τ sv, value_se_interp0 vrel se τ sv).
-  Admitted.
-
-  Definition value_interp0 (vrel : value_relation) : value_relation :=
-    λne se τ sv, value_se_interp0 vrel se τ sv.
-
-  (* TODO *)
-  Instance Contractive_value_interp0 : Contractive value_interp0.
-  Admitted.
-
-  Definition value_interp : semantic_env -n> leibnizO type -n> SVR := fixpoint value_interp0.
-
-  Lemma value_interp_part_eq se τ :
-    value_interp se τ ≡ value_interp0 value_interp se τ.
-  Proof using.
-    do 2 f_equiv.
-    apply fixpoint_unfold.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * cl cl' Hcl.
+    inversion Hcl as [Heq].
+    done.
+  Qed.
+  Final Obligation.
+    intros * se se' Hse cl.
+    destruct cl; last done; cbn -[values_interp1 atoms_interp translate_types].
+    destruct f.
+    f_equiv.
+    - do 2 f_equiv.
+      by eapply translate_types.
+    -
+      set (Φ1 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (Φ2 := (λ vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (oΦ1 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      set (oΦ2 := (λne vs2, (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se' os2) ∗ (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤)%I) in *.
+      assert (HΦs : oΦ1 ≡{n}≡ oΦ2) by solve_proper.
+      set (oL1 := [(length r0, λne _, oΦ1)] : label_ctxO).
+      set (oL2 := [(length r0, λne _, oΦ2)] : label_ctxO).
+      assert (HLs: oL1 ≡{n}≡ oL2).
+      {
+        econstructor; last done.
+        f_equiv; solve_proper.
+      }
+      set (oR1 := Some (length r0, oΦ1) : return_ctxO).
+      set (oR2 := Some (length r0, oΦ2) : return_ctxO).
+      assert (HRs: oR1 ≡{n}≡ oR2) by (econstructor; done).
+      repeat match goal with
+      | |- context[ cwp_wasm _ _ l0 ?L ?R (λ _, Φ1) ] =>
+          set (L1 := L); set (R1 := R)
+      | |- context[ cwp_wasm _ _ l0 ?L ?R (λ _, Φ2) ] =>
+          set (L2 := L); set (R2 := R)
+      end.
+      f_equiv.
+      + do 2 f_equiv.
+        by eapply translate_types.
+      + do 9 f_equiv.
+        f_equiv; first solve_proper.
+        do 4 f_equiv.
+        eapply lenient_wp.lenient_wp_ne.
+        change (cwp_post_lp L1 R1 (λ _ : frame, Φ1))
+          with (cwp_post_lp_ne oL1 oR1 (λne _, oΦ1)).
+        change (cwp_post_lp L2 R2 (λ _ : frame, Φ2))
+          with (cwp_post_lp_ne oL2 oR2 (λne _, oΦ2)).
+        repeat (f_equiv; last solve_proper).
   Qed.
 
-  Lemma value_interp_eq se τ sv :
-    value_interp se τ sv ⊣⊢ value_interp0 value_interp se τ sv.
+  Global Instance Persistent_mono_closure_interp τs1 τs2 Ts1 Ts2 se cl :
+    Persistent (mono_closure_interp τs1 τs2 Ts1 Ts2 se cl).
   Proof.
-    do 3 f_equiv.
-    apply fixpoint_unfold.
+    destruct cl; first destruct f; typeclasses eauto.
   Qed.
 
-  Definition values_interp (se : semantic_env) : leibnizO (list type) -n> OsR :=
-    values_interp0 value_interp se.
+  Program Definition forall_mem_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
+    (λne FT se cl, □ ∀ μ, FT (senv_insert_mem μ se) cl)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_mem].
+    f_equiv; f_equiv; intros μ.
+    f_equiv.
+    by do 2 eapply ofe_mor_ne.
+  Qed.
+  Final Obligation. solve_proper. Qed.
 
-  Definition closure_interp (se : semantic_env) : leibnizO function_type -n> ClR :=
-    λne ϕ, closure_interp0 value_interp se ϕ.
+  Program Definition forall_rep_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
+    (λne FT se cl, □ ∀ ρ, FT (senv_insert_rep ρ se) cl)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_rep].
+    f_equiv; f_equiv; intros ?.
+    f_equiv.
+    by do 2 eapply ofe_mor_ne.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Program Definition forall_size_interp : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
+    (λne FT se cl, □ ∀ n, FT (senv_insert_size n se) cl)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_size].
+    f_equiv; f_equiv; intros ?.
+    f_equiv.
+    by do 2 eapply ofe_mor_ne.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Program Definition forall_type_interp κ : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
+    (λne FT se cl, ∃ sκ,
+        ⌜eval_kind_se se κ = Some sκ⌝ ∗
+        □ ∀ sκ_T T,
+          ⌜subskind_of sκ_T sκ⌝ -∗
+          ⌜skind_has_stype sκ_T T⌝ -∗
+          FT (senv_insert_type sκ_T T se) cl)%I.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * se se' Hse cl; cbn -[senv_insert_type eval_kind_se].
+    f_equiv; intros ?.
+    f_equiv; last solve_proper.
+    do 2 f_equiv.
+    by eapply eval_kind_se.
+  Qed.
+  Final Obligation. solve_proper. Qed.
+
+  Fixpoint type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
+    add_skind_interp τ $
+      match τ with
+      | VarT t => type_var_interp t
+      | I31T _ => i31_interp
+      | NumT _ nt => num_interp nt
+      | SumT κ τs => sum_interp κ (map type_interp τs)
+      | VariantT _ τs => variant_interp (map type_interp τs)
+      | ProdT _ τs => prod_interp (map type_interp τs)
+      | StructT _ τs => struct_interp (map type_interp τs)
+      | RefT _ μ τ => ref_interp μ (type_interp τ)
+      | SerT _ τ => ser_interp (type_interp τ)
+      | PlugT _ ρ => plug_interp ρ
+      | SpanT _ σ => span_interp σ
+      | RecT κ τ => rec_interp κ (type_interp τ)
+      | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
+      | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
+      | ExistsSizeT _ τ => exists_size_interp (type_interp τ)
+      | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
+      | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
+      end%I
+  with closure_interp (ϕ : function_type) : semantic_env -n> ClR :=
+    match ϕ with
+    | MonoFunT τs1 τs2 => mono_closure_interp τs1 τs2 (map type_interp τs1) (map type_interp τs2)
+    | ForallMemT ϕ' => forall_mem_interp (closure_interp ϕ')
+    | ForallRepT ϕ' => forall_rep_interp (closure_interp ϕ')
+    | ForallSizeT ϕ' => forall_size_interp (closure_interp ϕ')
+    | ForallTypeT κ ϕ' => forall_type_interp κ (closure_interp ϕ')
+    end%I.
+
+  Definition pre_type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
+    match τ with
+    | VarT t => type_var_interp t
+    | I31T _ => i31_interp
+    | NumT _ nt => num_interp nt
+    | SumT κ τs => sum_interp κ (map type_interp τs)
+    | VariantT _ τs => variant_interp (map type_interp τs)
+    | ProdT _ τs => prod_interp (map type_interp τs)
+    | StructT _ τs => struct_interp (map type_interp τs)
+    | RefT _ μ τ => ref_interp μ (type_interp τ)
+    | SerT _ τ => ser_interp (type_interp τ)
+    | PlugT _ ρ => plug_interp ρ
+    | SpanT _ σ => span_interp σ
+    | RecT κ τ => rec_interp κ (type_interp τ)
+    | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
+    | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
+    | ExistsSizeT _ τ => exists_size_interp (type_interp τ)
+    | ExistsTypeT _ κ τ => exists_type_interp κ (type_interp τ)
+    | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
+    end%I.
+
+  Lemma type_interp_eq τ se sv :
+    type_interp τ se sv ⊣⊢ (add_skind_interp τ $ pre_type_interp τ) se sv.
+  Proof.
+    destruct τ; reflexivity.
+  Qed.
+
+  Program Definition value_interp : semantic_env -n> leibnizO type -n> SVR := λne se τ, type_interp τ se.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+
+  Program Definition values_interp : semantic_env -n> leibnizO (list type) -n> OsR :=
+    λne se τs,
+      values_interp1 (map type_interp τs) se.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
 
   Definition locals_interp (se : semantic_env) :
     leibnizO local_ctx -n> leibnizO (list (list atom)) -n> iPropO Σ :=
     λne L oss, ([∗ list] τ; os ∈ L; oss, value_interp se τ (SAtoms os))%I.
 
-  Definition frame_interp (se : semantic_env) :
+  Program Definition frame_interp (se : semantic_env) :
     leibnizO (list (list primitive)) -n>
       leibnizO local_ctx -n>
       leibnizO wlocal_ctx -n>
@@ -540,7 +1103,7 @@ Section instr.
     [∗ list] i ↦ ϕ ∈ M.(mc_functions),
       ∃ i' cl,
         ⌜inst.(inst_funcs) !! (funcimm mr.(mr_func_user) + i)%nat = Some i'⌝ ∗
-          closure_interp senv_empty ϕ cl ∗
+          closure_interp ϕ senv_empty cl ∗
           na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
   Definition table_entry_interp (off : nat) (i : nat) (ϕ : function_type) : iProp Σ :=
@@ -548,7 +1111,7 @@ Section instr.
       ⌜N_nat_repr (off + i) nt⌝ ∗
         ⌜N_Z_repr nt zt⌝ ∗
         ⌜zt < Wasm_int.Int32.modulus⌝%Z ∗
-        closure_interp senv_empty ϕ cl ∗
+        closure_interp ϕ senv_empty cl ∗
         na_inv logrel_nais (ns_tab nt) (N.of_nat sr.(sr_table) ↦[wt][nt] Some i') ∗
         na_inv logrel_nais (ns_fun (N.of_nat i')) (N.of_nat i' ↦[wf] cl).
 
@@ -562,17 +1125,23 @@ Section instr.
 
   Definition instance_interp
     (mr : module_runtime) (M : module_ctx) (WT : wtype_ctx) (inst : instance) : iProp Σ :=
-    ⌜inst.(inst_types) = WT⌝ ∗
+      ⌜inst.(inst_types) = WT⌝ ∗
       instance_runtime_interp mr inst ∗
       instance_functions_interp M mr inst ∗
       instance_table_interp M mr inst ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_mmmem) = Some sr.(sr_mem_mm)⌝ ∗
       ⌜inst.(inst_memory) !! memimm mr.(mr_gcmem) = Some sr.(sr_mem_gc)⌝.
 
-  Global Instance Persistent_instance_interp mr M WT inst : Persistent (instance_interp mr M WT inst).
+  Global Instance Persistent_closure_interp_emp ϕ se cl :
+    Persistent (closure_interp ϕ se cl).
   Proof.
-    typeclasses eauto.
-  Defined.
+    induction ϕ; cbn [closure_interp];
+      typeclasses eauto.
+  Qed.
+
+  Global Instance Persistent_instance_interp mr M WT inst :
+    Persistent (instance_interp mr M WT inst).
+  Proof. typeclasses eauto. Qed.
 
   Definition mask_locs_eq (lmask : nat -> Prop) (fr fr' : frame) : Prop :=
     forall i, lmask i -> fr.(f_locs) !! i = fr'.(f_locs) !! i.
@@ -646,7 +1215,7 @@ Section instr.
   
   Definition type_ctx_interp (κs : list kind) (se : semantic_env) : Prop :=
     Forall2
-      (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ stype_in_skind T sκ)
+      (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ skind_has_stype sκ T)
       κs
       (senv_types se).
 
@@ -703,7 +1272,7 @@ Section module.
           ∃ bs j cl,
             N.of_nat i ↪[vis] datatypes.Build_module_export bs (MED_func j) ∗
               N.of_nat (funcimm j) ↦[wf] cl ∗
-              closure_interp rti sr senv_empty ϕ cl ∗
+              closure_interp rti sr ϕ senv_empty cl ∗
               ⌜imports !! (funcimm mr.(mr_func_user) + i)%nat = Some (N.of_nat (funcimm j))⌝) -∗
        ([∗ list] i ↦ '_ ∈ ω.(mt_exports),
           ∃ bs j,
@@ -715,7 +1284,7 @@ Section module.
                i ↪[mods] m ∗
                ([∗ list] i ↦ ϕ ∈ ω.(mt_exports),
                  ∃ j cl, (* TODO: same j as precond *)
-                   N.of_nat (funcimm j) ↦[wf] cl ∗ closure_interp rti sr senv_empty ϕ cl) }})%I.
+                   N.of_nat (funcimm j) ↦[wf] cl ∗ closure_interp rti sr ϕ senv_empty cl) }})%I.
 
   (* TODO *)
   Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=
