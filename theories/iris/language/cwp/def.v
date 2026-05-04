@@ -63,15 +63,6 @@ Section def.
     | None => False
     end%I.
 
-  (*
-  Lemma coe_label_ctx_ext (L L' : label_ctxO) (k : nat) n:
-    L ≡{n}≡ L' ->
-    ∀ (S S' : label_specO),
-      coe_label_ctx L !! k = Some (coe_label_spec S) ->
-      coe_label_ctx L' !! k = Some (coe_label_spec S') ->
-      S ≡{n}≡ S'.
-  *)
-
   Program Definition cwp_post_br_ne (f : frame) (i : nat) (vh : valid_holed i) : label_ctxO -n> iProp Σ :=
     λne L,
       cwp_post_br f i vh (coe_label_ctx L).
@@ -143,26 +134,6 @@ Section def.
   Program Definition cwp_wasm (s : stuckness) (E : coPset) (es : list basic_instruction)
                      L R Φ :=
     lenient_wp s E (to_e_list es) (cwp_post_lp L R Φ).
-
-  Program Definition cwp_wasm_ne (s : stuckness) (E : coPset) (es : list basic_instruction) :
-    label_ctxO -n> return_ctxO -n> fvs_predO -n> iPropO Σ :=
-    λne L R Φ,
-      lenient_wp s E (to_e_list es) (cwp_post_lp (coe_label_ctx L) (coe_return_ctx R) (coe_fvs_pred Φ)).
-  Next Obligation.
-    intros * p q Hpq.
-    eapply lenient_wp_ne.
-    by eapply (cwp_post_lp_ne L R).
-  Qed.
-  Next Obligation.
-    intros * R R' HR p; cbn.
-    eapply lenient_wp_ne.
-    by eapply (cwp_post_lp_ne L).
-  Qed.
-  Final Obligation.
-    intros * L L' HL R p; cbn.
-    eapply lenient_wp_ne.
-    by eapply cwp_post_lp_ne.
-  Qed.
 
 End def.
 
