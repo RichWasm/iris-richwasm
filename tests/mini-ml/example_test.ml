@@ -26,7 +26,9 @@ let%expect_test "examples" =
     (module
       (func ((ref (base gc) (struct)) -> i31) (local ptr)
         i32.const 1
-        tag)
+        tag
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------tuple-----------
@@ -45,7 +47,9 @@ let%expect_test "examples" =
         tag
         group 4
         new gc
-        cast (ref (base gc) (struct (ser i31) (ser i31) (ser i31) (ser i31))))
+        cast (ref (base gc) (struct (ser i31) (ser i31) (ser i31) (ser i31)))
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------tuple_nested-----------
@@ -75,7 +79,9 @@ let%expect_test "examples" =
         cast
           (ref (base gc)
             (struct (ser (ref (base gc) (struct (ser i31) (ser i31))))
-              (ser (ref (base gc) (struct (ser i31) (ser i31)))))))
+              (ser (ref (base gc) (struct (ser i31) (ser i31))))))
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------tuple_project-----------
@@ -91,7 +97,9 @@ let%expect_test "examples" =
         load (Path [1]) follow
         local.set 1
         drop
-        local.get 1 move)
+        local.get 1 move
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------sum_unit-----------
@@ -103,7 +111,9 @@ let%expect_test "examples" =
         group 0
         new gc
         cast (ref (base gc) (struct))
-        inject_new gc 0 (ref (base gc) (struct)))
+        inject_new gc 0 (ref (base gc) (struct))
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------sum_option-----------
@@ -114,7 +124,9 @@ let%expect_test "examples" =
           (local ptr)
         i32.const 15
         tag
-        inject_new gc 1 (ref (base gc) (struct)) i31)
+        inject_new gc 1 (ref (base gc) (struct)) i31
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------basic_if-----------
@@ -131,7 +143,9 @@ let%expect_test "examples" =
         else
           i32.const 2
           tag
-        end)
+        end
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------add-----------
@@ -144,7 +158,9 @@ let%expect_test "examples" =
         tag
         untag
         i32.add
-        tag)
+        tag
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------sub-----------
@@ -157,7 +173,9 @@ let%expect_test "examples" =
         tag
         untag
         i32.sub
-        tag)
+        tag
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------mul-----------
@@ -170,7 +188,9 @@ let%expect_test "examples" =
         tag
         untag
         i32.mul
-        tag)
+        tag
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------div-----------
@@ -183,7 +203,9 @@ let%expect_test "examples" =
         tag
         untag
         i32.div_s
-        tag)
+        tag
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------math-----------
@@ -202,7 +224,9 @@ let%expect_test "examples" =
         tag
         untag
         i32.div_s
-        tag)
+        tag
+        local.get 0 move
+        drop)
       (table 0)
       (export "_start" (func 0)))
     -----------basic_let-----------
@@ -215,6 +239,8 @@ let%expect_test "examples" =
         copy
         local.set 1
         local.get 1 move
+        drop
+        local.get 0 move
         drop)
       (table 0)
       (export "_start" (func 0)))
@@ -246,6 +272,8 @@ let%expect_test "examples" =
         local.get 4 move
         drop
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (func
           ((ref (base gc) (struct)) ->
@@ -280,7 +308,9 @@ let%expect_test "examples" =
                 (coderef
                   ((ref (base gc)
                      (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
-                    -> i31))))))
+                    -> i31)))))
+        local.get 0 move
+        drop)
       (table 0 1)
       (export "_start" (func 1)))
     -----------iife-----------
@@ -311,6 +341,8 @@ let%expect_test "examples" =
         local.get 4 move
         drop
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
         coderef 0
@@ -367,7 +399,9 @@ let%expect_test "examples" =
           drop
           local.get 1 move
           drop
-        end)
+        end
+        local.get 0 move
+        drop)
       (table 0 1)
       (export "_start" (func 1)))
     -----------add_one-----------
@@ -394,6 +428,8 @@ let%expect_test "examples" =
         i32.add
         tag
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (table 0)
       (export "add1" (func 0)))
@@ -416,6 +452,8 @@ let%expect_test "examples" =
         copy
         local.set 2
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (table 0)
       (export "id" (func 0)))
@@ -443,6 +481,8 @@ let%expect_test "examples" =
         local.get 2 move
         drop
         local.get 1 move
+        drop
+        local.get 0 move
         drop)
       (table 0)
       (export "_start" (func 0)))
@@ -465,6 +505,8 @@ let%expect_test "examples" =
         copy
         local.set 2
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
         coderef 0
@@ -521,7 +563,9 @@ let%expect_test "examples" =
           drop
           local.get 1 move
           drop
-        end)
+        end
+        local.get 0 move
+        drop)
       (table 0 1)
       (export "id" (func 0))
       (export "_start" (func 1)))
@@ -554,6 +598,8 @@ let%expect_test "examples" =
         drop
         local.get 4 move
         local.get 1 move
+        drop
+        local.get 0 move
         drop)
       (table 0)
       (export "_start" (func 0)))
@@ -681,6 +727,8 @@ let%expect_test "examples" =
         drop
         local.get 10 move
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
         coderef 0
@@ -791,7 +839,9 @@ let%expect_test "examples" =
           drop
           local.get 1 move
           drop
-        end)
+        end
+        local.get 0 move
+        drop)
       (table 0 1)
       (export "len" (func 0))
       (export "_start" (func 1)))
@@ -845,6 +895,8 @@ let%expect_test "examples" =
         cast (ref (base gc) (struct (ser (var 1)) (ser (var 0))))
         new gc
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (table 0)
       (export "mini_zip" (func 0)))
@@ -888,6 +940,8 @@ let%expect_test "examples" =
         local.get 4 move
         drop
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr ptr
           ptr)
@@ -959,6 +1013,8 @@ let%expect_test "examples" =
         local.get 2 move
         drop
         local.get 1 move
+        drop
+        local.get 0 move
         drop)
       (table 0 1)
       (export "_start" (func 1)))
@@ -1063,6 +1119,8 @@ let%expect_test "examples" =
         local.get 4 move
         drop
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (func
           ((ref (base gc)
@@ -1108,6 +1166,8 @@ let%expect_test "examples" =
         local.get 4 move
         drop
         local.get 2 move
+        drop
+        local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr ptr
           ptr ptr)
@@ -1250,6 +1310,8 @@ let%expect_test "examples" =
         local.get 2 move
         drop
         local.get 1 move
+        drop
+        local.get 0 move
         drop)
       (table 0 1 2)
       (export "_start" (func 2))) |}]
