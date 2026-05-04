@@ -174,7 +174,8 @@ let simple_tests =
              ((NumConst (Int I32) 1)
               (NumConst (Int I64) 2)
               (Group 2)
-              Copy)))))
+              Copy
+              (Group 2))))))
          (table ()) (exports (((name _start) (desc (Func 0))))))
       |},
       "[ 1, 2n, 1, 2n ]" );
@@ -209,7 +210,7 @@ let simple_tests =
               (NumConst (Int I64) 2)
               (Group 2)
               (New GC)
-              (Load (Path ()) Move)
+              (Load (Path ()) Copy)
               (LocalSet 0)
               Drop
               (LocalGet 0 Move))))))
