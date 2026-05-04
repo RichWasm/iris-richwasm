@@ -392,23 +392,6 @@ Section load_copy.
       cbn; auto.
   Qed.
 
-  Lemma value_interp_ref_sz (se : semantic_env) κ μ τ os :
-    eval_mem se μ <> None ->
-    ⊢ value_interp rti sr se (RefT κ μ τ) (SAtoms os) -∗ ⌜length os = 1⌝.
-  Proof.
-    iIntros (Hmem) "Hv".
-    cbn in Hmem.
-    cbn -[ref_interp].
-    iDestruct "Hv" as "(%sκ & %Heval & %Hkind & Hmem)".
-    unfold ref_interp; cbn.
-    cbn.
-    destruct (eval_mem se μ) as [[|] |]; cbn in *; last done.
-    - iDestruct "Hmem" as "(%ℓ & %fs & %ws & %Hos & _)".
-      by inversion Hos.
-    - iDestruct "Hmem" as "(%ℓ & %fs & %Hos & _)".
-      by inversion Hos.
-  Qed.
-
   Lemma rep_ref_kind_ptr F κ μ τ ρ ξ :
     has_kind F (RefT κ μ τ) (VALTYPE ρ ξ) ->
     ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
@@ -1631,7 +1614,6 @@ Section load_copy.
     iIntros (se fr os vs evs θ B R Hse Hevs) "@ @ @ @ @ @ @ @ @ @".
     iEval (rewrite values_interp_one_eq; cbn) in "Hos".
     iPoseProof (value_interp_ref_sz with "Hos") as "%Hlen_os".
-    { admit. }
     iDestruct "Hos" as (κ' Hκ') "[Harep Href]".
     destruct κ'; [|by iDestruct "Harep" as "[[] ?]"].
     iDestruct "Harep" as "%Harep".
