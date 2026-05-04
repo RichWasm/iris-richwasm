@@ -624,7 +624,20 @@ Section inst.
       admit.
   Admitted.
 
+  Lemma type_interp_eq_r τ se sv :
+    type_interp rti sr τ se sv -∗ (add_skind_interp τ $ pre_type_interp rti sr τ) se sv.
+  Proof.
+    iDestruct (type_interp_eq rti sr τ se sv) as "[help _]".
+    done.
+  Qed.
 
+  Lemma type_interp_eq_l τ se sv :
+    (add_skind_interp τ $ pre_type_interp rti sr τ) se sv -∗
+    type_interp rti sr τ se sv.
+  Proof.
+    iDestruct (type_interp_eq rti sr τ se sv) as "[_ help]".
+    done.
+  Qed.
   (* As mentioned in a lower comment, this might require an additional assumption *)
   (* this is also now safe from contamination :3 *)
   Lemma values_interp_subst_type se se' τs os sub_m sub_r sub_s sub_t :
@@ -729,7 +742,9 @@ Section inst.
           iExists sk; iSplitR; [iPureIntro | iSplitR; [iPureIntro; done | done]].
           by eapply eval_kind_subst_senv.
         * (* sum, nearly qed except for map/forall2 lemmas *)
-          intros; cbn.
+          intros.
+          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
+          iApply type_interp_eq_l.
           iDestruct "Hoa" as "(%sk & %HEval & %Hoa & Hsuminterp)".
           iExists sk; iSplitR;
             [iPureIntro; by eapply eval_kind_subst_senv |
@@ -810,12 +825,13 @@ Section inst.
           admit.
         * (** refT, worried due to SAtoms rather than SWords, aka bad induction *)
           intros.
+          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
           iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & Hm)".
           destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hsκ" as "[[]_]"].
+          iApply type_interp_eq_l.
           iExists (SVALTYPE ιs ξ).
           iFrame.
           iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
-
           destruct m.
           {
             (* I think this is where we now need some sort of varm relation? *)
@@ -835,6 +851,8 @@ Section inst.
         * (* coderef, qed *)
           (* I think this IH for function types is what we need but we'll see *)
           intros.
+          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
+          iApply type_interp_eq_l.
           iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & (%i & %i32 & %j & %cl & Hcl))".
           destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hsκ" as "[[]_]"].
           iExists (SVALTYPE ιs ξ).
@@ -856,6 +874,8 @@ Section inst.
           admit.
         * (* exists mem, need mini value interp lemma *)
           intros.
+          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
+          iApply type_interp_eq_l.
           iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & (%μ & Hμ))".
           destruct sκ as [ιs ξ | n ξ]; [|iDestruct "Hsκ" as "[[]_]"].
           iExists (SVALTYPE ιs ξ).
