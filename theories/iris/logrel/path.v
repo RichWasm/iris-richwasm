@@ -150,65 +150,115 @@ Section PathFacts.
   Proof.
   Admitted.
 
-  Lemma resolves_path_sep F τ π τ__π pr :
+  Lemma split_concat_ws_field F τs1 τ τs2 σs ks wss :
+    mapM (type_size (fc_type_vars F)) (take (length τs1) (τs1 ++ τ :: τs2)) = Some σs ->
+    mapM (eval_size EmptyEnv) σs = Some ks ->
+    ∃ (wss1 wss2 : list (list word)) (ws : list word)
+      (ks1 ks2 : list nat) (k : nat),
+      length wss1 = length τs1 /\
+      length ks1 = length τs1 /\
+      length wss2 = length τs2 /\
+      length ks2 = length τs2 /\
+      wss = wss1 ++ ws :: wss2 /\
+      ks = ks1 ++ k :: ks2 /\
+      map length wss1 = ks1 /\
+      map length wss2 = ks2 /\
+      length ws = k.
+  Proof.
+  Abort.
+
+  Lemma drop_list_sum_cat A (wss : list (list A)) ks :
+    map length wss = ks ->
+    drop (list_sum ks) (concat wss) = concat (drop (length ks) wss).
+  Proof.
+    revert wss.
+    induction ks as [| k ks]; intros wss Hlen.
+    - destruct wss; cbn in Hlen; done.
+    - change (list_sum (k :: ks)) with (list_sum ([k] ++ ks)).
+      rewrite list_sum_app; cbn [list_sum foldr].
+      rewrite Nat.add_0_r -drop_drop.
+      destruct wss as [|ws wss]; cbn in Hlen; inversion Hlen.
+      subst k ks.
+      cbn.
+      rewrite drop_app_length.
+      by rewrite IHks.
+  Qed.
+
+  Lemma get_path_words_field F τs τ τs' σs ks off wss ws sz :
+    mapM (type_size (fc_type_vars F)) (take (length τs) (τs ++ τ :: τs')) = Some σs ->
+    wss !! length τs = Some ws ->
+    mapM (eval_size EmptyEnv) σs = Some ks ->
+    map length wss = ks ->
+    length τs = length ks ->
+    get_path_words (list_sum ks + off) sz (concat wss) = get_path_words off sz ws.
+  Proof.
+    unfold get_path_words; intros Hσs Hws Hks Hwss Hτs.
+    rewrite -drop_drop.
+    rewrite drop_list_sum_cat; last assumption.
+    eapply drop_S in Hws.
+    rewrite -Hτs Hws.
+    cbn.
+    rewrite drop_app.
+    rewrite take_app.
+    rewrite <- app_nil_r; f_equal.
+    rewrite length_drop.
+    admit.
+  Admitted.
+
+  Lemma resolves_path_sep F τ π τ__π pr sz :
     resolves_path τ π τ__π pr ->
     Forall (has_mono_size F) pr.(pr_prefix) ->
-    has_mono_size F pr.(pr_target) ->
-    exists off sz,
+    type_sz (fe_of_context F) (pr_expected pr τ__π) = Some sz ->
+    type_sz (fe_of_context F) (pr.(pr_target)) = Some sz ->
+    exists off,
       path_offset (fe_of_context F) τ π = Some off /\
-      type_sz (fe_of_context F) (pr.(pr_target)) = Some sz /\
       ⊢ ∀ ws,
-          ▷ 𝕍 τ (SWords ws) -∗
-          ▷ (𝕍 (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
-             ∀ ws',
+          𝕍 τ (SWords ws) -∗
+          (𝕍 (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
+           ∀ ws',
              𝕍 (pr_expected pr τ__π) (SWords ws') -∗
              𝕍 pr.(pr_replaced) (SWords (update_path_words off ws ws'))).
   Proof.
     intros Hpath.
-    induction Hpath; cbn.
-    - admit.
-    - admit.
-    (*
-    - intros Hszs Hsz.
-      eapply has_mono_size_inv in Hsz.
-      destruct Hsz as (σ & ξ & k & Htgtkind & Htgtsz).
-      exists 0, k.
-      split; first by destruct τ.
-      split; first by eapply has_kind_type_sz.
-      iIntros "!>" (ws) "Hv".
-      assert (Hws: length ws = k).
-      { admit. }
-      iSplitL "Hv".
-      + by rewrite -Hws get_path_words_all.
-      + iIntros (ws') "Hws'".
-        assert (Hws': length ws' = k).
-        { admit. }
-        rewrite -Hws in Hws'.
-        rewrite -> update_path_words_all by assumption.
-        done.
-    - intros Hszs Hsz.
-      eapply has_mono_size_inv in Hsz.
-      destruct Hsz as (σ & ξ & k & Htgtkind & Htgtsz).
-      exists 0, k.
-      split; first by destruct τ.
-      split; first by eapply has_kind_type_sz.
-      iIntros "!>" (ws) "Hv".
-      assert (Hws: length ws = k).
-      { admit. }
-      iSplitL "Hv".
-      + by rewrite -Hws get_path_words_all.
-      + iIntros (ws') "Hws'".
-        assert (Hws': length ws' = k).
-        { admit. }
-        rewrite -Hws in Hws'.
-        rewrite -> update_path_words_all by assumption.
-        done.
-    *)
-    - intros Hszs Hsz.
+    revert sz.
+    induction Hpath.
+    - intros sz _ Hsz Hsz'.
+      exists 0.
+      split; first (destruct τ; done).
+      iIntros (ws) "Hτ".
+      assert (Hlen: length ws = sz).
+      {
+        admit.
+      }
+      rewrite <- Hlen, get_path_words_all.
+      iFrame.
+      iIntros (ws') "Hτ".
+      assert (Hlen': length ws' = sz).
+      {
+        admit.
+      }
+      rewrite update_path_words_all; [done | congruence].
+    - intros sz _ Hsz Hsz'.
+      exists 0.
+      split; first (destruct τ; done).
+      iIntros (ws) "Hτ".
+      assert (Hlen: length ws = sz).
+      {
+        admit.
+      }
+      rewrite <- Hlen, get_path_words_all.
+      iFrame.
+      iIntros (ws') "Hτ'".
+      assert (Hlen': length ws' = sz).
+      {
+        admit.
+      }
+      rewrite update_path_words_all; [done | congruence].
+    - intros sz Hszs Hsz Hsz'.
       rewrite Forall_app in Hszs.
       destruct Hszs as [Hszτs0 Hszpr].
-      specialize (IHHpath Hszpr Hsz).
-      destruct IHHpath as (off0 & sz0 & Hoff0 & Hsz0 & IH).
+      specialize (IHHpath sz Hszpr Hsz Hsz').
+      destruct IHHpath as (off0 & Hoff0 & IH).
       assert (Hts: ∃ σs ks,
                  mapM (type_size (fc_type_vars F)) (take i (τs0 ++ τ :: τs')) = Some σs /\
                  mapM (eval_size EmptyEnv) σs = Some ks).
@@ -221,15 +271,18 @@ Section PathFacts.
         by rewrite Nat.sub_diag.
       }
       destruct Hts as (σs & ks & Hσs & Hks).
-      exists (list_sum ks + off0), sz0.
-      rewrite Hσs; cbn.
-      rewrite Hks; cbn.
-      rewrite Htsi; cbn.
-      rewrite Hoff0; cbn.
-      split; first done.
-      split; first done.
+      exists (list_sum ks + off0).
+      cbn [path_offset].
+      split.
+      {
+        rewrite Hσs; cbn.
+        rewrite Hks; cbn.
+        rewrite Htsi; cbn.
+        rewrite Hoff0; cbn.
+        done.
+      }
       iIntros (ws) "Hws".
-      iModIntro.
+      iEval (unfold value_interp; cbn -[add_skind_interp]) in "Hws".
       iDestruct "Hws" as "(%sκ & %Hevκ & %Hsv & %wss & %Hwss & Hws)".
       iPoseProof (big_sepL2_length with "Hws") as "%Hlenwss".
       assert (Hws': ∃ ws', wss !! i = Some ws').
@@ -242,11 +295,41 @@ Section PathFacts.
       destruct Hws' as [ws' Hwssi].
       iPoseProof (IH $! ws') as "IH".
       rewrite big_sepL2_fmap_r.
-      iPoseProof (big_sepL2_lookup_acc with "Hws") as "[Hws' Hdone]";
-        first eassumption;
-        first eassumption.
+      Search big_sepL2 app.
+      iPoseProof (big_sepL2_app_inv_r with "Hws") as "(%wss1 & %wss2' & -> & Hwss1  & Hwss2')".
+      iPoseProof (big_sepL2_cons_inv_r with "Hwss2'") as "(%ws'' & %wss2 & -> & Hws' & Hwss2)".
+      assert (ws'' = ws').
+      {
+        admit.
+      }
+      subst ws''.
       iSpecialize ("IH" with "Hws'").
-      admit.
+      iDestruct "IH" as "[Htgt Hret]".
+      inversion Hwss; subst ws; clear Hwss.
+      change (pr_target pr') with (pr_target pr) in *.
+      simpl (pr_replaced pr').
+      rewrite length_map in Hlenwss.
+      subst i.
+      erewrite get_path_words_field; eauto.
+      + iFrame.
+        iIntros (ws'') "Hws''".
+        iSpecialize ("Hret" with "Hws''").
+        cbn.
+        iExists _.
+        iSplitR.
+        { admit. }
+        iSplitR.
+        { admit. }
+        iExists (wss1 ++ (update_path_words off0 ws' ws'') :: wss2).
+        iSplit.
+        { admit. }
+        rewrite big_sepL2_fmap_r.
+        iApply (big_sepL2_app with "Hwss1").
+        iFrame.
+      + admit.
+      + rewrite take_app_length in Hσs.
+        apply length_mapM in Hσs, Hks.
+        congruence.
   Admitted.
 
 End PathFacts.
