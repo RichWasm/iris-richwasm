@@ -64,7 +64,7 @@ Section local_set.
     iSimpl in "Hvs_type_interp".
     iDestruct (value_interp_skind with "Hvs_type_interp") as "(%κ & %Hkind_payload & %Hskind_as_type)".
 
-    iPoseProof (frame_interp_wl_interp _ _ _ _ F with "Hframe") as "%Hwl".
+    iPoseProof (frame_interp_wl_interp _ _ mr _ F with "Hframe") as "%Hwl".
     apply has_values_iff_to_consts in Hhas_values as ->.
 
     destruct κ; last destruct Hskind_as_type as [[] _].
@@ -123,8 +123,22 @@ Section local_set.
       subst fe; simpl in Hle, Hnotinfe.
       lia.
     }
-  admit.
+    iSplitL.
+    2: {
+      iExists [].
+      iSplit; simpl; try done.
+      iExists []; simpl; done.
+    }
+    replace (typing.fc_locals F) with (fe_locals fe); last done.
 
-  Admitted.
+    iApply (frame_interp_update_frame_label' with "[$] [$] [$]"); try done.
+    2: {
+      rewrite length_map in Hfrel.
+      by rewrite length_map.
+    }
+    apply prims_result_type.
+    unfold translate_arep in Hres_type_vs.
+    by rewrite -map_map in Hres_type_vs.
+  Qed.
 
 End local_set.

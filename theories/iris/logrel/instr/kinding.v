@@ -466,7 +466,7 @@ Section kinding.
     by iFrame.
   Qed.
 
-  Lemma prim_value_type ι v :
+  Lemma prim_value_type_l ι v :
     has_prim ι v ->
     value_type_interp (translate_prim ι) v.
   Proof.
@@ -474,7 +474,24 @@ Section kinding.
     by destruct ι; destruct v; try contradiction; eexists.
   Qed.
 
-  Lemma prims_result_type ιs vs :
+  Lemma prim_value_type_r ι v :
+    value_type_interp (translate_prim ι) v ->
+    has_prim ι v.
+  Proof.
+    intros H.
+    destruct ι; destruct v; destruct H as [n H]; done.
+  Qed.
+
+  Lemma prim_value_type ι v :
+    value_type_interp (translate_prim ι) v <->
+    has_prim ι v.
+  Proof.
+    split.
+    - apply prim_value_type_r.
+    - apply prim_value_type_l.
+  Qed.
+
+  Lemma prims_result_type_l ιs vs :
     has_prims ιs vs ->
     result_type_interp (map translate_prim ιs) vs.
   Proof.
@@ -490,6 +507,33 @@ Section kinding.
       + apply prim_value_type; eauto.
       + eapply IHιs; eauto.
   Qed.
+
+  Lemma prims_result_type_r ιs vs :
+    result_type_interp (map translate_prim ιs) vs ->
+    has_prims ιs vs.
+  Proof.
+    revert vs.
+    induction ιs; intros.
+    - cbn.
+      unfold result_type_interp.
+      intros.
+      inversion H.
+      constructor.
+    - inversion H; cbn; subst.
+      constructor; cbn; eauto.
+      + apply prim_value_type; eauto.
+      + eapply IHιs; eauto.
+  Qed.
+
+  Lemma prims_result_type ιs vs :
+    result_type_interp (map translate_prim ιs) vs <->
+    has_prims ιs vs.
+  Proof.
+    split.
+    - apply prims_result_type_r.
+    - apply prims_result_type_l.
+  Qed.
+
 
   Lemma has_kind_prod_inv F κ κ' τs :
     has_kind F (ProdT κ τs) κ' ->

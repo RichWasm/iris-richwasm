@@ -1227,39 +1227,6 @@ Section common.
   iApply (big_sepL2_app with "H1 H2").
 Qed.
 
-(* Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' : *)
-(*     vs_idxs = rev (seq ((length $ concat ηss) + length wl1) (length wl)) -> *)
-(*     Forall2 (λ i v, f_locs fr' !! i = Some v) vs_idxs vs_wl -> *)
-(*     result_type_interp wl vs_wl -> *)
-(*     frame_rel (λ i, i ∉ vs_idxs) fr fr' -> *)
-(*     frame_interp rti sr se ηss L (wl1 ++ wl ++ wl2) fr -∗ *)
-(*     frame_interp rti sr se ηss L (wl1 ++ wl ++ wl2) fr'. *)
-(*   Proof. *)
-(*     intros Hvs_idxs_wl Hnew_vals Hres Hfrel. *)
-(*     iIntros "Hframe". *)
-(*     iDestruct "Hframe" as *)
-(*       "(%oss & %vs_L & %vs_WL_old & %Hfr & %Hprims & %Hresult & Hatom & Hval)". *)
-(*     apply result_type_interp_split in Hresult. *)
-(*     destruct Hresult as [vs_wl1 [vs_rest [-> [Hvs_wl1 Hresult]]]]. *)
-(*     apply result_type_interp_split in Hresult. *)
-(*     destruct Hresult as [vs_wl' [vs_wl2 [-> [Hvs_wl' Hvs_wl2]]]]. *)
-(*     iFrame. *)
-(*     iExists (vs_wl1 ++ vs_wl ++ vs_wl2). *)
-(*     iPureIntro; split; last split. *)
-(*     - rewrite app_assoc. *)
-(*       eapply (frame_f_locs_update); [ | done | done | by rewrite -app_assoc]. *)
-(*       rewrite length_app. *)
-(*       apply Forall2_length in Hvs_wl' as <-. *)
-(*       apply Forall2_length in Hvs_wl1 as <-. *)
-(*       apply Forall2_length in Hprims as <-. *)
-(*       apply Forall2_length in Hnew_vals. *)
-(*       rewrite Hvs_idxs_wl length_rev length_seq in Hnew_vals. *)
-(*       lia. *)
-(*     - done. *)
-(*     - apply result_type_interp_combine; first done. *)
-(*       by apply result_type_interp_combine; last done. *)
-(*   Qed. *)
-
   Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
     vs_idxs = seq ((length $ concat ηss) + length wl1) (length wl) ->
     Forall2 (λ i v, f_locs fr' !! i = Some v) vs_idxs vs_wl ->
@@ -1305,6 +1272,54 @@ Qed.
     subst vs_localidxs.
     rewrite Forall2_fmap_l in HF.
     eapply Forall2_impl; [exact HF|].
+    done.
+  Qed.
+
+  Lemma frame_interp_update_frame_label se ξ ιs ηs L wl vs_l vs_idxs os fe fr fr' i τ :
+    let L' := <[i:=τ]> L in
+    wl_interp (fe_wlocal_offset fe) wl fr ->
+    ηs = map arep_to_prim ιs ->
+    fe_locals fe !! i = Some ηs ->
+    type_skind se τ = Some (SVALTYPE ιs ξ) -> (* might not need iotas *)
+    vs_idxs = seq (sum_list_with length (take i (fe_locals fe))) (length ηs) ->
+    has_prims ηs vs_l ->
+    Forall2 (λ j v, f_locs fr' !! j = Some v) vs_idxs vs_l ->
+    frame_rel (λ j, j ∉ vs_idxs) fr fr' ->
+    atoms_interp os vs_l -∗
+    value_interp rti sr se τ (SAtoms os) -∗
+    frame_interp rti sr se (fe_locals fe) L wl fr -∗
+    frame_interp rti sr se (fe_locals fe) L' wl fr'.
+  Proof.
+    intros L' Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hhas_prims_new Hf2 Hfrel.
+    iIntros "Hatoms Hvalues Hframe".
+
+    iDestruct "Hframe" as
+      "(%oss & %vs_L & %vs_WL & %Hfr & %Hhas_prims & %Hresult & Hatom & Hval)".
+    iFrame (Hresult).
+  Admitted.
+
+  Lemma frame_interp_update_frame_label' se ξ ιs ηs L wl vs_l vs_idxs vs_localidxs os fe fr fr' i τ :
+    let L' := <[i:=τ]> L in
+    wl_interp (fe_wlocal_offset fe) wl fr ->
+    ηs = map arep_to_prim ιs ->
+    fe_locals fe !! i = Some ηs ->
+    type_skind se τ = Some (SVALTYPE ιs ξ) -> (* might not need iotas *)
+    vs_idxs = seq (sum_list_with length (take i (fe_locals fe))) (length ηs) ->
+    vs_localidxs = map prelude.W.Mk_localidx vs_idxs ->
+    has_prims ηs vs_l ->
+    Forall2 (λ j v, f_locs fr' !! localimm j = Some v) vs_localidxs vs_l ->
+    frame_rel (λ j, j ∉ vs_idxs) fr fr' ->
+    atoms_interp os vs_l -∗
+    value_interp rti sr se τ (SAtoms os) -∗
+    frame_interp rti sr se (fe_locals fe) L wl fr -∗
+    frame_interp rti sr se (fe_locals fe) L' wl fr'.
+  Proof.
+    intros L' Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hvs_localidxs Hhas_prims_new Hf2 Hfrel.
+    iIntros "Hatoms Hvalues Hframe".
+    iApply (frame_interp_update_frame_label with "[$] [$] [$]" ); eauto.
+    subst vs_localidxs.
+    rewrite Forall2_fmap_l in Hf2.
+    eapply Forall2_impl; [exact Hf2|].
     done.
   Qed.
 
