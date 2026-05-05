@@ -400,45 +400,6 @@ Section common.
     done.
   Qed.
 
-  (* There's gotta be a clearner way to do it *)
-  Lemma atoms_interp_app_l os1 os2 vs :
-    atoms_interp (os1 ++ os2) vs -∗
-    ∃ vs1 vs2, ⌜vs = vs1 ++ vs2⌝ ∗ atoms_interp os1 vs1 ∗ atoms_interp os2 vs2.
-  Proof.
-    generalize dependent os1; generalize dependent os2.
-    induction vs; intros.
-    - iIntros "Hat".
-      iExists []; iExists [].
-      iPoseProof (big_sepL2_length with "[$Hat]") as "%Hlens".
-      simpl in Hlens. apply nil_length_inv in Hlens.
-      destruct os1, os2; try inversion Hlens. clear_nils. auto.
-    - iIntros "Hat".
-      destruct os1.
-      + clear_nils.
-        destruct os2.
-        * iPoseProof (big_sepL2_length with "[$Hat]") as "%Hlens".
-          inversion Hlens.
-        * iEval (unfold atoms_interp) in "Hat".
-          iDestruct (big_sepL2_cons with "Hat") as "[Ha Hhyp]".
-          specialize (IHvs os2 []).
-          iPoseProof IHvs as "IHvs".
-          clear_nils.
-          iSpecialize ("IHvs" with "Hhyp").
-          iDestruct "IHvs" as "(%vs1 & %vs2 & %Hlen & Hvs1 & Hvs2)".
-          destruct vs1; iSimpl in "Hvs1"; auto.
-          iExists []; iExists (a :: vs2).
-          simpl; iFrame. iPureIntro; clear_nils; subst; auto.
-      + rewrite <- app_comm_cons.
-        iEval (unfold atoms_interp) in "Hat".
-        iDestruct (big_sepL2_cons with "Hat") as "[Ha Hhyp]".
-        specialize (IHvs os2 os1).
-        iPoseProof IHvs as "IHvs".
-        iSpecialize ("IHvs" with "Hhyp").
-        iDestruct "IHvs" as "(%vs1 & %vs2 & %Hlen & Hvs1 & Hvs2)".
-        iExists (a :: vs1); iExists vs2.
-        iFrame. iPureIntro; simpl. subst. auto.
-  Qed.
-
   Lemma atom_interp_of_default ty :
     ⊢ ∃ o, atom_interp o (default_of_value_type ty).
   Proof.
@@ -1227,6 +1188,78 @@ Section common.
   iApply (big_sepL2_app with "H1 H2").
 Qed.
 
+  Lemma atoms_interp_app_l os1 os2 vs :
+    atoms_interp (os1 ++ os2) vs -∗
+    ∃ vs1 vs2, ⌜vs = vs1 ++ vs2⌝ ∗ atoms_interp os1 vs1 ∗ atoms_interp os2 vs2.
+  Proof.
+    iIntros "Hos".
+    iDestruct (atoms_interp_length with "Hos") as %Hlen.
+    iDestruct (atoms_interp_take _ _ (length os1) with "Hos") as "[Hos1 Hos2]".
+    iEval (rewrite take_app_length) in "Hos1".
+    iEval (rewrite drop_app_length) in "Hos2".
+    iExists (take (length os1) vs), (drop (length os1) vs).
+    iSplit.
+    - iPureIntro. rewrite take_drop. reflexivity.
+    - iFrame.
+  Qed.
+
+  Lemma atoms_interp_app_r (os : list atom) (vs1 vs2 : list value) :
+    atoms_interp os (vs1 ++ vs2) -∗
+    ∃ os1 os2 : list atom, ⌜os = os1 ++ os2⌝ ∗ atoms_interp os1 vs1 ∗ atoms_interp os2 vs2.
+  Proof.
+    iIntros "Hos".
+    iDestruct (atoms_interp_length with "Hos") as %Hlen.
+    iDestruct (atoms_interp_take _ _ (length vs1) with "Hos") as "[Hos1 Hos2]".
+    iEval (rewrite take_app_length) in "Hos1".
+    iEval (rewrite drop_app_length) in "Hos2".
+    iExists (take (length vs1) os), (drop (length vs1) os).
+    iSplit.
+    - iPureIntro. rewrite take_drop. reflexivity.
+    - iFrame.
+  Qed.
+
+  Lemma locals_interp_lookup se L oss i τ_old :
+    L !! i = Some τ_old →
+    locals_interp rti sr se L oss -∗
+    ∃ oss_pre os_mid oss_post,
+    ⌜oss = oss_pre ++ [os_mid] ++ oss_post⌝ ∗
+    locals_interp rti sr se (take i L) oss_pre ∗
+    value_interp rti sr se τ_old (SAtoms os_mid) ∗
+    locals_interp rti sr se (drop (S i) L) oss_post.
+  Proof.
+    iIntros (Hlookup_L) "Hval".
+    iDestruct (big_sepL2_length with "Hval") as %Hoss_len.
+    have Hlookup_oss_i : ∃ os_mid, oss !! i = Some os_mid.
+    {
+      apply lookup_lt_is_Some_2.
+      rewrite -Hoss_len.
+      by eapply lookup_lt_Some.
+    }
+    destruct Hlookup_oss_i as [os_mid Hlookup_oss_i].
+    iExists (take i oss), os_mid, (drop (S i) oss).
+    iSplit.
+    { iPureIntro. symmetry. apply take_drop_middle. exact Hlookup_oss_i. }
+    (* unfold locals_interp. *)
+    have Hsplit_L := take_drop_middle L i τ_old Hlookup_L.
+    have Hsplit_oss := take_drop_middle oss i os_mid Hlookup_oss_i.
+    rewrite <- Hsplit_L, <- Hsplit_oss.
+    iDestruct (big_sepL2_app_inv with "Hval") as "[Hval_pre Hval_rest]".
+    { left. rewrite !length_take. lia. }
+    rewrite Hsplit_L Hsplit_oss.
+    iDestruct "Hval_rest" as "[Hval_mid Hval_post]".
+    unfold locals_interp.
+    iFrame.
+  Qed.
+
+  Lemma locals_interp_length se L oss :
+    locals_interp rti sr se L oss -∗ ⌜length L = length oss⌝.
+  Proof.
+    iIntros "Hval".
+    unfold locals_interp.
+    iDestruct (big_sepL2_length with "Hval") as %Hlen.
+    iPureIntro. exact Hlen.
+  Qed.
+
   Lemma frame_interp_update_frame se ηss L wl1 wl2 wl vs_idxs vs_wl fr fr' :
     vs_idxs = seq ((length $ concat ηss) + length wl1) (length wl) ->
     Forall2 (λ i v, f_locs fr' !! i = Some v) vs_idxs vs_wl ->
@@ -1275,8 +1308,10 @@ Qed.
     done.
   Qed.
 
-  Lemma frame_interp_update_frame_label se ξ ιs ηs L wl vs_l vs_idxs os fe fr fr' i τ :
+
+  Lemma frame_interp_update_frame_label se τ_old ξ ιs ηs L wl vs_l vs_idxs os fe fr fr' i τ :
     let L' := <[i:=τ]> L in
+    L !! i = Some τ_old ->
     wl_interp (fe_wlocal_offset fe) wl fr ->
     ηs = map arep_to_prim ιs ->
     fe_locals fe !! i = Some ηs ->
@@ -1290,16 +1325,86 @@ Qed.
     frame_interp rti sr se (fe_locals fe) L wl fr -∗
     frame_interp rti sr se (fe_locals fe) L' wl fr'.
   Proof.
-    intros L' Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hhas_prims_new Hf2 Hfrel.
+    intros L' Hlookup_L Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hhas_prims_new Hf2 Hfrel.
     iIntros "Hatoms Hvalues Hframe".
 
     iDestruct "Hframe" as
       "(%oss & %vs_L & %vs_WL & %Hfr & %Hhas_prims & %Hresult & Hatom & Hval)".
     iFrame (Hresult).
+
+    have Hsplit := take_drop_middle (fe_locals fe) i ηs Hlookup.
+    rewrite <- Hsplit, concat_app, concat_cons in Hhas_prims.
+    apply List.Forall2_app_inv_l in Hhas_prims as (vs_pre & vs_rest & Hpre & Hrest & ->).
+    apply List.Forall2_app_inv_l in Hrest as (vs_mid & vs_post & Hmid & Hpost & ->).
+    set (ηss_pre := take i (fe_locals fe)).
+    set (ηss_post := drop (S i) (fe_locals fe)).
+
+    (* iDestruct (atoms_interp_app_r (concat oss) vs_pre (vs_mid ++ vs_post) with "Hatom") as "(%os_pre & %os_rest & %Hoss_split & Hatoms_pre & Hatoms_rest)". *)
+    (* iDestruct (atoms_interp_app_r os_rest vs_mid vs_post with "Hatoms_rest") as "(%os_mid & %os_post & %Hoss_rest_split & Hatoms_mid & Hatoms_post)". *)
+    (* subst os_rest. *)
+
+
+    iDestruct (locals_interp_lookup _ _ _ _ _ Hlookup_L with "Hval") as (oss_pre os_mid oss_post Hoss_eq) "[Hval_pre [Hval_mid Hval_post]]".
+
+    iEval (rewrite Hoss_eq) in "Hatom".
+    iDestruct (locals_interp_length with "Hval_pre") as %Hlen_pre.
+    iDestruct (locals_interp_length with "Hval_post") as %Hlen_post.
+    apply Forall2_length in Hpre as Hvs_pre_len.
+    apply Forall2_length in Hmid as Hvs_mid_len.
+    apply Forall2_length in Hpost as Hvs_post_len.
+
+    rewrite !concat_app.
+    cbn [concat].
+    clear_nils.
+    iDestruct (atoms_interp_app_split_l (concat oss_pre) (os_mid ++ concat oss_post) vs_pre (vs_mid ++ vs_post) with "Hatom") as "[Hatoms_pre Hatoms_rest]".
+    { admit. }
+    (* NOTE: the atoms_interp for the middle is being thrown away, since the values are being overwritten *)
+    iDestruct (atoms_interp_app_split_l os_mid (concat oss_post) vs_mid vs_post with "Hatoms_rest") as "[_ Hatoms_post]".
+    {
+      admit.
+    }
+
+    iExists (oss_pre ++ [os] ++ oss_post), (vs_pre ++ vs_l ++ vs_post).
+    iSplit.
+    {
+      iPureIntro.
+      rewrite -!app_assoc.
+      eapply frame_f_locs_update.
+      4: apply Hfr.
+      3: done.
+      2: done.
+      subst vs_idxs.
+      rewrite sum_list_with_length_concat Hvs_pre_len.
+      f_equal.
+      by apply Forall2_length in Hmid.
+    }
+    iSplit.
+    {
+      iPureIntro.
+      unfold has_prims.
+      rewrite <- (take_drop_middle _ _ _ Hlookup), concat_app, concat_cons.
+      apply Forall2_app; [exact Hpre |].
+      apply Forall2_app; [exact Hhas_prims_new | exact Hpost].
+    }
+    iSplitL "Hatoms Hatoms_pre Hatoms_post".
+    - rewrite !concat_app.
+      cbn [concat].
+      clear_nils.
+      iApply (atoms_interp_app_split_r with "Hatoms_pre").
+      iApply (atoms_interp_app_split_r with "Hatoms").
+      done.
+    -
+      unfold locals_interp, L'.
+      rewrite insert_take_drop.
+      2: { eapply lookup_lt_Some. exact Hlookup_L. }
+      iApply (big_sepL2_app with "Hval_pre").
+      iApply big_sepL2_cons.
+      iFrame.
   Admitted.
 
-  Lemma frame_interp_update_frame_label' se ξ ιs ηs L wl vs_l vs_idxs vs_localidxs os fe fr fr' i τ :
+  Lemma frame_interp_update_frame_label' se τ_old ξ ιs ηs L wl vs_l vs_idxs vs_localidxs os fe fr fr' i τ :
     let L' := <[i:=τ]> L in
+    L !! i = Some τ_old ->
     wl_interp (fe_wlocal_offset fe) wl fr ->
     ηs = map arep_to_prim ιs ->
     fe_locals fe !! i = Some ηs ->
@@ -1314,7 +1419,7 @@ Qed.
     frame_interp rti sr se (fe_locals fe) L wl fr -∗
     frame_interp rti sr se (fe_locals fe) L' wl fr'.
   Proof.
-    intros L' Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hvs_localidxs Hhas_prims_new Hf2 Hfrel.
+    intros L' HlookupL Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hvs_localidxs Hhas_prims_new Hf2 Hfrel.
     iIntros "Hatoms Hvalues Hframe".
     iApply (frame_interp_update_frame_label with "[$] [$] [$]" ); eauto.
     subst vs_localidxs.
