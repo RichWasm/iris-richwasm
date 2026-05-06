@@ -295,7 +295,6 @@ Section PathFacts.
       destruct Hws' as [ws' Hwssi].
       iPoseProof (IH $! ws') as "IH".
       rewrite big_sepL2_fmap_r.
-      Search big_sepL2 app.
       iPoseProof (big_sepL2_app_inv_r with "Hws") as "(%wss1 & %wss2' & -> & Hwss1  & Hwss2')".
       iPoseProof (big_sepL2_cons_inv_r with "Hwss2'") as "(%ws'' & %wss2 & -> & Hws' & Hwss2)".
       assert (ws'' = ws').
