@@ -117,21 +117,6 @@ Section inst.
       eapply Forall2_mini_impl_Forall; first done;
       done.
 
-  Lemma eval_rep_mem_irrel se ρ ιs μ :
-    eval_rep se ρ = Some ιs ->
-    eval_rep (senv_insert_mem (Σ:=Σ) μ se) ρ = Some ιs.
-  Proof.
-    revert ιs.
-    induction ρ using rep_ind; intros; auto.
-    - cbn in *.
-      apply fmap_Some in H0 as (ρss & H02 & ->).
-      shred_for_up_mini ρss H02.
-    - cbn in *.
-      apply fmap_Some in H0 as (ιss & H02 & ->).
-      shred_for_up_mini ιss H02.
-  Qed.
-
-  (* wow that was much easier than I thought it'd be *)
   Lemma eval_rep_mem_irrel_eq se ρ μ :
     eval_rep se ρ =
     eval_rep (senv_insert_mem (Σ:=Σ) μ se) ρ.
@@ -147,18 +132,11 @@ Section inst.
       by rewrite H'.
   Qed.
 
-  Lemma eval_rep_size_irrel se ρ ιs n :
+  Lemma eval_rep_mem_irrel se ρ ιs μ :
     eval_rep se ρ = Some ιs ->
-    eval_rep (senv_insert_size (Σ:=Σ) n se) ρ = Some ιs.
+    eval_rep (senv_insert_mem (Σ:=Σ) μ se) ρ = Some ιs.
   Proof.
-    revert ιs.
-    induction ρ using rep_ind; intros; auto.
-    - cbn in *.
-      apply fmap_Some in H0 as (ρss & H02 & ->).
-      shred_for_up_mini ρss H02.
-    - cbn in *.
-      apply fmap_Some in H0 as (ιss & H02 & ->).
-      shred_for_up_mini ιss H02.
+    intros; rewrite <- eval_rep_mem_irrel_eq; done.
   Qed.
 
   Lemma eval_rep_size_irrel_eq se ρ n :
@@ -176,18 +154,11 @@ Section inst.
       by rewrite H'.
   Qed.
 
-  Lemma eval_rep_type_irrel se ρ ιs sκ T :
+  Lemma eval_rep_size_irrel se ρ ιs n :
     eval_rep se ρ = Some ιs ->
-    eval_rep (senv_insert_type (Σ:=Σ) sκ T se) ρ = Some ιs.
+    eval_rep (senv_insert_size (Σ:=Σ) n se) ρ = Some ιs.
   Proof.
-    revert ιs.
-    induction ρ using rep_ind; intros; auto.
-    - cbn in *.
-      apply fmap_Some in H0 as (ρss & H02 & ->).
-      shred_for_up_mini ρss H02.
-    - cbn in *.
-      apply fmap_Some in H0 as (ιss & H02 & ->).
-      shred_for_up_mini ιss H02.
+    intros; rewrite <- eval_rep_size_irrel_eq; done.
   Qed.
 
   Lemma eval_rep_type_irrel_eq se ρ sκ T :
@@ -205,23 +176,11 @@ Section inst.
       by rewrite H'.
   Qed.
 
-  Lemma eval_size_mem_irrel se σ n μ :
-    eval_size se σ = Some n ->
-    eval_size (senv_insert_mem (Σ:=Σ) μ se) σ = Some n.
+  Lemma eval_rep_type_irrel se ρ ιs sκ T :
+    eval_rep se ρ = Some ιs ->
+    eval_rep (senv_insert_type (Σ:=Σ) sκ T se) ρ = Some ιs.
   Proof.
-    revert n.
-    induction σ using size_ind; intros; auto.
-    - cbn in *.
-      apply fmap_Some in H0 as (ρss & H02 & ->).
-      shred_for_up_mini ρss H02.
-    - cbn in *.
-      apply fmap_Some in H0 as (ρss & H02 & ->).
-      shred_for_up_mini ρss H02.
-    - cbn in *.
-      apply fmap_Some in H as (ρss & H02 & ->).
-      apply fmap_Some.
-      exists ρss; split; last done.
-      by apply eval_rep_mem_irrel.
+    intros; rewrite <- eval_rep_type_irrel_eq; done.
   Qed.
 
   Lemma eval_size_mem_irrel_eq se σ μ :
@@ -241,23 +200,11 @@ Section inst.
       by rewrite <- eval_rep_mem_irrel_eq.
   Qed.
 
-  Lemma eval_size_type_irrel se σ n sκ T :
+  Lemma eval_size_mem_irrel se σ n μ :
     eval_size se σ = Some n ->
-    eval_size (senv_insert_type (Σ:=Σ) sκ T se) σ = Some n.
+    eval_size (senv_insert_mem (Σ:=Σ) μ se) σ = Some n.
   Proof.
-    revert n.
-    induction σ using size_ind; intros; auto.
-    - cbn in *.
-      apply fmap_Some in H0 as (ρss & H02 & ->).
-      shred_for_up_mini ρss H02.
-    - cbn in *.
-      apply fmap_Some in H0 as (ρss & H02 & ->).
-      shred_for_up_mini ρss H02.
-    - cbn in *.
-      apply fmap_Some in H as (ρss & H02 & ->).
-      apply fmap_Some.
-      exists ρss; split; last done.
-      by apply eval_rep_type_irrel.
+    intros; rewrite <- eval_size_mem_irrel_eq; done.
   Qed.
 
   Lemma eval_size_type_irrel_eq se σ sκ T :
@@ -277,20 +224,11 @@ Section inst.
       by rewrite <- eval_rep_type_irrel_eq.
   Qed.
 
-  Lemma eval_kind_mem_irrel se κ sκ μ :
-    eval_kind se κ = Some sκ ->
-    eval_kind (senv_insert_mem (Σ:=Σ) μ se) κ = Some sκ.
+  Lemma eval_size_type_irrel se σ n sκ T :
+    eval_size se σ = Some n ->
+    eval_size (senv_insert_type (Σ:=Σ) sκ T se) σ = Some n.
   Proof.
-    revert sκ.
-    destruct κ; intros; cbn in *.
-    - apply fmap_Some in H as (ρss & H02 & ->).
-      apply fmap_Some.
-      pose proof (eval_rep_mem_irrel _ _ _ μ H02).
-      rewrite H. eexists; split; done.
-    - apply fmap_Some in H as (ρss & H02 & ->).
-      apply fmap_Some.
-      pose proof (eval_size_mem_irrel _ _ _ μ H02).
-      rewrite H. eexists; split; done.
+    intros; rewrite <- eval_size_type_irrel_eq; done.
   Qed.
 
   Lemma eval_kind_mem_irrel_eq se κ μ :
@@ -302,20 +240,11 @@ Section inst.
     - by rewrite <- eval_size_mem_irrel_eq.
   Qed.
 
-  Lemma eval_kind_type_irrel se κ sκ sκ' T :
+  Lemma eval_kind_mem_irrel se κ sκ μ :
     eval_kind se κ = Some sκ ->
-    eval_kind (senv_insert_type (Σ:=Σ) sκ' T se) κ = Some sκ.
+    eval_kind (senv_insert_mem (Σ:=Σ) μ se) κ = Some sκ.
   Proof.
-    revert sκ.
-    destruct κ; intros; cbn in *.
-    - apply fmap_Some in H as (ρss & H02 & ->).
-      apply fmap_Some.
-      pose proof (eval_rep_type_irrel _ _ _ sκ' T H02).
-      rewrite H. eexists; split; done.
-    - apply fmap_Some in H as (ρss & H02 & ->).
-      apply fmap_Some.
-      pose proof (eval_size_type_irrel _ _ _ sκ' T H02).
-      rewrite H. eexists; split; done.
+    intros; rewrite <- eval_kind_mem_irrel_eq; done.
   Qed.
 
   Lemma eval_kind_type_irrel_eq se κ sκ T :
@@ -327,18 +256,11 @@ Section inst.
     - by rewrite <- eval_size_type_irrel_eq.
   Qed.
 
-  Lemma type_skind_mem_irrel se μ τ sκ :
-    type_skind (Σ:=Σ) se τ = Some sκ ->
-    type_skind (Σ:=Σ) (senv_insert_mem μ se)
-      (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id τ) = Some sκ.
+  Lemma eval_kind_type_irrel se κ sκ sκ' T :
+    eval_kind se κ = Some sκ ->
+    eval_kind (senv_insert_type (Σ:=Σ) sκ' T se) κ = Some sκ.
   Proof.
-    revert sκ.
-    destruct τ.
-    1: done.
-    all: intros; cbn in *.
-    all: rewrite rinstId'_kind.
-    all: unfold eval_kind in *.
-    all: by apply eval_kind_mem_irrel.
+    intros; rewrite <- eval_kind_type_irrel_eq; done.
   Qed.
 
   Lemma type_skind_mem_irrel_eq se μ τ :
@@ -353,24 +275,60 @@ Section inst.
     all: by apply eval_kind_mem_irrel_eq.
   Qed.
 
+  Lemma type_skind_mem_irrel se μ τ sκ :
+    type_skind (Σ:=Σ) se τ = Some sκ ->
+    type_skind (Σ:=Σ) (senv_insert_mem μ se)
+      (ren_type unscoped.shift unscoped.id unscoped.id unscoped.id τ) = Some sκ.
+  Proof.
+    intros; rewrite <- type_skind_mem_irrel_eq; done.
+  Qed.
+
+  Lemma Forall_mapM_map_ext {A B:Type} (f g:A → option B) h (l: list A) :
+    Forall (λ x, f x = g (h x)) l -> mapM f l = mapM g (map h l).
+  Proof.
+    revert l.
+    induction l.
+    - by cbn.
+    - intros.
+      apply Forall_cons_1 in H as [ha Hl].
+      apply IHl in Hl.
+      cbn.
+      rewrite ha.
+      rewrite Hl. done.
+  Qed.
+
+  Lemma eval_rep_up_rep_eq se sub_r ιs0 i :
+    eval_rep se (sub_r i) =
+    eval_rep (senv_insert_rep (Σ:=Σ) ιs0 se) (up_representation_representation sub_r (S i)).
+  Proof.
+    asimpl'.
+    unfold core.funcomp.
+    induction (sub_r i) using rep_ind; try (by cbn).
+    - Opaque senv_insert_rep.
+      cbn.
+      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_rep ιs0 se))
+             (map (ren_representation unscoped.shift) ρs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn.
+      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_rep ιs0 se))
+             (map (ren_representation unscoped.shift) ρs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+  Qed.
+
   Lemma eval_rep_up_rep se sub_r ιs0 i ιs :
     eval_rep se (sub_r i) = Some ιs ->
     eval_rep (senv_insert_rep (Σ:=Σ) ιs0 se) (up_representation_representation sub_r (S i)) = Some ιs.
   Proof.
-    intros H.
-    asimpl'.
-    unfold core.funcomp, unscoped.scons.
+    intros; rewrite <- eval_rep_up_rep_eq; done.
+  Qed.
 
-    generalize dependent ιs.
-    induction (sub_r i) using rep_ind.
-    - done.
-    - intros; cbn in *.
-      apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      shred_for_up n2 Hn2.
-    - intros; cbn in *.
-      apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      shred_for_up n2 Hn2.
-    - intros; by cbn in *.
+  Lemma eval_rep_up_size_eq se sub_r i n :
+    eval_rep se (sub_r i) =
+    eval_rep (senv_insert_size (Σ:=Σ) n se) (up_size_representation sub_r i).
+  Proof.
+    asimpl'.
+    unfold core.funcomp.
+    by rewrite <- eval_rep_size_irrel_eq.
   Qed.
 
   Lemma eval_rep_up_size se sub_r ιs i n :
@@ -381,12 +339,30 @@ Section inst.
     by apply eval_rep_size_irrel.
   Qed.
 
+  Lemma eval_rep_up_memory_eq se sub_r i μ :
+    eval_rep se (sub_r i) =
+    eval_rep (senv_insert_mem (Σ:=Σ) μ se) (up_memory_representation sub_r i).
+  Proof.
+    asimpl'.
+    unfold core.funcomp.
+    by rewrite <- eval_rep_mem_irrel_eq.
+  Qed.
+
   Lemma eval_rep_up_memory se sub_r ιs i μ :
     eval_rep se (sub_r i) = Some ιs ->
     eval_rep (senv_insert_mem (Σ:=Σ) μ se) (up_memory_representation sub_r i) = Some ιs.
   Proof.
     asimpl'.
     by apply eval_rep_mem_irrel.
+  Qed.
+
+  Lemma eval_size_up_memory_eq se sub_s i μ :
+    eval_size se (sub_s i) =
+    eval_size (senv_insert_mem (Σ:=Σ) μ se) (up_memory_size sub_s i).
+  Proof.
+    asimpl'.
+    unfold core.funcomp.
+    by rewrite <- eval_size_mem_irrel_eq.
   Qed.
 
   Lemma eval_size_up_memory se sub_s n i μ :
@@ -397,126 +373,139 @@ Section inst.
     by apply eval_size_mem_irrel.
   Qed.
 
-  Lemma eval_size_up_rep se sub_s ιs i n :
-    eval_size se (sub_s i) = Some n ->
-    eval_size (senv_insert_rep (Σ:=Σ) ιs se) (up_representation_size sub_s i) = Some n.
+  Lemma eval_rep_up_shift_rep_eq se ρ ιs :
+    eval_rep se ρ =
+    eval_rep (senv_insert_rep (Σ:=Σ) ιs se) (ren_representation unscoped.shift ρ) .
   Proof.
-    intros H.
-    asimpl'.
-    unfold core.funcomp.
-    generalize dependent n.
-
-    induction (sub_s i) using size_ind.
-    - intros; done.
-    - intros; cbn in *.
-      apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      shred_for_up n2 Hn2.
-    - intros; cbn in *.
-      apply fmap_Some in H0 as (n2 & Hn2 & ->).
-      shred_for_up n2 Hn2.
-    - intros.
-      apply fmap_Some in H as (n2 & Hn2 & ->).
-      apply fmap_Some.
-      exists n2; split; last done.
-      generalize dependent n2.
-      clear i.
-      clear sub_s.
-      induction ρ using rep_ind; intros; cbn in *; auto.
-      + rename n2 into n; rename Hn2 into Hn.
-        apply fmap_Some in Hn as (ιss & Hιss & ->).
-        shred_for_up ιss Hιss.
-      + rename n2 into n; rename Hn2 into Hn.
-        apply fmap_Some in Hn as (ιss & Hιss & ->).
-        shred_for_up ιss Hιss.
-    - intros; by cbn in *.
+    induction ρ using rep_ind; try (by cbn).
+    - cbn.
+      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_rep ιs se))
+             (map (ren_representation unscoped.shift) ρs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn.
+      assert (H': mapM (eval_rep se) ρs = mapM (eval_rep (senv_insert_rep ιs se))
+             (map (ren_representation unscoped.shift) ρs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
   Qed.
 
   Lemma eval_rep_up_shift_rep se ρ n ιs :
     eval_rep se ρ = Some n ->
     eval_rep (senv_insert_rep (Σ:=Σ) ιs se) (ren_representation unscoped.shift ρ) = Some n.
   Proof.
-    generalize dependent n.
-    induction ρ using rep_ind.
-    - intros; cbn in *; done.
-    - intros; cbn in *.
-      apply fmap_Some in H0 as (ns & Hns & ->).
-      shred_for_up ns Hns.
-    - intros; cbn in *.
-      apply fmap_Some in H0 as (ns & Hns & ->).
-      shred_for_up ns Hns.
-    - intros; by cbn in *.
+    rewrite <- eval_rep_up_shift_rep_eq. done.
+  Qed.
+
+  Lemma eval_size_up_shift_rep_eq se σ ιs :
+    eval_size se σ =
+    eval_size (senv_insert_rep (Σ:=Σ) ιs se) (ren_size unscoped.shift unscoped.id σ) .
+  Proof.
+    induction σ using size_ind; try (by cbn).
+    - cbn.
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_rep ιs se))
+             (map (ren_size unscoped.shift unscoped.id) σs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn.
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_rep ιs se))
+             (map (ren_size unscoped.shift unscoped.id) σs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn. by rewrite <- eval_rep_up_shift_rep_eq.
+  Qed.
+
+  Lemma eval_size_up_shift_rep se ρ n ιs :
+    eval_rep se ρ = Some n ->
+    eval_rep (senv_insert_rep (Σ:=Σ) ιs se) (ren_representation unscoped.shift ρ) = Some n.
+  Proof.
+    rewrite <- eval_rep_up_shift_rep_eq. done.
+  Qed.
+
+  Lemma eval_size_up_rep_eq se sub_s ιs i :
+    eval_size se (sub_s i) =
+    eval_size (senv_insert_rep (Σ:=Σ) ιs se) (up_representation_size sub_s i).
+  Proof.
+    asimpl'; unfold core.funcomp.
+    induction (sub_s i) using size_ind; try (by cbn).
+    - cbn.
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_rep ιs se))
+             (map (ren_size unscoped.shift unscoped.id) σs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn.
+      assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_rep ιs se))
+             (map (ren_size unscoped.shift unscoped.id) σs)) by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn.
+      by rewrite <- eval_rep_up_shift_rep_eq.
+  Qed.
+
+  Lemma eval_size_up_rep se sub_s ιs i n :
+    eval_size se (sub_s i) = Some n ->
+    eval_size (senv_insert_rep (Σ:=Σ) ιs se) (up_representation_size sub_s i) = Some n.
+  Proof.
+    intros H.
+    rewrite <- eval_size_up_rep_eq; done.
+  Qed.
+
+  Lemma eval_kind_up_shift_rep_eq se κ ιs :
+    eval_kind se κ =
+    eval_kind (senv_insert_rep (Σ:=Σ) ιs se) (ren_kind unscoped.shift unscoped.id κ) .
+  Proof.
+    induction κ as [ρ ξ | σ ξ].
+    - cbn. by rewrite <- eval_rep_up_shift_rep_eq.
+    - cbn. by rewrite <- eval_size_up_shift_rep_eq.
   Qed.
 
   Lemma eval_kind_up_shift_rep se κ sκ ιs :
     eval_kind se κ = Some sκ ->
     eval_kind (senv_insert_rep (Σ:=Σ) ιs se) (ren_kind unscoped.shift unscoped.id κ) = Some sκ.
   Proof.
-    generalize dependent sκ.
-    destruct κ as [ρ ξ | σ ξ].
-    - intros; cbn in *.
-      apply bind_Some in H as (sρ & Hsρ & toinvert).
-      inversion toinvert; subst; clear toinvert.
-      apply bind_Some.
-      exists sρ; split; auto.
-      by apply eval_rep_up_shift_rep.
-    - intros; cbn in *.
-      apply bind_Some in H as (sσ & Hsσ & toinvert).
-      inversion toinvert; subst; clear toinvert.
-      apply bind_Some.
-      exists sσ; split; auto.
-      generalize dependent sσ.
-      induction σ using size_ind.
-      + intros; cbn in *; done.
-      + intros; cbn in *.
-        apply fmap_Some in Hsσ as (ns & Hns & ->).
-        shred_for_up ns Hns.
-      + intros; cbn in *.
-        apply fmap_Some in Hsσ as (ns & Hns & ->).
-        shred_for_up ns Hns.
-      + intros; cbn in *.
-        apply fmap_Some in Hsσ as (n & Hn & ->).
-        apply fmap_Some.
-        exists n; split; auto.
-        cbn.
-        by apply eval_rep_up_shift_rep.
-      + intros; by cbn in *.
+    by rewrite <- eval_kind_up_shift_rep_eq.
+  Qed.
+
+  Lemma type_skind_up_rep_eq se sub_t ιs i :
+    type_skind se (sub_t i) =
+    type_skind (Σ:=Σ) (senv_insert_rep ιs se) (up_representation_type sub_t i) .
+  Proof.
+    asimpl'; unfold core.funcomp.
+    induction (sub_t i) using type_ind with (P0 := λ ft, True);
+      cbn in *; auto; by apply eval_kind_up_shift_rep_eq.
   Qed.
 
   Lemma type_skind_up_rep se sub_t ιs sκ i :
     type_skind se (sub_t i) = Some sκ ->
     type_skind (Σ:=Σ) (senv_insert_rep ιs se) (up_representation_type sub_t i) = Some sκ.
   Proof.
-    intros H.
-    asimpl'.
-    unfold core.funcomp.
-    generalize dependent sκ.
+    by rewrite <- type_skind_up_rep_eq.
+  Qed.
+
+  Lemma type_skind_up_memory_eq se sub_t μ i :
+    type_skind se (sub_t i) =
+    type_skind (Σ:=Σ) (senv_insert_mem μ se) (up_memory_type sub_t i) .
+  Proof.
+    asimpl'; unfold core.funcomp.
     induction (sub_t i) using type_ind with (P0 := λ ft, True);
-      intros; cbn in *; auto; try (by apply eval_kind_up_shift_rep).
+      cbn in *; auto; rewrite rinstId'_kind; by apply eval_kind_mem_irrel_eq.
   Qed.
 
   Lemma type_skind_up_memory se sub_t μ sκ i :
     type_skind se (sub_t i) = Some sκ ->
     type_skind (Σ:=Σ) (senv_insert_mem μ se) (up_memory_type sub_t i) = Some sκ.
   Proof.
-    intros H.
-    asimpl'.
-    unfold core.funcomp.
-    generalize dependent sκ.
+    by rewrite <- type_skind_up_memory_eq.
+  Qed.
+
+  Lemma type_skind_up_type_eq se sub_t sκ' T i :
+    type_skind se (sub_t i) =
+    type_skind (Σ:=Σ) (senv_insert_type sκ' T se) (up_type_type sub_t (S i)) .
+  Proof.
+    asimpl'; unfold core.funcomp.
     induction (sub_t i) using type_ind with (P0 := λ ft, True);
-      intros; cbn in *; auto; asimpl'; try (by apply eval_kind_mem_irrel).
+      cbn in *; auto; rewrite rinstId'_kind; by apply eval_kind_type_irrel_eq.
   Qed.
 
   Lemma type_skind_up_type se sub_t sκ' T sκ i :
     type_skind se (sub_t i) = Some sκ ->
     type_skind (Σ:=Σ) (senv_insert_type sκ' T se) (up_type_type sub_t (S i)) = Some sκ.
   Proof.
-    intros H.
-    asimpl'.
-    unfold core.funcomp.
-    generalize dependent sκ.
-    induction (sub_t i) using type_ind with (P0 := λ ft, True).
-    all: intros; cbn in *; auto; asimpl'.
-    all: try (by apply eval_kind_type_irrel).
+    by rewrite <- type_skind_up_type_eq.
   Qed.
 
   Lemma type_interp_eq_r τ se sv :
@@ -741,11 +730,47 @@ Section inst.
     (forall i, fst <$> lookup_type se' i =
     type_skind se (sub_t i)).
 
-
   Ltac unfold_sem_rels := unfold sem_env_rel_rep, sem_env_rel_size, sem_env_rel_type, sem_env_rel_sκ,
     sem_env_rel_rep_eq, sem_env_rel_size_eq, sem_env_rel_type_eq_BAD, sem_env_rel_sκ_eq in *.
 
+  Lemma se_rep_eq_implies_rep se' se sub_r :
+    sem_env_rel_rep_eq se' se sub_r -> sem_env_rel_rep se' se sub_r.
+  Proof.
+    unfold_sem_rels.
+    intros.
+    rewrite <- H0.
+    done.
+  Qed.
 
+  Lemma se_size_eq_implies_size se' se sub_s :
+    sem_env_rel_size_eq se' se sub_s -> sem_env_rel_size se' se sub_s.
+  Proof.
+    unfold_sem_rels.
+    intros.
+    rewrite <- H0.
+    done.
+  Qed.
+
+
+
+  Lemma eval_rep_subst_senv_eq (se se' : semantic_env (Σ:=Σ)) sub_r ρ :
+    sem_env_rel_rep_eq se' se sub_r ->
+    eval_rep se' ρ =
+    eval_rep se (subst_representation sub_r ρ).
+  Proof.
+    intros Hsub_r; unfold_sem_rels.
+    induction ρ as [n|ρs IH|ρs IH|ιs'] using rep_ind.
+    - cbn in *. by apply Hsub_r.
+    - cbn.
+      assert (H': mapM (eval_rep se') ρs = mapM (eval_rep se) (map (subst_representation sub_r) ρs))
+        by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn.
+      assert (H': mapM (eval_rep se') ρs = mapM (eval_rep se) (map (subst_representation sub_r) ρs))
+        by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn in *; done.
+  Qed.
 
   Lemma eval_rep_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r ρ ιs :
     sem_env_rel_rep se' se sub_r ->
@@ -766,31 +791,29 @@ Section inst.
     - intros ??; cbn in *; done.
   Qed.
 
-  Lemma eval_rep_subst_senv_eq (se se' : semantic_env (Σ:=Σ)) sub_r ρ :
+  Lemma eval_size_subst_senv_eq (se se' : semantic_env (Σ:=Σ)) sub_r sub_s σ :
     sem_env_rel_rep_eq se' se sub_r ->
-    eval_rep se' ρ =
-    eval_rep se (subst_representation sub_r ρ).
+    sem_env_rel_size_eq se' se sub_s ->
+    eval_size se' σ =
+    eval_size se (subst_size sub_r sub_s σ).
   Proof.
-    intros Hsub_r; unfold_sem_rels.
-    induction ρ as [n|ρs IH|ρs IH|ιs'] using rep_ind.
-    - cbn in *. by apply Hsub_r.
-    - cbn.
-      assert (H': mapM (eval_rep se') ρs = mapM (eval_rep se) (map (subst_representation sub_r) ρs)). {
-        apply Forall2_mapM_ext.
-        (* yes this is true by IH *)
-        admit.
-      }
+    intros Hsub_r Hsub_s; unfold_sem_rels.
+    induction σ using size_ind.
+    - cbn in *. apply Hsub_s.
+    - cbn in *.
+      assert (H': mapM (eval_size se') σs = mapM (eval_size se) (map (subst_size sub_r sub_s) σs))
+        by (by apply Forall_mapM_map_ext).
+      by rewrite H'.
+    - cbn in *.
+      assert (H': mapM (eval_size se') σs = mapM (eval_size se) (map (subst_size sub_r sub_s) σs))
+        by (by apply Forall_mapM_map_ext).
       by rewrite H'.
     - cbn.
-      assert (H': mapM (eval_rep se') ρs = mapM (eval_rep se) (map (subst_representation sub_r) ρs)). {
-        apply Forall2_mapM_ext.
-        admit.
-      }
-      by rewrite H'.
-    - cbn in *; done.
-  Admitted.
+      by rewrite <- (eval_rep_subst_senv_eq _ _ _ _ Hsub_r).
+    - by cbn.
+  Qed.
 
-  Lemma eval_size_subst_env (se se' : semantic_env (Σ:=Σ)) sub_r sub_s σ n :
+  Lemma eval_size_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r sub_s σ n :
     sem_env_rel_rep se' se sub_r ->
     sem_env_rel_size se' se sub_s ->
     eval_size se' σ = Some n ->
@@ -817,6 +840,20 @@ Section inst.
     - done.
   Qed.
 
+  Lemma eval_kind_subst_senv_eq (se se' : semantic_env (Σ:=Σ)) sub_r sub_s κ :
+    sem_env_rel_rep_eq se' se sub_r ->
+    sem_env_rel_size_eq se' se sub_s ->
+    eval_kind se' κ =
+    eval_kind se (subst_kind sub_r sub_s κ) .
+  Proof.
+    intros Hsub_r Hsub_s; unfold_sem_rels.
+    induction κ as [ρ ξ | σ ξ].
+    - cbn.
+      by rewrite <- (eval_rep_subst_senv_eq _ _ _ _ Hsub_r).
+    - cbn.
+      by rewrite <- (eval_size_subst_senv_eq _ _ _ _ _ Hsub_r Hsub_s).
+  Qed.
+
   Lemma eval_kind_subst_senv (se se' : semantic_env (Σ:=Σ)) sub_r sub_s κ sκ :
     sem_env_rel_rep se' se sub_r ->
     sem_env_rel_size se' se sub_s ->
@@ -835,7 +872,7 @@ Section inst.
       apply bind_Some.
       eexists.
       split; last done.
-      by eapply eval_size_subst_env.
+      by eapply eval_size_subst_senv.
   Qed.
 
   (* Later: move this to kinding.v? *)
@@ -926,9 +963,21 @@ Section inst.
   Lemma map_lookup_helper {A B:Type} (f:A → B) (l: list A) (i:nat) (a:A) :
     l !! i = Some a -> map f l !! i = Some (f a).
   Proof.
-    (* obvious, prove later *)
-  Admitted.
+    revert l i.
+    induction l.
+    - intros.
+      rewrite lookup_nil in H; inversion H.
+    - intros.
+      destruct i.
+      + cbn in *.
+        inversion H; subst; done.
+      + rewrite <- lookup_tail in H. cbn in H.
+        apply IHl in H.
+        rewrite <- lookup_tail.
+        cbn. done.
+  Qed.
 
+  (* probably move elsewhere *)
   Lemma ref_flag_le_preserves_atoms_interp ξ ξ' os:
     ref_flag_le ξ ξ' -> ref_flag_atoms_interp ξ (SAtoms os) ->
     ref_flag_atoms_interp ξ' (SAtoms os).
@@ -1978,6 +2027,7 @@ Section inst.
       cbn in *.
       split.
       + destruct se.
+        Transparent senv_insert_rep.
         unfold senv_insert_rep in *; unfold lookup_type in *; cbn in *.
         apply fmap_Some; eexists; split; done.
       + iIntros (sv) "HT' %Hsvalue".
