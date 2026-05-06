@@ -296,10 +296,14 @@ Section PathFacts.
       iPoseProof (IH $! ws') as "IH".
       rewrite big_sepL2_fmap_r.
       iPoseProof (big_sepL2_app_inv_r with "Hws") as "(%wss1 & %wss2' & -> & Hwss1  & Hwss2')".
+      iPoseProof (big_sepL2_length with "Hwss1") as "%Hlenwss1".
       iPoseProof (big_sepL2_cons_inv_r with "Hwss2'") as "(%ws'' & %wss2 & -> & Hws' & Hwss2)".
+      iPoseProof (big_sepL2_length with "Hwss2") as "%Hlenwss2".
       assert (ws'' = ws').
       {
-        admit.
+        subst i.
+        rewrite list_lookup_middle in Hwssi; first congruence.
+        by symmetry.
       }
       subst ws''.
       iSpecialize ("IH" with "Hws'").
