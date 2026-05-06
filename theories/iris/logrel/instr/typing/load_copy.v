@@ -1732,16 +1732,17 @@ Section load_copy.
         * unfold mk_load_frame.
           cbn [seq.foldl imap].
           unfold frame_interp.
-          iDestruct "Hframe" as "(%ηss & %L' & %WL' & %fr' & Hframe)".
+          iDestruct "Hframe" as "(%ηss & %vss_L' & %vs_WL' & %fr' & Hframe)".
           iDestruct "Hframe" as "(%Hprims & %Hres & Hats & Hlocs)".
-          iExists _, L', _.
+          iExists _, vss_L', _.
           iFrame.
           iPureIntro.
           intuition.
           -- cbn.
              unfold ptr_local.
-             assert (length L' = length (concat (typing.fc_locals F))).
-             { by eapply Forall2_length in Hprims. }
+             (* NOTE To Ryan: we added 'concat' in front of vss_L' since we changed frame_interp slightly *)
+             assert (length $ concat vss_L' = length (concat (typing.fc_locals F))).
+             { apply Forall2_concat in Hprims. by eapply Forall2_length in Hprims. }
              admit.
           -- unfold result_type_interp in Hres.
              unfold result_type_interp.

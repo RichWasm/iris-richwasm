@@ -1067,11 +1067,11 @@ Section instr.
       leibnizO frame -n>
       iPropO Σ :=
     λne ηss L WL fr,
-      (∃ oss vs_L vs_WL,
-         ⌜fr.(f_locs) = vs_L ++ vs_WL⌝ ∗
-         ⌜has_prims (concat ηss) vs_L⌝ ∗
+      (∃ oss vss_L vs_WL,
+         ⌜fr.(f_locs) = (concat vss_L) ++ vs_WL⌝ ∗
+         ⌜Forall2 has_prims ηss vss_L⌝ ∗
          ⌜result_type_interp WL vs_WL⌝ ∗
-         atoms_interp (concat oss) vs_L ∗
+         ([∗ list] os; vs_L ∈ oss; vss_L, atoms_interp os vs_L) ∗
          locals_interp se L oss)%I.
 
   Fixpoint simple_get_base_l (lh : simple_valid_holed) :=

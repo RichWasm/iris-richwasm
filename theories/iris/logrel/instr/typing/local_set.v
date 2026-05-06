@@ -29,9 +29,6 @@ Section local_set.
     intros fe WT WL lmask Ψ L' Hlookup_L_i Hrf Hok Hcg.
     subst Ψ.
     cbn [compile_instr] in Hcg.
-    (* destruct κ as [ ρ rf | ]; last inversion Hcg. *)
-    (* destruct ρ  as [ | ρs_sum | | ]; try done. *)
-    (* destruct τs as [ | τ_res τs' ]; first done. *)
 
     unfold compile_local_set in Hcg.
     inv_cg_bind Hcg ?local_ixs ?wt ?wt ?wl ?wl ?es es_set_locals Hlocal_ixs Hset_locals.
