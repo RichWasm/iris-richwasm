@@ -388,6 +388,14 @@ Proof.
   lia.
 Qed.
 
+Lemma Forall2_sum_list_with_length {A B} (f : A → nat) (g : B → nat) (l1 : list A) (l2 : list B) :
+  Forall2 (λ x y, f x = g y) l1 l2 →
+  sum_list_with f l1 = sum_list_with g l2.
+Proof.
+  induction 1 as [| x y l1' l2' Heq _ IH]; simpl; [reflexivity |].
+  lia.
+Qed.
+
 Definition foldlM `{MRet M, MBind M} {A B: Type} : (A -> B -> M A) -> A -> list B -> M A :=
   λ f a l, foldl (λ acc b, mbind (λ a', f a' b) acc) (mret a) l.
 
