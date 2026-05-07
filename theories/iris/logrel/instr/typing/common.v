@@ -1383,13 +1383,11 @@ Qed.
     done.
   Qed.
 
-  Lemma frame_interp_update_frame_label se τ_old ξ ιs ηs L wl vs_l vs_idxs os fe fr fr' i τ :
+  Lemma frame_interp_update_frame_label se τ_old ηs L wl vs_l vs_idxs os fe fr fr' i τ :
     let L' := <[i:=τ]> L in
     L !! i = Some τ_old ->
     wl_interp (fe_wlocal_offset fe) wl fr ->
-    ηs = map arep_to_prim ιs ->
     fe_locals fe !! i = Some ηs ->
-    type_skind se τ = Some (SVALTYPE ιs ξ) -> (* might not need iotas *)
     vs_idxs = seq (sum_list_with length (take i (fe_locals fe))) (length ηs) ->
     has_prims ηs vs_l ->
     Forall2 (λ j v, f_locs fr' !! j = Some v) vs_idxs vs_l ->
@@ -1399,7 +1397,7 @@ Qed.
     frame_interp rti sr se (fe_locals fe) L wl fr -∗
     frame_interp rti sr se (fe_locals fe) L' wl fr'.
   Proof.
-    intros L' Hlookup_L Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hhas_prims_new Hf2 Hfrel.
+    intros L' Hlookup_L Hwl_interp Hlookup Hvs_idxs Hhas_prims_new Hf2 Hfrel.
     iIntros "Hatoms_new Hvalues Hframe".
 
     iDestruct (frame_interp_locals_ctx_length with "Hframe") as "%HL_len".
@@ -1471,13 +1469,11 @@ Qed.
       iFrame.
   Qed.
 
-  Lemma frame_interp_update_frame_label' se τ_old ξ ιs ηs L wl vs_l vs_idxs vs_localidxs os fe fr fr' i τ :
+  Lemma frame_interp_update_frame_label' se τ_old ηs L wl vs_l vs_idxs vs_localidxs os fe fr fr' i τ :
     let L' := <[i:=τ]> L in
     L !! i = Some τ_old ->
     wl_interp (fe_wlocal_offset fe) wl fr ->
-    ηs = map arep_to_prim ιs ->
     fe_locals fe !! i = Some ηs ->
-    type_skind se τ = Some (SVALTYPE ιs ξ) -> (* might not need iotas *)
     vs_idxs = seq (sum_list_with length (take i (fe_locals fe))) (length ηs) ->
     vs_localidxs = map prelude.W.Mk_localidx vs_idxs ->
     has_prims ηs vs_l ->
@@ -1488,7 +1484,7 @@ Qed.
     frame_interp rti sr se (fe_locals fe) L wl fr -∗
     frame_interp rti sr se (fe_locals fe) L' wl fr'.
   Proof.
-    intros L' HlookupL Hwl_interp Hprims Hlookup Htype_skind Hvs_idxs Hvs_localidxs Hhas_prims_new Hf2 Hfrel.
+    intros L' HlookupL Hwl_interp Hlookup Hvs_idxs Hvs_localidxs Hhas_prims_new Hf2 Hfrel.
     iIntros "Hatoms Hvalues Hframe".
     iApply (frame_interp_update_frame_label with "[$] [$] [$]" ); eauto.
     subst vs_localidxs.
