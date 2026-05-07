@@ -1587,7 +1587,6 @@ Section load_copy.
     intros fe WT WL lmask ψ Hcopyability Hresolves Hser Hmonosize Htype Hcompile.
     unfold WT, WL; clear WT WL. (* If the WT := or WL := become necessary, comment the unfold/clear*)
     cbn in Hcompile.
-
     (* Mechanically get through some of the first few things in compile_load *)
     inv_cg_bind Hcompile off ?wt ?wt ?wl ?wl  es_fail ?es_rest Hoff Hcompile.
     inv_cg_bind Hcompile ρ ?wt ?wt ?wl ?wl es_off ?es_rest Hρ Hcompile.
@@ -1603,7 +1602,6 @@ Section load_copy.
     cbn in Hempty; inversion Hempty; subst; clear Hempty.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl  es_case_ptr ?es_rest Hcompile Hignore.
     cbn in Hignore; inversion Hignore; subst; clear Hignore.
-
     (* Some clean up *)
     assert (Hu: u = ()). { by destruct u. }
     assert (Hp: p = ((),())). { by destruct p as [[] []]. }
@@ -1623,7 +1621,6 @@ Section load_copy.
     change instruction.W.BI_unreachable with BI_unreachable in *.
     change instruction.W.BI_tee_local with BI_tee_local in *.
     set (ptr_local := sum_list_with length F.(typing.fc_locals) + length wl) in *.
-
     cbn in Hκ'.
     iAssert (⌜ptr_local < length (f_locs fr)⌝%I) as "%Hlen".
     {
@@ -1675,7 +1672,6 @@ Section load_copy.
       setoid_rewrite type_interp_eq.
       iEval (unfold type_interp) in "Hws".
       iDestruct "Hws" as "(%κ' & %Hsk & Hk & Ht)".
-
       eapply cwp_case_ptr in Hcompile.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
@@ -1696,6 +1692,21 @@ Section load_copy.
       assert (Hκ'': ∃ ξ, κ' = SMEMTYPE (length ws) ξ).
       { admit. }
       destruct Hκ'' as [ξ ->].
+      assert (has_mono_size F (pr_target pr)).
+      {
+        rewrite Hser.
+        inversion Htype; subst.
+        inversion H.
+        inversion H2; subst.
+        inversion H6; subst.
+        inversion H7; subst.
+        inversion H3; subst.
+        eapply KSer in H9.
+        pose proof (KSer F).
+        econstructor.
+        - admit.
+        - admit.
+      }
       (*
       eapply resolves_path_sep in Hresolves.
       + admit.
