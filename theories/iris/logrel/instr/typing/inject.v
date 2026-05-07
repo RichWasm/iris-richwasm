@@ -107,24 +107,19 @@ Section inject.
 
     destruct κ; last destruct Hskind_as_type as [[] _].
 
-    (* have : subskind_of (SVALTYPE l r) (SVALTYPE ιs rf). *)
-    (* { eapply type_skind_eval_rep_emptyenv; try done. *)
-    (*   inversion Hok; subst. *)
-    (*   inversion H; subst. *)
-    (*   apply Forall_cons in H2 as [Hhmr _]. *)
-    (*   inversion Hhmr; subst. *)
-    (*   inversion H1; subst. *)
-    (*   simpl in H1. *)
-    (**)
-    (* } *)
-    (**)
-    (* unfold type_skind, eval_kind in Hkind_sum. *)
-    (* apply bind_Some in Hkind_sum. *)
-    (* destruct Hkind_sum as (l' & Heval & Hret). *)
-    (* inversion Hret; subst l r. *)
-    (* clear Hret. *)
-    assert (l = ιs) as ->.
-    { admit. } (* TODO *)
+    inversion Hok; subst F0 ψ L'.
+    inversion H.
+    apply Forall_cons in H2 as [Hhmr _].
+    inversion Hhmr; subst F0 τ0.
+    inversion H2; subst F0 τ0 ρ0.
+    apply has_kind_SumT_inv in H4 as Hf2.
+    rewrite Hρs_sum_eq Hτs_eq in Hf2.
+    apply Forall2_app_inv in Hf2 as [Hkind_pre Hkind_rest]; last by subst.
+    apply Forall2_cons in Hkind_rest as [Hkind_i Hkind_post].
+
+    have Hsubskind : subskind_of (SVALTYPE l r) (SVALTYPE ιs rf).
+    { by eapply type_skind_eval_rep_emptyenv. }
+    inversion Hsubskind; subst ιs0 l ξ0 ξ'.
 
     destruct Hskind_as_type as [Hhas_areps Href].
     (* apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag). *)
@@ -428,7 +423,12 @@ Section inject.
         split; last done.
         apply has_areps_app_l; first done.
         apply has_areps_app_l; done.
-      + admit. (* ref_flag_atoms_interp *)
+      + iPureIntro.
+        apply ref_flag_atoms_interp_cons.
+        split; first done.
+        apply ref_flag_atoms_interp_app; split; last (apply ref_flag_atoms_interp_app; split).
+        2: by eapply ref_flag_atoms_refine; first done.
+        all: admit. (* ref_flag_atoms_interp for the default atoms *)
       + iExists _, _, _, _.
         iSplit; first done.
         iSplit.

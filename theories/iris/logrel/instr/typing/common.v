@@ -1040,7 +1040,7 @@ Section common.
   (* Ugly lemma dealing with subkinding *)
   Lemma has_kind_SumT_inv F τs ρs ξ κ :
     has_kind F (SumT (VALTYPE (SumR ρs) ξ) τs) κ →
-    ∃ rf, Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ rf)) τs ρs.
+    Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ ξ)) τs ρs.
   Proof.
     intros H. remember (SumT (VALTYPE (SumR ρs) ξ) τs) as τ.
     induction H; try discriminate.
@@ -1513,5 +1513,34 @@ Qed.
     iIntros "H".
     cbn.
   Admitted.
+
+  Lemma ref_flag_atoms_interp_cons ξ o os :
+    ref_flag_atoms_interp ξ (SAtoms (o :: os)) ↔
+    forall_ptr_atom (ref_flag_interp ξ) o ∧ ref_flag_atoms_interp ξ (SAtoms os).
+  Proof.
+    unfold ref_flag_atoms_interp, forall_satoms.
+    split.
+    - intros (os' & Heq & Hall). inversion Heq; subst.
+      inversion Hall; subst. split; [exact H1 |].
+      eexists. auto.
+    - intros (Ho & os' & Heq & Hall). inversion Heq; subst.
+      exists (o :: os'). split; [reflexivity |]. constructor; auto.
+  Qed.
+
+  Lemma ref_flag_atoms_interp_app ξ os1 os2 :
+    ref_flag_atoms_interp ξ (SAtoms (os1 ++ os2)) ↔
+    ref_flag_atoms_interp ξ (SAtoms os1) ∧ ref_flag_atoms_interp ξ (SAtoms os2).
+  Proof.
+    unfold ref_flag_atoms_interp, forall_satoms.
+    split.
+    - intros (os' & Heq & Hall). inversion Heq; subst.
+      apply Forall_app in Hall as [H1 H2].
+      split; [exists os1 | exists os2]; auto.
+    - intros ((os1' & Heq1 & Hall1) & (os2' & Heq2 & Hall2)).
+      inversion Heq1; inversion Heq2; subst.
+      exists (os1' ++ os2'). split; [reflexivity |].
+      apply Forall_app. auto.
+  Qed.
+
 
 End common.

@@ -321,7 +321,7 @@ Section case.
       rewrite Forall_singleton in H.
       inversion H; subst.
       inversion H1; subst.
-      apply has_kind_SumT_inv in H3 as (rf' & HF2).
+      apply has_kind_SumT_inv in H3 as HF2.
       by eapply Forall2_length.
     }
     assert (tag < Wasm_int.Int32.modulus)%Z as Htag_in_i32_bound.
