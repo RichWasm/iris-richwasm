@@ -412,6 +412,89 @@ Section PathFacts.
     - subst; eauto.
   Qed.
 
+  Lemma type_skind_size_agree F τ n r σ sz :
+    type_skind se τ = Some (SMEMTYPE n r) ->
+    type_size (fc_type_vars F) τ = Some σ ->
+    eval_size EmptyEnv σ = Some sz ->
+    n = sz.
+  Proof.
+  Admitted.
+
+  Lemma resolves_path_sep_kinds F τ π τ__π pr :
+    resolves_path τ π τ__π pr ->
+    forall σ σexp σtgt sz off ξ szt r,
+    sem_env_interp F se ->
+    has_kind F τ (MEMTYPE σ ξ) ->
+    eval_kind se (MEMTYPE σ ξ) = Some (SMEMTYPE szt r) ->
+    Forall (has_mono_size F) pr.(pr_prefix) ->
+    type_size F.(fc_type_vars) (pr_expected pr τ__π) = Some σexp ->
+    eval_size EmptyEnv σexp = Some sz ->
+    type_size F.(fc_type_vars) pr.(pr_target) = Some σtgt ->
+    eval_size EmptyEnv σtgt = Some sz ->
+    path_offset (fe_of_context F) τ π = Some off ->
+    ∀ sk ws,
+      type_skind se τ = Some sk ->
+      skind_has_svalue sk (SWords ws) ->
+      off + sz <= length ws /\
+      (∃ sk_tgt,
+          type_skind se (pr.(pr_target)) = Some sk_tgt /\
+          skind_has_svalue sk_tgt (SWords (get_path_words off sz ws)) /\
+          ∀ sk_exp ws',
+            length ws' = sz ->
+            type_skind se (pr_expected pr τ__π) = Some sk_exp /\
+            skind_has_svalue sk_exp (SWords ws') ->
+            ∃ sk_repl,
+              type_skind se pr.(pr_replaced) = Some sk_repl /\
+              skind_has_svalue sk_repl (SWords (update_path_words off ws ws'))).
+  Proof.
+    induction 1; intros * Hse Hτ Hskev Hpfx Hσexp Hszexp Hσtgt Htgtexp Hoff sk ws Hsk Hskws.
+    - assert (off = 0) by (destruct τ; cbn in *; congruence).
+      subst off; rewrite Nat.add_0_l.
+      destruct sk.
+      {
+        cbn in Hskws.
+        destruct Hskws as [Hareps Hatoms].
+        destruct Hareps as (? & Hcontra & _).
+        congruence.
+      }
+      pose proof Hskws as Hskws'.
+      destruct Hskws' as [Hlen Hflags].
+      cbn in Hlen.
+      subst n.
+      cbn in Hσexp, Hσtgt.
+      assert (length ws = sz) by (eapply type_skind_size_agree; eauto).
+      split; first lia.
+      cbn [pr_target pr_expected pr_replaced].
+      eexists.
+      split; eauto.
+      subst sz.
+      rewrite !get_path_words_all.
+      split; first done.
+      intros sk_exp ws' Hlens [Htys Hsem].
+      eexists; split; eauto.
+      by rewrite update_path_words_all.
+    - admit. (* similar to prev case *)
+    - rewrite Forall_app in Hpfx.
+      destruct Hpfx as [Hszτs0 Hszpr].
+      cbn in Hoff.
+      eapply bind_Some in Hoff; destruct Hoff as (σs & Htsz & Hoff).
+      eapply bind_Some in Hoff; destruct Hoff as (ns & Hevsz & Hoff).
+      eapply bind_Some in Hoff; destruct Hoff as (τ' & Hfind & Hoff).
+      eapply bind_Some in Hoff; destruct Hoff as (k & Hpoff & Hsum).
+      inversion Hsum; subst off.
+      assert (τ' = τ).
+      {
+        replace i with (length τs0) in Hfind by eauto.
+        rewrite list_lookup_middle in Hfind; congruence.
+      }
+      subst τ'.
+      eapply type_skind_has_kind_Some in Hτ; eauto.
+      destruct Hτ as (sk' & Htsk' & Hsub); eauto.
+      inversion Hsub; subst.
+      eapply IHresolves_path in Hpoff.
+      admit.
+  Admitted.
+
   Lemma resolves_path_sep F τ π τ__π pr sz off :
     resolves_path τ π τ__π pr ->
     sem_env_interp F se ->
