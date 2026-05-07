@@ -5,6 +5,7 @@ Require Import RichWasm.compiler.memory.
 Require Import RichWasm.iris.numerics.
 Require Import RichWasm.iris.runtime.
 Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.path.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -1695,7 +1696,20 @@ Section load_copy.
       assert (Hκ'': ∃ ξ, κ' = SMEMTYPE (length ws) ξ).
       { admit. }
       destruct Hκ'' as [ξ ->].
-
+      (*
+      eapply resolves_path_sep in Hresolves.
+      + admit.
+      + admit.
+      + eauto.
+      + eauto.
+      + cbn. admit. (* need has_mono_size F (pr_target pr) *)
+      + cbn. admit. (* need has_mono_size F (pr_target pr) *)
+      + cbn.(* type_sz BS *)
+             admit.
+      + admit. (* type_sz BS *)
+      + eauto.
+      + admit. (* need has_kind F (pr_replaced pr) κ0 *)
+    *)
       (* need lemma about memory.load *)
       apply wp_mem_load_copy_mm in Hload1.
       destruct Hload1 as (_ & -> & -> & Hload).

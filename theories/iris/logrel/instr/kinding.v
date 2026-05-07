@@ -33,8 +33,7 @@ Section kinding.
   Lemma type_kind_has_kind_is_Some F τ κ :
     has_kind F τ κ ->
     is_Some (type_kind F.(fc_type_vars) τ).
-  Proof.
-    induction 1; try solve [eexists; cbn; eauto].
+  Proof. induction 1; try solve [eexists; cbn; eauto].
     auto.
   Qed.
 
@@ -54,6 +53,13 @@ Section kinding.
   Lemma subkind_rep_inv κ κ' :
     subkind_of κ κ' ->
     kind_rep κ = kind_rep κ'.
+  Proof.
+    by induction 1.
+  Qed.
+
+  Lemma subkind_size_inv κ κ' :
+    subkind_of κ κ' ->
+    kind_size κ = kind_size κ'.
   Proof.
     by induction 1.
   Qed.
