@@ -374,6 +374,34 @@ Section common.
     by eapply Forall2_length.
   Qed.
 
+  Lemma ref_flag_atoms_interp_cons ξ o os :
+    ref_flag_atoms_interp ξ (SAtoms (o :: os)) ↔
+    forall_ptr_atom (ref_flag_interp ξ) o ∧ ref_flag_atoms_interp ξ (SAtoms os).
+  Proof.
+    unfold ref_flag_atoms_interp, forall_satoms.
+    split.
+    - intros (os' & Heq & Hall). inversion Heq; subst.
+      inversion Hall; subst. split; [exact H1 |].
+      eexists. auto.
+    - intros (Ho & os' & Heq & Hall). inversion Heq; subst.
+      exists (o :: os'). split; [reflexivity |]. constructor; auto.
+  Qed.
+
+  Lemma ref_flag_atoms_interp_app ξ os1 os2 :
+    ref_flag_atoms_interp ξ (SAtoms (os1 ++ os2)) ↔
+    ref_flag_atoms_interp ξ (SAtoms os1) ∧ ref_flag_atoms_interp ξ (SAtoms os2).
+  Proof.
+    unfold ref_flag_atoms_interp, forall_satoms.
+    split.
+    - intros (os' & Heq & Hall). inversion Heq; subst.
+      apply Forall_app in Hall as [H1 H2].
+      split; [exists os1 | exists os2]; auto.
+    - intros ((os1' & Heq1 & Hall1) & (os2' & Heq2 & Hall2)).
+      inversion Heq1; inversion Heq2; subst.
+      exists (os1' ++ os2'). split; [reflexivity |].
+      apply Forall_app. auto.
+  Qed.
+
   Lemma atoms_interp_nil_l vs :
     atoms_interp [] vs -∗ ⌜vs = []⌝.
   Proof.
@@ -427,41 +455,73 @@ Section common.
   Qed.
 
   Lemma atom_interp_and_arep_of_default_of_arep ι :
-    ⊢ ∃ o, atom_interp o (default_of_value_type $ translate_arep ι) ∗ ⌜has_arep ι o⌝.
+    ⊢ ∃ o, atom_interp o (default_of_value_type $ translate_arep ι) ∗ ⌜has_arep ι o⌝ ∗ ⌜ref_flag_atoms_interp NoRefs (SAtoms [o])⌝.
   Proof.
     destruct ι.
-    - iExists (PtrA _); iSplit; last done.
-      simpl.
-      iExists _, _.
-      iSplit; last iSplit; first done.
-      1: done.
-      iExists (RootInt 0).
-      iSplit; first iPureIntro; simpl.
-      1: constructor.
-      by instantiate (1 := PtrInt _).
-    - by iExists (I32A _).
-    - by iExists (I64A _).
-    - by iExists (F32A _).
-    - by iExists (F64A _).
+    - iExists (PtrA _); iSplit; last (iSplit; first done).
+      + simpl.
+        iExists _, _.
+        iSplit; last iSplit; first done.
+        1: done.
+        iExists (RootInt 0).
+        iSplit; first iPureIntro; simpl.
+        1: constructor.
+        by instantiate (1 := PtrInt _).
+      + iPureIntro.
+        unfold ref_flag_atoms_interp, forall_satoms.
+        eexists; split; first done.
+        by apply Forall_singleton.
+    - iExists (I32A _); iSplit; first done.
+      iSplit; first done.
+      iPureIntro.
+      unfold ref_flag_atoms_interp, forall_satoms.
+      eexists; split; first done.
+      by apply Forall_singleton.
+    - iExists (I64A _); iSplit; first done.
+      iSplit; first done.
+      iPureIntro.
+      unfold ref_flag_atoms_interp, forall_satoms.
+      eexists; split; first done.
+      by apply Forall_singleton.
+    - iExists (F32A _); iSplit; first done.
+      iSplit; first done.
+      iPureIntro.
+      unfold ref_flag_atoms_interp, forall_satoms.
+      eexists; split; first done.
+      by apply Forall_singleton.
+    - iExists (F64A _); iSplit; first done.
+      iSplit; first done.
+      iPureIntro.
+      unfold ref_flag_atoms_interp, forall_satoms.
+      eexists; split; first done.
+      by apply Forall_singleton.
   Qed.
 
   Lemma atoms_interp_and_areps_of_default_of_areps ιs :
-    ⊢ ∃ os, atoms_interp os (default_of_value_types $ translate_arep <$> ιs) ∗ ⌜has_areps ιs (SAtoms os)⌝.
+    ⊢ ∃ os, atoms_interp os (default_of_value_types $ translate_arep <$> ιs) ∗ ⌜has_areps ιs (SAtoms os)⌝ ∗ ⌜ref_flag_atoms_interp NoRefs (SAtoms os)⌝.
   Proof.
     induction ιs as [|ι ιs' IH].
     - iExists [].
       iSplit; first by simpl.
-      by iExists [].
-    - iDestruct IH as "(%os' & IHatoms & %IHareps)".
+      iSplit; first by iExists [].
+      iPureIntro.
+      unfold ref_flag_atoms_interp, forall_satoms.
+      eexists; split; done.
+    - iDestruct IH as "(%os' & IHatoms & %IHareps & %IHref_flag)".
       iEval (unfold default_of_value_types).
       rewrite fmap_cons.
       rewrite map_cons.
-      iDestruct (atom_interp_and_arep_of_default_of_arep ι) as "(%o & Hatom & %Harep)".
+      iDestruct (atom_interp_and_arep_of_default_of_arep ι) as "(%o & Hatom & %Harep & %Href_flag)".
       iExists (o :: os').
       rewrite atoms_interp_cons.
       iFrame "#".
       iPureIntro.
-      by apply has_areps_cons.
+      split; first by apply has_areps_cons.
+      apply ref_flag_atoms_interp_cons; split; last done.
+      unfold ref_flag_atoms_interp, forall_satoms in Href_flag.
+      destruct Href_flag as (os & Heq & Hall).
+      inversion Heq; subst.
+      by rewrite Forall_singleton in Hall.
   Qed.
 
   Lemma frame_interp_wl_interp se F L WL ηss fr :
@@ -1513,34 +1573,5 @@ Qed.
     iIntros "H".
     cbn.
   Admitted.
-
-  Lemma ref_flag_atoms_interp_cons ξ o os :
-    ref_flag_atoms_interp ξ (SAtoms (o :: os)) ↔
-    forall_ptr_atom (ref_flag_interp ξ) o ∧ ref_flag_atoms_interp ξ (SAtoms os).
-  Proof.
-    unfold ref_flag_atoms_interp, forall_satoms.
-    split.
-    - intros (os' & Heq & Hall). inversion Heq; subst.
-      inversion Hall; subst. split; [exact H1 |].
-      eexists. auto.
-    - intros (Ho & os' & Heq & Hall). inversion Heq; subst.
-      exists (o :: os'). split; [reflexivity |]. constructor; auto.
-  Qed.
-
-  Lemma ref_flag_atoms_interp_app ξ os1 os2 :
-    ref_flag_atoms_interp ξ (SAtoms (os1 ++ os2)) ↔
-    ref_flag_atoms_interp ξ (SAtoms os1) ∧ ref_flag_atoms_interp ξ (SAtoms os2).
-  Proof.
-    unfold ref_flag_atoms_interp, forall_satoms.
-    split.
-    - intros (os' & Heq & Hall). inversion Heq; subst.
-      apply Forall_app in Hall as [H1 H2].
-      split; [exists os1 | exists os2]; auto.
-    - intros ((os1' & Heq1 & Hall1) & (os2' & Heq2 & Hall2)).
-      inversion Heq1; inversion Heq2; subst.
-      exists (os1' ++ os2'). split; [reflexivity |].
-      apply Forall_app. auto.
-  Qed.
-
 
 End common.

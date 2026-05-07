@@ -29,7 +29,6 @@ Section inject.
     cbn [compile_instr] in Hcg.
     destruct κ as [ ρ rf | ]; last inversion Hcg.
     destruct ρ  as [ | ρs_sum | | ]; try done.
-    (* destruct τs as [ | τ_res τs' ]; first done. *)
 
     inv_cg_bind Hcg ιss ?wt ?wt ?wl ?wl ?es ?es Hιss Hcg.
     inv_cg_try_option Hιss; subst.
@@ -122,23 +121,6 @@ Section inject.
     inversion Hsubskind; subst ιs0 l ξ0 ξ'.
 
     destruct Hskind_as_type as [Hhas_areps Href].
-    (* apply has_areps_cons_exists in Hhas_areps as (ι_tag & ιs_payload & -> & Hhas_areps_payload & Hhas_arep_tag). *)
-(*     apply bind_Some in Hcount as Hcount'. *)
-(*     destruct Hcount' as [ιs_case_tag_payload' [Hlookup_eval Hcase_tag_payload_count]]. *)
-(*     apply Some_inj in Hcase_tag_payload_count. *)
-(*     apply bind_Some in Hlookup_eval as Heval_repr. *)
-(*     destruct Heval_repr as [ρ_case_tag_payload' [Hlookup_tag Heval_rep']]. *)
-(**)
-(*     inversion Heval as [Hιs_sum]. *)
-(*     apply bind_Some in Hιs_sum as Hιs_sum. *)
-(*     destruct Hιs_sum as [ιss_payload [Hmap_eval_rep Heq]]. *)
-(*     apply Some_inj in Heq. *)
-(*     simpl in Heq. *)
-(*     injection Heq as Htag Hpayload. *)
-(*     apply mapM_eval_rep_emptyenv with (se := se) in Heq_some0. *)
-(*     rewrite Hmap_eval_rep in Heq_some0. *)
-(*     apply Some_inj in Heq_some0 as <-. *)
-    (* TODO end *)
 
     apply bind_Some in Heq_some0 as Hsum.
     destruct Hsum as (ιss_pre' & Hιss_pre' & Hoff).
@@ -402,8 +384,8 @@ Section inject.
     unfold fvs_combine.
     iFrame.
     iSplit; first done.
-    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_pre)) as "(%os_pre & Hatoms_pre & %Hareps_pre)".
-    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_post)) as "(%os_post & Hatoms_post & %Hareps_post)".
+    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_pre)) as "(%os_pre & Hatoms_pre & %Hareps_pre & %Href_flag_pre)".
+    iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_post)) as "(%os_post & Hatoms_post & %Hareps_post & %Href_flag_post)".
     iExists (I32A (Wasm_int.Int32.repr i) :: os_pre ++ os ++ os_post).
     iSplitR "Hvs".
     - rewrite values_interp_one_eq.
@@ -427,8 +409,9 @@ Section inject.
         apply ref_flag_atoms_interp_cons.
         split; first done.
         apply ref_flag_atoms_interp_app; split; last (apply ref_flag_atoms_interp_app; split).
-        2: by eapply ref_flag_atoms_refine; first done.
-        all: admit. (* ref_flag_atoms_interp for the default atoms *)
+        1: by apply (ref_flag_atoms_refine NoRefs); first done.
+        1: by eapply ref_flag_atoms_refine; first done.
+        1: by apply (ref_flag_atoms_refine NoRefs); first done.
       + iExists _, _, _, _.
         iSplit; first done.
         iSplit.
@@ -453,6 +436,6 @@ Section inject.
       iSplit; first done.
       iApply atoms_interp_app_split_r; first done.
       iApply (atoms_interp_app_split_r with "Hvs Hatoms_post").
-  Admitted.
+  Qed.
 
 End inject.
