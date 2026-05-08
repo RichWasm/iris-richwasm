@@ -944,6 +944,7 @@ Section PathFacts.
     iFrame.
   Qed.
 
+  (* need some has_kind judgments *)
   Lemma resolves_path_sep F τ π τ__π pr sz off :
     resolves_path τ π τ__π pr ->
     sem_env_interp F se ->
@@ -997,7 +998,138 @@ Section PathFacts.
       }
       subst τ'.
       iIntros (ws) "Hws".
-      admit.
+      eapply IHHpath in Hpoff; eauto.
+      iEval (unfold value_interp; cbn -[add_skind_interp]) in "Hws".
+      iDestruct "Hws" as "(%sκ & %Hevκ & %Hsv & %wss & %Hwss & Hws)".
+      iPoseProof (big_sepL2_length with "Hws") as "%Hlenwss".
+      assert (Hws': ∃ ws', wss !! i = Some ws').
+      {
+        eapply lookup_lt_is_Some_2.
+        rewrite Hlenwss length_map length_app length_cons -H.
+        apply Nat.lt_add_pos_r.
+        lia.
+      }
+      destruct Hws' as [ws' Hwssi].
+      iPoseProof (Hpoff $! ws') as "IH".
+      rewrite big_sepL2_fmap_r.
+      iPoseProof (big_sepL2_app_inv_r with "Hws") as "(%wss1 & %wss2' & -> & Hwss1  & Hwss2')".
+      iPoseProof (big_sepL2_length with "Hwss1") as "%Hlenwss1".
+      iPoseProof (big_sepL2_cons_inv_r with "Hwss2'") as "(%ws'' & %wss2 & -> & Hws' & Hwss2)".
+      iPoseProof (big_sepL2_length with "Hwss2") as "%Hlenwss2".
+      assert (ws'' = ws').
+      {
+        subst i.
+        rewrite list_lookup_middle in Hwssi; first congruence.
+        by symmetry.
+      }
+      subst ws''.
+      subst i.
+      rewrite take_app_length in Htsz.
+      assert (length τs0 = length ns).
+      {
+        eapply length_mapM in Hevsz, Htsz.
+        congruence.
+      }
+      assert (mapM (type_size (fc_type_vars F)) (take (length τs0) (τs0 ++ τ :: τs')) = Some σs).
+      {
+        by rewrite take_app_length.
+      }
+      iPoseProof (val_interps_type_szs with "Hwss1") as "(%ns' & %Hns' & %Hlenswss1)"; eauto.
+      replace ns' with ns in *
+        by (symmetry; eapply type_szs_interchg; eauto).
+      iSpecialize ("IH" with "Hws'").
+      iDestruct "IH" as "(%Hksz & Htgt & Hret)".
+      iSplitR.
+      {
+        iPureIntro.
+        inversion Hwss.
+        rewrite length_concat map_app map_cons list_sum_app.
+        simpl.
+        rewrite Hlenswss1.
+        lia.
+      }
+      inversion Hwss; subst ws; clear Hwss.
+      change (pr_target pr') with (pr_target pr) in *.
+      simpl (pr_replaced pr').
+      rewrite length_map in Hlenwss.
+      erewrite get_path_words_field; eauto.
+      iFrame.
+      iIntros (ws'' Hlens) "Hws''".
+      iPoseProof (val_interp_type_sz with "Hws''") as "(%sz'' & %Hszt'' & %Hlen'')"; eauto.
+      assert (k + length ws'' ≤ length ws') by congruence.
+      erewrite update_path_words_field; eauto.
+      iSpecialize ("Hret" with "[//] Hws''").
+      unfold value_interp.
+      cbn -[type_interp].
+      rewrite !type_interp_eq.
+      iDestruct "Hret" as "(%sk & %Htsk & %Hsvsk & Hret)".
+      destruct sκ; inversion Hsv.
+      {
+        inversion H3.
+        destruct H4.
+        destruct H4.
+        admit.
+      }
+      assert (Hsubs: subskind_of sk (SMEMTYPE n r)).
+      {
+        eapply field_update_kind_bound; eauto.
+        admit.
+      }
+      cbn in Hevκ.
+      iExists _; iSplitR.
+      { admit. }
+      iSplitR.
+      {
+        iPureIntro.
+        cbn in H2, H3.
+        cbn.
+        subst.
+        (* TODO:
+        split.
+        - rewrite !concat_app.
+          rewrite length_app.
+          rewrite length_app.
+          rewrite concat_cons length_app.
+          rewrite length_app.
+          f_equal.
+          f_equal.
+          by rewrite update_path_words_size.
+        - destruct H4 as (wsx & Hinv & Hbefore).
+          inversion Hinv; subst wsx; clear Hinv.
+          eexists; split; first done.
+          rewrite concat_app concat_cons in Hbefore.
+          eapply Forall_app in Hbefore; destruct Hbefore as [Hbefore1 Hbefore2].
+          eapply Forall_app in Hbefore2; destruct Hbefore2 as [Hbefore Hbefore3].
+          eapply Forall_app.
+          split; first done.
+          eapply Forall_app.
+          split; last done.
+          destruct sk.
+          {
+            unfold has_areps in Hsvsk.
+            destruct Hsvsk as (? &  ? & ? & ?).
+            congruence.
+          }
+          destruct Hsvsk as (Hn & Hr0).
+          cbn in Hr0.
+          destruct Hr0 as (ws0 & Hws0eq & Hrefs).
+          inversion Hws0eq; subst ws0.
+          eapply Forall_impl.
+          eauto.
+          intros.
+          destruct x; cbn in *; try done.
+          eapply ref_flag_interp_le; eauto.
+          by inversion Hsubs.
+        *)
+        admit.
+      }
+      iExists (wss1 ++ (update_path_words k ws' ws'') :: wss2).
+      iSplit.
+      { by rewrite !concat_app. }
+      rewrite big_sepL2_fmap_r.
+      iApply (big_sepL2_app with "Hwss1").
+      setoid_rewrite type_interp_eq.
+      iFrame; eauto.
   Admitted.
 
 End PathFacts.
