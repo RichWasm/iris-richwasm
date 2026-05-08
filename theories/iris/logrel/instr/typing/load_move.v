@@ -1,4 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.case_ptr.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -52,9 +53,12 @@ Section load_move.
     (* Some clean up *)
     destruct u.
     destruct p as [[] []].
-
-    (* Next is case ptr *)
-    (* WAITING FOE LEMMA *)
+    clear_nils.
+    eapply cwp_case_ptr in Hcompile.
+    destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+    destruct Hcompile as (Hunr & Hloadmm & Hloadgc & -> & -> & Hspec).
+    specialize (Hspec [] [] ltac:(done) ltac:(done)).
+    clear_nils.
   Admitted.
 
 End load_move.
