@@ -1555,9 +1555,7 @@ Definition has_ref_flag_checker F τ ξ : type_checker_res :=
 Lemma has_ref_flag_checker_correct :
   ∀ F τ ξ, has_ref_flag_checker F τ ξ = ok_term -> has_ref_flag F τ ξ.
 Proof.
-  unfold has_ref_flag_checker; intros. repeat my_auto3; apply has_kind_checker_correct in H.
-  - by eapply MemtypeHasRefFlag; auto.
-  - by eapply ValtypeHasRefFlag; auto.
+  unfold has_ref_flag_checker; intros. repeat my_auto3; apply has_kind_checker_correct in H; by econstructor.
 Qed.
 
 

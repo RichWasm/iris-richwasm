@@ -535,10 +535,10 @@ Definition type_size_eq (F : function_ctx) (τ1 τ2 : type) : Prop :=
   exists σ1 σ2, has_size F τ1 σ1 /\ has_size F τ2 σ2 /\ size_eq σ1 σ2.
 
 Inductive has_ref_flag : function_ctx -> type -> ref_flag -> Prop :=
-| MemtypeHasRefFlag F τ ρ ξ :
+| ValtypeHasRefFlag F τ ρ ξ :
   has_kind F τ (VALTYPE ρ ξ) ->
   has_ref_flag F τ ξ
-| ValtypeHasRefFlag F τ σ ξ :
+| MemtypeHasRefFlag F τ σ ξ :
   has_kind F τ (MEMTYPE σ ξ) ->
   has_ref_flag F τ ξ.
 

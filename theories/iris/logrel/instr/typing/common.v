@@ -402,6 +402,18 @@ Section common.
       apply Forall_app. auto.
   Qed.
 
+  Lemma value_interp_ref_flag_atoms se τ ιs ξ sv :
+    type_skind se τ = Some (SVALTYPE ιs ξ) →
+    value_interp rti sr se τ sv -∗
+    ⌜ref_flag_atoms_interp ξ sv⌝.
+  Proof.
+    iIntros (Hskind) "Hval".
+    iDestruct (value_interp_skind with "Hval") as %(sκ & Hsκ & Hsv).
+    rewrite Hskind in Hsκ. inversion Hsκ; subst.
+    iPureIntro.
+    by destruct Hsv.
+  Qed.
+
   Lemma atoms_interp_nil_l vs :
     atoms_interp [] vs -∗ ⌜vs = []⌝.
   Proof.
@@ -1569,5 +1581,55 @@ Qed.
     iIntros "H".
     cbn.
   Admitted.
+
+  Definition expect_heap_ptr (o : atom) : option (base_memory * location) :=
+    match o with
+    | PtrA (PtrHeap μ ℓ) => Some (μ, ℓ)
+    | _ => None
+    end.
+
+  Lemma atom_interp_dup o v :
+    expect_heap_ptr o = None ->
+    Persistent (atom_interp o v).
+  Proof.
+    destruct o; cbn; intros Heq; try apply bi.pure_persistent.
+    repeat (apply bi.pure_persistent
+    || (apply bi.exist_persistent; intros ?x)
+    || apply bi.sep_persistent).
+    destruct p; try congruence.
+    destruct x1; cbn;
+    repeat (apply bi.pure_persistent
+    || (apply bi.exist_persistent; intros ?x)
+    || apply bi.sep_persistent).
+  Qed.
+
+  Lemma atoms_interp_dup os vs :
+    Forall (λ o, expect_heap_ptr o = None) os →
+    Persistent (atoms_interp os vs).
+  Proof.
+    intros Hall.
+    unfold atoms_interp.
+    apply big_sepL2_persistent.
+    intros k o v Hok Hvk.
+    apply atom_interp_dup.
+    rewrite Forall_lookup in Hall.
+    exact (Hall k o Hok).
+  Qed.
+
+  Lemma atoms_interp_norefs_persistent (se: semantic_env (Σ:=Σ)) os vs :
+    ref_flag_atoms_interp NoRefs (SAtoms os) →
+    Persistent (atoms_interp os vs).
+  Proof.
+    intros Href.
+    unfold ref_flag_atoms_interp, forall_satoms in Href.
+    destruct Href as (os' & Heq & Hall).
+    inversion Heq; subst.
+    apply atoms_interp_dup.
+    rewrite Forall_lookup. intros k o Hok.
+    rewrite Forall_lookup in Hall.
+    specialize (Hall k o Hok).
+    destruct o; simpl in *; try done.
+    destruct p; simpl in *; done.
+  Qed.
 
 End common.

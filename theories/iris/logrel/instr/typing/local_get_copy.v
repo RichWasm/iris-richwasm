@@ -122,6 +122,11 @@ Section local_get_copy.
     iIntros (?? [-> ->]).
     iSplit; first done.
 
+    inversion Hok; subst.
+    inversion H; subst.
+    inversion H2; subst.
+    inversion H5; subst.
+    inversion H3; subst.
   Admitted.
 
 End local_get_copy.

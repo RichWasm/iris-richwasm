@@ -996,31 +996,10 @@ Section load_copy.
     | _ => True
     end.
 
-  Definition expect_heap_ptr (o : atom) : option (base_memory * location) :=
-    match o with
-    | PtrA (PtrHeap μ ℓ) => Some (μ, ℓ)
-    | _ => None
-    end.
-
   Definition mk_load1_post o v v' : iProp Σ :=
     (∃ e', rt_token rti sr e' ∗
            atom_interp o v ∗
            atom_interp o v')%I.
-
-  Lemma atom_interp_dup o v :
-    expect_heap_ptr o = None ->
-    Persistent (atom_interp o v).
-  Proof.
-    destruct o; cbn; intros Heq; try apply bi.pure_persistent.
-    repeat (apply bi.pure_persistent
-            || (apply bi.exist_persistent; intros ?x)
-            || apply bi.sep_persistent).
-    destruct p; try congruence.
-    destruct x1; cbn;
-      repeat (apply bi.pure_persistent
-              || (apply bi.exist_persistent; intros ?x)
-              || apply bi.sep_persistent).
-  Qed.
 
   Lemma wp_mem_load1_copy_mm_es
     fe lidx off ι o wt wl ret wt' wl' es ℓ ℓ32 B R
