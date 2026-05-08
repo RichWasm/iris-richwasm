@@ -552,13 +552,13 @@ Inductive resolves_path : type -> path -> option type -> path_result -> Prop :=
   resolves_path τ [] None (Build_path_result [] τ τ)
 | PathNilSome τ τ' :
   resolves_path τ [] (Some τ') (Build_path_result [] τ τ')
-| PathStruct pr i π τ__π τs0 τ τs' κ :
+| PathStruct pr i π τ__π τs0 τ τs' κ κ' :
   length τs0 = i ->
   resolves_path τ π τ__π pr ->
   let pr' :=
     {| pr_prefix := τs0 ++ pr.(pr_prefix);
        pr_target := pr.(pr_target);
-       pr_replaced := StructT κ (τs0 ++ pr.(pr_replaced) :: τs') |}
+       pr_replaced := StructT κ' (τs0 ++ pr.(pr_replaced) :: τs') |}
   in
   resolves_path (StructT κ (τs0 ++ τ :: τs')) (i :: π) τ__π pr'.
 
