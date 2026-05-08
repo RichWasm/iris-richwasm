@@ -396,20 +396,77 @@ Section PathFacts.
     revert HeqS.
   Admitted.
 
-  Lemma struct_kind_weak_inv F S κ :
+  Lemma struct_kind_inv_ind F S κ :
     has_kind F S κ ->
-    ∀ κ' τs1 τs2 τ,
-      S = StructT κ' (τs1 ++ τ :: τs2) ->
-      ∃ κ, has_kind F τ κ.
+    ∀ σ ξ κ' τs,
+      κ = MEMTYPE σ ξ ->
+      S = StructT κ' τs ->
+      ∃ σs ξ',
+        Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ')) τs σs /\
+        σ = ProdS σs /\
+        κ' = MEMTYPE (ProdS σs) ξ' /\
+        ref_flag_le ξ' ξ.
   Proof.
-    induction 1; intros * HS; try inversion HS.
-    - subst.
-      eapply Forall2_app_inv_l in H.
-      destruct H as (σs1 & σs2 & _ & Hall & ->).
-      eapply Forall2_cons_inv_l in Hall.
-      destruct Hall as (σ & σs3 & Hτ & _ & ->).
-      eauto.
-    - subst; eauto.
+    intros Hkind.
+    induction Hkind; intros * Hκ HS; try inversion HS.
+    - subst κ' κ.
+      inversion Hκ; subst ξ0 τs0 σ.
+      do 2 eexists.
+      eauto using ref_flag_le_refl.
+    - subst κ' τ.
+      match goal with
+      | H : subkind_of _ _ |- _ => inversion H; subst
+      end.
+      specialize (IHHkind _ _ _ _ eq_refl eq_refl).
+      destruct IHHkind as (σs & ξ' & Hkinds & -> & -> & Hξ0).
+      do 2 eexists.
+      eauto using ref_flag_le_trans.
+  Qed.
+
+  Lemma struct_kind_inv F σ ξ κ' τs :
+    has_kind F (StructT κ' τs) (MEMTYPE σ ξ) ->
+    ∃ σs ξ',
+      Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ')) τs σs /\
+      σ = ProdS σs /\
+      κ' = MEMTYPE (ProdS σs) ξ' /\
+      ref_flag_le ξ' ξ.
+  Proof.
+    intros.
+    by eapply struct_kind_inv_ind.
+  Qed.
+
+  Lemma has_kind_mem_size_agree_ind F τ κ :
+    has_kind F τ κ ->
+    ∀ σ σ' ξ,
+      κ = MEMTYPE σ ξ ->
+      type_size (fc_type_vars F) τ = Some σ' ->
+      σ = σ'.
+  Proof.
+    intros Hkind.
+    induction Hkind; intros * Hκ; (try by inversion Hκ); intros Hev; subst;
+      try solve [
+          try inversion Hκ; subst;
+          cbn in Hev; congruence
+        ].
+    - inversion H; subst.
+      unfold type_size in Hev.
+      eapply bind_Some in Hev.
+      destruct Hev as (κ' & Htkind & Hsz).
+      eapply type_kind_has_kind_agree in Htkind; eauto.
+      inversion Htkind; eauto; subst.
+      cbn in *; congruence.
+    - cbn in Hev.
+      rewrite H in Hev.
+      cbn in Hev; congruence.
+  Qed.
+
+  Lemma has_kind_mem_size_agree F τ ξ σ σ' :
+    has_kind F τ (MEMTYPE σ ξ) ->
+    type_size (fc_type_vars F) τ = Some σ' ->
+    σ = σ'.
+  Proof.
+    intros.
+    eapply has_kind_mem_size_agree_ind; eauto.
   Qed.
 
   Lemma type_skind_size_agree F τ n r σ sz :
@@ -420,32 +477,185 @@ Section PathFacts.
   Proof.
   Admitted.
 
+  Lemma eval_size_prod_inv σs n :
+    eval_size se (ProdS σs) = Some n ->
+    exists ns,
+      mapM (eval_size se) σs = Some ns /\
+      n = list_sum ns.
+  Proof.
+    apply fmap_Some.
+  Qed.
+
+  Lemma skind_mem_words_len n r ws :
+    skind_has_svalue (SMEMTYPE n r) (SWords ws) ->
+    n = length ws.
+  Proof.
+    cbn.
+    tauto.
+  Qed.
+
+  Lemma inv_Forall2_elt_l {A B} {P : A -> B -> Prop} {xs1 x xs2 ys} :
+    Forall2 P (xs1 ++ x :: xs2) ys ->
+    ∃ ys1 y ys2,
+      length ys1 = length xs1 /\
+      length ys2 = length xs2 /\
+      ys = ys1 ++ y :: ys2 /\
+      Forall2 P xs1 ys1 /\
+      P x y /\
+      Forall2 P xs2 ys2.
+  Proof.
+    intros Hall.
+    apply Forall2_app_inv_l in Hall.
+    destruct Hall as (ys1 & ys' & Hxs1 & Hys' & ->).
+    apply Forall2_cons_inv_l in Hys'.
+    destruct Hys' as (y & ys2 & Hy & Hys2 & ->).
+    repeat eexists; eauto using eq_sym, Forall2_length.
+  Qed.
+
+  Lemma inv_Forall2_elt_r {A B} {P : A -> B -> Prop} {xs1 x xs2 ys} :
+    Forall2 P ys (xs1 ++ x :: xs2) ->
+    ∃ ys1 y ys2,
+      length ys1 = length xs1 /\
+      length ys2 = length xs2 /\
+      ys = ys1 ++ y :: ys2 /\
+      Forall2 P ys1 xs1 /\
+      P y x /\
+      Forall2 P ys2 xs2.
+  Proof.
+    intros Hall.
+    apply Forall2_app_inv_r in Hall.
+    destruct Hall as (ys1 & ys' & Hxs1 & Hys' & ->).
+    apply Forall2_cons_inv_r in Hys'.
+    destruct Hys' as (y & ys2 & Hy & Hys2 & ->).
+    repeat eexists; eauto using eq_sym, Forall2_length.
+  Qed.
+
+  Lemma option_mapM_cons {A B} (f : A -> option B) a l :
+    mapM f (a :: l) = r ← f a; rs ← mapM f l; mret (r :: rs).
+  Proof.
+    reflexivity.
+  Qed.
+
+  Lemma option_mapM_app {A B} (f : A -> option B) (l1 l2 : list A) :
+    mapM f (l1 ++ l2) = r1 ← mapM f l1; r2 ← mapM f l2; mret (r1 ++ r2).
+  Proof.
+    induction l1.
+    - rewrite app_nil_l.
+      cbn [mapM].
+      unfold mret, mbind, MBind_Monad, MRet_Monad, flip.
+      cbn.
+      unfold option_ret.
+      by setoid_rewrite bind_with_Some.
+    - rewrite <- app_comm_cons.
+      rewrite !option_mapM_cons.
+      rewrite !option_bind_assoc.
+      eapply option_bind_ext; last done.
+      intros r.
+      rewrite IHl1; cbn.
+      rewrite !option_bind_assoc.
+      eapply option_bind_ext; last done.
+      intros rs1.
+      cbn.
+      rewrite !option_bind_assoc.
+      unfold mret, option_ret.
+      eapply option_bind_ext; last done.
+      done.
+  Qed.
+
+  Lemma mapM_elt_Some {X Y} {f : X -> option Y} {xs1 x xs2 ys} :
+    mapM f (xs1 ++ x :: xs2) = Some ys ->
+    ∃ ys1 y ys2,
+      mapM f xs1 = Some ys1 /\
+      f x = Some y /\
+      mapM f xs2 = Some ys2 /\
+      ys = ys1 ++ y :: ys2.
+  Proof.
+    intros Hmap.
+    rewrite option_mapM_app in Hmap.
+    apply bind_Some in Hmap.
+    destruct Hmap as (ys1 & Hys1 & Hmap).
+    apply bind_Some in Hmap.
+    destruct Hmap as (ys' & Hys' & Hyseq).
+    unfold mret in Hyseq; inversion Hyseq.
+    subst ys; clear Hyseq.
+    cbn in Hys'.
+    apply bind_Some in Hys'.
+    destruct Hys' as (y & Hy & Hys').
+    apply bind_Some in Hys'.
+    destruct Hys' as (ys2 & Hys2 & Hys').
+    inversion Hys'; subst.
+    repeat eexists; eauto.
+  Qed.
+
+  Lemma list_sum_len_inv A ns (xs : list A) :
+    list_sum ns = length xs ->
+    ∃ xss,
+      Forall2 (λ xs n, length xs = n) xss ns /\
+      xs = concat xss.
+  Admitted.
+
+  Lemma skind_has_svalue_partition ns r ws:
+    skind_has_svalue (SMEMTYPE (list_sum ns) r) (SWords ws) ->
+    ∃ wss,
+      Forall2 (λ ws n, skind_has_svalue (SMEMTYPE n r) (SWords ws)) wss ns /\
+      ws = concat wss.
+  Proof.
+    unfold skind_has_svalue; cbn.
+    intros [Hlen Hrep].
+    unfold ref_flag_words_interp in *.
+    destruct Hrep as (ws' & Heqws' & Hptr).
+    inversion Heqws'; subst ws'; clear Heqws'.
+    eapply list_sum_len_inv in Hlen.
+    destruct Hlen as (wss & Hlens & ->).
+    rewrite Forall_concat in Hptr.
+    exists wss.
+    split; last done.
+    assert (length wss = length ns) by eauto using Forall2_length.
+    assert (Hptr2 : Forall2 (λ ws n, Forall (forall_ptr_word (ref_flag_interp r)) ws) wss ns).
+    {
+      eapply Forall2_impl.
+      - eapply Forall_Forall2_l; eauto using Forall2_length.
+        eapply Forall_impl; eauto.
+        intros ws Hptrs ?.
+        apply Hptrs.
+      - done.
+    }
+    eapply util.Forall2_Forall in Hlens, Hptr2.
+    pose proof (conj Hlens Hptr2) as Hconj.
+    eapply Forall_and in Hconj.
+    eapply Forall_Forall2; eauto using Forall2_length.
+    eapply Forall_impl; first eapply Hconj.
+    intros [ws n]; cbn; intros [Hlen Hflag].
+    split; first done.
+    exists ws; eauto.
+  Qed.
+
   Lemma resolves_path_sep_kinds F τ π τ__π pr :
     resolves_path τ π τ__π pr ->
-    forall σ σexp σtgt sz off ξ szt r,
-    sem_env_interp F se ->
-    has_kind F τ (MEMTYPE σ ξ) ->
-    eval_kind se (MEMTYPE σ ξ) = Some (SMEMTYPE szt r) ->
-    Forall (has_mono_size F) pr.(pr_prefix) ->
-    type_size F.(fc_type_vars) (pr_expected pr τ__π) = Some σexp ->
-    eval_size EmptyEnv σexp = Some sz ->
-    type_size F.(fc_type_vars) pr.(pr_target) = Some σtgt ->
-    eval_size EmptyEnv σtgt = Some sz ->
-    path_offset (fe_of_context F) τ π = Some off ->
-    ∀ sk ws,
-      type_skind se τ = Some sk ->
-      skind_has_svalue sk (SWords ws) ->
-      off + sz <= length ws /\
-      (∃ sk_tgt,
-          type_skind se (pr.(pr_target)) = Some sk_tgt /\
-          skind_has_svalue sk_tgt (SWords (get_path_words off sz ws)) /\
-          ∀ sk_exp ws',
-            length ws' = sz ->
-            type_skind se (pr_expected pr τ__π) = Some sk_exp /\
-            skind_has_svalue sk_exp (SWords ws') ->
-            ∃ sk_repl,
-              type_skind se pr.(pr_replaced) = Some sk_repl /\
-              skind_has_svalue sk_repl (SWords (update_path_words off ws ws'))).
+    forall σ σexp σtgt sz off ξ szt,
+      sem_env_interp F se ->
+      has_kind F τ (MEMTYPE σ ξ) ->
+      eval_kind se (MEMTYPE σ ξ) = Some (SMEMTYPE szt ξ) ->
+      Forall (has_mono_size F) pr.(pr_prefix) ->
+      type_size F.(fc_type_vars) (pr_expected pr τ__π) = Some σexp ->
+      eval_size EmptyEnv σexp = Some sz ->
+      type_size F.(fc_type_vars) pr.(pr_target) = Some σtgt ->
+      eval_size EmptyEnv σtgt = Some sz ->
+      path_offset (fe_of_context F) τ π = Some off ->
+      ∀ sk ws,
+        type_skind se τ = Some sk ->
+        skind_has_svalue sk (SWords ws) ->
+        off + sz <= length ws /\
+          (∃ sk_tgt,
+              type_skind se (pr.(pr_target)) = Some sk_tgt /\
+              skind_has_svalue sk_tgt (SWords (get_path_words off sz ws)) /\
+              ∀ sk_exp ws',
+                length ws' = sz ->
+                type_skind se (pr_expected pr τ__π) = Some sk_exp ->
+                skind_has_svalue sk_exp (SWords ws') ->
+                ∃ sk_repl,
+                  type_skind se pr.(pr_replaced) = Some sk_repl /\
+                    skind_has_svalue sk_repl (SWords (update_path_words off ws ws'))).
   Proof.
     induction 1; intros * Hse Hτ Hskev Hpfx Hσexp Hszexp Hσtgt Htgtexp Hoff sk ws Hsk Hskws.
     - assert (off = 0) by (destruct τ; cbn in *; congruence).
@@ -470,7 +680,7 @@ Section PathFacts.
       subst sz.
       rewrite !get_path_words_all.
       split; first done.
-      intros sk_exp ws' Hlens [Htys Hsem].
+      intros sk_exp ws' Hlens Htys Hsem.
       eexists; split; eauto.
       by rewrite update_path_words_all.
     - admit. (* similar to prev case *)
@@ -488,11 +698,82 @@ Section PathFacts.
         rewrite list_lookup_middle in Hfind; congruence.
       }
       subst τ'.
-      eapply type_skind_has_kind_Some in Hτ; eauto.
-      destruct Hτ as (sk' & Htsk' & Hsub); eauto.
+      pose proof (struct_kind_inv _ _ _ _ _ Hτ) as (σs' & ξ' & Hfieldkinds & -> & -> & Hξ').
+      pose proof (type_skind_has_kind_Some _ _ _ _ _ Hτ ltac:(eauto) ltac:(eauto)) as Hτsome.
+      destruct Hτsome as (sk' & Htsk' & Hsub); eauto.
+      rewrite Hsk in Htsk'.
+      inversion Htsk'; subst sk'; clear Htsk'.
+      inversion Hsub; subst; clear Hsub.
+      cbn -[eval_size] in Hsk.
+      apply bind_Some in Hsk.
+      destruct Hsk as (n & Hevσs' & Hsk).
+      inversion Hsk; subst ξ0 szt; clear Hsk.
+      eapply eval_size_prod_inv in Hevσs'.
+      destruct Hevσs' as (ns' & Hevσs' & ->).
+      pose proof (skind_mem_words_len _ _ _ Hskws) as Hlenws.
+      eapply inv_Forall2_elt_l in Hfieldkinds.
+      destruct Hfieldkinds as (σs1' & σ & σs2 & Hlen1 & Hlen2 & Heqσs' & Hkinds1 & Hτkind & Hkinds2).
+      subst σs'.
+      pose proof Hτ as Htsk.
+      eapply type_skind_has_kind_Some in Htsk; eauto.
+      destruct Htsk as (sk' & Htsk & Hsk').
+      pose proof Hevσs' as Hevσ.
+      eapply mapM_elt_Some in Hevσ.
+      destruct Hevσ as (ns1 & n & ns2 & Hev1 & Hevσ & Hev2 & ->).
+      eapply mapM_elt_Some in Hevσs'.
+      destruct Hevσs' as (ns1' & n' & ns2' & Hev1' & Hevσ' & Hev2' & Hns').
+      assert (n = n') by congruence. subst n'.
+      assert (ns1' = ns1) by congruence. subst ns1'.
+      assert (ns2' = ns2) by congruence. subst ns2'.
+      assert (eval_kind se (MEMTYPE σ ξ') = Some (SMEMTYPE n ξ')).
+      {
+        cbn.
+        by rewrite Hevσ.
+      }
+      pose proof Hτkind as Hτskind.
+      eapply type_skind_has_kind_Some in Hτskind; eauto.
+      destruct Hτskind as (skt & Hτskind & Hsub).
       inversion Hsub; subst.
-      eapply IHresolves_path in Hpoff.
-      admit.
+      pose proof (skind_has_svalue_partition _ _ _ Hskws)
+        as (wss & Hwsslens & ->).
+      cbn in Htsk.
+      eapply fmap_Some in Htsk.
+      eapply inv_Forall2_elt_r in Hwsslens.
+      destruct Hwsslens as (wss1 & ws & wss2 & Hlenwss1 & Hlenwss2 & -> & Hall1 & Hskind & Hall2).
+      assert (skind_has_svalue (SMEMTYPE n ξ0) (SWords ws)).
+      {
+        split.
+        eapply Hskind.
+        admit.
+        (* kinding version is actually not provable without involving the type
+           interpretation. *)
+      }
+      eapply IHresolves_path in Hpoff; eauto.
+      destruct Hpoff as (Hlenbdd & sk_tgt & Hsk_tgt & Hskwds & Hcont).
+      split.
+      + rewrite length_concat.
+        rewrite map_app; cbn.
+        admit.
+      + simpl (pr_target pr').
+        exists sk_tgt.
+        split; eauto.
+        split; eauto.
+        {
+          eapply Forall2_length in Hall1, Hall2.
+          erewrite get_path_words_field; eauto;
+          eapply length_mapM in Hevsz;
+          rewrite take_app_length in Htsz;
+          eapply length_mapM in Htsz;
+          eapply length_mapM in Hev1, Hev2;
+          try congruence.
+          admit.
+        }
+        intros.
+        erewrite update_path_words_field; eauto.
+        cbn [pr_replaced pr'].
+        eexists.
+        cbn.
+        admit.
   Admitted.
 
   Lemma resolves_path_sep F τ π τ__π pr sz off :
@@ -564,8 +845,7 @@ Section PathFacts.
       subst τ'.
       assert (∃ κ', has_kind F (pr_replaced pr) κ').
       {
-        destruct Hkind.
-        eapply struct_kind_weak_inv; eauto.
+        admit.
       }
       eapply IHHpath in Hpoff; eauto.
       cbn in Hkind.
