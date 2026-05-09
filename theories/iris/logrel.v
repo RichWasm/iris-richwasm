@@ -90,7 +90,7 @@ Section instr.
     f_equiv.
     - apply Hse.
     - solve_proper.
-  Defined.
+  Qed.
 
   Program Definition senv_insert_mem (μ : base_memory) : semantic_env -n> semantic_env :=
     λne se,
@@ -100,7 +100,7 @@ Section instr.
     f_equiv.
     - do 2 f_equiv; by rewrite Hse.
     - exact Htys.
-  Defined.
+  Qed.
 
   Program Definition senv_insert_rep (ιs : list atomic_rep) : semantic_env -n> semantic_env :=
     λne se,
@@ -110,7 +110,7 @@ Section instr.
     f_equiv.
     - do 2 f_equiv; by rewrite Hse.
     - exact Htys.
-  Defined.
+  Qed.
 
   Program Definition senv_insert_size (n : nat) : semantic_env -n> semantic_env :=
     λne se,
@@ -120,7 +120,7 @@ Section instr.
     f_equiv.
     - do 2 f_equiv; by rewrite Hse.
     - exact Htys.
-  Defined.
+  Qed.
 
   Definition OsR : Type := leibnizO (list atom) -n> iPropO Σ.
   Definition ClR : Type := leibnizO function_closure -n> iPropO Σ.
@@ -1195,7 +1195,7 @@ Section instr.
   Proof.
     destruct a, b.
     typeclasses eauto.
-  Defined.
+  Qed.
 
   Definition labels_interp
     (se : semantic_env) (ηss : list (list primitive)) (fr : frame) (WL : wlocal_ctx)
@@ -1208,7 +1208,7 @@ Section instr.
   Proof.
     apply big_sepL2_persistent'. intros; cbn.
     typeclasses eauto.
-  Defined.
+  Qed.
 
   Definition return_interp (se : semantic_env) (τr : list type) (R : option return_spec) :
     iProp Σ :=
@@ -1227,7 +1227,7 @@ Section instr.
   Global Instance Persistent_return_interp se τr R : Persistent (return_interp se τr R).
   Proof.
     typeclasses eauto.
-  Defined.
+  Qed.
 
   Definition memory_closed (m : memory) : Prop :=
     match m with
