@@ -1188,7 +1188,6 @@ Section load_copy.
       }
       iIntros (f vs) "([-> ->] & Hws) Hf Hrun".
       setoid_rewrite type_interp_eq.
-      iEval (unfold type_interp) in "Hws".
       iDestruct "Hws" as "(%κ' & %Hsk & %Hk & Ht)".
       eapply cwp_case_ptr in Hcompile.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).

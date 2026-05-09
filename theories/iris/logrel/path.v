@@ -874,8 +874,7 @@ Section PathFacts.
     inversion Hmem; subst ξ''.
     clear Hprod Hmem.
     iIntros "Hstruct".
-    unfold value_interp.
-    iEval (setoid_rewrite type_interp_eq) in "Hstruct".
+    rewrite value_interp_eq.
     iDestruct "Hstruct" as "(%sk & %Htsk & %Hskws & Hstruct)".
     cbn in Htsk.
     apply bind_Some in Htsk; destruct Htsk as (n & Htsk & Hout).
@@ -1013,6 +1012,7 @@ Section PathFacts.
       }
       cbn -[eval_size type_interp] in *.
       subst off τ.
+      rewrite value_interp_eq -type_interp_eq.
       iPoseProof (type_interp_len _ _ _ _ _ _ Hse with "Hws") as "%Hsz".
       + eapply KSer; eauto.
       + eapply eval_size_emptyenv; eauto.
@@ -1097,7 +1097,7 @@ Section PathFacts.
       unfold pr'.
       cbn [pr_replaced].
       iSpecialize ("Hcont" with "[//] Hws'").
-      iEval (cbn -[type_interp]; rewrite type_interp_eq).
+      iEval (cbn; rewrite value_interp_eq).
       rewrite Hkind'.
       iExists _.
       iPoseProof "Hcont" as "Hcont'".

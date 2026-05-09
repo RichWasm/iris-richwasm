@@ -152,8 +152,7 @@ Section coderef.
     iSplitR; last first.
     - iEval (cbn).
       iFrame; auto.
-    - iEval (cbn).
-      iExists [[_]].
+    - iExists [[_]].
       iSplit; auto; iEval (cbn); iSplit; auto.
       iExists (SVALTYPE [I32R] NoRefs).
       iSplitR; auto.

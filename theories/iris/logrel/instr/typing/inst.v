@@ -237,8 +237,7 @@ Section inst.
       assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_mem μ se)) σs)
         by by apply Forall_mapM_ext.
       by rewrite H'.
-    - Opaque senv_insert_mem.
-      cbn.
+    - cbn -[senv_insert_mem].
       by rewrite <- eval_rep_mem_irrel_eq.
   Qed.
 
@@ -274,8 +273,7 @@ Section inst.
       assert (H': mapM (eval_size se) σs = mapM (eval_size (senv_insert_type sκ T se)) σs)
         by by apply Forall_mapM_ext.
       by rewrite H'.
-    - Opaque senv_insert_type.
-      cbn.
+    - cbn -[senv_insert_type].
       by rewrite <- eval_rep_type_irrel_eq.
   Qed.
 
@@ -299,7 +297,7 @@ Section inst.
     eval_kind se κ =
     eval_kind (senv_insert_mem (Σ:=Σ) μ se) κ .
   Proof.
-    destruct κ; intros; cbn in *.
+    destruct κ; intros; cbn -[senv_insert_mem senv_insert_type] in *.
     - by rewrite <- eval_rep_mem_irrel_eq.
     - by rewrite <- eval_size_mem_irrel_eq.
   Qed.
@@ -324,7 +322,7 @@ Section inst.
     eval_kind se κ =
     eval_kind (senv_insert_type (Σ:=Σ) sκ T se) κ .
   Proof.
-    destruct κ; intros; cbn in *.
+    destruct κ; intros; cbn -[senv_insert_type] in *.
     - by rewrite <- eval_rep_type_irrel_eq.
     - by rewrite <- eval_size_type_irrel_eq.
   Qed.
@@ -555,13 +553,14 @@ Section inst.
       intros; iSplitL; iIntros; cbn; done.
     }
     1: (* numbers *) {
-      intros; iSplitL; iIntros "H"; cbn.
+        intros; iSplitL; iIntros "H".
       all: iDestruct "H" as "(%sκ & %h1 & %h2 & h4)".
       all: iExists sκ; iFrame.
       all: iPureIntro.
-      all: split; try done.
+      all: split; cbn -[senv_insert_mem]; try done.
       - rewrite rinstId'_kind; by rewrite <- eval_kind_mem_irrel_eq.
-      - rewrite rinstId'_kind in h1. by rewrite <- eval_kind_mem_irrel_eq in h1.
+      - rewrite rinstId'_kind in h1.
+        by erewrite eval_kind_mem_irrel_eq.
     }
     1: admit. (* should be the same as numbers *)
     1: { (* sum *)
@@ -672,7 +671,6 @@ Section inst.
         iExists sκ; iFrame;
         [ iSplitR; [iPureIntro; by rewrite <- type_skind_mem_irrel_eq|]
         | iSplitR; [iPureIntro; by rewrite <- type_skind_mem_irrel_eq in h1|]].
-      Transparent senv_insert_mem.
       all: cbn in *.
       {
         asimpl'.
@@ -969,7 +967,9 @@ Section inst.
       iSplitL.
       {
         iIntros "Hoa".
+        rewrite !type_interp_eq.
         iDestruct "Hoa" as "(%sκ & %Hse'skind & Hoa & Htypevar)".
+        cbn in Hse'skind.
         pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
         apply Hsub_t in Hse'skind as Htypeskind.
         (* destruct Htypeskind as (sκ' & Htypeskind & Hsubsk). *)
@@ -982,13 +982,11 @@ Section inst.
         }
         subst sκ'.
 
-        rewrite Hse'typenv.
-        iEval (cbn) in "Htypevar".
-
+        iEval (cbn; rewrite Hse'typenv; cbn) in "Htypevar".
 
         apply Hsub_T in Hse'typenv as [_ Hsub_T_true].
         specialize (Hsub_T_true o).
-        unfold value_interp in Hsub_T_true.
+        rewrite value_interp_eq in Hsub_T_true.
         iApply (Hsub_T_true with "[$] [$]").
       }
       {
@@ -1426,13 +1424,14 @@ Section inst.
                closure_interp rti sr ft se' cl -∗
                closure_interp rti sr (subst_function_type sub_m sub_r sub_s sub_t ft) se cl).
         * (** vart, qed *)
-          intros. cbn in *.
+          intros.
           iDestruct "Hoa" as "(%sκ & %Hse'skind & Hoa & Htypevar)".
           (* This is now using the correct Hsub_t *)
           pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
           apply Hsub_t in Hse'skind as Htypeskind.
           (* destruct Htypeskind as (sκ' & Htypeskind & Hsubsk). *)
           (* inversion Hsubsk; subst. *)
+          cbn in Hse'skind.
           destruct (se'.2 !! idx) eqn:Hse'typenv;
             [| rewrite Hse'typenv in Hse'skind; cbn in Hse'skind; by inversion Hse'skind].
           destruct o0 as [sκ' T].
@@ -1441,8 +1440,8 @@ Section inst.
           }
           subst sκ'.
 
-          rewrite Hse'typenv.
-          iEval (cbn) in "Htypevar".
+
+          iEval (cbn; rewrite Hse'typenv; cbn) in "Htypevar".
 
 
           apply Hsub_T in Hse'typenv as [_ Hsub_T_true].
@@ -1487,7 +1486,9 @@ Section inst.
           }
           destruct H' as (τi & Hτi_lookup & Hτi).
           subst τi_interp.
+          rewrite type_interp_eq.
 
+          iEval (cbn).
           iExists i, os, off, count.
 
           (* let's try to work with this now! *)
@@ -1506,7 +1507,7 @@ Section inst.
 
                     admit.
                   }
-             by rewrite H'.
+             by rewrite H' -type_interp_eq.
           -- apply fmap_Some.
              apply fmap_Some in H3 as (ιs_ρ & Hy & Hah).
              exists ιs_ρ.
@@ -1625,6 +1626,7 @@ Section inst.
           iExists (SVALTYPE ιs ξ).
           iFrame.
           iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
+          cbn.
           iExists i, i32, j, cl.
           iDestruct "Hcl" as "(H1 & H2 & H3 & H4 & H5)".
           iFrame.
@@ -1702,6 +1704,7 @@ Section inst.
         * (** MonoFun, WORRIED due to potential bi-implication *)
           (* base case for P0 *)
           iIntros (??????? Hsub_r Hsub_s Hsub_T) "#Hcl".
+          setoid_rewrite closure_interp_eq.
           (* cbn. *)
           (* I'm so scared *)
           destruct cl; [|auto].
@@ -1749,6 +1752,7 @@ Section inst.
                 admit.
         * (* ForallMemT case, done except value interp mini lemma *)
           intros ??????? Hsub_r Hsub_s Hsub_T.
+          setoid_rewrite closure_interp_eq.
           iIntros "Hcl".
           cbn.
           iPoseProof "Hcl" as "#Hcl". (* to avoid cbn while in persistent *)
@@ -1770,8 +1774,10 @@ Section inst.
           admit.
         * (* ForallSizeT *)
           intros ??????? Hsub_r Hsub_s Hsub_T.
+          setoid_rewrite closure_interp_eq.
           admit.
         * (* ForallTypeT *)
+          setoid_rewrite closure_interp_eq.
           intros ??????? Hsub_r Hsub_s Hsub_T.
           iIntros "Hcl"; cbn.
           iDestruct "Hcl" as "(%sκ & %Hκ & Hcl)".
@@ -1833,6 +1839,7 @@ Section inst.
       unfold_sem_rels.
       destruct cl; [|auto].
       destruct f as [τs1_trans τs2_trans] eqn:Hf.
+      setoid_rewrite closure_interp_eq.
       iDestruct "Hcl" as "(%Hτs1 & %Hτs2 & Hcl)".
       iSplitR; [iPureIntro| iSplitR; [iPureIntro|]]; fold (subst_type sub_m sub_r sub_s sub_t).
       + by eapply translate_types_subst_senv.
@@ -1868,7 +1875,11 @@ Section inst.
           iExists _.
           iFrame.
           admit. (* values_interp0 *)
-    - iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl %".
+    - setoid_rewrite closure_interp_eq.
+      iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl".
+      (* had to simplify before iIntros or iIntros would unfold closure_interp. *)
+      cbn.
+      iIntros "%".
       pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
       unfold_sem_rels.
       (* TODO: *)
@@ -1885,7 +1896,10 @@ Section inst.
         admit.
       *)
       admit.
-    - iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl %".
+    - setoid_rewrite closure_interp_eq.
+      iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl".
+      cbn.
+      iIntros "%".
       pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
       unfold_sem_rels.
       (* TODO: *)
@@ -1905,7 +1919,10 @@ Section inst.
         admit.
       *)
       admit.
-    - iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl %".
+    - setoid_rewrite closure_interp_eq.
+      iIntros (?????? Hsub_r Hsub_s Hsub_T) "#Hcl".
+      cbn.
+      iIntros "%".
       (* TODO: *)
       (*
       iApply IHϕ; last done.
@@ -2026,8 +2043,9 @@ Section inst.
       }
       {
       iIntros (sv) "HT' %Hsvalue".
-      destruct i; cbn in *.
-      + inversion H; subst; unfold T. done.
+      destruct i; cbn -[type_skind skind_has_svalue] in *.
+      + unfold senv_insert_type in H.
+        inversion H; subst; unfold T. done.
       + pose proof (value_interp_var rti sr se i sκ' T' H) as Hval.
         iApply Hval.
         cbn. iFrame.
@@ -2067,6 +2085,7 @@ Section inst.
     iPoseProof (value_interp_coderef with "Hos") as "%Hos".
     destruct Hos as (n32 & ->).
     iApply values_interp_one_eq.
+    setoid_rewrite value_interp_eq.
 
     (* now we need to use the key hypothesis: Hfinst *)
     destruct Hfinst.

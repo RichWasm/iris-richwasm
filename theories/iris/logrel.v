@@ -90,7 +90,7 @@ Section instr.
     f_equiv.
     - apply Hse.
     - solve_proper.
-  Qed.
+  Defined.
 
   Program Definition senv_insert_mem (μ : base_memory) : semantic_env -n> semantic_env :=
     λne se,
@@ -100,7 +100,7 @@ Section instr.
     f_equiv.
     - do 2 f_equiv; by rewrite Hse.
     - exact Htys.
-  Qed.
+  Defined.
 
   Program Definition senv_insert_rep (ιs : list atomic_rep) : semantic_env -n> semantic_env :=
     λne se,
@@ -110,7 +110,7 @@ Section instr.
     f_equiv.
     - do 2 f_equiv; by rewrite Hse.
     - exact Htys.
-  Qed.
+  Defined.
 
   Program Definition senv_insert_size (n : nat) : semantic_env -n> semantic_env :=
     λne se,
@@ -120,7 +120,7 @@ Section instr.
     f_equiv.
     - do 2 f_equiv; by rewrite Hse.
     - exact Htys.
-  Qed.
+  Defined.
 
   Definition OsR : Type := leibnizO (list atom) -n> iPropO Σ.
   Definition ClR : Type := leibnizO function_closure -n> iPropO Σ.
@@ -1019,10 +1019,10 @@ Section instr.
   with closure_interp (ϕ : function_type) : semantic_env -n> ClR :=
     match ϕ with
     | MonoFunT τs1 τs2 => mono_closure_interp τs1 τs2 (map type_interp τs1) (map type_interp τs2)
-    | ForallMemT ϕ' => forall_mem_interp (closure_interp ϕ')
-    | ForallRepT ϕ' => forall_rep_interp (closure_interp ϕ')
-    | ForallSizeT ϕ' => forall_size_interp (closure_interp ϕ')
-    | ForallTypeT κ ϕ' => forall_type_interp κ (closure_interp ϕ')
+    | ForallMemT ϕ => forall_mem_interp (closure_interp ϕ)
+    | ForallRepT ϕ => forall_rep_interp (closure_interp ϕ)
+    | ForallSizeT ϕ => forall_size_interp (closure_interp ϕ)
+    | ForallTypeT κ ϕ => forall_type_interp κ (closure_interp ϕ)
     end%I.
 
   Definition pre_type_interp (τ : leibnizO type) : semantic_env -n> SVR :=
@@ -1046,6 +1046,12 @@ Section instr.
     | CodeRefT _ ϕ => coderef_interp (closure_interp ϕ)
     end%I.
 
+  Lemma type_interp_eq τ se sv :
+    type_interp τ se sv ⊣⊢ (add_skind_interp τ $ pre_type_interp τ) se sv.
+  Proof.
+    destruct τ; reflexivity.
+  Qed.
+
   Definition closure_interp' (ϕ : function_type) : semantic_env -n> ClR :=
     match ϕ with
     | MonoFunT τs1 τs2 => mono_closure_interp τs1 τs2 (map type_interp τs1) (map type_interp τs2)
@@ -1055,23 +1061,21 @@ Section instr.
     | ForallTypeT κ ϕ' => forall_type_interp κ (closure_interp ϕ')
     end%I.
 
-  Lemma type_interp_eq τ se sv :
-    type_interp τ se sv ⊣⊢ (add_skind_interp τ $ pre_type_interp τ) se sv.
-  Proof.
-    destruct τ; reflexivity.
-  Qed.
-
   Lemma closure_interp_eq ϕ se cl :
     closure_interp ϕ se cl ⊣⊢ closure_interp' ϕ se cl.
   Proof.
     by destruct ϕ.
   Qed.
 
-  Opaque type_interp closure_interp.
-
   Program Definition value_interp : semantic_env -n> leibnizO type -n> SVR := λne se τ, type_interp τ se.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
+
+  Lemma value_interp_eq τ se sv :
+    value_interp se τ sv ⊣⊢ (add_skind_interp τ $ pre_type_interp τ) se sv.
+  Proof.
+    apply type_interp_eq.
+  Qed.
 
   Program Definition values_interp : semantic_env -n> leibnizO (list type) -n> OsR :=
     λne se τs,
@@ -1314,3 +1318,7 @@ Section module.
     True%I.
 
 End module.
+
+Global Opaque type_interp.
+Global Opaque value_interp.
+Global Opaque closure_interp.

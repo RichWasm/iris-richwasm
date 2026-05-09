@@ -388,7 +388,7 @@ Section inject.
     iDestruct (atoms_interp_and_areps_of_default_of_areps (concat ιss_post)) as "(%os_post & Hatoms_post & %Hareps_post & %Href_flag_post)".
     iExists (I32A (Wasm_int.Int32.repr i) :: os_pre ++ os ++ os_post).
     iSplitR "Hvs".
-    - rewrite values_interp_one_eq.
+    - iEval (rewrite values_interp_one_eq value_interp_eq).
       iSimpl.
       iExists (SVALTYPE (_ :: (concat ιss_pre) ++ ιs ++ (concat ιss_post)) _).
       repeat iSplit.

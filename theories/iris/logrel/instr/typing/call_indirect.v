@@ -4,6 +4,8 @@ From mathcomp Require Import ssrbool eqtype.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
+Opaque type_interp.
+Opaque closure_interp.
 Section call_indirect.
 
   Context `{!logrel_na_invs Σ}.
@@ -66,7 +68,7 @@ Section call_indirect.
       as "(%vs1 & %vs2 & -> & Hvsτs1 & HvsCoderef)"; auto.
 
    apply has_values_app_inv in H0 as (evs1 & evs2 & -> & Hevs1 & Hevs2).
-   iEval (rewrite values_interp_one_eq; cbn -[type_interp]; rewrite type_interp_eq) in "HosCoderef".
+   iEval (rewrite values_interp_one_eq value_interp_eq) in "HosCoderef".
    set (CodeRefsType := MonoFunT τs1 τs2) in *.
    assert (HCodeRefsType: CodeRefsType = MonoFunT τs1 τs2) by auto.
 
@@ -139,8 +141,9 @@ Section call_indirect.
       destruct InnerFunc eqn:HInnerFunc.
 
       rename r into τs1_inner; rename r0 into τs2_inner.
+      (* XXX iDestruct appears to ignore the opacity of closure_interp. *)
+      iEval (rewrite closure_interp_eq) in "what".
       iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
-
       assert (Yeah:(InnerFunc = FoundFunction) ). {
         rewrite HCodeRefsType in Hoff.
         cbn in Hoff.
@@ -259,6 +262,7 @@ Section call_indirect.
       destruct InnerFunc eqn:HInnerFunc.
 
       rename r into τs1_inner; rename r0 into τs2_inner.
+      iEval (rewrite closure_interp_eq) in "what".
       iDestruct "what" as "(%Hts1inner & %Hts2inner & what)".
 
       assert (Yeah:(InnerFunc = OuterFunc) ). {
@@ -335,11 +339,10 @@ Section call_indirect.
         iMod ("Hclose1" with "[$Hown $Hnata]") as "Hown".
         iModIntro.
         (* Let's go let's go *)
-        iPoseProof ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hown] [$Hfr] [$Hrun]") as "huh".
-        iClear "what". (* i don't think we need it but if anything delete this line *)
+        iSpecialize ("what" with "[$Hvsτs1] [$Hosτs1] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
 
-        iApply (cwp_frame_ctx1 with "[huh] [Hframe]").
-        { iApply "huh". }
+        iApply (cwp_frame_ctx1 with "[what] [Hframe]").
+        { iApply "what". }
         { iApply "Hframe". }
         { iIntros (??) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }
         { iIntros (?) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)". by iFrame. }

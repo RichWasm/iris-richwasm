@@ -460,7 +460,7 @@ Section kinding.
     unfold lookup_type.
     cbn.
     intros H sv.
-    cbn.
+    rewrite value_interp_eq; cbn.
     rewrite H.
     cbn.
     iSplit; last eauto.
