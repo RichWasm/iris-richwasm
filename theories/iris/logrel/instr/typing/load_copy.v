@@ -1259,7 +1259,6 @@ Section load_copy.
       rewrite Hsk in  Hsk1.
       inversion Hsk1; subst sk'.
       inversion Hskag; subst.
-      Search eval_rep.
       iApply (Hload with "[$] [$] [] [Hat'] [Hval] [$] [$] [-]").
       + admit.
       + eauto.
