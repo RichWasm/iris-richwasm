@@ -98,16 +98,18 @@ Section PathFacts.
   Lemma has_mono_size_inv F τ :
     has_mono_size F τ ->
     ∃ σ ξ k,
+      is_mono_size σ /\
       has_kind F τ (MEMTYPE σ ξ) /\
       eval_size EmptyEnv σ = Some k.
   Proof.
     intros Hmono.
     inversion Hmono as [F' τ' σ ξ Hkind Hsz HF' Hτ'].
-    subst F' τ'; clear Hmono.
-    unfold is_mono_size in Hsz.
-    eapply eval_size_empty_ok_Some in Hsz.
-    destruct Hsz as [k Hsz].
-    eauto.
+    subst F' τ'.
+    pose proof Hsz as Hev.
+    unfold is_mono_size in Hev.
+    eapply eval_size_empty_ok_Some in Hev.
+    destruct Hev as [k Hev].
+    repeat eexists; eauto.
   Qed.
 
   Definition get_path_words (off sz : nat) (ws : list word) : list word :=

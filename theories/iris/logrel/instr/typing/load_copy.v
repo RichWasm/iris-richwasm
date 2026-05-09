@@ -477,7 +477,7 @@ Section load_copy.
     N_i32_repr ℓ ℓ32 ->
     N_nat_repr memidx memidxN ->
     inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some memidx ->
-    fe_wlocal_offset fe + length wl < length (f_locs f) ->
+    fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f) ->
     f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) ->
     has_arep ι o ->
     let f' := mk_load1_frame fe f (length wl) v in
@@ -543,7 +543,10 @@ Section load_copy.
     iApply (cwp_seq with "[Hf Hrun]").
     {
       iApply (cwp_local_tee with "[] [$] [$]").
-      - auto.
+      - cbn in H2.
+        unfold vloc.
+        cbn.
+        lia.
       - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [v]⌝%I).
     }
     iIntros (? ?) "(-> & ->) Hf Hrun".
@@ -558,7 +561,13 @@ Section load_copy.
       {
         iPureIntro; cbn.
         rewrite list_lookup_insert.
-        by rewrite decide_True.
+        rewrite decide_True; auto.
+        split; first done.
+        cbn in H2.
+        subst.
+        rewrite !length_app in H2.
+        eapply Nat.lt_le_trans; last apply H2.
+        lia.
       }
       iIntros "!> Hf Hrun Hat".
       subst wt7 wl7.
@@ -819,7 +828,7 @@ Section load_copy.
         ↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E →
         f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) →
         localimm lidx < fe_wlocal_offset fe + length wl ->
-        fe_wlocal_offset fe + length wl + length wl' < length (f_locs f) ->
+        fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f) ->
         ∀ os,
           Forall2 has_arep ιs os →
           ⊢ ∀ e vs,
@@ -985,7 +994,7 @@ Section load_copy.
       ↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E →
       f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) →
       localimm lidx < fe_wlocal_offset fe + length wl ->
-      fe_wlocal_offset fe + length wl + length wl' < length (f_locs f) ->
+      fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f) ->
       ∀ os,
         Forall2 has_arep ιs os →
         ⊢ ∀ e vs,
@@ -1111,25 +1120,30 @@ Section load_copy.
     change instruction.W.BI_tee_local with BI_tee_local in *.
     set (ptr_local := sum_list_with length F.(typing.fc_locals) + length wl) in *.
     cbn in Hκ'.
-    iAssert (⌜ptr_local < length (f_locs fr)⌝%I) as "%Hlen".
+    set (locsz :=
+               length (concat (typing.fc_locals F)) +
+               length wl +
+               length (T_i32 :: wl0 ++ wlf)).
+    iAssert (⌜length (f_locs fr) = locsz⌝%I) as "%Hflen".
     {
       iDestruct "Hframe" as "(%osf & %vss_L & %vs_WL & %Hlocs & %Hprims & %Hretty & Hats &  Hlocs)".
-      assert (sum_list_with length (typing.fc_locals F) = length (concat vss_L)).
-      {
-        rewrite length_concat.
-        apply Forall2_Forall2_length in Hprims.
-        rewrite <- Hprims.
-        by rewrite sum_list_with_list_sum.
-      }
-      unfold ptr_local.
       rewrite Hlocs.
-      apply Forall2_length in Hretty.
-      rewrite length_app in Hretty.
-      rewrite length_app -Hretty.
-      iPureIntro.
-      rewrite H.
-      cbn.
-      lia.
+      unfold locsz.
+      rewrite length_app.
+      apply Forall2_Forall2_length in Hprims.
+      unfold result_type_interp in Hretty.
+      rewrite !length_concat Hprims.
+      eapply Forall2_length in Hretty.
+      rewrite !length_app in Hretty.
+      rewrite -Hretty.
+      by rewrite Nat.add_assoc.
+    }
+    assert (ptr_local < length (f_locs fr)) as Hlen.
+    {
+      rewrite Hflen.
+      unfold locsz, ptr_local.
+      rewrite sum_list_with_list_sum length_concat.
+      cbn; lia.
     }
     assert (Hκ: eval_rep se (AtomR PtrR) = Some l).
     {
@@ -1175,7 +1189,7 @@ Section load_copy.
       iIntros (f vs) "([-> ->] & Hws) Hf Hrun".
       setoid_rewrite type_interp_eq.
       iEval (unfold type_interp) in "Hws".
-      iDestruct "Hws" as "(%κ' & %Hsk & Hk & Ht)".
+      iDestruct "Hws" as "(%κ' & %Hsk & %Hk & Ht)".
       eapply cwp_case_ptr in Hcompile.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
@@ -1205,47 +1219,48 @@ Section load_copy.
       }
       destruct Hκ'' as (σ & ξ & Hkindτ).
       pose proof Hkindτ as Hkag.
-      admit.
-      (*
-      assert (Hκ'': ∃ ξ, κ' = SMEMTYPE (length ws) ξ).
-      { admit. }
-      destruct Hκ'' as [ξ ->].
+      pose proof (has_kind_inv _ _ _ Hkindτ) as Hhkindok.
+      inversion Hhkindok as [F' τ'' κ'' Htyok Hkindok];
+        subst F' κ'' τ''; clear Hhkindok.
+      pose proof Hkindok as Hev.
+      eapply eval_kind_ok_Some in Hev; last done.
+      destruct Hev as (sk & Hev).
+      pose proof Hsk as Hskag.
+      eapply type_skind_has_kind_agree in Hskag; eauto.
+      cbn in Hev.
+      inversion Hkindok; subst.
+      eapply eval_size_ok_Some in H1; eauto.
+      destruct H1 as (n & Hevsz).
+      rewrite Hevsz in Hev; cbn in Hev; inversion Hev; subst sk; clear Hev.
+      inversion Hsk; subst.
       assert (has_mono_size F (pr_target pr)).
       {
-        rewrite Hser.
-        inversion Htype; subst.
-        inversion H.
-        inversion H2; subst.
-        inversion H6; subst.
-        inversion H7; subst.
-        inversion H3; subst.
-        eapply KSer in H9.
-        pose proof (KSer F).
-        econstructor.
-        - admit.
-        - admit.
+        admit.
       }
-      (*
-      eapply resolves_path_sep in Hresolves.
-      + admit.
-      + admit.
-      + eauto.
-      + eauto.
-      + cbn. admit. (* need has_mono_size F (pr_target pr) *)
-      + cbn. admit. (* need has_mono_size F (pr_target pr) *)
-      + cbn.(* type_sz BS *)
-             admit.
-      + admit. (* type_sz BS *)
-      + eauto.
-      + admit. (* need has_kind F (pr_replaced pr) κ0 *)
-    *)
-      (* need lemma about memory.load *)
+      assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
+        as [k' Hsztgt].
+      {
+        unfold type_sz.
+        cbn.
+        pose proof (has_mono_size_inv _ _ H) as (σ' & ξ' & k' & Hmono & Hkind & Hev).
+        eapply has_kind_type_sz in Hkind; eauto.
+        rewrite mono_size_eval_emp; eauto.
+      }
+(*      eapply resolves_path_sep in Hresolves; eauto.*)
+      iAssert (value_interp rti sr se τ (SWords ws)) with "[Ht]" as "Hval".
+      { rewrite type_interp_eq; iExists _; by iFrame. }
       apply wp_mem_load_copy_mm in Hload1.
       destruct Hload1 as (_ & -> & -> & Hload).
       unfold atom_interp; iEval (cbn) in "Hat".
-      iDestruct "Hat" as "(%n & %n32 & %Hrep & -> & Hat')".
+      iDestruct "Hat" as "(%n' & %n32 & %Hrep & -> & Hat')".
       iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
-      iApply (Hload with "[$] [$] [] [Hat'] [Ht Hk] [$] [$] [-]").
+      iEval (rewrite type_interp_eq) in "Hval".
+      iDestruct "Hval" as "(%sk' & %Hsk1 & %Hsk2 & Hval)".
+      rewrite Hsk in  Hsk1.
+      inversion Hsk1; subst sk'.
+      inversion Hskag; subst.
+      Search eval_rep.
+      iApply (Hload with "[$] [$] [] [Hat'] [Hval] [$] [$] [-]").
       + admit.
       + eauto.
       + eauto.
@@ -1258,20 +1273,36 @@ Section load_copy.
         lia.
       + cbn.
         rewrite length_insert.
+        rewrite Hflen.
+        unfold locsz.
+        cbn.
+        rewrite sum_list_with_list_sum length_concat !length_app.
+        cbn.
+        lia.
+      + (* pr_target is always a SerT *)
+        (*need to get from memtype (which interprets words) to atom_interp o v*)
+
         admit.
-      + admit. (* need to go via kinding theorem *)
       + iApply "Hreg".
-      + admit.
-        (*
-        erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
+      + erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
         iFrame; by eauto.
+      + (*
+      need to relate
+  [∗ list] off';v ∈ (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off'))
+                       (off, []) ιs).2;[VAL_int32 n32], ?Goal2↦[wms][?Goal1 + byte_offset MemMM off']
+  bits v
+        and the (get_path_words) function.
         *)
-      + admit.
+        admit.
       + iIntros (f'' e' vs') "-> Hown Htok #Hinst' Hpts Hpost".
         unfold fvs_combine.
         iFrame.
         iSplitR; [|iSplitL "Hframe"].
-        * admit.
+        * unfold frame_rel.
+          cbn.
+          iSplit; last done.
+          (* mask_locs_eq lmask ... mk_load1_frame *)
+          admit.
         * unfold mk_load_frame.
           cbn [seq.foldl imap].
           unfold frame_interp.
@@ -1290,14 +1321,15 @@ Section load_copy.
           -- unfold result_type_interp in Hres.
              unfold result_type_interp.
              admit.
-        * iExists (_ :: _). instantiate (2:=PtrA (PtrHeap MemMM ℓ)).
+        * unfold mk_load_post.
+          iDestruct "Hpost" as "(%Hszvs & Hvs')".
+          (* value interpretation goes here *)
           admit.
     - unfold ref_gc_interp.
       iDestruct "Href" as (ℓ fs Hsv) "Hinv".
       inversion Hsv; subst.
       (* need lemma about memory.load *)
       admit.
-    *)
   Admitted.
 
 End load_copy.
