@@ -741,6 +741,7 @@ Section PathFacts.
     Forall2 (λ sk n, subskind_of sk (SMEMTYPE n ξ)) sks ns ->
     ∃ ξs,
       sks = map (λ '(n, ξ), SMEMTYPE n ξ) (zip ns ξs) /\
+      length ns = length ξs /\
       Forall (λ ξ', ref_flag_le ξ' ξ) ξs.
   Proof.
     intros Hsk Hsubs.
@@ -757,13 +758,15 @@ Section PathFacts.
       apply bind_Some in Hsk.
       destruct Hsk as (sks & Hevs & Hret).
       inversion Hret; subst x l.
-      destruct (IHHsubs _ Hevs) as (ξs & Hsks & Hrefs).
+      destruct (IHHsubs _ Hevs) as (ξs & Hsks & Hlen & Hrefs).
       eapply subskind_mem_inv_l in H.
       destruct H as (ξ' & -> & Href).
       exists (ξ' :: ξs).
       subst sks.
-      split.
+      split; last split.
       + done.
+      + cbn.
+        congruence.
       + by constructor.
   Qed.
 
@@ -857,6 +860,8 @@ Section PathFacts.
       ⌜ref_flag_le ξτ ξ⌝ ∗
       ⌜ref_flag_le (ref_flag_lub ξs2) ξ⌝ ∗
       ⌜type_skind se τ = Some (SMEMTYPE n ξτ)⌝ ∗
+      ⌜length ns1 = length ξs1⌝ ∗
+      ⌜length ns2 = length ξs2⌝ ∗
       ⌜mapM (type_skind se) τs1 = Some (map (λ '(n, ξ), SMEMTYPE n ξ) (zip ns1 ξs1))⌝ ∗
       ⌜mapM (type_skind se) τs2 = Some (map (λ '(n, ξ), SMEMTYPE n ξ) (zip ns2 ξs2))⌝ ∗
       ⌜σs = σs1 ++ σ :: σs2⌝ ∗
@@ -900,13 +905,13 @@ Section PathFacts.
     destruct Hkinds1' as (sks1 & Htsks1 & Hsubs1).
     pose proof Hsubs1 as Hsubs1'.
     eapply type_subskinds_mem_inv_l in Hsubs1'; last eauto.
-    destruct Hsubs1' as (ξs1 & -> & Hles1).
+    destruct Hsubs1' as (ξs1 & -> & Hl1 & Hles1).
     pose proof Hkinds2 as Hkinds2'.
     eapply type_skinds_has_kinds_Some_mem in Hkinds2'; eauto.
     destruct Hkinds2' as (sks2 & Htsks2 & Hsubs2).
     pose proof Hsubs2 as Hsubs2'.
     eapply type_subskinds_mem_inv_l in Hsubs2'; last eauto.
-    destruct Hsubs2' as (ξs2 & -> & Hles2).
+    destruct Hsubs2' as (ξs2 & -> & Hl2 & Hles2).
     iExists ξs1, ξ0, ξs2.
     iExists σs1, σ, σs2, ns1, n, ns2.
     iSplit; first iPureIntro.
@@ -919,6 +924,8 @@ Section PathFacts.
     { eapply ref_flag_lub_lub; eauto. }
     iSplit; first iPureIntro.
     { assumption. }
+    iSplit; first (iPureIntro; done).
+    iSplit; first (iPureIntro; done).
     iSplit; first (iPureIntro; done).
     iSplit; first (iPureIntro; done).
     iSplit; first (iPureIntro; done).
@@ -982,6 +989,45 @@ Section PathFacts.
   Proof.
   Admitted.
 
+  Lemma type_interps_ref_flags F wss τs ξ σs :
+    sem_env_interp F se ->
+    Forall2 (λ τ σ, has_kind F τ (MEMTYPE σ ξ)) τs σs ->
+    ([∗ list] ws;τ ∈ wss;τs, type_interp rti sr τ se (SWords ws)) -∗
+    ⌜Forall (forall_ptr_word (ref_flag_interp ξ)) (concat wss)⌝.
+  Proof.
+    intros Hse Hk; revert wss; induction Hk; iIntros (wss) "Ht".
+    - by iPoseProof (big_sepL2_nil_inv_r with "Ht") as "->".
+    - iPoseProof (big_sepL2_cons_inv_r with "Ht") as "(%ws & %wss' & -> & Hws & Hwss)".
+      iEval (setoid_rewrite type_interp_eq) in "Hws".
+      iEval (cbn).
+      rewrite Forall_app.
+      iSplit.
+      + iDestruct "Hws" as "(%sk & %Htsk & %Hws & _)".
+        iPureIntro.
+        assert (∃ n, eval_kind se (MEMTYPE y ξ) = Some (SMEMTYPE n ξ)) as (n & Hev).
+        {
+          eapply has_kind_inv in H.
+          inversion H as [? ? ? _ Hok].
+          subst.
+          eapply eval_kind_ok_Some in Hok; eauto.
+          destruct Hok as (sk' & Hev).
+          cbn in Hev.
+          apply bind_Some in Hev.
+          destruct Hev as (n & Hevn & Heq).
+          inversion Heq; subst sk'.
+          exists n.
+          cbn.
+          by rewrite Hevn.
+        }
+        eapply type_skind_has_kind_agree in Htsk; eauto.
+        inversion Htsk; subst.
+        destruct Hws as [_ Hws].
+        eapply Forall_impl; first apply Hws.
+        intros [w | w] Hw; last done.
+        by eapply ref_flag_interp_le.
+      + by iApply IHHk.
+  Qed.
+
   Lemma resolves_path_inv_sep τ π pr :
     resolves_path τ π None pr ->
     ∀ F off ρ σ ξ ξ' ξ'' sz τ0,
@@ -1043,10 +1089,29 @@ Section PathFacts.
       iDestruct "Hstruct" as
         "(%Hws & %Hle1 & %Hlet & %Hle2 & Hstruct)".
       iDestruct "Hstruct" as
-        "(%Htsk & %Htsk1 & %Htsk2 & %Hσs' & %Hevt & %Hev1 & %Hev2 & Hws1 & Hws2 & Hwst)".
+        "(%Htsk & %Hl1 & %Hl2 & %Htsk1 & %Htsk2 & %Hσs' & %Hevt & %Hev1 & %Hev2 & Hws1 & Hws2 & Hwst)".
       subst.
-      assert (length τs0 = length σs1) by admit.
-      assert (length τs' = length σs2) by admit.
+      assert (length τs0 = length σs1).
+      {
+        eapply length_mapM in Hev1, Htsk1.
+        rewrite Hev1.
+        rewrite length_map length_zip -Hl1 Nat.min_id in Htsk1.
+        done.
+      }
+      assert (length τs' = length σs2).
+      {
+        eapply length_mapM in Hev2, Htsk2.
+        rewrite Hev2.
+        rewrite length_map length_zip -Hl2 Nat.min_id in Htsk2.
+        done.
+      }
+      assert (length τs0 = length ns1).
+      {
+        apply length_mapM in Hev1.
+        congruence.
+      }
+      iPoseProof (big_sepL2_length with "Hws1") as "%Hwss1ts1".
+      iPoseProof (big_sepL2_length with "Hws2") as "%Hwss2ts2".
       pose proof (inv_Forall2_elt Hkinds ltac:(done) ltac:(done))
         as (Hkinds1 & Hkind & Hkinds2).
       iPoseProof (type_interps_lens with "Hws1") as "%Hlen1"; eauto.
@@ -1076,18 +1141,6 @@ Section PathFacts.
         by inversion Hev1.
       }
       subst ns.
-      assert (length τs0 = length ns1).
-      {
-        admit.
-      }
-      assert (length wss1 = length τs0).
-      {
-        admit.
-      }
-      assert (length wss2 = length τs').
-      {
-        admit.
-      }
       iSplitR; first (iPureIntro; lia).
       setoid_rewrite get_path_words_field; eauto.
       iFrame.
@@ -1114,6 +1167,18 @@ Section PathFacts.
         inversion Htskr; subst.
         eexists; eauto.
       }
+      iAssert (⌜Forall (forall_ptr_word (ref_flag_interp ξ''')) (concat wss1)⌝%I) as "%Hwss1flag".
+      {
+        apply inv_Forall2_elt in Hfields; try eauto.
+        destruct Hfields as (? & ? & ?).
+        iApply type_interps_ref_flags; last iApply "Hws1"; done.
+      }
+      iAssert (⌜Forall (forall_ptr_word (ref_flag_interp ξ''')) (concat wss2)⌝%I) as "%Hwss2flag".
+      {
+        apply inv_Forall2_elt in Hfields; try eauto.
+        destruct Hfields as (? & ? & ?).
+        iApply type_interps_ref_flags; last iApply "Hws2"; done.
+      }
       iSplitR; [iPureIntro | iSplitR; first iPureIntro].
       + cbn.
         rewrite option_mapM_app Hev1; cbn.
@@ -1128,7 +1193,13 @@ Section PathFacts.
           cbn; fold (list_sum ns2).
           rewrite length_concat -Hlen1 -Hlen2.
           done.
-        * admit.
+        * do 2 rewrite Forall_app.
+          split; first done.
+          split; last done.
+          eapply Forall_impl; first by apply Hsv.
+          intros w Hw.
+          destruct w; last done.
+          eapply ref_flag_interp_le; eauto.
       + cbn.
         iExists (wss1 ++ update_path_words k wst ws' :: wss2).
         iSplitR; first by rewrite concat_app concat_cons.
@@ -1137,5 +1208,5 @@ Section PathFacts.
         iFrame.
         setoid_rewrite type_interp_eq.
         iExists _; eauto.
-  Admitted.
+  Qed.
 End PathFacts.
