@@ -66,7 +66,7 @@ Section call_indirect.
       as "(%vs1 & %vs2 & -> & Hvsτs1 & HvsCoderef)"; auto.
 
    apply has_values_app_inv in H0 as (evs1 & evs2 & -> & Hevs1 & Hevs2).
-   iEval (rewrite values_interp_one_eq; cbn) in "HosCoderef".
+   iEval (rewrite values_interp_one_eq; cbn -[type_interp]; rewrite type_interp_eq) in "HosCoderef".
    set (CodeRefsType := MonoFunT τs1 τs2) in *.
    assert (HCodeRefsType: CodeRefsType = MonoFunT τs1 τs2) by auto.
 
@@ -76,7 +76,7 @@ Section call_indirect.
    iDestruct "Rest" as "((%Hareps & %Href) & Rest)".
 
    (* Note: closure interp shows up here, introducing cl *)
-    iDestruct "Rest" as "(%i2 & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
+   iDestruct "Rest" as "(%i2 & %i32 & %j & %cl & %nrepr & %nos & what & nstab & nsfun)".
    inversion nos; subst; clear nos.
    inversion Hκ; subst.
 
@@ -151,8 +151,6 @@ Section call_indirect.
         inversion rest.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
-        cbn in transts1.
-        cbn in transts2.
         congruence.
       }
       auto.
@@ -274,7 +272,6 @@ Section call_indirect.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
         apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
         subst; auto.
-        cbn in transts1, transts2.
         congruence.
       }
       idtac.

@@ -235,10 +235,16 @@ Section instr.
     exists os, sv = SAtoms os /\ Forall2 has_arep ιs os.
 
   Definition forall_satoms (sv : semantic_value) (P : atom -> Prop) : Prop :=
-    exists os, sv = SAtoms os /\ Forall P os.
+    match sv with
+    | SAtoms os => Forall P os
+    | _ => False
+    end.
 
   Definition forall_swords (sv : semantic_value) (P : word -> Prop) : Prop :=
-    exists ws, sv = SWords ws /\ Forall P ws.
+    match sv with
+    | SWords ws => Forall P ws
+    | _ => False
+    end.
 
   Definition forall_ptr_atom (P : pointer -> Prop) (o : atom) : Prop :=
     match o with

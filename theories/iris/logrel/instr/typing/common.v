@@ -379,12 +379,7 @@ Section common.
     forall_ptr_atom (ref_flag_interp ξ) o ∧ ref_flag_atoms_interp ξ (SAtoms os).
   Proof.
     unfold ref_flag_atoms_interp, forall_satoms.
-    split.
-    - intros (os' & Heq & Hall). inversion Heq; subst.
-      inversion Hall; subst. split; [exact H1 |].
-      eexists. auto.
-    - intros (Ho & os' & Heq & Hall). inversion Heq; subst.
-      exists (o :: os'). split; [reflexivity |]. constructor; auto.
+    by rewrite Forall_cons.
   Qed.
 
   Lemma ref_flag_atoms_interp_app ξ os1 os2 :
@@ -392,14 +387,7 @@ Section common.
     ref_flag_atoms_interp ξ (SAtoms os1) ∧ ref_flag_atoms_interp ξ (SAtoms os2).
   Proof.
     unfold ref_flag_atoms_interp, forall_satoms.
-    split.
-    - intros (os' & Heq & Hall). inversion Heq; subst.
-      apply Forall_app in Hall as [H1 H2].
-      split; [exists os1 | exists os2]; auto.
-    - intros ((os1' & Heq1 & Hall1) & (os2' & Heq2 & Hall2)).
-      inversion Heq1; inversion Heq2; subst.
-      exists (os1' ++ os2'). split; [reflexivity |].
-      apply Forall_app. auto.
+    by rewrite Forall_app.
   Qed.
 
   Lemma value_interp_ref_flag_atoms se τ ιs ξ sv :
@@ -481,31 +469,26 @@ Section common.
         by instantiate (1 := PtrInt _).
       + iPureIntro.
         unfold ref_flag_atoms_interp, forall_satoms.
-        eexists; split; first done.
         by apply Forall_singleton.
     - iExists (I32A _); iSplit; first done.
       iSplit; first done.
       iPureIntro.
       unfold ref_flag_atoms_interp, forall_satoms.
-      eexists; split; first done.
       by apply Forall_singleton.
     - iExists (I64A _); iSplit; first done.
       iSplit; first done.
       iPureIntro.
       unfold ref_flag_atoms_interp, forall_satoms.
-      eexists; split; first done.
       by apply Forall_singleton.
     - iExists (F32A _); iSplit; first done.
       iSplit; first done.
       iPureIntro.
       unfold ref_flag_atoms_interp, forall_satoms.
-      eexists; split; first done.
       by apply Forall_singleton.
     - iExists (F64A _); iSplit; first done.
       iSplit; first done.
       iPureIntro.
       unfold ref_flag_atoms_interp, forall_satoms.
-      eexists; split; first done.
       by apply Forall_singleton.
   Qed.
 
@@ -517,8 +500,8 @@ Section common.
       iSplit; first by simpl.
       iSplit; first by iExists [].
       iPureIntro.
-      unfold ref_flag_atoms_interp, forall_satoms.
-      eexists; split; done.
+      cbn.
+      done.
     - iDestruct IH as "(%os' & IHatoms & %IHareps & %IHref_flag)".
       iEval (unfold default_of_value_types).
       rewrite fmap_cons.
@@ -531,9 +514,7 @@ Section common.
       split; first by apply has_areps_cons.
       apply ref_flag_atoms_interp_cons; split; last done.
       unfold ref_flag_atoms_interp, forall_satoms in Href_flag.
-      destruct Href_flag as (os & Heq & Hall).
-      inversion Heq; subst.
-      by rewrite Forall_singleton in Hall.
+      by rewrite Forall_singleton in Href_flag.
   Qed.
 
   Lemma frame_interp_wl_interp se F L WL ηss fr :
@@ -1622,12 +1603,10 @@ Qed.
   Proof.
     intros Href.
     unfold ref_flag_atoms_interp, forall_satoms in Href.
-    destruct Href as (os' & Heq & Hall).
-    inversion Heq; subst.
     apply atoms_interp_dup.
     rewrite Forall_lookup. intros k o Hok.
-    rewrite Forall_lookup in Hall.
-    specialize (Hall k o Hok).
+    rewrite Forall_lookup in Href.
+    specialize (Href k o Hok).
     destruct o; simpl in *; try done.
     destruct p; simpl in *; done.
   Qed.

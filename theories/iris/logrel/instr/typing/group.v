@@ -126,11 +126,9 @@ Section group.
           subst ρ' l.
           clear Hιss.
           destruct sκ.
-          2: { inversion Hsvalue. inversion H0. }
-          destruct Hsvalue as (Hareps & os' & Hos' & Hrfinterp).
-          inversion Hos'.
-          subst os'.
-          clear Hos'.
+          2: { cbn in Hsvalue; tauto. }
+          destruct Hsvalue as (Hareps & Hrfinterp).
+          cbn in Hareps.
           destruct Hareps as (os' & Hos' & Hareps).
           inversion Hos'.
           subst os'.
@@ -152,8 +150,7 @@ Section group.
           apply lookup_ge_None in Hιss_i.
           rewrite Hιss_i.
           constructor.
-      + eexists.
-        split; first done.
+      + cbn.
         apply Forall2_length in Hkinds as Hlen_τs_ρs.
         apply Forall2_length in Hskinds as Hlen_τs_oss.
         apply Forall_concat.
@@ -161,11 +158,8 @@ Section group.
         apply Forall_forall.
         intros τ Hτ os (sκ & Hsκ & Hsvalue).
         destruct sκ.
-        2: { inversion Hsvalue. inversion H. }
-        destruct Hsvalue as [Hareps (os' & Hos' & Hrfs)].
-        inversion Hos'.
-        subst os'.
-        clear Hos'.
+        2: { cbn in Hsvalue; tauto. }
+        destruct Hsvalue as [Hareps Hrfs].
         eapply Forall_impl; first done.
         intros o Ho.
         destruct o; try done.

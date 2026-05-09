@@ -192,8 +192,8 @@ Section num.
     iEval (cbn); iSplitL; try iSplitL; auto;
     iExists _; iSplitL; try iSplitL; auto; cbn;
     iPureIntro;
-    split; econstructor; split; auto;
-    try (apply Forall2_cons; split; [|by apply Forall2_nil]; done);
+    split;
+    try (econstructor; split; auto; apply Forall2_cons; split; [|by apply Forall2_nil]; done);
     try (apply Forall_singleton; done).
 
   Lemma compat_num M F L wt wt' wtf wl wl' wlf ψ e es' :

@@ -633,12 +633,9 @@ Section PathFacts.
   Proof.
     unfold skind_has_svalue; cbn.
     intros [Hlen Hrep].
-    unfold ref_flag_words_interp in *.
-    destruct Hrep as (ws' & Heqws' & Hptr).
-    inversion Heqws'; subst ws'; clear Heqws'.
     eapply list_sum_len_inv in Hlen.
     destruct Hlen as (wss & Hlens & ->).
-    rewrite Forall_concat in Hptr.
+    rewrite Forall_concat in Hrep.
     exists wss.
     split; last done.
     assert (length wss = length ns) by eauto using Forall2_length.
@@ -657,8 +654,7 @@ Section PathFacts.
     eapply Forall_Forall2; eauto using Forall2_length.
     eapply Forall_impl; first eapply Hconj.
     intros [ws n]; cbn; intros [Hlen Hflag].
-    split; first done.
-    exists ws; eauto.
+    done.
   Qed.
 
   Lemma type_skinds_has_kinds_Some F τs κs :

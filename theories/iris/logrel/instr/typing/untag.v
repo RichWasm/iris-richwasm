@@ -54,8 +54,7 @@ Section untag.
         * eexists; split; auto.
           apply Forall2_cons; split; [|by apply Forall2_nil].
           by cbn.
-        * eexists; split; auto.
-          apply Forall_cons; split; [|by apply Forall_nil].
+        * apply Forall_cons; split; [|by apply Forall_nil].
           by cbn.
       + cbn.
         iSplit; auto.

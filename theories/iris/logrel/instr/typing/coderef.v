@@ -165,7 +165,6 @@ Section coderef.
           apply Forall2_cons; split; [|by apply Forall2_nil].
           econstructor; auto.
         * iPureIntro.
-          econstructor; auto. split; auto.
           apply Forall_singleton. econstructor.
       + (* In this section, we need to prove ϕ interp *)
         (* all info about ϕ is in table_entry_interp *)

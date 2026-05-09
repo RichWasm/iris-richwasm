@@ -935,28 +935,8 @@ Section inst.
     ref_flag_le ξ ξ' -> ref_flag_atoms_interp ξ (SAtoms os) ->
     ref_flag_atoms_interp ξ' (SAtoms os).
   Proof.
-    intros.
-    destruct ξ, ξ'; try done.
-    - destruct H0 as (os0 & toinvert & H0); inversion toinvert; subst os0; clear toinvert.
-      exists os; split; [done|].
-      unfold ref_flag_interp in *.
-      unfold norefs_ptr_interp in H0.
-      unfold gcrefs_ptr_interp.
-      (* yup okay true *)
-      admit.
-    - destruct H0 as (os0 & toinvert & H0); inversion toinvert; subst os0; clear toinvert.
-      exists os; split; [done|].
-      unfold ref_flag_interp in *.
-      unfold norefs_ptr_interp in H0.
-      (* yup also true *)
-      admit.
-    - destruct H0 as (os0 & toinvert & H0); inversion toinvert; subst os0; clear toinvert.
-      exists os; split; [done|].
-      unfold ref_flag_interp in *.
-      unfold gcrefs_ptr_interp in H0.
-      (* also true *)
-      admit.
-  Admitted.
+    apply ref_flag_atoms_refine.
+  Qed.
 
   Lemma type_interp_subst_type_BIDIRECTIONAL se se' τ o sub_m sub_r sub_s sub_t :
     (sem_env_rel_rep se' se sub_r) ->

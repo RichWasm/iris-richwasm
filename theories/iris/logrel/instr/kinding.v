@@ -403,9 +403,8 @@ Section kinding.
     ref_flag_atoms_interp ξ sv ->
     ref_flag_atoms_interp ξ' sv.
   Proof.
-    intros Hle (os & -> & Hos).
-    exists os.
-    split; first done.
+    intros Hle Hos.
+    destruct sv as [os | ]; cbn in Hos; last tauto.
     eapply Forall_impl; first done.
     intros o Ho.
     by destruct o; first (destruct ξ; destruct ξ'; destruct p).
@@ -416,9 +415,8 @@ Section kinding.
     ref_flag_words_interp ξ sv ->
     ref_flag_words_interp ξ' sv.
   Proof.
-    intros Hle (ws & -> & Hws).
-    exists ws.
-    split; first done.
+    intros Hle Hws.
+    destruct sv; cbn in Hws; first done.
     eapply Forall_impl; first done.
     intros w Hw.
     by destruct w; first (destruct ξ; destruct ξ'; destruct p).
