@@ -1017,6 +1017,48 @@ Section load_copy.
     tauto.
   Qed.
 
+  Lemma Forall2_Forall2_length {A B} {P : A -> B -> Prop} xss yss :
+    Forall2 (Forall2 P) xss yss ->
+    map length xss = map length yss.
+  Proof.
+    intros Hall. induction Hall.
+    - reflexivity.
+    - cbn.
+      f_equal; last apply IHHall.
+      by eapply Forall2_length.
+  Qed.
+
+  Lemma sum_list_with_list_sum {A} {xs : list (list A)} :
+    sum_list_with length xs = list_sum (map length xs).
+  Proof.
+    induction xs.
+    - done.
+    - cbn.
+      by rewrite IHxs.
+  Qed.
+
+  (* inversion lemma for learning about tau given a Ref k mu tau *)
+  Lemma has_kind_ref_ty F κ κ' μ τ :
+    has_kind F (RefT κ μ τ) κ' ->
+    ∃ σ ξ,
+      has_kind F τ (MEMTYPE σ ξ).
+  Proof.
+    intros Hkind.
+    remember (RefT κ μ τ) as τ0 eqn:Href.
+    revert Href.
+    revert κ μ.
+    induction Hkind; intros κ'' μ' Href;
+      try congruence.
+    - subst κ. inversion Href; subst.
+      by exists σ, ξ.
+    - subst κ.
+      inversion Href.
+      subst.
+      by exists σ, ξ.
+    - subst.
+      eauto.
+  Qed.
+
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -1071,8 +1113,23 @@ Section load_copy.
     cbn in Hκ'.
     iAssert (⌜ptr_local < length (f_locs fr)⌝%I) as "%Hlen".
     {
-      (* need a lemma about frame_interp, I think? *)
-      admit.
+      iDestruct "Hframe" as "(%osf & %vss_L & %vs_WL & %Hlocs & %Hprims & %Hretty & Hats &  Hlocs)".
+      assert (sum_list_with length (typing.fc_locals F) = length (concat vss_L)).
+      {
+        rewrite length_concat.
+        apply Forall2_Forall2_length in Hprims.
+        rewrite <- Hprims.
+        by rewrite sum_list_with_list_sum.
+      }
+      unfold ptr_local.
+      rewrite Hlocs.
+      apply Forall2_length in Hretty.
+      rewrite length_app in Hretty.
+      rewrite length_app -Hretty.
+      iPureIntro.
+      rewrite H.
+      cbn.
+      lia.
     }
     assert (Hκ: eval_rep se (AtomR PtrR) = Some l).
     {
@@ -1136,6 +1193,20 @@ Section load_copy.
         by rewrite decide_True.
       }
       iIntros "!> Hf Hrun Hat".
+      assert (Hκ'': ∃ σ ξ, has_kind F τ (MEMTYPE σ ξ)).
+      {
+        unfold ψ in Htype.
+        inversion Htype; subst.
+        destruct H as [Href _].
+        rewrite Forall_singleton in Href.
+        inversion Href; subst.
+        inversion H; subst.
+        eapply has_kind_ref_ty; eauto.
+      }
+      destruct Hκ'' as (σ & ξ & Hkindτ).
+      pose proof Hkindτ as Hkag.
+      admit.
+      (*
       assert (Hκ'': ∃ ξ, κ' = SMEMTYPE (length ws) ξ).
       { admit. }
       destruct Hκ'' as [ξ ->].
@@ -1226,6 +1297,7 @@ Section load_copy.
       inversion Hsv; subst.
       (* need lemma about memory.load *)
       admit.
+    *)
   Admitted.
 
 End load_copy.
