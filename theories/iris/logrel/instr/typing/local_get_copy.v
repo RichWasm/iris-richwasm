@@ -154,11 +154,34 @@ Section local_get_copy.
     destruct ξ0; try done.
 
     iDestruct (value_interp_ref_flag_atoms _ _ _ _ _ _ _ Hskind with "Hval_i") as %Href.
-    have Hpers := atoms_interp_norefs_persistent se os_i vs_L_i Href.
+    have Hatoms_pers := atoms_interp_norefs_persistent se os_i vs_L_i Href.
     iPoseProof "Hatoms_i" as "#Hatoms_i".
 
     iFrame "Hatoms_i".
 
-  Admitted.
+    have Hpers : Persistent (value_interp rti sr se τ (SAtoms os_i)) := value_interp_norefs_persistent rti sr mr se τ (SAtoms os_i) Href.
+    iDestruct "Hval_i" as "#Hval_i".
+
+    iDestruct (values_interp_one_eq with "Hval_i") as "Hval_i'".
+    iFrame "Hval_i'".
+    iSplitR "Hrt Hown"; last iFrame.
+    iExists (oss_pre ++ [os_i] ++ oss_post).
+    iExists (vss_L_pre ++ [vs_L_i] ++ vss_L_post).
+    iFrame.
+    iFrame (Hfr Hresult).
+    iSplit.
+    {
+      iPureIntro.
+      rewrite <- (take_drop_middle (fe_locals fe) i (map arep_to_prim sρ) Hlookup_fe_i).
+      apply Forall2_app; first done.
+      apply Forall2_cons; by split.
+    }
+    iSplitR; first by iApply big_sepL2_singleton.
+
+    unfold locals_interp.
+    iEval (rewrite <- (take_drop_middle L i τ Hlookup_L_i)).
+    simpl.
+    by iFrame.
+  Qed.
 
 End local_get_copy.
