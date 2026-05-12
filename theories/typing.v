@@ -216,6 +216,11 @@ Proof.
   by destruct ξ1; destruct ξ2; destruct ξ3.
 Qed.
 
+Lemma ref_flag_le_total ξ ξ' : ref_flag_le ξ ξ' ∨ ref_flag_le ξ' ξ.
+Proof.
+  destruct ξ, ξ'; simpl; auto.
+Qed.
+
 Inductive subkind_of : kind -> kind -> Prop :=
 | KSubVal ρ ξ ξ' :
   ref_flag_le ξ ξ' ->

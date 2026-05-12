@@ -123,10 +123,42 @@ Section local_get_copy.
     iSplit; first done.
 
     inversion Hok; subst.
-    inversion H; subst.
-    inversion H2; subst.
-    inversion H5; subst.
-    inversion H3; subst.
+    have Htype_rep := Forall2_lookup_lr _ _ _ _ _ _ H0 Hlookup_L_i Hlookup_fe_i.
+    destruct Htype_rep as (ρ & Hhas_rep & Heval_rep_prim).
+
+    unfold eval_rep_prim in Heval_rep_prim.
+    destruct (eval_rep EmptyEnv ρ) as [sρ|] eqn:Heval_rep; simpl in Heval_rep_prim; [| discriminate].
+    injection Heval_rep_prim as <-.
+    have Heval_rep_se := eval_rep_emptyenv ρ sρ Heval_rep se.
+
+    have Heval_kind : eval_kind se (VALTYPE ρ NoRefs) = Some (SVALTYPE sρ NoRefs).
+    { unfold eval_kind. rewrite Heval_rep_se. reflexivity. }
+
+    inversion Hhas_rep; subst.
+
+    inversion Hrf; subst.
+    2: {
+      inversion Hhas_rep; subst.
+      exfalso.
+      by eapply has_kind_agree_f.
+    }
+
+    have Hkind_agree := has_kind_agree _ _ _ _ H1 H2.
+    assert (ρ = ρ0) as <-.
+    { destruct Hkind_agree as [Hsub | Hsub]; inversion Hsub; subst; reflexivity. }
+
+    have Hskind := type_skind_has_kind_Some F se τ _ _ H2 Hsem Heval_kind.
+    destruct Hskind as (sκ & Hskind & Hsub).
+
+    inversion Hsub; subst.
+    destruct ξ0; try done.
+
+    iDestruct (value_interp_ref_flag_atoms _ _ _ _ _ _ _ Hskind with "Hval_i") as %Href.
+    have Hpers := atoms_interp_norefs_persistent se os_i vs_L_i Href.
+    iPoseProof "Hatoms_i" as "#Hatoms_i".
+
+    iFrame "Hatoms_i".
+
   Admitted.
 
 End local_get_copy.
