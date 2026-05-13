@@ -230,23 +230,6 @@ Section PathFacts.
     by rewrite mono_size_eval_emp.
   Qed.
 
-  Lemma split_concat_ws_field F τs1 τ τs2 σs ks wss :
-    mapM (type_size (fc_type_vars F)) (take (length τs1) (τs1 ++ τ :: τs2)) = Some σs ->
-    mapM (eval_size EmptyEnv) σs = Some ks ->
-    ∃ (wss1 wss2 : list (list word)) (ws : list word)
-      (ks1 ks2 : list nat) (k : nat),
-      length wss1 = length τs1 /\
-      length ks1 = length τs1 /\
-      length wss2 = length τs2 /\
-      length ks2 = length τs2 /\
-      wss = wss1 ++ ws :: wss2 /\
-      ks = ks1 ++ k :: ks2 /\
-      map length wss1 = ks1 /\
-      map length wss2 = ks2 /\
-      length ws = k.
-  Proof.
-  Abort.
-
   Lemma drop_list_sum_cat A (wss : list (list A)) ks :
     map length wss = ks ->
     drop (list_sum ks) (concat wss) = concat (drop (length ks) wss).
@@ -293,7 +276,15 @@ Section PathFacts.
   Proof.
     unfold get_path_words; intros Hσs Hws Hsz Hks Hwss Hτs.
     rewrite -drop_drop.
-  Admitted.
+    intros Hts.
+    rewrite -Hτs.
+    rewrite drop_app drop_list_sum_cat'; last done.
+    rewrite -length_concat Nat.sub_diag drop_0 app_nil_l.
+    rewrite drop_app_le; last lia.
+    rewrite take_app length_drop.
+    replace (sz - (length ws - off)) with 0 by lia.
+    by rewrite take_0 app_nil_r.
+  Qed.
 
   Lemma take_list_sum_cat A (wss : list (list A)) j xs ks :
     map length wss = ks ->
@@ -367,36 +358,6 @@ Section PathFacts.
       split; last done.
       eapply has_kind_type_sz; eauto.
   Qed.
-
-  Lemma val_interps_type_szs F τs wss :
-    sem_env_interp F se ->
-    Forall (has_mono_size F) τs ->
-    ⊢ ([∗ list] ws;τ ∈ wss;τs, type_interp rti sr τ se (SWords ws)) -∗
-      ∃ szs, ⌜mapM (type_sz (fe_of_context F)) τs = Some szs⌝ ∗
-             ⌜map length wss = szs⌝.
-  Proof.
-  Admitted.
-
-  Lemma type_szs_interchg F τs σs ns ns' :
-    mapM (eval_size EmptyEnv) σs = Some ns ->
-    mapM (type_sz (fe_of_context F)) τs = Some ns' ->
-    mapM (type_size (fc_type_vars F)) τs = Some σs ->
-    Forall (has_mono_size F) τs ->
-    ns' = ns.
-  Admitted.
-
-  Lemma field_update_kind_bound F κ κ' τs1 τ τ' τs2 :
-    has_kind F (StructT κ (τs1 ++ τ' :: τs2)) κ' ->
-    sem_env_interp F se ->
-    ∀ sk sk',
-      type_skind se τ' = Some sk ->
-      type_skind se (StructT κ (τs1 ++ τ :: τs2)) = Some sk' ->
-      subskind_of sk sk'.
-  Proof.
-    intros Hkind.
-    remember (StructT κ (τs1 ++ τ' :: τs2)) as S.
-    revert HeqS.
-  Admitted.
 
   Lemma struct_kind_inv_ind F S κ :
     has_kind F S κ ->
@@ -486,14 +447,6 @@ Section PathFacts.
       destruct Hev as (σ' & σs'' & Htz & Hall & ->).
       f_equal; eauto using has_kind_mem_size_agree.
   Qed.
-
-  Lemma type_skind_size_agree F τ n r σ sz :
-    type_skind se τ = Some (SMEMTYPE n r) ->
-    type_size (fc_type_vars F) τ = Some σ ->
-    eval_size EmptyEnv σ = Some sz ->
-    n = sz.
-  Proof.
-  Admitted.
 
   Lemma eval_size_prod_inv σs n :
     eval_size se (ProdS σs) = Some n ->
@@ -619,12 +572,32 @@ Section PathFacts.
     repeat eexists; eauto.
   Qed.
 
-  Lemma list_sum_len_inv A ns (xs : list A) :
+  Lemma list_sum_len_inv A ns :
+    ∀ xs : list A,
     list_sum ns = length xs ->
     ∃ xss,
       Forall2 (λ xs n, length xs = n) xss ns /\
       xs = concat xss.
-  Admitted.
+  Proof.
+    induction ns; cbn; intros xs Hlen.
+    - exists [].
+      destruct xs; try inversion Hlen.
+      done.
+    - fold (list_sum ns) in Hlen.
+      assert (Htake: length (take a xs) = a).
+      {
+        rewrite length_take.
+        rewrite min_l; [exact eq_refl | lia].
+      }
+      rewrite -(take_drop a xs) length_app Htake in Hlen.
+      rewrite Nat.add_cancel_l in Hlen.
+      specialize (IHns _ Hlen).
+      destruct IHns as (xss' & Hxss & Hcat).
+      exists (take a xs :: xss').
+      split; cbn.
+      + constructor; eauto.
+      + by rewrite -Hcat take_drop.
+  Qed.
 
   Lemma skind_has_svalue_partition ns r ws:
     skind_has_svalue (SMEMTYPE (list_sum ns) r) (SWords ws) ->
@@ -782,14 +755,26 @@ Section PathFacts.
     | AnyRefs => AnyRefs
     end.
 
-  Definition ref_flag_lub (ξs : list ref_flag) : ref_flag :=
-    foldl ref_flag_lub2 NoRefs ξs.
+  Lemma ref_flag_lub2_lub ξ1 ξ2 ξ' :
+    ref_flag_le ξ1 ξ' ->
+    ref_flag_le ξ2 ξ' ->
+    ref_flag_le (ref_flag_lub2 ξ1 ξ2) ξ'.
+  Proof.
+    destruct ξ1, ξ2; done.
+  Qed.
 
-  Lemma ref_flag_lub_lub ξ' ξs :
+  Definition ref_flag_lub (ξs : list ref_flag) : ref_flag :=
+    foldr ref_flag_lub2 NoRefs ξs.
+
+  Lemma ref_flag_lub_lub ξs : ∀ ξ',
     Forall (λ ξ, ref_flag_le ξ ξ') ξs ->
     ref_flag_le (ref_flag_lub ξs) ξ'.
   Proof.
-  Admitted.
+    induction ξs; intros ξ' Hs.
+    - done.
+    - inversion Hs; subst; cbn in *.
+      eapply ref_flag_lub2_lub; by eauto.
+  Qed.
 
   Lemma type_interp_len F ws τ σ n ξ :
     sem_env_interp F se ->
@@ -838,18 +823,31 @@ Section PathFacts.
       iPureIntro; congruence.
   Qed.
 
-  Lemma skind_has_svalues_lens wss ns ξ :
-    Forall2 (λ ws n, skind_has_svalue (SMEMTYPE n ξ) (SWords ws)) wss ns ->
-    ns = map length wss.
-  Proof.
-  Admitted.
-
   Lemma concat_inj {A} (xss yss : list (list A)):
     map length xss = map length yss ->
     concat xss = concat yss ->
     xss = yss.
   Proof.
-  Admitted.
+    revert yss; induction xss; intros yss Hlens Hcats.
+    - destruct yss; by inversion Hlens.
+    - cbn in *.
+      destruct yss; first by inversion Hlens.
+      cbn in *.
+      inversion Hlens.
+      pose proof (app_inj_1  _ _ _ _ ltac:(eassumption) Hcats) as [Hal Hxy].
+      f_equal; by eauto.
+  Qed.
+
+  Lemma skind_has_svalues_lens wss ns ξ :
+    Forall2 (λ ws n, skind_has_svalue (SMEMTYPE n ξ) (SWords ws)) wss ns ->
+    ns = map length wss.
+  Proof.
+    intros Hs.
+    induction Hs.
+    - done.
+    - cbn.
+      eapply skind_mem_words_len in H; congruence.
+  Qed.
 
   Lemma type_interp_struct_inv {F σs ξ ξ' τs1 τ τs2 ws} :
     sem_env_interp F se ->
@@ -978,17 +976,67 @@ Section PathFacts.
     iFrame.
   Qed.
 
+  Lemma opt_mapM_Some {X Y} (f : X -> option Y) xs ys :
+    Forall2 (λ x y, f x = Some y) xs ys <-> mapM f xs = Some ys.
+  Proof.
+    split.
+    - intros Hall. induction Hall.
+      + done.
+      + cbn.
+        by rewrite H IHHall.
+    - revert ys.
+      induction xs; intros ys Hmap; cbn.
+      + inversion Hmap; done.
+      + cbn in Hmap; apply bind_Some in Hmap.
+        destruct Hmap as (y & Hfy & Hmap).
+        apply bind_Some in Hmap.
+        destruct Hmap as (ys' & Hys' & Hret).
+        inversion Hret; subst.
+        constructor; eauto.
+  Qed.
+
   Lemma eval_size_emptyenv {σ n} {se': @semantic_env Σ}  :
     eval_size EmptyEnv σ = Some n ->
     eval_size se' σ = Some n.
   Proof.
-  Admitted.
+    revert n.
+    assert (Hwork: ∀ σs ns,
+        Forall (λ σ, ∀ n, eval_size EmptyEnv σ = Some n → eval_size se' σ = Some n) σs ->
+        mapM (eval_size EmptyEnv) σs = Some ns ->
+        mapM (eval_size se') σs = Some ns
+      ).
+    {
+      intros * Hall Hev.
+      apply opt_mapM_Some in Hev.
+      apply opt_mapM_Some.
+      by eapply Forall2_mini_impl_Forall.
+    }
+    induction σ using size_ind; cbn; intros * Hev.
+    - congruence.
+    - apply bind_Some in Hev.
+      destruct Hev as (ns & Hev & Hns).
+      eapply Hwork in Hev; last done.
+      by rewrite Hev.
+    - apply bind_Some in Hev.
+      destruct Hev as (ns & Hev & Hns).
+      eapply Hwork in Hev; last done.
+      by rewrite Hev.
+    - cbn in Hev.
+      apply fmap_Some in Hev.
+      destruct Hev as (reps & Hev & ->).
+      erewrite eval_rep_emptyenv; eauto.
+    - done.
+  Qed.
 
   Lemma eval_sizes_emptyenv {σs ns} {se': @semantic_env Σ}  :
     mapM (eval_size EmptyEnv) σs = Some ns ->
     mapM (eval_size se') σs = Some ns.
   Proof.
-  Admitted.
+    rewrite <- !opt_mapM_Some.
+    intros Hall.
+    eapply Forall2_impl; first eapply Hall.
+    intros σ n; by eapply eval_size_emptyenv.
+  Qed.
 
   Lemma type_interps_ref_flags F wss τs ξ σs :
     sem_env_interp F se ->
@@ -1029,46 +1077,82 @@ Section PathFacts.
       + by iApply IHHk.
   Qed.
 
+  Lemma inv_kind_ser F τ κ κ' :
+    has_kind F (SerT κ' τ) κ ->
+    ∃ ρ ξ,
+      has_kind F τ (VALTYPE ρ ξ) /\
+      subkind_of (MEMTYPE (RepS ρ) ξ) κ /\
+      subkind_of κ' (MEMTYPE (RepS ρ) ξ).
+  Proof.
+    intros Hk.
+    remember (SerT κ' τ) as τ0.
+    revert Heqτ0.
+    revert κ' τ.
+    induction Hk; intros * Heq; try discriminate Heq.
+    - inversion Heq; subst.
+      do 2 eexists; split; eauto.
+      split; last by apply subkind_of_refl.
+      constructor.
+      apply ref_flag_le_refl.
+    - destruct (IHHk _ _ ltac:(done)) as (ρ & ξ & Ht & Hsub & Hsub').
+      subst.
+      do 2 eexists.
+      split; last split; eauto.
+      by eapply subkind_of_trans.
+  Qed.
+
+  Lemma has_kind_tighten F τ κ :
+    has_kind F τ κ ->
+    ∀ κ',
+      type_kind (fc_type_vars F) τ = Some κ' ->
+      has_kind F τ κ'.
+  Proof.
+    intros Hkind. induction Hkind; intros ?κ' Htk; cbn in Htk;
+      try solve [inversion Htk; subst; by econstructor].
+    - by eapply IHHkind.
+    - rewrite H in Htk.
+      inversion Htk; subst.
+      by constructor.
+  Qed.
+
   Lemma resolves_path_inv_sep τ π pr :
     resolves_path τ π None pr ->
-    ∀ F off ρ σ ξ ξ' ξ'' sz τ0,
+    ∀ F off ρ σ ξ ξser sz,
       sem_env_interp F se ->
       path_offset (fe_of_context F) τ π = Some off ->
       Forall (has_mono_size F) pr.(pr_prefix) ->
       has_kind F τ (MEMTYPE σ ξ) ->
-      has_kind F (pr.(pr_replaced)) (MEMTYPE σ ξ'') ->
-      has_kind F τ0 (VALTYPE ρ ξ') ->
-      pr.(pr_target) = SerT (MEMTYPE (RepS ρ) ξ') τ0 ->
+      has_kind F (pr.(pr_target)) (MEMTYPE (RepS ρ) ξser) ->
       eval_size EmptyEnv (RepS ρ) = Some sz ->
       ⊢ ∀ ws,
         𝕍 τ (SWords ws) -∗
         ⌜off + sz <= length ws⌝ ∗
-        (𝕍 (SerT (MEMTYPE (RepS ρ) ξ') τ0) (SWords (get_path_words off sz ws)) ∗
-         ∀ ws',
+        (𝕍 (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
+        ∀ ws',
            ⌜length ws' = sz⌝ -∗
-           𝕍 (SerT (MEMTYPE (RepS ρ) ξ') τ0) (SWords ws') -∗
-           𝕍 pr.(pr_replaced) (SWords (update_path_words off ws ws'))).
+           𝕍 (pr.(pr_target)) (SWords ws') -∗
+           𝕍 τ (SWords (update_path_words off ws ws'))).
   Proof.
     intros Hr.
     remember None as tp eqn:Htp; revert Htp.
-    induction Hr; intros Htp *; iIntros (Hse Hoff Hms Ht Hrepl Ht0 Hser Hev ws) "Hws".
+    induction Hr; intros Htp *; iIntros (Hse Hoff Hms Ht Htgt Hev ws) "Hws".
     - cbn [pr_target pr_prefix pr_replaced] in *.
       assert (off = 0).
       {
-        cbn in Hoff; destruct τ; congruence.
+        cbn in Hoff.
+        destruct τ; congruence.
       }
       cbn -[eval_size type_interp] in *.
-      subst off τ.
+      subst off.
       rewrite value_interp_eq -type_interp_eq.
-      iPoseProof (type_interp_len _ _ _ _ _ _ Hse with "Hws") as "%Hsz".
-      + eapply KSer; eauto.
-      + eapply eval_size_emptyenv; eauto.
-      + subst sz.
-        iSplit; first done.
-        rewrite get_path_words_all.
-        iFrame.
-        iIntros (ws') "%Hlen Hty".
-        by rewrite update_path_words_all.
+      iPoseProof (type_interp_len _ _ _ _ _ _ Hse with "Hws") as "%Hsz"; [|by eapply eval_size_emptyenv, Hev|].
+      eapply Htgt.
+      subst sz.
+      iSplit; first done.
+      rewrite get_path_words_all.
+      iFrame.
+      iIntros (ws') "%Hlen Hty".
+      rewrite update_path_words_all; eauto.
     - by inversion Htp.
     - cbn in Hoff.
       eapply bind_Some in Hoff; destruct Hoff as (σs & Htsz & Hoff).
@@ -1083,7 +1167,7 @@ Section PathFacts.
       }
       subst τ'.
       pose proof (struct_kind_inv _ _ _ _ _ Ht)
-        as (σs' & ξt & Hkinds & Hσ & Hκ & Hle).
+        as (σs' & ξt' & Hkinds & Hσ & Hκ & Hle).
       subst.
       iPoseProof (type_interp_struct_inv Hse Ht with "Hws")
         as "(%wss1& %wst& %wss2& %rs1& %rt& %rs2& %σs1& %σt& %σs2& %ns1& %nt& %ns2& Hstruct)".
@@ -1122,21 +1206,23 @@ Section PathFacts.
         rewrite take_app_length in Htsz.
         eapply has_kinds_mem_size_agree; eauto.
       }
-      subst σs.
+      subst.
       rewrite Forall_app in Hms.
       destruct Hms as [Hps Hms'].
-      cbn in Hrepl.
-      eapply struct_kind_inv in Hrepl.
-      destruct Hrepl as (σs & ξ''' & Hfields & Hprod & Hkind' & Hle').
-      inversion Hprod; subst σs.
+      pose proof Ht as Ht'.
+      eapply type_kind_has_kind_agree in Ht'; eauto.
+      inversion Ht'; subst.
+      cbn in Ht'.
+      eapply struct_kind_inv in Ht.
+      destruct Ht as (σs' & ξ''' & Hfields & Hprod & Hkind' & Hle').
+      inversion Hprod; subst.
       pose proof (inv_Forall2_elt Hfields ltac:(eauto) ltac:(eauto))
         as [Hkinds1' [Hkindr Hkinds2']].
       pose proof Hse as IH'.
       eapply IHHr in IH'; eauto.
       iPoseProof (IH' with "Hwst") as "[%Hlen [Ht0 Hcont]]".
       rewrite !length_app !length_concat.
-      rewrite -Hlen1 -Hlen2.
-      assert (ns1 = ns).
+      assert (ns = map length wss1).
       {
         erewrite eval_sizes_emptyenv in Hev1; eauto.
         by inversion Hev1.
@@ -1145,6 +1231,8 @@ Section PathFacts.
       iSplitR; first (iPureIntro; lia).
       setoid_rewrite get_path_words_field; eauto.
       iFrame.
+      cbn.
+      inversion Hkind'; subst.
       iIntros (ws') "%Hlenws Hws'".
       subst sz.
       setoid_rewrite update_path_words_field; eauto.
@@ -1152,7 +1240,6 @@ Section PathFacts.
       cbn [pr_replaced].
       iSpecialize ("Hcont" with "[//] Hws'").
       iEval (cbn; rewrite value_interp_eq).
-      rewrite Hkind'.
       iExists _.
       iPoseProof "Hcont" as "Hcont'".
       iEval (rewrite type_interp_eq) in "Hcont'".
@@ -1191,9 +1278,7 @@ Section PathFacts.
         split.
         * rewrite length_app length_concat list_sum_app.
           rewrite length_app -Hlensv.
-          cbn; fold (list_sum ns2).
-          rewrite length_concat -Hlen1 -Hlen2.
-          done.
+          by rewrite length_concat.
         * do 2 rewrite Forall_app.
           split; first done.
           split; last done.
