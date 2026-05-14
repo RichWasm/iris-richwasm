@@ -81,6 +81,12 @@ Inductive skind :=
 | SVALTYPE : list atomic_rep -> ref_flag -> skind
 | SMEMTYPE : nat -> ref_flag -> skind.
 
+Definition skind_ref_flag (sκ : skind) : ref_flag :=
+  match sκ with
+  | SVALTYPE _ ξ
+  | SMEMTYPE _ ξ => ξ
+  end.
+
 Section RepInd.
 
   Variables (P : representation -> Prop)

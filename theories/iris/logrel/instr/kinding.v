@@ -21,10 +21,10 @@ Section kinding.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma ref_flag_interp_le ξ ξ' p :
+  Lemma ref_flag_ptr_interp_le ξ ξ' p :
     ref_flag_le ξ' ξ ->
-    ref_flag_interp ξ' p ->
-    ref_flag_interp ξ p.
+    ref_flag_ptr_interp ξ' p ->
+    ref_flag_ptr_interp ξ p.
   Proof.
     intros Hle Hinterp.
     by destruct ξ; destruct ξ'; destruct p.
@@ -440,19 +440,6 @@ Section kinding.
       by eapply ref_flag_words_refine.
   Qed.
 
-  Theorem kinding_refinement F se τ κ sκ : 
-    has_kind F τ κ ->
-    sem_env_interp F se ->
-    eval_kind se κ = Some sκ ->
-    skind_has_stype sκ (value_interp rti sr se τ).
-  Proof.
-    iIntros (Hkind Hse Heval sv) "Hsv".
-    destruct τ;
-      iDestruct "Hsv" as "(% & % & % & _)";
-      iPureIntro;
-      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
-  Qed.
-
   Lemma value_interp_var se t sκ T :
     lookup_type se t = Some (sκ, T) ->
     value_interp rti sr se (VarT t) ≡ (λne sv, ⌜skind_has_svalue sκ sv⌝ ∗ T sv)%I.
@@ -538,7 +525,6 @@ Section kinding.
     - apply prims_result_type_l.
   Qed.
 
-
   Lemma has_kind_prod_inv F κ κ' τs :
     has_kind F (ProdT κ τs) κ' ->
     exists ρs ξ, κ = VALTYPE (ProdR ρs) ξ /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs.
@@ -585,17 +571,40 @@ Section kinding.
       by eexists.
   Qed.
 
+  Lemma kinding_sound_ref_flag F se τ κ sκ :
+    has_kind F τ κ ->
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    ref_flag_stype_interp (skind_ref_flag sκ) (value_interp rti sr se τ).
+  Proof.
+    intros Hhas_kind Hhse Heval_kind.
+    destruct sκ as [ιs ξ|n ξ]; destruct ξ; try done; intros sv; rewrite value_interp_eq.
+  Admitted.
+
+  Lemma kinding_sound_svalue F se τ κ sκ sv :
+    has_kind F τ κ ->
+    sem_env_interp F se ->
+    eval_kind se κ = Some sκ ->
+    value_interp rti sr se τ sv -∗
+    ⌜skind_has_svalue sκ sv⌝.
+  Proof.
+    iIntros (Hhas_kind Hse Heval_kind) "H".
+    destruct τ;
+      iDestruct "H" as "(% & % & % & _)";
+      iPureIntro;
+      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
+  Qed.
+
   Theorem kinding_sound F se τ κ sκ :
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     skind_has_stype sκ (value_interp rti sr se τ).
   Proof.
-    iIntros (Hhas_kind Hse Heval_kind sv) "H".
-    destruct τ;
-      iDestruct "H" as "(% & % & % & _)";
-      iPureIntro;
-      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
+    iIntros (Hhas_kind Hse Heval_kind).
+    split.
+    - by eapply kinding_sound_ref_flag.
+    - intros sv. by eapply kinding_sound_svalue.
   Qed.
 
 End kinding.

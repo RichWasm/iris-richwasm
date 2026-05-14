@@ -1203,7 +1203,7 @@ Section inst.
         cbn in Hse'.
 
         apply (Forall_lookup_1 _ _ _ _ Hse') in Hlookup as HT.
-        cbn in HT.
+        destruct HT as [_ HT].
         iPoseProof (HT with "Hoa") as "%ye".
 
         iExists sκ.
@@ -2253,7 +2253,7 @@ Section inst.
         cbn in b.
         subst T'.
         apply (Forall_lookup_1 _ _ _ _ Hsegood) in Hlookup as HT.
-        cbn in HT.
+        destruct HT as [_ HT].
         iPoseProof (HT with "HT") as "%Hskindsvalue".
         rewrite !Hlookup.
         cbn.
@@ -2374,6 +2374,8 @@ Section inst.
     assert (skind_has_stype sκ_T T) as Hstype. {
       unfold T.
       unfold skind_has_stype.
+      split.
+      { admit. }
       iIntros (?) "H".
       iPoseProof (value_interp_skind with "H") as "%hope".
       destruct hope as (sκ' & torewrite & our).

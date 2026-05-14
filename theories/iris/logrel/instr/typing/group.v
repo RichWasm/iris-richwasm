@@ -193,7 +193,7 @@ Section group.
         pose proof (type_skind_eval_rep _ _ _ _ _ _ _ _ Hkind Hse Hrep' Hsκ) as Hyeah.
         inversion Hyeah.
         subst.
-        by eapply ref_flag_interp_le.
+        by eapply ref_flag_ptr_interp_le.
     - iExists oss.
       iSplitR; first done.
       rewrite big_sepL2_fmap_l.

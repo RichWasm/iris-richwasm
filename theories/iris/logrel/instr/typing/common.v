@@ -409,7 +409,7 @@ Section common.
 
   Lemma ref_flag_atoms_interp_cons ξ o os :
     ref_flag_atoms_interp ξ (SAtoms (o :: os)) ↔
-    forall_ptr_atom (ref_flag_interp ξ) o ∧ ref_flag_atoms_interp ξ (SAtoms os).
+    forall_ptr_atom (ref_flag_ptr_interp ξ) o ∧ ref_flag_atoms_interp ξ (SAtoms os).
   Proof.
     unfold ref_flag_atoms_interp, forall_satoms.
     by rewrite Forall_cons.

@@ -354,7 +354,8 @@ Section PathFacts.
     inversion Hok as [F' τ' κ' Ht Hk]; subst F' τ' κ'.
     eapply eval_kind_ok_Some in Hk; eauto.
     destruct Hk as [sκ Hev].
-    iPoseProof (kinding_sound with "Hws") as "%Hkind"; eauto.
+    pose proof (kinding_sound rti sr mr _ _ _ _ _ Hκ HF Hev) as [_ Hsv].
+    iDestruct (Hsv with "Hws") as "%Hkind".
     destruct sκ; cbn in Hkind.
     - destruct Hkind as [[vs [Hcontra _]] _]; congruence.
     - cbn in Hev.
@@ -639,7 +640,7 @@ Section PathFacts.
     exists wss.
     split; last done.
     assert (length wss = length ns) by eauto using Forall2_length.
-    assert (Hptr2 : Forall2 (λ ws n, Forall (forall_ptr_word (ref_flag_interp r)) ws) wss ns).
+    assert (Hptr2 : Forall2 (λ ws n, Forall (forall_ptr_word (ref_flag_ptr_interp r)) ws) wss ns).
     {
       eapply Forall2_impl.
       - eapply Forall_Forall2_l; eauto using Forall2_length.
@@ -993,7 +994,7 @@ Section PathFacts.
     sem_env_interp F se ->
     Forall2 (λ τ σ, has_kind F τ (MEMTYPE σ ξ)) τs σs ->
     ([∗ list] ws;τ ∈ wss;τs, type_interp rti sr τ se (SWords ws)) -∗
-    ⌜Forall (forall_ptr_word (ref_flag_interp ξ)) (concat wss)⌝.
+    ⌜Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) (concat wss)⌝.
   Proof.
     intros Hse Hk; revert wss; induction Hk; iIntros (wss) "Ht".
     - by iPoseProof (big_sepL2_nil_inv_r with "Ht") as "->".
@@ -1024,7 +1025,7 @@ Section PathFacts.
         destruct Hws as [_ Hws].
         eapply Forall_impl; first apply Hws.
         intros [w | w] Hw; last done.
-        by eapply ref_flag_interp_le.
+        by eapply ref_flag_ptr_interp_le.
       + by iApply IHHk.
   Qed.
 
@@ -1167,13 +1168,13 @@ Section PathFacts.
         inversion Htskr; subst.
         eexists; eauto.
       }
-      iAssert (⌜Forall (forall_ptr_word (ref_flag_interp ξ''')) (concat wss1)⌝%I) as "%Hwss1flag".
+      iAssert (⌜Forall (forall_ptr_word (ref_flag_ptr_interp ξ''')) (concat wss1)⌝%I) as "%Hwss1flag".
       {
         apply inv_Forall2_elt in Hfields; try eauto.
         destruct Hfields as (? & ? & ?).
         iApply type_interps_ref_flags; last iApply "Hws1"; done.
       }
-      iAssert (⌜Forall (forall_ptr_word (ref_flag_interp ξ''')) (concat wss2)⌝%I) as "%Hwss2flag".
+      iAssert (⌜Forall (forall_ptr_word (ref_flag_ptr_interp ξ''')) (concat wss2)⌝%I) as "%Hwss2flag".
       {
         apply inv_Forall2_elt in Hfields; try eauto.
         destruct Hfields as (? & ? & ?).
@@ -1199,7 +1200,7 @@ Section PathFacts.
           eapply Forall_impl; first by apply Hsv.
           intros w Hw.
           destruct w; last done.
-          eapply ref_flag_interp_le; eauto.
+          eapply ref_flag_ptr_interp_le; eauto.
       + cbn.
         iExists (wss1 ++ update_path_words k wst ws' :: wss2).
         iSplitR; first by rewrite concat_app concat_cons.
@@ -1209,4 +1210,5 @@ Section PathFacts.
         setoid_rewrite type_interp_eq.
         iExists _; eauto.
   Qed.
+
 End PathFacts.

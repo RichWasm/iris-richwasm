@@ -145,7 +145,6 @@ Section instr.
   Implicit Type cl : leibnizO function_closure.
   Implicit Type inst : leibnizO instance.
 
-  (*Definition value_relation : Type := leibnizO type -n> semantic_env -n> semantic_type.*)
   Definition semantic_type := semantic_env -n> SVR.
 
   Definition value_type_interp (ty : W.value_type) (v : value) : Prop :=
@@ -271,18 +270,25 @@ Section instr.
     | PtrHeap MemGC _ => True
     end.
 
-  Definition ref_flag_interp (ξ : ref_flag) : pointer -> Prop :=
+  Definition ref_flag_ptr_interp (ξ : ref_flag) : pointer -> Prop :=
     match ξ with
     | NoRefs => norefs_ptr_interp
     | GCRefs => gcrefs_ptr_interp
     | AnyRefs => const True
     end.
 
+  Definition ref_flag_stype_interp (ξ : ref_flag) (T : SVR) : Prop :=
+    match ξ with
+    | NoRefs
+    | GCRefs => forall sv, Persistent (T sv)
+    | AnyRefs => True
+    end.
+
   Definition ref_flag_atoms_interp (ξ : ref_flag) (sv : semantic_value) : Prop :=
-    forall_satoms sv (forall_ptr_atom (ref_flag_interp ξ)).
+    forall_satoms sv (forall_ptr_atom (ref_flag_ptr_interp ξ)).
 
   Definition ref_flag_words_interp (ξ : ref_flag) (sv : semantic_value) : Prop :=
-    forall_swords sv (forall_ptr_word (ref_flag_interp ξ)).
+    forall_swords sv (forall_ptr_word (ref_flag_ptr_interp ξ)).
 
   Definition ssize_interp (n : nat) (sv : semantic_value) : Prop :=
     match sv with
@@ -298,13 +304,8 @@ Section instr.
       end.
 
   Definition skind_has_stype (sκ : skind) (T : SVR) : Prop :=
-    forall sv, T sv -∗ ⌜skind_has_svalue sκ sv⌝.
+    ref_flag_stype_interp (skind_ref_flag sκ) T /\ (forall sv, T sv -∗ ⌜skind_has_svalue sκ sv⌝).
 
-  (*
-  Definition values_interp0 (vrel : value_relation) (se : semantic_env) :
-    leibnizO (list type) -n> OsR :=
-    λne τs os,
-      (∃ oss, ⌜os = concat oss⌝ ∗ [∗ list] τ; os ∈ τs; oss, vrel τ se (SAtoms os))%I. *)
   Program Definition eval_rep_se : semantic_env -n> leibnizO representation -n> leibnizO (option (list atomic_rep)) :=
     λne se ρ, eval_rep se ρ.
   Next Obligation.
@@ -868,26 +869,26 @@ Section instr.
   Qed.
   Final Obligation. solve_proper. Qed.
 
-  Program Definition mono_closure_interp (τs1 τs2 : list type) (Ts1 Ts2 : listO semantic_type) : semantic_env -n> ClR :=
+  Program Definition mono_closure_interp (τs1 τs2 : list type) (Ts1 Ts2 : listO semantic_type) :
+    semantic_env -n> ClR :=
     λne se cl,
       match cl with
       | FC_func_native inst (Tf ts1 ts2) tlocs es =>
           ⌜translate_types se τs1 = Some ts1⌝ ∗
           ⌜translate_types se τs2 = Some ts2⌝ ∗
           □ ▷ ∀ vs1 os1 θ,
-              atoms_interp os1 vs1 -∗
-              values_interp1 Ts1 se os1 -∗
-             rt_token rti sr θ -∗
-             na_own logrel_nais ⊤ -∗
-             ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
-             ↪[RUN] -∗
-             let Φ := λne vs2,
-               (∃ os2, atoms_interp os2 vs2 ∗
-                       values_interp1 Ts2 se os2) ∗
-               (∃ θ', rt_token rti sr θ') ∗
-               na_own logrel_nais ⊤
-             in
-             CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
+            atoms_interp os1 vs1 -∗
+            values_interp1 Ts1 se os1 -∗
+            rt_token rti sr θ -∗
+            na_own logrel_nais ⊤ -∗
+            ↪[frame] Build_frame (vs1 ++ n_zeros tlocs) inst -∗
+            ↪[RUN] -∗
+            let Φ := λne vs2,
+              (∃ os2, atoms_interp os2 vs2 ∗ values_interp1 Ts2 se os2) ∗
+              (∃ θ', rt_token rti sr θ') ∗
+              na_own logrel_nais ⊤
+            in
+            CWP es UNDER [(length ts2, const Φ)]; Some (length ts2, Φ) {{ const Φ }}
       | FC_func_host _ _ => False
       end%I.
   Next Obligation. solve_proper. Qed.
