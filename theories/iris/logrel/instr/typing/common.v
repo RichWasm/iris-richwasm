@@ -1644,49 +1644,4 @@ Qed.
     destruct p; simpl in *; done.
   Qed.
 
-  Lemma value_interp_norefs_persistent (se: semantic_env (Σ:=Σ)) τ sv :
-    ref_flag_atoms_interp NoRefs sv ->
-    Persistent (value_interp rti sr se τ sv).
-  Proof.
-(*   intros Href. *)
-(*   rewrite value_interp_eq. *)
-(*   rewrite /add_skind_interp. *)
-(*   apply bi.exist_persistent. intros sκ. *)
-(*   apply bi.sep_persistent; [apply bi.pure_persistent |]. *)
-(*   apply bi.sep_persistent; [apply bi.pure_persistent |]. *)
-(*   (* Now need to show pre_type_interp is persistent *) *)
-(*   destruct τ; simpl. *)
-(*   - (* VarT *) admit. *)
-(*   - (* I31T *) apply _. *)
-(*   - (* NumT *) apply _. *)
-(*   - unfold sum_interp. *)
-(*     destruct k; simpl; try apply _. *)
-(*     destruct r; simpl; try apply _. *)
-(*     apply bi.exist_persistent. intros i. *)
-(*     apply bi.exist_persistent. intros os'. *)
-(*     apply bi.exist_persistent. intros off. *)
-(*     apply bi.exist_persistent. intros count. *)
-(*     apply bi.sep_persistent; [apply bi.pure_persistent |]. *)
-(*     apply bi.sep_persistent; [apply bi.pure_persistent |]. *)
-(*     apply bi.sep_persistent; [apply bi.pure_persistent |]. *)
-(*     destruct (list_lookup i (map (type_interp rti sr) l)) eqn:Hlookup; simpl; try apply _. *)
-(*     admit. *)
-(*   - (* SumT *) apply sum_interp_persistent. (* assume, uses IH *) *)
-(*   - (* VariantT *) apply variant_interp_persistent. (* assume *) *)
-(*   - (* ProdT *) apply prod_interp_persistent. (* assume, uses IH *) *)
-(*   - (* StructT *) apply struct_interp_persistent. (* assume *) *)
-(*   - (* RefT *) (* impossible since NoRefs rules out RefT *) *)
-(*     exfalso. eapply has_kind_valtype_no_reftype. exact Hkind. *)
-(*   - (* CodeRefT *) apply coderef_interp_persistent. (* assume *) *)
-(*   - (* SerT *) apply ser_interp_persistent. (* assume *) *)
-(*   - (* PlugT *) apply plug_interp_persistent. (* assume *) *)
-(*   - (* SpanT *) apply span_interp_persistent. (* assume *) *)
-(*   - (* RecT *) apply rec_interp_persistent. (* assume, uses IH *) *)
-(*   - (* ExistsMemT *) apply exists_mem_interp_persistent. (* assume *) *)
-(*   - (* ExistsRepT *) apply exists_rep_interp_persistent. (* assume *) *)
-(*   - (* ExistsSizeT *) apply exists_size_interp_persistent. (* assume *) *)
-(*   - (* ExistsTypeT *) apply exists_type_interp_persistent. (* assume *) *)
-(* Qed. *)
-  Admitted.
-
 End common.

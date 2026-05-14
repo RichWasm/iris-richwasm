@@ -159,7 +159,8 @@ Section local_get_copy.
 
     iFrame "Hatoms_i".
 
-    have Hpers : Persistent (value_interp rti sr se τ (SAtoms os_i)) := value_interp_norefs_persistent rti sr mr se τ (SAtoms os_i) Href.
+    pose proof (kinding_sound rti sr mr _ _ _ _ _ H2 Hsem Heval_kind) as [Hpers _].
+    cbn in Hpers.
     iDestruct "Hval_i" as "#Hval_i".
 
     iDestruct (values_interp_one_eq with "Hval_i") as "Hval_i'".
