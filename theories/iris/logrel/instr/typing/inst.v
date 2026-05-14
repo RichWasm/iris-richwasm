@@ -1703,40 +1703,78 @@ Section inst.
     intros Hse' Hse Hsub_r Hsub_s Hsub_sκ Hsub_T.
 
     generalize dependent os; generalize dependent τs.
-    induction τs.
-
-    (*
-      induction τs as [| τ τs].
-    - intros os. iIntros "Hos". destruct os; done.
-    - intros os_big; iIntros "Hos".
-      cbn.
-      iDestruct "Hos" as "(%oss_big & %Hos_big & Hos)".
-      destruct oss_big as [|o oss]; [done|].
-      rewrite big_sepL2_cons.
-      rewrite big_sepL2_fmap_l.
-      iDestruct "Hos" as "[Hoa Hτsoss]".
-      cbn in IHτs.
-      setoid_rewrite big_sepL2_fmap_l in IHτs.
-      specialize (IHτs (concat oss)).
-      iDestruct IHτs as "#IHτs".
-      iAssert (∃ oss0, ⌜concat oss = concat oss0⌝ ∗
+    induction τs as [| τ τs].
+    - intros os. iSplitR; iIntros "Hos"; destruct os; done.
+    - intros os_big; iSplitR; iIntros "Hos".
+      (* TODO: these two cases are pretty much identical except for IH1/IH2 *)
+      (* condense *)
+      {
+        iDestruct "Hos" as "(%oss_big & %Hos_big & Hos)".
+        destruct oss_big as [|o oss]; [done|].
+        rewrite big_sepL2_cons.
+        rewrite big_sepL2_fmap_l.
+        iDestruct "Hos" as "[Hoa Hτsoss]".
+        cbn in IHτs.
+        setoid_rewrite big_sepL2_fmap_l in IHτs.
+        specialize (IHτs (concat oss)).
+        iAssert (∃ oss0, ⌜concat oss = concat oss0⌝ ∗
             ([∗ list] τ0;os ∈ τs;oss0, value_interp rti sr se' τ0 (SAtoms os)))%I with "[Hτsoss]"
-        as "Hτs'". {
-        iExists oss; iSplitR; done.
-      }
-      iPoseProof ("IHτs" with "[$Hτs']") as "Hτs''".
-      iDestruct "Hτs''" as "(%oss' & %Hc & Hτoss')".
-      (* note: concat oss = concat oss' does not imply oss = oss'. A bit stupid but okay. *)
+          as "Hτs'". {
+          iExists oss; iSplitR; done.
+        }
+        iPoseProof IHτs as "#IHτs".
+        iDestruct "IHτs" as "[IH1 IH2]".
+        iPoseProof ("IH1" with "[$Hτs']") as "Hτs''".
+        iDestruct "Hτs''" as "(%oss' & %Hc & Hτoss')".
+        (* note: concat oss = concat oss' does not imply oss = oss'. A bit stupid but okay. *)
 
-      iExists (o :: oss'); iSplitR. {
-        iPureIntro.
-        rewrite concat_cons; rewrite concat_cons in Hos_big. by rewrite <- Hc.
+        iExists (o :: oss'); iSplitR. {
+          iPureIntro.
+          rewrite concat_cons; rewrite concat_cons in Hos_big. by rewrite <- Hc.
+        }
+
+        iApply big_sepL2_cons.
+        rewrite !big_sepL2_fmap_l.
+        iSplitL "Hoa"; try done.
+        iApply (type_interp_subst_type_BIDIRECTIONAL se se' τ); try done.
+        (* NICE *)
       }
-      iApply big_sepL2_cons.
-      rewrite !big_sepL2_fmap_l.
-      iSplitL "Hoa"; first last.
-     *)
-  Admitted.
+      {
+        (* this should be similar to above *)
+        iDestruct "Hos" as "(%oss_big & %Hos_big & Hos)".
+        destruct oss_big as [|o oss]; [done|].
+        rewrite big_sepL2_cons.
+        rewrite big_sepL2_fmap_l.
+        iDestruct "Hos" as "[Hoa Hτsoss]".
+        cbn in IHτs.
+        setoid_rewrite big_sepL2_fmap_l in IHτs.
+        specialize (IHτs (concat oss)).
+        iAssert (∃ oss0, ⌜concat oss = concat oss0⌝ ∗
+            ([∗ list] τ0;os ∈ map (subst_type sub_m sub_r sub_s sub_t) τs;
+             oss0,
+               value_interp rti sr se τ0 (SAtoms os)))%I with "[Hτsoss]"
+          as "Hτs'". {
+          iExists oss; iSplitR; done.
+        }
+        iPoseProof IHτs as "#IHτs".
+        iDestruct "IHτs" as "[IH1 IH2]".
+        iPoseProof ("IH2" with "[$Hτs']") as "Hτs''".
+        iDestruct "Hτs''" as "(%oss' & %Hc & Hτoss')".
+        (* note: concat oss = concat oss' does not imply oss = oss'. A bit stupid but okay. *)
+
+        iExists (o :: oss'); iSplitR. {
+          iPureIntro.
+          rewrite concat_cons; rewrite concat_cons in Hos_big. by rewrite <- Hc.
+        }
+
+        iApply big_sepL2_cons.
+        rewrite !big_sepL2_fmap_l.
+        iSplitL "Hoa"; try done.
+        iApply (type_interp_subst_type_BIDIRECTIONAL se se' τ); try done.
+        (* YAYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY *)
+      }
+
+  Qed.
 
 
   (* TODO: The lemma for values_interp0 might require adding an assumption about
@@ -1861,6 +1899,8 @@ Section inst.
   (*   - admit. *)
   (* Admitted. *)
 
+  (* maybe make ∗-∗, but I might not *need* it? this is enough for
+     outer level, anyway *)
   Lemma closure_interp_subst_senv_eq se se' ϕ cl sub_m sub_r sub_s sub_t :
     (sem_env_types_well_formed se') ->
     (sem_env_types_well_formed se) ->
