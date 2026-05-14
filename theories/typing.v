@@ -221,6 +221,11 @@ Proof.
   destruct ξ, ξ'; simpl; auto.
 Qed.
 
+Lemma least_ref_flag ξ : ref_flag_le NoRefs ξ.
+Proof.
+  by destruct ξ.
+Qed.
+
 Inductive subkind_of : kind -> kind -> Prop :=
 | KSubVal ρ ξ ξ' :
   ref_flag_le ξ ξ' ->

@@ -571,14 +571,90 @@ Section kinding.
       by eexists.
   Qed.
 
+  Lemma ref_flag_stype_interp_refine ξ ξ' T :
+    ref_flag_le ξ ξ' ->
+    ref_flag_stype_interp ξ T ->
+    ref_flag_stype_interp (Σ:=Σ) ξ' T.
+  Proof.
+    intros Hξ HT.
+    by destruct ξ; destruct ξ'.
+  Qed.
+
   Lemma kinding_sound_ref_flag F se τ κ sκ :
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
     ref_flag_stype_interp (skind_ref_flag sκ) (value_interp rti sr se τ).
   Proof.
-    intros Hhas_kind Hhse Heval_kind.
-    destruct sκ as [ιs ξ|n ξ]; destruct ξ; try done; intros sv; rewrite value_interp_eq.
+    intros Hκ Hse Hsκ.
+    generalize dependent κ.
+    generalize dependent sκ.
+    induction τ using type_ind with (P0 := const True).
+    - (* VarT *)
+      intros ?? Hκ Hsκ.
+      admit.
+    - (* I31T *)
+      intros ?? Hκ0 Hsκ.
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      typeclasses eauto.
+    - (* NumT *)
+      intros ?? Hκ0 Hsκ.
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      typeclasses eauto.
+    - (* SumT *)
+      admit.
+    - (* VariantT *)
+      admit.
+    - (* ProdT *)
+      admit.
+    - (* StructT *)
+      admit.
+    - (* RefT *)
+      intros ?? Hκ0 Hsκ.
+      destruct m.
+      + (* VarM *)
+        admit.
+      + destruct b.
+        * (* MemMM *)
+          admit.
+        * (* MemGC *)
+          eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+          intros ?.
+          typeclasses eauto.
+    - (* CodeRefT *)
+      intros ?? Hκ0 Hsκ.
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      rewrite value_interp_eq.
+      typeclasses eauto.
+    - (* SerT *)
+      admit.
+    - (* PlugT *)
+      intros ?? Hκ0 Hsκ.
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      typeclasses eauto.
+    - intros ?? Hκ0 Hsκ.
+      eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
+      intros ?.
+      typeclasses eauto.
+    - (* RecT *)
+      admit.
+    - (* ExistsMemT *)
+      admit.
+    - (* ExistsRepT *)
+      admit.
+    - (* ExistsSizeT *)
+      admit.
+    - (* ExistsTypeT *)
+      admit.
+    - done.
+    - done.
+    - done.
+    - done.
+    - done.
   Admitted.
 
   Lemma kinding_sound_svalue F se τ κ sκ sv :
