@@ -2,6 +2,46 @@
 
 System F with refs, universals, _no existentials_, products, sums.
 
+## Grammar
+
+```
+τ ::=
+    | int
+    | x
+    | ((x₁ ... xₙ) τ₁ -> τ₂)
+    | (* τ₁ ... τₙ)
+    | (+ τ₁ ... τₙ)
+    | (rec (x) τ)
+    | (ref τ)
+
+binop := + | - | * | /
+
+e ::=
+    | n
+    | x
+    | (let (x : τ) e₁ e₂)
+    | (fun (x₁ ... xₙ) (x : τ₁) : τ₂ e)
+    | (lam (x₁ ... xₙ) (x : τ₁) : τ₂ e)
+    | (app f (τ₁ ... τₙ) e)
+    | (tup e₁ ... eₙ)
+    | (proj i e)
+    | (inj i e : τ)
+    | (cases e ((x₁ : τ₁) e₁) ... ((xₙ : τₙ) eₙ))
+    | (fold τ e)
+    | (unfold e)
+    | (if c t e)
+    | (op binop e₁ e₂)
+    | (new e)
+    | (! e)
+    | (assign e₁ e₂)
+
+im := (import (x : τ))
+fn := (export (x : τ) e)
+    | (private (x : τ) e)
+
+m := im* fn* [e]
+```
+
 ## Control Flow
 
 Restrict language to be in a monadic normal form.

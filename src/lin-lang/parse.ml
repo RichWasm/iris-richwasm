@@ -1,43 +1,8 @@
 open! Base
 open Sexplib
-open Syntax
 open Result
-
-module Path = struct
-  type seg =
-    | Tag of string
-    | Field of string
-    | Idx of int
-    | Choice of string
-    | Alt of string
-    | Commit
-  [@@deriving sexp]
-
-  type t = seg list [@@deriving sexp]
-
-  let empty : t = []
-  let length : Path.t -> int = List.length
-
-  let add ?(commit = true) ~(tag : string) ~(field : string) (ctx : t) =
-    if commit then
-      Field field :: Commit :: Tag tag :: ctx
-    else
-      Field field :: Tag tag :: ctx
-
-  let choose (p : t) (name : string) : t = Choice name :: p
-  let alt (p : t) (alt : string) : t = Alt alt :: p
-  let commit (p : t) : t = Commit :: p
-
-  let score (p : t) : int * int =
-    let commits, depth =
-      List.fold_left
-        ~f:(fun (c, d) -> function
-          | Commit -> (c + 1, d + 1)
-          | _ -> (c, d + 1))
-        ~init:(0, 0) p
-    in
-    (commits, depth)
-end
+open Syntax
+open Richwasm_common.Sexp_parse
 
 module Err = struct
   type t =
@@ -57,6 +22,7 @@ module Err = struct
     | ParseError of Parsexp.Parse_error.t
   [@@deriving sexp_of]
 
+  let expected_expr p s = ExpectedExpr (p, s)
   let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
   let path_of = function
@@ -85,33 +51,7 @@ module Err = struct
     if cmp_score s1 s2 >= 0 then e1 else e2
 end
 
-module Res = Util.ResultM (Err)
-
-let choice
-    (name : string)
-    (p : Path.t)
-    (sexp : Sexp.t)
-    (alts : ((Path.t -> Sexp.t -> 'a Res.t) * string) list) : 'a Res.t =
-  let p_choice = Path.choose p name in
-  let rec go best = function
-    | [] ->
-        (match best with
-        | None -> Error Err.(ExpectedExpr (p_choice, sexp))
-        | Some e -> Error e)
-    | (f, alt_name) :: fs ->
-        let p_alt = Path.alt p_choice alt_name in
-        (match f p_alt sexp with
-        | Ok x -> Ok x
-        | Error e ->
-            let best' =
-              Some
-                (match best with
-                | None -> e
-                | Some b -> Err.prefer b e)
-            in
-            go best' fs)
-  in
-  go None alts
+open (SexpParser (Err))
 
 let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
   let open Res in
