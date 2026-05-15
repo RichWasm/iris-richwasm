@@ -3050,6 +3050,7 @@ let%expect_test "examples" =
         local.set 0
         i32.const 0
         local.get 0
+        nop
         local.set 2
         local.set 1
         i32.const 2
@@ -3075,6 +3076,7 @@ let%expect_test "examples" =
         local.set 4
         i32.const 1
         local.get 4
+        nop
         local.set 6
         local.set 5
         i32.const 2
@@ -3100,6 +3102,7 @@ let%expect_test "examples" =
         local.set 8
         i32.const 1
         local.get 8
+        nop
         local.set 10
         local.set 9
         i32.const 2
@@ -3124,7 +3127,8 @@ let%expect_test "examples" =
         local.set 12
         local.set 12
         i32.const 1
-        local.get 12)
+        local.get 12
+        nop)
       (func (;8;) (type 5)
         global.get 0
         global.set 1
@@ -3184,6 +3188,7 @@ let%expect_test "examples" =
         local.set 10
         local.get 10
         local.get 11
+        nop
         local.set 21
         local.set 22
         i32.const 0
@@ -3355,6 +3360,7 @@ let%expect_test "examples" =
           local.set 33
           i32.const 1
           local.get 33
+          nop
           local.get 14
           drop
         end
@@ -3469,6 +3475,7 @@ let%expect_test "examples" =
           i32.const 1
           local.get 13
         end
+        nop
         local.get 2
         local.set 14
         local.get 14
@@ -3502,6 +3509,7 @@ let%expect_test "examples" =
         local.set 3
         local.get 4
         local.get 5
+        nop
         local.set 13
         local.set 14
         i32.const 0
