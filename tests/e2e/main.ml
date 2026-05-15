@@ -198,7 +198,7 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                 {|
                   ((imports ((FunctionType () ((Num (Int I32))) ((Num (Int I32))))))
                    (functions
-                    (((typ (FunctionType () (I31) ((Num (Int I32)))))
+                    (((typ (FunctionType () (I31) (I31)))
                       (locals ())
                       (body
                        ((LocalGet 0 Copy)
@@ -217,10 +217,9 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   (app add1 () 1)
                 |}
               in
-              (* let result, logs =
+              let result, logs =
                 Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
               in
-              check_result "2" Triple.E2Err.pp logs result *)
-              skip ());
+              check_result "2" Triple.E2Err.pp logs result);
         ] );
     ]

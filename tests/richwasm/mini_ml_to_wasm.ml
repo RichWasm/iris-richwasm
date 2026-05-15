@@ -2206,15 +2206,17 @@ let%expect_test "examples" =
           ((CodeRef
             (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
              ((Ref (Base GC) (Struct ((Ser I31) (Ser (Var 0)))))) ((Var 0))))
-           I31))))))
+           (Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))))))))
      (instr
       (Unpack (ValType (I31)) InferFx
        ((LocalSet 1) (LocalGet 1 Move) Copy (LocalSet 1) (Load (Path (0)) Follow)
         (LocalSet 2) Drop (LocalGet 2 Move) (LocalSet 3) (LocalGet 1 Move) Copy
         (LocalSet 1) (Load (Path (1)) Follow) (LocalSet 4) Drop (LocalGet 4 Move)
-        (LocalSet 5) (NumConst (Int I32) 42) Tag (LocalGet 5 Move) Copy
-        (LocalSet 5) (Inst (Type I31)) CallIndirect (LocalGet 5 Move) Drop
-        (LocalGet 3 Move) Drop (LocalGet 1 Move) Drop)))
+        (LocalSet 5) (NumConst (Int I32) 42) Tag (LocalGet 3 Move) Copy
+        (LocalSet 3) (Group 2) (New GC)
+        (Cast (Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+        (LocalGet 5 Move) Copy (LocalSet 5) (Inst (Type I31)) CallIndirect
+        (LocalGet 5 Move) Drop (LocalGet 3 Move) Drop (LocalGet 1 Move) Drop)))
      (env
       ((local_offset 1) (kinds ()) (labels ()) (return (I31))
        (functions
@@ -2395,9 +2397,19 @@ let%expect_test "examples" =
             (Variant
              ((Ser (Ref (Base GC) (Struct ())))
               (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-          (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
-          CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
-          (LocalGet 4 Move) Drop)))
+          (New GC) (LocalGet 6 Move) Copy (LocalSet 6) (Group 2) (New GC)
+          (Cast
+           (Ref (Base GC)
+            (Struct
+             ((Ser (Var 0))
+              (Ser
+               (Rec (VALTYPE (Atom Ptr) GCRefs)
+                (Ref (Base GC)
+                 (Variant
+                  ((Ser (Ref (Base GC) (Struct ())))
+                   (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
+          (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1))) CallIndirect
+          (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop (LocalGet 4 Move) Drop)))
        (env
         ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ((I31)))
          (return (I31))
@@ -2534,9 +2546,19 @@ let%expect_test "examples" =
              (Variant
               ((Ser (Ref (Base GC) (Struct ())))
                (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-           (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
-           CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
-           (LocalGet 4 Move) Drop))
+           (New GC) (LocalGet 6 Move) Copy (LocalSet 6) (Group 2) (New GC)
+           (Cast
+            (Ref (Base GC)
+             (Struct
+              ((Ser (Var 0))
+               (Ser
+                (Rec (VALTYPE (Atom Ptr) GCRefs)
+                 (Ref (Base GC)
+                  (Variant
+                   ((Ser (Ref (Base GC) (Struct ())))
+                    (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
+           (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1))) CallIndirect
+           (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop (LocalGet 4 Move) Drop))
          Untag (Num (Int2 I32 Add)) Tag (LocalGet 3 Move) Drop))))
      (env
       ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ())
@@ -2613,6 +2635,4 @@ let%expect_test "examples" =
     can't module check type not equal
     -----------closure_complex-----------
     FAILURE Typechecker failed with error(s):
-    can't module check
-      instruction has more arguments than large have_instruction type has, or can't frame out
-      type not equal |}]
+    can't module check type not equal type not equal |}]
