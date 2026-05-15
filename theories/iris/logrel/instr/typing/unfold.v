@@ -24,13 +24,20 @@ Section unfold.
     run_codegen (compile_instr mr fe (IUnfold ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    (* intros fe WT WL τrec ψ Hok Hcg. *)
-    (* cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg. *)
-    (* simpl to_e_list. *)
-    (* iApply sem_type_erased; first done. *)
-    (* iIntros (se vs) "Hrec". *)
-    (* do 2 rewrite values_interp_one_eq value_interp_eq. *)
-    (* iEval (cbn) in "Hrec". *)
+    intros fe WT WL lmask τrec Ψ Hok Hcg.
+    subst Ψ.
+    cbn [compile_instr] in Hcg.
+    inv_cg_emit Hcg; subst.
+    subst WT WL.
+    clear_nils.
+    simplify_eq.
+
+    simpl to_e_list.
+    iApply sem_type_erased_nop; first done.
+    iIntros (?????) "@@@@ Hval".
+    rewrite !values_interp_one_eq.
+    rewrite !value_interp_eq.
+    cbn [pre_type_interp rec_interp].
   Admitted.
 
 End unfold.

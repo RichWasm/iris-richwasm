@@ -1067,9 +1067,15 @@ Section common.
 
   Lemma sem_type_erased_nop M F L WT WL lmask ψ τs1 τs2 :
     ψ = InstrT τs1 τs2 ->
-    ⊢ (∀ se vs,
-          values_interp rti sr se τs1 vs -∗
-          ▷values_interp rti sr se τs2 vs) -∗
+    ⊢ (∀ se fr B R os,
+     "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+     "#Hinst" ∷ instance_interp rti sr mr M WT (f_inst fr) -∗
+     "#Hlabels"
+     ∷ labels_interp rti sr se (typing.fc_locals F) fr WL lmask 
+         (fc_labels F) B -∗
+     "#Hreturn" ∷ return_interp rti sr se (fc_return F) R -∗
+          values_interp rti sr se τs1 os -∗
+          ▷values_interp rti sr se τs2 os) -∗
       have_instr_type_sem rti sr mr M F L WT WL lmask [BI_nop] ψ L.
   Proof.
     iIntros (->) "Hcast".
@@ -1132,6 +1138,76 @@ Section common.
     induction H; try discriminate.
     - (* KSum *) injection Heqτ; intros; subst. eauto.
     - (* KSub *) eauto.
+  Qed.
+
+  Lemma has_kind_RecT_inv F τ κ κ' :
+    has_kind F (RecT κ τ) κ' →
+    subkind_of κ κ' ∧ has_kind (F <| fc_type_vars ::= cons κ |>) τ κ.
+  Proof.
+    intros H. remember (RecT κ τ) as τ'.
+    induction H; try discriminate.
+    - (* KRec *) injection Heqτ'; intros; subst. split; [apply subkind_of_refl |]. exact H.
+    - (* KSub *) destruct (IHhas_kind Heqτ') as [Hsub Hk]. split; [eauto using subkind_of_trans | exact Hk].
+  Qed.
+
+  Lemma eval_rep_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) ρ :
+    eval_rep (senv_insert_type sκ T se) ρ = eval_rep se ρ.
+  Proof.
+    induction ρ using rep_ind; cbn.
+    - reflexivity.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros ρ' IH. apply IH.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros ρ' IH. apply IH.
+    - reflexivity.
+  Qed.
+
+  Lemma eval_size_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) σ :
+    eval_size (senv_insert_type sκ T se) σ = eval_size se σ.
+  Proof.
+    induction σ using size_ind; cbn.
+    - reflexivity.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros σ' IH. apply IH.
+    - f_equal. apply Forall_mapM_ext. exact H.
+    - by rewrite eval_rep_senv_insert_type.
+    - reflexivity.
+  Qed.
+
+  Lemma eval_kind_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) κ :
+    eval_kind (senv_insert_type sκ T se) κ = eval_kind se κ.
+  Proof.
+    unfold eval_kind, senv_insert_type. simpl.
+    destruct κ; simpl.
+    - rewrite eval_rep_senv_insert_type. reflexivity.
+    - rewrite eval_size_senv_insert_type. reflexivity.
+  Qed.
+
+  Lemma sem_env_interp_extend_type F (se: semantic_env (Σ:=Σ)) κ sκ T :
+    sem_env_interp F se →
+    eval_kind se κ = Some sκ →
+    skind_has_stype sκ T →
+    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se).
+  Proof.
+    intros [Hkind Htype] Heval Hstype.
+    split.
+    - (* kind_ctx_interp *)
+      unfold kind_ctx_interp in *.
+      destruct Hkind as (Hmem & Hrep & Hsize).
+      repeat split; assumption.
+    - (* type_ctx_interp *)
+      unfold type_ctx_interp in *.
+      simpl.
+      apply Forall2_cons.
+      + split.
+        * rewrite eval_kind_senv_insert_type. by split.
+        * eapply Forall2_impl; first done.
+          intros κ0 [sκ0 T0] [Heval0 Hstype0].
+          rewrite eval_kind_senv_insert_type.
+          split; [exact Heval0 | exact Hstype0].
   Qed.
 
   Lemma lwp_wasm_empty_ctx s E es Φ:
@@ -1642,6 +1718,34 @@ Qed.
     specialize (Href k o Hok).
     destruct o; simpl in *; try done.
     destruct p; simpl in *; done.
+  Qed.
+
+  Lemma skind_rec_interp_unfold sκ T (se: semantic_env (Σ:=Σ)) sv :
+    skind_rec_interp sκ T se sv ≡ (▷ T (senv_insert_type sκ (skind_rec_interp sκ T se) se) sv)%I.
+  Proof.
+    simpl.
+    set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ, λne sv0 : leibnizO semantic_value, (▷ T (se.1, (sκ, T0) :: se.2) sv0)%I).
+     etransitivity.
+     - exact (fixpoint_unfold f sv).
+     - simpl. reflexivity.
+  Qed.
+
+  Lemma rec_interp_unfold κ T (se: semantic_env (Σ:=Σ)) sv :
+    rec_interp κ T se sv ≡
+    match eval_kind_se se κ with
+    | Some sκ => ▷ T (senv_insert_type sκ (skind_rec_interp sκ T se) se) sv
+    | None => False
+    end%I.
+  Proof.
+    unfold rec_interp. simpl.
+    destruct (eval_kind se κ) as [sκ|]; simpl.
+    - set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ,
+      λne sv0 : leibnizO semantic_value,
+      (▷ T (se.1, (sκ, T0) :: se.2) sv0)%I).
+      etransitivity.
+      + exact (fixpoint_unfold f sv).
+      + simpl. reflexivity.
+    - reflexivity.
   Qed.
 
 End common.

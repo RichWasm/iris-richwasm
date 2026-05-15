@@ -308,8 +308,8 @@ Section Compiler.
     | ICaseLoad _ _ _ _ => raise (EInvalidInstrT "ICaseLoad")
     | IGroup _ => erased_in_wasm_nop
     | IUngroup _ => erased_in_wasm_nop
-    | IFold _ => erased_in_wasm
-    | IUnfold  _ => erased_in_wasm
+    | IFold _ => erased_in_wasm_nop
+    | IUnfold  _ => erased_in_wasm_nop
     | IPack _ => erased_in_wasm
     | IUnpack ψ _ es => compile_unpack fe ψ (flip compile_instrs es)
     | ITag _ => compile_tag

@@ -24,14 +24,50 @@ Section fold.
     run_codegen (compile_instr mr fe (IFold ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
-    (* intros fe WT WL τrec ψ Hok Hcg. *)
-    (* cbn in Hcg; inversion Hcg; subst wt' wl' es'; clear Hcg. *)
-    (* simpl to_e_list. *)
-    (* iApply sem_type_erased; first done. *)
-    (* iIntros (se vs) "Hrec". *)
-    (* do 2 rewrite values_interp_one_eq value_interp_eq. *)
-    (* iEval (cbn). *)
-    (* admit. *)
+    intros fe WT WL lmask τrec Ψ Hok Hcg.
+    subst Ψ.
+    cbn [compile_instr] in Hcg.
+    inv_cg_emit Hcg; subst.
+    subst WT WL.
+    clear_nils.
+    simplify_eq.
+
+    simpl to_e_list.
+    iApply sem_type_erased_nop; first done.
+    iIntros (?????) "@@@@ Hval".
+    rewrite !values_interp_one_eq.
+    rewrite !value_interp_eq.
+    cbn [pre_type_interp rec_interp].
+    iDestruct "Hval" as "(%sk & %Htsk & %Hskhsv & Htrec)".
+
+    inversion Hok; subst.
+    inversion H; subst.
+    rewrite Forall_singleton in H2.
+    inversion H2; subst.
+    inversion H3; subst.
+
+    apply has_kind_RecT_inv in H5 as [Hsubkind Hhas_kind].
+    inversion Hsubkind; subst.
+
+    pose proof (has_kind_inv _ _ _ Hhas_kind) as Hkind_ok.
+    inversion Hkind_ok as [F' τ' κ' Ht Hk]; subst.
+    (* iDestruct "Hval" as "(%sk & %Htsk & %Hskhsv & Htrec)". *)
+    iExists _.
+    rewrite rec_interp_unfold.
+    (* eapply eval_kind_ok_Some in Hk; eauto. *)
+    (* 2 : { *)
+    (*   apply sem_env_interp_extend_type; try done. *)
+    (**)
+    (* } *)
+    (* destruct Hk as [sκ Hev]. *)
+    (* pose proof (kinding_sound rti sr mr _ _ _ _ _ Hκ HF Hev) as [_ Hsv]. *)
+    (* iDestruct (Hsv with "Hws") as "%Hkind". *)
+    (**)
+    (* eval_kind_ok_Some *)
+    unfold rec_interp.
+    iSimpl.
+    cbn [rec_interp].
+
   Admitted.
 
 End fold.
