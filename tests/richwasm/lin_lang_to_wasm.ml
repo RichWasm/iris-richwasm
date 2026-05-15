@@ -60,8 +60,7 @@ let%expect_test "simple programs" =
 
 let%expect_test "examples" =
   output_examples ();
-  [%expect
-    {|
+  [%expect{|
     -----------one-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -361,7 +360,7 @@ let%expect_test "examples" =
       (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 4) (result i32)
-        i32.const 0
+        i32.const -30
         i32.const 10
         i32.div_s)
       (func (;8;) (type 5)
@@ -1160,6 +1159,181 @@ let%expect_test "examples" =
       (export "_start" (func 8))
       (export "__rw_table_func_7" (func 7))
       (start 9))
+
+    -----------mk_id_tl_anf-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32) (result i32)))
+      (type (;5;) (func (param i32 i32) (result i32 i32)))
+      (type (;6;) (func (result i32)))
+      (type (;7;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 3
+        local.get 2
+        local.set 4
+        local.get 4
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 4
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 4
+            call 4
+          else
+            local.get 4
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;8;) (type 5) (param i32 i32) (result i32 i32)
+        (local i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        i32.const 0
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 4
+        local.get 4
+        nop
+        local.get 2
+        local.set 5
+        local.get 5
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 5
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 5
+            call 4
+          else
+            local.get 5
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;9;) (type 6) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 1
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 10
+        local.get 10
+        nop
+        block (param i32 i32) (result i32 i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 0
+          nop
+          local.get 2
+          call_indirect (type 5)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end
+        local.set 5
+        local.set 4
+        local.get 4
+        local.get 5
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 7
+          local.set 6
+          local.get 6
+          local.get 7
+          nop
+          local.set 9
+          local.set 8
+          local.get 9
+          i32.const 10
+          nop
+          local.get 8
+          call_indirect (type 4)
+          local.get 8
+          drop
+          local.get 9
+          drop
+          local.get 6
+          local.get 7
+          drop
+          drop
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;10;) (type 7)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 2
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 9))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (start 10))
 
     -----------triangle_tl-----------
     (module
@@ -2073,30 +2247,26 @@ let%expect_test "examples" =
             ((CodeRef
               (FunctionType ()
                ((Prod
-                 ((Ref (Base MM) (Ser (Var 0)))
+                 ((Var 0)
                   (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                    (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                       (FunctionType () ((Prod ((Var 0) (Var 1))))
                         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                            (Var 0)))))))
+                      (Var 0))))))))
                ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                      ((Num (Int I32)))))
-                   (Ref (Base MM) (Ser (Var 0)))))))))
-             (Ref (Base MM) (Ser (Var 0))))))
+                   (Var 0)))))))
+             (Var 0))))
           (Plug (Prod ((Atom I32) (Atom I32)))))))
        (instr
         (Fold
@@ -2104,34 +2274,30 @@ let%expect_test "examples" =
           (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
            (Prod
             ((CodeRef
-              (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+              (FunctionType () ((Prod ((Var 0) (Var 1))))
                ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                      ((Num (Int I32)))))
-                   (Ref (Base MM) (Ser (Var 0)))))))))
-             (Ref (Base MM) (Ser (Var 0)))))))))
+                   (Var 0)))))))
+             (Var 0)))))))
        (env
-        ((local_offset 1)
-         (kinds ((VALTYPE (Prod ((Prod ((Atom I32) (Atom Ptr))))) AnyRefs)))
+        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) AnyRefs)))
          (labels
           (((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
              (Prod
               ((CodeRef
-                (FunctionType ()
-                 ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                  ((Num (Int I32)))))
-               (Ref (Base MM) (Ser (Var 0)))))))))
+               (Var 0)))))))
          (return
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (functions
           ((FunctionType ()
             ((Prod
@@ -2143,46 +2309,39 @@ let%expect_test "examples" =
                      ((CodeRef
                        (FunctionType ()
                         ((Prod
-                          ((Ref (Base MM) (Ser (Var 0)))
+                          ((Var 0)
                            (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                             (Prod
                              ((CodeRef
                                (FunctionType ()
-                                ((Prod
-                                  ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                                ((Prod ((Var 0) (Num (Int I32)))))
                                 ((Num (Int I32)))))
-                              (Ref (Base MM) (Ser (Var 0)))))))))
+                              (Var 0)))))))
                         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                            (Var 0)))))))
+                      (Var 0))))))))
                (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                 (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                    (FunctionType () ((Prod ((Var 0) (Var 1))))
                      ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                        (Prod
                         ((CodeRef
-                          (FunctionType ()
-                           ((Prod
-                             ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                          (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                            ((Num (Int I32)))))
-                         (Ref (Base MM) (Ser (Var 0)))))))))
-                   (Ref (Base MM) (Ser (Var 0))))))))))
+                         (Var 0)))))))
+                   (Var 0))))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM) (Ser (Prod ())))
@@ -2191,30 +2350,26 @@ let%expect_test "examples" =
                  ((CodeRef
                    (FunctionType ()
                     ((Prod
-                      ((Ref (Base MM) (Ser (Var 0)))
+                      ((Var 0)
                        (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
+                          (Var 0)))))))
                     ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM)
@@ -2223,10 +2378,9 @@ let%expect_test "examples" =
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                      (Var 0))))))))
                (Num (Int I32)))))
             ((Num (Int I32))))
            (FunctionType ()
@@ -2235,17 +2389,15 @@ let%expect_test "examples" =
                (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType () () ((Num (Int I32))))))
          (table
           ((FunctionType ()
@@ -2258,46 +2410,39 @@ let%expect_test "examples" =
                      ((CodeRef
                        (FunctionType ()
                         ((Prod
-                          ((Ref (Base MM) (Ser (Var 0)))
+                          ((Var 0)
                            (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                             (Prod
                              ((CodeRef
                                (FunctionType ()
-                                ((Prod
-                                  ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                                ((Prod ((Var 0) (Num (Int I32)))))
                                 ((Num (Int I32)))))
-                              (Ref (Base MM) (Ser (Var 0)))))))))
+                              (Var 0)))))))
                         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                            (Var 0)))))))
+                      (Var 0))))))))
                (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                 (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                    (FunctionType () ((Prod ((Var 0) (Var 1))))
                      ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                        (Prod
                         ((CodeRef
-                          (FunctionType ()
-                           ((Prod
-                             ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                          (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                            ((Num (Int I32)))))
-                         (Ref (Base MM) (Ser (Var 0)))))))))
-                   (Ref (Base MM) (Ser (Var 0))))))))))
+                         (Var 0)))))))
+                   (Var 0))))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM) (Ser (Prod ())))
@@ -2306,30 +2451,26 @@ let%expect_test "examples" =
                  ((CodeRef
                    (FunctionType ()
                     ((Prod
-                      ((Ref (Base MM) (Ser (Var 0)))
+                      ((Var 0)
                        (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
+                          (Var 0)))))))
                     ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))
+                (Var 0))))))
            (FunctionType ()
             ((Prod
               ((Ref (Base MM)
@@ -2338,10 +2479,9 @@ let%expect_test "examples" =
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0))))))))))
+                      (Var 0))))))))
                (Num (Int I32)))))
             ((Num (Int I32))))
            (FunctionType ()
@@ -2350,17 +2490,15 @@ let%expect_test "examples" =
                (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
+                  (Var 0)))))))
             ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0))))))))))
+                (Var 0))))))))
          (lfx (InferFx))))
        (state
         ((locals
@@ -2372,42 +2510,36 @@ let%expect_test "examples" =
            (CodeRef
             (FunctionType ()
              ((Prod
-               ((Ref (Base MM) (Ser (Var 0)))
+               ((Var 0)
                 (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                  (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                   (Prod
                    ((CodeRef
-                     (FunctionType ()
-                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                     (FunctionType () ((Prod ((Var 0) (Var 1))))
                       ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                          (Var 0)))))))
+                    (Var 0))))))))
              ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                (Prod
                 ((CodeRef
-                  (FunctionType ()
-                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                  (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                    ((Num (Int I32)))))
-                 (Ref (Base MM) (Ser (Var 0)))))))))
+                 (Var 0)))))))
            (Plug (Prod ((Atom I32))))))
-         (stack
-          ((Plug (Prod ((Atom I32) (Atom I32)))) (Ref (Base MM) (Ser (Var 0)))))))))
+         (stack ((Plug (Prod ((Atom I32) (Atom I32)))) (Var 0)))))))
      (instr
       (Unpack
        (ValType
         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
               ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0))))))))
+            (Var 0))))))
        InferFx
        ((LocalSet 6) (LocalGet 6 Follow) Ungroup (LocalSet 8) (LocalSet 7)
         (LocalGet 8 Follow) (LocalGet 5 Follow)
@@ -2416,15 +2548,14 @@ let%expect_test "examples" =
           (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
            (Prod
             ((CodeRef
-              (FunctionType () ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+              (FunctionType () ((Prod ((Var 0) (Var 1))))
                ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                  (Prod
                   ((CodeRef
-                    (FunctionType ()
-                     ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                    (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                      ((Num (Int I32)))))
-                   (Ref (Base MM) (Ser (Var 0)))))))))
-             (Ref (Base MM) (Ser (Var 0))))))))
+                   (Var 0)))))))
+             (Var 0))))))
         (Group 2) (LocalGet 7 Follow) CallIndirect (LocalGet 7 Move) Drop
         (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop)))
      (env
@@ -2433,10 +2564,9 @@ let%expect_test "examples" =
         ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
               ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0))))))))
+            (Var 0))))))
        (functions
         ((FunctionType ()
           ((Prod
@@ -2448,45 +2578,38 @@ let%expect_test "examples" =
                    ((CodeRef
                      (FunctionType ()
                       ((Prod
-                        ((Ref (Base MM) (Ser (Var 0)))
+                        ((Var 0)
                          (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
+                            (Var 0)))))))
                       ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                          (Var 0)))))))
+                    (Var 0))))))))
              (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
               (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                (Prod
                 ((CodeRef
-                  (FunctionType ()
-                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                  (FunctionType () ((Prod ((Var 0) (Var 1))))
                    ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                      (Prod
                       ((CodeRef
-                        (FunctionType ()
-                         ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                          ((Num (Int I32)))))
-                       (Ref (Base MM) (Ser (Var 0)))))))))
-                 (Ref (Base MM) (Ser (Var 0))))))))))
+                       (Var 0)))))))
+                 (Var 0))))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM) (Ser (Prod ())))
@@ -2495,29 +2618,26 @@ let%expect_test "examples" =
                ((CodeRef
                  (FunctionType ()
                   ((Prod
-                    ((Ref (Base MM) (Ser (Var 0)))
+                    ((Var 0)
                      (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0)))))))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                      (Var 0)))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM)
@@ -2526,10 +2646,9 @@ let%expect_test "examples" =
                 ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                   (Prod
                    ((CodeRef
-                     (FunctionType ()
-                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                     (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                       ((Num (Int I32)))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                    (Var 0))))))))
              (Num (Int I32)))))
           ((Num (Int I32))))
          (FunctionType ()
@@ -2538,17 +2657,15 @@ let%expect_test "examples" =
              (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType () () ((Num (Int I32))))))
        (table
         ((FunctionType ()
@@ -2561,45 +2678,38 @@ let%expect_test "examples" =
                    ((CodeRef
                      (FunctionType ()
                       ((Prod
-                        ((Ref (Base MM) (Ser (Var 0)))
+                        ((Var 0)
                          (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                           (Prod
                            ((CodeRef
-                             (FunctionType ()
-                              ((Prod
-                                ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                               ((Num (Int I32)))))
-                            (Ref (Base MM) (Ser (Var 0)))))))))
+                            (Var 0)))))))
                       ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                         (Prod
                          ((CodeRef
-                           (FunctionType ()
-                            ((Prod
-                              ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                           (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                             ((Num (Int I32)))))
-                          (Ref (Base MM) (Ser (Var 0)))))))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                          (Var 0)))))))
+                    (Var 0))))))))
              (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
               (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                (Prod
                 ((CodeRef
-                  (FunctionType ()
-                   ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                  (FunctionType () ((Prod ((Var 0) (Var 1))))
                    ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                      (Prod
                       ((CodeRef
-                        (FunctionType ()
-                         ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                        (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                          ((Num (Int I32)))))
-                       (Ref (Base MM) (Ser (Var 0)))))))))
-                 (Ref (Base MM) (Ser (Var 0))))))))))
+                       (Var 0)))))))
+                 (Var 0))))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM) (Ser (Prod ())))
@@ -2608,29 +2718,26 @@ let%expect_test "examples" =
                ((CodeRef
                  (FunctionType ()
                   ((Prod
-                    ((Ref (Base MM) (Ser (Var 0)))
+                    ((Var 0)
                      (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                       (Prod
                        ((CodeRef
-                         (FunctionType ()
-                          ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                         (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                           ((Num (Int I32)))))
-                        (Ref (Base MM) (Ser (Var 0)))))))))
+                        (Var 0)))))))
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0)))))))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                      (Var 0)))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))
+              (Var 0))))))
          (FunctionType ()
           ((Prod
             ((Ref (Base MM)
@@ -2639,10 +2746,9 @@ let%expect_test "examples" =
                 ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                   (Prod
                    ((CodeRef
-                     (FunctionType ()
-                      ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                     (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                       ((Num (Int I32)))))
-                    (Ref (Base MM) (Ser (Var 0))))))))))
+                    (Var 0))))))))
              (Num (Int I32)))))
           ((Num (Int I32))))
          (FunctionType ()
@@ -2651,17 +2757,15 @@ let%expect_test "examples" =
              (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
               (Prod
                ((CodeRef
-                 (FunctionType ()
-                  ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                 (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                   ((Num (Int I32)))))
-                (Ref (Base MM) (Ser (Var 0)))))))))
+                (Var 0)))))))
           ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
             (Prod
              ((CodeRef
-               (FunctionType ()
-                ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+               (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                 ((Num (Int I32)))))
-              (Ref (Base MM) (Ser (Var 0))))))))))
+              (Var 0))))))))
        (lfx ())))
      (state
       ((locals
@@ -2672,39 +2776,35 @@ let%expect_test "examples" =
          (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
          (Plug (Prod ((Atom I32))))))
        (stack
-        ((Exists (Type (VALTYPE (Prod ((Prod ((Atom I32) (Atom Ptr))))) AnyRefs))
+        ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
              (FunctionType ()
               ((Prod
-                ((Ref (Base MM) (Ser (Var 0)))
+                ((Var 0)
                  (Rec (VALTYPE (Prod ((Atom I32) (Atom Ptr))) AnyRefs)
                   (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                    (Prod
                     ((CodeRef
-                      (FunctionType ()
-                       ((Prod ((Ref (Base MM) (Ser (Var 0))) (Var 1))))
+                      (FunctionType () ((Prod ((Var 0) (Var 1))))
                        ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                          (Prod
                           ((CodeRef
-                            (FunctionType ()
-                             ((Prod
-                               ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                            (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                              ((Num (Int I32)))))
-                           (Ref (Base MM) (Ser (Var 0)))))))))
-                     (Ref (Base MM) (Ser (Var 0))))))))))
+                           (Var 0)))))))
+                     (Var 0))))))))
               ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0)))))))))
-            (Ref (Base MM) (Ser (Var 0)))))))))))
+                  (Var 0)))))))
+            (Var 0)))))))))
     -----------unboxed_list[invalid]-----------
     FAILURE (Codegen
      (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177")))))
-    -----------boxed_list-----------
+    -----------boxed_list[invalid]-----------
     FAILURE (InstrErr
      (error
       (CannotInferLfx
@@ -2731,10 +2831,9 @@ let%expect_test "examples" =
           (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
            (Prod
             ((CodeRef
-              (FunctionType ()
-               ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+              (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                ((Num (Int I32)))))
-             (Ref (Base MM) (Ser (Var 0))))))
+             (Var 0))))
           (Plug (Prod ((Atom I32) (Atom I32) (Atom I32)))) (Plug (Prod ()))
           (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32) (Atom I32))))
@@ -2780,20 +2879,19 @@ let%expect_test "examples" =
            (LocalGet 10 Follow) CallIndirect (LocalGet 10 Move) Drop
            (LocalGet 11 Move) Drop (LocalGet 9 Move) Drop))
          (CodeRef 1) (Group 0) (New MM) (Group 2)
-         (Pack (Type (Prod ()))
+         (Pack (Type (Ref (Base MM) (Ser (Prod ()))))
           (Prod
            ((CodeRef
              (FunctionType ()
               ((Prod
-                ((Ref (Base MM) (Ser (Var 0)))
+                ((Var 0)
                  (Prod
                   ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                     (Prod
                      ((CodeRef
-                       (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                       (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                         ((Num (Int I32)))))
-                      (Ref (Base MM) (Ser (Var 0))))))
+                      (Var 0))))
                    (Rec
                     (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
                      AnyRefs)
@@ -2806,7 +2904,7 @@ let%expect_test "examples" =
                 (Sum
                  ((Prod ())
                   (Prod ((Num (Int I32)) (Ref (Base MM) (Ser (Var 0)))))))))))
-            (Ref (Base MM) (Ser (Var 0))))))
+            (Var 0))))
          (Unpack
           (ValType
            ((Rec
@@ -2850,10 +2948,9 @@ let%expect_test "examples" =
               ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0))))))
+                  (Var 0))))
                (Rec
                 (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
                  AnyRefs)
@@ -2880,10 +2977,9 @@ let%expect_test "examples" =
               ((Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
                 (Prod
                  ((CodeRef
-                   (FunctionType ()
-                    ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+                   (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
                     ((Num (Int I32)))))
-                  (Ref (Base MM) (Ser (Var 0))))))
+                  (Var 0))))
                (Rec
                 (VALTYPE (Sum ((Prod ()) (Prod ((Atom I32) (Atom Ptr)))))
                  AnyRefs)
@@ -2905,10 +3001,9 @@ let%expect_test "examples" =
          (Exists (Type (VALTYPE (Atom Ptr) AnyRefs))
           (Prod
            ((CodeRef
-             (FunctionType ()
-              ((Prod ((Ref (Base MM) (Ser (Var 0))) (Num (Int I32)))))
+             (FunctionType () ((Prod ((Var 0) (Num (Int I32)))))
               ((Num (Int I32)))))
-            (Ref (Base MM) (Ser (Var 0))))))
+            (Var 0))))
          (Plug (Prod ((Atom I32) (Atom I32) (Atom I32)))) (Plug (Prod ()))
          (Plug (Prod ((Atom I32) (Atom I32)))) (Plug (Prod ((Atom I32))))
          (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32) (Atom I32))))
@@ -4127,4 +4222,1283 @@ let%expect_test "examples" =
       (export "__rw_table_func_7" (func 7))
       (export "__rw_table_func_8" (func 8))
       (export "__rw_table_func_9" (func 9))
+      (start 10))
+
+    -----------apply_hof-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32) (result i32)))
+      (type (;5;) (func (param i32 i32 i32 i32) (result i32)))
+      (type (;6;) (func (result i32)))
+      (type (;7;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 2
+        local.tee 5
+        local.get 5
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+          unreachable
+        else
+          local.get 5
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          end
+        end
+        local.set 6
+        local.get 6
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 6
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 6
+            call 4
+          else
+            local.get 6
+            call 6
+          end
+        end
+        nop
+        local.get 3
+        local.set 4
+        local.get 4
+        i32.const 5
+        i32.add
+        local.get 4
+        drop
+        local.get 2
+        drop
+        local.get 3
+        drop)
+      (func (;8;) (type 5) (param i32 i32 i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        local.get 3
+        nop
+        local.set 7
+        local.set 6
+        local.set 5
+        local.set 4
+        local.get 5
+        local.get 6
+        local.get 7
+        nop
+        local.set 10
+        local.set 9
+        local.set 8
+        local.get 8
+        local.get 9
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 12
+          local.set 11
+          local.get 11
+          local.get 12
+          nop
+          local.set 14
+          local.set 13
+          local.get 14
+          local.get 10
+          nop
+          local.get 13
+          call_indirect (type 4)
+          local.get 13
+          drop
+          local.get 14
+          drop
+          local.get 11
+          local.get 12
+          drop
+          drop
+        end
+        local.get 8
+        local.get 9
+        drop
+        drop
+        local.get 10
+        drop
+        local.get 4
+        local.set 15
+        local.get 15
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 15
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 15
+            call 4
+          else
+            local.get 15
+            call 6
+          end
+        end
+        local.get 5
+        local.get 6
+        local.get 7
+        drop
+        drop
+        drop)
+      (func (;9;) (type 6) (result i32)
+        (local i32 i32 i32 i32 i32 i32)
+        i32.const 1
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 4
+        local.get 4
+        nop
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 0
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 5
+          local.get 5
+          nop
+          i32.const 10
+          nop
+          nop
+          local.get 2
+          call_indirect (type 5)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end)
+      (func (;10;) (type 7)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 2
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 9))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (start 10))
+
+    -----------compose_hof-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32) (result i32)))
+      (type (;5;) (func (param i32 i32 i32 i32 i32 i32) (result i32)))
+      (type (;6;) (func (result i32)))
+      (type (;7;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 2
+        local.tee 5
+        local.get 5
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+          unreachable
+        else
+          local.get 5
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          end
+        end
+        local.set 6
+        local.get 6
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 6
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 6
+            call 4
+          else
+            local.get 6
+            call 6
+          end
+        end
+        nop
+        local.get 3
+        local.set 4
+        local.get 4
+        i32.const 1
+        i32.add
+        local.get 4
+        drop
+        local.get 2
+        drop
+        local.get 3
+        drop)
+      (func (;8;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 2
+        local.tee 5
+        local.get 5
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+          unreachable
+        else
+          local.get 5
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          end
+        end
+        local.set 6
+        local.get 6
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 6
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 6
+            call 4
+          else
+            local.get 6
+            call 6
+          end
+        end
+        nop
+        local.get 3
+        local.set 4
+        local.get 4
+        i32.const 2
+        i32.mul
+        local.get 4
+        drop
+        local.get 2
+        drop
+        local.get 3
+        drop)
+      (func (;9;) (type 5) (param i32 i32 i32 i32 i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        local.get 3
+        local.get 4
+        local.get 5
+        nop
+        local.set 11
+        local.set 10
+        local.set 9
+        local.set 8
+        local.set 7
+        local.set 6
+        local.get 7
+        local.get 8
+        local.get 9
+        local.get 10
+        local.get 11
+        nop
+        local.set 16
+        local.set 15
+        local.set 14
+        local.set 13
+        local.set 12
+        local.get 12
+        local.get 13
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 18
+          local.set 17
+          local.get 17
+          local.get 18
+          nop
+          local.set 20
+          local.set 19
+          local.get 20
+          local.get 14
+          local.get 15
+          block (param i32 i32) (result i32)  ;; label = @2
+            local.set 22
+            local.set 21
+            local.get 21
+            local.get 22
+            nop
+            local.set 24
+            local.set 23
+            local.get 24
+            local.get 16
+            nop
+            local.get 23
+            call_indirect (type 4)
+            local.get 23
+            drop
+            local.get 24
+            drop
+            local.get 21
+            local.get 22
+            drop
+            drop
+          end
+          nop
+          local.get 19
+          call_indirect (type 4)
+          local.get 19
+          drop
+          local.get 20
+          drop
+          local.get 17
+          local.get 18
+          drop
+          drop
+        end
+        local.get 12
+        local.get 13
+        drop
+        drop
+        local.get 14
+        local.get 15
+        drop
+        drop
+        local.get 16
+        drop
+        local.get 6
+        local.set 25
+        local.get 25
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 25
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 25
+            call 4
+          else
+            local.get 25
+            call 6
+          end
+        end
+        local.get 7
+        local.get 8
+        local.get 9
+        local.get 10
+        local.get 11
+        drop
+        drop
+        drop
+        drop
+        drop)
+      (func (;10;) (type 6) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32)
+        i32.const 2
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 4
+        local.get 4
+        nop
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 0
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 5
+          local.get 5
+          nop
+          i32.const 1
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 6
+          local.get 6
+          nop
+          i32.const 5
+          nop
+          nop
+          local.get 2
+          call_indirect (type 5)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end)
+      (func (;11;) (type 7)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 3
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0
+        global.get 1
+        i32.const 2
+        i32.add
+        i32.const 9
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 10))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (export "__rw_table_func_9" (func 9))
+      (start 11))
+
+    -----------mk_adder_apply_to-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32) (result i32)))
+      (type (;5;) (func (param i32 i32) (result i32 i32)))
+      (type (;6;) (func (param i32 i32 i32) (result i32)))
+      (type (;7;) (func (result i32)))
+      (type (;8;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 2
+        local.tee 7
+        local.get 7
+        i32.const 0
+        i32.const 0
+        call 3
+        local.get 7
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (result i32)  ;; label = @1
+          unreachable
+        else
+          local.get 7
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            local.get 7
+            i32.load offset=3 align=2
+            local.tee 8
+          else
+            local.get 7
+            i32.load 1 offset=1 align=2
+            i32.load 1 offset=1 align=2
+            local.tee 9
+          end
+        end
+        local.set 4
+        local.set 10
+        local.get 10
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 10
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 10
+            call 4
+          else
+            local.get 10
+            call 6
+          end
+        end
+        local.get 4
+        nop
+        local.set 5
+        local.get 3
+        local.set 6
+        local.get 6
+        local.get 5
+        i32.add
+        local.get 6
+        drop
+        local.get 5
+        drop
+        local.get 2
+        drop
+        local.get 3
+        drop)
+      (func (;8;) (type 5) (param i32 i32) (result i32 i32)
+        (local i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        i32.const 0
+        global.get 1
+        i32.add
+        local.get 3
+        nop
+        local.set 4
+        i32.const 1
+        call 1
+        local.set 5
+        local.get 5
+        i32.const 0
+        i32.const 0
+        call 3
+        local.get 5
+        local.get 4
+        i32.store offset=3 align=2
+        local.get 5
+        nop
+        local.get 2
+        local.set 6
+        local.get 6
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 6
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 6
+            call 4
+          else
+            local.get 6
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;9;) (type 6) (param i32 i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        nop
+        local.set 5
+        local.set 4
+        local.set 3
+        local.get 4
+        local.get 5
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 7
+          local.set 6
+          local.get 6
+          local.get 7
+          nop
+          local.set 9
+          local.set 8
+          local.get 9
+          i32.const 100
+          nop
+          local.get 8
+          call_indirect (type 4)
+          local.get 8
+          drop
+          local.get 9
+          drop
+          local.get 6
+          local.get 7
+          drop
+          drop
+        end
+        local.get 3
+        local.set 10
+        local.get 10
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 10
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 10
+            call 4
+          else
+            local.get 10
+            call 6
+          end
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;10;) (type 7) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 2
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 8
+        local.get 8
+        nop
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 1
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 9
+          local.get 9
+          nop
+          block (param i32 i32) (result i32 i32)  ;; label = @2
+            local.set 5
+            local.set 4
+            local.get 4
+            local.get 5
+            nop
+            local.set 7
+            local.set 6
+            local.get 7
+            i32.const 7
+            nop
+            local.get 6
+            call_indirect (type 5)
+            local.get 6
+            drop
+            local.get 7
+            drop
+            local.get 4
+            local.get 5
+            drop
+            drop
+          end
+          nop
+          local.get 2
+          call_indirect (type 6)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end)
+      (func (;11;) (type 8)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 3
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0
+        global.get 1
+        i32.const 2
+        i32.add
+        i32.const 9
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 10))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
+      (export "__rw_table_func_9" (func 9))
+      (start 11))
+
+    -----------closure_with_ref-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (result i32)))
+      (type (;5;) (func))
+      (type (;6;) (func (param i32 i32) (result i32)))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 1) (param i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        nop
+        local.set 1
+        local.get 1
+        local.tee 5
+        local.get 5
+        i32.const 0
+        i32.const 0
+        call 3
+        local.get 5
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (result i32)  ;; label = @1
+          unreachable
+        else
+          local.get 5
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            local.get 5
+            i32.load offset=3 align=2
+            local.tee 6
+            local.get 6
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (param i32) (result i32)  ;; label = @3
+            else
+              local.get 6
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              end
+            end
+          else
+            local.get 5
+            i32.load 1 offset=1 align=2
+            i32.load 1 offset=1 align=2
+            local.tee 7
+            local.get 7
+            i32.const 1
+            i32.and
+            i32.eqz
+            if (param i32) (result i32)  ;; label = @3
+            else
+              local.get 7
+              i32.const 2
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                call 5
+              end
+            end
+          end
+        end
+        local.set 2
+        local.set 8
+        local.get 8
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 8
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 8
+            call 4
+          else
+            local.get 8
+            call 6
+          end
+        end
+        local.get 2
+        nop
+        local.set 3
+        local.get 3
+        local.tee 9
+        local.get 9
+        i32.const 0
+        i32.const 0
+        call 3
+        local.get 9
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (result i32)  ;; label = @1
+          unreachable
+        else
+          local.get 9
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            local.get 9
+            i32.load offset=3 align=2
+            local.tee 10
+          else
+            local.get 9
+            i32.load 1 offset=1 align=2
+            i32.load 1 offset=1 align=2
+            local.tee 11
+          end
+        end
+        local.set 4
+        local.set 12
+        local.get 12
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 12
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 12
+            call 4
+          else
+            local.get 12
+            call 6
+          end
+        end
+        local.get 4
+        local.get 3
+        drop
+        local.get 1
+        drop)
+      (func (;8;) (type 4) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 42
+        local.set 7
+        i32.const 1
+        call 1
+        local.set 8
+        local.get 8
+        i32.const 0
+        i32.const 0
+        call 3
+        local.get 8
+        local.get 7
+        i32.store offset=3 align=2
+        local.get 8
+        local.set 0
+        i32.const 0
+        global.get 1
+        i32.add
+        local.get 0
+        nop
+        local.set 9
+        i32.const 1
+        call 1
+        local.set 10
+        local.get 10
+        i32.const 0
+        i32.const 1
+        call 3
+        local.get 10
+        local.get 9
+        i32.store offset=3 align=2
+        local.get 10
+        nop
+        local.set 2
+        local.set 1
+        local.get 1
+        local.get 2
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 4
+          local.set 3
+          local.get 3
+          local.get 4
+          nop
+          local.set 6
+          local.set 5
+          local.get 6
+          nop
+          nop
+          local.get 5
+          call_indirect (type 1)
+          local.get 5
+          drop
+          local.get 6
+          drop
+          local.get 3
+          local.get 4
+          drop
+          drop
+        end
+        local.get 1
+        local.get 2
+        drop
+        drop
+        local.get 0
+        drop)
+      (func (;9;) (type 5)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 8))
+      (export "__rw_table_func_7" (func 7))
+      (start 9))
+
+    -----------factorial_hof-----------
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func (param i32 i32) (result i32)))
+      (type (;5;) (func (param i32 i32 i32) (result i32)))
+      (type (;6;) (func (result i32)))
+      (type (;7;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 4) (param i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        nop
+        local.set 3
+        local.set 2
+        local.get 3
+        i32.eqz
+        if (result i32)  ;; label = @1
+          i32.const 1
+        else
+          local.get 3
+          i32.const 0
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 8
+          local.get 8
+          nop
+          block (param i32 i32) (result i32)  ;; label = @2
+            local.set 5
+            local.set 4
+            local.get 4
+            local.get 5
+            nop
+            local.set 7
+            local.set 6
+            local.get 7
+            local.get 3
+            i32.const 1
+            i32.sub
+            nop
+            local.get 6
+            call_indirect (type 4)
+            local.get 6
+            drop
+            local.get 7
+            drop
+            local.get 4
+            local.get 5
+            drop
+            drop
+          end
+          i32.mul
+        end
+        local.get 2
+        local.set 9
+        local.get 9
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 9
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 9
+            call 4
+          else
+            local.get 9
+            call 6
+          end
+        end
+        local.get 3
+        drop)
+      (func (;8;) (type 5) (param i32 i32 i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32)
+        local.get 0
+        local.get 1
+        local.get 2
+        nop
+        local.set 5
+        local.set 4
+        local.set 3
+        local.get 4
+        local.get 5
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 7
+          local.set 6
+          local.get 6
+          local.get 7
+          nop
+          local.set 9
+          local.set 8
+          local.get 9
+          i32.const 6
+          nop
+          local.get 8
+          call_indirect (type 4)
+          local.get 8
+          drop
+          local.get 9
+          drop
+          local.get 6
+          local.get 7
+          drop
+          drop
+        end
+        local.get 3
+        local.set 10
+        local.get 10
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 10
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 10
+            call 4
+          else
+            local.get 10
+            call 6
+          end
+        end
+        local.get 4
+        local.get 5
+        drop
+        drop)
+      (func (;9;) (type 6) (result i32)
+        (local i32 i32 i32 i32 i32 i32)
+        i32.const 1
+        global.get 1
+        i32.add
+        nop
+        i32.const 0
+        call 1
+        local.set 4
+        local.get 4
+        nop
+        block (param i32 i32) (result i32)  ;; label = @1
+          local.set 1
+          local.set 0
+          local.get 0
+          local.get 1
+          nop
+          local.set 3
+          local.set 2
+          local.get 3
+          i32.const 0
+          global.get 1
+          i32.add
+          nop
+          i32.const 0
+          call 1
+          local.set 5
+          local.get 5
+          nop
+          nop
+          local.get 2
+          call_indirect (type 5)
+          local.get 2
+          drop
+          local.get 3
+          drop
+          local.get 0
+          local.get 1
+          drop
+          drop
+        end)
+      (func (;10;) (type 7)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 2
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0
+        global.get 1
+        i32.const 1
+        i32.add
+        i32.const 8
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 9))
+      (export "__rw_table_func_7" (func 7))
+      (export "__rw_table_func_8" (func 8))
       (start 10)) |}]

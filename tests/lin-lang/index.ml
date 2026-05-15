@@ -97,6 +97,15 @@ let%expect_test "examples" =
     (let (<> : int) = 1 in
     (app (λ (<> : int) : int .
            (<0:x> + <1:add-amount>)) <1:input>)))
+    -----------mk_id_tl_anf-----------
+    (fun id (<> : int) : int .
+      <0:x>)
+
+    (fun mk-id (<> : int) : (int ⊸ int) .
+      (coderef id))
+
+    (let (<> : (int ⊸ int)) = (app (coderef mk-id) 0) in
+    (app <0:id'> 10))
     -----------triangle_tl-----------
     (fun triangle (<> : int) : int .
       (if0 <0:n> then 0 else (<0:n> + (app (coderef triangle) (<0:n> - 1)))))
@@ -182,7 +191,7 @@ let%expect_test "examples" =
       in
     (app (coderef map_int) ((λ (<> : int) : int .
                               (<0:x> + 1)), <0:lst>)))
-    -----------boxed_list-----------
+    -----------boxed_list[invalid]-----------
     (fun map_int
       (<> : (⊗ (int ⊸ int) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) :
       (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))) .
@@ -278,4 +287,45 @@ let%expect_test "examples" =
     (fun mini_zip_specialized (<> : (⊗ (ref int) (ref (ref int)))) :
       (ref (⊗ int (ref int))) .
       (split (<> : (ref int)) (<> : (ref (ref int))) = <0:p> in
-      (new ((free <1:a>), (free <0:b>))))) |}]
+      (new ((free <1:a>), (free <0:b>)))))
+
+    -----------apply_hof-----------
+    (fun apply (<> : (⊗ (int ⊸ int) int)) : int .
+      (split (<> : (int ⊸ int)) (<> : int) = <0:p> in
+      (app <1:f> <0:x>)))
+
+    (app (coderef apply) ((λ (<> : int) : int .
+                            (<0:x> + 5)), 10))
+    -----------compose_hof-----------
+    (fun compose (<> : (⊗ (int ⊸ int) (int ⊸ int) int)) : int .
+      (split (<> : (int ⊸ int)) (<> : (int ⊸ int)) (<> : int) = <0:p> in
+      (app <2:f> (app <1:g> <0:x>))))
+
+    (app (coderef compose)
+      ((λ (<> : int) : int .
+         (<0:x> + 1)),
+        (λ (<> : int) : int .
+          (<0:x> × 2)),
+        5))
+    -----------mk_adder_apply_to-----------
+    (fun mk_adder (<> : int) : (int ⊸ int) .
+      (λ (<> : int) : int .
+        (<0:x> + <1:n>)))
+
+    (fun apply_to_100 (<> : (int ⊸ int)) : int .
+      (app <0:f> 100))
+
+    (app (coderef apply_to_100) (app (coderef mk_adder) 7))
+    -----------closure_with_ref-----------
+    (let (<> : (ref int)) = (new 42) in
+    (let (<> : ((⊗) ⊸ int)) = (λ (<> : (⊗)) : int .
+                                    (free <1:r>)) in
+    (app <0:read_and_free> ())))
+    -----------factorial_hof-----------
+    (fun factorial (<> : int) : int .
+      (if0 <0:n> then 1 else (<0:n> × (app (coderef factorial) (<0:n> - 1)))))
+
+    (fun apply_to_6 (<> : (int ⊸ int)) : int .
+      (app <0:f> 6))
+
+    (app (coderef apply_to_6) (coderef factorial)) |}]

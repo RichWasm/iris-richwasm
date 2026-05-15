@@ -329,7 +329,7 @@ let compile_fun functions : Closed.Function.t -> Module.Function.t = function
               [ arg_rw_type ],
               [ ret_rw_type ] );
         locals = List.map ~f:(Fn.const rep) locals;
-        body = body';
+        body = body' @ [ LocalGet (0, Move); Drop ];
       }
 
 let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t =

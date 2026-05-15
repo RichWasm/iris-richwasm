@@ -627,10 +627,11 @@ Inductive type_eq : function_ctx -> type -> type -> Prop :=
   type_eq F τ τ' ->
   type_eq F (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ')
 | TEqSerProd F κp ρs ξ τs :
-  let κ := MEMTYPE (ProdS (map RepS ρs)) ξ in
+  let κ_ser := MEMTYPE (RepS (ProdR ρs)) ξ in
+  let κ_struct := MEMTYPE (ProdS (map RepS ρs)) ξ in
   Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ->
   let τs' := zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ) τ) τs ρs in
-  type_eq F (SerT κ (ProdT κp τs)) (StructT κ τs').
+  type_eq F (SerT κ_ser (ProdT κp τs)) (StructT κ_struct τs').
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
 | FTInstMem F ϕ μ :

@@ -45,10 +45,10 @@ let%expect_test "simple" =
          : int) : int)
       : int))
 
-    (pack (⊗)
+    (pack (ref (⊗))
        (tup (coderef lam_1 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
         : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
-       : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) |}];
+       : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) |}];
 
   output_syntax
     (mk
@@ -69,11 +69,11 @@ let%expect_test "simple" =
       : int))
 
     (let (<> : int) = (67 : int) in
-     (pack (⊗ int)
+     (pack (ref (⊗ int))
         (tup (coderef lam_1 : ((⊗ (ref (⊗ int)) int) ⊸ int)) (new (tup (<0:y> : int) : (⊗ int)) : (ref (⊗ int)))
          : (⊗ ((⊗ (ref (⊗ int)) int) ⊸ int) (ref (⊗ int))))
-        : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-     : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) |}];
+        : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+     : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) |}];
 
   output_syntax
     (mk
@@ -106,13 +106,13 @@ let%expect_test "simple" =
 
     (let (<> : int) = (420 : int) in
      (let (<> : int) = (67 : int) in
-      (pack (⊗ int int)
+      (pack (ref (⊗ int int))
          (tup (coderef lam_1 : ((⊗ (ref (⊗ int int)) int) ⊸ int))
             (new (tup (<0:y> : int) (<1:z> : int) : (⊗ int int)) : (ref (⊗ int int)))
           : (⊗ ((⊗ (ref (⊗ int int)) int) ⊸ int) (ref (⊗ int int))))
-         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-      : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-     : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) |}];
+         : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+      : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+     : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) |}];
   output_syntax
     (mk
        ~main:
@@ -139,11 +139,11 @@ let%expect_test "simple" =
       : int))
 
     (let (<> : int) = (67 : int) in
-     (pack (⊗ int)
+     (pack (ref (⊗ int))
         (tup (coderef lam_1 : ((⊗ (ref (⊗ int)) int) ⊸ int)) (new (tup (<0:y> : int) : (⊗ int)) : (ref (⊗ int)))
          : (⊗ ((⊗ (ref (⊗ int)) int) ⊸ int) (ref (⊗ int))))
-        : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-     : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) |}];
+        : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+     : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) |}];
   output_syntax
     (mk
        ~main:
@@ -162,16 +162,15 @@ let%expect_test "simple" =
          : int) : int)
       : int))
 
-    (let (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) =
-       (pack (⊗)
+    (let (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
+       (pack (ref (⊗))
           (tup (coderef lam_1 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
            : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
        in
-     (unpack (<0:add1> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-        <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-              (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-            (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (10 : int) : (⊗ (ref [0]) int)) : int)
+     (unpack (<0:add1> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+        <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+            (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (10 : int) : (⊗ [0] int)) : int)
         : int) : int)
      : int) |}];
 
@@ -213,13 +212,12 @@ let%expect_test "examples" =
       : int))
 
     (unpack
-       (pack (⊗)
+       (pack (ref (⊗))
           (tup (coderef lam_1 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
            : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-       <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-             (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-           (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (10 : int) : (⊗ (ref [0]) int)) : int)
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+       <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+           (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (10 : int) : (⊗ [0] int)) : int)
        : int) : int)
     -----------nested_arith-----------
     (× (+ (9 : int) (10 : int) : int) (5 : int) : int)
@@ -234,13 +232,12 @@ let%expect_test "examples" =
       : int))
 
     (unpack
-       (pack (⊗)
-          (tup (coderef add-one : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-           : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-       <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-             (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-           (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (42 : int) : (⊗ (ref [0]) int)) : int)
+       (pack (ref (⊗))
+          (tup (coderef add-one : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+       <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+           (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (42 : int) : (⊗ [0] int)) : int)
        : int) : int)
     -----------add_tup_ref-----------
     (let (<> : (ref int)) = (new (2 : int) : (ref int)) in
@@ -253,13 +250,12 @@ let%expect_test "examples" =
     (import ((⊗ (ref (⊗)) int) ⊸ (⊗)) as print)
 
     (unpack
-       (pack (⊗)
-          (tup (coderef print : ((⊗ (ref [0]) int) ⊸ (⊗))) (new (tup : (⊗)) : (ref (⊗)))
-           : (⊗ ((⊗ (ref [0]) int) ⊸ (⊗)) (ref (⊗))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ (⊗)) (ref [0]))))
-       <> (split (<> : ((⊗ (ref [0]) int) ⊸ (⊗))) (<> : (ref [0])) =
-             (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ (⊗)) (ref [0]))) in
-           (app (<1> : ((⊗ (ref [0]) int) ⊸ (⊗))) (tup (<0> : (ref [0])) (10 : int) : (⊗ (ref [0]) int)) : (⊗))
+       (pack (ref (⊗))
+          (tup (coderef print : ((⊗ [0] int) ⊸ (⊗))) (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] int) ⊸ (⊗)) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ (⊗)) [0])))
+       <> (split (<> : ((⊗ [0] int) ⊸ (⊗))) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ (⊗)) [0])) in
+           (app (<1> : ((⊗ [0] int) ⊸ (⊗))) (tup (<0> : [0]) (10 : int) : (⊗ [0] int)) : (⊗))
        : (⊗)) : (⊗))
     -----------closure-----------
     (fun lam_1 (<> : (⊗ (ref (⊗ int)) (⊗))) : int .
@@ -272,15 +268,13 @@ let%expect_test "examples" =
 
     (let (<> : int) = (10 : int) in
      (unpack
-        (pack (⊗ int)
+        (pack (ref (⊗ int))
            (tup (coderef lam_1 : ((⊗ (ref (⊗ int)) (⊗)) ⊸ int))
               (new (tup (<0:x> : int) : (⊗ int)) : (ref (⊗ int)))
             : (⊗ ((⊗ (ref (⊗ int)) (⊗)) ⊸ int) (ref (⊗ int))))
-           : (exists [] (⊗ ((⊗ (ref [0]) (⊗)) ⊸ int) (ref [0]))))
-        <> (split (<> : ((⊗ (ref [0]) (⊗)) ⊸ int)) (<> : (ref [0])) =
-              (<0> : (⊗ ((⊗ (ref [0]) (⊗)) ⊸ int) (ref [0]))) in
-            (app (<1> : ((⊗ (ref [0]) (⊗)) ⊸ int)) (tup (<0> : (ref [0])) (tup : (⊗)) : (⊗ (ref [0]) (⊗)))
-               : int)
+           : (exists [] (⊗ ((⊗ [0] (⊗)) ⊸ int) [0])))
+        <> (split (<> : ((⊗ [0] (⊗)) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] (⊗)) ⊸ int) [0])) in
+            (app (<1> : ((⊗ [0] (⊗)) ⊸ int)) (tup (<0> : [0]) (tup : (⊗)) : (⊗ [0] (⊗))) : int)
         : int) : int)
      : int)
     -----------closure_call_var-----------
@@ -295,17 +289,47 @@ let%expect_test "examples" =
     (let (<> : int) = (21 : int) in
      (let (<> : int) = (1 : int) in
       (unpack
-         (pack (⊗ int)
+         (pack (ref (⊗ int))
             (tup (coderef lam_1 : ((⊗ (ref (⊗ int)) int) ⊸ int))
                (new (tup (<0:add-amount> : int) : (⊗ int)) : (ref (⊗ int)))
              : (⊗ ((⊗ (ref (⊗ int)) int) ⊸ int) (ref (⊗ int))))
-            : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-               (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-             (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (<4:input> : int) : (⊗ (ref [0]) int))
-                : int)
+            : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+         <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+             (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<4:input> : int) : (⊗ [0] int)) : int)
          : int) : int)
       : int)
+     : int)
+    -----------mk_id_tl_anf-----------
+    (fun id (<> : (⊗ (ref (⊗)) int)) : int .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (<0:x> : int)
+      : int))
+
+    (fun mk-id (<> : (⊗ (ref (⊗)) int)) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (pack (ref (⊗))
+          (tup (coderef id : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+      : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+
+    (let (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
+       (unpack
+          (pack (ref (⊗))
+             (tup (coderef mk-id : ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                (new (tup : (⊗)) : (ref (⊗)))
+              : (⊗ ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) (ref (⊗))))
+             : (exists [] (⊗ ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))
+          <> (split (<> : ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])) in
+              (app (<1> : ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                 (tup (<0> : [0]) (0 : int) : (⊗ [0] int)) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+       in
+     (unpack (<0:id'> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+        <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+            (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (10 : int) : (⊗ [0] int)) : int)
+        : int) : int)
      : int)
     -----------triangle_tl-----------
     (fun triangle (<> : (⊗ (ref (⊗)) int)) : int .
@@ -315,27 +339,25 @@ let%expect_test "examples" =
         else
           (+ (<0:n> : int)
              (unpack
-                (pack (⊗)
-                   (tup (coderef triangle : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-                    : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
-                   : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-                      (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-                    (app (<1> : ((⊗ (ref [0]) int) ⊸ int))
-                       (tup (<0> : (ref [0])) (- (<3:n> : int) (1 : int) : int) : (⊗ (ref [0]) int)) : int)
+                (pack (ref (⊗))
+                   (tup (coderef triangle : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                    : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+                   : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                    (app (<1> : ((⊗ [0] int) ⊸ int))
+                       (tup (<0> : [0]) (- (<3:n> : int) (1 : int) : int) : (⊗ [0] int)) : int)
                 : int) : int)
              : int)
         : int)
       : int))
 
     (unpack
-       (pack (⊗)
-          (tup (coderef triangle : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-           : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-       <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-             (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-           (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (10 : int) : (⊗ (ref [0]) int)) : int)
+       (pack (ref (⊗))
+          (tup (coderef triangle : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+       <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+           (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (10 : int) : (⊗ [0] int)) : int)
        : int) : int)
     -----------factorial_tl-----------
     (export fun factorial (<> : (⊗ (ref (⊗)) int)) : int .
@@ -346,14 +368,12 @@ let%expect_test "examples" =
           (let (<> : int) = (- (<0:n> : int) (1 : int) : int) in
            (let (<> : int) =
               (unpack
-                 (pack (⊗)
-                    (tup (coderef factorial : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-                     : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
-                    : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                 <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-                       (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-                     (app (<1> : ((⊗ (ref [0]) int) ⊸ int))
-                        (tup (<0> : (ref [0])) (<3:n-sub1> : int) : (⊗ (ref [0]) int)) : int)
+                 (pack (ref (⊗))
+                    (tup (coderef factorial : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                     : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+                    : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                 <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                     (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<3:n-sub1> : int) : (⊗ [0] int)) : int)
                  : int) : int)
               in
             (× (<2:n> : int) (<0:rec-res> : int) : int)
@@ -363,13 +383,12 @@ let%expect_test "examples" =
       : int))
 
     (unpack
-       (pack (⊗)
-          (tup (coderef factorial : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-           : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-       <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-             (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-           (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (5 : int) : (⊗ (ref [0]) int)) : int)
+       (pack (ref (⊗))
+          (tup (coderef factorial : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+       <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+           (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (5 : int) : (⊗ [0] int)) : int)
        : int) : int)
     -----------safe_div-----------
     (fun safe_div (<> : (⊗ (ref (⊗)) (⊗ int int))) : (⊕ int (⊗)) .
@@ -394,27 +413,26 @@ let%expect_test "examples" =
 
     (let (<> : (⊕ int (⊗))) =
        (unpack
-          (pack (⊗)
-             (tup (coderef safe_div : ((⊗ (ref [0]) (⊗ int int)) ⊸ (⊕ int (⊗))))
-                (new (tup : (⊗)) : (ref (⊗)))
-              : (⊗ ((⊗ (ref [0]) (⊗ int int)) ⊸ (⊕ int (⊗))) (ref (⊗))))
-             : (exists [] (⊗ ((⊗ (ref [0]) (⊗ int int)) ⊸ (⊕ int (⊗))) (ref [0]))))
-          <> (split (<> : ((⊗ (ref [0]) (⊗ int int)) ⊸ (⊕ int (⊗)))) (<> :
-                (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) (⊗ int int)) ⊸ (⊕ int (⊗))) (ref [0]))) in
-              (app (<1> : ((⊗ (ref [0]) (⊗ int int)) ⊸ (⊕ int (⊗))))
-                 (tup (<0> : (ref [0])) (tup (10 : int) (0 : int) : (⊗ int int)) : (⊗ (ref [0]) (⊗ int int)))
-                 : (⊕ int (⊗)))
+          (pack (ref (⊗))
+             (tup (coderef safe_div : ((⊗ [0] (⊗ int int)) ⊸ (⊕ int (⊗)))) (new (tup : (⊗)) : (ref (⊗)))
+              : (⊗ ((⊗ [0] (⊗ int int)) ⊸ (⊕ int (⊗))) (ref (⊗))))
+             : (exists [] (⊗ ((⊗ [0] (⊗ int int)) ⊸ (⊕ int (⊗))) [0])))
+          <> (split (<> : ((⊗ [0] (⊗ int int)) ⊸ (⊕ int (⊗))))
+                (<> : [0]) = (<0> : (⊗ ((⊗ [0] (⊗ int int)) ⊸ (⊕ int (⊗))) [0])) in
+              (app (<1> : ((⊗ [0] (⊗ int int)) ⊸ (⊕ int (⊗))))
+                 (tup (<0> : [0]) (tup (10 : int) (0 : int) : (⊗ int int)) : (⊗ [0] (⊗ int int))) :
+                 (⊕ int (⊗)))
           : (⊕ int (⊗))) : (⊕ int (⊗)))
        in
      (unpack
-        (pack (⊗)
-           (tup (coderef from_either : ((⊗ (ref [0]) (⊕ int (⊗))) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-            : (⊗ ((⊗ (ref [0]) (⊕ int (⊗))) ⊸ int) (ref (⊗))))
-           : (exists [] (⊗ ((⊗ (ref [0]) (⊕ int (⊗))) ⊸ int) (ref [0]))))
-        <> (split (<> : ((⊗ (ref [0]) (⊕ int (⊗))) ⊸ int)) (<> :
-              (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) (⊕ int (⊗))) ⊸ int) (ref [0]))) in
-            (app (<1> : ((⊗ (ref [0]) (⊕ int (⊗))) ⊸ int))
-               (tup (<0> : (ref [0])) (<3:r> : (⊕ int (⊗))) : (⊗ (ref [0]) (⊕ int (⊗)))) : int)
+        (pack (ref (⊗))
+           (tup (coderef from_either : ((⊗ [0] (⊕ int (⊗))) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+            : (⊗ ((⊗ [0] (⊕ int (⊗))) ⊸ int) (ref (⊗))))
+           : (exists [] (⊗ ((⊗ [0] (⊕ int (⊗))) ⊸ int) [0])))
+        <> (split (<> : ((⊗ [0] (⊕ int (⊗))) ⊸ int)) (<> : [0]) =
+              (<0> : (⊗ ((⊗ [0] (⊕ int (⊗))) ⊸ int) [0])) in
+            (app (<1> : ((⊗ [0] (⊕ int (⊗))) ⊸ int))
+               (tup (<0> : [0]) (<3:r> : (⊕ int (⊗))) : (⊗ [0] (⊕ int (⊗)))) : int)
         : int) : int)
      : int)
     -----------incr_n-----------
@@ -433,30 +451,30 @@ let%expect_test "examples" =
          then (free (<1:r> : (ref int)) : int)
          else
            (unpack
-              (pack (⊗)
-                 (tup (coderef incr_n : ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-                  : (⊗ ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int) (ref (⊗))))
-                 : (exists [] (⊗ ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int) (ref [0]))))
-              <> (split (<> : ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int)) (<> :
-                    (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int) (ref [0]))) in
-                  (app (<1> : ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int))
-                     (tup (<0> : (ref [0]))
+              (pack (ref (⊗))
+                 (tup (coderef incr_n : ((⊗ [0] (⊗ (ref int) int)) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                  : (⊗ ((⊗ [0] (⊗ (ref int) int)) ⊸ int) (ref (⊗))))
+                 : (exists [] (⊗ ((⊗ [0] (⊗ (ref int) int)) ⊸ int) [0])))
+              <> (split (<> : ((⊗ [0] (⊗ (ref int) int)) ⊸ int)) (<> : [0]) =
+                    (<0> : (⊗ ((⊗ [0] (⊗ (ref int) int)) ⊸ int) [0])) in
+                  (app (<1> : ((⊗ [0] (⊗ (ref int) int)) ⊸ int))
+                     (tup (<0> : [0])
                         (tup
                            (unpack
-                              (pack (⊗)
-                                 (tup (coderef incr_1 : ((⊗ (ref [1]) (ref int)) ⊸ (ref int)))
+                              (pack (ref (⊗))
+                                 (tup (coderef incr_1 : ((⊗ [1] (ref int)) ⊸ (ref int)))
                                     (new (tup : (⊗)) : (ref (⊗)))
-                                  : (⊗ ((⊗ (ref [1]) (ref int)) ⊸ (ref int)) (ref (⊗))))
-                                 : (exists [] (⊗ ((⊗ (ref [0]) (ref int)) ⊸ (ref int)) (ref [0]))))
-                              <> (split (<> : ((⊗ (ref [0]) (ref int)) ⊸ (ref int))) (<> :
-                                    (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) (ref int)) ⊸ (ref int)) (ref [0]))) in
-                                  (app (<1> : ((⊗ (ref [0]) (ref int)) ⊸ (ref int)))
-                                     (tup (<0> : (ref [0])) (<7:r> : (ref int)) : (⊗ (ref [0]) (ref int))) :
+                                  : (⊗ ((⊗ [1] (ref int)) ⊸ (ref int)) (ref (⊗))))
+                                 : (exists [] (⊗ ((⊗ [0] (ref int)) ⊸ (ref int)) [0])))
+                              <> (split (<> : ((⊗ [0] (ref int)) ⊸ (ref int)))
+                                    (<> : [0]) = (<0> : (⊗ ((⊗ [0] (ref int)) ⊸ (ref int)) [0])) in
+                                  (app (<1> : ((⊗ [0] (ref int)) ⊸ (ref int)))
+                                     (tup (<0> : [0]) (<7:r> : (ref int)) : (⊗ [0] (ref int))) :
                                      (ref int))
                               : (ref int)) : (ref int))
                            (- (<3:n> : int) (1 : int) : int)
                          : (⊗ (ref int) int))
-                      : (⊗ (ref [0]) (⊗ (ref int) int)))
+                      : (⊗ [0] (⊗ (ref int) int)))
                      : int)
               : int) : int)
          : int) : int)
@@ -464,15 +482,14 @@ let%expect_test "examples" =
 
     (let (<> : (ref int)) = (new (10 : int) : (ref int)) in
      (unpack
-        (pack (⊗)
-           (tup (coderef incr_n : ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-            : (⊗ ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int) (ref (⊗))))
-           : (exists [] (⊗ ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int) (ref [0]))))
-        <> (split (<> : ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int)) (<> :
-              (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int) (ref [0]))) in
-            (app (<1> : ((⊗ (ref [0]) (⊗ (ref int) int)) ⊸ int))
-               (tup (<0> : (ref [0])) (tup (<3:r0> : (ref int)) (3 : int) : (⊗ (ref int) int))
-                : (⊗ (ref [0]) (⊗ (ref int) int)))
+        (pack (ref (⊗))
+           (tup (coderef incr_n : ((⊗ [0] (⊗ (ref int) int)) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+            : (⊗ ((⊗ [0] (⊗ (ref int) int)) ⊸ int) (ref (⊗))))
+           : (exists [] (⊗ ((⊗ [0] (⊗ (ref int) int)) ⊸ int) [0])))
+        <> (split (<> : ((⊗ [0] (⊗ (ref int) int)) ⊸ int)) (<> : [0]) =
+              (<0> : (⊗ ((⊗ [0] (⊗ (ref int) int)) ⊸ int) [0])) in
+            (app (<1> : ((⊗ [0] (⊗ (ref int) int)) ⊸ int))
+               (tup (<0> : [0]) (tup (<3:r0> : (ref int)) (3 : int) : (⊗ (ref int) int)) : (⊗ [0] (⊗ (ref int) int)))
                : int)
         : int) : int)
      : int)
@@ -483,44 +500,37 @@ let%expect_test "examples" =
                 (⊗
                   (exists []
                     (⊗
-                      ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                        (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                      (ref [0])))))
-              (rec []
-                (exists []
-                  (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) (ref [0])))))) :
-      (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) .
+                      ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                        (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                      [0]))))
+              (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))) :
+      (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) .
       (split
          (<> : (ref
                  (⊗
                    (exists []
                      (⊗
-                       ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                         (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                       (ref [0]))))))
-         (<> : (rec []
-                 (exists []
-                   (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) (ref [0])))))
-         =
+                       ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                         (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                       [0])))))
+         (<> : (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))) =
          (<0>
             : (⊗
                 (ref
                   (⊗
                     (exists []
                       (⊗
-                        ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                          (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                        (ref [0])))))
-                (rec []
-                  (exists []
-                    (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) (ref [0]))))))
+                        ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                          (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                        [0]))))
+                (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))))
          in
        (split
           (<> : (exists []
                   (⊗
-                    ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                      (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                    (ref [0]))))
+                    ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                      (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    [0])))
           =
           (free
              (<1>
@@ -528,201 +538,159 @@ let%expect_test "examples" =
                     (⊗
                       (exists []
                         (⊗
-                          ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                            (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                          (ref [0]))))))
+                          ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                            (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                          [0])))))
              : (⊗
                  (exists []
                    (⊗
-                     ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                       (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                     (ref [0])))))
+                     ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                       (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                     [0]))))
           in
-        (let
-           (<> : (rec []
-                   (exists []
-                     (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) (ref [0])))))
-           =
-           (<1>
-              : (rec []
-                  (exists []
-                    (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) (ref [0])))))
-           in
+        (let (<> : (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))) =
+           (<1> : (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))) in
          (let
             (<> : (exists []
                     (⊗
-                      ((⊗ (ref [0])
-                         (rec []
-                           (exists []
-                             (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                               (ref [0])))))
-                        ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                      (ref [0]))))
+                      ((⊗ [0]
+                         (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                        ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                      [0])))
             =
-            (unfold
-               (rec []
-                 (exists []
-                   (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) (ref [0]))))
-               (<0:x>
-                  : (rec []
-                      (exists []
-                        (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                          (ref [0])))))
+            (unfold (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))
+               (<0:x> : (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
                : (exists []
                    (⊗
-                     ((⊗ (ref [0])
-                        (rec []
-                          (exists []
-                            (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                              (ref [0])))))
-                       ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                     (ref [0]))))
+                     ((⊗ [0]
+                        (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                       ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                     [0])))
             in
-          (let (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) =
+          (let (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
              (unpack
                 (<0:ux>
                    : (exists []
                        (⊗
-                         ((⊗ (ref [0])
+                         ((⊗ [0]
                             (rec []
-                              (exists []
-                                (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                  (ref [0])))))
-                           ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                         (ref [0]))))
+                              (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                           ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                         [0])))
                 <> (split
-                      (<> : ((⊗ (ref [0])
+                      (<> : ((⊗ [0]
                                (rec []
-                                 (exists []
-                                   (⊗
-                                     ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                     (ref [0])))))
-                              ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                      (<> : (ref [0])) =
+                                 (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                              ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                      (<> : [0]) =
                       (<0>
                          : (⊗
-                             ((⊗ (ref [0])
+                             ((⊗ [0]
                                 (rec []
-                                  (exists []
-                                    (⊗
-                                      ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                      (ref [0])))))
-                               ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                             (ref [0])))
+                                  (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                               ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                             [0]))
                       in
                     (app
                        (<1>
-                          : ((⊗ (ref [0])
+                          : ((⊗ [0]
                                (rec []
-                                 (exists []
-                                   (⊗
-                                     ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                     (ref [0])))))
-                              ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                       (tup (<0> : (ref [0]))
+                                 (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                              ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                       (tup (<0> : [0])
                           (<4:x>
                              : (rec []
-                                 (exists []
-                                   (⊗
-                                     ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                     (ref [0])))))
-                        : (⊗ (ref [0])
+                                 (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                        : (⊗ [0]
                             (rec []
-                              (exists []
-                                (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                  (ref [0]))))))
-                       : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                              (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))))
+                       : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
              in
            (unpack
               (<3:f>
                  : (exists []
                      (⊗
-                       ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                         (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                       (ref [0]))))
+                       ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                         (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                       [0])))
               <> (split
-                    (<> : ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                            (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                    (<> : (ref [0])) =
+                    (<> : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                            (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                    (<> : [0]) =
                     (<0>
                        : (⊗
-                           ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                             (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                           (ref [0])))
+                           ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                             (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                           [0]))
                     in
                   (app
                      (<1>
-                        : ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                            (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                     (tup (<0> : (ref [0])) (<3:xx> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                      : (⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                     : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-              : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-              : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-           : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-      : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
+                        : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                            (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                     (tup (<0> : [0]) (<3:xx> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                      : (⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                     : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+              : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+           : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+         : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+      : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
 
     (fun lam_1
       (<> : (⊗ (ref (⊗))
               (exists []
                 (⊗
-                  ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                    (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                  (ref [0]))))) :
-      (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) .
+                  ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                    (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                  [0])))) :
+      (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) .
       (split (<> : (ref (⊗)))
          (<> : (exists []
                  (⊗
-                   ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                     (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                   (ref [0]))))
+                   ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                     (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                   [0])))
          =
          (<0>
             : (⊗ (ref (⊗))
                 (exists []
                   (⊗
-                    ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                      (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                    (ref [0])))))
+                    ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                      (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    [0]))))
          in
        (split  = (free (<1> : (ref (⊗))) : (⊗)) in
         (let
            (<> : (exists []
                    (⊗
-                     ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                       (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                     (ref [0]))))
+                     ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                       (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                     [0])))
            =
            (<0>
               : (exists []
                   (⊗
-                    ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                      (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                    (ref [0]))))
+                    ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                      (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    [0])))
            in
          (let
             (<> : (exists []
                     (⊗
-                      ((⊗ (ref [0])
-                         (rec []
-                           (exists []
-                             (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                               (ref [0])))))
-                        ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                      (ref [0]))))
+                      ((⊗ [0]
+                         (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                        ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                      [0])))
             =
             (pack
-               (⊗
-                 (exists []
-                   (⊗
-                     ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                       (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                     (ref [0]))))
+               (ref
+                 (⊗
+                   (exists []
+                     (⊗
+                       ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                         (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                       [0]))))
                (tup
                   (coderef lam_2
                      : ((⊗
@@ -730,144 +698,115 @@ let%expect_test "examples" =
                             (⊗
                               (exists []
                                 (⊗
-                                  ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                    (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                  (ref [0])))))
+                                  ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                    (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                                  [0]))))
                           (rec []
-                            (exists []
-                              (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                (ref [0])))))
-                         ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
+                            (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                         ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
                   (new
                      (tup
                         (<0:f>
                            : (exists []
                                (⊗
-                                 ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                   (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                 (ref [0]))))
+                                 ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                   (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                                 [0])))
                       : (⊗
                           (exists []
                             (⊗
-                              ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                              (ref [0])))))
+                              ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                              [0]))))
                      : (ref
                          (⊗
                            (exists []
                              (⊗
-                               ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                 (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                               (ref [0]))))))
+                               ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                 (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                               [0])))))
                 : (⊗
                     ((⊗
                        (ref
                          (⊗
                            (exists []
                              (⊗
-                               ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                 (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                               (ref [0])))))
-                       (rec []
-                         (exists []
-                           (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                             (ref [0])))))
-                      ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                               ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                 (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                               [0]))))
+                       (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                      ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
                     (ref
                       (⊗
                         (exists []
                           (⊗
-                            ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                              (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                            (ref [0])))))))
+                            ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                              (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                            [0]))))))
                : (exists []
                    (⊗
-                     ((⊗ (ref [0])
-                        (rec []
-                          (exists []
-                            (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                              (ref [0])))))
-                       ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                     (ref [0]))))
+                     ((⊗ [0]
+                        (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                       ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                     [0])))
             in
           (unpack
              (<0:omega>
                 : (exists []
                     (⊗
-                      ((⊗ (ref [0])
-                         (rec []
-                           (exists []
-                             (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                               (ref [0])))))
-                        ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                      (ref [0]))))
+                      ((⊗ [0]
+                         (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                        ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                      [0])))
              <> (split
-                   (<> : ((⊗ (ref [0])
+                   (<> : ((⊗ [0]
                             (rec []
-                              (exists []
-                                (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                  (ref [0])))))
-                           ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                   (<> : (ref [0])) =
+                              (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                           ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                   (<> : [0]) =
                    (<0>
                       : (⊗
-                          ((⊗ (ref [0])
+                          ((⊗ [0]
                              (rec []
-                               (exists []
-                                 (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                   (ref [0])))))
-                            ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                          (ref [0])))
+                               (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                            ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                          [0]))
                    in
                  (app
                     (<1>
-                       : ((⊗ (ref [0])
+                       : ((⊗ [0]
                             (rec []
-                              (exists []
-                                (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                  (ref [0])))))
-                           ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                    (tup (<0> : (ref [0]))
+                              (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                           ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                    (tup (<0> : [0])
                        (fold
                           (rec []
-                            (exists []
-                              (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                (ref [0]))))
+                            (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))
                           (<3:omega>
                              : (exists []
                                  (⊗
-                                   ((⊗ (ref [0])
+                                   ((⊗ [0]
                                       (rec []
                                         (exists []
-                                          (⊗
-                                            ((⊗ (ref [0]) [1:a]) ⊸
-                                              (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                            (ref [0])))))
-                                     ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                   (ref [0]))))
+                                          (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                                     ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                                   [0])))
                           : (rec []
-                              (exists []
-                                (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                                  (ref [0])))))
-                     : (⊗ (ref [0])
-                         (rec []
-                           (exists []
-                             (⊗ ((⊗ (ref [0]) [1:a]) ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                               (ref [0]))))))
-                    : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-             : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-             : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-          : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-      : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
+                              (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))))
+                     : (⊗ [0]
+                         (rec [] (exists [] (⊗ ((⊗ [0] [1:a]) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))))
+                    : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+             : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+         : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+      : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
 
-    (fun lam_4 (<> : (⊗ (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))) int)) : int .
-      (split (<> : (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))) (<> : int) =
-         (<0> : (⊗ (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))) int)) in
-       (split (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) =
-          (free (<1> : (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))))
-             : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
+    (fun lam_4 (<> : (⊗ (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) int)) : int .
+      (split (<> : (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))))
+         (<> : int) = (<0> : (⊗ (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) int)) in
+       (split (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
+          (free (<1> : (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))))
+             : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
           in
         (let (<> : int) = (<1> : int) in
          (if0 (<0:n> : int)
@@ -875,11 +814,9 @@ let%expect_test "examples" =
           else
             (let (<> : int) = (- (<0:n> : int) (1 : int) : int) in
              (let (<> : int) =
-                (unpack (<2:rec> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                   <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-                         (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-                       (app (<1> : ((⊗ (ref [0]) int) ⊸ int))
-                          (tup (<0> : (ref [0])) (<3:n-sub1> : int) : (⊗ (ref [0]) int)) : int)
+                (unpack (<2:rec> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                   <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                       (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<3:n-sub1> : int) : (⊗ [0] int)) : int)
                    : int) : int)
                 in
               (× (<2:n> : int) (<0:rec-res> : int) : int)
@@ -889,142 +826,138 @@ let%expect_test "examples" =
          : int) : int)
       : int))
 
-    (fun lam_3 (<> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))) :
-      (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) .
-      (split (<> : (ref (⊗))) (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) =
-         (<0> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))) in
+    (fun lam_3 (<> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) :
+      (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) .
+      (split (<> : (ref (⊗))) (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
+         (<0> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) in
        (split  = (free (<1> : (ref (⊗))) : (⊗)) in
-        (let (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) =
-           (<0> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) in
-         (pack (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-            (tup
-               (coderef lam_4 : ((⊗ (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))) int) ⊸ int))
+        (let (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) = (<0> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+           in
+         (pack (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+            (tup (coderef lam_4 : ((⊗ (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) int) ⊸ int))
                (new
-                  (tup (<0:rec> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                   : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                  : (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))))
-             : (⊗ ((⊗ (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))) int) ⊸ int)
-                 (ref (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))))
-            : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-      : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
+                  (tup (<0:rec> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                   : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                  : (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))))
+             : (⊗ ((⊗ (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) int) ⊸ int)
+                 (ref (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))))
+            : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+         : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+      : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
 
     (let
        (<> : (exists []
                (⊗
-                 ((⊗ (ref [0])
+                 ((⊗ [0]
                     (exists []
                       (⊗
-                        ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                          (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                        (ref [0]))))
-                   ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                 (ref [0]))))
+                        ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                          (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                        [0])))
+                   ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                 [0])))
        =
-       (pack (⊗)
+       (pack (ref (⊗))
           (tup
              (coderef lam_1
                 : ((⊗ (ref (⊗))
                      (exists []
                        (⊗
-                         ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                           (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                         (ref [0]))))
-                    ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
+                         ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                           (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                         [0])))
+                    ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
              (new (tup : (⊗)) : (ref (⊗)))
            : (⊗
                ((⊗ (ref (⊗))
                   (exists []
                     (⊗
-                      ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                        (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                      (ref [0]))))
-                 ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                      ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                        (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                      [0])))
+                 ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
                (ref (⊗))))
           : (exists []
               (⊗
-                ((⊗ (ref [0])
+                ((⊗ [0]
                    (exists []
                      (⊗
-                       ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                         (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                       (ref [0]))))
-                  ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                (ref [0]))))
+                       ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                         (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                       [0])))
+                  ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                [0])))
        in
-     (let (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) =
+     (let (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
         (unpack
            (<0:fix>
               : (exists []
                   (⊗
-                    ((⊗ (ref [0])
+                    ((⊗ [0]
                        (exists []
                          (⊗
-                           ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                             (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                           (ref [0]))))
-                      ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                    (ref [0]))))
+                           ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                             (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                           [0])))
+                      ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    [0])))
            <> (split
-                 (<> : ((⊗ (ref [0])
+                 (<> : ((⊗ [0]
                           (exists []
                             (⊗
-                              ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                              (ref [0]))))
-                         ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                 (<> : (ref [0])) =
+                              ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                              [0])))
+                         ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                 (<> : [0]) =
                  (<0>
                     : (⊗
-                        ((⊗ (ref [0])
+                        ((⊗ [0]
                            (exists []
                              (⊗
-                               ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                 (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                               (ref [0]))))
-                          ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                        (ref [0])))
+                               ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                 (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                               [0])))
+                          ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                        [0]))
                  in
                (app
                   (<1>
-                     : ((⊗ (ref [0])
+                     : ((⊗ [0]
                           (exists []
                             (⊗
-                              ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                              (ref [0]))))
-                         ⊸ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
-                  (tup (<0> : (ref [0]))
-                     (pack (⊗)
+                              ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                              [0])))
+                         ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                  (tup (<0> : [0])
+                     (pack (ref (⊗))
                         (tup
                            (coderef lam_3
-                              : ((⊗ (ref (⊗)) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                  (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))))
+                              : ((⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                  (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
                            (new (tup : (⊗)) : (ref (⊗)))
                          : (⊗
-                             ((⊗ (ref (⊗)) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                               (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                             ((⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                               (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
                              (ref (⊗))))
                         : (exists []
                             (⊗
-                              ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                                (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                              (ref [0]))))
-                   : (⊗ (ref [0])
+                              ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                                (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                              [0])))
+                   : (⊗ [0]
                        (exists []
                          (⊗
-                           ((⊗ (ref [0]) (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) ⊸
-                             (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                           (ref [0])))))
-                  : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-           : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-           : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                           ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸
+                             (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                           [0]))))
+                  : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+           : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
         in
-      (unpack (<0:factorial> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-         <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-               (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-             (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (5 : int) : (⊗ (ref [0]) int)) : int)
+      (unpack (<0:factorial> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+         <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+             (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (5 : int) : (⊗ [0] int)) : int)
          : int) : int)
       : int)
      : int)
@@ -1038,19 +971,14 @@ let%expect_test "examples" =
       : int))
 
     (fun map_int
-      (<> : (⊗ (ref (⊗))
-              (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α])))))) :
+      (<> : (⊗ (ref (⊗)) (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α])))))) :
       (rec [] (⊕ (⊗) (⊗ int [0:α]))) .
       (split (<> : (ref (⊗)))
-         (<> : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α]))))) =
-         (<0>
-            : (⊗ (ref (⊗))
-                (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
+         (<> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α]))))) =
+         (<0> : (⊗ (ref (⊗)) (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
          in
-       (split (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))) (<> :
-          (rec [] (⊕ (⊗) (⊗ int [0:α])))) =
-          (<0:p> : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-          in
+       (split (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) (<> : (rec [] (⊕ (⊗) (⊗ int [0:α])))) =
+          (<0:p> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α]))))) in
         (fold (rec [] (⊕ (⊗) (⊗ int [0:α])))
            (cases (unfold (rec [] (⊕ (⊗) (⊗ int [0:α]))) (<0:lst> : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
                      : (⊕ (⊗) (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
@@ -1060,61 +988,60 @@ let%expect_test "examples" =
                    (<0:cons> : (⊗ int (rec [] (⊕ (⊗) (⊗ int [0:α]))))) in
                  (inj 1
                     (tup
-                       (unpack (<4:f> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                          <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> :
-                                (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-                              (app (<1> : ((⊗ (ref [0]) int) ⊸ int))
-                                 (tup (<0> : (ref [0])) (<4:hd> : int) : (⊗ (ref [0]) int)) : int)
+                       (unpack (<4:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                          <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (
+                                <0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                              (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<4:hd> : int) : (⊗ [0] int)) : int)
                           : int) : int)
                        (unpack
-                          (pack (⊗)
+                          (pack (ref (⊗))
                              (tup
                                 (coderef map_int
-                                   : ((⊗ (ref [0])
-                                        (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                   : ((⊗ [0]
+                                        (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                           (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                                        ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                                 (new (tup : (⊗)) : (ref (⊗)))
                               : (⊗
-                                  ((⊗ (ref [0])
-                                     (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                  ((⊗ [0]
+                                     (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                        (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                                     ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α]))))
                                   (ref (⊗))))
                              : (exists []
                                  (⊗
-                                   ((⊗ (ref [0])
-                                      (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                   ((⊗ [0]
+                                      (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                         (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                                      ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-                                   (ref [0]))))
+                                   [0])))
                           <> (split
-                                (<> : ((⊗ (ref [0])
-                                         (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                (<> : ((⊗ [0]
+                                         (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                            (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                                         ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-                                (<> : (ref [0])) =
+                                (<> : [0]) =
                                 (<0>
                                    : (⊗
-                                       ((⊗ (ref [0])
-                                          (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                       ((⊗ [0]
+                                          (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                             (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                                          ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-                                       (ref [0])))
+                                       [0]))
                                 in
                               (app
                                  (<1>
-                                    : ((⊗ (ref [0])
-                                         (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                    : ((⊗ [0]
+                                         (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                            (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                                         ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-                                 (tup (<0> : (ref [0]))
-                                    (tup (<7:f> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                                 (tup (<0> : [0])
+                                    (tup (<7:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
                                        (<3:tl> : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-                                     : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                     : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                          (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-                                  : (⊗ (ref [0])
-                                      (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                  : (⊗ [0]
+                                      (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                         (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
                                  : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
                           : (rec [] (⊕ (⊗) (⊗ int [0:α])))) : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
@@ -1132,58 +1059,48 @@ let%expect_test "examples" =
           : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
        in
      (unpack
-        (pack (⊗)
+        (pack (ref (⊗))
            (tup
               (coderef map_int
-                 : ((⊗ (ref [0])
-                      (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-                     ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+                 : ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α]))))) ⊸
+                     (rec [] (⊕ (⊗) (⊗ int [0:α])))))
               (new (tup : (⊗)) : (ref (⊗)))
             : (⊗
-                ((⊗ (ref [0])
-                   (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-                  ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α]))))
+                ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α]))))) ⊸
+                  (rec [] (⊕ (⊗) (⊗ int [0:α]))))
                 (ref (⊗))))
            : (exists []
                (⊗
-                 ((⊗ (ref [0])
-                    (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-                   ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-                 (ref [0]))))
+                 ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α]))))) ⊸
+                   (rec [] (⊕ (⊗) (⊗ int [0:α]))))
+                 [0])))
         <> (split
-              (<> : ((⊗ (ref [0])
-                       (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                         (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+              (<> : ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                       ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-              (<> : (ref [0])) =
+              (<> : [0]) =
               (<0>
                  : (⊗
-                     ((⊗ (ref [0])
-                        (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                          (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+                     ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                        ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-                     (ref [0])))
+                     [0]))
               in
             (app
                (<1>
-                  : ((⊗ (ref [0])
-                       (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                         (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+                  : ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
                       ⊸ (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-               (tup (<0> : (ref [0]))
+               (tup (<0> : [0])
                   (tup
-                     (pack (⊗)
+                     (pack (ref (⊗))
                         (tup (coderef lam_1 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
                          : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
-                        : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                        : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
                      (<3:lst> : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-                   : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
-                : (⊗ (ref [0])
-                    (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
+                   : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α])))))
+                : (⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int [0:α]))))))
                : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
         : (rec [] (⊕ (⊗) (⊗ int [0:α])))) : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
      : (rec [] (⊕ (⊗) (⊗ int [0:α]))))
-    -----------boxed_list-----------
+    -----------boxed_list[invalid]-----------
     (fun lam_1 (<> : (⊗ (ref (⊗)) int)) : int .
       (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
        (split  = (free (<1> : (ref (⊗))) : (⊗)) in
@@ -1194,20 +1111,16 @@ let%expect_test "examples" =
 
     (fun map_int
       (<> : (⊗ (ref (⊗))
-              (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))) :
+              (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))) :
       (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))) .
       (split (<> : (ref (⊗)))
-         (<> : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-         =
+         (<> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) =
          (<0>
             : (⊗ (ref (⊗))
-                (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
+                (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
          in
-       (split (<> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-          (<> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) =
-          (<0:p>
-             : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-          in
+       (split (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) (<> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) =
+          (<0:p> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))) in
         (fold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
            (cases (unfold (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))
                      (<0:lst> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
@@ -1219,63 +1132,62 @@ let%expect_test "examples" =
                    (<0:cons> : (⊗ int (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))) in
                  (inj 1
                     (tup
-                       (unpack (<4:f> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-                          <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> :
-                                (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-                              (app (<1> : ((⊗ (ref [0]) int) ⊸ int))
-                                 (tup (<0> : (ref [0])) (<4:hd> : int) : (⊗ (ref [0]) int)) : int)
+                       (unpack (<4:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                          <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (
+                                <0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                              (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<4:hd> : int) : (⊗ [0] int)) : int)
                           : int) : int)
                        (new
                           (unpack
-                             (pack (⊗)
+                             (pack (ref (⊗))
                                 (tup
                                    (coderef map_int
-                                      : ((⊗ (ref [0])
-                                           (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                      : ((⊗ [0]
+                                           (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                              (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                           ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                    (new (tup : (⊗)) : (ref (⊗)))
                                  : (⊗
-                                     ((⊗ (ref [0])
-                                        (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                     ((⊗ [0]
+                                        (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                           (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                        ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
                                      (ref (⊗))))
                                 : (exists []
                                     (⊗
-                                      ((⊗ (ref [0])
-                                         (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                      ((⊗ [0]
+                                         (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                            (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                         ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                                      (ref [0]))))
+                                      [0])))
                              <> (split
-                                   (<> : ((⊗ (ref [0])
-                                            (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                   (<> : ((⊗ [0]
+                                            (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                               (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                            ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-                                   (<> : (ref [0])) =
+                                   (<> : [0]) =
                                    (<0>
                                       : (⊗
-                                          ((⊗ (ref [0])
-                                             (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                          ((⊗ [0]
+                                             (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                                (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                             ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                                          (ref [0])))
+                                          [0]))
                                    in
                                  (app
                                     (<1>
-                                       : ((⊗ (ref [0])
-                                            (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                       : ((⊗ [0]
+                                            (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                               (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                            ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-                                    (tup (<0> : (ref [0]))
-                                       (tup (<7:f> : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                                    (tup (<0> : [0])
+                                       (tup (<7:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
                                           (free (<3:tl> : (ref (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                                              : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                                        : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                        : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                             (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-                                     : (⊗ (ref [0])
-                                         (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
+                                     : (⊗ [0]
+                                         (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
                                            (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
                                     : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
                              : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) :
@@ -1303,59 +1215,48 @@ let%expect_test "examples" =
           : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
        in
      (unpack
-        (pack (⊗)
+        (pack (ref (⊗))
            (tup
               (coderef map_int
-                 : ((⊗ (ref [0])
-                      (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                        (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                 : ((⊗ [0]
+                      (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                      ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
               (new (tup : (⊗)) : (ref (⊗)))
             : (⊗
-                ((⊗ (ref [0])
-                   (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                     (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                   ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
                 (ref (⊗))))
            : (exists []
                (⊗
-                 ((⊗ (ref [0])
-                    (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                      (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                 ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                    ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                 (ref [0]))))
+                 [0])))
         <> (split
-              (<> : ((⊗ (ref [0])
-                       (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                         (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+              (<> : ((⊗ [0]
+                       (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                       ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-              (<> : (ref [0])) =
+              (<> : [0]) =
               (<0>
                  : (⊗
-                     ((⊗ (ref [0])
-                        (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                          (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                     ((⊗ [0]
+                        (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                        ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                     (ref [0])))
+                     [0]))
               in
             (app
                (<1>
-                  : ((⊗ (ref [0])
-                       (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                         (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                  : ((⊗ [0]
+                       (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
                       ⊸ (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-               (tup (<0> : (ref [0]))
+               (tup (<0> : [0])
                   (tup
-                     (pack (⊗)
+                     (pack (ref (⊗))
                         (tup (coderef lam_1 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
                          : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
-                        : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
+                        : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
                      (<3:lst> : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
-                   : (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                       (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
-                : (⊗ (ref [0])
-                    (⊗ (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0])))
-                      (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
+                   : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))))
+                : (⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))))
                : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
         : (rec [] (⊕ (⊗) (⊗ int (ref [0:α]))))) : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
      : (rec [] (⊕ (⊗) (⊗ int (ref [0:α])))))
@@ -1396,46 +1297,42 @@ let%expect_test "examples" =
                 (inj 1
                    (new
                       (unpack
-                         (pack (⊗)
+                         (pack (ref (⊗))
                             (tup
                                (coderef add
-                                  : ((⊗ (ref [0])
-                                       (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
-                                      ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                                  : ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                                      (rec [] (⊕ (⊗) (ref [0:a])))))
                                (new (tup : (⊗)) : (ref (⊗)))
                              : (⊗
-                                 ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
-                                   ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))
+                                 ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                                   (rec [] (⊕ (⊗) (ref [0:a]))))
                                  (ref (⊗))))
                             : (exists []
                                 (⊗
-                                  ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
-                                    ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))
-                                  (ref [0]))))
+                                  ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                                    (rec [] (⊕ (⊗) (ref [0:a]))))
+                                  [0])))
                          <> (split
-                               (<> : ((⊗ (ref [0])
-                                        (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
-                                       ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
-                               (<> : (ref [0])) =
+                               (<> : ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                                       (rec [] (⊕ (⊗) (ref [0:a])))))
+                               (<> : [0]) =
                                (<0>
                                   : (⊗
-                                      ((⊗ (ref [0])
-                                         (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
+                                      ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
                                         ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))
-                                      (ref [0])))
+                                      [0]))
                                in
                              (app
                                 (<1>
-                                   : ((⊗ (ref [0])
-                                        (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
-                                       ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
-                                (tup (<0> : (ref [0]))
+                                   : ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                                       (rec [] (⊕ (⊗) (ref [0:a])))))
+                                (tup (<0> : [0])
                                    (tup
                                       (free (<3:succ> : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
                                          : (rec [] (⊕ (⊗) (ref [0:a]))))
                                       (<4:right> : (rec [] (⊕ (⊗) (ref [0:a]))))
                                     : (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
-                                 : (⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))))
+                                 : (⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))))
                                 : (rec [] (⊕ (⊗) (ref [0:a]))))
                          : (rec [] (⊕ (⊗) (ref [0:a])))) : (rec [] (⊕ (⊗) (ref [0:a]))))
                       : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
@@ -1453,16 +1350,15 @@ let%expect_test "examples" =
              (inj 1
                 (new
                    (unpack
-                      (pack (⊗)
-                         (tup (coderef from-int : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                      (pack (ref (⊗))
+                         (tup (coderef from-int : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
                             (new (tup : (⊗)) : (ref (⊗)))
-                          : (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref (⊗))))
-                         : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref [0]))))
-                      <> (split (<> : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))) (<> :
-                            (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref [0])))
-                            in
-                          (app (<1> : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
-                             (tup (<0> : (ref [0])) (- (<3:int> : int) (1 : int) : int) : (⊗ (ref [0]) int))
+                          : (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref (⊗))))
+                         : (exists [] (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) [0])))
+                      <> (split (<> : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                            (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) [0])) in
+                          (app (<1> : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                             (tup (<0> : [0]) (- (<3:int> : int) (1 : int) : int) : (⊗ [0] int))
                              : (rec [] (⊕ (⊗) (ref [0:a]))))
                       : (rec [] (⊕ (⊗) (ref [0:a])))) : (rec [] (⊕ (⊗) (ref [0:a]))))
                    : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
@@ -1480,17 +1376,17 @@ let%expect_test "examples" =
           (case (<> : (ref (rec [] (⊕ (⊗) (ref [0:a])))))
             (+ (1 : int)
                (unpack
-                  (pack (⊗)
-                     (tup (coderef to-int : ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
+                  (pack (ref (⊗))
+                     (tup (coderef to-int : ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
                         (new (tup : (⊗)) : (ref (⊗)))
-                      : (⊗ ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref (⊗))))
-                     : (exists [] (⊗ ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref [0]))))
-                  <> (split (<> : ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int)) (<> :
-                        (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref [0]))) in
-                      (app (<1> : ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
-                         (tup (<0> : (ref [0]))
+                      : (⊗ ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref (⊗))))
+                     : (exists [] (⊗ ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) [0])))
+                  <> (split (<> : ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
+                        (<> : [0]) = (<0> : (⊗ ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) [0])) in
+                      (app (<1> : ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
+                         (tup (<0> : [0])
                             (free (<3:succ> : (ref (rec [] (⊕ (⊗) (ref [0:a]))))) : (rec [] (⊕ (⊗) (ref [0:a]))))
-                          : (⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))))
+                          : (⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))))
                          : int)
                   : int) : int)
                : int))
@@ -1499,81 +1395,77 @@ let%expect_test "examples" =
 
     (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
        (unpack
-          (pack (⊗)
-             (tup (coderef from-int : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+          (pack (ref (⊗))
+             (tup (coderef from-int : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
                 (new (tup : (⊗)) : (ref (⊗)))
-              : (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref (⊗))))
-             : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref [0]))))
-          <> (split (<> : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))) (<> :
-                (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref [0]))) in
-              (app (<1> : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
-                 (tup (<0> : (ref [0])) (6 : int) : (⊗ (ref [0]) int)) :
-                 (rec [] (⊕ (⊗) (ref [0:a]))))
+              : (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref (⊗))))
+             : (exists [] (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) [0])))
+          <> (split (<> : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) [0])) in
+              (app (<1> : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))) (
+                 tup (<0> : [0]) (6 : int) : (⊗ [0] int)) : (rec [] (⊕ (⊗) (ref [0:a]))))
           : (rec [] (⊕ (⊗) (ref [0:a])))) : (rec [] (⊕ (⊗) (ref [0:a]))))
        in
      (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
         (unpack
-           (pack (⊗)
-              (tup (coderef from-int : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+           (pack (ref (⊗))
+              (tup (coderef from-int : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
                  (new (tup : (⊗)) : (ref (⊗)))
-               : (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref (⊗))))
-              : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref [0]))))
-           <> (split (<> : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a]))))) (<> :
-                 (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref [0]))) in
-               (app (<1> : ((⊗ (ref [0]) int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
-                  (tup (<0> : (ref [0])) (7 : int) : (⊗ (ref [0]) int)) :
-                  (rec [] (⊕ (⊗) (ref [0:a]))))
+               : (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) (ref (⊗))))
+              : (exists [] (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) [0])))
+           <> (split (<> : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                 (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))) [0])) in
+               (app (<1> : ((⊗ [0] int) ⊸ (rec [] (⊕ (⊗) (ref [0:a])))))
+                  (tup (<0> : [0]) (7 : int) : (⊗ [0] int)) : (rec [] (⊕ (⊗) (ref [0:a]))))
            : (rec [] (⊕ (⊗) (ref [0:a])))) : (rec [] (⊕ (⊗) (ref [0:a]))))
         in
       (let (<> : (rec [] (⊕ (⊗) (ref [0:a])))) =
          (unpack
-            (pack (⊗)
+            (pack (ref (⊗))
                (tup
                   (coderef add
-                     : ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                     : ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
                          (rec [] (⊕ (⊗) (ref [0:a])))))
                   (new (tup : (⊗)) : (ref (⊗)))
                 : (⊗
-                    ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                    ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
                       (rec [] (⊕ (⊗) (ref [0:a]))))
                     (ref (⊗))))
                : (exists []
                    (⊗
-                     ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                     ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
                        (rec [] (⊕ (⊗) (ref [0:a]))))
-                     (ref [0]))))
+                     [0])))
             <> (split
-                  (<> : ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                  (<> : ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
                           (rec [] (⊕ (⊗) (ref [0:a])))))
-                  (<> : (ref [0])) =
+                  (<> : [0]) =
                   (<0>
                      : (⊗
-                         ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                         ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
                            (rec [] (⊕ (⊗) (ref [0:a]))))
-                         (ref [0])))
+                         [0]))
                   in
                 (app
                    (<1>
-                      : ((⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
+                      : ((⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))) ⊸
                           (rec [] (⊕ (⊗) (ref [0:a])))))
-                   (tup (<0> : (ref [0]))
+                   (tup (<0> : [0])
                       (tup (<4:six> : (rec [] (⊕ (⊗) (ref [0:a])))) (<3:seven> : (rec [] (⊕ (⊗) (ref [0:a]))))
                        : (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a])))))
-                    : (⊗ (ref [0]) (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))))
+                    : (⊗ [0] (⊗ (rec [] (⊕ (⊗) (ref [0:a]))) (rec [] (⊕ (⊗) (ref [0:a]))))))
                    : (rec [] (⊕ (⊗) (ref [0:a]))))
             : (rec [] (⊕ (⊗) (ref [0:a])))) : (rec [] (⊕ (⊗) (ref [0:a]))))
          in
        (unpack
-          (pack (⊗)
-             (tup (coderef to-int : ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
-                (new (tup : (⊗)) : (ref (⊗)))
-              : (⊗ ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref (⊗))))
-             : (exists [] (⊗ ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref [0]))))
-          <> (split (<> : ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int)) (<> :
-                (ref [0])) = (<0> : (⊗ ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref [0]))) in
-              (app (<1> : ((⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
-                 (tup (<0> : (ref [0])) (<3:sum> : (rec [] (⊕ (⊗) (ref [0:a]))))
-                  : (⊗ (ref [0]) (rec [] (⊕ (⊗) (ref [0:a])))))
+          (pack (ref (⊗))
+             (tup (coderef to-int : ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+              : (⊗ ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) (ref (⊗))))
+             : (exists [] (⊗ ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) [0])))
+          <> (split (<> : ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
+                (<> : [0]) = (<0> : (⊗ ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int) [0])) in
+              (app (<1> : ((⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))) ⊸ int))
+                 (tup (<0> : [0]) (<3:sum> : (rec [] (⊕ (⊗) (ref [0:a])))) : (⊗ [0] (rec [] (⊕ (⊗) (ref [0:a])))))
                  : int)
           : int) : int)
        : int)
@@ -1590,24 +1482,20 @@ let%expect_test "examples" =
        (split (<> : int) (<> : int) = (<0:x> : (⊗ int int)) in
         (tup
            (unpack
-              (pack (⊗)
-                 (tup (coderef add1 : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-                  : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
-                 : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-              <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-                    (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-                  (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (<4:x1> : int) : (⊗ (ref [0]) int))
-                     : int)
+              (pack (ref (⊗))
+                 (tup (coderef add1 : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                  : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+                 : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+              <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                  (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<4:x1> : int) : (⊗ [0] int)) : int)
               : int) : int)
            (unpack
-              (pack (⊗)
-                 (tup (coderef add1 : ((⊗ (ref [0]) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
-                  : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref (⊗))))
-                 : (exists [] (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))))
-              <> (split (<> : ((⊗ (ref [0]) int) ⊸ int)) (<> : (ref [0])) =
-                    (<0> : (⊗ ((⊗ (ref [0]) int) ⊸ int) (ref [0]))) in
-                  (app (<1> : ((⊗ (ref [0]) int) ⊸ int)) (tup (<0> : (ref [0])) (<3:x2> : int) : (⊗ (ref [0]) int))
-                     : int)
+              (pack (ref (⊗))
+                 (tup (coderef add1 : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                  : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+                 : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+              <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                  (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<3:x2> : int) : (⊗ [0] int)) : int)
               : int) : int)
          : (⊗ int int)) : (⊗ int int))
       : (⊗ int int)))
@@ -1619,4 +1507,266 @@ let%expect_test "examples" =
         (new (tup (free (<1:a> : (ref int)) : int) (free (<0:b> : (ref (ref int))) : (ref int)) : (⊗ int (ref int)))
            : (ref (⊗ int (ref int))))
          : (ref (⊗ int (ref int))))
-      : (ref (⊗ int (ref int))))) |}]
+      : (ref (⊗ int (ref int)))))
+
+    -----------apply_hof-----------
+    (fun lam_1 (<> : (⊗ (ref (⊗)) int)) : int .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (split  = (free (<1> : (ref (⊗))) : (⊗)) in
+        (let (<> : int) = (<0> : int) in
+         (+ (<0:x> : int) (5 : int) : int)
+         : int) : int)
+      : int))
+
+    (fun apply (<> : (⊗ (ref (⊗)) (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))) : int .
+      (split (<> : (ref (⊗))) (<> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) =
+         (<0> : (⊗ (ref (⊗)) (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))) in
+       (split (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) (<> : int) =
+          (<0:p> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) in
+        (unpack (<1:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+           <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+               (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<3:x> : int) : (⊗ [0] int)) : int)
+           : int) : int)
+         : int)
+      : int))
+
+    (unpack
+       (pack (ref (⊗))
+          (tup (coderef apply : ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) ⊸ int))
+             (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) ⊸ int) [0])))
+       <> (split (<> : ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) ⊸ int))
+             (<> : [0]) = (<0> : (⊗ ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) ⊸ int) [0])) in
+           (app (<1> : ((⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) ⊸ int))
+              (tup (<0> : [0])
+                 (tup
+                    (pack (ref (⊗))
+                       (tup (coderef lam_1 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                        : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
+                       : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    (10 : int)
+                  : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+               : (⊗ [0] (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)))
+              : int)
+       : int) : int)
+    -----------compose_hof-----------
+    (fun lam_1 (<> : (⊗ (ref (⊗)) int)) : int .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (split  = (free (<1> : (ref (⊗))) : (⊗)) in
+        (let (<> : int) = (<0> : int) in
+         (+ (<0:x> : int) (1 : int) : int)
+         : int) : int)
+      : int))
+
+    (fun lam_2 (<> : (⊗ (ref (⊗)) int)) : int .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (split  = (free (<1> : (ref (⊗))) : (⊗)) in
+        (let (<> : int) = (<0> : int) in
+         (× (<0:x> : int) (2 : int) : int)
+         : int) : int)
+      : int))
+
+    (fun compose
+      (<> : (⊗ (ref (⊗))
+              (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))) :
+      int .
+      (split (<> : (ref (⊗)))
+         (<> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)) =
+         (<0>
+            : (⊗ (ref (⊗))
+                (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)))
+         in
+       (split (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+          (<> : int) =
+          (<0:p> : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+          in
+        (unpack (<2:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+           <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+               (app (<1> : ((⊗ [0] int) ⊸ int))
+                  (tup (<0> : [0])
+                     (unpack (<4:g> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                        <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                            (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (<6:x> : int) : (⊗ [0] int)) : int)
+                        : int) : int)
+                   : (⊗ [0] int))
+                  : int)
+           : int) : int)
+         : int)
+      : int))
+
+    (unpack
+       (pack (ref (⊗))
+          (tup
+             (coderef compose
+                : ((⊗ [0]
+                     (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+                    ⊸ int))
+             (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗
+               ((⊗ [0]
+                  (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+                 ⊸ int)
+               (ref (⊗))))
+          : (exists []
+              (⊗
+                ((⊗ [0]
+                   (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+                  ⊸ int)
+                [0])))
+       <> (split
+             (<> : ((⊗ [0]
+                      (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+                     ⊸ int))
+             (<> : [0]) =
+             (<0>
+                : (⊗
+                    ((⊗ [0]
+                       (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))
+                         (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+                      ⊸ int)
+                    [0]))
+             in
+           (app
+              (<1>
+                 : ((⊗ [0]
+                      (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+                     ⊸ int))
+              (tup (<0> : [0])
+                 (tup
+                    (pack (ref (⊗))
+                       (tup (coderef lam_1 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                        : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
+                       : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    (pack (ref (⊗))
+                       (tup (coderef lam_2 : ((⊗ (ref (⊗)) int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                        : (⊗ ((⊗ (ref (⊗)) int) ⊸ int) (ref (⊗))))
+                       : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    (5 : int)
+                  : (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int))
+               : (⊗ [0]
+                   (⊗ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) int)))
+              : int)
+       : int) : int)
+    -----------mk_adder_apply_to-----------
+    (fun lam_1 (<> : (⊗ (ref (⊗ int)) int)) : int .
+      (split (<> : (ref (⊗ int))) (<> : int) = (<0> : (⊗ (ref (⊗ int)) int)) in
+       (split (<> : int) = (free (<1> : (ref (⊗ int))) : (⊗ int)) in
+        (let (<> : int) = (<1> : int) in
+         (+ (<0:x> : int) (<1:n> : int) : int)
+         : int) : int)
+      : int))
+
+    (fun mk_adder (<> : (⊗ (ref (⊗)) int)) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])) .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (pack (ref (⊗ int))
+          (tup (coderef lam_1 : ((⊗ (ref (⊗ int)) int) ⊸ int))
+             (new (tup (<0:n> : int) : (⊗ int)) : (ref (⊗ int)))
+           : (⊗ ((⊗ (ref (⊗ int)) int) ⊸ int) (ref (⊗ int))))
+          : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+      : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+
+    (fun apply_to_100 (<> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) : int .
+      (split (<> : (ref (⊗))) (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
+         (<0> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) in
+       (unpack (<0:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+          <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+              (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (100 : int) : (⊗ [0] int)) : int)
+          : int) : int)
+      : int))
+
+    (unpack
+       (pack (ref (⊗))
+          (tup (coderef apply_to_100 : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int))
+             (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int) [0])))
+       <> (split (<> : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int))
+             (<> : [0]) = (<0> : (⊗ ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int) [0])) in
+           (app (<1> : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int))
+              (tup (<0> : [0])
+                 (unpack
+                    (pack (ref (⊗))
+                       (tup (coderef mk_adder : ((⊗ [1] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                          (new (tup : (⊗)) : (ref (⊗)))
+                        : (⊗ ((⊗ [1] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) (ref (⊗))))
+                       : (exists [] (⊗ ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0])))
+                    <> (split (<> : ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                          (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) [0]))
+                          in
+                        (app (<1> : ((⊗ [0] int) ⊸ (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+                           (tup (<0> : [0]) (7 : int) : (⊗ [0] int)) :
+                           (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                    : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+               : (⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+              : int)
+       : int) : int)
+    -----------closure_with_ref-----------
+    (fun lam_1 (<> : (⊗ (ref (⊗ (ref int))) (⊗))) : int .
+      (split (<> : (ref (⊗ (ref int)))) (<> : (⊗)) = (<0> : (⊗ (ref (⊗ (ref int))) (⊗))) in
+       (split (<> : (ref int)) = (free (<1> : (ref (⊗ (ref int)))) : (⊗ (ref int))) in
+        (let (<> : (⊗)) = (<1> : (⊗)) in
+         (free (<1:r> : (ref int)) : int)
+         : int) : int)
+      : int))
+
+    (let (<> : (ref int)) = (new (42 : int) : (ref int)) in
+     (let (<> : (exists [] (⊗ ((⊗ [0] (⊗)) ⊸ int) [0]))) =
+        (pack (ref (⊗ (ref int)))
+           (tup (coderef lam_1 : ((⊗ (ref (⊗ (ref int))) (⊗)) ⊸ int))
+              (new (tup (<0:r> : (ref int)) : (⊗ (ref int))) : (ref (⊗ (ref int))))
+            : (⊗ ((⊗ (ref (⊗ (ref int))) (⊗)) ⊸ int) (ref (⊗ (ref int)))))
+           : (exists [] (⊗ ((⊗ [0] (⊗)) ⊸ int) [0])))
+        in
+      (unpack (<0:read_and_free> : (exists [] (⊗ ((⊗ [0] (⊗)) ⊸ int) [0])))
+         <> (split (<> : ((⊗ [0] (⊗)) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] (⊗)) ⊸ int) [0])) in
+             (app (<1> : ((⊗ [0] (⊗)) ⊸ int)) (tup (<0> : [0]) (tup : (⊗)) : (⊗ [0] (⊗))) : int)
+         : int) : int)
+      : int)
+     : int)
+    -----------factorial_hof-----------
+    (fun factorial (<> : (⊗ (ref (⊗)) int)) : int .
+      (split (<> : (ref (⊗))) (<> : int) = (<0> : (⊗ (ref (⊗)) int)) in
+       (if0 (<0:n> : int)
+        then (1 : int)
+        else
+          (× (<0:n> : int)
+             (unpack
+                (pack (ref (⊗))
+                   (tup (coderef factorial : ((⊗ [0] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                    : (⊗ ((⊗ [0] int) ⊸ int) (ref (⊗))))
+                   : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+                <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+                    (app (<1> : ((⊗ [0] int) ⊸ int))
+                       (tup (<0> : [0]) (- (<3:n> : int) (1 : int) : int) : (⊗ [0] int)) : int)
+                : int) : int)
+             : int)
+        : int)
+      : int))
+
+    (fun apply_to_6 (<> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) : int .
+      (split (<> : (ref (⊗))) (<> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) =
+         (<0> : (⊗ (ref (⊗)) (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))) in
+       (unpack (<0:f> : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+          <> (split (<> : ((⊗ [0] int) ⊸ int)) (<> : [0]) = (<0> : (⊗ ((⊗ [0] int) ⊸ int) [0])) in
+              (app (<1> : ((⊗ [0] int) ⊸ int)) (tup (<0> : [0]) (6 : int) : (⊗ [0] int)) : int)
+          : int) : int)
+      : int))
+
+    (unpack
+       (pack (ref (⊗))
+          (tup (coderef apply_to_6 : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int))
+             (new (tup : (⊗)) : (ref (⊗)))
+           : (⊗ ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int) (ref (⊗))))
+          : (exists [] (⊗ ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int) [0])))
+       <> (split (<> : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int))
+             (<> : [0]) = (<0> : (⊗ ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int) [0])) in
+           (app (<1> : ((⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))) ⊸ int))
+              (tup (<0> : [0])
+                 (pack (ref (⊗))
+                    (tup (coderef factorial : ((⊗ [1] int) ⊸ int)) (new (tup : (⊗)) : (ref (⊗)))
+                     : (⊗ ((⊗ [1] int) ⊸ int) (ref (⊗))))
+                    : (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0])))
+               : (⊗ [0] (exists [] (⊗ ((⊗ [0] int) ⊸ int) [0]))))
+              : int)
+       : int) : int) |}]

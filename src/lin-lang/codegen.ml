@@ -9,7 +9,7 @@ end
 module State = struct
   type t = {
     next_local : int;
-    rev_locals : RichWasm.Representation.t list; (* TODO: local fxs *)
+    rev_locals : RichWasm.Representation.t list;
   }
   [@@deriving sexp, make]
 
@@ -102,6 +102,7 @@ module Compile = struct
     | Prod ts -> mapM ~f:(compile_type env) ts >>| prod
     | Sum ts -> mapM ~f:(compile_type env) ts >>| sum
     | Rec t ->
+        (* bootstrap rep *)
         let env' = { env with type_map = None :: env.type_map } in
         let* rep = rep_of_typ env' t in
         (* NOTE: if coderef is used for indirection, then could have less
@@ -267,7 +268,7 @@ module Compile = struct
         in
         let* fresh_idx = new_local rep in
         let env' = Env.add_local env fresh_idx in
-        let env' = Env.add_type env' rep in
+        let env' = Env.add_type env' (Atom Ptr) in
         let* body' = compile_expr env' body in
         let* bt = compile_type env t |> lift_result in
         ret @@ rhs'

@@ -9,6 +9,6 @@
 
 (rule
   (target rw.v)
-  (deps rw.sig)
+  (deps rw.sig rw_prelude.v.in)
   (action
-    (run autosubst -o %{target} -f -no-static %{deps})))
+    (run autosubst -o %{target} -f -no-static -p rw_prelude.v.in rw.sig)))

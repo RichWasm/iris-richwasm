@@ -33,7 +33,7 @@ module IR = struct
       | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp t
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-    let pp_binding ff (typ : t) : unit = fprintf ff "(<> : %a)" pp typ
+    let pp_binding ff (typ : t) : unit = fprintf ff "@[(@[<2><> : @{<hi_blue>%a@}@])@]" pp typ
   end
 
   module Binop = Index.IR.Binop
@@ -60,56 +60,58 @@ module IR = struct
       | Free of t * Type.t
     [@@deriving eq, ord, variants, sexp]
 
-    let rec pp ff : t -> _ = function
-      | Int (n, t) -> fprintf ff "(@[<2>%d@ : %a@])" n Type.pp t
+    let rec pp ff : t -> _ =
+      let pp_typ ff = fprintf ff "@{<cyan>%a@}" Type.pp in
+      let pp_ann ff = fprintf ff "@{<hi_black>%a@}" Type.pp in
+      function
+      | Int (n, t) -> fprintf ff "(@[<2>%d@ : %a@])" n pp_ann t
       | Var (x, t) ->
-          fprintf ff "(@[<2>%a@ : %a@])" (LVar.pp ~space:`Term) x Type.pp t
-      | Coderef (str, t) -> fprintf ff "(@[<2>coderef %s@ : %a@])" str Type.pp t
+          fprintf ff "(@[<2>%a@ : %a@])" (LVar.pp ~space:`Term) x pp_ann t
+      | Coderef (str, t) -> fprintf ff "(@[<2>coderef %s@ : %a@])" str pp_ann t
       | Tuple (es, t) ->
           fprintf ff "(@[<hv 0>@[<2>tup%a@]@ : @[<2>%a@]@])"
             (pp_print_list_pre ~pp_sep:pp_print_space pp)
-            es Type.pp t
+            es pp_ann t
       | Inj (i, e, t) ->
-          fprintf ff "(@[<2>inj@ %a@ %a@ : %a@])" Int.pp i pp e Type.pp t
+          fprintf ff "(@[<2>inj@ %a@ %a@ : %a@])" Int.pp i pp e pp_ann t
       | Fold (t0, e, t) ->
-          fprintf ff "(@[<2>fold@ %a@ %a@ : %a@])" Type.pp t0 pp e Type.pp t
+          fprintf ff "(@[<2>fold@ %a@ %a@ : %a@])" pp_typ t0 pp e pp_ann t
       | Pack (t0, e, t) ->
-          fprintf ff "(@[<2>pack@ %a@ %a@ : %a@])" Type.pp t0 pp e Type.pp t
+          fprintf ff "(@[<2>pack@ %a@ %a@ : %a@])" pp_typ t0 pp e pp_ann t
       | App (l, r, t) ->
-          fprintf ff "(@[<2>app@ %a@ %a@ : %a@])" pp l pp r Type.pp t
+          fprintf ff "(@[<2>app@ %a@ %a@ : %a@])" pp l pp r pp_ann t
       | Let (binding, e, body, t) ->
           fprintf ff
             "(@[<v 0>@[<2>let@ %a@ =@ %a@ in@]@;@[<2>%a@]@ : @[<2>%a@]@])"
-            Type.pp_binding binding pp e pp body Type.pp t
+            Type.pp_binding binding pp e pp body pp_ann t
       | Split (bs, e, b, t) ->
           fprintf ff "(@[<v 0>@[<2>split@ %a@ =@ %a@ in@]@;@[<2>%a@]@]@ : %a)"
             (pp_print_list_space Type.pp_binding)
-            bs pp e pp b Type.pp t
+            bs pp e pp b pp_ann t
       | Cases (scrutinee, cases, t) ->
           fprintf ff "(@[<v 0>@[<v 2>@[<2>cases %a@]@,%a@]@ : @[<2>%a@]@])" pp
             scrutinee
             (pp_print_list (fun ff (binding, body) ->
                  fprintf ff "@[<2>(case %a@ %a)@]" Type.pp_binding binding pp
                    body))
-            cases Type.pp t
+            cases pp_ann t
       | Unfold (t0, e, t) ->
-          fprintf ff "(@[<2>unfold@ %a@ %a@ : %a@])" Type.pp t0 pp e Type.pp t
+          fprintf ff "(@[<2>unfold@ %a@ %a@ : %a@])" pp_typ t0 pp e pp_ann t
       | Unpack (witness, e, t) ->
-          fprintf ff "(@[<2>unpack@ %a@ <> %a@ : %a@])" pp witness pp e Type.pp
-            t
+          fprintf ff "(@[<2>unpack@ %a@ <> %a@ : %a@])" pp witness pp e pp_ann t
       | If0 (e1, e2, e3, t) ->
           fprintf ff
             "(@[<v 0>@[<2>if0 %a@]@,\
              @[<2>then %a@]@,\
              @[<2>else@ %a@]@,\
              @[<2>: %a@]@])"
-            pp e1 pp e2 pp e3 Type.pp t
+            pp e1 pp e2 pp e3 pp_ann t
       | Binop (op, l, r, t) ->
-          fprintf ff "(@[<2>%a@ %a@ %a@ : %a@])" Binop.pp op pp l pp r Type.pp t
-      | New (e, t) -> fprintf ff "(@[<2>new@ %a@ : %a@])" pp e Type.pp t
+          fprintf ff "(@[<2>%a@ %a@ %a@ : %a@])" Binop.pp op pp l pp r pp_ann t
+      | New (e, t) -> fprintf ff "(@[<2>new@ %a@ : %a@])" pp e pp_ann t
       | Swap (l, r, t) ->
-          fprintf ff "(@[<2>swap@ %a@ %a@ : %a@])" pp l pp r Type.pp t
-      | Free (e, t) -> fprintf ff "(@[<2>free@ %a@ : %a@])" pp e Type.pp t
+          fprintf ff "(@[<2>swap@ %a@ %a@ : %a@])" pp l pp r pp_ann t
+      | Free (e, t) -> fprintf ff "(@[<2>free@ %a@ : %a@])" pp e pp_ann t
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
 
@@ -202,7 +204,7 @@ module Compile = struct
     | Int -> Int
     | Var x -> Var x
     | Lollipop (t1, t2) ->
-        Exists (Prod [ compile_lolipop_unwrapped t1 t2; Ref (Var (0, None)) ])
+        Exists (Prod [ compile_lolipop_unwrapped t1 t2; Var (0, None) ])
     | Prod ts -> Prod (List.map ~f:compile_typ ts)
     | Sum ts -> Sum (List.map ~f:compile_typ ts)
     | Ref t -> Ref (compile_typ t)
@@ -210,7 +212,7 @@ module Compile = struct
 
   and compile_lolipop_unwrapped t1 t2 : B.Type.t =
     Lollipop
-      (Prod [ Ref (Var (0, None)); compile_typ_shift t1 ], compile_typ_shift t2)
+      (Prod [ Var (0, None); compile_typ_shift t1 ], compile_typ_shift t2)
 
   and compile_typ_shift t : B.Type.t = compile_typ t |> shift_tidx 1 0
 
@@ -385,7 +387,7 @@ module Compile = struct
         let tuple = mk_tuple [ Coderef (n, coderef_t); mk_new (mk_tuple []) ] in
         ret
         @@ Pack
-             (Prod [], tuple, Exists (Prod [ coderef_t; Ref (Var (0, None)) ]))
+             (Ref (Prod []), tuple, Exists (Prod [ coderef_t; Var (0, None) ]))
     | Int (n, t) -> ret (Int (n, compile_typ t))
     | Tuple (es, t) ->
         let* es' = mapM ~f:(compile_expr env) es in
@@ -436,9 +438,9 @@ module Compile = struct
           emit { export = false; name = fname; param; return; body = body' }
         in
 
-        (* #`(pack #,closure (new #,clos) as #,(exists (prod (shift (#,param -> #,return)) (ref (var 0)))) *)
+        (* #`(pack #,ref_closure (new #,clos) as #,(exists (prod (shift (#,param -> #,return)) (var 0)))) *)
         Pack
-          ( clos_typ,
+          ( ref_clos_typ,
             mk_tuple
               [
                 Coderef (fname, Lollipop (clos_tup_typ, ret_t'));
@@ -446,7 +448,7 @@ module Compile = struct
               ],
             Exists
               (Prod
-                 [ compile_lolipop_unwrapped arg_t ret_t; Ref (Var (0, None)) ])
+                 [ compile_lolipop_unwrapped arg_t ret_t; Var (0, None) ])
           )
     | App (applicand, applicant, _) ->
         let* applicand' = compile_expr env applicand in
@@ -468,7 +470,7 @@ module Compile = struct
               (app coderef (closure, #,applicant))))
         *)
         let package_t = Var (0, None) in
-        let ref_package_t = Ref package_t in
+        let ref_package_t = package_t in
         let in_t = Prod [ ref_package_t; compile_typ arg |> shift_tidx 1 0 ] in
         let out_t = compile_typ return |> shift_tidx 1 0 in
 

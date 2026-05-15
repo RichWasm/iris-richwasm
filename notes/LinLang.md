@@ -20,14 +20,14 @@ binop := + | - | × | ÷
 e ::=
     | n
     | x
-    | (λ (x : τ₁) : τ₂ . e)
-    | (v₁, ..., vₙ)
-    | (inj i e : τ)
-    | (fold τ e)
-    | (app v₁ v₂)
     | (let (x : τ) = e₁ in e₂)
+    | (λ (x : τ₁) : τ₂ . e)
+    | (app e₁ e₂)
+    | (e₁, ..., eₙ)
     | (split (x₁ : τ₁) ... (xₙ : τₙ) = e₁ in e₂)
+    | (inj i e : τ)
     | (cases e (case (x₁ : τ₁) e₁) ... (case (xₙ : τₙ) eₙ))
+    | (fold τ e)
     | (unfold τ e)
     | (if0 e₁ then e₂ else e₃)
     | (e₁ binop e₂)

@@ -203,6 +203,15 @@ let%expect_test "pretty prints examples" =
     (let (add-amount : int) = 1 in
     (app (λ (x : int) : int .
            (x + add-amount)) input)))
+    -----------mk_id_tl_anf-----------
+    (fun id (x : int) : int .
+      x)
+
+    (fun mk-id (_ : int) : (int ⊸ int) .
+      id)
+
+    (let (id' : (int ⊸ int)) = (app mk-id 0) in
+    (app id' 10))
     -----------triangle_tl-----------
     (fun triangle (n : int) : int .
       (if0 n then 0 else (n + (app triangle (n - 1)))))
@@ -283,7 +292,7 @@ let%expect_test "pretty prints examples" =
       in
     (app map_int ((λ (x : int) : int .
                     (x + 1)), lst)))
-    -----------boxed_list-----------
+    -----------boxed_list[invalid]-----------
     (fun map_int (p : ((int ⊸ int) ⊗ (rec α (() ⊕ (int ⊗ (ref α)))))) :
       (rec α (() ⊕ (int ⊗ (ref α)))) .
       (split (f : (int ⊸ int)) (lst : (rec α (() ⊕ (int ⊗ (ref α))))) =
@@ -368,6 +377,44 @@ let%expect_test "pretty prints examples" =
       (split (a : (ref int)) (b : (ref (ref int))) = p in
       (new ((free a), (free b)))))
 
+    -----------apply_hof-----------
+    (fun apply (p : ((int ⊸ int) ⊗ int)) : int .
+      (split (f : (int ⊸ int)) (x : int) = p in
+      (app f x)))
+
+    (app apply ((λ (x : int) : int .
+                  (x + 5)), 10))
+    -----------compose_hof-----------
+    (fun compose (p : ((int ⊸ int) ⊗ (int ⊸ int) ⊗ int)) : int .
+      (split (f : (int ⊸ int)) (g : (int ⊸ int)) (x : int) = p in
+      (app f (app g x))))
+
+    (app compose
+      ((λ (x : int) : int .
+         (x + 1)), (λ (x : int) : int .
+                     (x × 2)), 5))
+    -----------mk_adder_apply_to-----------
+    (fun mk_adder (n : int) : (int ⊸ int) .
+      (λ (x : int) : int .
+        (x + n)))
+
+    (fun apply_to_100 (f : (int ⊸ int)) : int .
+      (app f 100))
+
+    (app apply_to_100 (app mk_adder 7))
+    -----------closure_with_ref-----------
+    (let (r : (ref int)) = (new 42) in
+    (let (read_and_free : (() ⊸ int)) = (λ (_ : ()) : int .
+                                            (free r)) in
+    (app read_and_free ())))
+    -----------factorial_hof-----------
+    (fun factorial (n : int) : int .
+      (if0 n then 1 else (n × (app factorial (n - 1)))))
+
+    (fun apply_to_6 (f : (int ⊸ int)) : int .
+      (app f 6))
+
+    (app apply_to_6 factorial)
     -----------swap_pair_program-----------
     (export fun swap (p : (int ⊗ int)) : (int ⊗ int) .
       (split (x : int) (y : int) = p in

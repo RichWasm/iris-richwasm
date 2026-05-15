@@ -709,7 +709,7 @@ module InstructionType = struct
 
   let pp ff : t -> _ = function
     | InstrT (t_in, t_out) ->
-        fprintf ff "@[[%a]@ ->@ [%a]@]"
+        fprintf ff "@[@[<1>[%a]@]@ ->@ @[<1>[%a]@]@]"
           (pp_print_list_space Type.pp)
           t_in
           (pp_print_list_space Type.pp)
@@ -850,7 +850,7 @@ module Instruction = struct
         instrs
     in
     let pp_int = Z.pp_print in
-    let pp_it_comment ff x = fprintf ff " ;; @[%a@]" InstructionType.pp x in
+    let pp_it_comment ff x = fprintf ff " @{<hi_black>;; @[%a@]@}" InstructionType.pp x in
     let pp_lfx ff x =
       fprintf ff "@[<2>(localfx";
       List.iteri

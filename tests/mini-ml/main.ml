@@ -30,7 +30,9 @@ let%expect_test "test_one" =
   (module
     (func ((ref (base gc) (struct)) -> i31) (local ptr)
       i32.const 1
-      tag)
+      tag
+      local.get 0 move
+      drop)
     (table 0)
     (export "_start" (func 0)))|}]
 
@@ -79,6 +81,8 @@ let%expect_test "id_fun" =
       copy
       local.set 2
       local.get 2 move
+      drop
+      local.get 0 move
       drop)
     (table 0)
     (export "id" (func 0)))|}]
@@ -124,6 +128,8 @@ let%expect_test "return_one" =
       i32.const 1
       tag
       local.get 2 move
+      drop
+      local.get 0 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
       coderef 0
@@ -180,7 +186,9 @@ let%expect_test "return_one" =
         drop
         local.get 1 move
         drop
-      end)
+      end
+      local.get 0 move
+      drop)
     (table 0 1)
     (export "one" (func 0))
     (export "_start" (func 1)))|}]
@@ -230,6 +238,8 @@ let%expect_test "apply_id" =
       copy
       local.set 2
       local.get 2 move
+      drop
+      local.get 0 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
       coderef 0
@@ -286,7 +296,9 @@ let%expect_test "apply_id" =
         drop
         local.get 1 move
         drop
-      end)
+      end
+      local.get 0 move
+      drop)
     (table 0 1)
     (export "id" (func 0))
     (export "_start" (func 1))) |}]
@@ -312,7 +324,9 @@ let%expect_test "tuple_and_project" =
       load (Path [1]) follow
       local.set 1
       drop
-      local.get 1 move)
+      local.get 1 move
+      local.get 0 move
+      drop)
     (table 0)
     (export "_start" (func 0))) |}]
 
@@ -365,6 +379,8 @@ let%expect_test "opt_case" =
       drop
       local.get 4 move
       local.get 1 move
+      drop
+      local.get 0 move
       drop)
     (table 0)
     (export "_start" (func 0))) |}]

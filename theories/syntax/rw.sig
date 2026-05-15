@@ -1,4 +1,5 @@
 nat : Type
+Z : Type
 list : Functor
 
 ref_flag : Type
@@ -170,7 +171,7 @@ IUnreachable : instruction_type -> instruction
 ICopy : instruction_type -> instruction
 IDrop : instruction_type -> instruction
 INum : instruction_type -> num_instruction -> instruction
-INumConst : instruction_type -> nat -> instruction
+INumConst : instruction_type -> Z -> instruction
 IBlock : instruction_type -> "list" (type) -> "list" (instruction) -> instruction
 ILoop : instruction_type -> "list" (instruction) -> instruction
 IIte : instruction_type -> "list" (type) -> "list" (instruction) -> "list" (instruction) -> instruction

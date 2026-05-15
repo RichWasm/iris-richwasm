@@ -67,8 +67,8 @@ Section Compiler.
     | ICvt op => emit (translate_cvt_op op)
     end.
 
-  Definition compile_num_const (ν : num_type) (n : nat) : codegen unit :=
-    emit (W.BI_const (value_of_Z (translate_num_type ν) (Z.of_nat n))).
+  Definition compile_num_const (ν : num_type) (n : Z) : codegen unit :=
+    emit (W.BI_const (value_of_Z (translate_num_type ν) n)).
 
   Definition compile_block (fe : function_env) (ψ : instruction_type) (c : codegen unit) :
     codegen unit :=

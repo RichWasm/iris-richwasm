@@ -5,12 +5,16 @@ From Stdlib.Strings Require Import String.
 From RichWasm Require Import layout syntax typing util.
 Set Bullet Behavior "Strict Subproofs".
 
-Definition type_error := string.
+Inductive type_error :=
+| NormalError: string -> type_error
+| FrameError: string -> instruction_type -> instruction_type -> type_error
+| LocalCtxSynthError: string -> local_ctx -> local_ctx -> list type_error -> type_error
+.
 Definition ok := unit.
-Definition type_checker_res := sum ok type_error.
+Definition type_checker_res := sum ok (list type_error).
 
 Definition ok_term : type_checker_res := inl ().
-Definition INR (s:string) : type_checker_res := inr s.
+Definition INR (s:string) : type_checker_res := inr [(NormalError s)].
 
 Hint Unfold ok_term : core.
 
@@ -422,6 +426,7 @@ Fixpoint instruction_beq e1 e2 : bool :=
    => instruction_type_beq ϕ1 ϕ2
  | INum ϕ1 n1, INum ϕ2 n2 => instruction_type_beq ϕ1 ϕ2 && num_instruction_beq n1 n2
  | INumConst ϕ1 n1, INumConst ϕ2 n2
+   => instruction_type_beq ϕ1 ϕ2 && Z.eqb n1 n2
  | IBr ϕ1 n1, IBr ϕ2 n2
    => instruction_type_beq ϕ1 ϕ2 && (n1 =? n2)
  | ILocalGet ϕ1 cm1 n1, ILocalGet ϕ2 cm2 n2
@@ -674,6 +679,16 @@ Proof.
 Qed.
 
 
+Fixpoint combine_error_messages (l:list type_checker_res) : list type_error :=
+  match l with
+  | [] => []
+  | r::rs =>
+      match r with
+      | inl () => combine_error_messages rs
+      | inr l' => l' ++ combine_error_messages rs
+      end
+  end.
+
 (* type_ok *)
 Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
   match t with
@@ -756,8 +771,16 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
            then
               if (foldr (λ t:type, andb (check_ok (type_ok_checker F) t)) true τs2)
               then ok_term
-              else INR "function type ok error"
-           else INR "function type ok error"
+              (* yes this will redo it twice but I didn't want to mess up the proofs *)
+                     (* fix later *)
+              else
+                let res2 := map (type_ok_checker F) τs2 in
+                inr ([NormalError "function type ok error in τs2"] ++ combine_error_messages res2)
+                (* INR ("function type ok error in τs2 (" ++ (combine_error_messages res2) ++ ")"%string) *)
+           else
+             let res1 := map (type_ok_checker F) τs1 in
+             inr ([NormalError "function type ok error in τs1"] ++ combine_error_messages res1)
+             (* INR ("function type ok error in τs1 (" ++ (combine_error_messages res1) ++ ")"%string) *)
       | ForallMemT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ
       | ForallRepT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ
       | ForallSizeT ϕ => function_type_ok_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ
@@ -929,7 +952,9 @@ Definition check_if_subkind (k1:kind) (k2:kind) : type_checker_res :=
         | GCRefs, GCRefs
         | GCRefs, AnyRefs
         | AnyRefs, AnyRefs => ok_term
-        | _, _ => INR "not subkind"
+        | GCRefs, NoRefs => INR "not subkind (gc no)"
+        | AnyRefs, NoRefs => INR "not subkind (any no)"
+        | AnyRefs, GCRefs => INR "not subkind (any gc)"
         end
       else INR "mismatch in representation for subkinds"
   | MEMTYPE σ1 ξ1, MEMTYPE σ2 ξ2 =>
@@ -940,7 +965,9 @@ Definition check_if_subkind (k1:kind) (k2:kind) : type_checker_res :=
         | GCRefs, GCRefs
         | GCRefs, AnyRefs
         | AnyRefs, AnyRefs => ok_term
-        | _, _ => INR "not subkind"
+        | GCRefs, NoRefs => INR "not subkind (gc no)"
+        | AnyRefs, NoRefs => INR "not subkind (any no)"
+        | AnyRefs, GCRefs => INR "not subkind (any gc)"
         end
       else INR "mismatch in sizity for subkinds"
   | _, _ => INR "mismatch in general kind for subkind"
@@ -1250,7 +1277,7 @@ Qed.
 
 (* Small things before pathing *)
 Definition has_rep_checker F τ ρ : type_checker_res :=
-  has_kind_checker F τ (VALTYPE ρ NoRefs).
+  has_kind_checker F τ (VALTYPE ρ AnyRefs).
 
 Lemma has_rep_checker_correct :
   ∀ F τ ρ, has_rep_checker F τ ρ = ok_term -> has_rep F τ ρ.
@@ -1258,7 +1285,7 @@ Proof.
   intros.
   unfold has_rep_checker in H.
   apply has_kind_checker_correct in H.
-  apply (RepVALTYPE _ _ _ NoRefs); auto.
+  apply (RepVALTYPE _ _ _ AnyRefs); auto.
 Qed.
 
 Definition grab_rep F τ : option representation :=
@@ -1313,8 +1340,14 @@ Definition has_mono_rep_instr_checker F inst : type_checker_res :=
       then
         if (foldr (λ t:type, andb (check_ok (has_mono_rep_checker F) t)) true τs2)
         then ok_term
-        else INR "function type ok error"
-      else INR "function type ok error"
+        else
+          let res := map (has_mono_rep_checker F) τs2 in
+          inr ([NormalError "mono rep instr checker error in τs2"] ++ combine_error_messages res)
+          (* INR ("mono rep instr checker error in τs2 (" ++ (combine_error_messages res) ++ ")"%string ) *)
+      else
+        let res := map (has_mono_rep_checker F) τs1 in
+        inr ([NormalError "mono rep instr checker error in τs2"] ++ combine_error_messages res)
+        (* INR ("mono rep instr checker error in τs1 (" ++ (combine_error_messages res) ++ ")"%string ) *)
   end.
 
 Lemma has_mono_rep_instr_checker_correct :
@@ -1341,7 +1374,7 @@ Definition grab_size F τ : option size :=
   end.
 
 Definition has_size_checker F τ σ : type_checker_res :=
-  has_kind_checker F τ (MEMTYPE σ NoRefs).
+  has_kind_checker F τ (MEMTYPE σ AnyRefs).
 
 Lemma has_size_checker_correct :
   ∀ F τ σ, has_size_checker F τ σ = ok_term -> has_size F τ σ.
@@ -1349,7 +1382,7 @@ Proof.
   intros. unfold has_size_checker in H.
   apply has_kind_checker_correct in H.
   unfold has_size.
-  by exists NoRefs.
+  by exists AnyRefs.
 Qed.
 
 Definition grab_size_correct :
@@ -1381,7 +1414,7 @@ Proof.
   repeat my_auto3.
   unfold is_mono_size_checker in *. unfold has_size_checker in *.
   repeat my_auto3. apply has_kind_checker_correct in HMatch0.
-  by apply (MonoSizeMEMTYPE _ _ s NoRefs).
+  by apply (MonoSizeMEMTYPE _ _ s AnyRefs).
 Qed.
 
 
@@ -1790,27 +1823,27 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | StructT κ2 τs2 =>
           match τ1 with
           | ProdT κp τs =>
-              if kind_beq κ1 κ2
-              then (* I now throw away κ' *)
-                match κ1 with
-                | MEMTYPE (ProdS σs) ξ =>
-                    match get_list_of_reps σs with
-                    | Some ρs =>
+              match κ1 with
+              | MEMTYPE (RepS (ProdR ρs)) ξ1 =>
+                  match κ2 with
+                  | MEMTYPE (ProdS σs) ξ2 =>
+                      if andb (ref_flag_beq ξ1 ξ2)
+                              (list_beq size size_beq σs (map RepS ρs))
+                      then
                         if foldr2
                              (λ τ:type, λ ρ:representation,
-                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ)))
+                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ1)))
                              ) true τs ρs
                         then (* now just check that τs' equal to the monstrosity *)
-                          if list_beq type type_beq τs2 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ) τ)) τs ρs)
+                          if list_beq type type_beq τs2 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ1) τ)) τs ρs)
                           then ok_term
                           else INR "types not_equal"
                         else INR "types not equal"
-                    | None => INR "types not equal"
-                    end
-                | _ => INR "types not equal"
-                end
-              else INR "types not equal"
-
+                      else INR "types not equal"
+                  | _ => INR "types not equal"
+                  end
+              | _ => INR "types not equal"
+              end
           | _ => INR "types not equal"
           end
       | _ => INR "types not equal"
@@ -1831,26 +1864,27 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | SerT κ2 τ2 =>
           match τ2 with
           | ProdT κp τs =>
-              if kind_beq κ2 κ1
-              then (* I now throw away κ' *)
-                match κ2 with
-                | MEMTYPE (ProdS σs) ξ =>
-                    match get_list_of_reps σs with
-                    | Some ρs =>
+              match κ2 with
+              | MEMTYPE (RepS (ProdR ρs)) ξ2 =>
+                  match κ1 with
+                  | MEMTYPE (ProdS σs) ξ1 =>
+                      if andb (ref_flag_beq ξ1 ξ2)
+                              (list_beq size size_beq σs (map RepS ρs))
+                      then
                         if foldr2
                              (λ τ:type, λ ρ:representation,
-                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ)))
+                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ2)))
                              ) true τs ρs
                         then (* now just check that τs' equal to the monstrosity *)
-                          if list_beq type type_beq τs1 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ) τ)) τs ρs)
+                          if list_beq type type_beq τs1 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ2) τ)) τs ρs)
                           then ok_term
                           else INR "types not_equal 3"
                         else INR "types not equal 4"
-                    | None => INR "types not equal 5"
-                    end
-                | _ => INR "types not equal 6"
-                end
-              else INR "types not equal 7"
+                      else INR "types not equal 5"
+                  | _ => INR "types not equal 6"
+                  end
+              | _ => INR "types not equal 7"
+              end
           | _ => INR "types not equal 8"
           end
 
@@ -1912,24 +1946,9 @@ Proof.
   all: idtac. (* this is here because doom emacs despises the match goal above *)
 
   (* struct ser case *)
-  6: {
-    simpl in H0. destruct τ2; simpl in H0; repeat my_auto3_5.
-    apply get_list_of_reps_matches_map in HMatch1; subst.
-    apply TEqSym.
-    apply (TEqSerProd _ _ l1 r _).
-    (* this then relies on some foldr2 lemmas *)
-    admit.
-  }
+  6: { admit. }
   (* ser struct case *)
-  6: {
-    Opaque has_kind_checker.
-    simpl in H0. destruct t; simpl in H0; repeat my_auto3_5.
-    apply get_list_of_reps_matches_map in HMatch1; subst.
-    apply (TEqSerProd _ _ l2 r _).
-    (* this then relies on some foldr2 lemmas *)
-    admit.
-
-  }
+  6: { admit. }
   (* All the rest of are foldr2 lemma reliant, so *)
   all: admit.
 
@@ -3179,15 +3198,15 @@ Definition synth_possible_resulting_local_ctx F (inst:instruction) (L:local_ctx)
           | Move =>
               match F.(fc_locals) !! i with
               | Some ηs => inl (Some (<[ i := type_plug_prim ηs ]> L))
-              | _ => inr "NO"%string
+              | _ => inr (NormalError "NO")
               end
           end
-      | _ => inr "NO"%string
+      | _ => inr (NormalError "NO")
       end
   | ILocalSet ψ i =>
       match ψ with
       | InstrT [τ] [] => inl (Some (<[ i := τ ]> L))
-      | _ => inr "NO"%string
+      | _ => inr (NormalError "NO")
       end
   | ICodeRef _ _
   | IInst _ _
@@ -3305,9 +3324,9 @@ Fixpoint has_instruction_type_checker
                     then (* oh and monorep *)
                       if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
                       then ok_term
-                      else INR "can't frame out (can't frame non mono rep)"
-                    else INR "can't frame out (single instruction)"
-                | _, _ => INR "inner instruction type doesn't match"
+                      else inr [(FrameError "non mono rep" e_ψ ψ)]
+                    else inr [(FrameError "single instruction" e_ψ ψ)]
+                | _, _ => inr [(FrameError "inner instruction type doesn't match" e_ψ ψ)]
                 end
             end
         | err => err
@@ -4055,9 +4074,9 @@ Fixpoint have_instruction_type_checker
                     then (* oh and monorep *)
                       if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
                       then ok_term
-                      else INR "can't frame out (can't frame non mono rep)"
-                    else INR "can't frame out (single instruction)"
-                | _, _ => INR "inner instruction type doesn't match"
+                      else inr [(FrameError "non mono rep" e_ψ ψ)]
+                    else inr [(FrameError "single instruction" e_ψ ψ)]
+                | _, _ => inr [(FrameError "inner instruction type doesn't match" e_ψ ψ)]
                 end
             end
         | err => err
@@ -4442,9 +4461,9 @@ Proof.
                     then (* oh and monorep *)
                       if foldr (λ t:type, andb (check_ok_output (has_mono_rep_checker F t))) true τs1_pref
                       then ok_term
-                      else INR "can't frame out (can't frame non mono rep)"
-                    else INR "can't frame out (single instruction)"
-                | _, _ => INR "inner instruction type doesn't match"
+                      else inr [(FrameError "non mono rep" e_ψ ψ)]
+                    else inr [(FrameError "single instruction" e_ψ ψ)]
+                | _, _ => inr [(FrameError "inner instruction type doesn't match" e_ψ ψ)]
                 end
             end
         | err => err
@@ -4752,14 +4771,22 @@ Definition has_function_type_checker
         | Some ρs_P =>
             match mapM (eval_rep_prim EmptyEnv) ρs_P with
             | Some ηss_P =>
-                let F := Build_function_ctx ϕ.(fft_out) (ηss_P ++ ηss_L) [] K ϕ.(fft_type_vars) in
+                let tempF2 := Build_function_ctx ϕ.(fft_out) (ηss_P ++ ηss_L) [] K ϕ.(fft_type_vars) in
                 let L := ϕ.(fft_in) ++ map type_plug_prim ηss_L in
                 let ψ := InstrT [] ϕ.(fft_out) in
-                match synth_possible_resulting_local_ctx_insts F (mf.(mf_body)) L with
+                match synth_possible_resulting_local_ctx_insts tempF2 (mf.(mf_body)) L with
                 | inl (Some L') =>
-                    if (foldr (λ t:type, andb (check_ok_output (has_ref_flag_checker F t NoRefs))) true L')
+                    let F := tempF2 <| fc_labels := [(ϕ.(fft_out), L')] |> in
+                    let res := map (λ t, has_ref_flag_checker F t NoRefs) L' in
+                    let folded := foldr (λ r, andb (check_ok_output r)) true res in
+                    if folded
                     then have_instruction_type_checker M F L mf.(mf_body) ψ L'
-                    else INR "bad"
+                    else
+                      inr ([LocalCtxSynthError "your resulting locals aren't all nonrefs"
+                              L L' (combine_error_messages res)])
+                      (* inr ([NormalError "your resulting locals aren't all nonrefs"] ++ combine_error_messages res) *)
+                      (* INR ("your resulting locals aren't all norefs (" ++ *)
+                      (*           (combine_error_messages res) ++ ")"%string) *)
                 | inl None => INR "don't know how to deal with breaks and stuff yet for synthing local ctx"
                 | inr a => INR "error in synthing local ctx (e.g. bad local get/set)"
                 end
@@ -4857,10 +4884,13 @@ Definition has_module_type_checker (m:module) (mt:module_type) : type_checker_re
           if module_type_beq mt (Build_module_type m.(m_imports) exports)
           then
             let M := Build_module_ctx ϕs table in
-            if (foldr (λ mf, andb (check_ok_output (has_function_type_checker M mf mf.(mf_type))))
-                      true m.(m_functions))
+            let res := map (λ mf, has_function_type_checker M mf mf.(mf_type)) m.(m_functions) in
+            let folded := foldr (λ r, andb (check_ok_output r)) true res in
+            if folded
             then ok_term
-            else INR "function types don't equal"
+            else
+              inr ([NormalError "can't module check"] ++ combine_error_messages res)
+              (* INR ("can't module check: " ++ (combine_error_messages res)) *)
           else INR "suggested module type not equal to what it needs to be"
       | None => INR "bad exports"
       end
