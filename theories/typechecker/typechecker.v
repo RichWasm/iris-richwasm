@@ -1825,27 +1825,27 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | StructT κ2 τs2 =>
           match τ1 with
           | ProdT κp τs =>
-              if kind_beq κ1 κ2
-              then (* I now throw away κ' *)
-                match κ1 with
-                | MEMTYPE (ProdS σs) ξ =>
-                    match get_list_of_reps σs with
-                    | Some ρs =>
+              match κ1 with
+              | MEMTYPE (RepS (ProdR ρs)) ξ1 =>
+                  match κ2 with
+                  | MEMTYPE (ProdS σs) ξ2 =>
+                      if andb (ref_flag_beq ξ1 ξ2)
+                              (list_beq size size_beq σs (map RepS ρs))
+                      then
                         if foldr2
                              (λ τ:type, λ ρ:representation,
-                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ)))
+                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ1)))
                              ) true τs ρs
                         then (* now just check that τs' equal to the monstrosity *)
-                          if list_beq type type_beq τs2 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ) τ)) τs ρs)
+                          if list_beq type type_beq τs2 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ1) τ)) τs ρs)
                           then ok_term
                           else INR "types not_equal"
                         else INR "types not equal"
-                    | None => INR "types not equal"
-                    end
-                | _ => INR "types not equal"
-                end
-              else INR "types not equal"
-
+                      else INR "types not equal"
+                  | _ => INR "types not equal"
+                  end
+              | _ => INR "types not equal"
+              end
           | _ => INR "types not equal"
           end
       | _ => INR "types not equal"
@@ -1866,26 +1866,27 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | SerT κ2 τ2 =>
           match τ2 with
           | ProdT κp τs =>
-              if kind_beq κ2 κ1
-              then (* I now throw away κ' *)
-                match κ2 with
-                | MEMTYPE (ProdS σs) ξ =>
-                    match get_list_of_reps σs with
-                    | Some ρs =>
+              match κ2 with
+              | MEMTYPE (RepS (ProdR ρs)) ξ2 =>
+                  match κ1 with
+                  | MEMTYPE (ProdS σs) ξ1 =>
+                      if andb (ref_flag_beq ξ1 ξ2)
+                              (list_beq size size_beq σs (map RepS ρs))
+                      then
                         if foldr2
                              (λ τ:type, λ ρ:representation,
-                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ)))
+                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ2)))
                              ) true τs ρs
                         then (* now just check that τs' equal to the monstrosity *)
-                          if list_beq type type_beq τs1 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ) τ)) τs ρs)
+                          if list_beq type type_beq τs1 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ2) τ)) τs ρs)
                           then ok_term
                           else INR "types not_equal 3"
                         else INR "types not equal 4"
-                    | None => INR "types not equal 5"
-                    end
-                | _ => INR "types not equal 6"
-                end
-              else INR "types not equal 7"
+                      else INR "types not equal 5"
+                  | _ => INR "types not equal 6"
+                  end
+              | _ => INR "types not equal 7"
+              end
           | _ => INR "types not equal 8"
           end
 
@@ -1947,24 +1948,9 @@ Proof.
   all: idtac. (* this is here because doom emacs despises the match goal above *)
 
   (* struct ser case *)
-  6: {
-    simpl in H0. destruct τ2; simpl in H0; repeat my_auto3_5.
-    apply get_list_of_reps_matches_map in HMatch1; subst.
-    apply TEqSym.
-    apply (TEqSerProd _ _ l1 r _).
-    (* this then relies on some foldr2 lemmas *)
-    admit.
-  }
+  6: { admit. }
   (* ser struct case *)
-  6: {
-    Opaque has_kind_checker.
-    simpl in H0. destruct t; simpl in H0; repeat my_auto3_5.
-    apply get_list_of_reps_matches_map in HMatch1; subst.
-    apply (TEqSerProd _ _ l2 r _).
-    (* this then relies on some foldr2 lemmas *)
-    admit.
-
-  }
+  6: { admit. }
   (* All the rest of are foldr2 lemma reliant, so *)
   all: admit.
 
