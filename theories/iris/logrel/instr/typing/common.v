@@ -1130,15 +1130,15 @@ Section common.
   Qed.
 
   (* Ugly lemma dealing with subkinding *)
-  Lemma has_kind_SumT_inv F τs ρs ξ κ :
-    has_kind F (SumT (VALTYPE (SumR ρs) ξ) τs) κ →
-    Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ ξ)) τs ρs.
-  Proof.
-    intros H. remember (SumT (VALTYPE (SumR ρs) ξ) τs) as τ.
-    induction H; try discriminate.
-    - (* KSum *) injection Heqτ; intros; subst. eauto.
-    - (* KSub *) eauto.
-  Qed.
+  (* Lemma has_kind_SumT_inv F τs ρs ξ κ : *)
+  (*   has_kind F (SumT (VALTYPE (SumR ρs) ξ) τs) κ → *)
+  (*   Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ ξ)) τs ρs. *)
+  (* Proof. *)
+  (*   intros H. remember (SumT (VALTYPE (SumR ρs) ξ) τs) as τ. *)
+  (*   induction H; try discriminate. *)
+  (*   - (* KSum *) injection Heqτ; intros; subst. eauto. *)
+  (*   - (* KSub *) eauto. *)
+  (* Qed. *)
 
   Lemma has_kind_RecT_inv F τ κ κ' :
     has_kind F (RecT κ τ) κ' →
@@ -1146,8 +1146,7 @@ Section common.
   Proof.
     intros H. remember (RecT κ τ) as τ'.
     induction H; try discriminate.
-    - (* KRec *) injection Heqτ'; intros; subst. split; [apply subkind_of_refl |]. exact H.
-    - (* KSub *) destruct (IHhas_kind Heqτ') as [Hsub Hk]. split; [eauto using subkind_of_trans | exact Hk].
+    injection Heqτ'; intros; subst. split; [apply subkind_of_refl |]. exact H.
   Qed.
 
   Lemma eval_rep_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) ρ :
@@ -1348,9 +1347,9 @@ Section common.
     atoms_interp os2 vs2 -∗
     atoms_interp (os1 ++ os2) (vs1 ++ vs2).
   Proof.
-  iIntros "H1 H2".
-  iApply (big_sepL2_app with "H1 H2").
-Qed.
+    iIntros "H1 H2".
+    iApply (big_sepL2_app with "H1 H2").
+  Qed.
 
   Lemma atoms_interp_app_l os1 os2 vs :
     atoms_interp (os1 ++ os2) vs -∗

@@ -226,6 +226,26 @@ Proof.
   by destruct ξ.
 Qed.
 
+Definition ref_flag_lub2 (ξ1 ξ2 : ref_flag) : ref_flag :=
+  match ξ1 with
+  | NoRefs => ξ2
+  | GCRefs =>
+      match ξ2 with
+      | NoRefs => GCRefs
+      | _ => ξ2
+      end
+  | AnyRefs => AnyRefs
+  end.
+
+Definition ref_flag_lub (ξs : list ref_flag) : ref_flag :=
+  foldl ref_flag_lub2 NoRefs ξs.
+
+Lemma ref_flag_lub_lub ξ' ξs :
+  Forall (λ ξ, ref_flag_le ξ ξ') ξs ->
+  ref_flag_le (ref_flag_lub ξs) ξ'.
+Proof.
+Admitted.
+
 Inductive subkind_of : kind -> kind -> Prop :=
 | KSubVal ρ ξ ξ' :
   ref_flag_le ξ ξ' ->
@@ -290,21 +310,21 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
 | KF64 F :
   let κ := VALTYPE (AtomR F64R) NoRefs in
   has_kind F (NumT κ (FloatT F64T)) κ
-| KSum F τs ρs ξ :
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ->
-  let κ := VALTYPE (SumR ρs) ξ in
+| KSum F τs ρs ξs :
+  Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+  let κ := VALTYPE (SumR ρs) (ref_flag_lub ξs) in
   has_kind F (SumT κ τs) κ
-| KVariant F τs σs ξ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ)) τs σs ->
-  let κ := MEMTYPE (SumS σs) ξ in
+| KVariant F τs σs ξs :
+  Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs σs ξs ->
+  let κ := MEMTYPE (SumS σs) (ref_flag_lub ξs) in
   has_kind F (VariantT κ τs) κ
-| KProd F τs ρs ξ :
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ->
-  let κ := VALTYPE (ProdR ρs) ξ in
+| KProd F τs ρs ξs :
+  Forall3 (fun τ ρ ξ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+  let κ := VALTYPE (ProdR ρs) (ref_flag_lub ξs) in
   has_kind F (ProdT κ τs) κ
-| KStruct F τs σs ξ :
-  Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ)) τs σs ->
-  let κ := MEMTYPE (ProdS σs) ξ in
+| KStruct F τs σs ξs :
+  Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs σs ξs ->
+  let κ := MEMTYPE (ProdS σs) (ref_flag_lub ξs) in
   has_kind F (StructT κ τs) κ
 | KRef F μ τ σ ξ :
   mem_ok F.(fc_kind_ctx) μ ->
@@ -351,10 +371,6 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   kind_ok F.(fc_kind_ctx) κ ->
   has_kind (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
   has_kind F (ExistsTypeT κ κ0 τ) κ
-| KSub F τ κ κ' :
-  subkind_of κ κ' ->
-  has_kind F τ κ ->
-  has_kind F τ κ'
 | KVar F t κ :
   F.(fc_type_vars) !! t = Some κ ->
   kind_ok F.(fc_kind_ctx) κ ->
@@ -375,18 +391,18 @@ Section HasKindInd.
                    P F (NumT κ (FloatT F32T)) κ)
       (HF64 : forall F, let κ := VALTYPE (AtomR F64R) NoRefs in
                    P F (NumT κ (FloatT F64T)) κ)
-      (HSum : forall F τs ρs ξ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ ξ)) τs ρs ->
-                           let κ := VALTYPE (SumR ρs) ξ in
-                           P F (SumT κ τs) κ)
-      (HVariant : forall F τs σs ξ, Forall2 (fun τ σ => P F τ (MEMTYPE σ ξ)) τs σs ->
-                               let κ := MEMTYPE (SumS σs) ξ in
-                               P F (VariantT κ τs) κ)
-      (HProd : forall F τs ρs ξ, Forall2 (fun τ ρ => P F τ (VALTYPE ρ ξ)) τs ρs ->
-                            let κ := VALTYPE (ProdR ρs) ξ in
-                            P F (ProdT κ τs) κ)
-      (HStruct : forall F τs σs ξ, Forall2 (fun τ σ => P F τ (MEMTYPE σ ξ)) τs σs ->
-                              let κ := MEMTYPE (ProdS σs) ξ in
-                              P F (StructT κ τs) κ)
+      (HSum : forall F τs ρs ξs, Forall3 (fun τ ρ ξ => P F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+                            let κ := VALTYPE (SumR ρs) (ref_flag_lub ξs) in
+                            P F (SumT κ τs) κ)
+      (HVariant : forall F τs σs ξs, Forall3 (fun τ σ ξ => P F τ (MEMTYPE σ ξ)) τs σs ξs ->
+                                let κ := MEMTYPE (SumS σs) (ref_flag_lub ξs) in
+                                P F (VariantT κ τs) κ)
+      (HProd : forall F τs ρs ξs, Forall3 (fun τ ρ ξ => P F τ (VALTYPE ρ ξ)) τs ρs ξs ->
+                             let κ := VALTYPE (ProdR ρs) (ref_flag_lub ξs) in
+                             P F (ProdT κ τs) κ)
+      (HStruct : forall F τs σs ξs, Forall3 (fun τ σ ξ => P F τ (MEMTYPE σ ξ)) τs σs ξs ->
+                               let κ := MEMTYPE (ProdS σs) (ref_flag_lub ξs) in
+                               P F (StructT κ τs) κ)
       (HRef : forall F μ τ σ ξ, mem_ok F.(fc_kind_ctx) μ ->
                            P F τ (MEMTYPE σ ξ) ->
                            let κ := VALTYPE (AtomR PtrR) AnyRefs in
@@ -421,7 +437,6 @@ Section HasKindInd.
                                  kind_ok F.(fc_kind_ctx) κ ->
                                  P (F <| fc_type_vars ::= cons κ0 |>) τ κ ->
                                  P F (ExistsTypeT κ κ0 τ) κ)
-      (HSub : forall F τ κ κ', subkind_of κ κ' -> P F τ κ -> P F τ κ')
       (HVar : forall F t κ, F.(fc_type_vars) !! t = Some κ ->
                        kind_ok F.(fc_kind_ctx) κ ->
                        P F (VarT t) κ).
@@ -433,14 +448,14 @@ Section HasKindInd.
     | KI64 F => HI64 F
     | KF32 F => HF32 F
     | KF64 F => HF64 F
-    | KSum F τs ρs ξ H1 =>
-        HSum F τs ρs ξ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KVariant F τs σs ξ H1 =>
-        HVariant F τs σs ξ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
-    | KProd F τs ρs ξ H1 H2 =>
-        HProd F τs ρs ξ (Forall2_impl _ _ _ _ H1 (fun τ ρ => has_kind_ind' _ _ _))
-    | KStruct F τs σs ξ H1 =>
-        HStruct F τs σs ξ (Forall2_impl _ _ _ _ H1 (fun τ σ => has_kind_ind' _ _ _))
+    | KSum F τs ρs ξs H1 =>
+        HSum F τs ρs ξs (Forall3_impl _ _ _ _ _ H1 (fun τ ρ ξ => has_kind_ind' _ _ _))
+    | KVariant F τs σs ξs H1 =>
+        HVariant F τs σs ξs (Forall3_impl _ _ _ _ _ H1 (fun τ σ ξ => has_kind_ind' _ _ _))
+    | KProd F τs ρs ξs H1 H2 =>
+        HProd F τs ρs ξs (Forall3_impl _ _ _ _ _ H1 (fun τ ρ ξ => has_kind_ind' _ _ _))
+    | KStruct F τs σs ξs H1 =>
+        HStruct F τs σs ξs (Forall3_impl _ _ _ _ _ H1 (fun τ σ ξ => has_kind_ind' _ _ _))
     | KRef F μ τ σ ξ H1 H2 => HRef F μ τ σ ξ H1 (has_kind_ind' _ _ _ H2)
     | KRefGC F τ σ ξ H1 => HRefGC F τ σ ξ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
@@ -452,7 +467,6 @@ Section HasKindInd.
     | KExistsRep F τ κ H1 H2 => HExistsRep F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsSize F τ κ H1 H2 => HExistsSize F τ κ H1 (has_kind_ind' _ _ _ H2)
     | KExistsType F τ κ0 κ H1 H2 H3 => HExistsType F τ κ0 κ H1 H2 (has_kind_ind' _ _ _ H3)
-    | KSub F τ κ κ' H1 H2 => HSub F τ κ κ' H1 (has_kind_ind' F τ κ H2)
     | KVar F t κ H1 H2 => HVar F t κ H1 H2
     end.
 
@@ -472,48 +486,46 @@ Proof.
   all: try inversion IHhas_kind.
   all: try done.
   all: try by inversion H0.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. by inversion H1.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. by inversion H1.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall.
-    intros. by inversion H1.
-  - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall.
-    intros. inversion H1. by inversion H3.
-  - subst. by apply (kind_ok_subkind_of _ _ _ H1) in H.
-  - econstructor; done.
-Qed.
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
+(*     intros. by inversion H1. *)
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
+(*     intros. by inversion H1. *)
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
+(*     intros. by inversion H1. *)
+(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
+(*     intros. inversion H1. by inversion H3. *)
+(*   - subst. by apply (kind_ok_subkind_of _ _ _ H1) in H. *)
+(*   - econstructor; done. *)
+(* Qed. *)
+Admitted.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
-| RepVALTYPE F τ ρ ξ :
+| HasRep F τ ρ ξ :
   has_kind F τ (VALTYPE ρ ξ) ->
   has_rep F τ ρ.
 
 Definition is_mono_rep : representation -> Prop :=
   rep_ok kc_empty.
 
-Inductive has_mono_rep : function_ctx -> type -> Prop :=
-| MonoRep F τ ρ :
-  has_rep F τ ρ ->
-  is_mono_rep ρ ->
-  has_mono_rep F τ.
-
+Definition has_mono_rep (F : function_ctx) (τ : type) : Prop :=
+  exists ρ, has_rep F τ ρ /\ is_mono_rep ρ.
+  
 Definition has_mono_rep_instr (F : function_ctx) '(InstrT τs1 τs2 : instruction_type) : Prop :=
   Forall (has_mono_rep F) τs1 /\ Forall (has_mono_rep F) τs2.
 
@@ -524,7 +536,7 @@ Definition is_mono_size : size -> Prop :=
   size_ok kc_empty.
 
 Inductive has_mono_size : function_ctx -> type -> Prop :=
-| MonoSizeMEMTYPE F τ σ ξ :
+| HasMonoSize F τ σ ξ :
   has_kind F τ (MEMTYPE σ ξ) ->
   is_mono_size σ ->
   has_mono_size F τ.
@@ -532,11 +544,8 @@ Inductive has_mono_size : function_ctx -> type -> Prop :=
 Definition type_rep_eq_prim (F : function_ctx) (τ : type) (ηs : list primitive) : Prop :=
   exists ρ, has_rep F τ ρ /\ eval_rep_prim EmptyEnv ρ = Some ηs.
 
-Inductive size_eq : size -> size -> Prop :=
-| SizeEq σ1 σ2 n :
-  eval_size EmptyEnv σ1 = Some n ->
-  eval_size EmptyEnv σ2 = Some n ->
-  size_eq σ1 σ2.
+Definition size_eq (σ1 σ2 : size) : Prop :=
+  exists n, eval_size EmptyEnv σ1 = Some n /\ eval_size EmptyEnv σ2 = Some n.
 
 Definition size_leq (σ1 σ2 : size) : Prop :=
   exists n m, eval_size EmptyEnv σ1 = Some n /\ eval_size EmptyEnv σ2 = Some m /\ n <= m.
@@ -544,13 +553,8 @@ Definition size_leq (σ1 σ2 : size) : Prop :=
 Definition type_size_eq (F : function_ctx) (τ1 τ2 : type) : Prop :=
   exists σ1 σ2, has_size F τ1 σ1 /\ has_size F τ2 σ2 /\ size_eq σ1 σ2.
 
-Inductive has_ref_flag : function_ctx -> type -> ref_flag -> Prop :=
-| ValtypeHasRefFlag F τ ρ ξ :
-  has_kind F τ (VALTYPE ρ ξ) ->
-  has_ref_flag F τ ξ
-| MemtypeHasRefFlag F τ σ ξ :
-  has_kind F τ (MEMTYPE σ ξ) ->
-  has_ref_flag F τ ξ.
+Definition has_ref_flag (F : function_ctx) (τ : type) (ξ : ref_flag) : Prop :=
+  exists κ, has_kind F τ κ /\ ref_flag_le (kind_ref_flag κ) ξ.
 
 Record path_result :=
   { pr_prefix : list type;
@@ -583,55 +587,41 @@ Inductive type_eq : function_ctx -> type -> type -> Prop :=
   type_eq F τ2 τ3 ->
   type_eq F τ1 τ2
 | TEqSum F κ τs τs' :
-  has_kind F (SumT κ τs) κ ->
   Forall2 (type_eq F) τs τs' ->
   type_eq F (SumT κ τs) (SumT κ τs')
 | TEqVariant F κ τs τs' :
-  has_kind F (VariantT κ τs) κ ->
   Forall2 (type_eq F) τs τs' ->
   type_eq F (VariantT κ τs) (VariantT κ τs')
 | TEqProd F κ τs τs' :
-  has_kind F (ProdT κ τs) κ ->
   Forall2 (type_eq F) τs τs' ->
   type_eq F (ProdT κ τs) (ProdT κ τs')
 | TEqStruct F κ τs τs' :
-  has_kind F (StructT κ τs) κ ->
   Forall2 (type_eq F) τs τs' ->
   type_eq F (StructT κ τs) (StructT κ τs')
 | TEqRef F κ μ τ τ' :
-  has_kind F (RefT κ μ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (RefT κ μ τ) (RefT κ μ τ')
 | TEqSer F κ τ τ' :
-  has_kind F (SerT κ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (SerT κ τ) (SerT κ τ')
 | TEqRec F κ τ τ' :
-  has_kind F (RecT κ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (RecT κ τ) (RecT κ τ')
 | TEqExMem F κ τ τ' :
-  has_kind F (ExistsMemT κ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (ExistsMemT κ τ) (ExistsMemT κ τ')
 | TEqExRep F κ τ τ' :
-  has_kind F (ExistsRepT κ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (ExistsRepT κ τ) (ExistsRepT κ τ')
 | TEqExSize F κ τ τ' :
-  has_kind F (ExistsSizeT κ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (ExistsSizeT κ τ) (ExistsSizeT κ τ')
 | TEqExType F κ κτ τ τ' :
-  has_kind F (ExistsTypeT κ κτ τ) κ ->
   type_eq F τ τ' ->
   type_eq F (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ')
-| TEqSerProd F κp ρs ξ τs :
-  let κ_ser := MEMTYPE (RepS (ProdR ρs)) ξ in
-  let κ_struct := MEMTYPE (ProdS (map RepS ρs)) ξ in
-  Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs ->
-  let τs' := zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ) τ) τs ρs in
-  type_eq F (SerT κ_ser (ProdT κp τs)) (StructT κ_struct τs').
+| TEqSerProd F κ_ser κs_ser κ_prod κ_struct τs :
+  let τs' := zip_with (fun τ κ => SerT κ τ) τs κs_ser in
+  type_eq F (SerT κ_ser (ProdT κ_prod τs)) (StructT κ_struct τs').
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
 | FTInstMem F ϕ μ :
@@ -646,8 +636,9 @@ Inductive function_type_inst : function_ctx -> index -> function_type -> functio
   size_ok F.(fc_kind_ctx) σ ->
   let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
   function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'
-| FTInstType F ϕ τ κ :
-  has_kind F τ κ ->
+| FTInstType F ϕ τ κ κ' :
+  has_kind F τ κ' ->
+  subkind_of κ' κ ->
   let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
   function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
 
@@ -661,44 +652,44 @@ Inductive function_type_insts : function_ctx -> list index -> function_type -> f
 
 Inductive packed_existential : function_ctx -> type -> type -> Prop :=
 | PackMem F μ τ' κ' :
-  has_kind (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ' κ' ->
   let τ0 := subst_type (unscoped.scons μ VarM) VarR VarS VarT τ' in
   packed_existential F τ0 (ExistsMemT κ' τ')
 | PackRep F ρ τ' κ' :
-  has_kind (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ' κ' ->
   let τ0 := subst_type VarM (unscoped.scons ρ VarR) VarS VarT τ' in
   packed_existential F τ0 (ExistsRepT κ' τ')
 | PackSize F σ τ' κ' :
-  has_kind (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ' κ' ->
   let τ0 := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' in
   packed_existential F τ0 (ExistsSizeT κ' τ')
-| PackType F τ τ' κ κ' :
-  has_kind F τ κ ->
-  has_kind (F <| fc_type_vars ::= cons κ |>) τ' κ' ->
-  let τ0 := subst_type VarM VarR VarS (unscoped.scons τ VarT) τ' in
-  packed_existential F τ0 (ExistsTypeT κ' κ τ').
+| PackType F τ_wit τ_in κ_wit κ_max κ_ex :
+  has_kind F τ_wit κ_wit ->
+  subkind_of κ_wit κ_max ->
+  let τ0 := subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) τ_in in
+  packed_existential F τ0 (ExistsTypeT κ_ex κ_max τ_in).
 
 Inductive unpacked_existential :
   function_ctx -> local_ctx -> instruction_type -> local_ctx ->
   function_ctx -> local_ctx -> instruction_type -> local_ctx ->
   Prop :=
 | UnpackMem F L L' τs1 κ τ τs2 :
-  let F0 := subst_function_ctx (up_memory VarM) VarR VarS VarT F
-              <| fc_kind_ctx ::= set kc_mem_vars S |> in
+  let F0 :=
+    subst_function_ctx (up_memory VarM) VarR VarS VarT F <| fc_kind_ctx ::= set kc_mem_vars S |>
+  in
   let up := ren_type S id id id in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsMemT κ τ]) τs2) L'
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackRep F L L' τs1 κ τ τs2 :
-  let F0 := subst_function_ctx VarM (up_representation VarR) VarS VarT F
-              <| fc_kind_ctx ::= set kc_rep_vars S |> in
+  let F0 :=
+    subst_function_ctx VarM (up_representation VarR) VarS VarT F <| fc_kind_ctx ::= set kc_rep_vars S |>
+  in
   let up := ren_type id S id id in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsRepT κ τ]) τs2) L'
     F0 (map up L) (InstrT (map up τs1 ++ [τ]) (map up τs2)) (map up L')
 | UnpackSize F L L' τs1 κ τ τs2 :
-  let F0 := subst_function_ctx VarM VarR (up_size VarS) VarT F
-              <| fc_kind_ctx ::= set kc_size_vars S |> in
+  let F0 :=
+    subst_function_ctx VarM VarR (up_size VarS) VarT F <| fc_kind_ctx ::= set kc_size_vars S |>
+  in
   let up := ren_type id id S id in
   unpacked_existential
     F L (InstrT (τs1 ++ [ExistsSizeT κ τ]) τs2) L'
@@ -713,11 +704,8 @@ Inductive unpacked_existential :
 Definition local_ctx_ok (F : function_ctx) (L : local_ctx) : Prop :=
   Forall2 (type_rep_eq_prim F) L F.(fc_locals).
 
-Inductive has_instruction_type_ok : function_ctx -> instruction_type -> local_ctx -> Prop :=
-| OKHasInstructionType F ψ L' :
-  has_mono_rep_instr F ψ ->
-  local_ctx_ok F L' ->
-  has_instruction_type_ok F ψ L'.
+Definition has_instruction_type_ok (F : function_ctx) (ψ : instruction_type) (L' : local_ctx) : Prop :=
+  has_mono_rep_instr F ψ /\ local_ctx_ok F L'.
 
 Inductive has_instruction_type_cvt : conversion_op -> instruction_type -> Prop :=
 | TWrapC :

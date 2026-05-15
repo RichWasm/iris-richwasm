@@ -33,8 +33,8 @@ Section kinding.
   Lemma type_kind_has_kind_is_Some F τ κ :
     has_kind F τ κ ->
     is_Some (type_kind F.(fc_type_vars) τ).
-  Proof. induction 1; try solve [eexists; cbn; eauto].
-    auto.
+  Proof.
+    induction 1; try solve [eexists; cbn; eauto].
   Qed.
 
   Lemma type_kind_has_kind_agree F τ κ κ' :
@@ -47,7 +47,6 @@ Section kinding.
     induction Hhas_kind;
       intros;
       try (replace κ' with κ; first apply subkind_of_refl; cbn in *; congruence).
-    apply IHHhas_kind in H0. by eapply subkind_of_trans.
   Qed.
 
   Lemma subkind_rep_inv κ κ' :
@@ -334,16 +333,6 @@ Section kinding.
       inversion H2.
       apply subskind_of_refl.
     - intros ?? Hse Heval_kind Htype_skind.
-      apply has_kind_inv in Hhas_kind as Hhas_kind_ok.
-      inversion Hhas_kind_ok.
-      subst.
-      rename H0 into Htype_ok.
-      rename H1 into Hkind_ok.
-      destruct (eval_kind_ok_Some _ _ _ Hse Hkind_ok) as [sκ0' Hsκ0'].
-      pose proof (subkind_subskind _ _ _ _ _ Hsκ0' Heval_kind H).
-      pose proof (IHHhas_kind _ _ Hse Hsκ0' Htype_skind) as H'.
-      by eapply subskind_of_trans.
-    - intros ?? Hse Heval_kind Htype_skind.
       cbn in Htype_skind.
       replace sκ0 with sκ; first apply subskind_of_refl.
       destruct Hse as [boop bap].
@@ -371,20 +360,6 @@ Section kinding.
     - eexists. split; first done. apply subskind_of_refl.
     - eexists. split; first done. apply subskind_of_refl.
     - eexists. split; first done. apply subskind_of_refl.
-    - apply has_kind_inv in Hκ as Hhas_kind_ok.
-      inversion Hhas_kind_ok.
-      subst.
-      rename H0 into Hse.
-      rename H1 into Heval'.
-      rename H2 into Hok_τ.
-      rename H3 into Hok_κ.
-      destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ0 Heval0].
-      specialize (IHHκ sκ0 se Hse Heval0).
-      destruct IHHκ as (sκ' & Hskind & Hsub).
-      exists sκ'.
-      split; first done.
-      eapply subkind_subskind in H; last done; last done.
-      by eapply subskind_of_trans.
     - destruct H1 as [boop bap].
       cbn in *.
       unfold lookup_type.
@@ -525,23 +500,23 @@ Section kinding.
     - apply prims_result_type_l.
   Qed.
 
-  Lemma has_kind_prod_inv F κ κ' τs :
-    has_kind F (ProdT κ τs) κ' ->
-    exists ρs ξ, κ = VALTYPE (ProdR ρs) ξ /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs.
-  Proof.
-    intros H.
-    remember (ProdT κ τs) as τ.
-    induction H; try congruence.
-    - inversion Heqτ.
-      subst κ0 τs0 κ.
-      clear Heqτ.
-      do 2 eexists.
-      by split.
-    - specialize (IHhas_kind Heqτ) as (ρs & ξ & Hsub & Hkinds).
-      subst τ.
-      do 2 eexists.
-      by split.
-  Qed.
+  (* Lemma has_kind_prod_inv F κ κ' τs : *)
+  (*   has_kind F (ProdT κ τs) κ' -> *)
+  (*   exists ρs ξ, κ = VALTYPE (ProdR ρs) ξ /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs. *)
+  (* Proof. *)
+  (*   intros H. *)
+  (*   remember (ProdT κ τs) as τ. *)
+  (*   induction H; try congruence. *)
+  (*   - inversion Heqτ. *)
+  (*     subst κ0 τs0 κ. *)
+  (*     clear Heqτ. *)
+  (*     do 2 eexists. *)
+  (*     by split. *)
+  (*   - specialize (IHhas_kind Heqτ) as (ρs & ξ & Hsub & Hkinds). *)
+  (*     subst τ. *)
+  (*     do 2 eexists. *)
+  (*     by split. *)
+  (* Qed. *)
 
   Lemma value_interp_skind se τ sv :
     value_interp rti sr se τ sv -∗

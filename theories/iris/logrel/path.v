@@ -771,26 +771,6 @@ Section PathFacts.
       + by constructor.
   Qed.
 
-  Definition ref_flag_lub2 (ξ1 ξ2 : ref_flag) : ref_flag :=
-    match ξ1 with
-    | NoRefs => ξ2
-    | GCRefs =>
-        match ξ2 with
-        | NoRefs => GCRefs
-        | _ => ξ2
-        end
-    | AnyRefs => AnyRefs
-    end.
-
-  Definition ref_flag_lub (ξs : list ref_flag) : ref_flag :=
-    foldl ref_flag_lub2 NoRefs ξs.
-
-  Lemma ref_flag_lub_lub ξ' ξs :
-    Forall (λ ξ, ref_flag_le ξ ξ') ξs ->
-    ref_flag_le (ref_flag_lub ξs) ξ'.
-  Proof.
-  Admitted.
-
   Lemma type_interp_len F ws τ σ n ξ :
     sem_env_interp F se ->
     has_kind F τ (MEMTYPE σ ξ) ->

@@ -77,6 +77,12 @@ Definition proj_instr_ty (e : instruction) : instruction_type :=
   | ISwap ψ _ => ψ
   end.
 
+Definition kind_ref_flag (κ : kind) : ref_flag :=
+  match κ with
+  | VALTYPE _ ξ
+  | MEMTYPE _ ξ => ξ
+  end.
+
 Inductive skind :=
 | SVALTYPE : list atomic_rep -> ref_flag -> skind
 | SMEMTYPE : nat -> ref_flag -> skind.
