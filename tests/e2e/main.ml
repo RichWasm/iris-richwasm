@@ -20,18 +20,11 @@ module LL : SurfaceLang = struct
 end
 
 module MM : SurfaceLang = struct
-  module CompilerError = struct
-    type t = | [@@deriving sexp_of]
+  module CompilerError = Richwasm_mini_ml.Main.CompileErr
 
-    let pp _ _ = ()
-  end
-
-  module M = LogResultM (CompilerError) (String)
-
-  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) src =
+  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) =
     ignore info;
-    ignore asprintf;
-    src |> ml_str_pipeline |> M.ret
+    Richwasm_mini_ml.Main.compile_str ~asprintf:{ asprintf = asprintf.asprintf }
 end
 
 module RW : SurfaceLang = struct
