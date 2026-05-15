@@ -24,28 +24,24 @@ Section ungroup.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
     iIntros (????? Hok Hcg ????????) "@@@@@@@@@@@@".
-    inv_cg_emit Hcg.
+    inv_cg_ret Hcg.
     subst ψ WT WL wt' wl' es'.
     clear Hretval.
     clear_nils.
-    iApply cwp_val_app; first done.
-    iApply (cwp_nop with "[$] [$]").
-
+    iApply (cwp_val with "[$] [$]"); first done.
+    iFrame.
+    iSplitR; first done.
     iDestruct "Hos" as "(%oss & -> & Hos)".
     iDestruct (big_sepL2_cons_inv_l with "Hos") as "(%os & %oss' & %Hoss & Hos & Hemp)".
     iDestruct (big_sepL2_nil_inv_l with "Hemp") as "->".
     iClear "Hemp".
     subst oss.
+    setoid_rewrite type_interp_eq.
     iDestruct "Hos" as "(%sκ & %Hskind & %Hsvalues & %oss & %Hoss & Hoss)".
     inversion Hoss.
     subst os.
     clear Hoss.
-
-    iModIntro.
-    unfold fvs_combine.
-    rewrite app_nil_r.
     iFrame.
-    iSplitR; first done.
     iPureIntro.
     cbn.
     by rewrite app_nil_r.

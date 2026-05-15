@@ -116,7 +116,6 @@ let%expect_test "examples" =
         i32.const 4
         i32.const 1
         i32.shl
-        nop
         local.set 5
         local.set 4
         local.set 3
@@ -293,7 +292,6 @@ let%expect_test "examples" =
         i32.const 2
         i32.const 1
         i32.shl
-        nop
         local.set 3
         local.set 2
         i32.const 2
@@ -359,7 +357,6 @@ let%expect_test "examples" =
         i32.const 4
         i32.const 1
         i32.shl
-        nop
         local.set 6
         local.set 5
         i32.const 2
@@ -419,7 +416,6 @@ let%expect_test "examples" =
         end
         local.get 7
         call 5
-        nop
         local.set 9
         local.set 8
         i32.const 2
@@ -542,7 +538,6 @@ let%expect_test "examples" =
         i32.const 7
         i32.const 1
         i32.shl
-        nop
         local.set 4
         local.set 3
         i32.const 2
@@ -734,7 +729,6 @@ let%expect_test "examples" =
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 1) (param i32) (result i32)
         (local i32 i32 i32 i32 i32 i32)
-        nop
         i32.const 0
         call 2
         local.set 2

@@ -116,8 +116,7 @@ let%expect_test "examples" =
         i32.const 1
         i32.const 2
         i32.const 3
-        i32.const 4
-        nop)
+        i32.const 4)
       (func (;8;) (type 5)
         global.get 0
         global.set 1
@@ -151,11 +150,8 @@ let%expect_test "examples" =
       (func (;7;) (type 4) (result i32 i32 i32 i32)
         i32.const 1
         i32.const 2
-        nop
         i32.const 3
-        i32.const 4
-        nop
-        nop)
+        i32.const 4)
       (func (;8;) (type 5)
         global.get 0
         global.set 1
@@ -187,7 +183,6 @@ let%expect_test "examples" =
       (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 4) (result i32)
-        nop
         i32.const 0)
       (func (;8;) (type 5)
         global.get 0
@@ -398,7 +393,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 2
@@ -436,7 +430,6 @@ let%expect_test "examples" =
             call 6
           end
         end
-        nop
         local.get 3
         local.set 4
         local.get 4
@@ -451,23 +444,19 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 10
-          nop
           local.get 2
           call_indirect (type 4)
           local.get 2
@@ -593,7 +582,6 @@ let%expect_test "examples" =
         (local i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
@@ -626,23 +614,19 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 42
-          nop
           local.get 2
           call_indirect (type 4)
           local.get 2
@@ -709,8 +693,6 @@ let%expect_test "examples" =
         local.set 0
         i32.const 1
         local.get 0
-        nop
-        nop
         local.set 2
         local.set 1
         local.get 2
@@ -813,23 +795,19 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 10
-          nop
           local.get 2
           call_indirect (type 0)
           local.get 2
@@ -881,7 +859,6 @@ let%expect_test "examples" =
       (func (;7;) (type 1) (param i32) (result i32)
         (local i32 i32 i32 i32 i32 i32 i32)
         local.get 0
-        nop
         local.set 1
         local.get 1
         local.tee 4
@@ -932,7 +909,6 @@ let%expect_test "examples" =
           end
         end
         local.get 2
-        nop
         local.set 3
         local.get 3
         local.get 3
@@ -947,7 +923,6 @@ let%expect_test "examples" =
         global.get 1
         i32.add
         local.get 0
-        nop
         local.set 5
         i32.const 1
         call 1
@@ -960,18 +935,14 @@ let%expect_test "examples" =
         local.get 5
         i32.store offset=3 align=2
         local.get 6
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 2
           local.set 1
           local.get 1
           local.get 2
-          nop
           local.set 4
           local.set 3
           local.get 4
-          nop
-          nop
           local.get 3
           call_indirect (type 1)
           local.get 3
@@ -1026,7 +997,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 2
@@ -1078,7 +1048,6 @@ let%expect_test "examples" =
           end
         end
         local.get 4
-        nop
         local.set 5
         local.get 3
         local.set 6
@@ -1103,7 +1072,6 @@ let%expect_test "examples" =
         global.get 1
         i32.add
         local.get 1
-        nop
         local.set 6
         i32.const 1
         call 1
@@ -1116,18 +1084,15 @@ let%expect_test "examples" =
         local.get 6
         i32.store offset=3 align=2
         local.get 7
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 3
           local.set 2
           local.get 2
           local.get 3
-          nop
           local.set 5
           local.set 4
           local.get 5
           local.get 0
-          nop
           local.get 4
           call_indirect (type 4)
           local.get 4
@@ -1185,7 +1150,6 @@ let%expect_test "examples" =
         (local i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
@@ -1215,18 +1179,15 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         local.get 2
         local.set 5
         local.get 5
@@ -1254,23 +1215,19 @@ let%expect_test "examples" =
         i32.const 1
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 10
         local.get 10
-        nop
         block (param i32 i32) (result i32 i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 0
-          nop
           local.get 2
           call_indirect (type 5)
           local.get 2
@@ -1291,12 +1248,10 @@ let%expect_test "examples" =
           local.set 6
           local.get 6
           local.get 7
-          nop
           local.set 9
           local.set 8
           local.get 9
           i32.const 10
-          nop
           local.get 8
           call_indirect (type 4)
           local.get 8
@@ -1359,7 +1314,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
@@ -1371,25 +1325,21 @@ let%expect_test "examples" =
           i32.const 0
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 8
           local.get 8
-          nop
           block (param i32 i32) (result i32)  ;; label = @2
             local.set 5
             local.set 4
             local.get 4
             local.get 5
-            nop
             local.set 7
             local.set 6
             local.get 7
             local.get 3
             i32.const 1
             i32.sub
-            nop
             local.get 6
             call_indirect (type 4)
             local.get 6
@@ -1430,23 +1380,19 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 10
-          nop
           local.get 2
           call_indirect (type 4)
           local.get 2
@@ -1499,7 +1445,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
@@ -1514,23 +1459,19 @@ let%expect_test "examples" =
           i32.const 0
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 10
           local.get 10
-          nop
           block (param i32 i32) (result i32)  ;; label = @2
             local.set 6
             local.set 5
             local.get 5
             local.get 6
-            nop
             local.set 8
             local.set 7
             local.get 8
             local.get 4
-            nop
             local.get 7
             call_indirect (type 4)
             local.get 7
@@ -1578,23 +1519,19 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 5
-          nop
           local.get 2
           call_indirect (type 4)
           local.get 2
@@ -1653,19 +1590,16 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
         local.get 4
         local.get 5
-        nop
         local.set 7
         local.set 6
         local.get 7
         i32.eqz
         if (result i32 i32)  ;; label = @1
-          nop
           i32.const 0
           local.set 9
           i32.const 1
@@ -1717,7 +1651,6 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
@@ -1775,25 +1708,20 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 10
         local.get 10
-        nop
         block (param i32 i32) (result i32 i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 10
           i32.const 0
-          nop
-          nop
           local.get 2
           call_indirect (type 4)
           local.get 2
@@ -1810,24 +1738,20 @@ let%expect_test "examples" =
         i32.const 1
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 11
         local.get 11
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 7
           local.set 6
           local.get 6
           local.get 7
-          nop
           local.set 9
           local.set 8
           local.get 9
           local.get 4
           local.get 5
-          nop
           local.get 8
           call_indirect (type 5)
           local.get 8
@@ -1891,7 +1815,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
@@ -1926,8 +1849,6 @@ let%expect_test "examples" =
             i32.store 1 offset=1 align=2
           end
         end
-        nop
-        nop
         local.set 5
         local.set 4
         local.get 4
@@ -1964,8 +1885,6 @@ let%expect_test "examples" =
             i32.store 1 offset=1 align=2
           end
         end
-        nop
-        nop
         local.set 7
         local.set 6
         local.get 6
@@ -2004,13 +1923,11 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
         local.get 4
         local.get 5
-        nop
         local.set 7
         local.set 6
         local.get 7
@@ -2069,41 +1986,34 @@ let%expect_test "examples" =
           i32.const 1
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 21
           local.get 21
-          nop
           block (param i32 i32) (result i32)  ;; label = @2
             local.set 10
             local.set 9
             local.get 9
             local.get 10
-            nop
             local.set 12
             local.set 11
             local.get 12
             i32.const 0
             global.get 1
             i32.add
-            nop
             i32.const 0
             call 1
             local.set 22
             local.get 22
-            nop
             block (param i32 i32) (result i32)  ;; label = @3
               local.set 14
               local.set 13
               local.get 13
               local.get 14
-              nop
               local.set 16
               local.set 15
               local.get 16
               local.get 6
-              nop
               local.get 15
               call_indirect (type 4)
               local.get 15
@@ -2118,8 +2028,6 @@ let%expect_test "examples" =
             local.get 7
             i32.const 1
             i32.sub
-            nop
-            nop
             local.get 11
             call_indirect (type 5)
             local.get 11
@@ -2179,25 +2087,20 @@ let%expect_test "examples" =
         i32.const 1
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 7
         local.get 7
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 2
           local.set 1
           local.get 1
           local.get 2
-          nop
           local.set 4
           local.set 3
           local.get 4
           local.get 0
           i32.const 3
-          nop
-          nop
           local.get 3
           call_indirect (type 5)
           local.get 3
@@ -3045,7 +2948,6 @@ let%expect_test "examples" =
       (import "richwasm" "table" (table (;0;) 0 funcref))
       (func (;7;) (type 4) (result i32 i32)
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
-        nop
         i32.const 0
         local.set 0
         i32.const 0
@@ -3171,7 +3073,6 @@ let%expect_test "examples" =
         local.get 2
         local.get 3
         local.get 4
-        nop
         local.set 9
         local.set 8
         local.set 7
@@ -3181,7 +3082,6 @@ let%expect_test "examples" =
         local.get 7
         local.get 8
         local.get 9
-        nop
         local.set 13
         local.set 12
         local.set 11
@@ -3215,18 +3115,15 @@ let%expect_test "examples" =
           i32.const 0
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 23
           local.get 23
-          nop
           block (param i32 i32) (result i32 i32)  ;; label = @2
             local.set 16
             local.set 15
             local.get 15
             local.get 16
-            nop
             local.set 18
             local.set 17
             local.get 18
@@ -3322,8 +3219,6 @@ let%expect_test "examples" =
             local.get 20
             local.get 12
             local.get 13
-            nop
-            nop
             local.get 17
             call_indirect (type 4)
             local.get 17
@@ -3404,13 +3299,11 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
         i32.eqz
         if (result i32 i32)  ;; label = @1
-          nop
           i32.const 0
           local.set 8
           i32.const 0
@@ -3419,25 +3312,21 @@ let%expect_test "examples" =
           i32.const 1
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 9
           local.get 9
-          nop
           block (param i32 i32) (result i32 i32)  ;; label = @2
             local.set 5
             local.set 4
             local.get 4
             local.get 5
-            nop
             local.set 7
             local.set 6
             local.get 7
             local.get 3
             i32.const 1
             i32.sub
-            nop
             local.get 6
             call_indirect (type 5)
             local.get 6
@@ -3503,7 +3392,6 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
@@ -3533,18 +3421,15 @@ let%expect_test "examples" =
           i32.const 2
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 15
           local.get 15
-          nop
           block (param i32 i32) (result i32)  ;; label = @2
             local.set 8
             local.set 7
             local.get 7
             local.get 8
-            nop
             local.set 10
             local.set 9
             local.get 10
@@ -3638,7 +3523,6 @@ let%expect_test "examples" =
             end
             local.get 11
             local.get 12
-            nop
             local.get 9
             call_indirect (type 6)
             local.get 9
@@ -3683,23 +3567,19 @@ let%expect_test "examples" =
         i32.const 1
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 22
         local.get 22
-        nop
         block (param i32 i32) (result i32 i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 6
-          nop
           local.get 2
           call_indirect (type 5)
           local.get 2
@@ -3716,23 +3596,19 @@ let%expect_test "examples" =
         i32.const 1
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 23
         local.get 23
-        nop
         block (param i32 i32) (result i32 i32)  ;; label = @1
           local.set 7
           local.set 6
           local.get 6
           local.get 7
-          nop
           local.set 9
           local.set 8
           local.get 9
           i32.const 7
-          nop
           local.get 8
           call_indirect (type 5)
           local.get 8
@@ -3749,18 +3625,15 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 24
         local.get 24
-        nop
         block (param i32 i32) (result i32 i32)  ;; label = @1
           local.set 13
           local.set 12
           local.get 12
           local.get 13
-          nop
           local.set 15
           local.set 14
           local.get 15
@@ -3768,8 +3641,6 @@ let%expect_test "examples" =
           local.get 5
           local.get 10
           local.get 11
-          nop
-          nop
           local.get 14
           call_indirect (type 4)
           local.get 14
@@ -3786,24 +3657,20 @@ let%expect_test "examples" =
         i32.const 2
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 25
         local.get 25
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 19
           local.set 18
           local.get 18
           local.get 19
-          nop
           local.set 21
           local.set 20
           local.get 21
           local.get 16
           local.get 17
-          nop
           local.get 20
           call_indirect (type 6)
           local.get 20
@@ -3881,7 +3748,6 @@ let%expect_test "examples" =
         (local i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
@@ -3914,35 +3780,29 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
         local.get 4
         local.get 5
-        nop
         local.set 7
         local.set 6
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 16
         local.get 16
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 9
           local.set 8
           local.get 8
           local.get 9
-          nop
           local.set 11
           local.set 10
           local.get 11
           local.get 6
-          nop
           local.get 10
           call_indirect (type 4)
           local.get 10
@@ -3957,23 +3817,19 @@ let%expect_test "examples" =
         i32.const 0
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 17
         local.get 17
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 13
           local.set 12
           local.get 12
           local.get 13
-          nop
           local.set 15
           local.set 14
           local.get 15
           local.get 7
-          nop
           local.get 14
           call_indirect (type 4)
           local.get 14
@@ -3985,7 +3841,6 @@ let%expect_test "examples" =
           drop
           drop
         end
-        nop
         local.get 6
         drop
         local.get 7
@@ -4019,13 +3874,11 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
         local.get 4
         local.get 5
-        nop
         local.set 7
         local.set 6
         local.get 6
@@ -4154,7 +4007,6 @@ let%expect_test "examples" =
           end
         end
         local.get 9
-        nop
         local.set 19
         local.set 18
         i32.const 2
@@ -4257,7 +4109,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 2
@@ -4295,7 +4146,6 @@ let%expect_test "examples" =
             call 6
           end
         end
-        nop
         local.get 3
         local.set 4
         local.get 4
@@ -4313,7 +4163,6 @@ let%expect_test "examples" =
         local.get 1
         local.get 2
         local.get 3
-        nop
         local.set 7
         local.set 6
         local.set 5
@@ -4321,7 +4170,6 @@ let%expect_test "examples" =
         local.get 5
         local.get 6
         local.get 7
-        nop
         local.set 10
         local.set 9
         local.set 8
@@ -4332,12 +4180,10 @@ let%expect_test "examples" =
           local.set 11
           local.get 11
           local.get 12
-          nop
           local.set 14
           local.set 13
           local.get 14
           local.get 10
-          nop
           local.get 13
           call_indirect (type 4)
           local.get 13
@@ -4386,33 +4232,26 @@ let%expect_test "examples" =
         i32.const 1
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 0
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 5
           local.get 5
-          nop
           i32.const 10
-          nop
-          nop
           local.get 2
           call_indirect (type 5)
           local.get 2
@@ -4472,7 +4311,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 2
@@ -4510,7 +4348,6 @@ let%expect_test "examples" =
             call 6
           end
         end
-        nop
         local.get 3
         local.set 4
         local.get 4
@@ -4526,7 +4363,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 2
@@ -4564,7 +4400,6 @@ let%expect_test "examples" =
             call 6
           end
         end
-        nop
         local.get 3
         local.set 4
         local.get 4
@@ -4584,7 +4419,6 @@ let%expect_test "examples" =
         local.get 3
         local.get 4
         local.get 5
-        nop
         local.set 11
         local.set 10
         local.set 9
@@ -4596,7 +4430,6 @@ let%expect_test "examples" =
         local.get 9
         local.get 10
         local.get 11
-        nop
         local.set 16
         local.set 15
         local.set 14
@@ -4609,7 +4442,6 @@ let%expect_test "examples" =
           local.set 17
           local.get 17
           local.get 18
-          nop
           local.set 20
           local.set 19
           local.get 20
@@ -4620,12 +4452,10 @@ let%expect_test "examples" =
             local.set 21
             local.get 21
             local.get 22
-            nop
             local.set 24
             local.set 23
             local.get 24
             local.get 16
-            nop
             local.get 23
             call_indirect (type 4)
             local.get 23
@@ -4637,7 +4467,6 @@ let%expect_test "examples" =
             drop
             drop
           end
-          nop
           local.get 19
           call_indirect (type 4)
           local.get 19
@@ -4694,42 +4523,33 @@ let%expect_test "examples" =
         i32.const 2
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 0
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 5
           local.get 5
-          nop
           i32.const 1
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 6
           local.get 6
-          nop
           i32.const 5
-          nop
-          nop
           local.get 2
           call_indirect (type 5)
           local.get 2
@@ -4796,7 +4616,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 2
@@ -4848,7 +4667,6 @@ let%expect_test "examples" =
           end
         end
         local.get 4
-        nop
         local.set 5
         local.get 3
         local.set 6
@@ -4867,14 +4685,12 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         i32.const 0
         global.get 1
         i32.add
         local.get 3
-        nop
         local.set 4
         i32.const 1
         call 1
@@ -4887,7 +4703,6 @@ let%expect_test "examples" =
         local.get 4
         i32.store offset=3 align=2
         local.get 5
-        nop
         local.get 2
         local.set 6
         local.get 6
@@ -4915,7 +4730,6 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
@@ -4926,12 +4740,10 @@ let%expect_test "examples" =
           local.set 6
           local.get 6
           local.get 7
-          nop
           local.set 9
           local.set 8
           local.get 9
           i32.const 100
-          nop
           local.get 8
           call_indirect (type 4)
           local.get 8
@@ -4972,41 +4784,34 @@ let%expect_test "examples" =
         i32.const 2
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 8
         local.get 8
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 1
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 9
           local.get 9
-          nop
           block (param i32 i32) (result i32 i32)  ;; label = @2
             local.set 5
             local.set 4
             local.get 4
             local.get 5
-            nop
             local.set 7
             local.set 6
             local.get 7
             i32.const 7
-            nop
             local.get 6
             call_indirect (type 5)
             local.get 6
@@ -5018,7 +4823,6 @@ let%expect_test "examples" =
             drop
             drop
           end
-          nop
           local.get 2
           call_indirect (type 6)
           local.get 2
@@ -5082,7 +4886,6 @@ let%expect_test "examples" =
       (func (;7;) (type 1) (param i32) (result i32)
         (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
-        nop
         local.set 1
         local.get 1
         local.tee 5
@@ -5161,7 +4964,6 @@ let%expect_test "examples" =
           end
         end
         local.get 2
-        nop
         local.set 3
         local.get 3
         local.tee 9
@@ -5236,7 +5038,6 @@ let%expect_test "examples" =
         global.get 1
         i32.add
         local.get 0
-        nop
         local.set 9
         i32.const 1
         call 1
@@ -5249,7 +5050,6 @@ let%expect_test "examples" =
         local.get 9
         i32.store offset=3 align=2
         local.get 10
-        nop
         local.set 2
         local.set 1
         local.get 1
@@ -5259,12 +5059,9 @@ let%expect_test "examples" =
           local.set 3
           local.get 3
           local.get 4
-          nop
           local.set 6
           local.set 5
           local.get 6
-          nop
-          nop
           local.get 5
           call_indirect (type 1)
           local.get 5
@@ -5324,7 +5121,6 @@ let%expect_test "examples" =
         (local i32 i32 i32 i32 i32 i32 i32 i32)
         local.get 0
         local.get 1
-        nop
         local.set 3
         local.set 2
         local.get 3
@@ -5336,25 +5132,21 @@ let%expect_test "examples" =
           i32.const 0
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 8
           local.get 8
-          nop
           block (param i32 i32) (result i32)  ;; label = @2
             local.set 5
             local.set 4
             local.get 4
             local.get 5
-            nop
             local.set 7
             local.set 6
             local.get 7
             local.get 3
             i32.const 1
             i32.sub
-            nop
             local.get 6
             call_indirect (type 4)
             local.get 6
@@ -5395,7 +5187,6 @@ let%expect_test "examples" =
         local.get 0
         local.get 1
         local.get 2
-        nop
         local.set 5
         local.set 4
         local.set 3
@@ -5406,12 +5197,10 @@ let%expect_test "examples" =
           local.set 6
           local.get 6
           local.get 7
-          nop
           local.set 9
           local.set 8
           local.get 9
           i32.const 6
-          nop
           local.get 8
           call_indirect (type 4)
           local.get 8
@@ -5452,31 +5241,25 @@ let%expect_test "examples" =
         i32.const 1
         global.get 1
         i32.add
-        nop
         i32.const 0
         call 1
         local.set 4
         local.get 4
-        nop
         block (param i32 i32) (result i32)  ;; label = @1
           local.set 1
           local.set 0
           local.get 0
           local.get 1
-          nop
           local.set 3
           local.set 2
           local.get 3
           i32.const 0
           global.get 1
           i32.add
-          nop
           i32.const 0
           call 1
           local.set 5
           local.get 5
-          nop
-          nop
           local.get 2
           call_indirect (type 5)
           local.get 2

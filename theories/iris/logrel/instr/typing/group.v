@@ -24,15 +24,11 @@ Section group.
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.
   Proof.
     iIntros (????? Hok Hcg ????????) "@@@@@@@@@@@@".
-    inv_cg_emit Hcg.
+    inv_cg_ret Hcg.
     subst ψ WT WL wt' wl' es'.
     clear Hretval.
     clear_nils.
-    iApply cwp_val_app; first done.
-    iApply (cwp_nop with "[$] [$]").
-    iModIntro.
-    unfold fvs_combine.
-    rewrite app_nil_r.
+    iApply (cwp_val with "[$] [$]"); first done.
     iFrame.
     iSplitR; first done.
     iDestruct "Hos" as "(% & -> & Hos)".
