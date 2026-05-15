@@ -1031,6 +1031,26 @@ let%expect_test "examples" =
                  [(ref (val ptr gcrefs) (base gc) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
           cast ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
                   [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+          local.get move 3 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 3 ;; [(var 0)] -> []
+          group ;; [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))) (var 0)] ->
+                   [(prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))
+                      (var 0))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))) (var 0))]
+                 ->
+                 [(ref (val ptr gcrefs) (base gc)
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))
+                        (var 0))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc)
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))
+                         (var 0))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
           local.get move 5 ;; [] ->
                               [(coderef (val i32 norefs)
                                  ((ref (val ptr gcrefs) (base gc)
@@ -1358,15 +1378,17 @@ let%expect_test "examples" =
           ((CodeRef
             (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
              ((Ref (Base GC) (Struct ((Ser I31) (Ser (Var 0)))))) ((Var 0))))
-           I31))))))
+           (Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))))))))
      (instr
       (Unpack (ValType (I31)) InferFx
        ((LocalSet 1) (LocalGet 1 Move) Copy (LocalSet 1) (Load (Path (0)) Follow)
         (LocalSet 2) Drop (LocalGet 2 Move) (LocalSet 3) (LocalGet 1 Move) Copy
         (LocalSet 1) (Load (Path (1)) Follow) (LocalSet 4) Drop (LocalGet 4 Move)
-        (LocalSet 5) (NumConst (Int I32) 42) Tag (LocalGet 5 Move) Copy
-        (LocalSet 5) (Inst (Type I31)) CallIndirect (LocalGet 5 Move) Drop
-        (LocalGet 3 Move) Drop (LocalGet 1 Move) Drop)))
+        (LocalSet 5) (NumConst (Int I32) 42) Tag (LocalGet 3 Move) Copy
+        (LocalSet 3) (Group 2) (New GC)
+        (Cast (Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+        (LocalGet 5 Move) Copy (LocalSet 5) (Inst (Type I31)) CallIndirect
+        (LocalGet 5 Move) Drop (LocalGet 3 Move) Drop (LocalGet 1 Move) Drop)))
      (env
       ((local_offset 1) (kinds ()) (labels ()) (return (I31))
        (functions
@@ -1547,9 +1569,19 @@ let%expect_test "examples" =
             (Variant
              ((Ser (Ref (Base GC) (Struct ())))
               (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-          (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
-          CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
-          (LocalGet 4 Move) Drop)))
+          (New GC) (LocalGet 6 Move) Copy (LocalSet 6) (Group 2) (New GC)
+          (Cast
+           (Ref (Base GC)
+            (Struct
+             ((Ser (Var 0))
+              (Ser
+               (Rec (VALTYPE (Atom Ptr) GCRefs)
+                (Ref (Base GC)
+                 (Variant
+                  ((Ser (Ref (Base GC) (Struct ())))
+                   (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
+          (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1))) CallIndirect
+          (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop (LocalGet 4 Move) Drop)))
        (env
         ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ((I31)))
          (return (I31))
@@ -1686,9 +1718,19 @@ let%expect_test "examples" =
              (Variant
               ((Ser (Ref (Base GC) (Struct ())))
                (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-           (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
-           CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
-           (LocalGet 4 Move) Drop))
+           (New GC) (LocalGet 6 Move) Copy (LocalSet 6) (Group 2) (New GC)
+           (Cast
+            (Ref (Base GC)
+             (Struct
+              ((Ser (Var 0))
+               (Ser
+                (Rec (VALTYPE (Atom Ptr) GCRefs)
+                 (Ref (Base GC)
+                  (Variant
+                   ((Ser (Ref (Base GC) (Struct ())))
+                    (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
+           (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1))) CallIndirect
+           (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop (LocalGet 4 Move) Drop))
          Untag (Num (Int2 I32 Add)) Tag (LocalGet 3 Move) Drop))))
      (env
       ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ())
@@ -2687,6 +2729,26 @@ let%expect_test "examples" =
                  [(ref (val ptr gcrefs) (base gc) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
           cast ;; [(ref (val ptr gcrefs) (base gc) (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
                   [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))]
+          local.get move 5 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 5 ;; [(var 0)] -> []
+          group ;; [(ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))) (var 0)] ->
+                   [(prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))
+                      (var 0))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))) (var 0))]
+                 ->
+                 [(ref (val ptr gcrefs) (base gc)
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))
+                        (var 0))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc)
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs)))
+                         (var 0))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) (struct (mem (prod) norefs))))))]
           local.get move 7 ;; [] ->
                               [(coderef (val i32 norefs)
                                  ((ref (val ptr gcrefs) (base gc)
@@ -3827,6 +3889,21 @@ let%expect_test "examples" =
           local.get move 4 ;; [] -> [(i31 (val ptr norefs))]
           copy ;; [(i31 (val ptr norefs))] -> [(i31 (val ptr norefs)) (i31 (val ptr norefs))]
           local.set 4 ;; [(i31 (val ptr norefs))] -> []
+          local.get move 11 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 11 ;; [(var 0)] -> []
+          group ;; [(i31 (val ptr norefs)) (var 0)] -> [(prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))] ->
+                 [(ref (val ptr gcrefs) (base gc)
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc)
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
           local.get move 13 ;; [] ->
                                [(coderef (val i32 norefs)
                                   ((ref (val ptr gcrefs) (base gc)
@@ -5072,6 +5149,21 @@ let%expect_test "examples" =
                          -> []
           num_const 3 ;; [] -> [(num (val i32 norefs) i32)]
           tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
+          local.get move 6 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 6 ;; [(var 0)] -> []
+          group ;; [(i31 (val ptr norefs)) (var 0)] -> [(prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))] ->
+                 [(ref (val ptr gcrefs) (base gc)
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc)
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs)) (var 0))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc)
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
           local.get move 8 ;; [] ->
                               [(coderef (val i32 norefs)
                                  ((ref (val ptr gcrefs) (base gc)

@@ -176,6 +176,13 @@ let%expect_test "return_one" =
         group 0
         new gc
         cast (ref (base gc) (struct))
+        local.get 3 move
+        copy
+        local.set 3
+        group 2
+        new gc
+        cast
+          (ref (base gc) (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
         local.get 5 move
         copy
         local.set 5
@@ -285,6 +292,12 @@ let%expect_test "apply_id" =
         local.set 5
         i32.const 42
         tag
+        local.get 3 move
+        copy
+        local.set 3
+        group 2
+        new gc
+        cast (ref (base gc) (struct (ser (var 0)) (ser i31)))
         local.get 5 move
         copy
         local.set 5

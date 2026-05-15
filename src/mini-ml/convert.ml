@@ -285,7 +285,10 @@ let rec cc_e user_fns gamma tagger acc e =
                   Expr.Let
                     ( ("#actual_fn", ft),
                       Expr.Project (1, Expr.Var "#env_and_fn"),
-                      Expr.Apply (Expr.Var "#actual_fn", ts', arg') ) ) )),
+                      Expr.Apply
+                        ( Expr.Var "#actual_fn",
+                          ts',
+                          Expr.Tuple [ Expr.Var "#env"; arg' ] ) ) ) )),
         code )
 
 let cc_imp (Source.Module.Import (n, t)) = Closed.Module.Import (n, cc_t t)
