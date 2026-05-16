@@ -40,13 +40,12 @@ Section kinding.
   Lemma type_kind_has_kind_agree F τ κ κ' :
     has_kind F τ κ ->
     type_kind F.(fc_type_vars) τ = Some κ' ->
-    subkind_of κ' κ.
+    κ = κ'.
   Proof.
-    intros Hhas_kind.
-    revert κ'.
-    induction Hhas_kind;
-      intros;
-      try (replace κ' with κ; first apply subkind_of_refl; cbn in *; congruence).
+    intros Hκ Hτ.
+    inversion Hκ; subst; inversion Hτ; try done.
+    rewrite H in H2.
+    by inversion H2.
   Qed.
 
   Lemma subkind_rep_inv κ κ' :
@@ -77,13 +76,13 @@ Section kinding.
     has_kind F τ (VALTYPE ρ ξ) ->
     type_rep F.(fc_type_vars) τ = Some ρ.
   Proof.
-    intros Hhas_kind.
-    unfold type_rep.
-    destruct (type_kind_has_kind_is_Some _ _ _ Hhas_kind) as [κ' Htk].
-    rewrite Htk; cbn.
-    eapply type_kind_has_kind_agree in Htk; eauto.
-    erewrite subkind_rep_inv by eauto.
-    done.
+    intros Hκ.
+    apply bind_Some.
+    apply type_kind_has_kind_is_Some in Hκ as Htype_kind.
+    destruct Htype_kind as [κ' Hκ'].
+    eexists.
+    split; first done.
+    by pose proof (type_kind_has_kind_agree _ _ _ _ Hκ Hκ') as <-.
   Qed.
 
   Lemma subkind_subskind (se : semantic_env (Σ:=Σ)) κ κ' sκ sκ' :
@@ -195,36 +194,31 @@ Section kinding.
       by eapply eval_size_ok_Some in Hok_σ as [n ->].
   Qed.
 
-  Lemma type_skind_has_kind_agree F se τ κ sκ sκ0 :
+  Lemma type_skind_has_kind_agree F se τ κ sκ sκ' :
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    type_skind (Σ:=Σ) se τ = Some sκ0 ->
-    subskind_of sκ0 sκ.
+    type_skind (Σ:=Σ) se τ = Some sκ' ->
+    sκ = sκ'.
   Proof.
     intros Hhas_kind.
-    revert sκ0 sκ.
+    revert sκ sκ'.
     induction Hhas_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       inversion Heval_kind.
@@ -233,8 +227,7 @@ Section kinding.
       inversion Hsκ0.
       inversion Hsκ.
       rewrite Heval_rep0 in Heval_rep.
-      inversion Heval_rep.
-      apply subskind_of_refl.
+      by inversion Heval_rep.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       inversion Heval_kind.
@@ -243,8 +236,7 @@ Section kinding.
       inversion Hsκ0.
       inversion Hsκ.
       rewrite Heval_rep0 in Heval_rep.
-      inversion Heval_rep.
-      apply subskind_of_refl.
+      by inversion Heval_rep.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       inversion Heval_kind.
@@ -253,8 +245,7 @@ Section kinding.
       inversion Hsκ0.
       inversion Hsκ.
       rewrite Heval_rep0 in Heval_rep.
-      inversion Heval_rep.
-      apply subskind_of_refl.
+      by inversion Heval_rep.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       inversion Heval_kind.
@@ -263,20 +254,16 @@ Section kinding.
       inversion Hsκ0.
       inversion Hsκ.
       rewrite Heval_rep0 in Heval_rep.
-      inversion Heval_rep.
-      apply subskind_of_refl.
+      by inversion Heval_rep.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
-      inversion Heval_kind.
-      apply subskind_of_refl.
+      by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       inversion Heval_kind.
@@ -285,8 +272,7 @@ Section kinding.
       inversion Hsκ0.
       inversion Hsκ.
       rewrite Heval_rep0 in Heval_rep.
-      inversion Heval_rep.
-      apply subskind_of_refl.
+      by inversion Heval_rep.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       inversion Heval_kind.
@@ -295,8 +281,7 @@ Section kinding.
       inversion Hsκ0.
       inversion Hsκ.
       rewrite Heval_rep0 in Heval_rep.
-      inversion Heval_rep.
-      apply subskind_of_refl.
+      by inversion Heval_rep.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       inversion Heval_kind.
@@ -305,42 +290,35 @@ Section kinding.
       inversion Hsκ0.
       inversion Hsκ.
       rewrite Heval_size0 in Heval_size.
-      inversion Heval_size.
-      apply subskind_of_refl.
+      by inversion Heval_size.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       rewrite Heval_kind in H0.
-      inversion H0.
-      apply subskind_of_refl.
+      by inversion H0.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       rewrite Heval_kind in H1.
-      inversion H1.
-      apply subskind_of_refl.
+      by inversion H1.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       rewrite Heval_kind in H1.
-      inversion H1.
-      apply subskind_of_refl.
+      by inversion H1.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       rewrite Heval_kind in H1.
-      inversion H1.
-      apply subskind_of_refl.
+      by inversion H1.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
       rewrite Heval_kind in H2.
-      inversion H2.
-      apply subskind_of_refl.
+      by inversion H2.
     - intros ?? Hse Heval_kind Htype_skind.
       cbn in Htype_skind.
-      replace sκ0 with sκ; first apply subskind_of_refl.
       destruct Hse as [boop bap].
       unfold type_ctx_interp in bap.
       unfold lookup_type in Htype_skind.
       apply fmap_Some in Htype_skind as ([sκ_T T] & bofp & borzoi).
       pose proof (Forall2_lookup_lr _ _ _ _ _ _ bap H bofp) as [hh hhhh].
-      subst sκ0.
+      subst sκ'.
       rewrite Heval_kind in hh.
       by inversion hh.
   Qed.
@@ -349,28 +327,18 @@ Section kinding.
     has_kind F τ κ ->
     sem_env_interp F se ->
     eval_kind se κ = Some sκ ->
-    exists sκ', type_skind (Σ:=Σ) se τ = Some sκ' /\ subskind_of sκ' sκ.
+    type_skind (Σ:=Σ) se τ = Some sκ.
   Proof.
-    intros Hκ.
-    revert sκ se.
-    induction Hκ; intros;
-      try by (unfold κ in *; exists sκ; split; [cbn in *; done | by apply subskind_of_refl]).
-    - eexists. split; first done. apply subskind_of_refl.
-    - eexists. split; first done. apply subskind_of_refl.
-    - eexists. split; first done. apply subskind_of_refl.
-    - eexists. split; first done. apply subskind_of_refl.
-    - eexists. split; first done. apply subskind_of_refl.
-    - destruct H1 as [boop bap].
-      cbn in *.
-      unfold lookup_type.
-      unfold type_ctx_interp in bap.
-      pose proof (Forall2_lookup_l _ _ _ _ _ bap H) as ([sκ_T T] & Hinsenv & (y1 & y2)).
-      cbn in *.
-      rewrite H2 in y1; inversion y1; subst.
-      rewrite Hinsenv.
-      cbn.
-      exists sκ_T. split; auto.
-      apply subskind_of_refl.
+    intros Hκ Hse Hsκ.
+    generalize dependent sκ.
+    induction Hκ; intros ??; try by cbn in *.
+    inversion Hse as [_ Htype_ctx].
+    unfold type_ctx_interp in Htype_ctx.
+    pose proof (Forall2_lookup_l _ _ _ _ _ Htype_ctx H) as [[sκ_T T] (Ht & Hsκ_T & _)].
+    cbn.
+    cbn in Ht.
+    rewrite Ht.
+    by rewrite Hsκ in Hsκ_T.
   Qed.
 
   Lemma ref_flag_atoms_refine ξ ξ' sv :
@@ -500,24 +468,6 @@ Section kinding.
     - apply prims_result_type_l.
   Qed.
 
-  (* Lemma has_kind_prod_inv F κ κ' τs : *)
-  (*   has_kind F (ProdT κ τs) κ' -> *)
-  (*   exists ρs ξ, κ = VALTYPE (ProdR ρs) ξ /\ Forall2 (fun τ ρ => has_kind F τ (VALTYPE ρ ξ)) τs ρs. *)
-  (* Proof. *)
-  (*   intros H. *)
-  (*   remember (ProdT κ τs) as τ. *)
-  (*   induction H; try congruence. *)
-  (*   - inversion Heqτ. *)
-  (*     subst κ0 τs0 κ. *)
-  (*     clear Heqτ. *)
-  (*     do 2 eexists. *)
-  (*     by split. *)
-  (*   - specialize (IHhas_kind Heqτ) as (ρs & ξ & Hsub & Hkinds). *)
-  (*     subst τ. *)
-  (*     do 2 eexists. *)
-  (*     by split. *)
-  (* Qed. *)
-
   Lemma value_interp_skind se τ sv :
     value_interp rti sr se τ sv -∗
     ⌜exists sκ, type_skind se τ = Some sκ /\ skind_has_svalue sκ sv⌝.
@@ -643,7 +593,7 @@ Section kinding.
     destruct τ;
       iDestruct "H" as "(% & % & % & _)";
       iPureIntro;
-      (eapply skind_as_type_refine; [by eapply type_skind_has_kind_agree|done]).
+      (replace sκ0 with sκ in *; [done|by eapply type_skind_has_kind_agree]).
   Qed.
 
   Theorem kinding_sound F se τ κ sκ :

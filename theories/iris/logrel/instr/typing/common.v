@@ -40,24 +40,14 @@ Section common.
   Lemma has_kind_agree F τ κ κ' :
     has_kind F τ κ →
     has_kind F τ κ' →
-    subkind_of κ κ' ∨ subkind_of κ' κ.
+    κ = κ'.
   Proof.
     intros H1 H2.
     have Hsome := type_kind_has_kind_is_Some _ _ _ H1.
     destruct Hsome as [κ'' Hκ''].
     have Hsub1 := type_kind_has_kind_agree _ _ _ _ H1 Hκ''.
     have Hsub2 := type_kind_has_kind_agree _ _ _ _ H2 Hκ''.
-    inversion Hsub1; inversion Hsub2; subst.
-    - injection H5 as <- <-.
-      destruct (ref_flag_le_total ξ' ξ'0).
-      + left. econstructor. eauto using ref_flag_le_trans.
-      + right. econstructor. eauto using ref_flag_le_trans.
-    - discriminate.
-    - discriminate.
-    - injection H5 as <- <-.
-      destruct (ref_flag_le_total ξ' ξ'0).
-      + left. econstructor. eauto using ref_flag_le_trans.
-      + right. econstructor. eauto using ref_flag_le_trans.
+    by rewrite Hsub2.
   Qed.
 
   Lemma has_kind_agree_f F τ ρ ξ σ ξ' :
@@ -67,7 +57,7 @@ Section common.
   Proof.
     intros H1 H2.
     have H := has_kind_agree _ _ _ _ H1 H2.
-    destruct H; inversion H.
+    inversion H.
   Qed.
 
   Lemma Forall2_mini_impl {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
@@ -83,6 +73,7 @@ Section common.
       inversion Hall; subst.
       apply Forall2_cons; auto.
   Qed.
+
   Lemma Forall2_mini_impl_Forall {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
     Forall2 P l k -> Forall (λ a, ∀ b, P a b → Q a b) l -> Forall2 Q l k.
   Proof.
@@ -683,11 +674,14 @@ Section common.
     sem_env_interp F se ->
     eval_rep se ρ = Some ιs ->
     type_skind se τ = Some (SVALTYPE ιs' ξ') ->
-    subskind_of (SVALTYPE ιs' ξ') (SVALTYPE ιs ξ).
+    ιs = ιs' /\ ξ = ξ'.
   Proof.
     intros.
-    eapply type_skind_has_kind_agree; try done.
-    by apply eval_kind_of_eval_rep.
+    assert (SVALTYPE ιs ξ = SVALTYPE ιs' ξ') as Heq.
+    - eapply type_skind_has_kind_agree; try done.
+      cbn.
+      by rewrite H1.
+    - by inversion Heq.
   Qed.
 
   Lemma type_skind_eval_rep_emptyenv (se: semantic_env (Σ:=Σ)) F ρ ιs ξ τ ιs' ξ' :
@@ -695,7 +689,7 @@ Section common.
     sem_env_interp F se ->
     eval_rep EmptyEnv ρ = Some ιs ->
     type_skind se τ = Some (SVALTYPE ιs' ξ') ->
-    subskind_of (SVALTYPE ιs' ξ') (SVALTYPE ιs ξ).
+    ιs = ιs' /\ ξ = ξ'.
   Proof.
     intros.
     eapply type_skind_eval_rep; try done.
@@ -1127,26 +1121,6 @@ Section common.
   Proof.
     eapply Forall_impl; first apply map_seq_forall_localidx_leq.
     lias.
-  Qed.
-
-  (* Ugly lemma dealing with subkinding *)
-  (* Lemma has_kind_SumT_inv F τs ρs ξ κ : *)
-  (*   has_kind F (SumT (VALTYPE (SumR ρs) ξ) τs) κ → *)
-  (*   Forall2 (λ τ ρ, has_kind F τ (VALTYPE ρ ξ)) τs ρs. *)
-  (* Proof. *)
-  (*   intros H. remember (SumT (VALTYPE (SumR ρs) ξ) τs) as τ. *)
-  (*   induction H; try discriminate. *)
-  (*   - (* KSum *) injection Heqτ; intros; subst. eauto. *)
-  (*   - (* KSub *) eauto. *)
-  (* Qed. *)
-
-  Lemma has_kind_RecT_inv F τ κ κ' :
-    has_kind F (RecT κ τ) κ' →
-    subkind_of κ κ' ∧ has_kind (F <| fc_type_vars ::= cons κ |>) τ κ.
-  Proof.
-    intros H. remember (RecT κ τ) as τ'.
-    induction H; try discriminate.
-    injection Heqτ'; intros; subst. split; [apply subkind_of_refl |]. exact H.
   Qed.
 
   Lemma eval_rep_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) ρ :
