@@ -237,13 +237,51 @@ Definition ref_flag_lub2 (ξ1 ξ2 : ref_flag) : ref_flag :=
   | AnyRefs => AnyRefs
   end.
 
+Lemma ref_flag_lub2_least ξ1 ξ2 ξ3 :
+  ref_flag_le ξ1 ξ3 ->
+  ref_flag_le ξ2 ξ3 ->
+  ref_flag_le (ref_flag_lub2 ξ1 ξ2) ξ3.
+Proof.
+  intros H13 H23.
+  by destruct ξ1; destruct ξ2; destruct ξ3.
+Qed.
+
+Lemma ref_flag_lub2_ub ξ1 ξ2 :
+  ref_flag_le ξ1 (ref_flag_lub2 ξ1 ξ2) /\ ref_flag_le ξ2 (ref_flag_lub2 ξ1 ξ2).
+Proof.
+  by split; destruct ξ1; destruct ξ2.
+Qed.
+
 Definition ref_flag_lub (ξs : list ref_flag) : ref_flag :=
   foldl ref_flag_lub2 NoRefs ξs.
 
-Lemma ref_flag_lub_lub ξ' ξs :
-  Forall (λ ξ, ref_flag_le ξ ξ') ξs ->
+Lemma ref_flag_lub_least ξ' ξs :
+  Forall (fun ξ => ref_flag_le ξ ξ') ξs ->
   ref_flag_le (ref_flag_lub ξs) ξ'.
 Proof.
+  intros H.
+  induction ξs.
+  - apply least_ref_flag.
+  - cbn.
+    inversion H.
+    subst a l.
+    apply IHξs in H3.
+    clear IHξs.
+    clear H.
+    rename x into ξ.
+Admitted.
+
+Lemma ref_flag_lub_ub ξs :
+  Forall (fun ξ => ref_flag_le ξ (ref_flag_lub ξs)) ξs.
+Proof.
+  induction ξs.
+  - by apply Forall_nil.
+  - apply Forall_cons. split.
+    + cbn. admit.
+    + eapply Forall_impl; first done.
+      intros ξ H.
+      cbn in H.
+      cbn.
 Admitted.
 
 Inductive subkind_of : kind -> kind -> Prop :=

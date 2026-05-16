@@ -37,12 +37,10 @@ Section group.
     { cbn. by rewrite app_nil_r. }
     iApply big_sepL2_singleton.
 
-    inversion Hok as [F' ψ L' Hmono Hok_L].
-    subst F' ψ L'.
+    destruct Hok as [Hmono Hok_L].
     inversion Hmono as [Hmono1 Hmono2].
     rewrite Forall_singleton in Hmono2.
-    inversion Hmono2 as [F' τ ρ Hrep Hmono_ρ].
-    subst F' τ.
+    destruct Hmono2 as (ρ & Hrep & Hmono_ρ).
     inversion Hrep as [F' τ ρ' ξ Hkind].
     subst F' τ ρ'.
     apply has_kind_inv in Hkind as Hok_has_kind.
@@ -55,17 +53,17 @@ Section group.
     destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ Hsκ].
     iExists sκ.
 
-    assert (Hsub : subkind_of κ (VALTYPE ρ ξ)) by by eapply type_kind_has_kind_agree.
-    apply subkind_preserves_valtype in Hsub as (ξ0 & -> & Hξ0).
+    assert (Hsub : VALTYPE ρ ξ = κ) by by eapply type_kind_has_kind_agree.
+    subst κ.
     apply bind_Some in Hsκ as (ιs & Hιs & Hsκ).
     inversion Hsκ.
     subst sκ.
     clear Hsκ.
 
-    apply has_kind_prod_inv in Hkind as (ρs & ξ' & Hsub & Hkinds).
-    inversion Hsub.
-    subst ρ ξ0.
-    clear Hsub.
+    inversion Hkind.
+    subst F0 ρ ξ τs0.
+    clear Hkind.
+    rename H1 into Hkinds.
 
     apply bind_Some in Hιs as (ιss & Hιss & Hιs).
     inversion Hιs.
@@ -84,7 +82,8 @@ Section group.
         split; first done.
         apply mapM_Some in Hιss.
         apply Forall2_length in Hιss as Hlen_ρs_ιss.
-        apply Forall2_length in Hkinds as Hlen_τs_ρs.
+        apply Forall3_length_lr in Hkinds as Hlen_τs_ξs.
+        apply Forall3_length_lm in Hkinds as Hlen_τs_ρs.
         apply Forall2_length in Hskinds as Hlen_τs_oss.
         apply Forall2_concat.
         apply Forall2_lookup.
@@ -108,6 +107,9 @@ Section group.
           assert (is_Some (ρs !! i)).
           { apply lookup_lt_is_Some. by rewrite Hlen_ρs_ιss. }
           destruct H0 as [ρ Hρs_i].
+          assert (is_Some (ξs !! i)).
+          { apply lookup_lt_is_Some. rewrite <- Hlen_τs_ξs. rewrite Hlen_τs_ρs. by rewrite Hlen_ρs_ιss. }
+          destruct H0 as [ξ Hξs_i].
           rewrite Forall2_lookup in Hskinds.
           specialize (Hskinds i).
           rewrite Hτs_i in Hskinds.
@@ -129,13 +131,8 @@ Section group.
           inversion Hos'.
           subst os'.
           clear Hos'.
-          rewrite Forall2_lookup in Hkinds.
-          specialize (Hkinds i).
-          rewrite Hτs_i in Hkinds.
-          rewrite Hρs_i in Hkinds.
-          inversion Hkinds as [τ' ρ' Hkind|].
-          subst τ' ρ'.
-          clear Hkinds.
+          eapply Forall3_lookup_lmr in Hkinds as Hkind.
+          2, 3, 4: done.
           pose proof (type_skind_eval_rep _ _ _ _ _ _ _ _ Hkind Hse Hιss' Hskind) as Hyeah.
           inversion Hyeah.
           by subst.
@@ -147,7 +144,8 @@ Section group.
           rewrite Hιss_i.
           constructor.
       + cbn.
-        apply Forall2_length in Hkinds as Hlen_τs_ρs.
+        apply Forall3_length_lr in Hkinds as Hlen_τs_ξs.
+        apply Forall3_length_lm in Hkinds as Hlen_τs_ρs.
         apply Forall2_length in Hskinds as Hlen_τs_oss.
         apply Forall_concat.
         eapply Forall2_Forall_r; first done.
@@ -161,35 +159,37 @@ Section group.
         destruct o; try done.
         cbn.
         cbn in Ho.
-        destruct p; first by destruct ξ'.
-        apply list_elem_of_lookup in Hτ as [i Hτs_i].
-        rewrite Forall2_lookup in Hkinds.
-        specialize (Hkinds i).
-        rewrite Hτs_i in Hkinds.
-        assert (is_Some (ρs !! i)).
-        { apply lookup_lt_is_Some. rewrite <- Hlen_τs_ρs. apply lookup_lt_is_Some. by eexists. }
-        destruct H as [ρ Hρs_i].
-        rewrite Hρs_i in Hkinds.
-        inversion Hkinds as [τ' ρ' Hkind|].
-        subst τ' ρ'.
-        clear Hkinds.
-        apply mapM_Some in Hιss.
-        apply Forall2_length in Hιss as Hlen_ρs_ιss.
-        rewrite Forall2_lookup in Hιss.
-        specialize (Hιss i).
-        rewrite Hρs_i in Hιss.
-        assert (is_Some (ιss !! i)).
-        { apply lookup_lt_is_Some. rewrite <- Hlen_ρs_ιss. rewrite <- Hlen_τs_ρs.
-          apply lookup_lt_is_Some. by eexists. }
-        destruct H as [ιs Hιss_i].
-        rewrite Hιss_i in Hιss.
-        inversion Hιss as [ρ' ιs' Hrep'|].
-        subst ρ' ιs'.
-        clear Hιss.
-        pose proof (type_skind_eval_rep _ _ _ _ _ _ _ _ Hkind Hse Hrep' Hsκ) as Hyeah.
-        inversion Hyeah.
-        subst.
-        by eapply ref_flag_ptr_interp_le.
+
+        rewrite list_elem_of_lookup in Hτ.
+        destruct Hτ as [i Hτs_i].
+        assert (i < length τs) as Hlen by by apply lookup_lt_is_Some.
+        assert (is_Some (ξs !! i)).
+        { apply lookup_lt_is_Some. by rewrite <- Hlen_τs_ξs. }
+        destruct H as [ξ Hξs_i].
+        eapply Forall3_lookup_r in Hkinds; last done.
+        destruct Hkinds as (τ' & ρ & Hτs_i' & Hρs_i & Hkind').
+        rewrite Hτs_i in Hτs_i'.
+        inversion Hτs_i'.
+        subst τ'.
+        clear Hτs_i'.
+        apply has_kind_inv in Hkind' as Hhas_ok.
+        inversion Hhas_ok.
+        subst F0 τ0 κ.
+        rename H0 into Hkind_ok.
+        destruct (eval_kind_ok_Some _ _ _ Hse Hkind_ok) as [sκ' Hsκ'].
+        pose proof (type_skind_has_kind_Some _ _ _ _ _ Hkind' Hse Hsκ') as Htype_skind.
+        rewrite Hsκ in Htype_skind.
+        apply bind_Some in Hsκ' as (ιs & Hιs & Hsκ').
+        rewrite <- Hsκ' in Htype_skind.
+        inversion Htype_skind.
+        subst l r.
+        clear Htype_skind.
+        clear Hsκ' sκ'.
+
+        eapply ref_flag_ptr_interp_le; last done.
+        pose proof (ref_flag_lub_ub ξs) as Hub.
+        rewrite Forall_lookup in Hub.
+        by specialize (Hub i ξ Hξs_i).
     - iExists oss.
       iSplitR; first done.
       rewrite big_sepL2_fmap_l.
