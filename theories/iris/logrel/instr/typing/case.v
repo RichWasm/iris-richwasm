@@ -315,14 +315,15 @@ Section case.
     apply lookup_lt_Some in Htag_type_lookup as Htag_size_bound.
     assert (length τs = length ρs_sum) as Htyp_rep_len.
     {
-      inversion Hok; subst.
-      unfold has_mono_rep_instr in H.
-      destruct H as [H _].
-      rewrite Forall_singleton in H.
-      inversion H; subst.
-      inversion H1; subst.
-      apply has_kind_SumT_inv in H3 as HF2.
-      by eapply Forall2_length.
+      destruct Hok as [Hmono Hok_L].
+      destruct Hmono as [Hmono_Sum _].
+      rewrite Forall_singleton in Hmono_Sum.
+      destruct Hmono_Sum as (ρ & Hρ & _).
+      inversion Hρ.
+      subst.
+      inversion H.
+      subst.
+      by eapply Forall3_length_lm.
     }
     assert (tag < Wasm_int.Int32.modulus)%Z as Htag_in_i32_bound.
     { rewrite Htyp_rep_len in Htag_size_bound. eapply Z.lt_le_trans; last done. by apply Nat2Z.inj_lt. }
