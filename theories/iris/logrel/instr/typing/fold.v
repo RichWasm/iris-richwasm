@@ -40,16 +40,18 @@ Section fold.
     cbn [pre_type_interp rec_interp].
     iDestruct "Hval" as "(%sk & %Htsk & %Hskhsv & Htrec)".
 
-    inversion Hok; subst.
-    inversion H; subst.
-    rewrite Forall_singleton in H2.
-    inversion H2; subst.
-    inversion H3; subst.
+    destruct Hok as [Hmono Hok_L'].
+    destruct Hmono as [Hmono_τrec Hmono_Rec].
+    rewrite Forall_singleton in Hmono_Rec.
+    destruct Hmono_Rec as (ρ & Hρ & Hmono_ρ).
+    inversion Hρ.
+    subst.
+    rename H into Hkind_Rec.
+    inversion Hkind_Rec.
+    subst.
+    rename H3 into Hkind_τ.
 
-    apply has_kind_RecT_inv in H5 as [Hsubkind Hhas_kind].
-    inversion Hsubkind; subst.
-
-    pose proof (has_kind_inv _ _ _ Hhas_kind) as Hkind_ok.
+    pose proof (has_kind_inv _ _ _ Hkind_τ) as Hkind_ok.
     inversion Hkind_ok as [F' τ' κ' Ht Hk]; subst.
     (* iDestruct "Hval" as "(%sk & %Htsk & %Hskhsv & Htrec)". *)
     iExists _.
