@@ -106,19 +106,34 @@ Section inject.
 
     destruct κ; last destruct Hskind_as_type as [[] _].
 
-    inversion Hok; subst F0 ψ L'.
-    inversion H.
-    apply Forall_cons in H2 as [Hhmr _].
-    inversion Hhmr; subst F0 τ0.
-    inversion H2; subst F0 τ0 ρ0.
-    apply has_kind_SumT_inv in H4 as Hf2.
-    rewrite Hρs_sum_eq Hτs_eq in Hf2.
-    apply Forall2_app_inv in Hf2 as [Hkind_pre Hkind_rest]; last by subst.
-    apply Forall2_cons in Hkind_rest as [Hkind_i Hkind_post].
+    destruct Hok as [[Hmono_τ Hmono_Sum] Hok_L].
+    rewrite Forall_singleton in Hmono_τ.
+    destruct Hmono_τ as (ρ & Hρ & Hmono_ρ).
+    rewrite Forall_singleton in Hmono_Sum.
+    destruct Hmono_Sum as (ρ_sum & Hρ_sum & Hmono_ρ_sum).
+    inversion Hρ_sum.
+    subst F0 τ0 ρ0.
+    rename H into Hkind.
+    inversion Hkind.
+    subst F0 ρs κ0 rf τs0 ρ_sum ξ.
+    clear Hkind.
+    rename H1 into Hkinds.
+    apply Forall3_length_lr in Hkinds as Hlen_ξs.
+    rewrite Hρs_sum_eq Hτs_eq in Hkinds.
+    apply Forall3_app_inv_l in Hkinds as (ρs_sum_pre' & ρs_sum_post' & ξs_pre & ξs_post & Hρs_sum_eq' & -> & Hkind_pre & Hkind_post).
+    apply app_inj_1 in Hρs_sum_eq' as [<- Hρs_sum_eq'];
+      last by (apply Forall3_length_lm in Hkind_pre as <-; rewrite <- Hτs_pre_len).
+    destruct ρs_sum_post'; inversion Hρs_sum_eq'.
+    subst r0 ρs_sum_post'.
+    clear Hρs_sum_eq'.
+    apply Forall3_cons_inv_l in Hkind_post as (ρ_i' & ρs_sum_post' & ξ & ξs_post' & Hρs_sum_eq' & ξs_eq' & Hkind_i & Hkind_post).
+    inversion Hρs_sum_eq'.
+    subst ρ_i' ρs_sum_post' ξs_post.
+    rename ξs_post' into ξs_post.
+    clear Hρs_sum_eq'.
 
-    have Hsubskind : subskind_of (SVALTYPE l r) (SVALTYPE ιs rf).
-    { by eapply type_skind_eval_rep_emptyenv. }
-    inversion Hsubskind; subst ιs0 l ξ0 ξ'.
+    assert (ιs = l /\ ξ = r) as Hskinds_eq by by eapply type_skind_eval_rep_emptyenv.
+    destruct Hskinds_eq as [<- <-].
 
     destruct Hskind_as_type as [Hhas_areps Href].
 
@@ -410,8 +425,14 @@ Section inject.
         split; first done.
         apply ref_flag_atoms_interp_app; split; last (apply ref_flag_atoms_interp_app; split).
         1: by apply (ref_flag_atoms_refine NoRefs); first done.
-        1: by eapply ref_flag_atoms_refine; first done.
-        1: by apply (ref_flag_atoms_refine NoRefs); first done.
+        2: by apply (ref_flag_atoms_refine NoRefs); first done.
+        eapply ref_flag_atoms_refine; last done.
+        eapply (Forall_lookup_1 (fun ξ => (ref_flag_le ξ _))); first apply ref_flag_lub_ub.
+        apply lookup_app_Some.
+        right.
+        instantiate (1 := length ξs_pre).
+        split; first done.
+        by rewrite Nat.sub_diag.
       + iExists _, _, _, _.
         iSplit; first done.
         iSplit.
