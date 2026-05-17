@@ -226,8 +226,7 @@ Section PathFacts.
     pose proof (type_kind_has_kind_is_Some _ _ _ Hk) as (tk & Htk).
     rewrite Htk; cbn.
     eapply type_kind_has_kind_agree in Htk; eauto.
-    erewrite subkind_size_inv; eauto; cbn.
-    by rewrite mono_size_eval_emp.
+    by rewrite <- Htk.
   Qed.
 
   Lemma split_concat_ws_field F τs1 τ τs2 σs ks wss :
@@ -398,45 +397,6 @@ Section PathFacts.
     revert HeqS.
   Admitted.
 
-  Lemma struct_kind_inv_ind F S κ :
-    has_kind F S κ ->
-    ∀ σ ξ κ' τs,
-      κ = MEMTYPE σ ξ ->
-      S = StructT κ' τs ->
-      ∃ σs ξ',
-        Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ')) τs σs /\
-        σ = ProdS σs /\
-        κ' = MEMTYPE (ProdS σs) ξ' /\
-        ref_flag_le ξ' ξ.
-  Proof.
-    intros Hkind.
-    induction Hkind; intros * Hκ HS; try inversion HS.
-    - subst κ' κ.
-      inversion Hκ; subst ξ0 τs0 σ.
-      do 2 eexists.
-      eauto using ref_flag_le_refl.
-    - subst κ' τ.
-      match goal with
-      | H : subkind_of _ _ |- _ => inversion H; subst
-      end.
-      specialize (IHHkind _ _ _ _ eq_refl eq_refl).
-      destruct IHHkind as (σs & ξ' & Hkinds & -> & -> & Hξ0).
-      do 2 eexists.
-      eauto using ref_flag_le_trans.
-  Qed.
-
-  Lemma struct_kind_inv F σ ξ κ' τs :
-    has_kind F (StructT κ' τs) (MEMTYPE σ ξ) ->
-    ∃ σs ξ',
-      Forall2 (fun τ σ => has_kind F τ (MEMTYPE σ ξ')) τs σs /\
-      σ = ProdS σs /\
-      κ' = MEMTYPE (ProdS σs) ξ' /\
-      ref_flag_le ξ' ξ.
-  Proof.
-    intros.
-    by eapply struct_kind_inv_ind.
-  Qed.
-
   Lemma has_kind_mem_size_agree_ind F τ κ :
     has_kind F τ κ ->
     ∀ σ σ' ξ,
@@ -450,16 +410,9 @@ Section PathFacts.
           try inversion Hκ; subst;
           cbn in Hev; congruence
         ].
-    - inversion H; subst.
-      unfold type_size in Hev.
-      eapply bind_Some in Hev.
-      destruct Hev as (κ' & Htkind & Hsz).
-      eapply type_kind_has_kind_agree in Htkind; eauto.
-      inversion Htkind; eauto; subst.
-      cbn in *; congruence.
-    - cbn in Hev.
-      rewrite H in Hev.
-      cbn in Hev; congruence.
+    cbn in Hev.
+    rewrite H in Hev.
+    by inversion Hev.
   Qed.
 
   Lemma has_kind_mem_size_agree F τ ξ σ σ' :
@@ -663,29 +616,23 @@ Section PathFacts.
     sem_env_interp F se ->
     ∀ sks,
       mapM (eval_kind se) κs = Some sks →
-      ∃ sks',
-        mapM (type_skind se) τs = Some sks' ∧
-        Forall2 subskind_of sks' sks.
+      mapM (type_skind se) τs = Some sks.
   Proof.
-    intros Hkind. induction Hkind; intros Hse sks Hevs.
-    - cbn in *.
-      inversion Hevs; subst.
-      exists [].
-      done.
-    - cbn in Hevs.
-      apply bind_Some in Hevs.
-      destruct Hevs as (sk & Hev & Hevs).
-      apply bind_Some in Hevs.
-      destruct Hevs as (sks' & Hevs & Heq).
-      inversion Heq; subst sks; clear Heq; rename sks' into sks.
-      eapply type_skind_has_kind_Some in Hev; eauto.
-      destruct Hev as (sk' & Htsk & Hsub).
-      destruct (IHHkind Hse sks Hevs) as (sks' & Htsks & Hsubs).
-      exists (sk' :: sks').
-      split.
-      + cbn -[type_skind].
-        by rewrite Htsk Htsks.
-      + constructor; done.
+    intros Hkind. induction Hkind; intros Hse sks Hevs; first done.
+    cbn in Hevs.
+    apply bind_Some in Hevs.
+    destruct Hevs as (sk & Hev & Hevs).
+    apply bind_Some in Hevs.
+    destruct Hevs as (sks' & Hevs & Heq).
+    inversion Heq; subst sks; clear Heq; rename sks' into sks.
+    eapply type_skind_has_kind_Some in Hev; eauto.
+    apply bind_Some.
+    exists sk.
+    split; first done.
+    apply bind_Some.
+    exists sks.
+    split; last done.
+    by apply IHHkind.
   Qed.
 
   Lemma type_skinds_has_kinds_Some_mem F τs ξ σs ns :
