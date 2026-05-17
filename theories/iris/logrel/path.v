@@ -515,6 +515,27 @@ Section PathFacts.
     tauto.
   Qed.
 
+  Lemma inv_Forall3_elt_l {A B C} {P : A -> B -> C -> Prop} {xs1 x xs2 ys zs} :
+    Forall3 P (xs1 ++ x :: xs2) ys zs ->
+    ∃ ys1 y ys2 zs1 z zs2,
+      length ys1 = length xs1 /\
+      length ys2 = length xs2 /\
+      length zs1 = length xs1 /\
+      length zs2 = length xs2 /\
+      ys = ys1 ++ y :: ys2 /\
+      zs = zs1 ++ z :: zs2 /\
+      Forall3 P xs1 ys1 zs1 /\
+      P x y z /\
+      Forall3 P xs2 ys2 zs2.
+  Proof.
+    intros Hall.
+    apply Forall3_app_inv_l in Hall.
+    destruct Hall as (ys1 & ys' & zs1 & zs' & -> & -> & Hxs1 & Hys').
+    apply Forall3_cons_inv_l in Hys'.
+    destruct Hys' as (y & ys2 & z & zs2 & -> & -> & HP & Hxs2).
+    repeat eexists; eauto using eq_sym, Forall3_length_lr, Forall3_length_lm.
+  Qed.
+
   Lemma option_mapM_cons {A B} (f : A -> option B) a l :
     mapM f (a :: l) = r ← f a; rs ← mapM f l; mret (r :: rs).
   Proof.
@@ -667,10 +688,13 @@ Section PathFacts.
         by rewrite Hev Hevs.
     }
     eapply type_skinds_has_kinds_Some in Hall'; eauto.
-    destruct Hall' as (sks & Hsks & Hsubs).
-    exists sks.
-    split; eauto.
-    by eapply Forall2_fmap_r.
+    eexists (map (fun n => SMEMTYPE n ξ) ns).
+    split; first done.
+    eapply Forall2_fmap_r.
+    apply Forall_Forall2_diag.
+    apply Forall_forall.
+    intros.
+    apply subskind_of_refl.
   Qed.
 
   Lemma subskind_mem_inv_l sk n ξ :
@@ -733,6 +757,7 @@ Section PathFacts.
       last (cbn; by rewrite Hsz).
     inversion Hkind; subst.
     cbn in Hsv.
+    clear H.
     destruct Hsv as [H _].
     iPureIntro.
     done.
@@ -801,11 +826,10 @@ Section PathFacts.
       𝕍 τ (SWords wsτ).
   Proof.
     intros Hse Hkind.
-    eapply struct_kind_inv in Hkind.
-    destruct Hkind as (σs'' & ξ'' & Hall & Hprod & Hmem & Href).
-    inversion Hprod; subst σs''.
-    inversion Hmem; subst ξ''.
-    clear Hprod Hmem.
+    inversion Hkind.
+    subst.
+    subst κ0.
+    rename H1 into Hall.
     iIntros "Hstruct".
     rewrite value_interp_eq.
     iDestruct "Hstruct" as "(%sk & %Htsk & %Hskws & Hstruct)".
@@ -814,8 +838,8 @@ Section PathFacts.
     inversion Hout; subst sk; clear Hout.
     apply bind_Some in Htsk; destruct Htsk as (ns & Htsk & Hout).
     inversion Hout; subst n; clear Hout.
-    eapply inv_Forall2_elt_l in Hall.
-    destruct Hall as (σs1 & σ & σs2 & Hlen1 & Hlen2 & Heqσs & Hkinds1 & Hτkind & Hkinds2).
+    eapply inv_Forall3_elt_l in Hall.
+    destruct Hall as (σs1 & σ & σs2 & ξs1 & ξ & ξs2 & Hlen1 & Hlen2 & Hlen3 & Hlen4 & Heqσs & Heqξs & Hkinds1 & Hτkind & Hkinds2).
     subst.
     eapply mapM_elt_Some in Htsk.
     destruct Htsk as (ns1 & n & ns2 & Hevns1 & Hevn & Hevns2 & ->).
@@ -824,10 +848,8 @@ Section PathFacts.
     eapply inv_Forall2_elt_r in Hwss.
     destruct Hwss as (wss1 & wst & wss2 & Hlens1 & Hlens2 & -> & Hsv1 & Hsv & Hsv2).
     iExists wss1, wst, wss2.
-    eapply type_skind_has_kind_Some in Hτkind; eauto;
+    eapply type_skind_has_kind_Some in Hτkind as Htsk; eauto;
       last (cbn; rewrite Hevn; done).
-    destruct Hτkind as (sk' & Htsk & Hsubkind).
-    inversion Hsubkind; subst.
     pose proof Hkinds1 as Hkinds1'.
     eapply type_skinds_has_kinds_Some_mem in Hkinds1'; eauto.
     destruct Hkinds1' as (sks1 & Htsks1 & Hsubs1).
