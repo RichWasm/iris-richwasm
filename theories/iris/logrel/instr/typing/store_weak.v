@@ -30,10 +30,7 @@ Section store_weak.
     - subst κ0.
       split; try congruence.
       inversion Heqref; eauto.
-    - subst κ'.
-      inversion H; subst; eapply IHHkind; eauto.
   Qed.
-
 
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
@@ -91,12 +88,12 @@ Section store_weak.
 
     assert (Hκ: eval_rep se (AtomR PtrR) = Some l).
     {
-      inversion Htype as [? ? ? Hmono Hctx]; subst.
+      destruct Htype as [Hmono Hctx].
       destruct Hmono as [Hmono _].
       rewrite Forall_cons in Hmono.
       destruct Hmono as [Hmono Hmonoτval].
       rewrite Forall_singleton in Hmonoτval.
-      inversion Hmono as [? ? ? Hrep Hismono]; subst.
+      destruct Hmono as (? & Hrep & Hismono).
       inversion Hrep; subst.
       apply rep_ref_kind_ptr_TEMP in H1; subst.
       destruct H1 as [-> [χ' ->]].

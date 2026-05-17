@@ -66,13 +66,10 @@ Section local_set.
 
     destruct κ; last destruct Hskind_as_type as [[] _].
 
-    have : subskind_of (SVALTYPE l r) (SVALTYPE ιs ξ).
-    { by eapply type_skind_eval_rep_emptyenv. }
-    intros Hsubskind.
+    destruct (type_skind_eval_rep_emptyenv _ _ _ _ _ _ _ _ H1 Hsem Heval_rep Hkind_payload) as [<- <-].
     have Hlen_eq : length ιs = length ηs by rewrite <- Heval_rep_prim, length_map.
     have Hlen_eq' : length (map translate_arep ιs) = length ηs.
     1: by rewrite length_map.
-    inversion Hsubskind; subst.
 
     destruct Hskind_as_type as [Hhas_areps Href].
 
@@ -84,7 +81,7 @@ Section local_set.
       instantiate (1 := (sum_list_with length (take i (fe_locals fe)))).
       done.
     }
-    6: by rewrite !length_map.
+    6: by rewrite Hlen_eq'.
     5: done.
     3: done.
     2: apply has_values_to_consts.
@@ -131,11 +128,11 @@ Section local_set.
     iApply (frame_interp_update_frame_label' with "[$] [$] [$]"); try done.
     2: {
       rewrite length_map in Hfrel.
-      by rewrite length_map.
+      by rewrite <- Hlen_eq.
     }
     apply prims_result_type.
     unfold translate_arep in Hres_type_vs.
-    by rewrite -map_map in Hres_type_vs.
+    by rewrite -map_map Heval_rep_prim in Hres_type_vs.
   Qed.
 
 End local_set.

@@ -137,21 +137,15 @@ Section local_get_copy.
     inversion Hhas_rep; subst.
 
     inversion Hrf; subst.
-    2: {
-      inversion Hhas_rep; subst.
-      exfalso.
-      by eapply has_kind_agree_f.
-    }
+    destruct H2 as [H2 Hnorefs].
 
     have Hkind_agree := has_kind_agree _ _ _ _ H1 H2.
-    assert (ρ = ρ0) as <-.
-    { destruct Hkind_agree as [Hsub | Hsub]; inversion Hsub; subst; reflexivity. }
+    subst x.
+    cbn in Hnorefs.
+    destruct ξ; try inversion Hnorefs.
+    clear H1 Hnorefs.
 
     have Hskind := type_skind_has_kind_Some F se τ _ _ H2 Hsem Heval_kind.
-    destruct Hskind as (sκ & Hskind & Hsub).
-
-    inversion Hsub; subst.
-    destruct ξ0; try done.
 
     iDestruct (value_interp_ref_flag_atoms _ _ _ _ _ _ _ Hskind with "Hval_i") as %Href.
     have Hatoms_pers := atoms_interp_norefs_persistent se os_i vs_L_i Href.
