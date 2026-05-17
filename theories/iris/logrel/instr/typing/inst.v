@@ -1963,26 +1963,11 @@ Section inst.
     destruct i; by cbn.
   Qed.
 
-  (* TODO: THIS IS A SUBSKIND VERSION OF AN ADMITTED LEMMA IN
-      KINDING.V. IF THE KINDING.V THING IS FALSE, THEN THIS
-      WILL BE FALSE TOO. I THINK IF THAT ONE IS TRUE THIS ONE
-      PROBABLY WILL BE? BUT IT'S A BIT MORE ROUGH. *)
-  Lemma kinding_sound_ref_flag_subskind F se τ κ sκ sκ_T :
-    has_kind F τ κ ->
+  Lemma closure_interp_scons_insert_type F se τ κ κ0 sκ ϕ cl :
     sem_env_interp F se ->
-    eval_kind se κ = Some sκ ->
-    type_skind se τ = Some sκ_T ->
-    subskind_of sκ_T sκ ->
-    ref_flag_stype_interp (skind_ref_flag sκ_T) (value_interp rti sr se τ).
-  Proof.
-    intros Hhas_kind Hhse Heval_kind Htypeskind Hsubsk.
-    destruct sκ as [ιs ξ|n ξ]; destruct ξ; try done.
-  Admitted.
-
-  Lemma closure_interp_scons_insert_type F se τ κ sκ ϕ cl :
     has_kind F τ κ ->
-    sem_env_interp F se ->
-    eval_kind se κ = Some sκ ->
+    subkind_of κ κ0 ->
+    eval_kind se κ0 = Some sκ ->
     (∀ sκ_T T,
        ⌜subskind_of sκ_T sκ⌝ -∗
        ⌜skind_has_stype sκ_T T⌝ -∗
@@ -1990,51 +1975,32 @@ Section inst.
     let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
     closure_interp rti sr ϕ' se cl.
   Proof using mr.
-    iIntros (Hok Hse Hsκ) "Hcl".
-    pose proof (type_skind_has_kind_Some _ _ _ _ _ Hok Hse Hsκ) as (sκ_T & Hskind & Hsub).
+    iIntros (Hse Hκ Hsubkind Hsκ) "Hcl".
+    apply has_kind_inv in Hκ as Hok_has_κ.
+    inversion Hok_has_κ as [??? Hok_τ Hok_κ].
+    subst.
+    clear Hok_has_κ.
+    destruct (eval_kind_ok_Some _ _ _ Hse Hok_κ) as [sκ_T Hsκ_T].
+    pose proof (subkind_subskind _ _ _ _ _ Hsκ_T Hsκ Hsubkind) as Hsubskind.
+    pose proof (kinding_sound rti sr mr _ _ _ _ _ Hκ Hse Hsκ_T) as HT.
     set T := value_interp rti sr se τ.
-    iSpecialize ("Hcl" $! sκ_T T).
-    assert (skind_has_stype sκ_T T) as Hstype. {
-      unfold T; clear T.
-      unfold skind_has_stype.
-      split.
-      {
-        (* HERE *)
-        (* this assert is what I get from normal kinding_sound_ref_flag *)
-        assert (H: ref_flag_stype_interp (skind_ref_flag sκ)
-                     (value_interp rti sr se τ))
-                 by (eapply kinding_sound_ref_flag; done).
-        (* this is the potentially fake lemma that's written down above *)
-        eapply kinding_sound_ref_flag_subskind; done.
-      }
-      iIntros (?) "H".
-      iPoseProof (value_interp_skind with "H") as "%hope".
-      destruct hope as (sκ' & torewrite & our).
-      rewrite Hskind in torewrite; inversion torewrite; subst; done.
-    }
-    pose proof (sem_well_formed_from_interp _ _ Hse) as Hsegood.
-    assert (Hse': sem_env_types_well_formed (senv_insert_type sκ_T T se)). {
-      intros. cbn. unfold sem_env_types_well_formed in *.
+    iSpecialize ("Hcl" $! sκ_T T Hsubskind HT).
+    iApply closure_interp_subst_senv_eq; last done.
+    - apply Forall_cons. by split; last eapply sem_well_formed_from_interp.
+    - by eapply sem_well_formed_from_interp.
+    - done.
+    - done.
+    - done.
+    - intros i.
+      destruct i; last done.
+      cbn -[type_skind]. 
+      symmetry.
+      by eapply type_skind_has_kind_Some.
+    - intros i.
+      destruct i; first done.
       cbn.
-      apply Forall_cons.
-      split; done.
-    }
-    iApply closure_interp_subst_senv_eq; unfold_sem_rels; last iApply "Hcl"; try done.
-
-    (* RE:Hsub_T this the more improtant place that tests if it's weak enough *)
-    (* and as expected, the two type ones *)
-    - (* sκ thing *)
-      intros.
-      destruct i.
-      + cbn -[type_skind].
-        done.
-      + by cbn.
-    - (* T thing *)
-      intros.
-      destruct i.
-      + cbn. done.
-      + cbn.
-        apply hsub_t_base_se_VarT; done.
+      apply hsub_t_base_se_VarT.
+      by eapply sem_well_formed_from_interp.
   Qed.
 
   Lemma compat_inst M F L wt wt' wtf wl wl' wlf es' ix ϕ ϕ' :
@@ -2070,7 +2036,7 @@ Section inst.
     (* dig into all at once down to closure interp *)
     all: unfold ϕ'.
 
-    all: iDestruct "Hos" as "(%κ' & %toinvert & HKindInterp & Rest)".
+    all: iDestruct "Hos" as "(%sκ & %toinvert & HKindInterp & Rest)".
     all: inversion toinvert; subst; clear toinvert.
 
     all: iExists (SVALTYPE [I32R] NoRefs).
@@ -2087,11 +2053,10 @@ Section inst.
     all: iFrame.
     all: iSplitR; auto; iSplitR; auto.
 
-    - by iApply closure_interp_scons_insert_mem; last inversion Hok.
-    - by iApply closure_interp_scons_insert_rep; last inversion Hok.
-    - by iApply closure_interp_scons_insert_size; last inversion Hok.
-    - iDestruct "Hclosure" as "(% & % & ?)".
-      by iApply closure_interp_scons_insert_type; last inversion Hok.
+    - by iApply closure_interp_scons_insert_mem.
+    - by iApply closure_interp_scons_insert_rep.
+    - by iApply closure_interp_scons_insert_size.
+    - iDestruct "Hclosure" as "(% & % & ?)". by iApply closure_interp_scons_insert_type.
   Qed.
 
 End inst.
