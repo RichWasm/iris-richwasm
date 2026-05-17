@@ -55,11 +55,11 @@ Section call.
            skind_interp sκ T     ==   Hskind
          *)
 
-        apply has_kind_inv in H7 as Hkok.
+        apply has_kind_inv in H6 as Hkok.
         inversion Hkok; subst.
         apply (eval_kind_ok_Some _ _ _ H1) in H3 as Heval.
         inversion Heval; rename x into sκ; subst.
-        apply (kinding_sound rti sr mr _ _ _ _ _ H7 H1) in H4 as Hskind.
+        apply (kinding_sound rti sr mr _ _ _ _ _ H6 H1) in H4 as Hskind.
         (* iSpecialize ("Hcl" $! sκ (value_interp rti sr se τ)). *)
 
         (* bad things with se_cl. induction hates me *)
