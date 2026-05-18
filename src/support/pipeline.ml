@@ -51,6 +51,12 @@ let rec pp_typecheck_error ff =
          @[<2>synthed lctx: %a@]@,\
          %a@]"
         s pp_lctx l pp_lctx l' pp_typecheck_errors errs
+  | HasKindError (s, errs) ->
+      let pp_lctx = pp_rocq_list Type.pp in
+      fprintf ff
+        "@[<v 2>Has kind error: %s @,\
+         %a@]"
+        s pp_typecheck_errors errs
 
 and pp_typecheck_errors ff =
   let pp_list = pp_print_list ~pp_sep:(fun ff () -> fprintf ff "@;") in

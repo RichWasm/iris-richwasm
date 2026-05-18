@@ -1137,7 +1137,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
       end
   | ProdT κ τs =>
       match κ with
-      | VALTYPE (SumR ρs) ξ =>
+      | VALTYPE (ProdR ρs) ξ =>
           let results := map (has_kind_synther F) τs in
           if all_left results
           then
@@ -1151,13 +1151,13 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
               (list_beq representation representation_beq
                  ρs (get_all_lefts (map get_rep_or_size just_kinds)))
             then inl κ
-            else inr (HasKindError "bad sum internals (either ξ not lub, or not all valtype, or ρs don't match)" [])
+            else inr (HasKindError "bad prod internals (either ξ not lub, or not all valtype, or ρs don't match)" [])
           else inr ( HasKindError "in prod some inner types didnt synth" (get_all_rights results))
       | _ => inr (HasKindError "bad sum kind format" [])
       end
   | StructT κ τs =>
       match κ with
-      | MEMTYPE (SumS σs) ξ =>
+      | MEMTYPE (ProdS σs) ξ =>
           let results := map (has_kind_synther F) τs in
           if all_left results
           then
@@ -1171,7 +1171,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
               (list_beq size size_beq
                  σs (get_all_rights (map get_rep_or_size just_kinds)))
             then inl κ
-            else inr (HasKindError "bad variant internals (either ξ not lub, or not all memtype, or σs don't match)" [])
+            else inr (HasKindError "bad struct internals (either ξ not lub, or not all memtype, or σs don't match)" [])
           else inr ( HasKindError "in struct some inner types didnt synth" (get_all_rights results))
       | _ => inr (HasKindError "bad variant kind format" [])
       end
@@ -3089,12 +3089,11 @@ Qed.
 
 
 Definition local_ctx_ok_checker (F:function_ctx) (L:local_ctx) : type_checker_res :=
-  if foldr2
-       (λ t:type, λ p:list primitive,
-             andb (check_ok_output (type_rep_eq_prim_checker F t p))
-       ) true L F.(fc_locals)
+  let res := zip_with (type_rep_eq_prim_checker F) L F.(fc_locals) in
+  let folded := foldr (λ r, andb (check_ok_output r)) true res in
+  if folded
   then ok_term
-  else INR "local context not ok".
+  else inr ([NormalError "local ctx not ok"] ++ combine_error_messages res).
 Lemma local_ctx_ok_checker_correct :
   ∀ F L, local_ctx_ok_checker F L = ok_term -> local_ctx_ok F L.
 Proof.
