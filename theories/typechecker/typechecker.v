@@ -942,64 +942,66 @@ Definition grab_kind (F:function_ctx) (t:type) : option kind :=
 
 
 (* A thing that helps with subkinding *)
-Definition check_if_subkind (k1:kind) (k2:kind) : type_checker_res :=
-  match k1, k2 with
-  | VALTYPE ρ1 ξ1, VALTYPE ρ2 ξ2 =>
-      if representation_beq ρ1 ρ2
-      then
-        match ξ1, ξ2 with
-        | NoRefs, _
-        | GCRefs, GCRefs
-        | GCRefs, AnyRefs
-        | AnyRefs, AnyRefs => ok_term
-        | GCRefs, NoRefs => INR "not subkind (gc no)"
-        | AnyRefs, NoRefs => INR "not subkind (any no)"
-        | AnyRefs, GCRefs => INR "not subkind (any gc)"
-        end
-      else INR "mismatch in representation for subkinds"
-  | MEMTYPE σ1 ξ1, MEMTYPE σ2 ξ2 =>
-      if size_beq σ1 σ2
-      then
-        match ξ1, ξ2 with
-        | NoRefs, _
-        | GCRefs, GCRefs
-        | GCRefs, AnyRefs
-        | AnyRefs, AnyRefs => ok_term
-        | GCRefs, NoRefs => INR "not subkind (gc no)"
-        | AnyRefs, NoRefs => INR "not subkind (any no)"
-        | AnyRefs, GCRefs => INR "not subkind (any gc)"
-        end
-      else INR "mismatch in sizity for subkinds"
-  | _, _ => INR "mismatch in general kind for subkind"
-  end.
 
-Lemma check_if_subkind_works_with_has_kind :
-  ∀ F τ k1 k2,
-    check_if_subkind k1 k2 = ok_term ->
-    has_kind F τ k1 ->
-    has_kind F τ k2.
-Proof.
-  Ltac local_auto := eapply KSub; try constructor; auto.
-  
-  intros.
-  destruct k1, k2; simpl in H; repeat my_auto2; subst; auto; try (inversion H).
-  - destruct r2; auto; local_auto.
-    + by instantiate (1 := NoRefs).
-    + done.
-    + by instantiate (1 := NoRefs).
-    + done.
-  - local_auto.
-    + by instantiate (1 := GCRefs).
-    + done.
-  - destruct r0; auto; local_auto.
-    + by instantiate (1 := NoRefs).
-    + done.
-    + by instantiate (1 := NoRefs).
-    + done.
-  - local_auto.
-    + by instantiate (1 := GCRefs).
-    + done.
-Qed.
+(* OBSOLETE *)
+(* Definition check_if_subkind (k1:kind) (k2:kind) : type_checker_res := *)
+(*   match k1, k2 with *)
+(*   | VALTYPE ρ1 ξ1, VALTYPE ρ2 ξ2 => *)
+(*       if representation_beq ρ1 ρ2 *)
+(*       then *)
+(*         match ξ1, ξ2 with *)
+(*         | NoRefs, _ *)
+(*         | GCRefs, GCRefs *)
+(*         | GCRefs, AnyRefs *)
+(*         | AnyRefs, AnyRefs => ok_term *)
+(*         | GCRefs, NoRefs => INR "not subkind (gc no)" *)
+(*         | AnyRefs, NoRefs => INR "not subkind (any no)" *)
+(*         | AnyRefs, GCRefs => INR "not subkind (any gc)" *)
+(*         end *)
+(*       else INR "mismatch in representation for subkinds" *)
+(*   | MEMTYPE σ1 ξ1, MEMTYPE σ2 ξ2 => *)
+(*       if size_beq σ1 σ2 *)
+(*       then *)
+(*         match ξ1, ξ2 with *)
+(*         | NoRefs, _ *)
+(*         | GCRefs, GCRefs *)
+(*         | GCRefs, AnyRefs *)
+(*         | AnyRefs, AnyRefs => ok_term *)
+(*         | GCRefs, NoRefs => INR "not subkind (gc no)" *)
+(*         | AnyRefs, NoRefs => INR "not subkind (any no)" *)
+(*         | AnyRefs, GCRefs => INR "not subkind (any gc)" *)
+(*         end *)
+(*       else INR "mismatch in sizity for subkinds" *)
+(*   | _, _ => INR "mismatch in general kind for subkind" *)
+(*   end. *)
+
+(* Lemma check_if_subkind_works_with_has_kind : *)
+(*   ∀ F τ k1 k2, *)
+(*     check_if_subkind k1 k2 = ok_term -> *)
+(*     has_kind F τ k1 -> *)
+(*     has_kind F τ k2. *)
+(* Proof. *)
+(*   Ltac local_auto := eapply KSub; try constructor; auto. *)
+
+(*   intros. *)
+(*   destruct k1, k2; simpl in H; repeat my_auto2; subst; auto; try (inversion H). *)
+(*   - destruct r2; auto; local_auto. *)
+(*     + by instantiate (1 := NoRefs). *)
+(*     + done. *)
+(*     + by instantiate (1 := NoRefs). *)
+(*     + done. *)
+(*   - local_auto. *)
+(*     + by instantiate (1 := GCRefs). *)
+(*     + done. *)
+(*   - destruct r0; auto; local_auto. *)
+(*     + by instantiate (1 := NoRefs). *)
+(*     + done. *)
+(*     + by instantiate (1 := NoRefs). *)
+(*     + done. *)
+(*   - local_auto. *)
+(*     + by instantiate (1 := GCRefs). *)
+(*     + done. *)
+(* Qed. *)
 
 
 
@@ -1010,6 +1012,287 @@ Fixpoint foldr2 {A B C : Type} (f : B → C → A → A) (a0 : A)
   | _, _ => a0
   end.
 
+Fixpoint all_left {A B : Type} (l: list (A + B)) : bool :=
+  match l with
+  | [] => true
+  | a::l =>
+      match a with
+      | inl _ => true && all_left l
+      | inr _ => false
+      end
+  end.
+
+Fixpoint get_all_lefts {A B : Type} (l: list (A + B)) : list A :=
+  match l with
+  | [] => []
+  | a::l =>
+      match a with
+      | inl a => a:: get_all_lefts l
+      | inr _ => get_all_lefts l
+      end
+  end.
+Fixpoint get_all_rights {A B : Type} (l: list (A + B)) : list B :=
+  match l with
+  | [] => []
+  | a::l =>
+      match a with
+      | inl _ => get_all_rights l
+      | inr b => b :: get_all_rights l
+      end
+  end.
+Definition is_memtype κ : bool :=
+  match κ with
+  | MEMTYPE _ _ => true
+  | _ => false
+  end.
+Definition is_valtype κ : bool :=
+  match κ with
+  | VALTYPE _ _ => true
+  | _ => false
+  end.
+Definition get_rep_or_size κ :=
+  match κ with
+  | VALTYPE ρ _ => inl ρ
+  | MEMTYPE σ _ => inr σ
+  end.
+Locate concat.
+Compute List.concat [[1;2]].
+(* this is basically identical to the old has_kind_checker *)
+Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_checker_res) :=
+  (* inr (NormalError "incomplete"). *)
+  match t with
+  | VarT t =>
+      match (F.(fc_type_vars)) !! t with
+      | Some κ =>
+          match kind_ok_checker (F.(fc_kind_ctx)) κ with
+          | inl () => inl κ
+          | err => inr err
+          end
+      | None => inr (INR "variable not in there or smthn")
+      end
+  (* Numbers *)
+  | I31T κ =>
+      if (kind_beq κ (VALTYPE (AtomR PtrR) NoRefs))
+      then inl κ
+      else inr (INR "wrong kind for I31T")
+    (* NumT *)
+  | NumT κ (IntT I32T) =>
+      if (kind_beq κ (VALTYPE (AtomR I32R) NoRefs))
+      then inl κ
+      else inr (INR "wrong kind for I32T")
+  | NumT κ (IntT I64T) =>
+      if (kind_beq κ (VALTYPE (AtomR I64R) NoRefs) )
+      then inl κ
+      else inr (INR "wrong kind for I64T")
+  | NumT κ (FloatT F32T) =>
+      if (kind_beq κ (VALTYPE (AtomR F32R) NoRefs))
+      then inl κ
+      else inr (INR "wrong kind for F32T")
+  | NumT κ (FloatT F64T) =>
+      if (kind_beq κ (VALTYPE (AtomR F64R) NoRefs))
+      then inl κ
+      else inr (INR "wrong kind for F64T")
+  (* Sums and Prods *)
+  | SumT κ τs =>
+      match κ with
+      | VALTYPE (SumR ρs) ξ =>
+          let results := map (has_kind_synther F) τs in
+          if all_left results
+          then
+            let just_kinds := get_all_lefts results in
+            if (* crazy list *)
+              (* one: ensure outer ξ is least upper bind of the kind flags *)
+              ref_flag_beq ξ (ref_flag_lub (map kind_ref_flag just_kinds)) &&
+              (* two: ensure all internal kinds are valtypes *)
+              (foldr andb true (map (is_valtype) just_kinds) ) &&
+              (* three: ensure the reps actually map *)
+              (list_beq representation representation_beq
+                 ρs (get_all_lefts (map get_rep_or_size just_kinds)))
+            then inl κ
+            else inr (INR "bad sum internals (either ξ not lub, or not all valtype, or ρs don't match)")
+          else inr ( inr (List.concat (get_all_rights (get_all_rights results))))
+      | _ => inr (INR "bad sum kind format")
+      end
+  | VariantT κ τs =>
+      match κ with
+      | MEMTYPE (SumS σs) ξ =>
+          let results := map (has_kind_synther F) τs in
+          if all_left results
+          then
+            let just_kinds := get_all_lefts results in
+            if (* crazy list *)
+              (* one: ensure outer ξ is least upper bind of the kind flags *)
+              ref_flag_beq ξ (ref_flag_lub (map kind_ref_flag just_kinds)) &&
+              (* two: ensure all internal kinds are memtypes *)
+              (foldr andb true (map (is_memtype) just_kinds) ) &&
+              (* three: ensure the reps actually map *)
+              (list_beq size size_beq
+                 σs (get_all_rights (map get_rep_or_size just_kinds)))
+            then inl κ
+            else inr (INR "bad variant internals (either ξ not lub, or not all memtype, or σs don't match)")
+          else inr ( inr (List.concat (get_all_rights (get_all_rights results))))
+      | _ => inr (INR "bad variant kind format")
+      end
+  | ProdT κ τs =>
+      match κ with
+      | VALTYPE (SumR ρs) ξ =>
+          let results := map (has_kind_synther F) τs in
+          if all_left results
+          then
+            let just_kinds := get_all_lefts results in
+            if (* crazy list *)
+              (* one: ensure outer ξ is least upper bind of the kind flags *)
+              ref_flag_beq ξ (ref_flag_lub (map kind_ref_flag just_kinds)) &&
+              (* two: ensure all internal kinds are valtypes *)
+              (foldr andb true (map (is_valtype) just_kinds) ) &&
+              (* three: ensure the reps actually map *)
+              (list_beq representation representation_beq
+                 ρs (get_all_lefts (map get_rep_or_size just_kinds)))
+            then inl κ
+            else inr (INR "bad sum internals (either ξ not lub, or not all valtype, or ρs don't match)")
+          else inr ( inr (List.concat (get_all_rights (get_all_rights results))))
+      | _ => inr (INR "bad sum kind format")
+      end
+  | StructT κ τs =>
+      match κ with
+      | MEMTYPE (SumS σs) ξ =>
+          let results := map (has_kind_synther F) τs in
+          if all_left results
+          then
+            let just_kinds := get_all_lefts results in
+            if (* crazy list *)
+              (* one: ensure outer ξ is least upper bind of the kind flags *)
+              ref_flag_beq ξ (ref_flag_lub (map kind_ref_flag just_kinds)) &&
+              (* two: ensure all internal kinds are memtypes *)
+              (foldr andb true (map (is_memtype) just_kinds) ) &&
+              (* three: ensure the reps actually map *)
+              (list_beq size size_beq
+                 σs (get_all_rights (map get_rep_or_size just_kinds)))
+            then inl κ
+            else inr (INR "bad variant internals (either ξ not lub, or not all memtype, or σs don't match)")
+          else inr ( inr (List.concat (get_all_rights (get_all_rights results))))
+      | _ => inr (INR "bad variant kind format")
+      end
+  | RefT κ (BaseM MemGC) τ =>
+      if (kind_beq κ (VALTYPE (AtomR PtrR) GCRefs))
+      then
+        match has_kind_synther F τ with
+        | inl innerκ =>
+            match innerκ with
+            | MEMTYPE _ _ => inl κ
+            | _ => inr (INR "you have a reft t where t isn't memtype")
+            end
+        | err => err
+        end
+      else inr (INR "bad gc mem kind format")
+  | RefT κ μ τ =>
+      if (kind_beq κ (VALTYPE (AtomR PtrR) AnyRefs))
+      then
+        match mem_ok_checker (F.(fc_kind_ctx)) μ with
+          | inl () =>
+              match has_kind_synther F τ with
+              | inl innerκ =>
+                  match innerκ with
+                  | MEMTYPE _ _ => inl κ
+                  | _ => inr (INR "you have a reft t where t isn't memtype")
+                  end
+              | err => err
+              end
+          | err => inr err
+          end
+      else inr (INR "bad ref kind format")
+  | _ => inr (INR "incomplete")
+  end.
+  (* References *)
+  | CodeRefT κ ϕ =>
+      match κ with
+      | VALTYPE (AtomR I32R) NoRefs =>
+          match function_type_ok_checker F ϕ with
+          | inl () => check_if_subkind κ k
+          | err => err
+          end
+      | _ => INR "bad coderef kind format"
+      end
+  (* Some weird ones I guess *)
+  | SerT κ τ =>
+      match κ with
+      | MEMTYPE (RepS ρ) ξ =>
+          match has_kind_checker F τ (VALTYPE ρ ξ) with
+          | inl () => check_if_subkind κ k
+          | err => err
+          end
+      | _ => INR "bad ser kind format"
+      end
+  | PlugT κ ρ =>
+      match κ with
+      | VALTYPE ρ1 NoRefs =>
+          if representation_beq ρ ρ1
+          then
+            match rep_ok_checker (F.(fc_kind_ctx)) ρ with
+            | inl () => check_if_subkind κ k
+            | err => err
+            end
+          else INR "plug's rep doesn't match kind's rep"
+      | _ => INR "bad plug kind format"
+      end
+  | SpanT κ σ =>
+      match κ with
+      | MEMTYPE σ1 NoRefs =>
+          if size_beq σ σ1
+          then
+            match size_ok_checker (F.(fc_kind_ctx)) σ with
+            | inl () => check_if_subkind κ k
+            | err => err
+            end
+          else INR "span's size doesn't match kind's size"
+      | _ => INR "bad span kind format"
+      end
+  | RecT κ τ =>
+      match has_kind_checker (F <| fc_type_vars ::= cons κ |>) τ κ with
+      | inl () => check_if_subkind κ k
+      | err => err
+      end
+  | ExistsMemT κ τ =>
+      match kind_ok_checker (F.(fc_kind_ctx)) κ with
+      | inl () =>
+          match has_kind_checker (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ κ with
+          | inl () => check_if_subkind κ k
+          | err => err
+          end
+      | err => err
+      end
+  | ExistsRepT κ τ =>
+      match kind_ok_checker (F.(fc_kind_ctx)) κ with
+      | inl () =>
+          match has_kind_checker (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ κ with
+          | inl () => check_if_subkind κ k
+          | err => err
+          end
+      | err => err
+      end
+   | ExistsSizeT κ τ =>
+      match kind_ok_checker (F.(fc_kind_ctx)) κ with
+      | inl () =>
+          match has_kind_checker (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ κ with
+          | inl () => check_if_subkind κ k
+          | err => err
+          end
+      | err => err
+      end
+  | ExistsTypeT κ κ0 τ =>
+      match kind_ok_checker (F.(fc_kind_ctx)) κ with
+      | inl () =>
+          match kind_ok_checker (F.(fc_kind_ctx)) κ0 with
+          | inl () =>
+              match has_kind_checker (F <| fc_type_vars ::= cons κ0 |>) τ κ with
+              | inl () => check_if_subkind κ k
+              | err => err
+              end
+          | err => err
+          end
+      | err => err
+      end
+  end.
 
 (* Check kind in a naive way. I guess. *)
 Fixpoint has_kind_checker (F:function_ctx) (t:type) (k:kind) : type_checker_res :=
@@ -1018,32 +1301,34 @@ Fixpoint has_kind_checker (F:function_ctx) (t:type) (k:kind) : type_checker_res 
       match (F.(fc_type_vars)) !! t with
       | Some κ =>
           match kind_ok_checker (F.(fc_kind_ctx)) κ with
-          | inl () => check_if_subkind κ k
+          | inl () =>
+              if kind_beq κ k then ok_term
+              else INR "trying to kind variable with kind not equal to context"
           | err => err
           end
       | None => INR "variable not in there or smthn"
       end
   (* Numbers *)
   | I31T κ =>
-      if (kind_beq κ (VALTYPE (AtomR PtrR) NoRefs))
-      then check_if_subkind κ k
+      if (kind_beq κ (VALTYPE (AtomR PtrR) NoRefs)) && (kind_beq κ k)
+      then ok_term
       else INR "wrong kind for I31T"
     (* NumT *)
   | NumT κ (IntT I32T) =>
-      if (kind_beq κ (VALTYPE (AtomR I32R) NoRefs))
-      then check_if_subkind κ k
+      if (kind_beq κ (VALTYPE (AtomR I32R) NoRefs)) && (kind_beq κ k)
+      then ok_term
       else INR "wrong kind for I32T"
   | NumT κ (IntT I64T) =>
-      if (kind_beq κ (VALTYPE (AtomR I64R) NoRefs) )
-      then check_if_subkind κ k
+      if (kind_beq κ (VALTYPE (AtomR I64R) NoRefs) ) && (kind_beq κ k)
+      then ok_term
       else INR "wrong kind for I64T"
   | NumT κ (FloatT F32T) =>
-      if (kind_beq κ (VALTYPE (AtomR F32R) NoRefs))
-      then check_if_subkind κ k
+      if (kind_beq κ (VALTYPE (AtomR F32R) NoRefs)) && (kind_beq κ k)
+      then ok_term
       else INR "wrong kind for F32T"
   | NumT κ (FloatT F64T) =>
-      if (kind_beq κ (VALTYPE (AtomR F64R) NoRefs))
-      then check_if_subkind κ k
+      if (kind_beq κ (VALTYPE (AtomR F64R) NoRefs)) && (kind_beq κ k)
+      then ok_term
       else INR "wrong kind for F64T"
   (* Sums and Prods *)
   | SumT κ τs =>
