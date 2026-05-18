@@ -127,5 +127,30 @@ Section local_get_move.
     clear Hget_locals.
     iIntros (?? [-> ->]).
     iSplit; first done.
+    iFrame "Hrt Hown".
+
+    inversion Hok; subst.
+    eapply Forall2_lookup_lr in H0; try done.
+    2: apply list_lookup_insert_eq.
+    2: by apply lookup_lt_is_Some_1.
+    destruct H0 as (ρ & Hhas_rep & Heval_rep).
+
+    (* TODO: temp *)
+    iDestruct (values_interp_one_eq with "Hval_i") as "Hval_i".
+    iFrame "Hval_i Hatoms_i".
+    (* TODO: temp *)
+
+    unfold frame_interp.
+    iFrame (Hfr Hresult).
+    iExists (oss_pre ++ [_] ++ oss_post).
+    iSplit.
+    {
+      iPureIntro.
+      rewrite <- (take_drop_middle (fe_locals fe) i _ Hlookup_fe_i).
+      apply Forall2_app; first done.
+      apply Forall2_cons; by split.
+    }
+    iFrame.
+
   Admitted.
 End local_get_move.

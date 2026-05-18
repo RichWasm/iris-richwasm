@@ -1382,6 +1382,57 @@ Qed.
     - iFrame.
   Qed.
 
+  Definition ptra_as_i32a (o : atom) :=
+    match o with
+    |  PtrA p =>
+        match p with
+        | PtrInt n => I32A (Wasm_int.Int32.repr $ Z.of_N (2 * n)%N)
+        | PtrHeap μ ℓ => I32A (Wasm_int.Int32.repr $ Z.of_N (tag_address μ ℓ))
+        end
+    |  _ => o
+    end.
+
+  Lemma atom_interp_no_ptr o v :
+    atom_interp o v -∗ atom_interp (ptra_as_i32a o) v.
+  Proof.
+    destruct o; simpl; try iIntros "H"; try iExact "H".
+    iDestruct "H" as (n n32 Hn Hv rp Hrp) "Hroot".
+    destruct p; simpl.
+    - destruct rp; simpl; try done.
+      iDestruct "Hroot" as "<-".
+      iPureIntro.
+      subst v.
+      inversion Hrp; subst.
+      f_equal.
+      apply numerics.N_i32_repr_N_of_uint in Hn.
+      rewrite <- Hn.
+      unfold Wasm_int.N_of_uint.
+      simpl.
+      rewrite Z2N.id.
+      + rewrite Wasm_int.Int32.repr_unsigned. reflexivity.
+      + apply Wasm_int.Int32.unsigned_range.
+    - destruct rp; first iDestruct "Hroot" as %[].
+      inversion Hrp; subst.
+      iDestruct "Hroot" as "[%Hμ Haddr]"; subst.
+      f_equal.
+      apply numerics.N_i32_repr_N_of_uint in Hn.
+      unfold Wasm_int.N_of_uint in Hn; simpl in Hn.
+  Admitted.
+
+  Definition ptras_as_i32as (os : list atom) :=
+    map ptra_as_i32a os.
+
+  Lemma atoms_interp_no_ptr os vs :
+    atoms_interp os vs -∗ atoms_interp (ptras_as_i32as os) vs.
+  Proof.
+    unfold ptras_as_i32as.
+    iIntros "H".
+    iApply big_sepL2_fmap_l.
+    iApply (big_sepL2_impl with "H").
+    iIntros "!>" (k o v Ho Hv) "Hatom".
+    by iApply atom_interp_no_ptr.
+  Qed.
+
   Lemma locals_interp_lookup se L oss i τ_old :
     L !! i = Some τ_old →
     locals_interp rti sr se L oss -∗
@@ -1693,6 +1744,14 @@ Qed.
     || apply bi.sep_persistent).
   Qed.
 
+  Lemma atom_interp_no_ptr_persistent o v :
+    Persistent (atom_interp (ptra_as_i32a o) v).
+  Proof.
+    apply atom_interp_dup.
+    destruct o; simpl; try done.
+    by destruct p.
+  Qed.
+
   Lemma atoms_interp_dup os vs :
     Forall (λ o, expect_heap_ptr o = None) os ->
     Persistent (atoms_interp os vs).
@@ -1704,6 +1763,19 @@ Qed.
     apply atom_interp_dup.
     rewrite Forall_lookup in Hall.
     exact (Hall k o Hok).
+  Qed.
+
+  Lemma atoms_interp_no_ptr_persistent os vs :
+    Persistent (atoms_interp (ptras_as_i32as os) vs).
+  Proof.
+    revert vs.
+    induction os; intros vs.
+    - destruct vs; simpl; apply _.
+    - destruct vs; first (simpl; apply _).
+      rewrite atoms_interp_cons.
+      apply bi.sep_persistent.
+      + apply atom_interp_no_ptr_persistent.
+      + apply IHos.
   Qed.
 
   Lemma atoms_interp_norefs_persistent (se: semantic_env (Σ:=Σ)) os vs :
