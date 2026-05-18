@@ -1068,6 +1068,29 @@ Section load_copy.
       eauto.
   Qed.
 
+  Lemma mono_size_eval_emp_Some σ :
+    is_mono_size σ ->
+    is_Some (eval_size EmptyEnv σ).
+  Proof.
+    intros Hmono.
+    induction σ using size_ind; inversion Hmono; subst.
+    - cbn in H1; lia.
+    - cbn.
+      rewrite !Forall_forall in H H2.
+      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
+      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
+      eapply H; try eapply H2; eauto.
+    - cbn.
+      rewrite !Forall_forall in H H2.
+      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
+      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
+      eapply H; try eapply H2; eauto.
+    - cbn.
+      eapply eval_rep_empty_ok_Some in H1.
+      by destruct H1 as (rep & ->).
+    - done.
+  Qed.
+
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -1245,7 +1268,6 @@ Section load_copy.
         eapply has_kind_type_sz in Hkind; eauto.
         rewrite mono_size_eval_emp; eauto.
       }
-(*      eapply resolves_path_sep in Hresolves; eauto.*)
       iAssert (value_interp rti sr se τ (SWords ws)) with "[Ht]" as "Hval".
       { rewrite type_interp_eq; iExists _; by iFrame. }
       apply wp_mem_load_copy_mm in Hload1.
@@ -1254,10 +1276,26 @@ Section load_copy.
       iDestruct "Hat" as "(%n' & %n32 & %Hrep & -> & Hat')".
       iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
       iEval (rewrite type_interp_eq) in "Hval".
-      iDestruct "Hval" as "(%sk' & %Hsk1 & %Hsk2 & Hval)".
-      rewrite Hsk in  Hsk1.
-      inversion Hsk1; subst sk'.
-      inversion Hskag; subst.
+      pose proof Hresolves as Hpath.
+      inversion H as [? ? σtgt ξtgt' Hhktgt Htgtmono HF' HT]; subst.
+      rewrite Hser in Hhktgt.
+      pose proof Hhktgt as Hhktgt'.
+      apply inv_kind_ser in Hhktgt'.
+      destruct Hhktgt' as (ρtgt & ξtgt & Hkval & Hsub & Hsub').
+      inversion Hsub; subst.
+      pose proof (type_kind_has_kind_agree _ _ _ _ Hhktgt ltac:(done)) as Hsub''.
+      inversion Hsub'; subst.
+      pose proof (mono_size_eval_emp_Some _ Htgtmono) as (ntgt & Hev).
+      (* TODO generalize the defn of resolves_path_inv_sep to deal with the
+      order of ref_flags here. it puts too many consraints *)
+      eapply resolves_path_inv_sep in Hpath;
+        try eapply Hser;
+        try eapply Hev;
+        try eapply Hoff;
+        try rewrite Hser; try by eassumption.
+      iEval (rewrite -type_interp_eq) in "Hval".
+      iPoseProof (Hpath with "Hval") as "(%Hwslen & Hval & Hcont)".
+      clear Hpath.
       iApply (Hload with "[$] [$] [] [Hat'] [Hval] [$] [$] [-]").
       + admit.
       + eauto.
