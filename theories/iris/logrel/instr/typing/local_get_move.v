@@ -135,6 +135,8 @@ Section local_get_move.
     2: by apply lookup_lt_is_Some_1.
     destruct H0 as (ρ & Hhas_rep & Heval_rep).
 
+    iDestruct (atoms_interp_no_ptr' with "Hatoms_i") as "(%os' & %Hconv & #Hatoms_i')".
+
     (* TODO: temp *)
     iDestruct (values_interp_one_eq with "Hval_i") as "Hval_i".
     iFrame "Hval_i Hatoms_i".
@@ -151,6 +153,7 @@ Section local_get_move.
       apply Forall2_cons; by split.
     }
     iFrame.
+    iFrame "#".
 
   Admitted.
 End local_get_move.

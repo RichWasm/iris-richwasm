@@ -1355,55 +1355,60 @@ Section common.
     - iFrame.
   Qed.
 
-  Definition ptra_as_i32a (o : atom) :=
+  Definition ptra_as_i32a (o : atom) (v : value) :=
     match o with
-    |  PtrA p =>
-        match p with
-        | PtrInt n => I32A (Wasm_int.Int32.repr $ Z.of_N (2 * n)%N)
-        | PtrHeap μ ℓ => I32A (Wasm_int.Int32.repr $ Z.of_N (tag_address μ ℓ))
+    | PtrA _ =>
+        match v with
+        | VAL_int32 n32 => Some $ I32A n32
+        |  _ => None
         end
-    |  _ => o
+    |  _ => Some o
     end.
 
-  Lemma atom_interp_no_ptr o v :
-    atom_interp o v -∗ atom_interp (ptra_as_i32a o) v.
+  Lemma ptra_as_i32a_not_ptra o v p :
+   ¬ ptra_as_i32a o v = Some $ PtrA p.
   Proof.
-    destruct o; simpl; try iIntros "H"; try iExact "H".
-    iDestruct "H" as (n n32 Hn Hv rp Hrp) "Hroot".
-    destruct p; simpl.
-    - destruct rp; simpl; try done.
-      iDestruct "Hroot" as "<-".
-      iPureIntro.
-      subst v.
-      inversion Hrp; subst.
-      f_equal.
-      apply numerics.N_i32_repr_N_of_uint in Hn.
-      rewrite <- Hn.
-      unfold Wasm_int.N_of_uint.
-      simpl.
-      rewrite Z2N.id.
-      + rewrite Wasm_int.Int32.repr_unsigned. reflexivity.
-      + apply Wasm_int.Int32.unsigned_range.
-    - destruct rp; first iDestruct "Hroot" as %[].
-      inversion Hrp; subst.
-      iDestruct "Hroot" as "[%Hμ Haddr]"; subst.
-      f_equal.
-      apply numerics.N_i32_repr_N_of_uint in Hn.
-      unfold Wasm_int.N_of_uint in Hn; simpl in Hn.
-  Admitted.
+    intros Hcontra.
+    by destruct o, v.
+  Qed.
 
-  Definition ptras_as_i32as (os : list atom) :=
-    map ptra_as_i32a os.
+  Lemma atom_interp_no_ptr o v :
+    atom_interp o v -∗ ∃ o', ⌜(ptra_as_i32a o v) = Some o'⌝ ∗ atom_interp o' v.
+  Proof.
+    destruct o; try iIntros "H"; eauto.
+    iDestruct "H" as (n n32 Hn Hv rp Hrp) "Hroot".
+    subst v.
+    by iExists (I32A n32).
+  Qed.
+
+  Definition ptras_as_i32as (os : list atom) (vs : list value) :=
+    mapM (fun '(o, v) => ptra_as_i32a o v) (zip os vs).
+
+  Lemma ptras_as_i32as_cons o os v vs o' os' :
+    ptras_as_i32as (o :: os) (v :: vs) = Some (o' :: os') <->
+      ptra_as_i32a o v = Some o' /\
+      ptras_as_i32as os vs = Some os'.
+  Proof.
+    rewrite !mapM_Some.
+    simpl.
+    by rewrite Forall2_cons.
+  Qed.
 
   Lemma atoms_interp_no_ptr os vs :
-    atoms_interp os vs -∗ atoms_interp (ptras_as_i32as os) vs.
+    atoms_interp os vs -∗ ∃ os', ⌜(ptras_as_i32as os vs) = Some os'⌝ ∗ atoms_interp os' vs.
   Proof.
-    unfold ptras_as_i32as.
-    iIntros "H".
-    iApply big_sepL2_fmap_l.
-    iApply (big_sepL2_impl with "H").
-    iIntros "!>" (k o v Ho Hv) "Hatom".
-    by iApply atom_interp_no_ptr.
+    iInduction os as [|o os] "IH" forall (vs); iIntros "H".
+    - destruct vs; eauto.
+    - destruct vs as [| v vs]; first done.
+      iEval (rewrite atoms_interp_cons) in "H".
+      iDestruct "H" as "[Hatom Hatoms]".
+      iDestruct (atom_interp_no_ptr _ _ with "Hatom") as "(%o' & %Heq & Hatom)".
+      iDestruct ("IH" with "Hatoms") as "(%os' & %Heqs & Hatoms)".
+      iExists (o' :: os').
+      rewrite atoms_interp_cons.
+      iFrame.
+      iPureIntro.
+      by apply ptras_as_i32as_cons.
   Qed.
 
   Lemma locals_interp_lookup se L oss i τ_old :
@@ -1717,12 +1722,14 @@ Section common.
     || apply bi.sep_persistent).
   Qed.
 
-  Lemma atom_interp_no_ptr_persistent o v :
-    Persistent (atom_interp (ptra_as_i32a o) v).
+  Lemma atom_interp_no_ptr_persistent o v1 v2 o' :
+    (ptra_as_i32a o v1) = Some o' ->
+    Persistent (atom_interp o' v2).
   Proof.
+    intros H.
     apply atom_interp_dup.
-    destruct o; simpl; try done.
-    by destruct p.
+    destruct o'; simpl; try done.
+    by apply ptra_as_i32a_not_ptra in H.
   Qed.
 
   Lemma atoms_interp_dup os vs :
@@ -1738,17 +1745,31 @@ Section common.
     exact (Hall k o Hok).
   Qed.
 
-  Lemma atoms_interp_no_ptr_persistent os vs :
-    Persistent (atoms_interp (ptras_as_i32as os) vs).
+  Lemma atoms_interp_no_ptr_persistent os vs1 vs2 os' :
+    (ptras_as_i32as os vs1) = Some os' ->
+    Persistent (atoms_interp os' vs2).
   Proof.
-    revert vs.
-    induction os; intros vs.
-    - destruct vs; simpl; apply _.
-    - destruct vs; first (simpl; apply _).
+    revert vs1 vs2 os'.
+    induction os; intros vs1 vs2 os' Hconvs.
+    - destruct os'; try done. destruct vs2; simpl; apply _.
+    - destruct os' as [|o' os']; try done; destruct vs2 as [| v2 vs2']; try (simpl; apply _).
+      destruct vs1 as [| v1 vs1']; first done.
       rewrite atoms_interp_cons.
+      apply ptras_as_i32as_cons in Hconvs as[Hconv Hconvs].
       apply bi.sep_persistent.
-      + apply atom_interp_no_ptr_persistent.
-      + apply IHos.
+      + by eapply atom_interp_no_ptr_persistent.
+      + by eapply IHos.
+  Qed.
+
+  Lemma atoms_interp_no_ptr' os vs :
+    atoms_interp os vs -∗ ∃ os', ⌜(ptras_as_i32as os vs) = Some os'⌝ ∗ □ atoms_interp os' vs.
+  Proof.
+    iIntros "H".
+    iDestruct (atoms_interp_no_ptr with "H") as "(%os' & %Heqs & Hatoms)".
+    eapply atoms_interp_no_ptr_persistent in Heqs as Hpers.
+    iPoseProof "Hatoms" as "#Hatoms".
+    iExists _.
+    by iSplit.
   Qed.
 
   Lemma atoms_interp_norefs_persistent (se: semantic_env (Σ:=Σ)) os vs :
