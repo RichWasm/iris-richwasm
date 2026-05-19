@@ -1,5 +1,6 @@
 Require Import RecordUpdate.RecordUpdate.
 From stdpp Require Import base list.
+From ExtLib Require Import Traversable.
 From Stdlib.Strings Require Import String.
 
 From RichWasm Require Import layout syntax typing util.
@@ -1814,6 +1815,20 @@ Ltac my_auto3_5 :=
   | H: (INR _ = inl ()) |- _ => inversion H
 end.
 
+(* to use in the future if sequence remains broken *)
+Fixpoint my_sequence {A:Type} (l: list (option A)) : option (list A) :=
+  match l with
+  | [] => Some []
+  | a::rest =>
+      match my_sequence rest with
+      | Some rest' =>
+          match a with
+          | Some a' => Some (a'::rest')
+          | None => None
+          end
+      | None => None
+      end
+  end.
 (* This is an attempt without a double match for the sake of the proof later *)
 Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_res :=
   (* base cases *)
@@ -1854,13 +1869,13 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | SumT κ2 τs2 =>
           if kind_beq κ1 κ2
           then
-            match has_kind_checker F (SumT κ1 τs1) κ1 with
-            | inl () =>
+            (* match has_kind_checker F (SumT κ1 τs1) κ1 with *)
+            (* | inl () => *)
                 if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs1 τs2
                 then ok_term
                 else INR "types not equal"
-            | err => err
-            end
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1869,13 +1884,13 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | VariantT κ2 τs2 =>
           if kind_beq κ1 κ2
           then
-            match has_kind_checker F (VariantT κ1 τs1) κ1 with
-            | inl () =>
+            (* match has_kind_checker F (VariantT κ1 τs1) κ1 with *)
+            (* | inl () => *)
                 if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs1 τs2
                 then ok_term
                 else INR "types not equal"
-            | err => err
-            end
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1884,13 +1899,13 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | ProdT κ2 τs2 =>
           if kind_beq κ1 κ2
           then
-            match has_kind_checker F (ProdT κ1 τs1) κ1 with
-            | inl () =>
+            (* match has_kind_checker F (ProdT κ1 τs1) κ1 with *)
+            (* | inl () => *)
                 if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs1 τs2
                 then ok_term
                 else INR "types not equal"
-            | err => err
-            end
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1899,10 +1914,11 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | RefT κ2 μ2 τ2 =>
           if andb (kind_beq κ1 κ2) (memory_beq μ1 μ2)
           then
-            match has_kind_checker F (RefT κ1 μ1 τ1) κ1 with
-            | inl () => type_eq_checker F τ1 τ2
-            | err => err
-            end
+            (* match has_kind_checker F (RefT κ1 μ1 τ1) κ1 with *)
+            (* | inl () => *)
+                type_eq_checker F τ1 τ2
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1911,10 +1927,11 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | RecT κ2 τ2 =>
           if kind_beq κ1 κ2
           then
-            match has_kind_checker F (RecT κ1 τ1) κ1 with
-            | inl () => type_eq_checker F τ1 τ2
-            | err => err
-            end
+            (* match has_kind_checker F (RecT κ1 τ1) κ1 with *)
+            (* | inl () => *)
+                type_eq_checker F τ1 τ2
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1923,10 +1940,11 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | ExistsMemT κ2 τ2 =>
           if kind_beq κ1 κ2
           then
-            match has_kind_checker F (ExistsMemT κ1 τ1) κ1 with
-            | inl () => type_eq_checker F τ1 τ2
-            | err => err
-            end
+            (* match has_kind_checker F (ExistsMemT κ1 τ1) κ1 with *)
+            (* | inl () => *)
+                type_eq_checker F τ1 τ2
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1935,10 +1953,11 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | ExistsRepT κ2 τ2 =>
           if kind_beq κ1 κ2
           then
-            match has_kind_checker F (ExistsRepT κ1 τ1) κ1 with
-            | inl () => type_eq_checker F τ1 τ2
-            | err => err
-            end
+            (* match has_kind_checker F (ExistsRepT κ1 τ1) κ1 with *)
+            (* | inl () => *)
+                type_eq_checker F τ1 τ2
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1947,10 +1966,11 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | ExistsSizeT κ2 τ2 =>
           if kind_beq κ1 κ2
           then
-            match has_kind_checker F (ExistsSizeT κ1 τ1) κ1 with
-            | inl () => type_eq_checker F τ1 τ2
-            | err => err
-            end
+            (* match has_kind_checker F (ExistsSizeT κ1 τ1) κ1 with *)
+            (* | inl () => *)
+                type_eq_checker F τ1 τ2
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
@@ -1959,89 +1979,57 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | ExistsTypeT κ2 κτ2 τ2 =>
           if andb (kind_beq κ1 κ2) (kind_beq κτ1 κτ2)
           then
-            match has_kind_checker F (ExistsTypeT κ1 κτ1 τ1) κ1 with
-            | inl () => type_eq_checker F τ1 τ2
-            | err => err
-            end
+            (* match has_kind_checker F (ExistsTypeT κ1 κτ1 τ1) κ1 with *)
+            (* | inl () => *)
+                type_eq_checker F τ1 τ2
+            (* | err => err *)
+            (* end *)
           else INR "types not equal"
       | _ => INR "types not equal"
       end
-  | SerT κ1 τ1 =>
+  | SerT κ_ser τ_ser =>
       match τ2 with
       | SerT κ2 τ2 =>
-          if kind_beq κ1 κ2
-          then
-            match has_kind_checker F (SerT κ1 τ1) κ1 with
-            | inl () => type_eq_checker F τ1 τ2
-            | err => err
-            end
+          if kind_beq κ_ser κ2
+          then type_eq_checker F τ_ser τ2
           else INR "types not equal"
-      | StructT κ2 τs2 =>
-          match τ1 with
-          | ProdT κp τs =>
-              match κ1 with
-              | MEMTYPE (RepS (ProdR ρs)) ξ1 =>
-                  match κ2 with
-                  | MEMTYPE (ProdS σs) ξ2 =>
-                      if andb (ref_flag_beq ξ1 ξ2)
-                              (list_beq size size_beq σs (map RepS ρs))
-                      then
-                        if foldr2
-                             (λ τ:type, λ ρ:representation,
-                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ1)))
-                             ) true τs ρs
-                        then (* now just check that τs' equal to the monstrosity *)
-                          if list_beq type type_beq τs2 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ1) τ)) τs ρs)
-                          then ok_term
-                          else INR "types not_equal"
-                        else INR "types not equal"
-                      else INR "types not equal"
-                  | _ => INR "types not equal"
-                  end
-              | _ => INR "types not equal"
+      | StructT κ_struct τs' =>
+          match τ_ser with
+          | ProdT κ_prod τs =>
+              (* it just needs to be true that τs' is all SerT and that [inner τ] = τs *)
+              let τs_o_toequal := map (λ t, match t with | SerT _ τ => Some τ | _ => None end) τs' in
+              let o_τs_toequal := sequence τs_o_toequal in
+              match o_τs_toequal with
+              | Some τs_toequal =>
+                  if (list_beq type type_beq τs τs_toequal) then ok_term else INR "type not equal"
+              | None => INR "types not equal"
               end
           | _ => INR "types not equal"
           end
       | _ => INR "types not equal"
       end
-  | StructT κ1 τs1 =>
+
+  | StructT κ_struct τs' =>
       match τ2 with
       | StructT κ2 τs2 =>
-          if kind_beq κ1 κ2
+          if kind_beq κ_struct κ2
           then
-            match has_kind_checker F (StructT κ1 τs1) κ1 with
-            | inl () =>
-                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs1 τs2
-                then ok_term
-                else INR "types not equal 1"
-            | err => err
-            end
+            if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs' τs2
+            then ok_term
+            else INR "types not equal 1"
           else INR "types not equal 2"
-      | SerT κ2 τ2 =>
-          match τ2 with
-          | ProdT κp τs =>
-              match κ2 with
-              | MEMTYPE (RepS (ProdR ρs)) ξ2 =>
-                  match κ1 with
-                  | MEMTYPE (ProdS σs) ξ1 =>
-                      if andb (ref_flag_beq ξ1 ξ2)
-                              (list_beq size size_beq σs (map RepS ρs))
-                      then
-                        if foldr2
-                             (λ τ:type, λ ρ:representation,
-                                   andb (check_ok_output (has_kind_checker F τ (VALTYPE ρ ξ2)))
-                             ) true τs ρs
-                        then (* now just check that τs' equal to the monstrosity *)
-                          if list_beq type type_beq τs1 ((zip_with (fun τ ρ => SerT (MEMTYPE (RepS ρ) ξ2) τ)) τs ρs)
-                          then ok_term
-                          else INR "types not_equal 3"
-                        else INR "types not equal 4"
-                      else INR "types not equal 5"
-                  | _ => INR "types not equal 6"
-                  end
-              | _ => INR "types not equal 7"
+      | SerT κ_ser τ_ser =>
+          match τ_ser with
+          | ProdT κ_prod τs =>
+              (* it just needs to be true that τs' is all SerT and that [inner τ] = τs *)
+              let τs_o_toequal := map (λ t, match t with | SerT _ τ => Some τ | _ => None end) τs' in
+              let o_τs_toequal := sequence τs_o_toequal in
+              match o_τs_toequal with
+              | Some τs_toequal =>
+                  if (list_beq type type_beq τs τs_toequal) then ok_term else INR "type not equal"
+              | None => INR "types not equal"
               end
-          | _ => INR "types not equal 8"
+          | _ => INR "types not equal"
           end
 
       | _ => INR "types not equal HERE 9"
@@ -2102,8 +2090,14 @@ Proof.
   all: idtac. (* this is here because doom emacs despises the match goal above *)
 
   (* struct ser case *)
-  (* TODO: there was a change in TEqSerProd that I need to account for but this currently doesn't *)
-  6: { admit. }
+  6: {
+    cbn in H0.
+    repeat structural_auto.
+    cbn in HMatch0.
+    assert (tosubst: l = l0) by admit. subst; clear HMatch1.
+    (* yeah we're fine *)
+    admit.
+  }
   (* ser struct case *)
   6: { admit. }
   (* All the rest of are foldr2 lemma reliant, so *)
@@ -2221,8 +2215,8 @@ Fixpoint resolves_path_checker
               | Some prprefix =>
                   match pr'.(pr_replaced) with
                   | StructT κ0 inner_τs =>
-                      if kind_beq κ κ0
-                      then
+                      (* if kind_beq κ κ0 *)
+                      (* then *)
                       match split_into_three inner_τs i with
                       | Some (τs0', prreplaced, τs'') =>
                           if andb (list_beq type type_beq τs0 τs0') (list_beq type type_beq τs' τs'')
@@ -2234,7 +2228,7 @@ Fixpoint resolves_path_checker
                           else INR "bad path resolution"
                       | None => INR "bad replacement or smthn"
                       end
-                      else INR "bad path stuff"
+                      (* else INR "bad path stuff" *)
                   | _ => INR "improper path replacement"
                   end
               | None => INR "can't prefix?"
@@ -2260,13 +2254,13 @@ Proof.
     repeat boolean_equality_auto; subst.
     rename l into τs_full; rename a into i; rename l5 into τs0; rename l4 into τs'.
     rename l2 into prprefix. apply list_prefix_correct_for in HMatch3. rename l3 into oldprreplaced.
-    apply split_into_three_correct in HMatch0, HMatch6. destruct HMatch0 as [Hlen Htsfull].
-    destruct HMatch6 as [_ Holdpr]. rename k0 into k.
+    apply split_into_three_correct in HMatch0, HMatch5. destruct HMatch0 as [Hlen Htsfull].
+    destruct HMatch5 as [_ Holdpr].
     set (pr := {| pr_prefix := prprefix; pr_target := pr_target pres; pr_replaced := t0 |}).
     assert (Hmaybe : pres =
                        {| pr_prefix := τs0 ++ pr.(pr_prefix);
                           pr_target := pr.(pr_target);
-                          pr_replaced := StructT k (τs0 ++ pr.(pr_replaced) :: τs')
+                          pr_replaced := StructT k0 (τs0 ++ pr.(pr_replaced) :: τs')
                        |}
            ).
     {
@@ -2345,7 +2339,7 @@ Fixpoint synth_resolving_with_outer_replaced_sert
               | StructT κ' τs_full' =>
                   match split_into_three τs_full' i with
                   | Some (τs0', innerprreplaced, τs'') =>
-                      if andb (andb (list_beq type type_beq τs0 τs0') (kind_beq κ κ'))
+                      if andb (list_beq type type_beq τs0 τs0')
                               (list_beq type type_beq τs' τs'')
                       then
                         match synth_resolving_with_outer_replaced_sert τ_inner p innerprreplaced τval with
@@ -2353,7 +2347,7 @@ Fixpoint synth_resolving_with_outer_replaced_sert
                             let pr' :=
                               {| pr_prefix := τs0 ++ pr.(pr_prefix);
                                 pr_target := pr.(pr_target);
-                                pr_replaced := StructT κ (τs0 ++ pr.(pr_replaced) :: τs') |} in
+                                pr_replaced := StructT κ' (τs0 ++ pr.(pr_replaced) :: τs') |} in
                             Some (pr', κser)
                         | None => None
                         end
@@ -2416,7 +2410,7 @@ Fixpoint synth_resolving_with_outer_replaced_spant
               | StructT κ' τs_full' =>
                   match split_into_three τs_full' i with
                   | Some (τs0', innerprreplaced, τs'') =>
-                      if andb (andb (list_beq type type_beq τs0 τs0') (kind_beq κ κ'))
+                      if andb (andb (list_beq type type_beq τs0 τs0') (true))
                               (list_beq type type_beq τs' τs'')
                       then
                         match synth_resolving_with_outer_replaced_spant τ_inner p innerprreplaced τval with
@@ -2424,7 +2418,7 @@ Fixpoint synth_resolving_with_outer_replaced_spant
                             let pr' :=
                               {| pr_prefix := τs0 ++ pr.(pr_prefix);
                                 pr_target := pr.(pr_target);
-                                pr_replaced := StructT κ (τs0 ++ pr.(pr_replaced) :: τs') |} in
+                                pr_replaced := StructT κ' (τs0 ++ pr.(pr_replaced) :: τs') |} in
                             Some (pr', κser, σ)
                         | None => None
                         end
