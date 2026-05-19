@@ -129,18 +129,11 @@ Section local_get_move.
     iSplit; first done.
     iFrame "Hrt Hown".
 
-    inversion Hok; subst.
-    eapply Forall2_lookup_lr in H0; try done.
-    2: apply list_lookup_insert_eq.
-    2: by apply lookup_lt_is_Some_1.
-    destruct H0 as (ρ & Hhas_rep & Heval_rep).
+    iDestruct (atoms_interp_values_as_atoms vs_L_i) as "#Hatoms_i'".
+    iDestruct (value_interp_type_plug rti sr se vs_L_i ηs with "[%]") as "Hval_i'"; first done.
 
-    iDestruct (atoms_interp_no_ptr' with "Hatoms_i") as "(%os' & %Hconv & #Hatoms_i')".
-
-    (* TODO: temp *)
     iDestruct (values_interp_one_eq with "Hval_i") as "Hval_i".
     iFrame "Hval_i Hatoms_i".
-    (* TODO: temp *)
 
     unfold frame_interp.
     iFrame (Hfr Hresult).
@@ -155,5 +148,13 @@ Section local_get_move.
     iFrame.
     iFrame "#".
 
-  Admitted.
+    unfold locals_interp.
+    subst L'.
+    rewrite insert_take_drop.
+    2: { eapply lookup_lt_Some. exact Hlookup_L_i. }
+    iApply (big_sepL2_app with "Hval_pre").
+    iApply big_sepL2_cons.
+    by iFrame.
+  Qed.
+
 End local_get_move.

@@ -1355,60 +1355,67 @@ Section common.
     - iFrame.
   Qed.
 
-  Definition ptra_as_i32a (o : atom) (v : value) :=
-    match o with
-    | PtrA _ =>
-        match v with
-        | VAL_int32 n32 => Some $ I32A n32
-        |  _ => None
-        end
-    |  _ => Some o
+  Definition value_to_atom (v : value) : atom :=
+    match v with
+    | VAL_int32 n32 => I32A n32
+    | VAL_int64 n64 => I64A n64
+    | VAL_float32 f32 => F32A f32
+    | VAL_float64 f64 => F64A f64
     end.
 
-  Lemma ptra_as_i32a_not_ptra o v p :
-   ¬ ptra_as_i32a o v = Some $ PtrA p.
+  Definition values_to_atoms (vs : list value) :=
+    map value_to_atom vs.
+
+  Lemma atom_interp_value_as_atom v :
+    ⊢ atom_interp (value_to_atom v) v.
   Proof.
-    intros Hcontra.
-    by destruct o, v.
+    destruct v; simpl; by iIntros.
   Qed.
 
-  Lemma atom_interp_no_ptr o v :
-    atom_interp o v -∗ ∃ o', ⌜(ptra_as_i32a o v) = Some o'⌝ ∗ atom_interp o' v.
+  Lemma atoms_interp_values_as_atoms vs :
+   ⊢ atoms_interp (values_to_atoms vs) vs.
   Proof.
-    destruct o; try iIntros "H"; eauto.
-    iDestruct "H" as (n n32 Hn Hv rp Hrp) "Hroot".
-    subst v.
-    by iExists (I32A n32).
+    iInduction vs as [|v vs] "IH"; first by simpl.
+    rewrite /values_to_atoms map_cons.
+    rewrite atoms_interp_cons.
+    iFrame "#".
+    iApply atom_interp_value_as_atom.
   Qed.
 
-  Definition ptras_as_i32as (os : list atom) (vs : list value) :=
-    mapM (fun '(o, v) => ptra_as_i32a o v) (zip os vs).
-
-  Lemma ptras_as_i32as_cons o os v vs o' os' :
-    ptras_as_i32as (o :: os) (v :: vs) = Some (o' :: os') <->
-      ptra_as_i32a o v = Some o' /\
-      ptras_as_i32as os vs = Some os'.
+  Lemma has_prim_has_arep η v :
+    has_prim η v ->
+    has_arep (prim_to_arep η) (value_to_atom v).
   Proof.
-    rewrite !mapM_Some.
-    simpl.
-    by rewrite Forall2_cons.
+    intros Hprim.
+    destruct v, η; simpl; done.
   Qed.
 
-  Lemma atoms_interp_no_ptr os vs :
-    atoms_interp os vs -∗ ∃ os', ⌜(ptras_as_i32as os vs) = Some os'⌝ ∗ atoms_interp os' vs.
+  Lemma has_prims_has_areps ηs vs :
+    has_prims ηs vs ->
+    has_areps (map prim_to_arep ηs) (SAtoms (values_to_atoms vs)).
   Proof.
-    iInduction os as [|o os] "IH" forall (vs); iIntros "H".
-    - destruct vs; eauto.
-    - destruct vs as [| v vs]; first done.
-      iEval (rewrite atoms_interp_cons) in "H".
-      iDestruct "H" as "[Hatom Hatoms]".
-      iDestruct (atom_interp_no_ptr _ _ with "Hatom") as "(%o' & %Heq & Hatom)".
-      iDestruct ("IH" with "Hatoms") as "(%os' & %Heqs & Hatoms)".
-      iExists (o' :: os').
-      rewrite atoms_interp_cons.
-      iFrame.
-      iPureIntro.
-      by apply ptras_as_i32as_cons.
+    revert ηs.
+    induction vs; intros ηs Hprims.
+    - inversion Hprims; subst.
+      simpl.
+      eexists.
+      by split.
+    - destruct ηs as [| η ηs]; first inversion Hprims.
+      simpl.
+      apply has_areps_cons.
+      apply Forall2_cons in Hprims as [Hprim Hprims].
+      split; first by apply IHvs.
+      by apply has_prim_has_arep.
+  Qed.
+
+  Lemma values_to_atoms_norefs vs :
+    Forall (forall_ptr_atom norefs_ptr_interp) (values_to_atoms vs).
+  Proof.
+    induction vs as [|v vs]; simpl; first done.
+    apply Forall_cons.
+    split.
+    - by destruct v.
+    - apply IHvs.
   Qed.
 
   Lemma locals_interp_lookup se L oss i τ_old :
@@ -1722,16 +1729,6 @@ Section common.
     || apply bi.sep_persistent).
   Qed.
 
-  Lemma atom_interp_no_ptr_persistent o v1 v2 o' :
-    (ptra_as_i32a o v1) = Some o' ->
-    Persistent (atom_interp o' v2).
-  Proof.
-    intros H.
-    apply atom_interp_dup.
-    destruct o'; simpl; try done.
-    by apply ptra_as_i32a_not_ptra in H.
-  Qed.
-
   Lemma atoms_interp_dup os vs :
     Forall (λ o, expect_heap_ptr o = None) os ->
     Persistent (atoms_interp os vs).
@@ -1745,31 +1742,20 @@ Section common.
     exact (Hall k o Hok).
   Qed.
 
-  Lemma atoms_interp_no_ptr_persistent os vs1 vs2 os' :
-    (ptras_as_i32as os vs1) = Some os' ->
-    Persistent (atoms_interp os' vs2).
+  Global Instance atom_interp_value_to_atom_persistent v :
+    Persistent (atom_interp (value_to_atom v) v).
   Proof.
-    revert vs1 vs2 os'.
-    induction os; intros vs1 vs2 os' Hconvs.
-    - destruct os'; try done. destruct vs2; simpl; apply _.
-    - destruct os' as [|o' os']; try done; destruct vs2 as [| v2 vs2']; try (simpl; apply _).
-      destruct vs1 as [| v1 vs1']; first done.
-      rewrite atoms_interp_cons.
-      apply ptras_as_i32as_cons in Hconvs as[Hconv Hconvs].
-      apply bi.sep_persistent.
-      + by eapply atom_interp_no_ptr_persistent.
-      + by eapply IHos.
+    unfold Persistent.
+    iIntros "H !>".
+    iApply atom_interp_value_as_atom.
   Qed.
 
-  Lemma atoms_interp_no_ptr' os vs :
-    atoms_interp os vs -∗ ∃ os', ⌜(ptras_as_i32as os vs) = Some os'⌝ ∗ □ atoms_interp os' vs.
+  Global Instance atoms_interp_values_to_atoms_persistent vs :
+    Persistent (atoms_interp (values_to_atoms vs) vs).
   Proof.
-    iIntros "H".
-    iDestruct (atoms_interp_no_ptr with "H") as "(%os' & %Heqs & Hatoms)".
-    eapply atoms_interp_no_ptr_persistent in Heqs as Hpers.
-    iPoseProof "Hatoms" as "#Hatoms".
-    iExists _.
-    by iSplit.
+    unfold Persistent.
+    iIntros "H !>".
+    iApply atoms_interp_values_as_atoms.
   Qed.
 
   Lemma atoms_interp_norefs_persistent (se: semantic_env (Σ:=Σ)) os vs :
@@ -1812,6 +1798,42 @@ Section common.
       + exact (fixpoint_unfold f sv).
       + simpl. reflexivity.
     - reflexivity.
+  Qed.
+
+  Lemma eval_rep_prod_atoms (se: semantic_env (Σ:=Σ)) ηs :
+    eval_rep se (ProdR (map (AtomR ∘ prim_to_arep) ηs)) = Some (map prim_to_arep ηs).
+  Proof.
+    induction ηs; simpl; first done.
+    simpl in IHηs.
+    destruct (mapM (eval_rep se) (map (AtomR ∘ prim_to_arep) ηs)) as [ιss|] eqn:Hmapм; simpl in *; last done.
+    injection IHηs as IHηs.
+    by rewrite IHηs.
+  Qed.
+
+  Lemma value_interp_type_plug se vs ηs :
+    ⌜has_prims ηs vs⌝ -∗
+    value_interp rti sr se (type_plug_prim ηs) (SAtoms (values_to_atoms vs)).
+  Proof.
+    iIntros "%Hprims".
+    rewrite value_interp_eq /add_skind_interp.
+    unfold type_plug_prim, type_plug. simpl.
+    set ρ := ProdR (map (AtomR ∘ prim_to_arep) ηs).
+    have Heval : eval_rep se ρ = Some (map prim_to_arep ηs).
+    { apply eval_rep_prod_atoms. }
+    iExists (SVALTYPE (map prim_to_arep ηs) NoRefs).
+    iSplit.
+    - iPureIntro. unfold type_skind. simpl.
+      have Heval_kind := eval_kind_of_eval_rep se ρ _ Heval NoRefs.
+      rewrite -Heval_kind.
+      done.
+    - apply has_prims_has_areps in Hprims as Hareps.
+      iSplit.
+      + iPureIntro. simpl.
+        split; first done.
+        apply values_to_atoms_norefs.
+      + iExists (map prim_to_arep ηs).
+        iSplit; [iPureIntro; exact Heval |].
+        done.
   Qed.
 
 End common.
