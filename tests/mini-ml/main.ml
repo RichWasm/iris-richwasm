@@ -142,10 +142,10 @@ let%expect_test "return_one" =
       local.get 0 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-      coderef 0
       group 0
       new gc
       cast (ref (base gc) (struct))
+      coderef 0
       group 2
       new gc
       cast
@@ -183,12 +183,12 @@ let%expect_test "return_one" =
         drop
         local.get 4 move
         local.set 5
-        group 0
-        new gc
-        cast (ref (base gc) (struct))
         local.get 3 move
         copy
         local.set 3
+        group 0
+        new gc
+        cast (ref (base gc) (struct))
         group 2
         new gc
         cast
@@ -259,10 +259,10 @@ let%expect_test "apply_id" =
       local.get 0 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-      coderef 0
       group 0
       new gc
       cast (ref (base gc) (struct))
+      coderef 0
       group 2
       new gc
       cast
@@ -300,11 +300,11 @@ let%expect_test "apply_id" =
         drop
         local.get 4 move
         local.set 5
-        i32.const 42
-        tag
         local.get 3 move
         copy
         local.set 3
+        i32.const 42
+        tag
         group 2
         new gc
         cast (ref (base gc) (struct (ser (var 0)) (ser i31)))

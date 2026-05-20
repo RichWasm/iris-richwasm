@@ -164,7 +164,7 @@ let rec cc_e user_fns gamma tagger acc e :
             ret (converted :: vs, code))
           ~init:([], acc) vs
       in
-      ret (Closed.Expr.Tuple vs, code)
+      ret (Closed.Expr.Tuple (List.rev vs), code)
   | Inj (i, v, t) ->
       let* v, code = r acc v in
       ret (Closed.Expr.Inj (i, v, cc_t t), code)
