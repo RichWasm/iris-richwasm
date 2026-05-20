@@ -1448,6 +1448,9 @@ let%expect_test "examples" =
     -----------iife-----------
     FAILURE Typechecker failed with error(s):
     can't module check type not equal
+    -------------------------------
+    FAILURE Typechecker failed with error(s):
+    can't module check type not equal
     -----------add_one-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -2206,15 +2209,17 @@ let%expect_test "examples" =
           ((CodeRef
             (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
              ((Ref (Base GC) (Struct ((Ser I31) (Ser (Var 0)))))) ((Var 0))))
-           I31))))))
+           (Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31))))))))))
      (instr
       (Unpack (ValType (I31)) InferFx
        ((LocalSet 1) (LocalGet 1 Move) Copy (LocalSet 1) (Load (Path (0)) Follow)
         (LocalSet 2) Drop (LocalGet 2 Move) (LocalSet 3) (LocalGet 1 Move) Copy
         (LocalSet 1) (Load (Path (1)) Follow) (LocalSet 4) Drop (LocalGet 4 Move)
-        (LocalSet 5) (NumConst (Int I32) 42) Tag (LocalGet 5 Move) Copy
-        (LocalSet 5) (Inst (Type I31)) CallIndirect (LocalGet 5 Move) Drop
-        (LocalGet 3 Move) Drop (LocalGet 1 Move) Drop)))
+        (LocalSet 5) (NumConst (Int I32) 42) Tag (LocalGet 3 Move) Copy
+        (LocalSet 3) (Group 2) (New GC)
+        (Cast (Ref (Base GC) (Struct ((Ser (Var 0)) (Ser I31)))))
+        (LocalGet 5 Move) Copy (LocalSet 5) (Inst (Type I31)) CallIndirect
+        (LocalGet 5 Move) Drop (LocalGet 3 Move) Drop (LocalGet 1 Move) Drop)))
      (env
       ((local_offset 1) (kinds ()) (labels ()) (return (I31))
        (functions
@@ -2327,6 +2332,7 @@ let%expect_test "examples" =
                (Variant
                 ((Ser (Ref (Base GC) (Struct ())))
                  (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))
+             (Plug (Prod ((Atom I32))))
              (Ref (Base GC)
               (Variant
                ((Ser (Var 0))
@@ -2369,8 +2375,7 @@ let%expect_test "examples" =
                         (Ser
                          (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
                (I31)))
-             (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-             (Plug (Prod ((Atom I32))))))
+             (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
            (stack
             ((Ref (Base GC)
               (Variant
@@ -2384,20 +2389,30 @@ let%expect_test "examples" =
                       (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))))))))
        (instr
         (Unpack (ValType (I31)) InferFx
-         ((LocalSet 4) (LocalGet 4 Move) Copy (LocalSet 4)
-          (Load (Path (0)) Follow) (LocalSet 5) Drop (LocalGet 5 Move)
-          (LocalSet 6) (LocalGet 4 Move) Copy (LocalSet 4)
-          (Load (Path (1)) Follow) (LocalSet 7) Drop (LocalGet 7 Move)
-          (LocalSet 8) (LocalGet 3 Move) Copy (LocalSet 3)
+         ((LocalSet 5) (LocalGet 5 Move) Copy (LocalSet 5)
+          (Load (Path (0)) Follow) (LocalSet 6) Drop (LocalGet 6 Move)
+          (LocalSet 7) (LocalGet 5 Move) Copy (LocalSet 5)
+          (Load (Path (1)) Follow) (LocalSet 8) Drop (LocalGet 8 Move)
+          (LocalSet 9) (LocalGet 4 Move) Copy (LocalSet 4)
           (Load (Path ()) Follow)
           (Fold
            (Ref (Base GC)
             (Variant
              ((Ser (Ref (Base GC) (Struct ())))
               (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-          (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
-          CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
-          (LocalGet 4 Move) Drop)))
+          (New GC) (LocalGet 7 Move) Copy (LocalSet 7) (Group 2) (New GC)
+          (Cast
+           (Ref (Base GC)
+            (Struct
+             ((Ser (Var 0))
+              (Ser
+               (Rec (VALTYPE (Atom Ptr) GCRefs)
+                (Ref (Base GC)
+                 (Variant
+                  ((Ser (Ref (Base GC) (Struct ())))
+                   (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
+          (LocalGet 9 Move) Copy (LocalSet 9) (Inst (Type (Var 1))) CallIndirect
+          (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop (LocalGet 5 Move) Drop)))
        (env
         ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ((I31)))
          (return (I31))
@@ -2447,6 +2462,7 @@ let%expect_test "examples" =
              (Variant
               ((Ser (Ref (Base GC) (Struct ())))
                (Ser (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))
+           (Plug (Prod ((Atom I32))))
            (Ref (Base GC)
             (Variant
              ((Ser (Var 0))
@@ -2459,7 +2475,7 @@ let%expect_test "examples" =
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
            (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
+           (Plug (Prod ((Atom I32))))))
          (stack
           ((Exists (Type (VALTYPE (Atom Ptr) GCRefs))
             (Ref (Base GC)
@@ -2483,8 +2499,8 @@ let%expect_test "examples" =
            (Num (Int I32))))))))
      (instr
       (CaseLoad (ValType (I31)) Copy InferFx
-       (((LocalSet 9) (NumConst (Int I32) 0) Tag (LocalGet 9 Move) Drop)
-        ((LocalSet 3) (NumConst (Int I32) 1) Tag Untag (CodeRef 0) (Group 0)
+       (((LocalSet 3) (NumConst (Int I32) 0) Tag (LocalGet 3 Move) Drop)
+        ((LocalSet 4) (NumConst (Int I32) 1) Tag Untag (CodeRef 0) (Group 0)
          (New GC) (Cast (Ref (Base GC) (Struct ()))) (Group 2) (New GC)
          (Cast
           (Ref (Base GC)
@@ -2523,21 +2539,31 @@ let%expect_test "examples" =
                           (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
                 (I31))))))))
          (Unpack (ValType (I31)) InferFx
-          ((LocalSet 4) (LocalGet 4 Move) Copy (LocalSet 4)
-           (Load (Path (0)) Follow) (LocalSet 5) Drop (LocalGet 5 Move)
-           (LocalSet 6) (LocalGet 4 Move) Copy (LocalSet 4)
-           (Load (Path (1)) Follow) (LocalSet 7) Drop (LocalGet 7 Move)
-           (LocalSet 8) (LocalGet 3 Move) Copy (LocalSet 3)
+          ((LocalSet 5) (LocalGet 5 Move) Copy (LocalSet 5)
+           (Load (Path (0)) Follow) (LocalSet 6) Drop (LocalGet 6 Move)
+           (LocalSet 7) (LocalGet 5 Move) Copy (LocalSet 5)
+           (Load (Path (1)) Follow) (LocalSet 8) Drop (LocalGet 8 Move)
+           (LocalSet 9) (LocalGet 4 Move) Copy (LocalSet 4)
            (Load (Path ()) Follow)
            (Fold
             (Ref (Base GC)
              (Variant
               ((Ser (Ref (Base GC) (Struct ())))
                (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-           (New GC) (LocalGet 8 Move) Copy (LocalSet 8) (Inst (Type (Var 1)))
-           CallIndirect (LocalGet 8 Move) Drop (LocalGet 6 Move) Drop
-           (LocalGet 4 Move) Drop))
-         Untag (Num (Int2 I32 Add)) Tag (LocalGet 3 Move) Drop))))
+           (New GC) (LocalGet 7 Move) Copy (LocalSet 7) (Group 2) (New GC)
+           (Cast
+            (Ref (Base GC)
+             (Struct
+              ((Ser (Var 0))
+               (Ser
+                (Rec (VALTYPE (Atom Ptr) GCRefs)
+                 (Ref (Base GC)
+                  (Variant
+                   ((Ser (Ref (Base GC) (Struct ())))
+                    (Ser (Ref (Base GC) (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
+           (LocalGet 9 Move) Copy (LocalSet 9) (Inst (Type (Var 1))) CallIndirect
+           (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop (LocalGet 5 Move) Drop))
+         Untag (Num (Int2 I32 Add)) Tag (LocalGet 4 Move) Drop))))
      (env
       ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ())
        (return (I31))
@@ -2613,6 +2639,4 @@ let%expect_test "examples" =
     can't module check type not equal
     -----------closure_complex-----------
     FAILURE Typechecker failed with error(s):
-    can't module check
-      instruction has more arguments than large have_instruction type has, or can't frame out
-      type not equal |}]
+    can't module check type not equal type not equal |}]
