@@ -1109,7 +1109,7 @@ Section inst.
     by eapply translate_type_subst_senv.
   Qed.
 
-  Lemma map_lookup_helper {A B:Type} (f:A → B) (l: list A) (i:nat) (a:A) :
+  Lemma map_lookup_helper_forwards {A B:Type} (f:A → B) (l: list A) (i:nat) (a:A) :
     l !! i = Some a -> map f l !! i = Some (f a).
   Proof.
     revert l i.
@@ -1120,6 +1120,24 @@ Section inst.
       destruct i.
       + cbn in *.
         inversion H; subst; done.
+      + rewrite <- lookup_tail in H. cbn in H.
+        apply IHl in H.
+        rewrite <- lookup_tail.
+        cbn. done.
+  Qed.
+
+  Lemma map_lookup_helper_backwards {A B:Type} (f:A → B) (l: list A) (i:nat) (fa:B) :
+    map f l !! i = Some fa -> ∃ a, l !! i = Some a /\ fa = f a.
+  Proof.
+    revert l i.
+    induction l.
+    - intros.
+      rewrite lookup_nil in H; inversion H.
+    - intros.
+      destruct i.
+      + cbn in *.
+        inversion H; subst.
+        exists a; done.
       + rewrite <- lookup_tail in H. cbn in H.
         apply IHl in H.
         rewrite <- lookup_tail.
@@ -1151,6 +1169,7 @@ Section inst.
     unfold_sem_rels.
     (* TODO add sem_env_types_well_formed into unfold_sem_rels *)
     unfold sem_env_types_well_formed in *.
+    (* note that this generalization is necessary for the exists_ types *)
     generalize dependent sv.
     generalize dependent se'.
     generalize dependent se.
@@ -1251,7 +1270,7 @@ Section inst.
         rewrite <- HEval.
         by eapply type_skind_subst_senv_eq.
       }
-    * (* sum *)
+    * (* sum, half done *)
       intros.
       rewrite !type_interp_eq.
 
@@ -1311,7 +1330,7 @@ Section inst.
            cbn in Hbh.
            exists (subst_representation sub_r ρ).
            split.
-           ++ by apply map_lookup_helper.
+           ++ by apply map_lookup_helper_forwards.
            ++ rewrite <- Hbh.
               symmetry.
               eapply eval_rep_subst_senv_eq; done.
@@ -1340,209 +1359,176 @@ Section inst.
       }
 
     * (* variant *)
-      admit.
-    * (* prod *)
-      admit.
+      intros.
+      rewrite !type_interp_eq.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+
+      iSplitR.
+      all: iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%sκ & #Hsκ & #Hsv & Htypeinterp)".
+      all: iExists sκ; iFrame "#".
+      all: iDestruct "Htypeinterp" as "(%i & %n & %ws & %ws' & #hin & #hsv & Htypeinterp)".
+      all: iExists i, n, ws, ws'; iFrame "#".
+      - destruct (list_lookup i (map (type_interp rti sr) τs)) as [τi|] eqn:Hτi;
+          rewrite Hτi; try done.
+
+        admit.
+      - admit.
+    * (* prod, qed *)
+      intros.
+      rewrite !type_interp_eq.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+
+      iSplitR.
+      all: iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%sκ & #Hsκ & #Hsv & Htypeinterp)".
+      all: iExists sκ; iFrame "#".
+      all: iDestruct "Htypeinterp" as "(%oss & #Hoss & Htypeinterp)".
+      all: iExists oss; iFrame "#".
+      all: cbn.
+      1: iApply big_sepL2_fmap_l;
+         iApply big_sepL2_fmap_l;
+         iPoseProof (big_sepL2_fmap_l (type_interp rti sr) with "Htypeinterp") as "Htypeinterp".
+      2: iApply big_sepL2_fmap_l;
+         iPoseProof (big_sepL2_fmap_l (type_interp rti sr) with "Htypeinterp") as "Htypeinterp";
+         iPoseProof
+          (big_sepL2_fmap_l (subst_type sub_m sub_r sub_s sub_t)
+                            (fun k y1 y2 => type_interp rti sr y1 se (SAtoms y2))
+            with "Htypeinterp") as "Htypeinterp".
+      all: iApply big_sepL2_mono; [|done].
+      all: intros i τ os Hτ Hos.
+      all: cbn.
+      all: pose proof (Forall_lookup_1 _ _ _ _ H Hτ) as IH.
+      all: specialize (IH sub_t sub_r sub_s sub_m se Hse se' Hse').
+      all: specialize (IH Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T).
+      all: specialize (IH (SAtoms os)).
+      all: iIntros "H".
+      all: by iApply IH.
     * (* struct *)
       admit.
-    * (* reft *)
+    * (* reft, qed *)
       intros.
       rewrite !type_interp_eq.
       Opaque ref_mm_interp.
       Opaque ref_gc_interp.
       cbn.
 
-      (* probably delete that cbn above *)
+      pose proof (eval_mem_subst_senv_eq se se' sub_m m Hsub_m) as Hevalm.
+      rewrite !Hevalm.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+      specialize (IHτ sub_t sub_r sub_s sub_m se Hse se' Hse').
+      specialize (IHτ Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T).
 
-      (* okay before I continue, I am going to figure out the eval_meme subst_memory shtick.
-         let's do it. *)
+      iSplitR.
+      all: iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%sκ & #Hsκ & #Hsv & Htypeinterp)".
+      all: iExists sκ; iFrame "#".
+      all: destruct (eval_mem se (subst_memory sub_m m)) eqn:Hm.
+      2, 4: done.
+      all: destruct b; cbn.
+
+      (* now we get into ref itnerps. the two mms should be easy *)
+      Transparent ref_mm_interp.
+      Transparent ref_gc_interp.
+
+      (* the mms *)
+      1, 3: cbn.
+      1, 2: iDestruct "Htypeinterp" as
+        "(%ℓ & %fs & %ws & #hsv & hlfs & hlws & htypeinterp)".
+      1, 2: iExists ℓ, fs, ws; iFrame "#"; iFrame.
+      1, 2: iModIntro.
+      1, 2: specialize (IHτ (SWords ws)).
+      1, 2: by iApply IHτ.
+
+      (* now the gcs, which have invariants *)
+      all: cbn.
+      all: iDestruct "Htypeinterp" as
+        "(%ℓ & %fs & #hsv & hinv)".
+      all: iExists ℓ, fs; iFrame "#".
+      (* NOTE: this na_inv_iff cannot work without bimplication *)
+      all: iApply (na_inv_iff with "[$hinv]").
+      all: repeat iModIntro.
+      all: iSplitR; iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%ws & hlfs & hlws & htype)".
+      all: iExists ws; iFrame.
+      all: iModIntro.
+      all: specialize (IHτ (SWords ws)).
+      all: by iApply IHτ.
+    * (* coderef, qed *)
+      intros.
+      rewrite !type_interp_eq.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+
+      iSplitR.
+      all: iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%sκ & #Hsκ & #Hsv & Htypeinterp)".
+      all: iExists sκ; iFrame "#".
+      all: iDestruct "Htypeinterp" as "(%i & %i32 & %j & %cl & #hi & #hsv & Htypeinterp & nstab & nsfun)".
+      all: iExists i, i32, j, cl; iFrame "#"; iFrame.
+      all: specialize (IHτ se se').
+      all: iApply IHτ; done.
+    * (* sert *)
+      admit.
+    * (* plug *)
+      admit.
+    * (* span *)
+      admit.
+    * (* rec *)
+      admit.
+    * (* exists mem *)
+      intros.
+      rewrite !type_interp_eq.
+      (* i wanna opaque something but dk what. subst_type dies *)
+      Opaque senv_insert_mem.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+
+      iSplitR.
+      all: iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%sκ & #Hsκ & #Hsv & Htypeinterp)".
+      all: iExists sκ; iFrame "#".
+      all: iDestruct "Htypeinterp" as "(%μ & Htypeinterp)".
+      all: iExists μ.
+      (* it is time to specialize IHτ very carefully *)
+      all: specialize (IHτ (up_memory_type sub_t) (up_memory_representation sub_r)
+                     (up_memory_size sub_s) (up_memory_memory sub_m)).
+      all: specialize (IHτ (senv_insert_mem μ se)).
+      all: assert (Hse_new: sem_env_types_well_formed (senv_insert_mem μ se)) by admit.
+      all: specialize (IHτ Hse_new).
+      all: specialize (IHτ (senv_insert_mem μ se')).
+      all: assert (Hse'_new: sem_env_types_well_formed (senv_insert_mem μ se')) by admit.
+      all: specialize (IHτ Hse'_new).
+      Transparent senv_insert_mem.
+      all: iApply IHτ; try done.
+      (* these lemmas are half done with only the value_interp ones being scary *)
+      (* make these hypotheses/asserts so it's easy  *)
+      all: admit.
+    * (* exists rep *)
+      admit.
+    * (* exists size *)
+      admit.
+    * (* exists type *)
+      admit.
+    * (* mono fun, scary *)
+      intros.
+      rewrite !closure_interp_eq.
 
 
 (*
 
-        * (* sum, nearly qed except for map/forall2 lemmas *)
-          intros.
-          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
-          iApply type_interp_eq_l.
-          iDestruct "Hoa" as "(%sk & %HEval & %Hoa & Hsuminterp)".
-          iExists sk; iSplitR;
-            [iPureIntro; by eapply eval_kind_subst_senv |
-            iSplitR; [iPureIntro; done|]].
-          destruct κ as [ρ ξ|n ξ]; cbn in HEval;
-            apply bind_Some in HEval as (ιs & Hea & toinvert);
-            inversion toinvert; subst; cbn in Hoa; [|done]; clear toinvert.
-
-          destruct ρ; iEval (cbn) in "Hsuminterp"; try done.
-          rename l into ρs.
-
-          (* need to destruct Hsuminterp a bit more *)
-          iDestruct "Hsuminterp" as "(%i & %os & %off & %count &
-                              %H1 & %H2 & %H3 & Hoa)".
-          destruct (list_lookup i (map (type_interp rti sr) τs)) eqn:Hτi_interp; try done.
-          rename o0 into τi_interp.
-
-          (* idk how to work with these maps but lemme get some of this out *)
-          assert (H': ∃ τi, τs !! i = Some τi /\ τi_interp = type_interp rti sr τi). {
-            (* obvious by Hτi_interp *)
-
-            admit.
-          }
-          destruct H' as (τi & Hτi_lookup & Hτi).
-          subst τi_interp.
-
-          iExists i, os, off, count.
-
-          (* let's try to work with this now! *)
-          iSplitR; [done |
-            iSplitR; [iPureIntro |
-            iSplitR; [iPureIntro |]]]; last first.
-          -- pose proof (Forall_lookup_1 _ _ i τi H Hτi_lookup) as IH_τi.
-             specialize (IH_τi sub_t sub_r sub_s sub_m se se' Hsub_r Hsub_s Hsub_T
-                        (SAtoms (take count (drop off os)))).
-
-             assert (H': list_lookup i (map (type_interp rti sr)
-                              (map (subst_type sub_m sub_r sub_s sub_t) τs)) =
-                           Some (type_interp rti sr (subst_type sub_m sub_r sub_s sub_t τi))).
-                  {
-                    (* this by τs !! i = Some τi *)
-
-                    admit.
-                  }
-             by rewrite H'.
-          -- apply fmap_Some.
-             apply fmap_Some in H3 as (ιs_ρ & Hy & Hah).
-             exists ιs_ρ.
-             split; [|done].
-             apply bind_Some.
-             apply bind_Some in Hy as (ρ & Hz & Hbh).
-             cbn in Hbh.
-             exists (subst_representation sub_r ρ).
-             split.
-             ++ by apply map_lookup_helper.
-             ++ eapply eval_rep_subst_senv; done.
-          -- unfold sum_offset in *.
-             apply bind_Some in H2 as (ιss & Hy & Hah).
-             apply bind_Some.
-             (* hopefully *)
-             exists ιss. split; [|done].
-             (* Okay this is true by a combo of mapM lemmas and
-                eval_rep_subst_senv:
-                Hsub_r -> eval_rep se' ρ = Some ιs ->
-                eval_rep se (subst_representation sub_r ρ) = Some ιs
-              *)
-
-             apply mapM_Some.
-             apply mapM_Some in Hy.
-             (* seems a bit annoying to prove but definitely true:
-                - take i ρs and take i (map (..) ρs) operate on the same things
-                - On those things, use eval_rep_subst_senv, and you're good
-              *)
-             admit.
-        * (* variant qed except for map lemmas *)
-          intros.
-          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
-          iApply type_interp_eq_l.
-          iDestruct "Hoa" as "(%sκ & %Hsκ & %Hso & Hvariant)".
-
-          iExists sκ.
-          iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
-          iSplitR; [done|].
-
-          iDestruct "Hvariant" as "(%i & %n & %ws & %ws' & %Hnat & %tosubst & Hoa)".
-          subst s.
-          destruct (list_lookup i (map (type_interp rti sr) τs)) eqn:Hτi_interp;
-            rewrite Hτi_interp; [|by cbn].
-          rename o0 into τi_interp.
-          assert (H': ∃ τi, τs !! i = Some τi /\ τi_interp = type_interp rti sr τi). {
-            (* obvious by Hτi_interp *)
-            admit.
-          }
-          destruct H' as (τi & Hτi_lookup & Hτi).
-          subst τi_interp.
-
-          iEval (cbn).
-          iExists i, n, ws, ws'.
-          iSplitR; [done | iSplitR; [done |]].
-          assert (H': list_lookup i (map (type_interp rti sr)
-                                       (map (subst_type sub_m sub_r sub_s sub_t) τs)) =
-                        Some (type_interp rti sr (subst_type sub_m sub_r sub_s sub_t τi))).
-          {
-            (* this by τs !! i = Some τi *)
-            admit.
-          }
-          rewrite H'.
-          pose proof (Forall_lookup_1 _ _ i τi H Hτi_lookup) as IH_τi.
-          by specialize (IH_τi sub_t sub_r sub_s sub_m se se' Hsub_r Hsub_s Hsub_T
-                        (SWords ws)).
-        * (* prod *)
-          admit.
-        * (* struct *)
-          admit.
-        * (** refT, induction fixed, now need varm relation and potential bidirectional *)
-          intros.
-          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
-          iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & Hm)".
-          iApply type_interp_eq_l.
-          iExists sκ. (* used to destruct sκ first *)
-          iFrame.
-          iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
-          (* huh. sure okay. I guess I don't need to have κ be valtype? *)
-          destruct m; [|destruct b].
-          --
-             (* I think this is where we now need some sort of varm relation? *)
-             (* interesting that before this was just done. Probably because of the
-                incorrect satoms *)
-             admit.
-          --
-             (* HWY IS IH\TAU SATOMS AAAAAAAAAA *)
-             (* is outdated :) no longer panic :) *)
-             iDestruct "Hm" as "(%ℓ & %fs & %ws & h1 & h2 & h3 & Hoa)".
-             iFrame.
-             iModIntro.
-             by eapply IHτ.
-          --
-             iDestruct "Hm" as "(%ℓ & %fs & h1 & Hinv)".
-             iFrame.
-             iExists fs.
-             (* I need some sort of "invariant implies another" *)
-             (* Search na_inv. *)
-             (* uh oh. na_inv_iff is similar. But. It's iff. *)
-             (* we only have one way. Uhoh. another place that requires bidirectional *)
-             (* Locate na_inv_iff. *)
-             (* hmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm TODO *)
-             admit.
-        * (* coderef, qed *)
-          (* I think this IH for function types is what we need but we'll see *)
-          intros.
-          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
-          iApply type_interp_eq_l.
-          iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & (%i & %i32 & %j & %cl & Hcl))".
-          destruct sκ as [ιs ξ | n ξ]; [|].
-          2: { (* contradictory case, sκ = SMEMTYPE *)
-            iDestruct "Hcl" as "(_ & %tosubst & _)".
-            subst s.
-            iEval (cbn) in "Hsκ".
-            by iDestruct "Hsκ" as "[[]_]".
-          }
-          iExists (SVALTYPE ιs ξ).
-          iFrame.
-          iSplitR; [iPureIntro; by eapply eval_kind_subst_senv|].
-          iExists i, i32, j, cl.
-          iDestruct "Hcl" as "(H1 & H2 & H3 & H4 & H5)".
-          iFrame.
-          specialize (IHτ se se' cl sub_m sub_r sub_s sub_t Hsub_r Hsub_s Hsub_T).
-          iPoseProof IHτ as "IHτ".
-          by iApply IHτ.
-        * (* sert *)
-          admit.
-        * (* plug *)
-          admit.
-        * (* span *)
-          admit.
-        * (* rec *)
-          intros.
-
-          admit.
         * (* exists mem, need mini value interp lemma, fix for memtype *)
           intros.
           iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
