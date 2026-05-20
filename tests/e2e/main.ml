@@ -189,18 +189,38 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
               in
               let module2 =
                 {|
-                  ((imports ((FunctionType () ((Num (Int I32))) ((Num (Int I32))))))
+                  ;; Glue module: adapts mini-ml's closure-style `add1` import
+                  ;; to lin-lang's `add1` (m1). mini-ml calls with a GC closure
+                  ;; struct (env, i31); lin-lang expects an unboxed (env, i32)
+                  ;; product with an MM-allocated environment.
+                  ((imports
+                    ((FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+                      ((Num (Int I32))))))
                    (functions
-                    (((typ (FunctionType () (I31) (I31)))
-                      (locals ())
+                    (((typ
+                       (FunctionType ()
+                        ((Ref (Base GC)
+                          (Struct
+                           ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+                        (I31)))
+                      (locals ((Atom Ptr)))
                       (body
-                       ((LocalGet 0 Copy)
+                       ((LocalGet 0 Move)
+                        ;; pull the i31 argument out of the closure struct
+                        (Load (Path (1)) Follow)
+                        (LocalSet 1)
+                        Drop
+                        ;; build lin-lang's (env, i32) argument
+                        (Group 0)
+                        (New MM)
+                        (LocalGet 1 Move)
                         Untag
-                        ;; TODO: call with closure
+                        (Group 2)
                         (Call 0 ())
-                        Tag
-                        )))))
-                   (table ()) (exports (((name add1_wrapped) (desc (Func 0))))))
+                        Tag)))))
+                   (table ())
+                   (exports (((name add1_wrapped) (desc (Func 1))))))
                 |}
               in
               let module3 =

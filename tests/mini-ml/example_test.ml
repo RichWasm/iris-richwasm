@@ -294,10 +294,10 @@ let%expect_test "examples" =
                          (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
                         -> i31)))))))
           (local ptr)
-        coderef 0
         group 0
         new gc
         cast (ref (base gc) (struct))
+        coderef 0
         group 2
         new gc
         cast
@@ -353,10 +353,10 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-        coderef 0
         group 0
         new gc
         cast (ref (base gc) (struct))
+        coderef 0
         group 2
         new gc
         cast
@@ -394,12 +394,12 @@ let%expect_test "examples" =
           drop
           local.get 4 move
           local.set 5
-          group 0
-          new gc
-          cast (ref (base gc) (struct))
           local.get 3 move
           copy
           local.set 3
+          group 0
+          new gc
+          cast (ref (base gc) (struct))
           group 2
           new gc
           cast
@@ -451,10 +451,10 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-        coderef 0
         group 0
         new gc
         cast (ref (base gc) (struct))
+        coderef 0
         group 2
         new gc
         cast
@@ -488,11 +488,11 @@ let%expect_test "examples" =
           drop
           local.get 4 move
           local.set 5
-          i32.const 5
-          tag
           local.get 3 move
           copy
           local.set 3
+          i32.const 5
+          tag
           group 2
           new gc
           cast (ref (base gc) (struct (ser (var 0)) (ser i31)))
@@ -616,10 +616,10 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-        coderef 0
         group 0
         new gc
         cast (ref (base gc) (struct))
+        coderef 0
         group 2
         new gc
         cast
@@ -657,11 +657,11 @@ let%expect_test "examples" =
           drop
           local.get 4 move
           local.set 5
-          i32.const 42
-          tag
           local.get 3 move
           copy
           local.set 3
+          i32.const 42
+          tag
           group 2
           new gc
           cast (ref (base gc) (struct (ser (var 0)) (ser i31)))
@@ -753,10 +753,10 @@ let%expect_test "examples" =
             i32.const 1
             tag
             untag
-            coderef 0
             group 0
             new gc
             cast (ref (base gc) (struct))
+            coderef 0
             group 2
             new gc
             cast
@@ -809,6 +809,9 @@ let%expect_test "examples" =
               drop
               local.get 8 move
               local.set 9
+              local.get 7 move
+              copy
+              local.set 7
               local.get 4 move
               copy
               local.set 4
@@ -818,9 +821,6 @@ let%expect_test "examples" =
                   (variant (ser (ref (base gc) (struct)))
                     (ser (ref (base gc) (variant (ser (var 2)) (ser (var 0)))))))
               new gc
-              local.get 7 move
-              copy
-              local.set 7
               group 2
               new gc
               cast
@@ -858,10 +858,10 @@ let%expect_test "examples" =
         local.get 0 move
         drop)
       (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-        coderef 0
         group 0
         new gc
         cast (ref (base gc) (struct))
+        coderef 0
         group 2
         new gc
         cast
@@ -914,6 +914,9 @@ let%expect_test "examples" =
           drop
           local.get 4 move
           local.set 5
+          local.get 3 move
+          copy
+          local.set 3
           i32.const 1
           tag
           group 0
@@ -934,13 +937,12 @@ let%expect_test "examples" =
           new gc
           cast
             (ref (base gc)
-              (struct
+              (struct (ser i31)
                 (ser
                   (rec (val ptr gcrefs)
                     (ref (base gc)
                       (variant (ser (ref (base gc) (struct)))
-                        (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))
-                (ser i31)))
+                        (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))))))
           inject_new gc 1 (ref (base gc) (struct))
             (ref (base gc)
               (variant (ser i31)
@@ -955,9 +957,6 @@ let%expect_test "examples" =
               (variant (ser (ref (base gc) (struct)))
                 (ser (ref (base gc) (variant (ser i31) (ser (var 0)))))))
           new gc
-          local.get 3 move
-          copy
-          local.set 3
           group 2
           new gc
           cast
@@ -1012,17 +1011,6 @@ let%expect_test "examples" =
         copy
         local.set 2
         load (Path [0]) follow
-        local.set 5
-        drop
-        local.get 5 move
-        load (Path []) follow
-        local.set 6
-        drop
-        local.get 6 move
-        local.get 2 move
-        copy
-        local.set 2
-        load (Path [1]) follow
         local.set 3
         drop
         local.get 3 move
@@ -1030,9 +1018,20 @@ let%expect_test "examples" =
         local.set 4
         drop
         local.get 4 move
+        local.get 2 move
+        copy
+        local.set 2
+        load (Path [1]) follow
+        local.set 5
+        drop
+        local.get 5 move
+        load (Path []) follow
+        local.set 6
+        drop
+        local.get 6 move
         group 2
         new gc
-        cast (ref (base gc) (struct (ser (var 1)) (ser (var 0))))
+        cast (ref (base gc) (struct (ser (var 0)) (ser (var 1))))
         new gc
         local.get 2 move
         drop
@@ -1088,13 +1087,13 @@ let%expect_test "examples" =
         i32.const 1
         tag
         local.set 1
-        coderef 0
         local.get 1 move
         copy
         local.set 1
         group 1
         new gc
         cast (ref (base gc) (struct (ser i31)))
+        coderef 0
         group 2
         new gc
         cast
@@ -1136,12 +1135,12 @@ let%expect_test "examples" =
           drop
           local.get 6 move
           local.set 7
-          group 0
-          new gc
-          cast (ref (base gc) (struct))
           local.get 5 move
           copy
           local.set 5
+          group 0
+          new gc
+          cast (ref (base gc) (struct))
           group 2
           new gc
           cast
@@ -1238,12 +1237,12 @@ let%expect_test "examples" =
           drop
           local.get 12 move
           local.set 13
-          local.get 4 move
-          copy
-          local.set 4
           local.get 11 move
           copy
           local.set 11
+          local.get 4 move
+          copy
+          local.set 4
           group 2
           new gc
           cast (ref (base gc) (struct (ser (var 0)) (ser i31)))
@@ -1327,13 +1326,13 @@ let%expect_test "examples" =
         i32.const 1
         tag
         local.set 1
-        coderef 1
         local.get 1 move
         copy
         local.set 1
         group 1
         new gc
         cast (ref (base gc) (struct (ser i31)))
+        coderef 1
         group 2
         new gc
         cast
@@ -1350,13 +1349,12 @@ let%expect_test "examples" =
               (ser
                 (coderef ((ref (base gc) (struct (ser (var 0)) (ser i31))) -> i31)))))
         local.set 2
-        coderef 0
-        local.get 1 move
-        copy
-        local.set 1
         local.get 2 move
         copy
         local.set 2
+        local.get 1 move
+        copy
+        local.set 1
         group 2
         new gc
         cast
@@ -1370,6 +1368,7 @@ let%expect_test "examples" =
                         (coderef
                           ((ref (base gc) (struct (ser (var 0)) (ser i31))) -> i31)))))))
               (ser i31)))
+        coderef 0
         group 2
         new gc
         cast
@@ -1445,11 +1444,11 @@ let%expect_test "examples" =
           drop
           local.get 7 move
           local.set 8
-          i32.const 3
-          tag
           local.get 6 move
           copy
           local.set 6
+          i32.const 3
+          tag
           group 2
           new gc
           cast (ref (base gc) (struct (ser (var 0)) (ser i31)))

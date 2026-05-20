@@ -149,7 +149,7 @@ let rec compile_type delta t : Type.t Res.t =
       | Some i -> ret (Type.var i)
       | None -> fail (Err.TypeVarNotInDelta v))
 
-let rec compile_expr delta gamma locals functions e :
+let rec compile_expr delta gamma locals coderef_map e :
     (Instruction.t list * (string * Type.t) list * (int * Type.t) list) Res.t =
   let open Closed.Expr in
   let open Instruction in
@@ -157,7 +157,7 @@ let rec compile_expr delta gamma locals functions e :
   let open LocalFx in
   let open Res in
   let unindexed = List.map ~f:(fun (n, t, _) -> (n, t)) gamma in
-  let r = compile_expr delta gamma locals functions in
+  let r = compile_expr delta gamma locals coderef_map in
   let* t = type_of_e unindexed e in
   let* rw_t = compile_type delta t in
   let rw_unit = Type.Prod [] in
@@ -170,9 +170,9 @@ let rec compile_expr delta gamma locals functions e :
         foldM
           ~f:(fun (instrs, locals, fx) item ->
             let* v', locals', fx' =
-              compile_expr delta gamma locals functions item
+              compile_expr delta gamma locals coderef_map item
             in
-            ret (v' @ instrs, locals', fx @ fx'))
+            ret (instrs @ v', locals', fx @ fx'))
           ~init:([], locals, []) vs
       in
       ret (vs' @ [ Group (List.length vs); New GC; Cast rw_t ], locals', fx)
@@ -203,11 +203,7 @@ let rec compile_expr delta gamma locals functions e :
           ret ([ LocalGet (idx, Move); Copy; LocalSet idx ], locals, [])
       | None -> fail (Err.VarNotInGamma v))
   | Coderef (_, f) ->
-      (match
-         List.find_mapi functions ~f:(fun i -> function
-           | Closed.Function.Function { name; _ } ->
-               Option.some_if (equal_string name f) i)
-       with
+      (match List.Assoc.find coderef_map ~equal:equal_string f with
       | Some idx -> ret ([ CodeRef idx ], locals, [])
       | None -> fail (Err.CoderefNotFound f))
   | Op (o, left, right) ->
@@ -221,7 +217,7 @@ let rec compile_expr delta gamma locals functions e :
       in
       let* left', locals', fx_l = r left in
       let* right', locals', fx_r =
-        compile_expr delta gamma locals' functions right
+        compile_expr delta gamma locals' coderef_map right
       in
       ret
         ( left' @ [ Untag ] @ right'
@@ -261,7 +257,7 @@ let rec compile_expr delta gamma locals functions e :
           fx @ [ (temp_idx, rw_unit) ] )
   | Assign (re, v) ->
       let* re', locals', fx_re = r re in
-      let* v', locals', fx_v = compile_expr delta gamma locals' functions v in
+      let* v', locals', fx_v = compile_expr delta gamma locals' coderef_map v in
       ret (re' @ v' @ [ Store (Path.Path []) ], locals', fx_re @ fx_v)
   | Fold (_, v) ->
       let* raw_t =
@@ -277,7 +273,7 @@ let rec compile_expr delta gamma locals functions e :
   | Apply (f, ts, arg) ->
       let* f', locals', fx_f = r f in
       let* arg', locals', fx_arg =
-        compile_expr delta gamma locals' functions arg
+        compile_expr delta gamma locals' coderef_map arg
       in
       let* insts =
         mapM ts ~f:(fun t ->
@@ -293,7 +289,7 @@ let rec compile_expr delta gamma locals functions e :
         compile_expr (var :: delta)
           ((n, t, tmp_local) :: gamma)
           (locals' @ [ ("#unpack-tmp", tmp_local_t) ])
-          functions e
+          coderef_map e
       in
       let fx = fx_v @ fx_e in
       ret
@@ -313,7 +309,7 @@ let rec compile_expr delta gamma locals functions e :
       let* t' = compile_type delta t in
       let locals'' = locals' @ [ (n, t') ] in
       let* e2', locals''', fx2 =
-        compile_expr delta ((n, t, var_idx) :: gamma) locals'' functions e2
+        compile_expr delta ((n, t, var_idx) :: gamma) locals'' coderef_map e2
       in
       ret
         ( e1' @ [ LocalSet var_idx ] @ e2' @ [ LocalGet (var_idx, Move); Drop ],
@@ -322,10 +318,10 @@ let rec compile_expr delta gamma locals functions e :
   | If0 (c, thn, els) ->
       let* c', locals', fx_c = r c in
       let* thn', locals', fx_t =
-        compile_expr delta gamma locals' functions thn
+        compile_expr delta gamma locals' coderef_map thn
       in
       let* els', locals', fx_e =
-        compile_expr delta gamma locals' functions els
+        compile_expr delta gamma locals' coderef_map els
       in
       ret
         ( c'
@@ -348,7 +344,7 @@ let rec compile_expr delta gamma locals functions e :
               compile_expr delta
                 ((n, t, new_local) :: gamma)
                 (locals @ [ (n, t') ])
-                functions e
+                coderef_map e
             in
             ret
               ( ((LocalSet new_local :: compiled)
@@ -371,7 +367,7 @@ let rec compile_expr delta gamma locals functions e :
           locals' @ [ ("#cases-tmp", Prod []) ],
           fx_v @ fx )
 
-let compile_fun functions : Closed.Function.t -> Module.Function.t Res.t =
+let compile_fun coderef_map : Closed.Function.t -> Module.Function.t Res.t =
   function
   | Closed.Function.Function
       { name = _; foralls; arg = arg_name, arg_type; ret_type; body } ->
@@ -383,7 +379,7 @@ let compile_fun functions : Closed.Function.t -> Module.Function.t Res.t =
         compile_expr foralls
           [ (arg_name, arg_type, 0) ]
           [ (arg_name, arg_rw_type) ]
-          functions body
+          coderef_map body
       in
       ret
         Module.Function.
@@ -438,25 +434,34 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
                     } );
             ])
   in
-  let functions =
-    List.map
-      ~f:(function
-        | Export (_, f) | Private (_, f) -> f)
-      fns
+  let import_offset = List.length imps in
+  (* [coderef_map] resolves a name to its index in the unified function space
+     (imports 0..k-1, then functions k..k+n-1). Imports must be included so a
+     [Coderef] to an imported function resolves. *)
+  let coderef_map =
+    List.mapi ~f:(fun i (Import (n, _)) -> (n, i)) imps
+    @ List.mapi
+        ~f:(fun i -> function
+          | Export ((n, _), _) | Private ((n, _), _) -> (n, import_offset + i))
+        fns
   in
   let* functions =
     mapM
       ~f:(function
-        | Export (_, f) | Private (_, f) -> compile_fun functions f)
+        | Export (_, f) | Private (_, f) -> compile_fun coderef_map f)
       fns
   in
   let exports =
     List.filter_mapi
       ~f:(fun i -> function
-        | Export ((name, _), _) -> Some Module.Export.{ name; desc = Func i }
+        | Export ((name, _), _) ->
+            Some Module.Export.{ name; desc = Func (import_offset + i) }
         | Private _ -> None)
       fns
   in
-  let import_offset = List.length imps in
-  let table = List.mapi ~f:(fun i _ -> import_offset + i) fns in
+  (* identity table over the whole function space so both imports and
+     functions can be the target of a [Coderef] *)
+  let table =
+    List.init (import_offset + List.length fns) ~f:Fn.id
+  in
   ret Module.{ imports; functions; table; exports }
