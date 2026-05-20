@@ -20,18 +20,11 @@ module LL : SurfaceLang = struct
 end
 
 module MM : SurfaceLang = struct
-  module CompilerError = struct
-    type t = | [@@deriving sexp_of]
+  module CompilerError = Richwasm_mini_ml.Main.CompileErr
 
-    let pp _ _ = ()
-  end
-
-  module M = LogResultM (CompilerError) (String)
-
-  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) src =
+  let compile_to_richwasm ?info ~(asprintf : EndToEnd.asprintf) =
     ignore info;
-    ignore asprintf;
-    src |> ml_str_pipeline |> M.ret
+    Richwasm_mini_ml.Main.compile_str ~asprintf:{ asprintf = asprintf.asprintf }
 end
 
 module RW : SurfaceLang = struct
@@ -198,7 +191,7 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                 {|
                   ((imports ((FunctionType () ((Num (Int I32))) ((Num (Int I32))))))
                    (functions
-                    (((typ (FunctionType () (I31) ((Num (Int I32)))))
+                    (((typ (FunctionType () (I31) (I31)))
                       (locals ())
                       (body
                        ((LocalGet 0 Copy)
@@ -217,10 +210,9 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   (app add1 () 1)
                 |}
               in
-              (* let result, logs =
+              let result, logs =
                 Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
               in
-              check_result "2" Triple.E2Err.pp logs result *)
-              skip ());
+              check_result "2" Triple.E2Err.pp logs result);
         ] );
     ]
