@@ -373,6 +373,13 @@ Section inst.
     by apply eval_size_mem_irrel.
   Qed.
 
+  Lemma eval_mem_up_shift_mem_eq se μ mm :
+    eval_mem se mm =
+    eval_mem (senv_insert_mem (Σ:=Σ) μ se) (ren_memory unscoped.shift mm).
+  Proof.
+    destruct mm; by cbn.
+  Qed.
+
   Lemma eval_rep_up_shift_rep_eq se ρ ιs :
     eval_rep se ρ =
     eval_rep (senv_insert_rep (Σ:=Σ) ιs se) (ren_representation unscoped.shift ρ) .
@@ -1357,8 +1364,7 @@ Section inst.
         cbn.
         admit.
       }
-
-    * (* variant *)
+    * (* variant, quarter *)
       intros.
       rewrite !type_interp_eq.
       cbn.
@@ -1374,7 +1380,6 @@ Section inst.
       all: iExists i, n, ws, ws'; iFrame "#".
       - destruct (list_lookup i (map (type_interp rti sr) τs)) as [τi|] eqn:Hτi;
           rewrite Hτi; try done.
-
         admit.
       - admit.
     * (* prod, qed *)
@@ -1486,7 +1491,7 @@ Section inst.
       admit.
     * (* rec *)
       admit.
-    * (* exists mem *)
+    * (* exists mem, nearly qed with that one big lemma and two boring *)
       intros.
       rewrite !type_interp_eq.
       (* i wanna opaque something but dk what. subst_type dies *)
@@ -1511,130 +1516,298 @@ Section inst.
       all: specialize (IHτ (senv_insert_mem μ se')).
       all: assert (Hse'_new: sem_env_types_well_formed (senv_insert_mem μ se')) by admit.
       all: specialize (IHτ Hse'_new).
-      Transparent senv_insert_mem.
       all: iApply IHτ; try done.
       (* these lemmas are half done with only the value_interp ones being scary *)
       (* make these hypotheses/asserts so it's easy  *)
-      all: admit.
+      (* i'll make them asserts/lemmas later *)
+      (* the exists rep and all that have some of these by default already *)
+      (* mem just hasn't had them yet *)
+      1, 6: intros; cbn;
+            change ((senv_insert_mem μ se').1.1.2 !! i) with (lookup_rep se' i);
+            rewrite (Hsub_r i);
+            apply eval_rep_up_memory_eq.
+      1, 5: intros; cbn;
+            change ((senv_insert_mem μ se').1.2 !! i) with (lookup_size se' i);
+            rewrite (Hsub_s i);
+            apply eval_size_up_memory_eq.
+      1, 4: intros; cbn;
+            destruct i; cbn; try done;
+            change ((senv_insert_mem μ se').1.1.1 !! S i) with (lookup_mem se' i);
+            rewrite (Hsub_m i);
+            unfold core.funcomp;
+            cbn;
+            apply eval_mem_up_shift_mem_eq.
+      1, 3: intros;
+            change (fst <$> lookup_type (senv_insert_mem μ se') i) with
+               (fst <$> lookup_type se' i);
+            rewrite (Hsub_sκ i);
+            apply type_skind_up_memory_eq.
+      1, 2: intros;
+            change (snd <$> lookup_type (senv_insert_mem μ se') i) with
+               (snd <$> lookup_type se' i);
+            rewrite (Hsub_T i);
+            iIntros;
+            iApply type_interp_up_memory.
     * (* exists rep *)
       admit.
     * (* exists size *)
       admit.
     * (* exists type *)
       admit.
-    * (* mono fun, scary *)
+    * (* mono fun, qed *)
       intros.
       rewrite !closure_interp_eq.
+      asimpl'.
+      unfold closure_interp'.
+      rename H into IHτs1. rename H0 into IHτs2.
+      rename H1 into Hse'. rename H2 into Hse.
+      rename H3 into Hsub_r. rename H4 into Hsub_s.
+      rename H5 into Hsub_m. rename H6 into Hsub_sκ.
+      rename H7 into Hsub_T.
+      (* unfold mono_closure_interp. *)
+      (* I hate mono closure interp so much *)
+      (* I think this is as far as I get *)
+      iSplitR.
+      {
+        iIntros "Hoa".
+
+        pose proof (translate_types_subst_senv_eq se se' sub_m sub_r sub_s sub_t
+                    τs1 Hsub_r Hsub_s Hsub_sκ) as Htranslate1.
+        pose proof (translate_types_subst_senv_eq se se' sub_m sub_r sub_s sub_t
+                    τs2 Hsub_r Hsub_s Hsub_sκ) as Htranslate2.
+        unfold mono_closure_interp.
+        Opaque atoms_interp.
+        Opaque translate_types.
+        cbn.
+        rewrite !Htranslate1.
+        rewrite !Htranslate2.
+        destruct cl as [inst f tlocs es | a b]; [|done].
+        destruct f as [ts1 ts2].
+        iDestruct "Hoa" as "(#ts1trans & #ts2trans & #Hoa)".
+        iSplitR; [done| iSplitR; [done|]].
+        do 2 iModIntro.
+        iIntros (vs1 os1 θ) "Hos Htypes Hrt Hown Hfr Hrun".
+        iSpecialize ("Hoa" $! vs1 os1 θ).
+
+        iClear "ts1trans ts2trans".
+        rewrite !map_fmap.
+
+        assert (FlipSepL2τs1: ∀ oss,
+              ([∗ list] y1;y2 ∈ τs1;oss,
+                 type_interp rti sr
+                    (subst_type sub_m sub_r sub_s sub_t y1) se
+                    (SAtoms y2))%I ≡
+              ([∗ list] y1;y2 ∈ τs1;oss,
+                 type_interp rti sr y1 se' (SAtoms y2))%I
+            ). {
+          intros.
+          iSplitR; iIntros "Hoa".
+          all: iApply big_sepL2_mono; [|done].
+          all: intros i τ os Hτ Hos.
+          all: cbn.
+          all: pose proof (Forall_lookup_1 _ _ _ _ IHτs1 Hτ) as IH.
+          all: specialize (IH sub_t sub_r sub_s sub_m se Hse se' Hse').
+          all: specialize (IH Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T).
+          all: specialize (IH (SAtoms os)).
+          all: iIntros "H".
+          all: by iApply IH.
+        }
+        assert (FlipSepL2τs2: ∀ oss,
+              ([∗ list] y1;y2 ∈ τs2;oss,
+                 type_interp rti sr
+                    (subst_type sub_m sub_r sub_s sub_t y1) se
+                    (SAtoms y2))%I ≡
+              ([∗ list] y1;y2 ∈ τs2;oss,
+                 type_interp rti sr y1 se' (SAtoms y2))%I
+            ). {
+          intros.
+          iSplitR; iIntros "Hoa".
+          all: iApply big_sepL2_mono; [|done].
+          all: intros i τ os Hτ Hos.
+          all: cbn.
+          all: pose proof (Forall_lookup_1 _ _ _ _ IHτs2 Hτ) as IH.
+          all: specialize (IH sub_t sub_r sub_s sub_m se Hse se' Hse').
+          all: specialize (IH Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T).
+          all: specialize (IH (SAtoms os)).
+          all: iIntros "H".
+          all: by iApply IH.
+        }
+
+        iSpecialize ("Hoa" with "[$Hos] [Htypes] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
+        {
+          (* something similar to what we did in prod I think *)
+          (* this should be a lemma *)
+          (* it's identical actually *)
+          (* I CAN'T MAKE THIS A LEMMA *)
+          (* BC WHEN I TRY ROCQ IS LIKE "I CAN'T UNIFY THE TYPES :(" *)
+          (* YES YOU CAN IT'S RIGHT YOU'VE DONE IT HERE WHY CAN'T IT *)
+          (* BE A LEMMA *)
+          iDestruct "Htypes" as "(%oss & rest)".
+          iDestruct "rest" as "(#Hoss & Htypes)".
+          iExists oss; iFrame "#".
+          iApply big_sepL2_fmap_l.
+          iPoseProof (big_sepL2_fmap_l (type_interp rti sr) with "Htypes")
+            as "Htypes".
+          iPoseProof
+          (big_sepL2_fmap_l (subst_type sub_m sub_r sub_s sub_t)
+                            (fun k y1 y2 => type_interp rti sr y1 se (SAtoms y2))
+            with "Htypes") as "Htypes".
+
+          by rewrite FlipSepL2τs1.
+        }
+        
+
+        iApply (cwp_label_wand with "[-]").
+        - iApply (cwp_return_wand with "[-]").
+          + iApply (cwp_wand with "[-]").
+            * done.
+            * iIntros (f v) "H".
+              setoid_rewrite big_sepL2_fmap_l.
+              setoid_rewrite big_sepL2_fmap_l.
+              by setoid_rewrite FlipSepL2τs2.
+          + cbn.
+            unfold return_wand.
+            iSplitR; [iPureIntro; by cbn|].
+            iIntros (vs Hvs) "H".
+            cbn.
+            setoid_rewrite big_sepL2_fmap_l.
+            setoid_rewrite big_sepL2_fmap_l.
+            by setoid_rewrite FlipSepL2τs2.
+        - unfold label_ctx_wand.
+          iSplitR; [iPureIntro; by cbn|].
+          cbn. iSplitR; [|done].
+          unfold label_wand.
+          iSplitR; [iPureIntro; by cbn|].
+          iIntros (f vs Hvs) "H".
+          cbn.
+          setoid_rewrite big_sepL2_fmap_l.
+          setoid_rewrite big_sepL2_fmap_l.
+          by setoid_rewrite FlipSepL2τs2.
+
+      }
+      {
+
+        iIntros "Hoa".
+
+        pose proof (translate_types_subst_senv_eq se se' sub_m sub_r sub_s sub_t
+                    τs1 Hsub_r Hsub_s Hsub_sκ) as Htranslate1.
+        pose proof (translate_types_subst_senv_eq se se' sub_m sub_r sub_s sub_t
+                    τs2 Hsub_r Hsub_s Hsub_sκ) as Htranslate2.
+        unfold mono_closure_interp.
+        Opaque atoms_interp.
+        Opaque translate_types.
+        cbn.
+        rewrite !Htranslate1.
+        rewrite !Htranslate2.
+        destruct cl as [inst f tlocs es | a b]; [|done].
+        destruct f as [ts1 ts2].
+        iDestruct "Hoa" as "(#ts1trans & #ts2trans & #Hoa)".
+        iSplitR; [done| iSplitR; [done|]].
+        do 2 iModIntro.
+        iIntros (vs1 os1 θ) "Hos Htypes Hrt Hown Hfr Hrun".
+        iSpecialize ("Hoa" $! vs1 os1 θ).
+
+        iClear "ts1trans ts2trans".
+        rewrite !map_fmap.
+
+        assert (FlipSepL2τs1: ∀ oss,
+              ([∗ list] y1;y2 ∈ τs1;oss,
+                 type_interp rti sr
+                    (subst_type sub_m sub_r sub_s sub_t y1) se
+                    (SAtoms y2))%I ≡
+              ([∗ list] y1;y2 ∈ τs1;oss,
+                 type_interp rti sr y1 se' (SAtoms y2))%I
+            ). {
+          intros.
+          iSplitR; iIntros "Hoa".
+          all: iApply big_sepL2_mono; [|done].
+          all: intros i τ os Hτ Hos.
+          all: cbn.
+          all: pose proof (Forall_lookup_1 _ _ _ _ IHτs1 Hτ) as IH.
+          all: specialize (IH sub_t sub_r sub_s sub_m se Hse se' Hse').
+          all: specialize (IH Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T).
+          all: specialize (IH (SAtoms os)).
+          all: iIntros "H".
+          all: by iApply IH.
+        }
+        assert (FlipSepL2τs2: ∀ oss,
+              ([∗ list] y1;y2 ∈ τs2;oss,
+                 type_interp rti sr
+                    (subst_type sub_m sub_r sub_s sub_t y1) se
+                    (SAtoms y2))%I ≡
+              ([∗ list] y1;y2 ∈ τs2;oss,
+                 type_interp rti sr y1 se' (SAtoms y2))%I
+            ). {
+          intros.
+          iSplitR; iIntros "Hoa".
+          all: iApply big_sepL2_mono; [|done].
+          all: intros i τ os Hτ Hos.
+          all: cbn.
+          all: pose proof (Forall_lookup_1 _ _ _ _ IHτs2 Hτ) as IH.
+          all: specialize (IH sub_t sub_r sub_s sub_m se Hse se' Hse').
+          all: specialize (IH Hsub_r Hsub_s Hsub_m Hsub_sκ Hsub_T).
+          all: specialize (IH (SAtoms os)).
+          all: iIntros "H".
+          all: by iApply IH.
+        }
+
+        iSpecialize ("Hoa" with "[$Hos] [Htypes] [$Hrt] [$Hown] [$Hfr] [$Hrun]").
+        {
+          (* something similar to what we did in prod I think *)
+          (* this should be a lemma *)
+          (* it's identical actually *)
+          (* I CAN'T MAKE THIS A LEMMA *)
+          (* BC WHEN I TRY ROCQ IS LIKE "I CAN'T UNIFY THE TYPES :(" *)
+          (* YES YOU CAN IT'S RIGHT YOU'VE DONE IT HERE WHY CAN'T IT *)
+          (* BE A LEMMA *)
+          iDestruct "Htypes" as "(%oss & rest)".
+          iDestruct "rest" as "(#Hoss & Htypes)".
+          iExists oss; iFrame "#".
+          do 3 (rewrite big_sepL2_fmap_l).
+          by rewrite FlipSepL2τs1.
+        }
+
+
+        iApply (cwp_label_wand with "[-]").
+        - iApply (cwp_return_wand with "[-]").
+          + iApply (cwp_wand with "[-]").
+            * done.
+            * iIntros (f v) "H".
+              setoid_rewrite big_sepL2_fmap_l.
+              setoid_rewrite big_sepL2_fmap_l.
+              by setoid_rewrite FlipSepL2τs2.
+          + cbn.
+            unfold return_wand.
+            iSplitR; [iPureIntro; by cbn|].
+            iIntros (vs Hvs) "H".
+            cbn.
+            setoid_rewrite big_sepL2_fmap_l.
+            setoid_rewrite big_sepL2_fmap_l.
+            by setoid_rewrite FlipSepL2τs2.
+        - unfold label_ctx_wand.
+          iSplitR; [iPureIntro; by cbn|].
+          cbn. iSplitR; [|done].
+          unfold label_wand.
+          iSplitR; [iPureIntro; by cbn|].
+          iIntros (f vs Hvs) "H".
+          cbn.
+          setoid_rewrite big_sepL2_fmap_l.
+          setoid_rewrite big_sepL2_fmap_l.
+          by setoid_rewrite FlipSepL2τs2.
+
+      }
+    * (* forallmem *)
+      admit.
+    * (* forallrep *)
+      admit.
+    * (* forallsize *)
+      admit.
+    * (* foralltype *)
+      admit.
 
 
 (*
 
-        * (* exists mem, need mini value interp lemma, fix for memtype *)
-          intros.
-          iPoseProof (type_interp_eq_r with "[$Hoa]") as "Hoa".
-          iApply type_interp_eq_l.
-          iDestruct "Hoa" as "(%sκ & %Hsκ & Hsκ & (%μ & Hμ))".
-          iExists sκ.
-          iFrame. (* this does delete some pure things *)
-          iSplitR; [iPureIntro; eapply eval_kind_subst_senv; done|].
-
-          (* this might be wrong *)
-          cbn.
-          iExists μ.
-          iRename "Hμ" into "Hoa".
-
-          specialize (IHτ (up_memory_type sub_t) (up_memory_representation sub_r)
-                     (up_memory_size sub_s) (up_memory_memory sub_m))
-            as IHτ.
-          specialize (IHτ (senv_insert_mem μ se) (senv_insert_mem μ se'))
-            as IHτ.
-          apply IHτ.
-          -- intros.
-             assert (H': lookup_rep se' i = Some ιs'). {
-               unfold senv_insert_mem in H.
-               done.
-             }
-             apply Hsub_r in H'.
-             by apply eval_rep_up_memory.
-          -- intros.
-             assert (H': lookup_size se' i = Some n). {
-               cbn in H. done.
-             }
-             apply Hsub_s in H'.
-             by apply eval_size_up_memory.
-          -- intros.
-             assert (H': lookup_type se' i = Some (sκ', T')). {
-               unfold senv_insert_mem in H. cbn in H.
-               unfold lookup_type in *; cbn in H; by cbn.
-             }
-             apply Hsub_T in H' as (Hsκ0' & HT').
-             split; [by apply type_skind_up_memory|].
-             iIntros (sv) "HT' #Hsv".
-             iPoseProof (HT' with "[$] [$]") as "Hval".
-             (* HERE *)
-             (* oh no...
-                need a lemma like
-                value_interp rti sr se (sub_t i) sv -∗
-                value_interp rti sr (senv_insert_mem μ se) (up_memory_type sub_t i) sv
-                and all the other combinations for all the other exists
-                jeez
-              *)
-             admit.
-        * (* exists rep *)
-          admit.
-        * (* exists size *)
-          admit.
-        * (* exists type *)
-
-          admit.
-        * (** MonoFun, WORRIED due to potential bi-implication *)
-          (* base case for P0 *)
-          iIntros (??????? Hsub_r Hsub_s Hsub_T) "#Hcl".
-          (* cbn. *)
-          (* I'm so scared *)
-          destruct cl; [|auto].
-          destruct f as [τs1_trans τs2_trans] eqn:Hf.
-          iDestruct "Hcl" as "(%Hτs1 & %Hτs2 & Hcl)".
-          iSplitR; [iPureIntro| iSplitR; [iPureIntro|]]; fold (subst_type sub_m sub_r sub_s sub_t).
-          -- pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
-             by eapply translate_types_subst_senv.
-          -- pose proof (rel_type_implies_rel_sκ se' se sub_t Hsub_T) as Hsub_t.
-             by eapply translate_types_subst_senv.
-          -- iIntros "!> !> %%% Hvs Hos Hrt Hown Hfr Hrun".
-             iApply (cwp_label_wand with "[-]").
-             ++ iApply (cwp_return_wand with "[-]").
-                ** iApply (cwp_wand with "[-]").
-                   --- iApply ("Hcl" with "[$] [Hos] [$] [$] [$] [$]").
-                       iClear "Hcl".
-                       (* IT'S THE OTHER WAY AROUND WHYYYYY :SOB: *)
-                       admit. (* values_interp0 *)
-                   --- iClear "Hcl".
-                       iIntros (f' vs) "((%os & Hvs & Hos) & [% Hrt] & Hown)".
-                       iSplitL "Hvs Hos"; last iFrame.
-                       iExists _.
-                       iFrame.
-                       (* this is the correct direction to use H *)
-                       admit. (* values_interp0 *)
-                ** iClear "Hcl".
-                   iSplitL; first done.
-                   iIntros (? Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
-                   cbn in Hlen.
-                   iSplitL "Hvs Hos"; last iFrame.
-                   iExists _.
-                   iFrame.
-                   (* correct direction to use H0 *)
-                   admit. (* values_interp0 *)
-             ++ iClear "Hcl".
-                iSplitL; first done.
-                iApply big_sepL2_singleton.
-                iSplitL; first done.
-                iIntros (f' vs Hlen) "((% & Hvs & Hos) & [% Hrt] & Hown)".
-                cbn in Hlen.
-                iSplitL "Hvs Hos"; last iFrame.
-                iExists _.
-                iFrame.
-                (* correct direction to use H0 *)
-                admit.
         * (* ForallMemT case, done except value interp mini lemma *)
           intros ??????? Hsub_r Hsub_s Hsub_T.
           iIntros "Hcl".
@@ -1887,8 +2060,9 @@ Section inst.
     (* this is the location that's testing whether Hsub_T is weak enough *)
     (* strong enough test is above *)
     2: {
+      Transparent senv_insert_mem.
       cbn.
-      apply hsub_t_base_se_VarT; done.
+      by apply hsub_t_base_se_VarT.
     }
     intros.
     cbn.
