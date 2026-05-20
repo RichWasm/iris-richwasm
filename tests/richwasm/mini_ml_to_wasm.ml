@@ -1444,10 +1444,10 @@ let%expect_test "examples" =
 
     -----------return_one-----------
     FAILURE Typechecker failed with error(s):
-    can't module check types not equal
+    can't module check type not equal
     -----------iife-----------
     FAILURE Typechecker failed with error(s):
-    can't module check types not equal
+    can't module check type not equal
     -----------add_one-----------
     (module
       (type (;0;) (func (param i32 i32)))
@@ -2607,12 +2607,12 @@ let%expect_test "examples" =
                       (Ref (Base GC) (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))))))))))
     -----------mini_zip-----------
     FAILURE Typechecker failed with error(s):
-    can't module check types not_equal
+    can't module check type not equal
     -----------closure_simpl-----------
     FAILURE Typechecker failed with error(s):
-    can't module check types not equal
+    can't module check type not equal
     -----------closure_complex-----------
     FAILURE Typechecker failed with error(s):
     can't module check
       instruction has more arguments than large have_instruction type has, or can't frame out
-      types not equal |}]
+      type not equal |}]
