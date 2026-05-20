@@ -233,6 +233,8 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
               let result, logs =
                 Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
               in
-              check_result "2" Triple.E2Err.pp logs result);
+              (* add1 1 = 2; the result is an i31, whose raw wasm value is the
+                 tagged form 2 * 2 = 4 *)
+              check_result "4" Triple.E2Err.pp logs result);
         ] );
     ]
