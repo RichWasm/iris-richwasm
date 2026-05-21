@@ -2103,7 +2103,27 @@ Section inst.
       done.
   Qed.
 
-  (* matthias *)
+  Lemma skind_has_stype_proper sκ (T T' : leibnizO semantic_value -n> iPropO Σ) :
+    T ≡ T' →
+    skind_has_stype sκ T' →
+    skind_has_stype sκ T.
+  Proof.
+    intros Heq [Href Hval].
+    split.
+    - unfold ref_flag_stype_interp in *.
+      destruct (skind_ref_flag sκ); try done.
+      all: intros sv; by rewrite (Heq sv).
+    - intros sv.
+      by rewrite (Heq sv).
+  Qed.
+
+  Global Instance skind_has_stype_proper_instance sκ :
+  Proper (equiv ==> flip impl) (skind_has_stype (Σ:=Σ) sκ).
+  Proof.
+    intros T T' Heq HT'.
+    eapply skind_has_stype_proper; [exact Heq | exact HT'].
+  Qed.
+
   Lemma fold_type_interp_subst_COPY (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
     sem_env_types_well_formed se ->
     eval_kind se κ = Some sκ →
@@ -2115,6 +2135,10 @@ Section inst.
     iApply type_interp_subst_type_BIDIRECTIONAL; unfold_sem_rels.
     - cbn.
       apply Forall_cons; split; [|done].
+      rewrite skind_rec_interp_unfold_no_sv.
+      simpl.
+
+      (* apply kinding_sound. *)
       (* the thing I sent *)
       (* skind_has_stype sκ (skind_rec_interp sκ (type_interp rti sr τ) se) *)
       admit.
@@ -2128,8 +2152,21 @@ Section inst.
         iIntros.
         rewrite skind_rec_interp_unfold.
         rewrite value_interp_eq.
-        (* hm *)
-        admit.
+        simpl.
+        iSplit; iIntros "H".
+        * iFrame "%".
+          iSplit; first admit. (* hm *)
+          rewrite rec_interp_unfold.
+          simpl.
+          rewrite H0.
+          done.
+        * iDestruct "H" as "(%sκ' & %Heval & %Hsk & Hreci)".
+          rewrite Heval in H0.
+          inversion H0; subst.
+          rewrite rec_interp_unfold.
+          simpl.
+          rewrite Heval.
+          done.
       + by apply hsub_t_base_se_VarT. (* this uses sem_env_types_well_formed *)
   Admitted.
 
