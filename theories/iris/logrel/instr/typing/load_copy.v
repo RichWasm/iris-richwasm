@@ -21,6 +21,13 @@ Section load_copy.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
+  Ltac open_rt H :=
+    iDestruct H
+      as "(%rm & %lm & %hm &
+           Haddr & Hroot & Hlayout & Hheap & Hrti & Hinj & Hownmm &
+           Howngc & Hrootok & Hrootmem & Hheapok & Hheapmem)".
+
+
   Lemma atoms_interp_nil_inv vs :
     atoms_interp [] vs ⊣⊢ ⌜vs = []⌝ .
   Proof.
@@ -270,6 +277,23 @@ Section load_copy.
     repeat (iSplit; auto).
     iApply "Hrootm"; auto.
   Qed.
+
+  Lemma extract_data a ℓ e ws :
+    ℓ ↦heap ws -∗
+    rt_token rti sr e -∗
+    ∃ ah ah32,
+      ⌜repr_pointer e (PtrHeap MemMM ℓ) ah⌝ ∗
+      ⌜N_i32_repr ah ah32⌝ ∗
+      N.of_nat (sr_mem_gc sr)↦[wms][a] bits (VAL_int32 ah32) ∗
+      (N.of_nat (sr_mem_gc sr)↦[wms][a] bits (VAL_int32 ah32) -∗
+       a ↦root ℓ ∗
+       rt_token rti sr e).
+  Proof.
+    iIntros "Hhp Hrt".
+    open_rt "Hrt".
+    unfold heap_memory.
+  Abort.
+
 
   Lemma wp_loadroot wt wl ret wt' wl' es_load :
     run_codegen (loadroot mr) wt wl = inr (ret, wt', wl', es_load) ->
@@ -1068,6 +1092,69 @@ Section load_copy.
       eauto.
   Qed.
 
+  Lemma mono_size_eval_emp_Some σ :
+    is_mono_size σ ->
+    is_Some (eval_size EmptyEnv σ).
+  Proof.
+    intros Hmono.
+    induction σ using size_ind; inversion Hmono; subst.
+    - cbn in H1; lia.
+    - cbn.
+      rewrite !Forall_forall in H H2.
+      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
+      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
+      eapply H; try eapply H2; eauto.
+    - cbn.
+      rewrite !Forall_forall in H H2.
+      assert (is_Some (mapM (eval_size EmptyEnv) σs)) as (ns & ->); last done.
+      eapply mapM_is_Some_2, Forall_forall; intros; cbn.
+      eapply H; try eapply H2; eauto.
+    - cbn.
+      eapply eval_rep_empty_ok_Some in H1.
+      by destruct H1 as (rep & ->).
+    - done.
+  Qed.
+
+  Lemma ws_to_vs θ off memidx vs ιs base :
+    let offs := (seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
+                       (off, []) ιs).2 in
+    ⊢ rt_token rti sr θ -∗
+      [∗ list] off';v ∈ offs;vs, memidx↦[wms][base + byte_offset MemMM off'] bits v ∗ rt_token rti sr θ.
+  Proof.
+    Locate "↦[wms][".
+    Search mem_block_at_pos.
+  Abort.
+
+  Lemma ws_to_vs θ off memidx vs ιs base :
+    let offs := (seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
+                       (off, []) ιs).2 in
+    ⊢ rt_token rti sr θ -∗
+      [∗ list] off';v ∈ offs;vs, memidx↦[wms][base + byte_offset MemMM off'] bits v ∗ rt_token rti sr θ.
+    Proof.
+      iIntros (offs) "Hrt".
+      open_rt "Hrt".
+    Abort.
+
+    (*
+      root_memory sr θ
+Hkval: has_kind F τval (VALTYPE ρtgt ξtgt)
+Hρ: type_rep (fe_type_vars fe) τval = Some ρtgt
+Hkval: has_kind F τval (VALTYPE ρtgt ξtgt)
+Hev: eval_size EmptyEnv (RepS ρtgt) = Some ntgt
+Hιs: eval_rep EmptyEnv ρtgt = Some ιs
+
+  Hev : eval_size EmptyEnv (RepS ρtgt) = Some ntgt
+  Hwslen : off + ntgt ≤ length ws
+  type_rep (fe_type_vars fe) τval = Some ρ
+  eval_rep EmptyEnv ρ = Some ιs
+
+  Search rt_token.
+  ℓ ↦layout fs
+  ℓ ↦heap ws
+  value_interp rti sr se (pr_target pr) (SWords (get_path_words off ntgt ws))
+  "Hval" : value_interp rti sr se (pr_target pr) (SWords (get_path_words off ntgt ws))
+    *)
+
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -1245,7 +1332,6 @@ Section load_copy.
         eapply has_kind_type_sz in Hkind; eauto.
         rewrite mono_size_eval_emp; eauto.
       }
-(*      eapply resolves_path_sep in Hresolves; eauto.*)
       iAssert (value_interp rti sr se τ (SWords ws)) with "[Ht]" as "Hval".
       { rewrite type_interp_eq; iExists _; by iFrame. }
       apply wp_mem_load_copy_mm in Hload1.
@@ -1254,11 +1340,29 @@ Section load_copy.
       iDestruct "Hat" as "(%n' & %n32 & %Hrep & -> & Hat')".
       iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
       iEval (rewrite type_interp_eq) in "Hval".
-      iDestruct "Hval" as "(%sk' & %Hsk1 & %Hsk2 & Hval)".
-      rewrite Hsk in  Hsk1.
-      inversion Hsk1; subst sk'.
-      inversion Hskag; subst.
-      iApply (Hload with "[$] [$] [] [Hat'] [Hval] [$] [$] [-]").
+      pose proof Hresolves as Hpath.
+      inversion H as [? ? σtgt ξtgt' Hhktgt Htgtmono HF' HT]; subst.
+      rewrite Hser in Hhktgt.
+      pose proof Hhktgt as Hhktgt'.
+      apply inv_kind_ser in Hhktgt'.
+      destruct Hhktgt' as (ρtgt & ξtgt & Hkval & Hsub & Hsub').
+      inversion Hsub; subst.
+      pose proof (type_kind_has_kind_agree _ _ _ _ Hhktgt ltac:(done)) as Hsub''.
+      inversion Hsub'; subst.
+      pose proof (mono_size_eval_emp_Some _ Htgtmono) as (ntgt & Hev).
+      (* TODO generalize the defn of resolves_path_inv_sep to deal with the
+      order of ref_flags here. it puts too many consraints *)
+      eapply resolves_path_inv_sep in Hpath;
+        try eapply Hser;
+        try eapply Hev;
+        try eapply Hoff;
+        try rewrite Hser; try by eassumption.
+      iEval (rewrite -type_interp_eq) in "Hval".
+      iEval (unfold root_pointer_interp; cbn) in "Hat'".
+      iPoseProof (Hpath with "Hval") as "(%Hwslen & Hval & Hcont)".
+      clear Hpath.
+      unfold rt_token.
+      iApply (Hload with "[$] [$] [] [Hat'] [Hℓh Hval] [$] [$] [-]").
       + admit.
       + eauto.
       + eauto.
@@ -1279,18 +1383,36 @@ Section load_copy.
         lia.
       + (* pr_target is always a SerT *)
         (*need to get from memtype (which interprets words) to atom_interp o v*)
-
         admit.
       + iApply "Hreg".
-      + erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
-        iFrame; by eauto.
-      + (*
+      + admit.
+        (*erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
+        iFrame; by eauto.*)
+      + iEval (rewrite Hser value_interp_eq) in "Hval".
+        iDestruct "Hval" as "(%sk & ? & ? & (%os & %Hwords & Hval))".
+        inversion Hwords.
+        (*
       need to relate
   [∗ list] off';v ∈ (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off'))
                        (off, []) ιs).2;[VAL_int32 n32], ?Goal2↦[wms][?Goal1 + byte_offset MemMM off']
   bits v
         and the (get_path_words) function.
-        *)
+
+        The situation is this. If we have
+           l ->heap ws
+         then by opening up rt_invariant we get an underlying points-to to some
+         values vs that can be loaded from along with some information saying ws
+         is like vs.
+         We need a lemma that goes from these facts (get_path_words ...) and
+         (update_path_words ..) to corresponding decompositions of the
+         underlying points-tos.
+         Then we need another lemma that relates those decompositions to this
+         nasty foldl (if it isn't already expressed in that form).
+         *)
+        unfold fe in Hρ; cbn in Hρ.
+        pose proof Hρ as Hρ'; erewrite type_rep_has_kind_agree in Hρ'; last eauto.
+        inversion Hρ'; subst ρ; clear Hρ'.
+
         admit.
       + iIntros (f'' e' vs') "-> Hown Htok #Hinst' Hpts Hpost".
         unfold fvs_combine.
@@ -1298,7 +1420,7 @@ Section load_copy.
         iSplitR; [|iSplitL "Hframe"].
         * unfold frame_rel.
           cbn.
-          iSplit; last done.
+          iSplit; last by rewrite load_frame_inst.
           (* mask_locs_eq lmask ... mk_load1_frame *)
           admit.
         * unfold mk_load_frame.
