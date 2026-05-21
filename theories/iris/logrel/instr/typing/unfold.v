@@ -31,13 +31,17 @@ Section unfold.
     subst WT WL.
     clear_nils.
     simplify_eq.
-
     simpl to_e_list.
     iApply sem_type_erased_nop; first done.
     iIntros (?????) "@@@@ Hval".
     rewrite !values_interp_one_eq.
     rewrite !value_interp_eq.
-    cbn [pre_type_interp rec_interp].
-  Admitted.
+    rewrite -!type_interp_eq.
+    iPoseProof (type_interp_skind_svalue rti sr (RecT κ τ) se (SAtoms os) with "Hval") as (sκ) "[%Hκ %H]".
+    unfold type_skind in Hκ. simpl in Hκ.
+    iEval (rewrite (fold_type_interp rti sr mr se τ κ sκ (SAtoms os) Hκ)) in "Hval".
+    iDestruct "Hval" as "[_ Hτrec]".
+    iExact "Hτrec".
+  Qed.
 
 End unfold.

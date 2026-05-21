@@ -1836,4 +1836,53 @@ Section common.
         done.
   Qed.
 
+  Lemma type_interp_skind_svalue (τ : type) se sv :
+    type_interp rti sr τ se sv -∗ ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝.
+  Proof.
+    iIntros "H".
+    rewrite type_interp_eq.
+    iDestruct "H" as (sκ) "[%Hsk [%Hsv _]]".
+    iExists sκ. by iSplit; iPureIntro.
+  Qed.
+
+  (* TODO: might need to change. @Elan *)
+  Lemma fold_type_interp_subst (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
+    eval_kind se κ = Some sκ →
+    type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv ⊣⊢
+    type_interp rti sr τ (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se) sv.
+  Proof. Admitted.
+
+  Lemma fold_type_interp (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
+    eval_kind se κ = Some sκ →
+    type_interp rti sr (RecT κ τ) se sv ⊣⊢
+    ⌜skind_has_svalue sκ sv⌝ ∗
+    ▷ type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
+  Proof.
+    intros Hκ.
+    iSplit.
+    - iIntros "H".
+      iEval (rewrite type_interp_eq) in "H".
+      iDestruct "H" as "(%sκ' & %Hκ' & %Hsv & Hrec)".
+      unfold type_skind in Hκ'. simpl in Hκ'.
+      rewrite Hκ in Hκ'. simplify_eq.
+      iSplit; first done.
+      iEval (cbn [pre_type_interp]) in "Hrec".
+      iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)) in "Hrec".
+      replace (eval_kind_se se κ) with (eval_kind se κ); last done.
+      iEval (rewrite Hκ) in "Hrec".
+      iEval (rewrite <- (fold_type_interp_subst se τ κ sκ' sv Hκ)) in "Hrec".
+      iExact "Hrec".
+    - iIntros "[%Hsv Hτrec]".
+      iEval (rewrite type_interp_eq).
+      iExists sκ.
+      iSplit. { iPureIntro. unfold type_skind. simpl. by rewrite Hκ. }
+      iSplit. { iPureIntro. exact Hsv. }
+      iEval (cbn [pre_type_interp]).
+      iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)).
+      replace (eval_kind_se se κ) with (eval_kind se κ); last done.
+      iEval (rewrite Hκ).
+      iEval (rewrite (fold_type_interp_subst se τ κ sκ sv Hκ)) in "Hτrec".
+      iExact "Hτrec".
+  Qed.
+
 End common.
