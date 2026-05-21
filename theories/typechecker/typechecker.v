@@ -1828,7 +1828,7 @@ Fixpoint my_sequence {A:Type} (l: list (option A)) : option (list A) :=
       end
   end.
 (* This is an attempt without a double match for the sake of the proof later *)
-Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_res :=
+Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
   (* base cases *)
   match τ1 with
   | VarT _ =>
@@ -1869,7 +1869,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (SumT κ1 τs1) κ1 with *)
             (* | inl () => *)
-                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs1 τs2
+                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs1 τs2
                 then ok_term
                 else INR "types not equal"
             (* | err => err *)
@@ -1884,7 +1884,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (VariantT κ1 τs1) κ1 with *)
             (* | inl () => *)
-                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs1 τs2
+                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs1 τs2
                 then ok_term
                 else INR "types not equal"
             (* | err => err *)
@@ -1899,7 +1899,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (ProdT κ1 τs1) κ1 with *)
             (* | inl () => *)
-                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs1 τs2
+                if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs1 τs2
                 then ok_term
                 else INR "types not equal"
             (* | err => err *)
@@ -1914,7 +1914,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (RefT κ1 μ1 τ1) κ1 with *)
             (* | inl () => *)
-                type_eq_checker F τ1 τ2
+                type_eq_checker τ1 τ2
             (* | err => err *)
             (* end *)
           else INR "types not equal"
@@ -1927,7 +1927,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (RecT κ1 τ1) κ1 with *)
             (* | inl () => *)
-                type_eq_checker F τ1 τ2
+                type_eq_checker τ1 τ2
             (* | err => err *)
             (* end *)
           else INR "types not equal"
@@ -1940,7 +1940,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (ExistsMemT κ1 τ1) κ1 with *)
             (* | inl () => *)
-                type_eq_checker F τ1 τ2
+                type_eq_checker τ1 τ2
             (* | err => err *)
             (* end *)
           else INR "types not equal"
@@ -1953,7 +1953,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (ExistsRepT κ1 τ1) κ1 with *)
             (* | inl () => *)
-                type_eq_checker F τ1 τ2
+                type_eq_checker τ1 τ2
             (* | err => err *)
             (* end *)
           else INR "types not equal"
@@ -1966,7 +1966,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (ExistsSizeT κ1 τ1) κ1 with *)
             (* | inl () => *)
-                type_eq_checker F τ1 τ2
+                type_eq_checker τ1 τ2
             (* | err => err *)
             (* end *)
           else INR "types not equal"
@@ -1979,7 +1979,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
           then
             (* match has_kind_checker F (ExistsTypeT κ1 κτ1 τ1) κ1 with *)
             (* | inl () => *)
-                type_eq_checker F τ1 τ2
+                type_eq_checker τ1 τ2
             (* | err => err *)
             (* end *)
           else INR "types not equal"
@@ -1989,7 +1989,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       match τ2 with
       | SerT κ2 τ2 =>
           if kind_beq κ_ser κ2
-          then type_eq_checker F τ_ser τ2
+          then type_eq_checker τ_ser τ2
           else INR "types not equal"
       | StructT κ_struct τs' =>
           match τ_ser with
@@ -2012,7 +2012,7 @@ Fixpoint type_eq_checker (F:function_ctx) (τ1:type) (τ2:type) :type_checker_re
       | StructT κ2 τs2 =>
           if kind_beq κ_struct κ2
           then
-            if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker F τ1 τ2))) true τs' τs2
+            if foldr2 (λ τ1, λ τ2, andb (check_ok_output (type_eq_checker τ1 τ2))) true τs' τs2
             then ok_term
             else INR "types not equal 1"
           else INR "types not equal 2"
@@ -2047,7 +2047,7 @@ Opaque has_kind_checker.
 
 Lemma type_eq_checker_correct_basic :
   (∀ τ1,
-     (∀ τ2, ∀ F, type_eq_checker F τ1 τ2 = ok_term -> type_eq F τ1 τ2)
+     (∀ τ2, type_eq_checker τ1 τ2 = ok_term -> type_eq τ1 τ2)
   ) /\
   (∀ ft:function_type, True).
 Proof.
@@ -2089,12 +2089,9 @@ Proof.
 
   (* struct ser case *)
   6: {
-    cbn in H0.
     repeat structural_auto.
-    cbn in HMatch0.
-    assert (tosubst: l = l0) by admit. subst; clear HMatch1.
-    (* yeah we're fine *)
-    admit.
+    assert (tosubst: τs = l) by admit. subst; clear HMatch.
+    constructor.
   }
   (* ser struct case *)
   6: { admit. }
@@ -2105,7 +2102,7 @@ Admitted.
 
 
 Lemma type_eq_checker_correct :
-  ∀ F τ1 τ2, type_eq_checker F τ1 τ2 = ok_term -> type_eq F τ1 τ2.
+  ∀ τ1 τ2, type_eq_checker τ1 τ2 = ok_term -> type_eq τ1 τ2.
 Proof.
   pose proof type_eq_checker_correct_basic.
   destruct H as [H1 H2].
@@ -4000,7 +3997,7 @@ Fixpoint has_instruction_type_checker
       then
         match ψ with
         | InstrT [τ] [τ'] =>
-            match type_eq_checker F τ τ' with
+            match type_eq_checker τ τ' with
             | inl () => has_instruction_type_ok_checker F ψ L
             | err => err
             end
@@ -4515,8 +4512,8 @@ Ltac my_auto5 :=
   | H: (unzip_sert ?l = Some (_, _)) |- _ => apply unzip_sert_correct in H; subst l
   | H: (mono_mem_checker _ = ok_term) |- _ => apply mono_mem_checker_correct in H; auto
   | H: (mono_mem_checker _ = inl ()) |- _ => apply mono_mem_checker_correct in H; auto
-  | H: (type_eq_checker _ _ _ = inl ()) |- _ => apply type_eq_checker_correct in H; auto
-  | H: (type_eq_checker _ _ _ = ok_term) |- _ => apply type_eq_checker_correct in H; auto
+  | H: (type_eq_checker _ _ = inl ()) |- _ => apply type_eq_checker_correct in H; auto
+  | H: (type_eq_checker _ _ = ok_term) |- _ => apply type_eq_checker_correct in H; auto
   | H: (has_mono_size_checker _ _ = ok_term) |- _ => apply has_mono_size_checker_correct in H; auto
   | H: (has_mono_size_checker _ _ = inl ()) |- _ => apply has_mono_size_checker_correct in H; auto
   | H: (has_mono_rep_checker _ _ = ok_term) |- _ => apply has_mono_rep_checker_correct in H; auto

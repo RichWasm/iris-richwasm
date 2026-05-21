@@ -19,7 +19,7 @@ Section cast.
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
     let ψ := InstrT [τ] [τ'] in
-    type_eq F τ τ' ->
+    type_eq τ τ' ->
     has_instruction_type_ok F ψ L ->
     run_codegen (compile_instr mr fe (ICast ψ)) wt wl = inr ((), wt', wl', es') ->
     ⊢ have_instr_type_sem rti sr mr M F L WT WL lmask es' ψ L.

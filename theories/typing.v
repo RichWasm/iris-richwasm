@@ -606,52 +606,48 @@ Inductive resolves_path : type -> path -> option type -> path_result -> Prop :=
   in
   resolves_path (StructT κ (τs0 ++ τ :: τs')) (i :: π) τ__π pr'.
 
-Inductive type_eq : function_ctx -> type -> type -> Prop :=
-| TEqRefl F τ :
-  type_eq F τ τ
-| TEqSym F τ1 τ2 :
-  type_eq F τ1 τ2 ->
-  type_eq F τ2 τ1
-| TEqTrans F τ1 τ2 τ3 :
-  type_eq F τ1 τ2 ->
-  type_eq F τ2 τ3 ->
-  type_eq F τ1 τ2
-| TEqSum F κ τs τs' :
-  Forall2 (type_eq F) τs τs' ->
-  type_eq F (SumT κ τs) (SumT κ τs')
-| TEqVariant F κ τs τs' :
-  Forall2 (type_eq F) τs τs' ->
-  type_eq F (VariantT κ τs) (VariantT κ τs')
-| TEqProd F κ τs τs' :
-  Forall2 (type_eq F) τs τs' ->
-  type_eq F (ProdT κ τs) (ProdT κ τs')
-| TEqStruct F κ τs τs' :
-  Forall2 (type_eq F) τs τs' ->
-  type_eq F (StructT κ τs) (StructT κ τs')
-| TEqRef F κ μ τ τ' :
-  type_eq F τ τ' ->
-  type_eq F (RefT κ μ τ) (RefT κ μ τ')
-| TEqSer F κ τ τ' :
-  type_eq F τ τ' ->
-  type_eq F (SerT κ τ) (SerT κ τ')
-| TEqRec F κ τ τ' :
-  type_eq F τ τ' ->
-  type_eq F (RecT κ τ) (RecT κ τ')
-| TEqExMem F κ τ τ' :
-  type_eq F τ τ' ->
-  type_eq F (ExistsMemT κ τ) (ExistsMemT κ τ')
-| TEqExRep F κ τ τ' :
-  type_eq F τ τ' ->
-  type_eq F (ExistsRepT κ τ) (ExistsRepT κ τ')
-| TEqExSize F κ τ τ' :
-  type_eq F τ τ' ->
-  type_eq F (ExistsSizeT κ τ) (ExistsSizeT κ τ')
-| TEqExType F κ κτ τ τ' :
-  type_eq F τ τ' ->
-  type_eq F (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ')
-| TEqSerProd F κ_ser κs_ser κ_prod κ_struct τs :
-  let τs' := zip_with (fun τ κ => SerT κ τ) τs κs_ser in
-  type_eq F (SerT κ_ser (ProdT κ_prod τs)) (StructT κ_struct τs').
+Inductive type_eq : type -> type -> Prop :=
+| TEqRefl τ :
+  type_eq τ τ
+| TEqSum κ τs τs' :
+  Forall2 type_eq τs τs' ->
+  type_eq (SumT κ τs) (SumT κ τs')
+| TEqVariant κ τs τs' :
+  Forall2 type_eq τs τs' ->
+  type_eq (VariantT κ τs) (VariantT κ τs')
+| TEqProd κ τs τs' :
+  Forall2 type_eq τs τs' ->
+  type_eq (ProdT κ τs) (ProdT κ τs')
+| TEqStruct κ τs τs' :
+  Forall2 type_eq τs τs' ->
+  type_eq (StructT κ τs) (StructT κ τs')
+| TEqRef κ μ τ τ' :
+  type_eq τ τ' ->
+  type_eq (RefT κ μ τ) (RefT κ μ τ')
+| TEqSer κ τ τ' :
+  type_eq τ τ' ->
+  type_eq (SerT κ τ) (SerT κ τ')
+| TEqRec κ τ τ' :
+  type_eq τ τ' ->
+  type_eq (RecT κ τ) (RecT κ τ')
+| TEqExMem κ τ τ' :
+  type_eq τ τ' ->
+  type_eq (ExistsMemT κ τ) (ExistsMemT κ τ')
+| TEqExRep κ τ τ' :
+  type_eq τ τ' ->
+  type_eq (ExistsRepT κ τ) (ExistsRepT κ τ')
+| TEqExSize κ τ τ' :
+  type_eq τ τ' ->
+  type_eq (ExistsSizeT κ τ) (ExistsSizeT κ τ')
+| TEqExType κ κτ τ τ' :
+  type_eq τ τ' ->
+  type_eq (ExistsTypeT κ κτ τ) (ExistsTypeT κ κτ τ')
+| TEqSerProd κ_ser κ_prod κ_struct κs_ser τs τs' :
+  Forall2 type_eq τs τs' ->
+  type_eq (SerT κ_ser (ProdT κ_prod τs)) (StructT κ_struct (zip_with SerT κs_ser τs'))
+| TEqProdSer κ_ser κ_prod κ_struct κs_ser τs τs' :
+  Forall2 type_eq τs τs' ->
+  type_eq (StructT κ_struct (zip_with SerT κs_ser τs)) (SerT κ_ser (ProdT κ_prod τs')).
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
 | FTInstMem F ϕ μ :
@@ -958,7 +954,7 @@ Inductive has_instruction_type :
   has_instruction_type M F L (IUntag ψ) ψ L
 | TCast M F L τ τ' :
   let ψ := InstrT [τ] [τ'] in
-  type_eq F τ τ' ->
+  type_eq τ τ' ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ICast ψ) ψ L
 | TNew M F L μ τ κ κser :
@@ -1204,7 +1200,7 @@ Section HasHaveInstructionTypeMind.
           P1 M F L (IUntag ψ) ψ L)
       (HCast : forall M F L τ τ',
           let ψ := InstrT [τ] [τ'] in
-          type_eq F τ τ' ->
+          type_eq τ τ' ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ICast ψ) ψ L)
       (HNew : forall M F L μ τ κ κser,
