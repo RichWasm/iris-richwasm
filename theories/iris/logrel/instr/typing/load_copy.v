@@ -1420,7 +1420,7 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
         iSplitR; [|iSplitL "Hframe"].
         * unfold frame_rel.
           cbn.
-          iSplit; last done.
+          iSplit; last by rewrite load_frame_inst.
           (* mask_locs_eq lmask ... mk_load1_frame *)
           admit.
         * unfold mk_load_frame.
