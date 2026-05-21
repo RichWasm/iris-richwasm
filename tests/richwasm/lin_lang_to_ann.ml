@@ -714,7 +714,7 @@ let%expect_test "examples" =
                     (var 0)))]
                -> [(prod (val (prod) norefs))])
       (table 0)
-      (export "_start" (func 1)))
+      (export "_start" (func 2)))
     -----------closure-----------
     (module
       (func

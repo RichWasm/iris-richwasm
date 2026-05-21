@@ -832,7 +832,7 @@ let%expect_test "examples" =
         i32.const 7
         call 0)
       (global (;1;) (mut i32) (i32.const 0))
-      (export "_start" (func 8))
+      (export "_start" (func 9))
       (export "__rw_table_func_7" (func 7))
       (start 10))
 

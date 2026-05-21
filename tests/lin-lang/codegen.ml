@@ -487,7 +487,7 @@ let%expect_test "examples" =
           drop
         end)
       (table 0)
-      (export "_start" (func 1)))
+      (export "_start" (func 2)))
     -----------closure-----------
     (module
       (func ((prod (ref (base mm) (ser (prod i32))) (prod)) -> i32) (local ptr
