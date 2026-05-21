@@ -4,7 +4,6 @@ open! Stdlib.Format
 open Richwasm_common.Util
 open Richwasm_common.Monads
 open Richwasm_support
-open Pipeline
 open Support.Testing
 module EndToEnd = Run_rw.EndToEnd
 
@@ -138,7 +137,7 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
       );
       ( "interop-glue",
         [
-          test_case "numeric interop" `Quick (fun () ->
+          test_case "numeric interop (ll -> ml)" `Quick (fun () ->
               let module Err = struct
                 type t =
                   | Module1 of LL.CompilerError.t
@@ -181,13 +180,13 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   | _ -> fail (CompilerError.badinfo info)
               end in
               let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
-              let module1 =
+              let module1 = (* lin-lang *)
                 {|
                   (export fun add1 (i : int) : int .
                     (i + 1))
                 |}
               in
-              let module2 =
+              let module2 = (* rwasm *)
                 {|
                   ;; Glue module: adapts mini-ml's closure-style `add1` import
                   ;; to lin-lang's `add1` (m1). mini-ml calls with a GC closure
@@ -223,11 +222,11 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                    (exports (((name add1_wrapped) (desc (Func 1))))))
                 |}
               in
-              let module3 =
+              let module3 = (* mini-ml *)
                 {|
                   (import (add1 : (() int -> int)))
 
-                  (app add1 () 1)
+                  (app add1 () 5)
                 |}
               in
               let result, logs =
@@ -235,6 +234,109 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
               in
               (* add1 1 = 2; the result is an i31, whose raw wasm value is the
                  tagged form 2 * 2 = 4 *)
-              check_result "4" Triple.E2Err.pp logs result);
+              check_result "12" Triple.E2Err.pp logs result);
+
+
+          (* --------------------------------------------------- *)
+
+          test_case "numeric interop (ml -> ll)" `Quick (fun () ->
+              let module Err = struct
+                type t =
+                  | Module1 of MM.CompilerError.t
+                  | Module2 of RW.CompilerError.t
+                  | Module3 of LL.CompilerError.t
+                  | BadInfo of String.t Option.t
+                [@@deriving sexp_of, variants]
+
+                let pp ff = function
+                  | Module1 err ->
+                      fprintf ff "Module1: %a" MM.CompilerError.pp err
+                  | Module2 err ->
+                      fprintf ff "Module2: %a" RW.CompilerError.pp err
+                  | Module3 err ->
+                      fprintf ff "Module3: %a" LL.CompilerError.pp err
+                  | BadInfo err ->
+                      fprintf ff "BadInfo: %a"
+                        (pp_print_option pp_print_string)
+                        err
+              end in
+              let module SL : SurfaceLang = struct
+                module CompilerError = Err
+
+                let compile_to_richwasm
+                    ?info
+                    ~(asprintf : EndToEnd.asprintf)
+                    src =
+                  let module M = LogResultM (CompilerError) (String) in
+                  let open M in
+                  match info with
+                  | Some "m1" ->
+                      MM.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module1
+                  | Some "m2" ->
+                      RW.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module2
+                  | Some "m3" ->
+                      LL.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module3
+                  | _ -> fail (CompilerError.badinfo info)
+              end in
+              let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
+              let module1 = (* mini-ml *)
+                {|
+                  (export (add1 : (() int -> int))
+                    (fun () (i : int) : int
+                      (op + i 3)))
+                |}
+              in
+              let module2 = (* rwasm *)
+                {|
+                  ;; Glue module: adapts lin-lang's closure-style `add1` import
+                  ;; to mini-ml's `add1` (m1). lin-lang calls with a MM closure
+                  ;; struct (env, i32); mini-ml expects an boxed (env, i31)
+                  ;; product with an GC-allocated environment.
+                  ((imports
+                    ((FunctionType ()
+                      ((Ref (Base GC)
+                        (Struct
+                           ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+                      (I31))))
+                   (functions
+                    (((typ
+                       (FunctionType ()
+                        ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+                        ((Num (Int I32)))))
+                      (locals ((Atom I32)))
+                      (body
+                       ((LocalGet 0 Move)
+                        Ungroup
+                        (LocalSet 1) ;; i32
+                        Drop ;; env
+                        ;; build mini-ml's (env, i32) argument
+                        (Group 0)
+                        (New GC)
+                        (Cast (Ref (Base GC) (Struct ())))
+                        (LocalGet 1 Move)
+                        Tag ;; can error!!!
+                        (Group 2) ;; ((), i31)
+                        (New GC)
+                        (Cast (Ref (Base GC) (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+                        (Call 0 ())
+                        Untag)))))
+                   (table ())
+                   (exports (((name add1_wrapped) (desc (Func 1))))))
+                |}
+              in
+              let module3 = (* lin-lang *)
+                {|
+                  (import (int -> int) as add1)
+
+                  (app add1 4)
+                |}
+              in
+              let result, logs =
+                Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
+              in
+              check_result "2" Triple.E2Err.pp logs result);
         ] );
     ]
