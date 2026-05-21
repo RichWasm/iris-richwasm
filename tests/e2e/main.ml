@@ -337,6 +337,8 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
               let result, logs =
                 Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
               in
-              check_result "2" Triple.E2Err.pp logs result);
+              (* add1 4 = 7; lin-lang ints are untagged and the glue Untags
+                 mini-ml's i31 result, so the raw wasm value is 7 *)
+              check_result "7" Triple.E2Err.pp logs result);
         ] );
     ]
