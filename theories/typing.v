@@ -265,17 +265,15 @@ Proof.
     eapply ref_flag_lub2_least; by eauto.
 Qed.
 
-Lemma ref_flag_lub_ub ξs :
-  Forall (fun ξ => ref_flag_le ξ (ref_flag_lub ξs)) ξs.
+Lemma ref_flag_lub_ub ξ ξs :
+  ξ ∈ ξs ->
+  ref_flag_le ξ (ref_flag_lub ξs).
 Proof.
-  induction ξs.
-  - by apply Forall_nil.
-  - apply Forall_cons. split.
-    + cbn. admit.
-    + eapply Forall_impl; first done.
-      intros ξ H.
-      cbn in H.
-      cbn.
+Admitted.
+
+Lemma ref_flag_lub_incl ξs ξs' :
+  ξs ⊆ ξs' ->
+  ref_flag_le (ref_flag_lub ξs) (ref_flag_lub ξs').
 Admitted.
 
 Inductive subkind_of : kind -> kind -> Prop :=

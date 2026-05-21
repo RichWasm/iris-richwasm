@@ -427,12 +427,10 @@ Section inject.
         1: by apply (ref_flag_atoms_refine NoRefs); first done.
         2: by apply (ref_flag_atoms_refine NoRefs); first done.
         eapply ref_flag_atoms_refine; last done.
-        eapply (Forall_lookup_1 (fun ξ => (ref_flag_le ξ _))); first apply ref_flag_lub_ub.
-        apply lookup_app_Some.
+        apply ref_flag_lub_ub.
+        rewrite elem_of_app.
         right.
-        instantiate (1 := length ξs_pre).
-        split; first done.
-        by rewrite Nat.sub_diag.
+        apply list_elem_of_here.
       + iExists _, _, _, _.
         iSplit; first done.
         iSplit.

@@ -1057,8 +1057,6 @@ Definition get_rep_or_size κ :=
   | VALTYPE ρ _ => inl ρ
   | MEMTYPE σ _ => inr σ
   end.
-Locate concat.
-Compute List.concat [[1;2]].
 (* this is basically identical to the old has_kind_checker *)
 Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
   (* inr (NormalError "incomplete"). *)

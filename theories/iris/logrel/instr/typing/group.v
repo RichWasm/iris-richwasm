@@ -187,9 +187,9 @@ Section group.
         clear Hsκ' sκ'.
 
         eapply ref_flag_ptr_interp_le; last done.
-        pose proof (ref_flag_lub_ub ξs) as Hub.
-        rewrite Forall_lookup in Hub.
-        by specialize (Hub i ξ Hξs_i).
+        apply ref_flag_lub_ub.
+        rewrite list_elem_of_lookup.
+        by eexists.
     - iExists oss.
       iSplitR; first done.
       rewrite big_sepL2_fmap_l.

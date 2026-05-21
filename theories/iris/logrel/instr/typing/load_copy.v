@@ -82,8 +82,6 @@ Section load_copy.
     - subst κ0.
       split; try congruence.
       inversion Heqref; eauto.
-    - subst κ'.
-      inversion H; subst; eapply IHHkind; eauto.
   Qed.
 
   Lemma Z_even_mod_even :
@@ -1088,8 +1086,6 @@ Section load_copy.
       inversion Href.
       subst.
       by exists σ, ξ.
-    - subst.
-      eauto.
   Qed.
 
   Lemma mono_size_eval_emp_Some σ :
@@ -1121,8 +1117,6 @@ Section load_copy.
     ⊢ rt_token rti sr θ -∗
       [∗ list] off';v ∈ offs;vs, memidx↦[wms][base + byte_offset MemMM off'] bits v ∗ rt_token rti sr θ.
   Proof.
-    Locate "↦[wms][".
-    Search mem_block_at_pos.
   Abort.
 
   Lemma ws_to_vs θ off memidx vs ιs base :
@@ -1234,10 +1228,10 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
     }
     assert (Hκ: eval_rep se (AtomR PtrR) = Some l).
     {
-      inversion Htype as [? ? ? Hmono Hctx]; subst.
+      destruct Htype as [Hmono Hctx].
       destruct Hmono as [Hmono _].
       rewrite Forall_singleton in Hmono.
-      inversion Hmono as [? ? ? Hrep Hismono]; subst.
+      destruct Hmono as (ρ' & Hrep & Hismono).
       inversion Hrep; subst.
       cbn.
       apply rep_ref_kind_ptr in H; subst.
@@ -1299,8 +1293,8 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
         inversion Htype; subst.
         destruct H as [Href _].
         rewrite Forall_singleton in Href.
-        inversion Href; subst.
-        inversion H; subst.
+        destruct Href as (ρ' & Hrep & Hmono).
+        inversion Hrep; subst.
         eapply has_kind_ref_ty; eauto.
       }
       destruct Hκ'' as (σ & ξ & Hkindτ).
@@ -1317,7 +1311,7 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
       inversion Hkindok; subst.
       eapply eval_size_ok_Some in H1; eauto.
       destruct H1 as (n & Hevsz).
-      rewrite Hevsz in Hev; cbn in Hev; inversion Hev; subst sk; clear Hev.
+      rewrite Hevsz in Hev; cbn in Hev; inversion Hev; subst κ'; clear Hev.
       inversion Hsk; subst.
       assert (has_mono_size F (pr_target pr)).
       {
@@ -1343,12 +1337,7 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
       pose proof Hresolves as Hpath.
       inversion H as [? ? σtgt ξtgt' Hhktgt Htgtmono HF' HT]; subst.
       rewrite Hser in Hhktgt.
-      pose proof Hhktgt as Hhktgt'.
-      apply inv_kind_ser in Hhktgt'.
-      destruct Hhktgt' as (ρtgt & ξtgt & Hkval & Hsub & Hsub').
-      inversion Hsub; subst.
-      pose proof (type_kind_has_kind_agree _ _ _ _ Hhktgt ltac:(done)) as Hsub''.
-      inversion Hsub'; subst.
+      inversion Hhktgt; subst; clear κ1.
       pose proof (mono_size_eval_emp_Some _ Htgtmono) as (ntgt & Hev).
       (* TODO generalize the defn of resolves_path_inv_sep to deal with the
       order of ref_flags here. it puts too many consraints *)
