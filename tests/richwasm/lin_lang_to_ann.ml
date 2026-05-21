@@ -8,7 +8,6 @@ include Test_runner.MultiOutputter.Make (struct
   let margin = 120
   let max_indent = margin
 
-  open Test_utils
   open Richwasm_lin_lang
 
   type syntax = Syntax.Module.t

@@ -48,7 +48,6 @@ let rec pp_typecheck_error ff =
          %a@]"
         s pp_lctx l pp_lctx l' pp_typecheck_errors errs
   | HasKindError (s, errs) ->
-      let pp_lctx = pp_rocq_list Type.pp in
       fprintf ff
         "@[<v 2>Has kind error: %s @,\
          %a@]"
