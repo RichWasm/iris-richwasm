@@ -26,11 +26,10 @@ end
 
 module Res = ResultM (Err)
 
-let rep = Representation.Atom AtomicRep.Ptr
+let rep : Representation.t = Atom Ptr
 
-let kind =
-  (* the kind of all mini-ml types: [VALTYPE ptr gcrefs] *)
-  Kind.VALTYPE (rep, RefFlag.GCRefs)
+(* the kind of all mini-ml types: [VALTYPE ptr gcrefs] *)
+let kind : Kind.t = VALTYPE (rep, GCRefs)
 
 let rec type_subst var replacement tau =
   let open Closed.PreType in
@@ -54,8 +53,7 @@ let rec type_subst var replacement tau =
           ret = type_subst var replacement ret;
         }
 
-let rec type_of_e gamma e : Closed.PreType.t Res.t =
-  let open Closed.Expr in
+let rec type_of_e gamma (e : Closed.Expr.t) : Closed.PreType.t Res.t =
   let open Closed.PreType in
   let open Res in
   match e with
@@ -76,18 +74,17 @@ let rec type_of_e gamma e : Closed.PreType.t Res.t =
           | Ok t -> ret t
           | Unequal_lengths ->
               fail
-                (Err.ApplyForallsLengthMismatch
-                   (List.length foralls, List.length ts)))
-      | _ -> fail (Err.ApplyNonClosure ft))
+                (ApplyForallsLengthMismatch (List.length foralls, List.length ts)))
+      | _ -> fail (ApplyNonClosure ft))
   | Project (i, v) ->
       let* vt = type_of_e gamma v in
       (match vt with
       | Prod ts -> ret (List.nth_exn ts i)
-      | _ -> fail (Err.ProjectNonProd vt))
+      | _ -> fail (ProjectNonProd vt))
   | Op _ -> ret Int
   | If0 (_, e, _) -> type_of_e gamma e
   | Cases (_, ((n, t), e) :: _) -> type_of_e ((n, t) :: gamma) e
-  | Cases _ -> fail Err.EmptyCases
+  | Cases _ -> fail EmptyCases
   | New v ->
       let* t = type_of_e gamma v in
       ret (Ref t)
@@ -95,7 +92,7 @@ let rec type_of_e gamma e : Closed.PreType.t Res.t =
       let* vt = type_of_e gamma v in
       (match vt with
       | Ref t -> ret t
-      | _ -> fail (Err.DerefNonRef vt))
+      | _ -> fail (DerefNonRef vt))
   | Assign _ -> ret (Prod [])
   | Let ((n, t), _, e) -> type_of_e ((n, t) :: gamma) e
   | Fold (t, _) -> ret t
@@ -106,37 +103,36 @@ let rec type_of_e gamma e : Closed.PreType.t Res.t =
       | _ -> fail (Err.UnfoldNonRec vt))
   | Unpack (_, (n, t), _, e) -> type_of_e ((n, t) :: gamma) e
 
-let rec compile_type delta t : Type.t Res.t =
-  let open Closed.PreType in
-  let open Memory in
+let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
+  let open Type in
   let open Res in
   let r = compile_type delta in
   let r_ser t =
     let+ t' = r t in
-    Type.Ser t'
+    Ser t'
   in
   match t with
-  | Int -> ret Type.I31
+  | Int -> ret I31
   | Prod ts ->
       let+ ts' = mapM ~f:r_ser ts in
-      Type.(Ref (Base GC, Struct ts'))
+      Ref (Base GC, Struct ts')
   | Sum ts ->
       let+ ts' = mapM ~f:r_ser ts in
-      Type.(Ref (Base GC, Variant ts'))
+      Ref (Base GC, Variant ts')
   | Ref t ->
       let+ t' = r t in
-      Type.(Ref (Base GC, Ser t'))
+      Ref (Base GC, Ser t')
   | Rec (v, t) ->
       let+ t' = compile_type (v :: delta) t in
-      Type.Rec (kind, t')
+      Rec (kind, t')
   | Exists (v, t) ->
       let+ t' = compile_type (v :: delta) t in
-      Type.Exists (Quantifier.Type kind, t')
+      Exists (Type kind, t')
   | Code { foralls; arg; ret = ret_t } ->
       let r = compile_type (foralls @ delta) in
       let* arg' = r arg in
       let+ ret' = r ret_t in
-      Type.CodeRef
+      CodeRef
         (FunctionType
            ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
              [ arg' ],
@@ -146,16 +142,13 @@ let rec compile_type delta t : Type.t Res.t =
          List.find_mapi delta ~f:(fun i name ->
              Option.some_if (equal_string name v) i)
        with
-      | Some i -> ret (Type.var i)
-      | None -> fail (Err.TypeVarNotInDelta v))
+      | Some i -> ret (var i)
+      | None -> fail (TypeVarNotInDelta v))
 
 let rec compile_expr delta gamma locals coderef_map e :
     (Instruction.t list * (string * Type.t) list * (int * Type.t) list) Res.t =
-  let open Closed.Expr in
-  let open Instruction in
-  let open BlockType in
-  let open LocalFx in
   let open Res in
+  let open Instruction in
   let unindexed = List.map ~f:(fun (n, t, _) -> (n, t)) gamma in
   let r = compile_expr delta gamma locals coderef_map in
   let* t = type_of_e unindexed e in
@@ -179,8 +172,8 @@ let rec compile_expr delta gamma locals coderef_map e :
   | Inj (i, v, t) ->
       let* types =
         match t with
-        | Closed.PreType.Sum ts -> mapM ~f:(compile_type delta) ts
-        | _ -> fail (Err.InjNonSum t)
+        | Sum ts -> mapM ~f:(compile_type delta) ts
+        | _ -> fail (InjNonSum t)
       in
       let* v', locals', fx = r v in
       ret (v' @ [ InjectNew (GC, i, types) ], locals', fx)
@@ -189,10 +182,10 @@ let rec compile_expr delta gamma locals coderef_map e :
       let* raw_t =
         match rw_t with
         | Exists (_, t) -> ret t
-        | _ -> fail (Err.PackNonExists rw_t)
+        | _ -> fail (PackNonExists rw_t)
       in
       let* witness' = compile_type delta witness in
-      ret (v' @ [ Pack (Index.Type witness', raw_t) ], locals', fx)
+      ret (v' @ [ Pack (Type witness', raw_t) ], locals', fx)
   | Var v ->
       (match
          List.find_map gamma ~f:(fun (name, _, i) ->
@@ -201,11 +194,11 @@ let rec compile_expr delta gamma locals coderef_map e :
       | Some idx ->
           (* local.get sets the value to plug so we have to copy and put it back *)
           ret ([ LocalGet (idx, Move); Copy; LocalSet idx ], locals, [])
-      | None -> fail (Err.VarNotInGamma v))
+      | None -> fail (VarNotInGamma v))
   | Coderef (_, f) ->
       (match List.Assoc.find coderef_map ~equal:equal_string f with
       | Some idx -> ret ([ CodeRef idx ], locals, [])
-      | None -> fail (Err.CoderefNotFound f))
+      | None -> fail (CoderefNotFound f))
   | Op (o, left, right) ->
       let o' =
         Int.Binop.(
@@ -213,60 +206,57 @@ let rec compile_expr delta gamma locals coderef_map e :
           | `Add -> Add
           | `Sub -> Sub
           | `Mul -> Mul
-          | `Div -> Div Sign.Signed)
+          | `Div -> Div Signed)
       in
       let* left', locals', fx_l = r left in
       let* right', locals', fx_r =
         compile_expr delta gamma locals' coderef_map right
       in
       ret
-        ( left' @ [ Untag ] @ right'
-          @ [ Untag; Num (NumInstruction.Int2 (Int.Type.I32, o')); Tag ],
+        ( left' @ [ Untag ] @ right' @ [ Untag; Num (Int2 (I32, o')); Tag ],
           locals',
           fx_l @ fx_r )
   | Project (n, v) ->
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
-      let locals'' = locals' @ [ ("#temp", Type.Prod []) ] in
-      ret
-        ( v'
-          @ [
-              Load (Path.Path [ n ], Follow);
-              LocalSet temp_idx;
-              Drop;
-              LocalGet (temp_idx, Move);
-            ],
-          locals'',
-          fx @ [ (temp_idx, rw_unit) ] )
+      let locals'' = locals' @ [ ("#temp", Prod []) ] in
+      let suffix =
+        [
+          Load (Path [ n ], Follow);
+          LocalSet temp_idx;
+          Drop;
+          LocalGet (temp_idx, Move);
+        ]
+      in
+      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_unit) ])
   | New v ->
       let* v', locals', fx = r v in
-      ret (v' @ [ New BaseMemory.GC ], locals', fx)
+      ret (v' @ [ New GC ], locals', fx)
   | Deref v ->
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
-      let locals'' = locals' @ [ ("#temp", Type.Prod []) ] in
-      ret
-        ( v'
-          @ [
-              Load (Path.Path [], Follow);
-              LocalSet temp_idx;
-              Drop;
-              LocalGet (temp_idx, Move);
-            ],
-          locals'',
-          fx @ [ (temp_idx, rw_unit) ] )
+      let locals'' = locals' @ [ ("#temp", Prod []) ] in
+      let suffix =
+        [
+          Load (Path [], Follow);
+          LocalSet temp_idx;
+          Drop;
+          LocalGet (temp_idx, Move);
+        ]
+      in
+      ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_unit) ])
   | Assign (re, v) ->
       let* re', locals', fx_re = r re in
       let* v', locals', fx_v = compile_expr delta gamma locals' coderef_map v in
-      ret (re' @ v' @ [ Store (Path.Path []) ], locals', fx_re @ fx_v)
+      ret (re' @ v' @ [ Store (Path []) ], locals', fx_re @ fx_v)
   | Fold (_, v) ->
       let* raw_t =
         match rw_t with
         | Rec (_, t) -> ret t
-        | _ -> fail (Err.FoldNonRec rw_t)
+        | _ -> fail (FoldNonRec rw_t)
       in
       let* v', locals', fx = r v in
-      ret (v' @ [ Load (Path.Path [], Follow); Fold raw_t; New GC ], locals', fx)
+      ret (v' @ [ Load (Path [], Follow); Fold raw_t; New GC ], locals', fx)
   | Unfold v ->
       let* v', locals', fx = r v in
       ret (v' @ [ Unfold ], locals', fx)
@@ -278,7 +268,7 @@ let rec compile_expr delta gamma locals coderef_map e :
       let* insts =
         mapM ts ~f:(fun t ->
             let+ t' = compile_type delta t in
-            Inst (Index.Type t'))
+            Inst (Type t'))
       in
       ret (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
   | Unpack (var, (n, t), v, e) ->
@@ -292,17 +282,16 @@ let rec compile_expr delta gamma locals coderef_map e :
           coderef_map e
       in
       let fx = fx_v @ fx_e in
-      ret
-        ( v'
-          @ [
-              Unpack
-                ( ValType [ rw_t ],
-                  InferFx,
-                  [ LocalSet tmp_local ] @ e'
-                  @ [ LocalGet (tmp_local, Move); Drop ] );
-            ],
-          locals'',
-          fx )
+      let suffix =
+        [
+          Unpack
+            ( ValType [ rw_t ],
+              InferFx,
+              [ LocalSet tmp_local ] @ e' @ [ LocalGet (tmp_local, Move); Drop ]
+            );
+        ]
+      in
+      ret (v' @ suffix, locals'', fx)
   | Let ((n, t), e1, e2) ->
       let* e1', locals', fx1 = r e1 in
       let var_idx = List.length locals' in
@@ -323,16 +312,15 @@ let rec compile_expr delta gamma locals coderef_map e :
       let* els', locals', fx_e =
         compile_expr delta gamma locals' coderef_map els
       in
-      ret
-        ( c'
-          @ [
-              Untag;
-              NumConst (Int I32, 0);
-              Num (NumInstruction.IntRel (Int.Type.I32, Int.Relop.Eq));
-              Ite (ValType [ rw_t ], InferFx, thn', els');
-            ],
-          locals',
-          fx_c @ fx_t @ fx_e )
+      let suffix =
+        [
+          Untag;
+          NumConst (Int I32, 0);
+          Num (IntRel (I32, Eq));
+          Ite (ValType [ rw_t ], InferFx, thn', els');
+        ]
+      in
+      ret (c' @ suffix, locals', fx_c @ fx_t @ fx_e)
   | Cases (v, branches) ->
       let* v', locals', fx_v = r v in
       let* branches_rev, locals', fx =
@@ -346,55 +334,50 @@ let rec compile_expr delta gamma locals coderef_map e :
                 (locals @ [ (n, t') ])
                 coderef_map e
             in
-            ret
-              ( ((LocalSet new_local :: compiled)
-                @ [ LocalGet (new_local, Move); Drop ])
-                :: branches',
-                locals',
-                fx @ fx' ))
+            let instrs =
+              ((LocalSet new_local :: compiled)
+              @ [ LocalGet (new_local, Move); Drop ])
+              :: branches'
+            in
+            ret (instrs, locals', fx @ fx'))
           ~init:([], locals', []) branches
       in
       let branches' = List.rev branches_rev in
       let tmp_local = List.length locals' in
-      ret
-        ( v'
-          @ [
-              CaseLoad (ValType [ rw_t ], Copy, InferFx, branches');
-              LocalSet tmp_local;
-              Drop;
-              LocalGet (tmp_local, Move);
-            ],
-          locals' @ [ ("#cases-tmp", Prod []) ],
-          fx_v @ fx )
+      let suffix =
+        [
+          CaseLoad (ValType [ rw_t ], Copy, InferFx, branches');
+          LocalSet tmp_local;
+          Drop;
+          LocalGet (tmp_local, Move);
+        ]
+      in
+      ret (v' @ suffix, locals' @ [ ("#cases-tmp", Prod []) ], fx_v @ fx)
 
 let compile_fun coderef_map : Closed.Function.t -> Module.Function.t Res.t =
-  function
-  | Closed.Function.Function
-      { name = _; foralls; arg = arg_name, arg_type; ret_type; body } ->
-      let open FunctionType in
-      let open Res in
-      let* arg_rw_type = compile_type foralls arg_type in
-      let* ret_rw_type = compile_type foralls ret_type in
-      let* body', locals, _ =
-        compile_expr foralls
-          [ (arg_name, arg_type, 0) ]
-          [ (arg_name, arg_rw_type) ]
-          coderef_map body
-      in
-      ret
-        Module.Function.
-          {
-            typ =
-              FunctionType
-                ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
-                  [ arg_rw_type ],
-                  [ ret_rw_type ] );
-            locals = List.map ~f:(Fn.const rep) locals;
-            body = body' @ [ LocalGet (0, Move); Drop ];
-          }
+ fun (Function { name = _; foralls; arg = arg_name, arg_type; ret_type; body }) ->
+  let open Res in
+  let* arg_rw_type = compile_type foralls arg_type in
+  let* ret_rw_type = compile_type foralls ret_type in
+  let* body', locals, _ =
+    compile_expr foralls
+      [ (arg_name, arg_type, 0) ]
+      [ (arg_name, arg_rw_type) ]
+      coderef_map body
+  in
+  ret
+    Module.Function.
+      {
+        typ =
+          FunctionType
+            ( List.map ~f:(Fn.const (Quantifier.Type kind)) foralls,
+              [ arg_rw_type ],
+              [ ret_rw_type ] );
+        locals = List.map ~f:(Fn.const rep) locals;
+        body = body' @ [ LocalGet (0, Move); Drop ];
+      }
 
 let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
-  let open Closed.Module in
   let open Closed.PreType in
   let open Closed.Function in
   let open Res in
@@ -403,8 +386,8 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
     mapM imps ~f:(fun (Import (_, t)) ->
         let* t' = compile_type [] t in
         match t' with
-        | Type.CodeRef ft -> ret ft
-        | _ -> fail (Err.ImportNotFunction t'))
+        | CodeRef ft -> ret ft
+        | _ -> fail (ImportNotFunction t'))
   in
   let* fns =
     match body with
@@ -413,8 +396,7 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
         let body_gamma =
           List.map ~f:(fun (Import (n, t)) -> (n, t)) imps
           @ List.map
-              ~f:(function
-                | Export ((n, t), _) | Private ((n, t), _) -> (n, t))
+              ~f:(fun (Export ((n, t), _) | Private ((n, t), _)) -> (n, t))
               fns
         in
         let* ret_type = type_of_e body_gamma body in
@@ -445,8 +427,7 @@ let compile_module (Closed.Module.Module (imps, fns, body)) : Module.t Res.t =
   in
   let* functions =
     mapM
-      ~f:(function
-        | Export (_, f) | Private (_, f) -> compile_fun coderef_map f)
+      ~f:(fun (Export (_, f) | Private (_, f)) -> compile_fun coderef_map f)
       fns
   in
   let exports =

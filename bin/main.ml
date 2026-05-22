@@ -1,7 +1,6 @@
 open! Core
 open! Core_unix
 open! Stdlib.Format
-open Richwasm_support.Result_utils
 open Richwasm_support.Pipeline
 module AnnRichWasm = Richwasm_common.Annotated_syntax
 module RichWasm = Richwasm_common.Syntax
