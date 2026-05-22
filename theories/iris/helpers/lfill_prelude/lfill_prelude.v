@@ -303,6 +303,12 @@ Fixpoint get_base_l {n : nat} (lh : valid_holed n) :=
   | VH_rec _ _ _ _ lh' _ => get_base_l lh'
   end.
 
+Lemma get_base_l_append {i : nat} (lh : valid_holed i) e :
+  get_base_l (vh_append lh e) = get_base_l lh.
+Proof.
+  induction lh;simpl;auto.
+Qed.
+
 Lemma get_base_vh_decrease m (vh: valid_holed (S m)) vh':
   vh_decrease vh = Some vh' ->
   get_base_l vh' = get_base_l vh.

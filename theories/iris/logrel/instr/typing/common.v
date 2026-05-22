@@ -17,16 +17,6 @@ Require Export RichWasm.iris.logrel.instr.kinding.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Ltac clear_nils :=
-  repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
-
-(* TODO relocate *)
-Lemma get_base_l_append {i : nat} (lh : valid_holed i) e :
-  get_base_l (vh_append lh e) = get_base_l lh.
-Proof.
-  induction lh;simpl;auto.
-Qed.
-
 Section common.
 
   Context `{!logrel_na_invs Σ}.

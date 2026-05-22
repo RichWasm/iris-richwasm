@@ -93,3 +93,7 @@ Ltac fill_imm_pred :=
   match goal with
   | |- context [?g (immV ?v)] => instantiate (1:= λ w, ⌜w = immV v⌝%I) =>//
   end.
+
+Ltac clear_nils :=
+  repeat rewrite <- ?app_assoc, -> ?app_nil_l, -> ?app_nil_r in *.
+
