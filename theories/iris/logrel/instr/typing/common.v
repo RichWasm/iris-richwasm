@@ -1852,15 +1852,32 @@ Section common.
     type_interp rti sr τ (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se) sv.
   Proof. Admitted.
 
-  Lemma fold_type_interp (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
+  (* This is actually 100% proved in inst.v *)
+  (* so if this can be used instead of the one above that's cool *)
+  (* idk if it can be though *)
+  (* bc using it requires proving values_interp == skind_rec_interp sk type_interp ... *)
+  (* which is exactly what the previous proofs got stuck on *)
+  Lemma fold_type_interp_subst_COPY_STUPID (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
+    sem_env_interp F se ->
+    has_kind F (RecT κ τ) κ ->
+    eval_kind se κ = Some sκ →
+    type_interp rti sr τ (senv_insert_type sκ (value_interp rti sr se (RecT κ τ)) se) sv ⊣⊢
+    type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
+  Proof.
+  Admitted.
+
+  Lemma fold_type_interp_TEST (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
+    sem_env_interp F se ->
+    has_kind F (RecT κ τ) κ -> (* both these above are tests *)
     eval_kind se κ = Some sκ →
     type_interp rti sr (RecT κ τ) se sv ⊣⊢
     ⌜skind_has_svalue sκ sv⌝ ∗
     ▷ type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
   Proof.
-    intros Hκ.
+    intros Hse Hkind Hκ.
     iSplit.
     - iIntros "H".
+
       iEval (rewrite type_interp_eq) in "H".
       iDestruct "H" as "(%sκ' & %Hκ' & %Hsv & Hrec)".
       unfold type_skind in Hκ'. simpl in Hκ'.
@@ -1884,5 +1901,12 @@ Section common.
       iEval (rewrite (fold_type_interp_subst se τ κ sκ sv Hκ)) in "Hτrec".
       iExact "Hτrec".
   Qed.
+  Lemma fold_type_interp (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
+    eval_kind se κ = Some sκ →
+    type_interp rti sr (RecT κ τ) se sv ⊣⊢
+    ⌜skind_has_svalue sκ sv⌝ ∗
+    ▷ type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
+  Proof.
+  Admitted.
 
 End common.
