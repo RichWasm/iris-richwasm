@@ -189,18 +189,38 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
               in
               let module2 =
                 {|
-                  ((imports ((FunctionType () ((Num (Int I32))) ((Num (Int I32))))))
+                  ;; Glue module: adapts mini-ml's closure-style `add1` import
+                  ;; to lin-lang's `add1` (m1). mini-ml calls with a GC closure
+                  ;; struct (env, i31); lin-lang expects an unboxed (env, i32)
+                  ;; product with an MM-allocated environment.
+                  ((imports
+                    ((FunctionType ()
+                      ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+                      ((Num (Int I32))))))
                    (functions
-                    (((typ (FunctionType () (I31) (I31)))
-                      (locals ())
+                    (((typ
+                       (FunctionType ()
+                        ((Ref (Base GC)
+                          (Struct
+                           ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+                        (I31)))
+                      (locals ((Atom Ptr)))
                       (body
-                       ((LocalGet 0 Copy)
+                       ((LocalGet 0 Move)
+                        ;; pull the i31 argument out of the closure struct
+                        (Load (Path (1)) Follow)
+                        (LocalSet 1)
+                        Drop
+                        ;; build lin-lang's (env, i32) argument
+                        (Group 0)
+                        (New MM)
+                        (LocalGet 1 Move)
                         Untag
-                        ;; TODO: call with closure
+                        (Group 2)
                         (Call 0 ())
-                        Tag
-                        )))))
-                   (table ()) (exports (((name add1_wrapped) (desc (Func 0))))))
+                        Tag)))))
+                   (table ())
+                   (exports (((name add1_wrapped) (desc (Func 1))))))
                 |}
               in
               let module3 =
@@ -213,6 +233,8 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
               let result, logs =
                 Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
               in
-              check_result "2" Triple.E2Err.pp logs result);
+              (* add1 1 = 2; the result is an i31, whose raw wasm value is the
+                 tagged form 2 * 2 = 4 *)
+              check_result "4" Triple.E2Err.pp logs result);
         ] );
     ]
