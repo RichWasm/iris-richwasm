@@ -8,7 +8,11 @@ module type Runner1 = sig
 end
 
 module type Runner3 = sig
-  val run_wasm : String.t * String.t * String.t -> (String.t, String.t) Result.t
+  (* [links] = (module-1 export name, module-2 export name) *)
+  val run_wasm :
+    links:String.t * String.t ->
+    String.t * String.t * String.t ->
+    (String.t, String.t) Result.t
 end
 
 let inspect = false
@@ -31,13 +35,14 @@ module TripleRichWasm (Config : sig
   val rw_runtime_path : string
   val host_runtime_path : string
 end) : Runner3 = struct
-  let run_wasm (module1, module2, module3) =
+  let run_wasm ~links:(link1, link2) (module1, module2, module3) =
     let open Config in
     Process_utils.Process_capture_three.run_concat
       ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
       ~input1:module1 ~input2:module2 ~input3:module3 ~prog:"node"
       ~args:
-        ((if inspect then [ "--inspect-wait" ] else []) @ [ host_runtime_path ])
+        ((if inspect then [ "--inspect-wait" ] else [])
+        @ [ host_runtime_path; link1; link2 ])
       ()
 end
 
@@ -161,6 +166,7 @@ module EndToEnd = struct
 
     let run3
         ?(asprintf : asprintf = { asprintf })
+        ~(links : String.t * String.t)
         (src1 : String.t)
         (src2 : String.t)
         (src3 : String.t) : String.t M.t =
@@ -168,6 +174,6 @@ module EndToEnd = struct
       let* wasm1 = compile_to_wasm ~asprintf ~prefix:"m1" src1 in
       let* wasm2 = compile_to_wasm ~asprintf ~prefix:"m2" src2 in
       let* wasm3 = compile_to_wasm ~asprintf ~prefix:"m3" src3 in
-      run_runtime ~run:Runner.run_wasm (wasm1, wasm2, wasm3)
+      run_runtime ~run:(Runner.run_wasm ~links) (wasm1, wasm2, wasm3)
   end
 end

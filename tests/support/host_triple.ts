@@ -7,6 +7,11 @@ import { inspect } from "node:util";
 const runtimePath = process.env.RW_RUNTIME_WASM_PATH;
 assert.strict(runtimePath, "RW_RUNTIME_WASM_PATH must be specified");
 
+// Link names (argv): module 1 exports `export1`, module 2 exports `export2`.
+const [export1, export2] = process.argv.slice(2);
+assert.strict(export1, "host_triple expects the module-1 export name as argv[2]");
+assert.strict(export2, "host_triple expects the module-2 export name as argv[3]");
+
 // module1 -> fd 3, module2 -> fd 4, module3 -> fd 5
 // (see Process_capture_three in src/support/process_utils.ml)
 const [runtimeBuf, m1Buf, m2Buf, m3Buf] = await Promise.all([
@@ -35,7 +40,6 @@ async function instantiate(
   if (userImport !== null) {
     imports[""] = { "": userImport };
   }
-  // copy into a plain Uint8Array so the type satisfies `BufferSource`
   const { instance } = await WebAssembly.instantiate(
     new Uint8Array(buf),
     imports,
@@ -44,11 +48,22 @@ async function instantiate(
   return instance;
 }
 
-// m1 (lin-lang) exports `add1`; m2 (glue) imports it and exports the wrapped
-// `add1_wrapped`; m3 (mini-ml) imports that and runs `_start`.
+function lookupExport(
+  instance: WebAssembly.Instance,
+  name: string,
+  label: string,
+): WebAssembly.ExportValue {
+  const exp = instance.exports[name];
+  if (exp === undefined) {
+    throw new Error(`${label} does not export \`${name}\``);
+  }
+  return exp;
+}
+
+// m2 imports m1's `export1`, m3 imports m2's `export2`, then m3 runs `_start`.
 const m1 = await instantiate(m1Buf, null);
-const m2 = await instantiate(m2Buf, m1.exports.add1);
-const m3 = await instantiate(m3Buf, m2.exports.add1_wrapped);
+const m2 = await instantiate(m2Buf, lookupExport(m1, export1, "module 1"));
+const m3 = await instantiate(m3Buf, lookupExport(m2, export2, "module 2"));
 
 const start = m3.exports._start;
 if (typeof start !== "function") {

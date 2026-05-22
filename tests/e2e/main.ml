@@ -230,7 +230,10 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                 |}
               in
               let result, logs =
-                Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
+                Triple.run3 ~asprintf
+                  ~links:("add1", "add1_wrapped")
+                  module1 module2 module3
+                |> Triple.M.run
               in
               (* add1 1 = 2; the result is an i31, whose raw wasm value is the
                  tagged form 2 * 2 = 4 *)
@@ -284,15 +287,15 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
               let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
               let module1 = (* mini-ml *)
                 {|
-                  (export (add1 : (() int -> int))
+                  (export (add3 : (() int -> int))
                     (fun () (i : int) : int
                       (op + i 3)))
                 |}
               in
               let module2 = (* rwasm *)
                 {|
-                  ;; Glue module: adapts lin-lang's closure-style `add1` import
-                  ;; to mini-ml's `add1` (m1). lin-lang calls with a MM closure
+                  ;; Glue module: adapts lin-lang's closure-style `add3` import
+                  ;; to mini-ml's `add3` (m1). lin-lang calls with a MM closure
                   ;; struct (env, i32); mini-ml expects an boxed (env, i31)
                   ;; product with an GC-allocated environment.
                   ((imports
@@ -324,19 +327,22 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                         (Call 0 ())
                         Untag)))))
                    (table ())
-                   (exports (((name add1_wrapped) (desc (Func 1))))))
+                   (exports (((name add3_wrapped) (desc (Func 1))))))
                 |}
               in
               let module3 = (* lin-lang *)
                 {|
-                  (import (int -> int) as add1)
+                  (import (int -> int) as add3)
 
-                  (app add1 4)
+                  (app add3 4)
                 |}
               in
               let result, logs =
-                Triple.run3 ~asprintf module1 module2 module3 |> Triple.M.run
+                Triple.run3 ~asprintf
+                  ~links:("add3", "add3_wrapped")
+                  module1 module2 module3
+                |> Triple.M.run
               in
-              check_result "2" Triple.E2Err.pp logs result);
+              check_result "7" Triple.E2Err.pp logs result);
         ] );
     ]
