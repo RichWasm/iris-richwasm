@@ -1856,7 +1856,8 @@ Section common.
   (* so if this can be used instead of the one above that's cool *)
   (* idk if it can be though *)
   (* bc using it requires proving values_interp == skind_rec_interp sk type_interp ... *)
-  (* which is exactly what the previous proofs got stuck on *)
+  (* which the previous version of the proof *almost* proved except for the svalue_has_skind thingy *)
+  (* so maybe it's possible... *)
   Lemma fold_type_interp_subst_COPY_STUPID (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
     sem_env_interp F se ->
     has_kind F (RecT κ τ) κ ->
