@@ -28,14 +28,13 @@ let simple_tests =
     ("tuple proj", "(proj 1 (tup 1 2))", i31 2);
     ("ref deref", "(! (new 3))", i31 3);
     ("app", "(app (fun () (_ : (*)) : int 1) () (tup))", i31 1);
-    (* FIXME: *)
-    (* ( "ref assign",
+    ( "ref assign",
       {|
       (let (r : (ref int)) (new 3)
         (let (_ : (*)) (assign r 8)
           (! r)))
       |},
-      i31 8 ); *)
+      i31 8 );
     ("app inline identity", "(app (fun () (x : int) : int x) () 5)", i31 5);
     ( "app inline lambda",
       "(app (fun () (x : int) : int (op + x 1)) () 5)",
