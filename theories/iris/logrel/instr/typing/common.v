@@ -1852,13 +1852,13 @@ Section common.
     type_interp rti sr τ (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se) sv.
   Proof. Admitted.
 
-  (* This is actually 100% proved in inst.v *)
+  (* This is actually 100% proved in inst.v under ..._COPY_STUPID *)
   (* so if this can be used instead of the one above that's cool *)
   (* idk if it can be though *)
   (* bc using it requires proving values_interp == skind_rec_interp sk type_interp ... *)
   (* which the previous version of the proof *almost* proved except for the svalue_has_skind thingy *)
   (* so maybe it's possible... *)
-  Lemma fold_type_interp_subst_COPY_STUPID (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
+  Lemma fold_type_interp_subst_TEST (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
     sem_env_interp F se ->
     has_kind F (RecT κ τ) κ ->
     eval_kind se κ = Some sκ →
@@ -1878,30 +1878,61 @@ Section common.
     intros Hse Hkind Hκ.
     iSplit.
     - iIntros "H".
-
       iEval (rewrite type_interp_eq) in "H".
       iDestruct "H" as "(%sκ' & %Hκ' & %Hsv & Hrec)".
       unfold type_skind in Hκ'. simpl in Hκ'.
       rewrite Hκ in Hκ'. simplify_eq.
       iSplit; first done.
+
+
+      iAssert ((skind_rec_interp sκ' (type_interp rti sr τ) se ≡ value_interp rti sr se (RecT κ τ)
+                  )%I) as "#TheEquiv". {
+        admit. (* most of this is in inst in fold_type_interp_subst_COPY *)
+        (* note that I'm pretty sure it's true. There's a weird part with type_skind in
+           a new environment. But I *think* it's okay. Hopefully. Idk maybe not.
+           but if this is true (and if we can get the rewrites below to work) then this whole
+           thing is proven
+         *)
+      }
+
+
       iEval (cbn [pre_type_interp]) in "Hrec".
       iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)) in "Hrec".
       replace (eval_kind_se se κ) with (eval_kind se κ); last done.
       iEval (rewrite Hκ) in "Hrec".
-      iEval (rewrite <- (fold_type_interp_subst se τ κ sκ' sv Hκ)) in "Hrec".
+
+      Fail iRewrite "TheEquiv". (* I'm pissed *)
+      iAssert ((▷ type_interp rti sr τ
+               (senv_insert_type sκ' (value_interp rti sr se (RecT κ τ)) se) sv)%I)
+        with "[Hrec]" as "Hrec". {
+        (* okay whatever, use TheEquiv *)
+        admit.
+      }
+      iEval (rewrite <- (fold_type_interp_subst_TEST se F τ κ sκ' sv Hse Hkind Hκ)).
       iExact "Hrec".
     - iIntros "[%Hsv Hτrec]".
       iEval (rewrite type_interp_eq).
       iExists sκ.
       iSplit. { iPureIntro. unfold type_skind. simpl. by rewrite Hκ. }
       iSplit. { iPureIntro. exact Hsv. }
+
+
+      iAssert ((skind_rec_interp sκ (type_interp rti sr τ) se ≡ value_interp rti sr se (RecT κ τ)
+                  )%I) as "#TheEquiv". {
+        admit. (* most of this is in inst, as above *)
+      }
+
+
       iEval (cbn [pre_type_interp]).
       iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)).
       replace (eval_kind_se se κ) with (eval_kind se κ); last done.
       iEval (rewrite Hκ).
-      iEval (rewrite (fold_type_interp_subst se τ κ sκ sv Hκ)) in "Hτrec".
-      iExact "Hτrec".
-  Qed.
+      iEval (rewrite <- (fold_type_interp_subst_TEST se F τ κ sκ sv Hse Hkind Hκ)) in "Hτrec".
+
+      Fail iRewrite "TheEquiv". (* of course but just do that *)
+
+      (*iExact "Hτrec".*)
+  Admitted.
   Lemma fold_type_interp (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
     eval_kind se κ = Some sκ →
     type_interp rti sr (RecT κ τ) se sv ⊣⊢
