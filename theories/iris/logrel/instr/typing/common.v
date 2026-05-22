@@ -27,29 +27,6 @@ Section common.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma has_kind_agree F τ κ κ' :
-    has_kind F τ κ →
-    has_kind F τ κ' →
-    κ = κ'.
-  Proof.
-    intros H1 H2.
-    have Hsome := type_kind_has_kind_is_Some _ _ _ H1.
-    destruct Hsome as [κ'' Hκ''].
-    have Hsub1 := type_kind_has_kind_agree _ _ _ _ H1 Hκ''.
-    have Hsub2 := type_kind_has_kind_agree _ _ _ _ H2 Hκ''.
-    by rewrite Hsub2.
-  Qed.
-
-  Lemma has_kind_agree_f F τ ρ ξ σ ξ' :
-    has_kind F τ (VALTYPE ρ ξ) →
-    has_kind F τ (MEMTYPE σ ξ') →
-    False.
-  Proof.
-    intros H1 H2.
-    have H := has_kind_agree _ _ _ _ H1 H2.
-    inversion H.
-  Qed.
-
   Lemma Forall2_mini_impl {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
     Forall2 P l k -> Forall2 (λ a b, P a b → Q a b) l k -> Forall2 Q l k.
   Proof.
