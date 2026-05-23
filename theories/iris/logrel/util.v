@@ -15,7 +15,7 @@ Require Export RichWasm.iris.logrel.instr.kinding.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Section common.
+Section util.
 
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
@@ -203,4 +203,4 @@ Section common.
     by rewrite IHηs.
   Qed.
 
-End common.
+End util.
