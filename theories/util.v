@@ -440,6 +440,20 @@ Proof.
   by apply Forall2_length in H.
 Qed.
 
+Lemma forall2_lookup_same {A B} (ls ls' : list A) (idxs : list B) (xs : list A) (j_excl : nat) (f: B -> nat) :
+  (∀ j : B, f j ≠ j_excl → ls' !! f j = ls !! f j) ->
+  Forall (λ i, f i ≠ j_excl) idxs ->
+  Forall2 (λ (i : B) (v : A), ls  !! f i = Some v) idxs xs ->
+  Forall2 (λ (i : B) (v : A), ls' !! f i = Some v) idxs xs.
+Proof.
+  intros Hsame Hnotin Hf.
+  induction Hf.
+  - constructor.
+  - inversion Hnotin; subst.
+    constructor.
+    + rewrite Hsame; auto.
+    + apply IHHf; auto.
+Qed.
 
 (* default to stdpp's list for the remainder *)
 From stdpp Require Import list.

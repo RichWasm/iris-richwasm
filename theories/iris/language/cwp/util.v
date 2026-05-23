@@ -72,7 +72,6 @@ Section util.
     induction lh;simpl;auto.
   Qed.
 
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
   Lemma append_lh_depth {i : nat} (lh : valid_holed i) e :
     lh_depth (lh_of_vh lh) = lh_depth (lh_of_vh (vh_append lh e)).
   Proof.
