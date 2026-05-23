@@ -126,6 +126,13 @@ Section common.
     done.
   Qed.
 
+  Lemma fe_wlocal_offset_length F :
+    fe_wlocal_offset (fe_of_context F) = length $ concat (typing.fc_locals F).
+  Proof.
+    unfold fe_wlocal_offset. simpl.
+    apply sum_list_with_length_concat.
+  Qed.
+
   Lemma seq_forall_leq base len :
     Forall (λ i, i < base + len) (seq base len).
   Proof.
@@ -184,13 +191,6 @@ Section common.
     destruct κ; simpl.
     - rewrite eval_rep_senv_insert_type. reflexivity.
     - rewrite eval_size_senv_insert_type. reflexivity.
-  Qed.
-
-  Lemma fe_wlocal_offset_length F :
-    fe_wlocal_offset (fe_of_context F) = length $ concat (typing.fc_locals F).
-  Proof.
-    unfold fe_wlocal_offset. simpl.
-    apply sum_list_with_length_concat.
   Qed.
 
   Lemma eval_rep_prod_atoms (se: semantic_env (Σ:=Σ)) ηs :
