@@ -162,6 +162,15 @@ Definition case_blocks (fe : function_env) (result : W.result_type) (cases : lis
   (* Code for each case *)
   case_blocks_blocks 0 tag_idx result cases.
 
+Lemma wlmask_mono fe wl wl' :
+  length wl <= length wl' ->
+  ∀ i, wlmask fe wl i → wlmask fe wl' i.
+Proof.
+  intros Hlen i [Hlo Hhi].
+  split; first done.
+  lia.
+Qed.
+
 Lemma mapM_app {A B} (f : A -> codegen B) (l1 l2 : list A) :
   mapM f (l1 ++ l2) = r1 ← mapM f l1; r2 ← mapM f l2; mret (r1 ++ r2).
 Proof.
