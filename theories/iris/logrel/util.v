@@ -21,6 +21,43 @@ Section util.
   Context `{!wasmG Σ}.
   Context `{!richwasmG Σ}.
 
+  Lemma fe_of_context_labels F f :
+    fe_of_context F = fe_of_context (F <| fc_labels ::= f |>).
+  Proof.
+    done.
+  Qed.
+
+  Lemma fe_wlocal_offset_length F :
+    fe_wlocal_offset (fe_of_context F) = length $ concat (typing.fc_locals F).
+  Proof.
+    unfold fe_wlocal_offset. simpl.
+    apply sum_list_with_length_concat.
+  Qed.
+
+  Lemma seq_forall_leq base len :
+    Forall (λ i, i < base + len) (seq base len).
+  Proof.
+    rewrite Forall_seq.
+    intros j Hj.
+    lia.
+  Qed.
+
+  Lemma map_seq_forall_localidx_leq base len :
+    Forall (λ i : prelude.W.localidx, localimm i < base + len)
+      (map prelude.W.Mk_localidx (seq base len)).
+  Proof.
+    apply Forall_map.
+    apply seq_forall_leq.
+  Qed.
+
+  Lemma map_seq_forall_localidx_neq base len :
+    Forall (λ i : prelude.W.localidx, localimm i ≠ base + len)
+      (map prelude.W.Mk_localidx (seq base len)).
+  Proof.
+    eapply Forall_impl; first apply map_seq_forall_localidx_leq.
+    lias.
+  Qed.
+
   Lemma eval_rep_emptyenv :
     forall ρ ιs,
       eval_rep EmptyEnv ρ = Some ιs ->
@@ -118,43 +155,6 @@ Section util.
     intros.
     eapply type_skind_eval_rep; try done.
     by apply eval_rep_emptyenv.
-  Qed.
-
-  Lemma fe_of_context_labels F f :
-    fe_of_context F = fe_of_context (F <| fc_labels ::= f |>).
-  Proof.
-    done.
-  Qed.
-
-  Lemma fe_wlocal_offset_length F :
-    fe_wlocal_offset (fe_of_context F) = length $ concat (typing.fc_locals F).
-  Proof.
-    unfold fe_wlocal_offset. simpl.
-    apply sum_list_with_length_concat.
-  Qed.
-
-  Lemma seq_forall_leq base len :
-    Forall (λ i, i < base + len) (seq base len).
-  Proof.
-    rewrite Forall_seq.
-    intros j Hj.
-    lia.
-  Qed.
-
-  Lemma map_seq_forall_localidx_leq base len :
-    Forall (λ i : prelude.W.localidx, localimm i < base + len)
-      (map prelude.W.Mk_localidx (seq base len)).
-  Proof.
-    apply Forall_map.
-    apply seq_forall_leq.
-  Qed.
-
-  Lemma map_seq_forall_localidx_neq base len :
-    Forall (λ i : prelude.W.localidx, localimm i ≠ base + len)
-      (map prelude.W.Mk_localidx (seq base len)).
-  Proof.
-    eapply Forall_impl; first apply map_seq_forall_localidx_leq.
-    lias.
   Qed.
 
   Lemma eval_rep_senv_insert_type sκ T (se: semantic_env (Σ:=Σ)) ρ :
