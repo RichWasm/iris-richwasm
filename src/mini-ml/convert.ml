@@ -1,5 +1,22 @@
 open! Base
 open Syntax
+open Richwasm_common.Monads
+
+module Err = struct
+  type t =
+    | UnboundIdent of string
+    | UserFnNotFunction of string * Source.PreType.t
+    | ApplyBadShape of Closed.Expr.t
+    | ApplyVarNotInGamma of string
+    | ItemNotFunction
+    | FreeVarNotInGamma of string
+    | FreeVarsLengthMismatch of int * int
+  [@@deriving sexp_of, variants]
+
+  let pp ff x = Sexp.pp_hum ff (sexp_of_t x)
+end
+
+module Res = ResultM (Err)
 
 let rec fv ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
   let open Source.Expr in
@@ -74,145 +91,154 @@ let rec ftv_e ?(bound = []) (e : Source.Expr.t) : Source.Variable.t list =
 
 let rec cc_t ?(pack = true) t = cc_pt ~pack t
 
-and cc_pt ?(pack = true) pt =
+and cc_pt ?(pack = true) (pt : Source.PreType.t) =
+  let open Closed.PreType in
   (* the ~pack argument is basically a hack, and doesn't wrap function types
      in an existential for imports. but any function types referenced inside
      that function _should_ get treated normally. *)
   let cc_t = cc_t ~pack:true in
   match pt with
-  | Source.PreType.Int -> Closed.PreType.Int
-  | Source.PreType.Var v -> Closed.PreType.Var v
-  | Source.PreType.Prod ts -> Closed.PreType.Prod (List.map ~f:cc_t ts)
-  | Source.PreType.Sum ts -> Closed.PreType.Sum (List.map ~f:cc_t ts)
-  | Source.PreType.Ref t -> Closed.PreType.Ref (cc_t t)
-  | Source.PreType.Rec (v, t) -> Closed.PreType.Rec (v, cc_t t)
-  | Source.PreType.Fun { foralls; arg; ret } ->
+  | Int -> Int
+  | Var v -> Var v
+  | Prod ts -> Prod (List.map ~f:cc_t ts)
+  | Sum ts -> Sum (List.map ~f:cc_t ts)
+  | Ref t -> Ref (cc_t t)
+  | Rec (v, t) -> Rec (v, cc_t t)
+  | Fun { foralls; arg; ret } ->
       if pack then
-        Closed.PreType.(
-          Exists
-            ( "#cc-env",
-              Prod
-                [
-                  Var "#cc-env";
-                  Code
-                    {
-                      foralls;
-                      arg = Prod [ Var "#cc-env"; cc_t arg ];
-                      ret = cc_t ret;
-                    };
-                ] ))
+        Exists
+          ( "#cc-env",
+            Prod
+              [
+                Var "#cc-env";
+                Code
+                  {
+                    foralls;
+                    arg = Prod [ Var "#cc-env"; cc_t arg ];
+                    ret = cc_t ret;
+                  };
+              ] )
       else
-        Closed.PreType.(
-          Code { foralls; arg = Prod [ Prod []; cc_t arg ]; ret = cc_t ret })
+        Code { foralls; arg = Prod [ Prod []; cc_t arg ]; ret = cc_t ret }
 
-let rec cc_e user_fns gamma tagger acc e =
-  let open Source.Expr in
+let rec cc_e
+    (user_fns : (string * Source.PreType.t) list)
+    (gamma : (string * Source.PreType.t) list)
+    tagger
+    acc
+    (e : Source.Expr.t) : (Closed.Expr.t * Closed.Function.t list) Res.t =
+  let open Res in
+  let open Closed.PreType in
+  let open Closed.Function in
+  let open Closed.Expr in
   let r = cc_e user_fns gamma tagger in
   match e with
-  | Int i -> (Closed.Expr.Int i, acc)
+  | Int i -> ret (Int i, acc)
   | Var v ->
       if List.Assoc.mem ~equal:equal_string gamma v then
-        (Closed.Expr.Var v, acc)
+        ret (Var v, acc)
       else (
         match
           List.Assoc.find ~equal:equal_string user_fns v
         with
-        | Some (Source.PreType.Fun { foralls; arg; ret } as t) ->
-            ( Closed.(
-                Expr.Pack
-                  ( PreType.Prod [],
-                    Expr.Tuple
+        | Some (Fun { foralls; arg; ret = ret_t } as t) ->
+            ret
+              ( Pack
+                  ( Prod [],
+                    Tuple
                       [
-                        Expr.Tuple [];
-                        Expr.Coderef
-                          ( PreType.(
-                              Code
-                                {
-                                  foralls;
-                                  arg = Prod [ Prod []; cc_t arg ];
-                                  ret = cc_t ret;
-                                }),
+                        Tuple [];
+                        Coderef
+                          ( Code
+                              {
+                                foralls;
+                                arg = Prod [ Prod []; cc_t arg ];
+                                ret = cc_t ret_t;
+                              },
                             v );
                       ],
-                    cc_t t )),
-              acc )
-        | Some _ -> failwith "user-fns contains non-function"
-        | None -> failwith ("unbound identifier " ^ v))
+                    cc_t t ),
+                acc )
+        | Some t -> fail (UserFnNotFunction (v, t))
+        | None -> fail (UnboundIdent v))
   | Tuple vs ->
-      let vs, code =
-        List.fold_left
+      let* vs, code =
+        foldM
           ~f:(fun (vs, extra) v ->
-            let converted, code = r acc v in
-            (converted :: vs, code @ extra))
+            let* converted, code = r extra v in
+            ret (converted :: vs, code))
           ~init:([], acc) vs
       in
-      (Closed.Expr.Tuple vs, code)
+      ret (Tuple (List.rev vs), code)
   | Inj (i, v, t) ->
-      let v, code = r acc v in
-      (Closed.Expr.Inj (i, v, cc_t t), code)
+      let* v, code = r acc v in
+      ret (Inj (i, v, cc_t t), code)
   | Fun { foralls; arg = (n, t) as arg; ret_type; body } ->
       let gamma = arg :: gamma in
       let free_vars = fv ~bound:[ n ] body in
       let free_type_vars = ftv_e body in
       let closure_id = Int.to_string (tagger ()) in
       let code_name = "closure#fn" ^ closure_id in
-      let cced_body, code = cc_e user_fns gamma tagger acc body in
-      let env_type =
-        free_vars
-        |> List.map ~f:(List.Assoc.find_exn ~equal:equal_string gamma)
-        |> List.map ~f:cc_t
+      let* cced_body, code = cc_e user_fns gamma tagger acc body in
+      let* env_type =
+        mapM free_vars ~f:(fun v ->
+            match List.Assoc.find ~equal:equal_string gamma v with
+            | Some t -> ret (cc_t t)
+            | None -> fail (FreeVarNotInGamma v))
       in
-      let env_prod = Closed.PreType.Prod env_type in
-      let free_bindings = List.zip_exn free_vars env_type in
+      let env_prod = Prod env_type in
+      let* free_bindings =
+        match List.zip free_vars env_type with
+        | Ok bs -> ret bs
+        | Unequal_lengths ->
+            fail
+              (FreeVarsLengthMismatch
+                 (List.length free_vars, List.length env_type))
+      in
       let function_type =
-        Closed.PreType.Code
+        Code
           {
             foralls = free_type_vars @ foralls;
-            arg = Closed.PreType.Prod [ env_prod; cc_t t ];
+            arg = Prod [ env_prod; cc_t t ];
             ret = cc_t ret_type;
           }
       in
-      Closed.
-        ( Expr.(
-            Pack
-              ( env_prod,
-                Tuple
-                  [
-                    Tuple (List.map ~f:(fun v -> Var v) free_vars);
-                    Coderef (function_type, code_name);
-                  ],
-                PreType.(
-                  Exists
-                    ( "#cc-env",
-                      Prod
-                        [
-                          Var "#cc-env";
-                          Code
-                            {
-                              foralls = free_type_vars @ foralls;
-                              arg = Prod [ Var "#cc-env"; cc_t t ];
-                              ret = cc_t ret_type;
-                            };
-                        ] )) )),
-          Function.Function
+      ret
+        ( Pack
+            ( env_prod,
+              Tuple
+                [
+                  Tuple (List.map ~f:(fun v -> Var v) free_vars);
+                  Coderef (function_type, code_name);
+                ],
+              Exists
+                ( "#cc-env",
+                  Prod
+                    [
+                      Var "#cc-env";
+                      Code
+                        {
+                          foralls = free_type_vars @ foralls;
+                          arg = Prod [ Var "#cc-env"; cc_t t ];
+                          ret = cc_t ret_type;
+                        };
+                    ] ) ),
+          Function
             {
               name = code_name;
               foralls = free_type_vars @ foralls;
-              arg = ("#env_and_arg", PreType.Prod [ env_prod; cc_t t ]);
+              arg = ("#env_and_arg", Prod [ env_prod; cc_t t ]);
               ret_type = cc_t ret_type;
               body =
-                Expr.Let
+                Let
                   ( ("#env", env_prod),
-                    Expr.Project (0, Expr.Var "#env_and_arg"),
-                    Expr.Let
+                    Project (0, Var "#env_and_arg"),
+                    Let
                       ( (n, cc_t t),
-                        Expr.Project (1, Expr.Var "#env_and_arg"),
+                        Project (1, Var "#env_and_arg"),
                         List.fold_right
                           ~f:(fun (idx, (name, ty)) acc ->
-                            Expr.Let
-                              ( (name, ty),
-                                Expr.Project (idx, Expr.Var "#env"),
-                                acc ))
+                            Let ((name, ty), Project (idx, Var "#env"), acc))
                           ~init:cced_body
                           (List.zip_exn
                              (List.range 0 (List.length free_bindings))
@@ -220,123 +246,130 @@ let rec cc_e user_fns gamma tagger acc e =
             }
           :: code )
   | Project (i, v) ->
-      let v', code = r acc v in
-      (Closed.Expr.Project (i, v'), code)
+      let* v', code = r acc v in
+      ret (Project (i, v'), code)
   | Op (o, left, right) ->
-      let l', acc' = r acc left in
-      let r', code = r acc' right in
-      (Closed.Expr.Op (o, l', r'), code)
+      let* l', acc' = r acc left in
+      let* r', code = r acc' right in
+      ret (Op (o, l', r'), code)
   | New v ->
-      let v', code = r acc v in
-      (Closed.Expr.New v', code)
+      let* v', code = r acc v in
+      ret (New v', code)
   | Deref v ->
-      let v', code = r acc v in
-      (Closed.Expr.Deref v', code)
+      let* v', code = r acc v in
+      ret (Deref v', code)
   | Assign (re, v) ->
-      let r', acc' = r acc re in
-      let v', code = r acc' v in
-      (Closed.Expr.Assign (r', v'), code)
+      let* r', acc' = r acc re in
+      let* v', code = r acc' v in
+      ret (Assign (r', v'), code)
   | Fold (t, v) ->
       let t' = cc_t t in
-      let v', code = r acc v in
-      (Closed.Expr.Fold (t', v'), code)
+      let* v', code = r acc v in
+      ret (Fold (t', v'), code)
   | Unfold v ->
-      let v', code = r acc v in
-      (Closed.Expr.Unfold v', code)
+      let* v', code = r acc v in
+      ret (Unfold v', code)
   | If0 (c, t, e) ->
-      let c', acc' = r acc c in
-      let t', acc' = r acc' t in
-      let e', code = r acc' e in
-      (Closed.Expr.If0 (c', t', e'), code)
+      let* c', acc' = r acc c in
+      let* t', acc' = r acc' t in
+      let* e', code = r acc' e in
+      ret (If0 (c', t', e'), code)
   | Let ((n, t), e1, e2) ->
       let t' = cc_t t in
-      let e1', acc' = r acc e1 in
-      let e2', code = cc_e user_fns ((n, t) :: gamma) tagger acc' e2 in
-      (Closed.Expr.Let ((n, t'), e1', e2'), code)
+      let* e1', acc' = r acc e1 in
+      let* e2', code = cc_e user_fns ((n, t) :: gamma) tagger acc' e2 in
+      ret (Let ((n, t'), e1', e2'), code)
   | Cases (v, branches) ->
-      let v', acc' = r acc v in
-      let branches', code =
-        List.fold_left
+      let* v', acc' = r acc v in
+      let* branches_rev, code =
+        foldM
           ~f:(fun (branches, code) ((n, t), e) ->
             let t' = cc_t t in
-            let e', new_code = cc_e user_fns ((n, t) :: gamma) tagger code e in
-            (((n, t'), e') :: branches, new_code))
+            let* e', new_code = cc_e user_fns ((n, t) :: gamma) tagger code e in
+            ret (((n, t'), e') :: branches, new_code))
           ~init:([], acc') branches
       in
-      (Closed.Expr.Cases (v', branches'), code)
+      ret (Cases (v', List.rev branches_rev), code)
   | Apply (f, ts, arg) ->
-      let f', acc' = r acc f in
-      let arg', code = r acc' arg in
+      let* f', acc' = r acc f in
+      let* arg', code = r acc' arg in
       let ts' = List.map ~f:cc_t ts in
-      let ft =
+      let* ft =
         match f' with
-        | Var v -> List.Assoc.find_exn ~equal:equal_string gamma v |> cc_t
-        | Pack (_, _, t) -> t
-        | _ -> failwith "type error"
+        | Var v ->
+            (match List.Assoc.find ~equal:equal_string gamma v with
+            | Some t -> ret (cc_t t)
+            | None -> fail (ApplyVarNotInGamma v))
+        | Pack (_, _, t) -> ret t
+        | _ -> fail (ApplyBadShape f')
       in
-      ( Closed.(
-          Expr.Unpack
+      ret
+        ( Unpack
             ( "#cc-env",
-              ("#env_and_fn", PreType.Prod [ PreType.Var "#cc-env"; ft ]),
+              ("#env_and_fn", Prod [ Var "#cc-env"; ft ]),
               f',
-              Expr.Let
-                ( ("#env", PreType.Var "#cc-env"),
-                  Expr.Project (0, Expr.Var "#env_and_fn"),
-                  Expr.Let
+              Let
+                ( ("#env", Var "#cc-env"),
+                  Project (0, Var "#env_and_fn"),
+                  Let
                     ( ("#actual_fn", ft),
-                      Expr.Project (1, Expr.Var "#env_and_fn"),
-                      Expr.Apply (Expr.Var "#actual_fn", ts', arg') ) ) )),
-        code )
+                      Project (1, Var "#env_and_fn"),
+                      Apply (Var "#actual_fn", ts', Tuple [ Var "#env"; arg' ])
+                    ) ) ),
+          code )
 
 let cc_imp (Source.Module.Import (n, t)) = Closed.Module.Import (n, cc_t t)
 
-let cc_item user_fns gamma tagger acc item =
+let cc_item user_fns gamma tagger acc item :
+    (Closed.Module.item * Closed.Function.t list) Res.t =
   let open Source in
   let open Module in
+  let open PreType in
+  let open Res in
   let unit_type = PreType.Prod [] in
   match item with
-  | Export
-      ((n, t), Expr.Fun { foralls; arg = arg_name, arg_type; ret_type; body })
-  | Private
-      ((n, t), Expr.Fun { foralls; arg = arg_name, arg_type; ret_type; body })
+  | Export ((n, t), Fun { foralls; arg = arg_name, arg_type; ret_type; body })
+  | Private ((n, t), Fun { foralls; arg = arg_name, arg_type; ret_type; body })
     ->
       (* top-level functions have a unit environment, but it still needs to
          be added to the argument type for uniformity *)
-      let body', extra =
+      let* body', extra =
         cc_e user_fns
           (("#env", unit_type) :: (arg_name, arg_type) :: gamma)
           tagger acc body
       in
       let packer =
+        let open Closed.Module in
         match item with
-        | Export _ -> fun (a, b) -> Closed.Module.Export (a, b)
-        | Private _ -> fun (a, b) -> Closed.Module.Private (a, b)
+        | Export _ -> fun (a, b) -> Export (a, b)
+        | Private _ -> fun (a, b) -> Private (a, b)
       in
-      let arg_type' = PreType.Prod [ PreType.Prod []; arg_type ] in
-      ( packer
-          ( (n, cc_t t),
-            Function
-              {
-                name = n;
-                foralls;
-                arg = ("#env_and_arg", cc_t arg_type');
-                ret_type = cc_t ret_type;
-                body =
-                  Closed.(
-                    Expr.Let
-                      ( (arg_name, cc_t arg_type),
-                        Expr.Project (1, Expr.Var "#env_and_arg"),
-                        body' ));
-              } ),
-        extra )
-  | _ -> failwith "items must be function"
+      let arg_type' = Prod [ Prod []; arg_type ] in
+      ret
+        ( packer
+            ( (n, cc_t t),
+              Function
+                {
+                  name = n;
+                  foralls;
+                  arg = ("#env_and_arg", cc_t arg_type');
+                  ret_type = cc_t ret_type;
+                  body =
+                    Closed.Expr.(
+                      Let
+                        ( (arg_name, cc_t arg_type),
+                          Project (1, Var "#env_and_arg"),
+                          body' ));
+                } ),
+          extra )
+  | _ -> fail ItemNotFunction
 
-let cc_module (Source.Module.Module (imps, items, body)) =
-  let mk_private = function
-    | Closed.Function.Function { name; foralls; arg = _, t; ret_type; _ } as f
-      ->
-        Closed.Module.Private
-          ((name, Closed.PreType.Code { foralls; arg = t; ret = ret_type }), f)
+let cc_module (Source.Module.Module (imps, items, body)) : Closed.Module.t Res.t
+    =
+  let open Res in
+  let mk_private : Closed.Function.t -> Closed.Module.item = function
+    | Function { name; foralls; arg = _, t; ret_type; _ } as f ->
+        Private ((name, Code { foralls; arg = t; ret = ret_type }), f)
   in
   let tagger = Tag.new_counter () in
   let user_fns =
@@ -355,19 +388,19 @@ let cc_module (Source.Module.Module (imps, items, body)) =
         Closed.Module.Import (n, cc_t ~pack:false t))
       imps
   in
-  let items' =
-    List.fold_left
+  let* items' =
+    foldM
       ~f:(fun acc item ->
-        let item', extra = cc_item user_fns [] tagger [] item in
+        let* item', extra = cc_item user_fns [] tagger [] item in
         let extra = List.map ~f:mk_private extra in
-        acc @ extra @ [ item' ])
+        ret (acc @ extra @ [ item' ]))
       ~init:[] items
   in
   let open Closed.Module in
   match body with
-  | None -> Module (imps', items', None)
+  | None -> ret (Module (imps', items', None))
   | Some body ->
-      let body', extra = cc_e user_fns [] tagger [] body in
+      let* body', extra = cc_e user_fns [] tagger [] body in
       let extra = List.map ~f:mk_private extra in
       let items' = items' @ extra in
-      Module (imps', items', Some body')
+      ret (Module (imps', items', Some body'))

@@ -20,7 +20,7 @@ let simple_tests =
       {|
       (cases (inj 1 (11, 11) : (sum int (prod int int)))
         (case (num : int) num)
-        (case (tup : (prod int int)) 
+        (case (tup : (prod int int))
           (split (a : int) (b : int) = tup in
           (+ a b))))
       |},

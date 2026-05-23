@@ -4,7 +4,15 @@ open Stdlib.Format
 open Syntax.Source
 open Parse
 
-let pipeline x = x |> Convert.cc_module |> Codegen.compile_module
+let pipeline x =
+  match x |> Convert.cc_module with
+  | Ok m ->
+      (match Codegen.compile_module m with
+      | Ok m -> m
+      | Error e ->
+          failwith
+            (asprintf "codegen failed: %a" Codegen.Err.pp e))
+  | Error e -> failwith (asprintf "convert failed: %a" Convert.Err.pp e)
 
 let run name ast =
   ast
@@ -12,12 +20,14 @@ let run name ast =
   |> printf "-------[%s]-------@.%a@." name Richwasm_common.Syntax.Module.pp
 
 let to_converted src =
-  src
-  |> from_string_exn
-  |> Convert.cc_module
-  |> Syntax.Closed.Module.sexp_of_t
-  |> Sexp.to_string_hum
-  |> Stdlib.print_endline
+  match src |> from_string_exn |> Convert.cc_module with
+  | Ok m ->
+      m
+      |> Syntax.Closed.Module.sexp_of_t
+      |> Sexp.to_string_hum
+      |> Stdlib.print_endline
+  | Error e ->
+      Stdlib.print_endline (asprintf "convert failed: %a" Convert.Err.pp e)
 
 let run_str name source = source |> from_string_exn |> run name
 let one = Module.Module ([], [], Some (Expr.Int 1))
@@ -132,10 +142,10 @@ let%expect_test "return_one" =
       local.get 0 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-      coderef 0
       group 0
       new gc
       cast (ref (base gc) (struct))
+      coderef 0
       group 2
       new gc
       cast
@@ -173,9 +183,16 @@ let%expect_test "return_one" =
         drop
         local.get 4 move
         local.set 5
+        local.get 3 move
+        copy
+        local.set 3
         group 0
         new gc
         cast (ref (base gc) (struct))
+        group 2
+        new gc
+        cast
+          (ref (base gc) (struct (ser (var 0)) (ser (ref (base gc) (struct)))))
         local.get 5 move
         copy
         local.set 5
@@ -242,10 +259,10 @@ let%expect_test "apply_id" =
       local.get 0 move
       drop)
     (func ((ref (base gc) (struct)) -> i31) (local ptr ptr ptr ptr ptr ptr)
-      coderef 0
       group 0
       new gc
       cast (ref (base gc) (struct))
+      coderef 0
       group 2
       new gc
       cast
@@ -283,8 +300,14 @@ let%expect_test "apply_id" =
         drop
         local.get 4 move
         local.set 5
+        local.get 3 move
+        copy
+        local.set 3
         i32.const 42
         tag
+        group 2
+        new gc
+        cast (ref (base gc) (struct (ser (var 0)) (ser i31)))
         local.get 5 move
         copy
         local.set 5
@@ -362,17 +385,17 @@ let%expect_test "opt_case" =
       local.set 1
       case_load (result i31) copy inferfx
         (0
-          local.set 3
+          local.set 2
           i32.const 0
           tag
-          local.get 3 move
+          local.get 2 move
           drop)
         (1
-          local.set 2
-          local.get 2 move
+          local.set 3
+          local.get 3 move
           copy
-          local.set 2
-          local.get 2 move
+          local.set 3
+          local.get 3 move
           drop)
       end
       local.set 4

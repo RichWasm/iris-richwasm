@@ -8,7 +8,6 @@ include Test_runner.MultiOutputter.Make (struct
   let margin = 120
   let max_indent = margin
 
-  open Test_utils
   open Richwasm_lin_lang
 
   type syntax = Syntax.Module.t
@@ -714,7 +713,7 @@ let%expect_test "examples" =
                     (var 0)))]
                -> [(prod (val (prod) norefs))])
       (table 0)
-      (export "_start" (func 1)))
+      (export "_start" (func 2)))
     -----------closure-----------
     (module
       (func

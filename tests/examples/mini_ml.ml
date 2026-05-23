@@ -110,6 +110,7 @@ let simple =
     ("basic_let", "(let (x : int) 10 x)");
     ("return_one", "(fun () (_ : (*)) : int 1)");
     ("iife", "(app (fun () (_ : (*)) : int 1) () (tup))");
+    ("---------", "(app (fun () (x : int) : int x) () 5)");
   ]
   |> List.map ~f:(fun (n, src) -> (n, from_string_exn src))
 

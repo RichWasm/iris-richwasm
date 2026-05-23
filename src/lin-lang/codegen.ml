@@ -353,8 +353,10 @@ module Compile = struct
     let open Res in
     let imports_only_map = List.mapi imports ~f:(fun i im -> (im.name, i)) in
     let import_offset = List.length imports in
+    (* user fn `i` sits after the imports and one wrapper per import, at
+       index 2 * import_offset + i *)
     let functions_only_map =
-      List.mapi functions ~f:(fun i f -> (f.name, import_offset + i))
+      List.mapi functions ~f:(fun i f -> (f.name, (2 * import_offset) + i))
     in
     let* import_function_wrapped =
       mapiM imports ~f:(fun i { input; output; _ } ->
@@ -395,13 +397,15 @@ module Compile = struct
     let main_export =
       main
       |> Option.map ~f:(fun _ : B.Module.Export.t ->
-          { name = "_start"; desc = Func (List.length functions' - 1) })
+          let main_index = import_offset + List.length functions' - 1 in
+          { name = "_start"; desc = Func main_index })
       |> Option.map ~f:List.return
       |> Option.value_or_thunk ~default:(fun () -> [])
     in
     let exports =
       List.filter_mapi functions ~f:(fun i A.Function.{ export; name; _ } ->
-          Option.some_if export B.Module.Export.{ name; desc = Func i })
+          let fn_index = (2 * import_offset) + i in
+          Option.some_if export B.Module.Export.{ name; desc = Func fn_index })
       @ main_export
     in
     ret @@ B.Module.{ imports; exports; functions = functions'; table }

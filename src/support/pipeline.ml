@@ -5,11 +5,7 @@ open Result_utils
 
 let ll_pipeline x =
   let open Richwasm_lin_lang in
-  x
-  |> Main.compile_ast
-  |> Main.Res.T.run
-  |> fst
-  |> or_fail_pp Main.CompileErr.pp
+  x |> Main.compile_ast |> Main.Res.run |> fst |> or_fail_pp Main.CompileErr.pp
 
 let ll_str_pipeline x =
   let open Richwasm_lin_lang in
@@ -17,7 +13,7 @@ let ll_str_pipeline x =
 
 let ml_pipeline x =
   let open Richwasm_mini_ml in
-  x |> Convert.cc_module |> Codegen.compile_module
+  x |> Main.compile_ast |> Main.Res.run |> fst |> or_fail_pp Main.CompileErr.pp
 
 let ml_str_pipeline x =
   let open Richwasm_mini_ml in
@@ -52,7 +48,6 @@ let rec pp_typecheck_error ff =
          %a@]"
         s pp_lctx l pp_lctx l' pp_typecheck_errors errs
   | HasKindError (s, errs) ->
-      let pp_lctx = pp_rocq_list Type.pp in
       fprintf ff
         "@[<v 2>Has kind error: %s @,\
          %a@]"
