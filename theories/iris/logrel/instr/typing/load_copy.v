@@ -292,7 +292,6 @@ Section load_copy.
     unfold heap_memory.
   Abort.
 
-
   Lemma wp_loadroot wt wl ret wt' wl' es_load :
     run_codegen (loadroot mr) wt wl = inr (ret, wt', wl', es_load) ->
     ret = () /\
@@ -525,8 +524,6 @@ Section load_copy.
     unfold load1.
     intros Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_get ?es_rest Hget Hcompile.
-    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_ret ?es_rest Hret Hcompile.
-    cbn in Hret; inversion Hret; subst; clear Hret.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_load_w ?es_rest Hload_w Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_wlalloc ?es_rest Hwlalloc Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_save ?es_rest Hsave Hcompile.
@@ -661,8 +658,6 @@ Section load_copy.
     unfold load1.
     intros Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_get ?es_rest Hget Hcompile.
-    inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_ret ?es_rest Hret Hcompile.
-    cbn in Hret; inversion Hret; subst; clear Hret.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_load_w ?es_rest Hload_w Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_wlalloc ?es_rest Hwlalloc Hcompile.
     inv_cg_bind Hcompile [] ?wt ?wt ?wl ?wl es_save ?es_rest Hsave Hcompile.
@@ -1124,10 +1119,10 @@ Section load_copy.
                        (off, []) ιs).2 in
     ⊢ rt_token rti sr θ -∗
       [∗ list] off';v ∈ offs;vs, memidx↦[wms][base + byte_offset MemMM off'] bits v ∗ rt_token rti sr θ.
-    Proof.
-      iIntros (offs) "Hrt".
-      open_rt "Hrt".
-    Abort.
+  Proof.
+    iIntros (offs) "Hrt".
+    open_rt "Hrt".
+  Abort.
 
     (*
       root_memory sr θ
@@ -1273,6 +1268,10 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
       eapply cwp_case_ptr in Hcompile.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
+      inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hret Hload1.
+      cbn in Hret.
+      inversion Hret.
+      subst wt4 wl4 es2.
       rewrite atoms_interp_one_inv.
       iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
       inversion Hv'; subst v'; clear Hv'.

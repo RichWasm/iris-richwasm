@@ -233,21 +233,7 @@ Section Compiler.
     end;;
     ignore $ case_ptr a (W.Tf [] (map translate_arep ιs))
       (emit W.BI_unreachable)
-      (fun μ => load mr fe μ con a off ιs).
-
-  (* A GC reference is a root-table handle; [loadroot] resolves it to the
-     address of its referent. An MM reference is already that address. *)
-  Definition resolve_ref (fe : function_env) (μ : base_memory) (a : W.localidx) :
-    codegen W.localidx :=
-    match μ with
-    | MemMM => ret a
-    | MemGC =>
-        p ← wlalloc fe W.T_i32;
-        emit (W.BI_get_local (localimm a));;
-        loadroot mr;;
-        emit (W.BI_set_local (localimm p));;
-        ret p
-    end.
+      (fun μ => root_to_heap mr μ a;; load mr fe μ con a off ιs).
 
   Definition compile_store (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
     ρ ← try_option EFail (type_rep fe.(fe_type_vars) τval);
@@ -258,7 +244,7 @@ Section Compiler.
     emit (W.BI_tee_local (localimm a));;
     case_ptr a (W.Tf [] [])
       (emit W.BI_unreachable)
-      (fun μ => p ← resolve_ref fe μ a; store mr μ p off vs ιs);;
+      (fun μ => root_to_heap mr μ a;; store mr μ a off vs ιs);;
     set_pointer_flags mr a off (flat_map arep_flags ιs).
 
   Definition compile_swap (fe : function_env) (τ τval : type) (π : path) : codegen unit :=
@@ -270,10 +256,7 @@ Section Compiler.
     emit (W.BI_tee_local (localimm a));;
     ignore $ case_ptr a (W.Tf [] (map translate_arep ιs))
       (emit W.BI_unreachable)
-      (fun μ =>
-         p ← resolve_ref fe μ a;
-         load mr fe μ Move a off ιs;;
-         store mr μ p off vs ιs).
+      (fun μ => root_to_heap mr μ a;; load mr fe μ Move a off ιs;; store mr μ a off vs ιs).
 
   Definition erased_in_wasm : codegen unit := ret tt.
 

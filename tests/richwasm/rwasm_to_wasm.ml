@@ -247,18 +247,18 @@ let%expect_test "debug: boxed sum" =
                   (i32.load offset=11 align=2
                     (local.get $l15))))
               (else
+                (local.set $l15
+                  (i32.load $richwasm.gcmem offset=1 align=2
+                    (local.get $l15)))
                 (local.tee $l19
                   (i32.load $richwasm.gcmem offset=1 align=2
-                    (i32.load $richwasm.gcmem offset=1 align=2
-                      (local.get $l15))))
+                    (local.get $l15)))
                 (local.tee $l20
                   (i32.load $richwasm.gcmem offset=5 align=2
-                    (i32.load $richwasm.gcmem offset=1 align=2
-                      (local.get $l15))))
+                    (local.get $l15)))
                 (local.tee $l21
                   (i32.load $richwasm.gcmem offset=9 align=2
-                    (i32.load $richwasm.gcmem offset=1 align=2
-                      (local.get $l15))))))))
+                    (local.get $l15)))))))
         (local.set $l3)
         (local.set $l2)
         (local.set $l1)

@@ -65,6 +65,12 @@ Section Compiler.
       (fun '(i, f) => emit (W.BI_get_local (localimm a));; setflag i f)
       (zip (seq i (length fs)) fs).
 
+  Definition root_to_heap (μ : base_memory) (a : W.localidx) : codegen unit :=
+    match μ with
+    | MemMM => ret tt
+    | MemGC => emit (W.BI_get_local (localimm a));; loadroot;; emit (W.BI_set_local (localimm a))
+    end.
+
   Definition drop_ptr (μ : base_memory) : codegen unit :=
     match μ with
     | MemMM => free
@@ -125,12 +131,7 @@ Section Compiler.
     (fe : function_env) (μ : base_memory) (con : consumption)
     (a : W.localidx) (off : nat) (ι : atomic_rep) :
     codegen unit :=
-
     emit (W.BI_get_local (localimm a));;
-    match μ with
-    | MemGC => loadroot
-    | _ => ret tt
-    end;;
     let t := translate_arep ι in
     load_w μ t off;;
     v ← wlalloc fe t;
