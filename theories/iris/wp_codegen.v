@@ -2,7 +2,7 @@ Require Import iris.proofmode.proofmode.
 
 From stdpp Require Import list.
 From RichWasm Require Import syntax typing util.
-From RichWasm.compiler Require Import prelude accum codegen.
+From RichWasm.compiler Require Import prelude accum codegen memory.
 From RichWasm.iris Require Import autowp cwp lenient_wp logpred.
 Require Import RichWasm.iris.logrel.
 
@@ -15,6 +15,8 @@ Section CodeGen.
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
   Context `{!rwasm_gcG Σ}.
+
+  Variable mr : module_runtime.
 
   Lemma wp_if_c {A B} s E tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y :
     run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
@@ -952,45 +954,45 @@ Section CodeGen.
   Qed.
 
   Lemma cwp_create_defaults types wt wl x wt' wl' es s E L R f Φ :
-  run_codegen (create_defaults types) wt wl = inr (x, wt', wl', es) ->
-  x = tt /\
-  wt' = [] /\
-  wl' = [] /\
-  ⊢ ↪[frame] f -∗
-    ↪[RUN] -∗
-    Φ f (map (default_of_value_type) types) -∗
-    CWP es @ s; E UNDER L; R {{ Φ }}.
-Proof.
-  intros Hcg.
-  apply run_codegen_create_defaults in Hcg.
-  destruct Hcg as (-> & -> & -> & ->).
-  do 3 (split; try done).
-  iIntros "Hfr Hrun HΦ".
-  iApply (cwp_val with "[$] [$] HΦ").
-  rewrite -map_comp.
-  apply has_values_to_consts.
-Qed.
+    run_codegen (create_defaults types) wt wl = inr (x, wt', wl', es) ->
+    x = tt /\
+    wt' = [] /\
+    wl' = [] /\
+    ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
+      Φ f (map (default_of_value_type) types) -∗
+      CWP es @ s; E UNDER L; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    apply run_codegen_create_defaults in Hcg.
+    destruct Hcg as (-> & -> & -> & ->).
+    do 3 (split; try done).
+    iIntros "Hfr Hrun HΦ".
+    iApply (cwp_val with "[$] [$] HΦ").
+    rewrite -map_comp.
+    apply has_values_to_consts.
+  Qed.
 
-Lemma cwp_drop_consts types wt wl x wt' wl' es E L R f Φ evs :
-  length evs = length types ->
-  is_consts evs ->
-  run_codegen (drop_consts types) wt wl = inr (x, wt', wl', es) ->
-  x = tt /\
-  wt' = [] /\
-  wl' = [] /\
-  ⊢ ↪[frame] f -∗
-    ↪[RUN] -∗
-    Φ f [] -∗
-    CWP evs ++ es @ E UNDER L; R {{ Φ }}.
-Proof.
-  intros Hlen Hconsts Hcg.
-  apply run_codegen_drop_consts in Hcg.
-  destruct Hcg as (-> & -> & -> & ->).
-  do 3 (split; try done).
-  iIntros "Hfr Hrun HΦ".
-  rewrite -Hlen.
-  by iApply (cwp_drops with "[$] [$] [HΦ]").
-Qed.
+  Lemma cwp_drop_consts types wt wl x wt' wl' es E L R f Φ evs :
+    length evs = length types ->
+    is_consts evs ->
+    run_codegen (drop_consts types) wt wl = inr (x, wt', wl', es) ->
+    x = tt /\
+    wt' = [] /\
+    wl' = [] /\
+    ⊢ ↪[frame] f -∗
+      ↪[RUN] -∗
+      Φ f [] -∗
+      CWP evs ++ es @ E UNDER L; R {{ Φ }}.
+  Proof.
+    intros Hlen Hconsts Hcg.
+    apply run_codegen_drop_consts in Hcg.
+    destruct Hcg as (-> & -> & -> & ->).
+    do 3 (split; try done).
+    iIntros "Hfr Hrun HΦ".
+    rewrite -Hlen.
+    by iApply (cwp_drops with "[$] [$] [HΦ]").
+  Qed.
 
   Lemma wp_bind_err {A B} c (f : A -> codegen B) wt wl err :
     run_codegen (c ≫= f) wt wl = inl err ->
@@ -1060,5 +1062,52 @@ Qed.
       destruct Heqs as (-> & ret' & Hc).
       congruence.
   Qed.
+
+
+  Lemma wp_map_gc_ptr_duproot ι idx wt wl res wt' wl' es:
+    run_codegen (map_gc_ptr ι idx (duproot mr)) wt wl = inr (res, wt', wl', es) ->
+    res = () /\ wt' = [] /\ wl' = [].
+  Proof.
+    unfold map_gc_ptr, ite_gc_ptr; intros Hcg.
+    destruct ι.
+    - apply wp_ignore in Hcg.
+      destruct Hcg as (-> & res' & Hcg).
+      admit.
+    - cbn; inv_cg_ret Hcg; done.
+    - cbn; inv_cg_ret Hcg; done.
+    - cbn; inv_cg_ret Hcg; done.
+    - cbn; inv_cg_ret Hcg; done.
+  Admitted.
+
+  Lemma wp_map_gc_ptrs_duproot ιs idxs wt wl res wt' wl' es_gcs:
+    run_codegen (map_gc_ptrs ιs idxs (duproot mr)) wt wl = inr (res, wt', wl', es_gcs) ->
+    res = () /\ wt' = [] /\ wl' = [].
+  Proof.
+    unfold map_gc_ptrs, util.mapM_.
+    intros Hcg.
+    apply wp_ignore in Hcg.
+    destruct Hcg as (-> & res' & Hcg).
+    remember (zip ιs idxs) as ιidxs.
+    revert Heqιidxs Hcg.
+    revert ιs idxs wt wl res' wt' wl' es_gcs.
+    induction ιidxs as [|[ι idx] ιidxs].
+    - intros.
+      apply wp_mapM_nil in Hcg.
+      destruct Hcg as (-> & -> & -> & ->).
+      done.
+    - intros.
+      destruct ιs as [|ι' ιs], idxs as [|idx' idxs]; inversion Heqιidxs.
+      subst ι' idx'.
+      apply wp_mapM_cons in Hcg.
+      destruct Hcg as (res & ?wt & ?wl & ?es & ?res & ?wt & ?wl & ?es & Hdup & Hcg & Heqs).
+      destruct Heqs as (-> & -> & -> & ->).
+      eapply IHιidxs in Hcg; eauto.
+      destruct Hcg as (_ & -> & ->).
+      split; auto.
+      apply wp_map_gc_ptr_duproot in Hdup.
+      destruct Hdup as (-> & -> & ->).
+      done.
+  Qed.
+
 
 End CodeGen.
