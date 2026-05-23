@@ -10,7 +10,7 @@ From RichWasm.named_props Require Export named_props custom_syntax.
 From RichWasm Require Export layout syntax typing util.
 Require Export RichWasm.wasm.operations.
 From RichWasm.compiler Require Export prelude codegen instruction module.
-From RichWasm.iris Require Export autowp memory logrel util wp_codegen.
+From RichWasm.iris Require Export autowp memory logrel util.
 From RichWasm.iris.logrel Require Export util.
 From RichWasm.iris.language Require Export cwp logpred.
 Require Export RichWasm.iris.logrel.instr.kinding.
