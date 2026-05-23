@@ -1817,3 +1817,35 @@ Proof.
     cbn. rewrite Heq.
     exists (LL_local l n f vh' l0). cbn. auto. }
 Qed.
+
+Fixpoint replace_base {n} (vh: valid_holed n) vs :=
+  match vh with
+  | VH_base n _ es => VH_base n vs es
+  | VH_rec n b c d vh e => VH_rec b c d (replace_base vh vs) e
+  end.
+
+Lemma lfilled_get_replace_base {n} (vh: valid_holed n) es vs1 vs2:
+  get_base_l vh = vs1 ++ vs2 ->
+  lh_depth (lh_of_vh vh) = n ->
+  is_true (lfilled n (lh_of_vh (replace_base vh vs1))
+  (seq.cat (v_to_e_list vs2) es) (vfill vh es)).
+Proof.
+  induction vh => //=.
+  - intros -> <-.
+    unfold lfilled, lfill => //=.
+    rewrite v_to_e_is_const_list /=.
+    rewrite -v_to_e_cat.
+    repeat rewrite cat_app.
+    repeat rewrite app_assoc.
+    done.
+  - intros Hbase Hdepth.
+    apply eq_add_S in Hdepth.
+    specialize (IHvh Hbase Hdepth).
+    unfold lfilled, lfill; fold lfill.
+    rewrite v_to_e_is_const_list.
+    unfold lfilled in IHvh.
+    destruct (lfill _ _ _) => //.
+    apply b2p in IHvh as <-.
+    done.
+Qed.
+
