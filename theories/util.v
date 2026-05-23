@@ -416,3 +416,117 @@ Proof.
   rewrite !concat_mjoin.
   by apply Forall2_join.
 Qed.
+
+Lemma Forall2_mini_impl {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
+  Forall2 P l k -> Forall2 (λ a b, P a b → Q a b) l k -> Forall2 Q l k.
+Proof.
+  generalize dependent k.
+  induction l.
+  - intros k HP Hall.
+    destruct k; [done|by inversion HP].
+  - intros k HP Hall.
+    destruct k as [| b k]; [by inversion HP|].
+    inversion HP; subst.
+    inversion Hall; subst.
+    apply Forall2_cons; auto.
+Qed.
+
+Lemma Forall2_mini_impl_Forall {A B : Type} (P Q: A → B → Prop) (l : list A) (k: list B):
+  Forall2 P l k -> Forall (λ a, ∀ b, P a b → Q a b) l -> Forall2 Q l k.
+Proof.
+  intros H H'.
+  eapply Forall2_mini_impl; try done.
+  apply Forall_Forall2_l; last done.
+  by apply Forall2_length in H.
+Qed.
+
+Lemma forall2_lookup_same {A B} (ls ls' : list A) (idxs : list B) (xs : list A) (j_excl : nat) (f: B -> nat) :
+  (∀ j : B, f j ≠ j_excl → ls' !! f j = ls !! f j) ->
+  Forall (λ i, f i ≠ j_excl) idxs ->
+  Forall2 (λ (i : B) (v : A), ls  !! f i = Some v) idxs xs ->
+  Forall2 (λ (i : B) (v : A), ls' !! f i = Some v) idxs xs.
+Proof.
+  intros Hsame Hnotin Hf.
+  induction Hf.
+  - constructor.
+  - inversion Hnotin; subst.
+    constructor.
+    + rewrite Hsame; auto.
+    + apply IHHf; auto.
+Qed.
+
+(* default to stdpp's list for the remainder *)
+From stdpp Require Import list.
+
+Lemma mapM_take {A B : Type} n (f : A → option B) (l : list A) (k : list B) :
+  mapM f l = Some k →
+  mapM f (take n l) = Some (take n k).
+Proof.
+  intros H.
+  rewrite mapM_Some.
+  apply Forall2_take.
+  by apply mapM_Some.
+Qed.
+
+Lemma mapM_drop {A B : Type} n (f : A → option B) (l : list A) (k : list B) :
+  mapM f l = Some k →
+  mapM f (drop n l) = Some (drop n k).
+Proof.
+  intros H.
+  rewrite mapM_Some.
+  apply Forall2_drop.
+  by apply mapM_Some.
+Qed.
+
+Lemma mapM_lookup {A B} f (l : list A) (k : list B) (i : nat) :
+  mapM f l = Some k ->
+  (l !! i) ≫= f = k !! i.
+Proof.
+  intros Hm%mapM_Some_1.
+  destruct (l !! i) as [a|] eqn:Hl; simpl.
+  - eapply Forall2_lookup_l in Hm as [b [-> Hab]]; eauto.
+  - apply lookup_ge_None_1 in Hl.
+    symmetry.
+    apply lookup_ge_None_2.
+    by rewrite <- (Forall2_length _ _ _ Hm).
+Qed.
+
+Lemma mapM_app {A B : Type} (f : A → option B) (l : list A) (k1 k2 : list B) :
+  mapM f l = Some (k1 ++ k2) →
+  ∃ l1 l2,
+  l = l1 ++ l2 /\
+  mapM f l1 = Some k1 /\
+  mapM f l2 = Some k2.
+Proof.
+  intros H.
+  exists (take (length k1) l), (drop (length k1) l).
+  split; [by rewrite take_drop |].
+  split.
+  - erewrite mapM_take; [| exact H].
+    by rewrite take_app_length.
+  - erewrite mapM_drop; [| exact H].
+    by rewrite drop_app_length.
+Qed.
+
+Lemma mapM_split {A B : Type} (f : A → option B) (l : list A) (b : B) (k1 k2 : list B) :
+  mapM f l = Some (k1 ++ [b] ++ k2) →
+  ∃ l1 l2 a,
+  l = l1 ++ [a] ++ l2 /\
+  mapM f l1 = Some k1 /\
+  f a = Some b /\
+  mapM f l2 = Some k2.
+Proof.
+  intros H.
+  apply mapM_app in H as (l1 & lrest & Hl & Hk1 & Hrest).
+  apply mapM_app in Hrest as (lmid & l2 & Hlrest & Hmid & Hk2).
+  apply length_mapM in Hmid as Hlen.
+  destruct lmid as [| a [| ? ?]]; try done.
+  subst lrest.
+  exists l1, l2, a.
+  repeat split; try done.
+  simpl in Hmid.
+  apply bind_Some in Hmid as (b' & Hfa & Hsb).
+  inversion Hsb.
+  by subst b'.
+Qed.
+

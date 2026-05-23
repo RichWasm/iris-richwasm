@@ -7,7 +7,6 @@ Section util.
 
   Context `{!wasmG Σ}.
 
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
   Lemma to_val_v_to_e vs :
     to_val (v_to_e_list vs) = Some (immV vs).
   Proof.
@@ -24,14 +23,12 @@ Section util.
     simpl. done.
   Qed.
 
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
   Lemma push_const_lh_depth {i : nat} (lh : valid_holed i) w :
     lh_depth (lh_of_vh lh) = lh_depth (lh_of_vh (vh_push_const lh w)).
   Proof.
     induction lh;simpl;auto.
   Qed.
 
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
   Lemma get_base_l_push_const {i : nat} (lh : valid_holed i) w :
     get_base_l (vh_push_const lh w) = (w ++ get_base_l lh) ∨
       get_base_l (vh_push_const lh w) = get_base_l lh.
@@ -41,7 +38,6 @@ Section util.
     { simpl. by right. }
   Qed.
 
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
   Lemma simple_get_base_l_push_const (lh : simple_valid_holed) w :
     simple_get_base_l (sh_push_const lh w) = (w ++ simple_get_base_l lh) ∨
     simple_get_base_l (sh_push_const lh w) = simple_get_base_l lh.
@@ -51,7 +47,6 @@ Section util.
     { simpl. by right. }
   Qed.
 
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
   Lemma to_e_list_app es1 es2 :
     to_e_list (es1 ++ es2) = to_e_list es1 ++ to_e_list es2.
   Proof.
@@ -65,14 +60,6 @@ Section util.
     by apply map_map.
   Qed.
 
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
-  Lemma get_base_l_append {i : nat} (lh : valid_holed i) e :
-    get_base_l (vh_append lh e) = get_base_l lh.
-  Proof.
-    induction lh;simpl;auto.
-  Qed.
-
-  (* TODO: Duplicated from compat_lemmas/shared.v. *)
   Lemma append_lh_depth {i : nat} (lh : valid_holed i) e :
     lh_depth (lh_of_vh lh) = lh_depth (lh_of_vh (vh_append lh e)).
   Proof.

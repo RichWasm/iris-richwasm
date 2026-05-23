@@ -13,7 +13,7 @@ From iris.proofmode Require Import base proofmode classes.
 From iris.algebra Require Import list.
 From RichWasm.iris.language Require Import iris_wp_def lenient_wp logpred.
 Require Import RichWasm.iris.logrel.
-Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.logrel_properties.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
