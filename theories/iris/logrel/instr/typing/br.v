@@ -40,8 +40,7 @@ Section br.
     iDestruct (atoms_interp_app_l with "Hvs") as "(%vs1 & %vs2 & -> & HIvs1 & HIvs2)".
     iDestruct "Hbr" as "[Htslen HP]".
     destruct (translate_types se τs) as [ts|] eqn:Hts; last done.
-    iDestruct (translate_types_sem_interp_length with "HIos2") as "%Hos2len".
-    1, 2: done.
+    iDestruct (translate_types_sem_interp_length with "HIos2") as "%Hos2len"; first done.
     iDestruct (big_sepL2_length with "HIvs2") as "%Hvs2len".
     iSpecialize ("HP" with "[] [$] [$] [$] [$] [$]"); first done.
     iDestruct "Htslen" as "%Htslen".

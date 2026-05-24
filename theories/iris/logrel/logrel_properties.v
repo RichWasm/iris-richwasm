@@ -705,44 +705,60 @@ Section properties.
     by eapply translate_type_comp_sem.
   Qed.
 
+  Lemma translate_type_interp_length se τ ts os :
+    translate_type se τ = Some ts ->
+    value_interp rti sr se τ (SAtoms os) -∗
+    ⌜length os = length ts⌝.
+  Proof.
+    iIntros (Hts) "Hval".
+    iDestruct (value_interp_skind with "Hval") as %(sκ & Hsκ & Hsv).
+    iPureIntro.
+    unfold translate_type in Hts.
+    apply fmap_Some in Hts as [ιs [Harep ->]].
+    unfold type_arep in Harep.
+    apply bind_Some in Harep as [sκ' [Hskind Hrep]].
+    destruct sκ' as [ιs' ξ' | σ']; last discriminate Hrep.
+    cbn in Hrep. injection Hrep as ->.
+    rewrite Hskind in Hsκ. injection Hsκ as <-.
+    destruct Hsv as [Hareps _].
+    rewrite length_map.
+    symmetry.
+    by apply has_areps_length.
+  Qed.
+
   Lemma translate_types_sem_interp_length se τs ts os :
     translate_types se τs = Some ts ->
     values_interp rti sr se τs os -∗
     ⌜length os = length ts⌝.
   Proof.
-    generalize dependent se; generalize dependent ts; generalize dependent os.
-    induction τs as [|τ τs].
-    - intros.
-      iIntros  "(%oss & %ossconc & Hval)".
-      iPoseProof (big_sepL2_length with "[$Hval]") as "%osslen".
-      simpl in osslen; destruct oss; [ | inversion osslen].
-      simpl in ossconc; subst; iPureIntro.
-      cbn in H.
-      inversion H; auto.
-    - intros.
-      rewrite separate1.
+    revert se ts os.
+    induction τs as [|τ τs IHτs]; intros se ts os H.
+    - unfold translate_types in H.
+      apply fmap_Some in H as [tss [Hmapм ->]].
+      cbn in Hmapм.
+      injection Hmapм as <-.
       iIntros "Hval".
-      iPoseProof (values_interp_app_l with "[$Hval]") as "(%os1 & %os2 & %Hoslen & Ha & Hτs)".
-      (* rewrite values_interp_one_eq. *)
-      subst os.
-
-      (* unfold translate_types in H. *)
-      (* rewrite fmap_Some in H. *)
-      (* destruct H as (tss & Hmapm & Htsconcat). *)
-      (* apply bind_Some in Hmapm. *)
-      (* destruct Hmapm as (ts1 & Htranslate & Hmapτs). *)
-      (* set (asdf := translate_types se τs). *)
-      (* assert (H: asdf = Some ts). { *)
-      (*   admit. *)
-      (* } *)
-      (* NOTE: I need to turn Hmapτs back into translate_types se τs = Some _. Or get it out of
-         there at least. Not rn. For now I'll just show stuff about a, aka that os1 = ts1. *)
-
-      (* subst. *)
-      (* induction on a? I need to prove that length os1 = length ts1, and that'll
-       depend on what sort of instruction a is. There's some annoying fixpoint here and there. *)
-
-  Admitted.
+      iPoseProof (values_interp_nil_l with "Hval") as "->".
+      done.
+    - unfold translate_types in H.
+      apply fmap_Some in H as [tss [Hmapм ->]].
+      apply mapM_Some in Hmapм.
+      destruct tss as [|t_head tss_rest]; first inversion Hmapм.
+      apply Forall2_cons_1 in Hmapм as [Hhead Hrest].
+      apply mapM_Some in Hrest.
+      assert (Htail : translate_types se τs = Some (concat tss_rest)).
+      {
+        unfold translate_types.
+        rewrite fmap_Some.
+        eexists; by split.
+      }
+      iIntros "Hval".
+      iPoseProof (values_interp_cons_l with "Hval") as "(%os1 & %os2 & -> & Hhd & Htl)".
+      iDestruct (translate_type_interp_length with "Hhd") as %Hlen1; first done.
+      iDestruct (IHτs se _ os2 Htail with "Htl") as %Hlen2.
+      iPureIntro.
+      by rewrite length_app Hlen1 Hlen2 concat_cons length_app.
+  Qed.
 
   Lemma translate_types_comp_interp_length F τs ts se os :
     sem_env_interp F se ->

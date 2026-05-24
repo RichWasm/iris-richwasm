@@ -58,7 +58,7 @@ Section block.
     subst fe.
     cbn in Hts1, Hts2.
     iDestruct (translate_types_comp_interp_length with "Hos") as "%Hoslen".
-    1, 2, 3: done.
+    1, 2: done.
     iDestruct (big_sepL2_length with "Hvs") as "%Hvslen".
     unfold ofe_car in Hvslen.
     iApply (cwp_block with "[$] [$]").
@@ -72,7 +72,7 @@ Section block.
     2: iApply "IH".
     iSimpl.
     iApply labels_interp_cons.
-    4: by iIntros (??) "!> ?".
+    3: by iIntros (??) "!> ?".
     all: done.
   Qed.
 

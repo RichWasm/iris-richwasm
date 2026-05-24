@@ -152,8 +152,8 @@ Section call_indirect.
         rename x into ts1_tounify.
         rename x2 into ts2_tounify.
         inversion rest.
-        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
-        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
+        apply (translate_types_comp_sem _ _ _ _ H) in transts1; auto.
+        apply (translate_types_comp_sem _ _ _ _ H) in transts2; auto.
         congruence.
       }
       auto.
@@ -192,7 +192,7 @@ Section call_indirect.
          Then our helper, has_values_length, finishes it :)
        *)
       iPoseProof
-        (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
+        (translate_types_sem_interp_length _ _ _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
       iPoseProof (atoms_interp_length with "Hvsτs1") as "%Hi2".
       apply has_values_length in Hevs1 as Hevs_τs1inner.
       rewrite <- Hi2 in Hevs_τs1inner.
@@ -241,7 +241,7 @@ Section call_indirect.
         {
           iIntros (f vs0) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)".
           iPoseProof
-            (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts2inner with "Hos2") as "%hi".
+            (translate_types_sem_interp_length _ _ _ _ _ _ Hts2inner with "Hos2") as "%hi".
           iPoseProof (atoms_interp_length with "Hvs2") as "%hi2".
           rewrite hi2 in hi.
           iFrame.
@@ -273,8 +273,8 @@ Section call_indirect.
         rename x into ts1_tounify.
         rename x2 into ts2_tounify.
         inversion rest.
-        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts1; auto.
-        apply (translate_types_comp_sem rti sr mr _ _ _ _ H) in transts2; auto.
+        apply (translate_types_comp_sem _ _ _ _ H) in transts1; auto.
+        apply (translate_types_comp_sem _ _ _ _ H) in transts2; auto.
         subst; auto.
         congruence.
       }
@@ -302,7 +302,7 @@ Section call_indirect.
 
       (* Fourth goal: length evs = length τs1_inner *)
       iPoseProof
-        (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
+        (translate_types_sem_interp_length _ _ _ _ _ _ Hts1inner with "Hosτs1") as "%Hi".
       iPoseProof (atoms_interp_length with "Hvsτs1") as "%Hi2".
       apply has_values_length in Hevs1 as Hevs_τs1inner.
       rewrite <- Hi2 in Hevs_τs1inner.
@@ -349,7 +349,7 @@ Section call_indirect.
         {
           iIntros (f vs0) "Hframe ((%os2 & Hvs2 & Hos2) & [%θ' Hrt] & Hown)".
           iPoseProof
-            (translate_types_sem_interp_length _ _ mr _ _ _ _ Hts2inner with "Hos2") as "%hi".
+            (translate_types_sem_interp_length _ _ _ _ _ _ Hts2inner with "Hos2") as "%hi".
           iPoseProof (atoms_interp_length with "Hvs2") as "%hi2".
           rewrite hi2 in hi.
           iFrame.

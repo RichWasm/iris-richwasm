@@ -45,7 +45,7 @@ Section loop.
     subst.
     clear_nils.
     iDestruct (translate_types_comp_interp_length with "Hos") as "%Hlen_ts1".
-    1, 2, 3: done.
+    1, 2: done.
     iDestruct (big_sepL2_length with "Hvs") as "%Hlen_vs".
     eapply IH in Hcg.
     iApply (cwp_loop' with "[$] [$] [Hvs Hos Hframe Hown Hrt]"); first done.
@@ -62,7 +62,7 @@ Section loop.
       + iPureIntro. apply has_values_to_consts.
       + by destruct Hrel as [_ ->].
       + iSimpl. iApply labels_interp_cons.
-        1, 2, 3: done.
+        1, 2: done.
         * iIntros "!> %fr'' %vs'' (%Hfrel & Hframe & (%os'' & Hos & Hvs) & [%θ'' Hrt] & Hown)".
           iFrame.
           iPureIntro.

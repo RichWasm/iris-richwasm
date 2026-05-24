@@ -37,8 +37,7 @@ Section return_.
     iDestruct "Hlen_ts" as "%Hlen_ts".
     iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hos2)".
     iDestruct (atoms_interp_app_l with "Hvs") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)".
-    iDestruct (translate_types_sem_interp_length with "Hos2") as "%Hlen_os2".
-    1, 2: done.
+    iDestruct (translate_types_sem_interp_length with "Hos2") as "%Hlen_os2"; first done.
     iDestruct (big_sepL2_length with "Hvs2") as "%Hlen_vs2".
     apply has_values_app_inv in Hevs as (evs1 & evs2 & -> & Hevs1 & Hevs2).
     rewrite <- app_assoc.

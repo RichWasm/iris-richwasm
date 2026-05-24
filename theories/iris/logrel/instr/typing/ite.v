@@ -70,7 +70,7 @@ Section ite.
     iDestruct "Hv" as "->".
     rewrite removelast_last in Heq_some.
     iDestruct (translate_types_comp_interp_length with "Hos1") as "%Hlen_res".
-    1, 2, 3: done.
+    1, 2: done.
     iDestruct (big_sepL2_length with "Hvs1") as "%Hlen_vs1".
     eapply cwp_if_c in Hcg3 as (wt5 & wt6 & wl5 & wl6 & es5 & es6 & Hes1 & Hes2 & -> & -> & Hite).
     do 2 rewrite <- app_assoc.
@@ -92,7 +92,7 @@ Section ite.
       1, 2, 5: done.
       + iPureIntro. apply has_values_to_consts.
       + iSimpl. iApply labels_interp_cons.
-        1, 2, 3: done.
+        1, 2: done.
         * iModIntro.
           iIntros (??) "(%Hfrel & Hframe & Hvalues & Hrt)".
           iFrame.
@@ -124,7 +124,7 @@ Section ite.
       { iPureIntro. apply has_values_to_consts. }
       iSimpl.
       iApply labels_interp_cons.
-      4: by iIntros (fr' vs') "!> H".
+      3: by iIntros (fr' vs') "!> H".
       all: done.
   Qed.
 
