@@ -649,28 +649,61 @@ Section properties.
   Qed.
 
 
+  Lemma type_arep_of_type_kind F se τ ρ ξ ιs :
+    type_ctx_interp F.(fc_type_vars) se ->
+    type_kind F.(fc_type_vars) τ = Some (VALTYPE ρ ξ) ->
+    eval_rep EmptyEnv ρ = Some ιs ->
+    @type_arep Σ se τ = Some ιs.
+  Proof.
+    intros Htype Htk Heval.
+    rewrite /type_arep.
+    destruct τ; cbn [type_kind] in Htk.
+    { (* VarT n *)
+      apply (Forall2_lookup_l _ _ _ _ _ Htype) in Htk as [[sκ T] (Hse & Hek & _)].
+      cbn. cbn in Hse. rewrite Hse. cbn.
+      rewrite (eval_kind_of_eval_rep se _ _ (eval_rep_emptyenv _ _ Heval se) ξ) in Hek.
+      by injection Hek as <-.
+    }
+    all: apply Some_inj in Htk; subst; cbn;
+         rewrite (eval_rep_emptyenv _ _ Heval se); by cbn.
+  Qed.
+
+  Lemma translate_type_comp_sem F se τ t :
+    sem_env_interp F se ->
+    prelude.translate_type F.(fc_type_vars) τ = Some t ->
+    @translate_type Σ se τ = Some t.
+  Proof.
+    intros [_ Htype] Hpre.
+    unfold prelude.translate_type, type_rep, translate_rep in Hpre.
+    apply bind_Some in Hpre as [ρ [Hkr Hpre]].
+    apply bind_Some in Hkr as [κ [Htk Hkr]].
+    apply fmap_Some in Hpre as [ιs [Heval ->]].
+    destruct κ as [ρ' ξ | σ ξ]; [| discriminate Hkr].
+    injection Hkr as <-.
+    rewrite /translate_type.
+    Opaque type_arep.
+    simpl.
+    Transparent type_arep.
+    by rewrite (type_arep_of_type_kind F se τ _ ξ _ Htype Htk Heval).
+  Qed.
+
   Lemma translate_types_comp_sem F τs ts se :
     sem_env_interp F se ->
     prelude.translate_types F.(fc_type_vars) τs = Some ts ->
     @translate_types Σ se τs = Some ts.
   Proof.
-    intros Hsem.
-    revert ts.
-    induction τs as [|τ τs]; intros ts Htranslate.
-    - rewrite -Htranslate.
-      by unfold prelude.translate_types.
-    - 
-  Admitted.
-
-  Lemma translate_types_comp_interp_length F τs ts se os :
-    sem_env_interp F se ->
-    prelude.translate_types F.(fc_type_vars) τs = Some ts ->
-    values_interp rti sr se τs os -∗
-    ⌜length os = length ts⌝.
-  Proof.
-    intros. iIntros "Hval".
-    cbn.
-  Admitted.
+    intros Hsem Hpre.
+    unfold prelude.translate_types in Hpre.
+    apply fmap_Some in Hpre as [tss [Hmapm ->]].
+    rewrite mapM_Some in Hmapm.
+    unfold translate_types.
+    rewrite fmap_Some.
+    eexists; split; last done.
+    rewrite mapM_Some.
+    eapply Forall2_impl; first exact Hmapm.
+    intros τ t' Ht'.
+    by eapply translate_type_comp_sem.
+  Qed.
 
   Lemma translate_types_sem_interp_length se τs ts os :
     translate_types se τs = Some ts ->
@@ -678,7 +711,7 @@ Section properties.
     ⌜length os = length ts⌝.
   Proof.
     generalize dependent se; generalize dependent ts; generalize dependent os.
-    induction τs.
+    induction τs as [|τ τs].
     - intros.
       iIntros  "(%oss & %ossconc & Hval)".
       iPoseProof (big_sepL2_length with "[$Hval]") as "%osslen".
@@ -690,28 +723,37 @@ Section properties.
       rewrite separate1.
       iIntros "Hval".
       iPoseProof (values_interp_app_l with "[$Hval]") as "(%os1 & %os2 & %Hoslen & Ha & Hτs)".
-      rewrite values_interp_one_eq.
+      (* rewrite values_interp_one_eq. *)
+      subst os.
 
-      unfold translate_types in H.
-      rewrite fmap_Some in H.
-      destruct H as (tss & Hmapm & Htsconcat).
-      simpl in Hmapm.
-      apply bind_Some in Hmapm.
-      destruct Hmapm as (ts1 & Htranslate & Hmapτs).
-      set (asdf := translate_types se τs).
-      assert (H: asdf = Some ts). {
-        admit.
-      }
+      (* unfold translate_types in H. *)
+      (* rewrite fmap_Some in H. *)
+      (* destruct H as (tss & Hmapm & Htsconcat). *)
+      (* apply bind_Some in Hmapm. *)
+      (* destruct Hmapm as (ts1 & Htranslate & Hmapτs). *)
+      (* set (asdf := translate_types se τs). *)
+      (* assert (H: asdf = Some ts). { *)
+      (*   admit. *)
+      (* } *)
       (* NOTE: I need to turn Hmapτs back into translate_types se τs = Some _. Or get it out of
          there at least. Not rn. For now I'll just show stuff about a, aka that os1 = ts1. *)
 
-      subst.
+      (* subst. *)
       (* induction on a? I need to prove that length os1 = length ts1, and that'll
        depend on what sort of instruction a is. There's some annoying fixpoint here and there. *)
 
   Admitted.
 
-
+  Lemma translate_types_comp_interp_length F τs ts se os :
+    sem_env_interp F se ->
+    prelude.translate_types F.(fc_type_vars) τs = Some ts ->
+    values_interp rti sr se τs os -∗
+    ⌜length os = length ts⌝.
+  Proof.
+    intros. iIntros "Hval".
+    iApply translate_types_sem_interp_length; last done.
+    by eapply translate_types_comp_sem.
+  Qed.
 
   Lemma labels_interp_cons se fr wl lmask F L B τs ts Φ :
     sem_env_interp F se ->
