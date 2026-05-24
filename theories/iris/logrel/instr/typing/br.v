@@ -36,7 +36,7 @@ Section br.
     { apply lookup_lt_is_Some. by rewrite <- HBlen. }
     iDestruct (big_sepL2_lookup_acc with "Hlabels") as "[Hbr _]".
     1, 2: done.
-    iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & HIos1 & HIos2)"; first done.
+    iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & HIos1 & HIos2)".
     iDestruct (atoms_interp_app_l with "Hvs") as "(%vs1 & %vs2 & -> & HIvs1 & HIvs2)".
     iDestruct "Hbr" as "[Htslen HP]".
     destruct (translate_types se τs) as [ts|] eqn:Hts; last done.

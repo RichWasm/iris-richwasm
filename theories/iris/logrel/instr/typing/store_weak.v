@@ -110,7 +110,7 @@ Section store_weak.
     apply has_values_app_inv in H0 as (evs1 & evs2 & Hevs & Hevs1 & Hevs2).
     pose proof (has_values_length _ _ Hevs1) as Hlenevs1.
     destruct evs1 as [|ev1 [|evvv' evvvs]]; try (cbn in *; congruence).
-    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
     subst.
     (* clearing some useless things *)
     clear Hlenevs1 Hos1len.

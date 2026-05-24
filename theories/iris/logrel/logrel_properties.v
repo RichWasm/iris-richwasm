@@ -150,16 +150,6 @@ Section properties.
     by eapply Forall2_length.
   Qed.
 
-  Lemma translate_types_comp_interp_length F τs ts se os :
-    sem_env_interp F se ->
-    prelude.translate_types F.(fc_type_vars) τs = Some ts ->
-    values_interp rti sr se τs os -∗
-    ⌜length os = length ts⌝.
-  Proof.
-    intros. iIntros "Hval".
-    cbn.
-  Admitted.
-
   Lemma values_interp_one_eq se τ os :
     values_interp rti sr se [τ] os ⊣⊢ value_interp rti sr se τ (SAtoms os).
   Proof.
@@ -262,7 +252,17 @@ Section properties.
       values_interp rti sr se τs1 os1 ∗
       values_interp rti sr se τs2 os2.
   Proof.
-  Admitted.
+    iIntros "Hos".
+    iDestruct "Hos" as "(%oss & -> & Hoss)".
+    iEval (rewrite map_app) in "Hoss".
+    iDestruct (big_sepL2_app_inv_l with "Hoss") as (oss1 oss2 ->) "[Hoss1 Hoss2]".
+    iExists (concat oss1), (concat oss2).
+    rewrite concat_app.
+    iSplit; first done.
+    iSplitL "Hoss1".
+    - iExists oss1. by iSplit.
+    - iExists oss2. by iSplit.
+  Qed.
 
   Lemma result_type_interp_split wl1 wl2 vs_wl :
     result_type_interp (wl1 ++ wl2) vs_wl ->
@@ -615,30 +615,27 @@ Section properties.
 
 
 
-  Lemma frame_interp_wl_interp se F L WL ηss fr :
-    frame_interp rti sr se ηss L WL fr -∗
+  Lemma frame_interp_wl_interp se F L WL fr :
+    frame_interp rti sr se F.(typing.fc_locals) L WL fr -∗
     ⌜wl_interp (fe_wlocal_offset (fe_of_context F)) WL fr⌝.
   Proof.
     iIntros "Hframe".
     iDestruct "Hframe" as
       "(%oss & %vss_L & %vs_WL & %Hfr & %Hprims & %Hresult & Hatom & Hval)".
+    iPureIntro.
     unfold wl_interp.
-
-    (* This is my best guess at the exists given Hfr and Hresult. Should be right *)
-    iExists (concat vss_L). iExists vs_WL. iExists [].
-    iSplit; [|iSplit]; clear_nils; subst; auto.
-
-    iEval (cbn).
-    iEval (cbn) in "Hval".
-    iPoseProof (big_sepL2_length with "[$Hval]") as "%HlenossL".
-    iPoseProof (big_sepL2_length with "[$Hatom]") as "%HlenvssL".
-    rewrite sum_list_with_length_concat.
-    (* unfold atoms_interp; unfold value_interp; destruct F; cbn. *)
-
-    (* Currently unprovable bc there's nothing to relate F fc_locals to *)
-    (* probably need local_ctx_ok F L *)
-
-  Admitted.
+    exists (concat vss_L), vs_WL, [].
+    rewrite app_nil_r.
+    split; first exact Hfr.
+    split; last exact Hresult.
+    rewrite -sum_list_with_length_concat.
+    symmetry.
+    unfold fe_wlocal_offset, fe_of_context. simpl.
+    apply Forall2_sum_list_with_length.
+    eapply Forall2_impl; first exact Hprims.
+    intros ηs vs Hprim.
+    by apply Forall2_length in Hprim.
+  Qed.
 
     Lemma root_pointer_heap_shp_inv rp μ ℓ :
     root_pointer_interp rp (PtrHeap μ ℓ) -∗
@@ -650,6 +647,30 @@ Section properties.
     iDestruct "H" as "(-> & _)".
     by iExists _.
   Qed.
+
+
+  Lemma translate_types_comp_sem F τs ts se :
+    sem_env_interp F se ->
+    prelude.translate_types F.(fc_type_vars) τs = Some ts ->
+    @translate_types Σ se τs = Some ts.
+  Proof.
+    intros Hsem.
+    revert ts.
+    induction τs as [|τ τs]; intros ts Htranslate.
+    - rewrite -Htranslate.
+      by unfold prelude.translate_types.
+    - 
+  Admitted.
+
+  Lemma translate_types_comp_interp_length F τs ts se os :
+    sem_env_interp F se ->
+    prelude.translate_types F.(fc_type_vars) τs = Some ts ->
+    values_interp rti sr se τs os -∗
+    ⌜length os = length ts⌝.
+  Proof.
+    intros. iIntros "Hval".
+    cbn.
+  Admitted.
 
   Lemma translate_types_sem_interp_length se τs ts os :
     translate_types se τs = Some ts ->
@@ -691,13 +712,6 @@ Section properties.
   Admitted.
 
 
-
-
-  Lemma translate_types_comp_sem F τs ts se :
-    sem_env_interp F se ->
-    prelude.translate_types F.(fc_type_vars) τs = Some ts ->
-    @translate_types Σ se τs = Some ts.
-  Admitted.
 
   Lemma labels_interp_cons se fr wl lmask F L B τs ts Φ :
     sem_env_interp F se ->

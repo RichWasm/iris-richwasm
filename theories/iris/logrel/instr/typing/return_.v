@@ -35,7 +35,7 @@ Section return_.
     rewrite Hreturn.
     destruct (translate_types se τs) as [ts|] eqn:Hts; last done.
     iDestruct "Hlen_ts" as "%Hlen_ts".
-    iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hos2)"; first done.
+    iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hos2)".
     iDestruct (atoms_interp_app_l with "Hvs") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)".
     iDestruct (translate_types_sem_interp_length with "Hos2") as "%Hlen_os2".
     1, 2: done.

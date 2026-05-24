@@ -47,7 +47,7 @@ Section ite.
     inv_cg_try_option Hcg2.
     subst wt1 wl1 es1' wt3 wl3 es3' wt2 wl2 es2' wt' wl' es' WT WL.
     clear_nils.
-    iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hos2)"; first done.
+    iDestruct (values_interp_app_l with "Hos") as "(%os1 & %os2 & -> & Hos1 & Hos2)".
     iDestruct (atoms_interp_app_l with "Hvs") as "(%vs1 & %vs2 & -> & Hvs1 & Hvs2)".
     apply has_values_to_consts_inv in Hevs.
     subst evs.

@@ -334,7 +334,7 @@ Section case.
     clear Hlen.
     iDestruct (atoms_interp_cons with "Hrvs") as "[-> Hatoms_interp_payload]".
 
-    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl"; first done.
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
     rewrite list_extra.cons_app in Hhas_values.
     apply has_values_app_inv in Hhas_values as (e_tag & es_payload & -> & Hhv_tag & Hhvs_payload).
 
@@ -413,7 +413,7 @@ Section case.
     { subst val_idxs fe. by rewrite fe_wlocal_offset_length. }
     { subst wl_save. rewrite Hpayload. by rewrite map_comp. }
 
-    iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved"; first done.
+    iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved".
     pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
 
     assert (tag_idx < length (f_locs fr_saved)) as Htag_in_fr_saved.
@@ -423,7 +423,6 @@ Section case.
       eapply Nat.lt_le_trans; last done.
       - rewrite app_assoc.
         subst fe.
-        instantiate (1 := F).
         repeat rewrite length_app.
         lias.
     }

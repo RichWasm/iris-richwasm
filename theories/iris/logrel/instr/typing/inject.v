@@ -67,7 +67,7 @@ Section inject.
     iDestruct (values_interp_one_eq with "Hos") as "Hos".
     iDestruct (value_interp_skind with "Hos") as "(%κ & %Hkind_payload & %Hskind_as_type)".
 
-    iPoseProof (frame_interp_wl_interp _ _ mr _ F with "Hframe") as "%Hwl".
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
     apply has_values_iff_to_consts in Hhas_values as ->.
 
     (* i is an index into ιss, so we must have: *)
@@ -239,7 +239,7 @@ Section inject.
     1: done.
     1: done.
     1: done.
-    iPoseProof (frame_interp_wl_interp _ _ mr _ F with "Hframe_init") as "%Hwl_init".
+    iPoseProof (frame_interp_wl_interp with "Hframe_init") as "%Hwl_init".
 
     unfold areps_sum in Hset_i_locals.
     clear_nils.

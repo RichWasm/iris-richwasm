@@ -61,7 +61,7 @@ Section local_set.
     iSimpl in "Hvs_type_interp".
     iDestruct (value_interp_skind with "Hvs_type_interp") as "(%κ & %Hkind_payload & %Hskind_as_type)".
 
-    iPoseProof (frame_interp_wl_interp _ _ mr _ F with "Hframe") as "%Hwl".
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
     apply has_values_iff_to_consts in Hhas_values as ->.
 
     destruct κ; last destruct Hskind_as_type as [[] _].
