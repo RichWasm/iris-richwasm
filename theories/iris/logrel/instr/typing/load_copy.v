@@ -606,7 +606,8 @@ Section load_copy.
         }
         iApply ("HΦ" with "[$] [$] [$] [$] [$Hat] [$Hat]").
         cbn; done.
-      + iDestruct "Hrpp" as "(-> & Hrpp)".
+      + by destruct μ.
+      + destruct μ; last done.
         iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
         iApply ("HΦ" with "[$] [$] [$] [$Htok] [] [Hrpp]").
         * cbn.
@@ -618,7 +619,7 @@ Section load_copy.
           iExists (RootHeap MemMM a).
           repeat (iSplit; first done).
           iFrame; done.
-      + iDestruct "Hrpp" as "(-> & Hrpp)".
+      + destruct μ; first done.
         (* need lemma about duproot. *)
         apply wp_duproot in Hcg3.
         destruct Hcg3 as (_ & -> & -> & Hduproot).

@@ -458,7 +458,7 @@ Section case_ptr.
           [| iApply label_ctx_wand_nil].
         iApply ("Hptr" with "[$] [$]").
         iExists vn, vn32; auto.
-      + done.
+      + by destruct μ.
     - iDestruct "Hrep" as "(%vn & %vn32 & %Hvn & -> & %rp & %Hrep & Hroot)".
       iPoseProof (root_pointer_heap_shp_inv with "Hroot") as "(%a & ->)".
       inversion Hrep as [|? ? Hmod]; subst.

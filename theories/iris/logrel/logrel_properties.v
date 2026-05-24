@@ -568,6 +568,7 @@ Section properties.
     repeat (apply bi.pure_persistent
     || (apply bi.exist_persistent; intros ?x)
     || apply bi.sep_persistent).
+    destruct μ; typeclasses eauto.
   Qed.
 
   Lemma atoms_interp_dup os vs :
@@ -637,17 +638,15 @@ Section properties.
     by apply Forall2_length in Hprim.
   Qed.
 
-    Lemma root_pointer_heap_shp_inv rp μ ℓ :
+  Lemma root_pointer_heap_shp_inv rp μ ℓ :
     root_pointer_interp rp (PtrHeap μ ℓ) -∗
     ⌜∃ a, rp = RootHeap μ a⌝.
   Proof.
     iIntros "H".
     destruct rp; first done.
     cbn.
-    iDestruct "H" as "(-> & _)".
-    by iExists _.
+    destruct μ, μ0; try done; by iExists _.
   Qed.
-
 
   Lemma type_arep_of_type_kind F se τ ρ ξ ιs :
     type_ctx_interp F.(fc_type_vars) se ->

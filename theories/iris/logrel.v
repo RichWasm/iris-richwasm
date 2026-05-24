@@ -164,21 +164,11 @@ Section instr.
       fr.(f_locs) = vs ++ vs__wl ++ vs' /\ length vs = wlocal_offset /\ result_type_interp wl vs__wl.
 
   Definition root_pointer_interp (rp : root_pointer) (p : pointer) : iProp Σ :=
-    match rp with
-    | RootInt n =>
-        match p with
-        | PtrInt n' => ⌜n = n'⌝
-        | _ => False
-        end
-    | RootHeap μ a => 
-        match p with
-        | PtrHeap μ' ℓ =>
-            ⌜μ = μ'⌝ ∗ match μ with
-                       | MemMM => ℓ ↦addr (μ, a)
-                       | MemGC => a ↦root ℓ
-                       end
-        | _ => False
-        end
+    match rp, p with
+    | RootInt n1, PtrInt n2 => ⌜n1 = n2⌝
+    | RootHeap MemMM a, PtrHeap MemMM ℓ => ℓ ↦addr (MemMM, a)
+    | RootHeap MemGC a, PtrHeap MemGC ℓ => a ↦root ℓ
+    | _, _ => False
     end.
 
   Definition atom_interp (o : atom) : leibnizO value -n> iPropO Σ :=
