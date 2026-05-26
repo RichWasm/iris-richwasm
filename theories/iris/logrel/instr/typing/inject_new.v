@@ -19,7 +19,7 @@ Section inject_new.
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
     let τs' := zip_with SerT κs τs in
-    let ψ := InstrT [τ] [RefT κr μ (VariantT κv τs')] in
+    let ψ := InstrT [τ] [RefT κr μ Imm (VariantT κv τs')] in
     τs !! i = Some τ ->
     mono_mem μ ->
     has_instruction_type_ok F ψ L ->

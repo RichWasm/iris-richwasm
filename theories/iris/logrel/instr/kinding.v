@@ -561,7 +561,7 @@ Section kinding.
       admit.
     - (* RefT *)
       intros ?? Hκ0 Hsκ.
-      destruct m.
+      destruct μ.
       + (* VarM *)
         admit.
       + destruct b.
@@ -570,7 +570,7 @@ Section kinding.
         * (* MemGC *)
           eapply ref_flag_stype_interp_refine; first apply least_ref_flag.
           intros ?.
-          typeclasses eauto.
+          destruct β; typeclasses eauto.
     - (* CodeRefT *)
       intros ?? Hκ0 Hsκ.
       eapply ref_flag_stype_interp_refine; first apply least_ref_flag.

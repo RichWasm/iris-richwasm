@@ -14,12 +14,12 @@ Section store_weak.
   Variable mr : module_runtime.
 
   (* TEMPORARY. This is a copy. *)
-  Lemma rep_ref_kind_ptr_TEMP F κ μ τ ρ ξ :
-    has_kind F (RefT κ μ τ) (VALTYPE ρ ξ) ->
+  Lemma rep_ref_kind_ptr_TEMP F κ μ β τ ρ ξ :
+    has_kind F (RefT κ μ β τ) (VALTYPE ρ ξ) ->
     ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
   Proof.
     intros Hkind.
-    remember (RefT κ μ τ) as ref.
+    remember (RefT κ μ β τ) as ref.
     remember (VALTYPE ρ ξ) as val.
     revert Heqval Heqref.
     revert ρ ξ.
@@ -37,7 +37,7 @@ Section store_weak.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ] in
+    let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
     resolves_path τ π None pr ->
     has_ref_flag F pr.(pr_target) GCRefs ->
     pr.(pr_target) = SerT κser τval ->

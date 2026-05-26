@@ -116,7 +116,7 @@ module Compile = struct
         let env' = Env.add_type env (Atom Ptr) in
         let* t' = compile_type env' t in
         ret @@ Exists (Type kind, t')
-    | Ref t -> compile_type env t >>| fun t -> ref (Base MM) (Ser t)
+    | Ref t -> compile_type env t >>| fun t -> ref (Base MM) Mut (Ser t)
 
   and rep_of_typ (env : Env.t) : A.Type.t -> B.Representation.t Res.t =
     let open Res in
@@ -294,7 +294,7 @@ module Compile = struct
         ret @@ v1' @ v2' @ op'
     | New (v, _) ->
         let* v' = compile_expr env v in
-        ret @@ v' @ [ New MM ]
+        ret @@ v' @ [ New (MM, Mut) ]
     | Swap (e1, e2, _) ->
         let* e1' = compile_expr env e1 in
         let* e2' = compile_expr env e2 in

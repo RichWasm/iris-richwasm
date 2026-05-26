@@ -115,13 +115,13 @@ let rec compile_type delta (t : Closed.PreType.t) : Type.t Res.t =
   | Int -> ret I31
   | Prod ts ->
       let+ ts' = mapM ~f:r_ser ts in
-      Ref (Base GC, Struct ts')
+      Ref (Base GC, Imm, Struct ts')
   | Sum ts ->
       let+ ts' = mapM ~f:r_ser ts in
-      Ref (Base GC, Variant ts')
+      Ref (Base GC, Imm, Variant ts')
   | Ref t ->
       let+ t' = r t in
-      Ref (Base GC, Ser t')
+      Ref (Base GC, Mut, Ser t')
   | Rec (v, t) ->
       let+ t' = compile_type (v :: delta) t in
       Rec (kind, t')
@@ -168,7 +168,8 @@ let rec compile_expr delta gamma locals coderef_map e :
             ret (instrs @ v', locals', fx @ fx'))
           ~init:([], locals, []) vs
       in
-      ret (vs' @ [ Group (List.length vs); New GC; Cast rw_t ], locals', fx)
+      ret
+        (vs' @ [ Group (List.length vs); New (GC, Imm); Cast rw_t ], locals', fx)
   | Inj (i, v, t) ->
       let* types =
         match t with
@@ -231,7 +232,7 @@ let rec compile_expr delta gamma locals coderef_map e :
       ret (v' @ suffix, locals'', fx @ [ (temp_idx, rw_unit) ])
   | New v ->
       let* v', locals', fx = r v in
-      ret (v' @ [ New GC ], locals', fx)
+      ret (v' @ [ New (GC, Mut) ], locals', fx)
   | Deref v ->
       let* v', locals', fx = r v in
       let temp_idx = List.length locals' in
@@ -256,7 +257,8 @@ let rec compile_expr delta gamma locals coderef_map e :
         | _ -> fail (FoldNonRec rw_t)
       in
       let* v', locals', fx = r v in
-      ret (v' @ [ Load (Path [], Follow); Fold raw_t; New GC ], locals', fx)
+      ret
+        (v' @ [ Load (Path [], Follow); Fold raw_t; New (GC, Imm) ], locals', fx)
   | Unfold v ->
       let* v', locals', fx = r v in
       ret (v' @ [ Unfold ], locals', fx)

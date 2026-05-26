@@ -14,6 +14,10 @@ MemGC : base_memory
 memory (VarM) : Type
 BaseM : base_memory -> memory
 
+mutability : Type
+Mut : mutability
+Imm : mutability
+
 atomic_rep : Type
 PtrR : atomic_rep
 I32R : atomic_rep
@@ -55,7 +59,7 @@ SumT : kind -> "list" (type) -> type
 VariantT : kind -> "list" (type) -> type
 ProdT : kind -> "list" (type) -> type
 StructT : kind -> "list" (type) -> type
-RefT : kind -> memory -> type -> type
+RefT : kind -> memory -> mutability -> type -> type
 CodeRefT : kind -> function_type -> type
 SerT : kind -> type -> type
 PlugT : kind -> representation -> type

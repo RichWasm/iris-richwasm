@@ -18,7 +18,7 @@ Section store_strong.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [RefT κ (BaseM MemMM) τ; τval] [RefT κ' (BaseM MemMM) (pr_replaced pr)] in
+    let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ; τval] [RefT κ' (BaseM MemMM) Mut (pr_replaced pr)] in
     resolves_path τ π (Some (SerT κser τval)) pr ->
     has_ref_flag F pr.(pr_target) GCRefs ->
     has_size F pr.(pr_target) σ ->

@@ -20,7 +20,7 @@ Section case_load_move.
     let lmask := wlmask fe wl in
     let F' := F <| fc_labels ::= cons (τs', L') |> in
     let τs_ser := zip_with SerT κs τs in
-    let ψ := InstrT [RefT κr (BaseM MemMM) (VariantT κv τs_ser)] τs' in
+    let ψ := InstrT [RefT κr (BaseM MemMM) Imm (VariantT κv τs_ser)] τs' in
     Forall2
       (fun τ es =>
          (forall wt wt' wtf wl wl' wlf es',

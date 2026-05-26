@@ -257,8 +257,8 @@ Fixpoint type_beq (τ1:type) (τ2:type) : bool :=
   | ProdT κ1 τs1, ProdT κ2 τs2
   | StructT κ1 τs1, StructT κ2 τs2 =>
       andb (kind_beq κ1 κ2) (list_beq type type_beq τs1 τs2)
-  | RefT κ1 m1 τ1, RefT κ2 m2 τ2 =>
-      andb (andb (kind_beq κ1 κ2) (memory_beq m1 m2)) (type_beq τ1 τ2)
+  | RefT κ1 μ1 β1 τ1, RefT κ2 μ2 β2 τ2 =>
+      andb (andb (andb (kind_beq κ1 κ2) (memory_beq μ1 μ2)) (mutability_beq β1 β2)) (type_beq τ1 τ2)
   | CodeRefT κ1 ft1, CodeRefT κ2 ft2 =>
       andb (kind_beq κ1 κ2) (function_type_beq ft1 ft2)
   | SerT κ1 t1, SerT κ2 t2 => andb (kind_beq κ1 κ2) (type_beq t1 t2)
@@ -707,7 +707,7 @@ Fixpoint type_ok_checker (F:function_ctx) (t:type) : type_checker_res :=
            then ok_term else INR "type ok error"
        | err => err
        end
-  | RefT κ μ τ =>
+  | RefT κ μ β τ =>
       match (kind_ok_checker (F.(fc_kind_ctx)) κ) with
       | inl () =>
           match (mem_ok_checker (F.(fc_kind_ctx)) μ) with
@@ -1175,7 +1175,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
       | _ => inr (HasKindError "bad variant kind format" [])
       end
   (* References *)
-  | RefT κ (BaseM MemGC) τ =>
+  | RefT κ (BaseM MemGC) β τ =>
       if (kind_beq κ (VALTYPE (AtomR PtrR) GCRefs))
       then
         match has_kind_synther F τ with
@@ -1187,7 +1187,7 @@ Fixpoint has_kind_synther (F:function_ctx) (t:type) : (kind + type_error) :=
         | err => err
         end
       else inr (HasKindError "bad gc mem kind format" [])
-  | RefT κ μ τ =>
+  | RefT κ μ β τ =>
       if (kind_beq κ (VALTYPE (AtomR PtrR) AnyRefs))
       then
         match mem_ok_checker (F.(fc_kind_ctx)) μ with
@@ -1907,10 +1907,10 @@ Fixpoint type_eq_checker (τ1:type) (τ2:type) :type_checker_res :=
           else INR "types not equal"
       | _ => INR "types not equal"
       end
-  | RefT κ1 μ1 τ1 =>
+  | RefT κ1 μ1 β1 τ1 =>
       match τ2 with
-      | RefT κ2 μ2 τ2 =>
-          if andb (kind_beq κ1 κ2) (memory_beq μ1 μ2)
+      | RefT κ2 μ2 β2 τ2 =>
+          if andb (andb (kind_beq κ1 κ2) (memory_beq μ1 μ2)) (mutability_beq β1 β2)
           then
             (* match has_kind_checker F (RefT κ1 μ1 τ1) κ1 with *)
             (* | inl () => *)
@@ -2642,8 +2642,8 @@ Definition kind_find_size_0 k1 k2 : option size :=
 (* NOTE: if there's a bug, it's in finding the substs stuff *)
 Fixpoint traverse_type_find_memory_0 τ1 τ2 : option memory :=
   match τ1, τ2 with
-  | RefT _ m1 τa, RefT _ m2 τb =>
-      match memory_find_0 m1 m2 with
+  | RefT _ μ1 _ τa, RefT _ μ2 _ τb =>
+      match memory_find_0 μ1 μ2 with
       | None => traverse_type_find_memory_0 τa τb
       | Some a => Some a
       end
@@ -2697,7 +2697,7 @@ Fixpoint traverse_type_find_type_0 τ1 τ2 : option type :=
   | StructT _ τs1, StructT _ τs2 => traverse_types_find_type τs1 τs2
   | SerT _ τa, SerT _ τb
   | RecT _ τa, RecT _ τb
-  | RefT _ _ τa, RefT _ _ τb
+  | RefT _ _ _ τa, RefT _ _ _ τb
   | ExistsMemT _ τa, ExistsMemT _ τb
   | ExistsRepT _ τa, ExistsRepT _ τb
   | ExistsSizeT _ τa, ExistsSizeT _ τb
@@ -2753,7 +2753,7 @@ Fixpoint traverse_type_find_size_0 τ1 τ2 : option size :=
       end
   | SerT k1 τa, SerT k2 τb
   | RecT k1 τa, RecT k2 τb
-  | RefT k1 _ τa, RefT k2 _ τb
+  | RefT k1 _ _ τa, RefT k2 _ _ τb
   | ExistsMemT k1 τa, ExistsMemT k2 τb
   | ExistsRepT k1 τa, ExistsRepT k2 τb
   | ExistsSizeT k1 τa, ExistsSizeT k2 τb =>
@@ -2831,7 +2831,7 @@ Fixpoint traverse_type_find_rep_0 τ1 τ2 : option representation :=
       end
   | SerT k1 τa, SerT k2 τb
   | RecT k1 τa, RecT k2 τb
-  | RefT k1 _ τa, RefT k2 _ τb
+  | RefT k1 _ _ τa, RefT k2 _ _ τb
   | ExistsMemT k1 τa, ExistsMemT k2 τb
   | ExistsRepT k1 τa, ExistsRepT k2 τb
   | ExistsSizeT k1 τa, ExistsSizeT k2 τb =>
@@ -3779,7 +3779,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT [τ] [ref] =>
             match ref with
-            | RefT κr μ (VariantT κv τs') =>
+            | RefT κr μ Imm (VariantT κv τs') =>
                 match unzip_sert τs' with
                 | Some (κs, τs) =>
                     match τs !! i with
@@ -3829,9 +3829,9 @@ Fixpoint has_instruction_type_checker
             match ψ with
             | InstrT [τ1] (τ2::τs') =>
                 match τ1 with
-                | RefT κr μ (VariantT κv τs_ser) =>
+                | RefT κr μ Imm (VariantT κv τs_ser) =>
                     match τ2 with
-                    | RefT κr0 μ0 (VariantT κv0 τs'0) =>
+                    | RefT κr0 μ0 Imm (VariantT κv0 τs'0) =>
                         (* a bunch of variables have to be equal *)
                         if andb (kind_beq κr κr0) (andb (kind_beq κv κv0)
                                   (andb (memory_beq μ μ0) (list_beq type type_beq τs' τs'0)))
@@ -3862,7 +3862,7 @@ Fixpoint has_instruction_type_checker
             match ψ with
             | InstrT [τ1] τs' =>
                 match τ1 with
-                | RefT κr (BaseM MemMM) (VariantT κv τs_ser) =>
+                | RefT κr (BaseM MemMM) Imm (VariantT κv τs_ser) =>
                     match unzip_sert τs_ser with
                     | Some (κs, τs) =>
                         let F' := F <| fc_labels ::= cons (τs', L') |> in
@@ -4010,7 +4010,7 @@ Fixpoint has_instruction_type_checker
         match ψ with
         | InstrT [τ] [a] =>
             match a with
-            | RefT κ μ (SerT κser τ') =>
+            | RefT κ μ _ (SerT κser τ') =>
                 if type_beq τ τ'
                 then
                   match mono_mem_checker μ with
@@ -4033,7 +4033,7 @@ Fixpoint has_instruction_type_checker
                 if type_beq τ1 τ2
                 then
                   match τ1 with
-                  | RefT κ μ τ =>
+                  | RefT κ μ _ τ =>
                       match synth_resolving_path τ π None with
                       | Some pr =>
                           match pr.(pr_target) with
@@ -4061,9 +4061,9 @@ Fixpoint has_instruction_type_checker
             match ψ with
             | InstrT [τ1] [τ2; τval] =>
                 match τ1 with
-                | RefT κ (BaseM MemMM) τ =>
+                | RefT κ (BaseM MemMM) Mut τ =>
                     match τ2 with
-                    | RefT κ' (BaseM MemMM) prreplaced =>
+                    | RefT κ' (BaseM MemMM) Mut prreplaced =>
                         match synth_resolving_with_outer_replaced_spant τ π prreplaced τval with
                         | Some (pr, κser, σ) =>
                             (* from this, we know prreplace = pr.pr_replaced; pr.pr_target = SerT κser τval *)
@@ -4092,7 +4092,7 @@ Fixpoint has_instruction_type_checker
             if type_beq reft1 reft2 (* true = store weak *) (* false = store strong *)
             then (* store weak *)
               match reft1 with
-              | RefT κ μ τ =>
+              | RefT κ μ Mut τ =>
                   match synth_resolving_path τ π None with
                   | Some pr =>
                       match has_ref_flag_checker F pr.(pr_target) GCRefs with
@@ -4115,9 +4115,9 @@ Fixpoint has_instruction_type_checker
               end
             else (* store strong. Note: SerT kser tval = pr.(pr_replaced) *)
               match reft1 with (* doing this in steps for automation. Might not help anyway lol *)
-              | RefT κ (BaseM MemMM) τ =>
+              | RefT κ (BaseM MemMM) Mut τ =>
                   match reft2 with
-                  | RefT κ' (BaseM MemMM) prreplaced =>
+                  | RefT κ' (BaseM MemMM) Mut prreplaced =>
                       if true
                       then (* we can finally start doing things omg *)
                         match synth_resolving_with_outer_replaced_sert τ π prreplaced τval  with
@@ -4161,7 +4161,7 @@ Fixpoint has_instruction_type_checker
               match τs1 with (* note: doing this in multiple steps for automation purposes *)
               | [reff; τval] =>
                   match reff with
-                  | RefT κ μ τ =>
+                  | RefT κ μ Mut τ =>
                       match synth_resolving_path τ π None with
                       | Some pr => (* now to match that pr has the right things *)
                           match pr.(pr_target) with
@@ -4743,7 +4743,7 @@ Proof.
     - (* case load copy *)
       convert_foldr
         (λ t:type, check_ok_output (has_ref_flag_checker F t GCRefs))
-        (fun t => has_ref_flag F t GCRefs) l5 HMatch8.
+        (fun t => has_ref_flag F t GCRefs) l5 HMatch10.
       (* foldr2+Forall2 lemma, then should be good *)
       admit.
     - (* case load move *)
@@ -4814,7 +4814,7 @@ Proof.
       convert_foldr
         (λ t:type, check_ok_output (has_mono_size_checker F t))
         (fun t => has_mono_size F t) (pr_prefix p) HMatch0.
-      rewrite <- HMatch in HMatch7.
+      rewrite <- HMatch in HMatch8.
       by eapply TStoreWeak.
     - (* store strong case *)
       convert_foldr
@@ -4828,7 +4828,7 @@ Proof.
     half_shred.
     convert_foldr
       (λ t:type, check_ok_output (has_mono_size_checker F t))
-      (fun t => has_mono_size F t) (pr_prefix p) HMatch6.
+      (fun t => has_mono_size F t) (pr_prefix p) HMatch7.
     by econstructor.
   }
 

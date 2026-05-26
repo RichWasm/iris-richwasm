@@ -196,14 +196,14 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   ;; product with an MM-allocated environment.
                   ((imports
                     ((FunctionType ()
-                      ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+                      ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Num (Int I32)))))
                       ((Num (Int I32))))))
                    (functions
                     (((typ
                        (FunctionType ()
-                        ((Ref (Base GC)
+                        ((Ref (Base GC) Imm
                           (Struct
-                           ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
                         (I31)))
                       (locals ((Atom Ptr)))
                       (body
@@ -214,7 +214,7 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                         Drop
                         ;; build lin-lang's (env, i32) argument
                         (Group 0)
-                        (New MM)
+                        (New MM Mut)
                         (LocalGet 1 Move)
                         Untag
                         (Group 2)
@@ -301,14 +301,14 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   ;; product with an GC-allocated environment.
                   ((imports
                     ((FunctionType ()
-                      ((Ref (Base GC)
+                      ((Ref (Base GC) Imm
                         (Struct
-                           ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+                           ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
                       (I31))))
                    (functions
                     (((typ
                        (FunctionType ()
-                        ((Prod ((Ref (Base MM) (Ser (Prod ()))) (Num (Int I32)))))
+                        ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Num (Int I32)))))
                         ((Num (Int I32)))))
                       (locals ((Atom I32)))
                       (body
@@ -318,13 +318,13 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                         Drop ;; env
                         ;; build mini-ml's (env, i32) argument
                         (Group 0)
-                        (New GC)
-                        (Cast (Ref (Base GC) (Struct ())))
+                        (New GC Imm)
+                        (Cast (Ref (Base GC) Imm (Struct ())))
                         (LocalGet 1 Move)
                         Tag ;; can error!!!
                         (Group 2) ;; ((), i31)
-                        (New GC)
-                        (Cast (Ref (Base GC) (Struct ((Ser (Ref (Base GC) (Struct ()))) (Ser I31)))))
+                        (New GC Imm)
+                        (Cast (Ref (Base GC) Imm (Struct ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31)))))
                         (Call 0 ())
                         Untag)))))
                    (table ())

@@ -140,7 +140,7 @@ let%expect_test "debug: boxed sum" =
           (body
            ((NumConst (Int I32) 7)
             (Inject 0 ((Num (Int I32)) (Num (Int I32))))
-            (New MM)
+            (New MM Mut)
             (Load (Path ()) Move)
             (LocalSet 1)
             Drop
@@ -150,8 +150,7 @@ let%expect_test "debug: boxed sum" =
               (Nop))))))))
        (table ()) (exports (((name _start) (desc (Func 0))))))
     |};
-  [%expect
-    {|
+  [%expect{|
     (module
       (type $t0 (func (param i32 i32)))
       (type $t1 (func (param i32) (result i32)))

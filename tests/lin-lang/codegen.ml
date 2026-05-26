@@ -96,9 +96,9 @@ let%expect_test "basic functionality" =
   [%expect
     {|
     (module
-      (func (-> (ref (base mm) (ser i32)))
+      (func (-> (ref (base mm) mut (ser i32)))
         i32.const 10
-        new mm)
+        new mm mut)
       (table)
       (export "_start" (func 0))) |}];
 
@@ -187,7 +187,7 @@ let%expect_test "debugging" =
       (func (-> i32) (local ptr (sum i32 i32) (sum i32 i32) i32 i32)
         i32.const 7
         inject 0 i32 i32
-        new mm
+        new mm mut
         local.set 0
         local.get 0 follow
         load (Path []) move
@@ -225,7 +225,7 @@ let%expect_test "debugging" =
           (Atom I32) (Atom I32)))
         (body
          ((NumConst (Int I32) 7) (Inject 0 ((Num (Int I32)) (Num (Int I32))))
-          (New MM) (LocalSet 0) (LocalGet 0 Follow) (Load (Path ()) Move)
+          (New MM Mut) (LocalSet 0) (LocalGet 0 Follow) (Load (Path ()) Move)
           (LocalSet 1) Drop (LocalGet 1 Move) (LocalSet 2) (LocalGet 2 Follow)
           (Case (ValType ((Num (Int I32)))) InferFx
            (((LocalSet 3) (LocalGet 3 Follow) (LocalGet 3 Move) Drop)
@@ -314,7 +314,7 @@ let%expect_test "examples" =
       (export "_start" (func 0)))
     -----------app_ident-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32
           (prod) i32)
         local.get 0 follow
         ungroup
@@ -338,9 +338,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr)
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 0
@@ -384,7 +384,7 @@ let%expect_test "examples" =
       (export "_start" (func 0)))
     -----------add_one_program-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32)
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32)
         local.get 0 follow
         ungroup
         local.set 2
@@ -399,9 +399,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr)
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 0
@@ -428,7 +428,7 @@ let%expect_test "examples" =
     (module
       (func (-> i32) (local ptr i32 ptr i32 i32)
         i32.const 2
-        new mm
+        new mm mut
         local.set 0
         i32.const 1
         local.get 0 follow
@@ -457,16 +457,16 @@ let%expect_test "examples" =
       (export "_start" (func 0)))
     -----------print_10-----------
     (module
-      (import ((prod (ref (base mm) (ser (prod))) i32) -> (prod)))
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> (prod))
+      (import ((prod (ref (base mm) mut (ser (prod))) i32) -> (prod)))
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> (prod))
         local.get 0 move
         call 0 (inst))
       (func (-> (prod)) (local (prod i32 ptr) i32 ptr)
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> (prod))) (var 0))
         unpack (result (prod)) inferfx
           local.set 0
@@ -490,7 +490,7 @@ let%expect_test "examples" =
       (export "_start" (func 2)))
     -----------closure-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod i32))) (prod)) -> i32) (local ptr
+      (func ((prod (ref (base mm) mut (ser (prod i32))) (prod)) -> i32) (local ptr
           (prod) (prod i32) i32 (prod))
         local.get 0 follow
         ungroup
@@ -520,9 +520,9 @@ let%expect_test "examples" =
         coderef 0
         local.get 0 follow
         group 1
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod i32))))
+        pack (type (ref (base mm) mut (ser (prod i32))))
           (prod (coderef ((prod (var 0) (prod)) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 1
@@ -548,7 +548,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------closure_call_var-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod i32))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod i32))) i32) -> i32) (local ptr i32
           (prod i32) i32 i32)
         local.get 0 follow
         ungroup
@@ -582,9 +582,9 @@ let%expect_test "examples" =
         coderef 0
         local.get 1 follow
         group 1
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod i32))))
+        pack (type (ref (base mm) mut (ser (prod i32))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 2
@@ -612,7 +612,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------mk_id_tl_anf-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32)
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32)
         local.get 0 follow
         ungroup
         local.set 2
@@ -623,7 +623,7 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod))) i32) ->
+          ((prod (ref (base mm) mut (ser (prod))) i32) ->
             (exists type (val ptr anyrefs)
               (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
           (local ptr i32)
@@ -633,9 +633,9 @@ let%expect_test "examples" =
         local.set 1
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         local.get 1 move
         drop
@@ -645,9 +645,9 @@ let%expect_test "examples" =
           i32 ptr)
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0) i32) ->
@@ -702,7 +702,7 @@ let%expect_test "examples" =
       (export "_start" (func 2)))
     -----------triangle_tl-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32
           (prod i32 ptr) i32 ptr)
         local.get 0 follow
         ungroup
@@ -716,9 +716,9 @@ let%expect_test "examples" =
           local.get 2 follow
           coderef 0
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           unpack (result i32) inferfx
             local.set 3
@@ -749,9 +749,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr)
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 0
@@ -775,7 +775,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------factorial_tl-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32 i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32 i32
           (prod i32 ptr) i32 ptr i32)
         local.get 0 follow
         ungroup
@@ -792,9 +792,9 @@ let%expect_test "examples" =
           local.set 3
           coderef 0
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           unpack (result i32) inferfx
             local.set 4
@@ -830,9 +830,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr)
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 0
@@ -858,7 +858,8 @@ let%expect_test "examples" =
     -----------safe_div-----------
     (module
       (func
-          ((prod (ref (base mm) (ser (prod))) (prod i32 i32)) -> (sum i32 (prod)))
+          ((prod (ref (base mm) mut (ser (prod))) (prod i32 i32)) ->
+            (sum i32 (prod)))
           (local ptr (prod i32 i32) i32 i32 i32)
         local.get 0 follow
         ungroup
@@ -891,8 +892,8 @@ let%expect_test "examples" =
         drop
         local.get 2 move
         drop)
-      (func ((prod (ref (base mm) (ser (prod))) (sum i32 (prod))) -> i32) (local
-          ptr (sum i32 (prod)) i32 (prod))
+      (func ((prod (ref (base mm) mut (ser (prod))) (sum i32 (prod))) -> i32)
+          (local ptr (sum i32 (prod)) i32 (prod))
         local.get 0 follow
         ungroup
         local.set 2
@@ -918,9 +919,9 @@ let%expect_test "examples" =
           i32 ptr)
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) (prod i32 i32)) -> (sum i32 (prod))))
             (var 0))
         unpack (result (sum i32 (prod))) inferfx
@@ -946,9 +947,9 @@ let%expect_test "examples" =
         local.set 3
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) (sum i32 (prod))) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 4
@@ -975,8 +976,8 @@ let%expect_test "examples" =
     -----------incr_n-----------
     (module
       (func
-          ((prod (ref (base mm) (ser (prod))) (ref (base mm) (ser i32))) ->
-            (ref (base mm) (ser i32)))
+          ((prod (ref (base mm) mut (ser (prod))) (ref (base mm) mut (ser i32))) ->
+            (ref (base mm) mut (ser i32)))
           (local ptr ptr ptr i32 ptr i32)
         local.get 0 follow
         ungroup
@@ -1012,7 +1013,8 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod))) (prod (ref (base mm) (ser i32)) i32))
+          ((prod (ref (base mm) mut (ser (prod)))
+             (prod (ref (base mm) mut (ser i32)) i32))
             -> i32)
           (local ptr (prod ptr i32) ptr i32 i32 (prod i32 ptr) i32 ptr
           (prod i32 ptr) i32 ptr)
@@ -1035,12 +1037,12 @@ let%expect_test "examples" =
         else
           coderef 1
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod
               (coderef
-                ((prod (var 0) (prod (ref (base mm) (ser i32)) i32)) -> i32))
+                ((prod (var 0) (prod (ref (base mm) mut (ser i32)) i32)) -> i32))
               (var 0))
           unpack (result i32) inferfx
             local.set 6
@@ -1051,15 +1053,15 @@ let%expect_test "examples" =
             local.get 8 follow
             coderef 0
             group 0
-            new mm
+            new mm mut
             group 2
-            pack (type (ref (base mm) (ser (prod))))
+            pack (type (ref (base mm) mut (ser (prod))))
               (prod
                 (coderef
-                  ((prod (var 0) (ref (base mm) (ser i32))) ->
-                    (ref (base mm) (ser i32))))
+                  ((prod (var 0) (ref (base mm) mut (ser i32))) ->
+                    (ref (base mm) mut (ser i32))))
                 (var 0))
-            unpack (result (ref (base mm) (ser i32))) inferfx
+            unpack (result (ref (base mm) mut (ser i32))) inferfx
               local.set 9
               local.get 9 follow
               ungroup
@@ -1102,15 +1104,16 @@ let%expect_test "examples" =
         drop)
       (func (-> i32) (local ptr (prod i32 ptr) i32 ptr)
         i32.const 10
-        new mm
+        new mm mut
         local.set 0
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
-            (coderef ((prod (var 0) (prod (ref (base mm) (ser i32)) i32)) -> i32))
+            (coderef
+              ((prod (var 0) (prod (ref (base mm) mut (ser i32)) i32)) -> i32))
             (var 0))
         unpack (result i32) inferfx
           local.set 1
@@ -1141,7 +1144,7 @@ let%expect_test "examples" =
     (module
       (func
           ((prod
-             (ref (base mm)
+             (ref (base mm) mut
                (ser
                  (prod
                    (exists type (val ptr anyrefs)
@@ -1244,7 +1247,7 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (exists type (val ptr anyrefs)
                (prod
                  (coderef
@@ -1275,11 +1278,11 @@ let%expect_test "examples" =
         coderef 0
         local.get 4 follow
         group 1
-        new mm
+        new mm mut
         group 2
         pack
           (type
-            (ref (base mm)
+            (ref (base mm) mut
               (ser
                 (prod
                   (exists type (val ptr anyrefs)
@@ -1350,7 +1353,7 @@ let%expect_test "examples" =
         drop)
       (func
           ((prod
-             (ref (base mm)
+             (ref (base mm) mut
                (ser
                  (prod
                    (exists type (val ptr anyrefs)
@@ -1418,7 +1421,7 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (exists type (val ptr anyrefs)
                (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
             ->
@@ -1440,11 +1443,11 @@ let%expect_test "examples" =
         coderef 2
         local.get 4 follow
         group 1
-        new mm
+        new mm mut
         group 2
         pack
           (type
-            (ref (base mm)
+            (ref (base mm) mut
               (ser
                 (prod
                   (exists type (val ptr anyrefs)
@@ -1460,9 +1463,9 @@ let%expect_test "examples" =
           (prod i32 ptr) i32 ptr)
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
@@ -1495,9 +1498,9 @@ let%expect_test "examples" =
           local.get 3 follow
           coderef 3
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod
               (coderef
                 ((prod (var 0)
@@ -1547,7 +1550,7 @@ let%expect_test "examples" =
     FAILURE (CannotResolveRepOfRecTypeWithoutIndirection (Var (0 ("\206\177"))))
     -----------boxed_list[invalid]-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32
           (prod) i32)
         local.get 0 follow
         ungroup
@@ -1571,15 +1574,15 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (prod
                (exists type (val ptr anyrefs)
                  (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
                (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                 (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
+                 (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))))
             ->
             (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-              (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
+              (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))
           (local ptr (prod (prod i32 ptr) (sum (prod) (prod i32 ptr)))
           (prod i32 ptr) (sum (prod) (prod i32 ptr)) (prod) (prod i32 ptr) i32 ptr
           (prod i32 ptr) i32 ptr (prod i32 ptr) i32 ptr
@@ -1598,20 +1601,20 @@ let%expect_test "examples" =
           (result
           (sum (prod)
             (prod i32
-              (ref (base mm)
+              (ref (base mm) mut
                 (ser
                   (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                    (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))))))
+                    (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))))))
           inferfx
           (0
             local.set 5
             local.get 5 follow
             inject 0 (prod)
               (prod i32
-                (ref (base mm)
+                (ref (base mm) mut
                   (ser
                     (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                      (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))))
+                      (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))))
             local.get 5 move
             drop)
           (1
@@ -1641,9 +1644,9 @@ let%expect_test "examples" =
             end
             coderef 1
             group 0
-            new mm
+            new mm mut
             group 2
-            pack (type (ref (base mm) (ser (prod))))
+            pack (type (ref (base mm) mut (ser (prod))))
               (prod
                 (coderef
                   ((prod (var 0)
@@ -1651,15 +1654,15 @@ let%expect_test "examples" =
                        (exists type (val ptr anyrefs)
                          (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
                        (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                         (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
+                         (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))))
                     ->
                     (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                      (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
+                      (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))))
                 (var 0))
             unpack
               (result
               (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
+                (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))
               inferfx
               local.set 12
               local.get 12 follow
@@ -1684,14 +1687,14 @@ let%expect_test "examples" =
               local.get 12 move
               drop
             end
-            new mm
+            new mm mut
             group 2
             inject 1 (prod)
               (prod i32
-                (ref (base mm)
+                (ref (base mm) mut
                   (ser
                     (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                      (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))))
+                      (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))))
             local.get 7 move
             drop
             local.get 8 move
@@ -1701,7 +1704,7 @@ let%expect_test "examples" =
         end
         fold
           (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-            (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))
+            (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))
         local.get 3 move
         drop
         local.get 4 move
@@ -1713,36 +1716,36 @@ let%expect_test "examples" =
       (func
           (->
             (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-              (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
+              (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))
           (local (sum (prod) (prod i32 ptr)) (prod i32 ptr) i32 ptr)
         i32.const 5
         group 0
         inject 0 (prod)
           (prod i32
-            (ref (base mm)
+            (ref (base mm) mut
               (ser
                 (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                  (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))))
+                  (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))))
         fold
           (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-            (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))
-        new mm
+            (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))
+        new mm mut
         group 2
         inject 1 (prod)
           (prod i32
-            (ref (base mm)
+            (ref (base mm) mut
               (ser
                 (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                  (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))))
+                  (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))))
         fold
           (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-            (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))
+            (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))
         local.set 0
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
@@ -1750,15 +1753,15 @@ let%expect_test "examples" =
                    (exists type (val ptr anyrefs)
                      (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
                    (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                     (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
+                     (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))))
                 ->
                 (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-                  (sum (prod) (prod i32 (ref (base mm) (ser (var 0))))))))
+                  (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0))))))))
             (var 0))
         unpack
           (result
           (rec (val (sum (prod) (prod i32 ptr)) anyrefs)
-            (sum (prod) (prod i32 (ref (base mm) (ser (var 0)))))))
+            (sum (prod) (prod i32 (ref (base mm) mut (ser (var 0)))))))
           inferfx
           local.set 1
           local.get 1 follow
@@ -1768,9 +1771,9 @@ let%expect_test "examples" =
           local.get 3 follow
           coderef 0
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           local.get 0 follow
           group 2
@@ -1793,57 +1796,57 @@ let%expect_test "examples" =
       (func
           (->
             (rec (val (sum (prod) ptr) anyrefs)
-              (sum (prod) (ref (base mm) (ser (var 0))))))
+              (sum (prod) (ref (base mm) mut (ser (var 0))))))
         group 0
         inject 0 (prod)
-          (ref (base mm)
+          (ref (base mm) mut
             (ser
               (rec (val (sum (prod) ptr) anyrefs)
-                (sum (prod) (ref (base mm) (ser (var 0)))))))
+                (sum (prod) (ref (base mm) mut (ser (var 0)))))))
         fold
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0)))))
-        new mm
+            (sum (prod) (ref (base mm) mut (ser (var 0)))))
+        new mm mut
         inject 1 (prod)
-          (ref (base mm)
+          (ref (base mm) mut
             (ser
               (rec (val (sum (prod) ptr) anyrefs)
-                (sum (prod) (ref (base mm) (ser (var 0)))))))
+                (sum (prod) (ref (base mm) mut (ser (var 0)))))))
         fold
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0)))))
-        new mm
+            (sum (prod) (ref (base mm) mut (ser (var 0)))))
+        new mm mut
         inject 1 (prod)
-          (ref (base mm)
+          (ref (base mm) mut
             (ser
               (rec (val (sum (prod) ptr) anyrefs)
-                (sum (prod) (ref (base mm) (ser (var 0)))))))
+                (sum (prod) (ref (base mm) mut (ser (var 0)))))))
         fold
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0)))))
-        new mm
+            (sum (prod) (ref (base mm) mut (ser (var 0)))))
+        new mm mut
         inject 1 (prod)
-          (ref (base mm)
+          (ref (base mm) mut
             (ser
               (rec (val (sum (prod) ptr) anyrefs)
-                (sum (prod) (ref (base mm) (ser (var 0)))))))
+                (sum (prod) (ref (base mm) mut (ser (var 0)))))))
         fold
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+            (sum (prod) (ref (base mm) mut (ser (var 0))))))
       (table)
       (export "_start" (func 0)))
     -----------peano-----------
     (module
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (prod
                (rec (val (sum (prod) ptr) anyrefs)
-                 (sum (prod) (ref (base mm) (ser (var 0)))))
+                 (sum (prod) (ref (base mm) mut (ser (var 0)))))
                (rec (val (sum (prod) ptr) anyrefs)
-                 (sum (prod) (ref (base mm) (ser (var 0)))))))
+                 (sum (prod) (ref (base mm) mut (ser (var 0)))))))
             ->
             (rec (val (sum (prod) ptr) anyrefs)
-              (sum (prod) (ref (base mm) (ser (var 0))))))
+              (sum (prod) (ref (base mm) mut (ser (var 0))))))
           (local ptr (prod (sum (prod) ptr) (sum (prod) ptr)) (sum (prod) ptr)
           (sum (prod) ptr) (prod) ptr (prod i32 ptr) i32 ptr (sum (prod) ptr))
         local.get 0 follow
@@ -1859,7 +1862,7 @@ let%expect_test "examples" =
         case
           (result
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+            (sum (prod) (ref (base mm) mut (ser (var 0))))))
           inferfx
           (0
             local.set 5
@@ -1870,25 +1873,25 @@ let%expect_test "examples" =
             local.set 6
             coderef 0
             group 0
-            new mm
+            new mm mut
             group 2
-            pack (type (ref (base mm) (ser (prod))))
+            pack (type (ref (base mm) mut (ser (prod))))
               (prod
                 (coderef
                   ((prod (var 0)
                      (prod
                        (rec (val (sum (prod) ptr) anyrefs)
-                         (sum (prod) (ref (base mm) (ser (var 0)))))
+                         (sum (prod) (ref (base mm) mut (ser (var 0)))))
                        (rec (val (sum (prod) ptr) anyrefs)
-                         (sum (prod) (ref (base mm) (ser (var 0)))))))
+                         (sum (prod) (ref (base mm) mut (ser (var 0)))))))
                     ->
                     (rec (val (sum (prod) ptr) anyrefs)
-                      (sum (prod) (ref (base mm) (ser (var 0)))))))
+                      (sum (prod) (ref (base mm) mut (ser (var 0)))))))
                 (var 0))
             unpack
               (result
               (rec (val (sum (prod) ptr) anyrefs)
-                (sum (prod) (ref (base mm) (ser (var 0))))))
+                (sum (prod) (ref (base mm) mut (ser (var 0))))))
               inferfx
               local.set 7
               local.get 7 follow
@@ -1913,15 +1916,15 @@ let%expect_test "examples" =
               local.get 7 move
               drop
             end
-            new mm
+            new mm mut
             inject 1 (prod)
-              (ref (base mm)
+              (ref (base mm) mut
                 (ser
                   (rec (val (sum (prod) ptr) anyrefs)
-                    (sum (prod) (ref (base mm) (ser (var 0)))))))
+                    (sum (prod) (ref (base mm) mut (ser (var 0)))))))
             fold
               (rec (val (sum (prod) ptr) anyrefs)
-                (sum (prod) (ref (base mm) (ser (var 0)))))
+                (sum (prod) (ref (base mm) mut (ser (var 0)))))
             local.get 6 move
             drop)
         end
@@ -1934,9 +1937,9 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod))) i32) ->
+          ((prod (ref (base mm) mut (ser (prod))) i32) ->
             (rec (val (sum (prod) ptr) anyrefs)
-              (sum (prod) (ref (base mm) (ser (var 0))))))
+              (sum (prod) (ref (base mm) mut (ser (var 0))))))
           (local ptr i32 (prod i32 ptr) i32 ptr)
         local.get 0 follow
         ungroup
@@ -1947,33 +1950,33 @@ let%expect_test "examples" =
         if
           (result
           (sum (prod)
-            (ref (base mm)
+            (ref (base mm) mut
               (ser
                 (rec (val (sum (prod) ptr) anyrefs)
-                  (sum (prod) (ref (base mm) (ser (var 0)))))))))
+                  (sum (prod) (ref (base mm) mut (ser (var 0)))))))))
           inferfx
           group 0
           inject 0 (prod)
-            (ref (base mm)
+            (ref (base mm) mut
               (ser
                 (rec (val (sum (prod) ptr) anyrefs)
-                  (sum (prod) (ref (base mm) (ser (var 0)))))))
+                  (sum (prod) (ref (base mm) mut (ser (var 0)))))))
         else
           coderef 1
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod
               (coderef
                 ((prod (var 0) i32) ->
                   (rec (val (sum (prod) ptr) anyrefs)
-                    (sum (prod) (ref (base mm) (ser (var 0)))))))
+                    (sum (prod) (ref (base mm) mut (ser (var 0)))))))
               (var 0))
           unpack
             (result
             (rec (val (sum (prod) ptr) anyrefs)
-              (sum (prod) (ref (base mm) (ser (var 0))))))
+              (sum (prod) (ref (base mm) mut (ser (var 0))))))
             inferfx
             local.set 3
             local.get 3 follow
@@ -1994,24 +1997,24 @@ let%expect_test "examples" =
             local.get 3 move
             drop
           end
-          new mm
+          new mm mut
           inject 1 (prod)
-            (ref (base mm)
+            (ref (base mm) mut
               (ser
                 (rec (val (sum (prod) ptr) anyrefs)
-                  (sum (prod) (ref (base mm) (ser (var 0)))))))
+                  (sum (prod) (ref (base mm) mut (ser (var 0)))))))
         end
         fold
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0)))))
+            (sum (prod) (ref (base mm) mut (ser (var 0)))))
         local.get 1 move
         drop
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (rec (val (sum (prod) ptr) anyrefs)
-               (sum (prod) (ref (base mm) (ser (var 0))))))
+               (sum (prod) (ref (base mm) mut (ser (var 0))))))
             -> i32)
           (local ptr (sum (prod) ptr) (prod) ptr (prod i32 ptr) i32 ptr
           (sum (prod) ptr))
@@ -2032,14 +2035,14 @@ let%expect_test "examples" =
             i32.const 1
             coderef 2
             group 0
-            new mm
+            new mm mut
             group 2
-            pack (type (ref (base mm) (ser (prod))))
+            pack (type (ref (base mm) mut (ser (prod))))
               (prod
                 (coderef
                   ((prod (var 0)
                      (rec (val (sum (prod) ptr) anyrefs)
-                       (sum (prod) (ref (base mm) (ser (var 0))))))
+                       (sum (prod) (ref (base mm) mut (ser (var 0))))))
                     -> i32))
                 (var 0))
             unpack (result i32) inferfx
@@ -2077,19 +2080,19 @@ let%expect_test "examples" =
           (prod i32 ptr) i32 ptr)
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0) i32) ->
                 (rec (val (sum (prod) ptr) anyrefs)
-                  (sum (prod) (ref (base mm) (ser (var 0)))))))
+                  (sum (prod) (ref (base mm) mut (ser (var 0)))))))
             (var 0))
         unpack
           (result
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+            (sum (prod) (ref (base mm) mut (ser (var 0))))))
           inferfx
           local.set 0
           local.get 0 follow
@@ -2111,19 +2114,19 @@ let%expect_test "examples" =
         local.set 3
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0) i32) ->
                 (rec (val (sum (prod) ptr) anyrefs)
-                  (sum (prod) (ref (base mm) (ser (var 0)))))))
+                  (sum (prod) (ref (base mm) mut (ser (var 0)))))))
             (var 0))
         unpack
           (result
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+            (sum (prod) (ref (base mm) mut (ser (var 0))))))
           inferfx
           local.set 4
           local.get 4 follow
@@ -2145,25 +2148,25 @@ let%expect_test "examples" =
         local.set 7
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
                  (prod
                    (rec (val (sum (prod) ptr) anyrefs)
-                     (sum (prod) (ref (base mm) (ser (var 0)))))
+                     (sum (prod) (ref (base mm) mut (ser (var 0)))))
                    (rec (val (sum (prod) ptr) anyrefs)
-                     (sum (prod) (ref (base mm) (ser (var 0)))))))
+                     (sum (prod) (ref (base mm) mut (ser (var 0)))))))
                 ->
                 (rec (val (sum (prod) ptr) anyrefs)
-                  (sum (prod) (ref (base mm) (ser (var 0)))))))
+                  (sum (prod) (ref (base mm) mut (ser (var 0)))))))
             (var 0))
         unpack
           (result
           (rec (val (sum (prod) ptr) anyrefs)
-            (sum (prod) (ref (base mm) (ser (var 0))))))
+            (sum (prod) (ref (base mm) mut (ser (var 0))))))
           inferfx
           local.set 8
           local.get 8 follow
@@ -2187,14 +2190,14 @@ let%expect_test "examples" =
         local.set 11
         coderef 2
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
                  (rec (val (sum (prod) ptr) anyrefs)
-                   (sum (prod) (ref (base mm) (ser (var 0))))))
+                   (sum (prod) (ref (base mm) mut (ser (var 0))))))
                 -> i32))
             (var 0))
         unpack (result i32) inferfx
@@ -2225,7 +2228,7 @@ let%expect_test "examples" =
       (export "_start" (func 3)))
     -----------mini_zip-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32)
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32)
         local.get 0 follow
         ungroup
         local.set 2
@@ -2237,7 +2240,9 @@ let%expect_test "examples" =
         drop
         local.get 2 move
         drop)
-      (func ((prod (ref (base mm) (ser (prod))) (prod i32 i32)) -> (prod i32 i32))
+      (func
+          ((prod (ref (base mm) mut (ser (prod))) (prod i32 i32)) ->
+            (prod i32 i32))
           (local ptr (prod i32 i32) i32 i32 (prod i32 ptr) i32 ptr (prod i32 ptr)
           i32 ptr)
         local.get 0 follow
@@ -2250,9 +2255,9 @@ let%expect_test "examples" =
         local.set 3
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 5
@@ -2274,9 +2279,9 @@ let%expect_test "examples" =
         end
         coderef 0
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         unpack (result i32) inferfx
           local.set 8
@@ -2306,10 +2311,10 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
-             (prod (ref (base mm) (ser i32))
-               (ref (base mm) (ser (ref (base mm) (ser i32))))))
-            -> (ref (base mm) (ser (prod i32 (ref (base mm) (ser i32))))))
+          ((prod (ref (base mm) mut (ser (prod)))
+             (prod (ref (base mm) mut (ser i32))
+               (ref (base mm) mut (ser (ref (base mm) mut (ser i32))))))
+            -> (ref (base mm) mut (ser (prod i32 (ref (base mm) mut (ser i32))))))
           (local ptr (prod ptr ptr) ptr ptr i32 ptr)
         local.get 0 follow
         ungroup
@@ -2330,7 +2335,7 @@ let%expect_test "examples" =
         drop
         local.get 6 move
         group 2
-        new mm
+        new mm mut
         local.get 3 move
         drop
         local.get 4 move
@@ -2343,7 +2348,7 @@ let%expect_test "examples" =
       (export "typle_add1" (func 1)))
     -----------apply_hof-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32
           (prod) i32)
         local.get 0 follow
         ungroup
@@ -2367,7 +2372,7 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (prod
                (exists type (val ptr anyrefs)
                  (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
@@ -2413,9 +2418,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr)
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
@@ -2434,9 +2439,9 @@ let%expect_test "examples" =
           local.get 2 follow
           coderef 0
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           i32.const 10
           group 2
@@ -2454,7 +2459,7 @@ let%expect_test "examples" =
       (export "_start" (func 2)))
     -----------compose_hof-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32
           (prod) i32)
         local.get 0 follow
         ungroup
@@ -2477,7 +2482,7 @@ let%expect_test "examples" =
         drop
         local.get 2 move
         drop)
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32
           (prod) i32)
         local.get 0 follow
         ungroup
@@ -2501,7 +2506,7 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (prod
                (exists type (val ptr anyrefs)
                  (prod (coderef ((prod (var 0) i32) -> i32)) (var 0)))
@@ -2570,9 +2575,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr)
         coderef 2
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
@@ -2593,15 +2598,15 @@ let%expect_test "examples" =
           local.get 2 follow
           coderef 0
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           coderef 1
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           i32.const 5
           group 3
@@ -2619,7 +2624,7 @@ let%expect_test "examples" =
       (export "_start" (func 3)))
     -----------mk_adder_apply_to-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod i32))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod i32))) i32) -> i32) (local ptr i32
           (prod i32) i32 i32)
         local.get 0 follow
         ungroup
@@ -2646,7 +2651,7 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod))) i32) ->
+          ((prod (ref (base mm) mut (ser (prod))) i32) ->
             (exists type (val ptr anyrefs)
               (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
           (local ptr i32)
@@ -2657,16 +2662,16 @@ let%expect_test "examples" =
         coderef 0
         local.get 2 follow
         group 1
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod i32))))
+        pack (type (ref (base mm) mut (ser (prod i32))))
           (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
         local.get 1 move
         drop
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (exists type (val ptr anyrefs)
                (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
             -> i32)
@@ -2701,9 +2706,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr (prod i32 ptr) i32 ptr)
         coderef 2
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
@@ -2720,9 +2725,9 @@ let%expect_test "examples" =
           local.get 2 follow
           coderef 1
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod
               (coderef
                 ((prod (var 0) i32) ->
@@ -2766,8 +2771,9 @@ let%expect_test "examples" =
     -----------closure_with_ref-----------
     (module
       (func
-          ((prod (ref (base mm) (ser (prod (ref (base mm) (ser i32))))) (prod)) ->
-            i32)
+          ((prod (ref (base mm) mut (ser (prod (ref (base mm) mut (ser i32)))))
+             (prod))
+            -> i32)
           (local ptr (prod) (prod ptr) ptr (prod) i32)
         local.get 0 follow
         ungroup
@@ -2797,14 +2803,14 @@ let%expect_test "examples" =
         drop)
       (func (-> i32) (local ptr (prod i32 ptr) (prod i32 ptr) i32 ptr)
         i32.const 42
-        new mm
+        new mm mut
         local.set 0
         coderef 0
         local.get 0 follow
         group 1
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod (ref (base mm) (ser i32))))))
+        pack (type (ref (base mm) mut (ser (prod (ref (base mm) mut (ser i32))))))
           (prod (coderef ((prod (var 0) (prod)) -> i32)) (var 0))
         local.set 1
         local.get 1 follow
@@ -2834,7 +2840,7 @@ let%expect_test "examples" =
       (export "_start" (func 1)))
     -----------factorial_hof-----------
     (module
-      (func ((prod (ref (base mm) (ser (prod))) i32) -> i32) (local ptr i32
+      (func ((prod (ref (base mm) mut (ser (prod))) i32) -> i32) (local ptr i32
           (prod i32 ptr) i32 ptr)
         local.get 0 follow
         ungroup
@@ -2848,9 +2854,9 @@ let%expect_test "examples" =
           local.get 2 follow
           coderef 0
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           unpack (result i32) inferfx
             local.set 3
@@ -2879,7 +2885,7 @@ let%expect_test "examples" =
         local.get 2 move
         drop)
       (func
-          ((prod (ref (base mm) (ser (prod)))
+          ((prod (ref (base mm) mut (ser (prod)))
              (exists type (val ptr anyrefs)
                (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))))
             -> i32)
@@ -2914,9 +2920,9 @@ let%expect_test "examples" =
       (func (-> i32) (local (prod i32 ptr) i32 ptr)
         coderef 1
         group 0
-        new mm
+        new mm mut
         group 2
-        pack (type (ref (base mm) (ser (prod))))
+        pack (type (ref (base mm) mut (ser (prod))))
           (prod
             (coderef
               ((prod (var 0)
@@ -2933,9 +2939,9 @@ let%expect_test "examples" =
           local.get 2 follow
           coderef 0
           group 0
-          new mm
+          new mm mut
           group 2
-          pack (type (ref (base mm) (ser (prod))))
+          pack (type (ref (base mm) mut (ser (prod))))
             (prod (coderef ((prod (var 0) i32) -> i32)) (var 0))
           group 2
           local.get 1 follow

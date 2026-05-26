@@ -295,15 +295,15 @@ Section Compiler.
     | ICallIndirect (InstrT τs _) => compile_call_indirect fe τs
     | IInject (InstrT [τ] [SumT (VALTYPE (SumR ρs) _) _]) i => compile_inject fe ρs i
     | IInject _ _ => raise (EInvalidInstrT "IInject")
-    | IInjectNew (InstrT [τ] [RefT _ (BaseM μ) (VariantT (MEMTYPE σ _) _)]) i =>
+    | IInjectNew (InstrT [τ] [RefT _ (BaseM μ) _ (VariantT (MEMTYPE σ _) _)]) i =>
         compile_inject_new fe μ i τ σ
     | IInjectNew _ _ => raise (EInvalidInstrT "IInjectNew")
     | ICase (InstrT [SumT (VALTYPE (SumR ρs) _) _] [τ']) _ ess =>
         compile_case fe ρs τ' (compile_cases fe ess)
     | ICase _ _ _ => raise (EInvalidInstrT "ICase")
-    | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>
+    | ICaseLoad (InstrT [RefT _ _ _ (VariantT (MEMTYPE σ _) τs)] [_; τ']) Copy _ ess =>
         compile_case_load fe σ τs τ' Copy (compile_cases fe ess)
-    | ICaseLoad (InstrT [RefT _ _ (VariantT (MEMTYPE σ _) τs)] [τ']) Move _ ess =>
+    | ICaseLoad (InstrT [RefT _ _ _ (VariantT (MEMTYPE σ _) τs)] [τ']) Move _ ess =>
         compile_case_load fe σ τs τ' Move (compile_cases fe ess)
     | ICaseLoad _ _ _ _ => raise (EInvalidInstrT "ICaseLoad")
     | IGroup _ => erased_in_wasm
@@ -315,13 +315,13 @@ Section Compiler.
     | ITag _ => compile_tag
     | IUntag _ => compile_untag
     | ICast _ => erased_in_wasm
-    | INew (InstrT [τ] [RefT _ (BaseM μ) _]) => compile_new fe μ τ
+    | INew (InstrT [τ] [RefT _ (BaseM μ) _ _]) => compile_new fe μ τ
     | INew _ => raise (EInvalidInstrT "INew")
-    | ILoad (InstrT [RefT _ _ τ] [_; τval]) π con => compile_load fe τ τval π con
+    | ILoad (InstrT [RefT _ _ _ τ] [_; τval]) π con => compile_load fe τ τval π con
     | ILoad _ _ _ => raise (EInvalidInstrT "ILoad")
-    | IStore (InstrT [RefT _ _ τ; τval] _) π => compile_store fe τ τval π
+    | IStore (InstrT [RefT _ _ _ τ; τval] _) π => compile_store fe τ τval π
     | IStore _ _ => raise (EInvalidInstrT "IStore")
-    | ISwap (InstrT [RefT _ _ τ; τval] _) π => compile_swap fe τ τval π
+    | ISwap (InstrT [RefT _ _ _ τ; τval] _) π => compile_swap fe τ τval π
     | ISwap _ _ => raise (EInvalidInstrT "ISwap")
     end.
 

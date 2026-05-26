@@ -42,6 +42,21 @@ module BaseMemory = struct
     | MemGC -> fprintf ff "gc"
 end
 
+module Mutability = struct
+  type t = [%import: Richwasm_extract.Rw.Core.mutability]
+  [@@deriving eq, ord, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp_rocq ff : t -> _ = function
+    | Mut -> fprintf ff "Mut"
+    | Imm -> fprintf ff "Imm"
+
+  let pp ff : t -> _ = function
+    | Mut -> fprintf ff "mut"
+    | Imm -> fprintf ff "imm"
+end
+
 module RefFlag = struct
   type t = [%import: Richwasm_extract.Rw.Core.ref_flag]
   [@@deriving eq, ord, sexp]
@@ -536,6 +551,7 @@ module Internal = struct
           kind := Kind.t;
           num_type := NumType.t;
           memory := Memory.t;
+          mutability := Mutability.t;
           representation := Representation.t;
           size := Size.t;
           coq_type := typ;
@@ -572,9 +588,9 @@ module Internal = struct
       | StructT (kind, ts) ->
           fprintf ff "@[<2>(ProdT@ %a@ %a)@]" Kind.pp_rocq kind
             (pp_rocq_list pp_rocq_typ) ts
-      | RefT (kind, mem, t) ->
-          fprintf ff "@[<2>(RefT@ %a@ %a@ %a)@]" Kind.pp_rocq kind
-            Memory.pp_rocq mem pp_rocq_typ t
+      | RefT (kind, mem, mut, t) ->
+          fprintf ff "@[<2>(RefT@ %a@ %a@ %a@ %a)@]" Kind.pp_rocq kind
+            Memory.pp_rocq mem Mutability.pp_rocq mut pp_rocq_typ t
       | CodeRefT (kind, ft) ->
           fprintf ff "@[<2>(CodeRefT@ %a@ %a)@]" Kind.pp_rocq kind
             pp_rocq_function_typ ft
@@ -628,8 +644,9 @@ module Internal = struct
       | ProdT (k, ts) -> fprintf ff "@[<2>(prod@ %a%a)@]" Kind.pp k pp_typs ts
       | StructT (k, ts) ->
           fprintf ff "@[<2>(struct@ %a%a)@]" Kind.pp k pp_typs ts
-      | RefT (k, m, t) ->
-          fprintf ff "@[<2>(ref@ %a@ %a@ %a)@]" Kind.pp k Memory.pp m pp_typ t
+      | RefT (k, mem, mut, t) ->
+          fprintf ff "@[<2>(ref@ %a@ %a@ %a@ %a)@]" Kind.pp k Memory.pp mem
+            Mutability.pp mut pp_typ t
       | CodeRefT (k, ft) ->
           fprintf ff "@[<2>(coderef@ %a@ %a)@]" Kind.pp k pp_function_typ ft
       | SerT (k, t) -> fprintf ff "@[<2>(ser@ %a@ %a)@]" Kind.pp k pp_typ t

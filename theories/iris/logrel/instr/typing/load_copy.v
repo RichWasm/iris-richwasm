@@ -66,12 +66,12 @@ Section load_copy.
       cbn; auto.
   Qed.
 
-  Lemma rep_ref_kind_ptr F κ μ τ ρ ξ :
-    has_kind F (RefT κ μ τ) (VALTYPE ρ ξ) ->
+  Lemma rep_ref_kind_ptr F κ μ β τ ρ ξ :
+    has_kind F (RefT κ μ β τ) (VALTYPE ρ ξ) ->
     ρ = AtomR PtrR /\ exists ξ', κ = VALTYPE (AtomR PtrR) ξ'.
   Proof.
     intros Hkind.
-    remember (RefT κ μ τ) as ref.
+    remember (RefT κ μ β τ) as ref.
     remember (VALTYPE ρ ξ) as val.
     revert Heqval Heqref.
     revert ρ ξ.
@@ -1065,13 +1065,13 @@ Section load_copy.
   Qed.
 
   (* inversion lemma for learning about tau given a Ref k mu tau *)
-  Lemma has_kind_ref_ty F κ κ' μ τ :
-    has_kind F (RefT κ μ τ) κ' ->
+  Lemma has_kind_ref_ty F κ κ' μ β τ :
+    has_kind F (RefT κ μ β τ) κ' ->
     ∃ σ ξ,
       has_kind F τ (MEMTYPE σ ξ).
   Proof.
     intros Hkind.
-    remember (RefT κ μ τ) as τ0 eqn:Href.
+    remember (RefT κ μ β τ) as τ0 eqn:Href.
     revert Href.
     revert κ μ.
     induction Hkind; intros κ'' μ' Href;
@@ -1160,12 +1160,12 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
     done.
   Qed.
 
-  Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
+  Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ β τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [RefT κ μ τ] [RefT κ μ τ; τval] in
+    let ψ := InstrT [RefT κ μ β τ] [RefT κ μ β τ; τval] in
     has_ref_flag F τval GCRefs ->
     resolves_path τ π None pr ->
     pr.(pr_target) = SerT κser τval ->
@@ -1263,9 +1263,8 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
     destruct o; inversion Harep; clear Harep Hareps.
     cbn [app].
     iEval (cbn) in "Href".
-    destruct (eval_mem se μ) as [[|]|]; last done.
-    - unfold ref_mm_interp.
-      iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
+    destruct (eval_mem se μ) as [[|]|]; last done; destruct β.
+    - iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
       inversion Hsv; subst p; clear Hsv.
       change (?x :: ?y :: ?z) with ([x; y] ++ z).
       set (f' := {| f_locs := <[ptr_local:=v ]> (f_locs fr);
@@ -1471,10 +1470,14 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
           iDestruct "Hpost" as "(%Hszvs & Hvs')".
           (* value interpretation goes here *)
           admit.
-    - unfold ref_gc_interp.
+    - (* ref mm imm *)
+      admit.
+    - (* ref gc mut *)
       iDestruct "Href" as (ℓ fs Hsv) "Hinv".
       inversion Hsv; subst.
       (* need lemma about memory.load *)
+      admit.
+    - (* ref gc imm *)
       admit.
   Admitted.
 

@@ -134,6 +134,10 @@ let elab_memory : A.Memory.t -> B.Memory.t = function
   | Var x -> VarM (Z.of_int x)
   | Base m -> BaseM (elab_base_memory m)
 
+let elab_mutability : A.Mutability.t -> B.Mutability.t = function
+  | Mut -> Mut
+  | Imm -> Imm
+
 let elab_atomic_rep : A.AtomicRep.t -> B.AtomicRep.t = function
   | Ptr -> PtrR
   | I32 -> I32R
@@ -293,7 +297,7 @@ let kind_of_typ (env : 'a list) : B.Type.t -> B.Kind.t t = function
   | VariantT (k, _)
   | ProdT (k, _)
   | StructT (k, _)
-  | RefT (k, _, _)
+  | RefT (k, _, _, _)
   | CodeRefT (k, _)
   | SerT (k, _)
   | PlugT (k, _)
@@ -376,15 +380,16 @@ let rec elab_type (env : A.Kind.t list) : A.Type.t -> B.Type.t t =
       let* ts' = mapM ~f:(elab_type env) ts in
       let* k = elab_kinds ts' >>= meet_memtypes prodS in
       ret @@ StructT (k, ts')
-  | Ref (Base MM, t) ->
+  | Ref (Base MM, mut, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, AnyRefs), BaseM MemMM, t')
-  | Ref (Base GC, t) ->
+      RefT (VALTYPE (AtomR PtrR, AnyRefs), BaseM MemMM, elab_mutability mut, t')
+  | Ref (Base GC, mut, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, GCRefs), BaseM MemGC, t')
-  | Ref (mem, t) ->
+      RefT (VALTYPE (AtomR PtrR, GCRefs), BaseM MemGC, elab_mutability mut, t')
+  | Ref (mem, mut, t) ->
       let+ t' = elab_type env t in
-      RefT (VALTYPE (AtomR PtrR, AnyRefs), elab_memory mem, t')
+      RefT
+        (VALTYPE (AtomR PtrR, AnyRefs), elab_memory mem, elab_mutability mut, t')
   | CodeRef ft ->
       let+ ft' = elab_function_type env ft in
       CodeRefT (VALTYPE (AtomR I32R, NoRefs), ft')
@@ -1033,7 +1038,7 @@ let rec elab_instruction (env : Env.t) :
   | InjectNew (mem, i, ts) ->
       let* t_in = pop "InjectNew" in
       let ts' = List.map ~f:A.Type.ser ts in
-      let t_out = A.Type.(Ref (Base mem, Variant ts')) in
+      let t_out = A.Type.(Ref (Base mem, Imm, Variant ts')) in
       let* () = push t_out in
       let* it = instr_t_of env.kinds [ t_in ] [ t_out ] in
       ret @@ IInjectNew (it, Z.of_int i)
@@ -1051,7 +1056,7 @@ let rec elab_instruction (env : Env.t) :
       let* ref = pop "CaseLoad" in
       let* () = push ref in
       let f i : A.Type.t -> _ = function
-        | Ref (_, Variant ts_ser) ->
+        | Ref (_, _, Variant ts_ser) ->
             (match List.nth ts_ser i with
             | Some (Ser t) -> ret t
             | Some t -> fail (CaseLoadVariantNonSer (i, t))
@@ -1063,13 +1068,14 @@ let rec elab_instruction (env : Env.t) :
       in
       let* mem, t_targ =
         match ref with
-        | Ref (mem, t) -> ret (mem, t)
+        | Ref (mem, _, t) -> ret (mem, t)
         | t -> fail (NonRef (`CaseLoad, t))
       in
       let* t_out, consume' =
         match consume with
         | Move -> ret (stack_out, B.Consumption.Move)
-        | Copy -> ret (A.Type.Ref (mem, t_targ) :: stack_out, B.Consumption.Copy)
+        | Copy ->
+            ret (A.Type.Ref (mem, Imm, t_targ) :: stack_out, B.Consumption.Copy)
         | Follow -> fail FollowNotSupportedForCaseLoad
       in
       let* it = instr_t_of env.kinds stack_in t_out in
@@ -1226,17 +1232,17 @@ let rec elab_instruction (env : Env.t) :
       let* () = push typ in
       let* it = instr_t_of env.kinds [ in_t ] [ typ ] in
       ret @@ ICast it
-  | New m ->
+  | New (mem, mut) ->
       let* in_t = pop "New" in
-      let out_t : A.Type.t = Ref (Base m, Ser in_t) in
+      let out_t : A.Type.t = Ref (Base mem, mut, Ser in_t) in
       let* () = push out_t in
       let* it = instr_t_of env.kinds [ in_t ] [ out_t ] in
       ret @@ INew it
   | Load (path, consume) ->
       let* in_t = pop "Load" in
-      let* mem, t_targ =
+      let* mem, mut, t_targ =
         match in_t with
-        | Ref (mem, t) -> ret (mem, t)
+        | Ref (mem, mut, t) -> ret (mem, mut, t)
         | t -> fail (NonRef (`Load, t))
       in
       let* t_targ' = elab_type env.kinds t_targ |> lift_result in
@@ -1263,7 +1269,7 @@ let rec elab_instruction (env : Env.t) :
             resolves_path t_targ path (Some (Span replaced_size)) |> lift_result
           in
 
-          (A.Type.[ Ref (mem, pr.replaced); t_val ], B.Consumption.Move)
+          (A.Type.[ Ref (mem, mut, pr.replaced); t_val ], B.Consumption.Move)
         else
           ret ([ in_t; t_val ], B.Consumption.Copy)
       in
@@ -1277,12 +1283,12 @@ let rec elab_instruction (env : Env.t) :
       let* ref = pop "Store-2" in
       let* mem, inner_t =
         match ref with
-        | Ref (mem, t) -> ret (mem, t)
+        | Ref (mem, _, t) -> ret (mem, t)
         | t -> fail (NonRef (`Store, t))
       in
       let* pr = resolves_path inner_t path (Some (Ser t)) |> lift_result in
       let path' = elab_path path in
-      let res : A.Type.t = Ref (mem, pr.replaced) in
+      let res : A.Type.t = Ref (mem, Mut, pr.replaced) in
       let* it = instr_t_of env.kinds [ ref; t ] [ res ] in
       let* () = push res in
       ret @@ IStore (it, path')

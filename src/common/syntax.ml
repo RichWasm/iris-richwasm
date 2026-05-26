@@ -76,6 +76,19 @@ module Memory = struct
   let up_type sigma = funcomp (ren id) sigma
 end
 
+module Mutability = struct
+  type t =
+    | Mut
+    | Imm
+  [@@deriving eq, ord, variants, sexp]
+
+  let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
+
+  let pp ff : t -> _ = function
+    | Mut -> fprintf ff "mut"
+    | Imm -> fprintf ff "imm"
+end
+
 module AtomicRep = struct
   type t =
     | Ptr
@@ -475,7 +488,7 @@ module rec Type : sig
     | Variant of t list
     | Prod of t list
     | Struct of t list
-    | Ref of Memory.t * t
+    | Ref of Memory.t * Mutability.t * t
     | CodeRef of FunctionType.t
     | Ser of t
     | Plug of Representation.t
@@ -511,7 +524,7 @@ end = struct
     | Variant of t list
     | Prod of t list
     | Struct of t list
-    | Ref of Memory.t * t
+    | Ref of Memory.t * Mutability.t * t
     | CodeRef of FunctionType.t
     | Ser of t
     | Plug of Representation.t
@@ -532,7 +545,9 @@ end = struct
     | Prod ts -> fprintf ff "@[<2>(prod%a)@]" (pp_print_list_pre_space pp) ts
     | Struct ts ->
         fprintf ff "@[<2>(struct%a)@]" (pp_print_list_pre_space pp) ts
-    | Ref (m, t) -> fprintf ff "@[<2>(ref@ %a@ %a)@]" Memory.pp m pp t
+    | Ref (mem, mut, t) ->
+        fprintf ff "@[<2>(ref@ %a@ %a@ %a)@]" Memory.pp mem Mutability.pp mut pp
+          t
     | CodeRef ft -> fprintf ff "@[<2>(coderef@ %a)@]" FunctionType.pp ft
     | Ser t -> fprintf ff "@[<2>(ser@ %a)@]" pp t
     | Plug r -> fprintf ff "@[<2>(plug@ %a)@]" Representation.pp r
@@ -550,7 +565,7 @@ end = struct
     | Variant s1 -> Variant (map (ren xi_memory xi_representation xi_size xi_type) s1)
     | Prod s1 -> Prod (map (ren xi_memory xi_representation xi_size xi_type) s1)
     | Struct s1 -> Struct (map (ren xi_memory xi_representation xi_size xi_type) s1)
-    | Ref (s1, s2) -> Ref (Memory.ren xi_memory s1, ren xi_memory xi_representation xi_size xi_type s2)
+    | Ref (s1, s2, s3) -> Ref (Memory.ren xi_memory s1, s2, ren xi_memory xi_representation xi_size xi_type s3)
     | CodeRef s1 -> CodeRef (FunctionType.ren xi_memory xi_representation xi_size xi_type s1)
     | Ser s0 -> Ser (ren xi_memory xi_representation xi_size xi_type s0)
     | Plug s1 -> Plug (Representation.ren xi_representation s1)
@@ -582,7 +597,7 @@ end = struct
     | Variant s1 -> Variant (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
     | Prod s1 -> Prod (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
     | Struct s1 -> Struct (map (subst sigma_memory sigma_representation sigma_size sigma_type) s1)
-    | Ref (s1, s2) -> Ref (Memory.subst sigma_memory s1, subst sigma_memory sigma_representation sigma_size sigma_type s2)
+    | Ref (s1, s2, s3) -> Ref (Memory.subst sigma_memory s1, s2, subst sigma_memory sigma_representation sigma_size sigma_type s3)
     | CodeRef s1 -> CodeRef (FunctionType.subst sigma_memory sigma_representation sigma_size sigma_type s1)
     | Ser s0 -> Ser (subst sigma_memory sigma_representation sigma_size sigma_type s0)
     | Plug s1 -> Plug (Representation.subst sigma_representation s1)
@@ -810,7 +825,7 @@ module Instruction = struct
     | Tag
     | Untag
     | Cast of Type.t
-    | New of BaseMemory.t
+    | New of BaseMemory.t * Mutability.t
     | Load of Path.t * Consume.t
     | Store of Path.t
     | Swap of Path.t
@@ -891,7 +906,8 @@ module Instruction = struct
     | Tag -> fprintf ff "tag"
     | Untag -> fprintf ff "untag"
     | Cast t -> fprintf ff "@[<2>cast@ %a@]" Type.pp t
-    | New m -> fprintf ff "@[<2>new@ %a@]" BaseMemory.pp m
+    | New (mem, mut) ->
+        fprintf ff "@[<2>new@ %a@ %a@]" BaseMemory.pp mem Mutability.pp mut
     | Load (p, c) -> fprintf ff "@[<2>load@ %a@ %a@]" Path.pp p Consume.pp c
     | Store p -> fprintf ff "@[<2>store@ %a@]" Path.pp p
     | Swap p -> fprintf ff "@[<2>swap@ %a@]" Path.pp p

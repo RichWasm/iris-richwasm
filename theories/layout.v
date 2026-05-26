@@ -22,7 +22,7 @@ Definition type_kind (κs : list kind) (τ : type) : option kind :=
   | VariantT κ _
   | ProdT κ _
   | StructT κ _
-  | RefT κ _ _
+  | RefT κ _ _ _
   | I31T κ
   | CodeRefT κ _
   | SerT κ _

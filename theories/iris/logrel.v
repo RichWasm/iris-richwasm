@@ -361,7 +361,7 @@ Section instr.
     | VariantT κ _
     | ProdT κ _
     | StructT κ _
-    | RefT κ _ _
+    | RefT κ _ _ _
     | I31T κ
     | CodeRefT κ _
     | SerT κ _
@@ -604,7 +604,7 @@ Section instr.
     - reflexivity.
   Qed.
 
-  Program Definition ref_mm_interp : semantic_type -n> semantic_type :=
+  Program Definition ref_mm_mut_interp : semantic_type -n> semantic_type :=
     λne τ se sv,
       (∃ ℓ fs ws,
          ⌜sv = SAtoms [PtrA (PtrHeap MemMM ℓ)]⌝ ∗
@@ -613,39 +613,60 @@ Section instr.
          ▷ τ se (SWords ws))%I.
   Solve All Obligations with solve_proper.
 
-  Program Definition ref_gc_interp : semantic_type -n> semantic_type :=
+  Program Definition ref_mm_imm_interp : semantic_type -n> semantic_type :=
+    λne τ se sv,
+      (∃ ℓ fs ws,
+         ⌜sv = SAtoms [PtrA (PtrHeap MemMM ℓ)]⌝ ∗
+         na_inv logrel_nais (ns_ref ℓ) (ℓ ↦layout fs ∗ ℓ ↦heap ws) ∗
+         ▷ τ se (SWords ws))%I.
+  Solve All Obligations with solve_proper.
+
+  Program Definition ref_gc_mut_interp : semantic_type -n> semantic_type :=
     λne τ se sv,
       (∃ ℓ fs,
          ⌜sv = SAtoms [PtrA (PtrHeap MemGC ℓ)]⌝ ∗
-         na_inv logrel_nais (ns_ref ℓ)
-         (∃ ws, ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ τ se (SWords ws)))%I.
+         na_inv logrel_nais (ns_ref ℓ) (∃ ws, ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ τ se (SWords ws)))%I.
   Solve All Obligations with solve_proper.
 
-  Program Definition ref_interp : leibnizO memory -n> semantic_type -n> semantic_type :=
-    λne (μ : leibnizO memory) τ se,
-      match eval_mem_se se μ with
-      | Some MemMM => ref_mm_interp τ se
-      | Some MemGC => ref_gc_interp τ se
-      | None => λne sv, False%I
+  Program Definition ref_gc_imm_interp : semantic_type -n> semantic_type :=
+    λne τ se sv,
+      (∃ ℓ fs ws,
+         ⌜sv = SAtoms [PtrA (PtrHeap MemGC ℓ)]⌝ ∗
+         na_inv logrel_nais (ns_ref ℓ) (ℓ ↦layout fs ∗ ℓ ↦heap ws ∗ ▷ τ se (SWords ws)))%I.
+  Solve All Obligations with solve_proper.
+
+  Program Definition ref_interp :
+    leibnizO memory -n> leibnizO mutability -n> semantic_type -n> semantic_type :=
+    λne μ β τ se,
+      match eval_mem_se se μ, β with
+      | Some MemMM, Mut => ref_mm_mut_interp τ se
+      | Some MemMM, Imm => ref_mm_imm_interp τ se
+      | Some MemGC, Mut => ref_gc_mut_interp τ se
+      | Some MemGC, Imm => ref_gc_imm_interp τ se
+      | None, _ => λne sv, False%I
       end.
   Next Obligation.
     solve_proper.
   Qed.
   Next Obligation.
     cbn.
-    intros μ τ n se se' Hse.
-    replace (eval_mem se' μ) with (eval_mem se μ); swap 1 2.
-    { by eapply eval_mem_se. }
-    destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; cbn; solve_proper.
+    intros μ β τ n se se' Hse.
+    replace (eval_mem se' μ) with (eval_mem se μ); last by eapply eval_mem_se.
+    destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; destruct β; cbn; solve_proper.
   Qed.
   Next Obligation.
     cbn.
-    intros μ k τ τ' Hτ se; cbn.
-    destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; cbn; solve_proper.
+    intros μ β k τ τ' Hτ se; cbn.
+    destruct (eval_mem se μ) as [[|]|] eqn:Heq; rewrite Heq; destruct β; cbn; solve_proper.
   Qed.
   Next Obligation.
     cbn.
-    intros k μ μ' <- τ' se sv; cbn.
+    intros ???? <- ???; cbn.
+    solve_proper.
+  Qed.
+  Final Obligation.
+    cbn.
+    intros ??? <- ????; cbn.
     solve_proper.
   Qed.
 
@@ -996,7 +1017,7 @@ Section instr.
       | VariantT _ τs => variant_interp (map type_interp τs)
       | ProdT _ τs => prod_interp (map type_interp τs)
       | StructT _ τs => struct_interp (map type_interp τs)
-      | RefT _ μ τ => ref_interp μ (type_interp τ)
+      | RefT _ μ β τ => ref_interp μ β (type_interp τ)
       | SerT _ τ => ser_interp (type_interp τ)
       | PlugT _ ρ => plug_interp ρ
       | SpanT _ σ => span_interp σ
@@ -1025,7 +1046,7 @@ Section instr.
     | VariantT _ τs => variant_interp (map type_interp τs)
     | ProdT _ τs => prod_interp (map type_interp τs)
     | StructT _ τs => struct_interp (map type_interp τs)
-    | RefT _ μ τ => ref_interp μ (type_interp τ)
+    | RefT _ μ β τ => ref_interp μ β (type_interp τ)
     | SerT _ τ => ser_interp (type_interp τ)
     | PlugT _ ρ => plug_interp ρ
     | SpanT _ σ => span_interp σ

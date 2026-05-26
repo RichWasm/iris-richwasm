@@ -18,7 +18,7 @@ Section swap.
      let WT := wt ++ wt' ++ wtf in
      let WL := wl ++ wl' ++ wlf in
      let lmask := wlmask fe wl in
-     let ψ := InstrT [RefT κ μ τ; τval] [RefT κ μ τ; τval] in
+     let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ; τval] in
      resolves_path τ π None pr ->
      Forall (has_mono_size F) (pr_prefix pr) ->
      pr.(pr_target) = SerT κser τval ->

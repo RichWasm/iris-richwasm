@@ -1465,11 +1465,13 @@ Section inst.
     * (* reft, qed *)
       intros.
       rewrite !type_interp_eq.
-      Opaque ref_mm_interp.
-      Opaque ref_gc_interp.
+      Opaque ref_mm_mut_interp.
+      Opaque ref_mm_imm_interp.
+      Opaque ref_gc_mut_interp.
+      Opaque ref_gc_imm_interp.
       cbn.
 
-      pose proof (eval_mem_subst_senv_eq se se' sub_m m Hsub_m) as Hevalm.
+      pose proof (eval_mem_subst_senv_eq se se' sub_m μ Hsub_m) as Hevalm.
       rewrite !Hevalm.
       pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
                     Hsub_r Hsub_s) as Hevalκ.
@@ -1479,37 +1481,37 @@ Section inst.
 
       iSplitR.
       all: iIntros "Hoa".
-      all: iDestruct "Hoa" as "(%sκ & #Hsκ & #Hsv & Htypeinterp)".
-      all: iExists sκ; iFrame "#".
-      all: destruct (eval_mem se (subst_memory sub_m m)) eqn:Hm.
+      all: iDestruct "Hoa" as "(%sκ & %Hsκ & %Hsv & Htypeinterp)".
+      all: iExists sκ; iFrame "%".
+      all: destruct (eval_mem se (subst_memory sub_m μ)) eqn:Hm.
       2, 4: done.
-      all: destruct b; cbn.
+      all: destruct b; destruct β.
 
       (* now we get into ref itnerps. the two mms should be easy *)
-      Transparent ref_mm_interp.
-      Transparent ref_gc_interp.
+      Transparent ref_mm_mut_interp.
+      Transparent ref_mm_imm_interp.
+      Transparent ref_gc_mut_interp.
+      Transparent ref_gc_imm_interp.
 
       (* the mms *)
-      1, 3: cbn.
-      1, 2: iDestruct "Htypeinterp" as
-        "(%ℓ & %fs & %ws & #hsv & hlfs & hlws & htypeinterp)".
-      1, 2: iExists ℓ, fs, ws; iFrame "#"; iFrame.
-      1, 2: iModIntro.
-      1, 2: specialize (IHτ (SWords ws)).
-      1, 2: by iApply IHτ.
+      1, 5: iDestruct "Htypeinterp" as "(%ℓ & %fs & %ws & %hsv & hlfs & hlws & htypeinterp)".
+      3, 6: iDestruct "Htypeinterp" as "(%ℓ & %fs & %ws & %hsv & #hinv & htypeinterp)".
+      1, 2, 3, 4: iExists ℓ, fs, ws; iFrame "%#∗"; iModIntro.
+      1, 2, 3, 4: specialize (IHτ (SWords ws)); by iApply IHτ.
 
       (* now the gcs, which have invariants *)
-      all: cbn.
-      all: iDestruct "Htypeinterp" as
-        "(%ℓ & %fs & #hsv & hinv)".
-      all: iExists ℓ, fs; iFrame "#".
+      1, 3: iDestruct "Htypeinterp" as "(%ℓ & %fs & %hsv & #hinv)".
+      3, 4: iDestruct "Htypeinterp" as "(%ℓ & %fs & %ws & %hsv & #hinv)".
+      all: iExists ℓ, fs.
+      3, 4: iExists ws.
+      all: iFrame "%".
       (* NOTE: this na_inv_iff cannot work without bimplication *)
       all: iApply (na_inv_iff with "[$hinv]").
       all: repeat iModIntro.
       all: iSplitR; iIntros "Hoa".
-      all: iDestruct "Hoa" as "(%ws & hlfs & hlws & htype)".
-      all: iExists ws; iFrame.
-      all: iModIntro.
+      1, 2, 3, 4: iDestruct "Hoa" as "(%ws & hlfs & hlws & htype)"; iExists ws.
+      5, 6, 7, 8: iDestruct "Hoa" as "(hlfs & hlws & htype)".
+      all: iFrame; iModIntro.
       all: specialize (IHτ (SWords ws)).
       all: by iApply IHτ.
     * (* coderef, qed *)

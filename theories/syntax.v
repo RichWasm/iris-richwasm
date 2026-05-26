@@ -155,7 +155,7 @@ Section TypeInd.
     (HVariantT : forall κ τs, Forall P τs -> P (VariantT κ τs) )
     (HProdT : forall κ τs, Forall P τs -> P (ProdT κ τs) )
     (HStructT : forall κ τs, Forall P τs -> P (StructT κ τs) )
-    (HRefT : forall κ m t, P t -> P (RefT κ m t))
+    (HRefT : forall κ μ β t, P t -> P (RefT κ μ β t))
     (HCodeRefT : forall κ ft, P0 ft -> P (CodeRefT κ ft) )
     (*coderef might be wrong*)
     (HSerT : forall κ t, P t -> P (SerT κ t))
@@ -190,7 +190,7 @@ Section TypeInd.
     | VariantT κ ts => HVariantT κ ts (types_ind ts)
     | ProdT κ ts => HProdT κ ts (types_ind ts)
     | StructT κ ts => HStructT κ ts (types_ind ts)
-    | RefT κ m t => HRefT κ m t (type_ind t)
+    | RefT κ μ β t => HRefT κ μ β t (type_ind t)
     | CodeRefT κ ft => HCodeRefT κ ft (function_type_ind ft)
     | SerT κ t => HSerT κ t (type_ind t)
     | PlugT κ ρ => HPlugT κ ρ
@@ -227,6 +227,7 @@ Scheme Equality for ref_flag.
 Scheme Equality for atomic_rep.
 Scheme Equality for base_memory.
 Scheme Equality for memory.
+Scheme Equality for mutability.
 Scheme Equality for list.
 Scheme Equality for num_type.
 Scheme Equality for primitive.

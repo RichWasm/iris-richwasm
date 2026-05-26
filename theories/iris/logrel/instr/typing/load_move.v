@@ -22,7 +22,7 @@ Section load_move.
     let WT := wt ++ wt' ++ wtf in
     let WL := wl ++ wl' ++ wlf in
     let lmask := wlmask fe wl in
-    let ψ := InstrT [RefT κ (BaseM MemMM) τ] [RefT κ' (BaseM MemMM) (pr_replaced pr); τval] in
+    let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ] [RefT κ' (BaseM MemMM) Mut (pr_replaced pr); τval] in
     resolves_path τ π (Some (type_span σ)) pr ->
     has_size F pr.(pr_target) σ ->
     pr.(pr_target) = SerT κser τval ->

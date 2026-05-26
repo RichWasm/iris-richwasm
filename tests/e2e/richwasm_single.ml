@@ -150,7 +150,7 @@ let simple_tests =
           (body
            ((NumConst (Int I32) 7)
             (Inject 0 ((Num (Int I32)) (Num (Int I32))))
-            (New MM)
+            (New MM Mut)
             (Load (Path ()) Move)
             (LocalSet 1)
             Drop
@@ -190,7 +190,7 @@ let simple_tests =
              ((NumConst (Int I32) 1)
               (NumConst (Int I64) 2)
               (Group 2)
-              (New MM)
+              (New MM Mut)
               (Load (Path ()) Move)
               (LocalSet 0)
               Drop
@@ -209,7 +209,7 @@ let simple_tests =
              ((NumConst (Int I32) 1)
               (NumConst (Int I64) 2)
               (Group 2)
-              (New GC)
+              (New GC Imm)
               (Load (Path ()) Copy)
               (LocalSet 0)
               Drop
