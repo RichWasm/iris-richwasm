@@ -1107,43 +1107,35 @@ Section load_copy.
     - done.
   Qed.
 
-  Lemma ws_to_vs θ off memidx vs ιs base :
-    let offs := (seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
-                       (off, []) ιs).2 in
+  Lemma virt_to_phys_acc ℓ μ a θ ws :
+    let R ns ns32 :=
+      (⌜Forall2 N_i32_repr ns ns32⌝ ∗
+       rt_memaddr sr μ↦[wms][a]flat_map bits (map VAL_int32 ns32) ∗
+       ([∗ list] x1;x2 ∈ ws;ns, word_interp θ μ x1 x2))%I in
     ⊢ rt_token rti sr θ -∗
-      [∗ list] off';v ∈ offs;vs, memidx↦[wms][base + byte_offset MemMM off'] bits v ∗ rt_token rti sr θ.
+      ℓ ↦heap ws -∗
+      ℓ ↦addr (μ, a) -∗
+      (∃ ns ns32, R ns ns32) ∗
+      (∀ ns' ns32',
+        R ns' ns32' -∗
+        ℓ ↦heap ws ∗
+        ℓ ↦addr (μ, a) ∗
+        rt_token rti sr θ).
   Proof.
-  Abort.
-
-  Lemma ws_to_vs θ off memidx vs ιs base :
-    let offs := (seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
-                       (off, []) ιs).2 in
-    ⊢ rt_token rti sr θ -∗
-      [∗ list] off';v ∈ offs;vs, memidx↦[wms][base + byte_offset MemMM off'] bits v ∗ rt_token rti sr θ.
-  Proof.
-    iIntros (offs) "Hrt".
+    iIntros (R) "Hrt Hpt Ha".
     open_rt "Hrt".
-  Abort.
-
-    (*
-      root_memory sr θ
-Hkval: has_kind F τval (VALTYPE ρtgt ξtgt)
-Hρ: type_rep (fe_type_vars fe) τval = Some ρtgt
-Hkval: has_kind F τval (VALTYPE ρtgt ξtgt)
-Hev: eval_size EmptyEnv (RepS ρtgt) = Some ntgt
-Hιs: eval_rep EmptyEnv ρtgt = Some ιs
-
-  Hev : eval_size EmptyEnv (RepS ρtgt) = Some ntgt
-  Hwslen : off + ntgt ≤ length ws
-  type_rep (fe_type_vars fe) τval = Some ρ
-  eval_rep EmptyEnv ρ = Some ιs
-
-  Search rt_token.
-  ℓ ↦layout fs
-  ℓ ↦heap ws
-  value_interp rti sr se (pr_target pr) (SWords (get_path_words off ntgt ws))
-  "Hval" : value_interp rti sr se (pr_target pr) (SWords (get_path_words off ntgt ws))
-    *)
+    iCombine "Hpt Hheap" gives "%Hhm".
+    iCombine "Ha Haddr" gives "%Ha".
+    iPoseProof (big_sepM2_lookup_acc with "Hheapmem") as "Hlookup"; eauto.
+    iEval (cbn) in "Hlookup".
+    iDestruct "Hlookup" as "(HR & Hcont)".
+    iSplitL "HR"; first by iApply "HR".
+    iIntros (ns ns32) "HR".
+    iFrame.
+    iApply "Hcont".
+    iExists ns, ns32.
+    iApply "HR".
+  Qed.
 
   Lemma value_deser se κ τ ws :
     ⊢ value_interp rti sr se (SerT κ τ) (SWords ws) -∗
@@ -1159,6 +1151,181 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
     iSplitR; first done.
     done.
   Qed.
+
+  Lemma big_sepL2_take_drop_acc {X Y} {P : X → Y → iProp Σ} xs ys n m :
+    ([∗ list] x;y ∈ xs;ys, P x y) -∗
+    ([∗ list] x;y ∈ take n (drop m xs);take n (drop m ys), P x y) ∗
+    (([∗ list] x;y ∈ take n (drop m xs);take n (drop m ys), P x y) -∗
+     ([∗ list] x;y ∈ xs;ys, P x y)).
+  Proof.
+  Admitted.
+
+  Lemma gc_word_to_atom o ns ns32 θ :
+    ⌜ref_flag_atoms_interp GCRefs (SAtoms [o])⌝ -∗
+    ⌜Forall2 N_i32_repr ns ns32⌝ -∗
+    ([∗ list] w; n ∈ serialize_atom o; ns, word_interp θ MemMM w n) -∗
+    ∃ v, atom_interp o v.
+  Proof.
+    iIntros "%Href %Hrep Hw".
+    destruct o; try solve [cbn; eauto].
+    inversion Href; subst.
+    cbn in *.
+    destruct p as [ | [|]]; cbn in *; try done.
+    - iPoseProof (big_sepL2_cons_inv_l with "Hw") as "(%n' & %ns' & -> & %Hptr & _)"; cbn.
+      apply Forall2_cons_inv_l in Hrep.
+      destruct Hrep as (n32 & ns32' & Hn32 & Hns' & ->).
+      inversion Hptr; subst.
+      iExists _, (2 * n)%N, _.
+      iSplitR; last iSplitR; eauto.
+      iExists (RootInt n).
+      iPureIntro.
+      split; cbn; auto.
+      econstructor.
+    - iPoseProof (big_sepL2_cons_inv_l with "Hw") as "(%n' & %ns' & -> & (%a & %Hptr & Ha) & _)"; cbn.
+      apply Forall2_cons_inv_l in Hrep.
+      destruct Hrep as (n32 & ns32' & Hn32 & Hns' & ->).
+      inversion Hptr; subst.
+      iExists _, _, _.
+      iSplitR; last iSplitR; eauto.
+  Qed.
+
+  Lemma gc_words_to_atoms os ns ns32 θ :
+    ⌜ref_flag_atoms_interp GCRefs (SAtoms os)⌝ -∗
+    ⌜Forall2 N_i32_repr ns ns32⌝ -∗
+    ([∗ list] w; n ∈ flat_map serialize_atom os; ns, word_interp θ MemMM w n) -∗
+    ∃ vs, [∗ list] o;v ∈ os; vs, atom_interp o v.
+  Proof.
+    revert ns ns32 θ.
+    induction os; iIntros (ns ns32 θ Href Hrep) "Hw".
+    - iExists [].
+      done.
+    - cbn [flat_map].
+      iPoseProof (big_sepL2_app_inv_l with "Hw") as "(%ns' & %ns'' & -> & Hhd & Htl)".
+      cbn in Href.
+      apply Forall2_app_inv_l in Hrep.
+      inversion Href; subst.
+      destruct Hrep as (ns32' & ns32'' & Hns' & Hns'' & ->).
+      iPoseProof (gc_word_to_atom a ns' ns32' with "[ ] [//] [$]") as "(%v & Hv)";
+        first (iPureIntro; by apply Forall_singleton).
+      iPoseProof (IHos ns'' ns32'' θ with "[//] [//] [$]") as "(%vs & Hvs)".
+      iExists (v :: vs).
+      iFrame.
+  Qed.
+
+  Lemma flat_map_rcons X Y (f : X -> list Y) xs x :
+    flat_map f (seq.rcons xs x) = flat_map f xs ++ f x.
+  Proof.
+    revert x.
+    induction xs; cbn; intros.
+    - by clear_nils.
+    - by rewrite -app_assoc IHxs.
+  Qed.
+
+  Lemma length_bits_words ns32 :
+    length (flat_map bits (map VAL_int32 ns32)) = 4 * length ns32.
+  Proof.
+    induction ns32.
+    - done.
+    - cbn -[bits Nat.mul].
+      rewrite length_app.
+      rewrite (length_bits _ T_i32); last done.
+      rewrite IHns32.
+      cbn; lia.
+  Qed.
+
+  Lemma offset_plus_lens : forall μ ns32 off,
+    (byte_offset μ off + N.of_nat (length (flat_map bits (map VAL_int32 ns32))) = byte_offset μ (off + length ns32))%N.
+  Proof.
+    setoid_rewrite length_bits_words.
+    setoid_rewrite Nat2N.inj_mul.
+    replace (N.of_nat 4) with (4%N) by done.
+    intros.
+    destruct μ; cbn; lia.
+  Qed.
+
+  Lemma rcons_app {X} : forall (xs : list X) x,
+      seq.rcons xs x = xs ++ [x].
+  Proof.
+    induction xs; intros x.
+    - reflexivity.
+    - cbn.
+      by rewrite IHxs.
+  Qed.
+
+  Lemma drop_rcons_le {X} : forall n (xs : list X) x,
+    n <= length xs ->
+    drop n (seq.rcons xs x) = seq.rcons (drop n xs) x.
+  Proof.
+    intros * Hlen.
+    rewrite !rcons_app.
+    rewrite drop_app.
+    replace (n - length xs) with 0 by lia.
+    by rewrite drop_0.
+  Qed.
+
+  Definition word_interp_weak θ μ (ws : list word) (ns : list N) : iProp Σ :=
+    [∗ list] w; n ∈ ws; ns, word_interp θ μ w n.
+
+  (* Not yet correct. This lemma also has to deal with the difference between a
+     sequence of i32s (as exists in the word memory model) and bits applied to a
+     sequence of values. *)
+  Lemma make_load_foldl : forall ιs θ os ns ns_32 a off offs vs,
+    length offs + length ιs = length vs ->
+    Forall2 has_arep ιs os ->
+    Forall2 N_i32_repr ns ns_32 ->
+    ([∗ list] o; v ∈ os; vs, atom_interp o v) -∗
+    ([∗ list] w; n ∈ flat_map serialize_atom os; ns, word_interp θ MemMM w n) -∗
+    rt_memaddr sr MemMM↦[wms][a + byte_offset MemMM off]flat_map bits (map VAL_int32 ns_32) -∗
+    [∗ list] off';v ∈ (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off'))
+                         (off, offs) ιs).2; drop (length offs) vs,
+                         N.of_nat (sr_mem_mm sr)↦[wms][a + byte_offset MemMM off'] bits v.
+  Proof.
+    intros ιs.
+    induction ιs using seq.last_ind; intros * Hoffs Harep Hrep; iIntros "Hats Hws Hpt".
+    - iEval (cbn).
+      inversion Harep; subst.
+      iPoseProof (big_sepL2_nil_inv_l with "Hats") as "->".
+      cbn in *.
+      assert (length offs = 0) by lia.
+      destruct offs; done.
+    - apply Forall2_rcons_inv_l in Harep.
+      destruct Harep as (o & os' & Harep & Hreps & Heq).
+      rewrite Heq.
+      iPoseProof (big_sepL2_rcons_inv_l with "Hats") as "(%vs' & %v & -> & Hat & Hats)".
+      rewrite flat_map_rcons.
+      iPoseProof (big_sepL2_app_inv_l with "Hws") as "(%ns' & %ns'' & -> & Hws & Hw)".
+      eapply Forall2_app_inv_l in Hrep.
+      destruct Hrep as (ns32' & ns32'' & Hv & Hvs' & ->).
+      iEval (rewrite map_app flat_map_app) in "Hpt".
+      iPoseProof (wms_app with "Hpt") as "[Hpt1 Hpt2]"; first eauto.
+      iEval (rewrite -N.add_assoc offset_plus_lens) in "Hpt2".
+      assert (length offs + length ιs = length v).
+      {
+        rewrite !length_is_size !seq.size_rcons in Hoffs.
+        rewrite !length_is_size; lia.
+      }
+      rewrite seq.foldl_rcons.
+      destruct (seq.foldl
+                  (λ '(off', offs) (ι : atomic_rep),
+                    (off' + arep_size ι, seq.rcons offs off'))
+                  (off, offs) ιs)
+        as [off' offs'] eqn:Hfold.
+      iAssert (⌜off' = (off + length ns32')%nat⌝%I) as "%Heqoff'".
+      {
+        admit.
+      }
+      iAssert (⌜bits vs' = flat_map bits (map VAL_int32 ns32'')⌝%I) as "%Heqvs'".
+      {
+        admit.
+      }
+      iPoseProof (IHιs θ os' _ _ _ off offs with "[$Hats] [$Hws] [$Hpt1]") as "IH"; eauto.
+      rewrite Hfold.
+      cbn [snd].
+      rewrite drop_rcons_le; last lia.
+      iApply big_sepL2_rcons.
+      rewrite Heqoff' Heqvs'.
+      iFrame.
+  Admitted.
 
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
@@ -1394,11 +1561,24 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
       cbn in Hkeval; inversion Hkeval; subst sk'.
       rewrite H3 in Hvalk'; inversion Hvalk'; subst sk.
       destruct Hsval' as (Hhasareps & Hats).
-      iApply (Hload with "[$] [$] [] [Hat'] [Hℓh Hval] [$] [$] [-]").
+      iDestruct "Hat'" as "(%rp & %Hrepn' & Haddr)".
+      destruct rp as [| [|]]; try done.
+
+      iPoseProof (virt_to_phys_acc with "Hrt Hℓh Haddr")
+        as "((%ns & %ns_32 & %Hnsrep & Hphys & Hws) & Hphys_to_virt)".
+      iPoseProof (big_sepL2_take_drop_acc _ _ ntgt off with "Hws") as "[Hws Hws_cont]".
+      fold (get_path_words off ntgt ws).
+      rewrite Hwords.
+      assert (ref_flag_atoms_interp GCRefs (SAtoms os)). { admit. }
+      assert (Forall2 N_i32_repr (take ntgt (drop off ns)) (take ntgt (drop off ns_32))).
+      { admit. }
+      iPoseProof (gc_words_to_atoms with "[//] [//] Hws") as "(%vs & Hvs)".
+      iApply (Hload with "[$] [] [] [$Hvs] [] [$] [$] [-]").
       + admit.
       + eauto.
       + eauto.
-      + admit.
+      + unfold N_nat_repr.
+        reflexivity.
       + eauto.
       + simpl.
         by rewrite list_lookup_insert_eq.
@@ -1416,10 +1596,8 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
       + unfold has_areps in Hhasareps.
         destruct Hhasareps as (os' & Hinv & Hhas). inversion Hinv; subst os'.
         eapply Hhas.
-      + iApply "Hreg".
-      + admit.
-        (*erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
-        iFrame; by eauto.*)
+      + admit. (* need to weaken load lemmas to use only parts of rt_token they care about *)
+      + eauto.
       + (*
       need to relate
   [∗ list] off';v ∈ (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off'))

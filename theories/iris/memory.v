@@ -140,7 +140,8 @@ Section Token.
     | WordInt m => ⌜n = m⌝
     | WordPtr p =>
         match μ, p with
-        | MemMM, PtrHeap MemGC ℓ => ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+        | MemMM, PtrHeap MemGC ℓ =>
+            ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
         | _, _ => ⌜repr_pointer θ p n⌝
         end
     end.
