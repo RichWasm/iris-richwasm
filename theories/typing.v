@@ -4,6 +4,8 @@ Require Import RecordUpdate.RecordUpdate.
 
 From RichWasm Require Import layout syntax util.
 
+Set Bullet Behavior "Strict Subproofs".
+
 Record module_ctx :=
   { mc_functions : list function_type;
     mc_table : list function_type }.
@@ -511,39 +513,23 @@ Qed.
 Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
 Proof.
   intros H.
-  induction H using has_kind_ind'.
-  all: repeat constructor.
-  all: try inversion IHhas_kind.
-  all: try done.
-  all: try by inversion H0.
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
-(*     intros. by inversion H1. *)
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
-(*     intros. by inversion H1. *)
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - eapply Forall2_Forall_l in H; first exact H. apply Forall_forall. *)
-(*     intros. by inversion H1. *)
-(*   - eapply Forall2_Forall_r in H; first exact H. apply Forall_forall. *)
-(*     intros. inversion H1. by inversion H3. *)
-(*   - subst. by apply (kind_ok_subkind_of _ _ _ H1) in H. *)
-(*   - econstructor; done. *)
-(* Qed. *)
-Admitted.
+  induction H using has_kind_ind'; repeat constructor; try inversion IHhas_kind; try done.
+  13, 14: by inversion H0.
+  13: by econstructor.
+  all: apply Forall_forall; intros ? Hin; apply list_elem_of_lookup in Hin as [??].
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+  - by eapply Forall3_lookup_l in H as (?&?&?&?&H); first inversion H.
+  - by eapply Forall3_lookup_m in H as (?&?&?&?&H); first (inversion H; inversion H4).
+Qed.
 
 Inductive has_rep : function_ctx -> type -> representation -> Prop :=
 | HasRep F τ ρ ξ :
