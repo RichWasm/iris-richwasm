@@ -146,6 +146,9 @@ Section Token.
         end
     end.
 
+  Definition words_interp (θ : address_map) (μ : base_memory) (ws : list word) (ns : list N) : iProp Σ :=
+    [∗ list] w; n ∈ ws; ns, word_interp θ μ w n.
+
   Definition locations (w : word) : list location :=
     match w with
     | WordInt _
@@ -188,7 +191,7 @@ Section Token.
       ∃ ns ns32,
         ⌜Forall2 N_i32_repr ns ns32⌝ ∗
         rt_memaddr μ ↦[wms][a] flat_map bits (map VAL_int32 ns32) ∗
-        big_sepL2 (const (word_interp θ μ)) ws ns.
+        words_interp θ μ ws ns.
 
   Definition rt_token (θ : address_map) : iProp Σ :=
     ∃ rm lm hm,
