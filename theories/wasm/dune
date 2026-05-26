@@ -1,21 +1,29 @@
 (coq.theory
-  (name RichWasm.wasm)
-  (package iris-richwasm)
-  (theories
-    Stdlib
-    iris
-    stdpp
-    Ltac2
-    compcert
-    Flocq
-    mathcomp
-    mathcomp.boot
-    mathcomp.order
-    HB
-    elpi
-    elpi_elpi
-    ITree
-    ExtLib
-    Paco
-    parseque)
-  (flags -w -ambiguous-paths -w -notation-overridden -w -abstract-large-number -w -extraction-reserved-identifier))
+ (name RichWasm.wasm)
+ (package iris-richwasm)
+ (theories
+  Stdlib
+  iris
+  stdpp
+  Ltac2
+  compcert
+  Flocq
+  mathcomp
+  mathcomp.boot
+  mathcomp.order
+  HB
+  elpi
+  elpi_elpi
+  ITree
+  ExtLib
+  Paco
+  parseque)
+ (flags
+  -w
+  -ambiguous-paths
+  -w
+  -notation-overridden
+  -w
+  -abstract-large-number
+  -w
+  -extraction-reserved-identifier))

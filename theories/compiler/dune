@@ -1,6 +1,4 @@
 (coq.theory
  (name RichWasm.compiler)
  (package iris-richwasm)
- (theories
-  RichWasm
-  RichWasm.syntax))
+ (theories RichWasm RichWasm.syntax))

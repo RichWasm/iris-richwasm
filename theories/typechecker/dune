@@ -1,8 +1,5 @@
 (coq.theory
  (name RichWasm.typechecker)
  (package iris-richwasm)
- (flags
-   :standard
-   -w -ambiguous-paths)
- (theories
-   RichWasm))
+ (flags :standard -w -ambiguous-paths)
+ (theories RichWasm))

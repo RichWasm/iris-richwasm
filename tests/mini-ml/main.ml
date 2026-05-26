@@ -9,9 +9,7 @@ let pipeline x =
   | Ok m ->
       (match Codegen.compile_module m with
       | Ok m -> m
-      | Error e ->
-          failwith
-            (asprintf "codegen failed: %a" Codegen.Err.pp e))
+      | Error e -> failwith (asprintf "codegen failed: %a" Codegen.Err.pp e))
   | Error e -> failwith (asprintf "convert failed: %a" Convert.Err.pp e)
 
 let run name ast =

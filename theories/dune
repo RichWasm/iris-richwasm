@@ -1,27 +1,24 @@
 (coq.theory
  (name RichWasm)
  (package iris-richwasm)
- (flags
-   :standard
-   -w -ambiguous-paths)
+ (flags :standard -w -ambiguous-paths)
  (theories
-   mathcomp.boot
-   RecordUpdate
-   stdpp
-   Stdlib
-   ExtLib
-
-   ;; HACK: transitive deps not always propagated
-   iris
-   HB
-   elpi
-   elpi_elpi
-   compcert
-   Flocq
-   parseque
-   ITree
-   ExtLib.Structures
-   ExtLib.Core
-   ExtLib.Data
-   Paco
-   Ltac2))
+  mathcomp.boot
+  RecordUpdate
+  stdpp
+  Stdlib
+  ExtLib
+  ;; HACK: transitive deps not always propagated
+  iris
+  HB
+  elpi
+  elpi_elpi
+  compcert
+  Flocq
+  parseque
+  ITree
+  ExtLib.Structures
+  ExtLib.Core
+  ExtLib.Data
+  Paco
+  Ltac2))

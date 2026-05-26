@@ -92,7 +92,11 @@
   numbers
   typechecker
   typing)
- (theories Stdlib RichWasm.syntax RichWasm.compiler RichWasm.typechecker
+ (theories
+  Stdlib
+  RichWasm.syntax
+  RichWasm.compiler
+  RichWasm.typechecker
   iris
   elpi
   compcert
@@ -122,8 +126,9 @@
  (libraries zarith))
 
 (env
-  (release
-    (flags (:standard -w -20-33-39-67)))
-  (dev
-
-    (flags (:standard -w -20-33-39-67))))
+ (release
+  (flags
+   (:standard -w -20-33-39-67)))
+ (dev
+  (flags
+   (:standard -w -20-33-39-67))))

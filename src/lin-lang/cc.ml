@@ -33,7 +33,9 @@ module IR = struct
       | Ref t -> fprintf ff "@[<2>(ref@ %a)@]" pp t
 
     let pp_sexp ff x = Sexp.pp_hum ff (sexp_of_t x)
-    let pp_binding ff (typ : t) : unit = fprintf ff "@[(@[<2><> : @{<hi_blue>%a@}@])@]" pp typ
+
+    let pp_binding ff (typ : t) : unit =
+      fprintf ff "@[(@[<2><> : @{<hi_blue>%a@}@])@]" pp typ
   end
 
   module Binop = Index.IR.Binop
@@ -211,8 +213,7 @@ module Compile = struct
     | Rec t -> Rec (compile_typ t)
 
   and compile_lolipop_unwrapped t1 t2 : B.Type.t =
-    Lollipop
-      (Prod [ Var (0, None); compile_typ_shift t1 ], compile_typ_shift t2)
+    Lollipop (Prod [ Var (0, None); compile_typ_shift t1 ], compile_typ_shift t2)
 
   and compile_typ_shift t : B.Type.t = compile_typ t |> shift_tidx 1 0
 
@@ -447,9 +448,7 @@ module Compile = struct
                 mk_new (build_closure fvs);
               ],
             Exists
-              (Prod
-                 [ compile_lolipop_unwrapped arg_t ret_t; Var (0, None) ])
-          )
+              (Prod [ compile_lolipop_unwrapped arg_t ret_t; Var (0, None) ]) )
     | App (applicand, applicant, _) ->
         let* applicand' = compile_expr env applicand in
         let* applicant' = compile_expr env applicant in

@@ -1,10 +1,12 @@
 (coq.theory
-  (name RichWasm.opsem)
-  (package iris-richwasm)
-  (flags
-    :standard
-    -w -ambiguous-paths
-    -w -notation-incompatible-prefix
-    -w -notation-overridden)
-  (theories
-    RichWasm))
+ (name RichWasm.opsem)
+ (package iris-richwasm)
+ (flags
+  :standard
+  -w
+  -ambiguous-paths
+  -w
+  -notation-incompatible-prefix
+  -w
+  -notation-overridden)
+ (theories RichWasm))

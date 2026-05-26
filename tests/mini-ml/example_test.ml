@@ -16,8 +16,7 @@ include Test_runner.MultiOutputter.Make (struct
     | Ok m ->
         (match Codegen.compile_module m with
         | Ok m -> m
-        | Error e ->
-            failwith (asprintf "codegen failed: %a" Codegen.Err.pp e))
+        | Error e -> failwith (asprintf "codegen failed: %a" Codegen.Err.pp e))
     | Error e -> failwith (asprintf "convert failed: %a" Convert.Err.pp e)
 
   let string_pipeline s = s |> Parse.from_string_exn |> syntax_pipeline

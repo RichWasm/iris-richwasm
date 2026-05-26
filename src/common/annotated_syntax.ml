@@ -850,7 +850,9 @@ module Instruction = struct
         instrs
     in
     let pp_int = Z.pp_print in
-    let pp_it_comment ff x = fprintf ff " @{<hi_black>;; @[%a@]@}" InstructionType.pp x in
+    let pp_it_comment ff x =
+      fprintf ff " @{<hi_black>;; @[%a@]@}" InstructionType.pp x
+    in
     let pp_lfx ff x =
       fprintf ff "@[<2>(localfx";
       List.iteri

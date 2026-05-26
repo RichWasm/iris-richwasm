@@ -1,11 +1,14 @@
 (coq.theory
-  (name RichWasm.iris.host)
-  (package iris-richwasm)
-  (flags
-    :standard
-    -w -ambiguous-paths
-    -w -notation-overridden
-    -w -abstract-large-number
-    -w -extraction-reserved-identifier)
-  (theories
-    RichWasm.iris.language))
+ (name RichWasm.iris.host)
+ (package iris-richwasm)
+ (flags
+  :standard
+  -w
+  -ambiguous-paths
+  -w
+  -notation-overridden
+  -w
+  -abstract-large-number
+  -w
+  -extraction-reserved-identifier)
+ (theories RichWasm.iris.language))

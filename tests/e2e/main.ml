@@ -180,13 +180,15 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   | _ -> fail (CompilerError.badinfo info)
               end in
               let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
-              let module1 = (* lin-lang *)
+              let module1 =
+                (* lin-lang *)
                 {|
                   (export fun add1 (i : int) : int .
                     (i + 1))
                 |}
               in
-              let module2 = (* rwasm *)
+              let module2 =
+                (* rwasm *)
                 {|
                   ;; Glue module: adapts mini-ml's closure-style `add1` import
                   ;; to lin-lang's `add1` (m1). mini-ml calls with a GC closure
@@ -222,7 +224,8 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                    (exports (((name add1_wrapped) (desc (Func 1))))))
                 |}
               in
-              let module3 = (* mini-ml *)
+              let module3 =
+                (* mini-ml *)
                 {|
                   (import (add1 : (() int -> int)))
 
@@ -230,18 +233,14 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                 |}
               in
               let result, logs =
-                Triple.run3 ~asprintf
-                  ~links:("add1", "add1_wrapped")
-                  module1 module2 module3
+                Triple.run3 ~asprintf ~links:("add1", "add1_wrapped") module1
+                  module2 module3
                 |> Triple.M.run
               in
               (* add1 1 = 2; the result is an i31, whose raw wasm value is the
                  tagged form 2 * 2 = 4 *)
               check_result "12" Triple.E2Err.pp logs result);
-
-
           (* --------------------------------------------------- *)
-
           test_case "numeric interop (ml -> ll)" `Quick (fun () ->
               let module Err = struct
                 type t =
@@ -285,14 +284,16 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                   | _ -> fail (CompilerError.badinfo info)
               end in
               let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
-              let module1 = (* mini-ml *)
+              let module1 =
+                (* mini-ml *)
                 {|
                   (export (add3 : (() int -> int))
                     (fun () (i : int) : int
                       (op + i 3)))
                 |}
               in
-              let module2 = (* rwasm *)
+              let module2 =
+                (* rwasm *)
                 {|
                   ;; Glue module: adapts lin-lang's closure-style `add3` import
                   ;; to mini-ml's `add3` (m1). lin-lang calls with a MM closure
@@ -330,7 +331,8 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                    (exports (((name add3_wrapped) (desc (Func 1))))))
                 |}
               in
-              let module3 = (* lin-lang *)
+              let module3 =
+                (* lin-lang *)
                 {|
                   (import (int -> int) as add3)
 
@@ -338,9 +340,8 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                 |}
               in
               let result, logs =
-                Triple.run3 ~asprintf
-                  ~links:("add3", "add3_wrapped")
-                  module1 module2 module3
+                Triple.run3 ~asprintf ~links:("add3", "add3_wrapped") module1
+                  module2 module3
                 |> Triple.M.run
               in
               check_result "7" Triple.E2Err.pp logs result);

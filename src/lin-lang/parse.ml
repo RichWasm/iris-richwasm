@@ -51,7 +51,7 @@ module Err = struct
     if cmp_score s1 s2 >= 0 then e1 else e2
 end
 
-open (SexpParser (Err))
+open SexpParser (Err)
 
 let rec parse_type (p : Path.t) : Sexp.t -> Type.t Res.t =
   let open Res in
