@@ -752,17 +752,6 @@ Section PathFacts.
       f_equal; eauto.
   Qed.
 
-  Definition ref_flag_lub2 (ξ1 ξ2 : ref_flag) : ref_flag :=
-    match ξ1 with
-    | NoRefs => ξ2
-    | GCRefs =>
-        match ξ2 with
-        | NoRefs => GCRefs
-        | _ => ξ2
-        end
-    | AnyRefs => AnyRefs
-    end.
-
   Lemma type_interp_len F ws τ σ n ξ :
     sem_env_interp F se ->
     has_kind F τ (MEMTYPE σ ξ) ->
