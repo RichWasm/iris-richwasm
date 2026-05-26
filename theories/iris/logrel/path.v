@@ -682,40 +682,35 @@ Section PathFacts.
       mapM (type_skind se) τs = Some sks ∧
       Forall3 (λ sk n ξ, sk = SMEMTYPE n ξ) sks ns ξs.
   Proof.
-  (*
-    intros Hall Hse Hevs.
-    assert (Hall':  Forall2 (λ τ κ, has_kind F τ κ) τs (map (λ σ, MEMTYPE σ ξ) σs)).
-    {
-      eapply Forall2_fmap_r, Hall.
-    }
-    assert (mapM (eval_kind se) (map (λ σ : Core.size, MEMTYPE σ ξ) σs) = Some (map (λ n, SMEMTYPE n ξ) ns)).
-    {
-      clear Hall Hall'.
-      revert Hevs.
-      revert ns.
-      induction σs; intros ns Hevs.
-      - inversion Hevs; subst.
-        done.
-      - cbn in Hevs.
-        apply bind_Some in Hevs.
-        destruct Hevs as (n & Hev & Hevs).
-        apply bind_Some in Hevs.
-        destruct Hevs as (ns' & Hevs & Heqn).
-        inversion Heqn; subst ns.
-        apply IHσs in Hevs.
+    intros Hall.
+    revert ns.
+    induction Hall; intros ns Hse Hevs.
+    - exists [].
+      inversion Hevs; subst.
+      cbn; split; eauto.
+      constructor.
+    - cbn in Hevs.
+      apply bind_Some in Hevs.
+      destruct Hevs as (n & Hsz & Hcont).
+      apply bind_Some in Hcont.
+      destruct Hcont as (ns' & Hszs & Hret).
+      inversion Hret; subst ns; rename ns' into ns.
+      assert (eval_kind se (MEMTYPE y z) = Some (SMEMTYPE n z)).
+      {
         cbn.
-        by rewrite Hev Hevs.
-    }
-    eapply type_skinds_has_kinds_Some in Hall'; eauto.
-    eexists (map (fun n => SMEMTYPE n ξ) ns).
-    split; first done.
-    eapply Forall2_fmap_r.
-    apply Forall_Forall2_diag.
-    apply Forall_forall.
-    intros.
-    apply subskind_of_refl.
-  *)
-  Admitted.
+        rewrite Hsz.
+        done.
+      }
+      eapply IHHall in Hszs; eauto.
+      destruct Hszs as (sks & Hmap & Hsks).
+      exists (SMEMTYPE n z :: sks).
+      split; eauto.
+      + cbn [mapM].
+        erewrite type_skind_has_kind_Some; eauto.
+        rewrite Hmap.
+        done.
+      + by constructor.
+  Qed.
 
   Lemma subskind_mem_inv_l sk n ξ :
     subskind_of sk (SMEMTYPE n ξ) ->
@@ -738,29 +733,24 @@ Section PathFacts.
     revert Hsk.
     revert τs.
     induction Hsubs; intros τs Hsk.
-  (*
-    - exists [].
-      cbn; done.
-    - pose proof (length_mapM _ _ _ Hsk) as Hlens.
+    - split; eauto.
+    - cbn.
+      subst.
+      f_equal.
+      pose proof (length_mapM _ _ _ Hsk) as Hlens.
       destruct τs as [|τ τs]; first (cbn in Hlens; by inversion Hlens).
       cbn -[type_skind] in Hsk.
       apply bind_Some in Hsk.
       destruct Hsk as (sk & Hev & Hsk).
       apply bind_Some in Hsk.
       destruct Hsk as (sks & Hevs & Hret).
-      inversion Hret; subst x l.
-      destruct (IHHsubs _ Hevs) as (ξs & Hsks & Hlen & Hrefs).
-      eapply subskind_mem_inv_l in H.
-      destruct H as (ξ' & -> & Href).
-      exists (ξ' :: ξs).
-      subst sks.
-      split; last split.
-      + done.
-      + cbn.
-        congruence.
-      + by constructor.
-  *)
-  Admitted.
+      inversion Hret.
+      subst l sk.
+      eapply IHHsubs in Hevs.
+      destruct Hevs as [Hsks Hlen].
+      split; eauto.
+      f_equal; eauto.
+  Qed.
 
   Definition ref_flag_lub2 (ξ1 ξ2 : ref_flag) : ref_flag :=
     match ξ1 with
@@ -1040,17 +1030,17 @@ Section PathFacts.
     ([∗ list] ws;τ ∈ wss;τs, type_interp rti sr τ se (SWords ws)) -∗
     ⌜Forall (forall_ptr_word (ref_flag_ptr_interp (ref_flag_lub ξs'))) (concat wss)⌝.
   Proof.
-  (*
-    intros Hse Hk; revert wss; induction Hk; iIntros (wss) "Ht".
+    intros Hse Hsubs Hall.
+    revert wss.
+    induction Hall; iIntros (wss) "Ht".
     - by iPoseProof (big_sepL2_nil_inv_r with "Ht") as "->".
     - iPoseProof (big_sepL2_cons_inv_r with "Ht") as "(%ws & %wss' & -> & Hws & Hwss)".
       iEval (setoid_rewrite type_interp_eq) in "Hws".
       iEval (cbn).
       rewrite Forall_app.
       iSplit.
-      + iDestruct "Hws" as "(%sk & %Htsk & %Hws & _)".
-        iPureIntro.
-        assert (∃ n, eval_kind se (MEMTYPE y ξ) = Some (SMEMTYPE n ξ)) as (n & Hev).
+      + iDestruct "Hws" as "(%sk & %Htsk & %Hws & Hws)".
+        assert (∃ n, eval_kind se (MEMTYPE y z) = Some (SMEMTYPE n z)) as (n & Hev).
         {
           eapply has_kind_inv in H.
           inversion H as [? ? ? _ Hok].
@@ -1067,13 +1057,21 @@ Section PathFacts.
         }
         eapply type_skind_has_kind_agree in Htsk; eauto.
         inversion Htsk; subst.
-        destruct Hws as [_ Hws].
+        cbn in Hws.
+        destruct Hws as [-> Hws].
+        iPureIntro.
         eapply Forall_impl; first apply Hws.
         intros [w | w] Hw; last done.
-        by eapply ref_flag_ptr_interp_le.
-      + by iApply IHHk.
-  *)
-  Admitted.
+        cbn in Hw.
+        eapply ref_flag_ptr_interp_le; eauto.
+        apply ref_flag_lub_ub.
+        apply Hsubs.
+        constructor.
+      + iApply IHHall; eauto.
+        intros elt Hin.
+        apply Hsubs.
+        by constructor.
+  Qed.
 
   Lemma resolves_path_inv_sep τ π pr :
     resolves_path τ π None pr ->

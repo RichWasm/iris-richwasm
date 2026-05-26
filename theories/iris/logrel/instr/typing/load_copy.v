@@ -1145,6 +1145,21 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
   "Hval" : value_interp rti sr se (pr_target pr) (SWords (get_path_words off ntgt ws))
     *)
 
+  Lemma value_deser se κ τ ws :
+    ⊢ value_interp rti sr se (SerT κ τ) (SWords ws) -∗
+      ∃ os, ⌜ws = flat_map serialize_atom os⌝ ∗ value_interp rti sr se τ (SAtoms os).
+  Proof.
+    iIntros "Hval".
+    rewrite value_interp_eq.
+    iDestruct "Hval" as "(%sk & %Hevsk & %Hkind & Hval)".
+    cbn.
+    iDestruct "Hval" as "(%os & %Hws & Hos)".
+    inversion Hws; subst.
+    iExists os.
+    iSplitR; first done.
+    done.
+  Qed.
+
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -1350,7 +1365,35 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
       iEval (unfold root_pointer_interp; cbn) in "Hat'".
       iPoseProof (Hpath with "Hval") as "(%Hwslen & Hval & Hcont)".
       clear Hpath.
-      unfold rt_token.
+      iEval (rewrite Hser) in "Hval".
+      inversion Hhktgt.
+      subst ξ0 τ0 ρ1 F0.
+      pose proof (type_rep_has_kind_agree _ _ _ _ H3) as Hrep'.
+      rewrite Hrep' in Hρ.
+      inversion Hρ; subst ρ0.
+      iEval (rewrite value_interp_eq; unfold add_skind_interp) in "Hval".
+      iDestruct "Hval" as "(%sk & %Hvalk & %Hsval & %os & %Heq & Hval)".
+      inversion Heq as [Hwords]; clear Heq.
+      unfold eval_kind, type_skind in Hvalk; cbn -[eval_size] in Hvalk.
+      erewrite eval_size_emptyenv  in Hvalk; last eapply Hev.
+      cbn in Hvalk; inversion Hvalk; subst sk.
+      iEval (rewrite type_interp_eq) in "Hval".
+      iDestruct "Hval" as "(%sk & %Hvalk' & %Hsval' & Hval)".
+      cbn in Hsval'.
+      assert (Hkindok': kind_ok (fc_kind_ctx F) (VALTYPE ρ ξtgt')).
+      {
+        constructor.
+        eauto.
+        admit.
+      }
+      eapply eval_kind_ok_Some in Hkindok'; eauto.
+      destruct Hkindok' as (sk' & Hkeval).
+      eapply type_skind_has_kind_Some in H3; eauto.
+      cbn in Hkeval.
+      erewrite eval_rep_emptyenv in Hkeval; eauto.
+      cbn in Hkeval; inversion Hkeval; subst sk'.
+      rewrite H3 in Hvalk'; inversion Hvalk'; subst sk.
+      destruct Hsval' as (Hhasareps & Hats).
       iApply (Hload with "[$] [$] [] [Hat'] [Hℓh Hval] [$] [$] [-]").
       + admit.
       + eauto.
@@ -1370,17 +1413,14 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
         rewrite sum_list_with_list_sum length_concat !length_app.
         cbn.
         lia.
-      + (* pr_target is always a SerT *)
-        (*need to get from memtype (which interprets words) to atom_interp o v*)
-        admit.
+      + unfold has_areps in Hhasareps.
+        destruct Hhasareps as (os' & Hinv & Hhas). inversion Hinv; subst os'.
+        eapply Hhas.
       + iApply "Hreg".
       + admit.
         (*erewrite (big_sepL2_cons _ (PtrA (PtrHeap MemMM ℓ)) (VAL_int32 n32) [] []).
         iFrame; by eauto.*)
-      + iEval (rewrite Hser value_interp_eq) in "Hval".
-        iDestruct "Hval" as "(%sk & ? & ? & (%os & %Hwords & Hval))".
-        inversion Hwords.
-        (*
+      + (*
       need to relate
   [∗ list] off';v ∈ (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off'))
                        (off, []) ιs).2;[VAL_int32 n32], ?Goal2↦[wms][?Goal1 + byte_offset MemMM off']
@@ -1399,9 +1439,6 @@ Hιs: eval_rep EmptyEnv ρtgt = Some ιs
          nasty foldl (if it isn't already expressed in that form).
          *)
         unfold fe in Hρ; cbn in Hρ.
-        pose proof Hρ as Hρ'; erewrite type_rep_has_kind_agree in Hρ'; last eauto.
-        inversion Hρ'; subst ρ; clear Hρ'.
-
         admit.
       + iIntros (f'' e' vs') "-> Hown Htok #Hinst' Hpts Hpost".
         unfold fvs_combine.
