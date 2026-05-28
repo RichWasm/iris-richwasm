@@ -85,36 +85,6 @@ Section load_copy.
     - done.
   Qed.
 
-  Lemma virt_to_phys_acc ℓ μ a θ ws :
-    let R ns ns32 :=
-      (⌜Forall2 N_i32_repr ns ns32⌝ ∗
-       rt_memaddr sr μ↦[wms][a]flat_map bits (map VAL_int32 ns32) ∗
-       ([∗ list] x1;x2 ∈ ws;ns, word_interp θ μ x1 x2))%I in
-    ⊢ rt_token rti sr θ -∗
-      ℓ ↦heap ws -∗
-      ℓ ↦addr (μ, a) -∗
-      (∃ ns ns32, R ns ns32) ∗
-      (∀ ns' ns32',
-        R ns' ns32' -∗
-        ℓ ↦heap ws ∗
-        ℓ ↦addr (μ, a) ∗
-        rt_token rti sr θ).
-  Proof.
-    iIntros (R) "Hrt Hpt Ha".
-    open_rt "Hrt".
-    iCombine "Hpt Hheap" gives "%Hhm".
-    iCombine "Ha Haddr" gives "%Ha".
-    iPoseProof (big_sepM2_lookup_acc with "Hheapmem") as "Hlookup"; eauto.
-    iEval (cbn) in "Hlookup".
-    iDestruct "Hlookup" as "(HR & Hcont)".
-    iSplitL "HR"; first by iApply "HR".
-    iIntros (ns ns32) "HR".
-    iFrame.
-    iApply "Hcont".
-    iExists ns, ns32.
-    iApply "HR".
-  Qed.
-
   Lemma value_deser se κ τ ws :
     ⊢ value_interp rti sr se (SerT κ τ) (SWords ws) -∗
       ∃ os, ⌜ws = flat_map serialize_atom os⌝ ∗ value_interp rti sr se τ (SAtoms os).

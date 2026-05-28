@@ -190,7 +190,7 @@ Section Token.
     [∗ map] ℓ ↦ '(μ, a); ws ∈ θ; hm,
       ∃ ns ns32,
         ⌜Forall2 N_i32_repr ns ns32⌝ ∗
-        rt_memaddr μ ↦[wms][a] flat_map bits (map VAL_int32 ns32) ∗
+        rt_memaddr μ ↦[wms][a] flat_map serialise_i32 ns32 ∗
         words_interp θ μ ws ns.
 
   Definition rt_token (θ : address_map) : iProp Σ :=
