@@ -368,6 +368,15 @@ Section case_ptr.
   Proof.
   Admitted.
 
+  Inductive ptr_shaped : pointer -> N -> Prop :=
+  | IntShaped :
+    ∀ n : N, ptr_shaped (PtrInt n) (2 * n)%N
+  | PtrShaped :
+    ∀ ℓ μ a,
+    (a `mod` 4 = 0)%N ->
+    a <> 0%N ->
+    ptr_shaped (PtrHeap μ ℓ) (tag_address μ a).
+
   Lemma cwp_case_ptr {A B} (c1 : codegen B) (c2: base_memory -> codegen A) idx
     wt wt' wl wl' ts1 ts2 es x y z :
     run_codegen (memory.case_ptr idx (Tf ts1 ts2) c1 c2) wt wl = inr (x, (y, z), wt', wl', es) ->
@@ -377,17 +386,17 @@ Section case_ptr.
       run_codegen (c2 MemGC) (wt ++ wt1 ++ wt2) (wl ++ wl1 ++ wl2) = inr (z, wt3, wl3, es3) /\
       wt' = wt1 ++ wt2 ++ wt3 /\
       wl' = wl1 ++ wl2 ++ wl3 /\
-      forall evs vs,
+      forall evs vs ptr n n32,
         has_values evs vs ->
         length ts1 = length vs ->
-        ⊢ ∀ (s: stuckness) E L R (ptr: pointer) Φ (v: value) (f: frame),
+        ptr_shaped ptr n ->
+        N_i32_repr n n32 ->
+        ⊢ ∀ (s: stuckness) E L R Φ (f: frame),
           ↪[frame] f -∗
           ↪[RUN] -∗
-          ⌜f.(f_locs) !! localimm idx = Some v⌝ -∗
-          atom_interp (PtrA ptr) v -∗
+          ⌜f.(f_locs) !! localimm idx = Some (VAL_int32 n32)⌝ -∗
           ▷ (↪[frame]f -∗
               ↪[RUN] -∗
-              atom_interp (PtrA ptr) v -∗
               match ptr with
               | PtrInt z => CWP evs ++ es1 @ s; E UNDER []; R {{ Φ }}
               | PtrHeap MemMM l => CWP evs ++ es2 @ s; E UNDER []; R {{ Φ }}
@@ -412,7 +421,7 @@ Section case_ptr.
     exists wt0, wt1, wt2, wl0, wl1, wl2.
     exists es_int, es_mm, es_gc.
     do 5 (split; first done).
-    intros evs vs Hval Hlen.
+    intros * Hval Hlen Hshape Hn32.
     assert (is_consts evs).
     {
       apply Is_true_true.
@@ -423,47 +432,36 @@ Section case_ptr.
     assert (length evs = length ts1)
       by (erewrite has_values_length; eauto).
     clear Hcg_int Hcg_mm Hcg_gc Hretval Hretval0.
-    iIntros (s E L R ptr Φ v f) "Hframe Hrun %Hlookup_f Hrep Hptr".
-    destruct ptr.
-    - iEval (cbn) in "Hrep".
-      iDestruct "Hrep" as "(%vn & %vn32 & %Hvn & -> & %rp & %Hrep & Hroot)".
-      destruct rp as [r|? ?].
-      + rewrite app_assoc.
-        iApply (cwp_seq with "[Hframe Hrun]").
+    iIntros (s E L R Φ f) "Hframe Hrun %Hlookup_f Hptr".
+    inversion Hshape; subst; rewrite app_assoc.
+    - iApply (cwp_seq with "[Hframe Hrun]").
+      {
+        iApply cwp_val_app; eauto.
+        iApply cwp_label_take.
+        instantiate (2 := 0%nat).
+        iApply cwp_return_none.
+        iApply (cwp_wand with "[Hframe Hrun]").
         {
-          iApply cwp_val_app; eauto.
-          iApply cwp_label_take.
-          instantiate (2 := 0%nat).
-          iApply cwp_return_none.
-          iApply (cwp_wand with "[Hframe Hrun]").
-          {
-            iApply (cwp_mod2_test_1 with "[$] [$]"); eauto.
-            inversion Hrep.
-            rewrite N.mul_comm.
-            apply N.Div0.mod_mul.
-          }
-          cbn.
-          instantiate (1:= λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
-          iIntros (vs' f') "[-> ->]".
-          unfold fvs_combine; simpl; auto.
+          iApply (cwp_mod2_test_1 with "[$] [$]"); eauto.
+          rewrite N.mul_comm.
+          apply N.Div0.mod_mul.
         }
-        iIntros (vs' f') "[-> ->] Hf Hrun".
-        unfold to_consts; rewrite map_app -app_assoc.
-        erewrite <- has_values_to_consts_inv by eauto.
-        iApply (Hwp_if_isptr with "[$] [$]"); auto.
-        iLeft.
-        iSplit; [iPureIntro; done|].
-        iIntros "!> Hf Hrun".
-        iApply (cwp_label_wand with "[-]");
-          [| iApply label_ctx_wand_nil].
-        iApply ("Hptr" with "[$] [$]").
-        iExists vn, vn32; auto.
-      + by destruct μ.
-    - iDestruct "Hrep" as "(%vn & %vn32 & %Hvn & -> & %rp & %Hrep & Hroot)".
-      iPoseProof (root_pointer_heap_shp_inv with "Hroot") as "(%a & ->)".
-      inversion Hrep as [|? ? Hmod]; subst.
-      rewrite app_assoc.
-      iApply (cwp_seq with "[Hframe Hrun]").
+        cbn.
+        instantiate (1:= λ f' vs', ⌜f' = f /\ vs' = vs ++ [VAL_int32 (Wasm_int.Int32.repr 1)]⌝%I).
+        iIntros (vs' f') "[-> ->]".
+        unfold fvs_combine; simpl; auto.
+      }
+      iIntros (vs' f') "[-> ->] Hf Hrun".
+      unfold to_consts; rewrite map_app -app_assoc.
+      erewrite <- has_values_to_consts_inv by eauto.
+      iApply (Hwp_if_isptr with "[$] [$]"); auto.
+      iLeft.
+      iSplit; [iPureIntro; done|].
+      iIntros "!> Hf Hrun".
+      iApply (cwp_label_wand with "[-]");
+        [| iApply label_ctx_wand_nil].
+      iApply ("Hptr" with "[$] [$]").
+    - iApply (cwp_seq with "[Hframe Hrun]").
       {
         iApply cwp_val_app; [eauto|].
         iApply (cwp_wand with "[Hframe Hrun]").
@@ -512,10 +510,9 @@ Section case_ptr.
         iLeft.
         iSplit; eauto.
         iIntros  "!> Hf Hrun".
-        iApply (cwp_label_wand with "[Hptr Hroot Hf Hrun]");
+        iApply (cwp_label_wand with "[Hptr Hf Hrun]");
           [| iApply label_ctx_wand_nil].
         iApply ("Hptr" with "[$] [$]").
-        iExists _, _; eauto.
       + iApply (cwp_seq with "[Hframe Hrun]").
         {
           iApply cwp_val_app; eauto.
@@ -541,9 +538,8 @@ Section case_ptr.
         iRight.
         iSplit; eauto.
         iIntros  "!> Hf Hrun".
-        iApply (cwp_label_wand with "[Hptr Hroot Hf Hrun]");
+        iApply (cwp_label_wand with "[Hptr Hf Hrun]");
           [| iApply label_ctx_wand_nil].
         iApply ("Hptr" with "[$] [$]").
-        iExists _, _; eauto.
   Qed.
 End case_ptr.
