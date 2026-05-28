@@ -1385,6 +1385,98 @@ Section properties.
      - simpl. reflexivity.
   Qed.
 
+  (* this is going to need some sκ κ things *)
+  Lemma skind_rec_interp_unfold_TEST_NO_SV sκ κ τ (se: semantic_env (Σ:=Σ)) :
+    eval_kind se κ = Some sκ ->
+    skind_rec_interp sκ (type_interp rti sr τ) se ≡
+      (value_interp rti sr se (RecT κ τ))%I.
+  Proof.
+    intros Heval.
+    (* simpl. *)
+    iIntros (sv).
+    rewrite value_interp_eq.
+    iSplitR; iIntros "H".
+    - iExists sκ.
+      assert (hhh: type_skind se (RecT κ τ) = Some sκ). {
+        cbn.
+        done.
+      }
+
+      iAssert ((⌜skind_has_svalue sκ sv⌝)%I) as "#hope". {
+        (* scary *)
+        (* PLEASE HELP IF THIS ISN'T TRUE A LOT OF THINGS HAVE TO CHANGE *)
+        (* the reason it's so scary is bc I assume that things that you put into the sem env *)
+        (* are equivalent to value_interp *)
+        (* and the thing you put into the environment for rec stuff is skind_rec_interp *)
+        (* so if it's not equal to value_interp....... *)
+        simpl.
+        set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ, λne sv0 : leibnizO semantic_value,
+                   (▷ type_interp rti sr τ (se.1, (sκ, T0) :: se.2) sv0)%I).
+        rewrite (fixpoint_unfold f sv).
+        unfold f.
+        Opaque skind_has_svalue.
+        cbn.
+        rewrite type_interp_eq.
+        unfold add_skind_interp.
+        Opaque pre_type_interp.
+        Opaque type_skind.
+        cbn.
+        fold f.
+        (* okay so if we have has_kind? or some well formedness on τ *)
+        (* which we DONT HAVE RN so this isn't provable *)
+        (* then τ's kind is also κ and so I think the type_skind will also just be sκ? *)
+        (* and if that's true (which honestly maybe not but I think it will end up okay) *)
+        (* then we're done *)
+
+        (* well, after dealing with the later. Hm. *)
+
+
+
+
+
+        Transparent skind_has_svalue.
+        Transparent pre_type_interp.
+        Transparent type_skind.
+        admit.
+      }
+      iSplitR; [done| iSplitR; [done|]].
+      cbn.
+      rewrite Heval.
+      done.
+    - cbn.
+      iDestruct "H" as "(%sκ' & %toinvert & #hsvalue & H)".
+      rewrite Heval in toinvert; inversion toinvert; subst sκ'.
+      rewrite Heval.
+      done.
+  Admitted.
+
+  (* As a test, this is true when you're given a specific sv with skind_has_svalue *)
+  (* the reason this isn't enough for me is bc you just put semantic types into sem envs,
+     not just iProps *)
+  Lemma skind_rec_interp_unfold_TEST sκ κ τ (se: semantic_env (Σ:=Σ)) sv :
+    eval_kind se κ = Some sκ -> skind_has_svalue sκ sv ->
+    skind_rec_interp sκ (type_interp rti sr τ) se sv ≡
+      (value_interp rti sr se (RecT κ τ) sv)%I.
+  Proof.
+    intros Heval Hsv.
+    simpl.
+    set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ, λne sv0 : leibnizO semantic_value,
+                   (▷ type_interp rti sr τ (se.1, (sκ, T0) :: se.2) sv0)%I).
+    rewrite value_interp_eq.
+    iSplitR; iIntros "H".
+    - iExists sκ.
+      (* ideally,  *)
+      iSplitR; [done| iSplitR; [done|]].
+      cbn.
+      rewrite Heval. unfold f.
+      done.
+    - cbn.
+      iDestruct "H" as "(%sκ' & %toinvert & #hsvalue & H)".
+      rewrite Heval in toinvert; inversion toinvert; subst sκ'.
+      rewrite Heval.
+      done.
+  Qed.
+
   Lemma rec_interp_unfold κ T (se: semantic_env (Σ:=Σ)) sv :
     rec_interp κ T se sv ≡
     match eval_kind_se se κ with
@@ -1402,6 +1494,57 @@ Section properties.
       + simpl. reflexivity.
     - reflexivity.
   Qed.
+
+  Lemma rec_interp_unfold_TEST κ τ (se: semantic_env (Σ:=Σ)) sv :
+    rec_interp κ (type_interp rti sr τ) se sv ≡
+    match eval_kind_se se κ with
+    | Some sκ => ▷ (type_interp rti sr τ) (senv_insert_type sκ (value_interp rti sr se (RecT κ τ)) se) sv
+    | None => False
+    end%I.
+  Proof.
+    unfold rec_interp. simpl.
+    destruct (eval_kind se κ) as [sκ|] eqn:Hskeval; simpl.
+    - set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ,
+      λne sv0 : leibnizO semantic_value,
+      (▷ (type_interp rti sr τ) (se.1, (sκ, T0) :: se.2) sv0)%I).
+      etransitivity.
+      + exact (fixpoint_unfold f sv).
+      + simpl.
+        set Hope :=
+           (@skind_rec_interp1_contractive Σ sκ
+              (@type_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr τ) se).
+
+        assert (H: fixpoint f ≡ value_interp rti sr se (RecT κ τ)). {
+          (* unfold f. *)
+          iIntros (sv').
+          rewrite !value_interp_eq.
+          cbn.
+          iSplitR; iIntros "H"; try done.
+          - iExists sκ.
+            iSplitR; [done|].
+            (* iPoseProof (fixpoint_unfold f sv') as "#fu". *)
+            (* iDestruct "fu" as "[fu _]". *)
+            (* iPoseProof ("fu" with "[$H]") as "H". *)
+            (* iClear "fu". *)
+            (* unfold f. *)
+            (* cbn. *)
+            iSplitR.
+            + admit. (* this is the bad one *)
+            + rewrite Hskeval.
+              unfold f.
+              iExact "H".
+          - iDestruct "H" as "(%sκ' & %toinvert & #hsk & H)".
+            rewrite Hskeval in toinvert.
+            inversion toinvert; subst sκ'; clear toinvert.
+            rewrite !Hskeval.
+            iExact "H".
+        }
+        (* oh my god just *look* *)
+        (* H just says it's chill *)
+        (* but I can't rewrite H *)
+        admit.
+    - reflexivity.
+  Admitted.
 
   Lemma value_interp_type_plug se vs ηs :
     ⌜has_prims ηs vs⌝ -∗
@@ -1475,33 +1618,23 @@ Section properties.
       iDestruct "H" as "(%sκ' & %Hκ' & %Hsv & Hrec)".
       unfold type_skind in Hκ'. simpl in Hκ'.
       rewrite Hκ in Hκ'. simplify_eq.
-      iSplit; first done.
+      iSplit; first done. rename sκ' into sκ.
 
-
-      iAssert ((skind_rec_interp sκ' (type_interp rti sr τ) se ≡ value_interp rti sr se (RecT κ τ)
-                  )%I) as "#TheEquiv". {
-        admit. (* most of this is in inst in fold_type_interp_subst_COPY *)
-        (* note that I'm pretty sure it's true. There's a weird part with type_skind in
-           a new environment. But I *think* it's okay. Hopefully. Idk maybe not.
-           but if this is true (and if we can get the rewrites below to work) then this whole
-           thing is proven
-         *)
-      }
-
-
+      pose proof (skind_rec_interp_unfold_TEST_NO_SV sκ κ τ se Hκ) .
       iEval (cbn [pre_type_interp]) in "Hrec".
       iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)) in "Hrec".
       replace (eval_kind_se se κ) with (eval_kind se κ); last done.
       iEval (rewrite Hκ) in "Hrec".
+      iModIntro.
 
       Fail iRewrite "TheEquiv". (* I'm pissed *)
-      iAssert ((▷ type_interp rti sr τ
-               (senv_insert_type sκ' (value_interp rti sr se (RecT κ τ)) se) sv)%I)
+      iAssert ((type_interp rti sr τ
+               (senv_insert_type sκ (value_interp rti sr se (RecT κ τ)) se) sv)%I)
         with "[Hrec]" as "Hrec". {
         (* okay whatever, use TheEquiv *)
         admit.
       }
-      iEval (rewrite <- (fold_type_interp_subst_TEST se F τ κ sκ' sv Hse Hkind Hκ)).
+      iEval (rewrite <- (fold_type_interp_subst_TEST se F τ κ sκ sv Hse Hkind Hκ)).
       iExact "Hrec".
     - iIntros "[%Hsv Hτrec]".
       iEval (rewrite type_interp_eq).
