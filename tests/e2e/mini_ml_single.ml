@@ -28,6 +28,9 @@ let simple_tests =
     ("tuple proj", "(proj 1 (tup 1 2))", i31 2);
     ("ref deref", "(! (new 3))", i31 3);
     ("app", "(app (fun () (_ : (*)) : int 1) () (tup))", i31 1);
+    ("add1tuple", "(app (fun () (y : ( * int int)) : ( * int int)
+                       (tup (op + 1 (proj 0 y)) (op + 1 (proj 1 y))) ) ()
+                   (tup 5 6))" , "3");
     ( "ref assign",
       {|
       (let (r : (ref int)) (new 3)
@@ -37,8 +40,8 @@ let simple_tests =
       i31 8 );
     ("app inline identity", "(app (fun () (x : int) : int x) () 5)", i31 5);
     ( "app inline lambda",
-      "(app (fun () (x : int) : int (op + x 1)) () 5)",
-      i31 (5 + 1) );
+      "(app (fun () (x : int) : int (op + (op + 1 x) 1)) () 5)",
+      i31 (5 + 2) );
     ( "app top-level function",
       {|
         (export (add1 : (() int -> int))
