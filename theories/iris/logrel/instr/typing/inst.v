@@ -231,6 +231,13 @@ Section inst.
     intros; rewrite <- eval_size_type_irrel_eq; done.
   Qed.
 
+  Lemma eval_mem_type_irrel_eq se m sκ T :
+    eval_mem se m =
+    eval_mem (senv_insert_type (Σ:=Σ) sκ T se) m.
+  Proof.
+    destruct m; auto.
+  Qed.
+
   Lemma eval_kind_mem_irrel_eq se κ μ :
     eval_kind se κ =
     eval_kind (senv_insert_mem (Σ:=Σ) μ se) κ .
@@ -348,6 +355,15 @@ Section inst.
     by rewrite <- eval_rep_mem_irrel_eq.
   Qed.
 
+  Lemma eval_rep_up_type_eq se sub_r i sκ T :
+    eval_rep se (sub_r i) =
+    eval_rep (senv_insert_type (Σ:=Σ) sκ T se) (up_type_representation sub_r i).
+  Proof.
+    asimpl'.
+    unfold core.funcomp.
+    by rewrite <- eval_rep_type_irrel_eq.
+  Qed.
+
   Lemma eval_rep_up_memory se sub_r ιs i μ :
     eval_rep se (sub_r i) = Some ιs ->
     eval_rep (senv_insert_mem (Σ:=Σ) μ se) (up_memory_representation sub_r i) = Some ιs.
@@ -371,6 +387,24 @@ Section inst.
   Proof.
     asimpl'.
     by apply eval_size_mem_irrel.
+  Qed.
+
+  Lemma eval_size_up_type_eq se sub_s i sκ T :
+    eval_size se (sub_s i) =
+    eval_size (senv_insert_type (Σ:=Σ) sκ T se) (up_type_size sub_s i).
+  Proof.
+    asimpl'.
+    unfold core.funcomp.
+    by rewrite <- eval_size_type_irrel_eq.
+  Qed.
+
+  Lemma eval_mem_up_type_eq se sub_m i sκ T :
+    eval_mem se (sub_m i) =
+    eval_mem (senv_insert_type (Σ:=Σ) sκ T se) (up_type_memory sub_m i).
+  Proof.
+    asimpl'.
+    unfold core.funcomp.
+    by rewrite <- eval_mem_type_irrel_eq.
   Qed.
 
   Lemma eval_mem_up_shift_mem_eq se μ mm :
@@ -1306,7 +1340,7 @@ Section inst.
         rewrite <- HEval.
         by eapply type_skind_subst_senv_eq.
       }
-    * (* sum, half done *)
+    * (* sum, half done, fine *)
       intros.
       rewrite !type_interp_eq.
 
@@ -1393,7 +1427,7 @@ Section inst.
         cbn.
         admit.
       }
-    * (* variant, quarter *)
+    * (* variant, quarter, fine *)
       intros.
       rewrite !type_interp_eq.
       cbn.
@@ -1530,12 +1564,43 @@ Section inst.
       all: iExists i, i32, j, cl; iFrame "#"; iFrame.
       all: specialize (IHτ se se').
       all: iApply IHτ; done.
-    * (* sert *)
-      admit.
-    * (* plug *)
-      admit.
-    * (* span *)
-      admit.
+    * (* sert, qed *)
+      intros.
+      rewrite !type_interp_eq.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+      iSplitR.
+      all: iIntros "Hoa".
+      all: iDestruct "Hoa" as "(%sκ & #Hsκ & #Hsv & Htypeinterp)".
+      all: iExists sκ; iFrame "#".
+      all: iDestruct "Htypeinterp" as "(%os & #hos & Htypeinterp)".
+      all: iExists os; iFrame "#".
+      all: specialize (IHτ sub_t sub_r sub_s sub_m se Hse se' Hse').
+      all: iApply IHτ; done.
+    * (* plug, qed *)
+      intros.
+      rewrite !type_interp_eq.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+      pose proof (eval_rep_subst_senv_eq se se' sub_r rep
+                    Hsub_r) as Hevalrep.
+      rewrite !Hevalrep.
+      iSplitR; done.
+    * (* span, qed *)
+      intros.
+      rewrite !type_interp_eq.
+      cbn.
+      pose proof (eval_kind_subst_senv_eq se se' sub_r sub_s κ
+                    Hsub_r Hsub_s) as Hevalκ.
+      rewrite !Hevalκ.
+      pose proof (eval_size_subst_senv_eq se se' sub_r sub_s s
+                    Hsub_r Hsub_s) as Hevalsize.
+      rewrite !Hevalsize.
+      iSplitR; done.
     * (* rec *)
       intros.
       rewrite !type_interp_eq.
@@ -1558,6 +1623,12 @@ Section inst.
 
       all: iModIntro.
 
+      (* maybe. Maybe. I should rewrite the skind_rec_interp to be the value
+         interp form? The thing that might work for the common too?
+         that way thet hing that's in the environment isn't the skind_rec_interp
+
+       *)
+
       1: {
         specialize (IHτ (up_type_type sub_t) (up_type_representation sub_r)).
         specialize (IHτ (up_type_size sub_s) (up_type_memory sub_m)).
@@ -1565,6 +1636,8 @@ Section inst.
         - cbn.
           apply Forall_cons.
           split; [|done].
+          (* skind_has_stype sκ (skind_rec_interp ...) *)
+          (* actually a bit scary *)
           unfold skind_has_stype.
           split.
           + unfold ref_flag_stype_interp.
@@ -1578,17 +1651,56 @@ Section inst.
             iIntros "H".
             rewrite skind_rec_interp_unfold.
             admit.
-        - admit.
+        - (* basically the same thing as above but with smaller type interp *)
+          (* maybe do this first *)
+          (* if the thing in the environment is just value_interp might be easier *)
+          apply Forall_cons.
+          split; [|done].
+          admit.
         - cbn.
-          (* the reps don't rely on type stuff so that's some sort of
-             eval_rep type irrel lemma *)
-          admit.
-        - admit.
-        - admit.
+          intros.
+          change (se'.1.1.2 !! i) with (lookup_rep se' i).
+          rewrite (Hsub_r i).
+          apply eval_rep_up_type_eq.
+        - cbn.
+          intros.
+          change (se'.1.2 !! i) with (lookup_size se' i).
+          rewrite (Hsub_s i).
+          apply eval_size_up_type_eq.
+        - cbn.
+          intros.
+          change (se'.1.1.1 !! i) with (lookup_mem se' i).
+          rewrite (Hsub_m i).
+          apply eval_mem_up_type_eq.
+        - Opaque skind_rec_interp.
+          Opaque type_skind.
+          cbn.
+          intros.
+          destruct i.
+          + cbn.
+            done.
+          + cbn.
+            change (se'.2 !! i) with (lookup_type se' i).
+            rewrite (Hsub_sκ i).
+            unfold core.funcomp.
+            apply type_skind_up_type_eq.
+
+          Transparent type_skind.
+          Opaque skind_rec_interp.
         - (* gotta actually look *)
-          admit.
-        - (* gotta actually look *)
-          admit.
+          cbn.
+          intros.
+          destruct i.
+          + cbn.
+            rewrite !value_interp_eq_no_sv.
+            cbn.
+            (* this might be bad? *)
+            admit.
+          + cbn.
+            change (se'.2 !! i) with (lookup_type se' i).
+            rewrite (Hsub_T i).
+            (* this is a value_interp_up_type_eq lmao, don't have one *)
+            admit.
 
 
       }
@@ -1670,7 +1782,7 @@ Section inst.
       rename H7 into Hsub_T.
       (* unfold mono_closure_interp. *)
       (* I hate mono closure interp so much *)
-      (* I think this is as far as I get *)
+      (* I think this is as far as I get without splitting *)
       iSplitR.
       {
         iIntros "Hoa".
@@ -1925,7 +2037,7 @@ Section inst.
       admit.
     * (* forallsize *)
       admit.
-    * (* foralltype *)
+    * (* foralltype, should finish a bit more *)
       intros.
       rename H into Hse'. rename H0 into Hse.
       rename H1 into Hsub_r. rename H2 into Hsub_s.
