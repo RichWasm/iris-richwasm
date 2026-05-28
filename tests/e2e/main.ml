@@ -463,7 +463,7 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                 |}
               in
               let result, logs =
-                Triple.run3 ~asprintf ~links:("add1", "add1_wrapped") module1
+                Triple.run3 ~asprintf ~links:("add1tuple", "add1tuple_wrapped") module1
                   module2 module3
                 |> Triple.M.run
               in
