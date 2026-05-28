@@ -10,6 +10,10 @@ let simple_tests =
     ("nested arith", "((9 + 10) * 5)", "95");
     ("let bind", "(let (x : int) = 21 in x)", "21");
     ("app_id", "((lam (x : int) : int . x) 67)", "67");
+    ("add1tuple", "((lam (x : (int ⊗ int)) : (int ⊗ int) .
+                       (split (a : int) (b : int) = x in
+                       ((a + 1), (b + 1))))
+                   (5, 6))", "[ 6, 7 ]");
     ( "sum-1",
       {|
       (cases (inj 0 22 : (sum int))
