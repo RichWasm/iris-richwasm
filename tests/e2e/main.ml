@@ -345,5 +345,130 @@ let run ({ rw_runtime; host_single; host_triple } : run_env) =
                 |> Triple.M.run
               in
               check_result "7" Triple.E2Err.pp logs result);
+          (*----------------------------------------------------------*)
+          test_case "add1tuple (ll -> ml)" `Quick (fun () ->
+              let module Err = struct
+                type t =
+                  | Module1 of LL.CompilerError.t
+                  | Module2 of RW.CompilerError.t
+                  | Module3 of MM.CompilerError.t
+                  | BadInfo of String.t Option.t
+                [@@deriving sexp_of, variants]
+
+                let pp ff = function
+                  | Module1 err ->
+                      fprintf ff "Module1: %a" LL.CompilerError.pp err
+                  | Module2 err ->
+                      fprintf ff "Module2: %a" RW.CompilerError.pp err
+                  | Module3 err ->
+                      fprintf ff "Module3: %a" MM.CompilerError.pp err
+                  | BadInfo err ->
+                      fprintf ff "BadInfo: %a"
+                        (pp_print_option pp_print_string)
+                        err
+              end in
+              let module SL : SurfaceLang = struct
+                module CompilerError = Err
+
+                let compile_to_richwasm
+                    ?info
+                    ~(asprintf : EndToEnd.asprintf)
+                    src =
+                  let module M = LogResultM (CompilerError) (String) in
+                  let open M in
+                  match info with
+                  | Some "m1" ->
+                      LL.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module1
+                  | Some "m2" ->
+                      RW.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module2
+                  | Some "m3" ->
+                      MM.compile_to_richwasm ~asprintf src
+                      |> map_error_into CompilerError.module3
+                  | _ -> fail (CompilerError.badinfo info)
+              end in
+              let module Triple = Run_rw.EndToEnd.Make3 (SL) (TripleRW) in
+              let module1 =
+                (* lin-lang *)
+                {|
+                 (export fun add1tuple (x : (int ⊗ int)) : (int ⊗ int) .
+                       (split (a : int) (b : int) = x in
+                       ((a + 1), (b + 1))))
+                |}
+              in
+              let module2 =
+                (* rwasm *)
+                {|
+                  ;; Glue module: adapts mini-ml's closure-style `add1` import
+                  ;; to lin-lang's `add1` (m1). mini-ml calls with a GC closure
+                  ;; struct (env, i31); lin-lang expects an unboxed (env, i32)
+                  ;; product with an MM-allocated environment.
+                  ((imports                          ;; note: this is mini ll add1tuple type
+                    ((FunctionType ()
+                      ((Prod ((Ref (Base MM) Mut (Ser (Prod ()))) (Prod ((Num (Int I32)) (Num (Int I32)) ) ))))
+                      ( (Prod ( (Num (Int I32)) (Num (Int I32)) ) )  ))))
+                   (functions
+                    (((typ
+                       (FunctionType ()             ;; note: this is mini ml add1tuplewrapped type, I THINK (can't get ml's add1tuple to compile yet)
+                        ((Ref (Base GC) Imm
+                          (Struct
+                             ((Ser (Ref (Base GC) Imm (Struct ())))
+                              (Ser (Ref (Base GC) Imm (Struct ((Ser I31) (Ser I31)))))
+                          ))))
+                        ((Ref (Base GC) Imm (Struct ((Ser I31) (Ser I31)) ) ))))
+                      (locals ((Atom Ptr) (Atom Ptr) (Atom Ptr) (Atom I32)))
+                      (body
+                       ((LocalGet 0 Move)
+                        ;; pull the ref [i31, i31] argument out of the closure struct
+                        (Load (Path (1)) Follow)
+                        (LocalSet 1)
+                        Drop  ;; drop the empty everything else
+                        ;; build lin-lang's (env, i32) argument
+                        (Group 0)
+                        (New MM Mut) ;; this is now env
+
+                        (LocalGet 1 Move) ;; now env, ref gc [ser i31, ser i31] is on the stack, need to cast
+                        (Load (Path (1)) Follow) ;; env, ref gc [ser i31(5) ser i31(6)], i31(6)
+                        (LocalSet 2);; env, ref gc [ser i31(5), i31(6)]
+                        (Load (Path (0)) Follow) ;; env, ref gc [..], i31(5)
+                        (LocalSet 3) ;; env, ref gc
+                        Drop ;; env
+                        (LocalGet 3 Move) ;; env, i31(5)
+                        Untag ;; env, i32(5)
+                        (LocalGet 2 Move) ;; env, i32(5), i31(6)
+                        Untag ;; env, i32(5), i32(6)
+                        (Group 2) ;; env, [i32(5), i32(6)]
+                        (Group 2) ;; [env, [i32(5), i32(6)]]
+                        (Call 0 ()) ;; now [i32(6), i32(7)] hopefully. need ref gc of i31s
+                        Ungroup ;; i32(6), i32(7)
+                        (LocalSet 4) ;; i32(6)
+                        Tag ;;i31(6)
+                        (LocalGet 4 Move) ;; i31(6), i32(7)
+                        Tag ;; i31(6) i31(7)
+                        (Group 2) ;; [i31,i31]
+                        (New GC Imm) ;; ref gc ..
+                        (Cast (Ref (Base GC) Imm (Struct ((Ser I31) (Ser I31))))) ;; cast into proper form
+                    )))))
+                   (table ())
+                   (exports (((name add1tuple_wrapped) (desc (Func 1))))))
+                |}
+              in
+              let module3 =
+                (* mini-ml *)
+                {|
+                  (import (add1tuple : (() ( * int int ) -> ( * int int))))
+
+                  (app add1tuple () (tup 5 6))
+                |}
+              in
+              let result, logs =
+                Triple.run3 ~asprintf ~links:("add1", "add1_wrapped") module1
+                  module2 module3
+                |> Triple.M.run
+              in
+              (* add1 1 = 2; the result is an i31, whose raw wasm value is the
+                 tagged form 2 * 2 = 4 *)
+              check_result "12" Triple.E2Err.pp logs result);
         ] );
     ]
