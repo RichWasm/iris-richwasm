@@ -203,4 +203,85 @@ Section util.
     by rewrite IHηs.
   Qed.
 
+  Lemma eval_rep_senv_empty_irrel (ρ : representation) :
+    eval_rep (senv_empty (Σ:=Σ)) ρ = eval_rep EmptyEnv ρ.
+  Proof.
+    induction ρ using rep_ind; cbn.
+    - reflexivity.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros ρ' IH. apply IH.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros ρ' IH. apply IH.
+    - reflexivity.
+  Qed.
+
+  Lemma eval_size_senv_empty_irrel (σ : Core.size) :
+    eval_size (senv_empty (Σ:=Σ)) σ = eval_size EmptyEnv σ.
+  Proof.
+    induction σ using size_ind; cbn.
+    - reflexivity.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros σ' IH. apply IH.
+    - f_equal. apply Forall_mapM_ext.
+      eapply Forall_impl; [exact H |].
+      intros σ' IH. apply IH.
+    - by rewrite eval_rep_senv_empty_irrel.
+    - reflexivity.
+  Qed.
+
+  Lemma eval_size_emptyenv :
+    forall σ n,
+      eval_size EmptyEnv σ = Some n ->
+      ∀ (se: semantic_env (Σ:=Σ)),
+        eval_size se σ = Some n.
+  Proof.
+    induction σ using size_ind; intros * Hev *; cbn in Hev; cbn.
+    - inversion Hev.
+    - apply bind_Some in Hev as [ns [Hmapм Hn]].
+      apply Some_inj in Hn; subst n.
+      apply bind_Some. exists ns. split; last done.
+      rewrite -Hmapм.
+      apply mk_is_Some in Hmapм.
+      apply mapM_is_Some_1 in Hmapм.
+      apply Forall_mapM_ext.
+      eapply Forall_impl.
+      { eapply (List.Forall_and H Hmapм). }
+      cbn.
+      intros ρ [Hev' [ιs' Hempty]].
+      erewrite Hev'; eauto.
+    - rewrite -Hev. f_equal.
+      apply fmap_Some in Hev as [ns [Hmapм _]].
+      apply mk_is_Some in Hmapм.
+      apply mapM_is_Some_1 in Hmapм.
+      apply Forall_mapM_ext.
+      eapply Forall_impl.
+      { eapply (List.Forall_and H Hmapм). }
+      cbn.
+      intros σ' [Hev' [n' Hempty]].
+      erewrite Hev'; eauto.
+    - apply fmap_Some in Hev as [ιs [Hrep ->]].
+      rewrite (eval_rep_emptyenv _ _ Hrep). done.
+    - done.
+  Qed.
+
+  Lemma eval_kind_senv_empty_le κ sκ :
+    eval_kind (senv_empty (Σ:=Σ)) κ = Some sκ ->
+    ∀ (se: semantic_env (Σ:=Σ)), eval_kind se κ = Some sκ.
+  Proof.
+    intros Heval se.
+    unfold eval_kind in *.
+    destruct κ.
+    - apply bind_Some in Heval as [ιs [Hrep H]].
+      apply Some_inj in H; subst.
+      rewrite eval_rep_senv_empty_irrel in Hrep.
+      by rewrite (eval_rep_emptyenv _ _ Hrep).
+    - apply bind_Some in Heval as [n [Hsize H]].
+      apply Some_inj in H; subst.
+      rewrite eval_size_senv_empty_irrel in Hsize.
+      by rewrite (eval_size_emptyenv _ _ Hsize).
+  Qed.
+
 End util.

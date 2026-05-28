@@ -1,4 +1,5 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
+Require Import RichWasm.iris.logrel.instr.typing.inst.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -38,8 +39,18 @@ Section unfold.
     rewrite !value_interp_eq.
     rewrite -!type_interp_eq.
     iPoseProof (type_interp_skind_svalue rti sr (RecT κ τ) se (SAtoms os) with "Hval") as (sκ) "[%Hκ %H]".
-    unfold type_skind in Hκ. simpl in Hκ.
-    iEval (rewrite (fold_type_interp rti sr mr se τ κ sκ (SAtoms os) Hκ)) in "Hval".
+    unfold type_skind in Hκ; simpl in Hκ.
+    have Hkind : has_kind F (RecT κ τ) κ.
+    {
+      destruct Hok as [[Hmono _] _].
+      rewrite Forall_cons_iff in Hmono.
+      destruct Hmono as [Hmono _].
+      destruct Hmono as [ρ [Hrep _]].
+      inversion Hrep as [? ? ? ? Hhas_kind]; subst.
+      inversion Hhas_kind; subst.
+      constructor. assumption.
+    }
+    iEval (rewrite (fold_type_interp rti sr mr se F τ κ sκ (SAtoms os) Hse Hkind Hκ)) in "Hval".
     iDestruct "Hval" as "[_ Hτrec]".
     iExact "Hτrec".
   Qed.

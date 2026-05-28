@@ -2184,6 +2184,27 @@ Section inst.
       apply Forall_cons; done.
   Qed.
 
+  Lemma sem_env_interp_insert_type F (se : semantic_env (Σ:=Σ)) κ sκ T :
+    sem_env_interp F se →
+    eval_kind se κ = Some sκ →
+    skind_has_stype sκ T →
+    sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se).
+  Proof.
+    intros [Hkind Htypes] Hκ HT.
+    split.
+    - destruct Hkind as (Hmem & Hrep & Hsize).
+      repeat split; cbn; done.
+    - cbn [fc_type_vars].
+      apply Forall2_cons.
+      split.
+      + split.
+        * by eapply eval_kind_type_irrel.
+        * exact HT.
+      + eapply Forall2_impl; [exact Htypes|].
+        intros κ' [sκ' T'] [Heval' HT'].
+        split; [by eapply eval_kind_type_irrel | exact HT'].
+  Qed.
+
   Lemma hsub_t_base_se_VarT se :
     sem_env_types_well_formed se ->
     sem_env_rel_type_eq se se VarT.
@@ -2267,7 +2288,25 @@ Section inst.
      because of the definition of rec_interp idk if you'd be able to.
    *)
 
-  Lemma fold_type_interp_subst_COPY (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
+
+  Lemma fold_type_interp_subst_COPY (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
+    sem_env_interp F se ->
+    has_kind F (RecT κ τ) κ →
+    eval_kind se κ = Some sκ →
+    type_interp rti sr τ (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se) sv ⊣⊢
+    type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
+  Proof.
+    intros.
+    iSplit; iIntros "H".
+    - iApply fold_type_interp_subst_COPY_STUPID; try done.
+      iApply type_interp_eq.
+      admit.
+    - iDestruct (fold_type_interp_subst_COPY_STUPID with "H") as "H"; try done.
+      iApply type_interp_eq.
+      admit.
+  Admitted.
+
+  Lemma fold_type_interp_subst_COPY' (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
     sem_env_types_well_formed se ->
     eval_kind se κ = Some sκ →
     type_interp rti sr τ (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se) sv ⊣⊢
@@ -2529,5 +2568,54 @@ Section inst.
     - by iApply closure_interp_scons_insert_size.
     - iDestruct "Hclosure" as "(% & % & ?)". by iApply closure_interp_scons_insert_type.
   Qed.
+
+  Lemma fold_type_interp (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
+    sem_env_interp F se →
+    has_kind F (RecT κ τ) κ →
+    eval_kind se κ = Some sκ →
+    type_interp rti sr (RecT κ τ) se sv ⊣⊢
+    ⌜skind_has_svalue sκ sv⌝ ∗
+    ▷ type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
+  Proof.
+    intros Hse Hkind Hκ.
+    iSplit.
+    - iIntros "H".
+      iEval (rewrite type_interp_eq) in "H".
+      iDestruct "H" as "(%sκ' & %Hκ' & %Hsv & Hrec)".
+      simpl in Hκ'. rewrite Hκ in Hκ'. simplify_eq.
+      iSplit; first (iPureIntro; done).
+      iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)) in "Hrec".
+      replace (eval_kind_se se κ) with (eval_kind se κ); last done.
+      iEval (rewrite Hκ) in "Hrec".
+      iNext.
+      iApply fold_type_interp_subst_COPY; try done.
+    - iIntros "[%Hsv Hτrec]".
+      iEval (rewrite type_interp_eq).
+      iExists sκ.
+      iSplit; [iPureIntro; simpl; by rewrite Hκ |].
+      iSplit; [iPureIntro; exact Hsv |].
+      iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)).
+      replace (eval_kind_se se κ) with (eval_kind se κ); last done.
+      iEval (rewrite Hκ).
+      iApply fold_type_interp_subst_COPY; try done.
+  Qed.
+
+  Lemma fold_type_skind_eq F se τ κ :
+    sem_env_interp F se →
+    has_kind (F <| fc_type_vars ::= cons κ |>) τ κ →
+    type_skind (Σ:=Σ) se (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) =
+    eval_kind se κ.
+  Proof.
+    intros Hse Hτκ.
+    erewrite <- type_skind_subst_senv_eq.
+    1: instantiate (1 := senv_insert_type _ _ se).
+    all: try done.
+    2: {
+      rewrite /sem_env_rel_sκ_eq.
+      intros [|i]; simpl; last done.
+      simpl.
+      admit.
+    }
+  Admitted.
 
 End inst.
