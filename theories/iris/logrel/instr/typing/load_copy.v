@@ -357,6 +357,8 @@ Section load_copy.
       inversion Hv'; subst v'; clear Hv'.
       iApply cwp_val_app.
       { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
+      admit.
+      (*
       specialize (Hspec [] [] ltac:(eauto) ltac:(done)).
       clear_nils.
       iApply (Hspec with "[$] [$] [] [$Hat]").
@@ -552,6 +554,7 @@ Section load_copy.
           iDestruct "Hpost" as "(%Hszvs & Hvs')".
           (* value interpretation goes here *)
           admit.
+      *)
     - (* ref mm imm *)
       admit.
     - (* ref gc mut *)

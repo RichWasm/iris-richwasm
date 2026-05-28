@@ -149,6 +149,24 @@ Section Token.
   Definition words_interp (θ : address_map) (μ : base_memory) (ws : list word) (ns : list N) : iProp Σ :=
     [∗ list] w; n ∈ ws; ns, word_interp θ μ w n.
 
+  Definition atom_interp_weak
+    (θ : address_map) (μ : base_memory) (o : atom) (v : value) : iProp Σ :=
+    match o with
+    | PtrA p =>
+        ∃ n n32,
+          ⌜N_i32_repr n n32⌝ ∗
+          ⌜v = VAL_int32 n32⌝ ∗
+          match μ, p with
+          | MemMM, PtrHeap MemGC ℓ =>
+              ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+          | _, _ => ⌜repr_pointer θ p n⌝
+          end
+    | I32A n => ⌜v = VAL_int32 n⌝
+    | I64A n => ⌜v = VAL_int64 n⌝
+    | F32A n => ⌜v = VAL_float32 n⌝
+    | F64A n => ⌜v = VAL_float64 n⌝
+    end.
+
   Definition locations (w : word) : list location :=
     match w with
     | WordInt _

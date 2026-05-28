@@ -57,7 +57,6 @@ Section load_move.
     eapply cwp_case_ptr in Hcompile.
     destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
     destruct Hcompile as (Hunr & Hloadmm & Hloadgc & -> & -> & Hspec).
-    specialize (Hspec [] [] ltac:(done) ltac:(done)).
     clear_nils.
   Admitted.
 
