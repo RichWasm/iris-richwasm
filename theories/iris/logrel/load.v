@@ -1598,6 +1598,7 @@ Section load.
       {
         iIntros (e' f' vs vsf).
         repeat iIntros "@".
+        (* DEMO: using iAccu to save proof state *)
         let Q := open_constr:(_ : iProp Σ) in
           instantiate (1 := (λ f0 vs0, ∃ e' vsf,
                               (* stuff to say about e' f0 and vs0 *)
