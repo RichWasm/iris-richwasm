@@ -300,6 +300,7 @@ Section load.
     ⌜root_ok e rm⌝ -∗
     ∃ ah ah32,
       ⌜N_i32_repr ah ah32⌝ ∗
+      ⌜repr_pointer e (PtrHeap MemGC ℓ) ah⌝ ∗
       N.of_nat (sr_mem_gc sr)↦[wms][a] bits (VAL_int32 ah32) ∗
       (N.of_nat (sr_mem_gc sr)↦[wms][a] bits (VAL_int32 ah32) -∗
        a ↦root ℓ ∗
@@ -338,6 +339,7 @@ Section load.
           root_memory sr e rm -∗
           ▷ (∀ ah ah32,
               ⌜N_i32_repr ah ah32⌝ -∗
+              ⌜repr_pointer e (PtrHeap MemGC ℓ) ah⌝ -∗
               a ↦root ℓ -∗
               ghost_map_auth rw_root (1 / 2) rm -∗
               root_memory sr e rm -∗
@@ -351,7 +353,7 @@ Section load.
     intros * Hn32 Hevs Han Hrok.
     iIntros (s E B R Φ f) "Hf Hrun %Hmem Hrt Hrm Hrmok HΦ".
     iPoseProof (extract_root_pointer with "Hrt [$] [$] [//]")
-      as "(%ah & %bs & %Hbs & Hroot & Hsave)".
+      as "(%ah & %bs & %Hbs & %Hrep & Hroot & Hsave)".
     inversion Han; subst.
     cbn in Hn32.
     apply Is_true_true in Hevs.
@@ -362,7 +364,7 @@ Section load.
     - replace ((a - 1) + 1)%N with a by lia.
       iIntros "!> Hpt".
       iPoseProof ("Hsave" with "Hpt") as "(Hroot & Hrm & Hrmok)".
-      iApply ("HΦ" with "[//] [$] [$] [$]"); eauto.
+      iApply ("HΦ" with "[//] [//] [$] [$] [$]"); eauto.
   Qed.
 
   Lemma wp_registerroot wt wl ret wt' wl' es_register :
@@ -429,6 +431,9 @@ Section load.
     }
   Qed.
 
+  (*
+   The duproot lemma doesn't hang on to the root resource.
+   *)
   Lemma wp_duproot wt wl ret wt' wl' es_dup :
     run_codegen (duproot mr) wt wl = inr (ret, wt', wl', es_dup) ->
     ret = () /\
@@ -439,7 +444,7 @@ Section load.
       has_values evs [VAL_int32 n32] ->
       repr_root_pointer (RootHeap MemGC a) n ->
       root_ok e rm ->
-      ⊢ ∀ s E B R Φ f,
+      ⊢ ∀ s E B R Φ f Q,
         ↪[frame] f -∗
         ↪[RUN] -∗
         ⌜inst_memory (f_inst f) !! memimm (mr_gcmem mr) = Some (sr_mem_gc sr)⌝ -∗
@@ -447,10 +452,7 @@ Section load.
         a ↦root ℓ -∗
         ghost_map_auth rw_root (1 / 2) rm -∗
         root_memory sr e rm -∗
-        (a ↦root ℓ -∗
-         ghost_map_auth rw_root (1 / 2) rm -∗
-         root_memory sr e rm -∗
-         rt_token rti sr e) -∗
+        (a ↦root ℓ -∗ ghost_map_auth rw_root (1 / 2) rm -∗ root_memory sr e rm -∗ rt_token rti sr e ∗ Q) -∗
         na_own logrel_nais E -∗
         instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         (∀ e' ar ar32,
@@ -458,6 +460,7 @@ Section load.
            ⌜N_i32_repr (tag_address MemGC ar) ar32⌝ -∗
            ar ↦root ℓ -∗
            rt_token rti sr e' -∗
+           Q -∗
            na_own logrel_nais E -∗
            instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            Φ f [VAL_int32 ar32]) -∗
@@ -473,23 +476,21 @@ Section load.
     repeat (split; first reflexivity).
     intros evs a n n32 rm e ℓ Hnrep Hevs Hreproot Hrootok.
     specialize (Hload evs a n n32 ℓ e rm Hnrep Hevs Hreproot Hrootok).
-    iIntros (s E B R Φ f) "Hf Hrun %Hmems %Hmask Htok Hrootm Hrootok Hclose Hinv Hreg HΦ".
+    iIntros (s E B R Φ f Q) "Hf Hrun %Hmems %Hmask Htok Hrootm Hrootok Hclose Hinv Hreg HΦ".
     rewrite app_assoc.
     iApply (cwp_seq with "[-Hinv Hreg HΦ]").
     {
       iApply (Hload with "[$] [$] [//] [$] [$] [$]").
-      iIntros "!>" (ah ah32 Harep32) "Hroot Htok".
+      iIntros "!>" (ah ah32 Harep32 Hrep) "Hroot Htok Hrootm".
       instantiate (1:= (fun f' v' =>
                          ⌜f' = f⌝ ∗
                          ∃ ah' ah32',
                              ⌜N_i32_repr ah' ah32'⌝ ∗
+                             ⌜repr_pointer e (PtrHeap MemGC ℓ) ah'⌝ ∗
                              ⌜v' = [VAL_int32 ah32']⌝ ∗
-                             ⌜rm !! a = Some ℓ⌝ ∗
-                             rt_token rti sr e
+                             rt_token rti sr e ∗ Q
                          )%I).
       cbn.
-      iIntros "Hrootm".
-      iCombine "Hroot" "Htok" gives "%Hrm".
       iSplit; auto.
       iExists _, _.
       iSplit; auto.
@@ -497,20 +498,13 @@ Section load.
       iSplit; auto.
       iApply ("Hclose" with "[$] [$] [$]").
     }
-    cbn; iIntros (f' vs) "(-> & %ah & %ah32 & %Hah & -> & %Hrma & Htok) Hf Hrun".
-    assert (repr_pointer e (PtrHeap MemGC a) n).
-    {
-      inversion Hreproot; subst.
-      constructor; eauto.
-      unfold root_ok in Hrootok.
-      Print root_ok.
-      admit. (* stuck here: need to know that e !! a = Some (MemGC, a), which seems wrong *)
-    }
-    iApply (Hreg with "[HΦ] [$Hf] [$Hrun] [] [$Hinv] [$Htok] [$Hreg]"); eauto.
-    - admit.
-    - iIntros (ar ar32 e' Har) "Hroot' Htok' Hown %Harrep".
-      admit.
-  Admitted.
+    cbn.
+    cbn; iIntros (f' vs) "(-> & %ah & %ah32 & %Hah & %Hrep & -> & Htok & HQ) Hf Hrun".
+    iApply (Hreg with "[HΦ HQ] [$Hf] [$Hrun] [] [$Hinv] [$Htok] [$Hreg]"); eauto.
+    - by apply Is_true_true, has_values_to_consts.
+    - iIntros (ar ar32 e' Har) "Hroot' Htok' Hown %Harrep Hinst".
+      iApply ("HΦ" with "[//] [//] [$] [$] [$] [$] [$]").
+  Qed.
 
   Definition mk_load1_frame fe f vloc v :=
     let vloc := localimm (W.Mk_localidx (fe_wlocal_offset fe + vloc)) in
@@ -960,6 +954,41 @@ Section load.
     inversion repr; subst; constructor; eauto.
   Qed.
 
+  Lemma atom_interp_weak_dup θ μ o v :
+    expect_heap_ptr o = None ->
+    Persistent (atom_interp_weak θ μ o v).
+  Proof.
+    intros Heq.
+    unfold atom_interp_weak.
+    destruct o; first destruct p as [n|ℓ], μ;
+      try by inversion Heq;
+      repeat (apply bi.pure_persistent
+      || (apply bi.exist_persistent; intros ?x)
+      || apply bi.sep_persistent).
+  Qed.
+
+  Lemma atom_interp_weak_promote θ μ o v :
+    expect_heap_ptr o = None ->
+    atom_interp_weak θ μ o v -∗
+    atom_interp o v.
+  Proof.
+    intros Heq.
+    unfold atom_interp, atom_interp_weak.
+    destruct o; first destruct p as [n|ℓ] eqn:Hp;
+      try inversion Heq;
+      try (by iIntros "->").
+    destruct μ.
+    all:iIntros "(%n' & %n32 & %Hnrep & -> & %Hrep)".
+    all:cbn.
+    all:iExists _, _; repeat (iSplit; first done).
+    all:iExists (RootInt n).
+    all:cbn.
+    all:inversion Hrep; subst; eauto.
+    all:iPureIntro.
+    all:split; auto.
+    all:by constructor.
+  Qed.
+
   Lemma wp_load1_copy_mm (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
@@ -1111,26 +1140,61 @@ Section load.
         iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & Hinj & Hownmm & Howngc & Hrest)".
         iDestruct "Hrest" as "(%Hrootok & Hrootmem & Hheapok)".
         iCombine "Hrt" "Hroot" gives "%Hrm".
-        iApply (Hduproot with "[$] [$] [//] [//] [] [$] [$]"); eauto.
-        * apply Is_true_true.
+        unfold PHYS.
+        rewrite -Hserws.
+        iApply (Hduproot with "[$] [$] [//] [//] [$] [$] [$]
+                  [Hphys Hclose Hret Hlayout
+                   Hrti Hinj Hownmm Howngc Hheapok] [$] [$]"); eauto.
+        {
+          apply Is_true_true.
           inversion Hpn32'.
           eapply has_values_to_consts.
-        * admit.
-        * admit.
-        * admit.
-        * admit.
-        * admit.
+        }
+        {
+          iIntros "Hrt Hgh Hrm".
+          iPoseProof ("Hret" with "[Hrt]") as "Hwords";
+            first by cbn; iFrame; eauto.
+          unfold rt_token_nophys.
+          iPoseProof ("Hclose" with "[Hphys Hwords]") as "Hclose".
+          {
+            by iFrame.
+          }
+          iPoseProof ("Hclose" with "[-]") as "(Hpt & Hpt' & Htok)"; iFrame; eauto.
+          iAccu.
+        }
+        iIntros (e' ar' ar'32) "%Hreproot %Hrepar Hrt Htok [Hws Ha] Hinvs Hreg".
+        iApply ("HΦ" with "[$] [$] [$] [$] [$] [-]").
+        iIntros "_".
+        cbn.
+        iExists (tag_address MemGC ar'), ar'32.
+        unfold root_pointer_interp.
+        iSplit; first eauto.
+        iSplit; first eauto.
+        iExists (RootHeap MemGC ar').
+        by iFrame.
     - eapply wp_ite_gc_ptr_nonptr in Hcompile; last assumption.
       inv_cg_ret Hcompile; subst.
       clear_nils.
       iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
       unfold has_arep in *.
-      assert (Persistent (atom_interp o v)).
+      assert (expect_heap_ptr o = None).
       {
-        apply atom_interp_dup.
         by destruct o, ι.
       }
-  Admitted.
+      assert (Persistent (atom_interp_weak e MemMM o v));
+        first by apply atom_interp_weak_dup.
+      iPoseProof "Hat" as "#Hat".
+      iPoseProof ("Hret" with "Hat") as "Hwords".
+      iPoseProof ("Hclose" with "[Hphys Hwords] [$Hnp]") as "(Hws & Ha & Htok)".
+      {
+        unfold PHYS.
+        rewrite -Hserws.
+        by iFrame.
+      }
+      iApply ("HΦ" with "[$] [$] [$] [$] [$] [-]").
+      iIntros "_".
+      iApply atom_interp_weak_promote; auto.
+  Qed.
 
   Lemma wp_mem_load1_copy_mm_cg_state
     fe lidx off ι wt wl ret wt' wl' es :
