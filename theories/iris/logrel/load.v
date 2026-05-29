@@ -716,67 +716,6 @@ Section load.
     iFrame.
   Qed.
 
-  Lemma virt_to_phys_slice_acc off sz ℓ μ a θ ws :
-    let slice {A} (x : list A) := take sz (drop off x) in
-    let R ns ns32 :=
-      (⌜Forall2 N_i32_repr ns ns32⌝ ∗
-       rt_memaddr sr μ↦[wms][a + 4 * N.of_nat off]flat_map serialise_i32 ns32 ∗
-       words_interp θ μ (slice ws) ns)%I in
-    ⊢ rt_token rti sr θ -∗
-      ℓ ↦heap ws -∗
-      ℓ ↦addr (μ, a) -∗
-      ∃ hm,
-        rt_token_nophys θ hm ∗
-        (∃ ns ns32, R ns ns32) ∗
-        (∀ ns' ns32',
-          R ns' ns32' -∗
-          rt_token_nophys θ hm -∗
-          ℓ ↦heap ws ∗
-          ℓ ↦addr (μ, a) ∗
-          rt_token rti sr θ).
-  Proof.
-  Admitted.
-
-  Lemma len_ser32 ns :
-    (length (flat_map serialise_i32 ns) = 4 * length ns)%nat.
-  Proof.
-    induction ns.
-    - done.
-    - unfold serialise_i32.
-      cbn -[Nat.mul].
-      rewrite length_app.
-      rewrite Memdata.encode_int_length.
-      rewrite IHns.
-      cbn.
-      lia.
-  Qed.
-
-  Lemma has_arep_size ι o :
-    has_arep ι o ->
-    length (serialize_atom o) = arep_size ι.
-  Proof.
-    destruct ι, o; intros H; done.
-  Qed.
-
-  Definition ptr_root
-    (θ : address_map) (μ : base_memory) (o : atom) (v : value) : iProp Σ :=
-    match o with
-    | PtrA p =>
-        ∃ n n32,
-          ⌜N_i32_repr n n32⌝ ∗
-          ⌜v = VAL_int32 n32⌝ ∗
-          match μ, p with
-          | MemMM, PtrHeap MemGC ℓ =>
-              ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
-          | _, _ => ⌜repr_pointer θ p n⌝
-          end
-    | I32A n => ⌜v = VAL_int32 n⌝
-    | I64A n => ⌜v = VAL_int64 n⌝
-    | F32A n => ⌜v = VAL_float32 n⌝
-    | F64A n => ⌜v = VAL_float64 n⌝
-    end.
-
-
   Lemma get_path_words1 off ws :
     off + 1 <= length ws ->
     ∃ w, get_path_words off 1 ws = [w].
@@ -809,6 +748,132 @@ Section load.
       try lia.
     eexists; eexists; done.
   Qed.
+
+  Lemma len_ser32 ns :
+    (length (flat_map serialise_i32 ns) = 4 * length ns)%nat.
+  Proof.
+    induction ns.
+    - done.
+    - unfold serialise_i32.
+      cbn -[Nat.mul].
+      rewrite length_app.
+      rewrite Memdata.encode_int_length.
+      rewrite IHns.
+      cbn.
+      lia.
+  Qed.
+
+  Lemma virt_to_phys_slice_acc off sz ℓ μ a θ ws :
+    let slice {A} (x : list A) := take sz (drop off x) in
+    let R ns ns32 :=
+      (⌜Forall2 N_i32_repr ns ns32⌝ ∗
+       rt_memaddr sr μ↦[wms][a + 4 * N.of_nat off]flat_map serialise_i32 ns32 ∗
+       words_interp θ μ (slice ws) ns)%I in
+    ⊢ ⌜off + sz <= length ws⌝ -∗
+      rt_token rti sr θ -∗
+      ℓ ↦heap ws -∗
+      ℓ ↦addr (μ, a) -∗
+      ∃ hm,
+        rt_token_nophys θ hm ∗
+        (∃ ns ns32, R ns ns32) ∗
+        (∀ ns' ns32',
+          R ns' ns32' -∗
+          rt_token_nophys θ hm -∗
+          ℓ ↦heap ws ∗
+          ℓ ↦addr (μ, a) ∗
+          rt_token rti sr θ).
+  Proof.
+    iIntros (slice R) "%Hlenbdd Hrt Hpt Ha".
+    open_rt "Hrt".
+    iExists hm.
+    iCombine "Hpt Hheap" gives "%Hhm".
+    iCombine "Ha Haddr" gives "%Ha".
+    iPoseProof (big_sepM2_lookup_acc with "Hheapmem") as "Hlookup"; eauto.
+    iEval (cbn) in "Hlookup".
+    iSplitL "Hroot Hlayout Hrti Hownmm Howngc Hrootmem"; first by iFrame.
+    iDestruct "Hlookup" as "(HR & Hcont)".
+    iDestruct "HR" as "(%ns & %ns32 & %Hns & Hphys & Hwords)".
+    assert (ws = take off ws ++ slice _ ws ++ drop (off + sz) ws) as Hws.
+    {
+      rewrite app_assoc.
+      unfold slice.
+      by rewrite take_take_drop take_drop.
+    }
+    iEval (setoid_rewrite Hws) in "Hwords".
+    iPoseProof (big_sepL2_app_inv_l with "Hwords") as "(%ns_pre & %ns' & -> & Hpre & Hwords)".
+    iPoseProof (big_sepL2_app_inv_l with "Hwords") as "(%ns & %ns_post & -> & Hwords & Hpost)".
+    pose proof Hns as Hns'.
+    apply Forall2_app_inv_l in Hns'.
+    destruct Hns' as (ns32_pre & ns32' & Hns_pre & Hns' & ->).
+    apply Forall2_app_inv_l in Hns'.
+    destruct Hns' as (ns32 & ns32_post & Hns' & Hns_post & ->).
+    rewrite !flat_map_app.
+    rewrite !wms_app; try by eauto.
+    iDestruct "Hphys" as "(Hphys_pre & Hphys & Hphys_post)".
+    pose proof (Forall2_length _ _ _ Hns_pre) as Hnslenpre.
+    pose proof (Forall2_length _ _ _ Hns') as Hnslen.
+    pose proof (Forall2_length _ _ _ Hns_post) as Hnslenpost.
+    iPoseProof (big_sepL2_length with "Hpre") as "%Hlenpre'".
+    iPoseProof (big_sepL2_length with "Hpost") as "%Hlenpost'".
+    iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws'".
+    assert (length (flat_map serialise_i32 ns32_pre) = 4 * off) as Hlenpre.
+    {
+      rewrite len_ser32.
+      rewrite -Hnslenpre -Hlenpre' length_take_le; lia.
+    }
+    rewrite Hlenpre.
+    rewrite Nat2N.inj_mul.
+    iSplitL "Hwords Hphys";
+      first by iFrame.
+    iIntros (ns' ns32') "(%Hns'' & Hphys & Hwords) Hnp".
+    pose proof (Forall2_length _ _ _ Hns'') as Hns32'len.
+    iPoseProof (big_sepL2_length with "Hwords") as "%Hns'len".
+    unfold words_interp.
+    iCombine "Hpre Hwords Hpost" as "Hwords".
+    repeat (rewrite <- big_sepL2_app_same_length; last by intuition congruence).
+    rewrite -Hws.
+    iCombine "Hphys_pre Hphys Hphys_post" as "Hphys".
+    rewrite -wms_app;
+      last by rewrite !len_ser32 -Hns32'len -Hns'len Hlenws' Hnslen.
+    rewrite -wms_app;
+      last (rewrite !len_ser32 -Hnslenpre -Hlenpre' length_take_le; lia).
+    iPoseProof ("Hcont" with "[Hphys Hwords]") as "Hclosed".
+    {
+      rewrite <- !flat_map_app.
+      iFrame.
+      iPureIntro; eauto using Forall2_app.
+    }
+    iSplitL "Hpt"; first iFrame.
+    iSplitL "Ha"; first iFrame.
+    iApply (rt_token_putheap with "[$]").
+    iFrame.
+  Qed.
+
+  Lemma has_arep_size ι o :
+    has_arep ι o ->
+    length (serialize_atom o) = arep_size ι.
+  Proof.
+    destruct ι, o; intros H; done.
+  Qed.
+
+  Definition ptr_root
+    (θ : address_map) (μ : base_memory) (o : atom) (v : value) : iProp Σ :=
+    match o with
+    | PtrA p =>
+        ∃ n n32,
+          ⌜N_i32_repr n n32⌝ ∗
+          ⌜v = VAL_int32 n32⌝ ∗
+          match μ, p with
+          | MemMM, PtrHeap MemGC ℓ =>
+              ∃ a, ⌜repr_root_pointer (RootHeap MemGC a) n⌝ ∗ a ↦root ℓ
+          | _, _ => ⌜repr_pointer θ p n⌝
+          end
+    | I32A n => ⌜v = VAL_int32 n⌝
+    | I64A n => ⌜v = VAL_int64 n⌝
+    | F32A n => ⌜v = VAL_float32 n⌝
+    | F64A n => ⌜v = VAL_float64 n⌝
+    end.
+
 
   (* not the most informative option here. we will want to know that
      [atom_interp o v] eventually... *)
@@ -1050,7 +1115,7 @@ Section load.
     iIntros (f' vs') "[-> ->] Hf Hrun".
     rewrite app_assoc.
     (* Opening virt resources *)
-    iPoseProof (virt_to_phys_slice_acc off (arep_size ι) with "[$] [$] [$]")
+    iPoseProof (virt_to_phys_slice_acc off (arep_size ι) with "[//] [$] [$] [$]")
       as "(%hm & Hnp & [(%ns & %ns32 & %Hrepns & Hphys & Hwords) Hclose])".
     (* Opening word_interp *)
     iPoseProof (reconstitute_val with "[$Hwords] [//] [//] [//] [//]") as "(%v & %Hserws & Hat & Hret)".
