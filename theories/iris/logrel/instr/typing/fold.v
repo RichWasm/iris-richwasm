@@ -49,32 +49,16 @@ Section fold.
       inversion Hhas_kind; subst.
       by constructor.
     }
-    (* assert (eval_kind se κ = Some sκ) as Hκ. *)
-    (* { *)
-    (*   subst τrec. *)
-    (*   erewrite <- type_skind_subst_senv_eq in Hτ0_sk. *)
-    (*   4: { *)
-    (*     rewrite /sem_env_rel_sκ_eq. *)
-    (*     intros [|i]; simpl. *)
-    (*     2: f_equal. *)
-    (*     1: instantiate (1 := senv_insert_type _ _ se). *)
-    (*     2: done. *)
-    (*     simpl. *)
-    (**)
-    (*   } *)
-    (*   destruct τ; simpl in Hτ0_sk; try done. *)
-    (*   1: admit. *)
-    (*   inversion Hτ0_sk; subst. *)
-    (*   erewrite <- fold_type_skind_eq; try done. *)
-    (*   by inversion Hkind; subst. *)
-    (* } *)
-    iModIntro.
-    rewrite (fold_type_interp rti sr mr se F τ κ _ (SAtoms os) Hse Hkind).
+    assert (eval_kind se κ = Some sκ) as Hκ.
     {
-      iSplit.
-      - iPureIntro. exact Hsv.
-      - iExact "Hval".
+      erewrite <- fold_type_skind_eq; try done.
+      by inversion Hkind; subst.
     }
-  Admitted.
+    iModIntro.
+    rewrite (fold_type_interp rti sr mr se F τ κ _ (SAtoms os) Hse Hkind Hκ).
+    iSplit.
+    - iPureIntro. exact Hsv.
+    - iExact "Hval".
+  Qed.
 
 End fold.
