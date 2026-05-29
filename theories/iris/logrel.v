@@ -92,6 +92,10 @@ Section instr.
     - solve_proper.
   Qed.
 
+  Global Instance senv_insert_type_proper (sκ : skind) :
+  Proper (equiv ==> equiv) (@senv_insert_type sκ).
+  Proof. solve_proper. Qed.
+
   Program Definition senv_insert_mem (μ : base_memory) : semantic_env -n> semantic_env :=
     λne se,
       (μ :: senv_mems se, senv_reps se, senv_sizes se, senv_types se).

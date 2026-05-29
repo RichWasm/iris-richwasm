@@ -1495,57 +1495,6 @@ Section properties.
     - reflexivity.
   Qed.
 
-  Lemma rec_interp_unfold_TEST κ τ (se: semantic_env (Σ:=Σ)) sv :
-    rec_interp κ (type_interp rti sr τ) se sv ≡
-    match eval_kind_se se κ with
-    | Some sκ => ▷ (type_interp rti sr τ) (senv_insert_type sκ (value_interp rti sr se (RecT κ τ)) se) sv
-    | None => False
-    end%I.
-  Proof.
-    unfold rec_interp. simpl.
-    destruct (eval_kind se κ) as [sκ|] eqn:Hskeval; simpl.
-    - set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ,
-      λne sv0 : leibnizO semantic_value,
-      (▷ (type_interp rti sr τ) (se.1, (sκ, T0) :: se.2) sv0)%I).
-      etransitivity.
-      + exact (fixpoint_unfold f sv).
-      + simpl.
-        set Hope :=
-           (@skind_rec_interp1_contractive Σ sκ
-              (@type_interp Σ logrel_na_invs0 wasmG0 richwasmG0 rti sr τ) se).
-
-        assert (H: fixpoint f ≡ value_interp rti sr se (RecT κ τ)). {
-          (* unfold f. *)
-          iIntros (sv').
-          rewrite !value_interp_eq.
-          cbn.
-          iSplitR; iIntros "H"; try done.
-          - iExists sκ.
-            iSplitR; [done|].
-            (* iPoseProof (fixpoint_unfold f sv') as "#fu". *)
-            (* iDestruct "fu" as "[fu _]". *)
-            (* iPoseProof ("fu" with "[$H]") as "H". *)
-            (* iClear "fu". *)
-            (* unfold f. *)
-            (* cbn. *)
-            iSplitR.
-            + admit. (* this is the bad one *)
-            + rewrite Hskeval.
-              unfold f.
-              iExact "H".
-          - iDestruct "H" as "(%sκ' & %toinvert & #hsk & H)".
-            rewrite Hskeval in toinvert.
-            inversion toinvert; subst sκ'; clear toinvert.
-            rewrite !Hskeval.
-            iExact "H".
-        }
-        (* oh my god just *look* *)
-        (* H just says it's chill *)
-        (* but I can't rewrite H *)
-        admit.
-    - reflexivity.
-  Admitted.
-
   Lemma value_interp_type_plug se vs ηs :
     ⌜has_prims ηs vs⌝ -∗
     value_interp rti sr se (type_plug_prim ηs) (SAtoms (values_to_atoms vs)).

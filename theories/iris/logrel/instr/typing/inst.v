@@ -2259,7 +2259,6 @@ Section inst.
     eapply skind_has_stype_proper; [exact Heq | exact HT'].
   Qed.
 
-  (* my play ground *)
   Lemma fold_type_interp_subst_COPY_STUPID (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
     sem_env_interp F se ->
     has_kind F (RecT κ τ) κ ->
@@ -2284,10 +2283,6 @@ Section inst.
         done.
       + by apply hsub_t_base_se_VarT. (* this uses sem_env_types_well_formed *)
   Qed.
-  (* so okay cool. Technically if you could get this to work you're done. But
-     because of the definition of rec_interp idk if you'd be able to.
-   *)
-
 
   Lemma fold_type_interp_subst_COPY (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
     sem_env_interp F se ->
@@ -2296,76 +2291,14 @@ Section inst.
     type_interp rti sr τ (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se) sv ⊣⊢
     type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
   Proof.
-    intros.
-    iSplit; iIntros "H".
-    - iApply fold_type_interp_subst_COPY_STUPID; try done.
-      iApply type_interp_eq.
-      admit.
-    - iDestruct (fold_type_interp_subst_COPY_STUPID with "H") as "H"; try done.
-      iApply type_interp_eq.
-      admit.
-  Admitted.
-
-  Lemma fold_type_interp_subst_COPY' (se : semantic_env (Σ:=Σ)) (τ : type) (κ : kind) sκ sv :
-    sem_env_types_well_formed se ->
-    eval_kind se κ = Some sκ →
-    type_interp rti sr τ (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se) sv ⊣⊢
-    type_interp rti sr (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) se sv.
-  Proof.
-    intros.
-    iStartProof.
-    iApply type_interp_subst_type_BIDIRECTIONAL; unfold_sem_rels.
-    - cbn.
-      apply Forall_cons; split; [|done].
-      rewrite skind_rec_interp_unfold_no_sv.
-      simpl.
-
-      (* apply kinding_sound. *)
-      (* the thing I sent *)
-      (* skind_has_stype sκ (skind_rec_interp sκ (type_interp rti sr τ) se) *)
-      admit.
-    - done. (* this uses sem_env_types_well_formed *)
-    - intros; by cbn.
-    - intros; by cbn.
-    - intros; by cbn.
-    - intros. destruct i; cbn; done. (* oh first one needed the eval_kind κ actually lmao *)
-    - intros. destruct i; cbn.
-      + (* skind_rec_interp sk (type_interp rti sr t) se === value_interp rti sr se (RecT k t) *)
-        iIntros.
-        rewrite skind_rec_interp_unfold.
-        rewrite value_interp_eq.
-        simpl.
-        iSplit; iIntros "H".
-        * iFrame "%".
-          iAssert ((⌜skind_has_svalue sκ x⌝)%I) as "#hope". {
-            rewrite !type_interp_eq.
-            Opaque type_skind.
-            cbn.
-            (* okay so there needs to be a proof that the sκ0 in "H" is equal to sκ *)
-            (* ough *)
-            (* also there's the later there idk how that works *)
-            (* the trickiest part is that the type_skind is in a different env *)
-            (* all the lemmas will also need has_kind and sem_env_interp *)
-            (* but that's okay those can be added *)
-            (* I hope this is true.... *)
-
-            admit.
-          }
-          Transparent type_skind.
-          iSplit; first done. (* hm *)
-          rewrite rec_interp_unfold.
-          simpl.
-          rewrite H0.
-          done.
-        * iDestruct "H" as "(%sκ' & %Heval & %Hsk & Hreci)".
-          rewrite Heval in H0.
-          inversion H0; subst.
-          rewrite rec_interp_unfold.
-          simpl.
-          rewrite Heval.
-          done.
-      + by apply hsub_t_base_se_VarT. (* this uses sem_env_types_well_formed *)
-  Admitted.
+    intros Hse Hkind Heval.
+    f_equiv.
+    assert (senv_insert_type sκ (skind_rec_interp sκ (type_interp rti sr τ) se) se
+      ≡ senv_insert_type sκ (value_interp rti sr se (RecT κ τ)) se) as ->.
+    { f_equiv. f_equiv. by apply skind_rec_interp_unfold_TEST_NO_SV. }
+    intro sv'.
+    eapply fold_type_interp_subst_COPY_STUPID; done.
+  Qed.
 
   Lemma stupid K n :
     mem_ok K (VarM n) -> n < kc_mem_vars K.
