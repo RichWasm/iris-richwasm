@@ -1375,6 +1375,15 @@ Section properties.
   Admitted.
 
 
+  Lemma type_interp_skind_svalue (τ : type) se sv :
+    type_interp rti sr τ se sv -∗ ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝.
+  Proof.
+    iIntros "H".
+    rewrite type_interp_eq.
+    iDestruct "H" as (sκ) "[%Hsk [%Hsv _]]".
+    iExists sκ. by iSplit; iPureIntro.
+  Qed.
+
   Lemma skind_rec_interp_unfold sκ T (se: semantic_env (Σ:=Σ)) sv :
     skind_rec_interp sκ T se sv ≡ (▷ T (senv_insert_type sκ (skind_rec_interp sκ T se) se) sv)%I.
   Proof.
@@ -1519,15 +1528,6 @@ Section properties.
       + iExists (map prim_to_arep ηs).
         iSplit; [iPureIntro; exact Heval |].
         done.
-  Qed.
-
-  Lemma type_interp_skind_svalue (τ : type) se sv :
-    type_interp rti sr τ se sv -∗ ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝.
-  Proof.
-    iIntros "H".
-    rewrite type_interp_eq.
-    iDestruct "H" as (sκ) "[%Hsk [%Hsv _]]".
-    iExists sκ. by iSplit; iPureIntro.
   Qed.
 
 End properties.

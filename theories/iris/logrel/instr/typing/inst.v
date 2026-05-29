@@ -2259,7 +2259,42 @@ Section inst.
     eapply skind_has_stype_proper; [exact Heq | exact HT'].
   Qed.
 
-  Lemma fold_type_interp_subst_COPY_STUPID (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
+  Lemma fold_type_skind_eq F se τ κ :
+    sem_env_interp F se →
+    has_kind (F <| fc_type_vars ::= cons κ |>) τ κ →
+    type_skind (Σ:=Σ) se (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) =
+    eval_kind se κ.
+  Proof.
+    intros Hse Hτκ.
+    (* Build has_kind F (RecT κ τ) κ to extract kind_ok for κ *)
+    have HRecKind : has_kind F (RecT κ τ) κ := KRec F τ κ Hτκ.
+    apply has_kind_inv in HRecKind as HRecKindOk.
+    inversion HRecKindOk as [??? Ht_ok Hkind_ok]; subst.
+    destruct (eval_kind_ok_Some _ _ _ Hse Hkind_ok) as [sκ Heval_kind].
+    (* Choose T so that the extended semantic env is well-typed *)
+    set T := value_interp rti sr se (RecT κ τ).
+    have HT : skind_has_stype sκ T :=
+      kinding_sound _ _ mr _ _ _ _ _ (KRec F τ κ Hτκ) Hse Heval_kind.
+    have Hse' : sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se) :=
+      sem_env_interp_insert_type F se κ sκ T Hse Heval_kind HT.
+    have Heval_kind' : eval_kind (senv_insert_type sκ T se) κ = Some sκ.
+    { rewrite eval_kind_senv_insert_type. exact Heval_kind. }
+    have Htsk : type_skind (senv_insert_type sκ T se) τ = Some sκ :=
+      type_skind_has_kind_Some _ _ _ _ _ Hτκ Hse' Heval_kind'.
+    erewrite <- type_skind_subst_senv_eq.
+    - (* type_skind (senv_insert_type sκ T se) τ = eval_kind se κ *)
+      instantiate (1 := senv_insert_type sκ T se).
+      congruence.
+    - (* sem_env_rel_rep_eq: senv_insert_type doesn't change reps *)
+      done.
+    - (* sem_env_rel_size_eq: senv_insert_type doesn't change sizes *)
+      done.
+    - (* sem_env_rel_sκ_eq *)
+      rewrite /sem_env_rel_sκ_eq.
+      intros [|i]; cbn; done.
+  Qed.
+
+  Lemma fold_type_interp_subst_value_interp (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
     sem_env_interp F se ->
     has_kind F (RecT κ τ) κ ->
     eval_kind se κ = Some sκ →
@@ -2284,7 +2319,7 @@ Section inst.
       + by apply hsub_t_base_se_VarT. (* this uses sem_env_types_well_formed *)
   Qed.
 
-  Lemma fold_type_interp_subst_COPY (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
+  Lemma fold_type_interp_subst (se : semantic_env (Σ:=Σ)) F (τ : type) (κ : kind) sκ sv :
     sem_env_interp F se ->
     has_kind F (RecT κ τ) κ →
     eval_kind se κ = Some sκ →
@@ -2297,7 +2332,7 @@ Section inst.
       ≡ senv_insert_type sκ (value_interp rti sr se (RecT κ τ)) se) as ->.
     { f_equiv. f_equiv. by apply skind_rec_interp_unfold_TEST_NO_SV. }
     intro sv'.
-    eapply fold_type_interp_subst_COPY_STUPID; done.
+    eapply fold_type_interp_subst_value_interp; done.
   Qed.
 
   Lemma stupid K n :
@@ -2516,56 +2551,22 @@ Section inst.
       iEval (rewrite type_interp_eq) in "H".
       iDestruct "H" as "(%sκ' & %Hκ' & %Hsv & Hrec)".
       simpl in Hκ'. rewrite Hκ in Hκ'. simplify_eq.
-      iSplit; first (iPureIntro; done).
+      iSplit; first done.
       iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)) in "Hrec".
       replace (eval_kind_se se κ) with (eval_kind se κ); last done.
       iEval (rewrite Hκ) in "Hrec".
       iNext.
-      iApply fold_type_interp_subst_COPY; try done.
+      iApply fold_type_interp_subst; try done.
     - iIntros "[%Hsv Hτrec]".
       iEval (rewrite type_interp_eq).
       iExists sκ.
-      iSplit; [iPureIntro; simpl; by rewrite Hκ |].
-      iSplit; [iPureIntro; exact Hsv |].
+      iSplit; [simpl; by rewrite Hκ |].
+      iSplit; [done |].
       iEval (rewrite (rec_interp_unfold κ (type_interp rti sr τ) se sv)).
       replace (eval_kind_se se κ) with (eval_kind se κ); last done.
       iEval (rewrite Hκ).
-      iApply fold_type_interp_subst_COPY; try done.
-  Qed.
-
-  Lemma fold_type_skind_eq F se τ κ :
-    sem_env_interp F se →
-    has_kind (F <| fc_type_vars ::= cons κ |>) τ κ →
-    type_skind (Σ:=Σ) se (subst_type VarM VarR VarS (unscoped.scons (RecT κ τ) VarT) τ) =
-    eval_kind se κ.
-  Proof.
-    intros Hse Hτκ.
-    (* Build has_kind F (RecT κ τ) κ to extract kind_ok for κ *)
-    have HRecKind : has_kind F (RecT κ τ) κ := KRec F τ κ Hτκ.
-    apply has_kind_inv in HRecKind as HRecKindOk.
-    inversion HRecKindOk as [??? Ht_ok Hkind_ok]; subst.
-    destruct (eval_kind_ok_Some _ _ _ Hse Hkind_ok) as [sκ Heval_kind].
-    (* Choose T so that the extended semantic env is well-typed *)
-    set T := value_interp rti sr se (RecT κ τ).
-    have HT : skind_has_stype sκ T :=
-      kinding_sound _ _ mr _ _ _ _ _ (KRec F τ κ Hτκ) Hse Heval_kind.
-    have Hse' : sem_env_interp (F <| fc_type_vars ::= cons κ |>) (senv_insert_type sκ T se) :=
-      sem_env_interp_insert_type F se κ sκ T Hse Heval_kind HT.
-    have Heval_kind' : eval_kind (senv_insert_type sκ T se) κ = Some sκ.
-    { rewrite eval_kind_senv_insert_type. exact Heval_kind. }
-    have Htsk : type_skind (senv_insert_type sκ T se) τ = Some sκ :=
-      type_skind_has_kind_Some _ _ _ _ _ Hτκ Hse' Heval_kind'.
-    erewrite <- type_skind_subst_senv_eq.
-    - (* type_skind (senv_insert_type sκ T se) τ = eval_kind se κ *)
-      instantiate (1 := senv_insert_type sκ T se).
-      congruence.
-    - (* sem_env_rel_rep_eq: senv_insert_type doesn't change reps *)
-      done.
-    - (* sem_env_rel_size_eq: senv_insert_type doesn't change sizes *)
-      done.
-    - (* sem_env_rel_sκ_eq *)
-      rewrite /sem_env_rel_sκ_eq.
-      intros [|i]; cbn; done.
+      iNext.
+      iApply fold_type_interp_subst; try done.
   Qed.
 
 End inst.

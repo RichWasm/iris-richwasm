@@ -54,7 +54,6 @@ Section fold.
       erewrite <- fold_type_skind_eq; try done.
       by inversion Hkind; subst.
     }
-    iModIntro.
     rewrite (fold_type_interp rti sr mr se F τ κ _ (SAtoms os) Hse Hkind Hκ).
     iSplit.
     - iPureIntro. exact Hsv.
