@@ -1058,7 +1058,9 @@ Section load.
     let fe := fe_of_context F in
     run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
     ∀ f ℓ a32 a o ws s E B R e Φ,
-    ⊢ "Hptr" ∷ ℓ ↦heap ws -∗
+    ⊢ "Hf" ∷ ↪[frame] f -∗
+      "Hrun" ∷ ↪[RUN] -∗
+      "Hptr" ∷ ℓ ↦heap ws -∗
       "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
       "Hown"  ∷ na_own logrel_nais E -∗
       "Htok"  ∷ rt_token rti sr e -∗
@@ -1077,8 +1079,9 @@ Section load.
       "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
       "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
       "HΦ" ∷
-        (∀ e' vf v,
-           let f' := mk_load1_frame fe f (length wl) vf in
+        (∀ e' f' vf v,
+           "%Hf'"  ∷ ⌜f' = mk_load1_frame fe f (length wl) vf⌝ -∗
+           "%Hvf"  ∷ ⌜types_agree (translate_arep ι) vf⌝ -∗
            "Hptr"  ∷ ℓ ↦heap ws -∗
            "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
            "Hown"  ∷ na_own logrel_nais E -∗
@@ -1086,8 +1089,6 @@ Section load.
            "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
            "Ho"    ∷ (⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
            Φ f' [v]) -∗
-      "Hf" ∷ ↪[frame] f -∗
-      "Hrun" ∷ ↪[RUN] -∗
       CWP es @ s; E UNDER B; R {{ Φ }}.
   Proof.
     unfold load1.
@@ -1185,7 +1186,8 @@ Section load.
           iApply ("Hclose" with "[Hphys Hwords] [$]").
           by iFrame.
         }
-        iApply ("HΦ" with "[$] [$] [$] [$] [$] [-]").
+        subst f'.
+        iApply ("HΦ" with "[//] [//] [$] [$] [$] [$] [$] [-]").
         by iIntros "_".
       + iApply (cwp_val with "[$] [$]"); eauto using has_values_to_consts.
         iPoseProof ("Hret" with "Hat") as "Hwords".
@@ -1195,7 +1197,7 @@ Section load.
           rewrite -Hserws.
           iApply ("Hclose" with "[Hphys Hwords] [$]"); by iFrame.
         }
-        iApply ("HΦ" with "[$] [$] [$] [$] [$] [-]").
+        iApply ("HΦ" with "[//] [//] [$] [$] [$] [$] [$] [-]").
         by iIntros "Hcontra".
       + iEval (cbn) in "Hat".
         iDestruct "Hat" as "(%n & %n32 & %Hn32 & %Hpn32' & (%ar & %Har & Hrt))".
@@ -1228,7 +1230,7 @@ Section load.
           iAccu.
         }
         iIntros (e' ar' ar'32) "%Hreproot %Hrepar Hrt Htok [Hws Ha] Hinvs Hreg".
-        iApply ("HΦ" with "[$] [$] [$] [$] [$] [-]").
+        iApply ("HΦ" with "[//] [//] [$] [$] [$] [$] [$] [-]").
         iIntros "_".
         cbn.
         iExists (tag_address MemGC ar'), ar'32.
@@ -1256,7 +1258,7 @@ Section load.
         rewrite -Hserws.
         by iFrame.
       }
-      iApply ("HΦ" with "[$] [$] [$] [$] [$] [-]").
+      iApply ("HΦ" with "[//] [//] [$] [$] [$] [$] [$] [-]").
       iIntros "_".
       iApply atom_interp_weak_promote; auto.
   Qed.
@@ -1450,69 +1452,89 @@ Section load.
   Proof.
   Admitted.
 
-  (* memory.load uses an ignore, so we have to use this lemma for the inductive proof *)
-  Lemma wp_mem_load_copy_mm_inner fe lidx ιs :
+  Lemma rcons_app {X} : forall (xs : list X) x,
+      seq.rcons xs x = xs ++ [x].
+  Proof.
+    induction xs; intros x.
+    - reflexivity.
+    - cbn.
+      by rewrite IHxs.
+  Qed.
+
+  Lemma flat_map_rcons X Y (f : X -> list Y) xs x :
+    flat_map f (seq.rcons xs x) = flat_map f xs ++ f x.
+  Proof.
+    revert x.
+    induction xs; cbn; intros.
+    - by clear_nils.
+    - by rewrite -app_assoc IHxs.
+  Qed.
+
+  Lemma mk_frame_rcons fe f wl vs v :
+    mk_load1_frame fe (mk_load_frame fe f wl vs) (length wl + length vs) v =
+      mk_load_frame fe f wl (vs ++ [v]).
+  Proof.
+  Admitted.
+
+  Lemma wp_mem_load_copy_mm_inner (se : @semantic_env Σ) F lidx ιs :
+    let fe := fe_of_context F in
     ∀ off wt wl ret wt' wl' es,
       run_codegen
         (foldlM
            (λ off' ι, load1 mr fe MemMM Copy lidx off' ι;; Monad.ret (off' + arep_size ι))
            off ιs)
         wt wl = inr (ret, wt', wl', es) →
+      let offs := snd $ seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
+                    (off, []) ιs in
+      let offs_szs := seq.zip offs (map arep_size ιs) in
       ret = seq.foldl (λ off' ι, off' + arep_size ι) off ιs ∧
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
-      ∀ ℓ ℓ32 memidx memidxN f E,
-        N_i32_repr ℓ ℓ32 →
-        inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some memidx →
-        inst_memory (f_inst f) !! memimm (mr_gcmem mr) = Some (sr_mem_gc sr) →
-        N_nat_repr memidx memidxN →
-        ↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E →
-        f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) →
-        localimm lidx < fe_wlocal_offset fe + length wl ->
-        fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f) ->
-        ∀ os nss nss32 vs,
-          Forall2 has_arep ιs os →
-          Forall2 (Forall2 N_i32_repr) nss nss32 ->
-          congeal_atoms ιs nss32 = Some vs ->
-          ref_flag_atoms_interp GCRefs (SAtoms os) ->
-          ⊢ ∀ e,
-            na_own logrel_nais E  -∗
-            rt_token rti sr e -∗
-            instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-            ([∗ list] o; ns ∈ os; nss, words_interp e MemMM (serialize_atom o) ns) -∗
-            let offs := snd $ seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
-                                                       (off, []) ιs in
-            ([∗ list] off'; v ∈ offs; vs, memidxN ↦[wms][ℓ + byte_offset MemMM off'] bits v) -∗
-            ∀ Φ B R,
-              ↪[frame] f -∗
-              ↪[RUN] -∗
-              (∀ f' e' vs',
-                ⌜f' = mk_load_frame fe f wl vs⌝ -∗
-                na_own logrel_nais E  -∗
-                rt_token rti sr e' -∗
-                instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-                ([∗ list] off'; v ∈ offs; vs, memidxN ↦[wms][ℓ + byte_offset MemMM off'] bits v) -∗
-                mk_load_post os vs vs' -∗
-                Φ f' vs') -∗
-              CWP es @ E UNDER B; R {{ Φ }}.
+      ∀ f ℓ a32 a os ws E B R e Φ,
+    ⊢ "Hptr" ∷ ℓ ↦heap ws -∗
+      "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+      "Hown"  ∷ na_own logrel_nais E -∗
+      "Htok"  ∷ rt_token rti sr e -∗
+      "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+      "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
+      "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+      "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
+      "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
+      "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+      "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
+      "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
+      "HΦ" ∷
+        (∀ e' f' vs vsf,
+           "%Hf'"     ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
+           "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
+           "Hptr"  ∷ ℓ ↦heap ws -∗
+           "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+           "Hown"  ∷ na_own logrel_nais E -∗
+           "Htok"  ∷ rt_token rti sr e' -∗
+           "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+           "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
+           Φ f' vs) -∗
+      "Hf" ∷ ↪[frame] f -∗
+      "Hrun" ∷ ↪[RUN] -∗
+      CWP es @ E UNDER B; R {{ Φ }}.
   Proof.
-    induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg.
-    - apply inv_foldlM_nil in Hcg.
-      destruct Hcg as (-> & -> & -> & ->).
-      intuition.
-      iIntros (e) "Hown Htok Hinst Hats Hpts".
-      apply Forall2_nil_inv_l in H7.
-      subst os.
-      iPoseProof (big_sepL2_nil_inv_l with "Hats") as "%Hnil".
-      subst nss.
-      cbn in H9.
-      inversion H9; subst.
-      iIntros (Φ B R) "Hf Hrun HΦ".
+    induction ιs as [| ιs ι] using seq.last_ind; intros * Hcg *.
+    - cbn in Hcg.
+      inversion Hcg; subst.
+      split; last split; last split; try done.
+      intros *; repeat iIntros "@".
       iApply (cwp_nil with "[$] [$]").
-      iApply ("HΦ" with "[//] [$] [$] [$] [//] []").
-      unfold mk_load_post.
-      cbn.
-      by iFrame.
+      unfold mk_load_frame.
+      iApply ("HΦ" with "[] [//] [$] [$] [$] [$] [$] []").
+      + done.
+      + inversion Harep.
+        by iApply big_sepL2_nil.
     - apply inv_foldlM_rcons in Hcg.
       rewrite seq.foldl_rcons.
       destruct Hcg as (off_ιs & wt_ι & wt_ιs & wl_ι & wl_ιs & es_ι & es_ιs & Hinit & Hlast).
@@ -1521,168 +1543,160 @@ Section load.
       subst.
       inv_cg_ret Hfb; subst.
       eapply IHιs in Hinit.
+      clear IHιs.
       destruct Hinit as (-> & -> & -> & Hinit).
       pose proof Hbs as Hbs'.
       eapply wp_mem_load1_copy_mm_cg_state in Hbs'.
       destruct Hbs' as (-> & -> & ->).
       subst; clear_nils.
+      change map with @seq.map.
+      rewrite seq.map_rcons -seq.cats1 W.cat_app.
       repeat (split; first by auto).
-      split.
+      intros *; repeat iIntros "@".
+      (* inverting forall2 where there's an rcons in only one side *)
+      pose proof (Forall2_rcons_inv_l _ _ _ _ Harep) as (o & os' & Ho & Hos' & Hos_eq).
+      rewrite Hos_eq in Hser.
+      pose proof (Forall2_rcons_inv_l _ _ _ _ Hser) as ([off' sz'] & offs_szs' & Hsero & Hseros' & Hoffs_szs_eq).
+      unfold offs_szs in Hoffs_szs_eq.
+      remember (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off')) (
+                    off, []) (seq.rcons ιs ι))
+        as big_fold in *.
+      rewrite seq.foldl_rcons in Heqbig_fold.
+      destruct (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off')) (off, []) ιs)
+        as [off0 offs0] eqn:?Hfold.
+      assert (seq.size offs0 = seq.size ιs).
       {
-        change map with @seq.map.
-        by rewrite seq.map_rcons -seq.cats1 W.cat_app.
-      }
-      intros ℓ ℓ32 memidx memidxN f E Hrepℓ Hgcmem Hmmmem Hrepmemidx Hmask Hlidx Hbd.
-      specialize (Hinit ℓ ℓ32 memidx memidxN f E Hrepℓ Hgcmem Hmmmem Hrepmemidx Hmask Hlidx Hbd).
-      intros Hfe os nss nss32 vs Hareps Hnss Hcong Hgc.
-      rewrite length_app in Hfe.
-      specialize (Hinit ltac:(lia)).
-      iIntros (e) "Hown Htok Hinst Hats Hpts".
-      iIntros (Φ B R) "Hf Hrun HΦ".
-      apply Forall2_rcons_inv_l in Hareps.
-      destruct Hareps as (o & os' & Harep & Hareps & ->).
-      rename os' into os.
-      iPoseProof (big_sepL2_rcons_inv_l with "Hats") as "(%ns & %nss' & %Heqns & Hat & Hats)".
-      subst nss.
-      apply Forall2_rcons_inv_l in Hnss.
-      destruct Hnss as (ns32 & nss32' & Hns32 & Hnss32' & ->).
-      apply congeal_rcons in Hcong.
-      destruct Hcong as (vs'' & v'' & -> & Hats & Hat).
-      rewrite ref_flag_atoms_interp_rcons in Hgc.
-      destruct Hgc as [Hgc1 Hgc2].
-      iPoseProof (big_sepL2_rcons_inv_r with "Hpts") as "(%off0 & %offs' & %Heq & Hpt & Hpts)".
-      rewrite seq.foldl_rcons in Heq.
-      destruct (seq.foldl _ _ _) as [off' offs] eqn:Heqf.
-      eapply seq.rcons_inj in Heq; inversion Heq; subst offs' off0; clear Heq.
-      iPoseProof (Hinit with "Hown Htok Hinst Hats Hpts") as "Hinit"; eauto.
-      cbn [snd].
-      cbn.
-      (* This should be factored out... *)
-      assert (Hfolds : ∀ ιs off off' offs,
-                 seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
-                   (off, [])
-                   ιs =
-                   (off', offs) →
-                 off' = seq.foldl (λ (off'0 : nat) (ι0 : atomic_rep), off'0 + arep_size ι0) off ιs).
-      {
-        repeat match goal with H : _ |- _ => clear H end.
-        induction ιs using seq.last_ind;
-          intros off off' offs; cbn.
-        - intros Heq; by inversion Heq.
-        - intros Heq.
-          rewrite seq.foldl_rcons in Heq.
-          destruct (seq.foldl _ _ ιs) eqn:Heq'.
-          inversion Heq; subst; clear Heq.
-          specialize (IHιs _ _ _ Heq').
-          by rewrite IHιs seq.foldl_rcons.
-      }
-      iApply (cwp_seq with "[Hinit Hf Hrun] [-]").
-      + iApply ("Hinit" with "[$] [$]").
-        instantiate (1 := (λ f' vs',
-                            ⌜f' = mk_load_frame fe f wl vs''⌝ ∗
-                 ∃ e'', na_own logrel_nais E ∗ rt_token rti sr e'' ∗
-                 instance_rt_func_interp (mr_func_registerroot mr) (sr_func_registerroot sr)
-                   (spec_registerroot rti sr) (f_inst f) ∗
-                   ([∗ list] off'0;v ∈ offs;vs'', memidxN↦[wms][ℓ + byte_offset MemMM off'0] bits v) ∗
-                    mk_load_post os vs'' vs')%I).
-        cbn.
-        iIntros (f' e' vs') "-> Hown Htok Hinst Hpts HΦ".
-        by iFrame.
-      + iIntros (f' vs') "(%Hinst & %e' & Hown & Htok & #Hinst & Hpts & Hpost) Hf Hrun".
-        iApply cwp_val_app; first eauto using has_values_to_consts.
-        cbn.
         admit.
-        (*
-        iApply (wp_mem_load1_copy_mm with "[$] [$] [] [//] [$] [Hpt] [$Hown] [$Htok] [Hinst]"); first eauto;
-          first apply Hrepℓ; first apply Hrepmemidx; (by rewrite Hinst load_frame_inst) || eauto.
-        {
-          rewrite length_app Hinst load_frame_length.
-          lia.
-        }
-        { by rewrite Hinst mk_load_frame_stable_part. }
-        {
-          admit.
-        }
-        {
-          cbn.
-          apply Hfolds in Heqf.
-          by rewrite Heqf.
-        }
-        iIntros "#Hinst' Hpt Hown %e'0 %v' Htok Hov Hov'".
+      }
+      iPoseProof (Hinit with "[$] [$] [$] [$] [$]") as "Hinit".
+      clear Hinit.
+      repeat iPoseProof ("Hinit" with "[//]") as "Hinit".
+      iSpecialize ("Hinit" with "[] [//] [] [//] [] [//] [//] [//] [//] [//] [//] [//]");
+      last iSpecialize ("Hinit" with "[]").
+      {
+        iPureIntro.
+        rewrite rcons_app sum_list_with_app in Hbound; cbn in Hbound.
+        lia.
+      }
+      {
+        iPureIntro.
+        cbn.
+        change @map with @seq.map in Hoffs_szs_eq.
+        rewrite /offs Heqbig_fold seq.map_rcons in Hoffs_szs_eq.
+        cbn in Hoffs_szs_eq.
+        rewrite seq.zip_rcons in Hoffs_szs_eq; last by rewrite seq.size_map.
+        pose proof (seq.rcons_inj Hoffs_szs_eq) as Hinv.
+        by inversion Hinv; subst.
+      }
+      {
+        iPureIntro.
+        rewrite length_app in Hfsz.
+        unfold fe in Hfsz.
+        change @seq.map with @map in Hfsz.
+        lia.
+      }
+      {
+        iIntros (e' f' vs vsf).
+        repeat iIntros "@".
+        let Q := open_constr:(_ : iProp Σ) in
+          instantiate (1 := (λ f0 vs0, ∃ e' vsf,
+                              (* stuff to say about e' f0 and vs0 *)
+                              ⌜f0 = mk_load_frame fe f wl vsf⌝ ∗
+                              ⌜Forall2 (λ (ι : atomic_rep) (vf : value), types_agree (translate_arep ι) vf) ιs vsf⌝ ∗
+                              ([∗ list] o0;v ∈ os';vs0, ⌜atom_copyable o0⌝ -∗ atom_interp o0 v) ∗
+                              rt_token rti sr e' ∗
+                              (* evar for collecting everything else *)
+                              (* make sure nothing that goes in here mentions e', f', or vs! *)
+                              Q)%I).
+        iExists e', vsf.
+        iFrame "Hos Htok".
+        iSplit; first done.
+        iSplit; first done.
+        (* accumulates everything in the evar *)
+        iNamedAccu.
+      }
+      iApply (cwp_seq with "[Hinit Hf Hrun]");
+        first iApply ("Hinit" with "[$] [$]").
+      iIntros (f' vs') "(%e' & %vsf & -> & %Hvsf & Hos & Htok & @ & @ & @ & @) Hf Hr".
+      iApply cwp_val_app; first eauto using has_values_to_consts.
+      iEval (erewrite <- (load_frame_inst fe f wl vsf)) in "Hregf".
+      iApply (wp_load1_copy_mm with "[$] [$] [$] [$] [$] [$] [$]").
+      all:try eauto || iPureIntro.
+      + admit.
+      + admit.
+      + admit.
+      + admit.
+      + rewrite load_frame_inst.
+        eauto.
+      + rewrite load_frame_inst.
+        eauto.
+      + iIntros (e'' f'' vf v) "@@@@@@@@".
         unfold fvs_combine.
-        replace (vs' ++ [v']) with (seq.rcons vs' v')
-          by (rewrite <- seq.cats1; done).
-        iDestruct "Hpost" as "(%Hvsvs' & Hpost)".
-        iApply ("HΦ" with "[] [$Hown] [$] [$] [Hpts Hpt] [-]").
+        iApply ("HΦ" with "[] [] [$] [$] [$] [$] [Hregf] [Ho Hos]").
         * iPureIntro.
-          rewrite Hinst.
-          apply frame_ext.
-          -- rewrite !load_frame_inst. done.
-          -- unfold mk_load_frame, mk_load1_frame.
-             rewrite !imap_rcons !seq.foldl_rcons.
-             cbn.
-             rewrite length_app length_map.
-             replace (length ιs) with (length vs''); first done.
-             erewrite (Forall2_length _ _ _ Hareps).
-             admit.
-        * rewrite seq.foldl_rcons.
-          cbn.
-          rewrite !Heqf big_sepL2_rcons.
-          rewrite -(Hfolds ιs off off' offs ltac:(eauto)).
+          instantiate (1:=vsf ++ [vf]).
+          rewrite Hf'.
+          rewrite -mk_frame_rcons.
+          f_equal.
+          rewrite length_app length_map.
+          f_equal.
+          eapply Forall2_length; eapply Hvsf.
+        * iPureIntro; rewrite rcons_app.
+          apply Forall2_app; eauto.
+        * by rewrite load_frame_inst.
+        * rewrite Hos_eq -rcons_app big_sepL2_rcons.
           iFrame.
-        * unfold mk_load_post.
-          iSplit; first by rewrite !seq.size_rcons Hvsvs'.
-          rewrite seq.zip_rcons; last done.
-          rewrite big_sepL2_rcons.
-          iFrame.
-        *)
   Admitted.
 
-  Lemma wp_mem_load_copy_mm fe lidx ιs off wt wl ret wt' wl' es :
-    run_codegen (memory.load mr fe MemMM Copy lidx off ιs) wt wl = inr (ret, wt', wl', es) ->
-    ret = tt /\
-    wt' = [] ∧
-    wl' = map translate_arep ιs ∧
-    ∀ ℓ ℓ32 memidx memidxN f E,
-      N_i32_repr ℓ ℓ32 →
-      inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some memidx →
-      inst_memory (f_inst f) !! memimm (mr_gcmem mr) = Some (sr_mem_gc sr) →
-      N_nat_repr memidx memidxN →
-      ↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E →
-      f_locs f !! localimm lidx = Some (VAL_int32 ℓ32) →
-      localimm lidx < fe_wlocal_offset fe + length wl ->
-      fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f) ->
-      ∀ os nss nss32 vs,
-        Forall2 has_arep ιs os →
-        Forall2 (Forall2 N_i32_repr) nss nss32 ->
-        congeal_atoms ιs nss32 = Some vs ->
-        ref_flag_atoms_interp GCRefs (SAtoms os) ->
-        ⊢ ∀ e,
-          na_own logrel_nais E  -∗
-          rt_token rti sr e -∗
-          instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-          ([∗ list] o; ns ∈ os; nss, words_interp e MemMM (serialize_atom o) ns) -∗
-          let offs := snd $ seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
-                                                     (off, []) ιs in
-          ([∗ list] off'; v ∈ offs; vs, memidxN ↦[wms][ℓ + byte_offset MemMM off'] bits v) -∗
-          ∀ Φ B R,
-            ↪[frame] f -∗
-            ↪[RUN] -∗
-            (∀ f' e' vs',
-              ⌜f' = mk_load_frame fe f wl vs⌝ -∗
-              na_own logrel_nais E  -∗
-              rt_token rti sr e' -∗
-              instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-              ([∗ list] off'; v ∈ offs; vs, memidxN ↦[wms][ℓ + byte_offset MemMM off'] bits v) -∗
-              mk_load_post os vs vs' -∗
-              Φ f' vs') -∗
-            CWP es @ E UNDER B; R {{ Φ }}.
+  Lemma wp_mem_load_copy_mm (se : @semantic_env Σ) F lidx ιs :
+    let fe := fe_of_context F in
+    ∀ off wt wl ret wt' wl' es,
+      run_codegen (memory.load mr fe MemMM Copy lidx off ιs) wt wl = inr (ret, wt', wl', es) ->
+      let offs := snd $ seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
+                    (off, []) ιs in
+      let offs_szs := seq.zip offs (map arep_size ιs) in
+      ret = () /\
+      wt' = [] ∧
+      wl' = map translate_arep ιs ∧
+      ∀ f ℓ a32 a os ws E B R e Φ,
+    ⊢ "Hptr" ∷ ℓ ↦heap ws -∗
+      "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+      "Hown"  ∷ na_own logrel_nais E -∗
+      "Htok"  ∷ rt_token rti sr e -∗
+      "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+      "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
+      "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+      "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
+      "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
+      "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+      "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
+      "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
+      "HΦ" ∷
+        (∀ e' f' vs vsf,
+           "%Hf'"     ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
+           "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
+           "Hptr"  ∷ ℓ ↦heap ws -∗
+           "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+           "Hown"  ∷ na_own logrel_nais E -∗
+           "Htok"  ∷ rt_token rti sr e' -∗
+           "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+           "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
+           Φ f' vs) -∗
+      "Hf" ∷ ↪[frame] f -∗
+      "Hrun" ∷ ↪[RUN] -∗
+      CWP es @ E UNDER B; R {{ Φ }}.
   Proof.
     unfold memory.load.
-    intros Hcg.
+    intros * Hcg.
     apply wp_ignore in Hcg.
     destruct Hcg as (-> & off' & Hcg).
-    apply wp_mem_load_copy_mm_inner in Hcg.
+    pose proof (wp_mem_load_copy_mm_inner se _ _ _ _ _ _ _ _ _ _ Hcg) as (-> & U & V & W).
     tauto.
   Qed.
 End load.

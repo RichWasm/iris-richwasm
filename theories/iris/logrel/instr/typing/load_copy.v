@@ -108,15 +108,6 @@ Section load_copy.
   Proof.
   Admitted.
 
-  Lemma flat_map_rcons X Y (f : X -> list Y) xs x :
-    flat_map f (seq.rcons xs x) = flat_map f xs ++ f x.
-  Proof.
-    revert x.
-    induction xs; cbn; intros.
-    - by clear_nils.
-    - by rewrite -app_assoc IHxs.
-  Qed.
-
   Lemma length_bits_words ns32 :
     length (flat_map bits (map VAL_int32 ns32)) = 4 * length ns32.
   Proof.
@@ -137,15 +128,6 @@ Section load_copy.
     replace (N.of_nat 4) with (4%N) by done.
     intros.
     destruct μ; cbn; lia.
-  Qed.
-
-  Lemma rcons_app {X} : forall (xs : list X) x,
-      seq.rcons xs x = xs ++ [x].
-  Proof.
-    induction xs; intros x.
-    - reflexivity.
-    - cbn.
-      by rewrite IHxs.
   Qed.
 
   Lemma drop_rcons_le {X} : forall n (xs : list X) x,
