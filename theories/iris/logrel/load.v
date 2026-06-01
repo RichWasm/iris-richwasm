@@ -1539,6 +1539,36 @@ Section load.
   Proof.
   Admitted.
 
+  Lemma load_fold_offs_len ιs : ∀ off' offs' off offs,
+    seq.foldl (λ '(off, offs) ι, (off + arep_size ι, seq.rcons offs off)) (off, offs) ιs = (off', offs') ->
+    length offs' = length ιs + length offs.
+  Proof.
+    change @length with @seq.size.
+    induction ιs as [| ιs ι] using seq.last_ind; intros * Hfold.
+    - by inversion Hfold.
+    - rewrite seq.foldl_rcons in Hfold.
+      destruct (seq.foldl _ _ _) as [off0 offs0] eqn:?.
+      inversion Hfold; subst; clear Hfold.
+      eapply IHιs in Heqy.
+      rewrite !seq.size_rcons.
+      lia.
+  Qed.
+
+  Lemma simple_fold_fancy_fold ιs : ∀ off' offs' off offs,
+    seq.foldl (λ '(off, offs) ι, (off + arep_size ι, seq.rcons offs off)) (off, offs) ιs = (off', offs') ->
+    seq.foldl (λ off' ι, off' + arep_size ι) off ιs = off'.
+  Proof.
+  Admitted.
+
+  Lemma simple_fold_sum_list_with ιs : ∀ off,
+    seq.foldl (λ off' ι, off' + arep_size ι) off ιs = off + sum_list_with arep_size ιs.
+  Admitted.
+
+  Lemma sum_list_with_rcons {X : Type} (f : X -> nat) (x : X) (xs : list X) :
+    sum_list_with f (seq.rcons xs x) = f x + sum_list_with f xs.
+  Proof.
+  Admitted.
+
   Lemma wp_mem_load_copy_mm_inner (se : @semantic_env Σ) F lidx ιs :
     let fe := fe_of_context F in
     ∀ off wt wl ret wt' wl' es,
@@ -1566,6 +1596,7 @@ Section load.
       "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
       "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
       "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
+      "%Hlidx_bdd" ∷ ⌜localimm lidx < fe_wlocal_offset fe + length wl⌝ -∗
       "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
       "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
       "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
@@ -1629,12 +1660,13 @@ Section load.
         as [off0 offs0] eqn:?Hfold.
       assert (seq.size offs0 = seq.size ιs).
       {
-        admit.
+        erewrite load_fold_offs_len; eauto.
+        by rewrite Nat.add_0_r.
       }
       iPoseProof (Hinit with "[$] [$] [$] [$] [$]") as "Hinit".
       clear Hinit.
       repeat iPoseProof ("Hinit" with "[//]") as "Hinit".
-      iSpecialize ("Hinit" with "[] [//] [] [//] [] [//] [//] [//] [//] [//] [//] [//]");
+      iSpecialize ("Hinit" with "[] [//] [] [//] [] [//] [//] [//] [//] [//] [//] [//] [//]");
       last iSpecialize ("Hinit" with "[]").
       {
         iPureIntro.
@@ -1684,12 +1716,32 @@ Section load.
       iIntros (f' vs') "(%e' & %vsf & -> & %Hvsf & Hos & Htok & @ & @ & @ & @) Hf Hr".
       iApply cwp_val_app; first eauto using has_values_to_consts.
       iEval (erewrite <- (load_frame_inst fe f wl vsf)) in "Hregf".
+      pose proof Hfold as Hfold'.
+      apply simple_fold_fancy_fold in Hfold'.
+      replace offs with (seq.rcons offs0 off0) in *;
+        last by rewrite /offs Heqbig_fold.
       iApply (wp_load1_copy_mm with "[$] [$] [$] [$] [$] [$] [$]").
       all:try eauto || iPureIntro.
-      + admit.
-      + admit.
-      + admit.
-      + admit.
+      + rewrite simple_fold_sum_list_with.
+        rewrite sum_list_with_rcons in Hbound.
+        lia.
+      + rewrite Hsero.
+        revert Hoffs_szs_eq.
+        change @map with @seq.map.
+        rewrite seq.map_rcons.
+        rewrite seq.zip_rcons;
+          last by rewrite seq.size_map.
+        intros Heq.
+        apply seq.rcons_inj in Heq.
+        inversion Heq; subst off'.
+        f_equal.
+        symmetry; eapply simple_fold_fancy_fold; eauto.
+      + revert Hfsz.
+        change @seq.map with @map.
+        rewrite length_app load_frame_length; cbn.
+        rewrite length_app.
+        lia.
+      + rewrite mk_load_frame_stable_part; done.
       + rewrite load_frame_inst.
         eauto.
       + rewrite load_frame_inst.
@@ -1710,7 +1762,7 @@ Section load.
         * by rewrite load_frame_inst.
         * rewrite Hos_eq -rcons_app big_sepL2_rcons.
           iFrame.
-  Admitted.
+  Qed.
 
   Lemma wp_mem_load_copy_mm (se : @semantic_env Σ) F lidx ιs :
     let fe := fe_of_context F in
@@ -1735,6 +1787,7 @@ Section load.
       "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
       "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
       "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
+      "%Hlidx_bdd" ∷ ⌜localimm lidx < fe_wlocal_offset fe + length wl⌝ -∗
       "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
       "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
       "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
