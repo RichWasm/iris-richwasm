@@ -289,6 +289,9 @@ Section kinding.
       by inversion Heval_kind.
     - intros ?? Hse Heval_kind Htype_skind.
       inversion Htype_skind.
+      by inversion Heval_kind.
+    - intros ?? Hse Heval_kind Htype_skind.
+      inversion Htype_skind.
       inversion Heval_kind.
       apply bind_Some in H0 as (n0 & Heval_rep0 & Hsκ0).
       apply bind_Some in H1 as (n & Heval_rep & Hsκ).

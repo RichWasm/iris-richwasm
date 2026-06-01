@@ -83,6 +83,9 @@ Section load.
     - subst κ0.
       split; try congruence.
       inversion Heqref; eauto.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
   Qed.
 
   Lemma Z_even_mod_even :

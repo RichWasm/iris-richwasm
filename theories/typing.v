@@ -358,11 +358,15 @@ Inductive has_kind : function_ctx -> type -> kind -> Prop :=
   Forall3 (fun τ σ ξ => has_kind F τ (MEMTYPE σ ξ)) τs σs ξs ->
   let κ := MEMTYPE (ProdS σs) (ref_flag_lub ξs) in
   has_kind F (StructT κ τs) κ
-| KRef F μ β τ σ ξ :
-  mem_ok F.(fc_kind_ctx) μ ->
+| KRefVar F m β τ σ ξ :
+  mem_ok F.(fc_kind_ctx) (VarM m) ->
   has_kind F τ (MEMTYPE σ ξ) ->
   let κ := VALTYPE (AtomR PtrR) AnyRefs in
-  has_kind F (RefT κ μ β τ) κ
+  has_kind F (RefT κ (VarM m) β τ) κ
+| KRefMM F β τ σ ξ :
+  has_kind F τ (MEMTYPE σ ξ) ->
+  let κ := VALTYPE (AtomR PtrR) AnyRefs in
+  has_kind F (RefT κ (BaseM MemMM) β τ) κ
 | KRefGC F β τ σ ξ :
   has_kind F τ (MEMTYPE σ ξ) ->
   let κ := VALTYPE (AtomR PtrR) GCRefs in
@@ -435,10 +439,13 @@ Section HasKindInd.
       (HStruct : forall F τs σs ξs, Forall3 (fun τ σ ξ => P F τ (MEMTYPE σ ξ)) τs σs ξs ->
                                let κ := MEMTYPE (ProdS σs) (ref_flag_lub ξs) in
                                P F (StructT κ τs) κ)
-      (HRef : forall F μ β τ σ ξ, mem_ok F.(fc_kind_ctx) μ ->
-                             P F τ (MEMTYPE σ ξ) ->
+      (HRefVar : forall F m β τ σ ξ, mem_ok F.(fc_kind_ctx) (VarM m) ->
+                                P F τ (MEMTYPE σ ξ) ->
+                                let κ := VALTYPE (AtomR PtrR) AnyRefs in
+                                P F (RefT κ (VarM m) β τ) κ)
+      (HRefMM : forall F β τ σ ξ, P F τ (MEMTYPE σ ξ) ->
                              let κ := VALTYPE (AtomR PtrR) AnyRefs in
-                             P F (RefT κ μ β τ) κ)
+                             P F (RefT κ (BaseM MemMM) β τ) κ)
       (HRefGC : forall F β τ σ ξ, P F τ (MEMTYPE σ ξ) ->
                              let κ := VALTYPE (AtomR PtrR) GCRefs in
                              P F (RefT κ (BaseM MemGC) β τ) κ)
@@ -488,7 +495,8 @@ Section HasKindInd.
         HProd F τs ρs ξs (Forall3_impl _ _ _ _ _ H1 (fun τ ρ ξ => has_kind_ind' _ _ _))
     | KStruct F τs σs ξs H1 =>
         HStruct F τs σs ξs (Forall3_impl _ _ _ _ _ H1 (fun τ σ ξ => has_kind_ind' _ _ _))
-    | KRef F μ β τ σ ξ H1 H2 => HRef F μ β τ σ ξ H1 (has_kind_ind' _ _ _ H2)
+    | KRefVar F m β τ σ ξ H1 H2 => HRefVar F m β τ σ ξ H1 (has_kind_ind' _ _ _ H2)
+    | KRefMM F β τ σ ξ H1 => HRefMM F β τ σ ξ (has_kind_ind' _ _ _ H1)
     | KRefGC F β τ σ ξ H1 => HRefGC F β τ σ ξ (has_kind_ind' _ _ _ H1)
     | KCodeRef F ϕ H1 => HCodeRef F ϕ H1
     | KSer F τ ρ ξ H1 => HSer F τ ρ ξ (has_kind_ind' _ _ _ H1)
@@ -514,6 +522,7 @@ Lemma has_kind_inv F τ κ : has_kind F τ κ -> has_kind_ok F τ κ.
 Proof.
   intros H.
   induction H using has_kind_ind'; repeat constructor; try inversion IHhas_kind; try done.
+  13: by inversion H.
   13, 14: by inversion H0.
   13: by econstructor.
   all: apply Forall_forall; intros ? Hin; apply list_elem_of_lookup in Hin as [??].

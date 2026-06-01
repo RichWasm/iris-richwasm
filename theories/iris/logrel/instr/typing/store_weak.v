@@ -30,6 +30,9 @@ Section store_weak.
     - subst κ0.
       split; try congruence.
       inversion Heqref; eauto.
+    - subst κ0.
+      split; try congruence.
+      inversion Heqref; eauto.
   Qed.
 
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :

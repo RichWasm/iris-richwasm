@@ -1395,8 +1395,8 @@ Proof.
 
 
   (* a few slightly special ones *)
-  [RefTVar]: do_it H; eapply KRef; done.
-  [RefTMM]: do_it H; eapply KRef; done.
+  [RefTVar]: do_it H; eapply KRefVar; done.
+  [RefTMM]: do_it H; eapply KRefMM; done.
   [RefTGC]: do_it H; eapply KRefGC; done.
 
 

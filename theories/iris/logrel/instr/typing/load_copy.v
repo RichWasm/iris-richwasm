@@ -60,6 +60,10 @@ Section load_copy.
       inversion Href.
       subst.
       by exists σ, ξ.
+    - subst κ.
+      inversion Href.
+      subst.
+      by exists σ, ξ.
   Qed.
 
   Lemma mono_size_eval_emp_Some σ :
