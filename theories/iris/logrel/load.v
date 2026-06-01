@@ -431,6 +431,69 @@ Section load.
     }
   Qed.
 
+  Lemma wp_unregisterroot wt wl ret wt' wl' es_unregister :
+    run_codegen (unregisterroot mr) wt wl = inr (ret, wt', wl', es_unregister) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+      ∀ θ evs tar tar32 ar,
+        repr_root_pointer (RootHeap MemGC ar) tar ->
+        N_i32_repr tar tar32 ->
+        has_values evs [VAL_int32 tar32] ->
+      ⊢ ∀ f B R s E Φ ℓ,
+        ar ↦root ℓ -∗
+        (∀ θ',
+           rt_token rti sr θ' -∗ na_own logrel_nais E -∗
+           instance_rt_func_interp mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot rti sr) f.(f_inst) -∗
+           Φ f []) -∗
+        ↪[frame] f -∗
+        ↪[RUN] -∗
+        ⌜↑ns_fun (N.of_nat (sr_func_unregisterroot sr)) ⊆ E⌝ -∗
+        na_own logrel_nais E  -∗
+        rt_token rti sr θ -∗
+        instance_rt_func_interp mr.(mr_func_unregisterroot) sr.(sr_func_unregisterroot) (spec_unregisterroot rti sr) f.(f_inst) -∗
+        CWP evs ++ es_unregister @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    unfold unregisterroot.
+    intros Hcg.
+    inv_cg_emit Hcg; subst.
+    repeat (split; first done).
+
+
+    intros * Hrootptr Hrtar Hevs.
+    iIntros (f B R s E Φ ℓ) "Hroot HΦ Hf Hrun %HE Htok Hrt Hreg".
+    apply Is_true_true in Hevs.
+    rewrite (has_values_to_consts_inv _ _ Hevs).
+    clear Hevs evs.
+    unfold instance_rt_func_interp.
+    iDestruct "Hreg" as "(%cl & %Hregspc & %Hcl & #Hinv)".
+    iPoseProof (na_inv_acc with "Hinv Htok") as "Hopen"; eauto.
+    iApply fupd_cwp.
+    iMod "Hopen".
+    unfold spec_unregisterroot in Hregspc.
+    iDestruct "Hopen" as "[Hop Hcl]".
+    iDestruct "Hcl" as "[Htok Hsave]".
+    iMod "Hop".
+    iModIntro.
+    iAssert ((▷ N.of_nat (sr_func_unregisterroot sr)↦[wf]cl ={E}=∗ na_own logrel_nais E)%I) with "[Hsave Htok]" as "Hsave".
+    {
+      iIntros "Hcl".
+      iApply "Hsave".
+      iFrame.
+    }
+    iApply (cwp_wand_strong with "[Hrt Hop Hf Hrun Hroot]").
+    { iApply (Hregspc with "[$] [$] [$] [$] [$]"); eauto. }
+    { eauto. }
+    { eauto. }
+    {
+      cbn.
+      iIntros (f' v) "(<- & <- & Hcl' & [%θ' Hrt])".
+      iSpecialize ("Hsave" with "Hcl'").
+      iMod "Hsave".
+      iApply ("HΦ" with "[$] [$] [-]").
+      iExists _; eauto.
+    }
+  Qed.
   (*
    The duproot lemma doesn't hang on to the root resource.
    *)
