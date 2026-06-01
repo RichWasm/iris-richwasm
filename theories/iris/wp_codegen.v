@@ -1,9 +1,9 @@
 Require Import iris.proofmode.proofmode.
 
 From stdpp Require Import list.
-From RichWasm Require Import syntax typing util.
+From RichWasm Require Import syntax typing runtime util.
 From RichWasm.compiler Require Import prelude accum codegen memory.
-From RichWasm.iris Require Import autowp cwp lenient_wp logpred.
+From RichWasm.iris Require Import autowp cwp lenient_wp logpred memory util numerics.
 Require Import RichWasm.iris.logrel.
 
 Module W := RichWasm.wasm.operations.
@@ -15,8 +15,11 @@ Section CodeGen.
   Context `{!logrel_na_invs Σ}.
   Context `{!wasmG Σ}.
   Context `{!rwasm_gcG Σ}.
+  Context `{!richwasmG Σ}.
 
   Variable mr : module_runtime.
+  Variable sr : store_runtime.
+  Variable rti : rt_invariant Σ.
 
   Lemma wp_if_c {A B} s E tf (c1 : codegen A) (c2 : codegen B) wt wt' wl wl' es x y :
     run_codegen (if_c tf c1 c2) wt wl = inr (x, y, wt', wl', es) ->
@@ -1109,5 +1112,73 @@ Section CodeGen.
       done.
   Qed.
 
+  Lemma cwp_setflag i fl Φ B R s E esv wt wl wt' wl' es_setflag fr ℓ fs μ θ ta ta32 j32 :
+    run_codegen (setflag mr i fl) wt wl = inr (tt, wt', wl', es_setflag) ->
+    nat_i32_repr i j32 ->
+    N_i32_repr ta ta32 ->
+    repr_pointer θ (PtrHeap μ ℓ) ta ->
+    has_values esv [VAL_int32 ta32] ->
+    wt' = [] /\
+    wl' = [] /\
+    ⊢ ℓ ↦layout fs -∗
+      (∀ θ',
+         rt_token rti sr θ' -∗ na_own logrel_nais E -∗
+         instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+         ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
+         Φ fr []) -∗
+      ↪[frame] fr -∗
+      ↪[RUN] -∗
+      ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
+      na_own logrel_nais E -∗
+      rt_token rti sr θ -∗
+      instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+      CWP esv ++ es_setflag @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg Hindex Hheap_addr Hrepr_ptr Hhv.
+    inv_cg_bind Hcg () ?wt ?wt ?wl ?wl ?es ?es Hcg1 Hcg2; subst.
+    inv_cg_bind Hcg2 () ?wt ?wt ?wl ?wl ?es ?es Hcg2 Hcg3; subst.
+    inv_cg_emit Hcg1; subst.
+    inv_cg_emit Hcg2; subst.
+    inv_cg_emit Hcg3; subst.
+    clear_nils.
+    do 2 split; first done.
+    iIntros "Hroot HΦ Hframe Hrun %HE Htok Hrt Hsetflag".
+
+    apply has_values_iff_to_consts in Hhv; subst.
+    simpl.
+
+    unfold instance_rt_func_interp.
+    iDestruct "Hsetflag" as "(%cl & %Hsetflagspec & %Hcl & #Hinv)".
+    iPoseProof (na_inv_acc with "Hinv Htok") as "Hopen"; eauto.
+    iApply fupd_cwp.
+    iMod "Hopen".
+    unfold spec_setflag in Hsetflagspec.
+    iDestruct "Hopen" as "[Hop Hcl]".
+    iDestruct "Hcl" as "[Htok Hsave]".
+    iMod "Hop".
+    iModIntro.
+    iAssert ((▷ N.of_nat (sr_func_setflag sr)↦[wf]cl ={E}=∗ na_own logrel_nais E)%I) with "[Hsave Htok]" as "Hsave".
+    {
+      iIntros "Hcl".
+      iApply "Hsave".
+      iFrame.
+    }
+    iApply (cwp_wand_strong with "[Hrt Hop Hframe Hrun Hroot]").
+    { iApply (Hsetflagspec with "[$] [$] [$] [$]"); eauto.
+      instantiate (1 := i). unfold nat_i32_repr.
+      admit.
+    }
+    { eauto. }
+    { eauto. }
+    {
+      cbn.
+      iIntros (??) "(<- & <- & Hlayout & Hcl' & [%θ' Hrt])".
+      iSpecialize ("Hsave" with "Hcl'").
+      iMod "Hsave".
+      iApply ("HΦ" with "[$] [$] []").
+      iExists _; eauto.
+      done.
+    }
+  Admitted.
 
 End CodeGen.

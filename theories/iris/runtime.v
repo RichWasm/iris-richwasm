@@ -71,7 +71,7 @@ Section Runtime.
       repr_pointer θ (PtrHeap μ ℓ) ta ->
       f.(f_inst).(inst_funcs) !! i = Some sr.(sr_func_setflag) ->
       ℓ ↦layout fs -∗
-      N.of_nat sr.(sr_func_setflag) ↦[wf] cl ∗
+      N.of_nat sr.(sr_func_setflag) ↦[wf] cl -∗
       rt_token rti sr θ -∗
       ↪[frame] f -∗
       ↪[RUN] -∗
