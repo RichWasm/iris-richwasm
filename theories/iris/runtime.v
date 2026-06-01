@@ -80,7 +80,7 @@ Section Runtime.
         {{ f'; vs,
            ⌜f = f'⌝ ∗ ⌜vs = []⌝ ∗
              ℓ ↦layout <[ j := flag_of_i32 fl ]> fs ∗
-             N.of_nat sr.(sr_func_setflag) ↦[wf] cl ∗ (∃ θ', rt_token rti sr θ') }}.
+             N.of_nat sr.(sr_func_setflag) ↦[wf] cl ∗ rt_token rti sr θ }}.
 
   Definition spec_registerroot (cl : function_closure) : Prop :=
     forall s E B R f i θ ℓ tah tah32,
@@ -93,7 +93,7 @@ Section Runtime.
       ↪[RUN] -∗
       CWP [BI_const (VAL_int32 tah32); BI_call i] @ s; E UNDER B; R
           {{ f'; vs,
-             ⌜f = f'⌝ ∗ N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗ (∃ θ', rt_token rti sr θ') ∗
+             ⌜f = f'⌝ ∗ N.of_nat sr.(sr_func_registerroot) ↦[wf] cl ∗ rt_token rti sr θ ∗
                ∃ ar tar tar32,
                  ⌜vs = [VAL_int32 tar32]⌝ ∗
                    ⌜N_i32_repr tar tar32⌝ ∗
@@ -113,6 +113,6 @@ Section Runtime.
       CWP [BI_const (VAL_int32 tar32); BI_call i] @ s; E UNDER B; R
           {{ f'; vs,
              ⌜f = f'⌝ ∗ ⌜vs = []⌝ ∗
-               N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl ∗ (∃ θ', rt_token rti sr θ') }}.
+               N.of_nat sr.(sr_func_unregisterroot) ↦[wf] cl ∗ rt_token rti sr θ }}.
 
 End Runtime.
