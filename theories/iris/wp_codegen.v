@@ -1118,6 +1118,7 @@ Section CodeGen.
     N_i32_repr ta ta32 ->
     repr_pointer θ (PtrHeap μ ℓ) ta ->
     has_values esv [VAL_int32 ta32] ->
+    (* TODO: conclude early that the lists are empty *)
     wt' = [] /\
     wl' = [] /\
     ⊢ ℓ ↦layout fs -∗
