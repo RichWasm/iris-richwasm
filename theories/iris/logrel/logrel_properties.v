@@ -1422,13 +1422,14 @@ Section properties.
   Qed.
 
   Lemma skind_rec_interp_unfold sκ T (se: semantic_env (Σ:=Σ)) sv :
-    skind_rec_interp sκ T se sv ≡ (▷ T (senv_insert_type sκ (skind_rec_interp sκ T se) se) sv)%I.
+    skind_rec_interp sκ T se sv ≡ skind_rec_interp1 sκ T se (skind_rec_interp sκ T se) sv.
   Proof.
     simpl.
-    set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ, λne sv0 : leibnizO semantic_value, (▷ T (se.1, (sκ, T0) :: se.2) sv0)%I).
-     etransitivity.
-     - exact (fixpoint_unfold f sv).
-     - simpl. reflexivity.
+    set f := (λ T0 : leibnizO semantic_value -n> iPropO Σ, skind_rec_interp1 sκ T se T0)%I.
+    etransitivity.
+    - rewrite (fixpoint_unfold f sv).
+      reflexivity.
+    - done.
   Qed.
 
   (* this is going to need some sκ κ things *)

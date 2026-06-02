@@ -784,7 +784,39 @@ Section instr.
 
   Instance skind_rec_interp1_contractive sκ T se : Contractive (skind_rec_interp1 sκ T se).
   Proof.
-  Admitted.
+    unfold skind_rec_interp1.
+    assert (∀ sv, NonExpansive (λ T', T (senv_insert_type sκ T' se) sv))
+      by solve_proper.
+    destruct sκ as [l r | n r] eqn:Hsk; destruct r; unfold skind_rec_interp1; cbn.
+    - repeat intros ?.
+      cbn.
+      f_equiv.
+      eapply later_contractive.
+      eapply (ne_dist_later (λ svr, (T (se.1, (_, svr) :: se.2) x0))); done.
+    - repeat intros ?.
+      cbn.
+      f_equiv.
+      eapply later_contractive.
+      eapply (ne_dist_later (λ svr, (T (se.1, (_, svr) :: se.2) x0))); done.
+    - repeat intros ?.
+      cbn.
+      eapply later_contractive.
+      eapply (ne_dist_later (λ svr, (T (se.1, (_, svr) :: se.2) x0))); done.
+    - repeat intros ?.
+      cbn.
+      f_equiv.
+      eapply later_contractive.
+      eapply (ne_dist_later (λ svr, (T (se.1, (_, svr) :: se.2) x0))); done.
+    - repeat intros ?.
+      cbn.
+      f_equiv.
+      eapply later_contractive.
+      eapply (ne_dist_later (λ svr, (T (se.1, (_, svr) :: se.2) x0))); done.
+    - repeat intros ?.
+      cbn.
+      eapply later_contractive.
+      eapply (ne_dist_later (λ svr, (T (se.1, (_, svr) :: se.2) x0))); done.
+  Qed.
 
   Program Definition skind_rec_interp sκ : semantic_type -n> semantic_type :=
     λne T se, fixpoint (skind_rec_interp1 sκ T se).

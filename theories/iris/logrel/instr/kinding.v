@@ -631,7 +631,9 @@ Section kinding.
     iIntros (Hhas_kind Hse Heval_kind).
     split.
     - by eapply kinding_sound_ref_flag.
-    - intros sv. by eapply kinding_sound_svalue.
+    - intros sv.
+      iIntros "Hval".
+      iApply kinding_sound_svalue; eauto.
   Qed.
 
 End kinding.
