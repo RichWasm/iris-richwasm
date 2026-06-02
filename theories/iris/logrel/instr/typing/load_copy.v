@@ -495,11 +495,30 @@ Section load_copy.
       eapply eval_size_ok_Some in H1; eauto.
       destruct H1 as (n & Hevsz).
       rewrite Hevsz in Hev; cbn in Hev; inversion Hev; clear Hev.
-      inversion Hsk; subst.
+      subst.
       assert (has_mono_size F (pr_target pr)).
       {
+        unfold ψ in *.
+        destruct Htype as [Hmono Htype].
+        cbn in Hmono.
+        destruct Hmono as [Hmonopre Hmonopost].
+        inversion Hmonopost; subst.
+        inversion H2; subst.
+        destruct H3 as (ρ' & Hhas & _).
+        inversion Hhas; subst.
+        eapply KSer in H.
+        eexists.
+        eauto.
+        rewrite Hser.
+        eapply type_kind_has_kind_agree:
+        inversion H3.
+        rewrite Hser.
+        eexists.
+        - eapply KSer.
+
         (* TODO Have to show the SerT targeted by the path has a mono size. *)
         admit.
+
       }
       assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
         as [k' Hsztgt].
@@ -548,10 +567,10 @@ Section load_copy.
       cbn in Hsval'.
       assert (Hkindok': kind_ok (fc_kind_ctx F) (VALTYPE ρ ξtgt')).
       {
-        constructor.
-        eauto.
-        (* TODO Have to show the kind is well formed. *)
-        admit.
+        match goal with
+        | H : has_kind _ _ (VALTYPE ρ ξtgt') |- _ =>
+            eapply has_kind_inv in H; now inversion H
+        end.
       }
       eapply eval_kind_ok_Some in Hkindok'; eauto.
       destruct Hkindok' as (sk' & Hkeval).
@@ -858,10 +877,10 @@ Section load_copy.
       cbn in Hsval'.
       assert (Hkindok': kind_ok (fc_kind_ctx F) (VALTYPE ρ ξtgt')).
       {
-        constructor.
-        eauto.
-        (* TODO Have to show the kind is well formed. *)
-        admit.
+        match goal with
+        | H : has_kind _ _ (VALTYPE ρ ξtgt') |- _ =>
+            eapply has_kind_inv in H; now inversion H
+        end.
       }
       eapply eval_kind_ok_Some in Hkindok'; eauto.
       destruct Hkindok' as (sk' & Hkeval).
@@ -886,7 +905,7 @@ Section load_copy.
       iMod (na_inv_acc with "Hinv Hown") as "U"; eauto.
       iDestruct "U" as "([Hℓl Hℓh] & Hown & Hcloseℓ)".
       iMod "Hℓh".
-      iPoseProof (Hload _ _ _ _ _ _ (⊤ ∖ ↑ns_ref ℓ) with "[$]") as "Hload"; clear Hload.
+      iPoseProof (Hload _ _ _ _ _  with "[$]") as "Hload"; clear Hload.
       repeat (iSpecialize ("Hload" with "[$]") || iSpecialize ("Hload" with "[//]")).
       (* Problem with the mask E here. *)
       admit.
