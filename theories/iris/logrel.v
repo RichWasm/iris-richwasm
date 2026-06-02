@@ -767,33 +767,23 @@ Section instr.
   Qed.
 
   Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
-    (λne T se T0 sv,
-       ref_flag_stype_interp_iProp (skind_ref_flag sκ) T0 -∗
-       ▷ T (senv_insert_type sκ T0 se) sv)%I.
+    match skind_ref_flag sκ with
+    | AnyRefs => λne T se T0 sv, ▷ T (senv_insert_type sκ T0 se) sv
+    | _ => λne T se T0 sv, □ ▷ T (senv_insert_type sκ T0 se) sv
+    end%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    intros * T T' HT sv; cbn -[senv_insert_type].
-    unfold ref_flag_stype_interp_iProp.
-    solve_proper.
-  Qed.
   Next Obligation. solve_proper. Qed.
-  Final Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. solve_proper. Qed.
+  Next Obligation. done. Qed.
+  Final Obligation. done. Qed.
 
   Instance skind_rec_interp1_contractive sκ T se : Contractive (skind_rec_interp1 sκ T se).
   Proof.
-    unfold semantic_type in *.
-    repeat intros ?.
-    cbn.
-    f_equiv.
-    - unfold ref_flag_stype_interp_iProp.
-      destruct (skind_ref_flag sκ).
-      + f_equiv; intros sv.
-        admit.
-      + admit.
-      + admit.
-    - eapply later_contractive.
-      eapply (ne_dist_later (λ svr, T (senv_insert_type sκ svr se) x0)); [|done].
-      solve_proper.
   Admitted.
 
   Program Definition skind_rec_interp sκ : semantic_type -n> semantic_type :=
