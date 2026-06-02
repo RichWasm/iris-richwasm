@@ -1122,8 +1122,8 @@ Section CodeGen.
     wt' = [] /\
     wl' = [] /\
     ⊢ ℓ ↦layout fs -∗
-      (∀ θ',
-         rt_token rti sr θ' -∗ na_own logrel_nais E -∗
+      (
+         rt_token rti sr θ -∗ na_own logrel_nais E -∗
          instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
          ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
          Φ fr []) -∗
@@ -1166,20 +1166,179 @@ Section CodeGen.
     }
     iApply (cwp_wand_strong with "[Hrt Hop Hframe Hrun Hroot]").
     { iApply (Hsetflagspec with "[$] [$] [$] [$]"); eauto.
-      instantiate (1 := i). unfold nat_i32_repr.
+      instantiate (1 := i).
       admit.
     }
     { eauto. }
     { eauto. }
     {
       cbn.
-      iIntros (??) "(<- & <- & Hlayout & Hcl' & [%θ' Hrt])".
+      iIntros (??) "(<- & <- & Hlayout & Hcl' & Hrt)".
       iSpecialize ("Hsave" with "Hcl'").
       iMod "Hsave".
       iApply ("HΦ" with "[$] [$] []").
       iExists _; eauto.
       done.
     }
+  Admitted.
+
+ (* Mathias: this would be ideal phrasing for the pointer_flags lemma *)
+  Lemma cwp_setflag_temp i fl wt wl wt' wl' es_setflag ret :
+    run_codegen (setflag mr i fl) wt wl = inr (ret, wt', wl', es_setflag) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    ∀ Φ B R s E esv fr ℓ fs μ θ ta ta32 j32,
+    nat_i32_repr i j32 ->
+    N_i32_repr ta ta32 ->
+    repr_pointer θ (PtrHeap μ ℓ) ta ->
+    has_values esv [VAL_int32 ta32] ->
+    ⊢ ℓ ↦layout fs -∗
+      ↪[frame] fr -∗
+      ↪[RUN] -∗
+      ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
+      na_own logrel_nais E -∗
+      rt_token rti sr θ -∗
+      instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+      (
+         rt_token rti sr θ -∗ na_own logrel_nais E -∗
+         instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+         ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
+         Φ fr []) -∗
+      CWP esv ++ es_setflag @ s; E UNDER B; R {{ Φ }}.
+Proof. Admitted.
+
+(* done except for (a) adding in some sort of condition that all of the possible is are good i32s
+   and (b) an annoying "inserts commute if all indices are different" lemma under a foldr
+ *)
+  Lemma cwp_set_pointer_flags :
+    ∀ a fs i wt wl ret wt' wl' es_set_ptr_flags,
+    run_codegen (set_pointer_flags mr a i fs) wt wl =
+      inr(ret, wt', wl', es_set_ptr_flags) ->
+    ret = () /\ wt' = [] /\ wl' = [] /\
+    ∀ fr j32 ta ta32 θ μ ℓ,
+      nat_i32_repr i j32 ->
+      N_i32_repr ta ta32 ->
+      repr_pointer θ (PtrHeap μ ℓ) ta ->
+      fr.(f_locs) !! (localimm a) = Some (VAL_int32 ta32) ->
+    ⊢ ∀ s E B R Φ fsnew,
+      ℓ ↦layout fsnew -∗ (* top level, fsnew=fs; but for induction, need fresh *)
+      rt_token rti sr θ -∗
+      (* N.of_nat (sr_func_setflag sr) ↦[wf] cl -∗ *)
+      ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
+      na_own logrel_nais E -∗
+      ↪[frame] fr -∗
+      ↪[RUN] -∗
+      instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+      (  (* I need to relate fsnew2 to fsnew somehow *)
+        (* ℓ ↦layout fsnew2 -∗ *)
+        ℓ ↦layout
+          (foldr compose id
+            (map (λ '(ix, fx), <[ ix := flag_of_i32 (i32_of_flag fx)]>)
+                  (zip (seq i (length fs)) fs)) ) fsnew
+        -∗
+        rt_token rti sr θ -∗
+        ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
+        na_own logrel_nais E -∗
+        instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+        Φ fr []) -∗
+      CWP es_set_ptr_flags @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros a fs.
+    (* wp_mapM__cons once we actually start the induction *)
+    induction fs as [|f fs].
+    - intros * Hcg.
+      cbn in Hcg.
+      inversion Hcg; subst; clear Hcg.
+      repeat (split; first done).
+      (* this will change *)
+      intros.
+      iIntros (s E B R Φ fsnew) "Hℓ Hrt #Hnsfun Hown Hfr Hrun Hinst HΦ".
+      iApply (cwp_nil with "[$] [$] [-]").
+      (* note: after any change, this has to consume ALL resources in *)
+      (* context *)
+      iApply ("HΦ" with "[$] [$] [$] [$] [$]").
+      (* this will have the base case of Φ using the thing that must change a bunch *)
+    - intros * Hcg.
+      unfold set_pointer_flags in Hcg.
+      (* first, change the zip in Hcg to be better *)
+      change (zip (seq i (length (f :: fs))) (f :: fs)) with
+        ((i, f) :: (zip (seq (S i) (length fs))) fs) in *.
+
+
+      (* split apart hcg to only need to prove one thing *)
+      apply wp_mapM__cons in Hcg.
+      destruct Hcg as (ret_f & wt_f & wl_f & setflag_f &
+                       wt_fs & wl_fs & setflags_fs & Hcg_f & Hcg_fs &
+                       -> & Hwt' & Hwl' & Hes).
+      apply IHfs in Hcg_fs. clear IHfs.
+      destruct Hcg_fs as (_ & -> & -> & Hsetflags_fs).
+      clear_nils.
+      (* once again note that Hsetflags_fs is going to be different *)
+
+      (* okay now we need to do a bit of magic to Hcg_f. Just a bit. *)
+      inv_cg_bind Hcg_f emit ?wt ?wt ?wl ?wl  es_fail ?es_rest Hemit Hcg_f.
+      inv_cg_emit Hemit.
+      subst. clear_nils.
+
+      apply cwp_setflag_temp in Hcg_f.
+      destruct Hcg_f as (-> & -> & -> & Hcg_f).
+      repeat (split; first done).
+
+      (* okay now I need to use cwp_seq -> cwp_local_get *)
+      intros * Hi Hta Hrepr Hav.
+      iIntros (s E B R Φ fsnew) "Hℓ Hrt %Hnsfun Hown Hfr Hrun Hinst HΦ".
+      iApply (cwp_seq with "[Hfr Hrun]").
+      {
+        (* for cwp_local_get *)
+        iApply (cwp_local_get with "[] [$] [$]"); auto; first done.
+        instantiate (1:= λ f'' vs', (⌜f'' = fr /\ vs' = [VAL_int32 ta32]⌝)%I).
+        iModIntro. done.
+      }
+      cbn.
+      iIntros (fr' vs') "[-> ->] Hfr Hrun".
+      cbn.
+
+      change (?x :: ?y ++ ?z) with (([x] ++ y) ++ z).
+      iApply (cwp_seq with "[-]").
+      {
+        (* okay now we need v = VAL_int32 ta32 *)
+        (* where ta32 is the i32repr to ta *)
+        (* and ta is the repr_pointer *)
+        iApply (Hcg_f with "[$] [$] [$] [] [$] [$] [$]").
+        - done.
+        - apply Hta.
+        - apply Hrepr.
+        - by apply has_values_iff_to_consts.
+        - done.
+        - iIntros "Hrt Hown Hinst Hfsnew".
+          let Q := open_constr:(_ : iProp Σ) in
+          instantiate (1 := λ f'' vs', (⌜f'' = fr /\ vs' = []⌝ ∗ Q)%I).
+          cbn.
+          iSplitR; first done.
+          iAccu.
+      }
+      cbn.
+      iIntros (f0 vs) "[[-> ->] rest] Hfr Hrun".
+      iDestruct "rest" as "(HΦ & Hrt & Hown & Hinst & Hℓ)".
+      cbn; clear_nils.
+
+      iApply (Hsetflags_fs with "[$] [$] [] [$] [$] [$] [$]").
+      + (* need all of the possible i's to be less than the i32 thing *)
+        (* this is an assumption that needs to be added in *)
+        (* TODO *)
+        admit.
+      + exact Hta.
+      + exact Hrepr.
+      + exact Hav.
+      + done.
+      + iIntros "Hℓ Hrt Hnsfun Hown Hinst".
+        iApply ("HΦ" with "[Hℓ] [$] [$] [$] [$]").
+        (* this is true because insertion is commutative iff *)
+        (* all of the indices are distinct *)
+        (* this is a bit annoying to prove and not the point of the proof *)
+        admit.
+
   Admitted.
 
 End CodeGen.
