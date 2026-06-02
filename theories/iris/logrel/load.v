@@ -490,7 +490,7 @@ Section load.
     { eauto. }
     {
       cbn.
-      iIntros (f' v) "(<- & <- & Hcl' & [%θ' Hrt])".
+      iIntros (f' v) "(<- & <- & Hcl' & Hrt)".
       iSpecialize ("Hsave" with "Hcl'").
       iMod "Hsave".
       iApply ("HΦ" with "[$] [$] [-]").
