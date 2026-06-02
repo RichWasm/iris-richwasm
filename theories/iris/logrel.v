@@ -693,33 +693,11 @@ Section instr.
   Next Obligation. solve_proper. Qed.
   Next Obligation. solve_proper. Qed.
 
-  Program Definition plug_interp : leibnizO representation -n> semantic_type :=
-    λne ρ se sv, (∃ ιs, ⌜eval_rep_se se ρ = Some ιs⌝ ∗ ⌜has_areps ιs sv⌝)%I.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    intros ρ n se se' Hse sv; cbn.
-    f_equiv; intros ιs.
-    change (eval_rep se) with (ofe_mor_car _ _ (eval_rep_se se)).
-    change (eval_rep se') with (ofe_mor_car _ _ (eval_rep_se se')).
-    eapply eval_rep_se in Hse.
-    by rewrite Hse.
-  Qed.
-  Final Obligation. solve_proper. Qed.
+  Program Definition plug_interp : semantic_type :=
+    λne _ _, True%I.
 
-  Program Definition span_interp : leibnizO size -n> semantic_type :=
-    λne σ se sv, (∃ ws n, ⌜sv = SWords ws⌝ ∗ ⌜eval_size se σ = Some n⌝ ∗ ⌜length ws = n⌝)%I.
-  Next Obligation. solve_proper. Qed.
-  Next Obligation.
-    intros * se se' Hse sv; cbn.
-    f_equiv; intros ws; cbn.
-    f_equiv; intros n'; cbn.
-    f_equiv.
-    f_equiv.
-    f_equiv.
-    f_equiv.
-    by eapply eval_size_se.
-  Qed.
-  Final Obligation. solve_proper. Qed.
+  Program Definition span_interp : semantic_type :=
+    λne _ _, True%I.
 
   Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
     (λne T se T0 sv, ▷ T (senv_insert_type sκ T0 se) sv)%I.
@@ -1023,8 +1001,8 @@ Section instr.
       | StructT _ τs => struct_interp (map type_interp τs)
       | RefT _ μ β τ => ref_interp μ β (type_interp τ)
       | SerT _ τ => ser_interp (type_interp τ)
-      | PlugT _ ρ => plug_interp ρ
-      | SpanT _ σ => span_interp σ
+      | PlugT _ ρ => plug_interp
+      | SpanT _ σ => span_interp
       | RecT κ τ => rec_interp κ (type_interp τ)
       | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
       | ExistsRepT _ τ => exists_rep_interp (type_interp τ)
@@ -1052,8 +1030,8 @@ Section instr.
     | StructT _ τs => struct_interp (map type_interp τs)
     | RefT _ μ β τ => ref_interp μ β (type_interp τ)
     | SerT _ τ => ser_interp (type_interp τ)
-    | PlugT _ ρ => plug_interp ρ
-    | SpanT _ σ => span_interp σ
+    | PlugT _ ρ => plug_interp
+    | SpanT _ σ => span_interp
     | RecT κ τ => rec_interp κ (type_interp τ)
     | ExistsMemT _ τ => exists_mem_interp (type_interp τ)
     | ExistsRepT _ τ => exists_rep_interp (type_interp τ)

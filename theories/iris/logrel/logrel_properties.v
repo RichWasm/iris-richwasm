@@ -1558,13 +1558,10 @@ Section properties.
       rewrite -Heval_kind.
       done.
     - apply has_prims_has_areps in Hprims as Hareps.
-      iSplit.
-      + iPureIntro. simpl.
-        split; first done.
-        apply values_to_atoms_norefs.
-      + iExists (map prim_to_arep ηs).
-        iSplit; [iPureIntro; exact Heval |].
-        done.
+      iSplit; last done.
+      iPureIntro. simpl.
+      split; first done.
+      apply values_to_atoms_norefs.
   Qed.
 
 End properties.

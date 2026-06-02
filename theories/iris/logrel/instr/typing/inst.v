@@ -1588,7 +1588,6 @@ Section inst.
       rewrite !Hevalκ.
       pose proof (eval_rep_subst_senv_eq se se' sub_r rep
                     Hsub_r) as Hevalrep.
-      rewrite !Hevalrep.
       iSplitR; done.
     * (* span, qed *)
       intros.
@@ -1599,7 +1598,6 @@ Section inst.
       rewrite !Hevalκ.
       pose proof (eval_size_subst_senv_eq se se' sub_r sub_s s
                     Hsub_r Hsub_s) as Hevalsize.
-      rewrite !Hevalsize.
       iSplitR; done.
     * (* rec *)
       intros.
