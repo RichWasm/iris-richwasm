@@ -278,6 +278,13 @@ Section instr.
     | AnyRefs => True
     end.
 
+  Definition ref_flag_stype_interp_iProp (ξ : ref_flag) (T : SVR) : iProp Σ :=
+    match ξ with
+    | NoRefs
+    | GCRefs => ∀ sv, T sv -∗ □ T sv
+    | AnyRefs => True
+    end.
+
   Definition ref_flag_atoms_interp (ξ : ref_flag) (sv : semantic_value) : Prop :=
     forall_satoms sv (forall_ptr_atom (ref_flag_ptr_interp ξ)).
 
@@ -298,7 +305,7 @@ Section instr.
       end.
 
   Definition skind_has_stype (sκ : skind) (T : SVR) : Prop :=
-    ref_flag_stype_interp (skind_ref_flag sκ) T /\ (forall sv, T sv -∗ ⌜skind_has_svalue sκ sv⌝).
+    ref_flag_stype_interp (skind_ref_flag sκ) T /\ (forall sv, T sv ⊢ ⌜skind_has_svalue sκ sv⌝).
 
   Program Definition eval_rep_se : semantic_env -n> leibnizO representation -n> leibnizO (option (list atomic_rep)) :=
     λne se ρ, eval_rep se ρ.
@@ -721,10 +728,54 @@ Section instr.
   Qed.
   Final Obligation. solve_proper. Qed.
 
+  Program Definition add_skind_interp : leibnizO type -n> (semantic_env -n> SVR) -n> semantic_env -n> SVR :=
+    (λne τ T se sv,
+      ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝ ∗ T se sv)%I.
+  Next Obligation.
+    intros.
+    repeat intros ?.
+    f_equiv.
+    repeat intros ?.
+    f_equiv.
+    f_equiv.
+    - assert (Hprop: Proper (dist n ==> dist n) (skind_has_svalue a))
+        by apply ofe_mor_ne.
+      f_equiv.
+      by eapply Hprop.
+    - by eapply ofe_mor_ne.
+  Qed.
+  Next Obligation.
+    intros.
+    repeat intros ?.
+    f_equiv.
+    repeat intros ?.
+    cbn -[type_skind skind_has_svalue].
+    f_equiv; intros ?.
+    f_equiv; [|solve_proper].
+    f_equiv.
+    by setoid_rewrite (ofe_mor_ne _ _ type_skind).
+    Unshelve.
+    exact n.
+  Qed.
+  Next Obligation.
+    solve_proper.
+  Qed.
+  Next Obligation.
+    repeat intros ?.
+    rewrite H.
+    solve_proper.
+  Qed.
+
   Program Definition skind_rec_interp1 sκ : semantic_type -n> semantic_env -n> SVR -n> SVR :=
-    (λne T se T0 sv, ▷ T (senv_insert_type sκ T0 se) sv)%I.
+    (λne T se T0 sv,
+       ref_flag_stype_interp_iProp (skind_ref_flag sκ) T0 -∗
+       ▷ T (senv_insert_type sκ T0 se) sv)%I.
   Next Obligation. solve_proper. Qed.
-  Next Obligation. solve_proper. Qed.
+  Next Obligation.
+    intros * T T' HT sv; cbn -[senv_insert_type].
+    unfold ref_flag_stype_interp_iProp.
+    solve_proper.
+  Qed.
   Next Obligation. solve_proper. Qed.
   Final Obligation. solve_proper. Qed.
 
@@ -733,10 +784,17 @@ Section instr.
     unfold semantic_type in *.
     repeat intros ?.
     cbn.
-    eapply later_contractive.
-    eapply (ne_dist_later (λ svr, T (senv_insert_type sκ svr se) x0)); [|done].
-    solve_proper.
-  Qed.
+    f_equiv.
+    - unfold ref_flag_stype_interp_iProp.
+      destruct (skind_ref_flag sκ).
+      + f_equiv; intros sv.
+        admit.
+      + admit.
+      + admit.
+    - eapply later_contractive.
+      eapply (ne_dist_later (λ svr, T (senv_insert_type sκ svr se) x0)); [|done].
+      solve_proper.
+  Admitted.
 
   Program Definition skind_rec_interp sκ : semantic_type -n> semantic_type :=
     λne T se, fixpoint (skind_rec_interp1 sκ T se).
@@ -793,44 +851,6 @@ Section instr.
     - by instantiate (1:= fun k y1 y2 => y1 x0 (SAtoms y2)).
     - intros.
       solve_proper.
-  Qed.
-
-  Program Definition add_skind_interp : leibnizO type -n> (semantic_env -n> SVR) -n> semantic_env -n> SVR :=
-    (λne τ T se sv,
-      ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝ ∗ T se sv)%I.
-  Next Obligation.
-    intros.
-    repeat intros ?.
-    f_equiv.
-    repeat intros ?.
-    f_equiv.
-    f_equiv.
-    - assert (Hprop: Proper (dist n ==> dist n) (skind_has_svalue a))
-        by apply ofe_mor_ne.
-      f_equiv.
-      by eapply Hprop.
-    - by eapply ofe_mor_ne.
-  Qed.
-  Next Obligation.
-    intros.
-    repeat intros ?.
-    f_equiv.
-    repeat intros ?.
-    cbn -[type_skind skind_has_svalue].
-    f_equiv; intros ?.
-    f_equiv; [|solve_proper].
-    f_equiv.
-    by setoid_rewrite (ofe_mor_ne _ _ type_skind).
-    Unshelve.
-    exact n.
-  Qed.
-  Next Obligation.
-    solve_proper.
-  Qed.
-  Next Obligation.
-    repeat intros ?.
-    rewrite H.
-    solve_proper.
   Qed.
 
   Program Definition exists_mem_interp : semantic_type -n> semantic_type :=
@@ -997,10 +1017,10 @@ Section instr.
   Program Definition forall_type_interp κ : (semantic_env -n> ClR) -n> (semantic_env -n> ClR) :=
     (λne FT se cl, ∃ sκ,
         ⌜eval_kind_se se κ = Some sκ⌝ ∗
-        □ ∀ sκ_T T,
-          ⌜subskind_of sκ_T sκ⌝ -∗
-          ⌜skind_has_stype sκ_T T⌝ -∗
-          FT (senv_insert_type sκ_T T se) cl)%I.
+        □ ∀ sκ_t t,
+          ⌜subskind_of sκ_t sκ⌝ -∗
+          ⌜skind_has_stype sκ_t t⌝ -∗
+          FT (senv_insert_type sκ_t t se) cl)%I.
   Next Obligation. solve_proper. Qed.
   Next Obligation.
     intros * se se' Hse cl; cbn -[senv_insert_type eval_kind_se].
