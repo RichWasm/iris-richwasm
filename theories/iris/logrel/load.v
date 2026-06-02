@@ -922,6 +922,16 @@ Section load.
     destruct ι, o; intros H; done.
   Qed.
 
+  Lemma has_areps_size ιs os :
+    Forall2 has_arep ιs os ->
+    map (length ∘ serialize_atom) os = map arep_size ιs.
+  Proof.
+    intros Hall; induction Hall; first done.
+    cbn.
+    erewrite has_arep_size; eauto.
+    congruence.
+  Qed.
+
   Definition ptr_root
     (θ : address_map) (μ : base_memory) (o : atom) (v : value) : iProp Σ :=
     match o with
@@ -1778,45 +1788,48 @@ Section load.
       wt' = [] ∧
       wl' = map translate_arep ιs ∧
       ∀ f ℓ a32 a os ws E B R e Φ,
-    ⊢ "Hptr" ∷ ℓ ↦heap ws -∗
-      "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-      "Hown"  ∷ na_own logrel_nais E -∗
-      "Htok"  ∷ rt_token rti sr e -∗
-      "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
-      "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
-      "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
-      "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
-      "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
-      "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
-      "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
-      "%Hlidx_bdd" ∷ ⌜localimm lidx < fe_wlocal_offset fe + length wl⌝ -∗
-      "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
-      "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
-      "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
-      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
-      "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
-      "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
-      "HΦ" ∷
-        (∀ e' f' vs vsf,
-           "%Hf'"     ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
-           "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
-           "Hptr"  ∷ ℓ ↦heap ws -∗
-           "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
-           "Hown"  ∷ na_own logrel_nais E -∗
-           "Htok"  ∷ rt_token rti sr e' -∗
-           "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
-           "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
-           Φ f' vs) -∗
-      "Hf" ∷ ↪[frame] f -∗
-      "Hrun" ∷ ↪[RUN] -∗
-      CWP es @ E UNDER B; R {{ Φ }}.
+      ⊢ "Hf" ∷ ↪[frame] f -∗
+        "Hrun" ∷ ↪[RUN] -∗
+        "Hptr" ∷ ℓ ↦heap ws -∗
+        "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+        "Hown"  ∷ na_own logrel_nais E -∗
+        "Htok"  ∷ rt_token rti sr e -∗
+        "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+        "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+        "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+        "%Harep" ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+        "%Hser" ∷ ⌜Forall2 (λ o '(off, sz), serialize_atom o = get_path_words off sz ws) os offs_szs⌝ -∗
+        "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+        "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
+        "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
+        "%Hlidx_bdd" ∷ ⌜localimm lidx < fe_wlocal_offset fe + length wl⌝ -∗
+        "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+        "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
+        "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
+        "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+        "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+        "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
+        "HΦ" ∷
+          (∀ e' f' vs vsf,
+             "%Hf'"     ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
+             "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
+             "Hptr"  ∷ ℓ ↦heap ws -∗
+             "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
+             "Hown"  ∷ na_own logrel_nais E -∗
+             "Htok"  ∷ rt_token rti sr e' -∗
+             "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+             "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
+             Φ f' vs) -∗
+        CWP es @ E UNDER B; R {{ Φ }}.
   Proof.
     unfold memory.load.
     intros * Hcg.
     apply wp_ignore in Hcg.
     destruct Hcg as (-> & off' & Hcg).
     pose proof (wp_mem_load_copy_mm_inner se _ _ _ _ _ _ _ _ _ _ Hcg) as (-> & U & V & W).
-    tauto.
+    intuition.
+    repeat iIntros "@".
+    iPoseProof W as "W".
+    by repeat (iSpecialize ("W" with "[$]") || iSpecialize ("W" with "[//]")).
   Qed.
 End load.

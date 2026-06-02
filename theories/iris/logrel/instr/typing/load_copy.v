@@ -22,19 +22,8 @@ Section load_copy.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
 
-  Lemma Forall2_Forall2_length {A B} {P : A -> B -> Prop} xss yss :
-    Forall2 (Forall2 P) xss yss ->
-    map length xss = map length yss.
-  Proof.
-    intros Hall. induction Hall.
-    - reflexivity.
-    - cbn.
-      f_equal; last apply IHHall.
-      by eapply Forall2_length.
-  Qed.
-
-  Lemma sum_list_with_list_sum {A} {xs : list (list A)} :
-    sum_list_with length xs = list_sum (map length xs).
+  Lemma sum_list_with_list_sum {A} {f : A -> nat} {xs : list A} :
+    sum_list_with f xs = list_sum (map f xs).
   Proof.
     induction xs.
     - done.
@@ -211,6 +200,93 @@ Section load_copy.
       *)
   Admitted.
 
+  Lemma atom_interp_ptr_shaped ptr v :
+    atom_interp (PtrA ptr) v -∗
+    ∃ n n32, ⌜N_i32_repr n n32⌝ ∗
+             ⌜v = VAL_int32 n32⌝ ∗
+             ⌜ptr_shaped ptr n⌝ ∗
+             ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp ptr.
+  Proof.
+    iIntros "Hat".
+    destruct ptr; cbn; unfold root_pointer_interp.
+    - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))".
+      destruct rp; last (destruct μ; done).
+      iDestruct "Hrpn" as "->".
+      inversion Hrp; subst.
+      iExists _, _.
+      iSplit; first eauto.
+      iSplit; first eauto.
+      iSplit; first eauto using ptr_shaped.
+      iExists (RootInt n); eauto.
+    - iDestruct "Hat" as "(%n' & %n32 & %Hn32 & %Hv & (%rp & %Hrp & Hrpn))"; subst.
+      destruct rp; first done.
+      inversion Hrp; subst.
+      destruct μ0, μ; try done.
+      + iExists _, _.
+        repeat (iSplit; first eauto using ptr_shaped).
+        iExists _; eauto.
+      + iExists _, _.
+        repeat (iSplit; first eauto using ptr_shaped).
+        iExists _; eauto.
+  Qed.
+
+  Lemma values_interp_app se τs1 τs2 os1 os2 :
+    values_interp rti sr se τs1 os1 -∗
+    values_interp rti sr se τs2 os2 -∗
+    values_interp rti sr se (τs1 ++ τs2) (os1 ++ os2).
+  Proof.
+    iIntros "(%oss1 & -> & Hoss1)".
+    iIntros "(%oss2 & -> & Hoss2)".
+    iExists (oss1 ++ oss2).
+    rewrite map_app concat_app.
+    iSplit; first done.
+    iPoseProof (big_sepL2_length with "Hoss1") as "%Hlen1".
+    iPoseProof (big_sepL2_length with "Hoss2") as "%Hlen2".
+    setoid_rewrite big_sepL2_app_same_length; last by eauto.
+    by iFrame.
+  Qed.
+
+  Lemma update_get_path_id off sz ws :
+    sz + off ≤ length ws ->
+    update_path_words off ws (get_path_words off sz ws) = ws.
+  Proof.
+    etransitivity; last apply (take_drop off ws).
+    unfold update_path_words.
+    f_equal.
+    etransitivity; last apply (take_drop sz (drop off ws)).
+    f_equal.
+    rewrite length_take length_drop.
+    f_equal; lia.
+  Qed.
+
+  Lemma pre_type_dup se F τ sv :
+    has_ref_flag F τ GCRefs ->
+    let T := pre_type_interp rti sr τ se sv in
+    T -∗ T ∗ T.
+  Proof.
+  Admitted.
+
+  Lemma forall_ptr_ser P o :
+    forall_ptr_atom P o ->
+    Forall (forall_ptr_word P) (serialize_atom o).
+  Proof.
+    destruct o; cbn; try solve [repeat constructor].
+    rewrite Forall_singleton.
+    done.
+  Qed.
+
+  Lemma Forall_forall_ptr_ser ξ os :
+    Forall (forall_ptr_atom (ref_flag_ptr_interp ξ)) os ->
+    Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) (flat_map serialize_atom os).
+  Proof.
+    induction os as [| o os]; first done.
+    intros Hos.
+    inversion Hos; subst.
+    cbn.
+    rewrite Forall_app.
+    eauto using forall_ptr_ser.
+  Qed.
+
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ β τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -254,6 +330,7 @@ Section load_copy.
     iIntros (se fr os vs evs θ B R Hse Hevs) "@ @ @ @ @ @ @ @ @ @".
     iEval (rewrite values_interp_one_eq; cbn) in "Hos".
     iPoseProof (value_interp_ref_sz with "Hos") as "%Hlen_os".
+    iEval (rewrite value_interp_eq) in "Hos".
     iDestruct "Hos" as (κ' Hκ') "[Harep Href]".
     destruct κ'; [|by iDestruct "Harep" as "[[] ?]"].
     iDestruct "Harep" as "%Harep".
@@ -313,8 +390,8 @@ Section load_copy.
     inversion Hareps as [| ? ? ? ? Harep _]; subst.
     destruct o; inversion Harep; clear Harep Hareps.
     cbn [app].
-    iEval (cbn) in "Href".
-    destruct (eval_mem se μ) as [[|]|]; last done; destruct β.
+    iEval (cbn -[type_interp]) in "Href".
+    destruct (eval_mem se μ) as [[|]|] eqn:Hevmem; last done; destruct β.
     - iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
       inversion Hsv; subst p; clear Hsv.
       change (?x :: ?y :: ?z) with ([x; y] ++ z).
@@ -343,17 +420,17 @@ Section load_copy.
       inversion Hv'; subst v'; clear Hv'.
       iApply cwp_val_app.
       { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
-      admit.
-      (*
-      specialize (Hspec [] [] ltac:(eauto) ltac:(done)).
+      iPoseProof (atom_interp_ptr_shaped with "Hat") as "(%vn & %vn32 & %Hvn & -> & %Hvshp & %rp & %Hrpvn & Hrp)".
+      specialize (Hspec [] [] (PtrHeap MemMM ℓ) vn vn32 ltac:(eauto)).
+      specialize (Hspec ltac:(auto) ltac:(auto) ltac:(auto)).
       clear_nils.
-      iApply (Hspec with "[$] [$] [] [$Hat]").
+      iApply (Hspec with "[$] [$] []").
       {
         iPureIntro; cbn.
         rewrite list_lookup_insert.
         by rewrite decide_True.
       }
-      iIntros "!> Hf Hrun Hat".
+      iIntros "!> Hf Hrun".
       assert (Hκ'': ∃ σ ξ, has_kind F τ (MEMTYPE σ ξ)).
       {
         unfold ψ in Htype.
@@ -374,14 +451,16 @@ Section load_copy.
       destruct Hev as (sk & Hev).
       pose proof Hsk as Hskag.
       eapply type_skind_has_kind_agree in Hskag; eauto.
+      pose proof Hev as Hev'.
       cbn in Hev.
-      inversion Hkindok; subst.
+      inversion Hkindok; subst σ0 ξ0 K κ'.
       eapply eval_size_ok_Some in H1; eauto.
       destruct H1 as (n & Hevsz).
-      rewrite Hevsz in Hev; cbn in Hev; inversion Hev; subst κ'; clear Hev.
+      rewrite Hevsz in Hev; cbn in Hev; inversion Hev; clear Hev.
       inversion Hsk; subst.
       assert (has_mono_size F (pr_target pr)).
       {
+        (* TODO Have to show the SerT targeted by the path has a mono size. *)
         admit.
       }
       assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
@@ -397,8 +476,6 @@ Section load_copy.
       { rewrite type_interp_eq; iExists _; by iFrame. }
       eapply wp_mem_load_copy_mm in Hload1.
       destruct Hload1 as (_ & -> & -> & Hload).
-      unfold atom_interp; iEval (cbn) in "Hat".
-      iDestruct "Hat" as "(%n' & %n32 & %Hrep & -> & Hat')".
       iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
       iEval (rewrite type_interp_eq) in "Hval".
       pose proof Hresolves as Hpath.
@@ -406,15 +483,14 @@ Section load_copy.
       rewrite Hser in Hhktgt.
       inversion Hhktgt; subst; clear κ1.
       pose proof (mono_size_eval_emp_Some _ Htgtmono) as (ntgt & Hev).
-      (* TODO generalize the defn of resolves_path_inv_sep to deal with the
-      order of ref_flags here. it puts too many consraints *)
       eapply resolves_path_inv_sep in Hpath;
         try eapply Hser;
         try eapply Hev;
         try eapply Hoff;
         try rewrite Hser; try by eassumption.
       iEval (rewrite -type_interp_eq) in "Hval".
-      iEval (unfold root_pointer_interp; cbn) in "Hat'".
+      iEval (unfold root_pointer_interp; cbn) in "Hrp".
+      destruct rp as [| [|]]; [ done | | done].
       iPoseProof (Hpath with "Hval") as "(%Hwslen & Hval & Hcont)".
       clear Hpath.
       iEval (rewrite Hser) in "Hval".
@@ -436,112 +512,339 @@ Section load_copy.
       {
         constructor.
         eauto.
+        (* TODO Have to show the kind is well formed. *)
         admit.
       }
       eapply eval_kind_ok_Some in Hkindok'; eauto.
       destruct Hkindok' as (sk' & Hkeval).
       eapply type_skind_has_kind_Some in H3; eauto.
+      pose proof Hkeval as Hkeval'.
       cbn in Hkeval.
       erewrite eval_rep_emptyenv in Hkeval; eauto.
       cbn in Hkeval; inversion Hkeval; subst sk'.
       rewrite H3 in Hvalk'; inversion Hvalk'; subst sk.
       destruct Hsval' as (Hhasareps & Hats).
-      iDestruct "Hat'" as "(%rp & %Hrepn' & Haddr)".
-      destruct rp as [| [|]]; try done.
-
-      iPoseProof (virt_to_phys_acc with "Hrt Hℓh Haddr")
-        as "((%ns & %ns_32 & %Hnsrep & Hphys & Hws) & Hphys_to_virt)".
-      iPoseProof (big_sepL2_take_drop_acc _ _ ntgt off with "Hws") as "[Hws Hws_cont]".
-      fold (get_path_words off ntgt ws).
-      rewrite Hwords.
-      assert (ref_flag_atoms_interp GCRefs (SAtoms os)). { admit. }
-      assert (Forall2 N_i32_repr (take ntgt (drop off ns)) (take ntgt (drop off ns_32))).
-      { admit. }
-      iApply (Hload with "[$] [] [] [Hws] [Hphys] [$] [$] [-]").
-      + admit.
+      iPoseProof (frame_interp_locs_len with "Hframe") as "%Hfrlen".
+      destruct Hhasareps as (os' & Hos' & Hhasareps).
+      inversion Hos'; subst os'.
+      inversion Hvshp; subst.
+      inversion Hrpvn.
+      assert ((4 <= a0)%N);
+        first by eapply mod_bound_nonzero.
+      assert ((4 <= a)%N);
+        first by eapply mod_bound_nonzero.
+      replace a0 with a in * by lia; clear a0; subst.
+      iPoseProof (Hload with "[$]") as "Hload"; clear Hload.
+      repeat (iSpecialize ("Hload" with "[$]") || iSpecialize ("Hload" with "[//]")).
+      iApply "Hload".
+      + iPureIntro.
+        revert Hev.
+        cbn.
+        rewrite Hιs.
+        cbn.
+        intros U; inversion U; subst ntgt.
+        erewrite sum_list_with_list_sum.
+        done.
       + eauto.
+      + (* TODO Need to show that serialization matches get_path_words at each
+           computed offset.  This will need an auxiliary lemma and induction.
+  "%Hser"
+  ∷ ⌜Forall2 (λ (o : atom) '(off0, sz), serialize_atom o = get_path_words off0 sz ws) os
+       (seq.zip
+          (seq.foldl (λ '(off', offs) (ι : atomic_rep), ((off' + arep_size ι)%nat, seq.rcons offs off')) (
+             off, []) ιs).2
+          (map arep_size ιs))⌝
+         *)
+        admit.
       + eauto.
-      + unfold N_nat_repr.
-        reflexivity.
-      + eauto.
+      + iPureIntro.
+        cbn.
+        rewrite length_insert Hfrlen.
+        rewrite !length_app !length_cons !length_concat.
+        rewrite !length_app sum_list_with_list_sum.
+        lia.
       + simpl.
         by rewrite list_lookup_insert_eq.
       + cbn.
         rewrite length_app length_cons.
+        iPureIntro.
         lia.
-      + cbn.
-        rewrite length_insert.
-        rewrite Hflen.
-        unfold locsz.
-        cbn.
-        rewrite sum_list_with_list_sum length_concat !length_app.
-        cbn.
-        lia.
-      + unfold has_areps in Hhasareps.
-        destruct Hhasareps as (os' & Hinv & Hhas). inversion Hinv; subst os'.
-        eapply Hhas.
-      + admit.
-      + (* need lemma to establish congeal_atoms *)
-        admit.
       + eauto.
-      + admit. (* need to weaken load lemmas to use only parts of rt_token they care about *)
       + eauto.
-      + unfold words_interp.
-        admit.
-      + (* use congeal_atoms to reinterpret Hphys *)
-        (*
-      need to relate
-  [∗ list] off';v ∈ (seq.foldl (λ '(off', offs) (ι : atomic_rep), (off' + arep_size ι, seq.rcons offs off'))
-                       (off, []) ιs).2;[VAL_int32 n32], ?Goal2↦[wms][?Goal1 + byte_offset MemMM off']
-  bits v
-        and the (get_path_words) function.
-
-        The situation is this. If we have
-           l ->heap ws
-         then by opening up rt_invariant we get an underlying points-to to some
-         values vs that can be loaded from along with some information saying ws
-         is like vs.
-         We need a lemma that goes from these facts (get_path_words ...) and
-         (update_path_words ..) to corresponding decompositions of the
-         underlying points-tos.
-         Then we need another lemma that relates those decompositions to this
-         nasty foldl (if it isn't already expressed in that form).
-         *)
-        unfold fe in Hρ; cbn in Hρ.
-        admit.
-      + iIntros (f'' e' vs') "-> Hown Htok #Hinst' Hpts Hpost".
+      + eauto.
+      + eauto.
+      + eauto.
+      + eauto.
+      + iIntros (e' f'' vs vsf) "->".
+        repeat iIntros "@".
         unfold fvs_combine.
+        iPoseProof (pre_type_dup with "Hval") as "[Hval Hval']"; first done.
         iFrame.
         iSplitR; [|iSplitL "Hframe"].
         * unfold frame_rel.
           cbn.
           iSplit; last by rewrite load_frame_inst.
-          (* mask_locs_eq lmask ... mk_load1_frame *)
-          admit.
-        * unfold mk_load_frame.
-          cbn [seq.foldl imap].
-          unfold frame_interp.
+          iPureIntro; intros i Hmask.
+          destruct Hmask.
+          rewrite fe_wlocal_offset_length in H2.
+          rewrite length_concat in H2.
+          rewrite mk_load_frame_stable_part; cbn.
+          {
+            rewrite list_lookup_insert.
+            unfold ptr_local.
+            rewrite decide_False; first done.
+            intros [<- Hbd].
+            rewrite sum_list_with_list_sum in H2.
+            lia.
+          }
+          rewrite sum_list_with_list_sum length_app.
+          lia.
+        * unfold frame_interp.
           iDestruct "Hframe" as "(%ηss & %vss_L' & %vs_WL' & %fr' & Hframe)".
           iDestruct "Hframe" as "(%Hprims & %Hres & Hats & Hlocs)".
           iExists _, vss_L', _.
           iFrame.
           iPureIntro.
           intuition.
-          -- cbn.
+          -- (* TODO need to characterize f_locs (mk_load_frame f wl vs). *)
              unfold ptr_local.
-             (* NOTE To Ryan: we added 'concat' in front of vss_L' since we changed frame_interp slightly *)
-             assert (length $ concat vss_L' = length (concat (typing.fc_locals F))).
-             { apply Forall2_concat in Hprims. by eapply Forall2_length in Hprims. }
+             assert (map length vss_L' = map length (typing.fc_locals F)).
+             { apply Forall2_Forall2_length in Hprims. congruence. }
              admit.
-          -- unfold result_type_interp in Hres.
-             unfold result_type_interp.
-             admit.
-        * unfold mk_load_post.
-          iDestruct "Hpost" as "(%Hszvs & Hvs')".
-          (* value interpretation goes here *)
-          admit.
-      *)
-    - (* ref mm imm *)
+          -- apply Hres.
+        * iExists (PtrA (PtrHeap MemMM ℓ) :: os).
+          change [RefT κ μ Mut τ; τval] with ([RefT κ μ Mut τ] ++ [τval]).
+          change (PtrA (PtrHeap MemMM ℓ) :: os) with ([PtrA (PtrHeap MemMM ℓ)] ++ os).
+          iAssert ((□ (pre_type_interp rti sr τval se (SAtoms os) -∗
+                      type_interp rti sr τval se (SAtoms os)))%I) as "#Host".
+          {
+            iIntros "!> Hos".
+            rewrite type_interp_eq.
+            iExists (SVALTYPE ιs ξtgt').
+            iFrame.
+            iSplit; eauto.
+            cbn.
+            iSplit; eauto.
+            iExists os; eauto.
+          }
+          iSpecialize ("Hcont" $! (get_path_words off ntgt ws) with "[] [Hval]").
+          {
+            iPureIntro.
+            cbn in Hsval.
+            destruct Hsval as [Hntgt _].
+            congruence.
+          }
+          {
+            rewrite Hser value_interp_eq.
+            iExists (SMEMTYPE _ ξtgt').
+            iSplitR; last iSplitR.
+            + iPureIntro.
+              cbn.
+              erewrite eval_rep_emptyenv; last eauto.
+              done.
+            + cbn.
+              rewrite Hwords.
+              iSplit.
+              * erewrite <-has_areps_size; last eauto.
+                rewrite length_flat_map; done.
+              * eauto using Forall_forall_ptr_ser.
+            + iExists os.
+              rewrite Hwords.
+              iSplitR; first done.
+              iApply "Host"; iFrame.
+          }
+          rewrite update_get_path_id; last lia.
+          iSplitL "Hval' Hcont Hℓl Hptr".
+          {
+            iApply (values_interp_app with "[Hcont Hℓl Hptr] [Hval']").
+            - iExists [_]; cbn; rewrite app_nil_r.
+              iSplit; first eauto.
+              iSplitL; last done.
+              rewrite type_interp_eq.
+              rewrite type_interp_eq.
+              iExists (SVALTYPE _ _).
+              iSplitR; [|iSplitR].
+              + eauto.
+              + cbn.
+                iSplit.
+                * iPureIntro.
+                  exists [PtrA (PtrHeap MemMM ℓ)]; intuition.
+                  constructor; cbn; done.
+                * by cbn.
+              + iEval (cbn).
+                rewrite Hevmem.
+                iExists ℓ, fs, ws.
+                by iFrame.
+            - iExists [os].
+              iSplitR; first (cbn; clear_nils; done).
+              rewrite big_sepL2_singleton.
+              iApply "Host"; iFrame.
+          }
+          setoid_rewrite big_sepL2_cons; cbn [const].
+          iSplitL "Haddr"; first (iExists _, _; eauto).
+          iApply big_sepL2_mono; last iApply "Hos".
+          intros k o v Ho Hv.
+          cbn -[atom_interp].
+          iIntros "Hat".
+          iApply "Hat"; iPureIntro.
+          destruct o; try done.
+          destruct p as [| [|]]; try done.
+          destruct Hcopyability as (κ' & Hcopyk & Hle).
+          pose proof (has_kind_agree _ _ _ _ Hcopyk H4); subst.
+          cbn in Hle.
+          apply list_elem_of_lookup_2 in Ho.
+          eapply Forall_forall in Hats; last eauto.
+          cbn in Hats.
+          destruct ξtgt'; cbn in Hats; done.
+    - iDestruct "Href" as (ℓ fs ws Hsv) "(#Hinv & Hws)".
+      inversion Hsv; subst p; clear Hsv.
+      change (?x :: ?y :: ?z) with ([x; y] ++ z).
+      set (f' := {| f_locs := <[ptr_local:=v ]> (f_locs fr);
+                    f_inst := f_inst fr |}).
+      iApply (cwp_seq with "[Hfr Hrun Hws]").
+      {
+        change ([?ev; ?x]) with ([ev] ++ [x]).
+        rewrite (has_values_to_consts_inv _ _ Hevs).
+        iApply (cwp_local_tee with "[Hws] [$] [$]"); first eauto.
+        instantiate (1:= λ f'' vs', (⌜f'' = f' /\ vs' = [v]⌝ ∗ type_interp rti sr τ se (SWords ws))%I).
+        by iFrame.
+      }
+      iIntros (f vs) "([-> ->] & Hws) Hf Hrun".
+      setoid_rewrite type_interp_eq.
+      iDestruct "Hws" as "(%κ' & %Hsk & %Hk & Ht)".
+      eapply cwp_case_ptr in Hcompile.
+      destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+      destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
+      inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hret Hload1.
+      cbn in Hret.
+      inversion Hret.
+      subst wt4 wl4 es2.
+      rewrite atoms_interp_one_inv.
+      iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
+      inversion Hv'; subst v'; clear Hv'.
+      iApply cwp_val_app.
+      { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
+      iPoseProof (atom_interp_ptr_shaped with "Hat") as "(%vn & %vn32 & %Hvn & -> & %Hvshp & %rp & %Hrpvn & Hrp)".
+      specialize (Hspec [] [] (PtrHeap MemMM ℓ) vn vn32 ltac:(eauto)).
+      specialize (Hspec ltac:(auto) ltac:(auto) ltac:(auto)).
+      clear_nils.
+      iApply (Hspec with "[$] [$] []").
+      {
+        iPureIntro; cbn.
+        rewrite list_lookup_insert.
+        by rewrite decide_True.
+      }
+      iIntros "!> Hf Hrun".
+      assert (Hκ'': ∃ σ ξ, has_kind F τ (MEMTYPE σ ξ)).
+      {
+        unfold ψ in Htype.
+        inversion Htype; subst.
+        destruct H as [Href _].
+        rewrite Forall_singleton in Href.
+        destruct Href as (ρ' & Hrep & Hmono).
+        inversion Hrep; subst.
+        eapply has_kind_ref_ty; eauto.
+      }
+      destruct Hκ'' as (σ & ξ & Hkindτ).
+      pose proof Hkindτ as Hkag.
+      pose proof (has_kind_inv _ _ _ Hkindτ) as Hhkindok.
+      inversion Hhkindok as [F' τ'' κ'' Htyok Hkindok];
+        subst F' κ'' τ''; clear Hhkindok.
+      pose proof Hkindok as Hev.
+      eapply eval_kind_ok_Some in Hev; last done.
+      destruct Hev as (sk & Hev).
+      pose proof Hsk as Hskag.
+      eapply type_skind_has_kind_agree in Hskag; eauto.
+      pose proof Hev as Hev'.
+      cbn in Hev.
+      inversion Hkindok; subst σ0 ξ0 K κ'.
+      eapply eval_size_ok_Some in H1; eauto.
+      destruct H1 as (n & Hevsz).
+      rewrite Hevsz in Hev; cbn in Hev; inversion Hev; clear Hev.
+      inversion Hsk; subst.
+      assert (has_mono_size F (pr_target pr)).
+      {
+        (* TODO Have to show the SerT targeted by the path has a mono size. *)
+        admit.
+      }
+      assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
+        as [k' Hsztgt].
+      {
+        unfold type_sz.
+        cbn.
+        pose proof (has_mono_size_inv _ _ H) as (σ' & ξ' & k' & Hmono & Hkind & Hev).
+        eapply has_kind_type_sz in Hkind; eauto.
+        rewrite mono_size_eval_emp; eauto.
+      }
+      iAssert (value_interp rti sr se τ (SWords ws)) with "[Ht]" as "Hval".
+      { rewrite type_interp_eq; iExists _; by iFrame. }
+      eapply wp_mem_load_copy_mm in Hload1.
+      destruct Hload1 as (_ & -> & -> & Hload).
+      iDestruct "Hinst" as "(%Hitys & (Hmm & Hgc & Hset & Hclr & Hreg & Hunreg) & Hinstfns & Htab & %Hmemm & %Hmemgc)".
+      iEval (rewrite type_interp_eq) in "Hval".
+      pose proof Hresolves as Hpath.
+      inversion H as [? ? σtgt ξtgt' Hhktgt Htgtmono HF' HT]; subst.
+      rewrite Hser in Hhktgt.
+      inversion Hhktgt; subst; clear κ1.
+      pose proof (mono_size_eval_emp_Some _ Htgtmono) as (ntgt & Hev).
+      eapply resolves_path_inv_sep in Hpath;
+        try eapply Hser;
+        try eapply Hev;
+        try eapply Hoff;
+        try rewrite Hser; try by eassumption.
+      iEval (rewrite -type_interp_eq) in "Hval".
+      iEval (unfold root_pointer_interp; cbn) in "Hrp".
+      destruct rp as [| [|]]; [ done | | done].
+      iPoseProof (Hpath with "Hval") as "(%Hwslen & Hval & Hcont)".
+      clear Hpath.
+      iEval (rewrite Hser) in "Hval".
+      inversion Hhktgt.
+      subst ξ0 τ0 ρ1 F0.
+      pose proof (type_rep_has_kind_agree _ _ _ _ H3) as Hrep'.
+      rewrite Hrep' in Hρ.
+      inversion Hρ; subst ρ0.
+      iEval (rewrite value_interp_eq; unfold add_skind_interp) in "Hval".
+      iDestruct "Hval" as "(%sk & %Hvalk & %Hsval & %os & %Heq & Hval)".
+      inversion Heq as [Hwords]; clear Heq.
+      unfold eval_kind, type_skind in Hvalk; cbn -[eval_size] in Hvalk.
+      erewrite eval_size_emptyenv  in Hvalk; last eapply Hev.
+      cbn in Hvalk; inversion Hvalk; subst sk.
+      iEval (rewrite type_interp_eq) in "Hval".
+      iDestruct "Hval" as "(%sk & %Hvalk' & %Hsval' & Hval)".
+      cbn in Hsval'.
+      assert (Hkindok': kind_ok (fc_kind_ctx F) (VALTYPE ρ ξtgt')).
+      {
+        constructor.
+        eauto.
+        (* TODO Have to show the kind is well formed. *)
+        admit.
+      }
+      eapply eval_kind_ok_Some in Hkindok'; eauto.
+      destruct Hkindok' as (sk' & Hkeval).
+      eapply type_skind_has_kind_Some in H3; eauto.
+      pose proof Hkeval as Hkeval'.
+      cbn in Hkeval.
+      erewrite eval_rep_emptyenv in Hkeval; eauto.
+      cbn in Hkeval; inversion Hkeval; subst sk'.
+      rewrite H3 in Hvalk'; inversion Hvalk'; subst sk.
+      destruct Hsval' as (Hhasareps & Hats).
+      iPoseProof (frame_interp_locs_len with "Hframe") as "%Hfrlen".
+      destruct Hhasareps as (os' & Hos' & Hhasareps).
+      inversion Hos'; subst os'.
+      inversion Hvshp; subst.
+      inversion Hrpvn.
+      assert ((4 <= a0)%N);
+        first by eapply mod_bound_nonzero.
+      assert ((4 <= a)%N);
+        first by eapply mod_bound_nonzero.
+      replace a0 with a in * by lia; clear a0; subst.
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "Hinv Hown") as "U"; eauto.
+      iDestruct "U" as "([Hℓl Hℓh] & Hown & Hcloseℓ)".
+      iMod "Hℓh".
+      iPoseProof (Hload _ _ _ _ _ _ (⊤ ∖ ↑ns_ref ℓ) with "[$]") as "Hload"; clear Hload.
+      repeat (iSpecialize ("Hload" with "[$]") || iSpecialize ("Hload" with "[//]")).
+      (* Problem with the mask E here. *)
       admit.
     - (* ref gc mut *)
       iDestruct "Href" as (ℓ fs Hsv) "Hinv".

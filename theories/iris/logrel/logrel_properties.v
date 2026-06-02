@@ -1195,6 +1195,43 @@ Section properties.
     done.
   Qed.
 
+  Lemma Forall2_Forall2_length {A B} {P : A -> B -> Prop} xss yss :
+    Forall2 (Forall2 P) xss yss ->
+    map length xss = map length yss.
+  Proof.
+    intros Hall. induction Hall.
+    - reflexivity.
+    - cbn.
+      f_equal; last apply IHHall.
+      by eapply Forall2_length.
+  Qed.
+
+  Lemma big_sep_atoms_lens oss vss_L :
+    ⊢ ([∗ list] os;vs_L ∈ oss;vss_L, atoms_interp os vs_L) -∗ ⌜map length oss = map length vss_L⌝.
+  Proof.
+    revert vss_L.
+    induction oss; iIntros (vss_L) "Hats".
+    - iPoseProof (big_sepL2_nil_inv_l with "Hats") as "->".
+      done.
+    - iPoseProof (big_sepL2_cons_inv_l with "Hats") as "(%vs & %vss_L' & -> & Hvs & Hvss)".
+      iPoseProof (atoms_interp_length with "Hvs") as "%Hvs".
+      iPoseProof (IHoss vss_L' with "Hvss") as "%Hvss".
+      by rewrite !map_cons Hvs Hvss.
+  Qed.
+
+  Lemma frame_interp_locs_len se ηss L WL fr :
+    frame_interp rti sr se ηss L WL fr -∗ ⌜(length (f_locs fr) = length (concat ηss) + length WL)%nat⌝.
+  Proof.
+    iIntros "Hframe".
+    iDestruct "Hframe" as (oss vss_L vs_WL Hf_locs Hhas_prims Hresult) "[Hatom Hval]".
+    apply Forall2_Forall2_length in Hhas_prims.
+    apply Forall2_length in Hresult.
+    iPoseProof (big_sep_atoms_lens with "Hatom") as "%Hoss_len".
+    iDestruct (big_sepL2_length with "Hval") as "%Hoss_len'".
+    rewrite Hf_locs length_app !length_concat.
+    iPureIntro; congruence.
+  Qed.
+
   Lemma frame_interp_update_frame_label se τ_old ηs L wl vs_l vs_idxs os fe fr fr' i τ :
     let L' := <[i:=τ]> L in
     L !! i = Some τ_old ->
