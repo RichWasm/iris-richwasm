@@ -775,7 +775,9 @@ Section instr.
 
   Program Definition add_skind_interp : leibnizO type -n> (semantic_env -n> SVR) -n> semantic_env -n> SVR :=
     (λne τ T se sv,
-      ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗ ⌜skind_has_svalue sκ sv⌝ ∗ T se sv)%I.
+      ∃ sκ, ⌜type_skind se τ = Some sκ⌝ ∗
+            ⌜skind_has_svalue sκ sv⌝ ∗
+            T se sv)%I.
   Next Obligation.
     intros.
     repeat intros ?.

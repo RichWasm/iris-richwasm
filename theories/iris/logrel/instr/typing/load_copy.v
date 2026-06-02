@@ -230,20 +230,6 @@ Section load_copy.
         iExists _; eauto.
   Qed.
 
-  Lemma eval_kind_flag (se : @semantic_env Σ) κ sk :
-    eval_kind se κ = Some sk ->
-    kind_ref_flag κ = skind_ref_flag sk.
-  Proof.
-    intros Hev.
-    destruct κ; cbn in *.
-    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
-      cbn in *; inversion H0.
-      done.
-    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
-      cbn in *; inversion H0.
-      done.
-  Qed.
-
   Lemma values_interp_app se τs1 τs2 os1 os2 :
     values_interp rti sr se τs1 os1 -∗
     values_interp rti sr se τs2 os2 -∗
@@ -273,261 +259,50 @@ Section load_copy.
     f_equal; lia.
   Qed.
 
-  Lemma pre_type_dup se F τ κ sv :
+  Lemma eval_kind_flag (se : @semantic_env Σ) κ sk :
+    eval_kind se κ = Some sk ->
+    kind_ref_flag κ = skind_ref_flag sk.
+  Proof.
+    intros Hev.
+    destruct κ; cbn in *.
+    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
+      cbn in *; inversion H0.
+      done.
+    - apply bind_Some in Hev; destruct Hev as (? & ? & ?).
+      cbn in *; inversion H0.
+      done.
+  Qed.
+
+  Lemma type_dup se F τ κ sv :
     sem_env_interp F se ->
     has_kind F τ κ ->
     ref_flag_le (kind_ref_flag κ) GCRefs ->
-    let T := pre_type_interp rti sr τ se sv in
+    let T := type_interp rti sr τ se sv in
     T -∗ T ∗ T.
   Proof.
     intros Hse Hkind Hle.
-    apply Is_true_true in Hle.
-    revert Hle sv.
-    generalize dependent se.
-    induction Hkind using has_kind_ind'; intros se Hse Hle sv; try unfold κ in *.
-    - cbn. eauto.
-    - eauto.
-    - eauto.
-    - eauto.
-    - eauto.
-    - iIntros "HT".
-      cbn.
-      iDestruct "HT" as "(%i & %os & %off & %count & -> & %Hoff & %Hlen & Hget)".
-      repeat setoid_rewrite bi.sep_exist_l.
-      iExists i, os, off, count.
-      repeat setoid_rewrite bi.sep_exist_r.
-      iExists i, os, off, count.
-      destruct ((map (type_interp rti sr) τs) !! i) eqn:Hget;
-        pose proof Hget as Hget';
-        unfold lookup in Hget';
-        rewrite Hget';
-        last done.
-      rewrite list_lookup_fmap in Hget.
-      rewrite fmap_Some in Hget.
-      destruct Hget as (τ & Hget & ->).
-      rewrite type_interp_eq.
-      pose proof Hlen as Hlen'.
-      apply bind_Some in Hlen.
-      destruct Hlen as (os' & Hos & Hev).
-      apply bind_Some in Hos.
-      destruct Hos as (ρ & Hρ & Hevρ).
-      pose proof H as H'.
-      apply Forall3_length_lr in H'.
-      assert (∃ ξ, ξs !! i = Some ξ) as (ξ & Hξ).
-      {
-        apply lookup_lt_is_Some.
-        rewrite <- H'.
-        eapply lookup_lt_is_Some.
-        done.
-      }
-      assert (ref_flag_le ξ (ref_flag_lub ξs)) as Hub.
-      {
-        apply Is_true_true.
-        eauto using ref_flag_lub_ub, list_elem_of_lookup_2.
-      }
-      pose proof (Forall3_lookup_lmr _ _ _ _ i τ ρ ξ H
-                    ltac:(auto) ltac:(auto) ltac:(auto)) as Hi.
-      cbn in Hi.
-      cbn in Hle.
-      specialize (Hi se ltac:(auto)).
-      specialize (Hi ltac:(eauto using ref_flag_le_trans)).
-      iDestruct "Hget" as "(%sk & %Hevsk & %Hkind & Hval)".
-      iPoseProof (Hi with "Hval") as "[Hval1 Hval2]"; eauto.
-      iFrame.
-      iPureIntro.
-      intuition eauto.
-    - iIntros "HT".
-      cbn.
-      iDestruct "HT" as "(%i & %n & %ws & %ws' & %Hirep & -> & Hval)".
-      repeat setoid_rewrite bi.sep_exist_l.
-      iExists i, n, ws, ws'.
-      repeat setoid_rewrite bi.sep_exist_r.
-      iExists i, n, ws, ws'.
-      destruct ((map (type_interp rti sr) τs) !! i) eqn:Hget;
-        pose proof Hget as Hget';
-        unfold lookup in Hget';
-        rewrite Hget';
-        last done.
-      rewrite list_lookup_fmap in Hget.
-      rewrite fmap_Some in Hget.
-      destruct Hget as (τ & Hget & ->).
-      pose proof H as H'.
-      apply Forall3_length_lr in H'.
-      pose proof H as H''.
-      apply Forall3_length_lm in H''.
-      assert (∃ ξ, ξs !! i = Some ξ) as (ξ & Hξ).
-      {
-        apply lookup_lt_is_Some.
-        rewrite <- H'.
-        eapply lookup_lt_is_Some.
-        done.
-      }
-      assert (ref_flag_le ξ (ref_flag_lub ξs)) as Hub.
-      {
-        apply Is_true_true.
-        eauto using ref_flag_lub_ub, list_elem_of_lookup_2.
-      }
-      assert (∃ σ, σs !! i = Some σ) as (σ & Hσ).
-      {
-        apply lookup_lt_is_Some.
-        rewrite <- H''.
-        eapply lookup_lt_is_Some.
-        done.
-      }
-      rewrite type_interp_eq.
-      iDestruct "Hval" as "(%sk & %Hevsk & %Hkind & Hval)".
-      pose proof (Forall3_lookup_lmr _ _ _ _ i τ σ ξ H
-                    ltac:(auto) ltac:(auto) ltac:(auto)) as Hi.
-      specialize (Hi se ltac:(auto) ltac:(eauto using ref_flag_le_trans)).
-      iPoseProof (Hi with "Hval") as "[Hval1 Hval2]".
-      iFrame.
-      iFrame.
-      iPureIntro.
-      intuition eauto.
-    - cbn in *.
-      iIntros "(%oss & -> & Hoss)".
-      rewrite bi.sep_exist_r.
-      iExists oss.
-      rewrite bi.sep_exist_l.
-      iExists oss.
-      rewrite big_sepL2_fmap_l.
-      admit.
-    - cbn in *.
-      iIntros "(%oss & -> & Hoss)".
-      rewrite bi.sep_exist_r.
-      iExists oss.
-      rewrite bi.sep_exist_l.
-      iExists oss.
-      rewrite big_sepL2_fmap_r.
-      admit.
-    - inversion Hle.
-    - inversion Hle.
-    - iIntros "H".
-      cbn in Hle.
-      admit.
-    - cbn.
-      iIntros "(%i & %i32 & %j & %cl & U)".
-      iDestruct "U" as "(%Hirep & -> & #Hclos & #Hinv1 & #Hinv2)".
-      iEval (do 4 setoid_rewrite bi.sep_exist_r).
-      iExists i, i32, j, cl.
-      iEval (do 4 setoid_rewrite bi.sep_exist_l).
-      iExists i, i32, j, cl.
-      iSplit; by eauto.
-    - cbn in Hle.
-      iIntros "(%os & -> & Hval)".
-      rewrite type_interp_eq.
-      iDestruct "Hval" as "(%sk & %Hev & %Hsk & Hval)".
-      cbn.
-      rewrite bi.sep_exist_r.
-      iExists os.
-      rewrite bi.sep_exist_l.
-      iExists os.
-      cbn in IHHkind.
-      iPoseProof (IHHkind se Hse Hle with "Hval") as "[Hval1 Hval2]".
-      rewrite type_interp_eq.
-      iFrame.
-      iPureIntro; intuition eauto.
-    - eauto.
-    - eauto.
-    - iIntros (T) "Hval".
-      unfold T; cbn.
-      destruct (@eval_kind (@semantic_env Σ) (@semantic_env_env Σ) se κ)
-                 as [sk|]
-                 eqn:Hev; last done.
-      rewrite skind_rec_interp_unfold.
-      setoid_rewrite <- bi.later_sep.
-      iRevert "Hval".
-      iApply bi.later_wand.
-      iIntros "!> Hval".
-      rewrite type_interp_eq.
-      iDestruct "Hval" as "(%sk' & %Hev' & %Hsk' & Hval)".
-      iPoseProof (IHHkind with "Hval") as "[Hval1 Hval2]";
-        last (iFrame; by eauto); eauto.
-      pose proof Hse as [Hsek Hset].
-      split; [| constructor]; [| split |].
-      + tauto.
-      + by rewrite eval_kind_senv_insert_type.
-      + admit.
-      + unfold type_ctx_interp in Hse.
-        eapply Forall2_impl; first apply Hse.
-        intros k0 [sk0 T0] [Hev0 HT0].
-        by rewrite eval_kind_senv_insert_type.
-    - iIntros (T) "Hval".
-      unfold T.
-      iDestruct "Hval" as "(%μ & Hval)".
-      rewrite bi.sep_exist_r.
-      iExists μ.
-      rewrite bi.sep_exist_l.
-      iExists μ.
-      rewrite type_interp_eq.
-      iDestruct "Hval" as "(%sk & %Hev & %Hsk & Hval)".
-      iPoseProof (IHHkind with "Hval") as "[Hval1 Hval2]"; eauto.
-      + admit.
-      + iFrame; by eauto.
-    - iIntros (T) "Hval".
-      unfold T.
-      iDestruct "Hval" as "(%rep & Hval)".
-      rewrite bi.sep_exist_r.
-      iExists rep.
-      rewrite bi.sep_exist_l.
-      iExists rep.
-      rewrite type_interp_eq.
-      iDestruct "Hval" as "(%sk & %Hev & %Hsk & Hval)".
-      iPoseProof (IHHkind with "Hval") as "[Hval1 Hval2]"; eauto.
-      + admit.
-      + iFrame; by eauto.
-    - iIntros (T) "Hval".
-      unfold T.
-      iDestruct "Hval" as "(%rep & Hval)".
-      rewrite bi.sep_exist_r.
-      iExists rep.
-      rewrite bi.sep_exist_l.
-      iExists rep.
-      rewrite type_interp_eq.
-      iDestruct "Hval" as "(%sk & %Hev & %Hsk & Hval)".
-      iPoseProof (IHHkind with "Hval") as "[Hval1 Hval2]"; eauto.
-      + admit.
-      + iFrame; by eauto.
-    - iIntros (T) "Hval".
-      unfold T.
-      iDestruct "Hval" as "(%T' & %sk' & %Hev' & %Hsk' & Hval)".
-      rewrite bi.sep_exist_r.
-      iExists T'.
-      rewrite bi.sep_exist_r.
-      iExists sk'.
-      rewrite bi.sep_exist_l.
-      iExists T'.
-      rewrite bi.sep_exist_l.
-      iExists sk'.
-      rewrite type_interp_eq.
-      iDestruct "Hval" as "(%sk & %Hev & %Hsk & Hval)".
-      iPoseProof (IHHkind with "Hval") as "[Hval1 Hval2]"; eauto.
-      + admit.
-      + iFrame; iPureIntro; intuition eauto.
-    - iIntros (T) "Hval".
-      unfold T.
-      cbn.
-      destruct (se.2 !! t) eqn:Hget; rewrite Hget; cbn; try done.
-      destruct se as [se_k se_t].
-      cbn in Hget.
-      assert (Persistent (o.2 sv)).
-      {
-        destruct Hse as [Hsek Hse].
-        unfold type_ctx_interp in Hse.
-        rewrite (Forall2_lookup _ _ _) in Hse.
-        specialize (Hse t).
-        rewrite Hget H in Hse.
-        inversion Hse; subst.
-        destruct o as [sk' T'].
-        destruct H3.
-        cbn in H1.
-        destruct H2 as [Hrefs Hskind].
-        erewrite <- eval_kind_flag in Hrefs; eauto.
-        destruct (kind_ref_flag κ); try inversion Hle; eapply Hrefs.
-      }
-      iPoseProof "Hval" as "#Hval".
-      iSplit; iApply "Hval".
-  Admitted.
+    assert (kind_ok (fc_kind_ctx F) κ) as Hok.
+    {
+      eapply has_kind_inv in Hkind.
+      by inversion Hkind.
+    }
+    pose proof Hok as Hok'.
+    eapply eval_kind_ok_Some in Hok'; eauto.
+    destruct Hok' as [sk Hev].
+    pose proof Hkind as Hkind'.
+    eapply (kinding_sound rti sr) in Hkind'; eauto.
+    unfold skind_has_stype in Hkind'.
+    destruct Hkind' as [Hrefflag _].
+    erewrite <- eval_kind_flag in Hrefflag; eauto.
+    eapply ref_flag_stype_interp_refine in Hrefflag; eauto.
+    cbn in Hrefflag.
+    specialize (Hrefflag sv).
+    rewrite value_interp_eq in Hrefflag.
+    intros T; unfold T.
+    rewrite type_interp_eq.
+    iIntros "#HT".
+    by iSplit.
+  Qed.
 
   Lemma forall_ptr_ser P o :
     forall_ptr_atom P o ->
@@ -841,14 +616,24 @@ Section load_copy.
       + iIntros (e' f'' vs vsf) "->".
         repeat iIntros "@".
         unfold fvs_combine.
-        iPoseProof (pre_type_dup with "Hval") as "[Hval Hval']"; eauto.
-        { cbn. eauto.
+        iAssert (type_interp rti sr τval se (SAtoms os)) with "[Hval]" as "Hval".
+        {
+          rewrite type_interp_eq.
+          iExists _.
+          iFrame.
+          iPureIntro; intuition eauto.
+          split; eauto.
+          exists os; eauto.
+        }
+        iPoseProof (type_dup with "Hval") as "[Hval Hval']"; eauto.
+        {
+          cbn. eauto.
           destruct Hcopyability as (? & Hlek & Hlegc).
           eapply has_kind_agree in Hlek; [|clear Hlek; eauto].
           rewrite -Hlek in Hlegc.
           cbn in Hlegc.
           apply Is_true_true.
-          apply Hlegc.
+          eapply ref_flag_le_trans; eauto.
         }
         iFrame.
         iSplitR; [|iSplitL "Hframe"].
@@ -886,18 +671,6 @@ Section load_copy.
         * iExists (PtrA (PtrHeap MemMM ℓ) :: os).
           change [RefT κ μ Mut τ; τval] with ([RefT κ μ Mut τ] ++ [τval]).
           change (PtrA (PtrHeap MemMM ℓ) :: os) with ([PtrA (PtrHeap MemMM ℓ)] ++ os).
-          iAssert ((□ (pre_type_interp rti sr τval se (SAtoms os) -∗
-                      type_interp rti sr τval se (SAtoms os)))%I) as "#Host".
-          {
-            iIntros "!> Hos".
-            rewrite type_interp_eq.
-            iExists (SVALTYPE ιs ξtgt').
-            iFrame.
-            iSplit; eauto.
-            cbn.
-            iSplit; eauto.
-            iExists os; eauto.
-          }
           iSpecialize ("Hcont" $! (get_path_words off ntgt ws) with "[] [Hval]").
           {
             iPureIntro.
@@ -921,8 +694,7 @@ Section load_copy.
               * eauto using Forall_forall_ptr_ser.
             + iExists os.
               rewrite Hwords.
-              iSplitR; first done.
-              iApply "Host"; iFrame.
+              by iFrame.
           }
           rewrite update_get_path_id; last lia.
           iSplitL "Hval' Hcont Hℓl Hptr".
@@ -945,11 +717,12 @@ Section load_copy.
               + iEval (cbn).
                 rewrite Hevmem.
                 iExists ℓ, fs, ws.
+                rewrite type_interp_eq.
                 by iFrame.
             - iExists [os].
               iSplitR; first (cbn; clear_nils; done).
               rewrite big_sepL2_singleton.
-              iApply "Host"; iFrame.
+              done.
           }
           setoid_rewrite big_sepL2_cons; cbn [const].
           iSplitL "Haddr"; first (iExists _, _; eauto).
