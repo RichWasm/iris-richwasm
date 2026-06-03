@@ -325,6 +325,47 @@ Section load_copy.
     eauto using forall_ptr_ser.
   Qed.
 
+  Lemma mk_load_frame_locs F wl f vs_l vs0 vs vs_r :
+    let fe := fe_of_context F in
+    length vs_l = sum_list_with length (typing.fc_locals F) + length wl ->
+    length vs = length vs0 ->
+    f_locs f = vs_l ++ vs0 ++ vs_r ->
+    f_locs (mk_load_frame (fe_of_context F) f wl vs) = vs_l ++ vs ++ vs_r.
+  Proof.
+    revert vs0 vs_r.
+    induction vs as [|vs v] using seq.last_ind; cbn; intros * Hvss Hvs0 Hf.
+    - destruct vs0; cbn in * ;try lia.
+      done.
+    - destruct vs0 using seq.last_ind;
+        first (change @length with @seq.size in Hvs0;
+                 by rewrite seq.size_rcons in Hvs0).
+      change @length with @seq.size in Hvs0.
+      unfold mk_load_frame in *.
+      rewrite imap_rcons seq.foldl_rcons.
+      rewrite !seq.size_rcons in Hvs0.
+      cbn.
+      setoid_rewrite IHvs;
+        last (by rewrite Hf rcons_app -app_assoc);
+        eauto.
+      rewrite sum_list_with_list_sum.
+      rewrite -length_concat.
+      rewrite Nat.add_assoc.
+      assert (length vs_l = length (concat (typing.fc_locals F)) + length wl) as Hvsslen.
+      {
+        rewrite !length_concat Hvss.
+        by rewrite sum_list_with_list_sum.
+      }
+      rewrite -Hvsslen.
+      rewrite insert_app_r; f_equal.
+      rewrite app_assoc.
+      rewrite insert_app_l; f_equal.
+      + rewrite rcons_app.
+        replace (length vs) with (length vs + 0) by lia.
+        by rewrite insert_app_r.
+      + rewrite length_app; cbn.
+        lia.
+  Qed.
+
   Lemma compat_load_copy M F L wt wt' wtf wl wl' wlf es' κ κser μ β τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -498,8 +539,25 @@ Section load_copy.
       inversion Hsk; subst.
       assert (has_mono_size F (pr_target pr)).
       {
-        (* TODO Have to show the SerT targeted by the path has a mono size. *)
-        admit.
+        pose proof Hresolves as Hresolves'.
+        eapply pr_target_kind in Hresolves'; eauto.
+        destruct Hresolves' as (ktgt & Hkind).
+        rewrite Hser in Hkind.
+        rewrite Hser.
+        inversion Hkind; subst.
+        unfold κ0 in *.
+        eexists; eauto.
+        unfold is_mono_size.
+        constructor.
+        inversion Htype.
+        inversion H.
+        inversion H3; subst.
+        inversion H8; subst.
+        destruct H9 as (ρ' & Hρ' & Hρmono).
+        inversion Hρ'; subst.
+        eapply has_kind_agree in H5; last eapply H4.
+        inversion H5; subst.
+        eauto.
       }
       assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
         as [k' Hsztgt].
@@ -548,10 +606,8 @@ Section load_copy.
       cbn in Hsval'.
       assert (Hkindok': kind_ok (fc_kind_ctx F) (VALTYPE ρ ξtgt')).
       {
-        constructor.
-        eauto.
-        (* TODO Have to show the kind is well formed. *)
-        admit.
+        eapply has_kind_inv in H3.
+        by destruct H3.
       }
       eapply eval_kind_ok_Some in Hkindok'; eauto.
       destruct Hkindok' as (sk' & Hkeval).
@@ -658,15 +714,22 @@ Section load_copy.
         * unfold frame_interp.
           iDestruct "Hframe" as "(%ηss & %vss_L' & %vs_WL' & %fr' & Hframe)".
           iDestruct "Hframe" as "(%Hprims & %Hres & Hats & Hlocs)".
+          apply Forall2_app_inv_l in Hres.
+          destruct Hres as (vs1 & vs' & Hvs1 & Hvs' & ->).
+          apply Forall2_cons_inv_l in Hvs'.
+          destruct Hvs' as (v1 & vs'' & Hv1 & Hvs'' & ->).
+          apply Forall2_app_inv_l in Hvs''.
+          destruct Hvs'' as (?vs & ?vs & ?Hv & ?Hv1 & ->).
+          unfold ptr_local.
           iExists _, vss_L', _.
           iFrame.
           iPureIntro.
           intuition.
           -- (* TODO need to characterize f_locs (mk_load_frame f wl vs). *)
-             unfold ptr_local.
              assert (map length vss_L' = map length (typing.fc_locals F)).
              { apply Forall2_Forall2_length in Hprims. congruence. }
-             admit.
+             erewrite mk_load_frame_locs.
+             all:admit.
           -- apply Hres.
         * iExists (PtrA (PtrHeap MemMM ℓ) :: os).
           change [RefT κ μ Mut τ; τval] with ([RefT κ μ Mut τ] ++ [τval]).

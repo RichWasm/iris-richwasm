@@ -1252,4 +1252,23 @@ Section PathFacts.
         iExists _; eauto.
   Qed.
 
+  Lemma pr_target_kind π pr τ u :
+    resolves_path τ π u pr ->
+    forall F κ,
+      has_kind F τ κ ->
+      ∃ κtgt, has_kind F pr.(pr_target) κtgt.
+  Proof.
+    intros Hpath. induction Hpath; intros * Ht.
+    - eexists; eauto.
+    - eexists; eauto.
+    - inversion Ht; subst.
+      rename H4 into Hall3.
+      eapply Forall3_app_inv_l in Hall3.
+      destruct Hall3 as (ss1 & ss2 & rs1 & rs2 & -> & -> & Hl & Hrest).
+      eapply Forall3_cons_inv_l in Hrest.
+      destruct Hrest as (s & ss2' & rs & rs2' & -> & -> & Hm & Hr).
+      rename ss2' into ss2; rename rs2' into rs2.
+      eapply IHHpath; eauto.
+  Qed.
+
 End PathFacts.
