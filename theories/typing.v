@@ -957,12 +957,11 @@ Inductive has_instruction_type :
   mono_mem μ ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (INew ψ) ψ L
-| TLoadCopy M F L π μ β ρ ξ τ τval pr κ :
+| TLoadCopy M F L π μ β τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ β τ] [RefT κ μ β τ; τval] in
-  has_kind F τval (VALTYPE ρ ξ) ->
-  ref_flag_le ξ GCRefs ->
+  has_ref_flag F τval GCRefs ->
   resolves_path τ π None pr ->
-  pr.(pr_target) = SerT (MEMTYPE (RepS ρ) ξ) τval ->
+  pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILoad ψ π Copy) ψ L
@@ -970,24 +969,22 @@ Inductive has_instruction_type :
   let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ] [RefT κ' (BaseM MemMM) Mut pr.(pr_replaced); τval] in
   resolves_path τ π (Some (type_span σ)) pr ->
   has_size F pr.(pr_target) σ ->
-  pr.(pr_target) = SerT (MEMTYPE (RepS ρ) ξ) τval ->
+  pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (ILoad ψ π Move) ψ L
 | TStoreWeak M F L π μ τ τval pr κ κser :
   let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
   resolves_path τ π None pr ->
-  has_kind F τval (VALTYPE ρ ξ) ->
-  ref_flag_le ξ GCRefs ->
-  pr.(pr_target) = SerT (MEMTYPE (RepS ρ) ξ) τval ->
+  has_ref_flag F pr.(pr_target) GCRefs ->
+  pr.(pr_target) = SerT κser τval ->
   Forall (has_mono_size F) pr.(pr_prefix) ->
   has_instruction_type_ok F ψ L ->
   has_instruction_type M F L (IStore ψ π) ψ L
 | TStoreStrong M F L π τ τval pr σ ρ κ κ' κser :
   let ψ := InstrT [RefT κ (BaseM MemMM) Mut τ; τval] [RefT κ' (BaseM MemMM) Mut pr.(pr_replaced)] in
   resolves_path τ π (Some (SerT κser τval)) pr ->
-  has_kind F τval (VALTYPE ρ ξ) ->
-  ref_flag_le ξ GCRefs ->
+  has_ref_flag F pr.(pr_target) GCRefs ->
   has_size F pr.(pr_target) σ ->
   has_rep F τval ρ ->
   eval_size EmptyEnv σ = eval_rep_size EmptyEnv ρ ->
@@ -1213,7 +1210,6 @@ Section HasHaveInstructionTypeMind.
           resolves_path τ π None pr ->
           pr.(pr_target) = SerT κser τval ->
           Forall (has_mono_size F) pr.(pr_prefix) ->
-          has_mono_size F pr.(pr_target) ->
           has_instruction_type_ok F ψ L ->
           P1 M F L (ILoad ψ π Copy) ψ L)
       (HLoadMove : forall M F L π τ τval κ κ' κser σ pr,
@@ -1325,8 +1321,8 @@ Section HasHaveInstructionTypeMind.
     | TUntag M F L H1 => HUntag M F L H1
     | TCast M F L τ τ' H1 H2 => HCast M F L τ τ' H1 H2
     | TNew M F L μ β τ κ κser H1 H2 => HNew M F L μ β τ κ κser H1 H2
-    | TLoadCopy M F L π μ β τ τval pr κ κser H1 H2 H3 H4 H5 H6 =>
-        HLoadCopy M F L π μ β τ τval pr κ κser H1 H2 H3 H4 H5 H6
+    | TLoadCopy M F L π μ β τ τval pr κ κser H1 H2 H3 H4 H5 =>
+        HLoadCopy M F L π μ β τ τval pr κ κser H1 H2 H3 H4 H5
     | TLoadMove M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5 =>
         HLoadMove M F L π τ τval κ κ' κser σ pr H1 H2 H3 H4 H5
     | TStoreWeak M F L π μ τ τval pr κ κser H1 H2 H3 H4 H5 =>
