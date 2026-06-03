@@ -8,6 +8,7 @@ Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.path.
 Require Import RichWasm.iris.logrel.load.
+Require Import RichWasm.iris.logrel.roots.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
@@ -565,6 +566,7 @@ Section load_copy.
     cbn [app].
     iEval (cbn -[type_interp]) in "Href".
     destruct (eval_mem se μ) as [[|]|] eqn:Hevmem; last done; destruct β.
+
     - iDestruct "Href" as (ℓ fs ws Hsv) "(Hℓl & Hℓh & Hws)".
       inversion Hsv; subst p; clear Hsv.
       change (?x :: ?y :: ?z) with ([x; y] ++ z).
@@ -795,8 +797,7 @@ Section load_copy.
           iFrame.
           iPureIntro.
           intuition.
-          -- (* TODO need to characterize f_locs (mk_load_frame f wl vs). *)
-             assert (map length vss_L' = map length (typing.fc_locals F)).
+          -- assert (map length vss_L' = map length (typing.fc_locals F)).
              { apply Forall2_Forall2_length in Hprims. congruence. }
              instantiate (1 := vs1 ++ VAL_int32 vn32 :: vs3 ++ vsf ++ vs5 ++ vs2).
              repeat match goal with
@@ -906,6 +907,7 @@ Section load_copy.
           eapply Forall_forall in Hats; last eauto.
           cbn in Hats.
           destruct ξtgt'; cbn in Hats; done.
+
     - iDestruct "Href" as (ℓ fs ws Hsv) "(#Hinv & Hws)".
       inversion Hsv; subst p; clear Hsv.
       change (?x :: ?y :: ?z) with ([x; y] ++ z).
@@ -1169,8 +1171,7 @@ Section load_copy.
           iFrame.
           iPureIntro.
           intuition.
-          -- (* TODO need to characterize f_locs (mk_load_frame f wl vs). *)
-             assert (map length vss_L' = map length (typing.fc_locals F)).
+          -- assert (map length vss_L' = map length (typing.fc_locals F)).
              { apply Forall2_Forall2_length in Hprims. congruence. }
              instantiate (1 := vs1 ++ VAL_int32 vn32 :: vs3 ++ vsf ++ vs5 ++ vs2).
              repeat match goal with
@@ -1280,11 +1281,90 @@ Section load_copy.
           eapply Forall_forall in Hats; last eauto.
           cbn in Hats.
           destruct ξtgt'; cbn in Hats; done.
+
     - (* ref gc mut *)
       iDestruct "Href" as (ℓ fs Hsv) "Hinv".
-      inversion Hsv; subst.
-      (* need lemma about memory.load *)
+      inversion Hsv; subst p; clear Hsv.
+      change (?x :: ?y :: ?z) with ([x; y] ++ z).
+      set (f' := {| f_locs := <[ptr_local:=v ]> (f_locs fr);
+                    f_inst := f_inst fr |}).
+      iApply (cwp_seq with "[Hfr Hrun]").
+      {
+        change ([?ev; ?x]) with ([ev] ++ [x]).
+        rewrite (has_values_to_consts_inv _ _ Hevs).
+        iApply (cwp_local_tee with "[] [$] [$]"); first eauto.
+        instantiate (1:= λ f'' vs', (⌜f'' = f' /\ vs' = [v]⌝)%I).
+        by iFrame.
+      }
+      iIntros (f vs) "[-> ->] Hf Hrun".
+      setoid_rewrite type_interp_eq.
+      eapply cwp_case_ptr in Hcompile.
+      destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
+      destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
+      inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hret Hload1.
+      cbn in Hret.
+      inversion Hret.
+      subst wt4 wl4 es2.
+      rewrite atoms_interp_one_inv.
+      iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
+      inversion Hv'; subst v'; clear Hv'.
+      iApply cwp_val_app.
+      { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
+      iPoseProof (atom_interp_ptr_shaped with "Hat") as "(%vn & %vn32 & %Hvn & -> & %Hvshp & %rp & %Hrpvn & Hrp)".
+      specialize (Hspec [] [] (PtrHeap MemGC ℓ) vn vn32 ltac:(eauto)).
+      specialize (Hspec ltac:(auto) ltac:(auto) ltac:(auto)).
+      clear_nils.
+      iApply (Hspec with "[$] [$] []").
+      {
+        iPureIntro; cbn.
+        rewrite list_lookup_insert.
+        by rewrite decide_True.
+      }
+      iIntros "!> Hf Hrun".
+      assert (Hκ'': ∃ σ ξ, has_kind F τ (MEMTYPE σ ξ)).
+      {
+        unfold ψ in Htype.
+        inversion Htype; subst.
+        destruct H0 as [Href _].
+        rewrite Forall_singleton in Href.
+        destruct Href as (ρ' & Hrep & Hmono).
+        inversion Hrep; subst.
+        eapply has_kind_ref_ty; eauto.
+      }
+      destruct Hκ'' as (σ & ξ & Hkindτ).
+      pose proof Hkindτ as Hkag.
+      pose proof (has_kind_inv _ _ _ Hkindτ) as Hhkindok.
+      inversion Hhkindok as [F' τ'' κ'' Htyok Hkindok];
+        subst F' κ'' τ''; clear Hhkindok.
+      pose proof Hkindok as Hev.
+      eapply eval_kind_ok_Some in Hev; last done.
+      iApply fupd_cwp.
+      iMod (na_inv_acc with "Hinv Hown") as "U"; eauto.
+      iDestruct "U" as "[ (%ws & Hfs & Hhp & Hws) V ]".
+      iModIntro.
+      iMod "Hfs".
+      iMod "Hhp".
+      set (E' := (⊤ ∖ ↑ns_ref ℓ)) in *.
+      assert (↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E')
+        by eauto with ndisj.
+      destruct Hev as (sk & Hev).
+      inversion Hkindok; subst.
+      eapply eval_size_ok_Some in H3; eauto; destruct H3 as (n & Hevsz).
+      cbn in Hev.
+      rewrite Hevsz in Hev; cbn in Hev; inversion Hev; clear Hev.
+      subst sk.
+      assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
+        as [k' Hsztgt].
+      {
+        unfold type_sz.
+        cbn.
+        pose proof (has_mono_size_inv _ _ H) as (σ' & ξ' & k' & Hmono & Hkind & Hev).
+        eapply has_kind_type_sz in Hkind; eauto.
+        rewrite mono_size_eval_emp; eauto.
+      }
+      inv_cg_bind Hload2 [] ?wt ?wt ?wl ?wl  ?es_root_hp ?es_store Hcgroot Hcgload.
       admit.
+
     - (* ref gc imm *)
       admit.
   Admitted.
