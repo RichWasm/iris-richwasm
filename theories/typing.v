@@ -897,7 +897,7 @@ Inductive has_instruction_type :
 | TCaseLoadCopy M F L L' ess τs τs' κr κv κs μ :
   let F' := F <| fc_labels ::= cons (τs', L') |> in
   let τs_ser := zip_with SerT κs τs in
-  let ψ := InstrT [RefT κr μ Imm (VariantT κv τs_ser)] (RefT κr μ Imm (VariantT κv τs') :: τs') in
+  let ψ := InstrT [RefT κr μ Imm (VariantT κv τs_ser)] (RefT κr μ Imm (VariantT κv τs_ser) :: τs') in
   Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
   Forall2 (fun τ es => have_instruction_type M F' L es (InstrT [τ] τs') L') τs ess ->
   has_instruction_type_ok F ψ L' ->
@@ -1144,7 +1144,7 @@ Section HasHaveInstructionTypeMind.
           let F' := F <| fc_labels ::= cons (τs', L') |> in
           let τs_ser := zip_with SerT κs τs in
           let ψ :=
-            InstrT [RefT κr μ Imm (VariantT κv τs_ser)] (RefT κr μ Imm (VariantT κv τs') :: τs') in
+            InstrT [RefT κr μ Imm (VariantT κv τs_ser)] (RefT κr μ Imm (VariantT κv τs_ser) :: τs') in
           Forall (fun τ => has_ref_flag F τ GCRefs) τs ->
           Forall2 (fun τ es => P2 M F' L es (InstrT [τ] τs') L') τs ess ->
           has_instruction_type_ok F ψ L' ->
