@@ -170,7 +170,8 @@ Section Compiler.
     end;;
     let do_case μ c i :=
       τ ← try_option EFail (τs !! i);
-      ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ);
+      τ0 ← try_option EFail (match τ with SerT _ t => Some t | _ => None end);
+      ρ ← try_option EFail (type_rep fe.(fe_type_vars) τ0);
       ιs ← try_option EFail (eval_rep EmptyEnv ρ);
       load mr fe μ con a 1 ιs;;
       c
@@ -185,7 +186,8 @@ Section Compiler.
     in
     ignore $ case_ptr a (W.Tf [] res)
       (emit W.BI_unreachable)
-      (fun μ => load1 mr fe μ Copy a 0 I32R;;
+      (fun μ => root_to_heap mr μ a;;
+             load1 mr fe μ Copy a 0 I32R;;
              case_blocks fe res (map (do_case μ) cases);;
              cleanup).
 
