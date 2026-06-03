@@ -182,6 +182,17 @@ Proof.
   - assumption.
 Qed.
 
+Lemma nat_repr_i32repr (n : nat) :
+  (Z.of_nat n < Wasm_int.Int32.modulus)%Z ->
+  nat_i32_repr n (Wasm_int.Int32.repr (Z.of_nat n)).
+Proof.
+  intros Hbnd.
+  unfold nat_i32_repr, Wasm_int.nat_of_uint, Wasm_int.Int32.repr; cbn.
+  rewrite Wasm_int.Int32.Z_mod_modulus_id.
+  - symmetry; apply Nat2Z.id.
+  - lia.
+Qed.
+
 Lemma unsigned_is_N:
   forall z: i32,
   Wasm_int.Int32.unsigned z = Z.of_N (Wasm_int.N_of_uint i32m z).
