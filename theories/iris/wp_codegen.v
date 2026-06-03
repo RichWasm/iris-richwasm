@@ -1112,38 +1112,40 @@ Section CodeGen.
       done.
   Qed.
 
-  Lemma cwp_setflag i fl Φ B R s E esv wt wl wt' wl' es_setflag fr ℓ fs μ θ ta ta32 j32 :
-    run_codegen (setflag mr i fl) wt wl = inr (tt, wt', wl', es_setflag) ->
-    nat_i32_repr i j32 ->
+  Lemma cwp_setflag i fl wt wl wt' wl' es_setflag ret :
+    run_codegen (setflag mr i fl) wt wl = inr (ret, wt', wl', es_setflag) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    ∀ Φ B R s E esv fr ℓ fs μ θ ta ta32,
+    (Z.of_nat i < Wasm_int.Int32.modulus)%Z →
     N_i32_repr ta ta32 ->
     repr_pointer θ (PtrHeap μ ℓ) ta ->
     has_values esv [VAL_int32 ta32] ->
-    (* TODO: conclude early that the lists are empty *)
-    wt' = [] /\
-    wl' = [] /\
     ⊢ ℓ ↦layout fs -∗
-      (
-         rt_token rti sr θ -∗ na_own logrel_nais E -∗
-         instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
-         ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
-         Φ fr []) -∗
       ↪[frame] fr -∗
       ↪[RUN] -∗
       ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
       na_own logrel_nais E -∗
       rt_token rti sr θ -∗
       instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+      (
+         rt_token rti sr θ -∗ na_own logrel_nais E -∗
+         instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
+         ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
+         Φ fr []) -∗
       CWP esv ++ es_setflag @ s; E UNDER B; R {{ Φ }}.
   Proof.
-    intros Hcg Hindex Hheap_addr Hrepr_ptr Hhv.
+    intros Hcg.
     inv_cg_bind Hcg () ?wt ?wt ?wl ?wl ?es ?es Hcg1 Hcg2; subst.
     inv_cg_bind Hcg2 () ?wt ?wt ?wl ?wl ?es ?es Hcg2 Hcg3; subst.
     inv_cg_emit Hcg1; subst.
     inv_cg_emit Hcg2; subst.
     inv_cg_emit Hcg3; subst.
     clear_nils.
-    do 2 split; first done.
-    iIntros "Hroot HΦ Hframe Hrun %HE Htok Hrt Hsetflag".
+    do 3 split; first done.
+    intros ????????????? Hbound Haddr Hrepr_ptr Hhv.
+    iIntros "Hroot Hframe Hrun %HE Htok Hrt Hsetflag HΦ".
 
     apply has_values_iff_to_consts in Hhv; subst.
     simpl.
@@ -1167,7 +1169,7 @@ Section CodeGen.
     iApply (cwp_wand_strong with "[Hrt Hop Hframe Hrun Hroot]").
     { iApply (Hsetflagspec with "[$] [$] [$] [$]"); eauto.
       instantiate (1 := i).
-      admit.
+      by apply nat_repr_i32repr.
     }
     { eauto. }
     { eauto. }
@@ -1180,44 +1182,17 @@ Section CodeGen.
       iExists _; eauto.
       done.
     }
-  Admitted.
+  Qed.
 
- (* Mathias: this would be ideal phrasing for the pointer_flags lemma *)
-  Lemma cwp_setflag_temp i fl wt wl wt' wl' es_setflag ret :
-    run_codegen (setflag mr i fl) wt wl = inr (ret, wt', wl', es_setflag) ->
-    ret = () /\
-    wt' = [] /\
-    wl' = [] /\
-    ∀ Φ B R s E esv fr ℓ fs μ θ ta ta32 j32,
-    nat_i32_repr i j32 ->
-    N_i32_repr ta ta32 ->
-    repr_pointer θ (PtrHeap μ ℓ) ta ->
-    has_values esv [VAL_int32 ta32] ->
-    ⊢ ℓ ↦layout fs -∗
-      ↪[frame] fr -∗
-      ↪[RUN] -∗
-      ⌜↑ns_fun (N.of_nat (sr_func_setflag sr)) ⊆ E⌝ -∗
-      na_own logrel_nais E -∗
-      rt_token rti sr θ -∗
-      instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
-      (
-         rt_token rti sr θ -∗ na_own logrel_nais E -∗
-         instance_rt_func_interp mr.(mr_func_setflag) sr.(sr_func_setflag) (spec_setflag rti sr) fr.(f_inst) -∗
-         ℓ ↦layout <[ i := flag_of_i32 (i32_of_flag fl) ]> fs -∗
-         Φ fr []) -∗
-      CWP esv ++ es_setflag @ s; E UNDER B; R {{ Φ }}.
-Proof. Admitted.
-
-(* done except for (a) adding in some sort of condition that all of the possible is are good i32s
-   and (b) an annoying "inserts commute if all indices are different" lemma under a foldr
+(* done except for an annoying "inserts commute if all indices are different" lemma under a foldr
  *)
   Lemma cwp_set_pointer_flags :
     ∀ a fs i wt wl ret wt' wl' es_set_ptr_flags,
     run_codegen (set_pointer_flags mr a i fs) wt wl =
       inr(ret, wt', wl', es_set_ptr_flags) ->
     ret = () /\ wt' = [] /\ wl' = [] /\
-    ∀ fr j32 ta ta32 θ μ ℓ,
-      nat_i32_repr i j32 ->
+    ∀ fr ta ta32 θ μ ℓ,
+      (Z.of_nat (i + length fs) ≤ Wasm_int.Int32.modulus)%Z ->
       N_i32_repr ta ta32 ->
       repr_pointer θ (PtrHeap μ ℓ) ta ->
       fr.(f_locs) !! (localimm a) = Some (VAL_int32 ta32) ->
@@ -1281,12 +1256,12 @@ Proof. Admitted.
       inv_cg_emit Hemit.
       subst. clear_nils.
 
-      apply cwp_setflag_temp in Hcg_f.
+      apply cwp_setflag in Hcg_f.
       destruct Hcg_f as (-> & -> & -> & Hcg_f).
       repeat (split; first done).
 
       (* okay now I need to use cwp_seq -> cwp_local_get *)
-      intros * Hi Hta Hrepr Hav.
+      intros * Hbound Hta Hrepr Hav.
       iIntros (s E B R Φ fsnew) "Hℓ Hrt %Hnsfun Hown Hfr Hrun Hinst HΦ".
       iApply (cwp_seq with "[Hfr Hrun]").
       {
@@ -1306,8 +1281,8 @@ Proof. Admitted.
         (* where ta32 is the i32repr to ta *)
         (* and ta is the repr_pointer *)
         iApply (Hcg_f with "[$] [$] [$] [] [$] [$] [$]").
+        - rewrite length_cons in Hbound. lias.
         - done.
-        - apply Hta.
         - apply Hrepr.
         - by apply has_values_iff_to_consts.
         - done.
@@ -1324,10 +1299,7 @@ Proof. Admitted.
       cbn; clear_nils.
 
       iApply (Hsetflags_fs with "[$] [$] [] [$] [$] [$] [$]").
-      + (* need all of the possible i's to be less than the i32 thing *)
-        (* this is an assumption that needs to be added in *)
-        (* TODO *)
-        admit.
+      + rewrite length_cons in Hbound. lias.
       + exact Hta.
       + exact Hrepr.
       + exact Hav.
