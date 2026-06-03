@@ -496,16 +496,58 @@ Section load_copy.
       rewrite sum_list_with_list_sum length_concat.
       cbn; lia.
     }
+    assert (has_mono_size F (pr_target pr)).
+    {
+      repeat
+        match goal with
+        | H : has_instruction_type_ok _ _ _ |- _ => inversion H; clear H; subst
+        | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
+        | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
+        | H : Forall _ [] |- _ =>  clear H
+        | H : has_mono_rep _ _ |- _ => destruct H as (?ρ & ?Hrep & ?Hmono)
+        | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
+        | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : has_kind ?F (RefT _ _ _ _) _ |- _ => eapply has_kind_ref_ty in H; destruct H as (? & ? & ?); subst
+        | H : has_kind ?F ?t ?k,
+          H' : has_kind ?F ?t ?k' |- _ =>
+            pose proof (has_kind_agree F t k k' H H'); clear H'
+        end.
+      pose proof Hresolves as Hresolves'.
+      rewrite Hser.
+      eapply pr_target_kind in Hresolves'; eauto using KSer.
+      destruct Hresolves' as (ktgt & Hkind).
+      rewrite Hser in Hkind.
+      inversion Hkind; subst.
+      unfold κ0 in *.
+      eexists; eauto.
+      unfold is_mono_size.
+      constructor.
+      repeat
+        match goal with
+        | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
+        | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
+        | H : Forall _ [] |- _ =>  clear H
+        | H : has_mono_rep _ _ |- _ => destruct H as (?ρ & ?Hrep & ?Hmono)
+        | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
+        | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : has_kind ?F ?t ?k,
+          H' : has_kind ?F ?t ?k' |- _ =>
+            pose proof (has_kind_agree F t k k' H H'); clear H'
+        end.
+      by unfold is_mono_rep in *.
+    }
     assert (Hκ: eval_rep se (AtomR PtrR) = Some l).
     {
       destruct Htype as [Hmono Hctx].
       destruct Hmono as [Hmono _].
       rewrite Forall_singleton in Hmono.
       destruct Hmono as (ρ' & Hrep & Hismono).
-      inversion Hrep; subst.
+      inversion Hrep as [a b c d Href]; subst.
       cbn.
-      apply rep_ref_kind_ptr in H; subst.
-      destruct H as [-> [χ' ->]].
+      apply rep_ref_kind_ptr in Href; subst.
+      destruct Href as [-> [χ' ->]].
       unfold eval_kind in Hκ'.
       apply bind_Some in Hκ'; destruct Hκ' as [l' [Heval Hret]].
       inversion Hret; subst; auto.
@@ -566,7 +608,7 @@ Section load_copy.
       {
         unfold ψ in Htype.
         inversion Htype; subst.
-        destruct H as [Href _].
+        destruct H0 as [Href _].
         rewrite Forall_singleton in Href.
         destruct Href as (ρ' & Hrep & Hmono).
         inversion Hrep; subst.
@@ -585,39 +627,10 @@ Section load_copy.
       pose proof Hev as Hev'.
       cbn in Hev.
       inversion Hkindok; subst σ0 ξ0 K κ'.
-      eapply eval_size_ok_Some in H1; eauto.
-      destruct H1 as (n & Hevsz).
+      eapply eval_size_ok_Some in H2; eauto.
+      destruct H2 as (n & Hevsz).
       rewrite Hevsz in Hev; cbn in Hev; inversion Hev; clear Hev.
       subst.
-      assert (has_mono_size F (pr_target pr)).
-      {
-        pose proof Hresolves as Hresolves'.
-        eapply pr_target_kind in Hresolves'; eauto.
-        destruct Hresolves' as (ktgt & Hkind).
-        rewrite Hser in Hkind.
-        rewrite Hser.
-        inversion Hkind; subst.
-        unfold κ0 in *.
-        eexists; eauto.
-        unfold is_mono_size.
-        constructor.
-        inversion Htype.
-        inversion Hkind; subst.
-        repeat
-          match goal with
-          | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
-          | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
-          | H : Forall _ [] |- _ =>  clear H
-          | H : has_mono_rep _ _ |- _ => destruct H as (?ρ & ?Hrep & ?Hmono)
-          | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
-          | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
-          | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
-          | H : has_kind ?F ?t ?k,
-            H' : has_kind ?F ?t ?k' |- _ =>
-              pose proof (has_kind_agree F t k k' H H'); clear H'
-          end.
-        by unfold is_mono_rep in *.
-      }
       assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
         as [k' Hsztgt].
       {
@@ -936,7 +949,7 @@ Section load_copy.
       {
         unfold ψ in Htype.
         inversion Htype; subst.
-        destruct H as [Href _].
+        destruct H0 as [Href _].
         rewrite Forall_singleton in Href.
         destruct Href as (ρ' & Hrep & Hmono).
         inversion Hrep; subst.
@@ -955,15 +968,10 @@ Section load_copy.
       pose proof Hev as Hev'.
       cbn in Hev.
       inversion Hkindok; subst σ0 ξ0 K κ'.
-      eapply eval_size_ok_Some in H1; eauto.
-      destruct H1 as (n & Hevsz).
+      eapply eval_size_ok_Some in H2; eauto.
+      destruct H2 as (n & Hevsz).
       rewrite Hevsz in Hev; cbn in Hev; inversion Hev; clear Hev.
       inversion Hsk; subst.
-      assert (has_mono_size F (pr_target pr)).
-      {
-        (* TODO Have to show the SerT targeted by the path has a mono size. *)
-        admit.
-      }
       assert (∃ k', type_sz se (fe_of_context F) (pr_target pr) = Some k')
         as [k' Hsztgt].
       {
