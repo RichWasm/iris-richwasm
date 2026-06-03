@@ -3834,7 +3834,7 @@ Fixpoint has_instruction_type_checker
                     | RefT κr0 μ0 Imm (VariantT κv0 τs'0) =>
                         (* a bunch of variables have to be equal *)
                         if andb (kind_beq κr κr0) (andb (kind_beq κv κv0)
-                                  (andb (memory_beq μ μ0) (list_beq type type_beq τs' τs'0)))
+                                  (andb (memory_beq μ μ0) (list_beq type type_beq τs_ser τs'0)))
                         then
                           match unzip_sert τs_ser with
                           | Some (κs, τs) =>
