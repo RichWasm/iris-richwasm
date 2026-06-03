@@ -1,5 +1,6 @@
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
+Require Import RichWasm.iris.logrel.roots.
 Require Import RichWasm.iris.numerics.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -121,7 +122,7 @@ Section store_weak.
 
 
 
-    (** OTHER GENERAL FACTS THAT WE NEED *)
+    (** OTHER GENERAL FACTS THAT WE NEED FOR BOTH CASES *)
     iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl". (* for saving stack *)
 
 
@@ -210,8 +211,11 @@ Section store_weak.
       iIntros (fr_saved w) "(%val_idxs & -> & %Hfrel_fr_saved & %Hsaved & %Hval_idxs_seq & %Hval_localidxs) Hfr Hrun".
       clear Hsave.
 
+      (* factoid: *)
+      assert (Hptrlocalfrsaved: ptr_local < length (f_locs fr_saved)) by admit.
+
       (* Next: local_tee stuff *)
-      set (f' := ({|
+      set (fr' := ({|
                      W.f_locs :=
                        <[localimm (prelude.W.Mk_localidx ptr_local):=
                            VAL_int32 n32]> (f_locs fr_saved);
@@ -222,15 +226,15 @@ Section store_weak.
       {
         (* this is copied from load.v *)
         iApply (cwp_local_tee with "[] [$] [$]").
-        - admit. (* this probably needs more work? *)
-        - now instantiate (1:= λ f'' v'', ⌜f'' = f' /\ v'' = [VAL_int32 n32]⌝%I).
+        - done.
+        - now instantiate (1:= λ f'' v'', ⌜f'' = fr' /\ v'' = [VAL_int32 n32]⌝%I).
       }
       iIntros (? ?) "(-> & ->) Hf Hrun".
 
       (* Summary:
          - Used up evs2 and es_save_stack and "put" the pointer in front of es_case_ptr block
          - Our frame changed twice: fr_saved is after saving the stack (so lots of things)
-           got put into locals, and f' is after putting n32 into the local associated
+           got put into locals, and fr' is after putting n32 into the local associated
            with the ptr.
          - We also got a bunch of val_indx stuffs everywhere
 
@@ -239,7 +243,7 @@ Section store_weak.
       *)
 
 
-      (** CASE PTR TIME **)
+      (** ----------------- CASE PTR TIME --------------------- **)
       (* Apply the lemma into the codegen *)
       apply cwp_case_ptr in Hcompile.
       destruct Hcompile as
@@ -257,12 +261,94 @@ Section store_weak.
 
       (* A cwp_val_app, which I'm confused why it's on the stack at all but oh well *)
       iApply cwp_val_app; first done.
+      unfold fvs_combine.
 
-      (* Now we can cwp_seq and use the spec *)
+      iApply (cwp_seq with "[-]").
+      {
+        iApply (Hcaseptr_spec with "[$] [$] [] [-]");
+          [iPureIntro; cbn; by apply list_lookup_insert_eq|].
+        iModIntro.
+        iIntros "Hfr Hrun".
+
+        (** ACTUALLY STORING TIME **)
+        (* first, a smidge more work in Hcg_memMM *)
+        inv_cg_bind Hcg_memMM what ?wt ?wt ?wl ?wl
+          es_root_to_heap es_store Hcg_root Hcg_store.
+        destruct what; subst.
+        cbn in Hcg_root.
+        inversion Hcg_root; subst. clear_nils.
+
+        (* Actual Store *)
+        (* this is the most deceiving admit of all time lmao *)
+        admit.
+      }
+
+
+
+
+      (** ----------------- POINTER FLAGS --------------------- **)
+      iIntros (fr_caseptr vs_caseptr) "Hres Hfr Hrun".
+
+      (* unless I'm really tripping, I know that vs_caseptr will be nil?
+         So just for the sake of being able to dig into the ptr_flags_spec:
+       *)
+      assert (vs_caseptr = []) by admit; subst.
+      clear_nils.
+
+      (* apply the spec onto the codegen and slowly specialize *)
+      eapply cwp_set_pointer_flags in Hptr_flags.
+      destruct Hptr_flags as (_ & -> & -> & Hptr_flags_spec).
+      specialize (Hptr_flags_spec fr_caseptr n n32).
+      (* this theta is ALMOST CERTAINLY going to be different TODO *)
+      specialize (Hptr_flags_spec θ).
+      specialize (Hptr_flags_spec MemMM ℓ).
+
+      (* we need four pure facts before using the spec:
+         - off + length ιs < Int32.mod. Maybe from Hcg_memMM's memory.store?
+         - N_i32_repr n n32. We have this.
+         - repr_pointer θ (ptr) n. We have repr_root_pointer, which has
+           everything but a `θ !! ℓ = Some(μ, a)`. So, we'll need that,
+           but I can't actually imagine from where right now
+         - f_locs fr_caseptr !! .. = n32. This is then just the minimum
+           requirement of relating fr_caseptr and fr'
+       *)
+
+      assert (H1: ((off + length (flat_map arep_flags ιs))%nat ≤
+                     Wasm_int.Int32.modulus)%Z) by admit.
+      assert (H2: repr_pointer θ (PtrHeap MemMM ℓ) n) by admit.
+      assert (H3: f_locs fr_caseptr !! localimm (prelude.W.Mk_localidx ptr_local) =
+                    Some (VAL_int32 n32)) by admit.
+      specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
+
+      (* then the things we need out from case_ptrs:
+         - ℓ ↦layout fsnew. Shouldn't be hard to get
+         - run time token
+         - N.of_nat sr_func_set_flag sr. We'll probably have to open
+           the invariant here. (Or maybe we'll open it earlier)
+         - na_own
+         - Frame and run resources
+         - instance interp for set_flag. I think we'll get it out of
+           Hinst.
+
+         That is The List of things we need on the other side of case_ptr.
+         we'll then just have some "fun" proving our goal Φ with the modified
+         resources.
+       *)
+
+
 
 
       admit.
     }
+
+
+
+
+
+
+
+
+
 
     [MemGC]: {
       (* note: this first set up has a lot of copying *)
@@ -380,6 +466,7 @@ Section store_weak.
 
       (* A cwp_val_app, which I'm confused why it's on the stack at all but oh well *)
       iApply cwp_val_app; first done.
+      unfold fvs_combine.
 
       (* Now we can cwp_seq and use the spec *)
 
