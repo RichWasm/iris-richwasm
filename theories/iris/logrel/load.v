@@ -647,6 +647,46 @@ Section load.
     destruct ι, o; intros H; done.
   Qed.
 
+  Lemma length_t_translate_arep ι :
+    length_t (translate_arep ι) = 4 * arep_size ι.
+  Proof.
+    destruct ι; done.
+  Qed.
+
+  Lemma virt_to_phys_slice_store_acc off sz ℓ μ a θ ws :
+    let slice := take sz (drop off ws) in
+    ⊢ ⌜off + sz <= length ws⌝ -∗
+      rt_token rti sr θ -∗
+      ℓ ↦heap ws -∗
+      ℓ ↦addr (μ, a) -∗
+      ∃ hm,
+        rt_token_nophys θ hm ∗
+        (∃ (ns : list N) (ns32 : list i32),
+          ⌜Forall2 N_i32_repr ns ns32⌝ ∗
+          rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32 ∗
+          words_interp θ μ slice ns) ∗
+        (∀ (ws_new : list word) (ns' : list N) (ns32' : list i32),
+          ⌜length ws_new = sz⌝ -∗
+          ⌜Forall2 N_i32_repr ns' ns32'⌝ -∗
+          rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32' -∗
+          words_interp θ μ ws_new ns' -∗
+          rt_token_nophys θ hm -∗
+          |==> ℓ ↦heap (update_path_words off ws ws_new) ∗
+               ℓ ↦addr (μ, a) ∗
+               rt_token rti sr θ).
+  Proof.
+  Admitted.
+
+  Lemma atom_to_words_mm θ ι o val_v :
+    has_arep ι o ->
+    atom_interp_weak θ MemMM o val_v -∗
+    ∃ (ns : list N) (ns32 : list i32),
+      ⌜Forall2 N_i32_repr ns ns32⌝ ∗
+      ⌜flat_map serialise_i32 ns32 = bits val_v⌝ ∗
+      words_interp θ MemMM (serialize_atom o) ns.
+  Proof.
+  Admitted.
+
   Lemma has_areps_size ιs os :
     Forall2 has_arep ιs os ->
     map (length ∘ serialize_atom) os = map arep_size ιs.

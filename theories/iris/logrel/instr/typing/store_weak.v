@@ -1,6 +1,9 @@
+Require Import RichWasm.compiler.memory.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.roots.
+Require Import RichWasm.iris.logrel.load. (* TODO: remove import *)
+Require Import RichWasm.iris.logrel.path.
 Require Import RichWasm.iris.numerics.
 
 Set Bullet Behavior "Strict Subproofs".
@@ -46,6 +49,141 @@ Section store_weak.
              ⌜ptr_shaped ptr n⌝ ∗
              ∃ rp, ⌜repr_root_pointer rp n⌝ ∗ root_pointer_interp rp ptr.
   Proof. Admitted.
+
+  Lemma wp_store_w_strict μ t off wt wl wt' wl' es ret :
+    run_codegen (store_w mr μ t off) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    forall ℓ ℓ32 memidx memidxN (f: frame) B R Φ v (bs: bytes),
+        N_i32_repr ℓ ℓ32 ->
+        N_nat_repr memidx memidxN ->
+        inst_memory (f_inst f) !! base_mem_idx mr μ = Some memidx ->
+        types_agree t v ->
+        length bs = length_t t ->
+        ⊢ ∀ s E,
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          memidxN ↦[wms][ℓ + byte_offset μ off] bs -∗
+          ▷ (memidxN ↦[wms][ℓ + byte_offset μ off] bits v -∗ Φ f []) -∗
+          CWP [W.BI_const (VAL_int32 ℓ32); W.BI_const v] ++ es @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    unfold store_w in Hcg.
+    inv_cg_emit Hcg; subst es wt' wl' ret.
+    split; [auto|].
+    split; [auto|].
+    split; [auto|].
+    intros * Hℓ Hmemidx Hmem Hty Hlen.
+    iIntros (s E) "Hf Hrun Hbytes HΦ".
+    iApply (cwp_store with "[$] [$] [$] [$]"); eauto.
+  Qed.
+
+  Lemma wp_store_w μ t off wt wl wt' wl' es ret :
+    run_codegen (store_w mr μ t off) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\
+    wt' = [] /\
+    wl' = [] /\
+    forall ℓ ℓ32 memidx memidxN (f: frame) B R Φ v (bs: bytes),
+        N_i32_repr (tag_address μ ℓ) ℓ32 ->
+        N_nat_repr memidx memidxN ->
+        inst_memory (f_inst f) !! base_mem_idx mr μ = Some memidx ->
+        (ℓ `mod` 4 = 0)%N ->
+        (ℓ <> 0)%N ->
+        types_agree t v ->
+        length bs = length_t t ->
+        ⊢ ∀ s E,
+          ↪[frame] f -∗
+          ↪[RUN] -∗
+          memidxN ↦[wms][ℓ + 4 * N.of_nat off] bs -∗
+          ▷ (memidxN ↦[wms][ℓ + 4 * N.of_nat off] bits v -∗ Φ f []) -∗
+          CWP [W.BI_const (VAL_int32 ℓ32); W.BI_const v] ++ es @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    apply wp_store_w_strict in Hcg.
+    intuition.
+    iIntros (s E) "Hf Hrun Hbytes HΦ".
+    assert (4 <= ℓ)%N by (by eapply mod_bound_nonzero).
+    assert ((ℓ + 4 * N.of_nat off = tag_address μ ℓ + byte_offset μ off)%N) as Heq.
+    { destruct μ; cbn; unfold offset_mm, offset_gc; lia. }
+    rewrite Heq.
+    iApply (H3 with "[$] [$] [Hbytes] [HΦ]"); eauto.
+  Qed.
+
+  Lemma wp_store1_mm a_idx off ι v_idx wt wl ret wt' wl' es :
+    run_codegen (store1 mr MemMM a_idx off v_idx ι) wt wl = inr (ret, wt', wl', es) ->
+    ∀ f ℓ a a32 val_v θ o ws E B R Φ,
+    ⊢ "Hf"       ∷ ↪[frame] f -∗
+      "Hrun"     ∷ ↪[RUN] -∗
+      "Hptr"     ∷ ℓ ↦heap ws -∗
+      "Haddr"    ∷ ℓ ↦addr (MemMM, a) -∗
+      "Htok"     ∷ rt_token rti sr θ -∗
+      "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
+      "%Hv"      ∷ ⌜f_locs f !! localimm v_idx = Some val_v⌝ -∗
+      "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+      "%Hmod"    ∷ ⌜(a `mod` 4 = 0)%N⌝ -∗
+      "%Hnz"     ∷ ⌜(a ≠ 0)%N⌝ -∗
+      "%Hbound"  ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
+      "%Harep"   ∷ ⌜has_arep ι o⌝ -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hmemmm"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "Hat"      ∷ atom_interp_weak θ MemMM o val_v -∗
+      "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (serialize_atom o)) -∗
+                    ℓ ↦addr (MemMM, a) -∗
+                    rt_token rti sr θ -∗
+                    Φ f []) -∗
+    CWP es @ E UNDER B; R {{ Φ }}.
+  Proof.
+    intros Hcg.
+    unfold store1 in Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_a ?rest Ha Hcg.
+    inv_cg_emit Ha; subst.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_v es_store_w Hv Hcg.
+    inv_cg_emit Hv; subst.
+    apply wp_store_w in Hcg.
+    destruct Hcg as (-> & -> & -> & Hstore_spec).
+    intros *.
+    repeat iIntros "@".
+    (* get_local for address *)
+    iApply (cwp_seq with "[Hf Hrun]").
+    {
+      iApply (cwp_local_get with "[] [$] [$]"); eauto.
+      now instantiate (1:= λ f' v', ⌜f' = f ∧ v' = [VAL_int32 a32]⌝%I).
+    }
+    iIntros (f' vs') "[-> ->] Hf Hrun".
+    rewrite app_assoc.
+    (* get_local for value *)
+    iApply (cwp_seq with "[Hf Hrun]").
+    {
+      iApply cwp_val_app; first apply has_values_to_consts.
+      iApply (cwp_local_get with "[] [$] [$]"); eauto.
+      now instantiate (1:= λ f' v', ⌜f' = f ∧ v' = [VAL_int32 a32; val_v]⌝%I).
+    }
+    iIntros (f' vs') "[-> ->] Hf Hrun".
+    (* Open abstract-physical connection for the slice [off, off + arep_size ι) *)
+    iPoseProof (virt_to_phys_slice_store_acc _ _ mr off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr]")
+      as "(%hm & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
+    iPoseProof (atom_interp_weak_types_agree ι o MemMM θ val_v with "[//] [$Hat]") as "%Htypes".
+    iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & Hwords_new)".
+    (* Compute byte-length of old slice *)
+    iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws".
+    assert (Hlenbytes : length (flat_map serialise_i32 ns32) = length_t (translate_arep ι)).
+    {
+      rewrite len_ser32.
+      rewrite -(Forall2_length _ _ _ Hns).
+      rewrite -Hlenws length_take length_drop length_t_translate_arep.
+      lia.
+    }
+    iApply cwp_fupd.
+    iApply (Hstore_spec a a32 (sr_mem_mm sr) (rt_memaddr sr MemMM) with "[$Hf] [$Hrun] [$Hphys]"); eauto.
+    iNext; iIntros "Hnew_phys".
+    iEval (rewrite <- Hbits) in "Hnew_phys".
+    iMod ("Hclose" $! (serialize_atom o) ns_new ns32_new
+      with "[%] [%] [$Hnew_phys] [$Hwords_new] [$Hnp]") as "(Hptr_new & Haddr & Htok)".
+    - exact (has_arep_size ι o Harep).
+    - exact Hns_new.
+    - iModIntro. iApply ("HΦ" with "[$] [$]"); iFrame.
+  Qed.
 
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
