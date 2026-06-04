@@ -824,12 +824,12 @@ let%expect_test "examples" =
               local.get 4 move
               copy
               local.set 4
-              load (Path []) follow
               fold
-                (ref (base gc) imm
-                  (variant (ser (ref (base gc) imm (struct)))
-                    (ser (ref (base gc) imm (variant (ser (var 2)) (ser (var 0)))))))
-              new gc imm
+                (rec (val ptr gcrefs)
+                  (ref (base gc) imm
+                    (variant (ser (ref (base gc) imm (struct)))
+                      (ser
+                        (ref (base gc) imm (variant (ser (var 2)) (ser (var 0))))))))
               group 2
               new gc imm
               cast
@@ -937,12 +937,11 @@ let%expect_test "examples" =
               (ref (base gc) imm
                 (variant (ser (ref (base gc) imm (struct)))
                   (ser (ref (base gc) imm (variant (ser i31) (ser (var 0))))))))
-          load (Path []) follow
           fold
-            (ref (base gc) imm
-              (variant (ser (ref (base gc) imm (struct)))
-                (ser (ref (base gc) imm (variant (ser i31) (ser (var 0)))))))
-          new gc imm
+            (rec (val ptr gcrefs)
+              (ref (base gc) imm
+                (variant (ser (ref (base gc) imm (struct)))
+                  (ser (ref (base gc) imm (variant (ser i31) (ser (var 0))))))))
           group 2
           new gc imm
           cast
@@ -961,12 +960,11 @@ let%expect_test "examples" =
                     (ref (base gc) imm
                       (variant (ser (ref (base gc) imm (struct)))
                         (ser (ref (base gc) imm (variant (ser i31) (ser (var 0)))))))))))
-          load (Path []) follow
           fold
-            (ref (base gc) imm
-              (variant (ser (ref (base gc) imm (struct)))
-                (ser (ref (base gc) imm (variant (ser i31) (ser (var 0)))))))
-          new gc imm
+            (rec (val ptr gcrefs)
+              (ref (base gc) imm
+                (variant (ser (ref (base gc) imm (struct)))
+                  (ser (ref (base gc) imm (variant (ser i31) (ser (var 0))))))))
           group 2
           new gc imm
           cast

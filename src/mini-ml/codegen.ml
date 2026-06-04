@@ -251,14 +251,12 @@ let rec compile_expr delta gamma locals coderef_map e :
       let* v', locals', fx_v = compile_expr delta gamma locals' coderef_map v in
       ret (re' @ v' @ [ Store (Path []) ], locals', fx_re @ fx_v)
   | Fold (_, v) ->
-      let* raw_t =
-        match rw_t with
-        | Rec (_, t) -> ret t
-        | _ -> fail (FoldNonRec rw_t)
+      (* NOTE: fold/unfold are pure retyping coercions (shared [Atom Ptr] rep); [Fold] takes the whole [Rec _]. *)
+      let* () =
+        match rw_t with Rec _ -> ret () | _ -> fail (FoldNonRec rw_t)
       in
       let* v', locals', fx = r v in
-      ret
-        (v' @ [ Load (Path [], Follow); Fold raw_t; New (GC, Imm) ], locals', fx)
+      ret (v' @ [ Fold rw_t ], locals', fx)
   | Unfold v ->
       let* v', locals', fx = r v in
       ret (v' @ [ Unfold ], locals', fx)

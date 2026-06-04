@@ -4,6 +4,29 @@ open! Test_examples.Mini_ml
 (* results are rendered structurally by the runtime host (tests/support/walker.ts) *)
 let i31 x = sprintf "%i" x
 
+(* A well-typed cons-list `rec b. unit + (int * b)`: nil = inj0 unit,
+   cons h t = inj1 (h, t). (The examples' [poly_len] can't be reused — it is
+   independently ill-typed: its folds' arguments don't match the unfolded
+   type.) Building the source via sprintf keeps the nested annotations honest. *)
+let list_rec = "(rec (b) (+ (*) (* int b)))"
+let list_sum = "(+ (*) (* int (rec (b) (+ (*) (* int b)))))"
+let nil = sprintf "(fold %s (inj 0 (tup) : %s))" list_rec list_sum
+let cons h t = sprintf "(fold %s (inj 1 (tup %i %s) : %s))" list_rec h t list_sum
+
+(* Monomorphic recursive [length]: exercises [cases] (sum elimination) over the
+   unfolded list together with a self-call on the tail. *)
+let len_fn =
+  sprintf
+    {|
+      (export (len : (() %s -> int))
+        (fun () (x : %s) : int
+          (cases (unfold x)
+            ((_ : (*)) 0)
+            ((y : (* int %s))
+              (op + 1 (app len () (proj 1 y)))))))
+    |}
+    list_rec list_rec list_rec
+
 let simple_tests =
   [
     ("one", "1", i31 1);
