@@ -4025,20 +4025,434 @@ let%expect_test "examples" =
                 ((Ref (Base GC) Imm (Struct ((Ser (Var 1)) (Ser (Var 0))))))
                 ((Var 0))))))))))))))
     -----------opt_case-----------
-    FAILURE (InstrErr (error (PopEmptyStack Drop)) (instr Drop)
-     (env
-      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
-       (functions ((FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-       (table ((FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-       (lfx ())))
-     (state
-      ((locals
-        ((Ref (Base GC) Imm (Struct ()))
-         (Ref (Base GC) Imm
-          (Variant ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser I31))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32)))) I31
-         (Plug (Prod ((Atom I32))))))
-       (stack ()))))
+    (module
+      (type (;0;) (func (param i32 i32)))
+      (type (;1;) (func (param i32) (result i32)))
+      (type (;2;) (func (param i32 i32 i32)))
+      (type (;3;) (func (param i32)))
+      (type (;4;) (func))
+      (import "richwasm" "mmmem" (memory (;0;) 0))
+      (import "richwasm" "gcmem" (memory (;1;) 0))
+      (import "richwasm" "tablenext" (global (;0;) (mut i32)))
+      (import "richwasm" "tableset" (func (;0;) (type 0)))
+      (import "richwasm" "mmalloc" (func (;1;) (type 1)))
+      (import "richwasm" "gcalloc" (func (;2;) (type 1)))
+      (import "richwasm" "setflag" (func (;3;) (type 2)))
+      (import "richwasm" "free" (func (;4;) (type 3)))
+      (import "richwasm" "registerroot" (func (;5;) (type 1)))
+      (import "richwasm" "unregisterroot" (func (;6;) (type 3)))
+      (import "richwasm" "table" (table (;0;) 0 funcref))
+      (func (;7;) (type 1) (param i32) (result i32)
+        (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+        i32.const 42
+        i32.const 1
+        i32.shl
+        local.set 6
+        i32.const 2
+        call 2
+        local.set 7
+        local.get 7
+        i32.const 1
+        i32.const 1
+        call 3
+        i32.const 1
+        local.set 8
+        local.get 7
+        local.get 8
+        i32.store 1 offset=1 align=2
+        local.get 7
+        local.get 6
+        local.get 6
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (param i32 i32)  ;; label = @1
+          i32.store 1 offset=5 align=2
+        else
+          local.get 6
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (param i32 i32)  ;; label = @2
+            i32.store 1 offset=5 align=2
+          else
+            i32.load 1 offset=1 align=2
+            i32.store 1 offset=5 align=2
+            local.get 6
+            call 6
+          end
+        end
+        local.get 7
+        call 5
+        local.set 1
+        local.get 1
+        local.set 9
+        local.get 9
+        local.get 9
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 9
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+          else
+            local.get 9
+            i32.load 1 offset=1 align=2
+            call 5
+            local.set 9
+          end
+        end
+        local.get 9
+        local.set 1
+        local.tee 10
+        local.get 10
+        i32.const 1
+        i32.and
+        i32.eqz
+        if (result i32)  ;; label = @1
+          unreachable
+        else
+          local.get 10
+          i32.const 2
+          i32.and
+          i32.eqz
+          if (result i32)  ;; label = @2
+            local.get 10
+            i32.load offset=3 align=2
+            local.tee 11
+            local.set 12
+            i32.const 0
+            block (param i32) (result i32)  ;; label = @3
+              local.get 12
+              i32.const 0
+              i32.ne
+              br_if 0 (;@3;)
+              drop
+              local.get 10
+              i32.load offset=7 align=2
+              local.tee 13
+              local.get 13
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 13
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  i32.load 1 offset=1 align=2
+                  call 5
+                end
+              end
+              local.set 2
+              i32.const 0
+              i32.const 1
+              i32.shl
+              local.get 2
+              local.set 14
+              local.get 14
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 14
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                  local.get 14
+                  call 4
+                else
+                  local.get 14
+                  call 6
+                end
+              end
+            end
+            block (param i32) (result i32)  ;; label = @3
+              local.get 12
+              i32.const 1
+              i32.ne
+              br_if 0 (;@3;)
+              drop
+              local.get 10
+              i32.load offset=7 align=2
+              local.tee 15
+              local.get 15
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 15
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  i32.load 1 offset=1 align=2
+                  call 5
+                end
+              end
+              local.set 3
+              local.get 3
+              local.set 16
+              local.get 16
+              local.get 16
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 16
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                else
+                  local.get 16
+                  i32.load 1 offset=1 align=2
+                  call 5
+                  local.set 16
+                end
+              end
+              local.get 16
+              local.set 3
+              local.get 3
+              local.set 17
+              local.get 17
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 17
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                  local.get 17
+                  call 4
+                else
+                  local.get 17
+                  call 6
+                end
+              end
+            end
+          else
+            local.get 10
+            i32.load 1 offset=1 align=2
+            local.set 10
+            local.get 10
+            i32.load 1 offset=1 align=2
+            local.tee 18
+            local.set 19
+            i32.const 0
+            block (param i32) (result i32)  ;; label = @3
+              local.get 19
+              i32.const 0
+              i32.ne
+              br_if 0 (;@3;)
+              drop
+              local.get 10
+              i32.load 1 offset=5 align=2
+              local.tee 20
+              local.get 20
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 20
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  call 5
+                end
+              end
+              local.set 2
+              i32.const 0
+              i32.const 1
+              i32.shl
+              local.get 2
+              local.set 21
+              local.get 21
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 21
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                  local.get 21
+                  call 4
+                else
+                  local.get 21
+                  call 6
+                end
+              end
+            end
+            block (param i32) (result i32)  ;; label = @3
+              local.get 19
+              i32.const 1
+              i32.ne
+              br_if 0 (;@3;)
+              drop
+              local.get 10
+              i32.load 1 offset=5 align=2
+              local.tee 22
+              local.get 22
+              i32.const 1
+              i32.and
+              i32.eqz
+              if (param i32) (result i32)  ;; label = @4
+              else
+                local.get 22
+                i32.const 2
+                i32.and
+                i32.eqz
+                if (param i32) (result i32)  ;; label = @5
+                else
+                  call 5
+                end
+              end
+              local.set 3
+              local.get 3
+              local.set 23
+              local.get 23
+              local.get 23
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 23
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                else
+                  local.get 23
+                  i32.load 1 offset=1 align=2
+                  call 5
+                  local.set 23
+                end
+              end
+              local.get 23
+              local.set 3
+              local.get 3
+              local.set 24
+              local.get 24
+              i32.const 1
+              i32.and
+              i32.eqz
+              if  ;; label = @4
+              else
+                local.get 24
+                i32.const 2
+                i32.and
+                i32.eqz
+                if  ;; label = @5
+                  local.get 24
+                  call 4
+                else
+                  local.get 24
+                  call 6
+                end
+              end
+            end
+          end
+        end
+        local.set 4
+        local.set 25
+        local.get 25
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 25
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 25
+            call 4
+          else
+            local.get 25
+            call 6
+          end
+        end
+        local.get 4
+        local.get 1
+        local.set 26
+        local.get 26
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 26
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 26
+            call 4
+          else
+            local.get 26
+            call 6
+          end
+        end
+        local.get 0
+        local.set 27
+        local.get 27
+        i32.const 1
+        i32.and
+        i32.eqz
+        if  ;; label = @1
+        else
+          local.get 27
+          i32.const 2
+          i32.and
+          i32.eqz
+          if  ;; label = @2
+            local.get 27
+            call 4
+          else
+            local.get 27
+            call 6
+          end
+        end)
+      (func (;8;) (type 4)
+        global.get 0
+        global.set 1
+        global.get 1
+        i32.const 1
+        i32.add
+        global.set 0
+        global.get 1
+        i32.const 0
+        i32.add
+        i32.const 7
+        call 0)
+      (global (;1;) (mut i32) (i32.const 0))
+      (export "_start" (func 7))
+      (export "__rw_table_func_7" (func 7))
+      (start 8))
+
     -----------poly_len-----------
     FAILURE (InstrErr
      (error
