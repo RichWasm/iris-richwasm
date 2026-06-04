@@ -740,13 +740,20 @@ module ASubst = struct
 end
 
 let function_typ_inst (idx : A.Index.t) (ft : A.FunctionType.t) =
-  let open ASubst in
-  (match idx with
-  | Mem mem -> FT.subst (scons mem M.var) R.var S.var T.var
-  | Rep rep -> FT.subst M.var (scons rep R.var) S.var T.var
-  | Size size -> FT.subst M.var R.var (scons size S.var) T.var
-  | Type typ -> FT.subst M.var R.var S.var (scons typ T.var))
-    ft
+  (* NOTE: [Inst] drops the head quantifier (subst arg for var 0);
+     keeping it would leave the coderef qualified and [CallIndirect] would reject it. *)
+  let (A.FunctionType.FunctionType (qs, ts1, ts2)) = ft in
+  match qs with
+  | [] -> ft
+  | _ :: qs' ->
+      let body = A.FunctionType.FunctionType (qs', ts1, ts2) in
+      let open ASubst in
+      (match idx with
+      | Mem mem -> FT.subst (scons mem M.var) R.var S.var T.var
+      | Rep rep -> FT.subst M.var (scons rep R.var) S.var T.var
+      | Size size -> FT.subst M.var R.var (scons size S.var) T.var
+      | Type typ -> FT.subst M.var R.var S.var (scons typ T.var))
+        body
 
 let function_typ_insts (idxs : A.Index.t list) (ft : A.FunctionType.t) =
   List.fold ~init:ft ~f:(fun ft idx -> function_typ_inst idx ft) idxs

@@ -407,3 +407,19 @@ let%expect_test "pack unpack" =
               (i32.const 0))))
         (global $g1 (mut i32) (i32.const 0))
         (start $f8)) |}]
+
+let%expect_test "REGRESSION: subkinded type instantiation (should type check)" =
+  output
+    {|
+      ((imports
+        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs))) ((Prod ((Var 0)))) ())))
+       (functions
+        (((typ (FunctionType () () ()))
+          (locals ())
+          (body ((CodeRef 0) (Inst (Type I31)) Drop)))))
+       (table (0))
+       (exports (((name _start) (desc (Func 1))))))
+    |};
+  [%expect {|
+    FAILURE Typechecker failed with error(s):
+    can't module check something not matching in function type inst checker |}]

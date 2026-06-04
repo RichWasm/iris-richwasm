@@ -37,21 +37,25 @@ let opt_case =
           ((v : int) v)))
     |}
 
+(* A list is `rec b. unit + (a * b)`: nil = inj0 unit, cons h t = inj1 (h, t).
+   `len` unfolds, and in the cons case recurses on the tail `proj 1 y`. *)
 let poly_len =
   from_string_exn
     {|
-      (export (len : ((a) (rec (b) (+ (*) (+ a b))) -> int))
-        (fun (a) (x : (rec (b) (+ (*) (+ a b)))) : int
+      (export (len : ((a) (rec (b) (+ (*) (* a b))) -> int))
+        (fun (a) (x : (rec (b) (+ (*) (* a b)))) : int
           (cases (unfold x)
             ((_ : (*)) 0)
-            ((y : (+ a (rec (b) (+ (*) (+ a b)))))
-              (op + 1 (app len (a) (fold (rec (b) (+ (*) (+ a b))) y)))))))
+            ((y : (* a (rec (b) (+ (*) (* a b)))))
+              (op + 1 (app len (a) (proj 1 y)))))))
 
       (app len (int)
-        (fold (rec (b) (+ (*) (+ int b)))
-          (inj 1 (tup 1 (fold (rec (b) (+ (*) (+ int b)))
-            (inj 0 (tup) : (+ (*) (rec (b) (+ (*) (+ int b)))))))
-            : (+ (*) (+ int (rec (b) (+ (*) (+ int b))))))))
+        (fold (rec (b) (+ (*) (* int b)))
+          (inj 1
+            (tup 1
+              (fold (rec (b) (+ (*) (* int b)))
+                (inj 0 (tup) : (+ (*) (* int (rec (b) (+ (*) (* int b))))))))
+            : (+ (*) (* int (rec (b) (+ (*) (* int b))))))))
     |}
 
 let mini_zip =
