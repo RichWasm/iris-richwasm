@@ -653,7 +653,7 @@ Section load_copy.
       rewrite Hser in Hhktgt.
       inversion Hhktgt; subst; clear κ1.
       pose proof (mono_size_eval_emp_Some _ Htgtmono) as (ntgt & Hev).
-      eapply resolves_path_inv_sep in Hpath;
+      eapply resolves_path_inv_sep_weak in Hpath;
         try eapply Hser;
         try eapply Hev;
         try eapply Hoff;
@@ -994,7 +994,7 @@ Section load_copy.
       rewrite Hser in Hhktgt.
       inversion Hhktgt; subst; clear κ1.
       pose proof (mono_size_eval_emp_Some _ Htgtmono) as (ntgt & Hev).
-      eapply resolves_path_inv_sep in Hpath;
+      eapply resolves_path_inv_sep_weak in Hpath;
         try eapply Hser;
         try eapply Hev;
         try eapply Hoff;

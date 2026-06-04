@@ -1062,7 +1062,7 @@ Section PathFacts.
         by constructor.
   Qed.
 
-  Lemma resolves_path_inv_sep τ π pr :
+  Lemma resolves_path_inv_sep_weak τ π pr :
     resolves_path τ π None pr ->
     ∀ F off ρ σ ξ ξser sz,
       sem_env_interp F se ->
@@ -1251,6 +1251,29 @@ Section PathFacts.
         setoid_rewrite type_interp_eq.
         iExists _; eauto.
   Qed.
+
+  Lemma resolves_path_inv_sep τ π τ__π pr :
+    resolves_path τ π τ__π pr ->
+    ∀ F off ρ σ ξ σ' ξ' ξser ρ' ξser' sz,
+      sem_env_interp F se ->
+      path_offset (fe_of_context F) τ π = Some off ->
+      Forall (has_mono_size F) pr.(pr_prefix) ->
+      has_kind F τ (MEMTYPE σ ξ) ->
+      has_kind F (pr.(pr_replaced)) (MEMTYPE σ' ξ') ->
+      has_kind F (pr.(pr_target)) (MEMTYPE (RepS ρ) ξser) ->
+      has_kind F (pr_expected pr τ__π) (MEMTYPE (RepS ρ') ξser') ->
+      eval_size EmptyEnv (RepS ρ) = Some sz ->
+      eval_size EmptyEnv (RepS ρ') = Some sz ->
+      ⊢ ∀ ws,
+        𝕍 τ (SWords ws) -∗
+        ⌜off + sz <= length ws⌝ ∗
+        (𝕍 (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
+        ∀ ws',
+           ⌜length ws' = sz⌝ -∗
+           𝕍 (pr_expected pr τ__π) (SWords ws') -∗
+           𝕍 (pr_replaced pr) (SWords (update_path_words off ws ws'))).
+  Proof.
+  Admitted.
 
   Lemma pr_target_kind π pr τ u :
     resolves_path τ π u pr ->
