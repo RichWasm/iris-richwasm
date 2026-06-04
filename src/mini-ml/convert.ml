@@ -176,7 +176,8 @@ let rec cc_e
   | Fun { foralls; arg = (n, t) as arg; ret_type; body } ->
       let gamma = arg :: gamma in
       let free_vars = fv ~bound:[ n ] body in
-      let free_type_vars = ftv_e body in
+      (* NOTE: exclude this fn's own type params (bound by [foralls]); counting them doubles the closure's quantifiers, leaving a stray forall at calls. *)
+      let free_type_vars = ftv_e ~bound:foralls body in
       let closure_id = Int.to_string (tagger ()) in
       let code_name = "closure#fn" ^ closure_id in
       let* cced_body, code = cc_e user_fns gamma tagger acc body in
