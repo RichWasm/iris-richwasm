@@ -4,7 +4,8 @@ open Richwasm_common
 open Monads
 
 module type Runner1 = sig
-  val run_wasm : String.t -> (String.t, String.t) Result.t
+  val run_wasm :
+    ?start_type:String.t -> String.t -> (String.t, String.t) Result.t
 end
 
 module type Runner3 = sig
@@ -21,11 +22,17 @@ module SingleRichWasm (Config : sig
   val rw_runtime_path : string
   val host_runtime_path : string
 end) : Runner1 = struct
-  let run_wasm (wasm : string) =
+  let run_wasm ?start_type (wasm : string) =
     let open Config in
-    Process_utils.Process_capture.run_concat
-      ~env:(`Extend [ ("RW_RUNTIME_WASM_PATH", rw_runtime_path) ])
-      ~input:wasm ~prog:"node"
+    let env =
+      ("RW_RUNTIME_WASM_PATH", rw_runtime_path)
+      ::
+      (match start_type with
+      | Some t -> [ ("RW_START_TYPE", t) ]
+      | None -> [])
+    in
+    Process_utils.Process_capture.run_concat ~env:(`Extend env) ~input:wasm
+      ~prog:"node"
       ~args:
         ((if inspect then [ "--inspect-wait" ] else []) @ [ host_runtime_path ])
       ()
@@ -48,6 +55,22 @@ end
 
 module UnnanotatedRW = Richwasm_common.Syntax
 module AnnotatedRW = Richwasm_common.Annotated_syntax
+
+(* Serialize [_start]'s result types (sexp) for the host walker; [None] if no [_start]. *)
+let start_type_sexp (m : UnnanotatedRW.Module.t) : String.t option =
+  let open UnnanotatedRW in
+  let num_imports = List.length m.Module.imports in
+  List.find_map m.Module.exports ~f:(fun (e : Module.Export.t) ->
+      match e.Module.Export.desc with
+      | Module.Export.Desc.Func idx
+        when String.equal e.Module.Export.name "_start" ->
+          List.nth m.Module.functions (idx - num_imports)
+          |> Option.map ~f:(fun (f : Module.Function.t) ->
+                 let (FunctionType.FunctionType (_, _, results)) =
+                   f.Module.Function.typ
+                 in
+                 Sexp.to_string ([%sexp_of: Type.t list] results))
+      | _ -> None)
 
 module EndToEnd = struct
   (* need rank2 polymorphism *)
@@ -98,7 +121,7 @@ module EndToEnd = struct
     let compile_to_wasm
         ?(asprintf : asprintf = { asprintf })
         ?prefix
-        (src : String.t) : String.t M.t =
+        (src : String.t) : (String.t * String.t option) M.t =
       let module SurfM = LogResultM (Surface.CompilerError) (String) in
       let open M in
       let ( >>? ) (type a) (m : a t) (f, err_map) =
@@ -126,23 +149,30 @@ module EndToEnd = struct
         | Some p -> p ^ ":" ^ name
       in
 
-      map_error_into E2Err.surface
-        (Surface.compile_to_richwasm ?info:prefix ~asprintf src)
-      >>?! ( stage "elaborate",
-             Elaborate.elab_module,
-             Richwasm_common.Annotated_syntax.Module.pp,
-             E2Err.elaborate )
-      >>? ( (fun x ->
-              Richwasm_common.Main.typecheck x |> Result.map ~f:(fun () -> x)),
-            E2Err.typecheck )
-      >>? (Main.compile, E2Err.richwasm)
-      >>| Main.wasm_ugly_printer
-      >>? (Wat2wasm.wat2wasm ~check:false, E2Err.wat2wasmunchecked)
-      >>?! ( stage "wat",
-             Wasm2wat.wasm2wat ~pretty:true ~check:false,
-             pp_print_string,
-             E2Err.wasm2watunchecked )
-      >>? (Wat2wasm.wat2wasm ~check:true, E2Err.wat2wasm)
+      let* rwmod =
+        map_error_into E2Err.surface
+          (Surface.compile_to_richwasm ?info:prefix ~asprintf src)
+      in
+      let start_type = start_type_sexp rwmod in
+      let* wasm =
+        ret rwmod
+        >>?! ( stage "elaborate",
+               Elaborate.elab_module,
+               Richwasm_common.Annotated_syntax.Module.pp,
+               E2Err.elaborate )
+        >>? ( (fun x ->
+                Richwasm_common.Main.typecheck x |> Result.map ~f:(fun () -> x)),
+              E2Err.typecheck )
+        >>? (Main.compile, E2Err.richwasm)
+        >>| Main.wasm_ugly_printer
+        >>? (Wat2wasm.wat2wasm ~check:false, E2Err.wat2wasmunchecked)
+        >>?! ( stage "wat",
+               Wasm2wat.wasm2wat ~pretty:true ~check:false,
+               pp_print_string,
+               E2Err.wasm2watunchecked )
+        >>? (Wat2wasm.wat2wasm ~check:true, E2Err.wat2wasm)
+      in
+      ret (wasm, start_type)
 
     let run_runtime
         (type inp)
@@ -157,8 +187,8 @@ module EndToEnd = struct
     let run ?(asprintf : asprintf = { asprintf }) (src : String.t) :
         String.t M.t =
       let open M in
-      let* wasm = compile_to_wasm ~asprintf src in
-      run_runtime ~run:Runner.run_wasm wasm
+      let* wasm, start_type = compile_to_wasm ~asprintf src in
+      run_runtime ~run:(Runner.run_wasm ?start_type) wasm
   end
 
   module Make3 (Surface : SurfaceLang) (Runner : Runner3) = struct
@@ -171,9 +201,9 @@ module EndToEnd = struct
         (src2 : String.t)
         (src3 : String.t) : String.t M.t =
       let open M in
-      let* wasm1 = compile_to_wasm ~asprintf ~prefix:"m1" src1 in
-      let* wasm2 = compile_to_wasm ~asprintf ~prefix:"m2" src2 in
-      let* wasm3 = compile_to_wasm ~asprintf ~prefix:"m3" src3 in
+      let* wasm1, _ = compile_to_wasm ~asprintf ~prefix:"m1" src1 in
+      let* wasm2, _ = compile_to_wasm ~asprintf ~prefix:"m2" src2 in
+      let* wasm3, _ = compile_to_wasm ~asprintf ~prefix:"m3" src3 in
       run_runtime ~run:(Runner.run_wasm ~links) (wasm1, wasm2, wasm3)
   end
 end
