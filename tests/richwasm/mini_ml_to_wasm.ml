@@ -4460,17 +4460,40 @@ let%expect_test "examples" =
        (error
         (BlockErr
          (error
-          (LoadRefNonSer
-           (Variant
-            ((Ser (Var 0))
-             (Ser
-              (Rec (VALTYPE (Atom Ptr) GCRefs)
-               (Ref (Base GC) Imm
-                (Variant
-                 ((Ser (Ref (Base GC) Imm (Struct ())))
-                  (Ser
-                   (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-         (instr (Load (Path ()) Follow))
+          (ExpectedEqStack
+           (Fold0
+            (Ref (Base GC) Imm
+             (Variant
+              ((Ser (Ref (Base GC) Imm (Struct ())))
+               (Ser
+                (Ref (Base GC) Imm
+                 (Variant
+                  ((Ser (Var 1))
+                   (Ser
+                    (Rec (VALTYPE (Atom Ptr) GCRefs)
+                     (Ref (Base GC) Imm
+                      (Variant
+                       ((Ser (Ref (Base GC) Imm (Struct ())))
+                        (Ser
+                         (Ref (Base GC) Imm
+                          (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))))))))))
+            (Ref (Base GC) Imm
+             (Variant
+              ((Ser (Var 0))
+               (Ser
+                (Rec (VALTYPE (Atom Ptr) GCRefs)
+                 (Ref (Base GC) Imm
+                  (Variant
+                   ((Ser (Ref (Base GC) Imm (Struct ())))
+                    (Ser
+                     (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))))
+         (instr
+          (Fold
+           (Rec (VALTYPE (Atom Ptr) GCRefs)
+            (Ref (Base GC) Imm
+             (Variant
+              ((Ser (Ref (Base GC) Imm (Struct ())))
+               (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))))
          (env
           ((local_offset 1)
            (kinds ((VALTYPE (Atom Ptr) GCRefs) (VALTYPE (Atom Ptr) GCRefs)))
@@ -4589,13 +4612,14 @@ let%expect_test "examples" =
           (LocalSet 7) (LocalGet 5 Move) Copy (LocalSet 5)
           (Load (Path (1)) Follow) (LocalSet 8) Drop (LocalGet 8 Move)
           (LocalSet 9) (LocalGet 7 Move) Copy (LocalSet 7) (LocalGet 4 Move) Copy
-          (LocalSet 4) (Load (Path ()) Follow)
+          (LocalSet 4)
           (Fold
-           (Ref (Base GC) Imm
-            (Variant
-             ((Ser (Ref (Base GC) Imm (Struct ())))
-              (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-          (New GC Imm) (Group 2) (New GC Imm)
+           (Rec (VALTYPE (Atom Ptr) GCRefs)
+            (Ref (Base GC) Imm
+             (Variant
+              ((Ser (Ref (Base GC) Imm (Struct ())))
+               (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))
+          (Group 2) (New GC Imm)
           (Cast
            (Ref (Base GC) Imm
             (Struct
@@ -4745,13 +4769,14 @@ let%expect_test "examples" =
            (LocalSet 7) (LocalGet 5 Move) Copy (LocalSet 5)
            (Load (Path (1)) Follow) (LocalSet 8) Drop (LocalGet 8 Move)
            (LocalSet 9) (LocalGet 7 Move) Copy (LocalSet 7) (LocalGet 4 Move)
-           Copy (LocalSet 4) (Load (Path ()) Follow)
+           Copy (LocalSet 4)
            (Fold
-            (Ref (Base GC) Imm
-             (Variant
-              ((Ser (Ref (Base GC) Imm (Struct ())))
-               (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))
-           (New GC Imm) (Group 2) (New GC Imm)
+            (Rec (VALTYPE (Atom Ptr) GCRefs)
+             (Ref (Base GC) Imm
+              (Variant
+               ((Ser (Ref (Base GC) Imm (Struct ())))
+                (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))
+           (Group 2) (New GC Imm)
            (Cast
             (Ref (Base GC) Imm
              (Struct
