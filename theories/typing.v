@@ -644,6 +644,44 @@ Inductive type_eq : type -> type -> Prop :=
   Forall2 type_eq τs τs' ->
   type_eq (StructT κ_struct (zip_with SerT κs_ser τs)) (SerT κ_ser (ProdT κ_prod τs')).
 
+(* A type node's kind annotation denormalizes what [has_kind] recomputes from
+   its fields, but [subst] can't refresh it: a ref-flag is a literal, never a
+   variable, so substituting at a strict subkind leaves the annotation stale and
+   ill-kinded under exact [has_kind] (post-KSub). [erase_kinds] drops these
+   annotations (keeping declared forall/exists bounds); paired with
+   [function_type_ok] it pins an instantiation to the elaborator's output. See
+   FTInstType below. *)
+Definition erased_kind : kind := VALTYPE (AtomR I32R) NoRefs.
+
+Fixpoint erase_kinds (τ : type) : type :=
+  match τ with
+  | VarT t => VarT t
+  | I31T _ => I31T erased_kind
+  | NumT _ nt => NumT erased_kind nt
+  | SumT _ τs => SumT erased_kind (map erase_kinds τs)
+  | VariantT _ τs => VariantT erased_kind (map erase_kinds τs)
+  | ProdT _ τs => ProdT erased_kind (map erase_kinds τs)
+  | StructT _ τs => StructT erased_kind (map erase_kinds τs)
+  | RefT _ μ β τ => RefT erased_kind μ β (erase_kinds τ)
+  | CodeRefT _ ϕ => CodeRefT erased_kind (erase_kinds_ft ϕ)
+  | SerT _ τ => SerT erased_kind (erase_kinds τ)
+  | PlugT _ ρ => PlugT erased_kind ρ
+  | SpanT _ σ => SpanT erased_kind σ
+  | RecT _ τ => RecT erased_kind (erase_kinds τ)
+  | ExistsMemT _ τ => ExistsMemT erased_kind (erase_kinds τ)
+  | ExistsRepT _ τ => ExistsRepT erased_kind (erase_kinds τ)
+  | ExistsSizeT _ τ => ExistsSizeT erased_kind (erase_kinds τ)
+  | ExistsTypeT _ κ0 τ => ExistsTypeT erased_kind κ0 (erase_kinds τ)
+  end
+with erase_kinds_ft (ϕ : function_type) : function_type :=
+  match ϕ with
+  | MonoFunT τs1 τs2 => MonoFunT (map erase_kinds τs1) (map erase_kinds τs2)
+  | ForallMemT ϕ => ForallMemT (erase_kinds_ft ϕ)
+  | ForallRepT ϕ => ForallRepT (erase_kinds_ft ϕ)
+  | ForallSizeT ϕ => ForallSizeT (erase_kinds_ft ϕ)
+  | ForallTypeT κ ϕ => ForallTypeT κ (erase_kinds_ft ϕ)
+  end.
+
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
 | FTInstMem F ϕ μ :
   mem_ok F.(fc_kind_ctx) μ ->
@@ -657,10 +695,15 @@ Inductive function_type_inst : function_ctx -> index -> function_type -> functio
   size_ok F.(fc_kind_ctx) σ ->
   let ϕ' := subst_function_type VarM VarR (unscoped.scons σ VarS) VarT ϕ in
   function_type_inst F (SizeI σ) (ForallSizeT ϕ) ϕ'
-| FTInstType F ϕ τ κ κ' :
+| FTInstType F ϕ τ κ κ' ϕ' :
   has_kind F τ κ' ->
   subkind_of κ' κ ->
-  let ϕ' := subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ in
+  (* ϕ' = the subst with annotations refreshed to exact kinds: [function_type_ok]
+     pins the annotations, erasure-equality pins the structure. The raw subst is
+     ill-kinded under a subkinded instantiation, so it can't be used directly. *)
+  function_type_ok F ϕ' ->
+  erase_kinds_ft ϕ' =
+    erase_kinds_ft (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
   function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
 
 Inductive function_type_insts : function_ctx -> list index -> function_type -> function_type -> Prop :=
@@ -681,6 +724,9 @@ Inductive packed_existential : function_ctx -> type -> type -> Prop :=
 | PackSize F σ τ' κ' :
   let τ0 := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' in
   packed_existential F τ0 (ExistsSizeT κ' τ')
+(* NOTE: same issue as FTInstType -- the raw [subst_type] is ill-kinded when
+   [τ_wit] is a strict subkind of [κ_max]. The example compilers don't trigger
+   it since the elaborator packs at the witness's exact kind ([κ_wit] = [κ_max]). *)
 | PackType F τ_wit τ_in κ_wit κ_max κ_ex :
   has_kind F τ_wit κ_wit ->
   subkind_of κ_wit κ_max ->

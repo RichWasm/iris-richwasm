@@ -421,5 +421,40 @@ let%expect_test "REGRESSION: subkinded type instantiation (should type check)" =
        (exports (((name _start) (desc (Func 1))))))
     |};
   [%expect {|
-    FAILURE Typechecker failed with error(s):
-    can't module check something not matching in function type inst checker |}]
+    (module
+      (type $t0 (func (param i32 i32)))
+      (type $t1 (func (param i32) (result i32)))
+      (type $t2 (func (param i32 i32 i32)))
+      (type $t3 (func (param i32)))
+      (type $t4 (func))
+      (memory $richwasm.mmmem (import "richwasm" "mmmem") 0)
+      (memory $richwasm.gcmem (import "richwasm" "gcmem") 0)
+      (global $richwasm.tablenext (import "richwasm" "tablenext") (mut i32))
+      (func $richwasm.tableset (import "richwasm" "tableset") (type $t0) (param i32 i32))
+      (func $richwasm.mmalloc (import "richwasm" "mmalloc") (type $t1) (param i32) (result i32))
+      (func $richwasm.gcalloc (import "richwasm" "gcalloc") (type $t1) (param i32) (result i32))
+      (func $richwasm.setflag (import "richwasm" "setflag") (type $t2) (param i32 i32 i32))
+      (func $richwasm.free (import "richwasm" "free") (type $t3) (param i32))
+      (func $richwasm.registerroot (import "richwasm" "registerroot") (type $t1) (param i32) (result i32))
+      (func $richwasm.unregisterroot (import "richwasm" "unregisterroot") (type $t3) (param i32))
+      (table $richwasm.table (import "richwasm" "table") 0 funcref)
+      (func $. (export "__rw_table_func_7") (import "" "") (type $t3) (param i32))
+      (func $_start (export "_start") (type $t4)
+        (drop
+          (i32.add
+            (i32.const 0)
+            (global.get $g1))))
+      (func $f9 (type $t4)
+        (global.set $g1
+          (global.get $richwasm.tablenext))
+        (global.set $richwasm.tablenext
+          (i32.add
+            (global.get $g1)
+            (i32.const 1)))
+        (call $richwasm.tableset
+          (i32.add
+            (global.get $g1)
+            (i32.const 0))
+          (i32.const 7)))
+      (global $g1 (mut i32) (i32.const 0))
+      (start $f9)) |}]

@@ -2525,8 +2525,11 @@ Definition function_type_inst_checker
          | inl κ' =>
              match subkind_of_checker κ' κ with
              | inl () =>
-                 if function_type_beq ft2 (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)
-                 then ok_term
+                 (* ft2 must be the well-kinded instantiation: erasure-equal to
+                    the raw subst (same structure) and well-kinded on its own. *)
+                 if function_type_beq (erase_kinds_ft ft2)
+                      (erase_kinds_ft (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
+                 then function_type_ok_checker F ft2
                  else INR "something not matching in function type inst checker"
              | err => err
              end
@@ -2546,7 +2549,11 @@ Proof.
   - by apply FTInstSize.
   - apply subkind_of_checker_correct in HMatch2.
     apply has_kind_synther_correct in HMatch1.
-    by eapply FTInstType.
+    (* my_auto4 already gave [function_type_ok F ft2]; convert the bool, apply. *)
+    try match goal with
+        | H : function_type_beq _ _ = true |- _ => apply function_type_eq_convert in H
+        end.
+    eapply FTInstType; eauto.
 Qed.
 
 Definition grab_substed_ft F (ix:index) (ft1:function_type) : option function_type :=
