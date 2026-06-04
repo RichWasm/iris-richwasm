@@ -2688,47 +2688,50 @@ with traverse_function_type_find_memory ϕ1 ϕ2 : option memory :=
   end.
 
 (* NOTE: if there's a bug, it's in finding the substs stuff *)
-Fixpoint traverse_type_find_type_0 τ1 τ2 : option type :=
+(* [d] = binders crossed, so the existential is [VarT d] and the witness shifts down by [d]. *)
+Fixpoint traverse_type_find_type_0 (d : nat) τ1 τ2 : option type :=
   match τ1, τ2 with
-  | _, VarT n => if (n =? 0) then Some τ1 else None
+  | _, VarT n =>
+      if (n =? d)
+      then Some (subst_type VarM VarR VarS (λ m : nat, VarT (m - d)) τ1)
+      else None
   | SumT _ τs1, SumT _ τs2
   | VariantT _ τs1, VariantT _ τs2
   | ProdT _ τs1, ProdT _ τs2
-  | StructT _ τs1, StructT _ τs2 => traverse_types_find_type τs1 τs2
+  | StructT _ τs1, StructT _ τs2 => traverse_types_find_type d τs1 τs2
   | SerT _ τa, SerT _ τb
-  | RecT _ τa, RecT _ τb
   | RefT _ _ _ τa, RefT _ _ _ τb
   | ExistsMemT _ τa, ExistsMemT _ τb
   | ExistsRepT _ τa, ExistsRepT _ τb
-  | ExistsSizeT _ τa, ExistsSizeT _ τb
-  | ExistsTypeT _ _ τa, ExistsTypeT _ _ τb => traverse_type_find_type_0 τa τb
-  | CodeRefT _ ϕ1, CodeRefT _ ϕ2 => traverse_function_type_find_type ϕ1 ϕ2
+  | ExistsSizeT _ τa, ExistsSizeT _ τb => traverse_type_find_type_0 d τa τb
+  | RecT _ τa, RecT _ τb
+  | ExistsTypeT _ _ τa, ExistsTypeT _ _ τb => traverse_type_find_type_0 (S d) τa τb
+  | CodeRefT _ ϕ1, CodeRefT _ ϕ2 => traverse_function_type_find_type d ϕ1 ϕ2
   | _, _ => None
   end
-with traverse_types_find_type τs1 τs2 : option type :=
+with traverse_types_find_type (d : nat) τs1 τs2 : option type :=
   match τs1, τs2 with
   | [], _ => None
   | _, [] => None
   | t1::ts1, t2::ts2 =>
-      (* f: type -> type -> option memory -> option memory *)
       foldr2 (λ t1:type, λ t2:type, λ acc:option type,
         match acc with
-        | None => traverse_type_find_type_0 t1 t2
+        | None => traverse_type_find_type_0 d t1 t2
         | Some a => Some a
         end
         ) None τs1 τs2
   end
-with traverse_function_type_find_type ϕ1 ϕ2 : option type :=
+with traverse_function_type_find_type (d : nat) ϕ1 ϕ2 : option type :=
   match ϕ1, ϕ2 with
   | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
-      match traverse_types_find_type τs11 τs21 with
-      | None => traverse_types_find_type τs12 τs22
+      match traverse_types_find_type d τs11 τs21 with
+      | None => traverse_types_find_type d τs12 τs22
       | Some a => Some a
       end
   | ForallMemT f1, ForallMemT f2
   | ForallRepT f1, ForallRepT f2
-  | ForallSizeT f1, ForallSizeT f2
-  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_function_type_find_type f1 f2
+  | ForallSizeT f1, ForallSizeT f2 => traverse_function_type_find_type d f1 f2
+  | ForallTypeT _ f1, ForallTypeT _ f2 => traverse_function_type_find_type (S d) f1 f2
   | _, _ => None
   end.
 
@@ -2917,7 +2920,7 @@ Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_che
           | None => INR "couldn't find μ for packed mem"
           end
   | ExistsTypeT κ_ex κ_max τ_in =>
-          match traverse_type_find_type_0 τ0 τ_in with
+          match traverse_type_find_type_0 0 τ0 τ_in with
           | Some τ_wit =>
               if type_beq τ0 ((subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) ) τ_in)
               then
