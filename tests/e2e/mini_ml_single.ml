@@ -1,11 +1,11 @@
 open! Core
 open! Test_examples.Mini_ml
 
-let i31 x = sprintf "%i" (x * 2)
+(* results are rendered structurally by the runtime host (tests/support/walker.ts) *)
+let i31 x = sprintf "%i" x
 
 let simple_tests =
   [
-    (* the output is the raw wasm value. I31s are tagged *)
     ("one", "1", i31 1);
     ("add", "(op + 1 2)", i31 (1 + 2));
     ("add 2", "(op + 2 3)", i31 (2 + 3));
@@ -22,9 +22,7 @@ let simple_tests =
       i31 1 );
     ("if true", "(if 0 3 2)", i31 3);
     ("if false", "(if 1 2 3)", i31 3);
-    (* TODO: better output printer for pointers *)
-    (* 3 is the first root ptr *)
-    ("tuple", "(tup 1 2)", "3");
+    ("tuple", "(tup 1 2)", "(tup 1 2)");
     ("tuple proj", "(proj 1 (tup 1 2))", i31 2);
     ("ref deref", "(! (new 3))", i31 3);
     ("app", "(app (fun () (_ : (*)) : int 1) () (tup))", i31 1);
@@ -70,4 +68,29 @@ let simple_tests =
         (app double () (app add3 () 4))
       |},
       i31 ((4 + 3) * 2) );
+    ("tuple 3", "(tup 1 2 3)", "(tup 1 2 3)");
+    ("tuple nested", "(tup (tup 1 2) (tup 3 4))", "(tup (tup 1 2) (tup 3 4))");
+    ("tuple deep", "(tup 1 (tup 2 (tup 3 4)))", "(tup 1 (tup 2 (tup 3 4)))");
+    ( "shared tuple",
+      "(let (p : (* int int)) (tup 1 2) (tup p p))",
+      "(tup (tup 1 2) (tup 1 2))" );
+    ("sum none", "(inj 0 (tup) : (+ (*) int))", "(inj 0)");
+    ("sum some", "(inj 1 42 : (+ (*) int))", "(inj 1 42)");
+    ( "sum of tuple",
+      "(inj 1 (tup 1 2) : (+ (*) (* int int)))",
+      "(inj 1 (tup 1 2))" );
+    ("sum in tuple", "(tup (inj 1 7 : (+ (*) int)) 9)", "(tup (inj 1 7) 9)");
+    ("ref cell", "(new 5)", "(ref 5)");
+    ("ref to tuple", "(new (tup 1 2))", "(ref (tup 1 2))");
+    ("ref in tuple", "(tup (new 1) 2)", "(tup (ref 1) 2)");
+    ( "updated ref",
+      "(let (r : (ref int)) (new 3) (let (_ : (*)) (assign r 8) r))",
+      "(ref 8)" );
+    ("unit in tuple", "(tup (tup) 5)", "(tup (tup) 5)");
+    ( "cases some",
+      "(cases (inj 1 42 : (+ (*) int)) ((_ : (*)) 0) ((v : int) v))",
+      i31 42 );
+    ( "cases none",
+      "(cases (inj 0 (tup) : (+ (*) int)) ((_ : (*)) 7) ((v : int) v))",
+      i31 7 );
   ]

@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { mkTableset } from "./tableset.ts";
+import { renderStart } from "./walker.ts";
 import type { Runtime } from "../../src/runtime/interface.d.ts";
 import { inspect } from "node:util";
 
@@ -27,7 +28,19 @@ if (
 ) {
   debugger;
   const result = module.instance.exports._start();
-  process.stdout.write(inspect(result, { depth: null }));
+  const startType = process.env.RW_START_TYPE;
+  if (startType) {
+    try {
+      const showAddrs = process.env.RW_DEBUG_ADDRS === "1";
+      process.stdout.write(renderStart(result, startType, rwExports, { showAddrs }));
+    } catch (e) {
+      // NOTE: we fall back to a raw dump so a walker bug never silently corrupts a test.
+      process.stderr.write(`walker error: ${(e as Error).stack ?? String(e)}\n`);
+      process.stdout.write(inspect(result, { depth: null }));
+    }
+  } else {
+    process.stdout.write(inspect(result, { depth: null }));
+  }
 } else {
   throw new Error("Cannot find `_start` function.");
 }

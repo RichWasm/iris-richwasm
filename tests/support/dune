@@ -6,10 +6,17 @@
  (preprocess
   (staged_pps ppx_sexp_conv ppx_variants_conv)))
 
+(rule
+ (alias runtest)
+ (deps walker.ts walker.test.ts)
+ (action
+  (run node --test)))
+
 (install
  (section lib)
  (package iris-richwasm)
  (files
   (host_single.ts as tests/host_single.ts)
   (host_triple.ts as tests/host_triple.ts)
-  (tableset.ts as tests/tableset.ts)))
+  (tableset.ts as tests/tableset.ts)
+  (walker.ts as tests/walker.ts)))

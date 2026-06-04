@@ -8,6 +8,7 @@
     "forceConsistentCasingInFileNames": true,
     "erasableSyntaxOnly": true,
     "target": "esnext",
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
   }
 }

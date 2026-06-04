@@ -7,7 +7,7 @@
   iris-richwasm.common
   iris-richwasm.runtime
   iris-richwasm.test-e2e)
- (deps %{dep:support/tableset.ts})
+ (deps %{dep:support/tableset.ts} %{dep:support/walker.ts})
  (action
   (setenv
    RW_RUNTIME_WASM_PATH
