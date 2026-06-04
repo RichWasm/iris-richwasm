@@ -1075,7 +1075,15 @@ let rec elab_instruction (env : Env.t) :
         match consume with
         | Move -> ret (stack_out, B.Consumption.Move)
         | Copy ->
-            ret (A.Type.Ref (mem, Imm, t_targ) :: stack_out, B.Consumption.Copy)
+            let ref_t = A.Type.Ref (mem, Imm, t_targ) in
+            (* NOTE: Copy keeps the scrutinee ref under the block results (cf. compile_case_load's tee_local). *)
+            let* tops =
+              List.init (List.length stack_out) ~f:Fn.id
+              |> mapM ~f:(fun _ -> pop "CaseLoad-Copy")
+            in
+            let* () = push ref_t in
+            let* () = List.rev tops |> iterM ~f:push in
+            ret (ref_t :: stack_out, B.Consumption.Copy)
         | Follow -> fail FollowNotSupportedForCaseLoad
       in
       let* it = instr_t_of env.kinds stack_in t_out in
