@@ -1,4 +1,5 @@
 Require Import RichWasm.compiler.memory.
+Require Import RichWasm.util.
 Require Import RichWasm.iris.logrel.instr.typing.common.
 Require Import RichWasm.iris.logrel.case_ptr.
 Require Import RichWasm.iris.logrel.roots.
@@ -18,6 +19,11 @@ Section store_weak.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
   Variable mr : module_runtime.
+
+  (* TEMPORARY. COPIED FROM LOAD_COPY *)
+  Lemma sum_list_with_list_sum {A} {f : A -> nat} {xs : list A} :
+    sum_list_with f xs = list_sum (map f xs).
+  Proof. Admitted.
 
   (* TEMPORARY. This is a copy. *)
   Lemma rep_ref_kind_ptr_TEMP F κ μ β τ ρ ξ :
@@ -185,6 +191,128 @@ Section store_weak.
     - iModIntro. iApply ("HΦ" with "[$] [$]"); iFrame.
   Qed.
 
+  (* TEMPORARY: COPIED FROM LOAD_COPY *)
+  Lemma has_kind_ref_ty F κ κ' μ β τ :
+    has_kind F (RefT κ μ β τ) κ' ->
+    ∃ σ ξ,
+      has_kind F τ (MEMTYPE σ ξ).
+  Proof. Admitted.
+  Lemma mono_size_eval_emp_Some σ :
+    is_mono_size σ ->
+    is_Some (eval_size EmptyEnv σ).
+  Proof. Admitted.
+
+  (* This is the resolves path lemma but with only the things present in the *)
+  (* context during the mm phase *)
+  (* it also just. Gives back some kinding stuff to quarantine it lol *)
+  Lemma resolves_path_inv_sep_weak_specialized_STORE_WEAK τ κ μ τval π pr :
+    let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
+    resolves_path τ π None pr ->
+    ∀ F off ρ se sκ κser L ιs,
+      sem_env_interp F se ->
+      path_offset (fe_of_context F) τ π = Some off ->
+      Forall (has_mono_size F) pr.(pr_prefix) ->
+      type_skind se (RefT κ μ Mut τ) = Some sκ ->
+      eval_kind se κ = Some sκ ->
+      (* eval_mem se μ = Some MemMM -> *)
+      has_ref_flag F (pr_target pr) GCRefs ->
+      pr_target pr = SerT κser τval ->
+      has_instruction_type_ok F ψ L ->
+      type_rep (fe_type_vars (fe_of_context F)) τval = Some ρ ->
+      eval_rep EmptyEnv ρ = Some ιs ->
+      (∃ σ ξ ξser sz,
+          has_kind F τ (MEMTYPE σ ξ) /\
+            has_kind F (pr.(pr_target)) (MEMTYPE (RepS ρ) ξser) /\
+            has_kind F τval (VALTYPE ρ ξser) /\
+            eval_size EmptyEnv (RepS ρ) = Some sz /\
+      ⊢ ∀ ws,
+        value_interp rti sr se τ (SWords ws) -∗
+        ⌜off + sz <= length ws⌝ ∗
+        (value_interp rti sr se (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
+        ∀ ws',
+           ⌜length ws' = sz⌝ -∗
+           value_interp rti sr se (pr.(pr_target)) (SWords ws') -∗
+           value_interp rti sr se τ (SWords (update_path_words off ws ws')))).
+  Proof.
+    intros ψ Hresolves.
+    intros * Hse Hoffset Hmono Htypeskind Hevalκ Href Hprtarget Hok Hrep Hevalρ.
+
+    rewrite Hprtarget in Href.
+    unfold ψ in Hok.
+    inversion Hok; subst.
+    destruct H as [Href2 _].
+    inversion Href2. subst.
+    destruct H2 as (? & Hrep3 & Hmono2).
+    inversion Hrep3; subst.
+    apply has_kind_ref_ty in H.
+    destruct H as (σ & ξτ & Hkind).
+
+    assert (has_mono_size F (pr_target pr)).
+    {
+      repeat
+        match goal with
+        | H : has_instruction_type_ok _ _ _ |- _ => inversion H; clear H; subst
+        | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
+        | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
+        | H : Forall _ [] |- _ =>  clear H
+        | H : has_mono_rep _ _ |- _ => destruct H as (?ρ & ?Hrep & ?Hmono)
+        | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
+        | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : has_kind ?F (RefT _ _ _ _) _ |- _ => eapply has_kind_ref_ty in H; destruct H as (? & ? & ?); subst
+        | H : has_kind ?F ?t ?k,
+          H' : has_kind ?F ?t ?k' |- _ =>
+            pose proof (has_kind_agree F t k k' H H'); clear H'
+        end.
+      pose proof Hresolves as Hresolves'.
+      rewrite Hprtarget.
+      eapply pr_target_kind in Hresolves'; eauto using KSer.
+      destruct Hresolves' as (ktgt & Hkind0).
+      rewrite Hprtarget in Hkind0.
+      inversion Hkind0; subst.
+      unfold κ0 in *.
+      eexists; eauto.
+      unfold is_mono_size.
+      constructor.
+      repeat
+        match goal with
+        | H : has_mono_rep_instr _ _ |- _ => inversion H; clear H; subst
+        | H : Forall _ (_ :: _) |- _ => inversion H; clear H; subst
+        | H : Forall _ [] |- _ =>  clear H
+        | H : has_mono_rep _ _ |- _ => destruct H as (?ρ & ?Hrep & ?Hmono)
+        | H : has_rep _ _ _ |- _ => inversion H; subst; clear H
+        | H : MEMTYPE _ _ = MEMTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : VALTYPE _ _ = VALTYPE _ _ |- _ => inversion H; subst; clear H
+        | H : has_kind ?F ?t ?k,
+          H' : has_kind ?F ?t ?k' |- _ =>
+            pose proof (has_kind_agree F t k k' H H'); clear H'
+        end.
+      by unfold is_mono_rep in *.
+    }
+
+    inversion H as [? ? σtgt ξser Hhktgt Htgtmono HF' HT]; subst.
+    rewrite Hprtarget in Hhktgt.
+    inversion Hhktgt; subst. unfold κ1 in *; clear κ1.
+
+    pose proof (mono_size_eval_emp_Some _ Htgtmono) as (sz & Hev).
+
+    unfold type_rep in Hrep.
+
+    (* type_kind_has_kind_agree *)
+    apply bind_Some in Hrep.
+    destruct Hrep as (κ_temp & type_kind_τval & kindrep).
+    pose proof (type_kind_has_kind_agree F τval _ _ H4 type_kind_τval).
+    subst.
+    inversion kindrep; subst.
+
+
+
+    (* always do all the way at the end *)
+    do 4 eexists.
+    split; [done|split; [rewrite Hprtarget; done|split;[done|split;[done|]]]].
+    eapply resolves_path_inv_sep_weak; try rewrite Hprtarget; try done.
+  Qed.
+
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -243,6 +371,8 @@ Section store_weak.
     iEval (rewrite atoms_interp_one_inv) in "Hvs1".
     iDestruct "Hvs1" as "(%v1 & -> & Hv1)".
     clear Hos1len.
+    rewrite value_interp_eq.
+    iDestruct "Hos1" as (sκ Hsκ) "[%skindsv Ho1]".
 
     (* Summary:
        - o1 is the atom associated with the ref, and v1 is its associated value
@@ -258,11 +388,58 @@ Section store_weak.
 
     (** KINDING STUFF *)
 
+    pose proof (Hsκ) as Hevalκ.
+    cbn in Hevalκ.
+    (* note: I have kind of "quarantined" a bunch of the kinding information into
+       the path lemma. It's a little silly, but it works?
+
+       In the future: if I need other kinding info I'm going to make a new lemma that
+       will take all of this stuff and spit out whatever else we need.
+     *)
+    pose proof
+      (resolves_path_inv_sep_weak_specialized_STORE_WEAK
+         τ κ μ τval π pr Hresolves
+         F off ρ se sκ κser L ιs
+         H Hoff Hmonosize Hsκ Hevalκ Hdrop Hser Htype Hρ Hιs
+      ) as Hpath_spec.
+    destruct Hpath_spec as
+      (σ & ξ & ξser & sz &
+         Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & Hpath_spec).
 
 
-    (** OTHER GENERAL FACTS THAT WE NEED FOR BOTH CASES *)
-    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl". (* for saving stack *)
+    (** OTHER GENERAL FACTS THAT WE NEED FOR BOTH CASES **)
+    (* NOTE: highly recommend folding as much of this section as possible *)
 
+    (* for saving the stack, frame interp thingy*)
+    iPoseProof (frame_interp_wl_interp with "Hframe") as "%Hwl".
+
+    (* this section establishes a bound on ptr_local which is necessary everywhere *)
+    set (locsz :=
+               length (concat (typing.fc_locals F)) +
+               length (wl ++ wl_save) +
+               length (T_i32 :: wl2 ++ wl3 ++ wlf)).
+    iAssert (⌜length (f_locs fr) = locsz ⌝ %I) as "%Hflen". {
+      iDestruct "Hframe" as "(%osf & %vss_L & %vs_WL & %Hlocs & %Hprims & %Hretty & Hats &  Hlocs)".
+      rewrite Hlocs.
+      unfold locsz.
+      rewrite length_app.
+      apply Forall2_Forall2_length in Hprims.
+      unfold result_type_interp in Hretty.
+      rewrite !length_concat Hprims.
+      eapply Forall2_length in Hretty.
+      rewrite !length_app in Hretty.
+      rewrite -Hretty.
+      cbn.
+      iEval (rewrite !length_app).
+      iEval (rewrite !Nat.add_assoc).
+      done.
+    }
+    assert (ptr_local < length (f_locs fr)) as Hptrlocalfr. {
+      rewrite Hflen.
+      unfold locsz, ptr_local.
+      rewrite sum_list_with_list_sum length_concat.
+      cbn; lia.
+    }
 
 
 
@@ -272,8 +449,6 @@ Section store_weak.
        so the first bit of both sections is dedicated to that.
        this bit first for that `last done` in the splitting line.
      *)
-    rewrite value_interp_eq.
-    iDestruct "Hos1" as (sκ Hsκ) "[%skindsv Ho1]".
     iEval (cbn) in "Ho1".
 
     destruct (eval_mem se μ) eqn:evalμ; last done; destruct b.
@@ -302,8 +477,9 @@ Section store_weak.
 
 
       (** PUT FACTOIDS WE NEED HERE (THAT ARE MM/GC SPECIFIC) **)
-
-
+      (* I'm going to make the specialized path lemma used here bc I want to try to
+         contain all the kinding shenanigans.
+       *)
 
       (** TIME TO BOOGIE *)
       (* note: I think saving stack and local tee can happen before the split *)
@@ -349,8 +525,11 @@ Section store_weak.
       iIntros (fr_saved w) "(%val_idxs & -> & %Hfrel_fr_saved & %Hsaved & %Hval_idxs_seq & %Hval_localidxs) Hfr Hrun".
       clear Hsave.
 
-      (* factoid: *)
-      assert (Hptrlocalfrsaved: ptr_local < length (f_locs fr_saved)) by admit.
+      (* Reestablish ptr_local length *)
+      assert (Hptrlocalfrsaved: ptr_local < length (f_locs fr_saved)). {
+        (* If this isn't true this is weird, but seems hardish to prove *)
+        admit.
+      }
 
       (* Next: local_tee stuff *)
       set (fr' := ({|
@@ -381,8 +560,8 @@ Section store_weak.
       *)
 
 
-      (** ----------------- CASE PTR TIME --------------------- **)
-      (* Apply the lemma into the codegen *)
+      (** ----------------- STORE TIME -------------------- **)
+      (* Apply the case ptr lemma onto the codegen *)
       apply cwp_case_ptr in Hcompile.
       destruct Hcompile as
         (wt_unreach & wt_memMM & wt_memGC &
@@ -417,6 +596,11 @@ Section store_weak.
         inversion Hcg_root; subst. clear_nils.
 
         (* Actual Store *)
+        clear Hval_localidxs.
+
+        (* we can use up Hτ into path spec now if we'd like, unsure when is best *)
+
+        (* put down a store lemma here *)
         (* this is the most deceiving admit of all time lmao *)
         admit.
       }
@@ -425,18 +609,18 @@ Section store_weak.
 
 
       (** ----------------- POINTER FLAGS --------------------- **)
-      iIntros (fr_caseptr vs_caseptr) "Hres Hfr Hrun".
+      iIntros (fr_store vs_store) "Hres Hfr Hrun".
 
-      (* unless I'm really tripping, I know that vs_caseptr will be nil?
+      (* unless I'm really tripping, I know that vs_store will be nil?
          So just for the sake of being able to dig into the ptr_flags_spec:
        *)
-      assert (vs_caseptr = []) by admit; subst.
+      assert (vs_store = []) by admit; subst.
       clear_nils.
 
       (* apply the spec onto the codegen and slowly specialize *)
       eapply cwp_set_pointer_flags in Hptr_flags.
       destruct Hptr_flags as (_ & -> & -> & Hptr_flags_spec).
-      specialize (Hptr_flags_spec fr_caseptr n n32).
+      specialize (Hptr_flags_spec fr_store n n32).
       (* this theta is ALMOST CERTAINLY going to be different TODO *)
       specialize (Hptr_flags_spec θ).
       specialize (Hptr_flags_spec MemMM ℓ).
@@ -454,12 +638,12 @@ Section store_weak.
       assert (H1: ((off + length (flat_map arep_flags ιs))%nat ≤
                      Wasm_int.Int32.modulus)%Z) by admit.
       assert (H2: repr_pointer θ (PtrHeap MemMM ℓ) n) by admit.
-      assert (H3: f_locs fr_caseptr !! localimm (prelude.W.Mk_localidx ptr_local) =
+      assert (H3: f_locs fr_store !! localimm (prelude.W.Mk_localidx ptr_local) =
                     Some (VAL_int32 n32)) by admit.
       specialize (Hptr_flags_spec ltac:(auto) ltac:(auto) ltac:(auto) ltac:(auto)).
 
       (* then the things we need out from case_ptrs:
-         - ℓ ↦layout fsnew. Shouldn't be hard to get
+         - ℓ ↦layout fs. Shouldn't be hard to get
          - run time token
          - N.of_nat sr_func_set_flag sr. We'll probably have to open
            the invariant here. (Or maybe we'll open it earlier)
@@ -473,10 +657,67 @@ Section store_weak.
          resources.
        *)
 
+      (* temporarily, pretend we have them *)
+      iApply (Hptr_flags_spec with "[] [] [] [] [] [] [] [-]").
+      1: instantiate (1:=fs).
+      1-7: admit.
 
+      (* this iIntros is from the ptr flags spec *)
+      instantiate (1:= sr).
+      instantiate (1:= rti).
+      iIntros "Hℓ Hrt #Hnsfun Hown #Hinst_spec".
+      clear_nils.
+      iFrame.
 
+      (* since this is store weak, something that should be true: *)
+      assert (Hfs: fs = foldr compose id
+                     (map (λ '(ix, fx), <[ix:=flag_of_i32 (i32_of_flag fx)]>)
+                        (zip (seq off (length (flat_map arep_flags ιs)))
+                           (flat_map arep_flags ιs)))
+                     fs). {
+        (* this is going to be a deeply intense battle I can feel it *)
+        (* it'll have to do with the path stuff *)
+        admit.
+      }
+      rewrite <- Hfs.
 
-      admit.
+      (* I want to look at the values interp briefly *)
+      (* frame interp and frame rel shouldn't be insane as I think *)
+      (* they'll be preserved? we'll see *)
+      iSplitR; [|iSplitR].
+      - admit.
+      - admit.
+      - iExists ([PtrA (PtrHeap MemMM ℓ)]).
+        (* I think this doesn't change?? *)
+        iEval (cbn).
+        (* this is just aiming to keep track of what resources we end up needing
+         *)
+        iSplitL "Hℓ"; [|iSplitL; [|done]].
+        + iExists [[PtrA (PtrHeap MemMM ℓ)]].
+          iEval (cbn); iSplitR; [done|iSplitL;[|done]].
+          rewrite !type_interp_eq; iEval (cbn).
+          rewrite evalμ.
+          iEval (cbn).
+
+          iExists sκ.
+          iSplitR; [done|].
+
+          (* Facts and resources we need:
+             - We need a much more certain picture of what sκ is
+             - We need ℓ ↦heap ws for some words
+             - And we need a type interp τ for those words
+           *)
+          admit.
+        + iExists n, n32.
+          iSplitR; [done| iSplitR; [done|]].
+          iExists rp.
+          iSplitR; [done|].
+          (* Resources we need:
+             - root_pointer_interp rp (PtrHeap MemMM ℓ)
+               which we had before
+           *)
+          admit.
+
     }
 
 
