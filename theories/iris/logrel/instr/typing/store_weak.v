@@ -202,17 +202,18 @@ Section store_weak.
     is_Some (eval_size EmptyEnv σ).
   Proof. Admitted.
 
-  (* This is the resolves path lemma but with only the things present in the *)
-  (* context during the mm phase *)
-  (* it also just. Gives back some kinding stuff to quarantine it lol *)
-  Lemma resolves_path_inv_sep_weak_specialized_STORE_WEAK τ κ μ τval π pr :
+  (* this is a "get me all the kind info please" lemma
+     a bit old bc it has some things it doesn't strickly need, but that's
+     okay.
+   *)
+  Lemma get_all_kinding_info_store_weak_general τ κ μ τval π pr :
     let ψ := InstrT [RefT κ μ Mut τ; τval] [RefT κ μ Mut τ] in
     resolves_path τ π None pr ->
-    ∀ F off ρ se sκ κser L ιs,
+    ∀ F off ρ se sκ κser L ιs o1,
       sem_env_interp F se ->
       path_offset (fe_of_context F) τ π = Some off ->
       Forall (has_mono_size F) pr.(pr_prefix) ->
-      type_skind se (RefT κ μ Mut τ) = Some sκ ->
+      type_skind (Σ:=Σ) se (RefT κ μ Mut τ) = Some sκ ->
       eval_kind se κ = Some sκ ->
       (* eval_mem se μ = Some MemMM -> *)
       has_ref_flag F (pr_target pr) GCRefs ->
@@ -220,22 +221,17 @@ Section store_weak.
       has_instruction_type_ok F ψ L ->
       type_rep (fe_type_vars (fe_of_context F)) τval = Some ρ ->
       eval_rep EmptyEnv ρ = Some ιs ->
-      (∃ σ ξ ξser sz,
+      skind_has_svalue sκ (SAtoms [o1]) ->
+      (∃ σ ξ ξser sz ξ_ref,
           has_kind F τ (MEMTYPE σ ξ) /\
             has_kind F (pr.(pr_target)) (MEMTYPE (RepS ρ) ξser) /\
             has_kind F τval (VALTYPE ρ ξser) /\
             eval_size EmptyEnv (RepS ρ) = Some sz /\
-      ⊢ ∀ ws,
-        value_interp rti sr se τ (SWords ws) -∗
-        ⌜off + sz <= length ws⌝ ∗
-        (value_interp rti sr se (pr.(pr_target)) (SWords (get_path_words off sz ws)) ∗
-        ∀ ws',
-           ⌜length ws' = sz⌝ -∗
-           value_interp rti sr se (pr.(pr_target)) (SWords ws') -∗
-           value_interp rti sr se τ (SWords (update_path_words off ws ws')))).
+            κ = VALTYPE (AtomR PtrR) ξ_ref /\
+            sκ = SVALTYPE [PtrR] ξ_ref).
   Proof.
     intros ψ Hresolves.
-    intros * Hse Hoffset Hmono Htypeskind Hevalκ Href Hprtarget Hok Hrep Hevalρ.
+    intros * Hse Hoffset Hmono Htypeskind Hevalκ Href Hprtarget Hok Hrep Hevalρ Hsksv.
 
     rewrite Hprtarget in Href.
     unfold ψ in Hok.
@@ -305,12 +301,40 @@ Section store_weak.
     subst.
     inversion kindrep; subst.
 
+    (* the other things that would be nice: sκ is SVALTYPE .. *)
+    inversion Hrep3; subst. (* ey win we have valtype *)
+    rename H1 into Hkind_ref. rename x into ρ_ref. rename ξ0 into ξ_ref.
+
+    (* okay what I want now is that ρ_ref is AtomR PtrR *)
+    assert (ρ_ref = AtomR PtrR). {
+      inversion Hkind_ref; subst; done.
+    }
+    subst.
+    (* then ξ_ref will be either GCRef of AnyRef which isn't smthn rn *)
+    (* future lemma that takes in eval_mem μ can say smthn tho *)
+    destruct sκ; [| by destruct Hsksv].
+    rename r into ξ_sκ.
+    assert (κ = VALTYPE (AtomR PtrR) ξ_ref). {
+      inversion Hkind_ref; done.
+    }
+    subst.
+
+    assert (ξ_ref = ξ_sκ). {
+      cbn in Hevalκ. inversion Hevalκ; done.
+    }
+    subst ξ_sκ.
+    assert (l = [PtrR]). {
+      cbn in Hevalκ. inversion Hevalκ; done.
+    }
+    subst.
+
+
 
 
     (* always do all the way at the end *)
-    do 4 eexists.
-    split; [done|split; [rewrite Hprtarget; done|split;[done|split;[done|]]]].
-    eapply resolves_path_inv_sep_weak; try rewrite Hprtarget; try done.
+    rewrite Hprtarget.
+    do 5 eexists.
+    done.
   Qed.
 
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
@@ -390,21 +414,19 @@ Section store_weak.
 
     pose proof (Hsκ) as Hevalκ.
     cbn in Hevalκ.
-    (* note: I have kind of "quarantined" a bunch of the kinding information into
-       the path lemma. It's a little silly, but it works?
-
-       In the future: if I need other kinding info I'm going to make a new lemma that
-       will take all of this stuff and spit out whatever else we need.
+    (* this lemma is a quarantine zone for all things kinding
+       if we need more info in the future it can be added. Also potentially
+       eventually make _MM and _GC versions that use eval_mem, if necessary
      *)
     pose proof
-      (resolves_path_inv_sep_weak_specialized_STORE_WEAK
+      (get_all_kinding_info_store_weak_general
          τ κ μ τval π pr Hresolves
-         F off ρ se sκ κser L ιs
-         H Hoff Hmonosize Hsκ Hevalκ Hdrop Hser Htype Hρ Hιs
-      ) as Hpath_spec.
-    destruct Hpath_spec as
-      (σ & ξ & ξser & sz &
-         Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & Hpath_spec).
+         F off ρ se sκ κser L ιs o1
+         H Hoff Hmonosize Hsκ Hevalκ Hdrop Hser Htype Hρ Hιs skindsv
+      ) as AllKinding.
+    destruct AllKinding as
+      (σ & ξ & ξser & sz & ξ_ref &
+         Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & -> & ->).
 
 
     (** OTHER GENERAL FACTS THAT WE NEED FOR BOTH CASES **)
@@ -599,6 +621,10 @@ Section store_weak.
         clear Hval_localidxs.
 
         (* we can use up Hτ into path spec now if we'd like, unsure when is best *)
+        pose proof
+          (resolves_path_inv_sep_weak rti sr se
+             τ π pr Hresolves F off ρ σ ξ ξser sz) as Hpath_spec.
+        specialize (Hpath_spec H Hoff Hmonosize Hkind_τ Hkind_prtarget Hevalsize).
 
         (* put down a store lemma here *)
         (* this is the most deceiving admit of all time lmao *)
@@ -676,7 +702,18 @@ Section store_weak.
                            (flat_map arep_flags ιs)))
                      fs). {
         (* this is going to be a deeply intense battle I can feel it *)
-        (* it'll have to do with the path stuff *)
+        (* okay so let's do some thinking
+           - We need to show that the the section from off -> len ιs of fs is
+             exactly equal to flat_map arep_flags ιs
+           - which it is, bc ιs is the reps of that exact section
+         *)
+        (* although looking ahead we might not need this?
+           If we don't that's weird af. Hm.
+           It's gotta be necessary in like reestablishing invariants though
+         *)
+        (* TODO when things are more close to done, try not using this and
+           see what happens
+         *)
         admit.
       }
       rewrite <- Hfs.
@@ -699,11 +736,14 @@ Section store_weak.
           rewrite evalμ.
           iEval (cbn).
 
-          iExists sκ.
+          iExists (SVALTYPE [PtrR] ξ_ref).
           iSplitR; [done|].
+          iSplitR.
+          * iPureIntro.
+            done. (* note: this won't be as clean in the GC case I think *)
+          * (* this will depend on the words we get and on fs *)
 
           (* Facts and resources we need:
-             - We need a much more certain picture of what sκ is
              - We need ℓ ↦heap ws for some words
              - And we need a type interp τ for those words
            *)
