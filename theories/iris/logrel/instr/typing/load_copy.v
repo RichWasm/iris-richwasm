@@ -1301,16 +1301,13 @@ Section load_copy.
       eapply cwp_case_ptr in Hcompile.
       destruct Hcompile as (?wt & ?wt & ?wt & ?wl & ?wl & ?wl & ?es & ?es & ?es & Hcompile).
       destruct Hcompile as (Hunr & Hload1 & Hload2 & Hwt0 & Hwl0 & Hspec).
-      inv_cg_bind Hload1 [] ?wt ?wt ?wl ?wl ?es ?es Hret Hload1.
-      cbn in Hret.
-      inversion Hret.
-      subst wt4 wl4 es2.
       rewrite atoms_interp_one_inv.
       iDestruct "Hvs" as "(%v' & %Hv' & Hat)".
       inversion Hv'; subst v'; clear Hv'.
       iApply cwp_val_app.
       { instantiate (1 := [v]). apply Is_true_true. apply/andP; split => //. by apply/eqP. }
       iPoseProof (atom_interp_ptr_shaped with "Hat") as "(%vn & %vn32 & %Hvn & -> & %Hvshp & %rp & %Hrpvn & Hrp)".
+      destruct rp as [|[|]]; try (iEval (cbn) in "Hrp"; done).
       specialize (Hspec [] [] (PtrHeap MemGC ℓ) vn vn32 ltac:(eauto)).
       specialize (Hspec ltac:(auto) ltac:(auto) ltac:(auto)).
       clear_nils.
@@ -1363,7 +1360,33 @@ Section load_copy.
         rewrite mono_size_eval_emp; eauto.
       }
       inv_cg_bind Hload2 [] ?wt ?wt ?wl ?wl  ?es_root_hp ?es_store Hcgroot Hcgload.
-      admit.
+      inversion Hrpvn.
+      iEval (cbn) in "Hrp".
+      open_rt "Hrt".
+      iApply (cwp_seq with "[Hf Hrun Hrp Hws Hroot Hrootmem]").
+      {
+        eapply wp_root_to_heap in Hcgroot; try eauto.
+        iApply (Hcgroot with "[$] [$] [] [] [$] [$] [$] [-]").
+        - admit. (* EASY *)
+        - admit. (* EASY *)
+        - iIntros "!> %ah %ah32 %Hah32 %Hrep Hroot Hrm Hrmem".
+          instantiate (1 := (λ f0 vs0,
+            ∃ ah ah32,
+             ⌜N_i32_repr ah ah32⌝ ∗
+             ⌜repr_pointer θ (PtrHeap MemGC ℓ) ah⌝ ∗
+             ⌜f0 = {| W.f_locs := <[localimm (Mk_localidx ptr_local):=VAL_int32 ah32]> (f_locs f'); W.f_inst := f_inst f' |}⌝ ∗
+             ⌜vs0 = []⌝ ∗
+             _)%I).
+          iExists ah, ah32.
+          iSplit; first done.
+          iSplit; first done.
+          iSplit; first done.
+          iSplit; first done.
+          iNamedAccu.
+      }
+      iIntros "%f'' %vs'' (%ah & %ah32 & %Hah32 & %Hrepah & -> & -> & Q) Hf Hr".
+      iDestruct "Q" as "(@ & @ & @ & @)".
+      clear_nils.
 
     - (* ref gc imm *)
       admit.
