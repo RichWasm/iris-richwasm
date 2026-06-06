@@ -1387,7 +1387,7 @@ Section load_copy.
       iIntros "%f'' %vs'' (%ah & %ah32 & %Hah32 & %Hrepah & -> & -> & Q) Hf Hr".
       iDestruct "Q" as "(@ & @ & @ & @)".
       clear_nils.
-
+      admit.
     - (* ref gc imm *)
       admit.
   Admitted.
