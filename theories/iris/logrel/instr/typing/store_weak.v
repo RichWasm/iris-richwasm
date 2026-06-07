@@ -1,3 +1,4 @@
+From mathcomp Require Import ssrbool eqtype.
 Require Import RichWasm.compiler.memory.
 Require Import RichWasm.util.
 Require Import RichWasm.iris.logrel.instr.typing.common.
@@ -131,6 +132,7 @@ Section store_weak.
       "%Hnz"     ∷ ⌜(a ≠ 0)%N⌝ -∗
       "%Hbound"  ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
       "%Harep"   ∷ ⌜has_arep ι o⌝ -∗
+      "%Hsliceflags" ∷ ⌜Forall2 word_has_flag (arep_flags ι) (take (arep_size ι) (drop off ws))⌝ -∗
       "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
       "%Hmemmm"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
       "Hat"      ∷ atom_interp_weak θ MemMM o val_v -∗
@@ -167,10 +169,16 @@ Section store_weak.
     }
     iIntros (f' vs') "[-> ->] Hf Hrun".
     (* Open abstract-physical connection for the slice [off, off + arep_size ι) *)
-    iPoseProof (virt_to_phys_slice_store_acc _ _ mr off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr]")
-      as "(%hm & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
-    iPoseProof (atom_interp_weak_types_agree ι o MemMM θ val_v with "[//] [$Hat]") as "%Htypes".
-    iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & Hwords_new)".
+    iPoseProof (virt_to_phys_slice_store_acc _ _ off (arep_size ι) with "[//] [$Htok] [$Hptr] [$Haddr]")
+      as "(%hm & %Hhm & %Hdomθhm & %Hlocsθ_ws & Hnp & (%ns & %ns32 & %Hns & Hphys & Hwords) & Hclose)".
+    (* atom_to_words_mm consumes Hat; it also returns types_agree which is needed for Hstore_spec *)
+    iPoseProof (atom_to_words_mm rti sr mr θ ι o val_v Harep with "[$Hat]") as "(%ns_new & %ns32_new & %Hns_new & %Hbits & %Htypes & Hwords_new)".
+    (* Extract pure facts from Hnp, derive dom θ cond for new words, then reconstruct Hnp *)
+    iDestruct "Hnp" as "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
+    iPoseProof (words_interp_locs_dom_θ θ rm MemMM _ ns_new Hrootok with "[$Hwords_new] [$Hroot]")
+      as "%Hlocsθ_new".
+    iAssert (rt_token_nophys rti sr θ hm) with "[Hroot Hlayout Hrti Hownmm Howngc Hrootmem]" as "Hnp".
+    { iExists rm, lm. iFrame. iPureIntro. split; last split; done. }
     (* Compute byte-length of old slice *)
     iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws".
     assert (Hlenbytes : length (flat_map serialise_i32 ns32) = length_t (translate_arep ι)).
@@ -185,9 +193,16 @@ Section store_weak.
     iNext; iIntros "Hnew_phys".
     iEval (rewrite <- Hbits) in "Hnew_phys".
     iMod ("Hclose" $! (serialize_atom o) ns_new ns32_new
-      with "[%] [%] [$Hnew_phys] [$Hwords_new] [$Hnp]") as "(Hptr_new & Haddr & Htok)".
+      with "[%] [%] [%] [%] [%] [$Hnew_phys] [$Hwords_new] [$Hnp]") as "(Hptr_new & Haddr & Htok)".
     - exact (has_arep_size ι o Harep).
     - exact Hns_new.
+    - intros flags H.
+      exact (update_path_words_flags_compat ι o ws off Harep Hbound Hsliceflags flags H).
+    - eapply Forall_impl.
+      + exact (update_path_words_locs_incl (dom θ) ws off (serialize_atom o) Hlocsθ_ws Hlocsθ_new).
+      + intros ℓ' Hℓ'. rewrite <- Hdomθhm. exact Hℓ'.
+    -  exact (update_path_words_locs_incl (dom θ) ws off (serialize_atom o)
+               Hlocsθ_ws Hlocsθ_new).
     - iModIntro. iApply ("HΦ" with "[$] [$]"); iFrame.
   Qed.
 

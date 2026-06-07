@@ -653,6 +653,312 @@ Section load.
     destruct ι; done.
   Qed.
 
+  Lemma heap_memory_delete ℓ μ a ws θ hm :
+    θ !! ℓ = Some (μ, a) →
+    hm !! ℓ = Some ws →
+    heap_memory sr θ hm ⊢
+      (∃ ns ns32, ⌜Forall2 N_i32_repr ns ns32⌝ ∗
+                  rt_memaddr sr μ ↦[wms][a] flat_map serialise_i32 ns32 ∗
+                  words_interp θ μ ws ns) ∗
+      ∀ ws',
+        (∃ ns' ns32', ⌜Forall2 N_i32_repr ns' ns32'⌝ ∗
+                      rt_memaddr sr μ ↦[wms][a] flat_map serialise_i32 ns32' ∗
+                      words_interp θ μ ws' ns') -∗
+        heap_memory sr θ (<[ℓ := ws']> hm).
+  Proof.
+    intros Hθℓ Hhm.
+    iIntros "Hmem". unfold heap_memory.
+    have Hθ : <[ℓ := (μ, a)]> (delete ℓ θ) = θ.
+    { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
+      - rewrite lookup_insert -Hθℓ. by rewrite decide_True.
+      - rewrite lookup_insert_ne // lookup_delete_ne //. }
+    have Hhm0 : <[ℓ := ws]> (delete ℓ hm) = hm.
+    { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
+      - rewrite lookup_insert -Hhm. by rewrite decide_True.
+      - rewrite lookup_insert_ne // lookup_delete_ne //. }
+    iEval (rewrite -{1 2}Hθ -{1}Hhm0) in "Hmem".
+    iEval (rewrite big_sepM2_insert_delete) in "Hmem".
+    rewrite !delete_delete_eq.
+    iDestruct "Hmem" as "[Hentry Hrest]".
+    iSplitL "Hentry"; first by rewrite Hθ.
+    iIntros (ws') "Hws'".
+    unfold heap_memory.
+    have Hhm' : <[ℓ := ws']> hm = <[ℓ := ws']> (delete ℓ hm).
+    { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
+      - rewrite !lookup_insert. by rewrite !decide_True.
+      - by rewrite !lookup_insert_ne // lookup_delete_ne. }
+    iEval (rewrite -{1 2}Hθ Hhm').
+    iEval (rewrite big_sepM2_insert_delete).
+    rewrite !delete_delete_eq.
+    iFrame.
+    by rewrite Hθ.
+  Qed.
+
+  Lemma own_addr_mm_trivial (θ : address_map) (ℓ : location) :
+    ⊢ ∃ a : N, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
+  Proof.
+    destruct (θ !! ℓ) as [[μ a] |] eqn:Hθ.
+    - iExists (a + 1)%N. iIntros "%H". simplify_eq. lia.
+    - iExists 0%N. by iIntros "%H".
+  Qed.
+
+  Lemma own_addr_mm_trivial_list (θ : address_map) (ℓs : list location) :
+    ⊢ [∗ list] ℓ ∈ ℓs,
+        ∃ a : N, ⌜θ !! ℓ = Some (MemMM, a)⌝ -∗ ℓ ↦addr (MemMM, a).
+  Proof.
+    iInduction ℓs as [|ℓ rest] "IH".
+    - done.
+    - iSplitL.
+      + iApply own_addr_mm_trivial.
+      + iApply "IH".
+  Qed.
+
+  Lemma arep_flags_of_serialize_atom ι o :
+    has_arep ι o →
+    Forall2 word_has_flag (arep_flags ι) (serialize_atom o).
+  Proof.
+    intros Harep. destruct ι, o; try done.
+    all: repeat constructor; done.
+  Qed.
+
+  Lemma heap_memory_dom_eq θ hm :
+    heap_memory sr θ hm ⊢ ⌜dom θ = dom hm⌝.
+  Proof. iApply big_sepM2_dom. Qed.
+
+  (* From words_interp, all heap-pointer locations are in dom θ *)
+  Lemma words_interp_locs_dom_θ θ rm μ ws ns :
+    root_ok θ rm →
+    words_interp θ μ ws ns -∗
+    ghost_map_auth rw_root (1/2) rm -∗
+    ⌜Forall (λ ℓ, ℓ ∈ dom θ) (flat_map locations ws)⌝.
+  Proof.
+    iIntros (Hrootok) "Hwords Hroot".
+    iInduction ws as [|w ws'] "IH" forall (ns).
+    - iDestruct (big_sepL2_nil_inv_l with "Hwords") as "->". done.
+    - iDestruct (big_sepL2_cons_inv_l with "Hwords") as "(%n & %ns' & -> & Hword & Hwords')".
+      destruct w as [[m | μ' ℓ] | m].
+      + (* WordPtr (PtrInt m): locations = [] *)
+        iApply ("IH" with "Hwords' Hroot").
+      + (* WordPtr (PtrHeap μ' ℓ): location = [ℓ] *)
+        cbn [flat_map locations].
+        destruct μ, μ'.
+        * (* MemMM / MemMM: word_interp = ⌜repr_pointer θ (PtrHeap MemMM ℓ) n⌝ *)
+          iDestruct "Hword" as "%Hrep".
+          iDestruct ("IH" with "Hwords' Hroot") as "%Htail".
+          iPureIntro. apply Forall_app. split.
+          -- apply Forall_singleton. apply elem_of_dom. inversion Hrep. eauto.
+          -- exact Htail.
+        * (* MemMM / MemGC: word_interp = ∃ a, ⌜repr_root_pointer ...⌝ ∗ a ↦root ℓ *)
+          iDestruct "Hword" as "(%a & _ & Helem)".
+          (* iCombine is non-destructive: Helem and Hroot both remain in context *)
+          iCombine "Helem Hroot" gives "%Hrm".
+          have Hdomℓ : ℓ ∈ dom θ.
+          { apply elem_of_dom.
+            destruct (map_Forall_lookup_1 _ _ _ _ Hrootok Hrm) as [a' Ha']. eauto. }
+          iDestruct ("IH" with "Hwords' Hroot") as "%Htail".
+          iPureIntro. apply Forall_app.
+          by rewrite Forall_singleton.
+        * (* MemGC / MemMM: word_interp = ⌜repr_pointer θ (PtrHeap MemMM ℓ) n⌝ *)
+          iDestruct "Hword" as "%Hrep".
+          iDestruct ("IH" with "Hwords' Hroot") as "%Htail".
+          iPureIntro. apply Forall_app. split.
+          -- apply Forall_singleton. apply elem_of_dom. inversion Hrep. eauto.
+          -- exact Htail.
+        * (* MemGC / MemGC: word_interp = ⌜repr_pointer θ (PtrHeap MemGC ℓ) n⌝ *)
+          iDestruct "Hword" as "%Hrep".
+          iDestruct ("IH" with "Hwords' Hroot") as "%Htail".
+          iPureIntro. apply Forall_app. split.
+          -- apply Forall_singleton. apply elem_of_dom. inversion Hrep. eauto.
+          -- exact Htail.
+      + (* WordInt m: locations = [] *)
+        iApply ("IH" with "Hwords' Hroot").
+  Qed.
+
+  Lemma Forall2_word_has_flag_inj fs1 fs2 ws :
+    Forall2 word_has_flag fs1 ws →
+    Forall2 word_has_flag fs2 ws →
+    fs1 = fs2.
+  Proof.
+    intro H; revert fs2.
+    induction H as [|f1 fs1' w ws' Hf1 _ IH]; intros fs2 H2.
+    - inversion H2; done.
+    - inversion H2 as [|f2 ? ? ? Hf2 H2' Heq1 Heq2]; subst.
+      f_equal.
+      + destruct f1, f2, w; simpl in *; try congruence; by destruct fs1'.
+      + exact (IH _ H2').
+  Qed.
+
+  (* The flag structure is preserved when updating a slice with a same-arep atom.
+     The old slice (take (arep_size ι) (drop off ws)) must already have flags
+     arep_flags ι. *)
+  Lemma update_path_words_flags_compat ι o ws off :
+    has_arep ι o →
+    off + arep_size ι ≤ length ws →
+    Forall2 word_has_flag (arep_flags ι) (take (arep_size ι) (drop off ws)) →
+    ∀ flags, Forall2 word_has_flag flags ws →
+             Forall2 word_has_flag flags (update_path_words off ws (serialize_atom o)).
+  Proof.
+    intros Harep Hbound Holdflags flags Hflags.
+    pose proof (arep_flags_of_serialize_atom ι o Harep) as Hser.
+    pose proof (has_arep_size ι o Harep) as Hser_len.
+    have Hmid : take (arep_size ι) (drop off flags) = arep_flags ι.
+    { apply (Forall2_word_has_flag_inj _ _ (take (arep_size ι) (drop off ws))).
+      - apply Forall2_take. apply Forall2_drop. exact Hflags.
+      - exact Holdflags. }
+    unfold update_path_words. rewrite Hser_len.
+    rewrite <- (take_drop off flags).
+    apply Forall2_app.
+    - apply Forall2_take. exact Hflags.
+    - rewrite <- (take_drop (arep_size ι) (drop off flags)).
+      apply Forall2_app.
+      + rewrite Hmid. exact Hser.
+      + rewrite !drop_drop.
+        rewrite Nat.add_comm.
+        by apply Forall2_drop.
+  Qed.
+
+  Lemma update_path_words_empty_1 off ws_new :
+    update_path_words off [] ws_new = ws_new.
+  Proof.
+    unfold update_path_words.
+    by rewrite take_nil !drop_nil app_nil_r.
+  Qed.
+
+  Lemma update_path_words_empty_2 off ws :
+    update_path_words off ws [] = ws.
+  Proof.
+    unfold update_path_words.
+    simpl.
+    by rewrite drop_0 take_drop.
+  Qed.
+
+
+  Lemma update_path_words_succ off w ws ws_new :
+    update_path_words (S off) (w :: ws) ws_new =
+    w :: update_path_words off ws ws_new.
+  Proof.
+    unfold update_path_words.
+    simpl.
+    done.
+  Qed.
+
+  Lemma update_path_words_first w ws w_new ws_new :
+    update_path_words 0 (w :: ws) (w_new :: ws_new) =
+    w_new :: update_path_words 0 ws ws_new.
+  Proof.
+    unfold update_path_words.
+    simpl.
+    done.
+  Qed.
+
+  (* Locations in update_path_words are covered if old and new words' locs are *)
+  Lemma update_path_words_locs_incl (dom_set : gset location) ws off ws_new :
+    Forall (λ ℓ, ℓ ∈ dom_set) (flat_map locations ws) →
+    Forall (λ ℓ, ℓ ∈ dom_set) (flat_map locations ws_new) →
+    Forall (λ ℓ, ℓ ∈ dom_set) (flat_map locations (update_path_words off ws ws_new)).
+  Proof.
+    revert off ws_new.
+    induction ws as [| w ws];
+    intros off ws_new Hws Hwsnew.
+    - simpl in Hws.
+      by rewrite update_path_words_empty_1.
+    - destruct ws_new as [|w_new ws_new]; first by rewrite update_path_words_empty_2.
+      simpl in Hws.
+      apply Forall_app in Hws as [Hw Hws].
+      destruct off; last first.
+      + rewrite update_path_words_succ.
+        simpl.
+        rewrite Forall_app.
+        split; first done.
+        by apply IHws.
+      + rewrite update_path_words_first.
+        simpl.
+        rewrite Forall_app.
+        simpl in Hwsnew.
+        apply Forall_app in Hwsnew as [Hwnew Hwsnew].
+        split; first done.
+        by apply IHws.
+  Qed.
+
+  Lemma heap_ok_update θ lm hm ℓ ws' flags :
+    heap_ok θ lm hm →
+    lm !! ℓ = Some flags →
+    Forall2 word_has_flag flags ws' →
+    Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
+    Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
+    heap_ok θ lm (<[ℓ := ws']> hm).
+  Proof.
+    intros (Hflags & Hdomhm & Hdomθ) Hlm Hws' Hlocshm Hlocsθ.
+    unfold map_Forall2 in Hflags, Hdomθ.
+    unfold map_Forall in Hdomhm.
+    have Hhmℓ : is_Some (hm !! ℓ).
+    { have := Hflags ℓ. rewrite Hlm. intros H. inversion H. eauto. }
+    destruct Hhmℓ as [ws_old Hws_old].
+    have Hθℓ : is_Some (θ !! ℓ).
+    { have := Hdomθ ℓ. rewrite Hws_old. intros H. inversion H. eauto. }
+    destruct Hθℓ as [x Hθℓv].
+    split; [| split].
+    - unfold map_Forall2. intro k.
+      destruct (decide (k = ℓ)) as [->|Hne].
+      + rewrite lookup_insert Hlm decide_True; last done. constructor. simpl.
+        (* is_true vs Is_true ... *)
+        eapply Forall2_impl; [exact Hws'|].
+        intros f w H.  by rewrite H.
+      + rewrite lookup_insert_ne //.
+    - unfold map_Forall. intros k ws Hk.
+      destruct (decide (k = ℓ)) as [->|Hne].
+      + rewrite lookup_insert decide_True in Hk; last done. injection Hk as <-.
+        eapply Forall_impl; first exact Hlocshm.
+        intros ℓ' Hℓ'. rewrite dom_insert_L. set_solver.
+      + rewrite lookup_insert_ne // in Hk.
+        eapply Forall_impl; first exact (Hdomhm k ws Hk).
+        intros ℓ' Hℓ'. rewrite dom_insert_L. set_solver.
+    - unfold map_Forall2. intro k.
+      destruct (decide (k = ℓ)) as [->|Hne].
+      + rewrite lookup_insert Hθℓv decide_True; last done. constructor. exact Hlocsθ.
+      + rewrite lookup_insert_ne //.
+  Qed.
+
+  Lemma rt_token_nophys_insert_heap θ hm ℓ ws ws' :
+    hm !! ℓ = Some ws →
+    (∀ flags, Forall2 word_has_flag flags ws → Forall2 word_has_flag flags ws') →
+    Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations ws') →
+    Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws') →
+    rt_token_nophys θ hm -∗
+    rt_token_nophys θ (<[ℓ := ws']> hm).
+  Proof.
+    intros Hhm Hflags_compat Hlocshm Hlocsθ.
+    iIntros "(%rm & %lm & Hroot & Hlayout & Hrti & %Hinj & Hownmm & Howngc & %Hrootok & Hrootmem & %Hheapok)".
+    iExists rm, lm.
+    iFrame "Hroot Hlayout Hrti Howngc Hrootmem".
+    iSplit; first done.
+    iSplit; last (iSplit; first done).
+    - (* own_addr_mm θ (<[ℓ := ws']> hm) *)
+      unfold own_addr_mm.
+      have Hhm' : <[ℓ := ws']> hm = <[ℓ := ws']> (delete ℓ hm).
+      { apply map_eq; intros k; destruct (decide (k = ℓ)) as [->|Hne].
+        - rewrite !lookup_insert. by rewrite !decide_True.
+        - by rewrite !lookup_insert_ne // lookup_delete_ne. }
+      rewrite Hhm'.
+      iEval (rewrite big_sepM_insert_delete).
+      rewrite delete_delete_eq.
+      iSplitL "".
+      * iApply own_addr_mm_trivial_list.
+      * iPoseProof (big_sepM_delete _ hm ℓ ws Hhm with "Hownmm") as "[_ $]".
+    - iPureIntro.
+      have Hmapflags : ∃ flags, lm !! ℓ = Some flags ∧ Forall2 word_has_flag flags ws.
+      { destruct Hheapok as (Hcomp1 & _).
+        unfold map_Forall2 in Hcomp1. specialize (Hcomp1 ℓ).
+        rewrite Hhm in Hcomp1. inversion Hcomp1. exists x. split; auto. simpl in H1.
+        eapply Forall2_impl; first exact H1.
+        intros f w H'. destruct (word_has_flag f w) eqn:H''; first done. by rewrite H'' in H'. }
+      destruct Hmapflags as [flags [Hflm Hwsflags]].
+      eapply heap_ok_update.
+      2: exact Hflm.
+      all: try done.
+      exact (Hflags_compat flags Hwsflags).
+  Qed.
+
   Lemma virt_to_phys_slice_store_acc off sz ℓ μ a θ ws :
     let slice := take sz (drop off ws) in
     ⊢ ⌜off + sz <= length ws⌝ -∗
@@ -660,6 +966,9 @@ Section load.
       ℓ ↦heap ws -∗
       ℓ ↦addr (μ, a) -∗
       ∃ hm,
+        ⌜hm !! ℓ = Some ws⌝ ∗
+        ⌜dom θ = dom hm⌝ ∗
+        ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws)⌝ ∗
         rt_token_nophys θ hm ∗
         (∃ (ns : list N) (ns32 : list i32),
           ⌜Forall2 N_i32_repr ns ns32⌝ ∗
@@ -668,6 +977,10 @@ Section load.
         (∀ (ws_new : list word) (ns' : list N) (ns32' : list i32),
           ⌜length ws_new = sz⌝ -∗
           ⌜Forall2 N_i32_repr ns' ns32'⌝ -∗
+          ⌜∀ flags, Forall2 word_has_flag flags ws →
+                    Forall2 word_has_flag flags (update_path_words off ws ws_new)⌝ -∗
+          ⌜Forall (λ ℓ', ℓ' ∈ dom hm) (flat_map locations (update_path_words off ws ws_new))⌝ -∗
+          ⌜Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations (update_path_words off ws ws_new))⌝ -∗
           rt_memaddr sr μ ↦[wms][a + 4 * N.of_nat off] flat_map serialise_i32 ns32' -∗
           words_interp θ μ ws_new ns' -∗
           rt_token_nophys θ hm -∗
@@ -675,7 +988,86 @@ Section load.
                ℓ ↦addr (μ, a) ∗
                rt_token rti sr θ).
   Proof.
-  Admitted.
+    iIntros (slice) "%Hlenbdd Hrt Hpt Ha".
+    open_rt "Hrt".
+    iExists hm.
+    iCombine "Hpt Hheap" gives "%Hhm".
+    iCombine "Ha Haddr" gives "%Hθℓ".
+    iPoseProof (heap_memory_dom_eq with "Hheapmem") as "%Hdomθhm".
+    iPoseProof (heap_memory_delete ℓ _ _ ws with "Hheapmem") as "(HR & Hheapcont)"; eauto.
+    (* Derive Forall (ℓ' ∈ dom θ) (flat_map locations ws) from heap_ok condition 3 *)
+    have Hlocsθ_ws : Forall (λ ℓ', ℓ' ∈ dom θ) (flat_map locations ws).
+    { destruct Hheapok as (_ & _ & Hdomθ).
+      unfold map_Forall2 in Hdomθ.
+      specialize (Hdomθ ℓ).
+      rewrite Hhm Hθℓ in Hdomθ.
+      inversion Hdomθ. exact H1. }
+    iSplit; first (iPureIntro; exact Hhm).
+    iSplit; first (iPureIntro; exact Hdomθhm).
+    iSplit; first (iPureIntro; exact Hlocsθ_ws).
+    iSplitL "Hroot Hlayout Hrti Hownmm Howngc Hrootmem"; first by iFrame.
+    iDestruct "HR" as "(%ns_all & %ns32_all & %Hns_all & Hphys_all & Hwords_all)".
+    assert (ws = take off ws ++ slice ++ drop (off + sz) ws) as Hws.
+    {
+      rewrite app_assoc. unfold slice. by rewrite take_take_drop take_drop.
+    }
+    assert (length slice = sz) as Hslicelen.
+    { unfold slice; apply length_take_le; rewrite length_drop; lia. }
+    iEval (setoid_rewrite Hws) in "Hwords_all".
+    iPoseProof (big_sepL2_app_inv_l with "Hwords_all") as "(%ns_pre & %ns_rest & -> & Hpre & Hwords_rest)".
+    iPoseProof (big_sepL2_app_inv_l with "Hwords_rest") as "(%ns_mid & %ns_post & -> & Hwords & Hpost)".
+    pose proof Hns_all as Hns_all'.
+    apply Forall2_app_inv_l in Hns_all'.
+    destruct Hns_all' as (ns32_pre & ns32_rest & Hns_pre & Hns_rest & ->).
+    apply Forall2_app_inv_l in Hns_rest.
+    destruct Hns_rest as (ns32_mid & ns32_post & Hns_mid & Hns_post & ->).
+    rewrite !flat_map_app.
+    rewrite !wms_app; try by eauto.
+    iDestruct "Hphys_all" as "(Hphys_pre & Hphys & Hphys_post)".
+    pose proof (Forall2_length _ _ _ Hns_pre) as Hnslenpre.
+    pose proof (Forall2_length _ _ _ Hns_mid) as Hnslen.
+    iPoseProof (big_sepL2_length with "Hpre") as "%Hlenpre'".
+    iPoseProof (big_sepL2_length with "Hpost") as "%Hlenpost'".
+    iPoseProof (big_sepL2_length with "Hwords") as "%Hlenws'".
+    assert (length (flat_map serialise_i32 ns32_pre) = 4 * off) as Hlenpre.
+    {
+      rewrite len_ser32. rewrite -Hnslenpre -Hlenpre' length_take_le; lia.
+    }
+    rewrite Hlenpre Nat2N.inj_mul.
+    iSplitL "Hwords Hphys"; first by iFrame.
+    (* Closing frame *)
+    iIntros (ws_new ns' ns32') "%Hlenws_new %Hns'' %Hflags_compat %Hlocshm %Hlocsθ Hphys' Hwords' Hnp".
+    iMod (ghost_map_update (update_path_words off ws ws_new) with "Hheap Hpt") as "[Hheap' Hpt']".
+    iModIntro.
+    iFrame "Hpt' Ha".
+    pose proof (Forall2_length _ _ _ Hns'') as Hns32'len.
+    iPoseProof (big_sepL2_length with "Hwords'") as "%Hns'len".
+    set (hm' := <[ℓ := update_path_words off ws ws_new]> hm).
+    iAssert (rt_token_nophys θ hm') with "[Hnp]" as "Hnp'".
+    { iApply (rt_token_nophys_insert_heap _ _ _ ws with "Hnp").
+      - exact Hhm.
+      - exact Hflags_compat.
+      - exact Hlocshm.
+      - exact Hlocsθ. }
+    iApply (rt_token_putheap θ hm' with "Hnp'").
+    unfold rt_token_phys.
+    iFrame "Haddr Hheap'".
+    iApply ("Hheapcont" $! (update_path_words off ws ws_new)).
+    iExists (ns_pre ++ ns' ++ ns_post), (ns32_pre ++ ns32' ++ ns32_post).
+    iSplit; first by (iPureIntro; eauto using Forall2_app).
+    iSplitL "Hphys_pre Hphys' Hphys_post".
+    - iCombine "Hphys_pre Hphys' Hphys_post" as "Hphys_all".
+      rewrite -wms_app; last by (rewrite !len_ser32; lia).
+      rewrite -wms_app; last (rewrite !len_ser32 -Hnslenpre -Hlenpre' length_take_le; lia).
+      rewrite -!flat_map_app.
+      iFrame "Hphys_all".
+    - unfold update_path_words; rewrite Hlenws_new.
+      unfold words_interp.
+      iCombine "Hpre Hwords' Hpost" as "Hwords_all".
+      repeat (rewrite <- big_sepL2_app_same_length; last by (rewrite -?Hlenpre' -?Hns'len; lia)).
+      rewrite drop_drop.
+      iFrame.
+  Qed.
 
   Lemma atom_to_words_mm θ ι o val_v :
     has_arep ι o ->
@@ -683,6 +1075,7 @@ Section load.
     ∃ (ns : list N) (ns32 : list i32),
       ⌜Forall2 N_i32_repr ns ns32⌝ ∗
       ⌜flat_map serialise_i32 ns32 = bits val_v⌝ ∗
+      ⌜types_agree (translate_arep ι) val_v⌝ ∗
       words_interp θ MemMM (serialize_atom o) ns.
   Proof.
   Admitted.
