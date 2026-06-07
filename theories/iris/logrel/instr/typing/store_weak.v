@@ -217,6 +217,37 @@ Section store_weak.
     is_Some (eval_size EmptyEnv σ).
   Proof. Admitted.
 
+
+  Lemma wp_store_mm_MAYBE a_idx off ιs vs_idx wt wl ret wt' wl' es :
+    run_codegen (memory.store mr MemMM a_idx off vs_idx ιs) wt wl = inr (ret, wt', wl', es) ->
+    ret = () /\ wt' = [] /\ wl' = [] /\ (* if I'm understanding wt' and wl' right *)
+    ∀ f ℓ a a32 val_vs θ os ws E B R Φ,
+    ⊢ "Hf"       ∷ ↪[frame] f -∗
+      "Hrun"     ∷ ↪[RUN] -∗
+      "Hptr"     ∷ ℓ ↦heap ws -∗
+      "Haddr"    ∷ ℓ ↦addr (MemMM, a) -∗
+      "Htok"     ∷ rt_token rti sr θ -∗
+      "%Ha32"    ∷ ⌜f_locs f !! localimm a_idx = Some (VAL_int32 a32)⌝ -∗
+      "%Hv"      ∷ ⌜Forall2 (λ v_idx val_v, f_locs f !! localimm v_idx = Some val_v) vs_idx val_vs⌝ -∗
+      "%Hrepa"   ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+      "%Hmod"    ∷ ⌜(a `mod` 4 = 0)%N⌝ -∗
+      "%Hnz"     ∷ ⌜(a ≠ 0)%N⌝ -∗
+      "%Hbound"  ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
+      "%Harep"   ∷ ⌜Forall2 has_arep ιs os⌝ -∗
+      "%Hsliceflags" ∷ ⌜Forall2 word_has_flag (concat (map arep_flags ιs))
+                                              (take (sum_list_with arep_size ιs) (drop off ws))⌝ -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hmemmm"  ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "Hat"      ∷ [∗ list] o;val_v ∈ os;val_vs, atom_interp_weak θ MemMM o val_v -∗
+      "HΦ"       ∷ (ℓ ↦heap (update_path_words off ws (concat (map serialize_atom os))) -∗
+                    ℓ ↦addr (MemMM, a) -∗
+                    rt_token rti sr θ -∗
+                    Φ f []) -∗
+    CWP es @ E UNDER B; R {{ Φ }}.
+  Proof. Admitted.
+
+
+
   (* this is a "get me all the kind info please" lemma
      a bit old bc it has some things it doesn't strickly need, but that's
      okay.
@@ -346,7 +377,8 @@ Section store_weak.
 
 
 
-    (* always do all the way at the end *)
+    (* always do all the way at the end. Ideally, should always be basically
+     just eexists -> done. *)
     rewrite Hprtarget.
     do 5 eexists.
     done.
@@ -630,7 +662,7 @@ Section store_weak.
           es_root_to_heap es_store Hcg_root Hcg_store.
         destruct what; subst.
         cbn in Hcg_root.
-        inversion Hcg_root; subst. clear_nils.
+        inversion Hcg_root; subst. clear_nils; clear Hcg_root.
 
         (* Actual Store *)
         clear Hval_localidxs.
