@@ -1097,12 +1097,6 @@ Section instr.
          ([∗ list] os; vs_L ∈ oss; vss_L, atoms_interp os vs_L) ∗
          locals_interp se L oss)%I.
 
-  Fixpoint simple_get_base_l (lh : simple_valid_holed) :=
-    match lh with
-    | SH_base vs _ => vs
-    | SH_rec _ _ _ lh' _ => simple_get_base_l lh'
-    end.
-
   Definition instance_rt_func_interp
     (i : funcidx) (a : funcaddr) (spec : function_closure -> Prop) (inst : instance) : iProp Σ :=
     ∃ cl,
@@ -1225,17 +1219,11 @@ Section instr.
     typeclasses eauto.
   Qed.
 
-  Definition memory_closed (m : memory) : Prop :=
-    match m with
-    | VarM _ => False
-    | BaseM _ => True
-    end.
-
   Definition kind_ctx_interp (K : kind_ctx) (se: semantic_env) : Prop :=
     K.(kc_mem_vars) = length (senv_mems se) /\
     K.(kc_rep_vars) = length (senv_reps se) /\
     K.(kc_size_vars) = length (senv_sizes se).
-  
+
   Definition type_ctx_interp (κs : list kind) (se : semantic_env) : Prop :=
     Forall2
       (fun κ '(sκ, T) => eval_kind se κ = Some sκ /\ skind_has_stype sκ T)
