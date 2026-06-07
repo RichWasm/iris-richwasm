@@ -56,7 +56,7 @@ Section Runtime.
       repr_root_pointer (RootHeap MemMM a) ta ->
       f.(f_inst).(inst_funcs) !! i = Some sr.(sr_func_free) ->
       ℓ ↦addr (MemMM, a) -∗
-      N.of_nat sr.(sr_func_mmalloc) ↦[wf] cl -∗
+      N.of_nat sr.(sr_func_free) ↦[wf] cl -∗
       rt_token rti sr θ -∗
       ↪[frame] f -∗
       ↪[RUN] -∗
