@@ -21,8 +21,6 @@ const [runtimeBuf, m1Buf, m2Buf, m3Buf] = await Promise.all([
   readFile("/dev/fd/5"),
 ]);
 
-// A single richwasm runtime shared by all three modules: they must share one
-// set of memories and one table so GC references can cross module boundaries.
 const rw = await WebAssembly.instantiate(runtimeBuf);
 const rwExports = rw.instance.exports as any as Runtime;
 
