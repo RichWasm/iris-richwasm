@@ -67,10 +67,9 @@ let ll2rw =
 let mml2rw =
   Command.basic ~summary:"Compile a mini-ml module to RichWasm."
     (let%map_open.Command miniml = file_or_stdin "miniml"
-     and pp = richwasm_pp_spec in
-     fun () ->
-       ignore (miniml, pp);
-       failwith "TODO")
+     and pp = richwasm_pp_spec
+     and elab = richwasm_elab_flag in
+     fun () -> get_contents miniml |> ml_str_pipeline |> handle_rw pp elab)
 
 let rw_elab =
   Command.basic
