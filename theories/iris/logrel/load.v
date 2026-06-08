@@ -2045,6 +2045,9 @@ Section load.
       let offs := snd $ seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
                     (off, []) ιs in
       let offs_szs := seq.zip offs (map arep_size ιs) in
+      ret = () /\
+      wt' = [] ∧
+      wl' = map translate_arep ιs ∧
       ∀ f ℓ a32 a os ws E B R θ Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
@@ -2064,11 +2067,11 @@ Section load.
         "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemGC a) a32⌝ -∗
         "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
         "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
-        "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemGC)⌝ -∗
+        "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_gc sr) (rt_memaddr sr MemGC)⌝ -∗
         "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
         "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
         "HΦ" ∷
-          (∀ θ' f' vs vsf,
+          ▷ (∀ θ' f' vs vsf,
              "%Hf'"     ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
