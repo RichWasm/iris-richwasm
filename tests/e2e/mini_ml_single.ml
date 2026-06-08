@@ -110,4 +110,14 @@ let simple_tests =
     ( "cases none",
       "(cases (inj 0 (tup) : (+ (*) int)) ((_ : (*)) 7) ((v : int) v))",
       i31 7 );
+    ("list [1]", cons 1 nil, "(inj 1 (tup 1 (inj 0)))");
+    ( "list [1;2]",
+      cons 1 (cons 2 nil),
+      "(inj 1 (tup 1 (inj 1 (tup 2 (inj 0)))))" );
+    ("len []", sprintf "%s (app len () %s)" len_fn nil, i31 0);
+    ( "len [1;2;3]",
+      sprintf "%s (app len () %s)" len_fn (cons 1 (cons 2 (cons 3 nil))),
+      i31 3 );
+    ("poly_len", poly_len_src, i31 1);
+    ("poly_id_apply", poly_id_apply_src, i31 5);
   ]

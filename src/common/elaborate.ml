@@ -1197,7 +1197,10 @@ let rec elab_instruction (env : Env.t) :
         shift_fn add1
       in
       let shifted_stack = List.map ~f:shift_ty st.stack in
-      let st_inner_init = { st with stack = t_body :: shifted_stack } in
+      let shifted_locals = List.map ~f:shift_ty st.locals in
+      let st_inner_init: State.t =
+        { stack = t_body :: shifted_stack; locals = shifted_locals }
+      in
       let* () = put st_inner_init in
       let* consume, result, env', st_inner = handle_bt ~lfx ~inject:1 bt in
       let env'' =
@@ -1231,7 +1234,9 @@ let rec elab_instruction (env : Env.t) :
         | LocalFx lfx ->
             let* () = verify_lfx st' lfx "unpack" in
             handle_local_fx env lfx
-        | InferFx -> handle_new_locals env st'.locals
+        | InferFx ->
+            let* outer_locals = mapM st'.locals ~f:unshift_ty in
+            handle_new_locals env outer_locals
       in
       let* () = iterM outer_result ~f:push in
       let* it = instr_t_of env.kinds outer_consume outer_result in

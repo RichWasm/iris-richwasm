@@ -39,9 +39,8 @@ let opt_case =
 
 (* A list is `rec b. unit + (a * b)`: nil = inj0 unit, cons h t = inj1 (h, t).
    `len` unfolds, and in the cons case recurses on the tail `proj 1 y`. *)
-let poly_len =
-  from_string_exn
-    {|
+let poly_len_src =
+  {|
       (export (len : ((a) (rec (b) (+ (*) (* a b))) -> int))
         (fun (a) (x : (rec (b) (+ (*) (* a b)))) : int
           (cases (unfold x)
@@ -57,6 +56,21 @@ let poly_len =
                 (inj 0 (tup) : (+ (*) (* int (rec (b) (+ (*) (* int b))))))))
             : (+ (*) (* int (rec (b) (+ (*) (* int b))))))))
     |}
+
+let poly_len = from_string_exn poly_len_src
+
+(* [apply] returns a polymorphic call's result instantiated at its own type param (a bound-var result). *)
+let poly_id_apply_src =
+  {|
+      (export (id : ((a) a -> a))
+        (fun (a) (x : a) : a x))
+      (export (apply : ((a) a -> a))
+        (fun (a) (x : a) : a (app id (a) x)))
+
+      (app apply (int) 5)
+    |}
+
+let poly_id_apply = from_string_exn poly_id_apply_src
 
 let mini_zip =
   from_string_exn
@@ -127,6 +141,7 @@ let all =
       ("apply_id", apply_id);
       ("opt_case", opt_case);
       ("poly_len", poly_len);
+      ("poly_id_apply", poly_id_apply);
       ("mini_zip", mini_zip);
       ("closure_simpl", closure_simpl);
       ("closure_complex", closure_complex);
