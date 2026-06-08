@@ -1497,6 +1497,53 @@ Section load.
       iApply atom_interp_weak_promote; auto.
   Qed.
 
+  Lemma wp_load1_copy_gc (se : @semantic_env Σ) F lidx off ι wt wl ret wt' wl' es :
+    let fe := fe_of_context F in
+    run_codegen (memory.load1 mr fe MemGC Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
+    ∀ f ℓ a32 a o ws s E B R e Φ,
+    ⊢ "Hf" ∷ ↪[frame] f -∗
+      "Hrun" ∷ ↪[RUN] -∗
+      "Hptr" ∷ ℓ ↦heap ws -∗
+      "Haddr" ∷ a ↦root ℓ -∗
+      "Hown"  ∷ na_own logrel_nais E -∗
+      "Htok"  ∷ rt_token rti sr e -∗
+      "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+      "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
+      "%Hbound" ∷ ⌜off + arep_size ι ≤ length ws⌝ -∗
+      "%Harep" ∷ ⌜has_arep ι o⌝ -∗
+      "%Hser" ∷ ⌜serialize_atom o = get_path_words off (arep_size ι) ws⌝ -∗
+      "%Hse" ∷ ⌜sem_env_interp F se⌝ -∗
+      "%Hfsz" ∷ ⌜fe_wlocal_offset fe + length wl + length wl' <= length (f_locs f)⌝ -∗
+      "%Hlidx" ∷ ⌜f_locs f !! localimm lidx = Some (VAL_int32 a32)⌝ -∗
+      "%Hrepa" ∷ ⌜N_i32_repr (tag_address MemMM a) a32⌝ -∗
+      "%Hrepa_mod" ∷ ⌜a `mod` 4 = 0⌝%N -∗
+      "%Hrepa_nz" ∷ ⌜a <> 0⌝%N -∗
+      "%Hrepmem" ∷ ⌜N_nat_repr (sr_mem_mm sr) (rt_memaddr sr MemMM)⌝ -∗
+      "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
+      "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
+      "HΦ" ∷
+        (∀ e' f' vf v,
+           "%Hf'"  ∷ ⌜f' = mk_load1_frame fe f (length wl) vf⌝ -∗
+           "%Hvf"  ∷ ⌜types_agree (translate_arep ι) vf⌝ -∗
+           "Hptr"  ∷ ℓ ↦heap ws -∗
+           "Haddr" ∷ a ↦root ℓ -∗
+           "Hown"  ∷ na_own logrel_nais E -∗
+           "Htok"  ∷ rt_token rti sr e' -∗
+           "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
+           "Ho"    ∷ (⌜atom_copyable o⌝ -∗ atom_interp o v) -∗
+           Φ f' [v]) -∗
+      CWP es @ s; E UNDER B; R {{ Φ }}.
+  Proof.
+    iIntros (fe Hcg).
+    unfold load1.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_get ?es_rest Hget Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_load_w ?es_rest Hload_w Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_wlalloc ?es_rest Hwlalloc Hcg.
+    inv_cg_bind Hcg [] ?wt ?wt ?wl ?wl es_save ?es_rest Hsave Hcg.
+    apply wp_wlalloc in Hwlalloc.
+    destruct Hwlalloc as (Hidx & -> & -> & ->).
+  Admitted.
+
   Lemma wp_mem_load1_copy_mm_cg_state
     fe lidx off ι wt wl ret wt' wl' es :
     run_codegen (memory.load1 mr fe MemMM Copy lidx off ι) wt wl = inr (ret, wt', wl', es) ->
@@ -1968,13 +2015,13 @@ Section load.
         "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
         "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
         "HΦ" ∷
-          (∀ e' f' vs vsf,
+          (∀ θ' f' vs vsf,
              "%Hf'"     ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
              "Haddr" ∷ ℓ ↦addr (MemMM, a) -∗
              "Hown"  ∷ na_own logrel_nais E -∗
-             "Htok"  ∷ rt_token rti sr e' -∗
+             "Htok"  ∷ rt_token rti sr θ' -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗
@@ -1998,16 +2045,13 @@ Section load.
       let offs := snd $ seq.foldl (λ '(off', offs) ι, (off' + arep_size ι, seq.rcons offs off'))
                     (off, []) ιs in
       let offs_szs := seq.zip offs (map arep_size ιs) in
-      ret = () /\
-      wt' = [] ∧
-      wl' = map translate_arep ιs ∧
-      ∀ f ℓ a32 a os ws E B R e Φ,
+      ∀ f ℓ a32 a os ws E B R θ Φ,
       ⊢ "Hf" ∷ ↪[frame] f -∗
         "Hrun" ∷ ↪[RUN] -∗
         "Hptr" ∷ ℓ ↦heap ws -∗
-        "Haddr" ∷ ℓ ↦addr (MemGC, a) -∗
+        "%Haddr" ∷ ⌜θ !! ℓ = Some (MemGC, a)⌝ -∗
         "Hown"  ∷ na_own logrel_nais E -∗
-        "Htok"  ∷ rt_token rti sr e -∗
+        "Htok"  ∷ rt_token rti sr θ -∗
         "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
         "%Hmask" ∷ ⌜↑ns_fun (N.of_nat (sr_func_registerroot sr)) ⊆ E⌝ -∗
         "%Hbound" ∷ ⌜off + sum_list_with arep_size ιs ≤ length ws⌝ -∗
@@ -2024,13 +2068,13 @@ Section load.
         "%Hmemmm" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemMM = Some (sr_mem_mm sr)⌝ -∗
         "%Hmemgc" ∷ ⌜inst_memory (f_inst f) !! base_mem_idx mr MemGC = Some (sr_mem_gc sr)⌝ -∗
         "HΦ" ∷
-          (∀ e' f' vs vsf,
+          (∀ θ' f' vs vsf,
              "%Hf'"     ∷ ⌜f' = mk_load_frame fe f wl vsf⌝ -∗
              "%Hvsf" ∷ ⌜Forall2 (λ ι vf, types_agree (translate_arep ι) vf) ιs vsf⌝ -∗
              "Hptr"  ∷ ℓ ↦heap ws -∗
-             "Haddr" ∷ ℓ ↦addr (MemGC, a) -∗
+             "%Haddr'" ∷ ⌜θ' !! ℓ = Some (MemGC, a)⌝ -∗
              "Hown"  ∷ na_own logrel_nais E -∗
-             "Htok"  ∷ rt_token rti sr e' -∗
+             "Htok"  ∷ rt_token rti sr θ' -∗
              "Hregf" ∷ instance_rt_func_interp mr.(mr_func_registerroot) sr.(sr_func_registerroot) (spec_registerroot rti sr) f.(f_inst) -∗
              "Hos"    ∷ ([∗ list] o;v ∈ os; vs, (⌜atom_copyable o⌝ -∗ atom_interp o v)) -∗
              Φ f' vs) -∗

@@ -1337,7 +1337,7 @@ Section load_copy.
       eapply eval_kind_ok_Some in Hev; last done.
       iApply fupd_cwp.
       iMod (na_inv_acc with "Hinv Hown") as "U"; eauto.
-      iDestruct "U" as "[ (%ws & Hfs & Hhp & Hws) V ]".
+      iDestruct "U" as "[ (%ws & Hfs & Hhp & Hws) [Hown Hclose]]".
       iModIntro.
       iMod "Hfs".
       iMod "Hhp".
@@ -1359,7 +1359,7 @@ Section load_copy.
         eapply has_kind_type_sz in Hkind; eauto.
         rewrite mono_size_eval_emp; eauto.
       }
-      inv_cg_bind Hload2 [] ?wt ?wt ?wl ?wl  ?es_root_hp ?es_store Hcgroot Hcgload.
+      inv_cg_bind Hload2 [] ?wt ?wt ?wl ?wl  ?es_root_hp ?es_load Hcgroot Hcgload.
       inversion Hrpvn.
       iEval (cbn) in "Hrp".
       open_rt "Hrt".
@@ -1386,8 +1386,146 @@ Section load_copy.
       }
       iIntros "%f'' %vs'' (%ah & %ah32 & %Hah32 & %Hrepah & -> & -> & Q) Hf Hr".
       iDestruct "Q" as "(@ & @ & @ & @)".
+      (* here, need to obtain the physical points-to (I think) *)
+      subst.
+      inversion Hrepah; subst.
+      rename a into a'.
+      rename a0 into a.
+      iAssert (rt_token rti sr θ) with "[Haddr Hlayout Hheap Hrti Hownmm Howngc Hheapmem Hrm Hrmem]" as "Hrt".
+      {
+        by iFrame.
+      }
       clear_nils.
-      admit.
+      (* Now: use path lemma to grab the important slice of Hws *)
+      (* first, setting up some pure premises for the path lemma *)
+      unfold type_sz in Hsztgt.
+      assert (∃ ρtgt ξtgt,
+                 has_kind F (pr_target pr) κser /\
+                 has_kind F τval (VALTYPE ρtgt ξtgt) /\
+                 is_mono_size (RepS ρtgt) /\
+                 ρ = ρtgt /\
+                 κser = MEMTYPE (RepS ρtgt) ξtgt)
+        as (ρtgt & ξtgt & Htgt & Hval & Hmono & -> & ->).
+      {
+        inversion H; subst.
+        rename σ0 into σtgt.
+        rename ξ0 into ξtgt.
+        rewrite Hser in H1.
+        inversion H1; subst.
+        unfold fe in Hρ.
+        unfold fe_of_context in Hρ; cbn in Hρ.
+        erewrite type_rep_has_kind_agree in Hρ; last eauto.
+        inversion Hρ.
+        do 2 eexists.
+        by rewrite Hser.
+      }
+      pose proof Hmono as Hevm.
+      eapply mono_size_eval_emp_Some in Hevm.
+      destruct Hevm as (m & Hevm).
+      (* Applying the path lemma. Since Hws is under a later modality, we only
+         get the result under a later modality. *)
+      eapply resolves_path_inv_sep_weak in Hresolves; eauto.
+      iEval (rewrite -type_interp_eq) in "Hws".
+      iPoseProof (Hresolves with "Hws") as "(Hws1 & Hws & Hclose_slice)".
+      iMod "Hws1".
+      iDestruct "Hws1" as "%Hws1".
+      (* Now we're going to extract information about the serialized atoms os. *)
+      (* This may look awkward because of all the later modalities, but the
+         only stuff we actually need before taking a step is pure. *)
+      iEval (rewrite type_interp_eq Hser; cbn) in "Hws".
+      iDestruct "Hws" as "(%sk & Hevsk & Hkind & %os & Hser & Hosty)".
+      iEval (rewrite type_interp_eq) in "Hosty".
+      iDestruct "Hosty" as "(%sk' & Hevsk' & Hkind' & Ht)".
+      iMod "Hser"; iMod "Hevsk"; iMod "Hevsk'"; iMod "Hkind'".
+      iDestruct "Hser" as "%Hseros"; iDestruct "Hevsk" as "%Hevsk".
+      inversion Hseros as [Hseros'].
+      iDestruct "Hkind'" as "%Hkind'"; iDestruct "Hevsk'" as "%Hevsk'".
+      (* Showing sk is actually something we already know about *)
+      fold (eval_size se (RepS ρtgt)) in Hevsk.
+      erewrite eval_size_emptyenv in Hevsk; last eauto.
+      cbn in Hevsk; inversion Hevsk; subst; clear Hevsk.
+      (* Showing sk' is actually something we already know about *)
+      assert (eval_rep se ρtgt = Some ιs) as Hevserep.
+      {
+        rewrite mono_rep_eval_rep; eauto.
+        unfold is_mono_rep.
+        by inversion Hmono.
+      }
+      assert (eval_kind se (VALTYPE ρtgt ξtgt) = Some (SVALTYPE ιs ξtgt)).
+      {
+        cbn; by rewrite Hevserep.
+      }
+      assert (type_skind se τval = Some (SVALTYPE ιs ξtgt)) as Hevtval.
+      {
+        rewrite Hevsk'.
+        erewrite type_skind_has_kind_Some in Hevsk'; try solve [cbn; eauto].
+      }
+      rewrite Hevtval in Hevsk'; inversion Hevsk'; subst sk'; clear Hevsk'.
+
+      (* Now that sk, sk' are refined, we can learn from Hkind and Hkind' *)
+      iMod "Hkind".
+      iDestruct "Hkind" as "(%Hm & %Hflags)".
+      inversion Hkind' as [Hareps Hats].
+      destruct Hareps as (os' & Huseless & Hareps).
+      inversion Huseless; subst os'; clear Huseless.
+      iApply (cwp_wand_strong _ _ E' ⊤ with "[-]"); eauto.
+      eapply wp_mem_load_copy_gc in Hcgload.
+      iApply (Hcgload with "[$] [$] [$] [//] [$] [$] []").
+      + admit.
+      + done.
+      + admit.
+      + done.
+      + iPureIntro.
+        admit. (* how was this proved in the other case..? *)
+      + eauto.
+      + admit.
+      + admit.
+      + admit.
+      + eauto.
+      + eauto.
+      + eauto.
+      + admit.
+      + admit.
+      + admit.
+      + iIntros (θ' f'' vs vsf) "-> @ @ @ @ @ @ @".
+
+        iPoseProof ("Hclose_slice" with "[//] [Ht]") as "Hclosed".
+        {
+          rewrite type_interp_eq.
+          rewrite Hser.
+          iExists (SMEMTYPE m ξtgt).
+          iSplitR; [|iSplitR]; eauto.
+          {
+            iPureIntro.
+            cbn.
+            rewrite Hevserep; cbn.
+            rewrite Hm.
+            rewrite Hseros'.
+            erewrite <- has_areps_size; eauto.
+            rewrite length_flat_map.
+            done.
+          }
+          rewrite Hseros'.
+          iExists os.
+          iSplitR; eauto.
+          rewrite type_interp_eq.
+          iExists (SVALTYPE ιs ξtgt).
+          by eauto.
+        }
+        iEval (rewrite update_get_path_id; last lia;
+               rewrite type_interp_eq) in "Hclosed".
+        iSpecialize ("Hclose" with "[$]").
+        iMod "Hclose".
+        iModIntro.
+        rewrite /fvs_combine.
+        iSplitR;
+          last iSplitL "Hframe";
+          last iSplitL "Hos";
+          last iSplitL "Htok";
+          [ | | | by eauto | by eauto ].
+        { admit. }
+        { admit. }
+        { admit. }
     - (* ref gc imm *)
       admit.
   Admitted.
