@@ -3,18 +3,13 @@ open! Test_examples.Mini_ml
 
 (* results are rendered structurally by the runtime host (tests/support/walker.ts) *)
 let i31 x = sprintf "%i" x
-
-(* A well-typed cons-list `rec b. unit + (int * b)`: nil = inj0 unit,
-   cons h t = inj1 (h, t). (The examples' [poly_len] can't be reused — it is
-   independently ill-typed: its folds' arguments don't match the unfolded
-   type.) Building the source via sprintf keeps the nested annotations honest. *)
 let list_rec = "(rec (b) (+ (*) (* int b)))"
 let list_sum = "(+ (*) (* int (rec (b) (+ (*) (* int b)))))"
 let nil = sprintf "(fold %s (inj 0 (tup) : %s))" list_rec list_sum
-let cons h t = sprintf "(fold %s (inj 1 (tup %i %s) : %s))" list_rec h t list_sum
 
-(* Monomorphic recursive [length]: exercises [cases] (sum elimination) over the
-   unfolded list together with a self-call on the tail. *)
+let cons h t =
+  sprintf "(fold %s (inj 1 (tup %i %s) : %s))" list_rec h t list_sum
+
 let len_fn =
   sprintf
     {|
@@ -116,4 +111,14 @@ let simple_tests =
     ( "cases none",
       "(cases (inj 0 (tup) : (+ (*) int)) ((_ : (*)) 7) ((v : int) v))",
       i31 7 );
+    ("list [1]", cons 1 nil, "(inj 1 (tup 1 (inj 0)))");
+    ( "list [1;2]",
+      cons 1 (cons 2 nil),
+      "(inj 1 (tup 1 (inj 1 (tup 2 (inj 0)))))" );
+    ("len []", sprintf "%s (app len () %s)" len_fn nil, i31 0);
+    ( "len [1;2;3]",
+      sprintf "%s (app len () %s)" len_fn (cons 1 (cons 2 (cons 3 nil))),
+      i31 3 );
+    ("poly_len", poly_len_src, i31 1);
+    ("poly_id_apply", poly_id_apply_src, i31 5);
   ]

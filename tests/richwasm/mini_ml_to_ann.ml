@@ -1879,94 +1879,611 @@ let%expect_test "examples" =
       (table 0)
       (export "_start" (func 0)))
     -----------apply_id-----------
-    FAILURE (InstrErr
-     (error
-      (BlockErr
-       (error
-        (ExpectedUnqualidfiedCoderef
-         (CodeRef
-          (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-           ((Ref (Base GC) Imm (Struct ((Ser I31) (Ser (Var 0)))))) ((Var 0))))))
-       (instr CallIndirect)
-       (env
-        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ((I31)))
-         (return (I31))
-         (functions
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-            ((Ref (Base GC) Imm
-              (Struct ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser (Var 0))))))
-            ((Var 0)))
-           (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-         (table
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-            ((Ref (Base GC) Imm
-              (Struct ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser (Var 0))))))
-            ((Var 0)))
-           (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-         (lfx (InferFx))))
-       (state
-        ((locals
-          ((Ref (Base GC) Imm (Struct ()))
-           (Ref (Base GC) Imm
-            (Struct
-             ((Ser (Var 0))
-              (Ser
-               (CodeRef
-                (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-                 ((Ref (Base GC) Imm (Struct ((Ser (Var 1)) (Ser (Var 0))))))
-                 ((Var 0))))))))
-           (Plug (Prod ((Atom I32)))) (Var 0) (Plug (Prod ((Atom I32))))
-           (CodeRef
-            (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-             ((Ref (Base GC) Imm (Struct ((Ser (Var 1)) (Ser (Var 0))))))
-             ((Var 0))))
-           (Plug (Prod ((Atom I32))))))
-         (stack
-          ((CodeRef
-            (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-             ((Ref (Base GC) Imm (Struct ((Ser I31) (Ser (Var 0)))))) ((Var 0))))
-           (Ref (Base GC) Imm (Struct ((Ser (Var 0)) (Ser I31))))))))))
-     (instr
-      (Unpack (ValType (I31)) InferFx
-       ((LocalSet 1) (LocalGet 1 Move) Copy (LocalSet 1) (Load (Path (0)) Follow)
-        (LocalSet 2) Drop (LocalGet 2 Move) (LocalSet 3) (LocalGet 1 Move) Copy
-        (LocalSet 1) (Load (Path (1)) Follow) (LocalSet 4) Drop (LocalGet 4 Move)
-        (LocalSet 5) (LocalGet 3 Move) Copy (LocalSet 3) (NumConst (Int I32) 42)
-        Tag (Group 2) (New GC Imm)
-        (Cast (Ref (Base GC) Imm (Struct ((Ser (Var 0)) (Ser I31)))))
-        (LocalGet 5 Move) Copy (LocalSet 5) (Inst (Type I31)) CallIndirect
-        (LocalGet 5 Move) Drop (LocalGet 3 Move) Drop (LocalGet 1 Move) Drop)))
-     (env
-      ((local_offset 1) (kinds ()) (labels ()) (return (I31))
-       (functions
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-          ((Ref (Base GC) Imm
-            (Struct ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser (Var 0))))))
-          ((Var 0)))
-         (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-       (table
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-          ((Ref (Base GC) Imm
-            (Struct ((Ser (Ref (Base GC) Imm (Struct ()))) (Ser (Var 0))))))
-          ((Var 0)))
-         (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-       (lfx ())))
-     (state
-      ((locals
-        ((Ref (Base GC) Imm (Struct ())) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32))))))
-       (stack
-        ((Exists (Type (VALTYPE (Atom Ptr) GCRefs))
-          (Ref (Base GC) Imm
-           (Struct
-            ((Ser (Var 0))
-             (Ser
-              (CodeRef
-               (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-                ((Ref (Base GC) Imm (Struct ((Ser (Var 1)) (Ser (Var 0))))))
-                ((Var 0))))))))))))))
+    (module
+      (func
+          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+            (MonoFunT
+              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                    (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+              [ (VarT 0)]))
+          (local ptr ptr ptr)
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs) (var 0))))]
+        copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))
+                 (ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+        local.set 0 ;; [(ref (val ptr gcrefs) (base gc) imm
+                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                            (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                            (ser (mem (rep ptr) gcrefs) (var 0))))]
+                       -> []
+        load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs) (var 0))))]
+                              ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs) (var 0))))
+                               (var 0)]
+        local.set 1 ;; [(var 0)] -> []
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                -> []
+        local.get move 1 ;; [] -> [(var 0)]
+        local.set 2 ;; [(var 0)] -> []
+        local.get move 2 ;; [] -> [(var 0)]
+        copy ;; [(var 0)] -> [(var 0) (var 0)]
+        local.set 2 ;; [(var 0)] -> []
+        local.get move 2 ;; [] -> [(var 0)]
+        drop ;; [(var 0)] -> []
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs) (var 0))))]
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                -> [])
+      (func ((ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))) -> (i31 (val ptr norefs))) (local ptr ptr
+          ptr ptr ptr ptr)
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
+                [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+        coderef 0 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                            [ (VarT 0)])))]
+        group ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                        [ (VarT 0)])))]
+                 ->
+                 [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                    (coderef (val i32 norefs)
+                      (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                        (MonoFunT
+                          [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                          [ (VarT 0)]))))]
+        new ;; [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                        [ (VarT 0)]))))]
+               ->
+               [(ref (val ptr gcrefs) (base gc) imm
+                  (ser (mem (rep (prod ptr i32)) gcrefs)
+                    (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                      (coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                            [ (VarT 0)]))))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (ser (mem (rep (prod ptr i32)) gcrefs)
+                     (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+        pack ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+                ->
+                [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)])))))))]
+        unpack (localfx [0 => (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (plug (val (prod i32) norefs) (prod i32))]
+                 [3 => (plug (val (prod i32) norefs) (prod i32))] [4 => (plug (val (prod i32) norefs) (prod i32))]
+                 [5 => (plug (val (prod i32) norefs) (prod i32))] [6 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          load (path 0) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))
+                                 (var 0)]
+          local.set 2 ;; [(var 0)] -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+          local.get move 2 ;; [] -> [(var 0)]
+          local.set 3 ;; [(var 0)] -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))
+                                 (coderef (val i32 norefs)
+                                   (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                     (MonoFunT
+                                       [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                       [ (VarT 0)])))]
+          local.set 4 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+          local.get move 4 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          local.set 5 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          local.get move 3 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 3 ;; [(var 0)] -> []
+          num_const 42 ;; [] -> [(num (val i32 norefs) i32)]
+          tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
+          group ;; [(var 0) (i31 (val ptr norefs))] -> [(prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))] ->
+                 [(ref (val ptr gcrefs) (base gc) imm
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+          local.get move 5 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          copy ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+                  ->
+                  [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))
+                   (coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+          local.set 5 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          inst (type (i31 (val ptr norefs))) ;; [(coderef (val i32 norefs)
+                                                   (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (MonoFunT
+                                                       [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (ProdT
+                                                           (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                                       [ (VarT 0)])))]
+                                                ->
+                                                [(coderef (val i32 norefs)
+                                                   ((ref (val ptr gcrefs)
+                                                      (base gc) imm
+                                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                        (ser (mem (rep ptr) gcrefs) (var 0))
+                                                        (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                                   -> (i31 (val ptr norefs))))]
+          call_indirect ;; [(ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                              -> (i31 (val ptr norefs))))]
+                           -> [(i31 (val ptr norefs))]
+          local.get move 5 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          drop ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+                  -> []
+          local.get move 3 ;; [] -> [(var 0)]
+          drop ;; [(var 0)] -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+        end ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                  (ref (val ptr gcrefs) (base gc) imm
+                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                      (ser (mem (rep i32) norefs)
+                        (coderef (val i32 norefs)
+                          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                            (MonoFunT
+                              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                              [ (VarT 0)])))))))]
+               -> [(i31 (val ptr norefs))]
+        local.get move 0 ;; [] -> [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))] -> [])
+      (table 0 1)
+      (export "id" (func 0))
+      (export "_start" (func 1)))
     -----------opt_case-----------
     (module
       (func ((ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))) -> (i31 (val ptr norefs))) (local ptr ptr
@@ -2062,413 +2579,4560 @@ let%expect_test "examples" =
       (table 0)
       (export "_start" (func 0)))
     -----------poly_len-----------
-    FAILURE (InstrErr
-     (error
-      (BlockErr
-       (error
-        (BlockErr
-         (error
-          (ExpectedEqStack
-           (Fold0
-            (Ref (Base GC) Imm
-             (Variant
-              ((Ser (Ref (Base GC) Imm (Struct ())))
-               (Ser
-                (Ref (Base GC) Imm
-                 (Variant
-                  ((Ser (Var 1))
-                   (Ser
-                    (Rec (VALTYPE (Atom Ptr) GCRefs)
-                     (Ref (Base GC) Imm
-                      (Variant
-                       ((Ser (Ref (Base GC) Imm (Struct ())))
-                        (Ser
-                         (Ref (Base GC) Imm
-                          (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))))))))))
-            (Ref (Base GC) Imm
-             (Variant
-              ((Ser (Var 0))
-               (Ser
-                (Rec (VALTYPE (Atom Ptr) GCRefs)
-                 (Ref (Base GC) Imm
-                  (Variant
-                   ((Ser (Ref (Base GC) Imm (Struct ())))
-                    (Ser
-                     (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))))
-         (instr
-          (Fold
-           (Rec (VALTYPE (Atom Ptr) GCRefs)
-            (Ref (Base GC) Imm
-             (Variant
-              ((Ser (Ref (Base GC) Imm (Struct ())))
-               (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0))))))))))))
-         (env
-          ((local_offset 1)
-           (kinds ((VALTYPE (Atom Ptr) GCRefs) (VALTYPE (Atom Ptr) GCRefs)))
-           (labels ((I31) (I31))) (return (I31))
-           (functions
-            ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-              ((Ref (Base GC) Imm
-                (Struct
-                 ((Ser (Ref (Base GC) Imm (Struct ())))
-                  (Ser
-                   (Rec (VALTYPE (Atom Ptr) GCRefs)
-                    (Ref (Base GC) Imm
-                     (Variant
-                      ((Ser (Ref (Base GC) Imm (Struct ())))
-                       (Ser
-                        (Ref (Base GC) Imm
-                         (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-              (I31))
-             (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-           (table
-            ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-              ((Ref (Base GC) Imm
-                (Struct
-                 ((Ser (Ref (Base GC) Imm (Struct ())))
-                  (Ser
-                   (Rec (VALTYPE (Atom Ptr) GCRefs)
-                    (Ref (Base GC) Imm
-                     (Variant
-                      ((Ser (Ref (Base GC) Imm (Struct ())))
-                       (Ser
-                        (Ref (Base GC) Imm
-                         (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-              (I31))
-             (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-           (lfx (InferFx))))
-         (state
-          ((locals
-            ((Ref (Base GC) Imm
-              (Struct
-               ((Ser (Ref (Base GC) Imm (Struct ())))
-                (Ser
-                 (Rec (VALTYPE (Atom Ptr) GCRefs)
-                  (Ref (Base GC) Imm
-                   (Variant
-                    ((Ser (Ref (Base GC) Imm (Struct ())))
-                     (Ser
-                      (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-             (Plug (Prod ((Atom I32))))
-             (Rec (VALTYPE (Atom Ptr) GCRefs)
-              (Ref (Base GC) Imm
-               (Variant
-                ((Ser (Ref (Base GC) Imm (Struct ())))
-                 (Ser
-                  (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))
-             (Plug (Prod ((Atom I32))))
-             (Ref (Base GC) Imm
-              (Variant
-               ((Ser (Var 0))
-                (Ser
-                 (Rec (VALTYPE (Atom Ptr) GCRefs)
-                  (Ref (Base GC) Imm
-                   (Variant
-                    ((Ser (Ref (Base GC) Imm (Struct ())))
-                     (Ser
-                      (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-             (Ref (Base GC) Imm
-              (Struct
-               ((Ser (Var 0))
-                (Ser
-                 (CodeRef
-                  (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-                   ((Ref (Base GC) Imm
-                     (Struct
-                      ((Ser (Var 1))
-                       (Ser
-                        (Rec (VALTYPE (Atom Ptr) GCRefs)
-                         (Ref (Base GC) Imm
-                          (Variant
-                           ((Ser (Ref (Base GC) Imm (Struct ())))
-                            (Ser
-                             (Ref (Base GC) Imm
-                              (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                   (I31)))))))
-             (Plug (Prod ((Atom I32)))) (Var 0) (Plug (Prod ((Atom I32))))
-             (CodeRef
-              (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-               ((Ref (Base GC) Imm
-                 (Struct
-                  ((Ser (Var 1))
-                   (Ser
-                    (Rec (VALTYPE (Atom Ptr) GCRefs)
-                     (Ref (Base GC) Imm
-                      (Variant
-                       ((Ser (Ref (Base GC) Imm (Struct ())))
-                        (Ser
-                         (Ref (Base GC) Imm
-                          (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-               (I31)))
-             (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))))
-           (stack
-            ((Ref (Base GC) Imm
-              (Variant
-               ((Ser (Var 0))
-                (Ser
-                 (Rec (VALTYPE (Atom Ptr) GCRefs)
-                  (Ref (Base GC) Imm
-                   (Variant
-                    ((Ser (Ref (Base GC) Imm (Struct ())))
-                     (Ser
-                      (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-             (Var 0)))))))
-       (instr
-        (Unpack (ValType (I31)) InferFx
-         ((LocalSet 5) (LocalGet 5 Move) Copy (LocalSet 5)
-          (Load (Path (0)) Follow) (LocalSet 6) Drop (LocalGet 6 Move)
-          (LocalSet 7) (LocalGet 5 Move) Copy (LocalSet 5)
-          (Load (Path (1)) Follow) (LocalSet 8) Drop (LocalGet 8 Move)
-          (LocalSet 9) (LocalGet 7 Move) Copy (LocalSet 7) (LocalGet 4 Move) Copy
-          (LocalSet 4)
-          (Fold
-           (Rec (VALTYPE (Atom Ptr) GCRefs)
-            (Ref (Base GC) Imm
-             (Variant
-              ((Ser (Ref (Base GC) Imm (Struct ())))
-               (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))
-          (Group 2) (New GC Imm)
-          (Cast
-           (Ref (Base GC) Imm
-            (Struct
-             ((Ser (Var 0))
-              (Ser
-               (Rec (VALTYPE (Atom Ptr) GCRefs)
-                (Ref (Base GC) Imm
-                 (Variant
-                  ((Ser (Ref (Base GC) Imm (Struct ())))
-                   (Ser
-                    (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
-          (LocalGet 9 Move) Copy (LocalSet 9) (Inst (Type (Var 1))) CallIndirect
-          (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop (LocalGet 5 Move) Drop)))
-       (env
-        ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ((I31)))
-         (return (I31))
-         (functions
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-            ((Ref (Base GC) Imm
-              (Struct
-               ((Ser (Ref (Base GC) Imm (Struct ())))
-                (Ser
-                 (Rec (VALTYPE (Atom Ptr) GCRefs)
-                  (Ref (Base GC) Imm
-                   (Variant
-                    ((Ser (Ref (Base GC) Imm (Struct ())))
-                     (Ser
-                      (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-            (I31))
-           (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-         (table
-          ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-            ((Ref (Base GC) Imm
-              (Struct
-               ((Ser (Ref (Base GC) Imm (Struct ())))
-                (Ser
-                 (Rec (VALTYPE (Atom Ptr) GCRefs)
-                  (Ref (Base GC) Imm
-                   (Variant
-                    ((Ser (Ref (Base GC) Imm (Struct ())))
-                     (Ser
-                      (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-            (I31))
-           (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-         (lfx (InferFx))))
-       (state
-        ((locals
-          ((Ref (Base GC) Imm
-            (Struct
-             ((Ser (Ref (Base GC) Imm (Struct ())))
-              (Ser
-               (Rec (VALTYPE (Atom Ptr) GCRefs)
-                (Ref (Base GC) Imm
-                 (Variant
-                  ((Ser (Ref (Base GC) Imm (Struct ())))
-                   (Ser
-                    (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-           (Plug (Prod ((Atom I32))))
-           (Rec (VALTYPE (Atom Ptr) GCRefs)
-            (Ref (Base GC) Imm
-             (Variant
-              ((Ser (Ref (Base GC) Imm (Struct ())))
-               (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))
-           (Plug (Prod ((Atom I32))))
-           (Ref (Base GC) Imm
-            (Variant
-             ((Ser (Var 0))
-              (Ser
-               (Rec (VALTYPE (Atom Ptr) GCRefs)
-                (Ref (Base GC) Imm
-                 (Variant
-                  ((Ser (Ref (Base GC) Imm (Struct ())))
-                   (Ser
-                    (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-           (Plug (Prod ((Atom I32))))))
-         (stack
-          ((Exists (Type (VALTYPE (Atom Ptr) GCRefs))
-            (Ref (Base GC) Imm
-             (Struct
-              ((Ser (Var 0))
-               (Ser
-                (CodeRef
-                 (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-                  ((Ref (Base GC) Imm
-                    (Struct
-                     ((Ser (Var 1))
-                      (Ser
-                       (Rec (VALTYPE (Atom Ptr) GCRefs)
-                        (Ref (Base GC) Imm
-                         (Variant
-                          ((Ser (Ref (Base GC) Imm (Struct ())))
-                           (Ser
-                            (Ref (Base GC) Imm
-                             (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                  (I31))))))))
-           (Num (Int I32))))))))
-     (instr
-      (CaseLoad (ValType (I31)) Copy InferFx
-       (((LocalSet 3) (NumConst (Int I32) 0) Tag (LocalGet 3 Move) Drop)
-        ((LocalSet 4) (NumConst (Int I32) 1) Tag Untag (Group 0) (New GC Imm)
-         (Cast (Ref (Base GC) Imm (Struct ()))) (CodeRef 0) (Group 2)
-         (New GC Imm)
-         (Cast
-          (Ref (Base GC) Imm
-           (Struct
-            ((Ser (Ref (Base GC) Imm (Struct ())))
-             (Ser
-              (CodeRef
-               (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-                ((Ref (Base GC) Imm
-                  (Struct
-                   ((Ser (Ref (Base GC) Imm (Struct ())))
-                    (Ser
-                     (Rec (VALTYPE (Atom Ptr) GCRefs)
-                      (Ref (Base GC) Imm
-                       (Variant
-                        ((Ser (Ref (Base GC) Imm (Struct ())))
-                         (Ser
-                          (Ref (Base GC) Imm
-                           (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                (I31))))))))
-         (Pack (Type (Ref (Base GC) Imm (Struct ())))
-          (Ref (Base GC) Imm
-           (Struct
-            ((Ser (Var 0))
-             (Ser
-              (CodeRef
-               (FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-                ((Ref (Base GC) Imm
-                  (Struct
-                   ((Ser (Var 1))
-                    (Ser
-                     (Rec (VALTYPE (Atom Ptr) GCRefs)
-                      (Ref (Base GC) Imm
-                       (Variant
-                        ((Ser (Ref (Base GC) Imm (Struct ())))
-                         (Ser
-                          (Ref (Base GC) Imm
-                           (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-                (I31))))))))
-         (Unpack (ValType (I31)) InferFx
-          ((LocalSet 5) (LocalGet 5 Move) Copy (LocalSet 5)
-           (Load (Path (0)) Follow) (LocalSet 6) Drop (LocalGet 6 Move)
-           (LocalSet 7) (LocalGet 5 Move) Copy (LocalSet 5)
-           (Load (Path (1)) Follow) (LocalSet 8) Drop (LocalGet 8 Move)
-           (LocalSet 9) (LocalGet 7 Move) Copy (LocalSet 7) (LocalGet 4 Move)
-           Copy (LocalSet 4)
-           (Fold
-            (Rec (VALTYPE (Atom Ptr) GCRefs)
-             (Ref (Base GC) Imm
-              (Variant
-               ((Ser (Ref (Base GC) Imm (Struct ())))
-                (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))
-           (Group 2) (New GC Imm)
-           (Cast
-            (Ref (Base GC) Imm
-             (Struct
-              ((Ser (Var 0))
-               (Ser
-                (Rec (VALTYPE (Atom Ptr) GCRefs)
-                 (Ref (Base GC) Imm
-                  (Variant
-                   ((Ser (Ref (Base GC) Imm (Struct ())))
-                    (Ser
-                     (Ref (Base GC) Imm (Variant ((Ser (Var 2)) (Ser (Var 0)))))))))))))))
-           (LocalGet 9 Move) Copy (LocalSet 9) (Inst (Type (Var 1))) CallIndirect
-           (LocalGet 9 Move) Drop (LocalGet 7 Move) Drop (LocalGet 5 Move) Drop))
-         Untag (Num (Int2 I32 Add)) Tag (LocalGet 4 Move) Drop))))
-     (env
-      ((local_offset 1) (kinds ((VALTYPE (Atom Ptr) GCRefs))) (labels ())
-       (return (I31))
-       (functions
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-          ((Ref (Base GC) Imm
-            (Struct
-             ((Ser (Ref (Base GC) Imm (Struct ())))
-              (Ser
-               (Rec (VALTYPE (Atom Ptr) GCRefs)
-                (Ref (Base GC) Imm
-                 (Variant
-                  ((Ser (Ref (Base GC) Imm (Struct ())))
-                   (Ser
-                    (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-          (I31))
-         (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-       (table
-        ((FunctionType ((Type (VALTYPE (Atom Ptr) GCRefs)))
-          ((Ref (Base GC) Imm
-            (Struct
-             ((Ser (Ref (Base GC) Imm (Struct ())))
-              (Ser
-               (Rec (VALTYPE (Atom Ptr) GCRefs)
-                (Ref (Base GC) Imm
-                 (Variant
-                  ((Ser (Ref (Base GC) Imm (Struct ())))
-                   (Ser
-                    (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))
-          (I31))
-         (FunctionType () ((Ref (Base GC) Imm (Struct ()))) (I31))))
-       (lfx ())))
-     (state
-      ((locals
-        ((Ref (Base GC) Imm
-          (Struct
-           ((Ser (Ref (Base GC) Imm (Struct ())))
-            (Ser
-             (Rec (VALTYPE (Atom Ptr) GCRefs)
-              (Ref (Base GC) Imm
-               (Variant
-                ((Ser (Ref (Base GC) Imm (Struct ())))
-                 (Ser
-                  (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))))))
-         (Plug (Prod ((Atom I32))))
-         (Rec (VALTYPE (Atom Ptr) GCRefs)
-          (Ref (Base GC) Imm
-           (Variant
-            ((Ser (Ref (Base GC) Imm (Struct ())))
-             (Ser (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0))))))))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32)))) (Plug (Prod ((Atom I32))))
-         (Plug (Prod ((Atom I32))))))
-       (stack
-        ((Ref (Base GC) Imm
-          (Variant
-           ((Ser (Ref (Base GC) Imm (Struct ())))
-            (Ser
-             (Ref (Base GC) Imm
-              (Variant
-               ((Ser (Var 0))
-                (Ser
-                 (Rec (VALTYPE (Atom Ptr) GCRefs)
-                  (Ref (Base GC) Imm
-                   (Variant
-                    ((Ser (Ref (Base GC) Imm (Struct ())))
-                     (Ser
-                      (Ref (Base GC) Imm (Variant ((Ser (Var 1)) (Ser (Var 0)))))))))))))))))))))))
+    (module
+      (func
+          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+            (MonoFunT
+              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                    (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                      (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                        (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+              [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))
+          (local ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr ptr)
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (rec (val ptr gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs)
+                                           (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                         (ser (mem (rep ptr) gcrefs)
+                                           (ref (val ptr gcrefs) (base gc) imm
+                                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                               (ser (mem (rep ptr) gcrefs) (var 1))
+                                               (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+        copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs)
+                       (rec (val ptr gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                             (ser (mem (rep ptr) gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs)
+                       (rec (val ptr gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                             (ser (mem (rep ptr) gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                 (ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs)
+                       (rec (val ptr gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                             (ser (mem (rep ptr) gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+        local.set 0 ;; [(ref (val ptr gcrefs) (base gc) imm
+                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                            (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                            (ser (mem (rep ptr) gcrefs)
+                              (rec (val ptr gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) gcrefs)
+                                      (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                    (ser (mem (rep ptr) gcrefs)
+                                      (ref (val ptr gcrefs) (base gc) imm
+                                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                          (ser (mem (rep ptr) gcrefs) (var 1))
+                                          (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                       -> []
+        load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (rec (val ptr gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm
+                                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                 (ser (mem (rep ptr) gcrefs) (var 1))
+                                                 (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                              ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (rec (val ptr gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm
+                                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                 (ser (mem (rep ptr) gcrefs) (var 1))
+                                                 (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                               (rec (val ptr gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs) (var 1))
+                                           (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+        local.set 1 ;; [(rec (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) gcrefs) (var 1))
+                                    (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                       -> []
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs)
+                       (rec (val ptr gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                             (ser (mem (rep ptr) gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                -> []
+        local.get move 1 ;; [] ->
+                            [(rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 1))
+                                         (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+        local.set 2 ;; [(rec (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) gcrefs) (var 1))
+                                    (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                       -> []
+        local.get move 2 ;; [] ->
+                            [(rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 1))
+                                         (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+        copy ;; [(rec (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                       (ser (mem (rep ptr) gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                ->
+                [(rec (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                       (ser (mem (rep ptr) gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0))))))))
+                 (rec (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                       (ser (mem (rep ptr) gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+        local.set 2 ;; [(rec (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) gcrefs) (var 1))
+                                    (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                       -> []
+        unfold ;; [(rec (val ptr gcrefs)
+                     (ref (val ptr gcrefs) (base gc) imm
+                       (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                         (ser (mem (rep ptr) gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm
+                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                       (ser (mem (rep ptr) gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (var 0))
+                             (ser (mem (rep ptr) gcrefs)
+                               (rec (val ptr gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs) (var 1))
+                                           (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
+        case_load copy
+          (localfx
+            [0 =>
+            (ref (val ptr gcrefs) (base gc) imm
+              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                (ser (mem (rep ptr) gcrefs)
+                  (rec (val ptr gcrefs)
+                    (ref (val ptr gcrefs) (base gc) imm
+                      (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                        (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                        (ser (mem (rep ptr) gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+            [1 => (plug (val (prod i32) norefs) (prod i32))]
+            [2 =>
+            (rec (val ptr gcrefs)
+              (ref (val ptr gcrefs) (base gc) imm
+                (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                  (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                  (ser (mem (rep ptr) gcrefs)
+                    (ref (val ptr gcrefs) (base gc) imm
+                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 1))
+                        (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+            [3 => (plug (val (prod i32) norefs) (prod i32))] [4 => (plug (val (prod i32) norefs) (prod i32))]
+            [5 => (plug (val (prod i32) norefs) (prod i32))] [6 => (plug (val (prod i32) norefs) (prod i32))]
+            [7 => (plug (val (prod i32) norefs) (prod i32))] [8 => (plug (val (prod i32) norefs) (prod i32))]
+            [9 => (plug (val (prod i32) norefs) (prod i32))] [10 => (plug (val (prod i32) norefs) (prod i32))]
+            [11 => (plug (val (prod i32) norefs) (prod i32))] [12 => (plug (val (prod i32) norefs) (prod i32))])
+          (0
+            local.set 3 ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))] -> []
+            num_const 0 ;; [] -> [(num (val i32 norefs) i32)]
+            tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
+            local.get move 3 ;; [] -> [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+            drop ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))] -> [])
+          (1
+            local.set 4 ;; [(ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0))
+                                (ser (mem (rep ptr) gcrefs)
+                                  (rec (val ptr gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm
+                                      (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs)
+                                          (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                        (ser (mem (rep ptr) gcrefs)
+                                          (ref (val ptr gcrefs) (base gc) imm
+                                            (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                              (ser (mem (rep ptr) gcrefs) (var 1))
+                                              (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                           -> []
+            num_const 1 ;; [] -> [(num (val i32 norefs) i32)]
+            tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
+            untag ;; [(i31 (val ptr norefs))] -> [(num (val i32 norefs) i32)]
+            group ;; [] -> [(prod (val (prod) norefs))]
+            new ;; [(prod (val (prod) norefs))] ->
+                   [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+            cast ;; [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
+                    [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+            coderef 0 ;; [] ->
+                         [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                        (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (BaseM MemGC) Imm
+                                                    (ProdT
+                                                      (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+            group ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                      (coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                    (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm
+                                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                            [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                     ->
+                     [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                        (coderef (val i32 norefs)
+                          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                            (MonoFunT
+                              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                    (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                      (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                      (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (BaseM MemGC) Imm
+                                          (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm
+                                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                              [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))]
+            new ;; [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                      (coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                    (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm
+                                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                            [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))]
+                   ->
+                   [(ref (val ptr gcrefs) (base gc) imm
+                      (ser (mem (rep (prod ptr i32)) gcrefs)
+                        (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                          (coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                        (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (BaseM MemGC) Imm
+                                                    (ProdT
+                                                      (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+            cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                       (ser (mem (rep (prod ptr i32)) gcrefs)
+                         (prod (val (prod ptr i32) gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                           (coderef (val i32 norefs)
+                             (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                               (MonoFunT
+                                 [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                   (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                         (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm
+                                                     (ProdT
+                                                       (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                 [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                    ->
+                    [(ref (val ptr gcrefs) (base gc) imm
+                       (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                         (ser (mem (rep i32) norefs)
+                           (coderef (val i32 norefs)
+                             (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                               (MonoFunT
+                                 [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                   (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                         (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm
+                                                     (ProdT
+                                                       (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                 [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+            pack ;; [(ref (val ptr gcrefs) (base gc) imm
+                       (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                         (ser (mem (rep i32) norefs)
+                           (coderef (val i32 norefs)
+                             (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                               (MonoFunT
+                                 [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                   (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                         (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm
+                                                     (ProdT
+                                                       (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                 [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                    ->
+                    [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                       (ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))))))]
+            unpack (localfx
+                     [0 =>
+                     (ref (val ptr gcrefs) (base gc) imm
+                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                         (ser (mem (rep ptr) gcrefs)
+                           (rec (val ptr gcrefs)
+                             (ref (val ptr gcrefs) (base gc) imm
+                               (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 1))
+                                       (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                     [1 => (plug (val (prod i32) norefs) (prod i32))]
+                     [2 =>
+                     (rec (val ptr gcrefs)
+                       (ref (val ptr gcrefs) (base gc) imm
+                         (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                           (ser (mem (rep ptr) gcrefs)
+                             (ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                     [3 => (plug (val (prod i32) norefs) (prod i32))]
+                     [4 =>
+                     (ref (val ptr gcrefs) (base gc) imm
+                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                         (ser (mem (rep ptr) gcrefs)
+                           (rec (val ptr gcrefs)
+                             (ref (val ptr gcrefs) (base gc) imm
+                               (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 1))
+                                       (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                     [5 => (plug (val (prod i32) norefs) (prod i32))] [6 => (plug (val (prod i32) norefs) (prod i32))]
+                     [7 => (plug (val (prod i32) norefs) (prod i32))] [8 => (plug (val (prod i32) norefs) (prod i32))]
+                     [9 => (plug (val (prod i32) norefs) (prod i32))] [10 => (plug (val (prod i32) norefs) (prod i32))]
+                     [11 => (plug (val (prod i32) norefs) (prod i32))] [12 => (plug (val (prod i32) norefs) (prod i32))])
+              local.set 5 ;; [(ref (val ptr gcrefs) (base gc) imm
+                                (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                  (ser (mem (rep ptr) gcrefs) (var 0))
+                                  (ser (mem (rep i32) norefs)
+                                    (coderef (val i32 norefs)
+                                      (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                        (MonoFunT
+                                          [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (BaseM MemGC) Imm
+                                                      (VariantT
+                                                        (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                            (BaseM MemGC) Imm
+                                                            (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                              (BaseM MemGC) Imm
+                                                              (ProdT
+                                                                (MEMTYPE
+                                                                  (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                          [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                             -> []
+              local.get move 5 ;; [] ->
+                                  [(ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 0))
+                                       (ser (mem (rep i32) norefs)
+                                         (coderef (val i32 norefs)
+                                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                             (MonoFunT
+                                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (BaseM MemGC) Imm
+                                                           (VariantT
+                                                             (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                               GCRefs)
+                                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (BaseM MemGC) Imm
+                                                                 (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (ProdT
+                                                                     (MEMTYPE
+                                                                       (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                       GCRefs)
+                                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+              copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                      ->
+                      [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                       (ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+              local.set 5 ;; [(ref (val ptr gcrefs) (base gc) imm
+                                (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                  (ser (mem (rep ptr) gcrefs) (var 0))
+                                  (ser (mem (rep i32) norefs)
+                                    (coderef (val i32 norefs)
+                                      (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                        (MonoFunT
+                                          [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (BaseM MemGC) Imm
+                                                      (VariantT
+                                                        (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                            (BaseM MemGC) Imm
+                                                            (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                              (BaseM MemGC) Imm
+                                                              (ProdT
+                                                                (MEMTYPE
+                                                                  (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                          [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                             -> []
+              load (path 0) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 0))
+                                         (ser (mem (rep i32) norefs)
+                                           (coderef (val i32 norefs)
+                                             (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                               (MonoFunT
+                                                 [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (VariantT
+                                                               (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                 GCRefs)
+                                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                   (RefT
+                                                                     (VALTYPE (AtomR PtrR) GCRefs)
+                                                                     (BaseM MemGC) Imm
+                                                                     (ProdT
+                                                                       (MEMTYPE
+                                                                        (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                        GCRefs)
+                                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                        (SerT
+                                                                        (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                        (VarT 0))])))]))))]))]
+                                                 [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                                    ->
+                                    [(ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 0))
+                                         (ser (mem (rep i32) norefs)
+                                           (coderef (val i32 norefs)
+                                             (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                               (MonoFunT
+                                                 [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (VariantT
+                                                               (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                 GCRefs)
+                                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                   (RefT
+                                                                     (VALTYPE (AtomR PtrR) GCRefs)
+                                                                     (BaseM MemGC) Imm
+                                                                     (ProdT
+                                                                       (MEMTYPE
+                                                                        (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                        GCRefs)
+                                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                        (SerT
+                                                                        (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                        (VarT 0))])))]))))]))]
+                                                 [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                                     (var 0)]
+              local.set 6 ;; [(var 0)] -> []
+              drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                      -> []
+              local.get move 6 ;; [] -> [(var 0)]
+              local.set 7 ;; [(var 0)] -> []
+              local.get move 5 ;; [] ->
+                                  [(ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 0))
+                                       (ser (mem (rep i32) norefs)
+                                         (coderef (val i32 norefs)
+                                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                             (MonoFunT
+                                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (BaseM MemGC) Imm
+                                                           (VariantT
+                                                             (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                               GCRefs)
+                                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (BaseM MemGC) Imm
+                                                                 (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (ProdT
+                                                                     (MEMTYPE
+                                                                       (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                       GCRefs)
+                                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+              copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                      ->
+                      [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                       (ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+              local.set 5 ;; [(ref (val ptr gcrefs) (base gc) imm
+                                (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                  (ser (mem (rep ptr) gcrefs) (var 0))
+                                  (ser (mem (rep i32) norefs)
+                                    (coderef (val i32 norefs)
+                                      (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                        (MonoFunT
+                                          [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (BaseM MemGC) Imm
+                                                      (VariantT
+                                                        (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                            (BaseM MemGC) Imm
+                                                            (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                              (BaseM MemGC) Imm
+                                                              (ProdT
+                                                                (MEMTYPE
+                                                                  (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                          [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                             -> []
+              load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 0))
+                                         (ser (mem (rep i32) norefs)
+                                           (coderef (val i32 norefs)
+                                             (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                               (MonoFunT
+                                                 [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (VariantT
+                                                               (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                 GCRefs)
+                                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                   (RefT
+                                                                     (VALTYPE (AtomR PtrR) GCRefs)
+                                                                     (BaseM MemGC) Imm
+                                                                     (ProdT
+                                                                       (MEMTYPE
+                                                                        (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                        GCRefs)
+                                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                        (SerT
+                                                                        (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                        (VarT 0))])))]))))]))]
+                                                 [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                                    ->
+                                    [(ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 0))
+                                         (ser (mem (rep i32) norefs)
+                                           (coderef (val i32 norefs)
+                                             (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                               (MonoFunT
+                                                 [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (VariantT
+                                                               (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                 GCRefs)
+                                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                   (RefT
+                                                                     (VALTYPE (AtomR PtrR) GCRefs)
+                                                                     (BaseM MemGC) Imm
+                                                                     (ProdT
+                                                                       (MEMTYPE
+                                                                        (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                        GCRefs)
+                                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                        (SerT
+                                                                        (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                        (VarT 0))])))]))))]))]
+                                                 [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (VariantT
+                                                         (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT
+                                                                 (MEMTYPE
+                                                                   (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                   GCRefs)
+                                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                           [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+              local.set 8 ;; [(coderef (val i32 norefs)
+                                (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                  (MonoFunT
+                                    [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                      (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm
+                                                (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                    (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                        (BaseM MemGC) Imm
+                                                        (ProdT
+                                                          (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                            GCRefs)
+                                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                    [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                             -> []
+              drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                      -> []
+              local.get move 8 ;; [] ->
+                                  [(coderef (val i32 norefs)
+                                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                       (MonoFunT
+                                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm
+                                                     (VariantT
+                                                       (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (BaseM MemGC) Imm
+                                                           (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (ProdT
+                                                               (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                 GCRefs)
+                                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                         [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+              local.set 9 ;; [(coderef (val i32 norefs)
+                                (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                  (MonoFunT
+                                    [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                      (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm
+                                                (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                    (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                        (BaseM MemGC) Imm
+                                                        (ProdT
+                                                          (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                            GCRefs)
+                                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                    [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                             -> []
+              local.get move 7 ;; [] -> [(var 0)]
+              copy ;; [(var 0)] -> [(var 0) (var 0)]
+              local.set 7 ;; [(var 0)] -> []
+              local.get move 4 ;; [] ->
+                                  [(ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 1))
+                                       (ser (mem (rep ptr) gcrefs)
+                                         (rec (val ptr gcrefs)
+                                           (ref (val ptr gcrefs) (base gc) imm
+                                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                               (ser (mem (rep ptr) gcrefs)
+                                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                               (ser (mem (rep ptr) gcrefs)
+                                                 (ref (val ptr gcrefs) (base gc) imm
+                                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                     (ser (mem (rep ptr) gcrefs) (var 2))
+                                                     (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+              copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 1))
+                           (ser (mem (rep ptr) gcrefs)
+                             (rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 2))
+                                         (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                      ->
+                      [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 1))
+                           (ser (mem (rep ptr) gcrefs)
+                             (rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 2))
+                                         (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                       (ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 1))
+                           (ser (mem (rep ptr) gcrefs)
+                             (rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 2))
+                                         (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+              local.set 4 ;; [(ref (val ptr gcrefs) (base gc) imm
+                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                  (ser (mem (rep ptr) gcrefs) (var 1))
+                                  (ser (mem (rep ptr) gcrefs)
+                                    (rec (val ptr gcrefs)
+                                      (ref (val ptr gcrefs) (base gc) imm
+                                        (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                          (ser (mem (rep ptr) gcrefs)
+                                            (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                          (ser (mem (rep ptr) gcrefs)
+                                            (ref (val ptr gcrefs) (base gc) imm
+                                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                (ser (mem (rep ptr) gcrefs) (var 2))
+                                                (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                             -> []
+              load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 1))
+                                         (ser (mem (rep ptr) gcrefs)
+                                           (rec (val ptr gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm
+                                               (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                                 (ser (mem (rep ptr) gcrefs)
+                                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                                 (ser (mem (rep ptr) gcrefs)
+                                                   (ref (val ptr gcrefs)
+                                                     (base gc) imm
+                                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                       (ser (mem (rep ptr) gcrefs) (var 2))
+                                                       (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                                    ->
+                                    [(ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 1))
+                                         (ser (mem (rep ptr) gcrefs)
+                                           (rec (val ptr gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm
+                                               (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                                 (ser (mem (rep ptr) gcrefs)
+                                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                                 (ser (mem (rep ptr) gcrefs)
+                                                   (ref (val ptr gcrefs)
+                                                     (base gc) imm
+                                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                       (ser (mem (rep ptr) gcrefs) (var 2))
+                                                       (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                                     (rec (val ptr gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm
+                                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                 (ser (mem (rep ptr) gcrefs) (var 2))
+                                                 (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+              local.set 10 ;; [(rec (val ptr gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs) (var 2))
+                                           (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                              -> []
+              drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 1))
+                           (ser (mem (rep ptr) gcrefs)
+                             (rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 2))
+                                         (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                      -> []
+              local.get move 10 ;; [] ->
+                                   [(rec (val ptr gcrefs)
+                                      (ref (val ptr gcrefs) (base gc) imm
+                                        (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                          (ser (mem (rep ptr) gcrefs)
+                                            (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                          (ser (mem (rep ptr) gcrefs)
+                                            (ref (val ptr gcrefs) (base gc) imm
+                                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                (ser (mem (rep ptr) gcrefs) (var 2))
+                                                (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+              group ;; [(var 0)
+                        (rec (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) gcrefs) (var 2))
+                                    (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                       ->
+                       [(prod (val (prod ptr ptr) gcrefs) (var 0)
+                          (rec (val ptr gcrefs)
+                            (ref (val ptr gcrefs) (base gc) imm
+                              (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs)
+                                  (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                (ser (mem (rep ptr) gcrefs)
+                                  (ref (val ptr gcrefs) (base gc) imm
+                                    (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                      (ser (mem (rep ptr) gcrefs) (var 2))
+                                      (ser (mem (rep ptr) gcrefs) (var 0)))))))))]
+              new ;; [(prod (val (prod ptr ptr) gcrefs) (var 0)
+                        (rec (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) gcrefs) (var 2))
+                                    (ser (mem (rep ptr) gcrefs) (var 0)))))))))]
+                     ->
+                     [(ref (val ptr gcrefs) (base gc) imm
+                        (ser (mem (rep (prod ptr ptr)) gcrefs)
+                          (prod (val (prod ptr ptr) gcrefs) (var 0)
+                            (rec (val ptr gcrefs)
+                              (ref (val ptr gcrefs) (base gc) imm
+                                (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                  (ser (mem (rep ptr) gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                  (ser (mem (rep ptr) gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm
+                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs) (var 2))
+                                        (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+              cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (ser (mem (rep (prod ptr ptr)) gcrefs)
+                           (prod (val (prod ptr ptr) gcrefs) (var 0)
+                             (rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 2))
+                                         (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                      ->
+                      [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep ptr) gcrefs)
+                             (rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 2))
+                                         (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+              local.get move 9 ;; [] ->
+                                  [(coderef (val i32 norefs)
+                                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                       (MonoFunT
+                                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm
+                                                     (VariantT
+                                                       (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (BaseM MemGC) Imm
+                                                           (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (ProdT
+                                                               (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                 GCRefs)
+                                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                         [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+              copy ;; [(coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                      ->
+                      [(coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+              local.set 9 ;; [(coderef (val i32 norefs)
+                                (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                  (MonoFunT
+                                    [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                      (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm
+                                                (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                    (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                        (BaseM MemGC) Imm
+                                                        (ProdT
+                                                          (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                            GCRefs)
+                                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                    [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                             -> []
+              inst (type (var 1)) ;; [(coderef (val i32 norefs)
+                                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                          (MonoFunT
+                                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (BaseM MemGC) Imm
+                                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                    (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                        (BaseM MemGC) Imm
+                                                        (VariantT
+                                                          (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                              (BaseM MemGC) Imm
+                                                              (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                (BaseM MemGC) Imm
+                                                                (ProdT
+                                                                  (MEMTYPE
+                                                                    (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                    GCRefs)
+                                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                            [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                                     ->
+                                     [(coderef (val i32 norefs)
+                                        ((ref (val ptr gcrefs) (base gc) imm
+                                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                             (ser (mem (rep ptr) gcrefs) (var 0))
+                                             (ser (mem (rep ptr) gcrefs)
+                                               (rec (val ptr gcrefs)
+                                                 (ref (val ptr gcrefs) (base gc) imm
+                                                   (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                                     (ser (mem (rep ptr) gcrefs)
+                                                       (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                                     (ser (mem (rep ptr) gcrefs)
+                                                       (ref (val ptr gcrefs)
+                                                         (base gc) imm
+                                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                           (ser (mem (rep ptr) gcrefs) (var 2))
+                                                           (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                                        -> (i31 (val ptr norefs))))]
+              call_indirect ;; [(ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) gcrefs) (var 0))
+                                    (ser (mem (rep ptr) gcrefs)
+                                      (rec (val ptr gcrefs)
+                                        (ref (val ptr gcrefs) (base gc) imm
+                                          (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                            (ser (mem (rep ptr) gcrefs)
+                                              (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                            (ser (mem (rep ptr) gcrefs)
+                                              (ref (val ptr gcrefs) (base gc) imm
+                                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                  (ser (mem (rep ptr) gcrefs) (var 2))
+                                                  (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                                (coderef (val i32 norefs)
+                                  ((ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 0))
+                                       (ser (mem (rep ptr) gcrefs)
+                                         (rec (val ptr gcrefs)
+                                           (ref (val ptr gcrefs) (base gc) imm
+                                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                               (ser (mem (rep ptr) gcrefs)
+                                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                               (ser (mem (rep ptr) gcrefs)
+                                                 (ref (val ptr gcrefs) (base gc) imm
+                                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                     (ser (mem (rep ptr) gcrefs) (var 2))
+                                                     (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                                  -> (i31 (val ptr norefs))))]
+                               -> [(i31 (val ptr norefs))]
+              local.get move 9 ;; [] ->
+                                  [(coderef (val i32 norefs)
+                                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                       (MonoFunT
+                                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm
+                                                     (VariantT
+                                                       (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (BaseM MemGC) Imm
+                                                           (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (ProdT
+                                                               (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                 GCRefs)
+                                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                         [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+              drop ;; [(coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                      -> []
+              local.get move 7 ;; [] -> [(var 0)]
+              drop ;; [(var 0)] -> []
+              local.get move 5 ;; [] ->
+                                  [(ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 0))
+                                       (ser (mem (rep i32) norefs)
+                                         (coderef (val i32 norefs)
+                                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                             (MonoFunT
+                                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (BaseM MemGC) Imm
+                                                           (VariantT
+                                                             (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                               GCRefs)
+                                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (BaseM MemGC) Imm
+                                                                 (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (ProdT
+                                                                     (MEMTYPE
+                                                                       (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                       GCRefs)
+                                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+              drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep i32) norefs)
+                             (coderef (val i32 norefs)
+                               (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                 (MonoFunT
+                                   [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT
+                                                         (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                   [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                      -> []
+            end ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                      (ref (val ptr gcrefs) (base gc) imm
+                        (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                          (ser (mem (rep i32) norefs)
+                            (coderef (val i32 norefs)
+                              (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                (MonoFunT
+                                  [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                          (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (BaseM MemGC) Imm
+                                              (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                    (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                      (BaseM MemGC) Imm
+                                                      (ProdT
+                                                        (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                  [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))))))]
+                   -> [(i31 (val ptr norefs))]
+            untag ;; [(i31 (val ptr norefs))] -> [(num (val i32 norefs) i32)]
+            i32.add ;; [(num (val i32 norefs) i32) (num (val i32 norefs) i32)] -> [(num (val i32 norefs) i32)]
+            tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
+            local.get move 4 ;; [] ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (rec (val ptr gcrefs)
+                                         (ref (val ptr gcrefs) (base gc) imm
+                                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                             (ser (mem (rep ptr) gcrefs)
+                                               (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                             (ser (mem (rep ptr) gcrefs)
+                                               (ref (val ptr gcrefs) (base gc) imm
+                                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                   (ser (mem (rep ptr) gcrefs) (var 1))
+                                                   (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+            drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                         (ser (mem (rep ptr) gcrefs)
+                           (rec (val ptr gcrefs)
+                             (ref (val ptr gcrefs) (base gc) imm
+                               (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm
+                                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs) (var 1))
+                                       (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                    -> [])
+        end ;; [(ref (val ptr gcrefs) (base gc) imm
+                  (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                    (ser (mem (rep ptr) gcrefs)
+                      (ref (val ptr gcrefs) (base gc) imm
+                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                          (ser (mem (rep ptr) gcrefs)
+                            (rec (val ptr gcrefs)
+                              (ref (val ptr gcrefs) (base gc) imm
+                                (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                  (ser (mem (rep ptr) gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                  (ser (mem (rep ptr) gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm
+                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs) (var 1))
+                                        (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
+               ->
+               [(ref (val ptr gcrefs) (base gc) imm
+                  (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                    (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                    (ser (mem (rep ptr) gcrefs)
+                      (ref (val ptr gcrefs) (base gc) imm
+                        (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                          (ser (mem (rep ptr) gcrefs)
+                            (rec (val ptr gcrefs)
+                              (ref (val ptr gcrefs) (base gc) imm
+                                (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                  (ser (mem (rep ptr) gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                  (ser (mem (rep ptr) gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm
+                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs) (var 1))
+                                        (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))
+                (i31 (val ptr norefs))]
+        local.set 11 ;; [(i31 (val ptr norefs))] -> []
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs)
+                       (ref (val ptr gcrefs) (base gc) imm
+                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                           (ser (mem (rep ptr) gcrefs) (var 0))
+                           (ser (mem (rep ptr) gcrefs)
+                             (rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 1))
+                                         (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
+                -> []
+        local.get move 11 ;; [] -> [(i31 (val ptr norefs))]
+        local.get move 2 ;; [] ->
+                            [(rec (val ptr gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 1))
+                                         (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+        drop ;; [(rec (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                       (ser (mem (rep ptr) gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                -> []
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (rec (val ptr gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm
+                                       (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs)
+                                           (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                         (ser (mem (rep ptr) gcrefs)
+                                           (ref (val ptr gcrefs) (base gc) imm
+                                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                               (ser (mem (rep ptr) gcrefs) (var 1))
+                                               (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs)
+                       (rec (val ptr gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                             (ser (mem (rep ptr) gcrefs)
+                               (ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 1)) (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                -> [])
+      (func ((ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))) -> (i31 (val ptr norefs))) (local ptr ptr
+          ptr ptr ptr ptr)
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
+                [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+        coderef 0 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                    (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm
+                                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                            [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+        group ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                        (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                        [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                 ->
+                 [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                    (coderef (val i32 norefs)
+                      (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                        (MonoFunT
+                          [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                    (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                      (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                        [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                          (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (BaseM MemGC) Imm
+                                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                          [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))]
+        new ;; [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                        (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                        [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))]
+               ->
+               [(ref (val ptr gcrefs) (base gc) imm
+                  (ser (mem (rep (prod ptr i32)) gcrefs)
+                    (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                      (coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                    (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                            (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                              (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm
+                                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                            [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (ser (mem (rep (prod ptr i32)) gcrefs)
+                     (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+        pack ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                ->
+                [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))))))]
+        unpack (localfx [0 => (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (plug (val (prod i32) norefs) (prod i32))]
+                 [3 => (plug (val (prod i32) norefs) (prod i32))] [4 => (plug (val (prod i32) norefs) (prod i32))]
+                 [5 => (plug (val (prod i32) norefs) (prod i32))] [6 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm
+                                                  (VariantT
+                                                    (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                        (BaseM MemGC) Imm
+                                                        (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                        (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                          (BaseM MemGC) Imm
+                                                          (ProdT
+                                                            (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                              GCRefs)
+                                                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                      [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                         -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (VariantT
+                                                         (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT
+                                                                 (MEMTYPE
+                                                                   (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                   GCRefs)
+                                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                           [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm
+                                                  (VariantT
+                                                    (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                        (BaseM MemGC) Imm
+                                                        (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                        (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                          (BaseM MemGC) Imm
+                                                          (ProdT
+                                                            (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                              GCRefs)
+                                                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                      [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                         -> []
+          load (path 0) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (VariantT
+                                                           (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (BaseM MemGC) Imm
+                                                                 (ProdT
+                                                                   (MEMTYPE
+                                                                     (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                     GCRefs)
+                                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (VariantT
+                                                           (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (BaseM MemGC) Imm
+                                                                 (ProdT
+                                                                   (MEMTYPE
+                                                                     (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                     GCRefs)
+                                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                                 (var 0)]
+          local.set 2 ;; [(var 0)] -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                  -> []
+          local.get move 2 ;; [] -> [(var 0)]
+          local.set 3 ;; [(var 0)] -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (VariantT
+                                                         (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT
+                                                                 (MEMTYPE
+                                                                   (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                   GCRefs)
+                                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                           [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm
+                                                  (VariantT
+                                                    (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                      (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                        (BaseM MemGC) Imm
+                                                        (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                        (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                          (BaseM MemGC) Imm
+                                                          (ProdT
+                                                            (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                              GCRefs)
+                                                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                      [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                         -> []
+          load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (VariantT
+                                                           (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (BaseM MemGC) Imm
+                                                                 (ProdT
+                                                                   (MEMTYPE
+                                                                     (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                     GCRefs)
+                                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (VariantT
+                                                           (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (BaseM MemGC) Imm
+                                                                 (ProdT
+                                                                   (MEMTYPE
+                                                                     (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                     GCRefs)
+                                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                             [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))
+                                 (coderef (val i32 norefs)
+                                   (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                     (MonoFunT
+                                       [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (VariantT
+                                                     (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                           (BaseM MemGC) Imm
+                                                           (ProdT
+                                                             (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                               GCRefs)
+                                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                       [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+          local.set 4 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                        (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (BaseM MemGC) Imm
+                                                    (ProdT
+                                                      (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                         -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                  -> []
+          local.get move 4 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (VariantT
+                                                   (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (ProdT
+                                                           (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                     [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+          local.set 5 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                        (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (BaseM MemGC) Imm
+                                                    (ProdT
+                                                      (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                         -> []
+          local.get move 3 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 3 ;; [(var 0)] -> []
+          num_const 1 ;; [] -> [(num (val i32 norefs) i32)]
+          tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
+          group ;; [] -> [(prod (val (prod) norefs))]
+          new ;; [(prod (val (prod) norefs))] ->
+                 [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
+                  [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+          inject_new 0 ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))] ->
+                          [(ref (val ptr gcrefs) (base gc) imm
+                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (rec (val ptr gcrefs)
+                                         (ref (val ptr gcrefs) (base gc) imm
+                                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                             (ser (mem (rep ptr) gcrefs)
+                                               (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                             (ser (mem (rep ptr) gcrefs)
+                                               (ref (val ptr gcrefs) (base gc) imm
+                                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                                   (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
+          fold ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                       (ser (mem (rep ptr) gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                             (ser (mem (rep ptr) gcrefs)
+                               (rec (val ptr gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                           (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
+                  ->
+                  [(rec (val ptr gcrefs)
+                     (ref (val ptr gcrefs) (base gc) imm
+                       (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                         (ser (mem (rep ptr) gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm
+                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                               (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+          group ;; [(i31 (val ptr norefs))
+                    (rec (val ptr gcrefs)
+                      (ref (val ptr gcrefs) (base gc) imm
+                        (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                          (ser (mem (rep ptr) gcrefs)
+                            (ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                   ->
+                   [(prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs))
+                      (rec (val ptr gcrefs)
+                        (ref (val ptr gcrefs) (base gc) imm
+                          (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                            (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                            (ser (mem (rep ptr) gcrefs)
+                              (ref (val ptr gcrefs) (base gc) imm
+                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                  (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                  (ser (mem (rep ptr) gcrefs) (var 0)))))))))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs))
+                    (rec (val ptr gcrefs)
+                      (ref (val ptr gcrefs) (base gc) imm
+                        (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                          (ser (mem (rep ptr) gcrefs)
+                            (ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                (ser (mem (rep ptr) gcrefs) (var 0)))))))))]
+                 ->
+                 [(ref (val ptr gcrefs) (base gc) imm
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs))
+                        (rec (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                    (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (i31 (val ptr norefs))
+                         (rec (val ptr gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm
+                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                     (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                       (ser (mem (rep ptr) gcrefs)
+                         (rec (val ptr gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm
+                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                     (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+          inject_new 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                               (ser (mem (rep ptr) gcrefs)
+                                 (rec (val ptr gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm
+                                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                       (ser (mem (rep ptr) gcrefs)
+                                         (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                       (ser (mem (rep ptr) gcrefs)
+                                         (ref (val ptr gcrefs) (base gc) imm
+                                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                             (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                             (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                          ->
+                          [(ref (val ptr gcrefs) (base gc) imm
+                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (rec (val ptr gcrefs)
+                                         (ref (val ptr gcrefs) (base gc) imm
+                                           (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                             (ser (mem (rep ptr) gcrefs)
+                                               (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                             (ser (mem (rep ptr) gcrefs)
+                                               (ref (val ptr gcrefs) (base gc) imm
+                                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                                   (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
+          fold ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                       (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                       (ser (mem (rep ptr) gcrefs)
+                         (ref (val ptr gcrefs) (base gc) imm
+                           (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                             (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                             (ser (mem (rep ptr) gcrefs)
+                               (rec (val ptr gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                     (ser (mem (rep ptr) gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                           (ser (mem (rep ptr) gcrefs) (var 0))))))))))))))]
+                  ->
+                  [(rec (val ptr gcrefs)
+                     (ref (val ptr gcrefs) (base gc) imm
+                       (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                         (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                         (ser (mem (rep ptr) gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm
+                             (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                               (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+          group ;; [(var 0)
+                    (rec (val ptr gcrefs)
+                      (ref (val ptr gcrefs) (base gc) imm
+                        (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                          (ser (mem (rep ptr) gcrefs)
+                            (ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                (ser (mem (rep ptr) gcrefs) (var 0))))))))]
+                   ->
+                   [(prod (val (prod ptr ptr) gcrefs) (var 0)
+                      (rec (val ptr gcrefs)
+                        (ref (val ptr gcrefs) (base gc) imm
+                          (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                            (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                            (ser (mem (rep ptr) gcrefs)
+                              (ref (val ptr gcrefs) (base gc) imm
+                                (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                  (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                  (ser (mem (rep ptr) gcrefs) (var 0)))))))))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (var 0)
+                    (rec (val ptr gcrefs)
+                      (ref (val ptr gcrefs) (base gc) imm
+                        (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                          (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                          (ser (mem (rep ptr) gcrefs)
+                            (ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                (ser (mem (rep ptr) gcrefs) (var 0)))))))))]
+                 ->
+                 [(ref (val ptr gcrefs) (base gc) imm
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (var 0)
+                        (rec (val ptr gcrefs)
+                          (ref (val ptr gcrefs) (base gc) imm
+                            (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                              (ser (mem (rep ptr) gcrefs)
+                                (ref (val ptr gcrefs) (base gc) imm
+                                  (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                    (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                    (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (var 0)
+                         (rec (val ptr gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm
+                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                     (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) gcrefs)
+                         (rec (val ptr gcrefs)
+                           (ref (val ptr gcrefs) (base gc) imm
+                             (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                               (ser (mem (rep ptr) gcrefs)
+                                 (ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                     (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                     (ser (mem (rep ptr) gcrefs) (var 0)))))))))))]
+          local.get move 5 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (VariantT
+                                                   (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (ProdT
+                                                           (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                     [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+          copy ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                 (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                         [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                  ->
+                  [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                 (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                         [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))
+                   (coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                 (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                         [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+          local.set 5 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                        (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                            (BaseM MemGC) Imm
+                                            (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                  (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                    (BaseM MemGC) Imm
+                                                    (ProdT
+                                                      (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                      [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                        (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                         -> []
+          inst (type (i31 (val ptr norefs))) ;; [(coderef (val i32 norefs)
+                                                   (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (MonoFunT
+                                                       [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (ProdT
+                                                           (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                               (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                                   (BaseM MemGC) Imm
+                                                                   (VariantT
+                                                                     (MEMTYPE
+                                                                       (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                       GCRefs)
+                                                                     [ (SerT
+                                                                       (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                       (RefT
+                                                                        (VALTYPE (AtomR PtrR) GCRefs)
+                                                                        (BaseM MemGC) Imm
+                                                                        (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                                       (SerT
+                                                                        (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                        (RefT
+                                                                        (VALTYPE (AtomR PtrR) GCRefs)
+                                                                        (BaseM MemGC) Imm
+                                                                        (ProdT
+                                                                        (MEMTYPE
+                                                                        (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                        GCRefs)
+                                                                        [ (SerT
+                                                                        (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                        (VarT 1));
+                                                                        (SerT
+                                                                        (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                                        (VarT 0))])))]))))]))]
+                                                       [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                                                ->
+                                                [(coderef (val i32 norefs)
+                                                   ((ref (val ptr gcrefs)
+                                                      (base gc) imm
+                                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                        (ser (mem (rep ptr) gcrefs) (var 0))
+                                                        (ser (mem (rep ptr) gcrefs)
+                                                          (rec (val ptr gcrefs)
+                                                            (ref (val ptr gcrefs)
+                                                              (base gc) imm
+                                                              (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                                                (ser (mem (rep ptr) gcrefs)
+                                                                  (ref (val ptr gcrefs)
+                                                                    (base gc) imm
+                                                                    (struct (mem (prod) norefs))))
+                                                                (ser (mem (rep ptr) gcrefs)
+                                                                  (ref (val ptr gcrefs)
+                                                                    (base gc) imm
+                                                                    (struct
+                                                                      (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                                      (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                                                      (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                                                   -> (i31 (val ptr norefs))))]
+          call_indirect ;; [(ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0))
+                                (ser (mem (rep ptr) gcrefs)
+                                  (rec (val ptr gcrefs)
+                                    (ref (val ptr gcrefs) (base gc) imm
+                                      (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                        (ser (mem (rep ptr) gcrefs)
+                                          (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                        (ser (mem (rep ptr) gcrefs)
+                                          (ref (val ptr gcrefs) (base gc) imm
+                                            (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                              (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                              (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (rec (val ptr gcrefs)
+                                       (ref (val ptr gcrefs) (base gc) imm
+                                         (variant (mem (sum (rep ptr) (rep ptr)) gcrefs)
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                           (ser (mem (rep ptr) gcrefs)
+                                             (ref (val ptr gcrefs) (base gc) imm
+                                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                 (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))
+                                                 (ser (mem (rep ptr) gcrefs) (var 0)))))))))))
+                              -> (i31 (val ptr norefs))))]
+                           -> [(i31 (val ptr norefs))]
+          local.get move 5 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                             (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm
+                                                 (VariantT
+                                                   (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                       (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (ProdT
+                                                           (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                     [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+          drop ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                 (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                       [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                         (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                         [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))]
+                  -> []
+          local.get move 3 ;; [] -> [(var 0)]
+          drop ;; [(var 0)] -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                   (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                       (BaseM MemGC) Imm
+                                                       (VariantT
+                                                         (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                           (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                             (BaseM MemGC) Imm
+                                                             (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                             (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                               (BaseM MemGC) Imm
+                                                               (ProdT
+                                                                 (MEMTYPE
+                                                                   (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                                   GCRefs)
+                                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                                           [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                       (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                           (BaseM MemGC) Imm
+                                           (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                               (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                 (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                 (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                   (BaseM MemGC) Imm
+                                                   (ProdT
+                                                     (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                     [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                       (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                               [ (I31T (VALTYPE (AtomR PtrR) NoRefs))]))))))]
+                  -> []
+        end ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                  (ref (val ptr gcrefs) (base gc) imm
+                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                      (ser (mem (rep i32) norefs)
+                        (coderef (val i32 norefs)
+                          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                            (MonoFunT
+                              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                      (RecT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (BaseM MemGC) Imm
+                                          (VariantT (MEMTYPE (SumS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                              (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                                (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                  (BaseM MemGC) Imm
+                                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))])))]))))]))]
+                              [ (I31T (VALTYPE (AtomR PtrR) NoRefs))])))))))]
+               -> [(i31 (val ptr norefs))]
+        local.get move 0 ;; [] -> [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))] -> [])
+      (table 0 1)
+      (export "len" (func 0))
+      (export "_start" (func 1)))
+    -----------poly_id_apply-----------
+    (module
+      (func
+          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+            (MonoFunT
+              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                    (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+              [ (VarT 0)]))
+          (local ptr ptr ptr)
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs) (var 0))))]
+        copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))
+                 (ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+        local.set 0 ;; [(ref (val ptr gcrefs) (base gc) imm
+                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                            (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                            (ser (mem (rep ptr) gcrefs) (var 0))))]
+                       -> []
+        load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs) (var 0))))]
+                              ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs) (var 0))))
+                               (var 0)]
+        local.set 1 ;; [(var 0)] -> []
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                -> []
+        local.get move 1 ;; [] -> [(var 0)]
+        local.set 2 ;; [(var 0)] -> []
+        local.get move 2 ;; [] -> [(var 0)]
+        copy ;; [(var 0)] -> [(var 0) (var 0)]
+        local.set 2 ;; [(var 0)] -> []
+        local.get move 2 ;; [] -> [(var 0)]
+        drop ;; [(var 0)] -> []
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs) (var 0))))]
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                -> [])
+      (func
+          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+            (MonoFunT
+              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                    (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+              [ (VarT 0)]))
+          (local ptr ptr ptr ptr ptr ptr ptr ptr)
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs) (var 0))))]
+        copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))
+                 (ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+        local.set 0 ;; [(ref (val ptr gcrefs) (base gc) imm
+                          (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                            (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                            (ser (mem (rep ptr) gcrefs) (var 0))))]
+                       -> []
+        load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs) (var 0))))]
+                              ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs)
+                                     (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                   (ser (mem (rep ptr) gcrefs) (var 0))))
+                               (var 0)]
+        local.set 1 ;; [(var 0)] -> []
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                -> []
+        local.get move 1 ;; [] -> [(var 0)]
+        local.set 2 ;; [(var 0)] -> []
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
+                [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+        coderef 0 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                            [ (VarT 0)])))]
+        group ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                        [ (VarT 0)])))]
+                 ->
+                 [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                    (coderef (val i32 norefs)
+                      (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                        (MonoFunT
+                          [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                          [ (VarT 0)]))))]
+        new ;; [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                        [ (VarT 0)]))))]
+               ->
+               [(ref (val ptr gcrefs) (base gc) imm
+                  (ser (mem (rep (prod ptr i32)) gcrefs)
+                    (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                      (coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                            [ (VarT 0)]))))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (ser (mem (rep (prod ptr i32)) gcrefs)
+                     (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+        pack ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+                ->
+                [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)])))))))]
+        unpack (localfx
+                 [0 =>
+                 (ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (var 0)]
+                 [3 => (plug (val (prod i32) norefs) (prod i32))] [4 => (plug (val (prod i32) norefs) (prod i32))]
+                 [5 => (plug (val (prod i32) norefs) (prod i32))] [6 => (plug (val (prod i32) norefs) (prod i32))]
+                 [7 => (plug (val (prod i32) norefs) (prod i32))] [8 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 3 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          local.get move 3 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+          local.set 3 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          load (path 0) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))
+                                 (var 0)]
+          local.set 4 ;; [(var 0)] -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+          local.get move 4 ;; [] -> [(var 0)]
+          local.set 5 ;; [(var 0)] -> []
+          local.get move 3 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+          local.set 3 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))
+                                 (coderef (val i32 norefs)
+                                   (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                     (MonoFunT
+                                       [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                       [ (VarT 0)])))]
+          local.set 6 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+          local.get move 6 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          local.set 7 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          local.get move 5 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 5 ;; [(var 0)] -> []
+          local.get move 2 ;; [] -> [(var 1)]
+          copy ;; [(var 1)] -> [(var 1) (var 1)]
+          local.set 2 ;; [(var 1)] -> []
+          group ;; [(var 0) (var 1)] -> [(prod (val (prod ptr ptr) gcrefs) (var 0) (var 1))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (var 0) (var 1))] ->
+                 [(ref (val ptr gcrefs) (base gc) imm
+                    (ser (mem (rep (prod ptr ptr)) gcrefs) (prod (val (prod ptr ptr) gcrefs) (var 0) (var 1))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (ser (mem (rep (prod ptr ptr)) gcrefs) (prod (val (prod ptr ptr) gcrefs) (var 0) (var 1))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) gcrefs) (var 1))))]
+          local.get move 7 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          copy ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+                  ->
+                  [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))
+                   (coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+          local.set 7 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          inst (type (var 1)) ;; [(coderef (val i32 norefs)
+                                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                      (MonoFunT
+                                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                          (BaseM MemGC) Imm
+                                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                        [ (VarT 0)])))]
+                                 ->
+                                 [(coderef (val i32 norefs)
+                                    ((ref (val ptr gcrefs) (base gc) imm
+                                       (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                         (ser (mem (rep ptr) gcrefs) (var 0))
+                                         (ser (mem (rep ptr) gcrefs) (var 1))))
+                                    -> (var 1)))]
+          call_indirect ;; [(ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) gcrefs) (var 1))))
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) gcrefs) (var 1))))
+                              -> (var 1)))]
+                           -> [(var 1)]
+          local.get move 7 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          drop ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+                  -> []
+          local.get move 5 ;; [] -> [(var 0)]
+          drop ;; [(var 0)] -> []
+          local.get move 3 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+        end ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                  (ref (val ptr gcrefs) (base gc) imm
+                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                      (ser (mem (rep i32) norefs)
+                        (coderef (val i32 norefs)
+                          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                            (MonoFunT
+                              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                              [ (VarT 0)])))))))]
+               -> [(var 0)]
+        local.get move 2 ;; [] -> [(var 0)]
+        drop ;; [(var 0)] -> []
+        local.get move 0 ;; [] ->
+                            [(ref (val ptr gcrefs) (base gc) imm
+                               (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                 (ser (mem (rep ptr) gcrefs)
+                                   (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                                 (ser (mem (rep ptr) gcrefs) (var 0))))]
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep ptr) gcrefs) (var 0))))]
+                -> [])
+      (func ((ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))) -> (i31 (val ptr norefs))) (local ptr ptr
+          ptr ptr ptr ptr)
+        group ;; [] -> [(prod (val (prod) norefs))]
+        new ;; [(prod (val (prod) norefs))] ->
+               [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm (ser (mem (rep (prod)) norefs) (prod (val (prod) norefs))))] ->
+                [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+        coderef 1 ;; [] ->
+                     [(coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                            [ (VarT 0)])))]
+        group ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                        [ (VarT 0)])))]
+                 ->
+                 [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                    (coderef (val i32 norefs)
+                      (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                        (MonoFunT
+                          [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                            (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                              [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                          [ (VarT 0)]))))]
+        new ;; [(prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                  (coderef (val i32 norefs)
+                    (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                      (MonoFunT
+                        [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                          (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                            [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                              (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                              (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                        [ (VarT 0)]))))]
+               ->
+               [(ref (val ptr gcrefs) (base gc) imm
+                  (ser (mem (rep (prod ptr i32)) gcrefs)
+                    (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                      (coderef (val i32 norefs)
+                        (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                          (MonoFunT
+                            [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                              (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                  (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                    (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                  (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                            [ (VarT 0)]))))))]
+        cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (ser (mem (rep (prod ptr i32)) gcrefs)
+                     (prod (val (prod ptr i32) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+                ->
+                [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+        pack ;; [(ref (val ptr gcrefs) (base gc) imm
+                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                     (ser (mem (rep ptr) gcrefs) (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs))))
+                     (ser (mem (rep i32) norefs)
+                       (coderef (val i32 norefs)
+                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                           (MonoFunT
+                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs)
+                                   (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                     (ProdT (MEMTYPE (ProdS []) NoRefs) [])));
+                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                             [ (VarT 0)]))))))]
+                ->
+                [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)])))))))]
+        unpack (localfx [0 => (ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+                 [1 => (plug (val (prod i32) norefs) (prod i32))] [2 => (plug (val (prod i32) norefs) (prod i32))]
+                 [3 => (plug (val (prod i32) norefs) (prod i32))] [4 => (plug (val (prod i32) norefs) (prod i32))]
+                 [5 => (plug (val (prod i32) norefs) (prod i32))] [6 => (plug (val (prod i32) norefs) (prod i32))])
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          load (path 0) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))
+                                 (var 0)]
+          local.set 2 ;; [(var 0)] -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+          local.get move 2 ;; [] -> [(var 0)]
+          local.set 3 ;; [(var 0)] -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))
+                   (ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+          local.set 1 ;; [(ref (val ptr gcrefs) (base gc) imm
+                            (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                              (ser (mem (rep ptr) gcrefs) (var 0))
+                              (ser (mem (rep i32) norefs)
+                                (coderef (val i32 norefs)
+                                  (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                    (MonoFunT
+                                      [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                        (BaseM MemGC) Imm
+                                        (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                          [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                            (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                      [ (VarT 0)]))))))]
+                         -> []
+          load (path 1) copy ;; [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))]
+                                ->
+                                [(ref (val ptr gcrefs) (base gc) imm
+                                   (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                     (ser (mem (rep ptr) gcrefs) (var 0))
+                                     (ser (mem (rep i32) norefs)
+                                       (coderef (val i32 norefs)
+                                         (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                           (MonoFunT
+                                             [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                               (BaseM MemGC) Imm
+                                               (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                                 [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                   (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                             [ (VarT 0)]))))))
+                                 (coderef (val i32 norefs)
+                                   (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                     (MonoFunT
+                                       [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                         (BaseM MemGC) Imm
+                                         (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                       [ (VarT 0)])))]
+          local.set 4 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+          local.get move 4 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          local.set 5 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          local.get move 3 ;; [] -> [(var 0)]
+          copy ;; [(var 0)] -> [(var 0) (var 0)]
+          local.set 3 ;; [(var 0)] -> []
+          num_const 5 ;; [] -> [(num (val i32 norefs) i32)]
+          tag ;; [(num (val i32 norefs) i32)] -> [(i31 (val ptr norefs))]
+          group ;; [(var 0) (i31 (val ptr norefs))] -> [(prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))]
+          new ;; [(prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))] ->
+                 [(ref (val ptr gcrefs) (base gc) imm
+                    (ser (mem (rep (prod ptr ptr)) gcrefs)
+                      (prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))))]
+          cast ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (ser (mem (rep (prod ptr ptr)) gcrefs)
+                       (prod (val (prod ptr ptr) gcrefs) (var 0) (i31 (val ptr norefs)))))]
+                  ->
+                  [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep ptr)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))]
+          local.get move 5 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          copy ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+                  ->
+                  [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))
+                   (coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+          local.set 5 ;; [(coderef (val i32 norefs)
+                            (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                              (MonoFunT
+                                [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                  (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                    [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                      (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                [ (VarT 0)])))]
+                         -> []
+          inst (type (i31 (val ptr norefs))) ;; [(coderef (val i32 norefs)
+                                                   (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                                     (MonoFunT
+                                                       [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                                         (BaseM MemGC) Imm
+                                                         (ProdT
+                                                           (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))])
+                                                             GCRefs)
+                                                           [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                             (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                                       [ (VarT 0)])))]
+                                                ->
+                                                [(coderef (val i32 norefs)
+                                                   ((ref (val ptr gcrefs)
+                                                      (base gc) imm
+                                                      (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                                        (ser (mem (rep ptr) gcrefs) (var 0))
+                                                        (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                                                   -> (i31 (val ptr norefs))))]
+          call_indirect ;; [(ref (val ptr gcrefs) (base gc) imm
+                              (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                (ser (mem (rep ptr) gcrefs) (var 0)) (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                            (coderef (val i32 norefs)
+                              ((ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep ptr)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep ptr) norefs) (i31 (val ptr norefs)))))
+                              -> (i31 (val ptr norefs))))]
+                           -> [(i31 (val ptr norefs))]
+          local.get move 5 ;; [] ->
+                              [(coderef (val i32 norefs)
+                                 (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                   (MonoFunT
+                                     [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                       (BaseM MemGC) Imm
+                                       (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                         [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                           (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                     [ (VarT 0)])))]
+          drop ;; [(coderef (val i32 norefs)
+                     (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                       (MonoFunT
+                         [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                           (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                             [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                               (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                         [ (VarT 0)])))]
+                  -> []
+          local.get move 3 ;; [] -> [(var 0)]
+          drop ;; [(var 0)] -> []
+          local.get move 1 ;; [] ->
+                              [(ref (val ptr gcrefs) (base gc) imm
+                                 (struct (mem (prod (rep ptr) (rep i32)) gcrefs)
+                                   (ser (mem (rep ptr) gcrefs) (var 0))
+                                   (ser (mem (rep i32) norefs)
+                                     (coderef (val i32 norefs)
+                                       (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                                         (MonoFunT
+                                           [ (RefT (VALTYPE (AtomR PtrR) GCRefs)
+                                             (BaseM MemGC) Imm
+                                             (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                               [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                                 (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                                           [ (VarT 0)]))))))]
+          drop ;; [(ref (val ptr gcrefs) (base gc) imm
+                     (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                       (ser (mem (rep i32) norefs)
+                         (coderef (val i32 norefs)
+                           (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                             (MonoFunT
+                               [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                 (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                   [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                     (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                               [ (VarT 0)]))))))]
+                  -> []
+        end ;; [(exists.type (val ptr gcrefs) (val ptr gcrefs)
+                  (ref (val ptr gcrefs) (base gc) imm
+                    (struct (mem (prod (rep ptr) (rep i32)) gcrefs) (ser (mem (rep ptr) gcrefs) (var 0))
+                      (ser (mem (rep i32) norefs)
+                        (coderef (val i32 norefs)
+                          (forall.type (VALTYPE (AtomR PtrR) GCRefs)
+                            (MonoFunT
+                              [ (RefT (VALTYPE (AtomR PtrR) GCRefs) (BaseM MemGC) Imm
+                                (ProdT (MEMTYPE (ProdS [ (RepS (AtomR PtrR)); (RepS (AtomR PtrR))]) GCRefs)
+                                  [ (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 1));
+                                    (SerT (MEMTYPE (RepS (AtomR PtrR)) GCRefs) (VarT 0))]))]
+                              [ (VarT 0)])))))))]
+               -> [(i31 (val ptr norefs))]
+        local.get move 0 ;; [] -> [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))]
+        drop ;; [(ref (val ptr gcrefs) (base gc) imm (struct (mem (prod) norefs)))] -> [])
+      (table 0 1 2)
+      (export "id" (func 0))
+      (export "apply" (func 1))
+      (export "_start" (func 2)))
     -----------mini_zip-----------
     (module
       (func

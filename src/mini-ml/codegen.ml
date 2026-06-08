@@ -271,21 +271,23 @@ let rec compile_expr delta gamma locals coderef_map e :
             Inst (Type t'))
       in
       ret (arg' @ f' @ insts @ [ CallIndirect ], locals', fx_arg @ fx_f)
-  | Unpack (var, (n, t), v, e) ->
+  | Unpack (var, (n, var_t), v, e) ->
       let* v', locals', fx_v = r v in
       let tmp_local = List.length locals' in
-      let* tmp_local_t = compile_type (var :: delta) t in
+      let* tmp_local_t = compile_type (var :: delta) var_t in
       let* e', locals'', fx_e =
         compile_expr (var :: delta)
-          ((n, t, tmp_local) :: gamma)
+          ((n, var_t, tmp_local) :: gamma)
           (locals' @ [ ("#unpack-tmp", tmp_local_t) ])
           coderef_map e
       in
+      (* NOTE: the body runs under the unpack's binder, so its result type is inner-scoped. *)
+      let* inner_rw_t = compile_type (var :: delta) t in
       let fx = fx_v @ fx_e in
       let suffix =
         [
           Unpack
-            ( ValType [ rw_t ],
+            ( ValType [ inner_rw_t ],
               InferFx,
               [ LocalSet tmp_local ] @ e' @ [ LocalGet (tmp_local, Move); Drop ]
             );
