@@ -1260,6 +1260,27 @@ Section instr.
                 (∃ os', values_interp se τs2 os' ∗ atoms_interp os' vs') ∗
                 (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤ }})%I.
 
+  Definition have_func_type_sem
+    (mr : module_runtime)
+    (M : module_ctx)
+    (WT : wtype_ctx)
+    (WL : wlocal_ctx)
+    (f : module_func)
+    (ϕ : function_type)
+    (L' : local_ctx) :
+    iProp Σ :=
+    let fft := flatten_function_type ϕ in
+    let ηss_P := [] in (* TODO: Convert fft_in to prims. *)
+    let ηss_L := [] in (* TODO: Convert modfunc_locals to prims. *)
+    let F := {| fc_return := fft.(fft_out);
+                fc_locals := ηss_P ++ ηss_L;
+                fc_labels := [(fft.(fft_out), L')];
+                fc_kind_ctx := kc_of_fft fft;
+                fc_type_vars := fft.(fft_type_vars) |} in
+    let L := [] in (* TODO: Use fft_in and convert modfunc_locals to plugs. *)
+    let ψ := InstrT fft.(fft_in) fft.(fft_out) in
+    have_instr_type_sem mr M F L WT WL (const False) f.(modfunc_body) ψ L'.
+
 End instr.
 
 Section module.
