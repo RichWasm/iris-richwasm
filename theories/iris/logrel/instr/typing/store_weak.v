@@ -277,7 +277,9 @@ Section store_weak.
             sκ = SVALTYPE [PtrR] ξ_ref /\
             sum_list_with arep_size ιs = sz /\
             eval_kind se κser = Some (SMEMTYPE sz ξser) /\
-            length (flat_map arep_flags ιs) = sz).
+            length (flat_map arep_flags ιs) = sz /\
+            type_skind se τval = Some (SVALTYPE ιs ξser) /\
+            type_skind se (SerT κser τval) = Some (SMEMTYPE sz ξser)).
   Proof.
     intros ψ Hresolves.
     intros * Hse Hoffset Hmono Htypeskind Hevalκ Href Hprtarget Hok Hrep Hevalρ Hsksv.
@@ -412,6 +414,23 @@ Section store_weak.
       done.
     }
 
+    (* I need type_skind se τval *)
+    assert (Hevalρse: eval_rep se ρ = Some ιs). {
+      by apply eval_rep_emptyenv.
+    }
+    assert (eval_kind se (VALTYPE ρ ξser) = Some (SVALTYPE ιs ξser)). {
+      unfold eval_kind.
+      rewrite Hevalρse.
+      cbn.
+      done.
+    }
+    assert (type_skind se τval = Some (SVALTYPE ιs ξser)). {
+      eapply type_skind_has_kind_Some; try done.
+    }
+
+    assert (type_skind se (SerT κser τval) = Some (SMEMTYPE sz ξser)). {
+      eapply type_skind_has_kind_Some; try done.
+    }
 
     (* always do all the way at the end. Ideally, should always be basically
      just eexists -> done. *)
@@ -480,6 +499,86 @@ Section store_weak.
       iEval (cbn -[atom_interp]) in "Has".
       iPoseProof (IHos with "[$Hrt] [$Has]") as "[Hrt Hweaks]".
       iFrame.
+  Qed.
+
+  Lemma has_arep_means_equal_lengths ιs os:
+    Forall2 has_arep ιs os ->
+    length (concat (map serialize_atom os)) = length (concat (map arep_flags ιs)).
+  Proof.
+    generalize dependent os.
+    induction ιs as [|ι ιs].
+    - intros.
+      destruct os; [|apply Forall2_nil_cons_inv in H; done].
+      by cbn.
+    - intros os Hareps.
+      destruct os as [| o os]; [apply Forall2_cons_nil_inv in Hareps; done|].
+      apply Forall2_cons in Hareps as (Harep & Hareps).
+      cbn.
+      rewrite !length_app.
+      specialize (IHιs os Hareps).
+      assert (length (serialize_atom o) = length (arep_flags ι)). {
+        destruct ι; destruct o; try done.
+      }
+      lia.
+  Qed.
+
+  Lemma forall_ptr_atom_to_word_ref_flag_interp ξ os:
+    Forall (forall_ptr_atom (ref_flag_ptr_interp ξ)) os ->
+    Forall (forall_ptr_word (ref_flag_ptr_interp ξ)) (concat (map serialize_atom os)).
+  Proof.
+    intros Hatom.
+    induction os as [|o os].
+    - done.
+    - apply Forall_cons in Hatom as (Ho & Hatom).
+      apply IHos in Hatom.
+      cbn.
+      rewrite Forall_app.
+      split; try done.
+      clear Hatom IHos.
+      destruct o; cbn in *; try (apply Forall_singleton; cbn in *; done).
+      + apply Forall_cons.
+        cbn.
+        split; [done|].
+        apply Forall_singleton.
+        cbn; done.
+      + apply Forall_cons.
+        cbn.
+        split; [done|].
+        apply Forall_singleton.
+        cbn; done.
+  Qed.
+
+  Lemma has_areps_imp_word_has_flag ιs os:
+    has_areps ιs (SAtoms os) ->
+    Forall2 word_has_flag (concat (map arep_flags ιs)) (flat_map serialize_atom os).
+  Proof.
+    generalize dependent ιs.
+    induction os as [|o os].
+    - intros ιs Hareps.
+      inversion Hareps.
+      destruct H as [toinvert Harepp].
+      inversion toinvert; subst.
+      apply Forall2_nil_inv_r in Harepp; subst; done.
+    - intros ιs Hareps.
+      inversion Hareps.
+      destruct H as [toinvert Harepp].
+      inversion toinvert; subst; clear toinvert.
+      destruct ιs as [|ι ιs]; [apply Forall2_nil_cons_inv in Harepp; done|].
+      cbn.
+      inversion Harepp; subst.
+      assert (length (arep_flags ι) = length (serialize_atom o)). {
+        destruct ι; destruct o; try done.
+      }
+      apply Forall2_app.
+      + destruct ι; destruct o; try done; cbn; try (apply Forall2_cons; cbn; done).
+        * apply Forall2_cons. cbn.
+          split; [done|].
+          apply Forall2_cons; cbn; done.
+        * apply Forall2_cons. cbn.
+          split; [done|].
+          apply Forall2_cons; cbn; done.
+      + apply IHos.
+        exists os; done.
   Qed.
 
 
@@ -574,7 +673,7 @@ Section store_weak.
     destruct AllKinding as
       (σ & ξ & ξser & sz & ξ_ref &
          Hkind_τ & Hkind_prtarget & Hkind_τval & Hevalsize & -> & -> &
-          Hιssz & Hevalκser & Hflaglengths).
+          Hιssz & Hevalκser & Hflaglengths & Htypeskindτval & Htypeskindsert).
 
 
     (** OTHER GENERAL FACTS THAT WE NEED FOR BOTH CASES **)
@@ -676,13 +775,36 @@ Section store_weak.
       (** PUT FACTOIDS WE NEED HERE (THAT ARE MM/GC SPECIFIC) **)
       (* I think some of the kinding quarantine but with resources can be
          here. Not all of it because of path lemma, though. *)
-      iAssert (⌜Forall2 has_arep ιs os2⌝%I) with "[Hvs2]" as "%Harepιsos2". { admit. }
-      iAssert (⌜length (concat (map serialize_atom os2)) = sz⌝%I) with "[Hvs2]" as "%Hos2sz". { admit. }
-      iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2".
-      1: {
-        unfold has_areps.
-        exists os2; done.
+      (* mini kinding quarantine right here! I should make it a lemma eventually *)
+      iAssert (⌜Forall2 has_arep ιs os2 /\ has_areps ιs (SAtoms os2) /\
+               Forall (forall_ptr_word (ref_flag_ptr_interp ξser))
+                (concat (map serialize_atom os2))
+                  ⌝%I)
+         with "[Hvs2 Hos2]" as "%KindingQuarantine". {
+        rewrite value_interp_eq.
+        iEval (cbn -[pre_type_interp type_skind]) in "Hos2".
+        iDestruct "Hos2" as "(%sκ_temp & %Htypeskindtemp & %Harepsoon & pre)".
+        iPureIntro.
+        rewrite Htypeskindτval in Htypeskindtemp.
+        inversion Htypeskindtemp. subst sκ_temp.
+        destruct Harepsoon as (Hareps & Hforallatomref).
+
+        repeat split.
+        - unfold has_areps in Hareps.
+          destruct Hareps as (os & toinvert & yes).
+          inversion toinvert; subst; done.
+        - done.
+        - by apply forall_ptr_atom_to_word_ref_flag_interp.
       }
+      destruct KindingQuarantine as (Harepιsos2 & Hareps & Hrefinterp).
+      assert (Hos2sz: length (concat (map serialize_atom os2)) = sz). {
+        assert (length (concat (map serialize_atom os2)) = length (flat_map arep_flags ιs)). {
+          rewrite flat_map_concat_map.
+          apply has_arep_means_equal_lengths; done.
+        }
+        by etransitivity.
+      }
+      iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2"; try done.
 
       (** TIME TO BOOGIE *)
       (* note: I think saving stack and local tee can happen before the split *)
@@ -695,11 +817,8 @@ Section store_weak.
       eapply cwp_save_stack_w in Hsave; auto.
       4: exact Hevs2.
       3: {
-        (* I need has_areps ιs (SAtoms os2), then that + atoms_interp *)
-        (* gets what I need with this: result_type_interp_of_atoms_interp. *)
-        (* true but boring/later *)
-        (* more kinding quarantine, but resources based *)
-        admit.
+        unfold translate_arep in Hres_type_vs2.
+        rewrite map_comp. done.
       }
       2: exact Hwl.
       destruct Hsave as (Hval_localidxs_seq & -> & Hwl_save & Hsave).
@@ -904,9 +1023,34 @@ Section store_weak.
         (* some of these should be earlier ngl *)
         iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
            (concat (map arep_flags ιs))
-           (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". { admit. }
-        iAssert (⌜Forall (forall_ptr_word (ref_flag_ptr_interp ξser))
-                   (concat (map serialize_atom os2))⌝%I) with "[Hvs2 Hos2]" as "%Hrefinterp". { admit. }
+           (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". {
+          (* hm unsure how this will go *)
+          rewrite Hιssz.
+          unfold get_path_words.
+          rewrite value_interp_eq.
+          iEval (cbn -[type_skind pre_type_interp]) in "Htarget".
+          iDestruct "Htarget" as "(%sκ & %Htemp & %Hyeah & Htype)".
+          rewrite Htypeskindsert in Htemp.
+          inversion Htemp; subst sκ.
+          destruct Hyeah as (_ & Hrefflag).
+          iEval (cbn) in "Htype".
+          (* I'm scared *)
+          iDestruct "Htype" as "(%os & %Hserialized & Htype)".
+          rewrite type_interp_eq.
+          iEval (cbn -[type_skind pre_type_interp]) in "Htype".
+          rewrite Htypeskindτval.
+          iDestruct "Htype" as "(%sκ & %toinvert & %Helpme & Htype)".
+          inversion toinvert; subst sκ. clear Htemp toinvert.
+          destruct Helpme as (Hosιs & Hptros).
+
+          iPureIntro.
+          inversion Hserialized.
+          rewrite !H1.
+          rewrite H1 in Hrefflag.
+
+          (* I think I finally got to lemma stage *)
+          by apply has_areps_imp_word_has_flag.
+        }
         (* future note: show that fs = concat map arep_flags ιs? at some point *)
 
         (* we need to transform atoms_interp to weak now! *)
