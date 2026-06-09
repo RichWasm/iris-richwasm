@@ -1260,26 +1260,10 @@ Section instr.
                 (∃ os', values_interp se τs2 os' ∗ atoms_interp os' vs') ∗
                 (∃ θ', rt_token rti sr θ') ∗ na_own logrel_nais ⊤ }})%I.
 
-  Definition have_func_type_sem
-    (mr : module_runtime)
-    (M : module_ctx)
-    (WT : wtype_ctx)
-    (WL : wlocal_ctx)
-    (f : module_func)
-    (ϕ : function_type)
-    (L' : local_ctx) :
-    iProp Σ :=
-    let fft := flatten_function_type ϕ in
-    let ηss_P := [] in (* TODO: Convert fft_in to prims. *)
-    let ηss_L := [] in (* TODO: Convert modfunc_locals to prims. *)
-    let F := {| fc_return := fft.(fft_out);
-                fc_locals := ηss_P ++ ηss_L;
-                fc_labels := [(fft.(fft_out), L')];
-                fc_kind_ctx := kc_of_fft fft;
-                fc_type_vars := fft.(fft_type_vars) |} in
-    let L := [] in (* TODO: Use fft_in and convert modfunc_locals to plugs. *)
-    let ψ := InstrT fft.(fft_in) fft.(fft_out) in
-    have_instr_type_sem mr M F L WT WL (const False) f.(modfunc_body) ψ L'.
+  Definition has_func_type_sem (f : module_func) (ϕ : function_type) : iProp Σ :=
+    ∀ inst tf,
+      ⌜inst.(inst_types) !! typeimm f.(modfunc_type) = Some tf⌝ -∗
+      closure_interp ϕ senv_empty (FC_func_native inst tf f.(modfunc_locals) f.(modfunc_body)).
 
 End instr.
 
@@ -1295,32 +1279,25 @@ Section module.
   Variable rti : rt_invariant Σ.
   Variable sr : store_runtime.
 
-  (* TODO *)
-  Definition module_interp (ω : module_type) (mr : module_runtime) (m : W.module) : iProp Σ :=
-    (∀ i imports exports,
-       i ↪[mods] m -∗
-       (* TODO: Assert that indices in the module point to the global runtime funcaddrs. *)
-       ([∗ list] i ↦ ϕ ∈ ω.(mt_imports),
-          ∃ bs j cl,
-            N.of_nat i ↪[vis] datatypes.Build_module_export bs (MED_func j) ∗
-              N.of_nat (funcimm j) ↦[wf] cl ∗
-              closure_interp rti sr ϕ senv_empty cl ∗
-              ⌜imports !! (funcimm mr.(mr_func_user) + i)%nat = Some (N.of_nat (funcimm j))⌝) -∗
-       ([∗ list] i ↦ '_ ∈ ω.(mt_exports),
-          ∃ bs j,
-            N.of_nat i ↪[vis] datatypes.Build_module_export bs (MED_func j) ∗
-              ⌜exports !! i = Some (N.of_nat (funcimm j))⌝) -∗
-       WP ([ID_instantiate exports i imports], []) : host_expr @ top
-          {{ v : host_val,
-             ⌜v = immHV []⌝ ∗
-               i ↪[mods] m ∗
-               ([∗ list] i ↦ ϕ ∈ ω.(mt_exports),
-                 ∃ j cl, (* TODO: same j as precond *)
-                   N.of_nat (funcimm j) ↦[wf] cl ∗ closure_interp rti sr ϕ senv_empty cl) }})%I.
+  Definition function_exports (js : list N) (ϕs : list function_type) : iProp Σ :=
+    [∗ list] j;ϕ ∈ js;ϕs, ∃ n m cl,
+      j ↪[vis] {| modexp_name := n; modexp_desc := MED_func (W.Mk_funcidx m) |} ∗
+        N.of_nat m ↦[wf] cl ∗
+        closure_interp rti sr ϕ senv_empty cl.
 
-  (* TODO *)
-  Definition has_module_type_sem (m : W.module) (ω : module_type) : iProp Σ :=
-    True%I.
+  Definition module_interp (mt : module_type) (module : W.module) : iProp Σ :=
+    ∀ i js_imp js_exp,
+      i ↪[mods] module -∗
+      function_exports js_imp mt.(mt_imports) -∗
+      ⌜length js_exp = length mt.(mt_exports)⌝ -∗
+      ([∗ list] j ∈ js_exp, ∃ x, j ↪[vis] x) -∗
+      ↪[RUN] -∗
+      WP ([ID_instantiate js_exp i js_imp], []) : host_expr @ top
+         {{ v, ⌜v = immHV []⌝ ∗
+                 ↪[RUN] ∗
+                 i ↪[mods] module ∗
+                 function_exports js_imp mt.(mt_imports) ∗
+                 function_exports js_exp mt.(mt_exports) }}.
 
 End module.
 
