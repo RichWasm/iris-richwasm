@@ -1,3 +1,5 @@
+From iris.proofmode Require Export base proofmode classes.
+
 Require Import RichWasm.typing.
 Require Import RichWasm.compiler.module.
 Require Import RichWasm.iris.host.iris_host.
@@ -23,6 +25,24 @@ Section Fundamental.
     has_module_type m mt ->
     run_modgen (compile_module m) mod_empty = inr (tt, m') ->
     ⊢ module_interp rti sr mt m'.
+  Proof.
+    iIntros (Hmt Hmg ???) "Hmod Himps %Hlen_exps Hexps Hfr Hrun".
+    iApply (instantiation_spec_operational_start with "[$] [$] [-]").
+    - admit.
+    - admit.
+    - admit.
+    - iFrame.
+      admit.
+    - iIntros (?) "Hfr Hrun (Hmod & Himp & %inst & Hpost & Hhost)".
+      iApply wp_lift_wasm.
+      change [AI_invoke idnstart] with ([] ++ [AI_invoke idnstart]).
+      iApply (wp_invoke_native with "[$] [$]").
+      + done.
+      + by instantiate (1 := []).
+      + done.
+      + admit.
+      + iIntros "!> (Hfr & Hrun & Hstart)".
+        admit.
   Admitted.
 
 End Fundamental.

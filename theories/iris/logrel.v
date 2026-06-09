@@ -1291,9 +1291,11 @@ Section module.
       function_exports js_imp mt.(mt_imports) -∗
       ⌜length js_exp = length mt.(mt_exports)⌝ -∗
       ([∗ list] j ∈ js_exp, ∃ x, j ↪[vis] x) -∗
+      ↪[frame] empty_frame -∗
       ↪[RUN] -∗
       WP ([ID_instantiate js_exp i js_imp], []) : host_expr @ top
          {{ v, ⌜v = immHV []⌝ ∗
+                 ↪[frame] empty_frame ∗
                  ↪[RUN] ∗
                  i ↪[mods] module ∗
                  function_exports js_imp mt.(mt_imports) ∗
