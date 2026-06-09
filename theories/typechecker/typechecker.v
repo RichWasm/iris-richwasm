@@ -2479,6 +2479,122 @@ Ltac my_auto4 :=
   | H: (has_kind_checker _ _ _ = ok_term) |- _ => apply has_kind_checker_correct in H; auto
 end.
 
+Definition kind_of_num (nt : num_type) : kind :=
+  match nt with
+  | IntT I32T => VALTYPE (AtomR I32R) NoRefs
+  | IntT I64T => VALTYPE (AtomR I64R) NoRefs
+  | FloatT F32T => VALTYPE (AtomR F32R) NoRefs
+  | FloatT F64T => VALTYPE (AtomR F64R) NoRefs
+  end.
+
+Definition kind_of_node (F : function_ctx) (τ : type) : kind :=
+  match τ with
+  | VarT t => match F.(fc_type_vars) !! t with
+              | Some κ => κ
+              | None => VALTYPE (AtomR I32R) NoRefs
+              end
+  | I31T κ | NumT κ _ | SumT κ _ | VariantT κ _ | ProdT κ _ | StructT κ _
+  | RefT κ _ _ _ | CodeRefT κ _ | SerT κ _ | PlugT κ _ | SpanT κ _
+  | RecT κ _ | ExistsMemT κ _ | ExistsRepT κ _ | ExistsSizeT κ _
+  | ExistsTypeT κ _ _ => κ
+  end.
+
+(* rebuilds the cached kind annotations that [subst] leaves stale *)
+Fixpoint refresh_kinds (F : function_ctx) (τ : type) : type :=
+  match τ with
+  | VarT t => VarT t
+  | I31T _ => I31T (VALTYPE (AtomR PtrR) NoRefs)
+  | NumT _ nt => NumT (kind_of_num nt) nt
+  | SumT _ τs =>
+      let τs' := map (refresh_kinds F) τs in
+      let κs := map (kind_of_node F) τs' in
+      SumT (VALTYPE (SumR (get_all_lefts (map get_rep_or_size κs)))
+                    (ref_flag_lub (map kind_ref_flag κs))) τs'
+  | VariantT _ τs =>
+      let τs' := map (refresh_kinds F) τs in
+      let κs := map (kind_of_node F) τs' in
+      VariantT (MEMTYPE (SumS (get_all_rights (map get_rep_or_size κs)))
+                        (ref_flag_lub (map kind_ref_flag κs))) τs'
+  | ProdT _ τs =>
+      let τs' := map (refresh_kinds F) τs in
+      let κs := map (kind_of_node F) τs' in
+      ProdT (VALTYPE (ProdR (get_all_lefts (map get_rep_or_size κs)))
+                     (ref_flag_lub (map kind_ref_flag κs))) τs'
+  | StructT _ τs =>
+      let τs' := map (refresh_kinds F) τs in
+      let κs := map (kind_of_node F) τs' in
+      StructT (MEMTYPE (ProdS (get_all_rights (map get_rep_or_size κs)))
+                       (ref_flag_lub (map kind_ref_flag κs))) τs'
+  | RefT _ μ β τ =>
+      let κ := match μ with
+               | BaseM MemGC => VALTYPE (AtomR PtrR) GCRefs
+               | _ => VALTYPE (AtomR PtrR) AnyRefs
+               end in
+      RefT κ μ β (refresh_kinds F τ)
+  | CodeRefT _ ϕ => CodeRefT (VALTYPE (AtomR I32R) NoRefs) (refresh_kinds_ft F ϕ)
+  | SerT _ τ =>
+      let τ' := refresh_kinds F τ in
+      let κ := match kind_of_node F τ' with
+               | VALTYPE ρ ξ => MEMTYPE (RepS ρ) ξ
+               | MEMTYPE σ ξ => MEMTYPE σ ξ
+               end in
+      SerT κ τ'
+  | PlugT _ ρ => PlugT (VALTYPE ρ NoRefs) ρ
+  | SpanT _ σ => SpanT (MEMTYPE σ NoRefs) σ
+  | RecT κ τ => RecT κ (refresh_kinds (F <| fc_type_vars ::= cons κ |>) τ)
+  | ExistsMemT κ τ =>
+      ExistsMemT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_mem_vars S |>) τ)
+  | ExistsRepT κ τ =>
+      ExistsRepT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_rep_vars S |>) τ)
+  | ExistsSizeT κ τ =>
+      ExistsSizeT κ (refresh_kinds (F <| fc_kind_ctx ::= set kc_size_vars S |>) τ)
+  | ExistsTypeT κ κ0 τ =>
+      ExistsTypeT κ κ0 (refresh_kinds (F <| fc_type_vars ::= cons κ0 |>) τ)
+  end
+with refresh_kinds_ft (F : function_ctx) (ϕ : function_type) : function_type :=
+  match ϕ with
+  | MonoFunT τs1 τs2 => MonoFunT (map (refresh_kinds F) τs1) (map (refresh_kinds F) τs2)
+  | ForallMemT ϕ => ForallMemT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_mem_vars S |>) ϕ)
+  | ForallRepT ϕ => ForallRepT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_rep_vars S |>) ϕ)
+  | ForallSizeT ϕ => ForallSizeT (refresh_kinds_ft (F <| fc_kind_ctx ::= set kc_size_vars S |>) ϕ)
+  | ForallTypeT κ ϕ => ForallTypeT κ (refresh_kinds_ft (F <| fc_type_vars ::= cons κ |>) ϕ)
+  end.
+
+Lemma refresh_kinds_eq_mod_kinds :
+  (forall τ F, type_eq_mod_kinds (refresh_kinds F τ) τ) /\
+  (forall ϕ F, function_type_eq_mod_kinds (refresh_kinds_ft F ϕ) ϕ).
+Proof.
+  apply type_and_function_ind.
+  - intros idx F; simpl; reflexivity.
+  - intros κ F; simpl; exact I.
+  - intros κ nt F; simpl; reflexivity.
+  - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+      [exact I | split; [apply Hh | exact IHl]].
+  - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+      [exact I | split; [apply Hh | exact IHl]].
+  - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+      [exact I | split; [apply Hh | exact IHl]].
+  - intros κ ts IH F; simpl; induction IH as [|t ts' Hh Ht IHl]; simpl;
+      [exact I | split; [apply Hh | exact IHl]].
+  - intros κ μ β t IH F; simpl; split; [reflexivity | split; [reflexivity | apply IH]].
+  - intros κ ft IH F; simpl; apply IH.
+  - intros κ t IH F; simpl; apply IH.
+  - intros κ ρ F; simpl; reflexivity.
+  - intros κ σ F; simpl; reflexivity.
+  - intros κ t IH F; simpl; apply IH.
+  - intros κ t IH F; simpl; apply IH.
+  - intros κ t IH F; simpl; apply IH.
+  - intros κ t IH F; simpl; apply IH.
+  - intros κ1 κ2 t IH F; simpl; split; [reflexivity | apply IH].
+  - intros τs1 τs2 IH1 IH2 F; simpl; split;
+      [ induction IH1 as [|t ts' Hh Ht IHl]; simpl; [exact I | split; [apply Hh | exact IHl]]
+      | induction IH2 as [|t ts' Hh Ht IHl]; simpl; [exact I | split; [apply Hh | exact IHl]] ].
+  - intros ft IH F; simpl; apply IH.
+  - intros ft IH F; simpl; apply IH.
+  - intros ft IH F; simpl; apply IH.
+  - intros κ ft IH F; simpl; split; [reflexivity | apply IH].
+Qed.
+
 Definition function_type_inst_checker
   (F:function_ctx) (i:index) (ft1:function_type) (ft2:function_type) : type_checker_res :=
   match i with
@@ -2525,10 +2641,8 @@ Definition function_type_inst_checker
          | inl κ' =>
              match subkind_of_checker κ' κ with
              | inl () =>
-                 (* ft2 must be the well-kinded instantiation: erasure-equal to
-                    the raw subst (same structure) and well-kinded on its own. *)
-                 if function_type_beq (erase_kinds_ft ft2)
-                      (erase_kinds_ft (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
+                 if function_type_beq ft2
+                      (refresh_kinds_ft F (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
                  then function_type_ok_checker F ft2
                  else INR "something not matching in function type inst checker"
              | err => err
@@ -2549,10 +2663,7 @@ Proof.
   - by apply FTInstSize.
   - apply subkind_of_checker_correct in HMatch2.
     apply has_kind_synther_correct in HMatch1.
-    (* my_auto4 already gave [function_type_ok F ft2]; convert the bool, apply. *)
-    try match goal with
-        | H : function_type_beq _ _ = true |- _ => apply function_type_eq_convert in H
-        end.
+    destruct refresh_kinds_eq_mod_kinds as [_ Hrefresh_ft].
     eapply FTInstType; eauto.
 Qed.
 
@@ -2576,8 +2687,15 @@ Definition grab_substed_ft F (ix:index) (ft1:function_type) : option function_ty
  | TypeI τ =>
        match ft1 with
       | ForallTypeT κ ϕ =>
-          match has_kind_checker F τ κ with
-          | inl () => Some (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ)
+          (* NOTE: accept a strict-subkind witness, then refresh so the intermediate fed to the next instantiation is well-kinded. *)
+          match has_kind_synther F τ with
+          | inl κ' =>
+              match subkind_of_checker κ' κ with
+              | inl () =>
+                  Some (refresh_kinds_ft F
+                          (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ))
+              | _ => None
+              end
           | _ => None
           end
       | _ => None
@@ -2929,10 +3047,15 @@ Definition packed_existential_checker (F:function_ctx) (τ0 τ2:type) : type_che
   | ExistsTypeT κ_ex κ_max τ_in =>
           match traverse_type_find_type_0 0 τ0 τ_in with
           | Some τ_wit =>
-              if type_beq τ0 ((subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) ) τ_in)
+              if type_beq τ0
+                   (refresh_kinds F ((subst_type VarM VarR VarS (unscoped.scons τ_wit VarT)) τ_in))
               then
                 match has_kind_synther F τ_wit with
-                | inl κ_wit => subkind_of_checker κ_wit κ_max
+                | inl κ_wit =>
+                    match subkind_of_checker κ_wit κ_max with
+                    | inl () => type_ok_checker F τ0
+                    | err => err
+                    end
                 | inr err => inr [err]
                 end
               else INR "something went wrong with packed mem"
@@ -2947,10 +3070,10 @@ Proof.
   intros.
   destruct τ2; simpl in *; try (by inversion H); try (repeat my_auto4; by constructor).
   repeat my_auto4.
-  clear H1 H2 H3.
-  apply subkind_of_checker_correct in H.
   apply has_kind_synther_correct in HMatch0.
-  by econstructor.
+  match goal with H : subkind_of_checker _ _ = _ |- _ => apply subkind_of_checker_correct in H end.
+  destruct refresh_kinds_eq_mod_kinds as [Hrefresh _].
+  econstructor; eauto.
 Qed.
 
 

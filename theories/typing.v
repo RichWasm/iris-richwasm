@@ -644,42 +644,50 @@ Inductive type_eq : type -> type -> Prop :=
   Forall2 type_eq τs τs' ->
   type_eq (StructT κ_struct (zip_with SerT κs_ser τs)) (SerT κ_ser (ProdT κ_prod τs')).
 
-(* A type node's kind annotation denormalizes what [has_kind] recomputes from
-   its fields, but [subst] can't refresh it: a ref-flag is a literal, never a
-   variable, so substituting at a strict subkind leaves the annotation stale and
-   ill-kinded under exact [has_kind] (post-KSub). [erase_kinds] drops these
-   annotations (keeping declared forall/exists bounds); paired with
-   [function_type_ok] it pins an instantiation to the elaborator's output. See
-   FTInstType below. *)
-Definition erased_kind : kind := VALTYPE (AtomR I32R) NoRefs.
-
-Fixpoint erase_kinds (τ : type) : type :=
-  match τ with
-  | VarT t => VarT t
-  | I31T _ => I31T erased_kind
-  | NumT _ nt => NumT erased_kind nt
-  | SumT _ τs => SumT erased_kind (map erase_kinds τs)
-  | VariantT _ τs => VariantT erased_kind (map erase_kinds τs)
-  | ProdT _ τs => ProdT erased_kind (map erase_kinds τs)
-  | StructT _ τs => StructT erased_kind (map erase_kinds τs)
-  | RefT _ μ β τ => RefT erased_kind μ β (erase_kinds τ)
-  | CodeRefT _ ϕ => CodeRefT erased_kind (erase_kinds_ft ϕ)
-  | SerT _ τ => SerT erased_kind (erase_kinds τ)
-  | PlugT _ ρ => PlugT erased_kind ρ
-  | SpanT _ σ => SpanT erased_kind σ
-  | RecT _ τ => RecT erased_kind (erase_kinds τ)
-  | ExistsMemT _ τ => ExistsMemT erased_kind (erase_kinds τ)
-  | ExistsRepT _ τ => ExistsRepT erased_kind (erase_kinds τ)
-  | ExistsSizeT _ τ => ExistsSizeT erased_kind (erase_kinds τ)
-  | ExistsTypeT _ κ0 τ => ExistsTypeT erased_kind κ0 (erase_kinds τ)
+(* NOTE: structural equality up to cached kind annotations, which [subst] can't refresh --
+   a strict-subkind instantiation leaves them stale (ref-flags are literals, not vars). *)
+Fixpoint type_eq_mod_kinds (τ1 τ2 : type) {struct τ1} : Prop :=
+  let fix types_eq (τs1 τs2 : list type) {struct τs1} : Prop :=
+    match τs1, τs2 with
+    | [], [] => True
+    | σ1 :: τs1, σ2 :: τs2 => type_eq_mod_kinds σ1 σ2 /\ types_eq τs1 τs2
+    | _, _ => False
+    end in
+  match τ1, τ2 with
+  | VarT i1, VarT i2 => i1 = i2
+  | I31T _, I31T _ => True
+  | NumT _ nt1, NumT _ nt2 => nt1 = nt2
+  | SumT _ τs1, SumT _ τs2 => types_eq τs1 τs2
+  | VariantT _ τs1, VariantT _ τs2 => types_eq τs1 τs2
+  | ProdT _ τs1, ProdT _ τs2 => types_eq τs1 τs2
+  | StructT _ τs1, StructT _ τs2 => types_eq τs1 τs2
+  | RefT _ μ1 β1 τ1, RefT _ μ2 β2 τ2 => μ1 = μ2 /\ β1 = β2 /\ type_eq_mod_kinds τ1 τ2
+  | CodeRefT _ ϕ1, CodeRefT _ ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
+  | SerT _ τ1, SerT _ τ2 => type_eq_mod_kinds τ1 τ2
+  | PlugT _ ρ1, PlugT _ ρ2 => ρ1 = ρ2
+  | SpanT _ σ1, SpanT _ σ2 => σ1 = σ2
+  | RecT _ τ1, RecT _ τ2 => type_eq_mod_kinds τ1 τ2
+  | ExistsMemT _ τ1, ExistsMemT _ τ2 => type_eq_mod_kinds τ1 τ2
+  | ExistsRepT _ τ1, ExistsRepT _ τ2 => type_eq_mod_kinds τ1 τ2
+  | ExistsSizeT _ τ1, ExistsSizeT _ τ2 => type_eq_mod_kinds τ1 τ2
+  | ExistsTypeT _ κ01 τ1, ExistsTypeT _ κ02 τ2 => κ01 = κ02 /\ type_eq_mod_kinds τ1 τ2
+  | _, _ => False
   end
-with erase_kinds_ft (ϕ : function_type) : function_type :=
-  match ϕ with
-  | MonoFunT τs1 τs2 => MonoFunT (map erase_kinds τs1) (map erase_kinds τs2)
-  | ForallMemT ϕ => ForallMemT (erase_kinds_ft ϕ)
-  | ForallRepT ϕ => ForallRepT (erase_kinds_ft ϕ)
-  | ForallSizeT ϕ => ForallSizeT (erase_kinds_ft ϕ)
-  | ForallTypeT κ ϕ => ForallTypeT κ (erase_kinds_ft ϕ)
+with function_type_eq_mod_kinds (ϕ1 ϕ2 : function_type) {struct ϕ1} : Prop :=
+  let fix types_eq (τs1 τs2 : list type) {struct τs1} : Prop :=
+    match τs1, τs2 with
+    | [], [] => True
+    | σ1 :: τs1, σ2 :: τs2 => type_eq_mod_kinds σ1 σ2 /\ types_eq τs1 τs2
+    | _, _ => False
+    end in
+  match ϕ1, ϕ2 with
+  | MonoFunT τs11 τs12, MonoFunT τs21 τs22 =>
+      types_eq τs11 τs21 /\ types_eq τs12 τs22
+  | ForallMemT ϕ1, ForallMemT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
+  | ForallRepT ϕ1, ForallRepT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
+  | ForallSizeT ϕ1, ForallSizeT ϕ2 => function_type_eq_mod_kinds ϕ1 ϕ2
+  | ForallTypeT κ1 ϕ1, ForallTypeT κ2 ϕ2 => κ1 = κ2 /\ function_type_eq_mod_kinds ϕ1 ϕ2
+  | _, _ => False
   end.
 
 Inductive function_type_inst : function_ctx -> index -> function_type -> function_type -> Prop :=
@@ -698,12 +706,10 @@ Inductive function_type_inst : function_ctx -> index -> function_type -> functio
 | FTInstType F ϕ τ κ κ' ϕ' :
   has_kind F τ κ' ->
   subkind_of κ' κ ->
-  (* ϕ' = the subst with annotations refreshed to exact kinds: [function_type_ok]
-     pins the annotations, erasure-equality pins the structure. The raw subst is
-     ill-kinded under a subkinded instantiation, so it can't be used directly. *)
+  (* NOTE: the raw subst is ill-kinded under a strict-subkind instantiation *)
   function_type_ok F ϕ' ->
-  erase_kinds_ft ϕ' =
-    erase_kinds_ft (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
+  function_type_eq_mod_kinds ϕ'
+    (subst_function_type VarM VarR VarS (unscoped.scons τ VarT) ϕ) ->
   function_type_inst F (TypeI τ) (ForallTypeT κ ϕ) ϕ'.
 
 Inductive function_type_insts : function_ctx -> list index -> function_type -> function_type -> Prop :=
@@ -724,13 +730,13 @@ Inductive packed_existential : function_ctx -> type -> type -> Prop :=
 | PackSize F σ τ' κ' :
   let τ0 := subst_type VarM VarR (unscoped.scons σ VarS) VarT τ' in
   packed_existential F τ0 (ExistsSizeT κ' τ')
-(* NOTE: same issue as FTInstType -- the raw [subst_type] is ill-kinded when
-   [τ_wit] is a strict subkind of [κ_max]. The example compilers don't trigger
-   it since the elaborator packs at the witness's exact kind ([κ_wit] = [κ_max]). *)
-| PackType F τ_wit τ_in κ_wit κ_max κ_ex :
+(* NOTE: same as FTInstType -- [τ0] is the well-kinded type with the raw subst's shape. *)
+| PackType F τ_wit τ_in κ_wit κ_max κ_ex τ0 :
   has_kind F τ_wit κ_wit ->
   subkind_of κ_wit κ_max ->
-  let τ0 := subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) τ_in in
+  type_ok F τ0 ->
+  type_eq_mod_kinds τ0
+    (subst_type VarM VarR VarS (unscoped.scons τ_wit VarT) τ_in) ->
   packed_existential F τ0 (ExistsTypeT κ_ex κ_max τ_in).
 
 Inductive unpacked_existential :
