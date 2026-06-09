@@ -1586,7 +1586,7 @@ Section load_copy.
       + eauto.
       + eauto.
       + iIntros "!>".
-        iIntros (θ' f'' vs vsf) "-> @ @ @ @ @ @ @".
+        iIntros (θ' f'' vs vsf) "-> @ @ @ @ @ @".
         iPoseProof (type_dup with "[Ht]") as "[Ht Hret]"; eauto.
         {
           inversion Hcopyability as (k'' & Hk' & Hbd).
@@ -1919,7 +1919,7 @@ Section load_copy.
       + eauto.
       + eauto.
       + iIntros "!>".
-        iIntros (θ' f'' vs vsf) "-> @ @ @ @ @ @ @".
+        iIntros (θ' f'' vs vsf) "-> @ @ @ @ @ @".
         iPoseProof (type_dup with "[Ht]") as "[Ht Hret]"; eauto.
         {
           inversion Hcopyability as (k'' & Hk' & Hbd).
