@@ -420,6 +420,70 @@ Section store_weak.
     done.
   Qed.
 
+  (* move this somewhere else, dk where though *)
+  Lemma atom_interp_to_weak_memMM o v θ:
+    rt_token rti sr θ -∗ atom_interp o v -∗
+    rt_token rti sr θ ∗ atom_interp_weak θ MemMM o v.
+  Proof.
+    iIntros "Hrt Ha".
+    cbn.
+    unfold atom_interp_weak.
+    destruct o; try (by iFrame).
+    destruct p.
+    - cbn. unfold root_pointer_interp.
+      iFrame.
+      iDestruct "Ha" as "(%n0 & %n32 & %Nrepr & -> & (%rp & %Hrepr & Ha))".
+      destruct rp; [| destruct μ; try done].
+      iDestruct "Ha" as "<-".
+      inversion Hrepr; subst.
+      iExists ((2 * n1)%N), n32.
+      iSplitR; [done| iSplitR; [done|]].
+      iPureIntro. constructor.
+    - cbn.
+      unfold root_pointer_interp.
+      iDestruct "Ha" as "(%n0 & %n32 & %Nrepr & -> & (%rp & %Hrepr & Ha))".
+      destruct rp; try done; destruct μ0; destruct μ; try done.
+      + iAssert (⌜θ !! ℓ = Some (MemMM, a)⌝)%I with "[Hrt Ha]" as "%Hθℓ". {
+          iDestruct "Hrt" as "(%rm & %lm & %hm & Haddr & _)".
+          iPoseProof (ghost_map_lookup with "[$] [$]") as "%Hθℓ".
+          done.
+        }
+        iFrame.
+        iExists n0, n32.
+        iSplitR; [done| iSplitR; [done|]].
+        inversion Hrepr; subst.
+        iPureIntro.
+        by constructor.
+        (* WORRY: ℓ ↦addr is left here *)
+        (* but actually probably fine lol *)
+      + iFrame.
+        iExists n0, n32.
+        iSplitR; [done| iSplitR; [done|]].
+        iFrame.
+        iPureIntro.
+        done.
+  Qed.
+
+  Lemma atoms_interp_to_weak_memMM os vs θ:
+    rt_token rti sr θ -∗ atoms_interp os vs -∗
+    rt_token rti sr θ ∗ ([∗ list] o;v ∈ os;vs, atom_interp_weak θ MemMM o v).
+  Proof.
+    generalize dependent vs.
+    induction os.
+    - iIntros (vs) "Hrt Has".
+      iFrame.
+    - iIntros (vs) "Hrt Has".
+      destruct vs as [|v vs]; [done|].
+      iPoseProof (big_sepL2_cons with "[$Has]") as "[Hov Has]".
+      iPoseProof (atom_interp_to_weak_memMM with "[$Hrt] [$Hov]") as "[Hrt Hweak]".
+      rewrite big_sepL2_cons.
+      iEval (cbn -[atom_interp]) in "Has".
+      iPoseProof (IHos with "[$Hrt] [$Has]") as "[Hrt Hweaks]".
+      iFrame.
+  Qed.
+
+
+
   Lemma compat_store_weak M F L wt wt' wtf wl wl' wlf es' κ κser μ τ τval π pr :
     let fe := fe_of_context F in
     let WT := wt ++ wt' ++ wtf in
@@ -612,6 +676,13 @@ Section store_weak.
       (** PUT FACTOIDS WE NEED HERE (THAT ARE MM/GC SPECIFIC) **)
       (* I think some of the kinding quarantine but with resources can be
          here. Not all of it because of path lemma, though. *)
+      iAssert (⌜Forall2 has_arep ιs os2⌝%I) with "[Hvs2]" as "%Harepιsos2". { admit. }
+      iAssert (⌜length (concat (map serialize_atom os2)) = sz⌝%I) with "[Hvs2]" as "%Hos2sz". { admit. }
+      iDestruct (result_type_interp_of_atoms_interp with "Hvs2") as "%Hres_type_vs2".
+      1: {
+        unfold has_areps.
+        exists os2; done.
+      }
 
       (** TIME TO BOOGIE *)
       (* note: I think saving stack and local tee can happen before the split *)
@@ -659,10 +730,27 @@ Section store_weak.
       iIntros (fr_saved w) "(%val_idxs & -> & %Hfrel_fr_saved & %Hsaved & %Hval_idxs_seq & %Hval_localidxs) Hfr Hrun".
       clear Hsave.
 
+      iPoseProof (frame_interp_update_frame' with "Hframe") as "Hframe_saved".
+      2, 3, 5: done.
+      { subst val_idxs fe. by rewrite fe_wlocal_offset_length. }
+      { subst wl_save.
+        by rewrite map_comp.
+      }
+
+      iDestruct (frame_interp_wl_interp with "Hframe_saved") as "%Hwl_saved".
+      pose proof (interp_wl_length _ _ _ Hwl_saved) as Hfr_saved_locs_len.
+
       (* Reestablish ptr_local length *)
       assert (Hptrlocalfrsaved: ptr_local < length (f_locs fr_saved)). {
         (* If this isn't true this is weird, but seems hardish to prove *)
-        admit.
+        subst ptr_local.
+        simpl.
+        eapply Nat.lt_le_trans; last done.
+        - rewrite app_assoc.
+          subst fe.
+          repeat rewrite length_app.
+          unfold fe_wlocal_offset.
+          lias.
       }
 
       (* Next: local_tee stuff *)
@@ -682,12 +770,49 @@ Section store_weak.
       }
       iIntros (? ?) "(-> & ->) Hf Hrun".
 
+      (* do some frame interp updating *)
+      iEval (rewrite app_assoc) in "Hframe_saved".
+      iPoseProof (frame_interp_update_frame' with "Hframe_saved") as "Hframe".
+      5: {
+        instantiate (1 := fr').
+        instantiate (1 := [ptr_local]).
+        unfold fr'.
+        unfold frame_rel.
+        cbn; split; [|done].
+        unfold mask_locs_eq. cbn.
+        intros i Hipls.
+        symmetry.
+        apply list_lookup_insert_ne.
+        (* I'm going to cry this is obvious by Hipls *)
+        admit.
+      }
+      all: try done.
+      2: {
+        simpl.
+        instantiate (1 := [_]).
+        apply Forall2_cons.
+        split; [|done].
+        cbn.
+        by apply list_lookup_insert_eq.
+      }
+      2: {
+        apply Forall2_cons; split; last done.
+        by eexists.
+      }
+      {
+        subst ptr_local fe.
+        cbn.
+        rewrite sum_list_with_length_concat.
+        done.
+      }
+
       (* Summary:
          - Used up evs2 and es_save_stack and "put" the pointer in front of es_case_ptr block
          - Our frame changed twice: fr_saved is after saving the stack (so lots of things)
            got put into locals, and fr' is after putting n32 into the local associated
            with the ptr.
          - We also got a bunch of val_indx stuffs everywhere
+         - Also update frame_interp resources here
 
          Note: probably put lemmas and facts related to saving the stack here. Try to make
          them lemmas, since the GC case also needs them.
@@ -711,6 +836,26 @@ Section store_weak.
       specialize (Hcaseptr_spec ltac:(eauto) ltac:(auto) ltac:(auto) ltac:(auto)).
       clear_nils.
 
+      (* do a bit more work in Hcg_memMM *)
+      (* note: I need to this now bc I get info about which wl_memMMs are empty *)
+      (* which I need outside the cwp_seq *)
+      inv_cg_bind Hcg_memMM what ?wt ?wt ?wl ?wl
+        es_root_to_heap es_store Hcg_root Hcg_store.
+      destruct what.
+      cbn in Hcg_root.
+      inversion Hcg_root. subst wt0 wl0 es_root_to_heap; clear_nils; clear Hcg_root.
+      subst wt1 wl1.
+
+      (* HERE ARE THE TWO SPECS WE HAVE: PATH AND STORE *)
+      pose proof
+        (resolves_path_inv_sep_weak rti sr se
+           τ π pr Hresolves F off ρ σ ξ ξser sz) as Hpath_spec.
+      specialize (Hpath_spec H Hoff Hmonosize Hkind_τ Hkind_prtarget Hevalsize).
+
+      (* NOTE: this is using a speculative spec. MIGHT CHANGE *)
+      pose proof (wp_store_mm_MAYBE _ _ _ _ _ _ _ _ _ _ Hcg_store) as Hstore_spec.
+      destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
+
       (* A cwp_val_app, which I'm confused why it's on the stack at all but oh well *)
       iApply cwp_val_app; first done.
       unfold fvs_combine.
@@ -723,31 +868,7 @@ Section store_weak.
         iIntros "Hfr Hrun".
 
         (** ACTUALLY STORING TIME **)
-        (* first, a smidge more work in Hcg_memMM *)
-        inv_cg_bind Hcg_memMM what ?wt ?wt ?wl ?wl
-          es_root_to_heap es_store Hcg_root Hcg_store.
-        destruct what.
-        cbn in Hcg_root.
-        inversion Hcg_root. subst wt0 wl0 es_root_to_heap; clear_nils; clear Hcg_root.
-        subst wt1 wl1.
-
-        (* Actual Store *)
-        (* let me clear some stuff *)
-        clear Hval_localidxs Hcaseptr_spec Hcg_memGC Hcg_unreach.
-
-
-        (* HERE ARE THE TWO SPECS WE HAVE: PATH AND STORE *)
-        pose proof
-          (resolves_path_inv_sep_weak rti sr se
-             τ π pr Hresolves F off ρ σ ξ ξser sz) as Hpath_spec.
-        specialize (Hpath_spec H Hoff Hmonosize Hkind_τ Hkind_prtarget Hevalsize).
-
-        (* NOTE: this is using a speculative spec. MIGHT CHANGE *)
-        pose proof (wp_store_mm_MAYBE _ _ _ _ _ _ _ _ _ _ Hcg_store) as Hstore_spec.
-        destruct Hstore_spec as (_ & -> & -> & Hstore_spec).
-        (* very uncertain about most of these lmao
-           the ones uncommented are the ones I'm more certain about
-         *)
+        (* let's start specialize the store spec *)
         specialize Hstore_spec with (f:=fr').
         specialize Hstore_spec with (a:=a%N).
         specialize Hstore_spec with (a32:=n32).
@@ -778,13 +899,9 @@ Section store_weak.
            I think this will then be enough to apply the Hstore_spec.
          *)
 
-        (* task rn: atom_interp -> atom_interp_weak *)
-        (* out of curiosity, for now (since there's other stuff to do too) what if we just. Give it all up. *)
         (* this looks like a kinding quarantine zone but with resources lmao *)
         (* note that I don't think this can go earlier because Htarget. I think. *)
         (* some of these should be earlier ngl *)
-        iAssert (⌜Forall2 has_arep ιs os2⌝%I) with "[Hvs2]" as "%Harepιsos2". { admit. }
-        iAssert (⌜length (concat (map serialize_atom os2)) = sz⌝%I) with "[Hvs2]" as "%Hos2sz". { admit. }
         iAssert (⌜Forall2 (λ (f : pointer_flag) (w : word), word_has_flag f w)
            (concat (map arep_flags ιs))
            (take (sum_list_with arep_size ιs) (drop off ws))⌝%I) with "[Htarget]" as "%Hhasflags". { admit. }
@@ -792,12 +909,36 @@ Section store_weak.
                    (concat (map serialize_atom os2))⌝%I) with "[Hvs2 Hos2]" as "%Hrefinterp". { admit. }
         (* future note: show that fs = concat map arep_flags ιs? at some point *)
 
+        (* we need to transform atoms_interp to weak now! *)
+        iPoseProof (atoms_interp_to_weak_memMM with "[$] [$Hvs2]") as "[Hrt Hvs2]".
+
         (* let's try applying Hstore_spec. Oh boy oh boy. Currently fully giving atoms_interp to store *)
-        iApply (Hstore_spec with "[$] [$] [$] [$] [$] [] [] [] [] [] [] [] [] [] [] [Hvs2] [-]");
+        iApply (Hstore_spec with "[$] [$] [$] [$] [$] [] [] [] [] [] [] [] [] [] [] [$Hvs2] [-]");
           clear Hstore_spec; try done.
-        - iPureIntro. (* this is obvious by Hptrlocalfrsaved and def of fr' *)
-          admit.
+        - iPureIntro.
+          by (cbn; by apply list_lookup_insert_eq).
         - iPureIntro. (* this is by Hsaved and the fact that ptr_local is after all val_idxs *)
+          cbn.
+          set (val_idx_upper_bound := (fe_wlocal_offset fe + length wl) +
+                                (length (map translate_prim (map arep_to_prim ιs)))).
+          assert (val_idx_upper_bound < ptr_local + 1). {
+            subst val_idx_upper_bound ptr_local.
+            cbn.
+            repeat rewrite length_app.
+            assert (length wl_save = length (map translate_prim (map arep_to_prim ιs))). {
+              rewrite Hwl_save; done.
+            }
+            rewrite H0.
+            lia.
+          }
+          (* the reason the +1 is on the right is bc technically possible *)
+          (* that everything is empty and val_localidx = [], and so then the *)
+          (* the negation saturates and there's an <= *)
+
+          (* okay so if val_localidx = [] (aka vs2 = []) then everything is trivial *)
+          (* if it's not, then the greatest idx is actually less than ptr_local, so then *)
+          (* Hsaved can be used to show that everything stays the same *)
+          (* so we're okay *)
           admit.
         - iPureIntro. cbn.
           rewrite Han. done.
@@ -811,17 +952,13 @@ Section store_weak.
           unfold frame_rel in Hfrel_fr_saved.
           destruct Hfrel_fr_saved as (_ & <-).
           done.
-        - (* THIS IS THE POTENTIALLY BAD ONE. DOES ATOMS_INTERP IMPLY ATOM_INTERP_WEAK. WHO KNOWS. *)
-          (* MOREOVER IF IT DOES THIS HSOULD BE DONE OUTSIDE SO THAT WE CAN SAVE THE RESOURCES FOR *)
-          (* LATER. TODO *)
-          admit.
         - (* we're almost back :) *)
           iIntros "Hℓ_heap Hℓ_addr Hrt".
           (* If there's anything else we need to take out, put it here! *)
           (* I need the info about off and sz we get from path lemma *)
           let Q := open_constr:(_ : iProp Σ) in
           instantiate (1 := λ f'' vs', (⌜f'' = fr' /\ vs' = []
-              /\ (off + sz ≤ length ws) /\ (length (concat (map serialize_atom os2)) = sz)⌝
+              /\ (off + sz ≤ length ws)⌝
               ∗ Q)%I).
           iEval (cbn).
           iSplitR; first done.
@@ -851,8 +988,9 @@ Section store_weak.
 
       (** ----------------- POINTER FLAGS --------------------- **)
       iIntros (fr_store vs_store) "Hres Hfr Hrun".
-      iDestruct "Hres" as "((-> & -> & %Hwslength & %Hos2sz)
-            & Hframe & Hown & Hℓ_fs & Holdval & Hℓ_newws & Hℓ_addr
+      (* note: this is a bit annoying without iNamedAccu, but oh well *)
+      iDestruct "Hres" as "((-> & -> & %Hwslength)
+             & Hown & Hℓ_fs & Hframe & Holdval & Hℓ_newws & Hℓ_addr
             & Hrt & Hvalτ)".
       rename fr' into fr_store.
 
@@ -940,9 +1078,27 @@ Section store_weak.
 
       (* frame interp and frame rel shouldn't be insane as I think *)
       (* they'll be preserved? we'll see *)
-      iSplitR; [|iSplitL "Hframe"].
-      - admit. (* frame stuff *)
-      - admit. (* frame stuff *)
+      iSplitR.
+      - iPureIntro.
+        unfold lmask.
+        apply (frame_rel_trans lmask fr fr_saved fr_store).
+        + unfold lmask.
+          eapply frame_rel_mask_mono; [| exact Hfrel_fr_saved].
+          intros i Hiwlmask.
+          cbn.
+          unfold wlmask in Hiwlmask.
+          rewrite Hval_idxs_seq.
+          (* yes this is true cool *)
+          (* I can't find any quick lemmas, though *)
+          admit.
+        + unfold fr_store, lmask.
+          unfold frame_rel.
+          cbn.
+          split; [|done].
+          unfold mask_locs_eq.
+          unfold wlmask.
+          (* yes htis is also true bc ptr_local is necessarily larger than the okay is *)
+          admit.
       - (* Here lies reestablishing value interp *)
         (* the resources used here is everything leftover (except old val):
            - ℓ ↦heap, ℓ ↦addr, ℓ↦layout
