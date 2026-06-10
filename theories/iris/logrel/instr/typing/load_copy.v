@@ -837,7 +837,7 @@ Section load_copy.
       + eauto.
       + eauto.
       + eauto.
-      + iIntros (e' f'' vs vsf) "->".
+      + iIntros (f'' vs vsf) "->".
         repeat iIntros "@".
         unfold fvs_combine.
         iAssert (type_interp rti sr τval se (SAtoms os)) with "[Hval]" as "Hval".
@@ -1176,20 +1176,20 @@ Section load_copy.
       + eauto.
       + eauto.
       + eauto.
-      + iIntros (e' f'' vs vsf) "->".
+      + iIntros (f'' vs vsf) "->".
         repeat iIntros "@".
         unfold fvs_combine.
         let Q := open_constr:(_ : iProp Σ) in
         instantiate (1 :=
-          (λ f0 vs0, ∃ e0 vs vsf,
+          (λ f0 vs0, ∃ vs vsf,
              ⌜f0 = (mk_load_frame (fe_of_context F) f' (wl ++ [T_i32] ++ wl1) vsf)⌝ ∗
              ⌜vs0 = vs⌝ ∗
              ⌜Forall2 (λ (ι : atomic_rep) (vf : value), types_agree (translate_arep ι) vf) ιs vsf⌝ ∗
              ([∗ list] o;v ∈ os;vs, ⌜atom_copyable o⌝ -∗ atom_interp o v) ∗
-             rt_token rti sr e0 ∗
+             rt_token rti sr θ ∗
              Q
           )%I).
-        iExists e', vs, vsf.
+        iExists vs, vsf.
         iSplit; first done.
         iSplit; first done.
         iSplit; first done.
@@ -1199,7 +1199,7 @@ Section load_copy.
       + eauto.
       + eauto.
       + iIntros "!>".
-        iIntros (f v) "(%e & %vs & %vsf & -> & ->  & %Hag & Hcopy & Htok & @ & @ & @ & @)".
+        iIntros (f v) "(%vs & %vsf & -> & ->  & %Hag & Hcopy & Htok & @ & @ & @ & @)".
         iPoseProof ("Hcloseℓ" with "[$]") as "Hown".
         iMod "Hown".
         iIntros "!>".
@@ -1443,7 +1443,38 @@ Section load_copy.
       inversion Hrpvn.
       iEval (cbn) in "Hrp".
       open_rt "Hrt".
-      iApply (cwp_seq with "[Hf Hrun Hrp Hws Hroot Hrootmem]").
+      (* Now: use path lemma to grab the important slice of Hws *)
+      (* first, setting up some pure premises for the path lemma *)
+      unfold type_sz in Hsztgt.
+      assert (∃ ρtgt ξtgt,
+                 has_kind F (pr_target pr) κser /\
+                 has_kind F τval (VALTYPE ρtgt ξtgt) /\
+                 is_mono_size (RepS ρtgt) /\
+                 ρ = ρtgt /\
+                 κser = MEMTYPE (RepS ρtgt) ξtgt)
+        as (ρtgt & ξtgt & Htgt & Hval & Hmono & -> & ->).
+      {
+        inversion H; subst.
+        rename σ0 into σtgt.
+        rename ξ0 into ξtgt.
+        rewrite Hser in H6.
+        inversion H6; subst.
+        unfold fe in Hρ.
+        unfold fe_of_context in Hρ; cbn in Hρ.
+        erewrite type_rep_has_kind_agree in Hρ; last eauto.
+        inversion Hρ.
+        do 2 eexists.
+        by rewrite Hser.
+      }
+      pose proof Hmono as Hevm.
+      eapply mono_size_eval_emp_Some in Hevm.
+      destruct Hevm as (m & Hevm).
+      (* Applying the path lemma. Since Hws is under a later modality, we only
+         get the result under a later modality. *)
+      eapply resolves_path_inv_sep_weak in Hresolves; eauto.
+      iPoseProof (Hresolves with "Hws") as "(Hws1 & Hws & Hclose_slice)".
+
+      iApply (cwp_seq with "[Hf Hrun Hrp Hws Hroot Hrootmem Hws1 Hclose_slice]").
       {
         eapply wp_root_to_heap in Hcgroot; try eauto.
         iApply (Hcgroot with "[$] [$] [] [] [$] [$] [$] [-]").
@@ -1451,7 +1482,7 @@ Section load_copy.
           iPureIntro.
           by rewrite list_lookup_insert_eq.
         - eauto.
-        - iIntros "!> %ah %ah32 %Hah32 %Hrep Hroot Hrm Hrmem".
+        - iIntros "!> !> !> %ah %ah32 %Hah32 %Hrep Hroot Hrm Hrmem".
           instantiate (1 := (λ f0 vs0,
             ∃ ah ah32,
              ⌜N_i32_repr ah ah32⌝ ∗
@@ -1468,6 +1499,18 @@ Section load_copy.
       }
       iIntros "%f'' %vs'' (%ah & %ah32 & %Hah32 & %Hrepah & -> & -> & Q) Hf Hr".
       iDestruct "Q" as "(@ & @ & @ & @)".
+
+      iDestruct "Hws1" as "%Hws1".
+      (* Now we're going to extract information about the serialized atoms os. *)
+      (* This may look awkward because of all the later modalities, but the
+         only stuff we actually need before taking a step is pure. *)
+      iEval (rewrite type_interp_eq Hser; cbn) in "Hws".
+      iDestruct "Hws" as "(%sk & Hevsk & Hkind & %os & Hser & Hosty)".
+      iEval (rewrite type_interp_eq) in "Hosty".
+      iDestruct "Hosty" as "(%sk' & Hevsk' & Hkind' & Ht)".
+      iDestruct "Hser" as "%Hseros"; iDestruct "Hevsk" as "%Hevsk".
+      inversion Hseros as [Hseros'].
+      iDestruct "Hkind'" as "%Hkind'"; iDestruct "Hevsk'" as "%Hevsk'".
       (* here, need to obtain the physical points-to (I think) *)
       subst.
       inversion Hrepah; subst.
@@ -1478,49 +1521,7 @@ Section load_copy.
         by iFrame.
       }
       clear_nils.
-      (* Now: use path lemma to grab the important slice of Hws *)
-      (* first, setting up some pure premises for the path lemma *)
-      unfold type_sz in Hsztgt.
-      assert (∃ ρtgt ξtgt,
-                 has_kind F (pr_target pr) κser /\
-                 has_kind F τval (VALTYPE ρtgt ξtgt) /\
-                 is_mono_size (RepS ρtgt) /\
-                 ρ = ρtgt /\
-                 κser = MEMTYPE (RepS ρtgt) ξtgt)
-        as (ρtgt & ξtgt & Htgt & Hval & Hmono & -> & ->).
-      {
-        inversion H; subst.
-        rename σ0 into σtgt.
-        rename ξ0 into ξtgt.
-        rewrite Hser in H1.
-        inversion H1; subst.
-        unfold fe in Hρ.
-        unfold fe_of_context in Hρ; cbn in Hρ.
-        erewrite type_rep_has_kind_agree in Hρ; last eauto.
-        inversion Hρ.
-        do 2 eexists.
-        by rewrite Hser.
-      }
-      pose proof Hmono as Hevm.
-      eapply mono_size_eval_emp_Some in Hevm.
-      destruct Hevm as (m & Hevm).
-      (* Applying the path lemma. Since Hws is under a later modality, we only
-         get the result under a later modality. *)
-      eapply resolves_path_inv_sep_weak in Hresolves; eauto.
-      iPoseProof (Hresolves with "Hws") as "(Hws1 & Hws & Hclose_slice)".
-      iMod "Hws1".
-      iDestruct "Hws1" as "%Hws1".
-      (* Now we're going to extract information about the serialized atoms os. *)
-      (* This may look awkward because of all the later modalities, but the
-         only stuff we actually need before taking a step is pure. *)
-      iEval (rewrite type_interp_eq Hser; cbn) in "Hws".
-      iDestruct "Hws" as "(%sk & Hevsk & Hkind & %os & Hser & Hosty)".
-      iEval (rewrite type_interp_eq) in "Hosty".
-      iDestruct "Hosty" as "(%sk' & Hevsk' & Hkind' & Ht)".
-      iMod "Hser"; iMod "Hevsk"; iMod "Hevsk'"; iMod "Hkind'".
-      iDestruct "Hser" as "%Hseros"; iDestruct "Hevsk" as "%Hevsk".
-      inversion Hseros as [Hseros'].
-      iDestruct "Hkind'" as "%Hkind'"; iDestruct "Hevsk'" as "%Hevsk'".
+
       (* Showing sk is actually something we already know about *)
       fold (eval_size se (RepS ρtgt)) in Hevsk.
       erewrite eval_size_emptyenv in Hevsk; last eauto.
@@ -1543,7 +1544,6 @@ Section load_copy.
       }
       rewrite Hevtval in Hevsk'; inversion Hevsk'; subst sk'; clear Hevsk'.
       (* Now that sk, sk' are refined, we can learn from Hkind and Hkind' *)
-      iMod "Hkind".
       iDestruct "Hkind" as "(%Hm & %Hflags)".
       inversion Hkind' as [Hareps Hats].
       destruct Hareps as (os' & Huseless & Hareps).
@@ -1586,7 +1586,7 @@ Section load_copy.
       + eauto.
       + eauto.
       + iIntros "!>".
-        iIntros (θ' f'' vs vsf) "-> @ @ @ @ @ @".
+        iIntros (f'' vs vsf) "-> @ @ @ @ @ @".
         iPoseProof (type_dup with "[Ht]") as "[Ht Hret]"; eauto.
         {
           inversion Hcopyability as (k'' & Hk' & Hbd).
@@ -1776,7 +1776,38 @@ Section load_copy.
       inversion Hrpvn.
       iEval (cbn) in "Hrp".
       open_rt "Hrt".
-      iApply (cwp_seq with "[Hf Hrun Hrp Hws Hroot Hrootmem]").
+      (* Now: use path lemma to grab the important slice of Hws *)
+      (* first, setting up some pure premises for the path lemma *)
+      unfold type_sz in Hsztgt.
+      assert (∃ ρtgt ξtgt,
+                 has_kind F (pr_target pr) κser /\
+                 has_kind F τval (VALTYPE ρtgt ξtgt) /\
+                 is_mono_size (RepS ρtgt) /\
+                 ρ = ρtgt /\
+                 κser = MEMTYPE (RepS ρtgt) ξtgt)
+        as (ρtgt & ξtgt & Htgt & Hval & Hmono & -> & ->).
+      {
+        inversion H; subst.
+        rename σ0 into σtgt.
+        rename ξ0 into ξtgt.
+        rewrite Hser in H6.
+        inversion H6; subst.
+        unfold fe in Hρ.
+        unfold fe_of_context in Hρ; cbn in Hρ.
+        erewrite type_rep_has_kind_agree in Hρ; last eauto.
+        inversion Hρ.
+        do 2 eexists.
+        by rewrite Hser.
+      }
+      pose proof Hmono as Hevm.
+      eapply mono_size_eval_emp_Some in Hevm.
+      destruct Hevm as (m & Hevm).
+      (* Applying the path lemma. Since Hws is under a later modality, we only
+         get the result under a later modality. *)
+      eapply resolves_path_inv_sep_weak in Hresolves; eauto.
+      iPoseProof (Hresolves with "Hws") as "(Hws1 & Hws & Hclose_slice)".
+
+      iApply (cwp_seq with "[Hf Hrun Hrp Hws Hroot Hrootmem Hws1 Hclose_slice]").
       {
         eapply wp_root_to_heap in Hcgroot; try eauto.
         iApply (Hcgroot with "[$] [$] [] [] [$] [$] [$] [-]").
@@ -1784,7 +1815,7 @@ Section load_copy.
           iPureIntro.
           by rewrite list_lookup_insert_eq.
         - eauto.
-        - iIntros "!> %ah %ah32 %Hah32 %Hrep Hroot Hrm Hrmem".
+        - iIntros "!> !> !> %ah %ah32 %Hah32 %Hrep Hroot Hrm Hrmem".
           instantiate (1 := (λ f0 vs0,
             ∃ ah ah32,
              ⌜N_i32_repr ah ah32⌝ ∗
@@ -1814,43 +1845,11 @@ Section load_copy.
       (* Now: use path lemma to grab the important slice of Hws *)
       (* first, setting up some pure premises for the path lemma *)
       unfold type_sz in Hsztgt.
-      assert (∃ ρtgt ξtgt,
-                 has_kind F (pr_target pr) κser /\
-                 has_kind F τval (VALTYPE ρtgt ξtgt) /\
-                 is_mono_size (RepS ρtgt) /\
-                 ρ = ρtgt /\
-                 κser = MEMTYPE (RepS ρtgt) ξtgt)
-        as (ρtgt & ξtgt & Htgt & Hval & Hmono & -> & ->).
-      {
-        inversion H; subst.
-        rename σ0 into σtgt.
-        rename ξ0 into ξtgt.
-        rewrite Hser in H1.
-        inversion H1; subst.
-        unfold fe in Hρ.
-        unfold fe_of_context in Hρ; cbn in Hρ.
-        erewrite type_rep_has_kind_agree in Hρ; last eauto.
-        inversion Hρ.
-        do 2 eexists.
-        by rewrite Hser.
-      }
-      pose proof Hmono as Hevm.
-      eapply mono_size_eval_emp_Some in Hevm.
-      destruct Hevm as (m & Hevm).
-      (* Applying the path lemma. Since Hws is under a later modality, we only
-         get the result under a later modality. *)
-      eapply resolves_path_inv_sep_weak in Hresolves; eauto.
-      iPoseProof (Hresolves with "Hws") as "(Hws1 & Hws & Hclose_slice)".
-      iMod "Hws1".
       iDestruct "Hws1" as "%Hws1".
-      (* Now we're going to extract information about the serialized atoms os. *)
-      (* This may look awkward because of all the later modalities, but the
-         only stuff we actually need before taking a step is pure. *)
       iEval (rewrite type_interp_eq Hser; cbn) in "Hws".
       iDestruct "Hws" as "(%sk & Hevsk & Hkind & %os & Hser & Hosty)".
       iEval (rewrite type_interp_eq) in "Hosty".
       iDestruct "Hosty" as "(%sk' & Hevsk' & Hkind' & Ht)".
-      iMod "Hser"; iMod "Hevsk"; iMod "Hevsk'"; iMod "Hkind'".
       iDestruct "Hser" as "%Hseros"; iDestruct "Hevsk" as "%Hevsk".
       inversion Hseros as [Hseros'].
       iDestruct "Hkind'" as "%Hkind'"; iDestruct "Hevsk'" as "%Hevsk'".
@@ -1876,7 +1875,6 @@ Section load_copy.
       }
       rewrite Hevtval in Hevsk'; inversion Hevsk'; subst sk'; clear Hevsk'.
       (* Now that sk, sk' are refined, we can learn from Hkind and Hkind' *)
-      iMod "Hkind".
       iDestruct "Hkind" as "(%Hm & %Hflags)".
       inversion Hkind' as [Hareps Hats].
       destruct Hareps as (os' & Huseless & Hareps).
@@ -1919,7 +1917,7 @@ Section load_copy.
       + eauto.
       + eauto.
       + iIntros "!>".
-        iIntros (θ' f'' vs vsf) "-> @ @ @ @ @ @".
+        iIntros (f'' vs vsf) "-> @ @ @ @ @ @".
         iPoseProof (type_dup with "[Ht]") as "[Ht Hret]"; eauto.
         {
           inversion Hcopyability as (k'' & Hk' & Hbd).
